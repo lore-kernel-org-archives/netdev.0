@@ -1,98 +1,131 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: Possible regression in __netif_receive_skb() between 2.6.38-rc7
- and net-next-2.6
-Date: Sun, 06 Mar 2011 14:08:33 +0100
-Message-ID: <4D738751.6050209@gmail.com>
-References: <4D72AB79.3000605@gmail.com> <20110305220938.GK8573@psychotron.redhat.com>
+From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+Subject: [PATCH net-next-2.6] net: harmonize the call to ptype_all and ptype_base handlers.
+Date: Sun,  6 Mar 2011 14:25:16 +0100
+Message-ID: <1299417916-14198-1-git-send-email-nicolas.2p.debian@free.fr>
+References: <4D738751.6050209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Patrick Mc Hardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: davem@davemloft.net, shemminger@vyatta.com, eric.dumazet@gmail.com,
+	kaber@trash.net, fubar@us.ibm.com, andy@greyhouse.net,
+	=?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57171 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451Ab1CFNIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 08:08:37 -0500
-Received: by wyg36 with SMTP id 36so3453293wyg.19
-        for <netdev@vger.kernel.org>; Sun, 06 Mar 2011 05:08:36 -0800 (PST)
-In-Reply-To: <20110305220938.GK8573@psychotron.redhat.com>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:57059 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752518Ab1CFNZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Mar 2011 08:25:37 -0500
+In-Reply-To: <4D738751.6050209@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/03/2011 23:09, Jiri Pirko a =E9crit :
-> Sat, Mar 05, 2011 at 10:30:33PM CET, nicolas.2p.debian@gmail.com wrot=
-e:
->> Hi,
->>
->> Comparing __netif_receive_skb() between 2.6.38-rc7 and net-next-2.6,
->> I noticed an important difference: The ptype_base loop used to
->> deliver to orig_dev and this is not true anymore.
->
-> I believe this is adressed by submitted patch " net: allow handlers t=
-o
-> be processed for orig_dev"
+Until now, ptype_all and ptype_base delivery in __netif_receive_skb() i=
+s
+inconsistent.
 
-I wonder whether we should address it that way (which is the former way=
- to address it).
-
-There are still a difference between ptype_all and ptype_base delivery:
-
-- For ptype_all, we deliver to every device crossed while walking the r=
-x_handler path (inside the=20
-another_round loop). (And there is no way to force exact match delivery=
-).
-
+- For ptype_all, we deliver to every device crossed while walking the
+rx_handler path (inside the another_round loop), and there is no way to=
+ stop
+wildcard delivery (no exact match logic).
 - For ptype_base, we deliver to the lowest device (orig_dev) and to the=
- highest (skb->dev) and we=20
-can ask for exact match delivery.
+ highest
+(skb->dev) and we can ask for exact match delivery.
 
-This sounds very inconsistent. The only difference between ptype_all an=
-d ptype_base is the fact that=20
-ptype->type is NULL (wildcard) for the first and not NULL (a particular=
- protocol) for the second.
+This patch try and fix this, by:
 
-I think we should:
+1/ Doing exact match delivery for both ptype_all and ptype_base, while =
+walking
+   the rx_handler path.
+2/ Doing wildcard match delivery at the end of __netif_receive_skb(), i=
+f not
+   asked to do exact match delivery only.
 
-1/ deliver to both ptype_all and ptype_base while walking the rx_handle=
-r path, but only exact match=20
-(ptype->dev =3D=3D skb->dev).
-2/ deliver to both ptype_all and ptype_base at the end of __netif_recei=
-ve_skb(), but only wildcard=20
-match (ptype->dev =3D=3D NULL), skipping this part if the last rx_handl=
-er returned RX_HANDLER_EXACT.
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+---
 
-	Nicolas.
+This apply on top of the last batch of patch from Jiri Pirko.
+---
+ net/core/dev.c |   32 ++++++++++++++++++++++++--------
+ 1 files changed, 24 insertions(+), 8 deletions(-)
 
->> Imagine the following simple setup:
->>
->> eth0 ->  bond0
->>
->> - A packet handler registered on eth0, with ptype->type =3D=3D NULL =
-will
->> receive the packet, because it will be delivered in the ptype_all
->> loop, which is inside the another_round loop.
->> - The same packet handler, registered on eth0, but with ptype->type
->> !=3D NULL won't receive the packet, because the ptype_base loop does=
-n't
->> deliver to orig_dev anymore.
->>
->> I think this can lead to a regression for user space: an application
->> using af_packet to listen to eth0 will receive the packet flow if th=
-e
->> registered protocol is NULL, but won't receive anything if the
->> registered protocol is not NULL.
->>
->> Can someone confirm?
->>
->> 	Nicolas.
->
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c71bd18..a368223 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3117,8 +3117,6 @@ static int __netif_receive_skb(struct sk_buff *sk=
+b)
+ {
+ 	struct packet_type *ptype, *pt_prev;
+ 	rx_handler_func_t *rx_handler;
+-	struct net_device *orig_dev;
+-	struct net_device *null_or_dev;
+ 	bool deliver_exact =3D false;
+ 	int ret =3D NET_RX_DROP;
+ 	__be16 type;
+@@ -3134,7 +3132,6 @@ static int __netif_receive_skb(struct sk_buff *sk=
+b)
+=20
+ 	if (!skb->skb_iif)
+ 		skb->skb_iif =3D skb->dev->ifindex;
+-	orig_dev =3D skb->dev;
+=20
+ 	skb_reset_network_header(skb);
+ 	skb_reset_transport_header(skb);
+@@ -3156,7 +3153,17 @@ another_round:
+ #endif
+=20
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+-		if (!ptype->dev || ptype->dev =3D=3D skb->dev) {
++		if (ptype->dev =3D=3D skb->dev) {
++			if (pt_prev)
++				ret =3D deliver_skb(skb, pt_prev);
++			pt_prev =3D ptype;
++		}
++	}
++
++	type =3D skb->protocol;
++	list_for_each_entry_rcu(ptype,
++			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
++		if (ptype->type =3D=3D type && ptype->dev =3D=3D skb->dev) {
+ 			if (pt_prev)
+ 				ret =3D deliver_skb(skb, pt_prev);
+ 			pt_prev =3D ptype;
+@@ -3205,20 +3212,29 @@ ncls:
+ 	vlan_on_bond_hook(skb);
+=20
+ 	/* deliver only exact match when indicated */
+-	null_or_dev =3D deliver_exact ? skb->dev : NULL;
++	if (deliver_exact)
++		goto skip_wildcard_delivery;
++
++	list_for_each_entry_rcu(ptype, &ptype_all, list) {
++		if (!ptype->dev) {
++			if (pt_prev)
++				ret =3D deliver_skb(skb, pt_prev);
++			pt_prev =3D ptype;
++		}
++	}
+=20
+ 	type =3D skb->protocol;
+ 	list_for_each_entry_rcu(ptype,
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+-		if (ptype->type =3D=3D type &&
+-		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev ||
+-		     ptype->dev =3D=3D orig_dev)) {
++		if (ptype->type =3D=3D type && !ptype->dev) {
+ 			if (pt_prev)
+ 				ret =3D deliver_skb(skb, pt_prev);
+ 			pt_prev =3D ptype;
+ 		}
+ 	}
+=20
++skip_wildcard_delivery:=09
++
+ 	if (pt_prev) {
+ 		ret =3D pt_prev->func(skb, skb->dev, pt_prev);
+ 	} else {
+--=20
+1.7.2.3
 
