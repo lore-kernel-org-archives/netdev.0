@@ -1,131 +1,95 @@
-From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-Subject: [PATCH net-next-2.6] net: harmonize the call to ptype_all and ptype_base handlers.
-Date: Sun,  6 Mar 2011 14:25:16 +0100
-Message-ID: <1299417916-14198-1-git-send-email-nicolas.2p.debian@free.fr>
-References: <4D738751.6050209@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 6/8] bonding: move processing of recv
+ handlers into handle_frame()
+Date: Sun, 6 Mar 2011 14:34:13 +0100
+Message-ID: <20110306133413.GB2795@psychotron.redhat.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
+ <1299320969-7951-7-git-send-email-jpirko@redhat.com>
+ <4D7249BA.8030401@gmail.com>
+ <20110305144314.GC8573@psychotron.redhat.com>
+ <4D724DB4.9020207@gmail.com>
+ <4D737D00.20406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, shemminger@vyatta.com, eric.dumazet@gmail.com,
-	kaber@trash.net, fubar@us.ibm.com, andy@greyhouse.net,
-	=?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:57059 "EHLO smtp6-g21.free.fr"
+Received: from mx1.redhat.com ([209.132.183.28]:24563 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752518Ab1CFNZh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Mar 2011 08:25:37 -0500
-In-Reply-To: <4D738751.6050209@gmail.com>
+	id S1753458Ab1CFNew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Mar 2011 08:34:52 -0500
+Content-Disposition: inline
+In-Reply-To: <4D737D00.20406@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Until now, ptype_all and ptype_base delivery in __netif_receive_skb() i=
-s
-inconsistent.
+Sun, Mar 06, 2011 at 01:24:32PM CET, nicolas.2p.debian@gmail.com wrote:
+>Le 05/03/2011 15:50, Nicolas de Peslo=FCan a =E9crit :
+>>Le 05/03/2011 15:43, Jiri Pirko a =E9crit :
+>>>Sat, Mar 05, 2011 at 03:33:30PM CET, nicolas.2p.debian@gmail.com wro=
+te:
+>>>>Le 05/03/2011 11:29, Jiri Pirko a =E9crit :
+>>>>>Since now when bonding uses rx_handler, all traffic going into bon=
+d
+>>>>>device goes thru bond_handle_frame. So there's no need to go back =
+into
+>>>>>bonding code later via ptype handlers. This patch converts
+>>>>>original ptype handlers into "bonding receive probes". These funct=
+ions
+>>>>>are called from bond_handle_frame and they are registered per-mode=
+=2E
+>>>>
+>>>>Does this still support having the arp_ip_target on a vlan?
+>>>>
+>>>>(eth0 -> bond0 -> bond0.100, with arp_ip_target only reachable
+>>>>through bond0.100).
+>>>
+>>>This case is still covered with vlan_on_bond_hook
+>>>eth0->
+>>>bond_handle_frame
+>>>bond0->
+>>>vlan_hwaccel_do_receive
+>>>bond0.5->
+>>>vlan_on_bond_hook -> reinject into bond0
+>>>-> bond_handle_frame (here it is processed)
+>>
+>>Sound good to me.
+>>
+>>Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+>
+>After another review, I think it won't work.
+>
+>vlan_on_bond() will reinject into bond0, but bond_handle_frame() is
+>registered as the rx_handler for the slaves (eth0 in the above
+>setup), not as the rx_handler for the master (bond0 in the above
+>setup). So, bond_handlee_frame() will never see the untagged ARP
+>request/reply and bonding ARP monitoring will fail.
 
-- For ptype_all, we deliver to every device crossed while walking the
-rx_handler path (inside the another_round loop), and there is no way to=
- stop
-wildcard delivery (no exact match logic).
-- For ptype_base, we deliver to the lowest device (orig_dev) and to the=
- highest
-(skb->dev) and we can ask for exact match delivery.
+Damn, you are right. I mislooked.
 
-This patch try and fix this, by:
+>
+>That being said, the current vlan_on_bond_hook() hack already suffer
+>other troubles and for example won't support the following setup:
+>
+>eth0 -> bond0 -> br0 -> br0.100.
 
-1/ Doing exact match delivery for both ptype_all and ptype_base, while =
-walking
-   the rx_handler path.
-2/ Doing wildcard match delivery at the end of __netif_receive_skb(), i=
-f not
-   asked to do exact match delivery only.
+blah. Well correct me if my thinking is wrong but I cannot imagine
+a scenario where there's not other way how to do arp monitoring than
+over vlan.
 
-Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
----
+So how about to just remove the vlan_on_bond_hook and forbid the
+possibility. IMHO it should have never been introduced in the first
+place.
 
-This apply on top of the last batch of patch from Jiri Pirko.
----
- net/core/dev.c |   32 ++++++++++++++++++++++++--------
- 1 files changed, 24 insertions(+), 8 deletions(-)
+>
+>I think we need to fix this stacking issue in a more general way.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c71bd18..a368223 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3117,8 +3117,6 @@ static int __netif_receive_skb(struct sk_buff *sk=
-b)
- {
- 	struct packet_type *ptype, *pt_prev;
- 	rx_handler_func_t *rx_handler;
--	struct net_device *orig_dev;
--	struct net_device *null_or_dev;
- 	bool deliver_exact =3D false;
- 	int ret =3D NET_RX_DROP;
- 	__be16 type;
-@@ -3134,7 +3132,6 @@ static int __netif_receive_skb(struct sk_buff *sk=
-b)
-=20
- 	if (!skb->skb_iif)
- 		skb->skb_iif =3D skb->dev->ifindex;
--	orig_dev =3D skb->dev;
-=20
- 	skb_reset_network_header(skb);
- 	skb_reset_transport_header(skb);
-@@ -3156,7 +3153,17 @@ another_round:
- #endif
-=20
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
--		if (!ptype->dev || ptype->dev =3D=3D skb->dev) {
-+		if (ptype->dev =3D=3D skb->dev) {
-+			if (pt_prev)
-+				ret =3D deliver_skb(skb, pt_prev);
-+			pt_prev =3D ptype;
-+		}
-+	}
-+
-+	type =3D skb->protocol;
-+	list_for_each_entry_rcu(ptype,
-+			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
-+		if (ptype->type =3D=3D type && ptype->dev =3D=3D skb->dev) {
- 			if (pt_prev)
- 				ret =3D deliver_skb(skb, pt_prev);
- 			pt_prev =3D ptype;
-@@ -3205,20 +3212,29 @@ ncls:
- 	vlan_on_bond_hook(skb);
-=20
- 	/* deliver only exact match when indicated */
--	null_or_dev =3D deliver_exact ? skb->dev : NULL;
-+	if (deliver_exact)
-+		goto skip_wildcard_delivery;
-+
-+	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-+		if (!ptype->dev) {
-+			if (pt_prev)
-+				ret =3D deliver_skb(skb, pt_prev);
-+			pt_prev =3D ptype;
-+		}
-+	}
-=20
- 	type =3D skb->protocol;
- 	list_for_each_entry_rcu(ptype,
- 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
--		if (ptype->type =3D=3D type &&
--		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev ||
--		     ptype->dev =3D=3D orig_dev)) {
-+		if (ptype->type =3D=3D type && !ptype->dev) {
- 			if (pt_prev)
- 				ret =3D deliver_skb(skb, pt_prev);
- 			pt_prev =3D ptype;
- 		}
- 	}
-=20
-+skip_wildcard_delivery:=09
-+
- 	if (pt_prev) {
- 		ret =3D pt_prev->func(skb, skb->dev, pt_prev);
- 	} else {
---=20
-1.7.2.3
+Well this issue is more or less out of the concept and breaks layering.
+I cannot think of how to resolve this nicely atm.
 
+>
+>	Nicolas.
