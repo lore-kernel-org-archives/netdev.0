@@ -1,81 +1,130 @@
-From: Steffen Sledz <sledz@dresearch.de>
-Subject: [PATCH v3] tcp: ioctl type SIOCOUTQNSD returns amount of data not sent
-Date: Sun,  6 Mar 2011 20:59:55 +0100
-Message-ID: <1299441595-18455-1-git-send-email-sledz@dresearch.de>
-References: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Mario Schuknecht <m.schuknecht@dresearch.de>,
-	Steffen Sledz <sledz@dresearch.de>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+Subject: [PATCH net-next-2.6] net: enhance the documentation for rx_handler.
+Date: Sun,  6 Mar 2011 21:00:08 +0100
+Message-ID: <1299441608-25482-1-git-send-email-nicolas.2p.debian@free.fr>
+References: <4D725BD9.6000706@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, shemminger@vyatta.com, eric.dumazet@gmail.com,
+	kaber@trash.net, fubar@us.ibm.com, andy@greyhouse.net,
+	=?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:50281 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754274Ab1CFUAl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Mar 2011 15:00:41 -0500
+In-Reply-To: <4D725BD9.6000706@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mario Schuknecht <m.schuknecht@dresearch.de>
-
-In contrast to SIOCOUTQ which returns the amount of data sent
-but not yet acknowledged plus data not yet sent this patch only
-returns the data not sent.
-
-For various methods of live streaming bitrate control it may
-be helpful to know how much data are in the tcp outqueue are
-not sent yet.
-
-Signed-off-by: Mario Schuknecht <m.schuknecht@dresearch.de>
-Signed-off-by: Steffen Sledz <sledz@dresearch.de>
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
 ---
- include/linux/sockios.h |    4 +++-
- net/ipv4/tcp.c          |    9 +++++++++
- 2 files changed, 12 insertions(+), 1 deletions(-)
+This apply on top of Jiri's last patch serie, including the last one th=
+at
+commented the RX_HANDLER_* values.
 
-diff --git a/include/linux/sockios.h b/include/linux/sockios.h
-index 241f179..7997a50 100644
---- a/include/linux/sockios.h
-+++ b/include/linux/sockios.h
-@@ -22,7 +22,7 @@
- 
- /* Linux-specific socket ioctls */
- #define SIOCINQ		FIONREAD
--#define SIOCOUTQ	TIOCOUTQ
-+#define SIOCOUTQ	TIOCOUTQ        /* output queue size (not sent + not acked) */
- 
- /* Routing table calls. */
- #define SIOCADDRT	0x890B		/* add routing table entry	*/
-@@ -83,6 +83,8 @@
- 
- #define SIOCWANDEV	0x894A		/* get/set netdev parameters	*/
- 
-+#define SIOCOUTQNSD	0x894B		/* output queue size (not sent only) */
+ include/linux/netdevice.h |   53 +++++++++++++++++++++++++++++++++++++=
++------
+ net/core/dev.c            |    2 +
+ 2 files changed, 47 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 26e03f9..0c9dc93 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -390,15 +390,52 @@ enum gro_result {
+ };
+ typedef enum gro_result gro_result_t;
+=20
++/**
++ * enum rx_handler_result - Possible return values for rx_handlers.
++ * @RX_HANDLER_CONSUMED: skb was consumed by rx_handler, do not proces=
+s it
++ * further.
++ * @RX_HANDLER_ANOTHER: Do another round in receive path. This is indi=
+cated in
++ * case skb->dev was changed by rx_handler.
++ * @RX_HANDLER_EXACT: Force exact delivery, no wildcard.
++ * @RX_HANDLER_PASS: Do nothing, passe the skb as if no rx_handler was=
+ called.
++ *
++ * rx_handlers are functions called from inside __netif_receive_skb(),=
+ to do
++ * special processing of the skb, prior to delivery to protocol handle=
+rs.
++ *
++ * Currently, a net_device can only have a single rx_handler registere=
+d. Trying
++ * to register a second rx_handler will return -EBUSY.
++ *
++ * To register a rx_handler on a net_device, use netdev_rx_handler_reg=
+ister().
++ * To unregister a rx_handler on a net_device, use
++ * netdev_rx_handler_unregister().
++ *
++ * Upon return, rx_handler is expected to tell __netif_receive_skb() w=
+hat to
++ * do with the skb.
++ *
++ * If the rx_handler consumed to skb in some way, it should return
++ * RX_HANDLER_CONSUMED. This is appropriate when the rx_handler arrang=
+ed for
++ * the skb to be delivered in some other ways.
++ *
++ * If the rx_handler changed skb->dev, to divert the skb to another
++ * net_device, it should return RX_HANDLER_ANOTHER. The rx_handler for=
+ the
++ * new device will be called if it exists.
++ *
++ * If the rx_handler consider the skb should be ignored, it should ret=
+urn
++ * RX_HANDLER_EXACT. The skb will only be delivered to protocol handle=
+rs that
++ * are registred on exact device (ptype->dev =3D=3D skb->dev).
++ *
++ * If the rx_handler didn't changed skb->dev, but want the skb to be n=
+ormally=20
++ * delivered, it should return RX_HANDLER_PASS.
++ *=20
++ * A device without a registered rx_handler will behave as if rx_handl=
+er
++ * returned RX_HANDLER_PASS.
++ */
 +
- /* ARP cache control calls. */
- 		    /*  0x8950 - 0x8952  * obsolete calls, don't re-use */
- #define SIOCDARP	0x8953		/* delete ARP table entry	*/
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index a17a5a7..b22d450 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -505,6 +505,15 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
- 		else
- 			answ = tp->write_seq - tp->snd_una;
- 		break;
-+	case SIOCOUTQNSD:
-+		if (sk->sk_state == TCP_LISTEN)
-+			return -EINVAL;
-+
-+		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
-+			answ = 0;
-+		else
-+			answ = tp->write_seq - tp->snd_nxt;
-+		break;
- 	default:
- 		return -ENOIOCTLCMD;
- 	}
--- 
-1.7.1
+ enum rx_handler_result {
+-	RX_HANDLER_CONSUMED,	/* skb was consumed by rx_handler,
+-				   do not process it further. */
+-	RX_HANDLER_ANOTHER,	/* Do another round in receive path.
+-				   This is indicated in case skb->dev
+-				   was changed by rx_handler */
+-	RX_HANDLER_EXACT,	/* Force exact delivery, no wildcard */
+-	RX_HANDLER_PASS,	/* Do nothing, pass the skb as if
+-				   no rx_handler was called */
++	RX_HANDLER_CONSUMED,
++	RX_HANDLER_ANOTHER,=09
++	RX_HANDLER_EXACT,
++	RX_HANDLER_PASS,
+ };
+ typedef enum rx_handler_result rx_handler_result_t;
+ typedef rx_handler_result_t rx_handler_func_t(struct sk_buff **pskb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a368223..3630722 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3060,6 +3060,8 @@ out:
+  *	on a failure.
+  *
+  *	The caller must hold the rtnl_mutex.
++ *
++ *	For a general description of rx_handler, see enum rx_handler_result=
+=2E
+  */
+ int netdev_rx_handler_register(struct net_device *dev,
+ 			       rx_handler_func_t *rx_handler,
+--=20
+1.7.2.3
+
