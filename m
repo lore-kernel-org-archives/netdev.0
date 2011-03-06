@@ -1,130 +1,66 @@
-From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-Subject: [PATCH net-next-2.6] net: enhance the documentation for rx_handler.
-Date: Sun,  6 Mar 2011 21:00:08 +0100
-Message-ID: <1299441608-25482-1-git-send-email-nicolas.2p.debian@free.fr>
-References: <4D725BD9.6000706@gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-2.6 2/4] bnx2x: fix link notification
+Date: Sun, 6 Mar 2011 22:49:15 +0200
+Message-ID: <1299444555.13442.3.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, shemminger@vyatta.com, eric.dumazet@gmail.com,
-	kaber@trash.net, fubar@us.ibm.com, andy@greyhouse.net,
-	=?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:50281 "EHLO smtp6-g21.free.fr"
+Received: from mms1.broadcom.com ([216.31.210.17]:2224 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754274Ab1CFUAl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Mar 2011 15:00:41 -0500
-In-Reply-To: <4D725BD9.6000706@gmail.com>
+	id S1754403Ab1CFU6H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Mar 2011 15:58:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+
+Report link to OS and other PFs after HW is fully reconfigured
+according to new link parameters. (Affected only Multi Function modes).
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
-This apply on top of Jiri's last patch serie, including the last one th=
-at
-commented the RX_HANDLER_* values.
+ drivers/net/bnx2x/bnx2x_main.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
- include/linux/netdevice.h |   53 +++++++++++++++++++++++++++++++++++++=
-+------
- net/core/dev.c            |    2 +
- 2 files changed, 47 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 26e03f9..0c9dc93 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -390,15 +390,52 @@ enum gro_result {
- };
- typedef enum gro_result gro_result_t;
-=20
-+/**
-+ * enum rx_handler_result - Possible return values for rx_handlers.
-+ * @RX_HANDLER_CONSUMED: skb was consumed by rx_handler, do not proces=
-s it
-+ * further.
-+ * @RX_HANDLER_ANOTHER: Do another round in receive path. This is indi=
-cated in
-+ * case skb->dev was changed by rx_handler.
-+ * @RX_HANDLER_EXACT: Force exact delivery, no wildcard.
-+ * @RX_HANDLER_PASS: Do nothing, passe the skb as if no rx_handler was=
- called.
-+ *
-+ * rx_handlers are functions called from inside __netif_receive_skb(),=
- to do
-+ * special processing of the skb, prior to delivery to protocol handle=
-rs.
-+ *
-+ * Currently, a net_device can only have a single rx_handler registere=
-d. Trying
-+ * to register a second rx_handler will return -EBUSY.
-+ *
-+ * To register a rx_handler on a net_device, use netdev_rx_handler_reg=
-ister().
-+ * To unregister a rx_handler on a net_device, use
-+ * netdev_rx_handler_unregister().
-+ *
-+ * Upon return, rx_handler is expected to tell __netif_receive_skb() w=
-hat to
-+ * do with the skb.
-+ *
-+ * If the rx_handler consumed to skb in some way, it should return
-+ * RX_HANDLER_CONSUMED. This is appropriate when the rx_handler arrang=
-ed for
-+ * the skb to be delivered in some other ways.
-+ *
-+ * If the rx_handler changed skb->dev, to divert the skb to another
-+ * net_device, it should return RX_HANDLER_ANOTHER. The rx_handler for=
- the
-+ * new device will be called if it exists.
-+ *
-+ * If the rx_handler consider the skb should be ignored, it should ret=
-urn
-+ * RX_HANDLER_EXACT. The skb will only be delivered to protocol handle=
-rs that
-+ * are registred on exact device (ptype->dev =3D=3D skb->dev).
-+ *
-+ * If the rx_handler didn't changed skb->dev, but want the skb to be n=
-ormally=20
-+ * delivered, it should return RX_HANDLER_PASS.
-+ *=20
-+ * A device without a registered rx_handler will behave as if rx_handl=
-er
-+ * returned RX_HANDLER_PASS.
-+ */
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index 469ca60..aa03233 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -2163,13 +2163,6 @@ static void bnx2x_link_attn(struct bnx2x *bp)
+ 			bnx2x_stats_handle(bp, STATS_EVENT_LINK_UP);
+ 	}
+ 
+-	/* indicate link status only if link status actually changed */
+-	if (prev_link_status != bp->link_vars.link_status)
+-		bnx2x_link_report(bp);
+-
+-	if (IS_MF(bp))
+-		bnx2x_link_sync_notify(bp);
+-
+ 	if (bp->link_vars.link_up && bp->link_vars.line_speed) {
+ 		int cmng_fns = bnx2x_get_cmng_fns_mode(bp);
+ 
+@@ -2181,6 +2174,13 @@ static void bnx2x_link_attn(struct bnx2x *bp)
+ 			DP(NETIF_MSG_IFUP,
+ 			   "single function mode without fairness\n");
+ 	}
 +
- enum rx_handler_result {
--	RX_HANDLER_CONSUMED,	/* skb was consumed by rx_handler,
--				   do not process it further. */
--	RX_HANDLER_ANOTHER,	/* Do another round in receive path.
--				   This is indicated in case skb->dev
--				   was changed by rx_handler */
--	RX_HANDLER_EXACT,	/* Force exact delivery, no wildcard */
--	RX_HANDLER_PASS,	/* Do nothing, pass the skb as if
--				   no rx_handler was called */
-+	RX_HANDLER_CONSUMED,
-+	RX_HANDLER_ANOTHER,=09
-+	RX_HANDLER_EXACT,
-+	RX_HANDLER_PASS,
- };
- typedef enum rx_handler_result rx_handler_result_t;
- typedef rx_handler_result_t rx_handler_func_t(struct sk_buff **pskb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a368223..3630722 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3060,6 +3060,8 @@ out:
-  *	on a failure.
-  *
-  *	The caller must hold the rtnl_mutex.
-+ *
-+ *	For a general description of rx_handler, see enum rx_handler_result=
-=2E
-  */
- int netdev_rx_handler_register(struct net_device *dev,
- 			       rx_handler_func_t *rx_handler,
---=20
-1.7.2.3
++	if (IS_MF(bp))
++		bnx2x_link_sync_notify(bp);
++
++	/* indicate link status only if link status actually changed */
++	if (prev_link_status != bp->link_vars.link_status)
++		bnx2x_link_report(bp);
+ }
+ 
+ void bnx2x__link_status_update(struct bnx2x *bp)
+-- 
+1.7.2.2
+
+
+
 
