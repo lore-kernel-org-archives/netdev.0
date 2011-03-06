@@ -1,285 +1,244 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: 2.6.38-rc7-git4: Reported regressions from 2.6.37
-Date: Sun,  6 Mar 2011 13:08:06 +0100 (CET)
-Message-ID: <t0W8Ea1iKeB.A.6xD.Lp3cNB@chimera>
+From: "Edy H." <edwardh.dev@gmail.com>
+Subject: modprobe gets stuck on a mutex wile trying to load
+	the e1000e driver
+Date: Sun, 6 Mar 2011 14:23:49 +0200
+Message-ID: <AANLkTinQhOJTZxXdqmZLta8yu-81qXW=N4jKRbidcufV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed; boundary="===============8197809907388566648=="
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This message contains a list of some regressions from 2.6.37,
-for which there are no fixes in the mainline known to the tracking team=
-=2E
-If any of them have been fixed already, please let us know.
-
-If you know of any other unresolved regressions from 2.6.37, please let=
- us
-know either and we'll add them to the list.  Also, please let us know
-if any of the entries below are invalid.
-
-Each entry from the list will be sent additionally in an automatic repl=
-y
-to this message with CCs to the people involved in reporting and handli=
-ng
-the issue.
-
-
-Listed regressions statistics:
-
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2011-03-06       70       27          26
-  2011-02-21       51       18          17
-  2011-02-12       39       20          18
-  2011-02-03       19       11           7
-
-
-Unresolved regressions
-----------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D30472
-Subject		: 2.6.38-post-rc7 with radeon kms: reproducably locks up hard =
-when using desktop cube of kwin
-Submitter	: Martin Steigerwald <Martin-3kZCPVa5dk2azgQtNeiOUg@public.gmane.org>
-Date		: 2011-03-05 15:10:24 (2 days old)
-Message-ID	: <201103051510.35057.Martin-3kZCPVa5dk2azgQtNeiOUg@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129933425306804&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D30462
-Subject		: High cpu usage when someone sends many ipv6 udp packages
-Submitter	: Ernst Sj=C3=B6strand <ernstp-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2011-03-05 01:10 (2 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D30142
-Subject		: Kernel Oops after hibernation
-Submitter	: Willi Mann <foss-ml-pz1JH+IlyL4@public.gmane.org>
-Date		: 2011-03-01 08:12 (6 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D30072
-Subject		: USB-to-serial problems in 2.6.37.1+ (pl2303)
-Submitter	:  <akwatts-DaQTI0RpDDMAvxtiuMwx3w@public.gmane.org>
-Date		: 2011-02-28 12:39 (7 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D30062
-Subject		: Huge amounts of "HDIO_GET_IDENTITY failed for /dev/sr0" mess=
-ages during boot
-Submitter	: Bernd Eggink <monoped-mFg29aWZVEaELgA04lAiVw@public.gmane.org>
-Date		: 2011-02-28 10:52 (7 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D30032
-Subject		: r8169: 60 seconds delay when resuming from suspend
-Submitter	: Guillaume Ayoub <xovni-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-Date		: 2011-02-27 16:52 (8 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29992
-Subject		: boot hang 2.6.37.1 regression w/ intel_idle and CONFIG_NO_HZ=
-=3Dn - asus p7p55d le
-Submitter	: De Ganseman Amaury <amaury.deganseman-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2011-02-27 10:38 (8 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29952
-Subject		: btrfs as root filesystems hangs on mount after d863b50ab0133=
-3659314c2034890cb76d9fdc3c7
-Submitter	: Asbj=C3=B8rn Sannes <ace-8p7wLbfn+Bodnm+yROfE0A@public.gmane.org>
-Date		: 2011-02-26 15:59 (9 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/d863b50ab01333659314c20=
-34890cb76d9fdc3c7
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29902
-Subject		: System suspend failed after 1-2 successful resumes
-Submitter	: Alex Terekhov <a.terekhov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2011-02-25 22:24 (10 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29852
-Subject		: 2.6.38-rc5: nfsd: page allocation failure. spinlock trylock =
-failure on UP
-Submitter	: Alexander Beregalov <a.beregalov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2011-02-21 20:33 (14 days old)
-Message-ID	: <AANLkTi=3D14N_c_B7mLY0H8Dt8pte6C0mjFnVuC37e44Hs-JsoAwUIsXov1KXRcyAk9cg@public.gmane.org=
-l.com>
-References	: http://marc.info/?l=3Dlinux-netdev&m=3D129832042402668&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29812
-Subject		: Brightness levels too low on Dell Inspiron 13" Intel HD 4 Se=
-ries
-Submitter	: Niklas Schnelle <niklas-74wnUeZ+fLazQB+pC5nmwQ@public.gmane.org>
-Date		: 2011-02-24 10:24 (11 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/951f3512dba5bd44cda3e5e=
-e22b4b522e4bb09fb
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29672
-Subject		: [regression][ALSA][hda-conexant][2.6.38-rcX] external microp=
-hone sound too quiet
-Submitter	: Shawn Starr <shawn.starr-bJEeYj9oJeDQT0dZR+AlfA@public.gmane.org>
-Date		: 2011-02-19 6:02 (16 days old)
-Message-ID	: <474630.25335.qm-LGyaPT5kzbjzJNTqFNLFoaJ1FwRQo79cG6kzb5Gsg2M@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129809536502092&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29312
-Subject		: Unmounting fails even after the underlying device is long go=
-ne
-Submitter	: Bart Van Assche <bart.vanassche-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2011-02-17 19:20 (18 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29252
-Subject		: IPv6 doesn't work in a kvm guest.
-Submitter	: Kusanagi Kouichi <slash-cQ3dDVBNB1RrxjOHzPOmfA@public.gmane.org>
-Date		: 2011-02-16 13:03 (19 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29022
-Subject		: [REGRESSION? 2.6.38-rc4] nouveau NV50/NVA8 screen freeze
-Submitter	: Marc Koschewski <marc-e1Wt+8K1Ta8ZEwqihLH0+Q@public.gmane.org>
-Date		: 2011-02-13 12:29 (22 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28882
-Subject		: Screen corruption and GPU hangs
-Submitter	: Ko Mi <chaostya.test-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
-Date		: 2011-02-11 18:17 (24 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28842
-Subject		: 2.6.38-rc3 regression ipv6 TFTP download with curl failing i=
-n getpeername?
-Submitter	: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Date		: 2011-02-08 9:41 (27 days old)
-Message-ID	: <m1ei7iamnn.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129715811421534&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28642
-Subject		: ACPI broken on DELL Latitude E6410 in 2.6.38-rc3
-Submitter	: Adam Kovari <kovariadam-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2011-02-08 22:22 (27 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28562
-Subject		: [BUG] usb problems in .38-rc3+
-Submitter	: Ed Tomlinson <edt-Yad3+ZauZac@public.gmane.org>
-Date		: 2011-02-05 19:17 (30 days old)
-Message-ID	: <201102051417.58953.edt-Yad3+ZauZac@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129693391417607&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28522
-Subject		: Unable to mount FAT-formatted floppy on /dev/fd0, plus WARN_=
-ON when using /dev/fd0u1440
-Submitter	: Alex Villacis Lasso <avillaci-x0m+Mc+nT7uljOmnV8AmnkElSqmLX1BE@public.gmane.org>
-Date		: 2011-02-07 17:21 (28 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28452
-Subject		: 2.6.38-rc3 regression on parisc: segfaults
-Submitter	: Meelis Roos <mroos-Y27EyoLml9s@public.gmane.org>
-Date		: 2011-02-01 22:00 (34 days old)
-Message-ID	: <alpine.SOC.1.00.1102012342200.25944-ptEonEWSGqKptlylMvRsHA@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129659763426600&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28432
-Subject		: khugepaged: gets stuck when writing to USB flash, 2.6.38-rc2
-Submitter	: Jind=C5=99ich Makovi=C4=8Dka <makovick-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2011-01-31 19:28 (35 days old)
-Message-ID	: <AANLkTi=3DuOpN0PwWdGh6iri-vJwuMS+WMPxmaZjv0-TrV-JsoAwUIsXov1KXRcyAk9cg@public.gmane.org=
-l.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129650210516627&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28422
-Subject		: kref and apparmor panic in 2.6.38-rc2.
-Submitter	: Tao Ma <tm-d1IQDZat3X0@public.gmane.org>
-Date		: 2011-01-31 10:06 (35 days old)
-Message-ID	: <4D46899B.80302-d1IQDZat3X0@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129646840303149&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28262
-Subject		: Slow resume from suspend/hibernate on Dell Inspiron M301Z
-Submitter	: Luca Ferretti <lferrett-rDKQcyrBJuzYtjvyW6yDsg@public.gmane.org>
-Date		: 2011-02-05 12:37 (30 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D28102
-Subject		: New display errors in 2.6.38-rc2-00175-g6fb1b30
-Submitter	: Nico Schottelius <nico-kernel-20110117-xuaVFQXs+5hIG4jRRZ66WA@public.gmane.org>
-Date		: 2011-01-28 20:29 (38 days old)
-Message-ID	: <20110128202905.GB3395-xuaVFQXs+5hIG4jRRZ66WA@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129624657425949&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D27022
-Subject		: [REPORT] BUG: spinlock recursion on CPU#0, init/1
-Submitter	: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
-Date		: 2011-01-10 15:33 (56 days old)
-Message-ID	: <a7a9bdaa5936630925fb7ffd1a1795b1-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129467294808655&w=3D=
-2
-
-
-Regressions with patches
-------------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D29402
-Subject		: kernel panics while running ffsb scalability workloads on 2.=
-6.38-rc1 through -rc5
-Submitter	: Eric Whitney <eric.whitney-VXdhtT5mjnY@public.gmane.org>
-Date		: 2011-02-18 21:47 (17 days old)
-Handled-By	: Lukas Czerner <lczerner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=3D49642
-
-
-=46or details, please visit the bug entries and follow the links given =
-in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regres=
-sions.
-There also is a Bugzilla entry used for tracking the regressions from 2=
-=2E6.37,
-unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=3D27352
-
-Please let the tracking team know if there are any Bugzilla entries tha=
+--===============8197809907388566648==
+Content-Type: multipart/alternative; boundary=000e0cd1512a933f67049dcf73cd
+
+--000e0cd1512a933f67049dcf73cd
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Hello,
+
+I have an Intel=AE Server Board S5500BC which started to cause problems dur=
+ing
+boot, mainly with the e1000e driver, raising the server without any NIC/s. =
+A
+reboot ususally recovers the NIC/s.
+
+The following trace is seen from the unit boot, showing an inconsistent
+problem while trying to load the e1000e driver.
+Looking at the sources, it looks like it is stuck in a critical section. Bu=
 t
-should be added to the list in there.
+I frankly do not understand how it is possible, as there is no real reason
+for it to hang on the mutex lock.
+At the moment, except memory curroption/leak I cannot think of anything
+else... I see it on several machines, so I assume it is not a specific HW
+problem.
+I will apriciate if someone could point me into some direction.
 
-Thanks!
+Note, the pasted message below repeats in a loop, always hangling on the
+same lock. In addition, these units also hang from time to time on initramf=
+s
+shell, with an avarage of 3 times less frequent than the NIC issue.
+I'm using the following Kernel version:
+Linux version 2.6.32-29-generic-pae (buildd@roseapple) (gcc version 4.4.3
+(Ubuntu 4.4.3-4ubuntu5) ) #58-Ubuntu SMP Fri Feb 11 19:15:25 UTC 2011
+(Ubuntu 2.6.32-29.58-generic-pae 2.6.32.28+drm33.13)
+
+Thanks,
+Edy.
+
+This is the relevant trace from the dmesg output:
+
+[    5.732070] lp: driver loaded but no devices found
+[    6.002709] Console: switching to colour frame buffer device 80x30
+[    6.023688] type=3D1505 audit(1299198224.576:5):  operation=3D"profile_l=
+oad"
+pid=3D820 name=3D"/usr/sbin/tcpdump"
+[    6.023858] type=3D1505 audit(1299198224.576:6):
+operation=3D"profile_replace" pid=3D819 name=3D"/sbin/dhclient3"
+[    6.024301] type=3D1505 audit(1299198224.576:7):
+operation=3D"profile_replace" pid=3D819
+name=3D"/usr/lib/NetworkManager/nm-dhcp-client.action"
+[    6.024550] type=3D1505 audit(1299198224.576:8):
+operation=3D"profile_replace" pid=3D819
+name=3D"/usr/lib/connman/scripts/dhclient-script"
+[    6.134782] ip_tables: (C) 2000-2006 Netfilter Core Team
+[    6.177099] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
+[    6.177269] CONFIG_NF_CT_ACCT is deprecated and will be removed soon.
+Please use
+[    6.177271] nf_conntrack.acct=3D1 kernel parameter, acct=3D1 nf_conntrac=
+k
+module option or
+[    6.177273] sysctl net.netfilter.nf_conntrack_acct=3D1 to enable it.
+[  240.190031] INFO: task modprobe:178 blocked for more than 120 seconds.
+[  240.190534] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables
+this message.
+[  240.191160] modprobe      D 00183416     0   178      1 0x00000000
+[  240.191169]  f6e8fd44 00000086 f829b248 00183416 00000000 c088f4c0
+f6f85be4 c088f4c0
+[  240.191186]  6c1f8881 00000000 c088f4c0 c088f4c0 f6f85be4 c088f4c0
+c088f4c0 f6e3ea00
+[  240.191202]  6a3827bd 00000000 f6f85940 f829b238 f829b23c ffffffff
+f6e8fd70 c05b3bb6
+[  240.191216] Call Trace:
+[  240.191231]  [<c05b3bb6>] __mutex_lock_slowpath+0xd6/0x140
+[  240.191239]  [<c05b3ac5>] mutex_lock+0x25/0x40
+[  240.191255]  [<f8285be1>] e1000_acquire_swflag_ich8lan+0x21/0xa0 [e1000e=
+]
+[  240.191270]  [<f8286aea>] e1000_reset_hw_ich8lan+0x7a/0x250 [e1000e]
+[  240.191287]  [<f82940bd>] e1000e_reset+0xfd/0x330 [e1000e]
+[  240.191302]  [<f82984e8>] e1000_probe+0x7b7/0xa09 [e1000e]
+[  240.191309]  [<c0227745>] ? iput+0x25/0x60
+[  240.191316]  [<c026af3b>] ? sysfs_addrm_finish+0x3b/0xf0
+[  240.191325]  [<c0370043>] local_pci_probe+0x13/0x20
+[  240.191331]  [<c0370e48>] pci_device_probe+0x68/0x90
+[  240.191339]  [<c03fceed>] really_probe+0x4d/0x140
+[  240.191347]  [<c040380e>] ? pm_runtime_barrier+0x4e/0xc0
+[  240.191354]  [<c03fd01c>] driver_probe_device+0x3c/0x60
+[  240.191361]  [<c03fd0c1>] __driver_attach+0x81/0x90
+[  240.191368]  [<c03fc503>] bus_for_each_dev+0x53/0x80
+[  240.191375]  [<c03fcdbe>] driver_attach+0x1e/0x20
+[  240.191382]  [<c03fd040>] ? __driver_attach+0x0/0x90
+[  240.191389]  [<c03fc785>] bus_add_driver+0xd5/0x280
+[  240.191396]  [<c0370d80>] ? pci_device_remove+0x0/0x40
+[  240.191403]  [<c03fd3ba>] driver_register+0x6a/0x130
+[  240.191410]  [<c0371085>] __pci_register_driver+0x45/0xb0
+[  240.191423]  [<f82a304b>] e1000_init_module+0x4b/0x67 [e1000e]
+[  240.191430]  [<c0103041>] do_one_initcall+0x31/0x190
+[  240.191443]  [<f82a3000>] ? e1000_init_module+0x0/0x67 [e1000e]
+[  240.191452]  [<c018acb0>] sys_init_module+0xb0/0x210
+[  240.191458]  [<c01097ac>] syscall_call+0x7/0xb
+
+
+lshw network output:
+
+  *-network
+       description: Ethernet interface
+       product: 82574L Gigabit Network Connection
+       vendor: Intel Corporation
+       physical id: 0
+       bus info: pci@0000:01:00.0
+       logical name: eth1
+       version: 00
+       serial: 00:1b:21:57:0a:54
+       size: 100MB/s
+       capacity: 1GB/s
+       width: 32 bits
+       clock: 33MHz
+       capabilities: pm msi pciexpress msix bus_master cap_list rom etherne=
+t
+physical tp 10bt 10bt-fd 100bt 100bt-fd 1000bt-fd autonegotiation
+       configuration: autonegotiation=3Doff broadcast=3Dyes driver=3De1000e
+driverversion=3D1.0.2-k2 duplex=3Dfull firmware=3D1.8-0 ip=3D127.0.1.1 late=
+ncy=3D0
+link=3Dyes multicast=3Dyes port=3Dtwisted pair speed=3D100MB/s
+       resources: irq:16 memory:b1a80000-b1a9ffff memory:b1a00000-b1a7ffff
+ioport:2000(size=3D32) memory:b1aa0000-b1aa3fff
+memory:b1c00000-b1c3ffff(prefetchable)
+  *-network
+       description: Ethernet interface
+       product: 82578DM Gigabit Network Connection
+       vendor: Intel Corporation
+       physical id: 19
+       bus info: pci@0000:00:19.0
+       logical name: eth0
+       version: 05
+       serial: 00:15:17:c8:0a:3d
+       size: 100MB/s
+       capacity: 1GB/s
+       width: 32 bits
+       clock: 33MHz
+       capabilities: pm msi bus_master cap_list ethernet physical tp 10bt
+10bt-fd 100bt 100bt-fd 1000bt-fd autonegotiation
+       configuration: autonegotiation=3Doff broadcast=3Dyes driver=3De1000e
+driverversion=3D1.0.2-k2 duplex=3Dfull firmware=3D0.9-2 ip=3D127.0.0.1 late=
+ncy=3D0
+link=3Dyes multicast=3Dyes port=3Dtwisted pair speed=3D100MB/s
+       resources: irq:34 memory:b1b00000-b1b1ffff memory:b1b24000-b1b24fff
+ioport:3020(size=3D32)
+  *-network
+       description: Ethernet interface
+       product: 82574L Gigabit Network Connection
+       vendor: Intel Corporation
+       physical id: 0
+       bus info: pci@0000:03:00.0
+       logical name: eth2
+       version: 00
+       serial: 00:15:17:c8:0a:3c
+       size: 100MB/s
+       capacity: 1GB/s
+       width: 32 bits
+       clock: 33MHz
+       capabilities: pm msi pciexpress msix bus_master cap_list ethernet
+physical tp 10bt 10bt-fd 100bt 100bt-fd 1000bt-fd autonegotiation
+       configuration: autonegotiation=3Don broadcast=3Dyes driver=3De1000e
+driverversion=3D1.0.2-k2 duplex=3Dfull firmware=3D1.9-0 ip=3D172.17.6.2 lat=
+ency=3D0
+link=3Dyes multicast=3Dyes port=3Dtwisted pair speed=3D100MB/s
+       resources: irq:16 memory:b1900000-b191ffff ioport:1000(size=3D32)
+memory:b1920000-b1923fff
+  *-network:0 DISABLED
+       description: Ethernet interface
+       physical id: 1
+       logical name: eth1.24
+       serial: 00:1b:21:57:0a:54
+       size: 100MB/s
+       capacity: 1GB/s
+       capabilities: ethernet physical tp 10bt 10bt-fd 100bt 100bt-fd
+1000bt-fd autonegotiation
+       configuration: autonegotiation=3Doff broadcast=3Dyes driver=3D802.1Q=
+ VLAN
+Support driverversion=3D1.8 duplex=3Dfull firmware=3DN/A link=3Dyes multica=
+st=3Dyes
+port=3Dtwisted pair speed=3D100MB/s
+  *-network:1
+       description: Ethernet interface
+       physical id: 2
+       logical name: vlan24
+       serial: 00:15:17:c8:0a:3d
+       size: 100MB/s
+       capacity: 1GB/s
+       capabilities: ethernet physical tp 10bt 10bt-fd 100bt 100bt-fd
+1000bt-fd autonegotiation
+       configuration: autonegotiation=3Doff broadcast=3Dyes driver=3D802.1Q=
+ VLAN
+Support driverversion=3D1.8 duplex=3Dfull firmware=3DN/A ip=3D172.24.4.182 =
+link=3Dyes
+multicast=3Dyes port=3Dtwisted pair speed=3D100MB/s
+
+--000e0cd1512a933f67049dcf73cd--
+
+
+--===============8197809907388566648==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+What You Don't Know About Data Connectivity CAN Hurt You
+This paper provides an overview of data connectivity, details
+its effect on application quality, and explores various alternative
+solutions. http://p.sf.net/sfu/progress-d2d
+--===============8197809907388566648==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============8197809907388566648==--
