@@ -1,218 +1,195 @@
-From: "Edy H." <edwardh.dev@gmail.com>
-Subject: modprobe gets stuck on a e1000e driver mutex wile trying to load the it
-Date: Sun, 6 Mar 2011 14:34:47 +0200
-Message-ID: <AANLkTinFPm-7Y_weDqwsF7OxeS-RvzZx1nroz8S7i0bQ@mail.gmail.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: 2.6.38-rc7-git4: Reported regressions 2.6.36 -> 2.6.37
+Date: Sun,  6 Mar 2011 13:34:09 +0100 (CET)
+Message-ID: <dtUMITvTCCN.A.uuF.y-3cNB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: e1000-devel@lists.sourceforge.net, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
+Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-I have an Intel=AE Server Board S5500BC which started to cause problems
-during boot, mainly with the e1000e driver, raising the server without
-any NIC/s. A reboot ususally recovers the NIC/s.
-
-The following trace is seen from the unit boot, showing an
-inconsistent problem while trying to load the e1000e driver.
-Looking at the sources, it looks like it is stuck in a critical
-section. But I frankly do not understand how it is possible, as there
-is no real reason for it to hang on the mutex lock.
-At the moment, except memory curroption/leak I cannot think of
-anything else... I see it on several machines, so I assume it is not a
-specific HW problem.
-I will apriciate if someone could point me into some direction.
-
-Note, the pasted message below repeats in a loop, always hangling on
-the same lock. In addition, these units also hang from time to time on
-initramfs shell, with an avarage of 3 times less frequent than the NIC
-issue.
-I'm using the following Kernel version:
-Linux version 2.6.32-29-generic-pae (buildd@roseapple) (gcc version
-4.4.3 (Ubuntu 4.4.3-4ubuntu5) ) #58-Ubuntu SMP Fri Feb 11 19:15:25 UTC
-2011 (Ubuntu 2.6.32-29.58-generic-pae 2.6.32.28+drm33.13)
-
-Thanks,
-Edy.
-
-This is the relevant trace from the dmesg output:
-
-[=A0=A0=A0 5.732070] lp: driver loaded but no devices found
-[=A0=A0=A0 6.002709] Console: switching to colour frame buffer device 8=
-0x30
-[=A0=A0=A0 6.023688] type=3D1505 audit(1299198224.576:5):
-operation=3D"profile_load" pid=3D820 name=3D"/usr/sbin/tcpdump"
-[=A0=A0=A0 6.023858] type=3D1505 audit(1299198224.576:6):
-operation=3D"profile_replace" pid=3D819 name=3D"/sbin/dhclient3"
-[=A0=A0=A0 6.024301] type=3D1505 audit(1299198224.576:7):
-operation=3D"profile_replace" pid=3D819
-name=3D"/usr/lib/NetworkManager/nm-dhcp-client.action"
-[=A0=A0=A0 6.024550] type=3D1505 audit(1299198224.576:8):
-operation=3D"profile_replace" pid=3D819
-name=3D"/usr/lib/connman/scripts/dhclient-script"
-[=A0=A0=A0 6.134782] ip_tables: (C) 2000-2006 Netfilter Core Team
-[=A0=A0=A0 6.177099] nf_conntrack version 0.5.0 (16384 buckets, 65536 m=
-ax)
-[=A0=A0=A0 6.177269] CONFIG_NF_CT_ACCT is deprecated and will be remove=
-d
-soon. Please use
-[=A0=A0=A0 6.177271] nf_conntrack.acct=3D1 kernel parameter, acct=3D1
-nf_conntrack module option or
-[=A0=A0=A0 6.177273] sysctl net.netfilter.nf_conntrack_acct=3D1 to enab=
-le it.
-[=A0 240.190031] INFO: task modprobe:178 blocked for more than 120 seco=
-nds.
-[=A0 240.190534] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs"
-disables this message.
-[=A0 240.191160] modprobe=A0=A0=A0=A0=A0 D 00183416=A0=A0=A0=A0 0=A0=A0=
- 178=A0=A0=A0=A0=A0 1 0x00000000
-[=A0 240.191169]=A0 f6e8fd44 00000086 f829b248 00183416 00000000 c088f4=
-c0
-f6f85be4 c088f4c0
-[=A0 240.191186]=A0 6c1f8881 00000000 c088f4c0 c088f4c0 f6f85be4 c088f4=
-c0
-c088f4c0 f6e3ea00
-[=A0 240.191202]=A0 6a3827bd 00000000 f6f85940 f829b238 f829b23c ffffff=
-ff
-f6e8fd70 c05b3bb6
-[=A0 240.191216] Call Trace:
-[=A0 240.191231]=A0 [<c05b3bb6>] __mutex_lock_slowpath+0xd6/0x140
-[=A0 240.191239]=A0 [<c05b3ac5>] mutex_lock+0x25/0x40
-[=A0 240.191255]=A0 [<f8285be1>] e1000_acquire_swflag_ich8lan+0x21/0xa0=
- [e1000e]
-[=A0 240.191270]=A0 [<f8286aea>] e1000_reset_hw_ich8lan+0x7a/0x250 [e10=
-00e]
-[=A0 240.191287]=A0 [<f82940bd>] e1000e_reset+0xfd/0x330 [e1000e]
-[=A0 240.191302]=A0 [<f82984e8>] e1000_probe+0x7b7/0xa09 [e1000e]
-[=A0 240.191309]=A0 [<c0227745>] ? iput+0x25/0x60
-[=A0 240.191316]=A0 [<c026af3b>] ? sysfs_addrm_finish+0x3b/0xf0
-[=A0 240.191325]=A0 [<c0370043>] local_pci_probe+0x13/0x20
-[=A0 240.191331]=A0 [<c0370e48>] pci_device_probe+0x68/0x90
-[=A0 240.191339]=A0 [<c03fceed>] really_probe+0x4d/0x140
-[=A0 240.191347]=A0 [<c040380e>] ? pm_runtime_barrier+0x4e/0xc0
-[=A0 240.191354]=A0 [<c03fd01c>] driver_probe_device+0x3c/0x60
-[=A0 240.191361]=A0 [<c03fd0c1>] __driver_attach+0x81/0x90
-[=A0 240.191368]=A0 [<c03fc503>] bus_for_each_dev+0x53/0x80
-[=A0 240.191375]=A0 [<c03fcdbe>] driver_attach+0x1e/0x20
-[=A0 240.191382]=A0 [<c03fd040>] ? __driver_attach+0x0/0x90
-[=A0 240.191389]=A0 [<c03fc785>] bus_add_driver+0xd5/0x280
-[=A0 240.191396]=A0 [<c0370d80>] ? pci_device_remove+0x0/0x40
-[=A0 240.191403]=A0 [<c03fd3ba>] driver_register+0x6a/0x130
-[=A0 240.191410]=A0 [<c0371085>] __pci_register_driver+0x45/0xb0
-[=A0 240.191423]=A0 [<f82a304b>] e1000_init_module+0x4b/0x67 [e1000e]
-[=A0 240.191430]=A0 [<c0103041>] do_one_initcall+0x31/0x190
-[=A0 240.191443]=A0 [<f82a3000>] ? e1000_init_module+0x0/0x67 [e1000e]
-[=A0 240.191452]=A0 [<c018acb0>] sys_init_module+0xb0/0x210
-[=A0 240.191458]=A0 [<c01097ac>] syscall_call+0x7/0xb
-
-
-lshw network output:
-
-=A0 *-network
-=A0=A0=A0=A0=A0=A0 description: Ethernet interface
-=A0=A0=A0=A0=A0=A0 product: 82574L Gigabit Network Connection
-=A0=A0=A0=A0=A0=A0 vendor: Intel Corporation
-=A0=A0=A0=A0=A0=A0 physical id: 0
-=A0=A0=A0=A0=A0=A0 bus info: pci@0000:01:00.0
-=A0=A0=A0=A0=A0=A0 logical name: eth1
-=A0=A0=A0=A0=A0=A0 version: 00
-=A0=A0=A0=A0=A0=A0 serial: 00:1b:21:57:0a:54
-=A0=A0=A0=A0=A0=A0 size: 100MB/s
-=A0=A0=A0=A0=A0=A0 capacity: 1GB/s
-=A0=A0=A0=A0=A0=A0 width: 32 bits
-=A0=A0=A0=A0=A0=A0 clock: 33MHz
-=A0=A0=A0=A0=A0=A0 capabilities: pm msi pciexpress msix bus_master cap_=
-list rom
-ethernet physical tp 10bt 10bt-fd 100bt 100bt-fd 1000bt-fd
-autonegotiation
-=A0=A0=A0=A0=A0=A0 configuration: autonegotiation=3Doff broadcast=3Dyes=
- driver=3De1000e
-driverversion=3D1.0.2-k2 duplex=3Dfull firmware=3D1.8-0 ip=3D127.0.1.1
-latency=3D0 link=3Dyes multicast=3Dyes port=3Dtwisted pair speed=3D100M=
-B/s
-=A0=A0=A0=A0=A0=A0 resources: irq:16 memory:b1a80000-b1a9ffff
-memory:b1a00000-b1a7ffff ioport:2000(size=3D32) memory:b1aa0000-b1aa3ff=
-f
-memory:b1c00000-b1c3ffff(prefetchable)
-=A0 *-network
-=A0=A0=A0=A0=A0=A0 description: Ethernet interface
-=A0=A0=A0=A0=A0=A0 product: 82578DM Gigabit Network Connection
-=A0=A0=A0=A0=A0=A0 vendor: Intel Corporation
-=A0=A0=A0=A0=A0=A0 physical id: 19
-=A0=A0=A0=A0=A0=A0 bus info: pci@0000:00:19.0
-=A0=A0=A0=A0=A0=A0 logical name: eth0
-=A0=A0=A0=A0=A0=A0 version: 05
-=A0=A0=A0=A0=A0=A0 serial: 00:15:17:c8:0a:3d
-=A0=A0=A0=A0=A0=A0 size: 100MB/s
-=A0=A0=A0=A0=A0=A0 capacity: 1GB/s
-=A0=A0=A0=A0=A0=A0 width: 32 bits
-=A0=A0=A0=A0=A0=A0 clock: 33MHz
-=A0=A0=A0=A0=A0=A0 capabilities: pm msi bus_master cap_list ethernet ph=
-ysical tp
-10bt 10bt-fd 100bt 100bt-fd 1000bt-fd autonegotiation
-=A0=A0=A0=A0=A0=A0 configuration: autonegotiation=3Doff broadcast=3Dyes=
- driver=3De1000e
-driverversion=3D1.0.2-k2 duplex=3Dfull firmware=3D0.9-2 ip=3D127.0.0.1
-latency=3D0 link=3Dyes multicast=3Dyes port=3Dtwisted pair speed=3D100M=
-B/s
-=A0=A0=A0=A0=A0=A0 resources: irq:34 memory:b1b00000-b1b1ffff
-memory:b1b24000-b1b24fff ioport:3020(size=3D32)
-=A0 *-network
-=A0=A0=A0=A0=A0=A0 description: Ethernet interface
-=A0=A0=A0=A0=A0=A0 product: 82574L Gigabit Network Connection
-=A0=A0=A0=A0=A0=A0 vendor: Intel Corporation
-=A0=A0=A0=A0=A0=A0 physical id: 0
-=A0=A0=A0=A0=A0=A0 bus info: pci@0000:03:00.0
-=A0=A0=A0=A0=A0=A0 logical name: eth2
-=A0=A0=A0=A0=A0=A0 version: 00
-=A0=A0=A0=A0=A0=A0 serial: 00:15:17:c8:0a:3c
-=A0=A0=A0=A0=A0=A0 size: 100MB/s
-=A0=A0=A0=A0=A0=A0 capacity: 1GB/s
-=A0=A0=A0=A0=A0=A0 width: 32 bits
-=A0=A0=A0=A0=A0=A0 clock: 33MHz
-=A0=A0=A0=A0=A0=A0 capabilities: pm msi pciexpress msix bus_master cap_=
-list
-ethernet physical tp 10bt 10bt-fd 100bt 100bt-fd 1000bt-fd
-autonegotiation
-=A0=A0=A0=A0=A0=A0 configuration: autonegotiation=3Don broadcast=3Dyes =
-driver=3De1000e
-driverversion=3D1.0.2-k2 duplex=3Dfull firmware=3D1.9-0 ip=3D172.17.6.2
-latency=3D0 link=3Dyes multicast=3Dyes port=3Dtwisted pair speed=3D100M=
-B/s
-=A0=A0=A0=A0=A0=A0 resources: irq:16 memory:b1900000-b191ffff ioport:10=
-00(size=3D32)
-memory:b1920000-b1923fff
-=A0 *-network:0 DISABLED
-=A0=A0=A0=A0=A0=A0 description: Ethernet interface
-=A0=A0=A0=A0=A0=A0 physical id: 1
-=A0=A0=A0=A0=A0=A0 logical name: eth1.24
-=A0=A0=A0=A0=A0=A0 serial: 00:1b:21:57:0a:54
-=A0=A0=A0=A0=A0=A0 size: 100MB/s
-=A0=A0=A0=A0=A0=A0 capacity: 1GB/s
-=A0=A0=A0=A0=A0=A0 capabilities: ethernet physical tp 10bt 10bt-fd 100b=
-t 100bt-fd
-1000bt-fd autonegotiation
-=A0=A0=A0=A0=A0=A0 configuration: autonegotiation=3Doff broadcast=3Dyes=
- driver=3D802.1Q
-VLAN Support driverversion=3D1.8 duplex=3Dfull firmware=3DN/A link=3Dye=
-s
-multicast=3Dyes port=3Dtwisted pair speed=3D100MB/s
-=A0 *-network:1
-=A0=A0=A0=A0=A0=A0 description: Ethernet interface
-=A0=A0=A0=A0=A0=A0 physical id: 2
-=A0=A0=A0=A0=A0=A0 logical name: vlan24
-=A0=A0=A0=A0=A0=A0 serial: 00:15:17:c8:0a:3d
-=A0=A0=A0=A0=A0=A0 size: 100MB/s
-=A0=A0=A0=A0=A0=A0 capacity: 1GB/s
-=A0=A0=A0=A0=A0=A0 capabilities: ethernet physical tp 10bt 10bt-fd 100b=
-t 100bt-fd
-1000bt-fd autonegotiation
-=A0=A0=A0=A0=A0=A0 configuration: autonegotiation=3Doff broadcast=3Dyes=
- driver=3D802.1Q
-VLAN Support driverversion=3D1.8 duplex=3Dfull firmware=3DN/A
-ip=3D172.24.4.182 link=3Dyes multicast=3Dyes port=3Dtwisted pair speed=3D=
-100MB/s
+VGhpcyBtZXNzYWdlIGNvbnRhaW5zIGEgbGlzdCBvZiBzb21lIHBvc3QtMi42LjM2IHJlZ3Jlc3Np
+b25zIGludHJvZHVjZWQgYmVmb3JlCjIuNi4zNywgZm9yIHdoaWNoIHRoZXJlIGFyZSBubyBmaXhl
+cyBpbiB0aGUgbWFpbmxpbmUga25vd24gdG8gdGhlIHRyYWNraW5nIHRlYW0uCklmIGFueSBvZiB0
+aGVtIGhhdmUgYmVlbiBmaXhlZCBhbHJlYWR5LCBwbGVhc2UgbGV0IHVzIGtub3cuCgpJZiB5b3Ug
+a25vdyBvZiBhbnkgb3RoZXIgdW5yZXNvbHZlZCBwb3N0LTIuNi4zNiByZWdyZXNzaW9ucywgcGxl
+YXNlIGxldCB1cyBrbm93CmVpdGhlciBhbmQgd2UnbGwgYWRkIHRoZW0gdG8gdGhlIGxpc3QuICBB
+bHNvLCBwbGVhc2UgbGV0IHVzIGtub3cgaWYgYW55Cm9mIHRoZSBlbnRyaWVzIGJlbG93IGFyZSBp
+bnZhbGlkLgoKRWFjaCBlbnRyeSBmcm9tIHRoZSBsaXN0IHdpbGwgYmUgc2VudCBhZGRpdGlvbmFs
+bHkgaW4gYW4gYXV0b21hdGljIHJlcGx5IHRvCnRoaXMgbWVzc2FnZSB3aXRoIENDcyB0byB0aGUg
+cGVvcGxlIGludm9sdmVkIGluIHJlcG9ydGluZyBhbmQgaGFuZGxpbmcgdGhlCmlzc3VlLgoKCkxp
+c3RlZCByZWdyZXNzaW9ucyBzdGF0aXN0aWNzOgoKICBEYXRlICAgICAgICAgIFRvdGFsICBQZW5k
+aW5nICBVbnJlc29sdmVkCiAgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LQogIDIwMTEtMDMtMDYgICAgICAxMzIgICAgICAgMjggICAgICAgICAgMjMKICAyMDExLTAyLTIx
+ICAgICAgMTI4ICAgICAgIDM1ICAgICAgICAgIDI2CiAgMjAxMS0wMi0xMyAgICAgIDEyNiAgICAg
+ICAzNiAgICAgICAgICAzMAogIDIwMTEtMDItMDMgICAgICAxMTggICAgICAgMzYgICAgICAgICAg
+MzEKICAyMDEwLTEyLTMwICAgICAgIDg1ICAgICAgIDMyICAgICAgICAgIDI2CiAgMjAxMC0xMi0x
+OSAgICAgICA3MyAgICAgICAyOCAgICAgICAgICAyNAogIDIwMTAtMTItMDMgICAgICAgNTUgICAg
+ICAgMjUgICAgICAgICAgMTkKICAyMDEwLTExLTE5ICAgICAgIDM5ICAgICAgIDI5ICAgICAgICAg
+IDI1CgoKVW5yZXNvbHZlZCByZWdyZXNzaW9ucwotLS0tLS0tLS0tLS0tLS0tLS0tLS0tCgpCdWct
+RW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9Mjg4MTIK
+U3ViamVjdAkJOiBEVkkgYXR0YWNoZWQgbW9uaXRvciBpcyB0dXJuZWQgb2ZmIHdoaWxlIGJvb3Rp
+bmcgbGludXggMi42LjM3IGFuZCBoaWdoZXIKU3VibWl0dGVyCTogTWFya3VzIEhlaW56IDxtYXJr
+dXMuaGVpbnpAdW5pLWRvcnRtdW5kLmRlPgpEYXRlCQk6IDIwMTEtMDItMTAgMTk6MzMgKDI1IGRh
+eXMgb2xkKQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVn
+LmNnaT9pZD0yODc3MgpTdWJqZWN0CQk6IG9vcHMgaW4gbmZzX3JldmFsaWRhdGVfbWFwcGluZwpT
+dWJtaXR0ZXIJOiBEYW5pZWwgUG9lbHpsZWl0aG5lciA8YnVnemlsbGEua2VybmVsLm9yZ0Bwb2Vs
+emkub3JnPgpEYXRlCQk6IDIwMTEtMDItMTAgMTM6NTkgKDI1IGRheXMgb2xkKQoKCkJ1Zy1FbnRy
+eQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0yODY2MgpTdWJq
+ZWN0CQk6IGk5MTUgaW4ga2VybmVsIDIuNi4zOC1yYzQsIGhpZ2ggbnVtYmVyIG9mIHdha2V1cHMK
+U3VibWl0dGVyCTogS2FuLVJ1IENoZW4gPGthbnJ1QGthbnJ1LmluZm8+CkRhdGUJCTogMjAxMS0w
+Mi0wOSAwNzowNiAoMjYgZGF5cyBvbGQpCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtl
+cm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTI4NjIyClN1YmplY3QJCTogcmFkZW9uIHZpZGVvIGxv
+Y2t1cApTdWJtaXR0ZXIJOiBEYW5pZWwgUG9lbHpsZWl0aG5lciA8YnVnemlsbGEua2VybmVsLm9y
+Z0Bwb2Vsemkub3JnPgpEYXRlCQk6IDIwMTEtMDItMDggMTc6NDggKDI3IGRheXMgb2xkKQoKCkJ1
+Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0yODYx
+MgpTdWJqZWN0CQk6IHJlZ3VsYXIgc29mdCBsb2NrdXAKU3VibWl0dGVyCTogQWxleGFuZHJlIERl
+bWVycyA8YWxleGFuZHJlLmYuZGVtZXJzQGdtYWlsLmNvbT4KRGF0ZQkJOiAyMDExLTAyLTA4IDE2
+OjM5ICgyNyBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9y
+Zy9zaG93X2J1Zy5jZ2k/aWQ9Mjg1ODIKU3ViamVjdAkJOiB3aG9sZSBzeXN0ZW0gaGFuZyB3aGVu
+IHN0YXJ0IFgKU3VibWl0dGVyCTogR3UgUnVpIDxjaGFvcy5wcm90b25AZ21haWwuY29tPgpEYXRl
+CQk6IDIwMTEtMDItMDggMDg6MzMgKDI3IGRheXMgb2xkKQpGaXJzdC1CYWQtQ29tbWl0OiBodHRw
+Oi8vZ2l0Lmtlcm5lbC5vcmcvbGludXMvZDViYjA4MWIwMjdiNTIwZjllNTliNGZiOGZhZWE4M2Ex
+MzZlYzE1ZQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVn
+LmNnaT9pZD0yODMzMgpTdWJqZWN0CQk6IFtSVjYyMF0gQ2FuIG5vdCByZS1lbmFibGUgTFZEUyBh
+ZnRlciB1c2luZyBIRE1JIG9ubHkKU3VibWl0dGVyCTogUmFmYcWCIE1pxYJlY2tpIDx6YWplYzVA
+Z21haWwuY29tPgpEYXRlCQk6IDIwMTEtMDItMDUgMjI6NDIgKDMwIGRheXMgb2xkKQoKCkJ1Zy1F
+bnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0yNzg5MgpT
+dWJqZWN0CQk6IFNOQjogR1BVIGhhbmcgd2l0aCBTbGlwIHhzY3JlZW5zYXZlcgpTdWJtaXR0ZXIJ
+OiBUYWthc2hpIEl3YWkgPHRpd2FpQHN1c2UuZGU+CkRhdGUJCTogMjAxMS0wMS0zMSAxMjowNiAo
+MzUgZGF5cyBvbGQpCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hv
+d19idWcuY2dpP2lkPTI3ODQyClN1YmplY3QJCTogW3JlZ3Jlc3Npb24/XSBoYW5nIHdpdGggMi42
+LjM3IG9uIGEgQlRSRlMgdGVzdCBtYWNoaW5lClN1Ym1pdHRlcgk6IE1hcnRpbiBTdGVpZ2Vyd2Fs
+ZCA8TWFydGluQGxpY2h0dm9sbC5kZT4KRGF0ZQkJOiAyMDExLTAxLTIzIDEyOjA2ICg0MyBkYXlz
+IG9sZCkKTWVzc2FnZS1JRAk6IDw8MjAxMTAxMjMxMzA2LjIzMDY5Lk1hcnRpbkBsaWNodHZvbGwu
+ZGU+PgpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMjk1
+Nzg0NDU2MTMyODMmdz0yCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcv
+c2hvd19idWcuY2dpP2lkPTI3NjQyClN1YmplY3QJCTogMi42LjM3IHNheXMgV0FSTklORzogYXQg
+YXJjaC94ODYva2VybmVsL2FwaWMvYXBpYy5jOjEyODcgc2V0dXBfbG9jYWxfQVBJQysweDE4Zi8w
+eDI2MygpClN1Ym1pdHRlcgk6IFJvYiBMYW5kbGV5IDxybGFuZGxleUBwYXJhbGxlbHMuY29tPgpE
+YXRlCQk6IDIwMTEtMDEtMTggMTM6MTEgKDQ4IGRheXMgb2xkKQpNZXNzYWdlLUlECTogPDREMzU5
+MTg4LjMwNDA0MDhAcGFyYWxsZWxzLmNvbT4KUmVmZXJlbmNlcwk6IGh0dHA6Ly9tYXJjLmluZm8v
+P2w9bGludXgta2VybmVsJm09MTI5NTM1NjMyMzE5ODkyJnc9MgoKCkJ1Zy1FbnRyeQk6IGh0dHA6
+Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0yNzE1MgpTdWJqZWN0CQk6IFZH
+QSBvdXRwdXQgYnJva2VuIGF0IGNvbGQgYm9vdApTdWJtaXR0ZXIJOiBUYWthc2hpIEl3YWkgPHRp
+d2FpQHN1c2UuZGU+CkRhdGUJCTogMjAxMS0wMS0yMCAxMzoyNiAoNDYgZGF5cyBvbGQpCgoKQnVn
+LUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTI3MTMy
+ClN1YmplY3QJCTogZmx1c2gtYnRyZnMgZ2V0cyBpbnRvIGFuIGluZmluaXRlIGxvb3AKU3VibWl0
+dGVyCTogQXJ0ZW0gQW5pc2ltb3YgPGFhbmlzaW1vdkBpbmJveC5ydT4KRGF0ZQkJOiAyMDExLTAx
+LTIwIDExOjUxICg0NiBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2Vy
+bmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MjY4MDIKU3ViamVjdAkJOiBiNDM6IFN1c3BlbmQgZmFp
+bGVkClN1Ym1pdHRlcgk6IFBhdHJpY2sgTWF0dGjDpGkgPHBhdHJpY2tAbGludXgtZGV2Lm9yZz4K
+RGF0ZQkJOiAyMDExLTAxLTE1IDE4OjU2ICg1MSBkYXlzIG9sZCkKCgpCdWctRW50cnkJOiBodHRw
+Oi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MjY2MTIKU3ViamVjdAkJOiBC
+VUcgaW4gZnMvaW5vZGUuYzo0MjkKU3VibWl0dGVyCTogRmxvcmlhbiBLcmllbmVyIDxmbG9yaWFu
+QGtyaWVuZXIub3JnPgpEYXRlCQk6IDIwMTEtMDEtMDYgMTY6MzUgKDYwIGRheXMgb2xkKQpNZXNz
+YWdlLUlECTogPDIwMTEwMTA2MTczNS40MDA2MC5mbG9yaWFuQGtyaWVuZXIub3JnPgpSZWZlcmVu
+Y2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMjk0MzMyMzUyMjM3MzUm
+dz0yCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dp
+P2lkPTI2NTgyClN1YmplY3QJCTogTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIG9uIHBpcGUgY3Jl
+YXRpb24KU3VibWl0dGVyCTogRmVyZW5jIFfDoWduZXIgPHdmZXJpQG5paWYuaHU+CkRhdGUJCTog
+MjAxMS0wMS0xMiAxMzozMCAoNTQgZGF5cyBvbGQpCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3pp
+bGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTI2MTEyClN1YmplY3QJCTogW0xvZ0ZTXSBb
+Mi42LjM3LXJjOCtdIEtlcm5lbCBCVUcgYXQgbG9nZnMvcmVhZHdyaXRlLmM6Mjk3IQpTdWJtaXR0
+ZXIJOiBQcmFzYWQgSm9zaGkgPHByYXNhZGpvc2hpMTI0QGdtYWlsLmNvbT4KRGF0ZQkJOiAyMDEx
+LTAxLTAyIDIxOjIyICg2NCBkYXlzIG9sZCkKTWVzc2FnZS1JRAk6IDxBQU5Ma1RpbnBvTThGdUc4
+VWtGODh4c19WMzdkel93Z0U4dC1zMEpQemFTLXdAbWFpbC5nbWFpbC5jb20+ClJlZmVyZW5jZXMJ
+OiBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEyOTQwMDMzNTkxMDY1MiZ3PTIK
+CgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9
+MjYxMDIKU3ViamVjdAkJOiBbMi42LjM3LXJjOF0gQlVHIGttYWxsb2MtMjU2OiBQb2lzb24gb3Zl
+cndyaXR0ZW4uClN1Ym1pdHRlcgk6IFBhd2VsIFNpa29yYSA8cGx1dG9AYWdtay5uZXQ+CkRhdGUJ
+CTogMjAxMC0xMi0zMCAxNTowOCAoNjcgZGF5cyBvbGQpCk1lc3NhZ2UtSUQJOiA8MjAxMDEyMzAx
+NjA4LjQwODU5LnBsdXRvQGFnbWsubmV0PgpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/
+bD1saW51eC1rZXJuZWwmbT0xMjkzNzIzODg5MjU2Nzkmdz0yCgoKQnVnLUVudHJ5CTogaHR0cDov
+L2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTI2MDQyClN1YmplY3QJCTogQlVH
+OiBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2UgYXQgc2hyaW5rX2RjYWNoZV9wYXJlbnQKU3VibWl0
+dGVyCTogRmVyZW5jIFfDoWduZXIgPHdmZXJpQG5paWYuaHU+CkRhdGUJCTogMjAxMS0wMS0wMyAx
+MDo0OSAoNjMgZGF5cyBvbGQpCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5v
+cmcvc2hvd19idWcuY2dpP2lkPTI1ODMyClN1YmplY3QJCToga2VybmVsIGNyYXNoZXMgdXBvbiBy
+ZXN1bWUgaWYgdXNiIGRldmljZXMgYXJlIHJlbW92ZWQgd2hlbiBzdXNwZW5kZWQKU3VibWl0dGVy
+CTogcm9ja28gPHJvY2tvcmVxdWluQGhvdG1haWwuY29tPgpEYXRlCQk6IDIwMTAtMTItMjkgMTE6
+NDcgKDY4IGRheXMgb2xkKQoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3Jn
+L3Nob3dfYnVnLmNnaT9pZD0yNTczMgpTdWJqZWN0CQk6IGk5MTUgdHVybnMgcGljdHVyZSBncmVl
+biB3aGVuIGRpc3BsYXkgc3dpdGNoZWQgb2ZmLW9uClN1Ym1pdHRlcgk6IFTDtW51IFJhaXR2aWly
+IDxqdXNzdWZAbGludXguZWU+CkRhdGUJCTogMjAxMC0xMi0yNyAyMjoxNCAoNzAgZGF5cyBvbGQp
+CkZpcnN0LUJhZC1Db21taXQ6IGh0dHA6Ly9naXQua2VybmVsLm9yZy9saW51cy8zYzE3ZmU0Yjhm
+NDBhMTEyYTg1NzU4YTlhYjJhZWJmNzcyYmRkNjQ3CkhhbmRsZWQtQnkJOiBDaHJpcyBXaWxzb24g
+PGNocmlzQGNocmlzLXdpbHNvbi5jby51az4KCgpCdWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEu
+a2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MjQ4MjIKU3ViamVjdAkJOiBFbWJlZGRlZCBEaXNw
+bGF5UG9ydCBpcyBkZXRlY3RlZCB3cm9uZ2x5IG9uIEhQIFByb0Jvb2sgNTMyMG0KU3VibWl0dGVy
+CTogVGFrYXNoaSBJd2FpIDx0aXdhaUBzdXNlLmRlPgpEYXRlCQk6IDIwMTAtMTItMTMgMTE6MDkg
+KDg0IGRheXMgb2xkKQpIYW5kbGVkLUJ5CTogQ2hyaXMgV2lsc29uIDxjaHJpc0BjaHJpcy13aWxz
+b24uY28udWs+CgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19i
+dWcuY2dpP2lkPTIyOTQyClN1YmplY3QJCTogWzIuNi4zNy1yYzEsIE9PTV0gdmlydGJsazogT09N
+IGluIGRvX3ZpcnRibGtfcmVxdWVzdCgpClN1Ym1pdHRlcgk6IERhdmUgQ2hpbm5lciA8ZGF2aWRA
+ZnJvbW9yYml0LmNvbT4KRGF0ZQkJOiAyMDEwLTExLTA1IDE6MzAgKDEyMiBkYXlzIG9sZCkKTWVz
+c2FnZS1JRAk6IDwyMDEwMTEwNTAxMzAwMy5HRTEzODMwQGRhc3RhcmQ+ClJlZmVyZW5jZXMJOiBo
+dHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEyODg5MjA2MjkxNzY0MSZ3PTIKCgpC
+dWctRW50cnkJOiBodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9MjI2
+NDIKU3ViamVjdAkJOiAyLjYuMzctcmMxOiBEaXNrIHRha2VzIDEwIHNlY29uZHMgdG8gcmVzdW1l
+IC0gTWFjQm9vazIsMQpTdWJtaXR0ZXIJOiBUb2JpYXMgPGRldm51bGxAcGx6ay5vcmc+CkRhdGUJ
+CTogMjAxMC0xMS0xMCAxOTozMyAoMTE3IGRheXMgb2xkKQoKClJlZ3Jlc3Npb25zIHdpdGggcGF0
+Y2hlcwotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxs
+YS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0zMDMyMgpTdWJqZWN0CQk6IEJVRyBpbiB4c190
+Y3Bfc2V0dXBfc29ja2V0ClN1Ym1pdHRlcgk6IEJlbiBIdXRjaGluZ3MgPGJodXRjaGluZ3NAc29s
+YXJmbGFyZS5jb20+CkRhdGUJCTogMjAxMS0wMy0wMSAyMDozNCAoNiBkYXlzIG9sZCkKUGF0Y2gJ
+CTogaHR0cDovL2FydGljbGUuZ21hbmUub3JnL2dtYW5lLmxpbnV4Lm5mcy8zODk0OQoKCkJ1Zy1F
+bnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD0yOTcyMgpT
+dWJqZWN0CQk6IGt3b3JrZXIgY29uc3VtZXMgfjEwMCUgQ1BVIG9uIEhQIEVsaXRlYm9vayA4NTQw
+dyBhZnRlciByZXN1bWUKU3VibWl0dGVyCTogT3J0d2luIEdsw7xjayA8b2RpQG9kaS5jaD4KRGF0
+ZQkJOiAyMDExLTAyLTIzIDExOjQ5ICgxMiBkYXlzIG9sZCkKSGFuZGxlZC1CeQk6IFJhZmFlbCBK
+LiBXeXNvY2tpIDxyandAc2lzay5wbD4KUGF0Y2gJCTogaHR0cHM6Ly9wYXRjaHdvcmsua2VybmVs
+Lm9yZy9wYXRjaC82MDQzNzEvCgoKQnVnLUVudHJ5CTogaHR0cDovL2J1Z3ppbGxhLmtlcm5lbC5v
+cmcvc2hvd19idWcuY2dpP2lkPTI3MjAyClN1YmplY3QJCTogUmVtb3RlIGNvbnRyb2wgb2Ygc2Fh
+NzEzNC1iYXNlZCB0diBjYXJkICJBU1VTVGVLIFA3MTMxIEh5YnJpZCIgc3RvcHBlZCB3b3JraW5n
+IGluIDIuNi4zNwpTdWJtaXR0ZXIJOiAgPGFjYWl6em9AZ21haWwuY29tPgpEYXRlCQk6IDIwMTEt
+MDEtMjAgMTc6MjMgKDQ2IGRheXMgb2xkKQpGaXJzdC1CYWQtQ29tbWl0OiBodHRwOi8vZ2l0Lmtl
+cm5lbC5vcmcvbGludXMvNDY1MTkxOGE0YWZkZDQ5YmRlYTIxZDJmOTE5YjE4OWVmMTdhNjM5OQpI
+YW5kbGVkLUJ5CTogTWF1cm8gQ2FydmFsaG8gQ2hlaGFiIDxtY2hlaGFiQHJlZGhhdC5jb20+ClBh
+dGNoCQk6IGh0dHBzOi8vYnVnemlsbGEua2VybmVsLm9yZy9hdHRhY2htZW50LmNnaT9pZD00NDUz
+MgoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9p
+ZD0yNTkyMgpTdWJqZWN0CQk6IElkZWFQYWQgWTUzMCBicmlnaHRuZXNzIGtleXMgbm90IGZ1bmN0
+aW9uaW5nClN1Ym1pdHRlcgk6IFRvbWFzeiA8dG0udGVtcEBnbXguY29tPgpEYXRlCQk6IDIwMTAt
+MTItMzAgMTI6NDggKDY3IGRheXMgb2xkKQpIYW5kbGVkLUJ5CTogSWtlIFBhbmhjIDxpa2VwYW5o
+Y0BnbWFpbC5jb20+ClBhdGNoCQk6IGh0dHBzOi8vYnVnemlsbGEua2VybmVsLm9yZy9hdHRhY2ht
+ZW50LmNnaT9pZD00ODcwMgoKCkJ1Zy1FbnRyeQk6IGh0dHA6Ly9idWd6aWxsYS5rZXJuZWwub3Jn
+L3Nob3dfYnVnLmNnaT9pZD0yNDk4MgpTdWJqZWN0CQk6IEluY29uc2lzdGVudCBEUE1TIGhhbmRs
+aW5nIHdpdGggMi42LjM3IERSTQpTdWJtaXR0ZXIJOiBUYWthc2hpIEl3YWkgPHRpd2FpQHN1c2Uu
+ZGU+CkRhdGUJCTogMjAxMC0xMi0xNiAxNjozMiAoODEgZGF5cyBvbGQpCkhhbmRsZWQtQnkJOiBU
+YWthc2hpIEl3YWkgPHRpd2FpQHN1c2UuZGU+CgkJICBLZWl0aCBQYWNrYXJkIDxrZWl0aHBAa2Vp
+dGhwLmNvbT4KUGF0Y2gJCTogaHR0cHM6Ly9idWd6aWxsYS5rZXJuZWwub3JnL2F0dGFjaG1lbnQu
+Y2dpP2lkPTQwMzkyCgkJICBodHRwczovL3BhdGNod29yay5rZXJuZWwub3JnL3BhdGNoLzUzMDky
+MS8KCgpGb3IgZGV0YWlscywgcGxlYXNlIHZpc2l0IHRoZSBidWcgZW50cmllcyBhbmQgZm9sbG93
+IHRoZSBsaW5rcyBnaXZlbiBpbgpyZWZlcmVuY2VzLgoKQXMgeW91IGNhbiBzZWUsIHRoZXJlIGlz
+IGEgQnVnemlsbGEgZW50cnkgZm9yIGVhY2ggb2YgdGhlIGxpc3RlZCByZWdyZXNzaW9ucy4KVGhl
+cmUgYWxzbyBpcyBhIEJ1Z3ppbGxhIGVudHJ5IHVzZWQgZm9yIHRyYWNraW5nIHRoZSByZWdyZXNz
+aW9ucyBpbnRyb2R1Y2VkCmJldHdlZW4gMi42LjM2IGFuZCAyLjYuMzcsIHVucmVzb2x2ZWQgYXMg
+d2VsbCBhcyByZXNvbHZlZCwgYXQ6CgpodHRwOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1
+Zy5jZ2k/aWQ9MjE3ODIKClBsZWFzZSBsZXQgdGhlIHRyYWNraW5nIHRlYW0ga25vdyBpZiB0aGVy
+ZSBhcmUgYW55IEJ1Z3ppbGxhIGVudHJpZXMgdGhhdApzaG91bGQgYmUgYWRkZWQgdG8gdGhlIGxp
+c3QgaW4gdGhlcmUuCgpUaGFua3MhCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVl
+ZGVza3RvcC5vcmcKaHR0cDovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZv
+L2RyaS1kZXZlbAo=
