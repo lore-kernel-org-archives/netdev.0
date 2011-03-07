@@ -1,47 +1,57 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 4/8] bonding: wrap slave state work
-Date: Mon, 7 Mar 2011 10:58:40 +0100
-Message-ID: <20110307095839.GC2832@psychotron.brq.redhat.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
- <1299320969-7951-5-git-send-email-jpirko@redhat.com>
- <4D7254E9.6090605@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: harmonize the call to ptype_all and
+ ptype_base handlers.
+Date: Mon, 7 Mar 2011 11:03:19 +0100
+Message-ID: <20110307100318.GD2832@psychotron.brq.redhat.com>
+References: <4D738751.6050209@gmail.com>
+ <1299417916-14198-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
+	eric.dumazet@gmail.com, kaber@trash.net, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?= <nicolas.2p.debian@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9182 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60790 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755601Ab1CGJ7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 04:59:24 -0500
+	id S1755578Ab1CGKD3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 05:03:29 -0500
 Content-Disposition: inline
-In-Reply-To: <4D7254E9.6090605@gmail.com>
+In-Reply-To: <1299417916-14198-1-git-send-email-nicolas.2p.debian@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>
->>+static inline void bond_set_active_slave(struct slave *slave)
->>+{
->>+	slave->backup = 0;
+Sun, Mar 06, 2011 at 02:25:16PM CET, nicolas.2p.debian@free.fr wrote:
+>Until now, ptype_all and ptype_base delivery in __netif_receive_skb() =
+is
+>inconsistent.
 >
->In the comment above, you said that the possible value for backup
->corresponds with BOND_STATE_ACTIVE and BOND_STATE_BACKUP.
+>- For ptype_all, we deliver to every device crossed while walking the
+>rx_handler path (inside the another_round loop), and there is no way t=
+o stop
+>wildcard delivery (no exact match logic).
+>- For ptype_base, we deliver to the lowest device (orig_dev) and to th=
+e highest
+>(skb->dev) and we can ask for exact match delivery.
 >
->So, should be:
+>This patch try and fix this, by:
 >
->slave->backup = BOND_STATE_ACTIVE;
+>1/ Doing exact match delivery for both ptype_all and ptype_base, while=
+ walking
+>   the rx_handler path.
+>2/ Doing wildcard match delivery at the end of __netif_receive_skb(), =
+if not
+>   asked to do exact match delivery only.
 >
->>+}
->>+
->>+static inline void bond_set_backup_slave(struct slave *slave)
->>+{
->>+	slave->backup = 1;
+>Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+>---
 >
->slave->backup = BOND_STATE_BACKUP;
+>This apply on top of the last batch of patch from Jiri Pirko.
+>---
+> net/core/dev.c |   32 ++++++++++++++++++++++++--------
+> 1 files changed, 24 insertions(+), 8 deletions(-)
 >
 
-Well, I think it's weird and misleading to assign some define to :1
-bitfield. Should be 0 or 1, nothing else.
+I tend to like this patch. However I'm not sure if extra 2 loops don't
+introduce noticable overhead :/
