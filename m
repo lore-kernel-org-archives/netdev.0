@@ -1,52 +1,83 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 06/17] mlx4_en: using new mlx4 interrupt scheme
-Date: Mon, 07 Mar 2011 12:41:55 +0000
-Message-ID: <1299501715.3134.49.camel@localhost>
-References: <4D74B0AE.5070403@mellanox.co.il>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] net: reinject arps into bonding slave instead
+ of master
+Date: Mon, 7 Mar 2011 13:51:00 +0100
+Message-ID: <20110307125059.GA6053@psychotron.brq.redhat.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
+ <1299320969-7951-7-git-send-email-jpirko@redhat.com>
+ <4D7249BA.8030401@gmail.com>
+ <20110305144314.GC8573@psychotron.redhat.com>
+ <4D724DB4.9020207@gmail.com>
+ <4D737D00.20406@gmail.com>
+ <20110306133413.GB2795@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, markuze@mellanox.co.il
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:56657 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751054Ab1CGMmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 07:42:14 -0500
-In-Reply-To: <4D74B0AE.5070403@mellanox.co.il>
+Received: from mx1.redhat.com ([209.132.183.28]:58665 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751301Ab1CGMvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 07:51:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20110306133413.GB2795@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-03-07 at 12:17 +0200, Yevgeny Petrilin wrote:
-> Each RX ring will have its own interrupt vector, and TX rings will share one
-> (we mostly use polling for TX completions).
-> The vectors are assigned first time device is opened, and its name includes
-> the interface name and ring number.
-[...]
-> --- a/drivers/net/mlx4/en_main.c
-> +++ b/drivers/net/mlx4/en_main.c
-[...]
-> @@ -601,10 +602,19 @@ int mlx4_en_start_port(struct net_device *dev)
->  		goto cq_err;
->  	}
->  
-> +	if (mdev->dev->caps.comp_pool && !priv->tx_vector) {
-> +		sprintf(name , "%s_tx", priv->dev->name);
-> +		if (mlx4_assign_eq(mdev->dev , name, &priv->tx_vector)) {
-> +			mlx4_warn(mdev, "Failed Assigning an EQ to "
-> +					"%s_tx ,Falling back to legacy "
-> +					"EQ's\n", priv->dev->name);
-> +		}
-> +	}
-[...]
+Recent patch "bonding: move processing of recv handlers into
+handle_frame()" caused a regression on following net scheme:
 
-If this string is being copied to the IRQ name, it should be
-"<ifname>-tx" not "<ifname>_tx" for consistency with other drivers.
+eth0 - bond0 - bond0.5
 
-Ben.
+where arp monitoring is happening over vlan. This patch fixes it by
+reinjecting the arp packet into bonding slave device so the bonding
+rx_handler can pickup and process it.
 
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ net/core/dev.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c71bd18..3d88458 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3094,12 +3094,12 @@ void netdev_rx_handler_unregister(struct net_device *dev)
+ }
+ EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
+ 
+-static void vlan_on_bond_hook(struct sk_buff *skb)
++static void vlan_on_bond_hook(struct sk_buff *skb, struct net_device *orig_dev)
+ {
+ 	/*
+ 	 * Make sure ARP frames received on VLAN interfaces stacked on
+ 	 * bonding interfaces still make their way to any base bonding
+-	 * device that may have registered for a specific ptype.
++	 * device by reinjecting the frame into bonding slave (orig_dev)
+ 	 */
+ 	if (skb->dev->priv_flags & IFF_802_1Q_VLAN &&
+ 	    vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING &&
+@@ -3108,7 +3108,7 @@ static void vlan_on_bond_hook(struct sk_buff *skb)
+ 
+ 		if (!skb2)
+ 			return;
+-		skb2->dev = vlan_dev_real_dev(skb->dev);
++		skb2->dev = orig_dev;
+ 		netif_rx(skb2);
+ 	}
+ }
+@@ -3202,7 +3202,7 @@ ncls:
+ 			goto out;
+ 	}
+ 
+-	vlan_on_bond_hook(skb);
++	vlan_on_bond_hook(skb, orig_dev);
+ 
+ 	/* deliver only exact match when indicated */
+ 	null_or_dev = deliver_exact ? skb->dev : NULL;
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.4
 
