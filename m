@@ -1,38 +1,42 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: [PATCH 3/8] Phonet: fix backlog callback return value
-Date: Mon, 7 Mar 2011 22:30:13 +0200
-Message-ID: <201103072230.14080.remi@remlab.net>
-References: <201103031322.37184.remi.denis-courmont@nokia.com> <1299232831-3132-3-git-send-email-remi.denis-courmont@nokia.com> <20110307.122329.39193888.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 30092] New: smsc911x.c drops long packets
+ with VLAN tags
+Date: Mon, 07 Mar 2011 12:31:03 -0800 (PST)
+Message-ID: <20110307.123103.115933638.davem@davemloft.net>
+References: <bug-30092-10286@https.bugzilla.kernel.org/>
+	<20110301161547.13480e90.akpm@linux-foundation.org>
+	<lnsjv58vl2.fsf@desktop3.csbnet.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, steve.glendinning@smsc.com
+To: weinholt@csbnet.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:42904 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751203Ab1CGUaR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 15:30:17 -0500
-Received: from basile.remlab.net (cs27069010.pp.htv.fi [89.27.69.10])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: remi)
-	by yop.chewa.net (Postfix) with ESMTPSA id 32752139E
-	for <netdev@vger.kernel.org>; Mon,  7 Mar 2011 21:30:15 +0100 (CET)
-In-Reply-To: <20110307.122329.39193888.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41967
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752990Ab1CGUa0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 15:30:26 -0500
+In-Reply-To: <lnsjv58vl2.fsf@desktop3.csbnet.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 7 mars 2011 22:23:29 David Miller, vous avez =E9crit :
-> More verbose commit message please.
+=46rom: weinholt@csbnet.se (G=F6ran Weinholt)
+Date: Wed, 02 Mar 2011 15:07:21 +0100
+
+> Subject: [PATCH] net/smsc911x.c: Set the VLAN1 register to fix VLAN M=
+TU problem
+> From: G=F6ran Weinholt <weinholt@csbnet.se>
 >=20
-> What was wrong with the old error values and what exactly do
-> you claim to be doing to correct them?
+> The smsc911x driver would drop frames longer than 1518 bytes, which i=
+s a
+> problem for networks with VLAN tagging. The VLAN1 tag register is use=
+d
+> to increase the legal frame size to 1522 when a VLAN tag is identifie=
+d.
+>=20
+> Signed-off-by: G=F6ran Weinholt <weinholt@csbnet.se>
 
-They were returning -Exxx errno's where the caller expected NET_RX_* va=
-lues.
-I can "fix" it but it seemed obvious.
-
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.info/
-http://fi.linkedin.com/in/remidenis
+Applied, thanks.
