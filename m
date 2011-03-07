@@ -1,83 +1,50 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6] net: reinject arps into bonding slave instead
- of master
-Date: Mon, 7 Mar 2011 13:51:00 +0100
-Message-ID: <20110307125059.GA6053@psychotron.brq.redhat.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
- <1299320969-7951-7-git-send-email-jpirko@redhat.com>
- <4D7249BA.8030401@gmail.com>
- <20110305144314.GC8573@psychotron.redhat.com>
- <4D724DB4.9020207@gmail.com>
- <4D737D00.20406@gmail.com>
- <20110306133413.GB2795@psychotron.redhat.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: tun routing is broken
+Date: Mon, 7 Mar 2011 13:54:18 +0100 (CET)
+Message-ID: <alpine.LRH.2.00.1103071352100.19033@twin.jikos.cz>
+References: <20110304.010603.104076956.davem@davemloft.net> <4D70B2DC.2000005@gmail.com> <4D71EE86.6030309@suse.cz> <20110305.001022.183044112.davem@davemloft.net> <4D71F194.9010402@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Jiri Slaby <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
+	mm-commits@vger.kernel.org, netdev@vger.kernel.org,
+	maxk@qualcomm.com
+To: Jiri Slaby <jslaby@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58665 "EHLO mx1.redhat.com"
+Received: from cantor2.suse.de ([195.135.220.15]:53612 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751301Ab1CGMvM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 07:51:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20110306133413.GB2795@psychotron.redhat.com>
+	id S1751088Ab1CGMyb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 07:54:31 -0500
+In-Reply-To: <4D71F194.9010402@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent patch "bonding: move processing of recv handlers into
-handle_frame()" caused a regression on following net scheme:
+On Sat, 5 Mar 2011, Jiri Slaby wrote:
 
-eth0 - bond0 - bond0.5
+> > Date: Sat, 05 Mar 2011 09:04:22 +0100
+> > 
+> >> Ok, so I booted the new kernel, and tun is broken there completely. If I
+> >> try to ping a vpn peer:
+> > 
+> > -mm tree is missing this fix which went in yesterday.  Please if
+> > you are going to be testing networking a lot, test against net-next-2.6
+> > instead of Andrew's tree which invariable lags behind:
+> 
+> I'm not testing networking, I'm just using my desktop :). (And
+> next/master is mostly unusable for these needs. In comparison to mmotm
+> which is some kind of a "release".)
 
-where arp monitoring is happening over vlan. This patch fixes it by
-reinjecting the arp packet into bonding slave device so the bonding
-rx_handler can pickup and process it.
+I have been hit by similar issues several times already as well.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- net/core/dev.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+I guess that question of including -mm into linux-next should be raised 
+again here ... Andrew, if I remember correctly, on last kernel summit you 
+were stating that you'd stop eating untill you have -mm included in -next. 
+Seems like you must be quite hungry these days already :)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c71bd18..3d88458 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3094,12 +3094,12 @@ void netdev_rx_handler_unregister(struct net_device *dev)
- }
- EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
- 
--static void vlan_on_bond_hook(struct sk_buff *skb)
-+static void vlan_on_bond_hook(struct sk_buff *skb, struct net_device *orig_dev)
- {
- 	/*
- 	 * Make sure ARP frames received on VLAN interfaces stacked on
- 	 * bonding interfaces still make their way to any base bonding
--	 * device that may have registered for a specific ptype.
-+	 * device by reinjecting the frame into bonding slave (orig_dev)
- 	 */
- 	if (skb->dev->priv_flags & IFF_802_1Q_VLAN &&
- 	    vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING &&
-@@ -3108,7 +3108,7 @@ static void vlan_on_bond_hook(struct sk_buff *skb)
- 
- 		if (!skb2)
- 			return;
--		skb2->dev = vlan_dev_real_dev(skb->dev);
-+		skb2->dev = orig_dev;
- 		netif_rx(skb2);
- 	}
- }
-@@ -3202,7 +3202,7 @@ ncls:
- 			goto out;
- 	}
- 
--	vlan_on_bond_hook(skb);
-+	vlan_on_bond_hook(skb, orig_dev);
- 
- 	/* deliver only exact match when indicated */
- 	null_or_dev = deliver_exact ? skb->dev : NULL;
+Thanks,
+
 -- 
-1.7.4
+Jiri Kosina
+SUSE Labs, Novell Inc.
 
