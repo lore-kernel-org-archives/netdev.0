@@ -1,82 +1,100 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next-2.6] net: harmonize the call to ptype_all and
- ptype_base handlers.
-Date: Mon, 7 Mar 2011 22:12:43 +0100
-Message-ID: <20110307211242.GA3266@psychotron.redhat.com>
-References: <4D738751.6050209@gmail.com>
- <1299417916-14198-1-git-send-email-nicolas.2p.debian@free.fr>
- <20110307100318.GD2832@psychotron.brq.redhat.com>
- <4D7542EF.5000201@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@free.fr>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@vyatta.com, eric.dumazet@gmail.com,
-	kaber@trash.net, fubar@us.ibm.com, andy@greyhouse.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
 	<nicolas.2p.debian@gmail.com>
+Subject: Re: bonding can't change to another slave if you ifdown the active
+ slave
+Date: Mon, 07 Mar 2011 22:15:02 +0100
+Message-ID: <4D754AD6.30901@gmail.com>
+References: <4D704B35.20700@gmail.com> <20110305025332.GR11864@gospo.rdu.redhat.com> <4D723F83.7080309@gmail.com> <4D744D57.9050908@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, Linda Wang <lwang@redhat.com>
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62007 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756120Ab1CGVMx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 16:12:53 -0500
-Content-Disposition: inline
-In-Reply-To: <4D7542EF.5000201@gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44481 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753215Ab1CGVPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 16:15:05 -0500
+Received: by wyg36 with SMTP id 36so4595260wyg.19
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 13:15:04 -0800 (PST)
+In-Reply-To: <4D744D57.9050908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 07, 2011 at 09:41:19PM CET, nicolas.2p.debian@gmail.com wrote:
->Le 07/03/2011 11:03, Jiri Pirko a =E9crit :
->>Sun, Mar 06, 2011 at 02:25:16PM CET, nicolas.2p.debian@free.fr wrote:
->>>Until now, ptype_all and ptype_base delivery in __netif_receive_skb(=
-) is
->>>inconsistent.
+Le 07/03/2011 04:13, Weiping Pan a =E9crit :
+> On 03/05/2011 09:49 PM, Nicolas de Peslo=FCan wrote:
+>> Le 05/03/2011 03:53, Andy Gospodarek a =E9crit :
+>>> On Fri, Mar 04, 2011 at 10:15:17AM +0800, Weiping Pan wrote:
+>>>> Hi,
+>>>>
+>>>> I'm doing some Linux bonding driver test, and I find a problem in
+>>>> balance-rr mode.
+>>>> That's it can't change to another slave if you ifdown the active s=
+lave.
+>>>> Any comments are warmly welcomed!
+>>>>
+>>>> regards
+>>>> Weiping Pan
+>>>>
+>>>> My host is Fedora 14, and I install VirtualBox (4.0.2), and enable=
+ 4
+>>>> nics for the guest system.
 >>>
->>>- For ptype_all, we deliver to every device crossed while walking th=
-e
->>>rx_handler path (inside the another_round loop), and there is no way=
- to stop
->>>wildcard delivery (no exact match logic).
->>>- For ptype_base, we deliver to the lowest device (orig_dev) and to =
-the highest
->>>(skb->dev) and we can ask for exact match delivery.
->>>
->>>This patch try and fix this, by:
->>>
->>>1/ Doing exact match delivery for both ptype_all and ptype_base, whi=
-le walking
->>>   the rx_handler path.
->>>2/ Doing wildcard match delivery at the end of __netif_receive_skb()=
-, if not
->>>   asked to do exact match delivery only.
->>>
->>>Signed-off-by: Nicolas de Peslo=FCan<nicolas.2p.debian@free.fr>
->>>---
->>>
->>>This apply on top of the last batch of patch from Jiri Pirko.
->>>---
->>>net/core/dev.c |   32 ++++++++++++++++++++++++--------
->>>1 files changed, 24 insertions(+), 8 deletions(-)
->>>
+>>> Does this mean you are passing 4 NICs from your host to your guest
+>>> (maybe via direct pci-device assignment to the guest) or are you
+>>> creating 4 virtual devices on the host that are in a bridge group o=
+n the
+>>> host?
 >>
->>I tend to like this patch. However I'm not sure if extra 2 loops don'=
-t
->>introduce noticable overhead :/
+>> VirtualBox does not allow assignment of pci-device to the guest. The
+>> network interfaces on the guest are pure virtual one, with several
+>> modes available. In order to help you trouble shooting this problem,
+>> we need to know the mode form each of the virtual interfaces. Possib=
+le
+>> modes are NAT, bridged, internal-network, and host-only-network.
+>>
+>> Please provide the output of the following command:
+>>
+>> VBoxManage showvminfo <your-vm-uuid> | grep ^NIC
+>>
+>> To display your vm uuid, use the following command:
+>>
+>> VBoxManage list vms
+> [root@localhost ~]# VBoxManage showvminfo
+> 67b83c47-0ee2-46bc-b0ff-e0eb43edc1c2 |grep ^NIC
+> NIC 1: MAC: 0800270481A8, Attachment: Bridged Interface 'eth0', Cable
+> connected: on, Trace: off (file: none), Type: 82540EM, Reported speed=
+: 0
+> Mbps, Boot priority: 0
+> NIC 2: MAC: 08002778F641, Attachment: Bridged Interface 'eth0', Cable
+> connected: on, Trace: off (file: none), Type: 82540EM, Reported speed=
+: 0
+> Mbps, Boot priority: 0
+> NIC 3: MAC: 080027C408BA, Attachment: Bridged Interface 'eth0', Cable
+> connected: on, Trace: off (file: none), Type: 82540EM, Reported speed=
+: 0
+> Mbps, Boot priority: 0
+> NIC 4: MAC: 080027DB339A, Attachment: Bridged Interface 'eth0', Cable
+> connected: on, Trace: off (file: none), Type: 82540EM, Reported speed=
+: 0
+> Mbps, Boot priority: 0
+> NIC 5: disabled
+> NIC 6: disabled
+> NIC 7: disabled
+> NIC 8: disabled
 >
->I think ptype_all and ptype_base lists should only contain entries hav=
-ing ptype->dev =3D=3D NULL.
->
->The entries having ptype->dev !=3D NULL should be on per net_device
->lists. The head of those lists could/should be in a ptype_all and a
->ptype_base property in net_device.
->
->This would speed up the exact-match loops, because they would scan sma=
-ll (or empty) lists.
->
->I need to double check the possible impact of this proposal.
+> And when guest starts, i find that:
+> NIC 1: eth7
+> NIC 2: eth6
+> NIC 3: eth9
+> NIC 4: eth8
 
-On the first glance, this makes sense to me.
+Would you mind testing with "Host-only Interface 'vboxnet0'", instead o=
+f "Bridged Interface 'eth0'"?
 
->
->	Nicolas.
+All the bonding tests I do use this setup and the link failure detectio=
+n work well.
+
+	Nicolas.
