@@ -1,44 +1,42 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 17/17] mlx4_en: updated driver version to 1.5.4.1
-Date: Mon, 7 Mar 2011 12:18:05 +0200
-Message-ID: <4D74B0DD.9010606@mellanox.co.il>
+Subject: [PATCH 01/17] mlx4_en: going out of range of TX rings when reporting
+ stats
+Date: Mon, 7 Mar 2011 12:16:57 +0200
+Message-ID: <4D74B099.8070207@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:47530 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:42124 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754026Ab1CGOWS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 09:22:18 -0500
+	id S1751929Ab1CGOaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 09:30:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/mlx4_en.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/mlx4/en_port.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index edcb535..e30f609 100644
---- a/drivers/net/mlx4/mlx4_en.h
-+++ b/drivers/net/mlx4/mlx4_en.h
-@@ -49,8 +49,8 @@
- #include "en_port.h"
- 
- #define DRV_NAME	"mlx4_en"
--#define DRV_VERSION	"1.5.1.6"
--#define DRV_RELDATE	"August 2010"
-+#define DRV_VERSION	"1.5.4.1"
-+#define DRV_RELDATE	"March 2011"
- 
- #define MLX4_EN_MSG_LEVEL	(NETIF_MSG_LINK | NETIF_MSG_IFDOWN)
- 
+diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
+index 7f5a322..a2b0bc4 100644
+--- a/drivers/net/mlx4/en_port.c
++++ b/drivers/net/mlx4/en_port.c
+@@ -206,7 +206,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
+ 	}
+ 	stats->tx_packets = 0;
+ 	stats->tx_bytes = 0;
+-	for (i = 0; i <= priv->tx_ring_num; i++) {
++	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		stats->tx_packets += priv->tx_ring[i].packets;
+ 		stats->tx_bytes += priv->tx_ring[i].bytes;
+ 	}
 -- 
 1.6.0.2
-
 
 
 
