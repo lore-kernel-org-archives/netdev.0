@@ -1,104 +1,93 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 14/17] mlx4_core: maintain available field in bitmap allocator
-Date: Mon, 7 Mar 2011 12:17:57 +0200
-Message-ID: <4D74B0D5.8060903@mellanox.co.il>
+Subject: [PATCH 03/17] mlx4_en: optimize adaptive moderation algorithm for
+ better latency
+Date: Mon, 7 Mar 2011 12:17:07 +0200
+Message-ID: <4D74B0A3.5040905@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<eli@mellanox.co.il>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:39714 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:40334 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753549Ab1CGO7n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 09:59:43 -0500
+	id S1752329Ab1CGPBD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 10:01:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.co.il>
 
-Add mlx4_bitmap_avail() to give the number of available resources. We want to
-use this as a hint to whether to allocate a resources or not. This patch is
-introduced to be used with allocation blue flame registers.
-
-Signed-off-by: Eli Cohen <eli@mellanox.co.il>
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/alloc.c |   13 +++++++++++++
- drivers/net/mlx4/mlx4.h  |    2 ++
- 2 files changed, 15 insertions(+), 0 deletions(-)
+ drivers/net/mlx4/en_netdev.c |   18 +++++-------------
+ drivers/net/mlx4/mlx4_en.h   |    1 +
+ 2 files changed, 6 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/mlx4/alloc.c b/drivers/net/mlx4/alloc.c
-index 3a4277f..116cae3 100644
---- a/drivers/net/mlx4/alloc.c
-+++ b/drivers/net/mlx4/alloc.c
-@@ -62,6 +62,9 @@ u32 mlx4_bitmap_alloc(struct mlx4_bitmap *bitmap)
- 	} else
- 		obj = -1;
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index 56627c2..b1180dd 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -417,7 +417,6 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
+ 	unsigned long avg_pkt_size;
+ 	unsigned long rx_packets;
+ 	unsigned long rx_bytes;
+-	unsigned long rx_byte_diff;
+ 	unsigned long tx_packets;
+ 	unsigned long tx_pkt_diff;
+ 	unsigned long rx_pkt_diff;
+@@ -441,25 +440,20 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
+ 	rx_pkt_diff = ((unsigned long) (rx_packets -
+ 					priv->last_moder_packets));
+ 	packets = max(tx_pkt_diff, rx_pkt_diff);
+-	rx_byte_diff = rx_bytes - priv->last_moder_bytes;
+-	rx_byte_diff = rx_byte_diff ? rx_byte_diff : 1;
+ 	rate = packets * HZ / period;
+ 	avg_pkt_size = packets ? ((unsigned long) (rx_bytes -
+ 				 priv->last_moder_bytes)) / packets : 0;
  
-+	if (obj != -1)
-+		--bitmap->avail;
-+
- 	spin_unlock(&bitmap->lock);
+ 	/* Apply auto-moderation only when packet rate exceeds a rate that
+ 	 * it matters */
+-	if (rate > MLX4_EN_RX_RATE_THRESH) {
++	if (rate > MLX4_EN_RX_RATE_THRESH && avg_pkt_size > MLX4_EN_AVG_PKT_SMALL) {
+ 		/* If tx and rx packet rates are not balanced, assume that
+ 		 * traffic is mainly BW bound and apply maximum moderation.
+ 		 * Otherwise, moderate according to packet rate */
+-		if (2 * tx_pkt_diff > 3 * rx_pkt_diff &&
+-		    rx_pkt_diff / rx_byte_diff <
+-		    MLX4_EN_SMALL_PKT_SIZE)
+-			moder_time = priv->rx_usecs_low;
+-		else if (2 * rx_pkt_diff > 3 * tx_pkt_diff)
++		if (2 * tx_pkt_diff > 3 * rx_pkt_diff ||
++		    2 * rx_pkt_diff > 3 * tx_pkt_diff) {
+ 			moder_time = priv->rx_usecs_high;
+-		else {
++		} else {
+ 			if (rate < priv->pkt_rate_low)
+ 				moder_time = priv->rx_usecs_low;
+ 			else if (rate > priv->pkt_rate_high)
+@@ -471,9 +465,7 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
+ 					priv->rx_usecs_low;
+ 		}
+ 	} else {
+-		/* When packet rate is low, use default moderation rather than
+-		 * 0 to prevent interrupt storms if traffic suddenly increases */
+-		moder_time = priv->rx_usecs;
++		moder_time = priv->rx_usecs_low;
+ 	}
  
- 	return obj;
-@@ -101,11 +104,19 @@ u32 mlx4_bitmap_alloc_range(struct mlx4_bitmap *bitmap, int cnt, int align)
- 	} else
- 		obj = -1;
+ 	en_dbg(INTR, priv, "tx rate:%lu rx_rate:%lu\n",
+diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
+index dfed6a0..5387c4e 100644
+--- a/drivers/net/mlx4/mlx4_en.h
++++ b/drivers/net/mlx4/mlx4_en.h
+@@ -124,6 +124,7 @@ enum {
+ #define MLX4_EN_RX_SIZE_THRESH		1024
+ #define MLX4_EN_RX_RATE_THRESH		(1000000 / MLX4_EN_RX_COAL_TIME_HIGH)
+ #define MLX4_EN_SAMPLE_INTERVAL		0
++#define MLX4_EN_AVG_PKT_SMALL		256
  
-+	if (obj != -1)
-+		bitmap->avail -= cnt;
-+
- 	spin_unlock(&bitmap->lock);
+ #define MLX4_EN_AUTO_CONF	0xffff
  
- 	return obj;
- }
- 
-+u32 mlx4_bitmap_avail(struct mlx4_bitmap *bitmap)
-+{
-+	return bitmap->avail;
-+}
-+
- void mlx4_bitmap_free_range(struct mlx4_bitmap *bitmap, u32 obj, int cnt)
- {
- 	obj &= bitmap->max + bitmap->reserved_top - 1;
-@@ -115,6 +126,7 @@ void mlx4_bitmap_free_range(struct mlx4_bitmap *bitmap, u32 obj, int cnt)
- 	bitmap->last = min(bitmap->last, obj);
- 	bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
- 			& bitmap->mask;
-+	bitmap->avail += cnt;
- 	spin_unlock(&bitmap->lock);
- }
- 
-@@ -130,6 +142,7 @@ int mlx4_bitmap_init(struct mlx4_bitmap *bitmap, u32 num, u32 mask,
- 	bitmap->max  = num - reserved_top;
- 	bitmap->mask = mask;
- 	bitmap->reserved_top = reserved_top;
-+	bitmap->avail = num - reserved_top - reserved_bot;
- 	spin_lock_init(&bitmap->lock);
- 	bitmap->table = kzalloc(BITS_TO_LONGS(bitmap->max) *
- 				sizeof (long), GFP_KERNEL);
-diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index 008bf95..6277133 100644
---- a/drivers/net/mlx4/mlx4.h
-+++ b/drivers/net/mlx4/mlx4.h
-@@ -105,6 +105,7 @@ struct mlx4_bitmap {
- 	u32			max;
- 	u32                     reserved_top;
- 	u32			mask;
-+	u32			avail;
- 	spinlock_t		lock;
- 	unsigned long	       *table;
- };
-@@ -371,6 +372,7 @@ u32 mlx4_bitmap_alloc(struct mlx4_bitmap *bitmap);
- void mlx4_bitmap_free(struct mlx4_bitmap *bitmap, u32 obj);
- u32 mlx4_bitmap_alloc_range(struct mlx4_bitmap *bitmap, int cnt, int align);
- void mlx4_bitmap_free_range(struct mlx4_bitmap *bitmap, u32 obj, int cnt);
-+u32 mlx4_bitmap_avail(struct mlx4_bitmap *bitmap);
- int mlx4_bitmap_init(struct mlx4_bitmap *bitmap, u32 num, u32 mask,
- 		     u32 reserved_bot, u32 resetrved_top);
- void mlx4_bitmap_cleanup(struct mlx4_bitmap *bitmap);
 -- 
 1.6.0.2
 
