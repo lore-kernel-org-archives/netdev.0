@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rds: prevent BUG_ON triggering on congestion map
- updates
-Date: Mon, 07 Mar 2011 12:27:53 -0800 (PST)
-Message-ID: <20110307.122753.59686845.davem@davemloft.net>
-References: <1299083302-5168-1-git-send-email-nhorman@tuxdriver.com>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: [PATCH 3/8] Phonet: fix backlog callback return value
+Date: Mon, 7 Mar 2011 22:30:13 +0200
+Message-ID: <201103072230.14080.remi@remlab.net>
+References: <201103031322.37184.remi.denis-courmont@nokia.com> <1299232831-3132-3-git-send-email-remi.denis-courmont@nokia.com> <20110307.122329.39193888.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	andy.grover@oracle.com
-To: nhorman@tuxdriver.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53937
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750921Ab1CGU1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 15:27:16 -0500
-In-Reply-To: <1299083302-5168-1-git-send-email-nhorman@tuxdriver.com>
+Received: from yop.chewa.net ([91.121.105.214]:42904 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751203Ab1CGUaR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 15:30:17 -0500
+Received: from basile.remlab.net (cs27069010.pp.htv.fi [89.27.69.10])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: remi)
+	by yop.chewa.net (Postfix) with ESMTPSA id 32752139E
+	for <netdev@vger.kernel.org>; Mon,  7 Mar 2011 21:30:15 +0100 (CET)
+In-Reply-To: <20110307.122329.39193888.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed,  2 Mar 2011 11:28:22 -0500
+Le lundi 7 mars 2011 22:23:29 David Miller, vous avez =E9crit :
+> More verbose commit message please.
+>=20
+> What was wrong with the old error values and what exactly do
+> you claim to be doing to correct them?
 
-> Recently had this bug halt reported to me:
+They were returning -Exxx errno's where the caller expected NET_RX_* va=
+lues.
+I can "fix" it but it seemed obvious.
 
-Well, does anyone on the RDS team care about this bug fix at all?
-
-Stuff like this should not sit for nearly a week without any reply
-whatsoever.
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.info/
+http://fi.linkedin.com/in/remidenis
