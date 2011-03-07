@@ -1,57 +1,55 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave	instead
- of master
-Date: Mon, 07 Mar 2011 22:30:57 +0100
-Message-ID: <4D754E91.1040208@gmail.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com> <20110307143202.GS11864@gospo.rdu.redhat.com> <4D753C40.2030502@gmail.com> <20110307211957.GB3266@psychotron.redhat.com>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: FW: [PATCH 13/17] mlx4: Add blue flame support for kernel
+ consumers
+Date: Mon, 7 Mar 2011 23:36:48 +0200
+Message-ID: <20110307213648.GA18682@mtldesk30>
+References: <CFE9BFE80FFE4D4892AA5D31387E310F02F3ED@mtldag01.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: roland@purestorage.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:61775 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:40541 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853Ab1CGVa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 16:30:59 -0500
-Received: by wyg36 with SMTP id 36so4610398wyg.19
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 13:30:58 -0800 (PST)
-In-Reply-To: <20110307211957.GB3266@psychotron.redhat.com>
+	with ESMTP id S1754055Ab1CGVeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 16:34:50 -0500
+Received: by wyg36 with SMTP id 36so4614156wyg.19
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 13:34:46 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CFE9BFE80FFE4D4892AA5D31387E310F02F3ED@mtldag01.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 07/03/2011 22:19, Jiri Pirko a =E9crit :
->>
->> Andy, while you are testing it, can you ensure it also works for the=
- following setup?
->>
->> eth0 ->  bond0 ->  br0 ->  br0.100
->>
->
-> I do not think this will work (it never did).
+>=20
+> On Mon, Mar 7, 2011 at 2:17 AM, Yevgeny Petrilin
+> <yevgenyp@mellanox.co.il> wrote:
+> > + =A0 =A0 =A0 if (map_bf_area(dev))
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mlx4_dbg(dev, "Kernel support for blu=
+e flame is not available for kernels < 2.6.28\n");
+>=20
+> This seems like a really bad error message.  Can map_bf_area() actual=
+ly fail?
 
-Yes, but it should...
+I agree that this message is inappropriate here; it is originiated
+from the OFED patches which support older kernels too.
+As for the question if a message is justified here at all, I think the
+answer is yes becuase of this:
 
-> Bridge reinjects skb, does not do another loop.
++static int map_bf_area(struct mlx4_dev *dev)
++{
++       struct mlx4_priv *priv =3D mlx4_priv(dev);
++       resource_size_t bf_start;
++       resource_size_t bf_len;
++       int err =3D 0;
++
++       bf_start =3D pci_resource_start(dev->pdev, 2) +
+(dev->caps.num_uars << PAGE_SHIFT);
++       bf_len =3D pci_resource_len(dev->pdev, 2) - (dev->caps.num_uars
+<< PAGE_SHIFT);
++       priv->bf_mapping =3D io_mapping_create_wc(bf_start, bf_len);
++       if (!priv->bf_mapping)
++               err =3D -ENOMEM;
 
-Yes, but it should...
-
-> Therefore when skb->dev =3D=3D br0 and vlan_on_bond hook is called, o=
-rig_dev =3D=3D br0 as well. + No
-> IFF_BONDING is set.
-
-If only bridge returned RX_HANDLER_ANOTHER with skb->dev changed to br0=
-=2E.. instead of re-injecting=20
-the skb... One more reason to avoid re-injecting.
-
-> I have some kind nice solution in mind and I'm going to submit that a=
-s a patch later (too many
-> patches are in the wind atm).
-
-Agreed. It's time for others to review, test and ack :-D
-
-	Nicolas.
+Specifically, some archs may not support write combining.
+=20
