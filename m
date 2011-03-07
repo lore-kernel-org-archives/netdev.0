@@ -1,213 +1,112 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 07/17] mlx4: Wake on LAN support
-Date: Mon, 7 Mar 2011 12:17:21 +0200
-Message-ID: <4D74B0B1.9080102@mellanox.co.il>
+Subject: [PATCH 08/17] mlx4_en: Reporting HW revision in ethtool -i
+Date: Mon, 7 Mar 2011 12:17:24 +0200
+Message-ID: <4D74B0B4.9010502@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<igory@mellanox.co.il>
+	<eugenia@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:40310 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:40319 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755719Ab1CGKR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 05:17:26 -0500
+	id S1755776Ab1CGKRb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 05:17:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver queries the FW for WOL support.
-Ethtool get/set_wol is implemented accordingly.
-Only magic packets are supported at the time.
 
-Signed-off-by: Igor Yarovinsky <igory@mellanox.co.il>
+HW revision is derived from device ID and rev id.
+
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/en_ethtool.c |   62 +++++++++++++++++++++++++++++++++++++++-
- drivers/net/mlx4/fw.c         |   20 +++++++++++++
- drivers/net/mlx4/fw.h         |    1 +
- drivers/net/mlx4/main.c       |    1 +
- drivers/net/mlx4/mlx4_en.h    |    7 ++++
- include/linux/mlx4/device.h   |    4 ++
- 6 files changed, 93 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/mlx4/main.c |    1 -
+ drivers/net/mlx4/en_ethtool.c     |   15 ++++++++++++++-
+ drivers/net/mlx4/main.c           |    2 ++
+ drivers/net/mlx4/mlx4_en.h        |    3 +++
+ include/linux/mlx4/device.h       |    2 +-
+ 5 files changed, 20 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index c7a6213..66e3eec 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -721,7 +721,6 @@ static int init_node_data(struct mlx4_ib_dev *dev)
+ 	if (err)
+ 		goto out;
+ 
+-	dev->dev->rev_id = be32_to_cpup((__be32 *) (out_mad->data + 32));
+ 	memcpy(&dev->ib_dev.node_guid, out_mad->data + 12, 8);
+ 
+ out:
 diff --git a/drivers/net/mlx4/en_ethtool.c b/drivers/net/mlx4/en_ethtool.c
-index 8cfe858..c1f351f 100644
+index c1f351f..62ace6c 100644
 --- a/drivers/net/mlx4/en_ethtool.c
 +++ b/drivers/net/mlx4/en_ethtool.c
-@@ -131,8 +131,65 @@ static void mlx4_en_set_msglevel(struct net_device *dev, u32 val)
- static void mlx4_en_get_wol(struct net_device *netdev,
- 			    struct ethtool_wolinfo *wol)
- {
--	wol->supported = 0;
--	wol->wolopts = 0;
-+	struct mlx4_en_priv *priv = netdev_priv(netdev);
-+	int err = 0;
-+	u64 config = 0;
-+
-+	if (!priv->mdev->dev->caps.wol) {
-+		wol->supported = 0;
-+		wol->wolopts = 0;
-+		return;
-+	}
-+
-+	err = mlx4_wol_read(priv->mdev->dev, &config, priv->port);
-+	if (err) {
-+		en_err(priv, "Failed to get WoL information\n");
-+		return;
-+	}
-+
-+	if (config & MLX4_EN_WOL_MAGIC)
-+		wol->supported = WAKE_MAGIC;
-+	else
-+		wol->supported = 0;
-+
-+	if (config & MLX4_EN_WOL_ENABLED)
-+		wol->wolopts = WAKE_MAGIC;
-+	else
-+		wol->wolopts = 0;
-+}
-+
-+static int mlx4_en_set_wol(struct net_device *netdev,
-+			    struct ethtool_wolinfo *wol)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(netdev);
-+	u64 config = 0;
-+	int err = 0;
-+
-+	if (!priv->mdev->dev->caps.wol)
-+		return -EOPNOTSUPP;
-+
-+	if (wol->supported & ~WAKE_MAGIC)
-+		return -EINVAL;
-+
-+	err = mlx4_wol_read(priv->mdev->dev, &config, priv->port);
-+	if (err) {
-+		en_err(priv, "Failed to get WoL info, unable to modify\n");
-+		return err;
-+	}
-+
-+	if (wol->wolopts & WAKE_MAGIC) {
-+		config |= MLX4_EN_WOL_DO_MODIFY | MLX4_EN_WOL_ENABLED |
-+				MLX4_EN_WOL_MAGIC;
-+	} else {
-+		config &= ~(MLX4_EN_WOL_ENABLED | MLX4_EN_WOL_MAGIC);
-+		config |= MLX4_EN_WOL_DO_MODIFY;
-+	}
-+
-+	err = mlx4_wol_write(priv->mdev->dev, config, priv->port);
-+	if (err)
-+		en_err(priv, "Failed to set WoL information\n");
-+
-+	return err;
- }
+@@ -45,7 +45,20 @@ mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
  
- static int mlx4_en_get_sset_count(struct net_device *dev, int sset)
-@@ -442,6 +499,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
- 	.get_ethtool_stats = mlx4_en_get_ethtool_stats,
- 	.self_test = mlx4_en_self_test,
- 	.get_wol = mlx4_en_get_wol,
-+	.set_wol = mlx4_en_set_wol,
- 	.get_msglevel = mlx4_en_get_msglevel,
- 	.set_msglevel = mlx4_en_set_msglevel,
- 	.get_coalesce = mlx4_en_get_coalesce,
-diff --git a/drivers/net/mlx4/fw.c b/drivers/net/mlx4/fw.c
-index 5de1db8..fd1c51b 100644
---- a/drivers/net/mlx4/fw.c
-+++ b/drivers/net/mlx4/fw.c
-@@ -276,6 +276,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	dev_cap->udp_rss = field & 0x1;
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_ETH_UC_LOOPBACK_OFFSET);
- 	dev_cap->loopback_support = field & 0x1;
-+	dev_cap->wol = field & 0x40;
- 	MLX4_GET(dev_cap->flags, outbox, QUERY_DEV_CAP_FLAGS_OFFSET);
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_RSVD_UAR_OFFSET);
- 	dev_cap->reserved_uars = field >> 4;
-@@ -908,3 +909,22 @@ int mlx4_NOP(struct mlx4_dev *dev)
- 	/* Input modifier of 0x1f means "finish as soon as possible." */
- 	return mlx4_cmd(dev, 0, 0x1f, 0, MLX4_CMD_NOP, 100);
- }
-+
-+#define MLX4_WOL_SETUP_MODE (5 << 28)
-+int mlx4_wol_read(struct mlx4_dev *dev, u64 *config, int port)
-+{
-+	u32 in_mod = MLX4_WOL_SETUP_MODE | port << 8;
-+
-+	return mlx4_cmd_imm(dev, 0, config, in_mod, 0x3,
-+			    MLX4_CMD_MOD_STAT_CFG, MLX4_CMD_TIME_CLASS_A);
-+}
-+EXPORT_SYMBOL_GPL(mlx4_wol_read);
-+
-+int mlx4_wol_write(struct mlx4_dev *dev, u64 config, int port)
-+{
-+	u32 in_mod = MLX4_WOL_SETUP_MODE | port << 8;
-+
-+	return mlx4_cmd(dev, config, in_mod, 0x1, MLX4_CMD_MOD_STAT_CFG,
-+					MLX4_CMD_TIME_CLASS_A);
-+}
-+EXPORT_SYMBOL_GPL(mlx4_wol_write);
-diff --git a/drivers/net/mlx4/fw.h b/drivers/net/mlx4/fw.h
-index 65cc72e..f7b9cc2 100644
---- a/drivers/net/mlx4/fw.h
-+++ b/drivers/net/mlx4/fw.h
-@@ -80,6 +80,7 @@ struct mlx4_dev_cap {
- 	u16 stat_rate_support;
- 	int udp_rss;
- 	int loopback_support;
-+	int wol;
- 	u32 flags;
- 	int reserved_uars;
- 	int uar_size;
+-	sprintf(drvinfo->driver, DRV_NAME " (%s)", mdev->dev->board_id);
++	switch (mdev->dev->rev_id) {
++	case 0xa0:
++		if (dev->dev_id >= MLX4_EN_CX3_LOW_ID && dev->dev_id <= MLX4_EN_CX3_HIGH_ID)
++			sprintf(drvinfo->driver, DRV_NAME " (%s_CX-3)", mdev->dev->board_id);
++		else
++			sprintf(drvinfo->driver, DRV_NAME " (%s_CX)", mdev->dev->board_id);
++		break;
++	case 0xb0:
++		sprintf(drvinfo->driver, DRV_NAME " (%s_CX-2)", mdev->dev->board_id);
++		break;
++	default:
++		sprintf(drvinfo->driver, DRV_NAME " (%s)", mdev->dev->board_id);
++		break;
++	}
+ 	strncpy(drvinfo->version, DRV_VERSION " (" DRV_RELDATE ")", 32);
+ 	sprintf(drvinfo->fw_version, "%d.%d.%d",
+ 		(u16) (mdev->dev->caps.fw_ver >> 32),
 diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
-index 517ca34..42d4fb4 100644
+index 42d4fb4..5bebb88 100644
 --- a/drivers/net/mlx4/main.c
 +++ b/drivers/net/mlx4/main.c
-@@ -227,6 +227,7 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	dev->caps.stat_rate_support  = dev_cap->stat_rate_support;
- 	dev->caps.udp_rss	     = dev_cap->udp_rss;
- 	dev->caps.loopback_support   = dev_cap->loopback_support;
-+	dev->caps.wol		     = dev_cap->wol;
- 	dev->caps.max_gso_sz	     = dev_cap->max_gso_sz;
+@@ -1139,6 +1139,8 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	INIT_LIST_HEAD(&priv->pgdir_list);
+ 	mutex_init(&priv->pgdir_mutex);
  
- 	dev->caps.log_num_macs  = log_num_mac;
++	pci_read_config_byte(pdev, PCI_REVISION_ID, &dev->rev_id);
++
+ 	/*
+ 	 * Now reset the HCA before we touch the PCI capabilities or
+ 	 * attempt a firmware command, since a boot ROM may have left
 diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 2db245f..07aea8d 100644
+index 07aea8d..ad4df66 100644
 --- a/drivers/net/mlx4/mlx4_en.h
 +++ b/drivers/net/mlx4/mlx4_en.h
-@@ -479,6 +479,13 @@ struct mlx4_en_priv {
- 	int mc_addrs_cnt;
- 	struct mlx4_en_stat_out_mbox hw_stats;
- 	int vids[128];
-+	bool wol;
-+};
+@@ -216,6 +216,9 @@ struct mlx4_en_tx_desc {
+ 
+ #define MLX4_EN_USE_SRQ		0x01000000
+ 
++#define MLX4_EN_CX3_LOW_ID	0x1000
++#define MLX4_EN_CX3_HIGH_ID	0x1005
 +
-+enum mlx4_en_wol {
-+	MLX4_EN_WOL_MAGIC = (1ULL << 61),
-+	MLX4_EN_WOL_ENABLED = (1ULL << 62),
-+	MLX4_EN_WOL_DO_MODIFY = (1ULL << 63),
- };
- 
- 
+ struct mlx4_en_rx_alloc {
+ 	struct page *page;
+ 	u16 offset;
 diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 7838082..2460356 100644
+index 2460356..fe2a3a3 100644
 --- a/include/linux/mlx4/device.h
 +++ b/include/linux/mlx4/device.h
-@@ -251,6 +251,7 @@ struct mlx4_caps {
- 	u16			stat_rate_support;
- 	int			udp_rss;
- 	int			loopback_support;
-+	int			wol;
- 	u8			port_width_cap[MLX4_MAX_PORTS + 1];
- 	int			max_gso_sz;
- 	int                     reserved_qps_cnt[MLX4_NUM_QP_REGION];
-@@ -535,4 +536,7 @@ int mlx4_test_interrupts(struct mlx4_dev *dev);
- int mlx4_assign_eq(struct mlx4_dev *dev, char* name , int* vector);
- void mlx4_release_eq(struct mlx4_dev *dev, int vec);
+@@ -422,7 +422,7 @@ struct mlx4_dev {
+ 	unsigned long		flags;
+ 	struct mlx4_caps	caps;
+ 	struct radix_tree_root	qp_table_tree;
+-	u32			rev_id;
++	u8			rev_id;
+ 	char			board_id[MLX4_BOARD_ID_LEN];
+ };
  
-+int mlx4_wol_read(struct mlx4_dev *dev, u64 *config, int port);
-+int mlx4_wol_write(struct mlx4_dev *dev, u64 config, int port);
-+
- #endif /* MLX4_DEVICE_H */
 -- 
 1.6.0.2
 
