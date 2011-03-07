@@ -1,42 +1,40 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 01/17] mlx4_en: going out of range of TX rings when reporting
- stats
-Date: Mon, 7 Mar 2011 12:16:57 +0200
-Message-ID: <4D74B099.8070207@mellanox.co.il>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave
+	instead of master
+Date: Mon, 7 Mar 2011 09:32:02 -0500
+Message-ID: <20110307143202.GS11864@gospo.rdu.redhat.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:42124 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751929Ab1CGOaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 09:30:00 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:25766 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751160Ab1CGOcn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 09:32:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20110307125059.GA6053@psychotron.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Mar 07, 2011 at 01:51:00PM +0100, Jiri Pirko wrote:
+> Recent patch "bonding: move processing of recv handlers into
+> handle_frame()" caused a regression on following net scheme:
+> 
+> eth0 - bond0 - bond0.5
+> 
+> where arp monitoring is happening over vlan. This patch fixes it by
+> reinjecting the arp packet into bonding slave device so the bonding
+> rx_handler can pickup and process it.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/en_port.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
-index 7f5a322..a2b0bc4 100644
---- a/drivers/net/mlx4/en_port.c
-+++ b/drivers/net/mlx4/en_port.c
-@@ -206,7 +206,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	}
- 	stats->tx_packets = 0;
- 	stats->tx_bytes = 0;
--	for (i = 0; i <= priv->tx_ring_num; i++) {
-+	for (i = 0; i < priv->tx_ring_num; i++) {
- 		stats->tx_packets += priv->tx_ring[i].packets;
- 		stats->tx_bytes += priv->tx_ring[i].bytes;
- 	}
--- 
-1.6.0.2
-
-
+Thanks, Jiri.  I will test and make sure it works correctly now.  I know
+several users who would be quite disappointed if this feature was
+removed.
 
