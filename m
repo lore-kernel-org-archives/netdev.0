@@ -1,151 +1,121 @@
 From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 8/8] Phonet: kill the ST-Ericsson pipe controller Kconfig
-Date: Mon,  7 Mar 2011 12:46:12 +0200
-Message-ID: <1299494772-3965-8-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 6/8] Phonet: provide pipe socket option to retrieve the pipe identifier
+Date: Mon,  7 Mar 2011 12:46:10 +0200
+Message-ID: <1299494772-3965-6-git-send-email-remi.denis-courmont@nokia.com>
 References: <201103071245.47722.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.26]:36633 "EHLO mgw-da02.nokia.com"
+Received: from smtp.nokia.com ([147.243.128.26]:36580 "EHLO mgw-da02.nokia.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755924Ab1CGKpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 05:45:25 -0500
+	id S1755132Ab1CGKpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 05:45:24 -0500
 Received: from leon.remlab.com (esdhcp034153.research.nokia.com [172.21.34.153])
-	by mgw-da02.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p27AjHe9005748
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 12:45:24 +0200
+	by mgw-da02.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p27AjHe7005748
+	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 12:45:22 +0200
 In-Reply-To: <201103071245.47722.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is now a run-time choice so that a single kernel can support both
-old and new generation ISI modems.
+User-space sometimes needs this information.
 
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- Documentation/networking/phonet.txt |   13 -------------
- include/linux/phonet.h              |    2 --
- net/phonet/Kconfig                  |   12 ------------
- net/phonet/pep.c                    |   25 -------------------------
- 4 files changed, 0 insertions(+), 52 deletions(-)
+ Documentation/networking/phonet.txt |    7 ++++---
+ include/linux/phonet.h              |    2 +-
+ net/phonet/pep.c                    |   15 +++++++--------
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/Documentation/networking/phonet.txt b/Documentation/networ=
 king/phonet.txt
-index 3d12779..8100358 100644
+index 24ad2ad..cacac96 100644
 --- a/Documentation/networking/phonet.txt
 +++ b/Documentation/networking/phonet.txt
-@@ -205,19 +205,6 @@ The pipe protocol provides two socket options at t=
+@@ -181,6 +181,10 @@ The pipe protocol provides two socket options at t=
 he SOL_PNPIPE level:
-     socket descriptors that are already connected or being connected.
+     interface index of the network interface created by PNPIPE_ENCAP,
+     or zero if encapsulation is off.
 =20
++  PNPIPE_HANDLE is a read-only integer value. It contains the underlyi=
+ng
++    identifier ("pipe handle") of the pipe. This is only defined for
++    socket descriptors that are already connected or being connected.
++
 =20
--Phonet Pipe-controller Implementation
---------------------------------------
+ Phonet Pipe-controller Implementation
+ -------------------------------------
+@@ -199,9 +203,6 @@ between itself and a remote pipe-end point (e.g. mo=
+dem).
+=20
+ The implementation adds socket options at SOL_PNPIPE level:
+=20
+- PNPIPE_PIPE_HANDLE
+-	It accepts an integer argument for setting value of pipe handle.
 -
--Phonet Pipe-controller is enabled by selecting the CONFIG_PHONET_PIPEC=
-TRLR
--Kconfig option.
--
--The implementation adds socket options at SOL_PNPIPE level:
--
--  PNPIPE_ENABLE accepts one integer value (int). If set to zero, the p=
+   PNPIPE_ENABLE accepts one integer value (int). If set to zero, the p=
 ipe
--    is disabled. If the value is non-zero, the pipe is enabled. If the=
+     is disabled. If the value is non-zero, the pipe is enabled. If the=
  pipe
--    is not (yet) connected, ENOTCONN is error is returned.
--
--
- Authors
- -------
-=20
+     is not (yet) connected, ENOTCONN is error is returned.
 diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-index 32a0965..6fb1384 100644
+index 26c8df7..32a0965 100644
 --- a/include/linux/phonet.h
 +++ b/include/linux/phonet.h
-@@ -37,8 +37,6 @@
+@@ -36,7 +36,7 @@
+ /* Socket options for SOL_PNPIPE level */
  #define PNPIPE_ENCAP		1
  #define PNPIPE_IFINDEX		2
- #define PNPIPE_HANDLE		3
--#define PNPIPE_ENABLE           4
--/* unused slot */
+-#define PNPIPE_PIPE_HANDLE	3
++#define PNPIPE_HANDLE		3
+ #define PNPIPE_ENABLE           4
+ /* unused slot */
 =20
- #define PNADDR_ANY		0
- #define PNADDR_BROADCAST	0xFC
-diff --git a/net/phonet/Kconfig b/net/phonet/Kconfig
-index 0d9b8a2..6ec7d55 100644
---- a/net/phonet/Kconfig
-+++ b/net/phonet/Kconfig
-@@ -14,15 +14,3 @@ config PHONET
-=20
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called phonet. If unsure, say N.
--
--config PHONET_PIPECTRLR
--	bool "Phonet Pipe Controller (EXPERIMENTAL)"
--	depends on PHONET && EXPERIMENTAL
--	default N
--	help
--	  The Pipe Controller implementation in Phonet stack to support Pipe
--	  data with Nokia Slim modems like WG2.5 used on ST-Ericsson U8500
--	  platform.
--
--	  This option is incompatible with older Nokia modems.
--	  Say N here unless you really know what you are doing.
 diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index 671effb..68e635f 100644
+index c0fab4c..abfb795 100644
 --- a/net/phonet/pep.c
 +++ b/net/phonet/pep.c
-@@ -167,15 +167,6 @@ static int pipe_handler_send_created_ind(struct so=
-ck *sk)
- 				data, 4, GFP_ATOMIC);
+@@ -853,6 +853,7 @@ static int pep_sock_connect(struct sock *sk, struct=
+ sockaddr *addr, int len)
+=20
+ 	pn->pn_sk.dobject =3D pn_sockaddr_get_object(spn);
+ 	pn->pn_sk.resource =3D pn_sockaddr_get_resource(spn);
++	pn->pipe_handle =3D 1; /* anything but INVALID_HANDLE */
+ 	return pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
+ 					PN_PIPE_DISABLE, data, 4);
  }
-=20
--#ifdef CONFIG_PHONET_PIPECTRLR
--static int pipe_handler_enable_pipe(struct sock *sk, int enable)
--{
--	u8 id =3D enable ? PNS_PEP_ENABLE_REQ : PNS_PEP_DISABLE_REQ;
--
--	return pipe_handler_request(sk, id, PAD, NULL, 0);
--}
--#endif
--
- static int pep_accept_conn(struct sock *sk, struct sk_buff *skb)
- {
- 	static const u8 data[20] =3D {
-@@ -968,16 +959,6 @@ static int pep_setsockopt(struct sock *sk, int lev=
+@@ -909,14 +910,6 @@ static int pep_setsockopt(struct sock *sk, int lev=
 el, int optname,
- 		}
- 		goto out_norel;
 =20
+ 	lock_sock(sk);
+ 	switch (optname) {
 -#ifdef CONFIG_PHONET_PIPECTRLR
--	case PNPIPE_ENABLE:
--		if ((1 << sk->sk_state) & ~(TCPF_SYN_RECV|TCPF_ESTABLISHED)) {
--			err =3D -ENOTCONN;
+-	case PNPIPE_PIPE_HANDLE:
+-		if (val) {
+-			pn->pipe_handle =3D val;
 -			break;
 -		}
--		err =3D pipe_handler_enable_pipe(sk, val);
--		break;
 -#endif
 -
- 	default:
- 		err =3D -ENOPROTOOPT;
- 	}
-@@ -1013,12 +994,6 @@ static int pep_getsockopt(struct sock *sk, int le=
-vel, int optname,
- 			return -EINVAL;
+ 	case PNPIPE_ENCAP:
+ 		if (val && val !=3D PNPIPE_ENCAP_IP) {
+ 			err =3D -EINVAL;
+@@ -982,6 +975,12 @@ static int pep_getsockopt(struct sock *sk, int lev=
+el, int optname,
+ 		val =3D pn->ifindex;
  		break;
 =20
--#ifdef CONFIG_PHONET_PIPECTRLR
--	case PNPIPE_ENABLE:
--		val =3D sk->sk_state =3D=3D TCP_ESTABLISHED;
--		break;
--#endif
--
- 	default:
- 		return -ENOPROTOOPT;
- 	}
++	case PNPIPE_HANDLE:
++		val =3D pn->pipe_handle;
++		if (val =3D=3D PN_PIPE_INVALID_HANDLE)
++			return -EINVAL;
++		break;
++
+ #ifdef CONFIG_PHONET_PIPECTRLR
+ 	case PNPIPE_ENABLE:
+ 		val =3D sk->sk_state =3D=3D TCP_ESTABLISHED;
 --=20
 1.7.1
 
