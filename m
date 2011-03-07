@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/8] Phonet: fix backlog callback return value
-Date: Mon, 07 Mar 2011 12:23:29 -0800 (PST)
-Message-ID: <20110307.122329.39193888.davem@davemloft.net>
-References: <201103031322.37184.remi.denis-courmont@nokia.com>
-	<1299232831-3132-3-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] rds: prevent BUG_ON triggering on congestion map
+ updates
+Date: Mon, 07 Mar 2011 12:27:53 -0800 (PST)
+Message-ID: <20110307.122753.59686845.davem@davemloft.net>
+References: <1299083302-5168-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	andy.grover@oracle.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53933
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53937
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751169Ab1CGUWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 15:22:52 -0500
-In-Reply-To: <1299232831-3132-3-git-send-email-remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1750921Ab1CGU1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 15:27:16 -0500
+In-Reply-To: <1299083302-5168-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed,  2 Mar 2011 11:28:22 -0500
 
-More verbose commit message please.
+> Recently had this bug halt reported to me:
 
-What was wrong with the old error values and what exactly do
-you claim to be doing to correct them?
+Well, does anyone on the RDS team care about this bug fix at all?
 
-If all I get is single header line as a commit message, you're not
-doing due dilligence and you're making your work harder to
-review and understand for other people.
+Stuff like this should not sit for nearly a week without any reply
+whatsoever.
