@@ -1,57 +1,207 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next-2.6] net: harmonize the call to ptype_all and
- ptype_base handlers.
-Date: Mon, 7 Mar 2011 11:03:19 +0100
-Message-ID: <20110307100318.GD2832@psychotron.brq.redhat.com>
-References: <4D738751.6050209@gmail.com>
- <1299417916-14198-1-git-send-email-nicolas.2p.debian@free.fr>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 1/2 net-2.6] r6040: fix multicast operations
+Date: Mon, 7 Mar 2011 11:09:40 +0100
+Message-ID: <201103071109.40853.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, kaber@trash.net, fubar@us.ibm.com,
-	andy@greyhouse.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?= <nicolas.2p.debian@free.fr>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60790 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755578Ab1CGKD3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 05:03:29 -0500
-Content-Disposition: inline
-In-Reply-To: <1299417916-14198-1-git-send-email-nicolas.2p.debian@free.fr>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:34708 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400Ab1CGKH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 05:07:56 -0500
+Received: by wyg36 with SMTP id 36so3969660wyg.19
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 02:07:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Mar 06, 2011 at 02:25:16PM CET, nicolas.2p.debian@free.fr wrote:
->Until now, ptype_all and ptype_base delivery in __netif_receive_skb() =
-is
->inconsistent.
->
->- For ptype_all, we deliver to every device crossed while walking the
->rx_handler path (inside the another_round loop), and there is no way t=
-o stop
->wildcard delivery (no exact match logic).
->- For ptype_base, we deliver to the lowest device (orig_dev) and to th=
-e highest
->(skb->dev) and we can ask for exact match delivery.
->
->This patch try and fix this, by:
->
->1/ Doing exact match delivery for both ptype_all and ptype_base, while=
- walking
->   the rx_handler path.
->2/ Doing wildcard match delivery at the end of __netif_receive_skb(), =
-if not
->   asked to do exact match delivery only.
->
->Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
->---
->
->This apply on top of the last batch of patch from Jiri Pirko.
->---
-> net/core/dev.c |   32 ++++++++++++++++++++++++--------
-> 1 files changed, 24 insertions(+), 8 deletions(-)
->
+From: Shawn Lin <shawn@dmp.com.tw>
 
-I tend to like this patch. However I'm not sure if extra 2 loops don't
-introduce noticable overhead :/
+The original code does not work well when the number of mulitcast
+address to handle is greater than MCAST_MAX. It only enable promiscous
+mode instead of multicast hash table mode, so the hash table function
+will not be activated and all multicast frames will be recieved in this
+condition.
+
+This patch fixes the following issues with the r6040 NIC operating in
+multicast:
+
+1) When the IFF_ALLMULTI flag is set, we should write 0xffff to the NIC
+hash table registers to make it process multicast traffic.
+
+2) When the number of multicast address to handle is smaller than
+MCAST_MAX, we should use the NIC multicast registers MID1_{L,M,H}.
+
+3) The hashing of the address was not correct, due to an invalid
+substraction (15 - (crc & 0x0f)) instead of (crc & 0x0f) and an
+incorrect crc algorithm (ether_crc_le) instead of (ether_crc).
+
+4) If necessary, we should set HASH_EN flag in MCR0 to enable multicast
+hash table function.
+
+Reported-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
+Tested-by: Marc Leclerc <marc-leclerc@signaturealpha.com>
+Signed-off-by: Shawn Lin <shawn@dmp.com.tw>
+Signed-off-by: Albert Chen <albert.chen@rdc.com.tw>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 27e6f6d..7965ae4 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -69,6 +69,8 @@
+
+ /* MAC registers */
+ #define MCR0		0x00	/* Control register 0 */
++#define  MCR0_PROMISC	0x0020	/* Promiscuous mode */
++#define  MCR0_HASH_EN	0x0100	/* Enable multicast hash table function */
+ #define MCR1		0x04	/* Control register 1 */
+ #define  MAC_RST	0x0001	/* Reset the MAC */
+ #define MBCR		0x08	/* Bus control */
+@@ -851,77 +853,92 @@ static void r6040_multicast_list(struct net_device *dev)
+ {
+ 	struct r6040_private *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->base;
+-	u16 *adrp;
+-	u16 reg;
+ 	unsigned long flags;
+ 	struct netdev_hw_addr *ha;
+ 	int i;
++	u16 *adrp;
++	u16 hash_table[4] = { 0 };
++
++	spin_lock_irqsave(&lp->lock, flags);
+
+-	/* MAC Address */
++	/* Keep our MAC Address */
+ 	adrp = (u16 *)dev->dev_addr;
+ 	iowrite16(adrp[0], ioaddr + MID_0L);
+ 	iowrite16(adrp[1], ioaddr + MID_0M);
+ 	iowrite16(adrp[2], ioaddr + MID_0H);
+
+-	/* Promiscous Mode */
+-	spin_lock_irqsave(&lp->lock, flags);
+-
+ 	/* Clear AMCP & PROM bits */
+-	reg = ioread16(ioaddr) & ~0x0120;
+-	if (dev->flags & IFF_PROMISC) {
+-		reg |= 0x0020;
+-		lp->mcr0 |= 0x0020;
+-	}
+-	/* Too many multicast addresses
+-	 * accept all traffic */
+-	else if ((netdev_mc_count(dev) > MCAST_MAX) ||
+-		 (dev->flags & IFF_ALLMULTI))
+-		reg |= 0x0020;
++	lp->mcr0 = ioread16(ioaddr + MCR0) & ~(MCR0_PROMISC | MCR0_HASH_EN);
+
+-	iowrite16(reg, ioaddr);
+-	spin_unlock_irqrestore(&lp->lock, flags);
++	/* Promiscuous mode */
++	if (dev->flags & IFF_PROMISC)
++		lp->mcr0 |= MCR0_PROMISC;
+
+-	/* Build the hash table */
+-	if (netdev_mc_count(dev) > MCAST_MAX) {
+-		u16 hash_table[4];
+-		u32 crc;
++	/* Enable multicast hash table function to
++	 * receive all multicast packets. */
++	else if (dev->flags & IFF_ALLMULTI) {
++		lp->mcr0 |= MCR0_HASH_EN;
+
+-		for (i = 0; i < 4; i++)
+-			hash_table[i] = 0;
++		for (i = 0; i < MCAST_MAX ; i++) {
++			iowrite16(0, ioaddr + MID_1L + 8 * i);
++			iowrite16(0, ioaddr + MID_1M + 8 * i);
++			iowrite16(0, ioaddr + MID_1H + 8 * i);
++		}
+
++		for (i = 0; i < 4; i++)
++			hash_table[i] = 0xffff;
++	}
++	/* Use internal multicast address registers if the number of
++	 * multicast addresses is not greater than MCAST_MAX. */
++	else if (netdev_mc_count(dev) <= MCAST_MAX) {
++		i = 0;
+ 		netdev_for_each_mc_addr(ha, dev) {
+-			char *addrs = ha->addr;
++			u16 *adrp = (u16 *) ha->addr;
++			iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
++			iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
++			iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
++			i++;
++		}
++		while (i < MCAST_MAX) {
++			iowrite16(0, ioaddr + MID_1L + 8 * i);
++			iowrite16(0, ioaddr + MID_1M + 8 * i);
++			iowrite16(0, ioaddr + MID_1H + 8 * i);
++			i++;
++		}
++	}
++	/* Otherwise, Enable multicast hash table function. */
++	else {
++		u32 crc;
+
+-			if (!(*addrs & 1))
+-				continue;
++		lp->mcr0 |= MCR0_HASH_EN;
++
++		for (i = 0; i < MCAST_MAX ; i++) {
++			iowrite16(0, ioaddr + MID_1L + 8 * i);
++			iowrite16(0, ioaddr + MID_1M + 8 * i);
++			iowrite16(0, ioaddr + MID_1H + 8 * i);
++		}
+
+-			crc = ether_crc_le(6, addrs);
++		/* Build multicast hash table */
++		netdev_for_each_mc_addr(ha, dev) {
++			u8 *addrs = ha->addr;
++
++			crc = ether_crc(ETH_ALEN, addrs);
+ 			crc >>= 26;
+-			hash_table[crc >> 4] |= 1 << (15 - (crc & 0xf));
++			hash_table[crc >> 4] |= 1 << (crc & 0xf);
+ 		}
+-		/* Fill the MAC hash tables with their values */
++	}
++
++	iowrite16(lp->mcr0, ioaddr + MCR0);
++
++	/* Fill the MAC hash tables with their values */
++	if (lp->mcr0 && MCR0_HASH_EN) {
+ 		iowrite16(hash_table[0], ioaddr + MAR0);
+ 		iowrite16(hash_table[1], ioaddr + MAR1);
+ 		iowrite16(hash_table[2], ioaddr + MAR2);
+ 		iowrite16(hash_table[3], ioaddr + MAR3);
+ 	}
+-	/* Multicast Address 1~4 case */
+-	i = 0;
+-	netdev_for_each_mc_addr(ha, dev) {
+-		if (i >= MCAST_MAX)
+-			break;
+-		adrp = (u16 *) ha->addr;
+-		iowrite16(adrp[0], ioaddr + MID_1L + 8 * i);
+-		iowrite16(adrp[1], ioaddr + MID_1M + 8 * i);
+-		iowrite16(adrp[2], ioaddr + MID_1H + 8 * i);
+-		i++;
+-	}
+-	while (i < MCAST_MAX) {
+-		iowrite16(0xffff, ioaddr + MID_1L + 8 * i);
+-		iowrite16(0xffff, ioaddr + MID_1M + 8 * i);
+-		iowrite16(0xffff, ioaddr + MID_1H + 8 * i);
+-		i++;
+-	}
++
++	spin_unlock_irqrestore(&lp->lock, flags);
+ }
+
+ static void netdev_get_drvinfo(struct net_device *dev,
+--
+1.7.1
+
