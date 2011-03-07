@@ -1,127 +1,151 @@
 From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 3/8] Phonet: fix backlog callback return value
-Date: Mon,  7 Mar 2011 12:46:07 +0200
-Message-ID: <1299494772-3965-3-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 8/8] Phonet: kill the ST-Ericsson pipe controller Kconfig
+Date: Mon,  7 Mar 2011 12:46:12 +0200
+Message-ID: <1299494772-3965-8-git-send-email-remi.denis-courmont@nokia.com>
 References: <201103071245.47722.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.26]:36517 "EHLO mgw-da02.nokia.com"
+Received: from smtp.nokia.com ([147.243.128.26]:36633 "EHLO mgw-da02.nokia.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755132Ab1CGKpU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 05:45:20 -0500
+	id S1755924Ab1CGKpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 05:45:25 -0500
 Received: from leon.remlab.com (esdhcp034153.research.nokia.com [172.21.34.153])
-	by mgw-da02.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p27AjHe4005748
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 12:45:19 +0200
+	by mgw-da02.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p27AjHe9005748
+	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 12:45:24 +0200
 In-Reply-To: <201103071245.47722.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is now a run-time choice so that a single kernel can support both
+old and new generation ISI modems.
+
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- net/phonet/pep.c |   25 +++++++++++--------------
- 1 files changed, 11 insertions(+), 14 deletions(-)
+ Documentation/networking/phonet.txt |   13 -------------
+ include/linux/phonet.h              |    2 --
+ net/phonet/Kconfig                  |   12 ------------
+ net/phonet/pep.c                    |   25 -------------------------
+ 4 files changed, 0 insertions(+), 52 deletions(-)
 
+diff --git a/Documentation/networking/phonet.txt b/Documentation/networ=
+king/phonet.txt
+index 3d12779..8100358 100644
+--- a/Documentation/networking/phonet.txt
++++ b/Documentation/networking/phonet.txt
+@@ -205,19 +205,6 @@ The pipe protocol provides two socket options at t=
+he SOL_PNPIPE level:
+     socket descriptors that are already connected or being connected.
+=20
+=20
+-Phonet Pipe-controller Implementation
+--------------------------------------
+-
+-Phonet Pipe-controller is enabled by selecting the CONFIG_PHONET_PIPEC=
+TRLR
+-Kconfig option.
+-
+-The implementation adds socket options at SOL_PNPIPE level:
+-
+-  PNPIPE_ENABLE accepts one integer value (int). If set to zero, the p=
+ipe
+-    is disabled. If the value is non-zero, the pipe is enabled. If the=
+ pipe
+-    is not (yet) connected, ENOTCONN is error is returned.
+-
+-
+ Authors
+ -------
+=20
+diff --git a/include/linux/phonet.h b/include/linux/phonet.h
+index 32a0965..6fb1384 100644
+--- a/include/linux/phonet.h
++++ b/include/linux/phonet.h
+@@ -37,8 +37,6 @@
+ #define PNPIPE_ENCAP		1
+ #define PNPIPE_IFINDEX		2
+ #define PNPIPE_HANDLE		3
+-#define PNPIPE_ENABLE           4
+-/* unused slot */
+=20
+ #define PNADDR_ANY		0
+ #define PNADDR_BROADCAST	0xFC
+diff --git a/net/phonet/Kconfig b/net/phonet/Kconfig
+index 0d9b8a2..6ec7d55 100644
+--- a/net/phonet/Kconfig
++++ b/net/phonet/Kconfig
+@@ -14,15 +14,3 @@ config PHONET
+=20
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called phonet. If unsure, say N.
+-
+-config PHONET_PIPECTRLR
+-	bool "Phonet Pipe Controller (EXPERIMENTAL)"
+-	depends on PHONET && EXPERIMENTAL
+-	default N
+-	help
+-	  The Pipe Controller implementation in Phonet stack to support Pipe
+-	  data with Nokia Slim modems like WG2.5 used on ST-Ericsson U8500
+-	  platform.
+-
+-	  This option is incompatible with older Nokia modems.
+-	  Say N here unless you really know what you are doing.
 diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index 875e86c..40952c7 100644
+index 671effb..68e635f 100644
 --- a/net/phonet/pep.c
 +++ b/net/phonet/pep.c
-@@ -522,7 +522,8 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
-uff *skb)
- 		if (!pn_flow_safe(pn->rx_fc)) {
- 			err =3D sock_queue_rcv_skb(sk, skb);
- 			if (!err)
--				return 0;
-+				return NET_RX_SUCCESS;
-+			err =3D -ENOBUFS;
- 			break;
- 		}
-=20
-@@ -575,7 +576,7 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
-uff *skb)
- 	}
- out:
- 	kfree_skb(skb);
--	return err;
-+	return (err =3D=3D -ENOBUFS) ? NET_RX_DROP : NET_RX_SUCCESS;
-=20
- queue:
- 	skb->dev =3D NULL;
-@@ -584,7 +585,7 @@ queue:
- 	skb_queue_tail(queue, skb);
- 	if (!sock_flag(sk, SOCK_DEAD))
- 		sk->sk_data_ready(sk, err);
--	return 0;
-+	return NET_RX_SUCCESS;
+@@ -167,15 +167,6 @@ static int pipe_handler_send_created_ind(struct so=
+ck *sk)
+ 				data, 4, GFP_ATOMIC);
  }
 =20
- /* Destroy connected sock. */
-@@ -686,11 +687,6 @@ static int pep_connreq_rcv(struct sock *sk, struct=
- sk_buff *skb)
- 	}
- 	peer_type =3D hdr->other_pep_type << 8;
-=20
--	if (unlikely(sk->sk_state !=3D TCP_LISTEN) || sk_acceptq_is_full(sk))=
- {
--		pep_reject_conn(sk, skb, PN_PIPE_ERR_PEP_IN_USE);
--		return -ENOBUFS;
--	}
+-#ifdef CONFIG_PHONET_PIPECTRLR
+-static int pipe_handler_enable_pipe(struct sock *sk, int enable)
+-{
+-	u8 id =3D enable ? PNS_PEP_ENABLE_REQ : PNS_PEP_DISABLE_REQ;
 -
- 	/* Parse sub-blocks (options) */
- 	n_sb =3D hdr->data[4];
- 	while (n_sb > 0) {
-@@ -790,7 +786,6 @@ static int pep_do_rcv(struct sock *sk, struct sk_bu=
-ff *skb)
- 	struct sock *sknode;
- 	struct pnpipehdr *hdr;
- 	struct sockaddr_pn dst;
--	int err =3D NET_RX_SUCCESS;
- 	u8 pipe_handle;
+-	return pipe_handler_request(sk, id, PAD, NULL, 0);
+-}
+-#endif
+-
+ static int pep_accept_conn(struct sock *sk, struct sk_buff *skb)
+ {
+ 	static const u8 data[20] =3D {
+@@ -968,16 +959,6 @@ static int pep_setsockopt(struct sock *sk, int lev=
+el, int optname,
+ 		}
+ 		goto out_norel;
 =20
- 	if (!pskb_may_pull(skb, sizeof(*hdr)))
-@@ -814,18 +809,20 @@ static int pep_do_rcv(struct sock *sk, struct sk_=
-buff *skb)
- 		sock_put(sknode);
- 		if (net_ratelimit())
- 			printk(KERN_WARNING"Phonet unconnected PEP ignored");
--		err =3D NET_RX_DROP;
- 		goto drop;
- 	}
-=20
- 	switch (hdr->message_id) {
- 	case PNS_PEP_CONNECT_REQ:
--		err =3D pep_connreq_rcv(sk, skb);
-+		if (sk->sk_state =3D=3D TCP_LISTEN && !sk_acceptq_is_full(sk))
-+			pep_connreq_rcv(sk, skb);
-+		else
-+			pep_reject_conn(sk, skb, PN_PIPE_ERR_PEP_IN_USE);
- 		break;
-=20
- #ifdef CONFIG_PHONET_PIPECTRLR
- 	case PNS_PEP_CONNECT_RESP:
--		err =3D pep_connresp_rcv(sk, skb);
-+		pep_connresp_rcv(sk, skb);
- 		break;
- #endif
-=20
-@@ -842,11 +839,11 @@ static int pep_do_rcv(struct sock *sk, struct sk_=
-buff *skb)
- 	case PNS_PEP_DISABLE_REQ:
- 		/* invalid handle is not even allowed here! */
+-#ifdef CONFIG_PHONET_PIPECTRLR
+-	case PNPIPE_ENABLE:
+-		if ((1 << sk->sk_state) & ~(TCPF_SYN_RECV|TCPF_ESTABLISHED)) {
+-			err =3D -ENOTCONN;
+-			break;
+-		}
+-		err =3D pipe_handler_enable_pipe(sk, val);
+-		break;
+-#endif
+-
  	default:
--		err =3D NET_RX_DROP;
-+		break;
+ 		err =3D -ENOPROTOOPT;
  	}
- drop:
- 	kfree_skb(skb);
--	return err;
-+	return NET_RX_SUCCESS;
- }
+@@ -1013,12 +994,6 @@ static int pep_getsockopt(struct sock *sk, int le=
+vel, int optname,
+ 			return -EINVAL;
+ 		break;
 =20
- #ifndef CONFIG_PHONET_PIPECTRLR
+-#ifdef CONFIG_PHONET_PIPECTRLR
+-	case PNPIPE_ENABLE:
+-		val =3D sk->sk_state =3D=3D TCP_ESTABLISHED;
+-		break;
+-#endif
+-
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
 --=20
 1.7.1
 
