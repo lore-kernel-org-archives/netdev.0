@@ -1,35 +1,41 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 13/17] mlx4: Add blue flame support for kernel consumers
-Date: Mon, 7 Mar 2011 23:48:12 +0200
-Message-ID: <20110307214812.GA19540@mtldesk30>
-References: <CFE9BFE80FFE4D4892AA5D31387E310F02F3ED@mtldag01.mtl.com>
- <20110307213648.GA18682@mtldesk30>
- <20110307.134001.245386278.davem@davemloft.net>
+Date: Mon, 07 Mar 2011 13:49:31 -0800 (PST)
+Message-ID: <20110307.134931.232736253.davem@davemloft.net>
+References: <20110307213648.GA18682@mtldesk30>
+	<20110307.134001.245386278.davem@davemloft.net>
+	<20110307214812.GA19540@mtldesk30>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: roland@purestorage.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: eli@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:57238 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755246Ab1CGVqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 16:46:13 -0500
-Received: by ewy6 with SMTP id 6so1728402ewy.19
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 13:46:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20110307.134001.245386278.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43684
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756509Ab1CGVsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 16:48:53 -0500
+In-Reply-To: <20110307214812.GA19540@mtldesk30>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2011 at 01:40:01PM -0800, David Miller wrote:
-> From: Eli Cohen <eli@dev.mellanox.co.il>
-> Date: Mon, 7 Mar 2011 23:36:48 +0200
-> 
-> > Specifically, some archs may not support write combining.
-> 
-> They should just create a non-write-combining mapping if they
-> don't support it.
-> 
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Date: Mon, 7 Mar 2011 23:48:12 +0200
 
-I wouldn't expect that since the caller function could be mislead to
-believe it has a write combining capable area.
+> On Mon, Mar 07, 2011 at 01:40:01PM -0800, David Miller wrote:
+>> From: Eli Cohen <eli@dev.mellanox.co.il>
+>> Date: Mon, 7 Mar 2011 23:36:48 +0200
+>> 
+>> > Specifically, some archs may not support write combining.
+>> 
+>> They should just create a non-write-combining mapping if they
+>> don't support it.
+>> 
+> 
+> I wouldn't expect that since the caller function could be mislead to
+> believe it has a write combining capable area.
+
+It's a performance optimization, if you don't get write combining you'll
+get more strict ordering, rather than less.
+
+It cannot cause problem.
