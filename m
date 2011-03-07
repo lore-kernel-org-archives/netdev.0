@@ -1,72 +1,55 @@
-From: =?UTF-8?Q?Ernst_Sj=C3=B6strand?= <ernstp@gmail.com>
-Subject: Re: [Bugme-new] [Bug 30462] New: High cpu usage when someone sends
- many ipv6 udp packages
-Date: Mon, 7 Mar 2011 20:54:21 +0100
-Message-ID: <AANLkTimBqrZNSumjJN3riNk=+6Agtxn7KzujwkWZ35au@mail.gmail.com>
-References: <bug-30462-10286@https.bugzilla.kernel.org/>
-	<20110304171506.0e27cde1.akpm@linux-foundation.org>
-	<20110304.172157.48483962.davem@davemloft.net>
-	<AANLkTim9FKD7RRi02b+5=gQ85jNybqVtoT_ydW0imNev@mail.gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6 4/8] bonding: wrap slave state work
+Date: Mon, 07 Mar 2011 20:55:12 +0100
+Message-ID: <4D753820.2070608@gmail.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-5-git-send-email-jpirko@redhat.com> <4D7254E9.6090605@gmail.com> <20110307095839.GC2832@psychotron.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:41975 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755997Ab1CGTyW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 14:54:22 -0500
-Received: by vxi39 with SMTP id 39so4029423vxi.19
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 11:54:21 -0800 (PST)
-In-Reply-To: <AANLkTim9FKD7RRi02b+5=gQ85jNybqVtoT_ydW0imNev@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45466 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754141Ab1CGTzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 14:55:14 -0500
+Received: by wyg36 with SMTP id 36so4517762wyg.19
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 11:55:13 -0800 (PST)
+In-Reply-To: <20110307095839.GC2832@psychotron.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le 07/03/2011 10:58, Jiri Pirko a =E9crit :
+>>>
+>>> +static inline void bond_set_active_slave(struct slave *slave)
+>>> +{
+>>> +	slave->backup =3D 0;
+>>
+>> In the comment above, you said that the possible value for backup
+>> corresponds with BOND_STATE_ACTIVE and BOND_STATE_BACKUP.
+>>
+>> So, should be:
+>>
+>> slave->backup =3D BOND_STATE_ACTIVE;
+>>
+>>> +}
+>>> +
+>>> +static inline void bond_set_backup_slave(struct slave *slave)
+>>> +{
+>>> +	slave->backup =3D 1;
+>>
+>> slave->backup =3D BOND_STATE_BACKUP;
+>>
+>
+> Well, I think it's weird and misleading to assign some define to :1
+> bitfield. Should be 0 or 1, nothing else.
 
-seems like reverting "ipv6: Always clone offlink routes." fixes the iss=
-ue.
+Agreed, but the comment appears missleading... May be you should fix th=
+e comment, not the code.
 
-Regards
-//Ernst
+	Nicolas.
 
-2011/3/5 Ernst Sj=C3=B6strand <ernstp@gmail.com>:
-> I've only used precompiled kernels so far so I don't have stuff set u=
-p to
-> compile kernels right now,
-> probably won't have time to do that this weekend. Not tonight in GMT+=
-1
-> anyway!
->
-> Regards
-> //Ernst
->
-> On Sat, Mar 5, 2011 at 02:21, David Miller <davem@davemloft.net> wrot=
-e:
->>
->> From: Andrew Morton <akpm@linux-foundation.org>
->> Date: Fri, 4 Mar 2011 17:15:06 -0800
->>
->> >> The following ipv6 related changes were introduced between -rc2 a=
-nd
->> >> -rc3 that I
->> >> can see. The "Revert 'administrative down' address handling chang=
-es."
->> >> looked
->> >> big...
->> >> =C2=A0 =C2=A0 =C2=A0 ipv6: Always clone offlink routes.
->> >> =C2=A0 =C2=A0 =C2=A0 ipv6: Revert 'administrative down' address h=
-andling changes.
->>
->> Can we narrow it down to which of those two changes introduced the
->> regression?
->>
->> We have another issue, still open, which is caused by the first
->> change, so maybe try reverting that one first.
->>
->> Thanks.
->
->
