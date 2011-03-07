@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: allow handlers to be processed for orig_dev
-Date: Mon, 07 Mar 2011 15:37:36 -0800 (PST)
-Message-ID: <20110307.153736.258104960.davem@davemloft.net>
-References: <20110301062631.GC2855@psychotron.redhat.com>
-	<4D6CAD33.2090706@gmail.com>
+Subject: Re: [PATCH net-next 0/4] r8169 driver updates
+Date: Mon, 07 Mar 2011 15:40:13 -0800 (PST)
+Message-ID: <20110307.154013.233696529.davem@davemloft.net>
+References: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jpirko@redhat.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: nicolas.2p.debian@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com, jesse@nicira.com,
+	oneukum@suse.de, dwmw2@infradead.org, ben@decadent.org.uk
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33366
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32782
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756512Ab1CGXg7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 18:36:59 -0500
-In-Reply-To: <4D6CAD33.2090706@gmail.com>
+	by vger.kernel.org with ESMTP id S1754755Ab1CGXjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 18:39:36 -0500
+In-Reply-To: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
-Date: Tue, 01 Mar 2011 09:24:19 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Sat, 5 Mar 2011 10:37:16 +0100
 
-> Le 01/03/2011 07:26, Jiri Pirko a =E9crit :
->> This was there before, I forgot about this. Allows deliveries to
->> ptype_base handlers registered for orig_dev. I presume this is still
->> desired.
->=20
-> Yes, it is. Sorry for missing it in my review.
->=20
->> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
->=20
-> Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem-next.r8169
+> 
+> to get the changes below.
 
-Applied, thanks.
+Pulled, thanks a lot.
