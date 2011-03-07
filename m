@@ -1,40 +1,63 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave
-	instead of master
-Date: Mon, 7 Mar 2011 09:32:02 -0500
-Message-ID: <20110307143202.GS11864@gospo.rdu.redhat.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 15/17] mlx4_core: reserve UARs for userspace consumers
+Date: Mon, 7 Mar 2011 12:18:00 +0200
+Message-ID: <4D74B0D8.4070402@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
+	<eli@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25766 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751160Ab1CGOcn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 09:32:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20110307125059.GA6053@psychotron.brq.redhat.com>
+Received: from mail.mellanox.co.il ([194.90.237.43]:35932 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751871Ab1CGOdY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 09:33:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2011 at 01:51:00PM +0100, Jiri Pirko wrote:
-> Recent patch "bonding: move processing of recv handlers into
-> handle_frame()" caused a regression on following net scheme:
-> 
-> eth0 - bond0 - bond0.5
-> 
-> where arp monitoring is happening over vlan. This patch fixes it by
-> reinjecting the arp packet into bonding slave device so the bonding
-> rx_handler can pickup and process it.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+From: Eli Cohen <eli@mellanox.co.il>
 
-Thanks, Jiri.  I will test and make sure it works correctly now.  I know
-several users who would be quite disappointed if this feature was
-removed.
+Do not allow a kernel consumer to allocate a UAR to serve for blue flame if the
+number of available UARs gets below MLX4_NUM_RESERVED_UARS (currently 8). This
+will allow userspace apps to open a device file and run things like
+ibv_devinfo.
+
+Signed-off-by: Eli Cohen <eli@mellanox.co.il>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/pd.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/mlx4/pd.c b/drivers/net/mlx4/pd.c
+index 5210a0f..1286b88 100644
+--- a/drivers/net/mlx4/pd.c
++++ b/drivers/net/mlx4/pd.c
+@@ -39,6 +39,10 @@
+ #include "mlx4.h"
+ #include "icm.h"
+ 
++enum {
++	MLX4_NUM_RESERVED_UARS = 8
++};
++
+ int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -104,6 +108,10 @@ int mlx4_bf_alloc(struct mlx4_dev *dev, struct mlx4_bf *bf)
+ 	if (!list_empty(&priv->bf_list))
+ 		uar = list_entry(priv->bf_list.next, struct mlx4_uar, bf_list);
+ 	else {
++		if (mlx4_bitmap_avail(&priv->uar_table.bitmap) < MLX4_NUM_RESERVED_UARS) {
++			err = -ENOMEM;
++			goto out;
++		}
+ 		uar = kmalloc(sizeof *uar, GFP_KERNEL);
+ 		if (!uar) {
+ 			err = -ENOMEM;
+-- 
+1.6.0.2
+
+
+
 
