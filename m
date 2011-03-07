@@ -1,72 +1,59 @@
-From: <Narendra_K@Dell.com>
-Subject: Re: [PATCH V4] Export ACPI _DSM provided firmware instance number
- and string name to sysfs
-Date: Mon, 7 Mar 2011 11:44:52 -0800
-Message-ID: <20110307200512.GA22450@fedora14-r610.oslab.blr.amer.dell.com>
-References: <20110223125741.GA16473@fedora14-r610.blr.amer.dell.com>
- <20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
- <20110304104314.26265021@jbarnes-desktop>
- <AANLkTimz662+L6eYJm2gh0NwWOxxzQV3503bcs-GMFGu@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Network link detection
+Date: Mon, 07 Mar 2011 13:49:08 -0600
+Message-ID: <1299527350.3269.11.camel@dcbw.foobar.com>
+References: <20110303193006.GA29129@svh.nico22.de>
+	 <4D700A5B.2000807@genband.com>
+	 <20110303.140106.191399853.davem@davemloft.net>
+	 <20110303222957.GA30472@svh.nico22.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <jbarnes@virtuousgeek.org>, <linux-pci@vger.kernel.org>,
-	<linux-hotplug@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<mjg@redhat.com>, <Matt_Domsch@Dell.com>, <Charles_Rose@Dell.com>,
-	<Jordan_Hargrave@Dell.com>, <Shyam_Iyer@Dell.com>,
-	<sfr@canb.auug.org.au>
-To: <a.beregalov@gmail.com>, <linux-next@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimz662+L6eYJm2gh0NwWOxxzQV3503bcs-GMFGu@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, chris.friesen@genband.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Nico =?ISO-8859-1?Q?Sch=FCmann?= <dev@nico22.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110303222957.GA30472@svh.nico22.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBNYXIgMDcsIDIwMTEgYXQgMTE6MzQ6MDVQTSArMDUzMCwgQWxleGFuZGVyIEJlcmVn
-YWxvdiB3cm90ZToNCj4gT24gNCBNYXJjaCAyMDExIDIxOjQzLCBKZXNzZSBCYXJuZXMgPGpiYXJu
-ZXNAdmlydHVvdXNnZWVrLm9yZz4gd3JvdGU6DQo+ID4gT24gV2VkLCAyIE1hciAyMDExIDIyOjM0
-OjE3ICswNTMwDQo+ID4gPE5hcmVuZHJhX0tARGVsbC5jb20+IHdyb3RlOg0KPiA+DQo+ID4+IE9u
-IFdlZCwgRmViIDIzLCAyMDExIGF0IDA2OjA2OjQyUE0gKzA1MzAsIEssIE5hcmVuZHJhIHdyb3Rl
-Og0KPiA+PiA+IEhlbGxvLA0KPiA+PiA+DQo+ID4+ID4gVGhpcyBwYXRjaCBleHBvcnRzIEFDUEkg
-X0RTTSBwcm92aWRlZCBmaXJtd2FyZSBpbnN0YW5jZSBudW1iZXIgYW5kDQo+ID4+ID4gc3RyaW5n
-IG5hbWUgdG8gc3lzZnMuDQo+ID4+ID4NCj4gPj4gPiBWMSAtPiBWMjoNCj4gPj4gPiBUaGUgYXR0
-cmlidXRlICdpbmRleCcgaXMgY2hhbmdlZCB0byAnYWNwaV9pbmRleCcgYXMgdGhlIHNlbWFudGlj
-cyBvZg0KPiA+PiA+IFNNQklPUyBwcm92aWRlZCBkZXZpY2UgdHlwZSBpbnN0YW5jZSBhbmQgQUNQ
-SSBfRFNNIHByb3ZpZGVkIGZpcm13YXJlDQo+ID4+ID4gaW5zdGFuY2UgbnVtYmVyIGFyZSBkaWZm
-ZXJlbnQuDQo+ID4+ID4NCj4gPj4gPiBWMiAtPiBWMzoNCj4gPj4gPiBNYXR0aGV3IEdhcnJldHQg
-cG9pbnRlZCBvdXQgdGhhdCAnc3lzZnNfY3JlYXRlX2dyb3VwcycgZG9lcyByZXR1cm4gYW4NCj4g
-Pj4gPiBlcnJvciB3aGVuIHRoZXJlIGFyZSBubyBBQ1BJIF9EU00gYXR0cmlidXRlcyBhdmFpbGFi
-bGUgYW5kIGJlY2F1c2Ugb2YNCj4gPj4gPiB0aGF0IHRoZSBmYWxsYmFjayB0byBTTUJJT1Mgd2ls
-bCBub3QgaGFwcGVuLiBBcyBhIHJlc3VsdCBTTUJJT1MgcHJvdmlkZWQNCj4gPj4gPiBhdHRyaWJ1
-dGVzIGFyZSBub3QgY3JlYXRlZC4gVGhpcyB2ZXJzaW9uIG9mIHRoZSBwYXRjaCBhZGRyZXNzZXMg
-dGhlIGlzc3VlLg0KPiA+PiA+DQo+ID4+DQo+ID4+IFYzIC0+IFY0Og0KPiA+PiBTZWxlY3QgTkxT
-IGlmIChETUkgfHwgQUNQSSkgaW4gZHJpdmVycy9wY2kvS2NvbmZpZyB0byBwcmV2ZW50IGJ1aWxk
-DQo+ID4+IGJyZWFrYWdlIGZyb20gYW4gJ2FsbG1vZGNvbmZpZycNCj4gPg0KPiA+IEFwcGxpZWQs
-IGZpbmdlcnMgY3Jvc3NlZCB0aGlzIHRpbWUuIDopDQo+ID4NCj4gDQo+IEhpLA0KPiANCj4gSXQg
-Y2Fubm90IGJlIGNvbXBpbGVkIGlmIENPTkZJR19BQ1BJIGlzIG5vdCBzZXQuDQo+IA0KPiBkcml2
-ZXJzL3BjaS9wY2ktbGFiZWwuYzogSW4gZnVuY3Rpb24gJ3BjaV9jcmVhdGVfZmlybXdhcmVfbGFi
-ZWxfZmlsZXMnOg0KPiBkcml2ZXJzL3BjaS9wY2ktbGFiZWwuYzozNjY6MjogZXJyb3I6IGltcGxp
-Y2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uDQo+ICdkZXZpY2VfaGFzX2RzbScNCg0KSGVsbG8s
-DQoNClNvcnJ5IGZvciB0aGUgaW5jb252ZW5pZW5jZS4gUGxlYXNlIGZpbmQgdGhlIGZpeCBoZXJl
-IC0NCg0KRnJvbTogTmFyZW5kcmEgSyA8bmFyZW5kcmFfa0BkZWxsLmNvbT4NClN1YmplY3Q6IFtQ
-QVRDSF0gRml4IGNvbXBpbGF0aW9uIGVycm9yIHdoZW4gQ09ORklHX0FDUEkgdW5zZXQNCg0KVGhp
-cyBwYXRjaCBmaXhlcyBjb21waWxhdGlvbiBlcnJvciBkZXNjaWJlZCBiZWxvdyBpbnRyb2R1Y2Vk
-IGJ5DQp0aGUgY29tbWl0IDYwNTg5ODliYWQwNWI4MmU3OGJhYWNjZTY5ZWMxNGYyN2ExMWI1ZmQN
-Cg0KZHJpdmVycy9wY2kvcGNpLWxhYmVsLmM6IEluIGZ1bmN0aW9uIOKAmHBjaV9jcmVhdGVfZmly
-bXdhcmVfbGFiZWxfZmlsZXPigJk6DQpkcml2ZXJzL3BjaS9wY2ktbGFiZWwuYzozNjY6MjogZXJy
-b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIOKAmGRldmljZV9oYXNfZHNt4oCZ
-DQoNClNpZ25lZC1vZmYtYnk6IE5hcmVuZHJhIEsgPG5hcmVuZHJhX2tAZGVsbC5jb20+DQotLS0N
-CiBkcml2ZXJzL3BjaS9wY2ktbGFiZWwuYyB8ICAgIDggKysrKysrKysNCiAxIGZpbGVzIGNoYW5n
-ZWQsIDggaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvcGNpL3BjaS1sYWJlbC5jIGIvZHJpdmVycy9wY2kvcGNpLWxhYmVsLmMNCmluZGV4IDgyNGUy
-NDcuLjgyZmQ3M2QgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL3BjaS9wY2ktbGFiZWwuYw0KKysrIGIv
-ZHJpdmVycy9wY2kvcGNpLWxhYmVsLmMNCkBAIC0yOSw3ICsyOSw5IEBADQogI2luY2x1ZGUgPGxp
-bnV4L25scy5oPg0KICNpbmNsdWRlIDxsaW51eC9hY3BpLmg+DQogI2luY2x1ZGUgPGxpbnV4L3Bj
-aS1hY3BpLmg+DQorI2lmZGVmIENPTkZJR19BQ1BJDQogI2luY2x1ZGUgPGFjcGkvYWNwaV9kcml2
-ZXJzLmg+DQorI2VuZGlmDQogI2luY2x1ZGUgPGFjcGkvYWNwaV9idXMuaD4NCiAjaW5jbHVkZSAi
-cGNpLmgiDQogDQpAQCAtMTc0LDYgKzE3NiwxMiBAQCBwY2lfcmVtb3ZlX2FjcGlfaW5kZXhfbGFi
-ZWxfZmlsZXMoc3RydWN0IHBjaV9kZXYgKnBkZXYpDQogCXJldHVybiAtMTsNCiB9DQogDQorc3Rh
-dGljIGlubGluZSBib29sDQorZGV2aWNlX2hhc19kc20oc3RydWN0IGRldmljZSAqZGV2KQ0KK3sN
-CisJcmV0dXJuIGZhbHNlOw0KK30NCisNCiAjZWxzZQ0KIA0KIHN0YXRpYyBjb25zdCBjaGFyIGRl
-dmljZV9sYWJlbF9kc21fdXVpZFtdID0gew0KLS0gDQoxLjcuMy4xDQoNCldpdGggcmVnYXJkcywN
-Ck5hcmVuZHJhIEs=
+On Thu, 2011-03-03 at 23:29 +0100, Nico Sch=C3=BCmann wrote:
+> On Thu, Mar 03, 2011 at 02:01:06PM -0800, David Miller wrote:
+> > From: Chris Friesen <chris.friesen@genband.com>
+> > Date: Thu, 03 Mar 2011 15:38:35 -0600
+> >=20
+> > > You might look at whether you could write a kernel module to regi=
+ster
+> > > for NETDEV_CHANGE notifications and pass that back to userspace.
+> >=20
+> > This is the kind of responses you get when you ask networking speci=
+fic
+> > questions and don't CC: netdev :-/
+> >=20
+>=20
+> Thank you for CC.
+>=20
+> > There is this thing called netlink, you can listen for arbitrary
+> > network state change events on a socket, and get the link state
+> > notifications you are looking for.  It's in use by many real
+> > applications like NetworkManager and co.
+>=20
+> That really looks like what I'm looking for. I was already wondering=20
+> where NetworkManager gets the link state changes from, but I just=20
+> expected it to poll. So now I'll read a bit of documentation and=20
+> hopefully get it work.
+
+http://cgit.freedesktop.org/NetworkManager/NetworkManager/tree/src/nm-n=
+etlink-monitor.c
+
+NM uses libnl as the basic library for parsing netlink messages and
+handling communication with the kernel.  Which is why you'll see a lot
+of nl_* calls in there.  NM sets up the netlink connection using libnl,
+then creates a GIOChannel to handle communication over the netlink
+socket.  When something comes in (to event_handler()) the code handles
+error conditions on the socket, then dispatches to libnl for processing=
+=2E
+libnl then calls back into NM to handle the actual message in
+event_msg_ready().
+
+Dan
