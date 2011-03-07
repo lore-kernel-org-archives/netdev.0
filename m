@@ -1,31 +1,60 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 00/17] mlx4_en: driver updates
-Date: Mon, 7 Mar 2011 12:16:50 +0200
-Message-ID: <4D74B092.5010408@mellanox.co.il>
+Subject: [PATCH 02/17] mlx4_en: moderation parameters are not reseted.
+Date: Mon, 7 Mar 2011 12:17:04 +0200
+Message-ID: <4D74B0A0.60300@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:40246 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:40262 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751650Ab1CGKQz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 05:16:55 -0500
+	id S1752201Ab1CGKRG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 05:17:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hello David,
+Instead of reseting the module parameters each ifup or mtu change,
+they are being set once at device initialization
 
-This patch set presents a set of fixes, performance improvements and new features for the mlx4_core and mlx4_en modules.
-main changes are:
-- MSI-X per ring
-- Changing RX packet steering model for supported devices
-- BlueFlame support for better TX latency.
-- Adaptive moderation improvements.
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_netdev.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Patches were generated against net-next-2.6.git
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index 897f576..56627c2 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -801,7 +801,6 @@ static int mlx4_en_open(struct net_device *dev)
+ 		priv->rx_ring[i].packets = 0;
+ 	}
+ 
+-	mlx4_en_set_default_moderation(priv);
+ 	err = mlx4_en_start_port(dev);
+ 	if (err)
+ 		en_err(priv, "Failed starting port:%d\n", priv->port);
+@@ -932,7 +931,6 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+ 			en_dbg(DRV, priv, "Change MTU called with card down!?\n");
+ 		} else {
+ 			mlx4_en_stop_port(dev);
+-			mlx4_en_set_default_moderation(priv);
+ 			err = mlx4_en_start_port(dev);
+ 			if (err) {
+ 				en_err(priv, "Failed restarting port:%d\n",
+@@ -1080,6 +1078,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	en_warn(priv, "Using %d RX rings\n", prof->rx_ring_num);
+ 
+ 	priv->registered = 1;
++	mlx4_en_set_default_moderation(priv);
+ 	queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
+ 	return 0;
+ 
+-- 
+1.6.0.2
 
-Thanks,
-Yevgeny
+
+
+
