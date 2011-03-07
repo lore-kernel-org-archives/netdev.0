@@ -1,43 +1,31 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 2/2 net-2.6] r6040: bump to version 0.27 and date 23Feb2011
-Date: Mon, 7 Mar 2011 11:09:42 +0100
-Message-ID: <201103071109.42377.florian@openwrt.org>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 00/17] mlx4_en: driver updates
+Date: Mon, 7 Mar 2011 12:16:50 +0200
+Message-ID: <4D74B092.5010408@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:52910 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752896Ab1CGKH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 05:07:58 -0500
-Received: by wyg36 with SMTP id 36so3969679wyg.19
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 02:07:57 -0800 (PST)
+Received: from mail.mellanox.co.il ([194.90.237.43]:40246 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751650Ab1CGKQz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 05:16:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 7965ae4..e3ebd90 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -49,8 +49,8 @@
- #include <asm/processor.h>
+Hello David,
 
- #define DRV_NAME	"r6040"
--#define DRV_VERSION	"0.26"
--#define DRV_RELDATE	"30May2010"
-+#define DRV_VERSION	"0.27"
-+#define DRV_RELDATE	"23Feb2011"
+This patch set presents a set of fixes, performance improvements and new features for the mlx4_core and mlx4_en modules.
+main changes are:
+- MSI-X per ring
+- Changing RX packet steering model for supported devices
+- BlueFlame support for better TX latency.
+- Adaptive moderation improvements.
 
- /* PHY CHIP Address */
- #define PHY1_ADDR	1	/* For MAC1 */
---
-1.7.1
+Patches were generated against net-next-2.6.git
 
+Thanks,
+Yevgeny
