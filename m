@@ -1,40 +1,39 @@
-From: Daniel Turull <daniel.turull@gmail.com>
-Subject: [PATCH] pktgen: fix errata in show results
-Date: Mon, 07 Mar 2011 10:09:43 +0100
-Message-ID: <4D74A0D7.3020506@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2011-03-05
+Date: Mon, 07 Mar 2011 01:19:22 -0800 (PST)
+Message-ID: <20110307.011922.59669370.davem@davemloft.net>
+References: <1299328122-21468-1-git-send-email-sven@narfation.org>
+	<20110306.181432.104062354.davem@davemloft.net>
+	<201103071001.39111.sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?7J207KKF7JuQ?= <ljw@handong.edu>,
-	Robert Olsson <robert@herjulf.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sven@narfation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:42999 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751728Ab1CGJJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 04:09:47 -0500
-Received: by yia27 with SMTP id 27so1540632yia.19
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 01:09:47 -0800 (PST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46654
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752645Ab1CGJSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 04:18:47 -0500
+In-Reply-To: <201103071001.39111.sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The units in show_results in pktgen were not correct.
-The results are in usec but it was displayed nsec.
+From: Sven Eckelmann <sven@narfation.org>
+Date: Mon, 7 Mar 2011 10:01:36 +0100
 
-Reported-by: Jong-won Lee <ljw@handong.edu>
-Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
----
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index d73b77a..f0aec6c 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3271,7 +3271,7 @@ static void show_results(struct pktgen_dev 
-*pkt_dev, int nr_frags)
-                      pkt_dev->started_at);
-      ktime_t idle = ns_to_ktime(pkt_dev->idle_acc);
+> On Monday 07 March 2011 03:14:32 David Miller wrote:
+>> Can you like sync with me when you have less than 20+ patches queued
+>> up?
+>> 
+>> It's too much at once to reasonably review, and makes regressions take
+>> longer to bisect when people hit them.
+> 
+> I'll try. The problem is that most of it is one work package (the removal of 
+> orig_hash) which I got in this amount of patches.
+> 
+> What do you think about another pull request which only has some of the 
+> cleanup/fixes and leave the rest for the time after 2.6.39-rc1 - so it may get 
+> into 2.6.40?
 
--    p += sprintf(p, "OK: %llu(c%llu+d%llu) nsec, %llu (%dbyte,%dfrags)\n",
-+    p += sprintf(p, "OK: %llu(c%llu+d%llu) usec, %llu (%dbyte,%dfrags)\n",
-               (unsigned long long)ktime_to_us(elapsed),
-               (unsigned long long)ktime_to_us(ktime_sub(elapsed, idle)),
-               (unsigned long long)ktime_to_us(idle),
+I already pulled this stuff into net-next-2.6
