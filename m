@@ -1,30 +1,28 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH 2/2] Define ENONAMESERVICE and ENAMEUNKNOWN to indicate
- name service errors
-Date: Mon, 7 Mar 2011 16:00:42 +0000
-Message-ID: <20110307160042.2ddc8e65@lxorguk.ukuu.org.uk>
-References: <20110307150208.28218.89348.stgit@warthog.procyon.org.uk>
-	<20110307150218.28218.84916.stgit@warthog.procyon.org.uk>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [V2 Patch] bonding: move procfs code into bond_procfs.c
+Date: Mon, 7 Mar 2011 11:17:40 -0500
+Message-ID: <20110307161740.GT11864@gospo.rdu.redhat.com>
+References: <1299484726-29905-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keyrings-6DNke4IJHB0gsBAKwltoeQ@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110307150218.28218.84916.stgit-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
-Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Amerigo Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1299484726-29905-1-git-send-email-amwang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Define ENONAMESERVICE to indicate "Network name service unavailable".  This can
-> be used to indicate, for example, that an attempt was made by dns_query() to
-> make a query, but the name server (e.g. a DNS server) it is supposed to contact
-> didn't answer or that it couldn't determine the location of a suitable server.
+On Mon, Mar 07, 2011 at 03:58:46PM +0800, Amerigo Wang wrote:
+> V2: Move #ifdef CONFIG_PROC_FS into bonding.h, as suggested by David.
+> 
+> bond_main.c is bloating, separate the procfs code out,
+> move them to bond_procfs.c
+> 
+> Signed-off-by: WANG Cong <amwang@redhat.com>
+> 
 
-Are these in glibc and are there glibc patches submitted and accepted for
-this ?
+Looks good and works as expected.
 
-(I only ask because I know its previously taken years for glibc to catch
-up with stuff)
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
