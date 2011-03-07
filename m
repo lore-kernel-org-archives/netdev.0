@@ -1,44 +1,82 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] Issue NETDEV_CHANGE notification when bridge
- changes state
-Date: Sun, 6 Mar 2011 22:41:14 -0800 (PST)
-Message-ID: <1649722795.14144.1299480074110.JavaMail.root@tahiti.vyatta.com>
-References: <20110307002543.GA4242@mira.lan.galacticasoftware.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH] sctp: do not mark chunk abandoned if peer has no PRSCTP
+ capable
+Date: Mon, 07 Mar 2011 15:08:36 +0800
+Message-ID: <4D748474.9030600@cn.fujitsu.com>
+References: <4D6F1723.5030909@cn.fujitsu.com> <4D6FA25A.6030401@hp.com>	 <4D707442.1090903@cn.fujitsu.com> <1299244083.2581.4.camel@oscar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Adam Majer <adamm@zombino.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lksctp <linux-sctp@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60843 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751169Ab1CGGlP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 01:41:15 -0500
-In-Reply-To: <20110307002543.GA4242@mira.lan.galacticasoftware.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:49915 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753058Ab1CGHIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 02:08:20 -0500
+In-Reply-To: <1299244083.2581.4.camel@oscar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-> On Sun, Mar 06, 2011 at 09:45:41AM -0800, Stephen Hemminger wrote:
-> > Since this a generic problem, it needs a better solution.
-> > Sending NETDEV_CHANGE impacts lots of other pieces, and even
-> > user space has similar problems.
-> 
-> It does seem a little broad notification type. I've checked over
-> all the currently defined NETDEV notifiers, and it seems that
-> NETDEV_NOTIFY_PEERS may be a better option to use when bridge
-> has a potential topology change.
-> 
-> Currently it is only used in ipv4/devinet.c: where it is used to issue
-> a gratuitous ARP.
 
-I was thinking of fixing bridge to not actually bring the link
-up until in forwarding mode. Other applications (DHCP, etc)
-see the link up and really don't like being in half duplex
-during that period. 
+> On Fri, 2011-03-04 at 13:10 +0800, Wei Yongjun wrote:
+>>> On 03/02/2011 11:20 PM, Wei Yongjun wrote:
+>>>> Chunk is marked abandoned if the chunk is expires, and it not be
+>>>> retransmited even if the peer has no PRSCTP capable, but the peer
+>>>> will still wait for retransmit it to update CTSN.
+>>>> This patch disable mark chunk abandoned if peer has no PRSCTP
+>>>> capable.
+>>>>
+>>>> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+>>>> ---
+>>>>  net/sctp/chunk.c |    3 +++
+>>>>  1 files changed, 3 insertions(+), 0 deletions(-)
+>>>>
+>>>> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+>>>> index 6c85564..0d4832d 100644
+>>>> --- a/net/sctp/chunk.c
+>>>> +++ b/net/sctp/chunk.c
+>>>> @@ -347,6 +347,9 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
+>>>>  {
+>>>>  	struct sctp_datamsg *msg = chunk->msg;
+>>>>  
+>>>> +	if (!chunk->asoc->peer.prsctp_capable)
+>>>> +		return 0;
+>>>> +
+>>>>  	if (!msg->can_abandon)
+>>>>  		return 0;
+>>>>  
+>>> The trouble is that timetolive can be set on a message independent of Partial Reliability.
+>>> The difference in behavior is that when PR can't be used, a chunk can only be abandoned
+>>> if it has not yet been transmitted.  With PR enabled, the chunk can be abandoned at any time.
+>>>
+>>> So, you can't blindly disallow abandonment. 
+>> But, how can we do PR if peer has no PRSCTP capable?
+> That's already taken care of.  We report the message as unsent.  When
+> PRSCTP is disabled, you may only abandon messages/chunks that have not
+> been transmitted (assigned a TSN).
+
+I got it, thanks
+
+>> Return error to application in sendmsg()? If so, how we check this if there is no asoc?
+> How would you have data without an association?
+>
+> -vlad
+>
+>>
+>>> -vlad
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
