@@ -1,107 +1,60 @@
-From: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2/2] Define ENONAMESERVICE and ENAMEUNKNOWN to indicate name
- service errors
-Date: Mon, 07 Mar 2011 15:02:18 +0000
-Message-ID: <20110307150218.28218.84916.stgit@warthog.procyon.org.uk>
-References: <20110307150208.28218.89348.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keyrings-6DNke4IJHB0gsBAKwltoeQ@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110307150208.28218.89348.stgit-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
-Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] dsa/mv88e6060: support nonzero mii base address
+Date: Mon,  7 Mar 2011 16:49:47 +0100
+Message-ID: <1299512987-11152-1-git-send-email-jacmet@sunsite.dk>
+Cc: Peter Korsgaard <jacmet@sunsite.dk>
+To: davem@davemloft.net, buytenh@wantstofly.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46573 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754543Ab1CGPuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 10:50:19 -0500
+Received: by wyg36 with SMTP id 36so4271418wyg.19
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 07:50:18 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that the kernel has filesystems (and possibly other services) that want to
-look up internet addresses corresponding to arbitrary hostnames retrieved from
-the server, it would seem useful to provide a couple of error codes to indicate
-problems with the look up, rather than overloading some other error code.
+The mv88e6060 uses either the lower 16 or upper 16 mii addresses,
+depending on the value of the EE_CLK/ADDR4 pin. Support both
+configurations by using the sw_addr setting as base address.
 
-Define ENONAMESERVICE to indicate "Network name service unavailable".  This can
-be used to indicate, for example, that an attempt was made by dns_query() to
-make a query, but the name server (e.g. a DNS server) it is supposed to contact
-didn't answer or that it couldn't determine the location of a suitable server.
-
-Define ENAMEUNKNOWN to indicate "Network name unknown".  This can be used to
-indicate, for example, that an attempt was made by dns_query() to make a query,
-but the name server (e.g. a DNS server) replied indicating that it had no
-matching records.
-
-The DNS query upcall program can report these to keyctl_reject() so that cached
-failed queries will respond with these errors until they expire.
-
-Signed-off-by: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 ---
+ net/dsa/mv88e6060.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
- arch/alpha/include/asm/errno.h  |    2 ++
- arch/mips/include/asm/errno.h   |    2 ++
- arch/parisc/include/asm/errno.h |    2 ++
- arch/sparc/include/asm/errno.h  |    2 ++
- include/asm-generic/errno.h     |    2 ++
- 5 files changed, 10 insertions(+), 0 deletions(-)
+diff --git a/net/dsa/mv88e6060.c b/net/dsa/mv88e6060.c
+index 83277f4..8f4ff5a 100644
+--- a/net/dsa/mv88e6060.c
++++ b/net/dsa/mv88e6060.c
+@@ -18,7 +18,7 @@
+ 
+ static int reg_read(struct dsa_switch *ds, int addr, int reg)
+ {
+-	return mdiobus_read(ds->master_mii_bus, addr, reg);
++	return mdiobus_read(ds->master_mii_bus, ds->pd->sw_addr + addr, reg);
+ }
+ 
+ #define REG_READ(addr, reg)					\
+@@ -34,7 +34,8 @@ static int reg_read(struct dsa_switch *ds, int addr, int reg)
+ 
+ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+ {
+-	return mdiobus_write(ds->master_mii_bus, addr, reg, val);
++	return mdiobus_write(ds->master_mii_bus, ds->pd->sw_addr + addr,
++			     reg, val);
+ }
+ 
+ #define REG_WRITE(addr, reg, val)				\
+@@ -50,7 +51,7 @@ static char *mv88e6060_probe(struct mii_bus *bus, int sw_addr)
+ {
+ 	int ret;
+ 
+-	ret = mdiobus_read(bus, REG_PORT(0), 0x03);
++	ret = mdiobus_read(bus, sw_addr + REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+ 		ret &= 0xfff0;
+ 		if (ret == 0x0600)
+-- 
+1.7.2.3
 
-diff --git a/arch/alpha/include/asm/errno.h b/arch/alpha/include/asm/errno.h
-index 519663c..ee8a3f0 100644
---- a/arch/alpha/include/asm/errno.h
-+++ b/arch/alpha/include/asm/errno.h
-@@ -122,5 +122,7 @@
- 
- #define	ERFKILL		138	/* Operation not possible due to RF-kill */
- #define	ENOAUTHSERVICE	139	/* Authentication service not available */
-+#define	ENONAMESERVICE	140	/* Network name service unavailable */
-+#define	ENAMEUNKNOWN	141	/* Network name unknown */
- 
- #endif
-diff --git a/arch/mips/include/asm/errno.h b/arch/mips/include/asm/errno.h
-index 5fa7fed..faed965 100644
---- a/arch/mips/include/asm/errno.h
-+++ b/arch/mips/include/asm/errno.h
-@@ -121,6 +121,8 @@
- 
- #define	ERFKILL		167	/* Operation not possible due to RF-kill */
- #define	ENOAUTHSERVICE	168	/* Authentication service not available */
-+#define	ENONAMESERVICE	169	/* Network name service unavailable */
-+#define	ENAMEUNKNOWN	170	/* Network name unknown */
- 
- #define EDQUOT		1133	/* Quota exceeded */
- 
-diff --git a/arch/parisc/include/asm/errno.h b/arch/parisc/include/asm/errno.h
-index 6a19346..63ee0bc 100644
---- a/arch/parisc/include/asm/errno.h
-+++ b/arch/parisc/include/asm/errno.h
-@@ -122,5 +122,7 @@
- 
- #define	ERFKILL		256	/* Operation not possible due to RF-kill */
- #define	ENOAUTHSERVICE	257	/* Authentication service not available */
-+#define	ENONAMESERVICE	258	/* Network name service unavailable */
-+#define	ENAMEUNKNOWN	259	/* Network name unknown */
- 
- #endif
-diff --git a/arch/sparc/include/asm/errno.h b/arch/sparc/include/asm/errno.h
-index ab3a26a..f40d5ae 100644
---- a/arch/sparc/include/asm/errno.h
-+++ b/arch/sparc/include/asm/errno.h
-@@ -112,5 +112,7 @@
- 
- #define	ERFKILL		134	/* Operation not possible due to RF-kill */
- #define	ENOAUTHSERVICE	135	/* Authentication service not available */
-+#define	ENONAMESERVICE	136	/* Network name service unavailable */
-+#define	ENAMEUNKNOWN	137	/* Network name unknown */
- 
- #endif
-diff --git a/include/asm-generic/errno.h b/include/asm-generic/errno.h
-index bcf1908..25878f1 100644
---- a/include/asm-generic/errno.h
-+++ b/include/asm-generic/errno.h
-@@ -108,5 +108,7 @@
- 
- #define ERFKILL		132	/* Operation not possible due to RF-kill */
- #define	ENOAUTHSERVICE	133	/* Authentication service not available */
-+#define	ENONAMESERVICE	134	/* Network name service unavailable */
-+#define	ENAMEUNKNOWN	135	/* Network name unknown */
- 
- #endif
