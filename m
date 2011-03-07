@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] r8169 driver updates
-Date: Mon, 07 Mar 2011 15:40:13 -0800 (PST)
-Message-ID: <20110307.154013.233696529.davem@davemloft.net>
-References: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 1/2] bonding: remove the unused dummy functions when
+ net poll controller isn't enabled
+Date: Mon, 07 Mar 2011 15:45:20 -0800 (PST)
+Message-ID: <20110307.154520.02280462.davem@davemloft.net>
+References: <1299126381-9338-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com, jesse@nicira.com,
-	oneukum@suse.de, dwmw2@infradead.org, ben@decadent.org.uk
-To: romieu@fr.zoreil.com
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32782
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37263
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754755Ab1CGXjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 18:39:36 -0500
-In-Reply-To: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1750987Ab1CGXom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 18:44:42 -0500
+In-Reply-To: <1299126381-9338-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 5 Mar 2011 10:37:16 +0100
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Thu,  3 Mar 2011 12:26:21 +0800
 
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem-next.r8169
+> These two functions are only used when net poll controller is enabled.
 > 
-> to get the changes below.
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Pulled, thanks a lot.
+Applied.
