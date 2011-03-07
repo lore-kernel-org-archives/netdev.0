@@ -1,405 +1,377 @@
 From: Weiping Pan <panweiping3@gmail.com>
 Subject: Re: bonding can't change to another slave if you ifdown the active
  slave
-Date: Mon, 07 Mar 2011 11:13:27 +0800
-Message-ID: <4D744D57.9050908@gmail.com>
-References: <4D704B35.20700@gmail.com> <20110305025332.GR11864@gospo.rdu.redhat.com> <4D723F83.7080309@gmail.com>
+Date: Mon, 07 Mar 2011 11:23:28 +0800
+Message-ID: <4D744FB0.1010102@gmail.com>
+References: <4D704B35.20700@gmail.com> <514.1299285520@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, Linda Wang <lwang@redhat.com>
-To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	Linda Wang <lwang@redhat.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:35268 "EHLO
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:36838 "EHLO
 	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753934Ab1CGDRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 22:17:08 -0500
-Received: by vxi39 with SMTP id 39so3404312vxi.19
-        for <netdev@vger.kernel.org>; Sun, 06 Mar 2011 19:17:07 -0800 (PST)
-In-Reply-To: <4D723F83.7080309@gmail.com>
+	with ESMTP id S1755092Ab1CGDd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 22:33:58 -0500
+Received: by vxi39 with SMTP id 39so3411072vxi.19
+        for <netdev@vger.kernel.org>; Sun, 06 Mar 2011 19:33:57 -0800 (PST)
+In-Reply-To: <514.1299285520@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/05/2011 09:49 PM, Nicolas de Peslo=FCan wrote:
-> Le 05/03/2011 03:53, Andy Gospodarek a =E9crit :
->> On Fri, Mar 04, 2011 at 10:15:17AM +0800, Weiping Pan wrote:
->>> Hi,
->>>
->>> I'm doing some Linux bonding driver test, and I find a problem in
->>> balance-rr mode.
->>> That's it can't change to another slave if you ifdown the active sl=
-ave.
->>> Any comments are warmly welcomed!
->>>
->>> regards
->>> Weiping Pan
->>>
->>> My host is Fedora 14, and I install VirtualBox (4.0.2), and enable =
-4
->>> nics for the guest system.
->>
->> Does this mean you are passing 4 NICs from your host to your guest
->> (maybe via direct pci-device assignment to the guest) or are you
->> creating 4 virtual devices on the host that are in a bridge group on=
- the
->> host?
+On 03/05/2011 08:38 AM, Jay Vosburgh wrote:
+> Weiping Pan<panweiping3@gmail.com>  wrote:
 >
-> VirtualBox does not allow assignment of pci-device to the guest. The=20
-> network interfaces on the guest are pure virtual one, with several=20
-> modes available. In order to help you trouble shooting this problem,=20
-> we need to know the mode form each of the virtual interfaces. Possibl=
-e=20
-> modes are NAT, bridged, internal-network, and host-only-network.
+>> I'm doing some Linux bonding driver test, and I find a problem in
+>> balance-rr mode.
+>> That's it can't change to another slave if you ifdown the active slave.
+>> Any comments are warmly welcomed!
+> 	I followed your recipe on a somewhat more recent kernel (2.6.37)
+> and using real hardware, and I don't see the problem you describe.
 >
-> Please provide the output of the following command:
+> 	I do have a couple of questions, further down.
 >
-> VBoxManage showvminfo <your-vm-uuid> | grep ^NIC
->
-> To display your vm uuid, use the following command:
->
-> VBoxManage list vms
-[root@localhost ~]# VBoxManage showvminfo=20
+> [...]
+>> My host is Fedora 14, and I install VirtualBox (4.0.2), and enable 4
+> 	I've not ever tried virtualbox, but it may be that its virtual
+> switch is misbehaving.  One possibility that comes to mind is that the
+> virtual switch is confused by seeing the same MAC address on multiple
+> ports (which is a problem with a hardware virtual switch I'm familiar
+> with).
+I use bridge mode in virtualbox.
+[root@localhost ~]# VBoxManage showvminfo 
 67b83c47-0ee2-46bc-b0ff-e0eb43edc1c2 |grep ^NIC
-NIC 1:           MAC: 0800270481A8, Attachment: Bridged Interface=20
-'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM,=20
+NIC 1:           MAC: 0800270481A8, Attachment: Bridged Interface 
+'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM, 
 Reported speed: 0 Mbps, Boot priority: 0
-NIC 2:           MAC: 08002778F641, Attachment: Bridged Interface=20
-'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM,=20
+NIC 2:           MAC: 08002778F641, Attachment: Bridged Interface 
+'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM, 
 Reported speed: 0 Mbps, Boot priority: 0
-NIC 3:           MAC: 080027C408BA, Attachment: Bridged Interface=20
-'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM,=20
+NIC 3:           MAC: 080027C408BA, Attachment: Bridged Interface 
+'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM, 
 Reported speed: 0 Mbps, Boot priority: 0
-NIC 4:           MAC: 080027DB339A, Attachment: Bridged Interface=20
-'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM,=20
+NIC 4:           MAC: 080027DB339A, Attachment: Bridged Interface 
+'eth0', Cable connected: on, Trace: off (file: none), Type: 82540EM, 
 Reported speed: 0 Mbps, Boot priority: 0
 NIC 5:           disabled
 NIC 6:           disabled
 NIC 7:           disabled
 NIC 8:           disabled
-
-And when guest starts, i find that:
-NIC 1: eth7
-NIC 2: eth6
-NIC 3: eth9
-NIC 4: eth8
-
->
+>> nics for the guest system.
+>> My guest is Fedora 14 too.
+>> First on my host, I run:
+>> [pwp@localhost linux-2.6.35-comment]$ uname -a
+>> Linux localhost.localdomain 2.6.35.11-83.fc14.i686 #1 SMP Mon Feb 7
+>> 07:04:18 UTC 2011 i686 i686 i386 GNU/Linux
 >>
->> [...]
->>> [root@localhost ~]# ifconfig eth7 down
+>> [pwp@localhost linux-2.6.35-comment]$ sudo ifconfig eth0:0 192.168.1.100
+>> netmask 255.255.255.0 up
+>> [pwp@localhost linux-2.6.35-comment]$ sudo ifconfig
+>> eth0      Link encap:Ethernet  HWaddr 64:31:50:3A:B0:B5
+>>           inet addr:10.66.65.228  Bcast:10.66.65.255  Mask:255.255.254.0
+>>           inet6 addr: fe80::6631:50ff:fe3a:b0b5/64 Scope:Link
+>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           RX packets:811505 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:777018 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:709681583 (676.8 MiB)  TX bytes:71520005 (68.2 MiB)
+>>           Interrupt:17
 >>
->> This is not a great way to test link failure with bonding.  The best=
- way
->> is to actually pull the cable so the interface is truly down.
->
-> To virtually plug or unplug the cable from a virtual interface, use=20
-> the following command, replacing the # with the interface number (fro=
-m=20
-> 1 to 8):
->
-> VBoxManage controlvm setlinkstate# on
-> VBoxManage controlvm setlinkstate# off
-I repeat my test with your guide, but it still doesn't work!
-
-=46irst on my host,
-ifconfig eth0:0 192.168.1.100 netmask 255.255.255.0 up
-
-And restart my guest,
-[root@localhost ~]# ifconfig
-eth6      Link encap:Ethernet  HWaddr 08:00:27:78:F6:41
-           inet addr:10.66.65.128  Bcast:10.66.65.255  Mask:255.255.254=
-=2E0
-           inet6 addr: fe80::a00:27ff:fe78:f641/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:22 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:3608 (3.5 KiB)  TX bytes:1152 (1.1 KiB)
-
-eth7      Link encap:Ethernet  HWaddr 08:00:27:04:81:A8
-           inet addr:10.66.65.53  Bcast:10.66.65.255  Mask:255.255.254.=
-0
-           inet6 addr: fe80::a00:27ff:fe04:81a8/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:23 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:3668 (3.5 KiB)  TX bytes:1152 (1.1 KiB)
-
-eth8      Link encap:Ethernet  HWaddr 08:00:27:DB:33:9A
-           inet addr:10.66.65.237  Bcast:10.66.65.255  Mask:255.255.254=
-=2E0
-           inet6 addr: fe80::a00:27ff:fedb:339a/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:147 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:14783 (14.4 KiB)  TX bytes:1152 (1.1 KiB)
-
-eth9      Link encap:Ethernet  HWaddr 08:00:27:C4:08:BA
-           inet addr:10.66.65.125  Bcast:10.66.65.255  Mask:255.255.254=
-=2E0
-           inet6 addr: fe80::a00:27ff:fec4:8ba/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:147 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:14783 (14.4 KiB)  TX bytes:1152 (1.1 KiB)
-
-lo        Link encap:Local Loopback
-           inet addr:127.0.0.1  Mask:255.0.0.0
-           inet6 addr: ::1/128 Scope:Host
-           UP LOOPBACK RUNNING  MTU:16436  Metric:1
-           RX packets:16 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:16 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:880 (880.0 b)  TX bytes:880 (880.0 b)
-
-[root@localhost ~]# ifconfig eth6 down
-[root@localhost ~]# ifconfig eth7 down
-[root@localhost ~]# ifconfig eth8 down
-[root@localhost ~]# ifconfig eth9 down
-[root@localhost ~]# ip route show
-[root@localhost ~]# ip neigh show
-[root@localhost ~]# ifconfig
-lo        Link encap:Local Loopback
-           inet addr:127.0.0.1  Mask:255.0.0.0
-           inet6 addr: ::1/128 Scope:Host
-           UP LOOPBACK RUNNING  MTU:16436  Metric:1
-           RX packets:16 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:16 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:880 (880.0 b)  TX bytes:880 (880.0 b)
-
-[root@localhost ~]# dmesg -c &> /dev/null
-[root@localhost ~]# modprobe bonding mode=3D0 miimon=3D100
-[root@localhost ~]# ifconfig bond0 192.168.1.5 netmask 255.255.255.0 up
-[root@localhost ~]# ifenslave bond0 eth6
-[root@localhost ~]# ifenslave bond0 eth7
-[root@localhost ~]# dmesg
-[  164.865840] bonding: Ethernet Channel Bonding Driver: v3.6.0=20
-(September 26, 2009)
-[  164.865845] bonding: MII link monitoring set to 100 ms
-[  181.186201] ADDRCONF(NETDEV_UP): bond0: link is not ready
-[  191.549252] bonding: bond0: enslaving eth6 as an active interface=20
-with a down link.
-[  191.552653] e1000: eth6 NIC Link is Up 1000 Mbps Full Duplex, Flow=20
-Control: RX
-[  191.586166] bonding: bond0: link status definitely up for interface =
-eth6.
-[  191.586315] ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
-[  193.420974] e1000: eth7 NIC Link is Up 1000 Mbps Full Duplex, Flow=20
-Control: RX
-[  193.434907] bonding: bond0: enslaving eth7 as an active interface=20
-with an up link.
-
-[root@localhost ~]# ifconfig
-bond0     Link encap:Ethernet  HWaddr 08:00:27:78:F6:41
-           inet addr:192.168.1.5  Bcast:192.168.1.255  Mask:255.255.255=
-=2E0
-           inet6 addr: fe80::a00:27ff:fe78:f641/64 Scope:Link
-           UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
-           RX packets:95 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:26 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:13415 (13.1 KiB)  TX bytes:4140 (4.0 KiB)
-
-eth6      Link encap:Ethernet  HWaddr 08:00:27:78:F6:41
-           inet addr:10.66.65.128  Bcast:10.66.65.255  Mask:255.255.254=
-=2E0
-           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
-           RX packets:48 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:13 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:7464 (7.2 KiB)  TX bytes:1822 (1.7 KiB)
-
-eth7      Link encap:Ethernet  HWaddr 08:00:27:78:F6:41
-           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
-           RX packets:47 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:13 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:5951 (5.8 KiB)  TX bytes:2318 (2.2 KiB)
-
-lo        Link encap:Local Loopback
-           inet addr:127.0.0.1  Mask:255.0.0.0
-           inet6 addr: ::1/128 Scope:Host
-           UP LOOPBACK RUNNING  MTU:16436  Metric:1
-           RX packets:16 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:16 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:880 (880.0 b)  TX bytes:880 (880.0 b)
-
-[root@localhost ~]# ping 192.168.1.100 -c 5
-PING 192.168.1.100 (192.168.1.100) 56(84) bytes of data.
-64 bytes from 192.168.1.100: icmp_req=3D1 ttl=3D64 time=3D1.98 ms
-64 bytes from 192.168.1.100: icmp_req=3D2 ttl=3D64 time=3D0.955 ms
-64 bytes from 192.168.1.100: icmp_req=3D3 ttl=3D64 time=3D0.209 ms
-64 bytes from 192.168.1.100: icmp_req=3D4 ttl=3D64 time=3D0.277 ms
-64 bytes from 192.168.1.100: icmp_req=3D5 ttl=3D64 time=3D0.289 ms
-
---- 192.168.1.100 ping statistics ---
-5 packets transmitted, 5 received, 0% packet loss, time 4002ms
-rtt min/avg/max/mdev =3D 0.209/0.742/1.984/0.678 ms
-
+>> eth0:0    Link encap:Ethernet  HWaddr 64:31:50:3A:B0:B5
+>>           inet addr:192.168.1.100  Bcast:192.168.1.255  Mask:255.255.255.0
+>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           Interrupt:17
+>>
+>> Then I enable bonding on my guest, I run:
+>> [root@localhost ~]# uname -a
+>> Linux localhost.localdomain 2.6.35.11-83.fc14.i686 #1 SMP Mon Feb 7
+>> 07:04:18 UTC 2011 i686 i686 i386 GNU/Linux
+>>
+>> [root@localhost ~]# ifconfig
+>> eth6      Link encap:Ethernet  HWaddr 08:00:27:3A:4D:BD
+>>           inet addr:10.66.65.167  Bcast:10.66.65.255  Mask:255.255.254.0
+>>           inet6 addr: fe80::a00:27ff:fe3a:4dbd/64 Scope:Link
+>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           RX packets:65 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:31 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:9916 (9.6 KiB)  TX bytes:3090 (3.0 KiB)
+>>
+>> eth7      Link encap:Ethernet  HWaddr 08:00:27:26:1B:DB
+>>           inet addr:10.66.65.154  Bcast:10.66.65.255  Mask:255.255.254.0
+>>           inet6 addr: fe80::a00:27ff:fe26:1bdb/64 Scope:Link
+>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           RX packets:57 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:7358 (7.1 KiB)  TX bytes:1152 (1.1 KiB)
+>>
+>> eth8      Link encap:Ethernet  HWaddr 08:00:27:B5:FC:D1
+>>           inet addr:10.66.65.169  Bcast:10.66.65.255  Mask:255.255.254.0
+>>           inet6 addr: fe80::a00:27ff:feb5:fcd1/64 Scope:Link
+>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           RX packets:57 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:7358 (7.1 KiB)  TX bytes:1152 (1.1 KiB)
+>>
+>> eth9      Link encap:Ethernet  HWaddr 08:00:27:C7:7B:FC
+>>           inet addr:10.66.65.216  Bcast:10.66.65.255  Mask:255.255.254.0
+>>           inet6 addr: fe80::a00:27ff:fec7:7bfc/64 Scope:Link
+>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           RX packets:57 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:7358 (7.1 KiB)  TX bytes:1152 (1.1 KiB)
+>>
+>> lo        Link encap:Local Loopback
+>>           inet addr:127.0.0.1  Mask:255.0.0.0
+>>           inet6 addr: ::1/128 Scope:Host
+>>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+>>           RX packets:123 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:123 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:0
+>>           RX bytes:13036 (12.7 KiB)  TX bytes:13036 (12.7 KiB)
+>>
+>> [root@localhost ~]# ifconfig eth7 down
+>> [root@localhost ~]# ifconfig eth8 down
+>> [root@localhost ~]# dmesg -c
+>> [root@localhost ~]# modprobe bonding mode=0 miimon=100
+>> [root@localhost ~]# ifconfig bond0 192.168.1.5 netmask 255.255.255.0 up
+>> [root@localhost ~]# ifenslave bond0 eth7
+>>
+>> [root@localhost ~]# dmesg
+>> [  304.496463] bonding: Ethernet Channel Bonding Driver: v3.6.0
+>> (September 26, 2009)
+>> [  304.496468] bonding: MII link monitoring set to 100 ms
+>> [  353.527680] ADDRCONF(NETDEV_UP): bond0: link is not ready
+>> [  355.321626] e1000: eth7 NIC Link is Up 1000 Mbps Full Duplex, Flow
+>> Control: RX
+>> [  355.322250] bonding: bond0: enslaving eth7 as an active interface
+>> with an up link.
+>> [  355.323503] ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
+>> [  365.394052] bond0: no IPv6 routers present
+>>
+>> [pwp@localhost ~]$ ping 192.168.1.100 -c 10
+> 	At this point, what is in the routing table ("ip route show")
+> and the ARP table ("ip neigh show")?
 [root@localhost ~]# ip route show
 192.168.1.0/24 dev bond0  proto kernel  scope link  src 192.168.1.5
-10.66.64.0/23 dev eth6  proto kernel  scope link  src 10.66.65.128 =20
+10.66.64.0/23 dev eth7  proto kernel  scope link  src 10.66.65.53  metric 1
+10.66.64.0/23 dev eth6  proto kernel  scope link  src 10.66.65.128  
+metric 1
+default via 10.66.65.254 dev eth7  proto static
+[root@localhost ~]# ip neigh show
+192.168.1.100 dev bond0 lladdr 64:31:50:3a:b0:b5 REACHABLE
+
+
+>> PING 192.168.1.100 (192.168.1.100) 56(84) bytes of data.
+>> 64 bytes from 192.168.1.100: icmp_req=1 ttl=64 time=0.196 ms
+>> 64 bytes from 192.168.1.100: icmp_req=2 ttl=64 time=0.365 ms
+>> 64 bytes from 192.168.1.100: icmp_req=3 ttl=64 time=0.259 ms
+>> 64 bytes from 192.168.1.100: icmp_req=4 ttl=64 time=0.135 ms
+>> 64 bytes from 192.168.1.100: icmp_req=5 ttl=64 time=0.194 ms
+>> 64 bytes from 192.168.1.100: icmp_req=6 ttl=64 time=0.225 ms
+>> 64 bytes from 192.168.1.100: icmp_req=7 ttl=64 time=0.189 ms
+>> 64 bytes from 192.168.1.100: icmp_req=8 ttl=64 time=0.274 ms
+>> 64 bytes from 192.168.1.100: icmp_req=9 ttl=64 time=1.07 ms
+>> 64 bytes from 192.168.1.100: icmp_req=10 ttl=64 time=0.274 ms
+>>
+>> --- 192.168.1.100 ping statistics ---
+>> 10 packets transmitted, 10 received, 0% packet loss, time 9002ms
+>> rtt min/avg/max/mdev = 0.135/0.319/1.079/0.260 ms
+>>
+>> [root@localhost ~]# ifenslave bond0 eth8
+>> [root@localhost ~]# dmesg
+>> [  304.496463] bonding: Ethernet Channel Bonding Driver: v3.6.0
+>> (September 26, 2009)
+>> [  304.496468] bonding: MII link monitoring set to 100 ms
+>> [  353.527680] ADDRCONF(NETDEV_UP): bond0: link is not ready
+>> [  355.321626] e1000: eth7 NIC Link is Up 1000 Mbps Full Duplex, Flow
+>> Control: RX
+>> [  355.322250] bonding: bond0: enslaving eth7 as an active interface
+>> with an up link.
+>> [  355.323503] ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
+>> [  365.394052] bond0: no IPv6 routers present
+>> [  510.913797] e1000: eth8 NIC Link is Up 1000 Mbps Full Duplex, Flow
+>> Control: RX
+>> [  510.917312] bonding: bond0: enslaving eth8 as an active interface
+>> with an up link.
+>>
+>> [pwp@localhost ~]$ ping 192.168.1.100 -c 10
+>> PING 192.168.1.100 (192.168.1.100) 56(84) bytes of data.
+>> 64 bytes from 192.168.1.100: icmp_req=1 ttl=64 time=0.182 ms
+>> 64 bytes from 192.168.1.100: icmp_req=2 ttl=64 time=0.211 ms
+>> 64 bytes from 192.168.1.100: icmp_req=3 ttl=64 time=0.270 ms
+>> 64 bytes from 192.168.1.100: icmp_req=4 ttl=64 time=0.248 ms
+>> 64 bytes from 192.168.1.100: icmp_req=5 ttl=64 time=0.132 ms
+>> 64 bytes from 192.168.1.100: icmp_req=6 ttl=64 time=0.291 ms
+>> 64 bytes from 192.168.1.100: icmp_req=7 ttl=64 time=0.246 ms
+>> 64 bytes from 192.168.1.100: icmp_req=8 ttl=64 time=0.272 ms
+>> 64 bytes from 192.168.1.100: icmp_req=9 ttl=64 time=0.293 ms
+>> 64 bytes from 192.168.1.100: icmp_req=10 ttl=64 time=0.133 ms
+>>
+>> --- 192.168.1.100 ping statistics ---
+>> 10 packets transmitted, 10 received, 0% packet loss, time 9000ms
+>> rtt min/avg/max/mdev = 0.132/0.227/0.293/0.060 ms
+>>
+>> [root@localhost ~]# ifconfig
+>> bond0     Link encap:Ethernet  HWaddr 08:00:27:26:1B:DB
+>>           inet addr:192.168.1.5  Bcast:192.168.1.255  Mask:255.255.255.0
+>>           inet6 addr: fe80::a00:27ff:fe26:1bdb/64 Scope:Link
+>>           UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
+>>           RX packets:311 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:61 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:0
+>>           RX bytes:38075 (37.1 KiB)  TX bytes:8698 (8.4 KiB)
+>>
+>> eth7      Link encap:Ethernet  HWaddr 08:00:27:26:1B:DB
+>>           inet addr:10.66.65.154  Bcast:10.66.65.255  Mask:255.255.254.0
+>>           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
+>>           RX packets:181 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:39 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:22297 (21.7 KiB)  TX bytes:4578 (4.4 KiB)
+>>
+>> eth8      Link encap:Ethernet  HWaddr 08:00:27:26:1B:DB
+>>           inet addr:192.168.1.15  Bcast:192.168.1.255  Mask:255.255.255.0
+>>           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
+>>           RX packets:130 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:22 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:15778 (15.4 KiB)  TX bytes:4120 (4.0 KiB)
+>>
+>> [root@localhost ~]# ifconfig eth7 down
+> 	Next question: just after setting eth7 down, what do the routing
+> and ARP tables look like?
+[root@localhost ~]# ifconfig eth7 down
+[root@localhost ~]# ip route show
+192.168.1.0/24 dev bond0  proto kernel  scope link  src 192.168.1.5
+10.66.64.0/23 dev eth6  proto kernel  scope link  src 10.66.65.128  
 metric 1
 default via 10.66.65.254 dev eth6  proto static
 [root@localhost ~]# ip neigh show
-192.168.1.100 dev bond0 lladdr 64:31:50:3a:b0:b5 STALE
+192.168.1.100 dev bond0 lladdr 64:31:50:3a:b0:b5 REACHABLE
 
 
-And on host,
-[root@localhost ~]# VBoxManage controlvm=20
-67b83c47-0ee2-46bc-b0ff-e0eb43edc1c2 setlinkstate2 off
-
-Then on guest,
-[root@localhost ~]# ethtool eth6
-Settings for eth6:
-         Supported ports: [ TP ]
-         Supported link modes:   10baseT/Half 10baseT/Full
-                                 100baseT/Half 100baseT/Full
-                                 1000baseT/Full
-         Supports auto-negotiation: Yes
-         Advertised link modes:  10baseT/Half 10baseT/Full
-                                 100baseT/Half 100baseT/Full
-                                 1000baseT/Full
-         Advertised pause frame use: No
-         Advertised auto-negotiation: Yes
-         Speed: Unknown!
-         Duplex: Unknown! (255)
-         Port: Twisted Pair
-         PHYAD: 0
-         Transceiver: internal
-         Auto-negotiation: on
-         MDI-X: Unknown
-         Supports Wake-on: umbg
-         Wake-on: d
-         Current message level: 0x00000007 (7)
-         Link detected: no
-
-[root@localhost ~]# dmesg
-[  164.865840] bonding: Ethernet Channel Bonding Driver: v3.6.0=20
-(September 26, 2009)
-[  164.865845] bonding: MII link monitoring set to 100 ms
-[  181.186201] ADDRCONF(NETDEV_UP): bond0: link is not ready
-[  191.549252] bonding: bond0: enslaving eth6 as an active interface=20
-with a down link.
-[  191.552653] e1000: eth6 NIC Link is Up 1000 Mbps Full Duplex, Flow=20
-Control: RX
-[  191.586166] bonding: bond0: link status definitely up for interface =
-eth6.
-[  191.586315] ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
-[  193.420974] e1000: eth7 NIC Link is Up 1000 Mbps Full Duplex, Flow=20
-Control: RX
-[  193.434907] bonding: bond0: enslaving eth7 as an active interface=20
-with an up link.
-[  202.018085] bond0: no IPv6 routers present
-[  238.834001] e1000: eth7 NIC Link is Up 1000 Mbps Full Duplex, Flow=20
-Control: RX
-[  434.010205] e1000: eth6 NIC Link is Down
-[  434.011661] bonding: bond0: link status definitely down for interfac=
-e=20
-eth6, disabling it
-
-[root@localhost ~]# ping 192.168.1.100 -c 5
-PING 192.168.1.100 (192.168.1.100) 56(84) bytes of data.
- From 192.168.1.5 icmp_seq=3D2 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D3 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D4 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D5 Destination Host Unreachable
-
---- 192.168.1.100 ping statistics ---
-5 packets transmitted, 0 received, +4 errors, 100% packet loss, time 40=
-01ms
-pipe 3
-
-[root@localhost ~]# ip route show
-192.168.1.0/24 dev bond0  proto kernel  scope link  src 192.168.1.5
-[root@localhost ~]# ip neigh show
-192.168.1.100 dev bond0  FAILED
-
-ping on the guest while tcpdump on the host,
-on guest:
-[root@localhost ~]# ping 192.168.1.100
-PING 192.168.1.100 (192.168.1.100) 56(84) bytes of data.
- From 192.168.1.5 icmp_seq=3D2 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D3 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D4 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D6 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D7 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D8 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D10 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D11 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D12 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D14 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D15 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D16 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D18 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D19 Destination Host Unreachable
- From 192.168.1.5 icmp_seq=3D20 Destination Host Unreachable
-^C
---- 192.168.1.100 ping statistics ---
-21 packets transmitted, 0 received, +15 errors, 100% packet loss, time=20
-20005ms
-pipe 3
-
-on host:
+>> [root@localhost ~]# dmesg
+>> [  304.496463] bonding: Ethernet Channel Bonding Driver: v3.6.0
+>> (September 26, 2009)
+>> [  304.496468] bonding: MII link monitoring set to 100 ms
+>> [  353.527680] ADDRCONF(NETDEV_UP): bond0: link is not ready
+>> [  355.321626] e1000: eth7 NIC Link is Up 1000 Mbps Full Duplex, Flow
+>> Control: RX
+>> [  355.322250] bonding: bond0: enslaving eth7 as an active interface
+>> with an up link.
+>> [  355.323503] ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
+>> [  365.394052] bond0: no IPv6 routers present
+>> [  510.913797] e1000: eth8 NIC Link is Up 1000 Mbps Full Duplex, Flow
+>> Control: RX
+>> [  510.917312] bonding: bond0: enslaving eth8 as an active interface
+>> with an up link.
+>> [  592.208534] bonding: bond0: link status definitely down for interface
+>> eth7, disabling it
+>>
+>> Now, if bonding driver works well, eth8 will be the active slave, and
+>> the network connection is ok.
+>> __But__ ...
+>>
+>> [pwp@localhost ~]$ ping 192.168.1.100 -c 10
+>> PING 192.168.1.100 (192.168.1.100) 56(84) bytes of data.
+> > From 192.168.1.5 icmp_seq=10 Destination Host Unreachable
+>> --- 192.168.1.100 ping statistics ---
+>> 10 packets transmitted, 0 received, +1 errors, 100% packet loss, time 8999ms
+>>
+>> How strange!
+>>
+>> [root@localhost ~]# ifconfig
+>> bond0     Link encap:Ethernet  HWaddr 08:00:27:26:1B:DB
+>>           inet addr:192.168.1.5  Bcast:192.168.1.255  Mask:255.255.255.0
+>>           inet6 addr: fe80::a00:27ff:fe26:1bdb/64 Scope:Link
+>>           UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
+>>           RX packets:357 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:76 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:0
+>>           RX bytes:42971 (41.9 KiB)  TX bytes:9832 (9.6 KiB)
+>>
+>> eth8      Link encap:Ethernet  HWaddr 08:00:27:26:1B:DB
+>>           inet addr:192.168.1.15  Bcast:192.168.1.255  Mask:255.255.255.0
+>>           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
+>>           RX packets:163 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:37 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:19073 (18.6 KiB)  TX bytes:5254 (5.1 KiB)
+>>
+>> [root@localhost ~]# arp
+>> Address                  HWtype  HWaddress           Flags
+>> Mask            Iface
+>> corerouter.nay.redhat.c  ether   00:1d:45:20:d5:ff
+>> C                     eth6
+>> 192.168.1.100
+>> (incomplete)                              bond0
+>>
+>> I think maybe there is something wrong about arp.
+>> So I run ping and tcpdump synchronously.
+>>
+>> [pwp@localhost ~]$ ping 192.168.1.100 -c 10
+>> PING 192.168.1.100 (192.168.1.100) 56(84) bytes of data.
+> > From 192.168.1.5 icmp_seq=2 Destination Host Unreachable
+> > From 192.168.1.5 icmp_seq=3 Destination Host Unreachable
+> > From 192.168.1.5 icmp_seq=4 Destination Host Unreachable
+> > From 192.168.1.5 icmp_seq=6 Destination Host Unreachable
+> > From 192.168.1.5 icmp_seq=7 Destination Host Unreachable
+> > From 192.168.1.5 icmp_seq=8 Destination Host Unreachable
+> > From 192.168.1.5 icmp_seq=9 Destination Host Unreachable
+> > From 192.168.1.5 icmp_seq=10 Destination Host Unreachable
+>> --- 192.168.1.100 ping statistics ---
+>> 10 packets transmitted, 0 received, +8 errors, 100% packet loss, time 9002ms
+>> pipe 3
+>>
+>> And meanwhile,
+>> [root@localhost ~]# tcpdump -i bond0 -p arp
+>> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+>> listening on bond0, link-type EN10MB (Ethernet), capture size 65535 bytes
+>> 02:46:56.983092 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,
+>> length 28
+> [...]
+>
+> 	At this point, does tcpdump on the host system see the incoming
+> ARP requests?
+Yes. On host,
 [root@localhost ~]# tcpdump -i eth0 -p arp
-tcpdump: verbose output suppressed, use -v or -vv for full protocol dec=
-ode
-listening on eth0, link-type EN10MB (Ethernet), capture size 65535 byte=
-s
-11:00:50.474242 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+11:21:01.721704 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:50.474256 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:01.721714 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:52.469651 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:02.723536 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:52.469661 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:02.723548 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:52.632719 ARP, Request who-has dhcp-65-29.nay.redhat.com tell=20
-corerouter.nay.redhat.com, length 46
-11:00:53.192150 ARP, Request who-has dhcp-65-14.nay.redhat.com tell=20
-corerouter.nay.redhat.com, length 46
-11:00:53.471246 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:03.019325 ARP, Request who-has 10.66.4.107 tell 10.66.4.108, length 46
+11:21:04.018956 ARP, Request who-has 10.66.4.107 tell 10.66.4.108, length 46
+11:21:04.720847 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:53.471257 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:04.720856 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:54.474627 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:05.018627 ARP, Request who-has 10.66.4.107 tell 10.66.4.108, length 46
+11:21:05.722297 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:54.474636 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:05.722308 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:56.472050 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:06.724211 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
-11:00:56.472060 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
-length 28
-11:00:57.475211 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
-length 28
-11:00:57.475220 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
-length 28
-11:00:58.476840 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
-length 28
-11:00:58.476849 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
-length 28
-11:00:58.624738 ARP, Request who-has dhcp-65-29.nay.redhat.com tell=20
-corerouter.nay.redhat.com, length 46
-11:01:00.477029 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
-length 28
-11:01:00.477038 ARP, Request who-has 192.168.1.100 tell 192.168.1.5,=20
+11:21:06.724220 ARP, Request who-has 192.168.1.100 tell 192.168.1.5, 
 length 28
 ^C
-19 packets captured
-19 packets received by filter
+13 packets captured
+13 packets received by filter
 0 packets dropped by kernel
-[root@localhost ~]# ip neigh show
-192.168.1.5 dev eth0 lladdr 08:00:27:78:f6:41 STALE
-10.66.65.254 dev eth0 lladdr 00:1d:45:20:d5:ff REACHABLE
 
+Maybe host doesn't reply ? I'm not sure.
 
 regards
-Weiping Pan
+Weiping pan
