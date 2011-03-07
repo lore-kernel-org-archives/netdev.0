@@ -1,50 +1,43 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: tun routing is broken
-Date: Mon, 7 Mar 2011 13:54:18 +0100 (CET)
-Message-ID: <alpine.LRH.2.00.1103071352100.19033@twin.jikos.cz>
-References: <20110304.010603.104076956.davem@davemloft.net> <4D70B2DC.2000005@gmail.com> <4D71EE86.6030309@suse.cz> <20110305.001022.183044112.davem@davemloft.net> <4D71F194.9010402@suse.cz>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next-2.6 0/7] be2net: Patch series for supporting Lancer
+Date: Mon, 7 Mar 2011 18:35:20 +0530
+Message-ID: <20cba747-f885-47d5-b27d-788efc426bec@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Jiri Slaby <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
-	mm-commits@vger.kernel.org, netdev@vger.kernel.org,
-	maxk@qualcomm.com
-To: Jiri Slaby <jslaby@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subramanian Seetharaman <subbu.seetharaman@emulex.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:53612 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751088Ab1CGMyb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 07:54:31 -0500
-In-Reply-To: <4D71F194.9010402@suse.cz>
+Received: from exht1.emulex.com ([138.239.113.183]:52312 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751044Ab1CGNGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 08:06:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 5 Mar 2011, Jiri Slaby wrote:
-
-> > Date: Sat, 05 Mar 2011 09:04:22 +0100
-> > 
-> >> Ok, so I booted the new kernel, and tun is broken there completely. If I
-> >> try to ping a vpn peer:
-> > 
-> > -mm tree is missing this fix which went in yesterday.  Please if
-> > you are going to be testing networking a lot, test against net-next-2.6
-> > instead of Andrew's tree which invariable lags behind:
-> 
-> I'm not testing networking, I'm just using my desktop :). (And
-> next/master is mostly unusable for these needs. In comparison to mmotm
-> which is some kind of a "release".)
-
-I have been hit by similar issues several times already as well.
-
-I guess that question of including -mm into linux-next should be raised 
-again here ... Andrew, if I remember correctly, on last kernel summit you 
-were stating that you'd stop eating untill you have -mm included in -next. 
-Seems like you must be quite hungry these days already :)
-
+Hi David,
+	Following are patches to support Lancer family of CNA.
+Please apply.
 Thanks,
+Padmanabh
 
--- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Subramanian Seetharaman <subbu.seetharaman@emulex.com>
+
+Padmanabh Ratnakar (7):
+  be2net: Remove ERR compl workaround for Lancer
+  be2net: Checksum field valid only for TCP/UDP
+  be2net: Add error recovery during load for Lancer
+  be2net: Change f/w command versions for Lancer
+  be2net: Remove TX Queue stop in close
+  be2net: Disarm CQ and EQ to disable interrupt in Lancer
+  be2net: Add multicast filter capability for Lancer
+
+ drivers/net/benet/be.h      |    4 +-
+ drivers/net/benet/be_cmds.c |    8 +++-
+ drivers/net/benet/be_cmds.h |    5 +-
+ drivers/net/benet/be_hw.h   |   12 ++++
+ drivers/net/benet/be_main.c |  118 +++++++++++++++++++++++++++++++------------
+ 5 files changed, 108 insertions(+), 39 deletions(-)
 
