@@ -1,35 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/17] mlx4: Add blue flame support for kernel consumers
-Date: Mon, 07 Mar 2011 13:27:21 -0800 (PST)
-Message-ID: <20110307.132721.246531926.davem@davemloft.net>
-References: <4D74B0D2.1000907@mellanox.co.il>
-	<AANLkTi=uRL2GAb7CBqJiVUuXTgpX_w7=3PZ3JdmL_+jj@mail.gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave	instead
+ of master
+Date: Mon, 07 Mar 2011 22:30:57 +0100
+Message-ID: <4D754E91.1040208@gmail.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com> <20110307143202.GS11864@gospo.rdu.redhat.com> <4D753C40.2030502@gmail.com> <20110307211957.GB3266@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org, eli@mellanox.co.il
-To: roland@purestorage.com
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59582
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756353Ab1CGV0q convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 16:26:46 -0500
-In-Reply-To: <AANLkTi=uRL2GAb7CBqJiVUuXTgpX_w7=3PZ3JdmL_+jj@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61775 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751853Ab1CGVa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 16:30:59 -0500
+Received: by wyg36 with SMTP id 36so4610398wyg.19
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 13:30:58 -0800 (PST)
+In-Reply-To: <20110307211957.GB3266@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Roland Dreier <roland@purestorage.com>
-Date: Mon, 7 Mar 2011 13:07:48 -0800
+Le 07/03/2011 22:19, Jiri Pirko a =E9crit :
+>>
+>> Andy, while you are testing it, can you ensure it also works for the=
+ following setup?
+>>
+>> eth0 ->  bond0 ->  br0 ->  br0.100
+>>
+>
+> I do not think this will work (it never did).
 
-> On Mon, Mar 7, 2011 at 2:17 AM, Yevgeny Petrilin
-> <yevgenyp@mellanox.co.il> wrote:
->> + =A0 =A0 =A0 if (map_bf_area(dev))
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mlx4_dbg(dev, "Kernel support for blue=
- flame is not available for kernels < 2.6.28\n");
->=20
-> This seems like a really bad error message.  Can map_bf_area() actual=
-ly fail?
+Yes, but it should...
 
-Indeed, referencing specific old kernel versions in the upstream
-driver makes no sense at all.
+> Bridge reinjects skb, does not do another loop.
+
+Yes, but it should...
+
+> Therefore when skb->dev =3D=3D br0 and vlan_on_bond hook is called, o=
+rig_dev =3D=3D br0 as well. + No
+> IFF_BONDING is set.
+
+If only bridge returned RX_HANDLER_ANOTHER with skb->dev changed to br0=
+=2E.. instead of re-injecting=20
+the skb... One more reason to avoid re-injecting.
+
+> I have some kind nice solution in mind and I'm going to submit that a=
+s a patch later (too many
+> patches are in the wind atm).
+
+Agreed. It's time for others to review, test and ack :-D
+
+	Nicolas.
