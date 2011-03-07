@@ -1,7 +1,7 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next-2.6 6/7] be2net: Disarm CQ and EQ to disable interrupt in Lancer
-Date: Mon, 7 Mar 2011 18:39:17 +0530
-Message-ID: <a90f0081-4b33-4200-918f-e806c5fac42a@exht1.ad.emulex.com>
+Subject: [PATCH net-next-2.6 7/7] be2net: Add multicast filter capability for Lancer
+Date: Mon, 7 Mar 2011 18:39:36 +0530
+Message-ID: <75dc2dd0-70ff-4ce2-b42e-6bbebb4f257b@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
@@ -9,58 +9,53 @@ Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
 	Subramanian Seetharaman <subbu.seetharaman@emulex.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:52339 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:52353 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752091Ab1CGNKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 08:10:03 -0500
+	with ESMTP id S1751701Ab1CGNKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 08:10:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For Lancer disable interrupts in close by disarming CQs and EQs.
-Change the order of calls in be_close to achieve the correct result.
+Lancer requires multicast capability flag set during IFACE_CREATE
+for adding multicast filters.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 Signed-off-by: Subramanian Seetharaman <subbu.seetharaman@emulex.com>
 ---
- drivers/net/benet/be_main.c |   17 ++++++++++++-----
- 1 files changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/benet/be_cmds.h |    3 ++-
+ drivers/net/benet/be_main.c |    4 +++-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index 5bdaa22..b4ac393 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -518,7 +518,8 @@ enum be_if_flags {
+ 	BE_IF_FLAGS_VLAN = 0x100,
+ 	BE_IF_FLAGS_MCAST_PROMISCUOUS = 0x200,
+ 	BE_IF_FLAGS_PASS_L2_ERRORS = 0x400,
+-	BE_IF_FLAGS_PASS_L3L4_ERRORS = 0x800
++	BE_IF_FLAGS_PASS_L3L4_ERRORS = 0x800,
++	BE_IF_FLAGS_MULTICAST = 0x1000
+ };
+ 
+ /* An RX interface is an object with one or more MAC addresses and
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 68b9d17..a7fd833 100644
+index a7fd833..68f1078 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -2088,6 +2088,18 @@ static int be_close(struct net_device *netdev)
- 	if (!lancer_chip(adapter))
- 		be_intr_set(adapter, false);
+@@ -2263,7 +2263,9 @@ static int be_setup(struct be_adapter *adapter)
+ 	int status;
+ 	u8 mac[ETH_ALEN];
  
-+	for_all_rx_queues(adapter, rxo, i)
-+		napi_disable(&rxo->rx_eq.napi);
-+
-+	napi_disable(&tx_eq->napi);
-+
-+	if (lancer_chip(adapter)) {
-+		be_cq_notify(adapter, adapter->tx_obj.cq.id, false, 0);
-+		be_cq_notify(adapter, adapter->mcc_obj.cq.id, false, 0);
-+		for_all_rx_queues(adapter, rxo, i)
-+			 be_cq_notify(adapter, rxo->cq.id, false, 0);
-+	}
-+
- 	if (adapter->msix_enabled) {
- 		vec = be_msix_vec_get(adapter, tx_eq);
- 		synchronize_irq(vec);
-@@ -2101,11 +2113,6 @@ static int be_close(struct net_device *netdev)
- 	}
- 	be_irq_unregister(adapter);
+-	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST;
++	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED |
++				BE_IF_FLAGS_BROADCAST |
++				BE_IF_FLAGS_MULTICAST;
  
--	for_all_rx_queues(adapter, rxo, i)
--		napi_disable(&rxo->rx_eq.napi);
--
--	napi_disable(&tx_eq->napi);
--
- 	/* Wait for all pending tx completions to arrive so that
- 	 * all tx skbs are freed.
- 	 */
+ 	if (be_physfn(adapter)) {
+ 		cap_flags |= BE_IF_FLAGS_MCAST_PROMISCUOUS |
 -- 
 1.6.0.2
 
