@@ -1,8 +1,9 @@
 From: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/2] Define ENOAUTHSERVICE to indicate "Authentication service
- unavailable"
-Date: Mon, 07 Mar 2011 15:02:08 +0000
-Message-ID: <20110307150208.28218.89348.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 2/2] Define ENONAMESERVICE and ENAMEUNKNOWN to indicate name
+ service errors
+Date: Mon, 07 Mar 2011 15:02:18 +0000
+Message-ID: <20110307150218.28218.84916.stgit@warthog.procyon.org.uk>
+References: <20110307150208.28218.89348.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,97 +11,97 @@ Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2
 To: linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keyrings-6DNke4IJHB0gsBAKwltoeQ@public.gmane.org,
 	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-afs-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110307150208.28218.89348.stgit-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
+Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-As the kernel has or will have filesystems (and possibly other services) that
-want to obtain authentication tokens and/or encryption data on demand (via
-GSSAPI for example), it would seem useful to provide an additional error code
-to indicate a problem with the lookup, rather than overloading some other error
-code.
+Now that the kernel has filesystems (and possibly other services) that want to
+look up internet addresses corresponding to arbitrary hostnames retrieved from
+the server, it would seem useful to provide a couple of error codes to indicate
+problems with the look up, rather than overloading some other error code.
 
-We already have EKEYREJECTED, EKEYREVOKED and EKEYEXPIRED to indicate problems
-with a token that we already have, but what if the authentication server just
-isn't available?
+Define ENONAMESERVICE to indicate "Network name service unavailable".  This can
+be used to indicate, for example, that an attempt was made by dns_query() to
+make a query, but the name server (e.g. a DNS server) it is supposed to contact
+didn't answer or that it couldn't determine the location of a suitable server.
 
-Define ENOAUTHSERVICE to indicate "Authentication service unavailable".  This
-can be used to indicate, for example, that an attempt was made by request_key()
-to retrieve a key, but the authentication server (e.g. a KDC) it is supposed to
-contact didn't answer or that it couldn't determine the location of a suitable
-server.
+Define ENAMEUNKNOWN to indicate "Network name unknown".  This can be used to
+indicate, for example, that an attempt was made by dns_query() to make a query,
+but the name server (e.g. a DNS server) replied indicating that it had no
+matching records.
 
-One way this can be used is that the user of a network filesystem can get a TGT
-from the KDC and stash it in their session keyring, then the filesystem can
-attempt to automatically get a ticket for accessing the filesystem - but if the
-server is uncontactable then the ticket can be negatively instantiated with
-KEYCTL_REJECT, giving the error to be handed to future requests as
-ENOAUTHSERVICE and a small timeout so that the key will expire from the cache
-and allow a retry after a short while to prevent thrashing.
+The DNS query upcall program can report these to keyctl_reject() so that cached
+failed queries will respond with these errors until they expire.
 
 Signed-off-by: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
 
- arch/alpha/include/asm/errno.h  |    1 +
- arch/mips/include/asm/errno.h   |    1 +
- arch/parisc/include/asm/errno.h |    1 +
- arch/sparc/include/asm/errno.h  |    1 +
- include/asm-generic/errno.h     |    1 +
- 5 files changed, 5 insertions(+), 0 deletions(-)
+ arch/alpha/include/asm/errno.h  |    2 ++
+ arch/mips/include/asm/errno.h   |    2 ++
+ arch/parisc/include/asm/errno.h |    2 ++
+ arch/sparc/include/asm/errno.h  |    2 ++
+ include/asm-generic/errno.h     |    2 ++
+ 5 files changed, 10 insertions(+), 0 deletions(-)
 
 diff --git a/arch/alpha/include/asm/errno.h b/arch/alpha/include/asm/errno.h
-index 98099bd..519663c 100644
+index 519663c..ee8a3f0 100644
 --- a/arch/alpha/include/asm/errno.h
 +++ b/arch/alpha/include/asm/errno.h
-@@ -121,5 +121,6 @@
- #define	ENOTRECOVERABLE	137	/* State not recoverable */
+@@ -122,5 +122,7 @@
  
  #define	ERFKILL		138	/* Operation not possible due to RF-kill */
-+#define	ENOAUTHSERVICE	139	/* Authentication service not available */
+ #define	ENOAUTHSERVICE	139	/* Authentication service not available */
++#define	ENONAMESERVICE	140	/* Network name service unavailable */
++#define	ENAMEUNKNOWN	141	/* Network name unknown */
  
  #endif
 diff --git a/arch/mips/include/asm/errno.h b/arch/mips/include/asm/errno.h
-index a0efc73..5fa7fed 100644
+index 5fa7fed..faed965 100644
 --- a/arch/mips/include/asm/errno.h
 +++ b/arch/mips/include/asm/errno.h
-@@ -120,6 +120,7 @@
- #define	ENOTRECOVERABLE	166	/* State not recoverable */
+@@ -121,6 +121,8 @@
  
  #define	ERFKILL		167	/* Operation not possible due to RF-kill */
-+#define	ENOAUTHSERVICE	168	/* Authentication service not available */
+ #define	ENOAUTHSERVICE	168	/* Authentication service not available */
++#define	ENONAMESERVICE	169	/* Network name service unavailable */
++#define	ENAMEUNKNOWN	170	/* Network name unknown */
  
  #define EDQUOT		1133	/* Quota exceeded */
  
 diff --git a/arch/parisc/include/asm/errno.h b/arch/parisc/include/asm/errno.h
-index 9992abd..6a19346 100644
+index 6a19346..63ee0bc 100644
 --- a/arch/parisc/include/asm/errno.h
 +++ b/arch/parisc/include/asm/errno.h
-@@ -121,5 +121,6 @@
- #define ENOTRECOVERABLE	255	/* State not recoverable */
+@@ -122,5 +122,7 @@
  
  #define	ERFKILL		256	/* Operation not possible due to RF-kill */
-+#define	ENOAUTHSERVICE	257	/* Authentication service not available */
+ #define	ENOAUTHSERVICE	257	/* Authentication service not available */
++#define	ENONAMESERVICE	258	/* Network name service unavailable */
++#define	ENAMEUNKNOWN	259	/* Network name unknown */
  
  #endif
 diff --git a/arch/sparc/include/asm/errno.h b/arch/sparc/include/asm/errno.h
-index 4e2bc49..ab3a26a 100644
+index ab3a26a..f40d5ae 100644
 --- a/arch/sparc/include/asm/errno.h
 +++ b/arch/sparc/include/asm/errno.h
-@@ -111,5 +111,6 @@
- #define	ENOTRECOVERABLE	133	/* State not recoverable */
+@@ -112,5 +112,7 @@
  
  #define	ERFKILL		134	/* Operation not possible due to RF-kill */
-+#define	ENOAUTHSERVICE	135	/* Authentication service not available */
+ #define	ENOAUTHSERVICE	135	/* Authentication service not available */
++#define	ENONAMESERVICE	136	/* Network name service unavailable */
++#define	ENAMEUNKNOWN	137	/* Network name unknown */
  
  #endif
 diff --git a/include/asm-generic/errno.h b/include/asm-generic/errno.h
-index 28cc03b..bcf1908 100644
+index bcf1908..25878f1 100644
 --- a/include/asm-generic/errno.h
 +++ b/include/asm-generic/errno.h
-@@ -107,5 +107,6 @@
- #define	ENOTRECOVERABLE	131	/* State not recoverable */
+@@ -108,5 +108,7 @@
  
  #define ERFKILL		132	/* Operation not possible due to RF-kill */
-+#define	ENOAUTHSERVICE	133	/* Authentication service not available */
+ #define	ENOAUTHSERVICE	133	/* Authentication service not available */
++#define	ENONAMESERVICE	134	/* Network name service unavailable */
++#define	ENAMEUNKNOWN	135	/* Network name unknown */
  
  #endif
