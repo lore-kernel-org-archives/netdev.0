@@ -1,62 +1,32 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on congestion
- map updates
-Date: Mon, 7 Mar 2011 15:56:30 -0500
-Message-ID: <20110307205630.GB31788@hmsreliant.think-freely.org>
-References: <1299083302-5168-1-git-send-email-nhorman@tuxdriver.com>
- <20110307.122753.59686845.davem@davemloft.net>
- <1299530363-sup-8922@think>
+From: Roland Dreier <roland@purestorage.com>
+Subject: Re: [PATCH 13/17] mlx4: Add blue flame support for kernel consumers
+Date: Mon, 7 Mar 2011 13:07:48 -0800
+Message-ID: <AANLkTi=uRL2GAb7CBqJiVUuXTgpX_w7=3PZ3JdmL_+jj@mail.gmail.com>
+References: <4D74B0D2.1000907@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	rds-devel <rds-devel@oss.oracle.com>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-To: Chris Mason <chris.mason@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eli@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52768 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753494Ab1CGU4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 15:56:38 -0500
-Content-Disposition: inline
-In-Reply-To: <1299530363-sup-8922@think>
+Received: from na3sys010aog106.obsmtp.com ([74.125.245.80]:55823 "HELO
+	na3sys010aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752994Ab1CGVIK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 16:08:10 -0500
+Received: by mail-vx0-f171.google.com with SMTP id 40so4834898vxc.30
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 13:08:08 -0800 (PST)
+In-Reply-To: <4D74B0D2.1000907@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2011 at 03:41:04PM -0500, Chris Mason wrote:
-> Excerpts from David Miller's message of 2011-03-07 15:27:53 -0500:
-> > From: Neil Horman <nhorman@tuxdriver.com>
-> > Date: Wed,  2 Mar 2011 11:28:22 -0500
-> > 
-> > > Recently had this bug halt reported to me:
-> > 
-> > Well, does anyone on the RDS team care about this bug fix at all?
-> > 
-> > Stuff like this should not sit for nearly a week without any reply
-> > whatsoever.
-> > 
-> 
-> The patch looks good to me, but I'm surprised we haven't seen it here.
-> Venkat please take a look (link to the patch below)  Has it only been seen on ppc?
-> 
-Yes, its only been observed on ppc64.  Its does seem like it should be
-observable on other arches.  I presumed it had something to do with ppc64
-alignment and how it filled in the sg array, that led to a leftover bit of space
-in the scattergather array.  Honestly though I wasnt too worried about ferreting
-out the source, since it seemed apparent to me that buffers with
-RDS_FLAG_CONG_BITMAP set were just causing rds_[loop|ib]_xmit to return a dummy
-positive value (I say dummy because theres no actual data transmitted).  So I
-figured if the value is just there to satisfy the return code, it might as well
-also satisfy what is otherwise a valid BUG_ON check too.
+On Mon, Mar 7, 2011 at 2:17 AM, Yevgeny Petrilin
+<yevgenyp@mellanox.co.il> wrote:
+> + =A0 =A0 =A0 if (map_bf_area(dev))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mlx4_dbg(dev, "Kernel support for blue =
+flame is not available for kernels < 2.6.28\n");
 
-Best
-Neil
+This seems like a really bad error message.  Can map_bf_area() actually=
+ fail?
 
-> http://permalink.gmane.org/gmane.linux.network/187933
-> 
-> -chris
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+ - R.
