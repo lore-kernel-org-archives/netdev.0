@@ -1,55 +1,41 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6 4/8] bonding: wrap slave state work
-Date: Mon, 07 Mar 2011 20:55:12 +0100
-Message-ID: <4D753820.2070608@gmail.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-5-git-send-email-jpirko@redhat.com> <4D7254E9.6090605@gmail.com> <20110307095839.GC2832@psychotron.brq.redhat.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH V4] Export ACPI _DSM provided firmware instance number
+ and string name to sysfs
+Date: Mon, 7 Mar 2011 11:56:16 -0800
+Message-ID: <20110307195616.GA14888@kroah.com>
+References: <20110223125741.GA16473@fedora14-r610.blr.amer.dell.com>
+ <20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
+ <20110304104314.26265021@jbarnes-desktop>
+ <AANLkTimz662+L6eYJm2gh0NwWOxxzQV3503bcs-GMFGu@mail.gmail.com>
+ <20110307200512.GA22450@fedora14-r610.oslab.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45466 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754141Ab1CGTzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 14:55:14 -0500
-Received: by wyg36 with SMTP id 36so4517762wyg.19
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 11:55:13 -0800 (PST)
-In-Reply-To: <20110307095839.GC2832@psychotron.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: a.beregalov@gmail.com, linux-next@vger.kernel.org,
+	jbarnes@virtuousgeek.org, linux-pci@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	mjg@redhat.com, Matt_Domsch@Dell.com, Charles_Rose@Dell.com,
+	Jordan_Hargrave@Dell.com, Shyam_Iyer@Dell.com, sfr@canb.auug.org.au
+To: Narendra_K@Dell.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110307200512.GA22450@fedora14-r610.oslab.blr.amer.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 07/03/2011 10:58, Jiri Pirko a =E9crit :
->>>
->>> +static inline void bond_set_active_slave(struct slave *slave)
->>> +{
->>> +	slave->backup =3D 0;
->>
->> In the comment above, you said that the possible value for backup
->> corresponds with BOND_STATE_ACTIVE and BOND_STATE_BACKUP.
->>
->> So, should be:
->>
->> slave->backup =3D BOND_STATE_ACTIVE;
->>
->>> +}
->>> +
->>> +static inline void bond_set_backup_slave(struct slave *slave)
->>> +{
->>> +	slave->backup =3D 1;
->>
->> slave->backup =3D BOND_STATE_BACKUP;
->>
->
-> Well, I think it's weird and misleading to assign some define to :1
-> bitfield. Should be 0 or 1, nothing else.
+On Mon, Mar 07, 2011 at 11:44:52AM -0800, Narendra_K@Dell.com wrote:
+> --- a/drivers/pci/pci-label.c
+> +++ b/drivers/pci/pci-label.c
+> @@ -29,7 +29,9 @@
+>  #include <linux/nls.h>
+>  #include <linux/acpi.h>
+>  #include <linux/pci-acpi.h>
+> +#ifdef CONFIG_ACPI
+>  #include <acpi/acpi_drivers.h>
+> +#endif
 
-Agreed, but the comment appears missleading... May be you should fix th=
-e comment, not the code.
+You should never need a #ifdef in a .c file for an include file.  If so,
+something is really wrong.
 
-	Nicolas.
+thanks,
 
+greg k-h
