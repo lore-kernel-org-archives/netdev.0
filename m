@@ -1,90 +1,106 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch] bonding: fix netpoll in active-backup mode
-Date: Tue, 08 Mar 2011 16:26:36 +0800
-Message-ID: <4D75E83C.5030609@redhat.com>
-References: <1299507114-12144-1-git-send-email-amwang@redhat.com> <20110307185038.GA31788@hmsreliant.think-freely.org> <4D75AD50.7060400@redhat.com>
+From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Subject: [PATCH] Make CUBIC Hystart more robust to RTT variations
+Date: Tue, 8 Mar 2011 10:32:15 +0100
+Message-ID: <20110308093215.GA23842@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D75AD50.7060400@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sangtae Ha <sha2@ncsu.edu>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xanadu.blop.info ([178.79.145.134]:56511 "EHLO xanadu.blop.info"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751756Ab1CHJbY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 04:31:24 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2011=E5=B9=B403=E6=9C=8808=E6=97=A5 12:15, Cong Wang =E5=86=99=
-=E9=81=93:
-> =E4=BA=8E 2011=E5=B9=B403=E6=9C=8808=E6=97=A5 02:50, Neil Horman =E5=86=
-=99=E9=81=93:
->> On Mon, Mar 07, 2011 at 10:11:50PM +0800, Amerigo Wang wrote:
->>> netconsole doesn't work in active-backup mode, because we don't do =
-anything
->>> for nic failover in active-backup mode. This patch fixes the proble=
-m by:
->>>
->>> 1) make slave_enable_netpoll() and slave_disable_netpoll() callable=
- in softirq
->>> context, that is, moving code after synchronize_rcu_bh() into call_=
-rcu_bh()
->>> callback function, teaching kzalloc() to use GFP_ATOMIC.
->>>
->>> 2) disable netpoll on old slave and enable netpoll on the new slave=
+CUBIC Hystart uses two heuristics to exit slow start earlier, before
+losses start to occur. Unfortunately, it tends to exit slow start far t=
+oo
+early, causing poor performance since convergence to the optimal cwnd i=
+s
+then very slow. This was reported in
+http://permalink.gmane.org/gmane.linux.network/188169 and
+https://partner-bugzilla.redhat.com/show_bug.cgi?id=3D616985
+
+I am using an experimental testbed (http://www.grid5000.fr/) with two
+machines connected using Gigabit ethernet to a dedicated 10-Gb backbone=
 =2E
->>>
->>> Tested by ifdown the current active slave and ifup it again for sev=
-eral times,
->>> netconsole works well.
->>>
->>> Signed-off-by: WANG Cong<amwang@redhat.com>
->>>
->> I may be missing soething but this seems way over-complicated to me.=
- I presume
->> the problem is that in active backup mode a failover results in the =
-new active
->> slave not having netpoll setup on it? If thats the case, why not jus=
-t setup
->> netpoll on all slaves when ndo_netpoll_setup is called on the bondin=
-g interface?
->> I don't see anything immeidately catastrophic that would happen as a=
- result.
->
->
-> But we still need to clean up the netpoll on the failing slave, which=
- still
-> needs to call slave_disable_netpoll() in monitor code, I see no big d=
-ifferences
-> with the solution I take.
->
->
->> And then you wouldn't have to worry about disabling/enabling anythin=
-g on a
->> failover (or during a panic for that matter). As for the rcu bits? W=
-hy are
->> they needed? One would presume that wouldn't (or at least shouldn't)=
- be able to
->> teardown our netpoll setup until such time as all the pending frames=
- for that
->> netpoll client have been transmitted. If we're not blocknig on that =
-RCU isn't
->> really going to help. Seems like the proper fix is take a reference =
-to the
->> appropriate npinfo struct in netpoll_send_skb, and drop it from the =
-skbs
->> destructor or some such.
->
-> I saw a "scheduling while in atomic" warning without touching the rcu=
- bits.
->
+RTT between both machines is 11.3ms. Using TCP CUBIC without Hystart, c=
+wnd
+grows to ~2200.  With Hystart enabled, CUBIC exits slow start with cwnd
+lower than 100, and often lower than 20, which leads to the poor
+performance that I reported.
 
-Hmm, I was wrong, this warning is misleading, I think the root cause is=
- that
-I call slave_disable_netpoll() with write_lock_bh() held...
+After instrumenting TCP CUBIC, I found out that the segment-to-ack RTT
+tends to vary quite a lot even when the network is not congested, due t=
+o
+several factors including the fact that TCP sends packet in burst (so t=
+he
+packets are queued locally before being sent, increasing their RTT), an=
+d
+delayed ACKs on the destination host.
 
-Will update the patch soon...
+The patch below increases the thresholds used by the two Hystart
+heuristics. First, the length of an ACK train needs to reach 2*minRTT.
+Second, the max RTT of a group of packets also needs to reach 2*minRTT.
+In my setup, this causes Hystart to exit slow start when cwnd is in the
+1900-2000 range using the ACK train heuristics, and sometimes to exit i=
+n the
+700-900 range using the delay increase heuristic, dramatically improvin=
+g
+performance.
+
+I've left commented out a printk that is useful for debugging the exit
+point of Hystart. And I could provide access to my testbed if someone
+wants to do further experiments.
+
+Signed-off-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+--=20
+| Lucas Nussbaum             MCF Universit=E9 Nancy 2 |
+| lucas.nussbaum@loria.fr         LORIA / AlGorille |
+| http://www.loria.fr/~lnussbau/  +33 3 54 95 86 19 |
+
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 71d5f2f..a973a49 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -344,7 +344,7 @@ static void hystart_update(struct sock *sk, u32 del=
+ay)
+                /* first detection parameter - ack-train detection */
+                if (curr_jiffies - ca->last_jiffies <=3D msecs_to_jiffi=
+es(2)) {
+                        ca->last_jiffies =3D curr_jiffies;
+-                       if (curr_jiffies - ca->round_start >=3D ca->del=
+ay_min>>4)
++                       if (curr_jiffies - ca->round_start >=3D ca->del=
+ay_min>>2)
+                                ca->found |=3D HYSTART_ACK_TRAIN;
+                }
+=20
+@@ -355,8 +355,7 @@ static void hystart_update(struct sock *sk, u32 del=
+ay)
+=20
+                        ca->sample_cnt++;
+                } else {
+-                       if (ca->curr_rtt > ca->delay_min +
+-                           HYSTART_DELAY_THRESH(ca->delay_min>>4))
++                       if (ca->curr_rtt > ca->delay_min<<1)
+                                ca->found |=3D HYSTART_DELAY;
+                }
+                /*
+@@ -364,7 +363,10 @@ static void hystart_update(struct sock *sk, u32 de=
+lay)
+                 * we exit from slow start immediately.
+                 */
+                if (ca->found & hystart_detect)
++               {
++//                     printk("hystart_update: cwnd=3D%u found=3D%d de=
+lay_min=3D%u cur_jif=3D%u round_start=3D%u curr_rtt=3D%u\n", tp->snd_cw=
+nd, ca->found, ca
+                        tp->snd_ssthresh =3D tp->snd_cwnd;
++               }
+        }
+ }
