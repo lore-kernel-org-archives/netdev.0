@@ -1,52 +1,72 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: ANNOUNCE: debloat-testing kernel git tree
-Date: Tue, 8 Mar 2011 07:58:19 +0100
-Message-ID: <20110308065819.GA1357@ucw.cz>
-References: <20110225222210.GA3618@tuxdriver.com>
- <AANLkTingkcc-dvs_8Nr0vYXdXvuDHEn6sz14tnHzLp8W@mail.gmail.com>
- <87fwr9jxya.fsf@cruithne.co.teklibre.org>
- <AANLkTinpG-xAC-VV-j7EBJB522+BqCyyFd_6N3KEr2Cf@mail.gmail.com>
- <8739n9ii7z.fsf@cruithne.co.teklibre.org>
- <AANLkTi=Cp7N4xqPyU6KWF6DOzFytxaA2BeoXhnhsZ6dp@mail.gmail.com>
- <87tyfph2az.fsf@cruithne.co.teklibre.org>
- <1299176168.2157.14.camel@tardy>
- <4D6FEFD4.9010608@nuim.ie>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC] [PATCH 06/11] esp4: Add support for IPsec extended
+ sequence numbers
+Date: Tue, 8 Mar 2011 08:04:46 +0100
+Message-ID: <20110308070446.GA31402@secunet.com>
+References: <20101122102455.GC1868@secunet.com>
+ <20101122103014.GI1868@secunet.com>
+ <20101202072947.GA22998@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, Dave T?ht <d@taht.net>, sedat.dilek@gmail.com,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	bloat-devel@lists.bufferbloat.net, linux-kernel@vger.kernel.org
-To: Tianji Li <Tianji.Li@nuim.ie>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ksp.mff.cuni.cz ([195.113.26.206]:41602 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751281Ab1CHG63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 01:58:29 -0500
+Cc: David Miller <davem@davemloft.net>,
+	Andreas Gruenbacher <agruen@suse.de>,
+	Alex Badea <abadea@ixiacom.com>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4D6FEFD4.9010608@nuim.ie>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20101202072947.GA22998@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu 2011-03-03 13:45:24, Tianji Li wrote:
-> 
-> 
-> On 03/03/2011 12:16 PM, Rick Jones wrote:
-> >>For wireless routers and cable home gateways especially, this research
-> >>shows that the total un-managed buffers in your system should be less
-> >>than 32.
-> >
-> >Would it be a good thing to start describing these queues not so much in
-> >terms of packets but in terms of delay (or bandwidth X delay)?
-> >
-> 
-> The unit of bandwidth is something like Mbps, that of delay can be
-> second, so bandwidth X delay --> Mb, which is the unit of packet
-> size. So both packets and delay should have the same effect for
-> sizing buffers.
+Sorry for the huge delay...
 
-Bandwidth varies greatly with time. On cellphone, you can go from
-5KB/sec GPRS to 300KB/sec HSDPA and back...
-								Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+On Thu, Dec 02, 2010 at 03:29:47PM +0800, Herbert Xu wrote:
+> On Mon, Nov 22, 2010 at 11:30:14AM +0100, Steffen Klassert wrote:
+> >
+> > @@ -205,11 +228,18 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+> >  	skb_to_sgvec(skb, sg,
+> >  		     esph->enc_data + crypto_aead_ivsize(aead) - skb->data,
+> >  		     clen + alen);
+> > -	sg_init_one(asg, esph, sizeof(*esph));
+> > +
+> > +	if ((x->props.flags & XFRM_STATE_ESN)) {
+> > +		sg_init_table(asg, 2);
+> > +		sg_set_buf(asg, esph, sizeof(*esph));
+> > +		*seqhi = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
+> > +		sg_set_buf(asg + 1, seqhi, seqhilen);
+> > +	} else
+> > +		sg_init_one(asg, esph, sizeof(*esph));
+> 
+> I think this is wrong for AEAD algorithms.  You want the sequence
+> number in network byte order for them so the high bits need to be
+> inserted into the middle of the ESP header.
+> 
+
+Yes, indeed.
+
+> The other problem is that you're currently requiring the authencesn
+> user to provide two SG entries which is fine for now.  However,
+> since this might be exported to user-space in future, authenecesn
+> shouldn't really rely on that, or at least it shouldn't BUG.
+> 
+> So one solution is to do it based on bytes in authencesn.  That is,
+> your associated input should always be 12 bytes long, and then you
+> simply construct a new SG list for your actual processing with the
+> middle 4 bytes taken out.
+> 
+> For IPsec it could just provide an SG list with three entries,
+> of 4 bytes each.
+
+Ok, I've updated the patchset in this regard.
+
+> 
+> Of course for simplicity, you could require this to be the case in
+> authencesn and return -EINVAL (not BUG :) if it's not the case.
+> 
+
+Doing BUG was a leftover from debugging the thing. On debugging it is 
+sometimes better to pull the emergency brake as soon as something
+unexpected happens. I replaced BUG with return -EINVAL now.
+
+I'll resend the patchset for a second round of review.
