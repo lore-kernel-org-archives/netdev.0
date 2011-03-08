@@ -1,54 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on
- congestion map updates
-Date: Tue, 08 Mar 2011 11:22:58 -0800 (PST)
-Message-ID: <20110308.112258.183048712.davem@davemloft.net>
-References: <1299530363-sup-8922@think>
-	<20110308.105223.71117584.davem@davemloft.net>
-	<1299610642-sup-5101@think>
+Subject: Re: [PATCH 1/8] Phonet: fix NULL-deref in
+ a8059512b120362b15424f152b2548fe8b11bd0c
+Date: Tue, 08 Mar 2011 11:29:23 -0800 (PST)
+Message-ID: <20110308.112923.39177383.davem@davemloft.net>
+References: <201103081556.18877.remi.denis-courmont@nokia.com>
+	<1299592626-18510-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, venkat.x.venkatsubra@oracle.com
-To: chris.mason@oracle.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51698
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48966
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755237Ab1CHTWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:22:21 -0500
-In-Reply-To: <1299610642-sup-5101@think>
+	by vger.kernel.org with ESMTP id S1755618Ab1CHT2q convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 14:28:46 -0500
+In-Reply-To: <1299592626-18510-1-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Mason <chris.mason@oracle.com>
-Date: Tue, 08 Mar 2011 13:58:57 -0500
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Tue,  8 Mar 2011 15:56:59 +0200
 
-> Excerpts from David Miller's message of 2011-03-08 13:52:23 -0500:
->> From: Chris Mason <chris.mason@oracle.com>
->> Date: Mon, 07 Mar 2011 15:41:04 -0500
->> 
->> > Excerpts from David Miller's message of 2011-03-07 15:27:53 -0500:
->> >> From: Neil Horman <nhorman@tuxdriver.com>
->> >> Date: Wed,  2 Mar 2011 11:28:22 -0500
->> >> 
->> >> > Recently had this bug halt reported to me:
->> >> 
->> >> Well, does anyone on the RDS team care about this bug fix at all?
->> >> 
->> >> Stuff like this should not sit for nearly a week without any reply
->> >> whatsoever.
->> >> 
->> > 
->> > The patch looks good to me, but I'm surprised we haven't seen it here.
->> > Venkat please take a look (link to the patch below)  Has it only been seen on ppc?
->> > 
->> > http://permalink.gmane.org/gmane.linux.network/187933
->> 
->> Can I get an ACK or something, _please_?
-> 
-> Sorry, wasn't clear:
-> 
-> Acked-by: Chris Mason <chris.mason@oracle.com>
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Applied, thanks everyone.
+You don't even read what I tell you, which makes reviewing your work
+insanely frustrating.
+
+I said:
+
+	Reference other changes like a man, by mentioned the SHA1 ID and
+	giving the commit message header line inside of ("") right
+	afterwards. :-)
+
+I didn't say to put the SHA1 reference in the subject line, it's
+so messy there.  Put it in the commit message.  Do you see other
+people putting commit ID references in the commit header line?
+
+Also, I said explicitly to reference the commit like this:
+
+	$(SHA1_ID) ("commit message header line")
+
+so in this case it would be:
+
+	a8059512b120362b15424f152b2548fe8b11bd0c ("Phonet: implement
+	per-socket destination/peer address")
+
+because when commits get backported that SHA1_ID might be different
+in the tree it gets backported to, so you have to provide that
+textual reference to the commit so that in such a case it can still
+be matched up.
+
+It also irks me that you persisted to provide the most terse possible
+one-line commit message.  Have a conversation in your commit message,
+this isn't for you it's for other people trying to understand your
+work.
+
+The commit message header line just gives a top-level description.
+Details like the reasoning, reference to relevant commits, etc.
+belong in the commit message contents.
