@@ -1,27 +1,41 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 3/4] slab,rcu: don't assume the size of struct rcu_head
-Date: Tue, 8 Mar 2011 12:27:11 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1103081226530.25214@router.home>
-References: <4D6CA85B.5030107@cn.fujitsu.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [Drbd-dev] [PATCH 2/2 v2] netlink: kill eff_cap from struct
+ netlink_skb_parms
+Date: Tue, 8 Mar 2011 21:32:46 +0300
+Message-ID: <20110308183246.GA17412@ioremap.net>
+References: <4D6F6180.5030903@trash.net>
+ <20110303173230.GP4988@sequoia.sous-sol.org>
+ <20110303.105655.189705829.davem@davemloft.net>
+ <20110303201522.GT4988@sequoia.sous-sol.org>
+ <20110303223746.GI25069@barkeeper1-xen.linbit>
+ <20110304012956.GA13573@ioremap.net>
+ <4D764247.9080509@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ingo Molnar <mingo@elte.hu>,
-  "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-  Pekka Enberg <penberg@kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
-  "David S. Miller" <davem@davemloft.net>, Matt Mackall <mpm@selenic.com>,
-  linux-mm@kvack.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4D6CA85B.5030107@cn.fujitsu.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@sous-sol.org>,
+	David Miller <davem@davemloft.net>,
+	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, dm-devel@redhat.com,
+	drbd-dev@lists.linbit.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4D764247.9080509@trash.net>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Patrick.
 
-Acked-by: Christoph Lameter <cl@linux.com>
+On Tue, Mar 08, 2011 at 03:50:47PM +0100, Patrick McHardy (kaber@trash.net) wrote:
+> > Yup, connector is very async at that place, but I wonder why the hell I
+> > ever made that decision. I believe we can replace it with pure sync call
+> > of the registered connector callback, since netlink is synchronous and
+> > no one has any problem with it.
+> 
+> Are you going to do this or do you want me to take care of it?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I will return back at the end of the week and will take care of this
+problem. I will not mind if you complete it first though :)
+
+-- 
+	Evgeniy Polyakov
