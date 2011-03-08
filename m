@@ -1,156 +1,329 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave
-	instead of master
-Date: Tue, 8 Mar 2011 08:42:47 -0500
-Message-ID: <20110308134247.GW11864@gospo.rdu.redhat.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com> <20110307224338.GU11864@gospo.rdu.redhat.com> <20110308071350.GA2826@psychotron.redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Patch V2] bonding: fix netpoll in active-backup mode
+Date: Tue, 8 Mar 2011 08:43:49 -0500
+Message-ID: <20110308134348.GB19072@hmsreliant.think-freely.org>
+References: <1299578336-5888-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	netdev@vger.kernel.org
+To: Amerigo Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3128 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755163Ab1CHNn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2011 08:43:26 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48819 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754469Ab1CHNn4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 08:43:56 -0500
 Content-Disposition: inline
-In-Reply-To: <20110308071350.GA2826@psychotron.redhat.com>
+In-Reply-To: <1299578336-5888-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 08, 2011 at 08:13:51AM +0100, Jiri Pirko wrote:
-> Mon, Mar 07, 2011 at 11:43:38PM CET, andy@greyhouse.net wrote:
-[...]
-> >
-> >This patch doesn't work.
-> >
-> >My setup has bond0.100 -> bond0 -> eth2 and eth3.  ARP monitoring is
-> >enabled as is arp_valiate.
-> >
-> >The initial problem was just that just before vlan_on_bond_hook is
-> >called, skb->dev = bond0.100 and orig_dev = eth2.   (This is after
-> >running goto another_route and having been called back through
-> >__netif_receive_skb since vlan_hwaccel_do_receive it true.)
-> >
-> >Now vlan_on_bond_hook is called and we have 2 skbs.
-> >
-> >The original skb still have skb->dev = bond0.100 and orig_dev = eth2.
-> >Since bond_arp_rcv is registered for traffic only to bond0, the handler
-> >is not hit and the frame is dropped (or processed by another handler).
-> >
-> >The cloned skb has skb->dev = bond0 and is put back on the receive queue
-> >and comes back through __netif_receive_skb.  This frame will match the
-> >ptype entry for bond_arp_rcv, but since orig_dev = bond0 in this case,
-> >the code in bond_arp_rcv will not handle the frame.  
-> >
-> >If we truly want to track the original interface that received the
-> >frame, the following is a better option.  With the recursive nature of
-> >__netif_receive_skb at this point, we should really consider setting
-> >orig_dev from skb_iif rather than just from skb->dev.
-> >
-> >diff --git a/net/core/dev.c b/net/core/dev.c
-> >index 30440e7..500fdbc 100644
-> >--- a/net/core/dev.c
-> >+++ b/net/core/dev.c
-> >@@ -3135,7 +3135,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
-> > 
-> > 	if (!skb->skb_iif)
-> > 		skb->skb_iif = skb->dev->ifindex;
-> >-	orig_dev = skb->dev;
-> > 
-> > 	skb_reset_network_header(skb);
-> > 	skb_reset_transport_header(skb);
-> >@@ -3145,6 +3144,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
-> > 
-> > 	rcu_read_lock();
-> > 
-> >+	orig_dev = dev_get_by_index_rcu(dev_net(skb->dev),skb->skb_iif);
-> > another_round:
-> > 
-> > 	__this_cpu_inc(softnet_data.processed);
-> >
+On Tue, Mar 08, 2011 at 05:58:56PM +0800, Amerigo Wang wrote:
+> V2: avoid calling slave_diable_netpoll() with write_lock_bh() held.
 > 
-> This was proposed earlier. people did not like this very much :(
+> netconsole doesn't work in active-backup mode, because we don't do anything
+> for nic failover in active-backup mode. We should disable netpoll on the
+> failing slave when it is detected down and enable netpoll when it becomes
+> the active slave.
 > 
+You still haven't explained why it needs to be this way.  what exactly is the
+shortcomming with leaving netpoll enabled on all slaves, regardless of state?
+It should be sufficient if, during a failover in a mode where the inactive slave
+should not tx data, that you simply clear the slave __LINK_STATE_START bit.  That will
+prevent higher layers from sending any queued data without you needing to muck
+about with netpoll state.
 
-Interesting.  I'll have to look back at the discussion.
+Neil
 
-> I forgot to include crucial part of "goto another_round for vlan".
-> Following patch should work (will test it once I get to work):
+> Tested by ifdown the current active slave and ifup it again for several times,
+> netconsole works well.
 > 
-> Subject: [patch net-next 2.6] net: reinject arps into bonding slave instead of master
+> Signed-off-by: WANG Cong <amwang@redhat.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
 > 
-> Recent patch "bonding: move processing of recv handlers into
-> handle_frame()" caused a regression on following net scheme:
-> 
-> eth0 - bond0 - bond0.5
-> 
-> where arp monitoring is happening over vlan. This patch fixes it by
-> reinjecting the arp packet into bonding slave device so the bonding
-> rx_handler can pickup and process it.
-> 
-> also instead of calling __netif_receive_skb recursively, "goto another
-> round" does this recursion. The point is the orig_dev variable remains
-> intact.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 > ---
->  net/core/dev.c |   11 +++++------
->  1 files changed, 5 insertions(+), 6 deletions(-)
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index c71bd18..ec330e1 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3094,12 +3094,12 @@ void netdev_rx_handler_unregister(struct net_device *dev)
+>  drivers/net/bonding/bond_main.c |  236 +++++++++++++++++++++------------------
+>  1 files changed, 125 insertions(+), 111 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 0592e6d..102a558 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -907,6 +907,120 @@ static void bond_mc_list_flush(struct net_device *bond_dev,
+>  	}
 >  }
->  EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
 >  
-> -static void vlan_on_bond_hook(struct sk_buff *skb)
-> +static void vlan_on_bond_hook(struct sk_buff *skb, struct net_device *orig_dev)
->  {
->  	/*
->  	 * Make sure ARP frames received on VLAN interfaces stacked on
->  	 * bonding interfaces still make their way to any base bonding
-> -	 * device that may have registered for a specific ptype.
-> +	 * device by reinjecting the frame into bonding slave (orig_dev)
->  	 */
->  	if (skb->dev->priv_flags & IFF_802_1Q_VLAN &&
->  	    vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING &&
-> @@ -3108,7 +3108,7 @@ static void vlan_on_bond_hook(struct sk_buff *skb)
+> +/*--------------------------- Netpoll code ---------------------------*/
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +static inline int slave_enable_netpoll(struct slave *slave)
+> +{
+> +	struct netpoll *np;
+> +	int err = 0;
+> +
+> +	if (slave->np)
+> +		return 0;
+> +
+> +	np = kzalloc(sizeof(*np), GFP_KERNEL);
+> +	err = -ENOMEM;
+> +	if (!np)
+> +		goto out;
+> +
+> +	np->dev = slave->dev;
+> +	err = __netpoll_setup(np);
+> +	if (err) {
+> +		kfree(np);
+> +		goto out;
+> +	}
+> +	slave->np = np;
+> +out:
+> +	return err;
+> +}
+> +static inline void slave_disable_netpoll(struct slave *slave)
+> +{
+> +	struct netpoll *np = slave->np;
+> +
+> +	if (!np)
+> +		return;
+> +
+> +	slave->np = NULL;
+> +	synchronize_rcu_bh();
+> +	__netpoll_cleanup(np);
+> +	kfree(np);
+> +}
+> +static inline bool slave_dev_support_netpoll(struct net_device *slave_dev)
+> +{
+> +	if (slave_dev->priv_flags & IFF_DISABLE_NETPOLL)
+> +		return false;
+> +	if (!slave_dev->netdev_ops->ndo_poll_controller)
+> +		return false;
+> +	return true;
+> +}
+> +
+> +static void bond_poll_controller(struct net_device *bond_dev)
+> +{
+> +}
+> +
+> +static void __bond_netpoll_cleanup(struct bonding *bond)
+> +{
+> +	struct slave *slave;
+> +	int i;
+> +
+> +	bond_for_each_slave(bond, slave, i)
+> +		if (IS_UP(slave->dev))
+> +			slave_disable_netpoll(slave);
+> +}
+> +static void bond_netpoll_cleanup(struct net_device *bond_dev)
+> +{
+> +	struct bonding *bond = netdev_priv(bond_dev);
+> +
+> +	read_lock(&bond->lock);
+> +	__bond_netpoll_cleanup(bond);
+> +	read_unlock(&bond->lock);
+> +}
+> +
+> +static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
+> +{
+> +	struct bonding *bond = netdev_priv(dev);
+> +	struct slave *slave;
+> +	int i, err = 0;
+> +
+> +	read_lock(&bond->lock);
+> +	bond_for_each_slave(bond, slave, i) {
+> +		if (!IS_UP(slave->dev))
+> +			continue;
+> +		err = slave_enable_netpoll(slave);
+> +		if (err) {
+> +			__bond_netpoll_cleanup(bond);
+> +			break;
+> +		}
+> +	}
+> +	read_unlock(&bond->lock);
+> +	return err;
+> +}
+> +
+> +static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
+> +{
+> +	return bond->dev->npinfo;
+> +}
+> +
+> +#else
+> +static inline int slave_enable_netpoll(struct slave *slave)
+> +{
+> +	return 0;
+> +}
+> +static inline void slave_disable_netpoll(struct slave *slave)
+> +{
+> +}
+> +static void bond_netpoll_cleanup(struct net_device *bond_dev)
+> +{
+> +}
+> +static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
+> +{
+> +	return 0;
+> +}
+> +static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
+> +{
+> +	return NULL;
+> +}
+> +#endif
+> +
+>  /*--------------------------- Active slave change ---------------------------*/
 >  
->  		if (!skb2)
->  			return;
-> -		skb2->dev = vlan_dev_real_dev(skb->dev);
-> +		skb2->dev = orig_dev;
->  		netif_rx(skb2);
->  	}
+>  /*
+> @@ -1159,6 +1273,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+>  			bond_set_slave_inactive_flags(old_active);
+>  
+>  		if (new_active) {
+> +			struct netpoll_info *ni;
+>  			bond_set_slave_active_flags(new_active);
+>  
+>  			if (bond->params.fail_over_mac)
+> @@ -1174,6 +1289,13 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+>  			}
+>  
+>  			write_unlock_bh(&bond->curr_slave_lock);
+> +
+> +			ni = bond_netpoll_info(bond);
+> +			if (ni) {
+> +				new_active->dev->npinfo = ni;
+> +				slave_enable_netpoll(new_active);
+> +			}
+> +
+>  			read_unlock(&bond->lock);
+>  
+>  			netdev_bonding_change(bond->dev, NETDEV_BONDING_FAILOVER);
+> @@ -1280,116 +1402,6 @@ static void bond_detach_slave(struct bonding *bond, struct slave *slave)
+>  	bond->slave_cnt--;
+>  }
+>  
+> -#ifdef CONFIG_NET_POLL_CONTROLLER
+> -static inline int slave_enable_netpoll(struct slave *slave)
+> -{
+> -	struct netpoll *np;
+> -	int err = 0;
+> -
+> -	np = kzalloc(sizeof(*np), GFP_KERNEL);
+> -	err = -ENOMEM;
+> -	if (!np)
+> -		goto out;
+> -
+> -	np->dev = slave->dev;
+> -	err = __netpoll_setup(np);
+> -	if (err) {
+> -		kfree(np);
+> -		goto out;
+> -	}
+> -	slave->np = np;
+> -out:
+> -	return err;
+> -}
+> -static inline void slave_disable_netpoll(struct slave *slave)
+> -{
+> -	struct netpoll *np = slave->np;
+> -
+> -	if (!np)
+> -		return;
+> -
+> -	slave->np = NULL;
+> -	synchronize_rcu_bh();
+> -	__netpoll_cleanup(np);
+> -	kfree(np);
+> -}
+> -static inline bool slave_dev_support_netpoll(struct net_device *slave_dev)
+> -{
+> -	if (slave_dev->priv_flags & IFF_DISABLE_NETPOLL)
+> -		return false;
+> -	if (!slave_dev->netdev_ops->ndo_poll_controller)
+> -		return false;
+> -	return true;
+> -}
+> -
+> -static void bond_poll_controller(struct net_device *bond_dev)
+> -{
+> -}
+> -
+> -static void __bond_netpoll_cleanup(struct bonding *bond)
+> -{
+> -	struct slave *slave;
+> -	int i;
+> -
+> -	bond_for_each_slave(bond, slave, i)
+> -		if (IS_UP(slave->dev))
+> -			slave_disable_netpoll(slave);
+> -}
+> -static void bond_netpoll_cleanup(struct net_device *bond_dev)
+> -{
+> -	struct bonding *bond = netdev_priv(bond_dev);
+> -
+> -	read_lock(&bond->lock);
+> -	__bond_netpoll_cleanup(bond);
+> -	read_unlock(&bond->lock);
+> -}
+> -
+> -static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
+> -{
+> -	struct bonding *bond = netdev_priv(dev);
+> -	struct slave *slave;
+> -	int i, err = 0;
+> -
+> -	read_lock(&bond->lock);
+> -	bond_for_each_slave(bond, slave, i) {
+> -		if (!IS_UP(slave->dev))
+> -			continue;
+> -		err = slave_enable_netpoll(slave);
+> -		if (err) {
+> -			__bond_netpoll_cleanup(bond);
+> -			break;
+> -		}
+> -	}
+> -	read_unlock(&bond->lock);
+> -	return err;
+> -}
+> -
+> -static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
+> -{
+> -	return bond->dev->npinfo;
+> -}
+> -
+> -#else
+> -static inline int slave_enable_netpoll(struct slave *slave)
+> -{
+> -	return 0;
+> -}
+> -static inline void slave_disable_netpoll(struct slave *slave)
+> -{
+> -}
+> -static void bond_netpoll_cleanup(struct net_device *bond_dev)
+> -{
+> -}
+> -static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
+> -{
+> -	return 0;
+> -}
+> -static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
+> -{
+> -	return NULL;
+> -}
+> -#endif
+> -
+>  /*---------------------------------- IOCTL ----------------------------------*/
+>  
+>  static int bond_sethwaddr(struct net_device *bond_dev,
+> @@ -2532,8 +2544,10 @@ static void bond_miimon_commit(struct bonding *bond)
+>  				bond_alb_handle_link_change(bond, slave,
+>  							    BOND_LINK_DOWN);
+>  
+> -			if (slave == bond->curr_active_slave)
+> +			if (slave == bond->curr_active_slave) {
+> +				slave_disable_netpoll(slave);
+>  				goto do_failover;
+> +			}
+>  
+>  			continue;
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-
-I'm pretty sure this patch will have the same catastrophic problem your
-last one did.  By cloning and setting skb2->dev = orig_dev you just
-inserted a frame identical to the one we received right back into the
-stack.  It only took a few minutes for my box to melt as one frame on
-the wire will cause an infinite number of frames to be received by the
-stack.
-
-> @@ -3196,13 +3196,12 @@ ncls:
->  			pt_prev = NULL;
->  		}
->  		if (vlan_hwaccel_do_receive(&skb)) {
-> -			ret = __netif_receive_skb(skb);
-> -			goto out;
-> +			goto another_round;
->  		} else if (unlikely(!skb))
->  			goto out;
->  	}
->  
-> -	vlan_on_bond_hook(skb);
-> +	vlan_on_bond_hook(skb, orig_dev);
->  
->  	/* deliver only exact match when indicated */
->  	null_or_dev = deliver_exact ? skb->dev : NULL;
