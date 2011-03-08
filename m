@@ -1,8 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [RFC v2 PATCH 4/9] esp4: Add support for IPsec extended sequence
+Subject: [RFC v2 PATCH 5/9] esp6: Add support for IPsec extended sequence
  numbers
-Date: Tue, 8 Mar 2011 11:07:14 +0100
-Message-ID: <20110308100714.GF31402@secunet.com>
+Date: Tue, 8 Mar 2011 11:07:51 +0100
+Message-ID: <20110308100751.GG31402@secunet.com>
 References: <20110308100407.GB31402@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,43 +11,55 @@ Cc: Alex Badea <abadea@ixiacom.com>,
 	linux-crypto@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>,
 	David Miller <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:48005 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751856Ab1CHKHy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 05:07:54 -0500
 Content-Disposition: inline
 In-Reply-To: <20110308100407.GB31402@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds IPsec extended sequence numbers support to esp4.
+This patch adds IPsec extended sequence numbers support to esp6.
 We use the authencesn crypto algorithm to handle esp with separate
 encryption/authentication algorithms.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/esp4.c |  100 +++++++++++++++++++++++++++++++++++++++++++++----------
- 1 files changed, 82 insertions(+), 18 deletions(-)
+ net/ipv6/esp6.c |  105 +++++++++++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 86 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 882dbbb..03f994b 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -33,11 +33,14 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu);
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index c7b5d5e..5aa8ec8 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -54,16 +54,20 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu);
+ /*
+  * Allocate an AEAD request structure with extra space for SG and IV.
+  *
+- * For alignment considerations the IV is placed at the front, followed
+- * by the request and finally the SG list.
++ * For alignment considerations the upper 32 bits of the sequence number are
++ * placed at the front, if present. Followed by the IV, the request and finally
++ * the SG list.
   *
   * TODO: Use spare space in skb for this where possible.
   */
 -static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags)
-+static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
++static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqihlen)
  {
  	unsigned int len;
  
 -	len = crypto_aead_ivsize(aead);
-+	len = seqhilen;
++	len = seqihlen;
 +
 +	len += crypto_aead_ivsize(aead);
 +
  	if (len) {
  		len += crypto_aead_alignmask(aead) &
  		       ~(crypto_tfm_ctx_alignment() - 1);
-@@ -52,10 +55,15 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags)
+@@ -78,10 +82,16 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags)
  	return kmalloc(len, GFP_ATOMIC);
  }
  
@@ -56,6 +68,7 @@ index 882dbbb..03f994b 100644
 +{
 +	return PTR_ALIGN((__be32 *)tmp, __alignof__(__be32));
 +}
++
 +static inline u8 *esp_tmp_iv(struct crypto_aead *aead, void *tmp, int seqhilen)
  {
  	return crypto_aead_ivsize(aead) ?
@@ -65,18 +78,20 @@ index 882dbbb..03f994b 100644
  }
  
  static inline struct aead_givcrypt_request *esp_tmp_givreq(
-@@ -122,6 +130,10 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -145,8 +155,12 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  	int plen;
  	int tfclen;
  	int nfrags;
 +	int assoclen;
 +	int sglists;
 +	int seqhilen;
+ 	u8 *iv;
+ 	u8 *tail;
 +	__be32 *seqhi;
+ 	struct esp_data *esp = x->data;
  
  	/* skb is pure payload to encrypt */
- 
-@@ -151,14 +163,25 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -175,14 +189,25 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  		goto error;
  	nfrags = err;
  
@@ -105,7 +120,7 @@ index 882dbbb..03f994b 100644
  
  	/* Fill padding... */
  	tail = skb_tail_pointer(trailer);
-@@ -221,11 +244,19 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -210,11 +235,19 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  	skb_to_sgvec(skb, sg,
  		     esph->enc_data + crypto_aead_ivsize(aead) - skb->data,
  		     clen + alen);
@@ -127,21 +142,25 @@ index 882dbbb..03f994b 100644
  	aead_givcrypt_set_giv(req, esph->enc_data,
  			      XFRM_SKB_CB(skb)->seq.output.low);
  
-@@ -346,6 +377,10 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+@@ -292,8 +325,12 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  	struct sk_buff *trailer;
  	int elen = skb->len - sizeof(*esph) - crypto_aead_ivsize(aead);
  	int nfrags;
 +	int assoclen;
 +	int sglists;
 +	int seqhilen;
-+	__be32 *seqhi;
+ 	int ret = 0;
  	void *tmp;
++	__be32 *seqhi;
  	u8 *iv;
  	struct scatterlist *sg;
-@@ -362,16 +397,27 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
- 		goto out;
- 	nfrags = err;
+ 	struct scatterlist *asg;
+@@ -314,12 +351,24 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	}
  
+ 	ret = -ENOMEM;
+-	tmp = esp_alloc_tmp(aead, nfrags + 1);
++
 +	assoclen = sizeof(*esph);
 +	sglists = 1;
 +	seqhilen = 0;
@@ -152,8 +171,6 @@ index 882dbbb..03f994b 100644
 +		assoclen += seqhilen;
 +	}
 +
- 	err = -ENOMEM;
--	tmp = esp_alloc_tmp(aead, nfrags + 1);
 +	tmp = esp_alloc_tmp(aead, nfrags + sglists, seqhilen);
  	if (!tmp)
  		goto out;
@@ -164,12 +181,8 @@ index 882dbbb..03f994b 100644
 +	iv = esp_tmp_iv(aead, tmp, seqhilen);
  	req = esp_tmp_req(aead, iv);
  	asg = esp_req_sg(aead, req);
--	sg = asg + 1;
-+	sg = asg + sglists;
- 
- 	skb->ip_summed = CHECKSUM_NONE;
- 
-@@ -382,11 +428,19 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	sg = asg + 1;
+@@ -333,11 +382,19 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  
  	sg_init_table(sg, nfrags);
  	skb_to_sgvec(skb, sg, sizeof(*esph) + crypto_aead_ivsize(aead), elen);
@@ -189,9 +202,9 @@ index 882dbbb..03f994b 100644
 -	aead_request_set_assoc(req, asg, sizeof(*esph));
 +	aead_request_set_assoc(req, asg, assoclen);
  
- 	err = crypto_aead_decrypt(req);
- 	if (err == -EINPROGRESS)
-@@ -500,10 +554,20 @@ static int esp_init_authenc(struct xfrm_state *x)
+ 	ret = crypto_aead_decrypt(req);
+ 	if (ret == -EINPROGRESS)
+@@ -443,10 +500,20 @@ static int esp_init_authenc(struct xfrm_state *x)
  		goto error;
  
  	err = -ENAMETOOLONG;
@@ -218,3 +231,4 @@ index 882dbbb..03f994b 100644
  	err = PTR_ERR(aead);
 -- 
 1.7.0.4
+
