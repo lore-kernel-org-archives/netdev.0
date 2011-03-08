@@ -1,51 +1,79 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave
-	instead of master
-Date: Mon, 7 Mar 2011 21:43:57 -0500
-Message-ID: <20110308024356.GV11864@gospo.rdu.redhat.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com> <20110307224338.GU11864@gospo.rdu.redhat.com> <4D7565BC.4050201@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 05/14] vlan: add support to ndo_fcoe_ddp_target()
+Date: Tue, 08 Mar 2011 02:44:27 +0000
+Message-ID: <1299552267.3967.3.camel@localhost>
+References: <1299551108-23663-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1299551108-23663-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Yi Zou <yi.zou@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Kiran Patil <kiran.patil@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36003 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755952Ab1CHCoK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 21:44:10 -0500
-Content-Disposition: inline
-In-Reply-To: <4D7565BC.4050201@gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:16285 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753998Ab1CHCob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 21:44:31 -0500
+In-Reply-To: <1299551108-23663-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 08, 2011 at 12:09:48AM +0100, Nicolas de Peslo=FCan wrote:
->
-> After Jiri's last patch series, bond_arp_rcv() is not registered anym=
-ore=20
-> as a protocol handler on bond0, but directly called from inside=20
-> bond_handle_frame(), through bond->recv_probe.
->
-> Because bond_handler_frame() is a rx_handler for the slave interfaces=
-,=20
-> bond_arp_rcv() is now called at the slave level and not a the master=20
-> level anymore.
->
-> Hence this patch and the reason I thought it should work.
->
-> Did you tested this patch with Jiri's previous patches applied before=
-?
->
+On Mon, 2011-03-07 at 18:24 -0800, Jeff Kirsher wrote:
+> From: Yi Zou <yi.zou@intel.com>
+> 
+> Add the new target ddp offload support ndo_fcoe_ddp_target().
+> 
+> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  net/8021q/vlan_dev.c |   14 ++++++++++++++
+>  1 files changed, 14 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index be73753..ae610f0 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -625,6 +625,19 @@ static int vlan_dev_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type)
+>  		rc = ops->ndo_fcoe_get_wwn(real_dev, wwn, type);
+>  	return rc;
+>  }
+> +
+> +static int vlan_dev_fcoe_ddp_target(struct net_device *dev, u16 xid,
+> +				    struct scatterlist *sgl, unsigned int sgc)
+> +{
+> +	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
+> +	const struct net_device_ops *ops = real_dev->netdev_ops;
+> +	int rc = 0;
+> +
+> +	if (ops->ndo_fcoe_ddp_target)
+> +		rc = ops->ndo_fcoe_ddp_target(real_dev, xid, sgl, sgc);
+> +
+> +	return rc;
+> +}
 
-No, I have not tested them yet.  I looked at this problem first as
-Jiri's patch did not fix a regression in code that is actually in
-net-next right now.
+I can't see a caller or any documentation for this operation, so I don't
+know what the semantics are supposed to be.  But shouldn't the return
+value be -EOPNOTSUPP if real_dev does not implement the operation?
 
-I don't have a problem with the work you and Jiri are doing on this
-latest patch series, but the frequency of patch revisions and now
-regressions concerns me.
+Ben.
+
+>  #endif
+>  
+>  static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
+> @@ -858,6 +871,7 @@ static const struct net_device_ops vlan_netdev_ops = {
+>  	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
+>  	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
+>  	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
+> +	.ndo_fcoe_ddp_target	= vlan_dev_fcoe_ddp_target,
+>  #endif
+>  };
+>  
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
