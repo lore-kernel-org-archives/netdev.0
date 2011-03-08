@@ -1,41 +1,38 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [Drbd-dev] [PATCH 2/2 v2] netlink: kill eff_cap from struct
- netlink_skb_parms
-Date: Tue, 8 Mar 2011 21:32:46 +0300
-Message-ID: <20110308183246.GA17412@ioremap.net>
-References: <4D6F6180.5030903@trash.net>
- <20110303173230.GP4988@sequoia.sous-sol.org>
- <20110303.105655.189705829.davem@davemloft.net>
- <20110303201522.GT4988@sequoia.sous-sol.org>
- <20110303223746.GI25069@barkeeper1-xen.linbit>
- <20110304012956.GA13573@ioremap.net>
- <4D764247.9080509@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
+Date: Tue, 08 Mar 2011 10:38:01 -0800 (PST)
+Message-ID: <20110308.103801.193702247.davem@davemloft.net>
+References: <20110307.205815.193699096.davem@davemloft.net>
+	<alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>,
-	David Miller <davem@davemloft.net>,
-	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, dm-devel@redhat.com,
-	drbd-dev@lists.linbit.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D764247.9080509@trash.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34141
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753970Ab1CHShY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 13:37:24 -0500
+In-Reply-To: <alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick.
+From: Julian Anastasov <ja@ssi.bg>
+Date: Tue, 8 Mar 2011 11:57:38 +0200 (EET)
 
-On Tue, Mar 08, 2011 at 03:50:47PM +0100, Patrick McHardy (kaber@trash.net) wrote:
-> > Yup, connector is very async at that place, but I wonder why the hell I
-> > ever made that decision. I believe we can replace it with pure sync call
-> > of the registered connector callback, since netlink is synchronous and
-> > no one has any problem with it.
-> 
-> Are you going to do this or do you want me to take care of it?
+> 	It means, even if there are addresses on the
+> concerned device it does not mean the routes on this device
+> are required to use prefsrc from this device. We must
+> restrict the scope according to the provided for the
+> route: cfg->fc_scope.
 
-I will return back at the end of the week and will take care of this
-problem. I will not mind if you complete it first though :)
+Simple to fix, I'll remember the fc_scope value in the nexthop
+and use that in the address selection call.
 
--- 
-	Evgeniy Polyakov
+> As the addresses have nothing to do with the link
+> state, I don't think it is correct to call fib_update_nh_saddrs
+> for DEV events.
+
+fib_update_nh_saddrs() gets called for "DEV" events since those
+are what are emitted when addresses are addded and removed.
