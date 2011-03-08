@@ -1,56 +1,82 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the net-current tree
-Date: Tue, 8 Mar 2011 14:09:57 +1100
-Message-ID: <20110308140957.8a894312.sfr@canb.auug.org.au>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch] bonding: fix netpoll in active-backup mode
+Date: Tue, 08 Mar 2011 12:15:12 +0800
+Message-ID: <4D75AD50.7060400@redhat.com>
+References: <1299507114-12144-1-git-send-email-amwang@redhat.com> <20110307185038.GA31788@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110307185038.GA31788@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+=E4=BA=8E 2011=E5=B9=B403=E6=9C=8808=E6=97=A5 02:50, Neil Horman =E5=86=
+=99=E9=81=93:
+> On Mon, Mar 07, 2011 at 10:11:50PM +0800, Amerigo Wang wrote:
+>> netconsole doesn't work in active-backup mode, because we don't do a=
+nything
+>> for nic failover in active-backup mode. This patch fixes the problem=
+ by:
+>>
+>> 1) make slave_enable_netpoll() and slave_disable_netpoll() callable =
+in softirq
+>>     context, that is, moving code after synchronize_rcu_bh() into ca=
+ll_rcu_bh()
+>>     callback function, teaching kzalloc() to use GFP_ATOMIC.
+>>
+>> 2) disable netpoll on old slave and enable netpoll on the new slave.
+>>
+>> Tested by ifdown the current active slave and ifup it again for seve=
+ral times,
+>> netconsole works well.
+>>
+>> Signed-off-by: WANG Cong<amwang@redhat.com>
+>>
+> I may be missing soething but this seems way over-complicated to me. =
+ I presume
+> the problem is that in active backup mode a failover results in the n=
+ew active
+> slave not having netpoll setup on it?  If thats the case, why not jus=
+t setup
+> netpoll on all slaves when ndo_netpoll_setup is called on the bonding=
+ interface?
+> I don't see anything immeidately catastrophic that would happen as a =
+result.
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/bnx2x/bnx2x_cmn.c between commit
-e3835b99333eb3ac7222f6fc0af5cae46074ac49 ("bnx2x: (NPAR) prevent HW
-access in D3 state") from the net-current tree and commit
-6e30dd4e3935ddb4e7dd27d5be7a6e5504e64a27 (bnx2x: Proper
-netdev->ndo_set_rx_mode() implementation"") from the net tree.
 
-Just overlapping additions (I think).  I have fixed it up (see below) and
-can carry the fix as necessary.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+But we still need to clean up the netpoll on the failing slave, which s=
+till
+needs to call slave_disable_netpoll() in monitor code, I see no big dif=
+ferences
+with the solution I take.
 
-diff --cc drivers/net/bnx2x/bnx2x_cmn.c
-index a71b329,b01b622..0000000
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@@ -1481,11 -1489,15 +1506,20 @@@ int bnx2x_nic_load(struct bnx2x *bp, in
-  
-  	bnx2x_set_eth_mac(bp, 1);
-  
- +	if (bp->pending_max) {
- +		bnx2x_update_max_mf_config(bp, bp->pending_max);
- +		bp->pending_max = 0;
- +	}
- +
-+ 	/* Clear MC configuration */
-+ 	if (CHIP_IS_E1(bp))
-+ 		bnx2x_invalidate_e1_mc_list(bp);
-+ 	else
-+ 		bnx2x_invalidate_e1h_mc_list(bp);
-+ 
-+ 	/* Clear UC lists configuration */
-+ 	bnx2x_invalidate_uc_list(bp);
-+ 
-  	if (bp->port.pmf)
-  		bnx2x_initial_phy_init(bp, load_mode);
-  
+
+> And then you wouldn't have to worry about disabling/enabling anything=
+ on a
+> failover (or during a panic for that matter).  As for the rcu bits?  =
+Why are
+> they needed?  One would presume that wouldn't (or at least shouldn't)=
+ be able to
+> teardown our netpoll setup until such time as all the pending frames =
+for that
+> netpoll client have been transmitted.  If we're not blocknig on that =
+RCU isn't
+> really going to help.  Seems like the proper fix is take a reference =
+to the
+> appropriate npinfo struct in netpoll_send_skb, and drop it from the s=
+kbs
+> destructor or some such.
+
+I saw a "scheduling while in atomic" warning without touching the rcu b=
+its.
+
+Thanks!
