@@ -1,57 +1,37 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] cnic: fix double initalization of bnx2 based cards
-Date: Tue, 8 Mar 2011 13:41:43 -0800
-Message-ID: <1299620503.12601.26.camel@HP1>
-References: <1299610588-22356-1-git-send-email-nhorman@tuxdriver.com>
- <1299610768.4957.1.camel@bwh-desktop> <1299611277.12601.15.camel@HP1>
- <20110308193601.GA19669@hmsreliant.think-freely.org>
- <1299613396.12601.21.camel@HP1>
- <20110308214028.GD19669@hmsreliant.think-freely.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Tue, 08 Mar 2011 13:57:24 -0800
+Message-ID: <1299621444.25664.77.camel@localhost.localdomain>
+References: <20110127.130240.104065182.davem@davemloft.net>
+	 <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com>
+	 <20110202044222.GC3818@redhat.com>
+	 <201102091107.20270.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eddie Wai" <eddie.wai@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Neil Horman" <nhorman@tuxdriver.com>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2528 "EHLO mms2.broadcom.com"
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:45665 "EHLO e8.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756376Ab1CHVqz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2011 16:46:55 -0500
-In-Reply-To: <20110308214028.GD19669@hmsreliant.think-freely.org>
+	id S1751261Ab1CHV52 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 16:57:28 -0500
+In-Reply-To: <201102091107.20270.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Tue, 2011-03-08 at 13:40 -0800, Neil Horman wrote:
-> > No, that should not happen.  When we compare NULL-terminated "bnx2" with
-> > NULL-terminated "bnx2x", it won't match because the '\0' won't match the
-> > 'x', right?
-> > 
-> > I think the patch is good.  We can avoid the unnecessary strcmp() when
-> > we have a match with "bnx2" already.  But we should not get both matches
-> > even without the patch.
-> > 
-> Crap, sorry, I rescind this (although you're right, it probably wouldn't hurt to
-> roll this change in, just to save a potential second strcmp).  Anywho, I'm
-> getting this error on the ifup of my bnx2 interface:
-> bnx2i: iSCSI not supported, dev=eth1
+On Wed, 2011-02-09 at 11:07 +1030, Rusty Russell wrote:
+> I've finally read this thread... I think we need to get more serious
+> with our stats gathering to diagnose these kind of performance issues.
 > 
-> That message appears to only get set (from my read) on cards driven by the bnx2x
-> driver, and when I saw the 2 ifs rather than the if/else, I jumped to a
-> conclusion that we must be using the bnx2x init path on a bnx2 driver.
-> Apologies.
-> 
-> /me wanders off to see where completion_status gets set to
-> ISCSI_KCQE_COMPLETION_STATUS_ISCSI_NOT_SUPPORTED for bnx2.
+> This is a start; it should tell us what is actually happening to the
+> virtio ring(s) without significant performance impact... 
 
-On bnx2, this error code is set by the firmware if iSCSI is not
-configured in NVRAM.
+Should we also add similar stat on vhost vq as well for monitoring
+vhost_signal & vhost_notify?
 
-Thanks.
-
+Shirley
 
