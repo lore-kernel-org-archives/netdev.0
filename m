@@ -1,32 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: sfc-next-2.6 2011-03-07
-Date: Tue, 08 Mar 2011 11:33:41 -0800 (PST)
-Message-ID: <20110308.113341.59671719.davem@davemloft.net>
-References: <1299540194.2522.46.camel@bwh-desktop>
+From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
+Date: Tue, 8 Mar 2011 20:36:02 +0100
+Message-ID: <20110308193602.GA14526@xanadu.blop.info>
+References: <20110308080926.GA22641@xanadu.blop.info>
+ <20110308104211.3567526f@nehalam>
+ <20110308.105503.104060436.davem@davemloft.net>
+ <AANLkTinT0eHbbELWDLxYyj0axpYt=GHnxLP8fMH-pWOs@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Sangtae Ha <sangtae.ha@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37806
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755366Ab1CHTdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:33:04 -0500
-In-Reply-To: <1299540194.2522.46.camel@bwh-desktop>
+Received: from xanadu.blop.info ([178.79.145.134]:48679 "EHLO xanadu.blop.info"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754669Ab1CHTfM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 14:35:12 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTinT0eHbbELWDLxYyj0axpYt=GHnxLP8fMH-pWOs@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 07 Mar 2011 23:23:14 +0000
+On 08/03/11 at 14:15 -0500, Sangtae Ha wrote:
+> Yes. I remember that CONFIG_HZ was 1000 at that time and the value of
+> CONFIG_HZ could affect the algorithm.
+> I don't think HyStart needs this extra RTT_STAMP since we only need a
+> rough delay estimate.
+> Let me check HyStart with the latest git and with different CONFIG_HZ=
+ values.
 
-> The following changes since commit 07df5294a753dfac2cc9f75e6159fc25fdc22149:
-> 
->   inet: Replace left-over references to inet->cork (2011-03-01 23:00:58 -0800)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
-> 
-> Just one more performance optimisation.
+One of the problems I discovered was that ca->delay_min was completely
+off if RTT_STAMP is disabled. For example, on a link with a 11ms RTT, I
+could get delay_min =3D 4ms. But even with RTT_STAMP, there's the probl=
+em
+that the code rounds the computed RTT value to a jiffie (in
+bictcp_acked()).
 
-Pulled, thanks Ben.
+My other patch mitigates the performance problem by making it harder fo=
+r
+Hystart to abort slow start. But after a few days working on this issue=
+,
+I'm wondering whether Hystart shouldn't be completely rewritten to work
+on the usec values, or disabled by default.
+--=20
+| Lucas Nussbaum             MCF Universit=E9 Nancy 2 |
+| lucas.nussbaum@loria.fr         LORIA / AlGorille |
+| http://www.loria.fr/~lnussbau/  +33 3 54 95 86 19 |
