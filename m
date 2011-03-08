@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
-Date: Tue, 08 Mar 2011 10:38:01 -0800 (PST)
-Message-ID: <20110308.103801.193702247.davem@davemloft.net>
-References: <20110307.205815.193699096.davem@davemloft.net>
-	<alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
+Date: Tue, 8 Mar 2011 10:42:11 -0800
+Message-ID: <20110308104211.3567526f@nehalam>
+References: <20110308080926.GA22641@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: netdev@vger.kernel.org, Sangtae Ha <sha2@ncsu.edu>
+To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34141
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753970Ab1CHShY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 13:37:24 -0500
-In-Reply-To: <alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg>
+Received: from mail.vyatta.com ([76.74.103.46]:46870 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753889Ab1CHSmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 13:42:13 -0500
+In-Reply-To: <20110308080926.GA22641@xanadu.blop.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Tue, 8 Mar 2011 11:57:38 +0200 (EET)
+On Tue, 8 Mar 2011 09:09:26 +0100
+Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
 
-> 	It means, even if there are addresses on the
-> concerned device it does not mean the routes on this device
-> are required to use prefsrc from this device. We must
-> restrict the scope according to the provided for the
-> route: cfg->fc_scope.
+> The Hystart slow start algorithm requires precise RTT delay measurements
+> to decide when to leave slow start. However, currently, CUBIC doesn't
+> enable TCP timestamps. This can cause Hystart to mis-estimate the RTT,
+> and to leave slow start too early, generating bad performance since
+> convergence to the optimal cwnd is slower.
+> 
+> Timestamps are already used by TCP Illinois, LP, Vegas, Veno and Yeah.
+> 
+> Signed-off-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
 
-Simple to fix, I'll remember the fc_scope value in the nexthop
-and use that in the address selection call.
+Just to explain what RTT_STAMP does. It causes the tcp receive code
+to compute the rtt using high resolution clocks rather than just
+jiffies. It requires access to ktime_get_real which means accessing
+clock source. This is cheap for TSC, a little expensive for HPET but
+expensive for PIT. I worry that enabling it may hurt regular users
+on old desktops.  But without it enabling RTT_STAMP, packets that
+get acked in less than a jiffie (1 - 10 ms) will 
 
-> As the addresses have nothing to do with the link
-> state, I don't think it is correct to call fib_update_nh_saddrs
-> for DEV events.
-
-fib_update_nh_saddrs() gets called for "DEV" events since those
-are what are emitted when addresses are addded and removed.
+Also I should have used ktime_get rather than ktime_get_real
+because real time is altered by NTP and other actions.
