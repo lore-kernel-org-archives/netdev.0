@@ -1,47 +1,59 @@
-From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
-Subject: [PATCH] tcp_cubic: enable TCP timestamps
-Date: Tue, 8 Mar 2011 09:09:26 +0100
-Message-ID: <20110308080926.GA22641@xanadu.blop.info>
+From: MONEY GRAM TRANSFER SERVICES <ressource@irsam.asso.fr>
+Subject: (unknown)
+Date: Tue, 8 Mar 2011 06:38:00 +0100 (CET)
+Message-ID: <126951148.52681.1299562680588.JavaMail.root@zimbra5>
+Reply-To: MONEY GRAM TRANSFER SERVICES <moneygramservice@gncn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sangtae Ha <sha2@ncsu.edu>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([178.79.145.134]:38598 "EHLO xanadu.blop.info"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751281Ab1CHIIb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2011 03:08:31 -0500
-Content-Disposition: inline
+Received: from 205-181.252-81.static-ip.oleane.fr ([81.252.181.205]:34689 "EHLO
+	zimbra5.irsam.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302Ab1CHINV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 03:13:21 -0500
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Hystart slow start algorithm requires precise RTT delay measurement=
-s
-to decide when to leave slow start. However, currently, CUBIC doesn't
-enable TCP timestamps. This can cause Hystart to mis-estimate the RTT,
-and to leave slow start too early, generating bad performance since
-convergence to the optimal cwnd is slower.
 
-Timestamps are already used by TCP Illinois, LP, Vegas, Veno and Yeah.
+MONEY GRAM CUSTOMER CARE
+21st Floor, Jalan Kampar, Plaza Permata,
+50400, Kuala Lumpur, Wilayah Persekutuan
+Malayasia
 
-Signed-off-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+My working partner in relationship with HSBC London has concluded that our working
+partner has helped us to send you first payment of US$5,000 to you asinstructed by 
+Malaysia government and willkeep sending you $5000 twice a week untilthe payment of 
+(US$820,000 ) is completed within six months and here is the information
 
---=20
-| Lucas Nussbaum             MCF Universit=E9 Nancy 2 |
-| lucas.nussbaum@loria.fr         LORIA / AlGorille |
-| http://www.loria.fr/~lnussbau/  +33 3 54 95 86 19 |
+Your are to contact RONALD FINSON for the fundS clearance certificate from the {IMF}
 
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index 71d5f2f..3a73509 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -406,6 +406,7 @@ static void bictcp_acked(struct sock *sk, u32 cnt, =
-s32 rtt_us)
- }
-=20
- static struct tcp_congestion_ops cubictcp =3D {
-+       .flags          =3D TCP_CONG_RTT_STAMP,
-        .init           =3D bictcp_init,
-        .ssthresh       =3D bictcp_recalc_ssthresh,
-        .cong_avoid     =3D bictcp_cong_avoid,
+below is the information.
+
+MONEY TRANSFER REFERENCE:2340-3297
+SENDER'S NAME:Esther Lee
+AMOUNT: US$5000
+
+To track your funds forward money gram
+Transfer agent Mr RONALD FINSON
+
+Your Name.__________________________
+Phone .__________________________
+
+Contact Allan Davis for the funds clearance
+certificate necessary for the realise of your funds
+
+E-mail:moneygramservices@gncn.net
+
+
+Please direct all enquiring to:
+money gram Mr RONALD FINSON
+
+
+Please direct all enquiring to:
+moneygramservice@gncn.net
+
+
+Best Regards,
+RONALD FINSON
