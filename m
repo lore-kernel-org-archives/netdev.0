@@ -1,44 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on
- congestion map updates
-Date: Tue, 08 Mar 2011 10:52:23 -0800 (PST)
-Message-ID: <20110308.105223.71117584.davem@davemloft.net>
-References: <1299083302-5168-1-git-send-email-nhorman@tuxdriver.com>
-	<20110307.122753.59686845.davem@davemloft.net>
-	<1299530363-sup-8922@think>
+Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
+Date: Tue, 08 Mar 2011 10:55:03 -0800 (PST)
+Message-ID: <20110308.105503.104060436.davem@davemloft.net>
+References: <20110308080926.GA22641@xanadu.blop.info>
+	<20110308104211.3567526f@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, venkat.x.venkatsubra@oracle.com
-To: chris.mason@oracle.com
+Cc: lucas.nussbaum@loria.fr, netdev@vger.kernel.org, sha2@ncsu.edu
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34467
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57826
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754007Ab1CHSvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 13:51:46 -0500
-In-Reply-To: <1299530363-sup-8922@think>
+	by vger.kernel.org with ESMTP id S1752151Ab1CHSyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 13:54:25 -0500
+In-Reply-To: <20110308104211.3567526f@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Mason <chris.mason@oracle.com>
-Date: Mon, 07 Mar 2011 15:41:04 -0500
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 8 Mar 2011 10:42:11 -0800
 
-> Excerpts from David Miller's message of 2011-03-07 15:27:53 -0500:
->> From: Neil Horman <nhorman@tuxdriver.com>
->> Date: Wed,  2 Mar 2011 11:28:22 -0500
->> 
->> > Recently had this bug halt reported to me:
->> 
->> Well, does anyone on the RDS team care about this bug fix at all?
->> 
->> Stuff like this should not sit for nearly a week without any reply
->> whatsoever.
->> 
+> On Tue, 8 Mar 2011 09:09:26 +0100
+> Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
 > 
-> The patch looks good to me, but I'm surprised we haven't seen it here.
-> Venkat please take a look (link to the patch below)  Has it only been seen on ppc?
+>> The Hystart slow start algorithm requires precise RTT delay measurements
+>> to decide when to leave slow start. However, currently, CUBIC doesn't
+>> enable TCP timestamps. This can cause Hystart to mis-estimate the RTT,
+>> and to leave slow start too early, generating bad performance since
+>> convergence to the optimal cwnd is slower.
+>> 
+>> Timestamps are already used by TCP Illinois, LP, Vegas, Veno and Yeah.
+>> 
+>> Signed-off-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
 > 
-> http://permalink.gmane.org/gmane.linux.network/187933
+> Just to explain what RTT_STAMP does. It causes the tcp receive code
+> to compute the rtt using high resolution clocks rather than just
+> jiffies. It requires access to ktime_get_real which means accessing
+> clock source. This is cheap for TSC, a little expensive for HPET but
+> expensive for PIT. I worry that enabling it may hurt regular users
+> on old desktops.  But without it enabling RTT_STAMP, packets that
+> get acked in less than a jiffie (1 - 10 ms) will 
+> 
+> Also I should have used ktime_get rather than ktime_get_real
+> because real time is altered by NTP and other actions.
 
-Can I get an ACK or something, _please_?
+This also means that whatever testing was originally done on Hystart
+is dependent upon whatever value CONFIG_HZ had in the test kernel.
