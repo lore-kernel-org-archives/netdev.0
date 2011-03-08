@@ -1,43 +1,57 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: per connection TCP traffic shaping
-Date: Mon, 07 Mar 2011 16:21:50 -0800
-Message-ID: <4D75769E.3060406@us.ibm.com>
+From: Adam Majer <adamm@zombino.com>
+Subject: Re: [PATCH] bridge:  control carrier based on ports online
+Date: Mon, 7 Mar 2011 19:08:47 -0600
+Message-ID: <20110308010847.GA2316@mira.lan.galacticasoftware.com>
+References: <1649722795.14144.1299480074110.JavaMail.root@tahiti.vyatta.com>
+ <4D748CC3.8060603@gmail.com>
+ <20110307103406.27330529@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:54102 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754248Ab1CHAV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 19:21:58 -0500
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e31.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p2806qUM028350
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 17:06:52 -0700
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p280LtHY063634
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 17:21:55 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p280JV3H024792
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 17:19:31 -0700
-Received: from [127.0.0.1] (sig-9-76-209-112.mts.ibm.com [9.76.209.112])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id p280JTF2024745
-	for <netdev@vger.kernel.org>; Mon, 7 Mar 2011 17:19:31 -0700
+Received: from polaris.galacticasoftware.com ([216.55.199.131]:48009 "EHLO
+	polaris.galacticasoftware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755960Ab1CHBJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 20:09:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20110307103406.27330529@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are looking into a scalable way to configure a linux router to shape traffic
-on outgoing connections(upto 10000) to (100Kb/s - 1Mb/s) over a 10Gb link.
+On Mon, Mar 07, 2011 at 10:34:06AM -0800, Stephen Hemminger wrote:
+> This makes the bridge device behave like a physical device.
+> In earlier releases the bridge always asserted carrier. This
+> changes the behavior so that bridge device carrier is on only
+> if one or more ports are in the forwarding state. This
+> should help IPv6 autoconfiguration, DHCP, and routing daemons.
 
-Can someone point to any scripts that can be used to implement
-per-connection traffic shaping using 'tc' and 'iptables'?
+Yes, your patch does fix issues with IPv6 autoconfiguration in bridged
+networks completely. I've just tested it with and without STP. IPv4
+DHCP continues to function correctly. It is definitely much cleaner
+solution than my hack.
 
-Can this be done without having to create a separate tc class/filter for each
-connection?
+IPv6 autoconfiguration code already checks if NETDEV_CHANGE or
+NETDEV_UP represent a device that is ready to transmit data before
+attempting to configure the interface. No additional changes required
+there. This patch should also fix duplicate address detection of
+linklocal address on bridged interfaces that I believe was also broken
+prior to this patch.
 
-Thanks
-Sridhar
+If you want, you can add
+
+Tested-By: Adam Majer <adamm@zombino.com>
 
 
-
-
+Cheers,
+- Adam
