@@ -1,66 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
-Date: Tue, 8 Mar 2011 11:17:57 -0800
-Message-ID: <20110308111757.7db14e58@nehalam>
-References: <20110308080926.GA22641@xanadu.blop.info>
-	<20110308104211.3567526f@nehalam>
-	<20110308.105503.104060436.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on
+ congestion map updates
+Date: Tue, 08 Mar 2011 11:22:58 -0800 (PST)
+Message-ID: <20110308.112258.183048712.davem@davemloft.net>
+References: <1299530363-sup-8922@think>
+	<20110308.105223.71117584.davem@davemloft.net>
+	<1299610642-sup-5101@think>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lucas.nussbaum@loria.fr, netdev@vger.kernel.org, sha2@ncsu.edu
-To: David Miller <davem@davemloft.net>
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	rds-devel@oss.oracle.com, venkat.x.venkatsubra@oracle.com
+To: chris.mason@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57422 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754438Ab1CHTSA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2011 14:18:00 -0500
-In-Reply-To: <20110308.105503.104060436.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51698
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755237Ab1CHTWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:22:21 -0500
+In-Reply-To: <1299610642-sup-5101@think>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 08 Mar 2011 10:55:03 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+From: Chris Mason <chris.mason@oracle.com>
+Date: Tue, 08 Mar 2011 13:58:57 -0500
 
-Complete the sentence...
+> Excerpts from David Miller's message of 2011-03-08 13:52:23 -0500:
+>> From: Chris Mason <chris.mason@oracle.com>
+>> Date: Mon, 07 Mar 2011 15:41:04 -0500
+>> 
+>> > Excerpts from David Miller's message of 2011-03-07 15:27:53 -0500:
+>> >> From: Neil Horman <nhorman@tuxdriver.com>
+>> >> Date: Wed,  2 Mar 2011 11:28:22 -0500
+>> >> 
+>> >> > Recently had this bug halt reported to me:
+>> >> 
+>> >> Well, does anyone on the RDS team care about this bug fix at all?
+>> >> 
+>> >> Stuff like this should not sit for nearly a week without any reply
+>> >> whatsoever.
+>> >> 
+>> > 
+>> > The patch looks good to me, but I'm surprised we haven't seen it here.
+>> > Venkat please take a look (link to the patch below)  Has it only been seen on ppc?
+>> > 
+>> > http://permalink.gmane.org/gmane.linux.network/187933
+>> 
+>> Can I get an ACK or something, _please_?
+> 
+> Sorry, wasn't clear:
+> 
+> Acked-by: Chris Mason <chris.mason@oracle.com>
 
->  on old desktops.  
-
-   But without it enabling RTT_STAMP, packets that
-   get acked in less than a jiffie (1 - 10 ms) will 
-   be processed with no rtt value (-1); this causes hystart
-   never to be invoked on local connections.
-
-Maybe the following would be better, it passes 0 as RTT
-when not using RTT_STAMP for quick packets.
-
-It turns out the Cubic ends up converting rtt_us back
-to jiffies anyway, so RTT_STAMP is not really needed.
-
-----
-Subject: tcp: fix RTT for quick packets in congestion control
-
-In the congestion control interface, the callback for each ACK
-includes an estimated round trip time in microseconds.
-Some algorithms need high resolution (Vegas style) but most only
-need jiffie resolution.  If RTT is not accurate (like a retransmission)
--1 is used as a flag value.
-
-When doing coarse resolution if RTT is less than a a jiffie
-then 0 should be returned rather than no estimate. Otherwise algorithms
-that expect good ack's to trigger slow start (like CUBIC Hystart)
-will be confused.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/net/ipv4/tcp_input.c	2011-03-08 11:11:26.093183654 -0800
-+++ b/net/ipv4/tcp_input.c	2011-03-08 11:11:46.641404939 -0800
-@@ -3350,7 +3350,7 @@ static int tcp_clean_rtx_queue(struct so
- 						 net_invalid_timestamp()))
- 					rtt_us = ktime_us_delta(ktime_get_real(),
- 								last_ackt);
--				else if (ca_seq_rtt > 0)
-+				else if (ca_seq_rtt >= 0)
- 					rtt_us = jiffies_to_usecs(ca_seq_rtt);
- 			}
- 
+Applied, thanks everyone.
