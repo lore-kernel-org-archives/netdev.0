@@ -1,189 +1,125 @@
 From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH v2 5/6] net: sh_eth: add support for SH7757's GETHER
-Date: Tue, 08 Mar 2011 16:59:49 +0900
-Message-ID: <4D75E1F5.3050704@renesas.com>
+Subject: [PATCH 6/6] net: sh_eth: add set_mdio_gate in bb_info
+Date: Tue, 08 Mar 2011 16:59:55 +0900
+Message-ID: <4D75E1FB.6000607@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: SH-Linux <linux-sh@vger.kernel.org>
 To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor2.renesas.com ([210.160.252.172]:60768 "EHLO
+	relmlor2.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755980Ab1CHH75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 02:59:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SH7757 have GETHER and ETHER both. This patch supports them.
+The SH7757's ETHER and GETHER use common MDIO pin. The MDIO pin is
+selected by specific register. So this patch adds new interface in
+bb_info, and when the sh_eth driver use the mdio, the register can
+be changed by the function.
 
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
  This patch are based on net-next-2.6.git.
 
- about v2:
-  - modify line number only
+ arch/sh/include/asm/sh_eth.h |    1 +
+ drivers/net/sh_eth.c         |   21 +++++++++++++++++++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
- drivers/net/sh_eth.c |  136 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 135 insertions(+), 1 deletions(-)
+diff --git a/arch/sh/include/asm/sh_eth.h b/arch/sh/include/asm/sh_eth.h
+index e86c880..0f325da 100644
+--- a/arch/sh/include/asm/sh_eth.h
++++ b/arch/sh/include/asm/sh_eth.h
+@@ -15,6 +15,7 @@ struct sh_eth_plat_data {
+ 	int edmac_endian;
+ 	int register_type;
+ 	phy_interface_t phy_interface;
++	void (*set_mdio_gate)(unsigned long addr);
 
+ 	unsigned char mac_addr[6];
+ 	unsigned no_ether_link:1;
 diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index 5d28ce6..dcf9f87 100644
+index dcf9f87..e9e7a53 100644
 --- a/drivers/net/sh_eth.c
 +++ b/drivers/net/sh_eth.c
-@@ -94,7 +94,8 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.rpadir_value	= 0x00020000, /* NET_IP_ALIGN assumed to be 2 */
- };
- #elif defined(CONFIG_CPU_SUBTYPE_SH7757)
--#define SH_ETH_RESET_DEFAULT	1
-+#define SH_ETH_HAS_BOTH_MODULES	1
-+#define SH_ETH_HAS_TSU	1
- static void sh_eth_set_duplex(struct net_device *ndev)
+@@ -512,6 +512,7 @@ static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
+ }
+
+ struct bb_info {
++	void (*set_gate)(unsigned long addr);
+ 	struct mdiobb_ctrl ctrl;
+ 	u32 addr;
+ 	u32 mmd_msk;/* MMD */
+@@ -542,6 +543,10 @@ static int bb_read(u32 addr, u32 msk)
+ static void sh_mmd_ctrl(struct mdiobb_ctrl *ctrl, int bit)
  {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -141,6 +142,135 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.no_ade		= 1,
- };
+ 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
++
++	if (bitbang->set_gate)
++		bitbang->set_gate(bitbang->addr);
++
+ 	if (bit)
+ 		bb_set(bitbang->addr, bitbang->mmd_msk);
+ 	else
+@@ -553,6 +558,9 @@ static void sh_set_mdio(struct mdiobb_ctrl *ctrl, int bit)
+ {
+ 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
 
-+#define SH_GIGA_ETH_BASE	0xfee00000
-+#define GIGA_MALR(port)		(SH_GIGA_ETH_BASE + 0x800 * (port) + 0x05c8)
-+#define GIGA_MAHR(port)		(SH_GIGA_ETH_BASE + 0x800 * (port) + 0x05c0)
-+static void sh_eth_chip_reset_giga(struct net_device *ndev)
-+{
-+	int i;
-+	unsigned long mahr[2], malr[2];
++	if (bitbang->set_gate)
++		bitbang->set_gate(bitbang->addr);
 +
-+	/* save MAHR and MALR */
-+	for (i = 0; i < 2; i++) {
-+		malr[i] = readl(GIGA_MALR(i));
-+		mahr[i] = readl(GIGA_MAHR(i));
-+	}
+ 	if (bit)
+ 		bb_set(bitbang->addr, bitbang->mdo_msk);
+ 	else
+@@ -563,6 +571,10 @@ static void sh_set_mdio(struct mdiobb_ctrl *ctrl, int bit)
+ static int sh_get_mdio(struct mdiobb_ctrl *ctrl)
+ {
+ 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
 +
-+	/* reset device */
-+	writel(ARSTR_ARSTR, SH_GIGA_ETH_BASE + 0x1800);
-+	mdelay(1);
++	if (bitbang->set_gate)
++		bitbang->set_gate(bitbang->addr);
 +
-+	/* restore MAHR and MALR */
-+	for (i = 0; i < 2; i++) {
-+		writel(malr[i], GIGA_MALR(i));
-+		writel(mahr[i], GIGA_MAHR(i));
-+	}
-+}
-+
-+static int sh_eth_is_gether(struct sh_eth_private *mdp);
-+static void sh_eth_reset(struct net_device *ndev)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+	int cnt = 100;
-+
-+	if (sh_eth_is_gether(mdp)) {
-+		sh_eth_write(ndev, 0x03, EDSR);
-+		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER,
-+				EDMR);
-+		while (cnt > 0) {
-+			if (!(sh_eth_read(ndev, EDMR) & 0x3))
-+				break;
-+			mdelay(1);
-+			cnt--;
-+		}
-+		if (cnt < 0)
-+			printk(KERN_ERR "Device reset fail\n");
-+
-+		/* Table Init */
-+		sh_eth_write(ndev, 0x0, TDLAR);
-+		sh_eth_write(ndev, 0x0, TDFAR);
-+		sh_eth_write(ndev, 0x0, TDFXR);
-+		sh_eth_write(ndev, 0x0, TDFFR);
-+		sh_eth_write(ndev, 0x0, RDLAR);
-+		sh_eth_write(ndev, 0x0, RDFAR);
-+		sh_eth_write(ndev, 0x0, RDFXR);
-+		sh_eth_write(ndev, 0x0, RDFFR);
-+	} else {
-+		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_ETHER,
-+				EDMR);
-+		mdelay(3);
-+		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) & ~EDMR_SRST_ETHER,
-+				EDMR);
-+	}
-+}
-+
-+static void sh_eth_set_duplex_giga(struct net_device *ndev)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+
-+	if (mdp->duplex) /* Full */
-+		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
-+	else		/* Half */
-+		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
-+}
-+
-+static void sh_eth_set_rate_giga(struct net_device *ndev)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+
-+	switch (mdp->speed) {
-+	case 10: /* 10BASE */
-+		sh_eth_write(ndev, 0x00000000, GECMR);
-+		break;
-+	case 100:/* 100BASE */
-+		sh_eth_write(ndev, 0x00000010, GECMR);
-+		break;
-+	case 1000: /* 1000BASE */
-+		sh_eth_write(ndev, 0x00000020, GECMR);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+/* SH7757(GETHERC) */
-+static struct sh_eth_cpu_data sh_eth_my_cpu_data_giga = {
-+	.chip_reset	= sh_eth_chip_reset_giga,
-+	.set_duplex	= sh_eth_set_duplex_giga,
-+	.set_rate	= sh_eth_set_rate_giga,
-+
-+	.ecsr_value	= ECSR_ICD | ECSR_MPD,
-+	.ecsipr_value	= ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
-+	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
-+
-+	.tx_check	= EESR_TC1 | EESR_FTC,
-+	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT | \
-+			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE | \
-+			  EESR_ECI,
-+	.tx_error_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_TDE | \
-+			  EESR_TFE,
-+	.fdr_value	= 0x0000072f,
-+	.rmcr_value	= 0x00000001,
-+
-+	.apr		= 1,
-+	.mpr		= 1,
-+	.tpauser	= 1,
-+	.bculr		= 1,
-+	.hw_swap	= 1,
-+	.rpadir		= 1,
-+	.rpadir_value   = 2 << 16,
-+	.no_trimd	= 1,
-+	.no_ade		= 1,
-+};
-+
-+static struct sh_eth_cpu_data *sh_eth_get_cpu_data(struct sh_eth_private *mdp)
-+{
-+	if (sh_eth_is_gether(mdp))
-+		return &sh_eth_my_cpu_data_giga;
-+	else
-+		return &sh_eth_my_cpu_data;
-+}
-+
- #elif defined(CONFIG_CPU_SUBTYPE_SH7763)
- #define SH_ETH_HAS_TSU	1
- static void sh_eth_chip_reset(struct net_device *ndev)
-@@ -1677,7 +1807,11 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	mdp->reg_offset = sh_eth_get_register_offset(pd->register_type);
+ 	return bb_read(bitbang->addr, bitbang->mdi_msk);
+ }
 
- 	/* set cpu data */
-+#if defined(SH_ETH_HAS_BOTH_MODULES)
-+	mdp->cd = sh_eth_get_cpu_data(mdp);
-+#else
- 	mdp->cd = &sh_eth_my_cpu_data;
-+#endif
- 	sh_eth_set_default_cpu_data(mdp->cd);
+@@ -571,6 +583,9 @@ static void sh_mdc_ctrl(struct mdiobb_ctrl *ctrl, int bit)
+ {
+ 	struct bb_info *bitbang = container_of(ctrl, struct bb_info, ctrl);
 
- 	/* set function */
++	if (bitbang->set_gate)
++		bitbang->set_gate(bitbang->addr);
++
+ 	if (bit)
+ 		bb_set(bitbang->addr, bitbang->mdc_msk);
+ 	else
+@@ -1646,7 +1661,8 @@ static int sh_mdio_release(struct net_device *ndev)
+ }
+
+ /* MDIO bus init function */
+-static int sh_mdio_init(struct net_device *ndev, int id)
++static int sh_mdio_init(struct net_device *ndev, int id,
++			struct sh_eth_plat_data *pd)
+ {
+ 	int ret, i;
+ 	struct bb_info *bitbang;
+@@ -1661,6 +1677,7 @@ static int sh_mdio_init(struct net_device *ndev, int id)
+
+ 	/* bitbang init */
+ 	bitbang->addr = ndev->base_addr + mdp->reg_offset[PIR];
++	bitbang->set_gate = pd->set_mdio_gate;
+ 	bitbang->mdi_msk = 0x08;
+ 	bitbang->mdo_msk = 0x04;
+ 	bitbang->mmd_msk = 0x02;/* MMD */
+@@ -1854,7 +1871,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 		goto out_release;
+
+ 	/* mdio bus init */
+-	ret = sh_mdio_init(ndev, pdev->id);
++	ret = sh_mdio_init(ndev, pdev->id, pd);
+ 	if (ret)
+ 		goto out_unregister;
+
 -- 
 1.7.1
