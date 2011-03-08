@@ -1,71 +1,56 @@
-From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [net-next-2.6 05/14] vlan: add support to ndo_fcoe_ddp_target()
-Date: Mon, 7 Mar 2011 18:51:17 -0800
-Message-ID: <7C88852EF6F99F4EB538472FCFEBE222014F6FDD31@orsmsx509.amr.corp.intel.com>
-References: <1299551108-23663-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1299551108-23663-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <1299552267.3967.3.camel@localhost>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the net-current tree
+Date: Tue, 8 Mar 2011 14:09:57 +1100
+Message-ID: <20110308140957.8a894312.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"bphilips@novell.com" <bphilips@novell.com>,
-	"Patil, Kiran" <kiran.patil@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8999 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756098Ab1CHCym (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Mar 2011 21:54:42 -0500
-In-Reply-To: <1299552267.3967.3.camel@localhost>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Vladislav Zolotarov <vladz@broadcom.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBPbiBNb24sIDIwMTEtMDMtMDcgYXQgMTg6MjQgLTA4MDAsIEplZmYgS2lyc2hlciB3cm90ZToN
-Cj4gPiBGcm9tOiBZaSBab3UgPHlpLnpvdUBpbnRlbC5jb20+DQo+ID4NCj4gPiBBZGQgdGhlIG5l
-dyB0YXJnZXQgZGRwIG9mZmxvYWQgc3VwcG9ydCBuZG9fZmNvZV9kZHBfdGFyZ2V0KCkuDQo+ID4N
-Cj4gPiBTaWduZWQtb2ZmLWJ5OiBZaSBab3UgPHlpLnpvdUBpbnRlbC5jb20+DQo+ID4gU2lnbmVk
-LW9mZi1ieTogS2lyYW4gUGF0aWwgPGtpcmFuLnBhdGlsQGludGVsLmNvbT4NCj4gPiBTaWduZWQt
-b2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAt
-LS0NCj4gPiAgbmV0LzgwMjFxL3ZsYW5fZGV2LmMgfCAgIDE0ICsrKysrKysrKysrKysrDQo+ID4g
-IDEgZmlsZXMgY2hhbmdlZCwgMTQgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkNCj4gPg0K
-PiA+IGRpZmYgLS1naXQgYS9uZXQvODAyMXEvdmxhbl9kZXYuYyBiL25ldC84MDIxcS92bGFuX2Rl
-di5jDQo+ID4gaW5kZXggYmU3Mzc1My4uYWU2MTBmMCAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvODAy
-MXEvdmxhbl9kZXYuYw0KPiA+ICsrKyBiL25ldC84MDIxcS92bGFuX2Rldi5jDQo+ID4gQEAgLTYy
-NSw2ICs2MjUsMTkgQEAgc3RhdGljIGludCB2bGFuX2Rldl9mY29lX2dldF93d24oc3RydWN0IG5l
-dF9kZXZpY2UNCj4gKmRldiwgdTY0ICp3d24sIGludCB0eXBlKQ0KPiA+ICAJCXJjID0gb3BzLT5u
-ZG9fZmNvZV9nZXRfd3duKHJlYWxfZGV2LCB3d24sIHR5cGUpOw0KPiA+ICAJcmV0dXJuIHJjOw0K
-PiA+ICB9DQo+ID4gKw0KPiA+ICtzdGF0aWMgaW50IHZsYW5fZGV2X2Zjb2VfZGRwX3RhcmdldChz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1MTYgeGlkLA0KPiA+ICsJCQkJICAgIHN0cnVjdCBzY2F0
-dGVybGlzdCAqc2dsLCB1bnNpZ25lZCBpbnQgc2djKQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3QgbmV0
-X2RldmljZSAqcmVhbF9kZXYgPSB2bGFuX2Rldl9pbmZvKGRldiktPnJlYWxfZGV2Ow0KPiA+ICsJ
-Y29uc3Qgc3RydWN0IG5ldF9kZXZpY2Vfb3BzICpvcHMgPSByZWFsX2Rldi0+bmV0ZGV2X29wczsN
-Cj4gPiArCWludCByYyA9IDA7DQo+ID4gKw0KPiA+ICsJaWYgKG9wcy0+bmRvX2Zjb2VfZGRwX3Rh
-cmdldCkNCj4gPiArCQlyYyA9IG9wcy0+bmRvX2Zjb2VfZGRwX3RhcmdldChyZWFsX2RldiwgeGlk
-LCBzZ2wsIHNnYyk7DQo+ID4gKw0KPiA+ICsJcmV0dXJuIHJjOw0KPiA+ICt9DQo+IA0KPiBJIGNh
-bid0IHNlZSBhIGNhbGxlciBvciBhbnkgZG9jdW1lbnRhdGlvbiBmb3IgdGhpcyBvcGVyYXRpb24s
-IHNvIEkgZG9uJ3QNCj4ga25vdyB3aGF0IHRoZSBzZW1hbnRpY3MgYXJlIHN1cHBvc2VkIHRvIGJl
-LiAgQnV0IHNob3VsZG4ndCB0aGUgcmV0dXJuDQo+IHZhbHVlIGJlIC1FT1BOT1RTVVBQIGlmIHJl
-YWxfZGV2IGRvZXMgbm90IGltcGxlbWVudCB0aGUgb3BlcmF0aW9uPw0KPiANCj4gQmVuLg0KVGhp
-cyBpcyBzaW1pbGFyIHRvIGV4aXN0aW5nIG5kb19mY29lX2RkcF9zZXR1cCgpLCBidXQgaXMgZm9y
-IHRhcmdldCBtb2RlLA0KdGhlIHR3byBhcmUgdGhlIHNhbWUgb24gc2VtYW50aWNzLCBidXQgdGhl
-IExMRCBpbXBsZW1lbnRhdGlvbiB3aWxsL21heQ0KYmUgZGlmZmVyZW50IGRlcGVuZGluZyBvbiB0
-aGUgZHJpdmVyIGFzIGUuZy4gLHRhcmdldCB3b3JrcyBvbiBSWF9JRCB3aGVyZQ0KaW5pdGlhdG9y
-IHdvcmtzIG9uIE9YX0lELiBUaGUgcmV0dXJuaW5nIG9mIHJjIGJlaW5nIDAgaW5kaWNhdGVzIG5v
-IEREUA0Kd2FzIHNldHVwIGZvciB0aGlzIGZjIGV4Y2hhbmdlLCBub3QgbmVjZXNzYXJpbHkgRU9Q
-Tk9UU1VQUC4NCg0KVGhhbmtzLA0KeWkNCg0KPiANCj4gPiAgI2VuZGlmDQo+ID4NCj4gPiAgc3Rh
-dGljIHZvaWQgdmxhbl9kZXZfY2hhbmdlX3J4X2ZsYWdzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYs
-IGludA0KPiBjaGFuZ2UpDQo+ID4gQEAgLTg1OCw2ICs4NzEsNyBAQCBzdGF0aWMgY29uc3Qgc3Ry
-dWN0IG5ldF9kZXZpY2Vfb3BzIHZsYW5fbmV0ZGV2X29wcw0KPiA9IHsNCj4gPiAgCS5uZG9fZmNv
-ZV9lbmFibGUJPSB2bGFuX2Rldl9mY29lX2VuYWJsZSwNCj4gPiAgCS5uZG9fZmNvZV9kaXNhYmxl
-CT0gdmxhbl9kZXZfZmNvZV9kaXNhYmxlLA0KPiA+ICAJLm5kb19mY29lX2dldF93d24JPSB2bGFu
-X2Rldl9mY29lX2dldF93d24sDQo+ID4gKwkubmRvX2Zjb2VfZGRwX3RhcmdldAk9IHZsYW5fZGV2
-X2Zjb2VfZGRwX3RhcmdldCwNCj4gPiAgI2VuZGlmDQo+ID4gIH07DQo+ID4NCj4gDQo+IC0tDQo+
-IEJlbiBIdXRjaGluZ3MsIFNlbmlvciBTb2Z0d2FyZSBFbmdpbmVlciwgU29sYXJmbGFyZSBDb21t
-dW5pY2F0aW9ucw0KPiBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhlIG1h
-cmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBT
-b2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
+Hi all,
+
+Today's linux-next merge of the net tree got a conflict in
+drivers/net/bnx2x/bnx2x_cmn.c between commit
+e3835b99333eb3ac7222f6fc0af5cae46074ac49 ("bnx2x: (NPAR) prevent HW
+access in D3 state") from the net-current tree and commit
+6e30dd4e3935ddb4e7dd27d5be7a6e5504e64a27 (bnx2x: Proper
+netdev->ndo_set_rx_mode() implementation"") from the net tree.
+
+Just overlapping additions (I think).  I have fixed it up (see below) and
+can carry the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/bnx2x/bnx2x_cmn.c
+index a71b329,b01b622..0000000
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@@ -1481,11 -1489,15 +1506,20 @@@ int bnx2x_nic_load(struct bnx2x *bp, in
+  
+  	bnx2x_set_eth_mac(bp, 1);
+  
+ +	if (bp->pending_max) {
+ +		bnx2x_update_max_mf_config(bp, bp->pending_max);
+ +		bp->pending_max = 0;
+ +	}
+ +
++ 	/* Clear MC configuration */
++ 	if (CHIP_IS_E1(bp))
++ 		bnx2x_invalidate_e1_mc_list(bp);
++ 	else
++ 		bnx2x_invalidate_e1h_mc_list(bp);
++ 
++ 	/* Clear UC lists configuration */
++ 	bnx2x_invalidate_uc_list(bp);
++ 
+  	if (bp->port.pmf)
+  		bnx2x_initial_phy_init(bp, load_mode);
+  
