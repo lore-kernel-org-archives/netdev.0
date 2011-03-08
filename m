@@ -1,42 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
-Date: Tue, 8 Mar 2011 10:42:11 -0800
-Message-ID: <20110308104211.3567526f@nehalam>
-References: <20110308080926.GA22641@xanadu.blop.info>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] tcp: ioctl type SIOCOUTQNSD returns amount of data
+ not sent
+Date: Tue, 08 Mar 2011 10:48:54 -0800 (PST)
+Message-ID: <20110308.104854.226775113.davem@davemloft.net>
+References: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk>
+	<1299441595-18455-1-git-send-email-sledz@dresearch.de>
+	<4D7619A2.4090207@dresearch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sangtae Ha <sha2@ncsu.edu>
-To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Cc: netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, m.schuknecht@dresearch.de
+To: sledz@dresearch.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46870 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753889Ab1CHSmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2011 13:42:13 -0500
-In-Reply-To: <20110308080926.GA22641@xanadu.blop.info>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34457
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752395Ab1CHSsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 13:48:17 -0500
+In-Reply-To: <4D7619A2.4090207@dresearch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 8 Mar 2011 09:09:26 +0100
-Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
+From: Steffen Sledz <sledz@dresearch.de>
+Date: Tue, 08 Mar 2011 12:57:22 +0100
 
-> The Hystart slow start algorithm requires precise RTT delay measurements
-> to decide when to leave slow start. However, currently, CUBIC doesn't
-> enable TCP timestamps. This can cause Hystart to mis-estimate the RTT,
-> and to leave slow start too early, generating bad performance since
-> convergence to the optimal cwnd is slower.
-> 
-> Timestamps are already used by TCP Illinois, LP, Vegas, Veno and Yeah.
-> 
-> Signed-off-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+> Anything else to do?
 
-Just to explain what RTT_STAMP does. It causes the tcp receive code
-to compute the rtt using high resolution clocks rather than just
-jiffies. It requires access to ktime_get_real which means accessing
-clock source. This is cheap for TSC, a little expensive for HPET but
-expensive for PIT. I worry that enabling it may hurt regular users
-on old desktops.  But without it enabling RTT_STAMP, packets that
-get acked in less than a jiffie (1 - 10 ms) will 
-
-Also I should have used ktime_get rather than ktime_get_real
-because real time is altered by NTP and other actions.
+Be patient.
