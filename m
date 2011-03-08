@@ -1,51 +1,46 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [Patch V2] bonding: fix netpoll in active-backup mode
-Date: Tue, 8 Mar 2011 16:24:05 -0500
-Message-ID: <20110308212405.GX11864@gospo.rdu.redhat.com>
-References: <1299578336-5888-1-git-send-email-amwang@redhat.com>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: [PATCH 1/8] Phonet: fix NULL-deref in a8059512b120362b15424f152b2548fe8b11bd0c
+Date: Tue, 8 Mar 2011 23:30:31 +0200
+Message-ID: <201103082330.31652.remi@remlab.net>
+References: <1299592626-18510-1-git-send-email-remi.denis-courmont@nokia.com> <201103082259.41844.remi@remlab.net> <20110308.130926.246531377.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1299578336-5888-1-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:53513 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755777Ab1CHVae convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 16:30:34 -0500
+Received: from basile.remlab.net (cs27069010.pp.htv.fi [89.27.69.10])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: remi)
+	by yop.chewa.net (Postfix) with ESMTPSA id D4FD213FC
+	for <netdev@vger.kernel.org>; Tue,  8 Mar 2011 22:30:32 +0100 (CET)
+In-Reply-To: <20110308.130926.246531377.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 08, 2011 at 05:58:56PM +0800, Amerigo Wang wrote:
-> V2: avoid calling slave_diable_netpoll() with write_lock_bh() held.
-> 
-> netconsole doesn't work in active-backup mode, because we don't do anything
-> for nic failover in active-backup mode. We should disable netpoll on the
-> failing slave when it is detected down and enable netpoll when it becomes
-> the active slave.
-> 
-> Tested by ifdown the current active slave and ifup it again for several times,
-> netconsole works well.
-> 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> 
+Le mardi 8 mars 2011 23:09:26 David Miller, vous avez =E9crit :
+> From: "R=E9mi Denis-Courmont" <remi@remlab.net>
+> Date: Tue, 8 Mar 2011 22:59:41 +0200
+>=20
+> > I just wish you'd been as strict back then.
+>=20
+> The only thing worse that putting crappy code into the tree is having
+> patches rot in patchwork because the maintainer isn't responsive at
+> reviewing things.
 
-It seems like you are going to a lot of trouble to fix a bug where
-netpoll will not be setup on any interface that is down when enslaved.
-That seems to be the only path that would not have slave->np setup
-properly at enslavement.
+Patch submitted:
+Date: Mon, 27 Sep 2010 10:37:59 +0530
 
-Did you ever try just this?
+Patch merged:
+Date: Mon, 27 Sep 2010 21:50:59 -0700
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0592e6d..8d93044 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1352,8 +1352,6 @@ static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
- 
- 	read_lock(&bond->lock);
- 	bond_for_each_slave(bond, slave, i) {
--		if (!IS_UP(slave->dev))
--			continue;
- 		err = slave_enable_netpoll(slave);
- 		if (err) {
- 			__bond_netpoll_cleanup(bond);
+So the patches had been "rotting" for 0 days 23:13:00. Come on.
+
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.info/
+http://fi.linkedin.com/in/remidenis
