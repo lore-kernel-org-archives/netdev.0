@@ -1,57 +1,105 @@
-From: Adam Majer <adamm@zombino.com>
-Subject: Re: [PATCH] bridge:  control carrier based on ports online
-Date: Mon, 7 Mar 2011 19:08:47 -0600
-Message-ID: <20110308010847.GA2316@mira.lan.galacticasoftware.com>
-References: <1649722795.14144.1299480074110.JavaMail.root@tahiti.vyatta.com>
- <4D748CC3.8060603@gmail.com>
- <20110307103406.27330529@nehalam>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [net-next 08/12] ixgb: convert to new VLAN model
+Date: Mon, 7 Mar 2011 17:31:10 -0800
+Message-ID: <AANLkTikkMTv4uCbpOFfdgHzt2jMa5u5ipCOQ3OOh3KLs@mail.gmail.com>
+References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	<AANLkTik1rCFRtBWov5f8yfU+4JZnbzLHgcmRC1y_+TDP@mail.gmail.com>
+	<EA929A9653AAE14F841771FB1DE5A136602DEE63CB@rrsmsx501.amr.corp.intel.com>
+	<AANLkTikS7zw5OfPFTJBUeUyy39Tx26Wkg9FX3n77-v1G@mail.gmail.com>
+	<EA929A9653AAE14F841771FB1DE5A136602DF59AA3@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bphilips@novell.com" <bphilips@novell.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from polaris.galacticasoftware.com ([216.55.199.131]:48009 "EHLO
-	polaris.galacticasoftware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755960Ab1CHBJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 20:09:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20110307103406.27330529@nehalam>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:38901 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754Ab1CHBbL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 20:31:11 -0500
+Received: by vxi39 with SMTP id 39so4300150vxi.19
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 17:31:11 -0800 (PST)
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A136602DF59AA3@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2011 at 10:34:06AM -0800, Stephen Hemminger wrote:
-> This makes the bridge device behave like a physical device.
-> In earlier releases the bridge always asserted carrier. This
-> changes the behavior so that bridge device carrier is on only
-> if one or more ports are in the forwarding state. This
-> should help IPv6 autoconfiguration, DHCP, and routing daemons.
+On Tue, Jan 25, 2011 at 10:20 AM, Tantilov, Emil S
+<emil.s.tantilov@intel.com> wrote:
+>>-----Original Message-----
+>>From: Jesse Gross [mailto:jesse@nicira.com]
+>>Sent: Tuesday, January 25, 2011 9:23 AM
+>>To: Tantilov, Emil S
+>>Cc: Kirsher, Jeffrey T; davem@davemloft.net; netdev@vger.kernel.org;
+>>bphilips@novell.com; Pieper, Jeffrey E
+>>Subject: Re: [net-next 08/12] ixgb: convert to new VLAN model
+>>
+>>On Sun, Jan 23, 2011 at 4:25 PM, Tantilov, Emil S
+>><emil.s.tantilov@intel.com> wrote:
+>>> Jesse Gross wrote:
+>>>> On Thu, Jan 6, 2011 at 7:29 PM, =A0<jeffrey.t.kirsher@intel.com> w=
+rote:
+>>>>> +static int ixgb_set_flags(struct net_device *netdev, u32 data) +=
+{
+>>>>> + =A0 =A0 =A0 struct ixgb_adapter *adapter =3D netdev_priv(netdev=
+); +
+>>>>> bool need_reset; + =A0 =A0 =A0 int rc;
+>>>>> +
+>>>>> + =A0 =A0 =A0 /*
+>>>>> + =A0 =A0 =A0 =A0* TX vlan insertion does not work per HW design =
+when Rx
+>>>>> stripping is + =A0 =A0 =A0 =A0* disabled. =A0Disable txvlan when =
+rxvlan is
+>>>>> off. + =A0 =A0 =A0 =A0*/ + =A0 =A0 =A0 if ((data & ETH_FLAG_RXVLA=
+N) !=3D
+>>>>> (netdev->features & NETIF_F_HW_VLAN_RX)) + =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 data ^=3D
+>>>>> ETH_FLAG_TXVLAN;
+>>>>
+>>>> Does this really do the right thing? =A0If the RX vlan setting is
+>>>> changed, it will do the opposite of what the user requested for TX
+>>>> vlan?
+>>>>
+>>>> So if I start with both on (the default) and turn them both off in=
+ one
+>>>> command (a valid setting), I will get RX off and TX on (an invalid
+>>>> setting).
+>>>>
+>>>> Why not:
+>>>>
+>>>> if (!(data & ETH_FLAG_RXVLAN))
+>>>> =A0 =A0 =A0 =A0 data &=3D ~ETH_FLAG_TXVLAN;
+>>>
+>>> Yeah that works for disabling rxvlan, but what if rxvlan is disable=
+d, and
+>>the user attempts to enable txvlan? At least our validation argued th=
+at we
+>>should make it work both ways. Perhaps something like the following?
+>>>
+>>> =A0 =A0 =A0 =A0if (!(data & ETH_FLAG_RXVLAN) &&
+>>> =A0 =A0 =A0 =A0 =A0 (netdev->features & NETIF_F_HW_VLAN_TX))
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0data &=3D ~ETH_FLAG_TXVLAN;
+>>> =A0 =A0 =A0 =A0else if (data & ETH_FLAG_TXVLAN)
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0data |=3D ETH_FLAG_RXVLAN;
+>>
+>>I think the logic above does what you describe and will always result
+>>in a consistent state. =A0Turning dependent features on when needed i=
+s a
+>>little bit inconsistent with the rest of Ethtool (for example, turnin=
+g
+>>on TSO when checksum offloading is off will not enable checksum
+>>offloading, it will produce an error). =A0However, I know that driver=
+s
+>
+> That is the reason I asked, as I don't want to keep bouncing the patc=
+h back and forth. Personally I like the idea of helping the user and ad=
+justing the flags to something that works rather than a generic error m=
+essage.
 
-Yes, your patch does fix issues with IPv6 autoconfiguration in bridged
-networks completely. I've just tested it with and without STP. IPv4
-DHCP continues to function correctly. It is definitely much cleaner
-solution than my hack.
-
-IPv6 autoconfiguration code already checks if NETDEV_CHANGE or
-NETDEV_UP represent a device that is ready to transmit data before
-attempting to configure the interface. No additional changes required
-there. This patch should also fix duplicate address detection of
-linklocal address on bridged interfaces that I believe was also broken
-prior to this patch.
-
-If you want, you can add
-
-Tested-By: Adam Majer <adamm@zombino.com>
-
-
-Cheers,
-- Adam
+Were you able to take a look at this?  I think that we have something
+that is pretty close, so it would be nice to wrap it up.
