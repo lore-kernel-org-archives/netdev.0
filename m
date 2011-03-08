@@ -1,72 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 04/14] net: add ndo_fcoe_ddp_target() to support
- FCoE DDP in target mode
-Date: Tue, 08 Mar 2011 02:43:22 +0000
-Message-ID: <1299552202.3967.2.camel@localhost>
-References: <1299551108-23663-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1299551108-23663-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave
+	instead of master
+Date: Mon, 7 Mar 2011 21:43:57 -0500
+Message-ID: <20110308024356.GV11864@gospo.rdu.redhat.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com> <20110307224338.GU11864@gospo.rdu.redhat.com> <4D7565BC.4050201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Yi Zou <yi.zou@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Kiran Patil <kiran.patil@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:16245 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753998Ab1CHCn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 21:43:29 -0500
-In-Reply-To: <1299551108-23663-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:36003 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755952Ab1CHCoK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 21:44:10 -0500
+Content-Disposition: inline
+In-Reply-To: <4D7565BC.4050201@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-03-07 at 18:24 -0800, Jeff Kirsher wrote:
-> From: Yi Zou <yi.zou@intel.com>
-> 
-> The Fiber Channel over Ethernet (FCoE) Direct Data Placement (DDP) can also be
-> used for FCoE target, where the DDP used for read I/O on an initiator can be
-> used on an FCoE target to speed up the write I/O to the target from the initiator.
-> The added ndo_fcoe_ddp_target() works in the similar way as the existing
-> ndo_fcoe_ddp_setup() to allow the underlying hardware set up the DDP context
-> accordingly when it gets called from the FCoE target implementation on top
-> the existing Open-FCoE fcoe/libfc protocol stack so without losing the ability
-> to provide DDP for read I/O as an initiator, it can also provide DDP offload
-> to the write I/O coming from the initiator as a target.
-> 
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
-> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
-> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  include/linux/netdevice.h |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 71563e7..6bd5d46 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -871,6 +871,10 @@ struct net_device_ops {
->  						      unsigned int sgc);
->  	int			(*ndo_fcoe_ddp_done)(struct net_device *dev,
->  						     u16 xid);
-> +	int			(*ndo_fcoe_ddp_target)(struct net_device *dev,
-> +						       u16 xid,
-> +						       struct scatterlist *sgl,
-> +						       unsigned int sgc);
+On Tue, Mar 08, 2011 at 12:09:48AM +0100, Nicolas de Peslo=FCan wrote:
+>
+> After Jiri's last patch series, bond_arp_rcv() is not registered anym=
+ore=20
+> as a protocol handler on bond0, but directly called from inside=20
+> bond_handle_frame(), through bond->recv_probe.
+>
+> Because bond_handler_frame() is a rx_handler for the slave interfaces=
+,=20
+> bond_arp_rcv() is now called at the slave level and not a the master=20
+> level anymore.
+>
+> Hence this patch and the reason I thought it should work.
+>
+> Did you tested this patch with Jiri's previous patches applied before=
+?
+>
 
-This should be described in the comment heading net_device_ops.
-(Really, all the existing FCoE operations ought to have been described
-as well.)
+No, I have not tested them yet.  I looked at this problem first as
+Jiri's patch did not fix a regression in code that is actually in
+net-next right now.
 
-Ben.
-
->  #define NETDEV_FCOE_WWNN 0
->  #define NETDEV_FCOE_WWPN 1
->  	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I don't have a problem with the work you and Jiri are doing on this
+latest patch series, but the frequency of patch revisions and now
+regressions concerns me.
 
