@@ -1,42 +1,69 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH 11/17] mlx4_en: Enabling new steering
-Date: Tue, 8 Mar 2011 23:10:19 +0200
-Message-ID: <AANLkTikftARWMbmy8zHbRShBbbnQhXhiequzdR_aPBst@mail.gmail.com>
-References: <4D74B0C9.9020108@mellanox.co.il>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6 4/8] bonding: wrap slave state work
+Date: Tue, 08 Mar 2011 22:23:15 +0100
+Message-ID: <4D769E43.7040708@gmail.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-5-git-send-email-jpirko@redhat.com> <4D7254E9.6090605@gmail.com> <20110307095839.GC2832@psychotron.brq.redhat.com> <4D753820.2070608@gmail.com> <20110308071805.GB2826@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, vlad@mellanox.co.il,
-	Roland Dreier <roland@kernel.org>, nirmu@mellanox.com,
-	Aleksey Senin <alekseys@mellanox.com>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39359 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754594Ab1CHVKV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 16:10:21 -0500
-Received: by wya21 with SMTP id 21so376259wya.19
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2011 13:10:20 -0800 (PST)
-In-Reply-To: <4D74B0C9.9020108@mellanox.co.il>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:32982 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753000Ab1CHVXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 16:23:20 -0500
+Received: by wwa36 with SMTP id 36so1653313wwa.1
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2011 13:23:19 -0800 (PST)
+In-Reply-To: <20110308071805.GB2826@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yevgeny Petrilin <yevgenyp@mellanox.co.il> wrote:
+Le 08/03/2011 08:18, Jiri Pirko a =E9crit :
+> Mon, Mar 07, 2011 at 08:55:12PM CET, nicolas.2p.debian@gmail.com wrot=
+e:
+>> Le 07/03/2011 10:58, Jiri Pirko a =E9crit :
+>>>>>
+>>>>> +static inline void bond_set_active_slave(struct slave *slave)
+>>>>> +{
+>>>>> +	slave->backup =3D 0;
+>>>>
+>>>> In the comment above, you said that the possible value for backup
+>>>> corresponds with BOND_STATE_ACTIVE and BOND_STATE_BACKUP.
+>>>>
+>>>> So, should be:
+>>>>
+>>>> slave->backup =3D BOND_STATE_ACTIVE;
+>>>>
+>>>>> +}
+>>>>> +
+>>>>> +static inline void bond_set_backup_slave(struct slave *slave)
+>>>>> +{
+>>>>> +	slave->backup =3D 1;
+>>>>
+>>>> slave->backup =3D BOND_STATE_BACKUP;
+>>>>
+>>>
+>>> Well, I think it's weird and misleading to assign some define to :1
+>>> bitfield. Should be 0 or 1, nothing else.
+>>
+>> Agreed, but the comment appears missleading... May be you should fix=
+ the comment, not the code.
+>
+> Hmm. I thought that the comment is accurate. BOND_STATE_ACTIVE
+> corresponds with 0, BOND_STATE_BACKUP corresponds with 1. Anyway, let=
+ me
+> know how would you like to formulate this and I can repost (or do a
+> little comment-changing followup)
+>
+> Thanks Nicolas
 
-> +++ b/drivers/infiniband/hw/mlx4/main.c
-> @@ -623,6 +623,14 @@ static int mlx4_ib_mcg_attach(struct ib_qp *ibqp=
-, union
+Hi Jiri,
 
-[...]
-> + =A0 =A0 =A0 if (mdev->dev->caps.vep_mc_steering && ibqp->qp_type =3D=
-=3D IB_QPT_RAW_ETHERTYPE) {
+I'm probably too perfectionist. Keep it the way it is.
 
-Guys,
-
-Didn't you want to refer here to the "raw ethernet QP" which is typed
-to IB_QPT_RAW_PACKET by the series posted on December last year, see
-http://marc.info/?l=3Dlinux-rdma&m=3D129162076818154  --
-IB_QPT_RAW_ETHERTYPE  is a rename of IB's IB_QPT_RAW_ETY done by
-commit a2ebf07ae53e65bd073f96877e4818f2e89271ae
-
-Or.
+Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
