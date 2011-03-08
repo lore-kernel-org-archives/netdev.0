@@ -1,102 +1,156 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch] bonding: fix netpoll in active-backup mode
-Date: Tue, 8 Mar 2011 08:26:32 -0500
-Message-ID: <20110308132632.GA19072@hmsreliant.think-freely.org>
-References: <1299507114-12144-1-git-send-email-amwang@redhat.com>
- <20110307185038.GA31788@hmsreliant.think-freely.org>
- <4D75AD50.7060400@redhat.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave
+	instead of master
+Date: Tue, 8 Mar 2011 08:42:47 -0500
+Message-ID: <20110308134247.GW11864@gospo.rdu.redhat.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com> <4D7249BA.8030401@gmail.com> <20110305144314.GC8573@psychotron.redhat.com> <4D724DB4.9020207@gmail.com> <4D737D00.20406@gmail.com> <20110306133413.GB2795@psychotron.redhat.com> <20110307125059.GA6053@psychotron.brq.redhat.com> <20110307224338.GU11864@gospo.rdu.redhat.com> <20110308071350.GA2826@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:3128 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755163Ab1CHNn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 08:43:26 -0500
 Content-Disposition: inline
-In-Reply-To: <4D75AD50.7060400@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110308071350.GA2826@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 08, 2011 at 12:15:12PM +0800, Cong Wang wrote:
-> =E4=BA=8E 2011=E5=B9=B403=E6=9C=8808=E6=97=A5 02:50, Neil Horman =E5=86=
-=99=E9=81=93:
-> >On Mon, Mar 07, 2011 at 10:11:50PM +0800, Amerigo Wang wrote:
-> >>netconsole doesn't work in active-backup mode, because we don't do =
-anything
-> >>for nic failover in active-backup mode. This patch fixes the proble=
-m by:
-> >>
-> >>1) make slave_enable_netpoll() and slave_disable_netpoll() callable=
- in softirq
-> >>    context, that is, moving code after synchronize_rcu_bh() into c=
-all_rcu_bh()
-> >>    callback function, teaching kzalloc() to use GFP_ATOMIC.
-> >>
-> >>2) disable netpoll on old slave and enable netpoll on the new slave=
-=2E
-> >>
-> >>Tested by ifdown the current active slave and ifup it again for sev=
-eral times,
-> >>netconsole works well.
-> >>
-> >>Signed-off-by: WANG Cong<amwang@redhat.com>
-> >>
-> >I may be missing soething but this seems way over-complicated to me.=
-  I presume
-> >the problem is that in active backup mode a failover results in the =
-new active
-> >slave not having netpoll setup on it?  If thats the case, why not ju=
-st setup
-> >netpoll on all slaves when ndo_netpoll_setup is called on the bondin=
-g interface?
-> >I don't see anything immeidately catastrophic that would happen as a=
- result.
->=20
->=20
-> But we still need to clean up the netpoll on the failing slave, which=
- still
-> needs to call slave_disable_netpoll() in monitor code, I see no big d=
-ifferences
-> with the solution I take.
->=20
-Why?  I understand you want to free up that memory, but I don't see any=
- special
-state codified in that structure that can't wait until you disable netp=
-oll on
-the bond as a whole.  Save yourself the time and trouble, enable netpol=
-l on both
-slaves when its enabled on the bond, and tear it down when its torn dow=
-n on the
-bond. Do worry about doing anything during a failover.
+On Tue, Mar 08, 2011 at 08:13:51AM +0100, Jiri Pirko wrote:
+> Mon, Mar 07, 2011 at 11:43:38PM CET, andy@greyhouse.net wrote:
+[...]
+> >
+> >This patch doesn't work.
+> >
+> >My setup has bond0.100 -> bond0 -> eth2 and eth3.  ARP monitoring is
+> >enabled as is arp_valiate.
+> >
+> >The initial problem was just that just before vlan_on_bond_hook is
+> >called, skb->dev = bond0.100 and orig_dev = eth2.   (This is after
+> >running goto another_route and having been called back through
+> >__netif_receive_skb since vlan_hwaccel_do_receive it true.)
+> >
+> >Now vlan_on_bond_hook is called and we have 2 skbs.
+> >
+> >The original skb still have skb->dev = bond0.100 and orig_dev = eth2.
+> >Since bond_arp_rcv is registered for traffic only to bond0, the handler
+> >is not hit and the frame is dropped (or processed by another handler).
+> >
+> >The cloned skb has skb->dev = bond0 and is put back on the receive queue
+> >and comes back through __netif_receive_skb.  This frame will match the
+> >ptype entry for bond_arp_rcv, but since orig_dev = bond0 in this case,
+> >the code in bond_arp_rcv will not handle the frame.  
+> >
+> >If we truly want to track the original interface that received the
+> >frame, the following is a better option.  With the recursive nature of
+> >__netif_receive_skb at this point, we should really consider setting
+> >orig_dev from skb_iif rather than just from skb->dev.
+> >
+> >diff --git a/net/core/dev.c b/net/core/dev.c
+> >index 30440e7..500fdbc 100644
+> >--- a/net/core/dev.c
+> >+++ b/net/core/dev.c
+> >@@ -3135,7 +3135,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
+> > 
+> > 	if (!skb->skb_iif)
+> > 		skb->skb_iif = skb->dev->ifindex;
+> >-	orig_dev = skb->dev;
+> > 
+> > 	skb_reset_network_header(skb);
+> > 	skb_reset_transport_header(skb);
+> >@@ -3145,6 +3144,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+> > 
+> > 	rcu_read_lock();
+> > 
+> >+	orig_dev = dev_get_by_index_rcu(dev_net(skb->dev),skb->skb_iif);
+> > another_round:
+> > 
+> > 	__this_cpu_inc(softnet_data.processed);
+> >
+> 
+> This was proposed earlier. people did not like this very much :(
+> 
 
-Neil
->=20
-> >And then you wouldn't have to worry about disabling/enabling anythin=
-g on a
-> >failover (or during a panic for that matter).  As for the rcu bits? =
- Why are
-> >they needed?  One would presume that wouldn't (or at least shouldn't=
-) be able to
-> >teardown our netpoll setup until such time as all the pending frames=
- for that
-> >netpoll client have been transmitted.  If we're not blocknig on that=
- RCU isn't
-> >really going to help.  Seems like the proper fix is take a reference=
- to the
-> >appropriate npinfo struct in netpoll_send_skb, and drop it from the =
-skbs
-> >destructor or some such.
->=20
-> I saw a "scheduling while in atomic" warning without touching the rcu=
- bits.
->=20
-> Thanks!
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+Interesting.  I'll have to look back at the discussion.
+
+> I forgot to include crucial part of "goto another_round for vlan".
+> Following patch should work (will test it once I get to work):
+> 
+> Subject: [patch net-next 2.6] net: reinject arps into bonding slave instead of master
+> 
+> Recent patch "bonding: move processing of recv handlers into
+> handle_frame()" caused a regression on following net scheme:
+> 
+> eth0 - bond0 - bond0.5
+> 
+> where arp monitoring is happening over vlan. This patch fixes it by
+> reinjecting the arp packet into bonding slave device so the bonding
+> rx_handler can pickup and process it.
+> 
+> also instead of calling __netif_receive_skb recursively, "goto another
+> round" does this recursion. The point is the orig_dev variable remains
+> intact.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ---
+>  net/core/dev.c |   11 +++++------
+>  1 files changed, 5 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index c71bd18..ec330e1 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3094,12 +3094,12 @@ void netdev_rx_handler_unregister(struct net_device *dev)
+>  }
+>  EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
+>  
+> -static void vlan_on_bond_hook(struct sk_buff *skb)
+> +static void vlan_on_bond_hook(struct sk_buff *skb, struct net_device *orig_dev)
+>  {
+>  	/*
+>  	 * Make sure ARP frames received on VLAN interfaces stacked on
+>  	 * bonding interfaces still make their way to any base bonding
+> -	 * device that may have registered for a specific ptype.
+> +	 * device by reinjecting the frame into bonding slave (orig_dev)
+>  	 */
+>  	if (skb->dev->priv_flags & IFF_802_1Q_VLAN &&
+>  	    vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING &&
+> @@ -3108,7 +3108,7 @@ static void vlan_on_bond_hook(struct sk_buff *skb)
+>  
+>  		if (!skb2)
+>  			return;
+> -		skb2->dev = vlan_dev_real_dev(skb->dev);
+> +		skb2->dev = orig_dev;
+>  		netif_rx(skb2);
+>  	}
+> 
+
+I'm pretty sure this patch will have the same catastrophic problem your
+last one did.  By cloning and setting skb2->dev = orig_dev you just
+inserted a frame identical to the one we received right back into the
+stack.  It only took a few minutes for my box to melt as one frame on
+the wire will cause an infinite number of frames to be received by the
+stack.
+
+> @@ -3196,13 +3196,12 @@ ncls:
+>  			pt_prev = NULL;
+>  		}
+>  		if (vlan_hwaccel_do_receive(&skb)) {
+> -			ret = __netif_receive_skb(skb);
+> -			goto out;
+> +			goto another_round;
+>  		} else if (unlikely(!skb))
+>  			goto out;
+>  	}
+>  
+> -	vlan_on_bond_hook(skb);
+> +	vlan_on_bond_hook(skb, orig_dev);
+>  
+>  	/* deliver only exact match when indicated */
+>  	null_or_dev = deliver_exact ? skb->dev : NULL;
