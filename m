@@ -1,75 +1,71 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] cnic: fix double initalization of bnx2 based cards
-Date: Tue, 8 Mar 2011 11:07:57 -0800
-Message-ID: <1299611277.12601.15.camel@HP1>
-References: <1299610588-22356-1-git-send-email-nhorman@tuxdriver.com>
- <1299610768.4957.1.camel@bwh-desktop>
+From: Sangtae Ha <sangtae.ha@gmail.com>
+Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
+Date: Tue, 8 Mar 2011 14:15:00 -0500
+Message-ID: <AANLkTinT0eHbbELWDLxYyj0axpYt=GHnxLP8fMH-pWOs@mail.gmail.com>
+References: <20110308080926.GA22641@xanadu.blop.info>
+	<20110308104211.3567526f@nehalam>
+	<20110308.105503.104060436.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Neil Horman" <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eddie Wai" <eddie.wai@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, lucas.nussbaum@loria.fr,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3918 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754619Ab1CHTNE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2011 14:13:04 -0500
-In-Reply-To: <1299610768.4957.1.camel@bwh-desktop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:43026 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755223Ab1CHTPS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:15:18 -0500
+Received: by fxm17 with SMTP id 17so5429674fxm.19
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2011 11:15:17 -0800 (PST)
+In-Reply-To: <20110308.105503.104060436.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Yes. I remember that CONFIG_HZ was 1000 at that time and the value of
+CONFIG_HZ could affect the algorithm.
+I don't think HyStart needs this extra RTT_STAMP since we only need a
+rough delay estimate.
+Let me check HyStart with the latest git and with different CONFIG_HZ v=
+alues.
 
-On Tue, 2011-03-08 at 10:59 -0800, Ben Hutchings wrote:
-> On Tue, 2011-03-08 at 13:56 -0500, Neil Horman wrote:
-> > bnx2 cards can work with the cnic driver, but when the cnic driver detects a
-> > bnx2 card, is_cnic_dev erroneously calls the initalization routines for both
-> > bnx2 and bnx2x (the former being a regex subset of the later).
-> 
-> Since when does strcmp() do a regex match?
+Sangtae
 
-Yeah, strcmp() does NULL-terminated string compare, right?
-
-> 
-> And why is a function named 'is_cnic_dev' doing initialisation, anyway?
-
-Just data structure init if a supported device is detected.
-
-> 
-> Ben.
-> 
-> >   This causes
-> > initalization of bnx2 to unilaterally fail in the cnic driver, which, while not
-> > catastrophic, is definately not expected.  Fix this by choosing either the bnx2
-> > or bnx2x initalization path, not both
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > CC: David S. Miller <davem@davemloft.net>
-> > CC: Michael Chan <mchan@broadcom.com>
-> > CC: Dmitry Kravkov <dmitry@broadcom.com>
-> > CC: Eddie Wai <waie@broadcom.com>
-> > CC: Eilon Greenstein <eilong@broadcom.com>
-> > ---
-> >  drivers/net/cnic.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-> > index 271a1f0..18b59ad 100644
-> > --- a/drivers/net/cnic.c
-> > +++ b/drivers/net/cnic.c
-> > @@ -5292,7 +5292,7 @@ static struct cnic_dev *is_cnic_dev(struct net_device *dev)
-> >  
-> >  		if (!strcmp(drvinfo.driver, "bnx2"))
-> >  			cdev = init_bnx2_cnic(dev);
-> > -		if (!strcmp(drvinfo.driver, "bnx2x"))
-> > +		else if (!strcmp(drvinfo.driver, "bnx2x"))
-> >  			cdev = init_bnx2x_cnic(dev);
-> >  		if (cdev) {
-> >  			write_lock(&cnic_dev_lock);
-> 
-
-
+On Tue, Mar 8, 2011 at 1:55 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Tue, 8 Mar 2011 10:42:11 -0800
+>
+> > On Tue, 8 Mar 2011 09:09:26 +0100
+> > Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
+> >
+> >> The Hystart slow start algorithm requires precise RTT delay measur=
+ements
+> >> to decide when to leave slow start. However, currently, CUBIC does=
+n't
+> >> enable TCP timestamps. This can cause Hystart to mis-estimate the =
+RTT,
+> >> and to leave slow start too early, generating bad performance sinc=
+e
+> >> convergence to the optimal cwnd is slower.
+> >>
+> >> Timestamps are already used by TCP Illinois, LP, Vegas, Veno and Y=
+eah.
+> >>
+> >> Signed-off-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+> >
+> > Just to explain what RTT_STAMP does. It causes the tcp receive code
+> > to compute the rtt using high resolution clocks rather than just
+> > jiffies. It requires access to ktime_get_real which means accessing
+> > clock source. This is cheap for TSC, a little expensive for HPET bu=
+t
+> > expensive for PIT. I worry that enabling it may hurt regular users
+> > on old desktops. =A0But without it enabling RTT_STAMP, packets that
+> > get acked in less than a jiffie (1 - 10 ms) will
+> >
+> > Also I should have used ktime_get rather than ktime_get_real
+> > because real time is altered by NTP and other actions.
+>
+> This also means that whatever testing was originally done on Hystart
+> is dependent upon whatever value CONFIG_HZ had in the test kernel.
