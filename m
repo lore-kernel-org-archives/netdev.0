@@ -1,79 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 05/14] vlan: add support to ndo_fcoe_ddp_target()
-Date: Tue, 08 Mar 2011 02:44:27 +0000
-Message-ID: <1299552267.3967.3.camel@localhost>
+From: "Zou, Yi" <yi.zou@intel.com>
+Subject: RE: [net-next-2.6 04/14] net: add ndo_fcoe_ddp_target() to support
+ FCoE DDP in target mode
+Date: Mon, 7 Mar 2011 18:54:10 -0800
+Message-ID: <7C88852EF6F99F4EB538472FCFEBE222014F6FDD34@orsmsx509.amr.corp.intel.com>
 References: <1299551108-23663-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1299551108-23663-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1299551108-23663-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1299552202.3967.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Yi Zou <yi.zou@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Kiran Patil <kiran.patil@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>,
+	"Patil, Kiran" <kiran.patil@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:16285 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753998Ab1CHCob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 21:44:31 -0500
-In-Reply-To: <1299551108-23663-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:8162 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753933Ab1CHCyf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 21:54:35 -0500
+In-Reply-To: <1299552202.3967.2.camel@localhost>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-03-07 at 18:24 -0800, Jeff Kirsher wrote:
-> From: Yi Zou <yi.zou@intel.com>
-> 
-> Add the new target ddp offload support ndo_fcoe_ddp_target().
-> 
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
-> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  net/8021q/vlan_dev.c |   14 ++++++++++++++
->  1 files changed, 14 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index be73753..ae610f0 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -625,6 +625,19 @@ static int vlan_dev_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type)
->  		rc = ops->ndo_fcoe_get_wwn(real_dev, wwn, type);
->  	return rc;
->  }
-> +
-> +static int vlan_dev_fcoe_ddp_target(struct net_device *dev, u16 xid,
-> +				    struct scatterlist *sgl, unsigned int sgc)
-> +{
-> +	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
-> +	const struct net_device_ops *ops = real_dev->netdev_ops;
-> +	int rc = 0;
-> +
-> +	if (ops->ndo_fcoe_ddp_target)
-> +		rc = ops->ndo_fcoe_ddp_target(real_dev, xid, sgl, sgc);
-> +
-> +	return rc;
-> +}
-
-I can't see a caller or any documentation for this operation, so I don't
-know what the semantics are supposed to be.  But shouldn't the return
-value be -EOPNOTSUPP if real_dev does not implement the operation?
-
-Ben.
-
->  #endif
->  
->  static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
-> @@ -858,6 +871,7 @@ static const struct net_device_ops vlan_netdev_ops = {
->  	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
->  	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
->  	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
-> +	.ndo_fcoe_ddp_target	= vlan_dev_fcoe_ddp_target,
->  #endif
->  };
->  
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+PiBPbiBNb24sIDIwMTEtMDMtMDcgYXQgMTg6MjQgLTA4MDAsIEplZmYgS2lyc2hlciB3cm90ZToN
+Cj4gPiBGcm9tOiBZaSBab3UgPHlpLnpvdUBpbnRlbC5jb20+DQo+ID4NCj4gPiBUaGUgRmliZXIg
+Q2hhbm5lbCBvdmVyIEV0aGVybmV0IChGQ29FKSBEaXJlY3QgRGF0YSBQbGFjZW1lbnQgKEREUCkg
+Y2FuDQo+IGFsc28gYmUNCj4gPiB1c2VkIGZvciBGQ29FIHRhcmdldCwgd2hlcmUgdGhlIEREUCB1
+c2VkIGZvciByZWFkIEkvTyBvbiBhbiBpbml0aWF0b3INCj4gY2FuIGJlDQo+ID4gdXNlZCBvbiBh
+biBGQ29FIHRhcmdldCB0byBzcGVlZCB1cCB0aGUgd3JpdGUgSS9PIHRvIHRoZSB0YXJnZXQgZnJv
+bSB0aGUNCj4gaW5pdGlhdG9yLg0KPiA+IFRoZSBhZGRlZCBuZG9fZmNvZV9kZHBfdGFyZ2V0KCkg
+d29ya3MgaW4gdGhlIHNpbWlsYXIgd2F5IGFzIHRoZQ0KPiBleGlzdGluZw0KPiA+IG5kb19mY29l
+X2RkcF9zZXR1cCgpIHRvIGFsbG93IHRoZSB1bmRlcmx5aW5nIGhhcmR3YXJlIHNldCB1cCB0aGUg
+RERQDQo+IGNvbnRleHQNCj4gPiBhY2NvcmRpbmdseSB3aGVuIGl0IGdldHMgY2FsbGVkIGZyb20g
+dGhlIEZDb0UgdGFyZ2V0IGltcGxlbWVudGF0aW9uIG9uDQo+IHRvcA0KPiA+IHRoZSBleGlzdGlu
+ZyBPcGVuLUZDb0UgZmNvZS9saWJmYyBwcm90b2NvbCBzdGFjayBzbyB3aXRob3V0IGxvc2luZyB0
+aGUNCj4gYWJpbGl0eQ0KPiA+IHRvIHByb3ZpZGUgRERQIGZvciByZWFkIEkvTyBhcyBhbiBpbml0
+aWF0b3IsIGl0IGNhbiBhbHNvIHByb3ZpZGUgRERQDQo+IG9mZmxvYWQNCj4gPiB0byB0aGUgd3Jp
+dGUgSS9PIGNvbWluZyBmcm9tIHRoZSBpbml0aWF0b3IgYXMgYSB0YXJnZXQuDQo+ID4NCj4gPiBT
+aWduZWQtb2ZmLWJ5OiBZaSBab3UgPHlpLnpvdUBpbnRlbC5jb20+DQo+ID4gU2lnbmVkLW9mZi1i
+eTogS2lyYW4gUGF0aWwgPGtpcmFuLnBhdGlsQGludGVsLmNvbT4NCj4gPiBUZXN0ZWQtYnk6IEth
+dmluZHlhIERlZWdhbGEgPGthdmluZHlhLnMuZGVlZ2FsYUBpbnRlbC5jb20+DQo+ID4gU2lnbmVk
+LW9mZi1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+ID4g
+LS0tDQo+ID4gIGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggfCAgICA0ICsrKysNCj4gPiAgMSBm
+aWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBk
+aWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCBiL2luY2x1ZGUvbGludXgvbmV0
+ZGV2aWNlLmgNCj4gPiBpbmRleCA3MTU2M2U3Li42YmQ1ZDQ2IDEwMDY0NA0KPiA+IC0tLSBhL2lu
+Y2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gPiArKysgYi9pbmNsdWRlL2xpbnV4L25ldGRldmlj
+ZS5oDQo+ID4gQEAgLTg3MSw2ICs4NzEsMTAgQEAgc3RydWN0IG5ldF9kZXZpY2Vfb3BzIHsNCj4g
+PiAgCQkJCQkJICAgICAgdW5zaWduZWQgaW50IHNnYyk7DQo+ID4gIAlpbnQJCQkoKm5kb19mY29l
+X2RkcF9kb25lKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+ICAJCQkJCQkgICAgIHUxNiB4
+aWQpOw0KPiA+ICsJaW50CQkJKCpuZG9fZmNvZV9kZHBfdGFyZ2V0KShzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqZGV2LA0KPiA+ICsJCQkJCQkgICAgICAgdTE2IHhpZCwNCj4gPiArCQkJCQkJICAgICAgIHN0
+cnVjdCBzY2F0dGVybGlzdCAqc2dsLA0KPiA+ICsJCQkJCQkgICAgICAgdW5zaWduZWQgaW50IHNn
+Yyk7DQo+IA0KPiBUaGlzIHNob3VsZCBiZSBkZXNjcmliZWQgaW4gdGhlIGNvbW1lbnQgaGVhZGlu
+ZyBuZXRfZGV2aWNlX29wcy4NCj4gKFJlYWxseSwgYWxsIHRoZSBleGlzdGluZyBGQ29FIG9wZXJh
+dGlvbnMgb3VnaHQgdG8gaGF2ZSBiZWVuIGRlc2NyaWJlZA0KPiBhcyB3ZWxsLikNCj4gDQo+IEJl
+bi4NClllcywgeW91IGFyZSByaWdodCwgaXQgc2hvdWxkIGJlLiBXaWxsIGl0IGJlIG9rIGlmIEkg
+c2VuZCBhIHNlcGFyYXRlIA0KcGF0Y2ggYXMgZm9sbG93LXVwIHRvIHByb3Blcmx5IGFkZCBhbGwg
+Y29tbWVudHM/DQoNCnlpDQoNCj4gDQo+ID4gICNkZWZpbmUgTkVUREVWX0ZDT0VfV1dOTiAwDQo+
+ID4gICNkZWZpbmUgTkVUREVWX0ZDT0VfV1dQTiAxDQo+ID4gIAlpbnQJCQkoKm5kb19mY29lX2dl
+dF93d24pKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdz
+LCBTZW5pb3IgU29mdHdhcmUgRW5naW5lZXIsIFNvbGFyZmxhcmUgQ29tbXVuaWNhdGlvbnMNCj4g
+Tm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0
+bWVudCdzIGpvYi4NCj4gVGhleSBhc2tlZCB1cyB0byBub3RlIHRoYXQgU29sYXJmbGFyZSBwcm9k
+dWN0IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4NCg0K
