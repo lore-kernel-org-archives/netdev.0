@@ -1,46 +1,34 @@
-From: roel <roel.kluin@gmail.com>
-Subject: [PATCH] can: wrong index used in inner loop
-Date: Tue, 08 Mar 2011 20:52:55 +0100
-Message-ID: <4D768917.9040605@gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [stable-2.6.32.y] ixgbe: fix for 82599 erratum on
+ Header Splitting
+Date: Tue, 8 Mar 2011 11:48:55 -0800
+Message-ID: <20110308194855.GB21865@kroah.com>
+References: <1299366890-10333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@suse.de, Don Skidmore <donald.c.skidmore@intel.com>,
+	stable@kernel.org, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:35563 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752257Ab1CHT7s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 14:59:48 -0500
+Content-Disposition: inline
+In-Reply-To: <1299366890-10333-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Index i was already used in the outer loop.
+On Sat, Mar 05, 2011 at 03:14:50PM -0800, Jeff Kirsher wrote:
+> From: Don Skidmore <donald.c.skidmore@intel.com>
+> 
+> We have found a hardware erratum on 82599 hardware that can lead to
+> unpredictable behavior when Header Splitting mode is enabled.  So
+> we are no longer enabling this feature on affected hardware.
+> 
+> This is an updated version of the following commit which applies to the stable
+> linux-2.6.32.y tree:
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
- drivers/net/can/usb/esd_usb2.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Applied, thanks.
 
-diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
-index 05a5275..dc53c83 100644
---- a/drivers/net/can/usb/esd_usb2.c
-+++ b/drivers/net/can/usb/esd_usb2.c
-@@ -659,7 +659,7 @@ failed:
- static void unlink_all_urbs(struct esd_usb2 *dev)
- {
- 	struct esd_usb2_net_priv *priv;
--	int i;
-+	int i, j;
- 
- 	usb_kill_anchored_urbs(&dev->rx_submitted);
- 	for (i = 0; i < dev->net_count; i++) {
-@@ -668,8 +668,8 @@ static void unlink_all_urbs(struct esd_usb2 *dev)
- 			usb_kill_anchored_urbs(&priv->tx_submitted);
- 			atomic_set(&priv->active_tx_jobs, 0);
- 
--			for (i = 0; i < MAX_TX_URBS; i++)
--				priv->tx_contexts[i].echo_index = MAX_TX_URBS;
-+			for (j = 0; j < MAX_TX_URBS; j++)
-+				priv->tx_contexts[j].echo_index = MAX_TX_URBS;
- 		}
- 	}
- }
+greg k-h
