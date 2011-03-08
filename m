@@ -1,56 +1,49 @@
-From: Steffen Sledz <sledz@dresearch.de>
-Subject: Re: [PATCH v3] tcp: ioctl type SIOCOUTQNSD returns amount of data
- not sent
-Date: Tue, 08 Mar 2011 12:57:22 +0100
-Message-ID: <4D7619A2.4090207@dresearch.de>
-References: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk> <1299441595-18455-1-git-send-email-sledz@dresearch.de>
+From: WANG Cong <xiyou.wangcong@gmail.com>
+Subject: Re: bonding can't change to another slave if you ifdown the active
+ slave
+Date: Tue, 8 Mar 2011 12:51:54 +0000 (UTC)
+Message-ID: <il58p9$3ka$2@dough.gmane.org>
+References: <4D75D244.9070409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Mario Schuknecht <m.schuknecht@dresearch.de>
-To: netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1299441595-18455-1-git-send-email-sledz@dresearch.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:49995 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753175Ab1CHMwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 07:52:09 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1PwwOS-0006Z3-UD
+	for netdev@vger.kernel.org; Tue, 08 Mar 2011 13:52:08 +0100
+Received: from 123.135.217.68 ([123.135.217.68])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2011 13:52:04 +0100
+Received: from xiyou.wangcong by 123.135.217.68 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2011 13:52:04 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 06.03.2011 20:59, schrieb Steffen Sledz:
-> From: Mario Schuknecht <m.schuknecht@dresearch.de>
->=20
-> In contrast to SIOCOUTQ which returns the amount of data sent
-> but not yet acknowledged plus data not yet sent this patch only
-> returns the data not sent.
->=20
-> For various methods of live streaming bitrate control it may
-> be helpful to know how much data are in the tcp outqueue are
-> not sent yet.
->=20
-> Signed-off-by: Mario Schuknecht <m.schuknecht@dresearch.de>
-> Signed-off-by: Steffen Sledz <sledz@dresearch.de>
-> ---
->  include/linux/sockios.h |    4 +++-
->  net/ipv4/tcp.c          |    9 +++++++++
->  2 files changed, 12 insertions(+), 1 deletions(-)
+On Tue, 08 Mar 2011 14:52:52 +0800, Weiping Pan wrote:
 
-This is the patch version modified according to the comments from Alan =
-Cox.
+> ok, I use "Host-only mode" and get
+> 
+> 
+> 
+> an conclusion, that if the first enslaved nic is pulled out, bonding
+> can't handle well.
+> 
+> First test.
+> I first enslave eth6, then pull it out, bonding doesn't work. on host,
+...
+> 
+> 
+> Second test
+> I first enslave eth6, then pull eth7 out, bonding works well. on guest,
 
-Anything else to do?
+Can you show me your /proc/net/bonding/bond0 before and after pulling down
+eth6 or eth7? And what does `ip link show` say?
 
-Steffen
-
---=20
-DResearch Fahrzeugelektronik GmbH
-Otto-Schmirgal-Str. 3, 10319 Berlin, Germany
-Tel: +49 30 515932-237 mailto:sledz@DResearch.de
-=46ax: +49 30 515932-299
-Gesch=E4ftsf=FChrer: Dr. Michael Weber, Werner M=F6gle;
-Amtsgericht Berlin Charlottenburg; HRB 130120 B;
-Ust.-IDNr. DE273952058
