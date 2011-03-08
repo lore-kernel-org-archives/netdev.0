@@ -1,7 +1,7 @@
 From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH v2 2/6] net: sh_eth: remove the SH_TSU_ADDR
-Date: Tue, 08 Mar 2011 16:59:34 +0900
-Message-ID: <4D75E1E6.10108@renesas.com>
+Subject: [PATCH v2 3/6] net: sh_eth: remove almost #ifdef of SH7763
+Date: Tue, 08 Mar 2011 16:59:38 +0900
+Message-ID: <4D75E1EA.50006@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -11,165 +11,187 @@ Return-path: <linux-sh-owner@vger.kernel.org>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The defination is hardcoded in this driver for some CPUs. This patch
-modifies to get resource of TSU address from platform_device.
+The SH7763 has GETHER. So the specification of some registers differs than
+other CPUs. This patch removes almost #ifdef of CONFIG_CPU_SUBTYPE_SH7763.
+Then we are able to add other CPU's GETHER easily.
 
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
  This patch are based on net-next-2.6.git.
 
- about v2:
-  - fix the ARSTR for SH7763
-
- drivers/net/sh_eth.c |   31 ++++++++++++++++++++++++-------
- drivers/net/sh_eth.h |   18 +++---------------
- 2 files changed, 27 insertions(+), 22 deletions(-)
+ drivers/net/sh_eth.c |   72 +++++++++++++++++++++++++++++--------------------
+ drivers/net/sh_eth.h |   14 +++-------
+ 2 files changed, 47 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index 51268f5..c7abcc5 100644
+index c7abcc5..6734311 100644
 --- a/drivers/net/sh_eth.c
 +++ b/drivers/net/sh_eth.c
-@@ -145,8 +145,10 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #define SH_ETH_HAS_TSU	1
- static void sh_eth_chip_reset(struct net_device *ndev)
+@@ -157,7 +157,7 @@ static void sh_eth_reset(struct net_device *ndev)
+ 	int cnt = 100;
+
+ 	sh_eth_write(ndev, EDSR_ENALL, EDSR);
+-	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST, EDMR);
++	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER, EDMR);
+ 	while (cnt > 0) {
+ 		if (!(sh_eth_read(ndev, EDMR) & 0x3))
+ 			break;
+@@ -285,9 +285,9 @@ static void sh_eth_set_default_cpu_data(struct sh_eth_cpu_data *cd)
+ /* Chip Reset */
+ static void sh_eth_reset(struct net_device *ndev)
  {
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+
- 	/* reset device */
--	writel(ARSTR_ARSTR, ARSTR);
-+	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
- 	mdelay(1);
+-	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST, EDMR);
++	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_ETHER, EDMR);
+ 	mdelay(3);
+-	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) & ~EDMR_SRST, EDMR);
++	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) & ~EDMR_SRST_ETHER, EDMR);
  }
-
-@@ -229,6 +231,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.hw_swap	= 1,
- 	.no_trimd	= 1,
- 	.no_ade		= 1,
-+	.tsu		= 1,
- };
-
- #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
-@@ -246,6 +249,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #define SH_ETH_HAS_TSU	1
- static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
-+	.tsu		= 1,
- };
  #endif
 
-@@ -1446,6 +1450,7 @@ static void sh_eth_set_multicast_list(struct net_device *ndev)
- 				ECMR_MCT, ECMR);
+@@ -365,6 +365,22 @@ static void read_mac_address(struct net_device *ndev, unsigned char *mac)
  	}
  }
-+#endif /* SH_ETH_HAS_TSU */
 
- /* SuperH's TSU register init function */
- static void sh_eth_tsu_init(struct sh_eth_private *mdp)
-@@ -1475,7 +1480,6 @@ static void sh_eth_tsu_init(struct sh_eth_private *mdp)
- 	sh_eth_tsu_write(mdp, 0, TSU_POST3);	/* Disable CAM entry [16-23] */
- 	sh_eth_tsu_write(mdp, 0, TSU_POST4);	/* Disable CAM entry [24-31] */
- }
--#endif /* SH_ETH_HAS_TSU */
-
- /* MDIO bus release function */
- static int sh_mdio_release(struct net_device *ndev)
-@@ -1676,14 +1680,23 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
-
- 	/* First device only init */
- 	if (!devno) {
-+		if (mdp->cd->tsu) {
-+			struct resource *rtsu;
-+			rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+			if (!rtsu) {
-+				dev_err(&pdev->dev, "Not found TSU resource\n");
-+				goto out_release;
-+			}
-+			mdp->tsu_addr = ioremap(rtsu->start,
-+						resource_size(rtsu));
-+		}
- 		if (mdp->cd->chip_reset)
- 			mdp->cd->chip_reset(ndev);
-
--#if defined(SH_ETH_HAS_TSU)
--		/* TSU init (Init only)*/
--		mdp->tsu_addr = SH_TSU_ADDR;
--		sh_eth_tsu_init(mdp);
++static int sh_eth_is_gether(struct sh_eth_private *mdp)
++{
++	if (mdp->reg_offset == sh_eth_offset_gigabit)
++		return 1;
++	else
++		return 0;
++}
++
++static unsigned long sh_eth_get_edtrr_trns(struct sh_eth_private *mdp)
++{
++	if (sh_eth_is_gether(mdp))
++		return EDTRR_TRNS_GETHER;
++	else
++		return EDTRR_TRNS_ETHER;
++}
++
+ struct bb_info {
+ 	struct mdiobb_ctrl ctrl;
+ 	u32 addr;
+@@ -504,9 +520,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 		/* Rx descriptor address set */
+ 		if (i == 0) {
+ 			sh_eth_write(ndev, mdp->rx_desc_dma, RDLAR);
+-#if defined(CONFIG_CPU_SUBTYPE_SH7763)
+-			sh_eth_write(ndev, mdp->rx_desc_dma, RDFAR);
 -#endif
-+		if (mdp->cd->tsu) {
-+			/* TSU init (Init only)*/
-+			sh_eth_tsu_init(mdp);
-+		}
++			if (sh_eth_is_gether(mdp))
++				sh_eth_write(ndev, mdp->rx_desc_dma, RDFAR);
+ 		}
  	}
 
- 	/* network device register */
-@@ -1709,6 +1722,8 @@ out_unregister:
+@@ -526,9 +541,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 		if (i == 0) {
+ 			/* Tx descriptor address set */
+ 			sh_eth_write(ndev, mdp->tx_desc_dma, TDLAR);
+-#if defined(CONFIG_CPU_SUBTYPE_SH7763)
+-			sh_eth_write(ndev, mdp->tx_desc_dma, TDFAR);
+-#endif
++			if (sh_eth_is_gether(mdp))
++				sh_eth_write(ndev, mdp->tx_desc_dma, TDFAR);
+ 		}
+ 	}
 
- out_release:
- 	/* net_dev free */
-+	if (mdp->tsu_addr)
-+		iounmap(mdp->tsu_addr);
- 	if (ndev)
- 		free_netdev(ndev);
+@@ -940,9 +954,9 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
+ 		sh_eth_txfree(ndev);
 
-@@ -1719,7 +1734,9 @@ out:
- static int sh_eth_drv_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 		/* SH7712 BUG */
+-		if (edtrr ^ EDTRR_TRNS) {
++		if (edtrr ^ sh_eth_get_edtrr_trns(mdp)) {
+ 			/* tx dma start */
+-			sh_eth_write(ndev, EDTRR_TRNS, EDTRR);
++			sh_eth_write(ndev, sh_eth_get_edtrr_trns(mdp), EDTRR);
+ 		}
+ 		/* wakeup */
+ 		netif_wake_queue(ndev);
+@@ -1347,8 +1361,8 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
-+	iounmap(mdp->tsu_addr);
- 	sh_mdio_release(ndev);
- 	unregister_netdev(ndev);
- 	pm_runtime_disable(&pdev->dev);
+ 	mdp->cur_tx++;
+
+-	if (!(sh_eth_read(ndev, EDTRR) & EDTRR_TRNS))
+-		sh_eth_write(ndev, EDTRR_TRNS, EDTRR);
++	if (!(sh_eth_read(ndev, EDTRR) & sh_eth_get_edtrr_trns(mdp)))
++		sh_eth_write(ndev, sh_eth_get_edtrr_trns(mdp), EDTRR);
+
+ 	return NETDEV_TX_OK;
+ }
+@@ -1406,15 +1420,15 @@ static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
+ 	sh_eth_write(ndev, 0, CDCR);	/* (write clear) */
+ 	mdp->stats.tx_carrier_errors += sh_eth_read(ndev, LCCR);
+ 	sh_eth_write(ndev, 0, LCCR);	/* (write clear) */
+-#if defined(CONFIG_CPU_SUBTYPE_SH7763)
+-	mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);/* CERCR */
+-	sh_eth_write(ndev, 0, CERCR);	/* (write clear) */
+-	mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);/* CEECR */
+-	sh_eth_write(ndev, 0, CEECR);	/* (write clear) */
+-#else
+-	mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
+-	sh_eth_write(ndev, 0, CNDCR);	/* (write clear) */
+-#endif
++	if (sh_eth_is_gether(mdp)) {
++		mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);
++		sh_eth_write(ndev, 0, CERCR);	/* (write clear) */
++		mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);
++		sh_eth_write(ndev, 0, CEECR);	/* (write clear) */
++	} else {
++		mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
++		sh_eth_write(ndev, 0, CNDCR);	/* (write clear) */
++	}
+ 	pm_runtime_put_sync(&mdp->pdev->dev);
+
+ 	return &mdp->stats;
+@@ -1465,13 +1479,13 @@ static void sh_eth_tsu_init(struct sh_eth_private *mdp)
+ 	sh_eth_tsu_write(mdp, 0, TSU_FWSL0);
+ 	sh_eth_tsu_write(mdp, 0, TSU_FWSL1);
+ 	sh_eth_tsu_write(mdp, TSU_FWSLC_POSTENU | TSU_FWSLC_POSTENL, TSU_FWSLC);
+-#if defined(CONFIG_CPU_SUBTYPE_SH7763)
+-	sh_eth_tsu_write(mdp, 0, TSU_QTAG0);	/* Disable QTAG(0->1) */
+-	sh_eth_tsu_write(mdp, 0, TSU_QTAG1);	/* Disable QTAG(1->0) */
+-#else
+-	sh_eth_tsu_write(mdp, 0, TSU_QTAGM0);	/* Disable QTAG(0->1) */
+-	sh_eth_tsu_write(mdp, 0, TSU_QTAGM1);	/* Disable QTAG(1->0) */
+-#endif
++	if (sh_eth_is_gether(mdp)) {
++		sh_eth_tsu_write(mdp, 0, TSU_QTAG0);	/* Disable QTAG(0->1) */
++		sh_eth_tsu_write(mdp, 0, TSU_QTAG1);	/* Disable QTAG(1->0) */
++	} else {
++		sh_eth_tsu_write(mdp, 0, TSU_QTAGM0);	/* Disable QTAG(0->1) */
++		sh_eth_tsu_write(mdp, 0, TSU_QTAGM1);	/* Disable QTAG(1->0) */
++	}
+ 	sh_eth_tsu_write(mdp, 0, TSU_FWSR);	/* all interrupt status clear */
+ 	sh_eth_tsu_write(mdp, 0, TSU_FWINMK);	/* Disable all interrupt */
+ 	sh_eth_tsu_write(mdp, 0, TSU_TEN);	/* Disable all CAM entry */
 diff --git a/drivers/net/sh_eth.h b/drivers/net/sh_eth.h
-index 1510a7c..35a3adb 100644
+index 35a3adb..b349c5e 100644
 --- a/drivers/net/sh_eth.h
 +++ b/drivers/net/sh_eth.h
-@@ -207,6 +207,7 @@ static const u16 sh_eth_offset_gigabit[SH_ETH_MAX_REGISTER_OFFSET] = {
- 	[CEECR]	= 0x0770,
- 	[MAFCR]	= 0x0778,
-
-+	[ARSTR]	= 0x0000,
- 	[TSU_CTRST]	= 0x0004,
- 	[TSU_FWEN0]	= 0x0010,
- 	[TSU_FWEN1]	= 0x0014,
-@@ -328,6 +329,7 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
- 	[TPAUSER]	= 0x01c4,
- 	[BCFR]	= 0x01cc,
-
-+	[ARSTR]	= 0x0000,
- 	[TSU_CTRST]	= 0x0004,
- 	[TSU_FWEN0]	= 0x0010,
- 	[TSU_FWEN1]	= 0x0014,
-@@ -371,21 +373,6 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
-
+@@ -400,20 +400,14 @@ enum GECMR_BIT {
+ enum DMAC_M_BIT {
+ 	EDMR_EL = 0x40, /* Litte endian */
+ 	EDMR_DL1 = 0x20, EDMR_DL0 = 0x10,
+-#ifdef CONFIG_CPU_SUBTYPE_SH7763
+-	EDMR_SRST = 0x03,
+-#else /* CONFIG_CPU_SUBTYPE_SH7763 */
+-	EDMR_SRST = 0x01,
+-#endif
++	EDMR_SRST_GETHER = 0x03,
++	EDMR_SRST_ETHER = 0x01,
  };
 
--#if defined(CONFIG_CPU_SUBTYPE_SH7763)
--/* This CPU register maps is very difference by other SH4 CPU */
--/* Chip Base Address */
--# define SH_TSU_ADDR	0xFEE01800
--# define ARSTR		SH_TSU_ADDR
--#elif defined(CONFIG_CPU_SH4)	/* #if defined(CONFIG_CPU_SUBTYPE_SH7763) */
--#else /* #elif defined(CONFIG_CPU_SH4) */
--/* This section is SH3 or SH2 */
--#ifndef CONFIG_CPU_SUBTYPE_SH7619
--/* Chip base address */
--# define SH_TSU_ADDR  0xA7000804
--# define ARSTR		  0xA7000800
+ /* EDTRR */
+ enum DMAC_T_BIT {
+-#ifdef CONFIG_CPU_SUBTYPE_SH7763
+-	EDTRR_TRNS = 0x03,
+-#else
+-	EDTRR_TRNS = 0x01,
 -#endif
--#endif /* CONFIG_CPU_SUBTYPE_SH7763 */
--
- /* Driver's parameters */
- #if defined(CONFIG_CPU_SH4)
- #define SH4_SKB_RX_ALIGN	32
-@@ -770,6 +757,7 @@ struct sh_eth_cpu_data {
- 	unsigned mpr:1;			/* EtherC have MPR */
- 	unsigned tpauser:1;		/* EtherC have TPAUSER */
- 	unsigned bculr:1;		/* EtherC have BCULR */
-+	unsigned tsu:1;			/* EtherC have TSU */
- 	unsigned hw_swap:1;		/* E-DMAC have DE bit in EDMR */
- 	unsigned rpadir:1;		/* E-DMAC have RPADIR */
- 	unsigned no_trimd:1;		/* E-DMAC DO NOT have TRIMD */
++	EDTRR_TRNS_GETHER = 0x03,
++	EDTRR_TRNS_ETHER = 0x01,
+ };
+
+ /* EDRRR*/
 -- 
 1.7.1
