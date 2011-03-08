@@ -1,49 +1,100 @@
-From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
-Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
-Date: Tue, 8 Mar 2011 20:36:02 +0100
-Message-ID: <20110308193602.GA14526@xanadu.blop.info>
-References: <20110308080926.GA22641@xanadu.blop.info>
- <20110308104211.3567526f@nehalam>
- <20110308.105503.104060436.davem@davemloft.net>
- <AANLkTinT0eHbbELWDLxYyj0axpYt=GHnxLP8fMH-pWOs@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] cnic: fix double initalization of bnx2 based cards
+Date: Tue, 8 Mar 2011 14:36:01 -0500
+Message-ID: <20110308193601.GA19669@hmsreliant.think-freely.org>
+References: <1299610588-22356-1-git-send-email-nhorman@tuxdriver.com>
+ <1299610768.4957.1.camel@bwh-desktop>
+ <1299611277.12601.15.camel@HP1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: Sangtae Ha <sangtae.ha@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Eddie Wai <eddie.wai@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([178.79.145.134]:48679 "EHLO xanadu.blop.info"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754669Ab1CHTfM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2011 14:35:12 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49837 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754669Ab1CHTgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:36:12 -0500
 Content-Disposition: inline
-In-Reply-To: <AANLkTinT0eHbbELWDLxYyj0axpYt=GHnxLP8fMH-pWOs@mail.gmail.com>
+In-Reply-To: <1299611277.12601.15.camel@HP1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/03/11 at 14:15 -0500, Sangtae Ha wrote:
-> Yes. I remember that CONFIG_HZ was 1000 at that time and the value of
-> CONFIG_HZ could affect the algorithm.
-> I don't think HyStart needs this extra RTT_STAMP since we only need a
-> rough delay estimate.
-> Let me check HyStart with the latest git and with different CONFIG_HZ=
- values.
+On Tue, Mar 08, 2011 at 11:07:57AM -0800, Michael Chan wrote:
+> 
+> On Tue, 2011-03-08 at 10:59 -0800, Ben Hutchings wrote:
+> > On Tue, 2011-03-08 at 13:56 -0500, Neil Horman wrote:
+> > > bnx2 cards can work with the cnic driver, but when the cnic driver detects a
+> > > bnx2 card, is_cnic_dev erroneously calls the initalization routines for both
+> > > bnx2 and bnx2x (the former being a regex subset of the later).
+> > 
+> > Since when does strcmp() do a regex match?
+> 
+> Yeah, strcmp() does NULL-terminated string compare, right?
+> 
+Sorry, poor choice of words.  It doesn't do a regex match, I only ment to
+illustrate that bnx2 is a substring of bnx2x.
 
-One of the problems I discovered was that ca->delay_min was completely
-off if RTT_STAMP is disabled. For example, on a link with a 11ms RTT, I
-could get delay_min =3D 4ms. But even with RTT_STAMP, there's the probl=
-em
-that the code rounds the computed RTT value to a jiffie (in
-bictcp_acked()).
+strcmp does this:
 
-My other patch mitigates the performance problem by making it harder fo=
-r
-Hystart to abort slow start. But after a few days working on this issue=
-,
-I'm wondering whether Hystart shouldn't be completely rewritten to work
-on the usec values, or disabled by default.
---=20
-| Lucas Nussbaum             MCF Universit=E9 Nancy 2 |
-| lucas.nussbaum@loria.fr         LORIA / AlGorille |
-| http://www.loria.fr/~lnussbau/  +33 3 54 95 86 19 |
+strcmp(const char *str1, const char *str2) {
+...
+	while (*s1 || *s2) {
+		...
+	}
+...
+}
+
+Since bnx2 is a substring of bnx2 both if clauses are a match, since you'll hit
+the null terminator of the shorter string in both, which means we call both
+initalization functions.
+
+I'll leave commentary on initalization in is_cnic_dev to the authors :)
+
+Neil
+
+
+> 
+> > 
+> > Ben.
+> > 
+> > >   This causes
+> > > initalization of bnx2 to unilaterally fail in the cnic driver, which, while not
+> > > catastrophic, is definately not expected.  Fix this by choosing either the bnx2
+> > > or bnx2x initalization path, not both
+> > > 
+> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > > CC: David S. Miller <davem@davemloft.net>
+> > > CC: Michael Chan <mchan@broadcom.com>
+> > > CC: Dmitry Kravkov <dmitry@broadcom.com>
+> > > CC: Eddie Wai <waie@broadcom.com>
+> > > CC: Eilon Greenstein <eilong@broadcom.com>
+> > > ---
+> > >  drivers/net/cnic.c |    2 +-
+> > >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+> > > index 271a1f0..18b59ad 100644
+> > > --- a/drivers/net/cnic.c
+> > > +++ b/drivers/net/cnic.c
+> > > @@ -5292,7 +5292,7 @@ static struct cnic_dev *is_cnic_dev(struct net_device *dev)
+> > >  
+> > >  		if (!strcmp(drvinfo.driver, "bnx2"))
+> > >  			cdev = init_bnx2_cnic(dev);
+> > > -		if (!strcmp(drvinfo.driver, "bnx2x"))
+> > > +		else if (!strcmp(drvinfo.driver, "bnx2x"))
+> > >  			cdev = init_bnx2x_cnic(dev);
+> > >  		if (cdev) {
+> > >  			write_lock(&cnic_dev_lock);
+> > 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
