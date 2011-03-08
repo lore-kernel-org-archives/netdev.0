@@ -1,64 +1,34 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on congestion
- map updates
-Date: Tue, 8 Mar 2011 14:36:42 -0500
-Message-ID: <20110308193642.GB19669@hmsreliant.think-freely.org>
-References: <1299530363-sup-8922@think>
- <20110308.105223.71117584.davem@davemloft.net>
- <1299610642-sup-5101@think>
- <20110308.112258.183048712.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp_cubic: enable TCP timestamps
+Date: Tue, 08 Mar 2011 11:38:53 -0800 (PST)
+Message-ID: <20110308.113853.115934120.davem@davemloft.net>
+References: <20110308.105503.104060436.davem@davemloft.net>
+	<AANLkTinT0eHbbELWDLxYyj0axpYt=GHnxLP8fMH-pWOs@mail.gmail.com>
+	<20110308193602.GA14526@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chris.mason@oracle.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, venkat.x.venkatsubra@oracle.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sangtae.ha@gmail.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: lucas.nussbaum@loria.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49855 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754669Ab1CHTgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:36:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20110308.112258.183048712.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36514
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752374Ab1CHTiP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:38:15 -0500
+In-Reply-To: <20110308193602.GA14526@xanadu.blop.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 08, 2011 at 11:22:58AM -0800, David Miller wrote:
-> From: Chris Mason <chris.mason@oracle.com>
-> Date: Tue, 08 Mar 2011 13:58:57 -0500
-> 
-> > Excerpts from David Miller's message of 2011-03-08 13:52:23 -0500:
-> >> From: Chris Mason <chris.mason@oracle.com>
-> >> Date: Mon, 07 Mar 2011 15:41:04 -0500
-> >> 
-> >> > Excerpts from David Miller's message of 2011-03-07 15:27:53 -0500:
-> >> >> From: Neil Horman <nhorman@tuxdriver.com>
-> >> >> Date: Wed,  2 Mar 2011 11:28:22 -0500
-> >> >> 
-> >> >> > Recently had this bug halt reported to me:
-> >> >> 
-> >> >> Well, does anyone on the RDS team care about this bug fix at all?
-> >> >> 
-> >> >> Stuff like this should not sit for nearly a week without any reply
-> >> >> whatsoever.
-> >> >> 
-> >> > 
-> >> > The patch looks good to me, but I'm surprised we haven't seen it here.
-> >> > Venkat please take a look (link to the patch below)  Has it only been seen on ppc?
-> >> > 
-> >> > http://permalink.gmane.org/gmane.linux.network/187933
-> >> 
-> >> Can I get an ACK or something, _please_?
-> > 
-> > Sorry, wasn't clear:
-> > 
-> > Acked-by: Chris Mason <chris.mason@oracle.com>
-> 
-> Applied, thanks everyone.
-Thanks, Chris, Dave.
-Neil
+From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Date: Tue, 8 Mar 2011 20:36:02 +0100
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> My other patch mitigates the performance problem by making it harder for
+> Hystart to abort slow start. But after a few days working on this issue,
+> I'm wondering whether Hystart shouldn't be completely rewritten to work
+> on the usec values, or disabled by default.
+
+I am of the opinion that Hystart, like TCP VEGAS, fundamentally cannot
+work.
+
+It's disabled in several major distributions because of the performance
+problems you noticed, and this was on my own personal recommendation.
