@@ -1,268 +1,155 @@
-From: Samuel Jero <sj323707@ohio.edu>
-Subject: Re: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
- after receiving the Confirm option
-Date: Mon, 7 Mar 2011 23:50:31 -0500
-Message-ID: <1299559831.7569.41.camel@jero-laptop>
-References: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Cache source address in nexthop entries.
+Date: Mon, 07 Mar 2011 20:58:15 -0800 (PST)
+Message-ID: <20110307.205815.193699096.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="=-/o4tvpKIC/Xr94jPxrUs"
-Cc: <dccp@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s4.bay0.hotmail.com ([65.54.190.15]:38489 "EHLO
-	bay0-omc1-s4.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755841Ab1CHEzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 23:55:42 -0500
-In-Reply-To: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37394
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756012Ab1CHE5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 23:57:37 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 5D27024C089
+	for <netdev@vger.kernel.org>; Mon,  7 Mar 2011 20:58:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-/o4tvpKIC/Xr94jPxrUs
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-> I am sending this as RFC since I have not yet deeply tested this. It make=
-s
-> the exchange of NN options in established state conform to RFC 4340, 6.6.=
-1
-> and thus actually is a bug fix.
+When doing output route lookups, we have to select the source address
+if the user has not specified an explicit one.
 
-I now had a chance to put this patch through extensive tests. I had to
-modify two things about the patch to get good performance:
-1)CCID2 now checks the congestion window against the currently
-negotiating ack ratio value to determine whether to change the ack ratio
-after an RTO, an idle period, or a loss. This prevents a problem where
-an RTO or loss or idle period occurs and the ack ratio is less than the
-congestion window but is in the process of being negotiated larger. That
-negotiation will reach the sender on the first packet sent and RTOs will
-result.
-The primary change is adding a function called
-dccp_feat_get_nn_next_val() to feat.c. This function returns the value
-of the NN feature indicated that is is the process of being negotiated.
-If the feature is not being negotiated, then the current value is
-returned.
-2)In a situation where the ack ratio has to be reduced because of an
-RTO, idle period, or loss, CCID2 now sets the ack ratio to half of the
-congestion window (or 1 if that's zero) instead of to the congestion
-window. This should reduce the problems if one ack is lost (we have to
-lose two acks to not acknowledge an entire congestion window and trigger
-RTO)
+First, if the route has an explicit preferred source address
+specified, then we use that.
 
-Below is an improved patch. What are your thoughts on these changes?
+Otherwise we search the route's outgoing interface for a suitable
+address.
 
-Samuel Jero
-Internetworking Research Group
-Ohio University
+This search can be precomputed and cached at route insertion time.
 
+The only missing part is that we have to refresh this precomputed
+value any time addresses are added or removed from the interface, and
+this is accomplished by fib_update_nh_saddrs().
 
->>>>>>>>>>>>>>>>>>>>>>>>>Patch<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-dccp: Only activate NN values after receiving the Confirm option
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip_fib.h     |    7 +++++--
+ net/ipv4/fib_frontend.c  |    2 ++
+ net/ipv4/fib_semantics.c |   31 ++++++++++++++++++++++++-------
+ 3 files changed, 31 insertions(+), 9 deletions(-)
 
-This defers changing local values using exchange of NN options in
-established connection state by only activating the value after
-receiving the Confirm option, as mandated by RFC 4340, 6.6.1.
-
-Signed-off-by: Samuel Jero
-diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -83,9 +82,13 @@ static int ccid2_hc_tx_send_packet(struct sock *sk, stru=
-ct sk_buff *skb)
- 	return CCID_PACKET_SEND_AT_ONCE;
- }
-=20
-+static __u64 ccid2_ack_ratio_next(struct sock *sk)
-+{
-+	return dccp_feat_get_nn_next_val(sk, DCCPF_ACK_RATIO);
-+}
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 523a170..0e14083 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -60,6 +60,7 @@ struct fib_nh {
+ #endif
+ 	int			nh_oif;
+ 	__be32			nh_gw;
++	__be32			nh_saddr;
+ };
+ 
+ /*
+@@ -139,11 +140,13 @@ struct fib_result_nl {
+ 
+ #endif /* CONFIG_IP_ROUTE_MULTIPATH */
+ 
+-#define FIB_RES_PREFSRC(res)		((res).fi->fib_prefsrc ? : __fib_res_prefsrc(&res))
++#define FIB_RES_SADDR(res)		(FIB_RES_NH(res).nh_saddr)
+ #define FIB_RES_GW(res)			(FIB_RES_NH(res).nh_gw)
+ #define FIB_RES_DEV(res)		(FIB_RES_NH(res).nh_dev)
+ #define FIB_RES_OIF(res)		(FIB_RES_NH(res).nh_oif)
+ 
++#define FIB_RES_PREFSRC(res)		((res).fi->fib_prefsrc ? : FIB_RES_SADDR(res))
 +
- static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
- {
--	struct dccp_sock *dp =3D dccp_sk(sk);
- 	u32 max_ratio =3D DIV_ROUND_UP(ccid2_hc_tx_sk(sk)->tx_cwnd, 2);
-=20
- 	/*
-@@ -101,11 +104,10 @@ static void ccid2_change_l_ack_ratio(struct sock *sk,=
- u32 val)
- 	if (val > DCCPF_ACK_RATIO_MAX)
- 		val =3D DCCPF_ACK_RATIO_MAX;
-=20
--	if (val =3D=3D dp->dccps_l_ack_ratio)
-+	if (val =3D=3D ccid2_ack_ratio_next(sk))
- 		return;
-=20
- 	ccid2_pr_debug("changing local ack ratio to %u\n", val);
--	dp->dccps_l_ack_ratio =3D val;
- 	dccp_feat_signal_nn_change(sk, DCCPF_ACK_RATIO, val);
- }
-=20
-@@ -117,11 +119,9 @@ static void ccid2_change_l_seq_window(struct sock *sk,=
- u64 val)
- 		val =3D DCCPF_SEQ_WMIN;
- 	if (val > DCCPF_SEQ_WMAX)
- 		val =3D DCCPF_SEQ_WMAX;
--	if (val =3D=3D dp->dccps_l_seq_win)
--		return;
-=20
--	dp->dccps_l_seq_win =3D val;
--	dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW, val);
-+	if (val !=3D dp->dccps_l_seq_win)
-+		dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW, val);
- }
-=20
- static void ccid2_hc_tx_rto_expire(unsigned long data)
-@@ -203,6 +203,10 @@ static void ccid2_cwnd_application_limited(struct sock=
- *sk, const u32 now)
+ struct fib_table {
+ 	struct hlist_node tb_hlist;
+ 	u32		tb_id;
+@@ -224,8 +227,8 @@ extern void fib_select_default(struct fib_result *res);
+ extern int ip_fib_check_default(__be32 gw, struct net_device *dev);
+ extern int fib_sync_down_dev(struct net_device *dev, int force);
+ extern int fib_sync_down_addr(struct net *net, __be32 local);
++extern void fib_update_nh_saddrs(struct net_device *dev);
+ extern int fib_sync_up(struct net_device *dev);
+-extern __be32  __fib_res_prefsrc(struct fib_result *res);
+ extern void fib_select_multipath(const struct flowi *flp, struct fib_result *res);
+ 
+ /* Exported by fib_trie.c */
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index ad0778a..1d2233c 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -890,10 +890,12 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 		fib_sync_up(dev);
+ #endif
++		fib_update_nh_saddrs(dev);
+ 		rt_cache_flush(dev_net(dev), -1);
+ 		break;
+ 	case NETDEV_DOWN:
+ 		fib_del_ifaddr(ifa);
++		fib_update_nh_saddrs(dev);
+ 		if (ifa->ifa_dev->ifa_list == NULL) {
+ 			/* Last address was deleted from this interface.
+ 			 * Disable IP.
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 6349a21..952c737 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -853,6 +853,12 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 				goto err_inval;
  	}
- 	hc->tx_cwnd_used  =3D 0;
- 	hc->tx_cwnd_stamp =3D now;
+ 
++	change_nexthops(fi) {
++		nexthop_nh->nh_saddr = inet_select_addr(nexthop_nh->nh_dev,
++							nexthop_nh->nh_gw,
++							nexthop_nh->nh_scope);
++	} endfor_nexthops(fi)
 +
-+	/* Avoid spurious timeouts resulting from Ack Ratio > cwnd */
-+	if (ccid2_ack_ratio_next(sk) > hc->tx_cwnd)
-+		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
+ link_it:
+ 	ofi = fib_find_info(fi);
+ 	if (ofi) {
+@@ -898,13 +904,6 @@ failure:
+ 	return ERR_PTR(err);
  }
-=20
- /* This borrows the code of tcp_cwnd_restart() */
-@@ -221,6 +225,10 @@ static void ccid2_cwnd_restart(struct sock *sk, const =
-u32 now)
-=20
- 	hc->tx_cwnd_stamp =3D now;
- 	hc->tx_cwnd_used  =3D 0;
-+
-+	/* Avoid spurious timeouts resulting from Ack Ratio > cwnd */
-+	if (ccid2_ack_ratio_next(sk) > hc->tx_cwnd)
-+		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
- }
-=20
- static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
-@@ -491,8 +531,8 @@ static void ccid2_congestion_event(struct sock *sk, str=
-uct ccid2_seq *seqp)
- 	hc->tx_ssthresh  =3D max(hc->tx_cwnd, 2U);
-=20
- 	/* Avoid spurious timeouts resulting from Ack Ratio > cwnd */
--	if (dccp_sk(sk)->dccps_l_ack_ratio > hc->tx_cwnd)
--		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd);
-+	if (ccid2_ack_ratio_next(sk) > hc->tx_cwnd)
-+		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
- }
-=20
- static int ccid2_hc_tx_parse_options(struct sock *sk, u8 packet_type,
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index 26cba68..e8cf5a7 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -491,6 +491,7 @@ static inline int dccp_ack_pending(const struct sock *s=
-k)
- }
-=20
- extern int  dccp_feat_signal_nn_change(struct sock *sk, u8 feat, u64 nn_va=
-l);
-+extern __u64 dccp_feat_get_nn_next_val(struct sock *sk, u8 feat);
- extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
- extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *d=
-req);
- extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_s=
-ock*,
-diff --git a/net/dccp/feat.c b/net/dccp/feat.c
-index 9a8c2ba..bc26f33 100644
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -775,12 +775,7 @@ int dccp_feat_register_sp(struct sock *sk, u8 feat, u8=
- is_local,
-  * @sk: DCCP socket of an established connection
-  * @feat: NN feature number from %dccp_feature_numbers
-  * @nn_val: the new value to use
-- * This function is used to communicate NN updates out-of-band. The differ=
-ence
-- * to feature negotiation during connection setup is that values are activ=
-ated
-- * immediately after validation, i.e. we don't wait for the Confirm: eithe=
-r the
-- * value is accepted by the peer (and then the waiting is futile), or it i=
-s not
-- * (Reset or empty Confirm). We don't accept empty Confirms - transmitted =
-values
-- * are validated, and the peer "MUST accept any valid value" (RFC 4340, 6.=
-3.2).
-+ * This function is used to communicate NN updates out-of-band.
-  */
- int dccp_feat_signal_nn_change(struct sock *sk, u8 feat, u64 nn_val)
- {
-@@ -805,9 +800,6 @@ int dccp_feat_signal_nn_change(struct sock *sk, u8 feat=
-, u64 nn_val)
- 		dccp_feat_list_pop(entry);
- 	}
-=20
--	if (dccp_feat_activate(sk, feat, 1, &fval))
--		return -EADV;
+ 
+-/* Find appropriate source address to this destination */
 -
- 	inet_csk_schedule_ack(sk);
- 	return dccp_feat_push_change(fn, feat, 1, 0, &fval);
+-__be32 __fib_res_prefsrc(struct fib_result *res)
+-{
+-	return inet_select_addr(FIB_RES_DEV(*res), FIB_RES_GW(*res), res->scope);
+-}
+-
+ int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+ 		  u32 tb_id, u8 type, u8 scope, __be32 dst, int dst_len, u8 tos,
+ 		  struct fib_info *fi, unsigned int flags)
+@@ -1128,6 +1127,24 @@ out:
+ 	return;
  }
-@@ -1356,6 +1348,9 @@ static u8 dccp_feat_handle_nn_established(struct sock=
- *sk, u8 mandatory, u8 opt,
- 		if (fval.nn !=3D entry->val.nn)
- 			return 0;
-=20
-+		/* Only activate after receiving the Confirm option (6.6.1). */
-+		dccp_feat_activate(sk, feat, local, &fval);
-+
- 		/* It has been confirmed - so remove the entry */
- 		dccp_feat_list_pop(entry);
-=20
-@@ -1374,6 +1369,39 @@ fast_path_failed:
- 			 : DCCP_RESET_CODE_OPTION_ERROR;
- }
-=20
-+/*
-+* dccp_feat_get_nn_next_val  -  Get the currently negotiating value of an =
-NN
-+*				feature. If the feature isn't being currently
-+*				negotiated, return it's current value.
-+* @sk: DCCP socket of an established connection
-+* @feat: NN feature number from %dccp_feature_numbers
-+*/
-+__u64 dccp_feat_get_nn_next_val(struct sock *sk, u8 feat)
+ 
++void fib_update_nh_saddrs(struct net_device *dev)
 +{
-+	struct list_head *fn =3D &dccp_sk(sk)->dccps_featneg;
-+	struct dccp_feat_entry *entry;
-+	u8 type =3D dccp_feat_type(feat);
++	struct hlist_head *head;
++	struct hlist_node *node;
++	struct fib_nh *nh;
++	unsigned int hash;
 +
-+	if (type =3D=3D FEAT_UNKNOWN || type !=3D FEAT_NN)
-+		return 0;
-+
-+	entry =3D dccp_feat_list_lookup(fn, feat, 1);
-+	if (entry !=3D NULL)
-+		return entry->val.nn;
-+
-+	switch (feat) {
-+	case DCCPF_ACK_RATIO:
-+		return dccp_sk(sk)->dccps_l_ack_ratio;
-+	case DCCPF_SEQUENCE_WINDOW:
-+		return dccp_sk(sk)->dccps_l_seq_win;
-+	default:
-+		dccp_pr_debug("Attempting to get value \
-+						for unknown NN feature");
++	hash = fib_devindex_hashfn(dev->ifindex);
++	head = &fib_info_devhash[hash];
++	hlist_for_each_entry(nh, node, head, nh_hash) {
++		if (nh->nh_dev != dev)
++			continue;
++		nh->nh_saddr = inet_select_addr(nh->nh_dev,
++						nh->nh_gw,
++						nh->nh_scope);
 +	}
-+return 0;
 +}
-+EXPORT_SYMBOL_GPL(dccp_feat_get_nn_next_val);
 +
- /**
-  * dccp_feat_parse_options  -  Process Feature-Negotiation Options
-  * @sk: for general use and used by the client during connection setup
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 
+ /*
+-- 
+1.7.4.1
 
---=-/o4tvpKIC/Xr94jPxrUs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEABECAAYFAk11tZMACgkQEwoGUlJjrt+5zACgqNiFXQLkhLt8cjTOPn4oBbwp
-Bj4An1wxJRosEG72o5Edmp5pyrp30yyA
-=BtTY
------END PGP SIGNATURE-----
-
---=-/o4tvpKIC/Xr94jPxrUs--
