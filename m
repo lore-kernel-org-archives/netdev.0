@@ -1,80 +1,73 @@
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Subject: Re: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
-Date: Tue, 08 Mar 2011 10:17:41 +0800
-Message-ID: <4D7591C5.5070909@cn.fujitsu.com>
-References: <4D6CA852.3060303@cn.fujitsu.com>	<AANLkTimXy2Yaj+NTDMNTWuLqHHfKZJhVDpeXj3CfMvBf@mail.gmail.com>	<alpine.DEB.2.00.1103010909320.6253@router.home>	<AANLkTim0Zjc7c9-7LCnEaYpV5PVN=5fNQpjMYqtZe-fk@mail.gmail.com>	<alpine.DEB.2.00.1103020625290.10180@router.home> <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Pekka Enberg <penberg@kernel.org>, Ingo Molnar <mingo@elte.hu>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Matt Mackall <mpm@selenic.com>, linux-mm@kvack.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Hugh Dickins <hughd@google.com>, Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Mon,  7 Mar 2011 18:24:54 -0800
+Message-ID: <1299551108-23663-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:37667 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755268Ab1CHC0F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Mar 2011 21:26:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/07/2011 03:39 AM, Hugh Dickins wrote:
-> On Wed, Mar 2, 2011 at 4:32 AM, Christoph Lameter <cl@linux.com> wrote:
->> On Tue, 1 Mar 2011, Hugh Dickins wrote:
->>
->>>> Struct page may be larger for debugging purposes already because of the
->>>> need for extended spinlock data.
->>>
->>> That was so for a long time, but I stopped it just over a year ago
->>> with commit a70caa8ba48f21f46d3b4e71b6b8d14080bbd57a, stop ptlock
->>> enlarging struct page.
->>
->> Strange. I just played around with in in January and the page struct size
->> changes when I build kernels with full debugging. I have some
->> cmpxchg_double patches here that depend on certain alignment in the page
->> struct. Debugging causes all that stuff to get out of whack so that I had
->> to do some special patches to make sure fields following the spinlock are
->> properly aligned when the sizes change.
-> 
-> That puzzles me, it's not my experience and I don't have an
-> explanation: do you have time to investigate?
-> 
-> Uh oh, you're going to tell me you're working on an out-of-tree
-> architecture with a million cpus ;)  In that case, yes, I'm afraid
-> I'll have to update the SPLIT_PTLOCK_CPUS defaulting (for a million -
-> 1 even).
-> 
->>
->>> If a union leads to "random junk" overwriting the page->mapping field
->>> when the page is reused, and that junk could resemble the pointer in
->>> question, then KSM would mistakenly think it still owned the page.
->>> Very remote chance, and maybe it amounts to no more than a leak.  But
->>> I'd still prefer we keep page->mapping for pointers (sometimes with
->>> lower bits set as flags).
->>
->> DESTROY BY RCU uses the lru field which follows the mapping field in page
->> struct. Why would random junk overwrite the mapping field?
-> 
-> Random junk does not overwrite the mapping field with the current
-> implementation of DESTROY_BY_RCU.  But you and Jiangshan were
-> discussing how to change it, so I was warning of this issue with
-> page->mapping.
-> 
-> But I would anyway agree with Jiangshan, that it's preferable not to
-> bloat struct page size just for this DESTROY_BY_RCU issue, even if it
-> is only an issue when debugging.
-> 
+The following series contains fixes and cleanups for e1000e and ixgbe, as
+well as support for FCoE DDP in target mode for ixgbe.  In igb, added
+additional stats for OS2BMC feature.
 
-A union with rcu_head does not cause overwriting, But the problem is
-only one minority use of the page (as a DESTROY_BY_RCU slab) needs to
-fit a rcu_head and to bloat the struct page size.
+The following are changes since commit 541ac7c9b30ee2ff84ad87f27e0bc069e143afb5:
+  bonding: COW before overwriting the destination MAC address
 
-Except for preparing for debugging or adding priority information for rcu_head,
-this patch also does a de-coupling work.
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Carolyn Wyborny (1):
+  igb: Add stats output for OS2BMC feature on i350 devices
+
+Don Skidmore (1):
+  ixgbe: fix missing function pointer conversion
+
+Emil Tantilov (9):
+  e1000e: fix build issue due to undefined reference to crc32_le
+  ixgbe: cleanup PHY init
+  ixgbe: clear correct counters for flow control on 82599
+  ixgbe: Add x540 statistic counter definitions
+  ixgbe: Enable flow control pause parameter auto-negotiation support
+  ixgbe: add function description
+  ixgbe: improve logic in ixgbe_init_mbx_params_pf
+  ixgbe: fix spelling errors
+  ixgbe: fix setting and reporting of advertised speeds
+
+Yi Zou (3):
+  net: add ndo_fcoe_ddp_target() to support FCoE DDP in target mode
+  vlan: add support to ndo_fcoe_ddp_target()
+  ixgbe: add support to FCoE DDP in target mode
+
+ drivers/net/Kconfig               |    1 +
+ drivers/net/igb/e1000_defines.h   |    1 +
+ drivers/net/igb/e1000_hw.h        |    4 +
+ drivers/net/igb/e1000_regs.h      |    7 +
+ drivers/net/igb/igb_ethtool.c     |    9 +-
+ drivers/net/igb/igb_main.c        |    9 +
+ drivers/net/ixgbe/ixgbe.h         |    2 +
+ drivers/net/ixgbe/ixgbe_82598.c   |   38 ++-
+ drivers/net/ixgbe/ixgbe_82599.c   |  124 ++++++----
+ drivers/net/ixgbe/ixgbe_common.c  |  509 ++++++++++++++++++++++---------------
+ drivers/net/ixgbe/ixgbe_ethtool.c |   41 ++--
+ drivers/net/ixgbe/ixgbe_fcoe.c    |   86 ++++++-
+ drivers/net/ixgbe/ixgbe_fcoe.h    |    4 +
+ drivers/net/ixgbe/ixgbe_main.c    |    4 +-
+ drivers/net/ixgbe/ixgbe_mbx.c     |   27 +-
+ drivers/net/ixgbe/ixgbe_phy.c     |   21 ++-
+ drivers/net/ixgbe/ixgbe_phy.h     |    4 +
+ drivers/net/ixgbe/ixgbe_type.h    |   10 +
+ drivers/net/ixgbe/ixgbe_x540.c    |    9 +-
+ include/linux/netdevice.h         |    4 +
+ net/8021q/vlan_dev.c              |   14 +
+ 21 files changed, 608 insertions(+), 320 deletions(-)
+
+-- 
+1.7.4
+
