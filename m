@@ -1,105 +1,80 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [net-next 08/12] ixgb: convert to new VLAN model
-Date: Mon, 7 Mar 2011 17:31:10 -0800
-Message-ID: <AANLkTikkMTv4uCbpOFfdgHzt2jMa5u5ipCOQ3OOh3KLs@mail.gmail.com>
-References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	<AANLkTik1rCFRtBWov5f8yfU+4JZnbzLHgcmRC1y_+TDP@mail.gmail.com>
-	<EA929A9653AAE14F841771FB1DE5A136602DEE63CB@rrsmsx501.amr.corp.intel.com>
-	<AANLkTikS7zw5OfPFTJBUeUyy39Tx26Wkg9FX3n77-v1G@mail.gmail.com>
-	<EA929A9653AAE14F841771FB1DE5A136602DF59AA3@rrsmsx501.amr.corp.intel.com>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Subject: Re: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
+Date: Tue, 08 Mar 2011 10:17:41 +0800
+Message-ID: <4D7591C5.5070909@cn.fujitsu.com>
+References: <4D6CA852.3060303@cn.fujitsu.com>	<AANLkTimXy2Yaj+NTDMNTWuLqHHfKZJhVDpeXj3CfMvBf@mail.gmail.com>	<alpine.DEB.2.00.1103010909320.6253@router.home>	<AANLkTim0Zjc7c9-7LCnEaYpV5PVN=5fNQpjMYqtZe-fk@mail.gmail.com>	<alpine.DEB.2.00.1103020625290.10180@router.home> <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bphilips@novell.com" <bphilips@novell.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:38901 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754Ab1CHBbL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2011 20:31:11 -0500
-Received: by vxi39 with SMTP id 39so4300150vxi.19
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2011 17:31:11 -0800 (PST)
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A136602DF59AA3@rrsmsx501.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Enberg <penberg@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Matt Mackall <mpm@selenic.com>, linux-mm@kvack.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Hugh Dickins <hughd@google.com>, Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 25, 2011 at 10:20 AM, Tantilov, Emil S
-<emil.s.tantilov@intel.com> wrote:
->>-----Original Message-----
->>From: Jesse Gross [mailto:jesse@nicira.com]
->>Sent: Tuesday, January 25, 2011 9:23 AM
->>To: Tantilov, Emil S
->>Cc: Kirsher, Jeffrey T; davem@davemloft.net; netdev@vger.kernel.org;
->>bphilips@novell.com; Pieper, Jeffrey E
->>Subject: Re: [net-next 08/12] ixgb: convert to new VLAN model
+On 03/07/2011 03:39 AM, Hugh Dickins wrote:
+> On Wed, Mar 2, 2011 at 4:32 AM, Christoph Lameter <cl@linux.com> wrote:
+>> On Tue, 1 Mar 2011, Hugh Dickins wrote:
 >>
->>On Sun, Jan 23, 2011 at 4:25 PM, Tantilov, Emil S
->><emil.s.tantilov@intel.com> wrote:
->>> Jesse Gross wrote:
->>>> On Thu, Jan 6, 2011 at 7:29 PM, =A0<jeffrey.t.kirsher@intel.com> w=
-rote:
->>>>> +static int ixgb_set_flags(struct net_device *netdev, u32 data) +=
-{
->>>>> + =A0 =A0 =A0 struct ixgb_adapter *adapter =3D netdev_priv(netdev=
-); +
->>>>> bool need_reset; + =A0 =A0 =A0 int rc;
->>>>> +
->>>>> + =A0 =A0 =A0 /*
->>>>> + =A0 =A0 =A0 =A0* TX vlan insertion does not work per HW design =
-when Rx
->>>>> stripping is + =A0 =A0 =A0 =A0* disabled. =A0Disable txvlan when =
-rxvlan is
->>>>> off. + =A0 =A0 =A0 =A0*/ + =A0 =A0 =A0 if ((data & ETH_FLAG_RXVLA=
-N) !=3D
->>>>> (netdev->features & NETIF_F_HW_VLAN_RX)) + =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 data ^=3D
->>>>> ETH_FLAG_TXVLAN;
->>>>
->>>> Does this really do the right thing? =A0If the RX vlan setting is
->>>> changed, it will do the opposite of what the user requested for TX
->>>> vlan?
->>>>
->>>> So if I start with both on (the default) and turn them both off in=
- one
->>>> command (a valid setting), I will get RX off and TX on (an invalid
->>>> setting).
->>>>
->>>> Why not:
->>>>
->>>> if (!(data & ETH_FLAG_RXVLAN))
->>>> =A0 =A0 =A0 =A0 data &=3D ~ETH_FLAG_TXVLAN;
+>>>> Struct page may be larger for debugging purposes already because of the
+>>>> need for extended spinlock data.
 >>>
->>> Yeah that works for disabling rxvlan, but what if rxvlan is disable=
-d, and
->>the user attempts to enable txvlan? At least our validation argued th=
-at we
->>should make it work both ways. Perhaps something like the following?
->>>
->>> =A0 =A0 =A0 =A0if (!(data & ETH_FLAG_RXVLAN) &&
->>> =A0 =A0 =A0 =A0 =A0 (netdev->features & NETIF_F_HW_VLAN_TX))
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0data &=3D ~ETH_FLAG_TXVLAN;
->>> =A0 =A0 =A0 =A0else if (data & ETH_FLAG_TXVLAN)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0data |=3D ETH_FLAG_RXVLAN;
+>>> That was so for a long time, but I stopped it just over a year ago
+>>> with commit a70caa8ba48f21f46d3b4e71b6b8d14080bbd57a, stop ptlock
+>>> enlarging struct page.
 >>
->>I think the logic above does what you describe and will always result
->>in a consistent state. =A0Turning dependent features on when needed i=
-s a
->>little bit inconsistent with the rest of Ethtool (for example, turnin=
-g
->>on TSO when checksum offloading is off will not enable checksum
->>offloading, it will produce an error). =A0However, I know that driver=
-s
->
-> That is the reason I asked, as I don't want to keep bouncing the patc=
-h back and forth. Personally I like the idea of helping the user and ad=
-justing the flags to something that works rather than a generic error m=
-essage.
+>> Strange. I just played around with in in January and the page struct size
+>> changes when I build kernels with full debugging. I have some
+>> cmpxchg_double patches here that depend on certain alignment in the page
+>> struct. Debugging causes all that stuff to get out of whack so that I had
+>> to do some special patches to make sure fields following the spinlock are
+>> properly aligned when the sizes change.
+> 
+> That puzzles me, it's not my experience and I don't have an
+> explanation: do you have time to investigate?
+> 
+> Uh oh, you're going to tell me you're working on an out-of-tree
+> architecture with a million cpus ;)  In that case, yes, I'm afraid
+> I'll have to update the SPLIT_PTLOCK_CPUS defaulting (for a million -
+> 1 even).
+> 
+>>
+>>> If a union leads to "random junk" overwriting the page->mapping field
+>>> when the page is reused, and that junk could resemble the pointer in
+>>> question, then KSM would mistakenly think it still owned the page.
+>>> Very remote chance, and maybe it amounts to no more than a leak.  But
+>>> I'd still prefer we keep page->mapping for pointers (sometimes with
+>>> lower bits set as flags).
+>>
+>> DESTROY BY RCU uses the lru field which follows the mapping field in page
+>> struct. Why would random junk overwrite the mapping field?
+> 
+> Random junk does not overwrite the mapping field with the current
+> implementation of DESTROY_BY_RCU.  But you and Jiangshan were
+> discussing how to change it, so I was warning of this issue with
+> page->mapping.
+> 
+> But I would anyway agree with Jiangshan, that it's preferable not to
+> bloat struct page size just for this DESTROY_BY_RCU issue, even if it
+> is only an issue when debugging.
+> 
 
-Were you able to take a look at this?  I think that we have something
-that is pretty close, so it would be nice to wrap it up.
+A union with rcu_head does not cause overwriting, But the problem is
+only one minority use of the page (as a DESTROY_BY_RCU slab) needs to
+fit a rcu_head and to bloat the struct page size.
+
+Except for preparing for debugging or adding priority information for rcu_head,
+this patch also does a de-coupling work.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
