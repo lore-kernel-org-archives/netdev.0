@@ -1,98 +1,62 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] cnic: fix double initalization of bnx2 based cards
-Date: Tue, 8 Mar 2011 14:36:01 -0500
-Message-ID: <20110308193601.GA19669@hmsreliant.think-freely.org>
-References: <1299610588-22356-1-git-send-email-nhorman@tuxdriver.com>
- <1299610768.4957.1.camel@bwh-desktop>
- <1299611277.12601.15.camel@HP1>
+Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on congestion
+ map updates
+Date: Tue, 8 Mar 2011 14:36:42 -0500
+Message-ID: <20110308193642.GB19669@hmsreliant.think-freely.org>
+References: <1299530363-sup-8922@think>
+ <20110308.105223.71117584.davem@davemloft.net>
+ <1299610642-sup-5101@think>
+ <20110308.112258.183048712.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eddie Wai <eddie.wai@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Michael Chan <mchan@broadcom.com>
+Cc: chris.mason@oracle.com, netdev@vger.kernel.org,
+	rds-devel@oss.oracle.com, venkat.x.venkatsubra@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49837 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49855 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754669Ab1CHTgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:36:12 -0500
+	with ESMTP id S1754669Ab1CHTgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 14:36:47 -0500
 Content-Disposition: inline
-In-Reply-To: <1299611277.12601.15.camel@HP1>
+In-Reply-To: <20110308.112258.183048712.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 08, 2011 at 11:07:57AM -0800, Michael Chan wrote:
+On Tue, Mar 08, 2011 at 11:22:58AM -0800, David Miller wrote:
+> From: Chris Mason <chris.mason@oracle.com>
+> Date: Tue, 08 Mar 2011 13:58:57 -0500
 > 
-> On Tue, 2011-03-08 at 10:59 -0800, Ben Hutchings wrote:
-> > On Tue, 2011-03-08 at 13:56 -0500, Neil Horman wrote:
-> > > bnx2 cards can work with the cnic driver, but when the cnic driver detects a
-> > > bnx2 card, is_cnic_dev erroneously calls the initalization routines for both
-> > > bnx2 and bnx2x (the former being a regex subset of the later).
+> > Excerpts from David Miller's message of 2011-03-08 13:52:23 -0500:
+> >> From: Chris Mason <chris.mason@oracle.com>
+> >> Date: Mon, 07 Mar 2011 15:41:04 -0500
+> >> 
+> >> > Excerpts from David Miller's message of 2011-03-07 15:27:53 -0500:
+> >> >> From: Neil Horman <nhorman@tuxdriver.com>
+> >> >> Date: Wed,  2 Mar 2011 11:28:22 -0500
+> >> >> 
+> >> >> > Recently had this bug halt reported to me:
+> >> >> 
+> >> >> Well, does anyone on the RDS team care about this bug fix at all?
+> >> >> 
+> >> >> Stuff like this should not sit for nearly a week without any reply
+> >> >> whatsoever.
+> >> >> 
+> >> > 
+> >> > The patch looks good to me, but I'm surprised we haven't seen it here.
+> >> > Venkat please take a look (link to the patch below)  Has it only been seen on ppc?
+> >> > 
+> >> > http://permalink.gmane.org/gmane.linux.network/187933
+> >> 
+> >> Can I get an ACK or something, _please_?
 > > 
-> > Since when does strcmp() do a regex match?
+> > Sorry, wasn't clear:
+> > 
+> > Acked-by: Chris Mason <chris.mason@oracle.com>
 > 
-> Yeah, strcmp() does NULL-terminated string compare, right?
-> 
-Sorry, poor choice of words.  It doesn't do a regex match, I only ment to
-illustrate that bnx2 is a substring of bnx2x.
-
-strcmp does this:
-
-strcmp(const char *str1, const char *str2) {
-...
-	while (*s1 || *s2) {
-		...
-	}
-...
-}
-
-Since bnx2 is a substring of bnx2 both if clauses are a match, since you'll hit
-the null terminator of the shorter string in both, which means we call both
-initalization functions.
-
-I'll leave commentary on initalization in is_cnic_dev to the authors :)
-
+> Applied, thanks everyone.
+Thanks, Chris, Dave.
 Neil
 
-
-> 
-> > 
-> > Ben.
-> > 
-> > >   This causes
-> > > initalization of bnx2 to unilaterally fail in the cnic driver, which, while not
-> > > catastrophic, is definately not expected.  Fix this by choosing either the bnx2
-> > > or bnx2x initalization path, not both
-> > > 
-> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > > CC: David S. Miller <davem@davemloft.net>
-> > > CC: Michael Chan <mchan@broadcom.com>
-> > > CC: Dmitry Kravkov <dmitry@broadcom.com>
-> > > CC: Eddie Wai <waie@broadcom.com>
-> > > CC: Eilon Greenstein <eilong@broadcom.com>
-> > > ---
-> > >  drivers/net/cnic.c |    2 +-
-> > >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-> > > index 271a1f0..18b59ad 100644
-> > > --- a/drivers/net/cnic.c
-> > > +++ b/drivers/net/cnic.c
-> > > @@ -5292,7 +5292,7 @@ static struct cnic_dev *is_cnic_dev(struct net_device *dev)
-> > >  
-> > >  		if (!strcmp(drvinfo.driver, "bnx2"))
-> > >  			cdev = init_bnx2_cnic(dev);
-> > > -		if (!strcmp(drvinfo.driver, "bnx2x"))
-> > > +		else if (!strcmp(drvinfo.driver, "bnx2x"))
-> > >  			cdev = init_bnx2x_cnic(dev);
-> > >  		if (cdev) {
-> > >  			write_lock(&cnic_dev_lock);
-> > 
-> 
-> 
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
