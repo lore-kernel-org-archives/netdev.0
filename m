@@ -1,67 +1,41 @@
-From: Adam Majer <adamm@zombino.com>
-Subject: Re: [PATCH 1/2] Issue NETDEV_CHANGE notification when bridge
- changes state
-Date: Wed, 9 Mar 2011 10:44:49 -0600
-Message-ID: <20110309164448.GA2364@mira.lan.galacticasoftware.com>
-References: <20110306051833.GA3098@mira.lan.galacticasoftware.com>
- <20110309150949.GE16951@cr0.redhat.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets - continued
+Date: Wed, 09 Mar 2011 08:51:33 -0800
+Message-ID: <1299689493.25664.120.camel@localhost.localdomain>
+References: <201103071631.41964.tahm@linux.vnet.ibm.com>
+	 <20110309071558.GA25757@redhat.com>
+	 <201103091009.27932.tahm@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-To: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110309150949.GE16951@cr0.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com
+To: Tom Lendacky <tahm@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:53887 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753367Ab1CIQvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 11:51:50 -0500
+In-Reply-To: <201103091009.27932.tahm@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 09, 2011 at 11:09:49PM +0800, Am=E9rico Wang wrote:
-> On Sat, Mar 05, 2011 at 11:18:33PM -0600, Adam Majer wrote:
-> >
-> >IPv6 address autoconfiguration relies on an UP interface to processe=
-s
-> >traffic normally. A bridge that is UP enters LEARNING state and this
-> >state "eats" any Router Advertising packets sent to the
-> >bridge. Issuing a NETDEV_CHANGE notification on the bridge interface
-> >when it changes state allows autoconfiguration code to retry
-> >querying router information.
-> >
-> ...
->=20
-> >+static void br_port_change_notifier_handler(struct work_struct *wor=
-k)
-> >+{
-> >+	struct net_bridge *br =3D container_of(work,
-> >+					     struct net_bridge,
-> >+					     change_notification_worker);
-> >+
-> >+	rtnl_lock();
-> >+	netdev_state_change(br->dev);
-> >+	rtnl_unlock();
-> >+}
-> >+
->=20
-> Do you really want user-space to get this notification too?
-> Why do you put it into a workqueue? Maybe it has to be called in
-> process-context?
+On Wed, 2011-03-09 at 10:09 -0600, Tom Lendacky wrote:
+> > > Vhost is receiving a lot of notifications for packets that are to
+> be
+> > > transmitted (over 60% of the packets generate a kick_notify). 
 
-Stephen Hemminger's patch (posted as a reply in this thread but only
-on the netdev mailing list) is much better as it only brings the link
-up on the bridge interface when the bridge enters forwarding mode.
+This is guest TX send notification when vhost enables notification.
 
-Effectively it does similar thing via NETDEV_CHANGE but requires no
-other hacks in other code. It should make userland much happier too.
+In TCP_STREAM test, vhost exits from reaching NAPI WEIGHT, it rarely
+enables the notification, vhost re-enters handle_tx from NAPI poll, so
+guest doesn't do much kick_notify.
 
+In multiple TCP_RR test, seems vhost exits from nothing to send in TX vq
+very often, so it enables notification most of the time.
 
-As for my patch, I've put that in the workqueue because the
-notification cannot be called in interrupt context. Is there a better
-way of calling code that can sleep from interrupt context?
+Shirley
 
-- Adam
-
---=20
-Adam Majer
-adamm@zombino.com
