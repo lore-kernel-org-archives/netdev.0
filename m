@@ -1,47 +1,82 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/2] net: Allow no-cache copy from user on transmit
-Date: Wed, 9 Mar 2011 20:51:18 +0100
-Message-ID: <AANLkTinXrZeg31csgbNYph4vQxw_43LrjL+0NFVMhKvH@mail.gmail.com>
-References: <alpine.DEB.2.00.1103082053350.1433@pokey.mtv.corp.google.com>
-	<AANLkTikFSRr649_P8V8J7Xj_KY8hSEw23RBAyyV2wUQr@mail.gmail.com>
-	<AANLkTiknMqNOQKiKpVaDy=zXCXuOxZaQTjKmmxY_bRC5@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Make CUBIC Hystart more robust to RTT variations
+Date: Wed, 9 Mar 2011 11:56:30 -0800
+Message-ID: <20110309115630.5aba9314@nehalam>
+References: <il4vur$3ka$1@dough.gmane.org>
+	<20110308111011.GA27967@xanadu.blop.info>
+	<4D764AAC.30302@ncsu.edu>
+	<20110308.114346.48506864.davem@davemloft.net>
+	<20110308152103.714f5f05@nehalam>
+	<4D76D851.4050600@ncsu.edu>
+	<20110309065319.GA23740@xanadu.blop.info>
+	<20110309095659.1373c296@s6510>
+	<20110309182505.GA25272@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Injong Rhee <rhee@ncsu.edu>, David Miller <davem@davemloft.net>,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	sangtae.ha@gmail.com
+To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:53589 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004Ab1CITvT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 14:51:19 -0500
-Received: by qwd7 with SMTP id 7so673210qwd.19
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2011 11:51:18 -0800 (PST)
-In-Reply-To: <AANLkTiknMqNOQKiKpVaDy=zXCXuOxZaQTjKmmxY_bRC5@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:56900 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751740Ab1CIT4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2011 14:56:33 -0500
+In-Reply-To: <20110309182505.GA25272@xanadu.blop.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 9 marca 2011 20:18 u=BFytkownik Tom Herbert <therbert@google.com=
-> napisa=B3:
->> Please don't add new get/set ops for netdev features - G/SFEATURES
->> handle them all.
->>
->> Proper way is to modify NETIF_F_ETHTOOL_BITS, netdev_fix_features()
->> and, if needed for now,
->> legacy get/set ops (they will go away, eventually).
-> Don't see this in
-> git://git.kernel.org/pub/scm/network/ethtool/ethtool. =A0Has the patc=
-h
-> been applied?
+On Wed, 9 Mar 2011 19:25:05 +0100
+Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
 
-This is recent work that just went into net-next. For userspace, if
-you want to test it, there is my proof-of-concept patch (posted to
-netdev some time ago) or Ben's ethtool cleanup patches (also in netdev
-archive).
+> On 09/03/11 at 09:56 -0800, Stephen Hemminger wrote:
+> > On Wed, 9 Mar 2011 07:53:19 +0100
+> > Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
+> > 
+> > > On 08/03/11 at 20:30 -0500, Injong Rhee wrote:
+> > > > Now, both tools can be wrong. But that is not catastrophic since
+> > > > congestion avoidance can kick in to save the day. In a pipe where no
+> > > > other flows are competing, then exiting slow start too early can
+> > > > slow things down as the window can be still too small. But that is
+> > > > in fact when delays are most reliable. So those tests that say bad
+> > > > performance with hystart are in fact, where hystart is supposed to
+> > > > perform well.
+> > > 
+> > > Hi,
+> > > 
+> > > In my setup, there is no congestion at all (except the buffer bloat).
+> > > Without Hystart, transferring 8 Gb of data takes 9s, with CUBIC exiting
+> > > slow start at ~2000 packets.
+> > > With Hystart, transferring 8 Gb of data takes 19s, with CUBIC exiting
+> > > slow start at ~20 packets.
+> > > I don't think that this is "hystart performing well". We could just as
+> > > well remove slow start completely, and only do congestion avoidance,
+> > > then.
+> > > 
+> > > While I see the value in Hystart, it's clear that there are some flaws
+> > > in the current implementation. It probably makes sense to disable
+> > > hystart by default until those problems are fixed.
+> > 
+> > What is the speed and RTT time of your network?
+> > I think you maybe blaming hystart for other issues in the network.
+> 
+> What kind of issues?
+> 
+> Host1 is connected through a gigabit ethernet LAN to Router1
+> Host2 is connected through a gigabit ethernet LAN to Router2
+> Router1 and Router2 are connected through an experimentation network at
+> 10 Gb/s
+> RTT between Host1 and Host2 is 11.3ms.
+> The network is not congested.
+> 
+> (I can provide access to the testbed if someone wants to do further
+> testing)
 
-http://marc.info/?l=3Dlinux-netdev&m=3D129674290420375&w=3D3
-http://marc.info/?l=3Dlinux-netdev&m=3D129830729917334&w=3D3
+Your backbone is faster than the LAN, interesting.
+Could you check packet stats to see where packet drop is occuring?
+It could be that routers don't have enough buffering to take packet
+trains from 10G network and pace them out to 1G network.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+
+-- 
