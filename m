@@ -1,51 +1,58 @@
-From: Andrew Theurer <habanero@linux.vnet.ibm.com>
-Subject: Re: Network performance with small packets
-Date: Tue, 08 Mar 2011 20:21:18 -0600
-Message-ID: <1299637278.13202.61.camel@localhost.localdomain>
-References: <20110127.130240.104065182.davem@davemloft.net>
-	 <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com>
-	 <20110202044222.GC3818@redhat.com>
-	 <201102091107.20270.rusty@rustcorp.com.au>
-	 <1299621444.25664.77.camel@localhost.localdomain>
-Reply-To: habanero@linux.vnet.ibm.com
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Wed, 9 Mar 2011 13:42:34 +1100
+Message-ID: <20110309134234.32cd09b7.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1299621444.25664.77.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__9_Mar_2011_13_42_34_+1100_q_6aJhYADQy8Noqn"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Stephen Ko <stephen.s.ko@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-03-08 at 13:57 -0800, Shirley Ma wrote:
-> On Wed, 2011-02-09 at 11:07 +1030, Rusty Russell wrote:
-> > I've finally read this thread... I think we need to get more serious
-> > with our stats gathering to diagnose these kind of performance issues.
-> > 
-> > This is a start; it should tell us what is actually happening to the
-> > virtio ring(s) without significant performance impact... 
-> 
-> Should we also add similar stat on vhost vq as well for monitoring
-> vhost_signal & vhost_notify?
+--Signature=_Wed__9_Mar_2011_13_42_34_+1100_q_6aJhYADQy8Noqn
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Tom L has started using Rusty's patches and found some interesting
-results, sent yesterday:
-http://marc.info/?l=kvm&m=129953710930124&w=2
+Hi all,
 
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+failed like this:
 
--Andrew
-> 
-> Shirley
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+drivers/net/ixgbe/ixgbe_mbx.c: In function 'ixgbe_init_mbx_params_pf':
+drivers/net/ixgbe/ixgbe_mbx.c:456: error: 'struct ixgbe_mbx_info' has no me=
+mber named 'udelay'
 
+Caused by commit d7c8a29fc8bd20ba45ec2f52577ed04a988a9500 ("ixgbe:
+improve logic in ixgbe_init_mbx_params_pf").
 
+I am wondering if that was ever built ...
+
+I have used the net tree from next-20110308 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__9_Mar_2011_13_42_34_+1100_q_6aJhYADQy8Noqn
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNdukaAAoJEDMEi1NhKgbsr+kIAJQ7ZguNcXxFFkWSh8s6gl97
+8tSqQWUKb+4s2otmNCFhxS2WcLsdwVZu3lcGZ2H3qBYw5Z8z8z+0nPQbN4q6q2Vj
+WVcdUxyIQATkIyHIKTaoD30Oa7cfxoLkUht7Dbfle8C4g+EGczORU+egYo/1klQw
+Y1Z6VnsJ13qEnHUbWCHlLihIUyxShUNLYshP1XIToItD4sRzFqM0exSLJu0GsvFB
+qlVlqpiEwMhnQV1BtsDfcITTSMAkASbdiii9V0a2TKHoc/Id2m8rp7kfTVRzFz03
+Uvn233opF4GO6//RDmdV8aUw1oFmw3zBQCXobrgW7CQ3qPfSG8WkIKNuh3o9G0c=
+=ZqgV
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__9_Mar_2011_13_42_34_+1100_q_6aJhYADQy8Noqn--
