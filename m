@@ -1,33 +1,37 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
- kernel modules
-Date: Thu, 10 Mar 2011 09:53:52 +1100 (EST)
-Message-ID: <alpine.LRH.2.00.1103100953330.4485@tundra.namei.org>
-References: <20110301213313.GA6507@albatros> <4D6DEE7C.6020700@msgid.tls.msk.ru> <20110309220633.GA14750@albatros> <20110309.140928.70185544.davem@davemloft.net>
+From: Tom Lendacky <tahm@linux.vnet.ibm.com>
+Subject: Re: Network performance with small packets - continued
+Date: Wed, 9 Mar 2011 16:57:47 -0600
+Message-ID: <201103091657.49091.tahm@linux.vnet.ibm.com>
+References: <201103071631.41964.tahm@linux.vnet.ibm.com> <201103091411.09062.tahm@linux.vnet.ibm.com> <1299710712.25664.175.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: segoon@openwall.com, mjt@tls.msk.ru, linux-kernel@vger.kernel.org,
-	arnd@arndb.de, mirqus@gmail.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
-	therbert@google.com, xiaosuo@gmail.com, jesse@nicira.com,
-	kees.cook@canonical.com, eugene@redhat.com,
-	dan.j.rosenberg@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110309.140928.70185544.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1299710712.25664.175.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Mar 2011, David Miller wrote:
-
-> I was hoping someone other than me would take this upstream, feel free
-> to submit it directly to Linus with my ack:
+On Wednesday, March 09, 2011 04:45:12 pm Shirley Ma wrote:
+> Hello Tom,
 > 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> Do you also have Rusty's virtio stat patch results for both send queue
+> and recv queue to share here?
 
-I can submit it via my tree.
+Let me see what I can do about getting the data extracted, averaged and in a 
+form that I can put in an email.
 
--- 
-James Morris
-<jmorris@namei.org>
+> 
+> Thanks
+> Shirley
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
