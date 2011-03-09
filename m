@@ -1,156 +1,178 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/2] net: Allow no-cache copy from user on transmit
-Date: Wed, 9 Mar 2011 14:04:14 +0100
-Message-ID: <AANLkTikFSRr649_P8V8J7Xj_KY8hSEw23RBAyyV2wUQr@mail.gmail.com>
-References: <alpine.DEB.2.00.1103082053350.1433@pokey.mtv.corp.google.com>
+From: Jean-Philippe Menil <jean-philippe.menil@univ-nantes.fr>
+Subject: Re: Bug inkvm_set_irq
+Date: Wed, 09 Mar 2011 14:12:58 +0100
+Message-ID: <4D777CDA.3050500@univ-nantes.fr>
+References: <20110301070333.GA5972@redhat.com> <4D6D0510.4060300@univ-nantes.fr> <20110303144715.GA12400@redhat.com> <4D6FB313.1010400@univ-nantes.fr> <20110303155533.GA13310@redhat.com> <4D70AF3B.5080007@univ-nantes.fr> <20110304093500.GA31844@redhat.com> <4D70B339.3080001@univ-nantes.fr> <20110308111320.GA8002@redhat.com> <4D77727B.2000207@univ-nantes.fr> <20110309130000.GA30297@redhat.com>
+Reply-To: jean-philippe.menil@univ-nantes.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:36412 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932144Ab1CINEP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 08:04:15 -0500
-Received: by qyg14 with SMTP id 14so396056qyg.19
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2011 05:04:14 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1103082053350.1433@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110309130000.GA30297@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2011/3/9 Tom Herbert <therbert@google.com>:
-> This patch uses __copy_from_user_nocache (from skb_copy_to_page)
-> on transmit to bypass data cache for a performance improvement.
-> This functionality is configurable per device using ethtool, the
-> device must also be doing TX csum offload to enable. =A0It seems
-> reasonable to set this when the device does not copy or
-> otherwise touch the data.
->
-> This patch was tested using 200 instances of netperf TCP_RR with
-> 1400 byte request and one byte reply. =A0Platform is 16 core AMD.
->
-> No-cache copy disabled:
-> =A0 672703 tps, 97.13% client utilization
-> =A0 50/90/99% latency 244.31 484.205 1028.41
->
-> No-cache copy enabled:
-> =A0 702113 tps, 96.16% client utilization,
-> =A0 50/90/99% latency 238.56 467.56 956.955
->
-> This seems to provide a nice little performance improvement and is
-> consistent in the tests I ran. =A0Presumably, this would provide
-> the greatest =A0benfits in the presence of an application workload
-> stressing the cache and a lot of transmit data happening. =A0I don't
-> yet see a downside to using this.
->
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
-> =A0include/linux/ethtool.h =A0 | =A0 =A04 ++++
-> =A0include/linux/netdevice.h | =A0 =A04 +++-
-> =A0include/net/sock.h =A0 =A0 =A0 =A0| =A0 =A05 +++++
-> =A0net/core/ethtool.c =A0 =A0 =A0 =A0| =A0 11 ++++++++++-
-> =A04 files changed, 22 insertions(+), 2 deletions(-)
->
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index aac3e2e..2cf3cc9 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -833,6 +833,10 @@ struct ethtool_ops {
-> =A0#define ETHTOOL_GFEATURES =A0 =A0 =A00x0000003a /* Get device offl=
-oad settings */
-> =A0#define ETHTOOL_SFEATURES =A0 =A0 =A00x0000003b /* Change device o=
-ffload settings */
->
-> +#define ETHTOOL_GNCCOPY =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A00x0000003c /*=
- Get no-cache-copy enable
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 * (ethtool_value). */
-> +#define ETHTOOL_SNCCOPY =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A00x0000003d /*=
- Set no-cache-copy enable
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 * (ethtool_value). */
+Le 09/03/2011 14:00, Michael S. Tsirkin a =C3=A9crit :
+> On Wed, Mar 09, 2011 at 01:28:43PM +0100, Jean-Philippe Menil wrote:
+>> Le 08/03/2011 12:13, Michael S. Tsirkin a =C3=A9crit :
+>>> On Fri, Mar 04, 2011 at 10:39:05AM +0100, Jean-Philippe Menil wrote=
+:
+>>>> Yes, it's a 2.6.37.2 kernel.
+>>> OK, here's a debugging patch.
+>>> Please run with slab debugging as previously until you see
+>>> 'eventfd bug detected!' in dmesg or until there is a crash.
+>>> It might be also useful to enable timestampts on printk with
+>>>   Symbol: PRINTK_TIME [=3Dy]
+>>>    =E2=94=82 Type  : boolean
+>>>    =E2=94=82 Prompt: Show timing information on printks
+>>>
+>>> once you see the error, please upload the
+>>> full dmesg output somewhere to we can track what
+>>> goes on.
+>>>
+>>> Hopefully there won't be an oops this time which
+>>> should make it easier for you to test (no need to
+>>> reboot).
+>>>
+>>>
+>>> diff --git a/virt/kvm/eventfd.c b/virt/kvm/eventfd.c
+>>> index c1f1e3c..3cb679b 100644
+>>> --- a/virt/kvm/eventfd.c
+>>> +++ b/virt/kvm/eventfd.c
+>>> @@ -32,6 +32,7 @@
+>>>   #include<linux/eventfd.h>
+>>>   #include<linux/kernel.h>
+>>>   #include<linux/slab.h>
+>>> +#include<linux/nmi.h>
+>>>
+>>>   #include "iodev.h"
+>>>
+>>> @@ -43,6 +44,8 @@
+>>>    * --------------------------------------------------------------=
+------
+>>>    */
+>>>
+>>> +#define KVM_BAD_PTR ((void*)(long)(0x6b6b6b6b6b6b6b6bull))
+>>> +
+>>>   struct _irqfd {
+>>>   	struct kvm               *kvm;
+>>>   	struct eventfd_ctx       *eventfd;
+>>> @@ -61,6 +64,13 @@ irqfd_inject(struct work_struct *work)
+>>>   {
+>>>   	struct _irqfd *irqfd =3D container_of(work, struct _irqfd, injec=
+t);
+>>>   	struct kvm *kvm =3D irqfd->kvm;
+>>> +	if (kvm =3D=3D KVM_BAD_PTR) {
+>>> +		printk(KERN_ERR "Eventfd bug detected!\n");
+>>> +		printk(KERN_ERR "%s(work=3D%p,irqfd=3D%p,kvm=3D%p,gsi=3D%d)\n", =
+__func__,
+>>> +			work, irqfd, kvm, irqfd->gsi);
+>>> +		trigger_all_cpu_backtrace();
+>>> +		return;
+>>> +	}
+>>>
+>>>   	kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID, irqfd->gsi, 1);
+>>>   	kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID, irqfd->gsi, 0);
+>>> @@ -75,6 +85,8 @@ irqfd_shutdown(struct work_struct *work)
+>>>   	struct _irqfd *irqfd =3D container_of(work, struct _irqfd, shutd=
+own);
+>>>   	u64 cnt;
+>>>
+>>> +	printk(KERN_ERR "%s(work=3D%p,irqfd=3D%p,kvm=3D%p, gsi=3D%d)\n", =
+__func__,
+>>> +	       work, irqfd, irqfd->kvm, irqfd->gsi);
+>>>   	/*
+>>>   	 * Synchronize with the wait-queue and unhook ourselves to preve=
+nt
+>>>   	 * further events.
+>>> @@ -91,6 +103,8 @@ irqfd_shutdown(struct work_struct *work)
+>>>   	 * It is now safe to release the object's resources
+>>>   	 */
+>>>   	eventfd_ctx_put(irqfd->eventfd);
+>>> +	printk(KERN_ERR "kfree at %s(work=3D%p,irqfd=3D%p)\n", __func__,
+>>> +	       work, irqfd);
+>>>   	kfree(irqfd);
+>>>   }
+>>>
+>>> @@ -111,6 +125,8 @@ static void
+>>>   irqfd_deactivate(struct _irqfd *irqfd)
+>>>   {
+>>>   	BUG_ON(!irqfd_is_active(irqfd));
+>>> +	printk(KERN_ERR "%s(irqfd=3D%p,kvm=3D%p, gsi=3D%d)\n", __func__,
+>>> +	       irqfd, irqfd->kvm, irqfd->gsi);
+>>>
+>>>   	list_del_init(&irqfd->list);
+>>>
+>>> @@ -178,6 +194,8 @@ kvm_irqfd_assign(struct kvm *kvm, int fd, int g=
+si)
+>>>
+>>>   	irqfd->kvm =3D kvm;
+>>>   	irqfd->gsi =3D gsi;
+>>> +	printk(KERN_ERR "%s(irqfd=3D%p,kvm=3D%p, gsi=3D%d)\n", __func__,
+>>> +	       irqfd, kvm, gsi);
+>>>   	INIT_LIST_HEAD(&irqfd->list);
+>>>   	INIT_WORK(&irqfd->inject, irqfd_inject);
+>>>   	INIT_WORK(&irqfd->shutdown, irqfd_shutdown);
+>>> @@ -264,6 +282,8 @@ kvm_irqfd_deassign(struct kvm *kvm, int fd, int=
+ gsi)
+>>>   	struct _irqfd *irqfd, *tmp;
+>>>   	struct eventfd_ctx *eventfd;
+>>>
+>>> +	printk(KERN_ERR "%s(kvm=3D%p, gsi=3D%d)\n", __func__,
+>>> +	       kvm, gsi);
+>>>   	eventfd =3D eventfd_ctx_fdget(fd);
+>>>   	if (IS_ERR(eventfd))
+>>>   		return PTR_ERR(eventfd);
+>>> @@ -305,6 +325,7 @@ void
+>>>   kvm_irqfd_release(struct kvm *kvm)
+>>>   {
+>>>   	struct _irqfd *irqfd, *tmp;
+>>> +	printk(KERN_ERR "%s(kvm=3D%p)\n", __func__, kvm);
+>>>
+>>>   	spin_lock_irq(&kvm->irqfds.lock);
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" i=
+n
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Hi,
+>>
+>> I boot the host with the patched kernel yesterday.
+>> No crach until now, but two "Eventfd bug detected!" in the log at
+>> "Mar  9 02:04:31" and "Mar  9 02:15:17"
+>> You can find part of the log at the following adress:
+>> http://filex.univ-nantes.fr/get?k=3DjL4Fe7yfSMN57toAH7V
+>>
+>> It a split file of the kern.log (1,4G), so if you need another part
+>> of the log, let me know.
+>>
+>> Thanks for all.
+>>
+>> Regards.
+> Downloading, it's big :)
+> What about some 1000 lines before and after Eventfd bug detected! lin=
+e?
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes, sorry about that.
+I could have split my log into a smaller file.
 
-Please don't add new get/set ops for netdev features - G/SFEATURES
-handle them all.
+I was a little afraid of not transmit enough informations, and i was a=20
+bit wide.
+I hope you can find usefull trace anyway.
 
-Proper way is to modify NETIF_F_ETHTOOL_BITS, netdev_fix_features()
-and, if needed for now,
-legacy get/set ops (they will go away, eventually).
+Regards.
 
-> =A0/* compatibility with older code */
-> =A0#define SPARC_ETH_GSET =A0 =A0 =A0 =A0 ETHTOOL_GSET
-> =A0#define SPARC_ETH_SSET =A0 =A0 =A0 =A0 ETHTOOL_SSET
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 71563e7..1b72f29 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -978,6 +978,7 @@ struct net_device {
-> =A0#define NETIF_F_NTUPLE =A0 =A0 =A0 =A0 (1 << 27) /* N-tuple filter=
-s supported */
-> =A0#define NETIF_F_RXHASH =A0 =A0 =A0 =A0 (1 << 28) /* Receive hashin=
-g offload */
-> =A0#define NETIF_F_RXCSUM =A0 =A0 =A0 =A0 (1 << 29) /* Receive checks=
-umming offload */
-> +#define NETIF_F_NOCACHE_COPY =A0 (1 << 30) /* Use no-cache copyfromu=
-ser */
->
-> =A0 =A0 =A0 =A0/* Segmentation offload features */
-> =A0#define NETIF_F_GSO_SHIFT =A0 =A0 =A016
-> @@ -1020,7 +1021,8 @@ struct net_device {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 NETIF=
-_F_FRAGLIST)
->
-> =A0 =A0 =A0 =A0/* changeable features with no special hardware requir=
-ements */
-> -#define NETIF_F_SOFT_FEATURES =A0(NETIF_F_GSO | NETIF_F_GRO)
-> +#define NETIF_F_SOFT_FEATURES =A0(NETIF_F_GSO | NETIF_F_GRO | \
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NETI=
-=46_F_NOCACHE_COPY)
->
-> =A0 =A0 =A0 =A0/* Interface index. Unique device identifier =A0 =A0*/
-> =A0 =A0 =A0 =A0int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ifindex;
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index da0534d..55b1385 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1401,6 +1401,11 @@ static inline int skb_copy_to_page(struct sock=
- *sk, char __user *from,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (err)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return err;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb->csum =3D csum_block_add(skb->csum=
-, csum, skb->len);
-> + =A0 =A0 =A0 } else if (sk->sk_route_caps & NETIF_F_NOCACHE_COPY) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!access_ok(VERIFY_READ, from, copy)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0|| __copy_from_user_nocache(page=
-_address(page) + off,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0from, copy))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EFAULT;
-> =A0 =A0 =A0 =A0} else if (copy_from_user(page_address(page) + off, fr=
-om, copy))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EFAULT;
->
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index c1a71bb..a8b2638 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -328,6 +328,7 @@ static const char netdev_features_strings[ETHTOOL=
-_DEV_FEATURE_WORDS * 32][ETH_GS
-> =A0 =A0 =A0 =A0/* NETIF_F_NETNS_LOCAL */ =A0 =A0 "netns-local",
-> =A0 =A0 =A0 =A0/* NETIF_F_GRO */ =A0 =A0 =A0 =A0 =A0 =A0 "rx-gro",
-> =A0 =A0 =A0 =A0/* NETIF_F_LRO */ =A0 =A0 =A0 =A0 =A0 =A0 "rx-lro",
-> + =A0 =A0 =A0 /* NETIF_F_NOCACHE_COPY */ =A0 =A0"tx-nocache-copy",
->
-> =A0 =A0 =A0 =A0/* NETIF_F_TSO */ =A0 =A0 =A0 =A0 =A0 =A0 "tx-tcp-segm=
-entation",
-> =A0 =A0 =A0 =A0/* NETIF_F_UFO */ =A0 =A0 =A0 =A0 =A0 =A0 "tx-udp-frag=
-mentation",
+--=20
+Jean-Philippe Menil - P=C3=B4le r=C3=A9seau Service IRTS
+DSI Universit=C3=A9 de Nantes
+jean-philippe.menil@univ-nantes.fr
+Tel : 02.53.48.49.27 - Fax : 02.53.48.49.09
 
-You can't put the strings in the middle of this array. Positions in
-the array are dependent on flag bit position.
-
-[...]
-
-Best Regards,
-Micha=B3 Miros=B3aw
