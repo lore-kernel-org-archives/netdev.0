@@ -1,158 +1,131 @@
-From: Sangtae Ha <sangtae.ha@gmail.com>
-Subject: Re: [PATCH] Make CUBIC Hystart more robust to RTT variations
-Date: Tue, 8 Mar 2011 20:33:39 -0500
-Message-ID: <AANLkTi=k+9ObSFjS2txWWqrAAR6WD+TJpnnxfi+W-xJj@mail.gmail.com>
-References: <il4vur$3ka$1@dough.gmane.org>
-	<20110308111011.GA27967@xanadu.blop.info>
-	<4D764AAC.30302@ncsu.edu>
-	<20110308.114346.48506864.davem@davemloft.net>
-	<20110308152103.714f5f05@nehalam>
+From: Vasanthy Kolluri <vkolluri@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Support newer version of firmware devcmd
+	CMD_MCPU_FW_INFO
+Date: Tue, 08 Mar 2011 17:35:30 -0800
+Message-ID: <20110309013530.17378.56666.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, rhee@ncsu.edu,
-	lucas.nussbaum@loria.fr, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:46894 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755289Ab1CIBdl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 20:33:41 -0500
-Received: by bwz15 with SMTP id 15so315744bwz.19
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2011 17:33:40 -0800 (PST)
-In-Reply-To: <20110308152103.714f5f05@nehalam>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:27168 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751274Ab1CIBfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 20:35:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+From: Vasanthy Kolluri <vkolluri@cisco.com>
 
-Thank you for your feedback. Please see my answers below.
+This patch provides support to the newer version of firmware devcmd CMD_MCPU_FW_INFO
+that returns additional information (ASIC type and revision) about the underlying hardware.
+This knowledge is required by the driver to implement any hardware specific features.
 
-On Tue, Mar 8, 2011 at 6:21 PM, Stephen Hemminger <shemminger@vyatta.co=
-m> wrote:
-> On Tue, 08 Mar 2011 11:43:46 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
->
->> From: Injong Rhee <rhee@ncsu.edu>
->> Date: Tue, 08 Mar 2011 10:26:36 -0500
->>
->> > Thanks for updating CUBIC hystart. You might want to test the
->> > cases with more background traffic and verify whether this
->> > threshold is too conservative.
->>
->> So let's get down to basics.
->>
->> What does Hystart do specially that allows it to avoid all of the
->> problems that TCP VEGAS runs into.
->>
->> Specifically, that if you use RTTs to make congestion control
->> decisions it is impossible to notice new bandwidth becomming availab=
-le
->> fast enough.
->>
->> Again, it's impossible to react fast enough. =C2=A0No matter what yo=
-u tweak
->> all of your various settings to, this problem will still exist.
->>
->> This is a core issue, you cannot get around it.
->>
->> This is why I feel that Hystart is fundamentally flawed and we shoul=
-d
->> turn it off by default if not flat-out remove it.
->>
->> Distributions are turning it off by default already, therefore it's
->> stupid for the upstream kernel to behave differently if that's what
->> %99 of the world is going to end up experiencing.
->
-> The assumption in Hystart that spacing between ACK's is solely due to
-> congestion is a bad. If you read the paper, this is why FreeBSD's
-> estimation logic is dismissed. The Hystart problem is different
-> than the Vegas issue.
->
-> Algorithms that look at min RTT are ok, since the lower bound is
-> fixed; additional queuing and variation in network only increases RTT
-> it never reduces it. With a min RTT it is possible to compute the
-> upper bound on available bandwidth. i.e If all packets were as good a=
-s
-> this estimate minRTT then the available bandwidth is X. But then usin=
-g
-> an individual RTT sample to estimate unused bandwidth is flawed. To
-> quote paper.
->
-> =C2=A0"Thus, by checking whether =E2=88=86(N ) is larger than Dmin , =
-we
-> can detect whether cwnd has reached the available capacity
-> of the path"
->
-> So what goes wrong:
-> =C2=A01. Dmin can be too large because this connection always sees de=
-lays
-> due to other traffic or hardware. i.e buffer bloat. =C2=A0This would =
-cause
-> the bandwidth estimate to be too low and therefore TCP would leave
-> slow start too early (and not get up to full bandwidth).
-
-This is true. But the idea is that running the congestion avoidance
-algorithm of CUBIC for this case is better than hurting other flows
-with abrupt perturbation, since the growth of CUBIC is quite
-responsive and grab the bandwidth quickly in normal network
-conditions.
-
->
-> =C2=A02. Dmin can be smaller than the clock resolution. This would ca=
-use
-> either sample to be ignored, or Dmin to be zero. If Dmin is zero,
-> the bandwidth estimate would in theory be infinite, which would
-> lead to TCP not leaving slow start because of Hystart. Instead
-> TCP would leave slow start at first loss.
-
-True. But since HyStart didn't clamp the threshold,  ca->delay_min>>4,
-it can prematurely leave slow start for very small Dmin. I think this
-needs to be fixed, along with the hard-coded 2ms you mentioned below.
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
+---
+ drivers/net/enic/enic.h        |    2 +-
+ drivers/net/enic/vnic_dev.c    |    7 +++++++
+ drivers/net/enic/vnic_devcmd.h |   38 ++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 44 insertions(+), 3 deletions(-)
 
 
->
-> Other possible problems:
-> =C2=A03. ACK's could be nudged together by variations in delay.
-> This would cause HyStart to exit slow start prematurely. To false
-> think it is an ACK train.
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index e816bbb..3a3c3c8 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,7 +32,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.10"
++#define DRV_VERSION		"2.1.1.12"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
+index c489e72..c089b36 100644
+--- a/drivers/net/enic/vnic_dev.c
++++ b/drivers/net/enic/vnic_dev.c
+@@ -408,10 +408,17 @@ int vnic_dev_fw_info(struct vnic_dev *vdev,
+ 		if (!vdev->fw_info)
+ 			return -ENOMEM;
+ 
++		memset(vdev->fw_info, 0, sizeof(struct vnic_devcmd_fw_info));
++
+ 		a0 = vdev->fw_info_pa;
++		a1 = sizeof(struct vnic_devcmd_fw_info);
+ 
+ 		/* only get fw_info once and cache it */
+ 		err = vnic_dev_cmd(vdev, CMD_MCPU_FW_INFO, &a0, &a1, wait);
++		if (err == ERR_ECMDUNKNOWN) {
++			err = vnic_dev_cmd(vdev, CMD_MCPU_FW_INFO_OLD,
++				&a0, &a1, wait);
++		}
+ 	}
+ 
+ 	*fw_info = vdev->fw_info;
+diff --git a/drivers/net/enic/vnic_devcmd.h b/drivers/net/enic/vnic_devcmd.h
+index 9abb3d5..d833a07 100644
+--- a/drivers/net/enic/vnic_devcmd.h
++++ b/drivers/net/enic/vnic_devcmd.h
+@@ -80,8 +80,34 @@
+ enum vnic_devcmd_cmd {
+ 	CMD_NONE                = _CMDC(_CMD_DIR_NONE, _CMD_VTYPE_NONE, 0),
+ 
+-	/* mcpu fw info in mem: (u64)a0=paddr to struct vnic_devcmd_fw_info */
+-	CMD_MCPU_FW_INFO        = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ALL, 1),
++	/*
++	 * mcpu fw info in mem:
++	 * in:
++	 *   (u64)a0=paddr to struct vnic_devcmd_fw_info
++	 * action:
++	 *   Fills in struct vnic_devcmd_fw_info (128 bytes)
++	 * note:
++	 *   An old definition of CMD_MCPU_FW_INFO
++	 */
++	CMD_MCPU_FW_INFO_OLD    = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ALL, 1),
++
++	/*
++	 * mcpu fw info in mem:
++	 * in:
++	 *   (u64)a0=paddr to struct vnic_devcmd_fw_info
++	 *   (u16)a1=size of the structure
++	 * out:
++	 *	 (u16)a1=0                          for in:a1 = 0,
++	 *	         data size actually written for other values.
++	 * action:
++	 *   Fills in first 128 bytes of vnic_devcmd_fw_info for in:a1 = 0,
++	 *            first in:a1 bytes               for 0 < in:a1 <= 132,
++	 *            132 bytes                       for other values of in:a1.
++	 * note:
++	 *   CMD_MCPU_FW_INFO and CMD_MCPU_FW_INFO_OLD have the same enum 1
++	 *   for source compatibility.
++	 */
++	CMD_MCPU_FW_INFO        = _CMDC(_CMD_DIR_RW, _CMD_VTYPE_ALL, 1),
+ 
+ 	/* dev-specific block member:
+ 	 *    in: (u16)a0=offset,(u8)a1=size
+@@ -291,11 +317,19 @@ enum vnic_devcmd_error {
+ 	ERR_EMAXRES = 10,
+ };
+ 
++/*
++ * note: hw_version and asic_rev refer to the same thing,
++ *       but have different formats. hw_version is
++ *       a 32-byte string (e.g. "A2") and asic_rev is
++ *       a 16-bit integer (e.g. 0xA2).
++ */
+ struct vnic_devcmd_fw_info {
+ 	char fw_version[32];
+ 	char fw_build[32];
+ 	char hw_version[32];
+ 	char hw_serial_number[32];
++	u16 asic_type;
++	u16 asic_rev;
+ };
+ 
+ struct vnic_devcmd_notify {
 
-This doesn't happen when the delay is not too small (in typical WAN
-including DSL), but it is possible with very small delays since the
-code checking the valid ACK train uses the 2ms fixed value, which is
-large for LAN.
-
->
-> Noise in network is not catastrophic, it just
-> causes TCP to exit slow-start early and have to go into normal
-> window growth phase. The problem is that the original non-Hystart
-> behavior of Cubic is unfair; the first flow dominates the link
-> and other flows are unable to get in. If you run tests with two
-> flows one will get a larger share of the bandwidth.
->
-> I think Hystart is okay in concept but there may be issues
-> on low RTT links as well as other corner cases that need bug
-> fixing.
-
-We do not use the delay as indication of congestion, but we use it for
-improving the stability and overall performance.
-Preventing burst losses quite help for mid to large BDP paths and the
-performance results with non-TCP-SACK receivers are also encouraging.
-I will work on the fix for the issues below.
-
->
-> 1. Needs to use better resolution than HZ. Since HZ can be 100.
-> 2. Hardcoding 2ms as spacing between ACK's as train is wrong
-> =C2=A0 for local networks.
->
->
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
-ml
->
