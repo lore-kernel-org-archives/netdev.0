@@ -1,45 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Stale entries in RT_TABLE_LOCAL
-Date: Wed, 09 Mar 2011 13:53:08 -0800 (PST)
-Message-ID: <20110309.135308.102544831.davem@davemloft.net>
-References: <201102231243.23579.alexandre.sidorenko@hp.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] Fix variable assignment in ip_vs_notrack
+Date: Wed, 9 Mar 2011 22:55:05 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1103092250510.4471@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ja@ssi.bg
-To: alexandre.sidorenko@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46765
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751767Ab1CIVwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 16:52:30 -0500
-In-Reply-To: <201102231243.23579.alexandre.sidorenko@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	trivial@kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alex Sidorenko <alexandre.sidorenko@hp.com>
-Date: Wed, 23 Feb 2011 12:43:23 -0500
+There's no sense to 'ct = ct = ' in ip_vs_notrack(). Just assign 
+nf_ct_get()'s return value directly to the pointer variable 'ct' once.
 
-> I am not sure what is the best way to fix this, I can think of several 
-> approaches:
-> 
->   (a) change the sources so that it would be impossible to add the same IP 
->       multiple times, even with different masks. I cannot think of any
->       situation where adding the same IP (but with different mask) to the same
->       interface could be useful. But maybe I am wrong?
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ ip_vs.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I'm leaning towards this solution if it's viable.  But I'm not so sure that
-nobody uses this feature, maybe Julian knows?
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index b7bbd6c..269d1ef 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1031,7 +1031,7 @@ static inline void ip_vs_notrack(struct sk_buff *skb)
+ {
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	enum ip_conntrack_info ctinfo;
+-	struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
++	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 
+ 	if (!ct || !nf_ct_is_untracked(ct)) {
+ 		nf_reset(skb);
 
-Julian, the issue is that if you add the same IP address multiple times using
-different subnet masks, we allow it.
 
-But removal doesn't work correctly, we clear the IFA list on the device but we
-leave stale entries in the local routing table.
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Plain text mails only, please.
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
 
-The test case is:
-
-ip addr add 192.168.142.109/23 dev dummy0
-ip addr add 192.168.142.109/22 dev dummy0
-ip addr del 192.168.142.109/22 dev dummy0
-ip addr del 192.168.142.109/23 dev dummy0
