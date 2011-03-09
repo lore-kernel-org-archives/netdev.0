@@ -1,96 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Make CUBIC Hystart more robust to RTT variations
-Date: Wed, 9 Mar 2011 13:51:22 -0800
-Message-ID: <20110309135122.1bafe500@nehalam>
-References: <20110308111011.GA27967@xanadu.blop.info>
-	<4D764AAC.30302@ncsu.edu>
-	<20110308.114346.48506864.davem@davemloft.net>
-	<20110308152103.714f5f05@nehalam>
-	<4D76D851.4050600@ncsu.edu>
-	<20110309065319.GA23740@xanadu.blop.info>
-	<20110309095659.1373c296@s6510>
-	<20110309182505.GA25272@xanadu.blop.info>
-	<20110309120120.5016cab5@nehalam>
-	<AANLkTimpLWoSB2H9PObxwK1iGkFBWQZMw=1kTP9BA7qb@mail.gmail.com>
-	<20110309213356.GA2898@xanadu.blop.info>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Stale entries in RT_TABLE_LOCAL
+Date: Wed, 09 Mar 2011 13:53:08 -0800 (PST)
+Message-ID: <20110309.135308.102544831.davem@davemloft.net>
+References: <201102231243.23579.alexandre.sidorenko@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>, Injong Rhee <rhee@ncsu.edu>,
-	David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org, sangtae.ha@gmail.com
-To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Cc: netdev@vger.kernel.org, ja@ssi.bg
+To: alexandre.sidorenko@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51983 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977Ab1CIVvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2011 16:51:25 -0500
-In-Reply-To: <20110309213356.GA2898@xanadu.blop.info>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46765
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751767Ab1CIVwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 16:52:30 -0500
+In-Reply-To: <201102231243.23579.alexandre.sidorenko@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Mar 2011 22:33:56 +0100
-Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
+From: Alex Sidorenko <alexandre.sidorenko@hp.com>
+Date: Wed, 23 Feb 2011 12:43:23 -0500
 
-> On 09/03/11 at 13:12 -0800, Yuchung Cheng wrote:
-> > On Wed, Mar 9, 2011 at 12:01 PM, Stephen Hemminger
-> > <shemminger@vyatta.com> wrote:
-> > > On Wed, 9 Mar 2011 19:25:05 +0100
-> > > Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
-> > >
-> > >> On 09/03/11 at 09:56 -0800, Stephen Hemminger wrote:
-> > >> > On Wed, 9 Mar 2011 07:53:19 +0100
-> > >> > Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
-> > >> >
-> > >> > > On 08/03/11 at 20:30 -0500, Injong Rhee wrote:
-> > >> > > > Now, both tools can be wrong. But that is not catastrophic since
-> > >> > > > congestion avoidance can kick in to save the day. In a pipe where no
-> > >> > > > other flows are competing, then exiting slow start too early can
-> > >> > > > slow things down as the window can be still too small. But that is
-> > >> > > > in fact when delays are most reliable. So those tests that say bad
-> > >> > > > performance with hystart are in fact, where hystart is supposed to
-> > >> > > > perform well.
-> > >> > >
-> > >> > > Hi,
-> > >> > >
-> > >> > > In my setup, there is no congestion at all (except the buffer bloat).
-> > >> > > Without Hystart, transferring 8 Gb of data takes 9s, with CUBIC exiting
-> > >> > > slow start at ~2000 packets.
-> > >> > > With Hystart, transferring 8 Gb of data takes 19s, with CUBIC exiting
-> > >> > > slow start at ~20 packets.
-> > >> > > I don't think that this is "hystart performing well". We could just as
-> > >> > > well remove slow start completely, and only do congestion avoidance,
-> > >> > > then.
-> > >> > >
-> > >> > > While I see the value in Hystart, it's clear that there are some flaws
-> > >> > > in the current implementation. It probably makes sense to disable
-> > >> > > hystart by default until those problems are fixed.
-> > >> >
-> > >> > What is the speed and RTT time of your network?
-> > >> > I think you maybe blaming hystart for other issues in the network.
-> > >>
-> > >> What kind of issues?
-> > >>
-> > >> Host1 is connected through a gigabit ethernet LAN to Router1
-> > >> Host2 is connected through a gigabit ethernet LAN to Router2
-> > >> Router1 and Router2 are connected through an experimentation network at
-> > >> 10 Gb/s
-> > >> RTT between Host1 and Host2 is 11.3ms.
-> > >> The network is not congested.
-> > >
-> > > By my calculations (1G * 11.3ms) gives BDP of 941 packets which means
-> > > CUBIC would ideally exit slow start at 900 or so packets. Old CUBIC
-> > > slowstrart of 2000 packets means there is huge overshoot which means
-> > > large packet loss burst which would cause a large CPU load on receiver
-> > > processing SACK.
-> > It's not clear from Lucas's report that the hystart is exiting when
-> > cwnd=2000 or when sender has sent 2000 packets.
-> > Lucas could you clarify?
+> I am not sure what is the best way to fix this, I can think of several 
+> approaches:
 > 
-> When cwnd is around 2000.
+>   (a) change the sources so that it would be impossible to add the same IP 
+>       multiple times, even with different masks. I cannot think of any
+>       situation where adding the same IP (but with different mask) to the same
+>       interface could be useful. But maybe I am wrong?
 
-What is HZ on the kernel configuration. Part of the problem is the hystart
-code was only tested with HZ=1000 and there are some bad assumptions there.
+I'm leaning towards this solution if it's viable.  But I'm not so sure that
+nobody uses this feature, maybe Julian knows?
 
+Julian, the issue is that if you add the same IP address multiple times using
+different subnet masks, we allow it.
 
--- 
+But removal doesn't work correctly, we clear the IFA list on the device but we
+leave stale entries in the local routing table.
+
+The test case is:
+
+ip addr add 192.168.142.109/23 dev dummy0
+ip addr add 192.168.142.109/22 dev dummy0
+ip addr del 192.168.142.109/22 dev dummy0
+ip addr del 192.168.142.109/23 dev dummy0
