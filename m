@@ -1,121 +1,92 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Shirley Ma <mashirle@us.ibm.com>
 Subject: Re: Network performance with small packets - continued
-Date: Wed, 9 Mar 2011 18:10:13 +0200
-Message-ID: <20110309161013.GA7165@redhat.com>
+Date: Wed, 09 Mar 2011 08:21:44 -0800
+Message-ID: <1299687704.25664.106.camel@localhost.localdomain>
 References: <201103071631.41964.tahm@linux.vnet.ibm.com>
- <20110309071558.GA25757@redhat.com>
- <1299685543.25664.97.camel@localhost.localdomain>
+	 <20110309071558.GA25757@redhat.com>
+	 <201103091009.27932.tahm@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
 	Krishna Kumar2 <krkumar2@in.ibm.com>,
 	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>
-To: Shirley Ma <mashirle@us.ibm.com>
+	netdev@vger.kernel.org, steved@us.ibm.com
+To: Tom Lendacky <tahm@linux.vnet.ibm.com>
 Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1299685543.25664.97.camel@localhost.localdomain>
+In-Reply-To: <201103091009.27932.tahm@linux.vnet.ibm.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 09, 2011 at 07:45:43AM -0800, Shirley Ma wrote:
-> On Wed, 2011-03-09 at 09:15 +0200, Michael S. Tsirkin wrote:
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 82dba5a..ebe3337 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -514,11 +514,11 @@ static unsigned int free_old_xmit_skbs(struct
-> > virtnet_info *vi)
-> >         struct sk_buff *skb;
-> >         unsigned int len, tot_sgs = 0;
+On Wed, 2011-03-09 at 10:09 -0600, Tom Lendacky wrote:
 > > 
-> > -       while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
-> > +       if ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
-> >                 pr_debug("Sent skb %p\n", skb);
-> >                 vi->dev->stats.tx_bytes += skb->len;
-> >                 vi->dev->stats.tx_packets++;
-> > -               tot_sgs += skb_vnet_hdr(skb)->num_sg;
-> > +               tot_sgs = 2+MAX_SKB_FRAGS;
-> >                 dev_kfree_skb_any(skb);
-> >         }
-> >         return tot_sgs;
+> > > This spread out the kick_notify but still resulted in alot of
+> them.  I
+> > > decided to build on the delayed Tx buffer freeing and code up an
+> > > "ethtool" like coalescing patch in order to delay the kick_notify
+> until
+> > > there were at least 5 packets on the ring or 2000 usecs, whichever
+> > > occurred first.  Here are the
+> > > 
+> > > results of delaying the kick_notify (average of six runs):
+> > >   Txn Rate: 107,106.36 Txn/Sec, Pkt Rate: 212,796 Pkts/Sec
+> > >   Exits: 102,587.28 Exits/Sec
+> > >   TxCPU: 3.03%  RxCPU: 99.33%
+> > > 
+> > > About a 23% increase over baseline and about 52% of baremetal.
+> > > 
+> > > Running the perf command against the guest I noticed almost 19% of
+> the
+> > > time being spent in _raw_spin_lock.  Enabling lockstat in the
+> guest
+> > > showed alot of contention in the "irq_desc_lock_class". Pinning
+> the
+> > > virtio1-input interrupt to a single cpu in the guest and
+> re-running the
+> > > last test resulted in
+> > > 
+> > > tremendous gains (average of six runs):
+> > >   Txn Rate: 153,696.59 Txn/Sec, Pkt Rate: 305,358 Pkgs/Sec
+> > >   Exits: 62,603.37 Exits/Sec
+> > >   TxCPU: 3.73%  RxCPU: 98.52%
+> > > 
+> > > About a 77% increase over baseline and about 74% of baremetal.
+> > > 
+> > > Vhost is receiving a lot of notifications for packets that are to
+> be
+> > > transmitted (over 60% of the packets generate a kick_notify).
+> Also, it
+> > > looks like vhost is sending a lot of notifications for packets it
+> has
+> > > received before the guest can get scheduled to disable
+> notifications and
+> > > begin processing the packets
+> > 
+> > Hmm, is this really what happens to you?  The effect would be that
+> guest
+> > gets an interrupt while notifications are disabled in guest, right?
+> Could
+> > you add a counter and check this please?
 > 
-> Return value should be different based on indirect or direct buffers
-> here?
+> The disabling of the interrupt/notifications is done by the guest.  So
+> the 
+> guest has to get scheduled and handle the notification before it
+> disables 
+> them.  The vhost_signal routine will keep injecting an interrupt until
+> this 
+> happens causing the contention in the guest.  I'll try the patches you
+> specify 
+> below and post the results.  They look like they should take care of
+> this 
+> issue.
 
-Something like that. Or we can assume no indirect, worst-case.
-But just for testing, I think it should work as an estimation.
+In guest TX path, the guest interrupt should be disabled in the start
+since it free_old_xmit_skbs in start_xmit call, it's not necessary to
+receive any send completion interrupts to handle free old skbs. Then the
+interrupt is only enabled when the netif queue is full. For multiple
+streams TCP_RR test, we never hit netif queue full situation, the
+cat /proc/interrupts/ send completion interrupts rate is 0, right?
 
-> > @@ -576,9 +576,6 @@ static netdev_tx_t start_xmit(struct sk_buff *skb,
-> > struct net_device *dev)
-> >         struct virtnet_info *vi = netdev_priv(dev);
-> >         int capacity;
-> > 
-> > -       /* Free up any pending old buffers before queueing new ones.
-> > */
-> > -       free_old_xmit_skbs(vi);
-> > -
-> >         /* Try to transmit */
-> >         capacity = xmit_skb(vi, skb);
-> > 
-> > @@ -605,6 +602,10 @@ static netdev_tx_t start_xmit(struct sk_buff
-> > *skb, struct net_device *dev)
-> >         skb_orphan(skb);
-> >         nf_reset(skb);
-> > 
-> > +       /* Free up any old buffers so we can queue new ones. */
-> > +       if (capacity < 2+MAX_SKB_FRAGS)
-> > +               capacity += free_old_xmit_skbs(vi);
-> > +
-> >         /* Apparently nice girls don't return TX_BUSY; stop the queue
-> >          * before it gets out of hand.  Naturally, this wastes
-> > entries. */
-> >         if (capacity < 2+MAX_SKB_FRAGS) { 
-> 
-> I tried a similar patch before, it didn't help much on TCP stream
-> performance. But I didn't try multiple stream TCP_RR.
-> 
-> Shirley
+Shirley
 
-There's a bug in myh patch by the way. Pls try the following
-instead (still untested).
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 82dba5a..4477b9a 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -514,11 +514,11 @@ static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
- 	struct sk_buff *skb;
- 	unsigned int len, tot_sgs = 0;
- 
--	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
-+	if ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
- 		vi->dev->stats.tx_bytes += skb->len;
- 		vi->dev->stats.tx_packets++;
--		tot_sgs += skb_vnet_hdr(skb)->num_sg;
-+		tot_sgs = 2+MAX_SKB_FRAGS;
- 		dev_kfree_skb_any(skb);
- 	}
- 	return tot_sgs;
-@@ -576,7 +576,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	int capacity;
- 
--	/* Free up any pending old buffers before queueing new ones. */
-+	/* Free up any old buffers so we can queue new ones. */
- 	free_old_xmit_skbs(vi);
- 
- 	/* Try to transmit */
-@@ -605,6 +605,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_orphan(skb);
- 	nf_reset(skb);
- 
-+	/* Free up any old buffers so we can queue new ones. */
-+	if (capacity < 2+MAX_SKB_FRAGS)
-+		capacity += free_old_xmit_skbs(vi);
-+
- 	/* Apparently nice girls don't return TX_BUSY; stop the queue
- 	 * before it gets out of hand.  Naturally, this wastes entries. */
- 	if (capacity < 2+MAX_SKB_FRAGS) {
