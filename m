@@ -1,63 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next 0/8] Phonet: pipe protocol cleanup
-Date: Wed, 09 Mar 2011 11:57:16 -0800 (PST)
-Message-ID: <20110309.115716.193720915.davem@davemloft.net>
-References: <201103091043.32391.remi.denis-courmont@nokia.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Make CUBIC Hystart more robust to RTT variations
+Date: Wed, 9 Mar 2011 12:01:20 -0800
+Message-ID: <20110309120120.5016cab5@nehalam>
+References: <il4vur$3ka$1@dough.gmane.org>
+	<20110308111011.GA27967@xanadu.blop.info>
+	<4D764AAC.30302@ncsu.edu>
+	<20110308.114346.48506864.davem@davemloft.net>
+	<20110308152103.714f5f05@nehalam>
+	<4D76D851.4050600@ncsu.edu>
+	<20110309065319.GA23740@xanadu.blop.info>
+	<20110309095659.1373c296@s6510>
+	<20110309182505.GA25272@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Injong Rhee <rhee@ncsu.edu>, David Miller <davem@davemloft.net>,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	sangtae.ha@gmail.com
+To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44948
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751214Ab1CIT4i convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2011 14:56:38 -0500
-In-Reply-To: <201103091043.32391.remi.denis-courmont@nokia.com>
+Received: from mail.vyatta.com ([76.74.103.46]:37585 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751514Ab1CIUBW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2011 15:01:22 -0500
+In-Reply-To: <20110309182505.GA25272@xanadu.blop.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-Date: Wed, 9 Mar 2011 10:43:32 +0200
+On Wed, 9 Mar 2011 19:25:05 +0100
+Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
 
-> 	Hello,
->=20
-> As "promised", here is the cleaned up and unified Phonet pipe code.
-> The same kernel can now support both old (e.g. Nokia N900) and new
-> (e.g. ST-Ericsson U8500 SoC) modems.
->=20
-> The following changes since commit 7b46ac4e77f3224a1befe032c77f1df31d=
-1b42c4:
->=20
->   inetpeer: Don't disable BH for initial fast RCU lookup. (2011-03-08=
- 14:59:28 -0800)
->=20
-> are available in the git repository at:
->   git://git.remlab.net/linux-phonet.git master
+> On 09/03/11 at 09:56 -0800, Stephen Hemminger wrote:
+> > On Wed, 9 Mar 2011 07:53:19 +0100
+> > Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
+> > 
+> > > On 08/03/11 at 20:30 -0500, Injong Rhee wrote:
+> > > > Now, both tools can be wrong. But that is not catastrophic since
+> > > > congestion avoidance can kick in to save the day. In a pipe where no
+> > > > other flows are competing, then exiting slow start too early can
+> > > > slow things down as the window can be still too small. But that is
+> > > > in fact when delays are most reliable. So those tests that say bad
+> > > > performance with hystart are in fact, where hystart is supposed to
+> > > > perform well.
+> > > 
+> > > Hi,
+> > > 
+> > > In my setup, there is no congestion at all (except the buffer bloat).
+> > > Without Hystart, transferring 8 Gb of data takes 9s, with CUBIC exiting
+> > > slow start at ~2000 packets.
+> > > With Hystart, transferring 8 Gb of data takes 19s, with CUBIC exiting
+> > > slow start at ~20 packets.
+> > > I don't think that this is "hystart performing well". We could just as
+> > > well remove slow start completely, and only do congestion avoidance,
+> > > then.
+> > > 
+> > > While I see the value in Hystart, it's clear that there are some flaws
+> > > in the current implementation. It probably makes sense to disable
+> > > hystart by default until those problems are fixed.
+> > 
+> > What is the speed and RTT time of your network?
+> > I think you maybe blaming hystart for other issues in the network.
+> 
+> What kind of issues?
+> 
+> Host1 is connected through a gigabit ethernet LAN to Router1
+> Host2 is connected through a gigabit ethernet LAN to Router2
+> Router1 and Router2 are connected through an experimentation network at
+> 10 Gb/s
+> RTT between Host1 and Host2 is 11.3ms.
+> The network is not congested.
 
-Connects to that git server timeout, something is wrong.
+By my calculations (1G * 11.3ms) gives BDP of 941 packets which means
+CUBIC would ideally exit slow start at 900 or so packets. Old CUBIC
+slowstrart of 2000 packets means there is huge overshoot which means
+large packet loss burst which would cause a large CPU load on receiver
+processing SACK.
 
-sunset:/home/davem# tcpdump -i eth0 host git.remlab.net
-tcpdump: verbose output suppressed, use -v or -vv for full protocol dec=
-ode
-listening on eth0, link-type EN10MB (Ethernet), capture size 65535 byte=
-s
-11:53:55.290558 IP sunset.davemloft.net.davemloft.net.58504 > yop.chewa=
-=2Enet.git: Flags [S], seq 1785921252, win 4380, options [mss 1460,sack=
-OK,TS val 437283616 ecr 0,nop,wscale 7], length 0
-11:54:38.550165 IP sunset.davemloft.net.davemloft.net.51169 > yop.chewa=
-=2Enet.git: Flags [S], seq 3171701698, win 4380, options [mss 1460,sack=
-OK,TS val 437287941 ecr 0,nop,wscale 7], length 0
-11:54:41.550544 IP sunset.davemloft.net.davemloft.net.51169 > yop.chewa=
-=2Enet.git: Flags [S], seq 3171701698, win 4380, options [mss 1460,sack=
-OK,TS val 437288242 ecr 0,nop,wscale 7], length 0
-11:54:47.570532 IP sunset.davemloft.net.davemloft.net.51169 > yop.chewa=
-=2Enet.git: Flags [S], seq 3171701698, win 4380, options [mss 1460,sack=
-OK,TS val 437288844 ecr 0,nop,wscale 7], length 0
+I assume you haven't done anything that would disable RFC1323
+support like turn off window scaling or tcp timestamps.
 
-Although web access works just fine.
 
-So I'll apply the patches manually.
-
-Thanks.
+-- 
