@@ -1,108 +1,110 @@
-From: Tom Lendacky <tahm@linux.vnet.ibm.com>
-Subject: Re: Network performance with small packets - continued
-Date: Wed, 9 Mar 2011 17:25:11 -0600
-Message-ID: <201103091725.12992.tahm@linux.vnet.ibm.com>
-References: <201103071631.41964.tahm@linux.vnet.ibm.com> <201103091411.09062.tahm@linux.vnet.ibm.com> <20110309215537.GA11516@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
+Date: Thu, 10 Mar 2011 01:32:18 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103100014430.2160@ja.ssi.bg>
+References: <alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg> <20110308.103801.193702247.davem@davemloft.net> <alpine.LFD.2.00.1103090157400.2880@ja.ssi.bg> <20110309.130817.115943793.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110309215537.GA11516@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:43201 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751249Ab1CIX1g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2011 18:27:36 -0500
+In-Reply-To: <20110309.130817.115943793.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, March 09, 2011 03:56:15 pm Michael S. Tsirkin wrote:
-> On Wed, Mar 09, 2011 at 02:11:07PM -0600, Tom Lendacky wrote:
-> > Here are the results again with the addition of the interrupt rate that
-> > occurred on the guest virtio_net device:
-> > 
-> > Here is the KVM baseline (average of six runs):
-> >   Txn Rate: 87,070.34 Txn/Sec, Pkt Rate: 172,992 Pkts/Sec
-> >   Exits: 148,444.58 Exits/Sec
-> >   TxCPU: 2.40%  RxCPU: 99.35%
-> >   Virtio1-input  Interrupts/Sec (CPU0/CPU1): 5,154/5,222
-> >   Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-> > 
-> > About 42% of baremetal.
-> > 
-> > Delayed freeing of TX buffers (average of six runs):
-> >   Txn Rate: 90,886.19 Txn/Sec, Pkt Rate: 180,571 Pkts/Sec
-> >   Exits: 142,681.67 Exits/Sec
-> >   TxCPU: 2.78%  RxCPU: 99.36%
-> >   Virtio1-input  Interrupts/Sec (CPU0/CPU1): 4,796/4,908
-> >   Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-> > 
-> > About a 4% increase over baseline and about 44% of baremetal.
-> 
-> Looks like delayed freeing is a good idea generally.
-> Is this my patch? Yours?
 
-These results are for my patch, I haven't had a chance to run your patch yet.
+ 	Hello,
 
-> 
-> > Delaying kick_notify (kick every 5 packets -average of six runs):
-> >   Txn Rate: 107,106.36 Txn/Sec, Pkt Rate: 212,796 Pkts/Sec
-> >   Exits: 102,587.28 Exits/Sec
-> >   TxCPU: 3.03%  RxCPU: 99.33%
-> >   Virtio1-input  Interrupts/Sec (CPU0/CPU1): 4,200/4,293
-> >   Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-> > 
-> > About a 23% increase over baseline and about 52% of baremetal.
-> 
-> > Delaying kick_notify and pinning virtio1-input to CPU0 (average of six 
-runs):
-> What exactly moves the interrupt handler between CPUs?
-> irqbalancer?  Does it matter which CPU you pin it to?
-> If yes, do you have any idea why?
+On Wed, 9 Mar 2011, David Miller wrote:
 
-Looking at the guest, irqbalance isn't running and the smp_affinity for the 
-irq is set to 3 (both CPUs).  It could be that irqbalance would help in this 
-situation since it would probably change the smp_affinity mask to a single CPU 
-and remove the irq lock contention (I think the last used index patch would be 
-best though since it will avoid the extra irq injections).  I'll kick off a 
-run with irqbalance running.
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Wed, 9 Mar 2011 02:49:49 +0200 (EET)
+>
+>> 	But we still need to propagate the address events
+>> to nexthops on all devices. Even if it is slow, I see it in
+>> this way (not tested):
+>
+> Ok, I think it is even more involved than what you propose.
+>
+> We have to potentially re-run inet_select_addr() on all nexthops, even
+> those pointing to devices other than the one being modified, because
+> when an interface loses it's last IP address we have to look for a
+> source address to use on other active interfaces.
 
-As for which CPU the interrupt gets pinned to, that doesn't matter - see 
-below.
+ 	Yes. The common case is addresses to be scope
+global. That means they can influence any nexthop on
+any device. Only when address has scope >= LINK we can
+use version that walks single table row for the same device.
+In the default case we need to walk all table rows.
 
-> 
-> Also, what happens without delaying kick_notify
-> but with pinning?
+ 	Additionally, it is possible same address to exist
+on different devices, possibly with different scope. That is
+why reacting only on "last_ip" indication when deleting IP
+is not enough. May be while we delete scope-link address on the
+concerned device, there can be same address as scope-link
+on another device but its scope is not enough to keep
+it as nh_saddr, so the right thing is to get different
+IP as saddr. That is why in my version of fib_update_nh_saddrs
+I don't care about "last_ip" indication. I think, my
+version of fib_update_nh_saddrs is ok for IP add/del but
+as I said, device UP events should recalc nh_saddr too.
+In my version the logic is:
 
-Here are the results of a single "baseline" run with the IRQ pinned to CPU0:
+- add IP:
+ 	- check all NHs on all devices
+ 	- goal: if the added IP-scope is suitable for NH
+ 	it can replace other less-priority IPs, where the
+ 	priority depends on factors such as device, placement in
+ 	device list and scope
+ 	- if NH has same nh_saddr then nothing to do
+ 	- IP scope and DEV should be allowed for the nh_cfg_scope
+ 	to change the nh_saddr
 
-  Txn Rate: 108,212.12 Txn/Sec, Pkt Rate: 214,994 Pkts/Sec
-  Exits: 119,310.21 Exits/Sec
-  TxCPU: 9.63%  RxCPU: 99.47%
-  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 
-  Virtio1-output Interrupts/Sec (CPU0/CPU1):
+- del IP:
+ 	- check all NHs on all devices
+ 	- goal: if the removed IP-scope was nh_saddr somewhere
+ 	then we should recalc NH, even when IP is not the
+ 	last address with same value
+ 	- if NH has different nh_saddr then nothing to do
+ 	- IP scope and DEV should be allowed for the nh_cfg_scope
+ 	to change the nh_saddr because may be this IP-scope-DEV
+ 	was used as nh_saddr
 
-and CPU1:
+> Probably it makes sense to recompute this at use time instead of
+> walking all of this stuff at every event.
 
-  Txn Rate: 108,053.02 Txn/Sec, Pkt Rate: 214,678 Pkts/Sec
-  Exits: 119,320.12 Exits/Sec
-  TxCPU: 9.64%  RxCPU: 99.42%
-  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 13,608/0
-  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/13,830
+ 	Yes, it looks less dangerous.
 
-About a 24% increase over baseline.
+> So device address operations increment a generation ID and
+> FIB_RES_PREFSRC() checks that ID against one stored in the nexthop.
 
-> 
-> >   Txn Rate: 153,696.59 Txn/Sec, Pkt Rate: 305,358 Pkts/Sec
-> >   Exits: 62,603.37 Exits/Sec
-> >   TxCPU: 3.73%  RxCPU: 98.52%
-> >   Virtio1-input  Interrupts/Sec (CPU0/CPU1): 11,564/0
-> >   Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-> > 
-> > About a 77% increase over baseline and about 74% of baremetal.
-> 
-> Hmm we get about 20 packets per interrupt on average.
-> That's pretty decent. The problem is with exits.
-> Let's try something adaptive in the host?
+ 	Yes, may be it is better this generation ID to be global
+value for netns, because the global addresses should cause
+refresh for all nexthops on all devices. The ID should be
+matched with corresponding value in NH. Another option is
+to use per-device gen_id instead of netns gen_id but in this
+case scope-global address event should increment gen_id for all
+devices while the device_UP event will increment only
+gen_id for the concerned DEV.
+
+ 	I.e. there are 2 variants:
+
+1. global netns gen_id:
+ 	- add/del IP, device UP => netns->gen_id ++
+
+2. dev->gen_id:
+ 	- add/del IP with scope < LINK => increment
+ 	dev->gen_id for all devices
+ 	- add/del IP with scope >= LINK => increment
+ 	dev->gen_id only for concerned device
+ 	- device UP: increment dev->gen_id only for
+ 	concerned device
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
