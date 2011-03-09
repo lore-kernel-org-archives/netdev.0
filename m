@@ -1,76 +1,40 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] net: reinject arps into bonding slave
- instead of master
-Date: Wed, 9 Mar 2011 21:51:59 +0100
-Message-ID: <20110309205158.GC2842@psychotron.redhat.com>
-References: <20110305144314.GC8573@psychotron.redhat.com>
- <4D724DB4.9020207@gmail.com>
- <4D737D00.20406@gmail.com>
- <20110306133413.GB2795@psychotron.redhat.com>
- <20110307125059.GA6053@psychotron.brq.redhat.com>
- <20110307224338.GU11864@gospo.rdu.redhat.com>
- <20110308071350.GA2826@psychotron.redhat.com>
- <20110308134247.GW11864@gospo.rdu.redhat.com>
- <4D76A345.9040200@gmail.com>
- <20110309074547.GA2808@psychotron.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
+Date: Wed, 09 Mar 2011 13:08:17 -0800 (PST)
+Message-ID: <20110309.130817.115943793.davem@davemloft.net>
+References: <alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg>
+	<20110308.103801.193702247.davem@davemloft.net>
+	<alpine.LFD.2.00.1103090157400.2880@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63276 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752478Ab1CIUwK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2011 15:52:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20110309074547.GA2808@psychotron.redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42296
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752526Ab1CIVHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 16:07:39 -0500
+In-Reply-To: <alpine.LFD.2.00.1103090157400.2880@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 09, 2011 at 08:45:48AM CET, jpirko@redhat.com wrote:
->Tue, Mar 08, 2011 at 10:44:37PM CET, nicolas.2p.debian@gmail.com wrote=
-:
->>Le 08/03/2011 14:42, Andy Gospodarek a =E9crit :
->>>I'm pretty sure this patch will have the same catastrophic problem y=
-our
->>>last one did.  By cloning and setting skb2->dev =3D orig_dev you jus=
-t
->>>inserted a frame identical to the one we received right back into th=
-e
->>>stack.  It only took a few minutes for my box to melt as one frame o=
-n
->>>the wire will cause an infinite number of frames to be received by t=
-he
->>>stack.
->>
->>I agree with Andy. We still keep one reinject (netif_rx), which is
->>probably better that two (__netif_receive_skb), but not enough.
->>
->>I really think we need a general framework for late delivery of final
->>packets to packet handler registered somewhere in the rx_handler
->>path.
->>
->>Jiri, is this patch the one you announced as "I have some kind nice
->>solution in mind and I'm going to submit that as a patch later (too
->>many patches are in the wind atm)" ?
->
->
->I did not had time to verify my thought yet but I think that the only
->think needed against my original patch (bonding: move processing of re=
-cv
->handlers into handle_frame()) is ro remove vlan_on_bond_hook, period.
->
->Because all incoming arps are seen by bond_handle_frame =3D>
->bond->recv_probe , even vlan ones - that would make eth0-bond0-bond0.5
->work and eth0-bond0-br0-bond0.5 as well. But again, need to verify thi=
-s.
+From: Julian Anastasov <ja@ssi.bg>
+Date: Wed, 9 Mar 2011 02:49:49 +0200 (EET)
 
-Working good even for eth0-bond0-br0-bond0.5 mode1 arp_validate,
-hwvlanaccel. Looking good so far.
+> 	But we still need to propagate the address events
+> to nexthops on all devices. Even if it is slow, I see it in
+> this way (not tested):
 
->
->Jirka
+Ok, I think it is even more involved than what you propose.
+
+We have to potentially re-run inet_select_addr() on all nexthops, even
+those pointing to devices other than the one being modified, because
+when an interface loses it's last IP address we have to look for a
+source address to use on other active interfaces.
+
+Probably it makes sense to recompute this at use time instead of
+walking all of this stuff at every event.
+
+So device address operations increment a generation ID and
+FIB_RES_PREFSRC() checks that ID against one stored in the nexthop.
