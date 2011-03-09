@@ -1,75 +1,57 @@
-From: Christian Hesse <mail@eworm.de>
-Subject: sky2, vlan and nat/masquerading
-Date: Wed, 9 Mar 2011 18:15:22 +0100
-Message-ID: <20110309181522.61ca1cc7@leda.vpn.lugor.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Make CUBIC Hystart more robust to RTT variations
+Date: Wed, 9 Mar 2011 09:56:59 -0800
+Message-ID: <20110309095659.1373c296@s6510>
+References: <il4vur$3ka$1@dough.gmane.org>
+	<20110308111011.GA27967@xanadu.blop.info>
+	<4D764AAC.30302@ncsu.edu>
+	<20110308.114346.48506864.davem@davemloft.net>
+	<20110308152103.714f5f05@nehalam>
+	<4D76D851.4050600@ncsu.edu>
+	<20110309065319.GA23740@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/sQ/QWla6_ks8jUbO9HM1LFc"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Injong Rhee <rhee@ncsu.edu>, David Miller <davem@davemloft.net>,
+	xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	sangtae.ha@gmail.com
+To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.mylinuxtime.de ([80.190.48.209]:41791 "EHLO
-	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751367Ab1CIRZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 12:25:47 -0500
-Received: from mx.mylinuxtime.de (unknown [127.0.0.1])
-	by mx.mylinuxtime.de (Postfix) with ESMTP id D3C89980714
-	for <netdev@vger.kernel.org>; Wed,  9 Mar 2011 18:15:23 +0100 (CET)
-Received: from leda.vpn.lugor.de (unknown [IPv6:2a01:138:b005:1:e056:e1ff:feb5:3ffb])
-	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by mx.mylinuxtime.de (Postfix) with ESMTPSA id 9BABD9803C1
-	for <netdev@vger.kernel.org>; Wed,  9 Mar 2011 18:15:23 +0100 (CET)
+Received: from mail.vyatta.com ([76.74.103.46]:35182 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757128Ab1CIR5D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2011 12:57:03 -0500
+In-Reply-To: <20110309065319.GA23740@xanadu.blop.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---MP_/sQ/QWla6_ks8jUbO9HM1LFc
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Wed, 9 Mar 2011 07:53:19 +0100
+Lucas Nussbaum <lucas.nussbaum@loria.fr> wrote:
 
-Hello everybody,
+> On 08/03/11 at 20:30 -0500, Injong Rhee wrote:
+> > Now, both tools can be wrong. But that is not catastrophic since
+> > congestion avoidance can kick in to save the day. In a pipe where no
+> > other flows are competing, then exiting slow start too early can
+> > slow things down as the window can be still too small. But that is
+> > in fact when delays are most reliable. So those tests that say bad
+> > performance with hystart are in fact, where hystart is supposed to
+> > perform well.
+> 
+> Hi,
+> 
+> In my setup, there is no congestion at all (except the buffer bloat).
+> Without Hystart, transferring 8 Gb of data takes 9s, with CUBIC exiting
+> slow start at ~2000 packets.
+> With Hystart, transferring 8 Gb of data takes 19s, with CUBIC exiting
+> slow start at ~20 packets.
+> I don't think that this is "hystart performing well". We could just as
+> well remove slow start completely, and only do congestion avoidance,
+> then.
+> 
+> While I see the value in Hystart, it's clear that there are some flaws
+> in the current implementation. It probably makes sense to disable
+> hystart by default until those problems are fixed.
 
-I have a Samsung NF310, running kernel 2.6.37.3 with a patch to make my
-ethernet controller work for vlans. It was discussed with the subject "sky2:
-convert to new VLAN model (v0.2)" and made it to to kernel tree with commit
-86aa77854f47ab6f5f9c687507af1f57d2b89004.
-However it does not work properly, here are the details:
 
-* Switch with one trunk port and several port in corresponding vlan ports
-* Host connected to one of the vlan ports
-* Samsung Netbook (see above) connected to the trunk port.
-
-I get an IP address 192.168.x.x/24 via DHCP on interface connected to vlan 1.
-The interface connected to vlan 2 has 172.16.0.1/24 and serves addresses via
-DHCP. The system is set up to masquerade from 172.16.0.1/24.
-
-I can access my netbook from the host in vlan 2, however I can not access
-anything behind. The packets contain a broken vlan tag and the host does not
-recognize them.
-I've attached a tcpdump log. Please take a look at the icmp echo request and
-reply packets, especially the last one.
-
-I've tested with an usb-ethernet-adapter and everything works fine, so my
-setup is ok.
--- 
-Regards,
-Chris
---MP_/sQ/QWla6_ks8jUbO9HM1LFc
-Content-Type: application/octet-stream; name=tcpdump.log
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=tcpdump.log
-
-1MOyoQIABAAAAAAAAAAAAGAAAAABAAAA/EF3TX30AwBaAAAAlwAAAP///////wAkVNg6YQgARQAA
-iQAAQABAEeFDrBAAAawQAP9EXERcAHWPPHsiaG9zdF9pbnQiOiA0MTEyMTg1NiwgInZlcnNpb24i
-OiBbMSwgOF0sICJkaXNwbP9Bd01MOgQAWgAAAGIAAAAAJFTYOmEAJi33oKkIAEUAAFQAAEAAQAFp
-2KwQABXAqGQDCABbiQmpAAH/QXdNLToEAAgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYn
-KCkqKywtLi//QXdNnUwEAFoAAABmAAAAACYt96CpACRU2DphgQAAAAgARQAAVHZpAAA9ATZvwKhk
-A6wQABUAAGOJCakAAf9Bd00tOgQACAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSor
-BEJ3TSM/BAAqAAAAKgAAAAAkVNg6YQAmLfegqQgGAAEIAAYEAAEAJi33oKmsEAAVAAAAAAAArBAA
-AQRCd01BQQQAPAAAADwAAAAAJi33oKkAJFTYOmEIBgABCAAGBAACACRU2DphrBAAAQAmLfegqawQ
-ABUAAAAAAAAAAAAAAAAAAPwpq9MMQndNZ04HAFoAAABiAAAAACRU2DphACYt96CpCABFAABUAABA
-AEAB4nKsEAAVrBAAAQgALnQJqgABDEJ3TUpOBwAICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIj
-JCUmJygpKissLS4vDEJ3TS1RBwBaAAAAYgAAAAAmLfegqQAkVNg6YQgARQAAVL50AABAAWP+rBAA
-AawQABUAADZ0CaoAAQxCd01KTgcACAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSor
-LC0uLw==
-
---MP_/sQ/QWla6_ks8jUbO9HM1LFc--
+What is the speed and RTT time of your network?
+I think you maybe blaming hystart for other issues in the network.
