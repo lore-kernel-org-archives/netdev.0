@@ -1,80 +1,87 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Wed, 9 Mar 2011 11:11:13 +1100
-Message-ID: <20110309111113.883972ba.sfr@canb.auug.org.au>
-References: <20110308140957.8a894312.sfr@canb.auug.org.au>
-	<1299577473.17233.41.camel@lb-tlvb-dmitry>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
+Date: Wed, 9 Mar 2011 02:49:49 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103090157400.2880@ja.ssi.bg>
+References: <20110307.205815.193699096.davem@davemloft.net> <alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg> <20110308.103801.193702247.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8"
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Vladislav Zolotarov" <vladz@broadcom.com>
-To: "Dmitry Kravkov" <dmitry@broadcom.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1299577473.17233.41.camel@lb-tlvb-dmitry>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:58737 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756767Ab1CIApO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2011 19:45:14 -0500
+In-Reply-To: <20110308.103801.193702247.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi Dmitry,
+ 	Hello,
 
-On Tue, 8 Mar 2011 11:44:33 +0200 "Dmitry Kravkov" <dmitry@broadcom.com> wr=
-ote:
+On Tue, 8 Mar 2011, David Miller wrote:
+
+>> As the addresses have nothing to do with the link
+>> state, I don't think it is correct to call fib_update_nh_saddrs
+>> for DEV events.
 >
-> You are correct it's just an addition and it does not really matter
-> where to do this. But the merge pushed new code in the middle
-> of MAC configuration between MAC and multicast list.
-> It's clearer to put it at the end of MAC/ML/UL block:
-> ---
->  drivers/net/bnx2x/bnx2x_cmn.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-> index b01b622..9e37675 100644
-> --- a/drivers/net/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/bnx2x/bnx2x_cmn.c
-> @@ -1498,6 +1498,11 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
->  	/* Clear UC lists configuration */
->  	bnx2x_invalidate_uc_list(bp);
-> =20
-> +	if (bp->pending_max) {
-> +		bnx2x_update_max_mf_config(bp, bp->pending_max);
-> +		bp->pending_max =3D 0;
-> +	}
-> +
->  	if (bp->port.pmf)
->  		bnx2x_initial_phy_init(bp, load_mode);
+> fib_update_nh_saddrs() gets called for "DEV" events since those
+> are what are emitted when addresses are addded and removed.
 
-OK, thanks.  I have changed the conflict resolution to do that.
+ 	But we still need to propagate the address events
+to nexthops on all devices. Even if it is slow, I see it in
+this way (not tested):
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+static inline void update_nh_saddr(const struct in_ifaddr *ifa,
+ 				   struct net_device *dev,
+ 				   struct fib_nh *nexthop_nh,
+ 				   unsigned long event)
+{
+ 	if (event == NETDEV_UP) {
+ 		if (ifa->ifa_local == nexthop_nh->nh_saddr)
+ 			return;
+ 	} else {
+ 		if (ifa->ifa_local != nexthop_nh->nh_saddr)
+ 			return;
+ 	}
+ 	if (ifa->ifa_scope > nexthop_nh->nh_cfg_scope)
+ 		return;
+ 	if (dev != nexthop_nh->nh_dev && ifa->ifa_scope >= RT_SCOPE_LINK)
+ 		return;
+ 	if (nexthop_nh->nh_flags & RTNH_F_DEAD)
+ 		return;
+ 	nexthop_nh->nh_saddr = inet_select_addr(nexthop_nh->nh_dev,
+ 						nexthop_nh->nh_gw,
+ 						nexthop_nh->nh_cfg_scope);
+}
 
---Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8
-Content-Type: application/pgp-signature
+void fib_update_nh_saddrs(const struct in_ifaddr *ifa, unsigned long event)
+{
+ 	struct net_device *dev = ifa->ifa_dev->dev;
+ 	int i;
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+ 	for (i = 0; i < fib_hash_size; i++) {
+ 		struct hlist_head *head = &fib_info_hash[i];
+ 		struct hlist_node *node;
+ 		struct fib_info *fi;
 
-iQEcBAEBAgAGBQJNdsWhAAoJEDMEi1NhKgbs59YH/ifwsP88QypKpEWACWH2Ca8N
-E0cT0cxrM6dHRcAvV0WhJbDu3PUzgcPjN9/Fum3xGkm00XfB4rgSGEsPfYh3/phX
-7wdpN70O0dG+WEs3ZioFY8BGYJ4pKyDtmVw1J4d6wkdr2lVRvriUqkabbHHl+3un
-LM5a1Gqs+tKlf8UjSftNGkuU8xMYuKXoVIwZwNAqpOMoxIRy/6f2gJkaAKT/tlmu
-Bksig3NMTJj8ohsUHk8hMNHD/OswYK/spOEjerGY8QKLfCJZM1oQ+XTXDuRIIl0O
-XDS3ZRsF1TC1K4PrqheRF1loQwGPtj08dZlVtDMiHHJgmmvjuZAvzqI6Uwba+78=
-=OasS
------END PGP SIGNATURE-----
+ 		hlist_for_each_entry(fi, node, head, fib_hash) {
+ 			if (fi->fib_prefsrc)
+ 				continue;
+ 			change_nexthops(fi) {
+ 				if (!nexthop_nh->nh_dev)
+ 					continue;
+ 				update_nh_saddr(ifa, dev, nexthop_nh, event);
+ 			} endfor_nexthops(fi);
+ 		}
+ 	}
+}
 
---Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8--
+ 	Then may be fib_sync_up() should also refresh nh_saddr,
+so that all alive nexthops get actual source address which
+was not possible while device was down.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
