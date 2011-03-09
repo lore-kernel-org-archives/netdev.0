@@ -1,82 +1,80 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on congestion
- map updates
-Date: Tue, 8 Mar 2011 15:36:37 -0800 (PST)
-Message-ID: <1b2c4f6b-57db-430c-9bf4-7fd63b8c513e@default>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Wed, 9 Mar 2011 11:11:13 +1100
+Message-ID: <20110309111113.883972ba.sfr@canb.auug.org.au>
+References: <20110308140957.8a894312.sfr@canb.auug.org.au>
+	<1299577473.17233.41.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <rds-devel@oss.oracle.com>,
-	<chris.mason@oracle.com>, <davem@davemloft.net>
-To: <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:39365 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755842Ab1CHXiH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2011 18:38:07 -0500
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8"
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>
+To: "Dmitry Kravkov" <dmitry@broadcom.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1299577473.17233.41.camel@lb-tlvb-dmitry>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-I was trying to recreate on our test systems. It's not a ppc.
-So far not successful in crashing even though rds_ib_xmit hits this path: 
-        /* Do not send cong updates to IB loopback */
-        if (conn->c_loopback
-            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
-                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
-                return sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
-        }
+Hi Dmitry,
 
-For the BUG_ON condition in rds_send_xmit:
-ret=4096  conn->c_xmit_sg=1 rm->data.op_nents=2
-BUG_ON(ret != 0 && conn->c_xmit_sg == rm->data.op.nents);
+On Tue, 8 Mar 2011 11:44:33 +0200 "Dmitry Kravkov" <dmitry@broadcom.com> wr=
+ote:
+>
+> You are correct it's just an addition and it does not really matter
+> where to do this. But the merge pushed new code in the middle
+> of MAC configuration between MAC and multicast list.
+> It's clearer to put it at the end of MAC/ML/UL block:
+> ---
+>  drivers/net/bnx2x/bnx2x_cmn.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+> index b01b622..9e37675 100644
+> --- a/drivers/net/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/bnx2x/bnx2x_cmn.c
+> @@ -1498,6 +1498,11 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+>  	/* Clear UC lists configuration */
+>  	bnx2x_invalidate_uc_list(bp);
+> =20
+> +	if (bp->pending_max) {
+> +		bnx2x_update_max_mf_config(bp, bp->pending_max);
+> +		bp->pending_max =3D 0;
+> +	}
+> +
+>  	if (bp->port.pmf)
+>  		bnx2x_initial_phy_init(bp, load_mode);
 
-Venkat
+OK, thanks.  I have changed the conflict resolution to do that.
 
------ Original Message -----
-From: nhorman@tuxdriver.com
-To: davem@davemloft.net
-Cc: chris.mason@oracle.com, netdev@vger.kernel.org, rds-devel@oss.oracle.com, venkat.x.venkatsubra@oracle.com
-Sent: Tuesday, March 8, 2011 1:36:50 PM GMT -06:00 US/Canada Central
-Subject: Re: [rds-devel] [PATCH] rds: prevent BUG_ON triggering on congestion map updates
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-On Tue, Mar 08, 2011 at 11:22:58AM -0800, David Miller wrote:
-> From: Chris Mason <chris.mason@oracle.com>
-> Date: Tue, 08 Mar 2011 13:58:57 -0500
-> 
-> > Excerpts from David Miller's message of 2011-03-08 13:52:23 -0500:
-> >> From: Chris Mason <chris.mason@oracle.com>
-> >> Date: Mon, 07 Mar 2011 15:41:04 -0500
-> >> 
-> >> > Excerpts from David Miller's message of 2011-03-07 15:27:53 -0500:
-> >> >> From: Neil Horman <nhorman@tuxdriver.com>
-> >> >> Date: Wed,  2 Mar 2011 11:28:22 -0500
-> >> >> 
-> >> >> > Recently had this bug halt reported to me:
-> >> >> 
-> >> >> Well, does anyone on the RDS team care about this bug fix at all?
-> >> >> 
-> >> >> Stuff like this should not sit for nearly a week without any reply
-> >> >> whatsoever.
-> >> >> 
-> >> > 
-> >> > The patch looks good to me, but I'm surprised we haven't seen it here.
-> >> > Venkat please take a look (link to the patch below)  Has it only been seen on ppc?
-> >> > 
-> >> > http://permalink.gmane.org/gmane.linux.network/187933
-> >> 
-> >> Can I get an ACK or something, _please_?
-> > 
-> > Sorry, wasn't clear:
-> > 
-> > Acked-by: Chris Mason <chris.mason@oracle.com>
-> 
-> Applied, thanks everyone.
-Thanks, Chris, Dave.
-Neil
+--Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8
+Content-Type: application/pgp-signature
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNdsWhAAoJEDMEi1NhKgbs59YH/ifwsP88QypKpEWACWH2Ca8N
+E0cT0cxrM6dHRcAvV0WhJbDu3PUzgcPjN9/Fum3xGkm00XfB4rgSGEsPfYh3/phX
+7wdpN70O0dG+WEs3ZioFY8BGYJ4pKyDtmVw1J4d6wkdr2lVRvriUqkabbHHl+3un
+LM5a1Gqs+tKlf8UjSftNGkuU8xMYuKXoVIwZwNAqpOMoxIRy/6f2gJkaAKT/tlmu
+Bksig3NMTJj8ohsUHk8hMNHD/OswYK/spOEjerGY8QKLfCJZM1oQ+XTXDuRIIl0O
+XDS3ZRsF1TC1K4PrqheRF1loQwGPtj08dZlVtDMiHHJgmmvjuZAvzqI6Uwba+78=
+=OasS
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__9_Mar_2011_11_11_13_+1100_+WUkRSi=TV3KgM.8--
