@@ -1,52 +1,70 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] net: Allow no-cache copy from user on transmit
-Date: Tue, 8 Mar 2011 22:12:52 -0800
-Message-ID: <20110308221252.34385919@s6510>
-References: <alpine.DEB.2.00.1103082053350.1433@pokey.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Tue, 08 Mar 2011 22:45:51 -0800 (PST)
+Message-ID: <20110308.224551.226764517.davem@davemloft.net>
+References: <20110309134234.32cd09b7.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37331 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752169Ab1CIGM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2011 01:12:56 -0500
-In-Reply-To: <alpine.DEB.2.00.1103082053350.1433@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, emil.s.tantilov@intel.com,
+	stephen.s.ko@intel.com, jeffrey.t.kirsher@intel.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110309134234.32cd09b7.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Mar 2011 21:05:06 -0800 (PST)
-Tom Herbert <therbert@google.com> wrote:
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 9 Mar 2011 13:42:34 +1100
 
-> This patch uses __copy_from_user_nocache (from skb_copy_to_page)
-> on transmit to bypass data cache for a performance improvement.
-> This functionality is configurable per device using ethtool, the
-> device must also be doing TX csum offload to enable.  It seems
-> reasonable to set this when the device does not copy or
-> otherwise touch the data.
+> Hi all,
 > 
-> This patch was tested using 200 instances of netperf TCP_RR with
-> 1400 byte request and one byte reply.  Platform is 16 core AMD.
+> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+> failed like this:
 > 
-> No-cache copy disabled:
->    672703 tps, 97.13% client utilization
->    50/90/99% latency 244.31 484.205 1028.41
+> drivers/net/ixgbe/ixgbe_mbx.c: In function 'ixgbe_init_mbx_params_pf':
+> drivers/net/ixgbe/ixgbe_mbx.c:456: error: 'struct ixgbe_mbx_info' has no member named 'udelay'
 > 
-> No-cache copy enabled:
->    702113 tps, 96.16% client utilization,
->    50/90/99% latency 238.56 467.56 956.955
+> Caused by commit d7c8a29fc8bd20ba45ec2f52577ed04a988a9500 ("ixgbe:
+> improve logic in ixgbe_init_mbx_params_pf").
 > 
-> This seems to provide a nice little performance improvement and is
-> consistent in the tests I ran.  Presumably, this would provide
-> the greatest  benfits in the presence of an application workload
-> stressing the cache and a lot of transmit data happening.  I don't
-> yet see a downside to using this.
+> I am wondering if that was ever built ...
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> I have used the net tree from next-20110308 for today.
 
-Since this is not an ethernet only optimization or device
-specific, I would prefer it be a property of device not
-something in ethtool.
+Probably two minutes after you pulled this a fix went in:
 
+commit 5217e8794619ac0a29151f29be20c7d6188303ba
+Author: Andy Gospodarek <andy@greyhouse.net>
+Date:   Tue Mar 8 14:26:00 2011 -0800
+
+    ixgbe: fix compile failure in ixgbe_init_mbx_params_pf
+    
+    This commit:
+    
+        commit d7c8a29fc8bd20ba45ec2f52577ed04a988a9500
+        Author: Emil Tantilov <emil.s.tantilov@intel.com>
+        Date:   Thu Mar 3 09:25:02 2011 +0000
+    
+            ixgbe: improve logic in ixgbe_init_mbx_params_pf
+    
+    incorrectly added a line that accessed mbx->udelay.  I'm sure the intent
+    was mbx->usec_delay.  This patch fixes the compilation error.
+    
+    Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/drivers/net/ixgbe/ixgbe_mbx.c b/drivers/net/ixgbe/ixgbe_mbx.c
+index 3cf8aec..c7ed82e 100644
+--- a/drivers/net/ixgbe/ixgbe_mbx.c
++++ b/drivers/net/ixgbe/ixgbe_mbx.c
+@@ -453,7 +453,7 @@ void ixgbe_init_mbx_params_pf(struct ixgbe_hw *hw)
+ 		return;
+ 
+ 	mbx->timeout = 0;
+-	mbx->udelay = 0;
++	mbx->usec_delay = 0;
+ 
+ 	mbx->stats.msgs_tx = 0;
+ 	mbx->stats.msgs_rx = 0;
