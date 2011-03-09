@@ -1,266 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Bug inkvm_set_irq
-Date: Wed, 9 Mar 2011 15:59:18 +0200
-Message-ID: <20110309135918.GA31019@redhat.com>
-References: <20110303144715.GA12400@redhat.com>
- <4D6FB313.1010400@univ-nantes.fr>
- <20110303155533.GA13310@redhat.com>
- <4D70AF3B.5080007@univ-nantes.fr>
- <20110304093500.GA31844@redhat.com>
- <4D70B339.3080001@univ-nantes.fr>
- <20110308111320.GA8002@redhat.com>
- <4D77727B.2000207@univ-nantes.fr>
- <20110309130000.GA30297@redhat.com>
- <4D777CDA.3050500@univ-nantes.fr>
+From: Thomas Lange <thomas@corelatus.se>
+Subject: [PATCH] Davinci: Do not reset EMAC TX overruns counter on read
+Date: Wed, 09 Mar 2011 15:41:16 +0100
+Message-ID: <4D77918C.9050800@corelatus.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jean-Philippe Menil <jean-philippe.menil@univ-nantes.fr>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davinci-linux-open-source@linux.davincidsp.com"
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	davem@davemloft.net, anantgole@ti.com, chaithrika@ti.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52637 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932420Ab1CIN7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2011 08:59:34 -0500
-Content-Disposition: inline
-In-Reply-To: <4D777CDA.3050500@univ-nantes.fr>
+Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:45828 "EHLO
+	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757027Ab1CIOlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 09:41:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 09, 2011 at 02:12:58PM +0100, Jean-Philippe Menil wrote:
-> Le 09/03/2011 14:00, Michael S. Tsirkin a =C3=A9crit :
-> >On Wed, Mar 09, 2011 at 01:28:43PM +0100, Jean-Philippe Menil wrote:
-> >>Le 08/03/2011 12:13, Michael S. Tsirkin a =C3=A9crit :
-> >>>On Fri, Mar 04, 2011 at 10:39:05AM +0100, Jean-Philippe Menil wrot=
-e:
-> >>>>Yes, it's a 2.6.37.2 kernel.
-> >>>OK, here's a debugging patch.
-> >>>Please run with slab debugging as previously until you see
-> >>>'eventfd bug detected!' in dmesg or until there is a crash.
-> >>>It might be also useful to enable timestampts on printk with
-> >>>  Symbol: PRINTK_TIME [=3Dy]
-> >>>   =E2=94=82 Type  : boolean
-> >>>   =E2=94=82 Prompt: Show timing information on printks
-> >>>
-> >>>once you see the error, please upload the
-> >>>full dmesg output somewhere to we can track what
-> >>>goes on.
-> >>>
-> >>>Hopefully there won't be an oops this time which
-> >>>should make it easier for you to test (no need to
-> >>>reboot).
-> >>>
-> >>>
-> >>>diff --git a/virt/kvm/eventfd.c b/virt/kvm/eventfd.c
-> >>>index c1f1e3c..3cb679b 100644
-> >>>--- a/virt/kvm/eventfd.c
-> >>>+++ b/virt/kvm/eventfd.c
-> >>>@@ -32,6 +32,7 @@
-> >>>  #include<linux/eventfd.h>
-> >>>  #include<linux/kernel.h>
-> >>>  #include<linux/slab.h>
-> >>>+#include<linux/nmi.h>
-> >>>
-> >>>  #include "iodev.h"
-> >>>
-> >>>@@ -43,6 +44,8 @@
-> >>>   * -------------------------------------------------------------=
--------
-> >>>   */
-> >>>
-> >>>+#define KVM_BAD_PTR ((void*)(long)(0x6b6b6b6b6b6b6b6bull))
-> >>>+
-> >>>  struct _irqfd {
-> >>>  	struct kvm               *kvm;
-> >>>  	struct eventfd_ctx       *eventfd;
-> >>>@@ -61,6 +64,13 @@ irqfd_inject(struct work_struct *work)
-> >>>  {
-> >>>  	struct _irqfd *irqfd =3D container_of(work, struct _irqfd, inje=
-ct);
-> >>>  	struct kvm *kvm =3D irqfd->kvm;
-> >>>+	if (kvm =3D=3D KVM_BAD_PTR) {
-> >>>+		printk(KERN_ERR "Eventfd bug detected!\n");
-> >>>+		printk(KERN_ERR "%s(work=3D%p,irqfd=3D%p,kvm=3D%p,gsi=3D%d)\n",=
- __func__,
-> >>>+			work, irqfd, kvm, irqfd->gsi);
-> >>>+		trigger_all_cpu_backtrace();
-> >>>+		return;
-> >>>+	}
-> >>>
-> >>>  	kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID, irqfd->gsi, 1);
-> >>>  	kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID, irqfd->gsi, 0);
-> >>>@@ -75,6 +85,8 @@ irqfd_shutdown(struct work_struct *work)
-> >>>  	struct _irqfd *irqfd =3D container_of(work, struct _irqfd, shut=
-down);
-> >>>  	u64 cnt;
-> >>>
-> >>>+	printk(KERN_ERR "%s(work=3D%p,irqfd=3D%p,kvm=3D%p, gsi=3D%d)\n",=
- __func__,
-> >>>+	       work, irqfd, irqfd->kvm, irqfd->gsi);
-> >>>  	/*
-> >>>  	 * Synchronize with the wait-queue and unhook ourselves to prev=
-ent
-> >>>  	 * further events.
-> >>>@@ -91,6 +103,8 @@ irqfd_shutdown(struct work_struct *work)
-> >>>  	 * It is now safe to release the object's resources
-> >>>  	 */
-> >>>  	eventfd_ctx_put(irqfd->eventfd);
-> >>>+	printk(KERN_ERR "kfree at %s(work=3D%p,irqfd=3D%p)\n", __func__,
-> >>>+	       work, irqfd);
-> >>>  	kfree(irqfd);
-> >>>  }
-> >>>
-> >>>@@ -111,6 +125,8 @@ static void
-> >>>  irqfd_deactivate(struct _irqfd *irqfd)
-> >>>  {
-> >>>  	BUG_ON(!irqfd_is_active(irqfd));
-> >>>+	printk(KERN_ERR "%s(irqfd=3D%p,kvm=3D%p, gsi=3D%d)\n", __func__,
-> >>>+	       irqfd, irqfd->kvm, irqfd->gsi);
-> >>>
-> >>>  	list_del_init(&irqfd->list);
-> >>>
-> >>>@@ -178,6 +194,8 @@ kvm_irqfd_assign(struct kvm *kvm, int fd, int =
-gsi)
-> >>>
-> >>>  	irqfd->kvm =3D kvm;
-> >>>  	irqfd->gsi =3D gsi;
-> >>>+	printk(KERN_ERR "%s(irqfd=3D%p,kvm=3D%p, gsi=3D%d)\n", __func__,
-> >>>+	       irqfd, kvm, gsi);
-> >>>  	INIT_LIST_HEAD(&irqfd->list);
-> >>>  	INIT_WORK(&irqfd->inject, irqfd_inject);
-> >>>  	INIT_WORK(&irqfd->shutdown, irqfd_shutdown);
-> >>>@@ -264,6 +282,8 @@ kvm_irqfd_deassign(struct kvm *kvm, int fd, in=
-t gsi)
-> >>>  	struct _irqfd *irqfd, *tmp;
-> >>>  	struct eventfd_ctx *eventfd;
-> >>>
-> >>>+	printk(KERN_ERR "%s(kvm=3D%p, gsi=3D%d)\n", __func__,
-> >>>+	       kvm, gsi);
-> >>>  	eventfd =3D eventfd_ctx_fdget(fd);
-> >>>  	if (IS_ERR(eventfd))
-> >>>  		return PTR_ERR(eventfd);
-> >>>@@ -305,6 +325,7 @@ void
-> >>>  kvm_irqfd_release(struct kvm *kvm)
-> >>>  {
-> >>>  	struct _irqfd *irqfd, *tmp;
-> >>>+	printk(KERN_ERR "%s(kvm=3D%p)\n", __func__, kvm);
-> >>>
-> >>>  	spin_lock_irq(&kvm->irqfds.lock);
-> >>>
-> >>>--
-> >>>To unsubscribe from this list: send the line "unsubscribe netdev" =
-in
-> >>>the body of a message to majordomo@vger.kernel.org
-> >>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>Hi,
-> >>
-> >>I boot the host with the patched kernel yesterday.
-> >>No crach until now, but two "Eventfd bug detected!" in the log at
-> >>"Mar  9 02:04:31" and "Mar  9 02:15:17"
-> >>You can find part of the log at the following adress:
-> >>http://filex.univ-nantes.fr/get?k=3DjL4Fe7yfSMN57toAH7V
-> >>
-> >>It a split file of the kern.log (1,4G), so if you need another part
-> >>of the log, let me know.
-> >>
-> >>Thanks for all.
-> >>
-> >>Regards.
-> >Downloading, it's big :)
-> >What about some 1000 lines before and after Eventfd bug detected! li=
-ne?
-> >--
-> >To unsubscribe from this list: send the line "unsubscribe kvm" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Yes, sorry about that.
-> I could have split my log into a smaller file.
->=20
-> I was a little afraid of not transmit enough informations, and i was
-> a bit wide.
-> I hope you can find usefull trace anyway.
->=20
-> Regards.
+Don't reset tx_fifo_errors when reading out current EMAC stats.
+  (tx_fifo_errors shows up as TX overruns in netdev stats.)
 
+Without this correction, the old counter value is lost every time
+stats are read out.
 
-OK, use after free.
+Signed-off-by: Thomas Lange <thomas@corelatus.se>
+---
+  drivers/net/davinci_emac.c |    2 +-
+  1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 2a628d1..922c8c5 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -1730,7 +1730,7 @@ static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
+  		emac_read(EMAC_TXCARRIERSENSE);
+  	emac_write(EMAC_TXCARRIERSENSE, stats_clear_mask);
 
-Mar  9 02:15:17 ayrshire.u06.univ-nantes.prive kernel: [37461.593681]
-kvm_irqfd_assign(irqfd=3Dffff88045e8d6230,kvm=3Dffff88085151c000, gsi=3D=
-26)
-Mar  9 02:15:17 ayrshire.u06.univ-nantes.prive kernel: [37461.605359]
-kvm_irqfd_deassign(kvm=3Dffff88085151c000, gsi=3D26)
-Mar  9 02:15:17 ayrshire.u06.univ-nantes.prive kernel: [37461.605388]
-irqfd_deactivate(irqfd=3Dffff88045e8d6230,kvm=3Dffff88085151c000, gsi=3D=
-26)
-Mar  9 02:15:17 ayrshire.u06.univ-nantes.prive kernel: [37461.605461]
-irqfd_shutdown(work=3Dffff88045e8d62b0,irqfd=3Dffff88045e8d6230,kvm=3Df=
-fff88085151c000,
-gsi=3D26)
-Mar  9 02:15:17 ayrshire.u06.univ-nantes.prive kernel: [37461.605509]
-kfree at irqfd_shutdown(work=3Dffff88045e8d62b0,irqfd=3Dffff88045e8d623=
-0)
-Mar  9 02:15:17 ayrshire.u06.univ-nantes.prive kernel: [37461.605588]
-Eventfd bug detected!
-Mar  9 02:15:17 ayrshire.u06.univ-nantes.prive kernel: [37461.605612]
-irqfd_inject(work=3Dffff88045e8d6290,irqfd=3Dffff88045e8d6230,kvm=3D6b6=
-b6b6b6b6b6b6b,gsi=3D1802201963)
+-	ndev->stats.tx_fifo_errors = emac_read(EMAC_TXUNDERRUN);
++	ndev->stats.tx_fifo_errors += emac_read(EMAC_TXUNDERRUN);
+  	emac_write(EMAC_TXUNDERRUN, stats_clear_mask);
 
+  	return &ndev->stats;
+-- 
+1.7.2.5
 
-and 1802201963 is also 6b6b6b6b.
-
-
-I suspect that somehow, we get an event from eventfd even
-though we did eventfd_ctx_remove_wait_queue.
-Could you please try the following patch on top?
-When you see Eventfd bug or Wakeup bug, paste some
-last lines.
-=46or the full log file - better compress with xz.
-
-
-diff --git a/virt/kvm/eventfd.c b/virt/kvm/eventfd.c
-index 3cb679b..63aeba5 100644
---- a/virt/kvm/eventfd.c
-+++ b/virt/kvm/eventfd.c
-@@ -92,6 +92,8 @@ irqfd_shutdown(struct work_struct *work)
- 	 * further events.
- 	 */
- 	eventfd_ctx_remove_wait_queue(irqfd->eventfd, &irqfd->wait, &cnt);
-+	printk(KERN_ERR "remove wq at %s(work=3D%p,irqfd=3D%p)\n", __func__,
-+	       work, irqfd);
-=20
- 	/*
- 	 * We know no new events will be scheduled at this point, so block
-@@ -142,6 +144,13 @@ irqfd_wakeup(wait_queue_t *wait, unsigned mode, in=
-t sync, void *key)
- 	struct _irqfd *irqfd =3D container_of(wait, struct _irqfd, wait);
- 	unsigned long flags =3D (unsigned long)key;
-=20
-+	if (irqfd->kvm =3D=3D KVM_BAD_PTR) {
-+		printk(KERN_ERR "Wakeup bug detected! flags 0x%lx\n", flags);
-+		printk(KERN_ERR "%s(work=3D%p,irqfd=3D%p,kvm=3D%p,gsi=3D%d)\n", __fu=
-nc__,
-+			&irqfd->inject, irqfd, irqfd->kvm, irqfd->gsi);
-+		trigger_all_cpu_backtrace();
-+		return 0;
-+	}
- 	if (flags & POLLIN)
- 		/* An event has been signaled, inject an interrupt */
- 		schedule_work(&irqfd->inject);
-@@ -153,6 +162,9 @@ irqfd_wakeup(wait_queue_t *wait, unsigned mode, int=
- sync, void *key)
-=20
- 		spin_lock_irqsave(&kvm->irqfds.lock, flags);
-=20
-+		printk(KERN_ERR "%s(work=3D%p,irqfd=3D%p,kvm=3D%p,gsi=3D%d,active=3D=
-%d)\n", __func__,
-+			&irqfd->inject, irqfd, irqfd->kvm, irqfd->gsi,
-+			irqfd_is_active(irqfd));
- 		/*
- 		 * We must check if someone deactivated the irqfd before
- 		 * we could acquire the irqfds.lock since the item is
-
---=20
-MST
