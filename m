@@ -1,10 +1,10 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [GIT/PATCH v4] xen network backend driver
-Date: Thu, 10 Mar 2011 18:33:05 +0100
-Message-ID: <AANLkTinHyFLRkeb60x4Q6uUw6p43XBjk5rpqCMo49WKF@mail.gmail.com>
-References: <1299776554.17339.824.camel@zakaz.uk.xensource.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] net: convert xen-netfront to hw_features
+Date: Thu, 10 Mar 2011 18:47:27 +0100 (CET)
+Message-ID: <re1.c313c8276ae485213dd70ff67ec5acb3512d9012.1299778467.git.mirq-linux@rere.qmqm.pl>
+References: <AANLkTinHyFLRkeb60x4Q6uUw6p43XBjk5rpqCMo49WKF@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	xen-devel <xen-devel@lists.xensource.com>,
@@ -12,137 +12,160 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Jeremy Fitzhardinge <jeremy@goop.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+	Francois Romieu <romieu@fr.zoreil.com>
 To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:43187 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690Ab1CJRdG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 12:33:06 -0500
-Received: by qwd7 with SMTP id 7so1414107qwd.19
-        for <netdev@vger.kernel.org>; Thu, 10 Mar 2011 09:33:05 -0800 (PST)
-In-Reply-To: <1299776554.17339.824.camel@zakaz.uk.xensource.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:34724 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752572Ab1CJRr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2011 12:47:28 -0500
+In-Reply-To: <AANLkTinHyFLRkeb60x4Q6uUw6p43XBjk5rpqCMo49WKF@mail.gmail.com>
+Subject: [PoC PATCH] net: convert xen-netfront to hw_features
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/3/10 Ian Campbell <Ian.Campbell@citrix.com>:
-> The following patch is the fourth iteration of the Xen network backen=
-d
-> driver for upstream Linux.
->
-> This driver ("netback") is the host side counterpart to the frontend
-> driver in drivers/net/xen-netfront.c. The PV protocol is also
-> implemented by frontend drivers in other OSes too, such as the BSDs a=
-nd
-> even Windows.
-[...]
-> --- /dev/null
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -0,0 +1,162 @@
-[...]
-> +struct xenvif {
-[...]
-> + =A0 =A0 =A0 /* Flags that must not be set in dev->features */
-> + =A0 =A0 =A0 int features_disabled;
-> +
-> + =A0 =A0 =A0 /* Frontend feature information. */
-> + =A0 =A0 =A0 u8 can_sg:1;
-> + =A0 =A0 =A0 u8 gso:1;
-> + =A0 =A0 =A0 u8 gso_prefix:1;
-> + =A0 =A0 =A0 u8 csum:1;
-[...]
-> --- /dev/null
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -0,0 +1,424 @@
-[...]
-> +static int xenvif_change_mtu(struct net_device *dev, int mtu)
-> +{
-> + =A0 =A0 =A0 struct xenvif *vif =3D netdev_priv(dev);
-> + =A0 =A0 =A0 int max =3D vif->can_sg ? 65535 - VLAN_ETH_HLEN : ETH_D=
-ATA_LEN;
-> +
-> + =A0 =A0 =A0 if (mtu > max)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
-> + =A0 =A0 =A0 dev->mtu =3D mtu;
-> + =A0 =A0 =A0 return 0;
-> +}
-> +
-> +static void xenvif_set_features(struct xenvif *vif)
-> +{
-> + =A0 =A0 =A0 struct net_device *dev =3D vif->dev;
-> + =A0 =A0 =A0 int features =3D dev->features;
-> +
-> + =A0 =A0 =A0 if (vif->can_sg)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 features |=3D NETIF_F_SG;
-> + =A0 =A0 =A0 if (vif->gso || vif->gso_prefix)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 features |=3D NETIF_F_TSO;
-> + =A0 =A0 =A0 if (vif->csum)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 features |=3D NETIF_F_IP_CSUM;
-> +
-> + =A0 =A0 =A0 features &=3D ~(vif->features_disabled);
-> +
-> + =A0 =A0 =A0 if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN=
-)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->mtu =3D ETH_DATA_LEN;
-> +
-> + =A0 =A0 =A0 dev->features =3D features;
-> +}
-> +
-> +static int xenvif_set_tx_csum(struct net_device *dev, u32 data)
-> +{
-> + =A0 =A0 =A0 struct xenvif *vif =3D netdev_priv(dev);
-> + =A0 =A0 =A0 if (data) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!vif->csum)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vif->features_disabled &=3D ~NETIF_F_IP=
-_CSUM;
-> + =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vif->features_disabled |=3D NETIF_F_IP_=
-CSUM;
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 xenvif_set_features(vif);
-> + =A0 =A0 =A0 return 0;
-> +}
-> +
-> +static int xenvif_set_sg(struct net_device *dev, u32 data)
-> +{
-> + =A0 =A0 =A0 struct xenvif *vif =3D netdev_priv(dev);
-> + =A0 =A0 =A0 if (data) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!vif->can_sg)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vif->features_disabled &=3D ~NETIF_F_SG=
-;
-> + =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vif->features_disabled |=3D NETIF_F_SG;
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 xenvif_set_features(vif);
-> + =A0 =A0 =A0 return 0;
-> +}
-> +
-> +static int xenvif_set_tso(struct net_device *dev, u32 data)
-> +{
-> + =A0 =A0 =A0 struct xenvif *vif =3D netdev_priv(dev);
-> + =A0 =A0 =A0 if (data) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!vif->gso && !vif->gso_prefix)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vif->features_disabled &=3D ~NETIF_F_TS=
-O;
-> + =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 vif->features_disabled |=3D NETIF_F_TSO=
-;
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 xenvif_set_features(vif);
-> + =A0 =A0 =A0 return 0;
-> +}
-[...]
+[resent because of broken headers]
 
-You could make this simpler by using netdev->hw_features and
-ndo_fix_features/ndo_set_features calls recently introduced in
-net-next. I'll reply with a proof-of-concept patch for xen-netfront.
+This patch converts xen-netfront to hw_features.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+It's not tested in any way. The original code for offload setting seems
+broken as it resets the features on every netback reconnect.
+
+This will set GSO_ROBUST at device creation time (earlier than connect =
+time).
+
+RX checksum offload is forced on - so advertise as it is.
+
+netdev_update_features() should be called whenever offload conditions c=
+hange.
+This in turn calls ndo_fix_features() and ndo_set_features() to verify =
+them.
+I leave this to you as I don't know when or how the notifications get p=
+assed.
+
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ drivers/net/xen-netfront.c |   57 +++++++++++++++++-------------------=
+-------
+ 1 files changed, 23 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index da1f121..c642fd3 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1148,6 +1148,8 @@ static const struct net_device_ops xennet_netdev_=
+ops =3D {
+ 	.ndo_change_mtu	     =3D xennet_change_mtu,
+ 	.ndo_set_mac_address =3D eth_mac_addr,
+ 	.ndo_validate_addr   =3D eth_validate_addr,
++	.ndo_fix_features    =3D xennet_fix_features,
++	.ndo_set_features    =3D xennet_set_features,
+ };
+=20
+ static struct net_device * __devinit xennet_create_dev(struct xenbus_d=
+evice *dev)
+@@ -1209,7 +1211,9 @@ static struct net_device * __devinit xennet_creat=
+e_dev(struct xenbus_device *dev
+ 	netdev->netdev_ops	=3D &xennet_netdev_ops;
+=20
+ 	netif_napi_add(netdev, &np->napi, xennet_poll, 64);
+-	netdev->features        =3D NETIF_F_IP_CSUM;
++	netdev->features        =3D NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
++				  NETIF_F_GSO_ROBUST;
++	netdev->hw_features	=3D NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO;
+=20
+ 	SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
+ 	SET_NETDEV_DEV(netdev, &dev->dev);
+@@ -1510,52 +1514,40 @@ again:
+ 	return err;
+ }
+=20
+-static int xennet_set_sg(struct net_device *dev, u32 data)
++static u32 xennet_fix_features(struct net_device *dev, u32 features)
+ {
+-	if (data) {
+-		struct netfront_info *np =3D netdev_priv(dev);
+-		int val;
++	struct netfront_info *np =3D netdev_priv(dev);
++	int val;
+=20
++	if (features & NETIF_F_SG) {
+ 		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend, "feature-sg",
+ 				 "%d", &val) < 0)
+ 			val =3D 0;
++
+ 		if (!val)
+-			return -ENOSYS;
+-	} else if (dev->mtu > ETH_DATA_LEN)
+-		dev->mtu =3D ETH_DATA_LEN;
+-
+-	return ethtool_op_set_sg(dev, data);
+-}
+-
+-static int xennet_set_tso(struct net_device *dev, u32 data)
+-{
+-	if (data) {
+-		struct netfront_info *np =3D netdev_priv(dev);
+-		int val;
++			features &=3D ~NETIF_F_SG;
++	}
+=20
++	if (features & NETIF_F_TSO) {
+ 		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
+ 				 "feature-gso-tcpv4", "%d", &val) < 0)
+ 			val =3D 0;
++
+ 		if (!val)
+-			return -ENOSYS;
++			features &=3D ~NETIF_F_TSO;
+ 	}
+=20
+-	return ethtool_op_set_tso(dev, data);
++	return features;
+ }
+=20
+-static void xennet_set_features(struct net_device *dev)
++static int xennet_set_features(struct net_device *dev, u32 features)
+ {
+-	/* Turn off all GSO bits except ROBUST. */
+-	dev->features &=3D ~NETIF_F_GSO_MASK;
+-	dev->features |=3D NETIF_F_GSO_ROBUST;
+-	xennet_set_sg(dev, 0);
++	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN) {
++		netdev_info(dev, "Reducing MTU because no SG offload");
++		dev->mtu =3D ETH_DATA_LEN;
++	}
+=20
+-	/* We need checksum offload to enable scatter/gather and TSO. */
+-	if (!(dev->features & NETIF_F_IP_CSUM))
+-		return;
+-
+-	if (!xennet_set_sg(dev, 1))
+-		xennet_set_tso(dev, 1);
++	return 0;
+ }
+=20
+ static int xennet_connect(struct net_device *dev)
+@@ -1582,7 +1574,7 @@ static int xennet_connect(struct net_device *dev)
+ 	if (err)
+ 		return err;
+=20
+-	xennet_set_features(dev);
++	netdev_update_features(dev);
+=20
+ 	spin_lock_bh(&np->rx_lock);
+ 	spin_lock_irq(&np->tx_lock);
+@@ -1710,9 +1702,6 @@ static void xennet_get_strings(struct net_device =
+*dev, u32 stringset, u8 * data)
+=20
+ static const struct ethtool_ops xennet_ethtool_ops =3D
+ {
+-	.set_tx_csum =3D ethtool_op_set_tx_csum,
+-	.set_sg =3D xennet_set_sg,
+-	.set_tso =3D xennet_set_tso,
+ 	.get_link =3D ethtool_op_get_link,
+=20
+ 	.get_sset_count =3D xennet_get_sset_count,
+--=20
+1.7.2.3
+
