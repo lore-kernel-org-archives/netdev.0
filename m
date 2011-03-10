@@ -1,59 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/6] tcp: timestamp code clarification
-Date: Thu, 10 Mar 2011 08:51:24 -0800
-Message-ID: <20110310165328.905636243@vyatta.com>
-References: <20110310165119.224046957@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, sangtae.ha@gmail.com, rhee@ncsu.edu
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch] libertas: fix write past end of array in mesh_id_get()
+Date: Thu, 10 Mar 2011 11:02:02 -0600
+Message-ID: <1299776524.17443.14.camel@dcbw.foobar.com>
+References: <20110310152326.GA2008@bicker>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: javier@cozybit.com, "John W. Linville" <linville@tuxdriver.com>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:45017 "EHLO suva.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:28303 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753290Ab1CJQ4V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2011 11:56:21 -0500
-Content-Disposition: inline; filename=tcp-input-tstamp-clean.patch
+	id S1751606Ab1CJRAv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2011 12:00:51 -0500
+In-Reply-To: <20110310152326.GA2008@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use inline functions to make the checking of ack timestamp clearer.
+On Thu, 2011-03-10 at 18:23 +0300, Dan Carpenter wrote:
+> defs.meshie.val.mesh_id is 32 chars long.  It's not supposed to be NUL
+> terminated.  This code puts a terminator on the end to make it easier to
+> print to sysfs.  The problem is that if the mesh_id fills the entire
+> buffer the original code puts the terminator one spot past the end.
+> 
+> The way the original code was written, there was a check to make sure
+> that maxlen was less than PAGE_SIZE.  Since we know that maxlen is at
+> most 34 chars, I just removed the check.
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Acked-by: Dan Williams <dcbw@redhat.com>
 
---- a/net/ipv4/tcp_input.c	2011-03-10 07:58:37.715948842 -0800
-+++ b/net/ipv4/tcp_input.c	2011-03-10 07:58:38.419937963 -0800
-@@ -3263,7 +3263,7 @@ static int tcp_clean_rtx_queue(struct so
- 				flag |= FLAG_NONHEAD_RETRANS_ACKED;
- 		} else {
- 			ca_seq_rtt = now - scb->when;
--			last_ackt = skb->tstamp;
-+			last_ackt = skb_get_ktime(skb);
- 			if (seq_rtt < 0) {
- 				seq_rtt = ca_seq_rtt;
- 			}
-@@ -3345,9 +3345,8 @@ static int tcp_clean_rtx_queue(struct so
- 			/* Is the ACK triggering packet unambiguous? */
- 			if (!(flag & FLAG_RETRANS_DATA_ACKED)) {
- 				/* High resolution needed and available? */
--				if (ca_ops->flags & TCP_CONG_RTT_STAMP &&
--				    !ktime_equal(last_ackt,
--						 net_invalid_timestamp()))
-+				if ((ca_ops->flags & TCP_CONG_RTT_STAMP) &&
-+				    net_timestamp_isvalid(last_ackt))
- 					rtt_us = ktime_us_delta(ktime_get_real(),
- 								last_ackt);
- 				else if (ca_seq_rtt >= 0)
---- a/include/linux/skbuff.h	2011-03-10 07:55:27.181150325 -0800
-+++ b/include/linux/skbuff.h	2011-03-10 07:58:38.419937963 -0800
-@@ -1965,6 +1965,11 @@ static inline ktime_t net_invalid_timest
- 	return ktime_set(0, 0);
- }
- 
-+static inline bool net_timestamp_isvalid(ktime_t t)
-+{
-+	return !ktime_equal(t, net_invalid_timestamp());
-+}
-+
- extern void skb_timestamping_init(void);
- 
- #ifdef CONFIG_NETWORK_PHY_TIMESTAMPING
+> diff --git a/drivers/net/wireless/libertas/mesh.c b/drivers/net/wireless/libertas/mesh.c
+> index acf3bf6..9d097b9 100644
+> --- a/drivers/net/wireless/libertas/mesh.c
+> +++ b/drivers/net/wireless/libertas/mesh.c
+> @@ -918,7 +918,6 @@ static ssize_t mesh_id_get(struct device *dev, struct device_attribute *attr,
+>  			   char *buf)
+>  {
+>  	struct mrvl_mesh_defaults defs;
+> -	int maxlen;
+>  	int ret;
+>  
+>  	ret = mesh_get_default_parameters(dev, &defs);
+> @@ -931,13 +930,11 @@ static ssize_t mesh_id_get(struct device *dev, struct device_attribute *attr,
+>  		defs.meshie.val.mesh_id_len = IEEE80211_MAX_SSID_LEN;
+>  	}
+>  
+> -	/* SSID not null terminated: reserve room for \0 + \n */
+> -	maxlen = defs.meshie.val.mesh_id_len + 2;
+> -	maxlen = (PAGE_SIZE > maxlen) ? maxlen : PAGE_SIZE;
+> +	memcpy(buf, defs.meshie.val.mesh_id, defs.meshie.val.mesh_id_len);
+> +	buf[defs.meshie.val.mesh_id_len] = '\n';
+> +	buf[defs.meshie.val.mesh_id_len + 1] = '\0';
+>  
+> -	defs.meshie.val.mesh_id[defs.meshie.val.mesh_id_len] = '\0';
+> -
+> -	return snprintf(buf, maxlen, "%s\n", defs.meshie.val.mesh_id);
+> +	return defs.meshie.val.mesh_id_len + 1;
+>  }
+>  
+>  /**
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
