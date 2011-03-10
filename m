@@ -1,31 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip6ip6: autoload ip6 tunnel
-Date: Thu, 10 Mar 2011 14:00:36 -0800 (PST)
-Message-ID: <20110310.140036.71099549.davem@davemloft.net>
-References: <20110310134319.25b1b901@nehalam>
+From: <Shyam_Iyer@Dell.com>
+Subject: RE: [PATCH V4] Export ACPI _DSM provided firmware instance number
+ and string name to sysfs
+Date: Fri, 11 Mar 2011 03:35:56 +0530
+Message-ID: <DBFB1B45AF80394ABD1C807E9F28D157026585D732@BLRX7MCDC203.AMER.DELL.COM>
+References: <20110223125741.GA16473@fedora14-r610.blr.amer.dell.com>
+ <20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
+ <20110304104314.26265021@jbarnes-desktop>
+ <AANLkTimz662+L6eYJm2gh0NwWOxxzQV3503bcs-GMFGu@mail.gmail.com>
+ <20110307200512.GA22450@fedora14-r610.oslab.blr.amer.dell.com>
+ <20110307195616.GA14888@kroah.com>
+ <20110307211552.GA11016@fedora14-r610.oslab.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, segoon@openwall.com, mjt@tls.msk.ru,
-	kees.cook@canonical.com, jmorris@namei.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49709
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753116Ab1CJV76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 16:59:58 -0500
-In-Reply-To: <20110310134319.25b1b901@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <a.beregalov@gmail.com>, <linux-next@vger.kernel.org>,
+	<jbarnes@virtuousgeek.org>, <linux-pci@vger.kernel.org>,
+	<linux-hotplug@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<mjg@redhat.com>, <Matt_Domsch@Dell.com>, <Charles_Rose@Dell.com>,
+	<Jordan_Hargrave@Dell.com>, <sfr@canb.auug.org.au>
+To: <Narendra_K@Dell.com>, <greg@kroah.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110307211552.GA11016@fedora14-r610.oslab.blr.amer.dell.com>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 10 Mar 2011 13:43:19 -0800
-
-> Add necessary alias to autoload ip6ip6 tunnel module.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ---
-> Patch is against 2.6.38-rc7 (not net-next).
-
-Yep, understood.  I'll do a merge then apply this, thanks Stephen!
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEssIE5hcmVuZHJhDQo+IFNl
+bnQ6IE1vbmRheSwgTWFyY2ggMDcsIDIwMTEgMzo1NiBQTQ0KPiBUbzogR3JlZyBLSA0KPiBDYzog
+YS5iZXJlZ2Fsb3ZAZ21haWwuY29tOyBsaW51eC1uZXh0QHZnZXIua2VybmVsLm9yZzsNCj4gamJh
+cm5lc0B2aXJ0dW91c2dlZWsub3JnOyBsaW51eC1wY2lAdmdlci5rZXJuZWwub3JnOyBsaW51eC0N
+Cj4gaG90cGx1Z0B2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IG1qZ0By
+ZWRoYXQuY29tOw0KPiBEb21zY2gsIE1hdHQ7IFJvc2UsIENoYXJsZXM7IEhhcmdyYXZlLCBKb3Jk
+YW47IEl5ZXIsIFNoeWFtOw0KPiBzZnJAY2FuYi5hdXVnLm9yZy5hdQ0KPiBTdWJqZWN0OiBSZTog
+W1BBVENIIFY0XSBFeHBvcnQgQUNQSSBfRFNNIHByb3ZpZGVkIGZpcm13YXJlIGluc3RhbmNlDQo+
+IG51bWJlciBhbmQgc3RyaW5nIG5hbWUgdG8gc3lzZnMNCj4gDQo+IE9uIFR1ZSwgTWFyIDA4LCAy
+MDExIGF0IDAxOjI2OjE2QU0gKzA1MzAsIEdyZWcgS0ggd3JvdGU6DQo+ID4gT24gTW9uLCBNYXIg
+MDcsIDIwMTEgYXQgMTE6NDQ6NTJBTSAtMDgwMCwgTmFyZW5kcmFfS0BEZWxsLmNvbSB3cm90ZToN
+Cj4gPiA+IC0tLSBhL2RyaXZlcnMvcGNpL3BjaS1sYWJlbC5jDQo+ID4gPiArKysgYi9kcml2ZXJz
+L3BjaS9wY2ktbGFiZWwuYw0KPiA+ID4gQEAgLTI5LDcgKzI5LDkgQEANCj4gPiA+ICAjaW5jbHVk
+ZSA8bGludXgvbmxzLmg+DQo+ID4gPiAgI2luY2x1ZGUgPGxpbnV4L2FjcGkuaD4NCj4gPiA+ICAj
+aW5jbHVkZSA8bGludXgvcGNpLWFjcGkuaD4NCj4gPiA+ICsjaWZkZWYgQ09ORklHX0FDUEkNCj4g
+PiA+ICAjaW5jbHVkZSA8YWNwaS9hY3BpX2RyaXZlcnMuaD4NCj4gPiA+ICsjZW5kaWYNCj4gPg0K
+PiA+IFlvdSBzaG91bGQgbmV2ZXIgbmVlZCBhICNpZmRlZiBpbiBhIC5jIGZpbGUgZm9yIGFuIGlu
+Y2x1ZGUgZmlsZS4gIElmDQo+IHNvLA0KPiA+IHNvbWV0aGluZyBpcyByZWFsbHkgd3JvbmcuDQo+
+IA0KPiBJIGFncmVlLiBBbHNvLCBpIHJlYWxpemVkIHRoYXQgdGhlIGluY2x1ZGUgd2FzIG5vdCBy
+ZXF1aXJlZCB0byBhZGRyZXNzDQo+IHRoZQ0KPiByZXBvcnRlZCBlcnJvci4gUGxlYXNlIGZpbmQg
+dGhlIHJldmlzZWQgcGF0Y2ggaGVyZS4NCj4gDQo+IEZyb206IE5hcmVuZHJhIEsgPG5hcmVuZHJh
+X2tAZGVsbC5jb20+DQo+IFN1YmplY3Q6IFtQQVRDSF0gRml4IGNvbXBpbGF0aW9uIGVycm9yIHdo
+ZW4gQ09ORklHX0FDUEkgaXMgdW5zZXQNCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXMgY29tcGlsYXRp
+b24gZXJyb3IgZGVzY2liZWQgYmVsb3cgaW50cm9kdWNlZCBieQ0KPiB0aGUgY29tbWl0IDYwNTg5
+ODliYWQwNWI4MmU3OGJhYWNjZTY5ZWMxNGYyN2ExMWI1ZmQNCj4gDQo+IGRyaXZlcnMvcGNpL3Bj
+aS1sYWJlbC5jOiBJbiBmdW5jdGlvbiDigJhwY2lfY3JlYXRlX2Zpcm13YXJlX2xhYmVsX2ZpbGVz
+4oCZOg0KPiBkcml2ZXJzL3BjaS9wY2ktbGFiZWwuYzozNjY6MjogZXJyb3I6IGltcGxpY2l0IGRl
+Y2xhcmF0aW9uIG9mIGZ1bmN0aW9uDQo+IOKAmGRldmljZV9oYXNfZHNt4oCZDQo+IA0KPiBTaWdu
+ZWQtb2ZmLWJ5OiBOYXJlbmRyYSBLIDxuYXJlbmRyYV9rQGRlbGwuY29tPg0KPiAtLS0NCj4gIGRy
+aXZlcnMvcGNpL3BjaS1sYWJlbC5jIHwgICAgNiArKysrKysNCj4gIDEgZmlsZXMgY2hhbmdlZCwg
+NiBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvcGNpL3BjaS1sYWJlbC5jIGIvZHJpdmVycy9wY2kvcGNpLWxhYmVsLmMNCj4gaW5kZXggODI0
+ZTI0Ny4uOGM4MDEzOCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9wY2kvcGNpLWxhYmVsLmMNCj4g
+KysrIGIvZHJpdmVycy9wY2kvcGNpLWxhYmVsLmMNCj4gQEAgLTE3NCw2ICsxNzQsMTIgQEAgcGNp
+X3JlbW92ZV9hY3BpX2luZGV4X2xhYmVsX2ZpbGVzKHN0cnVjdCBwY2lfZGV2DQo+ICpwZGV2KQ0K
+PiAgCXJldHVybiAtMTsNCj4gIH0NCj4gDQo+ICtzdGF0aWMgaW5saW5lIGJvb2wNCj4gK2Rldmlj
+ZV9oYXNfZHNtKHN0cnVjdCBkZXZpY2UgKmRldikNCj4gK3sNCj4gKwlyZXR1cm4gZmFsc2U7DQo+
+ICt9DQo+ICsNCj4gICNlbHNlDQo+IA0KPiAgc3RhdGljIGNvbnN0IGNoYXIgZGV2aWNlX2xhYmVs
+X2RzbV91dWlkW10gPSB7DQo+IC0tDQo+IDEuNy4zLjENCj4gDQo+IFdpdGggcmVnYXJkcywNCj4g
+TmFyZW5kcmEgSw0KDQpTbyB0aGlzIHdvcmtzIGFuZCBmaXhlcyB0aGUgYWRkaXRpb25hbCBidWls
+ZCBmYWlsdXJlLg0KDQpJIHRlc3RlZCB3aXRoIENPTkZJR19BQ1BJIHNldC91bnNldCBhbmQgd2l0
+aCAibWFrZSBhbGxtb2Rjb25maWciDQoNCkFkZGl0aW9uYWxseSBJIGZvdW5kIHRoYXQgaW5jbHVk
+aW5nIGFjcGkvYXBjaV9kcml2ZXJzLmggaXMgbm90IG5lY2Vzc2FyeSBhbmQgaW50cm9kdWNlcyB0
+aGVzZSB3YXJuaW5ncy4uDQoNClRoZSBiZWxvdyBwYXRjaCBmaXhlcyB0aGUgYWRkaXRpb25hbCB3
+YXJuaWdzLi4NCg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGRyaXZlcnMvcGNpL3BjaS1sYWJlbC5j
+OjMyOg0KaW5jbHVkZS9hY3BpL2FjcGlfZHJpdmVycy5oOjEwMzogd2FybmluZzog4oCYc3RydWN0
+IGFjcGlfZGV2aWNl4oCZIGRlY2xhcmVkIGluc2lkZSBwYXJhbWV0ZXIgbGlzdA0KaW5jbHVkZS9h
+Y3BpL2FjcGlfZHJpdmVycy5oOjEwMzogd2FybmluZzogaXRzIHNjb3BlIGlzIG9ubHkgdGhpcyBk
+ZWZpbml0aW9uIG9yIGRlY2xhcmF0aW9uLCB3aGljaCBpcyBwcm9iYWJseSBub3Qgd2hhdCB5b3Ug
+d2FudA0KaW5jbHVkZS9hY3BpL2FjcGlfZHJpdmVycy5oOjEwNzogd2FybmluZzog4oCYc3RydWN0
+IGFjcGlfcGNpX3Jvb3TigJkgZGVjbGFyZWQgaW5zaWRlIHBhcmFtZXRlciBsaXN0DQoNClNpZ25l
+ZC1vZmYtYnk6IFNoeWFtIEl5ZXIgPHNoeWFtX2l5ZXJAZGVsbC5jb20+DQotLS0NCiBkcml2ZXJz
+L3BjaS9wY2ktbGFiZWwuYyB8ICAgIDEgLQ0KIDEgZmlsZXMgY2hhbmdlZCwgMCBpbnNlcnRpb25z
+KCspLCAxIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9wY2kvcGNpLWxhYmVs
+LmMgYi9kcml2ZXJzL3BjaS9wY2ktbGFiZWwuYw0KaW5kZXggYmY0ZWJlZS4uNDg4YjBjZSAxMDA2
+NDQNCi0tLSBhL2RyaXZlcnMvcGNpL3BjaS1sYWJlbC5jDQorKysgYi9kcml2ZXJzL3BjaS9wY2kt
+bGFiZWwuYw0KQEAgLTI5LDcgKzI5LDYgQEANCiAjaW5jbHVkZSA8bGludXgvbmxzLmg+DQogI2lu
+Y2x1ZGUgPGxpbnV4L2FjcGkuaD4NCiAjaW5jbHVkZSA8bGludXgvcGNpLWFjcGkuaD4NCi0jaW5j
+bHVkZSA8YWNwaS9hY3BpX2RyaXZlcnMuaD4NCiAjaW5jbHVkZSA8YWNwaS9hY3BpX2J1cy5oPg0K
+ICNpbmNsdWRlICJwY2kuaCINCg0KLS0gDQoxLjcuMQ0K
