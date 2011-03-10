@@ -1,72 +1,44 @@
-From: Tom Lendacky <tahm@linux.vnet.ibm.com>
-Subject: Re: Network performance with small packets - continued
-Date: Thu, 10 Mar 2011 11:16:11 -0600
-Message-ID: <201103101116.13212.tahm@linux.vnet.ibm.com>
-References: <201103071631.41964.tahm@linux.vnet.ibm.com> <201103100923.44184.tahm@linux.vnet.ibm.com> <20110310153422.GA28557@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [GIT/PATCH v4] xen network backend driver
+Date: Thu, 10 Mar 2011 17:17:17 +0000
+Message-ID: <1299777438.2807.0.camel@bwh-desktop>
+References: <1299776554.17339.824.camel@zakaz.uk.xensource.com>
+	 <20110310091425.3451f7f1@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110310153422.GA28557@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel <xen-devel@lists.xensource.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:34582 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752728Ab1CJRRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 12:17:21 -0500
+In-Reply-To: <20110310091425.3451f7f1@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, March 10, 2011 09:34:22 am Michael S. Tsirkin wrote:
-> On Thu, Mar 10, 2011 at 09:23:42AM -0600, Tom Lendacky wrote:
-> > On Thursday, March 10, 2011 12:54:58 am Michael S. Tsirkin wrote:
-> > > On Wed, Mar 09, 2011 at 05:25:11PM -0600, Tom Lendacky wrote:
-> > > > As for which CPU the interrupt gets pinned to, that doesn't matter -
-> > > > see below.
-> > > 
-> > > So what hurts us the most is that the IRQ jumps between the VCPUs?
-> > 
-> > Yes, it appears that allowing the IRQ to run on more than one vCPU hurts.
-> > Without the publish last used index patch, vhost keeps injecting an irq
-> > for every received packet until the guest eventually turns off
-> > notifications.
+On Thu, 2011-03-10 at 09:14 -0800, Stephen Hemminger wrote:
+> On Thu, 10 Mar 2011 17:02:33 +0000
+> Ian Campbell <Ian.Campbell@citrix.com> wrote:
 > 
-> Are you sure you see that? If yes publish used should help a lot.
+> > +	/* Flags that must not be set in dev->features */
+> > +	int features_disabled;
+> 
+> dev->features is unsigned long, so this mask should be as well.
 
-I definitely see that.  I ran lockstat in the guest and saw the contention on 
-the lock when the irq was able to run on either vCPU.  Once the irq was pinned 
-the contention disappeared.  The publish used index patch should eliminate the 
-extra irq injections and then the pinning or use of irqbalance shouldn't be 
-required.  I'm getting a kernel oops during boot with the publish last used 
-patches that I pulled from the mailing list - I had to make some changes in 
-order to get them to apply and compile and might not have done the right 
-things.  Can you re-spin that patchset against kvm.git?
+It's u32 now.
 
-> 
-> > Because the irq injections end up overlapping we get contention on the
-> > irq_desc_lock_class lock. Here are some results using the "baseline"
-> > setup with irqbalance running.
-> > 
-> >   Txn Rate: 107,714.53 Txn/Sec, Pkt Rate: 214,006 Pkts/Sec
-> >   Exits: 121,050.45 Exits/Sec
-> >   TxCPU: 9.61%  RxCPU: 99.45%
-> >   Virtio1-input  Interrupts/Sec (CPU0/CPU1): 13,975/0
-> >   Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-> > 
-> > About a 24% increase over baseline.  Irqbalance essentially pinned the
-> > virtio irq to CPU0 preventing the irq lock contention and resulting in
-> > nice gains.
-> 
-> OK, so we probably want some form of delayed free for TX
-> on top, and that should get us nice results already.
-> 
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe kvm" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
