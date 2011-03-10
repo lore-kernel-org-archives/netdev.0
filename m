@@ -1,41 +1,68 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 03/18] ipvs: zero percpu stats
-Date: Thu, 10 Mar 2011 13:27:36 +0900
-Message-ID: <20110310042736.GD21584@verge.net.au>
-References: <1299402367.2758.87.camel@edumazet-laptop>
- <alpine.LFD.2.00.1103061218470.1879@ja.ssi.bg>
- <20110310013442.GD3028@verge.net.au>
- <20110309.185344.193704334.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Optimize flow initialization in input route lookup.
+Date: Wed, 09 Mar 2011 20:42:49 -0800 (PST)
+Message-ID: <20110309.204249.104057183.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ja@ssi.bg, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	lvs-devel@vger.kernel.org, hans@schillstrom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110309.185344.193704334.davem@davemloft.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46869
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751231Ab1CJEmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2011 23:42:12 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 964BB24C089
+	for <netdev@vger.kernel.org>; Wed,  9 Mar 2011 20:42:49 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 09, 2011 at 06:53:44PM -0800, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Thu, 10 Mar 2011 10:34:42 +0900
-> 
-> > On Sun, Mar 06, 2011 at 02:18:35PM +0200, Julian Anastasov wrote:
-> > 
-> > [ snip ]
-> > 
-> >> 	Zero the new percpu stats because we copy from there.
-> >> Use the stats spin lock to synchronize the percpu zeroing with
-> >> the percpu reading, both in user context and not in a hot path.
-> >> 
-> >> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > 
-> > Eric, do you have any thoughts on this?
-> > It seems clean to me.
-> 
-> Eric is away until this weekend, so don't be alarmed by a
-> late response :-)
 
-Thanks, I'll wait longer :-)
+Like in commit 44713b67db10c774f14280c129b0d5fd13c70cf2
+("ipv4: Optimize flow initialization in output route lookup."
+we can optimize the on-stack flow setup to only initialize
+the members which are actually used.
+
+Otherwise we bzero the entire structure, then initialize
+explicitly the first half of it.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 92a24ea..ac32d8f 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2081,12 +2081,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ {
+ 	struct fib_result res;
+ 	struct in_device *in_dev = __in_dev_get_rcu(dev);
+-	struct flowi fl = { .fl4_dst	= daddr,
+-			    .fl4_src	= saddr,
+-			    .fl4_tos	= tos,
+-			    .fl4_scope	= RT_SCOPE_UNIVERSE,
+-			    .mark = skb->mark,
+-			    .iif = dev->ifindex };
++	struct flowi fl;
+ 	unsigned	flags = 0;
+ 	u32		itag = 0;
+ 	struct rtable * rth;
+@@ -2123,6 +2118,13 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	/*
+ 	 *	Now we are ready to route packet.
+ 	 */
++	fl.oif = 0;
++	fl.iif = dev->ifindex;
++	fl.mark = skb->mark;
++	fl.fl4_dst = daddr;
++	fl.fl4_src = saddr;
++	fl.fl4_tos = tos;
++	fl.fl4_scope = RT_SCOPE_UNIVERSE;
+ 	err = fib_lookup(net, &fl, &res);
+ 	if (err != 0) {
+ 		if (!IN_DEV_FORWARD(in_dev))
+-- 
+1.7.4.1
+
