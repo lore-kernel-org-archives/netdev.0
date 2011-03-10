@@ -1,48 +1,55 @@
-From: Abhilash K V <abhilash.kv@ti.com>
-Subject: [PATCH] can : TI_HECC : Unintialized variables
-Date: Thu, 10 Mar 2011 21:51:27 +0530
-Message-ID: <1299774087-8532-1-git-send-email-abhilash.kv@ti.com>
-Cc: wg@grandegger.com, linux-omap@vger.kernel.org,
-	Abhilash K V <abhilash.kv@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>
-To: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] phylib: SIOCGMIIREG/SIOCSMIIREG: allow access to all mdio addresses
+Date: Thu, 10 Mar 2011 17:52:13 +0100
+Message-ID: <1299775933-26981-1-git-send-email-jacmet@sunsite.dk>
+Cc: Peter Korsgaard <jacmet@sunsite.dk>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:52412 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752487Ab1CJQwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 11:52:40 -0500
+Received: by wya21 with SMTP id 21so1629238wya.19
+        for <netdev@vger.kernel.org>; Thu, 10 Mar 2011 08:52:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-1. In ti_hecc_xmit(), "data" is not initialized, causing
-   undesirable effects like setting the RTR field for every
-   transmit.
-2. In ti_hecc_probe(), the spinlock  priv->mbx_lock is not
-   inited, causing a spinlock lockup BUG.
+phylib would silently ignore the phy_id argument to these ioctls and
+perform the read/write with the active phydev address, whereas most
+non-phylib drivers seem to allow access to all mdio addresses
+(E.G. pcnet_cs).
 
-Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
-Acked-by: Anant Gole <anantgole@ti.com>
-Signed-off-by: Abhilash K V <abhilash.kv@ti.com>
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 ---
- drivers/net/can/ti_hecc.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/phy/phy.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-index 4d07f1e..73c6025 100644
---- a/drivers/net/can/ti_hecc.c
-+++ b/drivers/net/can/ti_hecc.c
-@@ -503,6 +503,7 @@ static netdev_tx_t ti_hecc_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	spin_unlock_irqrestore(&priv->mbx_lock, flags);
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index a8445c7..f767033 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -319,7 +319,8 @@ int phy_mii_ioctl(struct phy_device *phydev,
+ 		/* fall through */
  
- 	/* Prepare mailbox for transmission */
-+	data = cf->can_dlc;
- 	if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
- 		data |= HECC_CANMCF_RTR;
- 	data |= get_tx_head_prio(priv) << 8;
-@@ -923,6 +924,7 @@ static int ti_hecc_probe(struct platform_device *pdev)
- 	priv->can.do_get_state = ti_hecc_get_state;
- 	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
+ 	case SIOCGMIIREG:
+-		mii_data->val_out = phy_read(phydev, mii_data->reg_num);
++		mii_data->val_out = mdiobus_read(phydev->bus, mii_data->phy_id,
++						 mii_data->reg_num);
+ 		break;
  
-+	spin_lock_init(&priv->mbx_lock);
- 	ndev->irq = irq->start;
- 	ndev->flags |= IFF_ECHO;
- 	platform_set_drvdata(pdev, ndev);
+ 	case SIOCSMIIREG:
+@@ -350,8 +351,9 @@ int phy_mii_ioctl(struct phy_device *phydev,
+ 			}
+ 		}
+ 
+-		phy_write(phydev, mii_data->reg_num, val);
+-		
++		mdiobus_write(phydev->bus, mii_data->phy_id,
++			      mii_data->reg_num, val);
++
+ 		if (mii_data->reg_num == MII_BMCR &&
+ 		    val & BMCR_RESET &&
+ 		    phydev->drv->config_init) {
 -- 
-1.6.2.4
+1.7.2.3
+
