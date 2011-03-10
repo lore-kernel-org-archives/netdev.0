@@ -1,45 +1,27 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH v3] tcp: ioctl type SIOCOUTQNSD returns amount of data
- not sent
-Date: Thu, 10 Mar 2011 23:12:05 +0100
-Message-ID: <20110310221205.GF3121@nuttenaction>
-References: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk>
- <1299441595-18455-1-git-send-email-sledz@dresearch.de>
- <20110309.140951.232741403.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch]ariadne: remove redundant NULL check
+Date: Thu, 10 Mar 2011 14:12:54 -0800 (PST)
+Message-ID: <20110310.141254.104056416.davem@davemloft.net>
+References: <20110310172031.GA10734@asset.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sledz@dresearch.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alan@lxorguk.ukuu.org.uk,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, m.schuknecht@dresearch.de
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: j223yang@asset.uwaterloo.ca
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110309.140951.232741403.davem@davemloft.net>
+In-Reply-To: <20110310172031.GA10734@asset.uwaterloo.ca>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller | 2011-03-09 14:09:51 [-0800]:
+From: j223yang@asset.uwaterloo.ca
+Date: Thu, 10 Mar 2011 12:20:31 -0500
 
->From: Steffen Sledz <sledz@dresearch.de>
->Date: Sun,  6 Mar 2011 20:59:55 +0100
->
->> From: Mario Schuknecht <m.schuknecht@dresearch.de>
->> 
->> In contrast to SIOCOUTQ which returns the amount of data sent
->> but not yet acknowledged plus data not yet sent this patch only
->> returns the data not sent.
->> 
->> For various methods of live streaming bitrate control it may
->> be helpful to know how much data are in the tcp outqueue are
->> not sent yet.
->> 
->> Signed-off-by: Mario Schuknecht <m.schuknecht@dresearch.de>
->> Signed-off-by: Steffen Sledz <sledz@dresearch.de>
->
->Applied, thanks.
+> Simply remove redundant 'dev' NULL check. 
+> 
+> Signed-off-by: Jinqiu Yang<crindy646@gmail.com>
 
-A little bit late - but why not using struct tcp_info for that? The
-information is already provided via getsockopt(TCP_INFO).
+This patch was corrupted by your email client, it turned TAB
+characters into spaces which makes the patch unusable.
 
-Hagen
+Also your signoff is badly formed, a space is missing between
+your name and the "<" that begins your email address.
