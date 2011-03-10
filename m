@@ -1,236 +1,219 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCH 2/8] macb: detect hclk presence from platform data
-Date: Thu, 10 Mar 2011 10:10:37 +0000
-Message-ID: <1299751843-9743-3-git-send-email-jamie@jamieiles.com>
+Subject: [PATCH 4/8] macb: initial support for Cadence GEM
+Date: Thu, 10 Mar 2011 10:10:39 +0000
+Message-ID: <1299751843-9743-5-git-send-email-jamie@jamieiles.com>
 References: <1299751843-9743-1-git-send-email-jamie@jamieiles.com>
 Cc: nicolas.ferre@atmel.com, Jamie Iles <jamie@jamieiles.com>
 To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ww0-f44.google.com ([74.125.82.44]:42407 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705Ab1CJKKx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 05:10:53 -0500
+	with ESMTP id S1751307Ab1CJKK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 05:10:57 -0500
 Received: by mail-ww0-f44.google.com with SMTP id 36so1752924wwa.1
-        for <netdev@vger.kernel.org>; Thu, 10 Mar 2011 02:10:53 -0800 (PST)
+        for <netdev@vger.kernel.org>; Thu, 10 Mar 2011 02:10:57 -0800 (PST)
 In-Reply-To: <1299751843-9743-1-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rather than detecting whether we need to do a clk_get() and enable on
-the "hclk" based on the kernel configuration, add an extra field to the
-platform data.  This makes it cleaner to add more supported
-architectures without lots of ifdeffery.
-
-This requires that all instantiations of the device have platform data
-defined but that is the case currently anyway.
+The Cadence GEM is based on the MACB Ethernet controller but has a few
+small changes with regards to register and bitfield placement.  This
+patch adds a new platform driver for gem which sets allows the driver to
+tell at runtime whether it is targetting a GEM device.
 
 Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 ---
- arch/avr32/mach-at32ap/at32ap700x.c |    2 +
- drivers/net/macb.c                  |   77 ++++++++++++++++++-----------------
- include/linux/platform_data/macb.h  |    1 +
- 3 files changed, 43 insertions(+), 37 deletions(-)
+ drivers/net/Kconfig |    8 ++++--
+ drivers/net/macb.c  |   53 ++++++++++++++++++++++++++++++++++++++++++--------
+ drivers/net/macb.h  |   18 +++++++++++++++++
+ 3 files changed, 67 insertions(+), 12 deletions(-)
 
-diff --git a/arch/avr32/mach-at32ap/at32ap700x.c b/arch/avr32/mach-at32ap/at32ap700x.c
-index 2747cde..2abcafd 100644
---- a/arch/avr32/mach-at32ap/at32ap700x.c
-+++ b/arch/avr32/mach-at32ap/at32ap700x.c
-@@ -1088,6 +1088,8 @@ at32_add_device_eth(unsigned int id, struct eth_platform_data *data)
- 	struct platform_device *pdev;
- 	u32 pin_mask;
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 6bd5caa..6de335a 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -223,12 +223,14 @@ menuconfig NET_ETHERNET
+ if NET_ETHERNET
  
-+	data->have_hclk = 1;
-+
- 	switch (id) {
- 	case 0:
- 		pdev = &macb0_device;
+ config MACB
+-	tristate "Atmel MACB support"
++	tristate "Cadence MACB/GEM support"
+ 	depends on HAVE_NET_MACB
+ 	select PHYLIB
+ 	help
+-	  The Atmel MACB ethernet interface is found on many AT32 and AT91
+-	  parts. Say Y to include support for the MACB chip.
++	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
++	  AT91 parts.  This driver also supports the Cadence GEM (Gigabit
++	  Ethernet MAC found in some ARM SoC devices).  Note: the Gigabit mode
++	  is not yet supported.  Say Y to include support for the MACB/GEM chip.
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called macb.
 diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index bfd3601..ae98fee 100644
+index 5d676ad..204afa6 100644
 --- a/drivers/net/macb.c
 +++ b/drivers/net/macb.c
-@@ -246,9 +246,7 @@ static int macb_mii_init(struct macb *bp)
- 	bp->mii_bus->parent = &bp->dev->dev;
- 	pdata = bp->pdev->dev.platform_data;
- 
--	if (pdata)
--		bp->mii_bus->phy_mask = pdata->phy_mask;
+@@ -1,5 +1,5 @@
+ /*
+- * Atmel MACB Ethernet Controller driver
++ * Cadence MACB/GEM Ethernet Controller driver
+  *
+  * Copyright (C) 2004-2006 Atmel Corporation
+  *
+@@ -7,7 +7,6 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
 -
-+	bp->mii_bus->phy_mask = pdata->phy_mask;
- 	bp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
- 	if (!bp->mii_bus->irq) {
- 		err = -ENOMEM;
-@@ -1103,9 +1101,14 @@ static const struct net_device_ops macb_netdev_ops = {
+ #define pr_fmt(fmt) "macb: " fmt
+ #include <linux/clk.h>
+ #include <linux/module.h>
+@@ -1108,7 +1107,7 @@ static const struct net_device_ops macb_netdev_ops = {
+ #define PCLK_NAME	"pclk"
  #endif
- };
  
-+#ifdef CONFIG_ARCH_AT91
-+#define PCLK_NAME	"macb_clk"
-+#else /* CONFIG_ARCH_AT91 */
-+#define PCLK_NAME	"pclk"
-+#endif
-+
- static int __init macb_probe(struct platform_device *pdev)
+-static int __init macb_probe(struct platform_device *pdev)
++static int __macb_probe(struct platform_device *pdev, int is_gem)
  {
--	struct eth_platform_data *pdata;
  	struct resource *regs;
  	struct net_device *dev;
- 	struct macb *bp;
-@@ -1113,6 +1116,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 	unsigned long pclk_hz;
- 	u32 config;
- 	int err = -ENXIO;
-+	struct eth_platform_data *pdata;
- 
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!regs) {
-@@ -1120,6 +1124,13 @@ static int __init macb_probe(struct platform_device *pdev)
- 		goto err_out;
- 	}
- 
-+	err = -EINVAL;
-+	pdata = dev_get_platdata(&pdev->dev);
-+	if (!pdata) {
-+		dev_err(&pdev->dev, "no platform data present\n");
-+		goto err_out;
-+	}
-+
- 	err = -ENOMEM;
- 	dev = alloc_etherdev(sizeof(*bp));
- 	if (!dev) {
-@@ -1138,28 +1149,22 @@ static int __init macb_probe(struct platform_device *pdev)
+@@ -1147,6 +1146,7 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	bp = netdev_priv(dev);
+ 	bp->pdev = pdev;
+ 	bp->dev = dev;
++	bp->is_gem = is_gem;
  
  	spin_lock_init(&bp->lock);
  
--#if defined(CONFIG_ARCH_AT91)
--	bp->pclk = clk_get(&pdev->dev, "macb_clk");
-+	bp->pclk = clk_get(&pdev->dev, PCLK_NAME);
- 	if (IS_ERR(bp->pclk)) {
- 		dev_err(&pdev->dev, "failed to get macb_clk\n");
- 		goto err_out_free_dev;
- 	}
- 	clk_enable(bp->pclk);
--#else
--	bp->pclk = clk_get(&pdev->dev, "pclk");
--	if (IS_ERR(bp->pclk)) {
--		dev_err(&pdev->dev, "failed to get pclk\n");
--		goto err_out_free_dev;
--	}
--	bp->hclk = clk_get(&pdev->dev, "hclk");
--	if (IS_ERR(bp->hclk)) {
--		dev_err(&pdev->dev, "failed to get hclk\n");
--		goto err_out_put_pclk;
+@@ -1230,8 +1230,9 @@ static int __init macb_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, dev);
+ 
+-	pr_info("%s: Atmel MACB at 0x%08lx irq %d (%pM)\n",
+-		dev->name, dev->base_addr, dev->irq, dev->dev_addr);
++	pr_info("%s: Cadence %s at 0x%08lx irq %d (%pM)\n",
++		dev->name, bp->is_gem ? "GEM" : "MACB", dev->base_addr,
++		dev->irq, dev->dev_addr);
+ 
+ 	phydev = bp->phy_dev;
+ 	pr_info("%s: attached PHY driver [%s] "
+@@ -1261,7 +1262,17 @@ err_out:
+ 	return err;
+ }
+ 
+-static int __exit macb_remove(struct platform_device *pdev)
++static int __devinit macb_probe(struct platform_device *pdev)
++{
++	return __macb_probe(pdev, 0);
++}
 +
-+	if (pdata->have_hclk) {
-+		bp->hclk = clk_get(&pdev->dev, "hclk");
-+		if (IS_ERR(bp->hclk)) {
-+			dev_err(&pdev->dev, "failed to get hclk\n");
-+			goto err_out_put_pclk;
-+		}
-+		clk_enable(bp->hclk);
- 	}
- 
--	clk_enable(bp->pclk);
--	clk_enable(bp->hclk);
--#endif
- 
- 	bp->regs = ioremap(regs->start, regs->end - regs->start + 1);
- 	if (!bp->regs) {
-@@ -1197,9 +1202,8 @@ static int __init macb_probe(struct platform_device *pdev)
- 	macb_writel(bp, NCFGR, config);
- 
- 	macb_get_hwaddr(bp);
--	pdata = pdev->dev.platform_data;
- 
--	if (pdata && pdata->is_rmii)
-+	if (pdata->is_rmii)
- #if defined(CONFIG_ARCH_AT91)
- 		macb_writel(bp, USRIO, (MACB_BIT(RMII) | MACB_BIT(CLKEN)) );
- #else
-@@ -1243,14 +1247,12 @@ err_out_free_irq:
- err_out_iounmap:
- 	iounmap(bp->regs);
- err_out_disable_clocks:
--#ifndef CONFIG_ARCH_AT91
--	clk_disable(bp->hclk);
--	clk_put(bp->hclk);
--#endif
-+	if (pdata->have_hclk) {
-+		clk_disable(bp->hclk);
-+		clk_put(bp->hclk);
-+	}
- 	clk_disable(bp->pclk);
--#ifndef CONFIG_ARCH_AT91
- err_out_put_pclk:
--#endif
- 	clk_put(bp->pclk);
- err_out_free_dev:
- 	free_netdev(dev);
-@@ -1263,6 +1265,7 @@ static int __exit macb_remove(struct platform_device *pdev)
++static int __devinit gem_probe(struct platform_device *pdev)
++{
++	return __macb_probe(pdev, 1);
++}
++
++static int __devexit macb_remove(struct platform_device *pdev)
  {
  	struct net_device *dev;
  	struct macb *bp;
-+	struct eth_platform_data *pdata = dev_get_platdata(&pdev->dev);
+@@ -1328,7 +1339,8 @@ static int macb_resume(struct platform_device *pdev)
+ #endif
  
- 	dev = platform_get_drvdata(pdev);
- 
-@@ -1276,10 +1279,10 @@ static int __exit macb_remove(struct platform_device *pdev)
- 		unregister_netdev(dev);
- 		free_irq(dev->irq, dev);
- 		iounmap(bp->regs);
--#ifndef CONFIG_ARCH_AT91
--		clk_disable(bp->hclk);
--		clk_put(bp->hclk);
--#endif
-+		if (pdata->have_hclk) {
-+			clk_disable(bp->hclk);
-+			clk_put(bp->hclk);
-+		}
- 		clk_disable(bp->pclk);
- 		clk_put(bp->pclk);
- 		free_netdev(dev);
-@@ -1294,12 +1297,12 @@ static int macb_suspend(struct platform_device *pdev, pm_message_t state)
- {
- 	struct net_device *netdev = platform_get_drvdata(pdev);
- 	struct macb *bp = netdev_priv(netdev);
-+	struct eth_platform_data *pdata = dev_get_platdata(&pdev->dev);
- 
- 	netif_device_detach(netdev);
- 
--#ifndef CONFIG_ARCH_AT91
--	clk_disable(bp->hclk);
--#endif
-+	if (pdata->have_hclk)
-+		clk_disable(bp->hclk);
- 	clk_disable(bp->pclk);
- 
- 	return 0;
-@@ -1309,11 +1312,11 @@ static int macb_resume(struct platform_device *pdev)
- {
- 	struct net_device *netdev = platform_get_drvdata(pdev);
- 	struct macb *bp = netdev_priv(netdev);
-+	struct eth_platform_data *pdata = dev_get_platdata(&pdev->dev);
- 
- 	clk_enable(bp->pclk);
--#ifndef CONFIG_ARCH_AT91
--	clk_enable(bp->hclk);
--#endif
-+	if (pdata->have_hclk)
-+		clk_enable(bp->hclk);
- 
- 	netif_device_attach(netdev);
- 
-diff --git a/include/linux/platform_data/macb.h b/include/linux/platform_data/macb.h
-index beddfd3..ae18579 100644
---- a/include/linux/platform_data/macb.h
-+++ b/include/linux/platform_data/macb.h
-@@ -5,6 +5,7 @@ struct eth_platform_data {
- 	u32		phy_mask;
- 	u8		phy_irq_pin;	/* PHY IRQ */
- 	u8		is_rmii;	/* using RMII interface? */
-+	int		have_hclk;	/* have hclk as well as pclk */
+ static struct platform_driver macb_driver = {
+-	.remove		= __exit_p(macb_remove),
++	.probe		= macb_probe,
++	.remove		= __devexit_p(macb_remove),
+ 	.suspend	= macb_suspend,
+ 	.resume		= macb_resume,
+ 	.driver		= {
+@@ -1337,20 +1349,43 @@ static struct platform_driver macb_driver = {
+ 	},
  };
  
- #endif /* __MACB_PDATA_H__ */
++static struct platform_driver gem_driver = {
++	.probe		= gem_probe,
++	.remove		= __devexit_p(macb_remove),
++	.suspend	= macb_suspend,
++	.resume		= macb_resume,
++	.driver		= {
++		.name		= "gem",
++		.owner	= THIS_MODULE,
++	},
++};
++
+ static int __init macb_init(void)
+ {
+-	return platform_driver_probe(&macb_driver, macb_probe);
++	int ret;
++
++	ret = platform_driver_register(&macb_driver);
++	if (ret)
++		return ret;
++
++	ret = platform_driver_register(&gem_driver);
++	if (ret)
++		platform_driver_unregister(&macb_driver);
++
++	return ret;
++
+ }
+ 
+ static void __exit macb_exit(void)
+ {
+ 	platform_driver_unregister(&macb_driver);
++	platform_driver_unregister(&gem_driver);
+ }
+ 
+ module_init(macb_init);
+ module_exit(macb_exit);
+ 
+ MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("Atmel MACB Ethernet driver");
++MODULE_DESCRIPTION("Cadence MACB/GEM Ethernet driver");
+ MODULE_AUTHOR("Haavard Skinnemoen <hskinnemoen@atmel.com>");
+ MODULE_ALIAS("platform:macb");
+diff --git a/drivers/net/macb.h b/drivers/net/macb.h
+index d3212f6..f838615 100644
+--- a/drivers/net/macb.h
++++ b/drivers/net/macb.h
+@@ -254,11 +254,28 @@
+ 		    << MACB_##name##_OFFSET))		\
+ 	 | MACB_BF(name,value))
+ 
++#define GEM_BIT(name)					\
++	(1 << GEM_##name##_OFFSET)
++#define GEM_BF(name,value)				\
++	(((value) & ((1 << GEM_##name##_SIZE) - 1))	\
++	 << GEM_##name##_OFFSET)
++#define GEM_BFEXT(name,value)\
++	(((value) >> GEM_##name##_OFFSET)		\
++	 & ((1 << GEM_##name##_SIZE) - 1))
++#define GEM_BFINS(name,value,old)			\
++	(((old) & ~(((1 << GEM_##name##_SIZE) - 1)	\
++		    << GEM_##name##_OFFSET))		\
++	 | GEM_BF(name,value))
++
+ /* Register access macros */
+ #define macb_readl(port,reg)				\
+ 	__raw_readl((port)->regs + MACB_##reg)
+ #define macb_writel(port,reg,value)			\
+ 	__raw_writel((value), (port)->regs + MACB_##reg)
++#define gem_readl(port,reg)				\
++	__raw_readl((port)->regs + GEM_##reg)
++#define gem_writel(port,reg,value)			\
++	__raw_writel((value), (port)->regs + GEM_##reg)
+ 
+ struct dma_desc {
+ 	u32	addr;
+@@ -360,6 +377,7 @@ struct macb_stats {
+ 
+ struct macb {
+ 	void __iomem		*regs;
++	int			is_gem;
+ 
+ 	unsigned int		rx_tail;
+ 	struct dma_desc		*rx_ring;
 -- 
 1.7.4
 
