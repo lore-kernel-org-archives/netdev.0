@@ -1,38 +1,110 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 6/6] tcp_cubic: enable high resolution ack time if needed
-Date: Thu, 10 Mar 2011 08:51:28 -0800
-Message-ID: <20110310165329.281291096@vyatta.com>
+Subject: [PATCH 5/6] tcp_cubic: fix clock dependency
+Date: Thu, 10 Mar 2011 08:51:27 -0800
+Message-ID: <20110310165329.187344604@vyatta.com>
 References: <20110310165119.224046957@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, sangtae.ha@gmail.com, rhee@ncsu.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:45018 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:45019 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753358Ab1CJQ4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2011 11:56:22 -0500
-Content-Disposition: inline; filename=tcp-cubic-rtt-cong.patch
+	id S1753358Ab1CJQ4X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2011 11:56:23 -0500
+Content-Disposition: inline; filename=tcp-cubic-minrtt.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a refined version of an earlier patch by Lucas Nussbaum.
-Cubic needs RTT values in milliseconds. If HZ < 1000 then
-the values will be too coarse.
+The hystart code was written with assumption that HZ=1000.
+Replace the use of jiffies with bictcp_clock as a millisecond
+real time clock. 
+
+Warning: this is still experimental, there may still be mistakes
+in units (ms vs. jiffies).
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
+P.s: tried using ktime_t but 'struct bictcp' is bumping against limit
+of CA_PRIV_SIZE.
 
---- a/net/ipv4/tcp_cubic.c	2011-03-10 08:35:59.968882888 -0800
-+++ b/net/ipv4/tcp_cubic.c	2011-03-10 08:36:10.241016524 -0800
-@@ -459,6 +459,10 @@ static int __init cubictcp_register(void
- 	/* divide by bic_scale and by constant Srtt (100ms) */
- 	do_div(cube_factor, bic_scale * 10);
+--- a/net/ipv4/tcp_cubic.c	2011-03-10 08:35:45.532695373 -0800
++++ b/net/ipv4/tcp_cubic.c	2011-03-10 08:35:59.968882888 -0800
+@@ -88,7 +88,7 @@ struct bictcp {
+ 	u32	last_time;	/* time when updated last_cwnd */
+ 	u32	bic_origin_point;/* origin point of bic function */
+ 	u32	bic_K;		/* time to origin point from the beginning of the current epoch */
+-	u32	delay_min;	/* min delay */
++	u32	delay_min;	/* min delay (msec << 3) */
+ 	u32	epoch_start;	/* beginning of an epoch */
+ 	u32	ack_cnt;	/* number of acks */
+ 	u32	tcp_cwnd;	/* estimated tcp cwnd */
+@@ -98,7 +98,7 @@ struct bictcp {
+ 	u8	found;		/* the exit point is found? */
+ 	u32	round_start;	/* beginning of each round */
+ 	u32	end_seq;	/* end_seq of the round */
+-	u32	last_jiffies;	/* last time when the ACK spacing is close */
++	u32	last_ack;	/* last time when the ACK spacing is close */
+ 	u32	curr_rtt;	/* the minimum rtt of current round */
+ };
  
-+	/* hystart needs ms clock resolution */
-+	if (hystart && HZ < 1000)
-+		cubictcp.flags |= TCP_CONG_RTT_STAMP;
-+
- 	return tcp_register_congestion_control(&cubictcp);
+@@ -119,12 +119,21 @@ static inline void bictcp_reset(struct b
+ 	ca->found = 0;
  }
+ 
++static inline u32 bictcp_clock(void)
++{
++#if HZ < 1000
++	return ktime_to_ms(ktime_get_real());
++#else
++	return jiffies_to_ms(jiffies);
++#endif
++}
++
+ static inline void bictcp_hystart_reset(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+ 
+-	ca->round_start = ca->last_jiffies = jiffies;
++	ca->round_start = ca->last_ack = bictcp_clock();
+ 	ca->end_seq = tp->snd_nxt;
+ 	ca->curr_rtt = 0;
+ 	ca->sample_cnt = 0;
+@@ -239,7 +248,7 @@ static inline void bictcp_update(struct
+ 	 */
+ 
+ 	/* change the unit from HZ to bictcp_HZ */
+-	t = ((tcp_time_stamp + (ca->delay_min>>3) - ca->epoch_start)
++	t = ((tcp_time_stamp + msecs_to_jiffies(ca->delay_min>>3) - ca->epoch_start)
+ 	     << BICTCP_HZ) / HZ;
+ 
+ 	if (t < ca->bic_K)		/* t - K */
+@@ -342,14 +351,12 @@ static void hystart_update(struct sock *
+ 	struct bictcp *ca = inet_csk_ca(sk);
+ 
+ 	if (!(ca->found & hystart_detect)) {
+-		u32 curr_jiffies = jiffies;
++		u32 now = bictcp_clock();
+ 
+ 		/* first detection parameter - ack-train detection */
+-		if ((s32)(curr_jiffies - ca->last_jiffies) <=
+-		    msecs_to_jiffies(hystart_ack_delta)) {
+-			ca->last_jiffies = curr_jiffies;
+-			if ((s32) (curr_jiffies - ca->round_start) <=
+-			    ca->delay_min >> 4)
++		if ((s32)(now - ca->last_ack) <= hystart_ack_delta) {
++			ca->last_ack = now;
++			if ((s32)(now - ca->round_start) <= ca->delay_min >> 4)
+ 				ca->found |= HYSTART_ACK_TRAIN;
+ 		}
+ 
+@@ -396,7 +403,7 @@ static void bictcp_acked(struct sock *sk
+ 	if ((s32)(tcp_time_stamp - ca->epoch_start) < HZ)
+ 		return;
+ 
+-	delay = usecs_to_jiffies(rtt_us) << 3;
++	delay = (rtt_us << 3) / USEC_PER_MSEC;
+ 	if (delay == 0)
+ 		delay = 1;
  
 
 
