@@ -1,81 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 29252] New: IPv6 doesn't work in a kvm guest.
-Date: Wed, 09 Mar 2011 15:58:18 -0800 (PST)
-Message-ID: <20110309.155818.212679516.davem@davemloft.net>
-References: <bug-29252-10286@https.bugzilla.kernel.org/>
-	<20110217142517.b9919481.akpm@linux-foundation.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Stale entries in RT_TABLE_LOCAL
+Date: Thu, 10 Mar 2011 02:04:17 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103100139510.2372@ja.ssi.bg>
+References: <201102231243.23579.alexandre.sidorenko@hp.com> <20110309.135308.102544831.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, slash@ac.auone-net.jp,
-	ernstp@gmail.com
-To: akpm@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: alexandre.sidorenko@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56148
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752262Ab1CIX5l convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2011 18:57:41 -0500
-In-Reply-To: <20110217142517.b9919481.akpm@linux-foundation.org>
+Received: from ja.ssi.bg ([178.16.129.10]:38652 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751449Ab1CIX7k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2011 18:59:40 -0500
+In-Reply-To: <20110309.135308.102544831.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Ok, the following should address both bugs, #29252 and #30462, please
-give it some testing.
+ 	Hello,
 
---------------------
-ipv6: Don't create clones of nonexthop routes forever.
+On Wed, 9 Mar 2011, David Miller wrote:
 
-Addresses https://bugzilla.kernel.org/show_bug.cgi?id=3D29252
-Addresses https://bugzilla.kernel.org/show_bug.cgi?id=3D30462
+> From: Alex Sidorenko <alexandre.sidorenko@hp.com>
+> Date: Wed, 23 Feb 2011 12:43:23 -0500
+>
+>> I am not sure what is the best way to fix this, I can think of several
+>> approaches:
+>>
+>>   (a) change the sources so that it would be impossible to add the same IP
+>>       multiple times, even with different masks. I cannot think of any
+>>       situation where adding the same IP (but with different mask) to the same
+>>       interface could be useful. But maybe I am wrong?
+>
+> I'm leaning towards this solution if it's viable.  But I'm not so sure that
+> nobody uses this feature, maybe Julian knows?
+>
+> Julian, the issue is that if you add the same IP address multiple times using
+> different subnet masks, we allow it.
+>
+> But removal doesn't work correctly, we clear the IFA list on the device but we
+> leave stale entries in the local routing table.
+>
+> The test case is:
+>
+> ip addr add 192.168.142.109/23 dev dummy0
+> ip addr add 192.168.142.109/22 dev dummy0
 
-In commit d80bc0fd262ef840ed4e82593ad6416fa1ba3fc4 ("ipv6: Always
-clone offlink routes.") we forced the kernel to always clone offlink
-routes.
+ 	Here I have just one local route.
 
-The reason we do that is to make sure we never bind an inetpeer to a
-prefixed route.
+> ip addr del 192.168.142.109/22 dev dummy0
+> ip addr del 192.168.142.109/23 dev dummy0
 
-The logic turned on here has existed in the tree for many years,
-but was always off due to a protecting CPP define.  So perhaps
-it's no surprise that there is a logic bug here.
+ 	Hm, my 2.6.34 kernel has no such problem. I have
+to do some tests with recent tree tomorrow. But fib_magic uses
+NLM_F_CREATE | NLM_F_APPEND but even that can not overcome
+the check for equal alias, so I don't think it is possible
+two equal FIB aliases to be added. I expect only to see
+2 local routes if the IP addresses are added to different
+devices. May be for some reason we can not remove the single
+local route when last IP is deleted.
 
-The issue is that there is nothing that stops the cloning process.
-Every route call will find the same route in the same condition,
-reclone it, and insert.
+ 	Alex, what is the kernel version and can you test
+it on different kernels? Also, do you really see 2 equal
+local routes after the two adds?
 
-This causes two problems:
+Regards
 
-1) If the in6_rt_ins() call succeeds, we get tons of crap in the
-   routing tree.
-
-2) If the int6_rt_ins() call fails, we get no networking to that
-   destination.
-
-We've had reports of both cases.
-
-End the loop and the failures by keying on the RTF_CACHE flag which
-will only be set in the clone routes.
-
-Reported-by: slash@ac.auone-net.jp
-Reported-by: Ernst Sj=F6strand <ernstp@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 904312e..8963635 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -739,8 +739,10 @@ restart:
-=20
- 	if (!rt->rt6i_nexthop && !(rt->rt6i_flags & RTF_NONEXTHOP))
- 		nrt =3D rt6_alloc_cow(rt, &fl->fl6_dst, &fl->fl6_src);
--	else
-+	else if (!(rt->rt6i_flags & RTF_CACHE))
- 		nrt =3D rt6_alloc_clone(rt, &fl->fl6_dst);
-+	else
-+		goto out2;
-=20
- 	dst_release(&rt->dst);
- 	rt =3D nrt ? : net->ipv6.ip6_null_entry;
+--
+Julian Anastasov <ja@ssi.bg>
