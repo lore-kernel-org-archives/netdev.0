@@ -1,42 +1,63 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH] xen: netfront: ethtool stats fields should be unsigned long
-Date: Thu, 10 Mar 2011 17:04:18 +0000
-Message-ID: <1299776658-15137-1-git-send-email-ian.campbell@citrix.com>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:60878 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252Ab1CJREX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 12:04:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH] can : TI_HECC : Unintialized variables
+Date: Thu, 10 Mar 2011 18:07:32 +0100
+Message-ID: <4D790554.20204@grandegger.com>
+References: <1299774087-8532-1-git-send-email-abhilash.kv@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Vaibhav Hiremath <hvaibhav-l0cyMroinI0@public.gmane.org>
+To: Abhilash K V <abhilash.kv-l0cyMroinI0@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1299774087-8532-1-git-send-email-abhilash.kv-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fixup the rx_gso_checksum_fixup field added in e0ce4af920eb to be
-unsigned long as suggested by Ben Hutchings in
-<1298919198.2569.14.camel@bwh-desktop>
+On 03/10/2011 05:21 PM, Abhilash K V wrote:
+> 1. In ti_hecc_xmit(), "data" is not initialized, causing
+>    undesirable effects like setting the RTR field for every
+>    transmit.
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/xen-netfront.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Does it need to be initialized to "data = cf->can_dlc"? If yes, please
+correct the message, if not ...
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index a6ab973..df45323 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -122,7 +122,7 @@ struct netfront_info {
- 	struct mmu_update rx_mmu[NET_RX_RING_SIZE];
- 
- 	/* Statistics */
--	int rx_gso_checksum_fixup;
-+	unsigned long rx_gso_checksum_fixup;
- };
- 
- struct netfront_rx_info {
--- 
-1.5.6.5
+> 2. In ti_hecc_probe(), the spinlock  priv->mbx_lock is not
+>    inited, causing a spinlock lockup BUG.
+> 
+> Signed-off-by: Vaibhav Hiremath <hvaibhav-l0cyMroinI0@public.gmane.org>
+> Acked-by: Anant Gole <anantgole-l0cyMroinI0@public.gmane.org>
+> Signed-off-by: Abhilash K V <abhilash.kv-l0cyMroinI0@public.gmane.org>
+> ---
+>  drivers/net/can/ti_hecc.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+> index 4d07f1e..73c6025 100644
+> --- a/drivers/net/can/ti_hecc.c
+> +++ b/drivers/net/can/ti_hecc.c
+> @@ -503,6 +503,7 @@ static netdev_tx_t ti_hecc_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	spin_unlock_irqrestore(&priv->mbx_lock, flags);
+>  
+>  	/* Prepare mailbox for transmission */
+> +	data = cf->can_dlc;
+>  	if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
+>  		data |= HECC_CANMCF_RTR;
+>  	data |= get_tx_head_prio(priv) << 8;
 
+... using the following expressions looks more reasonable:
+
+  	data = get_tx_head_prio(priv) << 8;
+ 	if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
+ 		data |= HECC_CANMCF_RTR;
+	
+Wolfgang.
