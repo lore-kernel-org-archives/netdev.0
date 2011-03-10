@@ -1,47 +1,62 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCH 2/8] macb: detect hclk presence from platform data
-Date: Thu, 10 Mar 2011 11:45:19 +0000
-Message-ID: <20110310114519.GD6198@pulham.picochip.com>
-References: <1299751843-9743-1-git-send-email-jamie@jamieiles.com>
- <1299751843-9743-3-git-send-email-jamie@jamieiles.com>
- <20110310101554.GD11273@n2100.arm.linux.org.uk>
- <20110310114137.GC6198@pulham.picochip.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
+Date: Thu, 10 Mar 2011 13:08:56 +0100
+Message-ID: <20110310120856.GA14219@electric-eye.fr.zoreil.com>
+References: <AANLkTin7GBSTcfZgr_9sNZ8CPMkW7Vstni+fs2v1-ink@mail.gmail.com> <1297581470.2510.18.camel@edumazet-laptop> <20110213135600.GA11382@electric-eye.fr.zoreil.com> <AANLkTikTw71-mv9WsPT8PxC1a1nwEJ=x0UNDhVQGP1A6@mail.gmail.com> <AANLkTikLOJ-XcwfdbWS19DKzh2s91tn5pQjJe0+CeAN-@mail.gmail.com> <20110213203417.GA11442@electric-eye.fr.zoreil.com> <AANLkTi=PrOXMD54hSbEwUtmzXiwsSwiSijE3AJ9n=WDe@mail.gmail.com> <20110218093000.GA12106@electric-eye.fr.zoreil.com> <AANLkTim6tt4yC+1VQ3AtDMf1KKLRqf5kErpipqNSbQkX@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	nicolas.ferre@atmel.com
-To: Jamie Iles <jamie@jamieiles.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54084 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752242Ab1CJLpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 06:45:22 -0500
-Received: by wya21 with SMTP id 21so1351208wya.19
-        for <netdev@vger.kernel.org>; Thu, 10 Mar 2011 03:45:21 -0800 (PST)
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Ivan Vecera <ivecera@redhat.com>
+To: Seblu <seblu@seblu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110310114137.GC6198@pulham.picochip.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <AANLkTim6tt4yC+1VQ3AtDMf1KKLRqf5kErpipqNSbQkX@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2011 at 11:41:37AM +0000, Jamie Iles wrote:
-> diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-> index bfd3601..8e6d8e3 100644
-> --- a/drivers/net/macb.c
-> +++ b/drivers/net/macb.c
-> @@ -246,9 +246,7 @@ static int macb_mii_init(struct macb *bp)
->  	bp->mii_bus->parent = &bp->dev->dev;
->  	pdata = bp->pdev->dev.platform_data;
->  
-> -	if (pdata)
-> -		bp->mii_bus->phy_mask = pdata->phy_mask;
-> -
-> +	bp->mii_bus->phy_mask = pdata->phy_mask;
->  	bp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
->  	if (!bp->mii_bus->irq) {
->  		err = -ENOMEM;
+Seblu <seblu@seblu.net> :
+[...]
+> I catched the following trace during my previous torture session.
+> Maybe it can help.
 
-Doh, too hasty.  That hunk shouldn't be there now.  I'll fix that up for 
-next time.
+It's the usual r8169 TX timeout watchdog.
 
-Jamie
+[...]
+> > Can you apply the two attached patches on top of the previous ones and
+> > give it a try ? The debug should not be too verbose if things are stationary
+> > enough.
+> 2.6.38-rc7 with your 2 previous patch change the game. No reboot. No
+> strange message in dmesg.
+
+?
+
+"strange message" as :
+[ ] netdev watchdog messages
+[ ] 0001 0001 0001 0001 (or similar) message
+[ ] net_ratelimit message
+
+> But some sent packets are lost from some host. Example:
+[...]
+> This is maybe normal under stress, card discard packet after all.
+
+It seems so. 0.08% packet loss. 10 ~ 20kpps (right ?). Sample at 0.1 Hz (ping).
+
+[...]
+> I've a serial cable and a second computer, but my first computer
+> doesn't have a com port. Is it then possible?
+
+Hardly. Forget it for now.
+
+> Do you need more test?
+
+1. 2.6.38-rc7 without the patches
+2. 2.6.38-rc7 with the r8169.c driver of 2.6.38-rc5, without the patches
+3. current setup + pktgen. Lower the packet size as long as it increases
+   the sender's pps.
+
+I do not understand why the bug would be gone if it was in the r8169
+proper.
+
+-- 
+Ueimor
