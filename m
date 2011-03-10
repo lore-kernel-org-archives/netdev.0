@@ -1,44 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [GIT/PATCH v4] xen network backend driver
-Date: Thu, 10 Mar 2011 17:17:17 +0000
-Message-ID: <1299777438.2807.0.camel@bwh-desktop>
-References: <1299776554.17339.824.camel@zakaz.uk.xensource.com>
-	 <20110310091425.3451f7f1@nehalam>
+From: j223yang@asset.uwaterloo.ca
+Subject: [Patch]ariadne: remove redundant NULL check
+Date: Thu, 10 Mar 2011 12:20:31 -0500
+Message-ID: <20110310172031.GA10734@asset.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:34582 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752728Ab1CJRRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 12:17:21 -0500
-In-Reply-To: <20110310091425.3451f7f1@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-03-10 at 09:14 -0800, Stephen Hemminger wrote:
-> On Thu, 10 Mar 2011 17:02:33 +0000
-> Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> 
-> > +	/* Flags that must not be set in dev->features */
-> > +	int features_disabled;
-> 
-> dev->features is unsigned long, so this mask should be as well.
+Simply remove redundant 'dev' NULL check. 
 
-It's u32 now.
+Signed-off-by: Jinqiu Yang<crindy646@gmail.com>
+---
+ ariadne.c |    5 -----
+ 1 file changed, 5 deletions(-)
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--- a/drivers/net/ariadne.c	2011-03-10 11:20:14.076039323 -0500
++++ b/drivers/net/ariadne.c	2011-03-10 11:21:59.111164537 -0500
+@@ -425,11 +425,6 @@ static irqreturn_t ariadne_interrupt(int
+     int csr0, boguscnt;
+     int handled = 0;
+ 
+-    if (dev == NULL) {
+-	printk(KERN_WARNING "ariadne_interrupt(): irq for unknown device.\n");
+-	return IRQ_NONE;
+-    }
+-
+     lance->RAP = CSR0;			/* PCnet-ISA Controller Status */
+ 
+     if (!(lance->RDP & INTR))		/* Check if any interrupt has been */
