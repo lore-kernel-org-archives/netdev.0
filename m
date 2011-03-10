@@ -1,7 +1,7 @@
 From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: [PATCH] ipv4: netfilter: ip_tables: fix infoleak to userspace
-Date: Thu, 10 Mar 2011 21:12:14 +0300
-Message-ID: <1299780735-32607-1-git-send-email-segoon@openwall.com>
+Subject: [PATCH] ipv4: netfilter: ipt_CLUSTERIP: fix buffer overflow
+Date: Thu, 10 Mar 2011 21:12:19 +0300
+Message-ID: <1299780740-32652-1-git-send-email-segoon@openwall.com>
 Cc: security@kernel.org, Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -10,55 +10,36 @@ Cc: security@kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
 	coreteam@netfilter.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Structures ipt_replace, compat_ipt_replace, and xt_get_revision are
-copied from userspace.  Fields of these structs that are
-zero-terminated strings are not checked.  When they are used as argument
-to a format string containing "%s" in request_module(), some sensitive
-information is leaked to userspace via argument of spawned modprobe
-process.
+buffer string is copied from userspace.  It is not checked whether it is
+zero terminated.  This may lead to overflow inside of simple_strtoul().
 
-The first and the third bugs were introduced before the git epoch; the
-second was introduced in 2722971c (v2.6.17-rc1).  To trigger the bug
-one should have CAP_NET_ADMIN.
+It was introduced before the git epoch.  Files "ipt_CLUSTERIP/*" are
+root writable only by default, however, on some setups permissions might be
+relaxed to e.g. network admin user.
 
 Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 ---
  Compile tested.
 
- net/ipv4/netfilter/ip_tables.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index ef7d7b9..b09ed0d 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1262,6 +1262,7 @@ do_replace(struct net *net, const void __user *user, unsigned int len)
- 	/* overflow check */
- 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
- 		return -ENOMEM;
-+	tmp.name[sizeof(tmp.name)-1] = 0;
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 403ca57..7aabf9a 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -666,6 +666,7 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
  
- 	newinfo = xt_alloc_table_info(tmp.size);
- 	if (!newinfo)
-@@ -1807,6 +1808,7 @@ compat_do_replace(struct net *net, void __user *user, unsigned int len)
- 		return -ENOMEM;
- 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
- 		return -ENOMEM;
-+	tmp.name[sizeof(tmp.name)-1] = 0;
+ 	if (copy_from_user(buffer, input, PROC_WRITELEN))
+ 		return -EFAULT;
++	buffer[sizeof(buffer)-1] = 0;
  
- 	newinfo = xt_alloc_table_info(tmp.size);
- 	if (!newinfo)
-@@ -2036,6 +2038,7 @@ do_ipt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 			ret = -EFAULT;
- 			break;
- 		}
-+		rev.name[sizeof(rev.name)-1] = 0;
- 
- 		if (cmd == IPT_SO_GET_REVISION_TARGET)
- 			target = 1;
+ 	if (*buffer == '+') {
+ 		nodenum = simple_strtoul(buffer+1, NULL, 10);
 -- 
 1.7.0.4
+
