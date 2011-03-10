@@ -1,7 +1,7 @@
 From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: [PATCH] ipv4: netfilter: ipt_CLUSTERIP: fix buffer overflow
-Date: Thu, 10 Mar 2011 21:12:19 +0300
-Message-ID: <1299780740-32652-1-git-send-email-segoon@openwall.com>
+Subject: [PATCH] ipv6: netfilter: ip6_tables: fix infoleak to userspace
+Date: Thu, 10 Mar 2011 21:13:46 +0300
+Message-ID: <1299780827-344-1-git-send-email-segoon@openwall.com>
 Cc: security@kernel.org, Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -10,36 +10,56 @@ Cc: security@kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
 	coreteam@netfilter.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-buffer string is copied from userspace.  It is not checked whether it is
-zero terminated.  This may lead to overflow inside of simple_strtoul().
+Structures ip6t_replace, compat_ip6t_replace, and xt_get_revision are
+copied from userspace.  Fields of these structs that are
+zero-terminated strings are not checked.  When they are used as argument
+to a format string containing "%s" in request_module(), some sensitive
+information is leaked to userspace via argument of spawned modprobe
+process.
 
-It was introduced before the git epoch.  Files "ipt_CLUSTERIP/*" are
-root writable only by default, however, on some setups permissions might be
-relaxed to e.g. network admin user.
+The first bug was introduced before the git epoch;  the second was
+introduced in 3bc3fe5e (v2.6.25-rc1);  the third is introduced by
+6b7d31fc (v2.6.15-rc1).  To trigger the bug one should have
+CAP_NET_ADMIN.
 
 Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 ---
  Compile tested.
 
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/ipv6/netfilter/ip6_tables.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 403ca57..7aabf9a 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -666,6 +666,7 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 47b7b8d..c9598a9 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1275,6 +1275,7 @@ do_replace(struct net *net, const void __user *user, unsigned int len)
+ 	/* overflow check */
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
+ 		return -ENOMEM;
++	tmp.name[sizeof(tmp.name)-1] = 0;
  
- 	if (copy_from_user(buffer, input, PROC_WRITELEN))
- 		return -EFAULT;
-+	buffer[sizeof(buffer)-1] = 0;
+ 	newinfo = xt_alloc_table_info(tmp.size);
+ 	if (!newinfo)
+@@ -1822,6 +1823,7 @@ compat_do_replace(struct net *net, void __user *user, unsigned int len)
+ 		return -ENOMEM;
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
+ 		return -ENOMEM;
++	tmp.name[sizeof(tmp.name)-1] = 0;
  
- 	if (*buffer == '+') {
- 		nodenum = simple_strtoul(buffer+1, NULL, 10);
+ 	newinfo = xt_alloc_table_info(tmp.size);
+ 	if (!newinfo)
+@@ -2051,6 +2053,7 @@ do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 			ret = -EFAULT;
+ 			break;
+ 		}
++		rev.name[sizeof(rev.name)-1] = 0;
+ 
+ 		if (cmd == IP6T_SO_GET_REVISION_TARGET)
+ 			target = 1;
 -- 
 1.7.0.4
-
