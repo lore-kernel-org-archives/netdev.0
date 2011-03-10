@@ -1,136 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Thu, 10 Mar 2011 15:34:44 -0800 (PST)
-Message-ID: <20110310.153444.115930379.davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Thu, 10 Mar 2011 15:49:40 -0800
+Message-ID: <AANLkTimnHtVS=SFopgyjAAQDW8bXDKDXf+YvEtPdpPsA@mail.gmail.com>
+References: <20110310.153444.115930379.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110310.153444.115930379.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 10, 2011 at 3:34 PM, David Miller <davem@davemloft.net> wro=
+te:
+>
+> David S. Miller (3):
+> =A0 =A0 =A0ipv4: Fix erroneous uses of ifa_address.
+> =A0 =A0 =A0ipv6: Don't create clones of host routes.
+> =A0 =A0 =A0Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
 
-I think all the major known regressions are cured and we should be
-ready to go for 2.6.38-final
+David, why do you keep on doing those broken back-merges?
 
-1) Fix regression in IPV6 route lookups, cures BZ 29252 and 30462
+It's the _one_ thing you keep on doing wrong, and I don't understand
+it. Just the merge message you get should tell you that you're doing
+something total SH*T.
 
-2) We use ifa_address where we mean ifa_local in ipv4 stack,
-   reported by Julian Anastasov.
+Look at that commit message:
 
-3) pktgen time reporting units are wrong, fix from Daniel Turull
+    Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
 
-4) IPV6=3Dm/BRIDGE=3Dy results in broken build, fix from Randy Dunlap.
+That is literally the WHOLE message. Ask yourself: is that commit
+doing anything useful? Does the commit message explain what it is
+doing, and why you are doing it?
 
-5) Network modloading security fix needs to handle ip6 tunnel case,
-   fix from Stephen Hemminger.
+And if not (and if you came to some other conclusion than "no" to
+either of those questions, you should explain it), then why do you do
+it? It sure doesn't help me: it just makes it harder for me to
+see/follow the history (and if it's harder for me to see, then it's
+harder for _others_ to see). There was no conflict (I double-checked),
+and there was no explanation for why it would be done.
 
-6) bnx2x driver fixes from Dmitry Kravkov and Eilon Greenstein.
+Now, I admit that it's a git usability bug: for normal "git commit",
+git will _force_ you to write a message, and sadly, for merges, I made
+it instead just do the message automatically. My bad. I designed it
+for the kind of merges I do, where the the automatic merge message
+actually tells you what the merge is all about. But for back-merges,
+the automatic message is totally worthless, and it is DOUBLY worthless
+when you do it the way you do it, namely from some local directory of
+your own.
 
-7) smsc911x drops full sized VLAN packets erroneously, fix from G=F6ran
-   Weinholt.
+That's just STUPID. Look at that message once more, and ponder. What do=
+es
 
-8) Fix Makefile logic for entering net/ipv6 directory for the case
-   where we are only building {exthdrs,addrconf}_core.o Fix from
-   Thomas Graf.
+  "Merge branch 'master' of /home/davem/src/GIT/linux-2.6/"
 
-9) Multi-threaded signal handling is botched because we use plain
-   mutex_lock() to synchronize readers in recvmsg(), change to use
-   mutex_lock_interruptible().  Fix from Rainer Weikusat.
+tell anybody? It's not even pointing to my repository, and you have
+actively BROKEN the small amount of smarts (as admitted above, not
+enough) that git does do normally, which is at least tell you where
+the merge comes from. You broke it by fetching my repository into your
+own anonymous tree, and then merging it from there, and thus the
+automatic merge message lost sight of the fact that it was my upstream
+tree, because you had made it your own random repo.
 
-10) Bonding driver state machine locking doesn't cover enough code,
-    fix from Nils Carlson.
+Grr. This has been going on for too long. Don't do it. Don't do random
+backwards merges without explanations, and with the actual source data
+removed.
 
-12) Fix BUG_ON trigger in RDS stack, fix from Neil Horman.
+We're _really_ good at doing commit messages, and the kernel commit
+log should be a great example to other projects. But in the last week
+or so, I've now _twice_ had to flame core developers for making
+totally useless commit messages.
 
-13) Multicase handling fixes to r6040 driver from Shawn Lin.
+So don't do back-merges. And if you DO do back-merges, don't make the
+commit message totally useless.
 
-Please pull, thanks a lot!
+You can use either 'git commit --amend" to fix the message afterwards
+and explain WHY you did the stupid thing, or you can just do "git pull
+--no-commit" to not actually commit the merge and then write your
+commit message as you do it. But preferably you shouldn't do the
+back-merges at all.
 
-The following changes since commit 9179746652faf0aba07b8b7f770dcf29892a=
-24c6:
-
-  Merge branch 'media_fixes' of git://git.kernel.org/pub/scm/linux/kern=
-el/git/mchehab/linux-2.6 (2011-03-10 13:22:10 -0800)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Daniel Turull (1):
-      pktgen: fix errata in show results
-
-David S. Miller (3):
-      ipv4: Fix erroneous uses of ifa_address.
-      ipv6: Don't create clones of host routes.
-      Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
-
-Dmitry Kravkov (4):
-      bnx2x: fix non-pmf device load flow
-      bnx2x: fix link notification
-      bnx2x: (NPAR) prevent HW access in D3 state
-      bnx2x: fix MaxBW configuration
-
-=46lorian Fainelli (1):
-      r6040: bump to version 0.27 and date 23Feb2011
-
-G=F6ran Weinholt (1):
-      net/smsc911x.c: Set the VLAN1 register to fix VLAN MTU problem
-
-Jon Mason (1):
-      vxge: update MAINTAINERS
-
-Neil Horman (1):
-      rds: prevent BUG_ON triggering on congestion map updates
-
-Nicolas Kaiser (1):
-      drivers/net/macvtap: fix error check
-
-Nils Carlson (2):
-      bonding 802.3ad: Fix the state machine locking v2
-      bonding 802.3ad: Rename rx_machine_lock to state_machine_lock
-
-Rainer Weikusat (1):
-      net: fix multithreaded signal handling in unix recv routines
-
-Randy Dunlap (1):
-      net: bridge builtin vs. ipv6 modular
-
-Shawn Lin (1):
-      r6040: fix multicast operations
-
-Thomas Graf (1):
-      net: Enter net/ipv6/ even if CONFIG_IPV6=3Dn
-
-j223yang@asset.uwaterloo.ca (1):
-      ariadne: remove redundant NULL check
-
-stephen hemminger (1):
-      ip6ip6: autoload ip6 tunnel
-
- MAINTAINERS                       |    5 +-
- drivers/net/ariadne.c             |    5 --
- drivers/net/bnx2x/bnx2x.h         |    5 +-
- drivers/net/bnx2x/bnx2x_cmn.c     |   22 +++++++
- drivers/net/bnx2x/bnx2x_cmn.h     |    9 +++
- drivers/net/bnx2x/bnx2x_ethtool.c |   18 +++---
- drivers/net/bnx2x/bnx2x_main.c    |   19 +++---
- drivers/net/bonding/bond_3ad.c    |   32 ++++++----
- drivers/net/bonding/bond_3ad.h    |    3 +-
- drivers/net/macvtap.c             |    3 +-
- drivers/net/r6040.c               |  115 +++++++++++++++++++++--------=
---------
- drivers/net/smsc911x.c            |    5 ++
- net/Makefile                      |    4 +-
- net/bridge/Kconfig                |    1 +
- net/core/pktgen.c                 |    2 +-
- net/ipv4/devinet.c                |    6 +-
- net/ipv6/ip6_tunnel.c             |    1 +
- net/ipv6/route.c                  |    4 +-
- net/rds/ib_send.c                 |    5 +-
- net/rds/loop.c                    |   11 +++-
- net/unix/af_unix.c                |   17 ++++-
- 21 files changed, 182 insertions(+), 110 deletions(-)
+                     Linus
