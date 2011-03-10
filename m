@@ -1,17 +1,17 @@
 From: Patrick Schaaf <netdev@bof.de>
 Subject: 2.6.38-rc8 build failure - bridge vs. ipv6
-Date: Thu, 10 Mar 2011 11:19:54 +0100
-Message-ID: <1299752394.4109.31.camel@lat1>
+Date: Thu, 10 Mar 2011 11:07:53 +0100
+Message-ID: <1299751673.4109.23.camel@lat1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bof-2.saar.de ([192.109.53.146]:43826 "EHLO oknodo.bof.de"
+Received: from bof-2.saar.de ([192.109.53.146]:56389 "EHLO oknodo.bof.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751285Ab1CJKT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2011 05:19:58 -0500
+	id S1751147Ab1CJKtE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2011 05:49:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -32,5 +32,5 @@ I work around it by making bridge build modular, but you might want to
 fix it properly before releasing 2.6.38.
 
 best regards
-  Patrick 
+  Patrick
 
