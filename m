@@ -1,71 +1,109 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 4/7] tg3: cleanup pci device table vars
-Date: Wed, 9 Mar 2011 18:58:22 -0800
-Message-ID: <1299725905-8498-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 5/7] tg3: Refine VAux decision process
+Date: Wed, 9 Mar 2011 18:58:23 -0800
+Message-ID: <1299725905-8498-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, stable@kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2009 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2483 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752265Ab1CJC6q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2011 21:58:46 -0500
+	id S1752259Ab1CJC6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2011 21:58:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 895950c2a6565d9eefda4a38b00fa28537e39fcb, entitled
-"tg3: Use DEFINE_PCI_DEVICE_TABLE" moved two pci device tables into the
-global address space, but didn't declare them static and didn't prefix
-them with "tg3_".  This patch fixes those problems.
+In the near future, the VAux switching decision process is going to get
+more complicated.  This patch refines and consolidates the existing
+algorithm in anticipation of the new scheme.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/tg3.c |   41 +++++++++++++++++++++--------------------
+ 1 files changed, 21 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ffb0979..73eacbd 100644
+index 73eacbd..159eb23 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -13115,7 +13115,7 @@ static inline u32 tg3_rx_ret_ring_size(struct tg3 *tp)
- 		return 512;
- }
+@@ -2120,7 +2120,7 @@ out:
  
--DEFINE_PCI_DEVICE_TABLE(write_reorder_chipsets) = {
-+static DEFINE_PCI_DEVICE_TABLE(tg3_write_reorder_chipsets) = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_FE_GATE_700C) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_8131_BRIDGE) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_8385_0) },
-@@ -13469,7 +13469,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	 * every mailbox register write to force the writes to be
- 	 * posted to the chip in order.
- 	 */
--	if (pci_dev_present(write_reorder_chipsets) &&
-+	if (pci_dev_present(tg3_write_reorder_chipsets) &&
- 	    !(tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS))
- 		tp->tg3_flags |= TG3_FLAG_MBOX_WRITE_REORDER;
+ static void tg3_frob_aux_power(struct tg3 *tp)
+ {
+-	struct tg3 *tp_peer = tp;
++	bool need_vaux = false;
  
-@@ -14225,7 +14225,7 @@ static int __devinit tg3_do_test_dma(struct tg3 *tp, u32 *buf, dma_addr_t buf_dm
+ 	/* The GPIOs do something completely different on 57765. */
+ 	if ((tp->tg3_flags2 & TG3_FLG2_IS_NIC) == 0 ||
+@@ -2128,23 +2128,32 @@ static void tg3_frob_aux_power(struct tg3 *tp)
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765)
+ 		return;
  
- #define TEST_BUFFER_SIZE	0x2000
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
++	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
++	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
++	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) &&
++	    tp->pdev_peer != tp->pdev) {
+ 		struct net_device *dev_peer;
  
--DEFINE_PCI_DEVICE_TABLE(dma_wait_state_chipsets) = {
-+static DEFINE_PCI_DEVICE_TABLE(tg3_dma_wait_state_chipsets) = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_APPLE, PCI_DEVICE_ID_APPLE_UNI_N_PCI15) },
- 	{ },
- };
-@@ -14404,7 +14404,7 @@ static int __devinit tg3_test_dma(struct tg3 *tp)
- 		 * now look for chipsets that are known to expose the
- 		 * DMA bug without failing the test.
- 		 */
--		if (pci_dev_present(dma_wait_state_chipsets)) {
-+		if (pci_dev_present(tg3_dma_wait_state_chipsets)) {
- 			tp->dma_rwctrl &= ~DMA_RWCTRL_WRITE_BNDRY_MASK;
- 			tp->dma_rwctrl |= DMA_RWCTRL_WRITE_BNDRY_16;
- 		} else {
+ 		dev_peer = pci_get_drvdata(tp->pdev_peer);
++
+ 		/* remove_one() may have been run on the peer. */
+-		if (!dev_peer)
+-			tp_peer = tp;
+-		else
+-			tp_peer = netdev_priv(dev_peer);
++		if (dev_peer) {
++			struct tg3 *tp_peer = netdev_priv(dev_peer);
++
++			if (tp_peer->tg3_flags & TG3_FLAG_INIT_COMPLETE)
++				return;
++
++			if ((tp_peer->tg3_flags & TG3_FLAG_WOL_ENABLE) ||
++			    (tp_peer->tg3_flags & TG3_FLAG_ENABLE_ASF))
++				need_vaux = true;
++		}
+ 	}
+ 
+-	if ((tp->tg3_flags & TG3_FLAG_WOL_ENABLE) != 0 ||
+-	    (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0 ||
+-	    (tp_peer->tg3_flags & TG3_FLAG_WOL_ENABLE) != 0 ||
+-	    (tp_peer->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0) {
++	if ((tp->tg3_flags & TG3_FLAG_WOL_ENABLE) ||
++	    (tp->tg3_flags & TG3_FLAG_ENABLE_ASF))
++		need_vaux = true;
++
++	if (need_vaux) {
+ 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
+ 		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) {
+ 			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+@@ -2174,10 +2183,6 @@ static void tg3_frob_aux_power(struct tg3 *tp)
+ 			u32 no_gpio2;
+ 			u32 grc_local_ctrl = 0;
+ 
+-			if (tp_peer != tp &&
+-			    (tp_peer->tg3_flags & TG3_FLAG_INIT_COMPLETE) != 0)
+-				return;
+-
+ 			/* Workaround to prevent overdrawing Amps. */
+ 			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
+ 			    ASIC_REV_5714) {
+@@ -2216,10 +2221,6 @@ static void tg3_frob_aux_power(struct tg3 *tp)
+ 	} else {
+ 		if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700 &&
+ 		    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701) {
+-			if (tp_peer != tp &&
+-			    (tp_peer->tg3_flags & TG3_FLAG_INIT_COMPLETE) != 0)
+-				return;
+-
+ 			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+ 				    (GRC_LCLCTRL_GPIO_OE1 |
+ 				     GRC_LCLCTRL_GPIO_OUTPUT1), 100);
 -- 
 1.7.3.4
 
