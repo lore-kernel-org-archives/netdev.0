@@ -1,31 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Network performance with small packets - continued
-Date: Thu, 10 Mar 2011 08:54:58 +0200
-Message-ID: <20110310065457.GA22820@redhat.com>
-References: <201103071631.41964.tahm@linux.vnet.ibm.com>
- <201103091411.09062.tahm@linux.vnet.ibm.com>
- <20110309215537.GA11516@redhat.com>
- <201103091725.12992.tahm@linux.vnet.ibm.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] Make CUBIC Hystart more robust to RTT variations
+Date: Thu, 10 Mar 2011 02:17:51 -0500
+Message-ID: <20110310021751.2f5fb8bc.billfink@mindspring.com>
+References: <20110310002458.5a94f563.billfink@mindspring.com>
+	<2049243270.17294.1299737824096.JavaMail.root@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com
-To: Tom Lendacky <tahm@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Injong Rhee <rhee@ncsu.edu>, David Miller <davem@davemloft.net>,
+	xiyou wangcong <xiyou.wangcong@gmail.com>,
+	netdev@vger.kernel.org, sangtae ha <sangtae.ha@gmail.com>,
+	Lucas Nussbaum <lucas.nussbaum@loria.fr>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46498 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752242Ab1CJGz3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2011 01:55:29 -0500
-Content-Disposition: inline
-In-Reply-To: <201103091725.12992.tahm@linux.vnet.ibm.com>
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:56443 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750944Ab1CJHR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 02:17:57 -0500
+In-Reply-To: <2049243270.17294.1299737824096.JavaMail.root@tahiti.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 09, 2011 at 05:25:11PM -0600, Tom Lendacky wrote:
-> As for which CPU the interrupt gets pinned to, that doesn't matter - see 
-> below.
+On Wed, 9 Mar 2011, Stephen Hemminger wrote:
 
-So what hurts us the most is that the IRQ jumps between the VCPUs?
+> Bill what is the HZ in your kernel config.
+> I am concerned hystart doesn't work well with HZ=100
+
+HZ=1000
+
+But I did have tcp_timestamps disabled.  Should I re-run
+the tests with tcp_timestamps enabled?
+
+					-Bill
