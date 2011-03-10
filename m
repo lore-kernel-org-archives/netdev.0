@@ -1,150 +1,88 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 6/7] tg3: Move tg3_init_link_config to tg3_phy_probe
-Date: Wed, 9 Mar 2011 18:58:24 -0800
-Message-ID: <1299725905-8498-7-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 3/7] tg3: Add code to verify RODATA checksum of VPD
+Date: Wed, 9 Mar 2011 18:58:21 -0800
+Message-ID: <1299725905-8498-4-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, stable@kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2002 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2003 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752215Ab1CJC6q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752259Ab1CJC6q (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 9 Mar 2011 21:58:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves the function that initializes the link configuration
-closer to the place where the rest of the phy code is initialized.
+This patch adds code to verify the checksum stored in the "RV" info
+keyword of the RODATA VPD section.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   69 +++++++++++++++++++++++++++--------------------------
- 1 files changed, 35 insertions(+), 34 deletions(-)
+ drivers/net/tg3.c   |   35 +++++++++++++++++++++++++++++++++++
+ include/linux/pci.h |    1 +
+ 2 files changed, 36 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 159eb23..2c67cc9 100644
+index 8f71608..ffb0979 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -12557,12 +12557,45 @@ static u32 __devinit tg3_read_otp_phycfg(struct tg3 *tp)
- 	return ((thalf_otp & 0x0000ffff) << 16) | (bhalf_otp >> 16);
- }
+@@ -10499,6 +10499,41 @@ static int tg3_test_nvram(struct tg3 *tp)
+ 	if (csum != le32_to_cpu(buf[0xfc/4]))
+ 		goto out;
  
-+static void __devinit tg3_phy_init_link_config(struct tg3 *tp)
-+{
-+	u32 adv = ADVERTISED_Autoneg |
-+		  ADVERTISED_Pause;
++	for (i = 0; i < TG3_NVM_VPD_LEN; i += 4) {
++		/* The data is in little-endian format in NVRAM.
++		 * Use the big-endian read routines to preserve
++		 * the byte order as it exists in NVRAM.
++		 */
++		if (tg3_nvram_read_be32(tp, TG3_NVM_VPD_OFF + i, &buf[i/4]))
++			goto out;
++	}
 +
-+	if (!(tp->phy_flags & TG3_PHYFLG_10_100_ONLY))
-+		adv |= ADVERTISED_1000baseT_Half |
-+		       ADVERTISED_1000baseT_Full;
++	i = pci_vpd_find_tag((u8 *)buf, 0, TG3_NVM_VPD_LEN,
++			     PCI_VPD_LRDT_RO_DATA);
++	if (i > 0) {
++		j = pci_vpd_lrdt_size(&((u8 *)buf)[i]);
++		if (j < 0)
++			goto out;
 +
-+	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES))
-+		adv |= ADVERTISED_100baseT_Half |
-+		       ADVERTISED_100baseT_Full |
-+		       ADVERTISED_10baseT_Half |
-+		       ADVERTISED_10baseT_Full |
-+		       ADVERTISED_TP;
-+	else
-+		adv |= ADVERTISED_FIBRE;
++		if (i + PCI_VPD_LRDT_TAG_SIZE + j > TG3_NVM_VPD_LEN)
++			goto out;
 +
-+	tp->link_config.advertising = adv;
-+	tp->link_config.speed = SPEED_INVALID;
-+	tp->link_config.duplex = DUPLEX_INVALID;
-+	tp->link_config.autoneg = AUTONEG_ENABLE;
-+	tp->link_config.active_speed = SPEED_INVALID;
-+	tp->link_config.active_duplex = DUPLEX_INVALID;
-+	tp->link_config.orig_speed = SPEED_INVALID;
-+	tp->link_config.orig_duplex = DUPLEX_INVALID;
-+	tp->link_config.orig_autoneg = AUTONEG_INVALID;
-+}
++		i += PCI_VPD_LRDT_TAG_SIZE;
++		j = pci_vpd_find_info_keyword((u8 *)buf, i, j,
++					      PCI_VPD_RO_KEYWORD_CHKSUM);
++		if (j > 0) {
++			u8 csum8 = 0;
 +
- static int __devinit tg3_phy_probe(struct tg3 *tp)
- {
- 	u32 hw_phy_id_1, hw_phy_id_2;
- 	u32 hw_phy_id, hw_phy_id_masked;
- 	int err;
- 
-+	/* flow control autonegotiation is default behavior */
-+	tp->tg3_flags |= TG3_FLAG_PAUSE_AUTONEG;
-+	tp->link_config.flowctrl = FLOW_CTRL_TX | FLOW_CTRL_RX;
++			j += PCI_VPD_INFO_FLD_HDR_SIZE;
 +
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB)
- 		return tg3_phy_init(tp);
- 
-@@ -12624,6 +12657,8 @@ static int __devinit tg3_phy_probe(struct tg3 *tp)
- 	      tp->pci_chip_rev_id != CHIPREV_ID_57765_A0)))
- 		tp->phy_flags |= TG3_PHYFLG_EEE_CAP;
- 
-+	tg3_phy_init_link_config(tp);
++			for (i = 0; i <= j; i++)
++				csum8 += ((u8 *)buf)[i];
 +
- 	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES) &&
- 	    !(tp->tg3_flags3 & TG3_FLG3_ENABLE_APE) &&
- 	    !(tp->tg3_flags & TG3_FLAG_ENABLE_ASF)) {
-@@ -12679,17 +12714,6 @@ skip_phy_reset:
- 		err = tg3_init_5401phy_dsp(tp);
- 	}
++			if (csum8)
++				goto out;
++		}
++	}
++
+ 	err = 0;
  
--	if (tp->phy_flags & TG3_PHYFLG_ANY_SERDES)
--		tp->link_config.advertising =
--			(ADVERTISED_1000baseT_Half |
--			 ADVERTISED_1000baseT_Full |
--			 ADVERTISED_Autoneg |
--			 ADVERTISED_FIBRE);
--	if (tp->phy_flags & TG3_PHYFLG_10_100_ONLY)
--		tp->link_config.advertising &=
--			~(ADVERTISED_1000baseT_Half |
--			  ADVERTISED_1000baseT_Full);
--
- 	return err;
- }
+ out:
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 559d028..ff5bccb 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1479,6 +1479,7 @@ void pci_request_acs(void);
+ #define PCI_VPD_RO_KEYWORD_PARTNO	"PN"
+ #define PCI_VPD_RO_KEYWORD_MFR_ID	"MN"
+ #define PCI_VPD_RO_KEYWORD_VENDOR0	"V0"
++#define PCI_VPD_RO_KEYWORD_CHKSUM	"RV"
  
-@@ -14422,23 +14446,6 @@ out_nofree:
- 	return ret;
- }
- 
--static void __devinit tg3_init_link_config(struct tg3 *tp)
--{
--	tp->link_config.advertising =
--		(ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
--		 ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
--		 ADVERTISED_1000baseT_Half | ADVERTISED_1000baseT_Full |
--		 ADVERTISED_Autoneg | ADVERTISED_MII);
--	tp->link_config.speed = SPEED_INVALID;
--	tp->link_config.duplex = DUPLEX_INVALID;
--	tp->link_config.autoneg = AUTONEG_ENABLE;
--	tp->link_config.active_speed = SPEED_INVALID;
--	tp->link_config.active_duplex = DUPLEX_INVALID;
--	tp->link_config.orig_speed = SPEED_INVALID;
--	tp->link_config.orig_duplex = DUPLEX_INVALID;
--	tp->link_config.orig_autoneg = AUTONEG_INVALID;
--}
--
- static void __devinit tg3_init_bufmgr_config(struct tg3 *tp)
- {
- 	if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS) {
-@@ -14742,8 +14749,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_free_dev;
- 	}
- 
--	tg3_init_link_config(tp);
--
- 	tp->rx_pending = TG3_DEF_RX_RING_PENDING;
- 	tp->rx_jumbo_pending = TG3_DEF_RX_JUMBO_RING_PENDING;
- 
-@@ -14891,10 +14896,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_apeunmap;
- 	}
- 
--	/* flow control autonegotiation is default behavior */
--	tp->tg3_flags |= TG3_FLAG_PAUSE_AUTONEG;
--	tp->link_config.flowctrl = FLOW_CTRL_TX | FLOW_CTRL_RX;
--
- 	intmbx = MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW;
- 	rcvmbx = MAILBOX_RCVRET_CON_IDX_0 + TG3_64BIT_REG_LOW;
- 	sndmbx = MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW;
+ /**
+  * pci_vpd_lrdt_size - Extracts the Large Resource Data Type length
 -- 
 1.7.3.4
 
