@@ -1,66 +1,64 @@
-From: <Padmanabh.Ratnakar@Emulex.Com>
-Subject: RE: [PATCH net-next-2.6 2/7] be2net: Checksum field valid only for
- TCP/UDP
-Date: Fri, 11 Mar 2011 02:04:41 -0800
-Message-ID: <e7b170e0-03a6-48c7-9afd-6005ae3a5ae2@exht2.ad.emulex.com>
-References: <79e10ac8-3f25-4ee2-9a0d-08d39cd9fe9c@exht1.ad.emulex.com>
- <20110311000509.GA28596@ram-laptop>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [GIT/PATCH v4] xen network backend driver
+Date: Fri, 11 Mar 2011 10:22:55 +0000
+Message-ID: <1299838975.17339.1882.camel@zakaz.uk.xensource.com>
+References: <1299776554.17339.824.camel@zakaz.uk.xensource.com>
+	 <20110310091555.0fa8764d@nehalam>  <1299778213.2807.11.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<Sathya.Perla@Emulex.Com>, <subbu.seetharaman@emulex.com>
-To: <linuxram@us.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel <xen-devel@lists.xensource.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:1728 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751388Ab1CKKKT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 05:10:19 -0500
-In-Reply-To: <20110311000509.GA28596@ram-laptop>
-Content-Language: en-US
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:4320 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998Ab1CKKW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 05:22:57 -0500
+In-Reply-To: <1299778213.2807.11.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2011 at 06:38:16PM +0530, Padmanabh Ratnakar wrote:
-> L4 checksum field is valid only for TCP/UDP packets in Lancer
-> 
-> Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> Signed-off-by: Subramanian Seetharaman <subbu.seetharaman@emulex.com>
-> ---
->  drivers/net/benet/be_main.c |    9 ++++++---
->  1 files changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-> index bf34434..ac7ae21 100644
-> --- a/drivers/net/benet/be_main.c
-> +++ b/drivers/net/benet/be_main.c
-> @@ -865,14 +865,17 @@ static void be_rx_stats_update(struct be_rx_obj *rxo,
-> 
->  static inline bool csum_passed(struct be_eth_rx_compl *rxcp)
->  {
-> -	u8 l4_cksm, ipv6, ipcksm;
-> +	u8 l4_cksm, ipv6, ipcksm, tcpf, udpf;
-> 
->  	l4_cksm = AMAP_GET_BITS(struct amap_eth_rx_compl, l4_cksm, rxcp);
->  	ipcksm = AMAP_GET_BITS(struct amap_eth_rx_compl, ipcksm, rxcp);
->  	ipv6 = AMAP_GET_BITS(struct amap_eth_rx_compl, ip_version, rxcp);
-> +	tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl, tcpf, rxcp);
-> +	udpf = AMAP_GET_BITS(struct amap_eth_rx_compl, udpf, rxcp);
-> 
-> -	/* Ignore ipcksm for ipv6 pkts */
-> -	return l4_cksm && (ipcksm || ipv6);
-> +	/* L4 checksum is not reliable for non TCP/UDP packets.
-> +	 * Also ignore ipcksm for ipv6 pkts */
-> +	return (tcpf || udpf) && l4_cksm && (ipcksm || ipv6);
+On Thu, 2011-03-10 at 17:30 +0000, Ben Hutchings wrote:
+> On Thu, 2011-03-10 at 09:15 -0800, Stephen Hemminger wrote:
+> > On Thu, 10 Mar 2011 17:02:33 +0000
+> > Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> > > +struct xenvif {
+> > > +	/* Unique identifier for this interface. */
+> > ...
+> > > +	struct net_device_stats stats;
+> > > +
+> > 
+> > There is already a stats struct in net_device in current kernel
+> > versions, unless there is a compelling reason otherwise
+> > please use that.
 
-> Is it invalid for non-Lancer too ?  if not, then should'nt the
-> above condition be applied only for lancer?
+Will do.
+ 
+> > Also, you probably want to implement per-cpu and 64 bit
+> > stats.
+> 
+> The driver is using a single queue, so I don't see what benefit it would
+> get from per-cpu stats.  At some point it should become multiqueue and
+> then it should store per-queue stats.
 
-> RP
+Agreed.
 
-There is no need to apply this condition only for Lancer. This check works for BE too.
-In BE, for non-tcp/udp packets l4_csum is always 0.
+> 64-bit stats are definitely preferable, but since they're being
+> maintained on the data path this may require some significant work.
+> (Ian: see <linux/u64_stats_sync.h> for the canonical way to do this.)
+> Given that only a relatively few existing drivers do this (I count 13),
+> I'm not sure we can reasonably demand that a new driver does - yet.
 
-Thanks,
-Padmanabh
+Is there an example of a driver which also updates the stats on the
+datapath?
+
+If it's ok I'd prefer to defer this change for now though.
+
+Ian.
+
