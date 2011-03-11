@@ -1,44 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/2] ipv4: Remove unnecessary test from ip_mkroute_input()
-Date: Thu, 10 Mar 2011 17:05:25 -0800 (PST)
-Message-ID: <20110310.170525.102566864.davem@davemloft.net>
+From: zhou rui <zhourui.cn@gmail.com>
+Subject: how to utilize multi tx queue to sent packets?
+Date: Fri, 11 Mar 2011 09:44:08 +0800
+Message-ID: <AANLkTimscFFZ2umPHpYS4ETgNt7GjgAQbYwRzEGps4ww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48119
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754408Ab1CKBEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 20:04:48 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 33EE624C08B
-	for <netdev@vger.kernel.org>; Thu, 10 Mar 2011 17:05:26 -0800 (PST)
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:46176 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755044Ab1CKBoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 20:44:09 -0500
+Received: by vxi39 with SMTP id 39so2157619vxi.19
+        for <netdev@vger.kernel.org>; Thu, 10 Mar 2011 17:44:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+hi
 
-fl->oif will always be zero on the input path, so there is no reason
-to test for that.
+I am doing some test according to the
+website:http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/route.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+use packet_mmap tx_ring to send packet.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f6730d9..a7ac90c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2047,7 +2047,7 @@ static int ip_mkroute_input(struct sk_buff *skb,
- 	unsigned hash;
- 
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
--	if (res->fi && res->fi->fib_nhs > 1 && fl->oif == 0)
-+	if (res->fi && res->fi->fib_nhs > 1)
- 		fib_select_multipath(fl, res);
- #endif
- 
--- 
-1.7.4.1
+I modified the sample code "packetmmap.c" to make it send packets have
+different outer ip.
+so that with the help of RSS, I can achieve higher throughput.
 
+but one thing I saw at the tx side, is that all the packets are sent
+via the same tx_queue,which is conflict with what I saw at the rx
+side.
+any idea to make it sent packets via different tx_queues? (spread
+across the tx_queues)
+
+
+thanks
+jon
