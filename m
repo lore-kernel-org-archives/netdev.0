@@ -1,30 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 29252] New: IPv6 doesn't work in a kvm guest.
-Date: Fri, 11 Mar 2011 12:15:58 -0800 (PST)
-Message-ID: <20110311.121558.226768409.davem@davemloft.net>
-References: <20110309.192012.193710171.davem@davemloft.net>
-	<20110309.200437.226773227.davem@davemloft.net>
-	<AANLkTi=T35ghBWJKu+fimXnJczRjy9GzY+H_6GiNbgHE@mail.gmail.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [GIT] Networking
+Date: Fri, 11 Mar 2011 15:48:23 -0500
+Message-ID: <20110311204823.GB7906@fieldses.org>
+References: <20110310.153444.115930379.davem@davemloft.net>
+ <AANLkTimnHtVS=SFopgyjAAQDW8bXDKDXf+YvEtPdpPsA@mail.gmail.com>
+ <20110310.155556.48513201.davem@davemloft.net>
+ <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, slash@ac.auone-net.jp
-To: ernstp@gmail.com
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51457
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751405Ab1CKUPV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2011 15:15:21 -0500
-In-Reply-To: <AANLkTi=T35ghBWJKu+fimXnJczRjy9GzY+H_6GiNbgHE@mail.gmail.com>
+Received: from fieldses.org ([174.143.236.118]:44099 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754172Ab1CKUs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2011 15:48:26 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ernst Sj=F6strand <ernstp@gmail.com>
-Date: Fri, 11 Mar 2011 20:44:39 +0100
+On Thu, Mar 10, 2011 at 04:29:30PM -0800, Linus Torvalds wrote:
+> On Thu, Mar 10, 2011 at 3:55 PM, David Miller <davem@davemloft.net> w=
+rote:
+> > I should have put:
+> >
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Merge to get commit 8909c9ad8ff03611c9c9=
+6c9a92656213e4bb495b
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0("net: don't allow CAP_NET_ADMIN to load=
+ non-netdev kernel modules")
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0so that we can add Stephen Hemminger's f=
+ix to handle ip6 tunnels
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0as well, which uses the MODULE_ALIAS_NET=
+DEV() macro created by
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0that change.
+>=20
+> Yeah, that would have explained it. That said, if you are merging for
+> something like that, may I suggest actually starting off with
+>=20
+>    git merge 8909c9ad8ff03611c9c96c9a92656213e4bb495b
+>=20
+> that then actually makes the history itself also show the relationshi=
+p
+> (you'd still have to write the commit message explaining why,
 
-> this patch solved the issue I reported. Applied the patch on -rc8.
+By the way, I occasionally wonder whether it would make sense to make a
+habit of committing bugfixes on top of the commit that introduced the
+bug (at least in cases where there *is* a single commit that introduced
+the bug).
 
-Thank you for testing.
+As with the above, it'd make the history a little more self-documenting=
+=2E
+It might simplify life for backporters.  (In theory, they could do
+merges instead of a cherry-picks if they wanted to.)  The set of "bad"
+commits would be described by "fix^...fix".
+
+But then I had some mental image if your saying "WTF?" the first time I
+send you a post-rc1 pull request that looks like an octopus merge of a
+dozen little 1- or 2- commit branches based all over the place.
+
+I dunno, would it be annoying?
+
+--b.
