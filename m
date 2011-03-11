@@ -1,58 +1,74 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH 2/8] macb: detect hclk presence from platform data
-Date: Fri, 11 Mar 2011 14:39:21 +0100
-Message-ID: <20110311133921.GR9351@game.jcrosoft.org>
+From: Jamie Iles <jamie@jamieiles.com>
+Subject: Re: [PATCH 1/8] macb: unify at91 and avr32 platform data
+Date: Fri, 11 Mar 2011 13:53:35 +0000
+Message-ID: <20110311135335.GG7357@pulham.picochip.com>
 References: <1299751843-9743-1-git-send-email-jamie@jamieiles.com>
- <1299751843-9743-3-git-send-email-jamie@jamieiles.com>
- <20110311014400.GJ9351@game.jcrosoft.org>
- <20110311085443.GJ6198@pulham.picochip.com>
- <20110311124757.GK9351@game.jcrosoft.org>
- <20110311130826.GB7357@pulham.picochip.com>
+ <1299751843-9743-2-git-send-email-jamie@jamieiles.com>
+ <4D78CCBC.2010807@atmel.com>
+ <20110310131724.GG6198@pulham.picochip.com>
+ <20110311014140.GI9351@game.jcrosoft.org>
+ <20110311085605.GK6198@pulham.picochip.com>
+ <20110311125246.GL9351@game.jcrosoft.org>
+ <20110311132536.GE7357@pulham.picochip.com>
+ <20110311133713.GQ9351@game.jcrosoft.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	nicolas.ferre@atmel.com
-To: Jamie Iles <jamie@jamieiles.com>
+Cc: Jamie Iles <jamie@jamieiles.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 64.mail-out.ovh.net ([91.121.185.65]:53884 "HELO
-	64.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752803Ab1CKNov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 08:44:51 -0500
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48127 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753771Ab1CKNxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 08:53:39 -0500
+Received: by bwz15 with SMTP id 15so2682904bwz.19
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2011 05:53:38 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20110311130826.GB7357@pulham.picochip.com>
+In-Reply-To: <20110311133713.GQ9351@game.jcrosoft.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13:08 Fri 11 Mar     , Jamie Iles wrote:
-> On Fri, Mar 11, 2011 at 01:47:57PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > On 08:54 Fri 11 Mar     , Jamie Iles wrote:
-> > > On Fri, Mar 11, 2011 at 02:44:00AM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > > > On 10:10 Thu 10 Mar     , Jamie Iles wrote:
-> > > > > +#ifdef CONFIG_ARCH_AT91
-> > > > > +#define PCLK_NAME	"macb_clk"
-> > > > > +#else /* CONFIG_ARCH_AT91 */
-> > > > > +#define PCLK_NAME	"pclk"
-> > > > > +#endif
+On Fri, Mar 11, 2011 at 02:37:13PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> On 13:25 Fri 11 Mar     , Jamie Iles wrote:
+> > On Fri, Mar 11, 2011 at 01:52:46PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > > On 08:56 Fri 11 Mar     , Jamie Iles wrote:
+> > > > On Fri, Mar 11, 2011 at 02:41:40AM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > > > > keep as we need to remove the #ifdef AT91 to cpu_is
+> > > > > 
+> > > > > I've patch for this
 > > > > 
-> > > > we need change the clock name and avoid the ifdef
-> > > > so this will be generic
-> > > > 
-> > > > nb I work on the switch to clkdev currently for avr32 and at91
+> > > > Is this for the user IO register where the value written is conditional 
+> > > > on both RMII/MII and arch type?
+> > > yes for 
 > > > 
-> > > This should be gone now.  Russell made the suggestion to have a fake clk 
-> > > for hclk on AT91 so I think I've solved that now.  There's an updated 
-> > > patch in my reply to Russell's message but essentially I'm using 
-> > > at91_clock_associate() to turn "macb_pclk" into "hclk" and "pclk".  Does 
-> > > this seem reasonable?
-> > please do not use at91_clock_associate as I'm going to remove it as use static
-> > clock as done on shmobile as example
-> > so if it's a fake clock please as ochi_clk on 9g45
-> 
-> Ok, that's fine.  How about for the "macb_plk" though, won't that need 
-> an at91_clock_associate() or is it OK to rename all of the macb_clk 
-> definitions to have be called "pclk"?
+> > > #if defined(CONFIG_ARCH_AT91)
+> > > 		macb_writel(bp, USRIO, (MACB_BIT(RMII) | MACB_BIT(CLKEN)));
+> > > #else
+> > > 		macb_writel(bp, USRIO, 0);
+> > > #endif
+> > > 	else
+> > > #if defined(CONFIG_ARCH_AT91)
+> > > 		macb_writel(bp, USRIO, MACB_BIT(CLKEN));
+> > > #else
+> > > 		macb_writel(bp, USRIO, MACB_BIT(MII));
+> > > #endif
+> > 
+> > Ok, but what about non-AT91/AVR32 systems?  They may not have a 
+> > mach/cpu.h and won't have cpu_is_foo() for the platforms the driver is 
+> > interested in.
+> > 
+> > Could we supply these values in the platform data so the driver doesn't 
+> > need to do any cpu_is_ magic?
+>
+> for other arch you can but at91 I prefer to avoid this copy and paste in every
+> soc
 
-Personnaly I prefer macb_clk but if Nico prefer pclk it's fine
+Ok, just so I'm clear, you want to be able to set the USRIO register 
+based on a cpu_is_foo() test which requires mach/cpu.h to be included.  
 
-Best Regards,
-J.
+For other architectures we may not have mach/cpu.h and the cpu_is_foo() 
+macros, so we'd still need to protect all of that with "#ifdef 
+CONFIG_ARCH_AT91" tests.  Is that okay?
+
+Jamie
