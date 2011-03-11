@@ -1,33 +1,30 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [GIT] Networking
-Date: Fri, 11 Mar 2011 11:54:37 -0800
-Message-ID: <20110311195437.GA14871@kroah.com>
-References: <20110310.153444.115930379.davem@davemloft.net>
- <AANLkTimnHtVS=SFopgyjAAQDW8bXDKDXf+YvEtPdpPsA@mail.gmail.com>
- <20110310.155556.48513201.davem@davemloft.net>
- <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com>
- <AANLkTiktUsR1vXo84H2m_tLZRgDGee+JdvxGZjX7hYMq@mail.gmail.com>
- <AANLkTikiy+hNgG=BRWKkHEHCdvJnffWP6nhp1XxsEEO+@mail.gmail.com>
- <AANLkTi=F=za4OaNbiT71oTj+HKZG1sJE=YrrjpUb4AS7@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 29252] New: IPv6 doesn't work in a kvm guest.
+Date: Fri, 11 Mar 2011 12:15:58 -0800 (PST)
+Message-ID: <20110311.121558.226768409.davem@davemloft.net>
+References: <20110309.192012.193710171.davem@davemloft.net>
+	<20110309.200437.226773227.davem@davemloft.net>
+	<AANLkTi=T35ghBWJKu+fimXnJczRjy9GzY+H_6GiNbgHE@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Airlie <airlied@gmail.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=F=za4OaNbiT71oTj+HKZG1sJE=YrrjpUb4AS7@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, slash@ac.auone-net.jp
+To: ernstp@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51457
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751405Ab1CKUPV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2011 15:15:21 -0500
+In-Reply-To: <AANLkTi=T35ghBWJKu+fimXnJczRjy9GzY+H_6GiNbgHE@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 10, 2011 at 04:57:04PM -0800, Linus Torvalds wrote:
-> But now that I've done it once, maybe I'm hooked. It's like coke to
-> Charlie Sheen.
+=46rom: Ernst Sj=F6strand <ernstp@gmail.com>
+Date: Fri, 11 Mar 2011 20:44:39 +0100
 
-Did you ever push this networking pull out?  I don't seem to be seeing
-it in your tree, but the --no-ff might have caused me to miss it.
+> this patch solved the issue I reported. Applied the patch on -rc8.
 
-thanks,
-
-greg k-h
+Thank you for testing.
