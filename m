@@ -1,74 +1,75 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCH 1/8] macb: unify at91 and avr32 platform data
-Date: Fri, 11 Mar 2011 13:53:35 +0000
-Message-ID: <20110311135335.GG7357@pulham.picochip.com>
+Subject: Re: [PATCH 4/8] macb: initial support for Cadence GEM
+Date: Fri, 11 Mar 2011 14:08:16 +0000
+Message-ID: <20110311140816.GH7357@pulham.picochip.com>
 References: <1299751843-9743-1-git-send-email-jamie@jamieiles.com>
- <1299751843-9743-2-git-send-email-jamie@jamieiles.com>
- <4D78CCBC.2010807@atmel.com>
- <20110310131724.GG6198@pulham.picochip.com>
- <20110311014140.GI9351@game.jcrosoft.org>
- <20110311085605.GK6198@pulham.picochip.com>
- <20110311125246.GL9351@game.jcrosoft.org>
- <20110311132536.GE7357@pulham.picochip.com>
- <20110311133713.GQ9351@game.jcrosoft.org>
+ <1299751843-9743-5-git-send-email-jamie@jamieiles.com>
+ <20110311131415.GO9351@game.jcrosoft.org>
+ <20110311133016.GF7357@pulham.picochip.com>
+ <20110311133445.GP9351@game.jcrosoft.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: Jamie Iles <jamie@jamieiles.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, nicolas.ferre@atmel.com
 To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:48127 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43856 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753771Ab1CKNxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 08:53:39 -0500
-Received: by bwz15 with SMTP id 15so2682904bwz.19
-        for <netdev@vger.kernel.org>; Fri, 11 Mar 2011 05:53:38 -0800 (PST)
+	with ESMTP id S1755278Ab1CKOIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 09:08:20 -0500
+Received: by bwz15 with SMTP id 15so2693936bwz.19
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2011 06:08:19 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20110311133713.GQ9351@game.jcrosoft.org>
+In-Reply-To: <20110311133445.GP9351@game.jcrosoft.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 11, 2011 at 02:37:13PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> On 13:25 Fri 11 Mar     , Jamie Iles wrote:
-> > On Fri, Mar 11, 2011 at 01:52:46PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > > On 08:56 Fri 11 Mar     , Jamie Iles wrote:
-> > > > On Fri, Mar 11, 2011 at 02:41:40AM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > > > > keep as we need to remove the #ifdef AT91 to cpu_is
-> > > > > 
-> > > > > I've patch for this
+On Fri, Mar 11, 2011 at 02:34:45PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> On 13:30 Fri 11 Mar     , Jamie Iles wrote:
+> > On Fri, Mar 11, 2011 at 02:14:15PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > > On 10:10 Thu 10 Mar     , Jamie Iles wrote:
+> > > > The Cadence GEM is based on the MACB Ethernet controller but has a few
+> > > > small changes with regards to register and bitfield placement.  This
+> > > > patch adds a new platform driver for gem which sets allows the driver to
+> > > > tell at runtime whether it is targetting a GEM device.
 > > > > 
-> > > > Is this for the user IO register where the value written is conditional 
-> > > > on both RMII/MII and arch type?
-> > > yes for 
-> > > 
-> > > #if defined(CONFIG_ARCH_AT91)
-> > > 		macb_writel(bp, USRIO, (MACB_BIT(RMII) | MACB_BIT(CLKEN)));
-> > > #else
-> > > 		macb_writel(bp, USRIO, 0);
-> > > #endif
-> > > 	else
-> > > #if defined(CONFIG_ARCH_AT91)
-> > > 		macb_writel(bp, USRIO, MACB_BIT(CLKEN));
-> > > #else
-> > > 		macb_writel(bp, USRIO, MACB_BIT(MII));
-> > > #endif
+> > > > Signed-off-by: Jamie Iles <jamie@jamieiles.com>
+> > > could we avoid all this if else everywhere?
 > > 
-> > Ok, but what about non-AT91/AVR32 systems?  They may not have a 
-> > mach/cpu.h and won't have cpu_is_foo() for the platforms the driver is 
-> > interested in.
+> > I can't really see any other way to do this, but you're right it isn't 
+> > particularly nice.  Having said that, it is only in the initialization 
+> > code so there shouldn't be any real performance impact.
 > > 
-> > Could we supply these values in the platform data so the driver doesn't 
-> > need to do any cpu_is_ magic?
->
-> for other arch you can but at91 I prefer to avoid this copy and paste in every
-> soc
+> > I'm open to ideas though!
+> use macro or inline at least
 
-Ok, just so I'm clear, you want to be able to set the USRIO register 
-based on a cpu_is_foo() test which requires mach/cpu.h to be included.  
+Ok, so this works:
 
-For other architectures we may not have mach/cpu.h and the cpu_is_foo() 
-macros, so we'd still need to protect all of that with "#ifdef 
-CONFIG_ARCH_AT91" tests.  Is that okay?
+#define macb_or_gem_writel(__bp, __reg, __value) \
+	({ \
+		if ((__bp)->is_gem) \
+			gem_writel((__bp), __reg, __value); \
+		else \
+			macb_writel((__bp), __reg, __value); \
+	})
+
+#define macb_or_gem_readl(__bp, __reg) \
+	({ \
+		u32 __v; \
+		if ((__bp)->is_gem) \
+			__v = gem_readl((__bp), __reg); \
+		else \
+			__v = macb_readl((__bp), __reg); \
+		__v; \
+	})
+
+and then we can use these for things like the hardware addresses where 
+the registers are different but I wanted to avoid the conditional in 
+every register access if possible.
+
+How is this for you?  We then only have visible conditionals for the 
+data bus width (as I don't know if that is something that MACB can do or 
+what the numbers are) and for the stats collection, but that seems 
+acceptable to me.
 
 Jamie
