@@ -1,79 +1,40 @@
-From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
-Subject: Re: [PATCH 0/6] TCP CUBIC and Hystart
-Date: Fri, 11 Mar 2011 17:08:09 +0100
-Message-ID: <20110311160809.GA30082@xanadu.blop.info>
-References: <20110310165119.224046957@vyatta.com>
- <20110311102809.GB15941@xanadu.blop.info>
- <AANLkTimi+nJ1-PO+JYjckg-Pw3+6-zJvqPvhMjf+1Lua@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: how to utilize multi tx queue to sent packets
+Date: Fri, 11 Mar 2011 09:06:36 -0800
+Message-ID: <20110311090636.6e393f2b@nehalam>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB3D3D62@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
-	rhee@ncsu.edu, netdev@vger.kernel.org
-To: Sangtae Ha <sangtae.ha@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jon Zhou <Jon.Zhou@jdsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([178.79.145.134]:60686 "EHLO xanadu.blop.info"
+Received: from mail.vyatta.com ([76.74.103.46]:59232 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754482Ab1CKQ2T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2011 11:28:19 -0500
-Content-Disposition: inline
-In-Reply-To: <AANLkTimi+nJ1-PO+JYjckg-Pw3+6-zJvqPvhMjf+1Lua@mail.gmail.com>
+	id S1751642Ab1CKRGl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2011 12:06:41 -0500
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB3D3D62@MILEXCH2.ds.jdsu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/03/11 at 10:58 -0500, Sangtae Ha wrote:
-> Hi Lucas,
->=20
-> From your setup, ca->delay_min is 90 and this means the one-way delay
-> is 90 >> 4 (5ms).
-> And our gap detection threshold is 2ms, which means that if the gap i=
-s
-> loosely spread over 5ms with delayed ACKs, it can early terminate the
-> slow start. But, given the optimal cwnd is 941 in your setup, exiting
-> slow start one RTT before the loss (half of the optimal cwnd) is what
-> hystart does.
->=20
-> Since the resolution is now ms, can you change the gap detection to
-> 1ms and run it again?
-> Also, the following change you did doesn't hurt (1ms more train to
-> detect the ACK train).
+On Thu, 10 Mar 2011 22:52:30 -0800
+Jon Zhou <Jon.Zhou@jdsu.com> wrote:
 
-Hi,
+> hi
+> 
+> I am doing some test according to the
+> website:http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
+> 
+> use packet_mmap tx_ring to send packet.
+> 
+> I modified the sample code "packetmmap.c" to make it send packets have different outer ip.
+> so that with the help of RSS, I can achieve higher throughput.
+> 
+> but one thing I saw at the tx side, is that all the packets are sent via the same tx_queue,
+> which is conflict with what I saw at the rx side.
+> any idea to make it sent packets via different tx_queues? (spread across the tx_queues)
 
-Changing it to 1ms only improves the situation marginally.
-[25271.861481] found ACK TRAIN: cwnd=3D835 now=3D2779244747 ca->last_ac=
-k=3D2779244747 ca->round_start=3D2779244741 ca->delay_min=3D90 delay_mi=
-n>>4=3D5 nbacks=3D261
-[25291.507340] found ACK TRAIN: cwnd=3D585 now=3D2779264393 ca->last_ac=
-k=3D2779264393 ca->round_start=3D2779264387 ca->delay_min=3D90 delay_mi=
-n>>4=3D5 nbacks=3D221
-[25327.585396] found ACK TRAIN: cwnd=3D1034 now=3D2779300471 ca->last_a=
-ck=3D2779300471 ca->round_start=3D2779300465 ca->delay_min=3D90 delay_m=
-in>>4=3D5 nbacks=3D245
-[25347.300351] found ACK TRAIN: cwnd=3D1463 now=3D2779320186 ca->last_a=
-ck=3D2779320186 ca->round_start=3D2779320180 ca->delay_min=3D90 delay_m=
-in>>4=3D5 nbacks=3D427
-[25390.702328] found ACK TRAIN: cwnd=3D587 now=3D2779363588 ca->last_ac=
-k=3D2779363588 ca->round_start=3D2779363582 ca->delay_min=3D90 delay_mi=
-n>>4=3D5 nbacks=3D211
-[25394.775396] found ACK TRAIN: cwnd=3D588 now=3D2779367661 ca->last_ac=
-k=3D2779367661 ca->round_start=3D2779367655 ca->delay_min=3D90 delay_mi=
-n>>4=3D5 nbacks=3D242
-[25402.061328] found ACK TRAIN: cwnd=3D1282 now=3D2779374947 ca->last_a=
-ck=3D2779374947 ca->round_start=3D2779374941 ca->delay_min=3D90 delay_m=
-in>>4=3D5 nbacks=3D335
-[25404.894336] found ACK TRAIN: cwnd=3D585 now=3D2779377780 ca->last_ac=
-k=3D2779377780 ca->round_start=3D2779377774 ca->delay_min=3D90 delay_mi=
-n>>4=3D5 nbacks=3D205
-[25408.584337] found ACK TRAIN: cwnd=3D587 now=3D2779381470 ca->last_ac=
-k=3D2779381470 ca->round_start=3D2779381464 ca->delay_min=3D90 delay_mi=
-n>>4=3D5 nbacks=3D209
-[25421.699331] found ACK TRAIN: cwnd=3D856 now=3D2779394585 ca->last_ac=
-k=3D2779394585 ca->round_start=3D2779394579 ca->delay_min=3D90 delay_mi=
-n>>4=3D5 nbacks=3D239
+You need to have multiple threads to get Tx scaling.
+In you case that also means multiple AF_PACKET sockets and separate rings.
 
-There are still some cases when ack trains are detected too early.
---=20
-| Lucas Nussbaum             MCF Universit=E9 Nancy 2 |
-| lucas.nussbaum@loria.fr         LORIA / AlGorille |
-| http://www.loria.fr/~lnussbau/  +33 3 54 95 86 19 |
+Or just run multiple copies of the same test each with a different IP
