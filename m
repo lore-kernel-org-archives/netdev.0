@@ -1,135 +1,168 @@
 From: Sangtae Ha <sangtae.ha@gmail.com>
-Subject: Re: [PATCH 0/6] TCP CUBIC and Hystart
-Date: Fri, 11 Mar 2011 10:58:05 -0500
-Message-ID: <AANLkTimi+nJ1-PO+JYjckg-Pw3+6-zJvqPvhMjf+1Lua@mail.gmail.com>
+Subject: Re: [PATCH 5/6] tcp_cubic: fix clock dependency
+Date: Fri, 11 Mar 2011 11:26:42 -0500
+Message-ID: <AANLkTinRFfXv_cqE92f7Kz=1V8Hf_byxeUur0Bwp_OL_@mail.gmail.com>
 References: <20110310165119.224046957@vyatta.com>
-	<20110311102809.GB15941@xanadu.blop.info>
+	<20110310165329.187344604@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
-	rhee@ncsu.edu, netdev@vger.kernel.org
-To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Cc: davem@davemloft.net, rhee@ncsu.edu, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:47750 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62798 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752730Ab1CKP6G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 10:58:06 -0500
-Received: by fxm17 with SMTP id 17so1110230fxm.19
-        for <netdev@vger.kernel.org>; Fri, 11 Mar 2011 07:58:05 -0800 (PST)
-In-Reply-To: <20110311102809.GB15941@xanadu.blop.info>
+	with ESMTP id S1754482Ab1CKQ1C convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 11:27:02 -0500
+Received: by fxm17 with SMTP id 17so1138740fxm.19
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2011 08:27:01 -0800 (PST)
+In-Reply-To: <20110310165329.187344604@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Lucas,
+Thanks Stephen.
 
-=46rom your setup, ca->delay_min is 90 and this means the one-way delay
-is 90 >> 4 (5ms).
-And our gap detection threshold is 2ms, which means that if the gap is
-loosely spread over 5ms with delayed ACKs, it can early terminate the
-slow start. But, given the optimal cwnd is 941 in your setup, exiting
-slow start one RTT before the loss (half of the optimal cwnd) is what
-hystart does.
+The patch is useful since I had to increase CA_PRIV_SIZE to use
+ktime_t for the testing.
+Indeed, CUBIC already used up the limit CA_PRIV_SIZE for its variables.
 
-Since the resolution is now ms, can you change the gap detection to
-1ms and run it again?
-Also, the following change you did doesn't hurt (1ms more train to
-detect the ACK train).
+I've got compilation errors because of "jiffies_to_ms" and I corrected
+it to "jiffies_to_msecs"
 
-if ((s32)(now - ca->round_start) > ca->delay_min >> 4)
+-       return jiffies_to_ms(jiffies);
++       return jiffies_to_msecs(jiffies);
 
-I am also testing the algorithm with HZ=3D100ms and 1000ms in my networ=
-k
-and will share the results soon.
+Also, >=3D instead of <=3D, which Lucas already found and reported.
+
+-                       if ((s32)(now - ca->round_start) <=3D ca->delay=
+_min >> 4)
++                       if ((s32)(now - ca->round_start) >=3D ca->delay=
+_min >> 4)
+
 
 Sangtae
 
-
-On Fri, Mar 11, 2011 at 5:28 AM, Lucas Nussbaum <lucas.nussbaum@loria.f=
-r> wrote:
-> On 10/03/11 at 08:51 -0800, Stephen Hemminger wrote:
->> This patch set is my attempt at addressing the problems discovered
->> by Lucas Nussbaum.
+On Thu, Mar 10, 2011 at 11:51 AM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> The hystart code was written with assumption that HZ=3D1000.
+> Replace the use of jiffies with bictcp_clock as a millisecond
+> real time clock.
 >
-> With those patches applied (and the fix I mentioned separately), it
-> works much better (still with HZ=3D250).
+> Warning: this is still experimental, there may still be mistakes
+> in units (ms vs. jiffies).
 >
-> When a delayed ack train is detected, slow start ends with cwnd ~=3D =
-580
-> (sometimes a bit lower).
-> When no delayed ack train is detected, slow start ends with the detec=
-tion of the
-> delay increase at cwnd in the [700:1100] range.
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 >
-> performance is still not as good as without hystart, but it is more
-> acceptable:
+> P.s: tried using ktime_t but 'struct bictcp' is bumping against limit
+> of CA_PRIV_SIZE.
 >
-> nuttcp -i1 -n1g graphene-34.nancy.grid5000.fr
-> =A0 94.8125 MB / =A0 1.00 sec =3D =A0795.3059 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6325 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6222 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6335 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6354 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6231 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.5883 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6297 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6391 Mbps =A0 =A0 0 retrans
+> --- a/net/ipv4/tcp_cubic.c =A0 =A0 =A02011-03-10 08:35:45.532695373 -=
+0800
+> +++ b/net/ipv4/tcp_cubic.c =A0 =A0 =A02011-03-10 08:35:59.968882888 -=
+0800
+> @@ -88,7 +88,7 @@ struct bictcp {
+> =A0 =A0 =A0 =A0u32 =A0 =A0 last_time; =A0 =A0 =A0/* time when updated=
+ last_cwnd */
+> =A0 =A0 =A0 =A0u32 =A0 =A0 bic_origin_point;/* origin point of bic fu=
+nction */
+> =A0 =A0 =A0 =A0u32 =A0 =A0 bic_K; =A0 =A0 =A0 =A0 =A0/* time to origi=
+n point from the beginning of the current epoch */
+> - =A0 =A0 =A0 u32 =A0 =A0 delay_min; =A0 =A0 =A0/* min delay */
+> + =A0 =A0 =A0 u32 =A0 =A0 delay_min; =A0 =A0 =A0/* min delay (msec <<=
+ 3) */
+> =A0 =A0 =A0 =A0u32 =A0 =A0 epoch_start; =A0 =A0/* beginning of an epo=
+ch */
+> =A0 =A0 =A0 =A0u32 =A0 =A0 ack_cnt; =A0 =A0 =A0 =A0/* number of acks =
+*/
+> =A0 =A0 =A0 =A0u32 =A0 =A0 tcp_cwnd; =A0 =A0 =A0 /* estimated tcp cwn=
+d */
+> @@ -98,7 +98,7 @@ struct bictcp {
+> =A0 =A0 =A0 =A0u8 =A0 =A0 =A0found; =A0 =A0 =A0 =A0 =A0/* the exit po=
+int is found? */
+> =A0 =A0 =A0 =A0u32 =A0 =A0 round_start; =A0 =A0/* beginning of each r=
+ound */
+> =A0 =A0 =A0 =A0u32 =A0 =A0 end_seq; =A0 =A0 =A0 =A0/* end_seq of the =
+round */
+> - =A0 =A0 =A0 u32 =A0 =A0 last_jiffies; =A0 /* last time when the ACK=
+ spacing is close */
+> + =A0 =A0 =A0 u32 =A0 =A0 last_ack; =A0 =A0 =A0 /* last time when the=
+ ACK spacing is close */
+> =A0 =A0 =A0 =A0u32 =A0 =A0 curr_rtt; =A0 =A0 =A0 /* the minimum rtt o=
+f current round */
+> =A0};
 >
-> =A01024.0000 MB / =A0 9.29 sec =3D =A0924.7155 Mbps 14 %TX 28 %RX 0 r=
-etrans 11.39 msRTT
-> During that run, no ack train was detected, but delay increase was de=
-tected when cwnd=3D1105:
-> hystart_update: cwnd=3D1105 ssthresh=3D1105 fnd=3D2 hs_det=3D3 =A0 cu=
-r_rtt=3D122 delay_min=3D90 DELTRE=3D16
+> @@ -119,12 +119,21 @@ static inline void bictcp_reset(struct b
+> =A0 =A0 =A0 =A0ca->found =3D 0;
+> =A0}
 >
-> However:
-> echo 1 > /proc/sys/net/ipv4/route/flush; nuttcp -i1 -n1g graphene-34.=
-nancy.grid5000.fr
-> =A0 49.5000 MB / =A0 1.00 sec =3D =A0415.2278 Mbps =A0 =A0 0 retrans
-> =A0 59.0000 MB / =A0 1.00 sec =3D =A0494.9318 Mbps =A0 =A0 0 retrans
-> =A0 62.1875 MB / =A0 1.00 sec =3D =A0521.6535 Mbps =A0 =A0 0 retrans
-> =A0 64.1250 MB / =A0 1.00 sec =3D =A0537.9329 Mbps =A0 =A0 0 retrans
-> =A0 67.0625 MB / =A0 1.00 sec =3D =A0562.5486 Mbps =A0 =A0 0 retrans
-> =A0 69.4375 MB / =A0 1.00 sec =3D =A0582.4840 Mbps =A0 =A0 0 retrans
-> =A0 72.3750 MB / =A0 1.00 sec =3D =A0607.1395 Mbps =A0 =A0 0 retrans
-> =A0 75.3125 MB / =A0 1.00 sec =3D =A0631.7557 Mbps =A0 =A0 0 retrans
-> =A0 83.1250 MB / =A0 1.00 sec =3D =A0697.2975 Mbps =A0 =A0 0 retrans
-> =A0 94.3125 MB / =A0 1.00 sec =3D =A0791.1569 Mbps =A0 =A0 0 retrans
-> =A0107.6250 MB / =A0 1.00 sec =3D =A0902.8194 Mbps =A0 =A0 0 retrans
-> =A0112.2500 MB / =A0 1.00 sec =3D =A0941.6231 Mbps =A0 =A0 0 retrans
+> +static inline u32 bictcp_clock(void)
+> +{
+> +#if HZ < 1000
+> + =A0 =A0 =A0 return ktime_to_ms(ktime_get_real());
+> +#else
+> + =A0 =A0 =A0 return jiffies_to_ms(jiffies);
+> +#endif
+> +}
+> +
+> =A0static inline void bictcp_hystart_reset(struct sock *sk)
+> =A0{
+> =A0 =A0 =A0 =A0struct tcp_sock *tp =3D tcp_sk(sk);
+> =A0 =A0 =A0 =A0struct bictcp *ca =3D inet_csk_ca(sk);
 >
-> =A01024.0000 MB / =A012.97 sec =3D =A0662.2669 Mbps 10 %TX 20 %RX 0 r=
-etrans 11.39 msRTT
-> [ 3050.712333] found ACK TRAIN: cwnd=3D493 now=3D2757023598 ca->last_=
-ack=3D2757023598 ca->round_start=3D2757023593 ca->delay_min=3D90 delay_=
-min>>4=3D5
-> [ 3050.726045] hystart_update: cwnd=3D493 ssthresh=3D493 fnd=3D1 hs_d=
-et=3D3 =A0 cur_rtt=3D91 delay_min=3D90 DELTRE=3D16
-> (delayed ack train detected when cwnd=3D493 =3D> slower convergence)
+> - =A0 =A0 =A0 ca->round_start =3D ca->last_jiffies =3D jiffies;
+> + =A0 =A0 =A0 ca->round_start =3D ca->last_ack =3D bictcp_clock();
+> =A0 =A0 =A0 =A0ca->end_seq =3D tp->snd_nxt;
+> =A0 =A0 =A0 =A0ca->curr_rtt =3D 0;
+> =A0 =A0 =A0 =A0ca->sample_cnt =3D 0;
+> @@ -239,7 +248,7 @@ static inline void bictcp_update(struct
+> =A0 =A0 =A0 =A0 */
 >
-> It seems that the ack train length detection is still a bit too sensi=
-tive.
-> Changing:
-> =A0 =A0 =A0 =A0if ((s32)(now - ca->round_start) >=3D ca->delay_min >>=
- 4)
-> To:
-> =A0 =A0 =A0 =A0if ((s32)(now - ca->round_start) > ca->delay_min >> 4)
-> makes things slightly better, but slow start still exits too early. (=
-optimal cwnd=3D941).
+> =A0 =A0 =A0 =A0/* change the unit from HZ to bictcp_HZ */
+> - =A0 =A0 =A0 t =3D ((tcp_time_stamp + (ca->delay_min>>3) - ca->epoch=
+_start)
+> + =A0 =A0 =A0 t =3D ((tcp_time_stamp + msecs_to_jiffies(ca->delay_min=
+>>3) - ca->epoch_start)
+> =A0 =A0 =A0 =A0 =A0 =A0 << BICTCP_HZ) / HZ;
 >
-> I'm not sure if we can really do something more about that. The detec=
-tion by
-> ack train length is inherently more likely to trigger false positives=
- since all
-> acks are considered, not just a few acks at the beginning of the trai=
-n. =A0I'm
-> tempted to suggest to disable the ack train length detection by defau=
-lt, but
-> then it probably solves problems for other people, and the decrease i=
-n
-> performance is more acceptable now.
-> --
-> | Lucas Nussbaum =A0 =A0 =A0 =A0 =A0 =A0 MCF Universit=E9 Nancy 2 |
-> | lucas.nussbaum@loria.fr =A0 =A0 =A0 =A0 LORIA / AlGorille |
-> | http://www.loria.fr/~lnussbau/ =A0+33 3 54 95 86 19 |
+> =A0 =A0 =A0 =A0if (t < ca->bic_K) =A0 =A0 =A0 =A0 =A0 =A0 =A0/* t - K=
+ */
+> @@ -342,14 +351,12 @@ static void hystart_update(struct sock *
+> =A0 =A0 =A0 =A0struct bictcp *ca =3D inet_csk_ca(sk);
+>
+> =A0 =A0 =A0 =A0if (!(ca->found & hystart_detect)) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 curr_jiffies =3D jiffies;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 now =3D bictcp_clock();
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* first detection parameter - ack-tra=
+in detection */
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((s32)(curr_jiffies - ca->last_jiffi=
+es) <=3D
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 msecs_to_jiffies(hystart_ack_de=
+lta)) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ca->last_jiffies =3D cu=
+rr_jiffies;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((s32) (curr_jiffies=
+ - ca->round_start) <=3D
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ca->delay_min >=
+> 4)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((s32)(now - ca->last_ack) <=3D hyst=
+art_ack_delta) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ca->last_ack =3D now;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((s32)(now - ca->rou=
+nd_start) <=3D ca->delay_min >> 4)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ca->fo=
+und |=3D HYSTART_ACK_TRAIN;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>
+> @@ -396,7 +403,7 @@ static void bictcp_acked(struct sock *sk
+> =A0 =A0 =A0 =A0if ((s32)(tcp_time_stamp - ca->epoch_start) < HZ)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+>
+> - =A0 =A0 =A0 delay =3D usecs_to_jiffies(rtt_us) << 3;
+> + =A0 =A0 =A0 delay =3D (rtt_us << 3) / USEC_PER_MSEC;
+> =A0 =A0 =A0 =A0if (delay =3D=3D 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0delay =3D 1;
+>
+>
+>
 >
