@@ -1,50 +1,34 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [GIT] Networking
-Date: Fri, 11 Mar 2011 07:36:49 +0100
-Message-ID: <20110311063649.GA13293@elte.hu>
-References: <AANLkTimnHtVS=SFopgyjAAQDW8bXDKDXf+YvEtPdpPsA@mail.gmail.com>
- <20110310.155556.48513201.davem@davemloft.net>
- <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com>
- <20110310.163434.260095615.davem@davemloft.net>
- <AANLkTimAPqTYT_j6t3cT32WfD6cQPySG0tnQVhC8Z=NO@mail.gmail.com>
- <20110311033406.GA11004@home.goodmis.org>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: how to utilize multi tx queue to sent packets
+Date: Thu, 10 Mar 2011 22:52:30 -0800
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB3D3D62@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110311033406.GA11004@home.goodmis.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og124.obsmtp.com ([64.18.2.26]:59479 "HELO
+	exprod7og124.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750905Ab1CKGxh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 01:53:37 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+hi
+
+I am doing some test according to the
+website:http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
+
+use packet_mmap tx_ring to send packet.
+
+I modified the sample code "packetmmap.c" to make it send packets have different outer ip.
+so that with the help of RSS, I can achieve higher throughput.
+
+but one thing I saw at the tx side, is that all the packets are sent via the same tx_queue,
+which is conflict with what I saw at the rx side.
+any idea to make it sent packets via different tx_queues? (spread across the tx_queues)
 
 
-* Steven Rostedt <rostedt@goodmis.org> wrote:
-
-> On Thu, Mar 10, 2011 at 04:51:34PM -0800, Linus Torvalds wrote:
-> > 
-> > The reasons can be any of:
-> > 
-> >  - "I don't want to get too far away from upstream". This is very
-> > understandable, but I have asked people to please _not_ merge "random
-> > trees of the day". Please use major releases for this (or, if worst
-> > comes to worst, -rc releases) rather than just do something else.
-> 
-> What are you throughts on starting work from a tree. Most of my work is usually 
-> based off of some branch in tip, but sometimes when I'm pulling in patches that 
-> are not really related to anything, I just simply grab whatever the latest Linus 
-> branch is and start from there.
-> 
-> Is it preferable to instead start from one of the official releases?
-
-Yes, for clarity of merge history i'm generally asking all people who send pull 
-requests to -tip to use official -rc's as bases (or -tip branches), *not* some 
-random daily -git snapshot. If a -git snapshot has to be merged for a good reason 
-then please amend the merge commit with the Merge-Reason tag describing the good 
-reason you had.
-
-Thanks,
-
-	Ingo
+thanks
+jon
