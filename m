@@ -1,49 +1,55 @@
-From: David Miller <davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT] Networking
-Date: Thu, 10 Mar 2011 15:55:56 -0800 (PST)
-Message-ID: <20110310.155556.48513201.davem@davemloft.net>
-References: <20110310.153444.115930379.davem@davemloft.net>
-	<AANLkTimnHtVS=SFopgyjAAQDW8bXDKDXf+YvEtPdpPsA@mail.gmail.com>
+Date: Thu, 10 Mar 2011 16:01:54 -0800
+Message-ID: <AANLkTimXqZS4+1WgQcaAFG9CY2G-RPNy7UbXdjn8+_e4@mail.gmail.com>
+References: <20110310.153444.115930379.davem@davemloft.net> <AANLkTimnHtVS=SFopgyjAAQDW8bXDKDXf+YvEtPdpPsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46881 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754004Ab1CKACo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2011 19:02:44 -0500
 In-Reply-To: <AANLkTimnHtVS=SFopgyjAAQDW8bXDKDXf+YvEtPdpPsA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 10 Mar 2011 15:49:40 -0800
+On Thu, Mar 10, 2011 at 3:49 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> Now, I admit that it's a git usability bug: for normal "git commit",
+> git will _force_ you to write a message, and sadly, for merges, I made
+> it instead just do the message automatically. My bad. I designed it
+> for the kind of merges I do, where the the automatic merge message
+> actually tells you what the merge is all about.
 
-> Grr. This has been going on for too long. Don't do it. Don't do random
-> backwards merges without explanations, and with the actual source data
-> removed.
-> 
-> We're _really_ good at doing commit messages, and the kernel commit
-> log should be a great example to other projects. But in the last week
-> or so, I've now _twice_ had to flame core developers for making
-> totally useless commit messages.
-> 
-> So don't do back-merges. And if you DO do back-merges, don't make the
-> commit message totally useless.
-> 
-> You can use either 'git commit --amend" to fix the message afterwards
-> and explain WHY you did the stupid thing, or you can just do "git pull
-> --no-commit" to not actually commit the merge and then write your
-> commit message as you do it. But preferably you shouldn't do the
-> back-merges at all.
+Btw, the reason I got really upset this time (and I've let it slide
+before), is that this time your back-merge not only had that totally
+useless merge message (that's happened before), but *because* you did
+that back-merge, it also ends up making _my_ merge message totally
+useless - the one that normally contains good and useful information
+(a valid source of merging, and the abbreviated shortlog of what was
+merged).
 
-I'm sorry about this, won't happen again.
+Why? Because you had done the back-merge very recently, my pull
+request then ends up being a fast-forward, so your _useless_ merge
+message basically entirely replaces the one that would have been
+useful.
 
-I should have put:
+Yes, I could do it with "git pull --no-ff", but I have to admit to
+hating adding more artificial merges into the tree just to get the
+merge information. I didn't think the "--no-ff" flag was a good idea,
+and I've never used it so far, but I have to say that now I'm
+wavering.
 
-	Merge to get commit 8909c9ad8ff03611c9c96c9a92656213e4bb495b
-	("net: don't allow CAP_NET_ADMIN to load non-netdev kernel modules")
-	so that we can add Stephen Hemminger's fix to handle ip6 tunnels
-	as well, which uses the MODULE_ALIAS_NETDEV() macro created by
-	that change.
+I probably also should just talk to Junio and tell him that the whole
+"totally automatic merge messages" was another horrible design
+mistake. But if we do fix that in git, I suspect it will (a) break
+scripts that expected the automatic silent merge and (b) take a long
+time to percolate to people. So it might be one of those "we have to
+live with it due to backwards compatibility reasons". Ugh.
 
-Again, sorry.
+                                    Linus
