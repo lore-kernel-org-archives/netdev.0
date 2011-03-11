@@ -1,34 +1,44 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: how to utilize multi tx queue to sent packets
-Date: Thu, 10 Mar 2011 22:52:30 -0800
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB3D3D62@MILEXCH2.ds.jdsu.net>
+From: Jamie Iles <jamie@jamieiles.com>
+Subject: Re: [PATCH 2/8] macb: detect hclk presence from platform data
+Date: Fri, 11 Mar 2011 08:54:43 +0000
+Message-ID: <20110311085443.GJ6198@pulham.picochip.com>
+References: <1299751843-9743-1-git-send-email-jamie@jamieiles.com>
+ <1299751843-9743-3-git-send-email-jamie@jamieiles.com>
+ <20110311014400.GJ9351@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamie Iles <jamie@jamieiles.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, nicolas.ferre@atmel.com
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og124.obsmtp.com ([64.18.2.26]:59479 "HELO
-	exprod7og124.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750905Ab1CKGxh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 01:53:37 -0500
-Content-Language: en-US
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35702 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298Ab1CKIyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2011 03:54:47 -0500
+Received: by bwz15 with SMTP id 15so2511854bwz.19
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2011 00:54:46 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20110311014400.GJ9351@game.jcrosoft.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi
+On Fri, Mar 11, 2011 at 02:44:00AM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> On 10:10 Thu 10 Mar     , Jamie Iles wrote:
+> > +#ifdef CONFIG_ARCH_AT91
+> > +#define PCLK_NAME	"macb_clk"
+> > +#else /* CONFIG_ARCH_AT91 */
+> > +#define PCLK_NAME	"pclk"
+> > +#endif
+> 
+> we need change the clock name and avoid the ifdef
+> so this will be generic
+> 
+> nb I work on the switch to clkdev currently for avr32 and at91
 
-I am doing some test according to the
-website:http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
+This should be gone now.  Russell made the suggestion to have a fake clk 
+for hclk on AT91 so I think I've solved that now.  There's an updated 
+patch in my reply to Russell's message but essentially I'm using 
+at91_clock_associate() to turn "macb_pclk" into "hclk" and "pclk".  Does 
+this seem reasonable?
 
-use packet_mmap tx_ring to send packet.
-
-I modified the sample code "packetmmap.c" to make it send packets have different outer ip.
-so that with the help of RSS, I can achieve higher throughput.
-
-but one thing I saw at the tx side, is that all the packets are sent via the same tx_queue,
-which is conflict with what I saw at the rx side.
-any idea to make it sent packets via different tx_queues? (spread across the tx_queues)
-
-
-thanks
-jon
+Jamie
