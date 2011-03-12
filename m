@@ -1,75 +1,89 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: fcoe: correct checking for bonding
-Date: Sat, 12 Mar 2011 13:01:10 +0100
-Message-ID: <20110312120109.GA2899@psychotron.redhat.com>
-References: <20110302060535.GA2829@psychotron.redhat.com>
- <20110302095550.GA2858@psychotron.brq.redhat.com>
- <1299114558.1688.5.camel@fritz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James.Bottomley@suse.de,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>,
-	"joe.eykholt@gmail.com" <joe.eykholt@gmail.com>
-To: Robert Love <robert.w.love@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 00/21][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 12 Mar 2011 04:20:07 -0800
+Message-ID: <1299932428-3114-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14621 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:39426 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751139Ab1CLMBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Mar 2011 07:01:22 -0500
-Content-Disposition: inline
-In-Reply-To: <1299114558.1688.5.camel@fritz>
+	id S1751145Ab1CLMUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Mar 2011 07:20:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 03, 2011 at 02:09:18AM CET, robert.w.love@intel.com wrote:
->On Wed, 2011-03-02 at 01:55 -0800, Jiri Pirko wrote:
->> Or perhaps this should be applied to net-next?
->> 
->I think this should go through scsi-misc as all the other
->libfc/libfcoe/fcoe patches do.
->
->> Wed, Mar 02, 2011 at 07:05:35AM CET, jpirko@redhat.com wrote:
->> >Check for bonding master and refuse to use that.
->> >
->> >Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> >---
->> > drivers/scsi/fcoe/fcoe.c |    4 +---
->> > 1 files changed, 1 insertions(+), 3 deletions(-)
->> >
->> >diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
->> >index 9f9600b..3becc6a 100644
->> >--- a/drivers/scsi/fcoe/fcoe.c
->> >+++ b/drivers/scsi/fcoe/fcoe.c
->> >@@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
->> > 	}
->> > 
->> > 	/* Do not support for bonding device */
->> >-	if ((netdev->priv_flags & IFF_MASTER_ALB) ||
->> >-	    (netdev->priv_flags & IFF_SLAVE_INACTIVE) ||
->> >-	    (netdev->priv_flags & IFF_MASTER_8023AD)) {
->> >+	if (netdev->priv_flags & IFF_BONDING && netdev->flags & IFF_MASTER) {
->> > 		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
->> > 		return -EOPNOTSUPP;
->> > 	}
->> >-- 
->> >1.7.3.4
->> >
->
->James, feel free to pick up this patch. I don't have anything in my fcoe
->tree right now that it would conflict with. I'll also put it in my tree
->and resend if you don't put it into scsi-misc directly.
+The following series contains a version string fix and bump for ixgbevf,
+added functionality for i350 devices in igb, and cleanups and fixes in
+ixgbe (mainly DCB changes).
 
-What's the status of this? Maybe this should rather go thru net-next
+The following are changes since commit 70d279a7e2a6e308530822ba2bf4134cc0f5c091:
+  e1000e: bump version number
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
 
-Davem?
+Carolyn Wyborny (4):
+  igb: Add Energy Efficient Ethernet (EEE) for i350 devices.
+  igb: Update NVM functions to work with i350 devices
+  igb: Add DMA Coalescing feature to driver
+  igb: Bump version to 3.0.6
 
-Thanks
+Emil Tantilov (3):
+  ixgbe: remove timer reset to 0 on timeout
+  ixgbe: update PHY code to support 100Mbps as well as 1G/10G
+  ixgbe: correct typo in define name
 
-Jirka
->
->Acked-by: Robert Love <robert.w.love@intel.com>
->
+Greg Rose (2):
+  ixgbevf: Fix Version String
+  ixgbevf: Fix Driver String
+
+John Fastabend (11):
+  ixgbe: DCB, implement capabilities flags
+  ixgbe: DCB, implement ieee_setapp dcbnl ops
+  ixgbe: DCB remove ixgbe_fcoe_getapp routine
+  ixgbe: DCB, use multiple Tx rings per traffic class
+  ixgbe: enable ndo_tc_setup
+  ixgbe: DCB: enable RSS to be used with DCB
+  ixgbe: DCB, missed translation from 8021Qaz TSA to CEE link strict
+  ixgbe: IEEE 802.1Qaz, implement priority assignment table
+  ixgbe: DCB during ifup use correct CEE or IEEE mode
+  ixgbe: DCB, set minimum bandwidth per traffic class
+  ixgbe: DCB, PFC not cleared until reset occurs
+
+Lior Levy (1):
+  ixgbe: add support for VF Transmit rate limit using iproute2
+
+ drivers/net/igb/e1000_82575.c       |  285 +++++++++++++++++++++++-
+ drivers/net/igb/e1000_82575.h       |    1 +
+ drivers/net/igb/e1000_defines.h     |   39 +++-
+ drivers/net/igb/e1000_hw.h          |    4 +-
+ drivers/net/igb/e1000_nvm.c         |   64 +++++-
+ drivers/net/igb/e1000_nvm.h         |    1 +
+ drivers/net/igb/e1000_regs.h        |   13 +
+ drivers/net/igb/igb.h               |    6 +
+ drivers/net/igb/igb_ethtool.c       |    8 +-
+ drivers/net/igb/igb_main.c          |   76 ++++++-
+ drivers/net/ixgbe/ixgbe.h           |    7 +-
+ drivers/net/ixgbe/ixgbe_82598.c     |    1 +
+ drivers/net/ixgbe/ixgbe_dcb.c       |   37 +---
+ drivers/net/ixgbe/ixgbe_dcb.h       |    4 +-
+ drivers/net/ixgbe/ixgbe_dcb_82598.c |   44 ++--
+ drivers/net/ixgbe/ixgbe_dcb_82599.c |   71 +++---
+ drivers/net/ixgbe/ixgbe_dcb_82599.h |    9 +-
+ drivers/net/ixgbe/ixgbe_dcb_nl.c    |  226 ++++++++++++++-----
+ drivers/net/ixgbe/ixgbe_fcoe.c      |   15 --
+ drivers/net/ixgbe/ixgbe_main.c      |  425 ++++++++++++++++++++---------------
+ drivers/net/ixgbe/ixgbe_mbx.c       |    6 -
+ drivers/net/ixgbe/ixgbe_phy.c       |  335 +++++++++++++++++++--------
+ drivers/net/ixgbe/ixgbe_phy.h       |    1 +
+ drivers/net/ixgbe/ixgbe_sriov.c     |   85 +++++++-
+ drivers/net/ixgbe/ixgbe_sriov.h     |    1 +
+ drivers/net/ixgbe/ixgbe_type.h      |   13 +
+ drivers/net/ixgbevf/ethtool.c       |    4 +-
+ drivers/net/ixgbevf/ixgbevf_main.c  |    4 +-
+ drivers/net/ixgbevf/regs.h          |    2 +-
+ 29 files changed, 1317 insertions(+), 470 deletions(-)
+
+-- 
+1.7.4
+
