@@ -1,33 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 00/21][pull request] Intel Wired LAN Driver
- Updates
-Date: Sat, 12 Mar 2011 14:42:19 -0800 (PST)
-Message-ID: <20110312.144219.104054672.davem@davemloft.net>
-References: <1299932428-3114-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 0/25] Kill stack space gaps due to flowi layout.
+Date: Sat, 12 Mar 2011 15:23:51 -0800 (PST)
+Message-ID: <20110312.152351.189687538.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33080
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37554
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755926Ab1CLWll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2011 17:41:41 -0500
-In-Reply-To: <1299932428-3114-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	by vger.kernel.org with ESMTP id S1756175Ab1CLXXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2011 18:23:15 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 54E5C24C088
+	for <netdev@vger.kernel.org>; Sat, 12 Mar 2011 15:23:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 12 Mar 2011 04:20:07 -0800
 
-> The following series contains a version string fix and bump for ixgbevf,
-> added functionality for i350 devices in igb, and cleanups and fixes in
-> ixgbe (mainly DCB changes).
-> 
-> The following are changes since commit 70d279a7e2a6e308530822ba2bf4134cc0f5c091:
->   e1000e: bump version number
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+One thing we got wrong from the beginning was the layout of
+struct flowi.  It's suboptimal by design.
 
-Looks good, pulled, thanks Jeff.
+For ipv4, for example, huge gaps exist between the addressing
+information and the "ports".  This is because we put the
+addressing information for all AF types side-by-side in a
+union so there is a gap because the ipv6 addresses take up
+more space.
+
+There were also completely unused portions of struct flowi due
+to padding.
+
+So as a result we get less dense data accesses, and therefore
+less successful store buffer compression and less cache locality.
+
+Lucky for us, all code paths that touch the AF dependent portions
+do so in an AF dependent context.  Therefore we can lay things out
+any way we like.
+
+So these changes pack things together as tightly as possible for
+each AF variant.  And AF independent code is only allowed to
+make references to the "common" area at the beginning of each
+AF instance.
+
+Performance improvement is measurable, even a routing cache hit
+output route lookup is ~20 cycles faster on Niagara2.  udpflood
+tests are also faster by several seconds.
+
+I tried to minimize the noise and churn by making ipv4 helpers
+for various common cases of route lookups.  But some code paths
+want to do something very special (f.e. icmp) and I did not work
+on such helpers for ipv6.  That can be done at a later time.
+
+And in fact, ipv6 is really an area ripe for consolidation of routing
+lookups.  The same flowlabel resolution sequence probably occurs 10
+times in the tree.
+
+And hey, even decnet got some love here.
+
+What I'll do tonight is push this to net-next-2.6 and then respin
+the routing cache deletion patches, since those obviously won't
+apply any longer. :)
