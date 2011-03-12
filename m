@@ -1,52 +1,63 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 6/6] net: introduce rx_handler results and
- logic around that
-Date: Sat, 12 Mar 2011 14:36:44 +0100
-Message-ID: <20110312133643.GB2899@psychotron.redhat.com>
-References: <1299935679-18135-1-git-send-email-jpirko@redhat.com>
- <1299935679-18135-7-git-send-email-jpirko@redhat.com>
- <4D7B7403.6050402@gmail.com>
- <4D7B7453.5040606@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: fcoe: correct checking for bonding
+Date: Sat, 12 Mar 2011 10:59:44 -0800 (PST)
+Message-ID: <20110312.105944.193725929.davem@davemloft.net>
+References: <20110302095550.GA2858@psychotron.brq.redhat.com>
+	<1299114558.1688.5.camel@fritz>
+	<20110312120109.GA2899@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8561 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752589Ab1CLNgs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Mar 2011 08:36:48 -0500
-Content-Disposition: inline
-In-Reply-To: <4D7B7453.5040606@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robert.w.love@intel.com, James.Bottomley@suse.de,
+	linux-scsi@vger.kernel.org, devel@open-fcoe.org,
+	netdev@vger.kernel.org, fubar@us.ibm.com, joe.eykholt@gmail.com
+To: jpirko@redhat.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20110312120109.GA2899@psychotron.redhat.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Mar 12, 2011 at 02:25:39PM CET, nicolas.2p.debian@gmail.com wrote:
->Le 12/03/2011 14:24, Nicolas de Peslo=FCan a =E9crit :
->>Le 12/03/2011 14:14, Jiri Pirko a =E9crit :
->>>This patch allows rx_handlers to better signalize what to do next to
->>>it's caller. That makes skb->deliver_no_wcard no longer needed.
->>>
->>>kernel-doc for rx_handler_result is taken from Nicolas' patch.
->>>
->>>Signed-off-by: Jiri Pirko<jpirko@redhat.com>
->>>eviewed-by: Nicolas de Peslo=FCan<nicolas.2p.debian@free.fr>
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Sat, 12 Mar 2011 13:01:10 +0100
+
+> Thu, Mar 03, 2011 at 02:09:18AM CET, robert.w.love@intel.com wrote:
+>>On Wed, 2011-03-02 at 01:55 -0800, Jiri Pirko wrote:
+>>> Or perhaps this should be applied to net-next?
+>>> 
+>>I think this should go through scsi-misc as all the other
+>>libfc/libfcoe/fcoe patches do.
 >>
->>Typo in [R]eviewed-by and missing space between Peslo=FCan and <nicol=
-as.
+>>> Wed, Mar 02, 2011 at 07:05:35AM CET, jpirko@redhat.com wrote:
+>>> >Check for bonding master and refuse to use that.
+>>> >
+>>> >Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>> >---
+>>> > drivers/scsi/fcoe/fcoe.c |    4 +---
+>>> > 1 files changed, 1 insertions(+), 3 deletions(-)
+>>> >
+>>> >diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+>>> >index 9f9600b..3becc6a 100644
+>>> >--- a/drivers/scsi/fcoe/fcoe.c
+>>> >+++ b/drivers/scsi/fcoe/fcoe.c
+>>> >@@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
+>>> > 	}
+>>> > 
+>>> > 	/* Do not support for bonding device */
+>>> >-	if ((netdev->priv_flags & IFF_MASTER_ALB) ||
+>>> >-	    (netdev->priv_flags & IFF_SLAVE_INACTIVE) ||
+>>> >-	    (netdev->priv_flags & IFF_MASTER_8023AD)) {
+>>> >+	if (netdev->priv_flags & IFF_BONDING && netdev->flags & IFF_MASTER) {
+>>> > 		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
+>>> > 		return -EOPNOTSUPP;
+>>> > 	}
+>>> >-- 
+>>> >1.7.3.4
+>>> >
 >>
->>Nicolas.
->
->Only the missing R in Reviewed-by:. The space was removed by my mail c=
-lient, sorry.
+>>James, feel free to pick up this patch. I don't have anything in my fcoe
+>>tree right now that it would conflict with. I'll also put it in my tree
+>>and resend if you don't put it into scsi-misc directly.
+> 
+> What's the status of this? Maybe this should rather go thru net-next
 
-Copypaste err :( Sorry..
-
-Dave would you please add "R" before you apply. Many thanks.
-
-Jirka
->
->	Nicolas.
->
+Sure, I can take this.  I'll look at it later.
