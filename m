@@ -1,474 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 04/21] igb: Update NVM functions to work with i350 devices
-Date: Sat, 12 Mar 2011 04:20:11 -0800
-Message-ID: <1299932428-3114-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 13/21] ixgbe: DCB, missed translation from 8021Qaz TSA to CEE link strict
+Date: Sat, 12 Mar 2011 04:20:20 -0800
+Message-ID: <1299932428-3114-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1299932428-3114-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:11283 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751895Ab1CLMUw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Mar 2011 07:20:52 -0500
+	id S1753906Ab1CLMU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Mar 2011 07:20:57 -0500
 In-Reply-To: <1299932428-3114-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This patch adds functions and functions pointers to accommodate
-differences between NVM interfaces and options for i350 devices,
-82580 devices and the rest.
+The patch below  allowed IEEE 802.1Qaz and CEE DCB hardware
+configurations to use common hardware set routines,
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+commit 88eb696cc6a7af8f9272266965b1a4dd7d6a931b
+Author: John Fastabend <john.r.fastabend@intel.com>
+Date:   Thu Feb 10 03:02:11 2011 -0800
+
+    ixgbe: DCB, abstract out dcb_config from DCB hardware configuration
+
+However the case when CEE link strict and group strict
+are set was missed and are currently being mapped
+incorrectly in some configurations.
+
+This patch resolves this.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/igb/e1000_82575.c   |  239 ++++++++++++++++++++++++++++++++++++++-
- drivers/net/igb/e1000_defines.h |    3 +
- drivers/net/igb/e1000_hw.h      |    3 +-
- drivers/net/igb/e1000_nvm.c     |   64 ++++++++++-
- drivers/net/igb/e1000_nvm.h     |    1 +
- drivers/net/igb/igb_ethtool.c   |    2 +-
- drivers/net/igb/igb_main.c      |    2 +-
- 7 files changed, 306 insertions(+), 8 deletions(-)
+ drivers/net/ixgbe/ixgbe_dcb.c    |   24 +-----------------------
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |   24 ++++++++++++++++++++++--
+ 2 files changed, 23 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 20d172a..6b256c2 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -64,7 +64,14 @@ static s32  igb_reset_init_script_82575(struct e1000_hw *);
- static s32  igb_read_mac_addr_82575(struct e1000_hw *);
- static s32  igb_set_pcie_completion_timeout(struct e1000_hw *hw);
- static s32  igb_reset_mdicnfg_82580(struct e1000_hw *hw);
+diff --git a/drivers/net/ixgbe/ixgbe_dcb.c b/drivers/net/ixgbe/ixgbe_dcb.c
+index c2ee6fc..e2e7a29 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb.c
++++ b/drivers/net/ixgbe/ixgbe_dcb.c
+@@ -292,30 +292,8 @@ s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en)
+ }
+ 
+ s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw,
+-			    u16 *refill, u16 *max, u8 *bwg_id, u8 *tsa)
++			    u16 *refill, u16 *max, u8 *bwg_id, u8 *prio_type)
+ {
+-	int i;
+-	u8 prio_type[IEEE_8021QAZ_MAX_TCS];
 -
-+static s32  igb_validate_nvm_checksum_82580(struct e1000_hw *hw);
-+static s32  igb_update_nvm_checksum_82580(struct e1000_hw *hw);
-+static s32  igb_update_nvm_checksum_with_offset(struct e1000_hw *hw,
-+						u16 offset);
-+static s32 igb_validate_nvm_checksum_with_offset(struct e1000_hw *hw,
-+						u16 offset);
-+static s32 igb_validate_nvm_checksum_i350(struct e1000_hw *hw);
-+static s32 igb_update_nvm_checksum_i350(struct e1000_hw *hw);
- static const u16 e1000_82580_rxpbs_table[] =
- 	{ 36, 72, 144, 1, 2, 4, 8, 16,
- 	  35, 70, 140 };
-@@ -237,10 +244,32 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	 */
- 	size += NVM_WORD_SIZE_BASE_SHIFT;
- 
--	/* EEPROM access above 16k is unsupported */
--	if (size > 14)
--		size = 14;
- 	nvm->word_size = 1 << size;
-+	if (nvm->word_size == (1 << 15))
-+		nvm->page_size = 128;
-+
-+	/* NVM Function Pointers */
-+	nvm->ops.acquire = igb_acquire_nvm_82575;
-+	if (nvm->word_size < (1 << 15))
-+		nvm->ops.read = igb_read_nvm_eerd;
-+	else
-+		nvm->ops.read = igb_read_nvm_spi;
-+
-+	nvm->ops.release = igb_release_nvm_82575;
-+	switch (hw->mac.type) {
-+	case e1000_82580:
-+		nvm->ops.validate = igb_validate_nvm_checksum_82580;
-+		nvm->ops.update = igb_update_nvm_checksum_82580;
-+		break;
-+	case e1000_i350:
-+		nvm->ops.validate = igb_validate_nvm_checksum_i350;
-+		nvm->ops.update = igb_update_nvm_checksum_i350;
-+		break;
-+	default:
-+		nvm->ops.validate = igb_validate_nvm_checksum;
-+		nvm->ops.update = igb_update_nvm_checksum;
-+	}
-+	nvm->ops.write = igb_write_nvm_spi;
- 
- 	/* if part supports SR-IOV then initialize mailbox parameters */
- 	switch (mac->type) {
-@@ -1759,6 +1788,207 @@ u16 igb_rxpbs_adjust_82580(u32 data)
- }
- 
- /**
-+ *  igb_validate_nvm_checksum_with_offset - Validate EEPROM
-+ *  checksum
-+ *  @hw: pointer to the HW structure
-+ *  @offset: offset in words of the checksum protected region
-+ *
-+ *  Calculates the EEPROM checksum by reading/adding each word of the EEPROM
-+ *  and then verifies that the sum of the EEPROM is equal to 0xBABA.
-+ **/
-+s32 igb_validate_nvm_checksum_with_offset(struct e1000_hw *hw, u16 offset)
-+{
-+	s32 ret_val = 0;
-+	u16 checksum = 0;
-+	u16 i, nvm_data;
-+
-+	for (i = offset; i < ((NVM_CHECKSUM_REG + offset) + 1); i++) {
-+		ret_val = hw->nvm.ops.read(hw, i, 1, &nvm_data);
-+		if (ret_val) {
-+			hw_dbg("NVM Read Error\n");
-+			goto out;
-+		}
-+		checksum += nvm_data;
-+	}
-+
-+	if (checksum != (u16) NVM_SUM) {
-+		hw_dbg("NVM Checksum Invalid\n");
-+		ret_val = -E1000_ERR_NVM;
-+		goto out;
-+	}
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  igb_update_nvm_checksum_with_offset - Update EEPROM
-+ *  checksum
-+ *  @hw: pointer to the HW structure
-+ *  @offset: offset in words of the checksum protected region
-+ *
-+ *  Updates the EEPROM checksum by reading/adding each word of the EEPROM
-+ *  up to the checksum.  Then calculates the EEPROM checksum and writes the
-+ *  value to the EEPROM.
-+ **/
-+s32 igb_update_nvm_checksum_with_offset(struct e1000_hw *hw, u16 offset)
-+{
-+	s32 ret_val;
-+	u16 checksum = 0;
-+	u16 i, nvm_data;
-+
-+	for (i = offset; i < (NVM_CHECKSUM_REG + offset); i++) {
-+		ret_val = hw->nvm.ops.read(hw, i, 1, &nvm_data);
-+		if (ret_val) {
-+			hw_dbg("NVM Read Error while updating checksum.\n");
-+			goto out;
-+		}
-+		checksum += nvm_data;
-+	}
-+	checksum = (u16) NVM_SUM - checksum;
-+	ret_val = hw->nvm.ops.write(hw, (NVM_CHECKSUM_REG + offset), 1,
-+				&checksum);
-+	if (ret_val)
-+		hw_dbg("NVM Write Error while updating checksum.\n");
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  igb_validate_nvm_checksum_82580 - Validate EEPROM checksum
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Calculates the EEPROM section checksum by reading/adding each word of
-+ *  the EEPROM and then verifies that the sum of the EEPROM is
-+ *  equal to 0xBABA.
-+ **/
-+static s32 igb_validate_nvm_checksum_82580(struct e1000_hw *hw)
-+{
-+	s32 ret_val = 0;
-+	u16 eeprom_regions_count = 1;
-+	u16 j, nvm_data;
-+	u16 nvm_offset;
-+
-+	ret_val = hw->nvm.ops.read(hw, NVM_COMPATIBILITY_REG_3, 1, &nvm_data);
-+	if (ret_val) {
-+		hw_dbg("NVM Read Error\n");
-+		goto out;
-+	}
-+
-+	if (nvm_data & NVM_COMPATIBILITY_BIT_MASK) {
-+		/* if chekcsums compatibility bit is set validate checksums
-+		 * for all 4 ports. */
-+		eeprom_regions_count = 4;
-+	}
-+
-+	for (j = 0; j < eeprom_regions_count; j++) {
-+		nvm_offset = NVM_82580_LAN_FUNC_OFFSET(j);
-+		ret_val = igb_validate_nvm_checksum_with_offset(hw,
-+								nvm_offset);
-+		if (ret_val != 0)
-+			goto out;
-+	}
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  igb_update_nvm_checksum_82580 - Update EEPROM checksum
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Updates the EEPROM section checksums for all 4 ports by reading/adding
-+ *  each word of the EEPROM up to the checksum.  Then calculates the EEPROM
-+ *  checksum and writes the value to the EEPROM.
-+ **/
-+static s32 igb_update_nvm_checksum_82580(struct e1000_hw *hw)
-+{
-+	s32 ret_val;
-+	u16 j, nvm_data;
-+	u16 nvm_offset;
-+
-+	ret_val = hw->nvm.ops.read(hw, NVM_COMPATIBILITY_REG_3, 1, &nvm_data);
-+	if (ret_val) {
-+		hw_dbg("NVM Read Error while updating checksum"
-+			" compatibility bit.\n");
-+		goto out;
-+	}
-+
-+	if ((nvm_data & NVM_COMPATIBILITY_BIT_MASK) == 0) {
-+		/* set compatibility bit to validate checksums appropriately */
-+		nvm_data = nvm_data | NVM_COMPATIBILITY_BIT_MASK;
-+		ret_val = hw->nvm.ops.write(hw, NVM_COMPATIBILITY_REG_3, 1,
-+					&nvm_data);
-+		if (ret_val) {
-+			hw_dbg("NVM Write Error while updating checksum"
-+				" compatibility bit.\n");
-+			goto out;
-+		}
-+	}
-+
-+	for (j = 0; j < 4; j++) {
-+		nvm_offset = NVM_82580_LAN_FUNC_OFFSET(j);
-+		ret_val = igb_update_nvm_checksum_with_offset(hw, nvm_offset);
-+		if (ret_val)
-+			goto out;
-+	}
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  igb_validate_nvm_checksum_i350 - Validate EEPROM checksum
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Calculates the EEPROM section checksum by reading/adding each word of
-+ *  the EEPROM and then verifies that the sum of the EEPROM is
-+ *  equal to 0xBABA.
-+ **/
-+static s32 igb_validate_nvm_checksum_i350(struct e1000_hw *hw)
-+{
-+	s32 ret_val = 0;
-+	u16 j;
-+	u16 nvm_offset;
-+
-+	for (j = 0; j < 4; j++) {
-+		nvm_offset = NVM_82580_LAN_FUNC_OFFSET(j);
-+		ret_val = igb_validate_nvm_checksum_with_offset(hw,
-+								nvm_offset);
-+		if (ret_val != 0)
-+			goto out;
-+	}
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  igb_update_nvm_checksum_i350 - Update EEPROM checksum
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Updates the EEPROM section checksums for all 4 ports by reading/adding
-+ *  each word of the EEPROM up to the checksum.  Then calculates the EEPROM
-+ *  checksum and writes the value to the EEPROM.
-+ **/
-+static s32 igb_update_nvm_checksum_i350(struct e1000_hw *hw)
-+{
-+	s32 ret_val = 0;
-+	u16 j;
-+	u16 nvm_offset;
-+
-+	for (j = 0; j < 4; j++) {
-+		nvm_offset = NVM_82580_LAN_FUNC_OFFSET(j);
-+		ret_val = igb_update_nvm_checksum_with_offset(hw, nvm_offset);
-+		if (ret_val != 0)
-+			goto out;
-+	}
-+
-+out:
-+	return ret_val;
-+}
-+/**
-  *  igb_set_eee_i350 - Enable/disable EEE support
-  *  @hw: pointer to the HW structure
-  *
-@@ -1798,6 +2028,7 @@ out:
- 
- 	return ret_val;
- }
-+
- static struct e1000_mac_operations e1000_mac_ops_82575 = {
- 	.init_hw              = igb_init_hw_82575,
- 	.check_for_link       = igb_check_for_link_82575,
-diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
-index 7926781..97969ad 100644
---- a/drivers/net/igb/e1000_defines.h
-+++ b/drivers/net/igb/e1000_defines.h
-@@ -566,6 +566,8 @@
- #define NVM_INIT_CONTROL3_PORT_A   0x0024
- #define NVM_ALT_MAC_ADDR_PTR       0x0037
- #define NVM_CHECKSUM_REG           0x003F
-+#define NVM_COMPATIBILITY_REG_3    0x0003
-+#define NVM_COMPATIBILITY_BIT_MASK 0x8000
- 
- #define E1000_NVM_CFG_DONE_PORT_0  0x040000 /* MNG config cycle done */
- #define E1000_NVM_CFG_DONE_PORT_1  0x080000 /* ...for second port */
-@@ -600,6 +602,7 @@
- /* NVM Commands - SPI */
- #define NVM_MAX_RETRY_SPI          5000 /* Max wait of 5ms, for RDY signal */
- #define NVM_WRITE_OPCODE_SPI       0x02 /* NVM write opcode */
-+#define NVM_READ_OPCODE_SPI        0x03 /* NVM read opcode */
- #define NVM_A8_OPCODE_SPI          0x08 /* opcode bit-3 = address bit-8 */
- #define NVM_WREN_OPCODE_SPI        0x06 /* NVM set Write Enable latch */
- #define NVM_RDSR_OPCODE_SPI        0x05 /* NVM read Status register */
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index 17569bf..27153e8 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -336,6 +336,8 @@ struct e1000_nvm_operations {
- 	s32  (*read)(struct e1000_hw *, u16, u16, u16 *);
- 	void (*release)(struct e1000_hw *);
- 	s32  (*write)(struct e1000_hw *, u16, u16, u16 *);
-+	s32  (*update)(struct e1000_hw *);
-+	s32  (*validate)(struct e1000_hw *);
- };
- 
- struct e1000_info {
-@@ -422,7 +424,6 @@ struct e1000_phy_info {
- 
- struct e1000_nvm_info {
- 	struct e1000_nvm_operations ops;
+-	/* Map TSA onto CEE prio type */
+-	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
+-		switch (tsa[i]) {
+-		case IEEE_8021QAZ_TSA_STRICT:
+-			prio_type[i] = 2;
+-			break;
+-		case IEEE_8021QAZ_TSA_ETS:
+-			prio_type[i] = 0;
+-			break;
+-		default:
+-			/* Hardware only supports priority strict or
+-			 * ETS transmission selection algorithms if
+-			 * we receive some other value from dcbnl
+-			 * throw an error
+-			 */
+-			return -EINVAL;
+-		}
+-	}
 -
- 	enum e1000_nvm_type type;
- 	enum e1000_nvm_override override;
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+ 		ixgbe_dcb_config_rx_arbiter_82598(hw, refill, max,
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index 91ff51c..8abef8d 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -642,8 +642,9 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	__u16 refill[IEEE_8021QAZ_MAX_TCS], max[IEEE_8021QAZ_MAX_TCS];
++	__u8 prio_type[IEEE_8021QAZ_MAX_TCS];
+ 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
+-	int err;
++	int i, err;
+ 	/* naively give each TC a bwg to map onto CEE hardware */
+ 	__u8 bwg_id[IEEE_8021QAZ_MAX_TCS] = {0, 1, 2, 3, 4, 5, 6, 7};
  
-diff --git a/drivers/net/igb/e1000_nvm.c b/drivers/net/igb/e1000_nvm.c
-index 6b5cc2c..75bf36a 100644
---- a/drivers/net/igb/e1000_nvm.c
-+++ b/drivers/net/igb/e1000_nvm.c
-@@ -318,6 +318,68 @@ out:
+@@ -659,9 +660,28 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ 
+ 	memcpy(adapter->ixgbe_ieee_ets, ets, sizeof(*adapter->ixgbe_ieee_ets));
+ 
++	/* Map TSA onto CEE prio type */
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		switch (ets->tc_tsa[i]) {
++		case IEEE_8021QAZ_TSA_STRICT:
++			prio_type[i] = 2;
++			break;
++		case IEEE_8021QAZ_TSA_ETS:
++			prio_type[i] = 0;
++			break;
++		default:
++			/* Hardware only supports priority strict or
++			 * ETS transmission selection algorithms if
++			 * we receive some other value from dcbnl
++			 * throw an error
++			 */
++			return -EINVAL;
++		}
++	}
++
+ 	ixgbe_ieee_credits(ets->tc_tx_bw, refill, max, max_frame);
+ 	err = ixgbe_dcb_hw_ets_config(&adapter->hw, refill, max,
+-				      bwg_id, ets->tc_tsa);
++				      bwg_id, prio_type);
+ 	return err;
  }
  
- /**
-+ *  igb_read_nvm_spi - Read EEPROM's using SPI
-+ *  @hw: pointer to the HW structure
-+ *  @offset: offset of word in the EEPROM to read
-+ *  @words: number of words to read
-+ *  @data: word read from the EEPROM
-+ *
-+ *  Reads a 16 bit word from the EEPROM.
-+ **/
-+s32 igb_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
-+{
-+	struct e1000_nvm_info *nvm = &hw->nvm;
-+	u32 i = 0;
-+	s32 ret_val;
-+	u16 word_in;
-+	u8 read_opcode = NVM_READ_OPCODE_SPI;
-+
-+	/*
-+	 * A check for invalid values:  offset too large, too many words,
-+	 * and not enough words.
-+	 */
-+	if ((offset >= nvm->word_size) || (words > (nvm->word_size - offset)) ||
-+	    (words == 0)) {
-+		hw_dbg("nvm parameter(s) out of bounds\n");
-+		ret_val = -E1000_ERR_NVM;
-+		goto out;
-+	}
-+
-+	ret_val = nvm->ops.acquire(hw);
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = igb_ready_nvm_eeprom(hw);
-+	if (ret_val)
-+		goto release;
-+
-+	igb_standby_nvm(hw);
-+
-+	if ((nvm->address_bits == 8) && (offset >= 128))
-+		read_opcode |= NVM_A8_OPCODE_SPI;
-+
-+	/* Send the READ command (opcode + addr) */
-+	igb_shift_out_eec_bits(hw, read_opcode, nvm->opcode_bits);
-+	igb_shift_out_eec_bits(hw, (u16)(offset*2), nvm->address_bits);
-+
-+	/*
-+	 * Read the data.  SPI NVMs increment the address with each byte
-+	 * read and will roll over if reading beyond the end.  This allows
-+	 * us to read the whole NVM from any offset
-+	 */
-+	for (i = 0; i < words; i++) {
-+		word_in = igb_shift_in_eec_bits(hw, 16);
-+		data[i] = (word_in >> 8) | (word_in << 8);
-+	}
-+
-+release:
-+	nvm->ops.release(hw);
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-  *  igb_read_nvm_eerd - Reads EEPROM using EERD register
-  *  @hw: pointer to the HW structure
-  *  @offset: offset of word in the EEPROM to read
-@@ -353,7 +415,7 @@ s32 igb_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- 			break;
- 
- 		data[i] = (rd32(E1000_EERD) >>
--			   E1000_NVM_RW_REG_DATA);
-+			E1000_NVM_RW_REG_DATA);
- 	}
- 
- out:
-diff --git a/drivers/net/igb/e1000_nvm.h b/drivers/net/igb/e1000_nvm.h
-index 29c956a..7f43564 100644
---- a/drivers/net/igb/e1000_nvm.h
-+++ b/drivers/net/igb/e1000_nvm.h
-@@ -35,6 +35,7 @@ s32  igb_read_part_num(struct e1000_hw *hw, u32 *part_num);
- s32  igb_read_part_string(struct e1000_hw *hw, u8 *part_num,
-                           u32 part_num_size);
- s32  igb_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
-+s32  igb_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- s32  igb_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- s32  igb_validate_nvm_checksum(struct e1000_hw *hw);
- s32  igb_update_nvm_checksum(struct e1000_hw *hw);
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 78d420b..df15a91 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -721,7 +721,7 @@ static int igb_set_eeprom(struct net_device *netdev,
- 	/* Update the checksum over the first part of the EEPROM if needed
- 	 * and flush shadow RAM for 82573 controllers */
- 	if ((ret_val == 0) && ((first_word <= NVM_CHECKSUM_REG)))
--		igb_update_nvm_checksum(hw);
-+		hw->nvm.ops.update(hw);
- 
- 	kfree(eeprom_buff);
- 	return ret_val;
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 8643f8c..8c6af11 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1884,7 +1884,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	hw->mac.ops.reset_hw(hw);
- 
- 	/* make sure the NVM is good */
--	if (igb_validate_nvm_checksum(hw) < 0) {
-+	if (hw->nvm.ops.validate(hw) < 0) {
- 		dev_err(&pdev->dev, "The NVM Checksum Is Not Valid\n");
- 		err = -EIO;
- 		goto err_eeprom;
 -- 
 1.7.4
 
