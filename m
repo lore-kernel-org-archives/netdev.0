@@ -1,70 +1,74 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 15/25] netfilter: Use flowi4 in nf_nat_standalone.c
-Date: Sat, 12 Mar 2011 15:28:41 -0800 (PST)
-Message-ID: <20110312.152841.229750799.davem@davemloft.net>
+Subject: [PATCH 16/25] ipv4: Use flowi4 in UDP
+Date: Sat, 12 Mar 2011 15:28:56 -0800 (PST)
+Message-ID: <20110312.152856.35042576.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55959
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55962
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756176Ab1CLX2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2011 18:28:03 -0500
+	by vger.kernel.org with ESMTP id S1756176Ab1CLX2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2011 18:28:18 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 9F97124C088
-	for <netdev@vger.kernel.org>; Sat, 12 Mar 2011 15:28:41 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id A996724C088
+	for <netdev@vger.kernel.org>; Sat, 12 Mar 2011 15:28:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/netfilter/nf_nat_standalone.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ net/ipv4/udp.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_nat_standalone.c b/net/ipv4/netfilter/nf_nat_standalone.c
-index 1f3c695..963320b 100644
---- a/net/ipv4/netfilter/nf_nat_standalone.c
-+++ b/net/ipv4/netfilter/nf_nat_standalone.c
-@@ -31,6 +31,7 @@
- #ifdef CONFIG_XFRM
- static void nat_decode_session(struct sk_buff *skb, struct flowi *fl)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 25c0807..91cba3c 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -770,7 +770,7 @@ static int udp_push_pending_frames(struct sock *sk)
  {
-+	struct flowi4 *fl4 = &fl->u.ip4;
- 	const struct nf_conn *ct;
- 	const struct nf_conntrack_tuple *t;
- 	enum ip_conntrack_info ctinfo;
-@@ -49,25 +50,25 @@ static void nat_decode_session(struct sk_buff *skb, struct flowi *fl)
- 		statusbit = IPS_SRC_NAT;
+ 	struct udp_sock  *up = udp_sk(sk);
+ 	struct inet_sock *inet = inet_sk(sk);
+-	struct flowi *fl = &inet->cork.fl;
++	struct flowi4 *fl4 = &inet->cork.fl.u.ip4;
+ 	struct sk_buff *skb;
+ 	int err = 0;
  
- 	if (ct->status & statusbit) {
--		fl->fl4_dst = t->dst.u3.ip;
-+		fl4->daddr = t->dst.u3.ip;
- 		if (t->dst.protonum == IPPROTO_TCP ||
- 		    t->dst.protonum == IPPROTO_UDP ||
- 		    t->dst.protonum == IPPROTO_UDPLITE ||
- 		    t->dst.protonum == IPPROTO_DCCP ||
- 		    t->dst.protonum == IPPROTO_SCTP)
--			fl->fl4_dport = t->dst.u.tcp.port;
-+			fl4->uli.ports.dport = t->dst.u.tcp.port;
- 	}
+@@ -778,7 +778,7 @@ static int udp_push_pending_frames(struct sock *sk)
+ 	if (!skb)
+ 		goto out;
  
- 	statusbit ^= IPS_NAT_MASK;
+-	err = udp_send_skb(skb, fl->fl4_dst, fl->fl4_dport);
++	err = udp_send_skb(skb, fl4->daddr, fl4->uli.ports.dport);
  
- 	if (ct->status & statusbit) {
--		fl->fl4_src = t->src.u3.ip;
-+		fl4->saddr = t->src.u3.ip;
- 		if (t->dst.protonum == IPPROTO_TCP ||
- 		    t->dst.protonum == IPPROTO_UDP ||
- 		    t->dst.protonum == IPPROTO_UDPLITE ||
- 		    t->dst.protonum == IPPROTO_DCCP ||
- 		    t->dst.protonum == IPPROTO_SCTP)
--			fl->fl4_sport = t->src.u.tcp.port;
-+			fl4->uli.ports.sport = t->src.u.tcp.port;
- 	}
- }
- #endif
+ out:
+ 	up->len = 0;
+@@ -791,6 +791,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct udp_sock *up = udp_sk(sk);
++	struct flowi4 *fl4;
+ 	int ulen = len;
+ 	struct ipcm_cookie ipc;
+ 	struct rtable *rt = NULL;
+@@ -972,10 +973,11 @@ back_from_confirm:
+ 	/*
+ 	 *	Now cork the socket to pend data.
+ 	 */
+-	inet->cork.fl.fl4_dst = daddr;
+-	inet->cork.fl.fl4_dport = dport;
+-	inet->cork.fl.fl4_src = saddr;
+-	inet->cork.fl.fl4_sport = inet->inet_sport;
++	fl4 = &inet->cork.fl.u.ip4;
++	fl4->daddr = daddr;
++	fl4->saddr = saddr;
++	fl4->uli.ports.dport = dport;
++	fl4->uli.ports.sport = inet->inet_sport;
+ 	up->pending = AF_INET;
+ 
+ do_append_data:
 -- 
 1.7.4.1
 
