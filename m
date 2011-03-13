@@ -1,60 +1,102 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: how to utilize multi tx queue to sent packets
-Date: Sun, 13 Mar 2011 01:06:11 -0800
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB47E9EE@MILEXCH2.ds.jdsu.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB3D3D62@MILEXCH2.ds.jdsu.net>
- <20110311090636.6e393f2b@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] inetpeer: Don't disable BH for initial fast RCU lookup.
+Date: Sun, 13 Mar 2011 11:04:09 +0100
+Message-ID: <1300010649.2761.3.camel@edumazet-laptop>
+References: <20110308.145954.59682618.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og119.obsmtp.com ([64.18.2.16]:52356 "HELO
-	exprod7og119.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753386Ab1CMJGd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 05:06:33 -0400
-In-Reply-To: <20110311090636.6e393f2b@nehalam>
-Content-Language: en-US
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55198 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754222Ab1CMKEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 06:04:15 -0400
+Received: by fxm17 with SMTP id 17so2126707fxm.19
+        for <netdev@vger.kernel.org>; Sun, 13 Mar 2011 03:04:14 -0700 (PDT)
+In-Reply-To: <20110308.145954.59682618.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mardi 08 mars 2011 =C3=A0 14:59 -0800, David Miller a =C3=A9crit :
+> If modifications on other cpus are ok, then modifications to
+> the tree during lookup done by the local cpu are ok too.
+>=20
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/ipv4/inetpeer.c |   18 +++++++++---------
+>  1 files changed, 9 insertions(+), 9 deletions(-)
+>=20
+> diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+> index f604ffd..6442c35 100644
+> --- a/net/ipv4/inetpeer.c
+> +++ b/net/ipv4/inetpeer.c
+> @@ -206,16 +206,16 @@ static int addr_compare(const struct inetpeer_a=
+ddr *a,
+>  })
+> =20
+>  /*
+> - * Called with rcu_read_lock_bh()
+> + * Called with rcu_read_lock()
+>   * Because we hold no lock against a writer, its quite possible we f=
+all
+>   * in an endless loop.
+>   * But every pointer we follow is guaranteed to be valid thanks to R=
+CU.
+>   * We exit from this function if number of links exceeds PEER_MAXDEP=
+TH
+>   */
+> -static struct inet_peer *lookup_rcu_bh(const struct inetpeer_addr *d=
+addr,
+> -				       struct inet_peer_base *base)
+> +static struct inet_peer *lookup_rcu(const struct inetpeer_addr *dadd=
+r,
+> +				    struct inet_peer_base *base)
+>  {
+> -	struct inet_peer *u =3D rcu_dereference_bh(base->root);
+> +	struct inet_peer *u =3D rcu_dereference(base->root);
+>  	int count =3D 0;
+> =20
+>  	while (u !=3D peer_avl_empty) {
+> @@ -231,9 +231,9 @@ static struct inet_peer *lookup_rcu_bh(const stru=
+ct inetpeer_addr *daddr,
+>  			return u;
+>  		}
+>  		if (cmp =3D=3D -1)
+> -			u =3D rcu_dereference_bh(u->avl_left);
+> +			u =3D rcu_dereference(u->avl_left);
+>  		else
+> -			u =3D rcu_dereference_bh(u->avl_right);
+> +			u =3D rcu_dereference(u->avl_right);
+>  		if (unlikely(++count =3D=3D PEER_MAXDEPTH))
+>  			break;
+>  	}
+> @@ -470,11 +470,11 @@ struct inet_peer *inet_getpeer(struct inetpeer_=
+addr *daddr, int create)
+>  	/* Look up for the address quickly, lockless.
+>  	 * Because of a concurrent writer, we might not find an existing en=
+try.
+>  	 */
+> -	rcu_read_lock_bh();
+> +	rcu_read_lock();
+>  	sequence =3D read_seqbegin(&base->lock);
+> -	p =3D lookup_rcu_bh(daddr, base);
+> +	p =3D lookup_rcu(daddr, base);
+>  	invalidated =3D read_seqretry(&base->lock, sequence);
+> -	rcu_read_unlock_bh();
+> +	rcu_read_unlock();
+> =20
+>  	if (p) {
+>  		/* The existing node has been found.
+
+David, I am not sure this is safe, since we use call_rcu_bh() when
+freeing one item. One cpu could decide to kfree() one item while anothe=
+r
+cpu could still use it.
+
+rcu_read_lock_bh() was signalling to others cpu we were in a softirq
+section, so we were delaying a possible kfree().
 
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Saturday, March 12, 2011 1:07 AM
-> To: Jon Zhou
-> Cc: netdev@vger.kernel.org
-> Subject: Re: how to utilize multi tx queue to sent packets
-> 
-> On Thu, 10 Mar 2011 22:52:30 -0800
-> Jon Zhou <Jon.Zhou@jdsu.com> wrote:
-> 
-> > hi
-> >
-> > I am doing some test according to the
-> > website:http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
-> >
-> > use packet_mmap tx_ring to send packet.
-> >
-> > I modified the sample code "packetmmap.c" to make it send packets
-> have different outer ip.
-> > so that with the help of RSS, I can achieve higher throughput.
-> >
-> > but one thing I saw at the tx side, is that all the packets are sent
-> via the same tx_queue,
-> > which is conflict with what I saw at the rx side.
-> > any idea to make it sent packets via different tx_queues? (spread
-> across the tx_queues)
-> 
-> You need to have multiple threads to get Tx scaling.
-> In you case that also means multiple AF_PACKET sockets and separate
-> rings.
-> 
-> Or just run multiple copies of the same test each with a different IP
-
-How does kernel know which tx_queue to use?
-Will dev_queue_xmit determine tx_queue(sw queue) to send packets?
-Or just let NIC select a tx_queue(hardware) ?
 
