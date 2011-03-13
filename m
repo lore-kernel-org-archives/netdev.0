@@ -1,59 +1,78 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 26/26] tipc: Update maintenance information
-Date: Sun, 13 Mar 2011 17:34:14 -0400
-Message-ID: <1300052054-7531-27-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 23/26] tipc: Remove bearer flag indicating existence of broadcast address
+Date: Sun, 13 Mar 2011 17:34:11 -0400
+Message-ID: <1300052054-7531-24-git-send-email-paul.gortmaker@windriver.com>
 References: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50026 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:49978 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932259Ab1CMVfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 17:35:05 -0400
+	with ESMTP id S932242Ab1CMVfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 17:35:01 -0400
 In-Reply-To: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <Allan.Stephens@windriver.com>
 
-Updates TIPC maintenance information to reflect changes that have
-taken place during TIPC 2.0 development, including:
-
-- removal of directories that have been deleted
-- removal of websites that have been decommisioned
-- removal of sidestream SCM repositories that are no longer used
-- addition of netdev as appropriate list for kernel code.
-
-Grateful acknowledgement is given to Joe Perches <joe@perches.com>,
-who reported the stale file entry that triggered the update.
+Eliminates the flag in the TIPC bearer structure that indicates if
+the bearer supports broadcasting, since the flag is always set to 1
+and serves no useful purpose.
 
 Signed-off-by: Allan Stephens <Allan.Stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- MAINTAINERS |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ net/tipc/bearer.c |    7 ++-----
+ net/tipc/bearer.h |    2 --
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4765c67..a41c1e0 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6083,13 +6083,11 @@ F:	sound/soc/codecs/twl4030*
- TIPC NETWORK LAYER
- M:	Jon Maloy <jon.maloy@ericsson.com>
- M:	Allan Stephens <allan.stephens@windriver.com>
--L:	tipc-discussion@lists.sourceforge.net
-+L:	netdev@vger.kernel.org (core kernel code)
-+L:	tipc-discussion@lists.sourceforge.net (user apps, general discussion)
- W:	http://tipc.sourceforge.net/
--W:	http://tipc.cslab.ericsson.net/
--T:	git git://tipc.cslab.ericsson.net/pub/git/tipc.git
- S:	Maintained
- F:	include/linux/tipc*.h
--F:	include/net/tipc/
- F:	net/tipc/
- 
- TILE ARCHITECTURE
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index c9b5268..411719f 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -158,7 +158,6 @@ int  tipc_register_media(u32 media_type,
+ 	m_ptr->disable_bearer = disable;
+ 	m_ptr->addr2str = addr2str;
+ 	memcpy(&m_ptr->bcast_addr, bcast_addr, sizeof(*bcast_addr));
+-	m_ptr->bcast = 1;
+ 	strcpy(m_ptr->name, name);
+ 	m_ptr->priority = bearer_priority;
+ 	m_ptr->tolerance = link_tolerance;
+@@ -563,10 +562,8 @@ restart:
+ 	b_ptr->priority = priority;
+ 	INIT_LIST_HEAD(&b_ptr->cong_links);
+ 	INIT_LIST_HEAD(&b_ptr->links);
+-	if (m_ptr->bcast) {
+-		b_ptr->link_req = tipc_disc_init_link_req(b_ptr, &m_ptr->bcast_addr,
+-							  disc_domain);
+-	}
++	b_ptr->link_req = tipc_disc_init_link_req(b_ptr, &m_ptr->bcast_addr,
++						  disc_domain);
+ 	spin_lock_init(&b_ptr->lock);
+ 	write_unlock_bh(&tipc_net_lock);
+ 	info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 305b378..31d6172 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -70,7 +70,6 @@ struct tipc_bearer;
+  * @disable_bearer: routine which disables a bearer
+  * @addr2str: routine which converts bearer's address to string form
+  * @bcast_addr: media address used in broadcasting
+- * @bcast: non-zero if media supports broadcasting [currently mandatory]
+  * @priority: default link (and bearer) priority
+  * @tolerance: default time (in ms) before declaring link failure
+  * @window: default window (in packets) before declaring link congestion
+@@ -87,7 +86,6 @@ struct media {
+ 	char *(*addr2str)(struct tipc_media_addr *a,
+ 			  char *str_buf, int str_size);
+ 	struct tipc_media_addr bcast_addr;
+-	int bcast;
+ 	u32 priority;
+ 	u32 tolerance;
+ 	u32 window;
 -- 
 1.7.3.3
 
