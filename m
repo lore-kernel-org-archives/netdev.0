@@ -1,43 +1,35 @@
-From: dbaluta@ixiacom.com
-Subject: [PATCH] af_unix: update locking comment
-Date: Sun, 13 Mar 2011 22:11:46 +0200
-Message-ID: <1300047106-8545-1-git-send-email-dbaluta@ixiacom.com>
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Daniel Baluta <daniel.baluta@gmail.com>,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:36983 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756183Ab1CMULz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 16:11:55 -0400
-Received: by fxm17 with SMTP id 17so2351551fxm.19
-        for <netdev@vger.kernel.org>; Sun, 13 Mar 2011 13:11:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: add Faraday FTGMAC100 Gigabit Ethernet driver
+Date: Sun, 13 Mar 2011 21:16:28 +0100
+Message-ID: <1300047388.2761.48.camel@edumazet-laptop>
+References: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Baluta <daniel.baluta@gmail.com>
+Le jeudi 10 mars 2011 =C3=A0 16:08 +0800, Po-Yu Chuang a =C3=A9crit :
+> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>=20
+> FTGMAC100 Ethernet Media Access Controller supports 10/100/1000 Mbps
+> and MII/GMII.  This driver has been working on some ARM/NDS32 SoC's
+> including Faraday A369 and Andes AG102.
+>=20
 
-We latch our state using a spinlock not a r/w kind of lock.
+Hi
 
-Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
----
- net/unix/af_unix.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+It seems very close from drivers/net/ftmac100.c one. Are you sure a
+factorization is not possible ?
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index de87018..ef70615 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1124,7 +1124,7 @@ restart:
- 
- 	/* Latch our state.
- 
--	   It is tricky place. We need to grab write lock and cannot
-+	   It is tricky place. We need to grab our state lock and cannot
- 	   drop lock on peer. It is dangerous because deadlock is
- 	   possible. Connect to self case and simultaneous
- 	   attempt to connect are eliminated by checking socket
--- 
-1.7.1
+BTW, it seems I missed the fact that ftmac100_alloc_rx_page() used a
+GFP_KERNEL allocation, while its called from softirq context (from
+ftmac100_rx_packet())=20
 
+
+Same problem of course in this Gigabit driver.
