@@ -1,34 +1,38 @@
-From: Vincent Appiah <vincentapp----1980@att.net>
-Subject: hi
-Date: Sun, 13 Mar 2011 04:35:03 -0700 (PDT)
-Message-ID: <37548.12487.qm@web181411.mail.ne1.yahoo.com>
-Reply-To: Vincent Appiah <vincentapp111@gmail.com>
+From: Johnson Ato <johnson@mail.com>
+Subject: Hello
+Date: Sun, 13 Mar 2011 13:50:53 +0100
+Message-ID: <20110313135053.h97gkxbnkwsgcssw@wm.uib.es>
+Reply-To: johnson.ato1998@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: undisclosed recipients:;
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm9-vm1.bullet.mail.ne1.yahoo.com ([98.138.90.47]:28109 "HELO
-	nm9-vm1.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752392Ab1CMLfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 07:35:05 -0400
+Received: from teix.uib.es ([130.206.31.220]:22229 "EHLO teix.uib.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755337Ab1CMMu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Mar 2011 08:50:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
- Attn: Please and a good day to you.
+-- 
+Dear Friend,
 
-I have an important information for the owner of this email but first of all, I 
-want to ensure if this email is still valid, I want you to confirm if this email 
-is correct and is being checked by only you so that I will proceed and let you 
-know what information we have for you.
+I got your email address on the internet, I want you to assist
+me by getting a nice property for purchase within your location
+as me and my family wants to relocate to a safe environment as
+soon as possible due to the crisis  in my country.
+
+Your urgent response is highly appreciated.
+
+Johnson Ato
+
+----------------------------------------------------------------
 
 
-I am taking this measure in other not to make any mistake because of the 
-sensitivity of the information i have for you.
-
-
-Awaiting your response.
-
-
-Barr vincent Appiah.
 
