@@ -1,93 +1,118 @@
-From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-Subject: [PATCH] bonding: documentation update: mailing lists.
-Date: Sun, 13 Mar 2011 21:34:22 +0100
-Message-ID: <1300048462-4486-1-git-send-email-nicolas.2p.debian@free.fr>
+From: Samuel Jero <sj323707@ohio.edu>
+Subject: Re: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
+ after receiving the Confirm option
+Date: Sun, 13 Mar 2011 16:34:57 -0400
+Message-ID: <1300048497.31664.158.camel@jero-laptop>
+References: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk>
+	 <1299559831.7569.41.camel@jero-laptop>
+	 <20110311113042.GB4876@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-To: fubar@us.ibm.com, andy@greyhouse.net
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="=-7KgV/HWSe59bxYmzFkyy"
+Cc: <dccp@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:39120 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753886Ab1CMUeo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Mar 2011 16:34:44 -0400
+Received: from bay0-omc3-s26.bay0.hotmail.com ([65.54.190.164]:64179 "EHLO
+	bay0-omc3-s26.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756219Ab1CMUfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 16:35:02 -0400
+In-Reply-To: <20110311113042.GB4876@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit a6c36ee677607b02d8ecc88e8a12785418b88107 ("bonding: change li=
-st
-contact to netdev@vger.kernel.org"), the mailing list for bonding
-developpement was changed from bonding-devel to netdev.
+--=-7KgV/HWSe59bxYmzFkyy
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Update the bonding documentation to reflect this change:
+> Well done, this looks good. I did some minor editing:
+>  * whitespace/formatting/comments,
+>  * simplification/subsumption,
+>  * function should not be called for non-NN or non-known
+>    feature, hence turned that into a DCCP_BUG() condition.
 
-- bonding-devel is used for usage discussions (despite the name).
-- netdev is used for developpement discussions.
+Okay
 
-Also remove the reference to the sourceforge bonding page, which is
-deprecated.
+>=20
+> | 2)In a situation where the ack ratio has to be reduced because of an
+> |    RTO, idle period, or loss, CCID-2 now sets the ack ratio to half of =
+the
+> |    congestion window (or 1 if that's zero) instead of to the congestion
+> |    window. This should reduce the problems if one ack is lost (we have =
+to
+> |    lose two acks to not acknowledge an entire congestion window and tri=
+gger
+> |    RTO)
+> |=20
+> I think this makes for a separate patch, and it would be good to commenti=
+fy
+> the above into the code; please also see 3(b) below.
 
-Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
----
- Documentation/networking/bonding.txt |   26 +++++++++++++++++---------
- 1 files changed, 17 insertions(+), 9 deletions(-)
+Separate patch coming shortly. Will add comment describing the
+situation.
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/netwo=
-rking/bonding.txt
-index 25d2f41..b36e741 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -2558,18 +2558,15 @@ enslaved.
- 16. Resources and Links
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=20
--The latest version of the bonding driver can be found in the latest
-+	The latest version of the bonding driver can be found in the latest
- version of the linux kernel, found on http://kernel.org
-=20
--The latest version of this document can be found in either the latest
--kernel source (named Documentation/networking/bonding.txt), or on the
--bonding sourceforge site:
-+	The latest version of this document can be found in the latest kernel
-+source (named Documentation/networking/bonding.txt).
-=20
--http://www.sourceforge.net/projects/bonding
--
--Discussions regarding the bonding driver take place primarily on the
--bonding-devel mailing list, hosted at sourceforge.net.  If you have
--questions or problems, post them to the list.  The list address is:
-+	Discussions regarding the usage of the bonding driver take place on t=
-he
-+bonding-devel mailing list, hosted at sourceforge.net. If you have que=
-stions or
-+problems, post them to the list.  The list address is:
-=20
- bonding-devel@lists.sourceforge.net
-=20
-@@ -2578,6 +2575,17 @@ be found at:
-=20
- https://lists.sourceforge.net/lists/listinfo/bonding-devel
-=20
-+	Discussions regarding the developpement of the bonding driver take pl=
-ace
-+on the main Linux network mailing list, hosted at vger.kernel.org. The=
- list
-+address is:
-+
-+netdev@vger.kernel.org
-+
-+	The administrative interface (to subscribe or unsubscribe) can
-+be found at:
-+
-+http://vger.kernel.org/vger-lists.html#netdev
-+
- Donald Becker's Ethernet Drivers and diag programs may be found at :
-  - http://web.archive.org/web/*/http://www.scyld.com/network/=20
-=20
---=20
-1.7.2.3
+> Some work still remains to be done:
+>=20
+>  1) Since ccid2_ack_ratio_next(sk) is just a wrapper around
+>     dccp_feat_get_nn_next_val(sk, DCCPF_ACK_RATIO), ok to
+>     use this instead?
 
+It's just fine to use dccp_feat_get_nn_next_val() instead. My primary
+reason for creating ccid2_ack_ratio_next() was to keep line lengths
+down.
+
+>  2) Analogously, for the local sequence window feature the
+>     dccp_feat_get_nn_next_val() is not used, it uses the
+>     current value:
+>     if (val !=3D dp->dccps_l_seq_win)
+> 	dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW, val);
+
+That should also be updated to use dccp_feat_get_nn_next_val(sk,
+DCCPF_SEQUENCE_WINDOW)
+
+>  3) There is room for some refactoring:
+>     a) dccp_feat_signal_nn_change() always implies also in part
+>        dccp_feat_get_nn_next_val(): if the latter function returns
+>        the same value as the supposedly 'new' one, it is not
+>        necessary to start a new negotiation. So all the repeated
+>        tests could be folded into that function.
+
+
+The problem here is that the ack ratio should only be changed after a
+loss, idle period, etc if the new cwnd is going to be less than the
+(negotiating) ack ratio. We need to call dccp_feat_get_nn_next_val() to
+decide whether we need to adjust the ack ratio or not.
+
+We don't want to change the ack ratio every time we have a loss, etc.
+Doing so will result in pointless negotiations and more fluctuations in
+the ack ratio, neither of which is desirable.
+
+>     b) The following pattern appears three times in ccid2.c:
+> 	if (ccid2_ack_ratio_next(sk) > hc->tx_cwnd)
+> 		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
+>        Perhaps this can, as some other parts of this patch set, be
+>        refactored (e.g. the CCID-2 part is already a separate patch).
+
+I'll create a function for this code. Coming in separate patch.
+>=20
+> Other than the minor edits I have left your patch as is, i.e. I have
+> not yet performed changes (1) and (2), awaiting your opinion on that.
+
+Go ahead with 1) and 2).  I'll send out a new patch for 3 (b) shortly.
+
+Samuel Jero
+Internetworking Research Group
+Ohio University
+
+--=-7KgV/HWSe59bxYmzFkyy
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEABECAAYFAk19Km4ACgkQEwoGUlJjrt9b/gCfcMIlQTaopjZLL8P1d2CT7ova
+w3YAn0XmFq3oZlzJ1HAbuaik4vE9rX6v
+=pLWv
+-----END PGP SIGNATURE-----
+
+--=-7KgV/HWSe59bxYmzFkyy--
