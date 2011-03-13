@@ -1,56 +1,51 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 1/2] NET: cdc-phonet, fix stop-queue handling
-Date: Sun, 13 Mar 2011 17:54:30 +0100
-Message-ID: <1300035271-8138-1-git-send-email-jslaby@suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/3] vhost-net: use lock_sock_fast() in peek_head_len()
+Date: Sun, 13 Mar 2011 18:41:32 +0100
+Message-ID: <1300038092.2761.41.camel@edumazet-laptop>
+References: <20110117081058.18900.67456.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+	 <20110117081117.18900.48672.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+	 <20110313150646.GA30494@redhat.com>
+	 <1300031570.2761.22.camel@edumazet-laptop>
+	 <20110313161915.GB30642@redhat.com>
+	 <1300033927.2761.26.camel@edumazet-laptop>
+	 <20110313164359.GA32562@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jirislaby@gmail.com, netdev@vger.kernel.org, gregkh@suse.de,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Slaby <jslaby@suse.cz>,
-	=?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-To: davem@davemloft.net
+Cc: Jason Wang <jasowang@redhat.com>, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110313164359.GA32562@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently there is a warning emitted by the cdc-phonet driver:
-WARNING: at include/linux/netdevice.h:1557 usbpn_probe+0x3bb/0x3f0 [cdc=
-_phonet]()
-Modules linked in: ...
-Pid: 5877, comm: insmod Not tainted 2.6.37.3-16-desktop #1
-Call Trace:
- [<ffffffff810059b9>] dump_trace+0x79/0x340
- [<ffffffff81520fdc>] dump_stack+0x69/0x6f
- [<ffffffff810580eb>] warn_slowpath_common+0x7b/0xc0
- [<ffffffffa00254fb>] usbpn_probe+0x3bb/0x3f0 [cdc_phonet]
-=2E..
----[ end trace f5d3e02908603ab4 ]---
-netif_stop_queue() cannot be called before register_netdev()
+Le dimanche 13 mars 2011 =C3=A0 18:43 +0200, Michael S. Tsirkin a =C3=A9=
+crit :
+> On Sun, Mar 13, 2011 at 05:32:07PM +0100, Eric Dumazet wrote:
+> > Le dimanche 13 mars 2011 =C3=A0 18:19 +0200, Michael S. Tsirkin a =C3=
+=A9crit :
+> >=20
+> > > Other side is in drivers/net/tun.c and net/packet/af_packet.c
+> > > At least wrt tun it seems clear socket is not locked.
+> >=20
+> > Yes (assuming you refer to tun_net_xmit())
+> >=20
+> > > Besides queue, dequeue seems to be done without socket locked.
+> > >=20
+> >=20
+> > It seems this code (assuming you speak of drivers/vhost/net.c ?) ha=
+s
+> > some races indeed.
+> >=20
+>=20
+> Hmm. Any more besides the one fixed here?
+>=20
 
-So remove netif_stop_queue from the probe funtction to avoid that.
+If writers and readers dont share a common lock, how can they reliably
+synchronize states ?
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/usb/cdc-phonet.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+=46or example, the check at line 420 seems unsafe or useless.
 
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
-c
-index 109751b..4cf4e36 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -392,7 +392,6 @@ int usbpn_probe(struct usb_interface *intf, const s=
-truct usb_device_id *id)
-=20
- 	pnd =3D netdev_priv(dev);
- 	SET_NETDEV_DEV(dev, &intf->dev);
--	netif_stop_queue(dev);
-=20
- 	pnd->dev =3D dev;
- 	pnd->usb =3D usb_get_dev(usbdev);
---=20
-1.7.4.1
+skb_queue_empty(&sock->sk->sk_receive_queue)
