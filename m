@@ -1,64 +1,59 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 17/26] tipc: Give Tx of discovery responses priority over link messages
-Date: Sun, 13 Mar 2011 17:34:05 -0400
-Message-ID: <1300052054-7531-18-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 15/26] tipc: Fix redundant link field handling in link protocol message
+Date: Sun, 13 Mar 2011 17:34:03 -0400
+Message-ID: <1300052054-7531-16-git-send-email-paul.gortmaker@windriver.com>
 References: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:49917 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:49909 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932222Ab1CMVew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 17:34:52 -0400
+	with ESMTP id S932232Ab1CMVeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 17:34:50 -0400
 In-Reply-To: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <Allan.Stephens@windriver.com>
 
-Delay releasing the node lock when processing a neighbor discovery
-message until after the optional discovery response message has been
-sent. This helps ensure that any link protocol messages sent by a
-link endpoint created as a result of a neighbor discovery request
-are received after the discovery response is received, thereby
-giving the receiving node a chance to create a peer link endpoint to
-consume those link protocol messages, if one does not already exist.
+Ensures that the "redundant link exists" field of the LINK_PROTOCOL
+messages sent by a link endpoint is set if and only if the sending
+node has at least one other working link to the peer node. Previously,
+the bit was set only if there were at least 2 working links to the peer
+node, meaning the bit was incorrectly left unset in messages sent by a
+non-working link endpoint when exactly one alternate working link was
+available. The revised code now takes the state of the link sending
+the message into account when deciding if an alternate link exists.
 
 Signed-off-by: Allan Stephens <Allan.Stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/discover.c |   16 +++++++++-------
- 1 files changed, 9 insertions(+), 7 deletions(-)
+ net/tipc/link.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index 2345268..580b50a 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -201,14 +201,16 @@ void tipc_disc_recv_msg(struct sk_buff *buf, struct tipc_bearer *b_ptr)
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 6ffae0e..e5f96d5 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1898,6 +1898,7 @@ void tipc_link_send_proto_msg(struct link *l_ptr, u32 msg_typ, int probe_msg,
+ 	struct sk_buff *buf = NULL;
+ 	struct tipc_msg *msg = l_ptr->pmsg;
+ 	u32 msg_size = sizeof(l_ptr->proto_msg);
++	int r_flag;
  
- 	/* Accept discovery message & send response, if necessary */
- 	link_fully_up = link_working_working(link);
--	tipc_node_unlock(n_ptr);
--	if ((type == DSC_RESP_MSG) || link_fully_up)
--		return;
--	rbuf = tipc_disc_init_msg(DSC_RESP_MSG, orig, b_ptr);
--	if (rbuf != NULL) {
--		b_ptr->media->send_msg(rbuf, b_ptr, &media_addr);
--		buf_discard(rbuf);
-+
-+	if ((type == DSC_REQ_MSG) && !link_fully_up) {
-+		rbuf = tipc_disc_init_msg(DSC_RESP_MSG, orig, b_ptr);
-+		if (rbuf) {
-+			b_ptr->media->send_msg(rbuf, b_ptr, &media_addr);
-+			buf_discard(rbuf);
-+		}
+ 	if (link_blocked(l_ptr))
+ 		return;
+@@ -1954,7 +1955,8 @@ void tipc_link_send_proto_msg(struct link *l_ptr, u32 msg_typ, int probe_msg,
+ 		msg_set_max_pkt(msg, l_ptr->max_pkt_target);
  	}
-+
-+	tipc_node_unlock(n_ptr);
- }
  
- /**
+-	msg_set_redundant_link(msg, tipc_node_redundant_links(l_ptr->owner));
++	r_flag = (l_ptr->owner->working_links > tipc_link_is_up(l_ptr));
++	msg_set_redundant_link(msg, r_flag);
+ 	msg_set_linkprio(msg, l_ptr->priority);
+ 
+ 	/* Ensure sequence number will not fit : */
 -- 
 1.7.3.3
 
