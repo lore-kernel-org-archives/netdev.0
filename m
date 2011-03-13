@@ -1,348 +1,257 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 10/26] tipc: Convert node object array to a hash table
-Date: Sun, 13 Mar 2011 17:33:58 -0400
-Message-ID: <1300052054-7531-11-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 09/26] tipc: Eliminate configuration for maximum number of cluster nodes
+Date: Sun, 13 Mar 2011 17:33:57 -0400
+Message-ID: <1300052054-7531-10-git-send-email-paul.gortmaker@windriver.com>
 References: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
-	Allan Stephens <allan.stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:49889 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:49885 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756570Ab1CMVen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 17:34:43 -0400
+	with ESMTP id S1754883Ab1CMVel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 17:34:41 -0400
 In-Reply-To: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allan Stephens <allan.stephens@windriver.com>
+From: Allan Stephens <Allan.Stephens@windriver.com>
 
-Replaces the dynamically allocated array of pointers to the cluster's
-node objects with a static hash table. Hash collisions are resolved
-using chaining, with a typical hash chain having only a single node,
-to avoid degrading performance during processing of incoming packets.
-The conversion to a hash table reduces the memory requirements for
-TIPC's node table to approximately the same size it had prior to
-the previous commit.
+Gets rid of the need for users to specify the maximum number of
+cluster nodes supported by TIPC. TIPC now automatically provides
+support for all 4K nodes allowed by its addressing scheme.
 
-In addition to the hash table itself, TIPC now also maintains a
-linked list for the node objects, sorted by ascending network address.
-This list allows TIPC to continue sending responses to user space
-applications that request node and link information in sorted order.
-The list also improves performance when name table update messages are
-sent by making it easier to identify the nodes that must be notified.
+Note: This change sets TIPC's memory usage to the amount used by
+a maximum size node table with 4K entries.  An upcoming patch that
+converts the node table from a linear array to a hash table will
+compact the node table to a more efficient design, but for clarity
+it is nice to have all the Kconfig infrastruture go away separately.
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Allan Stephens <Allan.Stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/name_distr.c |    6 +---
- net/tipc/net.c        |   15 +++-------
- net/tipc/net.h        |    4 ---
- net/tipc/node.c       |   70 ++++++++++++++++++++++++++++++-------------------
- net/tipc/node.h       |   30 ++++++++++++++-------
- 5 files changed, 70 insertions(+), 55 deletions(-)
+ include/linux/tipc_config.h |    4 ++--
+ net/tipc/Kconfig            |   12 ------------
+ net/tipc/addr.c             |   11 +++--------
+ net/tipc/config.c           |   29 +++--------------------------
+ net/tipc/core.c             |    6 ------
+ net/tipc/core.h             |    1 -
+ net/tipc/net.c              |    3 +--
+ 7 files changed, 9 insertions(+), 57 deletions(-)
 
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index f2086f6..1b70d5d 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -109,11 +109,9 @@ static void named_cluster_distribute(struct sk_buff *buf)
- {
- 	struct sk_buff *buf_copy;
- 	struct tipc_node *n_ptr;
--	u32 n_num;
+diff --git a/include/linux/tipc_config.h b/include/linux/tipc_config.h
+index 011556f..64aba5a 100644
+--- a/include/linux/tipc_config.h
++++ b/include/linux/tipc_config.h
+@@ -89,7 +89,7 @@
+ #define  TIPC_CMD_GET_MAX_SUBSCR    0x4006    /* tx none, rx unsigned */
+ #define  TIPC_CMD_GET_MAX_ZONES     0x4007    /* obsoleted */
+ #define  TIPC_CMD_GET_MAX_CLUSTERS  0x4008    /* obsoleted */
+-#define  TIPC_CMD_GET_MAX_NODES     0x4009    /* tx none, rx unsigned */
++#define  TIPC_CMD_GET_MAX_NODES     0x4009    /* obsoleted */
+ #define  TIPC_CMD_GET_MAX_SLAVES    0x400A    /* obsoleted */
+ #define  TIPC_CMD_GET_NETID         0x400B    /* tx none, rx unsigned */
  
--	for (n_num = 1; n_num <= tipc_highest_node; n_num++) {
--		n_ptr = tipc_nodes[n_num];
--		if (n_ptr && tipc_node_has_active_links(n_ptr)) {
-+	list_for_each_entry(n_ptr, &tipc_node_list, list) {
-+		if (tipc_node_has_active_links(n_ptr)) {
- 			buf_copy = skb_copy(buf, GFP_ATOMIC);
- 			if (!buf_copy)
- 				break;
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index b5b337f..cce8d08 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -39,6 +39,7 @@
- #include "name_distr.h"
- #include "subscr.h"
- #include "port.h"
-+#include "node.h"
- #include "config.h"
+@@ -115,7 +115,7 @@
+ #define  TIPC_CMD_SET_MAX_SUBSCR    0x8006    /* tx unsigned, rx none */
+ #define  TIPC_CMD_SET_MAX_ZONES     0x8007    /* obsoleted */
+ #define  TIPC_CMD_SET_MAX_CLUSTERS  0x8008    /* obsoleted */
+-#define  TIPC_CMD_SET_MAX_NODES     0x8009    /* tx unsigned, rx none */
++#define  TIPC_CMD_SET_MAX_NODES     0x8009    /* obsoleted */
+ #define  TIPC_CMD_SET_MAX_SLAVES    0x800A    /* obsoleted */
+ #define  TIPC_CMD_SET_NETID         0x800B    /* tx unsigned, rx none */
  
- /*
-@@ -108,27 +109,21 @@
- */
+diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
+index 0436927..2c5954b 100644
+--- a/net/tipc/Kconfig
++++ b/net/tipc/Kconfig
+@@ -29,18 +29,6 @@ config TIPC_ADVANCED
+ 	  Saying Y here will open some advanced configuration for TIPC.
+ 	  Most users do not need to bother; if unsure, just say N.
  
- DEFINE_RWLOCK(tipc_net_lock);
--struct tipc_node **tipc_nodes;
--u32 tipc_highest_node;
- atomic_t tipc_num_links;
- 
- static int net_start(void)
- {
--	tipc_nodes = kcalloc(4096, sizeof(*tipc_nodes), GFP_ATOMIC);
--	tipc_highest_node = 0;
- 	atomic_set(&tipc_num_links, 0);
- 
--	return tipc_nodes ? 0 : -ENOMEM;
-+	return 0;
- }
- 
- static void net_stop(void)
- {
--	u32 n_num;
-+	struct tipc_node *node, *t_node;
- 
--	for (n_num = 1; n_num <= tipc_highest_node; n_num++)
--		tipc_node_delete(tipc_nodes[n_num]);
--	kfree(tipc_nodes);
--	tipc_nodes = NULL;
-+	list_for_each_entry_safe(node, t_node, &tipc_node_list, list)
-+		tipc_node_delete(node);
- }
- 
- static void net_route_named_msg(struct sk_buff *buf)
-diff --git a/net/tipc/net.h b/net/tipc/net.h
-index b52b974..0ba6093 100644
---- a/net/tipc/net.h
-+++ b/net/tipc/net.h
-@@ -37,10 +37,6 @@
- #ifndef _TIPC_NET_H
- #define _TIPC_NET_H
- 
--struct tipc_node;
+-config TIPC_NODES
+-	int "Maximum number of nodes in a cluster"
+-	depends on TIPC_ADVANCED
+-	range 8 2047
+-	default "255"
+-	help
+-	  Specifies how many nodes can be supported in a TIPC cluster.
+-	  Can range from 8 to 2047 nodes; default is 255.
 -
--extern struct tipc_node **tipc_nodes;
--extern u32 tipc_highest_node;
- extern atomic_t tipc_num_links;
- 
- extern rwlock_t tipc_net_lock;
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 64976f2..22aeb2b 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -44,9 +44,31 @@ static void node_established_contact(struct tipc_node *n_ptr);
- 
- static DEFINE_SPINLOCK(node_create_lock);
- 
-+static struct hlist_head node_htable[NODE_HTABLE_SIZE];
-+LIST_HEAD(tipc_node_list);
-+static u32 tipc_num_nodes;
- u32 tipc_own_tag;
- 
- /**
-+ * tipc_node_find - locate specified node object, if it exists
-+ */
-+
-+struct tipc_node *tipc_node_find(u32 addr)
-+{
-+	struct tipc_node *node;
-+	struct hlist_node *pos;
-+
-+	if (unlikely(!in_own_cluster(addr)))
-+		return NULL;
-+
-+	hlist_for_each_entry(node, pos, &node_htable[tipc_hashfn(addr)], hash) {
-+		if (node->addr == addr)
-+			return node;
-+	}
-+	return NULL;
-+}
-+
-+/**
-  * tipc_node_create - create neighboring node
-  *
-  * Currently, this routine is called by neighbor discovery code, which holds
-@@ -58,8 +80,7 @@ u32 tipc_own_tag;
- 
- struct tipc_node *tipc_node_create(u32 addr)
- {
--	struct tipc_node *n_ptr;
--	u32 n_num;
-+	struct tipc_node *n_ptr, *temp_node;
- 
- 	spin_lock_bh(&node_create_lock);
- 
-@@ -78,12 +99,19 @@ struct tipc_node *tipc_node_create(u32 addr)
- 
- 	n_ptr->addr = addr;
- 	spin_lock_init(&n_ptr->lock);
-+	INIT_HLIST_NODE(&n_ptr->hash);
-+	INIT_LIST_HEAD(&n_ptr->list);
- 	INIT_LIST_HEAD(&n_ptr->nsub);
- 
--	n_num = tipc_node(addr);
--	tipc_nodes[n_num] = n_ptr;
--	if (n_num > tipc_highest_node)
--		tipc_highest_node = n_num;
-+	hlist_add_head(&n_ptr->hash, &node_htable[tipc_hashfn(addr)]);
-+
-+	list_for_each_entry(temp_node, &tipc_node_list, list) {
-+		if (n_ptr->addr < temp_node->addr)
-+			break;
-+	}
-+	list_add_tail(&n_ptr->list, &temp_node->list);
-+
-+	tipc_num_nodes++;
- 
- 	spin_unlock_bh(&node_create_lock);
- 	return n_ptr;
-@@ -91,18 +119,11 @@ struct tipc_node *tipc_node_create(u32 addr)
- 
- void tipc_node_delete(struct tipc_node *n_ptr)
- {
--	u32 n_num;
+-	  Setting this to a smaller value saves some memory;
+-	  setting it to higher allows for more nodes.
 -
--	if (!n_ptr)
--		return;
--
--	n_num = tipc_node(n_ptr->addr);
--	tipc_nodes[n_num] = NULL;
-+	list_del(&n_ptr->list);
-+	hlist_del(&n_ptr->hash);
- 	kfree(n_ptr);
- 
--	while (!tipc_nodes[tipc_highest_node])
--		if (--tipc_highest_node == 0)
--			break;
-+	tipc_num_nodes--;
- }
- 
- 
-@@ -379,7 +400,6 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 	struct tipc_node *n_ptr;
- 	struct tipc_node_info node_info;
- 	u32 payload_size;
--	u32 n_num;
- 
- 	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_NET_ADDR))
- 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
-@@ -390,15 +410,14 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 						   " (network address)");
- 
- 	read_lock_bh(&tipc_net_lock);
--	if (!tipc_nodes) {
-+	if (!tipc_num_nodes) {
- 		read_unlock_bh(&tipc_net_lock);
- 		return tipc_cfg_reply_none();
- 	}
- 
- 	/* For now, get space for all other nodes */
- 
--	payload_size = TLV_SPACE(sizeof(node_info)) *
--		(tipc_highest_node - 1);
-+	payload_size = TLV_SPACE(sizeof(node_info)) * tipc_num_nodes;
- 	if (payload_size > 32768u) {
- 		read_unlock_bh(&tipc_net_lock);
- 		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
-@@ -412,9 +431,8 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 
- 	/* Add TLVs for all nodes in scope */
- 
--	for (n_num = 1; n_num <= tipc_highest_node; n_num++) {
--		n_ptr = tipc_nodes[n_num];
--		if (!n_ptr || !tipc_in_scope(domain, n_ptr->addr))
-+	list_for_each_entry(n_ptr, &tipc_node_list, list) {
-+		if (!tipc_in_scope(domain, n_ptr->addr))
- 			continue;
- 		node_info.addr = htonl(n_ptr->addr);
- 		node_info.up = htonl(tipc_node_is_up(n_ptr));
-@@ -433,7 +451,6 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
- 	struct tipc_node *n_ptr;
- 	struct tipc_link_info link_info;
- 	u32 payload_size;
--	u32 n_num;
- 
- 	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_NET_ADDR))
- 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
-@@ -472,11 +489,10 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
- 
- 	/* Add TLVs for any other links in scope */
- 
--	for (n_num = 1; n_num <= tipc_highest_node; n_num++) {
-+	list_for_each_entry(n_ptr, &tipc_node_list, list) {
- 		u32 i;
- 
--		n_ptr = tipc_nodes[n_num];
--		if (!n_ptr || !tipc_in_scope(domain, n_ptr->addr))
-+		if (!tipc_in_scope(domain, n_ptr->addr))
- 			continue;
- 		tipc_node_lock(n_ptr);
- 		for (i = 0; i < MAX_BEARERS; i++) {
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index c510a2a..02e4927 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
+ config TIPC_PORTS
+ 	int "Maximum number of ports in a node"
+ 	depends on TIPC_ADVANCED
+diff --git a/net/tipc/addr.c b/net/tipc/addr.c
+index 087e399..a6fdab3 100644
+--- a/net/tipc/addr.c
++++ b/net/tipc/addr.c
 @@ -2,7 +2,7 @@
-  * net/tipc/node.h: Include file for TIPC node management routines
+  * net/tipc/addr.c: TIPC address utility routines
   *
   * Copyright (c) 2000-2006, Ericsson AB
-- * Copyright (c) 2005, Wind River Systems
-+ * Copyright (c) 2005, 2010-2011, Wind River Systems
+- * Copyright (c) 2004-2005, Wind River Systems
++ * Copyright (c) 2004-2005, 2010-2011, Wind River Systems
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
-@@ -46,7 +46,8 @@
-  * struct tipc_node - TIPC node structure
-  * @addr: network address of node
-  * @lock: spinlock governing access to structure
-- * @next: pointer to next node in sorted list of cluster's nodes
-+ * @hash: links to adjacent nodes in unsorted hash chain
-+ * @list: links to adjacent nodes in sorted list of cluster's nodes
-  * @nsub: list of "node down" subscriptions monitoring node
-  * @active_links: pointers to active links to node
-  * @links: pointers to all links to node
-@@ -69,7 +70,8 @@
- struct tipc_node {
- 	u32 addr;
- 	spinlock_t lock;
--	struct tipc_node *next;
-+	struct hlist_node hash;
-+	struct list_head list;
- 	struct list_head nsub;
- 	struct link *active_links[2];
- 	struct link *links[MAX_BEARERS];
-@@ -90,8 +92,23 @@ struct tipc_node {
- 	} bclink;
- };
+@@ -41,7 +41,7 @@
+  * tipc_addr_domain_valid - validates a network domain address
+  *
+  * Accepts <Z.C.N>, <Z.C.0>, <Z.0.0>, and <0.0.0>,
+- * where Z, C, and N are non-zero and do not exceed the configured limits.
++ * where Z, C, and N are non-zero.
+  *
+  * Returns 1 if domain address is valid, otherwise 0
+  */
+@@ -51,10 +51,6 @@ int tipc_addr_domain_valid(u32 addr)
+ 	u32 n = tipc_node(addr);
+ 	u32 c = tipc_cluster(addr);
+ 	u32 z = tipc_zone(addr);
+-	u32 max_nodes = tipc_max_nodes;
+-
+-	if (n > max_nodes)
+-		return 0;
  
-+#define NODE_HTABLE_SIZE 512
-+extern struct list_head tipc_node_list;
-+
-+/*
-+ * A trivial power-of-two bitmask technique is used for speed, since this
-+ * operation is done for every incoming TIPC packet. The number of hash table
-+ * entries has been chosen so that no hash chain exceeds 8 nodes and will
-+ * usually be much smaller (typically only a single node).
-+ */
-+static inline unsigned int tipc_hashfn(u32 addr)
-+{
-+	return addr & (NODE_HTABLE_SIZE - 1);
-+}
-+
- extern u32 tipc_own_tag;
+ 	if (n && (!z || !c))
+ 		return 0;
+@@ -66,8 +62,7 @@ int tipc_addr_domain_valid(u32 addr)
+ /**
+  * tipc_addr_node_valid - validates a proposed network address for this node
+  *
+- * Accepts <Z.C.N>, where Z, C, and N are non-zero and do not exceed
+- * the configured limits.
++ * Accepts <Z.C.N>, where Z, C, and N are non-zero.
+  *
+  * Returns 1 if address can be used, otherwise 0
+  */
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index e16750d..fa3d508 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -2,7 +2,7 @@
+  * net/tipc/config.c: TIPC configuration management code
+  *
+  * Copyright (c) 2002-2006, Ericsson AB
+- * Copyright (c) 2004-2007, Wind River Systems
++ * Copyright (c) 2004-2007, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -260,25 +260,6 @@ static struct sk_buff *cfg_set_max_ports(void)
+ 	return tipc_cfg_reply_none();
+ }
  
-+struct tipc_node *tipc_node_find(u32 addr);
- struct tipc_node *tipc_node_create(u32 addr);
- void tipc_node_delete(struct tipc_node *n_ptr);
- struct tipc_node *tipc_node_attach_link(struct link *l_ptr);
-@@ -104,13 +121,6 @@ int tipc_node_is_up(struct tipc_node *n_ptr);
- struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space);
- struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space);
- 
--static inline struct tipc_node *tipc_node_find(u32 addr)
+-static struct sk_buff *cfg_set_max_nodes(void)
 -{
--	if (likely(in_own_cluster(addr)))
--		return tipc_nodes[tipc_node(addr)];
--	return NULL;
+-	u32 value;
+-
+-	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_UNSIGNED))
+-		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
+-	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+-	if (value == tipc_max_nodes)
+-		return tipc_cfg_reply_none();
+-	if (value != delimit(value, 8, 2047))
+-		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+-						   " (max nodes must be 8-2047)");
+-	if (tipc_mode == TIPC_NET_MODE)
+-		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
+-			" (cannot change max nodes once TIPC has joined a network)");
+-	tipc_max_nodes = value;
+-	return tipc_cfg_reply_none();
 -}
 -
- static inline void tipc_node_lock(struct tipc_node *n_ptr)
+ static struct sk_buff *cfg_set_netid(void)
  {
- 	spin_lock_bh(&n_ptr->lock);
+ 	u32 value;
+@@ -397,9 +378,6 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
+ 	case TIPC_CMD_SET_MAX_SUBSCR:
+ 		rep_tlv_buf = cfg_set_max_subscriptions();
+ 		break;
+-	case TIPC_CMD_SET_MAX_NODES:
+-		rep_tlv_buf = cfg_set_max_nodes();
+-		break;
+ 	case TIPC_CMD_SET_NETID:
+ 		rep_tlv_buf = cfg_set_netid();
+ 		break;
+@@ -415,9 +393,6 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
+ 	case TIPC_CMD_GET_MAX_SUBSCR:
+ 		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_max_subscriptions);
+ 		break;
+-	case TIPC_CMD_GET_MAX_NODES:
+-		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_max_nodes);
+-		break;
+ 	case TIPC_CMD_GET_NETID:
+ 		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_net_id);
+ 		break;
+@@ -431,6 +406,8 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
+ 	case TIPC_CMD_GET_MAX_SLAVES:
+ 	case TIPC_CMD_SET_MAX_CLUSTERS:
+ 	case TIPC_CMD_GET_MAX_CLUSTERS:
++	case TIPC_CMD_SET_MAX_NODES:
++	case TIPC_CMD_GET_MAX_NODES:
+ 		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
+ 							  " (obsolete command)");
+ 		break;
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 2da1fc7..c9a73e7 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -41,10 +41,6 @@
+ #include "config.h"
+ 
+ 
+-#ifndef CONFIG_TIPC_NODES
+-#define CONFIG_TIPC_NODES 255
+-#endif
+-
+ #ifndef CONFIG_TIPC_PORTS
+ #define CONFIG_TIPC_PORTS 8191
+ #endif
+@@ -64,7 +60,6 @@ const char tipc_alphabet[] =
+ /* configurable TIPC parameters */
+ 
+ u32 tipc_own_addr;
+-int tipc_max_nodes;
+ int tipc_max_ports;
+ int tipc_max_subscriptions;
+ int tipc_max_publications;
+@@ -192,7 +187,6 @@ static int __init tipc_init(void)
+ 	tipc_max_publications = 10000;
+ 	tipc_max_subscriptions = 2000;
+ 	tipc_max_ports = CONFIG_TIPC_PORTS;
+-	tipc_max_nodes = CONFIG_TIPC_NODES;
+ 	tipc_net_id = 4711;
+ 
+ 	res = tipc_core_start();
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 37544d9..436dda1 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -147,7 +147,6 @@ void tipc_msg_dbg(struct print_buf *, struct tipc_msg *, const char *);
+  */
+ 
+ extern u32 tipc_own_addr;
+-extern int tipc_max_nodes;
+ extern int tipc_max_ports;
+ extern int tipc_max_subscriptions;
+ extern int tipc_max_publications;
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index f6303d7..b5b337f 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -114,8 +114,7 @@ atomic_t tipc_num_links;
+ 
+ static int net_start(void)
+ {
+-	tipc_nodes = kcalloc(tipc_max_nodes + 1,
+-				 sizeof(*tipc_nodes), GFP_ATOMIC);
++	tipc_nodes = kcalloc(4096, sizeof(*tipc_nodes), GFP_ATOMIC);
+ 	tipc_highest_node = 0;
+ 	atomic_set(&tipc_num_links, 0);
+ 
 -- 
 1.7.3.3
 
