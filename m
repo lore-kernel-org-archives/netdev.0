@@ -1,130 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH v4 RFC 2/8] ipv4: Kill ip_route_input_noref().
-Date: Sat, 12 Mar 2011 16:35:54 -0800 (PST)
-Message-ID: <20110312.163554.191407303.davem@davemloft.net>
+Subject: [PATCH v4 RFC 3/8] ipv4: Set DST_NOCACHE in rt_dst_alloc().
+Date: Sat, 12 Mar 2011 16:36:28 -0800 (PST)
+Message-ID: <20110312.163628.241930412.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55591
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55595
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756197Ab1CMAfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2011 19:35:16 -0500
+	by vger.kernel.org with ESMTP id S1756243Ab1CMAfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2011 19:35:50 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 3CE2624C088
-	for <netdev@vger.kernel.org>; Sat, 12 Mar 2011 16:35:54 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id 32B1724C088
+	for <netdev@vger.kernel.org>; Sat, 12 Mar 2011 16:36:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The "noref" argument to ip_route_input_common() is now always ignored
-because we do not cache routes, and in that case we must always grab
-a reference to the resulting 'dst'.
+Instead of using a read/modify/write in rt_finalize().
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/route.h    |   16 ++--------------
- net/ipv4/arp.c         |    2 +-
- net/ipv4/ip_input.c    |    4 ++--
- net/ipv4/route.c       |    6 +++---
- net/ipv4/xfrm4_input.c |    4 ++--
- 5 files changed, 10 insertions(+), 22 deletions(-)
+ net/ipv4/route.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 665a44b..78e8ce1 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -179,20 +179,8 @@ static inline struct rtable *ip_route_output_gre(struct net *net,
- 	return ip_route_output_key(net, &fl4);
- }
- 
--extern int ip_route_input_common(struct sk_buff *skb, __be32 dst, __be32 src,
--				 u8 tos, struct net_device *devin, bool noref);
--
--static inline int ip_route_input(struct sk_buff *skb, __be32 dst, __be32 src,
--				 u8 tos, struct net_device *devin)
--{
--	return ip_route_input_common(skb, dst, src, tos, devin, false);
--}
--
--static inline int ip_route_input_noref(struct sk_buff *skb, __be32 dst, __be32 src,
--				       u8 tos, struct net_device *devin)
--{
--	return ip_route_input_common(skb, dst, src, tos, devin, true);
--}
-+extern int ip_route_input(struct sk_buff *skb, __be32 dst, __be32 src,
-+			  u8 tos, struct net_device *devin);
- 
- extern unsigned short	ip_rt_frag_needed(struct net *net, struct iphdr *iph, unsigned short new_mtu, struct net_device *dev);
- extern void		ip_rt_send_redirect(struct sk_buff *skb);
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 090d273..db0b8b8 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -872,7 +872,7 @@ static int arp_process(struct sk_buff *skb)
- 	}
- 
- 	if (arp->ar_op == htons(ARPOP_REQUEST) &&
--	    ip_route_input_noref(skb, tip, sip, 0, dev) == 0) {
-+	    ip_route_input(skb, tip, sip, 0, dev) == 0) {
- 
- 		rt = skb_rtable(skb);
- 		addr_type = rt->rt_type;
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index d7b2b09..577eb45 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -324,8 +324,8 @@ static int ip_rcv_finish(struct sk_buff *skb)
- 	 *	how the packet travels inside Linux networking.
- 	 */
- 	if (skb_dst(skb) == NULL) {
--		int err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
--					       iph->tos, skb->dev);
-+		int err = ip_route_input(skb, iph->daddr, iph->saddr,
-+					 iph->tos, skb->dev);
- 		if (unlikely(err)) {
- 			if (err == -EHOSTUNREACH)
- 				IP_INC_STATS_BH(dev_net(skb->dev),
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 5528d14..7e8720f 100644
+index 7e8720f..6036476 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1527,8 +1527,8 @@ martian_source_keep_err:
- 	goto out;
- }
+@@ -492,11 +492,6 @@ void rt_cache_flush(struct net *net, int delay)
  
--int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
--			   u8 tos, struct net_device *dev, bool noref)
-+int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
-+		   u8 tos, struct net_device *dev)
+ static struct rtable *rt_finalize(struct rtable *rt, struct sk_buff *skb)
  {
- 	int res;
+-	/* To avoid expensive rcu stuff for this uncached dst, we set
+-	 * DST_NOCACHE so that dst_release() can free dst without
+-	 * waiting a grace period.
+-	 */
+-	rt->dst.flags |= DST_NOCACHE;
+ 	if (rt->rt_type == RTN_UNICAST || rt_is_output_route(rt)) {
+ 		int err = arp_bind_neighbour(&rt->dst);
+ 		if (err) {
+@@ -1114,7 +1109,11 @@ static struct rtable *rt_dst_alloc(bool nopolicy, bool noxfrm)
+ 	if (rt) {
+ 		rt->dst.obsolete = -1;
  
-@@ -1571,7 +1571,7 @@ int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rcu_read_unlock();
- 	return res;
- }
--EXPORT_SYMBOL(ip_route_input_common);
-+EXPORT_SYMBOL(ip_route_input);
- 
- /* called with rcu_read_lock() */
- static struct rtable *__mkroute_output(const struct fib_result *res,
-diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-index 06814b6..58d23a5 100644
---- a/net/ipv4/xfrm4_input.c
-+++ b/net/ipv4/xfrm4_input.c
-@@ -27,8 +27,8 @@ static inline int xfrm4_rcv_encap_finish(struct sk_buff *skb)
- 	if (skb_dst(skb) == NULL) {
- 		const struct iphdr *iph = ip_hdr(skb);
- 
--		if (ip_route_input_noref(skb, iph->daddr, iph->saddr,
--					 iph->tos, skb->dev))
-+		if (ip_route_input(skb, iph->daddr, iph->saddr,
-+				   iph->tos, skb->dev))
- 			goto drop;
+-		rt->dst.flags = DST_HOST |
++		/* To avoid expensive rcu stuff for this uncached dst, we set
++		 * DST_NOCACHE so that dst_release() can free dst without
++		 * waiting a grace period.
++		 */
++		rt->dst.flags = DST_NOCACHE | DST_HOST |
+ 			(nopolicy ? DST_NOPOLICY : 0) |
+ 			(noxfrm ? DST_NOXFRM : 0);
  	}
- 	return dst_input(skb);
 -- 
 1.7.4.1
 
