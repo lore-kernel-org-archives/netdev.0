@@ -1,47 +1,84 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/3] vhost-net: use lock_sock_fast() in peek_head_len()
-Date: Sun, 13 Mar 2011 18:43:59 +0200
-Message-ID: <20110313164359.GA32562@redhat.com>
-References: <20110117081058.18900.67456.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
- <20110117081117.18900.48672.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
- <20110313150646.GA30494@redhat.com>
- <1300031570.2761.22.camel@edumazet-laptop>
- <20110313161915.GB30642@redhat.com>
- <1300033927.2761.26.camel@edumazet-laptop>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 2/2] NET: cdc-phonet, handle empty phonet header
+Date: Sun, 13 Mar 2011 17:54:31 +0100
+Message-ID: <1300035271-8138-2-git-send-email-jslaby@suse.cz>
+References: <1300035271-8138-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jason Wang <jasowang@redhat.com>, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42929 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753869Ab1CMQoo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Mar 2011 12:44:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1300033927.2761.26.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jirislaby@gmail.com, netdev@vger.kernel.org, gregkh@suse.de,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Slaby <jslaby@suse.cz>,
+	=?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1300035271-8138-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 13, 2011 at 05:32:07PM +0100, Eric Dumazet wrote:
-> Le dimanche 13 mars 2011 =E0 18:19 +0200, Michael S. Tsirkin a =E9cri=
-t :
->=20
-> > Other side is in drivers/net/tun.c and net/packet/af_packet.c
-> > At least wrt tun it seems clear socket is not locked.
->=20
-> Yes (assuming you refer to tun_net_xmit())
->=20
-> > Besides queue, dequeue seems to be done without socket locked.
-> >=20
->=20
-> It seems this code (assuming you speak of drivers/vhost/net.c ?) has
-> some races indeed.
->=20
+Currently, for N 5800 XM I get:
+cdc_phonet: probe of 1-6:1.10 failed with error -22
 
-Hmm. Any more besides the one fixed here?
+It's because phonet_header is empty. Extra altsetting looks like
+there:
+E 05 24 00 01 10 03 24 ab 05 24 06 0a 0b 04 24 fd  .$....$..$....$.
+E 00                                               .
 
+I don't see the header used anywhere so just check if the phonet
+descriptor is there, not the structure itself.
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/usb/cdc-phonet.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
+c
+index 4cf4e36..f967913 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -328,13 +328,13 @@ int usbpn_probe(struct usb_interface *intf, const=
+ struct usb_device_id *id)
+ {
+ 	static const char ifname[] =3D "usbpn%d";
+ 	const struct usb_cdc_union_desc *union_header =3D NULL;
+-	const struct usb_cdc_header_desc *phonet_header =3D NULL;
+ 	const struct usb_host_interface *data_desc;
+ 	struct usb_interface *data_intf;
+ 	struct usb_device *usbdev =3D interface_to_usbdev(intf);
+ 	struct net_device *dev;
+ 	struct usbpn_dev *pnd;
+ 	u8 *data;
++	int phonet =3D 0;
+ 	int len, err;
+=20
+ 	data =3D intf->altsetting->extra;
+@@ -355,10 +355,7 @@ int usbpn_probe(struct usb_interface *intf, const =
+struct usb_device_id *id)
+ 					(struct usb_cdc_union_desc *)data;
+ 				break;
+ 			case 0xAB:
+-				if (phonet_header || dlen < 5)
+-					break;
+-				phonet_header =3D
+-					(struct usb_cdc_header_desc *)data;
++				phonet =3D 1;
+ 				break;
+ 			}
+ 		}
+@@ -366,7 +363,7 @@ int usbpn_probe(struct usb_interface *intf, const s=
+truct usb_device_id *id)
+ 		len -=3D dlen;
+ 	}
+=20
+-	if (!union_header || !phonet_header)
++	if (!union_header || !phonet)
+ 		return -EINVAL;
+=20
+ 	data_intf =3D usb_ifnum_to_if(usbdev, union_header->bSlaveInterface0)=
+;
 --=20
-MST
+1.7.4.1
