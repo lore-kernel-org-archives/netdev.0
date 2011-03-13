@@ -1,118 +1,103 @@
-From: Samuel Jero <sj323707@ohio.edu>
-Subject: Re: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
- after receiving the Confirm option
-Date: Sun, 13 Mar 2011 16:34:57 -0400
-Message-ID: <1300048497.31664.158.camel@jero-laptop>
-References: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk>
-	 <1299559831.7569.41.camel@jero-laptop>
-	 <20110311113042.GB4876@gerrit.erg.abdn.ac.uk>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 3/3] vhost-net: use lock_sock_fast() in peek_head_len()
+Date: Sun, 13 Mar 2011 23:11:29 +0200
+Message-ID: <20110313211129.GA10235@redhat.com>
+References: <20110117081058.18900.67456.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+ <20110117081117.18900.48672.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+ <20110313150646.GA30494@redhat.com>
+ <1300031570.2761.22.camel@edumazet-laptop>
+ <20110313161915.GB30642@redhat.com>
+ <1300033927.2761.26.camel@edumazet-laptop>
+ <20110313164359.GA32562@redhat.com>
+ <1300038092.2761.41.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="=-7KgV/HWSe59bxYmzFkyy"
-Cc: <dccp@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s26.bay0.hotmail.com ([65.54.190.164]:64179 "EHLO
-	bay0-omc3-s26.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756219Ab1CMUfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 16:35:02 -0400
-In-Reply-To: <20110311113042.GB4876@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jason Wang <jasowang@redhat.com>, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1300038092.2761.41.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---=-7KgV/HWSe59bxYmzFkyy
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-> Well done, this looks good. I did some minor editing:
->  * whitespace/formatting/comments,
->  * simplification/subsumption,
->  * function should not be called for non-NN or non-known
->    feature, hence turned that into a DCCP_BUG() condition.
-
-Okay
-
+On Sun, Mar 13, 2011 at 06:41:32PM +0100, Eric Dumazet wrote:
+> Le dimanche 13 mars 2011 =E0 18:43 +0200, Michael S. Tsirkin a =E9cri=
+t :
+> > On Sun, Mar 13, 2011 at 05:32:07PM +0100, Eric Dumazet wrote:
+> > > Le dimanche 13 mars 2011 =E0 18:19 +0200, Michael S. Tsirkin a =E9=
+crit :
+> > >=20
+> > > > Other side is in drivers/net/tun.c and net/packet/af_packet.c
+> > > > At least wrt tun it seems clear socket is not locked.
+> > >=20
+> > > Yes (assuming you refer to tun_net_xmit())
+> > >=20
+> > > > Besides queue, dequeue seems to be done without socket locked.
+> > > >=20
+> > >=20
+> > > It seems this code (assuming you speak of drivers/vhost/net.c ?) =
+has
+> > > some races indeed.
+> > >=20
+> >=20
+> > Hmm. Any more besides the one fixed here?
+> >=20
 >=20
-> | 2)In a situation where the ack ratio has to be reduced because of an
-> |    RTO, idle period, or loss, CCID-2 now sets the ack ratio to half of =
-the
-> |    congestion window (or 1 if that's zero) instead of to the congestion
-> |    window. This should reduce the problems if one ack is lost (we have =
-to
-> |    lose two acks to not acknowledge an entire congestion window and tri=
-gger
-> |    RTO)
-> |=20
-> I think this makes for a separate patch, and it would be good to commenti=
-fy
-> the above into the code; please also see 3(b) below.
+> If writers and readers dont share a common lock, how can they reliabl=
+y
+> synchronize states ?
 
-Separate patch coming shortly. Will add comment describing the
-situation.
+They are all supposed to use sk_receive_queue.lock I think.
 
-> Some work still remains to be done:
+> For example, the check at line 420 seems unsafe or useless.
 >=20
->  1) Since ccid2_ack_ratio_next(sk) is just a wrapper around
->     dccp_feat_get_nn_next_val(sk, DCCPF_ACK_RATIO), ok to
->     use this instead?
-
-It's just fine to use dccp_feat_get_nn_next_val() instead. My primary
-reason for creating ccid2_ack_ratio_next() was to keep line lengths
-down.
-
->  2) Analogously, for the local sequence window feature the
->     dccp_feat_get_nn_next_val() is not used, it uses the
->     current value:
->     if (val !=3D dp->dccps_l_seq_win)
-> 	dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW, val);
-
-That should also be updated to use dccp_feat_get_nn_next_val(sk,
-DCCPF_SEQUENCE_WINDOW)
-
->  3) There is room for some refactoring:
->     a) dccp_feat_signal_nn_change() always implies also in part
->        dccp_feat_get_nn_next_val(): if the latter function returns
->        the same value as the supposedly 'new' one, it is not
->        necessary to start a new negotiation. So all the repeated
->        tests could be folded into that function.
-
-
-The problem here is that the ack ratio should only be changed after a
-loss, idle period, etc if the new cwnd is going to be less than the
-(negotiating) ack ratio. We need to call dccp_feat_get_nn_next_val() to
-decide whether we need to adjust the ack ratio or not.
-
-We don't want to change the ack ratio every time we have a loss, etc.
-Doing so will result in pointless negotiations and more fluctuations in
-the ack ratio, neither of which is desirable.
-
->     b) The following pattern appears three times in ccid2.c:
-> 	if (ccid2_ack_ratio_next(sk) > hc->tx_cwnd)
-> 		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
->        Perhaps this can, as some other parts of this patch set, be
->        refactored (e.g. the CCID-2 part is already a separate patch).
-
-I'll create a function for this code. Coming in separate patch.
+> skb_queue_empty(&sock->sk->sk_receive_queue)
 >=20
-> Other than the minor edits I have left your patch as is, i.e. I have
-> not yet performed changes (1) and (2), awaiting your opinion on that.
 
-Go ahead with 1) and 2).  I'll send out a new patch for 3 (b) shortly.
+It's mostly useless: code that is called after this
+ does skb_peek and checks the result under the spinlock.
+This was supposed to be an optimization: quickly check
+that queue is not empty before we bother disabling notifications
+etc, but I dont' remember at this point whether it actually gives any g=
+ain.
+Thanks for pointing this out, I'll take it out I think (below).
+Note: there are two places of this call in upstream: handle_rx_bug and
+handle_rx_mergeable, but they are merged into a single
+handle_rx by a patch by Jason Wang.
+The below patch is on top.
+If you like to look at the latest code,
+it's here master.kernel.org:/home/mst/pub/vhost.git
+branch vhost-net-next has it all.
 
-Samuel Jero
-Internetworking Research Group
-Ohio University
+Eric, thanks very much for pointing out these.
+Is there anything else that you see in this driver?
 
---=-7KgV/HWSe59bxYmzFkyy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Thanks!
 
-iEYEABECAAYFAk19Km4ACgkQEwoGUlJjrt9b/gCfcMIlQTaopjZLL8P1d2CT7ova
-w3YAn0XmFq3oZlzJ1HAbuaik4vE9rX6v
-=pLWv
------END PGP SIGNATURE-----
 
---=-7KgV/HWSe59bxYmzFkyy--
+    vhost-net: remove unlocked use of receive_queue
+   =20
+    Use of skb_queue_empty(&sock->sk->sk_receive_queue)
+    without taking the sk_receive_queue.lock is unsafe
+    or useless. Take it out.
+   =20
+    Reported-by:  Eric Dumazet <eric.dumazet@gmail.com>
+    Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 5720301..2f7c76a 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -311,7 +311,7 @@ static void handle_rx(struct vhost_net *net)
+ 	/* TODO: check that we are running from vhost_worker? */
+ 	struct socket *sock =3D rcu_dereference_check(vq->private_data, 1);
+=20
+-	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
++	if (!sock)
+ 		return;
+=20
+ 	mutex_lock(&vq->mutex);
