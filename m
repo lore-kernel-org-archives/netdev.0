@@ -1,45 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Disable rp_filter for IPsec packets
-Date: Mon, 14 Mar 2011 14:25:20 -0700 (PDT)
-Message-ID: <20110314.142520.28811818.davem@davemloft.net>
-References: <1300137299-28161-1-git-send-email-msmith@cbnco.com>
+Subject: Re: [PATCH] drivers/net: fix build warnings with CONFIG_PM_SLEEP
+ disabled
+Date: Mon, 14 Mar 2011 14:26:39 -0700 (PDT)
+Message-ID: <20110314.142639.102555050.davem@davemloft.net>
+References: <20110307021450.GC31188@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: msmith@cbnco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43320
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753008Ab1CNVYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 17:24:42 -0400
-In-Reply-To: <1300137299-28161-1-git-send-email-msmith@cbnco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: walken@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110307021450.GC31188@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Smith <msmith@cbnco.com>
-Date: Mon, 14 Mar 2011 17:14:59 -0400
+From: Michel Lespinasse <walken@google.com>
+Date: Sun, 6 Mar 2011 18:14:50 -0800
 
-> The reverse path filter interferes with IPsec subnet-to-subnet tunnels,
-> especially when the link to the IPsec peer is on an interface other than
-> the one hosting the default route.
+> This fixes a couple of build warnings when CONFIG_PM is enabled but
+> CONFIG_PM_SLEEP is disabled. Applies on top of v2.6.38-rc7 - I know it's
+> late, but it would be great if v2.6.38 could compile without warnings!
 > 
-> With dynamic routing, where the peer might be reachable through eth0
-> today and eth1 tomorrow, it's difficult to keep rp_filter enabled unless
-> fake routes to the remote subnets are configured on the interface
-> currently used to reach the peer.
-> 
-> IPsec provides a much stronger anti-spoofing policy than rp_filter, so
-> this patch disables the rp_filter for packets with a security path.
-> 
-> Signed-off-by: Michael Smith <msmith@cbnco.com>
+> Signed-off-by: Michel Lespinasse <walken@google.com>
 
-First, I'm only willing to accept a patch like this to net-next-2.6
-for which all of the code you are changing is radically different.
+I know it'd "be great" if this went into 2.6.38 but it doesn't fix
+any real bugs, so I'm putting it into net-next-2.6
 
-Secondly, fib_validate_source() already takes too many damn arguments.
-Find another, less costly, way to pass this information down there.
-
-Frankly, I think RPF should be disabled completely by default.  When
-it doesn't do anything useful, it's making route lookups twice as
-expensive as they need to be.
+Thanks.
