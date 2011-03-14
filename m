@@ -1,45 +1,74 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC v3 3/6] can: make struct proto const
-Date: Mon, 14 Mar 2011 17:42:23 +0100
-Message-ID: <1300120943.3423.121.camel@edumazet-laptop>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	 <20110314134721.GD333@e-circ.dyndns.org>
-	 <1300111755.3423.20.camel@edumazet-laptop>
-	 <20110314150227.GJ333@e-circ.dyndns.org>
+Subject: Re: [PATCH 2/2] dev : fix mtu check when TSO is enabled
+Date: Mon, 14 Mar 2011 18:01:45 +0100
+Message-ID: <1300122105.3423.131.camel@edumazet-laptop>
+References: <1300118888-2311-1-git-send-email-daniel.lezcano@free.fr>
+	 <1300118888-2311-2-git-send-email-daniel.lezcano@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Cc: davem@davemloft.net, kaber@trash.net, nightnord@gmail.com,
+	netdev@vger.kernel.org
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54706 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37551 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754630Ab1CNQnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 12:43:43 -0400
-Received: by fxm17 with SMTP id 17so3086562fxm.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 09:43:42 -0700 (PDT)
-In-Reply-To: <20110314150227.GJ333@e-circ.dyndns.org>
+	with ESMTP id S1751242Ab1CNRBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 13:01:51 -0400
+Received: by fxm17 with SMTP id 17so3109023fxm.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 10:01:50 -0700 (PDT)
+In-Reply-To: <1300118888-2311-2-git-send-email-daniel.lezcano@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 14 mars 2011 =C3=A0 16:02 +0100, Kurt Van Dijck a =C3=A9crit :
-
-> I see your point.
-> The reason I modified this was, as described, checkpatch.pl was compl=
-aining.
-> Anyway, this sequence was protected by a spinlock 'proto_tab_lock'.
-> I don't think it was a race.
+Le lundi 14 mars 2011 =C3=A0 17:08 +0100, Daniel Lezcano a =C3=A9crit :
+> In case the device where is coming from the packet has TSO enabled,
+> we should not check the mtu size value as this one could be bigger
+> than the expected value.
 >=20
-> Did I miss something?
+> This is the case for the macvlan driver when the lower device has
+> TSO enabled. The macvlan inherit this feature and forward the packets
+> without fragmenting them. Then the packets go through dev_forward_skb
+> and are dropped. This patch fix this by checking TSO is not enabled
+> when we want to check the mtu size.
+>=20
+> Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Andrian Nord <nightnord@gmail.com>
+> ---
+>  net/core/dev.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 6561021..010a0a9 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1526,8 +1526,10 @@ int dev_forward_skb(struct net_device *dev, st=
+ruct sk_buff *skb)
+>  	skb_orphan(skb);
+>  	nf_reset(skb);
+> =20
+> -	if (unlikely(!(dev->flags & IFF_UP) ||
+> -		     (skb->len > (dev->mtu + dev->hard_header_len + VLAN_HLEN)))) =
+{
+> +	if (unlikely(!(skb->dev->features & NETIF_F_TSO) &&
 
-As soon as proto_tab[proto] =3D cp; is done, another thread on another =
-cpu
-can read the pointer and follow it.
 
-Hmm, I missed can_create() also uses the spinlock protection, so you're
-probably right.
+Sorry, this needs a comment at least, or even better a helper function
+on its own.
 
-It seems a bit overkill :(
-phonet uses RCU for example.
+We test both skb->dev & dev, pointing to different devices, this is
+really error prone.
+
+Are we sure all callers set skb->dev before calling  dev_forward_skb() =
+?
+
+
+> +		     (!(dev->flags & IFF_UP) ||
+> +		      (skb->len > (dev->mtu +
+> +				   dev->hard_header_len + VLAN_HLEN))))) {
+>  		atomic_long_inc(&dev->rx_dropped);
+>  		kfree_skb(skb);
+>  		return NET_RX_DROP;
 
 
