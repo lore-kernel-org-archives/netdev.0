@@ -1,56 +1,36 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [PATCH net-next-2.6] ftmac100: use GFP_ATOMIC allocations where needed
-Date: Mon, 14 Mar 2011 16:16:06 +0800
-Message-ID: <AANLkTi=grwkfYpBFJEyQHXbFaTov5Tc+tAR2ebzw0Bht@mail.gmail.com>
-References: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com>
- <1300047388.2761.48.camel@edumazet-laptop> <1300048002.2761.53.camel@edumazet-laptop>
- <1300048193.2761.55.camel@edumazet-laptop>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC v2 PATCH 1/9] crypto: authencesn - Add algorithm to
+ handle IPsec extended sequence numbers
+Date: Mon, 14 Mar 2011 09:37:41 +0100
+Message-ID: <20110314083741.GN31402@secunet.com>
+References: <20110308100407.GB31402@secunet.com>
+ <20110308100458.GC31402@secunet.com>
+ <20110313063017.GA10849@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:62115 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592Ab1CNIQ1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 04:16:27 -0400
-In-Reply-To: <1300048193.2761.55.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Alex Badea <abadea@ixiacom.com>,
+	Andreas Gruenbacher <agruen@suse.de>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110313063017.GA10849@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Sun, Mar 13, 2011 at 02:30:17PM +0800, Herbert Xu wrote:
+> On Tue, Mar 08, 2011 at 11:04:58AM +0100, Steffen Klassert wrote:
+> >
+> > +	return crypto_authenc_esn_genicv(req, iv, CRYPTO_TFM_REQ_MAY_SLEEP);
+> 
+> BTW, we should get rid of these MAY_SLEEP flags.  Originally I
+> included them for the IPsec encryption path because that happens
+> to be sleepable. We should instead be getting it from the request
+> itself.
+> 
 
-On Mon, Mar 14, 2011 at 4:29 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le dimanche 13 mars 2011 =C3=A0 21:26 +0100, Eric Dumazet a =C3=A9cri=
-t :
->> Le dimanche 13 mars 2011 =C3=A0 21:16 +0100, Eric Dumazet a =C3=A9cr=
-it :
->>
->> > BTW, it seems I missed the fact that ftmac100_alloc_rx_page() used=
- a
->> > GFP_KERNEL allocation, while its called from softirq context (from
->> > ftmac100_rx_packet())
->>
->> Here is a patch against ftmac100
->>
->
-> Oops, one typo in it sorry
->
->> -static int ftmac100_alloc_rx_page(struct ftmac100 *priv, struct ftm=
-ac100_rxdes *rxdes)
->> +static int ftmac100_alloc_rx_page(struct ftmac100 *priv,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ftmac100_rxdes *rxdes, gt=
-p_t gfp)
->
-> Should be : =C2=A0 gfp_t gfp
->
-> Please build and test the patch, I dont have an ARM testbed anyway.
-
-Tested-by: Po-Yu Chuang <ratbert@faraday-tech.com>
-
-Thank you,
-Po-Yu Chuang
+Not sure if I get you right, but we do not set this flag here.
+We use it to mask the flags we got from the request, so we pass
+this flag to the ahash algorithm just if it was set by the
+original aead request.
