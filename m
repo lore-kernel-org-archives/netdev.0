@@ -1,126 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Fix overflow of name in struct net_device, replaced
- str* and sprintf with strn* and snprintf respectivly.
-Date: Mon, 14 Mar 2011 20:29:36 +0000
-Message-ID: <1300134576.2584.66.camel@bwh-desktop>
-References: <1300133248-2927-1-git-send-email-sasikanth.v19@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 0/2] publish last used index (was Re: TX from KVM guest
+ virtio_net to vhost issues)
+Date: Mon, 14 Mar 2011 22:29:58 +0200
+Message-ID: <cover.1300134326.git.mst@redhat.com>
+References: <87d3ly2n81.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sasikanth V <sasikanth.v19@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	Tom Lendacky <tahm@linux.vnet.ibm.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com, jasowang@redhat.com
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:1608 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245Ab1CNU3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:29:40 -0400
-In-Reply-To: <1300133248-2927-1-git-send-email-sasikanth.v19@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:16342 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756334Ab1CNUaT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 16:30:19 -0400
+Content-Disposition: inline
+In-Reply-To: <87d3ly2n81.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-03-15 at 01:37 +0530, Sasikanth V wrote:
-> Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
-> ---
->  net/core/dev.c |   14 +++++++-------
->  1 files changed, 7 insertions(+), 7 deletions(-)
+
+On Fri, Mar 11, 2011 at 04:49:26PM +1030, Rusty Russell wrote:
+> But if one side outruns the other, it does a lot of unnecessary work
+> notifying/interrupting it over and over again before the host/guest gets
+> a chance to shut notifications/interrupts off.  Hence the last_used
+> publishing patch (Xen does this right, I screwed it up).
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 6561021..9d06c1e 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -510,7 +510,7 @@ int netdev_boot_setup_check(struct net_device *dev)
->  
->  	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
->  		if (s[i].name[0] != '\0' && s[i].name[0] != ' ' &&
-> -		    !strcmp(dev->name, s[i].name)) {
-> +		    !strncmp(dev->name, s[i].name, IFNAMSIZ)) {
+> Long weekend here, and I'm otherwise committed.  But if noone has
+> cleaned up that patch by early next week, I'll try to do so and see if
+> we can make a real difference.
+> 
+> Cheers,
+> Rusty.
 
-If s[i].name is too long, so what?  No change is required here.
+I actually had the last_used publishing patch working.  Here it is
+again: it's the part that publishes the used index from guest and the
+part that uses it in host to avoid spurious interrupts
+(this is Tom's case, not Shirley's case)
+updated to the latest bits, and clarified the code a bit more.
 
->  			dev->irq 	= s[i].map.irq;
->  			dev->base_addr 	= s[i].map.base_addr;
->  			dev->mem_start 	= s[i].map.mem_start;
-> @@ -539,7 +539,7 @@ unsigned long netdev_boot_base(const char *prefix, int unit)
->  	char name[IFNAMSIZ];
->  	int i;
->  
-> -	sprintf(name, "%s%d", prefix, unit);
-> +	snprintf(name, IFNAMSIZ, "%s%d", prefix, unit);
+Note: there's some tricky logic in the vhost part, I think I got it right
+but please review.
 
-This looks reasonable.
+Warning: compiled only, completely untested, I intend to add the bits
+that use the last available index in guest to reduce exits, test it all
+together.
 
->  	/*
->  	 * If device already registered then return base of 1
-> @@ -549,7 +549,7 @@ unsigned long netdev_boot_base(const char *prefix, int unit)
->  		return 1;
->  
->  	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++)
-> -		if (!strcmp(name, s[i].name))
-> +		if (!strncmp(name, s[i].name, IFNAMSIZ))
+Would appreciate review and/or testing.
 
-Not required.
+Michael S. Tsirkin (2):
+  virtio: put last seen used index into ring itself
+  vhost-net: utilize PUBLISH_USED_IDX feature
 
->  			return s[i].map.base_addr;
->  	return 0;
->  }
-> @@ -836,7 +836,7 @@ EXPORT_SYMBOL(dev_get_by_flags_rcu);
->   */
->  int dev_valid_name(const char *name)
->  {
-> -	if (*name == '\0')
-> +	if (!name || *name == '\0')
-
-Not required; passing NULL is a bug.
-
->  		return 0;
->  	if (strlen(name) >= IFNAMSIZ)
->  		return 0;
-> @@ -3834,7 +3834,7 @@ static int dev_ifname(struct net *net, struct ifreq __user *arg)
->  		return -ENODEV;
->  	}
->  
-> -	strcpy(ifr.ifr_name, dev->name);
-> +	strncpy(ifr.ifr_name, dev->name, IFNAMSIZ);
-
-If dev->name is longer than IFNAMSIZ (including null terminator) than we
-already failed.  This change is not required.
-
->  	rcu_read_unlock();
->  
->  	if (copy_to_user(arg, &ifr, sizeof(struct ifreq)))
-> @@ -4821,7 +4821,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
->  	if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
->  		return -EFAULT;
->  
-> -	ifr.ifr_name[IFNAMSIZ-1] = 0;
-> +	ifr.ifr_name[IFNAMSIZ-1] = '\0';
-
-This is just noise.
- 
->  	colon = strchr(ifr.ifr_name, ':');
->  	if (colon)
-> @@ -5694,7 +5694,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
->  		goto free_all;
->  #endif
->  
-> -	strcpy(dev->name, name);
-> +	strncpy(dev->name, name, IFNAMSIZ);
-
-This doesn't help, as strncpy() does not ensure null termination.  And I
-don't think truncating the name is helpful either.  Perhaps we should do
-this right at the beginning of the function:
-
-	if (WARN_ON(strlen(name) >= IFNAMSIZ))
-		return NULL;
-
-Ben.
-
->  	return dev;
->  
->  free_all:
+ drivers/vhost/vhost.c        |   58 +++++++++++++++++++++++++++++++++++++----
+ drivers/vhost/vhost.h        |    9 ++++++
+ drivers/virtio/virtio_ring.c |   25 +++++++++++------
+ include/linux/virtio_ring.h  |   11 ++++++++
+ 4 files changed, 88 insertions(+), 15 deletions(-)
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+1.7.3.2.91.g446ac
