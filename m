@@ -1,45 +1,92 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [RFC v3 3/6] can: make struct proto const
-Date: Mon, 14 Mar 2011 18:17:56 +0100
-Message-ID: <20110314171752.GL333@e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	<20110314134721.GD333@e-circ.dyndns.org>
-	<1300111755.3423.20.camel@edumazet-laptop>
-	<20110314150227.GJ333@e-circ.dyndns.org>
-	<1300120943.3423.121.camel@edumazet-laptop>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH] macb: detect IP version to determin if we are on at91
+	or avr32
+Date: Mon, 14 Mar 2011 18:24:14 +0100
+Message-ID: <20110314172414.GB14548@game.jcrosoft.org>
+References: <1299863585-17263-1-git-send-email-plagnioj@jcrosoft.com>
+	<20110314101512.GA26085@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-kernel@vger.kernel.org, Jamie Iles <jamie@jamieiles.com>,
+	Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1300120943.3423.121.camel@edumazet-laptop>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <20110314101512.GA26085@n2100.arm.linux.org.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBNYXIgMTQsIDIwMTEgYXQgMDU6NDI6MjNQTSArMDEwMCwgRXJpYyBEdW1hemV0IHdy
-b3RlOgo+IExlIGx1bmRpIDE0IG1hcnMgMjAxMSDDoCAxNjowMiArMDEwMCwgS3VydCBWYW4gRGlq
-Y2sgYSDDqWNyaXQgOgo+IAo+ID4gSSBzZWUgeW91ciBwb2ludC4KPiA+IFRoZSByZWFzb24gSSBt
-b2RpZmllZCB0aGlzIHdhcywgYXMgZGVzY3JpYmVkLCBjaGVja3BhdGNoLnBsIHdhcyBjb21wbGFp
-bmluZy4KPiA+IEFueXdheSwgdGhpcyBzZXF1ZW5jZSB3YXMgcHJvdGVjdGVkIGJ5IGEgc3Bpbmxv
-Y2sgJ3Byb3RvX3RhYl9sb2NrJy4KPiA+IEkgZG9uJ3QgdGhpbmsgaXQgd2FzIGEgcmFjZS4KPiA+
-IAo+ID4gRGlkIEkgbWlzcyBzb21ldGhpbmc/Cj4gCj4gQXMgc29vbiBhcyBwcm90b190YWJbcHJv
-dG9dID0gY3A7IGlzIGRvbmUsIGFub3RoZXIgdGhyZWFkIG9uIGFub3RoZXIgY3B1Cj4gY2FuIHJl
-YWQgdGhlIHBvaW50ZXIgYW5kIGZvbGxvdyBpdC4KPiAKPiBIbW0sIEkgbWlzc2VkIGNhbl9jcmVh
-dGUoKSBhbHNvIHVzZXMgdGhlIHNwaW5sb2NrIHByb3RlY3Rpb24sIHNvIHlvdSdyZQo+IHByb2Jh
-Ymx5IHJpZ2h0Lgo+IAo+IEl0IHNlZW1zIGEgYml0IG92ZXJraWxsIDooCj4gcGhvbmV0IHVzZXMg
-UkNVIGZvciBleGFtcGxlLgpJJ2xsIGtlZXAgdGhhdCBpbiBtaW5kLgpTd2l0Y2hpbmcgQ0FOIHBy
-b3RvcyB0byBSQ1UgaXMgZmFyIGJleW9uZCB0byBnb2FsIG9mIHRoaXMgcGF0Y2ggOi0pCgpUaGFu
-a3MsCkt1cnQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-U29ja2V0Y2FuLWNvcmUgbWFpbGluZyBsaXN0ClNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxpb3Mu
-ZGUKaHR0cHM6Ly9saXN0cy5iZXJsaW9zLmRlL21haWxtYW4vbGlzdGluZm8vc29ja2V0Y2FuLWNv
-cmUK
+On 10:15 Mon 14 Mar     , Russell King - ARM Linux wrote:
+> On Fri, Mar 11, 2011 at 06:13:05PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > +	if (macb_is_at91(bp)) {
+> > +		bp->pclk = clk_get(&pdev->dev, "macb_clk");
+> > +		if (IS_ERR(bp->pclk)) {
+> > +			dev_err(&pdev->dev, "failed to get macb_clk\n");
+> > +			goto err_out_free_dev;
+> > +		}
+> > +		clk_enable(bp->pclk);
+> > +	} else {
+> > +		bp->pclk = clk_get(&pdev->dev, "pclk");
+> > +		if (IS_ERR(bp->pclk)) {
+> > +			dev_err(&pdev->dev, "failed to get pclk\n");
+> > +			goto err_out_free_dev;
+> > +		}
+> > +		bp->hclk = clk_get(&pdev->dev, "hclk");
+> > +		if (IS_ERR(bp->hclk)) {
+> > +			dev_err(&pdev->dev, "failed to get hclk\n");
+> > +			goto err_out_put_pclk;
+> > +		}
+> > +
+> > +		clk_enable(bp->pclk);
+> > +		clk_enable(bp->hclk);
+> > +	}
+> 
+> This is the same kind of sillyness that started getting OMAP into problems
+> with the clk API.  Just do this instead:
+> 
+> 	bp->pclk = clk_get(&pdev->dev, "pclk");
+> 	if (IS_ERR(bp->pclk)) {
+> 		dev_err(&pdev->dev, "failed to get pclk\n");
+> 		goto err_out_free_dev;
+> 	}
+> 	bp->hclk = clk_get(&pdev->dev, "hclk");
+> 	if (IS_ERR(bp->hclk)) {
+> 		dev_err(&pdev->dev, "failed to get hclk\n");
+> 		goto err_out_put_pclk;
+> 	}
+> 
+> 	clk_enable(bp->pclk);
+> 	clk_enable(bp->hclk);
+> 
+> And then require _all_ platforms using this driver to provide a pclk and
+> a hclk for this device, whether they exist in the SoC or not.  Where they
+> don't, provide dummy clocks for it.
+> 
+> This probably means you end up with _less_ bloat overall because you're
+> not having to build the above code.  You've less lines of source code to
+> maintain.  You have a simplified dirver with consistent requirements
+> across all platforms.  You don't need to read the version register, and
+> you don't need macb_is_at91() and macb_is_avr32().
+no we do need it for some of the register IP implementation related to the MII
+at least
+> 
+> With clkdev it's _cheap_ to provide these dummy clocks once you have one
+> dummy clock already in place.
+I known and already agree about the clock, Jamie Patches will take care about it
+
+this patch remove the ifdef ARCH and now detect the IP revision to determin
+the IP specific implementation
+
+Best Regards,
+J.
