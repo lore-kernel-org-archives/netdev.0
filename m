@@ -1,41 +1,70 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 6/7] tcp_cubic: make the delay threshold of HyStart less sensitive
-Date: Mon, 14 Mar 2011 10:52:17 -0700
-Message-ID: <20110314175439.750357121@vyatta.com>
-References: <20110314175211.788224699@vyatta.com>
-Cc: netdev@vger.kernel.org, Sangtae Ha <sangtae.ha@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+Subject: Re: how to utilize multi tx queue to sent packets
+Date: Mon, 14 Mar 2011 11:14:43 -0700
+Message-ID: <20110314111443.149b56a9@nehalam>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB3D3D62@MILEXCH2.ds.jdsu.net>
+	<20110311090636.6e393f2b@nehalam>
+	<4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB47E9EE@MILEXCH2.ds.jdsu.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jon Zhou <Jon.Zhou@jdsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58254 "EHLO suva.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:45467 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756978Ab1CNSCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2011 14:02:04 -0400
-Content-Disposition: inline; filename=tcp-cubic-increase-delay.patch
+	id S1752465Ab1CNSOq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 14:14:46 -0400
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB47E9EE@MILEXCH2.ds.jdsu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sangtae Ha <sangtae.ha@gmail.com>
+On Sun, 13 Mar 2011 01:06:11 -0800
+Jon Zhou <Jon.Zhou@jdsu.com> wrote:
 
-Make HyStart less sensitive to abrupt delay variations due to buffer bloat.
+> 
+> 
+> > -----Original Message-----
+> > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> > Sent: Saturday, March 12, 2011 1:07 AM
+> > To: Jon Zhou
+> > Cc: netdev@vger.kernel.org
+> > Subject: Re: how to utilize multi tx queue to sent packets
+> > 
+> > On Thu, 10 Mar 2011 22:52:30 -0800
+> > Jon Zhou <Jon.Zhou@jdsu.com> wrote:
+> > 
+> > > hi
+> > >
+> > > I am doing some test according to the
+> > > website:http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
+> > >
+> > > use packet_mmap tx_ring to send packet.
+> > >
+> > > I modified the sample code "packetmmap.c" to make it send packets
+> > have different outer ip.
+> > > so that with the help of RSS, I can achieve higher throughput.
+> > >
+> > > but one thing I saw at the tx side, is that all the packets are sent
+> > via the same tx_queue,
+> > > which is conflict with what I saw at the rx side.
+> > > any idea to make it sent packets via different tx_queues? (spread
+> > across the tx_queues)
+> > 
+> > You need to have multiple threads to get Tx scaling.
+> > In you case that also means multiple AF_PACKET sockets and separate
+> > rings.
+> > 
+> > Or just run multiple copies of the same test each with a different IP
+> 
+> How does kernel know which tx_queue to use?
+> Will dev_queue_xmit determine tx_queue(sw queue) to send packets?
+> Or just let NIC select a tx_queue(hardware) ?
+> 
 
-Signed-off-by: Sangtae Ha <sangtae.ha@gmail.com>
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-Reported-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
-
----
- net/ipv4/tcp_cubic.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
---- a/net/ipv4/tcp_cubic.c	2011-03-14 08:27:24.435852847 -0700
-+++ b/net/ipv4/tcp_cubic.c	2011-03-14 08:27:29.043872578 -0700
-@@ -39,7 +39,7 @@
- 
- /* Number of delay samples for detecting the increase of delay */
- #define HYSTART_MIN_SAMPLES	8
--#define HYSTART_DELAY_MIN	(2U<<3)
-+#define HYSTART_DELAY_MIN	(4U<<3)
- #define HYSTART_DELAY_MAX	(16U<<3)
- #define HYSTART_DELAY_THRESH(x)	clamp(x, HYSTART_DELAY_MIN, HYSTART_DELAY_MAX)
- 
+On most hardware, with multi-queue there is one queue per CPU.
+In that case the queue selected corresponds to the CPU.
 
 
+
+-- 
