@@ -1,152 +1,127 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [GIT/PATCH v4] xen network backend driver
-Date: Mon, 14 Mar 2011 13:43:44 +0000
-Message-ID: <1300110224.17339.2130.camel@zakaz.uk.xensource.com>
-References: <1299776554.17339.824.camel@zakaz.uk.xensource.com>
-	 <AANLkTinHyFLRkeb60x4Q6uUw6p43XBjk5rpqCMo49WKF@mail.gmail.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: [RFC v3 3/6] can: make struct proto const
+Date: Mon, 14 Mar 2011 14:47:21 +0100
+Message-ID: <20110314134721.GD333@e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:13426 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756458Ab1CNNnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 09:43:46 -0400
-In-Reply-To: <AANLkTinHyFLRkeb60x4Q6uUw6p43XBjk5rpqCMo49WKF@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110314132004.GA333-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-03-10 at 17:33 +0000, Micha=C5=82 Miros=C5=82aw wrote:
-> 2011/3/10 Ian Campbell <Ian.Campbell@citrix.com>:
-> > The following patch is the fourth iteration of the Xen network back=
-end
-> > driver for upstream Linux.
-> >
-> > This driver ("netback") is the host side counterpart to the fronten=
-d
-> > driver in drivers/net/xen-netfront.c. The PV protocol is also
-> > implemented by frontend drivers in other OSes too, such as the BSDs=
- and
-> > even Windows.
-> [...]
-> > --- /dev/null
-> > +++ b/drivers/net/xen-netback/common.h
-> > @@ -0,0 +1,162 @@
-> [...]
-> > +struct xenvif {
-> [...]
-> > +       /* Flags that must not be set in dev->features */
-> > +       int features_disabled;
-> > +
-> > +       /* Frontend feature information. */
-> > +       u8 can_sg:1;
-> > +       u8 gso:1;
-> > +       u8 gso_prefix:1;
-> > +       u8 csum:1;
-> [...]
-> > --- /dev/null
-> > +++ b/drivers/net/xen-netback/interface.c
-> > @@ -0,0 +1,424 @@
-> [...]
-> > +static int xenvif_change_mtu(struct net_device *dev, int mtu)
-> > +{
-> > +       struct xenvif *vif =3D netdev_priv(dev);
-> > +       int max =3D vif->can_sg ? 65535 - VLAN_ETH_HLEN : ETH_DATA_=
-LEN;
-> > +
-> > +       if (mtu > max)
-> > +               return -EINVAL;
-> > +       dev->mtu =3D mtu;
-> > +       return 0;
-> > +}
-> > +
-> > +static void xenvif_set_features(struct xenvif *vif)
-> > +{
-> > +       struct net_device *dev =3D vif->dev;
-> > +       int features =3D dev->features;
-> > +
-> > +       if (vif->can_sg)
-> > +               features |=3D NETIF_F_SG;
-> > +       if (vif->gso || vif->gso_prefix)
-> > +               features |=3D NETIF_F_TSO;
-> > +       if (vif->csum)
-> > +               features |=3D NETIF_F_IP_CSUM;
-> > +
-> > +       features &=3D ~(vif->features_disabled);
-> > +
-> > +       if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN)
-> > +               dev->mtu =3D ETH_DATA_LEN;
-> > +
-> > +       dev->features =3D features;
-> > +}
-> > +
-> > +static int xenvif_set_tx_csum(struct net_device *dev, u32 data)
-> > +{
-> > +       struct xenvif *vif =3D netdev_priv(dev);
-> > +       if (data) {
-> > +               if (!vif->csum)
-> > +                       return -EOPNOTSUPP;
-> > +               vif->features_disabled &=3D ~NETIF_F_IP_CSUM;
-> > +       } else {
-> > +               vif->features_disabled |=3D NETIF_F_IP_CSUM;
-> > +       }
-> > +
-> > +       xenvif_set_features(vif);
-> > +       return 0;
-> > +}
-> > +
-> > +static int xenvif_set_sg(struct net_device *dev, u32 data)
-> > +{
-> > +       struct xenvif *vif =3D netdev_priv(dev);
-> > +       if (data) {
-> > +               if (!vif->can_sg)
-> > +                       return -EOPNOTSUPP;
-> > +               vif->features_disabled &=3D ~NETIF_F_SG;
-> > +       } else {
-> > +               vif->features_disabled |=3D NETIF_F_SG;
-> > +       }
-> > +
-> > +       xenvif_set_features(vif);
-> > +       return 0;
-> > +}
-> > +
-> > +static int xenvif_set_tso(struct net_device *dev, u32 data)
-> > +{
-> > +       struct xenvif *vif =3D netdev_priv(dev);
-> > +       if (data) {
-> > +               if (!vif->gso && !vif->gso_prefix)
-> > +                       return -EOPNOTSUPP;
-> > +               vif->features_disabled &=3D ~NETIF_F_TSO;
-> > +       } else {
-> > +               vif->features_disabled |=3D NETIF_F_TSO;
-> > +       }
-> > +
-> > +       xenvif_set_features(vif);
-> > +       return 0;
-> > +}
-> [...]
->=20
-> You could make this simpler by using netdev->hw_features and
-> ndo_fix_features/ndo_set_features calls recently introduced in
-> net-next.
+can_ioctl is the only reason for struct proto to be non-const.
+script/check-patch.pl suggests struct proto be const.
+This patch performs the necessary change.
 
-Thanks, this does look like it could simplify things. Doesn't look like
-its use is widespread (even net-next) yet though?
-
-I'll add it to my TODO list for the future.
-
->  I'll reply with a proof-of-concept patch for xen-netfront.
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
-
-
+Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+---
+diff --git a/include/linux/can/core.h b/include/linux/can/core.h
+index 430c446..0767cc6 100644
+--- a/include/linux/can/core.h
++++ b/include/linux/can/core.h
+@@ -39,7 +39,7 @@
+ struct can_proto {
+ 	int              type;
+ 	int              protocol;
+-	struct proto_ops *ops;
++	const struct proto_ops *ops;
+ 	struct proto     *prot;
+ 
+ 	const struct rtnl_af_ops *rtnl_link_ops;
+@@ -78,6 +78,8 @@ struct rtgencanmsg {
+ 
+ extern int  can_proto_register(const struct can_proto *cp);
+ extern void can_proto_unregister(const struct can_proto *cp);
++extern int can_sock_ioctl(struct socket *sock, unsigned int cmd,
++		unsigned long arg);
+ 
+ extern int  can_rx_register(struct net_device *dev, canid_t can_id,
+ 			    canid_t mask,
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index db59c6e..c1f8c05 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -139,7 +139,7 @@ static inline void can_put_proto(const struct can_proto *cp)
+  * af_can socket functions
+  */
+ 
+-static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
++int can_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ {
+ 	struct sock *sk = sock->sk;
+ 
+@@ -152,6 +152,7 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		return -ENOIOCTLCMD;
+ 	}
+ }
++EXPORT_SYMBOL(can_sock_ioctl);
+ 
+ static void can_sock_destruct(struct sock *sk)
+ {
+@@ -720,10 +721,6 @@ int can_proto_register(const struct can_proto *cp)
+ 		err = -EBUSY;
+ 	} else {
+ 		proto_tab[proto] = cp;
+-
+-		/* use generic ioctl function if not defined by module */
+-		if (!cp->ops->ioctl)
+-			cp->ops->ioctl = can_ioctl;
+ 	}
+ 	spin_unlock(&proto_tab_lock);
+ 
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index ac1961d..fd89542 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1569,7 +1569,7 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	return size;
+ }
+ 
+-static struct proto_ops bcm_ops __read_mostly = {
++static const struct proto_ops bcm_ops = {
+ 	.family        = PF_CAN,
+ 	.release       = bcm_release,
+ 	.bind          = sock_no_bind,
+@@ -1578,7 +1578,7 @@ static struct proto_ops bcm_ops __read_mostly = {
+ 	.accept        = sock_no_accept,
+ 	.getname       = sock_no_getname,
+ 	.poll          = datagram_poll,
+-	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
++	.ioctl         = can_sock_ioctl,
+ 	.listen        = sock_no_listen,
+ 	.shutdown      = sock_no_shutdown,
+ 	.setsockopt    = sock_no_setsockopt,
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 9ad3dfc..8581596 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -742,7 +742,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	return size;
+ }
+ 
+-static struct proto_ops raw_ops __read_mostly = {
++static const struct proto_ops raw_ops = {
+ 	.family        = PF_CAN,
+ 	.release       = raw_release,
+ 	.bind          = raw_bind,
+@@ -751,7 +751,7 @@ static struct proto_ops raw_ops __read_mostly = {
+ 	.accept        = sock_no_accept,
+ 	.getname       = raw_getname,
+ 	.poll          = datagram_poll,
+-	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
++	.ioctl         = can_sock_ioctl,
+ 	.listen        = sock_no_listen,
+ 	.shutdown      = sock_no_shutdown,
+ 	.setsockopt    = raw_setsockopt,
