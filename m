@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] pktgen: bug fix in transmission headers
- with frags=0
-Date: Mon, 14 Mar 2011 13:47:51 -0700 (PDT)
-Message-ID: <20110314.134751.104044608.davem@davemloft.net>
-References: <1300112338.3423.27.camel@edumazet-laptop>
-	<4D7E26A4.2070802@gmail.com>
-	<1300113350.3423.32.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next] tipc: delete extra semicolon blocking node
+ deletion
+Date: Mon, 14 Mar 2011 13:50:26 -0700 (PDT)
+Message-ID: <20110314.135026.189708616.davem@davemloft.net>
+References: <1300122682-13752-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: daniel.turull@gmail.com, netdev@vger.kernel.org,
-	robert@herjulf.net, jens.laas@its.uu.se, voravit@kth.se
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43107
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43627
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756413Ab1CNUrO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2011 16:47:14 -0400
-In-Reply-To: <1300113350.3423.32.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751983Ab1CNUtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:49:49 -0400
+In-Reply-To: <1300122682-13752-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 14 Mar 2011 15:35:50 +0100
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 14 Mar 2011 13:11:22 -0400
 
-> Le lundi 14 mars 2011 =E0 15:31 +0100, Daniel Turull a =E9crit :
->> (bug introduced by commit 26ad787962ef84677a48c560
->> (pktgen: speedup fragmented skbs)
->>=20
->> The headers of pktgen were incorrectly added in a pktgen packet
->> without frags (frags=3D0). There was an offset in the pktgen headers=
-=2E
->>=20
->> The cause was in reusing the pgh variable as a return variable in sk=
-b_put
->> when adding the payload to the skb.
->>=20
->> Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Remove bogus semicolon only recently introduced in 34e46258cb9f5
+> that blocks cleanup of nodes for N>1 on shutdown.
+> 
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> ---
+> 
+> Also available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/paulg/net-next-2.6.git tipc-Mar14-2011
 
-Applied, thanks everyone.
+Pulled, thanks Paul.
+
+We should probably change all text editors in the world to display
+semi-colon characters large and flashing red when editing C code :)
