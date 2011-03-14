@@ -1,46 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT/PATCH v5] xen network backend driver
-Date: Mon, 14 Mar 2011 13:23:55 -0700 (PDT)
-Message-ID: <20110314.132355.226777213.davem@davemloft.net>
-References: <1300112879.17339.2162.camel@zakaz.uk.xensource.com>
-	<1300128035.2584.6.camel@bwh-desktop>
-	<1300131040.32696.23.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bloat] shaper team forming up
+Date: Mon, 14 Mar 2011 21:24:37 +0100
+Message-ID: <1300134277.2649.19.camel@edumazet-laptop>
+References: <87wrk1a4gx.fsf@cruithne.co.teklibre.org>
+	 <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	xen-devel@lists.xensource.com, jeremy@goop.org,
-	herbert@gondor.apana.org.au, konrad.wilk@oracle.com,
-	romieu@fr.zoreil.com, shemminger@vyatta.com, mirqus@gmail.com
-To: Ian.Campbell@eu.citrix.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave =?ISO-8859-1?Q?T=E4ht?= <d@taht.net>,
+	bloat-devel <bloat-devel@lists.bufferbloat.net>,
+	bloat <bloat@lists.bufferbloat.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jonathan Morton <chromatix99@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41052
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751987Ab1CNUXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:23:17 -0400
-In-Reply-To: <1300131040.32696.23.camel@localhost.localdomain>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:57527 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752130Ab1CNUYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:24:41 -0400
+Received: by fxm17 with SMTP id 17so3327927fxm.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 13:24:40 -0700 (PDT)
+In-Reply-To: <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Date: Mon, 14 Mar 2011 19:30:40 +0000
+Le lundi 14 mars 2011 =C3=A0 21:55 +0200, Jonathan Morton a =C3=A9crit =
+:
+> On 14 Mar, 2011, at 9:26 pm, Dave T=C3=A4ht wrote:
+>=20
+> > Over the weekend, Dan Siemons uncovered a possible bad interaction
+> > between ECN and the default pfifo_fast qdisc in Linux.
+> >=20
+> > http://www.coverfire.com/archives/2011/03/13/pfifo_fast-and-ecn/
+>=20
+> This seems to be more complicated that it appears.  It looks as thoug=
+h
+> Linux has re-used the LSB of the old TOS field for some "link local"
+> flag which is used by routing.
+>=20
+> It's not immediately obvious whether pfifo_fast is using this new
+> interpretation though.  If it isn't, the fix should be to remove the
+> RTO_ONLINK bit from the mask it's using on the tos field.  The other
+> half of the mask correctly excludes the ECN bits from the field.
+>=20
 
-> On Mon, 2011-03-14 at 18:40 +0000, Ben Hutchings wrote:
->> I know you have asked for this to be pulled, in order to retain its
->> history, but I'm not sure that David Miller will do this unless the
->> driver is at least buildable at each stage in the history.  (However,
->> given that the driver wouldn't be enabled before it's added, I'm not
->> sure it matters in this case.)
-> 
-> I think it should be, at least from the second commit onwards (modulo
-> any mistakes made in the past).
+CC netdev, where linux network dev can take a look.
 
-I don't want to retain all of that history, there are so many broken
-points in the history that the only thing you can do is go back and
-add Kconfig commits to depend the driver upon BROKEN, and that in effect
-changes the history devalueing it even further.
+I would say that this is a wrong analysis :=20
 
-I just want one patch that adds the driver in it's most current state,
-and that's all.
+1) ECN uses two low order bits of TOS byte
 
-Thanks.
+2) pfifo_fast uses skb->priority
+
+
+skb->priority =3D rt_tos2priority(iph->tos);
+
+#define IPTOS_TOS_MASK            0x1E
+#define IPTOS_TOS(tos)            ((tos)&IPTOS_TOS_MASK)
+
+static inline char rt_tos2priority(u8 tos)
+{
+	return ip_tos2prio[IPTOS_TOS(tos)>>1];
+}
+
+No interference between two mechanisms, unless sysadmin messed up thing=
+s
+(skb_edit)
+
+
+
