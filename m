@@ -1,57 +1,45 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: [PATCH 3/3] bonding: Improve syslog message at device creation time
-Date: Mon, 14 Mar 2011 09:22:06 -0700
-Message-ID: <1300119726-17529-4-git-send-email-kernel@linuxace.com>
-References: <1300119726-17529-1-git-send-email-kernel@linuxace.com>
-Cc: fubar@us.ibm.com, andy@greyhouse.net,
-	Phil Oester <kernel@linuxace.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC v3 3/6] can: make struct proto const
+Date: Mon, 14 Mar 2011 17:42:23 +0100
+Message-ID: <1300120943.3423.121.camel@edumazet-laptop>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	 <20110314134721.GD333@e-circ.dyndns.org>
+	 <1300111755.3423.20.camel@edumazet-laptop>
+	 <20110314150227.GJ333@e-circ.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:42286 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754001Ab1CNQWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 12:22:41 -0400
-Received: by mail-qw0-f46.google.com with SMTP id 3so1404142qwk.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 09:22:40 -0700 (PDT)
-In-Reply-To: <1300119726-17529-1-git-send-email-kernel@linuxace.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:54706 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754630Ab1CNQnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 12:43:43 -0400
+Received: by fxm17 with SMTP id 17so3086562fxm.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 09:43:42 -0700 (PDT)
+In-Reply-To: <20110314150227.GJ333@e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the bonding module is loaded, it creates bond0 by default.
-Then, when attempting to create bond0, the following messages
-are printed to syslog:
+Le lundi 14 mars 2011 =C3=A0 16:02 +0100, Kurt Van Dijck a =C3=A9crit :
 
-    kernel: bonding: bond0 is being created...
-    kernel: bonding: Bond creation failed.
+> I see your point.
+> The reason I modified this was, as described, checkpatch.pl was compl=
+aining.
+> Anyway, this sequence was protected by a spinlock 'proto_tab_lock'.
+> I don't think it was a race.
+>=20
+> Did I miss something?
 
-Which seems to indicate a problem, when in reality there is no
-problem.  Since the actual error code is passed down from bond_create,
-make use of it to print a bit less ominous message:
+As soon as proto_tab[proto] =3D cp; is done, another thread on another =
+cpu
+can read the pointer and follow it.
 
-    kernel: bonding: bond0 is being created...
-    kernel: bond0 already exists.
+Hmm, I missed can_create() also uses the spinlock protection, so you're
+probably right.
 
-Signed-off-by: Phil Oester <kernel@linuxace.com>
----
- drivers/net/bonding/bond_sysfs.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+It seems a bit overkill :(
+phonet uses RCU for example.
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 72bb0f6..e718144 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -118,7 +118,10 @@ static ssize_t bonding_store_bonds(struct class *cls,
- 		pr_info("%s is being created...\n", ifname);
- 		rv = bond_create(net, ifname);
- 		if (rv) {
--			pr_info("Bond creation failed.\n");
-+			if (rv == -EEXIST)
-+				pr_info("%s already exists.\n", ifname);
-+			else
-+				pr_info("%s creation failed.\n", ifname);
- 			res = rv;
- 		}
- 	} else if (command[0] == '-') {
--- 
-1.7.4
 
