@@ -1,92 +1,98 @@
-From: Sasikanth V <sasikanth.v19@gmail.com>
-Subject: [PATCH] Fix overflow of name in struct net_device, replaced str* and sprintf with strn* and snprintf respectivly.
-Date: Tue, 15 Mar 2011 01:37:28 +0530
-Message-ID: <1300133248-2927-1-git-send-email-sasikanth.v19@gmail.com>
-Cc: netdev@vger.kernel.org, Sasikanth V <sasikanth.v19@gmail.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: fcoe: correct checking for bonding
+Date: Mon, 14 Mar 2011 13:20:07 -0700 (PDT)
+Message-ID: <20110314.132007.193707878.davem@davemloft.net>
+References: <20110312.105944.193725929.davem@davemloft.net>
+	<1300129447.19083.258.camel@fritz>
+	<20110314192201.GA2873@psychotron.redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robert.w.love@intel.com, James.Bottomley@suse.de,
+	linux-scsi@vger.kernel.org, devel@open-fcoe.org,
+	netdev@vger.kernel.org, fubar@us.ibm.com, joe.eykholt@gmail.com
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:57046 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752586Ab1CNUHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:07:40 -0400
-Received: by qyk7 with SMTP id 7so1773319qyk.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 13:07:39 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45725
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751639Ab1CNUTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:19:30 -0400
+In-Reply-To: <20110314192201.GA2873@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Mon, 14 Mar 2011 20:22:02 +0100
 
-Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
----
- net/core/dev.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+> Mon, Mar 14, 2011 at 08:04:07PM CET, robert.w.love@intel.com wrote:
+>>On Sat, 2011-03-12 at 10:59 -0800, David Miller wrote:
+>>> From: Jiri Pirko <jpirko@redhat.com>
+>>> Date: Sat, 12 Mar 2011 13:01:10 +0100
+>>> 
+>>> > Thu, Mar 03, 2011 at 02:09:18AM CET, robert.w.love@intel.com wrote:
+>>> >>On Wed, 2011-03-02 at 01:55 -0800, Jiri Pirko wrote:
+>>> >>> Or perhaps this should be applied to net-next?
+>>> >>> 
+>>> >>I think this should go through scsi-misc as all the other
+>>> >>libfc/libfcoe/fcoe patches do.
+>>> >>
+>>> >>> Wed, Mar 02, 2011 at 07:05:35AM CET, jpirko@redhat.com wrote:
+>>> >>> >Check for bonding master and refuse to use that.
+>>> >>> >
+>>> >>> >Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>> >>> >---
+>>> >>> > drivers/scsi/fcoe/fcoe.c |    4 +---
+>>> >>> > 1 files changed, 1 insertions(+), 3 deletions(-)
+>>> >>> >
+>>> >>> >diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+>>> >>> >index 9f9600b..3becc6a 100644
+>>> >>> >--- a/drivers/scsi/fcoe/fcoe.c
+>>> >>> >+++ b/drivers/scsi/fcoe/fcoe.c
+>>> >>> >@@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
+>>> >>> > 	}
+>>> >>> > 
+>>> >>> > 	/* Do not support for bonding device */
+>>> >>> >-	if ((netdev->priv_flags & IFF_MASTER_ALB) ||
+>>> >>> >-	    (netdev->priv_flags & IFF_SLAVE_INACTIVE) ||
+>>> >>> >-	    (netdev->priv_flags & IFF_MASTER_8023AD)) {
+>>> >>> >+	if (netdev->priv_flags & IFF_BONDING && netdev->flags & IFF_MASTER) {
+>>> >>> > 		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
+>>> >>> > 		return -EOPNOTSUPP;
+>>> >>> > 	}
+>>> >>> >-- 
+>>> >>> >1.7.3.4
+>>> >>> >
+>>> >>
+>>> >>James, feel free to pick up this patch. I don't have anything in my fcoe
+>>> >>tree right now that it would conflict with. I'll also put it in my tree
+>>> >>and resend if you don't put it into scsi-misc directly.
+>>> > 
+>>> > What's the status of this? Maybe this should rather go thru net-next
+>>> 
+>>> Sure, I can take this.  I'll look at it later.
+>>
+>>Hi Dave,
+>>
+>>   I'd rather have this patch go through scsi-misc. Most, if not all,
+>>libfc, libfcoe and fcoe patches have taken this path. The way it has
+>>been working is that I have been collecting fcoe patches and re-posting
+>>them to scsi-misc after I have reviewed them and done some basic
+>>testing.
+>>
+>>   Taking a patch like this through net{-next} could cause a merge
+>>problem at Linus' level if a later patch makes it though the normal
+>>process and conflicts. This is what I want to avoid.
+>>
+>>   This patch, although appreciated, isn't critical. I have collected it
+>>into my tree and will re-post it to scsi-misc. I see no reason to treat
+>>this patch differently from other patches.
+> 
+> Well I have another set of patches dependent on this one :(
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6561021..9d06c1e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -510,7 +510,7 @@ int netdev_boot_setup_check(struct net_device *dev)
- 
- 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
- 		if (s[i].name[0] != '\0' && s[i].name[0] != ' ' &&
--		    !strcmp(dev->name, s[i].name)) {
-+		    !strncmp(dev->name, s[i].name, IFNAMSIZ)) {
- 			dev->irq 	= s[i].map.irq;
- 			dev->base_addr 	= s[i].map.base_addr;
- 			dev->mem_start 	= s[i].map.mem_start;
-@@ -539,7 +539,7 @@ unsigned long netdev_boot_base(const char *prefix, int unit)
- 	char name[IFNAMSIZ];
- 	int i;
- 
--	sprintf(name, "%s%d", prefix, unit);
-+	snprintf(name, IFNAMSIZ, "%s%d", prefix, unit);
- 
- 	/*
- 	 * If device already registered then return base of 1
-@@ -549,7 +549,7 @@ unsigned long netdev_boot_base(const char *prefix, int unit)
- 		return 1;
- 
- 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++)
--		if (!strcmp(name, s[i].name))
-+		if (!strncmp(name, s[i].name, IFNAMSIZ))
- 			return s[i].map.base_addr;
- 	return 0;
- }
-@@ -836,7 +836,7 @@ EXPORT_SYMBOL(dev_get_by_flags_rcu);
-  */
- int dev_valid_name(const char *name)
- {
--	if (*name == '\0')
-+	if (!name || *name == '\0')
- 		return 0;
- 	if (strlen(name) >= IFNAMSIZ)
- 		return 0;
-@@ -3834,7 +3834,7 @@ static int dev_ifname(struct net *net, struct ifreq __user *arg)
- 		return -ENODEV;
- 	}
- 
--	strcpy(ifr.ifr_name, dev->name);
-+	strncpy(ifr.ifr_name, dev->name, IFNAMSIZ);
- 	rcu_read_unlock();
- 
- 	if (copy_to_user(arg, &ifr, sizeof(struct ifreq)))
-@@ -4821,7 +4821,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 	if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
- 		return -EFAULT;
- 
--	ifr.ifr_name[IFNAMSIZ-1] = 0;
-+	ifr.ifr_name[IFNAMSIZ-1] = '\0';
- 
- 	colon = strchr(ifr.ifr_name, ':');
- 	if (colon)
-@@ -5694,7 +5694,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 		goto free_all;
- #endif
- 
--	strcpy(dev->name, name);
-+	strncpy(dev->name, name, IFNAMSIZ);
- 	return dev;
- 
- free_all:
--- 
-1.7.3.4
+True, also I think Rob is overreacting.
 
+Any merge problems created will be handled properly by Linus.
+
+I recently changed the interface to ipv4 and ipv6 route lookups, and
+this required all kinds of changes to stuff under Infiniband and elsewhere.
+It's the only sane way to handle this kind of thing.
