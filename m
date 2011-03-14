@@ -1,93 +1,92 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH][v2] dev : fix mtu check when TSO is enabled
-Date: Mon, 14 Mar 2011 21:07:25 +0100
-Message-ID: <4D7E757D.6090106@free.fr>
-References: <1300129859-9525-1-git-send-email-daniel.lezcano@free.fr> <1300132932.2649.2.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, kaber@trash.net, nightnord@gmail.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Sasikanth V <sasikanth.v19@gmail.com>
+Subject: [PATCH] Fix overflow of name in struct net_device, replaced str* and sprintf with strn* and snprintf respectivly.
+Date: Tue, 15 Mar 2011 01:37:28 +0530
+Message-ID: <1300133248-2927-1-git-send-email-sasikanth.v19@gmail.com>
+Cc: netdev@vger.kernel.org, Sasikanth V <sasikanth.v19@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:55066 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751813Ab1CNUHk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2011 16:07:40 -0400
-In-Reply-To: <1300132932.2649.2.camel@edumazet-laptop>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:57046 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752586Ab1CNUHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:07:40 -0400
+Received: by qyk7 with SMTP id 7so1773319qyk.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 13:07:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/14/2011 09:02 PM, Eric Dumazet wrote:
-> Le lundi 14 mars 2011 =C3=A0 20:10 +0100, Daniel Lezcano a =C3=A9crit=
- :
->> In case the device where is coming from the packet has TSO enabled,
->> we should not check the mtu size value as this one could be bigger
->> than the expected value.
->>
->> This is the case for the macvlan driver when the lower device has
->> TSO enabled. The macvlan inherit this feature and forward the packet=
-s
->> without fragmenting them. Then the packets go through dev_forward_sk=
-b
->> and are dropped. This patch fix this by checking TSO is not enabled
->> when we want to check the mtu size.
->>
->> Signed-off-by: Daniel Lezcano<daniel.lezcano@free.fr>
->> Cc: Eric Dumazet<eric.dumazet@gmail.com>
->> Cc: Patrick McHardy<kaber@trash.net>
->> Cc: Andrian Nord<nightnord@gmail.com>
->> ---
->>   net/core/dev.c |   24 ++++++++++++++++++++++--
->>   1 files changed, 22 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 6561021..f1607a0 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -1503,6 +1503,27 @@ static inline void net_timestamp_check(struct=
- sk_buff *skb)
->>   		__net_timestamp(skb);
->>   }
->>
->> +static inline bool is_skb_forwardable(struct net_device *dev,
->> +				      struct sk_buff *skb)
->> +{
->> +	unsigned int len;
->> +
->> +	if (!dev->flags&  IFF_UP)
->> +		return false;
-> 	if (!(dev->flags&  IFF_UP))
-> 		return false;
 
-Argh ! Hopefully you saw it.
+Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
+---
+ net/core/dev.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
->> +
->> +	/* we should not check the mtu size if TSO is enabled otherwise
->> +	 * we may have a packet with a length bigger than the expected
->> +	 * one as it was not segmented before */
->> +	if (skb->dev&&  skb->dev->features&  NETIF_F_TSO)
->> +		return true;
->> +
->> +	len =3D dev->mtu + dev->hard_header_len + VLAN_HLEN;
->> +	if (skb->len>  len)
->> +		return false;
->> +
-> I suggest you reorder tests so that the first one is discriminant mos=
-t
-> of the time
->
-> 	maxlen =3D dev->mtu + dev->hard_header_len + VLAN_HLEN;
-> 	if (skb->len<  maxlen)
-> 		return true;
-> =09
-> 	if (skb->dev&&  skb->dev->features&  NETIF_F_TSO)
-> 		return true;
->
-> 	return false;
-
-Ok. Thanks !
-
-   -- Daniel
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6561021..9d06c1e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -510,7 +510,7 @@ int netdev_boot_setup_check(struct net_device *dev)
+ 
+ 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
+ 		if (s[i].name[0] != '\0' && s[i].name[0] != ' ' &&
+-		    !strcmp(dev->name, s[i].name)) {
++		    !strncmp(dev->name, s[i].name, IFNAMSIZ)) {
+ 			dev->irq 	= s[i].map.irq;
+ 			dev->base_addr 	= s[i].map.base_addr;
+ 			dev->mem_start 	= s[i].map.mem_start;
+@@ -539,7 +539,7 @@ unsigned long netdev_boot_base(const char *prefix, int unit)
+ 	char name[IFNAMSIZ];
+ 	int i;
+ 
+-	sprintf(name, "%s%d", prefix, unit);
++	snprintf(name, IFNAMSIZ, "%s%d", prefix, unit);
+ 
+ 	/*
+ 	 * If device already registered then return base of 1
+@@ -549,7 +549,7 @@ unsigned long netdev_boot_base(const char *prefix, int unit)
+ 		return 1;
+ 
+ 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++)
+-		if (!strcmp(name, s[i].name))
++		if (!strncmp(name, s[i].name, IFNAMSIZ))
+ 			return s[i].map.base_addr;
+ 	return 0;
+ }
+@@ -836,7 +836,7 @@ EXPORT_SYMBOL(dev_get_by_flags_rcu);
+  */
+ int dev_valid_name(const char *name)
+ {
+-	if (*name == '\0')
++	if (!name || *name == '\0')
+ 		return 0;
+ 	if (strlen(name) >= IFNAMSIZ)
+ 		return 0;
+@@ -3834,7 +3834,7 @@ static int dev_ifname(struct net *net, struct ifreq __user *arg)
+ 		return -ENODEV;
+ 	}
+ 
+-	strcpy(ifr.ifr_name, dev->name);
++	strncpy(ifr.ifr_name, dev->name, IFNAMSIZ);
+ 	rcu_read_unlock();
+ 
+ 	if (copy_to_user(arg, &ifr, sizeof(struct ifreq)))
+@@ -4821,7 +4821,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 	if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
+ 		return -EFAULT;
+ 
+-	ifr.ifr_name[IFNAMSIZ-1] = 0;
++	ifr.ifr_name[IFNAMSIZ-1] = '\0';
+ 
+ 	colon = strchr(ifr.ifr_name, ':');
+ 	if (colon)
+@@ -5694,7 +5694,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 		goto free_all;
+ #endif
+ 
+-	strcpy(dev->name, name);
++	strncpy(dev->name, name, IFNAMSIZ);
+ 	return dev;
+ 
+ free_all:
+-- 
+1.7.3.4
 
