@@ -1,44 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] pktgen: bug fix in transmission headers
- with frags=0
-Date: Mon, 14 Mar 2011 15:35:50 +0100
-Message-ID: <1300113350.3423.32.camel@edumazet-laptop>
-References: <4D7E167E.2090807@gmail.com>
-	 <1300110977.3423.16.camel@edumazet-laptop>  <4D7E22A5.1000708@gmail.com>
-	 <1300112338.3423.27.camel@edumazet-laptop>  <4D7E26A4.2070802@gmail.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [RFC v3 1/6] can: extend sockaddr_can to include j1939 members
+Date: Mon, 14 Mar 2011 15:53:56 +0100
+Message-ID: <20110314145356.GI333@e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314132409.GB333@e-circ.dyndns.org>
+	<1300112100.3423.24.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Robert Olsson <robert@herjulf.net>,
-	Jens Laas <jens.laas@its.uu.se>,
-	Voravit Tanyingyong <voravit@kth.se>
-To: Daniel Turull <daniel.turull@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:57818 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755229Ab1CNOf4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 10:35:56 -0400
-Received: by fxm17 with SMTP id 17so2953494fxm.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 07:35:55 -0700 (PDT)
-In-Reply-To: <4D7E26A4.2070802@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1300112100.3423.24.camel@edumazet-laptop>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 14 mars 2011 =C3=A0 15:31 +0100, Daniel Turull a =C3=A9crit :
-> (bug introduced by commit 26ad787962ef84677a48c560
-> (pktgen: speedup fragmented skbs)
->=20
-> The headers of pktgen were incorrectly added in a pktgen packet
-> without frags (frags=3D0). There was an offset in the pktgen headers.
->=20
-> The cause was in reusing the pgh variable as a return variable in skb=
-_put
-> when adding the payload to the skb.
->=20
-> Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Thanks !
-
-
+On Mon, Mar 14, 2011 at 03:15:00PM +0100, Eric Dumazet wrote:
+> > +/*
+> > + * required_size
+> > + * macro to find the minimum size of a struct
+> > + * that includes a requested member
+> > + */
+> > +#define required_size(member, struct_type) \
+> > +	(offsetof(typeof(struct_type), member) + \
+> > +	 sizeof(((typeof(struct_type) *)(0))->member))
+> > +
+> 
+> Hmm, most similar macros reverse arguments.
+> 
+> (For example : offsetof())
+I had 'list_entry' in mind.
+> 
+> What about
+> 
+> #define required_size(TYPE, MEMBER) ...
+I'm not against that ...
+If I receive no complaint for that, I can alter this in the next series.
+> 
+> 
+Thanks,
+Kurt
