@@ -1,64 +1,44 @@
-From: Anders Franzen <anders.franzen@ericsson.com>
-Subject: Re: [PATCH] arp_notify: unconditionally send gratuitous ARP for
- NETDEV_NOTIFY_PEERS.
-Date: Mon, 14 Mar 2011 10:26:39 +0100
-Message-ID: <1300094799.30687.5.camel@seasc7941>
-References: <1297446256-23917-1-git-send-email-ian.campbell@citrix.com>
-	 <20110214.174654.115944453.davem@davemloft.net>
-	 <1297761225.21980.3663.camel@zakaz.uk.xensource.com>
-	 <20110215.105114.226760606.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC v2 PATCH 1/9] crypto: authencesn - Add algorithm to
+	handle IPsec extended sequence numbers
+Date: Mon, 14 Mar 2011 17:39:07 +0800
+Message-ID: <20110314093907.GA25957@gondor.apana.org.au>
+References: <20110308100407.GB31402@secunet.com> <20110308100458.GC31402@secunet.com> <20110313063017.GA10849@gondor.apana.org.au> <20110314083741.GN31402@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Ian.Campbell@eu.citrix.com" <Ian.Campbell@eu.citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:53536 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755137Ab1CNJXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 05:23:48 -0400
-In-Reply-To: <20110215.105114.226760606.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Alex Badea <abadea@ixiacom.com>,
+	Andreas Gruenbacher <agruen@suse.de>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110314083741.GN31402@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nice, so this is a generic way of getting out gratuitous arps.
-Can it be used by drivers (macvlan) on top of bonding.
-Bonding is sending the BOND_FAILOVER event that could be mapped
-to NOTIFY_PEERS in the higher level devices.
-
-And bonding is implementing its own grat arps functions, maybe it could
-be broken out to use the NOTIFY_PEERS instead.
-
-And what about IPv6, would it be ok to implement an unsolicited NA on
-the event?
-
-I will happily implement the above, if anyone thinks it's worth it?
-
-BR
- Anders
-
-
-On Tue, 2011-02-15 at 19:51 +0100, David Miller wrote:
-> From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-> Date: Tue, 15 Feb 2011 09:13:45 +0000
+On Mon, Mar 14, 2011 at 09:37:41AM +0100, Steffen Klassert wrote:
+> On Sun, Mar 13, 2011 at 02:30:17PM +0800, Herbert Xu wrote:
+> > On Tue, Mar 08, 2011 at 11:04:58AM +0100, Steffen Klassert wrote:
+> > >
+> > > +	return crypto_authenc_esn_genicv(req, iv, CRYPTO_TFM_REQ_MAY_SLEEP);
+> > 
+> > BTW, we should get rid of these MAY_SLEEP flags.  Originally I
+> > included them for the IPsec encryption path because that happens
+> > to be sleepable. We should instead be getting it from the request
+> > itself.
+> > 
 > 
-> > On Tue, 2011-02-15 at 01:46 +0000, David Miller wrote:
-> >> From: Ian Campbell <ian.campbell@citrix.com>
-> >> Date: Fri, 11 Feb 2011 17:44:16 +0000
-> >> 
-> >> > NETDEV_NOTIFY_PEER is an explicit request by the driver to send a link
-> >> > notification while NETDEV_UP/NETDEV_CHANGEADDR generate link
-> >> > notifications as a sort of side effect.
->  ...
-> > I nearly forgot -- the NETDEV_NOTIFY_PEER stuff was tagged for
-> > stable/longterm backport (it appeared in 2.6.32.19 or so). I think this
-> > change should likewise go back, what do you think?
-> 
-> Sure, I've queued it up for -stable.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Not sure if I get you right, but we do not set this flag here.
+> We use it to mask the flags we got from the request, so we pass
+> this flag to the ahash algorithm just if it was set by the
+> original aead request.
 
+Indeed you are right.  As long as it is only a mask and only
+used on the sync path it should be OK.
 
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
