@@ -1,243 +1,101 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCH] macb: detect IP version to determin if we are on at91 or
- avr32
-Date: Mon, 14 Mar 2011 10:39:17 +0000
-Message-ID: <20110314103917.GA2825@pulham.picochip.com>
-References: <1299863585-17263-1-git-send-email-plagnioj@jcrosoft.com>
+From: Yann Dupont <Yann.Dupont@univ-nantes.fr>
+Subject: Re: possible issue between bridge igmp/multicast  handling & bnx2x
+ on kernel 2.6.34 and >
+Date: Mon, 14 Mar 2011 11:40:28 +0100
+Message-ID: <4D7DF09C.9000400@univ-nantes.fr>
+References: <4D23234E.30709@univ-nantes.fr>	 <4D26EDA4.7060502@univ-nantes.fr> <1294399705.3306.8.camel@edumazet-laptop> <4D495C39.6020002@univ-nantes.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jamie Iles <jamie@jamieiles.com>
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Yann Dupont <Yann.Dupont@univ-nantes.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:51670 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964Ab1CNKjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 06:39:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1299863585-17263-1-git-send-email-plagnioj@jcrosoft.com>
+Received: from smtp-tls1.univ-nantes.fr ([193.52.101.145]:44976 "EHLO
+	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750893Ab1CNKuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 06:50:15 -0400
+In-Reply-To: <4D495C39.6020002@univ-nantes.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le 02/02/2011 14:29, Yann Dupont a =C3=A9crit :
+>> Le vendredi 07 janvier 2011 =C3=A0 11:40 +0100, Yann Dupont a =C3=A9=
+crit :
+>>> Le 04/01/2011 14:40, Yann Dupont a =C3=A9crit :
+>>> ...
+>>>> We just added BCM57711 10G cards (bnx2x driver) on our blade serve=
+rs
+>>>> (connected to 10G Power Connect M8024).
+>>>> Since then, we are experiencing random lost of packets.
+>>>>
+>>>> Symptom : packets are lost on some vlans for a few seconds, then
+>>>> things go back to normal (and stops again a few minutes later)
+>>>>
+>>> As I didn't had answer so far , I digged a little more and captured=
+=20
+>>> more
+>>> packets.
+>>> I just noticed that an event trigger that problem : IPv6 neighbor
+>>> discovery packet .
+>>>
+>>> This is , of course, a multicast packet.
+>>>
+>>> Just saw that 2.6.36.3 should include this fix :
+>>>
+> Just a little update, the problem doesn't seem to be what we thought=20
+> at first.
+>
+> It may not be related to the bnx2x driver after all.
+> We noticed that we had the same symptoms on target machine using bnx2=
+=20
+> drivers  (we missed that at first since the outages are way briefer).
+>
+> We're now rather suspecting our own firewall (also a linux in a kvm=20
+> machine) since without it we don't get any more problem and the packe=
+t=20
+> drops occurs on _THIS_ network, when packets are routed by _THIS_=20
+> firewall.
+>
+> Anyway, all of that is very puzzling, we have made a lot of network=20
+> dumps and we have really no clue of what's happening there.
+> We don't understand why, if the problem is really on our firewall=20
+> machine, setting CONFIG_BRIDGE_IGMP_SNOOPING to 'n' on the target=20
+> machine efficiently fix the problem, Especially since it doesn't seem=
+=20
+> related at all with our setup and we don't see anything in our networ=
+k=20
+> dumps that could explain this.
+>
+> It's probably not a single problem, but a sum of different problems.
+> We continue to search.
+> Sorry for the noise.
+>
+> Regards,
+>
+One of my collegue noticied that :
 
-I agree with Russell's comments about providing a fake hclk to remove 
-the conditional clock stuff.  I was planning on posting the patch below 
-in my next spin of the gem support patches which also renames macb_clk 
-to pclk to be consistent with avr32 and enables us to remove all of the 
-conditional clock stuff.
+https://lists.linux-foundation.org/pipermail/bridge/2010-October/007362=
+=2Ehtml
 
-On Fri, Mar 11, 2011 at 06:13:05PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> this will make macb soc generic and will allow to use it on other arch
-> 
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Cc: Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: Jamie Iles <jamie@jamieiles.com>
-> ---
-[...]
-> diff --git a/drivers/net/macb.h b/drivers/net/macb.h
-> index d3212f6..56a4fcb 100644
-> --- a/drivers/net/macb.h
-> +++ b/drivers/net/macb.h
-> @@ -59,6 +59,7 @@
->  #define MACB_TPQ				0x00bc
->  #define MACB_USRIO				0x00c0
->  #define MACB_WOL				0x00c4
-> +#define MACB_VERSION				0x00fc
->  
->  /* Bitfields in NCR */
->  #define MACB_LB_OFFSET				0
-> @@ -389,6 +390,14 @@ struct macb {
->  	unsigned int 		link;
->  	unsigned int 		speed;
->  	unsigned int 		duplex;
-> +
-> +	uint32_t		version;
+Exact same problem.
+In fact, the problem **really** seems to be on the network switch.
 
-Minor nitpick, this should be u32 to be consistent with the rest of the 
-fields.
+Our servers are DELL M605 on a DELL M1000e chassis, with powerconnect=20
+M6220 (G) and  M8024 (10G)
 
->  };
->  
-> +#define MACB_VERSION_MASK	0xffff0000
-> +#define macb_is_at91(bp)	\
-> +	(((bp)->version & MACB_VERSION_MASK) == 0x06010000)
-> +#define macb_is_avr32(bp)	\
-> +	(((bp)->version & MACB_VERSION_MASK) == 0x00010000)
-> +
->  #endif /* _MACB_H */
+IGMP snooping is also activated on those switches. If we turn igmp=20
+snooping off on M8024 for exemple, we don't have problems anymore, that=
+=20
+is, we can activate IGMP snooping ON the linux bridge without loosing=20
+packets.
 
-I can't convince myself that this is safe and correct.  From the Cadence 
-GEM spec:
+M6220 & M8024 seems concerned. Time to make a bug report (again and=20
+again...if you ask me, I can tell you they are crap.)
 
-31:16 Module identification number - for the GEM, this
-      value is fixed at 0x0002.
-15:0 Module revision - fixed byte value specific to the
-     revision of the design which is incremented after
-     each release of the IP.
+Sorry for the noise,
 
-I don't have access to the MACB spec, but it seems that 31:16 are 
-defined by Cadence so there could well be other chips with a module ID 
-of 0x0001 that aren't avr32.
-
-We can certainly use this to tell us if we are GEM/MACB but if we need 
-to know if we are AT91/AVR32 for the RMII/MII USRIO stuff, then couldn't 
-we just keep the #ifdef CONFIG_ARCH_AT91 and factor that out into a 
-macb_set_usrio() type method?
-
-Jamie
-
-8<---------
-
-diff --git a/arch/arm/mach-at91/at572d940hf.c b/arch/arm/mach-at91/at572d940hf.c
-index a6b9c68..9b3a37e 100644
---- a/arch/arm/mach-at91/at572d940hf.c
-+++ b/arch/arm/mach-at91/at572d940hf.c
-@@ -71,10 +71,15 @@ static struct clk pioC_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT572D940HF_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk usart0_clk = {
- 	.name		= "usart0_clk",
- 	.pmc_mask	= 1 << AT572D940HF_ID_US0,
-@@ -182,6 +187,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&pioB_clk,
- 	&pioC_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&usart0_clk,
- 	&usart1_clk,
- 	&usart2_clk,
-diff --git a/arch/arm/mach-at91/at91cap9.c b/arch/arm/mach-at91/at91cap9.c
-index 7337617..0d38ce7 100644
---- a/arch/arm/mach-at91/at91cap9.c
-+++ b/arch/arm/mach-at91/at91cap9.c
-@@ -150,10 +150,15 @@ static struct clk pwm_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91CAP9_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk aestdes_clk = {
- 	.name		= "aestdes_clk",
- 	.pmc_mask	= 1 << AT91CAP9_ID_AESTDES,
-@@ -212,6 +217,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&tcb_clk,
- 	&pwm_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&aestdes_clk,
- 	&adc_clk,
- 	&isi_clk,
-diff --git a/arch/arm/mach-at91/at91sam9260.c b/arch/arm/mach-at91/at91sam9260.c
-index 195208b..f00774c 100644
---- a/arch/arm/mach-at91/at91sam9260.c
-+++ b/arch/arm/mach-at91/at91sam9260.c
-@@ -162,10 +162,15 @@ static struct clk ohci_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91SAM9260_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk isi_clk = {
- 	.name		= "isi_clk",
- 	.pmc_mask	= 1 << AT91SAM9260_ID_ISI,
-@@ -221,6 +226,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&tc2_clk,
- 	&ohci_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&isi_clk,
- 	&usart3_clk,
- 	&usart4_clk,
-diff --git a/arch/arm/mach-at91/at91sam9263.c b/arch/arm/mach-at91/at91sam9263.c
-index 249f900..25cbae1 100644
---- a/arch/arm/mach-at91/at91sam9263.c
-+++ b/arch/arm/mach-at91/at91sam9263.c
-@@ -136,10 +136,15 @@ static struct clk pwm_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91SAM9263_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk dma_clk = {
- 	.name		= "dma_clk",
- 	.pmc_mask	= 1 << AT91SAM9263_ID_DMA,
-@@ -190,6 +195,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&tcb_clk,
- 	&pwm_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&twodge_clk,
- 	&udc_clk,
- 	&isi_clk,
-diff --git a/arch/arm/mach-at91/at91sam9g45.c b/arch/arm/mach-at91/at91sam9g45.c
-index c67b47f..a4d4a2d 100644
---- a/arch/arm/mach-at91/at91sam9g45.c
-+++ b/arch/arm/mach-at91/at91sam9g45.c
-@@ -157,10 +157,15 @@ static struct clk ac97_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91SAM9G45_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk isi_clk = {
- 	.name		= "isi_clk",
- 	.pmc_mask	= 1 << AT91SAM9G45_ID_ISI,
-@@ -224,6 +229,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&lcdc_clk,
- 	&ac97_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&isi_clk,
- 	&udphs_clk,
- 	&mmc1_clk,
--- 
-1.7.4
+--=20
+Yann Dupont - Service IRTS, DSI Universit=C3=A9 de Nantes
+Tel : 02.53.48.49.20 - Mail/Jabber : Yann.Dupont@univ-nantes.fr
 
