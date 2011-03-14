@@ -1,7 +1,7 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 01/24] ipvs: avoid lookup for fwmark 0
-Date: Mon, 14 Mar 2011 18:06:13 +0900
-Message-ID: <1300093596-3824-2-git-send-email-horms@verge.net.au>
+Subject: [PATCH 02/24] ipvs: remove _bh from percpu stats reading
+Date: Mon, 14 Mar 2011 18:06:14 +0900
+Message-ID: <1300093596-3824-3-git-send-email-horms@verge.net.au>
 References: <1300093596-3824-1-git-send-email-horms@verge.net.au>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Julian Anastasov <ja@ssi.bg>,
@@ -9,42 +9,57 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Simon Horman <horms@verge.net.au>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	netfilter@vger.kernel.org, lvs-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:56604 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754725Ab1CNJGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 05:06:46 -0400
 In-Reply-To: <1300093596-3824-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
- 	Restore the previous behaviour to lookup for fwmark
-service only when fwmark is non-null. This saves only CPU.
+ 	ip_vs_read_cpu_stats is called only from timer, so
+no need for _bh locks.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ net/netfilter/ipvs/ip_vs_est.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index c73b0c8..f0369d6 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -411,9 +411,11 @@ ip_vs_service_get(struct net *net, int af, __u32 fwmark, __u16 protocol,
- 	/*
- 	 *	Check the table hashed by fwmark first
- 	 */
--	svc = __ip_vs_svc_fwm_find(net, af, fwmark);
--	if (fwmark && svc)
--		goto out;
-+	if (fwmark) {
-+		svc = __ip_vs_svc_fwm_find(net, af, fwmark);
-+		if (svc)
-+			goto out;
-+	}
- 
- 	/*
- 	 *	Check the table hashed by <protocol,addr,port>
+diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
+index f560a05..88bd716 100644
+--- a/net/netfilter/ipvs/ip_vs_est.c
++++ b/net/netfilter/ipvs/ip_vs_est.c
+@@ -69,10 +69,10 @@ static void ip_vs_read_cpu_stats(struct ip_vs_stats_user *sum,
+ 			sum->inpkts += s->ustats.inpkts;
+ 			sum->outpkts += s->ustats.outpkts;
+ 			do {
+-				start = u64_stats_fetch_begin_bh(&s->syncp);
++				start = u64_stats_fetch_begin(&s->syncp);
+ 				inbytes = s->ustats.inbytes;
+ 				outbytes = s->ustats.outbytes;
+-			} while (u64_stats_fetch_retry_bh(&s->syncp, start));
++			} while (u64_stats_fetch_retry(&s->syncp, start));
+ 			sum->inbytes += inbytes;
+ 			sum->outbytes += outbytes;
+ 		} else {
+@@ -80,10 +80,10 @@ static void ip_vs_read_cpu_stats(struct ip_vs_stats_user *sum,
+ 			sum->inpkts = s->ustats.inpkts;
+ 			sum->outpkts = s->ustats.outpkts;
+ 			do {
+-				start = u64_stats_fetch_begin_bh(&s->syncp);
++				start = u64_stats_fetch_begin(&s->syncp);
+ 				sum->inbytes = s->ustats.inbytes;
+ 				sum->outbytes = s->ustats.outbytes;
+-			} while (u64_stats_fetch_retry_bh(&s->syncp, start));
++			} while (u64_stats_fetch_retry(&s->syncp, start));
+ 		}
+ 	}
+ }
 -- 
 1.7.2.3
 
