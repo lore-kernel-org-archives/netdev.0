@@ -1,92 +1,46 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH] macb: detect IP version to determin if we are on at91
-	or avr32
-Date: Mon, 14 Mar 2011 18:24:14 +0100
-Message-ID: <20110314172414.GB14548@game.jcrosoft.org>
-References: <1299863585-17263-1-git-send-email-plagnioj@jcrosoft.com>
-	<20110314101512.GA26085@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-kernel@vger.kernel.org, Jamie Iles <jamie@jamieiles.com>,
-	Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20110314101512.GA26085@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/7] tcp_cubic: fix comparison of jiffies
+Date: Mon, 14 Mar 2011 10:52:13 -0700
+Message-ID: <20110314175439.377973202@vyatta.com>
+References: <20110314175211.788224699@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from suva.vyatta.com ([76.74.103.44]:58243 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757015Ab1CNSCD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 14:02:03 -0400
+Content-Disposition: inline; filename=tcp-cubic-jiffies-wrap.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10:15 Mon 14 Mar     , Russell King - ARM Linux wrote:
-> On Fri, Mar 11, 2011 at 06:13:05PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > +	if (macb_is_at91(bp)) {
-> > +		bp->pclk = clk_get(&pdev->dev, "macb_clk");
-> > +		if (IS_ERR(bp->pclk)) {
-> > +			dev_err(&pdev->dev, "failed to get macb_clk\n");
-> > +			goto err_out_free_dev;
-> > +		}
-> > +		clk_enable(bp->pclk);
-> > +	} else {
-> > +		bp->pclk = clk_get(&pdev->dev, "pclk");
-> > +		if (IS_ERR(bp->pclk)) {
-> > +			dev_err(&pdev->dev, "failed to get pclk\n");
-> > +			goto err_out_free_dev;
-> > +		}
-> > +		bp->hclk = clk_get(&pdev->dev, "hclk");
-> > +		if (IS_ERR(bp->hclk)) {
-> > +			dev_err(&pdev->dev, "failed to get hclk\n");
-> > +			goto err_out_put_pclk;
-> > +		}
-> > +
-> > +		clk_enable(bp->pclk);
-> > +		clk_enable(bp->hclk);
-> > +	}
-> 
-> This is the same kind of sillyness that started getting OMAP into problems
-> with the clk API.  Just do this instead:
-> 
-> 	bp->pclk = clk_get(&pdev->dev, "pclk");
-> 	if (IS_ERR(bp->pclk)) {
-> 		dev_err(&pdev->dev, "failed to get pclk\n");
-> 		goto err_out_free_dev;
-> 	}
-> 	bp->hclk = clk_get(&pdev->dev, "hclk");
-> 	if (IS_ERR(bp->hclk)) {
-> 		dev_err(&pdev->dev, "failed to get hclk\n");
-> 		goto err_out_put_pclk;
-> 	}
-> 
-> 	clk_enable(bp->pclk);
-> 	clk_enable(bp->hclk);
-> 
-> And then require _all_ platforms using this driver to provide a pclk and
-> a hclk for this device, whether they exist in the SoC or not.  Where they
-> don't, provide dummy clocks for it.
-> 
-> This probably means you end up with _less_ bloat overall because you're
-> not having to build the above code.  You've less lines of source code to
-> maintain.  You have a simplified dirver with consistent requirements
-> across all platforms.  You don't need to read the version register, and
-> you don't need macb_is_at91() and macb_is_avr32().
-no we do need it for some of the register IP implementation related to the MII
-at least
-> 
-> With clkdev it's _cheap_ to provide these dummy clocks once you have one
-> dummy clock already in place.
-I known and already agree about the clock, Jamie Patches will take care about it
+Jiffies wraps around therefore the correct way to compare is
+to use cast to signed value.
 
-this patch remove the ifdef ARCH and now detect the IP revision to determin
-the IP specific implementation
+Note: cubic is not using full jiffies value on 64 bit arch
+because using full unsigned long makes struct bictcp grow too
+large for the available ca_priv area.
 
-Best Regards,
-J.
+Includes correction from Sangtae Ha to improve ack train detection.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
+--- a/net/ipv4/tcp_cubic.c	2011-03-11 09:00:06.856664687 -0800
++++ b/net/ipv4/tcp_cubic.c	2011-03-11 09:02:11.685796371 -0800
+@@ -342,9 +342,11 @@ static void hystart_update(struct sock *
+ 		u32 curr_jiffies = jiffies;
+ 
+ 		/* first detection parameter - ack-train detection */
+-		if (curr_jiffies - ca->last_jiffies <= msecs_to_jiffies(2)) {
++		if ((s32)(curr_jiffies - ca->last_jiffies) <=
++		    msecs_to_jiffies(2)) {
+ 			ca->last_jiffies = curr_jiffies;
+-			if (curr_jiffies - ca->round_start >= ca->delay_min>>4)
++			if ((s32) (curr_jiffies - ca->round_start) >
++			    ca->delay_min >> 4)
+ 				ca->found |= HYSTART_ACK_TRAIN;
+ 		}
+ 
+
+
