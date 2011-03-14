@@ -1,88 +1,44 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-next-2.6] IPVS
-Date: Tue, 15 Mar 2011 08:13:27 +0900
-Message-ID: <20110314231327.GE2788@verge.net.au>
-References: <1300056261-14709-1-git-send-email-horms@verge.net.au>
- <4D7E5BBE.7060702@trash.net>
+From: Doug Kehn <rdkehn@yahoo.com>
+Subject: Multicast Fails Over Multipoint GRE Tunnel
+Date: Mon, 14 Mar 2011 16:34:01 -0700 (PDT)
+Message-ID: <998769.91206.qm@web39301.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D7E5BBE.7060702@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web39301.mail.mud.yahoo.com ([66.94.238.168]:20969 "HELO
+	web39301.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751554Ab1CNXkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 19:40:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 14, 2011 at 07:17:34PM +0100, Patrick McHardy wrote:
-> On 13.03.2011 23:44, Simon Horman wrote:
-> > Hi Patrick,
-> > 
-> > please consider pulling
-> > git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
-> > to get the following changes.
-> > 
-> > Jesper Juhl (1):
-> >       Fix variable assignment in ip_vs_notrack
-> > 
-> > Julian Anastasov (2):
-> >       ipvs: avoid lookup for fwmark 0
-> >       ipvs: remove _bh from percpu stats reading
-> > 
-> > Shan Wei (1):
-> >       netfilter:ipvs: use kmemdup
-> > 
-> >  include/net/ip_vs.h               |    2 +-
-> >  net/netfilter/ipvs/ip_vs_ctl.c    |    8 +++++---
-> >  net/netfilter/ipvs/ip_vs_est.c    |    8 ++++----
-> >  net/netfilter/ipvs/ip_vs_pe_sip.c |    9 ++++-----
-> >  net/netfilter/ipvs/ip_vs_sync.c   |    3 +--
-> >  5 files changed, 15 insertions(+), 15 deletions(-)
-> 
-> The pull contained quite a lot of other changes. I'm undoing the
-> pull for now, please resubmit the patches you actually want me to
-> pull. Thanks!
+Hi All,
 
-Sorry about that. I will double check things but
-the list below looks like the second request that I sent out
-yesterday.
+I'm running kernel version 2.6.36 on ARM XSCALE (big-endian) and multicast over a multipoint GRE tunnel isn't working.  For my architecture, this worked on 2.6.26.8.  For x86, multicast over a multipoint GRE tunnel worked with kernel version 2.6.31 but failed with version 2.6.35.  Multicast over a multipoint GRE tunnel fails because ipgre_header() fails the 'if (iph->daddr)' check and reutrns -t->hlen.  ipgre_header() is being called, from neigh_connected_output(), with a non-null daddr; the contents of daddr is zero.
 
-> 
-> Jesper Juhl (1):
->       Fix variable assignment in ip_vs_notrack
-> 
-> Julian Anastasov (8):
->       ipvs: avoid lookup for fwmark 0
->       ipvs: remove _bh from percpu stats reading
->       ipvs: move struct netns_ipvs
->       ipvs: reorganize tot_stats
->       ipvs: properly zero stats and rates
->       ipvs: remove unused seqcount stats
->       ipvs: optimize rates reading
->       ipvs: rename estimator functions
-> 
-> Patrick McHardy (1):
->       Merge branch 'master' of git://git.kernel.org/.../horms/lvs-test-2.6
-> 
-> Shan Wei (1):
->       netfilter:ipvs: use kmemdup
-> 
-> Simon Horman (14):
->       IPVS: Add ip_vs_route_me_harder()
->       IPVS: Add sysctl_snat_reroute()
->       IPVS: Add sysctl_nat_icmp_send()
->       IPVS: Add {sysctl_sync_threshold,period}()
->       IPVS: Add sysctl_sync_ver()
->       IPVS: Add sysctl_expire_nodest_conn()
->       IPVS: Add expire_quiescent_template()
->       IPVS: Conditinally use sysctl_lblc{r}_expiration
->       IPVS: ip_vs_todrop() becomes a noop when CONFIG_SYSCTL is undefined
->       IPVS: Conditional ip_vs_conntrack_enabled()
->       IPVS: Minimise ip_vs_leave when CONFIG_SYSCTL is undefined
->       IPVS: Conditionally define and use ip_vs_lblc{r}_table
->       IPVS: Add __ip_vs_control_{init,cleanup}_sysctl()
->       IPVS: Conditionally include sysctl members of struct netns_ipvs
-> 
+Reverting the ip_gre.c patch posted in http://marc.info/?l=linux-netdev&m=126762491525281&w=2 resolves the problem.  (Reviewing the HEAD of net-next-2.6 it appears that ipgre_header() remains unchanged from 2.6.36.)
+
+The configuration used to discover/diagnose the problem:
+
+ip tunnel add tun1 mode gre key 11223344 ttl 64 csum remote any
+ip link set dev tun1 up
+ip link set dev tun1 multicast on
+ip addr flush dev tun1
+ip addr add 10.40.92.114/24 broadcast 10.40.92.255 dev tun1
+
+12: tun1: <MULTICAST,NOARP,UP,10000> mtu 1468 qdisc noqueue
+    link/gre 0.0.0.0 brd 0.0.0.0
+    inet 10.40.92.114/24 brd 10.40.92.255 scope global tun1
+
+Then attempt:
+ping -I tun1 224.0.0.9
+
+Are additional configuration steps now required for multicast over multipoint GRE tunnel or is ipgre_header() in error?
+
+Thanks,
+...doug
+
+
+
+      
