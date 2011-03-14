@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] [PATCH] qeth: change some configurations defaults
-Date: Mon, 14 Mar 2011 15:40:00 -0700 (PDT)
-Message-ID: <20110314.154000.91326111.davem@davemloft.net>
-References: <20110314132053.132019386@de.ibm.com>
-	<20110314132127.374926261@de.ibm.com>
+Subject: Re: [PATCH net-next-2.6 v2] ftmac100: use GFP_ATOMIC allocations
+ where needed
+Date: Mon, 14 Mar 2011 15:40:52 -0700 (PDT)
+Message-ID: <20110314.154052.45887678.davem@davemloft.net>
+References: <1300048193.2761.55.camel@edumazet-laptop>
+	<AANLkTi=grwkfYpBFJEyQHXbFaTov5Tc+tAR2ebzw0Bht@mail.gmail.com>
+	<1300112791.3423.31.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44240
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757372Ab1CNWjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 18:39:22 -0400
-In-Reply-To: <20110314132127.374926261@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ratbert.chuang@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ratbert@faraday-tech.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1300112791.3423.31.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: frank.blaschka@de.ibm.com
-Date: Mon, 14 Mar 2011 14:20:54 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 14 Mar 2011 15:26:31 +0100
 
-> This patch turns on RX checksum and GRO by default. To improve
-> receiving performance and reduce congestion in case of network
-> bursts we also increase the default number of inbound buffers.
+> When running in softirq context, we should use GFP_ATOMIC allocations
+> instead of GFP_KERNEL ones.
 > 
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Tested-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+> Acked-by: Po-Yu Chuang <ratbert@faraday-tech.com>
 
-Applied, thanks Frank.
+Applied, thanks everyone.
