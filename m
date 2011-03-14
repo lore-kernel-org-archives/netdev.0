@@ -1,50 +1,58 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] net: dcbnl: Add IEEE app selector value
-	definitions
-Date: Mon, 14 Mar 2011 12:01:15 -0700
-Message-ID: <20110314190114.12070.94640.stgit@jf-dev1-dcblab>
-References: <20110314190102.12070.21182.stgit@jf-dev1-dcblab>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
+Date: Mon, 14 Mar 2011 12:10:22 -0700
+Message-ID: <AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com>
+References: <1299894051-13820-1-git-send-email-ycheng@google.com> <201103141106.19679.carsten@wolffcarsten.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: mark.d.rustad@intel.com, netdev@vger.kernel.org,
-	shmulikr@broadcom.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	Nandita Dukkipati <nanditad@google.com>, netdev@vger.kernel.org
+To: Carsten Wolff <carsten@wolffcarsten.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:63307 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754498Ab1CNTGz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2011 15:06:55 -0400
-In-Reply-To: <20110314190102.12070.21182.stgit@jf-dev1-dcblab>
+Received: from smtp-out.google.com ([216.239.44.51]:49191 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753114Ab1CNTKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 15:10:45 -0400
+Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
+	by smtp-out.google.com with ESMTP id p2EJAh6V011378
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 12:10:44 -0700
+Received: from vws17 (vws17.prod.google.com [10.241.21.145])
+	by kpbe14.cbf.corp.google.com with ESMTP id p2EJ9bdk023669
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 12:10:42 -0700
+Received: by vws17 with SMTP id 17so3702599vws.18
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 12:10:42 -0700 (PDT)
+In-Reply-To: <201103141106.19679.carsten@wolffcarsten.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+On Mon, Mar 14, 2011 at 3:06 AM, Carsten Wolff <carsten@wolffcarsten.de> wrote:
+> The moderation is in place to avoid gigantic segment bursts, which could cause
+> unnecessary pressure on buffers. In my eyes it's already suboptimal that the
+> moderation is weakened in the presence of (detected) reordering, let alone
+> removing it completely.
 
-This adds defines for the app selector values currently
-defined in the IEEE 802.1Qaz specification.
+In the presence of reordering, cwnd is already moderated in Disorder
+state before
+ entering the (false) recovery.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
 
- include/linux/dcbnl.h |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+>
+> More importantly, the prior ssthresh is restored and not affected by
+> moderation. This means, if moderation reduces cwnd to a small value, then cwnd
+> < ssthresh and TCP will quickly slow-start back to the previous state, without
+> sending a big burst of segments.
+>
+> Also, you intended to remove cwnd moderation only from an undo during
+> recovery, but I think your patch also removes cwnd moderation when the undo is
+> caused by D-SACK, i.e. most likely after recovery already ended.
 
-diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-index eedf79b..c522800 100644
---- a/include/linux/dcbnl.h
-+++ b/include/linux/dcbnl.h
-@@ -125,6 +125,11 @@ struct cee_pfc {
- 	__u8    tcs_supported;
- };
- 
-+/* IEEE 802.1Qaz std supported values */
-+#define IEEE_8021QAZ_APP_SEL_ETHERTYPE	1
-+#define IEEE_8021QAZ_APP_SEL_STREAM	2
-+#define IEEE_8021QAZ_APP_SEL_DGRAM	3
-+#define IEEE_8021QAZ_APP_SEL_ANY	4
- 
- /* This structure contains the IEEE 802.1Qaz APP managed object. This
-  * object is also used for the CEE std as well. There is no difference
+Thanks. I will update my patch description. But the same principle
+applies that cwnd
+should not be moderated on false events. Whether it should be moderated on
+reordering or other events is another (complex) design issue. But this
+patch does not
+touch that.
 
+Yuchung
