@@ -1,43 +1,56 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] NET: cdc-phonet, handle empty phonet header
-Date: Mon, 14 Mar 2011 09:49:04 +0200
-Message-ID: <201103140949.04760.remi.denis-courmont@nokia.com>
-References: <1300035271-8138-1-git-send-email-jslaby@suse.cz> <1300035271-8138-2-git-send-email-jslaby@suse.cz>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ftmac100: use GFP_ATOMIC allocations where needed
+Date: Mon, 14 Mar 2011 16:16:06 +0800
+Message-ID: <AANLkTi=grwkfYpBFJEyQHXbFaTov5Tc+tAR2ebzw0Bht@mail.gmail.com>
+References: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com>
+ <1300047388.2761.48.camel@edumazet-laptop> <1300048002.2761.53.camel@edumazet-laptop>
+ <1300048193.2761.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-l3A5Bk7waGM@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ext Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1300035271-8138-2-git-send-email-jslaby-AlSwsSmVLrQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62115 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592Ab1CNIQ1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 04:16:27 -0400
+In-Reply-To: <1300048193.2761.55.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 13 March 2011 18:54:31 ext Jiri Slaby, you wrote:
-> Currently, for N 5800 XM I get:
-> cdc_phonet: probe of 1-6:1.10 failed with error -22
->=20
-> It's because phonet_header is empty. Extra altsetting looks like
-> there:
-> E 05 24 00 01 10 03 24 ab 05 24 06 0a 0b 04 24 fd  .$....$..$....$.
-> E 00                                               .
->=20
-> I don't see the header used anywhere so just check if the phonet
-> descriptor is there, not the structure itself.
->=20
-> Signed-off-by: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
-> Cc: R=C3=A9mi Denis-Courmont <remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Hi Eric,
 
-Acked-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+On Mon, Mar 14, 2011 at 4:29 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le dimanche 13 mars 2011 =C3=A0 21:26 +0100, Eric Dumazet a =C3=A9cri=
+t :
+>> Le dimanche 13 mars 2011 =C3=A0 21:16 +0100, Eric Dumazet a =C3=A9cr=
+it :
+>>
+>> > BTW, it seems I missed the fact that ftmac100_alloc_rx_page() used=
+ a
+>> > GFP_KERNEL allocation, while its called from softirq context (from
+>> > ftmac100_rx_packet())
+>>
+>> Here is a patch against ftmac100
+>>
+>
+> Oops, one typo in it sorry
+>
+>> -static int ftmac100_alloc_rx_page(struct ftmac100 *priv, struct ftm=
+ac100_rxdes *rxdes)
+>> +static int ftmac100_alloc_rx_page(struct ftmac100 *priv,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ftmac100_rxdes *rxdes, gt=
+p_t gfp)
+>
+> Should be : =C2=A0 gfp_t gfp
+>
+> Please build and test the patch, I dont have an ARM testbed anyway.
 
---=20
-R=C3=A9mi Denis-Courmont
-http://www.remlab.net/
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Tested-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+
+Thank you,
+Po-Yu Chuang
