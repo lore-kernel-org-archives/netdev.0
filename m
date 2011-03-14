@@ -1,53 +1,47 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 4/4] netfilter: xt_connlimit: remove connlimit_rnd_inited
-Date: Mon, 14 Mar 2011 14:50:14 +0800
-Message-ID: <1300085414-27275-4-git-send-email-xiaosuo@gmail.com>
-References: <1300085414-27275-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 1/6] af_packet: use skb->skb_iif instead of
+ orig_dev->ifindex
+Date: Mon, 14 Mar 2011 07:54:55 +0100
+Message-ID: <20110314065454.GA2751@psychotron.redhat.com>
+References: <1299935679-18135-1-git-send-email-jpirko@redhat.com>
+ <1299935679-18135-2-git-send-email-jpirko@redhat.com>
+ <AANLkTimkUQ7JPAozRWnYgfwGu5wqeY-ikfdmWEGeUkrK@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
+	andy@greyhouse.net
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:34935 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753755Ab1CNGvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 02:51:53 -0400
-In-Reply-To: <1300085414-27275-1-git-send-email-xiaosuo@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:15731 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753755Ab1CNGzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 02:55:08 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTimkUQ7JPAozRWnYgfwGu5wqeY-ikfdmWEGeUkrK@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A potential race condition when generating connlimit_rnd is also fixed.
+Mon, Mar 14, 2011 at 12:52:37AM CET, xiaosuo@gmail.com wrote:
+>On Sat, Mar 12, 2011 at 9:14 PM, Jiri Pirko <jpirko@redhat.com> wrote:
+>> Since skb_iif has the desired value (ifindex of physical device actu=
+ally
+>> received the traffic) use that instead.
+>>
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> Reviewed-by: Changli Gao <xiaosuo@gmail.com>
+>> Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+>> ---
+>
+>This may "break" the ptype handlers in TX path, as we always assign
+>skb->dev to origdev there. Thanks.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/netfilter/xt_connlimit.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index da56d6e..c6d5a83 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -44,7 +44,6 @@ struct xt_connlimit_data {
- };
- 
- static u_int32_t connlimit_rnd __read_mostly;
--static bool connlimit_rnd_inited __read_mostly;
- 
- static inline unsigned int connlimit_iphash(__be32 addr)
- {
-@@ -226,9 +225,13 @@ static int connlimit_mt_check(const struct xt_mtchk_param *par)
- 	unsigned int i;
- 	int ret;
- 
--	if (unlikely(!connlimit_rnd_inited)) {
--		get_random_bytes(&connlimit_rnd, sizeof(connlimit_rnd));
--		connlimit_rnd_inited = true;
-+	if (unlikely(!connlimit_rnd)) {
-+		u_int32_t rand;
-+
-+		do {
-+			get_random_bytes(&rand, sizeof(rand));
-+		} while (!rand);
-+		cmpxchg(&connlimit_rnd, 0, rand);
- 	}
- 	ret = nf_ct_l3proto_try_module_get(par->family);
- 	if (ret < 0) {
+Changli, would you please point me the relevant code?. Thanks!
+
+Jirka
+>
+>--=20
+>Regards,
+>Changli Gao(xiaosuo@gmail.com)
