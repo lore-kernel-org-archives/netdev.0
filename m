@@ -1,78 +1,73 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/1] [PATCH] qeth: change some configurations defaults
-Date: Mon, 14 Mar 2011 14:20:54 +0100
-Message-ID: <20110314132127.374926261@de.ibm.com>
-References: <20110314132053.132019386@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: davem@davemloft.net
+From: Daniel Turull <daniel.turull@gmail.com>
+Subject: [PATCH] pktgen: fix transmission headers with frags=0
+Date: Mon, 14 Mar 2011 14:22:06 +0100
+Message-ID: <4D7E167E.2090807@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <robert@herjulf.net>,
+	Jens Laas <jens.laas@its.uu.se>,
+	Voravit Tanyingyong <voravit@kth.se>,
+	Daniel Turull <daniel.turull@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([194.196.100.165]:39482 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755809Ab1CNNVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 09:21:32 -0400
-Content-Disposition: inline; filename=603-qeth-defaults.diff
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:54556 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755026Ab1CNNWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 09:22:12 -0400
+Received: by fxm17 with SMTP id 17so2875153fxm.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 06:22:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+The headers of pktgen were incorrectly added in a pktgen packet
+without frags (frags=0). There was an offset in the pktgen headers.
 
-This patch turns on RX checksum and GRO by default. To improve
-receiving performance and reduce congestion in case of network
-bursts we also increase the default number of inbound buffers.
+The cause was in reusing the pgh variable as a return variable in skb_put
+when adding the payload to the skb.
 
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+A rename of the variable is done.
+
+Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
 ---
+The PKTGEN magic (be9b e955) now starts in the correct offset.
+Before the patch, it was starting at the end of the packet (be9b)
 
+Capture from tcpdump:
 
- drivers/s390/net/qeth_core.h      |    3 ++-
- drivers/s390/net/qeth_core_main.c |    5 ++++-
- drivers/s390/net/qeth_l3_main.c   |    5 +++++
- 3 files changed, 11 insertions(+), 2 deletions(-)
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -225,7 +225,8 @@ static inline int qeth_is_ipa_enabled(st
- /*****************************************************************************/
- #define QETH_MAX_QUEUES 4
- #define QETH_IN_BUF_SIZE_DEFAULT 65536
--#define QETH_IN_BUF_COUNT_DEFAULT 16
-+#define QETH_IN_BUF_COUNT_DEFAULT 64
-+#define QETH_IN_BUF_COUNT_HSDEFAULT 128
- #define QETH_IN_BUF_COUNT_MIN 8
- #define QETH_IN_BUF_COUNT_MAX 128
- #define QETH_MAX_BUFFER_ELEMENTS(card) ((card)->qdio.in_buf_size >> 12)
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -1026,7 +1026,10 @@ static void qeth_init_qdio_info(struct q
- 	atomic_set(&card->qdio.state, QETH_QDIO_UNINITIALIZED);
- 	/* inbound */
- 	card->qdio.in_buf_size = QETH_IN_BUF_SIZE_DEFAULT;
--	card->qdio.init_pool.buf_count = QETH_IN_BUF_COUNT_DEFAULT;
-+	if (card->info.type == QETH_CARD_TYPE_IQD)
-+		card->qdio.init_pool.buf_count = QETH_IN_BUF_COUNT_HSDEFAULT;
-+	else
-+		card->qdio.init_pool.buf_count = QETH_IN_BUF_COUNT_DEFAULT;
- 	card->qdio.in_buf_pool.buf_count = card->qdio.init_pool.buf_count;
- 	INIT_LIST_HEAD(&card->qdio.in_buf_pool.entry_list);
- 	INIT_LIST_HEAD(&card->qdio.init_pool.entry_list);
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3392,6 +3392,8 @@ static int qeth_l3_setup_netdev(struct q
- 			if (!(card->info.unique_id & UNIQUE_ID_NOT_BY_CARD))
- 				card->dev->dev_id = card->info.unique_id &
- 							 0xffff;
-+			if (!card->info.guestlan)
-+				card->dev->features |= NETIF_F_GRO;
- 		}
- 	} else if (card->info.type == QETH_CARD_TYPE_IQD) {
- 		card->dev = alloc_netdev(0, "hsi%d", ether_setup);
-@@ -3430,6 +3432,9 @@ static int qeth_l3_probe_device(struct c
- 	card->discipline.output_handler = (qdio_handler_t *)
- 		qeth_qdio_output_handler;
- 	card->discipline.recover = qeth_l3_recover;
-+	if ((card->info.type == QETH_CARD_TYPE_OSD) ||
-+	    (card->info.type == QETH_CARD_TYPE_OSX))
-+		card->options.checksum_type = HW_CHECKSUMMING;
- 	return 0;
- }
+before patch:
+14:57:37.854812 IP 10.0.0.2.discard > 10.254.254.84.discard: UDP, length 18
+	0x0000:  001b 2157 ed84 001b 215d 01d0 0800 4500
+	0x0010:  002e 0004 0000 2011 8767 0a00 0002 0afe
+	0x0020:  fe54 0009 0009 001a 0000 0000 0000 b072
+	0x0030:  9102 00ea ffff 0010 0000 be9b
+
+after patch:
+14:44:32.896048 IP 10.0.0.2.discard > 10.217.234.56.discard: UDP, length 18
+	0x0000:  001b 2157 ed84 001b 215d 01d0 0800 4500
+	0x0010:  002e 0000 0000 2011 9bac 0a00 0002 0ad9
+	0x0020:  ea38 0009 0009 001a 0000 be9b e955 0000
+	0x0030:  0001 4d7e 1b09 0005 5f23 af00
+
+---
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index f0aec6c..5baa9d9 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2615,13 +2615,14 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+ {
+ 	struct timeval timestamp;
+ 	struct pktgen_hdr *pgh;
++	void *data;
  
-
+ 	pgh = (struct pktgen_hdr *)skb_put(skb, sizeof(*pgh));
+ 	datalen -= sizeof(*pgh);
+ 
+ 	if (pkt_dev->nfrags <= 0) {
+-		pgh = (struct pktgen_hdr *)skb_put(skb, datalen);
+-		memset(pgh + 1, 0, datalen);
++		data = skb_put(skb, datalen);
++		memset(data + 1, 0, datalen);
+ 	} else {
+ 		int frags = pkt_dev->nfrags;
+ 		int i, len;
