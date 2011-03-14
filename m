@@ -1,70 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] inetpeer: should use call_rcu() variant
-Date: Mon, 14 Mar 2011 05:15:31 +0100
-Message-ID: <1300076131.2761.61.camel@edumazet-laptop>
-References: <20110308.145954.59682618.davem@davemloft.net>
-	 <1300010649.2761.3.camel@edumazet-laptop>
-	 <20110313.164215.193721466.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Mon, 14 Mar 2011 15:24:56 +1100
+Message-ID: <20110314152456.b49b2693.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44552 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244Ab1CNEPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 00:15:35 -0400
-Received: by wya21 with SMTP id 21so4010666wya.19
-        for <netdev@vger.kernel.org>; Sun, 13 Mar 2011 21:15:34 -0700 (PDT)
-In-Reply-To: <20110313.164215.193721466.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 13 mars 2011 =C3=A0 16:42 -0700, David Miller a =C3=A9crit =
-:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 13 Mar 2011 11:04:09 +0100
->=20
-> > David, I am not sure this is safe, since we use call_rcu_bh() when
-> > freeing one item. One cpu could decide to kfree() one item while an=
-other
-> > cpu could still use it.
-> >=20
-> > rcu_read_lock_bh() was signalling to others cpu we were in a softir=
-q
-> > section, so we were delaying a possible kfree().
->=20
-> Ok, could we use normal call_rcu() to solve this then?
+--Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yes, this should be good.
+Hi all,
 
-Thanks
+After merging the net tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-[PATCH net-next-2.6] inetpeer: should use call_rcu() variant
+kernel/irq/manage.c: In function 'irq_affinity_notify':
+kernel/irq/manage.c:182: error: 'struct irq_desc' has no member named 'affi=
+nity'
 
-After commit 7b46ac4e77f3224a (inetpeer: Don't disable BH for initial
-fast RCU lookup.), we should use call_rcu() to wait proper RCU grace
-period.
+Caused by commit cd7eab44e994 ("genirq: Add IRQ affinity notifiers")
+(which is also in the tip tree).  I am guessing that there is a fix for
+this also in the tip tree ... yep commit 1fb0ef31f428 ("genirq: Fix
+affinity notifier fallout").
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/inetpeer.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I tried using the net tree from next-20110311 for today but that had the
+same problem.  So I merged the above fix commit from the tip tree.
 
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 86b1d08..dd1b20e 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -399,7 +399,7 @@ static void unlink_from_pool(struct inet_peer *p, s=
-truct inet_peer_base *base)
- 	write_sequnlock_bh(&base->lock);
-=20
- 	if (do_free)
--		call_rcu_bh(&p->rcu, inetpeer_free_rcu);
-+		call_rcu(&p->rcu, inetpeer_free_rcu);
- 	else
- 		/* The node is used again.  Decrease the reference counter
- 		 * back.  The loop "cleanup -> unlink_from_unused
+I have no idea why this has suddenly become a problem in the net tree.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNfZiYAAoJEDMEi1NhKgbs+DAIAIOgo7NgsH5GEsKVOtFodbSM
+Amykwyyxypt7reVWKUREs+VvnD/BVmjgZNJyGgwGzjgeNup8KwtM0fFuLWnu10A8
+4oaXMVq57gKb3ac6gI/7k/OzxsqBgCCKIyzpVErniLcRIKExfDnIpQABXOkZddNy
+aoDkKbsHKmid+/aecMgHs18cF3eBb7jVagegWIpemzgW7rYagJTZzcICZFfxOurq
+DpnQVAznb7uJu+HOtf2OMzr2Jiy7JGrZK9ld6sTIOODpoVKrBx25bxee3tQZk7Tz
+B6DcYwvWZ08YhLJqR4309mZXCYkBOeewyHDXNn7nO/BDmVqsMtQBP8926yTt1E8=
+=58DL
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n--
