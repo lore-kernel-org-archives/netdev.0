@@ -1,62 +1,47 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net tree
-Date: Mon, 14 Mar 2011 15:24:56 +1100
-Message-ID: <20110314152456.b49b2693.sfr@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 02/20] ipvs: reorganize tot_stats
+Date: Mon, 14 Mar 2011 05:28:23 +0100
+Message-ID: <1300076903.2761.64.camel@edumazet-laptop>
+References: <1300074346-13799-1-git-send-email-horms@verge.net.au>
+	 <1300074346-13799-3-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-	Peter Zijlstra <peterz@infradead.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans@schillstrom.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1300074346-13799-3-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Le lundi 14 mars 2011 =C3=A0 12:45 +0900, Simon Horman a =C3=A9crit :
+> From: Julian Anastasov <ja@ssi.bg>
+>=20
+>  	The global tot_stats contains cpustats field just like the
+> stats for dest and svc, so better use it to simplify the usage
+> in estimation_timer. As tot_stats is registered as estimator
+> we can remove the special ip_vs_read_cpu_stats call for
+> tot_stats. Fix ip_vs_read_cpu_stats to be called under
+> stats lock because it is still used as synchronization between
+> estimation timer and user context (the stats readers).
+>=20
+>  	Also, make sure ip_vs_stats_percpu_show reads properly
+> the u64 stats from user context.
+>=20
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Hi all,
+Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-After merging the net tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+One comment : per cpu stats are really good to avoid cache misses, but =
+I
+see tot_stats is included in struct netns_ipvs right after "conn_count"=
+,
+possibly sharing a hot cache line ?
 
-kernel/irq/manage.c: In function 'irq_affinity_notify':
-kernel/irq/manage.c:182: error: 'struct irq_desc' has no member named 'affi=
-nity'
+Thanks
 
-Caused by commit cd7eab44e994 ("genirq: Add IRQ affinity notifiers")
-(which is also in the tip tree).  I am guessing that there is a fix for
-this also in the tip tree ... yep commit 1fb0ef31f428 ("genirq: Fix
-affinity notifier fallout").
 
-I tried using the net tree from next-20110311 for today but that had the
-same problem.  So I merged the above fix commit from the tip tree.
-
-I have no idea why this has suddenly become a problem in the net tree.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNfZiYAAoJEDMEi1NhKgbs+DAIAIOgo7NgsH5GEsKVOtFodbSM
-Amykwyyxypt7reVWKUREs+VvnD/BVmjgZNJyGgwGzjgeNup8KwtM0fFuLWnu10A8
-4oaXMVq57gKb3ac6gI/7k/OzxsqBgCCKIyzpVErniLcRIKExfDnIpQABXOkZddNy
-aoDkKbsHKmid+/aecMgHs18cF3eBb7jVagegWIpemzgW7rYagJTZzcICZFfxOurq
-DpnQVAznb7uJu+HOtf2OMzr2Jiy7JGrZK9ld6sTIOODpoVKrBx25bxee3tQZk7Tz
-B6DcYwvWZ08YhLJqR4309mZXCYkBOeewyHDXNn7nO/BDmVqsMtQBP8926yTt1E8=
-=58DL
------END PGP SIGNATURE-----
-
---Signature=_Mon__14_Mar_2011_15_24_56_+1100_FzgnEkGE9v5sPp+n--
