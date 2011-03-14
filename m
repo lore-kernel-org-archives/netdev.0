@@ -1,58 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [GIT/PATCH v5] xen network backend driver
-Date: Mon, 14 Mar 2011 18:40:35 +0000
-Message-ID: <1300128035.2584.6.camel@bwh-desktop>
-References: <1300112879.17339.2162.camel@zakaz.uk.xensource.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/7] tcp_cubic: fix clock dependency
+Date: Mon, 14 Mar 2011 19:51:19 +0100
+Message-ID: <1300128679.3423.167.camel@edumazet-laptop>
+References: <20110314175211.788224699@vyatta.com>
+	 <20110314175439.564307922@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:51741 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754022Ab1CNSkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 14:40:39 -0400
-In-Reply-To: <1300112879.17339.2162.camel@zakaz.uk.xensource.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37693 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624Ab1CNSwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 14:52:31 -0400
+Received: by fxm17 with SMTP id 17so3221761fxm.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 11:52:30 -0700 (PDT)
+In-Reply-To: <20110314175439.564307922@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-03-14 at 14:27 +0000, Ian Campbell wrote:
-> The following patch is the fifth iteration of the Xen network backend
-> driver for upstream Linux.
-> 
-> This driver ("netback") is the host side counterpart to the frontend
-> driver in drivers/net/xen-netfront.c. The PV protocol is also
-> implemented by frontend drivers in other OSes too, such as the BSDs and
-> even Windows.
-> 
-> Changes since the fourth posting, due to review from Stephen Hemminger:
->       * Treat dev->features as u32 (it effectively is already and
->         becomes literally so in net-next -- there's no harm in netback
->         switching earlier)
->       * Use stats from struct netdevice instead of a local copy.
-[...]
+Le lundi 14 mars 2011 =C3=A0 10:52 -0700, Stephen Hemminger a =C3=A9cri=
+t :
+> pi=C3=A8ce jointe document texte brut (tcp-cubic-minrtt.patch)
+> The hystart code was written with assumption that HZ=3D1000.
+> Replace the use of jiffies with bictcp_clock as a millisecond
+> real time clock.=20
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Reported-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+>=20
+> --- a/net/ipv4/tcp_cubic.c	2011-03-14 08:19:18.000000000 -0700
+> +++ b/net/ipv4/tcp_cubic.c	2011-03-14 08:22:42.486690594 -0700
+> @@ -88,7 +88,7 @@ struct bictcp {
+>  	u32	last_time;	/* time when updated last_cwnd */
+>  	u32	bic_origin_point;/* origin point of bic function */
+>  	u32	bic_K;		/* time to origin point from the beginning of the curre=
+nt epoch */
+> -	u32	delay_min;	/* min delay */
+> +	u32	delay_min;	/* min delay (msec << 3) */
+>  	u32	epoch_start;	/* beginning of an epoch */
+>  	u32	ack_cnt;	/* number of acks */
+>  	u32	tcp_cwnd;	/* estimated tcp cwnd */
+> @@ -98,7 +98,7 @@ struct bictcp {
+>  	u8	found;		/* the exit point is found? */
+>  	u32	round_start;	/* beginning of each round */
+>  	u32	end_seq;	/* end_seq of the round */
+> -	u32	last_jiffies;	/* last time when the ACK spacing is close */
+> +	u32	last_ack;	/* last time when the ACK spacing is close */
+>  	u32	curr_rtt;	/* the minimum rtt of current round */
+>  };
+> =20
+> @@ -119,12 +119,21 @@ static inline void bictcp_reset(struct b
+>  	ca->found =3D 0;
+>  }
+> =20
+> +static inline u32 bictcp_clock(void)
+> +{
+> +#if HZ < 1000
+> +	return ktime_to_ms(ktime_get_real());
 
-All looks good (or good enough) to me.  I would add Reviewed-by, but
-this isn't a single patch.
+Small point : This can be changed if date/time is changed
 
-I know you have asked for this to be pulled, in order to retain its
-history, but I'm not sure that David Miller will do this unless the
-driver is at least buildable at each stage in the history.  (However,
-given that the driver wouldn't be enabled before it's added, I'm not
-sure it matters in this case.)
+Maybe use monotonic time (aka ktime_get_ts()) ?
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
