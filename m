@@ -1,70 +1,80 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: how to utilize multi tx queue to sent packets
-Date: Mon, 14 Mar 2011 11:14:43 -0700
-Message-ID: <20110314111443.149b56a9@nehalam>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB3D3D62@MILEXCH2.ds.jdsu.net>
-	<20110311090636.6e393f2b@nehalam>
-	<4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB47E9EE@MILEXCH2.ds.jdsu.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [GIT PULL nf-next-2.6] IPVS
+Date: Mon, 14 Mar 2011 19:17:34 +0100
+Message-ID: <4D7E5BBE.7060702@trash.net>
+References: <1300056261-14709-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jon Zhou <Jon.Zhou@jdsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45467 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752465Ab1CNSOq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2011 14:14:46 -0400
-In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24FB47E9EE@MILEXCH2.ds.jdsu.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1300056261-14709-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 13 Mar 2011 01:06:11 -0800
-Jon Zhou <Jon.Zhou@jdsu.com> wrote:
-
+On 13.03.2011 23:44, Simon Horman wrote:
+> Hi Patrick,
 > 
+> please consider pulling
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
+> to get the following changes.
 > 
-> > -----Original Message-----
-> > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > Sent: Saturday, March 12, 2011 1:07 AM
-> > To: Jon Zhou
-> > Cc: netdev@vger.kernel.org
-> > Subject: Re: how to utilize multi tx queue to sent packets
-> > 
-> > On Thu, 10 Mar 2011 22:52:30 -0800
-> > Jon Zhou <Jon.Zhou@jdsu.com> wrote:
-> > 
-> > > hi
-> > >
-> > > I am doing some test according to the
-> > > website:http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap
-> > >
-> > > use packet_mmap tx_ring to send packet.
-> > >
-> > > I modified the sample code "packetmmap.c" to make it send packets
-> > have different outer ip.
-> > > so that with the help of RSS, I can achieve higher throughput.
-> > >
-> > > but one thing I saw at the tx side, is that all the packets are sent
-> > via the same tx_queue,
-> > > which is conflict with what I saw at the rx side.
-> > > any idea to make it sent packets via different tx_queues? (spread
-> > across the tx_queues)
-> > 
-> > You need to have multiple threads to get Tx scaling.
-> > In you case that also means multiple AF_PACKET sockets and separate
-> > rings.
-> > 
-> > Or just run multiple copies of the same test each with a different IP
+> Jesper Juhl (1):
+>       Fix variable assignment in ip_vs_notrack
 > 
-> How does kernel know which tx_queue to use?
-> Will dev_queue_xmit determine tx_queue(sw queue) to send packets?
-> Or just let NIC select a tx_queue(hardware) ?
+> Julian Anastasov (2):
+>       ipvs: avoid lookup for fwmark 0
+>       ipvs: remove _bh from percpu stats reading
 > 
+> Shan Wei (1):
+>       netfilter:ipvs: use kmemdup
+> 
+>  include/net/ip_vs.h               |    2 +-
+>  net/netfilter/ipvs/ip_vs_ctl.c    |    8 +++++---
+>  net/netfilter/ipvs/ip_vs_est.c    |    8 ++++----
+>  net/netfilter/ipvs/ip_vs_pe_sip.c |    9 ++++-----
+>  net/netfilter/ipvs/ip_vs_sync.c   |    3 +--
+>  5 files changed, 15 insertions(+), 15 deletions(-)
 
-On most hardware, with multi-queue there is one queue per CPU.
-In that case the queue selected corresponds to the CPU.
+The pull contained quite a lot of other changes. I'm undoing the
+pull for now, please resubmit the patches you actually want me to
+pull. Thanks!
 
+Jesper Juhl (1):
+      Fix variable assignment in ip_vs_notrack
 
+Julian Anastasov (8):
+      ipvs: avoid lookup for fwmark 0
+      ipvs: remove _bh from percpu stats reading
+      ipvs: move struct netns_ipvs
+      ipvs: reorganize tot_stats
+      ipvs: properly zero stats and rates
+      ipvs: remove unused seqcount stats
+      ipvs: optimize rates reading
+      ipvs: rename estimator functions
 
--- 
+Patrick McHardy (1):
+      Merge branch 'master' of git://git.kernel.org/.../horms/lvs-test-2.6
+
+Shan Wei (1):
+      netfilter:ipvs: use kmemdup
+
+Simon Horman (14):
+      IPVS: Add ip_vs_route_me_harder()
+      IPVS: Add sysctl_snat_reroute()
+      IPVS: Add sysctl_nat_icmp_send()
+      IPVS: Add {sysctl_sync_threshold,period}()
+      IPVS: Add sysctl_sync_ver()
+      IPVS: Add sysctl_expire_nodest_conn()
+      IPVS: Add expire_quiescent_template()
+      IPVS: Conditinally use sysctl_lblc{r}_expiration
+      IPVS: ip_vs_todrop() becomes a noop when CONFIG_SYSCTL is undefined
+      IPVS: Conditional ip_vs_conntrack_enabled()
+      IPVS: Minimise ip_vs_leave when CONFIG_SYSCTL is undefined
+      IPVS: Conditionally define and use ip_vs_lblc{r}_table
+      IPVS: Add __ip_vs_control_{init,cleanup}_sysctl()
+      IPVS: Conditionally include sysctl members of struct netns_ipvs
