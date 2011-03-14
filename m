@@ -1,50 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Mon, 14 Mar 2011 04:59:38 +0000
-Message-ID: <1300078778.3962.22.camel@localhost>
-References: <20110314152456.b49b2693.sfr@canb.auug.org.au>
+From: WANG Cong <xiyou.wangcong@gmail.com>
+Subject: Re: [patch net-next-2.6 5/6] bonding: get rid of IFF_SLAVE_INACTIVE
+ netdev->priv_flag
+Date: Mon, 14 Mar 2011 05:29:35 +0000 (UTC)
+Message-ID: <ilk93u$ant$1@dough.gmane.org>
+References: <1299935679-18135-1-git-send-email-jpirko@redhat.com>
+	<1299935679-18135-6-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-	Peter Zijlstra <peterz@infradead.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110314152456.b49b2693.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:52774 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752510Ab1CNF3x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 01:29:53 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Pz0Lj-00007s-FE
+	for netdev@vger.kernel.org; Mon, 14 Mar 2011 06:29:47 +0100
+Received: from 180.106.106.40 ([180.106.106.40])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 06:29:47 +0100
+Received: from xiyou.wangcong by 180.106.106.40 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 06:29:47 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-03-14 at 15:24 +1100, Stephen Rothwell wrote:
-> Hi all,
-> 
-> After merging the net tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
-> 
-> kernel/irq/manage.c: In function 'irq_affinity_notify':
-> kernel/irq/manage.c:182: error: 'struct irq_desc' has no member named 'affinity'
-> 
-> Caused by commit cd7eab44e994 ("genirq: Add IRQ affinity notifiers")
-> (which is also in the tip tree).  I am guessing that there is a fix for
-> this also in the tip tree ... yep commit 1fb0ef31f428 ("genirq: Fix
-> affinity notifier fallout").
-> 
-> I tried using the net tree from next-20110311 for today but that had the
-> same problem.  So I merged the above fix commit from the tip tree.
-> 
-> I have no idea why this has suddenly become a problem in the net tree.
+On Sat, 12 Mar 2011 14:14:38 +0100, Jiri Pirko wrote:
 
-Commit cd7eab44e994 ("genirq: Add IRQ affinity notifiers") was a
-prerequisite for some changes in networking.  Thomas Gleixner applied it
-on a branch of its own so that David Miller could pull just that commit
-into net-next-2.6.  Of course, this means net-next-2.6 doesn't have the
-later fix (and won't for a while).
+> Since bond-related code was moved from net/core/dev.c into bonding,
+> IFF_SLAVE_INACTIVE is no longer needed. Replace is with flag "inactive"
+> stored in slave structure
+> 
 
-Ben.
+Good work, Jiri!
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+IFF_ flags are valuable and are going to be exhausted, moving
+these slave-specific flags to struct slave is indeed good.
+
+Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
+
+Thanks.
+
