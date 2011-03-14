@@ -1,44 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC v2 PATCH 1/9] crypto: authencesn - Add algorithm to
-	handle IPsec extended sequence numbers
-Date: Mon, 14 Mar 2011 17:39:07 +0800
-Message-ID: <20110314093907.GA25957@gondor.apana.org.au>
-References: <20110308100407.GB31402@secunet.com> <20110308100458.GC31402@secunet.com> <20110313063017.GA10849@gondor.apana.org.au> <20110314083741.GN31402@secunet.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Mon, 14 Mar 2011 10:44:15 +0100 (CET)
+Message-ID: <alpine.LFD.2.00.1103141043460.2787@localhost6.localdomain6>
+References: <20110314152456.b49b2693.sfr@canb.auug.org.au> <1300078778.3962.22.camel@localhost> <20110314163135.f366742e.sfr@canb.auug.org.au> <20110313.225312.193696949.davem@davemloft.net> <20110314170546.af552b4e.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Alex Badea <abadea@ixiacom.com>,
-	Andreas Gruenbacher <agruen@suse.de>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110314083741.GN31402@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, hpa@zytor.com,
+	peterz@infradead.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.tglx.de ([62.245.132.106]:41788 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754451Ab1CNJoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 05:44:46 -0400
+In-Reply-To: <20110314170546.af552b4e.sfr@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 14, 2011 at 09:37:41AM +0100, Steffen Klassert wrote:
-> On Sun, Mar 13, 2011 at 02:30:17PM +0800, Herbert Xu wrote:
-> > On Tue, Mar 08, 2011 at 11:04:58AM +0100, Steffen Klassert wrote:
-> > >
-> > > +	return crypto_authenc_esn_genicv(req, iv, CRYPTO_TFM_REQ_MAY_SLEEP);
-> > 
-> > BTW, we should get rid of these MAY_SLEEP flags.  Originally I
-> > included them for the IPsec encryption path because that happens
-> > to be sleepable. We should instead be getting it from the request
-> > itself.
-> > 
+On Mon, 14 Mar 2011, Stephen Rothwell wrote:
+> Hi Dave,
 > 
-> Not sure if I get you right, but we do not set this flag here.
-> We use it to mask the flags we got from the request, so we pass
-> this flag to the ahash algorithm just if it was set by the
-> original aead request.
+> On Sun, 13 Mar 2011 22:53:12 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+> >
+> > From: Stephen Rothwell <sfr@canb.auug.org.au>
+> > Date: Mon, 14 Mar 2011 16:31:35 +1100
+> > 
+> > > Maybe some config option changed ...
+> > 
+> > Perhaps GENERIC_HARDIRQS_NO_DEPRECATED?
+> 
+> Yep, that has been turned on for powerpc now.  I guess you will have the
+> same problem on sparc64 of you merge the net-next and sparc trees ...
 
-Indeed you are right.  As long as it is only a mask and only
-used on the sync path it should be OK.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hmm, the tip/irq/core has the fix for that. /me wonders
