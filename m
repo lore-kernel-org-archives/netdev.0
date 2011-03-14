@@ -1,36 +1,63 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC v2 PATCH 1/9] crypto: authencesn - Add algorithm to
- handle IPsec extended sequence numbers
-Date: Mon, 14 Mar 2011 09:37:41 +0100
-Message-ID: <20110314083741.GN31402@secunet.com>
-References: <20110308100407.GB31402@secunet.com>
- <20110308100458.GC31402@secunet.com>
- <20110313063017.GA10849@gondor.apana.org.au>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH] net: add Faraday FTGMAC100 Gigabit Ethernet driver
+Date: Mon, 14 Mar 2011 16:38:08 +0800
+Message-ID: <AANLkTi==o78Xq3CxSNpycdPeUUcX6+LYQa=HPqthgbgD@mail.gmail.com>
+References: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com> <1300047388.2761.48.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Alex Badea <abadea@ixiacom.com>,
-	Andreas Gruenbacher <agruen@suse.de>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110313063017.GA10849@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:64505 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752286Ab1CNIia convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 04:38:30 -0400
+In-Reply-To: <1300047388.2761.48.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 13, 2011 at 02:30:17PM +0800, Herbert Xu wrote:
-> On Tue, Mar 08, 2011 at 11:04:58AM +0100, Steffen Klassert wrote:
-> >
-> > +	return crypto_authenc_esn_genicv(req, iv, CRYPTO_TFM_REQ_MAY_SLEEP);
-> 
-> BTW, we should get rid of these MAY_SLEEP flags.  Originally I
-> included them for the IPsec encryption path because that happens
-> to be sleepable. We should instead be getting it from the request
-> itself.
-> 
+Hi Eric,
 
-Not sure if I get you right, but we do not set this flag here.
-We use it to mask the flags we got from the request, so we pass
-this flag to the ahash algorithm just if it was set by the
-original aead request.
+On Mon, Mar 14, 2011 at 4:16 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le jeudi 10 mars 2011 =C3=A0 16:08 +0800, Po-Yu Chuang a =C3=A9crit :
+>> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>>
+>> FTGMAC100 Ethernet Media Access Controller supports 10/100/1000 Mbps
+>> and MII/GMII. =C2=A0This driver has been working on some ARM/NDS32 S=
+oC's
+>> including Faraday A369 and Andes AG102.
+>
+> Hi
+>
+> It seems very close from drivers/net/ftmac100.c one. Are you sure a
+> factorization is not possible ?
+
+=46irst, the registers and descriptors of FTGMAC100 are not backward
+compatible to FTMAC100.
+
+Second, FTGMAC100 HW has some features new to FTMAC100
+(jumbo packet, checksum offload... etc.) and not all of them are suppor=
+ted
+in the current version. For example, NETIF_F_SG support might be the ne=
+xt
+step to improve.
+
+IMHO, it will be easier for me to maintain them and to add new features=
+ to
+=46TGMAC100 driver if we separate these two drivers. How do you think?
+
+> BTW, it seems I missed the fact that ftmac100_alloc_rx_page() used a
+> GFP_KERNEL allocation, while its called from softirq context (from
+> ftmac100_rx_packet())
+
+Tested. Thank you.
+
+> Same problem of course in this Gigabit driver.
+
+Will fix it.
+
+Best regards,
+Po-Yu Chuang
