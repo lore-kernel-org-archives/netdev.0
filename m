@@ -1,99 +1,65 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: fcoe: correct checking for bonding
-Date: Mon, 14 Mar 2011 20:22:02 +0100
-Message-ID: <20110314192201.GA2873@psychotron.redhat.com>
-References: <20110302095550.GA2858@psychotron.brq.redhat.com>
- <1299114558.1688.5.camel@fritz>
- <20110312120109.GA2899@psychotron.redhat.com>
- <20110312.105944.193725929.davem@davemloft.net>
- <1300129447.19083.258.camel@fritz>
+From: Brent Cook <bcook@breakingpoint.com>
+Subject: Re: Occasional link flap on Intel 82599 on boot in XAUI mode
+Date: Mon, 14 Mar 2011 14:21:56 -0500
+Message-ID: <201103141421.56212.bcook@breakingpoint.com>
+References: <201102251011.42400.bcook@breakingpoint.com> <29F4ED941D916B48B88B4D2A4F3D1B9C01D30140EF@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"James.Bottomley@suse.de" <James.Bottomley@suse.de>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>,
-	"joe.eykholt@gmail.com" <joe.eykholt@gmail.com>
-To: Robert Love <robert.w.love@intel.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3931 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755286Ab1CNTWM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2011 15:22:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1300129447.19083.258.camel@fritz>
+Received: from mail.breakingpoint.com ([65.36.7.12]:28654 "EHLO
+	EXCHANGE.securitytestsystems.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753022Ab1CNTWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 15:22:54 -0400
+In-Reply-To: <29F4ED941D916B48B88B4D2A4F3D1B9C01D30140EF@orsmsx509.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Mar 14, 2011 at 08:04:07PM CET, robert.w.love@intel.com wrote:
->On Sat, 2011-03-12 at 10:59 -0800, David Miller wrote:
->> From: Jiri Pirko <jpirko@redhat.com>
->> Date: Sat, 12 Mar 2011 13:01:10 +0100
->> 
->> > Thu, Mar 03, 2011 at 02:09:18AM CET, robert.w.love@intel.com wrote:
->> >>On Wed, 2011-03-02 at 01:55 -0800, Jiri Pirko wrote:
->> >>> Or perhaps this should be applied to net-next?
->> >>> 
->> >>I think this should go through scsi-misc as all the other
->> >>libfc/libfcoe/fcoe patches do.
->> >>
->> >>> Wed, Mar 02, 2011 at 07:05:35AM CET, jpirko@redhat.com wrote:
->> >>> >Check for bonding master and refuse to use that.
->> >>> >
->> >>> >Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> >>> >---
->> >>> > drivers/scsi/fcoe/fcoe.c |    4 +---
->> >>> > 1 files changed, 1 insertions(+), 3 deletions(-)
->> >>> >
->> >>> >diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
->> >>> >index 9f9600b..3becc6a 100644
->> >>> >--- a/drivers/scsi/fcoe/fcoe.c
->> >>> >+++ b/drivers/scsi/fcoe/fcoe.c
->> >>> >@@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
->> >>> > 	}
->> >>> > 
->> >>> > 	/* Do not support for bonding device */
->> >>> >-	if ((netdev->priv_flags & IFF_MASTER_ALB) ||
->> >>> >-	    (netdev->priv_flags & IFF_SLAVE_INACTIVE) ||
->> >>> >-	    (netdev->priv_flags & IFF_MASTER_8023AD)) {
->> >>> >+	if (netdev->priv_flags & IFF_BONDING && netdev->flags & IFF_MASTER) {
->> >>> > 		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
->> >>> > 		return -EOPNOTSUPP;
->> >>> > 	}
->> >>> >-- 
->> >>> >1.7.3.4
->> >>> >
->> >>
->> >>James, feel free to pick up this patch. I don't have anything in my fcoe
->> >>tree right now that it would conflict with. I'll also put it in my tree
->> >>and resend if you don't put it into scsi-misc directly.
->> > 
->> > What's the status of this? Maybe this should rather go thru net-next
->> 
->> Sure, I can take this.  I'll look at it later.
->
->Hi Dave,
->
->   I'd rather have this patch go through scsi-misc. Most, if not all,
->libfc, libfcoe and fcoe patches have taken this path. The way it has
->been working is that I have been collecting fcoe patches and re-posting
->them to scsi-misc after I have reviewed them and done some basic
->testing.
->
->   Taking a patch like this through net{-next} could cause a merge
->problem at Linus' level if a later patch makes it though the normal
->process and conflicts. This is what I want to avoid.
->
->   This patch, although appreciated, isn't critical. I have collected it
->into my tree and will re-post it to scsi-misc. I see no reason to treat
->this patch differently from other patches.
+On Friday 25 February 2011 12:11:11 Skidmore, Donald C wrote:
+> >-----Original Message-----
+> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> >On Behalf Of Brent Cook
+> >Sent: Friday, February 25, 2011 8:12 AM
+> >To: netdev@vger.kernel.org
+> >Subject: Occasional link flap on Intel 82599 on boot in XAUI mode
+> >
+> >We have a custom system with dual 82599's in XAUI mode. One has its pair
+> >of ports connected to a 10G switch, the other has its pair of ports
+> >connected to an FPGA.
+> >
+> >Occasionally, on any of the interfaces, we will see the links flapping
+> >up and down when the system initially boots. This happens maybe one in
+> >20 boots.
+> >
+> >Feb 23 14:58:10 mfg kernel: [  594.254977] ixgbe: eth1 NIC Link is Down
+> >Feb 23 14:58:12 mfg kernel: [  596.230039] ixgbe: eth1 NIC Link is Up 10
+> >Gbps, Flow Control: RX/TX
+> >Feb 23 14:58:12 mfg kernel: [  596.256537] ixgbe: eth1 NIC Link is Down
+> >Feb 23 14:58:16 mfg kernel: [  600.228096] ixgbe: eth1 NIC Link is Up 10
+> >Gbps, Flow Control: RX/TX
+> >Feb 23 14:58:16 mfg kernel: [  600.240135] ixgbe: eth1 NIC Link is Down
+> >Feb 23 14:58:18 mfg kernel: [  602.227047] ixgbe: eth1 NIC Link is Up 10
+> >Gbps, Flow Control: RX/TX
+> >
+> >Simply forcing a down/up on the interface seems to correct the problem:
+> >
+> >ip link set eth1 down
+> >ip link set eth1 up
+> >
+> >Is anyone else using XAUI mode and has seen this? Here is the kernel
+> >information that we are using currently:
+> >
+> 
+> By any chance have you tried it with a newer driver?  Latest Source Forge is 3.2.9.
+> 
+> Also do you only see this link flap on boot, can you recreate the flap by unload and loading the ixgbe module?
+> 
 
-Well I have another set of patches dependent on this one :(
->
->   Ultimately I just want things to go smoothly, so I'll leave it up to
->James and you to figure out what to do.
->
->Thanks, //Rob
->
+We updated to the latest source forge driver and had the same behavior. Reloading the driver does not reproduce the issue.
+
+It seems to be related to the remote XAUI peer coming out of reset after the 82599. The FPGAs on one pair of links are loaded in software at boot time, and the switch reset is also delayed slightly compared to the 82599.  We fixed the issue by doing 'ethtool -r' once for each link at boot time.
+
+Thanks
+ - Brent
