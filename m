@@ -1,49 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ipv4: Fix PMTU update.
-Date: Sun, 13 Mar 2011 18:38:45 -0700 (PDT)
-Message-ID: <20110313.183845.226774350.davem@davemloft.net>
-References: <20110310150958.123c9f7f.shimoda.hiroaki@gmail.com>
+Subject: Re: [PATCH net-next 00/26] tipc: Yet another mixed bag of updates
+Date: Sun, 13 Mar 2011 18:53:10 -0700 (PDT)
+Message-ID: <20110313.185310.71123007.davem@davemloft.net>
+References: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shimoda.hiroaki@gmail.com
+Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44997
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51179
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756737Ab1CNBiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 21:38:08 -0400
-In-Reply-To: <20110310150958.123c9f7f.shimoda.hiroaki@gmail.com>
+	by vger.kernel.org with ESMTP id S1755818Ab1CNBwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 21:52:33 -0400
+In-Reply-To: <1300052054-7531-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Date: Thu, 10 Mar 2011 15:09:58 +0900
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Sun, 13 Mar 2011 17:33:48 -0400
 
-> On current net-next-2.6, when Linux receives ICMP Type: 3, Code: 4
-> (Destination unreachable (Fragmentation needed)), 
+> Content varies, from cleanups to bugfixes to removals of orphaned code.
 > 
->   icmp_unreach
->     -> ip_rt_frag_needed
->          (peer->pmtu_expires is set here)
->     -> tcp_v4_err
->          -> do_pmtu_discovery
->               -> ip_rt_update_pmtu
->                    (peer->pmtu_expires is already set,
->                     so check_peer_pmtu is skipped.)
->                    -> check_peer_pmtu
+> In the new functionality department, there is the SO_RCVTIMEO sockopt
+> and the multi-chunk iovec changes that simply were not supported before.
 > 
-> check_peer_pmtu is skipped and MTU is not updated.
+> In the removal dep't there were a couple more blocks relating to the
+> now-gone prototype routing that can also now be deleted.
 > 
-> To fix this, let check_peer_pmtu execute unconditionally.
-> And some minor fixes
-> 1) Avoid potential peer->pmtu_expires set to be zero.
-> 2) In check_peer_pmtu, argument of time_before is reversed.
-> 3) check_peer_pmtu expects peer->pmtu_orig is initialized as zero,
->    but not initialized.
+> Nobody likes Kconfig options for micro tuning anymore, so one of those
+> gets shot in the head, which triggered a bunch of associated cleanups,
+> like the killing off of a largely useless global structure.
 > 
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> The remainder are either bugfixes or cosmetic cleanups initiated by
+> the bugfix; with the usual intent of not mixing both types of content
+> within a single commit, so that review/inspection is hopefully easier.
 
-This looks great, thanks for fixing this bug.
-
-Applied.
+Looks good, pulled, thanks a lot!
