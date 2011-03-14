@@ -1,65 +1,62 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [patch net-next-2.6 1/6] af_packet: use skb->skb_iif instead of orig_dev->ifindex
-Date: Mon, 14 Mar 2011 23:10:45 +0800
-Message-ID: <AANLkTikTNH3Lux-rusmtf0Xca=s0wtNzy8N4OxPjnO21@mail.gmail.com>
-References: <1299935679-18135-1-git-send-email-jpirko@redhat.com>
- <1299935679-18135-2-git-send-email-jpirko@redhat.com> <AANLkTimkUQ7JPAozRWnYgfwGu5wqeY-ikfdmWEGeUkrK@mail.gmail.com>
- <20110314065454.GA2751@psychotron.redhat.com> <AANLkTik6-qCHW-5vRUY4BdXJL1jVFsD85rTRWucUdkRe@mail.gmail.com>
- <20110314074342.GB2751@psychotron.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
-	andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: [PATCH 2/2] dev : fix mtu check when TSO is enabled
+Date: Mon, 14 Mar 2011 17:08:08 +0100
+Message-ID: <1300118888-2311-2-git-send-email-daniel.lezcano@free.fr>
+References: <1300118888-2311-1-git-send-email-daniel.lezcano@free.fr>
+Cc: kaber@trash.net, nightnord@gmail.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:62889 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752176Ab1CNPNq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 11:13:46 -0400
-Received: by fxm17 with SMTP id 17so2994612fxm.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 08:13:45 -0700 (PDT)
-In-Reply-To: <20110314074342.GB2751@psychotron.redhat.com>
+Received: from mtagate1.uk.ibm.com ([194.196.100.161]:55357 "EHLO
+	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753646Ab1CNQIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 12:08:19 -0400
+Received: from d06nrmr1707.portsmouth.uk.ibm.com (d06nrmr1707.portsmouth.uk.ibm.com [9.149.39.225])
+	by mtagate1.uk.ibm.com (8.13.1/8.13.1) with ESMTP id p2EG8I76015542
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 16:08:18 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+	by d06nrmr1707.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p2EG8aSh1826892
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 16:08:36 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av02.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p2EG8H2w012975
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 10:08:18 -0600
+In-Reply-To: <1300118888-2311-1-git-send-email-daniel.lezcano@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 14, 2011 at 3:43 PM, Jiri Pirko <jpirko@redhat.com> wrote:
-> Mon, Mar 14, 2011 at 07:59:39AM CET, xiaosuo@gmail.com wrote:
->>>
->>
->>1557 static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_d=
-evice *dev)
->>....
->>
->>1571 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (pt_prev) {
->>1572 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-deliver_skb(skb2, pt_prev, skb->dev);
->>1573 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-pt_prev =3D ptype;
->>1574 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-continue;
->>1575 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->>...
->>1603 =A0 =A0 =A0 =A0 }
->>1604 =A0 =A0 =A0 =A0 if (pt_prev)
->>1605 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pt_prev->func(skb2, skb->dev, pt=
-_prev, skb->dev);
->>1606 =A0 =A0 =A0 =A0 rcu_read_unlock();
->>1607 }
->
-> I'm probably missign something but I do not see the connection betwee=
-n
-> this and setting up sll->sll_ifindex in net/packet/af_packet.c
->
+In case the device where is coming from the packet has TSO enabled,
+we should not check the mtu size value as this one could be bigger
+than the expected value.
 
-Think about a packet socket(with origdev set) for packets emitted via
-NIC eth0, and sll->sll_ifindex is eth0->ifindex, but after your patch,
-sll->sll_ifindex may be ZERO or the ifindex of the RX NIC for the
-forwarded packets. However, I don't know if this origdev usage is
-valid. Thanks.
+This is the case for the macvlan driver when the lower device has
+TSO enabled. The macvlan inherit this feature and forward the packets
+without fragmenting them. Then the packets go through dev_forward_skb
+and are dropped. This patch fix this by checking TSO is not enabled
+when we want to check the mtu size.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Andrian Nord <nightnord@gmail.com>
+---
+ net/core/dev.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6561021..010a0a9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1526,8 +1526,10 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
+ 	skb_orphan(skb);
+ 	nf_reset(skb);
+ 
+-	if (unlikely(!(dev->flags & IFF_UP) ||
+-		     (skb->len > (dev->mtu + dev->hard_header_len + VLAN_HLEN)))) {
++	if (unlikely(!(skb->dev->features & NETIF_F_TSO) &&
++		     (!(dev->flags & IFF_UP) ||
++		      (skb->len > (dev->mtu +
++				   dev->hard_header_len + VLAN_HLEN))))) {
+ 		atomic_long_inc(&dev->rx_dropped);
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+-- 
+1.7.1
+
