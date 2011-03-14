@@ -1,43 +1,45 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next] tipc: delete extra semicolon blocking node deletion
-Date: Mon, 14 Mar 2011 13:11:22 -0400
-Message-ID: <1300122682-13752-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54413 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245Ab1CNRLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 13:11:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [RFC v3 3/6] can: make struct proto const
+Date: Mon, 14 Mar 2011 18:17:56 +0100
+Message-ID: <20110314171752.GL333@e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314134721.GD333@e-circ.dyndns.org>
+	<1300111755.3423.20.camel@edumazet-laptop>
+	<20110314150227.GJ333@e-circ.dyndns.org>
+	<1300120943.3423.121.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1300120943.3423.121.camel@edumazet-laptop>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Remove bogus semicolon only recently introduced in 34e46258cb9f5
-that blocks cleanup of nodes for N>1 on shutdown.
-
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
-
-Also available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/net-next-2.6.git tipc-Mar14-2011
-
- net/tipc/net.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 8fbc7e6..68b3dd6 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -221,7 +221,7 @@ void tipc_net_stop(void)
- 	tipc_bearer_stop();
- 	tipc_mode = TIPC_NODE_MODE;
- 	tipc_bclink_stop();
--	list_for_each_entry_safe(node, t_node, &tipc_node_list, list);
-+	list_for_each_entry_safe(node, t_node, &tipc_node_list, list)
- 		tipc_node_delete(node);
- 	write_unlock_bh(&tipc_net_lock);
- 	info("Left network mode\n");
--- 
-1.7.3.3
-
+T24gTW9uLCBNYXIgMTQsIDIwMTEgYXQgMDU6NDI6MjNQTSArMDEwMCwgRXJpYyBEdW1hemV0IHdy
+b3RlOgo+IExlIGx1bmRpIDE0IG1hcnMgMjAxMSDDoCAxNjowMiArMDEwMCwgS3VydCBWYW4gRGlq
+Y2sgYSDDqWNyaXQgOgo+IAo+ID4gSSBzZWUgeW91ciBwb2ludC4KPiA+IFRoZSByZWFzb24gSSBt
+b2RpZmllZCB0aGlzIHdhcywgYXMgZGVzY3JpYmVkLCBjaGVja3BhdGNoLnBsIHdhcyBjb21wbGFp
+bmluZy4KPiA+IEFueXdheSwgdGhpcyBzZXF1ZW5jZSB3YXMgcHJvdGVjdGVkIGJ5IGEgc3Bpbmxv
+Y2sgJ3Byb3RvX3RhYl9sb2NrJy4KPiA+IEkgZG9uJ3QgdGhpbmsgaXQgd2FzIGEgcmFjZS4KPiA+
+IAo+ID4gRGlkIEkgbWlzcyBzb21ldGhpbmc/Cj4gCj4gQXMgc29vbiBhcyBwcm90b190YWJbcHJv
+dG9dID0gY3A7IGlzIGRvbmUsIGFub3RoZXIgdGhyZWFkIG9uIGFub3RoZXIgY3B1Cj4gY2FuIHJl
+YWQgdGhlIHBvaW50ZXIgYW5kIGZvbGxvdyBpdC4KPiAKPiBIbW0sIEkgbWlzc2VkIGNhbl9jcmVh
+dGUoKSBhbHNvIHVzZXMgdGhlIHNwaW5sb2NrIHByb3RlY3Rpb24sIHNvIHlvdSdyZQo+IHByb2Jh
+Ymx5IHJpZ2h0Lgo+IAo+IEl0IHNlZW1zIGEgYml0IG92ZXJraWxsIDooCj4gcGhvbmV0IHVzZXMg
+UkNVIGZvciBleGFtcGxlLgpJJ2xsIGtlZXAgdGhhdCBpbiBtaW5kLgpTd2l0Y2hpbmcgQ0FOIHBy
+b3RvcyB0byBSQ1UgaXMgZmFyIGJleW9uZCB0byBnb2FsIG9mIHRoaXMgcGF0Y2ggOi0pCgpUaGFu
+a3MsCkt1cnQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+U29ja2V0Y2FuLWNvcmUgbWFpbGluZyBsaXN0ClNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxpb3Mu
+ZGUKaHR0cHM6Ly9saXN0cy5iZXJsaW9zLmRlL21haWxtYW4vbGlzdGluZm8vc29ja2V0Y2FuLWNv
+cmUK
