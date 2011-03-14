@@ -1,47 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] macvlan : fix checksums error when we are in
- bridge mode
-Date: Mon, 14 Mar 2011 18:04:37 +0100
-Message-ID: <1300122277.3423.132.camel@edumazet-laptop>
-References: <1300118888-2311-1-git-send-email-daniel.lezcano@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, kaber@trash.net, nightnord@gmail.com,
-	netdev@vger.kernel.org
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next] tipc: delete extra semicolon blocking node deletion
+Date: Mon, 14 Mar 2011 13:11:22 -0400
+Message-ID: <1300122682-13752-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:45956 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738Ab1CNRE6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 13:04:58 -0400
-Received: by fxm17 with SMTP id 17so3112388fxm.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 10:04:57 -0700 (PDT)
-In-Reply-To: <1300118888-2311-1-git-send-email-daniel.lezcano@free.fr>
+Received: from mail.windriver.com ([147.11.1.11]:54413 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245Ab1CNRLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 13:11:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 14 mars 2011 =C3=A0 17:08 +0100, Daniel Lezcano a =C3=A9crit :
-> When the lower device has offloading capabilities, the packets checks=
-ums
-> are not computed. That leads to have any macvlan port in bridge mode =
-to
-> not work because the packets are dropped due to a bad checksum.
->=20
-> If the macvlan is in bridge mode, the packet is forwarded to another
-> macvlan port and reach the network stack where it looks for a checksu=
-m
-> but this one was not computed due to the offloading of the lower devi=
-ce.
-> In this case, we have to set the packet with CHECKSUM_UNNECESSARY
-> when it is forwarded to a bridged port and restore the previous value=
- of
-> ip_summed when the packet goes to the lowerdev.
->=20
-> Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Andrian Nord <nightnord@gmail.com>
+Remove bogus semicolon only recently introduced in 34e46258cb9f5
+that blocks cleanup of nodes for N>1 on shutdown.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
 
+Also available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/net-next-2.6.git tipc-Mar14-2011
+
+ net/tipc/net.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 8fbc7e6..68b3dd6 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -221,7 +221,7 @@ void tipc_net_stop(void)
+ 	tipc_bearer_stop();
+ 	tipc_mode = TIPC_NODE_MODE;
+ 	tipc_bclink_stop();
+-	list_for_each_entry_safe(node, t_node, &tipc_node_list, list);
++	list_for_each_entry_safe(node, t_node, &tipc_node_list, list)
+ 		tipc_node_delete(node);
+ 	write_unlock_bh(&tipc_net_lock);
+ 	info("Left network mode\n");
+-- 
+1.7.3.3
 
