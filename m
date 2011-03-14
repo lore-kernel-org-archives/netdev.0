@@ -1,52 +1,44 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
-Date: Mon, 14 Mar 2011 16:44:32 -0400
-Message-ID: <AANLkTi=qi2GOprXEWCf6v=j=L98SQMdHb1OaHcdALepf@mail.gmail.com>
-References: <1299894051-13820-1-git-send-email-ycheng@google.com>
-	<201103141106.19679.carsten@wolffcarsten.de>
-	<AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] pktgen: bug fix in transmission headers
+ with frags=0
+Date: Mon, 14 Mar 2011 13:47:51 -0700 (PDT)
+Message-ID: <20110314.134751.104044608.davem@davemloft.net>
+References: <1300112338.3423.27.camel@edumazet-laptop>
+	<4D7E26A4.2070802@gmail.com>
+	<1300113350.3423.32.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Carsten Wolff <carsten@wolffcarsten.de>,
-	David Miller <davem@davemloft.net>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>, netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Cc: daniel.turull@gmail.com, netdev@vger.kernel.org,
+	robert@herjulf.net, jens.laas@its.uu.se, voravit@kth.se
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:48587 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757148Ab1CNUod convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 16:44:33 -0400
-Received: by gwaa18 with SMTP id a18so1980865gwa.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 13:44:32 -0700 (PDT)
-In-Reply-To: <AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43107
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756413Ab1CNUrO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 16:47:14 -0400
+In-Reply-To: <1300113350.3423.32.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 14, 2011 at 3:10 PM, Yuchung Cheng <ycheng@google.com> wrot=
-e:
-> On Mon, Mar 14, 2011 at 3:06 AM, Carsten Wolff <carsten@wolffcarsten.=
-de> wrote:
->> The moderation is in place to avoid gigantic segment bursts, which c=
-ould cause
->> unnecessary pressure on buffers. In my eyes it's already suboptimal =
-that the
->> moderation is weakened in the presence of (detected) reordering, let=
- alone
->> removing it completely.
->
-> In the presence of reordering, cwnd is already moderated in Disorder
-> state before
-> =A0entering the (false) recovery.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 14 Mar 2011 15:35:50 +0100
 
-I've always been somewhat skeptical of the usefulness of cwnd
-moderation.  First, I don't know that its behavior is well defined.
-When *should* tcp_moderate_cwnd() actually be called, and why?
+> Le lundi 14 mars 2011 =E0 15:31 +0100, Daniel Turull a =E9crit :
+>> (bug introduced by commit 26ad787962ef84677a48c560
+>> (pktgen: speedup fragmented skbs)
+>>=20
+>> The headers of pktgen were incorrectly added in a pktgen packet
+>> without frags (frags=3D0). There was an offset in the pktgen headers=
+=2E
+>>=20
+>> The cause was in reusing the pgh variable as a return variable in sk=
+b_put
+>> when adding the payload to the skb.
+>>=20
+>> Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Second, I've never liked the idea in general.  Reducing cwnd has an
-effect lasting many RTTs, so reducing it in response to a transient
-event like reordering seems dubious.  And it does not address many
-causes of bursts, such as ack compression or stretch acks.
-
-  -John
+Applied, thanks everyone.
