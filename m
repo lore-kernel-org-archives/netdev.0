@@ -1,63 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel 2.6.37 : oops in cleanup_once
-Date: Mon, 14 Mar 2011 14:14:24 +0100
-Message-ID: <1300108464.3423.1.camel@edumazet-laptop>
-References: <4D491B8D.1000107@univ-nantes.fr>
-	 <1296643972.20445.9.camel@edumazet-laptop>
-	 <1296645887.20445.11.camel@edumazet-laptop>
-	 <4D495765.4090806@univ-nantes.fr>
-	 <1296658407.20445.19.camel@edumazet-laptop>
-	 <4D49726C.6020103@univ-nantes.fr>
-	 <1296659336.20445.22.camel@edumazet-laptop>
-	 <4D7DF1A3.6020501@univ-nantes.fr>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: [RFC v3 0/6] CAN: add SAE J1939 protocol
+Date: Mon, 14 Mar 2011 14:20:04 +0100
+Message-ID: <20110314132004.GA333@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Yann Dupont <Yann.Dupont@univ-nantes.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:36686 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751959Ab1CNNO3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 09:14:29 -0400
-In-Reply-To: <4D7DF1A3.6020501@univ-nantes.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 14 mars 2011 =C3=A0 11:44 +0100, Yann Dupont a =C3=A9crit :
-> Le 02/02/2011 16:08, Eric Dumazet a =C3=A9crit :
->=20
->=20
-> > I suspect a mem corruption from another layer (not inetpeer)
-> >
-> > Unfortunately many kmem caches share the "64 bytes" cache.
-> >
-> > Could you please add "slub_nomerge" on your boot command ?
-> >
-> ...
->=20
-> >
-> >> -Is there a very severe impact on performance ?
-> >>
-> > not at all
-> >
-> Maybe there is an impact after all : since then, we don't have proble=
-ms=20
-> anymore !
->=20
-> linkwood:~# uptime
->   11:42:03 up 39 days, 17:08,  3 users,  load average: 0.01, 0.03, 0.=
-05
->=20
-> So... could slub_nomerge hide or simply avoid the problem ?
-> Or are we just lucky this time ?
->=20
->=20
+This series adds SAE J1939 support to the current net-next-2.6.
+For the rtnetlink operations to work, a 2.6.38-rc1 is required.
 
-I would say you are lucky ;)
+1/6: can: extend sockaddr_can to include j1939 members
+2/6: can: add rtnetlink support
+3/6: can: make struct proto const
+4/6: j1939: initial import of SAE J1939
+5/6: j1939: add documentation & MAINTAINERS
+6/6: iproute2: use CAN & J1939
 
-Not all memory corruptions are noticed. Sometimes it touch unused parts
-of memory, or some parts with no critical content.
+Still a lot of things probably need explanation...
 
-
-
+Kind regards,
+Kurt Van Dijck
+EIA Electronics
