@@ -1,65 +1,75 @@
-From: Brent Cook <bcook@breakingpoint.com>
-Subject: Re: Occasional link flap on Intel 82599 on boot in XAUI mode
-Date: Mon, 14 Mar 2011 14:21:56 -0500
-Message-ID: <201103141421.56212.bcook@breakingpoint.com>
-References: <201102251011.42400.bcook@breakingpoint.com> <29F4ED941D916B48B88B4D2A4F3D1B9C01D30140EF@orsmsx509.amr.corp.intel.com>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [GIT/PATCH v5] xen network backend driver
+Date: Mon, 14 Mar 2011 19:30:40 +0000
+Message-ID: <1300131040.32696.23.camel@localhost.localdomain>
+References: <1300112879.17339.2162.camel@zakaz.uk.xensource.com>
+	 <1300128035.2584.6.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel <xen-devel@lists.xensource.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.breakingpoint.com ([65.36.7.12]:28654 "EHLO
-	EXCHANGE.securitytestsystems.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753022Ab1CNTWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 15:22:54 -0400
-In-Reply-To: <29F4ED941D916B48B88B4D2A4F3D1B9C01D30140EF@orsmsx509.amr.corp.intel.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:5127 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751130Ab1CNTbf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 15:31:35 -0400
+In-Reply-To: <1300128035.2584.6.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 25 February 2011 12:11:11 Skidmore, Donald C wrote:
-> >-----Original Message-----
-> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> >On Behalf Of Brent Cook
-> >Sent: Friday, February 25, 2011 8:12 AM
-> >To: netdev@vger.kernel.org
-> >Subject: Occasional link flap on Intel 82599 on boot in XAUI mode
-> >
-> >We have a custom system with dual 82599's in XAUI mode. One has its pair
-> >of ports connected to a 10G switch, the other has its pair of ports
-> >connected to an FPGA.
-> >
-> >Occasionally, on any of the interfaces, we will see the links flapping
-> >up and down when the system initially boots. This happens maybe one in
-> >20 boots.
-> >
-> >Feb 23 14:58:10 mfg kernel: [  594.254977] ixgbe: eth1 NIC Link is Down
-> >Feb 23 14:58:12 mfg kernel: [  596.230039] ixgbe: eth1 NIC Link is Up 10
-> >Gbps, Flow Control: RX/TX
-> >Feb 23 14:58:12 mfg kernel: [  596.256537] ixgbe: eth1 NIC Link is Down
-> >Feb 23 14:58:16 mfg kernel: [  600.228096] ixgbe: eth1 NIC Link is Up 10
-> >Gbps, Flow Control: RX/TX
-> >Feb 23 14:58:16 mfg kernel: [  600.240135] ixgbe: eth1 NIC Link is Down
-> >Feb 23 14:58:18 mfg kernel: [  602.227047] ixgbe: eth1 NIC Link is Up 10
-> >Gbps, Flow Control: RX/TX
-> >
-> >Simply forcing a down/up on the interface seems to correct the problem:
-> >
-> >ip link set eth1 down
-> >ip link set eth1 up
-> >
-> >Is anyone else using XAUI mode and has seen this? Here is the kernel
-> >information that we are using currently:
-> >
+On Mon, 2011-03-14 at 18:40 +0000, Ben Hutchings wrote:
+> On Mon, 2011-03-14 at 14:27 +0000, Ian Campbell wrote:
+> > The following patch is the fifth iteration of the Xen network backend
+> > driver for upstream Linux.
+> > 
+> > This driver ("netback") is the host side counterpart to the frontend
+> > driver in drivers/net/xen-netfront.c. The PV protocol is also
+> > implemented by frontend drivers in other OSes too, such as the BSDs and
+> > even Windows.
+> > 
+> > Changes since the fourth posting, due to review from Stephen Hemminger:
+> >       * Treat dev->features as u32 (it effectively is already and
+> >         becomes literally so in net-next -- there's no harm in netback
+> >         switching earlier)
+> >       * Use stats from struct netdevice instead of a local copy.
+> [...]
 > 
-> By any chance have you tried it with a newer driver?  Latest Source Forge is 3.2.9.
-> 
-> Also do you only see this link flap on boot, can you recreate the flap by unload and loading the ixgbe module?
-> 
+> All looks good (or good enough) to me.
 
-We updated to the latest source forge driver and had the same behavior. Reloading the driver does not reproduce the issue.
+Thanks.
 
-It seems to be related to the remote XAUI peer coming out of reset after the 82599. The FPGAs on one pair of links are loaded in software at boot time, and the switch reset is also delayed slightly compared to the 82599.  We fixed the issue by doing 'ethtool -r' once for each link at boot time.
+> I would add Reviewed-by, but this isn't a single patch.
 
-Thanks
- - Brent
+Sure.
+
+> I know you have asked for this to be pulled, in order to retain its
+> history, but I'm not sure that David Miller will do this unless the
+> driver is at least buildable at each stage in the history.  (However,
+> given that the driver wouldn't be enabled before it's added, I'm not
+> sure it matters in this case.)
+
+I think it should be, at least from the second commit onwards (modulo
+any mistakes made in the past).
+
+To be sure perhaps I should rebase to add a depends BROKEN to (or
+otherwise nobble) the Kconfig entry at the beginning of time and only
+remove it at the end of the series?
+
+I'd definitely like to keep the cleanups I made while upstreaming
+separated from the version imported from xen.git though, but I could
+collapse things before that point if that would be preferred. The
+upstream/dom0/backend/netback-base branch is the imported version,
+everything after that until upstream/dom0/backend/netback is what I
+really want to keep as separate commits, the stuff before is just (very)
+nice to have.
+
+Ian.
+
