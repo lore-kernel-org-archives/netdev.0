@@ -1,34 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] enic: Support newer version of firmware
- devcmd CMD_MCPU_FW_INFO
-Date: Mon, 14 Mar 2011 14:49:40 -0700 (PDT)
-Message-ID: <20110314.144940.229742493.davem@davemloft.net>
-References: <20110309013530.17378.56666.stgit@savbu-pc100.cisco.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 30952] New: asix driver broken since 2.6.35
+Date: Mon, 14 Mar 2011 14:49:54 -0700
+Message-ID: <20110314144954.b87fdd64.akpm@linux-foundation.org>
+References: <bug-30952-10286@https.bugzilla.kernel.org/>
+	<20110314144309.a303662f.akpm@linux-foundation.org>
+	<20110314.144553.70194816.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vkolluri@cisco.com
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, lipski.bogdan@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42822
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751983Ab1CNVtC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 17:49:02 -0400
-In-Reply-To: <20110309013530.17378.56666.stgit@savbu-pc100.cisco.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35721 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753120Ab1CNVuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 17:50:46 -0400
+In-Reply-To: <20110314.144553.70194816.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Date: Tue, 08 Mar 2011 17:35:30 -0800
+On Mon, 14 Mar 2011 14:45:53 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> From: Vasanthy Kolluri <vkolluri@cisco.com>
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Mon, 14 Mar 2011 14:43:09 -0700
 > 
-> This patch provides support to the newer version of firmware devcmd CMD_MCPU_FW_INFO
-> that returns additional information (ASIC type and revision) about the underlying hardware.
-> This knowledge is required by the driver to implement any hardware specific features.
+> > 
+> > (switched to email.  Please respond via emailed reply-to-all, not via the
+> > bugzilla web interface).
+> > 
+> > The reporter says "workaround suggested in:
+> > https://bugzilla.kernel.org/show_bug.cgi?id=16831 seems to work well
+> > for me as well".  That workaround appears to be "dump the kernel driver
+> > and use the driver off the vendor's website".
 > 
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
+> This is an issue you've brought up to me several months ago.
+> 
+> I started looking into it, but because the vendor driver development
+> happens in a completely different universe the divergence noise is
+> substantial and it's a huge effort to consolidate these two drivers.
+> 
+> I think that until the vendor starts to care, nothing is going to
+> happen to resolve these ASIC driver bugs.
 
-Applied, thanks.
+Yup.  I suppose an alternative approach might be to feed the current
+vendor driver through the drivers/staging process (preferably with
+their assistance!) then run with two alternative drivers for a
+while and eventually remove the old one.
+
+But that's without having looked at the vendor code.  Is it a Big Mess?
