@@ -1,40 +1,45 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [patch net-next-2.6 1/6] af_packet: use skb->skb_iif instead of orig_dev->ifindex
-Date: Mon, 14 Mar 2011 07:52:37 +0800
-Message-ID: <AANLkTimkUQ7JPAozRWnYgfwGu5wqeY-ikfdmWEGeUkrK@mail.gmail.com>
-References: <1299935679-18135-1-git-send-email-jpirko@redhat.com> <1299935679-18135-2-git-send-email-jpirko@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
-	andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+From: Sangtae Ha <sangtae.ha@gmail.com>
+Subject: [PATCH 1/3] tcp_cubic: fix train length comparision
+Date: Sun, 13 Mar 2011 20:03:12 -0400
+Message-ID: <1300060992-24151-1-git-send-email-sangtae.ha@gmail.com>
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Injong Rhee <rhee@ncsu.edu>,
+	Bill Fink <billfink@mindspring.com>, <netdev@vger.kernel.org>,
+	Sangtae Ha <sangtae.ha@gmail.com>
+To: Lucas Nussbaum <lucas.nussbaum@loria.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48568 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756608Ab1CMXw6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 19:52:58 -0400
-Received: by fxm17 with SMTP id 17so2433051fxm.19
-        for <netdev@vger.kernel.org>; Sun, 13 Mar 2011 16:52:57 -0700 (PDT)
-In-Reply-To: <1299935679-18135-2-git-send-email-jpirko@redhat.com>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:37033 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756627Ab1CNADc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2011 20:03:32 -0400
+Received: by qyk7 with SMTP id 7so978865qyk.19
+        for <netdev@vger.kernel.org>; Sun, 13 Mar 2011 17:03:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 12, 2011 at 9:14 PM, Jiri Pirko <jpirko@redhat.com> wrote:
-> Since skb_iif has the desired value (ifindex of physical device actua=
-lly
-> received the traffic) use that instead.
->
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> Reviewed-by: Changli Gao <xiaosuo@gmail.com>
-> Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-> ---
+HyStart detects the safe exit point when the ACK train length is
+larger than the one-way delay. This needs to be applied after
+the patches Stephen made to fix clock dependency of HyStart.
 
-This may "break" the ptype handlers in TX path, as we always assign
-skb->dev to origdev there. Thanks.
+Signed-off-by: Sangtae Ha <sangtae.ha@gmail.com>
+---
+ net/ipv4/tcp_cubic.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 91ef5e6..ab9f888 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -356,7 +356,7 @@ static void hystart_update(struct sock *sk, u32 delay)
+ 		/* first detection parameter - ack-train detection */
+ 		if ((s32)(now - ca->last_ack) <= hystart_ack_delta) {
+ 			ca->last_ack = now;
+-			if ((s32)(now - ca->round_start) <= ca->delay_min >> 4)
++			if ((s32)(now - ca->round_start) > ca->delay_min >> 4)
+ 				ca->found |= HYSTART_ACK_TRAIN;
+ 		}
+ 
+-- 
+1.7.0.4
+
