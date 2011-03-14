@@ -1,46 +1,62 @@
-From: WANG Cong <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net-next-2.6 5/6] bonding: get rid of IFF_SLAVE_INACTIVE
- netdev->priv_flag
-Date: Mon, 14 Mar 2011 05:29:35 +0000 (UTC)
-Message-ID: <ilk93u$ant$1@dough.gmane.org>
-References: <1299935679-18135-1-git-send-email-jpirko@redhat.com>
-	<1299935679-18135-6-git-send-email-jpirko@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Mon, 14 Mar 2011 16:31:35 +1100
+Message-ID: <20110314163135.f366742e.sfr@canb.auug.org.au>
+References: <20110314152456.b49b2693.sfr@canb.auug.org.au>
+	<1300078778.3962.22.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:52774 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752510Ab1CNF3x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2011 01:29:53 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Pz0Lj-00007s-FE
-	for netdev@vger.kernel.org; Mon, 14 Mar 2011 06:29:47 +0100
-Received: from 180.106.106.40 ([180.106.106.40])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 06:29:47 +0100
-Received: from xiyou.wangcong by 180.106.106.40 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 06:29:47 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__14_Mar_2011_16_31_35_+1100_OF5Z5OjPr12D0VX_"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1300078778.3962.22.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 12 Mar 2011 14:14:38 +0100, Jiri Pirko wrote:
+--Signature=_Mon__14_Mar_2011_16_31_35_+1100_OF5Z5OjPr12D0VX_
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Since bond-related code was moved from net/core/dev.c into bonding,
-> IFF_SLAVE_INACTIVE is no longer needed. Replace is with flag "inactive"
-> stored in slave structure
-> 
+Hi Ben,
 
-Good work, Jiri!
+On Mon, 14 Mar 2011 04:59:38 +0000 Ben Hutchings <bhutchings@solarflare.com=
+> wrote:
+>
+> Commit cd7eab44e994 ("genirq: Add IRQ affinity notifiers") was a
+> prerequisite for some changes in networking.  Thomas Gleixner applied it
+> on a branch of its own so that David Miller could pull just that commit
+> into net-next-2.6.  Of course, this means net-next-2.6 doesn't have the
+> later fix (and won't for a while).
 
-IFF_ flags are valuable and are going to be exhausted, moving
-these slave-specific flags to struct slave is indeed good.
+Yeah, but Dave merged that into the net-next-2.6 tree some time ago
+(late January) and it hasn't caused a problem in my builds until now.
+Maybe some config option changed ...
 
-Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-Thanks.
+--Signature=_Mon__14_Mar_2011_16_31_35_+1100_OF5Z5OjPr12D0VX_
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNfag3AAoJEDMEi1NhKgbsBPAH/A32R+7WyaWanoLBdfmPVhgk
+vtq7ylxJOIYaL9o6JTolmik6LUr9k+VHi0eya3mziaRJXtzQH9g8xe/APMS+SNus
+cZTZV7i8Zm5lBhqZctJ5+xKC14AnbzqTfamxdvMag3Vf9/EYCMp7/0cScFpRcv51
+zytXv+5GZuMeATeRLeWT9Cz6J3Tk+lckePwz7/TEtBp4DTTkXh42UYOOCJfWPdM5
+d0RpADtE7CBlLhYaHa+EOEV8/EzlhdKMi+M4Gq3tRRv96D7FnmuyWaIHvuu4Pi18
+k7jtU/et1eUQ6xMFlGKxv+gZnXf+JyREW1Ely+hk8Lves8B4uoza9HZsutWS84w=
+=PAf8
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__14_Mar_2011_16_31_35_+1100_OF5Z5OjPr12D0VX_--
