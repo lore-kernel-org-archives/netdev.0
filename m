@@ -1,75 +1,71 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/4] netfilter: xt_connlimit: fix daddr connlimit in SNAT
- scenario
-Date: Mon, 14 Mar 2011 20:00:07 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1103141955180.21929@obet.zrqbmnf.qr>
-References: <1300085414-27275-1-git-send-email-xiaosuo@gmail.com> <alpine.LNX.2.01.1103141310140.27542@obet.zrqbmnf.qr> <AANLkTi=QgVBVAPcTmb_La=VJOLq5LmGPqMfw7bbCuByP@mail.gmail.com>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH 2/2] dev : fix mtu check when TSO is enabled
+Date: Mon, 14 Mar 2011 20:00:43 +0100
+Message-ID: <4D7E65DB.8070708@free.fr>
+References: <1300118888-2311-1-git-send-email-daniel.lezcano@free.fr>	 <1300118888-2311-2-git-send-email-daniel.lezcano@free.fr> <1300122105.3423.131.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=QgVBVAPcTmb_La=VJOLq5LmGPqMfw7bbCuByP@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, kaber@trash.net, nightnord@gmail.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:53623 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751976Ab1CNTA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2011 15:00:59 -0400
+In-Reply-To: <1300122105.3423.131.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 2011-03-14 13:42, Changli Gao wrote:
-
->On Mon, Mar 14, 2011 at 8:26 PM, Jan Engelhardt <jengelh@medozas.de> w=
-rote:
->> On Monday 2011-03-14 07:50, Changli Gao wrote:
+On 03/14/2011 06:01 PM, Eric Dumazet wrote:
+> Le lundi 14 mars 2011 =C3=A0 17:08 +0100, Daniel Lezcano a =C3=A9crit=
+ :
+>> In case the device where is coming from the packet has TSO enabled,
+>> we should not check the mtu size value as this one could be bigger
+>> than the expected value.
 >>
->>>We use the reply tuples when limiting the connections by the destina=
-tion
->>>addresses, however, in SNAT scenario, the final reply tuples won't b=
-e
->>>ready until SNAT is done in POSTROUING or INPUT chain
+>> This is the case for the macvlan driver when the lower device has
+>> TSO enabled. The macvlan inherit this feature and forward the packet=
+s
+>> without fragmenting them. Then the packets go through dev_forward_sk=
+b
+>> and are dropped. This patch fix this by checking TSO is not enabled
+>> when we want to check the mtu size.
 >>
->> If I am not mistaken: if you do daddr counting, SNAT is irrelevant.
->> Consider ruleset
->> =C2=A0-t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 1.2.3.4:80
->> =C2=A0-t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to 1.2.3.5:4=
-43
+>> Signed-off-by: Daniel Lezcano<daniel.lezcano@free.fr>
+>> Cc: Patrick McHardy<kaber@trash.net>
+>> Cc: Andrian Nord<nightnord@gmail.com>
+>> ---
+>>   net/core/dev.c |    6 ++++--
+>>   1 files changed, 4 insertions(+), 2 deletions(-)
 >>
->> The tuple will first be (as per conntrack -L):
->> =C2=A0src=3Dhome dst=3Drouter src=3Drouter dst=3Dhome
->> After DNAT:
->> =C2=A0src=3Dhome dst=3Drouter src=3D1.2.3.4 dst=3Dhome
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 6561021..010a0a9 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -1526,8 +1526,10 @@ int dev_forward_skb(struct net_device *dev, s=
+truct sk_buff *skb)
+>>   	skb_orphan(skb);
+>>   	nf_reset(skb);
 >>
->> Thus looking at the src of the reply tuple seems correct =E2=80=94 a=
-t least this
->> is what was wanted, counting per stashed servers (=3D1 customer), no=
-t per
->> globally visible address.
->>
+>> -	if (unlikely(!(dev->flags&  IFF_UP) ||
+>> -		     (skb->len>  (dev->mtu + dev->hard_header_len + VLAN_HLEN))))=
+ {
+>> +	if (unlikely(!(skb->dev->features&  NETIF_F_TSO)&&
 >
->Yes, you are correct only when there is no SNAT rule. If there is an=20
->SNAT rule:
+> Sorry, this needs a comment at least, or even better a helper functio=
+n
+> on its own.
 >
->-t nat -A POSTROUTING -p tcp --dport 80 -j SNAT --to-source 192.168.0.=
-1
+> We test both skb->dev&  dev, pointing to different devices, this is
+> really error prone.
 >
->the final tuples will be:
->src =3D home dst =3D router src=3D1.2.3.4 dst=3D192.168.0.1
->
->However, the tuple saved by connlimit is src=3D1.2.3.4 dst=3Dhome, so =
-this
->conn will be removed later as there isn't any conntrack, which has
->this tuple in any direction.
+> Are we sure all callers set skb->dev before calling  dev_forward_skb(=
+) ?
 
-But I don't yet see how your patch #1 can help. At the time=20
-conn->tuple=C2=A0=3D *tuple is done, *tuple still contains the non-SNAT=
-ed=20
-tuple, and it is never updated again.
+Thanks Eric for the comments, I will resend a new version.
 
+   -- Daniel
 
-(Patrick: patches 2-4 are ok)
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
