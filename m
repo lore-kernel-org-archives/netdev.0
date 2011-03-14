@@ -1,47 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 02/20] ipvs: reorganize tot_stats
-Date: Mon, 14 Mar 2011 05:28:23 +0100
-Message-ID: <1300076903.2761.64.camel@edumazet-laptop>
-References: <1300074346-13799-1-git-send-email-horms@verge.net.au>
-	 <1300074346-13799-3-git-send-email-horms@verge.net.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Mon, 14 Mar 2011 04:59:38 +0000
+Message-ID: <1300078778.3962.22.camel@localhost>
+References: <20110314152456.b49b2693.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1300074346-13799-3-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110314152456.b49b2693.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 14 mars 2011 =C3=A0 12:45 +0900, Simon Horman a =C3=A9crit :
-> From: Julian Anastasov <ja@ssi.bg>
->=20
->  	The global tot_stats contains cpustats field just like the
-> stats for dest and svc, so better use it to simplify the usage
-> in estimation_timer. As tot_stats is registered as estimator
-> we can remove the special ip_vs_read_cpu_stats call for
-> tot_stats. Fix ip_vs_read_cpu_stats to be called under
-> stats lock because it is still used as synchronization between
-> estimation timer and user context (the stats readers).
->=20
->  	Also, make sure ip_vs_stats_percpu_show reads properly
-> the u64 stats from user context.
->=20
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+On Mon, 2011-03-14 at 15:24 +1100, Stephen Rothwell wrote:
+> Hi all,
+> 
+> After merging the net tree, today's linux-next build (powerpc
+> ppc64_defconfig) failed like this:
+> 
+> kernel/irq/manage.c: In function 'irq_affinity_notify':
+> kernel/irq/manage.c:182: error: 'struct irq_desc' has no member named 'affinity'
+> 
+> Caused by commit cd7eab44e994 ("genirq: Add IRQ affinity notifiers")
+> (which is also in the tip tree).  I am guessing that there is a fix for
+> this also in the tip tree ... yep commit 1fb0ef31f428 ("genirq: Fix
+> affinity notifier fallout").
+> 
+> I tried using the net tree from next-20110311 for today but that had the
+> same problem.  So I merged the above fix commit from the tip tree.
+> 
+> I have no idea why this has suddenly become a problem in the net tree.
 
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+Commit cd7eab44e994 ("genirq: Add IRQ affinity notifiers") was a
+prerequisite for some changes in networking.  Thomas Gleixner applied it
+on a branch of its own so that David Miller could pull just that commit
+into net-next-2.6.  Of course, this means net-next-2.6 doesn't have the
+later fix (and won't for a while).
 
-One comment : per cpu stats are really good to avoid cache misses, but =
-I
-see tot_stats is included in struct netns_ipvs right after "conn_count"=
-,
-possibly sharing a hot cache line ?
+Ben.
 
-Thanks
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
