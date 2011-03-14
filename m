@@ -1,73 +1,131 @@
-From: Daniel Turull <daniel.turull@gmail.com>
-Subject: [PATCH] pktgen: fix transmission headers with frags=0
-Date: Mon, 14 Mar 2011 14:22:06 +0100
-Message-ID: <4D7E167E.2090807@gmail.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: [RFC v3 1/6] can: extend sockaddr_can to include j1939 members
+Date: Mon, 14 Mar 2011 14:24:09 +0100
+Message-ID: <20110314132409.GB333@e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <robert@herjulf.net>,
-	Jens Laas <jens.laas@its.uu.se>,
-	Voravit Tanyingyong <voravit@kth.se>,
-	Daniel Turull <daniel.turull@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54556 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755026Ab1CNNWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 09:22:12 -0400
-Received: by fxm17 with SMTP id 17so2875153fxm.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 06:22:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110314132004.GA333-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The headers of pktgen were incorrectly added in a pktgen packet
-without frags (frags=0). There was an offset in the pktgen headers.
+This patch prepares struct sockaddr_can for SAE J1939.
+The size of this structure increases. To stay binary compatible,
+the required_size macro is introduced for existing CAN protocols.
 
-The cause was in reusing the pgh variable as a return variable in skb_put
-when adding the payload to the skb.
-
-A rename of the variable is done.
-
-Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
+Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
 ---
-The PKTGEN magic (be9b e955) now starts in the correct offset.
-Before the patch, it was starting at the end of the packet (be9b)
-
-Capture from tcpdump:
-
-before patch:
-14:57:37.854812 IP 10.0.0.2.discard > 10.254.254.84.discard: UDP, length 18
-	0x0000:  001b 2157 ed84 001b 215d 01d0 0800 4500
-	0x0010:  002e 0004 0000 2011 8767 0a00 0002 0afe
-	0x0020:  fe54 0009 0009 001a 0000 0000 0000 b072
-	0x0030:  9102 00ea ffff 0010 0000 be9b
-
-after patch:
-14:44:32.896048 IP 10.0.0.2.discard > 10.217.234.56.discard: UDP, length 18
-	0x0000:  001b 2157 ed84 001b 215d 01d0 0800 4500
-	0x0010:  002e 0000 0000 2011 9bac 0a00 0002 0ad9
-	0x0020:  ea38 0009 0009 001a 0000 be9b e955 0000
-	0x0030:  0001 4d7e 1b09 0005 5f23 af00
-
----
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index f0aec6c..5baa9d9 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2615,13 +2615,14 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- {
- 	struct timeval timestamp;
- 	struct pktgen_hdr *pgh;
-+	void *data;
+diff --git a/include/linux/can.h b/include/linux/can.h
+index d183333..9c2523c 100644
+--- a/include/linux/can.h
++++ b/include/linux/can.h
+@@ -67,7 +67,8 @@ struct can_frame {
+ #define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
+ #define CAN_MCNET	5 /* Bosch MCNet */
+ #define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
+-#define CAN_NPROTO	7
++#define CAN_J1939	7 /* SAE J1939 */
++#define CAN_NPROTO	8
  
- 	pgh = (struct pktgen_hdr *)skb_put(skb, sizeof(*pgh));
- 	datalen -= sizeof(*pgh);
+ #define SOL_CAN_BASE 100
  
- 	if (pkt_dev->nfrags <= 0) {
--		pgh = (struct pktgen_hdr *)skb_put(skb, datalen);
--		memset(pgh + 1, 0, datalen);
-+		data = skb_put(skb, datalen);
-+		memset(data + 1, 0, datalen);
- 	} else {
- 		int frags = pkt_dev->nfrags;
- 		int i, len;
+@@ -84,6 +85,23 @@ struct sockaddr_can {
+ 		/* transport protocol class address information (e.g. ISOTP) */
+ 		struct { canid_t rx_id, tx_id; } tp;
+ 
++		/* J1939 address information */
++		struct {
++			/* 8 byte name when using dynamic addressing */
++			__u64 name;
++			/*
++			 * pgn:
++			 * 8bit: PS in PDU2 case, else 0
++			 * 8bit: PF
++			 * 1bit: DP
++			 * 1bit: reserved
++			 */
++			__u32 pgn;
++
++			/* 1byte address */
++			__u8 addr;
++		} j1939;
++
+ 		/* reserved for future CAN protocols address information */
+ 	} can_addr;
+ };
+diff --git a/include/linux/can/core.h b/include/linux/can/core.h
+index 6c507be..653c33e 100644
+--- a/include/linux/can/core.h
++++ b/include/linux/can/core.h
+@@ -42,6 +42,15 @@ struct can_proto {
+ 	struct proto     *prot;
+ };
+ 
++/*
++ * required_size
++ * macro to find the minimum size of a struct
++ * that includes a requested member
++ */
++#define required_size(member, struct_type) \
++	(offsetof(typeof(struct_type), member) + \
++	 sizeof(((typeof(struct_type) *)(0))->member))
++
+ /* function prototypes for the CAN networklayer core (af_can.c) */
+ 
+ extern int  can_proto_register(struct can_proto *cp);
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 092dc88..b286e45 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1256,7 +1256,7 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		struct sockaddr_can *addr =
+ 			(struct sockaddr_can *)msg->msg_name;
+ 
+-		if (msg->msg_namelen < sizeof(*addr))
++		if (msg->msg_namelen < required_size(can_ifindex, *addr))
+ 			return -EINVAL;
+ 
+ 		if (addr->can_family != AF_CAN)
+@@ -1493,7 +1493,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 	struct sock *sk = sock->sk;
+ 	struct bcm_sock *bo = bcm_sk(sk);
+ 
+-	if (len < sizeof(*addr))
++	if (len < required_size(can_ifindex, *addr))
+ 		return -EINVAL;
+ 
+ 	if (bo->bound)
+diff --git a/net/can/raw.c b/net/can/raw.c
+index 883e9d7..a5f1f41 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -350,7 +350,7 @@ static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
+ 	int err = 0;
+ 	int notify_enetdown = 0;
+ 
+-	if (len < sizeof(*addr))
++	if (len < required_size(can_ifindex, *addr))
+ 		return -EINVAL;
+ 
+ 	lock_sock(sk);
+@@ -649,7 +649,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		struct sockaddr_can *addr =
+ 			(struct sockaddr_can *)msg->msg_name;
+ 
+-		if (msg->msg_namelen < sizeof(*addr))
++		if (msg->msg_namelen < required_size(can_ifindex, *addr))
+ 			return -EINVAL;
+ 
+ 		if (addr->can_family != AF_CAN)
