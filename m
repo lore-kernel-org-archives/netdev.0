@@ -1,127 +1,119 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: [RFC v3 3/6] can: make struct proto const
-Date: Mon, 14 Mar 2011 14:47:21 +0100
-Message-ID: <20110314134721.GD333@e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] pktgen: fix transmission headers with frags=0
+Date: Mon, 14 Mar 2011 14:56:17 +0100
+Message-ID: <1300110977.3423.16.camel@edumazet-laptop>
+References: <4D7E167E.2090807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110314132004.GA333-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Robert Olsson <robert@herjulf.net>,
+	Jens Laas <jens.laas@its.uu.se>,
+	Voravit Tanyingyong <voravit@kth.se>
+To: Daniel Turull <daniel.turull@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:51578 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527Ab1CNN4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 09:56:21 -0400
+Received: by fxm17 with SMTP id 17so2911529fxm.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 06:56:20 -0700 (PDT)
+In-Reply-To: <4D7E167E.2090807@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-can_ioctl is the only reason for struct proto to be non-const.
-script/check-patch.pl suggests struct proto be const.
-This patch performs the necessary change.
+Le lundi 14 mars 2011 =C3=A0 14:22 +0100, Daniel Turull a =C3=A9crit :
+> The headers of pktgen were incorrectly added in a pktgen packet
+> without frags (frags=3D0). There was an offset in the pktgen headers.
+>=20
+> The cause was in reusing the pgh variable as a return variable in skb=
+_put
+> when adding the payload to the skb.
+>=20
+> A rename of the variable is done.
+>=20
+> Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
+> ---
+> The PKTGEN magic (be9b e955) now starts in the correct offset.
+> Before the patch, it was starting at the end of the packet (be9b)
+>=20
 
-Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
----
-diff --git a/include/linux/can/core.h b/include/linux/can/core.h
-index 430c446..0767cc6 100644
---- a/include/linux/can/core.h
-+++ b/include/linux/can/core.h
-@@ -39,7 +39,7 @@
- struct can_proto {
- 	int              type;
- 	int              protocol;
--	struct proto_ops *ops;
-+	const struct proto_ops *ops;
- 	struct proto     *prot;
- 
- 	const struct rtnl_af_ops *rtnl_link_ops;
-@@ -78,6 +78,8 @@ struct rtgencanmsg {
- 
- extern int  can_proto_register(const struct can_proto *cp);
- extern void can_proto_unregister(const struct can_proto *cp);
-+extern int can_sock_ioctl(struct socket *sock, unsigned int cmd,
-+		unsigned long arg);
- 
- extern int  can_rx_register(struct net_device *dev, canid_t can_id,
- 			    canid_t mask,
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index db59c6e..c1f8c05 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -139,7 +139,7 @@ static inline void can_put_proto(const struct can_proto *cp)
-  * af_can socket functions
-  */
- 
--static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-+int can_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- {
- 	struct sock *sk = sock->sk;
- 
-@@ -152,6 +152,7 @@ static int can_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 		return -ENOIOCTLCMD;
- 	}
- }
-+EXPORT_SYMBOL(can_sock_ioctl);
- 
- static void can_sock_destruct(struct sock *sk)
- {
-@@ -720,10 +721,6 @@ int can_proto_register(const struct can_proto *cp)
- 		err = -EBUSY;
+not exactly, but offseted  +16 bytes
+(sizeof(struct pktgen_hdr))
+
+> Capture from tcpdump:
+>=20
+> before patch:
+> 14:57:37.854812 IP 10.0.0.2.discard > 10.254.254.84.discard: UDP, len=
+gth 18
+> 	0x0000:  001b 2157 ed84 001b 215d 01d0 0800 4500
+> 	0x0010:  002e 0004 0000 2011 8767 0a00 0002 0afe
+> 	0x0020:  fe54 0009 0009 001a 0000 0000 0000 b072
+> 	0x0030:  9102 00ea ffff 0010 0000 be9b
+>=20
+> after patch:
+> 14:44:32.896048 IP 10.0.0.2.discard > 10.217.234.56.discard: UDP, len=
+gth 18
+> 	0x0000:  001b 2157 ed84 001b 215d 01d0 0800 4500
+> 	0x0010:  002e 0000 0000 2011 9bac 0a00 0002 0ad9
+> 	0x0020:  ea38 0009 0009 001a 0000 be9b e955 0000
+> 	0x0030:  0001 4d7e 1b09 0005 5f23 af00
+>=20
+> ---
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index f0aec6c..5baa9d9 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -2615,13 +2615,14 @@ static void pktgen_finalize_skb(struct pktgen=
+_dev *pkt_dev, struct sk_buff *skb,
+>  {
+>  	struct timeval timestamp;
+>  	struct pktgen_hdr *pgh;
+> +	void *data;
+> =20
+>  	pgh =3D (struct pktgen_hdr *)skb_put(skb, sizeof(*pgh));
+>  	datalen -=3D sizeof(*pgh);
+> =20
+>  	if (pkt_dev->nfrags <=3D 0) {
+> -		pgh =3D (struct pktgen_hdr *)skb_put(skb, datalen);
+> -		memset(pgh + 1, 0, datalen);
+> +		data =3D skb_put(skb, datalen);
+> +		memset(data + 1, 0, datalen);
+>  	} else {
+>  		int frags =3D pkt_dev->nfrags;
+>  		int i, len;
+> --
+
+Good catch !
+
+Hmm this patch is not correct, why memset(data + 1, ...) ?
+
+Also, this patch is needed for net-next-2.6 only
+(bug introduced by commit 26ad787962ef84677a48c560
+(pktgen: speedup fragmented skbs)
+
+I would avoid the "void *data;" declaration and just use following :
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index f0aec6c..f727c83 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2620,7 +2620,7 @@ static void pktgen_finalize_skb(struct pktgen_dev=
+ *pkt_dev, struct sk_buff *skb,
+ 	datalen -=3D sizeof(*pgh);
+=20
+ 	if (pkt_dev->nfrags <=3D 0) {
+-		pgh =3D (struct pktgen_hdr *)skb_put(skb, datalen);
++		skb_put(skb, datalen);
+ 		memset(pgh + 1, 0, datalen);
  	} else {
- 		proto_tab[proto] = cp;
--
--		/* use generic ioctl function if not defined by module */
--		if (!cp->ops->ioctl)
--			cp->ops->ioctl = can_ioctl;
- 	}
- 	spin_unlock(&proto_tab_lock);
- 
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index ac1961d..fd89542 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -1569,7 +1569,7 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	return size;
- }
- 
--static struct proto_ops bcm_ops __read_mostly = {
-+static const struct proto_ops bcm_ops = {
- 	.family        = PF_CAN,
- 	.release       = bcm_release,
- 	.bind          = sock_no_bind,
-@@ -1578,7 +1578,7 @@ static struct proto_ops bcm_ops __read_mostly = {
- 	.accept        = sock_no_accept,
- 	.getname       = sock_no_getname,
- 	.poll          = datagram_poll,
--	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
-+	.ioctl         = can_sock_ioctl,
- 	.listen        = sock_no_listen,
- 	.shutdown      = sock_no_shutdown,
- 	.setsockopt    = sock_no_setsockopt,
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 9ad3dfc..8581596 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -742,7 +742,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	return size;
- }
- 
--static struct proto_ops raw_ops __read_mostly = {
-+static const struct proto_ops raw_ops = {
- 	.family        = PF_CAN,
- 	.release       = raw_release,
- 	.bind          = raw_bind,
-@@ -751,7 +751,7 @@ static struct proto_ops raw_ops __read_mostly = {
- 	.accept        = sock_no_accept,
- 	.getname       = raw_getname,
- 	.poll          = datagram_poll,
--	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
-+	.ioctl         = can_sock_ioctl,
- 	.listen        = sock_no_listen,
- 	.shutdown      = sock_no_shutdown,
- 	.setsockopt    = raw_setsockopt,
+ 		int frags =3D pkt_dev->nfrags;
+
+
+
+or even :
+
+		memset(skb_put(skb, datalen), 0, datalen);
+
+
+
+
