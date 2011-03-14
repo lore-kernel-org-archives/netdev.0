@@ -1,47 +1,65 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [RFC v3 3/6] can: make struct proto const
-Date: Mon, 14 Mar 2011 16:02:27 +0100
-Message-ID: <20110314150227.GJ333@e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	<20110314134721.GD333@e-circ.dyndns.org>
-	<1300111755.3423.20.camel@edumazet-laptop>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [patch net-next-2.6 1/6] af_packet: use skb->skb_iif instead of orig_dev->ifindex
+Date: Mon, 14 Mar 2011 23:10:45 +0800
+Message-ID: <AANLkTikTNH3Lux-rusmtf0Xca=s0wtNzy8N4OxPjnO21@mail.gmail.com>
+References: <1299935679-18135-1-git-send-email-jpirko@redhat.com>
+ <1299935679-18135-2-git-send-email-jpirko@redhat.com> <AANLkTimkUQ7JPAozRWnYgfwGu5wqeY-ikfdmWEGeUkrK@mail.gmail.com>
+ <20110314065454.GA2751@psychotron.redhat.com> <AANLkTik6-qCHW-5vRUY4BdXJL1jVFsD85rTRWucUdkRe@mail.gmail.com>
+ <20110314074342.GB2751@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1300111755.3423.20.camel@edumazet-laptop>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
+	andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62889 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752176Ab1CNPNq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 11:13:46 -0400
+Received: by fxm17 with SMTP id 17so2994612fxm.19
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 08:13:45 -0700 (PDT)
+In-Reply-To: <20110314074342.GB2751@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBNYXIgMTQsIDIwMTEgYXQgMDM6MDk6MTVQTSArMDEwMCwgRXJpYyBEdW1hemV0IHdy
-b3RlOgo+IExlIGx1bmRpIDE0IG1hcnMgMjAxMSDDoCAxNDo0NyArMDEwMCwgS3VydCBWYW4gRGlq
-Y2sgYSDDqWNyaXQgOgo+ID4gY2FuX2lvY3RsIGlzIHRoZSBvbmx5IHJlYXNvbiBmb3Igc3RydWN0
-IHByb3RvIHRvIGJlIG5vbi1jb25zdC4KPiA+IHNjcmlwdC9jaGVjay1wYXRjaC5wbCBzdWdnZXN0
-cyBzdHJ1Y3QgcHJvdG8gYmUgY29uc3QuCj4gPiBUaGlzIHBhdGNoIHBlcmZvcm1zIHRoZSBuZWNl
-c3NhcnkgY2hhbmdlLgo+ID4gCj4gPiAgc3RhdGljIHZvaWQgY2FuX3NvY2tfZGVzdHJ1Y3Qoc3Ry
-dWN0IHNvY2sgKnNrKQo+ID4gIHsKPiA+IEBAIC03MjAsMTAgKzcyMSw2IEBAIGludCBjYW5fcHJv
-dG9fcmVnaXN0ZXIoY29uc3Qgc3RydWN0IGNhbl9wcm90byAqY3ApCj4gPiAgCQllcnIgPSAtRUJV
-U1k7Cj4gPiAgCX0gZWxzZSB7Cj4gPiAgCQlwcm90b190YWJbcHJvdG9dID0gY3A7Cj4gPiAtCj4g
-PiAtCQkvKiB1c2UgZ2VuZXJpYyBpb2N0bCBmdW5jdGlvbiBpZiBub3QgZGVmaW5lZCBieSBtb2R1
-bGUgKi8KPiA+IC0JCWlmICghY3AtPm9wcy0+aW9jdGwpCj4gPiAtCQkJY3AtPm9wcy0+aW9jdGwg
-PSBjYW5faW9jdGw7Cj4gCj4gSG1tLCB5b3UgYWN0dWFsbHkgZml4ZWQgYSByYWNlIC8gYnVnLCBz
-aW5jZSB3ZSBpbnN0YWxsZWQgaW4gcHJvdG9fdGFiW10KPiBhIHBvaW50ZXIgdG8gYSBub3QgeWV0
-IGluaXR0ZWQgb3BzIHN0cnVjdHVyZS4KSSBzZWUgeW91ciBwb2ludC4KVGhlIHJlYXNvbiBJIG1v
-ZGlmaWVkIHRoaXMgd2FzLCBhcyBkZXNjcmliZWQsIGNoZWNrcGF0Y2gucGwgd2FzIGNvbXBsYWlu
-aW5nLgpBbnl3YXksIHRoaXMgc2VxdWVuY2Ugd2FzIHByb3RlY3RlZCBieSBhIHNwaW5sb2NrICdw
-cm90b190YWJfbG9jaycuCkkgZG9uJ3QgdGhpbmsgaXQgd2FzIGEgcmFjZS4KCkRpZCBJIG1pc3Mg
-c29tZXRoaW5nPwpLdXJ0Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fClNvY2tldGNhbi1jb3JlIG1haWxpbmcgbGlzdApTb2NrZXRjYW4tY29yZUBsaXN0cy5i
-ZXJsaW9zLmRlCmh0dHBzOi8vbGlzdHMuYmVybGlvcy5kZS9tYWlsbWFuL2xpc3RpbmZvL3NvY2tl
-dGNhbi1jb3JlCg==
+On Mon, Mar 14, 2011 at 3:43 PM, Jiri Pirko <jpirko@redhat.com> wrote:
+> Mon, Mar 14, 2011 at 07:59:39AM CET, xiaosuo@gmail.com wrote:
+>>>
+>>
+>>1557 static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_d=
+evice *dev)
+>>....
+>>
+>>1571 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (pt_prev) {
+>>1572 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+deliver_skb(skb2, pt_prev, skb->dev);
+>>1573 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+pt_prev =3D ptype;
+>>1574 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+continue;
+>>1575 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>>...
+>>1603 =A0 =A0 =A0 =A0 }
+>>1604 =A0 =A0 =A0 =A0 if (pt_prev)
+>>1605 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pt_prev->func(skb2, skb->dev, pt=
+_prev, skb->dev);
+>>1606 =A0 =A0 =A0 =A0 rcu_read_unlock();
+>>1607 }
+>
+> I'm probably missign something but I do not see the connection betwee=
+n
+> this and setting up sll->sll_ifindex in net/packet/af_packet.c
+>
+
+Think about a packet socket(with origdev set) for packets emitted via
+NIC eth0, and sll->sll_ifindex is eth0->ifindex, but after your patch,
+sll->sll_ifindex may be ZERO or the ifindex of the RX NIC for the
+forwarded packets. However, I don't know if this origdev usage is
+valid. Thanks.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
