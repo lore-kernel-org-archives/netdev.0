@@ -1,68 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/7] tcp_cubic: fix clock dependency
-Date: Mon, 14 Mar 2011 19:51:19 +0100
-Message-ID: <1300128679.3423.167.camel@edumazet-laptop>
-References: <20110314175211.788224699@vyatta.com>
-	 <20110314175439.564307922@vyatta.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 1/4] netfilter: xt_connlimit: fix daddr connlimit in SNAT
+ scenario
+Date: Mon, 14 Mar 2011 20:00:07 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1103141955180.21929@obet.zrqbmnf.qr>
+References: <1300085414-27275-1-git-send-email-xiaosuo@gmail.com> <alpine.LNX.2.01.1103141310140.27542@obet.zrqbmnf.qr> <AANLkTi=QgVBVAPcTmb_La=VJOLq5LmGPqMfw7bbCuByP@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:37693 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624Ab1CNSwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 14:52:31 -0400
-Received: by fxm17 with SMTP id 17so3221761fxm.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 11:52:30 -0700 (PDT)
-In-Reply-To: <20110314175439.564307922@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=QgVBVAPcTmb_La=VJOLq5LmGPqMfw7bbCuByP@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 14 mars 2011 =C3=A0 10:52 -0700, Stephen Hemminger a =C3=A9cri=
-t :
-> pi=C3=A8ce jointe document texte brut (tcp-cubic-minrtt.patch)
-> The hystart code was written with assumption that HZ=3D1000.
-> Replace the use of jiffies with bictcp_clock as a millisecond
-> real time clock.=20
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> Reported-by: Lucas Nussbaum <lucas.nussbaum@loria.fr>
->=20
-> --- a/net/ipv4/tcp_cubic.c	2011-03-14 08:19:18.000000000 -0700
-> +++ b/net/ipv4/tcp_cubic.c	2011-03-14 08:22:42.486690594 -0700
-> @@ -88,7 +88,7 @@ struct bictcp {
->  	u32	last_time;	/* time when updated last_cwnd */
->  	u32	bic_origin_point;/* origin point of bic function */
->  	u32	bic_K;		/* time to origin point from the beginning of the curre=
-nt epoch */
-> -	u32	delay_min;	/* min delay */
-> +	u32	delay_min;	/* min delay (msec << 3) */
->  	u32	epoch_start;	/* beginning of an epoch */
->  	u32	ack_cnt;	/* number of acks */
->  	u32	tcp_cwnd;	/* estimated tcp cwnd */
-> @@ -98,7 +98,7 @@ struct bictcp {
->  	u8	found;		/* the exit point is found? */
->  	u32	round_start;	/* beginning of each round */
->  	u32	end_seq;	/* end_seq of the round */
-> -	u32	last_jiffies;	/* last time when the ACK spacing is close */
-> +	u32	last_ack;	/* last time when the ACK spacing is close */
->  	u32	curr_rtt;	/* the minimum rtt of current round */
->  };
-> =20
-> @@ -119,12 +119,21 @@ static inline void bictcp_reset(struct b
->  	ca->found =3D 0;
->  }
-> =20
-> +static inline u32 bictcp_clock(void)
-> +{
-> +#if HZ < 1000
-> +	return ktime_to_ms(ktime_get_real());
+On Monday 2011-03-14 13:42, Changli Gao wrote:
 
-Small point : This can be changed if date/time is changed
+>On Mon, Mar 14, 2011 at 8:26 PM, Jan Engelhardt <jengelh@medozas.de> w=
+rote:
+>> On Monday 2011-03-14 07:50, Changli Gao wrote:
+>>
+>>>We use the reply tuples when limiting the connections by the destina=
+tion
+>>>addresses, however, in SNAT scenario, the final reply tuples won't b=
+e
+>>>ready until SNAT is done in POSTROUING or INPUT chain
+>>
+>> If I am not mistaken: if you do daddr counting, SNAT is irrelevant.
+>> Consider ruleset
+>> =C2=A0-t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 1.2.3.4:80
+>> =C2=A0-t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to 1.2.3.5:4=
+43
+>>
+>> The tuple will first be (as per conntrack -L):
+>> =C2=A0src=3Dhome dst=3Drouter src=3Drouter dst=3Dhome
+>> After DNAT:
+>> =C2=A0src=3Dhome dst=3Drouter src=3D1.2.3.4 dst=3Dhome
+>>
+>> Thus looking at the src of the reply tuple seems correct =E2=80=94 a=
+t least this
+>> is what was wanted, counting per stashed servers (=3D1 customer), no=
+t per
+>> globally visible address.
+>>
+>
+>Yes, you are correct only when there is no SNAT rule. If there is an=20
+>SNAT rule:
+>
+>-t nat -A POSTROUTING -p tcp --dport 80 -j SNAT --to-source 192.168.0.=
+1
+>
+>the final tuples will be:
+>src =3D home dst =3D router src=3D1.2.3.4 dst=3D192.168.0.1
+>
+>However, the tuple saved by connlimit is src=3D1.2.3.4 dst=3Dhome, so =
+this
+>conn will be removed later as there isn't any conntrack, which has
+>this tuple in any direction.
 
-Maybe use monotonic time (aka ktime_get_ts()) ?
+But I don't yet see how your patch #1 can help. At the time=20
+conn->tuple=C2=A0=3D *tuple is done, *tuple still contains the non-SNAT=
+ed=20
+tuple, and it is never updated again.
 
 
+(Patrick: patches 2-4 are ok)
 
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
