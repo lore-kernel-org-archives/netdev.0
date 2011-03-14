@@ -1,48 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT/PATCH v5] xen network backend driver
-Date: Mon, 14 Mar 2011 15:22:55 -0700 (PDT)
-Message-ID: <20110314.152255.68135182.davem@davemloft.net>
-References: <1300131040.32696.23.camel@localhost.localdomain>
-	<20110314.132355.226777213.davem@davemloft.net>
-	<1300141060.32696.36.camel@localhost.localdomain>
+Subject: Re: [PATCH 1/2] NET: cdc-phonet, fix stop-queue handling
+Date: Mon, 14 Mar 2011 15:23:34 -0700 (PDT)
+Message-ID: <20110314.152334.27803075.davem@davemloft.net>
+References: <1300035271-8138-1-git-send-email-jslaby@suse.cz>
+	<201103140939.57056.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	xen-devel@lists.xensource.com, jeremy@goop.org,
-	herbert@gondor.apana.org.au, konrad.wilk@oracle.com,
-	romieu@fr.zoreil.com, shemminger@vyatta.com, mirqus@gmail.com
-To: Ian.Campbell@eu.citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46394
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932268Ab1CNWWR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 18:22:17 -0400
-In-Reply-To: <1300141060.32696.36.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jslaby@suse.cz, jirislaby@gmail.com, netdev@vger.kernel.org,
+	gregkh@suse.de, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: remi.denis-courmont@nokia.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201103140939.57056.remi.denis-courmont@nokia.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Date: Mon, 14 Mar 2011 22:17:40 +0000
+=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
+Date: Mon, 14 Mar 2011 09:39:56 +0200
 
-> Would you consider a commit patch which imports the baseline driver as
-> is from xen.git (this builds and is functional but needed clean up)
-> followed by the cleanup series? I made sure the cleanup part builds and
-> works at each step as I went (but I will run through it again to be
-> sure).
-> 
-> There is real value (to me at least) in keeping the cleanup separate and
-> being able to (even manually) associate the first upstream commit with
-> an equivalent point in the historical code.
+> On Sunday 13 March 2011 18:54:30 ext Jiri Slaby, you wrote:
+>> Currently there is a warning emitted by the cdc-phonet driver:
+>> WARNING: at include/linux/netdevice.h:1557 usbpn_probe+0x3bb/0x3f0
+>> [cdc_phonet]() Modules linked in: ...
+>> Pid: 5877, comm: insmod Not tainted 2.6.37.3-16-desktop #1
+>> Call Trace:
+>>  [<ffffffff810059b9>] dump_trace+0x79/0x340
+>>  [<ffffffff81520fdc>] dump_stack+0x69/0x6f
+>>  [<ffffffff810580eb>] warn_slowpath_common+0x7b/0xc0
+>>  [<ffffffffa00254fb>] usbpn_probe+0x3bb/0x3f0 [cdc_phonet]
+>> ...
+>> ---[ end trace f5d3e02908603ab4 ]---
+>> netif_stop_queue() cannot be called before register_netdev()
+>>=20
+>> So remove netif_stop_queue from the probe funtction to avoid that.
+>>=20
+>> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+>> Cc: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>> Cc: David S. Miller <davem@davemloft.net>
+>=20
+> Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Do you have any idea what that thing is going to do for poor souls trying
-to bisect?
-
-GIT is going to hop in and out of your line of development for any GIT
-bisect that traverses any period of time in which those driver commits
-exists.
-
-It's too messy.
-
-You can keep your tree online somewhere to publish the history, just
-like we do for the old bitkeeper import and similar.
+Applied.
