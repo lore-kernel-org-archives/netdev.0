@@ -1,76 +1,61 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] macb: detect IP version to determin if we are on at91
-	or avr32
-Date: Mon, 14 Mar 2011 10:15:13 +0000
-Message-ID: <20110314101512.GA26085@n2100.arm.linux.org.uk>
-References: <1299863585-17263-1-git-send-email-plagnioj@jcrosoft.com>
+From: Carsten Wolff <carsten@wolffcarsten.de>
+Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
+Date: Mon, 14 Mar 2011 11:06:19 +0100
+Message-ID: <201103141106.19679.carsten@wolffcarsten.de>
+References: <1299894051-13820-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-kernel@vger.kernel.org, Jamie Iles <jamie@jamieiles.com>,
-	Hans-Christian Egtvedt <hans-christian.egtvedt@atmel.com>
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	Nandita Dukkipati <nanditad@google.com>, netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:54245 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993Ab1CNKP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 06:15:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1299863585-17263-1-git-send-email-plagnioj@jcrosoft.com>
+Received: from h1346787.stratoserver.net ([85.214.49.182]:40856 "EHLO
+	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750974Ab1CNKY4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 06:24:56 -0400
+In-Reply-To: <1299894051-13820-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 11, 2011 at 06:13:05PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> +	if (macb_is_at91(bp)) {
-> +		bp->pclk = clk_get(&pdev->dev, "macb_clk");
-> +		if (IS_ERR(bp->pclk)) {
-> +			dev_err(&pdev->dev, "failed to get macb_clk\n");
-> +			goto err_out_free_dev;
-> +		}
-> +		clk_enable(bp->pclk);
-> +	} else {
-> +		bp->pclk = clk_get(&pdev->dev, "pclk");
-> +		if (IS_ERR(bp->pclk)) {
-> +			dev_err(&pdev->dev, "failed to get pclk\n");
-> +			goto err_out_free_dev;
-> +		}
-> +		bp->hclk = clk_get(&pdev->dev, "hclk");
-> +		if (IS_ERR(bp->hclk)) {
-> +			dev_err(&pdev->dev, "failed to get hclk\n");
-> +			goto err_out_put_pclk;
-> +		}
-> +
-> +		clk_enable(bp->pclk);
-> +		clk_enable(bp->hclk);
-> +	}
+Hi,
 
-This is the same kind of sillyness that started getting OMAP into problems
-with the clk API.  Just do this instead:
+On Saturday 12 March 2011, Yuchung Cheng wrote:
+> In the current undo logic, cwnd is moderated after it was restored
+> to the value prior entering fast-recovery. It was moderated first
+> in tcp_try_undo_recovery then again in tcp_complete_cwr.
+>=20
+> Since the undo indicates recovery was false, these moderations
+> are not necessary. If the undo is triggered when most of the
+> outstanding data have been acknowledged, the (restored) cwnd is
+> falsely pulled down to a small value.
+>=20
+> This patch removes these cwnd moderations if cwnd is undone during
+> the fast-recovery.
 
-	bp->pclk = clk_get(&pdev->dev, "pclk");
-	if (IS_ERR(bp->pclk)) {
-		dev_err(&pdev->dev, "failed to get pclk\n");
-		goto err_out_free_dev;
-	}
-	bp->hclk = clk_get(&pdev->dev, "hclk");
-	if (IS_ERR(bp->hclk)) {
-		dev_err(&pdev->dev, "failed to get hclk\n");
-		goto err_out_put_pclk;
-	}
+The moderation is in place to avoid gigantic segment bursts, which coul=
+d cause=20
+unnecessary pressure on buffers. In my eyes it's already suboptimal tha=
+t the=20
+moderation is weakened in the presence of (detected) reordering, let al=
+one=20
+removing it completely.
 
-	clk_enable(bp->pclk);
-	clk_enable(bp->hclk);
+More importantly, the prior ssthresh is restored and not affected by=20
+moderation. This means, if moderation reduces cwnd to a small value, th=
+en cwnd=20
+< ssthresh and TCP will quickly slow-start back to the previous state, =
+without=20
+sending a big burst of segments.
 
-And then require _all_ platforms using this driver to provide a pclk and
-a hclk for this device, whether they exist in the SoC or not.  Where they
-don't, provide dummy clocks for it.
+Also, you intended to remove cwnd moderation only from an undo during=20
+recovery, but I think your patch also removes cwnd moderation when the =
+undo is=20
+caused by D-SACK, i.e. most likely after recovery already ended.
 
-This probably means you end up with _less_ bloat overall because you're
-not having to build the above code.  You've less lines of source code to
-maintain.  You have a simplified dirver with consistent requirements
-across all platforms.  You don't need to read the version register, and
-you don't need macb_is_at91() and macb_is_avr32().
-
-With clkdev it's _cheap_ to provide these dummy clocks once you have one
-dummy clock already in place.
+Carsten
+--=20
+           /\-=C2=B4-/\
+          (  @ @  )
+________o0O___^___O0o________
