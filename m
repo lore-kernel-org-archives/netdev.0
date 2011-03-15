@@ -1,48 +1,50 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/4] netfilter: xt_connlimit: fix daddr connlimit in SNAT
- scenario
-Date: Tue, 15 Mar 2011 03:05:21 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1103150302310.27019@obet.zrqbmnf.qr>
-References: <1300085414-27275-1-git-send-email-xiaosuo@gmail.com> <alpine.LNX.2.01.1103141310140.27542@obet.zrqbmnf.qr> <AANLkTi=QgVBVAPcTmb_La=VJOLq5LmGPqMfw7bbCuByP@mail.gmail.com> <alpine.LNX.2.01.1103141955180.21929@obet.zrqbmnf.qr>
- <AANLkTimBV9x7Y-tUez5VMDoU+8mtaw1f48GV1yxgZ71c@mail.gmail.com> <alpine.LNX.2.01.1103150210370.21929@obet.zrqbmnf.qr> <AANLkTinZiVbVttzNuGdShC25=BtwJUzhSX_YZBxAr+qF@mail.gmail.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: r8169 disable ASPM patch
+Date: Tue, 15 Mar 2011 10:13:51 +0800
+Message-ID: <A3CB45A0D83D46D8B325DAD784F439ED@realtek.com.tw>
+References: <20110302.215255.183067695.davem@davemloft.net> <20110303094518.GA13491@electric-eye.fr.zoreil.com> <A671CA7371854B808BAB6DA0BA7B050B@realtek.com.tw> <1299160092.4277.46.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinZiVbVttzNuGdShC25=BtwJUzhSX_YZBxAr+qF@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: 'Francois Romieu' <romieu@fr.zoreil.com>,
+	'David Miller' <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<sgruszka@redhat.com>
+To: 'Ben Hutchings' <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:58586 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913Ab1COCOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2011 22:14:19 -0400
+In-Reply-To: <1299160092.4277.46.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 2011-03-15 02:30, Changli Gao wrote:
+> -----Original Message-----
+> From: Ben Hutchings [mailto:bhutchings@solarflare.com] 
+> Sent: Thursday, March 03, 2011 9:48 PM
+> To: Hayeswang
+> Cc: 'Francois Romieu'; 'David Miller'; 
+> netdev@vger.kernel.org; sgruszka@redhat.com
+> Subject: RE: r8169 disable ASPM patch
+> 
+> On Thu, 2011-03-03 at 19:35 +0800, hayeswang wrote:
+> [...]
+> > > > Is there going to be a MAINTAINERS patch that adds 
+> Hayes?  If so 
+> > > > what is stalling that?
+> > 
+> > Realtek would continue handling the kernel. However, the 
+> person may be 
+> > different for different period. Therefore, I think keeping 
+> the current mode is better.
+> [...]
+> 
+> Perhaps you could add a contact alias address, like our 
+> linux-net-drivers@solarflare.com.
+> 
 
->On Tue, Mar 15, 2011 at 9:16 AM, Jan Engelhardt <jengelh@medozas.de> w=
-rote:
->>
->>
->> The original tuple may not be updated, but the reply tuple is.
->> And we are taking the reply tuple in
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0tuple_ptr =3D &ct->tuplehash[IP_CT_DIR_RE=
-PLY].tuple;
->>
->> which is subsequently copied to conn->tuple on the first invocation.
->>
->> Afterwards, SNAT will update ct->tuplehash[reply].tuple, and so
->> conn->tuple is outdated. Calling nf_conntrack_find_get(conn->tuple)
->> in count_them would then fail, would it not?
->>
->
->After my patch, tuple is only used to look up the corresponding
->conntrack.
+Thanks for your suggestion. I would ask my leader and IT.
+ 
+Best Regards,
+Hayes
 
-Ok, the patch may be applied. Somehow I was under the impression
-addr was extracted from tuple_ptr, but it is, in fact, not.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
