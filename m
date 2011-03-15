@@ -1,50 +1,84 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [RFC v3 0/6] CAN: add SAE J1939 protocol
-Date: Tue, 15 Mar 2011 10:23:41 +0100
-Message-ID: <20110315092341.GA332@e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
+Date: Tue, 15 Mar 2011 12:00:33 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103151135110.1729@ja.ssi.bg>
+References: <20110307.205815.193699096.davem@davemloft.net> <alpine.LFD.2.00.1103081030090.1529@ja.ssi.bg> <20110308.103801.193702247.davem@davemloft.net> <20110308.110352.189704727.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110314132004.GA333-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:54709 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750893Ab1COJzc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2011 05:55:32 -0400
+In-Reply-To: <20110308.110352.189704727.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 14, 2011 at 02:20:04PM +0100, Kurt Van Dijck wrote:
-> 
-> This series adds SAE J1939 support to the current net-next-2.6.
-> For the rtnetlink operations to work, a 2.6.38-rc1 is required.
-> 
-> 1/6: can: extend sockaddr_can to include j1939 members
-> 2/6: can: add rtnetlink support
-> 3/6: can: make struct proto const
-> 4/6: j1939: initial import of SAE J1939
-> 5/6: j1939: add documentation & MAINTAINERS
-> 6/6: iproute2: use CAN & J1939
-> 
-> Still a lot of things probably need explanation...
 
-I had not mentioned the major differences with v2
-(which went to berlios SocketCAN mailing list only).
+ 	Hello,
 
-* replace magic constants with macro's
-* use a static protocol stack, not a dynamic one.
-* remove feature that have limited use and are
-  difficult to explain.
-* renamed some structure types to increase code readability. 
-* block on transport sessions until CAN frame is queued.
+On Tue, 8 Mar 2011, David Miller wrote:
 
-* fix bugs.
+> 	change_nexthops(fi) {
+> +		nexthop_nh->nh_cfg_scope = cfg->fc_scope;
+> 		nexthop_nh->nh_saddr = inet_select_addr(nexthop_nh->nh_dev,
+> 							nexthop_nh->nh_gw,
+> -							nexthop_nh->nh_scope);
+> +							nexthop_nh->nh_cfg_scope);
+> 	} endfor_nexthops(fi)
 
-Kurt
+ 	I see another problem with nh_saddr. fib_info
+is reused when NHs and some parameters are equal but the
+scope is not part of the fib_info and it is wrong to cache
+route scope in NH or even in fib_info. The problem is
+that we can expose in nh_saddr addresses with wrong
+scope for the route. It happens when two routes with
+different route scope reuse same fib_info.
+
+ 	First thought is that the field fa_scope can be
+moved into fib_scope in struct fib_info, not to use
+nh_cfg_scope. Then fib_find_info can differentiate the
+entries by fib_scope. It means, fib_info will not be reused
+if fib_scope is different. For FIB_RES_PREFSRC I assume we
+can access fib_info from nh->nh_parent safely when
+refreshing nh_saddr.
+
+ 	Here is a script that demonstrates the wrong
+exposing:
+
+#! /bin/sh -x
+
+dev=eth1
+
+ip link set $dev up
+ip addr flush $dev
+ip route flush dev $dev
+
+# address that we want to show only to site
+ip addr add 1.2.3.4/24 brd + dev $dev scope site
+
+# first route learns 1.2.3.4 as nh_saddr, it is suitable for site
+ip route add 5.6.7.0/24 via 1.2.3.6 dev $dev scope site
+
+# our global primary address for universe, bigger subnet
+ip addr add 1.2.3.5/23 brd + dev $dev scope global
+
+# second route reuses same fib_info, exposes site address
+# 1.2.3.4 to the 4.3.2.0 world
+ip route add 4.3.2.0/24 via 1.2.3.6 dev $dev scope global
+
+# show results:
+
+# we must see src 1.2.3.4:
+ip route get 5.6.7.8
+
+# we must see src 1.2.3.5. Old kernels show 1.2.3.5, but we
+# show 1.2.3.4:
+ip route get 4.3.2.1
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
