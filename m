@@ -1,39 +1,35 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: IPsec tunnel forwarding in net-next-2.6 since 452edd59
-Date: Tue, 15 Mar 2011 15:28:25 -0700 (PDT)
-Message-ID: <20110315.152825.193708028.davem@davemloft.net>
+Date: Tue, 15 Mar 2011 23:31:09 +0100
+Message-ID: <1300228269.2565.11.camel@edumazet-laptop>
 References: <4D7FB054.2090902@cbnco.com>
-	<1300227411.2565.7.camel@edumazet-laptop>
+	 <1300227411.2565.7.camel@edumazet-laptop>
+	 <20110315.152825.193708028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: msmith@cbnco.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48636
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752215Ab1COW1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 18:27:47 -0400
-In-Reply-To: <1300227411.2565.7.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35943 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753114Ab1COWbN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 18:31:13 -0400
+Received: by wwa36 with SMTP id 36so1360970wwa.1
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 15:31:12 -0700 (PDT)
+In-Reply-To: <20110315.152825.193708028.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 15 Mar 2011 23:16:51 +0100
+Le mardi 15 mars 2011 =C3=A0 15:28 -0700, David Miller a =C3=A9crit :
 
-> Could you try following patch ?
-> 
-> [PATCH] xfrm: fix __xfrm_route_forward()
-> 
-> This function should return 0 in case of error, 1 if OK
-> commit 452edd598f60522 (xfrm: Return dst directly from xfrm_lookup())
-> got it wrong.
-> 
-> Reported-and-bisected-by: Michael Smith <msmith@cbnco.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Thanks so much for fixing this Eric, sheesh you are so awesome that
+> you don't even give me enough time to fix my own bugs. :-))))
+>=20
 
-Thanks so much for fixing this Eric, sheesh you are so awesome that
-you don't even give me enough time to fix my own bugs. :-))))
+Well, I know you must be pretty busy now linux-2.6.38 is released ;)
 
-Applied, and indeed thanks to Michael for the excellent report.
+> Applied, and indeed thanks to Michael for the excellent report.
+>=20
+
 
