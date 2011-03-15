@@ -1,90 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Multicast Fails Over Multipoint GRE Tunnel
-Date: Tue, 15 Mar 2011 16:34:37 +0100
-Message-ID: <1300203277.2927.9.camel@edumazet-laptop>
-References: <998769.91206.qm@web39301.mail.mud.yahoo.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 15 Mar 2011 08:43:10 -0700
+Message-ID: <AANLkTimbaHZtKGRmg16dy--nwsVzbZpHEuXAnBQ1RWYX@mail.gmail.com>
+References: <20110310.155556.48513201.davem@davemloft.net> <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com>
+ <20110311204823.GB7906@fieldses.org> <20110311.130128.71121155.davem@davemloft.net>
+ <1299878274.2814.8.camel@bwh-desktop> <20110311214209.GB9404@fieldses.org>
+ <20110312040941.GA15526@home.goodmis.org> <alpine.DEB.2.00.1103150019060.5340@asgard.lang.hm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Timo Teras <timo.teras@iki.fi>
-To: Doug Kehn <rdkehn@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:57062 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758035Ab1COPel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 11:34:41 -0400
-Received: by fxm17 with SMTP id 17so689453fxm.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 08:34:40 -0700 (PDT)
-In-Reply-To: <998769.91206.qm@web39301.mail.mud.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: david@lang.hm
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1103150019060.5340@asgard.lang.hm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 14 mars 2011 =C3=A0 16:34 -0700, Doug Kehn a =C3=A9crit :
-> Hi All,
->=20
-> I'm running kernel version 2.6.36 on ARM XSCALE (big-endian) and mult=
-icast over a multipoint GRE tunnel isn't working.  For my architecture,=
- this worked on 2.6.26.8.  For x86, multicast over a multipoint GRE tun=
-nel worked with kernel version 2.6.31 but failed with version 2.6.35.  =
-Multicast over a multipoint GRE tunnel fails because ipgre_header() fai=
-ls the 'if (iph->daddr)' check and reutrns -t->hlen.  ipgre_header() is=
- being called, from neigh_connected_output(), with a non-null daddr; th=
-e contents of daddr is zero.
->=20
-> Reverting the ip_gre.c patch posted in http://marc.info/?l=3Dlinux-ne=
-tdev&m=3D126762491525281&w=3D2 resolves the problem.  (Reviewing the HE=
-AD of net-next-2.6 it appears that ipgre_header() remains unchanged fro=
-m 2.6.36.)
->=20
-> The configuration used to discover/diagnose the problem:
->=20
-> ip tunnel add tun1 mode gre key 11223344 ttl 64 csum remote any
-> ip link set dev tun1 up
-> ip link set dev tun1 multicast on
-> ip addr flush dev tun1
-> ip addr add 10.40.92.114/24 broadcast 10.40.92.255 dev tun1
->=20
-> 12: tun1: <MULTICAST,NOARP,UP,10000> mtu 1468 qdisc noqueue
->     link/gre 0.0.0.0 brd 0.0.0.0
->     inet 10.40.92.114/24 brd 10.40.92.255 scope global tun1
->=20
-> Then attempt:
-> ping -I tun1 224.0.0.9
->=20
-> Are additional configuration steps now required for multicast over mu=
-ltipoint GRE tunnel or is ipgre_header() in error?
+On Tue, Mar 15, 2011 at 12:20 AM,  <david@lang.hm> wrote:
+>
+> what effect would this have on bisecting? if this helped people avoid
+> bisecting in between the bad commit and the fix for it, it may be worth it.
 
-Hi Doug
+The biggest impact on bisecting would be to just make it slower due to
+extra merge commits. It's probably not a hugely noticeable thing,
+though - we have merges for lots of other reasons.
 
-CC Timo Teras <timo.teras@iki.fi>
+Merges make bisecting a bit less efficient not only because they are
+an extra commit, but because merges - by not being linear - end up
+making it harder to find the "perfect" half-way point. IOW, the
+bisection algorithm may not be able to pick a commit exactly midway,
+because if it picks a merge it will obviously include both branches
+(which may be "too much"), but if it picks the last commit of either
+branch it may be too little.
 
-I would do a partial revert of Timo patch, but this means initial
-concern should be addressed ?
+And not picking a good half-way point makes bisection less efficient
+(it's no longer "log2()", but maybe "log1.7()").
 
-(Timo mentioned :=20
-	If the NOARP packets are not dropped, ipgre_tunnel_xmit() will
-	take rt->rt_gateway (=3D NBMA IP) and use that for route
-	look up (and may lead to bogus xfrm acquires).)
+In practice, though, I suspect it's not really a big issue.
 
+The other issue with bisecting merges is obviously that it can be
+really nasty to figure out a bug that is introduced by the merge
+itself (which is usually due to some interaction between the things
+being merged, rather than any real mis-merge itself, although
+mis-merges can obviously happen).
 
-Is the following works for you ?
+Again, that's pretty rare, although it does happen (and is often quite
+"interesting" when it happens).
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index da5941f..47844fa2 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1170,8 +1170,10 @@ static int ipgre_header(struct sk_buff *skb, str=
-uct net_device *dev,
-=20
- 	if (saddr)
- 		memcpy(&iph->saddr, saddr, 4);
--	if (daddr)
-+	if (daddr) {
- 		memcpy(&iph->daddr, daddr, 4);
-+		return t->hlen;
-+	}
- 	if (iph->daddr)
- 		return t->hlen;
-=20
+But in practice, I think the biggest argument against trying to fix
+things as patches on top of the original bug and then merging it in is
+that it's just extra work for fairly small gain. In particular:
 
+ - not all bugs get bisected. In fact, it's the minority - most
+bug-fixes are "obvious", and no-one even bothers bisecting them
 
+ - not all bugs are as clearly the result of a single commit. Many are
+a commit series. Sure, you'd just make it the last one in the series,
+but it would kind of defeat the "parent introduced the bug" point of
+it all.
+
+ - putting the "commit xyz caused this problem" in the changelog (and
+then just follow the chain that way) isn't really all that much worse.
+The reason I talked about doing this for _merges_ is that I think
+developers should think a lot more about merging, but I don't think
+people need to think a lot about "let's fix this obvious bug".
+
+ - bugfixes are often sent out as emails etc. Just applying the
+bug-fix would be a _lot_ more work if it involved "create new branch
+at original bug, apply, merge" than just "apply". That's especially
+true for series of patches, like the ones I get from Andrew and Al.
+
+In particular, that last thing is a killer for me personally. It
+(together with the first point) would mean that it would be done only
+for a very small subset of bugs, which really defeats the whole
+purpose, and then makes that "merge it on top of its parent" thing be
+the unusual case rather than some general rule.
+
+And merges do end up being more complicated than plain patches. Not
+just in the "extra commit" sense, but also simply in the sense of
+making the history more complex.
+
+They do have advantages too. We could just merge the same branch into
+multiple branches, for example (-stable comes to mind). That said,
+once more, it would really complicate things for everybody (no longer
+can the stable people just apply a series of patches), so...
+
+So on the whole, I don't think it would be worth it. I don't think
+it's _wrong_, mind you, I just think that the way we work, it's more
+pain than gain.
+
+For doing a backwards merge, I think the "more pain" is a _good_ thing
+(it really shouldn't _ever_ be a mindless "let's merge whatever
+upstream is today" and I definitely made that mindless action too easy
+to do in git). For most bug-fixes, more pain is just that - more pain.
+
+                            Linus
