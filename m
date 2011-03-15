@@ -1,85 +1,61 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [GIT] Networking
-Date: Tue, 15 Mar 2011 08:52:40 -0400
-Message-ID: <1300193560.9910.265.camel@gandalf.stny.rr.com>
-References: <20110310.155556.48513201.davem@davemloft.net>
-	 <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com>
-	 <20110311204823.GB7906@fieldses.org>
-	 <20110311.130128.71121155.davem@davemloft.net>
-	 <1299878274.2814.8.camel@bwh-desktop> <20110311214209.GB9404@fieldses.org>
-	 <20110312040941.GA15526@home.goodmis.org>
-	 <alpine.DEB.2.00.1103150019060.5340@asgard.lang.hm>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH][v3] dev : fix mtu check when TSO is enabled
+Date: Tue, 15 Mar 2011 14:57:40 +0100
+Message-ID: <4D7F7054.70409@free.fr>
+References: <1300135190-14093-1-git-send-email-daniel.lezcano@free.fr> <20110314.165929.232913682.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: david@lang.hm
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1103150019060.5340@asgard.lang.hm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, kaber@trash.net, nightnord@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1-g21.free.fr ([212.27.42.1]:36317 "EHLO smtp1-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757411Ab1CON5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2011 09:57:50 -0400
+In-Reply-To: <20110314.165929.232913682.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-03-15 at 00:20 -0700, david@lang.hm wrote:
+On 03/15/2011 12:59 AM, David Miller wrote:
+> From: Daniel Lezcano<daniel.lezcano@free.fr>
+> Date: Mon, 14 Mar 2011 21:39:50 +0100
+>
+>> +	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
+>> +	if (skb->len<  len)
+>> +		return true;
+> This is not a correct translation of the original test:
+>
+>> -		     (skb->len>  (dev->mtu + dev->hard_header_len + VLAN_HLEN)))) {
+> You need to use "<=" in your version, which currently rejects all
+> full sized frames. :-)
 
-> > It really is meaningless to do so, as all you are doing is documenting
-> > what commit caused this bug, and producing more problems by branching
-> > off of the broken commit. It wont matter till it is merged, but then if
-> > there are a lot of simple bug fixes, then you will have a lot of single
-> > merges of branches that fix those bugs.
-> 
-> what effect would this have on bisecting? if this helped people avoid 
-> bisecting in between the bad commit and the fix for it, it may be worth 
-> it.
-> 
+Right, thanks.
 
-But it wont, as the fix will still be brought in at a later time. It has
-nothing to do with being based off of the broken commit.
+>> +
+>> +	/* if TSO is enabled, we don't care about the length as the packet
+>> +	 * could be forwarded without being segmented before
+>> +	 */
+>> +	if (skb->dev&&  skb->dev->features&  NETIF_F_TSO)
+>> +		return true;
+> I am trying to understand why you aren't simply checking also if this
+> is a segmented frame?  Perhaps skb_is_gso()&&  device has NETIF_F_TSO
+> set?
 
-         A  +
-            +   merged in fix
-         B  + \
-            |  |
-            |  |
-            |  |
-Lots of     |  |
-  stuff     |  |
-            |  |
-            |  |
-            |  + - fix for bug
-            | /
- Bug commit +
-            |
+Maybe I am misunderstanding but the packet was forwarded by another device.
+In our case from macvlan:
 
-A bisect will still be testing lots of stuff without that fix. And if it
-goes into the branch with the fix, we just brought the kernel way back
-in time from point A. Then if it goes back to point B, then we zoom back
-to the future and bounce the kernel all over the place.
+macvlan_start_xmit
+     macvlan_queue_xmit
+         dest->forward
+             dev_skb_forward
 
-I see no gain for having a fixed based off of the bug that it fixes.
+When we reached dev_skb_forward, that means we passed through 
+dev_hard_start_xmit where the packet was already segmented so we should 
+exit at the first test (skb->len < len). I don't see the point of adding 
+the skb_is_gso.
+But maybe I am missing something, can you explain ?
 
-Pros of doing this:
-
-1) documents the point that things broke (can be done by commenting it
-in the change log too)
-
-2) probably good for back porting (but Con 3 may out weigh this)
-
-Cons:
-
-1) Adds many more branches and merges for no real good reason
-
-2) Makes bisects even less linear than it already is
-
-3) May cause more conflicts at the merge point as the broken code may
-have changed.
-
-
-
-Who will be doing the conflict resolutions? Linus? I doubt he would be
-happy with that, but he can speak for himself.
-
--- Steve
+Thanks
+   -- Daniel
