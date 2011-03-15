@@ -1,175 +1,71 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 1/1] netxen: support for GbE port settings
-Date: Mon, 14 Mar 2011 23:52:47 -0700
-Message-ID: <1300171967-16576-2-git-send-email-amit.salecha@qlogic.com>
-References: <1300171967-16576-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: davem@davemloft.net
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [GIT/PATCH v5] xen network backend driver
+Date: Tue, 15 Mar 2011 07:09:36 +0000
+Message-ID: <1300172976.32696.42.camel@localhost.localdomain>
+References: <1300131040.32696.23.camel@localhost.localdomain>
+	 <20110314.132355.226777213.davem@davemloft.net>
+	 <1300141060.32696.36.camel@localhost.localdomain>
+	 <20110314.152255.68135182.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"jeremy@goop.org" <jeremy@goop.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"mirqus@gmail.com" <mirqus@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:46200 "EHLO unm84.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753944Ab1COG6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Mar 2011 02:58:03 -0400
-In-Reply-To: <1300171967-16576-1-git-send-email-amit.salecha@qlogic.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:29509 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754223Ab1COHJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 03:09:39 -0400
+In-Reply-To: <20110314.152255.68135182.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+On Mon, 2011-03-14 at 22:22 +0000, David Miller wrote:
+> From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+> Date: Mon, 14 Mar 2011 22:17:40 +0000
+> 
+> > Would you consider a commit patch which imports the baseline driver as
+> > is from xen.git (this builds and is functional but needed clean up)
+> > followed by the cleanup series? I made sure the cleanup part builds and
+> > works at each step as I went (but I will run through it again to be
+> > sure).
+> > 
+> > There is real value (to me at least) in keeping the cleanup separate and
+> > being able to (even manually) associate the first upstream commit with
+> > an equivalent point in the historical code.
+> 
+> Do you have any idea what that thing is going to do for poor souls trying
+> to bisect?
+> 
+> GIT is going to hop in and out of your line of development for any GIT
+> bisect that traverses any period of time in which those driver commits
+> exists.
+> 
+> It's too messy.
 
-o Enable setting speed and auto negotiation parameters for GbE ports.
-o Hardware do not support half duplex setting currently.
+It's exactly the same as any other patch series in this respect though,
+isn't it?
 
-David Miller:
-	Amit please update your patch to silently reject link setting
-	attempts that are unsupported by the device.
+But... I'd forgotten that up until "xen: netback: Make dependency on
+PageForeign conditional" I was running with a local non-upstreamable
+branch containing the PageForeign infrastructure merged which I removed
+once I removed the PageForeign dependency was gone, so the series isn't
+actually fully buildable upstream like I thought.
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic.h         |    6 ++-
- drivers/net/netxen/netxen_nic_ctx.c     |   15 +++++++
- drivers/net/netxen/netxen_nic_ethtool.c |   62 ++++++++-----------------------
- 3 files changed, 36 insertions(+), 47 deletions(-)
+So I'll resend a single patch version of the driver today.
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index a113805..d7299f1 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -739,7 +739,8 @@ struct netxen_recv_context {
- #define NX_CDRP_CMD_READ_PEXQ_PARAMETERS	0x0000001c
- #define NX_CDRP_CMD_GET_LIC_CAPABILITIES	0x0000001d
- #define NX_CDRP_CMD_READ_MAX_LRO_PER_BOARD	0x0000001e
--#define NX_CDRP_CMD_MAX				0x0000001f
-+#define NX_CDRP_CMD_CONFIG_GBE_PORT		0x0000001f
-+#define NX_CDRP_CMD_MAX				0x00000020
- 
- #define NX_RCODE_SUCCESS		0
- #define NX_RCODE_NO_HOST_MEM		1
-@@ -1054,6 +1055,7 @@ typedef struct {
- #define NX_FW_CAPABILITY_BDG			(1 << 8)
- #define NX_FW_CAPABILITY_FVLANTX		(1 << 9)
- #define NX_FW_CAPABILITY_HW_LRO			(1 << 10)
-+#define NX_FW_CAPABILITY_GBE_LINK_CFG		(1 << 11)
- 
- /* module types */
- #define LINKEVENT_MODULE_NOT_PRESENT			1
-@@ -1349,6 +1351,8 @@ void netxen_advert_link_change(struct netxen_adapter *adapter, int linkup);
- void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u64 *);
- void netxen_pci_camqm_write_2M(struct netxen_adapter *, u64, u64);
- 
-+int nx_fw_cmd_set_gbe_port(struct netxen_adapter *adapter,
-+				u32 speed, u32 duplex, u32 autoneg);
- int nx_fw_cmd_set_mtu(struct netxen_adapter *adapter, int mtu);
- int netxen_nic_change_mtu(struct net_device *netdev, int new_mtu);
- int netxen_config_hw_lro(struct netxen_adapter *adapter, int enable);
-diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
-index f7d06cb..f16966a 100644
---- a/drivers/net/netxen/netxen_nic_ctx.c
-+++ b/drivers/net/netxen/netxen_nic_ctx.c
-@@ -112,6 +112,21 @@ nx_fw_cmd_set_mtu(struct netxen_adapter *adapter, int mtu)
- 	return 0;
- }
- 
-+int
-+nx_fw_cmd_set_gbe_port(struct netxen_adapter *adapter,
-+			u32 speed, u32 duplex, u32 autoneg)
-+{
-+
-+	return netxen_issue_cmd(adapter,
-+				adapter->ahw.pci_func,
-+				NXHAL_VERSION,
-+				speed,
-+				duplex,
-+				autoneg,
-+				NX_CDRP_CMD_CONFIG_GBE_PORT);
-+
-+}
-+
- static int
- nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
- {
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 587498e..653d308 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -214,7 +214,6 @@ skip:
- 			check_sfp_module = netif_running(dev) &&
- 				adapter->has_link_events;
- 		} else {
--			ecmd->autoneg = AUTONEG_ENABLE;
- 			ecmd->supported |= (SUPPORTED_TP |SUPPORTED_Autoneg);
- 			ecmd->advertising |=
- 				(ADVERTISED_TP | ADVERTISED_Autoneg);
-@@ -252,53 +251,24 @@ static int
- netxen_nic_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
--	__u32 status;
-+	int ret;
- 
--	/* read which mode */
--	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
--		/* autonegotiation */
--		if (adapter->phy_write &&
--		    adapter->phy_write(adapter,
--				       NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
--				       ecmd->autoneg) != 0)
--			return -EIO;
--		else
--			adapter->link_autoneg = ecmd->autoneg;
-+	if (adapter->ahw.port_type != NETXEN_NIC_GBE)
-+		return -EOPNOTSUPP;
- 
--		if (adapter->phy_read &&
--		    adapter->phy_read(adapter,
--				      NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
--				      &status) != 0)
--			return -EIO;
-+	if (!(adapter->capabilities & NX_FW_CAPABILITY_GBE_LINK_CFG))
-+		return -EOPNOTSUPP;
- 
--		/* speed */
--		switch (ecmd->speed) {
--		case SPEED_10:
--			netxen_set_phy_speed(status, 0);
--			break;
--		case SPEED_100:
--			netxen_set_phy_speed(status, 1);
--			break;
--		case SPEED_1000:
--			netxen_set_phy_speed(status, 2);
--			break;
--		}
--		/* set duplex mode */
--		if (ecmd->duplex == DUPLEX_HALF)
--			netxen_clear_phy_duplex(status);
--		if (ecmd->duplex == DUPLEX_FULL)
--			netxen_set_phy_duplex(status);
--		if (adapter->phy_write &&
--		    adapter->phy_write(adapter,
--				       NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
--				       *((int *)&status)) != 0)
--			return -EIO;
--		else {
--			adapter->link_speed = ecmd->speed;
--			adapter->link_duplex = ecmd->duplex;
--		}
--	} else
-+	ret = nx_fw_cmd_set_gbe_port(adapter, ecmd->speed, ecmd->duplex,
-+				     ecmd->autoneg);
-+	if (ret == NX_RCODE_NOT_SUPPORTED)
- 		return -EOPNOTSUPP;
-+	else if (ret)
-+		return -EIO;
-+
-+	adapter->link_speed = ecmd->speed;
-+	adapter->link_duplex = ecmd->duplex;
-+	adapter->link_autoneg = ecmd->autoneg;
- 
- 	if (!netif_running(dev))
- 		return 0;
--- 
-1.7.3.2
+> You can keep your tree online somewhere to publish the history, just
+> like we do for the old bitkeeper import and similar.
+
+Sure.
+
+Ian.
 
