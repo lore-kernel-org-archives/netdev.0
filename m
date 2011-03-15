@@ -1,7 +1,7 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCHv2 7/9] macb: support statistics for GEM devices
-Date: Tue, 15 Mar 2011 10:14:54 +0000
-Message-ID: <1300184096-13937-8-git-send-email-jamie@jamieiles.com>
+Subject: [PATCHv2 9/9] macb: allow GEM to have configurable receive buffer size
+Date: Tue, 15 Mar 2011 10:14:56 +0000
+Message-ID: <1300184096-13937-10-git-send-email-jamie@jamieiles.com>
 References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
 Cc: nicolas.ferre@atmel.com, plagnioj@jcrosoft.com,
 	Jamie Iles <jamie@jamieiles.com>
@@ -9,182 +9,81 @@ To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bw0-f46.google.com ([209.85.214.46]:54894 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756982Ab1COKPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:32 -0400
+	with ESMTP id S1757034Ab1COKPl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:41 -0400
 Received: by mail-bw0-f46.google.com with SMTP id 15so389803bwz.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:31 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:40 -0700 (PDT)
 In-Reply-To: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GEM devices have a different number of statistics registers and they
-are at a different offset to MACB devices.  Make the statistics
-collection method dependent on device type.
+GEM has configurable receive buffer sizes so requires this to be
+programmed up.  Any size < 2048 and a multiple of 64 bytes is permitted.
 
 Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 ---
- drivers/net/macb.c |   57 +++++++++++++++++++++++++++++++++++++++++++++++++--
- drivers/net/macb.h |   54 ++++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 107 insertions(+), 4 deletions(-)
+ drivers/net/macb.c |   17 +++++++++++++++++
+ drivers/net/macb.h |    5 +++++
+ 2 files changed, 22 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index f3da878..0598373 100644
+index db9f403..52ad367 100644
 --- a/drivers/net/macb.c
 +++ b/drivers/net/macb.c
-@@ -282,8 +282,8 @@ err_out:
- static void macb_update_stats(struct macb *bp)
- {
- 	u32 __iomem *reg = bp->regs + MACB_PFR;
--	u32 *p = &bp->hw_stats.rx_pause_frames;
--	u32 *end = &bp->hw_stats.tx_pause_frames + 1;
-+	u32 *p = &bp->hw_stats.macb.rx_pause_frames;
-+	u32 *end = &bp->hw_stats.macb.tx_pause_frames + 1;
- 
- 	WARN_ON((unsigned long)(end - p - 1) != (MACB_TPF - MACB_PFR) / 4);
- 
-@@ -1029,11 +1029,62 @@ static int macb_close(struct net_device *dev)
- 	return 0;
+@@ -843,6 +843,21 @@ static u32 macb_dbw(struct macb *bp)
+ 	}
  }
  
-+static void gem_update_stats(struct macb *bp)
++/*
++ * Configure the receive DMA engine to use the correct receive buffer size.
++ * This is a configurable parameter for GEM.
++ */
++static void macb_configure_dma(struct macb *bp)
 +{
-+	u32 __iomem *reg = bp->regs + GEM_OTX;
-+	u32 *p = &bp->hw_stats.gem.tx_octets_31_0;
-+	u32 *end = &bp->hw_stats.gem.rx_udp_checksum_errors + 1;
++	u32 dmacfg;
 +
-+	for (; p < end; p++, reg++)
-+		*p += __raw_readl(reg);
++	if (bp->is_gem) {
++		dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
++		dmacfg |= GEM_BF(RXBS, RX_BUFFER_SIZE / 64);
++		gem_writel(bp, DMACFG, dmacfg);
++	}
 +}
 +
-+static struct net_device_stats *gem_get_stats(struct macb *bp)
-+{
-+	struct gem_stats *hwstat = &bp->hw_stats.gem;
-+	struct net_device_stats *nstat = &bp->stats;
-+
-+	gem_update_stats(bp);
-+
-+	nstat->rx_errors = (hwstat->rx_frame_check_sequence_errors +
-+			    hwstat->rx_alignment_errors +
-+			    hwstat->rx_resource_errors +
-+			    hwstat->rx_overruns +
-+			    hwstat->rx_oversize_frames +
-+			    hwstat->rx_jabbers +
-+			    hwstat->rx_undersized_frames +
-+			    hwstat->rx_length_field_frame_errors);
-+	nstat->tx_errors = (hwstat->tx_late_collisions +
-+			    hwstat->tx_excessive_collisions +
-+			    hwstat->tx_underrun +
-+			    hwstat->tx_carrier_sense_errors);
-+	nstat->multicast = hwstat->rx_multicast_frames;
-+	nstat->collisions = (hwstat->tx_single_collision_frames +
-+			     hwstat->tx_multiple_collision_frames +
-+			     hwstat->tx_excessive_collisions);
-+	nstat->rx_length_errors = (hwstat->rx_oversize_frames +
-+				   hwstat->rx_jabbers +
-+				   hwstat->rx_undersized_frames +
-+				   hwstat->rx_length_field_frame_errors);
-+	nstat->rx_over_errors = hwstat->rx_resource_errors;
-+	nstat->rx_crc_errors = hwstat->rx_frame_check_sequence_errors;
-+	nstat->rx_frame_errors = hwstat->rx_alignment_errors;
-+	nstat->rx_fifo_errors = hwstat->rx_overruns;
-+	nstat->tx_aborted_errors = hwstat->tx_excessive_collisions;
-+	nstat->tx_carrier_errors = hwstat->tx_carrier_sense_errors;
-+	nstat->tx_fifo_errors = hwstat->tx_underrun;
-+
-+	return nstat;
-+}
-+
- static struct net_device_stats *macb_get_stats(struct net_device *dev)
+ static void macb_init_hw(struct macb *bp)
  {
- 	struct macb *bp = netdev_priv(dev);
- 	struct net_device_stats *nstat = &bp->stats;
--	struct macb_stats *hwstat = &bp->hw_stats;
-+	struct macb_stats *hwstat = &bp->hw_stats.macb;
-+
-+	if (bp->is_gem)
-+		return gem_get_stats(bp);
+ 	u32 config;
+@@ -861,6 +876,8 @@ static void macb_init_hw(struct macb *bp)
+ 	config |= macb_dbw(bp);
+ 	macb_writel(bp, NCFGR, config);
  
- 	/* read stats from hardware */
- 	macb_update_stats(bp);
++	macb_configure_dma(bp);
++
+ 	/* Initialize TX and RX buffers */
+ 	macb_writel(bp, RBQP, bp->rx_ring_dma);
+ 	macb_writel(bp, TBQP, bp->tx_ring_dma);
 diff --git a/drivers/net/macb.h b/drivers/net/macb.h
-index 65abd8a..a2074f5 100644
+index 5f93bab..d743d3e 100644
 --- a/drivers/net/macb.h
 +++ b/drivers/net/macb.h
-@@ -68,6 +68,7 @@
+@@ -64,6 +64,7 @@
+ /* GEM register offsets. */
+ #define GEM_NCFGR				0x0004
+ #define GEM_USRIO				0x000c
++#define GEM_DMACFG				0x0010
+ #define GEM_HRB					0x0080
  #define GEM_HRT					0x0084
  #define GEM_SA1B				0x0088
- #define GEM_SA1T				0x008C
-+#define GEM_OTX					0x0100
+@@ -154,6 +155,10 @@
+ #define GEM_DBW64				1
+ #define GEM_DBW128				2
  
- /* Bitfields in NCR */
- #define MACB_LB_OFFSET				0
-@@ -425,6 +426,54 @@ struct macb_stats {
- 	u32	tx_pause_frames;
- };
- 
-+struct gem_stats {
-+	u32	tx_octets_31_0;
-+	u32	tx_octets_47_32;
-+	u32	tx_frames;
-+	u32	tx_broadcast_frames;
-+	u32	tx_multicast_frames;
-+	u32	tx_pause_frames;
-+	u32	tx_64_byte_frames;
-+	u32	tx_65_127_byte_frames;
-+	u32	tx_128_255_byte_frames;
-+	u32	tx_256_511_byte_frames;
-+	u32	tx_512_1023_byte_frames;
-+	u32	tx_1024_1518_byte_frames;
-+	u32	tx_greater_than_1518_byte_frames;
-+	u32	tx_underrun;
-+	u32	tx_single_collision_frames;
-+	u32	tx_multiple_collision_frames;
-+	u32	tx_excessive_collisions;
-+	u32	tx_late_collisions;
-+	u32	tx_deferred_frames;
-+	u32	tx_carrier_sense_errors;
-+	u32	rx_octets_31_0;
-+	u32	rx_octets_47_32;
-+	u32	rx_frames;
-+	u32	rx_broadcast_frames;
-+	u32	rx_multicast_frames;
-+	u32	rx_pause_frames;
-+	u32	rx_64_byte_frames;
-+	u32	rx_65_127_byte_frames;
-+	u32	rx_128_255_byte_frames;
-+	u32	rx_256_511_byte_frames;
-+	u32	rx_512_1023_byte_frames;
-+	u32	rx_1024_1518_byte_frames;
-+	u32	rx_greater_than_1518_byte_frames;
-+	u32	rx_undersized_frames;
-+	u32	rx_oversize_frames;
-+	u32	rx_jabbers;
-+	u32	rx_frame_check_sequence_errors;
-+	u32	rx_length_field_frame_errors;
-+	u32	rx_symbol_errors;
-+	u32	rx_alignment_errors;
-+	u32	rx_resource_errors;
-+	u32	rx_overruns;
-+	u32	rx_ip_header_checksum_errors;
-+	u32	rx_tcp_checksum_errors;
-+	u32	rx_udp_checksum_errors;
-+};
++/* Bitfields in DMACFG. */
++#define GEM_RXBS_OFFSET				16
++#define GEM_RXBS_SIZE				8
 +
- struct macb {
- 	void __iomem		*regs;
- 	int			is_gem;
-@@ -444,7 +493,10 @@ struct macb {
- 	struct net_device	*dev;
- 	struct napi_struct	napi;
- 	struct net_device_stats	stats;
--	struct macb_stats	hw_stats;
-+	union {
-+		struct macb_stats	macb;
-+		struct gem_stats	gem;
-+	}			hw_stats;
- 
- 	dma_addr_t		rx_ring_dma;
- 	dma_addr_t		tx_ring_dma;
+ /* Bitfields in NSR */
+ #define MACB_NSR_LINK_OFFSET			0
+ #define MACB_NSR_LINK_SIZE			1
 -- 
 1.7.4
 
