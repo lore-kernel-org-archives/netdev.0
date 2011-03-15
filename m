@@ -1,118 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ECN + pfifo_fast borked? (Was Re: [Bloat] shaper team forming
- up)
-Date: Tue, 15 Mar 2011 07:15:49 +0100
-Message-ID: <1300169749.2649.142.camel@edumazet-laptop>
-References: <87wrk1a4gx.fsf@cruithne.co.teklibre.org>
-	 <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com>
-	 <1300134277.2649.19.camel@edumazet-laptop>
-	 <1300164166.2649.70.camel@edumazet-laptop>
-	 <87ipvlosvz.fsf_-_@cruithne.co.teklibre.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Tue, 15 Mar 2011 17:25:58 +1100
+Message-ID: <20110315172558.a11642e7.sfr@canb.auug.org.au>
+References: <20110314170546.af552b4e.sfr@canb.auug.org.au>
+	<alpine.LFD.2.00.1103141053020.2787@localhost6.localdomain6>
+	<20110315113049.a6112494.sfr@canb.auug.org.au>
+	<20110314.210712.226761233.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jonathan Morton <chromatix99@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Dave =?ISO-8859-1?Q?T=E4ht?= <d@taht.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:40821 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751909Ab1COGPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 02:15:53 -0400
-Received: by fxm17 with SMTP id 17so245780fxm.19
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 23:15:52 -0700 (PDT)
-In-Reply-To: <87ipvlosvz.fsf_-_@cruithne.co.teklibre.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__15_Mar_2011_17_25_58_+1100_A9q7I7Rrqzjfrpl8"
+Cc: tglx@linutronix.de, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, hpa@zytor.com,
+	peterz@infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110314.210712.226761233.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 14 mars 2011 =C3=A0 23:27 -0600, Dave T=C3=A4ht a =C3=A9crit :
+--Signature=_Tue__15_Mar_2011_17_25_58_+1100_A9q7I7Rrqzjfrpl8
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Well, that makes 3 of us that think it's wrong. Can we get more?=20
+Hi Dave,
+
+On Mon, 14 Mar 2011 21:07:12 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 15 Mar 2011 11:30:49 +1100
 >=20
-> (I'll run through the math again in the morning)
+> > So, if you merge the commit 1fb0ef31f428 ("genirq: Fix affinity notifier
+> > fallout") from the tip tree, you will get exactly one new commit and wi=
+ll
+> > fix your tree properly with no adverse effect on anyone else.
 >=20
-> It's most often not actually "enablement" but "assertion", when for
-> example an ECN bit is put on an ACK packet (by an application, or qdi=
-sc)
-> , it drops that ACK packet into the 2 queue - leaving all the other
-> non-ECN asserted packets in that flow to flow out ahead of it.
->=20
+> Thomas, how would you like me to do this?  Do you want to put that
+> commit on a branch for me to pull from or should I apply it
+> directly?
 
-There are two ECN bits, not one.
-The low order bit is not taken into account by skb->priority mapping.
-The high order bit cannot be changed during flow lifetime.
-(So : no OOO (Out Of Order) problems on say TCP flows)
+That commit is already the head of the irq/numa branch in the tip tree
+(it is also on the irq/core branch).
 
-> Or so dan siemon & I & now you, think. It's late and I really want to=
- recheck
-> the math and the shifts in the morning. However, if true... this woul=
-d
-> explain much ECN related weirdness precisely where it has been hard t=
-o
-> measure, on heavily loaded systems.
->=20
-> >
-> > Thanks
-> >
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 6ed6603..fabfe81 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -171,7 +171,7 @@ static struct dst_ops ipv4_dst_ops =3D {
-> > =20
-> >  const __u8 ip_tos2prio[16] =3D {
-> >  	TC_PRIO_BESTEFFORT,
-> > -	ECN_OR_COST(FILLER),
-> > +	ECN_OR_COST(BESTEFFORT),
-> >  	TC_PRIO_BESTEFFORT,
-> >  	ECN_OR_COST(BESTEFFORT),
-> >  	TC_PRIO_BULK,
-> >
->=20
-> I think this is a good short term fix, but it will mildly upset peopl=
-e
-> that actually still use minimum cost and don't use ECN. That said,=20
-> RFC1349 has been obsolete for a decade now, and ECN enabled servers a=
-re
-> at 12% penetration according to MIT.
->=20
+Please merge that rather than cherry-picking the commit as that will
+minimise the possibility of conflicts.  Pulling the irq/numa branch will
+get you just that one fixup commit (as you have already merged up to the
+immediately preceding commit).
 
-If minimum cost was asked by people, their packets had chance being
-dropped. Why should they be upset ?
-ECN should be favored anyway in 2011, now everybody is ready.
+I assume this makes sense, Thomas?  I just did a merge of the actual
+fixup commit after merging the net tree.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-> Still, long term, doing a sch_pfifo_dscp that would be fully complian=
-t
-> with the relevant modern RFCs and eventually making that the standard
-> would be good.
->=20
+--Signature=_Tue__15_Mar_2011_17_25_58_+1100_A9q7I7Rrqzjfrpl8
+Content-Type: application/pgp-signature
 
-sch_pfifo_fast is not the place we perform the TOS -> priority mapping.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-Its done in another layer.
+iQEcBAEBAgAGBQJNfwZ2AAoJEDMEi1NhKgbsBhUH/2Q0eutJOLr3TszlJVE8vbj+
+cc2EzZRR21k+DmXAp5Sj3jGTWN9/7VvWEn7qCHG70ikVvH14eqTlQ6EKfGQQjVUT
+qFte4eYolxUm3RSefXafAt2CeUMWTZPBngd5oGCGPDLVRxIr5iIJfnDLdSyxP+qV
+agfW1QlS8ixGF9hh/oTb7aAWkZxmOx3Gb19jZTSQiblGtVUC84YdCCJmpT179BOm
+zPs8mndSA1fMXyG0isA02tt0f1yUR11pPb4huR8fgAHPsRtCfFZPUbT57QbyKL6o
+4J6AdXU+IglXxoRHimsrTfH5dUcJxy+vVy9/9O0tqcgA+4DhscBuGxqtDpgYjbA=
+=xZOY
+-----END PGP SIGNATURE-----
 
-That is of litle effect, given TOS values are meaningfull only inside a
-domain. Nobody can force everyone to use same semantics on the Internet=
-,
-even with a standard RFC. I doubt people using linux machines at home
-really need DSCP at all.
-
-What we could do instead is to favor a bit ECN enabled connections,
-using 4 bands instead of 3 for pfifo_fast (linux default qdisc, probabl=
-y
-the most used qdisc)
-
-band 0 : high priority packets (like now)
-band 1 : (old band 1, ECN capable flows)
-band 2 : (old band 1, no ECN flows)
-band 3 : low priority packets (old band 2)
-
-Note : pfifo_fast is mostly used on end hosts, not on routers (where
-admins setup non default qdiscs), and typical end hosts never experimen=
-t
-packet drops on their qdiscs, because they are now plugged to Gigabit
-LANS, and device queuelength is so big.
-
-
-
+--Signature=_Tue__15_Mar_2011_17_25_58_+1100_A9q7I7Rrqzjfrpl8--
