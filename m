@@ -1,53 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bloat] shaper team forming up
-Date: Wed, 16 Mar 2011 00:00:47 +0100
-Message-ID: <1300230047.2565.32.camel@edumazet-laptop>
-References: <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com>
-	 <1300134277.2649.19.camel@edumazet-laptop>
-	 <1300164166.2649.70.camel@edumazet-laptop>
-	 <20110315.155305.71104836.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
+Date: Tue, 15 Mar 2011 16:02:19 -0700 (PDT)
+Message-ID: <20110315.160219.189709250.davem@davemloft.net>
+References: <20110308.103801.193702247.davem@davemloft.net>
+	<20110308.110352.189704727.davem@davemloft.net>
+	<alpine.LFD.2.00.1103151135110.1729@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: chromatix99@gmail.com, d@taht.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:61633 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753222Ab1COXA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 19:00:56 -0400
-Received: by bwz15 with SMTP id 15so1048350bwz.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 16:00:55 -0700 (PDT)
-In-Reply-To: <20110315.155305.71104836.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38595
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751418Ab1COXBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 19:01:42 -0400
+In-Reply-To: <alpine.LFD.2.00.1103151135110.1729@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 15 mars 2011 =C3=A0 15:53 -0700, David Miller a =C3=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 15 Mar 2011 05:42:46 +0100
->=20
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 6ed6603..fabfe81 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -171,7 +171,7 @@ static struct dst_ops ipv4_dst_ops =3D {
-> > =20
-> >  const __u8 ip_tos2prio[16] =3D {
-> >  	TC_PRIO_BESTEFFORT,
-> > -	ECN_OR_COST(FILLER),
-> > +	ECN_OR_COST(BESTEFFORT),
-> >  	TC_PRIO_BESTEFFORT,
-> >  	ECN_OR_COST(BESTEFFORT),
-> >  	TC_PRIO_BULK,
-> >=20
-> >=20
->=20
-> Eric can you please formally submit this fix?  I'd like to apply it s=
-oon.
->=20
-> Thanks.
+From: Julian Anastasov <ja@ssi.bg>
+Date: Tue, 15 Mar 2011 12:00:33 +0200 (EET)
 
-Sure, I can do this right now, but I want to fully credit Dan Siemon on
-this one, as the author of the patch.
+> 	I see another problem with nh_saddr. fib_info
+> is reused when NHs and some parameters are equal but the
+> scope is not part of the fib_info and it is wrong to cache
+> route scope in NH or even in fib_info. The problem is
+> that we can expose in nh_saddr addresses with wrong
+> scope for the route. It happens when two routes with
+> different route scope reuse same fib_info.
+> 
+> 	First thought is that the field fa_scope can be
+> moved into fib_scope in struct fib_info, not to use
+> nh_cfg_scope. Then fib_find_info can differentiate the
+> entries by fib_scope. It means, fib_info will not be reused
+> if fib_scope is different. For FIB_RES_PREFSRC I assume we
+> can access fib_info from nh->nh_parent safely when
+> refreshing nh_saddr.
+> 
+> 	Here is a script that demonstrates the wrong
+> exposing:
 
-
+Thanks for all of your feedback Julian, I will look into
+this very soon.
