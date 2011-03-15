@@ -1,447 +1,163 @@
 From: kaber@trash.net
-Subject: [PATCH 36/37] netfilter: ipt_addrtype: rename to xt_addrtype
-Date: Tue, 15 Mar 2011 20:44:16 +0100
-Message-ID: <1300218257-26953-37-git-send-email-kaber@trash.net>
+Subject: [PATCH 26/37] IPVS: Conditionally define and use ip_vs_lblc{r}_table
+Date: Tue, 15 Mar 2011 20:44:06 +0100
+Message-ID: <1300218257-26953-27-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:49427 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758501Ab1COTod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:33 -0400
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fwestphal@astaro.com>
+From: Simon Horman <horms@verge.net.au>
 
-Followup patch will add ipv6 support.
+ip_vs_lblc_table and ip_vs_lblcr_table, and code that uses them
+are unnecessary when CONFIG_SYSCTL is undefined.
 
-ipt_addrtype.h is retained for compatibility reasons, but no longer used
-by the kernel.
-
-Signed-off-by: Florian Westphal <fwestphal@astaro.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- Documentation/feature-removal-schedule.txt |    8 ++
- include/linux/netfilter/Kbuild             |    1 +
- include/linux/netfilter/xt_addrtype.h      |   27 ++++++
- net/ipv4/netfilter/Kconfig                 |   10 --
- net/ipv4/netfilter/Makefile                |    1 -
- net/ipv4/netfilter/ipt_addrtype.c          |  134 ---------------------------
- net/netfilter/Kconfig                      |   10 ++
- net/netfilter/Makefile                     |    1 +
- net/netfilter/xt_addrtype.c                |  135 ++++++++++++++++++++++++++++
- 9 files changed, 182 insertions(+), 145 deletions(-)
- create mode 100644 include/linux/netfilter/xt_addrtype.h
- delete mode 100644 net/ipv4/netfilter/ipt_addrtype.c
- create mode 100644 net/netfilter/xt_addrtype.c
+ net/netfilter/ipvs/ip_vs_lblc.c  |   15 ++++++++++-----
+ net/netfilter/ipvs/ip_vs_lblcr.c |   14 ++++++++++----
+ 2 files changed, 20 insertions(+), 9 deletions(-)
 
-diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index 05b248a..a7ee7cf 100644
---- a/Documentation/feature-removal-schedule.txt
-+++ b/Documentation/feature-removal-schedule.txt
-@@ -618,3 +618,11 @@ Who:	Jan Engelhardt <jengelh@medozas.de>
- Files:	net/netfilter/xt_connlimit.c
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 51a27f5..f276df9 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -114,7 +114,7 @@ struct ip_vs_lblc_table {
+ /*
+  *      IPVS LBLC sysctl table
+  */
+-
++#ifdef CONFIG_SYSCTL
+ static ctl_table vs_vars_table[] = {
+ 	{
+ 		.procname	= "lblc_expiration",
+@@ -125,6 +125,7 @@ static ctl_table vs_vars_table[] = {
+ 	},
+ 	{ }
+ };
++#endif
  
- ----------------------------
+ static inline void ip_vs_lblc_free(struct ip_vs_lblc_entry *en)
+ {
+@@ -548,6 +549,7 @@ static struct ip_vs_scheduler ip_vs_lblc_scheduler =
+ /*
+  *  per netns init.
+  */
++#ifdef CONFIG_SYSCTL
+ static int __net_init __ip_vs_lblc_init(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+@@ -563,7 +565,6 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
+ 	ipvs->sysctl_lblc_expiration = DEFAULT_EXPIRATION;
+ 	ipvs->lblc_ctl_table[0].data = &ipvs->sysctl_lblc_expiration;
+ 
+-#ifdef CONFIG_SYSCTL
+ 	ipvs->lblc_ctl_header =
+ 		register_net_sysctl_table(net, net_vs_ctl_path,
+ 					  ipvs->lblc_ctl_table);
+@@ -572,7 +573,6 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
+ 			kfree(ipvs->lblc_ctl_table);
+ 		return -ENOMEM;
+ 	}
+-#endif
+ 
+ 	return 0;
+ }
+@@ -581,14 +581,19 @@ static void __net_exit __ip_vs_lblc_exit(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+-#ifdef CONFIG_SYSCTL
+ 	unregister_net_sysctl_table(ipvs->lblc_ctl_header);
+-#endif
+ 
+ 	if (!net_eq(net, &init_net))
+ 		kfree(ipvs->lblc_ctl_table);
+ }
+ 
++#else
 +
-+What:	ipt_addrtype match include file
-+When:	2012
-+Why:	superseded by xt_addrtype
-+Who:	Florian Westphal <fw@strlen.de>
-+Files:	include/linux/netfilter_ipv4/ipt_addrtype.h
-+
-+----------------------------
-diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
-index 15e83bf..a1b410c 100644
---- a/include/linux/netfilter/Kbuild
-+++ b/include/linux/netfilter/Kbuild
-@@ -29,6 +29,7 @@ header-y += xt_TCPMSS.h
- header-y += xt_TCPOPTSTRIP.h
- header-y += xt_TEE.h
- header-y += xt_TPROXY.h
-+header-y += xt_addrtype.h
- header-y += xt_cluster.h
- header-y += xt_comment.h
- header-y += xt_connbytes.h
-diff --git a/include/linux/netfilter/xt_addrtype.h b/include/linux/netfilter/xt_addrtype.h
-new file mode 100644
-index 0000000..b492fc8
---- /dev/null
-+++ b/include/linux/netfilter/xt_addrtype.h
-@@ -0,0 +1,27 @@
-+#ifndef _XT_ADDRTYPE_H
-+#define _XT_ADDRTYPE_H
-+
-+#include <linux/types.h>
-+
-+enum {
-+	XT_ADDRTYPE_INVERT_SOURCE	= 0x0001,
-+	XT_ADDRTYPE_INVERT_DEST		= 0x0002,
-+	XT_ADDRTYPE_LIMIT_IFACE_IN	= 0x0004,
-+	XT_ADDRTYPE_LIMIT_IFACE_OUT	= 0x0008,
-+};
-+
-+struct xt_addrtype_info_v1 {
-+	__u16	source;		/* source-type mask */
-+	__u16	dest;		/* dest-type mask */
-+	__u32	flags;
-+};
-+
-+/* revision 0 */
-+struct xt_addrtype_info {
-+	__u16	source;		/* source-type mask */
-+	__u16	dest;		/* dest-type mask */
-+	__u32	invert_source;
-+	__u32	invert_dest;
-+};
++static int __net_init __ip_vs_lblc_init(struct net *net) { return 0; }
++static void __net_exit __ip_vs_lblc_exit(struct net *net) { }
 +
 +#endif
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index f926a31..1dfc18a 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -64,16 +64,6 @@ config IP_NF_IPTABLES
- if IP_NF_IPTABLES
++
+ static struct pernet_operations ip_vs_lblc_ops = {
+ 	.init = __ip_vs_lblc_init,
+ 	.exit = __ip_vs_lblc_exit,
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index 7fb9190..cb1c991 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -285,6 +285,7 @@ struct ip_vs_lblcr_table {
+ };
  
- # The matches.
--config IP_NF_MATCH_ADDRTYPE
--	tristate '"addrtype" address type match support'
--	depends on NETFILTER_ADVANCED
--	help
--	  This option allows you to match what routing thinks of an address,
--	  eg. UNICAST, LOCAL, BROADCAST, ...
--
--	  If you want to compile it as a module, say M here and read
--	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
--
- config IP_NF_MATCH_AH
- 	tristate '"ah" match support'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 19eb59d..dca2082 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -48,7 +48,6 @@ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
- obj-$(CONFIG_IP_NF_SECURITY) += iptable_security.o
  
- # matches
--obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
- obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
- obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
++#ifdef CONFIG_SYSCTL
+ /*
+  *      IPVS LBLCR sysctl table
+  */
+@@ -299,6 +300,7 @@ static ctl_table vs_vars_table[] = {
+ 	},
+ 	{ }
+ };
++#endif
  
-diff --git a/net/ipv4/netfilter/ipt_addrtype.c b/net/ipv4/netfilter/ipt_addrtype.c
-deleted file mode 100644
-index db8bff0..0000000
---- a/net/ipv4/netfilter/ipt_addrtype.c
-+++ /dev/null
-@@ -1,134 +0,0 @@
--/*
-- *  iptables module to match inet_addr_type() of an ip.
-- *
-- *  Copyright (c) 2004 Patrick McHardy <kaber@trash.net>
-- *  (C) 2007 Laszlo Attila Toth <panther@balabit.hu>
-- *
-- *  This program is free software; you can redistribute it and/or modify
-- *  it under the terms of the GNU General Public License version 2 as
-- *  published by the Free Software Foundation.
-- */
--#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
--#include <linux/kernel.h>
--#include <linux/module.h>
--#include <linux/skbuff.h>
--#include <linux/netdevice.h>
--#include <linux/ip.h>
--#include <net/route.h>
--
--#include <linux/netfilter_ipv4/ipt_addrtype.h>
--#include <linux/netfilter/x_tables.h>
--
--MODULE_LICENSE("GPL");
--MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
--MODULE_DESCRIPTION("Xtables: address type match for IPv4");
--
--static inline bool match_type(struct net *net, const struct net_device *dev,
--			      __be32 addr, u_int16_t mask)
--{
--	return !!(mask & (1 << inet_dev_addr_type(net, dev, addr)));
--}
--
--static bool
--addrtype_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
--{
--	struct net *net = dev_net(par->in ? par->in : par->out);
--	const struct ipt_addrtype_info *info = par->matchinfo;
--	const struct iphdr *iph = ip_hdr(skb);
--	bool ret = true;
--
--	if (info->source)
--		ret &= match_type(net, NULL, iph->saddr, info->source) ^
--		       info->invert_source;
--	if (info->dest)
--		ret &= match_type(net, NULL, iph->daddr, info->dest) ^
--		       info->invert_dest;
--
--	return ret;
--}
--
--static bool
--addrtype_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
--{
--	struct net *net = dev_net(par->in ? par->in : par->out);
--	const struct ipt_addrtype_info_v1 *info = par->matchinfo;
--	const struct iphdr *iph = ip_hdr(skb);
--	const struct net_device *dev = NULL;
--	bool ret = true;
--
--	if (info->flags & IPT_ADDRTYPE_LIMIT_IFACE_IN)
--		dev = par->in;
--	else if (info->flags & IPT_ADDRTYPE_LIMIT_IFACE_OUT)
--		dev = par->out;
--
--	if (info->source)
--		ret &= match_type(net, dev, iph->saddr, info->source) ^
--		       (info->flags & IPT_ADDRTYPE_INVERT_SOURCE);
--	if (ret && info->dest)
--		ret &= match_type(net, dev, iph->daddr, info->dest) ^
--		       !!(info->flags & IPT_ADDRTYPE_INVERT_DEST);
--	return ret;
--}
--
--static int addrtype_mt_checkentry_v1(const struct xt_mtchk_param *par)
--{
--	struct ipt_addrtype_info_v1 *info = par->matchinfo;
--
--	if (info->flags & IPT_ADDRTYPE_LIMIT_IFACE_IN &&
--	    info->flags & IPT_ADDRTYPE_LIMIT_IFACE_OUT) {
--		pr_info("both incoming and outgoing "
--			"interface limitation cannot be selected\n");
--		return -EINVAL;
--	}
--
--	if (par->hook_mask & ((1 << NF_INET_PRE_ROUTING) |
--	    (1 << NF_INET_LOCAL_IN)) &&
--	    info->flags & IPT_ADDRTYPE_LIMIT_IFACE_OUT) {
--		pr_info("output interface limitation "
--			"not valid in PREROUTING and INPUT\n");
--		return -EINVAL;
--	}
--
--	if (par->hook_mask & ((1 << NF_INET_POST_ROUTING) |
--	    (1 << NF_INET_LOCAL_OUT)) &&
--	    info->flags & IPT_ADDRTYPE_LIMIT_IFACE_IN) {
--		pr_info("input interface limitation "
--			"not valid in POSTROUTING and OUTPUT\n");
--		return -EINVAL;
--	}
--
--	return 0;
--}
--
--static struct xt_match addrtype_mt_reg[] __read_mostly = {
--	{
--		.name		= "addrtype",
--		.family		= NFPROTO_IPV4,
--		.match		= addrtype_mt_v0,
--		.matchsize	= sizeof(struct ipt_addrtype_info),
--		.me		= THIS_MODULE
--	},
--	{
--		.name		= "addrtype",
--		.family		= NFPROTO_IPV4,
--		.revision	= 1,
--		.match		= addrtype_mt_v1,
--		.checkentry	= addrtype_mt_checkentry_v1,
--		.matchsize	= sizeof(struct ipt_addrtype_info_v1),
--		.me		= THIS_MODULE
--	}
--};
--
--static int __init addrtype_mt_init(void)
--{
--	return xt_register_matches(addrtype_mt_reg,
--				   ARRAY_SIZE(addrtype_mt_reg));
--}
--
--static void __exit addrtype_mt_exit(void)
--{
--	xt_unregister_matches(addrtype_mt_reg, ARRAY_SIZE(addrtype_mt_reg));
--}
--
--module_init(addrtype_mt_init);
--module_exit(addrtype_mt_exit);
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 82a6e0d..32bff6d 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -649,6 +649,16 @@ config NETFILTER_XT_TARGET_TCPOPTSTRIP
+ static inline void ip_vs_lblcr_free(struct ip_vs_lblcr_entry *en)
+ {
+@@ -743,6 +745,7 @@ static struct ip_vs_scheduler ip_vs_lblcr_scheduler =
+ /*
+  *  per netns init.
+  */
++#ifdef CONFIG_SYSCTL
+ static int __net_init __ip_vs_lblcr_init(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+@@ -758,7 +761,6 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
+ 	ipvs->sysctl_lblcr_expiration = DEFAULT_EXPIRATION;
+ 	ipvs->lblcr_ctl_table[0].data = &ipvs->sysctl_lblcr_expiration;
  
- comment "Xtables matches"
+-#ifdef CONFIG_SYSCTL
+ 	ipvs->lblcr_ctl_header =
+ 		register_net_sysctl_table(net, net_vs_ctl_path,
+ 					  ipvs->lblcr_ctl_table);
+@@ -767,7 +769,6 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
+ 			kfree(ipvs->lblcr_ctl_table);
+ 		return -ENOMEM;
+ 	}
+-#endif
  
-+config NETFILTER_XT_MATCH_ADDRTYPE
-+	tristate '"addrtype" address type match support'
-+	depends on NETFILTER_ADVANCED
-+	---help---
-+	  This option allows you to match what routing thinks of an address,
-+	  eg. UNICAST, LOCAL, BROADCAST, ...
-+
-+	  If you want to compile it as a module, say M here and read
-+	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
-+
- config NETFILTER_XT_MATCH_CLUSTER
- 	tristate '"cluster" match support'
- 	depends on NF_CONNTRACK
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index d57a890..1a02853 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -70,6 +70,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_TRACE) += xt_TRACE.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_IDLETIMER) += xt_IDLETIMER.o
+ 	return 0;
+ }
+@@ -776,14 +777,19 @@ static void __net_exit __ip_vs_lblcr_exit(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
  
- # matches
-+obj-$(CONFIG_NETFILTER_XT_MATCH_ADDRTYPE) += xt_addrtype.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_CLUSTER) += xt_cluster.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_CONNBYTES) += xt_connbytes.o
-diff --git a/net/netfilter/xt_addrtype.c b/net/netfilter/xt_addrtype.c
-new file mode 100644
-index 0000000..e89c0b8
---- /dev/null
-+++ b/net/netfilter/xt_addrtype.c
-@@ -0,0 +1,135 @@
-+/*
-+ *  iptables module to match inet_addr_type() of an ip.
-+ *
-+ *  Copyright (c) 2004 Patrick McHardy <kaber@trash.net>
-+ *  (C) 2007 Laszlo Attila Toth <panther@balabit.hu>
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License version 2 as
-+ *  published by the Free Software Foundation.
-+ */
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/ip.h>
-+#include <net/route.h>
+-#ifdef CONFIG_SYSCTL
+ 	unregister_net_sysctl_table(ipvs->lblcr_ctl_header);
+-#endif
+ 
+ 	if (!net_eq(net, &init_net))
+ 		kfree(ipvs->lblcr_ctl_table);
+ }
+ 
++#else
 +
-+#include <linux/netfilter/xt_addrtype.h>
-+#include <linux/netfilter/x_tables.h>
++static int __net_init __ip_vs_lblcr_init(struct net *net) { return 0; }
++static void __net_exit __ip_vs_lblcr_exit(struct net *net) { }
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
-+MODULE_DESCRIPTION("Xtables: address type match");
-+MODULE_ALIAS("ipt_addrtype");
++#endif
 +
-+static inline bool match_type(struct net *net, const struct net_device *dev,
-+			      __be32 addr, u_int16_t mask)
-+{
-+	return !!(mask & (1 << inet_dev_addr_type(net, dev, addr)));
-+}
-+
-+static bool
-+addrtype_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	struct net *net = dev_net(par->in ? par->in : par->out);
-+	const struct xt_addrtype_info *info = par->matchinfo;
-+	const struct iphdr *iph = ip_hdr(skb);
-+	bool ret = true;
-+
-+	if (info->source)
-+		ret &= match_type(net, NULL, iph->saddr, info->source) ^
-+		       info->invert_source;
-+	if (info->dest)
-+		ret &= match_type(net, NULL, iph->daddr, info->dest) ^
-+		       info->invert_dest;
-+
-+	return ret;
-+}
-+
-+static bool
-+addrtype_mt_v1(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	struct net *net = dev_net(par->in ? par->in : par->out);
-+	const struct xt_addrtype_info_v1 *info = par->matchinfo;
-+	const struct iphdr *iph = ip_hdr(skb);
-+	const struct net_device *dev = NULL;
-+	bool ret = true;
-+
-+	if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN)
-+		dev = par->in;
-+	else if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT)
-+		dev = par->out;
-+
-+	if (info->source)
-+		ret &= match_type(net, dev, iph->saddr, info->source) ^
-+		       (info->flags & XT_ADDRTYPE_INVERT_SOURCE);
-+	if (ret && info->dest)
-+		ret &= match_type(net, dev, iph->daddr, info->dest) ^
-+		       !!(info->flags & XT_ADDRTYPE_INVERT_DEST);
-+	return ret;
-+}
-+
-+static int addrtype_mt_checkentry_v1(const struct xt_mtchk_param *par)
-+{
-+	struct xt_addrtype_info_v1 *info = par->matchinfo;
-+
-+	if (info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN &&
-+	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT) {
-+		pr_info("both incoming and outgoing "
-+			"interface limitation cannot be selected\n");
-+		return -EINVAL;
-+	}
-+
-+	if (par->hook_mask & ((1 << NF_INET_PRE_ROUTING) |
-+	    (1 << NF_INET_LOCAL_IN)) &&
-+	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_OUT) {
-+		pr_info("output interface limitation "
-+			"not valid in PREROUTING and INPUT\n");
-+		return -EINVAL;
-+	}
-+
-+	if (par->hook_mask & ((1 << NF_INET_POST_ROUTING) |
-+	    (1 << NF_INET_LOCAL_OUT)) &&
-+	    info->flags & XT_ADDRTYPE_LIMIT_IFACE_IN) {
-+		pr_info("input interface limitation "
-+			"not valid in POSTROUTING and OUTPUT\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static struct xt_match addrtype_mt_reg[] __read_mostly = {
-+	{
-+		.name		= "addrtype",
-+		.family		= NFPROTO_IPV4,
-+		.match		= addrtype_mt_v0,
-+		.matchsize	= sizeof(struct xt_addrtype_info),
-+		.me		= THIS_MODULE
-+	},
-+	{
-+		.name		= "addrtype",
-+		.family		= NFPROTO_IPV4,
-+		.revision	= 1,
-+		.match		= addrtype_mt_v1,
-+		.checkentry	= addrtype_mt_checkentry_v1,
-+		.matchsize	= sizeof(struct xt_addrtype_info_v1),
-+		.me		= THIS_MODULE
-+	}
-+};
-+
-+static int __init addrtype_mt_init(void)
-+{
-+	return xt_register_matches(addrtype_mt_reg,
-+				   ARRAY_SIZE(addrtype_mt_reg));
-+}
-+
-+static void __exit addrtype_mt_exit(void)
-+{
-+	xt_unregister_matches(addrtype_mt_reg, ARRAY_SIZE(addrtype_mt_reg));
-+}
-+
-+module_init(addrtype_mt_init);
-+module_exit(addrtype_mt_exit);
+ static struct pernet_operations ip_vs_lblcr_ops = {
+ 	.init = __ip_vs_lblcr_init,
+ 	.exit = __ip_vs_lblcr_exit,
 -- 
 1.7.2.3
 
