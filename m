@@ -1,59 +1,67 @@
 From: kaber@trash.net
-Subject: [PATCH 20/37] IPVS: Add sysctl_expire_nodest_conn()
-Date: Tue, 15 Mar 2011 20:44:00 +0100
-Message-ID: <1300218257-26953-21-git-send-email-kaber@trash.net>
+Subject: [PATCH 17/37] IPVS: Add sysctl_nat_icmp_send()
+Date: Tue, 15 Mar 2011 20:43:57 +0100
+Message-ID: <1300218257-26953-18-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49424 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757552Ab1COToa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:30 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Simon Horman <horms@verge.net.au>
 
-In preparation for not including sysctl_expire_nodest_conn in
+In preparation for not including sysctl_nat_icmp_send in
 struct netns_ipvs when CONFIG_SYCTL is not defined.
 
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_core.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 6a0053d..d418bc6 100644
+index 1d8a2a2..c9b8372 100644
 --- a/net/netfilter/ipvs/ip_vs_core.c
 +++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -613,10 +613,16 @@ static int sysctl_nat_icmp_send(struct net *net)
- 	return ipvs->sysctl_nat_icmp_send;
+@@ -607,9 +607,16 @@ static int sysctl_snat_reroute(struct sk_buff *skb)
+ 	return ipvs->sysctl_snat_reroute;
  }
  
-+static int sysctl_expire_nodest_conn(struct netns_ipvs *ipvs)
++static int sysctl_nat_icmp_send(struct net *net)
 +{
-+	return ipvs->sysctl_expire_nodest_conn;
++	struct netns_ipvs *ipvs = net_ipvs(net);
++	return ipvs->sysctl_nat_icmp_send;
 +}
 +
  #else
  
  static int sysctl_snat_reroute(struct sk_buff *skb) { return 0; }
- static int sysctl_nat_icmp_send(struct net *net) { return 0; }
-+static int sysctl_expire_nodest_conn(struct netns_ipvs *ipvs) { return 0; }
++static int sysctl_nat_icmp_send(struct net *net) { return 0; }
  
  #endif
  
-@@ -1583,7 +1589,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
- 	if (cp->dest && !(cp->dest->flags & IP_VS_DEST_F_AVAILABLE)) {
- 		/* the destination server is not available */
+@@ -1074,7 +1081,6 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	struct ip_vs_protocol *pp;
+ 	struct ip_vs_proto_data *pd;
+ 	struct ip_vs_conn *cp;
+-	struct netns_ipvs *ipvs;
  
--		if (ipvs->sysctl_expire_nodest_conn) {
-+		if (sysctl_expire_nodest_conn(ipvs)) {
- 			/* try to expire the connection immediately */
- 			ip_vs_conn_expire_now(cp);
- 		}
+ 	EnterFunction(11);
+ 
+@@ -1149,11 +1155,10 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	 * Check if the packet belongs to an existing entry
+ 	 */
+ 	cp = pp->conn_out_get(af, skb, &iph, iph.len, 0);
+-	ipvs = net_ipvs(net);
+ 
+ 	if (likely(cp))
+ 		return handle_response(af, skb, pd, cp, iph.len);
+-	if (ipvs->sysctl_nat_icmp_send &&
++	if (sysctl_nat_icmp_send(net) &&
+ 	    (pp->protocol == IPPROTO_TCP ||
+ 	     pp->protocol == IPPROTO_UDP ||
+ 	     pp->protocol == IPPROTO_SCTP)) {
 -- 
 1.7.2.3
 
