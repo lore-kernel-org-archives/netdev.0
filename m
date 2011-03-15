@@ -1,89 +1,124 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCHv2 9/9] macb: allow GEM to have configurable receive buffer size
-Date: Tue, 15 Mar 2011 10:14:56 +0000
-Message-ID: <1300184096-13937-10-git-send-email-jamie@jamieiles.com>
+Subject: [PATCHv2 8/9] macb: support DMA bus widths > 32 bits
+Date: Tue, 15 Mar 2011 10:14:55 +0000
+Message-ID: <1300184096-13937-9-git-send-email-jamie@jamieiles.com>
 References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
 Cc: nicolas.ferre@atmel.com, plagnioj@jcrosoft.com,
 	Jamie Iles <jamie@jamieiles.com>
 To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:54894 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35177 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757034Ab1COKPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:41 -0400
-Received: by mail-bw0-f46.google.com with SMTP id 15so389803bwz.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:40 -0700 (PDT)
+	with ESMTP id S1757000Ab1COKPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:39 -0400
+Received: by mail-bw0-f46.google.com with SMTP id 15so389948bwz.19
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:38 -0700 (PDT)
 In-Reply-To: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GEM has configurable receive buffer sizes so requires this to be
-programmed up.  Any size < 2048 and a multiple of 64 bytes is permitted.
+Some GEM implementations may support DMA bus widths up to 128 bits.  We
+can get the maximum supported DMA bus width from the design
+configuration register so use that to program the device up.
 
 Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 ---
- drivers/net/macb.c |   17 +++++++++++++++++
- drivers/net/macb.h |    5 +++++
- 2 files changed, 22 insertions(+), 0 deletions(-)
+ drivers/net/macb.c |   23 +++++++++++++++++++++++
+ drivers/net/macb.h |   19 +++++++++++++++++++
+ 2 files changed, 42 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index db9f403..52ad367 100644
+index 0598373..db9f403 100644
 --- a/drivers/net/macb.c
 +++ b/drivers/net/macb.c
-@@ -843,6 +843,21 @@ static u32 macb_dbw(struct macb *bp)
- 	}
+@@ -822,6 +822,27 @@ static u32 macb_mdc_clk_div(struct macb *bp)
+ 	return config;
  }
  
 +/*
-+ * Configure the receive DMA engine to use the correct receive buffer size.
-+ * This is a configurable parameter for GEM.
++ * Get the DMA bus width field of the network configuration register that we
++ * should program.  We find the width from decoding the design configuration
++ * register to find the maximum supported data bus width.
 + */
-+static void macb_configure_dma(struct macb *bp)
++static u32 macb_dbw(struct macb *bp)
 +{
-+	u32 dmacfg;
++	if (!bp->is_gem)
++		return 0;
 +
-+	if (bp->is_gem) {
-+		dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
-+		dmacfg |= GEM_BF(RXBS, RX_BUFFER_SIZE / 64);
-+		gem_writel(bp, DMACFG, dmacfg);
++	switch (GEM_BFEXT(DBWDEF, gem_readl(bp, DCFG1))) {
++	case 4:
++		return GEM_BF(DBW, GEM_DBW128);
++	case 2:
++		return GEM_BF(DBW, GEM_DBW64);
++	case 1:
++	default:
++		return GEM_BF(DBW, GEM_DBW32);
 +	}
 +}
 +
  static void macb_init_hw(struct macb *bp)
  {
  	u32 config;
-@@ -861,6 +876,8 @@ static void macb_init_hw(struct macb *bp)
- 	config |= macb_dbw(bp);
+@@ -837,6 +858,7 @@ static void macb_init_hw(struct macb *bp)
+ 		config |= MACB_BIT(CAF);	/* Copy All Frames */
+ 	if (!(bp->dev->flags & IFF_BROADCAST))
+ 		config |= MACB_BIT(NBC);	/* No BroadCast */
++	config |= macb_dbw(bp);
  	macb_writel(bp, NCFGR, config);
  
-+	macb_configure_dma(bp);
-+
  	/* Initialize TX and RX buffers */
- 	macb_writel(bp, RBQP, bp->rx_ring_dma);
- 	macb_writel(bp, TBQP, bp->tx_ring_dma);
+@@ -1267,6 +1289,7 @@ static int __init macb_probe(struct platform_device *pdev)
+ 
+ 	/* Set MII management clock divider */
+ 	config = macb_mdc_clk_div(bp);
++	config |= macb_dbw(bp);
+ 	macb_writel(bp, NCFGR, config);
+ 
+ 	macb_get_hwaddr(bp);
 diff --git a/drivers/net/macb.h b/drivers/net/macb.h
-index 5f93bab..d743d3e 100644
+index a2074f5..5f93bab 100644
 --- a/drivers/net/macb.h
 +++ b/drivers/net/macb.h
-@@ -64,6 +64,7 @@
- /* GEM register offsets. */
- #define GEM_NCFGR				0x0004
- #define GEM_USRIO				0x000c
-+#define GEM_DMACFG				0x0010
- #define GEM_HRB					0x0080
- #define GEM_HRT					0x0084
+@@ -69,6 +69,13 @@
  #define GEM_SA1B				0x0088
-@@ -154,6 +155,10 @@
- #define GEM_DBW64				1
- #define GEM_DBW128				2
+ #define GEM_SA1T				0x008C
+ #define GEM_OTX					0x0100
++#define GEM_DCFG1				0x0280
++#define GEM_DCFG2				0x0284
++#define GEM_DCFG3				0x0288
++#define GEM_DCFG4				0x028c
++#define GEM_DCFG5				0x0290
++#define GEM_DCFG6				0x0294
++#define GEM_DCFG7				0x0298
  
-+/* Bitfields in DMACFG. */
-+#define GEM_RXBS_OFFSET				16
-+#define GEM_RXBS_SIZE				8
+ /* Bitfields in NCR */
+ #define MACB_LB_OFFSET				0
+@@ -139,6 +146,14 @@
+ /* GEM specific NCFGR bitfields. */
+ #define GEM_CLK_OFFSET				18
+ #define GEM_CLK_SIZE				3
++#define GEM_DBW_OFFSET				21
++#define GEM_DBW_SIZE				2
++
++/* Constants for data bus width. */
++#define GEM_DBW32				0
++#define GEM_DBW64				1
++#define GEM_DBW128				2
 +
  /* Bitfields in NSR */
  #define MACB_NSR_LINK_OFFSET			0
  #define MACB_NSR_LINK_SIZE			1
+@@ -247,6 +262,10 @@
+ #define MACB_REV_OFFSET				0
+ #define MACB_REV_SIZE				16
+ 
++/* Bitfields in DCFG1. */
++#define GEM_DBWDEF_OFFSET			25
++#define GEM_DBWDEF_SIZE				3
++
+ /* Constants for CLK */
+ #define MACB_CLK_DIV8				0
+ #define MACB_CLK_DIV16				1
 -- 
 1.7.4
 
