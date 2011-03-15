@@ -1,80 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 15 Mar 2011 11:30:49 +1100
-Message-ID: <20110315113049.a6112494.sfr@canb.auug.org.au>
-References: <20110314152456.b49b2693.sfr@canb.auug.org.au>
-	<1300078778.3962.22.camel@localhost>
-	<20110314163135.f366742e.sfr@canb.auug.org.au>
-	<20110313.225312.193696949.davem@davemloft.net>
-	<20110314170546.af552b4e.sfr@canb.auug.org.au>
-	<alpine.LFD.2.00.1103141053020.2787@localhost6.localdomain6>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 1/4] netfilter: xt_connlimit: fix daddr connlimit in SNAT
+ scenario
+Date: Tue, 15 Mar 2011 02:16:45 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1103150210370.21929@obet.zrqbmnf.qr>
+References: <1300085414-27275-1-git-send-email-xiaosuo@gmail.com> <alpine.LNX.2.01.1103141310140.27542@obet.zrqbmnf.qr> <AANLkTi=QgVBVAPcTmb_La=VJOLq5LmGPqMfw7bbCuByP@mail.gmail.com> <alpine.LNX.2.01.1103141955180.21929@obet.zrqbmnf.qr>
+ <AANLkTimBV9x7Y-tUez5VMDoU+8mtaw1f48GV1yxgZ71c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__15_Mar_2011_11_30_49_+1100_edbgPSVLqaAkCy/j"
-Cc: Thomas Gleixner <tglx@linutronix.de>, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, hpa@zytor.com,
-	peterz@infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1103141053020.2787@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTimBV9x7Y-tUez5VMDoU+8mtaw1f48GV1yxgZ71c@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__15_Mar_2011_11_30_49_+1100_edbgPSVLqaAkCy/j
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi Dave,
-
-On Mon, 14 Mar 2011 10:56:12 +0100 (CET) Thomas Gleixner <tglx@linutronix.d=
-e> wrote:
+On Tuesday 2011-03-15 00:49, Changli Gao wrote:
+>>>the final tuples will be:
+>>>src =3D home dst =3D router src=3D1.2.3.4 dst=3D192.168.0.1
+>>>
+>>>However, the tuple saved by connlimit is src=3D1.2.3.4 dst=3Dhome, s=
+o this
+>>>conn will be removed later as there isn't any conntrack, which has
+>>>this tuple in any direction.
+>>
+>> But I don't yet see how your patch #1 can help. At the time
+>> conn->tuple=C2=A0=3D *tuple is done, *tuple still contains the non-S=
+NATed
+>> tuple, and it is never updated again.
 >
-> On Mon, 14 Mar 2011, Stephen Rothwell wrote:
->=20
-> > On Sun, 13 Mar 2011 22:53:12 -0700 (PDT) David Miller <davem@davemloft.=
-net> wrote:
-> > >
-> > > From: Stephen Rothwell <sfr@canb.auug.org.au>
-> > > Date: Mon, 14 Mar 2011 16:31:35 +1100
-> > >=20
-> > > > Maybe some config option changed ...
-> > >=20
-> > > Perhaps GENERIC_HARDIRQS_NO_DEPRECATED?
-> >=20
-> > Yep, that has been turned on for powerpc now.  I guess you will have the
-> > same problem on sparc64 of you merge the net-next and sparc trees ...
->=20
-> Yeah, powerpc alone compiles with GENERIC_HARDIRQS_NO_DEPRECATED as it
-> does not have that notify commit.
->=20
-> If you add net which has that notify commit, but not the fix it
-> breaks. I wonder whether Dave should pick that fix into net.
+>In this patch, conn->addr is used to save the destination/source
+>address instead of conn->tuple.src.u3, so the conn->tuple is used for
+>conntrack lookup only. Just as the original tuple isn't updated, we
+>can use it to looking up the associated conntrack all the time.
 
-So, if you merge the commit 1fb0ef31f428 ("genirq: Fix affinity notifier
-fallout") from the tip tree, you will get exactly one new commit and will
-fix your tree properly with no adverse effect on anyone else.
+The original tuple may not be updated, but the reply tuple is.
+And we are taking the reply tuple in
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+	tuple_ptr =3D &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
 
---Signature=_Tue__15_Mar_2011_11_30_49_+1100_edbgPSVLqaAkCy/j
-Content-Type: application/pgp-signature
+which is subsequently copied to conn->tuple on the first invocation.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNfrM5AAoJEDMEi1NhKgbs1hIH/R2B+1tFMRMT1S+inCilrv2Z
-A89FIHGU4aWQBhgQgCLc7ks1xw49XVJyamysDlnagwhK+z3ouQxiahepHyUIkHWq
-/eUqPAaEiFiECeHpLWBd8l3tTe1bUHt87RbYiDj/ocXUvsW07cTlxHjBd6/dgFIM
-dblnofbn2Ao0qCbDUSsoR+3F6zvruvyDKQ0+1XWbxZffFQpWEYQa4IyZDRSEkNdW
-gNtpZ27883FzzZZuwWupDzPMSNnAFe+eV1w6fwVYTz1Pr+vpoYe3QiTdKrKrgFJ/
-Icka/zV6bwnoVzQgFtyX6O/pu1hpjCt8HtLg1C4SXVMq92W2ACV8ekytoxeSyCU=
-=GaG+
------END PGP SIGNATURE-----
-
---Signature=_Tue__15_Mar_2011_11_30_49_+1100_edbgPSVLqaAkCy/j--
+Afterwards, SNAT will update ct->tuplehash[reply].tuple, and so
+conn->tuple is outdated. Calling nf_conntrack_find_get(conn->tuple)
+in count_them would then fail, would it not?
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
