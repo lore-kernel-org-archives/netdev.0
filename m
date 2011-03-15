@@ -1,54 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 15 Mar 2011 15:07:14 -0700 (PDT)
-Message-ID: <20110315.150714.245386974.davem@davemloft.net>
-References: <20110314.210712.226761233.davem@davemloft.net>
-	<20110315172558.a11642e7.sfr@canb.auug.org.au>
-	<alpine.LFD.2.00.1103151128070.2787@localhost6.localdomain6>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [RFC v3 3/6] can: make struct proto const
+Date: Tue, 15 Mar 2011 23:12:53 +0100
+Message-ID: <20110315221253.GA380@e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314134721.GD333@e-circ.dyndns.org>
+	<1300111755.3423.20.camel@edumazet-laptop>
+	<20110314150227.GJ333@e-circ.dyndns.org>
+	<1300120943.3423.121.camel@edumazet-laptop>
+	<20110314171752.GL333@e-circ.dyndns.org>
+	<4D7FD9ED.1080004@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, hpa@zytor.com,
-	peterz@infradead.org
-To: tglx@linutronix.de
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1103151128070.2787@localhost6.localdomain6>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D7FD9ED.1080004-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 15 Mar 2011 11:29:18 +0100 (CET)
-
-> On Tue, 15 Mar 2011, Stephen Rothwell wrote:
-> 
->> Hi Dave,
->> 
->> On Mon, 14 Mar 2011 21:07:12 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->> >
->> > From: Stephen Rothwell <sfr@canb.auug.org.au>
->> > Date: Tue, 15 Mar 2011 11:30:49 +1100
->> > 
->> > > So, if you merge the commit 1fb0ef31f428 ("genirq: Fix affinity notifier
->> > > fallout") from the tip tree, you will get exactly one new commit and will
->> > > fix your tree properly with no adverse effect on anyone else.
->> > 
->> > Thomas, how would you like me to do this?  Do you want to put that
->> > commit on a branch for me to pull from or should I apply it
->> > directly?
->> 
->> That commit is already the head of the irq/numa branch in the tip tree
->> (it is also on the irq/core branch).
->> 
->> Please merge that rather than cherry-picking the commit as that will
->> minimise the possibility of conflicts.  Pulling the irq/numa branch will
->> get you just that one fixup commit (as you have already merged up to the
->> immediately preceding commit).
->> 
->> I assume this makes sense, Thomas?  I just did a merge of the actual
->> fixup commit after merging the net tree.
-> 
-> Yes. irq/numa should do the trick.
-
-Great, I'll do that now.
+T24gVHVlLCBNYXIgMTUsIDIwMTEgYXQgMTA6Mjg6MTNQTSArMDEwMCwgT2xpdmVyIEhhcnRrb3Bw
+IHdyb3RlOgo+IE9uIDE0LjAzLjIwMTEgMTg6MTcsIEt1cnQgVmFuIERpamNrIHdyb3RlOgo+ID4g
+T24gTW9uLCBNYXIgMTQsIDIwMTEgYXQgMDU6NDI6MjNQTSArMDEwMCwgRXJpYyBEdW1hemV0IHdy
+b3RlOgo+ID4+IExlIGx1bmRpIDE0IG1hcnMgMjAxMSDDoCAxNjowMiArMDEwMCwgS3VydCBWYW4g
+RGlqY2sgYSDDqWNyaXQgOgo+ID4+Cj4gPj4+IEkgc2VlIHlvdXIgcG9pbnQuCj4gPj4+IFRoZSBy
+ZWFzb24gSSBtb2RpZmllZCB0aGlzIHdhcywgYXMgZGVzY3JpYmVkLCBjaGVja3BhdGNoLnBsIHdh
+cyBjb21wbGFpbmluZy4KPiA+Pj4gQW55d2F5LCB0aGlzIHNlcXVlbmNlIHdhcyBwcm90ZWN0ZWQg
+YnkgYSBzcGlubG9jayAncHJvdG9fdGFiX2xvY2snLgo+ID4+PiBJIGRvbid0IHRoaW5rIGl0IHdh
+cyBhIHJhY2UuCj4gPj4+Cj4gPj4+IERpZCBJIG1pc3Mgc29tZXRoaW5nPwo+ID4+Cj4gPj4gQXMg
+c29vbiBhcyBwcm90b190YWJbcHJvdG9dID0gY3A7IGlzIGRvbmUsIGFub3RoZXIgdGhyZWFkIG9u
+IGFub3RoZXIgY3B1Cj4gPj4gY2FuIHJlYWQgdGhlIHBvaW50ZXIgYW5kIGZvbGxvdyBpdC4KPiA+
+Pgo+ID4+IEhtbSwgSSBtaXNzZWQgY2FuX2NyZWF0ZSgpIGFsc28gdXNlcyB0aGUgc3BpbmxvY2sg
+cHJvdGVjdGlvbiwgc28geW91J3JlCj4gPj4gcHJvYmFibHkgcmlnaHQuCj4gPj4KPiA+PiBJdCBz
+ZWVtcyBhIGJpdCBvdmVya2lsbCA6KAo+ID4+IHBob25ldCB1c2VzIFJDVSBmb3IgZXhhbXBsZS4K
+PiAKPiBIZWxsbyBFcmljLAo+IAo+IHRoZSBSQ1UgY29kZSBpbiBwaG9uZXQgaXMgd29ydGggdG8g
+Y29uc2lkZXIuIEJ1dCBsb2FkaW5nIGFuZCByZW1vdmluZyBvZgo+IHByb3RvY29scyBpcyBmYXIg
+YXdheSBmcm9tIGJlaW5nIGEgaG90IHBhdGggLi4uIHdoYXQgd291bGQgYmUgdGhlIGFkdmFudGFn
+ZXMKPiB0byBtb3ZlIHRvIFJDVSBoZXJlPwpEb2VzIFJDVSBhdm9pZCBhIHNwaW5sb2NrPwoKPiAK
+PiA+IEknbGwga2VlcCB0aGF0IGluIG1pbmQuCj4gPiBTd2l0Y2hpbmcgQ0FOIHByb3RvcyB0byBS
+Q1UgaXMgZmFyIGJleW9uZCB0byBnb2FsIG9mIHRoaXMgcGF0Y2ggOi0pCj4gCj4gQW55d2F5IG1h
+a2luZyB0aGUgc3RydWN0IHByb3RvIGEgY29uc3QgKGFuZCBzZXQgdGhlIGRlZmF1bHQgZGVmaW5l
+cyBpbiB0aGUgQ0FOCj4gcHJvdG9jb2xzKSBpcyBhIG5pY2UgY2xlYW51cC4gTGV0J3Mgd2FpdCBm
+b3IgdGhlIGZlZWRiYWNrIGFib3V0IHRoZSBSQ1UgZnJvbQo+IEVyaWMgLi4uIHRoZW4gdGhpcyBw
+YXRjaCBjb3VsZCBiZSBwdXQgaW50byBtYWlubGluZSBpbmRlcGVuZGVudGx5IGZyb20gdGhlCj4g
+ajE5MzkgcHJvdG9jb2wuCmFjay4KCkt1cnQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KU29ja2V0Y2FuLWNvcmUgbWFpbGluZyBsaXN0ClNvY2tldGNhbi1j
+b3JlQGxpc3RzLmJlcmxpb3MuZGUKaHR0cHM6Ly9saXN0cy5iZXJsaW9zLmRlL21haWxtYW4vbGlz
+dGluZm8vc29ja2V0Y2FuLWNvcmUK
