@@ -1,49 +1,51 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next-2.6] be2net: Fix UDP packet detected status in RX compl
-Date: Tue, 15 Mar 2011 15:59:01 +0530
-Message-ID: <fa0d690e-8b0a-4608-be17-d65c22246f37@exht1.ad.emulex.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Tue, 15 Mar 2011 11:29:18 +0100 (CET)
+Message-ID: <alpine.LFD.2.00.1103151128070.2787@localhost6.localdomain6>
+References: <20110314170546.af552b4e.sfr@canb.auug.org.au> <alpine.LFD.2.00.1103141053020.2787@localhost6.localdomain6> <20110315113049.a6112494.sfr@canb.auug.org.au> <20110314.210712.226761233.davem@davemloft.net>
+ <20110315172558.a11642e7.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
-	Sathya Perla <sathya.perla@emulex.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:13877 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755702Ab1COK36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:29:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, hpa@zytor.com,
+	peterz@infradead.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110315172558.a11642e7.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Status of UDP packet detection not getting populated in RX completion
-structure. This is required in csum_passed() routine.
+On Tue, 15 Mar 2011, Stephen Rothwell wrote:
 
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/benet/be_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+> Hi Dave,
+> 
+> On Mon, 14 Mar 2011 21:07:12 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+> >
+> > From: Stephen Rothwell <sfr@canb.auug.org.au>
+> > Date: Tue, 15 Mar 2011 11:30:49 +1100
+> > 
+> > > So, if you merge the commit 1fb0ef31f428 ("genirq: Fix affinity notifier
+> > > fallout") from the tip tree, you will get exactly one new commit and will
+> > > fix your tree properly with no adverse effect on anyone else.
+> > 
+> > Thomas, how would you like me to do this?  Do you want to put that
+> > commit on a branch for me to pull from or should I apply it
+> > directly?
+> 
+> That commit is already the head of the irq/numa branch in the tip tree
+> (it is also on the irq/core branch).
+> 
+> Please merge that rather than cherry-picking the commit as that will
+> minimise the possibility of conflicts.  Pulling the irq/numa branch will
+> get you just that one fixup commit (as you have already merged up to the
+> immediately preceding commit).
+> 
+> I assume this makes sense, Thomas?  I just did a merge of the actual
+> fixup commit after merging the net tree.
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 3cb5f4e..5e15006 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -1088,6 +1088,7 @@ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
- 	rxcp->vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtp, compl);
- 	rxcp->err = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, err, compl);
- 	rxcp->tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, tcpf, compl);
-+	rxcp->udpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, udpf, compl);
- 	rxcp->ip_csum =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, ipcksm, compl);
- 	rxcp->l4_csum =
-@@ -1113,6 +1114,7 @@ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
- 	rxcp->vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtp, compl);
- 	rxcp->err = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, err, compl);
- 	rxcp->tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, tcpf, compl);
-+	rxcp->udpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, udpf, compl);
- 	rxcp->ip_csum =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, ipcksm, compl);
- 	rxcp->l4_csum =
--- 
-1.6.0.2
+Yes. irq/numa should do the trick.
 
+Thanks,
+
+	tglx
