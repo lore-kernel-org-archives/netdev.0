@@ -1,18 +1,15 @@
-From: wg <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] can: wrong index used in inner loop
-Date: Tue, 15 Mar 2011 10:02:25 +0100
-Message-ID: <edb90b03bb533480b6a5cea0e0c0822d@grandegger.com>
-References: <4D768917.9040605@gmail.com>
-	<20110314.144743.232749141.davem@davemloft.net>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [RFC v3 0/6] CAN: add SAE J1939 protocol
+Date: Tue, 15 Mar 2011 10:23:41 +0100
+Message-ID: <20110315092341.GA332@e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, roel.kluin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110314.144743.232749141.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110314132004.GA333-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -24,27 +21,30 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Mar 2011 14:47:43 -0700 (PDT), David Miller
-<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: roel <roel.kluin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Tue, 08 Mar 2011 20:52:55 +0100
+On Mon, Mar 14, 2011 at 02:20:04PM +0100, Kurt Van Dijck wrote:
 > 
->> Index i was already used in the outer loop.
->> 
->> Signed-off-by: Roel Kluin <roel.kluin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> This series adds SAE J1939 support to the current net-next-2.6.
+> For the rtnetlink operations to work, a 2.6.38-rc1 is required.
 > 
-> CAN maintainers, could you please review and ACK patches in a timely
-> manner,
-> especially utterly trivial bug fixes like this one here?
+> 1/6: can: extend sockaddr_can to include j1939 members
+> 2/6: can: add rtnetlink support
+> 3/6: can: make struct proto const
+> 4/6: j1939: initial import of SAE J1939
+> 5/6: j1939: add documentation & MAINTAINERS
+> 6/6: iproute2: use CAN & J1939
 > 
-> That's largely what I've been waiting for, a simple sign of life from
-the
-> listed maintainers for these files.
+> Still a lot of things probably need explanation...
 
-OK, will try to react fast next time.
+I had not mentioned the major differences with v2
+(which went to berlios SocketCAN mailing list only).
 
-> Anyways, no use waiting any longer, applied, thanks Roel.
+* replace magic constants with macro's
+* use a static protocol stack, not a dynamic one.
+* remove feature that have limited use and are
+  difficult to explain.
+* renamed some structure types to increase code readability. 
+* block on transport sessions until CAN frame is queued.
 
-Thanks,
+* fix bugs.
 
-Wolfgang.
+Kurt
