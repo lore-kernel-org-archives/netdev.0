@@ -1,35 +1,67 @@
-From: Jonathan Morton <chromatix99@gmail.com>
-Subject: Re: ECN + pfifo_fast borked? (Was Re: [Bloat] shaper team forming up)
-Date: Tue, 15 Mar 2011 19:09:08 +0200
-Message-ID: <3D05C1F1-B75E-426B-8267-6DB5323A839D@gmail.com>
-References: <87wrk1a4gx.fsf@cruithne.co.teklibre.org> <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com> <1300134277.2649.19.camel@edumazet-laptop> <1300164166.2649.70.camel@edumazet-laptop> <87ipvlosvz.fsf_-_@cruithne.co.teklibre.org> <1300169749.2649.142.camel@edumazet-laptop>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: =?iso-8859-1?Q?Dave_T=E4ht?= <d@taht.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: ethtool 2.6.38 released
+Date: Tue, 15 Mar 2011 17:45:19 +0000
+Message-ID: <1300211119.2758.6.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha256"; protocol="application/pgp-signature"; boundary="=-bd3y7DRKr66lT74BtkNi"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:34266 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932390Ab1CORJL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 13:09:11 -0400
-Received: by wya21 with SMTP id 21so748299wya.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 10:09:10 -0700 (PDT)
-In-Reply-To: <1300169749.2649.142.camel@edumazet-laptop>
+Received: from exchange.solarflare.com ([216.237.3.220]:12006 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758160Ab1CORpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 13:45:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On 15 Mar, 2011, at 8:15 am, Eric Dumazet wrote:
 
-> band 0 : high priority packets (like now)
-> band 1 : (old band 1, ECN capable flows)
-> band 2 : (old band 1, no ECN flows)
-> band 3 : low priority packets (old band 2)
+--=-bd3y7DRKr66lT74BtkNi
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-This seems good to me.  It would provide a concrete (if minor) enticement to turn ECN on.
+ethtool version 2.6.38 has been released.
 
- - Jonathan
+Home page: https://ftp.kernel.org/pub/software/network/ethtool/
+Download link:
+https://ftp.kernel.org/pub/software/network/ethtool/ethtool-2.6.38.tar.gz
+
+Release notes:
+
+	* Doc: Fix spelling and spacing in online help
+	* Doc: Update date, version and web site reference in manual page
+	* Doc: Fix spelling, capitalisation, consistency and style in
+	  manual page
+	* Doc: Generalise some references to network devices rather than
+	  Ethernet devices
+	* Fix: Don't silently ignore speed/duplex when autoneg is on
+	* Fix: Report an error (rather than full usage information) if
+	  given an unrecognised option
+	* Feature: Add --version option
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+
+
+--=-bd3y7DRKr66lT74BtkNi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABCAAGBQJNf6WpAAoJEGkILBsOca60WDQIAKKUKvgupZt5CQDfhUx2IHfj
+01xL7DUT0XtSM04fwZz3WCFYnwQgFXbJGqa7vicEpleVMEhUKn7nnp0Y19UmEEeT
+NtS/GpYGkB2S/4u3MNmPuGKu38u4rwWPmYlNifTf10yTVd7MLjQTyOpqKaqFmnbW
+p8sPjh3zavoApTLbuk7pvh6Pa5ulhDefYZe+sEiy6xcNOAk3v0sRBTnD+zorVYv3
+dGa0/+jpQVB7sZb7jkD1vOQWXLdWT3AX8dvqUWLnXLz5HVH8lTrreBMlvbufsfOB
+bbMmqY4kCDFbHLmT8WABGYY8MOkB005D3r5zERJF4WHTIebJm3Octr8l5zVs1NU=
+=Dnj4
+-----END PGP SIGNATURE-----
+
+--=-bd3y7DRKr66lT74BtkNi--
 
