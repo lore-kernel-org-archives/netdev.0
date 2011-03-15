@@ -1,94 +1,122 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: Multicast Fails Over Multipoint GRE Tunnel
-Date: Tue, 15 Mar 2011 20:28:21 +0200
-Message-ID: <4D7FAFC5.9080101@iki.fi>
-References: <998769.91206.qm@web39301.mail.mud.yahoo.com> <1300203277.2927.9.camel@edumazet-laptop> <4D7F9592.5050408@iki.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ECN + pfifo_fast borked? (Was Re: [Bloat] shaper team forming
+ up)
+Date: Tue, 15 Mar 2011 19:28:34 +0100
+Message-ID: <1300213714.2927.37.camel@edumazet-laptop>
+References: <87wrk1a4gx.fsf@cruithne.co.teklibre.org>
+	 <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com>
+	 <1300134277.2649.19.camel@edumazet-laptop>
+	 <1300164166.2649.70.camel@edumazet-laptop>
+	 <87ipvlosvz.fsf_-_@cruithne.co.teklibre.org>
+	 <1300169749.2649.142.camel@edumazet-laptop>
+	 <3D05C1F1-B75E-426B-8267-6DB5323A839D@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Doug Kehn <rdkehn@yahoo.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Dave =?ISO-8859-1?Q?T=E4ht?= <d@taht.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jonathan Morton <chromatix99@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41204 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758218Ab1COS2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 14:28:24 -0400
-Received: by wya21 with SMTP id 21so829449wya.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 11:28:23 -0700 (PDT)
-In-Reply-To: <4D7F9592.5050408@iki.fi>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:61503 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758218Ab1COS2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 14:28:42 -0400
+Received: by bwz15 with SMTP id 15so825708bwz.19
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 11:28:40 -0700 (PDT)
+In-Reply-To: <3D05C1F1-B75E-426B-8267-6DB5323A839D@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/15/2011 06:36 PM, Timo Ter=C3=A4s wrote:
-> On 03/15/2011 05:34 PM, Eric Dumazet wrote:
->> (Timo mentioned :=20
->> 	If the NOARP packets are not dropped, ipgre_tunnel_xmit() will
->> 	take rt->rt_gateway (=3D NBMA IP) and use that for route
->> 	look up (and may lead to bogus xfrm acquires).)
->>
->> Is the following works for you ?
+Le mardi 15 mars 2011 =C3=A0 19:09 +0200, Jonathan Morton a =C3=A9crit =
+:
+> On 15 Mar, 2011, at 8:15 am, Eric Dumazet wrote:
 >=20
-> I have memory that _header() is called with daddr being valid pointer=
-,
-> but pointing to zero memory. So basically my situation would break wi=
-th
-> this.
+> > band 0 : high priority packets (like now)
+> > band 1 : (old band 1, ECN capable flows)
+> > band 2 : (old band 1, no ECN flows)
+> > band 3 : low priority packets (old band 2)
+>=20
+> This seems good to me.  It would provide a concrete (if minor) entice=
+ment to turn ECN on.
+>=20
+> =20
 
-Ok, I've gone through now the code paths. And I believe I made
-originally the assumption that ipgre_tunnel_xmit would should not ever
-get tiph->daddr =3D=3D 0 if we got ipgre_header() call.
+Here is a patch to implement that, on top of net-next-2.6 git tree
 
-However, what actually happens is for (NOARP interfaces) in arp.c:
- - unicast traffic gets NOARP entries mapped to dev->dev_addr (in gre
-case it's the tunnel 'local' address)
- - multicast gets mapped to dev->broadcast
+qdisc pfifo_fast 0: dev eth1 root refcnt 2 bands 4 priomap  2 1 3 3 2 3=
+ 0 0 2 2 2 2 2 2 2 2
+ Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)=20
+ backlog 0b 0p requeues 0=20
 
-And if we create gre tunnel without local or remote address we end up
-getting the NOARP entries with hwaddr 0.0.0.0.
 
-Now, for unicast traffic it's mostly pointless. If the tunnel was
-locally bound the packets would never leave: they'd get NOARP entry for
-local address. And if it's locally unbound, the packets get rt_gateway,
-which is pretty confusing routing wise (it apparently assumes your link
-device has same ipv4 subnet as the gre device).
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index c84b659..95ddf54 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -412,19 +412,39 @@ static struct Qdisc noqueue_qdisc =3D {
+ };
+=20
+=20
+-static const u8 prio2band[TC_PRIO_MAX + 1] =3D {
+-	1, 2, 2, 2, 1, 2, 0, 0 , 1, 1, 1, 1, 1, 1, 1, 1
++/* 4-band FIFO queue: old style, but should be a bit faster than
++   generic prio+fifo combination.
++ */
++
++enum {
++	BAND_HIGH_PRIO,
++	BAND_MEDIUM_ECN_PRIO,
++	BAND_MEDIUM_PRIO,
++	BAND_LOW_PRIO,
++
++	PFIFO_FAST_BANDS
+ };
+=20
+-/* 3-band FIFO queue: old style, but should be a bit faster than
+-   generic prio+fifo combination.
++/*
++ * We give a litle incent to ECN flows
+  */
++static const u8 prio2band[TC_PRIO_MAX + 1] =3D {
++	[TC_PRIO_BESTEFFORT]	=3D BAND_MEDIUM_PRIO,
++	[TC_PRIO_FILLER]	=3D BAND_MEDIUM_ECN_PRIO,
++	[TC_PRIO_BULK]		=3D BAND_LOW_PRIO,
++	[TC_PRIO_BULK + 1]	=3D BAND_LOW_PRIO,
++	[TC_PRIO_INTERACTIVE_BULK] =3D BAND_MEDIUM_PRIO,
++	[TC_PRIO_INTERACTIVE_BULK + 1] =3D BAND_LOW_PRIO,
++	[TC_PRIO_INTERACTIVE]	=3D BAND_HIGH_PRIO,
++	[TC_PRIO_CONTROL]	=3D BAND_HIGH_PRIO,
++
++	[TC_PRIO_CONTROL+1 ... TC_PRIO_MAX] =3D BAND_MEDIUM_PRIO,
++};
+=20
+-#define PFIFO_FAST_BANDS 3
+=20
+ /*
+  * Private data for a pfifo_fast scheduler containing:
+- * 	- queues for the three band
++ * 	- queues for the four bands
+  * 	- bitmap indicating which of the bands contain skbs
+  */
+ struct pfifo_fast_priv {
+@@ -436,9 +456,13 @@ struct pfifo_fast_priv {
+  * Convert a bitmap to the first band number where an skb is queued, w=
+here:
+  * 	bitmap=3D0 means there are no skbs on any band.
+  * 	bitmap=3D1 means there is an skb on band 0.
+- *	bitmap=3D7 means there are skbs on all 3 bands, etc.
++ * 	bitmap=3D2 means there is an skb on band 1.
++ *	bitmap=3D15 means there are skbs on all 4 bands.
+  */
+-static const int bitmap2band[] =3D {-1, 0, 1, 0, 2, 0, 1, 0};
++static const int bitmap2band[1 << PFIFO_FAST_BANDS] =3D {
++	-1, 0, 1, 0, 2, 0, 1, 0,
++	 3, 0, 1, 0, 2, 0, 1, 0
++};
+=20
+ static inline struct sk_buff_head *band2list(struct pfifo_fast_priv *p=
+riv,
+ 					     int band)
 
-On multicast side it makes a bit more sense to map multicast groups. An=
-d
-this happened implicitly.
 
-IMHO, we should fix the arp code in ipv4 and ipv6 to do proper
-ARPHRD_IPGRE mappings so that the _header() gets called with proper
-data. I think the multicast-to-same-multicast group mapping makes sense=
-=2E
-But do not really know what to do with unicast packets sent to gre
-interface with NOARP and no link broadcast IP address.
-
-Actually this was my problem: the unicast packets for gre interface wit=
-h
-NOARP flag resulted in trying to send packets out. So I could probably
-just fix this by creating my gre interface *with* the ARP flag in the
-first place.
-
-But is there any sensible thing to do with the unicast packets in above
-case? I think those should be just dropped. Or does someone think that
-it'd ever make sense to take the inner unicast address and use it as th=
-e
-outer address too? If so, my patch should be just reverted.
-
-My honest thought is to keep the ip_gre header check as it is currently
-and fix arp code in ipv4 / neighbour code in ipv6 to do the proper NOAR=
-P
-mappings as needed. We might be able to get rid of the huge protocol
-dependent "tiph->daddr =3D=3D 0" check in xmit path this way, and make =
-sure
-that the header is set properly.
-
-This would also allow us to see proper NOARP entries when doing "ip
-neigh show nud noarp". Now it will just show 0.0.0.0 entries with gre
-devices without telling where to the packets are actually being sent to=
-=2E
-
-Any thoughts?
-
-Cheers,
-  Timo
