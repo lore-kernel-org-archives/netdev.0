@@ -1,30 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] be2net: Fix UDP packet detected status in
- RX compl
-Date: Tue, 15 Mar 2011 14:57:20 -0700 (PDT)
-Message-ID: <20110315.145720.179924404.davem@davemloft.net>
-References: <fa0d690e-8b0a-4608-be17-d65c22246f37@exht1.ad.emulex.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Tue, 15 Mar 2011 15:07:14 -0700 (PDT)
+Message-ID: <20110315.150714.245386974.davem@davemloft.net>
+References: <20110314.210712.226761233.davem@davemloft.net>
+	<20110315172558.a11642e7.sfr@canb.auug.org.au>
+	<alpine.LFD.2.00.1103151128070.2787@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com
-To: padmanabh.ratnakar@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42318
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758717Ab1COV4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 17:56:43 -0400
-In-Reply-To: <fa0d690e-8b0a-4608-be17-d65c22246f37@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, hpa@zytor.com,
+	peterz@infradead.org
+To: tglx@linutronix.de
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1103151128070.2787@localhost6.localdomain6>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Date: Tue, 15 Mar 2011 15:59:01 +0530
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Tue, 15 Mar 2011 11:29:18 +0100 (CET)
 
-> Status of UDP packet detection not getting populated in RX completion
-> structure. This is required in csum_passed() routine.
+> On Tue, 15 Mar 2011, Stephen Rothwell wrote:
 > 
-> Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+>> Hi Dave,
+>> 
+>> On Mon, 14 Mar 2011 21:07:12 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+>> >
+>> > From: Stephen Rothwell <sfr@canb.auug.org.au>
+>> > Date: Tue, 15 Mar 2011 11:30:49 +1100
+>> > 
+>> > > So, if you merge the commit 1fb0ef31f428 ("genirq: Fix affinity notifier
+>> > > fallout") from the tip tree, you will get exactly one new commit and will
+>> > > fix your tree properly with no adverse effect on anyone else.
+>> > 
+>> > Thomas, how would you like me to do this?  Do you want to put that
+>> > commit on a branch for me to pull from or should I apply it
+>> > directly?
+>> 
+>> That commit is already the head of the irq/numa branch in the tip tree
+>> (it is also on the irq/core branch).
+>> 
+>> Please merge that rather than cherry-picking the commit as that will
+>> minimise the possibility of conflicts.  Pulling the irq/numa branch will
+>> get you just that one fixup commit (as you have already merged up to the
+>> immediately preceding commit).
+>> 
+>> I assume this makes sense, Thomas?  I just did a merge of the actual
+>> fixup commit after merging the net tree.
+> 
+> Yes. irq/numa should do the trick.
 
-Applied, thanks.
+Great, I'll do that now.
