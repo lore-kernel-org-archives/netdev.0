@@ -1,16 +1,18 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Subject: [PATCHv2 NEXT 1/1] netxen: support for GbE port settings
-Date: Mon, 14 Mar 2011 23:56:15 -0700
-Message-ID: <1300172175-16853-1-git-send-email-amit.salecha@qlogic.com>
+Date: Mon, 14 Mar 2011 23:52:47 -0700
+Message-ID: <1300171967-16576-2-git-send-email-amit.salecha@qlogic.com>
+References: <1300171967-16576-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	anirban.chakraborty@qlogic.com,
 	Sony Chacko <sony.chacko@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:57574 "EHLO unm84.unminc.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:46200 "EHLO unm84.unminc.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753402Ab1COG4R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Mar 2011 02:56:17 -0400
+	id S1753944Ab1COG6D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2011 02:58:03 -0400
+In-Reply-To: <1300171967-16576-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
