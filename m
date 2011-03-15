@@ -1,334 +1,243 @@
 From: kaber@trash.net
-Subject: [PATCH 09/37] ipvs: move struct netns_ipvs
-Date: Tue, 15 Mar 2011 20:43:49 +0100
-Message-ID: <1300218257-26953-10-git-send-email-kaber@trash.net>
+Subject: [PATCH 11/37] ipvs: properly zero stats and rates
+Date: Tue, 15 Mar 2011 20:43:51 +0100
+Message-ID: <1300218257-26953-12-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:49424 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758466Ab1COTo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:28 -0400
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
- 	Remove include/net/netns/ip_vs.h because it depends on
-structures from include/net/ip_vs.h. As ipvs is pointer in
-struct net it is better to move struct netns_ipvs into
-include/net/ip_vs.h, so that we can easily use other structures
-in struct netns_ipvs.
+ 	Currently, the new percpu counters are not zeroed and
+the zero commands do not work as expected, we still show the old
+sum of percpu values. OTOH, we can not reset the percpu counters
+from user context without causing the incrementing to use old
+and bogus values.
+
+ 	So, as Eric Dumazet suggested fix that by moving all overhead
+to stats reading in user context. Do not introduce overhead in
+timer context (estimator) and incrementing (packet handling in
+softirqs).
+
+ 	The new ustats0 field holds the zero point for all
+counter values, the rates always use 0 as base value as before.
+When showing the values to user space just give the difference
+between counters and the base values. The only drawback is that
+percpu stats are not zeroed, they are accessible only from /proc
+and are new interface, so it should not be a compatibility problem
+as long as the sum stats are correct after zeroing.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h         |  122 ++++++++++++++++++++++++++++++++++++
- include/net/net_namespace.h |    2 +-
- include/net/netns/ip_vs.h   |  143 -------------------------------------------
- 3 files changed, 123 insertions(+), 144 deletions(-)
- delete mode 100644 include/net/netns/ip_vs.h
+ include/net/ip_vs.h            |    1 +
+ net/netfilter/ipvs/ip_vs_ctl.c |   96 +++++++++++++++++++++++++---------------
+ net/netfilter/ipvs/ip_vs_est.c |   15 +++---
+ 3 files changed, 69 insertions(+), 43 deletions(-)
 
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 1dcb75d..091ca1f 100644
+index 9db750d..06f5af4 100644
 --- a/include/net/ip_vs.h
 +++ b/include/net/ip_vs.h
-@@ -803,6 +803,128 @@ struct ip_vs_app {
- 	void (*timeout_change)(struct ip_vs_app *app, int flags);
+@@ -374,6 +374,7 @@ struct ip_vs_stats {
+ 	struct ip_vs_estimator	est;		/* estimator */
+ 	struct ip_vs_cpu_stats	*cpustats;	/* per cpu counters */
+ 	spinlock_t		lock;		/* spin lock */
++	struct ip_vs_stats_user	ustats0;	/* reset values */
  };
  
-+/* IPVS in network namespace */
-+struct netns_ipvs {
-+	int			gen;		/* Generation */
-+	/*
-+	 *	Hash table: for real service lookups
-+	 */
-+	#define IP_VS_RTAB_BITS 4
-+	#define IP_VS_RTAB_SIZE (1 << IP_VS_RTAB_BITS)
-+	#define IP_VS_RTAB_MASK (IP_VS_RTAB_SIZE - 1)
-+
-+	struct list_head	rs_table[IP_VS_RTAB_SIZE];
-+	/* ip_vs_app */
-+	struct list_head	app_list;
-+	struct mutex		app_mutex;
-+	struct lock_class_key	app_key;	/* mutex debuging */
-+
-+	/* ip_vs_proto */
-+	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
-+	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
-+	/* ip_vs_proto_tcp */
-+#ifdef CONFIG_IP_VS_PROTO_TCP
-+	#define	TCP_APP_TAB_BITS	4
-+	#define	TCP_APP_TAB_SIZE	(1 << TCP_APP_TAB_BITS)
-+	#define	TCP_APP_TAB_MASK	(TCP_APP_TAB_SIZE - 1)
-+	struct list_head	tcp_apps[TCP_APP_TAB_SIZE];
-+	spinlock_t		tcp_app_lock;
-+#endif
-+	/* ip_vs_proto_udp */
-+#ifdef CONFIG_IP_VS_PROTO_UDP
-+	#define	UDP_APP_TAB_BITS	4
-+	#define	UDP_APP_TAB_SIZE	(1 << UDP_APP_TAB_BITS)
-+	#define	UDP_APP_TAB_MASK	(UDP_APP_TAB_SIZE - 1)
-+	struct list_head	udp_apps[UDP_APP_TAB_SIZE];
-+	spinlock_t		udp_app_lock;
-+#endif
-+	/* ip_vs_proto_sctp */
-+#ifdef CONFIG_IP_VS_PROTO_SCTP
-+	#define SCTP_APP_TAB_BITS	4
-+	#define SCTP_APP_TAB_SIZE	(1 << SCTP_APP_TAB_BITS)
-+	#define SCTP_APP_TAB_MASK	(SCTP_APP_TAB_SIZE - 1)
-+	/* Hash table for SCTP application incarnations	 */
-+	struct list_head	sctp_apps[SCTP_APP_TAB_SIZE];
-+	spinlock_t		sctp_app_lock;
-+#endif
-+	/* ip_vs_conn */
-+	atomic_t		conn_count;      /*  connection counter */
-+
-+	/* ip_vs_ctl */
-+	struct ip_vs_stats		*tot_stats;  /* Statistics & est. */
-+	struct ip_vs_cpu_stats __percpu *cpustats;   /* Stats per cpu */
-+	seqcount_t			*ustats_seq; /* u64 read retry */
-+
-+	int			num_services;    /* no of virtual services */
-+	/* 1/rate drop and drop-entry variables */
-+	struct delayed_work	defense_work;   /* Work handler */
-+	int			drop_rate;
-+	int			drop_counter;
-+	atomic_t		dropentry;
-+	/* locks in ctl.c */
-+	spinlock_t		dropentry_lock;  /* drop entry handling */
-+	spinlock_t		droppacket_lock; /* drop packet handling */
-+	spinlock_t		securetcp_lock;  /* state and timeout tables */
-+	rwlock_t		rs_lock;         /* real services table */
-+	/* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
-+	struct lock_class_key	ctl_key;	/* ctl_mutex debuging */
-+	/* Trash for destinations */
-+	struct list_head	dest_trash;
-+	/* Service counters */
-+	atomic_t		ftpsvc_counter;
-+	atomic_t		nullsvc_counter;
-+
-+	/* sys-ctl struct */
-+	struct ctl_table_header	*sysctl_hdr;
-+	struct ctl_table	*sysctl_tbl;
-+	/* sysctl variables */
-+	int			sysctl_amemthresh;
-+	int			sysctl_am_droprate;
-+	int			sysctl_drop_entry;
-+	int			sysctl_drop_packet;
-+	int			sysctl_secure_tcp;
-+#ifdef CONFIG_IP_VS_NFCT
-+	int			sysctl_conntrack;
-+#endif
-+	int			sysctl_snat_reroute;
-+	int			sysctl_sync_ver;
-+	int			sysctl_cache_bypass;
-+	int			sysctl_expire_nodest_conn;
-+	int			sysctl_expire_quiescent_template;
-+	int			sysctl_sync_threshold[2];
-+	int			sysctl_nat_icmp_send;
-+
-+	/* ip_vs_lblc */
-+	int			sysctl_lblc_expiration;
-+	struct ctl_table_header	*lblc_ctl_header;
-+	struct ctl_table	*lblc_ctl_table;
-+	/* ip_vs_lblcr */
-+	int			sysctl_lblcr_expiration;
-+	struct ctl_table_header	*lblcr_ctl_header;
-+	struct ctl_table	*lblcr_ctl_table;
-+	/* ip_vs_est */
-+	struct list_head	est_list;	/* estimator list */
-+	spinlock_t		est_lock;
-+	struct timer_list	est_timer;	/* Estimation timer */
-+	/* ip_vs_sync */
-+	struct list_head	sync_queue;
-+	spinlock_t		sync_lock;
-+	struct ip_vs_sync_buff  *sync_buff;
-+	spinlock_t		sync_buff_lock;
-+	struct sockaddr_in	sync_mcast_addr;
-+	struct task_struct	*master_thread;
-+	struct task_struct	*backup_thread;
-+	int			send_mesg_maxlen;
-+	int			recv_mesg_maxlen;
-+	volatile int		sync_state;
-+	volatile int		master_syncid;
-+	volatile int		backup_syncid;
-+	/* multicast interface name */
-+	char			master_mcast_ifn[IP_VS_IFNAME_MAXLEN];
-+	char			backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
-+	/* net name space ptr */
-+	struct net		*net;            /* Needed by timer routines */
-+};
- 
  /*
-  *      IPVS core functions
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index b3b4a34..3ae4919 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -20,7 +20,6 @@
- #include <net/netns/conntrack.h>
- #endif
- #include <net/netns/xfrm.h>
--#include <net/netns/ip_vs.h>
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index a2a67ad..804fee7 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -711,13 +711,51 @@ static void ip_vs_trash_cleanup(struct net *net)
+ 	}
+ }
  
- struct proc_dir_entry;
- struct net_device;
-@@ -28,6 +27,7 @@ struct sock;
- struct ctl_table_header;
- struct net_generic;
- struct sock;
-+struct netns_ipvs;
++static void
++ip_vs_copy_stats(struct ip_vs_stats_user *dst, struct ip_vs_stats *src)
++{
++#define IP_VS_SHOW_STATS_COUNTER(c) dst->c = src->ustats.c - src->ustats0.c
++#define IP_VS_SHOW_STATS_RATE(r) dst->r = src->ustats.r
++
++	spin_lock_bh(&src->lock);
++
++	IP_VS_SHOW_STATS_COUNTER(conns);
++	IP_VS_SHOW_STATS_COUNTER(inpkts);
++	IP_VS_SHOW_STATS_COUNTER(outpkts);
++	IP_VS_SHOW_STATS_COUNTER(inbytes);
++	IP_VS_SHOW_STATS_COUNTER(outbytes);
++
++	IP_VS_SHOW_STATS_RATE(cps);
++	IP_VS_SHOW_STATS_RATE(inpps);
++	IP_VS_SHOW_STATS_RATE(outpps);
++	IP_VS_SHOW_STATS_RATE(inbps);
++	IP_VS_SHOW_STATS_RATE(outbps);
++
++	spin_unlock_bh(&src->lock);
++}
+ 
+ static void
+ ip_vs_zero_stats(struct ip_vs_stats *stats)
+ {
+ 	spin_lock_bh(&stats->lock);
+ 
+-	memset(&stats->ustats, 0, sizeof(stats->ustats));
++	/* get current counters as zero point, rates are zeroed */
++
++#define IP_VS_ZERO_STATS_COUNTER(c) stats->ustats0.c = stats->ustats.c
++#define IP_VS_ZERO_STATS_RATE(r) stats->ustats.r = 0
++
++	IP_VS_ZERO_STATS_COUNTER(conns);
++	IP_VS_ZERO_STATS_COUNTER(inpkts);
++	IP_VS_ZERO_STATS_COUNTER(outpkts);
++	IP_VS_ZERO_STATS_COUNTER(inbytes);
++	IP_VS_ZERO_STATS_COUNTER(outbytes);
++
++	IP_VS_ZERO_STATS_RATE(cps);
++	IP_VS_ZERO_STATS_RATE(inpps);
++	IP_VS_ZERO_STATS_RATE(outpps);
++	IP_VS_ZERO_STATS_RATE(inbps);
++	IP_VS_ZERO_STATS_RATE(outbps);
++
+ 	ip_vs_zero_estimator(stats);
+ 
+ 	spin_unlock_bh(&stats->lock);
+@@ -1963,7 +2001,7 @@ static const struct file_operations ip_vs_info_fops = {
+ static int ip_vs_stats_show(struct seq_file *seq, void *v)
+ {
+ 	struct net *net = seq_file_single_net(seq);
+-	struct ip_vs_stats *tot_stats = &net_ipvs(net)->tot_stats;
++	struct ip_vs_stats_user show;
+ 
+ /*               01234567 01234567 01234567 0123456701234567 0123456701234567 */
+ 	seq_puts(seq,
+@@ -1971,22 +2009,18 @@ static int ip_vs_stats_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq,
+ 		   "   Conns  Packets  Packets            Bytes            Bytes\n");
+ 
+-	spin_lock_bh(&tot_stats->lock);
+-	seq_printf(seq, "%8X %8X %8X %16LX %16LX\n\n", tot_stats->ustats.conns,
+-		   tot_stats->ustats.inpkts, tot_stats->ustats.outpkts,
+-		   (unsigned long long) tot_stats->ustats.inbytes,
+-		   (unsigned long long) tot_stats->ustats.outbytes);
++	ip_vs_copy_stats(&show, &net_ipvs(net)->tot_stats);
++	seq_printf(seq, "%8X %8X %8X %16LX %16LX\n\n", show.conns,
++		   show.inpkts, show.outpkts,
++		   (unsigned long long) show.inbytes,
++		   (unsigned long long) show.outbytes);
+ 
+ /*                 01234567 01234567 01234567 0123456701234567 0123456701234567 */
+ 	seq_puts(seq,
+ 		   " Conns/s   Pkts/s   Pkts/s          Bytes/s          Bytes/s\n");
+-	seq_printf(seq,"%8X %8X %8X %16X %16X\n",
+-			tot_stats->ustats.cps,
+-			tot_stats->ustats.inpps,
+-			tot_stats->ustats.outpps,
+-			tot_stats->ustats.inbps,
+-			tot_stats->ustats.outbps);
+-	spin_unlock_bh(&tot_stats->lock);
++	seq_printf(seq, "%8X %8X %8X %16X %16X\n",
++			show.cps, show.inpps, show.outpps,
++			show.inbps, show.outbps);
+ 
+ 	return 0;
+ }
+@@ -2298,14 +2332,6 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
  
  
- #define NETDEV_HASHBITS    8
-diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
-deleted file mode 100644
-index 259ebac..0000000
---- a/include/net/netns/ip_vs.h
-+++ /dev/null
-@@ -1,143 +0,0 @@
--/*
-- *  IP Virtual Server
-- *  Data structure for network namspace
-- *
-- */
+ static void
+-ip_vs_copy_stats(struct ip_vs_stats_user *dst, struct ip_vs_stats *src)
+-{
+-	spin_lock_bh(&src->lock);
+-	memcpy(dst, &src->ustats, sizeof(*dst));
+-	spin_unlock_bh(&src->lock);
+-}
 -
--#ifndef IP_VS_H_
--#define IP_VS_H_
+-static void
+ ip_vs_copy_service(struct ip_vs_service_entry *dst, struct ip_vs_service *src)
+ {
+ 	dst->protocol = src->protocol;
+@@ -2691,31 +2717,29 @@ static const struct nla_policy ip_vs_dest_policy[IPVS_DEST_ATTR_MAX + 1] = {
+ static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
+ 				 struct ip_vs_stats *stats)
+ {
++	struct ip_vs_stats_user ustats;
+ 	struct nlattr *nl_stats = nla_nest_start(skb, container_type);
+ 	if (!nl_stats)
+ 		return -EMSGSIZE;
+ 
+-	spin_lock_bh(&stats->lock);
 -
--#include <linux/list.h>
--#include <linux/mutex.h>
--#include <linux/list_nulls.h>
--#include <linux/ip_vs.h>
--#include <asm/atomic.h>
--#include <linux/in.h>
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CONNS, stats->ustats.conns);
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPKTS, stats->ustats.inpkts);
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPKTS, stats->ustats.outpkts);
+-	NLA_PUT_U64(skb, IPVS_STATS_ATTR_INBYTES, stats->ustats.inbytes);
+-	NLA_PUT_U64(skb, IPVS_STATS_ATTR_OUTBYTES, stats->ustats.outbytes);
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CPS, stats->ustats.cps);
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPPS, stats->ustats.inpps);
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPPS, stats->ustats.outpps);
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INBPS, stats->ustats.inbps);
+-	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTBPS, stats->ustats.outbps);
++	ip_vs_copy_stats(&ustats, stats);
+ 
+-	spin_unlock_bh(&stats->lock);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CONNS, ustats.conns);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPKTS, ustats.inpkts);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPKTS, ustats.outpkts);
++	NLA_PUT_U64(skb, IPVS_STATS_ATTR_INBYTES, ustats.inbytes);
++	NLA_PUT_U64(skb, IPVS_STATS_ATTR_OUTBYTES, ustats.outbytes);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CPS, ustats.cps);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPPS, ustats.inpps);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPPS, ustats.outpps);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INBPS, ustats.inbps);
++	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTBPS, ustats.outbps);
+ 
+ 	nla_nest_end(skb, nl_stats);
+ 
+ 	return 0;
+ 
+ nla_put_failure:
+-	spin_unlock_bh(&stats->lock);
+ 	nla_nest_cancel(skb, nl_stats);
+ 	return -EMSGSIZE;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
+index b3751cf..a850087 100644
+--- a/net/netfilter/ipvs/ip_vs_est.c
++++ b/net/netfilter/ipvs/ip_vs_est.c
+@@ -184,13 +184,14 @@ void ip_vs_kill_estimator(struct net *net, struct ip_vs_stats *stats)
+ void ip_vs_zero_estimator(struct ip_vs_stats *stats)
+ {
+ 	struct ip_vs_estimator *est = &stats->est;
 -
--struct ip_vs_stats;
--struct ip_vs_sync_buff;
--struct ctl_table_header;
--
--struct netns_ipvs {
--	int			gen;		/* Generation */
--	/*
--	 *	Hash table: for real service lookups
--	 */
--	#define IP_VS_RTAB_BITS 4
--	#define IP_VS_RTAB_SIZE (1 << IP_VS_RTAB_BITS)
--	#define IP_VS_RTAB_MASK (IP_VS_RTAB_SIZE - 1)
--
--	struct list_head	rs_table[IP_VS_RTAB_SIZE];
--	/* ip_vs_app */
--	struct list_head	app_list;
--	struct mutex		app_mutex;
--	struct lock_class_key	app_key;	/* mutex debuging */
--
--	/* ip_vs_proto */
--	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
--	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
--	/* ip_vs_proto_tcp */
--#ifdef CONFIG_IP_VS_PROTO_TCP
--	#define	TCP_APP_TAB_BITS	4
--	#define	TCP_APP_TAB_SIZE	(1 << TCP_APP_TAB_BITS)
--	#define	TCP_APP_TAB_MASK	(TCP_APP_TAB_SIZE - 1)
--	struct list_head	tcp_apps[TCP_APP_TAB_SIZE];
--	spinlock_t		tcp_app_lock;
--#endif
--	/* ip_vs_proto_udp */
--#ifdef CONFIG_IP_VS_PROTO_UDP
--	#define	UDP_APP_TAB_BITS	4
--	#define	UDP_APP_TAB_SIZE	(1 << UDP_APP_TAB_BITS)
--	#define	UDP_APP_TAB_MASK	(UDP_APP_TAB_SIZE - 1)
--	struct list_head	udp_apps[UDP_APP_TAB_SIZE];
--	spinlock_t		udp_app_lock;
--#endif
--	/* ip_vs_proto_sctp */
--#ifdef CONFIG_IP_VS_PROTO_SCTP
--	#define SCTP_APP_TAB_BITS	4
--	#define SCTP_APP_TAB_SIZE	(1 << SCTP_APP_TAB_BITS)
--	#define SCTP_APP_TAB_MASK	(SCTP_APP_TAB_SIZE - 1)
--	/* Hash table for SCTP application incarnations	 */
--	struct list_head	sctp_apps[SCTP_APP_TAB_SIZE];
--	spinlock_t		sctp_app_lock;
--#endif
--	/* ip_vs_conn */
--	atomic_t		conn_count;      /*  connection counter */
--
--	/* ip_vs_ctl */
--	struct ip_vs_stats		*tot_stats;  /* Statistics & est. */
--	struct ip_vs_cpu_stats __percpu *cpustats;   /* Stats per cpu */
--	seqcount_t			*ustats_seq; /* u64 read retry */
--
--	int			num_services;    /* no of virtual services */
--	/* 1/rate drop and drop-entry variables */
--	struct delayed_work	defense_work;   /* Work handler */
--	int			drop_rate;
--	int			drop_counter;
--	atomic_t		dropentry;
--	/* locks in ctl.c */
--	spinlock_t		dropentry_lock;  /* drop entry handling */
--	spinlock_t		droppacket_lock; /* drop packet handling */
--	spinlock_t		securetcp_lock;  /* state and timeout tables */
--	rwlock_t		rs_lock;         /* real services table */
--	/* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
--	struct lock_class_key	ctl_key;	/* ctl_mutex debuging */
--	/* Trash for destinations */
--	struct list_head	dest_trash;
--	/* Service counters */
--	atomic_t		ftpsvc_counter;
--	atomic_t		nullsvc_counter;
--
--	/* sys-ctl struct */
--	struct ctl_table_header	*sysctl_hdr;
--	struct ctl_table	*sysctl_tbl;
--	/* sysctl variables */
--	int			sysctl_amemthresh;
--	int			sysctl_am_droprate;
--	int			sysctl_drop_entry;
--	int			sysctl_drop_packet;
--	int			sysctl_secure_tcp;
--#ifdef CONFIG_IP_VS_NFCT
--	int			sysctl_conntrack;
--#endif
--	int			sysctl_snat_reroute;
--	int			sysctl_sync_ver;
--	int			sysctl_cache_bypass;
--	int			sysctl_expire_nodest_conn;
--	int			sysctl_expire_quiescent_template;
--	int			sysctl_sync_threshold[2];
--	int			sysctl_nat_icmp_send;
--
--	/* ip_vs_lblc */
--	int			sysctl_lblc_expiration;
--	struct ctl_table_header	*lblc_ctl_header;
--	struct ctl_table	*lblc_ctl_table;
--	/* ip_vs_lblcr */
--	int			sysctl_lblcr_expiration;
--	struct ctl_table_header	*lblcr_ctl_header;
--	struct ctl_table	*lblcr_ctl_table;
--	/* ip_vs_est */
--	struct list_head	est_list;	/* estimator list */
--	spinlock_t		est_lock;
--	struct timer_list	est_timer;	/* Estimation timer */
--	/* ip_vs_sync */
--	struct list_head	sync_queue;
--	spinlock_t		sync_lock;
--	struct ip_vs_sync_buff  *sync_buff;
--	spinlock_t		sync_buff_lock;
--	struct sockaddr_in	sync_mcast_addr;
--	struct task_struct	*master_thread;
--	struct task_struct	*backup_thread;
--	int			send_mesg_maxlen;
--	int			recv_mesg_maxlen;
--	volatile int		sync_state;
--	volatile int		master_syncid;
--	volatile int		backup_syncid;
--	/* multicast interface name */
--	char			master_mcast_ifn[IP_VS_IFNAME_MAXLEN];
--	char			backup_mcast_ifn[IP_VS_IFNAME_MAXLEN];
--	/* net name space ptr */
--	struct net		*net;            /* Needed by timer routines */
--};
--
--#endif /* IP_VS_H_ */
+-	/* set counters zero, caller must hold the stats->lock lock */
+-	est->last_inbytes = 0;
+-	est->last_outbytes = 0;
+-	est->last_conns = 0;
+-	est->last_inpkts = 0;
+-	est->last_outpkts = 0;
++	struct ip_vs_stats_user *u = &stats->ustats;
++
++	/* reset counters, caller must hold the stats->lock lock */
++	est->last_inbytes = u->inbytes;
++	est->last_outbytes = u->outbytes;
++	est->last_conns = u->conns;
++	est->last_inpkts = u->inpkts;
++	est->last_outpkts = u->outpkts;
+ 	est->cps = 0;
+ 	est->inpps = 0;
+ 	est->outpps = 0;
 -- 
 1.7.2.3
 
