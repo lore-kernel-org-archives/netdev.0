@@ -1,72 +1,128 @@
 From: kaber@trash.net
-Subject: [PATCH 28/37] IPVS: Conditionally include sysctl members of struct netns_ipvs
-Date: Tue, 15 Mar 2011 20:44:08 +0100
-Message-ID: <1300218257-26953-29-git-send-email-kaber@trash.net>
+Subject: [PATCH 31/37] netfilter: xt_connlimit: use hlist instead
+Date: Tue, 15 Mar 2011 20:44:11 +0100
+Message-ID: <1300218257-26953-32-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49442 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49426 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758506Ab1COTod (ORCPT
+	with ESMTP id S1758202Ab1COTod (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:33 -0400
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
+From: Changli Gao <xiaosuo@gmail.com>
 
-There is now no need to include sysctl members of struct netns_ipvs
-unless CONFIG_SYSCTL is defined.
+The header of hlist is smaller than list.
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/ip_vs.h |   21 +++++++++++++--------
- 1 files changed, 13 insertions(+), 8 deletions(-)
+ net/netfilter/xt_connlimit.c |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 299aeb5..272f593 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -839,6 +839,17 @@ struct netns_ipvs {
- 	struct ip_vs_stats		tot_stats;  /* Statistics & est. */
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index ade2a80..da56d6e 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -33,14 +33,14 @@
  
- 	int			num_services;    /* no of virtual services */
-+
-+	rwlock_t		rs_lock;         /* real services table */
-+	/* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
-+	struct lock_class_key	ctl_key;	/* ctl_mutex debuging */
-+	/* Trash for destinations */
-+	struct list_head	dest_trash;
-+	/* Service counters */
-+	atomic_t		ftpsvc_counter;
-+	atomic_t		nullsvc_counter;
-+
-+#ifdef CONFIG_SYSCTL
- 	/* 1/rate drop and drop-entry variables */
- 	struct delayed_work	defense_work;   /* Work handler */
- 	int			drop_rate;
-@@ -848,18 +859,12 @@ struct netns_ipvs {
- 	spinlock_t		dropentry_lock;  /* drop entry handling */
- 	spinlock_t		droppacket_lock; /* drop packet handling */
- 	spinlock_t		securetcp_lock;  /* state and timeout tables */
--	rwlock_t		rs_lock;         /* real services table */
--	/* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
--	struct lock_class_key	ctl_key;	/* ctl_mutex debuging */
--	/* Trash for destinations */
--	struct list_head	dest_trash;
--	/* Service counters */
--	atomic_t		ftpsvc_counter;
--	atomic_t		nullsvc_counter;
+ /* we will save the tuples of all connections we care about */
+ struct xt_connlimit_conn {
+-	struct list_head		list;
++	struct hlist_node		node;
+ 	struct nf_conntrack_tuple	tuple;
+ 	union nf_inet_addr		addr;
+ };
  
- 	/* sys-ctl struct */
- 	struct ctl_table_header	*sysctl_hdr;
- 	struct ctl_table	*sysctl_tbl;
-+#endif
-+
- 	/* sysctl variables */
- 	int			sysctl_amemthresh;
- 	int			sysctl_am_droprate;
+ struct xt_connlimit_data {
+-	struct list_head iphash[256];
+-	spinlock_t lock;
++	struct hlist_head	iphash[256];
++	spinlock_t		lock;
+ };
+ 
+ static u_int32_t connlimit_rnd __read_mostly;
+@@ -102,9 +102,9 @@ static int count_them(struct net *net,
+ {
+ 	const struct nf_conntrack_tuple_hash *found;
+ 	struct xt_connlimit_conn *conn;
+-	struct xt_connlimit_conn *tmp;
++	struct hlist_node *pos, *n;
+ 	struct nf_conn *found_ct;
+-	struct list_head *hash;
++	struct hlist_head *hash;
+ 	bool addit = true;
+ 	int matches = 0;
+ 
+@@ -116,7 +116,7 @@ static int count_them(struct net *net,
+ 	rcu_read_lock();
+ 
+ 	/* check the saved connections */
+-	list_for_each_entry_safe(conn, tmp, hash, list) {
++	hlist_for_each_entry_safe(conn, pos, n, hash, node) {
+ 		found    = nf_conntrack_find_get(net, NF_CT_DEFAULT_ZONE,
+ 						 &conn->tuple);
+ 		found_ct = NULL;
+@@ -136,7 +136,7 @@ static int count_them(struct net *net,
+ 
+ 		if (found == NULL) {
+ 			/* this one is gone */
+-			list_del(&conn->list);
++			hlist_del(&conn->node);
+ 			kfree(conn);
+ 			continue;
+ 		}
+@@ -147,7 +147,7 @@ static int count_them(struct net *net,
+ 			 * closed already -> ditch it
+ 			 */
+ 			nf_ct_put(found_ct);
+-			list_del(&conn->list);
++			hlist_del(&conn->node);
+ 			kfree(conn);
+ 			continue;
+ 		}
+@@ -167,7 +167,7 @@ static int count_them(struct net *net,
+ 			return -ENOMEM;
+ 		conn->tuple = *tuple;
+ 		conn->addr = *addr;
+-		list_add(&conn->list, hash);
++		hlist_add_head(&conn->node, hash);
+ 		++matches;
+ 	}
+ 
+@@ -246,7 +246,7 @@ static int connlimit_mt_check(const struct xt_mtchk_param *par)
+ 
+ 	spin_lock_init(&info->data->lock);
+ 	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i)
+-		INIT_LIST_HEAD(&info->data->iphash[i]);
++		INIT_HLIST_HEAD(&info->data->iphash[i]);
+ 
+ 	return 0;
+ }
+@@ -255,15 +255,15 @@ static void connlimit_mt_destroy(const struct xt_mtdtor_param *par)
+ {
+ 	const struct xt_connlimit_info *info = par->matchinfo;
+ 	struct xt_connlimit_conn *conn;
+-	struct xt_connlimit_conn *tmp;
+-	struct list_head *hash = info->data->iphash;
++	struct hlist_node *pos, *n;
++	struct hlist_head *hash = info->data->iphash;
+ 	unsigned int i;
+ 
+ 	nf_ct_l3proto_module_put(par->family);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i) {
+-		list_for_each_entry_safe(conn, tmp, &hash[i], list) {
+-			list_del(&conn->list);
++		hlist_for_each_entry_safe(conn, pos, n, &hash[i], node) {
++			hlist_del(&conn->node);
+ 			kfree(conn);
+ 		}
+ 	}
 -- 
 1.7.2.3
 
