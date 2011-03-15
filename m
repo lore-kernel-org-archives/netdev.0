@@ -1,68 +1,59 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH] xen: netfront: ethtool stats fields should be unsigned
- long
-Date: Tue, 15 Mar 2011 07:12:11 +0000
-Message-ID: <1300173131.32696.44.camel@localhost.localdomain>
-References: <1299776658-15137-1-git-send-email-ian.campbell@citrix.com>
-	 <20110314.151029.200378268.davem@davemloft.net>
-	 <1300161043.2649.33.camel@edumazet-laptop>
-	 <20110314.210615.193717284.davem@davemloft.net>
+From: david@lang.hm
+Subject: Re: [GIT] Networking
+Date: Tue, 15 Mar 2011 00:20:14 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1103150019060.5340@asgard.lang.hm>
+References: <20110310.155556.48513201.davem@davemloft.net> <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com> <20110311204823.GB7906@fieldses.org> <20110311.130128.71121155.davem@davemloft.net> <1299878274.2814.8.camel@bwh-desktop>
+ <20110311214209.GB9404@fieldses.org> <20110312040941.GA15526@home.goodmis.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeremy@goop.org" <jeremy@goop.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:23432 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751917Ab1COHMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 03:12:14 -0400
-In-Reply-To: <20110314.210615.193717284.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "J. Bruce Fields" <bfields@fieldses.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110312040941.GA15526@home.goodmis.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-03-15 at 04:06 +0000, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 15 Mar 2011 04:50:43 +0100
->=20
-> > Le lundi 14 mars 2011 =E0 15:10 -0700, David Miller a =E9crit :
-> >> From: Ian Campbell <ian.campbell@citrix.com>
-> >> Date: Thu, 10 Mar 2011 17:04:18 +0000
-> >>=20
-> >> > Fixup the rx_gso_checksum_fixup field added in e0ce4af920eb to b=
-e
-> >> > unsigned long as suggested by Ben Hutchings in
-> >> > <1298919198.2569.14.camel@bwh-desktop>
-> >> >=20
-> >> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> >>=20
-> >> Applied, thanks Ian.
-> >=20
-> > Hmm, this needs this followup patch then.
-> >=20
-> > Thanks
-> >=20
-> > [PATCH] xen: netfront: fix xennet_get_ethtool_stats()
-> >=20
-> > commit e9a799ea4a5551d2 (xen: netfront: ethtool stats fields should=
- be
-> > unsigned long) made rx_gso_checksum_fixup an unsigned long.
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> I even saw your feedback but for some reason I still applied
-> his patch, sorry about that :-)
->=20
-> Applied, thanks.
+On Fri, 11 Mar 2011, Steven Rostedt wrote:
 
-His feed back was for netback and this was a netfront patch, but I
-didn't make the link either.
+> On Fri, Mar 11, 2011 at 04:42:09PM -0500, J. Bruce Fields wrote:
+>>
+>> But assume you only did this in cases where the merge was trivial.
+>> Would it be worth it, or would people be annoyed by the additional
+>> branching?
+>>
+>
+> I would be annoyed by it ;)
+>
+> It really is meaningless to do so, as all you are doing is documenting
+> what commit caused this bug, and producing more problems by branching
+> off of the broken commit. It wont matter till it is merged, but then if
+> there are a lot of simple bug fixes, then you will have a lot of single
+> merges of branches that fix those bugs.
 
-Thanks for picking it up Eric.
+what effect would this have on bisecting? if this helped people avoid 
+bisecting in between the bad commit and the fix for it, it may be worth 
+it.
 
-Ian.
+David Lang
 
-
+> It's just better to say in the change log of the fix:
+>
+> "commit abcdef1234 foo: add bar"
+>
+> Broke this, and this fixes it.
+>
+> Having the broken commit SHA1 and description in the change log is just
+> as helpful as having the bug commit being its parent.
+>
+> -- Steve
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
