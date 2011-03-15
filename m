@@ -1,110 +1,67 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCHv2 0/9] macb: add support for Cadence GEM
-Date: Tue, 15 Mar 2011 10:14:47 +0000
-Message-ID: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
-Cc: nicolas.ferre@atmel.com, plagnioj@jcrosoft.com,
-	Jamie Iles <jamie@jamieiles.com>
-To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+From: Carsten Wolff <carsten@wolffcarsten.de>
+Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
+Date: Tue, 15 Mar 2011 11:20:54 +0100
+Message-ID: <201103151120.55388.carsten@wolffcarsten.de>
+References: <1299894051-13820-1-git-send-email-ycheng@google.com> <AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com> <AANLkTi=qi2GOprXEWCf6v=j=L98SQMdHb1OaHcdALepf@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>,
+	David Miller <davem@davemloft.net>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	Nandita Dukkipati <nanditad@google.com>, netdev@vger.kernel.org
+To: John Heffner <johnwheffner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:35177 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756996Ab1COKPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:43 -0400
-Received: by mail-bw0-f46.google.com with SMTP id 15so389948bwz.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:43 -0700 (PDT)
+Received: from h1346787.stratoserver.net ([85.214.49.182]:36476 "EHLO
+	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752342Ab1COKVM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:21:12 -0400
+In-Reply-To: <AANLkTi=qi2GOprXEWCf6v=j=L98SQMdHb1OaHcdALepf@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series extends the Atmel MACB driver to support the Cadence
-GEM (Gigabit Ethernet MAC) to support 10/100 operation.  The GEM is
-based on the MACB block but has a few moved registers and bitfields.
-This patch series attempts to use the MACB accessors where block
-functionallity is identical and only overrides to GEM specific
-acccessors when needed.
+On Monday 14 March 2011, John Heffner wrote:
+> On Mon, Mar 14, 2011 at 3:10 PM, Yuchung Cheng <ycheng@google.com> wr=
+ote:
+> > On Mon, Mar 14, 2011 at 3:06 AM, Carsten Wolff <carsten@wolffcarste=
+n.de>=20
+wrote:
+> >> The moderation is in place to avoid gigantic segment bursts, which=
+ could
+> >> cause unnecessary pressure on buffers. In my eyes it's already
+> >> suboptimal that the moderation is weakened in the presence of
+> >> (detected) reordering, let alone removing it completely.
+> >=20
+> > In the presence of reordering, cwnd is already moderated in Disorde=
+r
+> > state before
+> >  entering the (false) recovery.
+>=20
+> I've always been somewhat skeptical of the usefulness of cwnd
+> moderation.  First, I don't know that its behavior is well defined.
+> When *should* tcp_moderate_cwnd() actually be called, and why?
+>=20
+> Second, I've never liked the idea in general.  Reducing cwnd has an
+> effect lasting many RTTs, so reducing it in response to a transient
+> event like reordering seems dubious.  And it does not address many
+> causes of bursts, such as ack compression or stretch acks.
 
-This has been runtested on a board with a Cadence GEM and compile tested
-for all at91 configurations and a number of avr32 configurations.
+I think the undo operations are a special case where it absolutely make=
+s=20
+sense, because the cwnd _already_ has been reduced (down to 1 segment b=
+y RTO=20
+recovery, or, with its special mixture of ratehalving and newreno, Linu=
+x=20
+sometimes reduces cwnd far below half of it even in fast recovery.). Th=
+e undo=20
+re-opens the window all at once, which may allow _really huge_ bursts. =
+I don't=20
+know enough about the other causes of TCPs burstiness, I'm just concern=
+ed=20
+about allowing this special cause.
 
-Changes since v1:
-	- AT91 now provides a fake "hclk" and "macb_clk" has been
-	renamed to "pclk" to be consistent with AVR32.
-	- Configurable GEM receive buffer size support has been added.
-	- pr_foo() and dev_foo() have been converted to netdev_foo()
-	where appropriate.
-	- New conditional accessors (macb_or_gem_{read,write}l) have
-	been introduced that do the conditional accesses dependent on
-	macb/gem type.
-	- GEM is now dynamically detected from the module ID rather than
-	platform device name.
-
-Jean-Christophe, I haven't based this on your conditional clock patch as
-I wasn't sure what decision had been made on that and whether the
-at91/avr32 detection is reliable.
-
-Jamie Iles (9):
-  at91: provide macb clks with "pclk" and "hclk" name
-  macb: remove conditional clk handling
-  macb: unify at91 and avr32 platform data
-  macb: convert printk to netdev_ and friends
-  macb: initial support for Cadence GEM
-  macb: support higher rate GEM MDIO clock divisors
-  macb: support statistics for GEM devices
-  macb: support DMA bus widths > 32 bits
-  macb: allow GEM to have configurable receive buffer size
-
- arch/arm/mach-at91/at572d940hf.c            |    8 +-
- arch/arm/mach-at91/at572d940hf_devices.c    |    6 +-
- arch/arm/mach-at91/at91cap9.c               |    8 +-
- arch/arm/mach-at91/at91cap9_devices.c       |    6 +-
- arch/arm/mach-at91/at91rm9200_devices.c     |    6 +-
- arch/arm/mach-at91/at91sam9260.c            |    8 +-
- arch/arm/mach-at91/at91sam9260_devices.c    |    6 +-
- arch/arm/mach-at91/at91sam9263.c            |    8 +-
- arch/arm/mach-at91/at91sam9263_devices.c    |    6 +-
- arch/arm/mach-at91/at91sam9g45.c            |    8 +-
- arch/arm/mach-at91/at91sam9g45_devices.c    |    6 +-
- arch/arm/mach-at91/board-1arm.c             |    2 +-
- arch/arm/mach-at91/board-afeb-9260v1.c      |    2 +-
- arch/arm/mach-at91/board-at572d940hf_ek.c   |    2 +-
- arch/arm/mach-at91/board-cam60.c            |    2 +-
- arch/arm/mach-at91/board-cap9adk.c          |    2 +-
- arch/arm/mach-at91/board-carmeva.c          |    2 +-
- arch/arm/mach-at91/board-cpu9krea.c         |    2 +-
- arch/arm/mach-at91/board-cpuat91.c          |    2 +-
- arch/arm/mach-at91/board-csb337.c           |    2 +-
- arch/arm/mach-at91/board-csb637.c           |    2 +-
- arch/arm/mach-at91/board-eb9200.c           |    2 +-
- arch/arm/mach-at91/board-ecbat91.c          |    2 +-
- arch/arm/mach-at91/board-eco920.c           |    2 +-
- arch/arm/mach-at91/board-foxg20.c           |    2 +-
- arch/arm/mach-at91/board-gsia18s.c          |    2 +-
- arch/arm/mach-at91/board-kafa.c             |    2 +-
- arch/arm/mach-at91/board-kb9202.c           |    2 +-
- arch/arm/mach-at91/board-neocore926.c       |    2 +-
- arch/arm/mach-at91/board-pcontrol-g20.c     |    2 +-
- arch/arm/mach-at91/board-picotux200.c       |    2 +-
- arch/arm/mach-at91/board-qil-a9260.c        |    2 +-
- arch/arm/mach-at91/board-rm9200dk.c         |    2 +-
- arch/arm/mach-at91/board-rm9200ek.c         |    2 +-
- arch/arm/mach-at91/board-sam9-l9260.c       |    2 +-
- arch/arm/mach-at91/board-sam9260ek.c        |    2 +-
- arch/arm/mach-at91/board-sam9263ek.c        |    2 +-
- arch/arm/mach-at91/board-sam9g20ek.c        |    2 +-
- arch/arm/mach-at91/board-sam9m10g45ek.c     |    2 +-
- arch/arm/mach-at91/board-snapper9260.c      |    2 +-
- arch/arm/mach-at91/board-stamp9g20.c        |    2 +-
- arch/arm/mach-at91/board-usb-a9260.c        |    2 +-
- arch/arm/mach-at91/board-usb-a9263.c        |    2 +-
- arch/arm/mach-at91/board-yl-9200.c          |    2 +-
- arch/arm/mach-at91/include/mach/board.h     |   14 +-
- arch/avr32/mach-at32ap/include/mach/board.h |    5 +-
- drivers/net/Kconfig                         |    8 +-
- drivers/net/macb.c                          |  331 ++++++++++++++++++---------
- drivers/net/macb.h                          |  146 ++++++++++++-
- include/linux/platform_data/macb.h          |   10 +
- 50 files changed, 466 insertions(+), 190 deletions(-)
- create mode 100644 include/linux/platform_data/macb.h
-
--- 
-1.7.4
-
+Carsten
+--=20
+           /\-=C2=B4-/\
+          (  @ @  )
+________o0O___^___O0o________
