@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Cache source address in nexthop entries.
-Date: Tue, 15 Mar 2011 16:02:19 -0700 (PDT)
-Message-ID: <20110315.160219.189709250.davem@davemloft.net>
-References: <20110308.103801.193702247.davem@davemloft.net>
-	<20110308.110352.189704727.davem@davemloft.net>
-	<alpine.LFD.2.00.1103151135110.1729@ja.ssi.bg>
+From: Michael Smith <msmith@cbnco.com>
+Subject: Re: [PATCH] Disable rp_filter for IPsec packets
+Date: Tue, 15 Mar 2011 19:21:29 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.1103151913340.28997@juice.ott.cti.com>
+References: <4D7E928C.1030707@cbnco.com> <20110314.151424.212690587.davem@davemloft.net>
+ <4D7E9558.7030102@cbnco.com> <20110314.152704.98879085.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38595
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751418Ab1COXBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 19:01:42 -0400
-In-Reply-To: <alpine.LFD.2.00.1103151135110.1729@ja.ssi.bg>
+Received: from smtp.cbnco.com ([207.164.182.72]:37894 "EHLO smtp.cbnco.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751540Ab1COXVf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2011 19:21:35 -0400
+In-Reply-To: <20110314.152704.98879085.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Tue, 15 Mar 2011 12:00:33 +0200 (EET)
+On Mon, 14 Mar 2011, David Miller wrote:
 
-> 	I see another problem with nh_saddr. fib_info
-> is reused when NHs and some parameters are equal but the
-> scope is not part of the fib_info and it is wrong to cache
-> route scope in NH or even in fib_info. The problem is
-> that we can expose in nh_saddr addresses with wrong
-> scope for the route. It happens when two routes with
-> different route scope reuse same fib_info.
+> > David Miller wrote:
+> > 
+> >> Existing arguments might be large enough to carry more than one piece
+> >> of information :-)
+> > 
+> > If it's encoded into another argument, would there be more overhead
+> > from bit-shifting it out than you'd save by losing an argument?
 > 
-> 	First thought is that the field fa_scope can be
-> moved into fib_scope in struct fib_info, not to use
-> nh_cfg_scope. Then fib_find_info can differentiate the
-> entries by fib_scope. It means, fib_info will not be reused
-> if fib_scope is different. For FIB_RES_PREFSRC I assume we
-> can access fib_info from nh->nh_parent safely when
-> refreshing nh_saddr.
-> 
-> 	Here is a script that demonstrates the wrong
-> exposing:
+> It sure will if it's the different between the argument being passed
+> in a register vs. on the stack.
 
-Thanks for all of your feedback Julian, I will look into
-this very soon.
+I have a patch to replace u32 mark with an sk_buff. The mark is in the 
+sk_buff already, and so is the secpath field I need. Would that be 
+acceptable? I can hold off until the merge window is over.
+
+-extern int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
+-                              struct net_device *dev, __be32 *spec_dst,
+-                              u32 *itag, u32 mark);
+
++extern int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
++                              u8 tos, int oif, struct net_device *dev,
++                              __be32 *spec_dst, u32 *itag);
+
+(dev is also usually the same as skb->dev, but not always...)
+
+Mike
