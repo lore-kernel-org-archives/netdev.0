@@ -1,105 +1,57 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
-Date: Tue, 15 Mar 2011 06:50:47 -0400
-Message-ID: <AANLkTim_U9CySFQimQ8cG_iHdXCYXSALi9E6ticKztnk@mail.gmail.com>
-References: <1299894051-13820-1-git-send-email-ycheng@google.com>
-	<AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com>
-	<AANLkTi=qi2GOprXEWCf6v=j=L98SQMdHb1OaHcdALepf@mail.gmail.com>
-	<201103151120.55388.carsten@wolffcarsten.de>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 17/17] net,act_police,rcu: remove rcu_barrier()
+Date: Tue, 15 Mar 2011 12:04:12 +0100
+Message-ID: <1300187052.10062.12.camel@edumazet-laptop>
+References: <4D7F3610.6000809@cn.fujitsu.com> <4D7F3B62.6000005@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>, netdev@vger.kernel.org
-To: Carsten Wolff <carsten@wolffcarsten.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:47595 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920Ab1COKus convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:50:48 -0400
-Received: by ywj3 with SMTP id 3so176652ywj.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:50:47 -0700 (PDT)
-In-Reply-To: <201103151120.55388.carsten@wolffcarsten.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        linux-decnet-user-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+        Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+        "Pekka Savola \(ipv6\)" <pekkas-UjJjq++bwZ7HOG6cAo2yLw@public.gmane.org>,
+        Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?= <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+        Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+        "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        Sridhar Samudrala <sri-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+        Vlad Yasevich <vladislav.yasevich-VXdhtT5mjnY@public.gmane.org>,
+        Hagen Paul Pfeifer <hagen-GvnIQ6b/HdU@public.gmane.org>,
+        "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+        Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        Jens Axboe <axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Hideaki YOSHIFU
+To: Lai Jiangshan <laijs-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <4D7F3B62.6000005-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Anecdotally, I've seen more harm than good from cwnd moderation but I
-don't have any data to back that up.  It's hard to categorically say
-anything.  But I don't know what makes the cases where cwnd moderation
-is applied special.
-
-Some other sources of bursts include
-- Send-limited applications that stall for some time but less than an
-RTO and do a large write
-- Receive-limited applications that stall for some time but less than
-an RTO and do a large read
-- "Ack compression," when acks are queued somewhere in the network and
-flood out at line rate
-- "Stretch acks," when the receiving TCP does not ack every segment
-(for efficiency, etc.), or acks are lost in the network.
-
-Since all of these may occur in the Open state, cwnd moderation is not =
-applied.
-
-While I'm adding to my wish list ;-), I will also say that the undo
-logic seems unnecessarily complicated.  If you expect you might have
-to undo what you just did, why not wait a bit?  Something like rfc4653
-seems like it might be a better approach and might make the cwnd
-moderation discussion moot.
-
-Thanks,
-  -John
-
-
-On Tue, Mar 15, 2011 at 6:20 AM, Carsten Wolff <carsten@wolffcarsten.de=
-> wrote:
-> On Monday 14 March 2011, John Heffner wrote:
->> On Mon, Mar 14, 2011 at 3:10 PM, Yuchung Cheng <ycheng@google.com> w=
-rote:
->> > On Mon, Mar 14, 2011 at 3:06 AM, Carsten Wolff <carsten@wolffcarst=
-en.de>
-> wrote:
->> >> The moderation is in place to avoid gigantic segment bursts, whic=
-h could
->> >> cause unnecessary pressure on buffers. In my eyes it's already
->> >> suboptimal that the moderation is weakened in the presence of
->> >> (detected) reordering, let alone removing it completely.
->> >
->> > In the presence of reordering, cwnd is already moderated in Disord=
-er
->> > state before
->> > =A0entering the (false) recovery.
->>
->> I've always been somewhat skeptical of the usefulness of cwnd
->> moderation. =A0First, I don't know that its behavior is well defined=
-=2E
->> When *should* tcp_moderate_cwnd() actually be called, and why?
->>
->> Second, I've never liked the idea in general. =A0Reducing cwnd has a=
-n
->> effect lasting many RTTs, so reducing it in response to a transient
->> event like reordering seems dubious. =A0And it does not address many
->> causes of bursts, such as ack compression or stretch acks.
->
-> I think the undo operations are a special case where it absolutely ma=
-kes
-> sense, because the cwnd _already_ has been reduced (down to 1 segment=
- by RTO
-> recovery, or, with its special mixture of ratehalving and newreno, Li=
-nux
-> sometimes reduces cwnd far below half of it even in fast recovery.). =
-The undo
-> re-opens the window all at once, which may allow _really huge_ bursts=
-=2E I don't
-> know enough about the other causes of TCPs burstiness, I'm just conce=
-rned
-> about allowing this special cause.
->
-> Carsten
-> --
-> =A0 =A0 =A0 =A0 =A0 /\-=B4-/\
-> =A0 =A0 =A0 =A0 =A0( =A0@ @ =A0)
-> ________o0O___^___O0o________
->
+TGUgbWFyZGkgMTUgbWFycyAyMDExIMOgIDE4OjExICswODAwLCBMYWkgSmlhbmdzaGFuIGEgw6lj
+cml0IDoKPiAKPiBUaGVyZSBpcyBubyBjYWxsYmFjayBvZiB0aGlzIG1vZHVsZSBtYXliZSBxdWV1
+ZWQKPiBzaW5jZSB3ZSB1c2Uga2ZyZWVfcmN1KCksIHdlIGNhbiBzYWZlbHkgcmVtb3ZlIHRoZSBy
+Y3VfYmFycmllcigpLgo+IAo+IFNpZ25lZC1vZmYtYnk6IExhaSBKaWFuZ3NoYW4gPGxhaWpzQGNu
+LmZ1aml0c3UuY29tPgo+IC0tLQo+ICBuZXQvc2NoZWQvYWN0X3BvbGljZS5jIHwgICAgMSAtCj4g
+IDEgZmlsZXMgY2hhbmdlZCwgMCBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQo+IAo+IGRp
+ZmYgLS1naXQgYS9uZXQvc2NoZWQvYWN0X3BvbGljZS5jIGIvbmV0L3NjaGVkL2FjdF9wb2xpY2Uu
+Ywo+IGluZGV4IDA4M2IwOTEuLjIyZTNmOWIgMTAwNjQ0Cj4gLS0tIGEvbmV0L3NjaGVkL2FjdF9w
+b2xpY2UuYwo+ICsrKyBiL25ldC9zY2hlZC9hY3RfcG9saWNlLmMKPiBAQCAtMzk3LDcgKzM5Nyw2
+IEBAIHN0YXRpYyB2b2lkIF9fZXhpdAo+ICBwb2xpY2VfY2xlYW51cF9tb2R1bGUodm9pZCkKPiAg
+ewo+ICAJdGNmX3VucmVnaXN0ZXJfYWN0aW9uKCZhY3RfcG9saWNlX29wcyk7Cj4gLQlyY3VfYmFy
+cmllcigpOyAvKiBXYWl0IGZvciBjb21wbGV0aW9uIG9mIGNhbGxfcmN1KCkncyAodGNmX3BvbGlj
+ZV9mcmVlX3JjdSkgKi8KPiAgfQo+ICAKPiAgbW9kdWxlX2luaXQocG9saWNlX2luaXRfbW9kdWxl
+KTsKCgpXaHkgaXMgaXQgYSBzZXBhcmF0ZSBwYXRjaCwgYW5kIG5vdCBpbmNsdWRlZCBpbiBwYXRj
+aCA1LzE3ID8KCgoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5k
+YXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0
+aW5mby9jb250YWluZXJz
