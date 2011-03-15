@@ -1,139 +1,60 @@
 From: kaber@trash.net
-Subject: [PATCH 18/37] IPVS: Add {sysctl_sync_threshold,period}()
-Date: Tue, 15 Mar 2011 20:43:58 +0100
-Message-ID: <1300218257-26953-19-git-send-email-kaber@trash.net>
+Subject: [PATCH 21/37] IPVS: Add expire_quiescent_template()
+Date: Tue, 15 Mar 2011 20:44:01 +0100
+Message-ID: <1300218257-26953-22-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:49425 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758488Ab1COToa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:30 -0400
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Simon Horman <horms@verge.net.au>
 
-In preparation for not including sysctl_sync_threshold in
+In preparation for not including sysctl_expire_quiescent_template in
 struct netns_ipvs when CONFIG_SYCTL is not defined.
 
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h             |   29 +++++++++++++++++++++++++++++
- net/netfilter/ipvs/ip_vs_core.c |   10 +++++-----
- net/netfilter/ipvs/ip_vs_ctl.c  |    4 ++--
- net/netfilter/ipvs/ip_vs_sync.c |    4 ++--
- 4 files changed, 38 insertions(+), 9 deletions(-)
+ net/netfilter/ipvs/ip_vs_conn.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 7ca5be2..253736d 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -909,6 +909,35 @@ struct netns_ipvs {
- 	struct net		*net;            /* Needed by timer routines */
- };
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 9c2a517..f289306 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -680,6 +680,16 @@ static inline void ip_vs_unbind_dest(struct ip_vs_conn *cp)
+ 	atomic_dec(&dest->refcnt);
+ }
  
-+#define DEFAULT_SYNC_THRESHOLD	3
-+#define DEFAULT_SYNC_PERIOD	50
-+
++static int expire_quiescent_template(struct netns_ipvs *ipvs,
++				     struct ip_vs_dest *dest)
++{
 +#ifdef CONFIG_SYSCTL
-+
-+static inline int sysctl_sync_threshold(struct netns_ipvs *ipvs)
-+{
-+	return ipvs->sysctl_sync_threshold[0];
-+}
-+
-+static inline int sysctl_sync_period(struct netns_ipvs *ipvs)
-+{
-+	return ipvs->sysctl_sync_threshold[1];
-+}
-+
++	return ipvs->sysctl_expire_quiescent_template &&
++		(atomic_read(&dest->weight) == 0);
 +#else
-+
-+static inline int sysctl_sync_threshold(struct netns_ipvs *ipvs)
-+{
-+	return DEFAULT_SYNC_THRESHOLD;
-+}
-+
-+static inline int sysctl_sync_period(struct netns_ipvs *ipvs)
-+{
-+	return DEFAULT_SYNC_PERIOD;
-+}
-+
++	return 0;
 +#endif
-+
++}
+ 
  /*
-  *      IPVS core functions
-  *      (from ip_vs_core.c)
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index c9b8372..6a0053d 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1613,15 +1613,15 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+  *	Checking if the destination of a connection template is available.
+@@ -696,8 +706,7 @@ int ip_vs_check_template(struct ip_vs_conn *ct)
  	 */
- 
- 	if (cp->flags & IP_VS_CONN_F_ONE_PACKET)
--		pkts = ipvs->sysctl_sync_threshold[0];
-+		pkts = sysctl_sync_threshold(ipvs);
- 	else
- 		pkts = atomic_add_return(1, &cp->in_pkts);
- 
- 	if ((ipvs->sync_state & IP_VS_STATE_MASTER) &&
- 	    cp->protocol == IPPROTO_SCTP) {
- 		if ((cp->state == IP_VS_SCTP_S_ESTABLISHED &&
--			(pkts % ipvs->sysctl_sync_threshold[1]
--			 == ipvs->sysctl_sync_threshold[0])) ||
-+			(pkts % sysctl_sync_period(ipvs)
-+			 == sysctl_sync_threshold(ipvs))) ||
- 				(cp->old_state != cp->state &&
- 				 ((cp->state == IP_VS_SCTP_S_CLOSED) ||
- 				  (cp->state == IP_VS_SCTP_S_SHUT_ACK_CLI) ||
-@@ -1635,8 +1635,8 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
- 	else if ((ipvs->sync_state & IP_VS_STATE_MASTER) &&
- 	    (((cp->protocol != IPPROTO_TCP ||
- 	       cp->state == IP_VS_TCP_S_ESTABLISHED) &&
--	      (pkts % ipvs->sysctl_sync_threshold[1]
--	       == ipvs->sysctl_sync_threshold[0])) ||
-+	      (pkts % sysctl_sync_period(ipvs)
-+	       == sysctl_sync_threshold(ipvs))) ||
- 	     ((cp->protocol == IPPROTO_TCP) && (cp->old_state != cp->state) &&
- 	      ((cp->state == IP_VS_TCP_S_FIN_WAIT) ||
- 	       (cp->state == IP_VS_TCP_S_CLOSE) ||
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index c5b1234..364520f 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3569,8 +3569,8 @@ int __net_init __ip_vs_control_init(struct net *net)
- 	tbl[idx++].data = &ipvs->sysctl_cache_bypass;
- 	tbl[idx++].data = &ipvs->sysctl_expire_nodest_conn;
- 	tbl[idx++].data = &ipvs->sysctl_expire_quiescent_template;
--	ipvs->sysctl_sync_threshold[0] = 3;
--	ipvs->sysctl_sync_threshold[1] = 50;
-+	ipvs->sysctl_sync_threshold[0] = DEFAULT_SYNC_THRESHOLD;
-+	ipvs->sysctl_sync_threshold[1] = DEFAULT_SYNC_PERIOD;
- 	tbl[idx].data = &ipvs->sysctl_sync_threshold;
- 	tbl[idx++].maxlen = sizeof(ipvs->sysctl_sync_threshold);
- 	tbl[idx++].data = &ipvs->sysctl_nat_icmp_send;
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index c5d13b0..e84987f 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -650,7 +650,7 @@ control:
- 	if (cp->flags & IP_VS_CONN_F_TEMPLATE) {
- 		int pkts = atomic_add_return(1, &cp->in_pkts);
- 
--		if (pkts % ipvs->sysctl_sync_threshold[1] != 1)
-+		if (pkts % sysctl_sync_period(ipvs) != 1)
- 			return;
- 	}
- 	goto sloop;
-@@ -794,7 +794,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
- 
- 	if (opt)
- 		memcpy(&cp->in_seq, opt, sizeof(*opt));
--	atomic_set(&cp->in_pkts, ipvs->sysctl_sync_threshold[0]);
-+	atomic_set(&cp->in_pkts, sysctl_sync_threshold(ipvs));
- 	cp->state = state;
- 	cp->old_state = cp->state;
- 	/*
+ 	if ((dest == NULL) ||
+ 	    !(dest->flags & IP_VS_DEST_F_AVAILABLE) ||
+-	    (ipvs->sysctl_expire_quiescent_template &&
+-	     (atomic_read(&dest->weight) == 0))) {
++	    expire_quiescent_template(ipvs, dest)) {
+ 		IP_VS_DBG_BUF(9, "check_template: dest not available for "
+ 			      "protocol %s s:%s:%d v:%s:%d "
+ 			      "-> d:%s:%d\n",
 -- 
 1.7.2.3
 
