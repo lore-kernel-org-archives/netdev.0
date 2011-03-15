@@ -1,35 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IPsec tunnel forwarding in net-next-2.6 since 452edd59
-Date: Tue, 15 Mar 2011 23:31:09 +0100
-Message-ID: <1300228269.2565.11.camel@edumazet-laptop>
-References: <4D7FB054.2090902@cbnco.com>
-	 <1300227411.2565.7.camel@edumazet-laptop>
-	 <20110315.152825.193708028.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bloat] shaper team forming up
+Date: Tue, 15 Mar 2011 15:51:51 -0700 (PDT)
+Message-ID: <20110315.155151.226785359.davem@davemloft.net>
+References: <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com>
+	<1300134277.2649.19.camel@edumazet-laptop>
+	<1300164166.2649.70.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: msmith@cbnco.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: chromatix99@gmail.com, d@taht.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:35943 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753114Ab1COWbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 18:31:13 -0400
-Received: by wwa36 with SMTP id 36so1360970wwa.1
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 15:31:12 -0700 (PDT)
-In-Reply-To: <20110315.152825.193708028.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38494
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752042Ab1COWvO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2011 18:51:14 -0400
+In-Reply-To: <1300164166.2649.70.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 15 mars 2011 =C3=A0 15:28 -0700, David Miller a =C3=A9crit :
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Mar 2011 05:42:46 +0100
 
-> Thanks so much for fixing this Eric, sheesh you are so awesome that
-> you don't even give me enough time to fix my own bugs. :-))))
+> Le lundi 14 mars 2011 =E0 21:24 +0100, Eric Dumazet a =E9crit :
 >=20
+> David, it seems ip_tos2prio is wrong on its 2nd entry :
 
-Well, I know you must be pretty busy now linux-2.6.38 is released ;)
+Indeed, and in context, this is simply a thinko which has survived sinc=
+e
+ECN support first got added to the tree, here's the relevant hunk:
 
-> Applied, and indeed thanks to Michael for the excellent report.
->=20
-
-
+--------------------
+@@ -152,23 +152,29 @@ struct dst_ops ipv4_dst_ops =3D
+ 	sizeof(struct rtable),
+ };
+=20
++#ifdef CONFIG_INET_ECN
++#define ECN_OR_COST(class)	TC_PRIO_##class
++#else
++#define ECN_OR_COST(class)	TC_PRIO_FILLER
++#endif
++
+ __u8 ip_tos2prio[16] =3D {
+ 	TC_PRIO_BESTEFFORT,
+-	TC_PRIO_FILLER,
++	ECN_OR_COST(FILLER),
+ 	TC_PRIO_BESTEFFORT,
+-	TC_PRIO_FILLER,
++	ECN_OR_COST(BESTEFFORT),
+ 	TC_PRIO_BULK,
+-	TC_PRIO_FILLER,
++	ECN_OR_COST(BULK),
+ 	TC_PRIO_BULK,
+-	TC_PRIO_FILLER,
++	ECN_OR_COST(BULK),
+ 	TC_PRIO_INTERACTIVE,
+-	TC_PRIO_FILLER,
++	ECN_OR_COST(INTERACTIVE),
+ 	TC_PRIO_INTERACTIVE,
+-	TC_PRIO_FILLER,
++	ECN_OR_COST(INTERACTIVE),
+ 	TC_PRIO_INTERACTIVE_BULK,
+-	TC_PRIO_FILLER,
++	ECN_OR_COST(INTERACTIVE_BULK),
+ 	TC_PRIO_INTERACTIVE_BULK,
+-	TC_PRIO_FILLER
++	ECN_OR_COST(INTERACTIVE_BULK)
+ };
