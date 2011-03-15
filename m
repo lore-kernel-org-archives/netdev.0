@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 16/37] IPVS: Add sysctl_snat_reroute()
-Date: Tue, 15 Mar 2011 20:43:56 +0100
-Message-ID: <1300218257-26953-17-git-send-email-kaber@trash.net>
+Subject: [PATCH 14/37] ipvs: rename estimator functions
+Date: Tue, 15 Mar 2011 20:43:54 +0100
+Message-ID: <1300218257-26953-15-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,59 +10,115 @@ In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms@verge.net.au>
+From: Julian Anastasov <ja@ssi.bg>
 
-In preparation for not including sysctl_snat_reroute in
-struct netns_ipvs when CONFIG_SYCTL is not defined.
+ 	Rename ip_vs_new_estimator to ip_vs_start_estimator
+and ip_vs_kill_estimator to ip_vs_stop_estimator to better
+match their logic.
 
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_core.c |   20 ++++++++++++++++----
- 1 files changed, 16 insertions(+), 4 deletions(-)
+ include/net/ip_vs.h            |    4 ++--
+ net/netfilter/ipvs/ip_vs_ctl.c |   12 ++++++------
+ net/netfilter/ipvs/ip_vs_est.c |    4 ++--
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 299c7f3..1d8a2a2 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -599,6 +599,20 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
- 	return NF_DROP;
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index e4a39c4..7ca5be2 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1176,8 +1176,8 @@ extern void ip_vs_sync_cleanup(void);
+  */
+ extern int ip_vs_estimator_init(void);
+ extern void ip_vs_estimator_cleanup(void);
+-extern void ip_vs_new_estimator(struct net *net, struct ip_vs_stats *stats);
+-extern void ip_vs_kill_estimator(struct net *net, struct ip_vs_stats *stats);
++extern void ip_vs_start_estimator(struct net *net, struct ip_vs_stats *stats);
++extern void ip_vs_stop_estimator(struct net *net, struct ip_vs_stats *stats);
+ extern void ip_vs_zero_estimator(struct ip_vs_stats *stats);
+ extern void ip_vs_read_estimator(struct ip_vs_stats_user *dst,
+ 				 struct ip_vs_stats *stats);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index c93d806..c5b1234 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -802,7 +802,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
+ 	spin_unlock(&dest->dst_lock);
+ 
+ 	if (add)
+-		ip_vs_new_estimator(svc->net, &dest->stats);
++		ip_vs_start_estimator(svc->net, &dest->stats);
+ 
+ 	write_lock_bh(&__ip_vs_svc_lock);
+ 
+@@ -1008,7 +1008,7 @@ static void __ip_vs_del_dest(struct net *net, struct ip_vs_dest *dest)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+-	ip_vs_kill_estimator(net, &dest->stats);
++	ip_vs_stop_estimator(net, &dest->stats);
+ 
+ 	/*
+ 	 *  Remove it from the d-linked list with the real services.
+@@ -1201,7 +1201,7 @@ ip_vs_add_service(struct net *net, struct ip_vs_service_user_kern *u,
+ 	else if (svc->port == 0)
+ 		atomic_inc(&ipvs->nullsvc_counter);
+ 
+-	ip_vs_new_estimator(net, &svc->stats);
++	ip_vs_start_estimator(net, &svc->stats);
+ 
+ 	/* Count only IPv4 services for old get/setsockopt interface */
+ 	if (svc->af == AF_INET)
+@@ -1353,7 +1353,7 @@ static void __ip_vs_del_service(struct ip_vs_service *svc)
+ 	if (svc->af == AF_INET)
+ 		ipvs->num_services--;
+ 
+-	ip_vs_kill_estimator(svc->net, &svc->stats);
++	ip_vs_stop_estimator(svc->net, &svc->stats);
+ 
+ 	/* Unbind scheduler */
+ 	old_sched = svc->scheduler;
+@@ -3585,7 +3585,7 @@ int __net_init __ip_vs_control_init(struct net *net)
+ 		goto err_dup;
+ 	}
+ #endif
+-	ip_vs_new_estimator(net, &ipvs->tot_stats);
++	ip_vs_start_estimator(net, &ipvs->tot_stats);
+ 	ipvs->sysctl_tbl = tbl;
+ 	/* Schedule defense work */
+ 	INIT_DELAYED_WORK(&ipvs->defense_work, defense_work_handler);
+@@ -3603,7 +3603,7 @@ static void __net_exit __ip_vs_control_cleanup(struct net *net)
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+ 	ip_vs_trash_cleanup(net);
+-	ip_vs_kill_estimator(net, &ipvs->tot_stats);
++	ip_vs_stop_estimator(net, &ipvs->tot_stats);
+ 	cancel_delayed_work_sync(&ipvs->defense_work);
+ 	cancel_work_sync(&ipvs->defense_work.work);
+ #ifdef CONFIG_SYSCTL
+diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
+index fda75be..8c8766c 100644
+--- a/net/netfilter/ipvs/ip_vs_est.c
++++ b/net/netfilter/ipvs/ip_vs_est.c
+@@ -139,7 +139,7 @@ static void estimation_timer(unsigned long arg)
+ 	mod_timer(&ipvs->est_timer, jiffies + 2*HZ);
  }
  
-+#ifdef CONFIG_SYSCTL
-+
-+static int sysctl_snat_reroute(struct sk_buff *skb)
-+{
-+	struct netns_ipvs *ipvs = net_ipvs(skb_net(skb));
-+	return ipvs->sysctl_snat_reroute;
-+}
-+
-+#else
-+
-+static int sysctl_snat_reroute(struct sk_buff *skb) { return 0; }
-+
-+#endif
-+
- __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
+-void ip_vs_new_estimator(struct net *net, struct ip_vs_stats *stats)
++void ip_vs_start_estimator(struct net *net, struct ip_vs_stats *stats)
  {
- 	return csum_fold(skb_checksum(skb, offset, skb->len - offset, 0));
-@@ -633,15 +647,13 @@ static inline int ip_vs_gather_frags_v6(struct sk_buff *skb, u_int32_t user)
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct ip_vs_estimator *est = &stats->est;
+@@ -151,7 +151,7 @@ void ip_vs_new_estimator(struct net *net, struct ip_vs_stats *stats)
+ 	spin_unlock_bh(&ipvs->est_lock);
+ }
  
- static int ip_vs_route_me_harder(int af, struct sk_buff *skb)
+-void ip_vs_kill_estimator(struct net *net, struct ip_vs_stats *stats)
++void ip_vs_stop_estimator(struct net *net, struct ip_vs_stats *stats)
  {
--	struct netns_ipvs *ipvs = net_ipvs(skb_net(skb));
--
- #ifdef CONFIG_IP_VS_IPV6
- 	if (af == AF_INET6) {
--		if (ipvs->sysctl_snat_reroute && ip6_route_me_harder(skb) != 0)
-+		if (sysctl_snat_reroute(skb) && ip6_route_me_harder(skb) != 0)
- 			return 1;
- 	} else
- #endif
--		if ((ipvs->sysctl_snat_reroute ||
-+		if ((sysctl_snat_reroute(skb) ||
- 		     skb_rtable(skb)->rt_flags & RTCF_LOCAL) &&
- 		    ip_route_me_harder(skb, RTN_LOCAL) != 0)
- 			return 1;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct ip_vs_estimator *est = &stats->est;
 -- 
 1.7.2.3
 
