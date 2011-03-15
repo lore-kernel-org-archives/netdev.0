@@ -1,44 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC v3 3/6] can: make struct proto const
-Date: Tue, 15 Mar 2011 23:19:16 +0100
-Message-ID: <1300227556.2565.9.camel@edumazet-laptop>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	 <20110314134721.GD333@e-circ.dyndns.org>
-	 <1300111755.3423.20.camel@edumazet-laptop>
-	 <20110314150227.GJ333@e-circ.dyndns.org>
-	 <1300120943.3423.121.camel@edumazet-laptop>
-	 <20110314171752.GL333@e-circ.dyndns.org>  <4D7FD9ED.1080004@hartkopp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPsec tunnel forwarding in net-next-2.6 since 452edd59
+Date: Tue, 15 Mar 2011 15:28:25 -0700 (PDT)
+Message-ID: <20110315.152825.193708028.davem@davemloft.net>
+References: <4D7FB054.2090902@cbnco.com>
+	<1300227411.2565.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: msmith@cbnco.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:34069 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751366Ab1COWTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 18:19:23 -0400
-Received: by bwz15 with SMTP id 15so1023214bwz.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 15:19:22 -0700 (PDT)
-In-Reply-To: <4D7FD9ED.1080004@hartkopp.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48636
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752215Ab1COW1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 18:27:47 -0400
+In-Reply-To: <1300227411.2565.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 15 mars 2011 =C3=A0 22:28 +0100, Oliver Hartkopp a =C3=A9crit =
-:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Mar 2011 23:16:51 +0100
 
-> Hello Eric,
->=20
-> the RCU code in phonet is worth to consider. But loading and removing=
- of
-> protocols is far away from being a hot path ... what would be the adv=
-antages
-> to move to RCU here?
->=20
+> Could you try following patch ?
+> 
+> [PATCH] xfrm: fix __xfrm_route_forward()
+> 
+> This function should return 0 in case of error, 1 if OK
+> commit 452edd598f60522 (xfrm: Return dst directly from xfrm_lookup())
+> got it wrong.
+> 
+> Reported-and-bisected-by: Michael Smith <msmith@cbnco.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-can_create() could avoid taking the spinlock.
+Thanks so much for fixing this Eric, sheesh you are so awesome that
+you don't even give me enough time to fix my own bugs. :-))))
 
-I have no idea if its a critical path, I guess not.
-
+Applied, and indeed thanks to Michael for the excellent report.
 
