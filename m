@@ -1,28 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/37] netfilter: netfilter update
-Date: Tue, 15 Mar 2011 12:58:58 -0700 (PDT)
-Message-ID: <20110315.125858.193725473.davem@davemloft.net>
-References: <1300218257-26953-1-git-send-email-kaber@trash.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+From: Sasikanth V <sasikanth.v19@gmail.com>
+Subject: [PATCH] Fix overflow of name in struct net_device, replaced sprintf with snprintf.
+Date: Wed, 16 Mar 2011 01:30:08 +0530
+Message-ID: <1300219208-2708-1-git-send-email-sasikanth.v19@gmail.com>
+Cc: netdev@vger.kernel.org, Sasikanth V <sasikanth.v19@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36716
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755491Ab1COT6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:58:23 -0400
-In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:34586 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757228Ab1COUAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 16:00:19 -0400
+Received: by qwk3 with SMTP id 3so773944qwk.19
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 13:00:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Tue, 15 Mar 2011 20:43:40 +0100
 
-> 
-> Please pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
+---
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Pulled, thanks Patrick.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6561021..a74efa9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -539,7 +539,7 @@ unsigned long netdev_boot_base(const char *prefix, int unit)
+ 	char name[IFNAMSIZ];
+ 	int i;
+ 
+-	sprintf(name, "%s%d", prefix, unit);
++	snprintf(name, IFNAMSIZ, "%s%d", prefix, unit);
+ 
+ 	/*
+ 	 * If device already registered then return base of 1
+-- 
+1.7.3.4
+
