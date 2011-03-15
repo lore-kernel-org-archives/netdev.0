@@ -1,148 +1,112 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCHv2 6/9] macb: support higher rate GEM MDIO clock divisors
-Date: Tue, 15 Mar 2011 10:14:53 +0000
-Message-ID: <1300184096-13937-7-git-send-email-jamie@jamieiles.com>
+Subject: [PATCHv2 2/9] macb: remove conditional clk handling
+Date: Tue, 15 Mar 2011 10:14:49 +0000
+Message-ID: <1300184096-13937-3-git-send-email-jamie@jamieiles.com>
 References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
 Cc: nicolas.ferre@atmel.com, plagnioj@jcrosoft.com,
 	Jamie Iles <jamie@jamieiles.com>
 To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:35177 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756859Ab1COKP3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:29 -0400
-Received: by mail-bw0-f46.google.com with SMTP id 15so389948bwz.19
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:28 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:59837 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756557Ab1COKPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:20 -0400
+Received: by wwa36 with SMTP id 36so516911wwa.1
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:19 -0700 (PDT)
 In-Reply-To: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GEM devices support larger clock divisors and have a different
-range of divisors.  Program the MDIO clock divisors based on the
-device type.
+AT91 now provides both "pclk" and "hclk" aliases for the the macb
+device so we can use the same clk handling paths for both AT91 and
+AVR32.
 
 Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 ---
- drivers/net/macb.c |   55 +++++++++++++++++++++++++++++++++++++++++----------
- drivers/net/macb.h |   11 ++++++++++
- 2 files changed, 55 insertions(+), 11 deletions(-)
+ drivers/net/macb.c |   23 ++---------------------
+ 1 files changed, 2 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index 9cd1d7e..f3da878 100644
+index 79ccb54..e3860d6 100644
 --- a/drivers/net/macb.c
 +++ b/drivers/net/macb.c
-@@ -780,6 +780,48 @@ static void macb_reset_hw(struct macb *bp)
- 	macb_readl(bp, ISR);
- }
+@@ -1140,28 +1140,19 @@ static int __init macb_probe(struct platform_device *pdev)
  
-+static u32 gem_mdc_clk_div(struct macb *bp)
-+{
-+	u32 config;
-+	unsigned long pclk_hz = clk_get_rate(bp->pclk);
-+
-+	if (pclk_hz <= 20000000)
-+		config = GEM_BF(CLK, GEM_CLK_DIV8);
-+	else if (pclk_hz <= 40000000)
-+		config = GEM_BF(CLK, GEM_CLK_DIV16);
-+	else if (pclk_hz <= 80000000)
-+		config = GEM_BF(CLK, GEM_CLK_DIV32);
-+	else if (pclk_hz <= 120000000)
-+		config = GEM_BF(CLK, GEM_CLK_DIV48);
-+	else if (pclk_hz <= 160000000)
-+		config = GEM_BF(CLK, GEM_CLK_DIV64);
-+	else
-+		config = GEM_BF(CLK, GEM_CLK_DIV96);
-+
-+	return config;
-+}
-+
-+static u32 macb_mdc_clk_div(struct macb *bp)
-+{
-+	u32 config;
-+	unsigned long pclk_hz;
-+
-+	if (bp->is_gem)
-+		return gem_mdc_clk_div(bp);
-+
-+	pclk_hz = clk_get_rate(bp->pclk);
-+	if (pclk_hz <= 20000000)
-+		config = MACB_BF(CLK, MACB_CLK_DIV8);
-+	else if (pclk_hz <= 40000000)
-+		config = MACB_BF(CLK, MACB_CLK_DIV16);
-+	else if (pclk_hz <= 80000000)
-+		config = MACB_BF(CLK, MACB_CLK_DIV32);
-+	else
-+		config = MACB_BF(CLK, MACB_CLK_DIV64);
-+
-+	return config;
-+}
-+
- static void macb_init_hw(struct macb *bp)
- {
- 	u32 config;
-@@ -787,7 +829,7 @@ static void macb_init_hw(struct macb *bp)
- 	macb_reset_hw(bp);
- 	__macb_set_hwaddr(bp);
+ 	spin_lock_init(&bp->lock);
  
--	config = macb_readl(bp, NCFGR) & MACB_BF(CLK, -1L);
-+	config = macb_mdc_clk_div(bp);
- 	config |= MACB_BIT(PAE);		/* PAuse Enable */
- 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
- 	config |= MACB_BIT(BIG);		/* Receive oversized frames */
-@@ -1105,7 +1147,6 @@ static int __init macb_probe(struct platform_device *pdev)
- 	struct net_device *dev;
- 	struct macb *bp;
- 	struct phy_device *phydev;
--	unsigned long pclk_hz;
- 	u32 config;
- 	int err = -ENXIO;
- 
-@@ -1174,15 +1215,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 	dev->base_addr = regs->start;
- 
- 	/* Set MII management clock divider */
--	pclk_hz = clk_get_rate(bp->pclk);
--	if (pclk_hz <= 20000000)
--		config = MACB_BF(CLK, MACB_CLK_DIV8);
--	else if (pclk_hz <= 40000000)
--		config = MACB_BF(CLK, MACB_CLK_DIV16);
--	else if (pclk_hz <= 80000000)
--		config = MACB_BF(CLK, MACB_CLK_DIV32);
--	else
--		config = MACB_BF(CLK, MACB_CLK_DIV64);
-+	config = macb_mdc_clk_div(bp);
- 	macb_writel(bp, NCFGR, config);
- 
- 	macb_get_hwaddr(bp);
-diff --git a/drivers/net/macb.h b/drivers/net/macb.h
-index 3a07352..65abd8a 100644
---- a/drivers/net/macb.h
-+++ b/drivers/net/macb.h
-@@ -135,6 +135,9 @@
- #define MACB_IRXFCS_OFFSET			19
- #define MACB_IRXFCS_SIZE			1
- 
-+/* GEM specific NCFGR bitfields. */
-+#define GEM_CLK_OFFSET				18
-+#define GEM_CLK_SIZE				3
- /* Bitfields in NSR */
- #define MACB_NSR_LINK_OFFSET			0
- #define MACB_NSR_LINK_SIZE			1
-@@ -249,6 +252,14 @@
- #define MACB_CLK_DIV32				2
- #define MACB_CLK_DIV64				3
- 
-+/* GEM specific constants for CLK. */
-+#define GEM_CLK_DIV8				0
-+#define GEM_CLK_DIV16				1
-+#define GEM_CLK_DIV32				2
-+#define GEM_CLK_DIV48				3
-+#define GEM_CLK_DIV64				4
-+#define GEM_CLK_DIV96				5
+-#if defined(CONFIG_ARCH_AT91)
+-	bp->pclk = clk_get(&pdev->dev, "macb_clk");
++	bp->pclk = clk_get(&pdev->dev, "pclk");
+ 	if (IS_ERR(bp->pclk)) {
+ 		dev_err(&pdev->dev, "failed to get macb_clk\n");
+ 		goto err_out_free_dev;
+ 	}
+ 	clk_enable(bp->pclk);
+-#else
+-	bp->pclk = clk_get(&pdev->dev, "pclk");
+-	if (IS_ERR(bp->pclk)) {
+-		dev_err(&pdev->dev, "failed to get pclk\n");
+-		goto err_out_free_dev;
+-	}
 +
- /* Constants for MAN register */
- #define MACB_MAN_SOF				1
- #define MACB_MAN_WRITE				1
+ 	bp->hclk = clk_get(&pdev->dev, "hclk");
+ 	if (IS_ERR(bp->hclk)) {
+ 		dev_err(&pdev->dev, "failed to get hclk\n");
+ 		goto err_out_put_pclk;
+ 	}
+-
+-	clk_enable(bp->pclk);
+ 	clk_enable(bp->hclk);
+-#endif
+ 
+ 	bp->regs = ioremap(regs->start, regs->end - regs->start + 1);
+ 	if (!bp->regs) {
+@@ -1245,14 +1236,10 @@ err_out_free_irq:
+ err_out_iounmap:
+ 	iounmap(bp->regs);
+ err_out_disable_clocks:
+-#ifndef CONFIG_ARCH_AT91
+ 	clk_disable(bp->hclk);
+ 	clk_put(bp->hclk);
+-#endif
+ 	clk_disable(bp->pclk);
+-#ifndef CONFIG_ARCH_AT91
+ err_out_put_pclk:
+-#endif
+ 	clk_put(bp->pclk);
+ err_out_free_dev:
+ 	free_netdev(dev);
+@@ -1278,10 +1265,8 @@ static int __exit macb_remove(struct platform_device *pdev)
+ 		unregister_netdev(dev);
+ 		free_irq(dev->irq, dev);
+ 		iounmap(bp->regs);
+-#ifndef CONFIG_ARCH_AT91
+ 		clk_disable(bp->hclk);
+ 		clk_put(bp->hclk);
+-#endif
+ 		clk_disable(bp->pclk);
+ 		clk_put(bp->pclk);
+ 		free_netdev(dev);
+@@ -1299,9 +1284,7 @@ static int macb_suspend(struct platform_device *pdev, pm_message_t state)
+ 
+ 	netif_device_detach(netdev);
+ 
+-#ifndef CONFIG_ARCH_AT91
+ 	clk_disable(bp->hclk);
+-#endif
+ 	clk_disable(bp->pclk);
+ 
+ 	return 0;
+@@ -1313,9 +1296,7 @@ static int macb_resume(struct platform_device *pdev)
+ 	struct macb *bp = netdev_priv(netdev);
+ 
+ 	clk_enable(bp->pclk);
+-#ifndef CONFIG_ARCH_AT91
+ 	clk_enable(bp->hclk);
+-#endif
+ 
+ 	netif_device_attach(netdev);
+ 
 -- 
 1.7.4
 
