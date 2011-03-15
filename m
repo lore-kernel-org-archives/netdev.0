@@ -1,59 +1,108 @@
-From: david@lang.hm
-Subject: Re: [GIT] Networking
-Date: Tue, 15 Mar 2011 00:20:14 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1103150019060.5340@asgard.lang.hm>
-References: <20110310.155556.48513201.davem@davemloft.net> <AANLkTik3AyFTNoytebmOOZ=JSFMkt0bw7au-CSncUHJu@mail.gmail.com> <20110311204823.GB7906@fieldses.org> <20110311.130128.71121155.davem@davemloft.net> <1299878274.2814.8.camel@bwh-desktop>
- <20110311214209.GB9404@fieldses.org> <20110312040941.GA15526@home.goodmis.org>
+From: Christian Hesse <mail@eworm.de>
+Subject: Re: sky2, vlan and nat/masquerading
+Date: Tue, 15 Mar 2011 08:53:26 +0100
+Message-ID: <20110315085326.1a1019aa@leda.vpn.lugor.de>
+References: <20110309181522.61ca1cc7@leda.vpn.lugor.de>
+	<AANLkTi=AJJA0d0=CFuS66=+O6b80Ejj0w3NfKQ+OWzsK@mail.gmail.com>
+	<20110314111105.5a62e092@leda.vpn.lugor.de>
+	<AANLkTikXBz6ZpuSgqaAV-=Jr3qtDQ3T_We42R65Sd20O@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110312040941.GA15526@home.goodmis.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="MP_/Brthehww4jn9UnaNdKKuvPB"
+Cc: netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.mylinuxtime.de ([80.190.48.209]:60641 "EHLO
+	mx.mylinuxtime.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753944Ab1COHxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 03:53:33 -0400
+In-Reply-To: <AANLkTikXBz6ZpuSgqaAV-=Jr3qtDQ3T_We42R65Sd20O@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Mar 2011, Steven Rostedt wrote:
+--MP_/Brthehww4jn9UnaNdKKuvPB
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> On Fri, Mar 11, 2011 at 04:42:09PM -0500, J. Bruce Fields wrote:
->>
->> But assume you only did this in cases where the merge was trivial.
->> Would it be worth it, or would people be annoyed by the additional
->> branching?
->>
->
-> I would be annoyed by it ;)
->
-> It really is meaningless to do so, as all you are doing is documenting
-> what commit caused this bug, and producing more problems by branching
-> off of the broken commit. It wont matter till it is merged, but then if
-> there are a lot of simple bug fixes, then you will have a lot of single
-> merges of branches that fix those bugs.
+On Mon, 14 Mar 2011 18:55:17 -0700 Jesse Gross <jesse@nicira.com> wrote:
+> On Mon, Mar 14, 2011 at 3:11 AM, Christian Hesse <mail@eworm.de> wrote:
+> > Ok, let me explain step by step:
+>=20
+> Thank you, this helps a lot in understanding your setup.
+>=20
+> >
+> > * Host sends icmp echo request (172.16.0.21 -> 192.168.100.3) to router
+> > =A0172.16.0.1, the packet is untagged.
+> > * Switch receives the packet on native interface with vid 2, tags it and
+> > sends it to the trunk)
+> > * Netbook receives the packet from trunk, untags it an queues it to vlan
+> > =A0interface 2.
+> > * Netbook nats the packet (192.168.x.140 > 192.168.100.3), tags it with
+> > vlan 2 and sends it to the trunk.
+>=20
+> For clarity, I'm assuming that this is supposed to be vlan 1?
 
-what effect would this have on bisecting? if this helped people avoid 
-bisecting in between the bad commit and the fix for it, it may be worth 
-it.
+Sorry, little typo. Yes, you are right.
 
-David Lang
+> > * Switch receives the packet from trunk, untags it and sends it to nati=
+ve
+> > =A0interface with vlan 1.
+> > * The packet and its answer (192.168.100.3 -> 192.168.x.140) make their
+> > way through the network.
+> > * Switch receives the icmp echo reply on native interface with vlan 1,
+> > tags it and sends it to the trunk
+> > * Netbook receives the packet from trunk, untags it an queues it to vlan
+> > =A0interface 1.
+> > * Netbooks restores the original addresses from nat (192.168.100.3 ->
+> > =A0172.16.0.21), _tags_it_with_vlan_0_, tags it with vlan 2 and sends i=
+t to
+> > the trunk
+>=20
+> Can you capture a packet trace on the netbook's Ethernet interface to
+> see what it thinks it is sending?
 
-> It's just better to say in the change log of the fix:
->
-> "commit abcdef1234 foo: add bar"
->
-> Broke this, and this fixes it.
->
-> Having the broken commit SHA1 and description in the change log is just
-> as helpful as having the bug commit being its parent.
->
-> -- Steve
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+Ok, I have two traces for you: from the vlan interface and from the native
+interface. First ping to 172.16.0.65 is ok, second one to 192.168.100.3 fai=
+ls.
+
+Please don't be confused, vlan 1 is vlan 3 this time and addresses
+changed a little bit. ;)
+--=20
+Schoene Gruesse
+Chris
+
+--MP_/Brthehww4jn9UnaNdKKuvPB
+Content-Type: application/octet-stream; name=tcpdump-eth.2.log
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=tcpdump-eth.2.log
+
+1MOyoQIABAAAAAAAAAAAAP//AAABAAAAnxV/TW+nCABiAAAAYgAAAAAkVNg6YQAmLfegqQgARQAA
+VAAAQABAAeH9rBAASqwQAEEIAIOeNvwAAZ8Vf00AAAAAUy4NAAAAAAAQERITFBUWFxgZGhscHR4f
+ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3nxV/TUyoCABiAAAAYgAAAAAmLfegqQAkVNg6YQgARQAA
+VI9XAABAAZKmrBAAQawQAEoAAIueNvwAAZ8Vf00AAAAAUy4NAAAAAAAQERITFBUWFxgZGhscHR4f
+ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3nxV/TdOwCABiAAAAYgAAAAAkVNg6YQAmLfegqQgARQAA
+VAAAQABAAWmjrBAASsCoZAMIAMSTNv0AAZ8Vf00AAAAAEjgNAAAAAAAQERITFBUWFxgZGhscHR4f
+ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3nxV/Tcq1CABiAAAAYgAAAAAmLfegqQAkVNg6YQgARQAA
+VMNbAAA9AelHwKhkA6wQAEoAAMyTNv0AAZ8Vf00AAAAAEjgNAAAAAAAQERITFBUWFxgZGhscHR4f
+ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3
+
+--MP_/Brthehww4jn9UnaNdKKuvPB
+Content-Type: application/octet-stream; name=tcpdump-eth.log
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=tcpdump-eth.log
+
+1MOyoQIABAAAAAAAAAAAAP//AAABAAAAnxV/TW+nCABmAAAAZgAAAAAkVNg6YQAmLfegqYEAAAII
+AEUAAFQAAEAAQAHh/awQAEqsEABBCACDnjb8AAGfFX9NAAAAAFMuDQAAAAAAEBESExQVFhcYGRob
+HB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2N58Vf01pqAgAZgAAAGYAAAAAJi33oKkAJFTYOmGB
+AAACCABFAABUj1cAAEABkqasEABBrBAASgAAi542/AABnxV/TQAAAABTLg0AAAAAABAREhMUFRYX
+GBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1NjefFX9N07AIAGYAAABmAAAAACRU2DphACYt
+96CpgQAAAggARQAAVAAAQABAAWmjrBAASsCoZAMIAMSTNv0AAZ8Vf00AAAAAEjgNAAAAAAAQERIT
+FBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3nxV/TUuxCABqAAAAagAAAAAADAes
+SgAkVNg6YYEAAAOBAAAACABFAABUAABAAD8BwngKE0pywKhkAwgAxJM2/QABnxV/TQAAAAASOA0A
+AAAAABAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1NjefFX9NRLUIAGYAAABm
+AAAAACRU2DphABkvhkO/gQAAAwgARQAAVMNbAAA+AUAdwKhkAwoTSnIAAMyTNv0AAZ8Vf00AAAAA
+EjgNAAAAAAAQERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3nxV/TfK1CABq
+AAAAagAAAAAmLfegqQAkVNg6YYEAAAKBAAAACABFAABUw1sAAD0B6UfAqGQDrBAASgAAzJM2/QAB
+nxV/TQAAAAASOA0AAAAAABAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc=
+
+--MP_/Brthehww4jn9UnaNdKKuvPB--
