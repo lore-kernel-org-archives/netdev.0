@@ -1,163 +1,63 @@
 From: kaber@trash.net
-Subject: [PATCH 26/37] IPVS: Conditionally define and use ip_vs_lblc{r}_table
-Date: Tue, 15 Mar 2011 20:44:06 +0100
-Message-ID: <1300218257-26953-27-git-send-email-kaber@trash.net>
+Subject: [PATCH 35/37] ipv6: netfilter: ip6_tables: fix infoleak to userspace
+Date: Tue, 15 Mar 2011 20:44:15 +0100
+Message-ID: <1300218257-26953-36-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49427 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758501Ab1COTod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:33 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms@verge.net.au>
+From: Vasiliy Kulikov <segoon@openwall.com>
 
-ip_vs_lblc_table and ip_vs_lblcr_table, and code that uses them
-are unnecessary when CONFIG_SYSCTL is undefined.
+Structures ip6t_replace, compat_ip6t_replace, and xt_get_revision are
+copied from userspace.  Fields of these structs that are
+zero-terminated strings are not checked.  When they are used as argument
+to a format string containing "%s" in request_module(), some sensitive
+information is leaked to userspace via argument of spawned modprobe
+process.
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+The first bug was introduced before the git epoch;  the second was
+introduced in 3bc3fe5e (v2.6.25-rc1);  the third is introduced by
+6b7d31fc (v2.6.15-rc1).  To trigger the bug one should have
+CAP_NET_ADMIN.
+
+Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/ip_vs_lblc.c  |   15 ++++++++++-----
- net/netfilter/ipvs/ip_vs_lblcr.c |   14 ++++++++++----
- 2 files changed, 20 insertions(+), 9 deletions(-)
+ net/ipv6/netfilter/ip6_tables.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index 51a27f5..f276df9 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -114,7 +114,7 @@ struct ip_vs_lblc_table {
- /*
-  *      IPVS LBLC sysctl table
-  */
--
-+#ifdef CONFIG_SYSCTL
- static ctl_table vs_vars_table[] = {
- 	{
- 		.procname	= "lblc_expiration",
-@@ -125,6 +125,7 @@ static ctl_table vs_vars_table[] = {
- 	},
- 	{ }
- };
-+#endif
- 
- static inline void ip_vs_lblc_free(struct ip_vs_lblc_entry *en)
- {
-@@ -548,6 +549,7 @@ static struct ip_vs_scheduler ip_vs_lblc_scheduler =
- /*
-  *  per netns init.
-  */
-+#ifdef CONFIG_SYSCTL
- static int __net_init __ip_vs_lblc_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-@@ -563,7 +565,6 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
- 	ipvs->sysctl_lblc_expiration = DEFAULT_EXPIRATION;
- 	ipvs->lblc_ctl_table[0].data = &ipvs->sysctl_lblc_expiration;
- 
--#ifdef CONFIG_SYSCTL
- 	ipvs->lblc_ctl_header =
- 		register_net_sysctl_table(net, net_vs_ctl_path,
- 					  ipvs->lblc_ctl_table);
-@@ -572,7 +573,6 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
- 			kfree(ipvs->lblc_ctl_table);
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 47b7b8d..c9598a9 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1275,6 +1275,7 @@ do_replace(struct net *net, const void __user *user, unsigned int len)
+ 	/* overflow check */
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
  		return -ENOMEM;
- 	}
--#endif
++	tmp.name[sizeof(tmp.name)-1] = 0;
  
- 	return 0;
- }
-@@ -581,14 +581,19 @@ static void __net_exit __ip_vs_lblc_exit(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
--#ifdef CONFIG_SYSCTL
- 	unregister_net_sysctl_table(ipvs->lblc_ctl_header);
--#endif
- 
- 	if (!net_eq(net, &init_net))
- 		kfree(ipvs->lblc_ctl_table);
- }
- 
-+#else
-+
-+static int __net_init __ip_vs_lblc_init(struct net *net) { return 0; }
-+static void __net_exit __ip_vs_lblc_exit(struct net *net) { }
-+
-+#endif
-+
- static struct pernet_operations ip_vs_lblc_ops = {
- 	.init = __ip_vs_lblc_init,
- 	.exit = __ip_vs_lblc_exit,
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 7fb9190..cb1c991 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -285,6 +285,7 @@ struct ip_vs_lblcr_table {
- };
- 
- 
-+#ifdef CONFIG_SYSCTL
- /*
-  *      IPVS LBLCR sysctl table
-  */
-@@ -299,6 +300,7 @@ static ctl_table vs_vars_table[] = {
- 	},
- 	{ }
- };
-+#endif
- 
- static inline void ip_vs_lblcr_free(struct ip_vs_lblcr_entry *en)
- {
-@@ -743,6 +745,7 @@ static struct ip_vs_scheduler ip_vs_lblcr_scheduler =
- /*
-  *  per netns init.
-  */
-+#ifdef CONFIG_SYSCTL
- static int __net_init __ip_vs_lblcr_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-@@ -758,7 +761,6 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
- 	ipvs->sysctl_lblcr_expiration = DEFAULT_EXPIRATION;
- 	ipvs->lblcr_ctl_table[0].data = &ipvs->sysctl_lblcr_expiration;
- 
--#ifdef CONFIG_SYSCTL
- 	ipvs->lblcr_ctl_header =
- 		register_net_sysctl_table(net, net_vs_ctl_path,
- 					  ipvs->lblcr_ctl_table);
-@@ -767,7 +769,6 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
- 			kfree(ipvs->lblcr_ctl_table);
+ 	newinfo = xt_alloc_table_info(tmp.size);
+ 	if (!newinfo)
+@@ -1822,6 +1823,7 @@ compat_do_replace(struct net *net, void __user *user, unsigned int len)
  		return -ENOMEM;
- 	}
--#endif
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
+ 		return -ENOMEM;
++	tmp.name[sizeof(tmp.name)-1] = 0;
  
- 	return 0;
- }
-@@ -776,14 +777,19 @@ static void __net_exit __ip_vs_lblcr_exit(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	newinfo = xt_alloc_table_info(tmp.size);
+ 	if (!newinfo)
+@@ -2051,6 +2053,7 @@ do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 			ret = -EFAULT;
+ 			break;
+ 		}
++		rev.name[sizeof(rev.name)-1] = 0;
  
--#ifdef CONFIG_SYSCTL
- 	unregister_net_sysctl_table(ipvs->lblcr_ctl_header);
--#endif
- 
- 	if (!net_eq(net, &init_net))
- 		kfree(ipvs->lblcr_ctl_table);
- }
- 
-+#else
-+
-+static int __net_init __ip_vs_lblcr_init(struct net *net) { return 0; }
-+static void __net_exit __ip_vs_lblcr_exit(struct net *net) { }
-+
-+#endif
-+
- static struct pernet_operations ip_vs_lblcr_ops = {
- 	.init = __ip_vs_lblcr_init,
- 	.exit = __ip_vs_lblcr_exit,
+ 		if (cmd == IP6T_SO_GET_REVISION_TARGET)
+ 			target = 1;
 -- 
 1.7.2.3
 
