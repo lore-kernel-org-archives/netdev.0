@@ -1,132 +1,152 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bloat] shaper team forming up
-Date: Tue, 15 Mar 2011 05:42:46 +0100
-Message-ID: <1300164166.2649.70.camel@edumazet-laptop>
-References: <87wrk1a4gx.fsf@cruithne.co.teklibre.org>
-	 <5BC42741-852B-4699-BA5D-D70B8D610D96@gmail.com>
-	 <1300134277.2649.19.camel@edumazet-laptop>
+From: Samuel Jero <sj323707@ohio.edu>
+Subject: Re: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
+ after receiving the Confirm option
+Date: Tue, 15 Mar 2011 00:53:11 -0400
+Message-ID: <1300164791.20638.64.camel@jero-laptop>
+References: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk>
+	 <1299559831.7569.41.camel@jero-laptop>
+	 <20110311113042.GB4876@gerrit.erg.abdn.ac.uk>
+	 <1300048497.31664.158.camel@jero-laptop>
+	 <20110314115501.GB4631@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave =?ISO-8859-1?Q?T=E4ht?= <d@taht.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jonathan Morton <chromatix99@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="=-up0mA8RipvzCOMYowYOh"
+Cc: <dccp@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40834 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808Ab1COEmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 00:42:50 -0400
-Received: by wwa36 with SMTP id 36so266128wwa.1
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2011 21:42:49 -0700 (PDT)
-In-Reply-To: <1300134277.2649.19.camel@edumazet-laptop>
+Received: from bay0-omc3-s8.bay0.hotmail.com ([65.54.190.146]:1236 "EHLO
+	bay0-omc3-s8.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750839Ab1COExP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 00:53:15 -0400
+In-Reply-To: <20110314115501.GB4631@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 14 mars 2011 =C3=A0 21:24 +0100, Eric Dumazet a =C3=A9crit :
+--=-up0mA8RipvzCOMYowYOh
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-remove CC to bloat lists for now, adding David Miller to thread.
-
-> Le lundi 14 mars 2011 =C3=A0 21:55 +0200, Jonathan Morton a =C3=A9cri=
-t :
-> > On 14 Mar, 2011, at 9:26 pm, Dave T=C3=A4ht wrote:
-> >=20
-> > > Over the weekend, Dan Siemons uncovered a possible bad interactio=
-n
-> > > between ECN and the default pfifo_fast qdisc in Linux.
-> > >=20
-> > > http://www.coverfire.com/archives/2011/03/13/pfifo_fast-and-ecn/
-> >=20
-> > This seems to be more complicated that it appears.  It looks as tho=
-ugh
-> > Linux has re-used the LSB of the old TOS field for some "link local=
-"
-> > flag which is used by routing.
-> >=20
-> > It's not immediately obvious whether pfifo_fast is using this new
-> > interpretation though.  If it isn't, the fix should be to remove th=
-e
-> > RTO_ONLINK bit from the mask it's using on the tos field.  The othe=
-r
-> > half of the mask correctly excludes the ECN bits from the field.
-> >=20
+> I revised this some more, the function remains the same, but it is shorte=
+r=20
+> http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=3Ddccp_exp.git;a=3Dc=
+ommitdiff;h=3D94da7d70003e8185fe189146f336db72c8fa1f0b
 >=20
-> CC netdev, where linux network dev can take a look.
+> (If there is disagreement regarding allowing a get_nn_ function to query =
+non-nn
+>  features, I will add the test for type =3D=3D NN back in.)
+
+I think the test for NN features should be added back in. If we allow
+the function to be called for non-NN features, we need to include more
+code to return the correct values for non-NN features. In either the
+negotiating or non-negating state, the current code will return bad
+values for non-NN features.
+
+Further, since non-NN features are indeterminate until we receive the
+confirm, I don't see that a get_ function for those features would ever
+be useful.
+
+
+> | >  1) Since ccid2_ack_ratio_next(sk) is just a wrapper around
+> | >     dccp_feat_get_nn_next_val(sk, DCCPF_ACK_RATIO), ok to
+> | >     use this instead?
+> |=20
+> | It's just fine to use dccp_feat_get_nn_next_val() instead. My primary
+> | reason for creating ccid2_ack_ratio_next() was to keep line lengths
+> | down.
+> |=20
+> Perhaps a shorter name, e.g.    dccp_feat_nn_get()
+> (since it returns either the current or next value, and there is no other
+>  accessor function defined).
+
+A shorter name is probably a good idea. dccp_feat_nn_get() seems fine.
+
+
+> | >  3) There is room for some refactoring:
+> | >     a) dccp_feat_signal_nn_change() always implies also in part
+> | >        dccp_feat_get_nn_next_val(): if the latter function returns
+> | >        the same value as the supposedly 'new' one, it is not
+> | >        necessary to start a new negotiation. So all the repeated
+> | >        tests could be folded into that function.
+> |=20
+> | The problem here is that the ack ratio should only be changed after a
+> | loss, idle period, etc if the new cwnd is going to be less than the
+> | (negotiating) ack ratio. We need to call dccp_feat_get_nn_next_val() to
+> | decide whether we need to adjust the ack ratio or not.
+> |
+> That is a good point, maybe I need to reread the patch again. From what I=
+ saw,
+> dccp_nn_get_next_val() is so far only called immediately before changing =
+the
+> value, whereas the above comment hints more at a peek/read-only functiona=
+lity.
 >=20
-> I would say that this is a wrong analysis :=20
+> This understanding was also the basis of the attached patch - actually I =
+was
+> quite happy since its use further simplified the interface.
+
+The patch you attached looks fine.
+
+The additional calls to dccp_nn_get_next_val() are made just before we
+call ccid2_change_l_ack_ratio() when we have a loss, idle period, or
+application limited period.=20
+
+These are the sections of code that you recommended become a separate
+patch. I have re-factored that code slightly to reduce code duplication
+and will send out that patch immediately after this email.
+
+
+> | We don't want to change the ack ratio every time we have a loss, etc.
+> | Doing so will result in pointless negotiations and more fluctuations in
+> | the ack ratio, neither of which is desirable.
+> |=20
+> Agree, having done some testing over the weekend I found that some kind o=
+f
+> hysteresis would be desirable.
 >=20
-> 1) ECN uses two low order bits of TOS byte
+> I don't know if blocking the Ack Ratio code is the reason, but during the
+> initial slow-start there were ChangeL requests for Sequence Window on nea=
+rly
+> every packet, which seems too much.
+
+Right now, Change's are sent on every packet until the matching Confirm
+is received. That will be the cause of most of the Change's you are
+seeing.
+
+The other thing is that at the beginning of a connection the sequence
+window will be reduced and then increased. The initial window of 100
+packets is too wide for 5*cwnd at the start of the connection. So the
+window will be reduced as low as it will go at the very beginning of the
+connection. However, as slow start picks up, cwnd will increase and the
+sequence window will as well.
+
+I've seen the above behavior, but haven't thought of an effective
+solution (nor am I sure that we need a solution). Capping the minimum
+sequence window at the default (100 packets) would solve this, but that
+doesn't seem like a great solution.
+
 >=20
-> 2) pfifo_fast uses skb->priority
->=20
->=20
-> skb->priority =3D rt_tos2priority(iph->tos);
->=20
-> #define IPTOS_TOS_MASK            0x1E
-> #define IPTOS_TOS(tos)            ((tos)&IPTOS_TOS_MASK)
->=20
-> static inline char rt_tos2priority(u8 tos)
-> {
-> 	return ip_tos2prio[IPTOS_TOS(tos)>>1];
-> }
->=20
-> No interference between two mechanisms, unless sysadmin messed up thi=
-ngs
-> (skb_edit)
->=20
->=20
+> If low_threshold =3D=3D high_threshold, it oscillates. I think you have a=
+lready done
+> some work on this in the code using CCID2_WIN_CHANGE_FACTOR.
 
-David, it seems ip_tos2prio is wrong on its 2nd entry :
+I'm not entirely certain what low_threshold and high_threshold you are
+talking about. I have not seen sequence window oscillations other as the
+congestion window oscillates in congestion avoidance as is expected.
 
-#define TC_PRIO_BESTEFFORT              0
-#define TC_PRIO_FILLER                  1
-#define TC_PRIO_BULK                    2
-#define TC_PRIO_INTERACTIVE_BULK        4
-#define TC_PRIO_INTERACTIVE             6
-#define TC_PRIO_CONTROL                 7
+Samuel Jero
+Internetworking Research Group
+Ohio University
 
-#define TC_PRIO_MAX                     15
+--=-up0mA8RipvzCOMYowYOh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-net/ipv4/route.c:170:#define ECN_OR_COST(class) TC_PRIO_##class
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-const __u8 ip_tos2prio[16] =3D {
-	TC_PRIO_BESTEFFORT,   /* 0 : for flow without ECN */
-	ECN_OR_COST(FILLER), /* 1 : flow with ECN */
-	...
-};
+iEYEABECAAYFAk1+8LMACgkQEwoGUlJjrt8KxACfVbEhgzAfYb+N2iRJDrfB2Kfp
+oz4AniTH04AOdXCGkR4lukaSrd+07Ykw
+=BYTl
+-----END PGP SIGNATURE-----
 
-
-
-
-This means ECN enabled flows got TC_PRIO_FILLER (what the hell is
-that ?)
-
-pfifo_fast has :
-
-static const u8 prio2band[TC_PRIO_MAX+1] =3D
-	{ 1, 2, 2, 2, 1, 2, 0, 0 , 1, 1, 1, 1, 1, 1, 1, 1 };
-
-So a non ECN enabled flow goes to band 1, while an ECN enabled one is i=
-n
-band 2 (!).  Thus, ECN enabled flows have a chance being droped more
-often than non ECN flows. Thats not fair...
-
-What do you think ?
-
-Thanks
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 6ed6603..fabfe81 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -171,7 +171,7 @@ static struct dst_ops ipv4_dst_ops =3D {
-=20
- const __u8 ip_tos2prio[16] =3D {
- 	TC_PRIO_BESTEFFORT,
--	ECN_OR_COST(FILLER),
-+	ECN_OR_COST(BESTEFFORT),
- 	TC_PRIO_BESTEFFORT,
- 	ECN_OR_COST(BESTEFFORT),
- 	TC_PRIO_BULK,
-
-
+--=-up0mA8RipvzCOMYowYOh--
