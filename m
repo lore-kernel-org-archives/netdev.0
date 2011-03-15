@@ -1,152 +1,112 @@
 From: Samuel Jero <sj323707@ohio.edu>
-Subject: Re: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
- after receiving the Confirm option
-Date: Tue, 15 Mar 2011 00:53:11 -0400
-Message-ID: <1300164791.20638.64.camel@jero-laptop>
+Subject: Re: dccp test-tree [RFC] [Patch 2/2] dccp: CCID2 check ack ratio
+ when reducing cwnd
+Date: Tue, 15 Mar 2011 00:53:17 -0400
+Message-ID: <1300164797.20638.65.camel@jero-laptop>
 References: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk>
 	 <1299559831.7569.41.camel@jero-laptop>
 	 <20110311113042.GB4876@gerrit.erg.abdn.ac.uk>
-	 <1300048497.31664.158.camel@jero-laptop>
-	 <20110314115501.GB4631@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="=-up0mA8RipvzCOMYowYOh"
+	protocol="application/pgp-signature"; boundary="=-rjZlnKAh2brar6wvK5MH"
 Cc: <dccp@vger.kernel.org>, <netdev@vger.kernel.org>
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s8.bay0.hotmail.com ([65.54.190.146]:1236 "EHLO
-	bay0-omc3-s8.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750839Ab1COExP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 00:53:15 -0400
-In-Reply-To: <20110314115501.GB4631@gerrit.erg.abdn.ac.uk>
+Received: from bay0-omc2-s20.bay0.hotmail.com ([65.54.190.95]:48133 "EHLO
+	bay0-omc2-s20.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752195Ab1COExV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 00:53:21 -0400
+In-Reply-To: <20110311113042.GB4876@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-up0mA8RipvzCOMYowYOh
+--=-rjZlnKAh2brar6wvK5MH
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-> I revised this some more, the function remains the same, but it is shorte=
-r=20
-> http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=3Ddccp_exp.git;a=3Dc=
-ommitdiff;h=3D94da7d70003e8185fe189146f336db72c8fa1f0b
->=20
-> (If there is disagreement regarding allowing a get_nn_ function to query =
-non-nn
->  features, I will add the test for type =3D=3D NN back in.)
+This patch causes CCID2 to check the ack ratio after reducing the
+congestion window. If the ack ratio is greater than the congestion
+window, it is reduced. This prevents timeouts caused by an ack ratio
+larger than the congestion window.=20
 
-I think the test for NN features should be added back in. If we allow
-the function to be called for non-NN features, we need to include more
-code to return the correct values for non-NN features. In either the
-negotiating or non-negating state, the current code will return bad
-values for non-NN features.
+In this situation, we choose to set the ack ratio to half the congestion
+window (or one if that's zero) so that if we loose one ack we don't
+trigger a timeout.
 
-Further, since non-NN features are indeterminate until we receive the
-confirm, I don't see that a get_ function for those features would ever
-be useful.
+---=20
+Signed-off-by: Samuel Jero
+diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
+index 1475ba3..b7f7dbd 100644
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -118,4 +118,22 @@ static void ccid2_change_l_seq_window(struct sock *sk,=
+ u64 val)
+ 		dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW, val);
+ }
++
++static void ccid2_check_l_ack_ratio(struct sock *sk)
++{
++	struct ccid2_hc_tx_sock *hc =3D ccid2_hc_tx_sk(sk);
++
++	/*
++	* After a loss, idle period, application limited period, or RTO we
++	* need tocheck that the ack ratio is still less than the congestion
++	* window. Otherwise, we will send an entire congestion window of
++	* packets and got no response because we haven't sent ack ratio
++	* packets yet.
++	* If the ack ratio does need to be reduced, we reduce it to half of
++	* the congestion window (or 1 if that's zero) instead of to the
++	* congestion window. This prevents problems if one ack is lost.
++	*/
++	if (dccp_feat_get_nn_next_val(sk, DCCPF_ACK_RATIO) > hc->tx_cwnd)
++		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
++}
+=20
+ static void ccid2_hc_tx_rto_expire(unsigned long data)
+@@ -203,6 +214,8 @@ static void ccid2_cwnd_application_limited(struct sock =
+*sk, const u32 now)
+ 	}
+ 	hc->tx_cwnd_used  =3D 0;
+ 	hc->tx_cwnd_stamp =3D now;
++
++	ccid2_check_l_ack_ratio(sk);
+ }
+=20
+ /* This borrows the code of tcp_cwnd_restart() */
+@@ -221,6 +234,8 @@ static void ccid2_cwnd_restart(struct sock *sk, const u=
+32 now)
+=20
+ 	hc->tx_cwnd_stamp =3D now;
+ 	hc->tx_cwnd_used  =3D 0;
++
++	ccid2_check_l_ack_ratio(sk);
+ }
+=20
+ static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
+@@ -490,9 +505,7 @@ static void ccid2_congestion_event(struct sock *sk, str=
+uct ccid2_seq *seqp)
+ 	hc->tx_cwnd      =3D hc->tx_cwnd / 2 ? : 1U;
+ 	hc->tx_ssthresh  =3D max(hc->tx_cwnd, 2U);
+=20
+-	/* Avoid spurious timeouts resulting from Ack Ratio > cwnd */
+-	if (dccp_sk(sk)->dccps_l_ack_ratio > hc->tx_cwnd)
+-		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd);
++	ccid2_check_l_ack_ratio(sk);
+ }
+=20
+ static int ccid2_hc_tx_parse_options(struct sock *sk, u8 packet_type,
 
 
-> | >  1) Since ccid2_ack_ratio_next(sk) is just a wrapper around
-> | >     dccp_feat_get_nn_next_val(sk, DCCPF_ACK_RATIO), ok to
-> | >     use this instead?
-> |=20
-> | It's just fine to use dccp_feat_get_nn_next_val() instead. My primary
-> | reason for creating ccid2_ack_ratio_next() was to keep line lengths
-> | down.
-> |=20
-> Perhaps a shorter name, e.g.    dccp_feat_nn_get()
-> (since it returns either the current or next value, and there is no other
->  accessor function defined).
-
-A shorter name is probably a good idea. dccp_feat_nn_get() seems fine.
-
-
-> | >  3) There is room for some refactoring:
-> | >     a) dccp_feat_signal_nn_change() always implies also in part
-> | >        dccp_feat_get_nn_next_val(): if the latter function returns
-> | >        the same value as the supposedly 'new' one, it is not
-> | >        necessary to start a new negotiation. So all the repeated
-> | >        tests could be folded into that function.
-> |=20
-> | The problem here is that the ack ratio should only be changed after a
-> | loss, idle period, etc if the new cwnd is going to be less than the
-> | (negotiating) ack ratio. We need to call dccp_feat_get_nn_next_val() to
-> | decide whether we need to adjust the ack ratio or not.
-> |
-> That is a good point, maybe I need to reread the patch again. From what I=
- saw,
-> dccp_nn_get_next_val() is so far only called immediately before changing =
-the
-> value, whereas the above comment hints more at a peek/read-only functiona=
-lity.
->=20
-> This understanding was also the basis of the attached patch - actually I =
-was
-> quite happy since its use further simplified the interface.
-
-The patch you attached looks fine.
-
-The additional calls to dccp_nn_get_next_val() are made just before we
-call ccid2_change_l_ack_ratio() when we have a loss, idle period, or
-application limited period.=20
-
-These are the sections of code that you recommended become a separate
-patch. I have re-factored that code slightly to reduce code duplication
-and will send out that patch immediately after this email.
-
-
-> | We don't want to change the ack ratio every time we have a loss, etc.
-> | Doing so will result in pointless negotiations and more fluctuations in
-> | the ack ratio, neither of which is desirable.
-> |=20
-> Agree, having done some testing over the weekend I found that some kind o=
-f
-> hysteresis would be desirable.
->=20
-> I don't know if blocking the Ack Ratio code is the reason, but during the
-> initial slow-start there were ChangeL requests for Sequence Window on nea=
-rly
-> every packet, which seems too much.
-
-Right now, Change's are sent on every packet until the matching Confirm
-is received. That will be the cause of most of the Change's you are
-seeing.
-
-The other thing is that at the beginning of a connection the sequence
-window will be reduced and then increased. The initial window of 100
-packets is too wide for 5*cwnd at the start of the connection. So the
-window will be reduced as low as it will go at the very beginning of the
-connection. However, as slow start picks up, cwnd will increase and the
-sequence window will as well.
-
-I've seen the above behavior, but haven't thought of an effective
-solution (nor am I sure that we need a solution). Capping the minimum
-sequence window at the default (100 packets) would solve this, but that
-doesn't seem like a great solution.
-
->=20
-> If low_threshold =3D=3D high_threshold, it oscillates. I think you have a=
-lready done
-> some work on this in the code using CCID2_WIN_CHANGE_FACTOR.
-
-I'm not entirely certain what low_threshold and high_threshold you are
-talking about. I have not seen sequence window oscillations other as the
-congestion window oscillates in congestion avoidance as is expected.
-
-Samuel Jero
-Internetworking Research Group
-Ohio University
-
---=-up0mA8RipvzCOMYowYOh
+--=-rjZlnKAh2brar6wvK5MH
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAk1+8LMACgkQEwoGUlJjrt8KxACfVbEhgzAfYb+N2iRJDrfB2Kfp
-oz4AniTH04AOdXCGkR4lukaSrd+07Ykw
-=BYTl
+iEYEABECAAYFAk1+8LkACgkQEwoGUlJjrt8ixACfYp3dVtUeSF7SHmUpV3F/CKhK
+JaUAniHLVwrKhQKRoIIFGabYLJGWyCws
+=VeDn
 -----END PGP SIGNATURE-----
 
---=-up0mA8RipvzCOMYowYOh--
+--=-rjZlnKAh2brar6wvK5MH--
