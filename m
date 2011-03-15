@@ -1,7 +1,7 @@
 From: Doug Kehn <rdkehn@yahoo.com>
 Subject: Re: Multicast Fails Over Multipoint GRE Tunnel
-Date: Tue, 15 Mar 2011 14:33:37 -0700 (PDT)
-Message-ID: <666427.5500.qm@web39303.mail.mud.yahoo.com>
+Date: Tue, 15 Mar 2011 14:35:59 -0700 (PDT)
+Message-ID: <553973.46912.qm@web39301.mail.mud.yahoo.com>
 References: <4D7F9592.5050408@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
@@ -10,11 +10,11 @@ Cc: netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>,
 	=?iso-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web39303.mail.mud.yahoo.com ([66.94.238.170]:36994 "HELO
-	web39303.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752841Ab1COVdi convert rfc822-to-8bit
+Received: from web39301.mail.mud.yahoo.com ([66.94.238.168]:30184 "HELO
+	web39301.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752243Ab1COVgA convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Mar 2011 17:33:38 -0400
+	Tue, 15 Mar 2011 17:36:00 -0400
 In-Reply-To: <4D7F9592.5050408@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
