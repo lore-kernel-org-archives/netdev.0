@@ -1,84 +1,89 @@
 From: kaber@trash.net
-Subject: [PATCH 02/37] netfilter: x_tables: misuse of try_then_request_module
-Date: Tue, 15 Mar 2011 20:43:42 +0100
-Message-ID: <1300218257-26953-3-git-send-email-kaber@trash.net>
+Subject: [PATCH 29/37] netfilter: xt_connlimit: fix daddr connlimit in SNAT scenario
+Date: Tue, 15 Mar 2011 20:44:09 +0100
+Message-ID: <1300218257-26953-30-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49419 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49424 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755392Ab1COTo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:26 -0400
+	with ESMTP id S1758508Ab1COTod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:33 -0400
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Changli Gao <xiaosuo@gmail.com>
 
-Since xt_find_match() returns ERR_PTR(xx) on error not NULL,
-the macro try_then_request_module won't work correctly here.
-The macro expects its first argument will be zero if condition
-fails. But ERR_PTR(-ENOENT) is not zero.
+We use the reply tuples when limiting the connections by the destination
+addresses, however, in SNAT scenario, the final reply tuples won't be
+ready until SNAT is done in POSTROUING or INPUT chain, and the following
+nf_conntrack_find_get() in count_tem() will get nothing, so connlimit
+can't work as expected.
 
-The correct solution is to propagate the error value
-back.
+In this patch, the original tuples are always used, and an additional
+member addr is appended to save the address in either end.
 
-Found by inspection, and compile tested only.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/x_tables.c |   22 +++++++++++++++-------
- 1 files changed, 15 insertions(+), 7 deletions(-)
+ net/netfilter/xt_connlimit.c |   20 +++++++++-----------
+ 1 files changed, 9 insertions(+), 11 deletions(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 0a77d2f..271eed3 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -183,7 +183,7 @@ EXPORT_SYMBOL(xt_unregister_matches);
- /*
-  * These are weird, but module loading must not be done with mutex
-  * held (since they will register), and we have to have a single
-- * function to use try_then_request_module().
-+ * function to use.
-  */
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index e029c48..1f4b9f9 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -33,8 +33,9 @@
  
- /* Find match, grabs ref.  Returns ERR_PTR() on error. */
-@@ -221,9 +221,13 @@ xt_request_find_match(uint8_t nfproto, const char *name, uint8_t revision)
- {
- 	struct xt_match *match;
+ /* we will save the tuples of all connections we care about */
+ struct xt_connlimit_conn {
+-	struct list_head list;
+-	struct nf_conntrack_tuple tuple;
++	struct list_head		list;
++	struct nf_conntrack_tuple	tuple;
++	union nf_inet_addr		addr;
+ };
  
--	match = try_then_request_module(xt_find_match(nfproto, name, revision),
--					"%st_%s", xt_prefix[nfproto], name);
--	return (match != NULL) ? match : ERR_PTR(-ENOENT);
-+	match = xt_find_match(nfproto, name, revision);
-+	if (IS_ERR(match)) {
-+		request_module("%st_%s", xt_prefix[nfproto], name);
-+		match = xt_find_match(nfproto, name, revision);
-+	}
-+
-+	return match;
- }
- EXPORT_SYMBOL_GPL(xt_request_find_match);
+ struct xt_connlimit_data {
+@@ -151,7 +152,7 @@ static int count_them(struct net *net,
+ 			continue;
+ 		}
  
-@@ -261,9 +265,13 @@ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
- {
- 	struct xt_target *target;
+-		if (same_source_net(addr, mask, &conn->tuple.src.u3, family))
++		if (same_source_net(addr, mask, &conn->addr, family))
+ 			/* same source network -> be counted! */
+ 			++matches;
+ 		nf_ct_put(found_ct);
+@@ -165,6 +166,7 @@ static int count_them(struct net *net,
+ 		if (conn == NULL)
+ 			return -ENOMEM;
+ 		conn->tuple = *tuple;
++		conn->addr = *addr;
+ 		list_add(&conn->list, hash);
+ 		++matches;
+ 	}
+@@ -185,15 +187,11 @@ connlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	int connections;
  
--	target = try_then_request_module(xt_find_target(af, name, revision),
--					 "%st_%s", xt_prefix[af], name);
--	return (target != NULL) ? target : ERR_PTR(-ENOENT);
-+	target = xt_find_target(af, name, revision);
-+	if (IS_ERR(target)) {
-+		request_module("%st_%s", xt_prefix[af], name);
-+		target = xt_find_target(af, name, revision);
-+	}
-+
-+	return target;
- }
- EXPORT_SYMBOL_GPL(xt_request_find_target);
+ 	ct = nf_ct_get(skb, &ctinfo);
+-	if (ct != NULL) {
+-		if (info->flags & XT_CONNLIMIT_DADDR)
+-			tuple_ptr = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+-		else
+-			tuple_ptr = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+-	} else if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),
+-				    par->family, &tuple)) {
++	if (ct != NULL)
++		tuple_ptr = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
++	else if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),
++				    par->family, &tuple))
+ 		goto hotdrop;
+-	}
  
+ 	if (par->family == NFPROTO_IPV6) {
+ 		const struct ipv6hdr *iph = ipv6_hdr(skb);
 -- 
 1.7.2.3
 
