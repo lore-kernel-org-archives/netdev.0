@@ -1,102 +1,181 @@
-From: Carsten Wolff <carsten@wolffcarsten.de>
-Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
-Date: Tue, 15 Mar 2011 11:07:34 +0100
-Message-ID: <201103151107.35379.carsten@wolffcarsten.de>
-References: <1299894051-13820-1-git-send-email-ycheng@google.com> <201103141106.19679.carsten@wolffcarsten.de> <AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>, netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+From: Jamie Iles <jamie@jamieiles.com>
+Subject: [PATCHv2 1/9] at91: provide macb clks with "pclk" and "hclk" name
+Date: Tue, 15 Mar 2011 10:14:48 +0000
+Message-ID: <1300184096-13937-2-git-send-email-jamie@jamieiles.com>
+References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
+Cc: nicolas.ferre@atmel.com, plagnioj@jcrosoft.com,
+	Jamie Iles <jamie@jamieiles.com>
+To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1346787.stratoserver.net ([85.214.49.182]:42972 "EHLO
-	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829Ab1COKHu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:07:50 -0400
-In-Reply-To: <AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:54894 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756703Ab1COKPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:15:12 -0400
+Received: by bwz15 with SMTP id 15so389803bwz.19
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 03:15:11 -0700 (PDT)
+In-Reply-To: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The macb driver expects clocks with the names "pclk" and "hclk".  We
+currently provide "macb_clk" but to fit in line with other
+architectures (namely AVR32), provide "pclk" and a fake "hclk".
 
-On Monday 14 March 2011, Yuchung Cheng wrote:
-> On Mon, Mar 14, 2011 at 3:06 AM, Carsten Wolff <carsten@wolffcarsten.=
-de>=20
-wrote:
-> > The moderation is in place to avoid gigantic segment bursts, which =
-could
-> > cause unnecessary pressure on buffers. In my eyes it's already
-> > suboptimal that the moderation is weakened in the presence of (dete=
-cted)
-> > reordering, let alone removing it completely.
->=20
-> In the presence of reordering, cwnd is already moderated in Disorder
-> state before
->  entering the (false) recovery.
+Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Signed-off-by: Jamie Iles <jamie@jamieiles.com>
+---
+ arch/arm/mach-at91/at572d940hf.c |    8 +++++++-
+ arch/arm/mach-at91/at91cap9.c    |    8 +++++++-
+ arch/arm/mach-at91/at91sam9260.c |    8 +++++++-
+ arch/arm/mach-at91/at91sam9263.c |    8 +++++++-
+ arch/arm/mach-at91/at91sam9g45.c |    8 +++++++-
+ 5 files changed, 35 insertions(+), 5 deletions(-)
 
-Sure, cwnd moderation to in_flight + 1 segment is applied in disorder s=
-tate,=20
-because this is implementing a form of extended limited transmit.=20
-Nevertheless, after a reordering event that caused a spurious fast retr=
-ansmit,=20
-there can be an undo of congestion state changes (either after recovery=
- or=20
-interrupting recovery, depending on the options enabled in the connecti=
-on). I=20
-just wanted to point out, that the moderation step happening upon an un=
-do may=20
-allow a larger burst, if a previous reordering event was detected and c=
-aused=20
-tp->reordering to be increased.
+diff --git a/arch/arm/mach-at91/at572d940hf.c b/arch/arm/mach-at91/at572d940hf.c
+index a6b9c68..9b3a37e 100644
+--- a/arch/arm/mach-at91/at572d940hf.c
++++ b/arch/arm/mach-at91/at572d940hf.c
+@@ -71,10 +71,15 @@ static struct clk pioC_clk = {
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
+ static struct clk macb_clk = {
+-	.name		= "macb_clk",
++	.name		= "pclk",
+ 	.pmc_mask	= 1 << AT572D940HF_ID_EMAC,
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
++static struct clk macb_hclk = {
++	.name		= "hclk",
++	.pmc_mask	= 0,
++	.type		= CLK_TYPE_PERIPHERAL,
++};
+ static struct clk usart0_clk = {
+ 	.name		= "usart0_clk",
+ 	.pmc_mask	= 1 << AT572D940HF_ID_US0,
+@@ -182,6 +187,7 @@ static struct clk *periph_clocks[] __initdata = {
+ 	&pioB_clk,
+ 	&pioC_clk,
+ 	&macb_clk,
++	&macb_hclk,
+ 	&usart0_clk,
+ 	&usart1_clk,
+ 	&usart2_clk,
+diff --git a/arch/arm/mach-at91/at91cap9.c b/arch/arm/mach-at91/at91cap9.c
+index 7337617..0d38ce7 100644
+--- a/arch/arm/mach-at91/at91cap9.c
++++ b/arch/arm/mach-at91/at91cap9.c
+@@ -150,10 +150,15 @@ static struct clk pwm_clk = {
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
+ static struct clk macb_clk = {
+-	.name		= "macb_clk",
++	.name		= "pclk",
+ 	.pmc_mask	= 1 << AT91CAP9_ID_EMAC,
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
++static struct clk macb_hclk = {
++	.name		= "hclk",
++	.pmc_mask	= 0,
++	.type		= CLK_TYPE_PERIPHERAL,
++};
+ static struct clk aestdes_clk = {
+ 	.name		= "aestdes_clk",
+ 	.pmc_mask	= 1 << AT91CAP9_ID_AESTDES,
+@@ -212,6 +217,7 @@ static struct clk *periph_clocks[] __initdata = {
+ 	&tcb_clk,
+ 	&pwm_clk,
+ 	&macb_clk,
++	&macb_hclk,
+ 	&aestdes_clk,
+ 	&adc_clk,
+ 	&isi_clk,
+diff --git a/arch/arm/mach-at91/at91sam9260.c b/arch/arm/mach-at91/at91sam9260.c
+index 195208b..f00774c 100644
+--- a/arch/arm/mach-at91/at91sam9260.c
++++ b/arch/arm/mach-at91/at91sam9260.c
+@@ -162,10 +162,15 @@ static struct clk ohci_clk = {
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
+ static struct clk macb_clk = {
+-	.name		= "macb_clk",
++	.name		= "pclk",
+ 	.pmc_mask	= 1 << AT91SAM9260_ID_EMAC,
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
++static struct clk macb_hclk = {
++	.name		= "hclk",
++	.pmc_mask	= 0,
++	.type		= CLK_TYPE_PERIPHERAL,
++};
+ static struct clk isi_clk = {
+ 	.name		= "isi_clk",
+ 	.pmc_mask	= 1 << AT91SAM9260_ID_ISI,
+@@ -221,6 +226,7 @@ static struct clk *periph_clocks[] __initdata = {
+ 	&tc2_clk,
+ 	&ohci_clk,
+ 	&macb_clk,
++	&macb_hclk,
+ 	&isi_clk,
+ 	&usart3_clk,
+ 	&usart4_clk,
+diff --git a/arch/arm/mach-at91/at91sam9263.c b/arch/arm/mach-at91/at91sam9263.c
+index 249f900..25cbae1 100644
+--- a/arch/arm/mach-at91/at91sam9263.c
++++ b/arch/arm/mach-at91/at91sam9263.c
+@@ -136,10 +136,15 @@ static struct clk pwm_clk = {
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
+ static struct clk macb_clk = {
+-	.name		= "macb_clk",
++	.name		= "pclk",
+ 	.pmc_mask	= 1 << AT91SAM9263_ID_EMAC,
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
++static struct clk macb_hclk = {
++	.name		= "hclk",
++	.pmc_mask	= 0,
++	.type		= CLK_TYPE_PERIPHERAL,
++};
+ static struct clk dma_clk = {
+ 	.name		= "dma_clk",
+ 	.pmc_mask	= 1 << AT91SAM9263_ID_DMA,
+@@ -190,6 +195,7 @@ static struct clk *periph_clocks[] __initdata = {
+ 	&tcb_clk,
+ 	&pwm_clk,
+ 	&macb_clk,
++	&macb_hclk,
+ 	&twodge_clk,
+ 	&udc_clk,
+ 	&isi_clk,
+diff --git a/arch/arm/mach-at91/at91sam9g45.c b/arch/arm/mach-at91/at91sam9g45.c
+index c67b47f..a4d4a2d 100644
+--- a/arch/arm/mach-at91/at91sam9g45.c
++++ b/arch/arm/mach-at91/at91sam9g45.c
+@@ -157,10 +157,15 @@ static struct clk ac97_clk = {
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
+ static struct clk macb_clk = {
+-	.name		= "macb_clk",
++	.name		= "pclk",
+ 	.pmc_mask	= 1 << AT91SAM9G45_ID_EMAC,
+ 	.type		= CLK_TYPE_PERIPHERAL,
+ };
++static struct clk macb_hclk = {
++	.name		= "hclk",
++	.pmc_mask	= 0,
++	.type		= CLK_TYPE_PERIPHERAL,
++};
+ static struct clk isi_clk = {
+ 	.name		= "isi_clk",
+ 	.pmc_mask	= 1 << AT91SAM9G45_ID_ISI,
+@@ -224,6 +229,7 @@ static struct clk *periph_clocks[] __initdata = {
+ 	&lcdc_clk,
+ 	&ac97_clk,
+ 	&macb_clk,
++	&macb_hclk,
+ 	&isi_clk,
+ 	&udphs_clk,
+ 	&mmc1_clk,
+-- 
+1.7.4
 
-> > More importantly, the prior ssthresh is restored and not affected b=
-y
-> > moderation. This means, if moderation reduces cwnd to a small value=
-, then
-> > cwnd < ssthresh and TCP will quickly slow-start back to the previou=
-s
-> > state, without sending a big burst of segments.
-
-This is actually the more important point, because it means that the=20
-moderation does not negate the effects of the undo operation, as sugges=
-ted by=20
-your patch-description.
-
-> > Also, you intended to remove cwnd moderation only from an undo duri=
-ng
-> > recovery, but I think your patch also removes cwnd moderation when =
-the
-> > undo is caused by D-SACK, i.e. most likely after recovery already e=
-nded.
->=20
-> Thanks. I will update my patch description. But the same principle
-> applies that cwnd
-> should not be moderated on false events. Whether it should be moderat=
-ed on
-> reordering or other events is another (complex) design issue. But thi=
-s
-> patch does not touch that.
-
-=46alse fast retransmits are mostly caused by reordering, spurious RTOs=
- can also=20
-be caused by delay variations that do not exhibit reordering. Your patc=
-h=20
-touches all cases of spurious events. Anyway, I just mentioned reorderi=
-ng,=20
-because it is the event in which Linux already allows larger bursts of =
-size=20
-tp->reordering in the moderation function (i.e. tp->reordering might be=
-=20
-increased). It's also not important to me if the undo is happening duri=
-ngor=20
-after recovery, the important question is, if burst protection in gener=
-al is=20
-an important goal, or not (and I think it's there for a reason).
-
-Carsten
---=20
-           /\-=C2=B4-/\
-          (  @ @  )
-________o0O___^___O0o________
