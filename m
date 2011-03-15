@@ -1,128 +1,66 @@
 From: kaber@trash.net
-Subject: [PATCH 31/37] netfilter: xt_connlimit: use hlist instead
-Date: Tue, 15 Mar 2011 20:44:11 +0100
-Message-ID: <1300218257-26953-32-git-send-email-kaber@trash.net>
+Subject: [PATCH 34/37] netfilter: ip_tables: fix infoleak to userspace
+Date: Tue, 15 Mar 2011 20:44:14 +0100
+Message-ID: <1300218257-26953-35-git-send-email-kaber@trash.net>
 References: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49426 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:49431 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758202Ab1COTod (ORCPT
+	with ESMTP id S1758474Ab1COTod (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 15:44:33 -0400
 In-Reply-To: <1300218257-26953-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Vasiliy Kulikov <segoon@openwall.com>
 
-The header of hlist is smaller than list.
+Structures ipt_replace, compat_ipt_replace, and xt_get_revision are
+copied from userspace.  Fields of these structs that are
+zero-terminated strings are not checked.  When they are used as argument
+to a format string containing "%s" in request_module(), some sensitive
+information is leaked to userspace via argument of spawned modprobe
+process.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+The first and the third bugs were introduced before the git epoch; the
+second was introduced in 2722971c (v2.6.17-rc1).  To trigger the bug
+one should have CAP_NET_ADMIN.
+
+Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/xt_connlimit.c |   28 ++++++++++++++--------------
- 1 files changed, 14 insertions(+), 14 deletions(-)
+ net/ipv4/netfilter/ip_tables.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index ade2a80..da56d6e 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -33,14 +33,14 @@
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index ef7d7b9..b09ed0d 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -1262,6 +1262,7 @@ do_replace(struct net *net, const void __user *user, unsigned int len)
+ 	/* overflow check */
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
+ 		return -ENOMEM;
++	tmp.name[sizeof(tmp.name)-1] = 0;
  
- /* we will save the tuples of all connections we care about */
- struct xt_connlimit_conn {
--	struct list_head		list;
-+	struct hlist_node		node;
- 	struct nf_conntrack_tuple	tuple;
- 	union nf_inet_addr		addr;
- };
+ 	newinfo = xt_alloc_table_info(tmp.size);
+ 	if (!newinfo)
+@@ -1807,6 +1808,7 @@ compat_do_replace(struct net *net, void __user *user, unsigned int len)
+ 		return -ENOMEM;
+ 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
+ 		return -ENOMEM;
++	tmp.name[sizeof(tmp.name)-1] = 0;
  
- struct xt_connlimit_data {
--	struct list_head iphash[256];
--	spinlock_t lock;
-+	struct hlist_head	iphash[256];
-+	spinlock_t		lock;
- };
- 
- static u_int32_t connlimit_rnd __read_mostly;
-@@ -102,9 +102,9 @@ static int count_them(struct net *net,
- {
- 	const struct nf_conntrack_tuple_hash *found;
- 	struct xt_connlimit_conn *conn;
--	struct xt_connlimit_conn *tmp;
-+	struct hlist_node *pos, *n;
- 	struct nf_conn *found_ct;
--	struct list_head *hash;
-+	struct hlist_head *hash;
- 	bool addit = true;
- 	int matches = 0;
- 
-@@ -116,7 +116,7 @@ static int count_them(struct net *net,
- 	rcu_read_lock();
- 
- 	/* check the saved connections */
--	list_for_each_entry_safe(conn, tmp, hash, list) {
-+	hlist_for_each_entry_safe(conn, pos, n, hash, node) {
- 		found    = nf_conntrack_find_get(net, NF_CT_DEFAULT_ZONE,
- 						 &conn->tuple);
- 		found_ct = NULL;
-@@ -136,7 +136,7 @@ static int count_them(struct net *net,
- 
- 		if (found == NULL) {
- 			/* this one is gone */
--			list_del(&conn->list);
-+			hlist_del(&conn->node);
- 			kfree(conn);
- 			continue;
+ 	newinfo = xt_alloc_table_info(tmp.size);
+ 	if (!newinfo)
+@@ -2036,6 +2038,7 @@ do_ipt_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 			ret = -EFAULT;
+ 			break;
  		}
-@@ -147,7 +147,7 @@ static int count_them(struct net *net,
- 			 * closed already -> ditch it
- 			 */
- 			nf_ct_put(found_ct);
--			list_del(&conn->list);
-+			hlist_del(&conn->node);
- 			kfree(conn);
- 			continue;
- 		}
-@@ -167,7 +167,7 @@ static int count_them(struct net *net,
- 			return -ENOMEM;
- 		conn->tuple = *tuple;
- 		conn->addr = *addr;
--		list_add(&conn->list, hash);
-+		hlist_add_head(&conn->node, hash);
- 		++matches;
- 	}
++		rev.name[sizeof(rev.name)-1] = 0;
  
-@@ -246,7 +246,7 @@ static int connlimit_mt_check(const struct xt_mtchk_param *par)
- 
- 	spin_lock_init(&info->data->lock);
- 	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i)
--		INIT_LIST_HEAD(&info->data->iphash[i]);
-+		INIT_HLIST_HEAD(&info->data->iphash[i]);
- 
- 	return 0;
- }
-@@ -255,15 +255,15 @@ static void connlimit_mt_destroy(const struct xt_mtdtor_param *par)
- {
- 	const struct xt_connlimit_info *info = par->matchinfo;
- 	struct xt_connlimit_conn *conn;
--	struct xt_connlimit_conn *tmp;
--	struct list_head *hash = info->data->iphash;
-+	struct hlist_node *pos, *n;
-+	struct hlist_head *hash = info->data->iphash;
- 	unsigned int i;
- 
- 	nf_ct_l3proto_module_put(par->family);
- 
- 	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i) {
--		list_for_each_entry_safe(conn, tmp, &hash[i], list) {
--			list_del(&conn->list);
-+		hlist_for_each_entry_safe(conn, pos, n, &hash[i], node) {
-+			hlist_del(&conn->node);
- 			kfree(conn);
- 		}
- 	}
+ 		if (cmd == IPT_SO_GET_REVISION_TARGET)
+ 			target = 1;
 -- 
 1.7.2.3
 
