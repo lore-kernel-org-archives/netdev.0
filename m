@@ -1,67 +1,49 @@
-From: Carsten Wolff <carsten@wolffcarsten.de>
-Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
-Date: Tue, 15 Mar 2011 11:20:54 +0100
-Message-ID: <201103151120.55388.carsten@wolffcarsten.de>
-References: <1299894051-13820-1-git-send-email-ycheng@google.com> <AANLkTimra1e-ONMx2hTeN90HFEvxqb3jPAr4v9_C+9wR@mail.gmail.com> <AANLkTi=qi2GOprXEWCf6v=j=L98SQMdHb1OaHcdALepf@mail.gmail.com>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next-2.6] be2net: Fix UDP packet detected status in RX compl
+Date: Tue, 15 Mar 2011 15:59:01 +0530
+Message-ID: <fa0d690e-8b0a-4608-be17-d65c22246f37@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>, netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
+	Sathya Perla <sathya.perla@emulex.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1346787.stratoserver.net ([85.214.49.182]:36476 "EHLO
-	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752342Ab1COKVM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:21:12 -0400
-In-Reply-To: <AANLkTi=qi2GOprXEWCf6v=j=L98SQMdHb1OaHcdALepf@mail.gmail.com>
+Received: from exht1.emulex.com ([138.239.113.183]:13877 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755702Ab1COK36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 06:29:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 14 March 2011, John Heffner wrote:
-> On Mon, Mar 14, 2011 at 3:10 PM, Yuchung Cheng <ycheng@google.com> wr=
-ote:
-> > On Mon, Mar 14, 2011 at 3:06 AM, Carsten Wolff <carsten@wolffcarste=
-n.de>=20
-wrote:
-> >> The moderation is in place to avoid gigantic segment bursts, which=
- could
-> >> cause unnecessary pressure on buffers. In my eyes it's already
-> >> suboptimal that the moderation is weakened in the presence of
-> >> (detected) reordering, let alone removing it completely.
-> >=20
-> > In the presence of reordering, cwnd is already moderated in Disorde=
-r
-> > state before
-> >  entering the (false) recovery.
->=20
-> I've always been somewhat skeptical of the usefulness of cwnd
-> moderation.  First, I don't know that its behavior is well defined.
-> When *should* tcp_moderate_cwnd() actually be called, and why?
->=20
-> Second, I've never liked the idea in general.  Reducing cwnd has an
-> effect lasting many RTTs, so reducing it in response to a transient
-> event like reordering seems dubious.  And it does not address many
-> causes of bursts, such as ack compression or stretch acks.
+Status of UDP packet detection not getting populated in RX completion
+structure. This is required in csum_passed() routine.
 
-I think the undo operations are a special case where it absolutely make=
-s=20
-sense, because the cwnd _already_ has been reduced (down to 1 segment b=
-y RTO=20
-recovery, or, with its special mixture of ratehalving and newreno, Linu=
-x=20
-sometimes reduces cwnd far below half of it even in fast recovery.). Th=
-e undo=20
-re-opens the window all at once, which may allow _really huge_ bursts. =
-I don't=20
-know enough about the other causes of TCPs burstiness, I'm just concern=
-ed=20
-about allowing this special cause.
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/benet/be_main.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Carsten
---=20
-           /\-=C2=B4-/\
-          (  @ @  )
-________o0O___^___O0o________
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 3cb5f4e..5e15006 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1088,6 +1088,7 @@ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
+ 	rxcp->vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtp, compl);
+ 	rxcp->err = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, err, compl);
+ 	rxcp->tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, tcpf, compl);
++	rxcp->udpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, udpf, compl);
+ 	rxcp->ip_csum =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, ipcksm, compl);
+ 	rxcp->l4_csum =
+@@ -1113,6 +1114,7 @@ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
+ 	rxcp->vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtp, compl);
+ 	rxcp->err = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, err, compl);
+ 	rxcp->tcpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, tcpf, compl);
++	rxcp->udpf = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, udpf, compl);
+ 	rxcp->ip_csum =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, ipcksm, compl);
+ 	rxcp->l4_csum =
+-- 
+1.6.0.2
+
