@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 NEXT 1/1] netxen: support for GbE port settings
-Date: Tue, 15 Mar 2011 14:55:06 -0700 (PDT)
-Message-ID: <20110315.145506.28822679.davem@davemloft.net>
-References: <1300172175-16853-1-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH] Phonet: fix aligned-mode pipe socket buffer header
+ reserve
+Date: Tue, 15 Mar 2011 14:56:00 -0700 (PDT)
+Message-ID: <20110315.145600.102540138.davem@davemloft.net>
+References: <1300178222-2877-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com, sony.chacko@qlogic.com
-To: amit.salecha@qlogic.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42310
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42313
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758876Ab1COVy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 17:54:28 -0400
-In-Reply-To: <1300172175-16853-1-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1758648Ab1COVzW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2011 17:55:22 -0400
+In-Reply-To: <1300178222-2877-1-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Mon, 14 Mar 2011 23:56:15 -0700
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Tue, 15 Mar 2011 10:37:02 +0200
 
-> From: Sony Chacko <sony.chacko@qlogic.com>
-> 
-> o Enable setting speed and auto negotiation parameters for GbE ports.
-> o Hardware do not support half duplex setting currently.
-> 
-> David Miller:
-> 	Amit please update your patch to silently reject link setting
-> 	attempts that are unsupported by the device.
-> 
-> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> When the pipe uses aligned-mode data packets, we must reserve 4 bytes
+> instead of 3 for the pipe protocol header. Otherwise the Phonet heade=
+r
+> would not be aligned, resulting in potentially corrupted headers with
+> later unaligned memory writes.
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Applied, thank you.
+Applied, thanks.
