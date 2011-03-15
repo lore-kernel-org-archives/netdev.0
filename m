@@ -1,74 +1,94 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH][v3] dev : fix mtu check when TSO is enabled
-Date: Tue, 15 Mar 2011 11:17:56 -0700
-Message-ID: <20110315111756.64b5f4b1@nehalam>
-References: <1300135190-14093-1-git-send-email-daniel.lezcano@free.fr>
-	<20110314.165929.232913682.davem@davemloft.net>
-	<4D7F7054.70409@free.fr>
+From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
+Subject: Re: Multicast Fails Over Multipoint GRE Tunnel
+Date: Tue, 15 Mar 2011 20:28:21 +0200
+Message-ID: <4D7FAFC5.9080101@iki.fi>
+References: <998769.91206.qm@web39301.mail.mud.yahoo.com> <1300203277.2927.9.camel@edumazet-laptop> <4D7F9592.5050408@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	kaber@trash.net, nightnord@gmail.com, netdev@vger.kernel.org
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Doug Kehn <rdkehn@yahoo.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51157 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758141Ab1COSSA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Mar 2011 14:18:00 -0400
-In-Reply-To: <4D7F7054.70409@free.fr>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41204 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758218Ab1COS2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2011 14:28:24 -0400
+Received: by wya21 with SMTP id 21so829449wya.19
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2011 11:28:23 -0700 (PDT)
+In-Reply-To: <4D7F9592.5050408@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Mar 2011 14:57:40 +0100
-Daniel Lezcano <daniel.lezcano@free.fr> wrote:
+On 03/15/2011 06:36 PM, Timo Ter=C3=A4s wrote:
+> On 03/15/2011 05:34 PM, Eric Dumazet wrote:
+>> (Timo mentioned :=20
+>> 	If the NOARP packets are not dropped, ipgre_tunnel_xmit() will
+>> 	take rt->rt_gateway (=3D NBMA IP) and use that for route
+>> 	look up (and may lead to bogus xfrm acquires).)
+>>
+>> Is the following works for you ?
+>=20
+> I have memory that _header() is called with daddr being valid pointer=
+,
+> but pointing to zero memory. So basically my situation would break wi=
+th
+> this.
 
-> On 03/15/2011 12:59 AM, David Miller wrote:
-> > From: Daniel Lezcano<daniel.lezcano@free.fr>
-> > Date: Mon, 14 Mar 2011 21:39:50 +0100
-> >
-> >> +	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
-> >> +	if (skb->len<  len)
-> >> +		return true;
-> > This is not a correct translation of the original test:
-> >
-> >> -		     (skb->len>  (dev->mtu + dev->hard_header_len + VLAN_HLEN)))) {
-> > You need to use "<=" in your version, which currently rejects all
-> > full sized frames. :-)
-> 
-> Right, thanks.
-> 
-> >> +
-> >> +	/* if TSO is enabled, we don't care about the length as the packet
-> >> +	 * could be forwarded without being segmented before
-> >> +	 */
-> >> +	if (skb->dev&&  skb->dev->features&  NETIF_F_TSO)
-> >> +		return true;
-> > I am trying to understand why you aren't simply checking also if this
-> > is a segmented frame?  Perhaps skb_is_gso()&&  device has NETIF_F_TSO
-> > set?
-> 
-> Maybe I am misunderstanding but the packet was forwarded by another device.
-> In our case from macvlan:
-> 
-> macvlan_start_xmit
->      macvlan_queue_xmit
->          dest->forward
->              dev_skb_forward
-> 
-> When we reached dev_skb_forward, that means we passed through 
-> dev_hard_start_xmit where the packet was already segmented so we should 
-> exit at the first test (skb->len < len). I don't see the point of adding 
-> the skb_is_gso.
-> But maybe I am missing something, can you explain ?
+Ok, I've gone through now the code paths. And I believe I made
+originally the assumption that ipgre_tunnel_xmit would should not ever
+get tiph->daddr =3D=3D 0 if we got ipgre_header() call.
 
-The macvlan device only has one downstream device (slave).
-If kernel is working properly, macvlan device should have a subset
-of the features of the underlying device and macvlan device should
-have same MTU as underlying device. If the feature/MTU flags
-were correct, then the path calling macvlan should be respecting
-the MTU.
+However, what actually happens is for (NOARP interfaces) in arp.c:
+ - unicast traffic gets NOARP entries mapped to dev->dev_addr (in gre
+case it's the tunnel 'local' address)
+ - multicast gets mapped to dev->broadcast
 
+And if we create gre tunnel without local or remote address we end up
+getting the NOARP entries with hwaddr 0.0.0.0.
 
+Now, for unicast traffic it's mostly pointless. If the tunnel was
+locally bound the packets would never leave: they'd get NOARP entry for
+local address. And if it's locally unbound, the packets get rt_gateway,
+which is pretty confusing routing wise (it apparently assumes your link
+device has same ipv4 subnet as the gre device).
 
--- 
+On multicast side it makes a bit more sense to map multicast groups. An=
+d
+this happened implicitly.
+
+IMHO, we should fix the arp code in ipv4 and ipv6 to do proper
+ARPHRD_IPGRE mappings so that the _header() gets called with proper
+data. I think the multicast-to-same-multicast group mapping makes sense=
+=2E
+But do not really know what to do with unicast packets sent to gre
+interface with NOARP and no link broadcast IP address.
+
+Actually this was my problem: the unicast packets for gre interface wit=
+h
+NOARP flag resulted in trying to send packets out. So I could probably
+just fix this by creating my gre interface *with* the ARP flag in the
+first place.
+
+But is there any sensible thing to do with the unicast packets in above
+case? I think those should be just dropped. Or does someone think that
+it'd ever make sense to take the inner unicast address and use it as th=
+e
+outer address too? If so, my patch should be just reverted.
+
+My honest thought is to keep the ip_gre header check as it is currently
+and fix arp code in ipv4 / neighbour code in ipv6 to do the proper NOAR=
+P
+mappings as needed. We might be able to get rid of the huge protocol
+dependent "tiph->daddr =3D=3D 0" check in xmit path this way, and make =
+sure
+that the header is set properly.
+
+This would also allow us to see proper NOARP entries when doing "ip
+neigh show nud noarp". Now it will just show 0.0.0.0 entries with gre
+devices without telling where to the packets are actually being sent to=
+=2E
+
+Any thoughts?
+
+Cheers,
+  Timo
