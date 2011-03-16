@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: 2.6.38 Compile Failure e1000e Module
-Date: Wed, 16 Mar 2011 11:15:44 -0700 (PDT)
-Message-ID: <20110316.111544.115931576.davem@davemloft.net>
-References: <20110316103318.19bd03e4.frank.peters@comcast.net>
-	<20110316082105.c911bb1c.randy.dunlap@oracle.com>
+Subject: Re: net-next-2.6 status...
+Date: Wed, 16 Mar 2011 11:17:36 -0700 (PDT)
+Message-ID: <20110316.111736.48500809.davem@davemloft.net>
+References: <20110316084022.GA2845@psychotron.brq.redhat.com>
+	<20110316.104236.104065822.davem@davemloft.net>
+	<1300299219.2811.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: frank.peters@comcast.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: randy.dunlap@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58046
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751218Ab1CPSPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 14:15:06 -0400
-In-Reply-To: <20110316082105.c911bb1c.randy.dunlap@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jpirko@redhat.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	eric.dumazet@gmail.com, linville@tuxdriver.com, kaber@trash.net
+To: bhutchings@solarflare.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1300299219.2811.7.camel@bwh-desktop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Wed, 16 Mar 2011 08:21:05 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 16 Mar 2011 18:13:39 +0000
 
-> Hi,
-> Please test this patch:
-> 
-> 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> e1000e needs to select CRC32 for CRC support.
-> This patch fixes the build error:
-> ERROR: "crc32_le" [drivers/net/e1000e/e1000e.ko] undefined!
-> 
-> Reported-by: Frank Peters <frank.peters@comcast.net>
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Though, in this case, the priv_flags are not in any way visible to
+> user-space, so it would be quite hard to find a use for them!
 
-Randy, I applied Eric Dumazet's copy of this fix only because
-his submission preceded your's in terms of time of submission :-)
+There are pieces of infrastructure, such as scripts that turn header
+file visible macro values into values usable in other languages such
+as perl, that do that wholesale for entire header files and therefore
+expect these individual values to be there.
 
-Thanks!
+I'm not going to be the person who breaks such things.
