@@ -1,132 +1,52 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 5/6 v2] bonding: get rid of IFF_SLAVE_INACTIVE
- netdev->priv_flag
-Date: Wed, 16 Mar 2011 19:46:43 +0100
-Message-ID: <20110316184642.GB15224@psychotron.redhat.com>
-References: <1299935679-18135-1-git-send-email-jpirko@redhat.com>
- <1299935679-18135-6-git-send-email-jpirko@redhat.com>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
+Date: Wed, 16 Mar 2011 14:52:47 -0400
+Message-ID: <AANLkTim5FENKBRUcvTUp7=R7x3cWT8veBKKFtxgcKN7V@mail.gmail.com>
+References: <1299894051-13820-1-git-send-email-ycheng@google.com>
+	<201103151107.35379.carsten@wolffcarsten.de>
+	<AANLkTinzkJKb9EtOys2EOW8SDnORdEOT=+UMNBACTJJe@mail.gmail.com>
+	<201103161718.39110.carsten@wolffcarsten.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net, xiaosuo@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Yuchung Cheng <ycheng@google.com>,
+	David Miller <davem@davemloft.net>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	Nandita Dukkipati <nanditad@google.com>,
+	netdev@vger.kernel.org,
+	Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+To: Carsten Wolff <carsten@wolffcarsten.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10117 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482Ab1CPSrK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2011 14:47:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1299935679-18135-6-git-send-email-jpirko@redhat.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:38841 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752154Ab1CPSws (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 14:52:48 -0400
+Received: by yxs7 with SMTP id 7so794160yxs.19
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2011 11:52:47 -0700 (PDT)
+In-Reply-To: <201103161718.39110.carsten@wolffcarsten.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since bond-related code was moved from net/core/dev.c into bonding,
-IFF_SLAVE_INACTIVE is no longer needed. Replace is with flag "inactive"
-stored in slave structure
+On Wed, Mar 16, 2011 at 12:18 PM, Carsten Wolff <carsten@wolffcarsten.de> wrote:
+> Unfortunately, no. ;-) My point is, that cwnd should be moderated when the
+> congestion state changes are undone after a spurious recovery has been
+> detected. Reordering is only one possible reason for a false recovery. And I
+> stick to that point because of the thoughts I pointed out in my mail to john,
+> i.e. undo typically leading to exceptionally large segment bursts.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
----
- drivers/net/bonding/bond_main.c  |    6 ++----
- drivers/net/bonding/bond_sysfs.c |    4 ++--
- drivers/net/bonding/bonding.h    |   14 ++++++++++----
- 3 files changed, 14 insertions(+), 10 deletions(-)
+There's a more general discussion here as to how much it's worth
+avoiding bursts at all.  What research on the subject I'm aware of is
+somewhat inconclusive.  It's possible to construct scenarios where
+bursting, burst suppression, or pacing each win or lose badly.  If you
+can choose only one approach as one-size-fits all it's difficult with
+the information at hand to pick only one.  However, I really do wonder
+why it's so important to suppress bursts on congestion state undo when
+other, likely far more common, sources of bursts are not suppressed.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index c5f3a01..c3150df 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1461,7 +1461,7 @@ static bool bond_should_deliver_exact_match(struc=
-t sk_buff *skb,
- 					    struct slave *slave,
- 					    struct bonding *bond)
- {
--	if (slave->dev->priv_flags & IFF_SLAVE_INACTIVE) {
-+	if (bond_is_slave_inactive(slave)) {
- 		if (slave_do_arp_validate(bond, slave) &&
- 		    skb->protocol =3D=3D __cpu_to_be16(ETH_P_ARP))
- 			return false;
-@@ -2122,7 +2122,7 @@ int bond_release(struct net_device *bond_dev, str=
-uct net_device *slave_dev)
-=20
- 	dev_set_mtu(slave_dev, slave->original_mtu);
-=20
--	slave_dev->priv_flags &=3D ~(IFF_SLAVE_INACTIVE | IFF_BONDING);
-+	slave_dev->priv_flags &=3D ~IFF_BONDING;
-=20
- 	kfree(slave);
-=20
-@@ -2233,8 +2233,6 @@ static int bond_release_all(struct net_device *bo=
-nd_dev)
- 			dev_set_mac_address(slave_dev, &addr);
- 		}
-=20
--		slave_dev->priv_flags &=3D ~IFF_SLAVE_INACTIVE;
--
- 		kfree(slave);
-=20
- 		/* re-acquire the lock before getting the next slave */
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bon=
-d_sysfs.c
-index 344d23f..5161183 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1581,9 +1581,9 @@ static ssize_t bonding_store_slaves_active(struct=
- device *d,
- 	bond_for_each_slave(bond, slave, i) {
- 		if (!bond_is_active_slave(slave)) {
- 			if (new_value)
--				slave->dev->priv_flags &=3D ~IFF_SLAVE_INACTIVE;
-+				slave->inactive =3D 0;
- 			else
--				slave->dev->priv_flags |=3D IFF_SLAVE_INACTIVE;
-+				slave->inactive =3D 1;
- 		}
- 	}
- out:
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondin=
-g.h
-index 63e9cf7..6b26962 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -192,8 +192,9 @@ struct slave {
- 	unsigned long last_arp_rx;
- 	s8     link;    /* one of BOND_LINK_XXXX */
- 	s8     new_link;
--	u8     backup;	/* indicates backup slave. Value corresponds with
--			   BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
-+	u8     backup:1,   /* indicates backup slave. Value corresponds with
-+			      BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
-+	       inactive:1; /* indicates inactive slave */
- 	u32    original_mtu;
- 	u32    link_failure_count;
- 	u8     perm_hwaddr[ETH_ALEN];
-@@ -376,13 +377,18 @@ static inline void bond_set_slave_inactive_flags(=
-struct slave *slave)
- 	if (!bond_is_lb(bond))
- 		bond_set_backup_slave(slave);
- 	if (!bond->params.all_slaves_active)
--		slave->dev->priv_flags |=3D IFF_SLAVE_INACTIVE;
-+		slave->inactive =3D 1;
- }
-=20
- static inline void bond_set_slave_active_flags(struct slave *slave)
- {
- 	bond_set_active_slave(slave);
--	slave->dev->priv_flags &=3D ~IFF_SLAVE_INACTIVE;
-+	slave->inactive =3D 0;
-+}
-+
-+static inline bool bond_is_slave_inactive(struct slave *slave)
-+{
-+	return slave->inactive;
- }
-=20
- struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_en=
-try *curr);
---=20
-1.7.4
+Carsten, do you have any specific examples of cases you're concerned
+about?  FWIW, there are exactly two causes for spurious retransmits:
+spurious fast retransmit due to reordering, and spurious timeouts due
+to a delay spike.  Are you particularly concerned with one more than
+the other?
 
+Thanks,
+  -John
