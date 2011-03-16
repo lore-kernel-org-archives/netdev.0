@@ -1,52 +1,100 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: net-next-2.6 status...
-Date: Wed, 16 Mar 2011 10:38:57 -0700 (PDT)
-Message-ID: <20110316.103857.226773145.davem@davemloft.net>
-References: <20110316065008.GA2780@psychotron.redhat.com>
-	<20110316.000251.189704695.davem@davemloft.net>
-	<20110316073803.GB2780@psychotron.redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
-To: jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110316073803.GB2780-YzwxZg+R7et1/kRsl7OVgNvLeJWuRmrY@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: kaber@trash.net
+Subject: [PATCH 01/01] netfilter ebtables: fix xt_AUDIT to work with ebtables
+Date: Wed, 16 Mar 2011 18:38:31 +0100
+Message-ID: <1300297111-28116-2-git-send-email-kaber@trash.net>
+References: <1300297111-28116-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1300297111-28116-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 16 Mar 2011 08:38:03 +0100
+From: Thomas Graf <tgraf@redhat.com>
 
-> Wed, Mar 16, 2011 at 08:02:51AM CET, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org wrote:
->>From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>Date: Wed, 16 Mar 2011 07:50:09 +0100
->>
->>>>Jiri, I know there is your patch set there, but I think you and Changli
->>>>still need to go back and forth one more time wrt. orig_dev semantics.
->>>>Since you have been posting this patch set for some time I'm still
->>>>willing to apply it for this merge window, but please make haste and
->>>>work out the remaining discussion.  Thank you.
->>> 
->>> Dave, you can apply the rest of the series and leave only the first
->>> patch (af_packet) out. There's no dependency. We will figure out things
->>> around origdev later.
->>
->>I was about to do that but I've found other problems.
->>
->>You cannot make the modifications you make to linux/if.h, those
->>interface flags are visible to userspace.
-> 
-> What do you suggest? To remove unused flags and leave gaps there or to
-> not to remove the flags at all?
+Even though ebtables uses xtables it still requires targets to
+return EBT_CONTINUE instead of XT_CONTINUE. This prevented
+xt_AUDIT to work as ebt module.
 
-You can't remove them, otherwise if it happened to be reference in the
-sources to some app out there, it will start to fail to compile.
+Upon Jan's suggestion, use a separate struct xt_target for
+NFPROTO_BRIDGE having its own target callback returning
+EBT_CONTINUE instead of cloning the module.
 
-This is pretty obvious stuff, I hope :-)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Thomas Graf <tgraf@redhat.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/xt_AUDIT.c |   36 +++++++++++++++++++++++++++---------
+ 1 files changed, 27 insertions(+), 9 deletions(-)
+
+diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
+index 81802d2..363a99e 100644
+--- a/net/netfilter/xt_AUDIT.c
++++ b/net/netfilter/xt_AUDIT.c
+@@ -19,6 +19,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_AUDIT.h>
++#include <linux/netfilter_bridge/ebtables.h>
+ #include <net/ipv6.h>
+ #include <net/ip.h>
+ 
+@@ -168,6 +169,13 @@ errout:
+ 	return XT_CONTINUE;
+ }
+ 
++static unsigned int
++audit_tg_ebt(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	audit_tg(skb, par);
++	return EBT_CONTINUE;
++}
++
+ static int audit_tg_check(const struct xt_tgchk_param *par)
+ {
+ 	const struct xt_audit_info *info = par->targinfo;
+@@ -181,23 +189,33 @@ static int audit_tg_check(const struct xt_tgchk_param *par)
+ 	return 0;
+ }
+ 
+-static struct xt_target audit_tg_reg __read_mostly = {
+-	.name		= "AUDIT",
+-	.family		= NFPROTO_UNSPEC,
+-	.target		= audit_tg,
+-	.targetsize	= sizeof(struct xt_audit_info),
+-	.checkentry	= audit_tg_check,
+-	.me		= THIS_MODULE,
++static struct xt_target audit_tg_reg[] __read_mostly = {
++	{
++		.name		= "AUDIT",
++		.family		= NFPROTO_UNSPEC,
++		.target		= audit_tg,
++		.targetsize	= sizeof(struct xt_audit_info),
++		.checkentry	= audit_tg_check,
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "AUDIT",
++		.family		= NFPROTO_BRIDGE,
++		.target		= audit_tg_ebt,
++		.targetsize	= sizeof(struct xt_audit_info),
++		.checkentry	= audit_tg_check,
++		.me		= THIS_MODULE,
++	},
+ };
+ 
+ static int __init audit_tg_init(void)
+ {
+-	return xt_register_target(&audit_tg_reg);
++	return xt_register_targets(audit_tg_reg, ARRAY_SIZE(audit_tg_reg));
+ }
+ 
+ static void __exit audit_tg_exit(void)
+ {
+-	xt_unregister_target(&audit_tg_reg);
++	xt_unregister_targets(audit_tg_reg, ARRAY_SIZE(audit_tg_reg));
+ }
+ 
+ module_init(audit_tg_init);
+-- 
+1.7.2.3
+
