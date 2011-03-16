@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 status...
-Date: Wed, 16 Mar 2011 11:17:36 -0700 (PDT)
-Message-ID: <20110316.111736.48500809.davem@davemloft.net>
-References: <20110316084022.GA2845@psychotron.brq.redhat.com>
-	<20110316.104236.104065822.davem@davemloft.net>
-	<1300299219.2811.7.camel@bwh-desktop>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next 2/2] be2net: Bump up the version number
+Date: Wed, 16 Mar 2011 13:21:00 -0500
+Message-ID: <20110316182100.GA6274@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	eric.dumazet@gmail.com, linville@tuxdriver.com, kaber@trash.net
-To: bhutchings@solarflare.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1300299219.2811.7.camel@bwh-desktop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:33874 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752106Ab1CPSWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 14:22:12 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 16 Mar 2011 18:13:39 +0000
 
-> Though, in this case, the priv_flags are not in any way visible to
-> user-space, so it would be quite hard to find a use for them!
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/benet/be.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-There are pieces of infrastructure, such as scripts that turn header
-file visible macro values into values usable in other languages such
-as perl, that do that wholesale for entire header files and therefore
-expect these individual values to be there.
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 7721699..f803c58 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -33,7 +33,7 @@
+ 
+ #include "be_hw.h"
+ 
+-#define DRV_VER			"2.103.175u"
++#define DRV_VER			"4.0.100u"
+ #define DRV_NAME		"be2net"
+ #define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
+ #define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
+-- 
+1.7.1
 
-I'm not going to be the person who breaks such things.
