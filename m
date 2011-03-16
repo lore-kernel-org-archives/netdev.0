@@ -1,44 +1,49 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: net-next-2.6 status...
-Date: Wed, 16 Mar 2011 08:38:03 +0100
-Message-ID: <20110316073803.GB2780@psychotron.redhat.com>
-References: <20110315.160124.104058374.davem@davemloft.net>
- <20110316065008.GA2780@psychotron.redhat.com>
- <20110316.000251.189704695.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 1/2] xfrm: Force a dst refcount before entering the
+ xfrm type handlers
+Date: Wed, 16 Mar 2011 08:43:06 +0100
+Message-ID: <20110316074306.GT31402@secunet.com>
+References: <20110316070828.GQ31402@secunet.com>
+ <20110316.001732.112599674.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
-	linville@tuxdriver.com, kaber@trash.net
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:49655 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752154Ab1CPHnI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2011 03:43:08 -0400
 Content-Disposition: inline
-In-Reply-To: <20110316.000251.189704695.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110316.001732.112599674.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 16, 2011 at 08:02:51AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jpirko@redhat.com>
->Date: Wed, 16 Mar 2011 07:50:09 +0100
->
->>>Jiri, I know there is your patch set there, but I think you and Changli
->>>still need to go back and forth one more time wrt. orig_dev semantics.
->>>Since you have been posting this patch set for some time I'm still
->>>willing to apply it for this merge window, but please make haste and
->>>work out the remaining discussion.  Thank you.
->> 
->> Dave, you can apply the rest of the series and leave only the first
->> patch (af_packet) out. There's no dependency. We will figure out things
->> around origdev later.
->
->I was about to do that but I've found other problems.
->
->You cannot make the modifications you make to linux/if.h, those
->interface flags are visible to userspace.
+On Wed, Mar 16, 2011 at 12:17:32AM -0700, David Miller wrote:
+> 
+> Steffen we really need to find another way to fix these problems.
+> 
+> We already make way too many expensive atomic operations in these code
+> paths modified by your 3 patches, we should strive to not add new
+> ones.
+> 
 
-What do you suggest? To remove unused flags and leave gaps there or to
-not to remove the flags at all?
+I know that it is exspensive, but we have to take a refcount if
+the crypto layer returns asyncronous. Unfortunately it is too
+late to take the refcount when the crypto layer notifies us about
+that as the skb might be already gone.
 
-Thanks.
+The second patch just moves the refcount from xfrm_output_one
+to skb_dst_pop. As xfrm_output_one is the only user of
+skb_dst_pop, we take the refcont just a bit realier.
 
-Jirka
+The third one makes the socket policy case consistent to the
+case where we get the destination entry from the flow cache
+where we take a reference. We can either return the dst entry
+with or without a refcont in both cases. But we can't return
+sometimes with and somtimes without a refcount.
+
+I'd be happy to see all these refcounts gone too of course,
+but that's way beyond a simple bug fix.
+
+Steffen
