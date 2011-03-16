@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 status...
-Date: Wed, 16 Mar 2011 11:00:08 -0700 (PDT)
-Message-ID: <20110316.110008.183049273.davem@davemloft.net>
-References: <20110316073803.GB2780@psychotron.redhat.com>
-	<20110316.103857.226773145.davem@davemloft.net>
-	<20110316175642.GB2867@psychotron.redhat.com>
+Subject: Re: [PATCH 00/01] netfilter: netfilter fix for net-next
+Date: Wed, 16 Mar 2011 11:12:55 -0700 (PDT)
+Message-ID: <20110316.111255.39178821.davem@davemloft.net>
+References: <1300297111-28116-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
-	linville@tuxdriver.com, kaber@trash.net
-To: jpirko@redhat.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110316175642.GB2867@psychotron.redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45534
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753150Ab1CPSMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 14:12:18 -0400
+In-Reply-To: <1300297111-28116-1-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 16 Mar 2011 18:56:44 +0100
+From: kaber@trash.net
+Date: Wed, 16 Mar 2011 18:38:30 +0100
 
-> So would you leave out if.h hunk out or should I repost?
+> following is a single netfilter fix from Thomas for net-next. The new
+> AUDIT target is supposed to work with ebtables, however it returns
+> a xtables verdict, which are unfortunately incompatible with ebtables
+> verdicts.
+> 
+> Please apply or pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
-What makes you think it's a good idea for me to have to do more work?
+I'll pull this, thanks Patrick.
 
-I have the entire merge window and thousands of other patches to worry
-about...
