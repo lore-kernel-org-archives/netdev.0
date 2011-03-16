@@ -1,49 +1,57 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 1/2] xfrm: Force a dst refcount before entering the
- xfrm type handlers
-Date: Wed, 16 Mar 2011 08:43:06 +0100
-Message-ID: <20110316074306.GT31402@secunet.com>
-References: <20110316070828.GQ31402@secunet.com>
- <20110316.001732.112599674.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] xfrm: Refcount destination entry on xfrm_lookup
+Date: Wed, 16 Mar 2011 10:03:23 +0200
+Message-ID: <4D806ECB.4000205@iki.fi>
+References: <20110316071249.GS31402@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49655 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752154Ab1CPHnI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2011 03:43:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20110316.001732.112599674.davem@davemloft.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56175 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751365Ab1CPIDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 04:03:25 -0400
+Received: by wya21 with SMTP id 21so1367767wya.19
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2011 01:03:24 -0700 (PDT)
+In-Reply-To: <20110316071249.GS31402@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2011 at 12:17:32AM -0700, David Miller wrote:
-> 
-> Steffen we really need to find another way to fix these problems.
-> 
-> We already make way too many expensive atomic operations in these code
-> paths modified by your 3 patches, we should strive to not add new
-> ones.
-> 
+On 03/16/2011 09:12 AM, Steffen Klassert wrote:
+> We return a destination entry without refcount if a socket
+> policy is found in xfrm_lookup. This triggers a warning on
+> a negative refcount when freeeing this dst entry. So take
+> a refcount in this case to fix it.
+>=20
+> This refcount was forgotten when xfrm changed to cache bundles
+> instead of policies for outgoing flows.
+>=20
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-I know that it is exspensive, but we have to take a refcount if
-the crypto layer returns asyncronous. Unfortunately it is too
-late to take the refcount when the crypto layer notifies us about
-that as the skb might be already gone.
+Acked-by: Timo Ter=E4s <timo.teras@iki.fi>
 
-The second patch just moves the refcount from xfrm_output_one
-to skb_dst_pop. As xfrm_output_one is the only user of
-skb_dst_pop, we take the refcont just a bit realier.
+Ok. This is one of the corner cases I did not test: having socket polic=
+y
+something else than no action. I just didn't have the application ready
+for it. Sorry about the bug. And good catch Steffen.
 
-The third one makes the socket policy case consistent to the
-case where we get the destination entry from the flow cache
-where we take a reference. We can either return the dst entry
-with or without a refcont in both cases. But we can't return
-sometimes with and somtimes without a refcount.
+> ---
+>  net/xfrm/xfrm_policy.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index 027e3c6..15792d8 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1804,6 +1804,8 @@ restart:
+>  				goto no_transform;
+>  			}
+> =20
+> +			dst_hold(&xdst->u.dst);
+> +
+>  			spin_lock_bh(&xfrm_policy_sk_bundle_lock);
+>  			xdst->u.dst.next =3D xfrm_policy_sk_bundles;
+>  			xfrm_policy_sk_bundles =3D &xdst->u.dst;
 
-I'd be happy to see all these refcounts gone too of course,
-but that's way beyond a simple bug fix.
-
-Steffen
