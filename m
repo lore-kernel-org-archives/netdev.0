@@ -1,57 +1,52 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] xfrm: Refcount destination entry on xfrm_lookup
-Date: Wed, 16 Mar 2011 10:03:23 +0200
-Message-ID: <4D806ECB.4000205@iki.fi>
-References: <20110316071249.GS31402@secunet.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCHv2 1/9] at91: provide macb clks with "pclk" and "hclk"
+	name
+Date: Wed, 16 Mar 2011 08:38:44 +0000
+Message-ID: <20110316083844.GA13262@n2100.arm.linux.org.uk>
+References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com> <1300184096-13937-2-git-send-email-jamie@jamieiles.com> <AANLkTimwwUQGhncE7Att_9rAXhpT0n61HC4SW8ShSfAm@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Jamie Iles <jamie@jamieiles.com>, netdev@vger.kernel.org,
+	plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org,
+	nicolas.ferre@atmel.com
+To: "avictor.za@gmail.com" <avictor.za@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56175 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365Ab1CPIDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 04:03:25 -0400
-Received: by wya21 with SMTP id 21so1367767wya.19
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2011 01:03:24 -0700 (PDT)
-In-Reply-To: <20110316071249.GS31402@secunet.com>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:33021 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751437Ab1CPIjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 04:39:00 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTimwwUQGhncE7Att_9rAXhpT0n61HC4SW8ShSfAm@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2011 09:12 AM, Steffen Klassert wrote:
-> We return a destination entry without refcount if a socket
-> policy is found in xfrm_lookup. This triggers a warning on
-> a negative refcount when freeeing this dst entry. So take
-> a refcount in this case to fix it.
+On Wed, Mar 16, 2011 at 08:53:47AM +0200, avictor.za@gmail.com wrote:
+> hi,
 >=20
-> This refcount was forgotten when xfrm changed to cache bundles
-> instead of policies for outgoing flows.
+> On Tue, Mar 15, 2011 at 12:14 PM, Jamie Iles <jamie@jamieiles.com> wr=
+ote:
+> > The macb driver expects clocks with the names "pclk" and "hclk". =A0=
+We
+> > currently provide "macb_clk" but to fit in line with other
+> > architectures (namely AVR32), provide "pclk" and a fake "hclk".
 >=20
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> There is no reference to a "pclk" or "hclk" in the AT91 architecture.
+> So to avoid possible confusion, maybe create two "fake" clocks both
+> parented to "macb_clk", and add a comment they're only for
+> compatibility with the AVR32.
 
-Acked-by: Timo Ter=E4s <timo.teras@iki.fi>
+It doesn't matter what's in the documentation.
 
-Ok. This is one of the corner cases I did not test: having socket polic=
-y
-something else than no action. I just didn't have the application ready
-for it. Sorry about the bug. And good catch Steffen.
+There's no apb_pclk mentioned in the ARM platform documentation yet we
+have such a clock in the bus-level code for primecell support.  I'm sur=
+e
+many of the other early primecell using platforms are also the same.
 
-> ---
->  net/xfrm/xfrm_policy.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index 027e3c6..15792d8 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -1804,6 +1804,8 @@ restart:
->  				goto no_transform;
->  			}
-> =20
-> +			dst_hold(&xdst->u.dst);
-> +
->  			spin_lock_bh(&xfrm_policy_sk_bundle_lock);
->  			xdst->u.dst.next =3D xfrm_policy_sk_bundles;
->  			xfrm_policy_sk_bundles =3D &xdst->u.dst;
+On OMAP1 there's no iclk yet OMAP drivers have had iclk and iclk is a
+dummy no-op clock for OMAP1 for compatibility with OMAP2.
 
+What matters more than conforming to documentation is keeping the drive=
+rs
+in a clean and maintainable state without throwing lots of ifdefs into
+them.
