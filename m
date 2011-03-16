@@ -1,52 +1,57 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCHv2 1/9] at91: provide macb clks with "pclk" and "hclk"
-	name
-Date: Wed, 16 Mar 2011 08:38:44 +0000
-Message-ID: <20110316083844.GA13262@n2100.arm.linux.org.uk>
-References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com> <1300184096-13937-2-git-send-email-jamie@jamieiles.com> <AANLkTimwwUQGhncE7Att_9rAXhpT0n61HC4SW8ShSfAm@mail.gmail.com>
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: net-next-2.6 status...
+Date: Wed, 16 Mar 2011 09:40:23 +0100
+Message-ID: <20110316084022.GA2845@psychotron.brq.redhat.com>
+References: <20110315.160124.104058374.davem@davemloft.net>
+ <20110316065008.GA2780@psychotron.redhat.com>
+ <20110316.000251.189704695.davem@davemloft.net>
+ <20110316073803.GB2780@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamie Iles <jamie@jamieiles.com>, netdev@vger.kernel.org,
-	plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org,
-	nicolas.ferre@atmel.com
-To: "avictor.za@gmail.com" <avictor.za@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:33021 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437Ab1CPIjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 04:39:00 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <AANLkTimwwUQGhncE7Att_9rAXhpT0n61HC4SW8ShSfAm@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20110316073803.GB2780-YzwxZg+R7et1/kRsl7OVgNvLeJWuRmrY@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 16, 2011 at 08:53:47AM +0200, avictor.za@gmail.com wrote:
-> hi,
->=20
-> On Tue, Mar 15, 2011 at 12:14 PM, Jamie Iles <jamie@jamieiles.com> wr=
-ote:
-> > The macb driver expects clocks with the names "pclk" and "hclk". =A0=
-We
-> > currently provide "macb_clk" but to fit in line with other
-> > architectures (namely AVR32), provide "pclk" and a fake "hclk".
->=20
-> There is no reference to a "pclk" or "hclk" in the AT91 architecture.
-> So to avoid possible confusion, maybe create two "fake" clocks both
-> parented to "macb_clk", and add a comment they're only for
-> compatibility with the AVR32.
+Wed, Mar 16, 2011 at 08:38:03AM CET, jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org wrote:
+>Wed, Mar 16, 2011 at 08:02:51AM CET, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org wrote:
+>>From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>Date: Wed, 16 Mar 2011 07:50:09 +0100
+>>
+>>>>Jiri, I know there is your patch set there, but I think you and Changli
+>>>>still need to go back and forth one more time wrt. orig_dev semantics.
+>>>>Since you have been posting this patch set for some time I'm still
+>>>>willing to apply it for this merge window, but please make haste and
+>>>>work out the remaining discussion.  Thank you.
+>>> 
+>>> Dave, you can apply the rest of the series and leave only the first
+>>> patch (af_packet) out. There's no dependency. We will figure out things
+>>> around origdev later.
+>>
+>>I was about to do that but I've found other problems.
+>>
+>>You cannot make the modifications you make to linux/if.h, those
+>>interface flags are visible to userspace.
+>
+>What do you suggest? To remove unused flags and leave gaps there or to
+>not to remove the flags at all?
 
-It doesn't matter what's in the documentation.
-
-There's no apb_pclk mentioned in the ARM platform documentation yet we
-have such a clock in the bus-level code for primecell support.  I'm sur=
-e
-many of the other early primecell using platforms are also the same.
-
-On OMAP1 there's no iclk yet OMAP drivers have had iclk and iclk is a
-dummy no-op clock for OMAP1 for compatibility with OMAP2.
-
-What matters more than conforming to documentation is keeping the drive=
-rs
-in a clean and maintainable state without throwing lots of ifdefs into
-them.
+Well, the following comment:
+<quote>
+/* Private (from user) interface flags (netdevice->priv_flags). */
+</quote>
+leads me to think that these flags should not be used by userspace.
+So maybe it may not be problem to change those values.
+>
+>Thanks.
+>
+>Jirka
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
