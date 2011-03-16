@@ -1,54 +1,32 @@
 From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2011-03-15
-Date: Tue, 15 Mar 2011 20:12:34 -0400
-Message-ID: <20110316001234.GA28663@tuxdriver.com>
+Subject: Re: net-next-2.6 status...
+Date: Tue, 15 Mar 2011 20:13:20 -0400
+Message-ID: <20110316001319.GB28663@tuxdriver.com>
+References: <20110315.160124.104058374.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <20110315.160124.104058374.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On Tue, Mar 15, 2011 at 04:01:24PM -0700, David Miller wrote:
 
-I nearly forgot this one!  It is a really simple patch to enable the use
-of some (so far still unreleased) firmware for the iwl1000 hardware.
+> John and Patrick, I assume that after today's pulls I am completely
+> up to date with everything, feature wise, that will go into the merge
+> window for wireless and netfilter.
 
-Please pull for 2.6.39-rc1, so that users will be able to use the
-new firmware when it is generally available!
+Just sent a pull request for wireless-2.6 to cover a one-liner to
+enable some new firmware for iwlagn -- I nearly forgot!
+
+Thanks,
 
 John
-
----
-
-The following changes since commit 84c0c6933cb0303fa006992a6659c2b46de4eb17:
-
-  smsc911x: Fix build error when SMSC_TRACE() used (2011-03-15 14:52:48 -0700)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Fry, Donald H (1):
-      iwlagn: Support new 1000 microcode.
-
- drivers/net/wireless/iwlwifi/iwl-1000.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-1000.c b/drivers/net/wireless/iwlwifi/iwl-1000.c
-index ba78bc8..507cab4 100644
---- a/drivers/net/wireless/iwlwifi/iwl-1000.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-1000.c
-@@ -49,7 +49,7 @@
- #include "iwl-agn-debugfs.h"
- 
- /* Highest firmware API version supported */
--#define IWL1000_UCODE_API_MAX 3
-+#define IWL1000_UCODE_API_MAX 5
- #define IWL100_UCODE_API_MAX 5
- 
- /* Lowest firmware API version supported */
 -- 
 John W. Linville		Someday the world will need a hero, and you
 linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
