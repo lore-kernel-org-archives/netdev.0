@@ -1,59 +1,42 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: build breakage due to br_multicast.c referencing	 ipv6_dev_get_saddr()
-Date: Wed, 16 Mar 2011 13:34:12 -0400
-Message-ID: <4D80F494.6050906@hp.com>
-References: <4D80BC5B0200007800036D85@vpn.id2.novell.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: net-next-2.6 status...
+Date: Wed, 16 Mar 2011 10:38:52 -0700 (PDT)
+Message-ID: <20110316.103852.193714733.davem@davemloft.net>
+References: <20110316073803.GB2780@psychotron.redhat.com>
+	<20110316084022.GA2845@psychotron.brq.redhat.com>
+	<20110316084739.GD26145@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linus.luessing@web.de, davem@davemloft.net,
-	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: Jan Beulich <JBeulich@novell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:43638 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218Ab1CPRer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 13:34:47 -0400
-In-Reply-To: <4D80BC5B0200007800036D85@vpn.id2.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
+To: tgraf-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110316084739.GD26145-oJAMn8VJQk8CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/16/2011 08:34 AM, Jan Beulich wrote:
-> With BRIDGE=y and IPV6=m commit
-> fe29ec41aaa51902aebd63658dfb04fe6fea8be5 ("bridge: Use IPv6
-> link-local address for multicast listener queries") causes the build to
-> break.
+From: Thomas Graf <tgraf-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Date: Wed, 16 Mar 2011 04:47:39 -0400
+
+> On Wed, Mar 16, 2011 at 09:40:23AM +0100, Jiri Pirko wrote:
+>> >What do you suggest? To remove unused flags and leave gaps there or to
+>> >not to remove the flags at all?
+>> 
+>> Well, the following comment:
+>> <quote>
+>> /* Private (from user) interface flags (netdevice->priv_flags). */
+>> </quote>
+>> leads me to think that these flags should not be used by userspace.
+>> So maybe it may not be problem to change those values.
 > 
-> Similary, even if both are =m, but ipv6.ko got blacklisted (as is
-> happening in various SuSE distros when disabling IPv6), there's
-> a runtime problem since bridge.ko then won't load anymore due
-> to the missing symbol.
+> These flags should be moved to linux/netdevice.h
 
-Load the ipv6 module with disable=1, which is why I added it :)
-
->From Documentation/networking/ipv6.txt:
-
-disable
-
-        Specifies whether to load the IPv6 module, but disable all
-        its functionality.  This might be used when another module
-        has a dependency on the IPv6 module being loaded, but no
-        IPv6 addresses or operations are desired.
-
-        The possible values and their effects are:
-
-        0
-                IPv6 is enabled.
-
-                This is the default value.
-
-        1
-                IPv6 is disabled.
-
-                No IPv6 addresses will be added to interfaces, and
-                it will not be possible to open an IPv6 socket.
-
-                A reboot is required to enable IPv6.
-
--Brian
+We've had them exposed in a header file without __KERNEL__ protection
+for a long time, the cat is therefore out of the bag and it's too late
+to just remove them from user visibility as if they were not there.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
