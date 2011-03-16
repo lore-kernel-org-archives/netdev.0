@@ -1,35 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 status...
-Date: Wed, 16 Mar 2011 00:02:51 -0700 (PDT)
-Message-ID: <20110316.000251.189704695.davem@davemloft.net>
-References: <20110315.160124.104058374.davem@davemloft.net>
-	<20110316065008.GA2780@psychotron.redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/2] xfrm: Force a dst refcount before entering the xfrm
+ type handlers
+Date: Wed, 16 Mar 2011 08:08:28 +0100
+Message-ID: <20110316070828.GQ31402@secunet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, eric.dumazet@vger.kernel.org,
-	linville@tuxdriver.com, kaber@trash.net
-To: jpirko@redhat.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110316065008.GA2780@psychotron.redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:50330 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751710Ab1CPHIb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2011 03:08:31 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 16 Mar 2011 07:50:09 +0100
+Crypto requests might return asynchronous. In this case we leave
+the rcu protected region, so force a refcount on the skb's
+destination entry before we enter the xfrm type input/output
+handlers.
 
->>Jiri, I know there is your patch set there, but I think you and Changli
->>still need to go back and forth one more time wrt. orig_dev semantics.
->>Since you have been posting this patch set for some time I'm still
->>willing to apply it for this merge window, but please make haste and
->>work out the remaining discussion.  Thank you.
-> 
-> Dave, you can apply the rest of the series and leave only the first
-> patch (af_packet) out. There's no dependency. We will figure out things
-> around origdev later.
+This fixes a crash when a route is deleted whilst sending IPsec
+data that is transformed by an asynchronous algorithm.
 
-I was about to do that but I've found other problems.
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_input.c  |    2 ++
+ net/xfrm/xfrm_output.c |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-You cannot make the modifications you make to linux/if.h, those
-interface flags are visible to userspace.
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 872065c..341cd11 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -190,6 +190,8 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		XFRM_SKB_CB(skb)->seq.input.low = seq;
+ 		XFRM_SKB_CB(skb)->seq.input.hi = seq_hi;
+ 
++		skb_dst_force(skb);
++
+ 		nexthdr = x->type->input(x, skb);
+ 
+ 		if (nexthdr == -EINPROGRESS)
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index 1aba03f..8f3f0ee 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -78,6 +78,8 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
+ 
+ 		spin_unlock_bh(&x->lock);
+ 
++		skb_dst_force(skb);
++
+ 		err = x->type->output(x, skb);
+ 		if (err == -EINPROGRESS)
+ 			goto out_exit;
+-- 
+1.7.0.4
+
