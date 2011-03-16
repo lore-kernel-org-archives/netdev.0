@@ -1,52 +1,57 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCH] tcp: avoid cwnd moderation in undo
-Date: Wed, 16 Mar 2011 14:52:47 -0400
-Message-ID: <AANLkTim5FENKBRUcvTUp7=R7x3cWT8veBKKFtxgcKN7V@mail.gmail.com>
-References: <1299894051-13820-1-git-send-email-ycheng@google.com>
-	<201103151107.35379.carsten@wolffcarsten.de>
-	<AANLkTinzkJKb9EtOys2EOW8SDnORdEOT=+UMNBACTJJe@mail.gmail.com>
-	<201103161718.39110.carsten@wolffcarsten.de>
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: net-next-2.6 status...
+Date: Wed, 16 Mar 2011 18:56:44 +0100
+Message-ID: <20110316175642.GB2867@psychotron.redhat.com>
+References: <20110316065008.GA2780@psychotron.redhat.com>
+ <20110316.000251.189704695.davem@davemloft.net>
+ <20110316073803.GB2780@psychotron.redhat.com>
+ <20110316.103857.226773145.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>,
-	netdev@vger.kernel.org,
-	Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-To: Carsten Wolff <carsten@wolffcarsten.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:38841 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752154Ab1CPSws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 14:52:48 -0400
-Received: by yxs7 with SMTP id 7so794160yxs.19
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2011 11:52:47 -0700 (PDT)
-In-Reply-To: <201103161718.39110.carsten@wolffcarsten.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110316.103857.226773145.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 16, 2011 at 12:18 PM, Carsten Wolff <carsten@wolffcarsten.de> wrote:
-> Unfortunately, no. ;-) My point is, that cwnd should be moderated when the
-> congestion state changes are undone after a spurious recovery has been
-> detected. Reordering is only one possible reason for a false recovery. And I
-> stick to that point because of the thoughts I pointed out in my mail to john,
-> i.e. undo typically leading to exceptionally large segment bursts.
+Wed, Mar 16, 2011 at 06:38:57PM CET, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org wrote:
+>From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>Date: Wed, 16 Mar 2011 08:38:03 +0100
+>
+>> Wed, Mar 16, 2011 at 08:02:51AM CET, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org wrote:
+>>>From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>>Date: Wed, 16 Mar 2011 07:50:09 +0100
+>>>
+>>>>>Jiri, I know there is your patch set there, but I think you and Changli
+>>>>>still need to go back and forth one more time wrt. orig_dev semantics.
+>>>>>Since you have been posting this patch set for some time I'm still
+>>>>>willing to apply it for this merge window, but please make haste and
+>>>>>work out the remaining discussion.  Thank you.
+>>>> 
+>>>> Dave, you can apply the rest of the series and leave only the first
+>>>> patch (af_packet) out. There's no dependency. We will figure out things
+>>>> around origdev later.
+>>>
+>>>I was about to do that but I've found other problems.
+>>>
+>>>You cannot make the modifications you make to linux/if.h, those
+>>>interface flags are visible to userspace.
+>> 
+>> What do you suggest? To remove unused flags and leave gaps there or to
+>> not to remove the flags at all?
+>
+>You can't remove them, otherwise if it happened to be reference in the
+>sources to some app out there, it will start to fail to compile.
+>
+>This is pretty obvious stuff, I hope :-)
 
-There's a more general discussion here as to how much it's worth
-avoiding bursts at all.  What research on the subject I'm aware of is
-somewhat inconclusive.  It's possible to construct scenarios where
-bursting, burst suppression, or pacing each win or lose badly.  If you
-can choose only one approach as one-size-fits all it's difficult with
-the information at hand to pick only one.  However, I really do wonder
-why it's so important to suppress bursts on congestion state undo when
-other, likely far more common, sources of bursts are not suppressed.
+Ok :( So would you leave out if.h hunk out or should I repost?
 
-Carsten, do you have any specific examples of cases you're concerned
-about?  FWIW, there are exactly two causes for spurious retransmits:
-spurious fast retransmit due to reordering, and spurious timeouts due
-to a delay spike.  Are you particularly concerned with one more than
-the other?
-
-Thanks,
-  -John
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
