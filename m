@@ -1,47 +1,28 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH] xfrm: Refcount destination entry on xfrm_lookup
-Date: Wed, 16 Mar 2011 08:12:49 +0100
-Message-ID: <20110316071249.GS31402@secunet.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] xfrm: Force a dst refcount before entering the
+ xfrm type handlers
+Date: Wed, 16 Mar 2011 00:17:32 -0700 (PDT)
+Message-ID: <20110316.001732.112599674.davem@davemloft.net>
+References: <20110316070828.GQ31402@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36790 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751710Ab1CPHMw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2011 03:12:52 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56626
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751864Ab1CPHQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2011 03:16:54 -0400
+In-Reply-To: <20110316070828.GQ31402@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We return a destination entry without refcount if a socket
-policy is found in xfrm_lookup. This triggers a warning on
-a negative refcount when freeeing this dst entry. So take
-a refcount in this case to fix it.
 
-This refcount was forgotten when xfrm changed to cache bundles
-instead of policies for outgoing flows.
+Steffen we really need to find another way to fix these problems.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_policy.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+We already make way too many expensive atomic operations in these code
+paths modified by your 3 patches, we should strive to not add new
+ones.
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 027e3c6..15792d8 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1804,6 +1804,8 @@ restart:
- 				goto no_transform;
- 			}
- 
-+			dst_hold(&xdst->u.dst);
-+
- 			spin_lock_bh(&xfrm_policy_sk_bundle_lock);
- 			xdst->u.dst.next = xfrm_policy_sk_bundles;
- 			xfrm_policy_sk_bundles = &xdst->u.dst;
--- 
-1.7.0.4
-
+Thanks.
