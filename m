@@ -1,87 +1,49 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH][v3] dev : fix mtu check when TSO is enabled
-Date: Wed, 16 Mar 2011 14:56:09 +0100
-Message-ID: <4D80C179.8000900@free.fr>
-References: <1300135190-14093-1-git-send-email-daniel.lezcano@free.fr>	<20110314.165929.232913682.davem@davemloft.net>	<4D7F7054.70409@free.fr> <20110315111756.64b5f4b1@nehalam>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V12 0/4] ptp: IEEE 1588 hardware clock support
+Date: Wed, 16 Mar 2011 15:26:03 +0100
+Message-ID: <20110316142603.GC12435@riccoc20.at.omicron.at>
+References: <cover.1298878618.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	kaber@trash.net, nightnord@gmail.com, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:51681 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751959Ab1CPN4T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2011 09:56:19 -0400
-In-Reply-To: <20110315111756.64b5f4b1@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1298878618.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/15/2011 07:17 PM, Stephen Hemminger wrote:
-> On Tue, 15 Mar 2011 14:57:40 +0100
-> Daniel Lezcano<daniel.lezcano@free.fr>  wrote:
->
->> On 03/15/2011 12:59 AM, David Miller wrote:
->>> From: Daniel Lezcano<daniel.lezcano@free.fr>
->>> Date: Mon, 14 Mar 2011 21:39:50 +0100
->>>
->>>> +	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
->>>> +	if (skb->len<   len)
->>>> +		return true;
->>> This is not a correct translation of the original test:
->>>
->>>> -		     (skb->len>   (dev->mtu + dev->hard_header_len + VLAN_HLEN)))) {
->>> You need to use "<=" in your version, which currently rejects all
->>> full sized frames. :-)
->> Right, thanks.
->>
->>>> +
->>>> +	/* if TSO is enabled, we don't care about the length as the packet
->>>> +	 * could be forwarded without being segmented before
->>>> +	 */
->>>> +	if (skb->dev&&   skb->dev->features&   NETIF_F_TSO)
->>>> +		return true;
->>> I am trying to understand why you aren't simply checking also if this
->>> is a segmented frame?  Perhaps skb_is_gso()&&   device has NETIF_F_TSO
->>> set?
->> Maybe I am misunderstanding but the packet was forwarded by another device.
->> In our case from macvlan:
->>
->> macvlan_start_xmit
->>       macvlan_queue_xmit
->>           dest->forward
->>               dev_skb_forward
->>
->> When we reached dev_skb_forward, that means we passed through
->> dev_hard_start_xmit where the packet was already segmented so we should
->> exit at the first test (skb->len<  len). I don't see the point of adding
->> the skb_is_gso.
->> But maybe I am missing something, can you explain ?
-> The macvlan device only has one downstream device (slave).
-> If kernel is working properly, macvlan device should have a subset
-> of the features of the underlying device
+On Mon, Feb 28, 2011 at 08:57:03AM +0100, Richard Cochran wrote:
+> * PHC Patch ChangeLog
+> ** v12
+> *** gianfar_ptp
+>    - fixed up device tree
+>    - inlined the header file
+>    - use platform_ calls instead of deprecated of_ calls
+>    - removed static global single instance
+>    - removed John Stultz's ack from this patch
 
-Right, dev->features = lowerdev->features & MACVLAN_FEATURES
+@Thomas and John:
 
-> and macvlan device should
-> have same MTU as underlying device.
+Can I get your acks on the remaining patches?
 
-Right,
+Can this be merged for 2.6.39?
 
-...
+Thanks,
 
-  if (!tb[IFLA_MTU])
-         dev->mtu = lowerdev->mtu;
-
-...
-> If the feature/MTU flags
-> were correct, then the path calling macvlan should be respecting
-> the MTU.
-
-But if the TSO is enabled on the macvlan (inherited from eg e1000), the 
-packet won't be fragmented to the mtu size no ?
-
-
-
-
+Richard
