@@ -1,51 +1,35 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: Re: No iproute2 for 2.6.38
-Date: Thu, 17 Mar 2011 11:14:55 -0300
-Message-ID: <20110317141455.GE1724@khazad-dum.debian.net>
-References: <20110315195534.0cc43032@nehalam>
- <4D804EBD.4030904@us.ibm.com>
- <20110316170441.351efba7@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Poll about irqsafe_cpu_add and others
+Date: Thu, 17 Mar 2011 15:23:54 +0100
+Message-ID: <1300371834.6315.93.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5.smtp.messagingengine.com ([66.111.4.29]:60171 "EHLO
-	out5.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752001Ab1CQOO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 10:14:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20110316170441.351efba7@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <cl@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Mar 2011, Stephen Hemminger wrote:
-> > 2.6.38 includes support for macvlan/macvtap 'passthru' mode that allows 
-> > assigning
-> > SR-IOV VFs to a KVM guest via macvtap/virtio.
-> > It is not possible to support live migration using direct assignment of 
-> > VF's to a guest,
-> > but 'passthu' assignment makes this possible.
-> > 
-> > Enabling this feature requires the following patch to iproute2 that 
-> > allows creating macvlan
-> > device in 'passthru' mode.
-> >      http://patchwork.ozlabs.org/patch/69515/
-> > Looks like this patch is still marked as 'Awaiting upstream'.
-> > 
-> > Could you apply this patch and it would be great if a version of 
-> > iproute2 is released for 2.6.38.
-> 
-> Sorry missed it applied to repository, still not sure worth a new release.
+Hi
 
-Release early, release often.  And someone actually bothered asking you to
-specifically, so it clearly is going to be useful to that someone.
+irqsafe_cpu_{dec|inc} are used in network stack since 2.6.37 (commit
+29b4433d991c88), and I would like to use irqsafe_cpu_add() in netfilter
+fast path too, and SNMP counters eventually (to lower ram needs by 50%)
 
-So, why not do a 2.6.38 release?
+Initial support of irqsafe_ was given by Christoph in 2.6.34
 
--- 
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+It seems only x86 arch is using a native and efficient implementation.
+
+Others use irqsafe_cpu_generic_to_op() and its pair of
+local_irq_save() / local_irq_restore()
+
+Which other arches could use a native implementation ?
+
+What about defining a HAVE_FAST_IRQSAFE_ADD ?
+
+Thanks
