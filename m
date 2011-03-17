@@ -1,62 +1,44 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: [PATCH] netfilter: xtables: fix reentrancy
-Date: Thu, 17 Mar 2011 12:36:56 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1103171231220.21558@ask.diku.dk>
-References: <1300302005.3202.23.camel@edumazet-laptop>
- <20110316.131648.15245216.davem@davemloft.net> <1300358140.3133.117.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1300358140.3133.117.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: [PATCH] econet: 4 byte infoleak to the network
+Date: Thu, 17 Mar 2011 14:40:10 +0300
+Message-ID: <1300362011-8653-1-git-send-email-segoon@openwall.com>
+Cc: security@kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Phil Blundell <philb@gnu.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tejun Heo <tj@kernel.org>, Nelson Elhage <nelhage@ksplice.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+struct aunhdr has 4 padding bytes between 'pad' and 'handle' fields on
+x86_64.  These bytes are not initialized in the variable 'ah' before
+sending 'ah' to the network.  This leads to 4 bytes kernel stack
+infoleak.
 
-Hi Eric,
+This bug was introduced before the git epoch.
 
-How critial is this bug fix?
+Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+---
+ net/econet/af_econet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Should I apply this on my stable production kernels?
-(I'm preparing a 2.6.38 kernel for prod usage, eventhougt its just been 
-released, because I want your SFQ fixes...)
-
-
-On Thu, 17 Mar 2011, Eric Dumazet wrote:
-
-> While looking at it (and trying to only require preemption disabled
-> instead of BH disabled), I believe stackptr management is not safe.
->
-> I suggest following patch to make sure we restore *stackptr to origptr
-> before enabling BH (or preemption later)
->
-> Thanks
->
-> [PATCH] netfilter: xtables: fix reentrancy
->
-> commit f3c5c1bfd4308 (make ip_tables reentrant) introduced a race in
-> handling the stackptr restore, at the end of ipt_do_table()
->
-> We should do it before the call to xt_info_rdunlock_bh(), or we allow
-> cpu preemption and another cpu overwrites stackptr of original one.
->
-> A second fix is to change the underflow test to check the origptr value
-> instead of 0 to detect underflow, or else we allow a jump from different
-> hooks.
->
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-[...]
-
-Hilsen
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index 0c28263..116d3fd 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -435,10 +435,10 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		udpdest.sin_addr.s_addr = htonl(network | addr.station);
+ 	}
+ 
++	memset(&ah, 0, sizeof(ah));
+ 	ah.port = port;
+ 	ah.cb = cb & 0x7f;
+ 	ah.code = 2;		/* magic */
+-	ah.pad = 0;
+ 
+ 	/* tack our header on the front of the iovec */
+ 	size = sizeof(struct aunhdr);
+-- 
+1.7.0.4
