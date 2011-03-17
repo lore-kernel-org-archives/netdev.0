@@ -1,63 +1,86 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] RPC: killing RPC tasks races fixed
-Date: Thu, 17 Mar 2011 15:16:55 +0300
-Message-ID: <20110317121638.15035.39410.stgit@localhost6.localdomain6>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/2] virtio: put last seen used index into ring itself
+Date: Thu, 17 Mar 2011 14:20:37 +0200
+Message-ID: <20110317122035.GA15902@redhat.com>
+References: <cover.1300134326.git.mst@redhat.com>
+ <a38d4f036fc471c4ea2a5c61e355813576a4ee3a.1300134326.git.mst@redhat.com>
+ <1300148495.11514.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net, skinsbursky@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Tom Lendacky <tahm@linux.vnet.ibm.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com, jasowang@redhat.com
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1300148495.11514.1.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-task->tk_waitqueue must be checked for NULL before trying to wake up task in
-rpc_killall_tasks() because it can be NULL.
+The following is needed on top: still compiled only, post
+here in case Tom is willing to test this meanwhile.
 
-Here is an example:
+-->
 
-CPU 0               	CPU 1				CPU 2
---------------------	---------------------	--------------------------
-nfs4_run_open_task
-rpc_run_task
-rpc_execute
-rpc_set_active
-rpc_make_runnable
-(waiting)
-			rpc_async_schedule
-			nfs4_open_prepare
-			nfs_wait_on_sequence
-						nfs_umount_begin
-						rpc_killall_tasks
-						rpc_wake_up_task
-						rpc_wake_up_queued_task
-						spin_lock(tk_waitqueue == NULL)
-						BUG()
-			rpc_sleep_on
-			spin_lock(&q->lock)
-			__rpc_sleep_on
-			task->tk_waitqueue = q
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@openvz.org>
+virtio: fix vring_last_used
+ 
+Reported-by: Shirley Ma <mashirle@us.ibm.com>   
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
 ---
- net/sunrpc/clnt.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index 57d344c..24039fe 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -436,7 +436,9 @@ void rpc_killall_tasks(struct rpc_clnt *clnt)
- 		if (!(rovr->tk_flags & RPC_TASK_KILLED)) {
- 			rovr->tk_flags |= RPC_TASK_KILLED;
- 			rpc_exit(rovr, -EIO);
--			rpc_wake_up_queued_task(rovr->tk_waitqueue, rovr);
-+			if (rovr->tk_waitqueue)
-+				rpc_wake_up_queued_task(rovr->tk_waitqueue, 
-+							rovr);
- 		}
- 	}
- 	spin_unlock(&clnt->cl_lock);
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+index a6fc537..a84b056 100644
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -280,7 +280,7 @@ static void detach_buf(struct vring_virtqueue *vq, unsigned int head)
+ 
+ static inline bool more_used(const struct vring_virtqueue *vq)
+ {
+-	return vring_last_used(vq) != vq->vring.used->idx;
++	return vring_last_used(&vq->vring) != vq->vring.used->idx;
+ }
+ 
+ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
+@@ -306,7 +306,7 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
+ 	/* Only get used array entries after they have been exposed by host. */
+ 	virtio_rmb();
+ 
+-	u = &vq->vring.used->ring[vring_last_used(vq) % vq->vring.num];
++	u = &vq->vring.used->ring[vring_last_used(&vq->vring) % vq->vring.num];
+ 	i = u->id;
+ 	*len = u->len;
+ 	if (unlikely(i >= vq->vring.num)) {
+@@ -321,7 +321,7 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
+ 	/* detach_buf clears data, so grab it now. */
+ 	ret = vq->data[i];
+ 	detach_buf(vq, i);
+-	(vring_last_used(vq))++;
++	(vring_last_used(&vq->vring))++;
+ 	/* If we expect an interrupt for the next entry, flush out
+ 	 * last used index write. */
+ 	if (!(vq->vring.avail->flags & VRING_AVAIL_F_NO_INTERRUPT))
+@@ -434,7 +434,7 @@ struct virtqueue *vring_new_virtqueue(unsigned int num,
+ 	vq->vq.name = name;
+ 	vq->notify = notify;
+ 	vq->broken = false;
+-	vring_last_used(vq) = 0;
++	vring_last_used(&vq->vring) = 0;
+ 	vq->num_added = 0;
+ 	list_add_tail(&vq->vq.list, &vdev->vqs);
+ #ifdef DEBUG
+diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_ring.h
+index 4587ea2..462756d 100644
+--- a/include/linux/virtio_ring.h
++++ b/include/linux/virtio_ring.h
+@@ -100,7 +100,7 @@ struct vring {
+ 
+ /* We publish the last-seen used index at the end of the available ring.
+  * It is at the end for backwards compatibility. */
+-#define vring_last_used(vr) ((vr)->avail->ring[num])
++#define vring_last_used(vr) ((vr)->avail->ring[(vr)->num])
+ static inline void vring_init(struct vring *vr, unsigned int num, void *p,
+ 			      unsigned long align)
+ {
