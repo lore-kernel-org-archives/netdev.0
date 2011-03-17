@@ -1,43 +1,54 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCHv2 3/9] macb: unify at91 and avr32 platform data
-Date: Thu, 17 Mar 2011 08:58:35 +0000
-Message-ID: <20110317085835.GC29758@n2100.arm.linux.org.uk>
-References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com> <1300184096-13937-4-git-send-email-jamie@jamieiles.com> <87vczkmy94.fsf@macbook.be.48ers.dk> <AANLkTi=TiRnc0ceosH-P7fN7wKrLZE0MCJHQ30gM_Q9b@mail.gmail.com> <871v26m8tf.fsf@macbook.be.48ers.dk>
+From: Andrew Victor <avictor.za@gmail.com>
+Subject: Re: [PATCHv2 1/9] at91: provide macb clks with "pclk" and "hclk" name
+Date: Thu, 17 Mar 2011 11:22:37 +0200
+Message-ID: <AANLkTin9FH2orOaV-6feGDikCGvb3C-Q2CnRzp-Y2S4X@mail.gmail.com>
+References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
+	<1300184096-13937-2-git-send-email-jamie@jamieiles.com>
+	<AANLkTimwwUQGhncE7Att_9rAXhpT0n61HC4SW8ShSfAm@mail.gmail.com>
+	<20110316083844.GA13262@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "avictor.za@gmail.com" <avictor.za@gmail.com>,
-	Jamie Iles <jamie@jamieiles.com>, plagnioj@jcrosoft.com,
-	linux-arm-kernel@lists.infradead.org, nicolas.ferre@atmel.com,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: nicolas.ferre@atmel.com, Jamie Iles <jamie@jamieiles.com>,
+	plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org,
 	netdev@vger.kernel.org
-To: Peter Korsgaard <jacmet@sunsite.dk>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:46951 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872Ab1CQI7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 04:59:07 -0400
-Content-Disposition: inline
-In-Reply-To: <871v26m8tf.fsf@macbook.be.48ers.dk>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:55113 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752890Ab1CQJWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 05:22:38 -0400
+Received: by bwz15 with SMTP id 15so2280365bwz.19
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2011 02:22:37 -0700 (PDT)
+In-Reply-To: <20110316083844.GA13262@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 17, 2011 at 09:48:28AM +0100, Peter Korsgaard wrote:
-> >>>>> "avictor" == avictor za@gmail com <avictor.za@gmail.com> writes:
-> 
-> Hi,
-> 
->  >> How about at the same time renaming it to something a bit less
->  >> generic like macb_platform_data?
-> 
->  avictor> The AT91RM9200 uses the same platform_data structure, but has a
->  avictor> different Ethernet peripheral (ie, not the MACB)
-> 
->  avictor> The phy_irq_pin is used in the AT91RM9200 ethernet driver.
->  avictor> (drivers/net/arm/at91_ether.c)
-> 
-> That should probably be cleaned up as well then. Sharing platform_data
-> structures between unrelated drivers seems like quite a mess to me.
+hi Russell,
 
-Why should every driver have a separate platform data structure?
-Is it right to end up with thousands of unique data structures each
-specific to a particular driver?  To me, that sounds like a headache
-waiting to happen.
+>> There is no reference to a "pclk" or "hclk" in the AT91 architecture.
+>> So to avoid possible confusion, maybe create two "fake" clocks both
+>> parented to "macb_clk", and add a comment they're only for
+>> compatibility with the AVR32.
+>
+> It doesn't matter what's in the documentation.
+>
+> What matters more than conforming to documentation is keeping the drivers
+> in a clean and maintainable state without throwing lots of ifdefs into
+> them.
+
+I'm not saying the drivers need ifdefs, they should request both
+"pclk" and "hclk" as suggested.
+
+What I was suggesting is the platform clock setup on AT91 as:
+    macb_clk
+        |
+        +-- hclk
+        +-- pclk
+
+rather than:
+    pclk
+        |
+        +-- hclk
+
+Regards,
+  Andrew Victor
