@@ -1,86 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] virtio: put last seen used index into ring itself
-Date: Thu, 17 Mar 2011 14:20:37 +0200
-Message-ID: <20110317122035.GA15902@redhat.com>
-References: <cover.1300134326.git.mst@redhat.com>
- <a38d4f036fc471c4ea2a5c61e355813576a4ee3a.1300134326.git.mst@redhat.com>
- <1300148495.11514.1.camel@localhost.localdomain>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: [PATCH net-dev2.6] bxn2x: Fix location of PCI-ids defines
+Date: Thu, 17 Mar 2011 14:27:04 +0200
+Message-ID: <1300364824.2090.57.camel@lb-tlvb-ariel.il.broadcom.com>
+Reply-To: ariele@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com, jasowang@redhat.com
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1300148495.11514.1.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3368 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753768Ab1CQMVR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2011 08:21:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following is needed on top: still compiled only, post
-here in case Tom is willing to test this meanwhile.
-
--->
-
-virtio: fix vring_last_used
- 
-Reported-by: Shirley Ma <mashirle@us.ibm.com>   
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
+ drivers/net/bnx2x/bnx2x_main.c |    7 -------
+ include/linux/pci_ids.h        |    2 ++
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index a6fc537..a84b056 100644
---- a/drivers/virtio/virtio_ring.c
-+++ b/drivers/virtio/virtio_ring.c
-@@ -280,7 +280,7 @@ static void detach_buf(struct vring_virtqueue *vq, unsigned int head)
+diff --git a/drivers/net/bnx2x/bnx2x_main.c
+b/drivers/net/bnx2x/bnx2x_main.c
+index 10bc0a6..ab2fc65 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -145,13 +145,6 @@ static struct {
+ 	{ "Broadcom NetXtreme II BCM57712E XGb" }
+ };
  
- static inline bool more_used(const struct vring_virtqueue *vq)
- {
--	return vring_last_used(vq) != vq->vring.used->idx;
-+	return vring_last_used(&vq->vring) != vq->vring.used->idx;
- }
- 
- void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
-@@ -306,7 +306,7 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
- 	/* Only get used array entries after they have been exposed by host. */
- 	virtio_rmb();
- 
--	u = &vq->vring.used->ring[vring_last_used(vq) % vq->vring.num];
-+	u = &vq->vring.used->ring[vring_last_used(&vq->vring) % vq->vring.num];
- 	i = u->id;
- 	*len = u->len;
- 	if (unlikely(i >= vq->vring.num)) {
-@@ -321,7 +321,7 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
- 	/* detach_buf clears data, so grab it now. */
- 	ret = vq->data[i];
- 	detach_buf(vq, i);
--	(vring_last_used(vq))++;
-+	(vring_last_used(&vq->vring))++;
- 	/* If we expect an interrupt for the next entry, flush out
- 	 * last used index write. */
- 	if (!(vq->vring.avail->flags & VRING_AVAIL_F_NO_INTERRUPT))
-@@ -434,7 +434,7 @@ struct virtqueue *vring_new_virtqueue(unsigned int num,
- 	vq->vq.name = name;
- 	vq->notify = notify;
- 	vq->broken = false;
--	vring_last_used(vq) = 0;
-+	vring_last_used(&vq->vring) = 0;
- 	vq->num_added = 0;
- 	list_add_tail(&vq->vq.list, &vdev->vqs);
- #ifdef DEBUG
-diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_ring.h
-index 4587ea2..462756d 100644
---- a/include/linux/virtio_ring.h
-+++ b/include/linux/virtio_ring.h
-@@ -100,7 +100,7 @@ struct vring {
- 
- /* We publish the last-seen used index at the end of the available ring.
-  * It is at the end for backwards compatibility. */
--#define vring_last_used(vr) ((vr)->avail->ring[num])
-+#define vring_last_used(vr) ((vr)->avail->ring[(vr)->num])
- static inline void vring_init(struct vring *vr, unsigned int num, void *p,
- 			      unsigned long align)
- {
+-#ifndef PCI_DEVICE_ID_NX2_57712
+-#define PCI_DEVICE_ID_NX2_57712		0x1662
+-#endif
+-#ifndef PCI_DEVICE_ID_NX2_57712E
+-#define PCI_DEVICE_ID_NX2_57712E	0x1663
+-#endif
+-
+ static DEFINE_PCI_DEVICE_TABLE(bnx2x_pci_tbl) = {
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57710), BCM57710 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57711), BCM57711 },
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 3adb06e..f82986b 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2078,6 +2078,8 @@
+ #define PCI_DEVICE_ID_TIGON3_5723	0x165b
+ #define PCI_DEVICE_ID_TIGON3_5705M	0x165d
+ #define PCI_DEVICE_ID_TIGON3_5705M_2	0x165e
++#define PCI_DEVICE_ID_NX2_57712		0x1662
++#define PCI_DEVICE_ID_NX2_57712E	0x1663
+ #define PCI_DEVICE_ID_TIGON3_5714	0x1668
+ #define PCI_DEVICE_ID_TIGON3_5714S	0x1669
+ #define PCI_DEVICE_ID_TIGON3_5780	0x166a
+-- 
+1.7.4.1
+
+
+
+
