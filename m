@@ -1,54 +1,49 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH V11 2/4] ptp: Added a clock that uses the eTSEC found on
- the MPC85xx.
-Date: Thu, 17 Mar 2011 13:21:16 -0600
-Message-ID: <20110317192116.GC12824@angua.secretlab.ca>
-References: <cover.1298447722.git.richard.cochran@omicron.at>
- <be1f5e801e8cd0145dd23aadae7c2055bb3c1d47.1298447722.git.richard.cochran@omicron.at>
- <20110223165058.GE14597@angua.secretlab.ca>
- <20110223112612.30071995@schlenkerla>
- <20110223175459.GH14597@angua.secretlab.ca>
- <20110223132444.65dfdda4@schlenkerla>
- <20110224165004.GB15234@riccoc20.at.omicron.at>
- <20110224112731.2d9bf080@schlenkerla>
- <20110225075320.GA4032@riccoc20.at.omicron.at>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Poll about irqsafe_cpu_add and others
+Date: Thu, 17 Mar 2011 14:21:33 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1103171419280.18529@router.home>
+References: <1300371834.6315.93.camel@edumazet-laptop>  <20110317.081420.71114992.davem@davemloft.net>  <alpine.DEB.2.00.1103171016270.12540@router.home>  <1300380801.6315.306.camel@edumazet-laptop>  <alpine.DEB.2.00.1103171245430.16620@router.home>
+ <1300386569.6315.404.camel@edumazet-laptop>  <alpine.DEB.2.00.1103171338350.18529@router.home> <1300388139.6315.418.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110225075320.GA4032-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1300388139.6315.418.camel@edumazet-laptop>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 25, 2011 at 08:53:20AM +0100, Richard Cochran wrote:
-> On Thu, Feb 24, 2011 at 11:27:31AM -0600, Scott Wood wrote:
-> 
-> > My vote, if it goes in a separate node at all, is "fsl,etsec-ptp",
-> 
-> So, that is what the patch does.
-> 
-> > and let the driver use SVR.
-> 
-> What is SVR?
+On Thu, 17 Mar 2011, Eric Dumazet wrote:
 
-An on chip register that provides the exact version of the SoC.  (As
-opposed to PVR which is the version of the cpu core).
+> > > I wonder why we dont use :
+> > >
+> > > 	addl	$0x2,%fs:xt_u64
+> > > 	addcl	$0x0,%fs:xt_u64+4
+> >
+> > The compiler is fed the following
+> >
+> > 	*__this_cpu_ptr(xt_u64) += 2
+> >
+> > __this_cpu_ptr makes it:
+> >
+> > 	*(xt_u64 + __my_cpu_offset) += 2
+> >
+> > So the compiler calculates the address first and then increments it.
+> >
+> > The compiler could optimize this I think. Wonder why that does not happen.
+>
+> Compiler is really forced to compute addr, thats why.
+>
+> Hmm, we should not fallback to generic ops I think, but tweak
+>
+> percpu_add_op() {
 
-g.
+percpu_add_op() is not used. This is a 64 bit operation on a 32 bit
+machine thus we fall back to this_cpu_generic_to_op()
+
+#define __this_cpu_generic_to_op(pcp, val, op)                          \
+do {                                                                    \
+        *__this_cpu_ptr(&(pcp)) op val;                                 \
+} while (0)
