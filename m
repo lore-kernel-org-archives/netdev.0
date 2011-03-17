@@ -1,52 +1,24 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-dev2.6] bxn2x: Fix location of PCI-ids defines
-Date: Thu, 17 Mar 2011 10:32:54 -0700
-Message-ID: <1300383174.25808.21.camel@HP1>
-References: <1300364824.2090.57.camel@lb-tlvb-ariel.il.broadcom.com>
- <20110317.060650.226776465.davem@davemloft.net>
- <1300367613.31873.0.camel@lb-tlvb-eilong.il.broadcom.com>
- <20110317.081046.193692423.davem@davemloft.net>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Poll about irqsafe_cpu_add and others
+Date: Thu, 17 Mar 2011 12:46:18 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1103171245430.16620@router.home>
+References: <1300371834.6315.93.camel@edumazet-laptop>  <20110317.081420.71114992.davem@davemloft.net>  <alpine.DEB.2.00.1103171016270.12540@router.home> <1300380801.6315.306.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1502 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753303Ab1CQRiD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2011 13:38:03 -0400
-In-Reply-To: <20110317.081046.193692423.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1300380801.6315.306.camel@edumazet-laptop>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 17 Mar 2011, Eric Dumazet wrote:
 
-On Thu, 2011-03-17 at 08:10 -0700, David Miller wrote:
-> From: "Eilon Greenstein" <eilong@broadcom.com>
-> Date: Thu, 17 Mar 2011 15:13:33 +0200
-> 
-> > On Thu, 2011-03-17 at 06:06 -0700, David Miller wrote:
-> >> From: "Ariel Elior" <ariele@broadcom.com>
-> >> Date: Thu, 17 Mar 2011 14:27:04 +0200
-> >> 
-> >> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> >> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> >> 
-> >> Unless you intend to reference these symbols elsewhere in the
-> >> kernel, they should stay private in your driver.
-> >> 
-> > 
-> > The bnx2i will need it as well. Isn't it better to keep all the PCI IDs
-> > in the same global location?
-> 
-> If they are used in more than one driver, yes.
+> When we know we run from BH context, we can use __this_cpu_inc(), but if
+> we dont know or run from user/process context, we would need irqsafe_inc
+> variant.
 
-We already sent a similar patch through the scsi tree.  It is now in the
-linux-next tree:
-
-http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=commit;h=8a4a0f3ad071e258a9637c5491c34005a9a97903
-
-
-
+If the BH context is the only one where we care about performance then its
+ok I would think.
