@@ -1,49 +1,51 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL net-2.6] vhost: cleanups and fixes
-Date: Thu, 17 Mar 2011 16:04:04 +0200
-Message-ID: <20110317140403.GA16390@redhat.com>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: Re: No iproute2 for 2.6.38
+Date: Thu, 17 Mar 2011 11:14:55 -0300
+Message-ID: <20110317141455.GE1724@khazad-dum.debian.net>
+References: <20110315195534.0cc43032@nehalam>
+ <4D804EBD.4030904@us.ibm.com>
+ <20110316170441.351efba7@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, jasowang@redhat.com, krkumar2@in.ibm.com,
-	mst@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Sridhar Samudrala <sri@us.ibm.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5.smtp.messagingengine.com ([66.111.4.29]:60171 "EHLO
+	out5.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752001Ab1CQOO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 10:14:59 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110316170441.351efba7@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following tree has fixes for vhost-net for 2.6.39.
-These are easier to apply on top of Jason's and Krishna's
-cleanups, and they got tested this way, so I thought it's
-better for everyone to include that, and the trivial
-copy_from_user optimization.
+On Wed, 16 Mar 2011, Stephen Hemminger wrote:
+> > 2.6.38 includes support for macvlan/macvtap 'passthru' mode that allows 
+> > assigning
+> > SR-IOV VFs to a KVM guest via macvtap/virtio.
+> > It is not possible to support live migration using direct assignment of 
+> > VF's to a guest,
+> > but 'passthu' assignment makes this possible.
+> > 
+> > Enabling this feature requires the following patch to iproute2 that 
+> > allows creating macvlan
+> > device in 'passthru' mode.
+> >      http://patchwork.ozlabs.org/patch/69515/
+> > Looks like this patch is still marked as 'Awaiting upstream'.
+> > 
+> > Could you apply this patch and it would be great if a version of 
+> > iproute2 is released for 2.6.38.
+> 
+> Sorry missed it applied to repository, still not sure worth a new release.
 
-But if you think it's too late for that, pls let me know
-and I'll try to untangle that dependency.
+Release early, release often.  And someone actually bothered asking you to
+specifically, so it clearly is going to be useful to that someone.
 
-Thanks!
+So, why not do a 2.6.38 release?
 
-The following changes since commit 1fc050a13473348f5c439de2bb41c8e92dba5588:
-
-  ipv4: Cache source address in nexthop entries. (2011-03-07 20:54:48 -0800)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
-
-Jason Wang (3):
-      vhost-net: check the support of mergeable buffer outside the receive loop
-      vhost-net: Unify the code of mergeable and big buffer handling
-      vhost: lock receive queue, not the socket
-
-Krishna Kumar (1):
-      vhost: Cleanup vhost.c and net.c
-
-Michael S. Tsirkin (2):
-      vhost: copy_from_user -> __copy_from_user
-      vhost-net: remove unlocked use of receive_queue
-
- drivers/vhost/net.c   |  159 ++++++++-----------------------------------------
- drivers/vhost/vhost.c |   55 ++++++++++++-----
- 2 files changed, 64 insertions(+), 150 deletions(-)
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
