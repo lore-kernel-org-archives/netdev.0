@@ -1,46 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Poll about irqsafe_cpu_add and others
-Date: Thu, 17 Mar 2011 08:14:20 -0700 (PDT)
-Message-ID: <20110317.081420.71114992.davem@davemloft.net>
-References: <1300371834.6315.93.camel@edumazet-laptop>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
+Date: Thu, 17 Mar 2011 10:16:01 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1103171006270.12540@router.home>
+References: <4D6CA852.3060303@cn.fujitsu.com> <AANLkTimXy2Yaj+NTDMNTWuLqHHfKZJhVDpeXj3CfMvBf@mail.gmail.com> <alpine.DEB.2.00.1103010909320.6253@router.home> <AANLkTim0Zjc7c9-7LCnEaYpV5PVN=5fNQpjMYqtZe-fk@mail.gmail.com> <alpine.DEB.2.00.1103020625290.10180@router.home>
+ <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	cl@linux-foundation.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1300371834.6315.93.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@kernel.org>, Lai Jiangshan <laijs@cn.fujitsu.com>,
+  Ingo Molnar <mingo@elte.hu>,
+  "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+  Eric Dumazet <eric.dumazet@gmail.com>,
+  "David S. Miller" <davem@davemloft.net>, Matt Mackall <mpm@selenic.com>,
+  linux-mm@kvack.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Hugh Dickins <hughd@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 17 Mar 2011 15:23:54 +0100
+On Sun, 6 Mar 2011, Hugh Dickins wrote:
 
-> Hi
-> 
-> irqsafe_cpu_{dec|inc} are used in network stack since 2.6.37 (commit
-> 29b4433d991c88), and I would like to use irqsafe_cpu_add() in netfilter
-> fast path too, and SNMP counters eventually (to lower ram needs by 50%)
-> 
-> Initial support of irqsafe_ was given by Christoph in 2.6.34
-> 
-> It seems only x86 arch is using a native and efficient implementation.
-> 
-> Others use irqsafe_cpu_generic_to_op() and its pair of
-> local_irq_save() / local_irq_restore()
-> 
-> Which other arches could use a native implementation ?
-> 
-> What about defining a HAVE_FAST_IRQSAFE_ADD ?
+> >> That was so for a long time, but I stopped it just over a year ago
+> >> with commit a70caa8ba48f21f46d3b4e71b6b8d14080bbd57a, stop ptlock
+> >> enlarging struct page.
+> >
+> > Strange. I just played around with in in January and the page struct size
+> > changes when I build kernels with full debugging. I have some
+> > cmpxchg_double patches here that depend on certain alignment in the page
+> > struct. Debugging causes all that stuff to get out of whack so that I had
+> > to do some special patches to make sure fields following the spinlock are
+> > properly aligned when the sizes change.
+>
+> That puzzles me, it's not my experience and I don't have an
+> explanation: do you have time to investigate?
+>
+> Uh oh, you're going to tell me you're working on an out-of-tree
+> architecture with a million cpus ;)  In that case, yes, I'm afraid
+> I'll have to update the SPLIT_PTLOCK_CPUS defaulting (for a million -
+> 1 even).
 
-I had been meaning to bring this up from another perspective.
+No I am not working on any out of tree structure. Just regular dual socket
+server boxes with 24 processors (which is a normal business machine
+configuration these days).
 
-In networking, we often only ever access objects in base or
-BH context.  Therefore in BH context cases we can do just
-normal counter bumps without any of the special atomic or
-IRQ disabling code at all.
+But then there is also CONFIG_GENERIC_LOCKBREAK. That does not affect
+things?
 
-This would help non-x86 architectures a lot, and depending upon
-how the non-atomic case performs perhaps x86 too.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
