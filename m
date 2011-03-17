@@ -1,44 +1,46 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: [PATCH] econet: 4 byte infoleak to the network
-Date: Thu, 17 Mar 2011 14:40:10 +0300
-Message-ID: <1300362011-8653-1-git-send-email-segoon@openwall.com>
-Cc: security@kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Phil Blundell <philb@gnu.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tejun Heo <tj@kernel.org>, Nelson Elhage <nelhage@ksplice.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netfilter: xtables: fix reentrancy
+Date: Thu, 17 Mar 2011 12:45:23 +0100
+Message-ID: <1300362323.3133.195.camel@edumazet-laptop>
+References: <1300302005.3202.23.camel@edumazet-laptop>
+	 <20110316.131648.15245216.davem@davemloft.net>
+	 <1300358140.3133.117.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1103171231220.21558@ask.diku.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1103171231220.21558@ask.diku.dk>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-struct aunhdr has 4 padding bytes between 'pad' and 'handle' fields on
-x86_64.  These bytes are not initialized in the variable 'ah' before
-sending 'ah' to the network.  This leads to 4 bytes kernel stack
-infoleak.
+Le jeudi 17 mars 2011 =C3=A0 12:36 +0100, Jesper Dangaard Brouer a =C3=A9=
+crit :
+> Hi Eric,
+>=20
+> How critial is this bug fix?
+>=20
+> Should I apply this on my stable production kernels?
+> (I'm preparing a 2.6.38 kernel for prod usage, eventhougt its just be=
+en=20
+> released, because I want your SFQ fixes...)
 
-This bug was introduced before the git epoch.
+I would say the race is there, but probability must be very small, and
+might need malicious iptables rules (with RETURN targets)
 
-Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
----
- net/econet/af_econet.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Especially in routers, where OUTPUT path is taken from softirq handler
+anyway ;)
 
-diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
-index 0c28263..116d3fd 100644
---- a/net/econet/af_econet.c
-+++ b/net/econet/af_econet.c
-@@ -435,10 +435,10 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		udpdest.sin_addr.s_addr = htonl(network | addr.station);
- 	}
- 
-+	memset(&ah, 0, sizeof(ah));
- 	ah.port = port;
- 	ah.cb = cb & 0x7f;
- 	ah.code = 2;		/* magic */
--	ah.pad = 0;
- 
- 	/* tack our header on the front of the iovec */
- 	size = sizeof(struct aunhdr);
--- 
-1.7.0.4
+So dont worry at all, consider this as a cleanup :)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
