@@ -1,27 +1,48 @@
-From: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
-Subject: why dev_watchdog() timer freezes TX queues
-Date: Thu, 17 Mar 2011 20:25:02 +0100
-Message-ID: <4D82600E.2010902@6wind.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-2.6] ethtool: Compat handling for struct ethtool_rxnfc
+Date: Thu, 17 Mar 2011 12:50:57 -0700
+Message-ID: <4D826621.8070905@intel.com>
+References: <1300383272.2569.13.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Santwona Behera <santwona.behera@sun.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40631 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566Ab1CQTZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 15:25:35 -0400
-Received: by wya21 with SMTP id 21so3121292wya.19
-        for <netdev@vger.kernel.org>; Thu, 17 Mar 2011 12:25:34 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:28030 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752970Ab1CQTu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2011 15:50:59 -0400
+In-Reply-To: <1300383272.2569.13.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 3/17/2011 10:34 AM, Ben Hutchings wrote:
+> This structure was accidentally defined such that its layout can
+> differ between 32-bit and 64-bit processes.  Add compat structure
+> definitions and an ioctl wrapper function.
+>
+> Signed-off-by: Ben Hutchings<bhutchings@solarflare.com>
+> Cc: stable@kernel.org [2.6.30+]
+> ---
+> David,
+>
+> I still haven't received any response on whether the ETHTOOL_GRXCLSRLALL
+> wrapping works with a real driver, but perhaps you could test it against
+> niu?  I think sparc32 and sparc64 have the same alignment for u64 so
+> this wrapper isn't strictly necessary, but it would still be used.  (Or
+> we can arrange to disable the conversion when compat_ethtool_rxnfc is
+> equivalent to ethtool_rxnfc.)
+>
+> Ben.
 
-Is it required to set FROZEN all tx queues in dev_watchdog() timer?
-On timeout netif_tx_lock() blocks TX on all queues, even if STOPPED
-was not set on any queue.
+I'll try to pull this into my current development tree and test it while 
+working on the next set of RFC patches for ixgbe w/ updated flow 
+director.  I probably won't have it done until the middle of next week 
+though.
 
-Jean-Mickael
+Thanks,
 
-
+Alex
