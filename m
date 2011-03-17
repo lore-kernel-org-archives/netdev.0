@@ -1,39 +1,39 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: TX from KVM guest virtio_net to vhost issues
-Date: Thu, 17 Mar 2011 08:07:48 -0700
-Message-ID: <1300374468.3255.41.camel@localhost.localdomain>
-References: <1299707197.25664.173.camel@localhost.localdomain>
-	 <87d3ly2n81.fsf@rustcorp.com.au>
-	 <1300321214.3255.40.camel@localhost.localdomain>
-	 <20110317060058.GI32049@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-dev2.6] bxn2x: Fix location of PCI-ids defines
+Date: Thu, 17 Mar 2011 08:10:46 -0700 (PDT)
+Message-ID: <20110317.081046.193692423.davem@davemloft.net>
+References: <1300364824.2090.57.camel@lb-tlvb-ariel.il.broadcom.com>
+	<20110317.060650.226776465.davem@davemloft.net>
+	<1300367613.31873.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: ariele@broadcom.com, netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:48863 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825Ab1CQPHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 11:07:55 -0400
-In-Reply-To: <20110317060058.GI32049@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55592
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753825Ab1CQPKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 11:10:08 -0400
+In-Reply-To: <1300367613.31873.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-03-17 at 08:00 +0200, Michael S. Tsirkin wrote:
-> On Wed, Mar 16, 2011 at 05:20:14PM -0700, Shirley Ma wrote:
-> > This patch doesn't seem to help guest TX queue overrun.
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Thu, 17 Mar 2011 15:13:33 +0200
+
+> On Thu, 2011-03-17 at 06:06 -0700, David Miller wrote:
+>> From: "Ariel Elior" <ariele@broadcom.com>
+>> Date: Thu, 17 Mar 2011 14:27:04 +0200
+>> 
+>> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
+>> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+>> 
+>> Unless you intend to reference these symbols elsewhere in the
+>> kernel, they should stay private in your driver.
+>> 
 > 
-> Just making sure: what exactly was tested?
-> You did combine this with a vhost-net and qemu patches, right?
-> 
+> The bnx2i will need it as well. Isn't it better to keep all the PCI IDs
+> in the same global location?
 
-I have virtio_net patch, I missed qemu patch. I will retest it.
-
-Thanks
-Shirley
-
+If they are used in more than one driver, yes.
