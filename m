@@ -1,49 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: build breakage due to br_multicast.c referencing
- ipv6_dev_get_saddr()
-Date: Thu, 17 Mar 2011 06:00:33 -0700 (PDT)
-Message-ID: <20110317.060033.193708621.davem@davemloft.net>
-References: <4D80BC5B0200007800036D85@vpn.id2.novell.com>
-	<20110316082441.45db3018@nehalam>
-	<4D81CDF6020000780003700B@vpn.id2.novell.com>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] RPC: killing RPC tasks races fixed
+Date: Thu, 17 Mar 2011 09:01:44 -0400
+Message-ID: <1300366904.9654.13.camel@lade.trondhjem.org>
+References: <20110317121638.15035.39410.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linus.luessing@web.de
-To: JBeulich@novell.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52926
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754057Ab1CQM74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 08:59:56 -0400
-In-Reply-To: <4D81CDF6020000780003700B@vpn.id2.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, skinsbursky-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110317121638.15035.39410.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jan Beulich" <JBeulich@novell.com>
-Date: Thu, 17 Mar 2011 08:01:42 +0000
-
->>>> On 16.03.11 at 16:24, Stephen Hemminger <shemminger@linux-foundation.org>
-> wrote:
->> On Wed, 16 Mar 2011 12:34:19 +0000
->> "Jan Beulich" <JBeulich@novell.com> wrote:
->> 
->>> With BRIDGE=y and IPV6=m commit
->>> fe29ec41aaa51902aebd63658dfb04fe6fea8be5 ("bridge: Use IPv6
->>> link-local address for multicast listener queries") causes the build to
->>> break.
->> 
->> Rather than continue with the config games, lets just make the necessary
->> ipv6 pieces accessible.
+On Thu, 2011-03-17 at 15:16 +0300, Stanislav Kinsbursky wrote:
+> task->tk_waitqueue must be checked for NULL before trying to wake up task in
+> rpc_killall_tasks() because it can be NULL.
 > 
-> The below (however ugly it may look) seems to do the trick for me,
-> for this particular symbol. Possibly other symbols need doing the
-> same (didn't check which ones e.g. infiniband depends on), so
-> some sort of abstraction might be desirable to make the whole
-> thing look less ugly.
+> Here is an example:
+> 
+> CPU 0               	CPU 1				CPU 2
+> --------------------	---------------------	--------------------------
+> nfs4_run_open_task
+> rpc_run_task
+> rpc_execute
+> rpc_set_active
+> rpc_make_runnable
+> (waiting)
+> 			rpc_async_schedule
+> 			nfs4_open_prepare
+> 			nfs_wait_on_sequence
+> 						nfs_umount_begin
+> 						rpc_killall_tasks
+> 						rpc_wake_up_task
+> 						rpc_wake_up_queued_task
+> 						spin_lock(tk_waitqueue == NULL)
+> 						BUG()
+> 			rpc_sleep_on
+> 			spin_lock(&q->lock)
+> 			__rpc_sleep_on
+> 			task->tk_waitqueue = q
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+> 
+> ---
+>  net/sunrpc/clnt.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+> index 57d344c..24039fe 100644
+> --- a/net/sunrpc/clnt.c
+> +++ b/net/sunrpc/clnt.c
+> @@ -436,7 +436,9 @@ void rpc_killall_tasks(struct rpc_clnt *clnt)
+>  		if (!(rovr->tk_flags & RPC_TASK_KILLED)) {
+>  			rovr->tk_flags |= RPC_TASK_KILLED;
+>  			rpc_exit(rovr, -EIO);
+> -			rpc_wake_up_queued_task(rovr->tk_waitqueue, rovr);
+> +			if (rovr->tk_waitqueue)
+> +				rpc_wake_up_queued_task(rovr->tk_waitqueue, 
+> +							rovr);
 
-Sorry, we won't be doing things this way.  We created the disable
-option exactly to handle this cleanly, and that is the way you
-should take care of the situation you're in where you want to built
-ipv6 modular yet have it disabled.
+Testing for RPC_IS_QUEUED(rovr) would be better, since that would
+optimise away the call to rpc_wake_up_queued_task() altogether for those
+tasks that aren't queued.
+
+>  		}
+>  	}
+>  	spin_unlock(&clnt->cl_lock);
+> 
+
+-- 
+Trond Myklebust
+Linux NFS client maintainer
+
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
