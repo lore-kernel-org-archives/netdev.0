@@ -1,116 +1,62 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Thu, 17 Mar 2011 07:02:43 +0200
-Message-ID: <20110317050242.GC32049@redhat.com>
-References: <1300320775.3255.34.camel@localhost.localdomain>
+Subject: Re: [PATCH] virtio: Avoid virtio_net TX queue over run
+Date: Thu, 17 Mar 2011 07:05:38 +0200
+Message-ID: <20110317050538.GD32049@redhat.com>
+References: <1300320595.3255.29.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>
+	netdev@vger.kernel.org
 To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59295 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750830Ab1CQFFw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2011 01:05:52 -0400
 Content-Disposition: inline
-In-Reply-To: <1300320775.3255.34.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1300320595.3255.29.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2011 at 05:12:55PM -0700, Shirley Ma wrote:
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> ---
->  drivers/net/virtio_net.c |   39 ++++++++++++++++++++-------------------
->  1 files changed, 20 insertions(+), 19 deletions(-)
+On Wed, Mar 16, 2011 at 05:09:55PM -0700, Shirley Ma wrote:
+> This patch addresses small message size performance in a situation the
+> KVM guest virtio_net TX queue overrun. This patch adds a new API in
+> virtio_ring for ring capacity check; and remove KVM guest virtio_net TX
+> queue send completion interrupts completely. The test has shown that 
+> whenever the queue is overrun, it's much better to drop a few packets
+> than stopping TX queue and waiting for host to notify the guest to wake
+> up the TX queue again, the small messages size performance gain for
+> single TCP_STREAM BW could be up to 200%-300% and better than bare
+> metal, and no regression has been found in other situation.
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 82dba5a..c603daa 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -23,6 +23,7 @@
->  #include <linux/module.h>
->  #include <linux/virtio.h>
->  #include <linux/virtio_net.h>
-> +#include <linux/virtio_ring.h>
->  #include <linux/scatterlist.h>
->  #include <linux/if_vlan.h>
->  #include <linux/slab.h>
-> @@ -509,19 +510,18 @@ again:
->  	return received;
->  }
->  
-> -static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
-> +static void free_old_xmit_skbs(struct virtnet_info *vi)
->  {
->  	struct sk_buff *skb;
-> -	unsigned int len, tot_sgs = 0;
-> +	unsigned int len;
->  
->  	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
->  		pr_debug("Sent skb %p\n", skb);
->  		vi->dev->stats.tx_bytes += skb->len;
->  		vi->dev->stats.tx_packets++;
-> -		tot_sgs += skb_vnet_hdr(skb)->num_sg;
->  		dev_kfree_skb_any(skb);
->  	}
-> -	return tot_sgs;
-> +	return;
->  }
->  
->  static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
-> @@ -574,11 +574,26 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
->  static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
-> +	bool drop;
-> +	bool indirect = virtio_has_feature(vi->vdev,
-> +					   VIRTIO_RING_F_INDIRECT_DESC);
->  	int capacity;
->  
->  	/* Free up any pending old buffers before queueing new ones. */
->  	free_old_xmit_skbs(vi);
-> -
-> +	capacity = virtqueue_get_capacity(vi->svq);
-> +
-> +	/* Drop packet instead of stop queue for better performance */
-> +	drop = (capacity == 0 && indirect) ||
-> +	       ((capacity < MAX_SKB_FRAGS + 2) && !indirect);
-> +	if (unlikely(drop)) {
-> +		dev->stats.tx_fifo_errors++;
-> +		dev_warn(&dev->dev, "Unexpected TX queue failure: %d\n",
-> +			 capacity);
-> +		dev->stats.tx_dropped++;
-> +		kfree_skb(skb);
-> +		return NETDEV_TX_OK;
-> +	}
->  	/* Try to transmit */
->  	capacity = xmit_skb(vi, skb);
-
-So, this just tries to make sure there's enough space for
-max packet in the ring, if not - drop and return OK.
-Why bother checking beforehand though?
-If that's what we want to do, we can just call add_buf and see
-if it fails?
-
-
-> @@ -605,20 +620,6 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	skb_orphan(skb);
->  	nf_reset(skb);
->  
-> -	/* Apparently nice girls don't return TX_BUSY; stop the queue
-> -	 * before it gets out of hand.  Naturally, this wastes entries. */
-> -	if (capacity < 2+MAX_SKB_FRAGS) {
-> -		netif_stop_queue(dev);
-> -		if (unlikely(!virtqueue_enable_cb(vi->svq))) {
-> -			/* More just got used, free them then recheck. */
-> -			capacity += free_old_xmit_skbs(vi);
-> -			if (capacity >= 2+MAX_SKB_FRAGS) {
-> -				netif_start_queue(dev);
-> -				virtqueue_disable_cb(vi->svq);
-> -			}
-> -		}
-> -	}
-> -
->  	return NETDEV_TX_OK;
->  }
->  
+> Performance data for 10GbE,
 > 
+> KVM guest to local host:
+> ------------------------
+> Message size	2.6.38-rc8 	2.6.38-rc8+patch
+> 1024		1770.61		4528.37
+> 2048		2702.30		7110.95
+> 4096		5256.84		10104.76
+> 8192		7543.66		10945.93
+> 16K		10500.47	10783.50
+> 64K		13718.62	13640.80
+> 
+> KVM guest to remote host:
+> --------------------------
+> Message size	Bare Metal  2.6.38-rc8	2.6.38-rc8+patch
+> 1024		1802.67		2381.41		5599.15	
+> 2048		4317.87		4094.12		9241.86
+> 4096		6266.15		5231.24		9321.87
+> 8192		8409.17		7952.74		9265.45
+> 16K		9351.63		8260.68		8310.29
+> 64K		9347.94		9103.75		9094.38 
+> 
+> Thanks
+> Shirley
+
+Could you add CPU utilization data pls? I also wonder what does this do
+to UDP?  Won't a lot of packets be dropped?
+
+-- 
+MST
