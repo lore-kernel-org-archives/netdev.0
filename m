@@ -1,50 +1,38 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: Poll about irqsafe_cpu_add and others
-Date: Thu, 17 Mar 2011 13:42:10 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1103171338350.18529@router.home>
-References: <1300371834.6315.93.camel@edumazet-laptop>  <20110317.081420.71114992.davem@davemloft.net>  <alpine.DEB.2.00.1103171016270.12540@router.home>  <1300380801.6315.306.camel@edumazet-laptop>  <alpine.DEB.2.00.1103171245430.16620@router.home>
- <1300386569.6315.404.camel@edumazet-laptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH] virtio: Avoid virtio_net TX queue over run
+Date: Thu, 17 Mar 2011 11:49:18 -0700
+Message-ID: <1300387758.3255.56.camel@localhost.localdomain>
+References: <1300320595.3255.29.camel@localhost.localdomain>
+	 <20110317050538.GD32049@redhat.com>
+	 <1300380626.3255.53.camel@localhost.localdomain>
+	 <1300381096.6315.315.camel@edumazet-laptop>
+	 <1300381265.3255.54.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1300386569.6315.404.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1300381265.3255.54.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Mar 2011, Eric Dumazet wrote:
+On Thu, 2011-03-17 at 10:01 -0700, Shirley Ma wrote:
+> On Thu, 2011-03-17 at 17:58 +0100, Eric Dumazet wrote:
+> > Could you run your tests with only one cpu ?
+> > (offline all cpus but cpu0 on your hypervisor)
+> > 
+> > Dropping packets is fine, unless consumer cant run ;) 
+> 
+> Sure, will report the data soon. 
 
-> By the way, I noticed :
->
-> DECLARE_PER_CPU(u64, xt_u64);
-> __this_cpu_add(xt_u64, 2) translates to following x86_32 code :
->
-> 	mov	$xt_u64,%eax
-> 	add	%fs:0x0,%eax
-> 	addl	$0x2,(%eax)
-> 	adcl	$0x0,0x4(%eax)
->
->
-> I wonder why we dont use :
->
-> 	addl	$0x2,%fs:xt_u64
-> 	addcl	$0x0,%fs:xt_u64+4
+With a single CPU, before/after with this patch the performance has no
+difference for both UDP and TCP, and it seems hitting TX overrun, CPU is
+100% used.
 
-The compiler is fed the following
-
-	*__this_cpu_ptr(xt_u64) += 2
-
-__this_cpu_ptr makes it:
-
-	*(xt_u64 + __my_cpu_offset) += 2
-
-So the compiler calculates the address first and then increments it.
-
-The compiler could optimize this I think. Wonder why that does not happen.
-
-
-
+Thanks
+Shirley
 
