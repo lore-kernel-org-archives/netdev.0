@@ -1,62 +1,50 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Remove resource leak in svc_rdma_send_error()
-Date: Thu, 17 Mar 2011 14:37:52 -0400
-Message-ID: <20110317183752.GH30180@fieldses.org>
-References: <alpine.LNX.2.00.1101222233260.7746@swampdragon.chaosbits.net>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Poll about irqsafe_cpu_add and others
+Date: Thu, 17 Mar 2011 13:42:10 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1103171338350.18529@router.home>
+References: <1300371834.6315.93.camel@edumazet-laptop>  <20110317.081420.71114992.davem@davemloft.net>  <alpine.DEB.2.00.1103171016270.12540@router.home>  <1300380801.6315.306.camel@edumazet-laptop>  <alpine.DEB.2.00.1103171245430.16620@router.home>
+ <1300386569.6315.404.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
-To: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.00.1101222233260.7746-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1300386569.6315.404.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 22, 2011 at 10:40:20PM +0100, Jesper Juhl wrote:
-> We leak the memory allocated to 'ctxt' when we return after 
-> 'ib_dma_mapping_error()' returns !=0.
-> 
-> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+On Thu, 17 Mar 2011, Eric Dumazet wrote:
 
-I don't know this code, but I can't see how that could be wrong....
-Applying unless Tom tells me otherwise.
+> By the way, I noticed :
+>
+> DECLARE_PER_CPU(u64, xt_u64);
+> __this_cpu_add(xt_u64, 2) translates to following x86_32 code :
+>
+> 	mov	$xt_u64,%eax
+> 	add	%fs:0x0,%eax
+> 	addl	$0x2,(%eax)
+> 	adcl	$0x0,0x4(%eax)
+>
+>
+> I wonder why we dont use :
+>
+> 	addl	$0x2,%fs:xt_u64
+> 	addcl	$0x0,%fs:xt_u64+4
 
---b.
+The compiler is fed the following
 
-> ---
->  svc_rdma_transport.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
->   compile tested only
-> 
-> diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-> index 9df1ead..1a10dcd 100644
-> --- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
-> +++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-> @@ -1335,6 +1335,7 @@ void svc_rdma_send_error(struct svcxprt_rdma *xprt, struct rpcrdma_msg *rmsgp,
->  					    p, 0, length, DMA_FROM_DEVICE);
->  	if (ib_dma_mapping_error(xprt->sc_cm_id->device, ctxt->sge[0].addr)) {
->  		put_page(p);
-> +		svc_rdma_put_context(ctxt, 1);
->  		return;
->  	}
->  	atomic_inc(&xprt->sc_dma_used);
-> 
-> 
-> -- 
-> Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>            http://www.chaosbits.net/
-> Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-> Plain text mails only, please.
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	*__this_cpu_ptr(xt_u64) += 2
+
+__this_cpu_ptr makes it:
+
+	*(xt_u64 + __my_cpu_offset) += 2
+
+So the compiler calculates the address first and then increments it.
+
+The compiler could optimize this I think. Wonder why that does not happen.
+
+
+
+
