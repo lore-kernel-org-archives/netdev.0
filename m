@@ -1,37 +1,59 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH] RPC: killing RPC tasks races fixed
-Date: Thu, 17 Mar 2011 20:04:31 +0300
-Message-ID: <4D823F1F.6010500@parallels.com>
-References: <20110317121638.15035.39410.stgit@localhost6.localdomain6>	 <1300366904.9654.13.camel@lade.trondhjem.org>	 <4D822C3C.9090100@parallels.com> <1300380254.28305.1.camel@lade.trondhjem.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute 2.6.38
+Date: Thu, 17 Mar 2011 10:16:52 -0700
+Message-ID: <20110317101652.27e68348@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"skinsbursky@openvz.org" <skinsbursky@openvz.org>
-To: Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1300380254.28305.1.camel@lade.trondhjem.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36931 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751846Ab1CQRQz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2011 13:16:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-17.03.2011 19:44, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->
-> Are you sure? Why would the 2.6.32 rhel kernel differ from the mainli=
-ne
-> 2.6.32 kernel in this respect?
->
+Due to popular demand, there is an iproute2 release for 2.6.38 after all. 
 
-Checked again and realized, that was wrong.
-This set sequence is the same in 2.6.32 rhel, 2.6.32 and 2.6.38 kernels=
-=2E
+This version of iproute2 utilities intended for use with 2.6.38 or
+later kernel, but should be backward compatible with older releases.
+New features are support for macvlan passthru and xfrm security context.
 
---=20
-Best regards,
-Stanislav Kinsbursky
+Source: (note old developer.osdl.org address works as well)
+  http://devresources.linuxfoundation.org/dev/iproute2/download/iproute2-2.6.38.tar.bz2
+
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+For more info on iproute2 see:
+  http://www.linuxfoundation.org/collaborate/workgroups/networking/iproute2
+
+Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
+
+Changelog:
+
+Gerrit Renker (3):
+      utils: get_jiffies always uses base=0
+      iproute: fix unit conversion of rtt/rttvar/rto_min
+      iproute: rename 'get_jiffies' since it uses msecs
+
+Joy Latten (3):
+      xfrm security context support
+      xfrm security context support
+      xfrm security context support
+
+Nicolas Dichtel (1):
+      iproute2: allow to specify truncation bits on auth algo
+
+Sridhar Samudrala (1):
+      macvlan/macvtap: support 'passthru' mode
+
+Stephen Hemminger (2):
+      Update to lasest kernel headers
+      v2.6.38.1
+
+Vlad Dogaru (1):
+      iproute2: fix man page whitespace
+
