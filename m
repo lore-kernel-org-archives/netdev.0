@@ -1,40 +1,50 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Thu, 17 Mar 2011 08:10:05 -0700
-Message-ID: <1300374605.3255.43.camel@localhost.localdomain>
-References: <1300320775.3255.34.camel@localhost.localdomain>
-	 <874o72gwm5.fsf@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: No iproute2 for 2.6.38
+Date: Thu, 17 Mar 2011 08:12:28 -0700 (PDT)
+Message-ID: <20110317.081228.226779291.davem@davemloft.net>
+References: <4D804EBD.4030904@us.ibm.com>
+	<20110316170441.351efba7@nehalam>
+	<20110317141455.GE1724@khazad-dum.debian.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: shemminger@vyatta.com, sri@us.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: hmh@hmh.eng.br
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:43431 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825Ab1CQPKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 11:10:19 -0400
-In-Reply-To: <874o72gwm5.fsf@rustcorp.com.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55597
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753426Ab1CQPLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 11:11:50 -0400
+In-Reply-To: <20110317141455.GE1724@khazad-dum.debian.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-03-17 at 15:40 +1030, Rusty Russell wrote:
-> This is fascinating... and deeply weird.
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Date: Thu, 17 Mar 2011 11:14:55 -0300
+
+> On Wed, 16 Mar 2011, Stephen Hemminger wrote:
+>> > 2.6.38 includes support for macvlan/macvtap 'passthru' mode that allows 
+>> > assigning
+>> > SR-IOV VFs to a KVM guest via macvtap/virtio.
+>> > It is not possible to support live migration using direct assignment of 
+>> > VF's to a guest,
+>> > but 'passthu' assignment makes this possible.
+>> > 
+>> > Enabling this feature requires the following patch to iproute2 that 
+>> > allows creating macvlan
+>> > device in 'passthru' mode.
+>> >      http://patchwork.ozlabs.org/patch/69515/
+>> > Looks like this patch is still marked as 'Awaiting upstream'.
+>> > 
+>> > Could you apply this patch and it would be great if a version of 
+>> > iproute2 is released for 2.6.38.
+>> 
+>> Sorry missed it applied to repository, still not sure worth a new release.
 > 
-> OK, what's the difference between calling xmit_skb and ignoring
-> failure,
-> and this patch which figures out it's going to fail before calling
-> xmit_skb?
+> Release early, release often.  And someone actually bothered asking you to
+> specifically, so it clearly is going to be useful to that someone.
 > 
-> ie. what if you *just* delete this:
+> So, why not do a 2.6.38 release?
 
-Somehow what was in my mind, add_buf is more expensive than simply
-checked ring capacity. I retest it with your and Michael's suggestion
-here.
-
-Thanks
-Shirley
-
+Indeed, Stephen please make a release.
