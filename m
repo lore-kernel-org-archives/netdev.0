@@ -1,41 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] netfilter: get rid of atomic ops in fast path
-Date: Thu, 17 Mar 2011 11:39:01 +0100
-Message-ID: <4D81E4C5.5060009@trash.net>
-References: <1300302005.3202.23.camel@edumazet-laptop>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH v2] net: add Faraday FTGMAC100 Gigabit Ethernet driver
+Date: Thu, 17 Mar 2011 18:56:30 +0800
+Message-ID: <AANLkTino6LzGTZF4fNSkV9pbAfnmAc8wJjk0L8HfHDiJ@mail.gmail.com>
+References: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com>
+ <1300355238-1619-1-git-send-email-ratbert.chuang@gmail.com> <1300357457.3133.92.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ratbert@faraday-tech.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1300302005.3202.23.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:61834 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846Ab1CQK4v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 06:56:51 -0400
+In-Reply-To: <1300357457.3133.92.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 16.03.2011 20:00, schrieb Eric Dumazet:
-> We currently use a percpu spinlock to 'protect' rule bytes/packets
-> counters, after various attempts to use RCU instead.
-> 
-> Lately we added a seqlock so that get_counters() can run without
-> blocking BH or 'writers'. But we really use the seqcount in it.
-> 
-> Spinlock itself is only locked by the current cpu, so we can remove it
-> completely.
-> 
-> This cleanups api, using correct 'writer' vs 'reader' semantic.
-> 
-> At replace time, the get_counters() call makes sure all cpus are done
-> using the old table.
-> 
-> We could probably avoid blocking BH (we currently block them in xmit
-> path), but thats a different topic ;)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> This is a POC patch (based on net-next-2.6), only handling ip_tables.
-> ip6/arp/... need similar changes.
+Hi Eric,
 
-Thanks Eric, this looks good to me.
+On Thu, Mar 17, 2011 at 6:24 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le jeudi 17 mars 2011 =C3=A0 17:47 +0800, Po-Yu Chuang a =C3=A9crit :
+>> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>>
+>> FTGMAC100 Ethernet Media Access Controller supports 10/100/1000 Mbps
+>> and MII/GMII. =C2=A0This driver has been working on some ARM/NDS32 S=
+oC's
+>> including Faraday A369 and Andes AG102.
+>>
+>> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+>> ---
+>
+> Did you tried GRO support ?
+
+No, I don't understand how to do that yet. Let me do some study first.
+I'd really appreciate it if you could provide me some pointers about GR=
+O. :-)
+Is there any document about it?
+
+best regards,
+Po-Yu Chuang
