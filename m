@@ -1,74 +1,46 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: Stale entries in RT_TABLE_LOCAL
-Date: Thu, 17 Mar 2011 17:11:29 +0100
-Message-ID: <20110317161129.GA6384@midget.suse.cz>
-References: <201102231243.23579.alexandre.sidorenko@hp.com>
- <alpine.LFD.2.00.1103100139510.2372@ja.ssi.bg>
- <alpine.LFD.2.00.1103100222080.2550@ja.ssi.bg>
- <201103101441.57105.alexandre.sidorenko@hp.com>
- <alpine.LFD.2.00.1103151033260.1729@ja.ssi.bg>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: [PATCH] ethtool: __ethtool_set_sg: check for function pointer
+ before using it
+Date: Thu, 17 Mar 2011 17:37:21 +0100
+Message-ID: <20110317163720.GA26284@core.hellgate.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:35490 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754455Ab1CQQLd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2011 12:11:33 -0400
+Received: from mail12.bluewin.ch ([195.186.19.61]:58602 "EHLO
+	mail12.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751572Ab1CQQhV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 12:37:21 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1103151033260.1729@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+__ethtool_set_sg does not check if dev->ethtool_ops->set_sg is defined
+which can result in a NULL pointer dereference when ethtool is used to
+change SG settings for drivers without SG support.
 
-On Tue, Mar 15, 2011 at 10:47:20AM +0200, Julian Anastasov wrote:
-> On Thu, 10 Mar 2011, Alex Sidorenko wrote:
-> 
-> >>IP1: 192.168.140.31/22, primary
-> >>IP2: 192.168.142.109/23, primary
-> >>IP3: 192.168.142.109/22, secondary for primary IP1
-> >>
-> >>        It is the route for IP3 that is leaked, with prefsrc=IP1.
-> >>We create local route for secondary IPs with prefsrc=ItsPrimaryIP.
-> >>Both local routes for 109 differ in prefsrc (fa_info)
+Signed-off-by: Roger Luethi <rl@hellgate.ch>
+---
 
-Is there any reason to set the prefsrc of a local route to the
-primary IP address of the subnet?
+Bug verified. Patch only compile-tested.
 
-I tried the following patch:
+ net/core/ethtool.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 1d2cdd4..2046b21 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -751,7 +751,7 @@ void fib_add_ifaddr(struct in_ifaddr *ifa)
- 		}
- 	}
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index c1a71bb..a1086fb 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1457,6 +1457,9 @@ static int __ethtool_set_sg(struct net_device *dev, u32 data)
+ {
+ 	int err;
  
--	fib_magic(RTM_NEWROUTE, RTN_LOCAL, addr, 32, prim);
-+	fib_magic(RTM_NEWROUTE, RTN_LOCAL, addr, 32, ifa);
++	if (!dev->ethtool_ops->set_sg)
++		return -EOPNOTSUPP;
++
+ 	if (data && !(dev->features & NETIF_F_ALL_CSUM))
+ 		return -EINVAL;
  
- 	if (!(dev->flags & IFF_UP))
- 		return;
-
-
-The result with the teststcase mentioned previously is that only
-one local route is created per IP address. The local routes are
-correctly deleted after both identical IP addresses are removed
-from the interface.
-
-Furthemore, the testcase uncovers another weirdness with the
-prefsrc of the local routes. When a primary IP address is deleted
-and a secondary IP address is promoted to primary, its prefsrc is
-not updated.
-
-What is the prefrc of a local route good for?
-
 -- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+1.7.3.4
 
