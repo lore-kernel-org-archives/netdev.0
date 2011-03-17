@@ -1,54 +1,50 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and avoid TX queue overrun through packet drop
-Date: Thu, 17 Mar 2011 15:40:58 +1030
-Message-ID: <874o72gwm5.fsf@rustcorp.com.au>
-References: <1300320775.3255.34.camel@localhost.localdomain>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v2] ipv4: netfilter: ipt_CLUSTERIP: fix buffer overflow
+Date: Thu, 17 Mar 2011 20:15:06 +0800
+Message-ID: <AANLkTimtsB0B98E2xcoJgRsPwSpwuG+ahT+LX0s1YwpX@mail.gmail.com>
+References: <1299780740-32652-1-git-send-email-segoon@openwall.com>
+ <AANLkTimPZJoCzz386e-4m0Y4khWGZirZguGFmuFYCrry@mail.gmail.com>
+ <4D7F5CAC.6070006@trash.net> <20110317113229.GA7710@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:34575 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751846Ab1CQLxS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2011 07:53:18 -0400
-In-Reply-To: <1300320775.3255.34.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org,
+	security@kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org
+To: Vasiliy Kulikov <segoon@openwall.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110317113229.GA7710@albatros>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Mar 2011 17:12:55 -0700, Shirley Ma <mashirle@us.ibm.com> wrote:
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+On Thu, Mar 17, 2011 at 7:32 PM, Vasiliy Kulikov <segoon@openwall.com> =
+wrote:
+> 'buffer' string is copied from userspace. =A0It is not checked whethe=
+r it is
+> zero terminated. =A0This may lead to overflow inside of simple_strtou=
+l().
+> Changli Gao suggested to copy not more than user supplied 'size' byte=
+s.
+>
+> It was introduced before the git epoch. =A0Files "ipt_CLUSTERIP/*" ar=
+e
+> root writable only by default, however, on some setups permissions mi=
+ght be
+> relaxed to e.g. network admin user.
+>
+> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+Acked-by: Changli Gao <xiaosuo@gmail.com>
 
-This is fascinating... and deeply weird.
 
-OK, what's the difference between calling xmit_skb and ignoring failure,
-and this patch which figures out it's going to fail before calling
-xmit_skb?
-
-ie. what if you *just* delete this:
-
-> @@ -605,20 +620,6 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	skb_orphan(skb);
->  	nf_reset(skb);
->  
-> -	/* Apparently nice girls don't return TX_BUSY; stop the queue
-> -	 * before it gets out of hand.  Naturally, this wastes entries. */
-> -	if (capacity < 2+MAX_SKB_FRAGS) {
-> -		netif_stop_queue(dev);
-> -		if (unlikely(!virtqueue_enable_cb(vi->svq))) {
-> -			/* More just got used, free them then recheck. */
-> -			capacity += free_old_xmit_skbs(vi);
-> -			if (capacity >= 2+MAX_SKB_FRAGS) {
-> -				netif_start_queue(dev);
-> -				virtqueue_disable_cb(vi->svq);
-> -			}
-> -		}
-> -	}
-> -
->  	return NETDEV_TX_OK;
->  }
-
-Thanks!
-Rusty.
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
