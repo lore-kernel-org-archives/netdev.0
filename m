@@ -1,33 +1,69 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH] virtio: Avoid virtio_net TX queue over run
-Date: Thu, 17 Mar 2011 11:52:16 -0700
-Message-ID: <1300387936.3255.57.camel@localhost.localdomain>
-References: <1300320595.3255.29.camel@localhost.localdomain>
-	 <20110317050538.GD32049@redhat.com>
-	 <1300380626.3255.53.camel@localhost.localdomain>
-	 <1300381096.6315.315.camel@edumazet-laptop>
-	 <1300381265.3255.54.camel@localhost.localdomain>
-	 <1300387758.3255.56.camel@localhost.localdomain>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: Re: [PATCH] SUNRPC: Remove resource leak in svc_rdma_send_error()
+Date: Thu, 17 Mar 2011 12:54:23 -0600
+Message-ID: <4D8258DF.3030302@opengridcomputing.com>
+References: <alpine.LNX.2.00.1101222233260.7746@swampdragon.chaosbits.net> <20110317183752.GH30180@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1300387758.3255.56.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
+Cc: Jesper Juhl <jj@chaosbits.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Chuck Lever <chuck.lever@oracle.com>,
+	Tejun Heo <tj@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Neil Brown <neilb@suse.de>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110317183752.GH30180@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-03-17 at 11:49 -0700, Shirley Ma wrote:
-> With a single CPU, before/after with this patch the performance has no
-> difference for both UDP and TCP, and it seems hitting TX overrun, CPU
-> is
-> 100% used. 
+Hi Bruce,
 
-Sorry, should be: it seems never hitting TX overrun.
+I believe this fix is correct.
 
-Shirley
+Tom
 
+On 3/17/11 12:37 PM, J. Bruce Fields wrote:
+> On Sat, Jan 22, 2011 at 10:40:20PM +0100, Jesper Juhl wrote:
+>> We leak the memory allocated to 'ctxt' when we return after
+>> 'ib_dma_mapping_error()' returns !=0.
+>>
+>> Signed-off-by: Jesper Juhl<jj@chaosbits.net>
+> I don't know this code, but I can't see how that could be wrong....
+> Applying unless Tom tells me otherwise.
+>
+> --b.
+>
+>> ---
+>>   svc_rdma_transport.c |    1 +
+>>   1 file changed, 1 insertion(+)
+>>
+>>    compile tested only
+>>
+>> diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+>> index 9df1ead..1a10dcd 100644
+>> --- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
+>> +++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+>> @@ -1335,6 +1335,7 @@ void svc_rdma_send_error(struct svcxprt_rdma *xprt, struct rpcrdma_msg *rmsgp,
+>>   					    p, 0, length, DMA_FROM_DEVICE);
+>>   	if (ib_dma_mapping_error(xprt->sc_cm_id->device, ctxt->sge[0].addr)) {
+>>   		put_page(p);
+>> +		svc_rdma_put_context(ctxt, 1);
+>>   		return;
+>>   	}
+>>   	atomic_inc(&xprt->sc_dma_used);
+>>
+>>
+>> -- 
+>> Jesper Juhl<jj@chaosbits.net>             http://www.chaosbits.net/
+>> Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+>> Plain text mails only, please.
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
