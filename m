@@ -1,68 +1,74 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2] RPC: killing RPC tasks races fixed
-Date: Thu, 17 Mar 2011 18:54:23 +0300
-Message-ID: <20110317155252.27674.52947.stgit@localhost6.localdomain6>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: Stale entries in RT_TABLE_LOCAL
+Date: Thu, 17 Mar 2011 17:11:29 +0100
+Message-ID: <20110317161129.GA6384@midget.suse.cz>
+References: <201102231243.23579.alexandre.sidorenko@hp.com>
+ <alpine.LFD.2.00.1103100139510.2372@ja.ssi.bg>
+ <alpine.LFD.2.00.1103100222080.2550@ja.ssi.bg>
+ <201103101441.57105.alexandre.sidorenko@hp.com>
+ <alpine.LFD.2.00.1103151033260.1729@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net, skinsbursky@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:35490 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754455Ab1CQQLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2011 12:11:33 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1103151033260.1729@ja.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RPC task RPC_TASK_QUEUED bit is set must be checked before trying to wake up
-task rpc_killall_tasks() because task->tk_waitqueue can not be set (equal to
-NULL).
-Also, as Trond Myklebust mentioned, such approach (instead of checking
-tk_waitqueue to NULL) allows us to "optimise away the call to
-rpc_wake_up_queued_task() altogether for those
-tasks that aren't queued".
+Hi,
 
-Here is an example of dereferencing of tk_waitqueue equal to NULL:
+On Tue, Mar 15, 2011 at 10:47:20AM +0200, Julian Anastasov wrote:
+> On Thu, 10 Mar 2011, Alex Sidorenko wrote:
+> 
+> >>IP1: 192.168.140.31/22, primary
+> >>IP2: 192.168.142.109/23, primary
+> >>IP3: 192.168.142.109/22, secondary for primary IP1
+> >>
+> >>        It is the route for IP3 that is leaked, with prefsrc=IP1.
+> >>We create local route for secondary IPs with prefsrc=ItsPrimaryIP.
+> >>Both local routes for 109 differ in prefsrc (fa_info)
 
-CPU 0               	CPU 1				CPU 2
---------------------	---------------------	--------------------------
-nfs4_run_open_task
-rpc_run_task
-rpc_execute
-rpc_set_active
-rpc_make_runnable
-(waiting)
-			rpc_async_schedule
-			nfs4_open_prepare
-			nfs_wait_on_sequence
-						nfs_umount_begin
-						rpc_killall_tasks
-						rpc_wake_up_task
-						rpc_wake_up_queued_task
-						spin_lock(tk_waitqueue == NULL)
-						BUG()
-			rpc_sleep_on
-			spin_lock(&q->lock)
-			__rpc_sleep_on
-			task->tk_waitqueue = q
+Is there any reason to set the prefsrc of a local route to the
+primary IP address of the subnet?
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@openvz.org>
+I tried the following patch:
 
----
- net/sunrpc/clnt.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index 57d344c..3444757 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -436,7 +436,9 @@ void rpc_killall_tasks(struct rpc_clnt *clnt)
- 		if (!(rovr->tk_flags & RPC_TASK_KILLED)) {
- 			rovr->tk_flags |= RPC_TASK_KILLED;
- 			rpc_exit(rovr, -EIO);
--			rpc_wake_up_queued_task(rovr->tk_waitqueue, rovr);
-+			if (RPC_IS_QUEUED(rovr))
-+				rpc_wake_up_queued_task(rovr->tk_waitqueue, 
-+							rovr);
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 1d2cdd4..2046b21 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -751,7 +751,7 @@ void fib_add_ifaddr(struct in_ifaddr *ifa)
  		}
  	}
- 	spin_unlock(&clnt->cl_lock);
+ 
+-	fib_magic(RTM_NEWROUTE, RTN_LOCAL, addr, 32, prim);
++	fib_magic(RTM_NEWROUTE, RTN_LOCAL, addr, 32, ifa);
+ 
+ 	if (!(dev->flags & IFF_UP))
+ 		return;
+
+
+The result with the teststcase mentioned previously is that only
+one local route is created per IP address. The local routes are
+correctly deleted after both identical IP addresses are removed
+from the interface.
+
+Furthemore, the testcase uncovers another weirdness with the
+prefsrc of the local routes. When a primary IP address is deleted
+and a secondary IP address is promoted to primary, its prefsrc is
+not updated.
+
+What is the prefrc of a local route good for?
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
