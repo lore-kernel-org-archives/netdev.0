@@ -1,39 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv4: add IPPROTO_ICMP socket kind
-Date: Fri, 18 Mar 2011 12:47:11 -0700 (PDT)
-Message-ID: <20110318.124711.116396341.davem@davemloft.net>
-References: <20110318180002.GA30912@albatros>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: [PATCH] net: drop NETIF_F_GSO from hw_features without NETIF_F_SG
+Date: Fri, 18 Mar 2011 20:50:30 +0100
+Message-ID: <20110318195030.GA22350@core.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	peak@argo.troja.mff.cuni.cz, solar@openwall.com,
-	kees.cook@canonical.com, dan.j.rosenberg@gmail.com,
-	eugene@redhat.com, nelhage@ksplice.com, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: segoon@openwall.com
+Content-Type: text/plain; charset=us-ascii
+Cc: mirqus@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51350
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757284Ab1CRTqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 15:46:33 -0400
-In-Reply-To: <20110318180002.GA30912@albatros>
+Received: from mail11.bluewin.ch ([195.186.18.61]:51802 "EHLO
+	mail11.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756770Ab1CRTua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 15:50:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasiliy Kulikov <segoon@openwall.com>
-Date: Fri, 18 Mar 2011 21:00:02 +0300
+register_netdevice() removes NETIF_F_GSO from dev->features and
+dev->wanted_features for hardware without NETIF_F_SG to "avoid warning from
+netdev_fix_features()".
 
-> This patch adds IPPROTO_ICMP socket kind.
+However, as the flag remains set in dev->hw_features, users trying to
+enable GSO via ethtool will still end up with NETIF_F_GSO stuck in
+wanted_features, resulting in a warning every time they try to change any
+feature (until they use ethtool to "disable" GSO):
 
-I kindly asked the other day for people to not submit new feature
-patches while we are amidst the merge window:
+# ethtool -K eth2 gso on
+via-rhine 0000:03:00.0: eth2: Dropping NETIF_F_GSO since no SG feature.
+# ethtool -K eth2 rx on
+via-rhine 0000:03:00.0: eth2: Dropping NETIF_F_GSO since no SG feature.
+via-rhine 0000:03:00.0: eth2: Features changed: 0x00004380 -> 0x20004380
+# ethtool -K eth2 rx off
+via-rhine 0000:03:00.0: eth2: Dropping NETIF_F_GSO since no SG feature.
+via-rhine 0000:03:00.0: eth2: Features changed: 0x20004380 -> 0x00004380
+# ethtool -K eth2 gso off
+#
 
-http://marc.info/?l=linux-netdev&m=130023005214910&w=2
+With NETIF_F_GSO depending on NETIF_F_SG, it seems we should not
+advertise the former as a changeable option if the latter is missing.
+---
+ net/core/dev.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Please, if you want to do networking development, pay attention to
-such important announcements which decreases the burdon upon me and
-makes everything operate more smoothly.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0d39032..122d4ca 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5433,6 +5433,7 @@ int register_netdevice(struct net_device *dev)
+ 
+ 	/* Avoid warning from netdev_fix_features() for GSO without SG */
+ 	if (!(dev->wanted_features & NETIF_F_SG)) {
++		dev->hw_features &= ~NETIF_F_GSO;
+ 		dev->wanted_features &= ~NETIF_F_GSO;
+ 		dev->features &= ~NETIF_F_GSO;
+ 	}
+-- 
+1.7.3.4
 
-Thanks.
