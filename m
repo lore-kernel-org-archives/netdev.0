@@ -1,81 +1,65 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 21/36] net,rcu: convert call_rcu(netlbl_unlhsh_free_addr6) to kfree_rcu()
-Date: Fri, 18 Mar 2011 16:06:11 -0400
-Message-ID: <201103181606.12058.paul.moore@hp.com>
-References: <4D82D9E2.4000408@cn.fujitsu.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next-2.6 2/6] be2net: fix to not drop unfiltered vlan pkts
+Date: Fri, 18 Mar 2011 13:35:19 -0700
+Message-ID: <AANLkTimNHmvFznX-XHmhdVmkRBBjrkEa1OyAB=gSCciu@mail.gmail.com>
+References: <1300454462-1234-1-git-send-email-sathya.perla@emulex.com>
+ <1300454462-1234-2-git-send-email-sathya.perla@emulex.com> <e340379d-68e1-42af-b7b7-94e07e729884@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Sathya Perla <sathya.perla@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:25418 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756995Ab1CRUGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 16:06:25 -0400
-In-Reply-To: <4D82D9E2.4000408@cn.fujitsu.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:40629 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756953Ab1CRUfk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 16:35:40 -0400
+Received: by vws1 with SMTP id 1so4002573vws.19
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2011 13:35:39 -0700 (PDT)
+In-Reply-To: <e340379d-68e1-42af-b7b7-94e07e729884@exht1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, March 18, 2011 12:04:50 AM Lai Jiangshan wrote:
-> The rcu callback netlbl_unlhsh_free_addr6() just calls a kfree(),
-> so we use kfree_rcu() instead of the call_rcu(netlbl_unlhsh_free_addr6).
-> 
-> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
-
-Acked-by: Paul Moore <paul.moore@hp.com>
-
+On Fri, Mar 18, 2011 at 6:20 AM, Sathya Perla <sathya.perla@emulex.com>=
+ wrote:
+> When the device is in promiscuous mode, the driver can receive vlan p=
+ackets
+> (tag is always stripped by card) even when there is no vlan configura=
+tion.
+> Such packets must be sent to the stack and not dropped.
+>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 > ---
->  net/netlabel/netlabel_unlabeled.c |   22 +---------------------
->  1 files changed, 1 insertions(+), 21 deletions(-)
-> 
-> diff --git a/net/netlabel/netlabel_unlabeled.c
-> b/net/netlabel/netlabel_unlabeled.c index 4e5ad90..9c38658 100644
-> --- a/net/netlabel/netlabel_unlabeled.c
-> +++ b/net/netlabel/netlabel_unlabeled.c
-> @@ -153,26 +153,6 @@ static const struct nla_policy
-> netlbl_unlabel_genl_policy[NLBL_UNLABEL_A_MAX + 1 * Unlabeled Connection
-> Hash Table Functions
->   */
-> 
-> -#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> -/**
-> - * netlbl_unlhsh_free_addr6 - Frees an IPv6 address entry from the hash
-> table - * @entry: the entry's RCU field
-> - *
-> - * Description:
-> - * This function is designed to be used as a callback to the call_rcu()
-> - * function so that memory allocated to a hash table address entry can be
-> - * released safely.
-> - *
-> - */
-> -static void netlbl_unlhsh_free_addr6(struct rcu_head *entry)
-> -{
-> -	struct netlbl_unlhsh_addr6 *ptr;
-> -
-> -	ptr = container_of(entry, struct netlbl_unlhsh_addr6, rcu);
-> -	kfree(ptr);
-> -}
-> -#endif /* IPv6 */
-> -
->  /**
->   * netlbl_unlhsh_free_iface - Frees an interface entry from the hash table
->   * @entry: the entry's RCU field
-> @@ -611,7 +591,7 @@ static int netlbl_unlhsh_remove_addr6(struct net *net,
->  	if (entry == NULL)
->  		return -ENOENT;
-> 
-> -	call_rcu(&entry->rcu, netlbl_unlhsh_free_addr6);
-> +	kfree_rcu(entry, rcu);
->  	return 0;
->  }
->  #endif /* IPv6 */
+> =A0drivers/net/benet/be_main.c | =A0 =A09 ++-------
+> =A01 files changed, 2 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.=
+c
+> index 97c5167..18c6da4 100644
+> --- a/drivers/net/benet/be_main.c
+> +++ b/drivers/net/benet/be_main.c
+> @@ -1013,15 +1013,10 @@ static void be_rx_compl_process(struct be_ada=
+pter *adapter,
+> =A0 =A0 =A0 =A0skb->truesize =3D skb->len + sizeof(struct sk_buff);
+> =A0 =A0 =A0 =A0skb->protocol =3D eth_type_trans(skb, adapter->netdev)=
+;
+>
+> - =A0 =A0 =A0 if (unlikely(rxcp->vlanf)) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!adapter->vlan_grp || adapter->vlan=
+s_added =3D=3D 0) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_skb(skb);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 if (unlikely(rxcp->vlanf))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0vlan_hwaccel_receive_skb(skb, adapter-=
+>vlan_grp, rxcp->vid);
 
+It would be better to use __vlan_hwaccel_put_tag() here - it's
+equivalent but at least moves in the right direction.  Under the old
+vlan model (which vlan_hwaccel_receive_skb() is left over from)
+passing in a NULL vlan group is illegal, so it's inconsistent anyways.
 
---
-paul moore
-linux @ hp
+Of course even better would be to fully convert over to the new vlan
+model.  A quick skim through the code shows that there might be
+similar issue with vlan_gro_frags() as above, so it could help catch
+some of that.
