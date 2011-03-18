@@ -1,82 +1,134 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: LRO disable warnings on kernel 2.6.38
-Date: Fri, 18 Mar 2011 12:12:23 +0100
-Message-ID: <1300446743.11985.317.camel@firesoul.comx.local>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
+	after receiving the Confirm option
+Date: Fri, 18 Mar 2011 12:30:52 +0100
+Message-ID: <20110318113052.GA5508@gerrit.erg.abdn.ac.uk>
+References: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk> <1299559831.7569.41.camel@jero-laptop> <20110311113042.GB4876@gerrit.erg.abdn.ac.uk> <1300048497.31664.158.camel@jero-laptop> <20110314115501.GB4631@gerrit.erg.abdn.ac.uk> <1300164791.20638.64.camel@jero-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/mixed; boundary="cNdxnHkX5QqsyA0e"
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Samuel Jero <sj323707@ohio.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:40631 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752110Ab1CRLYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 07:24:07 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:44901 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752183Ab1CRLbF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2011 07:31:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1300164791.20638.64.camel@jero-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
 
-I'm seeing the LRO disable warnings using kernel 2.6.38:
+--cNdxnHkX5QqsyA0e
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-[    8.664759] NET: Registered protocol family 10
-[    8.838148] ADDRCONF(NETDEV_UP): eth71: link is not ready
-[    8.872639] ------------[ cut here ]------------
-[    8.872645] WARNING: at net/core/dev.c:1363 dev_disable_lro+0x7b/0x80()
-[    8.872647] Hardware name: ProLiant DL370 G6
-[    8.872648] Modules linked in: ipv6 nf_conntrack ip_tables loop i7core_edac edac_core ipmi_si ipmi_msghandler joydev hpilo pcspkr sg hpsa igb ata_piix netxen_nic dca [last unloaded: scsi_wait_scan]
-[    8.872660] Pid: 2221, comm: sysctl Not tainted 2.6.38-comx04 #2
-[    8.872662] Call Trace:
-[    8.872671]  [<ffffffff81056e1f>] ? warn_slowpath_common+0x7f/0xc0
-[    8.872675]  [<ffffffff81056e7a>] ? warn_slowpath_null+0x1a/0x20
-[    8.872680]  [<ffffffff8140c0ab>] ? dev_disable_lro+0x7b/0x80
-[    8.872686]  [<ffffffff81474f27>] ? devinet_sysctl_forward+0x147/0x180
-[    8.872691]  [<ffffffff811872f7>] ? proc_sys_call_handler+0x97/0xd0
-[    8.872700]  [<ffffffff81187344>] ? proc_sys_write+0x14/0x20
-[    8.872704]  [<ffffffff81124148>] ? vfs_write+0xc8/0x180
-[    8.872707]  [<ffffffff81124301>] ? sys_write+0x51/0x90
-[    8.872712]  [<ffffffff8100b8c2>] ? system_call_fastpath+0x16/0x1b
-[    8.872714] ---[ end trace 6245283cb8d484cc ]---
+I have revised the patch set addressing the following comments of this thread:
 
-The strange part is that I didn't see this warning on my testlab and
-pre-prod servers.  The warning is from the first production server,
-which got kernel 2.6.38 deployed this morning.
+ 1) Renamed function to dccp_feat_nn_get().
+ 2) Added test to ensure that function is called for NN
+    features back in.
+ 3) Replaced ccid2_ack_ratio_next() with calls to that
+    function (dccp_feat_nn_get(sk, DCCPF_ACK_RATIO)).
+ 4) Replaced check for dccps_l_seq_win in ccid2_change_l_seq_window 
+    with call to dccp_feat_nn_get(sk, DCCPF_SEQUENCE_WINDOW)
+    (for similar calls see separate, attached patch).
+ 5) De-inlined ccid2_ack_ratio_next() wrapper as discussed.
+ 6) Updated remaining patches with regard to 1-4.
+ 
+In (4) I created a separate patch. You mentioned earlier replacing references to
+local seq_window with a call to the accessor function, these were the remaining
+references, I noticed no regression.
 
-The NIC driver is igb.
+This is all in the test tree, just uploaded 2.6.38
+     git://eden-feed.erg.abdn.ac.uk/dccp_exp	[subtree 'dccp']
 
-The only difference in hardware between the production and
-pre-production server (which didn't show the warning), is the
-prod-server have an extra dual-port original Intel NIC, dev-named
-"eth71".  And its just after the init of eth71, the warning occurs.
+| > I don't know if blocking the Ack Ratio code is the reason, but during the
+| > initial slow-start there were ChangeL requests for Sequence Window on nearly
+| > every packet, which seems too much.
+| 
+| Right now, Change's are sent on every packet until the matching Confirm
+| is received. That will be the cause of most of the Change's you are
+| seeing.
+| 
+| The other thing is that at the beginning of a connection the sequence
+| window will be reduced and then increased. The initial window of 100
+| packets is too wide for 5*cwnd at the start of the connection. So the
+| window will be reduced as low as it will go at the very beginning of the
+| connection. However, as slow start picks up, cwnd will increase and the
+| sequence window will as well.
+| 
+| I've seen the above behavior, but haven't thought of an effective
+| solution (nor am I sure that we need a solution). Capping the minimum
+| sequence window at the default (100 packets) would solve this, but that
+| doesn't seem like a great solution.
+| 
+| > 
+| > If low_threshold == high_threshold, it oscillates. I think you have already done
+| > some work on this in the code using CCID2_WIN_CHANGE_FACTOR.
+| 
+| I'm not entirely certain what low_threshold and high_threshold you are
+| talking about. I have not seen sequence window oscillations other as the
+| congestion window oscillates in congestion avoidance as is expected.
+|
+I meant a Schmitt Trigger like behaviour:
+ * low_threshold: to change from lower value to higher value 
+ * hi_threshold:  to revert from higher value back to lower value
+In these electronic devices there is a gap between low and hi, to avoid fluctuations.
+Also audio effect gates have a similar setting.
 
-We usually use a 6 port NIC from Hotlava, which is based on the same
-chip 82576 and also uses the same igb driver.
+With regard to your comment about the 100 packets at the begin, I was wondering if
+the connection could not grossly exaggerate, or maybe even use the 100 packets.
 
-Intel orig NIC eth71
- albpd4:~# ethtool -i eth71
- driver: igb
- version: 2.1.0-k2
- firmware-version: 1.2-1
- bus-info: 0000:21:00.0
+But all that is not a big deal, stuff for fine-tuning the now much better ccid2 
+engine. 
 
-Hotlava Intel chip based NIC eth51:
- albpd4:~# ethtool -i eth51
- driver: igb
- version: 2.1.0-k2
- firmware-version: 1.2-1
- bus-info: 0000:1d:00.1
+Thank you for all your good work. The comments helped a great deal too.
 
-I don't understand why I don't see the warning on my pre-prod server,
-which only have the Hotlava NIC?!?
+--cNdxnHkX5QqsyA0e
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="remaining_l_seq_win_refs.diff"
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+dccp ccid-2: replace remaining references to local Sequence Window value
 
+This replaces the remaining references to dccps_l_seq_win with the corresponding
+call to retrieve the current (STABLE if not in negotiation, CHANGING if being
+negotiated) value of the feature-local sequence window.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid2.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -441,10 +441,10 @@ static void ccid2_new_ack(struct sock *s
+ {
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+ 	struct dccp_sock *dp = dccp_sk(sk);
++	u64 l_seq_win = dccp_feat_nn_get(sk, DCCPF_SEQUENCE_WINDOW);
+ 	int r_seq_used = hc->tx_cwnd / dp->dccps_l_ack_ratio;
+ 
+-	if (hc->tx_cwnd < dp->dccps_l_seq_win &&
+-	    r_seq_used < dp->dccps_r_seq_win) {
++	if (hc->tx_cwnd < l_seq_win && r_seq_used < dp->dccps_r_seq_win) {
+ 		if (hc->tx_cwnd < hc->tx_ssthresh) {
+ 			if (*maxincr > 0 && ++hc->tx_packets_acked >= 2) {
+ 				hc->tx_cwnd += 1;
+@@ -466,10 +466,10 @@ static void ccid2_new_ack(struct sock *s
+ 	else if (r_seq_used * CCID2_WIN_CHANGE_FACTOR < dp->dccps_r_seq_win/2)
+ 		ccid2_change_l_ack_ratio(sk, dp->dccps_l_ack_ratio / 2 ? : 1U);
+ 
+-	if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR >= dp->dccps_l_seq_win)
+-		ccid2_change_l_seq_window(sk, dp->dccps_l_seq_win * 2);
+-	else if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR < dp->dccps_l_seq_win/2)
+-		ccid2_change_l_seq_window(sk, dp->dccps_l_seq_win / 2);
++	if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR >= l_seq_win)
++		ccid2_change_l_seq_window(sk, l_seq_win * 2);
++	else if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR < l_seq_win / 2)
++		ccid2_change_l_seq_window(sk, l_seq_win / 2);
+ 
+ 	/*
+ 	 * FIXME: RTT is sampled several times per acknowledgment (for each
+
+--cNdxnHkX5QqsyA0e--
