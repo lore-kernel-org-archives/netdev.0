@@ -1,59 +1,51 @@
-From: Jim Westfall <jwestfall@surrealistic.net>
-Subject: ipv6 secondary ips and default ipv6 ip for new outbound connections
-Date: Fri, 18 Mar 2011 16:03:12 -0700
-Message-ID: <20110318230312.GX13831@surrealistic.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH 3/4] ipv4: remove the routes on secondary promotion
+Date: Sat, 19 Mar 2011 01:19:12 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103190117020.1678@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from whipper.surrealistic.net ([75.151.103.193]:52477 "EHLO
-	whipper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754690Ab1CRXMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 19:12:32 -0400
-Received: from jwestfall by whipper.surrealistic.net with local (Exim 4.69)
-	(envelope-from <jwestfall@surrealistic.net>)
-	id 1Q0ihM-0007KA-Ap
-	for netdev@vger.kernel.org; Fri, 18 Mar 2011 16:03:12 -0700
-Content-Disposition: inline
+Received: from ja.ssi.bg ([178.16.129.10]:49106 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757592Ab1CRXOB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2011 19:14:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
 
-On ipv4 the first ip added to a nic will be used as the source ip for 
-new outbound connections.  Any additional ips, in the same netblock, 
-will be added as secondaries.
+ 	The secondary address promotion relies on fib_sync_down_addr
+to remove all routes created for the secondary addresses when
+the old primary address is deleted. It does not happen for cases
+when the primary address is also in another subnet. Fix that
+by deleting local and broadcast routes for all secondaries while
+they are on device list and by faking that all addresses from
+this subnet are to be deleted. It relies on fib_del_ifaddr being
+able to ignore the IPs from the concerned subnet while checking
+for duplication.
 
-ipv6 seems to have the opposite behavior.  The last ipv6 ip added to a 
-nic is be used for new outbound connections.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-~# ip -6 addr list br0
-11: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 
-    inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
-       valid_lft forever preferred_lft forever
+diff -urp net-next-2.6-bef55ae/linux/net/ipv4/devinet.c linux/net/ipv4/devinet.c
+--- net-next-2.6-bef55ae/linux/net/ipv4/devinet.c	2011-03-13 01:08:55.000000000 +0200
++++ linux/net/ipv4/devinet.c	2011-03-16 10:54:42.669192601 +0200
+@@ -345,6 +345,17 @@ static void __inet_del_ifa(struct in_dev
+  		}
+  	}
 
-~# ip addr add 2600:c00:0:1::1101/64 dev br0
-~# traceroute6 www.kame.net | head -0
-traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
++	/* On promotion all secondaries from subnet are changing
++	 * the primary IP, we must remove all their routes silently
++	 * and later to add them back with new prefsrc. Do this
++	 * while all addresses are on the device list.
++	 */
++	for (ifa = promote; ifa; ifa = ifa->ifa_next) {
++		if (ifa1->ifa_mask == ifa->ifa_mask &&
++		    inet_ifa_match(ifa1->ifa_address, ifa))
++			fib_del_ifaddr(ifa, ifa1);
++	}
++
+  	/* 2. Unlink it */
 
-~# ip addr add 2600:c00:0:1::1102/64 dev br0
-~# traceroute6 www.kame.net | head -0
-traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1102, 30 hops max, 16 byte packets
-
-~# ip -6 addr list br0
-11: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 
-    inet6 2600:c00:0:1::1102/64 scope global 
-       valid_lft forever preferred_lft forever
-    inet6 2600:c00:0:1::1101/64 scope global 
-       valid_lft forever preferred_lft forever
-    inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
-       valid_lft forever preferred_lft forever
-
-This makes things a bit of a pita when dealing with floater ipv6 ips for 
-HA.
-
-This there some way to change this behavior to be like ipv4 or force 
-a specific ipv6 ip to be the default used for new outbound connections?
-
-thanks
-Jim Westfall
+  	*ifap = ifa1->ifa_next;
