@@ -1,110 +1,41 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] headers: use __aligned_xx types for userspace
-Date: Fri, 18 Mar 2011 14:50:37 -0400
-Message-ID: <1300474237-10980-1-git-send-email-vapier@gentoo.org>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: VLAN over GRE segfault
+Date: Fri, 18 Mar 2011 14:28:59 -0500
+Message-ID: <20110318192859.GA26156@gondor.apana.org.au>
+References: <4D830AF9.8040007@diddi.se> <1300444047.2888.18.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Diddi Oscarsson <diddi@diddi.se>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:58443 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756818Ab1CRT3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 15:29:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1300444047.2888.18.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that we finally have __aligned_xx exported to userspace, convert
-the headers that get exported over to the proper type.
+On Fri, Mar 18, 2011 at 11:27:27AM +0100, Eric Dumazet wrote:
+>
+> This uncover a bug in vlan code.
+> 
+> We should make sure vlan devices take into account their
+> real_dev->needed_headroom or we risk a crash in ipgre_header(), because
+> we dont have enough room to push IP header in skb.
+> 
+> Reported-by: Diddi Oscarsson <diddi@diddi.se>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- include/linux/if_ppp.h                    |   16 ++++++++--------
- include/linux/netfilter/nfnetlink_log.h   |    4 ++--
- include/linux/netfilter/nfnetlink_queue.h |    4 ++--
- include/linux/netfilter/xt_connbytes.h    |    4 ++--
- include/linux/netfilter/xt_quota.h        |    2 +-
- 5 files changed, 15 insertions(+), 15 deletions(-)
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/include/linux/if_ppp.h b/include/linux/if_ppp.h
-index fcef103..c9ad383 100644
---- a/include/linux/if_ppp.h
-+++ b/include/linux/if_ppp.h
-@@ -114,14 +114,14 @@ struct pppol2tp_ioc_stats {
- 	__u16		tunnel_id;	/* redundant */
- 	__u16		session_id;	/* if zero, get tunnel stats */
- 	__u32		using_ipsec:1;	/* valid only for session_id == 0 */
--	aligned_u64	tx_packets;
--	aligned_u64	tx_bytes;
--	aligned_u64	tx_errors;
--	aligned_u64	rx_packets;
--	aligned_u64	rx_bytes;
--	aligned_u64	rx_seq_discards;
--	aligned_u64	rx_oos_packets;
--	aligned_u64	rx_errors;
-+	__aligned_u64	tx_packets;
-+	__aligned_u64	tx_bytes;
-+	__aligned_u64	tx_errors;
-+	__aligned_u64	rx_packets;
-+	__aligned_u64	rx_bytes;
-+	__aligned_u64	rx_seq_discards;
-+	__aligned_u64	rx_oos_packets;
-+	__aligned_u64	rx_errors;
- };
- 
- #define ifr__name       b.ifr_ifrn.ifrn_name
-diff --git a/include/linux/netfilter/nfnetlink_log.h b/include/linux/netfilter/nfnetlink_log.h
-index ea9b8d3..90c2c95 100644
---- a/include/linux/netfilter/nfnetlink_log.h
-+++ b/include/linux/netfilter/nfnetlink_log.h
-@@ -28,8 +28,8 @@ struct nfulnl_msg_packet_hw {
- };
- 
- struct nfulnl_msg_packet_timestamp {
--	aligned_be64	sec;
--	aligned_be64	usec;
-+	__aligned_be64	sec;
-+	__aligned_be64	usec;
- };
- 
- enum nfulnl_attr_type {
-diff --git a/include/linux/netfilter/nfnetlink_queue.h b/include/linux/netfilter/nfnetlink_queue.h
-index 2455fe5..af94e00 100644
---- a/include/linux/netfilter/nfnetlink_queue.h
-+++ b/include/linux/netfilter/nfnetlink_queue.h
-@@ -25,8 +25,8 @@ struct nfqnl_msg_packet_hw {
- };
- 
- struct nfqnl_msg_packet_timestamp {
--	aligned_be64	sec;
--	aligned_be64	usec;
-+	__aligned_be64	sec;
-+	__aligned_be64	usec;
- };
- 
- enum nfqnl_attr_type {
-diff --git a/include/linux/netfilter/xt_connbytes.h b/include/linux/netfilter/xt_connbytes.h
-index 92fcbb0..f1d6c15 100644
---- a/include/linux/netfilter/xt_connbytes.h
-+++ b/include/linux/netfilter/xt_connbytes.h
-@@ -17,8 +17,8 @@ enum xt_connbytes_direction {
- 
- struct xt_connbytes_info {
- 	struct {
--		aligned_u64 from;	/* count to be matched */
--		aligned_u64 to;		/* count to be matched */
-+		__aligned_u64 from;	/* count to be matched */
-+		__aligned_u64 to;	/* count to be matched */
- 	} count;
- 	__u8 what;		/* ipt_connbytes_what */
- 	__u8 direction;	/* ipt_connbytes_direction */
-diff --git a/include/linux/netfilter/xt_quota.h b/include/linux/netfilter/xt_quota.h
-index b0d28c6..468c4e9 100644
---- a/include/linux/netfilter/xt_quota.h
-+++ b/include/linux/netfilter/xt_quota.h
-@@ -11,7 +11,7 @@ struct xt_quota_priv;
- struct xt_quota_info {
- 	u_int32_t		flags;
- 	u_int32_t		pad;
--	aligned_u64		quota;
-+	__aligned_u64		quota;
- 
- 	/* Used internally by the kernel */
- 	struct xt_quota_priv	*master;
+Thanks,
 -- 
-1.7.4.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
