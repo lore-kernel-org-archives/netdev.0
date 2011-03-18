@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-dev2.6] bxn2x: Fix location of PCI-ids defines
-Date: Fri, 18 Mar 2011 15:13:56 -0700 (PDT)
-Message-ID: <20110318.151356.98903139.davem@davemloft.net>
-References: <1300364824.2090.57.camel@lb-tlvb-ariel.il.broadcom.com>
-	<20110317.060650.226776465.davem@davemloft.net>
-	<1300367613.31873.0.camel@lb-tlvb-eilong.il.broadcom.com>
+Subject: Re: [PATCH v2] gianfar: Fall back to software tcp/udp checksum on
+ older controllers
+Date: Fri, 18 Mar 2011 15:15:09 -0700 (PDT)
+Message-ID: <20110318.151509.241430327.davem@davemloft.net>
+References: <598461.73809.qm@web37603.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: linux-kernel@vger.kernel.org, galak@kernel.crashing.org,
+	cbouatmailru@gmail.com, mlcreech@gmail.com,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: oakad@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43736
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43740
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932939Ab1CRWNS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:13:18 -0400
-In-Reply-To: <1300367613.31873.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	by vger.kernel.org with ESMTP id S932338Ab1CRWOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:14:31 -0400
+In-Reply-To: <598461.73809.qm@web37603.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Thu, 17 Mar 2011 15:13:33 +0200
+From: Alex Dubov <oakad@yahoo.com>
+Date: Wed, 16 Mar 2011 20:57:13 -0700 (PDT)
 
-> On Thu, 2011-03-17 at 06:06 -0700, David Miller wrote:
->> From: "Ariel Elior" <ariele@broadcom.com>
->> Date: Thu, 17 Mar 2011 14:27:04 +0200
->> 
->> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
->> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
->> 
->> Unless you intend to reference these symbols elsewhere in the
->> kernel, they should stay private in your driver.
->> 
+> As specified by errata eTSEC49 of MPC8548 and errata eTSEC12 of MPC83xx,
+> older revisions of gianfar controllers will be unable to calculate a TCP/UDP
+> packet checksum for some alignments of the appropriate FCB. This patch checks
+> for FCB alignment on such controllers and falls back to software checksumming
+> if the alignment is known to be bad.
 > 
-> The bnx2i will need it as well. Isn't it better to keep all the PCI IDs
-> in the same global location?
+> Signed-off-by: Alex Dubov <oakad@yahoo.com>
 
-It looks like this change propagated to Linus via the scsi tree or
-similar, so I don't need to apply it.
+Applied.
