@@ -1,8 +1,8 @@
 From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Subject: [PATCH 04/36] net,rcu: convert call_rcu(__leaf_info_free_rcu) to
- kfree_rcu()
-Date: Fri, 18 Mar 2011 11:42:34 +0800
-Message-ID: <4D82D4AA.2080601__32676.7804021531$1300419667$gmane$org@cn.fujitsu.com>
+Subject: [PATCH 05/36] block,rcu: convert call_rcu(disk_free_ptbl_rcu_cb)
+ to kfree_rcu()
+Date: Fri, 18 Mar 2011 11:42:58 +0800
+Message-ID: <4D82D4C2.8020503__30667.6882355989$1300419700$gmane$org@cn.fujitsu.com>
 References: <4D82D071.5020703@cn.fujitsu.com> <4D82D3FF.2080303@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,43 +12,51 @@ To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	Robert Love <robert.w.love@intel.com>,
 	"James E.J. Bottomley" <James.Bottom
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60266 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:61906 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932090Ab1CRDkw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2011 23:40:52 -0400
+	id S932090Ab1CRDlP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2011 23:41:15 -0400
 In-Reply-To: <4D82D3FF.2080303@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-The rcu callback __leaf_info_free_rcu() just calls a kfree(),
-so we use kfree_rcu() instead of the call_rcu(__leaf_info_free_rcu).
+The rcu callback disk_free_ptbl_rcu_cb() just calls a kfree(),
+so we use kfree_rcu() instead of the call_rcu(disk_free_ptbl_rcu_cb).
 
 Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
 ---
- net/ipv4/fib_trie.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
+ block/genhd.c |   10 +---------
+ 1 files changed, 1 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 0f28034..6a60915 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -350,14 +350,9 @@ static inline void free_leaf(struct leaf *l)
- 	call_rcu_bh(&l->rcu, __leaf_free_rcu);
- }
+diff --git a/block/genhd.c b/block/genhd.c
+index cbf1112..2800cc8 100644
+--- a/block/genhd.c
++++ b/block/genhd.c
+@@ -1018,14 +1018,6 @@ static const struct attribute_group *disk_attr_groups[] = {
+ 	NULL
+ };
  
--static void __leaf_info_free_rcu(struct rcu_head *head)
+-static void disk_free_ptbl_rcu_cb(struct rcu_head *head)
 -{
--	kfree(container_of(head, struct leaf_info, rcu));
+-	struct disk_part_tbl *ptbl =
+-		container_of(head, struct disk_part_tbl, rcu_head);
+-
+-	kfree(ptbl);
 -}
 -
- static inline void free_leaf_info(struct leaf_info *leaf)
- {
--	call_rcu(&leaf->rcu, __leaf_info_free_rcu);
-+	kfree_rcu(leaf, rcu);
+ /**
+  * disk_replace_part_tbl - replace disk->part_tbl in RCU-safe way
+  * @disk: disk to replace part_tbl for
+@@ -1046,7 +1038,7 @@ static void disk_replace_part_tbl(struct gendisk *disk,
+ 
+ 	if (old_ptbl) {
+ 		rcu_assign_pointer(old_ptbl->last_lookup, NULL);
+-		call_rcu(&old_ptbl->rcu_head, disk_free_ptbl_rcu_cb);
++		kfree_rcu(old_ptbl, rcu_head);
+ 	}
  }
  
- static struct tnode *tnode_alloc(size_t size)
 -- 
 1.7.4
