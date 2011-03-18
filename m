@@ -1,47 +1,58 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH 4/4] ipv4: optimize route adding on secondary promotion
-Date: Sat, 19 Mar 2011 01:21:07 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1103190119130.1678@ja.ssi.bg>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] headers: use __aligned_xx types for userspace
+Date: Fri, 18 Mar 2011 16:28:26 -0700
+Message-ID: <20110318162826.5295f130.akpm@linux-foundation.org>
+References: <1300474237-10980-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49109 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754690Ab1CRXP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Mar 2011 19:15:57 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36348 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757585Ab1CRX22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 19:28:28 -0400
+In-Reply-To: <1300474237-10980-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 18 Mar 2011 14:50:37 -0400
+Mike Frysinger <vapier@gentoo.org> wrote:
 
- 	Optimize the calling of fib_add_ifaddr for all
-secondary addresses after the promoted one to start from
-their place, not from the new place of the promoted
-secondary. It will save some CPU cycles because we
-are sure the promoted secondary was first for the subnet
-and all next secondaries do not change their place.
+> Now that we finally have __aligned_xx exported to userspace, convert
+> the headers that get exported over to the proper type.
+> 
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+Sob.  Please don't assume that because you're on top of an issue, all
+the rest of us are.
 
-diff -urp net-next-2.6-bef55ae/linux/net/ipv4/devinet.c linux/net/ipv4/devinet.c
---- net-next-2.6-bef55ae/linux/net/ipv4/devinet.c	2011-03-18 00:57:39.000000000 +0200
-+++ linux/net/ipv4/devinet.c	2011-03-18 10:40:08.135271482 +0200
-@@ -375,6 +375,7 @@ static void __inet_del_ifa(struct in_dev
-  	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
+A bit of git-log grovelling turns up
 
-  	if (promote) {
-+		struct in_ifaddr *next_sec = promote->ifa_next;
+: commit 79b5dc0c64d88cda3da23b2e22a5cec0964372ac
+: Author: Eric Paris <eparis@redhat.com>
+: Date:   Fri Oct 15 14:34:14 2010 -0700                                          
+:     types.h: define __aligned_u64 and expose to userspace
+:     
+:     We currently have a kernel internal type called aligned_u64 which aligns
+:     __u64's on 8 bytes boundaries even on systems which would normally align
+:     them on 4 byte boundaries.  This patch creates a new type __aligned_u64
+:     which does the same thing but which is exposed to userspace rather than
+:     being kernel internal.                                                    
 
-  		if (prev_prom) {
-  			prev_prom->ifa_next = promote->ifa_next;
-@@ -386,7 +387,7 @@ static void __inet_del_ifa(struct in_dev
-  		rtmsg_ifa(RTM_NEWADDR, promote, nlh, pid);
-  		blocking_notifier_call_chain(&inetaddr_chain,
-  				NETDEV_UP, promote);
--		for (ifa = promote->ifa_next; ifa; ifa = ifa->ifa_next) {
-+		for (ifa = next_sec; ifa; ifa = ifa->ifa_next) {
-  			if (ifa1->ifa_mask != ifa->ifa_mask ||
-  			    !inet_ifa_match(ifa1->ifa_address, ifa))
-  					continue;
+but that really doesn't tell us why it was merged either.  Perhaps that
+came out in the followup discussion and I failed to fix the changelog.
+
+
+Still, it doesn't hurt to educate people.  Please explain why we are
+making this change?
+
+>  include/linux/if_ppp.h                    |   16 ++++++++--------
+>  include/linux/netfilter/nfnetlink_log.h   |    4 ++--
+>  include/linux/netfilter/nfnetlink_queue.h |    4 ++--
+>  include/linux/netfilter/xt_connbytes.h    |    4 ++--
+>  include/linux/netfilter/xt_quota.h        |    2 +-
+>  5 files changed, 15 insertions(+), 15 deletions(-)
+
+davem stuff :)
