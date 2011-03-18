@@ -1,89 +1,67 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] netfilter: xtables: fix reentrancy
-Date: Fri, 18 Mar 2011 11:27:53 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1103181113040.21558@ask.diku.dk>
+Date: Fri, 18 Mar 2011 11:50:27 +0100
+Message-ID: <1300445427.2888.23.camel@edumazet-laptop>
 References: <1300302005.3202.23.camel@edumazet-laptop>
- <20110316.131648.15245216.davem@davemloft.net>  <1300358140.3133.117.camel@edumazet-laptop>
-  <Pine.LNX.4.64.1103171231220.21558@ask.diku.dk>  <1300362323.3133.195.camel@edumazet-laptop>
- <1300367841.6315.9.camel@edumazet-laptop>
+	 <20110316.131648.15245216.davem@davemloft.net>
+	 <1300358140.3133.117.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1103171231220.21558@ask.diku.dk>
+	 <1300362323.3133.195.camel@edumazet-laptop>
+	 <1300367841.6315.9.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1103181113040.21558@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-1226776439-1300444073=:21558"
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>,
 	Netfilter Developers <netfilter-devel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1300367841.6315.9.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45021 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110Ab1CRKud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 06:50:33 -0400
+In-Reply-To: <Pine.LNX.4.64.1103181113040.21558@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Le vendredi 18 mars 2011 =C3=A0 11:27 +0100, Jesper Dangaard Brouer a =C3=
+=A9crit :
 
----511516320-1226776439-1300444073=:21558
-Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 8BIT
+> I have actually enabled PREEMPTion, am I in trouble then?
+>=20
+
+Well, to get problem on localy generated trafic (as all forwarding is
+done from softirq handler), you'll need a malicious -j RETURN in OUTPUT
+hook (in the OUTPUT chain, not a called one)
+
+Also, even for localy generated trafic, I guess most callers block BH
+before calling ipt_do_table() anyway...
+
+> I have modified the .config I got from you, quite a lot, during my=20
+> attempts to find the CCISS/HPSA problem.
+>=20
+> Which reminds me that I needed to enable, the follwing config options=
+,=20
+> (which your config didn't have):
+>   CONFIG_PCIEASPM=3Dy
+>   CONFIG_X86_X2APIC=3Dy
+>=20
+> In order to get rid of a PCI warning:
+>   NMI: PCI system error (SERR) for reason b1 on CPU 0.
+>   Dazed and confused, but trying to continue
+>=20
+> The system worked fine, and you might not see this issue on your G6=20
+> servers, as its most likely BIOS related (my server is a HP DL370 G6)=
+=2E
+>=20
+
+Mine is ProLiant BL460c G6
+
+> FYI: Operations have deployed the kernel on prod server this morning.
+
+Okay, lets pray ;)
 
 
 
-On Thu, 17 Mar 2011, Eric Dumazet wrote:
-> Le jeudi 17 mars 2011 à 12:45 +0100, Eric Dumazet a écrit :
->> Le jeudi 17 mars 2011 à 12:36 +0100, Jesper Dangaard Brouer a écrit :
->>> Hi Eric,
->>>
->>> How critial is this bug fix?
->>>
->>> Should I apply this on my stable production kernels?
->>> (I'm preparing a 2.6.38 kernel for prod usage, eventhougt its just been
->>> released, because I want your SFQ fixes...)
->>
->> I would say the race is there, but probability must be very small, and
->> might need malicious iptables rules (with RETURN targets)
-
-Actually do have a large number of return targets.
-In the filter forward chain.
-
-
->> Especially in routers, where OUTPUT path is taken from softirq handler
->> anyway ;)
->>
->> So dont worry at all, consider this as a cleanup :)
->>
->
-> Almost forgot to mention your kernels probably have :
->
-> CONFIG_PREEMPT_NONE=y
-> # CONFIG_PREEMPT is not set
->
-> So you can take it easy ;)
-
-I have actually enabled PREEMPTion, am I in trouble then?
-
-I have modified the .config I got from you, quite a lot, during my 
-attempts to find the CCISS/HPSA problem.
-
-Which reminds me that I needed to enable, the follwing config options, 
-(which your config didn't have):
-  CONFIG_PCIEASPM=y
-  CONFIG_X86_X2APIC=y
-
-In order to get rid of a PCI warning:
-  NMI: PCI system error (SERR) for reason b1 on CPU 0.
-  Dazed and confused, but trying to continue
-
-The system worked fine, and you might not see this issue on your G6 
-servers, as its most likely BIOS related (my server is a HP DL370 G6).
-
-FYI: Operations have deployed the kernel on prod server this morning.
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
----511516320-1226776439-1300444073=:21558--
