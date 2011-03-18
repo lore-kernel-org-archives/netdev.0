@@ -1,65 +1,40 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next-2.6 2/6] be2net: fix to not drop unfiltered vlan pkts
-Date: Fri, 18 Mar 2011 13:35:19 -0700
-Message-ID: <AANLkTimNHmvFznX-XHmhdVmkRBBjrkEa1OyAB=gSCciu@mail.gmail.com>
-References: <1300454462-1234-1-git-send-email-sathya.perla@emulex.com>
- <1300454462-1234-2-git-send-email-sathya.perla@emulex.com> <e340379d-68e1-42af-b7b7-94e07e729884@exht1.ad.emulex.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH] net: drop NETIF_F_GSO from hw_features without NETIF_F_SG
+Date: Fri, 18 Mar 2011 21:43:23 +0100
+Message-ID: <AANLkTim1_+GdURWxk=+N+5xCFTF1L27BD=+Uu+BY4jWF@mail.gmail.com>
+References: <20110318195030.GA22350@core.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Sathya Perla <sathya.perla@emulex.com>
+To: Roger Luethi <rl@hellgate.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:40629 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756953Ab1CRUfk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 16:35:40 -0400
-Received: by vws1 with SMTP id 1so4002573vws.19
-        for <netdev@vger.kernel.org>; Fri, 18 Mar 2011 13:35:39 -0700 (PDT)
-In-Reply-To: <e340379d-68e1-42af-b7b7-94e07e729884@exht1.ad.emulex.com>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:34289 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756932Ab1CRUno convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 16:43:44 -0400
+Received: by qyk7 with SMTP id 7so1134695qyk.19
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2011 13:43:43 -0700 (PDT)
+In-Reply-To: <20110318195030.GA22350@core.hellgate.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 18, 2011 at 6:20 AM, Sathya Perla <sathya.perla@emulex.com>=
- wrote:
-> When the device is in promiscuous mode, the driver can receive vlan p=
-ackets
-> (tag is always stripped by card) even when there is no vlan configura=
-tion.
-> Such packets must be sent to the stack and not dropped.
+2011/3/18 Roger Luethi <rl@hellgate.ch>:
+> register_netdevice() removes NETIF_F_GSO from dev->features and
+> dev->wanted_features for hardware without NETIF_F_SG to "avoid warnin=
+g from
+> netdev_fix_features()".
 >
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> ---
-> =A0drivers/net/benet/be_main.c | =A0 =A09 ++-------
-> =A01 files changed, 2 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.=
-c
-> index 97c5167..18c6da4 100644
-> --- a/drivers/net/benet/be_main.c
-> +++ b/drivers/net/benet/be_main.c
-> @@ -1013,15 +1013,10 @@ static void be_rx_compl_process(struct be_ada=
-pter *adapter,
-> =A0 =A0 =A0 =A0skb->truesize =3D skb->len + sizeof(struct sk_buff);
-> =A0 =A0 =A0 =A0skb->protocol =3D eth_type_trans(skb, adapter->netdev)=
-;
->
-> - =A0 =A0 =A0 if (unlikely(rxcp->vlanf)) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!adapter->vlan_grp || adapter->vlan=
-s_added =3D=3D 0) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_skb(skb);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> + =A0 =A0 =A0 if (unlikely(rxcp->vlanf))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0vlan_hwaccel_receive_skb(skb, adapter-=
->vlan_grp, rxcp->vid);
+> However, as the flag remains set in dev->hw_features, users trying to
+> enable GSO via ethtool will still end up with NETIF_F_GSO stuck in
+> wanted_features, resulting in a warning every time they try to change=
+ any
+> feature (until they use ethtool to "disable" GSO):
 
-It would be better to use __vlan_hwaccel_put_tag() here - it's
-equivalent but at least moves in the right direction.  Under the old
-vlan model (which vlan_hwaccel_receive_skb() is left over from)
-passing in a NULL vlan group is illegal, so it's inconsistent anyways.
+That's expected, as it allows the user to debug why his request didn't
+work as expected. I think that those messages should get demoted to
+DEBUG if that's too noisy. The network core imposed conditions could
+be explained in Documentation/ or ethtool manpage instead.
 
-Of course even better would be to fully convert over to the new vlan
-model.  A quick skim through the code shows that there might be
-similar issue with vlan_gro_frags() as above, so it could help catch
-some of that.
+Best Regards,
+Micha=B3 Miros=B3aw
