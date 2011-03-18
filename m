@@ -1,63 +1,119 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bug 16572] random panics in bridging on 2.6.34+
-Date: Fri, 18 Mar 2011 10:27:28 -0500
-Message-ID: <20110318152728.GA22053@gondor.apana.org.au>
-References: <bug-16572-100@https.bugzilla.kernel.org/> <201103181349.p2IDn3Qm024329@demeter2.kernel.org> <20110318081052.6ca134fb@nehalam>
+From: Tom Lendacky <tahm@linux.vnet.ibm.com>
+Subject: Re: Network performance with small packets - continued
+Date: Fri, 18 Mar 2011 10:38:27 -0500
+Message-ID: <201103181038.29490.tahm@linux.vnet.ibm.com>
+References: <201103071631.41964.tahm@linux.vnet.ibm.com> <20110310153422.GA28557@redhat.com> <201103101116.13212.tahm@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bugzilla-daemon@bugzilla.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:38818 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756725Ab1CRP1f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 11:27:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20110318081052.6ca134fb@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <201103101116.13212.tahm@linux.vnet.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 18, 2011 at 08:10:52AM -0700, Stephen Hemminger wrote:
-> On Fri, 18 Mar 2011 13:49:03 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
+On Thursday, March 10, 2011 11:16:11 am Tom Lendacky wrote:
+> On Thursday, March 10, 2011 09:34:22 am Michael S. Tsirkin wrote:
+> > On Thu, Mar 10, 2011 at 09:23:42AM -0600, Tom Lendacky wrote:
+> > > On Thursday, March 10, 2011 12:54:58 am Michael S. Tsirkin wrote:
+> > > > On Wed, Mar 09, 2011 at 05:25:11PM -0600, Tom Lendacky wrote:
+> > > > > As for which CPU the interrupt gets pinned to, that doesn't matter
+> > > > > - see below.
+> > > > 
+> > > > So what hurts us the most is that the IRQ jumps between the VCPUs?
+> > > 
+> > > Yes, it appears that allowing the IRQ to run on more than one vCPU
+> > > hurts. Without the publish last used index patch, vhost keeps
+> > > injecting an irq for every received packet until the guest eventually
+> > > turns off notifications.
+> > 
+> > Are you sure you see that? If yes publish used should help a lot.
 > 
-> > https://bugzilla.kernel.org/show_bug.cgi?id=16572
->
-> Herbert hasn't submitted the patch upstream.
+> I definitely see that.  I ran lockstat in the guest and saw the contention
+> on the lock when the irq was able to run on either vCPU.  Once the irq was
+> pinned the contention disappeared.  The publish used index patch should
+> eliminate the extra irq injections and then the pinning or use of
+> irqbalance shouldn't be required.  I'm getting a kernel oops during boot
+> with the publish last used patches that I pulled from the mailing list - I
+> had to make some changes in order to get them to apply and compile and
+> might not have done the right things.  Can you re-spin that patchset
+> against kvm.git?
+> 
 
-Oops! Thanks for reminding me.
+Here are the results for the publish last used index patch (with the baseline 
+provided again for reference).
 
-bridge: Reset IPCB when entering IP stack on NF_FORWARD
+Here is the KVM baseline (average of six runs):
+  Txn Rate: 87,070.34 Txn/Sec, Pkt Rate: 172,992 Pkts/Sec
+  Exits: 148,444.58 Exits/Sec
+  TxCPU: 2.40%  RxCPU: 99.35%
+  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 5,154/5,222
+  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
 
-Whenever we enter the IP stack proper from bridge netfilter we
-need to ensure that the skb is in a form the IP stack expects
-it to be in.
+Using the publish last used index w/o irqbalance (average of six runs):
+  Txn Rate: 112,180.10 Txn/Sec, Pkt Rate: 222,878.33 Pkts/Sec
+  Exits: 96,280.11 Exits/Sec
+  TxCPU: 1.14%  RxCPU: 99.33%
+  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 3,400/3,400
+  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
 
-The entry point on NF_FORWARD did not meet the requirements of
-the IP stack, therefore leading to potential crashes/panics.
+About a 29% increase over baseline.
 
-This patch fixes the problem.
+Using the publish last used index w/  irqbalance (average of six runs):
+  Txn Rate: 110,891.12 Txn/Sec, Pkt Rate: 220,315.67 Pkts/Sec
+  Exits: 97,190.68 Exits/Sec
+  TxCPU: 1.10%  RxCPU: 99.38%
+  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 7,040/0
+  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+About a 27% increase over baseline.
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 865fd76..7e9b167 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -752,6 +752,9 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
- 		nf_bridge->mask |= BRNF_PKT_TYPE;
- 	}
- 
-+	if (br_parse_ip_options(skb))
-+		return NF_DROP;
-+
- 	/* The physdev module checks on this */
- 	nf_bridge->mask |= BRNF_BRIDGED;
- 	nf_bridge->physoutdev = skb->dev;
+Here is data from running without the publish last used index patch but with 
+irqbalance running (pinning results were near identical):
+  Txn Rate: 107,714.53 Txn/Sec, Pkt Rate: 214,006 Pkts/Sec
+  Exits: 121,050.45 Exits/Sec
+  TxCPU: 9.61%  RxCPU: 99.45%
+  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 13,975/0
+  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The publish last used index patch provides a 3%-4% improvement while reducing 
+the exit rate and interrupt rate in the guest as well as reducing the 
+transmitting system CPU% quite dramatically.
+
+> > > Because the irq injections end up overlapping we get contention on the
+> > > irq_desc_lock_class lock. Here are some results using the "baseline"
+> > > setup with irqbalance running.
+> > > 
+> > >   Txn Rate: 107,714.53 Txn/Sec, Pkt Rate: 214,006 Pkts/Sec
+> > >   Exits: 121,050.45 Exits/Sec
+> > >   TxCPU: 9.61%  RxCPU: 99.45%
+> > >   Virtio1-input  Interrupts/Sec (CPU0/CPU1): 13,975/0
+> > >   Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
+> > > 
+> > > About a 24% increase over baseline.  Irqbalance essentially pinned the
+> > > virtio irq to CPU0 preventing the irq lock contention and resulting in
+> > > nice gains.
+> > 
+> > OK, so we probably want some form of delayed free for TX
+> > on top, and that should get us nice results already.
+> > 
+> > > > --
+> > > > To unsubscribe from this list: send the line "unsubscribe kvm" in
+> > > > the body of a message to majordomo@vger.kernel.org
+> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe kvm" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
