@@ -1,44 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: VLAN over GRE segfault
-Date: Fri, 18 Mar 2011 09:26:32 +0100
-Message-ID: <1300436792.2888.0.camel@edumazet-laptop>
-References: <4D830AF9.8040007@diddi.se>
+From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 28/36] net,rcu: convert call_rcu(phonet_device_rcu_free) to kfree_rcu()
+Date: Fri, 18 Mar 2011 10:27:25 +0200
+Message-ID: <201103181027.25735.remi.denis-courmont@nokia.com>
+References: <4D82DADF.4010802@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Diddi Oscarsson <diddi@diddi.se>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ext Lai Jiangshan <laijs@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:47674 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753025Ab1CRI0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 04:26:37 -0400
-Received: by fxm17 with SMTP id 17so3456778fxm.19
-        for <netdev@vger.kernel.org>; Fri, 18 Mar 2011 01:26:36 -0700 (PDT)
-In-Reply-To: <4D830AF9.8040007@diddi.se>
+Received: from smtp.nokia.com ([147.243.1.48]:62563 "EHLO mgw-sa02.nokia.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753630Ab1CRI1m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 04:27:42 -0400
+In-Reply-To: <4D82DADF.4010802@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 18 mars 2011 =C3=A0 08:34 +0100, Diddi Oscarsson a =C3=A9cr=
-it :
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
+On Friday 18 March 2011 06:09:03 ext Lai Jiangshan, you wrote:
+> The rcu callback phonet_device_rcu_free() just calls a kfree(),
+> so we use kfree_rcu() instead of the call_rcu(phonet_device_rcu_free)=
+=2E
 >=20
-> Hello!
->=20
-> I was trying to get ethernet over GRE to work when I found an obvious
-> way NOT to do it.
-> Basically I created a VLAN interface from the GRE interface (even
-> though I had my fair doubts it would work) which gave me a nice segfa=
-ult.
-> The problem with this is that after the segfault, new network
-> connections cannot be made (ping, ssh, http, whatever) and a reboot o=
-f
-> the computer is necessary.
-> I think an error message needs to be added when trying an operation
-> like this.
+> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
 
-Hmm, thanks for the report, I'll submit a patch to fix this
-(NETIF_F_VLAN_CHALLENGED needed on some devices)
+In principles, that's fine with me. But I think David is not taking tha=
+t kind=20
+of not-a-fix patch at the moment...
 
-
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
