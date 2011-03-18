@@ -1,116 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool] ethtool: Report driver features described in
- struct ethtool_drvinfo
-Date: Fri, 18 Mar 2011 22:44:37 +0000
-Message-ID: <1300488277.2589.50.camel@bwh-desktop>
-References: <ae232d9a-90c7-47ae-856d-bc5a2b3a8037@exht1.ad.emulex.com>
-	 ,<1300483939.2589.46.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5A5BCD38EA@EXMAIL.ad.emulex.com>
-	 ,<1300485636.2589.48.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5A5BCD38EB@EXMAIL.ad.emulex.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Stale entries in RT_TABLE_LOCAL
+Date: Sat, 19 Mar 2011 00:57:30 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103190011430.1678@ja.ssi.bg>
+References: <201102231243.23579.alexandre.sidorenko@hp.com> <alpine.LFD.2.00.1103100139510.2372@ja.ssi.bg> <alpine.LFD.2.00.1103100222080.2550@ja.ssi.bg> <201103101441.57105.alexandre.sidorenko@hp.com> <alpine.LFD.2.00.1103151033260.1729@ja.ssi.bg>
+ <20110317161129.GA6384@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ajit.Khaparde@Emulex.Com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Alex Sidorenko <alexandre.sidorenko@hp.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:51727 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932176Ab1CRWol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:44:41 -0400
-In-Reply-To: <49395329523DD64492581B505F80C86D5A5BCD38EB@EXMAIL.ad.emulex.com>
+Received: from ja.ssi.bg ([178.16.129.10]:48323 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932577Ab1CRWw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2011 18:52:29 -0400
+In-Reply-To: <20110317161129.GA6384@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-03-18 at 15:07 -0700, Ajit.Khaparde@Emulex.Com wrote:
-> ________________________________________
-> From: Ben Hutchings [bhutchings@solarflare.com]
-> Sent: Friday, March 18, 2011 5:00 PM
-> To: Khaparde, Ajit
-> Cc: netdev@vger.kernel.org
-> Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
-> 
-> > On Fri, 2011-03-18 at 14:52 -0700, Ajit.Khaparde@Emulex.Com wrote:
-> >> ______________________________________
-> >> From: Ben Hutchings [bhutchings@solarflare.com]
-> >> Sent: Friday, March 18, 2011 4:32 PM
-> >> To: Khaparde, Ajit
-> >> Cc: netdev@vger.kernel.org
-> >> Subject: Re: [RFC] ethtool: Display reg dump length via get driver info.
-> >>
-> >> On Fri, 2011-03-18 at 16:06 -0500, Ajit Khaparde wrote:
-> >> >> Devices like BE store Reg Dump Data in the hardware.
-> >>
-> > >> Where else would it be?
-> >>
-> >> Well yes. That's true.
-> >>
-> >> >> This change will allow to just peek into the hardware
-> >> >> to see if any data is available for a dump and analysis,
-> >> >> without actually dumping the register data.
-> >> > [...]
-> >>
-> >> > This is wrong.  ethtool_ops::get_regs_len really should return a
-> >> > constant, otherwise ethtool (and the kernel) cannot allocate a buffer of
-> >> > the right size.  If the size of a dump really does vary then make it
-> >> > return the maximum possible size for the device.
-> >>
-> >> Yes, it is a constant size. And will always be the max size possible.
-> >> I just want to see if I can get the length, without really making the ethtoool -d call.
-> >> Because that will trigger the dump too.
-> >> At that moment, I may not be interested in the data itself.
-> 
-> > OK, so what you're really interested in is 'does this version of the
-> > driver support register dump'?
-> 
-> Yes. I did not want to add another option in ethtool to get this info out.
 
-So, how about this?
+ 	Hello,
 
-Ben.
+On Thu, 17 Mar 2011, Jiri Bohac wrote:
 
----
-ETHTOOL_GDRVINFO fills out struct ethtool_drvinfo with the size of the
-data returned by various other operations.  The size should be non-zero
-if and only if the driver implements that operation.  Therefore, we can
-report whether the driver supports certain operations without actually
-trying them (which may be expensive and disruptive).
+>>>> IP2: 192.168.142.109/23, primary
+>>>> IP3: 192.168.142.109/22, secondary for primary IP1
+>>>>
+>>>>        It is the route for IP3 that is leaked, with prefsrc=IP1.
+>>>> We create local route for secondary IPs with prefsrc=ItsPrimaryIP.
+>>>> Both local routes for 109 differ in prefsrc (fa_info)
+>
+> Is there any reason to set the prefsrc of a local route to the
+> primary IP address of the subnet?
+>
+> I tried the following patch:
+>
+> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> index 1d2cdd4..2046b21 100644
+> --- a/net/ipv4/fib_frontend.c
+> +++ b/net/ipv4/fib_frontend.c
+> @@ -751,7 +751,7 @@ void fib_add_ifaddr(struct in_ifaddr *ifa)
+> 		}
+> 	}
+>
+> -	fib_magic(RTM_NEWROUTE, RTN_LOCAL, addr, 32, prim);
+> +	fib_magic(RTM_NEWROUTE, RTN_LOCAL, addr, 32, ifa);
+>
+> 	if (!(dev->flags & IFF_UP))
+> 		return;
+>
+>
+> The result with the teststcase mentioned previously is that only
+> one local route is created per IP address. The local routes are
+> correctly deleted after both identical IP addresses are removed
+> from the interface.
 
-Do this in dump_drvinfo() rather than adding a separation operation.
----
- ethtool.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ 	It is a problem also for the broadcast addresses.
 
-diff --git a/ethtool.c b/ethtool.c
-index e9cb2c9..32df0ee 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -1423,11 +1423,19 @@ static int dump_drvinfo(struct ethtool_drvinfo *info)
- 		"driver: %s\n"
- 		"version: %s\n"
- 		"firmware-version: %s\n"
--		"bus-info: %s\n",
-+		"bus-info: %s\n"
-+		"supports-statistics: %s\n"
-+		"supports-test: %s\n"
-+		"supports-eeprom-access: %s\n"
-+		"supports-register-dump: %s\n",
- 		info->driver,
- 		info->version,
- 		info->fw_version,
--		info->bus_info);
-+		info->bus_info,
-+		info->n_stats ? "yes" : "no",
-+		info->testinfo_len ? "yes" : "no",
-+		info->eedump_len ? "yes" : "no",
-+		info->regdump_len ? "yes" : "no");
- 
- 	return 0;
- }
----
+> Furthemore, the testcase uncovers another weirdness with the
+> prefsrc of the local routes. When a primary IP address is deleted
+> and a secondary IP address is promoted to primary, its prefsrc is
+> not updated.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+ 	Yes, I see the same when the deleted primary is
+also in another subnet or device.
 
+> What is the prefrc of a local route good for?
+
+ 	To prefer this src when talking to local IP :)
+You can always add local IPs with /32 mask but currently
+you must add it first, i.e. fib_magic does not remove
+the NLM_F_APPEND flag for /32 local routes when dst is
+same as ifa->ifa_local. So, the order of IP adding
+will determine the order of local routes:
+
+ip addr add 1.2.3.4/24 brd + dev eth1
+# secondary
+ip addr add 1.2.3.5/24 brd + dev eth1
+# primary:
+ip addr add 1.2.3.5/32 brd + dev eth1
+
+when talking to 1.2.3.5 you will use 1.2.3.4 because
+the secondary is added first.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
