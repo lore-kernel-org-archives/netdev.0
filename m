@@ -1,33 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: __ethtool_set_sg: check for function pointer
- before using it
-Date: Fri, 18 Mar 2011 15:15:59 -0700 (PDT)
-Message-ID: <20110318.151559.13735292.davem@davemloft.net>
-References: <20110317163720.GA26284@core.hellgate.ch>
-	<1300380733.2569.3.camel@bwh-desktop>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
+Date: Fri, 18 Mar 2011 15:07:19 -0700
+Message-ID: <49395329523DD64492581B505F80C86D5A5BCD38EB@EXMAIL.ad.emulex.com>
+References: <ae232d9a-90c7-47ae-856d-bc5a2b3a8037@exht1.ad.emulex.com>
+	 ,<1300483939.2589.46.camel@bwh-desktop>
+	 <49395329523DD64492581B505F80C86D5A5BCD38EA@EXMAIL.ad.emulex.com>,<1300485636.2589.48.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rl@hellgate.ch, mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43757
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932338Ab1CRWPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:15:21 -0400
-In-Reply-To: <1300380733.2569.3.camel@bwh-desktop>
+Received: from exht2.emulex.com ([138.239.113.184]:22396 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932923Ab1CRWPo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:15:44 -0400
+In-Reply-To: <1300485636.2589.48.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 17 Mar 2011 16:52:13 +0000
+________________________________________
+From: Ben Hutchings [bhutchings@solarflare.com]
+Sent: Friday, March 18, 2011 5:00 PM
+To: Khaparde, Ajit
+Cc: netdev@vger.kernel.org
+Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
 
-> On Thu, 2011-03-17 at 17:37 +0100, Roger Luethi wrote:
->> __ethtool_set_sg does not check if dev->ethtool_ops->set_sg is defined
->> which can result in a NULL pointer dereference when ethtool is used to
->> change SG settings for drivers without SG support.
->> 
->> Signed-off-by: Roger Luethi <rl@hellgate.ch>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+> On Fri, 2011-03-18 at 14:52 -0700, Ajit.Khaparde@Emulex.Com wrote:
+>> ______________________________________
+>> From: Ben Hutchings [bhutchings@solarflare.com]
+>> Sent: Friday, March 18, 2011 4:32 PM
+>> To: Khaparde, Ajit
+>> Cc: netdev@vger.kernel.org
+>> Subject: Re: [RFC] ethtool: Display reg dump length via get driver info.
+>>
+>> On Fri, 2011-03-18 at 16:06 -0500, Ajit Khaparde wrote:
+>> >> Devices like BE store Reg Dump Data in the hardware.
+>>
+> >> Where else would it be?
+>>
+>> Well yes. That's true.
+>>
+>> >> This change will allow to just peek into the hardware
+>> >> to see if any data is available for a dump and analysis,
+>> >> without actually dumping the register data.
+>> > [...]
+>>
+>> > This is wrong.  ethtool_ops::get_regs_len really should return a
+>> > constant, otherwise ethtool (and the kernel) cannot allocate a buffer of
+>> > the right size.  If the size of a dump really does vary then make it
+>> > return the maximum possible size for the device.
+>>
+>> Yes, it is a constant size. And will always be the max size possible.
+>> I just want to see if I can get the length, without really making the ethtoool -d call.
+>> Because that will trigger the dump too.
+>> At that moment, I may not be interested in the data itself.
 
-Applied.
+> OK, so what you're really interested in is 'does this version of the
+> driver support register dump'?
+
+Yes. I did not want to add another option in ethtool to get this info out.
+
+> Ben.
+
+--
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
