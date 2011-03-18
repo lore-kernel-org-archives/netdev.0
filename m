@@ -1,85 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: LRO disable warnings on kernel 2.6.38
-Date: Fri, 18 Mar 2011 15:40:53 +0000
-Message-ID: <1300462853.2589.9.camel@bwh-desktop>
-References: <1300446743.11985.317.camel@firesoul.comx.local>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCHv2 3/9] macb: unify at91 and avr32 platform data
+Date: Fri, 18 Mar 2011 15:41:18 +0000
+Message-ID: <20110318154118.GQ29758@n2100.arm.linux.org.uk>
+References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com> <1300184096-13937-4-git-send-email-jamie@jamieiles.com> <87vczkmy94.fsf@macbook.be.48ers.dk> <AANLkTi=TiRnc0ceosH-P7fN7wKrLZE0MCJHQ30gM_Q9b@mail.gmail.com> <871v26m8tf.fsf@macbook.be.48ers.dk> <20110317085835.GC29758@n2100.arm.linux.org.uk> <87wrjyksnm.fsf@macbook.be.48ers.dk> <20110317093403.GA15396@pulham.picochip.com> <20110317215101.GC2927@pulham.picochip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Jesper Dangaard Brouer <jdb@comx.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Korsgaard <jacmet@sunsite.dk>,
+	"avictor.za@gmail.com" <avictor.za@gmail.com>,
+	plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org,
+	nicolas.ferre@atmel.com, netdev@vger.kernel.org
+To: Jamie Iles <jamie@jamieiles.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:17822 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756663Ab1CRPk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 11:40:57 -0400
-In-Reply-To: <1300446743.11985.317.camel@firesoul.comx.local>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:51720 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756616Ab1CRPlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 11:41:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20110317215101.GC2927@pulham.picochip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-03-18 at 12:12 +0100, Jesper Dangaard Brouer wrote:
-> Hi
+On Thu, Mar 17, 2011 at 09:51:01PM +0000, Jamie Iles wrote:
+> On Thu, Mar 17, 2011 at 09:34:03AM +0000, Jamie Iles wrote:
+> > Ok, I'll rename to macb_platform_data and update at91_ether to use 
+> > that with a comment describing that we're sharing the platform data 
+> > with macb.  At least that gets rid of the preprocessor stuff in 
+> > board.h for at91 too.
 > 
-> I'm seeing the LRO disable warnings using kernel 2.6.38:
+> So here's the updated patch with changes to the at91_ether driver to 
+> share the data with macb.
 > 
-> [    8.664759] NET: Registered protocol family 10
-> [    8.838148] ADDRCONF(NETDEV_UP): eth71: link is not ready
-> [    8.872639] ------------[ cut here ]------------
-> [    8.872645] WARNING: at net/core/dev.c:1363 dev_disable_lro+0x7b/0x80()
-> [    8.872647] Hardware name: ProLiant DL370 G6
-> [    8.872648] Modules linked in: ipv6 nf_conntrack ip_tables loop i7core_edac edac_core ipmi_si ipmi_msghandler joydev hpilo pcspkr sg hpsa igb ata_piix netxen_nic dca [last unloaded: scsi_wait_scan]
-> [    8.872660] Pid: 2221, comm: sysctl Not tainted 2.6.38-comx04 #2
-> [    8.872662] Call Trace:
-> [    8.872671]  [<ffffffff81056e1f>] ? warn_slowpath_common+0x7f/0xc0
-> [    8.872675]  [<ffffffff81056e7a>] ? warn_slowpath_null+0x1a/0x20
-> [    8.872680]  [<ffffffff8140c0ab>] ? dev_disable_lro+0x7b/0x80
-> [    8.872686]  [<ffffffff81474f27>] ? devinet_sysctl_forward+0x147/0x180
-> [    8.872691]  [<ffffffff811872f7>] ? proc_sys_call_handler+0x97/0xd0
-> [    8.872700]  [<ffffffff81187344>] ? proc_sys_write+0x14/0x20
-> [    8.872704]  [<ffffffff81124148>] ? vfs_write+0xc8/0x180
-> [    8.872707]  [<ffffffff81124301>] ? sys_write+0x51/0x90
-> [    8.872712]  [<ffffffff8100b8c2>] ? system_call_fastpath+0x16/0x1b
-> [    8.872714] ---[ end trace 6245283cb8d484cc ]---
-> 
-> The strange part is that I didn't see this warning on my testlab and
-> pre-prod servers.  The warning is from the first production server,
-> which got kernel 2.6.38 deployed this morning.
-> 
-> The NIC driver is igb.
->
-> The only difference in hardware between the production and
-> pre-production server (which didn't show the warning), is the
-> prod-server have an extra dual-port original Intel NIC, dev-named
-> "eth71".  And its just after the init of eth71, the warning occurs.
+> Russell, are you happy to take this series?  If so, how would you prefer 
+> it, in the patch system or as a git pull?
 
-The warning is triggered if you enable forwarding or bridging on a
-device without LRO, and the driver fails to disable LRO when requested.
-You can see from the call chain that this is being triggered by a sysctl
-write, not during registration.
+As Nicolas Ferre is listed in MAINTAINERS as being responsible for the
+MACB driver, I think he should at last Ack these patches first.
 
-> We usually use a 6 port NIC from Hotlava, which is based on the same
-> chip 82576 and also uses the same igb driver.
-> 
-> Intel orig NIC eth71
->  albpd4:~# ethtool -i eth71
->  driver: igb
->  version: 2.1.0-k2
-[...]
+I'm also concious of the fact that Linus complains if my tree contains
+changes for drivers/ stuff as well as ARM stuff, so I'm nervous about
+taking it as-is.  So, I'd rather see drivers stuff separated as much
+as possible from the arch updates.
 
-This appears to be the in-tree version of igb, which never enables LRO.
-So I can't see how it could trigger this warning.
-
-Are any other drivers being used for other interfaces?
-
-And I'm sorry I forgot to include device & driver in this warning!
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+I'm also concious that this has become ready for potentially merging
+during the merge window, and therefore hasn't had previous exposure
+in linux-next, and so should wait until the next merge window.  I do
+feel that I'm going to be yelled at for saying that... but I'm sure
+I'll also be yelled at if I did take it.
