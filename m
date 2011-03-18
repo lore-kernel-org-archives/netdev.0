@@ -1,38 +1,29 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: patch for format issues and header bug in net/ipv4/icmp.c
-Date: Fri, 18 Mar 2011 19:41:01 +0000
-Message-ID: <1300477261.2589.28.camel@bwh-desktop>
-References: <20110318183529.GA3617@debian.Jeff>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: implement dev_disable_lro() hw_features
+ compatibility
+Date: Fri, 18 Mar 2011 12:43:32 -0700 (PDT)
+Message-ID: <20110318.124332.242116560.davem@davemloft.net>
+References: <37d3c96bc52c87fcd4cdd39c9c852b1d2bbc249d.1300466356.git.mirq-linux@rere.qmqm.pl>
+	<1300471986.2589.26.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jeffrin Jose <ahiliation@yahoo.co.in>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110318183529.GA3617@debian.Jeff>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51335
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932300Ab1CRTmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 15:42:54 -0400
+In-Reply-To: <1300471986.2589.26.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-03-19 at 00:05 +0530, Jeffrin Jose wrote:
-> hello ,
-> 
-> I have created a patch for net/ipv4/icmp.c
-> using checkpatch.pl script to fix several warnings
-> and an error.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 18 Mar 2011 18:13:06 +0000
 
-You need to learn C programming before trying to correct C programs.
-You should not just do what it takes to make checkpatch.pl happy.
+> Local function declarations are a very bad idea, as they are not checked
+> against the function definition.  Please declare the function in
+> <linux/ethtool.h>; that does not oblige us to export it.
 
-Ben.
-
-> I have attached the patch along with this mail.
-> 
-> /Thanks
-> 
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Agreed.
