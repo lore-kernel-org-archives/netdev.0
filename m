@@ -1,61 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
-Date: Fri, 18 Mar 2011 22:00:36 +0000
-Message-ID: <1300485636.2589.48.camel@bwh-desktop>
-References: <ae232d9a-90c7-47ae-856d-bc5a2b3a8037@exht1.ad.emulex.com>
-	 ,<1300483939.2589.46.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5A5BCD38EA@EXMAIL.ad.emulex.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-dev2.6] bxn2x: Fix location of PCI-ids defines
+Date: Fri, 18 Mar 2011 15:13:56 -0700 (PDT)
+Message-ID: <20110318.151356.98903139.davem@davemloft.net>
+References: <1300364824.2090.57.camel@lb-tlvb-ariel.il.broadcom.com>
+	<20110317.060650.226776465.davem@davemloft.net>
+	<1300367613.31873.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ajit.Khaparde@Emulex.Com
+Cc: ariele@broadcom.com, netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:48868 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932868Ab1CRWAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:00:44 -0400
-In-Reply-To: <49395329523DD64492581B505F80C86D5A5BCD38EA@EXMAIL.ad.emulex.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43736
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932939Ab1CRWNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:13:18 -0400
+In-Reply-To: <1300367613.31873.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-03-18 at 14:52 -0700, Ajit.Khaparde@Emulex.Com wrote:
-> ______________________________________
-> From: Ben Hutchings [bhutchings@solarflare.com]
-> Sent: Friday, March 18, 2011 4:32 PM
-> To: Khaparde, Ajit
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [RFC] ethtool: Display reg dump length via get driver info.
-> 
-> On Fri, 2011-03-18 at 16:06 -0500, Ajit Khaparde wrote:
-> >> Devices like BE store Reg Dump Data in the hardware.
-> 
-> > Where else would it be?
-> 
-> Well yes. That's true.
-> 
-> >> This change will allow to just peek into the hardware
-> >> to see if any data is available for a dump and analysis,
-> >> without actually dumping the register data.
-> > [...]
-> 
-> > This is wrong.  ethtool_ops::get_regs_len really should return a
-> > constant, otherwise ethtool (and the kernel) cannot allocate a buffer of
-> > the right size.  If the size of a dump really does vary then make it
-> > return the maximum possible size for the device.
-> 
-> Yes, it is a constant size. And will always be the max size possible.
-> I just want to see if I can get the length, without really making the ethtoool -d call.
-> Because that will trigger the dump too.
-> At that moment, I may not be interested in the data itself.
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Thu, 17 Mar 2011 15:13:33 +0200
 
-OK, so what you're really interested in is 'does this version of the
-driver support register dump'?
+> On Thu, 2011-03-17 at 06:06 -0700, David Miller wrote:
+>> From: "Ariel Elior" <ariele@broadcom.com>
+>> Date: Thu, 17 Mar 2011 14:27:04 +0200
+>> 
+>> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
+>> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+>> 
+>> Unless you intend to reference these symbols elsewhere in the
+>> kernel, they should stay private in your driver.
+>> 
+> 
+> The bnx2i will need it as well. Isn't it better to keep all the PCI IDs
+> in the same global location?
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+It looks like this change propagated to Linus via the scsi tree or
+similar, so I don't need to apply it.
