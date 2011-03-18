@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 15/36] net,rcu: convert
- call_rcu(ipv6_mc_socklist_reclaim) to kfree_rcu()
-Date: Fri, 18 Mar 2011 12:36:22 -0700 (PDT)
-Message-ID: <20110318.123622.260084841.davem@davemloft.net>
-References: <4D82D8F2.5020208@cn.fujitsu.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: patch for format issues and header bug in net/ipv4/icmp.c
+Date: Fri, 18 Mar 2011 19:41:01 +0000
+Message-ID: <1300477261.2589.28.camel@bwh-desktop>
+References: <20110318183529.GA3617@debian.Jeff>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, mingo@elte.hu, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: laijs@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60267
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932591Ab1CRTfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 15:35:45 -0400
-In-Reply-To: <4D82D8F2.5020208@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jeffrin Jose <ahiliation@yahoo.co.in>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110318183529.GA3617@debian.Jeff>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Date: Fri, 18 Mar 2011 12:00:50 +0800
+On Sat, 2011-03-19 at 00:05 +0530, Jeffrin Jose wrote:
+> hello ,
+> 
+> I have created a patch for net/ipv4/icmp.c
+> using checkpatch.pl script to fix several warnings
+> and an error.
 
-> 
-> 
-> The rcu callback ipv6_mc_socklist_reclaim() just calls a kfree(),
-> so we use kfree_rcu() instead of the call_rcu(ipv6_mc_socklist_reclaim).
-> 
-> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+You need to learn C programming before trying to correct C programs.
+You should not just do what it takes to make checkpatch.pl happy.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Ben.
+
+> I have attached the patch along with this mail.
+> 
+> /Thanks
+> 
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
