@@ -1,119 +1,85 @@
-From: Tom Lendacky <tahm@linux.vnet.ibm.com>
-Subject: Re: Network performance with small packets - continued
-Date: Fri, 18 Mar 2011 10:38:27 -0500
-Message-ID: <201103181038.29490.tahm@linux.vnet.ibm.com>
-References: <201103071631.41964.tahm@linux.vnet.ibm.com> <20110310153422.GA28557@redhat.com> <201103101116.13212.tahm@linux.vnet.ibm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: LRO disable warnings on kernel 2.6.38
+Date: Fri, 18 Mar 2011 15:40:53 +0000
+Message-ID: <1300462853.2589.9.camel@bwh-desktop>
+References: <1300446743.11985.317.camel@firesoul.comx.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <201103101116.13212.tahm@linux.vnet.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jesper Dangaard Brouer <jdb@comx.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:17822 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756663Ab1CRPk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 11:40:57 -0400
+In-Reply-To: <1300446743.11985.317.camel@firesoul.comx.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, March 10, 2011 11:16:11 am Tom Lendacky wrote:
-> On Thursday, March 10, 2011 09:34:22 am Michael S. Tsirkin wrote:
-> > On Thu, Mar 10, 2011 at 09:23:42AM -0600, Tom Lendacky wrote:
-> > > On Thursday, March 10, 2011 12:54:58 am Michael S. Tsirkin wrote:
-> > > > On Wed, Mar 09, 2011 at 05:25:11PM -0600, Tom Lendacky wrote:
-> > > > > As for which CPU the interrupt gets pinned to, that doesn't matter
-> > > > > - see below.
-> > > > 
-> > > > So what hurts us the most is that the IRQ jumps between the VCPUs?
-> > > 
-> > > Yes, it appears that allowing the IRQ to run on more than one vCPU
-> > > hurts. Without the publish last used index patch, vhost keeps
-> > > injecting an irq for every received packet until the guest eventually
-> > > turns off notifications.
-> > 
-> > Are you sure you see that? If yes publish used should help a lot.
+On Fri, 2011-03-18 at 12:12 +0100, Jesper Dangaard Brouer wrote:
+> Hi
 > 
-> I definitely see that.  I ran lockstat in the guest and saw the contention
-> on the lock when the irq was able to run on either vCPU.  Once the irq was
-> pinned the contention disappeared.  The publish used index patch should
-> eliminate the extra irq injections and then the pinning or use of
-> irqbalance shouldn't be required.  I'm getting a kernel oops during boot
-> with the publish last used patches that I pulled from the mailing list - I
-> had to make some changes in order to get them to apply and compile and
-> might not have done the right things.  Can you re-spin that patchset
-> against kvm.git?
+> I'm seeing the LRO disable warnings using kernel 2.6.38:
 > 
-
-Here are the results for the publish last used index patch (with the baseline 
-provided again for reference).
-
-Here is the KVM baseline (average of six runs):
-  Txn Rate: 87,070.34 Txn/Sec, Pkt Rate: 172,992 Pkts/Sec
-  Exits: 148,444.58 Exits/Sec
-  TxCPU: 2.40%  RxCPU: 99.35%
-  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 5,154/5,222
-  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-
-Using the publish last used index w/o irqbalance (average of six runs):
-  Txn Rate: 112,180.10 Txn/Sec, Pkt Rate: 222,878.33 Pkts/Sec
-  Exits: 96,280.11 Exits/Sec
-  TxCPU: 1.14%  RxCPU: 99.33%
-  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 3,400/3,400
-  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-
-About a 29% increase over baseline.
-
-Using the publish last used index w/  irqbalance (average of six runs):
-  Txn Rate: 110,891.12 Txn/Sec, Pkt Rate: 220,315.67 Pkts/Sec
-  Exits: 97,190.68 Exits/Sec
-  TxCPU: 1.10%  RxCPU: 99.38%
-  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 7,040/0
-  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-
-About a 27% increase over baseline.
-
-Here is data from running without the publish last used index patch but with 
-irqbalance running (pinning results were near identical):
-  Txn Rate: 107,714.53 Txn/Sec, Pkt Rate: 214,006 Pkts/Sec
-  Exits: 121,050.45 Exits/Sec
-  TxCPU: 9.61%  RxCPU: 99.45%
-  Virtio1-input  Interrupts/Sec (CPU0/CPU1): 13,975/0
-  Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-
-The publish last used index patch provides a 3%-4% improvement while reducing 
-the exit rate and interrupt rate in the guest as well as reducing the 
-transmitting system CPU% quite dramatically.
-
-> > > Because the irq injections end up overlapping we get contention on the
-> > > irq_desc_lock_class lock. Here are some results using the "baseline"
-> > > setup with irqbalance running.
-> > > 
-> > >   Txn Rate: 107,714.53 Txn/Sec, Pkt Rate: 214,006 Pkts/Sec
-> > >   Exits: 121,050.45 Exits/Sec
-> > >   TxCPU: 9.61%  RxCPU: 99.45%
-> > >   Virtio1-input  Interrupts/Sec (CPU0/CPU1): 13,975/0
-> > >   Virtio1-output Interrupts/Sec (CPU0/CPU1): 0/0
-> > > 
-> > > About a 24% increase over baseline.  Irqbalance essentially pinned the
-> > > virtio irq to CPU0 preventing the irq lock contention and resulting in
-> > > nice gains.
-> > 
-> > OK, so we probably want some form of delayed free for TX
-> > on top, and that should get us nice results already.
-> > 
-> > > > --
-> > > > To unsubscribe from this list: send the line "unsubscribe kvm" in
-> > > > the body of a message to majordomo@vger.kernel.org
-> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe kvm" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> [    8.664759] NET: Registered protocol family 10
+> [    8.838148] ADDRCONF(NETDEV_UP): eth71: link is not ready
+> [    8.872639] ------------[ cut here ]------------
+> [    8.872645] WARNING: at net/core/dev.c:1363 dev_disable_lro+0x7b/0x80()
+> [    8.872647] Hardware name: ProLiant DL370 G6
+> [    8.872648] Modules linked in: ipv6 nf_conntrack ip_tables loop i7core_edac edac_core ipmi_si ipmi_msghandler joydev hpilo pcspkr sg hpsa igb ata_piix netxen_nic dca [last unloaded: scsi_wait_scan]
+> [    8.872660] Pid: 2221, comm: sysctl Not tainted 2.6.38-comx04 #2
+> [    8.872662] Call Trace:
+> [    8.872671]  [<ffffffff81056e1f>] ? warn_slowpath_common+0x7f/0xc0
+> [    8.872675]  [<ffffffff81056e7a>] ? warn_slowpath_null+0x1a/0x20
+> [    8.872680]  [<ffffffff8140c0ab>] ? dev_disable_lro+0x7b/0x80
+> [    8.872686]  [<ffffffff81474f27>] ? devinet_sysctl_forward+0x147/0x180
+> [    8.872691]  [<ffffffff811872f7>] ? proc_sys_call_handler+0x97/0xd0
+> [    8.872700]  [<ffffffff81187344>] ? proc_sys_write+0x14/0x20
+> [    8.872704]  [<ffffffff81124148>] ? vfs_write+0xc8/0x180
+> [    8.872707]  [<ffffffff81124301>] ? sys_write+0x51/0x90
+> [    8.872712]  [<ffffffff8100b8c2>] ? system_call_fastpath+0x16/0x1b
+> [    8.872714] ---[ end trace 6245283cb8d484cc ]---
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The strange part is that I didn't see this warning on my testlab and
+> pre-prod servers.  The warning is from the first production server,
+> which got kernel 2.6.38 deployed this morning.
+> 
+> The NIC driver is igb.
+>
+> The only difference in hardware between the production and
+> pre-production server (which didn't show the warning), is the
+> prod-server have an extra dual-port original Intel NIC, dev-named
+> "eth71".  And its just after the init of eth71, the warning occurs.
+
+The warning is triggered if you enable forwarding or bridging on a
+device without LRO, and the driver fails to disable LRO when requested.
+You can see from the call chain that this is being triggered by a sysctl
+write, not during registration.
+
+> We usually use a 6 port NIC from Hotlava, which is based on the same
+> chip 82576 and also uses the same igb driver.
+> 
+> Intel orig NIC eth71
+>  albpd4:~# ethtool -i eth71
+>  driver: igb
+>  version: 2.1.0-k2
+[...]
+
+This appears to be the in-tree version of igb, which never enables LRO.
+So I can't see how it could trigger this warning.
+
+Are any other drivers being used for other interfaces?
+
+And I'm sorry I forgot to include device & driver in this warning!
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
