@@ -1,41 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: VLAN over GRE segfault
-Date: Fri, 18 Mar 2011 14:28:59 -0500
-Message-ID: <20110318192859.GA26156@gondor.apana.org.au>
-References: <4D830AF9.8040007@diddi.se> <1300444047.2888.18.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/36] net,rcu: convert call_rcu(free_dm_hw_stat) to
+ kfree_rcu()
+Date: Fri, 18 Mar 2011 12:35:28 -0700 (PDT)
+Message-ID: <20110318.123528.71127686.davem@davemloft.net>
+References: <4D82D071.5020703@cn.fujitsu.com>
+	<4D82D3FF.2080303@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Diddi Oscarsson <diddi@diddi.se>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, mingo@elte.hu, axboe@kernel.dk,
+	robert.w.love@intel.com, James.Bottomley@suse.de,
+	nhorman@tuxdriver.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	eric.dumazet@gmail.com, shemminger@vyatta.com, tj@kernel.org,
+	jarkao2@gmail.com, linux-kernel@vger.kernel.org,
+	devel@open-fcoe.org, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: laijs@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:58443 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756818Ab1CRT3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 15:29:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1300444047.2888.18.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60114
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756818Ab1CRTeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 15:34:50 -0400
+In-Reply-To: <4D82D3FF.2080303@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 18, 2011 at 11:27:27AM +0100, Eric Dumazet wrote:
->
-> This uncover a bug in vlan code.
-> 
-> We should make sure vlan devices take into account their
-> real_dev->needed_headroom or we risk a crash in ipgre_header(), because
-> we dont have enough room to push IP header in skb.
-> 
-> Reported-by: Diddi Oscarsson <diddi@diddi.se>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Date: Fri, 18 Mar 2011 11:39:43 +0800
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> 
+> The rcu callback free_dm_hw_stat() just calls a kfree(),
+> so we use kfree_rcu() instead of the call_rcu(free_dm_hw_stat).
+> 
+> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Acked-by: David S. Miller <davem@davemloft.net>
