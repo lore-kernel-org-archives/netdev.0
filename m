@@ -1,70 +1,41 @@
-From: <Ajit.Khaparde@Emulex.Com>
-Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
-Date: Fri, 18 Mar 2011 15:07:19 -0700
-Message-ID: <49395329523DD64492581B505F80C86D5A5BCD38EB@EXMAIL.ad.emulex.com>
-References: <ae232d9a-90c7-47ae-856d-bc5a2b3a8037@exht1.ad.emulex.com>
-	 ,<1300483939.2589.46.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5A5BCD38EA@EXMAIL.ad.emulex.com>,<1300485636.2589.48.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: VLAN over GRE segfault
+Date: Fri, 18 Mar 2011 15:16:43 -0700 (PDT)
+Message-ID: <20110318.151643.58424378.davem@davemloft.net>
+References: <4D830AF9.8040007@diddi.se>
+	<1300444047.2888.18.camel@edumazet-laptop>
+	<20110318192859.GA26156@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, diddi@diddi.se, netdev@vger.kernel.org,
+	kaber@trash.net
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:22396 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932923Ab1CRWPo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:15:44 -0400
-In-Reply-To: <1300485636.2589.48.camel@bwh-desktop>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43763
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932918Ab1CRWQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 18:16:05 -0400
+In-Reply-To: <20110318192859.GA26156@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-________________________________________
-From: Ben Hutchings [bhutchings@solarflare.com]
-Sent: Friday, March 18, 2011 5:00 PM
-To: Khaparde, Ajit
-Cc: netdev@vger.kernel.org
-Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 18 Mar 2011 14:28:59 -0500
 
-> On Fri, 2011-03-18 at 14:52 -0700, Ajit.Khaparde@Emulex.Com wrote:
->> ______________________________________
->> From: Ben Hutchings [bhutchings@solarflare.com]
->> Sent: Friday, March 18, 2011 4:32 PM
->> To: Khaparde, Ajit
->> Cc: netdev@vger.kernel.org
->> Subject: Re: [RFC] ethtool: Display reg dump length via get driver info.
+> On Fri, Mar 18, 2011 at 11:27:27AM +0100, Eric Dumazet wrote:
 >>
->> On Fri, 2011-03-18 at 16:06 -0500, Ajit Khaparde wrote:
->> >> Devices like BE store Reg Dump Data in the hardware.
->>
-> >> Where else would it be?
->>
->> Well yes. That's true.
->>
->> >> This change will allow to just peek into the hardware
->> >> to see if any data is available for a dump and analysis,
->> >> without actually dumping the register data.
->> > [...]
->>
->> > This is wrong.  ethtool_ops::get_regs_len really should return a
->> > constant, otherwise ethtool (and the kernel) cannot allocate a buffer of
->> > the right size.  If the size of a dump really does vary then make it
->> > return the maximum possible size for the device.
->>
->> Yes, it is a constant size. And will always be the max size possible.
->> I just want to see if I can get the length, without really making the ethtoool -d call.
->> Because that will trigger the dump too.
->> At that moment, I may not be interested in the data itself.
+>> This uncover a bug in vlan code.
+>> 
+>> We should make sure vlan devices take into account their
+>> real_dev->needed_headroom or we risk a crash in ipgre_header(), because
+>> we dont have enough room to push IP header in skb.
+>> 
+>> Reported-by: Diddi Oscarsson <diddi@diddi.se>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Cc: Patrick McHardy <kaber@trash.net>
+>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> OK, so what you're really interested in is 'does this version of the
-> driver support register dump'?
-
-Yes. I did not want to add another option in ethtool to get this info out.
-
-> Ben.
-
---
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied.
