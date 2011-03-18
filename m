@@ -1,73 +1,52 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: SO_BINDTODEVICE inconsistency between IPv4 and IPv6
-Date: Thu, 17 Mar 2011 21:26:51 -0400
-Message-ID: <4D82B4DB.2060006@hp.com>
-References: <1300357750.2589.46.camel@macbook.infradead.org>
+From: Eduardo Panisset <eduardo.panisset@gmail.com>
+Subject: IPv6 SO_BINDTODEVICE and Multiple default routes
+Date: Thu, 17 Mar 2011 22:54:03 -0300
+Message-ID: <AANLkTi=y2O-f0rZNoVwmFxPrF-fBT0Zdb4eQ3_eD59s8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	"Yuniverg, Michael" <michael.yuniverg@intel.com>,
-	"Yedvab, Nadav" <nadav.yedvab@intel.com>
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:39763 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754296Ab1CRB0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 21:26:54 -0400
-In-Reply-To: <1300357750.2589.46.camel@macbook.infradead.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:45297 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755609Ab1CRByD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2011 21:54:03 -0400
+Received: by vxi39 with SMTP id 39so3189956vxi.19
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2011 18:54:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/17/2011 06:29 AM, David Woodhouse wrote:
-> We've discovered strange behaviour when we listen on in6addr_any and =
-use
-> SO_BINDTODEVICE to bind to the lo device.
->=20
-> We can connect to any IPv4 address that is local to the machine, on a=
-ny
-> interface. (This is true whether we listen on AF_INET6/in6addr_any an=
-d
-> accept IPv4 connections on the IPv6 socket, or whether we just listen=
- on
-> AF_INET/INADDR_ANY).
->=20
-> The IPv6 behaviour is different =E2=80=94 the only IPv6 address that =
-we can
-> connect to is ::1.
->=20
-> See attached test case, which listens with SO_BINDTODEVICE as describ=
-ed.
-> Note that it needs to be run as root because SO_BINDTODEVICE is a
-> privileged operation.
->=20
-> Why this difference? Ideally, we want the Legacy IP behaviour to happ=
-en
-> for IPv6 too; we want local clients to be able to connect to *any* lo=
-cal
-> IP address to talk to our service, but we don't want to accept
-> connections from the outside.
->=20
-<snip>
+Hi,
 
-> telnet> close
-> Connection closed.
-> [root@macbook dwmw2]# telnet 2001:8b0:10b:1:216:eaff:fe05:bbb8 9999
-> Trying 2001:8b0:10b:1:216:eaff:fe05:bbb8...
-> telnet: connect to address 2001:8b0:10b:1:216:eaff:fe05:bbb8: Connect=
-ion refused
-> telnet: Unable to connect to remote host: Connection refused
+I have two interfaces (wlan0) and (eth0) up and running on my laptop.
+Also I have two v6 default routes and neighbor cache set up, as below:
 
-Hmm, "connection refused", do you have any iptables rules installed?  C=
-onnecting
-to a local global address worked fine for me on 2.6.32-30 using a home-=
-grown
-test app.
+ip route
+default via fe80::21a:70ff:fee6:b155 dev eth0  proto ra  metric 996
+mtu 1280 advmss 1220 hoplimit 0
+default via fe80::21a:70ff:fee6:b155 dev wlan0  proto ra  metric 999
+mtu 1280 advmss 1220 hoplimit 0
 
-BTW, the one difference you will see with this is that trying to connec=
-t to
-a link-local won't work without specifying a scope (like an interface),=
- so
-that is different than IPv4.
+ip -6 neigh
+fe80::21a:70ff:fee6:b155 dev wlan0 lladdr 00:1a:70:e6:b1:55 router STALE
+2001:470:c1fa:1083:: dev wlan0 lladdr 00:1a:70:e6:b1:55 STALE
+2001:470:c1fa:1083:: dev eth0 lladdr 00:1a:70:e6:b1:55 STALE
+fe80::21a:70ff:fee6:b155 dev eth0 lladdr 00:1a:70:e6:b1:55 router REACHABLE
 
--Brian
+Im opening 2 UDPv6 sockets, and using SO_BINDTODEVICE so as to bind
+each one respectively to "wlan0" and "eth0".
+
+However the communication takes place just over eth0 socket. Over
+wlan0 the application gets the message "Network Unreachable". However
+if I configure the two default routes with the same metric then the
+binding to "wlan0" comes to work nicely.
+
+Debugging the ip6_pol_route function inside the kernel I could figure
+out that the default route to "wlan0" is not being considered at all
+when the metrics for the two v6 default routes are different from each
+other, it's considered if the metrics for the two default routes are
+the same, though.
+
+Is this behaviour expected ?
+
+Regards,
+Eduardo Panisset.
