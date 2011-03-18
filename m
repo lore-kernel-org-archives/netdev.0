@@ -1,50 +1,42 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: Poll about irqsafe_cpu_add and others
-Date: Fri, 18 Mar 2011 17:56:24 +1100
-Message-ID: <1300431384.22236.1280.camel@pasglop>
-References: <1300371834.6315.93.camel@edumazet-laptop>
+From: Jens Axboe <axboe@kernel.dk>
+Subject: Re: [PATCH 05/36] block,rcu: convert call_rcu(disk_free_ptbl_rcu_cb)
+  to kfree_rcu()
+Date: Fri, 18 Mar 2011 07:59:53 +0100
+Message-ID: <4D8302E9.30303@kernel.dk>
+References: <4D82D071.5020703@cn.fujitsu.com> <4D82D3FF.2080303@cn.fujitsu.com> <4D82D4C2.8020503@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Christoph Lameter <cl@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1300371834.6315.93.camel@edumazet-laptop>
-Sender: linux-arch-owner@vger.kernel.org
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <James.Bottomley@suse.de>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Tejun Heo <tj@kernel.org>, Jarek Poplawski <jarkao2@gmail.com>,
+	linux-kernel@vger.kernel.org, devel@open-fcoe.org,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org
+To: Lai Jiangshan <laijs@cn.fujitsu.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <4D82D4C2.8020503@cn.fujitsu.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-03-17 at 15:23 +0100, Eric Dumazet wrote:
-> Hi
+On 2011-03-18 04:42, Lai Jiangshan wrote:
 > 
-> irqsafe_cpu_{dec|inc} are used in network stack since 2.6.37 (commit
-> 29b4433d991c88), and I would like to use irqsafe_cpu_add() in netfilter
-> fast path too, and SNMP counters eventually (to lower ram needs by 50%)
 > 
-> Initial support of irqsafe_ was given by Christoph in 2.6.34
-> 
-> It seems only x86 arch is using a native and efficient implementation.
-> 
-> Others use irqsafe_cpu_generic_to_op() and its pair of
-> local_irq_save() / local_irq_restore()
-> 
-> Which other arches could use a native implementation ?
-> 
-> What about defining a HAVE_FAST_IRQSAFE_ADD ?
+> The rcu callback disk_free_ptbl_rcu_cb() just calls a kfree(),
+> so we use kfree_rcu() instead of the call_rcu(disk_free_ptbl_rcu_cb).
 
-On powerpc, we use the generic one and it's fast :-) Well, at least on
-ppc64, bcs we do lazy irq disabling, disabling/enabling interrupt is
-basically just poking a byte in a per-cpu data structure (there's a tad
-more work on enable in case the interrupt actually occured and we ended
-up really disabling but that's not the common case). Overall faster than
-using the atomic ops which have to go all the way to the L2 cache.
+Thanks, I'll add this.
 
-So if you define the above, please set in on powerpc despite the fact
-that we use the generic implementation.
+-- 
+Jens Axboe
 
-Cheers,
-Ben.
