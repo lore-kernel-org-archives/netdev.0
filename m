@@ -1,45 +1,46 @@
-From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-Subject: [PATCH] bonding: fix a typo in a comment
-Date: Sat, 19 Mar 2011 14:31:07 +0100
-Message-ID: <1300541467-6133-1-git-send-email-nicolas.2p.debian@free.fr>
+From: Anca Emanuel <anca.emanuel@gmail.com>
+Subject: Re: No networking since git3
+Date: Sat, 19 Mar 2011 16:08:16 +0200
+Message-ID: <AANLkTimFGeHYEOxx=h883rRJL463g1CBUDS0wGM-52Nj@mail.gmail.com>
+References: <4D84A46B.1000407@example.com>
+	<AANLkTi=qrK2L+MA5F5fQ6S76LLPXkYhyLg7JL4_vrkRe@mail.gmail.com>
+	<4D84A9F6.8080402@example.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	=?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:52502 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751481Ab1CSNbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Mar 2011 09:31:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>
+To: piotr@hosowicz.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D84A9F6.8080402@example.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
----
- drivers/net/bonding/bond_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+2011/3/19 Piotr Hosowicz <piotr@hosowicz.com>:
+> On 19.03.2011 13:56, Anca Emanuel wrote:
+>>
+>> 2011/3/19 Piotr Hosowicz<piotr@hosowicz.com>:
+>>>
+>>> Hello,
+>>>
+>>> I wrote lately, the problem persists, that's why I write again. I t=
+ested
+>>> git7 just now and it still does not work.
+>>
+>> Same problem here:
+>>
+>> [ =A0 12.923685] r8169 0000:04:00.0: eth0: link down
+>> [ =A0 12.923941] ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>
+>> dmesg attached.
+>
+> Nice to hear that I am not the only person with this problem. I forgo=
+t about
+> the dmesg.
+>
+> Regards,
+>
+> Piotr Hosowicz
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index 1a6e9eb..338bea1 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2130,7 +2130,7 @@ int bond_release(struct net_device *bond_dev, str=
-uct net_device *slave_dev)
- }
-=20
- /*
--* First release a slave and than destroy the bond if no more slaves ar=
-e left.
-+* First release a slave and then destroy the bond if no more slaves ar=
-e left.
- * Must be under rtnl_lock when this function is called.
- */
- static int  bond_release_and_destroy(struct net_device *bond_dev,
---=20
-1.7.4.1
-
+Added CCs
