@@ -1,51 +1,47 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH v2 3/4] ipv4: remove the routes on secondary promotion
-Date: Sun, 20 Mar 2011 00:13:52 +0200
-Message-ID: <201103192213.p2JMDq9n003083@ja.ssi.bg>
+Subject: [PATCH v2 4/4] ipv4: optimize route adding on secondary promotion
+Date: Sun, 20 Mar 2011 00:13:54 +0200
+Message-ID: <201103192213.p2JMDs0S003092@ja.ssi.bg>
 Mime-Version: 1.0
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:42158 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:42159 "EHLO ja.ssi.bg"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757674Ab1CSWIf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Mar 2011 18:08:35 -0400
+	id S1757590Ab1CSWIi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Mar 2011 18:08:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	The secondary address promotion relies on fib_sync_down_addr
-to remove all routes created for the secondary addresses when
-the old primary address is deleted. It does not happen for cases
-when the primary address is also in another subnet. Fix that
-by deleting local and broadcast routes for all secondaries while
-they are on device list and by faking that all addresses from
-this subnet are to be deleted. It relies on fib_del_ifaddr being
-able to ignore the IPs from the concerned subnet while checking
-for duplication.
+	Optimize the calling of fib_add_ifaddr for all
+secondary addresses after the promoted one to start from
+their place, not from the new place of the promoted
+secondary. It will save some CPU cycles because we
+are sure the promoted secondary was first for the subnet
+and all next secondaries do not change their place.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/ipv4/devinet.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
+ net/ipv4/devinet.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff -urp net-next-2.6-bef55ae/linux/net/ipv4/devinet.c linux/net/ipv4/devinet.c
---- net-next-2.6-bef55ae/linux/net/ipv4/devinet.c	2011-03-13 01:08:55.000000000 +0200
-+++ linux/net/ipv4/devinet.c	2011-03-16 10:54:42.669192601 +0200
-@@ -345,6 +345,17 @@ static void __inet_del_ifa(struct in_dev
- 		}
- 	}
+--- net-next-2.6-bef55ae/linux/net/ipv4/devinet.c	2011-03-18 00:57:39.000000000 +0200
++++ linux/net/ipv4/devinet.c	2011-03-18 10:40:08.135271482 +0200
+@@ -375,6 +375,7 @@ static void __inet_del_ifa(struct in_dev
+ 	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
  
-+	/* On promotion all secondaries from subnet are changing
-+	 * the primary IP, we must remove all their routes silently
-+	 * and later to add them back with new prefsrc. Do this
-+	 * while all addresses are on the device list.
-+	 */
-+	for (ifa = promote; ifa; ifa = ifa->ifa_next) {
-+		if (ifa1->ifa_mask == ifa->ifa_mask &&
-+		    inet_ifa_match(ifa1->ifa_address, ifa))
-+			fib_del_ifaddr(ifa, ifa1);
-+	}
-+
- 	/* 2. Unlink it */
+ 	if (promote) {
++		struct in_ifaddr *next_sec = promote->ifa_next;
  
- 	*ifap = ifa1->ifa_next;
+ 		if (prev_prom) {
+ 			prev_prom->ifa_next = promote->ifa_next;
+@@ -386,7 +387,7 @@ static void __inet_del_ifa(struct in_dev
+ 		rtmsg_ifa(RTM_NEWADDR, promote, nlh, pid);
+ 		blocking_notifier_call_chain(&inetaddr_chain,
+ 				NETDEV_UP, promote);
+-		for (ifa = promote->ifa_next; ifa; ifa = ifa->ifa_next) {
++		for (ifa = next_sec; ifa; ifa = ifa->ifa_next) {
+ 			if (ifa1->ifa_mask != ifa->ifa_mask ||
+ 			    !inet_ifa_match(ifa1->ifa_address, ifa))
+ 					continue;
