@@ -1,44 +1,131 @@
-From: Andreas Schwab <schwab@linux-m68k.org>
-Subject: Re: ipv6 secondary ips and default ipv6 ip for new outbound connections
-Date: Sat, 19 Mar 2011 09:02:17 +0100
-Message-ID: <m2k4fvbks6.fsf@igel.home>
-References: <20110318230312.GX13831@surrealistic.net>
-	<4D8413BE.5000305@hp.com> <20110319033507.GY13831@surrealistic.net>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [PATCH ethtool] ethtool: Report driver features described in
+ struct ethtool_drvinfo
+Date: Sat, 19 Mar 2011 01:04:38 -0700
+Message-ID: <49395329523DD64492581B505F80C86D5A5BCD38EC@EXMAIL.ad.emulex.com>
+References: <ae232d9a-90c7-47ae-856d-bc5a2b3a8037@exht1.ad.emulex.com>
+	 ,<1300483939.2589.46.camel@bwh-desktop>
+	 <49395329523DD64492581B505F80C86D5A5BCD38EA@EXMAIL.ad.emulex.com>
+	 ,<1300485636.2589.48.camel@bwh-desktop>
+	 <49395329523DD64492581B505F80C86D5A5BCD38EB@EXMAIL.ad.emulex.com>,<1300488277.2589.50.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
-To: Jim Westfall <jwestfall@surrealistic.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:45235 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752099Ab1CSICV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 04:02:21 -0400
-In-Reply-To: <20110319033507.GY13831@surrealistic.net> (Jim Westfall's message
-	of "Fri, 18 Mar 2011 20:35:07 -0700")
+Received: from exht2.emulex.com ([138.239.113.184]:26162 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753305Ab1CSIFA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 04:05:00 -0400
+In-Reply-To: <1300488277.2589.50.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jim Westfall <jwestfall@surrealistic.net> writes:
+_______________________________________
+From: Ben Hutchings [bhutchings@solarflare.com]
+Sent: Friday, March 18, 2011 5:44 PM
+To: Khaparde, Ajit
+Cc: netdev@vger.kernel.org
+Subject: [PATCH ethtool] ethtool: Report driver features described in struct ethtool_drvinfo
 
-> Your patch fixes it for me.
+On Fri, 2011-03-18 at 15:07 -0700, Ajit.Khaparde@Emulex.Com wrote:
+>> ________________________________________
+>> From: Ben Hutchings [bhutchings@solarflare.com]
+>> Sent: Friday, March 18, 2011 5:00 PM
+>> To: Khaparde, Ajit
+>> Cc: netdev@vger.kernel.org
+>> Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
+>>
+>> > On Fri, 2011-03-18 at 14:52 -0700, Ajit.Khaparde@Emulex.Com wrote:
+>> >> ______________________________________
+>> >> From: Ben Hutchings [bhutchings@solarflare.com]
+>> >> Sent: Friday, March 18, 2011 4:32 PM
+>> >> To: Khaparde, Ajit
+>> >> Cc: netdev@vger.kernel.org
+>> >> Subject: Re: [RFC] ethtool: Display reg dump length via get driver info.
+> >>
+> >> On Fri, 2011-03-18 at 16:06 -0500, Ajit Khaparde wrote:
+> >> >> Devices like BE store Reg Dump Data in the hardware.
+> >>
+> > >> Where else would it be?
+>> >>
+>> >> Well yes. That's true.
+>> >>
+>> >> >> This change will allow to just peek into the hardware
+>> >> >> to see if any data is available for a dump and analysis,
+>> >> >> without actually dumping the register data.
+>> >> > [...]
+>> >>
+>> >> > This is wrong.  ethtool_ops::get_regs_len really should return a
+>> >> > constant, otherwise ethtool (and the kernel) cannot allocate a buffer of
+>> >> > the right size.  If the size of a dump really does vary then make it
+>> >> > return the maximum possible size for the device.
+>> >>
+>> >> Yes, it is a constant size. And will always be the max size possible.
+>> >> I just want to see if I can get the length, without really making the ethtoool -d call.
+>> >> Because that will trigger the dump too.
+>> >> At that moment, I may not be interested in the data itself.
+>>
+>> > OK, so what you're really interested in is 'does this version of the
+>> > driver support register dump'?
+>>
+>> Yes. I did not want to add another option in ethtool to get this info out.
 >
-> # ip addr add 2600:c00:0:1::1101/64 dev eth0
-> ~# traceroute6 www.kame.net | head -0
-> traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+> So, how about this?
+
+> Ben.
+
+> ---
+> ETHTOOL_GDRVINFO fills out struct ethtool_drvinfo with the size of the
+> data returned by various other operations.  The size should be non-zero
+> if and only if the driver implements that operation.  Therefore, we can
+> report whether the driver supports certain operations without actually
+> trying them (which may be expensive and disruptive).
 >
-> ~# ip addr add 2600:c00:0:1::1102/64 dev eth0
-> ~# traceroute6 www.kame.net | head -0
-> traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+> Do this in dump_drvinfo() rather than adding a separation operation.
+
+This one is fine too.
+Though I would have liked the other one where it displays either zero or the max value.
+You could add Acked-by:
+Ajit Khaparde <ajit.khaparde@emulex.com>
+
+-Ajit
+
+> ---
+> ethtool.c |   12 ++++++++++--
+> 1 files changed, 10 insertions(+), 2 deletions(-)
+> 
+> diff --git a/ethtool.c b/ethtool.c
+> index e9cb2c9..32df0ee 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -1423,11 +1423,19 @@ static int dump_drvinfo(struct ethtool_drvinfo *info)
+>                 "driver: %s\n"
+>                 "version: %s\n"
+>                 "firmware-version: %s\n"
+> -               "bus-info: %s\n",
+> +               "bus-info: %s\n"
+> +               "supports-statistics: %s\n"
+> +               "supports-test: %s\n"
+> +               "supports-eeprom-access: %s\n"
+> +               "supports-register-dump: %s\n",
+>                 info->driver,
+>                 info->version,
+>                 info->fw_version,
+> -               info->bus_info);
+> +               info->bus_info,
+> +               info->n_stats ? "yes" : "no",
+> +               info->testinfo_len ? "yes" : "no",
+> +               info->eedump_len ? "yes" : "no",
+> +               info->regdump_len ? "yes" : "no");
 >
-> ~# ip addr add 2600:c00:0:1::1103/64 dev eth0
-> ~# traceroute6 www.kame.net | head -0
-> traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+>         return 0;
+>  }
+> ---
 
-Does this also affect the selected address if use_tempaddr=2?
-
-Andreas.
-
--- 
-Andreas Schwab, schwab@linux-m68k.org
-GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+> --
+>Ben Hutchings, Senior Software Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
