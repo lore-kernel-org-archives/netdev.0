@@ -1,77 +1,68 @@
-From: Hugh Dickins <hughd@google.com>
-Subject: Re: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
-Date: Fri, 18 Mar 2011 20:58:38 -0700 (PDT)
-Message-ID: <alpine.LSU.2.00.1103182037340.18458@sister.anvils>
-References: <4D6CA852.3060303@cn.fujitsu.com> <AANLkTimXy2Yaj+NTDMNTWuLqHHfKZJhVDpeXj3CfMvBf@mail.gmail.com> <alpine.DEB.2.00.1103010909320.6253@router.home> <AANLkTim0Zjc7c9-7LCnEaYpV5PVN=5fNQpjMYqtZe-fk@mail.gmail.com> <alpine.DEB.2.00.1103020625290.10180@router.home>
- <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com> <alpine.DEB.2.00.1103171006270.12540@router.home>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] Add useful per-connection TCP stats for diagnosis purpose.
+Date: Fri, 18 Mar 2011 21:33:45 -0700
+Message-ID: <AANLkTikrJ7A-ygc9JnkvfBpRaKjL0fKeta+9ASLDr0rg@mail.gmail.com>
+References: <1300349189-2731-1-git-send-email-hkchu@google.com>
+	<1300351330.10164.712.camel@edumazet-laptop>
+	<AANLkTi=sLkXreC3LNsDuFDSeNMebr+ScMc12=gngd2cc@mail.gmail.com>
+	<20110317142030.62af785a@nehalam>
+	<AANLkTi=W-=8zhQpfJZ=DrDyUCwrT==5JkwRBiHaDkVXK@mail.gmail.com>
+	<1300428324.2881.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@kernel.org>, Lai Jiangshan <laijs@cn.fujitsu.com>,
-        Ingo Molnar <mingo@elte.hu>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Matt Mackall <mpm@selenic.com>, linux-mm@kvack.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1103171006270.12540@router.home>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:61844 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183Ab1CSEdt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 00:33:49 -0400
+Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [172.25.149.7])
+	by smtp-out.google.com with ESMTP id p2J4Xlxh025467
+	for <netdev@vger.kernel.org>; Fri, 18 Mar 2011 21:33:47 -0700
+Received: from gyg13 (gyg13.prod.google.com [10.243.50.141])
+	by hpaq7.eem.corp.google.com with ESMTP id p2J4XjwB021434
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 18 Mar 2011 21:33:46 -0700
+Received: by gyg13 with SMTP id 13so1717576gyg.10
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2011 21:33:45 -0700 (PDT)
+In-Reply-To: <1300428324.2881.5.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Mar 2011, Christoph Lameter wrote:
-> On Sun, 6 Mar 2011, Hugh Dickins wrote:
-> 
-> > >> That was so for a long time, but I stopped it just over a year ago
-> > >> with commit a70caa8ba48f21f46d3b4e71b6b8d14080bbd57a, stop ptlock
-> > >> enlarging struct page.
-> > >
-> > > Strange. I just played around with in in January and the page struct size
-> > > changes when I build kernels with full debugging. I have some
-> > > cmpxchg_double patches here that depend on certain alignment in the page
-> > > struct. Debugging causes all that stuff to get out of whack so that I had
-> > > to do some special patches to make sure fields following the spinlock are
-> > > properly aligned when the sizes change.
+On Thu, Mar 17, 2011 at 11:05 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+>
+> Le jeudi 17 mars 2011 =E0 21:33 -0700, Jerry Chu a =E9crit :
+>
+> > Yes I'm familiar with ss and how inet_csk_diag_fill() calls into
+> > tcp_diag_get_info(),..., etc. Like I mentioned previously the netli=
+nk
+> > interface
+> > requires a new version of reader app (e.g., ss) to ship every time =
+a new
+> > counter is added and exported by the kernel, whereas /proc/net/tcp =
+does
+> > not have such a problem.
 > >
-> > That puzzles me, it's not my experience and I don't have an
-> > explanation: do you have time to investigate?
+> > Anyway I can add a INET_DIAG_INFO_EXT of some sort to netlink in
+> > addition to /proc/net/tcp. That's easy to do.
 > >
-> > Uh oh, you're going to tell me you're working on an out-of-tree
-> > architecture with a million cpus ;)  In that case, yes, I'm afraid
-> > I'll have to update the SPLIT_PTLOCK_CPUS defaulting (for a million -
-> > 1 even).
-> 
-> No I am not working on any out of tree structure. Just regular dual socket
-> server boxes with 24 processors (which is a normal business machine
-> configuration these days).
-> 
-> But then there is also CONFIG_GENERIC_LOCKBREAK. That does not affect
-> things?
+>
+> I suggest adding a getsockopt() or something to gather stats for one
+> socket. On a loaded machine, /proc/net/tcp is damn slow.
 
-CONFIG_GENERIC_LOCKBREAK adds an unsigned int break_lock after the
-int-sized arch_spinlock_t: which would make no difference on 64-bit
-anyway (the two ints fitting into one long), and makes no difference
-on 32-bit because we have put
-	struct {
-		unsigned long private;
-		struct address_space *mapping;
-	};
-into the union with spinlock_t ptl - the arch_spinlock_t then
-overlays private and the break_lock overlays mapping.
+I'm well aware of the past, hideous O(n**2) problem of reading
+/proc/net/tcp but I
+thought the problem has been fixed by Tom Herbert a while back, no?
+(See=A0http://marc.info/?l=3Dlinux-netdev&m=3D127588123429437&w=3D2)
 
-I'd much rather have had simple elements in that union, but it's
-precisely because of 32-bit CONFIG_GENERIC_LOCKBREAK that we need
-that structure in there.
+>
+> We have TCP_INFO, we could add TCP_INFO_EXT, but taking care of choos=
+ing
+> an interface allowing for extension of the structure.
 
-(It is important to the KSM assumption about page->mapping that
-what goes into break_lock is either 0 or 1: in neither case could
-page->mapping look like a kmem address + 3.)
+Ok.
 
-Hugh
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Jerry
