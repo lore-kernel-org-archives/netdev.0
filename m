@@ -1,52 +1,51 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH v2 1/4] ipv4: match prefsrc when deleting routes
-Date: Sun, 20 Mar 2011 00:13:46 +0200
-Message-ID: <201103192213.p2JMDkuD003065@ja.ssi.bg>
+Subject: [PATCH v2 3/4] ipv4: remove the routes on secondary promotion
+Date: Sun, 20 Mar 2011 00:13:52 +0200
+Message-ID: <201103192213.p2JMDq9n003083@ja.ssi.bg>
 Mime-Version: 1.0
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:42152 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:42158 "EHLO ja.ssi.bg"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757563Ab1CSWIb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Mar 2011 18:08:31 -0400
+	id S1757674Ab1CSWIf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Mar 2011 18:08:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	fib_table_delete forgets to match the routes by prefsrc.
-Callers can specify known IP in fc_prefsrc and we should remove
-the exact route. This is needed for cases when same local or
-broadcast addresses are used in different subnets and the
-routes differ only in prefsrc. All callers that do not provide
-fc_prefsrc will ignore the route prefsrc as before and will
-delete the first occurence. That is how the ip route del default
-magic works.
-
-	Current callers are:
-
-- ip_rt_ioctl where rtentry_to_fib_config provides fc_prefsrc only
-when the provided device name matches IP label with colon.
-
-- inet_rtm_delroute where RTA_PREFSRC is optional too
-
-- fib_magic which deals with routes when deleting addresses
-and where the fc_prefsrc is always set with the primary IP
-for the concerned IFA.
+	The secondary address promotion relies on fib_sync_down_addr
+to remove all routes created for the secondary addresses when
+the old primary address is deleted. It does not happen for cases
+when the primary address is also in another subnet. Fix that
+by deleting local and broadcast routes for all secondaries while
+they are on device list and by faking that all addresses from
+this subnet are to be deleted. It relies on fib_del_ifaddr being
+able to ignore the IPs from the concerned subnet while checking
+for duplication.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/ipv4/fib_trie.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv4/devinet.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff -urp net-next-2.6-bef55ae/linux/net/ipv4/fib_trie.c linux/net/ipv4/fib_trie.c
---- net-next-2.6-bef55ae/linux/net/ipv4/fib_trie.c	2011-03-13 01:08:55.000000000 +0200
-+++ linux/net/ipv4/fib_trie.c	2011-03-16 09:53:26.824191983 +0200
-@@ -1665,6 +1665,8 @@ int fib_table_delete(struct fib_table *t
- 		if ((!cfg->fc_type || fa->fa_type == cfg->fc_type) &&
- 		    (cfg->fc_scope == RT_SCOPE_NOWHERE ||
- 		     fa->fa_scope == cfg->fc_scope) &&
-+		    (!cfg->fc_prefsrc ||
-+		     fi->fib_prefsrc == cfg->fc_prefsrc) &&
- 		    (!cfg->fc_protocol ||
- 		     fi->fib_protocol == cfg->fc_protocol) &&
- 		    fib_nh_match(cfg, fi) == 0) {
+diff -urp net-next-2.6-bef55ae/linux/net/ipv4/devinet.c linux/net/ipv4/devinet.c
+--- net-next-2.6-bef55ae/linux/net/ipv4/devinet.c	2011-03-13 01:08:55.000000000 +0200
++++ linux/net/ipv4/devinet.c	2011-03-16 10:54:42.669192601 +0200
+@@ -345,6 +345,17 @@ static void __inet_del_ifa(struct in_dev
+ 		}
+ 	}
+ 
++	/* On promotion all secondaries from subnet are changing
++	 * the primary IP, we must remove all their routes silently
++	 * and later to add them back with new prefsrc. Do this
++	 * while all addresses are on the device list.
++	 */
++	for (ifa = promote; ifa; ifa = ifa->ifa_next) {
++		if (ifa1->ifa_mask == ifa->ifa_mask &&
++		    inet_ifa_match(ifa1->ifa_address, ifa))
++			fib_del_ifaddr(ifa, ifa1);
++	}
++
+ 	/* 2. Unlink it */
+ 
+ 	*ifap = ifa1->ifa_next;
