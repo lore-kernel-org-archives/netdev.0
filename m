@@ -1,34 +1,26 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: fix a bug in rtl8169_init_phy()
-Date: Sat, 19 Mar 2011 20:41:02 +0100
-Message-ID: <20110319194102.GA15060@electric-eye.fr.zoreil.com>
-References: <4D84A46B.1000407@example.com> <1300548821.2831.28.camel@edumazet-laptop> <1300549151.2831.32.camel@edumazet-laptop> <201103191641.41718.oliver@neukum.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: fix a typo in a comment
+Date: Sat, 19 Mar 2011 13:36:27 -0700 (PDT)
+Message-ID: <20110319.133627.226785571.davem@davemloft.net>
+References: <1300541467-6133-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Anca Emanuel <anca.emanuel@gmail.com>, piotr@hosowicz.com,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Hayes <hayeswang@realtek.com>
-To: Oliver Neukum <oliver@neukum.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org
+To: nicolas.2p.debian@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:35179 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757094Ab1CSTqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 15:46:50 -0400
-Content-Disposition: inline
-In-Reply-To: <201103191641.41718.oliver@neukum.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51418
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757469Ab1CSUft convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Mar 2011 16:35:49 -0400
+In-Reply-To: <1300541467-6133-1-git-send-email-nicolas.2p.debian@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hayes Cced.
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+Date: Sat, 19 Mar 2011 14:31:07 +0100
 
-Oliver Neukum <oliver@neukum.org> :
-[wrong operator priority fixed by Eric]
-> Thank you. I feel like banging my head against something.
+> Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
 
-Spare your walls : I added the test and I was quite satisfied
-after testing ... with an always gigabit capable peer :o/
-
--- 
-Ueimor
+Applied, thanks.
