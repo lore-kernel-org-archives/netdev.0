@@ -1,131 +1,44 @@
-From: <Ajit.Khaparde@Emulex.Com>
-Subject: RE: [PATCH ethtool] ethtool: Report driver features described in
- struct ethtool_drvinfo
-Date: Sat, 19 Mar 2011 01:04:38 -0700
-Message-ID: <49395329523DD64492581B505F80C86D5A5BCD38EC@EXMAIL.ad.emulex.com>
-References: <ae232d9a-90c7-47ae-856d-bc5a2b3a8037@exht1.ad.emulex.com>
-	 ,<1300483939.2589.46.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5A5BCD38EA@EXMAIL.ad.emulex.com>
-	 ,<1300485636.2589.48.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5A5BCD38EB@EXMAIL.ad.emulex.com>,<1300488277.2589.50.camel@bwh-desktop>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V12 0/4] ptp: IEEE 1588 hardware clock support
+Date: Sat, 19 Mar 2011 11:14:12 +0100
+Message-ID: <20110319101412.GA14207@riccoc20.at.omicron.at>
+References: <cover.1298878618.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:26162 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753305Ab1CSIFA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 04:05:00 -0400
-In-Reply-To: <1300488277.2589.50.camel@bwh-desktop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1298878618.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-_______________________________________
-From: Ben Hutchings [bhutchings@solarflare.com]
-Sent: Friday, March 18, 2011 5:44 PM
-To: Khaparde, Ajit
-Cc: netdev@vger.kernel.org
-Subject: [PATCH ethtool] ethtool: Report driver features described in struct ethtool_drvinfo
+For all those interested in the user space aspect, I have posted some
+patches to ptpd project showing how the API works.
 
-On Fri, 2011-03-18 at 15:07 -0700, Ajit.Khaparde@Emulex.Com wrote:
->> ________________________________________
->> From: Ben Hutchings [bhutchings@solarflare.com]
->> Sent: Friday, March 18, 2011 5:00 PM
->> To: Khaparde, Ajit
->> Cc: netdev@vger.kernel.org
->> Subject: RE: [RFC] ethtool: Display reg dump length via get driver info.
->>
->> > On Fri, 2011-03-18 at 14:52 -0700, Ajit.Khaparde@Emulex.Com wrote:
->> >> ______________________________________
->> >> From: Ben Hutchings [bhutchings@solarflare.com]
->> >> Sent: Friday, March 18, 2011 4:32 PM
->> >> To: Khaparde, Ajit
->> >> Cc: netdev@vger.kernel.org
->> >> Subject: Re: [RFC] ethtool: Display reg dump length via get driver info.
-> >>
-> >> On Fri, 2011-03-18 at 16:06 -0500, Ajit Khaparde wrote:
-> >> >> Devices like BE store Reg Dump Data in the hardware.
-> >>
-> > >> Where else would it be?
->> >>
->> >> Well yes. That's true.
->> >>
->> >> >> This change will allow to just peek into the hardware
->> >> >> to see if any data is available for a dump and analysis,
->> >> >> without actually dumping the register data.
->> >> > [...]
->> >>
->> >> > This is wrong.  ethtool_ops::get_regs_len really should return a
->> >> > constant, otherwise ethtool (and the kernel) cannot allocate a buffer of
->> >> > the right size.  If the size of a dump really does vary then make it
->> >> > return the maximum possible size for the device.
->> >>
->> >> Yes, it is a constant size. And will always be the max size possible.
->> >> I just want to see if I can get the length, without really making the ethtoool -d call.
->> >> Because that will trigger the dump too.
->> >> At that moment, I may not be interested in the data itself.
->>
->> > OK, so what you're really interested in is 'does this version of the
->> > driver support register dump'?
->>
->> Yes. I did not want to add another option in ethtool to get this info out.
->
-> So, how about this?
+https://sourceforge.net/tracker/?group_id=139814&atid=744634
 
-> Ben.
+3225599 [PATCH 1/3] Convert to POSIX clock API.
+3225603 [PATCH 2/3] Adapted to use the Linux PTP Hardware Clock API.
+3225607 [PATCH 3/3] Adapted to use the newer SO_TIMESTAMPING Linux API.
 
-> ---
-> ETHTOOL_GDRVINFO fills out struct ethtool_drvinfo with the size of the
-> data returned by various other operations.  The size should be non-zero
-> if and only if the driver implements that operation.  Therefore, we can
-> report whether the driver supports certain operations without actually
-> trying them (which may be expensive and disruptive).
->
-> Do this in dump_drvinfo() rather than adding a separation operation.
+Enjoy,
 
-This one is fine too.
-Though I would have liked the other one where it displays either zero or the max value.
-You could add Acked-by:
-Ajit Khaparde <ajit.khaparde@emulex.com>
-
--Ajit
-
-> ---
-> ethtool.c |   12 ++++++++++--
-> 1 files changed, 10 insertions(+), 2 deletions(-)
-> 
-> diff --git a/ethtool.c b/ethtool.c
-> index e9cb2c9..32df0ee 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -1423,11 +1423,19 @@ static int dump_drvinfo(struct ethtool_drvinfo *info)
->                 "driver: %s\n"
->                 "version: %s\n"
->                 "firmware-version: %s\n"
-> -               "bus-info: %s\n",
-> +               "bus-info: %s\n"
-> +               "supports-statistics: %s\n"
-> +               "supports-test: %s\n"
-> +               "supports-eeprom-access: %s\n"
-> +               "supports-register-dump: %s\n",
->                 info->driver,
->                 info->version,
->                 info->fw_version,
-> -               info->bus_info);
-> +               info->bus_info,
-> +               info->n_stats ? "yes" : "no",
-> +               info->testinfo_len ? "yes" : "no",
-> +               info->eedump_len ? "yes" : "no",
-> +               info->regdump_len ? "yes" : "no");
->
->         return 0;
->  }
-> ---
-
-> --
->Ben Hutchings, Senior Software Engineer, Solarflare
->Not speaking for my employer; that's the marketing department's job.
->They asked us to note that Solarflare product names are trademarked.
+Richard
