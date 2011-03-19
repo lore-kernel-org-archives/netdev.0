@@ -1,23 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] headers: use __aligned_xx types for userspace
-Date: Fri, 18 Mar 2011 16:29:44 -0700 (PDT)
-Message-ID: <20110318.162944.220079680.davem@davemloft.net>
-References: <1300474237-10980-1-git-send-email-vapier@gentoo.org>
-	<20110318162826.5295f130.akpm@linux-foundation.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
+ avoid TX queue overrun through packet drop
+Date: Fri, 18 Mar 2011 18:41:55 -0700
+Message-ID: <1300498915.3441.21.camel@localhost.localdomain>
+References: <20110318133311.GA20623@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: vapier@gentoo.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110318162826.5295f130.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mst@redhat.com, rusty@rustcorp.com.au, davem@davemloft.net,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:42854 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756191Ab1CSBmA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2011 21:42:00 -0400
+In-Reply-To: <20110318133311.GA20623@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Fri, 18 Mar 2011 16:28:26 -0700
+On Fri, 2011-03-18 at 08:33 -0500, Herbert Xu wrote:
+> Shirley Ma <mashirle@us.ibm.com> wrote:
+> >
+> > +       /* Drop packet instead of stop queue for better performance
+> */
+> 
+> I would like to see some justification as to why this is the right
+> way to go and not just papering over the real problem. 
 
-> davem stuff :)
+Fair. KVM guest virtio_net TX queue stop/restart is pretty expensive,
+which involves:
 
-Already applied hours ago.
+1. Guest enable callback: one memory barrier, interrupt flag set
+
+2. Host signals guest: one memory barrier, and a TX interrupt from host
+to KVM guest through evenfd_signal.
+
+
+Most of the workload so far we barely see TX over run, except for small
+messages TCP_STREAM. 
+
+For small message size TCP_STREAM workload, no matter how big the TX
+queue size is, it always causes overrun. I even re-enable the TX queue
+when it's empty, it still hits TX overrun again and again.
+
+Somehow KVM guest and host is not in pace on processing small packets. I
+tried to pin each thread to different CPU, it didn't help. So it didn't
+seem to be scheduling related.
+
+>From the performance results, we can see dramatically performance gain
+with this patch.
+
+I would like to dig out the real reason why host can't in pace with
+guest, but haven't figured it out in month, that's the reason I held
+this patch for a while. However if anyone can give me any ideas on how
+to debug the real problem, I am willing to try it out. 
+
+Thanks
+Shirley
+
