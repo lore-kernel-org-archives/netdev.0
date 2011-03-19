@@ -1,96 +1,114 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v2] net: implement dev_disable_lro() hw_features compatibility
-Date: Sat, 19 Mar 2011 03:56:34 +0100 (CET)
-Message-ID: <32d98168b9b4ae553cc3647c30da85be05a28c95.1300503092.git.mirq-linux@rere.qmqm.pl>
-References: <1300471986.2589.26.camel@bwh-desktop>
+From: Jim Westfall <jwestfall@surrealistic.net>
+Subject: Re: ipv6 secondary ips and default ipv6 ip for new outbound
+	connections
+Date: Fri, 18 Mar 2011 20:35:07 -0700
+Message-ID: <20110319033507.GY13831@surrealistic.net>
+References: <20110318230312.GX13831@surrealistic.net> <4D8413BE.5000305@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:46597 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755534Ab1CSC4g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Mar 2011 22:56:36 -0400
-In-Reply-To: <1300471986.2589.26.camel@bwh-desktop>
+Received: from whipper.surrealistic.net ([75.151.103.193]:39886 "EHLO
+	whipper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754403Ab1CSDfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 23:35:09 -0400
+Content-Disposition: inline
+In-Reply-To: <4D8413BE.5000305@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement compatibility with new hw_features for dev_disable_lro().
-This is a transition path - dev_disable_lro() should be later
-integrated into netdev_fix_features() after all drivers are converted.
+Brian Haley <brian.haley@hp.com> wrote [03.18.11]:
+> On 03/18/2011 07:03 PM, Jim Westfall wrote:
+> > Hi
+> > 
+> > On ipv4 the first ip added to a nic will be used as the source ip for 
+> > new outbound connections.  Any additional ips, in the same netblock, 
+> > will be added as secondaries.
+> > 
+> > ipv6 seems to have the opposite behavior.  The last ipv6 ip added to a 
+> > nic is be used for new outbound connections.
+> > 
+> > ~# ip -6 addr list br0
+> > 11: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 
+> >     inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
+> >        valid_lft forever preferred_lft forever
+> > 
+> > ~# ip addr add 2600:c00:0:1::1101/64 dev br0
+> > ~# traceroute6 www.kame.net | head -0
+> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+> > 
+> > ~# ip addr add 2600:c00:0:1::1102/64 dev br0
+> > ~# traceroute6 www.kame.net | head -0
+> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1102, 30 hops max, 16 byte packets
+> > 
+> > ~# ip -6 addr list br0
+> > 11: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 
+> >     inet6 2600:c00:0:1::1102/64 scope global 
+> >        valid_lft forever preferred_lft forever
+> >     inet6 2600:c00:0:1::1101/64 scope global 
+> >        valid_lft forever preferred_lft forever
+> >     inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
+> >        valid_lft forever preferred_lft forever
+> > 
+> > This makes things a bit of a pita when dealing with floater ipv6 ips for 
+> > HA.
+> > 
+> > This there some way to change this behavior to be like ipv4 or force 
+> > a specific ipv6 ip to be the default used for new outbound connections?
+> 
+> According to commit 8a6ce0c083f5736e90dabe6d8ce077e7dd0fa35f it's done this
+> way for backward-compatibility - we used to always put new addresses at the
+> front, then we started sorting them by scope.  I couldn't find in the archives
+> who needed the backward-compatible behavior (it was way back in 2006), but
+> Yoshifuji proposed it and I Acked it.
+> 
+> You could see if this patch helps you out, but I'm not sure if changing this
+> would break someone else, you'd have to see about putting a knob to control
+> this.
+> 
+> -Brian
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 3daaf3c..8c7d5a5 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -577,7 +577,7 @@ ipv6_link_dev_addr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
+>  	list_for_each(p, &idev->addr_list) {
+>  		struct inet6_ifaddr *ifa
+>  			= list_entry(p, struct inet6_ifaddr, if_list);
+> -		if (ifp_scope >= ipv6_addr_src_scope(&ifa->addr))
+> +		if (ifp_scope > ipv6_addr_src_scope(&ifa->addr))
+>  			break;
+>  	}
+>  
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
+Hi
 
-Changes from v1:
- - moved __ethtool_set_flags() prototype to ethtool.h
+Your patch fixes it for me.
 
- include/linux/ethtool.h |    3 +++
- net/core/dev.c          |   19 +++++++++++--------
- net/core/ethtool.c      |    2 +-
- 3 files changed, 15 insertions(+), 9 deletions(-)
+# ip addr add 2600:c00:0:1::1101/64 dev eth0
+~# traceroute6 www.kame.net | head -0
+traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index aac3e2e..c9bfe2d 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -614,6 +614,9 @@ enum ethtool_sfeatures_retval_bits {
-=20
- #include <linux/rculist.h>
-=20
-+/* needed by dev_disable_lro() */
-+extern int __ethtool_set_flags(struct net_device *dev, u32 flags);
-+
- struct ethtool_rx_ntuple_flow_spec_container {
- 	struct ethtool_rx_ntuple_flow_spec fs;
- 	struct list_head list;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0b88eba..f453370 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1353,14 +1353,17 @@ EXPORT_SYMBOL(dev_close);
-  */
- void dev_disable_lro(struct net_device *dev)
- {
--	if (dev->ethtool_ops && dev->ethtool_ops->get_flags &&
--	    dev->ethtool_ops->set_flags) {
--		u32 flags =3D dev->ethtool_ops->get_flags(dev);
--		if (flags & ETH_FLAG_LRO) {
--			flags &=3D ~ETH_FLAG_LRO;
--			dev->ethtool_ops->set_flags(dev, flags);
--		}
--	}
-+	u32 flags;
-+
-+	if (dev->ethtool_ops && dev->ethtool_ops->get_flags)
-+		flags =3D dev->ethtool_ops->get_flags(dev);
-+	else
-+		flags =3D ethtool_op_get_flags(dev);
-+
-+	if (!(flags & ETH_FLAG_LRO))
-+		return;
-+
-+	__ethtool_set_flags(dev, flags & ~ETH_FLAG_LRO);
- 	WARN_ON(dev->features & NETIF_F_LRO);
- }
- EXPORT_SYMBOL(dev_disable_lro);
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index c1a71bb..7371177 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -513,7 +513,7 @@ static int ethtool_set_one_feature(struct net_devic=
-e *dev,
- 	}
- }
-=20
--static int __ethtool_set_flags(struct net_device *dev, u32 data)
-+int __ethtool_set_flags(struct net_device *dev, u32 data)
- {
- 	u32 changed;
-=20
---=20
-1.7.2.3
+~# ip addr add 2600:c00:0:1::1102/64 dev eth0
+~# traceroute6 www.kame.net | head -0
+traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
 
+~# ip addr add 2600:c00:0:1::1103/64 dev eth0
+~# traceroute6 www.kame.net | head -0
+traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+
+~# ip -6 addr show dev eth0
+3: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qlen 1000
+    inet6 2600:c00:0:1::1101/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 2600:c00:0:1::1102/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 2600:c00:0:1::1103/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
+       valid_lft forever preferred_lft forever
+
+thanks
+Jim
