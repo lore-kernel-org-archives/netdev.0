@@ -1,41 +1,49 @@
-From: "Mr.Pt. Lee" <infobank8@aol.com>
-Subject: Hello
-Date: Sat, 19 Mar 2011 07:05:21 +0100
-Message-ID: <201103190607.p2J67ubj000608@auth3.smtp.vt.edu>
-Reply-To: <petercleejp@yahoo.cn>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [PATCH] net: drop NETIF_F_GSO from hw_features without
+ NETIF_F_SG
+Date: Sat, 19 Mar 2011 08:46:53 +0100
+Message-ID: <20110319074653.GA12820@core.hellgate.ch>
+References: <20110318195030.GA22350@core.hellgate.ch>
+ <AANLkTim1_+GdURWxk=+N+5xCFTF1L27BD=+Uu+BY4jWF@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Micha? Miros?aw <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lennier.cc.vt.edu ([198.82.162.213]:60999 "EHLO
-	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774Ab1CSGI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 02:08:57 -0400
+Received: from mail13.bluewin.ch ([195.186.18.62]:27867 "EHLO
+	mail13.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752574Ab1CSHq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 03:46:56 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTim1_+GdURWxk=+N+5xCFTF1L27BD=+Uu+BY4jWF@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello 
-   
-It is understandable that you might be a bit apprehensive because you do not know, but I have a lucrative business proposal of mutual interest to share with you. I got your reference in my search for someone who suits my proposed business relationship. 
-    
-I am Mr P. Lee of South Korea, happily married with children, and I am Director of Hang Seng Bank Ltd., in charge of the International Remittance Department. I have a confidential business proposal for you. I need you to assist me in implementing a business project from Hong Kong to your country. It is the transfer of large sums of money. Everything about this transaction shall be legally done without hitch. Please try to observe utmost discretion in all matters concerning this issue. 
-   
-After funds have been successfully transferred into your account, we will share in proportion to both of us agreed. I prefer you to me on my private e-mail address (petercleejp@yahoo.cn) and then after that I will give you more information about this operation. If you're interested, send me the following urgently: 
+On Fri, 18 Mar 2011 21:43:23 +0100, Micha? Miros?aw wrote:
+> 2011/3/18 Roger Luethi <rl@hellgate.ch>:
+> > register_netdevice() removes NETIF_F_GSO from dev->features and
+> > dev->wanted_features for hardware without NETIF_F_SG to "avoid warning from
+> > netdev_fix_features()".
+> >
+> > However, as the flag remains set in dev->hw_features, users trying to
+> > enable GSO via ethtool will still end up with NETIF_F_GSO stuck in
+> > wanted_features, resulting in a warning every time they try to change any
+> > feature (until they use ethtool to "disable" GSO):
+> 
+> That's expected, as it allows the user to debug why his request didn't
+> work as expected. I think that those messages should get demoted to
+> DEBUG if that's too noisy. The network core imposed conditions could
+> be explained in Documentation/ or ethtool manpage instead.
 
-1st Names and surnames 
-2nd Occupation 
-3rd Private phone number 
-4th Current contact address 
-   
-Please, if you do not want to delete this e-mail and do not hunt, because I am putting my career and life of my family at stake with this venture. Although nothing ventured nothing gained. 
-   
-Your earliest response to this letter will be appreciated. 
-    
-Sincerely, 
-   
-Mr.Pt. Lee 
-Hang Seng Bank Limited 
-Hong Kong. () Asian 
-E-mail: - petercleejp@yahoo.cn
+I agree that it is good to have a note explaining what happened in the
+kernel log, and the patch I posted does not do that; that is easy to fix.
+
+However, I still think the current, unpatched behavior is confusing users.
+ethtool_get_features() will happily tell the user that GSO is available for
+a NIC even if it is not (because the NIC does not support SG). Then, if the
+user tries to enable GSO, the operation fails silently: ethtool won't get
+an error code, so it looks as if the operation succeeded. The user needs to
+look into the kernel log or actually verify the offload settings to realize
+that something went wrong.
+
+Roger
