@@ -1,114 +1,77 @@
-From: Jim Westfall <jwestfall@surrealistic.net>
-Subject: Re: ipv6 secondary ips and default ipv6 ip for new outbound
-	connections
-Date: Fri, 18 Mar 2011 20:35:07 -0700
-Message-ID: <20110319033507.GY13831@surrealistic.net>
-References: <20110318230312.GX13831@surrealistic.net> <4D8413BE.5000305@hp.com>
+From: Hugh Dickins <hughd@google.com>
+Subject: Re: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
+Date: Fri, 18 Mar 2011 20:58:38 -0700 (PDT)
+Message-ID: <alpine.LSU.2.00.1103182037340.18458@sister.anvils>
+References: <4D6CA852.3060303@cn.fujitsu.com> <AANLkTimXy2Yaj+NTDMNTWuLqHHfKZJhVDpeXj3CfMvBf@mail.gmail.com> <alpine.DEB.2.00.1103010909320.6253@router.home> <AANLkTim0Zjc7c9-7LCnEaYpV5PVN=5fNQpjMYqtZe-fk@mail.gmail.com> <alpine.DEB.2.00.1103020625290.10180@router.home>
+ <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com> <alpine.DEB.2.00.1103171006270.12540@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from whipper.surrealistic.net ([75.151.103.193]:39886 "EHLO
-	whipper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754403Ab1CSDfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2011 23:35:09 -0400
-Content-Disposition: inline
-In-Reply-To: <4D8413BE.5000305@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@kernel.org>, Lai Jiangshan <laijs@cn.fujitsu.com>,
+        Ingo Molnar <mingo@elte.hu>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Matt Mackall <mpm@selenic.com>, linux-mm@kvack.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.00.1103171006270.12540@router.home>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Brian Haley <brian.haley@hp.com> wrote [03.18.11]:
-> On 03/18/2011 07:03 PM, Jim Westfall wrote:
-> > Hi
-> > 
-> > On ipv4 the first ip added to a nic will be used as the source ip for 
-> > new outbound connections.  Any additional ips, in the same netblock, 
-> > will be added as secondaries.
-> > 
-> > ipv6 seems to have the opposite behavior.  The last ipv6 ip added to a 
-> > nic is be used for new outbound connections.
-> > 
-> > ~# ip -6 addr list br0
-> > 11: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 
-> >     inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
-> >        valid_lft forever preferred_lft forever
-> > 
-> > ~# ip addr add 2600:c00:0:1::1101/64 dev br0
-> > ~# traceroute6 www.kame.net | head -0
-> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
-> > 
-> > ~# ip addr add 2600:c00:0:1::1102/64 dev br0
-> > ~# traceroute6 www.kame.net | head -0
-> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1102, 30 hops max, 16 byte packets
-> > 
-> > ~# ip -6 addr list br0
-> > 11: br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 
-> >     inet6 2600:c00:0:1::1102/64 scope global 
-> >        valid_lft forever preferred_lft forever
-> >     inet6 2600:c00:0:1::1101/64 scope global 
-> >        valid_lft forever preferred_lft forever
-> >     inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
-> >        valid_lft forever preferred_lft forever
-> > 
-> > This makes things a bit of a pita when dealing with floater ipv6 ips for 
-> > HA.
-> > 
-> > This there some way to change this behavior to be like ipv4 or force 
-> > a specific ipv6 ip to be the default used for new outbound connections?
+On Thu, 17 Mar 2011, Christoph Lameter wrote:
+> On Sun, 6 Mar 2011, Hugh Dickins wrote:
 > 
-> According to commit 8a6ce0c083f5736e90dabe6d8ce077e7dd0fa35f it's done this
-> way for backward-compatibility - we used to always put new addresses at the
-> front, then we started sorting them by scope.  I couldn't find in the archives
-> who needed the backward-compatible behavior (it was way back in 2006), but
-> Yoshifuji proposed it and I Acked it.
+> > >> That was so for a long time, but I stopped it just over a year ago
+> > >> with commit a70caa8ba48f21f46d3b4e71b6b8d14080bbd57a, stop ptlock
+> > >> enlarging struct page.
+> > >
+> > > Strange. I just played around with in in January and the page struct size
+> > > changes when I build kernels with full debugging. I have some
+> > > cmpxchg_double patches here that depend on certain alignment in the page
+> > > struct. Debugging causes all that stuff to get out of whack so that I had
+> > > to do some special patches to make sure fields following the spinlock are
+> > > properly aligned when the sizes change.
+> >
+> > That puzzles me, it's not my experience and I don't have an
+> > explanation: do you have time to investigate?
+> >
+> > Uh oh, you're going to tell me you're working on an out-of-tree
+> > architecture with a million cpus ;)  In that case, yes, I'm afraid
+> > I'll have to update the SPLIT_PTLOCK_CPUS defaulting (for a million -
+> > 1 even).
 > 
-> You could see if this patch helps you out, but I'm not sure if changing this
-> would break someone else, you'd have to see about putting a knob to control
-> this.
+> No I am not working on any out of tree structure. Just regular dual socket
+> server boxes with 24 processors (which is a normal business machine
+> configuration these days).
 > 
-> -Brian
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 3daaf3c..8c7d5a5 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -577,7 +577,7 @@ ipv6_link_dev_addr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
->  	list_for_each(p, &idev->addr_list) {
->  		struct inet6_ifaddr *ifa
->  			= list_entry(p, struct inet6_ifaddr, if_list);
-> -		if (ifp_scope >= ipv6_addr_src_scope(&ifa->addr))
-> +		if (ifp_scope > ipv6_addr_src_scope(&ifa->addr))
->  			break;
->  	}
->  
+> But then there is also CONFIG_GENERIC_LOCKBREAK. That does not affect
+> things?
 
-Hi
+CONFIG_GENERIC_LOCKBREAK adds an unsigned int break_lock after the
+int-sized arch_spinlock_t: which would make no difference on 64-bit
+anyway (the two ints fitting into one long), and makes no difference
+on 32-bit because we have put
+	struct {
+		unsigned long private;
+		struct address_space *mapping;
+	};
+into the union with spinlock_t ptl - the arch_spinlock_t then
+overlays private and the break_lock overlays mapping.
 
-Your patch fixes it for me.
+I'd much rather have had simple elements in that union, but it's
+precisely because of 32-bit CONFIG_GENERIC_LOCKBREAK that we need
+that structure in there.
 
-# ip addr add 2600:c00:0:1::1101/64 dev eth0
-~# traceroute6 www.kame.net | head -0
-traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+(It is important to the KSM assumption about page->mapping that
+what goes into break_lock is either 0 or 1: in neither case could
+page->mapping look like a kmem address + 3.)
 
-~# ip addr add 2600:c00:0:1::1102/64 dev eth0
-~# traceroute6 www.kame.net | head -0
-traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+Hugh
 
-~# ip addr add 2600:c00:0:1::1103/64 dev eth0
-~# traceroute6 www.kame.net | head -0
-traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
-
-~# ip -6 addr show dev eth0
-3: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qlen 1000
-    inet6 2600:c00:0:1::1101/64 scope global 
-       valid_lft forever preferred_lft forever
-    inet6 2600:c00:0:1::1102/64 scope global 
-       valid_lft forever preferred_lft forever
-    inet6 2600:c00:0:1::1103/64 scope global 
-       valid_lft forever preferred_lft forever
-    inet6 fe80::21a:64ff:fe12:54bd/64 scope link 
-       valid_lft forever preferred_lft forever
-
-thanks
-Jim
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
