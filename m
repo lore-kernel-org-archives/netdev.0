@@ -1,49 +1,44 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [PATCH] net: drop NETIF_F_GSO from hw_features without
- NETIF_F_SG
-Date: Sat, 19 Mar 2011 08:46:53 +0100
-Message-ID: <20110319074653.GA12820@core.hellgate.ch>
-References: <20110318195030.GA22350@core.hellgate.ch>
- <AANLkTim1_+GdURWxk=+N+5xCFTF1L27BD=+Uu+BY4jWF@mail.gmail.com>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: ipv6 secondary ips and default ipv6 ip for new outbound connections
+Date: Sat, 19 Mar 2011 09:02:17 +0100
+Message-ID: <m2k4fvbks6.fsf@igel.home>
+References: <20110318230312.GX13831@surrealistic.net>
+	<4D8413BE.5000305@hp.com> <20110319033507.GY13831@surrealistic.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Micha? Miros?aw <mirqus@gmail.com>
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
+To: Jim Westfall <jwestfall@surrealistic.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail13.bluewin.ch ([195.186.18.62]:27867 "EHLO
-	mail13.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752574Ab1CSHq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 03:46:56 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTim1_+GdURWxk=+N+5xCFTF1L27BD=+Uu+BY4jWF@mail.gmail.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:45235 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752099Ab1CSICV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 04:02:21 -0400
+In-Reply-To: <20110319033507.GY13831@surrealistic.net> (Jim Westfall's message
+	of "Fri, 18 Mar 2011 20:35:07 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Mar 2011 21:43:23 +0100, Micha? Miros?aw wrote:
-> 2011/3/18 Roger Luethi <rl@hellgate.ch>:
-> > register_netdevice() removes NETIF_F_GSO from dev->features and
-> > dev->wanted_features for hardware without NETIF_F_SG to "avoid warning from
-> > netdev_fix_features()".
-> >
-> > However, as the flag remains set in dev->hw_features, users trying to
-> > enable GSO via ethtool will still end up with NETIF_F_GSO stuck in
-> > wanted_features, resulting in a warning every time they try to change any
-> > feature (until they use ethtool to "disable" GSO):
-> 
-> That's expected, as it allows the user to debug why his request didn't
-> work as expected. I think that those messages should get demoted to
-> DEBUG if that's too noisy. The network core imposed conditions could
-> be explained in Documentation/ or ethtool manpage instead.
+Jim Westfall <jwestfall@surrealistic.net> writes:
 
-I agree that it is good to have a note explaining what happened in the
-kernel log, and the patch I posted does not do that; that is easy to fix.
+> Your patch fixes it for me.
+>
+> # ip addr add 2600:c00:0:1::1101/64 dev eth0
+> ~# traceroute6 www.kame.net | head -0
+> traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+>
+> ~# ip addr add 2600:c00:0:1::1102/64 dev eth0
+> ~# traceroute6 www.kame.net | head -0
+> traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+>
+> ~# ip addr add 2600:c00:0:1::1103/64 dev eth0
+> ~# traceroute6 www.kame.net | head -0
+> traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
 
-However, I still think the current, unpatched behavior is confusing users.
-ethtool_get_features() will happily tell the user that GSO is available for
-a NIC even if it is not (because the NIC does not support SG). Then, if the
-user tries to enable GSO, the operation fails silently: ethtool won't get
-an error code, so it looks as if the operation succeeded. The user needs to
-look into the kernel log or actually verify the offload settings to realize
-that something went wrong.
+Does this also affect the selected address if use_tempaddr=2?
 
-Roger
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
