@@ -1,31 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] ftmac100: use resource_size()
-Date: Fri, 18 Mar 2011 21:53:13 -0700 (PDT)
-Message-ID: <20110318.215313.149843288.davem@davemloft.net>
-References: <20110319043915.GB2008@bicker>
+Subject: Re: [PATCH 2/4] ipv4: fix route deletion for IPs on many subnets
+Date: Fri, 18 Mar 2011 21:57:51 -0700 (PDT)
+Message-ID: <20110318.215751.108772214.davem@davemloft.net>
+References: <alpine.LFD.2.00.1103190113420.1678@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ratbert@faraday-tech.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48739
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48979
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752350Ab1CSEwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 00:52:35 -0400
-In-Reply-To: <20110319043915.GB2008@bicker>
+	by vger.kernel.org with ESMTP id S1752515Ab1CSE5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 00:57:13 -0400
+In-Reply-To: <alpine.LFD.2.00.1103190113420.1678@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Sat, 19 Mar 2011 07:39:15 +0300
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sat, 19 Mar 2011 01:17:01 +0200 (EET)
 
-> The calculation is off-by-one.  It should be "end - start + 1".  This
-> patch fixes it to use resource_size() instead.  Oddly, the code already
-> uses resource size correctly a couple lines earlier when it calls
-> request_mem_region() for this memory.
+> +	if (ifa->ifa_flags & IFA_F_SECONDARY) {
+>  		prim = inet_ifa_byprefix(in_dev, any, ifa->ifa_mask);
+>  		if (prim == NULL) {
+>  			printk(KERN_WARNING "fib_del_ifaddr: bug: prim == NULL\n");
+>  			return;
+>  		}
+> +		if (iprim && iprim != prim) {
+> + printk(KERN_WARNING "fib_del_ifaddr: bug: iprim != prim\n");
+> +			return;
+> +		}
+> +	} else if (!ipv4_is_zeronet(any) &&
+> + (any != ifa->ifa_local || ifa->ifa_prefixlen < 32)) {
+> +		fib_magic(RTM_DELROUTE,
+> + dev->flags & IFF_LOOPBACK ? RTN_LOCAL : RTN_UNICAST,
+> +			  any, ifa->ifa_prefixlen, prim);
+> +		subnet = 1;
+>  	}
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+>  	/* Deletion is more complicated than add.
+> @@ -755,6 +769,49 @@ static void fib_del_ifaddr(struct in_ifa
+ ...
+> + /* Ignore ifa1 if it uses different primary IP (prefsrc) */
+> +		if (ifa1->ifa_flags & IFA_F_SECONDARY) {
+> +			/* Another address from our subnet? */
+ ...
+> + ifa1->ifa_mask != prim1->ifa_mask ||
+> + !inet_ifa_match(ifa1->ifa_address, prim1))
+> + prim1 = inet_ifa_byprefix(in_dev,
+> + ifa1->ifa_address,
+> + ifa1->ifa_mask);
 
-Applied, thanks for fixing this Dan.
+Julian there exists all kinds of incorrect indentation in this patch,
+could you please fix it up?
+
+Thank you.
