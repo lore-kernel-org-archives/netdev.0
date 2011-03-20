@@ -1,37 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/5] bnx2x enhancements and date update
-Date: Sun, 20 Mar 2011 13:47:50 -0700 (PDT)
-Message-ID: <20110320.134750.104058019.davem@davemloft.net>
-References: <1300638963.17303.29.camel@lb-tlvb-dmitry>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: oops / kernel panic in bonding.
+Date: Sun, 20 Mar 2011 22:19:21 +0100
+Message-ID: <4D866F59.5070703@gmail.com>
+References: <4D8660EC.6080102@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com
-To: dmitry@broadcom.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60807
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752384Ab1CTUrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 16:47:12 -0400
-In-Reply-To: <1300638963.17303.29.camel@lb-tlvb-dmitry>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48653 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837Ab1CTVT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 17:19:26 -0400
+Received: by wwa36 with SMTP id 36so6707934wwa.1
+        for <netdev@vger.kernel.org>; Sun, 20 Mar 2011 14:19:24 -0700 (PDT)
+In-Reply-To: <4D8660EC.6080102@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Sun, 20 Mar 2011 18:36:03 +0200
+Le 20/03/2011 21:17, Nicolas de Peslo=FCan a =E9crit :
+> Hi Jiri,
+>
+> I suspect we have a race condition somewhere in the new
+> bond_handle_frame function:
+>
+> The following commands produce one of the following errors:
+>
+> modprobe bonding max_bonds=3D0
+> echo +bond0>/sys/class/net/bonding_masters
+> echo +bond1>/sys/class/net/bonding_masters
+> echo +eth1>/sys/class/net/bond1/bonding/slaves
+>
+> This is mostly reproducible, under VirtualBox.
+>
+> All tests done with 08351fc6a75731226e1112fc7254542bd3a2912e at the t=
+op
+> commit (current net-next-2.6).
 
-> Please consider applying following patch series to the "net-next".
+I suspect netdev_rx_handler_register is called too early in bond_enslav=
+e.
 
-Please consider paying attention to announcements I make about
-what is appropriate to submit at this point in time:
+I think it should be the last thing we do in bond_enslave, if we don't =
+want to face the risk to have=20
+bond_handle_frame being called before everything is properly setup.
 
-	http://marc.info/?l=linux-netdev&m=130023005214910&w=2
-
-By the time I open up the net-next-2.6 tree and am actually willing to
-apply patches, something you submit now might not even apply cleanly.
-That's why I don't want people submitting net-next-2.6 patches at this
-time.
-
-It also is distracting to submit such patches at this time.  All
-efforts should be placed on regression fixing and closing out the
-merge window cleanly.
+	Nicolas.
