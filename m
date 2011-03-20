@@ -1,94 +1,63 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: [PATCH 1/1] solos-pci: Use shared code for VCC management
-Date: Sun, 20 Mar 2011 15:30:10 -0700
-Message-ID: <4D867FF2.5040107@redfish-solutions.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-atm-general@lists.sourceforge.net"
-	<linux-atm-general@lists.sourceforge.net>
-To: Netdev <netdev@vger.kernel.org>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH 1/2] socket: increase default maximum listen queue length
+Date: Mon, 21 Mar 2011 00:04:41 +0100
+Message-ID: <1300662282-24741-1-git-send-email-hagen@jauu.net>
+References: <20110320121414.GC3038@nuttenaction>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:47476 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751349Ab1CTWaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 18:30:25 -0400
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:39231 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751385Ab1CTXEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 19:04:54 -0400
+In-Reply-To: <20110320121414.GC3038@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The solos-pci driver duplicates the net/atm/common.c function atm_dev_release_vccs() locally as the static function release_vccs().  Let's have the driver share code.
+sysctl_somaxconn (SOMAXCONN: 128) specifies the maximum number of
+sockets in state SYN_RECV per listen socket queue. At listen(2) time the
+backlog is adjusted to this limit if bigger then that.
 
-Signed-off-by: Philip A. Prindeville <philipp@redfish-solutions.com>
+Afterwards in reqsk_queue_alloc() the backlog value is checked again
+(nr_table_entries == backlog):
 
+    nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
+    nr_table_entries = max_t(u32, nr_table_entries, 8);
+    nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
+
+sysctl_max_syn_backlog on the other hand is dynamically adjusted,
+depending on the memory characteristic of the system. Default is 256,
+128 for small systems and up to 1024 for bigger systems.
+
+For real server work the defacto sysctl_somaxconn limit seems inadequate:
+
+    Experiments with real servers show, that it is absolutely not enough
+    even at 100conn/sec. 256 cures most of problems.
+
+Increase default sysctl_somaxconn from 128 to 256 to meet todays condition by
+simultaneously limit nr_table_entries by sysctl_max_syn_backlog which is
+based on memory condition (max(128, (tcp_hashinfo.ehash_mask + 1 / 256)).
+
+Signed_off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
+ include/linux/socket.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---- a/drivers/atm/solos-pci.c	2011-03-20 01:42:22.000000000 -0600
-+++ b/drivers/atm/solos-pci.c	2011-03-20 14:23:26.000000000 -0600
-@@ -165,7 +165,6 @@ static uint32_t fpga_tx(struct solos_car
-  static irqreturn_t solos_irq(int irq, void *dev_id);
-  static struct atm_vcc* find_vcc(struct atm_dev *dev, short vpi, int vci);
-  static int list_vccs(int vci);
--static void release_vccs(struct atm_dev *dev);
-  static int atm_init(struct solos_card *, struct device *);
-  static void atm_remove(struct solos_card *);
-  static int send_command(struct solos_card *card, int dev, const char *buf, size_t size);
-@@ -384,7 +383,7 @@ static int process_status(struct solos_c
-  	/* Anything but 'Showtime' is down */
-  	if (strcmp(state_str, "Showtime")) {
-  		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
--		release_vccs(card->atmdev[port]);
-+		atm_dev_release_vccs(card->atmdev[port]);
-  		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
-  		return 0;
-  	}
-@@ -837,28 +836,6 @@ static int list_vccs(int vci)
-  	return num_found;
-  }
-
--static void release_vccs(struct atm_dev *dev)
--{
--        int i;
--
--        write_lock_irq(&vcc_sklist_lock);
--        for (i = 0; i<  VCC_HTABLE_SIZE; i++) {
--                struct hlist_head *head =&vcc_hash[i];
--                struct hlist_node *node, *tmp;
--                struct sock *s;
--                struct atm_vcc *vcc;
--
--                sk_for_each_safe(s, node, tmp, head) {
--                        vcc = atm_sk(s);
--                        if (vcc->dev == dev) {
--                                vcc_release_async(vcc, -EPIPE);
--                                sk_del_node_init(s);
--                        }
--                }
--        }
--        write_unlock_irq(&vcc_sklist_lock);
--}
--
-
-  static int popen(struct atm_vcc *vcc)
-  {
---- a/net/atm/common.c	2011-01-04 17:50:19.000000000 -0700
-+++ b/net/atm/common.c	2011-03-20 15:22:59.000000000 -0600
-@@ -252,6 +252,7 @@ void atm_dev_release_vccs(struct atm_dev
-  	}
-  	write_unlock_irq(&vcc_sklist_lock);
-  }
-+EXPORT_SYMBOL(atm_dev_release_vccs);
-
-  static int adjust_tp(struct atm_trafprm *tp, unsigned char aal)
-  {
---- a/include/linux/atmdev.h	2011-01-04 17:50:19.000000000 -0700
-+++ b/include/linux/atmdev.h	2011-03-20 15:25:08.000000000 -0600
-@@ -443,6 +443,7 @@ void atm_dev_signal_change(struct atm_de
-
-  void vcc_insert_socket(struct sock *sk);
-
-+void atm_dev_release_vccs(struct atm_dev *dev);
-
-  /*
-   * This is approximately the algorithm used by alloc_skb.
-
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index edbb1d0..bf35ce2 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -237,7 +237,7 @@ struct ucred {
+ #define PF_MAX		AF_MAX
+ 
+ /* Maximum queue length specifiable by listen.  */
+-#define SOMAXCONN	128
++#define SOMAXCONN	256
+ 
+ /* Flags we can use with send/ and recv. 
+    Added those for 1003.1g not all are supported yet
+-- 
+1.7.4.1.57.g0466.dirty
 
