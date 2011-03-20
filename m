@@ -1,38 +1,81 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2] ipv4: netfilter: ipt_CLUSTERIP: fix buffer overflow
-Date: Sun, 20 Mar 2011 15:43:36 +0100
-Message-ID: <4D861298.1040700@trash.net>
-References: <1299780740-32652-1-git-send-email-segoon@openwall.com> <AANLkTimPZJoCzz386e-4m0Y4khWGZirZguGFmuFYCrry@mail.gmail.com> <4D7F5CAC.6070006@trash.net> <20110317113229.GA7710@albatros> <AANLkTimtsB0B98E2xcoJgRsPwSpwuG+ahT+LX0s1YwpX@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Vasiliy Kulikov <segoon@openwall.com>,
-	linux-kernel@vger.kernel.org, security@kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+From: kaber@trash.net
+Subject: [PATCH 2/4] netfilter: ipset: fix checking the type revision at create command
+Date: Sun, 20 Mar 2011 16:32:26 +0100
+Message-ID: <1300635148-22648-3-git-send-email-kaber@trash.net>
+References: <1300635148-22648-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimtsB0B98E2xcoJgRsPwSpwuG+ahT+LX0s1YwpX@mail.gmail.com>
+In-Reply-To: <1300635148-22648-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 17.03.2011 13:15, schrieb Changli Gao:
-> On Thu, Mar 17, 2011 at 7:32 PM, Vasiliy Kulikov <segoon@openwall.com> wrote:
->> 'buffer' string is copied from userspace.  It is not checked whether it is
->> zero terminated.  This may lead to overflow inside of simple_strtoul().
->> Changli Gao suggested to copy not more than user supplied 'size' bytes.
->>
->> It was introduced before the git epoch.  Files "ipt_CLUSTERIP/*" are
->> root writable only by default, however, on some setups permissions might be
->> relaxed to e.g. network admin user.
->>
->> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
-> Acked-by: Changli Gao <xiaosuo@gmail.com>
-> 
-> 
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Applied, thanks everyone.
+The revision of the set type was not checked at the create command: if the
+userspace sent a valid set type but with not supported revision number,
+it'd create a loop.
+
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/ipset/ip_set_core.c |   22 +++++++++++++++++-----
+ 1 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 618a615..d6b4823 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -94,16 +94,28 @@ static int
+ find_set_type_get(const char *name, u8 family, u8 revision,
+ 		  struct ip_set_type **found)
+ {
++	struct ip_set_type *type;
++	int err;
++
+ 	rcu_read_lock();
+ 	*found = find_set_type(name, family, revision);
+ 	if (*found) {
+-		int err = !try_module_get((*found)->me);
+-		rcu_read_unlock();
+-		return err ? -EFAULT : 0;
++		err = !try_module_get((*found)->me) ? -EFAULT : 0;
++		goto unlock;
+ 	}
++	/* Make sure the type is loaded but we don't support the revision */
++	list_for_each_entry_rcu(type, &ip_set_type_list, list)
++		if (STREQ(type->name, name)) {
++			err = -IPSET_ERR_FIND_TYPE;
++			goto unlock;
++		}
+ 	rcu_read_unlock();
+ 
+ 	return try_to_load_type(name);
++
++unlock:
++	rcu_read_unlock();
++	return err;
+ }
+ 
+ /* Find a given set type by name and family.
+@@ -116,7 +128,7 @@ find_set_type_minmax(const char *name, u8 family, u8 *min, u8 *max)
+ 	struct ip_set_type *type;
+ 	bool found = false;
+ 
+-	*min = *max = 0;
++	*min = 255; *max = 0;
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(type, &ip_set_type_list, list)
+ 		if (STREQ(type->name, name) &&
+@@ -124,7 +136,7 @@ find_set_type_minmax(const char *name, u8 family, u8 *min, u8 *max)
+ 			found = true;
+ 			if (type->revision < *min)
+ 				*min = type->revision;
+-			else if (type->revision > *max)
++			if (type->revision > *max)
+ 				*max = type->revision;
+ 		}
+ 	rcu_read_unlock();
+-- 
+1.7.4
+
