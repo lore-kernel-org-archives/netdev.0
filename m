@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netfilter: netfilter fixes
-Date: Sun, 20 Mar 2011 13:42:57 -0700 (PDT)
-Message-ID: <20110320.134257.71116215.davem@davemloft.net>
-References: <1300635148-22648-1-git-send-email-kaber@trash.net>
+Subject: Re: [net-next 0/5] bnx2x enhancements and date update
+Date: Sun, 20 Mar 2011 13:47:50 -0700 (PDT)
+Message-ID: <20110320.134750.104058019.davem@davemloft.net>
+References: <1300638963.17303.29.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1300635148-22648-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com
+To: dmitry@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60807
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752384Ab1CTUrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 16:47:12 -0400
+In-Reply-To: <1300638963.17303.29.camel@lb-tlvb-dmitry>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Sun, 20 Mar 2011 16:32:24 +0100
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Sun, 20 Mar 2011 18:36:03 +0200
 
-> the following patches fix a couple of netfilter bugs:
-> 
-> - a bug in ipset which caused the hash:port set types to silently
->   ignore address ranges when non-TCP/UDP entries were added, from
->   Jozsef
-> 
-> - a missing check for set type revision in ipset, from Jozsef
-> 
-> - a fix for iptables reentrancy, from Eric
-> 
-> - a fix for a buffer overflow in the ipt_CLUSTERIP proc handler,
->   from Vasiliy Kulikov
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
+> Please consider applying following patch series to the "net-next".
 
-Pulled, thanks a lot Patrick.
+Please consider paying attention to announcements I make about
+what is appropriate to submit at this point in time:
+
+	http://marc.info/?l=linux-netdev&m=130023005214910&w=2
+
+By the time I open up the net-next-2.6 tree and am actually willing to
+apply patches, something you submit now might not even apply cleanly.
+That's why I don't want people submitting net-next-2.6 patches at this
+time.
+
+It also is distracting to submit such patches at this time.  All
+efforts should be placed on regression fixing and closing out the
+merge window cleanly.
