@@ -1,52 +1,40 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: oops / kernel panic in bonding.
-Date: Sun, 20 Mar 2011 22:19:21 +0100
-Message-ID: <4D866F59.5070703@gmail.com>
-References: <4D8660EC.6080102@gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [net-next 0/5] bnx2x enhancements and date update
+Date: Sun, 20 Mar 2011 14:25:59 -0700
+Message-ID: <2DFD360E328B3941911E6D28B085D99016ACBB93FF@SJEXCHCCR01.corp.ad.broadcom.com>
+References: <1300638963.17303.29.camel@lb-tlvb-dmitry>
+ <20110320.134750.104058019.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48653 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750837Ab1CTVT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 17:19:26 -0400
-Received: by wwa36 with SMTP id 36so6707934wwa.1
-        for <netdev@vger.kernel.org>; Sun, 20 Mar 2011 14:19:24 -0700 (PDT)
-In-Reply-To: <4D8660EC.6080102@gmail.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3860 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750837Ab1CTV0W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 17:26:22 -0400
+In-Reply-To: <20110320.134750.104058019.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 20/03/2011 21:17, Nicolas de Peslo=FCan a =E9crit :
-> Hi Jiri,
->
-> I suspect we have a race condition somewhere in the new
-> bond_handle_frame function:
->
-> The following commands produce one of the following errors:
->
-> modprobe bonding max_bonds=3D0
-> echo +bond0>/sys/class/net/bonding_masters
-> echo +bond1>/sys/class/net/bonding_masters
-> echo +eth1>/sys/class/net/bond1/bonding/slaves
->
-> This is mostly reproducible, under VirtualBox.
->
-> All tests done with 08351fc6a75731226e1112fc7254542bd3a2912e at the t=
-op
-> commit (current net-next-2.6).
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of David Miller
+> Sent: Sunday, March 20, 2011 10:48 PM
+> 
+> From: "Dmitry Kravkov" <dmitry@broadcom.com>
+> Date: Sun, 20 Mar 2011 18:36:03 +0200
+> 
+> > Please consider applying following patch series to the "net-next".
+> 
+> Please consider paying attention to announcements I make about
+> what is appropriate to submit at this point in time:
 
-I suspect netdev_rx_handler_register is called too early in bond_enslav=
-e.
+Oops, my bad! I will re-submit them when you re-open the window.
+Please ignore them totally for now. Thanks.
 
-I think it should be the last thing we do in bond_enslave, if we don't =
-want to face the risk to have=20
-bond_handle_frame being called before everything is properly setup.
 
-	Nicolas.
