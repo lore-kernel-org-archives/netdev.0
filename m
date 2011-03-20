@@ -1,46 +1,68 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: [PATCH 1/1] solos-pci: Fix regression introduced by newest firmware
-Date: Sun, 20 Mar 2011 16:41:40 -0700
-Message-ID: <4D8690B4.7030900@redfish-solutions.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH 1/2] socket: increase default maximum listen queue
+ length
+Date: Mon, 21 Mar 2011 00:52:53 +0100
+Message-ID: <20110320235253.GD3038@nuttenaction>
+References: <20110320121414.GC3038@nuttenaction>
+ <1300662282-24741-1-git-send-email-hagen@jauu.net>
+ <20110320.160906.112595807.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-atm-general@lists.sourceforge.net"
-	<linux-atm-general@lists.sourceforge.net>
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:40574 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751832Ab1CTXlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 19:41:55 -0400
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53946 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751506Ab1CTXwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 19:52:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20110320.160906.112595807.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The newest FPGA firmware on the Solos processors correctly signals carrier transitions, bitrate, etc.
+* David Miller | 2011-03-20 16:09:06 [-0700]:
 
-The driver previously ignored these messages, and the physical state was always ATM_PHY_SIG_UNKNOWN.
+>Absolutely no context is provided for this number.
+>
+>What's the RTT?  How fast are the cpus?  etc.
+>
+>You must tell the whole story in order to justify these changes
+>properly.
 
-Now that the board reports its state, we expose a bug whereby the transition from UNKNOWN to LOST causes us to release all VC's.  It should not: only transitions from FOUND to LOST or UNKNOWN should do this (actually, it's bears examining if the VC's should be released at all).
+(you can skip the first paragraphs and read the last one ;)
 
-So we add a check to the previous state on transitions for leaving FOUND state.
+The number is somewhat magically - like many other values. I greped
+tglx/history.git but the comment (at that time tcp_ipv4.c) seems pre 2002 era.
 
-Signed-off-by: Philip A Prindeville <philipp@redfish-solutions.com>
----
+Providing context is a little bit artificial: I can construct an scenario with
+a RTT of 200ms and 1000 connection request per second and the table will
+overflow. This can happen, sure. On the other hand there are scenarios with a
+RTT of 20ms and 10 connection requests per second - no problem there.
 
---- a/drivers/atm/solos-pci.c	2011-03-20 15:27:40.000000000 -0600
-+++ b/drivers/atm/solos-pci.c	2011-03-20 16:32:11.000000000 -0600
-@@ -382,8 +382,11 @@ static int process_status(struct solos_c
-
-  	/* Anything but 'Showtime' is down */
-  	if (strcmp(state_str, "Showtime")) {
-+		char old_signal = card->atmdev[port]->signal;
-+
-  		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
--		atm_dev_release_vccs(card->atmdev[port]);
-+		if (old_signal == ATM_PHY_SIG_FOUND)
-+			atm_dev_release_vccs(card->atmdev[port]);
-  		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
-		return 0;
-	}
+Increasing the number _has_ one essential advantage: it is aligned on
+sysctl_max_syn_backlog which in turn is determined by memory characteristics.
 
 
+Without patch (sysctl not modified, BUT sysctl_max_syn_backlog depending on memory characteristic):
+
+listen-queue-length = max(8, min(userspace_backlog, min(128, sysctl_max_syn_backlog))
+
+Wit patch (sysctl not modified, BUT sysctl_max_syn_backlog depending on memory characteristic):
+
+listen-queue-length = max(8, min(userspace_backlog, min(256, sysctl_max_syn_backlog))
+
+
+The point is now: sysctl_max_syn_backlog is per default 256, 128 for small
+systems and up to 1024 for larger systems. But sysctl_somaxconn (128) will
+_always_ restrict the queue length to 128 and make therefore
+sysctl_max_syn_backlog defacto unfeasible - it will always restrict the value
+to 128. IMHO sysctl_somaxconn should be removed, the overhead of the
+listen-queue size per listening socket is insignificant. Especially because
+sysctl_max_syn_backlog already consider the memory characteristic. There are a
+bunch more connected sockets as these <10 listening sockets, but performance
+lack because of will always be noticeable:
+
+netstat -s | grep overflowed
+    2621 times the listen queue of a socket overflowed
+
+Hagen
