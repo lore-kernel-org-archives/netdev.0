@@ -1,68 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: [PATCH] socket: increase default maximum listen queue length
-Date: Sun, 20 Mar 2011 12:55:44 +0100
-Message-ID: <1300622144.2831.287.camel@edumazet-laptop>
+Date: Sun, 20 Mar 2011 12:59:50 +0100
+Message-ID: <20110320115950.GB3038@nuttenaction>
 References: <1300585811-21566-1-git-send-email-hagen@jauu.net>
-	 <1300609817.2831.56.camel@edumazet-laptop>
-	 <20110320113921.GA3038@nuttenaction>
+ <20110319.214100.183043711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:38648 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751046Ab1CTLzx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 07:55:53 -0400
-Received: by bwz15 with SMTP id 15so4412111bwz.19
-        for <netdev@vger.kernel.org>; Sun, 20 Mar 2011 04:55:52 -0700 (PDT)
-In-Reply-To: <20110320113921.GA3038@nuttenaction>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:33297 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751052Ab1CTL7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 07:59:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20110319.214100.183043711.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 20 mars 2011 =C3=A0 12:39 +0100, Hagen Paul Pfeifer a =C3=A9=
-crit :
-> * Eric Dumazet | 2011-03-20 09:30:17 [+0100]:
->=20
-> >Hmm, real problem is not the 'maximum queue value', but the minimum =
-one.
-> >
-> >If application says : listen(fd, 10), you are stuck.
-> >
-> >128 or 256 is way too small on some servers, where admin can tune
-> >in /etc/sysctl.conf :
-> >
-> >net.core.somaxconn =3D 8192
-> >net.ipv4.tcp_max_syn_backlog =3D 8192
-> >
-> >But application also needs to use : listen(fd, 8192)
->=20
-> I know Eric, I wrote the patch. ;-) The used naming goes like this:
->=20
-> The system limits (somaxconn & tcp_max_syn_backlog) specify a _maximu=
-m_, the
-> user cannot exceed this limit with listen(2). The backlog argument fo=
-r listen
-> on the other hand specify a _minimum_. But the patch increased the de=
-fault
-> maximum, therefore I named it in this way.
+* David Miller | 2011-03-19 21:41:00 [-0700]:
 
+>What in the world is a server running on multi-GHZ cpus doing such
+>that it cannot accept() fast enough to keep up with a 100 connections
+>per second?
+>
+>We were handling that just fine 10+ years ago.
+>
+>The math simply doesn't add up.
 
-I am not sure you understood what I said.
+Davem, what the hell - you don't get it! ;-) No Davem, the problem is not the
+accept() performance rather it is the time since SYN/ACK is arrived and
+request_sock are created: RTT time to the client (including client SYN/ACK
+processing) and finally the accept() processing time. During _this_ duration
+the backlog is of relevance. For connection with a high RTT the backlog can be
+quite high - local accept() processing delay does not really matter.
 
-Even if you change kernel limits, many applications still use low
-limits : listen(fd, 8)
+The actual behavior is not really fine. max_syn_backlog and somaxconn are
+somewhat[TM] unsynchronized. max_syn_backlog considers the system memory
+characteristic where somaxconn is just a dump show stopper. My patch is a
+compromise it increase the value to 256 because it showed up that 256 seems
+reasonable for many setups. Many system administrators will not notice the
+problem, server authors may know about this limitation (and adjust the listen
+argument)- so why should we make the life of the administrators a little bit
+more easy by adjusting the default? Low memory systems does not suffer, the
+limit is still reasonable small. The memory footprint for a server with 4
+listening sockets is just insignificant. But connection failure due to backlog
+limits will magically go away.
 
-I remember some other OS (was it HPUX or Solaris...) had a minimum
-limit : Even if application said 8, an admin could impose a 256 value
-for example.
+The math is a function from incoming connections / time, the RTT and
+processing delay of client and server side..
 
-=46rankly, I believe somaxconn should be a default enforcement, that a
-particular protocol could override.
-
-TCP sockets for example should only enforce tcp_max_syn_backlog limit,
-not the somaxconn & tcp_max_syn_backlog.
-
-
-
+Have a nice Sunday, Hagen
