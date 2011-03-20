@@ -1,41 +1,40 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [PATCH V3] Export ACPI _DSM provided firmware instance number and
- string name to sysfs
-Date: Sun, 20 Mar 2011 13:15:33 +0300
-Message-ID: <AANLkTiki5XdEe1QjP6_GfkFGD39odyVES_yC4QcQc33z@mail.gmail.com>
-References: <20110223125741.GA16473@fedora14-r610.blr.amer.dell.com>
-	<20110223124419.GA5695@srcf.ucam.org>
-	<20110223132147.GB16707@fedora14-r610.blr.amer.dell.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] socket: increase default maximum listen queue length
+Date: Sun, 20 Mar 2011 12:39:21 +0100
+Message-ID: <20110320113921.GA3038@nuttenaction>
+References: <1300585811-21566-1-git-send-email-hagen@jauu.net>
+ <1300609817.2831.56.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mjg59@srcf.ucam.org, linux-pci@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	Matt_Domsch@dell.com, Charles_Rose@dell.com,
-	Jordan_Hargrave@dell.com, Shyam_Iyer@dell.com
-To: Narendra_K@dell.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20110223132147.GB16707@fedora14-r610.blr.amer.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:58184 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751877Ab1CTLjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 07:39:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1300609817.2831.56.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23 February 2011 16:00,  <Narendra_K@dell.com> wrote:
-> On Wed, Feb 23, 2011 at 06:14:19PM +0530, Matthew Garrett wrote:
->> I think this version will still break the build. You need to depend on
->> CONFIG_NLS.
+* Eric Dumazet | 2011-03-20 09:30:17 [+0100]:
+
+>Hmm, real problem is not the 'maximum queue value', but the minimum one.
 >
-> Matthew,
+>If application says : listen(fd, 10), you are stuck.
 >
-> Thanks. I posted a patch to linux-next to fix the build failure.
+>128 or 256 is way too small on some servers, where admin can tune
+>in /etc/sysctl.conf :
+>
+>net.core.somaxconn = 8192
+>net.ipv4.tcp_max_syn_backlog = 8192
+>
+>But application also needs to use : listen(fd, 8192)
 
-Hi,
-it still does not work
+I know Eric, I wrote the patch. ;-) The used naming goes like this:
 
-drivers/pci/Kconfig:
-select NLS if (DMI || ACPI)
-
- $ egrep "G_ACPI=|_DMI=|G_NLS=" .config
-CONFIG_DMI=y
-CONFIG_ACPI=y
-CONFIG_NLS=m
-
-pci-label.c:(.text+0xb80a): undefined reference to `utf16s_to_utf8s'
+The system limits (somaxconn & tcp_max_syn_backlog) specify a _maximum_, the
+user cannot exceed this limit with listen(2). The backlog argument for listen
+on the other hand specify a _minimum_. But the patch increased the default
+maximum, therefore I named it in this way.
