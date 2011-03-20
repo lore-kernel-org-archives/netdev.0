@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ROSE: prevent heap corruption with bad facilities
-Date: Sat, 19 Mar 2011 23:07:54 -0700 (PDT)
-Message-ID: <20110319.230754.226782746.davem@davemloft.net>
-References: <1300577313.12507.17.camel@dan>
-	<1300601004.1869.1.camel@dan>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH v2] irda: prevent heap corruption on invalid nickname
+Date: Sun, 20 Mar 2011 02:14:30 -0400
+Message-ID: <1300601670.1869.5.camel@dan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org, security@kernel.org
-To: drosenberg@vsecurity.com
+Cc: netdev@vger.kernel.org, security@kernel.org
+To: samuel@sortiz.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34553
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751069Ab1CTGHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 02:07:16 -0400
-In-Reply-To: <1300601004.1869.1.camel@dan>
+Received: from mx1.vsecurity.com ([209.67.252.12]:49770 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750983Ab1CTGOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 02:14:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Date: Sun, 20 Mar 2011 02:03:24 -0400
+Invalid nicknames containing only spaces will result in an underflow in
+a memcpy size calculation, subsequently destroying the heap and
+panicking.
 
-> Please disregard this patch, my brain wasn't working properly when I
-> wrote it.  There are problems in these areas, but this fix is incomplete
-> (and the description for the first issue is practically nonsensical).
-> I'll resend a new version shortly.
+v2 also catches the case where the provided nickname is longer than the
+buffer size, which can result in controllable heap corruption.
 
-Ok.
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: stable@kernel.org
+---
+ net/irda/irnet/irnet_ppp.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/irda/irnet/irnet_ppp.c b/net/irda/irnet/irnet_ppp.c
+index 7c567b8..2bb2beb 100644
+--- a/net/irda/irnet/irnet_ppp.c
++++ b/net/irda/irnet/irnet_ppp.c
+@@ -105,6 +105,9 @@ irnet_ctrl_write(irnet_socket *	ap,
+ 	      while(isspace(start[length - 1]))
+ 		length--;
+ 
++	      DABORT(length < 5 || length > NICKNAME_MAX_LEN + 5,
++		     -EINVAL, CTRL_ERROR, "Invalid nickname.\n");
++
+ 	      /* Copy the name for later reuse */
+ 	      memcpy(ap->rname, start + 5, length - 5);
+ 	      ap->rname[length - 5] = '\0';
+
+
