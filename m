@@ -1,52 +1,62 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Add useful per-connection TCP stats for diagnosis
- purpose.
-Date: Sun, 20 Mar 2011 10:18:30 +0100
-Message-ID: <1300612710.2831.106.camel@edumazet-laptop>
-References: <1300349189-2731-1-git-send-email-hkchu@google.com>
-	 <1300351330.10164.712.camel@edumazet-laptop>
-	 <AANLkTi=sLkXreC3LNsDuFDSeNMebr+ScMc12=gngd2cc@mail.gmail.com>
-	 <20110317142030.62af785a@nehalam>
-	 <AANLkTi=W-=8zhQpfJZ=DrDyUCwrT==5JkwRBiHaDkVXK@mail.gmail.com>
-	 <1300428324.2881.5.camel@edumazet-laptop>
-	 <AANLkTikrJ7A-ygc9JnkvfBpRaKjL0fKeta+9ASLDr0rg@mail.gmail.com>
-	 <1300510960.2831.2.camel@edumazet-laptop>
-	 <AANLkTimsoF+khCfU2aEQNoJ0DBf_p9-v+Zim0X5RrLpw@mail.gmail.com>
-	 <1300514604.2831.23.camel@edumazet-laptop>
-	 <AANLkTikyoS-YDH+N92yCXiFg7MfXhSHeudND9VJgAp15@mail.gmail.com>
+Subject: Re: [PATCH] socket: increase default maximum listen queue length
+Date: Sun, 20 Mar 2011 10:36:24 +0100
+Message-ID: <1300613784.2831.142.camel@edumazet-laptop>
+References: <1300585811-21566-1-git-send-email-hagen@jauu.net>
+	 <1300609817.2831.56.camel@edumazet-laptop>
+	 <201103201104.42183.remi@remlab.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Jerry Chu <hkchu@google.com>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:50389 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751616Ab1CTJSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 05:18:35 -0400
-Received: by wwa36 with SMTP id 36so6353097wwa.1
-        for <netdev@vger.kernel.org>; Sun, 20 Mar 2011 02:18:34 -0700 (PDT)
-In-Reply-To: <AANLkTikyoS-YDH+N92yCXiFg7MfXhSHeudND9VJgAp15@mail.gmail.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:47308 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751596Ab1CTJg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 05:36:28 -0400
+Received: by fxm17 with SMTP id 17so4762659fxm.19
+        for <netdev@vger.kernel.org>; Sun, 20 Mar 2011 02:36:27 -0700 (PDT)
+In-Reply-To: <201103201104.42183.remi@remlab.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 20 mars 2011 =C3=A0 00:30 -0700, Jerry Chu a =C3=A9crit :
-
-> I presume the filtering of specific IP addrs/ports are done in the
-> kernel to short-circuit the
-> O(n) loop. Otherwise it seems moot (i.e., it still costs O(n)).
+Le dimanche 20 mars 2011 =C3=A0 11:04 +0200, R=C3=A9mi Denis-Courmont a=
+ =C3=A9crit :
+> Le dimanche 20 mars 2011 10:30:17 Eric Dumazet, vous avez =C3=A9crit =
+:
+> >=20
+> > But application also needs to use : listen(fd, 8192)
+>=20
+> Application should pass INT_MAX anyway, unless it has a specific limi=
+t, e.g.=20
+> it can only handle one connection at time.
 >=20
 
-=46iltering is done in kernel, and we can extend filtering capa if
-necessary.
+You'll be surprised how few of them do that actually
 
-/proc/net/tcp is a flat file, you cannot do this
+ss -a | head
+State      Recv-Q Send-Q      Local Address:Port          Peer Address:=
+Port  =20
+LISTEN     0      8                       *:imaps                    *:=
+*      =20
+LISTEN     0      8                       *:pop3s                    *:=
+*      =20
+LISTEN     0      50                      *:mysql                    *:=
+*      =20
+LISTEN     0      8                       *:pop3                     *:=
+*      =20
+LISTEN     0      8                       *:imap2                    *:=
+*      =20
+LISTEN     0      511                     *:www                      *:=
+*      =20
 
 
-> A quick look at inet_csk_diag_dump() does not reveal anything like
-> that. But I haven't
-> looked hard enough.
+Yes, Apache itself uses 511 as its default listenbacklog
 
-You should ;)
+You'll need to change=20
+
+ListenBacklog 8192
+
 
 
