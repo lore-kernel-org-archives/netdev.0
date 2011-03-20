@@ -1,8 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [net-next 3/5] bnx2x: Do storage mac address validation for SF
- mode.
-Date: Sun, 20 Mar 2011 18:17:36 +0200
-Message-ID: <1300637856.17303.9.camel@lb-tlvb-dmitry>
+Subject: [net-next 5/5] bnx2x: update year to 2011 and version to
+ 1.62.12-0
+Date: Sun, 20 Mar 2011 18:27:57 +0200
+Message-ID: <1300638477.17303.21.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -10,10 +10,10 @@ Content-Transfer-Encoding: 7bit
 Cc: "Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1283 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1637 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751490Ab1CTQgl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Mar 2011 12:36:41 -0400
+	id S1751340Ab1CTQhq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Mar 2011 12:37:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,66 +21,216 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_main.c |   32 ++++++++++++++++----------------
- 1 files changed, 16 insertions(+), 16 deletions(-)
+ drivers/net/bnx2x/bnx2x.h             |    6 +++---
+ drivers/net/bnx2x/bnx2x_cmn.c         |    2 +-
+ drivers/net/bnx2x/bnx2x_cmn.h         |    2 +-
+ drivers/net/bnx2x/bnx2x_dcb.c         |    2 +-
+ drivers/net/bnx2x/bnx2x_dcb.h         |    2 +-
+ drivers/net/bnx2x/bnx2x_ethtool.c     |    2 +-
+ drivers/net/bnx2x/bnx2x_fw_defs.h     |    2 +-
+ drivers/net/bnx2x/bnx2x_fw_file_hdr.h |    2 +-
+ drivers/net/bnx2x/bnx2x_hsi.h         |    2 +-
+ drivers/net/bnx2x/bnx2x_init.h        |    2 +-
+ drivers/net/bnx2x/bnx2x_init_ops.h    |    2 +-
+ drivers/net/bnx2x/bnx2x_main.c        |    2 +-
+ drivers/net/bnx2x/bnx2x_reg.h         |    2 +-
+ drivers/net/bnx2x/bnx2x_stats.c       |    2 +-
+ drivers/net/bnx2x/bnx2x_stats.h       |    2 +-
+ 15 files changed, 17 insertions(+), 17 deletions(-)
 
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 86e23c7..22a2045 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -1,6 +1,6 @@
+ /* bnx2x.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -22,8 +22,8 @@
+  * (you will need to reboot afterwards) */
+ /* #define BNX2X_STOP_ON_ERROR */
+ 
+-#define DRV_MODULE_VERSION      "1.62.11-0"
+-#define DRV_MODULE_RELDATE      "2011/01/31"
++#define DRV_MODULE_VERSION      "1.62.12-0"
++#define DRV_MODULE_RELDATE      "2011/03/20"
+ #define BNX2X_BC_VER            0x040200
+ 
+ #define BNX2X_MULTI_QUEUE
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 9632f85..8c63cb7 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -1,6 +1,6 @@
+ /* bnx2x_cmn.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
+index b50570c..cdaf64e 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/bnx2x/bnx2x_cmn.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_cmn.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_dcb.c b/drivers/net/bnx2x/bnx2x_dcb.c
+index 9a24d79..919d6fa 100644
+--- a/drivers/net/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/bnx2x/bnx2x_dcb.c
+@@ -1,6 +1,6 @@
+ /* bnx2x_dcb.c: Broadcom Everest network driver.
+  *
+- * Copyright 2009-2010 Broadcom Corporation
++ * Copyright 2009-2011 Broadcom Corporation
+  *
+  * Unless you and Broadcom execute a separate written software license
+  * agreement governing use of this software, this software is licensed to you
+diff --git a/drivers/net/bnx2x/bnx2x_dcb.h b/drivers/net/bnx2x/bnx2x_dcb.h
+index 71b8eda..369d592 100644
+--- a/drivers/net/bnx2x/bnx2x_dcb.h
++++ b/drivers/net/bnx2x/bnx2x_dcb.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_dcb.h: Broadcom Everest network driver.
+  *
+- * Copyright 2009-2010 Broadcom Corporation
++ * Copyright 2009-2011 Broadcom Corporation
+  *
+  * Unless you and Broadcom execute a separate written software license
+  * agreement governing use of this software, this software is licensed to you
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
+index 14ed2aa..611a21e 100644
+--- a/drivers/net/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+@@ -1,6 +1,6 @@
+ /* bnx2x_ethtool.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_fw_defs.h b/drivers/net/bnx2x/bnx2x_fw_defs.h
+index f4e5b1c..9fe3678 100644
+--- a/drivers/net/bnx2x/bnx2x_fw_defs.h
++++ b/drivers/net/bnx2x/bnx2x_fw_defs.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_fw_defs.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_fw_file_hdr.h b/drivers/net/bnx2x/bnx2x_fw_file_hdr.h
+index f807262..f4a07fb 100644
+--- a/drivers/net/bnx2x/bnx2x_fw_file_hdr.h
++++ b/drivers/net/bnx2x/bnx2x_fw_file_hdr.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_fw_file_hdr.h: FW binary file header structure.
+  *
+- * Copyright (c) 2007-2009 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
+index be503cc..6381a54 100644
+--- a/drivers/net/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/bnx2x/bnx2x_hsi.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_hsi.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_init.h b/drivers/net/bnx2x/bnx2x_init.h
+index fa6dbe3..d539920 100644
+--- a/drivers/net/bnx2x/bnx2x_init.h
++++ b/drivers/net/bnx2x/bnx2x_init.h
+@@ -1,7 +1,7 @@
+ /* bnx2x_init.h: Broadcom Everest network driver.
+  *               Structures and macroes needed during the initialization.
+  *
+- * Copyright (c) 2007-2009 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_init_ops.h b/drivers/net/bnx2x/bnx2x_init_ops.h
+index 66df29f..aafd023 100644
+--- a/drivers/net/bnx2x/bnx2x_init_ops.h
++++ b/drivers/net/bnx2x/bnx2x_init_ops.h
+@@ -2,7 +2,7 @@
+  *               Static functions needed during the initialization.
+  *               This file is "included" in bnx2x_main.c.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 259d1d9..32f9f7f 100644
+index 3ddc436..c8e5ff0 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -8571,15 +8571,6 @@ static void __devinit bnx2x_get_mac_hwinfo(struct bnx2x *bp)
- 				BNX2X_DEV_INFO("Read iSCSI MAC: "
- 					       "0x%x:0x%04x\n", val2, val);
- 				bnx2x_set_mac_buf(iscsi_mac, val, val2);
--
--				/* Disable iSCSI OOO if MAC configuration is
--				 * invalid.
--				 */
--				if (!is_valid_ether_addr(iscsi_mac)) {
--					bp->flags |= NO_ISCSI_OOO_FLAG |
--						     NO_ISCSI_FLAG;
--					memset(iscsi_mac, 0, ETH_ALEN);
--				}
- 			} else
- 				bp->flags |= NO_ISCSI_OOO_FLAG | NO_ISCSI_FLAG;
- 
-@@ -8592,13 +8583,6 @@ static void __devinit bnx2x_get_mac_hwinfo(struct bnx2x *bp)
- 					       "0x%x:0x%04x\n", val2, val);
- 				bnx2x_set_mac_buf(fip_mac, val, val2);
- 
--				/* Disable FCoE if MAC configuration is
--				 * invalid.
--				 */
--				if (!is_valid_ether_addr(fip_mac)) {
--					bp->flags |= NO_FCOE_FLAG;
--					memset(bp->fip_mac, 0, ETH_ALEN);
--				}
- 			} else
- 				bp->flags |= NO_FCOE_FLAG;
- 		}
-@@ -8629,6 +8613,22 @@ static void __devinit bnx2x_get_mac_hwinfo(struct bnx2x *bp)
- 		else if (!IS_MF(bp))
- 			memcpy(fip_mac, iscsi_mac, ETH_ALEN);
- 	}
-+
-+	/* Disable iSCSI if MAC configuration is
-+	 * invalid.
-+	 */
-+	if (!is_valid_ether_addr(iscsi_mac)) {
-+		bp->flags |= NO_ISCSI_FLAG;
-+		memset(iscsi_mac, 0, ETH_ALEN);
-+	}
-+
-+	/* Disable FCoE if MAC configuration is
-+	 * invalid.
-+	 */
-+	if (!is_valid_ether_addr(fip_mac)) {
-+		bp->flags |= NO_FCOE_FLAG;
-+		memset(bp->fip_mac, 0, ETH_ALEN);
-+	}
- #endif
- }
- 
+@@ -1,6 +1,6 @@
+ /* bnx2x_main.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
+index 1c89f19..eb959be 100644
+--- a/drivers/net/bnx2x/bnx2x_reg.h
++++ b/drivers/net/bnx2x/bnx2x_reg.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_reg.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/bnx2x/bnx2x_stats.c
+index 3445ded..e535bfa 100644
+--- a/drivers/net/bnx2x/bnx2x_stats.c
++++ b/drivers/net/bnx2x/bnx2x_stats.c
+@@ -1,6 +1,6 @@
+ /* bnx2x_stats.c: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+diff --git a/drivers/net/bnx2x/bnx2x_stats.h b/drivers/net/bnx2x/bnx2x_stats.h
+index 596798c..45d14d8 100644
+--- a/drivers/net/bnx2x/bnx2x_stats.h
++++ b/drivers/net/bnx2x/bnx2x_stats.h
+@@ -1,6 +1,6 @@
+ /* bnx2x_stats.h: Broadcom Everest network driver.
+  *
+- * Copyright (c) 2007-2010 Broadcom Corporation
++ * Copyright (c) 2007-2011 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
 -- 
 1.7.2.2
 
