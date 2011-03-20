@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] socket: increase default maximum listen queue
- length
-Date: Sun, 20 Mar 2011 16:09:06 -0700 (PDT)
-Message-ID: <20110320.160906.112595807.davem@davemloft.net>
-References: <20110320121414.GC3038@nuttenaction>
-	<1300662282-24741-1-git-send-email-hagen@jauu.net>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: [PATCH 1/1] solos-pci: Fix regression introduced by newest firmware
+Date: Sun, 20 Mar 2011 16:41:40 -0700
+Message-ID: <4D8690B4.7030900@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: hagen@jauu.net
+Cc: "linux-atm-general@lists.sourceforge.net"
+	<linux-atm-general@lists.sourceforge.net>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50922
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751385Ab1CTXI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 19:08:28 -0400
-In-Reply-To: <1300662282-24741-1-git-send-email-hagen@jauu.net>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:40574 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751832Ab1CTXlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 19:41:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Date: Mon, 21 Mar 2011 00:04:41 +0100
+The newest FPGA firmware on the Solos processors correctly signals carrier transitions, bitrate, etc.
 
-> For real server work the defacto sysctl_somaxconn limit seems inadequate:
-> 
->     Experiments with real servers show, that it is absolutely not enough
->     even at 100conn/sec. 256 cures most of problems.
+The driver previously ignored these messages, and the physical state was always ATM_PHY_SIG_UNKNOWN.
 
-Absolutely no context is provided for this number.
+Now that the board reports its state, we expose a bug whereby the transition from UNKNOWN to LOST causes us to release all VC's.  It should not: only transitions from FOUND to LOST or UNKNOWN should do this (actually, it's bears examining if the VC's should be released at all).
 
-What's the RTT?  How fast are the cpus?  etc.
+So we add a check to the previous state on transitions for leaving FOUND state.
 
-You must tell the whole story in order to justify these changes
-properly.
+Signed-off-by: Philip A Prindeville <philipp@redfish-solutions.com>
+---
+
+--- a/drivers/atm/solos-pci.c	2011-03-20 15:27:40.000000000 -0600
++++ b/drivers/atm/solos-pci.c	2011-03-20 16:32:11.000000000 -0600
+@@ -382,8 +382,11 @@ static int process_status(struct solos_c
+
+  	/* Anything but 'Showtime' is down */
+  	if (strcmp(state_str, "Showtime")) {
++		char old_signal = card->atmdev[port]->signal;
++
+  		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
+-		atm_dev_release_vccs(card->atmdev[port]);
++		if (old_signal == ATM_PHY_SIG_FOUND)
++			atm_dev_release_vccs(card->atmdev[port]);
+  		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
+		return 0;
+	}
+
+
