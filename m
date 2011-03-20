@@ -1,43 +1,61 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH] irda: prevent heap corruption on invalid nickname
-Date: Sat, 19 Mar 2011 21:16:47 -0400
-Message-ID: <1300583807.5092.5.camel@dan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, security@kernel.org
-To: samuel@sortiz.org, davem@davemloft.net
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH] socket: increase default maximum listen queue length
+Date: Sun, 20 Mar 2011 02:50:11 +0100
+Message-ID: <1300585811-21566-1-git-send-email-hagen@jauu.net>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:53576 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894Ab1CTBQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 21:16:53 -0400
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:47272 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750894Ab1CTBu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2011 21:50:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Invalid nicknames containing only spaces will result in an underflow in
-a memcpy size calculation, subsequently destroying the heap and
-panicking.
+sysctl_somaxconn (SOMAXCONN: 128) specifies the maximum number of
+sockets in state SYN_RECV per listen socket queue. At listen(2) time the
+backlog is adjusted to this limit if bigger then that.
 
-Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-Cc: stable@kernel.org
+Afterwards in reqsk_queue_alloc() the backlog value is checked again
+(nr_table_entries == backlog):
+
+    nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
+    nr_table_entries = max_t(u32, nr_table_entries, 8);
+    nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
+
+sysctl_max_syn_backlog on the other hand is dynamically adjusted,
+depending on the memory characteristic of the system. Default is 256,
+128 for small systems and up to 1024 for bigger systems.
+
+For real server work the defacto sysctl_somaxconn limit seems inadequate:
+
+    Experiments with real servers show, that it is absolutely not enough
+    even at 100conn/sec. 256 cures most of problems.
+
+Increase default sysctl_somaxconn from 128 to 256 to meet todays condition by
+simultaneously limit nr_table_entries by sysctl_max_syn_backlog which is
+based on memory condition (max(128, (tcp_hashinfo.ehash_mask + 1 / 256)).
+
+Signed_off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/irda/irnet/irnet_ppp.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ include/linux/socket.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/irda/irnet/irnet_ppp.c b/net/irda/irnet/irnet_ppp.c
-index 7c567b8..881ee51 100644
---- a/net/irda/irnet/irnet_ppp.c
-+++ b/net/irda/irnet/irnet_ppp.c
-@@ -105,6 +105,9 @@ irnet_ctrl_write(irnet_socket *	ap,
- 	      while(isspace(start[length - 1]))
- 		length--;
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index edbb1d0..bf35ce2 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -237,7 +237,7 @@ struct ucred {
+ #define PF_MAX		AF_MAX
  
-+	      DABORT(length < 5, -EINVAL,
-+		     CTRL_ERROR, "Invalid nickname.\n");
-+
- 	      /* Copy the name for later reuse */
- 	      memcpy(ap->rname, start + 5, length - 5);
- 	      ap->rname[length - 5] = '\0';
-
+ /* Maximum queue length specifiable by listen.  */
+-#define SOMAXCONN	128
++#define SOMAXCONN	256
+ 
+ /* Flags we can use with send/ and recv. 
+    Added those for 1003.1g not all are supported yet
+-- 
+1.7.4.1.57.g0466.dirty
 
