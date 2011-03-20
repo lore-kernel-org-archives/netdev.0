@@ -1,52 +1,48 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [PATCH] net: drop NETIF_F_GSO from hw_features without
- NETIF_F_SG
-Date: Sun, 20 Mar 2011 19:56:54 +0100
-Message-ID: <20110320185654.GA14223@core.hellgate.ch>
-References: <20110318195030.GA22350@core.hellgate.ch>
- <AANLkTim1_+GdURWxk=+N+5xCFTF1L27BD=+Uu+BY4jWF@mail.gmail.com>
- <20110319074653.GA12820@core.hellgate.ch>
- <AANLkTinCdaEs=G=AC45ePA-J99Vik9fYE+ZyF1miCiVy@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] netfilter: get rid of atomic ops in fast path
+Date: Sun, 20 Mar 2011 20:06:03 +0100
+Message-ID: <1300647963.2831.291.camel@edumazet-laptop>
+References: <1300468038.2888.160.camel@edumazet-laptop>
+	 <4D86121C.7050503@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Micha? Miros?aw <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail18.bluewin.ch ([195.186.19.64]:12747 "EHLO
-	mail18.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752318Ab1CTS4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 14:56:54 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTinCdaEs=G=AC45ePA-J99Vik9fYE+ZyF1miCiVy@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D86121C.7050503@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 19 Mar 2011 17:18:17 +0100, Micha? Miros?aw wrote:
-> > However, I still think the current, unpatched behavior is confusing users.
-> > ethtool_get_features() will happily tell the user that GSO is available for
-> > a NIC even if it is not (because the NIC does not support SG). Then, if the
-> > user tries to enable GSO, the operation fails silently: ethtool won't get
-> > an error code, so it looks as if the operation succeeded. The user needs to
-> > look into the kernel log or actually verify the offload settings to realize
-> > that something went wrong.
-> 
-> Do you want to prepare a patch for this? Please remember about
-> compatibility with per-offload ethtool ops if you do - this needs to
-> be there until all drivers are converted to hw_features.
+Le dimanche 20 mars 2011 =C3=A0 15:41 +0100, Patrick McHardy a =C3=A9cr=
+it :
+> Am 18.03.2011 18:07, schrieb Eric Dumazet:
+> > We currently use a percpu spinlock to 'protect' rule bytes/packets
+> > counters, after various attempts to use RCU instead.
+> >=20
+> > Lately we added a seqlock so that get_counters() can run without
+> > blocking BH or 'writers'. But we really use the seqcount in it.
+> >=20
+> > Spinlock itself is only locked by the current/owner cpu, so we can
+> > remove it completely.
+> >=20
+> > This cleanups api, using correct 'writer' vs 'reader' semantic.
+> >=20
+> > At replace time, the get_counters() call makes sure all cpus are do=
+ne
+> > using the old table.
+>=20
+> I think this will have to wait until net-next opens up again since
+> its not a bugfix.
 
-Something like this?
+Sure :)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0b88eba..5861a59 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5442,6 +5442,9 @@ int register_netdevice(struct net_device *dev)
- 	if (!(dev->wanted_features & NETIF_F_SG)) {
- 		dev->wanted_features &= ~NETIF_F_GSO;
- 		dev->features &= ~NETIF_F_GSO;
-+		if (!(dev->hw_features & NETIF_F_SG) &&
-+		    (!dev->ethtool_ops || !dev->ethtool_ops->set_sg))
-+			dev->hw_features &= ~NETIF_F_GSO;
- 	}
- 
- 	/* Enable GRO and NETIF_F_HIGHDMA for vlans by default,
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
