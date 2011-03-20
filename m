@@ -1,72 +1,88 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] niu: Rename NIU parent platform device name to fix conflict.
-Date: Sun, 20 Mar 2011 00:27:48 -0600
-Message-ID: <AANLkTimzGTe52by8d4NQPV1f8Wmayb6ZoNMX4yDqFCFD@mail.gmail.com>
-References: <20110319.230733.193709340.davem@davemloft.net>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH v2] ROSE: prevent heap corruption with bad facilities
+Date: Sun, 20 Mar 2011 02:43:43 -0400
+Message-ID: <1300603423.1869.18.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, security@kernel.org
+To: ralf@linux-mips.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:62908 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151Ab1CTG2I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 02:28:08 -0400
-Received: by gxk21 with SMTP id 21so2047131gxk.19
-        for <netdev@vger.kernel.org>; Sat, 19 Mar 2011 23:28:08 -0700 (PDT)
-In-Reply-To: <20110319.230733.193709340.davem@davemloft.net>
+Received: from mx1.vsecurity.com ([209.67.252.12]:63486 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151Ab1CTGnu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 02:43:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 20, 2011 at 12:07 AM, David Miller <davem@davemloft.net> wr=
-ote:
->
-> When the OF device driver bits were converted over to the platform
-> device infrastructure in commit 74888760d40b3ac9054f9c5fa07b566c0676b=
-a2d
-> ("dt/net: Eliminate users of of_platform_{,un}register_driver") we
-> inadvertantly created probing problems in the OF case.
-[...]
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->
-> Grant, I'll push this fix via the net-2.6 tree, you don't have
-> to worry about it.
+When parsing the FAC_NATIONAL_DIGIS facilities field, it's possible for
+a remote host to provide more digipeaters than expected, resulting in
+heap corruption.  Check against ROSE_MAX_DIGIS to prevent overflows, and
+abort facilities parsing on failure.
 
-Okay, thanks.
+Additionally, when parsing the FAC_CCITT_DEST_NSAP and
+FAC_CCITT_SRC_NSAP facilities fields, a remote host can provide a length
+of less than 10, resulting in an underflow in a memcpy size, causing a
+kernel panic due to massive heap corruption.  A length of greater than
+20 results in a stack overflow of the callsign array.  Abort facilities
+parsing on these invalid length values.
 
-g.
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: stable@kernel.org
+---
+ net/rose/rose_subr.c |   18 ++++++++++++++++--
+ 1 files changed, 16 insertions(+), 2 deletions(-)
 
->
-> =A0drivers/net/niu.c | =A0 =A02 +-
-> =A01 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-> index 40fa59e..32678b6 100644
-> --- a/drivers/net/niu.c
-> +++ b/drivers/net/niu.c
-> @@ -9501,7 +9501,7 @@ static struct niu_parent * __devinit niu_new_pa=
-rent(struct niu *np,
-> =A0 =A0 =A0 =A0struct niu_parent *p;
-> =A0 =A0 =A0 =A0int i;
->
-> - =A0 =A0 =A0 plat_dev =3D platform_device_register_simple("niu", niu=
-_parent_index,
-> + =A0 =A0 =A0 plat_dev =3D platform_device_register_simple("niu-board=
-", niu_parent_index,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 NULL, 0);
-> =A0 =A0 =A0 =A0if (IS_ERR(plat_dev))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return NULL;
-> --
-> 1.7.4.1
->
->
+diff --git a/net/rose/rose_subr.c b/net/rose/rose_subr.c
+index 1734abb..6f5f0b5 100644
+--- a/net/rose/rose_subr.c
++++ b/net/rose/rose_subr.c
+@@ -290,10 +290,15 @@ static int rose_parse_national(unsigned char *p, struct rose_facilities_struct *
+ 				facilities->source_ndigis = 0;
+ 				facilities->dest_ndigis   = 0;
+ 				for (pt = p + 2, lg = 0 ; lg < l ; pt += AX25_ADDR_LEN, lg += AX25_ADDR_LEN) {
+-					if (pt[6] & AX25_HBIT)
++					if (pt[6] & AX25_HBIT) {
++						if (facilities->dest_ndigis >= ROSE_MAX_DIGIS)
++							return -1;
+ 						memcpy(&facilities->dest_digis[facilities->dest_ndigis++], pt, AX25_ADDR_LEN);
+-					else
++					} else {
++						if (facilities->source_ndigis >= ROSE_MAX_DIGIS)
++							return -1;
+ 						memcpy(&facilities->source_digis[facilities->source_ndigis++], pt, AX25_ADDR_LEN);
++					}
+ 				}
+ 			}
+ 			p   += l + 2;
+@@ -333,6 +338,11 @@ static int rose_parse_ccitt(unsigned char *p, struct rose_facilities_struct *fac
+ 
+ 		case 0xC0:
+ 			l = p[1];
++
++			/* Prevent overflows*/
++			if (l < 10 || l > 20)
++				return -1;
++
+ 			if (*p == FAC_CCITT_DEST_NSAP) {
+ 				memcpy(&facilities->source_addr, p + 7, ROSE_ADDR_LEN);
+ 				memcpy(callsign, p + 12,   l - 10);
+@@ -373,12 +383,16 @@ int rose_parse_facilities(unsigned char *p,
+ 			switch (*p) {
+ 			case FAC_NATIONAL:		/* National */
+ 				len = rose_parse_national(p + 1, facilities, facilities_len - 1);
++				if (len < 0)
++					return 0;
+ 				facilities_len -= len + 1;
+ 				p += len + 1;
+ 				break;
+ 
+ 			case FAC_CCITT:		/* CCITT */
+ 				len = rose_parse_ccitt(p + 1, facilities, facilities_len - 1);
++				if (len < 0)
++					return 0;
+ 				facilities_len -= len + 1;
+ 				p += len + 1;
+ 				break;
 
 
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
