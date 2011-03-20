@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 3/4] netfilter: xtables: fix reentrancy
-Date: Sun, 20 Mar 2011 16:32:27 +0100
-Message-ID: <1300635148-22648-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 4/4] netfilter: ipt_CLUSTERIP: fix buffer overflow
+Date: Sun, 20 Mar 2011 16:32:28 +0100
+Message-ID: <1300635148-22648-5-git-send-email-kaber@trash.net>
 References: <1300635148-22648-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,74 +10,40 @@ In-Reply-To: <1300635148-22648-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vasiliy Kulikov <segoon@openwall.com>
 
-commit f3c5c1bfd4308 (make ip_tables reentrant) introduced a race in
-handling the stackptr restore, at the end of ipt_do_table()
+'buffer' string is copied from userspace.  It is not checked whether it is
+zero terminated.  This may lead to overflow inside of simple_strtoul().
+Changli Gao suggested to copy not more than user supplied 'size' bytes.
 
-We should do it before the call to xt_info_rdunlock_bh(), or we allow
-cpu preemption and another cpu overwrites stackptr of original one.
+It was introduced before the git epoch.  Files "ipt_CLUSTERIP/*" are
+root writable only by default, however, on some setups permissions might be
+relaxed to e.g. network admin user.
 
-A second fix is to change the underflow test to check the origptr value
-instead of 0 to detect underflow, or else we allow a jump from different
-hooks.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jan Engelhardt <jengelh@medozas.de>
+Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+Acked-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/ip_tables.c  |    4 ++--
- net/ipv6/netfilter/ip6_tables.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index b09ed0d..ffcea0d 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -387,7 +387,7 @@ ipt_do_table(struct sk_buff *skb,
- 					verdict = (unsigned)(-v) - 1;
- 					break;
- 				}
--				if (*stackptr == 0) {
-+				if (*stackptr <= origptr) {
- 					e = get_entry(table_base,
- 					    private->underflow[hook]);
- 					pr_debug("Underflow (this is normal) "
-@@ -427,10 +427,10 @@ ipt_do_table(struct sk_buff *skb,
- 			/* Verdict */
- 			break;
- 	} while (!acpar.hotdrop);
--	xt_info_rdunlock_bh();
- 	pr_debug("Exiting %s; resetting sp from %u to %u\n",
- 		 __func__, *stackptr, origptr);
- 	*stackptr = origptr;
-+	xt_info_rdunlock_bh();
- #ifdef DEBUG_ALLOW_ALL
- 	return NF_ACCEPT;
- #else
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index c9598a9..0b2af9b 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -410,7 +410,7 @@ ip6t_do_table(struct sk_buff *skb,
- 					verdict = (unsigned)(-v) - 1;
- 					break;
- 				}
--				if (*stackptr == 0)
-+				if (*stackptr <= origptr)
- 					e = get_entry(table_base,
- 					    private->underflow[hook]);
- 				else
-@@ -441,8 +441,8 @@ ip6t_do_table(struct sk_buff *skb,
- 			break;
- 	} while (!acpar.hotdrop);
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 403ca57..d609ac3 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -664,8 +664,11 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
+ 	char buffer[PROC_WRITELEN+1];
+ 	unsigned long nodenum;
  
--	xt_info_rdunlock_bh();
- 	*stackptr = origptr;
-+	xt_info_rdunlock_bh();
+-	if (copy_from_user(buffer, input, PROC_WRITELEN))
++	if (size > PROC_WRITELEN)
++		return -EIO;
++	if (copy_from_user(buffer, input, size))
+ 		return -EFAULT;
++	buffer[size] = 0;
  
- #ifdef DEBUG_ALLOW_ALL
- 	return NF_ACCEPT;
+ 	if (*buffer == '+') {
+ 		nodenum = simple_strtoul(buffer+1, NULL, 10);
 -- 
 1.7.4
 
