@@ -1,80 +1,56 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: LRO disable warnings on kernel 2.6.38
-Date: Mon, 21 Mar 2011 10:21:34 +0100
-Message-ID: <1300699294.10934.63.camel@firesoul.comx.local>
-References: <1300446743.11985.317.camel@firesoul.comx.local>
-	 <4D8385CE.1060205@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH] l2tp: fix possible oops on l2tp_eth module unload
+Date: Mon, 21 Mar 2011 09:26:26 GMT
+Message-ID: <201103210926.p2L9QQBd009047@bert.katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:43461 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751056Ab1CUJ3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 05:29:08 -0400
-In-Reply-To: <4D8385CE.1060205@intel.com>
+Received: from katalix.com ([82.103.140.233]:60275 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751637Ab1CUJcg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2011 05:32:36 -0400
+Received: from bert.katalix.com (localhost.localdomain [127.0.0.1])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.katalix.com (Postfix) with ESMTPS id 0B9FCA6209F
+	for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 09:26:28 +0000 (GMT)
+Received: (from james@localhost)
+	by bert.katalix.com (8.14.2/8.14.2/Submit) id p2L9QQBd009047
+	for netdev@vger.kernel.org; Mon, 21 Mar 2011 09:26:26 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-03-18 at 09:18 -0700, Alexander Duyck wrote:
-> On 3/18/2011 4:12 AM, Jesper Dangaard Brouer wrote:
-> > Hi
-> >
-> > I'm seeing the LRO disable warnings using kernel 2.6.38:
-[...]
-> >
-> The error doesn't make any sense for igb to be triggering since it 
-> doesn't support setting the NETIF_F_LRO flag in the 2.6.38 kernel.
-> 
-> By any chance are there any ixgbe or other interfaces in the system?  I 
-> would suspect the error to come from a driver that at least contains the 
-> NETIF_F_LRO flag.
+A struct used in the l2tp_eth driver for registering network namespace
+ops was incorrectly marked as __net_initdata, leading to oops when
+module unloaded.
 
-The servers actually also have a four port semi-build in NIC (its a PCIe
-slot with an extra connector, most likely for controlling the LEDs).  I
-don't use that NIC as it (1) caused kernel panics on 2.6.35, (2) needs a
-firmware blob, (3) reading through the driver code (at some point in
-time) they didn't implement multiqueue support correctly.
+BUG: unable to handle kernel paging request at ffffffffa00ec098
+IP: [<ffffffff8123dbd8>] ops_exit_list+0x7/0x4b
+PGD 142d067 PUD 1431063 PMD 195da8067 PTE 0
+Oops: 0000 [#1] SMP 
+last sysfs file: /sys/module/l2tp_eth/refcnt
+Call Trace:
+ [<ffffffff8123dc94>] ? unregister_pernet_operations+0x32/0x93
+ [<ffffffff8123dd20>] ? unregister_pernet_device+0x2b/0x38
+ [<ffffffff81068b6e>] ? sys_delete_module+0x1b8/0x222
+ [<ffffffff810c7300>] ? do_munmap+0x254/0x318
+ [<ffffffff812c64e5>] ? page_fault+0x25/0x30
+ [<ffffffff812c6952>] ? system_call_fastpath+0x16/0x1b
 
-So lets blame that driver ;-)
+Signed-off-by: James Chapman <jchapman@katalix.com>
 
-lspci-info:
- Ethernet controller: NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42)
+---
+Push to stable trees too?
 
-driver info via ethtool:
-# ethtool -i eth01
- driver: netxen_nic
- version: 4.0.75
- firmware-version: 4.0.530
- bus-info: 0000:06:00.3
-
-The strange part is that my pre-prod server also have a netxen_nic, but
-it does not result in a WARN being tricked... 
-
-The pre-prod server do have a different firmware version.
-# ethtool -i eth01
- driver: netxen_nic
- version: 4.0.75
- firmware-version: 4.0.406
- bus-info: 0000:06:00.0
-
-(I have pulled the NIC out of some of the prod server, due to the risk
-of a kernel panic on the old kernel.  As operations have taken over the
-deployment process, these NICs are still in.  Guess I'll ask them to
-blacklist the driver, so they don't see the warn stacktrace, they get so
-nervous when they see stuff like that ;-))
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 8d9ce0a..a8193f5 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -283,7 +283,7 @@ static __net_init int l2tp_eth_init_net(struct net *net)
+ 	return 0;
+ }
+ 
+-static __net_initdata struct pernet_operations l2tp_eth_net_ops = {
++static struct pernet_operations l2tp_eth_net_ops = {
+ 	.init = l2tp_eth_init_net,
+ 	.id   = &l2tp_eth_net_id,
+ 	.size = sizeof(struct l2tp_eth_net),
