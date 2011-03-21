@@ -1,139 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: LRO disable warnings on kernel 2.6.38
-Date: Mon, 21 Mar 2011 10:53:52 +0100
-Message-ID: <1300701232.2884.12.camel@edumazet-laptop>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: LRO disable warnings on kernel 2.6.38
+Date: Mon, 21 Mar 2011 05:00:31 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8429@MNEXMB2.qlogic.org>
 References: <1300446743.11985.317.camel@firesoul.comx.local>
 	 <4D8385CE.1060205@intel.com>
 	 <1300699294.10934.63.camel@firesoul.comx.local>
-	 <1300700708.2884.10.camel@edumazet-laptop>
+ <1300700708.2884.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev <netdev@vger.kernel.org>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	Stanislaw Gruszka <sgruszka@redhat.com>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jesper Dangaard Brouer <hawk@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46432 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752578Ab1CUJx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 05:53:57 -0400
-Received: by wwa36 with SMTP id 36so7232366wwa.1
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 02:53:56 -0700 (PDT)
+Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:14421
+	"EHLO VA3EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751862Ab1CUKAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 06:00:38 -0400
 In-Reply-To: <1300700708.2884.10.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 21 mars 2011 =C3=A0 10:45 +0100, Eric Dumazet a =C3=A9crit :
-> Le lundi 21 mars 2011 =C3=A0 10:21 +0100, Jesper Dangaard Brouer a =C3=
-=A9crit :
-> > On Fri, 2011-03-18 at 09:18 -0700, Alexander Duyck wrote:
-> > > On 3/18/2011 4:12 AM, Jesper Dangaard Brouer wrote:
-> > > > Hi
-> > > >
-> > > > I'm seeing the LRO disable warnings using kernel 2.6.38:
-> > [...]
-> > > >
-> > > The error doesn't make any sense for igb to be triggering since i=
-t=20
-> > > doesn't support setting the NETIF_F_LRO flag in the 2.6.38 kernel=
-=2E
-> > >=20
-> > > By any chance are there any ixgbe or other interfaces in the syst=
-em?  I=20
-> > > would suspect the error to come from a driver that at least conta=
-ins the=20
-> > > NETIF_F_LRO flag.
-> >=20
-> > The servers actually also have a four port semi-build in NIC (its a=
- PCIe
-> > slot with an extra connector, most likely for controlling the LEDs)=
-=2E  I
-> > don't use that NIC as it (1) caused kernel panics on 2.6.35, (2) ne=
-eds a
-> > firmware blob, (3) reading through the driver code (at some point i=
-n
-> > time) they didn't implement multiqueue support correctly.
-> >=20
-> > So lets blame that driver ;-)
-> >=20
-> > lspci-info:
-> >  Ethernet controller: NetXen Incorporated NX3031 Multifunction 1/10=
--Gigabit Server Adapter (rev 42)
-> >=20
-> > driver info via ethtool:
-> > # ethtool -i eth01
-> >  driver: netxen_nic
-> >  version: 4.0.75
-> >  firmware-version: 4.0.530
-> >  bus-info: 0000:06:00.3
-> >=20
-> > The strange part is that my pre-prod server also have a netxen_nic,=
- but
-> > it does not result in a WARN being tricked...=20
-> >=20
-> > The pre-prod server do have a different firmware version.
-> > # ethtool -i eth01
-> >  driver: netxen_nic
-> >  version: 4.0.75
-> >  firmware-version: 4.0.406
-> >  bus-info: 0000:06:00.0
-> >=20
-> > (I have pulled the NIC out of some of the prod server, due to the r=
-isk
-> > of a kernel panic on the old kernel.  As operations have taken over=
- the
-> > deployment process, these NICs are still in.  Guess I'll ask them t=
-o
-> > blacklist the driver, so they don't see the warn stacktrace, they g=
-et so
-> > nervous when they see stuff like that ;-))
-> >=20
->=20
-> Well, this warning can be ignored since these NIC dont receive packet=
-s
-> to be forwarded in your setup.
->=20
-> I would say netxen_nic_set_flags() is buggy : It rejects data if othe=
-r
-> flag than ETH_FLAG_LRO is set.
->=20
-> if (data & ~ETH_FLAG_LRO)
-> 	return -EINVAL;
->=20
-> Brought by commit ef2519b1dd39940 (netxen: fail when try to setup
-> unsupported features) later corrected by commit 97d1935a61b7fe7a65f98=
-f
-> (Make ethtool_ops::set_flags() return -EINVAL for unsupported flags)
->=20
-> Since this drivers asserts NETIF_F_HW_VLAN_TX (mirroring
-> ETH_FLAG_TXVLAN), ethtool_op_get_flags() can return more than
-> ETH_FLAG_LRO.
->=20
-> dev_disable_lro() then calls netxen_nic_set_flags() with ETH_FLAG_TXV=
-LAN
-> -> -EINVAL, and ETH_FLAG_LRO stay ORed in dev->features -> WARNING
->=20
->=20
->=20
->=20
-
-Couly you please send us the result of "ethtool -k eth01" to make sure
-its the problem ?
-
-Make sure your ethtool version includes these bits :
-# ethtool -k eth0
-Offload parameters for eth0:
-=2E..
-large-receive-offload: off
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: off
-receive-hashing: off
-
-
-Thanks
-
-
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
+biBCZWhhbGYgT2YgRXJpYyBEdW1hemV0DQo+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMjEsIDIwMTEg
+MzoxNSBQTQ0KPiBUbzogSmVzcGVyIERhbmdhYXJkIEJyb3Vlcg0KPiBDYzogQWxleGFuZGVyIER1
+eWNrOyBuZXRkZXY7IE5laWwgSG9ybWFuOyBTdGFuaXNsYXcgR3J1c3prYQ0KPiBTdWJqZWN0OiBS
+ZTogTFJPIGRpc2FibGUgd2FybmluZ3Mgb24ga2VybmVsIDIuNi4zOA0KPg0KPiBMZSBsdW5kaSAy
+MSBtYXJzIDIwMTEgw6AgMTA6MjEgKzAxMDAsIEplc3BlciBEYW5nYWFyZCBCcm91ZXIgYSDDqWNy
+aXQgOg0KPiA+IE9uIEZyaSwgMjAxMS0wMy0xOCBhdCAwOToxOCAtMDcwMCwgQWxleGFuZGVyIER1
+eWNrIHdyb3RlOg0KPiA+ID4gT24gMy8xOC8yMDExIDQ6MTIgQU0sIEplc3BlciBEYW5nYWFyZCBC
+cm91ZXIgd3JvdGU6DQo+ID4gPiA+IEhpDQo+ID4gPiA+DQo+ID4gPiA+IEknbSBzZWVpbmcgdGhl
+IExSTyBkaXNhYmxlIHdhcm5pbmdzIHVzaW5nIGtlcm5lbCAyLjYuMzg6DQo+ID4gWy4uLl0NCj4g
+PiA+ID4NCj4gPiA+IFRoZSBlcnJvciBkb2Vzbid0IG1ha2UgYW55IHNlbnNlIGZvciBpZ2IgdG8g
+YmUgdHJpZ2dlcmluZyBzaW5jZSBpdA0KPiA+ID4gZG9lc24ndCBzdXBwb3J0IHNldHRpbmcgdGhl
+IE5FVElGX0ZfTFJPIGZsYWcgaW4gdGhlIDIuNi4zOCBrZXJuZWwuDQo+ID4gPg0KPiA+ID4gQnkg
+YW55IGNoYW5jZSBhcmUgdGhlcmUgYW55IGl4Z2JlIG9yIG90aGVyIGludGVyZmFjZXMgaW4gdGhl
+DQo+IHN5c3RlbT8gIEkNCj4gPiA+IHdvdWxkIHN1c3BlY3QgdGhlIGVycm9yIHRvIGNvbWUgZnJv
+bSBhIGRyaXZlciB0aGF0IGF0IGxlYXN0DQo+IGNvbnRhaW5zIHRoZQ0KPiA+ID4gTkVUSUZfRl9M
+Uk8gZmxhZy4NCj4gPg0KPiA+IFRoZSBzZXJ2ZXJzIGFjdHVhbGx5IGFsc28gaGF2ZSBhIGZvdXIg
+cG9ydCBzZW1pLWJ1aWxkIGluIE5JQyAoaXRzIGENCj4gUENJZQ0KPiA+IHNsb3Qgd2l0aCBhbiBl
+eHRyYSBjb25uZWN0b3IsIG1vc3QgbGlrZWx5IGZvciBjb250cm9sbGluZyB0aGUgTEVEcykuDQo+
+IEkNCj4gPiBkb24ndCB1c2UgdGhhdCBOSUMgYXMgaXQgKDEpIGNhdXNlZCBrZXJuZWwgcGFuaWNz
+IG9uIDIuNi4zNSwgKDIpDQo+IG5lZWRzIGENCj4gPiBmaXJtd2FyZSBibG9iLCAoMykgcmVhZGlu
+ZyB0aHJvdWdoIHRoZSBkcml2ZXIgY29kZSAoYXQgc29tZSBwb2ludCBpbg0KPiA+IHRpbWUpIHRo
+ZXkgZGlkbid0IGltcGxlbWVudCBtdWx0aXF1ZXVlIHN1cHBvcnQgY29ycmVjdGx5Lg0KPiA+DQo+
+ID4gU28gbGV0cyBibGFtZSB0aGF0IGRyaXZlciA7LSkNCj4gPg0KPiA+IGxzcGNpLWluZm86DQo+
+ID4gIEV0aGVybmV0IGNvbnRyb2xsZXI6IE5ldFhlbiBJbmNvcnBvcmF0ZWQgTlgzMDMxIE11bHRp
+ZnVuY3Rpb24gMS8xMC0NCj4gR2lnYWJpdCBTZXJ2ZXIgQWRhcHRlciAocmV2IDQyKQ0KPiA+DQo+
+ID4gZHJpdmVyIGluZm8gdmlhIGV0aHRvb2w6DQo+ID4gIyBldGh0b29sIC1pIGV0aDAxDQo+ID4g
+IGRyaXZlcjogbmV0eGVuX25pYw0KPiA+ICB2ZXJzaW9uOiA0LjAuNzUNCj4gPiAgZmlybXdhcmUt
+dmVyc2lvbjogNC4wLjUzMA0KPiA+ICBidXMtaW5mbzogMDAwMDowNjowMC4zDQo+ID4NCj4gPiBU
+aGUgc3RyYW5nZSBwYXJ0IGlzIHRoYXQgbXkgcHJlLXByb2Qgc2VydmVyIGFsc28gaGF2ZSBhIG5l
+dHhlbl9uaWMsDQo+IGJ1dA0KPiA+IGl0IGRvZXMgbm90IHJlc3VsdCBpbiBhIFdBUk4gYmVpbmcg
+dHJpY2tlZC4uLg0KPiA+DQo+ID4gVGhlIHByZS1wcm9kIHNlcnZlciBkbyBoYXZlIGEgZGlmZmVy
+ZW50IGZpcm13YXJlIHZlcnNpb24uDQo+ID4gIyBldGh0b29sIC1pIGV0aDAxDQo+ID4gIGRyaXZl
+cjogbmV0eGVuX25pYw0KPiA+ICB2ZXJzaW9uOiA0LjAuNzUNCj4gPiAgZmlybXdhcmUtdmVyc2lv
+bjogNC4wLjQwNg0KPiA+ICBidXMtaW5mbzogMDAwMDowNjowMC4wDQo+ID4NCj4gPiAoSSBoYXZl
+IHB1bGxlZCB0aGUgTklDIG91dCBvZiBzb21lIG9mIHRoZSBwcm9kIHNlcnZlciwgZHVlIHRvIHRo
+ZQ0KPiByaXNrDQo+ID4gb2YgYSBrZXJuZWwgcGFuaWMgb24gdGhlIG9sZCBrZXJuZWwuICBBcyBv
+cGVyYXRpb25zIGhhdmUgdGFrZW4gb3Zlcg0KPiB0aGUNCj4gPiBkZXBsb3ltZW50IHByb2Nlc3Ms
+IHRoZXNlIE5JQ3MgYXJlIHN0aWxsIGluLiAgR3Vlc3MgSSdsbCBhc2sgdGhlbSB0bw0KPiA+IGJs
+YWNrbGlzdCB0aGUgZHJpdmVyLCBzbyB0aGV5IGRvbid0IHNlZSB0aGUgd2FybiBzdGFja3RyYWNl
+LCB0aGV5IGdldA0KPiBzbw0KPiA+IG5lcnZvdXMgd2hlbiB0aGV5IHNlZSBzdHVmZiBsaWtlIHRo
+YXQgOy0pKQ0KPiA+DQo+DQo+IFdlbGwsIHRoaXMgd2FybmluZyBjYW4gYmUgaWdub3JlZCBzaW5j
+ZSB0aGVzZSBOSUMgZG9udCByZWNlaXZlIHBhY2tldHMNCj4gdG8gYmUgZm9yd2FyZGVkIGluIHlv
+dXIgc2V0dXAuDQo+DQo+IEkgd291bGQgc2F5IG5ldHhlbl9uaWNfc2V0X2ZsYWdzKCkgaXMgYnVn
+Z3kgOiBJdCByZWplY3RzIGRhdGEgaWYgb3RoZXINCj4gZmxhZyB0aGFuIEVUSF9GTEFHX0xSTyBp
+cyBzZXQuDQo+DQo+IGlmIChkYXRhICYgfkVUSF9GTEFHX0xSTykNCj4gICAgICAgcmV0dXJuIC1F
+SU5WQUw7DQo+DQo+IEJyb3VnaHQgYnkgY29tbWl0IGVmMjUxOWIxZGQzOTk0MCAobmV0eGVuOiBm
+YWlsIHdoZW4gdHJ5IHRvIHNldHVwDQo+IHVuc3VwcG9ydGVkIGZlYXR1cmVzKSBsYXRlciBjb3Jy
+ZWN0ZWQgYnkgY29tbWl0IDk3ZDE5MzVhNjFiN2ZlN2E2NWY5OGYNCj4gKE1ha2UgZXRodG9vbF9v
+cHM6OnNldF9mbGFncygpIHJldHVybiAtRUlOVkFMIGZvciB1bnN1cHBvcnRlZCBmbGFncykNCj4N
+Cj4gU2luY2UgdGhpcyBkcml2ZXJzIGFzc2VydHMgTkVUSUZfRl9IV19WTEFOX1RYIChtaXJyb3Jp
+bmcNCj4gRVRIX0ZMQUdfVFhWTEFOKSwgZXRodG9vbF9vcF9nZXRfZmxhZ3MoKSBjYW4gcmV0dXJu
+IG1vcmUgdGhhbg0KPiBFVEhfRkxBR19MUk8uDQo+DQo+IGRldl9kaXNhYmxlX2xybygpIHRoZW4g
+Y2FsbHMgbmV0eGVuX25pY19zZXRfZmxhZ3MoKSB3aXRoDQo+IEVUSF9GTEFHX1RYVkxBTg0KPiAt
+PiAtRUlOVkFMLCBhbmQgRVRIX0ZMQUdfTFJPIHN0YXkgT1JlZCBpbiBkZXYtPmZlYXR1cmVzIC0+
+IFdBUk5JTkcNCj4NCj4NClRoYW5rcyBFcmljLg0KDQpJbnN0ZWFkIG9mDQogICAgICAgIGlmIChk
+YXRhICYgfkVUSF9GTEFHX0xSTykNCiAgICAgICAgICAgICAgICByZXR1cm4gLUVJTlZBTDsNCg0K
+Y2hlY2sgc2hvdWxkIGJlIGxpa2UgdGhpczoNCg0KKyAgICBpZiAoKGV0aHRvb2xfb3BfZ2V0X2Zs
+YWdzKG5ldGRldikgJiB+RVRIX0ZMQUdfTFJPKSAhPQ0KKyAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIChkYXRhICYgfkVUSF9GTEFHX0xSTykpDQogICAgICAgICAgICAgICAg
+cmV0dXJuIC1FSU5WQUw7DQoNCldpbGwgcHJvdmlkZSBwYXRjaCBzb29uLg0KDQotQW1pdA0KPg0K
+Pg0KPg0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGlu
+ZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFq
+b3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8v
+dmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0KDQpUaGlzIG1lc3NhZ2UgYW5k
+IGFueSBhdHRhY2hlZCBkb2N1bWVudHMgY29udGFpbiBpbmZvcm1hdGlvbiBmcm9tIFFMb2dpYyBD
+b3Jwb3JhdGlvbiBvciBpdHMgd2hvbGx5LW93bmVkIHN1YnNpZGlhcmllcyB0aGF0IG1heSBiZSBj
+b25maWRlbnRpYWwuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlvdSBt
+YXkgbm90IHJlYWQsIGNvcHksIGRpc3RyaWJ1dGUsIG9yIHVzZSB0aGlzIGluZm9ybWF0aW9uLiBJ
+ZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIHRyYW5zbWlzc2lvbiBpbiBlcnJvciwgcGxlYXNlIG5v
+dGlmeSB0aGUgc2VuZGVyIGltbWVkaWF0ZWx5IGJ5IHJlcGx5IGUtbWFpbCBhbmQgdGhlbiBkZWxl
+dGUgdGhpcyBtZXNzYWdlLg0K
 
