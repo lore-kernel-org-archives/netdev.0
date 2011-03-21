@@ -1,64 +1,29 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [PATCH v2] net: add Faraday FTGMAC100 Gigabit Ethernet driver
-Date: Mon, 21 Mar 2011 15:54:41 +0800
-Message-ID: <AANLkTinibrF_bJBbYwCSnGv1iD_9Dn7uBn2cqgcTrKHi@mail.gmail.com>
-References: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com>
- <1300355238-1619-1-git-send-email-ratbert.chuang@gmail.com>
- <1300357457.3133.92.camel@edumazet-laptop> <AANLkTino6LzGTZF4fNSkV9pbAfnmAc8wJjk0L8HfHDiJ@mail.gmail.com>
- <1300361405.3133.175.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] xfrm: Fix initialize repl field of struct xfrm_state
+Date: Mon, 21 Mar 2011 01:00:37 -0700 (PDT)
+Message-ID: <20110321.010037.59680394.davem@davemloft.net>
+References: <4D86F1FD.3080009@cn.fujitsu.com>
+	<20110320.234606.183056322.davem@davemloft.net>
+	<4D8701C3.5010304@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ratbert@faraday-tech.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: yjwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48928 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752156Ab1CUHzC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 03:55:02 -0400
-In-Reply-To: <1300361405.3133.175.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54672
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751123Ab1CUH77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 03:59:59 -0400
+In-Reply-To: <4D8701C3.5010304@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Date: Mon, 21 Mar 2011 15:44:03 +0800
 
-On Thu, Mar 17, 2011 at 7:30 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le jeudi 17 mars 2011 =C3=A0 18:56 +0800, Po-Yu Chuang a =C3=A9crit :
->> On Thu, Mar 17, 2011 at 6:24 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->> > Le jeudi 17 mars 2011 =C3=A0 17:47 +0800, Po-Yu Chuang a =C3=A9cri=
-t :
->> >> From: Po-Yu Chuang <ratbert@faraday-tech.com>
->> >>
->> >> FTGMAC100 Ethernet Media Access Controller supports 10/100/1000 M=
-bps
->> >> and MII/GMII. =C2=A0This driver has been working on some ARM/NDS3=
-2 SoC's
->> >> including Faraday A369 and Andes AG102.
->> >>
->> >> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
->> >> ---
->> >
->> > Did you tried GRO support ?
->>
->> No, I don't understand how to do that yet. Let me do some study firs=
-t.
->> I'd really appreciate it if you could provide me some pointers about=
- GRO. :-)
->> Is there any document about it?
->
-> Should be easy and might help performance too.
->
-> Take a look at commit :
->
-> 2edae08e5b75269855fef3c74fe4292c066e7c33 (r8169: add gro support)
+> -int xfrm_init_state(struct xfrm_state *x)
+> +int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
 
-It seems to work fine so far at least the driver is not broken, but I d=
-id not
-see much difference in performance though. How do I know if GRO is
-working indeed?
-
-Best regards,
-Po-Yu Chuang
+Since it is referenced by modules, this new function symbol must
+be exported to them.
