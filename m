@@ -1,30 +1,82 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Add useful per-connection TCP stats for diagnosis
- purpose.
-Date: Mon, 21 Mar 2011 14:18:44 -0700
-Message-ID: <20110321141844.25e96184@s6510>
-References: <1300349189-2731-1-git-send-email-hkchu@google.com>
-	<1300351330.10164.712.camel@edumazet-laptop>
-	<AANLkTi=sLkXreC3LNsDuFDSeNMebr+ScMc12=gngd2cc@mail.gmail.com>
-	<20110317142030.62af785a@nehalam>
-	<AANLkTi=W-=8zhQpfJZ=DrDyUCwrT==5JkwRBiHaDkVXK@mail.gmail.com>
-	<1300428324.2881.5.camel@edumazet-laptop>
-	<AANLkTikrJ7A-ygc9JnkvfBpRaKjL0fKeta+9ASLDr0rg@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] net ipv6: Fix duplicate /proc/sys/net/ipv6/neigh directory entries.
+Date: Mon, 21 Mar 2011 14:20:18 -0700
+Message-ID: <m14o6wjhm5.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Jerry Chu <hkchu@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, sunkan@zappa.cx
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39674 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753646Ab1CUVSs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2011 17:18:48 -0400
-In-Reply-To: <AANLkTikrJ7A-ygc9JnkvfBpRaKjL0fKeta+9ASLDr0rg@mail.gmail.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:48872 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754520Ab1CUVUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 17:20:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case it isn't clear. /proc/net/tcp is a legacy interface and any
-changes to it are certain to be rejected. netlink stats are an extensible
-interface and likely to be accepted.
+
+When I was fixing issues with unregisgtering tables under /proc/sys/net/ipv6/neigh
+by adding a mount point it appears I missed a critical ordering issue, in the
+ipv6 initialization.  I had not realized that ipv6_sysctl_register is called
+at the very end of the ipv6 initialization and in particular after we call
+neigh_sysctl_register from ndisc_init.
+
+"neigh" needs to be initialized in ipv6_static_sysctl_register which is
+the first ipv6 table to initialized, and definitely before ndisc_init.
+This removes the weirdness of duplicate tables while still providing a
+"neigh" mount point which prevents races in sysctl unregistering.
+
+This was initially reported at https://bugzilla.kernel.org/show_bug.cgi?id=31232
+Reported-by: sunkan@zappa.cx
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+---
+ net/ipv6/sysctl_net_ipv6.c |   18 +++++++++++-------
+ 1 files changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 7cb65ef..6dcf5e7 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -17,6 +17,16 @@
+ 
+ static struct ctl_table empty[1];
+ 
++static ctl_table ipv6_static_skeleton[] = {
++	{
++		.procname	= "neigh",
++		.maxlen		= 0,
++		.mode		= 0555,
++		.child		= empty,
++	},
++	{ }
++};
++
+ static ctl_table ipv6_table_template[] = {
+ 	{
+ 		.procname	= "route",
+@@ -37,12 +47,6 @@ static ctl_table ipv6_table_template[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
+-	{
+-		.procname	= "neigh",
+-		.maxlen		= 0,
+-		.mode		= 0555,
+-		.child		= empty,
+-	},
+ 	{ }
+ };
+ 
+@@ -160,7 +164,7 @@ static struct ctl_table_header *ip6_base;
+ 
+ int ipv6_static_sysctl_register(void)
+ {
+-	ip6_base = register_sysctl_paths(net_ipv6_ctl_path, empty);
++	ip6_base = register_sysctl_paths(net_ipv6_ctl_path, ipv6_static_skeleton);
+ 	if (ip6_base == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+-- 
+1.7.4
 
