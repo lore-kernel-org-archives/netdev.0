@@ -1,62 +1,56 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: xfrm: Fix initialize repl field of struct xfrm_state
-Date: Mon, 21 Mar 2011 14:36:45 +0800
-Message-ID: <4D86F1FD.3080009@cn.fujitsu.com>
-References: <4D86E603.8080704@cn.fujitsu.com> <20110320.225542.71119753.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: oops / kernel panic in bonding.
+Date: Mon, 21 Mar 2011 07:37:13 +0100
+Message-ID: <20110321063712.GB2836@psychotron.redhat.com>
+References: <4D8660EC.6080102@gmail.com>
+ <4D866F59.5070703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54616 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751734Ab1CUGgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2011 02:36:16 -0400
-In-Reply-To: <20110320.225542.71119753.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:64301 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751771Ab1CUGhS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2011 02:37:18 -0400
+Content-Disposition: inline
+In-Reply-To: <4D866F59.5070703@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> From: Wei Yongjun <yjwei@cn.fujitsu.com>
-> Date: Mon, 21 Mar 2011 13:45:39 +0800
+Sun, Mar 20, 2011 at 10:19:21PM CET, nicolas.2p.debian@gmail.com wrote:
+>Le 20/03/2011 21:17, Nicolas de Peslo=FCan a =E9crit :
+>>Hi Jiri,
+>>
+>>I suspect we have a race condition somewhere in the new
+>>bond_handle_frame function:
+>>
+>>The following commands produce one of the following errors:
+>>
+>>modprobe bonding max_bonds=3D0
+>>echo +bond0>/sys/class/net/bonding_masters
+>>echo +bond1>/sys/class/net/bonding_masters
+>>echo +eth1>/sys/class/net/bond1/bonding/slaves
+>>
+>>This is mostly reproducible, under VirtualBox.
+>>
+>>All tests done with 08351fc6a75731226e1112fc7254542bd3a2912e at the t=
+op
+>>commit (current net-next-2.6).
 >
->> Commit 'xfrm: Move IPsec replay detection functions to a separate file'
->>   (9fdc4883d92d20842c5acea77a4a21bb1574b495)
->> introduce repl field to struct xfrm_state, and only initialize it
->> under SA's netlink create path, the other path, such as pf_key, the
->> repl field remaining uninitialize. So if the SA is created by pf_key,
->> any input packet with SA's encryption algorithm will cause panic.
-> Please, either add an xfrm_init_replay() call to the appropriate spot
-> in net/key/af_key.c or, if possible, only have the one call in
-> xfrm_init_state().  Don't leave two calls, one in xfrm_user.c and one
-> in xfrm_state.c
+>I suspect netdev_rx_handler_register is called too early in bond_ensla=
+ve.
 >
-> Anyways, I don't think just making one call from xfrm_init_state() is
-> possible, because the replay settings need to be assigned before we
-> can properly call xfrm_init_replay().
+>I think it should be the last thing we do in bond_enslave, if we
+>don't want to face the risk to have bond_handle_frame being called
+>before everything is properly setup.
 >
-> Therefore, please fix this by adding the necessary call to af_key.c
-Sorry for not said clearly, at the first time I want to do like this. 
-But when I grep 'xfrm_init_state', it be used in many place, not
-any pf_key, but also XFRM MIGRATE, ipcomp, ipcomp6. So I did this ugly
-patch by add this to xfrm_init_state() to avoid dup code.
+>	Nicolas.
 
-Not sure whether the other case like ipcomp/ipcomp6 etc can cause panic, if
-it panic, maybe we can fix by introduce new xfrm_init_replay() function
-like to assign the default reply function.
-  int xfrm_init_replay(struct xfrm_state *x)
-  {
-  	x->repl = &xfrm_replay_legacy;
-  	return 0;
-  }
-and change the orig xfrm_init_replay to xfrm_update_replay()? 
-Or dup those code to all used place?
-
-If I was wrong, I will fix this by adding the necessary call to af_key.c.
-
-Thanks.
-
-
-> Thanks.
->
+Hmm, Offset 0x280 is big, I suggest dev->master is not set. Will look a=
+t
+this.
