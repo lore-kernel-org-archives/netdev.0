@@ -1,101 +1,78 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: LRO disable warnings on kernel 2.6.38
-Date: Mon, 21 Mar 2011 05:00:31 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8429@MNEXMB2.qlogic.org>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: LRO disable warnings on kernel 2.6.38
+Date: Mon, 21 Mar 2011 11:04:12 +0100
+Message-ID: <1300701852.10934.67.camel@firesoul.comx.local>
 References: <1300446743.11985.317.camel@firesoul.comx.local>
 	 <4D8385CE.1060205@intel.com>
 	 <1300699294.10934.63.camel@firesoul.comx.local>
- <1300700708.2884.10.camel@edumazet-laptop>
+	 <1300700708.2884.10.camel@edumazet-laptop>
+	 <1300701232.2884.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev <netdev@vger.kernel.org>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	Stanislaw Gruszka <sgruszka@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Dangaard Brouer <hawk@comx.dk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:14421
-	"EHLO VA3EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751862Ab1CUKAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 06:00:38 -0400
-In-Reply-To: <1300700708.2884.10.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:49803 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751444Ab1CUKEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 06:04:14 -0400
+In-Reply-To: <1300701232.2884.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgRXJpYyBEdW1hemV0DQo+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMjEsIDIwMTEg
-MzoxNSBQTQ0KPiBUbzogSmVzcGVyIERhbmdhYXJkIEJyb3Vlcg0KPiBDYzogQWxleGFuZGVyIER1
-eWNrOyBuZXRkZXY7IE5laWwgSG9ybWFuOyBTdGFuaXNsYXcgR3J1c3prYQ0KPiBTdWJqZWN0OiBS
-ZTogTFJPIGRpc2FibGUgd2FybmluZ3Mgb24ga2VybmVsIDIuNi4zOA0KPg0KPiBMZSBsdW5kaSAy
-MSBtYXJzIDIwMTEgw6AgMTA6MjEgKzAxMDAsIEplc3BlciBEYW5nYWFyZCBCcm91ZXIgYSDDqWNy
-aXQgOg0KPiA+IE9uIEZyaSwgMjAxMS0wMy0xOCBhdCAwOToxOCAtMDcwMCwgQWxleGFuZGVyIER1
-eWNrIHdyb3RlOg0KPiA+ID4gT24gMy8xOC8yMDExIDQ6MTIgQU0sIEplc3BlciBEYW5nYWFyZCBC
-cm91ZXIgd3JvdGU6DQo+ID4gPiA+IEhpDQo+ID4gPiA+DQo+ID4gPiA+IEknbSBzZWVpbmcgdGhl
-IExSTyBkaXNhYmxlIHdhcm5pbmdzIHVzaW5nIGtlcm5lbCAyLjYuMzg6DQo+ID4gWy4uLl0NCj4g
-PiA+ID4NCj4gPiA+IFRoZSBlcnJvciBkb2Vzbid0IG1ha2UgYW55IHNlbnNlIGZvciBpZ2IgdG8g
-YmUgdHJpZ2dlcmluZyBzaW5jZSBpdA0KPiA+ID4gZG9lc24ndCBzdXBwb3J0IHNldHRpbmcgdGhl
-IE5FVElGX0ZfTFJPIGZsYWcgaW4gdGhlIDIuNi4zOCBrZXJuZWwuDQo+ID4gPg0KPiA+ID4gQnkg
-YW55IGNoYW5jZSBhcmUgdGhlcmUgYW55IGl4Z2JlIG9yIG90aGVyIGludGVyZmFjZXMgaW4gdGhl
-DQo+IHN5c3RlbT8gIEkNCj4gPiA+IHdvdWxkIHN1c3BlY3QgdGhlIGVycm9yIHRvIGNvbWUgZnJv
-bSBhIGRyaXZlciB0aGF0IGF0IGxlYXN0DQo+IGNvbnRhaW5zIHRoZQ0KPiA+ID4gTkVUSUZfRl9M
-Uk8gZmxhZy4NCj4gPg0KPiA+IFRoZSBzZXJ2ZXJzIGFjdHVhbGx5IGFsc28gaGF2ZSBhIGZvdXIg
-cG9ydCBzZW1pLWJ1aWxkIGluIE5JQyAoaXRzIGENCj4gUENJZQ0KPiA+IHNsb3Qgd2l0aCBhbiBl
-eHRyYSBjb25uZWN0b3IsIG1vc3QgbGlrZWx5IGZvciBjb250cm9sbGluZyB0aGUgTEVEcykuDQo+
-IEkNCj4gPiBkb24ndCB1c2UgdGhhdCBOSUMgYXMgaXQgKDEpIGNhdXNlZCBrZXJuZWwgcGFuaWNz
-IG9uIDIuNi4zNSwgKDIpDQo+IG5lZWRzIGENCj4gPiBmaXJtd2FyZSBibG9iLCAoMykgcmVhZGlu
-ZyB0aHJvdWdoIHRoZSBkcml2ZXIgY29kZSAoYXQgc29tZSBwb2ludCBpbg0KPiA+IHRpbWUpIHRo
-ZXkgZGlkbid0IGltcGxlbWVudCBtdWx0aXF1ZXVlIHN1cHBvcnQgY29ycmVjdGx5Lg0KPiA+DQo+
-ID4gU28gbGV0cyBibGFtZSB0aGF0IGRyaXZlciA7LSkNCj4gPg0KPiA+IGxzcGNpLWluZm86DQo+
-ID4gIEV0aGVybmV0IGNvbnRyb2xsZXI6IE5ldFhlbiBJbmNvcnBvcmF0ZWQgTlgzMDMxIE11bHRp
-ZnVuY3Rpb24gMS8xMC0NCj4gR2lnYWJpdCBTZXJ2ZXIgQWRhcHRlciAocmV2IDQyKQ0KPiA+DQo+
-ID4gZHJpdmVyIGluZm8gdmlhIGV0aHRvb2w6DQo+ID4gIyBldGh0b29sIC1pIGV0aDAxDQo+ID4g
-IGRyaXZlcjogbmV0eGVuX25pYw0KPiA+ICB2ZXJzaW9uOiA0LjAuNzUNCj4gPiAgZmlybXdhcmUt
-dmVyc2lvbjogNC4wLjUzMA0KPiA+ICBidXMtaW5mbzogMDAwMDowNjowMC4zDQo+ID4NCj4gPiBU
-aGUgc3RyYW5nZSBwYXJ0IGlzIHRoYXQgbXkgcHJlLXByb2Qgc2VydmVyIGFsc28gaGF2ZSBhIG5l
-dHhlbl9uaWMsDQo+IGJ1dA0KPiA+IGl0IGRvZXMgbm90IHJlc3VsdCBpbiBhIFdBUk4gYmVpbmcg
-dHJpY2tlZC4uLg0KPiA+DQo+ID4gVGhlIHByZS1wcm9kIHNlcnZlciBkbyBoYXZlIGEgZGlmZmVy
-ZW50IGZpcm13YXJlIHZlcnNpb24uDQo+ID4gIyBldGh0b29sIC1pIGV0aDAxDQo+ID4gIGRyaXZl
-cjogbmV0eGVuX25pYw0KPiA+ICB2ZXJzaW9uOiA0LjAuNzUNCj4gPiAgZmlybXdhcmUtdmVyc2lv
-bjogNC4wLjQwNg0KPiA+ICBidXMtaW5mbzogMDAwMDowNjowMC4wDQo+ID4NCj4gPiAoSSBoYXZl
-IHB1bGxlZCB0aGUgTklDIG91dCBvZiBzb21lIG9mIHRoZSBwcm9kIHNlcnZlciwgZHVlIHRvIHRo
-ZQ0KPiByaXNrDQo+ID4gb2YgYSBrZXJuZWwgcGFuaWMgb24gdGhlIG9sZCBrZXJuZWwuICBBcyBv
-cGVyYXRpb25zIGhhdmUgdGFrZW4gb3Zlcg0KPiB0aGUNCj4gPiBkZXBsb3ltZW50IHByb2Nlc3Ms
-IHRoZXNlIE5JQ3MgYXJlIHN0aWxsIGluLiAgR3Vlc3MgSSdsbCBhc2sgdGhlbSB0bw0KPiA+IGJs
-YWNrbGlzdCB0aGUgZHJpdmVyLCBzbyB0aGV5IGRvbid0IHNlZSB0aGUgd2FybiBzdGFja3RyYWNl
-LCB0aGV5IGdldA0KPiBzbw0KPiA+IG5lcnZvdXMgd2hlbiB0aGV5IHNlZSBzdHVmZiBsaWtlIHRo
-YXQgOy0pKQ0KPiA+DQo+DQo+IFdlbGwsIHRoaXMgd2FybmluZyBjYW4gYmUgaWdub3JlZCBzaW5j
-ZSB0aGVzZSBOSUMgZG9udCByZWNlaXZlIHBhY2tldHMNCj4gdG8gYmUgZm9yd2FyZGVkIGluIHlv
-dXIgc2V0dXAuDQo+DQo+IEkgd291bGQgc2F5IG5ldHhlbl9uaWNfc2V0X2ZsYWdzKCkgaXMgYnVn
-Z3kgOiBJdCByZWplY3RzIGRhdGEgaWYgb3RoZXINCj4gZmxhZyB0aGFuIEVUSF9GTEFHX0xSTyBp
-cyBzZXQuDQo+DQo+IGlmIChkYXRhICYgfkVUSF9GTEFHX0xSTykNCj4gICAgICAgcmV0dXJuIC1F
-SU5WQUw7DQo+DQo+IEJyb3VnaHQgYnkgY29tbWl0IGVmMjUxOWIxZGQzOTk0MCAobmV0eGVuOiBm
-YWlsIHdoZW4gdHJ5IHRvIHNldHVwDQo+IHVuc3VwcG9ydGVkIGZlYXR1cmVzKSBsYXRlciBjb3Jy
-ZWN0ZWQgYnkgY29tbWl0IDk3ZDE5MzVhNjFiN2ZlN2E2NWY5OGYNCj4gKE1ha2UgZXRodG9vbF9v
-cHM6OnNldF9mbGFncygpIHJldHVybiAtRUlOVkFMIGZvciB1bnN1cHBvcnRlZCBmbGFncykNCj4N
-Cj4gU2luY2UgdGhpcyBkcml2ZXJzIGFzc2VydHMgTkVUSUZfRl9IV19WTEFOX1RYIChtaXJyb3Jp
-bmcNCj4gRVRIX0ZMQUdfVFhWTEFOKSwgZXRodG9vbF9vcF9nZXRfZmxhZ3MoKSBjYW4gcmV0dXJu
-IG1vcmUgdGhhbg0KPiBFVEhfRkxBR19MUk8uDQo+DQo+IGRldl9kaXNhYmxlX2xybygpIHRoZW4g
-Y2FsbHMgbmV0eGVuX25pY19zZXRfZmxhZ3MoKSB3aXRoDQo+IEVUSF9GTEFHX1RYVkxBTg0KPiAt
-PiAtRUlOVkFMLCBhbmQgRVRIX0ZMQUdfTFJPIHN0YXkgT1JlZCBpbiBkZXYtPmZlYXR1cmVzIC0+
-IFdBUk5JTkcNCj4NCj4NClRoYW5rcyBFcmljLg0KDQpJbnN0ZWFkIG9mDQogICAgICAgIGlmIChk
-YXRhICYgfkVUSF9GTEFHX0xSTykNCiAgICAgICAgICAgICAgICByZXR1cm4gLUVJTlZBTDsNCg0K
-Y2hlY2sgc2hvdWxkIGJlIGxpa2UgdGhpczoNCg0KKyAgICBpZiAoKGV0aHRvb2xfb3BfZ2V0X2Zs
-YWdzKG5ldGRldikgJiB+RVRIX0ZMQUdfTFJPKSAhPQ0KKyAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIChkYXRhICYgfkVUSF9GTEFHX0xSTykpDQogICAgICAgICAgICAgICAg
-cmV0dXJuIC1FSU5WQUw7DQoNCldpbGwgcHJvdmlkZSBwYXRjaCBzb29uLg0KDQotQW1pdA0KPg0K
-Pg0KPg0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGlu
-ZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFq
-b3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8v
-dmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0KDQpUaGlzIG1lc3NhZ2UgYW5k
-IGFueSBhdHRhY2hlZCBkb2N1bWVudHMgY29udGFpbiBpbmZvcm1hdGlvbiBmcm9tIFFMb2dpYyBD
-b3Jwb3JhdGlvbiBvciBpdHMgd2hvbGx5LW93bmVkIHN1YnNpZGlhcmllcyB0aGF0IG1heSBiZSBj
-b25maWRlbnRpYWwuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIHlvdSBt
-YXkgbm90IHJlYWQsIGNvcHksIGRpc3RyaWJ1dGUsIG9yIHVzZSB0aGlzIGluZm9ybWF0aW9uLiBJ
-ZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIHRyYW5zbWlzc2lvbiBpbiBlcnJvciwgcGxlYXNlIG5v
-dGlmeSB0aGUgc2VuZGVyIGltbWVkaWF0ZWx5IGJ5IHJlcGx5IGUtbWFpbCBhbmQgdGhlbiBkZWxl
-dGUgdGhpcyBtZXNzYWdlLg0K
+On Mon, 2011-03-21 at 10:53 +0100, Eric Dumazet wrote:
+> Couly you please send us the result of "ethtool -k eth01" to make sure
+> its the problem ?
+
+prod server:
+
+albpd4:~# ethtool -k eth01
+Offload parameters for eth01:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: on
+udp-fragmentation-offload: off
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: on
+ntuple-filters: off
+receive-hashing: off
+
+pre-prod server:
+
+albpd1:~# ethtool -k eth01
+Offload parameters for eth01:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: on
+udp-fragmentation-offload: off
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off
+ntuple-filters: off
+receive-hashing: off
+
+Hmm... notice how the large-receive-offload (LRO) is different on the
+two machines.
+
+I cannot disable LRO with userspace ethtool:
+
+albpd4:~# ethtool -K eth01 lro off
+Cannot set large receive offload settings: Invalid argument
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
+
 
