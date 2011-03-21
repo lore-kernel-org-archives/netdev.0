@@ -1,66 +1,53 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Mon, 21 Mar 2011 11:03:07 -0700
-Message-ID: <1300730587.3441.24.camel@localhost.localdomain>
-References: <20110318133311.GA20623@gondor.apana.org.au>
-	 <1300498915.3441.21.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [slab poison overwritten] Re: [GIT] Networking
+Date: Mon, 21 Mar 2011 19:07:18 +0100
+Message-ID: <1300730838.2884.578.camel@edumazet-laptop>
+References: <20110320.195156.226769634.davem@davemloft.net>
+	 <20110321125320.GA23490@elte.hu>
+	 <1300714346.2884.284.camel@edumazet-laptop>
+	 <20110321161528.GA28580@elte.hu> <20110321164238.GA5303@elte.hu>
+	 <20110321173941.GB3892@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, rusty@rustcorp.com.au, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:42444 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752836Ab1CUSDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 14:03:20 -0400
-In-Reply-To: <1300498915.3441.21.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Simon Horman <horms@verge.net.au>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110321173941.GB3892@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-03-18 at 18:41 -0700, Shirley Ma wrote:
-> > > +       /* Drop packet instead of stop queue for better
-> performance
-> > */
-> > 
-> > I would like to see some justification as to why this is the right
-> > way to go and not just papering over the real problem. 
-> 
-> Fair. KVM guest virtio_net TX queue stop/restart is pretty expensive,
-> which involves:
-> 
-> 1. Guest enable callback: one memory barrier, interrupt flag set
+Le lundi 21 mars 2011 =C3=A0 18:39 +0100, Ingo Molnar a =C3=A9crit :
+> here's the same but with kallsyms enabled.
+>=20
+> Thanks,
+>=20
+> 	Ingo
+>=20
+> [    9.585627] initcall 0xffffffff81d5b806 returned 0 after 0 usecs
+> [    9.588960] calling  0xffffffff81d5b9da @ 1
+> [    9.592303] IPVS: Creating netns size=3D1272 id=3D0
+> [    9.595646] IPVS: __ip_vs_control_init(): alloc_percpu.
+> [    9.602298] IPVS: cannot register namespace.
+> [    9.605627] IPVS: can't setup control
 
-Missed this cost: for history reason, it also involves a guest exit from
-I/O write (PCI_QUEUE_NOTIFY).
+It seems IPVS is busted in case of memory allocation error in=20
+__ip_vs_control_init()
 
-> 2. Host signals guest: one memory barrier, and a TX interrupt from
-> host
-> to KVM guest through evenfd_signal.
-> 
-> 
-> Most of the workload so far we barely see TX over run, except for
-> small
-> messages TCP_STREAM. 
-> 
-> For small message size TCP_STREAM workload, no matter how big the TX
-> queue size is, it always causes overrun. I even re-enable the TX queue
-> when it's empty, it still hits TX overrun again and again.
-> 
-> Somehow KVM guest and host is not in pace on processing small packets.
-> I
-> tried to pin each thread to different CPU, it didn't help. So it
-> didn't
-> seem to be scheduling related.
-> 
-> >From the performance results, we can see dramatically performance
-> gain
-> with this patch.
-> 
-> I would like to dig out the real reason why host can't in pace with
-> guest, but haven't figured it out in month, that's the reason I held
-> this patch for a while. However if anyone can give me any ideas on how
-> to debug the real problem, I am willing to try it out. 
+IPVS deinits its "struct netns_ipvs" space, but something (in IPVS) use=
+s
+it after free.
 
+__ip_vs_init() seems to be called before ip_vs_init() completes
+correctly. We then keep in net->ipvs a pointer to some freed memory.
+
+Commit 14e405461e664b7 did some changes in this area
+
+Simon, any idea ?
