@@ -1,81 +1,49 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
-Date: Mon, 21 Mar 2011 11:18:38 +0000
-Message-ID: <20110321111838.GC2610@pulham.picochip.com>
-References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
- <20110316.131734.242138246.davem@davemloft.net>
- <4D86F25A.7060405@atmel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] snmp: SNMP_UPD_PO_STATS_BH() always called from softirq
+Date: Mon, 21 Mar 2011 12:30:55 +0100
+Message-ID: <1300707055.2884.144.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jamie@jamieiles.com,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	plagnioj@jcrosoft.com, Andrew Victor <linux@maxim.org.za>,
-	Peter Korsgaard <jacmet@sunsite.dk>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41884 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628Ab1CULSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 07:18:46 -0400
-Received: by wwa36 with SMTP id 36so7319469wwa.1
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 04:18:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4D86F25A.7060405@atmel.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37149 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753194Ab1CULbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 07:31:48 -0400
+Received: by fxm17 with SMTP id 17so5368670fxm.19
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 04:31:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 21, 2011 at 02:38:18PM +0800, Nicolas Ferre wrote:
-> On 3/17/2011 4:17 AM, David Miller :
-> > From: Jamie Iles <jamie@jamieiles.com>
-> > Date: Tue, 15 Mar 2011 10:14:47 +0000
-> > 
-> >> This patch series extends the Atmel MACB driver to support the Cadence
-> >> GEM (Gigabit Ethernet MAC) to support 10/100 operation.  The GEM is
-> >> based on the MACB block but has a few moved registers and bitfields.
-> >> This patch series attempts to use the MACB accessors where block
-> >> functionallity is identical and only overrides to GEM specific
-> >> acccessors when needed.
-> >>
-> >> This has been runtested on a board with a Cadence GEM and compile tested
-> >> for all at91 configurations and a number of avr32 configurations.
-> >>
-> >> Changes since v1:
-> >> 	- AT91 now provides a fake "hclk" and "macb_clk" has been
-> >> 	renamed to "pclk" to be consistent with AVR32.
-> >> 	- Configurable GEM receive buffer size support has been added.
-> >> 	- pr_foo() and dev_foo() have been converted to netdev_foo()
-> >> 	where appropriate.
-> >> 	- New conditional accessors (macb_or_gem_{read,write}l) have
-> >> 	been introduced that do the conditional accesses dependent on
-> >> 	macb/gem type.
-> >> 	- GEM is now dynamically detected from the module ID rather than
-> >> 	platform device name.
-> >>
-> >> Jean-Christophe, I haven't based this on your conditional clock patch as
-> >> I wasn't sure what decision had been made on that and whether the
-> >> at91/avr32 detection is reliable.
-> > 
-> > I'm happy to ACK this so you guys can merge this via one of the
-> > ARM trees:
-> > 
-> > Acked-by: David S. Miller <davem@davemloft.net>
-> 
-> I add my:
-> 
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> 
-> Now, tell me if we need to setup a git tree with this and make it 
-> handled by linux-next (we do not have for at91 yet)?
-> or Russell can take the series in a "devel" branch?
+We dont need to test if we run from softirq context, we definitely are.
 
-Thanks for testing Nicolas!
+This saves few instructions in ip_rcv() & ip_rcv_finish()
 
-I have an existing tree for this at
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index 762e2ab..27461d6 100644
+--- a/include/net/snmp.h
++++ b/include/net/snmp.h
+@@ -150,7 +150,7 @@ struct linux_xfrm_mib {
+ #define SNMP_UPD_PO_STATS_BH(mib, basefield, addend)	\
+ 	do { \
+ 		__typeof__(*mib[0]) *ptr = \
+-			__this_cpu_ptr((mib)[!in_softirq()]); \
++			__this_cpu_ptr((mib)[0]); \
+ 		ptr->mibs[basefield##PKTS]++; \
+ 		ptr->mibs[basefield##OCTETS] += addend;\
+ 	} while (0)
+@@ -202,7 +202,7 @@ struct linux_xfrm_mib {
+ #define SNMP_UPD_PO_STATS64_BH(mib, basefield, addend)			\
+ 	do {								\
+ 		__typeof__(*mib[0]) *ptr;				\
+-		ptr = __this_cpu_ptr((mib)[!in_softirq()]);		\
++		ptr = __this_cpu_ptr((mib)[0]);				\
+ 		u64_stats_update_begin(&ptr->syncp);			\
+ 		ptr->mibs[basefield##PKTS]++;				\
+ 		ptr->mibs[basefield##OCTETS] += addend;			\
 
-	git://github.com/jamieiles/linux-2.6-ji.git macb-gem
 
-based off of 2.6.38 (with your ACK's now added) and I'd be happy with 
-either route.
-
-Jamie
