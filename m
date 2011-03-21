@@ -1,75 +1,80 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: xfrm: Fix initialize repl field of struct xfrm_state
-Date: Mon, 21 Mar 2011 17:18:18 +0800
-Message-ID: <4D8717DA.2010901@cn.fujitsu.com>
-References: <4D86E603.8080704@cn.fujitsu.com> <20110320.225542.71119753.davem@davemloft.net> <4D86F1FD.3080009@cn.fujitsu.com> <20110320.234606.183056322.davem@davemloft.net> <20110321082512.GB27581@secunet.com> <4D871607.6090508@cn.fujitsu.com>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: LRO disable warnings on kernel 2.6.38
+Date: Mon, 21 Mar 2011 10:21:34 +0100
+Message-ID: <1300699294.10934.63.camel@firesoul.comx.local>
+References: <1300446743.11985.317.camel@firesoul.comx.local>
+	 <4D8385CE.1060205@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62355 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751056Ab1CUJRw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2011 05:17:52 -0400
-In-Reply-To: <4D871607.6090508@cn.fujitsu.com>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:43461 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751056Ab1CUJ3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 05:29:08 -0400
+In-Reply-To: <4D8385CE.1060205@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2011-03-18 at 09:18 -0700, Alexander Duyck wrote:
+> On 3/18/2011 4:12 AM, Jesper Dangaard Brouer wrote:
+> > Hi
+> >
+> > I'm seeing the LRO disable warnings using kernel 2.6.38:
+[...]
+> >
+> The error doesn't make any sense for igb to be triggering since it 
+> doesn't support setting the NETIF_F_LRO flag in the 2.6.38 kernel.
+> 
+> By any chance are there any ixgbe or other interfaces in the system?  I 
+> would suspect the error to come from a driver that at least contains the 
+> NETIF_F_LRO flag.
+
+The servers actually also have a four port semi-build in NIC (its a PCIe
+slot with an extra connector, most likely for controlling the LEDs).  I
+don't use that NIC as it (1) caused kernel panics on 2.6.35, (2) needs a
+firmware blob, (3) reading through the driver code (at some point in
+time) they didn't implement multiqueue support correctly.
+
+So lets blame that driver ;-)
+
+lspci-info:
+ Ethernet controller: NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42)
+
+driver info via ethtool:
+# ethtool -i eth01
+ driver: netxen_nic
+ version: 4.0.75
+ firmware-version: 4.0.530
+ bus-info: 0000:06:00.3
+
+The strange part is that my pre-prod server also have a netxen_nic, but
+it does not result in a WARN being tricked... 
+
+The pre-prod server do have a different firmware version.
+# ethtool -i eth01
+ driver: netxen_nic
+ version: 4.0.75
+ firmware-version: 4.0.406
+ bus-info: 0000:06:00.0
+
+(I have pulled the NIC out of some of the prod server, due to the risk
+of a kernel panic on the old kernel.  As operations have taken over the
+deployment process, these NICs are still in.  Guess I'll ask them to
+blacklist the driver, so they don't see the warn stacktrace, they get so
+nervous when they see stuff like that ;-))
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
 
 
->> On Sun, Mar 20, 2011 at 11:46:06PM -0700, David Miller wrote:
->>> Ok, thanks for the explanation.
->>>
->>> I think there is a simple way out of this:
->>>
->>> 1) Rename current xfrm_init_state to __xfrm_init_state, add
->>>    "bool init_replay" argument.  Add the xfrm_init_replay()
->>>    call, as in your patch, but conditionalized on this boolean.
->>>
->>> 2) Implement xfrm_init_state as inline, which calls
->>>    __xfrm_init_state(..., true)
->>>
->>> 3) Replace xfrm_init_state() call in xfrm_user.c with
->>>    __xfrm_init_state(..., false)
->>>
->>> This seems to avoid all the problems.  We don't need to touch every
->>> caller, and we avoid initializing the replay state twice in xfrm_user
->>>
->> Btw, looking a bit closer to this. I think it would look a bit cleaner
->> if we would add the xfrm_init_replay() call to xfrm_init_state() and
->> to move the xfrm_init_state() call in xfrm_state_construct() behind
->> the assign of the replay settings.
-> The xfrm_init_replay() should be call after the call to
->   xfrm_update_ae_params(x, attrs);
-> since xfrm_update_ae_params() may update the replay_esn.
->
-> So we need move the xfrm_init_state()  call just before return x.
-
-
-Oh, sorry, the memcpy looks like dup code since we used
-kmemdup. It is the same attr XFRMA_REPLAY_ESN_VAL.
-
-> The other issue:
-> static void xfrm_update_ae_params()
-> {
->         ...
->         memcpy(x->replay_esn, replay_esn,
->                        xfrm_replay_state_esn_len(replay_esn));
->        ...
-> }
->
-> the memcpy() may cause memory overlap if we build a special
-> nl_data, we should free it and then do kmemdup()?
->
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
