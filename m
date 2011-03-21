@@ -1,63 +1,34 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: xfrm: Fix initialize repl field of struct xfrm_state
-Date: Mon, 21 Mar 2011 14:49:14 +0800
-Message-ID: <4D86F4EA.6030909@cn.fujitsu.com>
-References: <4D86E603.8080704@cn.fujitsu.com>	<20110320.225542.71119753.davem@davemloft.net>	<4D86F1FD.3080009@cn.fujitsu.com> <20110320.234606.183056322.davem@davemloft.net>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Re: [PATCH v2 1/1] solos-pci: Fix regression introduced by newest
+ firmware
+Date: Mon, 21 Mar 2011 00:25:23 -0700
+Message-ID: <4D86FD63.1090405@redfish-solutions.com>
+References: <1300676496.26693.318.camel@localhost>	<20110320.215704.193716335.davem@davemloft.net>	<4D86E89B.1060905@redfish-solutions.com> <20110320.230408.112594622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56706 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751133Ab1CUG5L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2011 02:57:11 -0400
-In-Reply-To: <20110320.234606.183056322.davem@davemloft.net>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:37507 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751643Ab1CUHZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 03:25:44 -0400
+In-Reply-To: <20110320.230408.112594622.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 3/20/11 11:04 PM, David Miller wrote:
+> From: Philip Prindeville<philipp_subx@redfish-solutions.com>
+> Date: Sun, 20 Mar 2011 22:56:43 -0700
+>
+>> It's not clear that dropping all VCs abruptly when carrier flapped was
+>> ever the right thing to do.
+> So you've tested your change with the older firmware present?
 
-> From: Wei Yongjun <yjwei@cn.fujitsu.com>
-> Date: Mon, 21 Mar 2011 14:36:45 +0800
->
->> Sorry for not said clearly, at the first time I want to do like this. 
->> But when I grep 'xfrm_init_state', it be used in many place, not
->> any pf_key, but also XFRM MIGRATE, ipcomp, ipcomp6. So I did this ugly
->> patch by add this to xfrm_init_state() to avoid dup code.
->>
->> Not sure whether the other case like ipcomp/ipcomp6 etc can cause panic, if
->> it panic, maybe we can fix by introduce new xfrm_init_replay() function
->> like to assign the default reply function.
->>   int xfrm_init_replay(struct xfrm_state *x)
->>   {
->>   	x->repl = &xfrm_replay_legacy;
->>   	return 0;
->>   }
->> and change the orig xfrm_init_replay to xfrm_update_replay()? 
->> Or dup those code to all used place?
->>
->> If I was wrong, I will fix this by adding the necessary call to af_key.c.
-> Ok, thanks for the explanation.
->
-> I think there is a simple way out of this:
->
-> 1) Rename current xfrm_init_state to __xfrm_init_state, add
->    "bool init_replay" argument.  Add the xfrm_init_replay()
->    call, as in your patch, but conditionalized on this boolean.
->
-> 2) Implement xfrm_init_state as inline, which calls
->    __xfrm_init_state(..., true)
->
-> 3) Replace xfrm_init_state() call in xfrm_user.c with
->    __xfrm_init_state(..., false)
->
-> This seems to avoid all the problems.  We don't need to touch every
-> caller, and we avoid initializing the replay state twice in xfrm_user
->
-> Ok?
+I haven't, no: back-revving firmware has been known to brick cards.
 
-This OK, I will do this change, thanks.
+I'm waiting to hear back from Guy and Nathan, they have old cards on hand that they can test.
 
->
->
+
