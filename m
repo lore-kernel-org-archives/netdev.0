@@ -1,55 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] solos-pci: Fix regression introduced by newest
- firmware
-Date: Sun, 20 Mar 2011 21:57:04 -0700 (PDT)
-Message-ID: <20110320.215704.193716335.davem@davemloft.net>
-References: <4D86AF4F.5010203@redfish-solutions.com>
-	<1300676496.26693.318.camel@localhost>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: xfrm: Fix initialize repl field of struct xfrm_state
+Date: Mon, 21 Mar 2011 13:45:39 +0800
+Message-ID: <4D86E603.8080704@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: philipp_subx@redfish-solutions.com, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net
-To: bhutchings@solarflare.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36740
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751805Ab1CUE43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 00:56:29 -0400
-In-Reply-To: <1300676496.26693.318.camel@localhost>
+Received: from cn.fujitsu.com ([222.73.24.84]:54332 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752786Ab1CUFpL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2011 01:45:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 21 Mar 2011 03:01:36 +0000
+Commit 'xfrm: Move IPsec replay detection functions to a separate file'
+  (9fdc4883d92d20842c5acea77a4a21bb1574b495)
+introduce repl field to struct xfrm_state, and only initialize it
+under SA's netlink create path, the other path, such as pf_key, the
+repl field remaining uninitialize. So if the SA is created by pf_key,
+any input packet with SA's encryption algorithm will cause panic.
 
-> On Sun, 2011-03-20 at 18:52 -0700, Philip Prindeville wrote:
->> The newest FPGA firmware on the Solos processors correctly signals
->> carrier transitions, bitrate, etc.
->> 
->> The driver previously ignored these messages, and the physical state
->> was always ATM_PHY_SIG_UNKNOWN.
->> 
->> Now that the board reports its state, we expose a bug whereby the
->> transition from UNKNOWN to LOST causes us to release all VC's.
->> 
->> We don't delete any VC's, but instead just send an indication of
->> carrier change.
->> 
->> Signed-off-by: Philip A Prindeville <philipp@redfish-solutions.com>
->> ---
->> 
->> --- a/drivers/atm/solos-pci.c	2011-03-20 15:27:40.000000000 -0600
->> +++ b/drivers/atm/solos-pci.c	2011-03-20 16:32:11.000000000 -0600
->> @@ -382,8 +382,10 @@ static int process_status(struct solos_c
->> 
->>   	/* Anything but 'Showtime' is down */
->>   	if (strcmp(state_str, "Showtime")) {
->>   		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
->> +#if 0
->>   		atm_dev_release_vccs(card->atmdev[port]);
->> +#endif
-> 
-> Either remove it or don't.  #if 0 is for people without version control.
+    int xfrm_input()
+    {
+        ...
+        x->repl->advance(x, seq);
+        ...
+    }
 
-Also, this would seem to break those using the older firmware.
+This patch fixed to init default xfrm_replay in xfrm_init_state().
+
+Pid: 0, comm: swapper Not tainted 2.6.38-next+ #14 Bochs Bochs
+EIP: 0060:[<c078e5d5>] EFLAGS: 00010206 CPU: 0
+EIP is at xfrm_input+0x31c/0x4cc
+EAX: dd839c00 EBX: 00000084 ECX: 00000000 EDX: 01000000
+ESI: dd839c00 EDI: de3a0780 EBP: dec1de88 ESP: dec1de64
+ DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+Process swapper (pid: 0, ti=dec1c000 task=c09c0f20 task.ti=c0992000)
+Stack:
+ 00000000 00000000 00000002 c0ba27c0 00100000 01000000 de3a0798 c0ba27c0
+ 00000033 dec1de98 c0786848 00000000 de3a0780 dec1dea4 c0786868 00000000
+ dec1debc c074ee56 e1da6b8c de3a0780 c074ed44 de3a07a8 dec1decc c074ef32
+Call Trace:
+ [<c0786848>] xfrm4_rcv_encap+0x22/0x27
+ [<c0786868>] xfrm4_rcv+0x1b/0x1d
+ [<c074ee56>] ip_local_deliver_finish+0x112/0x1b1
+ [<c074ed44>] ? ip_local_deliver_finish+0x0/0x1b1
+ [<c074ef32>] NF_HOOK.clone.1+0x3d/0x44
+ [<c074ef77>] ip_local_deliver+0x3e/0x44
+ [<c074ed44>] ? ip_local_deliver_finish+0x0/0x1b1
+ [<c074ec03>] ip_rcv_finish+0x30a/0x332
+ [<c074e8f9>] ? ip_rcv_finish+0x0/0x332
+ [<c074ef32>] NF_HOOK.clone.1+0x3d/0x44
+ [<c074f188>] ip_rcv+0x20b/0x247
+ [<c074e8f9>] ? ip_rcv_finish+0x0/0x332
+ [<c072797d>] __netif_receive_skb+0x373/0x399
+ [<c0727bc1>] netif_receive_skb+0x4b/0x51
+ [<e0817e2a>] cp_rx_poll+0x210/0x2c4 [8139cp]
+ [<c072818f>] net_rx_action+0x9a/0x17d
+ [<c0445b5c>] __do_softirq+0xa1/0x149
+ [<c0445abb>] ? __do_softirq+0x0/0x149
+
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/xfrm/xfrm_state.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index d575f05..4274e11 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1980,6 +1980,10 @@ int xfrm_init_state(struct xfrm_state *x)
+ 	if (x->outer_mode == NULL)
+ 		goto error;
+ 
++	err = xfrm_init_replay(x);
++	if (err)
++		goto error;
++
+ 	x->km.state = XFRM_STATE_VALID;
+ 
+ error:
+-- 
+1.6.5.2
+
+
