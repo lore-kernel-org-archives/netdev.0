@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [slab poison overwritten] Re: [GIT] Networking
-Date: Mon, 21 Mar 2011 18:37:24 +0100
-Message-ID: <20110321173724.GA3892@elte.hu>
+Date: Mon, 21 Mar 2011 18:39:41 +0100
+Message-ID: <20110321173941.GB3892@elte.hu>
 References: <20110320.195156.226769634.davem@davemloft.net>
  <20110321125320.GA23490@elte.hu>
  <1300714346.2884.284.camel@edumazet-laptop>
@@ -25,14 +25,7 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-* Ingo Molnar <mingo@elte.hu> wrote:
-
-> I'm getting this memory corruption warning:
->=20
->    BUG kmalloc-1024: Poison overwritten
-
-=46ind another one below - this seems to trigger closer to the corrupti=
-on site.
+here's the same but with kallsyms enabled.
 
 Thanks,
 
