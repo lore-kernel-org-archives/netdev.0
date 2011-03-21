@@ -1,296 +1,63 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 2/3] net/r8169: add a new chip for RTL8168DP
-Date: Mon, 21 Mar 2011 19:50:29 +0800
-Message-ID: <1300708230-1934-2-git-send-email-hayeswang@realtek.com>
-References: <1300708230-1934-1-git-send-email-hayeswang@realtek.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: xfrm: Fix initialize repl field of struct xfrm_state
+Date: Mon, 21 Mar 2011 13:06:35 +0100
+Message-ID: <20110321120635.GA1290@secunet.com>
+References: <4D86E603.8080704@cn.fujitsu.com>
+ <20110320.225542.71119753.davem@davemloft.net>
+ <4D86F1FD.3080009@cn.fujitsu.com>
+ <20110320.234606.183056322.davem@davemloft.net>
+ <20110321082512.GB27581@secunet.com>
+ <4D871607.6090508@cn.fujitsu.com>
+ <4D8717DA.2010901@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1300708230-1934-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:50205 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753167Ab1CUMGh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2011 08:06:37 -0400
+Content-Disposition: inline
+In-Reply-To: <4D8717DA.2010901@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a new chip for RTL8168DP.
+On Mon, Mar 21, 2011 at 05:18:18PM +0800, Wei Yongjun wrote:
+> 
+> >> Btw, looking a bit closer to this. I think it would look a bit cleaner
+> >> if we would add the xfrm_init_replay() call to xfrm_init_state() and
+> >> to move the xfrm_init_state() call in xfrm_state_construct() behind
+> >> the assign of the replay settings.
+> > The xfrm_init_replay() should be call after the call to
+> >   xfrm_update_ae_params(x, attrs);
+> > since xfrm_update_ae_params() may update the replay_esn.
+> >
+> > So we need move the xfrm_init_state()  call just before return x.
+> 
+> 
+> Oh, sorry, the memcpy looks like dup code since we used
+> kmemdup. It is the same attr XFRMA_REPLAY_ESN_VAL.
+> 
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/r8169.c |   98 +++++++++++++++++++++++++++++++++++++++-----------
- 1 files changed, 76 insertions(+), 22 deletions(-)
+Indeed, we don't need the memcpy here because we do a kmemdup when we
+allocate repay_esn/preplay_esn. But we need to memcpy if we call
+xfrm_update_ae_params() from xfrm_new_ae().
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 0111a14..5c48075 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -127,6 +127,7 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_28 = 0x1c, // 8168DP
- 	RTL_GIGA_MAC_VER_29 = 0x1d, // 8105E
- 	RTL_GIGA_MAC_VER_30 = 0x1e, // 8105E
-+	RTL_GIGA_MAC_VER_31 = 0x1f, // 8168DP
- };
- 
- #define _R(NAME,MAC,MASK) \
-@@ -166,7 +167,8 @@ static const struct {
- 	_R("RTL8168dp/8111dp",	RTL_GIGA_MAC_VER_27, 0xff7e1880), // PCI-E
- 	_R("RTL8168dp/8111dp",	RTL_GIGA_MAC_VER_28, 0xff7e1880), // PCI-E
- 	_R("RTL8105e",		RTL_GIGA_MAC_VER_29, 0xff7e1880), // PCI-E
--	_R("RTL8105e",		RTL_GIGA_MAC_VER_30, 0xff7e1880)  // PCI-E
-+	_R("RTL8105e",		RTL_GIGA_MAC_VER_30, 0xff7e1880), // PCI-E
-+	_R("RTL8168dp/8111dp",	RTL_GIGA_MAC_VER_31, 0xff7e1880)  // PCI-E
- };
- #undef _R
- 
-@@ -651,12 +653,18 @@ static void rtl8168_oob_notify(struct rtl8169_private *tp, u8 cmd)
- static void rtl8168_driver_start(struct rtl8169_private *tp)
- {
- 	int i;
-+	u32 reg;
- 
- 	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_START);
- 
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_31)
-+		reg = 0xb8;
-+	else
-+		reg = 0x10;
-+
- 	for (i = 0; i < 10; i++) {
- 		msleep(10);
--		if (ocp_read(tp, 0x0f, 0x0010) & 0x00000800)
-+		if (ocp_read(tp, 0x0f, reg) & 0x00000800)
- 			break;
- 	}
- }
-@@ -664,16 +672,36 @@ static void rtl8168_driver_start(struct rtl8169_private *tp)
- static void rtl8168_driver_stop(struct rtl8169_private *tp)
- {
- 	int i;
-+	u32 reg;
- 
- 	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_STOP);
- 
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_31)
-+		reg = 0xb8;
-+	else
-+		reg = 0x10;
-+
- 	for (i = 0; i < 10; i++) {
- 		msleep(10);
--		if ((ocp_read(tp, 0x0f, 0x0010) & 0x00000800) == 0)
-+		if ((ocp_read(tp, 0x0f, reg) & 0x00000800) == 0)
- 			break;
- 	}
- }
- 
-+static int r8168dp_check_dash(struct rtl8169_private *tp)
-+{
-+	u32 reg;
-+
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_31)
-+		reg = 0xb8;
-+	else
-+		reg = 0x10;
-+
-+	if (ocp_read(tp, 0xF, reg) & 0x00008000)
-+		return 1;
-+	else
-+		return 0;
-+}
- 
- static void r8169_mdio_write(void __iomem *ioaddr, int reg_addr, int value)
- {
-@@ -1555,6 +1583,7 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		/* 8168DP family. */
- 		{ 0x7cf00000, 0x28800000,	RTL_GIGA_MAC_VER_27 },
- 		{ 0x7cf00000, 0x28a00000,	RTL_GIGA_MAC_VER_28 },
-+		{ 0x7cf00000, 0x28b00000,	RTL_GIGA_MAC_VER_31 },
- 
- 		/* 8168C family. */
- 		{ 0x7cf00000, 0x3cb00000,	RTL_GIGA_MAC_VER_24 },
-@@ -2860,6 +2889,7 @@ static void __devinit rtl_init_mdio_ops(struct rtl8169_private *tp)
- 		ops->read	= r8168dp_1_mdio_read;
- 		break;
- 	case RTL_GIGA_MAC_VER_28:
-+	case RTL_GIGA_MAC_VER_31:
- 		ops->write	= r8168dp_2_mdio_write;
- 		ops->read	= r8168dp_2_mdio_read;
- 		break;
-@@ -2917,8 +2947,9 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
- 	void __iomem *ioaddr = tp->mmio_addr;
- 
- 	if (((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
--	     (tp->mac_version == RTL_GIGA_MAC_VER_28)) &&
--	    (ocp_read(tp, 0x0f, 0x0010) & 0x00008000)) {
-+	     (tp->mac_version == RTL_GIGA_MAC_VER_28) ||
-+	     (tp->mac_version == RTL_GIGA_MAC_VER_31)) &&
-+	    r8168dp_check_dash(tp)) {
- 		return;
- 	}
- 
-@@ -2944,6 +2975,7 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_26:
- 	case RTL_GIGA_MAC_VER_27:
- 	case RTL_GIGA_MAC_VER_28:
-+	case RTL_GIGA_MAC_VER_31:
- 		RTL_W8(PMCH, RTL_R8(PMCH) & ~0x80);
- 		break;
- 	}
-@@ -2954,8 +2986,9 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
- 	void __iomem *ioaddr = tp->mmio_addr;
- 
- 	if (((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
--	     (tp->mac_version == RTL_GIGA_MAC_VER_28)) &&
--	    (ocp_read(tp, 0x0f, 0x0010) & 0x00008000)) {
-+	     (tp->mac_version == RTL_GIGA_MAC_VER_28) ||
-+	     (tp->mac_version == RTL_GIGA_MAC_VER_31)) &&
-+	    r8168dp_check_dash(tp)) {
- 		return;
- 	}
- 
-@@ -2964,6 +2997,7 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_26:
- 	case RTL_GIGA_MAC_VER_27:
- 	case RTL_GIGA_MAC_VER_28:
-+	case RTL_GIGA_MAC_VER_31:
- 		RTL_W8(PMCH, RTL_R8(PMCH) | 0x80);
- 		break;
- 	}
-@@ -3018,6 +3052,7 @@ static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_26:
- 	case RTL_GIGA_MAC_VER_27:
- 	case RTL_GIGA_MAC_VER_28:
-+	case RTL_GIGA_MAC_VER_31:
- 		ops->down	= r8168_pll_power_down;
- 		ops->up		= r8168_pll_power_up;
- 		break;
-@@ -3250,7 +3285,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		   (u32)(RTL_R32(TxConfig) & 0x9cf0f8ff), dev->irq);
- 
- 	if ((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
--	    (tp->mac_version == RTL_GIGA_MAC_VER_28)) {
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_28) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_31)) {
- 		rtl8168_driver_start(tp);
- 	}
- 
-@@ -3283,7 +3319,8 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 
- 	if ((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
--	    (tp->mac_version == RTL_GIGA_MAC_VER_28)) {
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_28) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_31)) {
- 		rtl8168_driver_stop(tp);
- 	}
- 
-@@ -3383,7 +3420,8 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
- 	rtl8169_irq_mask_and_ack(ioaddr);
- 
- 	if (tp->mac_version == RTL_GIGA_MAC_VER_27 ||
--	    tp->mac_version == RTL_GIGA_MAC_VER_28) {
-+	    tp->mac_version == RTL_GIGA_MAC_VER_28 ||
-+	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
- 		while (RTL_R8(TxPoll) & NPQ)
- 			udelay(20);
- 
-@@ -3780,6 +3818,17 @@ static void rtl_hw_start_8168d(void __iomem *ioaddr, struct pci_dev *pdev)
- 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
- }
- 
-+static void rtl_hw_start_8168dp(void __iomem *ioaddr, struct pci_dev *pdev)
-+{
-+	rtl_csi_access_enable_1(ioaddr);
-+
-+	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+
-+	RTL_W8(MaxTxPacketSize, TxPacketMax);
-+
-+	rtl_disable_clock_request(pdev);
-+}
-+
- static void rtl_hw_start_8168d_4(void __iomem *ioaddr, struct pci_dev *pdev)
- {
- 	static const struct ephy_info e_info_8168d_4[] = {
-@@ -3843,55 +3892,59 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 	switch (tp->mac_version) {
- 	case RTL_GIGA_MAC_VER_11:
- 		rtl_hw_start_8168bb(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_12:
- 	case RTL_GIGA_MAC_VER_17:
- 		rtl_hw_start_8168bef(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_18:
- 		rtl_hw_start_8168cp_1(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_19:
- 		rtl_hw_start_8168c_1(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_20:
- 		rtl_hw_start_8168c_2(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_21:
- 		rtl_hw_start_8168c_3(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_22:
- 		rtl_hw_start_8168c_4(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_23:
- 		rtl_hw_start_8168cp_2(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_24:
- 		rtl_hw_start_8168cp_3(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_25:
- 	case RTL_GIGA_MAC_VER_26:
- 	case RTL_GIGA_MAC_VER_27:
- 		rtl_hw_start_8168d(ioaddr, pdev);
--	break;
-+		break;
- 
- 	case RTL_GIGA_MAC_VER_28:
- 		rtl_hw_start_8168d_4(ioaddr, pdev);
--	break;
-+		break;
-+	case RTL_GIGA_MAC_VER_31:
-+		rtl_hw_start_8168dp(ioaddr, pdev);
-+		break;
-+
- 
- 	default:
- 		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
- 			dev->name, tp->mac_version);
--	break;
-+		break;
- 	}
- 
- 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-@@ -4756,6 +4809,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 			case RTL_GIGA_MAC_VER_24:
- 			case RTL_GIGA_MAC_VER_27:
- 			case RTL_GIGA_MAC_VER_28:
-+			case RTL_GIGA_MAC_VER_31:
- 			/* Experimental science. Pktgen proof. */
- 			case RTL_GIGA_MAC_VER_12:
- 			case RTL_GIGA_MAC_VER_25:
--- 
-1.7.3.2
+So we could just replace the kmemdup by kmalloc when we allocate
+repay_esn/preplay_esn and move xfrm_init_state() at the end of the
+function, as you suggested. xfrm_update_ae_params() would initialize
+x->replay_esn and x->preplay_esn properly then.
+
+> > The other issue:
+> > static void xfrm_update_ae_params()
+> > {
+> >         ...
+> >         memcpy(x->replay_esn, replay_esn,
+> >                        xfrm_replay_state_esn_len(replay_esn));
+> >        ...
+> > }
+> >
+> > the memcpy() may cause memory overlap if we build a special
+> > nl_data, we should free it and then do kmemdup()?
+> >
