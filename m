@@ -1,70 +1,79 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] net: fix ethtool->set_flags not intended -EINVAL return
- value
-Date: Mon, 21 Mar 2011 15:15:06 +0000
-Message-ID: <1300720506.2527.1.camel@bwh-desktop>
-References: <1300446743.11985.317.camel@firesoul.comx.local>
-	 <4D8385CE.1060205@intel.com>
-	 <1300699294.10934.63.camel@firesoul.comx.local>
-	 <1300700708.2884.10.camel@edumazet-laptop>
-	 <99737F4847ED0A48AECC9F4A1974A4B80FD10E8429@MNEXMB2.qlogic.org>
-	 <20110321123406.GA2376@redhat.com> <20110321134647.GA3126@redhat.com>
-	 <1300715543.26693.349.camel@localhost>  <20110321151015.GA2209@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [held lock freed] Re: [GIT] Networking
+Date: Mon, 21 Mar 2011 16:22:40 +0100
+Message-ID: <201103211622.40851.arnd@arndb.de>
+References: <20110320.195156.226769634.davem@davemloft.net> <201103211550.10694.arnd@arndb.de> <1300719332.2884.370.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:36271 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750867Ab1CUPPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 11:15:10 -0400
-In-Reply-To: <20110321151015.GA2209@redhat.com>
+Received: from moutng.kundenserver.de ([212.227.17.9]:51910 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146Ab1CUPWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 11:22:46 -0400
+In-Reply-To: <1300719332.2884.370.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-03-21 at 16:10 +0100, Stanislaw Gruszka wrote:
-> After commit d5dbda23804156ae6f35025ade5307a49d1db6d7 "ethtool: Add
-> support for vlan accleration.", drivers that have NETIF_F_HW_VLAN_TX,
-> and/or NETIF_F_HW_VLAN_RX feature, but do not allow enable/disable vlan
-> acceleration via ethtool set_flags, always return -EINVAL from that
-> function. Fix by returning -EINVAL only if requested features do
-> not match current settings and can not be changed by driver.
+On Monday 21 March 2011, Eric Dumazet wrote:
+> > diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+> > index 4680b1e..b2cf1db 100644
+> > --- a/net/x25/af_x25.c
+> > +++ b/net/x25/af_x25.c
+> > @@ -669,8 +669,8 @@ static int x25_release(struct socket *sock)
+> >  
+> >       sock_orphan(sk);
+> >  out:
+> > -     release_sock(sk);
+> >       sock_put(sk);
+> > +     release_sock(sk);
+> >       return 0;
+> >  }
+> >  
 > 
-> RFC for now, compile tested only.
+> Hmm, x25_release() looks fine, I believe no fix is needed.
+> 
 
-This looks good, but:
+D'oh. You're right of course. My patch would introduce the bug,
+not fix it. Updated patch below.
 
-[...]
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index c1a71bb..514127d 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -141,9 +141,17 @@ u32 ethtool_op_get_flags(struct net_device *dev)
->  }
->  EXPORT_SYMBOL(ethtool_op_get_flags);
->  
-> +bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported)
-> +{
-> +	u32 features = dev->features & flags_dup_features;
-> +
-> +	return ((features & ~supported) != (data & ~supported));
-> +}
-> +EXPORT_SYMBOL(ethtool_invalid_flags);
-[...]
+	Arnd
+8<-------------------------
+net/appletalk: fix atalk_release use after free
 
-This needs a comment.
+The BKL removal in appletalk introduced a use-after-free problem,
+where atalk_destroy_socket frees a sock, but we still release
+the socket lock on it.
 
-Ben.
+An easy fix is to take an extra reference on the sock and sock_put
+it when returning from atalk_release.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
+index 3d4f4b0..206e771 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1051,6 +1051,7 @@ static int atalk_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+ 
++	sock_hold(sk);
+ 	lock_sock(sk);
+ 	if (sk) {
+ 		sock_orphan(sk);
+@@ -1058,6 +1059,8 @@ static int atalk_release(struct socket *sock)
+ 		atalk_destroy_socket(sk);
+ 	}
+ 	release_sock(sk);
++	sock_put(sk);
++
+ 	return 0;
+ }
+ 
