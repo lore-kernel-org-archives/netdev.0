@@ -1,145 +1,195 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH v3] xfrm: Fix initialize repl field of struct xfrm_state
-Date: Mon, 21 Mar 2011 16:37:03 +0800
-Message-ID: <4D870E2F.50601@cn.fujitsu.com>
-References: <4D86F1FD.3080009@cn.fujitsu.com>	<20110320.234606.183056322.davem@davemloft.net>	<4D8701C3.5010304@cn.fujitsu.com> <20110321.010037.59680394.davem@davemloft.net>
+From: "Ferraton, Jean RegisX" <jean.regisx.ferraton@intel.com>
+Subject: RE: [PATCH] Fix "possible circular locking dependency" in rfcomm
+Date: Mon, 21 Mar 2011 08:43:59 +0000
+Message-ID: <6E42A1B4DD2F7B4D80A1F26BB498BF9F8CA7FB959D@irsmsx501.ger.corp.intel.com>
+References: <6E42A1B4DD2F7B4D80A1F26BB498BF9F8C9F86D162@irsmsx501.ger.corp.intel.com>
+ <6E42A1B4DD2F7B4D80A1F26BB498BF9F8C9F8C1539@irsmsx501.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:57529 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752193Ab1CUIgg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2011 04:36:36 -0400
-In-Reply-To: <20110321.010037.59680394.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "marcel@holtmann.org" <marcel@holtmann.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"xiaosuo@gmail.com" <xiaosuo@gmail.com>,
+	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6E42A1B4DD2F7B4D80A1F26BB498BF9F8C9F8C1539@irsmsx501.ger.corp.intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 'xfrm: Move IPsec replay detection functions to a separate file'
-  (9fdc4883d92d20842c5acea77a4a21bb1574b495)
-introduce repl field to struct xfrm_state, and only initialize it
-under SA's netlink create path, the other path, such as pf_key,
-ipcomp/ipcomp6 etc, the repl field remaining uninitialize. So if
-the SA is created by pf_key, any input packet with SA's encryption
-algorithm will cause panic.
+Any comment?
 
-    int xfrm_input()
-    {
-        ...
-        x->repl->advance(x, seq);
-        ...
-    }
+> -----Original Message-----
+> From: linux-bluetooth-owner@vger.kernel.org [mailto:linux-bluetooth-
+> owner@vger.kernel.org] On Behalf Of Ferraton, Jean RegisX
+> Sent: Monday, March 14, 2011 3:56 PM
+> To: Gustavo F. Padovan
+> Cc: marcel@holtmann.org; davem@davemloft.net; eric.dumazet@gmail.com;
+> xiaosuo@gmail.com; linux-bluetooth@vger.kernel.org; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org
+> Subject: [PATCH] Fix "possible circular locking dependency" in rfcomm
+> 
+> No response from original post, submit again, more details below:
+> 
+> Changes in sock.c in function __rfcomm_sock_close, to release sock before
+> calling rfcomm_dlc_close to avoid possible deadlock when calling
+> rfcomm_lock (in rfcomm_dlc_close).
+> 
+> Signed-off-by: Jean Regis Ferraton <jrferraton@gmail.com>
+> 
+> ---
+>  net/bluetooth/rfcomm/sock.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+> index 66cc1f0..3b5ec09 100644
+> --- a/net/bluetooth/rfcomm/sock.c
+> +++ b/net/bluetooth/rfcomm/sock.c
+> @@ -234,7 +234,10 @@ static void __rfcomm_sock_close(struct sock *sk)
+>  	case BT_CONNECT2:
+>  	case BT_CONFIG:
+>  	case BT_CONNECTED:
+> +		/* release_sock to avoid deadlock when calling rfcomm_lock()
+> */
+> +		release_sock(sk);
+>  		rfcomm_dlc_close(d, 0);
+> +		lock_sock(sk);
+> 
+>  	default:
+>  		sock_set_flag(sk, SOCK_ZAPPED);
+> --
+> 1.6.2.5
+> 
+> 
+> 
+> This patch solves a problem of "possible circular locking dependency"
+> related to rfcomm. Problem seen on kernel 2.6.37. Maybe it's not a bug,
+> just a warning, see the trace below.
+> 
+> This problem occurs in 2 cases:
+> 1- When initiating a connection from the remote device
+> 2- When browsing my BT device from my PC
+> 
+> My analysis is the following:
+> 1- We call the function rfcomm_sock_shutdown() which locks a socket, an
+> after calls __rfcomm_sock_close()
+>      	lock_sock(sk);
+>     	if (!sk->sk_shutdown) {
+>     		sk->sk_shutdown = SHUTDOWN_MASK;
+>     		__rfcomm_sock_close(sk);
+> 2- In the function __rfcomm_sock_close(), we call rfcomm_dlc_close()
+> 	case BT_CONNECTED:
+>     		rfcomm_dlc_close(d, 0);
+> 3- In the function rfcomm_dlc_close(), we call rfcomm_lock() which locks a
+> mutex on rfcomm, and this second lock causes the problem.
+> 	rfcomm_lock();
+> 	r = __rfcomm_dlc_close(d, err);
+> 
+> My message trace is the following (for remote connect):
+> [  113.995511] =======================================================
+> [  114.001897] [ INFO: possible circular locking dependency detected ]
+> [  114.008157] 2.6.37.3jrf_fix #1
+> [  114.011196] -------------------------------------------------------
+> [  114.017457] bluetoothd/511 is trying to acquire lock:
+> [  114.022499]  (rfcomm_mutex){+.+.+.}, at: [<c14f281a>]
+> rfcomm_dlc_close+0x15/0x30
+> [  114.029887]
+> [  114.029892] but task is already holding lock:
+> [  114.035713]  (sk_lock-AF_BLUETOOTH){+.+.+.}, at: [<c14f4cfe>]
+> rfcomm_sock_shutdown+0x17/0x5d
+> [  114.044147]
+> [  114.044152] which lock already depends on the new lock.
+> [  114.044158]
+> [  114.052319]
+> [  114.052324] the existing dependency chain (in reverse order) is:
+> [  114.059796]
+> [  114.059801] -> #1 (sk_lock-AF_BLUETOOTH){+.+.+.}:
+> [  114.065967]        [<c105d660>] lock_acquire+0xf9/0x135
+> [  114.071184]        [<c1445cf3>] lock_sock_nested+0x55/0x65
+> [  114.076662]        [<c14ed17d>] l2cap_sock_sendmsg+0x3f/0x606
+> [  114.082400]        [<c1443775>] sock_sendmsg+0xc9/0xe0
+> [  114.087530]        [<c14437b4>] kernel_sendmsg+0x28/0x37
+> [  114.092833]        [<c14f2278>] rfcomm_send_frame+0x2f/0x37
+> [  114.098398]        [<c14f232c>] rfcomm_send_ua+0x57/0x59
+> [  114.103701]        [<c14f3884>] rfcomm_run+0x431/0xb06
+> [  114.108830]        [<c104bc8f>] kthread+0x5f/0x64
+> [  114.113525]        [<c1002b7a>] kernel_thread_helper+0x6/0x1a
+> [  114.119265]
+> [  114.119270] -> #0 (rfcomm_mutex){+.+.+.}:
+> [  114.124739]        [<c105cff1>] __lock_acquire+0xe03/0x1379
+> [  114.130304]        [<c105d660>] lock_acquire+0xf9/0x135
+> [  114.135522]        [<c1522bf3>] mutex_lock_nested+0x45/0x286
+> [  114.141171]        [<c14f281a>] rfcomm_dlc_close+0x15/0x30
+> [  114.146650]        [<c14f4cdb>] __rfcomm_sock_close+0x5e/0x6a
+> [  114.152388]        [<c14f4d12>] rfcomm_sock_shutdown+0x2b/0x5d
+> [  114.158212]        [<c14f4d5d>] rfcomm_sock_release+0x19/0x60
+> [  114.163951]        [<c14445da>] sock_release+0x14/0x5b
+> [  114.169080]        [<c144463d>] sock_close+0x1c/0x20
+> [  114.174037]        [<c10bdd19>] fput+0xfa/0x19e
+> [  114.178557]        [<c10bb3c5>] filp_close+0x51/0x5b
+> [  114.183512]        [<c10bb488>] sys_close+0xb9/0xee
+> [  114.188381]        [<c1002650>] sysenter_do_call+0x12/0x36
+> [  114.193858]
+> [  114.193863] other info that might help us debug this:
+> [  114.193870]
+> [  114.201860] 1 lock held by bluetoothd/511:
+> [  114.205945]  #0:  (sk_lock-AF_BLUETOOTH){+.+.+.}, at: [<c14f4cfe>]
+> rfcomm_sock_shutdown+0x17/0x5d
+> [  114.214811]
+> [  114.214816] stack backtrace:
+> [  114.219167] Pid: 511, comm: bluetoothd Tainted: G        WC
+> 2.6.37.3jrf_fix #1
+> [  114.226463] Call Trace:
+> [  114.228913]  [<c152108a>] ? printk+0xf/0x11
+> [  114.233086]  [<c105bc3b>] print_circular_bug+0x90/0x9c
+> [  114.238211]  [<c105cff1>] __lock_acquire+0xe03/0x1379
+> [  114.243260]  [<c14f281a>] ? rfcomm_dlc_close+0x15/0x30
+> [  114.248382]  [<c105d660>] lock_acquire+0xf9/0x135
+> [  114.253079]  [<c14f281a>] ? rfcomm_dlc_close+0x15/0x30
+> [  114.258208]  [<c1522bf3>] mutex_lock_nested+0x45/0x286
+> [  114.263338]  [<c14f281a>] ? rfcomm_dlc_close+0x15/0x30
+> [  114.268469]  [<c105b68d>] ? trace_hardirqs_on_caller+0x100/0x121
+> [  114.274467]  [<c1445cf8>] ? lock_sock_nested+0x5a/0x65
+> [  114.279597]  [<c105b6b9>] ? trace_hardirqs_on+0xb/0xd
+> [  114.284639]  [<c14f281a>] rfcomm_dlc_close+0x15/0x30
+> [  114.289594]  [<c14f4cdb>] __rfcomm_sock_close+0x5e/0x6a
+> [  114.294811]  [<c14f4d12>] rfcomm_sock_shutdown+0x2b/0x5d
+> [  114.300115]  [<c14f4d5d>] rfcomm_sock_release+0x19/0x60
+> [  114.305331]  [<c14445da>] sock_release+0x14/0x5b
+> [  114.309937]  [<c144463d>] sock_close+0x1c/0x20
+> [  114.314373]  [<c10bdd19>] fput+0xfa/0x19e
+> [  114.318371]  [<c10bb3c5>] filp_close+0x51/0x5b
+> [  114.322804]  [<c10bb488>] sys_close+0xb9/0xee
+> [  114.327151]  [<c1002650>] sysenter_do_call+0x12/0x36
+> ---------------------------------------------------------------------
+> Intel Corporation SAS (French simplified joint stock company)
+> Registered headquarters: "Les Montalets"- 2, rue de Paris,
+> 92196 Meudon Cedex, France
+> Registration Number:  302 456 199 R.C.S. NANTERRE
+> Capital: 4,572,000 Euros
+> 
+> This e-mail and any attachments may contain confidential material for
+> the sole use of the intended recipient(s). Any review or distribution
+> by others is strictly prohibited. If you are not the intended
+> recipient, please contact the sender and delete all copies.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-bluetooth"
+> in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---------------------------------------------------------------------
+Intel Corporation SAS (French simplified joint stock company)
+Registered headquarters: "Les Montalets"- 2, rue de Paris, 
+92196 Meudon Cedex, France
+Registration Number:  302 456 199 R.C.S. NANTERRE
+Capital: 4,572,000 Euros
 
-This patch fixed it by introduce new function __xfrm_init_state().
-
-Pid: 0, comm: swapper Not tainted 2.6.38-next+ #14 Bochs Bochs
-EIP: 0060:[<c078e5d5>] EFLAGS: 00010206 CPU: 0
-EIP is at xfrm_input+0x31c/0x4cc
-EAX: dd839c00 EBX: 00000084 ECX: 00000000 EDX: 01000000
-ESI: dd839c00 EDI: de3a0780 EBP: dec1de88 ESP: dec1de64
- DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-Process swapper (pid: 0, ti=dec1c000 task=c09c0f20 task.ti=c0992000)
-Stack:
- 00000000 00000000 00000002 c0ba27c0 00100000 01000000 de3a0798 c0ba27c0
- 00000033 dec1de98 c0786848 00000000 de3a0780 dec1dea4 c0786868 00000000
- dec1debc c074ee56 e1da6b8c de3a0780 c074ed44 de3a07a8 dec1decc c074ef32
-Call Trace:
- [<c0786848>] xfrm4_rcv_encap+0x22/0x27
- [<c0786868>] xfrm4_rcv+0x1b/0x1d
- [<c074ee56>] ip_local_deliver_finish+0x112/0x1b1
- [<c074ed44>] ? ip_local_deliver_finish+0x0/0x1b1
- [<c074ef32>] NF_HOOK.clone.1+0x3d/0x44
- [<c074ef77>] ip_local_deliver+0x3e/0x44
- [<c074ed44>] ? ip_local_deliver_finish+0x0/0x1b1
- [<c074ec03>] ip_rcv_finish+0x30a/0x332
- [<c074e8f9>] ? ip_rcv_finish+0x0/0x332
- [<c074ef32>] NF_HOOK.clone.1+0x3d/0x44
- [<c074f188>] ip_rcv+0x20b/0x247
- [<c074e8f9>] ? ip_rcv_finish+0x0/0x332
- [<c072797d>] __netif_receive_skb+0x373/0x399
- [<c0727bc1>] netif_receive_skb+0x4b/0x51
- [<e0817e2a>] cp_rx_poll+0x210/0x2c4 [8139cp]
- [<c072818f>] net_rx_action+0x9a/0x17d
- [<c0445b5c>] __do_softirq+0xa1/0x149
- [<c0445abb>] ? __do_softirq+0x0/0x149
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
-Changelog:
-  v2 -> v3 export __xfrm_init_state().
----
- include/net/xfrm.h    |    1 +
- net/xfrm/xfrm_state.c |   15 ++++++++++++++-
- net/xfrm/xfrm_user.c  |    2 +-
- 3 files changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 42a8c32..cffa5dc 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1430,6 +1430,7 @@ extern void xfrm_spd_getinfo(struct net *net, struct xfrmk_spdinfo *si);
- extern u32 xfrm_replay_seqhi(struct xfrm_state *x, __be32 net_seq);
- extern int xfrm_init_replay(struct xfrm_state *x);
- extern int xfrm_state_mtu(struct xfrm_state *x, int mtu);
-+extern int __xfrm_init_state(struct xfrm_state *x, bool init_replay);
- extern int xfrm_init_state(struct xfrm_state *x);
- extern int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb);
- extern int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index d575f05..f83a3d1 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1907,7 +1907,7 @@ int xfrm_state_mtu(struct xfrm_state *x, int mtu)
- 	return res;
- }
- 
--int xfrm_init_state(struct xfrm_state *x)
-+int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
- {
- 	struct xfrm_state_afinfo *afinfo;
- 	struct xfrm_mode *inner_mode;
-@@ -1980,12 +1980,25 @@ int xfrm_init_state(struct xfrm_state *x)
- 	if (x->outer_mode == NULL)
- 		goto error;
- 
-+	if (init_replay) {
-+		err = xfrm_init_replay(x);
-+		if (err)
-+			goto error;
-+	}
-+
- 	x->km.state = XFRM_STATE_VALID;
- 
- error:
- 	return err;
- }
- 
-+EXPORT_SYMBOL(__xfrm_init_state);
-+
-+int xfrm_init_state(struct xfrm_state *x)
-+{
-+	return __xfrm_init_state(x, true);
-+}
-+
- EXPORT_SYMBOL(xfrm_init_state);
- 
- int __net_init xfrm_state_init(struct net *net)
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 706385a..fc152d2 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -511,7 +511,7 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 
- 	xfrm_mark_get(attrs, &x->mark);
- 
--	err = xfrm_init_state(x);
-+	err = __xfrm_init_state(x, false);
- 	if (err)
- 		goto error;
- 
--- 
-1.6.5.2
-
-
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
