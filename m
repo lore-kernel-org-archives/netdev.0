@@ -1,49 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: add Faraday FTGMAC100 Gigabit Ethernet driver
-Date: Mon, 21 Mar 2011 09:19:29 +0100
-Message-ID: <1300695569.2831.535.camel@edumazet-laptop>
-References: <1299744517-1896-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1300355238-1619-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1300357457.3133.92.camel@edumazet-laptop>
-	 <AANLkTino6LzGTZF4fNSkV9pbAfnmAc8wJjk0L8HfHDiJ@mail.gmail.com>
-	 <1300361405.3133.175.camel@edumazet-laptop>
-	 <AANLkTinibrF_bJBbYwCSnGv1iD_9Dn7uBn2cqgcTrKHi@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: xfrm: Fix initialize repl field of struct xfrm_state
+Date: Mon, 21 Mar 2011 09:25:12 +0100
+Message-ID: <20110321082512.GB27581@secunet.com>
+References: <4D86E603.8080704@cn.fujitsu.com>
+ <20110320.225542.71119753.davem@davemloft.net>
+ <4D86F1FD.3080009@cn.fujitsu.com>
+ <20110320.234606.183056322.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ratbert@faraday-tech.com
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinibrF_bJBbYwCSnGv1iD_9Dn7uBn2cqgcTrKHi@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:37707 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752015Ab1CUIZO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2011 04:25:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20110320.234606.183056322.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 21 mars 2011 =C3=A0 15:54 +0800, Po-Yu Chuang a =C3=A9crit :
-> It seems to work fine so far at least the driver is not broken, but I=
- did not
-> see much difference in performance though. How do I know if GRO is
-> working indeed?
+On Sun, Mar 20, 2011 at 11:46:06PM -0700, David Miller wrote:
+> 
+> Ok, thanks for the explanation.
+> 
+> I think there is a simple way out of this:
+> 
+> 1) Rename current xfrm_init_state to __xfrm_init_state, add
+>    "bool init_replay" argument.  Add the xfrm_init_replay()
+>    call, as in your patch, but conditionalized on this boolean.
+> 
+> 2) Implement xfrm_init_state as inline, which calls
+>    __xfrm_init_state(..., true)
+> 
+> 3) Replace xfrm_init_state() call in xfrm_user.c with
+>    __xfrm_init_state(..., false)
+> 
+> This seems to avoid all the problems.  We don't need to touch every
+> caller, and we avoid initializing the replay state twice in xfrm_user
+> 
 
-maybe you receive one interrupt per incoming frame, and your cpu is fas=
-t
-enough to handle the load.
-
-tcpdump should show big incoming TCP frames (multi segment)
-
-(GRO only helps TCP receivers)
-
-Example here :
-
-
-09:16:32.372949 IP 192.168.20.110.55446 > 192.168.20.108.ssh: .
-2372863:2374311(1448) ack 3136 win 73 <nop,nop,timestamp 317934201
-257881345>
-
-09:16:32.372975 IP 192.168.20.110.55446 > 192.168.20.108.ssh: .
-2374311:2377207(2896) ack 3136 win 73 <nop,nop,timestamp 317934201
-257881345>
-
-
-Here, you can see GRO work, since 2nd "frame" is the result of two MTU
-sized frames.=20
+Btw, looking a bit closer to this. I think it would look a bit cleaner
+if we would add the xfrm_init_replay() call to xfrm_init_state() and
+to move the xfrm_init_state() call in xfrm_state_construct() behind
+the assign of the replay settings.
