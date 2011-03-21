@@ -1,82 +1,70 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net ipv6: Fix duplicate /proc/sys/net/ipv6/neigh directory entries.
-Date: Mon, 21 Mar 2011 14:20:18 -0700
-Message-ID: <m14o6wjhm5.fsf@fess.ebiederm.org>
+Subject: [PATCH] net: Handle gso packets in dev_forward_skb
+Date: Mon, 21 Mar 2011 14:25:16 -0700
+Message-ID: <m1wrjsi2tf.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, sunkan@zappa.cx
+Cc: <netdev@vger.kernel.org>, Ben Greear <greearb@candelatech.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Patrick McHardy <kaber@trash.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:48872 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:55316 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754520Ab1CUVUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 17:20:22 -0400
+	with ESMTP id S1754631Ab1CUVZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 17:25:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-When I was fixing issues with unregisgtering tables under /proc/sys/net/ipv6/neigh
-by adding a mount point it appears I missed a critical ordering issue, in the
-ipv6 initialization.  I had not realized that ipv6_sysctl_register is called
-at the very end of the ipv6 initialization and in particular after we call
-neigh_sysctl_register from ndisc_init.
+Today when gso packets reach dev_forward_skb through the macvlan driver
+we drop them on the floor because they exceed the device mtu.  Ouch!
 
-"neigh" needs to be initialized in ipv6_static_sysctl_register which is
-the first ipv6 table to initialized, and definitely before ndisc_init.
-This removes the weirdness of duplicate tables while still providing a
-"neigh" mount point which prevents races in sysctl unregistering.
+I don't undersand the subtelties of gso but I think it is sufficient to
+simply relax the checks and let gso packets through without an mtu
+check, and it works in my test case.
 
-This was initially reported at https://bugzilla.kernel.org/show_bug.cgi?id=31232
-Reported-by: sunkan@zappa.cx
+If needed we can split the gso packets into multiple packets here but
+that just seems like a wast of memory and time.
+
 Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
 ---
- net/ipv6/sysctl_net_ipv6.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+ net/core/dev.c |   16 ++++++++++------
+ 1 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 7cb65ef..6dcf5e7 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -17,6 +17,16 @@
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0b88eba..2e26606 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1527,17 +1527,21 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
+ 	skb_orphan(skb);
+ 	nf_reset(skb);
  
- static struct ctl_table empty[1];
+-	if (unlikely(!(dev->flags & IFF_UP) ||
+-		     (skb->len > (dev->mtu + dev->hard_header_len + VLAN_HLEN)))) {
+-		atomic_long_inc(&dev->rx_dropped);
+-		kfree_skb(skb);
+-		return NET_RX_DROP;
+-	}
++	if (unlikely(!(dev->flags & IFF_UP)))
++		goto kfree_skb;
++	/* Don't check mtu on gso packets... */
++	if (unlikely(!skb_is_gso(skb) &&
++		     (skb->len > (dev->mtu + dev->hard_header_len + VLAN_HLEN))))
++		goto kfree_skb;
+ 	skb_set_dev(skb, dev);
+ 	skb->tstamp.tv64 = 0;
+ 	skb->pkt_type = PACKET_HOST;
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 	return netif_rx(skb);
++kfree_skb:
++	atomic_long_inc(&dev->rx_dropped);
++	kfree_skb(skb);
++	return NET_RX_DROP;
+ }
+ EXPORT_SYMBOL_GPL(dev_forward_skb);
  
-+static ctl_table ipv6_static_skeleton[] = {
-+	{
-+		.procname	= "neigh",
-+		.maxlen		= 0,
-+		.mode		= 0555,
-+		.child		= empty,
-+	},
-+	{ }
-+};
-+
- static ctl_table ipv6_table_template[] = {
- 	{
- 		.procname	= "route",
-@@ -37,12 +47,6 @@ static ctl_table ipv6_table_template[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
--	{
--		.procname	= "neigh",
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= empty,
--	},
- 	{ }
- };
- 
-@@ -160,7 +164,7 @@ static struct ctl_table_header *ip6_base;
- 
- int ipv6_static_sysctl_register(void)
- {
--	ip6_base = register_sysctl_paths(net_ipv6_ctl_path, empty);
-+	ip6_base = register_sysctl_paths(net_ipv6_ctl_path, ipv6_static_skeleton);
- 	if (ip6_base == NULL)
- 		return -ENOMEM;
- 	return 0;
 -- 
 1.7.4
 
