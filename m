@@ -1,44 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] Add useful per-connection TCP stats for diagnosis purpose.
-Date: Mon, 21 Mar 2011 15:19:24 -0700
-Message-ID: <4D87CEEC.9000603@candelatech.com>
-References: <1300349189-2731-1-git-send-email-hkchu@google.com>	<1300351330.10164.712.camel@edumazet-laptop>	<AANLkTi=sLkXreC3LNsDuFDSeNMebr+ScMc12=gngd2cc@mail.gmail.com>	<20110317142030.62af785a@nehalam>	<AANLkTi=W-=8zhQpfJZ=DrDyUCwrT==5JkwRBiHaDkVXK@mail.gmail.com>	<1300428324.2881.5.camel@edumazet-laptop>	<AANLkTikrJ7A-ygc9JnkvfBpRaKjL0fKeta+9ASLDr0rg@mail.gmail.com> <20110321141844.25e96184@s6510>
+From: DMITRIY GRUZMAN <xmb836@motorola.com>
+Subject: [PATCH] usbnet: fix memory leak in usbnet_disconnect()
+Date: Mon, 21 Mar 2011 16:49:50 -0500
+Message-ID: <AANLkTintuq7z45e-Cr8Ma5_Bm+UtnO+Gsysn6A3kv+CZ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Fulei TIAN <a20612@motorola.com>,
+	Chang Junxiao <jxchang@motorola.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:47232 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754288Ab1CUWTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 18:19:34 -0400
-In-Reply-To: <20110321141844.25e96184@s6510>
+Received: from exprod5og105.obsmtp.com ([64.18.0.180]:37321 "EHLO
+	exprod5og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754506Ab1CUWjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 18:39:54 -0400
+Received: from DE01MGRG01.AM.MOT-MOBILITY.COM ([10.22.94.168])
+	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p2LLoAT3005245
+	for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 17:50:11 -0400 (EDT)
+Received: from mail-wy0-f170.google.com (mail-wy0-f170.google.com [74.125.82.170])
+	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p2LLhifL003140
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 17:50:10 -0400 (EDT)
+Received: by mail-wy0-f170.google.com with SMTP id 34so8328680wyb.15
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 14:49:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/21/2011 02:18 PM, Stephen Hemminger wrote:
-> In case it isn't clear. /proc/net/tcp is a legacy interface and any
-> changes to it are certain to be rejected. netlink stats are an extensible
-> interface and likely to be accepted.
+usb_probe() allocates memory for transfer buffer and urb and this
+memory was not properly released in usbnet_disconnect().   The issue
+was found and the fix was recommended by Fu-Lei Tian and Jun-Xiao
+Chang.
 
-Might be nice to have this available via
+Signed-off-by: Dmitriy Gruzman <xmb836@motorola.com>
+---
+ drivers/net/usb/usbnet.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-getsockopt(s, 6, /*SOL_TCP,*/ TCP_INFO, (void*)&info, &argsz)
-as well.
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index c04d49e..67a5728 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -210,6 +210,7 @@ static int init_status (struct usbnet *dev, struct
+usb_interface *intf)
+ 		} else {
+ 			usb_fill_int_urb(dev->interrupt, dev->udev, pipe,
+ 				buf, maxp, intr_complete, dev, period);
++			dev->interrupt->transfer_flags |= URB_FREE_BUFFER;
+ 			dev_dbg(&intf->dev,
+ 				"status ep%din, %d bytes period %d\n",
+ 				usb_pipeendpoint(pipe), maxp, period);
+@@ -1237,6 +1238,7 @@ void usbnet_disconnect (struct usb_interface *intf)
+ 	if (dev->driver_info->unbind)
+ 		dev->driver_info->unbind (dev, intf);
 
-Thanks,
-Ben
-
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
++	usb_free_urb(dev->interrupt);
+ 	free_netdev(net);
+ 	usb_put_dev (xdev);
+ }
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+1.7.0.4
