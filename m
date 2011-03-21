@@ -1,44 +1,40 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: [PATCH v2 1/1] solos-pci: Fix regression introduced by newest firmware
-Date: Sun, 20 Mar 2011 18:52:15 -0700
-Message-ID: <4D86AF4F.5010203@redfish-solutions.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PULL net-2.6] vhost: cleanups and fixes
+Date: Sun, 20 Mar 2011 19:08:00 -0700 (PDT)
+Message-ID: <20110320.190800.193700848.davem@davemloft.net>
+References: <20110317140403.GA16390@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-atm-general@lists.sourceforge.net"
-	<linux-atm-general@lists.sourceforge.net>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:49099 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751793Ab1CUBwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 21:52:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, jasowang@redhat.com, krkumar2@in.ibm.com
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110317140403.GA16390@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The newest FPGA firmware on the Solos processors correctly signals carrier transitions, bitrate, etc.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 17 Mar 2011 16:04:04 +0200
 
-The driver previously ignored these messages, and the physical state was always ATM_PHY_SIG_UNKNOWN.
+> The following changes since commit 1fc050a13473348f5c439de2bb41c8e92dba5588:
+> 
+>   ipv4: Cache source address in nexthop entries. (2011-03-07 20:54:48 -0800)
+> 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+> 
+> Jason Wang (3):
+>       vhost-net: check the support of mergeable buffer outside the receive loop
+>       vhost-net: Unify the code of mergeable and big buffer handling
+>       vhost: lock receive queue, not the socket
+> 
+> Krishna Kumar (1):
+>       vhost: Cleanup vhost.c and net.c
+> 
+> Michael S. Tsirkin (2):
+>       vhost: copy_from_user -> __copy_from_user
+>       vhost-net: remove unlocked use of receive_queue
 
-Now that the board reports its state, we expose a bug whereby the transition from UNKNOWN to LOST causes us to release all VC's.
-
-We don't delete any VC's, but instead just send an indication of carrier change.
-
-Signed-off-by: Philip A Prindeville <philipp@redfish-solutions.com>
----
-
---- a/drivers/atm/solos-pci.c	2011-03-20 15:27:40.000000000 -0600
-+++ b/drivers/atm/solos-pci.c	2011-03-20 16:32:11.000000000 -0600
-@@ -382,8 +382,10 @@ static int process_status(struct solos_c
-
-  	/* Anything but 'Showtime' is down */
-  	if (strcmp(state_str, "Showtime")) {
-  		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
-+#if 0
-  		atm_dev_release_vccs(card->atmdev[port]);
-+#endif
-  		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
-		return 0;
-	}
-
-
+Pulled, thanks.
