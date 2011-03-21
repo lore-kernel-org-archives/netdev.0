@@ -1,30 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] solos-pci: Fix regression introduced by newest
- firmware
-Date: Sun, 20 Mar 2011 23:04:08 -0700 (PDT)
-Message-ID: <20110320.230408.112594622.davem@davemloft.net>
-References: <1300676496.26693.318.camel@localhost>
-	<20110320.215704.193716335.davem@davemloft.net>
-	<4D86E89B.1060905@redfish-solutions.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: xfrm: Fix initialize repl field of struct xfrm_state
+Date: Mon, 21 Mar 2011 14:36:45 +0800
+Message-ID: <4D86F1FD.3080009@cn.fujitsu.com>
+References: <4D86E603.8080704@cn.fujitsu.com> <20110320.225542.71119753.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net
-To: philipp_subx@redfish-solutions.com
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40603
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751416Ab1CUGDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 02:03:31 -0400
-In-Reply-To: <4D86E89B.1060905@redfish-solutions.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:54616 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751734Ab1CUGgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2011 02:36:16 -0400
+In-Reply-To: <20110320.225542.71119753.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Date: Sun, 20 Mar 2011 22:56:43 -0700
 
-> It's not clear that dropping all VCs abruptly when carrier flapped was
-> ever the right thing to do.
+> From: Wei Yongjun <yjwei@cn.fujitsu.com>
+> Date: Mon, 21 Mar 2011 13:45:39 +0800
+>
+>> Commit 'xfrm: Move IPsec replay detection functions to a separate file'
+>>   (9fdc4883d92d20842c5acea77a4a21bb1574b495)
+>> introduce repl field to struct xfrm_state, and only initialize it
+>> under SA's netlink create path, the other path, such as pf_key, the
+>> repl field remaining uninitialize. So if the SA is created by pf_key,
+>> any input packet with SA's encryption algorithm will cause panic.
+> Please, either add an xfrm_init_replay() call to the appropriate spot
+> in net/key/af_key.c or, if possible, only have the one call in
+> xfrm_init_state().  Don't leave two calls, one in xfrm_user.c and one
+> in xfrm_state.c
+>
+> Anyways, I don't think just making one call from xfrm_init_state() is
+> possible, because the replay settings need to be assigned before we
+> can properly call xfrm_init_replay().
+>
+> Therefore, please fix this by adding the necessary call to af_key.c
+Sorry for not said clearly, at the first time I want to do like this. 
+But when I grep 'xfrm_init_state', it be used in many place, not
+any pf_key, but also XFRM MIGRATE, ipcomp, ipcomp6. So I did this ugly
+patch by add this to xfrm_init_state() to avoid dup code.
 
-So you've tested your change with the older firmware present?
+Not sure whether the other case like ipcomp/ipcomp6 etc can cause panic, if
+it panic, maybe we can fix by introduce new xfrm_init_replay() function
+like to assign the default reply function.
+  int xfrm_init_replay(struct xfrm_state *x)
+  {
+  	x->repl = &xfrm_replay_legacy;
+  	return 0;
+  }
+and change the orig xfrm_init_replay to xfrm_update_replay()? 
+Or dup those code to all used place?
+
+If I was wrong, I will fix this by adding the necessary call to af_key.c.
+
+Thanks.
+
+
+> Thanks.
+>
