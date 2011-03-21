@@ -1,46 +1,81 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] netxen: fix LRO disable warning
-Date: Mon, 21 Mar 2011 06:13:02 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8439@MNEXMB2.qlogic.org>
-References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
- <1300704474.2884.66.camel@edumazet-laptop>
+From: Jamie Iles <jamie@jamieiles.com>
+Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
+Date: Mon, 21 Mar 2011 11:18:38 +0000
+Message-ID: <20110321111838.GC2610@pulham.picochip.com>
+References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
+ <20110316.131734.242138246.davem@davemloft.net>
+ <4D86F25A.7060405@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jamie@jamieiles.com,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	plagnioj@jcrosoft.com, Andrew Victor <linux@maxim.org.za>,
+	Peter Korsgaard <jacmet@sunsite.dk>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.186]:57394
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752628Ab1CULNN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 07:13:13 -0400
-In-Reply-To: <1300704474.2884.66.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41884 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628Ab1CULSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 07:18:46 -0400
+Received: by wwa36 with SMTP id 36so7319469wwa.1
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 04:18:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4D86F25A.7060405@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBMZSBsdW5kaSAyMSBtYXJzIDIwMTEgw6AgMDM6MzcgLTA3MDAsIEFtaXQgS3VtYXIgU2FsZWNo
-YSBhIMOpY3JpdCA6DQo+ID4gbmV0eGVuX25pY19zZXRfZmxhZ3MoKSByZWplY3RzIGRhdGEgaWYg
-b3RoZXIgZmxhZyB0aGFuIEVUSF9GTEFHX0xSTw0KPiBpcyBzZXQuDQo+ID4gRHJpdmVyIGFsc28g
-c3VwcG9ydHMgTkVUSUZfRl9IV19WTEFOX1RYLg0KPiA+IE5vdyBjb21wYXJlIGRhdGEgd2l0aCBl
-dGh0b29sX29wX2dldF9mbGFncygpLCB0byBnZXQgYWxsIHN1cHBvcnRlZA0KPiBmZWF0dXJlcy4N
-Cj4gPg0KPiA+IFJlcG9ydGVkLWJ5OiBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyIDxqZGJAY29teC5k
-az4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBSYWplc2ggQm9ydW5kaWEgPHJhamVzaC5ib3J1bmRpYUBx
-bG9naWMuY29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEFtaXQgS3VtYXIgU2FsZWNoYSA8YW1pdC5z
-YWxlY2hhQHFsb2dpYy5jb20+DQo+ID4gLS0tDQo+DQo+IEhtbSwgaXQgd291bGQgYmUgcmVhbGx5
-IG5pY2UgeW91IHByb3ZpZGUgbW9yZSBpbmZvcm1hdGlvbiBmb3Igc3RhYmxlDQo+IHRlYW1zLg0K
-Pg0KPiBJZiBJIGFtIG5vdCBtaXN0YWtlbiwgYnVnIHdhcyBpbnRyb2R1Y2VkIGluIDIuNi4zNiA/
-DQo+DQpObywgSXQgd2FzIGludHJvZHVjZWQgaW4gMi42LjM3LCB3aGVuIEVUSF9GTEFHX1RYVkxB
-TiBhbmQgRVRIX0ZMQUdfUlhWTEFOIGludHJvZHVjZWQuDQpZZXMgaXQgc2hvdWxkIGFsc28gbWFr
-ZSBpbnRvIDIuNi4zNy40IHN0YWJsZSBrZXJuZWwuDQoNCg0KVGhpcyBtZXNzYWdlIGFuZCBhbnkg
-YXR0YWNoZWQgZG9jdW1lbnRzIGNvbnRhaW4gaW5mb3JtYXRpb24gZnJvbSBRTG9naWMgQ29ycG9y
-YXRpb24gb3IgaXRzIHdob2xseS1vd25lZCBzdWJzaWRpYXJpZXMgdGhhdCBtYXkgYmUgY29uZmlk
-ZW50aWFsLiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgbWF5IG5v
-dCByZWFkLCBjb3B5LCBkaXN0cmlidXRlLCBvciB1c2UgdGhpcyBpbmZvcm1hdGlvbi4gSWYgeW91
-IGhhdmUgcmVjZWl2ZWQgdGhpcyB0cmFuc21pc3Npb24gaW4gZXJyb3IsIHBsZWFzZSBub3RpZnkg
-dGhlIHNlbmRlciBpbW1lZGlhdGVseSBieSByZXBseSBlLW1haWwgYW5kIHRoZW4gZGVsZXRlIHRo
-aXMgbWVzc2FnZS4NCg==
+On Mon, Mar 21, 2011 at 02:38:18PM +0800, Nicolas Ferre wrote:
+> On 3/17/2011 4:17 AM, David Miller :
+> > From: Jamie Iles <jamie@jamieiles.com>
+> > Date: Tue, 15 Mar 2011 10:14:47 +0000
+> > 
+> >> This patch series extends the Atmel MACB driver to support the Cadence
+> >> GEM (Gigabit Ethernet MAC) to support 10/100 operation.  The GEM is
+> >> based on the MACB block but has a few moved registers and bitfields.
+> >> This patch series attempts to use the MACB accessors where block
+> >> functionallity is identical and only overrides to GEM specific
+> >> acccessors when needed.
+> >>
+> >> This has been runtested on a board with a Cadence GEM and compile tested
+> >> for all at91 configurations and a number of avr32 configurations.
+> >>
+> >> Changes since v1:
+> >> 	- AT91 now provides a fake "hclk" and "macb_clk" has been
+> >> 	renamed to "pclk" to be consistent with AVR32.
+> >> 	- Configurable GEM receive buffer size support has been added.
+> >> 	- pr_foo() and dev_foo() have been converted to netdev_foo()
+> >> 	where appropriate.
+> >> 	- New conditional accessors (macb_or_gem_{read,write}l) have
+> >> 	been introduced that do the conditional accesses dependent on
+> >> 	macb/gem type.
+> >> 	- GEM is now dynamically detected from the module ID rather than
+> >> 	platform device name.
+> >>
+> >> Jean-Christophe, I haven't based this on your conditional clock patch as
+> >> I wasn't sure what decision had been made on that and whether the
+> >> at91/avr32 detection is reliable.
+> > 
+> > I'm happy to ACK this so you guys can merge this via one of the
+> > ARM trees:
+> > 
+> > Acked-by: David S. Miller <davem@davemloft.net>
+> 
+> I add my:
+> 
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> 
+> Now, tell me if we need to setup a git tree with this and make it 
+> handled by linux-next (we do not have for at91 yet)?
+> or Russell can take the series in a "devel" branch?
 
+Thanks for testing Nicolas!
+
+I have an existing tree for this at
+
+	git://github.com/jamieiles/linux-2.6-ji.git macb-gem
+
+based off of 2.6.38 (with your ACK's now added) and I'd be happy with 
+either route.
+
+Jamie
