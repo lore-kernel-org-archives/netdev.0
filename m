@@ -1,31 +1,33 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 1/2] socket: increase default maximum listen queue
  length
-Date: Mon, 21 Mar 2011 00:57:33 +0100
-Message-ID: <20110320235733.GE3038@nuttenaction>
-References: <20110320121414.GC3038@nuttenaction>
- <1300662282-24741-1-git-send-email-hagen@jauu.net>
- <20110320.160906.112595807.davem@davemloft.net>
+Date: Sun, 20 Mar 2011 17:18:16 -0700 (PDT)
+Message-ID: <20110320.171816.183049702.davem@davemloft.net>
+References: <1300662282-24741-1-git-send-email-hagen@jauu.net>
+	<20110320.160906.112595807.davem@davemloft.net>
+	<20110320235253.GD3038@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+To: hagen@jauu.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:56721 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751832Ab1CTX5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 19:57:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20110320.160906.112595807.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44269
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751832Ab1CUARi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2011 20:17:38 -0400
+In-Reply-To: <20110320235253.GD3038@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Miller | 2011-03-20 16:09:06 [-0700]:
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Date: Mon, 21 Mar 2011 00:52:53 +0100
 
->You must tell the whole story in order to justify these changes
->properly.
+> The number is somewhat magically - like many other values. I greped
+> tglx/history.git but the comment (at that time tcp_ipv4.c) seems pre 2002 era.
 
-BTW: the second patch is independent and provides a new feature, mentioned by
-Eric.
+Then don't use that number as part of the justification for the
+change.
 
-Hagen
+Describe what matters, and only what matters.  Providing magic and
+arbitrary numbers doesn't help people reading your commit message.
