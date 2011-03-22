@@ -1,89 +1,83 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
-Date: Tue, 22 Mar 2011 17:18:11 +0100
-Message-ID: <20110322161811.GF6466@game.jcrosoft.org>
-References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
- <20110316.131734.242138246.davem@davemloft.net>
- <4D86F25A.7060405@atmel.com>
- <20110321111838.GC2610@pulham.picochip.com>
+From: "Jan Altenberg" <jan@linutronix.de>
+Subject: can: c_can: TX handling
+Date: Tue, 22 Mar 2011 16:59:23 +0100
+Message-ID: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	David Miller <davem@davemloft.net>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Andrew Victor <linux@maxim.org.za>,
-	Peter Korsgaard <jacmet@sunsite.dk>
-To: Jamie Iles <jamie@jamieiles.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: wg@grandegger.com, kurt.van.dijck@eia.be, b.spranger@linutronix.de,
+	netdev@vger.kernel.org
+To: bhupesh.sharma@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 63.mail-out.ovh.net ([91.121.185.56]:49479 "HELO
-	63.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751368Ab1CVQYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 12:24:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20110321111838.GC2610@pulham.picochip.com>
+Received: from www.linutronix.de ([62.245.132.108]:53881 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751368Ab1CVQaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 12:30:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11:18 Mon 21 Mar     , Jamie Iles wrote:
-> On Mon, Mar 21, 2011 at 02:38:18PM +0800, Nicolas Ferre wrote:
-> > On 3/17/2011 4:17 AM, David Miller :
-> > > From: Jamie Iles <jamie@jamieiles.com>
-> > > Date: Tue, 15 Mar 2011 10:14:47 +0000
-> > > 
-> > >> This patch series extends the Atmel MACB driver to support the Cadence
-> > >> GEM (Gigabit Ethernet MAC) to support 10/100 operation.  The GEM is
-> > >> based on the MACB block but has a few moved registers and bitfields.
-> > >> This patch series attempts to use the MACB accessors where block
-> > >> functionallity is identical and only overrides to GEM specific
-> > >> acccessors when needed.
-> > >>
-> > >> This has been runtested on a board with a Cadence GEM and compile tested
-> > >> for all at91 configurations and a number of avr32 configurations.
-> > >>
-> > >> Changes since v1:
-> > >> 	- AT91 now provides a fake "hclk" and "macb_clk" has been
-> > >> 	renamed to "pclk" to be consistent with AVR32.
-> > >> 	- Configurable GEM receive buffer size support has been added.
-> > >> 	- pr_foo() and dev_foo() have been converted to netdev_foo()
-> > >> 	where appropriate.
-> > >> 	- New conditional accessors (macb_or_gem_{read,write}l) have
-> > >> 	been introduced that do the conditional accesses dependent on
-> > >> 	macb/gem type.
-> > >> 	- GEM is now dynamically detected from the module ID rather than
-> > >> 	platform device name.
-> > >>
-> > >> Jean-Christophe, I haven't based this on your conditional clock patch as
-> > >> I wasn't sure what decision had been made on that and whether the
-> > >> at91/avr32 detection is reliable.
-> > > 
-> > > I'm happy to ACK this so you guys can merge this via one of the
-> > > ARM trees:
-> > > 
-> > > Acked-by: David S. Miller <davem@davemloft.net>
-> > 
-> > I add my:
-> > 
-> > Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> > 
-> > Now, tell me if we need to setup a git tree with this and make it 
-> > handled by linux-next (we do not have for at91 yet)?
-> > or Russell can take the series in a "devel" branch?
-> 
-> Thanks for testing Nicolas!
-> 
-> I have an existing tree for this at
-> 
-> 	git://github.com/jamieiles/linux-2.6-ji.git macb-gem
-> 
-> based off of 2.6.38 (with your ACK's now added) and I'd be happy with 
-> either route.
-but we must detect the gem via the version register and ditto for macb for
-avr32 and at91
+Hi all,
 
-so please rebase it over my patch
+I did some more testing on the SocketCAN driver for the Bosch c_can
+controller and I observed some strange behaviour for the TX handling.
+First of all the TX bytes are not accounted correctly. The reason for that
+seems to be quite obvious if we look into c_can_do_tx():
 
-and you get my sob too
+[...]
 
-Best Regards,
-J.
+c_can_inval_msg_object(dev, 0, msg_obj_no);
+val = c_can_read_reg32(priv, &priv->regs->txrqst1);
+if (!(val & (1 << msg_obj_no))) {
+        can_get_echo_skb(dev,
+                        msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
+        stats->tx_bytes += priv->read_reg(priv,
+                        &priv->regs->ifregs[0].msg_cntrl)
+                        & IF_MCONT_DLC_MASK;
+
+So, we first invalidate the message object and afterwards we read the DLC
+value from the msg_cntrl (which is 0 after invalidating the
+message object) to account the TX bytes. So tx_bytes will always be 0. The
+fix should be easy, I think, we can just move
+c_can_inval_msg_object to the end of that loop.
+
+The second problem is related to tx_next, which should hold the number of
+the oldest CAN frame, which was not on the line:
+
+for (/* nix */; (priv->tx_next - priv->tx_echo) > 0; priv->tx_echo++) {
+        msg_obj_no = get_tx_echo_msg_obj(priv);
+        c_can_inval_msg_object(dev, 0, msg_obj_no);
+        val = c_can_read_reg32(priv, &priv->regs->txrqst1);
+        if (!(val & (1 << msg_obj_no))) {
+                can_get_echo_skb(dev,
+                                msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
+                stats->tx_bytes += priv->read_reg(priv,
+                                &priv->regs->ifregs[0].msg_cntrl)
+                                & IF_MCONT_DLC_MASK;
+                stats->tx_packets++;
+        }
+}
+
+But tx_echo is incremented unconditionally and we don't actually track the
+number of the oldest unsent frame.
+Let's assume the following scenario: We bring up can0 and send 3
+frames: TX object: 0, 1, 2; 1 and 2 make it on the line, but 0 is
+still pending. If we go through the above loop in that situation, we will
+skip message object 0, because the txrqst bit is still set.  We will
+account message object 1 and 2. That's correct, but afterwards tx_echo is
+set to 2, BUT the oldest message which is pending is 0. Am I right or did
+I get something wrong?
+The operation of c_can_do_tx() is described as follows: "We iterate from
+priv->tx_echo to priv->tx_next and check if the packet has been
+transmitted, echo it back to the CAN framework. If we discover a not yet
+transmitted package, stop looking for more." The actual
+implementation doesn't seem to stop if we discover a not yet
+transmitted package. But I'm not sure if just stopping might be a
+good idea, because in that case, the echo skb for already transmitted
+messages might be delayed by not yet transmitted messages.
+
+Cheers,
+        Jan
+
+
+
+
