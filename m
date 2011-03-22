@@ -1,33 +1,49 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: build breakage due to br_multicast.c referencing ipv6_dev_get_saddr()
-Date: Tue, 22 Mar 2011 22:40:31 +0100
-Message-ID: <1300830032-6727-1-git-send-email-linus.luessing@web.de>
-References: <4D80BC5B0200007800036D85@vpn.id2.novell.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [slab poison overwritten] Re: [GIT] Networking
+Date: Wed, 23 Mar 2011 06:52:50 +0900
+Message-ID: <20110322215249.GD2423@verge.net.au>
+References: <20110320.195156.226769634.davem@davemloft.net>
+ <20110321125320.GA23490@elte.hu>
+ <1300714346.2884.284.camel@edumazet-laptop>
+ <20110321161528.GA28580@elte.hu>
+ <20110321164238.GA5303@elte.hu>
+ <20110321173941.GB3892@elte.hu>
+ <1300730838.2884.578.camel@edumazet-laptop>
+ <1300738540.2837.5.camel@edumazet-laptop>
+ <20110322095638.GA26130@elte.hu>
+ <1300788039.3084.0.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <shemminger@linux-foundation.org>,
-	<bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@novell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate02.web.de ([217.72.192.227]:42639 "EHLO
-	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755323Ab1CVVlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 17:41:10 -0400
-In-Reply-To: <4D80BC5B0200007800036D85@vpn.id2.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Julian Anastasov <ja@ssi.bg>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1300788039.3084.0.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> One unrelated other observation with this change of yours:
-> daddr is an input argument to ipv6_dev_get_saddr(), yet
-> it gets initialized only after the function was called. Is that
-> really correct?
-Hmm, that wasn't intentional. I tested that again and so far I still always
-got the right source address. I had a little deeper look at ipv6_dev_get_saddr()
-and seems like it could get racy the way it is now, so I'm attaching a patch
-for that. Thanks for reporting, Jan.
+On Tue, Mar 22, 2011 at 11:00:39AM +0100, Eric Dumazet wrote:
+> Le mardi 22 mars 2011 =C3=A0 10:56 +0100, Ingo Molnar a =C3=A9crit :
+> > * Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >=20
+> > > [PATCH] ipvs: fix a typo in __ip_vs_control_init()
+> >=20
+> > This fix and Simon's:
+> >=20
+> >   IPVS: Use global mutex in ip_vs_app.c
+> >=20
+> > Did the trick here, the IPVS related SLAB corruptions are now gone.
+> >=20
+> > Thanks guys!
+>=20
+> Thanks for testing Ingo ;)
 
-And I hope I didn't cause too much inconvience with the build breakage,
-didn't think of testing BRIDGE=y and IPV6=m.
-
-Cheers, Linus
+Yes, thanks Ingo.
