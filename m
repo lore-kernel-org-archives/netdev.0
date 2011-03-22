@@ -1,45 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: davinci_emac:Fix translation logic for buffer
- descriptor
-Date: Tue, 22 Mar 2011 03:22:31 -0700 (PDT)
-Message-ID: <20110322.032231.193716852.davem@davemloft.net>
-References: <1300788382-12658-1-git-send-email-srk@ti.com>
-	<4D8875C1.9090004@mvista.com>
+From: Seblu <seblu@seblu.net>
+Subject: Re: bnx2 vlan issue
+Date: Tue, 22 Mar 2011 11:59:30 +0100
+Message-ID: <AANLkTi=7ETnRWOLRVAWhv=3BHZdzUnLvAqzxXOz399Xx@mail.gmail.com>
+References: <AANLkTik0BOuDj5wmfHabZx_OzXDROtDLR2qtqUqQu4ko@mail.gmail.com>
+ <AANLkTi=rOjHZt_F01UfunrTm=2r1BO5QGFDeV9XyKX4G@mail.gmail.com>
+ <AANLkTimAnHcoVDY_p8PqZLMJdMz2w7bMnSbOwzn4aR4i@mail.gmail.com>
+ <AANLkTimJsBYefz3+3HgBgrHUR33g+TWuBp15E=VODohb@mail.gmail.com> <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: srk@ti.com, netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: sshtylyov@mvista.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48121
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753241Ab1CVKVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 06:21:53 -0400
-In-Reply-To: <4D8875C1.9090004@mvista.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:61803 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734Ab1CVK7v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 06:59:51 -0400
+Received: by qwk3 with SMTP id 3so4948930qwk.19
+        for <netdev@vger.kernel.org>; Tue, 22 Mar 2011 03:59:50 -0700 (PDT)
+In-Reply-To: <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Date: Tue, 22 Mar 2011 13:11:13 +0300
+On Tue, Mar 22, 2011 at 3:05 AM, Jesse Gross <jesse@nicira.com> wrote:
+> On Thu, Mar 17, 2011 at 4:22 PM, Seblu <seblu@seblu.net> wrote:
+>> On Thu, Mar 17, 2011 at 8:16 PM, Jesse Gross <jesse@nicira.com> wrot=
+e:
+>>> On Thu, Mar 17, 2011 at 11:02 AM, Seblu <seblu@seblu.net> wrote:
+>>>> On Thu, Mar 17, 2011 at 3:51 PM, Seblu <seblu@seblu.net> wrote:
+>> How can I create a bridge with the untagged vlan from an interface?
+>>
+>>> * bridge on interface, vlans on bridge device. =A0This gives you a
+>>> bridge with all packets and vlan devices can give you specific vlan=
+s.
+>> I cannot use this schema, i used bridge to bring together vnet
+>> interface and vlan interface.
+>
+> I'm not sure I understand why you say you can't use this. =A0You can
+> combine vlans and bridging pretty much arbitrarily, including stackin=
+g
+> multiple layers.
+I don't see _how I can bridge an interface with an untagged vlan from
+another interface_.
 
-> Hello.
-> 
-> On 22-03-2011 13:06, Sriramakrishnan wrote:
-> 
->> With recent changes to the driver(switch to new cpdma layer),
->> the support for buffer descriptor address translation logic
->> is broken. This affects platforms where the physical address of
->> the descriptors as seen by the DMA engine is different from the
->> physical address.
-> 
->> Original Patch adding translation logic support:
->> Commit: ad021ae8862209864dc8ebd3b7d3a55ce84b9ea2
-> 
->> Signed-off-by: Sriramakrishnan <srk@ti.com>
-> 
->    AFAIK, full name is required for signoff.
+I little example is maybe more clear:
+My dekstop have 2 NIC (eth0, eth1). I receive from network admin 2
+vlans. 20 untag and 21 tagged. My laptop is plugged to eth1.
+I want "export" untagged vlan 20 to eth1.
+Before 2.6.37, i do something like br0 =3D (eth0 + eth1). I put an ip o=
+n
+br0 and on eth0.21. And br0 just have untagged frame from eth0 which
+was transmitted to eth1. eth0.21 have only tagged frame from vlan 21.
+eth1 did not receive tagged vlan 21.
+After 2.6.37, i can do a bridge like before (br0 =3D eth0 + eth1) but i
+must use br0.21 to have access to vlan 21 network in my desktop. But,
+my laptop can also access to tagged vlan 21, and i don't want this.
 
-Indeed, please provide your full name in your signoff lines.
+A lot of old xen based setup use this behaviour.
+About my kvm test, I'm looking to the pci passtrough and macvtap, but
+this requires configuration that supports it.
+Why cannot have a eth0.U with only untagged frames?
 
-Thanks.
+>
+>>
+>>> * Use ebtables rules in the bridge to accept/reject certain packets=
+ as desired.
+>> I don't see how use ebtables to push untagged frame to a dedicated
+>> iface which can be added in a bridge.
+>
+> You could have a bridge on the raw interface and connect all of the
+> VMs that need untagged traffic. =A0If you add an ebtables rule to rej=
+ect
+> tagged traffic then vlan devices on the interface will continue to
+> work as before.
+>
+If I ignores the fact that the name of the card is not fixed, i see.
+But performance will follow? I don't believe this kind of config will
+allow ~7/8Gbit/s of traffic.
+Traversing ebtables rules is not free. And starting filtering traffic
+is a really different job than just bridge cards together.
+
+Regards,
+
+--=20
+S=E9bastien Luttringer
+www.seblu.net
