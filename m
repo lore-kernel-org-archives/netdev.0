@@ -1,83 +1,150 @@
-From: Robert Love <robert.w.love@intel.com>
-Subject: Re: [PATCH 02/36] scsi,rcu: convert call_rcu(fc_rport_free_rcu) to
- kfree_rcu()
-Date: Tue, 22 Mar 2011 10:28:33 -0700
-Message-ID: <1300814913.19083.427.camel@fritz>
-References: <4D82D071.5020703@cn.fujitsu.com>
-	 <4D82D3FF.2080303@cn.fujitsu.com>  <4D82D45A.30102@cn.fujitsu.com>
+From: Jamie Iles <jamie@jamieiles.com>
+Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
+Date: Tue, 22 Mar 2011 17:55:23 +0000
+Message-ID: <20110322175523.GE10058@pulham.picochip.com>
+References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
+ <20110316.131734.242138246.davem@davemloft.net>
+ <4D86F25A.7060405@atmel.com>
+ <20110321111838.GC2610@pulham.picochip.com>
+ <20110322161811.GF6466@game.jcrosoft.org>
+ <20110322163917.GD10058@pulham.picochip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>, Jens Axboe <axboe@kernel.dk>,
-	"James E.J. Bottomley" <James.Bottomley@suse.de>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Tejun Heo <tj@kernel.org>, Jarek Poplawski <jarkao2@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	David Miller <davem@davemloft.net>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Andrew Victor <linux@maxim.org.za>,
+	Peter Korsgaard <jacmet@sunsite.dk>
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:18753 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756393Ab1CVR2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2011 13:28:34 -0400
-In-Reply-To: <4D82D45A.30102@cn.fujitsu.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55508 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474Ab1CVRzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 13:55:41 -0400
+Received: by wwa36 with SMTP id 36so9131529wwa.1
+        for <netdev@vger.kernel.org>; Tue, 22 Mar 2011 10:55:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110322163917.GD10058@pulham.picochip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-03-17 at 20:41 -0700, Lai Jiangshan wrote:
+Hi Jean-Christophe,
+
+On Tue, Mar 22, 2011 at 04:39:17PM +0000, Jamie Iles wrote:
+> Hi Jean-Christophe,
 > 
-> The rcu callback fc_rport_free_rcu() just calls a kfree(),
-> so we use kfree_rcu() instead of the call_rcu(fc_rport_free_rcu).
+> On Tue, Mar 22, 2011 at 05:18:11PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > On 11:18 Mon 21 Mar     , Jamie Iles wrote:
+> > > I have an existing tree for this at
+> > > 
+> > > 	git://github.com/jamieiles/linux-2.6-ji.git macb-gem
+> > > 
+> > > based off of 2.6.38 (with your ACK's now added) and I'd be happy with 
+> > > either route.
+> > but we must detect the gem via the version register and ditto for macb for
+> > avr32 and at91
+> > 
+> > so please rebase it over my patch
+> > 
+> > and you get my sob too
 > 
-> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
-> ---
->  drivers/scsi/libfc/fc_rport.c |   14 +-------------
->  1 files changed, 1 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/scsi/libfc/fc_rport.c b/drivers/scsi/libfc/fc_rport.c
-> index a7175ad..29abab0 100644
-> --- a/drivers/scsi/libfc/fc_rport.c
-> +++ b/drivers/scsi/libfc/fc_rport.c
-> @@ -151,18 +151,6 @@ static struct fc_rport_priv *fc_rport_create(struct fc_lport *lport,
->  }
->  
->  /**
-> - * fc_rport_free_rcu() - Free a remote port
-> - * @rcu: The rcu_head structure inside the remote port
-> - */
-> -static void fc_rport_free_rcu(struct rcu_head *rcu)
-> -{
-> -	struct fc_rport_priv *rdata;
-> -
-> -	rdata = container_of(rcu, struct fc_rport_priv, rcu);
-> -	kfree(rdata);
-> -}
-> -
-> -/**
->   * fc_rport_destroy() - Free a remote port after last reference is released
->   * @kref: The remote port's kref
->   */
-> @@ -171,7 +159,7 @@ static void fc_rport_destroy(struct kref *kref)
->  	struct fc_rport_priv *rdata;
->  
->  	rdata = container_of(kref, struct fc_rport_priv, kref);
-> -	call_rcu(&rdata->rcu, fc_rport_free_rcu);
-> +	kfree_rcu(rdata, rcu);
+> Would you mind respinning your patch without the changes to the clk 
+> stuff?  Otherwise we're changing it from compile time to version based, 
+> only to completely remove it in subsequent patches.
 
-I think this last line should be:
+Actually, this patch doesn't work anyway as the version register is 
+being read before the clks are enabled so the device isn't accessible 
+(and the registers haven't yet been ioremap()'d).
 
-kfree_rcu(rdata, &rdata->rcu);
+> Also, can you confirm that the module ID's that you are using to 
+> differentiate between AT91 and AVR32 won't clash with MACB uses in 
+> other, non-at91/avr32 chips, or that it doesn't matter?
 
-Thanks, //Rob
+If this does work, then it would be nice if we made the else path of the 
+RMII AT91 tests also test for avr32 too so we aren't driving the USRIO 
+pins on platforms that aren't at91 but also aren't avr32.  So something 
+the patch below instead.
 
+Jamie
+
+8<---
+
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 79ccb54..55b81f5 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -22,7 +22,6 @@
+ #include <linux/phy.h>
+ 
+ #include <mach/board.h>
+-#include <mach/cpu.h>
+ 
+ #include "macb.h"
+ 
+@@ -1169,6 +1168,7 @@ static int __init macb_probe(struct platform_device *pdev)
+ 		err = -ENOMEM;
+ 		goto err_out_disable_clocks;
+ 	}
++	bp->version = macb_readl(bp, VERSION);
+ 
+ 	dev->irq = platform_get_irq(pdev, 0);
+ 	err = request_irq(dev->irq, macb_interrupt, IRQF_SAMPLE_RANDOM,
+@@ -1201,18 +1201,18 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	macb_get_hwaddr(bp);
+ 	pdata = pdev->dev.platform_data;
+ 
+-	if (pdata && pdata->is_rmii)
+-#if defined(CONFIG_ARCH_AT91)
+-		macb_writel(bp, USRIO, (MACB_BIT(RMII) | MACB_BIT(CLKEN)) );
+-#else
+-		macb_writel(bp, USRIO, 0);
+-#endif
+-	else
+-#if defined(CONFIG_ARCH_AT91)
+-		macb_writel(bp, USRIO, MACB_BIT(CLKEN));
+-#else
+-		macb_writel(bp, USRIO, MACB_BIT(MII));
+-#endif
++	if (pdata && pdata->is_rmii) {
++		if (macb_is_at91(bp))
++			macb_writel(bp, USRIO,
++				    (MACB_BIT(RMII) | MACB_BIT(CLKEN)));
++		else if (macb_is_avr32(bp))
++			macb_writel(bp, USRIO, 0);
++	} else {
++		if (macb_is_at91(bp))
++			macb_writel(bp, USRIO, MACB_BIT(CLKEN));
++		else if (macb_is_avr32(bp))
++			macb_writel(bp, USRIO, MACB_BIT(MII));
++	}
+ 
+ 	bp->tx_pending = DEF_TX_RING_PENDING;
+ 
+diff --git a/drivers/net/macb.h b/drivers/net/macb.h
+index d3212f6..56a4fcb 100644
+--- a/drivers/net/macb.h
++++ b/drivers/net/macb.h
+@@ -59,6 +59,7 @@
+ #define MACB_TPQ				0x00bc
+ #define MACB_USRIO				0x00c0
+ #define MACB_WOL				0x00c4
++#define MACB_VERSION				0x00fc
+ 
+ /* Bitfields in NCR */
+ #define MACB_LB_OFFSET				0
+@@ -389,6 +390,14 @@ struct macb {
+ 	unsigned int 		link;
+ 	unsigned int 		speed;
+ 	unsigned int 		duplex;
++
++	uint32_t		version;
+ };
+ 
++#define MACB_VERSION_MASK	0xffff0000
++#define macb_is_at91(bp)	\
++	(((bp)->version & MACB_VERSION_MASK) == 0x06010000)
++#define macb_is_avr32(bp)	\
++	(((bp)->version & MACB_VERSION_MASK) == 0x00010000)
++
+ #endif /* _MACB_H */
