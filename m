@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] snmp: SNMP_UPD_PO_STATS_BH() always called from softirq
-Date: Mon, 21 Mar 2011 18:13:03 -0700 (PDT)
-Message-ID: <20110321.181303.232750003.davem@davemloft.net>
-References: <1300707055.2884.144.camel@edumazet-laptop>
+Subject: Re: [held lock freed] Re: [GIT] Networking
+Date: Mon, 21 Mar 2011 18:16:30 -0700 (PDT)
+Message-ID: <20110321.181630.35037636.davem@davemloft.net>
+References: <20110321125320.GA23490@elte.hu>
+	<1300714346.2884.284.camel@edumazet-laptop>
+	<20110321161528.GA28580@elte.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, a.p.zijlstra@chello.nl,
+	tglx@linutronix.de, arnd@arndb.de
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48145
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37965
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754976Ab1CVBMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 21:12:25 -0400
-In-Reply-To: <1300707055.2884.144.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1755227Ab1CVBPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 21:15:52 -0400
+In-Reply-To: <20110321161528.GA28580@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 21 Mar 2011 12:30:55 +0100
+From: Ingo Molnar <mingo@elte.hu>
+Date: Mon, 21 Mar 2011 17:15:28 +0100
 
-> We dont need to test if we run from softirq context, we definitely are.
 > 
-> This saves few instructions in ip_rcv() & ip_rcv_finish()
+> * Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Here is a probable fix.
+>> 
+>> [PATCH] ipx: fix ipx_release()
+> 
+> This patch did the trick - thanks Eric!
+> 
+> Tested-by: Ingo Molnar <mingo@elte.hu>
 
-Applied, thanks.
+Applied, thanks everyone.
