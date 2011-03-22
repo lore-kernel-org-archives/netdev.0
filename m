@@ -1,64 +1,151 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Tue, 22 Mar 2011 13:36:50 +0200
-Message-ID: <20110322113649.GA17071@redhat.com>
-References: <20110318133311.GA20623@gondor.apana.org.au>
- <1300498915.3441.21.camel@localhost.localdomain>
- <1300730587.3441.24.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, rusty@rustcorp.com.au,
-	davem@davemloft.net, kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1300730587.3441.24.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Patch] net: remove useless comments in net/core/dev.c
+Date: Tue, 22 Mar 2011 19:59:47 +0800
+Message-ID: <1300795189-24655-1-git-send-email-amwang@redhat.com>
+Cc: WANG Cong <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 21, 2011 at 11:03:07AM -0700, Shirley Ma wrote:
-> On Fri, 2011-03-18 at 18:41 -0700, Shirley Ma wrote:
-> > > > +       /* Drop packet instead of stop queue for better
-> > performance
-> > > */
-> > > 
-> > > I would like to see some justification as to why this is the right
-> > > way to go and not just papering over the real problem. 
-> > 
-> > Fair. KVM guest virtio_net TX queue stop/restart is pretty expensive,
-> > which involves:
-> > 
-> > 1. Guest enable callback: one memory barrier, interrupt flag set
-> 
-> Missed this cost: for history reason, it also involves a guest exit from
-> I/O write (PCI_QUEUE_NOTIFY).
+The code itself can explain what it is doing, no need these comments.
 
-OK, after some research, it looks like the reason was the tx timer that
-qemu used to use. So the hack of avoiding the add_buf call will
-avoid this kick and so break these hosts.
-I guess we can add a feature bit to detect a new host
-and so avoid the kick. We are running low on feature bits
-unfortunately, but just fo testing, could you quantify the difference
-that this makes using the following patch:
+Signed-off-by: WANG Cong <amwang@redhat.com>
 
+---
+ net/core/dev.c |   54 ------------------------------------------------------
+ 1 files changed, 0 insertions(+), 54 deletions(-)
 
-diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index cc2f73e..6106017 100644
---- a/drivers/virtio/virtio_ring.c
-+++ b/drivers/virtio/virtio_ring.c
-@@ -185,11 +185,6 @@ int virtqueue_add_buf_gfp(struct virtqueue *_vq,
- 	if (vq->num_free < out + in) {
- 		pr_debug("Can't add buf len %i - avail = %i\n",
- 			 out + in, vq->num_free);
--		/* FIXME: for historical reasons, we force a notify here if
--		 * there are outgoing parts to the buffer.  Presumably the
--		 * host should service the ring ASAP. */
--		if (out)
--			vq->notify(&vq->vq);
- 		END_USE(vq);
- 		return -ENOSPC;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0b88eba..2c2f243 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1140,9 +1140,6 @@ static int __dev_open(struct net_device *dev)
+ 
+ 	ASSERT_RTNL();
+ 
+-	/*
+-	 *	Is it even present?
+-	 */
+ 	if (!netif_device_present(dev))
+ 		return -ENODEV;
+ 
+@@ -1151,9 +1148,6 @@ static int __dev_open(struct net_device *dev)
+ 	if (ret)
+ 		return ret;
+ 
+-	/*
+-	 *	Call device private open method
+-	 */
+ 	set_bit(__LINK_STATE_START, &dev->state);
+ 
+ 	if (ops->ndo_validate_addr)
+@@ -1162,31 +1156,12 @@ static int __dev_open(struct net_device *dev)
+ 	if (!ret && ops->ndo_open)
+ 		ret = ops->ndo_open(dev);
+ 
+-	/*
+-	 *	If it went open OK then:
+-	 */
+-
+ 	if (ret)
+ 		clear_bit(__LINK_STATE_START, &dev->state);
+ 	else {
+-		/*
+-		 *	Set the flags.
+-		 */
+ 		dev->flags |= IFF_UP;
+-
+-		/*
+-		 *	Enable NET_DMA
+-		 */
+ 		net_dmaengine_get();
+-
+-		/*
+-		 *	Initialize multicasting status
+-		 */
+ 		dev_set_rx_mode(dev);
+-
+-		/*
+-		 *	Wakeup transmit queue engine
+-		 */
+ 		dev_activate(dev);
  	}
-
--- 
-MST
+ 
+@@ -1209,22 +1184,13 @@ int dev_open(struct net_device *dev)
+ {
+ 	int ret;
+ 
+-	/*
+-	 *	Is it already up?
+-	 */
+ 	if (dev->flags & IFF_UP)
+ 		return 0;
+ 
+-	/*
+-	 *	Open device
+-	 */
+ 	ret = __dev_open(dev);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	/*
+-	 *	... and announce new interface.
+-	 */
+ 	rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
+ 	call_netdevice_notifiers(NETDEV_UP, dev);
+ 
+@@ -1240,10 +1206,6 @@ static int __dev_close_many(struct list_head *head)
+ 	might_sleep();
+ 
+ 	list_for_each_entry(dev, head, unreg_list) {
+-		/*
+-		 *	Tell people we are going down, so that they can
+-		 *	prepare to death, when device is still operating.
+-		 */
+ 		call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
+ 
+ 		clear_bit(__LINK_STATE_START, &dev->state);
+@@ -1272,15 +1234,7 @@ static int __dev_close_many(struct list_head *head)
+ 		if (ops->ndo_stop)
+ 			ops->ndo_stop(dev);
+ 
+-		/*
+-		 *	Device is now down.
+-		 */
+-
+ 		dev->flags &= ~IFF_UP;
+-
+-		/*
+-		 *	Shutdown NET_DMA
+-		 */
+ 		net_dmaengine_put();
+ 	}
+ 
+@@ -1309,9 +1263,6 @@ static int dev_close_many(struct list_head *head)
+ 
+ 	__dev_close_many(head);
+ 
+-	/*
+-	 * Tell people we are down
+-	 */
+ 	list_for_each_entry(dev, head, unreg_list) {
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
+ 		call_netdevice_notifiers(NETDEV_DOWN, dev);
+@@ -1368,11 +1319,6 @@ EXPORT_SYMBOL(dev_disable_lro);
+ 
+ static int dev_boot_phase = 1;
+ 
+-/*
+- *	Device change register/unregister. These are not inline or static
+- *	as we export them to the world.
+- */
+-
+ /**
+  *	register_netdevice_notifier - register a network notifier block
+  *	@nb: notifier
