@@ -1,81 +1,92 @@
-From: Eugene Teo <eugeneteo@kernel.org>
-Subject: Re: [Security] [SECURITY] DECnet: need to validate user data and
- access data?
-Date: Tue, 22 Mar 2011 15:42:22 +0800
-Message-ID: <AANLkTinbj295sZvXrQm6uhH9+DbAbY1AZU7Eo5_dC6HP@mail.gmail.com>
-References: <1300750901.1813.15.camel@dan>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH 4/4] drivers/net/fec: Don't mess with configured MAC
+ addresses.
+Date: Tue, 22 Mar 2011 15:43:37 +0800
+Message-ID: <20110322074336.GE28098@S2100-06.ap.freescale.net>
+References: <4034db082a05693893d24f4b0db4063b84d8c268.1300724245.git.LW@KARO-electronics.de>
+ <a6ba75577552abe8d5045434030c276d5f45779a.1300724245.git.LW@KARO-electronics.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, security@kernel.org,
-	linux-decnet-user@lists.sourceforge.net
-To: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: <netdev@vger.kernel.org>, <u.kleine-koenig@pengutronix.de>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:58166 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754456Ab1CVHmX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 03:42:23 -0400
-Received: by wya21 with SMTP id 21so6450199wya.19
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2011 00:42:22 -0700 (PDT)
-In-Reply-To: <1300750901.1813.15.camel@dan>
+Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.181]:48412
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755014Ab1CVHnA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2011 03:43:00 -0400
+Content-Disposition: inline
+In-Reply-To: <a6ba75577552abe8d5045434030c276d5f45779a.1300724245.git.LW@KARO-electronics.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc'ed the decnet list. Looks like it's still active even though the
-status is orphan.
+On Mon, Mar 21, 2011 at 05:37:36PM +0100, Lothar Wa=DFmann wrote:
+> The FEC driver currently uses the MAC address assigned to the first
+> interface incremented by one for the second interface.
+>=20
+> Change this to be able to configure distinct MAC addresses via
+> platform_data.
+>=20
+> Signed-off-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> ---
+>  drivers/net/fec.c |    9 ++-------
+>  1 files changed, 2 insertions(+), 7 deletions(-)
+>=20
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 3666524..9d89e99 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -750,13 +750,12 @@ static void __inline__ fec_get_mac(struct net_d=
+evice *ndev)
+>  	/*
+>  	 * 2) from flash or fuse (via platform data)
+>  	 */
+> +	if (pdata)
+> +		memcpy(iap, pdata->mac, ETH_ALEN);
+>  	if (!is_valid_ether_addr(iap)) {
+>  #ifdef CONFIG_M5272
+>  		if (FEC_FLASHMAC)
+>  			iap =3D (unsigned char *)FEC_FLASHMAC;
+> -#else
+> -		if (pdata)
+> -			memcpy(iap, pdata->mac, ETH_ALEN);
+>  #endif
+>  	}
+> =20
+> @@ -772,10 +771,6 @@ static void __inline__ fec_get_mac(struct net_de=
+vice *ndev)
+>  	}
+> =20
+>  	memcpy(ndev->dev_addr, iap, ETH_ALEN);
+> -
+> -	/* Adjust MAC if using macaddr */
+> -	if (iap =3D=3D macaddr)
+> -		 ndev->dev_addr[ETH_ALEN-1] =3D macaddr[ETH_ALEN-1] + fep->pdev->i=
+d;
+>  }
+> =20
+>  /* -----------------------------------------------------------------=
+-------- */
+> --=20
+> 1.5.6.5
+>=20
+>=20
+NAK.
 
-On Tue, Mar 22, 2011 at 7:41 AM, Dan Rosenberg <drosenberg@vsecurity.co=
-m> wrote:
-> In net/decnet/af_decnet.c, in the dn_access_copy() and dn_user_copy()
-> functions, which are called from dn_connect(), length values are
-> retrieved from incoming skb data and used as size values to copy
-> functions:
->
-> static void dn_access_copy(struct sk_buff *skb, struct accessdata_dn =
-*acc)
-> {
-> =A0 =A0 =A0 =A0unsigned char *ptr =3D skb->data;
->
-> =A0 =A0 =A0 =A0acc->acc_userl =3D *ptr++;
-> =A0 =A0 =A0 =A0memcpy(&acc->acc_user, ptr, acc->acc_userl);
-> =A0 =A0 =A0 =A0ptr +=3D acc->acc_userl;
->
-> =A0 =A0 =A0 =A0acc->acc_passl =3D *ptr++;
-> =A0 =A0 =A0 =A0memcpy(&acc->acc_pass, ptr, acc->acc_passl);
-> =A0 =A0 =A0 =A0ptr +=3D acc->acc_passl;
->
-> =A0 =A0 =A0 =A0acc->acc_accl =3D *ptr++;
-> =A0 =A0 =A0 =A0memcpy(&acc->acc_acc, ptr, acc->acc_accl);
->
-> =A0 =A0 =A0 =A0skb_pull(skb, acc->acc_accl + acc->acc_passl + acc->ac=
-c_userl + 3);
->
-> }
->
-> static void dn_user_copy(struct sk_buff *skb, struct optdata_dn *opt)
-> {
-> =A0 =A0 =A0 =A0unsigned char *ptr =3D skb->data;
-> =A0 =A0 =A0 =A0u16 len =3D *ptr++; /* yes, it's 8bit on the wire */
->
-> =A0 =A0 =A0 =A0BUG_ON(len > 16); /* we've checked the contents earlie=
-r */
-> =A0 =A0 =A0 =A0opt->opt_optl =A0 =3D cpu_to_le16(len);
-> =A0 =A0 =A0 =A0opt->opt_status =3D 0;
-> =A0 =A0 =A0 =A0memcpy(opt->opt_data, ptr, len);
-> =A0 =A0 =A0 =A0skb_pull(skb, len + 1);
-> }
->
->
-> Despite the BUG_ON and comment suggesting these lengths have been
-> validated, I don't think this is actually the case - it looks like th=
-ese
-> fields are validated for outbound data, but I see no validation for
-> inbound data (unless I'm mistaken, which is entirely possible). =A0If=
- this
-> is the case, this can allow remote attackers to cause controllable he=
-ap
-> corruption. =A0I'd appreciate it if someone who knows this protocol b=
-etter
-> than I do took a look at this and implemented appropriate error handl=
-ing
-> if it needs it.
+The 'mac' was designed as an optional member of fec
+platform_data, as some platforms may not be able to provide it. This
+patch breaks the order of getting mac, and will not work on the
+platform that does not provide an valid mac with either platform_data
+or controller mac registers, even there may be one in the kernel
+command line.
+
+The existing code takes mac address from kernel command line as the
+first choice, and only falls through on other options when it's
+invalid/unavailable.  So an valid mac from  kernel command line will
+always get fec work anyway.
+
+--=20
+Regards,
+Shawn
+
