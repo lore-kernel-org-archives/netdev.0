@@ -1,37 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Security] [SECURITY] DECnet: need to validate user data and
- access data?
-Date: Tue, 22 Mar 2011 02:21:01 -0700 (PDT)
-Message-ID: <20110322.022101.45900222.davem@davemloft.net>
-References: <1300750901.1813.15.camel@dan>
-	<AANLkTinbj295sZvXrQm6uhH9+DbAbY1AZU7Eo5_dC6HP@mail.gmail.com>
-	<1300785230.2558.6.camel@dolmen>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH 3/4] drivers/net/fec: Fix dual MAC support on i.MX28
+Date: Tue, 22 Mar 2011 17:22:56 +0800
+Message-ID: <20110322092256.GG28098@S2100-06.ap.freescale.net>
+References: <4034db082a05693893d24f4b0db4063b84d8c268.1300724245.git.LW@KARO-electronics.de>
+ <e8566dc34c4fd544ac630cf7908e4fb613e3ec1a.1300724245.git.LW@KARO-electronics.de>
+ <20110322072832.GD28098@S2100-06.ap.freescale.net>
+ <19848.22512.18596.3017@ipc1.ka-ro>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eugeneteo@kernel.org, drosenberg@vsecurity.com,
-	netdev@vger.kernel.org, security@kernel.org,
-	linux-decnet-user@lists.sourceforge.net
-To: swhiteho@redhat.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <u.kleine-koenig@pengutronix.de>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39138
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752270Ab1CVJUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 05:20:23 -0400
-In-Reply-To: <1300785230.2558.6.camel@dolmen>
+Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:7764 "EHLO
+	VA3EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753284Ab1CVJWU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 05:22:20 -0400
+Content-Disposition: inline
+In-Reply-To: <19848.22512.18596.3017@ipc1.ka-ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steven Whitehouse <swhiteho@redhat.com>
-Date: Tue, 22 Mar 2011 09:13:50 +0000
+On Tue, Mar 22, 2011 at 09:04:00AM +0100, Lothar Wa=DFmann wrote:
+> Hi,
+>=20
+> Shawn Guo writes:
+> > Hi Lothar,
+> >=20
+> > On Mon, Mar 21, 2011 at 05:37:35PM +0100, Lothar Wa=DFmann wrote:
+> > > The variant of the FEC chip found on i.MX28 features two distinct
+> > > ethernet MACs that both share a single MII interface. When
+> > > deconfiguring the eth0 interface, the MII interface is currently =
+being
+> > > switched off, so that the second MAC won't work any more.
+> > >=20
+> > I'm wondering what the use case is you intend to support with this
+> > patch.
+> >=20
+> The patch enables the use of both MACs independently from each other.
+> Without this patch deconfiguring eth0 would leave eth1 in an unusable
+> state.
+>=20
+Ah, I see.  Just tested it.  It really helps.  Thanks for the patch.
 
-> These functions are used in relation to conninit messages which, on the
-> incoming side are checked in dn_nsp_in.c:dn_find_listener() via the
-> calls to dn_check_idf() so that we should never queue an incorrectly
-> formatted message to the socket. The intent was that all messages should
-> be checked as early as possible on entry to the code so that we can then
-> rely on their content later on without needing to check again.
+With the patch cleaned up, please add:
 
-Ok, so we should be find here.
+Acked-by: <shawn.guo@freescale.com>
+Tested-by: <shawn.guo@freescale.com>
 
-Thanks for the explanation Steven.
+--=20
+Regards,
+Shawn
+
