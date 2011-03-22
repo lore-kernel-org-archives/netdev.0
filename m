@@ -1,87 +1,104 @@
-From: Seblu <seblu@seblu.net>
-Subject: Re: bnx2 vlan issue
-Date: Tue, 22 Mar 2011 11:59:30 +0100
-Message-ID: <AANLkTi=7ETnRWOLRVAWhv=3BHZdzUnLvAqzxXOz399Xx@mail.gmail.com>
-References: <AANLkTik0BOuDj5wmfHabZx_OzXDROtDLR2qtqUqQu4ko@mail.gmail.com>
- <AANLkTi=rOjHZt_F01UfunrTm=2r1BO5QGFDeV9XyKX4G@mail.gmail.com>
- <AANLkTimAnHcoVDY_p8PqZLMJdMz2w7bMnSbOwzn4aR4i@mail.gmail.com>
- <AANLkTimJsBYefz3+3HgBgrHUR33g+TWuBp15E=VODohb@mail.gmail.com> <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: Re: [Security] [SECURITY] DECnet: need to validate user data and
+ access data?
+Date: Tue, 22 Mar 2011 07:01:37 -0400
+Message-ID: <1300791697.1813.21.camel@dan>
+References: <1300750901.1813.15.camel@dan>
+	 <AANLkTinbj295sZvXrQm6uhH9+DbAbY1AZU7Eo5_dC6HP@mail.gmail.com>
+	 <1300785230.2558.6.camel@dolmen>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eugene Teo <eugeneteo@kernel.org>, davem@davemloft.net,
+	netdev@vger.kernel.org, security@kernel.org,
+	linux-decnet-user@lists.sourceforge.net
+To: Steven Whitehouse <swhiteho@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:61803 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734Ab1CVK7v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 06:59:51 -0400
-Received: by qwk3 with SMTP id 3so4948930qwk.19
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2011 03:59:50 -0700 (PDT)
-In-Reply-To: <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
+Received: from mx1.vsecurity.com ([209.67.252.12]:65228 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752940Ab1CVLBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 07:01:44 -0400
+In-Reply-To: <1300785230.2558.6.camel@dolmen>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 22, 2011 at 3:05 AM, Jesse Gross <jesse@nicira.com> wrote:
-> On Thu, Mar 17, 2011 at 4:22 PM, Seblu <seblu@seblu.net> wrote:
->> On Thu, Mar 17, 2011 at 8:16 PM, Jesse Gross <jesse@nicira.com> wrot=
-e:
->>> On Thu, Mar 17, 2011 at 11:02 AM, Seblu <seblu@seblu.net> wrote:
->>>> On Thu, Mar 17, 2011 at 3:51 PM, Seblu <seblu@seblu.net> wrote:
->> How can I create a bridge with the untagged vlan from an interface?
->>
->>> * bridge on interface, vlans on bridge device. =A0This gives you a
->>> bridge with all packets and vlan devices can give you specific vlan=
-s.
->> I cannot use this schema, i used bridge to bring together vnet
->> interface and vlan interface.
->
-> I'm not sure I understand why you say you can't use this. =A0You can
-> combine vlans and bridging pretty much arbitrarily, including stackin=
-g
-> multiple layers.
-I don't see _how I can bridge an interface with an untagged vlan from
-another interface_.
+On Tue, 2011-03-22 at 09:13 +0000, Steven Whitehouse wrote:
+> Hi,
+> 
+> On Tue, 2011-03-22 at 15:42 +0800, Eugene Teo wrote:
+> > Cc'ed the decnet list. Looks like it's still active even though the
+> > status is orphan.
+> > 
+> Well, kind of active :-) I don't think there is a lot of development
+> going on despite davem's recent changes to the routing code.
+> 
+> These functions are used in relation to conninit messages which, on the
+> incoming side are checked in dn_nsp_in.c:dn_find_listener() via the
+> calls to dn_check_idf() so that we should never queue an incorrectly
+> formatted message to the socket. The intent was that all messages should
+> be checked as early as possible on entry to the code so that we can then
+> rely on their content later on without needing to check again.
+> 
+> I hope that answers your question, but let me know if you need anything
+> else,
 
-I little example is maybe more clear:
-My dekstop have 2 NIC (eth0, eth1). I receive from network admin 2
-vlans. 20 untag and 21 tagged. My laptop is plugged to eth1.
-I want "export" untagged vlan 20 to eth1.
-Before 2.6.37, i do something like br0 =3D (eth0 + eth1). I put an ip o=
-n
-br0 and on eth0.21. And br0 just have untagged frame from eth0 which
-was transmitted to eth1. eth0.21 have only tagged frame from vlan 21.
-eth1 did not receive tagged vlan 21.
-After 2.6.37, i can do a bridge like before (br0 =3D eth0 + eth1) but i
-must use br0.21 to have access to vlan 21 network in my desktop. But,
-my laptop can also access to tagged vlan 21, and i don't want this.
+Thanks very much, that does clear it up.  I must have missed it because
+I was expecting it to use the array size macro (DN_MAXACCL) rather than
+a hard-coded value.  Glad it's a non-issue.
 
-A lot of old xen based setup use this behaviour.
-About my kvm test, I'm looking to the pci passtrough and macvtap, but
-this requires configuration that supports it.
-Why cannot have a eth0.U with only untagged frames?
+-Dan
 
->
->>
->>> * Use ebtables rules in the bridge to accept/reject certain packets=
- as desired.
->> I don't see how use ebtables to push untagged frame to a dedicated
->> iface which can be added in a bridge.
->
-> You could have a bridge on the raw interface and connect all of the
-> VMs that need untagged traffic. =A0If you add an ebtables rule to rej=
-ect
-> tagged traffic then vlan devices on the interface will continue to
-> work as before.
->
-If I ignores the fact that the name of the card is not fixed, i see.
-But performance will follow? I don't believe this kind of config will
-allow ~7/8Gbit/s of traffic.
-Traversing ebtables rules is not free. And starting filtering traffic
-is a really different job than just bridge cards together.
+> Steve.
+> 
+> > On Tue, Mar 22, 2011 at 7:41 AM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
+> > > In net/decnet/af_decnet.c, in the dn_access_copy() and dn_user_copy()
+> > > functions, which are called from dn_connect(), length values are
+> > > retrieved from incoming skb data and used as size values to copy
+> > > functions:
+> > >
+> > > static void dn_access_copy(struct sk_buff *skb, struct accessdata_dn *acc)
+> > > {
+> > >        unsigned char *ptr = skb->data;
+> > >
+> > >        acc->acc_userl = *ptr++;
+> > >        memcpy(&acc->acc_user, ptr, acc->acc_userl);
+> > >        ptr += acc->acc_userl;
+> > >
+> > >        acc->acc_passl = *ptr++;
+> > >        memcpy(&acc->acc_pass, ptr, acc->acc_passl);
+> > >        ptr += acc->acc_passl;
+> > >
+> > >        acc->acc_accl = *ptr++;
+> > >        memcpy(&acc->acc_acc, ptr, acc->acc_accl);
+> > >
+> > >        skb_pull(skb, acc->acc_accl + acc->acc_passl + acc->acc_userl + 3);
+> > >
+> > > }
+> > >
+> > > static void dn_user_copy(struct sk_buff *skb, struct optdata_dn *opt)
+> > > {
+> > >        unsigned char *ptr = skb->data;
+> > >        u16 len = *ptr++; /* yes, it's 8bit on the wire */
+> > >
+> > >        BUG_ON(len > 16); /* we've checked the contents earlier */
+> > >        opt->opt_optl   = cpu_to_le16(len);
+> > >        opt->opt_status = 0;
+> > >        memcpy(opt->opt_data, ptr, len);
+> > >        skb_pull(skb, len + 1);
+> > > }
+> > >
+> > >
+> > > Despite the BUG_ON and comment suggesting these lengths have been
+> > > validated, I don't think this is actually the case - it looks like these
+> > > fields are validated for outbound data, but I see no validation for
+> > > inbound data (unless I'm mistaken, which is entirely possible).  If this
+> > > is the case, this can allow remote attackers to cause controllable heap
+> > > corruption.  I'd appreciate it if someone who knows this protocol better
+> > > than I do took a look at this and implemented appropriate error handling
+> > > if it needs it.
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Regards,
 
---=20
-S=E9bastien Luttringer
-www.seblu.net
