@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix incorrect spelling in drop monitor protocol
-Date: Mon, 21 Mar 2011 18:20:53 -0700 (PDT)
-Message-ID: <20110321.182053.116381692.davem@davemloft.net>
-References: <1300739415-26656-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH] macvlan: Fix use after free of struct macvlan_port.
+Date: Mon, 21 Mar 2011 18:22:32 -0700 (PDT)
+Message-ID: <20110321.182232.200375244.davem@davemloft.net>
+References: <m1aagojhu4.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, kaber@trash.net, greearb@candelatech.com,
+	eric.dumazet@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41641
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41647
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756213Ab1CVBUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 21:20:15 -0400
-In-Reply-To: <1300739415-26656-1-git-send-email-nhorman@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1755028Ab1CVBVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 21:21:54 -0400
+In-Reply-To: <m1aagojhu4.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 21 Mar 2011 16:30:15 -0400
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 21 Mar 2011 14:15:31 -0700
 
-> It was pointed out to me recently that my spelling could be better :)
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> When the macvlan driver was extended to call unregisgter_netdevice_queue
+> in 23289a37e2b127dfc4de1313fba15bb4c9f0cd5b, a use after free of struct
+> macvlan_port was introduced.  The code in dellink relied on unregister_netdevice
+> actually unregistering the net device so it would be safe to free macvlan_port.
+> 
+> Since unregister_netdevice_queue can just queue up the unregister instead of
+> performing the unregiser immediately we free the macvlan_port too soon and
+> then the code in macvlan_stop removes the macaddress for the set of macaddress
+> to listen for and uses memory that has already been freed.
+> 
+> To fix this add a reference count to track when it is safe to free the macvlan_port
+> and move the call of macvlan_port_destroy into macvlan_uninit which is guaranteed
+> to be called after the final macvlan_port_close.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
 
-Applied, thanks Neil.
-
-Please start adding some appropriate prefixes to your patch posting
-subject lines, I added "net: " to this one, for example.
+Applied, thanks Eric.
