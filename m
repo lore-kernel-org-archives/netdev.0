@@ -1,82 +1,177 @@
-From: Jim Westfall <jwestfall@surrealistic.net>
-Subject: Re: ipv6 secondary ips and default ipv6 ip for new outbound
-	connections
-Date: Mon, 21 Mar 2011 17:15:08 -0700
-Message-ID: <20110322001508.GA13831@surrealistic.net>
-References: <20110318230312.GX13831@surrealistic.net> <4D8413BE.5000305@hp.com> <20110319033507.GY13831@surrealistic.net> <m2k4fvbks6.fsf@igel.home>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [slab poison overwritten] Re: [GIT] Networking
+Date: Tue, 22 Mar 2011 09:17:07 +0900
+Message-ID: <20110322001706.GD27019@verge.net.au>
+References: <20110321125320.GA23490@elte.hu>
+ <1300714346.2884.284.camel@edumazet-laptop>
+ <20110321161528.GA28580@elte.hu>
+ <20110321164238.GA5303@elte.hu>
+ <20110321173941.GB3892@elte.hu>
+ <1300730838.2884.578.camel@edumazet-laptop>
+ <1300738540.2837.5.camel@edumazet-laptop>
+ <20110321221357.GF22625@verge.net.au>
+ <20110321232921.GG22625@verge.net.au>
+ <20110322000130.GC27019@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
-To: Andreas Schwab <schwab@linux-m68k.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans@schillstrom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from whipper.surrealistic.net ([75.151.103.193]:43940 "EHLO
-	whipper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755293Ab1CVAPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 20:15:12 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:50146 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755044Ab1CVARM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 20:17:12 -0400
 Content-Disposition: inline
-In-Reply-To: <m2k4fvbks6.fsf@igel.home>
+In-Reply-To: <20110322000130.GC27019@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andreas Schwab <schwab@linux-m68k.org> wrote [03.19.11]:
-> Jim Westfall <jwestfall@surrealistic.net> writes:
-> 
-> > Your patch fixes it for me.
-> >
-> > # ip addr add 2600:c00:0:1::1101/64 dev eth0
-> > ~# traceroute6 www.kame.net | head -0
-> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
-> >
-> > ~# ip addr add 2600:c00:0:1::1102/64 dev eth0
-> > ~# traceroute6 www.kame.net | head -0
-> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
-> >
-> > ~# ip addr add 2600:c00:0:1::1103/64 dev eth0
-> > ~# traceroute6 www.kame.net | head -0
-> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
-> 
-> Does this also affect the selected address if use_tempaddr=2?
-> 
-> Andreas.
-> 
+On Tue, Mar 22, 2011 at 09:01:33AM +0900, Simon Horman wrote:
+> On Tue, Mar 22, 2011 at 08:29:21AM +0900, Simon Horman wrote:
+> > On Tue, Mar 22, 2011 at 07:13:58AM +0900, Simon Horman wrote:
+> > > On Mon, Mar 21, 2011 at 09:15:40PM +0100, Eric Dumazet wrote:
+> > > > Le lundi 21 mars 2011 =C3=A0 19:07 +0100, Eric Dumazet a =C3=A9=
+crit :
+> > > > > Le lundi 21 mars 2011 =C3=A0 18:39 +0100, Ingo Molnar a =C3=A9=
+crit :
+> > > > > > here's the same but with kallsyms enabled.
+> > > > > >=20
+> > > > > > Thanks,
+> > > > > >=20
+> > > > > > 	Ingo
+> > > > > >=20
+> > > > > > [    9.585627] initcall 0xffffffff81d5b806 returned 0 after=
+ 0 usecs
+> > > > > > [    9.588960] calling  0xffffffff81d5b9da @ 1
+> > > > > > [    9.592303] IPVS: Creating netns size=3D1272 id=3D0
+> > > > > > [    9.595646] IPVS: __ip_vs_control_init(): alloc_percpu.
+> > > > > > [    9.602298] IPVS: cannot register namespace.
+> > > > > > [    9.605627] IPVS: can't setup control
+> > > > >=20
+> > > > > It seems IPVS is busted in case of memory allocation error in=
+=20
+> > > > > __ip_vs_control_init()
+> > > > >=20
+> > > > > IPVS deinits its "struct netns_ipvs" space, but something (in=
+ IPVS) uses
+> > > > > it after free.
+> > > > >=20
+> > > > > __ip_vs_init() seems to be called before ip_vs_init() complet=
+es
+> > > > > correctly. We then keep in net->ipvs a pointer to some freed =
+memory.
+> > > > >=20
+> > > > > Commit 14e405461e664b7 did some changes in this area
+> > > > >=20
+> > > > > Simon, any idea ?
+> > > > >=20
+> > > > >=20
+> > > >=20
+> > > > For the time being, we can avoid the false memory allocation er=
+ror (and
+> > > > leak)
+> > >=20
+> > > Sorry, that typo is my work.
+> >=20
+> > With your patch applied I now see the following
+> >=20
+> > ffff880003bbf1a0 corresponds to &ipvs->app_key in __ip_vs_app_init(=
+).
+> > I'll continue looking into this.
+> >=20
+> > [   12.610000] IPVS: Creating netns size=3D2456 id=3D0
+> > [   12.630000] IPVS: Registered protocols (TCP, UDP, SCTP, AH, ESP)
+> > [   12.640000] BUG: key ffff880003bbf1a0 not in .data!
+> > [   12.640000] ------------[ cut here ]------------
+> > [   12.640000] WARNING: at kernel/lockdep.c:2701
+> > lockdep_init_map+0x37b/0x570()
+> > [   12.640000] Hardware name: Bochs
+> > [   12.640000] Pid: 1, comm: swapper Tainted: G        W
+> > 2.6.38-kexec-06330-g69b7efe-dirty #122
+> > [   12.650000] Call Trace:
+> > [   12.650000]  [<ffffffff8102e685>] warn_slowpath_common+0x75/0xb0
+> > [   12.650000]  [<ffffffff8102e6d5>] warn_slowpath_null+0x15/0x20
+> > [   12.650000]  [<ffffffff8105967b>] lockdep_init_map+0x37b/0x570
+> > [   12.650000]  [<ffffffff8105829d>] ? trace_hardirqs_on+0xd/0x10
+> > [   12.650000]  [<ffffffff81055ad8>] debug_mutex_init+0x38/0x50
+> > [   12.650000]  [<ffffffff8104bc4c>] __mutex_init+0x5c/0x70
+> > [   12.650000]  [<ffffffff81685ee7>] __ip_vs_app_init+0x64/0x86
+> > [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
+> > [   12.660000]  [<ffffffff811b1c33>] T.620+0x43/0x170
+> > [   12.660000]  [<ffffffff811b1e9a>] ? register_pernet_subsys+0x1a/=
+0x40
+> > [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
+> > [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
+> > [   12.660000]  [<ffffffff811b1db7>] register_pernet_operations+0x5=
+7/0xb0
+> > [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
+> > [   12.670000]  [<ffffffff811b1ea9>] register_pernet_subsys+0x29/0x=
+40
+> > [   12.670000]  [<ffffffff81685f19>] ip_vs_app_init+0x10/0x12
+> > [   12.670000]  [<ffffffff81685a87>] ip_vs_init+0x4c/0xff
+> > [   12.670000]  [<ffffffff8166562c>] do_one_initcall+0x7a/0x12e
+> > [   12.670000]  [<ffffffff8166583e>] kernel_init+0x13e/0x1c2
+> > [   12.670000]  [<ffffffff8128c134>] kernel_thread_helper+0x4/0x10
+> > [   12.670000]  [<ffffffff8128ad40>] ? restore_args+0x0/0x30
+> > [   12.680000]  [<ffffffff81665700>] ? kernel_init+0x0/0x1c2
+> > [   12.680000]  [<ffffffff8128c130>] ? kernel_thread_helper+0x0/0x1=
+0
+> > [   12.680000] ---[ end trace 4eaa2a86a8e2da23 ]---
+>=20
+> It seems that the problem above was introduced by
+> ab8a5e8408c3 ("IPVS: netns awareness to ip_vs_app").
+> I assume the hungs are the cause:
 
-I am new to using temp addresses, but it appears to be working as 
-expected.
+s/hungs/hunks below/
 
-With the interface down I set use_tempaddr=2, brought the interface up 
-and added my 2 static ipv6 ips, then ran rdisc6 on the interface.
+I am a little unsure of what to do about this.
 
-This resulted in the following 
+The problem seems to be that ipvs->app_key is not in static storage.
+But I'm not sure how to resolve that given that the struct netns_ipvs i=
+s
+per-network namespace. So I guess that the locking needs to be re-worke=
+d.
+Again, I'm a little unsure of what the best way forward is.
 
-13: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN
-    link/ether 00:10:18:17:a0:e6 brd ff:ff:ff:ff:ff:ff
-    inet6 2600:c00:1002:2::101/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 2600:c00:1002:2::102/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 2600:c00:1002:2:210:18ff:fe17:a0e6/64 scope global dynamic
-       valid_lft 2591996sec preferred_lft 604796sec
-    inet6 2600:c00:1002:2:ccd2:cf82:efb0:8dc5/64 scope global temporary dynamic
-       valid_lft 604796sec preferred_lft 85796sec
-    inet6 fe80::210:18ff:fe17:a0e6/64 scope link
-       valid_lft forever preferred_lft forever
-
-~# traceroute6 www.kame.net
-traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:1002:2:ccd2:cf82:efb0:8dc5, 30 hops max, 16 byte packets
-
-It correctly sourced from 2600:c00:1002:2:ccd2:cf82:efb0:8dc5.
-
-I repeated the same steps but reset use_tempaddr=1
-
-~# traceroute6 www.kame.net
-traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:1002:2::101, 30 hops max, 16 byte packets
-
-For which 2600:c00:1002:2::101 was my first added static ip.
-
-In testing the above I observed that downing the interface resulted in 
-all ipv6 addressing being removed.  Is this expected?  I can see 
-removing the dynamic/temp addresses, but seems weird for the statics I 
-added.
-
-thanks
-Jim
+> diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_v=
+s_app.c
+> index 40b09cc..286f465 100644
+> --- a/net/netfilter/ipvs/ip_vs_app.c
+> +++ b/net/netfilter/ipvs/ip_vs_app.c
+> @@ -43,11 +43,6 @@ EXPORT_SYMBOL(register_ip_vs_app);
+>  EXPORT_SYMBOL(unregister_ip_vs_app);
+>  EXPORT_SYMBOL(register_ip_vs_app_inc);
+> =20
+> -/* ipvs application list head */
+> -static LIST_HEAD(ip_vs_app_list);
+> -static DEFINE_MUTEX(__ip_vs_app_mutex);
+> -
+> -
+>  /*
+>   *	Get an ip_vs_app object
+>   */
+>=20
+> @@ -571,9 +580,13 @@ static const struct file_operations ip_vs_app_fo=
+ps =3D {
+> =20
+>  static int __net_init __ip_vs_app_init(struct net *net)
+>  {
+> +	struct netns_ipvs *ipvs =3D net_ipvs(net);
+> +
+>  	if (!net_eq(net, &init_net))	/* netns not enabled yet */
+>  		return -EPERM;
+> =20
+> +	INIT_LIST_HEAD(&ipvs->app_list);
+> +	__mutex_init(&ipvs->app_mutex, "ipvs->app_mutex", &ipvs->app_key);
+>  	proc_net_fops_create(net, "ip_vs_app", 0, &ip_vs_app_fops);
+>  	return 0;
+>  }
