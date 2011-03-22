@@ -1,82 +1,47 @@
-From: =?utf-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: [PATCH 4/4] drivers/net/fec: Don't mess with configured MAC addresses.
-Date: Tue, 22 Mar 2011 11:00:02 +0100
-Message-ID: <e7cec31bec3eb7dad56688c4390a59f99625ea83.1300724245.git.LW@KARO-electronics.de>
-References: <20110322092256.GG28098@S2100-06.ap.freescale.net>
- <49cf2dff25189eb7b7a0ff9eaceefab359f08b2e.1300724245.git.LW@KARO-electronics.de>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [GIT] Networking
+Date: Tue, 22 Mar 2011 11:00:10 +0100
+Message-ID: <20110322100010.GB26130@elte.hu>
+References: <20110320.195156.226769634.davem@davemloft.net>
+ <AANLkTinN3qszBjbJdkXb2TPBkAW0mXGC=Ri1zKL9gdNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shawn Guo <shawn.guo@freescale.com>,
-	<u.kleine-koenig@pengutronix.de>,
-	=?utf-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.karo-electronics.de ([81.173.242.67]:53113 "EHLO
-	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751754Ab1CVKAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 06:00:05 -0400
-In-Reply-To: <49cf2dff25189eb7b7a0ff9eaceefab359f08b2e.1300724245.git.LW@KARO-electronics.de>
-In-Reply-To: <49cf2dff25189eb7b7a0ff9eaceefab359f08b2e.1300724245.git.LW@KARO-electronics.de>
-References: <4034db082a05693893d24f4b0db4063b84d8c268.1300724245.git.LW@KARO-electronics.de>,
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTinN3qszBjbJdkXb2TPBkAW0mXGC=Ri1zKL9gdNg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The FEC driver currently uses the MAC address assigned to the first
-interface incremented by one for the second interface.
 
-Change this to be able to configure distinct MAC addresses via
-platform_data.
+* Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-Signed-off-by: Lothar Wa=C3=9Fmann <LW@KARO-electronics.de>
----
- drivers/net/fec.c |    9 ++-------
- 1 files changed, 2 insertions(+), 7 deletions(-)
+> On Sun, Mar 20, 2011 at 7:51 PM, David Miller <davem@davemloft.net> w=
+rote:
+> >
+> > 1) The R8169 PHY fix from Eric Dumazet, which I see you've added to
+> > =A0 your tree too. :-)
+>=20
+> Yeah, since my machine didn't have networking without it, and I could
+> test it myself, I didn't wait to pull.
+>=20
+> That said, I'm delaying this pull request due to the known issues wit=
+h
+> it - let me know when you've updated it with the fix for the
+> use-after-free fixes and the slab corruptor (the latter of which I
+> haven't seen a patch for yet)
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 3666524..9d89e99 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -736,7 +736,7 @@ static void __inline__ fec_get_mac(struct net_devic=
-e *ndev)
- {
- 	struct fec_enet_private *fep =3D netdev_priv(ndev);
- 	struct fec_platform_data *pdata =3D fep->pdev->dev.platform_data;
--	unsigned char *iap, tmpaddr[ETH_ALEN];
-+	unsigned char iap[ETH_ALEN], tmpaddr[ETH_ALEN];
-=20
- 	/*
- 	 * try to get mac address in following order:
-@@ -744,7 +744,10 @@ static void __inline__ fec_get_mac(struct net_devi=
-ce *ndev)
- 	 * 1) module parameter via kernel command line in form
- 	 *    fec.macaddr=3D0x00,0x04,0x9f,0x01,0x30,0xe0
- 	 */
--	iap =3D macaddr;
-+	if (fep->pdev->id =3D=3D 0)
-+		memcpy(iap, macaddr, ETH_ALEN);
-+	else
-+		memset(iap, 0, ETH_ALEN);
-=20
- 	/*
- 	 * 2) from flash or fuse (via platform data)
-@@ -767,14 +770,10 @@ static void __inline__ fec_get_mac(struct net_dev=
-ice *ndev)
- 			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
- 		*((unsigned short *) &tmpaddr[4]) =3D
- 			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
--		iap =3D &tmpaddr[0];
-+		memcpy(iap, tmpaddr, ETH_ALEN);
- 	}
-=20
- 	memcpy(ndev->dev_addr, iap, ETH_ALEN);
--
--	/* Adjust MAC if using macaddr */
--	if (iap =3D=3D macaddr)
--		 ndev->dev_addr[ETH_ALEN-1] =3D macaddr[ETH_ALEN-1] + fep->pdev->id;
- }
-=20
- /* -------------------------------------------------------------------=
------- */
---=20
-1.5.6.5
+All problems i was able to trigger in this area are fixed by these patc=
+hes:
+
+ ipvs: Fix a typo in __ip_vs_control_init()
+ IPVS: Use global mutex in ip_vs_app.c
+ ipx: Fix ipx_release()
+ net/appletalk: fix atalk_release use after free
+
+Thanks,
+
+	Ingo
