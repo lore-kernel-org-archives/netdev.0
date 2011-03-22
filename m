@@ -1,41 +1,157 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] veth: Fix the byte counters
-Date: Mon, 21 Mar 2011 18:25:03 -0700 (PDT)
-Message-ID: <20110321.182503.258117496.davem@davemloft.net>
-References: <m1oc54i242.fsf@fess.ebiederm.org>
+From: Samuel Jero <sj323707@ohio.edu>
+Subject: Re: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
+ after receiving the Confirm option
+Date: Mon, 21 Mar 2011 21:49:03 -0400
+Message-ID: <4D88000F.80704@ohio.edu>
+References: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk> <1299559831.7569.41.camel@jero-laptop> <20110311113042.GB4876@gerrit.erg.abdn.ac.uk> <1300048497.31664.158.camel@jero-laptop> <20110314115501.GB4631@gerrit.erg.abdn.ac.uk> <1300164791.20638.64.camel@jero-laptop> <20110318113052.GA5508@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mirq-linux@rere.qmqm.pl,
-	eric.dumazet@gmail.com, arnd@arndb.de, greearb@candelatech.com,
-	kaber@trash.net, daniel.lezcano@free.fr, xemul@openvz.org
-To: ebiederm@xmission.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature";
+	boundary="------------enigEE9D2D32C7F44E6361E34BBD"
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>, <dccp@vger.kernel.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54864
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754840Ab1CVBYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 21:24:25 -0400
-In-Reply-To: <m1oc54i242.fsf@fess.ebiederm.org>
+Received: from bay0-omc2-s16.bay0.hotmail.com ([65.54.190.91]:55664 "EHLO
+	bay0-omc2-s16.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932077Ab1CVBtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 21:49:16 -0400
+In-Reply-To: <20110318113052.GA5508@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 21 Mar 2011 14:40:29 -0700
+--------------enigEE9D2D32C7F44E6361E34BBD
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> Commit 44540960 "veth: move loopback logic to common location" introduced
-> a bug in the packet counters.  I don't understand why that happened as it
-> is not explained in the comments and the mut check in dev_forward_skb
-> retains the assumption that skb->len is the total length of the packet.
-> 
-> I just measured this emperically by setting up a veth pair between two
-> noop network namespaces setting and attempting a telnet connection between
-> the two.  I saw three packets in each direction and the byte counters were
-> exactly 14*3 = 42 bytes high in each direction.  I got the actual
-> packet lengths with tcpdump.
-> 
-> So remove the extra ETH_HLEN from the veth byte count totals.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+> I have revised the patch set addressing the following comments of this =
+thread:
+>=20
+>  1) Renamed function to dccp_feat_nn_get().
+>  2) Added test to ensure that function is called for NN
+>     features back in.
+>  3) Replaced ccid2_ack_ratio_next() with calls to that
+>     function (dccp_feat_nn_get(sk, DCCPF_ACK_RATIO)).
+>  4) Replaced check for dccps_l_seq_win in ccid2_change_l_seq_window=20
+>     with call to dccp_feat_nn_get(sk, DCCPF_SEQUENCE_WINDOW)
+>     (for similar calls see separate, attached patch).
+>  5) De-inlined ccid2_ack_ratio_next() wrapper as discussed.
+>  6) Updated remaining patches with regard to 1-4.
 
-Applied, thanks.
+Patch Set looks good except for the very last one ("replace remaining
+references to local Sequence Window value"). See below for comments
+about that patch.
+
+
+> | > If low_threshold =3D=3D high_threshold, it oscillates. I think you =
+have already done
+> | > some work on this in the code using CCID2_WIN_CHANGE_FACTOR.
+> |=20
+> | I'm not entirely certain what low_threshold and high_threshold you ar=
+e
+> | talking about. I have not seen sequence window oscillations other as =
+the
+> | congestion window oscillates in congestion avoidance as is expected.
+> |
+> I meant a Schmitt Trigger like behaviour:
+>  * low_threshold: to change from lower value to higher value=20
+>  * hi_threshold:  to revert from higher value back to lower value
+> In these electronic devices there is a gap between low and hi, to avoid=
+ fluctuations.
+> Also audio effect gates have a similar setting.
+
+That makes sense now. Thanks for the explanation. I didn't write the
+current code with that in mind. However, it does a good job at avoiding
+oscillation most of the time.
+
+
+Below is the very last patch you added to the test tree. I believe both
+of the changes made are not needed. See comments inline.
+> dccp ccid-2: replace remaining references to local Sequence Window valu=
+e
+>=20
+> This replaces the remaining references to dccps_l_seq_win with the corr=
+esponding
+> call to retrieve the current (STABLE if not in negotiation, CHANGING if=
+ being
+> negotiated) value of the feature-local sequence window.
+>=20
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> ---
+>  net/dccp/ccids/ccid2.c |   12 ++++++------
+>  1 file changed, 6 insertions(+), 6 deletions(-)
+>=20
+> --- a/net/dccp/ccids/ccid2.c
+> +++ b/net/dccp/ccids/ccid2.c
+> @@ -441,10 +441,10 @@ static void ccid2_new_ack(struct sock *s
+>  {
+>  	struct ccid2_hc_tx_sock *hc =3D ccid2_hc_tx_sk(sk);
+>  	struct dccp_sock *dp =3D dccp_sk(sk);
+> +	u64 l_seq_win =3D dccp_feat_nn_get(sk, DCCPF_SEQUENCE_WINDOW);
+>  	int r_seq_used =3D hc->tx_cwnd / dp->dccps_l_ack_ratio;
+> =20
+> -	if (hc->tx_cwnd < dp->dccps_l_seq_win &&
+> -	    r_seq_used < dp->dccps_r_seq_win) {
+> +	if (hc->tx_cwnd < l_seq_win && r_seq_used < dp->dccps_r_seq_win) {
+>  		if (hc->tx_cwnd < hc->tx_ssthresh) {
+>  			if (*maxincr > 0 && ++hc->tx_packets_acked >=3D 2) {
+>  				hc->tx_cwnd +=3D 1;
+
+In this case I believe we want to wait and use the confirmed sequence
+window size (like the unmodified code does).
+
+Using the currently negotiating value could result in a congestion
+window much larger than the current sequence window (particularly if the
+change below is used). This could cause the validity checking code
+(dccp_check_seqno) to reject received packets (prior to the confirm) as
+sequence invalid. Further, we essentially move back to changing the
+effective sequence window before sending the confirm.
+
+
+> @@ -466,10 +466,10 @@ static void ccid2_new_ack(struct sock *s
+>  	else if (r_seq_used * CCID2_WIN_CHANGE_FACTOR < dp->dccps_r_seq_win/2=
+)
+>  		ccid2_change_l_ack_ratio(sk, dp->dccps_l_ack_ratio / 2 ? : 1U);
+> =20
+> -	if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR >=3D dp->dccps_l_seq_win)
+> -		ccid2_change_l_seq_window(sk, dp->dccps_l_seq_win * 2);
+> -	else if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR < dp->dccps_l_seq_win/=
+2)
+> -		ccid2_change_l_seq_window(sk, dp->dccps_l_seq_win / 2);
+> +	if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR >=3D l_seq_win)
+> +		ccid2_change_l_seq_window(sk, l_seq_win * 2);
+> +	else if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR < l_seq_win / 2)
+> +		ccid2_change_l_seq_window(sk, l_seq_win / 2);
+> =20
+>  	/*
+>  	 * FIXME: RTT is sampled several times per acknowledgment (for each
+
+Here again, I believe we want to wait and use the confirmed sequence
+window size (like the unmodified code does).
+
+Using the currently negotiating value could result in never increasing
+the actual sequence window---We ignore confirms for old values so if
+begin negotiating a new value before we confirm the previous value we
+run the risk of attempting to negotiate a new value several times an
+RTT, which results in always receiving (and ignoring) old values.
+
+
+Samuel Jero
+Internetworking Research Group
+Ohio University
+
+
+--------------enigEE9D2D32C7F44E6361E34BBD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk2IAA8ACgkQEwoGUlJjrt8uKQCfQxNrJPjoxqUOllSAGp1SoIgJ
+SmEAn1e41L02yciH+/fp94/nm9iN41S3
+=Ul7/
+-----END PGP SIGNATURE-----
+
+--------------enigEE9D2D32C7F44E6361E34BBD--
