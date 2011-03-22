@@ -1,140 +1,92 @@
-From: Sriramakrishnan A G <srk@ti.com>
-Subject: [PATCHv2] net: davinci_emac:Fix translation logic for buffer descriptor
-Date: Tue, 22 Mar 2011 18:01:03 +0530
-Message-ID: <1300797063-13558-1-git-send-email-srk@ti.com>
-Cc: davinci-linux-open-source@linux.davincidsp.com,
-	davem@davemloft.net, srk@ti.com, sshtylyov@mvista.com
-To: netdev@vger.kernel.org
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH 4/4] drivers/net/fec: Don't mess with configured MAC
+ addresses.
+Date: Tue, 22 Mar 2011 20:33:17 +0800
+Message-ID: <20110322123316.GH28098@S2100-06.ap.freescale.net>
+References: <4034db082a05693893d24f4b0db4063b84d8c268.1300724245.git.LW@KARO-electronics.de>
+ <e7cec31bec3eb7dad56688c4390a59f99625ea83.1300724245.git.LW@KARO-electronics.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <u.kleine-koenig@pengutronix.de>
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:51834 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755120Ab1CVMbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2011 08:31:16 -0400
+Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.185]:47128
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755762Ab1CVMci convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2011 08:32:38 -0400
+Content-Disposition: inline
+In-Reply-To: <e7cec31bec3eb7dad56688c4390a59f99625ea83.1300724245.git.LW@KARO-electronics.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With recent changes to the driver(switch to new cpdma layer),
-the support for buffer descriptor address translation logic
-is broken. This affects platforms where the physical address of
-the descriptors as seen by the DMA engine is different from the
-physical address.
+On Tue, Mar 22, 2011 at 11:00:02AM +0100, Lothar Wa=DFmann wrote:
+> The FEC driver currently uses the MAC address assigned to the first
+> interface incremented by one for the second interface.
+>=20
+> Change this to be able to configure distinct MAC addresses via
+> platform_data.
+>=20
+> Signed-off-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
 
-Original Patch adding translation logic support:
-Commit: ad021ae8862209864dc8ebd3b7d3a55ce84b9ea2
+Acked-by: <shawn.guo@freescale.com>
 
-Signed-off-by: Sriramakrishnan A G <srk@ti.com>
----
-Addresses review comments from Sergei. Generated against tip of Linus tree.
+--=20
+Regards,
+Shawn
 
- drivers/net/davinci_cpdma.c  |   11 ++++++++---
- drivers/net/davinci_cpdma.h  |    1 +
- drivers/net/davinci_emac.c   |    5 ++++-
- include/linux/davinci_emac.h |    1 +
- 4 files changed, 14 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/davinci_cpdma.c b/drivers/net/davinci_cpdma.c
-index e92b2b6..ae47f23 100644
---- a/drivers/net/davinci_cpdma.c
-+++ b/drivers/net/davinci_cpdma.c
-@@ -76,6 +76,7 @@ struct cpdma_desc {
- 
- struct cpdma_desc_pool {
- 	u32			phys;
-+	u32			hw_addr;
- 	void __iomem		*iomap;		/* ioremap map */
- 	void			*cpumap;	/* dma_alloc map */
- 	int			desc_size, mem_size;
-@@ -137,7 +138,8 @@ struct cpdma_chan {
-  * abstract out these details
-  */
- static struct cpdma_desc_pool *
--cpdma_desc_pool_create(struct device *dev, u32 phys, int size, int align)
-+cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
-+				int size, int align)
- {
- 	int bitmap_size;
- 	struct cpdma_desc_pool *pool;
-@@ -161,10 +163,12 @@ cpdma_desc_pool_create(struct device *dev, u32 phys, int size, int align)
- 	if (phys) {
- 		pool->phys  = phys;
- 		pool->iomap = ioremap(phys, size);
-+		pool->hw_addr = hw_addr;
- 	} else {
- 		pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
- 						  GFP_KERNEL);
- 		pool->iomap = (void __force __iomem *)pool->cpumap;
-+		pool->hw_addr = pool->phys;
- 	}
- 
- 	if (pool->iomap)
-@@ -201,14 +205,14 @@ static inline dma_addr_t desc_phys(struct cpdma_desc_pool *pool,
- {
- 	if (!desc)
- 		return 0;
--	return pool->phys + (__force dma_addr_t)desc -
-+	return pool->hw_addr + (__force dma_addr_t)desc -
- 			    (__force dma_addr_t)pool->iomap;
- }
- 
- static inline struct cpdma_desc __iomem *
- desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
- {
--	return dma ? pool->iomap + dma - pool->phys : NULL;
-+	return dma ? pool->iomap + dma - pool->hw_addr : NULL;
- }
- 
- static struct cpdma_desc __iomem *
-@@ -260,6 +264,7 @@ struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
- 
- 	ctlr->pool = cpdma_desc_pool_create(ctlr->dev,
- 					    ctlr->params.desc_mem_phys,
-+					    ctlr->params.desc_hw_addr,
- 					    ctlr->params.desc_mem_size,
- 					    ctlr->params.desc_align);
- 	if (!ctlr->pool) {
-diff --git a/drivers/net/davinci_cpdma.h b/drivers/net/davinci_cpdma.h
-index 868e50e..afa19a0 100644
---- a/drivers/net/davinci_cpdma.h
-+++ b/drivers/net/davinci_cpdma.h
-@@ -33,6 +33,7 @@ struct cpdma_params {
- 	bool			has_soft_reset;
- 	int			min_packet_size;
- 	u32			desc_mem_phys;
-+	u32			desc_hw_addr;
- 	int			desc_mem_size;
- 	int			desc_align;
- 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 082d6ea..baca6bf 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -1854,10 +1854,13 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 	dma_params.rxcp			= priv->emac_base + 0x660;
- 	dma_params.num_chan		= EMAC_MAX_TXRX_CHANNELS;
- 	dma_params.min_packet_size	= EMAC_DEF_MIN_ETHPKTSIZE;
--	dma_params.desc_mem_phys	= hw_ram_addr;
-+	dma_params.desc_hw_addr		= hw_ram_addr;
- 	dma_params.desc_mem_size	= pdata->ctrl_ram_size;
- 	dma_params.desc_align		= 16;
- 
-+	dma_params.desc_mem_phys = pdata->no_bd_ram ? 0 :
-+			(u32 __force)res->start + pdata->ctrl_ram_offset;
-+
- 	priv->dma = cpdma_ctlr_create(&dma_params);
- 	if (!priv->dma) {
- 		dev_err(emac_dev, "DaVinci EMAC: Error initializing DMA\n");
-diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
-index 5dd4285..5428885 100644
---- a/include/linux/davinci_emac.h
-+++ b/include/linux/davinci_emac.h
-@@ -36,6 +36,7 @@ struct emac_platform_data {
- 
- 	u8 rmii_en;
- 	u8 version;
-+	bool no_bd_ram;
- 	void (*interrupt_enable) (void);
- 	void (*interrupt_disable) (void);
- };
--- 
-1.6.2.4
+> ---
+>  drivers/net/fec.c |    9 ++-------
+>  1 files changed, 2 insertions(+), 7 deletions(-)
+>=20
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 3666524..9d89e99 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -736,7 +736,7 @@ static void __inline__ fec_get_mac(struct net_dev=
+ice *ndev)
+>  {
+>  	struct fec_enet_private *fep =3D netdev_priv(ndev);
+>  	struct fec_platform_data *pdata =3D fep->pdev->dev.platform_data;
+> -	unsigned char *iap, tmpaddr[ETH_ALEN];
+> +	unsigned char iap[ETH_ALEN], tmpaddr[ETH_ALEN];
+> =20
+>  	/*
+>  	 * try to get mac address in following order:
+> @@ -744,7 +744,10 @@ static void __inline__ fec_get_mac(struct net_de=
+vice *ndev)
+>  	 * 1) module parameter via kernel command line in form
+>  	 *    fec.macaddr=3D0x00,0x04,0x9f,0x01,0x30,0xe0
+>  	 */
+> -	iap =3D macaddr;
+> +	if (fep->pdev->id =3D=3D 0)
+> +		memcpy(iap, macaddr, ETH_ALEN);
+> +	else
+> +		memset(iap, 0, ETH_ALEN);
+> =20
+>  	/*
+>  	 * 2) from flash or fuse (via platform data)
+> @@ -767,14 +770,10 @@ static void __inline__ fec_get_mac(struct net_d=
+evice *ndev)
+>  			be32_to_cpu(readl(fep->hwp + FEC_ADDR_LOW));
+>  		*((unsigned short *) &tmpaddr[4]) =3D
+>  			be16_to_cpu(readl(fep->hwp + FEC_ADDR_HIGH) >> 16);
+> -		iap =3D &tmpaddr[0];
+> +		memcpy(iap, tmpaddr, ETH_ALEN);
+>  	}
+> =20
+>  	memcpy(ndev->dev_addr, iap, ETH_ALEN);
+> -
+> -	/* Adjust MAC if using macaddr */
+> -	if (iap =3D=3D macaddr)
+> -		 ndev->dev_addr[ETH_ALEN-1] =3D macaddr[ETH_ALEN-1] + fep->pdev->i=
+d;
+>  }
+> =20
+>  /* -----------------------------------------------------------------=
+-------- */
+> --=20
+> 1.5.6.5
+>=20
 
