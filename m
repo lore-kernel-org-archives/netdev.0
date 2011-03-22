@@ -1,49 +1,82 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH][v3] dev : fix mtu check when TSO is enabled
-Date: Tue, 22 Mar 2011 01:05:46 +0100
-Message-ID: <AANLkTikhqMdLV4jObYNuFcxmwFMkuLKJ+d1xtjw83Jou@mail.gmail.com>
-References: <1300135190-14093-1-git-send-email-daniel.lezcano@free.fr> <20110314.165929.232913682.davem@davemloft.net>
+From: Jim Westfall <jwestfall@surrealistic.net>
+Subject: Re: ipv6 secondary ips and default ipv6 ip for new outbound
+	connections
+Date: Mon, 21 Mar 2011 17:15:08 -0700
+Message-ID: <20110322001508.GA13831@surrealistic.net>
+References: <20110318230312.GX13831@surrealistic.net> <4D8413BE.5000305@hp.com> <20110319033507.GY13831@surrealistic.net> <m2k4fvbks6.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: daniel.lezcano@free.fr, eric.dumazet@gmail.com, kaber@trash.net,
-	nightnord@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Brian Haley <brian.haley@hp.com>, netdev@vger.kernel.org
+To: Andreas Schwab <schwab@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:43681 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500Ab1CVAGI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 20:06:08 -0400
-Received: by qyg14 with SMTP id 14so5534540qyg.19
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 17:06:07 -0700 (PDT)
-In-Reply-To: <20110314.165929.232913682.davem@davemloft.net>
+Received: from whipper.surrealistic.net ([75.151.103.193]:43940 "EHLO
+	whipper.surrealistic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755293Ab1CVAPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 20:15:12 -0400
+Content-Disposition: inline
+In-Reply-To: <m2k4fvbks6.fsf@igel.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/3/15 David Miller <davem@davemloft.net>:
-> From: Daniel Lezcano <daniel.lezcano@free.fr>
-> Date: Mon, 14 Mar 2011 21:39:50 +0100
->> +
->> + =C2=A0 =C2=A0 /* if TSO is enabled, we don't care about the length=
- as the packet
->> + =C2=A0 =C2=A0 =C2=A0* could be forwarded without being segmented b=
-efore
->> + =C2=A0 =C2=A0 =C2=A0*/
->> + =C2=A0 =C2=A0 if (skb->dev && skb->dev->features & NETIF_F_TSO)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return true;
-> I am trying to understand why you aren't simply checking also if this
-> is a segmented frame? =C2=A0Perhaps skb_is_gso() && device has NETIF_=
-=46_TSO
-> set?
+Andreas Schwab <schwab@linux-m68k.org> wrote [03.19.11]:
+> Jim Westfall <jwestfall@surrealistic.net> writes:
+> 
+> > Your patch fixes it for me.
+> >
+> > # ip addr add 2600:c00:0:1::1101/64 dev eth0
+> > ~# traceroute6 www.kame.net | head -0
+> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+> >
+> > ~# ip addr add 2600:c00:0:1::1102/64 dev eth0
+> > ~# traceroute6 www.kame.net | head -0
+> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+> >
+> > ~# ip addr add 2600:c00:0:1::1103/64 dev eth0
+> > ~# traceroute6 www.kame.net | head -0
+> > traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:0:1::1101, 30 hops max, 16 byte packets
+> 
+> Does this also affect the selected address if use_tempaddr=2?
+> 
+> Andreas.
+> 
 
-Is the check of netdev features even necessary? Devices without TSO
-enabled the skbs are segmented before ndo_start_xmit() anyway.
+I am new to using temp addresses, but it appears to be working as 
+expected.
 
-With TSO there's a question if the receiving end of macvlan can handle
-GRO/LRO packets?
+With the interface down I set use_tempaddr=2, brought the interface up 
+and added my 2 static ipv6 ips, then ran rdisc6 on the interface.
 
-BTW, checking only NETIF_F_TSO will break at least for IPv6 TSO
-(NETIF_F_TSO6) or whatever else can be segmented in hardware.
+This resulted in the following 
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+13: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN
+    link/ether 00:10:18:17:a0:e6 brd ff:ff:ff:ff:ff:ff
+    inet6 2600:c00:1002:2::101/64 scope global
+       valid_lft forever preferred_lft forever
+    inet6 2600:c00:1002:2::102/64 scope global
+       valid_lft forever preferred_lft forever
+    inet6 2600:c00:1002:2:210:18ff:fe17:a0e6/64 scope global dynamic
+       valid_lft 2591996sec preferred_lft 604796sec
+    inet6 2600:c00:1002:2:ccd2:cf82:efb0:8dc5/64 scope global temporary dynamic
+       valid_lft 604796sec preferred_lft 85796sec
+    inet6 fe80::210:18ff:fe17:a0e6/64 scope link
+       valid_lft forever preferred_lft forever
+
+~# traceroute6 www.kame.net
+traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:1002:2:ccd2:cf82:efb0:8dc5, 30 hops max, 16 byte packets
+
+It correctly sourced from 2600:c00:1002:2:ccd2:cf82:efb0:8dc5.
+
+I repeated the same steps but reset use_tempaddr=1
+
+~# traceroute6 www.kame.net
+traceroute to orange.kame.net (2001:200:dff:fff1:216:3eff:feb1:44d7) from 2600:c00:1002:2::101, 30 hops max, 16 byte packets
+
+For which 2600:c00:1002:2::101 was my first added static ip.
+
+In testing the above I observed that downing the interface resulted in 
+all ipv6 addressing being removed.  Is this expected?  I can see 
+removing the dynamic/temp addresses, but seems weird for the statics I 
+added.
+
+thanks
+Jim
