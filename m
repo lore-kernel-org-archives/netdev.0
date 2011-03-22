@@ -1,34 +1,39 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH 2/4] drivers/net/fec: Use constants instead of magic
- numbers
-Date: Tue, 22 Mar 2011 10:50:00 +0800
-Message-ID: <20110322025000.GC28098@S2100-06.ap.freescale.net>
-References: <4034db082a05693893d24f4b0db4063b84d8c268.1300724245.git.LW@KARO-electronics.de>
- <264d7eca14554038e57399850ddd7fa4491a7484.1300724245.git.LW@KARO-electronics.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [slab poison overwritten] Re: [GIT] Networking
+Date: Mon, 21 Mar 2011 20:39:41 -0700 (PDT)
+Message-ID: <20110321.203941.68142922.davem@davemloft.net>
+References: <1300730838.2884.578.camel@edumazet-laptop>
+	<1300738540.2837.5.camel@edumazet-laptop>
+	<20110321221357.GF22625@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <u.kleine-koenig@pengutronix.de>
-To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, mingo@elte.hu,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	a.p.zijlstra@chello.nl, tglx@linutronix.de, arnd@arndb.de,
+	penberg@cs.helsinki.fi, ja@ssi.bg
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1.bigfish.com ([213.199.180.138]:37996 "EHLO
-	AM1EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751494Ab1CVDFy convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2011 23:05:54 -0400
-Content-Disposition: inline
-In-Reply-To: <264d7eca14554038e57399850ddd7fa4491a7484.1300724245.git.LW@KARO-electronics.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47397
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751104Ab1CVDjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 23:39:04 -0400
+In-Reply-To: <20110321221357.GF22625@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 21, 2011 at 05:37:34PM +0100, Lothar Wa=DFmann wrote:
-> - No functional change.
->=20
-> Signed-off-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 22 Mar 2011 07:13:58 +0900
 
-Acked-by: Shawn Guo <shawn.guo@freescale.com>
+> On Mon, Mar 21, 2011 at 09:15:40PM +0100, Eric Dumazet wrote:
+>> [PATCH] ipvs: fix a typo in __ip_vs_control_init()
+>> 
+>> Reported-by: Ingo Molnar <mingo@elte.hu>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Cc: Simon Horman <horms@verge.net.au>
+>> Cc: Julian Anastasov <ja@ssi.bg>
+> 
+> Acked-by: Simon Horman <horms@verge.net.au>
 
---=20
-Regards,
-Shawn
-
+Applied.
