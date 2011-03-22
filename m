@@ -1,163 +1,49 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [slab poison overwritten] Re: [GIT] Networking
-Date: Tue, 22 Mar 2011 09:01:33 +0900
-Message-ID: <20110322000130.GC27019@verge.net.au>
-References: <20110320.195156.226769634.davem@davemloft.net>
- <20110321125320.GA23490@elte.hu>
- <1300714346.2884.284.camel@edumazet-laptop>
- <20110321161528.GA28580@elte.hu>
- <20110321164238.GA5303@elte.hu>
- <20110321173941.GB3892@elte.hu>
- <1300730838.2884.578.camel@edumazet-laptop>
- <1300738540.2837.5.camel@edumazet-laptop>
- <20110321221357.GF22625@verge.net.au>
- <20110321232921.GG22625@verge.net.au>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH][v3] dev : fix mtu check when TSO is enabled
+Date: Tue, 22 Mar 2011 01:05:46 +0100
+Message-ID: <AANLkTikhqMdLV4jObYNuFcxmwFMkuLKJ+d1xtjw83Jou@mail.gmail.com>
+References: <1300135190-14093-1-git-send-email-daniel.lezcano@free.fr> <20110314.165929.232913682.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: daniel.lezcano@free.fr, eric.dumazet@gmail.com, kaber@trash.net,
+	nightnord@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57873 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754986Ab1CVABj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 20:01:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20110321232921.GG22625@verge.net.au>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:43681 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500Ab1CVAGI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2011 20:06:08 -0400
+Received: by qyg14 with SMTP id 14so5534540qyg.19
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2011 17:06:07 -0700 (PDT)
+In-Reply-To: <20110314.165929.232913682.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 22, 2011 at 08:29:21AM +0900, Simon Horman wrote:
-> On Tue, Mar 22, 2011 at 07:13:58AM +0900, Simon Horman wrote:
-> > On Mon, Mar 21, 2011 at 09:15:40PM +0100, Eric Dumazet wrote:
-> > > Le lundi 21 mars 2011 =C3=A0 19:07 +0100, Eric Dumazet a =C3=A9cr=
-it :
-> > > > Le lundi 21 mars 2011 =C3=A0 18:39 +0100, Ingo Molnar a =C3=A9c=
-rit :
-> > > > > here's the same but with kallsyms enabled.
-> > > > >=20
-> > > > > Thanks,
-> > > > >=20
-> > > > > 	Ingo
-> > > > >=20
-> > > > > [    9.585627] initcall 0xffffffff81d5b806 returned 0 after 0=
- usecs
-> > > > > [    9.588960] calling  0xffffffff81d5b9da @ 1
-> > > > > [    9.592303] IPVS: Creating netns size=3D1272 id=3D0
-> > > > > [    9.595646] IPVS: __ip_vs_control_init(): alloc_percpu.
-> > > > > [    9.602298] IPVS: cannot register namespace.
-> > > > > [    9.605627] IPVS: can't setup control
-> > > >=20
-> > > > It seems IPVS is busted in case of memory allocation error in=20
-> > > > __ip_vs_control_init()
-> > > >=20
-> > > > IPVS deinits its "struct netns_ipvs" space, but something (in I=
-PVS) uses
-> > > > it after free.
-> > > >=20
-> > > > __ip_vs_init() seems to be called before ip_vs_init() completes
-> > > > correctly. We then keep in net->ipvs a pointer to some freed me=
-mory.
-> > > >=20
-> > > > Commit 14e405461e664b7 did some changes in this area
-> > > >=20
-> > > > Simon, any idea ?
-> > > >=20
-> > > >=20
-> > >=20
-> > > For the time being, we can avoid the false memory allocation erro=
-r (and
-> > > leak)
-> >=20
-> > Sorry, that typo is my work.
->=20
-> With your patch applied I now see the following
->=20
-> ffff880003bbf1a0 corresponds to &ipvs->app_key in __ip_vs_app_init().
-> I'll continue looking into this.
->=20
-> [   12.610000] IPVS: Creating netns size=3D2456 id=3D0
-> [   12.630000] IPVS: Registered protocols (TCP, UDP, SCTP, AH, ESP)
-> [   12.640000] BUG: key ffff880003bbf1a0 not in .data!
-> [   12.640000] ------------[ cut here ]------------
-> [   12.640000] WARNING: at kernel/lockdep.c:2701
-> lockdep_init_map+0x37b/0x570()
-> [   12.640000] Hardware name: Bochs
-> [   12.640000] Pid: 1, comm: swapper Tainted: G        W
-> 2.6.38-kexec-06330-g69b7efe-dirty #122
-> [   12.650000] Call Trace:
-> [   12.650000]  [<ffffffff8102e685>] warn_slowpath_common+0x75/0xb0
-> [   12.650000]  [<ffffffff8102e6d5>] warn_slowpath_null+0x15/0x20
-> [   12.650000]  [<ffffffff8105967b>] lockdep_init_map+0x37b/0x570
-> [   12.650000]  [<ffffffff8105829d>] ? trace_hardirqs_on+0xd/0x10
-> [   12.650000]  [<ffffffff81055ad8>] debug_mutex_init+0x38/0x50
-> [   12.650000]  [<ffffffff8104bc4c>] __mutex_init+0x5c/0x70
-> [   12.650000]  [<ffffffff81685ee7>] __ip_vs_app_init+0x64/0x86
-> [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
-> [   12.660000]  [<ffffffff811b1c33>] T.620+0x43/0x170
-> [   12.660000]  [<ffffffff811b1e9a>] ? register_pernet_subsys+0x1a/0x=
-40
-> [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
-> [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
-> [   12.660000]  [<ffffffff811b1db7>] register_pernet_operations+0x57/=
-0xb0
-> [   12.660000]  [<ffffffff81685a3b>] ? ip_vs_init+0x0/0xff
-> [   12.670000]  [<ffffffff811b1ea9>] register_pernet_subsys+0x29/0x40
-> [   12.670000]  [<ffffffff81685f19>] ip_vs_app_init+0x10/0x12
-> [   12.670000]  [<ffffffff81685a87>] ip_vs_init+0x4c/0xff
-> [   12.670000]  [<ffffffff8166562c>] do_one_initcall+0x7a/0x12e
-> [   12.670000]  [<ffffffff8166583e>] kernel_init+0x13e/0x1c2
-> [   12.670000]  [<ffffffff8128c134>] kernel_thread_helper+0x4/0x10
-> [   12.670000]  [<ffffffff8128ad40>] ? restore_args+0x0/0x30
-> [   12.680000]  [<ffffffff81665700>] ? kernel_init+0x0/0x1c2
-> [   12.680000]  [<ffffffff8128c130>] ? kernel_thread_helper+0x0/0x10
-> [   12.680000] ---[ end trace 4eaa2a86a8e2da23 ]---
+2011/3/15 David Miller <davem@davemloft.net>:
+> From: Daniel Lezcano <daniel.lezcano@free.fr>
+> Date: Mon, 14 Mar 2011 21:39:50 +0100
+>> +
+>> + =C2=A0 =C2=A0 /* if TSO is enabled, we don't care about the length=
+ as the packet
+>> + =C2=A0 =C2=A0 =C2=A0* could be forwarded without being segmented b=
+efore
+>> + =C2=A0 =C2=A0 =C2=A0*/
+>> + =C2=A0 =C2=A0 if (skb->dev && skb->dev->features & NETIF_F_TSO)
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return true;
+> I am trying to understand why you aren't simply checking also if this
+> is a segmented frame? =C2=A0Perhaps skb_is_gso() && device has NETIF_=
+=46_TSO
+> set?
 
-It seems that the problem above was introduced by
-ab8a5e8408c3 ("IPVS: netns awareness to ip_vs_app").
-I assume the hungs are the cause:
+Is the check of netdev features even necessary? Devices without TSO
+enabled the skbs are segmented before ndo_start_xmit() anyway.
 
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_=
-app.c
-index 40b09cc..286f465 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -43,11 +43,6 @@ EXPORT_SYMBOL(register_ip_vs_app);
- EXPORT_SYMBOL(unregister_ip_vs_app);
- EXPORT_SYMBOL(register_ip_vs_app_inc);
-=20
--/* ipvs application list head */
--static LIST_HEAD(ip_vs_app_list);
--static DEFINE_MUTEX(__ip_vs_app_mutex);
--
--
- /*
-  *	Get an ip_vs_app object
-  */
+With TSO there's a question if the receiving end of macvlan can handle
+GRO/LRO packets?
 
-@@ -571,9 +580,13 @@ static const struct file_operations ip_vs_app_fops=
- =3D {
-=20
- static int __net_init __ip_vs_app_init(struct net *net)
- {
-+	struct netns_ipvs *ipvs =3D net_ipvs(net);
-+
- 	if (!net_eq(net, &init_net))	/* netns not enabled yet */
- 		return -EPERM;
-=20
-+	INIT_LIST_HEAD(&ipvs->app_list);
-+	__mutex_init(&ipvs->app_mutex, "ipvs->app_mutex", &ipvs->app_key);
- 	proc_net_fops_create(net, "ip_vs_app", 0, &ip_vs_app_fops);
- 	return 0;
- }
+BTW, checking only NETIF_F_TSO will break at least for IPv6 TSO
+(NETIF_F_TSO6) or whatever else can be segmented in hardware.
 
-
-
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
