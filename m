@@ -1,49 +1,52 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [slab poison overwritten] Re: [GIT] Networking
-Date: Wed, 23 Mar 2011 06:52:50 +0900
-Message-ID: <20110322215249.GD2423@verge.net.au>
-References: <20110320.195156.226769634.davem@davemloft.net>
- <20110321125320.GA23490@elte.hu>
- <1300714346.2884.284.camel@edumazet-laptop>
- <20110321161528.GA28580@elte.hu>
- <20110321164238.GA5303@elte.hu>
- <20110321173941.GB3892@elte.hu>
- <1300730838.2884.578.camel@edumazet-laptop>
- <1300738540.2837.5.camel@edumazet-laptop>
- <20110322095638.GA26130@elte.hu>
- <1300788039.3084.0.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Julian Anastasov <ja@ssi.bg>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1300788039.3084.0.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 1/1] ipv6: ip6_route_output does not modify sk parameter, so make it const
+Date: Tue, 22 Mar 2011 23:01:32 +0100
+Message-ID: <1300831292-25378-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:59341 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755548Ab1CVWHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 18:07:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 22, 2011 at 11:00:39AM +0100, Eric Dumazet wrote:
-> Le mardi 22 mars 2011 =C3=A0 10:56 +0100, Ingo Molnar a =C3=A9crit :
-> > * Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >=20
-> > > [PATCH] ipvs: fix a typo in __ip_vs_control_init()
-> >=20
-> > This fix and Simon's:
-> >=20
-> >   IPVS: Use global mutex in ip_vs_app.c
-> >=20
-> > Did the trick here, the IPVS related SLAB corruptions are now gone.
-> >=20
-> > Thanks guys!
->=20
-> Thanks for testing Ingo ;)
+This avoids explicit cast to avoid 'discards qualifiers'
+compiler warning in a netfilter patch that i've been working on.
 
-Yes, thanks Ingo.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/net/ip6_route.h |    2 +-
+ net/ipv6/route.c        |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 642a80b..c850e5f 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -70,7 +70,7 @@ static inline struct inet_peer *rt6_get_peer(struct rt6_info *rt)
+ extern void			ip6_route_input(struct sk_buff *skb);
+ 
+ extern struct dst_entry *	ip6_route_output(struct net *net,
+-						 struct sock *sk,
++						 const struct sock *sk,
+ 						 struct flowi6 *fl6);
+ 
+ extern int			ip6_route_init(void);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6814c87..843406f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -854,7 +854,7 @@ static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table
+ 	return ip6_pol_route(net, table, fl6->flowi6_oif, fl6, flags);
+ }
+ 
+-struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
++struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
+ 				    struct flowi6 *fl6)
+ {
+ 	int flags = 0;
+-- 
+1.7.3.4
+
