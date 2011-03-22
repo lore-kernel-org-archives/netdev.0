@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: implement dev_disable_lro() hw_features
- compatibility
-Date: Tue, 22 Mar 2011 01:00:50 -0700 (PDT)
-Message-ID: <20110322.010050.241932002.davem@davemloft.net>
-References: <1300471986.2589.26.camel@bwh-desktop>
-	<32d98168b9b4ae553cc3647c30da85be05a28c95.1300503092.git.mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] NET: smsc95xx: don't use stack for async writes to the
+ device
+Date: Tue, 22 Mar 2011 01:02:34 -0700 (PDT)
+Message-ID: <20110322.010234.98886588.davem@davemloft.net>
+References: <1300456438-13286-1-git-send-email-marc.zyngier@arm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: mirq-linux@rere.qmqm.pl
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com
+To: marc.zyngier@arm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39352
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39358
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754934Ab1CVIAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 04:00:12 -0400
-In-Reply-To: <32d98168b9b4ae553cc3647c30da85be05a28c95.1300503092.git.mirq-linux@rere.qmqm.pl>
+	by vger.kernel.org with ESMTP id S1755123Ab1CVIBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 04:01:55 -0400
+In-Reply-To: <1300456438-13286-1-git-send-email-marc.zyngier@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Sat, 19 Mar 2011 03:56:34 +0100 (CET)
+From: Marc Zyngier <marc.zyngier@arm.com>
+Date: Fri, 18 Mar 2011 13:53:58 +0000
 
-> Implement compatibility with new hw_features for dev_disable_lro().
-> This is a transition path - dev_disable_lro() should be later
-> integrated into netdev_fix_features() after all drivers are converted=
-=2E
->=20
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> The set_multicast operation performs asynchronous writes to the
+> device, with some addresses pointing to the stack. Bad things may
+> happen, and this is trapped CONFIG_DMA_API_DEBUG:
+...
+> Move the two offenders to the private structure which is kmalloc-ed,
+> and thus safe.
+> 
+> Signed-off-by: Marc Zyngier <marc.zyngier@arm.com>
+> Cc: Steve Glendinning <steve.glendinning@smsc.com>
 
-I'll apply this, thanks.
+Applied, thanks.
