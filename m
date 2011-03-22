@@ -1,104 +1,265 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [Security] [SECURITY] DECnet: need to validate user data and
- access data?
-Date: Tue, 22 Mar 2011 07:01:37 -0400
-Message-ID: <1300791697.1813.21.camel@dan>
-References: <1300750901.1813.15.camel@dan>
-	 <AANLkTinbj295sZvXrQm6uhH9+DbAbY1AZU7Eo5_dC6HP@mail.gmail.com>
-	 <1300785230.2558.6.camel@dolmen>
+From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Subject: Re: [PATCH 0/7] TCP CUBIC Hystart fixes
+Date: Tue, 22 Mar 2011 12:34:56 +0100
+Message-ID: <20110322113456.GA21254@xanadu.blop.info>
+References: <20110314175211.788224699@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eugene Teo <eugeneteo@kernel.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, security@kernel.org,
-	linux-decnet-user@lists.sourceforge.net
-To: Steven Whitehouse <swhiteho@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S\. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:65228 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752940Ab1CVLBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2011 07:01:44 -0400
-In-Reply-To: <1300785230.2558.6.camel@dolmen>
+Received: from xanadu.blop.info ([178.79.145.134]:50354 "EHLO xanadu.blop.info"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754220Ab1CVLfo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2011 07:35:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20110314175211.788224699@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-03-22 at 09:13 +0000, Steven Whitehouse wrote:
-> Hi,
-> 
-> On Tue, 2011-03-22 at 15:42 +0800, Eugene Teo wrote:
-> > Cc'ed the decnet list. Looks like it's still active even though the
-> > status is orphan.
-> > 
-> Well, kind of active :-) I don't think there is a lot of development
-> going on despite davem's recent changes to the routing code.
-> 
-> These functions are used in relation to conninit messages which, on the
-> incoming side are checked in dn_nsp_in.c:dn_find_listener() via the
-> calls to dn_check_idf() so that we should never queue an incorrectly
-> formatted message to the socket. The intent was that all messages should
-> be checked as early as possible on entry to the code so that we can then
-> rely on their content later on without needing to check again.
-> 
-> I hope that answers your question, but let me know if you need anything
-> else,
+On 14/03/11 at 10:52 -0700, Stephen Hemminger wrote:
+> This is the merge of my patches and recent update Sangtae.
+> It addresses the problems reported by Lucas Nussbaum that Hystart cau=
+ses
+> poor startup performance over links with lots of buffering.
 
-Thanks very much, that does clear it up.  I must have missed it because
-I was expecting it to use the array size macro (DN_MAXACCL) rather than
-a hard-coded value.  Glad it's a non-issue.
+Hi,
 
--Dan
+I've tested the patches, and they work fine.
 
-> Steve.
-> 
-> > On Tue, Mar 22, 2011 at 7:41 AM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
-> > > In net/decnet/af_decnet.c, in the dn_access_copy() and dn_user_copy()
-> > > functions, which are called from dn_connect(), length values are
-> > > retrieved from incoming skb data and used as size values to copy
-> > > functions:
-> > >
-> > > static void dn_access_copy(struct sk_buff *skb, struct accessdata_dn *acc)
-> > > {
-> > >        unsigned char *ptr = skb->data;
-> > >
-> > >        acc->acc_userl = *ptr++;
-> > >        memcpy(&acc->acc_user, ptr, acc->acc_userl);
-> > >        ptr += acc->acc_userl;
-> > >
-> > >        acc->acc_passl = *ptr++;
-> > >        memcpy(&acc->acc_pass, ptr, acc->acc_passl);
-> > >        ptr += acc->acc_passl;
-> > >
-> > >        acc->acc_accl = *ptr++;
-> > >        memcpy(&acc->acc_acc, ptr, acc->acc_accl);
-> > >
-> > >        skb_pull(skb, acc->acc_accl + acc->acc_passl + acc->acc_userl + 3);
-> > >
-> > > }
-> > >
-> > > static void dn_user_copy(struct sk_buff *skb, struct optdata_dn *opt)
-> > > {
-> > >        unsigned char *ptr = skb->data;
-> > >        u16 len = *ptr++; /* yes, it's 8bit on the wire */
-> > >
-> > >        BUG_ON(len > 16); /* we've checked the contents earlier */
-> > >        opt->opt_optl   = cpu_to_le16(len);
-> > >        opt->opt_status = 0;
-> > >        memcpy(opt->opt_data, ptr, len);
-> > >        skb_pull(skb, len + 1);
-> > > }
-> > >
-> > >
-> > > Despite the BUG_ON and comment suggesting these lengths have been
-> > > validated, I don't think this is actually the case - it looks like these
-> > > fields are validated for outbound data, but I see no validation for
-> > > inbound data (unless I'm mistaken, which is entirely possible).  If this
-> > > is the case, this can allow remote attackers to cause controllable heap
-> > > corruption.  I'd appreciate it if someone who knows this protocol better
-> > > than I do took a look at this and implemented appropriate error handling
-> > > if it needs it.
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Here are some results (gigabit link, RTT=3D11ms).
+
+Without the patches, hystart disabled:
+ Segments (cwnd, ssthresh)
+   2500 ++-----------+-------------+------------+-------------+--------=
+---++
+        +            +             +            +          snd_cwnd ***=
+*** +
+        |                                              snd_ssthresh ###=
+### |
+   2000 ++       *************************************************     =
+   ++
+        |       **                                                     =
+    |
+        |       *                                                      =
+    |
+        |       *                                                      =
+    |
+   1500 ++      *                                                      =
+   ++
+        |       *                                                      =
+    |
+        |       *                                                      =
+    |
+   1000 ++      *                                                      =
+   ++
+        |      **                                                      =
+    |
+        |      *                                                       =
+    |
+        |      *                                                       =
+    |
+    500 ++     *                                                       =
+   ++
+        |     **                                                       =
+    |
+        +    **      +             +            +             +        =
+    +
+      0 ++-***####################################################-----=
+---++
+        0           0.5            1           1.5            2        =
+   2.5
+                                  time (seconds)
+
+Without the patches, hystart enabled:
+ Segments (cwnd, ssthresh)
+   300 ++------------+------------+-------------+------------+---------=
+---++
+       +             +            +             +          snd_cwnd ***=
+*** +
+       |                                            ***snd_ssthresh ###=
+### |
+   250 ++                     ***********************                  =
+   ++
+       |     ******************###################################     =
+    |
+       |     *                                                         =
+    |
+   200 ++    *                                                         =
+   ++
+       |     *                                                         =
+    |
+   150 ++    *                                                         =
+   ++
+       |     *                                                         =
+    |
+       |     *                                                         =
+    |
+   100 ++   **                                                         =
+   ++
+       |    *#                                                         =
+    |
+       |    *#                                                         =
+    |
+    50 ++   *#                                                         =
+   ++
+       |   **#                                                         =
+    |
+       +  ** #       +            +             +            +         =
+    +
+     0 ++-*###-------+------------+-------------+------------+---------=
+---++
+       0            0.5           1            1.5           2         =
+   2.5
+                                  time (seconds)
+
+Note how slow start ends very early (~ 230 segments), resulting in poor=
+ performance.
+
+With the patches, hystart enabled, run 1:
+ Segments (cwnd, ssthresh)
+   2500 ++-----+-------+------+-------+------+-------+------+-------+--=
+---++
+        +      +       +      +       +      +       +     snd_cwnd ***=
+*** +
+        |                                              snd_ssthresh ###=
+### |
+   2000 ++   ********************************************************* =
+   ++
+        |    *                                                         =
+    |
+        |    *                                                         =
+    |
+        |    *                                                         =
+    |
+   1500 ++   *                                                         =
+   ++
+        |    *                                                         =
+    |
+        |   **                                                         =
+    |
+   1000 ++  *                                                          =
+   ++
+        |   *                                                          =
+    |
+        |   *                                                          =
+    |
+        |   *                                                          =
+    |
+    500 ++  *                                                          =
+   ++
+        |  **                                                          =
+    |
+        +  *   +       +      +       +      +       +      +       +  =
+    +
+      0 ++**##########################################################-=
+---++
+        0     0.5      1     1.5      2     2.5      3     3.5      4  =
+   4.5
+                                  time (seconds)
+
+There's no perceived delay increase, but also no losses. The NIC sends =
+data at
+line rate without congestion. we don't exit slow start, but that's fine=
+:
+
+With the patch, hystart enabled, run 2: (that's the most frequent situa=
+tion)
+ Segments (cwnd, ssthresh)
+   2500 ++-----+-------+------+-------+------+-------+------+-------+--=
+---++
+        +      +       +      +       +      +       +     snd_cwnd ***=
+*** +
+        |                                              snd_ssthresh ###=
+### |
+   2000 ++    ******************************************************** =
+   ++
+        |     *#                                                       =
+    |
+        |     *#                                                       =
+    |
+        |     *#                                                       =
+    |
+   1500 ++    *#                                                       =
+   ++
+        |     *#                                                       =
+    |
+        |     *#                                                       =
+    |
+   1000 ++   **#                                                       =
+   ++
+        |    * #                                                       =
+    |
+        |    * #                                                       =
+    |
+        |    * #                                                       =
+    |
+    500 ++  ** #                                                       =
+   ++
+        |   *  #                                                       =
+    |
+        +  **  #       +      +       +      +       +      +       +  =
+    +
+      0 ++**####-------+------+-------+------+-------+------+-------+--=
+---++
+        0     0.5      1     1.5      2     2.5      3     3.5      4  =
+   4.5
+                                  time (seconds)
+
+Hystart detects a delay increase, so we exit slow start, but at a reaso=
+nable point.
+Hystart works fine in that case. (no impact on performance).
+
+With the patch, hystart enabled, run 3:
+ Segments (cwnd, ssthresh)
+   2500 ++-----+-------+------+-------+------+-------+------+-------+--=
+---++
+        +      +       +      +       +      +       +     snd_cwnd ***=
+*** +
+        |                                              snd_ssthresh ###=
+### |
+   2000 ++     ******************************************************* =
+   ++
+        |      *                                                       =
+    |
+        |     **                                                       =
+    |
+        |     *                                                        =
+    |
+   1500 ++   **####################################################### =
+   ++
+        |    *#                                                        =
+    |
+        |    *#                                                        =
+    |
+   1000 ++   *#                                                        =
+   ++
+        |    *#                                                        =
+    |
+        |   **#                                                        =
+    |
+        |   * #                                                        =
+    |
+    500 ++  * #                                                        =
+   ++
+        |   * #                                                        =
+    |
+        +  ** #+       +      +       +      +       +      +       +  =
+    +
+      0 ++**###+-------+------+-------+------+-------+------+-------+--=
+---++
+        0     0.5      1     1.5      2     2.5      3     3.5      4  =
+   4.5
+                                  time (seconds)
+
+Hystart causes slow start to end a bit too early, but late enough not t=
+o affect
+performance significantly. Hystart behaves fine in that case too.
 
 
+Tested-By: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+--=20
+| Lucas Nussbaum             MCF Universit=E9 Nancy 2 |
+| lucas.nussbaum@loria.fr         LORIA / AlGorille |
+| http://www.loria.fr/~lnussbau/  +33 3 54 95 86 19 |
