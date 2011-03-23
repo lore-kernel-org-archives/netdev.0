@@ -1,44 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 00/16] mlx4_en: driver updates
-Date: Wed, 23 Mar 2011 19:34:15 +0000
-Message-ID: <1300908855.2638.16.camel@bwh-desktop>
-References: <4D89B13B.2010404@mellanox.co.il>
-	 <20110323.122612.229763242.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] usbnet: use eth%d name for known ethernet devices
+Date: Wed, 23 Mar 2011 20:35:17 +0100
+Message-ID: <201103232035.18232.arnd@arndb.de>
+References: <4D79F068.2080009@linaro.org> <201103231756.39849.arnd@arndb.de> <20110323184650.GB21728@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:47760 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756629Ab1CWTeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 15:34:18 -0400
-In-Reply-To: <20110323.122612.229763242.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andy.green@linaro.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Nicolas Pitre <nicolas.pitre@linaro.org>,
+	Jaswinder Singh <jaswinder.singh@linaro.org>,
+	Linux USB list <linux-usb@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	broonie@opensource.wolfsonmicro.com, roger.quadros@nokia.com,
+	grant.likely@secretlab.ca, netdev@vger.kernel.org,
+	David Brownell <dbrownell@users.sourceforge.net>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110323184650.GB21728@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-03-23 at 12:26 -0700, David Miller wrote:
-> From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> Date: Wed, 23 Mar 2011 10:37:15 +0200
+On Wednesday 23 March 2011 19:46:50 Greg KH wrote:
+> Looks good to me, but some questions:
 > 
-> > Hello David,
-> > 
-> > This is the second round for patches originally sent on March 07.
-> > 
-> > Changes from previous round (after getting the feedbacks):
-> > 1. Renamed IRQ name for TX rings.
-> > 2. Changed error message when failing to map BlueFlame area.
-> > 3. Removed drivers/infiniband/hw/mlx4/ parts of steering changes, those need to be applied with Raw QP support.
+> >  drivers/usb/serial/usb_wwan.c |    2 +-
 > 
-> Series applied to net-2.6, thanks.
+> You don't modify this file in the diff, what caused this to show up in
+> the diffstat?
 
-Including 08/16 'mlx4_en: Reporting HW revision in ethtool -i'?
+A stale change I had to do to get the kernel to build on my
+machine. The original problem seems fixed now. I had removed
+this hunk from the patch but forgot to remove it from the diffstat.
 
-Ben.
+> > --- a/include/linux/usb/usbnet.h
+> > +++ b/include/linux/usb/usbnet.h
+> > @@ -97,6 +97,8 @@ struct driver_info {
+> >  
+> >  #define FLAG_LINK_INTR       0x0800          /* updates link (carrier) status */
+> >  
+> > +#define FLAG_PTP     0x1000          /* maybe use "usb%d" names */
+> 
+> "PTP"?  What does that stand for?
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+point-to-point, I'll improve the comment to spell it out when I send the
+fixed version.
 
+	Arnd
