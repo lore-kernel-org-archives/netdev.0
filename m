@@ -1,38 +1,72 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH v2] net/unix: Add secdata to unix_stream msgs
-Date: Wed, 23 Mar 2011 18:16:46 -0400
-Message-ID: <201103231816.46266.paul.moore@hp.com>
-References: <1300840717-4413-1-git-send-email-pekane52@gmail.com> <4D8A1BB4.4030709@schaufler-ca.com> <AANLkTik55CAKfU5v4PE87h26vwAMy8vV7rhMmu9EA19B@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 02/36] scsi,rcu: convert call_rcu(fc_rport_free_rcu) to
+ kfree_rcu()
+Date: Wed, 23 Mar 2011 15:24:56 -0700
+Message-ID: <20110323222456.GC2322@linux.vnet.ibm.com>
+References: <4D82D071.5020703@cn.fujitsu.com>
+ <4D82D3FF.2080303@cn.fujitsu.com>
+ <4D82D45A.30102@cn.fujitsu.com>
+ <1300814913.19083.427.camel@fritz>
+ <20110323065014.GU2322@linux.vnet.ibm.com>
+ <1300889151.15899.4.camel@mulgrave.site>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Casey Schaufler <casey@schaufler-ca.com>,
-	Eric Paris <eparis@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	cxzhang@watson.ibm.com, sds@tycho.nsa.gov, jmorris@namei.org,
-	eparis@parisplace.org, LSM <linux-security-module@vger.kernel.org>
-To: Pat Kane <pekane52@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <AANLkTik55CAKfU5v4PE87h26vwAMy8vV7rhMmu9EA19B@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Love <robert.w.love@intel.com>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>,
+	Ingo Molnar <mingo@elte.hu>, Jens Axboe <axboe@kernel.dk>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Tejun Heo <tj@kernel.org>, Jarek Poplawski <jarkao2@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@open-fcoe.org" <devel@open-fcoe.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: James Bottomley <James.Bottomley@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1300889151.15899.4.camel@mulgrave.site>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, March 23, 2011 4:23:35 PM Pat Kane wrote:
->   >> On Tue, 2011-03-22 at 19:32 -0700, David Miller wrote:
->   >>> The SELINUX hook implementations even have "_dgram()" in their names.
+On Wed, Mar 23, 2011 at 09:05:51AM -0500, James Bottomley wrote:
+> On Tue, 2011-03-22 at 23:50 -0700, Paul E. McKenney wrote:
+> > The kfree_rcu() definition is as
+> > follows:
+> > 
+> > #define kfree_rcu(ptr, rcu_head)					\
+> > 	__kfree_rcu(&((ptr)->rcu_head), offsetof(typeof(*(ptr)), rcu_head))
 > 
-> The LSM hook that I am having problems with, and that the patch fixes
-> is  "secid_to_secctx()"  not "socket_getpeersec_dgram()".
+> Isn't this one of those cases where the obvious use of the interface is
+> definitely wrong?
+> 
+> It's also another nasty pseudo C prototype.  I know we do this sort of
+> thing for container_of et al, but I don't really think we want to extend
+> it.
+> 
+> Why not make the interface take a pointer to the embedding structure and
+> one to the rcu_head ... that way all pointer mathematics can be
+> contained inside the RCU routines.
 
-Can you explain the problem you are having?  I'm specifically interested in 
-who is calling secid_to_secctx() on a AF_UNIX stream packet.
+Hello, James,
 
-Adding the secid token to a AF_UNIX stream packet isn't likely to be the right 
-solution, although until we hear what the core problem is, I'm not sure we can 
-offer any fixes.
+If you pass in a pair of pointers, then it is difficult for RCU to detect
+bugs where the two pointers are unrelated.  Yes, you can do some sanity
+checks, but these get cumbersome and have corner cases where they can
+be fooled.  In contrast, Lai's interface allows the compiler to do the
+needed type checking -- unless the second argument is a field of type
+struct rcu_head in the structure pointed to by the first argument, the
+compiler will complain.
 
---
-paul moore
-linux @ hp
+Either way, the pointer mathematics are buried in the RCU API.
+
+Or am I missing something here?
+
+							Thanx, Paul
