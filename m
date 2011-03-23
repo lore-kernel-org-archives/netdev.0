@@ -1,111 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] VPN broken in net-next
-Date: Tue, 22 Mar 2011 21:56:55 -0700 (PDT)
-Message-ID: <20110322.215655.245381151.davem@davemloft.net>
-References: <alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg>
-	<20110303.112328.59677094.davem@davemloft.net>
-	<alpine.LFD.2.00.1103041013360.1452@ja.ssi.bg>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: [PATCH 1/1] solos-pci: Don't clear open VCs when we detect carrier
+ state (or state changes)
+Date: Tue, 22 Mar 2011 23:12:56 -0700
+Message-ID: <4D898F68.8020501@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: ja@ssi.bg
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36776
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751175Ab1CWE4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 00:56:17 -0400
-In-Reply-To: <alpine.LFD.2.00.1103041013360.1452@ja.ssi.bg>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:51968 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751065Ab1CWGNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 02:13:04 -0400
+Received: from Philip-Prindevilles-MacBook-Pro.local (pool-71-111-144-184.ptldor.dsl-w.verizon.net [71.111.144.184])
+	(authenticated bits=0)
+	by mail.redfish-solutions.com (8.14.4/8.14.4) with ESMTP id p2N6Cu3B029148
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 23 Mar 2011 00:13:02 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Fri, 4 Mar 2011 10:39:55 +0200 (EET)
+Initialize device state to UP, as is done for Ethernet.  If firmware supports communicating carrier state to us, we'll be notified then, and we can indicate it via atm_dev_signal_change().
 
-> On Thu, 3 Mar 2011, David Miller wrote:
-> 
->> I suspect that even if we need to handle prefixes, we can still use
->> the hash for optimistic lookup, and fallback to a local table FIB
->> inspection if that fails.
-> 
-> 	Yes, as ip_route_output_slow uses __ip_dev_find for
-> fl4_src there should be some kind of fallback to local table,
-> so that traffic from 127.0.0.2 to 127.0.0.3 or other local
-> subnets on loopback can work. Another option is to use
-> inet_addr_onlink but I suspect people can add many addresses
-> on loopback: inet_addr_onlink(loopback_indev, addr, 0)
+In any case: (1) higher level protocols will detect a dead link, and (2) loss of carrier is not a reason to tear down the VCs... this is overly zealous.
 
-I just got back to this, sorry for taking so long :-)
-
-Here is the patch I've come up with and will commit to
-net-2.6, thanks!
-
---------------------
-ipv4: Fallback to FIB local table in __ip_dev_find().
-
-In commit 9435eb1cf0b76b323019cebf8d16762a50a12a19
-("ipv4: Implement __ip_dev_find using new interface address hash.")
-we reimplemented __ip_dev_find() so that it doesn't have to
-do a full FIB table lookup.
-
-Instead, it consults a hash table of addresses configured to
-interfaces.
-
-This works identically to the old code in all except one case,
-and that is for loopback subnets.
-
-The old code would match the loopback device for any IP address
-that falls within a subnet configured to the loopback device.
-
-Handle this corner case by doing the FIB lookup.
-
-We could implement this via inet_addr_onlink() but:
-
-1) Someone could configure many addresses to loopback and
-   inet_addr_onlink() is a simple list traversal.
-
-2) We know the old code works.
-
-Reported-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
 ---
- net/ipv4/devinet.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index d5a4553..5345b0b 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -64,6 +64,8 @@
- #include <net/rtnetlink.h>
- #include <net/net_namespace.h>
- 
-+#include "fib_lookup.h"
-+
- static struct ipv4_devconf ipv4_devconf = {
- 	.data = {
- 		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
-@@ -151,6 +153,20 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
- 			break;
- 		}
- 	}
-+	if (!result) {
-+		struct flowi4 fl4 = { .daddr = addr };
-+		struct fib_result res = { 0 };
-+		struct fib_table *local;
-+
-+		/* Fallback to FIB local table so that communication
-+		 * over loopback subnets work.
-+		 */
-+		local = fib_get_table(net, RT_TABLE_LOCAL);
-+		if (local &&
-+		    !fib_table_lookup(local, &fl4, &res, FIB_LOOKUP_NOREF) &&
-+		    res.type == RTN_LOCAL)
-+			result = FIB_RES_DEV(res);
-+	}
- 	if (result && devref)
- 		dev_hold(result);
- 	rcu_read_unlock();
--- 
-1.7.4.1
+  drivers/atm/solos-pci.c |    3 +--
+  1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 265bbdf..cd0ff66 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -383,7 +383,6 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+  	/* Anything but 'Showtime' is down */
+  	if (strcmp(state_str, "Showtime")) {
+  		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
+-		atm_dev_release_vccs(card->atmdev[port]);
+  		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
+  		return 0;
+  	}
+@@ -1246,7 +1245,7 @@ static int atm_init(struct solos_card *card, struct device *parent)
+  		card->atmdev[i]->ci_range.vci_bits = 16;
+  		card->atmdev[i]->dev_data = card;
+  		card->atmdev[i]->phy_data = (void *)(unsigned long)i;
+-		atm_dev_signal_change(card->atmdev[i], ATM_PHY_SIG_UNKNOWN);
++		atm_dev_signal_change(card->atmdev[i], ATM_PHY_SIG_FOUND);
+
+  		skb = alloc_skb(sizeof(*header), GFP_ATOMIC);
+  		if (!skb) {
+
 
