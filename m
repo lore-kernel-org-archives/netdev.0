@@ -1,76 +1,67 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [RFC] usbnet: use eth%d name for known ethernet devices
-Date: Wed, 23 Mar 2011 11:46:50 -0700
-Message-ID: <20110323184650.GB21728@kroah.com>
-References: <4D79F068.2080009@linaro.org>
- <201103231712.06184.arnd@arndb.de>
- <20110323162251.GA9367@kroah.com>
- <201103231756.39849.arnd@arndb.de>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH v2] net: Allow no-cache copy from user on transmit
+Date: Wed, 23 Mar 2011 11:51:23 -0700
+Message-ID: <1300906283.25347.1467.camel@tardy>
+References: <alpine.DEB.2.00.1103231003120.16608@pokey.mtv.corp.google.com>
+Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andy.green@linaro.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Nicolas Pitre <nicolas.pitre@linaro.org>,
-	Jaswinder Singh <jaswinder.singh@linaro.org>,
-	Linux USB list <linux-usb@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	broonie@opensource.wolfsonmicro.com, roger.quadros@nokia.com,
-	grant.likely@secretlab.ca, netdev@vger.kernel.org,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201103231756.39849.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:47809 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755164Ab1CWSvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 14:51:25 -0400
+In-Reply-To: <alpine.DEB.2.00.1103231003120.16608@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 23, 2011 at 05:56:39PM +0100, Arnd Bergmann wrote:
-> The documentation for the USB ethernet devices suggests that
-> only some devices are supposed to use usb0 as the network interface
-> name instead of eth0. The logic used there, and documented in
-> Kconfig for CDC is that eth0 will be used when the mac address
-> is a globally assigned one, but usb0 is used for the locally
-> managed range that is typically used on point-to-point links.
+On Wed, 2011-03-23 at 10:10 -0700, Tom Herbert wrote:
+> This patch uses __copy_from_user_nocache (from skb_copy_to_page)
+> on transmit to bypass data cache for a performance improvement.
+> This functionality is configurable per device using ethtool, the
+> device must also be doing TX csum offload to enable.  It seems
+> reasonable to set this when the netdevice does not copy or
+> otherwise touch the data.
 > 
-> Unfortunately, this has caused a lot of pain on the smsc95xx
-> device that is used on the popular pandaboard without an
-> EEPROM to store the MAC address, which causes the driver to
-> call random_ether_address().
+> This patch was tested using 200 instances of netperf TCP_RR with
+> 1400 byte request and one byte reply.  Platform is 16 core AMD x86.
 > 
-> Obviously, there should be a proper MAC addressed assigned to
-> the device, and discussions are ongoing about how to solve
-> this, but this patch at least makes sure that the default
-> interface naming gets a little saner and matches what the
-> user can expect based on the documentation, including for
-> new devices.
+> No-cache copy disabled:
+>    672703 tps, 97.13% utilization
+>    50/90/99% latency:244.31 484.205 1028.41
 > 
-> The approach taken here is to flag whether a device might be a 
-> point-to-point link with the new FLAG_PTP setting in the usbnet
-> driver_info. A driver can set both FLAG_PTP and FLAG_ETHER if
-> it is not sure (e.g. cdc_ether), or just one of the two.
-> The usbnet framework only looks at the MAC address for device
-> naming if both flags are set, otherwise it trusts the flag.
+> No-cache copy enabled:
+>    702113 tps, 96.16% utilization,
+>    50/90/99% latency 238.56 467.56 956.955
 > 
-> Signed-off-by: Arnd Bergmann <arnd.bergmann@linaro.org>
-> Cc: Andy Green <andy.green@linaro.org>
+> Using 14000 byte request and response sizes demonstrate the
+> effects more dramatically:
+> 
+> No-cache copy disabled:
+>    79571 tps, 34.34 %utlization
+>    50/90/95% latency 1584.46 2319.59 5001.76
+> 
+> No-cache copy enabled:
+>    83856 tps, 34.81% utilization
+>    50/90/95% latency 2508.42 2622.62 2735.88
+> 
+> Note especially the effect on tail latency (95th percentile).
+> 
+> This seems to provide a nice performance improvement and is
+> consistent in the tests I ran.  Presumably, this would provide
+> the greatest benfits in the presence of an application workload
+> stressing the cache and a lot of transmit data happening.  I don't
+> yet see a downside to using this.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Looks good to me, but some questions:
+Having raised the question about tying it to CKO and seeing it addressed
+to my satisfaction I'll go ahead and:
 
->  drivers/usb/serial/usb_wwan.c |    2 +-
+Acked-by: Rick Jones <rick.jones2@hp.com>
 
-You don't modify this file in the diff, what caused this to show up in
-the diffstat?
+rick jones
 
-> --- a/include/linux/usb/usbnet.h
-> +++ b/include/linux/usb/usbnet.h
-> @@ -97,6 +97,8 @@ struct driver_info {
->  
->  #define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
->  
-> +#define FLAG_PTP	0x1000		/* maybe use "usb%d" names */
-
-"PTP"?  What does that stand for?
-
-curious,
-
-greg k-h
