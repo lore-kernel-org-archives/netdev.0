@@ -1,51 +1,38 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: can: c_can: TX delivery
-Date: Wed, 23 Mar 2011 16:49:25 +0100
-Message-ID: <20110323154925.GF346@e-circ.dyndns.org>
-References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
- <20110323085340.GC346@e-circ.dyndns.org>
- <ff5ade24e148af2e46832e5a64444d05.squirrel@www2.linutronix.de>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: RE: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
+Date: Wed, 23 Mar 2011 15:54:43 +0000
+Message-ID: <953B660C027164448AE903364AC447D20705BF27@mtldag01.mtl.com>
+References: <4D89B16F.4040008@mellanox.co.il>
+	 <1300889054.26693.527.camel@localhost>
+	 <953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
+ <1300895205.2638.0.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: bhupesh.sharma@st.com, wg@grandegger.com, b.spranger@linutronix.de,
-	netdev@vger.kernel.org
-To: Jan Altenberg <jan@linutronix.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:24243 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753184Ab1CWPta (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 11:49:30 -0400
-Content-Disposition: inline
-In-Reply-To: <ff5ade24e148af2e46832e5a64444d05.squirrel@www2.linutronix.de>
+Received: from mail.mellanox.co.il ([194.90.237.43]:57984 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933185Ab1CWPyr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 11:54:47 -0400
+In-Reply-To: <1300895205.2638.0.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 23, 2011 at 04:32:31PM +0100, Jan Altenberg wrote:
-> Hi,
-> 
-> > I split your 2 questions in 2 replies.
-> 
-> Thanks :)
-> 
-> > not sure if I made my point.  Note that this will eliminate the need
-> > for explicit wrap-around.  It's done implicitely.
-> 
-> Hmmm, I double-checked the datasheet, which gives the following statement:
-> "The receive/transmit priority for the Message Objects is attached to
-> the message number.  Message Object 1 has the highest priority, while
-> Message Object 32 has the lowest priority. If more than one
-> transmission request is pending, they are serviced due to the priority
-> of the corresponding Message Object."
-
-With its predecessor (I used it as IP inside infineon CPU's), this was also
-true. But I _think_ that object 17 could send before object 16 if its identifier
-is lower.
-So, me too wait for Bhupesh ...
-
-> I'm quite new to Bosch's c_can, so maybe Bhupesh can give some feedback
-> (or beat me for causing some confusion ;-)).
-> 
-> Sorry for the confusion!
->         Jan
-> 
-> 
+PiBPbiBXZWQsIDIwMTEtMDMtMjMgYXQgMTU6MTAgKzAwMDAsIFlldmdlbnkgUGV0cmlsaW4gd3Jv
+dGU6DQo+ID4gPg0KPiA+ID4gVGhpcyBpcyBhbiBhYnVzZSBvZiB0aGUgZXRodG9vbF9kcnZpbmZv
+Ojpkcml2ZXIgZmllbGQuDQo+ID4gPg0KPiA+ID4gWW91ciB1c2VycyBjYW4gdXNlIGxzcGNpIC12
+LCBjYW4ndCB0aGV5Pw0KPiA+ID4NCj4gPiBJIGRvbid0IHRoaW5rIHRoZXJlIGlzIGEgcHJvYmxl
+bSBoZXJlLg0KPiA+IFdlIGhhdmUgYWx3YXlzIHJlcG9ydGVkIHRoZSBIVyBtb2RlbCB2aWEgRXRo
+dG9vbCwgd2UganVzdCBleHBhbmRlZA0KPiB0aGUgaW5mb3JtYXRpb24NCj4gPiB3ZSBwcm92aWRl
+Lg0KPiA+IE91ciB1c2VycyBwcmVmZXIgdG8gc2VlIHRoZSBpbmZvcm1hdGlvbiBpbiBldGh0b29s
+Lg0KPiANCj4gRG8geW91IG1lYW4gJ3dlIGRvY3VtZW50ZWQgZXRodG9vbCAtaSBhcyB0aGUgd2F5
+IHRvIGdldCBoYXJkd2FyZQ0KPiBpZGVudGlmaWNhdGlvbic/ICBUaGF0IHdvdWxkIGJlIGEgYnVn
+IGluIHlvdXIgZG9jdW1lbnRhdGlvbi4NCj4gDQo+IEJlbi4NCg0KVGhpcyBpcyBub3Qgd2hhdCBJ
+IG1lYW4sIEFsbCB0aGUgcmVxdWlyZWQgaW5mb3JtYXRpb24gY2FuIGJlIGZvdW5kIGluIGxzcGNp
+LA0KVGhlcmUgYXJlIHNvbWUgcmVxdWVzdHMgdG8gc2VlIHBhcnQgb2YgdGhpcyBpbmZvcm1hdGlv
+biBhbHNvIHZpYSBldGh0b29sDQoNCllldmdlbnkNCg==
