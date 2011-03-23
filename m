@@ -1,103 +1,108 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [BUG] VPN broken in net-next
-Date: Wed, 23 Mar 2011 11:05:53 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1103231100440.1463@ja.ssi.bg>
-References: <alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg> <20110303.112328.59677094.davem@davemloft.net> <alpine.LFD.2.00.1103041013360.1452@ja.ssi.bg> <20110322.215655.245381151.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.39-rc: WARNING: at __ip_select_ident+0xd3/0xf0()
+Date: Wed, 23 Mar 2011 10:49:39 +0100
+Message-ID: <1300873779.3063.39.camel@edumazet-laptop>
+References: <AANLkTinacRCOx+z02n1OwBjGfVL5itzZs7Jqv_4PRXZK@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:55654 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752089Ab1CWJA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 05:00:28 -0400
-In-Reply-To: <20110322.215655.245381151.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Alexander Beregalov <a.beregalov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinacRCOx+z02n1OwBjGfVL5itzZs7Jqv_4PRXZK@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Le mercredi 23 mars 2011 =C3=A0 10:14 +0300, Alexander Beregalov a =C3=A9=
+crit :
+> Hi
+>=20
+> I do not know how to reproduce it.
+>=20
+> WARNING: at include/net/inetpeer.h:102 __ip_select_ident+0xd3/0xf0()
+> Hardware name:
+> Modules linked in: hwmon_vid sata_sil i2c_nforce2
+> Pid: 0, comm: swapper Not tainted 2.6.38-07035-g6447f55d #1
+> Call Trace:
+>  [<c102ad5d>] warn_slowpath_common+0x6d/0xa0
+>  [<c13070c3>] ? __ip_select_ident+0xd3/0xf0
+>  [<c13070c3>] ? __ip_select_ident+0xd3/0xf0
+>  [<c102adad>] warn_slowpath_null+0x1d/0x20
+>  [<c13070c3>] __ip_select_ident+0xd3/0xf0
+>  [<c130df4c>] __ip_make_skb+0x25c/0x360
+>  [<c130d807>] ? ip_append_data+0x67/0xa0
+>  [<c132f980>] ? icmp_glue_bits+0x0/0x60
+>  [<c130e0b4>] ip_push_pending_frames+0x14/0x30
+>  [<c132f95c>] icmp_push_reply+0xdc/0x100
+>  [<c13306a8>] icmp_send+0x408/0x4a0
+>  [<c132ca61>] ? __udp4_lib_lookup.clone.49+0x171/0x2d0
+>  [<c132d877>] __udp4_lib_rcv+0x487/0x6a0
+>  [<c13058c0>] ? ip_route_input_common+0x0/0xa00
+>  [<c132daa2>] udp_rcv+0x12/0x20
+>  [<c13084bc>] ip_local_deliver+0x9c/0x140
+>  [<c130846d>] ? ip_local_deliver+0x4d/0x140
+>  [<c13087c6>] ip_rcv+0x266/0x560
+>  [<c12e92b3>] __netif_receive_skb+0x393/0x400
+>  [<c12e8fe4>] ? __netif_receive_skb+0xc4/0x400
+>  [<c12e9472>] netif_receive_skb+0x42/0x50
+>  [<c12e94b7>] napi_skb_finish+0x37/0x50
+>  [<c12eadf3>] napi_gro_receive+0xb3/0xc0
+>  [<c128d76f>] e1000_receive_skb.clone.34+0x3f/0x60
+>  [<c128dfcf>] e1000_clean_rx_irq+0x27f/0x4b0
+>  [<c1055be1>] ? __lock_acquire+0x441/0x19a0
+>  [<c128d249>] e1000_clean+0x1e9/0x570
+>  [<c13697fc>] ? _raw_spin_lock+0x5c/0x70
+>  [<c12e9778>] net_rx_action+0xe8/0x170
+>  [<c102ffe7>] __do_softirq+0x77/0x110
+>  [<c102ff70>] ? __do_softirq+0x0/0x110
+>  <IRQ>  [<c1030246>] ? irq_exit+0x76/0x90
+>  [<c1003823>] ? do_IRQ+0x43/0xb0
+>  [<c136f5ee>] ? common_interrupt+0x2e/0x34
+>  [<c100755f>] ? default_idle+0x2f/0x60
+>  [<c10015d6>] ? cpu_idle+0x36/0x60
+>  [<c135f2e5>] ? rest_init+0xa5/0xb0
+>  [<c135f240>] ? rest_init+0x0/0xb0
+>  [<c163c663>] ? start_kernel+0x277/0x27e
+>  [<c163c174>] ? unknown_bootoption+0x0/0x19f
+>  [<c163c071>] ? i386_start_kernel+0x71/0x77
+> --
+
+Thanks Alexander for this bug report.
+
+Here is a patch to fix this issue (and other crash you mentioned in nex=
+t
+mail)
 
 
- 	Hello,
+[PATCH] ipv4: fix ip_rt_update_pmtu()
 
-On Tue, 22 Mar 2011, David Miller wrote:
+commit 2c8cec5c10bc (Cache learned PMTU information in inetpeer) added
+an extra inet_putpeer() call in ip_rt_update_pmtu().
 
-> I just got back to this, sorry for taking so long :-)
->
-> Here is the patch I've come up with and will commit to
-> net-2.6, thanks!
->
-> --------------------
-> ipv4: Fallback to FIB local table in __ip_dev_find().
->
-> In commit 9435eb1cf0b76b323019cebf8d16762a50a12a19
-> ("ipv4: Implement __ip_dev_find using new interface address hash.")
-> we reimplemented __ip_dev_find() so that it doesn't have to
-> do a full FIB table lookup.
->
-> Instead, it consults a hash table of addresses configured to
-> interfaces.
->
-> This works identically to the old code in all except one case,
-> and that is for loopback subnets.
->
-> The old code would match the loopback device for any IP address
-> that falls within a subnet configured to the loopback device.
->
-> Handle this corner case by doing the FIB lookup.
->
-> We could implement this via inet_addr_onlink() but:
->
-> 1) Someone could configure many addresses to loopback and
->   inet_addr_onlink() is a simple list traversal.
->
-> 2) We know the old code works.
->
-> Reported-by: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-> net/ipv4/devinet.c |   16 ++++++++++++++++
-> 1 files changed, 16 insertions(+), 0 deletions(-)
->
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index d5a4553..5345b0b 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -64,6 +64,8 @@
-> #include <net/rtnetlink.h>
-> #include <net/net_namespace.h>
->
-> +#include "fib_lookup.h"
-> +
-> static struct ipv4_devconf ipv4_devconf = {
-> 	.data = {
-> 		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
-> @@ -151,6 +153,20 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
-> 			break;
-> 		}
-> 	}
-> +	if (!result) {
-> +		struct flowi4 fl4 = { .daddr = addr };
-> +		struct fib_result res = { 0 };
-> +		struct fib_table *local;
-> +
-> +		/* Fallback to FIB local table so that communication
-> +		 * over loopback subnets work.
-> +		 */
-> +		local = fib_get_table(net, RT_TABLE_LOCAL);
-> +		if (local &&
-> +		    !fib_table_lookup(local, &fl4, &res, FIB_LOOKUP_NOREF) &&
-> +		    res.type == RTN_LOCAL)
-> +			result = FIB_RES_DEV(res);
-> +	}
-> 	if (result && devref)
-> 		dev_hold(result);
-> 	rcu_read_unlock();
-> -- 
-> 1.7.4.1
+This results in various problems, since we can free one inetpeer, while
+it is still in use.
 
- 	Not tested but looks ok for me.
+Ref: http://www.spinics.net/lists/netdev/msg159121.html
 
-Regards
+Reported-by: Alexander Beregalov <a.beregalov@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/route.c |    2 --
+ 1 file changed, 2 deletions(-)
 
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 870b518..34921b0 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1593,8 +1593,6 @@ static void ip_rt_update_pmtu(struct dst_entry *d=
+st, u32 mtu)
+ 			rt->rt_peer_genid =3D rt_peer_genid();
+ 		}
+ 		check_peer_pmtu(dst, peer);
+-
+-		inet_putpeer(peer);
+ 	}
+ }
+=20
