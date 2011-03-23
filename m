@@ -1,255 +1,287 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH v2 15/16] mlx4_en: Using blue flame support
-Date: Wed, 23 Mar 2011 10:38:52 +0200
-Message-ID: <4D89B19C.3020305@mellanox.co.il>
+Subject: [PATCH v2 12/16] mlx4: Add blue flame support for kernel consumers
+Date: Wed, 23 Mar 2011 10:38:41 +0200
+Message-ID: <4D89B191.60506@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
+	<eli@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:35814 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:58133 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755923Ab1CWIi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 04:38:58 -0400
+	id S1755865Ab1CWIiq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 04:38:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eli Cohen <eli@mellanox.co.il>
 
-Doorbell is used according to usage of BlueFlame.
-For Blue Flame to work in Ethernet mode QP number should have 0
-at bits 6,7.
-Allocating range of QPs accordingly.
+Using blue flame can improve latency by allowing the HW to more efficiently
+access the WQE. This patch presents two functions that are used to allocate or
+release HW resources for using blue flame; the caller need to supply a struct
+mlx4_bf object when allocating resources. Consumers that make use of this API
+should post doorbells to the UAR object pointed by the initialized struct
+mlx4_bf;
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Signed-off-by: Eli Cohen <eli@mellanox.co.il>
 ---
- drivers/net/mlx4/en_netdev.c |   10 +++++-
- drivers/net/mlx4/en_tx.c     |   72 ++++++++++++++++++++++++++++++-----------
- drivers/net/mlx4/mlx4_en.h   |    4 ++-
- 3 files changed, 64 insertions(+), 22 deletions(-)
+ drivers/net/mlx4/main.c     |   31 ++++++++++++++
+ drivers/net/mlx4/mlx4.h     |    3 +
+ drivers/net/mlx4/pd.c       |   94 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mlx4/device.h |   13 ++++++
+ include/linux/mlx4/qp.h     |    1 +
+ 5 files changed, 142 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
-index 08e6801..5762ebd 100644
---- a/drivers/net/mlx4/en_netdev.c
-+++ b/drivers/net/mlx4/en_netdev.c
-@@ -931,6 +931,13 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
- {
- 	struct mlx4_en_port_profile *prof = priv->prof;
- 	int i;
-+	int base_tx_qpn, err;
-+
-+	err = mlx4_qp_reserve_range(priv->mdev->dev, priv->tx_ring_num, 256, &base_tx_qpn);
-+	if (err) {
-+		en_err(priv, "failed reserving range for TX rings\n");
-+		return err;
-+	}
+diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
+index c8e2761..05c5671 100644
+--- a/drivers/net/mlx4/main.c
++++ b/drivers/net/mlx4/main.c
+@@ -39,6 +39,7 @@
+ #include <linux/pci.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/slab.h>
++#include <linux/io-mapping.h>
  
- 	/* Create tx Rings */
- 	for (i = 0; i < priv->tx_ring_num; i++) {
-@@ -938,7 +945,7 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
- 				      prof->tx_ring_size, i, TX))
- 			goto err;
- 
--		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i],
-+		if (mlx4_en_create_tx_ring(priv, &priv->tx_ring[i], base_tx_qpn + i,
- 					   prof->tx_ring_size, TXBB_SIZE))
- 			goto err;
- 	}
-@@ -958,6 +965,7 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
- 
- err:
- 	en_err(priv, "Failed to allocate NIC resources\n");
-+	mlx4_qp_release_range(priv->mdev->dev, base_tx_qpn, priv->tx_ring_num);
- 	return -ENOMEM;
+ #include <linux/mlx4/device.h>
+ #include <linux/mlx4/doorbell.h>
+@@ -721,8 +722,31 @@ static void mlx4_free_icms(struct mlx4_dev *dev)
+ 	mlx4_free_icm(dev, priv->fw.aux_icm, 0);
  }
  
-diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
-index a680cd4..01feb8f 100644
---- a/drivers/net/mlx4/en_tx.c
-+++ b/drivers/net/mlx4/en_tx.c
-@@ -44,6 +44,7 @@
- 
- enum {
- 	MAX_INLINE = 104, /* 128 - 16 - 4 - 4 */
-+	MAX_BF = 256,
- };
- 
- static int inline_thold __read_mostly = MAX_INLINE;
-@@ -52,7 +53,7 @@ module_param_named(inline_thold, inline_thold, int, 0444);
- MODULE_PARM_DESC(inline_thold, "threshold for using inline data");
- 
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
--			   struct mlx4_en_tx_ring *ring, u32 size,
-+			   struct mlx4_en_tx_ring *ring, int qpn, u32 size,
- 			   u16 stride)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
-@@ -103,23 +104,25 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 	       "buf_size:%d dma:%llx\n", ring, ring->buf, ring->size,
- 	       ring->buf_size, (unsigned long long) ring->wqres.buf.direct.map);
- 
--	err = mlx4_qp_reserve_range(mdev->dev, 1, 1, &ring->qpn);
--	if (err) {
--		en_err(priv, "Failed reserving qp for tx ring.\n");
--		goto err_map;
--	}
--
-+	ring->qpn = qpn;
- 	err = mlx4_qp_alloc(mdev->dev, ring->qpn, &ring->qp);
- 	if (err) {
- 		en_err(priv, "Failed allocating qp %d\n", ring->qpn);
--		goto err_reserve;
-+		goto err_map;
- 	}
- 	ring->qp.event = mlx4_en_sqp_event;
- 
-+	err = mlx4_bf_alloc(mdev->dev, &ring->bf);
-+	if (err) {
-+		en_dbg(DRV, priv, "working without blueflame (%d)", err);
-+		ring->bf.uar = &mdev->priv_uar;
-+		ring->bf.uar->map = mdev->uar_map;
-+		ring->bf_enabled = false;
-+	} else
-+		ring->bf_enabled = true;
-+
- 	return 0;
- 
--err_reserve:
--	mlx4_qp_release_range(mdev->dev, ring->qpn, 1);
- err_map:
- 	mlx4_en_unmap_buffer(&ring->wqres.buf);
- err_hwq_res:
-@@ -139,6 +142,8 @@ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	en_dbg(DRV, priv, "Destroying tx ring, qpn: %d\n", ring->qpn);
- 
-+	if (ring->bf_enabled)
-+		mlx4_bf_free(mdev->dev, &ring->bf);
- 	mlx4_qp_remove(mdev->dev, &ring->qp);
- 	mlx4_qp_free(mdev->dev, &ring->qp);
- 	mlx4_qp_release_range(mdev->dev, ring->qpn, 1);
-@@ -171,6 +176,8 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 
- 	mlx4_en_fill_qp_context(priv, ring->size, ring->stride, 1, 0, ring->qpn,
- 				ring->cqn, &ring->context);
-+	if (ring->bf_enabled)
-+		ring->context.usr_page = cpu_to_be32(ring->bf.uar->index);
- 
- 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
- 			       &ring->qp, &ring->qp_state);
-@@ -591,6 +598,11 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	return skb_tx_hash(dev, skb);
- }
- 
-+static void mlx4_bf_copy(unsigned long *dst, unsigned long *src, unsigned bytecnt)
++static int map_bf_area(struct mlx4_dev *dev)
 +{
-+	__iowrite64_copy(dst, src, bytecnt / 8);
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	resource_size_t bf_start;
++	resource_size_t bf_len;
++	int err = 0;
++
++	bf_start = pci_resource_start(dev->pdev, 2) + (dev->caps.num_uars << PAGE_SHIFT);
++	bf_len = pci_resource_len(dev->pdev, 2) - (dev->caps.num_uars << PAGE_SHIFT);
++	priv->bf_mapping = io_mapping_create_wc(bf_start, bf_len);
++	if (!priv->bf_mapping)
++		err = -ENOMEM;
++
++	return err;
 +}
 +
- netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
++static void unmap_bf_area(struct mlx4_dev *dev)
++{
++	if (mlx4_priv(dev)->bf_mapping)
++		io_mapping_free(mlx4_priv(dev)->bf_mapping);
++}
++
+ static void mlx4_close_hca(struct mlx4_dev *dev)
  {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -609,12 +621,13 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int desc_size;
- 	int real_size;
- 	dma_addr_t dma;
--	u32 index;
-+	u32 index, bf_index;
- 	__be32 op_own;
- 	u16 vlan_tag = 0;
- 	int i;
- 	int lso_header_size;
- 	void *fragptr;
-+	bool bounce = false;
++	unmap_bf_area(dev);
+ 	mlx4_CLOSE_HCA(dev, 0);
+ 	mlx4_free_icms(dev);
+ 	mlx4_UNMAP_FA(dev);
+@@ -775,6 +799,9 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
+ 		goto err_stop_fw;
+ 	}
  
- 	if (!priv->port_up)
- 		goto tx_drop;
-@@ -657,13 +670,16 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Packet is good - grab an index and transmit it */
- 	index = ring->prod & ring->size_mask;
-+	bf_index = ring->prod;
- 
- 	/* See if we have enough space for whole descriptor TXBB for setting
- 	 * SW ownership on next descriptor; if not, use a bounce buffer. */
- 	if (likely(index + nr_txbb <= ring->size))
- 		tx_desc = ring->buf + index * TXBB_SIZE;
--	else
-+	else {
- 		tx_desc = (struct mlx4_en_tx_desc *) ring->bounce_buf;
-+		bounce = true;
-+	}
- 
- 	/* Save skb in tx_info ring */
- 	tx_info = &ring->tx_info[index];
-@@ -768,21 +784,37 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	ring->prod += nr_txbb;
- 
- 	/* If we used a bounce buffer then copy descriptor back into place */
--	if (tx_desc == (struct mlx4_en_tx_desc *) ring->bounce_buf)
-+	if (bounce)
- 		tx_desc = mlx4_en_bounce_to_desc(priv, ring, index, desc_size);
- 
- 	/* Run destructor before passing skb to HW */
- 	if (likely(!skb_shared(skb)))
- 		skb_orphan(skb);
- 
--	/* Ensure new descirptor hits memory
--	 * before setting ownership of this descriptor to HW */
--	wmb();
--	tx_desc->ctrl.owner_opcode = op_own;
-+	if (ring->bf_enabled && desc_size <= MAX_BF && !bounce && !vlan_tag) {
-+		*(u32 *) (&tx_desc->ctrl.vlan_tag) |= ring->doorbell_qpn;
-+		op_own |= htonl((bf_index & 0xffff) << 8);
-+		/* Ensure new descirptor hits memory
-+		* before setting ownership of this descriptor to HW */
-+		wmb();
-+		tx_desc->ctrl.owner_opcode = op_own;
- 
--	/* Ring doorbell! */
--	wmb();
--	writel(ring->doorbell_qpn, mdev->uar_map + MLX4_SEND_DOORBELL);
-+		wmb();
++	if (map_bf_area(dev))
++		mlx4_dbg(dev, "Failed to map blue flame area\n");
 +
-+		mlx4_bf_copy(ring->bf.reg + ring->bf.offset, (unsigned long *) &tx_desc->ctrl,
-+		     desc_size);
-+
-+		wmb();
-+
-+		ring->bf.offset ^= ring->bf.buf_size;
-+	} else {
-+		/* Ensure new descirptor hits memory
-+		* before setting ownership of this descriptor to HW */
-+		wmb();
-+		tx_desc->ctrl.owner_opcode = op_own;
-+		wmb();
-+		writel(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
-+	}
+ 	init_hca.log_uar_sz = ilog2(dev->caps.num_uars);
  
- 	/* Poll CQ here */
- 	mlx4_en_xmit_poll(priv, tx_ind);
-diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 5a2c560..edcb535 100644
---- a/drivers/net/mlx4/mlx4_en.h
-+++ b/drivers/net/mlx4/mlx4_en.h
-@@ -248,6 +248,8 @@ struct mlx4_en_tx_ring {
- 	unsigned long bytes;
- 	unsigned long packets;
- 	spinlock_t comp_lock;
-+	struct mlx4_bf bf;
-+	bool bf_enabled;
+ 	err = mlx4_init_icm(dev, &dev_cap, &init_hca, icm_size);
+@@ -805,6 +832,7 @@ err_free_icm:
+ 	mlx4_free_icms(dev);
+ 
+ err_stop_fw:
++	unmap_bf_area(dev);
+ 	mlx4_UNMAP_FA(dev);
+ 	mlx4_free_icm(dev, priv->fw.fw_icm, 0);
+ 
+@@ -1196,6 +1224,9 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	pci_read_config_byte(pdev, PCI_REVISION_ID, &dev->rev_id);
+ 
++	INIT_LIST_HEAD(&priv->bf_list);
++	mutex_init(&priv->bf_mutex);
++
+ 	/*
+ 	 * Now reset the HCA before we touch the PCI capabilities or
+ 	 * attempt a firmware command, since a boot ROM may have left
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index d8bb441..bc9a216 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -353,6 +353,9 @@ struct mlx4_priv {
+ 	struct mutex		port_mutex;
+ 	struct mlx4_msix_ctl	msix_ctl;
+ 	struct mlx4_steer	*steer;
++	struct list_head	bf_list;
++	struct mutex		bf_mutex;
++	struct io_mapping	*bf_mapping;
  };
  
- struct mlx4_en_rx_desc {
-@@ -518,7 +520,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb);
- netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
+ static inline struct mlx4_priv *mlx4_priv(struct mlx4_dev *dev)
+diff --git a/drivers/net/mlx4/pd.c b/drivers/net/mlx4/pd.c
+index c4988d6..5210a0f 100644
+--- a/drivers/net/mlx4/pd.c
++++ b/drivers/net/mlx4/pd.c
+@@ -32,6 +32,7 @@
+  */
  
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv, struct mlx4_en_tx_ring *ring,
--			   u32 size, u16 stride);
-+			   int qpn, u32 size, u16 stride);
- void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv, struct mlx4_en_tx_ring *ring);
- int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 			     struct mlx4_en_tx_ring *ring,
+ #include <linux/errno.h>
++#include <linux/io-mapping.h>
+ 
+ #include <asm/page.h>
+ 
+@@ -77,6 +78,7 @@ int mlx4_uar_alloc(struct mlx4_dev *dev, struct mlx4_uar *uar)
+ 		return -ENOMEM;
+ 
+ 	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + uar->index;
++	uar->map = NULL;
+ 
+ 	return 0;
+ }
+@@ -88,6 +90,98 @@ void mlx4_uar_free(struct mlx4_dev *dev, struct mlx4_uar *uar)
+ }
+ EXPORT_SYMBOL_GPL(mlx4_uar_free);
+ 
++int mlx4_bf_alloc(struct mlx4_dev *dev, struct mlx4_bf *bf)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_uar *uar;
++	int err = 0;
++	int idx;
++
++	if (!priv->bf_mapping)
++		return -ENOMEM;
++
++	mutex_lock(&priv->bf_mutex);
++	if (!list_empty(&priv->bf_list))
++		uar = list_entry(priv->bf_list.next, struct mlx4_uar, bf_list);
++	else {
++		uar = kmalloc(sizeof *uar, GFP_KERNEL);
++		if (!uar) {
++			err = -ENOMEM;
++			goto out;
++		}
++		err = mlx4_uar_alloc(dev, uar);
++		if (err)
++			goto free_kmalloc;
++
++		uar->map = ioremap(uar->pfn << PAGE_SHIFT, PAGE_SIZE);
++		if (!uar->map) {
++			err = -ENOMEM;
++			goto free_uar;
++		}
++
++		uar->bf_map = io_mapping_map_wc(priv->bf_mapping, uar->index << PAGE_SHIFT);
++		if (!uar->bf_map) {
++			err = -ENOMEM;
++			goto unamp_uar;
++		}
++		uar->free_bf_bmap = 0;
++		list_add(&uar->bf_list, &priv->bf_list);
++	}
++
++	bf->uar = uar;
++	idx = ffz(uar->free_bf_bmap);
++	uar->free_bf_bmap |= 1 << idx;
++	bf->uar = uar;
++	bf->offset = 0;
++	bf->buf_size = dev->caps.bf_reg_size / 2;
++	bf->reg = uar->bf_map + idx * dev->caps.bf_reg_size;
++	if (uar->free_bf_bmap == (1 << dev->caps.bf_regs_per_page) - 1)
++		list_del_init(&uar->bf_list);
++
++	goto out;
++
++unamp_uar:
++	bf->uar = NULL;
++	iounmap(uar->map);
++
++free_uar:
++	mlx4_uar_free(dev, uar);
++
++free_kmalloc:
++	kfree(uar);
++
++out:
++	mutex_unlock(&priv->bf_mutex);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx4_bf_alloc);
++
++void mlx4_bf_free(struct mlx4_dev *dev, struct mlx4_bf *bf)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int idx;
++
++	if (!bf->uar || !bf->uar->bf_map)
++		return;
++
++	mutex_lock(&priv->bf_mutex);
++	idx = (bf->reg - bf->uar->bf_map) / dev->caps.bf_reg_size;
++	bf->uar->free_bf_bmap &= ~(1 << idx);
++	if (!bf->uar->free_bf_bmap) {
++		if (!list_empty(&bf->uar->bf_list))
++			list_del(&bf->uar->bf_list);
++
++		io_mapping_unmap(bf->uar->bf_map);
++		iounmap(bf->uar->map);
++		mlx4_uar_free(dev, bf->uar);
++		kfree(bf->uar);
++	} else if (list_empty(&bf->uar->bf_list))
++		list_add(&bf->uar->bf_list, &priv->bf_list);
++
++	mutex_unlock(&priv->bf_mutex);
++}
++EXPORT_SYMBOL_GPL(mlx4_bf_free);
++
+ int mlx4_init_uar_table(struct mlx4_dev *dev)
+ {
+ 	if (dev->caps.num_uars <= 128) {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 56fa5e1..8985768 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -351,6 +351,17 @@ struct mlx4_fmr {
+ struct mlx4_uar {
+ 	unsigned long		pfn;
+ 	int			index;
++	struct list_head	bf_list;
++	unsigned		free_bf_bmap;
++	void __iomem	       *map;
++	void __iomem	       *bf_map;
++};
++
++struct mlx4_bf {
++	unsigned long		offset;
++	int			buf_size;
++	struct mlx4_uar	       *uar;
++	void __iomem	       *reg;
+ };
+ 
+ struct mlx4_cq {
+@@ -478,6 +489,8 @@ void mlx4_pd_free(struct mlx4_dev *dev, u32 pdn);
+ 
+ int mlx4_uar_alloc(struct mlx4_dev *dev, struct mlx4_uar *uar);
+ void mlx4_uar_free(struct mlx4_dev *dev, struct mlx4_uar *uar);
++int mlx4_bf_alloc(struct mlx4_dev *dev, struct mlx4_bf *bf);
++void mlx4_bf_free(struct mlx4_dev *dev, struct mlx4_bf *bf);
+ 
+ int mlx4_mtt_init(struct mlx4_dev *dev, int npages, int page_shift,
+ 		  struct mlx4_mtt *mtt);
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 0eeb2a1..9e9eb21 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -303,6 +303,7 @@ struct mlx4_wqe_data_seg {
+ 
+ enum {
+ 	MLX4_INLINE_ALIGN	= 64,
++	MLX4_INLINE_SEG		= 1 << 31,
+ };
+ 
+ struct mlx4_wqe_inline_seg {
 -- 
 1.6.0.2
 
