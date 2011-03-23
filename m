@@ -1,29 +1,48 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: RE: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
-Date: Wed, 23 Mar 2011 15:10:34 +0000
-Message-ID: <953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
-References: <4D89B16F.4040008@mellanox.co.il>
- <1300889054.26693.527.camel@localhost>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [RFC] myri10ge: small rx_done refactoring
+Date: Wed, 23 Mar 2011 11:21:05 -0400
+Message-ID: <4D8A0FE1.1040500@myri.com>
+References: <20110323124939.GA7834@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Brice Goglin <brice@myri.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:43554 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933031Ab1CWPKn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 11:10:43 -0400
-In-Reply-To: <1300889054.26693.527.camel@localhost>
-Content-Language: en-US
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:33268 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932963Ab1CWPVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 11:21:10 -0400
+Received: by qyk7 with SMTP id 7so4579684qyk.19
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2011 08:21:09 -0700 (PDT)
+In-Reply-To: <20110323124939.GA7834@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gVGhpcyBpcyBhbiBhYnVzZSBvZiB0aGUgZXRodG9vbF9kcnZpbmZvOjpkcml2ZXIgZmll
-bGQuDQo+IA0KPiBZb3VyIHVzZXJzIGNhbiB1c2UgbHNwY2kgLXYsIGNhbid0IHRoZXk/DQo+IA0K
-SSBkb24ndCB0aGluayB0aGVyZSBpcyBhIHByb2JsZW0gaGVyZS4NCldlIGhhdmUgYWx3YXlzIHJl
-cG9ydGVkIHRoZSBIVyBtb2RlbCB2aWEgRXRodG9vbCwgd2UganVzdCBleHBhbmRlZCB0aGUgaW5m
-b3JtYXRpb24NCndlIHByb3ZpZGUuDQpPdXIgdXNlcnMgcHJlZmVyIHRvIHNlZSB0aGUgaW5mb3Jt
-YXRpb24gaW4gZXRodG9vbC4NCg0KVGhhbmtzLA0KWWV2Z2VueQ0KDQo=
+On 03/23/11 08:52, Stanislaw Gruszka wrote:
+
+> on my i686 system, what should also make myri10ge_clean_rx_done()
+> being faster.
+
+I tested this on my very old, very weak dual-core athlon64 systems.
+These machines can barely achieve 10Gb/s using a 1500b MTU with LRO.
+Running 35 60 second netperf tests into the machines with the stock
+driver, and again with this patch applied, I see a tiny bandwidth
+increase (1.4Mb/s on average) which is statistically significant
+( p <  0.001). There is no statistically significant CPU load
+reduction.
+
+> +	if (len<= mgp->small_bytes) {
+> +		rx =&ss->rx_small;
+> +		bytes = mgp->small_bytes;
+> +	} else {
+> +		rx =&ss->rx_big,
+
+Small nit:  the "," above should be a ";"
+
+Between the small bandwidth increase, and the code size reduction,
+I'm very appreciative of this patch.
+
+Thank you,
+
+Drew
