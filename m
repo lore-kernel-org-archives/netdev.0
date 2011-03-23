@@ -1,53 +1,72 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [PATCH 02/36] scsi,rcu: convert call_rcu(fc_rport_free_rcu) to
-	kfree_rcu()
-Date: Wed, 23 Mar 2011 17:19:49 -0600
-Message-ID: <20110323231948.GE13806@parisc-linux.org>
-References: <4D82D071.5020703@cn.fujitsu.com> <4D82D3FF.2080303@cn.fujitsu.com> <4D82D45A.30102@cn.fujitsu.com> <1300814913.19083.427.camel@fritz> <20110323065014.GU2322@linux.vnet.ibm.com> <1300889151.15899.4.camel@mulgrave.site>
+From: Steve Calfee <stevecalfee@gmail.com>
+Subject: Re: [RFC] usbnet: use eth%d name for known ethernet devices
+Date: Wed, 23 Mar 2011 16:38:25 -0700
+Message-ID: <4D8A8471.9060904@gmail.com>
+References: <4D79F068.2080009@linaro.org> <201103232035.18232.arnd@arndb.de>	<AANLkTim7hPfTv3gDYnh+jGxHBg0OvX=r1FKYoHnH7H_o@mail.gmail.com>	<201103232057.18150.arnd@arndb.de>	<20110323125958.76285c0f.rdunlap@xenotime.net> <8762r9l94h.fsf@erwin.mina86.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com, Robert Love <robert.w.love@intel.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>, Jens Axboe <axboe@kernel.dk>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Tejun Heo <tj@kernel.org>, Jarek Poplawski <jarkao2@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: James Bottomley <James.Bottomley@suse.de>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Randy Dunlap <rdunlap@xenotime.net>, Arnd Bergmann <arnd@arndb.de>,
+	broonie@opensource.wolfsonmicro.com,
+	lkml <linux-kernel@vger.kernel.org>,
+	Nicolas Pitre <nicolas.pitre@linaro.org>,
+	Greg KH <greg@kroah.com>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, grant.likely@secretlab.ca,
+	Linux USB list <linux-usb@vger.kernel.org>,
+	andy.green@linaro.org, netdev@vger.kernel.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	roger.quadros@nokia.com,
+	Jaswinder Singh <jaswinder.singh@linaro.org>
+To: Michal Nazarewicz <mnazarewicz@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1300889151.15899.4.camel@mulgrave.site>
+In-Reply-To: <8762r9l94h.fsf@erwin.mina86.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 23, 2011 at 09:05:51AM -0500, James Bottomley wrote:
-> > #define kfree_rcu(ptr, rcu_head)					\
-> > 	__kfree_rcu(&((ptr)->rcu_head), offsetof(typeof(*(ptr)), rcu_head))
-> 
-> Isn't this one of those cases where the obvious use of the interface is
-> definitely wrong?
+On 03/23/11 16:17, Michal Nazarewicz wrote:
+>>>>>>> @@ -97,6 +97,8 @@ struct driver_info {
+>>>>>>>
+>>>>>>>   #define FLAG_LINK_INTR       0x0800          /* updates link =
+(carrier) status */
+>>>>>>>
+>>>>>>> +#define FLAG_PTP     0x1000          /* maybe use "usb%d" name=
+s */
+>
+>>>>> On Wednesday 23 March 2011 19:46:50 Greg KH wrote:
+>>>>>> "PTP"?  What does that stand for?
+>
+>>>> On Mar 23, 2011 8:36 PM, "Arnd Bergmann"<arnd@arndb.de>  wrote:
+>>>>> point-to-point, I'll improve the comment to spell it out when
+>>>>> I send the fixed version.
+>
+>>> On Wednesday 23 March 2011 20:53:13 Micha=C5=82 Nazarewicz wrote:
+>>>> I think P2P could be better.
+>
+>> On Wed, 23 Mar 2011 20:57:18 +0100 Arnd Bergmann wrote:
+>>> Yes, good idea.
+>
+> Randy Dunlap<rdunlap@xenotime.net>  writes:
+>> that's peer-to-peer.
+>>
+>> OTOH, I knew that PTP was point-to-point.
+>
+> It can be any of that, depending on context.  For me PTP is more like
+> Picture Transport Protocol, whereas "2" between two letters is usuall=
+y
+> "to".
+>
+Well, my 2 cents, picture transport protocol is so obviously different=20
+than flags for network interfaces it does not cause a mental collision.=
+=20
+However P2P is about to become a huge wifi issue, which definitely is i=
+n=20
+the network space. So don't confuse things in the near future, don't us=
+e=20
+P2P.
 
-But it's a compile time breakage if you use it wrong, not runtime.
+Maybe a completely different, not so overused flag name would be better=
+=2E
 
-> It's also another nasty pseudo C prototype.  I know we do this sort of
-> thing for container_of et al, but I don't really think we want to extend
-> it.
-
-We do it for list_entry, list_for_each_entry, etc.  And those are very
-widespread within the kernel.
-
--- 
-Matthew Wilcox				Intel Open Source Technology Centre
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+Regards, Steve
