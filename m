@@ -1,50 +1,94 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-2.6] bonding: fix rx_handler locking
-Date: Wed, 23 Mar 2011 22:16:00 +0100
-Message-ID: <20110323211559.GA2809@psychotron.redhat.com>
-References: <1300797492-16128-1-git-send-email-jpirko@redhat.com>
- <4D8A4931.10903@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-2.6] sfc: Siena: Disable write-combining when SR-IOV is
+ enabled
+Date: Wed, 23 Mar 2011 21:16:59 +0000
+Message-ID: <1300915019.2638.20.camel@bwh-desktop>
+References: <1300914873.2638.19.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	fubar@us.ibm.com
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44430 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755141Ab1CWVQM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 17:16:12 -0400
-Content-Disposition: inline
-In-Reply-To: <4D8A4931.10903@gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:55064 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754434Ab1CWVRC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 17:17:02 -0400
+In-Reply-To: <1300914873.2638.19.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 23, 2011 at 08:25:37PM CET, nicolas.2p.debian@gmail.com wrote:
->Le 22/03/2011 13:38, Jiri Pirko a =E9crit :
->>This prevents possible race between bond_enslave and bond_handle_fram=
-e
->>as reported by Nicolas by moving rx_handler register/unregister.
->>slave->bond is added to hold pointer to master bonding sructure. That
->>way dev->master is no longer used in bond_handler_frame.
->>Also, this removes "BUG: scheduling while atomic" message
->>
->>Reported-by: Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>
->>Signed-off-by: Jiri Pirko<jpirko@redhat.com>
->
->Thanks Jiri, it works.
->
->Tested-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
->
->Regarding the code review, can you explain the reasons why you
->apparently duplicated the fields related to the slave/master
->relationship?
->
->Do you plan to totally remove dev->master usage in bonding in a follow=
--up patch?
+From: Steve Hodgson <shodgson@solarflare.com>
 
-dev->master could be possibly retired. Not sure yet. It's on my todo
-list.
->
->	Nicolas.
+If SR-IOV is enabled by firmware, even if it is not enabled in the PCI
+capability, TX pushes using write-combining may be corrupted.
+
+We want to know whether it is enabled before mapping the NIC
+registers, and even if PCI extended capabilities are not accessible.
+Therefore, we look for the MSI capability, which is removed if SR-IOV
+is enabled.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/efx.c         |   18 ++++++++++++++++--
+ drivers/net/sfc/workarounds.h |    2 ++
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index b8bd936..d890679 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1054,6 +1054,7 @@ static int efx_init_io(struct efx_nic *efx)
+ {
+ 	struct pci_dev *pci_dev = efx->pci_dev;
+ 	dma_addr_t dma_mask = efx->type->max_dma_mask;
++	bool use_wc;
+ 	int rc;
+ 
+ 	netif_dbg(efx, probe, efx->net_dev, "initialising I/O\n");
+@@ -1104,8 +1105,21 @@ static int efx_init_io(struct efx_nic *efx)
+ 		rc = -EIO;
+ 		goto fail3;
+ 	}
+-	efx->membase = ioremap_wc(efx->membase_phys,
+-				  efx->type->mem_map_size);
++
++	/* bug22643: If SR-IOV is enabled then tx push over a write combined
++	 * mapping is unsafe. We need to disable write combining in this case.
++	 * MSI is unsupported when SR-IOV is enabled, and the firmware will
++	 * have removed the MSI capability. So write combining is safe if
++	 * there is an MSI capability.
++	 */
++	use_wc = (!EFX_WORKAROUND_22643(efx) ||
++		  pci_find_capability(pci_dev, PCI_CAP_ID_MSI));
++	if (use_wc)
++		efx->membase = ioremap_wc(efx->membase_phys,
++					  efx->type->mem_map_size);
++	else
++		efx->membase = ioremap_nocache(efx->membase_phys,
++					       efx->type->mem_map_size);
+ 	if (!efx->membase) {
+ 		netif_err(efx, probe, efx->net_dev,
+ 			  "could not map memory BAR at %llx+%x\n",
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
+index e4dd3a7..99ff114 100644
+--- a/drivers/net/sfc/workarounds.h
++++ b/drivers/net/sfc/workarounds.h
+@@ -38,6 +38,8 @@
+ #define EFX_WORKAROUND_15783 EFX_WORKAROUND_ALWAYS
+ /* Legacy interrupt storm when interrupt fifo fills */
+ #define EFX_WORKAROUND_17213 EFX_WORKAROUND_SIENA
++/* Write combining and sriov=enabled are incompatible */
++#define EFX_WORKAROUND_22643 EFX_WORKAROUND_SIENA
+ 
+ /* Spurious parity errors in TSORT buffers */
+ #define EFX_WORKAROUND_5129 EFX_WORKAROUND_FALCON_A
+-- 
+1.7.4
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
