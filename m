@@ -1,218 +1,178 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [PATCH V12 1/4] ptp: Added a brand new class driver for ptp
- clocks.
-Date: Wed, 23 Mar 2011 14:19:20 -0700
-Message-ID: <1300915160.848.33.camel@work-vm>
+From: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V12 2/4] ptp: Added a clock that uses the eTSEC found
+ on the MPC85xx.
+Date: Wed, 23 Mar 2011 14:30:04 -0700
+Message-ID: <1300915804.848.40.camel@work-vm>
 References: <cover.1298878618.git.richard.cochran@omicron.at>
-	 <bf964489f4c6ee51bd8a2ab818cd6a5e2f544627.1298878618.git.richard.cochran@omicron.at>
+	 <aa97e94c82ebd8953d83b53f64cbfef66c81b7be.1298878618.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Russell King <linux@arm.linux.org.uk>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:58507 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932133Ab1CWVTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 17:19:34 -0400
-In-Reply-To: <bf964489f4c6ee51bd8a2ab818cd6a5e2f544627.1298878618.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <aa97e94c82ebd8953d83b53f64cbfef66c81b7be.1298878618.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On Mon, 2011-02-28 at 08:57 +0100, Richard Cochran wrote:
-> This patch adds an infrastructure for hardware clocks that implement
-> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
-> registration method to particular hardware clock drivers. Each clock is
-> presented as a standard POSIX clock.
-> 
-> The ancillary clock features are exposed in two different ways, via
-> the sysfs and by a character device.
-> 
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+> The eTSEC includes a PTP clock with quite a few features. This patch adds
+> support for the basic clock adjustment functions, plus two external time
+> stamps, one alarm, and the PPS callback.
 
-I think this looks mostly ok. I've got one concern on the locking and
-there are a few minor nits that might need extra commenting below. 
-
-thanks
--john
+Just a minor question on the locking, but otherwise looks ok.
 
 > --- /dev/null
-> +++ b/Documentation/ptp/testptp.c
+> +++ b/drivers/net/gianfar_ptp.c
+> @@ -0,0 +1,579 @@
 [snip]
-> +	if (0x7fffffff != adjfreq) {
-> +		memset(&tx, 0, sizeof(tx));
-> +		tx.modes = ADJ_FREQUENCY;
-> +		tx.freq = (long) (adjfreq * 65.536);
+> +/*
+> + * Register access functions
+> + */
 
-So, 65.536... I understand you're converting ppb to ppm << 16 (which is
-what adjtime takes), but I'm not sure if anyone else will. I'd either
-wrap that in a commented conversion function/macro or just do the
-conversion explicitly (freq = (adjfreq << 16)/1000;  although this has
-potential overflow risks with large ppb values) with a comment about
-what is going on.
+So what are the locking rules on the functions below? I assume the
+etsects->lock needs to be held prior to calling, so that should be made
+explicit in a comment.
 
-> --- /dev/null
-> +++ b/drivers/ptp/ptp_clock.c
-> @@ -0,0 +1,320 @@
-[snip]
-> +static void enqueue_external_timestamp(struct timestamp_event_queue *queue,
-> +				       struct ptp_clock_event *src)
+> +static u64 tmr_cnt_read(struct etsects *etsects)
 > +{
-> +	struct ptp_extts_event *dst;
-> +	unsigned long flags;
-> +	u32 remainder;
+> +	u64 ns;
+> +	u32 lo, hi;
 > +
-> +	dst = &queue->buf[queue->tail];
-
-Doesn't the lock need to happen before you access the
-queue->buf[queue->tail] ? 
-
-For example: What happens if two cpus enter the function at the same
-time, both get the same tail index, one overwrite the other's data, then
-both take turns bumping up the tail pointer?
-
-
-> +	dst->index = src->index;
-> +	dst->t.sec = div_u64_rem(src->timestamp, 1000000000, &remainder);
-> +	dst->t.nsec = remainder;
-> +
-> +	spin_lock_irqsave(&queue->lock, flags);
-> +
-> +	if (!queue_free(queue))
-> +		queue->head = (queue->head + 1) % PTP_MAX_TIMESTAMPS;
-> +
-> +	queue->tail = (queue->tail + 1) % PTP_MAX_TIMESTAMPS;
-> +
-> +	spin_unlock_irqrestore(&queue->lock, flags);
+> +	lo = gfar_read(&etsects->regs->tmr_cnt_l);
+> +	hi = gfar_read(&etsects->regs->tmr_cnt_h);
+> +	ns = ((u64) hi) << 32;
+> +	ns |= lo;
+> +	return ns;
 > +}
-[snip]
-> +static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
+> +
+> +static void tmr_cnt_write(struct etsects *etsects, u64 ns)
 > +{
-> +	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
-> +	struct ptp_clock_info *ops;
-> +	int err = -EOPNOTSUPP;
+> +	u32 hi = ns >> 32;
+> +	u32 lo = ns & 0xffffffff;
 > +
-> +	ops = ptp->info;
+> +	gfar_write(&etsects->regs->tmr_cnt_l, lo);
+> +	gfar_write(&etsects->regs->tmr_cnt_h, hi);
+> +}
 > +
-> +	if (tx->modes & ADJ_SETOFFSET) {
-> +		struct timespec ts;
-> +		ktime_t kt;
-> +		s64 delta;
+> +static void set_alarm(struct etsects *etsects)
+> +{
+> +	u64 ns;
+> +	u32 lo, hi;
 > +
-> +		ts.tv_sec  = tx->time.tv_sec;
-> +		ts.tv_nsec = tx->time.tv_usec;
+> +	ns = tmr_cnt_read(etsects) + 1500000000ULL;
+> +	ns = div_u64(ns, 1000000000UL) * 1000000000ULL;
+> +	ns -= etsects->tclk_period;
+> +	hi = ns >> 32;
+> +	lo = ns & 0xffffffff;
+> +	gfar_write(&etsects->regs->tmr_alarm1_l, lo);
+> +	gfar_write(&etsects->regs->tmr_alarm1_h, hi);
+> +}
 > +
-> +		if (!(tx->modes & ADJ_NANO))
-> +			ts.tv_nsec *= 1000;
+> +static void set_fipers(struct etsects *etsects)
+> +{
+> +	u32 tmr_ctrl = gfar_read(&etsects->regs->tmr_ctrl);
 > +
-> +		if ((unsigned long) ts.tv_nsec >= NSEC_PER_SEC)
-> +			return -EINVAL;
+> +	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl & (~TE));
+> +	gfar_write(&etsects->regs->tmr_prsc,   etsects->tmr_prsc);
+> +	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
+> +	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
+> +	set_alarm(etsects);
+> +	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|TE);
+> +}
 > +
-> +		kt = timespec_to_ktime(ts);
-> +		delta = ktime_to_ns(kt);
-> +		err = ops->adjtime(ops, delta);
-> +
-> +	} else if (tx->modes & ADJ_FREQUENCY) {
-> +		s64 ppb = 1 + tx->freq;
-> +		ppb *= 125;
-> +		ppb >>= 13;
 
-((1 + freq) *125)>>13 == magic :)
-Needs a clear comment.
+[snip]
 
-> +		err = ops->adjfreq(ops, (s32)ppb);
+> +static int gianfar_ptp_probe(struct platform_device *dev)
+> +{
+> +	struct device_node *node = dev->dev.of_node;
+> +	struct etsects *etsects;
+> +	struct timespec now;
+> +	int err = -ENOMEM;
+> +	u32 tmr_ctrl;
+> +
+> +	etsects = kzalloc(sizeof(*etsects), GFP_KERNEL);
+> +	if (!etsects)
+> +		goto no_memory;
+> +
+> +	err = -ENODEV;
+> +
+> +	etsects->caps = ptp_gianfar_caps;
+> +	etsects->cksel = DEFAULT_CKSEL;
+> +
+> +	if (get_of_u32(node, "fsl,tclk-period", &etsects->tclk_period) ||
+> +	    get_of_u32(node, "fsl,tmr-prsc", &etsects->tmr_prsc) ||
+> +	    get_of_u32(node, "fsl,tmr-add", &etsects->tmr_add) ||
+> +	    get_of_u32(node, "fsl,tmr-fiper1", &etsects->tmr_fiper1) ||
+> +	    get_of_u32(node, "fsl,tmr-fiper2", &etsects->tmr_fiper2) ||
+> +	    get_of_u32(node, "fsl,max-adj", &etsects->caps.max_adj)) {
+> +		pr_err("device tree node missing required elements\n");
+> +		goto no_node;
 > +	}
 > +
-> +	return err;
-> +}
+> +	etsects->irq = platform_get_irq(dev, 0);
+> +
+> +	if (etsects->irq == NO_IRQ) {
+> +		pr_err("irq not in device tree\n");
+> +		goto no_node;
+> +	}
+> +	if (request_irq(etsects->irq, isr, 0, DRIVER, etsects)) {
+> +		pr_err("request_irq failed\n");
+> +		goto no_node;
+> +	}
+> +
+> +	etsects->rsrc = platform_get_resource(dev, IORESOURCE_MEM, 0);
+> +	if (!etsects->rsrc) {
+> +		pr_err("no resource\n");
+> +		goto no_resource;
+> +	}
+> +	if (request_resource(&ioport_resource, etsects->rsrc)) {
+> +		pr_err("resource busy\n");
+> +		goto no_resource;
+> +	}
+> +
+> +	spin_lock_init(&etsects->lock);
+> +
+> +	etsects->regs = ioremap(etsects->rsrc->start,
+> +				1 + etsects->rsrc->end - etsects->rsrc->start);
+> +	if (!etsects->regs) {
+> +		pr_err("ioremap ptp registers failed\n");
+> +		goto no_ioremap;
+> +	}
+> +	getnstimeofday(&now);
+> +	ptp_gianfar_settime(&etsects->caps, &now);
+> +
+> +	tmr_ctrl =
+> +	  (etsects->tclk_period & TCLK_PERIOD_MASK) << TCLK_PERIOD_SHIFT |
+> +	  (etsects->cksel & CKSEL_MASK) << CKSEL_SHIFT;
+> +
+> +	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl);
+> +	gfar_write(&etsects->regs->tmr_add,    etsects->tmr_add);
+> +	gfar_write(&etsects->regs->tmr_prsc,   etsects->tmr_prsc);
+> +	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
+> +	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
+> +	set_alarm(etsects);
+> +	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|FS|RTPE|TE);
 
-[snip]
+Does any of the above need a lock should an irq land in the middle of
+the writes?
 
-> diff --git a/drivers/ptp/ptp_private.h b/drivers/ptp/ptp_private.h
-> new file mode 100644
-> index 0000000..2f76266
-> --- /dev/null
-> +++ b/drivers/ptp/ptp_private.h
-> @@ -0,0 +1,86 @@
-> +/*
-> + * PTP 1588 clock support - private declarations for the core module.
-> + *
-> + * Copyright (C) 2010 OMICRON electronics GmbH
-> + *
-> + *  This program is free software; you can redistribute it and/or modify
-> + *  it under the terms of the GNU General Public License as published by
-> + *  the Free Software Foundation; either version 2 of the License, or
-> + *  (at your option) any later version.
-> + *
-> + *  This program is distributed in the hope that it will be useful,
-> + *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + *  GNU General Public License for more details.
-> + *
-> + *  You should have received a copy of the GNU General Public License
-> + *  along with this program; if not, write to the Free Software
-> + *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-> + */
-> +#ifndef _PTP_PRIVATE_H_
-> +#define _PTP_PRIVATE_H_
-> +
-> +#include <linux/cdev.h>
-> +#include <linux/device.h>
-> +#include <linux/mutex.h>
-> +#include <linux/posix-clock.h>
-> +#include <linux/ptp_clock.h>
-> +#include <linux/ptp_clock_kernel.h>
-> +#include <linux/time.h>
-> +
-> +#define PTP_MAX_TIMESTAMPS 128
-> +#define PTP_BUF_TIMESTAMPS 30
-> +
-> +struct timestamp_event_queue {
-> +	struct ptp_extts_event buf[PTP_MAX_TIMESTAMPS];
-> +	int head;
-> +	int tail;
-> +	spinlock_t lock;
-> +};
-> +
-> +struct ptp_clock {
-> +	struct posix_clock clock;
-> +	struct device *dev;
-> +	struct ptp_clock_info *info;
-> +	dev_t devid;
-> +	int index; /* index into clocks.map */
-> +	struct pps_device *pps_source;
-> +	struct timestamp_event_queue tsevq; /* simple fifo for time stamps */
-> +	struct mutex tsevq_mux; /* one process at a time reading the fifo */
-> +	wait_queue_head_t tsev_wq;
-> +};
-> +
-> +static inline int queue_cnt(struct timestamp_event_queue *q)
-> +{
-> +	int cnt = q->tail - q->head;
-> +	return cnt < 0 ? PTP_MAX_TIMESTAMPS + cnt : cnt;
-> +}
-
-q->tail and head access probably need to happen only when locked. 
-
-So probably need a comment that queue_cnt must be called only when
-holding the proper lock.
 
 
 thanks
 -john
-
-
