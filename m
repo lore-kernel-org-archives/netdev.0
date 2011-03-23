@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] drivers/net/a2065.c: Convert release_resource to
- release_region/release_mem_region
-Date: Wed, 23 Mar 2011 14:10:59 -0700 (PDT)
-Message-ID: <20110323.141059.27811716.davem@davemloft.net>
-References: <1300814123-25314-3-git-send-email-julia@diku.dk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-2.6 2011-03-23
+Date: Wed, 23 Mar 2011 21:14:33 +0000
+Message-ID: <1300914873.2638.19.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, eric.dumazet@gmail.com,
-	tj@kernel.org, jpirko@redhat.com, geert@linux-m68k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: julia@diku.dk
+Cc: netdev <netdev@vger.kernel.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42585
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756202Ab1CWVKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 17:10:20 -0400
-In-Reply-To: <1300814123-25314-3-git-send-email-julia@diku.dk>
+Received: from mail.solarflare.com ([216.237.3.220]:54846 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877Ab1CWVOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 17:14:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Tue, 22 Mar 2011 18:15:23 +0100
+The following changes since commit 736561a01f11114146b1b7f82d486fa9c95828ef:
 
-> Request_mem_region should be used with release_mem_region, not
-> release_resource.
-> 
-> The semantic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+  IPVS: Use global mutex in ip_vs_app.c (2011-03-21 20:39:24 -0700)
 
-Applied.
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-2.6.git sfc-2.6.39
+
+Bug fix for the latest optimisation.
+
+Ben.
+
+Steve Hodgson (1):
+      sfc: Siena: Disable write-combining when SR-IOV is enabled
+
+ drivers/net/sfc/efx.c         |   18 ++++++++++++++++--
+ drivers/net/sfc/workarounds.h |    2 ++
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
