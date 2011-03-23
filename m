@@ -1,66 +1,74 @@
-From: Holger Hans Peter Freyther <holger@freyther.de>
-Subject: [PATCH] sctp: Make some local functions static
-Date: Wed, 23 Mar 2011 11:48:07 +0100
-Message-ID: <4D89CFE7.4050907@freyther.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ip_fragment:kernel may panic when replay big packet
+ with RST flag
+Date: Wed, 23 Mar 2011 12:01:56 +0100
+Message-ID: <1300878116.3063.101.camel@edumazet-laptop>
+References: <AANLkTikoSxVd3kTggsCGpjXz-5CFuVNxjnpuZNgWd3eV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Feng Gao <kernel.goter@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gandharva.secretlabs.de ([78.46.147.237]:58657 "EHLO
-	gandharva.secretlabs.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932303Ab1CWK5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 06:57:13 -0400
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:48361 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755901Ab1CWLCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 07:02:00 -0400
+Received: by yxs7 with SMTP id 7so3271623yxs.19
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2011 04:01:59 -0700 (PDT)
+In-Reply-To: <AANLkTikoSxVd3kTggsCGpjXz-5CFuVNxjnpuZNgWd3eV@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sparse proposed to mark these functions as static as they are
-only accessed locally. This patch is doing that.
+Le mercredi 23 mars 2011 =C3=A0 18:49 +0800, Feng Gao a =C3=A9crit :
+> Hello everyone:
+>=20
+> PC(A)-linux(B)-PC(C)
+> computer(linux B) with two net interface,eth0 and eth1.
+> PC(A) send syn to PC(C)  though linux B.
+> then PC(C) replay a big packet  with RST flag(use tcpsic or other too=
+ls).
+>=20
+> This RST packet(1480) come in from eth0(mtu 1500) and go out from
+> eth1(mtu 700), so this RST packet should fragment.
+>=20
+> BUT in tcp_packet func: if the connection has no reply packet,and
+> receive the RST packet.ip_conntrack should  destroy.
+>   if (!test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+>                 /* If only reply is a RST, we can consider ourselves =
+not to
+>                    have an established connection: this is a fairly c=
+ommon
+>                    problem case, so we can delete the conntrack
+>                    immediately.  --RR */
+>                 if (th->rst) {
+>                         nf_ct_kill_acct(ct, ctinfo, skb);
+>                         return NF_ACCEPT;
+>                 }
+>         }
+>=20
+> BUT the skb->nfct is not set NULL in func nf_ct_kill_acct.
+> so when this RST packet goto ip_fragment,ip_fragment call nf_copy, in
+> __nf_copy func
+> the fragment skb->nfct point to the destory mem.
+> dst->nfct =3D src->nfct;
+> nf_conntrack_get(src->nfct);
+>=20
+> SO finally.kfree_skb call destroy_conntrack again. this may result in
+> LINUX B kernel panic.
+>=20
+>=20
+> here is the patch,sorry ,i dont know how to use diff to generate patc=
+h.
+> :-D
+>=20
 
-Signed-off-by: Holger Hans Peter Freyther <zecke@selfish.org>
-Acked-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/sctp/probe.c         |   10 +++++-----
- net/sctp/sm_make_chunk.c |    4 ++--
- 2 files changed, 7 insertions(+), 7 deletions(-)
+Hi Feng
 
-diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-index bc6cd75..4616548 100644
---- a/net/sctp/probe.c
-+++ b/net/sctp/probe.c
-@@ -122,11 +122,11 @@ static const struct file_operations sctpprobe_fops = {
- 	.llseek = noop_llseek,
- };
- -sctp_disposition_t jsctp_sf_eat_sack(const struct sctp_endpoint *ep,
--				     const struct sctp_association *asoc,
--				     const sctp_subtype_t type,
--				     void *arg,
--				     sctp_cmd_seq_t *commands)
-+static sctp_disposition_t jsctp_sf_eat_sack(const struct sctp_endpoint *ep,
-+					    const struct sctp_association *asoc,
-+					    const sctp_subtype_t type,
-+					    void *arg,
-+					    sctp_cmd_seq_t *commands)
- {
- 	struct sctp_transport *sp;
- 	static __u32 lcwnd = 0;
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index de98665..a8c0798 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -132,8 +132,8 @@ void  sctp_init_cause(struct sctp_chunk *chunk, __be16
-cause_code,
-  * abort chunk.  Differs from sctp_init_cause in that it won't oops
-  * if there isn't enough space in the op error chunk
-  */
--int sctp_init_cause_fixed(struct sctp_chunk *chunk, __be16 cause_code,
--		      size_t paylen)
-+static int sctp_init_cause_fixed(struct sctp_chunk *chunk, __be16 cause_code,
-+				 size_t paylen)
- {
- 	sctp_errhdr_t err;
- 	__u16 len;
--- 
-1.7.4
+Oh well, please learn how to do this. If you are able to make such
+analysis, you sure can learn how to use diff !!!
+
+What is the version of linux you use ?
+
+
 
