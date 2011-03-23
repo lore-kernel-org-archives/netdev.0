@@ -1,55 +1,61 @@
-From: Andy Green <andy@warmcat.com>
-Subject: Re: [RFC] usbnet: use eth%d name for known ethernet devices
-Date: Wed, 23 Mar 2011 17:04:48 +0000
-Message-ID: <4D8A2830.6020706@linaro.org>
-References: <4D79F068.2080009@linaro.org> <201103231712.06184.arnd@arndb.de> <20110323162251.GA9367@kroah.com> <201103231756.39849.arnd@arndb.de>
-Reply-To: andy.green@linaro.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
+Date: Wed, 23 Mar 2011 10:06:46 -0700
+Message-ID: <20110323100646.2319e392@nehalam>
+References: <4D89B16F.4040008@mellanox.co.il>
+	<1300889054.26693.527.camel@localhost>
+	<953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
+	<1300895205.2638.0.camel@bwh-desktop>
+	<953B660C027164448AE903364AC447D20705BF27@mtldag01.mtl.com>
+	<1300896492.2638.13.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Nicolas Pitre <nicolas.pitre@linaro.org>,
-	Jaswinder Singh <jaswinder.singh@linaro.org>,
-	Linux USB list <linux-usb@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	broonie@opensource.wolfsonmicro.com, roger.quadros@nokia.com,
-	grant.likely@secretlab.ca, netdev@vger.kernel.org,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:37791 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754235Ab1CWREx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 13:04:53 -0400
-In-Reply-To: <201103231756.39849.arnd@arndb.de>
+Received: from mail.vyatta.com ([76.74.103.46]:58208 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751323Ab1CWRGu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 13:06:50 -0400
+In-Reply-To: <1300896492.2638.13.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/23/2011 04:56 PM, Somebody in the thread at some point said:
+On Wed, 23 Mar 2011 16:08:12 +0000
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-> The approach taken here is to flag whether a device might be a
-> point-to-point link with the new FLAG_PTP setting in the usbnet
-> driver_info. A driver can set both FLAG_PTP and FLAG_ETHER if
-> it is not sure (e.g. cdc_ether), or just one of the two.
-> The usbnet framework only looks at the MAC address for device
-> naming if both flags are set, otherwise it trusts the flag.
+> On Wed, 2011-03-23 at 15:54 +0000, Yevgeny Petrilin wrote:
+> > > On Wed, 2011-03-23 at 15:10 +0000, Yevgeny Petrilin wrote:
+> > > > >
+> > > > > This is an abuse of the ethtool_drvinfo::driver field.
+> > > > >
+> > > > > Your users can use lspci -v, can't they?
+> > > > >
+> > > > I don't think there is a problem here.
+> > > > We have always reported the HW model via Ethtool, we just expanded
+> > > the information
+> > > > we provide.
+> > > > Our users prefer to see the information in ethtool.
+> > > 
+> > > Do you mean 'we documented ethtool -i as the way to get hardware
+> > > identification'?  That would be a bug in your documentation.
+> > > 
+> > > Ben.
+> > 
+> > This is not what I mean, All the required information can be found in lspci,
+> > There are some requests to see part of this information also via ethtool
+> 
+> As Stephen says, the issue here is consistency between drivers.
+> Sometimes you just have to say no to customer requests that you abuse a
+> standard API.
+> 
+> You could perhaps include some sort of hardware type distinction in the
+> firmware version string, if it doesn't already incorporate that.
 
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> index bc86f4b..c98d3a7 100644
-> --- a/drivers/net/usb/smsc95xx.c
-> +++ b/drivers/net/usb/smsc95xx.c
-> @@ -1231,7 +1231,7 @@ static const struct driver_info smsc95xx_info = {
+The pci info is already in bus_info and that can be used by tools.
+Alternatively, many drivers splat revision/config info out to dmesg.
 
-> -	.flags		= FLAG_ETHER | FLAG_SEND_ZLP,
-> +	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_REALLY_ETHER,
-
->   		if ((dev->driver_info->flags&  FLAG_ETHER) != 0&&
-> +		    ((dev->driver_info->flags&  FLAG_PTP) == 0 ||
-> +		     (net->dev_addr [0]&  0x02) == 0))
->   			strcpy (net->name, "eth%d");
-
-So it just takes the approach that all smsc95xx are going to be eth%d? 
-Sounds good to me.
-
--Andy
