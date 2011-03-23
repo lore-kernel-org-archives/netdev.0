@@ -1,44 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
-Date: Wed, 23 Mar 2011 15:46:45 +0000
-Message-ID: <1300895205.2638.0.camel@bwh-desktop>
-References: <4D89B16F.4040008@mellanox.co.il>
-	 <1300889054.26693.527.camel@localhost>
-	 <953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: can: c_can: TX delivery
+Date: Wed, 23 Mar 2011 16:49:25 +0100
+Message-ID: <20110323154925.GF346@e-circ.dyndns.org>
+References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
+ <20110323085340.GC346@e-circ.dyndns.org>
+ <ff5ade24e148af2e46832e5a64444d05.squirrel@www2.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Content-Type: text/plain; charset=utf-8
+Cc: bhupesh.sharma@st.com, wg@grandegger.com, b.spranger@linutronix.de,
+	netdev@vger.kernel.org
+To: Jan Altenberg <jan@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:17773 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755832Ab1CWPrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 11:47:06 -0400
-In-Reply-To: <953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
+Received: from gate.eia.be ([194.78.71.18]:24243 "EHLO mail.eia.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753184Ab1CWPta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 11:49:30 -0400
+Content-Disposition: inline
+In-Reply-To: <ff5ade24e148af2e46832e5a64444d05.squirrel@www2.linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-03-23 at 15:10 +0000, Yevgeny Petrilin wrote:
-> > 
-> > This is an abuse of the ethtool_drvinfo::driver field.
-> > 
-> > Your users can use lspci -v, can't they?
-> > 
-> I don't think there is a problem here.
-> We have always reported the HW model via Ethtool, we just expanded the information
-> we provide.
-> Our users prefer to see the information in ethtool.
+On Wed, Mar 23, 2011 at 04:32:31PM +0100, Jan Altenberg wrote:
+> Hi,
+> 
+> > I split your 2 questions in 2 replies.
+> 
+> Thanks :)
+> 
+> > not sure if I made my point.  Note that this will eliminate the need
+> > for explicit wrap-around.  It's done implicitely.
+> 
+> Hmmm, I double-checked the datasheet, which gives the following statement:
+> "The receive/transmit priority for the Message Objects is attached to
+> the message number.  Message Object 1 has the highest priority, while
+> Message Object 32 has the lowest priority. If more than one
+> transmission request is pending, they are serviced due to the priority
+> of the corresponding Message Object."
 
-Do you mean 'we documented ethtool -i as the way to get hardware
-identification'?  That would be a bug in your documentation.
+With its predecessor (I used it as IP inside infineon CPU's), this was also
+true. But I _think_ that object 17 could send before object 16 if its identifier
+is lower.
+So, me too wait for Bhupesh ...
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> I'm quite new to Bosch's c_can, so maybe Bhupesh can give some feedback
+> (or beat me for causing some confusion ;-)).
+> 
+> Sorry for the confusion!
+>         Jan
+> 
+> 
