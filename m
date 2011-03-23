@@ -1,97 +1,103 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: can: c_can: TX delivery
-Date: Wed, 23 Mar 2011 09:53:40 +0100
-Message-ID: <20110323085340.GC346@e-circ.dyndns.org>
-References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [BUG] VPN broken in net-next
+Date: Wed, 23 Mar 2011 11:05:53 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103231100440.1463@ja.ssi.bg>
+References: <alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg> <20110303.112328.59677094.davem@davemloft.net> <alpine.LFD.2.00.1103041013360.1452@ja.ssi.bg> <20110322.215655.245381151.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: bhupesh.sharma@st.com, wg@grandegger.com, b.spranger@linutronix.de,
-	netdev@vger.kernel.org
-To: Jan Altenberg <jan@linutronix.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:22341 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753345Ab1CWIxr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 04:53:47 -0400
-Content-Disposition: inline
-In-Reply-To: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
+Received: from ja.ssi.bg ([178.16.129.10]:55654 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752089Ab1CWJA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 05:00:28 -0400
+In-Reply-To: <20110322.215655.245381151.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jan,
 
-I split your 2 questions in 2 replies.
+ 	Hello,
 
-On Tue, Mar 22, 2011 at 04:59:23PM +0100, Jan Altenberg wrote:
-> Hi all,
-> 
+On Tue, 22 Mar 2011, David Miller wrote:
 
-> The second problem is related to tx_next, which should hold the number of
-> the oldest CAN frame, which was not on the line:
-> 
-> for (/* nix */; (priv->tx_next - priv->tx_echo) > 0; priv->tx_echo++) {
->         msg_obj_no = get_tx_echo_msg_obj(priv);
->         c_can_inval_msg_object(dev, 0, msg_obj_no);
->         val = c_can_read_reg32(priv, &priv->regs->txrqst1);
->         if (!(val & (1 << msg_obj_no))) {
->                 can_get_echo_skb(dev,
->                                 msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
->                 stats->tx_bytes += priv->read_reg(priv,
->                                 &priv->regs->ifregs[0].msg_cntrl)
->                                 & IF_MCONT_DLC_MASK;
->                 stats->tx_packets++;
->         }
-> }
-> 
-> But tx_echo is incremented unconditionally and we don't actually track the
-> number of the oldest unsent frame.
-> Let's assume the following scenario: We bring up can0 and send 3
-> frames: TX object: 0, 1, 2; 1 and 2 make it on the line, but 0 is
-> still pending. If we go through the above loop in that situation, we will
-> skip message object 0, because the txrqst bit is still set.  We will
-> account message object 1 and 2. That's correct, but afterwards tx_echo is
-> set to 2, BUT the oldest message which is pending is 0. Am I right or did
-> I get something wrong?
-> The operation of c_can_do_tx() is described as follows: "We iterate from
-> priv->tx_echo to priv->tx_next and check if the packet has been
-> transmitted, echo it back to the CAN framework. If we discover a not yet
-> transmitted package, stop looking for more." The actual
-> implementation doesn't seem to stop if we discover a not yet
-> transmitted package. But I'm not sure if just stopping might be a
-> good idea, because in that case, the echo skb for already transmitted
-> messages might be delayed by not yet transmitted messages.
+> I just got back to this, sorry for taking so long :-)
+>
+> Here is the patch I've come up with and will commit to
+> net-2.6, thanks!
+>
+> --------------------
+> ipv4: Fallback to FIB local table in __ip_dev_find().
+>
+> In commit 9435eb1cf0b76b323019cebf8d16762a50a12a19
+> ("ipv4: Implement __ip_dev_find using new interface address hash.")
+> we reimplemented __ip_dev_find() so that it doesn't have to
+> do a full FIB table lookup.
+>
+> Instead, it consults a hash table of addresses configured to
+> interfaces.
+>
+> This works identically to the old code in all except one case,
+> and that is for loopback subnets.
+>
+> The old code would match the loopback device for any IP address
+> that falls within a subnet configured to the loopback device.
+>
+> Handle this corner case by doing the FIB lookup.
+>
+> We could implement this via inet_addr_onlink() but:
+>
+> 1) Someone could configure many addresses to loopback and
+>   inet_addr_onlink() is a simple list traversal.
+>
+> 2) We know the old code works.
+>
+> Reported-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+> net/ipv4/devinet.c |   16 ++++++++++++++++
+> 1 files changed, 16 insertions(+), 0 deletions(-)
+>
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index d5a4553..5345b0b 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -64,6 +64,8 @@
+> #include <net/rtnetlink.h>
+> #include <net/net_namespace.h>
+>
+> +#include "fib_lookup.h"
+> +
+> static struct ipv4_devconf ipv4_devconf = {
+> 	.data = {
+> 		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
+> @@ -151,6 +153,20 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+> 			break;
+> 		}
+> 	}
+> +	if (!result) {
+> +		struct flowi4 fl4 = { .daddr = addr };
+> +		struct fib_result res = { 0 };
+> +		struct fib_table *local;
+> +
+> +		/* Fallback to FIB local table so that communication
+> +		 * over loopback subnets work.
+> +		 */
+> +		local = fib_get_table(net, RT_TABLE_LOCAL);
+> +		if (local &&
+> +		    !fib_table_lookup(local, &fl4, &res, FIB_LOOKUP_NOREF) &&
+> +		    res.type == RTN_LOCAL)
+> +			result = FIB_RES_DEV(res);
+> +	}
+> 	if (result && devref)
+> 		dev_hold(result);
+> 	rcu_read_unlock();
+> -- 
+> 1.7.4.1
 
-It is better to deliver the echo's in the order they were delivered
-on CAN.
-For that, we can replace the tx_next/tx_echo pair with a single tx_bitmask.
-In the tx_bitmask, we could set a bit when the TX is queued, and test for
-those bits in the tx interrupt.
-When tx is done, clear the bit in tx_bitmask & stuff.
+ 	Not tested but looks ok for me.
 
-16 tx objects fit inside a single int.
+Regards
 
-c_can_start_xmit would look a bit different. I think of something like this:
-
-	/* find free object */
-	for (j = 0; j < TX_MAX; ++j) {
-		if (!(priv->tx_bitmask & (1 << j)))
-			break;
-	}
-	if (j >= TX_MAX)
-		/* no free objects */
-		return NETDEV_TX_BUSY;
-		
-	c_can_write_...(j, ...)
-	can_put_echo_skb(, j, ...)
-	priv->tx_bitmask |= (1 << j);
-	return NETDEV_TX_OK;
-
-not sure if I made my point.
-Note that this will eliminate the need for explicit wrap-around. It's
-done implicitely.
-> 
-> Cheers,
->         Jan
-> 
-Regards,
-Kurt
+--
+Julian Anastasov <ja@ssi.bg>
