@@ -1,54 +1,34 @@
-From: "Jan Altenberg" <jan@linutronix.de>
-Subject: Re: can: c_can: TX delivery
-Date: Wed, 23 Mar 2011 16:32:31 +0100
-Message-ID: <ff5ade24e148af2e46832e5a64444d05.squirrel@www2.linutronix.de>
-References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
-    <20110323085340.GC346@e-circ.dyndns.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] myri10ge: small rx_done refactoring
+Date: Wed, 23 Mar 2011 08:33:57 -0700
+Message-ID: <20110323083357.457f10aa@nehalam>
+References: <20110323124939.GA7834@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Jan Altenberg" <jan@linutronix.de>, bhupesh.sharma@st.com,
-	wg@grandegger.com, b.spranger@linutronix.de, netdev@vger.kernel.org
-To: "Kurt Van Dijck" <kurt.van.dijck@eia.be>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:48443 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933043Ab1CWPcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 11:32:35 -0400
-In-Reply-To: <20110323085340.GC346@e-circ.dyndns.org>
+Received: from mail.vyatta.com ([76.74.103.46]:53990 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933050Ab1CWPeA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 11:34:00 -0400
+In-Reply-To: <20110323124939.GA7834@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 23 Mar 2011 13:52:04 +0100
+Stanislaw Gruszka <sgruszka@redhat.com> wrote:
 
-> I split your 2 questions in 2 replies.
+> Add lro_enable variable to read NETIF_F_LRO flag only once per napi poll
+> call. This should fix theoretical race condition with
+> myri10ge_set_rx_csum() and myri10ge_set_flags() where flag NETIF_F_LRO
+> can be changed.
 
-Thanks :)
-
-> not sure if I made my point.  Note that this will eliminate the need
-> for explicit wrap-around.  It's done implicitely.
-
-Hmmm, I double-checked the datasheet, which gives the following statement:
-"The receive/transmit priority for the Message Objects is attached to
-the message number.  Message Object 1 has the highest priority, while
-Message Object 32 has the lowest priority. If more than one
-transmission request is pending, they are serviced due to the priority
-of the corresponding Message Object."
-
-So, we shouldn't run into the scenario I described in my previous mail
-and the existing implementation should be OK, right?!  I'm quite sure
-I've seen a situation where msg_obj 17 "seemed" to be pending, while
-msg_obj 18 and 19 already have been transmitted. But in that case, I
-enabled ONESHOT for the can interface, which enables the DA mode
-(automatic
-retransmission is disabled). The errata sheet for c_can covers that
-mode. There's a problem with "Concurrent transmission requests" and I'm
-quite sure my test-case hit that problem.
-
-I'm quite new to Bosch's c_can, so maybe Bhupesh can give some feedback
-(or beat me for causing some confusion ;-)).
-
-Sorry for the confusion!
-        Jan
+You may need a barrier or the race may still be there.
+The driver seems to use mb() where wmb() is intended, and never use rmb()?
 
 
+
+-- 
