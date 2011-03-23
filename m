@@ -1,50 +1,40 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC] usbnet: use eth%d name for known ethernet devices
-Date: Wed, 23 Mar 2011 20:35:17 +0100
-Message-ID: <201103232035.18232.arnd@arndb.de>
-References: <4D79F068.2080009@linaro.org> <201103231756.39849.arnd@arndb.de> <20110323184650.GB21728@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
+Date: Wed, 23 Mar 2011 12:36:43 -0700 (PDT)
+Message-ID: <20110323.123643.200348134.davem@davemloft.net>
+References: <4D89B16F.4040008@mellanox.co.il>
+	<1300889054.26693.527.camel@localhost>
+	<953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy.green@linaro.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Nicolas Pitre <nicolas.pitre@linaro.org>,
-	Jaswinder Singh <jaswinder.singh@linaro.org>,
-	Linux USB list <linux-usb@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	broonie@opensource.wolfsonmicro.com, roger.quadros@nokia.com,
-	grant.likely@secretlab.ca, netdev@vger.kernel.org,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110323184650.GB21728@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	eugenia@mellanox.co.il
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39809
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932802Ab1CWTgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 15:36:05 -0400
+In-Reply-To: <953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 23 March 2011 19:46:50 Greg KH wrote:
-> Looks good to me, but some questions:
-> 
-> >  drivers/usb/serial/usb_wwan.c |    2 +-
-> 
-> You don't modify this file in the diff, what caused this to show up in
-> the diffstat?
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Wed, 23 Mar 2011 15:10:34 +0000
 
-A stale change I had to do to get the kernel to build on my
-machine. The original problem seems fixed now. I had removed
-this hunk from the patch but forgot to remove it from the diffstat.
+>> 
+>> This is an abuse of the ethtool_drvinfo::driver field.
+>> 
+>> Your users can use lspci -v, can't they?
+>> 
+> I don't think there is a problem here.
+> We have always reported the HW model via Ethtool, we just expanded the information
+> we provide.
+> Our users prefer to see the information in ethtool.
 
-> > --- a/include/linux/usb/usbnet.h
-> > +++ b/include/linux/usb/usbnet.h
-> > @@ -97,6 +97,8 @@ struct driver_info {
-> >  
-> >  #define FLAG_LINK_INTR       0x0800          /* updates link (carrier) status */
-> >  
-> > +#define FLAG_PTP     0x1000          /* maybe use "usb%d" names */
-> 
-> "PTP"?  What does that stand for?
+This doesn't matter, we strive for consistency across drivers rather
+than have special cases like this.
 
-point-to-point, I'll improve the comment to spell it out when I send the
-fixed version.
-
-	Arnd
+Please remove the chip variant information from the ethtool driver
+string, it is absolutely not appropriate.
