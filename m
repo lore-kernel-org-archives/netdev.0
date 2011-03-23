@@ -1,38 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] myri10ge: fix rmmod crash
-Date: Wed, 23 Mar 2011 12:31:56 -0700 (PDT)
-Message-ID: <20110323.123156.15222378.davem@davemloft.net>
-References: <20110323124412.GA7813@redhat.com>
-	<4D89F111.7030506@myri.com>
+Subject: Re: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
+Date: Wed, 23 Mar 2011 12:34:27 -0700 (PDT)
+Message-ID: <20110323.123427.242111674.davem@davemloft.net>
+References: <4D89B16F.4040008@mellanox.co.il>
+	<1300889054.26693.527.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sgruszka@redhat.com, netdev@vger.kernel.org, brice@myri.com,
-	stable@kernel.org
-To: gallatin@myri.com
+Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org,
+	eugenia@mellanox.co.il
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60386
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39801
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932628Ab1CWTbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 15:31:17 -0400
-In-Reply-To: <4D89F111.7030506@myri.com>
+	by vger.kernel.org with ESMTP id S1756648Ab1CWTds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 15:33:48 -0400
+In-Reply-To: <1300889054.26693.527.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Wed, 23 Mar 2011 09:09:37 -0400
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 23 Mar 2011 14:04:14 +0000
 
-> On 03/23/11 08:44, Stanislaw Gruszka wrote:
->> Rmmod myri10ge crash at free_netdev() -> netif_napi_del(), because
->> napi
->> structures are already deallocated. To fix call netif_napi_del()
->> before
->> kfree() at myri10ge_free_slices().
+> On Wed, 2011-03-23 at 10:38 +0200, Yevgeny Petrilin wrote:
+>> HW revision is derived from device ID and rev id.
+> [...]
+>> -	sprintf(drvinfo->driver, DRV_NAME " (%s)", mdev->dev->board_id);
+>> +	switch (mdev->dev->rev_id) {
+>> +	case 0xa0:
+>> +		if (dev->dev_id >= MLX4_EN_CX3_LOW_ID && dev->dev_id <= MLX4_EN_CX3_HIGH_ID)
+>> +			sprintf(drvinfo->driver, DRV_NAME " (%s_CX-3)", mdev->dev->board_id);
+>> +		else
+>> +			sprintf(drvinfo->driver, DRV_NAME " (%s_CX)", mdev->dev->board_id);
+>> +		break;
+>> +	case 0xb0:
+>> +		sprintf(drvinfo->driver, DRV_NAME " (%s_CX-2)", mdev->dev->board_id);
+>> +		break;
+>> +	default:
+>> +		sprintf(drvinfo->driver, DRV_NAME " (%s)", mdev->dev->board_id);
+>> +		break;
+> [...]
 > 
-> I apologize; I made a similar fix myself to our tree last fall simply
-> forgot to post it to netdev... I'm terribly sorry for the time
-> you wasted chasing this.   At any rate...
+> This is an abuse of the ethtool_drvinfo::driver field.
 > 
-> Acked by: Andrew Gallatin <gallatin@myri.com>
+> Your users can use lspci -v, can't they?
 
-Patch applied, thanks everyone.
+Agreed, mlx4 folks please send me a follow-up patch that removes this
+conditional string.
+
+The driver string is only meant to identify the software, not the
+hardware variant.
