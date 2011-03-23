@@ -1,54 +1,52 @@
-From: James Bottomley <James.Bottomley@suse.de>
-Subject: Re: [PATCH 02/36] scsi,rcu: convert call_rcu(fc_rport_free_rcu) to
- kfree_rcu()
-Date: Wed, 23 Mar 2011 09:05:51 -0500
-Message-ID: <1300889151.15899.4.camel@mulgrave.site>
-References: <4D82D071.5020703@cn.fujitsu.com>
-	 <4D82D3FF.2080303@cn.fujitsu.com> <4D82D45A.30102@cn.fujitsu.com>
-	 <1300814913.19083.427.camel@fritz>
-	 <20110323065014.GU2322@linux.vnet.ibm.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: can: c_can: TX echo
+Date: Wed, 23 Mar 2011 15:25:59 +0100
+Message-ID: <4D8A02F7.7050607@grandegger.com>
+References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>    <20110323085133.GB346@e-circ.dyndns.org> <b7a5102e35a2afd04327d7b42da4e988.squirrel@www2.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Robert Love <robert.w.love@intel.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>, Jens Axboe <axboe@kernel.dk>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Tejun Heo <tj@kernel.org>, Jarek Poplawski <jarkao2@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110323065014.GU2322@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Kurt Van Dijck <kurt.van.dijck@eia.be>, bhupesh.sharma@st.com,
+	b.spranger@linutronix.de, netdev@vger.kernel.org
+To: Jan Altenberg <jan@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:38720 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755524Ab1CWOXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 10:23:50 -0400
+In-Reply-To: <b7a5102e35a2afd04327d7b42da4e988.squirrel@www2.linutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-03-22 at 23:50 -0700, Paul E. McKenney wrote:
-> The kfree_rcu() definition is as
-> follows:
+Hi Jan,
+
+On 03/23/2011 02:54 PM, Jan Altenberg wrote:
+> Hi,
 > 
-> #define kfree_rcu(ptr, rcu_head)					\
-> 	__kfree_rcu(&((ptr)->rcu_head), offsetof(typeof(*(ptr)), rcu_head))
+>>> So, we first invalidate the message object and afterwards we read
+>>> the DLC value from the msg_cntrl (which is 0 after invalidating the
+>>> message object) to account the TX bytes. So tx_bytes will always be
+>>> 0.  The fix should be easy, I think, we can just move
+>>> c_can_inval_msg_object to the end of that loop.
 
-Isn't this one of those cases where the obvious use of the interface is
-definitely wrong?
+This means that "ifconfig" will report *0* TX Bytes!?
 
-It's also another nasty pseudo C prototype.  I know we do this sort of
-thing for container_of et al, but I don't really think we want to extend
-it.
+>> IMO, it looks necessary to call c_can_inval_msg_object inside the if
+>> (), after it has been transmitted. Otherwise, if for some other (TX)
+>> reason you get in this loop, you may clear a pending transmission?
+>> Again, I haven't read this one's datasheet. I was familiar with its
+>> predecessor.
+> 
+> I tried to check, but the datasheet is a bit unclear regarding that
+> point ;-) My interpretation is, that c_can_inval_msg_object()
+> shouldn't affect the txrqst bit, but nevertheless calling it inside
+> the if() statement would make the code more readable.
+> 
+> I can prepare a patch, but I'd like to wait for Wolfgang's / Bupesh's
+> feedback.
 
-Why not make the interface take a pointer to the embedding structure and
-one to the rcu_head ... that way all pointer mathematics can be
-contained inside the RCU routines.
+I'm following the discussion and as I'm not familiar with that chip, I'm
+waiting for Bupesh's answer as well... before I start digging. You can
+also have a look to the pch_can driver, which is C_CAN based as well.
 
-James
+Wolfgang.
