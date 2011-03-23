@@ -1,45 +1,75 @@
-From: Holger Freyther <zecke@selfish.org>
-Subject: [PATCH] sctp: Remove store to ret as it is not used
-Date: Wed, 23 Mar 2011 11:56:46 +0100
-Message-ID: <1300877806-3949-1-git-send-email-zecke@selfish.org>
-Cc: linux-sctp@vger.kernel.org,
-	Holger Hans Peter Freyther <zecke@selfish.org>
-To: netdev@vger.kernel.org
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: Re: 2.6.39-rc: WARNING: at __ip_select_ident+0xd3/0xf0()
+Date: Wed, 23 Mar 2011 14:22:12 +0300
+Message-ID: <AANLkTikP5eBNQp2jwMKeFG-ZxcQGGkKdCfcds9D6t0dd@mail.gmail.com>
+References: <AANLkTinacRCOx+z02n1OwBjGfVL5itzZs7Jqv_4PRXZK@mail.gmail.com>
+	<1300873779.3063.39.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gandharva.secretlabs.de ([78.46.147.237]:59303 "EHLO
-	gandharva.secretlabs.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932303Ab1CWLHN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 07:07:13 -0400
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:64481 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932487Ab1CWLWN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 07:22:13 -0400
+In-Reply-To: <1300873779.3063.39.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Holger Hans Peter Freyther <zecke@selfish.org>
+> Thanks Alexander for this bug report.
+>
+> Here is a patch to fix this issue (and other crash you mentioned in n=
+ext
+> mail)
+>
+Hi Eric,
+Thank you for the fix, have not it checked however.
 
-The store to ret is not needed. In case it is 0 the method
-will be exited directly, if not ret will be assigned again
-and then returned to the caller.
+I did not know that the second problem
+(https://lkml.org/lkml/2011/3/23/38) had the same reason.
+I did not notice inetpeer_free_rcu() in its calltrace.
 
-Signed-off-by: Holger Hans Peter Freyther <zecke@selfish.org>
-Acked-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/sctp/socket.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index b2bed35..5f72996 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -393,9 +393,8 @@ SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
- 	 * detection.
- 	 */
- 	addr->v4.sin_port = htons(snum);
--	if ((ret = sctp_get_port_local(sk, addr))) {
-+	if (sctp_get_port_local(sk, addr))
- 		return -EADDRINUSE;
--	}
- 
- 	/* Refresh ephemeral port.  */
- 	if (!bp->port)
--- 
-1.7.4
-
+Thanks for that.
+>
+> [PATCH] ipv4: fix ip_rt_update_pmtu()
+>
+> commit 2c8cec5c10bc (Cache learned PMTU information in inetpeer) adde=
+d
+> an extra inet_putpeer() call in ip_rt_update_pmtu().
+>
+> This results in various problems, since we can free one inetpeer, whi=
+le
+> it is still in use.
+>
+> Ref: http://www.spinics.net/lists/netdev/msg159121.html
+>
+> Reported-by: Alexander Beregalov <a.beregalov@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> =C2=A0net/ipv4/route.c | =C2=A0 =C2=A02 --
+> =C2=A01 file changed, 2 deletions(-)
+>
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 870b518..34921b0 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1593,8 +1593,6 @@ static void ip_rt_update_pmtu(struct dst_entry =
+*dst, u32 mtu)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0rt->rt_peer_genid =3D rt_peer_genid();
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0check_peer_pmt=
+u(dst, peer);
+> -
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 inet_putpeer(peer)=
+;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0}
+>
+>
+>
+>
