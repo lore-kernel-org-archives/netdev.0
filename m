@@ -1,118 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [BUG] VPN broken in net-next
-Date: Wed, 23 Mar 2011 08:24:23 -0700
-Message-ID: <20110323082423.321bf8ce@nehalam>
-References: <alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg>
-	<20110303.112328.59677094.davem@davemloft.net>
-	<alpine.LFD.2.00.1103041013360.1452@ja.ssi.bg>
-	<20110322.215655.245381151.davem@davemloft.net>
+From: "Jan Altenberg" <jan@linutronix.de>
+Subject: Re: can: c_can: TX delivery
+Date: Wed, 23 Mar 2011 16:32:31 +0100
+Message-ID: <ff5ade24e148af2e46832e5a64444d05.squirrel@www2.linutronix.de>
+References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
+    <20110323085340.GC346@e-circ.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7BIT
+Cc: "Jan Altenberg" <jan@linutronix.de>, bhupesh.sharma@st.com,
+	wg@grandegger.com, b.spranger@linutronix.de, netdev@vger.kernel.org
+To: "Kurt Van Dijck" <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54928 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932773Ab1CWPY0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 11:24:26 -0400
-In-Reply-To: <20110322.215655.245381151.davem@davemloft.net>
+Received: from www.linutronix.de ([62.245.132.108]:48443 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933043Ab1CWPcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 11:32:35 -0400
+In-Reply-To: <20110323085340.GC346@e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Mar 2011 21:56:55 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Hi,
 
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Fri, 4 Mar 2011 10:39:55 +0200 (EET)
-> 
-> > On Thu, 3 Mar 2011, David Miller wrote:
-> > 
-> >> I suspect that even if we need to handle prefixes, we can still use
-> >> the hash for optimistic lookup, and fallback to a local table FIB
-> >> inspection if that fails.
-> > 
-> > 	Yes, as ip_route_output_slow uses __ip_dev_find for
-> > fl4_src there should be some kind of fallback to local table,
-> > so that traffic from 127.0.0.2 to 127.0.0.3 or other local
-> > subnets on loopback can work. Another option is to use
-> > inet_addr_onlink but I suspect people can add many addresses
-> > on loopback: inet_addr_onlink(loopback_indev, addr, 0)
-> 
-> I just got back to this, sorry for taking so long :-)
-> 
-> Here is the patch I've come up with and will commit to
-> net-2.6, thanks!
-> 
-> --------------------
-> ipv4: Fallback to FIB local table in __ip_dev_find().
-> 
-> In commit 9435eb1cf0b76b323019cebf8d16762a50a12a19
-> ("ipv4: Implement __ip_dev_find using new interface address hash.")
-> we reimplemented __ip_dev_find() so that it doesn't have to
-> do a full FIB table lookup.
-> 
-> Instead, it consults a hash table of addresses configured to
-> interfaces.
-> 
-> This works identically to the old code in all except one case,
-> and that is for loopback subnets.
-> 
-> The old code would match the loopback device for any IP address
-> that falls within a subnet configured to the loopback device.
-> 
-> Handle this corner case by doing the FIB lookup.
-> 
-> We could implement this via inet_addr_onlink() but:
-> 
-> 1) Someone could configure many addresses to loopback and
->    inet_addr_onlink() is a simple list traversal.
-> 
-> 2) We know the old code works.
-> 
-> Reported-by: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/ipv4/devinet.c |   16 ++++++++++++++++
->  1 files changed, 16 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index d5a4553..5345b0b 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -64,6 +64,8 @@
->  #include <net/rtnetlink.h>
->  #include <net/net_namespace.h>
->  
-> +#include "fib_lookup.h"
-> +
->  static struct ipv4_devconf ipv4_devconf = {
->  	.data = {
->  		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
-> @@ -151,6 +153,20 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
->  			break;
->  		}
->  	}
-> +	if (!result) {
-> +		struct flowi4 fl4 = { .daddr = addr };
-> +		struct fib_result res = { 0 };
-> +		struct fib_table *local;
-> +
-> +		/* Fallback to FIB local table so that communication
-> +		 * over loopback subnets work.
-> +		 */
-> +		local = fib_get_table(net, RT_TABLE_LOCAL);
-> +		if (local &&
-> +		    !fib_table_lookup(local, &fl4, &res, FIB_LOOKUP_NOREF) &&
-> +		    res.type == RTN_LOCAL)
-> +			result = FIB_RES_DEV(res);
-> +	}
->  	if (result && devref)
->  		dev_hold(result);
->  	rcu_read_unlock();
+> I split your 2 questions in 2 replies.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Thanks :)
+
+> not sure if I made my point.  Note that this will eliminate the need
+> for explicit wrap-around.  It's done implicitely.
+
+Hmmm, I double-checked the datasheet, which gives the following statement:
+"The receive/transmit priority for the Message Objects is attached to
+the message number.  Message Object 1 has the highest priority, while
+Message Object 32 has the lowest priority. If more than one
+transmission request is pending, they are serviced due to the priority
+of the corresponding Message Object."
+
+So, we shouldn't run into the scenario I described in my previous mail
+and the existing implementation should be OK, right?!  I'm quite sure
+I've seen a situation where msg_obj 17 "seemed" to be pending, while
+msg_obj 18 and 19 already have been transmitted. But in that case, I
+enabled ONESHOT for the can interface, which enables the DA mode
+(automatic
+retransmission is disabled). The errata sheet for c_can covers that
+mode. There's a problem with "Concurrent transmission requests" and I'm
+quite sure my test-case hit that problem.
+
+I'm quite new to Bosch's c_can, so maybe Bhupesh can give some feedback
+(or beat me for causing some confusion ;-)).
+
+Sorry for the confusion!
+        Jan
 
 
-
--- 
