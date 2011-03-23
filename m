@@ -1,47 +1,49 @@
-From: "Jan Altenberg" <jan@linutronix.de>
-Subject: Re: can: c_can: TX echo
-Date: Wed, 23 Mar 2011 14:54:07 +0100
-Message-ID: <b7a5102e35a2afd04327d7b42da4e988.squirrel@www2.linutronix.de>
-References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
-    <20110323085133.GB346@e-circ.dyndns.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
+Date: Wed, 23 Mar 2011 14:04:14 +0000
+Message-ID: <1300889054.26693.527.camel@localhost>
+References: <4D89B16F.4040008@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Jan Altenberg" <jan@linutronix.de>, bhupesh.sharma@st.com,
-	wg@grandegger.com, b.spranger@linutronix.de, netdev@vger.kernel.org
-To: "Kurt Van Dijck" <kurt.van.dijck@eia.be>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eugenia@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:45395 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754946Ab1CWNyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 09:54:10 -0400
-In-Reply-To: <20110323085133.GB346@e-circ.dyndns.org>
+Received: from mail.solarflare.com ([216.237.3.220]:9098 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833Ab1CWOES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 10:04:18 -0400
+In-Reply-To: <4D89B16F.4040008@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 2011-03-23 at 10:38 +0200, Yevgeny Petrilin wrote:
+> HW revision is derived from device ID and rev id.
+[...]
+> -	sprintf(drvinfo->driver, DRV_NAME " (%s)", mdev->dev->board_id);
+> +	switch (mdev->dev->rev_id) {
+> +	case 0xa0:
+> +		if (dev->dev_id >= MLX4_EN_CX3_LOW_ID && dev->dev_id <= MLX4_EN_CX3_HIGH_ID)
+> +			sprintf(drvinfo->driver, DRV_NAME " (%s_CX-3)", mdev->dev->board_id);
+> +		else
+> +			sprintf(drvinfo->driver, DRV_NAME " (%s_CX)", mdev->dev->board_id);
+> +		break;
+> +	case 0xb0:
+> +		sprintf(drvinfo->driver, DRV_NAME " (%s_CX-2)", mdev->dev->board_id);
+> +		break;
+> +	default:
+> +		sprintf(drvinfo->driver, DRV_NAME " (%s)", mdev->dev->board_id);
+> +		break;
+[...]
 
->> So, we first invalidate the message object and afterwards we read
->> the DLC value from the msg_cntrl (which is 0 after invalidating the
->> message object) to account the TX bytes. So tx_bytes will always be
->> 0.  The fix should be easy, I think, we can just move
->> c_can_inval_msg_object to the end of that loop.
->
-> IMO, it looks necessary to call c_can_inval_msg_object inside the if
-> (), after it has been transmitted. Otherwise, if for some other (TX)
-> reason you get in this loop, you may clear a pending transmission?
-> Again, I haven't read this one's datasheet. I was familiar with its
-> predecessor.
+This is an abuse of the ethtool_drvinfo::driver field.
 
-I tried to check, but the datasheet is a bit unclear regarding that
-point ;-) My interpretation is, that c_can_inval_msg_object()
-shouldn't affect the txrqst bit, but nevertheless calling it inside
-the if() statement would make the code more readable.
+Your users can use lspci -v, can't they?
 
-I can prepare a patch, but I'd like to wait for Wolfgang's / Bupesh's
-feedback.
+Ben.
 
-Cheers,
-        Jan
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
