@@ -1,62 +1,29 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: 2.6.39-rc: WARNING: at __ip_select_ident+0xd3/0xf0()
-Date: Wed, 23 Mar 2011 10:14:11 +0300
-Message-ID: <AANLkTinacRCOx+z02n1OwBjGfVL5itzZs7Jqv_4PRXZK@mail.gmail.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH v2 00/16] mlx4_en: driver updates
+Date: Wed, 23 Mar 2011 10:37:15 +0200
+Message-ID: <4D89B13B.2010404@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:58008 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752187Ab1CWIhU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 04:37:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+Hello David,
 
-I do not know how to reproduce it.
+This is the second round for patches originally sent on March 07.
 
-WARNING: at include/net/inetpeer.h:102 __ip_select_ident+0xd3/0xf0()
-Hardware name:
-Modules linked in: hwmon_vid sata_sil i2c_nforce2
-Pid: 0, comm: swapper Not tainted 2.6.38-07035-g6447f55d #1
-Call Trace:
- [<c102ad5d>] warn_slowpath_common+0x6d/0xa0
- [<c13070c3>] ? __ip_select_ident+0xd3/0xf0
- [<c13070c3>] ? __ip_select_ident+0xd3/0xf0
- [<c102adad>] warn_slowpath_null+0x1d/0x20
- [<c13070c3>] __ip_select_ident+0xd3/0xf0
- [<c130df4c>] __ip_make_skb+0x25c/0x360
- [<c130d807>] ? ip_append_data+0x67/0xa0
- [<c132f980>] ? icmp_glue_bits+0x0/0x60
- [<c130e0b4>] ip_push_pending_frames+0x14/0x30
- [<c132f95c>] icmp_push_reply+0xdc/0x100
- [<c13306a8>] icmp_send+0x408/0x4a0
- [<c132ca61>] ? __udp4_lib_lookup.clone.49+0x171/0x2d0
- [<c132d877>] __udp4_lib_rcv+0x487/0x6a0
- [<c13058c0>] ? ip_route_input_common+0x0/0xa00
- [<c132daa2>] udp_rcv+0x12/0x20
- [<c13084bc>] ip_local_deliver+0x9c/0x140
- [<c130846d>] ? ip_local_deliver+0x4d/0x140
- [<c13087c6>] ip_rcv+0x266/0x560
- [<c12e92b3>] __netif_receive_skb+0x393/0x400
- [<c12e8fe4>] ? __netif_receive_skb+0xc4/0x400
- [<c12e9472>] netif_receive_skb+0x42/0x50
- [<c12e94b7>] napi_skb_finish+0x37/0x50
- [<c12eadf3>] napi_gro_receive+0xb3/0xc0
- [<c128d76f>] e1000_receive_skb.clone.34+0x3f/0x60
- [<c128dfcf>] e1000_clean_rx_irq+0x27f/0x4b0
- [<c1055be1>] ? __lock_acquire+0x441/0x19a0
- [<c128d249>] e1000_clean+0x1e9/0x570
- [<c13697fc>] ? _raw_spin_lock+0x5c/0x70
- [<c12e9778>] net_rx_action+0xe8/0x170
- [<c102ffe7>] __do_softirq+0x77/0x110
- [<c102ff70>] ? __do_softirq+0x0/0x110
- <IRQ>  [<c1030246>] ? irq_exit+0x76/0x90
- [<c1003823>] ? do_IRQ+0x43/0xb0
- [<c136f5ee>] ? common_interrupt+0x2e/0x34
- [<c100755f>] ? default_idle+0x2f/0x60
- [<c10015d6>] ? cpu_idle+0x36/0x60
- [<c135f2e5>] ? rest_init+0xa5/0xb0
- [<c135f240>] ? rest_init+0x0/0xb0
- [<c163c663>] ? start_kernel+0x277/0x27e
- [<c163c174>] ? unknown_bootoption+0x0/0x19f
- [<c163c071>] ? i386_start_kernel+0x71/0x77
+Changes from previous round (after getting the feedbacks):
+1. Renamed IRQ name for TX rings.
+2. Changed error message when failing to map BlueFlame area.
+3. Removed drivers/infiniband/hw/mlx4/ parts of steering changes, those need to be applied with Raw QP support.
+
+Thanks,
+Yevgeny
+
