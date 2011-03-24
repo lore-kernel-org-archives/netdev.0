@@ -1,49 +1,101 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: bnx2 vlan issue
-Date: Thu, 24 Mar 2011 12:55:08 -0700
-Message-ID: <AANLkTi=zfhwHTB7kitgwk3AzSa0aFFyxgM_ZY-3wObR5@mail.gmail.com>
-References: <AANLkTik0BOuDj5wmfHabZx_OzXDROtDLR2qtqUqQu4ko@mail.gmail.com>
- <AANLkTi=rOjHZt_F01UfunrTm=2r1BO5QGFDeV9XyKX4G@mail.gmail.com>
- <AANLkTimAnHcoVDY_p8PqZLMJdMz2w7bMnSbOwzn4aR4i@mail.gmail.com>
- <AANLkTimJsBYefz3+3HgBgrHUR33g+TWuBp15E=VODohb@mail.gmail.com>
- <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
- <AANLkTi=7ETnRWOLRVAWhv=3BHZdzUnLvAqzxXOz399Xx@mail.gmail.com>
- <AANLkTi=D9Qw+Tw7wHb2T7UG_o9zkZcr2meHE3fwcMwvF@mail.gmail.com> <AANLkTimnKRDY8QLiJMMLqNzCA_-6UJmUDHKf-i1Yt3V5@mail.gmail.com>
+From: "Serge E. Hallyn" <serge.hallyn@ubuntu.com>
+Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
+ kernel modules
+Date: Thu, 24 Mar 2011 15:26:34 -0500
+Message-ID: <20110324202634.GB9191@peq.hallyn.com>
+References: <4D6B6AE7.2050202@msgid.tls.msk.ru>
+ <20110228095133.GA4351@albatros>
+ <20110228.112349.104067277.davem@davemloft.net>
+ <20110301194845.GA3533@albatros>
+ <1299010390.2529.30.camel@bwh-desktop>
+ <20110301213313.GA6507@albatros>
+ <AANLkTikr=qfFeaXDkiBbK-4KvKS83LzURrUj4L2TP8_u@mail.gmail.com>
+ <20110324153714.GB2648@peq.hallyn.com>
+ <1300989839.2398.17.camel@localhost.localdomain>
+ <1300991584.2689.35.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Seblu <seblu@seblu.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="5I6of5zJg18YgZEa"
+Cc: Eric Paris <eparis@redhat.com>,
+	"Serge E. Hallyn" <serge.hallyn@ubuntu.com>,
+	Eric Paris <eparis@parisplace.org>,
+	Vasiliy Kulikov <segoon@openwall.com>,
+	linux-kernel@vger.kernel.org, mjt@tls.msk.ru, arnd@arndb.de,
+	mirqus@gmail.com, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
+	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
+	eugene@redhat.com, dan.j.rosenberg@gmail.com,
+	akpm@linux-foundation.org, Greg KH <greg@kroah.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	LSM List <linux-security-module@vger.kernel.org>,
+	Daniel J Walsh <dwalsh@redhat.com>,
+	David Howells <dhowells@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:63110 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933832Ab1CXTz3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 15:55:29 -0400
-Received: by vxi39 with SMTP id 39so295373vxi.19
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2011 12:55:28 -0700 (PDT)
-In-Reply-To: <AANLkTimnKRDY8QLiJMMLqNzCA_-6UJmUDHKf-i1Yt3V5@mail.gmail.com>
+Received: from adelie.canonical.com ([91.189.90.139]:37100 "EHLO
+	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934102Ab1CXU1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 16:27:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1300991584.2689.35.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2011 at 5:58 AM, Seblu <seblu@seblu.net> wrote:
->> I don't necessarily disagree that there should be a better way to do
->> this, though as of the moment the above is probably your best bet.
->>
->> To me, the most important thing is to have consistent behavior acros=
-s
->> different cards.
->
-> Speaking of that, i've tryed =A02.6.38 on my station (dell opitplex 9=
-80)
-> to use the new bridging schema and it doesn't work.
-> Exactly the case previously described: ip on br0 (eth0+eth1) and ip o=
-n
-> br0.42. eth0 driver is e1000e and eth1 is tg3. br0.42 don't receive
-> traffic.
-> I have to open a bug report?
 
-The change was deliberate, not an accidental mistake, so don't expect
-2.6.38 to suddenly switch back to the previous behavior.  There's no
-need to file a bug report - the new behavior is known (I was the one
-who changed it in the first place).  I will look into nicer semantics
-in the future.
+--5I6of5zJg18YgZEa
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Quoting Ben Hutchings (bhutchings@solarflare.com):
+> On Thu, 2011-03-24 at 14:03 -0400, Eric Paris wrote:
+> > Not quite.  SELinux logs every time an operation is denied.  This patch
+> > means that every time a module is requested which does not exist as
+
+Ah.  I see.
+
+=2E..
+
+> > I think there are 3 possibilities:
+
+=2E..(3)
+
+> > Figure out a way to stop the calls to "reg" "wifi0" and "virbr0" if they
+> > don't exist.
+> >
+> > I feel like the last one is the best way, but I don't know what a
+> > solution could look like....
+>=20
+> This really has to be done in userland, where these names are being
+> invented.  Though I suspect the usual way to check whether an interface
+> exists would be SIOCGIFINDEX, which calls dev_load()!  An alternate
+> would be to check whether /sys/class/net/<name> exists, but I seem to
+> recall that /sys/class is somewhat deprecated.
+
+Of course this will mean pain for users until distributions have
+updated to userspace which is doing this, but yeah, this clearly seems
+like the best way.  (And the only sane one.)
+
+thanks,
+-serge
+
+--5I6of5zJg18YgZEa
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNi6j6AAoJEHmllQITXQdFAHIH+wbc5gUFD+wD7JK2wHj1AUjB
+X/PSPbduiHKaT2njlTZfQDc2ubNQLVnYFRwcTegs6bfoISw+jWzLRSrvcq5FWuxv
+0nIGXFltT25/Kyfen67zs0o0T+tpXrYdjJc1rOCiEgRp4Vj8KQFzn3ikp6UtMEx1
+6OnUPhUqkE4LgwpDwpS8RfcFJ/qYSsElu1dg9EkUW4wqMkEOYoueCBToTimpmFpW
+IDh38vv+Ji1UmDO5hcN7BpQbEgViE8RDVSHM+6D0ta2P4NthHMZLocpPwYj4BBEB
+/mS0YgPANX8h2HYK+2yQ8lLhZ3wcfeic3gbzgF9zuolmOH3fHKcgjYQNliteq+U=
+=a+SM
+-----END PGP SIGNATURE-----
+
+--5I6of5zJg18YgZEa--
