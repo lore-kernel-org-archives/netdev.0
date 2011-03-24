@@ -1,136 +1,112 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Wed, 23 Mar 2011 21:14:32 -0700
-Message-ID: <1300940073.3441.42.camel@localhost.localdomain>
-References: <20110318133311.GA20623@gondor.apana.org.au>
-	 <1300498915.3441.21.camel@localhost.localdomain>
-	 <1300730587.3441.24.camel@localhost.localdomain>
-	 <20110322113649.GA17071@redhat.com>
-	 <1300847204.3441.26.camel@localhost.localdomain>
-	 <87r59xbbr6.fsf@rustcorp.com.au>
+From: Bhupesh SHARMA <bhupesh.sharma@st.com>
+Subject: RE: c_can: TX handling
+Date: Thu, 24 Mar 2011 12:18:33 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DF0D6F684@EAPEX1MAIL1.st.com>
+References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <87r59xbbr6.fsf@rustcorp.com.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"kurt.van.dijck@eia.be" <kurt.van.dijck@eia.be>,
+	"b.spranger@linutronix.de" <b.spranger@linutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Altenberg <jan@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:34384 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751930Ab1CXETT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Mar 2011 00:19:19 -0400
+In-Reply-To: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-03-24 at 11:00 +1030, Rusty Russell wrote:
-> > With simply removing the notify here, it does help the case when TX
-> > overrun hits too often, for example for 1K message size, the single
-> > TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
+Hi Jan,
+
+Thanks for your work on c_can.
+This week has been very busy for me, so please excuse me for the late reply.
+
+> Hi all,
 > 
-> OK, we'll be getting rid of the "kick on full", so please delete that
-> on
-> all benchmarks.
+> I did some more testing on the SocketCAN driver for the Bosch c_can
+> controller and I observed some strange behaviour for the TX handling.
+> First of all the TX bytes are not accounted correctly. The reason for
+> that
+> seems to be quite obvious if we look into c_can_do_tx():
 > 
-> Now, does the capacity check before add_buf() still win anything?  I
-> can't see how unless we have some weird bug.
+> [...]
 > 
-> Once we've sorted that out, we should look at the more radical change
-> of publishing last_used and using that to intuit whether interrupts
-> should be sent.  If we're not careful with ordering and barriers that
-> could introduce more bugs.
+> c_can_inval_msg_object(dev, 0, msg_obj_no);
+> val = c_can_read_reg32(priv, &priv->regs->txrqst1);
+> if (!(val & (1 << msg_obj_no))) {
+>         can_get_echo_skb(dev,
+>                         msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
+>         stats->tx_bytes += priv->read_reg(priv,
+>                         &priv->regs->ifregs[0].msg_cntrl)
+>                         & IF_MCONT_DLC_MASK;
+> 
+> So, we first invalidate the message object and afterwards we read the
+> DLC
+> value from the msg_cntrl (which is 0 after invalidating the
+> message object) to account the TX bytes. So tx_bytes will always be 0.
+> The
+> fix should be easy, I think, we can just move
+> c_can_inval_msg_object to the end of that loop.
 
-Without the kick, it's not necessary for capacity check. I am
-regenerating the patch with add_buf check and summit the patch after
-passing all tests. 
+Hmmm.. 
+As far as I remember, *ifconfig* used to provide the correct tx_bytes stats
+on my SPEAr board. Let me recheck this again today evening and get back to you.
 
-> Anything else on the optimization agenda I've missed?
+> The second problem is related to tx_next, which should hold the number
+> of
+> the oldest CAN frame, which was not on the line:
+> 
+> for (/* nix */; (priv->tx_next - priv->tx_echo) > 0; priv->tx_echo++) {
+>         msg_obj_no = get_tx_echo_msg_obj(priv);
+>         c_can_inval_msg_object(dev, 0, msg_obj_no);
+>         val = c_can_read_reg32(priv, &priv->regs->txrqst1);
+>         if (!(val & (1 << msg_obj_no))) {
+>                 can_get_echo_skb(dev,
+>                                 msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
+>                 stats->tx_bytes += priv->read_reg(priv,
+>                                 &priv->regs->ifregs[0].msg_cntrl)
+>                                 & IF_MCONT_DLC_MASK;
+>                 stats->tx_packets++;
+>         }
+> }
+> 
+> But tx_echo is incremented unconditionally and we don't actually track
+> the
+> number of the oldest unsent frame.
+> Let's assume the following scenario: We bring up can0 and send 3
+> frames: TX object: 0, 1, 2; 1 and 2 make it on the line, but 0 is
+> still pending. If we go through the above loop in that situation, we
+> will
+> skip message object 0, because the txrqst bit is still set.  We will
+> account message object 1 and 2. That's correct, but afterwards tx_echo
+> is
+> set to 2, BUT the oldest message which is pending is 0. Am I right or
+> did
+> I get something wrong?
+> The operation of c_can_do_tx() is described as follows: "We iterate
+> from
+> priv->tx_echo to priv->tx_next and check if the packet has been
+> transmitted, echo it back to the CAN framework. If we discover a not
+> yet
+> transmitted package, stop looking for more." The actual
+> implementation doesn't seem to stop if we discover a not yet
+> transmitted package. But I'm not sure if just stopping might be a
+> good idea, because in that case, the echo skb for already transmitted
+> messages might be delayed by not yet transmitted messages.
+> 
 
-Tom found small performance gain with freeing the used buffers when half
-of the ring is full in TCP_RR workload. 
+Just to better understand this can you send me your *candump* output
+when you see that the message object put earlier in the message RAM
+being pending on the line.
 
-I think we need a new API in virtio, which frees all used buffers at
-once, I am testing the performance now, the new API looks like:
+Your point seems valid but I want to make sure that this is not done by the 
+C_CAN core implicitly..  
 
- drivers/virtio/virtio_ring.c |   40 +++++++++++++++++++++++++++++++++++
- include/linux/virtio.h       |    6 +++++
-
-diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index cc2f73e..6d2dc16 100644
---- a/drivers/virtio/virtio_ring.c
-+++ b/drivers/virtio/virtio_ring.c
-@@ -329,6 +329,46 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
- }
- EXPORT_SYMBOL_GPL(virtqueue_get_buf);
- 
-+int virtqueue_free_used(struct virtqueue *_vq, void (*free)(void *))
-+{
-+	struct vring_virtqueue *vq = to_vvq(_vq);
-+	unsigned int i;
-+	void *buf;
-+
-+	START_USE(vq);
-+
-+	if (unlikely(vq->broken)) {
-+		END_USE(vq);
-+		return NULL;
-+	}
-+
-+	/* Only get used array entries after they have been exposed by host. */
-+	virtio_rmb();
-+
-+	while (vq->last_used_idx != vq->vring.used->idx) {
-+		i = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].id;
-+
-+		if (unlikely(i >= vq->vring.num)) {
-+			BAD_RING(vq, "id %u out of range\n", i);
-+			return NULL;
-+		}
-+		if (unlikely(!vq->data[i])) {
-+			BAD_RING(vq, "id %u is not a head!\n", i);
-+			return NULL;
-+		}
-+
-+		/* detach_buf clears data, so grab it now. */
-+		buf = vq->data[i];
-+		detach_buf(vq, i);
-+		free(buf);
-+		vq->last_used_idx++;
-+	}
-+	END_USE(vq);
-+	return vq->num_free;
-+}
-+
-+EXPORT_SYMBOL_GPL(virtqueue_free_used);
-+
- void virtqueue_disable_cb(struct virtqueue *_vq)
- {
- 	struct vring_virtqueue *vq = to_vvq(_vq);
-diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index aff5b4f..19acc66 100644
---- a/include/linux/virtio.h
-+++ b/include/linux/virtio.h
-@@ -42,6 +42,10 @@ struct virtqueue {
-  *	vq: the struct virtqueue we're talking about.
-  *	len: the length written into the buffer
-  *	Returns NULL or the "data" token handed to add_buf.
-+ * virtqueue_free_used: free all used buffers in the queue
-+ *	vq: the struct virtqueue we're talking about.
-+ *	free: free buf function from caller.
-+ *	Returns remaining capacity of the queue.
-  * virtqueue_disable_cb: disable callbacks
-  *	vq: the struct virtqueue we're talking about.
-  *	Note that this is not necessarily synchronous, hence unreliable and only
-@@ -82,6 +86,8 @@ void virtqueue_kick(struct virtqueue *vq);
- 
- void *virtqueue_get_buf(struct virtqueue *vq, unsigned int *len);
- 
-+int virtqueue_free_used(struct virtqueue *vq, void (*free)(void *buf));
-+
- void virtqueue_disable_cb(struct virtqueue *vq);
- 
- bool virtqueue_enable_cb(struct virtqueue *vq);
-
-
-Thanks
-Shirley
-
-
+Regards,
+Bhupesh
