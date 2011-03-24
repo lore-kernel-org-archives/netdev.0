@@ -1,64 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: fix fib metrics
-Date: Thu, 24 Mar 2011 23:44:12 +0100
-Message-ID: <1301006652.2714.145.camel@edumazet-laptop>
-References: <1301005107.2714.113.camel@edumazet-laptop>
-	 <AANLkTinv+XGBjbFoK6vpyiDW6gBEBKFjUef+mCAMJU9i@mail.gmail.com>
-	 <1301005946.2714.130.camel@edumazet-laptop>
-	 <20110324.153623.45921344.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix pch_gbe section mismatch warning
+Date: Thu, 24 Mar 2011 16:16:14 -0700 (PDT)
+Message-ID: <20110324.161614.232895368.davem@davemloft.net>
+References: <20110324132812.5bd28f51.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alessandro.suardi@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110324.153623.45921344.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, toshiharu-linux@dsn.okisemi.com
+To: randy.dunlap@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54042
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934349Ab1CXXPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 19:15:35 -0400
+In-Reply-To: <20110324132812.5bd28f51.randy.dunlap@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 24 mars 2011 =C3=A0 15:36 -0700, David Miller a =C3=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 24 Mar 2011 23:32:26 +0100
->=20
-> > Then it doesnt work anymore because it parses an ipip field from
-> > ip route get ...
-> >=20
-> > $ ip ro get 192.168.1.1
-> > 192.168.1.1 dev wlan0  src 192.168.1.21=20
-> >     cache  ipid 0x784c mtu 1500 advmss 1460 hoplimit 64
-> >=20
-> >=20
-> > Maybe you upgraded iproute2
->=20
-> I'm leaning towards app bug too.
->=20
-> These default metrics wouldn't get printed before, but now because of
-> how metrics are handled, they will.
->=20
-> Userland needs to cope properly with this.
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Thu, 24 Mar 2011 13:28:12 -0700
 
+> Fix section mismatch warning by renaming the pci_driver variable to a
+> recognized (whitelisted) name.
+> 
+> WARNING: drivers/net/pch_gbe/pch_gbe.o(.data+0x1f8): Section mismatch in reference from the variable pch_gbe_pcidev to the variable .devinit.rodata:pch_gbe_pcidev_id
+> The variable pch_gbe_pcidev references
+> the variable __devinitconst pch_gbe_pcidev_id
+> If the reference is valid then annotate the
+> variable with __init* or __refdata (see linux/init.h) or name the variable:
+> *driver, *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-BTW, ipip is not always printed (even on old kernels) : One needs to
-actually need ipip generation .
-
-edumazet@edumazet-laptop:~$ ping 4.4.4.4
-PING 4.4.4.4 (4.4.4.4) 56(84) bytes of data.
-^C
-
-edumazet@edumazet-laptop:~$ ip ro get 4.4.4.4
-4.4.4.4 dev ppp0  src 10.150.51.210=20
-    cache  mtu 1500 advmss 1460 hoplimit 64
-
-edumazet@edumazet-laptop:~$ ping -s 2000 4.4.4.4
-PING 4.4.4.4 (4.4.4.4) 2000(2028) bytes of data.
-^C
-
-edumazet@edumazet-laptop:~$ ip ro get 4.4.4.4
-4.4.4.4 dev ppp0  src 10.150.51.210=20
-    cache  ipid 0xf99a mtu 1500 advmss 1460 hoplimit 64
-
-
-This on a 2.6.35 kernel
-
-I suspect Alessandro tool had a bug anyway.
+Applied, thanks Randy.
