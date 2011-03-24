@@ -1,67 +1,84 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [RFC] usbnet: use eth%d name for known ethernet devices
-Date: Thu, 24 Mar 2011 09:56:32 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1103240955450.2006-100000@iolanthe.rowland.org>
-References: <201103241415.45115.arnd@arndb.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
+ avoid TX queue overrun through packet drop
+Date: Thu, 24 Mar 2011 16:28:22 +0200
+Message-ID: <20110324142822.GD12958@redhat.com>
+References: <20110318133311.GA20623@gondor.apana.org.au>
+ <1300498915.3441.21.camel@localhost.localdomain>
+ <1300730587.3441.24.camel@localhost.localdomain>
+ <20110322113649.GA17071@redhat.com>
+ <1300847204.3441.26.camel@localhost.localdomain>
+ <87r59xbbr6.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Steve Calfee <stevecalfee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Michal Nazarewicz <mnazarewicz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>,
-	<broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Nicolas Pitre <nicolas.pitre-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	<grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	Linux USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	<roger.quadros-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
-	Jaswinder Singh <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201103241415.45115.arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10623 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932683Ab1CXO2r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Mar 2011 10:28:47 -0400
+Content-Disposition: inline
+In-Reply-To: <87r59xbbr6.fsf@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Mar 2011, Arnd Bergmann wrote:
-
-> The documentation for the USB ethernet devices suggests that
-> only some devices are supposed to use usb0 as the network interface
-> name instead of eth0. The logic used there, and documented in
-> Kconfig for CDC is that eth0 will be used when the mac address
-> is a globally assigned one, but usb0 is used for the locally
-> managed range that is typically used on point-to-point links.
+On Thu, Mar 24, 2011 at 11:00:53AM +1030, Rusty Russell wrote:
+> > With simply removing the notify here, it does help the case when TX
+> > overrun hits too often, for example for 1K message size, the single
+> > TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
 > 
-> Unfortunately, this has caused a lot of pain on the smsc95xx
-> device that is used on the popular pandaboard without an
-> EEPROM to store the MAC address, which causes the driver to
-> call random_ether_address().
+> OK, we'll be getting rid of the "kick on full", so please delete that on
+> all benchmarks.
 > 
-> Obviously, there should be a proper MAC addressed assigned to
-> the device, and discussions are ongoing about how to solve
-> this, but this patch at least makes sure that the default
-> interface naming gets a little saner and matches what the
-> user can expect based on the documentation, including for
-> new devices.
+> Now, does the capacity check before add_buf() still win anything?  I
+> can't see how unless we have some weird bug.
 > 
-> The approach taken here is to flag whether a device might be a 
-> point-to-point link with the new FLAG_PTP setting in the usbnet
-> driver_info. A driver can set both FLAG_PTP and FLAG_ETHER if
+> Once we've sorted that out, we should look at the more radical change
+> of publishing last_used and using that to intuit whether interrupts
+> should be sent.  If we're not careful with ordering and barriers that
+> could introduce more bugs.
 
-You updated the flag name in the patch but not in the description.
+Right. I am working on this, and trying to be careful.
+One thing I'm in doubt about: sometimes we just want to
+disable interrupts. Should still use flags in that case?
+I thought that if we make the published index 0 to vq->num - 1,
+then a special value in the index field could disable
+interrupts completely. We could even reuse the space
+for the flags field to stick the index in. Too complex?
 
-> it is not sure (e.g. cdc_ether), or just one of the two.
-> The usbnet framework only looks at the MAC address for device
-> naming if both flags are set, otherwise it trusts the flag.
+> Anything else on the optimization agenda I've missed?
+> 
+> Thanks,
+> Rusty.
 
-Alan Stern
+Several other things I am looking at, wellcome cooperation:
+1. It's probably a good idea to update avail index
+   immediately instead of upon kick: for RX
+   this might help parallelism with the host.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2. Adding an API to add a single buffer instead of s/g,
+   seems to help a bit.
+
+3. For TX sometimes we free a single buffer, sometimes
+   a ton of them, which might make the transmit latency
+   vary. It's probably a good idea to limit this,
+   maybe free the minimal number possible to keep the device
+   going without stops, maybe free up to MAX_SKB_FRAGS.
+
+4. If the ring is full, we now notify right after
+   the first entry is consumed. For TX this is suboptimal,
+   we should try delaying the interrupt on host.
+
+More ideas, would be nice if someone can try them out:
+1. We are allocating/freeing buffers for indirect descriptors.
+   Use some kind of pool instead?
+   And we could preformat part of the descriptor.
+
+2. I didn't have time to work on virtio2 ideas presented
+   at the kvm forum yet, any takers?
+
+-- 
+MST
