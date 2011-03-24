@@ -1,46 +1,53 @@
-From: Jan Altenberg <jan@linutronix.de>
-Subject: RE: c_can: TX handling
-Date: Thu, 24 Mar 2011 11:56:41 +0100
-Message-ID: <1300964201.3295.16.camel@localhost>
-References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
-	 <D5ECB3C7A6F99444980976A8C6D896384DF0D6F684@EAPEX1MAIL1.st.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: RFC: [PATCH] can: c_can: disable one shot mode until driver is fixed
+Date: Thu, 24 Mar 2011 11:12:29 +0100
+Message-ID: <1300961549-28882-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"kurt.van.dijck@eia.be" <kurt.van.dijck@eia.be>,
-	"b.spranger@linutronix.de" <b.spranger@linutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jan@linutronix.de
-To: Bhupesh SHARMA <bhupesh.sharma@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:39819 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754961Ab1CXKCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 06:02:35 -0400
-In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DF0D6F684@EAPEX1MAIL1.st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch disables the one shot mode, until the driver has been fixed and
+tested to support it.
 
-> Thanks for your work on c_can.
-> This week has been very busy for me, so please excuse me for the late reply.
+> I'm quite sure I've seen a situation where msg_obj 17 "seemed" to be
+> pending, while msg_obj 18 and 19 already have been transmitted. But
+> in that case, I enabled ONESHOT for the can interface, which enables
+> the DA mode (automatic retransmission is disabled).
 
-No problem.
+Reported-by: Jan Altenberg <jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Cc: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+---
+ drivers/net/can/c_can/c_can.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-> Just to better understand this can you send me your *candump* output
-> when you see that the message object put earlier in the message RAM
-> being pending on the line.
-> 
-> Your point seems valid but I want to make sure that this is not done by the 
-> C_CAN core implicitly..  
-
-I'll try to prepare a (stripped down) test-case, but since I'm quite
-busy at the moment, that might take a couple of days.
-I'm quite sure, I've seen such a situation, but first of all, I'd like
-to sort out, if that was related to the "DA mode".
-
-Cheers,
-	Jan
-
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index 110eda0..2040959 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -1112,8 +1112,7 @@ struct net_device *alloc_c_can_dev(void)
+ 	priv->can.bittiming_const = &c_can_bittiming_const;
+ 	priv->can.do_set_mode = c_can_set_mode;
+ 	priv->can.do_get_berr_counter = c_can_get_berr_counter;
+-	priv->can.ctrlmode_supported = CAN_CTRLMODE_ONE_SHOT |
+-					CAN_CTRLMODE_LOOPBACK |
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_LOOPBACK |
+ 					CAN_CTRLMODE_LISTENONLY |
+ 					CAN_CTRLMODE_BERR_REPORTING;
+ 
+-- 
+1.7.2.3
