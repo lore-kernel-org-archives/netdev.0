@@ -1,38 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: fix fib metrics
-Date: Thu, 24 Mar 2011 19:45:08 +0100
-Message-ID: <1300992308.3747.205.camel@edumazet-laptop>
-References: <AANLkTik6+TrjiC6ZF+KHhZ1iPzEe2jDayr363C0HgQN4@mail.gmail.com>
-	 <1300980118.3747.42.camel@edumazet-laptop>
-	 <AANLkTikZhT5LaA-UEXniDvkneH8JScaVaCaCd4LT59cV@mail.gmail.com>
-	 <1300983340.3747.44.camel@edumazet-laptop>
-	 <1300986084.3747.101.camel@edumazet-laptop>
-	 <AANLkTik+Rf45wUxN86t+Zp7+AXjcJsy0vmZgvmLj-95x@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mlx4_en: Removing HW info from ethtool -i report.
+Date: Thu, 24 Mar 2011 11:48:01 -0700 (PDT)
+Message-ID: <20110324.114801.52200860.davem@davemloft.net>
+References: <4D8B028B.8050406@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Alessandro Suardi <alessandro.suardi@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTik+Rf45wUxN86t+Zp7+AXjcJsy0vmZgvmLj-95x@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58330
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933288Ab1CXSrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 14:47:22 -0400
+In-Reply-To: <4D8B028B.8050406@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 24 mars 2011 =C3=A0 19:14 +0100, Alessandro Suardi a =C3=A9cri=
-t :
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Thu, 24 Mar 2011 10:36:27 +0200
 
->=20
-> I will however make one more bug report, as vpnc is broken before
->  and after this patch - have to dig out what vpnc-script tries to do,
->  which results in
->=20
-> Error: either "to" is duplicate, or "ipid" is a garbage.
->=20
->  after establishing the VPN tunnel.
->=20
+> Avoiding abuse of ethtool_drvinfo.driver field.
+> HW specific info can be retrieved using lspci.
+> 
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-try following patch
-
-http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcomm=
-it;h=3D406b6f974dae76a5b795d5c251d11c979a4e509b
+Applied, thanks.
