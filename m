@@ -1,44 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net_sched: fix THROTTLED/RUNNING race
-Date: Thu, 24 Mar 2011 00:13:46 -0700 (PDT)
-Message-ID: <20110324.001346.241938423.davem@davemloft.net>
-References: <1300034690.2761.29.camel@edumazet-laptop>
-	<1300862758.2717.41.camel@edumazet-laptop>
-	<1300949637.2810.75.camel@edumazet-laptop>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [RFC] myri10ge: small rx_done refactoring
+Date: Thu, 24 Mar 2011 09:16:21 +0100
+Message-ID: <20110324081621.GA5508@redhat.com>
+References: <20110323124939.GA7834@redhat.com>
+ <20110323083357.457f10aa@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, fchecconi@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53878
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933167Ab1CXHNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 03:13:08 -0400
-In-Reply-To: <1300949637.2810.75.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:7800 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933659Ab1CXIQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Mar 2011 04:16:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20110323083357.457f10aa@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 24 Mar 2011 07:53:57 +0100
+On Wed, Mar 23, 2011 at 08:33:57AM -0700, Stephen Hemminger wrote:
+> On Wed, 23 Mar 2011 13:52:04 +0100
+> Stanislaw Gruszka <sgruszka@redhat.com> wrote:
+> 
+> > Add lro_enable variable to read NETIF_F_LRO flag only once per napi poll
+> > call. This should fix theoretical race condition with
+> > myri10ge_set_rx_csum() and myri10ge_set_flags() where flag NETIF_F_LRO
+> > can be changed.
+> 
+> You may need a barrier or the race may still be there.
 
-> [PATCH] net_sched: fix THROTTLED/RUNNING race
-> 
-> commit fd245a4adb52 (net_sched: move TCQ_F_THROTTLED flag)
-> added a race.
-> 
-> qdisc_watchdog() is run from softirq, so special care should be taken or
-> we can lose one state transition (THROTTLED/RUNNING)
-> 
-> Prior to fd245a4adb52, we were manipulating q->flags (qdisc->flags &=
-> ~TCQ_F_THROTTLED;) and this manipulation could only race with
-> qdisc_warn_nonwc().
-> 
-> Since we want to avoid atomic ops in qdisc fast path - it was the
-> meaning of commit 371121057607e (QDISC_STATE_RUNNING dont need atomic
-> bit ops) - fix is to move THROTTLE bit into 'state' field, this one
-> being manipulated with SMP and IRQ safe operations.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+I don't understand why barrier in that case is need.
 
-Applied, thanks a lot for tracking this down Eric.
+What I tried to avoid is.
+
+myri10ge_clean_rx_done():
+
+if (dev->features & NETIF_F_LRO) 
+	setup lro 
+					myri10ge_set_flags()
+
+if (dev->features & NETIF_F_LRO)
+	flush lro
+
+Now we read dev->features & NETIF_F_LRO only once to local
+lro_enabled variable. So we can not flush without setup
+or setup without flush. No idea why memory barries is still
+needed.
+
+> The driver seems to use mb() where wmb() is intended, and never use rmb()?
+
+Yes, I think we can have some optimalization here.
+
+Stanislaw
