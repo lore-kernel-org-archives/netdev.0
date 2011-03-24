@@ -1,14 +1,15 @@
-From: Greg KH <greg@kroah.com>
+From: "Serge E. Hallyn" <serge.hallyn@ubuntu.com>
 Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
  kernel modules
-Date: Thu, 24 Mar 2011 14:57:54 -0700
-Message-ID: <20110324215754.GA12023@kroah.com>
+Date: Thu, 24 Mar 2011 16:57:47 -0500
+Message-ID: <20110324215747.GA12585@peq.hallyn.com>
 References: <1300991584.2689.35.camel@bwh-desktop>
  <20110324202634.GB9191@peq.hallyn.com>
  <20110324143944.29f4c362@nehalam>
  <20110324.144628.58411809.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
 Cc: shemminger@vyatta.com, serge.hallyn@ubuntu.com,
 	bhutchings@solarflare.com, eparis@redhat.com,
 	eparis@parisplace.org, segoon@openwall.com,
@@ -18,7 +19,7 @@ Cc: shemminger@vyatta.com, serge.hallyn@ubuntu.com,
 	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
 	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
 	eugene@redhat.com, dan.j.rosenberg@gmail.com,
-	akpm@linux-foundation.org, sds@tycho.nsa.gov,
+	akpm@linux-foundation.org, greg@kroah.com, sds@tycho.nsa.gov,
 	linux-security-module@vger.kernel.org, dwalsh@redhat.com,
 	dhowells@redhat.com
 To: David Miller <davem@davemloft.net>
@@ -28,7 +29,7 @@ In-Reply-To: <20110324.144628.58411809.davem@davemloft.net>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 24, 2011 at 02:46:28PM -0700, David Miller wrote:
+Quoting David Miller (davem@davemloft.net):
 > From: Stephen Hemminger <shemminger@vyatta.com>
 > Date: Thu, 24 Mar 2011 14:39:44 -0700
 > 
@@ -39,7 +40,10 @@ On Thu, Mar 24, 2011 at 02:46:28PM -0700, David Miller wrote:
 > 
 > Everyone supporting this change, get real, and admit it doing in fact
 > cause a serious regression.
-> 
+
+Sorry, I thought this was causing some extra audit messages but no
+actual breakage?
+
 > If you can't get past that simple fact, you cannot discuss this issue
 > intelligently.
 > 
@@ -50,9 +54,9 @@ On Thu, Mar 24, 2011 at 02:46:28PM -0700, David Miller wrote:
 > There is simply no excuse for this and I want this change reverted
 > both in Linus's tree and in -stable.
 
-Ok, as I totally got lost in the thread here, what is the git commit id
-of the patch to revert?
+Eric, in this particular case, since we've already done a
+'capable(CAP_NET_ADMIN)', I woudl argue that doing the check
+for CAP_SYS_ADMIN without auditing failure (even if it requires
+a new helper in capability.c) isn't horrible.  Thoughts?
 
-thanks,
-
-greg k-h
+-serge
