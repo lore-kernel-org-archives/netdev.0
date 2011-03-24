@@ -1,94 +1,116 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Thu, 24 Mar 2011 20:10:39 +0200
-Message-ID: <20110324181039.GA16168@redhat.com>
-References: <20110318133311.GA20623@gondor.apana.org.au>
- <1300498915.3441.21.camel@localhost.localdomain>
- <1300730587.3441.24.camel@localhost.localdomain>
- <20110322113649.GA17071@redhat.com>
- <1300847204.3441.26.camel@localhost.localdomain>
- <87r59xbbr6.fsf@rustcorp.com.au>
- <20110324142822.GD12958@redhat.com>
- <1300988809.3441.48.camel@localhost.localdomain>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: Re: [PATCH] ipv4: fix fib metrics
+Date: Thu, 24 Mar 2011 19:14:51 +0100
+Message-ID: <AANLkTik+Rf45wUxN86t+Zp7+AXjcJsy0vmZgvmLj-95x@mail.gmail.com>
+References: <AANLkTik6+TrjiC6ZF+KHhZ1iPzEe2jDayr363C0HgQN4@mail.gmail.com>
+	<1300980118.3747.42.camel@edumazet-laptop>
+	<AANLkTikZhT5LaA-UEXniDvkneH8JScaVaCaCd4LT59cV@mail.gmail.com>
+	<1300983340.3747.44.camel@edumazet-laptop>
+	<1300986084.3747.101.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1300988809.3441.48.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:46730 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752836Ab1CXSPC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 14:15:02 -0400
+In-Reply-To: <1300986084.3747.101.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2011 at 10:46:49AM -0700, Shirley Ma wrote:
-> On Thu, 2011-03-24 at 16:28 +0200, Michael S. Tsirkin wrote:
-> > On Thu, Mar 24, 2011 at 11:00:53AM +1030, Rusty Russell wrote:
-> > > > With simply removing the notify here, it does help the case when TX
-> > > > overrun hits too often, for example for 1K message size, the single
-> > > > TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
-> > > 
-> > > OK, we'll be getting rid of the "kick on full", so please delete that on
-> > > all benchmarks.
-> > > 
-> > > Now, does the capacity check before add_buf() still win anything?  I
-> > > can't see how unless we have some weird bug.
-> > > 
-> > > Once we've sorted that out, we should look at the more radical change
-> > > of publishing last_used and using that to intuit whether interrupts
-> > > should be sent.  If we're not careful with ordering and barriers that
-> > > could introduce more bugs.
-> > 
-> > Right. I am working on this, and trying to be careful.
-> > One thing I'm in doubt about: sometimes we just want to
-> > disable interrupts. Should still use flags in that case?
-> > I thought that if we make the published index 0 to vq->num - 1,
-> > then a special value in the index field could disable
-> > interrupts completely. We could even reuse the space
-> > for the flags field to stick the index in. Too complex?
-> > > Anything else on the optimization agenda I've missed?
-> > > 
-> > > Thanks,
-> > > Rusty.
-> > 
-> > Several other things I am looking at, wellcome cooperation:
-> > 1. It's probably a good idea to update avail index
-> >    immediately instead of upon kick: for RX
-> >    this might help parallelism with the host.
-> Is that possible to use the same idea for publishing last used idx to
-> publish avail idx? Then we can save guest iowrite/exits.
+On Thu, Mar 24, 2011 at 6:01 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le jeudi 24 mars 2011 =E0 17:15 +0100, Eric Dumazet a =E9crit :
+>
+>> I am testing following patch :
+>>
+>> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+>> index 622ac4c..654ef5b 100644
+>> --- a/net/ipv4/fib_semantics.c
+>> +++ b/net/ipv4/fib_semantics.c
+>> @@ -251,7 +251,7 @@ static struct fib_info *fib_find_info(const stru=
+ct fib_info *nfi)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 nfi->fib_prefsrc =3D=3D fi->fib_=
+prefsrc &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 nfi->fib_priority =3D=3D fi->fib=
+_priority &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memcmp(nfi->fib_metrics, fi->fib=
+_metrics,
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sizeof(fi->fib_metr=
+ics)) =3D=3D 0 &&
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sizeof(u32) * RTAX_=
+MAX) =3D=3D 0 &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((nfi->fib_flags ^ fi->fib_flags=
+) & ~RTNH_F_DEAD) =3D=3D 0 &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (nfi->fib_nhs =3D=3D 0 || nh_com=
+p(fi, nfi) =3D=3D 0))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return fi;
+>>
+>>
+>
+> This works. Here is the formal submission :
+>
+> Thanks !
+>
+> [PATCH] ipv4: fix fib metrics
+>
+> Alessandro Suardi reported that we could not change route metrics :
+>
+> ip ro change default .... advmss 1400
+>
+> This regression came with commit 9c150e82ac50 (Allocate fib metrics
+> dynamically). fib_metrics is no longer an array, but a pointer to an
+> array.
+>
+> Reported-by: Alessandro Suardi <alessandro.suardi@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> =A0net/ipv4/fib_semantics.c | =A0 =A02 +-
+> =A01 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index 622ac4c..75b9fb5 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -251,7 +251,7 @@ static struct fib_info *fib_find_info(const struc=
+t fib_info *nfi)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0nfi->fib_prefsrc =3D=3D fi->fi=
+b_prefsrc &&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0nfi->fib_priority =3D=3D fi->f=
+ib_priority &&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0memcmp(nfi->fib_metrics, fi->f=
+ib_metrics,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sizeof(fi->fib_m=
+etrics)) =3D=3D 0 &&
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sizeof(u32) * RT=
+AX_MAX) =3D=3D 0 &&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0((nfi->fib_flags ^ fi->fib_fla=
+gs) & ~RTNH_F_DEAD) =3D=3D 0 &&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(nfi->fib_nhs =3D=3D 0 || nh_c=
+omp(fi, nfi) =3D=3D 0))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return fi;
 
-Yes, but unrelated to 1 above :)
+Tested-by: Alessandro Suardi <alessandro.suardi@gmail.com>
 
-> > 2. Adding an API to add a single buffer instead of s/g,
-> >    seems to help a bit.
-> > 
-> > 3. For TX sometimes we free a single buffer, sometimes
-> >    a ton of them, which might make the transmit latency
-> >    vary. It's probably a good idea to limit this,
-> >    maybe free the minimal number possible to keep the device
-> >    going without stops, maybe free up to MAX_SKB_FRAGS.
-> 
-> I am playing with it now, to collect more perf data to see what's the
-> best value to free number of used buffers.
 
-The best IMO is to keep the number of freed buffers constant
-so that we have more or less identical overhead for each packet.
 
-> > 4. If the ring is full, we now notify right after
-> >    the first entry is consumed. For TX this is suboptimal,
-> >    we should try delaying the interrupt on host.
-> 
-> > More ideas, would be nice if someone can try them out:
-> > 1. We are allocating/freeing buffers for indirect descriptors.
-> >    Use some kind of pool instead?
-> >    And we could preformat part of the descriptor.
-> > 2. I didn't have time to work on virtio2 ideas presented
-> >    at the kvm forum yet, any takers?
-> If I have time, I will look at this.
-> 
-> Thanks
-> Shirley
-> 
+I will however make one more bug report, as vpnc is broken before
+ and after this patch - have to dig out what vpnc-script tries to do,
+ which results in
+
+Error: either "to" is duplicate, or "ipid" is a garbage.
+
+ after establishing the VPN tunnel.
+
+
+Thanks,
+
+--alessandro
+
+=A0"There's always a siren singing you to shipwreck"
+
+=A0=A0 (Radiohead, "There There")
