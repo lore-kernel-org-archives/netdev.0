@@ -1,98 +1,68 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [RFC] myri10ge: small rx_done refactoring
-Date: Thu, 24 Mar 2011 16:59:37 +0100
-Message-ID: <20110324155937.GA6041@redhat.com>
-References: <20110323124939.GA7834@redhat.com>
- <20110323083357.457f10aa@nehalam>
- <20110324081621.GA5508@redhat.com>
- <20110324081539.47ad0972@nehalam>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 4/4] can: c_can: remove duplicated #include
+Date: Thu, 24 Mar 2011 17:15:50 +0100
+Message-ID: <4D8B6E36.601@grandegger.com>
+References: <1300457247-2652-1-git-send-email-weiyi.huang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>,
-	Brice Goglin <brice@myri.com>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22348 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933821Ab1CXQAP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2011 12:00:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20110324081539.47ad0972@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Huang Weiyi <weiyi.huang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1300457247-2652-1-git-send-email-weiyi.huang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 24, 2011 at 08:15:39AM -0700, Stephen Hemminger wrote:
-> > On Wed, Mar 23, 2011 at 08:33:57AM -0700, Stephen Hemminger wrote:
-> > > On Wed, 23 Mar 2011 13:52:04 +0100
-> > > Stanislaw Gruszka <sgruszka@redhat.com> wrote:
-> > > 
-> > > > Add lro_enable variable to read NETIF_F_LRO flag only once per napi poll
-> > > > call. This should fix theoretical race condition with
-> > > > myri10ge_set_rx_csum() and myri10ge_set_flags() where flag NETIF_F_LRO
-> > > > can be changed.
-> > > 
-> > > You may need a barrier or the race may still be there.
-> > 
-> > I don't understand why barrier in that case is need.
-> > 
-> > What I tried to avoid is.
-> > 
-> > myri10ge_clean_rx_done():
-> > 
-> > if (dev->features & NETIF_F_LRO) 
-> > 	setup lro 
-> > 					myri10ge_set_flags()
-> > 
-> > if (dev->features & NETIF_F_LRO)
-> > 	flush lro
-> > 
-> > Now we read dev->features & NETIF_F_LRO only once to local
-> > lro_enabled variable. So we can not flush without setup
-> > or setup without flush. No idea why memory barries is still
-> > needed.
-> > 
-> > > The driver seems to use mb() where wmb() is intended, and never use rmb()?
-> > 
-> > Yes, I think we can have some optimalization here.
-> > 
+On 03/18/2011 03:07 PM, Huang Weiyi wrote:
+> Remove duplicated #include('s) in
+>   drivers/net/can/c_can/c_can.c
+>   drivers/net/can/c_can/c_can_platform.c
 > 
-> Without barrier there is no guarantee that compiler read the flags
-> into a local variable. It is free to do the same thing as the original
-> code.
+> Signed-off-by: Huang Weiyi <weiyi.huang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/can/c_can/c_can.c          |    1 -
+>  drivers/net/can/c_can/c_can_platform.c |    1 -
+>  2 files changed, 0 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+> index 1405078..b343bcb 100644
+> --- a/drivers/net/can/c_can/c_can.c
+> +++ b/drivers/net/can/c_can/c_can.c
+> @@ -34,7 +34,6 @@
+>  #include <linux/if_arp.h>
+>  #include <linux/if_ether.h>
+>  #include <linux/list.h>
+> -#include <linux/delay.h>
+>  #include <linux/io.h>
+>  
+>  #include <linux/can.h>
+> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+> index e629b96..61c41ba 100644
+> --- a/drivers/net/can/c_can/c_can_platform.c
+> +++ b/drivers/net/can/c_can/c_can_platform.c
+> @@ -28,7 +28,6 @@
+>  #include <linux/if_arp.h>
+>  #include <linux/if_ether.h>
+>  #include <linux/list.h>
+> -#include <linux/delay.h>
+>  #include <linux/io.h>
+>  #include <linux/platform_device.h>
+>  #include <linux/clk.h>
 
-Ok, so C code like:
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-code1
-if (dev->features & NETIF_F_LRO) 
-	branch1
-code2;
-if (dev->features & NETIF_F_LRO)
-	branch2
+I added a CC to the netdev mailing list. Hope that's sufficient to get
+the patch accepted.
 
-and
+Thanks,
 
-bool lro_enabled = dev->features & NETIF_F_LRO;
-code1
-if (lro_enabled)
-	branch1
-code2
-if (lro_enabled)
-	branch2
-
-can give the same assembly output.
-
-It's really hard for me to understand that. I could
-understand, if we would get global variable directly
-like:
-bool lro_enabled = dev->lro_enabled;
-instead of:
-bool lro_enabled = dev->features & NETIF_F_LRO;
-
-David, can you confirm that Staphen is correct?
-
-Also where this barrier() should go. Before  
-"bool lro_enabled = dev->features & NETIF_F_LRO;"
-or after?
-
-Stanislaw
+Wolfgang.
