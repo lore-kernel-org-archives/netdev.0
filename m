@@ -1,50 +1,49 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and avoid TX queue overrun through packet drop
-Date: Thu, 24 Mar 2011 10:46:49 +1030
-Message-ID: <87tyetbcem.fsf@rustcorp.com.au>
-References: <20110318133311.GA20623@gondor.apana.org.au> <1300498915.3441.21.camel@localhost.localdomain> <1300730587.3441.24.camel@localhost.localdomain> <20110322113649.GA17071@redhat.com>
+From: Andy Fleming <afleming@gmail.com>
+Subject: Re: [RFC PATCH] et1011c: Replaced PHY driver by a small dm646x board fixup
+Date: Wed, 23 Mar 2011 19:24:04 -0500
+Message-ID: <AANLkTin14WSZsc7+B-rK1dSn=XShNrF63k_47RXu-3G6@mail.gmail.com>
+References: <091F7EC1-5D33-4C90-AFC1-D6E24EF3EEC6@boeing.com>
+	<1300919616-6780-1-git-send-email-Kyle.D.Moffett@boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110322113649.GA17071@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Kevin Hilman <khilman@deeprootsystems.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?ISO-8859-1?Q?Uwe_Kleine=2DK=F6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	"David J. Choi" <david.choi@micrel.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1300919616-6780-1-git-send-email-Kyle.D.Moffett@boeing.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Mar 2011 13:36:50 +0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> On Mon, Mar 21, 2011 at 11:03:07AM -0700, Shirley Ma wrote:
-> > On Fri, 2011-03-18 at 18:41 -0700, Shirley Ma wrote:
-> > > > > +       /* Drop packet instead of stop queue for better
-> > > performance
-> > > > */
-> > > > 
-> > > > I would like to see some justification as to why this is the right
-> > > > way to go and not just papering over the real problem. 
-> > > 
-> > > Fair. KVM guest virtio_net TX queue stop/restart is pretty expensive,
-> > > which involves:
-> > > 
-> > > 1. Guest enable callback: one memory barrier, interrupt flag set
-> > 
-> > Missed this cost: for history reason, it also involves a guest exit from
-> > I/O write (PCI_QUEUE_NOTIFY).
-> 
-> OK, after some research, it looks like the reason was the tx timer that
-> qemu used to use. So the hack of avoiding the add_buf call will
-> avoid this kick and so break these hosts.
-> I guess we can add a feature bit to detect a new host
-> and so avoid the kick. We are running low on feature bits
-> unfortunately, but just fo testing, could you quantify the difference
-> that this makes using the following patch:
+On Wed, Mar 23, 2011 at 5:33 PM, Kyle Moffett <Kyle.D.Moffett@boeing.co=
+m> wrote:
 
-Performance would suffer for those ancient qemus if we didn't do this,
-but it wouldn't be fatal to them.
+> -
+> -static struct phy_driver et1011c_driver =3D {
+> - =A0 =A0 =A0 .phy_id =A0 =A0 =A0 =A0 =3D 0x0282f014,
+> - =A0 =A0 =A0 .name =A0 =A0 =A0 =A0 =A0 =3D "ET1011C",
+> - =A0 =A0 =A0 .phy_id_mask =A0 =A0=3D 0xfffffff0,
+> - =A0 =A0 =A0 .features =A0 =A0 =A0 =3D (PHY_BASIC_FEATURES | SUPPORT=
+ED_1000baseT_Full),
+> - =A0 =A0 =A0 .flags =A0 =A0 =A0 =A0 =A0=3D PHY_POLL,
+> - =A0 =A0 =A0 .config_aneg =A0 =A0=3D et1011c_config_aneg,
+> - =A0 =A0 =A0 .read_status =A0 =A0=3D et1011c_read_status,
+> - =A0 =A0 =A0 .driver =A0 =A0 =A0 =A0 =3D { .owner =3D THIS_MODULE,},
+> -};
 
-I think we should just remove it; the standard certainly doesn't mention
-it.
 
-Cheers,
-Rusty.
+Might I suggest that you not eliminate the whole driver?  If you leave
+just this part (and the init stuff below it), and convert the
+config_aneg and read_status pointers to use the genphy versions, the
+kernel will, at least, be able to report what type of PHY it is.  And
+maybe one day, someone who is familiar with the inner workings of this
+PHY will fill in a more correct driver.
+
+Andy
