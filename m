@@ -1,115 +1,57 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: RFC: [PATCH] can: c_can: disable one shot mode until driver is
-	fixed
-Date: Thu, 24 Mar 2011 11:44:46 +0100
-Message-ID: <4D8B209E.5010907@pengutronix.de>
-References: <1300961549-28882-1-git-send-email-mkl@pengutronix.de>
-	<20110324102852.GA339@e-circ.dyndns.org>
+From: Andy Green <andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC] usbnet: use eth%d name for known ethernet devices
+Date: Thu, 24 Mar 2011 10:45:34 +0000
+Message-ID: <4D8B20CE.5030101@linaro.org>
+References: <4D79F068.2080009@linaro.org> <201103231756.39849.arnd@arndb.de> <4D8A2830.6020706@linaro.org> <201103231811.54290.arnd@arndb.de>
+Reply-To: andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8556569667838299296=="
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110324102852.GA339-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	Nicolas Pitre <nicolas.pitre-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Jaswinder Singh <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Linux USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org, roger.quadros-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org,
+	grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201103231811.54290.arnd-r2nGTMty4D4@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============8556569667838299296==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig22ED0BDBE4B7AA0968021C13"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig22ED0BDBE4B7AA0968021C13
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 03/24/2011 11:28 AM, Kurt Van Dijck wrote:
-> On Thu, Mar 24, 2011 at 11:12:29AM +0100, Marc Kleine-Budde wrote:
->> This patch disables the one shot mode, until the driver has been fixed=
- and
->> tested to support it.
+On 03/23/2011 05:11 PM, Somebody in the thread at some point said:
+> On Wednesday 23 March 2011, Andy Green wrote:
+>>> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+>>> index bc86f4b..c98d3a7 100644
+>>> --- a/drivers/net/usb/smsc95xx.c
+>>> +++ b/drivers/net/usb/smsc95xx.c
+>>> @@ -1231,7 +1231,7 @@ static const struct driver_info smsc95xx_info = {
 >>
-> isn't this part necessary now (temporarily) to avoid dead code?
+>>> -     .flags          = FLAG_ETHER | FLAG_SEND_ZLP,
+>>> +     .flags          = FLAG_ETHER | FLAG_SEND_ZLP | FLAG_REALLY_ETHER,
+>>
+>>>                if ((dev->driver_info->flags&   FLAG_ETHER) != 0&&
+>>> +                 ((dev->driver_info->flags&   FLAG_PTP) == 0 ||
+>>> +                  (net->dev_addr [0]&   0x02) == 0))
+>>>                        strcpy (net->name, "eth%d");
+>>
+>> So it just takes the approach that all smsc95xx are going to be eth%d?
+>
+> Right, and all other drivers that are obviously ethernet-only, including
+> future drivers.
 
-It's not necessary, the driver should still work. But it's dead code. If
-someone fixes the driver she/he can easily revert the patch.
+I moved my tree over to using this patch now, it's working fine on Panda 
+/ smsc95xx as one would expect.  Guys with pluggable smsc95xx are going 
+to find their device comes as eth%d not usb%d but that seems perfectly 
+defensible as how it always should have been.
 
-Can I fold your patch and add your S-o-b?
+So, nice job.
 
-Marc
->=20
-> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_ca=
-n.c
-> index 1405078..2c3d090 100644
-> --- a/drivers/net/can/c_can/c_can.c
-> +++ b/drivers/net/can/c_can/c_can.c
-> @@ -588,14 +588,9 @@ static void c_can_chip_config(struct net_device *d=
-ev)
->  {
->  	struct c_can_priv *priv =3D netdev_priv(dev);
-> =20
-> -	if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT)
-> -		/* disable automatic retransmission */
-> -		priv->write_reg(priv, &priv->regs->control,
-> -				CONTROL_DISABLE_AR);
-> -	else
-> -		/* enable automatic retransmission */
-> -		priv->write_reg(priv, &priv->regs->control,
-> -				CONTROL_ENABLE_AR);
-> +	/* enable automatic retransmission */
-> +	priv->write_reg(priv, &priv->regs->control,
-> +			CONTROL_ENABLE_AR);
-> =20
->  	if (priv->can.ctrlmode & (CAN_CTRLMODE_LISTENONLY &
->  					CAN_CTRLMODE_LOOPBACK)) {
->=20
-> _______________________________________________
-> Socketcan-core mailing list
-> Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-> https://lists.berlios.de/mailman/listinfo/socketcan-core
-
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig22ED0BDBE4B7AA0968021C13
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk2LIKEACgkQjTAFq1RaXHOxfgCghKfTTQvgUenoB/jBXAUicSqZ
-YsEAn1yRo7DRJ1GV67HI5yVFv6ZZr7IT
-=z+TQ
------END PGP SIGNATURE-----
-
---------------enig22ED0BDBE4B7AA0968021C13--
-
---===============8556569667838299296==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============8556569667838299296==--
+-Andy
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
