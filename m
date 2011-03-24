@@ -1,86 +1,94 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
- kernel modules
-Date: Thu, 24 Mar 2011 14:03:53 -0400
-Message-ID: <1300989839.2398.17.camel@localhost.localdomain>
-References: <201102272122.52643.arnd@arndb.de>
-	 <4D6B6AE7.2050202@msgid.tls.msk.ru> <20110228095133.GA4351@albatros>
-	 <20110228.112349.104067277.davem@davemloft.net>
-	 <20110301194845.GA3533@albatros> <1299010390.2529.30.camel@bwh-desktop>
-	 <20110301213313.GA6507@albatros>
-	 <AANLkTikr=qfFeaXDkiBbK-4KvKS83LzURrUj4L2TP8_u@mail.gmail.com>
-	 <20110324153714.GB2648@peq.hallyn.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
+ avoid TX queue overrun through packet drop
+Date: Thu, 24 Mar 2011 20:10:39 +0200
+Message-ID: <20110324181039.GA16168@redhat.com>
+References: <20110318133311.GA20623@gondor.apana.org.au>
+ <1300498915.3441.21.camel@localhost.localdomain>
+ <1300730587.3441.24.camel@localhost.localdomain>
+ <20110322113649.GA17071@redhat.com>
+ <1300847204.3441.26.camel@localhost.localdomain>
+ <87r59xbbr6.fsf@rustcorp.com.au>
+ <20110324142822.GD12958@redhat.com>
+ <1300988809.3441.48.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Paris <eparis@parisplace.org>,
-	Vasiliy Kulikov <segoon@openwall.com>,
-	linux-kernel@vger.kernel.org, mjt@tls.msk.ru, arnd@arndb.de,
-	mirqus@gmail.com, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
-	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
-	eugene@redhat.com, dan.j.rosenberg@gmail.com,
-	akpm@linux-foundation.org, Greg KH <greg@kroah.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	Daniel J Walsh <dwalsh@redhat.com>,
-	David Howells <dhowells@redhat.com>
-To: "Serge E. Hallyn" <serge.hallyn@ubuntu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30285 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751565Ab1CXSFh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2011 14:05:37 -0400
-In-Reply-To: <20110324153714.GB2648@peq.hallyn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1300988809.3441.48.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-03-24 at 10:37 -0500, Serge E. Hallyn wrote:
-> Quoting Eric Paris (eparis@parisplace.org):
-> > On Tue, Mar 1, 2011 at 4:33 PM, Vasiliy Kulikov <segoon@openwall.com> wrote:
-> ...
-> > This patch is causing a bit of a problem in Fedora.  The problem lies
+On Thu, Mar 24, 2011 at 10:46:49AM -0700, Shirley Ma wrote:
+> On Thu, 2011-03-24 at 16:28 +0200, Michael S. Tsirkin wrote:
+> > On Thu, Mar 24, 2011 at 11:00:53AM +1030, Rusty Russell wrote:
+> > > > With simply removing the notify here, it does help the case when TX
+> > > > overrun hits too often, for example for 1K message size, the single
+> > > > TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
+> > > 
+> > > OK, we'll be getting rid of the "kick on full", so please delete that on
+> > > all benchmarks.
+> > > 
+> > > Now, does the capacity check before add_buf() still win anything?  I
+> > > can't see how unless we have some weird bug.
+> > > 
+> > > Once we've sorted that out, we should look at the more radical change
+> > > of publishing last_used and using that to intuit whether interrupts
+> > > should be sent.  If we're not careful with ordering and barriers that
+> > > could introduce more bugs.
+> > 
+> > Right. I am working on this, and trying to be careful.
+> > One thing I'm in doubt about: sometimes we just want to
+> > disable interrupts. Should still use flags in that case?
+> > I thought that if we make the published index 0 to vq->num - 1,
+> > then a special value in the index field could disable
+> > interrupts completely. We could even reuse the space
+> > for the flags field to stick the index in. Too complex?
+> > > Anything else on the optimization agenda I've missed?
+> > > 
+> > > Thanks,
+> > > Rusty.
+> > 
+> > Several other things I am looking at, wellcome cooperation:
+> > 1. It's probably a good idea to update avail index
+> >    immediately instead of upon kick: for RX
+> >    this might help parallelism with the host.
+> Is that possible to use the same idea for publishing last used idx to
+> publish avail idx? Then we can save guest iowrite/exits.
+
+Yes, but unrelated to 1 above :)
+
+> > 2. Adding an API to add a single buffer instead of s/g,
+> >    seems to help a bit.
+> > 
+> > 3. For TX sometimes we free a single buffer, sometimes
+> >    a ton of them, which might make the transmit latency
+> >    vary. It's probably a good idea to limit this,
+> >    maybe free the minimal number possible to keep the device
+> >    going without stops, maybe free up to MAX_SKB_FRAGS.
 > 
-> Sorry, what exactly is the problem it is causing?  I gather it's
-> spitting out printks?  What exactly do the printks say?  The patch
-> included at bottom checks for CAP_NET_ADMIN before checking for
-> CAP_SYS_MODULE, so these must be cases which historically always
-> quietly failed, and are now hitting the 'pr_err' which this patch
-> adds?
+> I am playing with it now, to collect more perf data to see what's the
+> best value to free number of used buffers.
 
-Not quite.  SELinux logs every time an operation is denied.  This patch
-means that every time a module is requested which does not exist as
-netdev-* we check CAP_SYS_MODULE.  SELinux does not allow CAP_SYS_MODULE
-and thus we get SELinux complaining that tasks are trying to load
-modules.  I do have one report from a user who claims this is breaking
-his system, but I'm not sure I believe him as I have yet to see any
-dmesg printk from the pr_err.
+The best IMO is to keep the number of freed buffers constant
+so that we have more or less identical overhead for each packet.
 
-On my local system reproduce the SELinux denials on every boot as
-something tries to autoload "reg", "wifi0", and "virbr0".  I have no
-modules which match these.  Thus the first try for CAP_NET_ADMIN
-+netdev-wifi0 fails.  We then hit the CAP_SYS_MODULE check which SELinux
-rejects and puts up a huge warning that someone is trying to load code
-into the kernel.  Big red flags.  Even in permissive, where the
-capable(CAP_SYS_MODULE) passes, we won't hit the pr_err() since there is
-not module for "wifi"
-
-I think there are 3 possibilities:
-
-Change SELinux policy so as to not complain when udev/NM/libvirt try to
-check CAP_SYS_MODULE, but that's a bad idea, since if they every try to
-use init_module(2) we won't get denials.
-
-Change this callsite to a _noaudit check.  Which is better than above
-but still not great since we wouldn't get a denial log if anybody had
-tried to load xfs....
-
-Figure out a way to stop the calls to "reg" "wifi0" and "virbr0" if they
-don't exist.
-
-I feel like the last one is the best way, but I don't know what a
-solution could look like....
-
+> > 4. If the ring is full, we now notify right after
+> >    the first entry is consumed. For TX this is suboptimal,
+> >    we should try delaying the interrupt on host.
+> 
+> > More ideas, would be nice if someone can try them out:
+> > 1. We are allocating/freeing buffers for indirect descriptors.
+> >    Use some kind of pool instead?
+> >    And we could preformat part of the descriptor.
+> > 2. I didn't have time to work on virtio2 ideas presented
+> >    at the kvm forum yet, any takers?
+> If I have time, I will look at this.
+> 
+> Thanks
+> Shirley
+> 
