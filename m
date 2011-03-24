@@ -1,58 +1,75 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration
- off
-Date: Thu, 24 Mar 2011 17:25:26 +0100
-Message-ID: <20110324162526.GB3452309@jupiter.n2.diac24.net>
-References: <20110208133408.7d447e6a.akpm@linux-foundation.org>
- <20110208.134421.39185637.davem@davemloft.net>
- <4D51BFCE.2070405@msgid.danisch.de>
- <20110208.143046.246534138.davem@davemloft.net>
- <20110208224411.GA9674@electric-eye.fr.zoreil.com>
- <20110208234753.48abd902.billfink@mindspring.com>
- <20110209074221.GA9790@electric-eye.fr.zoreil.com>
- <4D8B5E1E.6060608@msgid.danisch.de>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
+Date: Thu, 24 Mar 2011 17:25:17 +0100
+Message-ID: <20110324162517.GI6466@game.jcrosoft.org>
+References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
+ <20110316.131734.242138246.davem@davemloft.net>
+ <4D86F25A.7060405@atmel.com>
+ <20110321111838.GC2610@pulham.picochip.com>
+ <20110322161811.GF6466@game.jcrosoft.org>
+ <20110322163917.GD10058@pulham.picochip.com>
+ <20110322175523.GE10058@pulham.picochip.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Bill Fink <billfink@mindspring.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Hadmut Danisch <hadmut@danisch.de>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	David Miller <davem@davemloft.net>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Andrew Victor <linux@maxim.org.za>,
+	Peter Korsgaard <jacmet@sunsite.dk>
+To: Jamie Iles <jamie@jamieiles.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:52934 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752162Ab1CXQZj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2011 12:25:39 -0400
+Received: from 63.mail-out.ovh.net ([91.121.185.56]:51666 "HELO
+	63.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751458Ab1CXQcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 12:32:00 -0400
 Content-Disposition: inline
-In-Reply-To: <4D8B5E1E.6060608@msgid.danisch.de>
+In-Reply-To: <20110322175523.GE10058@pulham.picochip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2011 at 04:07:10PM +0100, Hadmut Danisch wrote:
-> How would I configure a Linux machine to accept ipv6 prefix ads (because
-> they are dynamically assigned and advertised by my router) and to work
-> as a VPN tunnel end?
+On 17:55 Tue 22 Mar     , Jamie Iles wrote:
+> Hi Jean-Christophe,
 > 
+> On Tue, Mar 22, 2011 at 04:39:17PM +0000, Jamie Iles wrote:
+> > Hi Jean-Christophe,
+> > 
+> > On Tue, Mar 22, 2011 at 05:18:11PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > > On 11:18 Mon 21 Mar     , Jamie Iles wrote:
+> > > > I have an existing tree for this at
+> > > > 
+> > > > 	git://github.com/jamieiles/linux-2.6-ji.git macb-gem
+> > > > 
+> > > > based off of 2.6.38 (with your ACK's now added) and I'd be happy with 
+> > > > either route.
+> > > but we must detect the gem via the version register and ditto for macb for
+> > > avr32 and at91
+> > > 
+> > > so please rebase it over my patch
+> > > 
+> > > and you get my sob too
+> > 
+> > Would you mind respinning your patch without the changes to the clk 
+> > stuff?  Otherwise we're changing it from compile time to version based, 
+> > only to completely remove it in subsequent patches.
 > 
-> Remember: Linux does not allow autoconfiguration and routing at the same
-> time, without any good reason.
+> Actually, this patch doesn't work anyway as the version register is 
+> being read before the clks are enabled so the device isn't accessible 
+> (and the registers haven't yet been ioremap()'d).
+yeah I found it also I forget to put he RFC in the patch title as I want just to
+give the way to detect it the way to detect it for avr32 and at91
+so we can remove the ifdef fully
+> 
+> > Also, can you confirm that the module ID's that you are using to 
+> > differentiate between AT91 and AVR32 won't clash with MACB uses in 
+> > other, non-at91/avr32 chips, or that it doesn't matter?
+> 
+> If this does work, then it would be nice if we made the else path of the 
+> RMII AT91 tests also test for avr32 too so we aren't driving the USRIO 
+> pins on platforms that aren't at91 but also aren't avr32.  So something 
+> the patch below instead.
+I'm currently traveling so I can not test it yet will test it next week
+but looks good
 
-You seem to have arrived at a bit of a misunderstanding here. Linux does
-not forbid autoconfiguration when you enable routing. It just disables
-the in-kernel code, for reasons that usually are well-founded.
-
-> If you believe that Linux is correct here the way it is, just tell me
-> how to solve that problem with Linux.
-
-You grab rdisc6 from the ndisc6 package (http://www.remlab.net/ndisc6/,
-probably packaged by your distro) and do the autoconfiguration in user
-space.
-
-The userspace application will also give you an amount of control over
-the autoconfiguration that is IMHO neccessary if you use it this way and
-which the kernel cannot provide.
-
-
--David
-
+Best Regards,
+J.
