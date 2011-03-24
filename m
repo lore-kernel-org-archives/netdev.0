@@ -1,46 +1,58 @@
-From: Guillaume Leclanche <guillaume@leclanche.net>
-Subject: Need a special way tune TCP IPv6->IPv4 fallback timeout
-Date: Thu, 24 Mar 2011 17:23:15 +0100
-Message-ID: <AANLkTikP7AFMnQ4BdnE2272zNupv_ysb3BDWTqy=9s34@mail.gmail.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration
+ off
+Date: Thu, 24 Mar 2011 17:25:26 +0100
+Message-ID: <20110324162526.GB3452309@jupiter.n2.diac24.net>
+References: <20110208133408.7d447e6a.akpm@linux-foundation.org>
+ <20110208.134421.39185637.davem@davemloft.net>
+ <4D51BFCE.2070405@msgid.danisch.de>
+ <20110208.143046.246534138.davem@davemloft.net>
+ <20110208224411.GA9674@electric-eye.fr.zoreil.com>
+ <20110208234753.48abd902.billfink@mindspring.com>
+ <20110209074221.GA9790@electric-eye.fr.zoreil.com>
+ <4D8B5E1E.6060608@msgid.danisch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Bill Fink <billfink@mindspring.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Hadmut Danisch <hadmut@danisch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:43992 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932660Ab1CXQXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 12:23:35 -0400
-Received: by iwn34 with SMTP id 34so94556iwn.19
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2011 09:23:35 -0700 (PDT)
+Received: from spaceboyz.net ([87.106.131.203]:52934 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752162Ab1CXQZj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Mar 2011 12:25:39 -0400
+Content-Disposition: inline
+In-Reply-To: <4D8B5E1E.6060608@msgid.danisch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Mar 24, 2011 at 04:07:10PM +0100, Hadmut Danisch wrote:
+> How would I configure a Linux machine to accept ipv6 prefix ads (because
+> they are dynamically assigned and advertised by my router) and to work
+> as a VPN tunnel end?
+> 
+> 
+> Remember: Linux does not allow autoconfiguration and routing at the same
+> time, without any good reason.
 
-(this is a copy of text I've put in
-https://bugzilla.kernel.org/show_bug.cgi?id=23242 for anyone who would
-like to do something with bugzilla).
+You seem to have arrived at a bit of a misunderstanding here. Linux does
+not forbid autoconfiguration when you enable routing. It just disables
+the in-kernel code, for reasons that usually are well-founded.
 
-When applications call the connect() API, if AAAA record is returned
-and correct routing is present, the system will start a TCP connection
-over IPv6.
-However, if the host is finally unreachable, the system waits until
-the IPv6 TCP connection attempt fails, that is roughly 3 min (5
-retries, backoff, well, you know that). Then it falls back to IPv4.
+> If you believe that Linux is correct here the way it is, just tell me
+> how to solve that problem with Linux.
 
-Afaik, the only way to tune this timeout of 3 mins in the kernel is
-the tcp_syn_retries sysctl (RTO tuning not available in Linux TCP). By
-setting the value to 2, you can reduce the delay to ~10s which is more
-acceptable, and still 3 SYN are sent.
+You grab rdisc6 from the ndisc6 package (http://www.remlab.net/ndisc6/,
+probably packaged by your distro) and do the autoconfiguration in user
+space.
 
-In order not to modify uselessly the TCP parameters for standard
-IPv4-only connections at the same time, it would be necessary to have
-a *separate* parameter-set to decrease the v6->v4 fallback delay.
+The userspace application will also give you an amount of control over
+the autoconfiguration that is IMHO neccessary if you use it this way and
+which the kernel cannot provide.
 
-No idea how feasible this is, nor if it has already been discussed
-here in the past.
 
-// Not subscribed, please CC me.
+-David
 
-Best regards,
-Guillaume
