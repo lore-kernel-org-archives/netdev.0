@@ -1,56 +1,55 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH] mlx4_en: Removing HW info from ethtool -i report.
-Date: Thu, 24 Mar 2011 10:36:27 +0200
-Message-ID: <4D8B028B.8050406@mellanox.co.il>
+From: Jan Altenberg <jan@linutronix.de>
+Subject: [PATCH] can: c_can: Fix tx_bytes accounting
+Date: Thu, 24 Mar 2011 11:38:40 +0100
+Message-ID: <1300963120.3295.7.camel@localhost>
+References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
+	 <D5ECB3C7A6F99444980976A8C6D896384DF0D6F721@EAPEX1MAIL1.st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"kurt.van.dijck@eia.be" <kurt.van.dijck@eia.be>,
+	"b.spranger@linutronix.de" <b.spranger@linutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Socketcan-core@lists.berlios.de" <Socketcan-core@lists.berlios.de>,
+	jan@linutronix.de
+To: Bhupesh SHARMA <bhupesh.sharma@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:54778 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933713Ab1CXIga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2011 04:36:30 -0400
+Received: from www.linutronix.de ([62.245.132.108]:33491 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754245Ab1CXJoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 05:44:34 -0400
+In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DF0D6F721@EAPEX1MAIL1.st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoiding abuse of ethtool_drvinfo.driver field.
-HW specific info can be retrieved using lspci.
+Hi Bhupesh,
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+as discussed I moved c_can_inval_msg_object() to the end of the if()
+statement. That should fix the tx_bytes accounting. For me it's working
+fine now.
+
+Signed-off-by: Jan Altenberg <jan@linutronix.de>
 ---
- drivers/net/mlx4/en_ethtool.c |   15 +--------------
- 1 files changed, 1 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/mlx4/en_ethtool.c b/drivers/net/mlx4/en_ethtool.c
-index 62ace6c..d54b7ab 100644
---- a/drivers/net/mlx4/en_ethtool.c
-+++ b/drivers/net/mlx4/en_ethtool.c
-@@ -45,20 +45,7 @@ mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = priv->mdev;
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index 110eda0..f895c04 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -704,7 +704,6 @@ static void c_can_do_tx(struct net_device *dev)
  
--	switch (mdev->dev->rev_id) {
--	case 0xa0:
--		if (dev->dev_id >= MLX4_EN_CX3_LOW_ID && dev->dev_id <= MLX4_EN_CX3_HIGH_ID)
--			sprintf(drvinfo->driver, DRV_NAME " (%s_CX-3)", mdev->dev->board_id);
--		else
--			sprintf(drvinfo->driver, DRV_NAME " (%s_CX)", mdev->dev->board_id);
--		break;
--	case 0xb0:
--		sprintf(drvinfo->driver, DRV_NAME " (%s_CX-2)", mdev->dev->board_id);
--		break;
--	default:
--		sprintf(drvinfo->driver, DRV_NAME " (%s)", mdev->dev->board_id);
--		break;
--	}
-+	strncpy(drvinfo->driver, DRV_NAME, 32);
- 	strncpy(drvinfo->version, DRV_VERSION " (" DRV_RELDATE ")", 32);
- 	sprintf(drvinfo->fw_version, "%d.%d.%d",
- 		(u16) (mdev->dev->caps.fw_ver >> 32),
--- 
-1.6.0.2
-
+ 	for (/* nix */; (priv->tx_next - priv->tx_echo) > 0; priv->tx_echo++) {
+ 		msg_obj_no = get_tx_echo_msg_obj(priv);
+-		c_can_inval_msg_object(dev, 0, msg_obj_no);
+ 		val = c_can_read_reg32(priv, &priv->regs->txrqst1);
+ 		if (!(val & (1 << msg_obj_no))) {
+ 			can_get_echo_skb(dev,
+@@ -713,6 +712,7 @@ static void c_can_do_tx(struct net_device *dev)
+ 					&priv->regs->ifregs[0].msg_cntrl)
+ 					& IF_MCONT_DLC_MASK;
+ 			stats->tx_packets++;
++			c_can_inval_msg_object(dev, 0, msg_obj_no);
+ 		}
+ 	}
+ 
 
 
