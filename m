@@ -1,93 +1,92 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 02/36] scsi,rcu: convert call_rcu(fc_rport_free_rcu) to
- kfree_rcu()
-Date: Wed, 23 Mar 2011 17:32:23 -0700
-Message-ID: <20110324003223.GF2322@linux.vnet.ibm.com>
-References: <4D82D071.5020703@cn.fujitsu.com>
- <4D82D3FF.2080303@cn.fujitsu.com>
- <4D82D45A.30102@cn.fujitsu.com>
- <1300814913.19083.427.camel@fritz>
- <20110323065014.GU2322@linux.vnet.ibm.com>
- <1300889151.15899.4.camel@mulgrave.site>
- <20110323222456.GC2322@linux.vnet.ibm.com>
- <1300920332.15899.45.camel@mulgrave.site>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Moffett, Kyle D" <Kyle.D.Moffett@boeing.com>
+Subject: Re: [RFC PATCH] et1011c: Replaced PHY driver by a small dm646x
+	board fixup
+Date: Wed, 23 Mar 2011 20:38:04 -0500
+Message-ID: <60663E62-39F3-4F4E-9FF5-EDA9800B30D9@boeing.com>
+References: <091F7EC1-5D33-4C90-AFC1-D6E24EF3EEC6@boeing.com><1300919616-6780-1-git-send-email-Kyle.D.Moffett@boeing.com>
+	<AANLkTin14WSZsc7+B-rK1dSn=XShNrF63k_47RXu-3G6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Love <robert.w.love@intel.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>, Jens Axboe <axboe@kernel.dk>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Tejun Heo <tj@kernel.org>, Jarek Poplawski <jarkao2@gmail.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Kevin Hilman <khilman@deeprootsystems.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: James Bottomley <James.Bottomley@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:51141 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933406Ab1CXAca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 20:32:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1300920332.15899.45.camel@mulgrave.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"David J. Choi" <david.choi@micrel.com>,
+	=?iso-8859-1?Q?Uwe_Kleine-K=F6nig?= <u.kleine-koenig@pengutronix.de>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>, "David
+	S. Miller" <davem@davemloft.net>, "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Andy Fleming <afleming@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <AANLkTin14WSZsc7+B-rK1dSn=XShNrF63k_47RXu-3G6@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 23, 2011 at 05:45:32PM -0500, James Bottomley wrote:
-> On Wed, 2011-03-23 at 15:24 -0700, Paul E. McKenney wrote:
-> > On Wed, Mar 23, 2011 at 09:05:51AM -0500, James Bottomley wrote:
-> > > On Tue, 2011-03-22 at 23:50 -0700, Paul E. McKenney wrote:
-> > > > The kfree_rcu() definition is as
-> > > > follows:
-> > > > 
-> > > > #define kfree_rcu(ptr, rcu_head)					\
-> > > > 	__kfree_rcu(&((ptr)->rcu_head), offsetof(typeof(*(ptr)), rcu_head))
-> > > 
-> > > Isn't this one of those cases where the obvious use of the interface is
-> > > definitely wrong?
-> > > 
-> > > It's also another nasty pseudo C prototype.  I know we do this sort of
-> > > thing for container_of et al, but I don't really think we want to extend
-> > > it.
-> > > 
-> > > Why not make the interface take a pointer to the embedding structure and
-> > > one to the rcu_head ... that way all pointer mathematics can be
-> > > contained inside the RCU routines.
-> > 
-> > Hello, James,
-> > 
-> > If you pass in a pair of pointers, then it is difficult for RCU to detect
-> > bugs where the two pointers are unrelated.  Yes, you can do some sanity
-> > checks, but these get cumbersome and have corner cases where they can
-> > be fooled.  In contrast, Lai's interface allows the compiler to do the
-> > needed type checking -- unless the second argument is a field of type
-> > struct rcu_head in the structure pointed to by the first argument, the
-> > compiler will complain.
-> > 
-> > Either way, the pointer mathematics are buried in the RCU API.
-> > 
-> > Or am I missing something here?
+On Mar 23, 2011, at 20:24, Andy Fleming wrote:
+> On Wed, Mar 23, 2011 at 5:33 PM, Kyle Moffett <Kyle.D.Moffett@boeing.com> wrote:
+>> -
+>> -static struct phy_driver et1011c_driver = {
+>> -       .phy_id         = 0x0282f014,
+>> -       .name           = "ET1011C",
+>> -       .phy_id_mask    = 0xfffffff0,
+>> -       .features       = (PHY_BASIC_FEATURES | SUPPORTED_1000baseT_Full),
+>> -       .flags          = PHY_POLL,
+>> -       .config_aneg    = et1011c_config_aneg,
+>> -       .read_status    = et1011c_read_status,
+>> -       .driver         = { .owner = THIS_MODULE,},
+>> -};
 > 
-> No ... I like the utility ... I just dislike the inelegance of having to
-> name a structure element in what looks like a C prototype.
-> 
-> I can see this proliferating everywhere since most of our reference
-> counting release callbacks basically free the enclosing object ...
+> Might I suggest that you not eliminate the whole driver?  If you leave
+> just this part (and the init stuff below it), and convert the
+> config_aneg and read_status pointers to use the genphy versions, the
+> kernel will, at least, be able to report what type of PHY it is.  And
+> maybe one day, someone who is familiar with the inner workings of this
+> PHY will fill in a more correct driver.
 
-Indeed!  Improvements are welcome -- it is just that I am not convinced
-that the dual-pointer approach is really an improvement.
+Hmm, I suppose that's an option, but really that's missing the point of
+the "genphy" driver, which gives full functionality with any PHY that
+correctly implements that portion of the standard IEEE 802.3 spec.
 
-The C preprocessor...  It is ugly, inelegant, painful, annoying, and
-should have been strangled at birth -- but it is always there when you
-need it!
+I've looked through the ET1011C datasheet/programming-guide, and I can't
+see anything (aside from hardware bugs/errata) that would interfere with
+the proper operation of the PHY using the generic driver.
 
-							Thanx, Paul
+There are a *lot* of PHYs which don't have their own Linux drivers,
+simply because a custom driver is mostly unnecessary for a properly
+designed PHY.  The only exception is that PHYs supporting IRQ-driven
+operation need .ack_interrupt() and .config_intr(), but that wasn't
+included in the first driver either (IE: it is "PHY_POLL").
+
+Looking at the representative sample of the PHY drivers in linux:
+  bcm63xx: IRQ support
+  bcm54xx: IRQ support, hardware errata, custom LED settings
+  cicada: IRQ support, hardware errata
+  davicom: IRQ support, hardware errata
+  icplus: Ethernet switch posing as a PHY
+  lxt: IRQ support, copper/fiber switching
+  marvell: IRQ support, hardware errata, copper/fiber switching
+  micrel: IRQ support
+  national: IRQ support, hardware-specific initialization
+  qsemi: IRQ support
+  realtek: IRQ support
+  ste10Xp: IRQ support
+  vitesse: IRQ support, copper/fiber switching
+
+Besides which, for just identifying unknown PHYs we can look in the PHY
+registers 2 and 3, they're defined to contain a 22-bit manufacturer OUI
+and some additional model/revision numbers.  We can map that to
+human-readable strings in userspace today the same way as PCI, USB, etc.
+
+Cheers,
+Kyle Moffett
