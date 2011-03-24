@@ -1,84 +1,45 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Thu, 24 Mar 2011 16:28:22 +0200
-Message-ID: <20110324142822.GD12958@redhat.com>
-References: <20110318133311.GA20623@gondor.apana.org.au>
- <1300498915.3441.21.camel@localhost.localdomain>
- <1300730587.3441.24.camel@localhost.localdomain>
- <20110322113649.GA17071@redhat.com>
- <1300847204.3441.26.camel@localhost.localdomain>
- <87r59xbbr6.fsf@rustcorp.com.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: widely supported ZigBee USB hardware?
+Date: Thu, 24 Mar 2011 10:05:36 -0400
+Message-ID: <20110324140535.GA2503@tuxdriver.com>
+References: <AANLkTimi3OYP+MEJDxS+3GQMqVBZvt8hKzPK4T-XbRre@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Sergey Lapin <slapin@ossfans.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+To: George Nychis <gnychis@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10623 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932683Ab1CXO2r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2011 10:28:47 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34347 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751634Ab1CXOaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 10:30:16 -0400
 Content-Disposition: inline
-In-Reply-To: <87r59xbbr6.fsf@rustcorp.com.au>
+In-Reply-To: <AANLkTimi3OYP+MEJDxS+3GQMqVBZvt8hKzPK4T-XbRre@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2011 at 11:00:53AM +1030, Rusty Russell wrote:
-> > With simply removing the notify here, it does help the case when TX
-> > overrun hits too often, for example for 1K message size, the single
-> > TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
+On Wed, Mar 23, 2011 at 07:49:13PM -0400, George Nychis wrote:
+
+> I am trying to find a widely supported (and available) ZigBee USB
+> device with Linux. I understand there are some GPL related issues with
+> ZigBee, but there seems to be a couple related drivers available. In
+> particular, this device:
+> http://www.adaptivem2m.com/zigbee-technology/zigbee-usb-dongle.htm
 > 
-> OK, we'll be getting rid of the "kick on full", so please delete that on
-> all benchmarks.
+> I could get this, but I wanted to get some general feedback first to
+> see if there is something different that is more well updated. It
+> seems like the last driver I could find for this was from 2007.
 > 
-> Now, does the capacity check before add_buf() still win anything?  I
-> can't see how unless we have some weird bug.
-> 
-> Once we've sorted that out, we should look at the more radical change
-> of publishing last_used and using that to intuit whether interrupts
-> should be sent.  If we're not careful with ordering and barriers that
-> could introduce more bugs.
+> Has anyone had any personal experience with ZigBee and Linux and have
+> any advice?
 
-Right. I am working on this, and trying to be careful.
-One thing I'm in doubt about: sometimes we just want to
-disable interrupts. Should still use flags in that case?
-I thought that if we make the published index 0 to vq->num - 1,
-then a special value in the index field could disable
-interrupts completely. We could even reuse the space
-for the flags field to stick the index in. Too complex?
+I'm not sure anyone on this list has experience with ZigBee.  I know
+there is some ieee802.15.4 support in the kernel, but I'm not sure
+where that is discussed (other than netdev).  Hopefully someone on
+the Cc list is aware?
 
-> Anything else on the optimization agenda I've missed?
-> 
-> Thanks,
-> Rusty.
-
-Several other things I am looking at, wellcome cooperation:
-1. It's probably a good idea to update avail index
-   immediately instead of upon kick: for RX
-   this might help parallelism with the host.
-
-2. Adding an API to add a single buffer instead of s/g,
-   seems to help a bit.
-
-3. For TX sometimes we free a single buffer, sometimes
-   a ton of them, which might make the transmit latency
-   vary. It's probably a good idea to limit this,
-   maybe free the minimal number possible to keep the device
-   going without stops, maybe free up to MAX_SKB_FRAGS.
-
-4. If the ring is full, we now notify right after
-   the first entry is consumed. For TX this is suboptimal,
-   we should try delaying the interrupt on host.
-
-More ideas, would be nice if someone can try them out:
-1. We are allocating/freeing buffers for indirect descriptors.
-   Use some kind of pool instead?
-   And we could preformat part of the descriptor.
-
-2. I didn't have time to work on virtio2 ideas presented
-   at the kvm forum yet, any takers?
-
+John
 -- 
-MST
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
