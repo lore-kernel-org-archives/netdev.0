@@ -1,23 +1,19 @@
 From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH resend] can: c_can: Fix tx_bytes accounting
-Date: Thu, 24 Mar 2011 11:49:25 +0100
-Message-ID: <20110324104925.GB339@e-circ.dyndns.org>
-References: <16a340801622a96218c76dbbabc7a23f.squirrel@www.linutronix.de>
-	<D5ECB3C7A6F99444980976A8C6D896384DF0D6F721@EAPEX1MAIL1.st.com>
-	<1300963120.3295.7.camel@localhost>
-	<4D8B1641.6000706@grandegger.com>
-	<1300966010.3295.40.camel@localhost>
+Subject: Re: RFC: [PATCH] can: c_can: disable one shot mode until driver is
+	fixed
+Date: Thu, 24 Mar 2011 11:52:29 +0100
+Message-ID: <20110324105229.GC339@e-circ.dyndns.org>
+References: <1300961549-28882-1-git-send-email-mkl@pengutronix.de>
+	<20110324102852.GA339@e-circ.dyndns.org>
+	<4D8B209E.5010907@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	"b.spranger-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org" <b.spranger-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Jan Altenberg <jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1300966010.3295.40.camel@localhost>
+In-Reply-To: <4D8B209E.5010907-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -29,20 +25,20 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 24, 2011 at 12:26:50PM +0100, Jan Altenberg wrote:
-> The current SocketCAN implementation for the Bosch c_can cell doesn't
-> account the TX bytes correctly, because it calls
-> c_can_inval_msg_object() (which clears the msg ctrl register) before
-> reading the DLC value:
+On Thu, Mar 24, 2011 at 11:44:46AM +0100, Marc Kleine-Budde wrote:
+> On 03/24/2011 11:28 AM, Kurt Van Dijck wrote:
+> > On Thu, Mar 24, 2011 at 11:12:29AM +0100, Marc Kleine-Budde wrote:
+> >> This patch disables the one shot mode, until the driver has been fixed and
+> >> tested to support it.
+> >>
+> > isn't this part necessary now (temporarily) to avoid dead code?
 > 
-> The fix is quite easy: Just move c_can_inval_msg_object() to the end of
-> the if() statement. So:
->       * We only call c_can_inval_msg_object() if the message was
->         actually transmitted
->       * We read out the DLC value _before_ clearing the msg ctrl
->         register
+> It's not necessary, the driver should still work.
+Yep, I saw that.
+> But it's dead code. If
+> someone fixes the driver she/he can easily revert the patch.
 > 
-> Signed-off-by: Jan Altenberg <jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Acked-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-
-I cut the description a bit, to what I would have found sufficient.
+> Can I fold your patch and add your S-o-b?
+Yes.
+> 
+Kurt
