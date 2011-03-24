@@ -1,62 +1,52 @@
-From: "Serge E. Hallyn" <serge.hallyn@ubuntu.com>
-Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
- kernel modules
-Date: Thu, 24 Mar 2011 16:57:47 -0500
-Message-ID: <20110324215747.GA12585@peq.hallyn.com>
-References: <1300991584.2689.35.camel@bwh-desktop>
- <20110324202634.GB9191@peq.hallyn.com>
- <20110324143944.29f4c362@nehalam>
- <20110324.144628.58411809.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] tc : SFB flow scheduler
+Date: Thu, 24 Mar 2011 14:59:51 -0700
+Message-ID: <20110324145951.153b0059@nehalam>
+References: <1298390536.2861.9.camel@edumazet-laptop>
+	<1298474091.3301.364.camel@edumazet-laptop>
+	<1298494577.2898.9.camel@edumazet-laptop>
+	<20110223.140614.112607341.davem@davemloft.net>
+	<1298526035.2898.20.camel@edumazet-laptop>
+	<20110223225143.30226902@nehalam>
+	<1300988649.3747.160.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: shemminger@vyatta.com, serge.hallyn@ubuntu.com,
-	bhutchings@solarflare.com, eparis@redhat.com,
-	eparis@parisplace.org, segoon@openwall.com,
-	linux-kernel@vger.kernel.org, mjt@tls.msk.ru, arnd@arndb.de,
-	mirqus@gmail.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
-	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
-	eugene@redhat.com, dan.j.rosenberg@gmail.com,
-	akpm@linux-foundation.org, greg@kroah.com, sds@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, dwalsh@redhat.com,
-	dhowells@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110324.144628.58411809.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Juliusz.Chroboczek@pps.jussieu.fr, netdev <netdev@vger.kernel.org>,
+	Jonathan Morton <chromatix99@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:50527 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756417Ab1CXV7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Mar 2011 17:59:53 -0400
+In-Reply-To: <1300988649.3747.160.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting David Miller (davem@davemloft.net):
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Thu, 24 Mar 2011 14:39:44 -0700
-> 
-> > This breaks for many of the tunneling protocols, that rely on
-> > autoload for names like "sit0"
-> 
-> Frankly I'm very disappointed in the fallout this has been causing.
-> 
-> Everyone supporting this change, get real, and admit it doing in fact
-> cause a serious regression.
+On Thu, 24 Mar 2011 18:44:09 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Sorry, I thought this was causing some extra audit messages but no
-actual breakage?
-
-> If you can't get past that simple fact, you cannot discuss this issue
-> intelligently.
+> From: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
 > 
-> You can't say "userland will fix things up"
+> Supports SFB qdisc (included in linux-2.6.39)
 > 
-> Because we're never supposed to break userland in the first place.
+> 1) Setup phase : accept non default parameters
 > 
-> There is simply no excuse for this and I want this change reverted
-> both in Linus's tree and in -stable.
+> 2) dump information 
+> 
+> qdisc sfb 11: parent 1:11 limit 1 max 25 target 20
+>   increment 0.00050 decrement 0.00005 penalty rate 10 burst 20 (600000ms 60000ms)
+>  Sent 47991616 bytes 521648 pkt (dropped 549245, overlimits 549245 requeues 0) 
+>  rate 7193Kbit 9774pps backlog 0b 0p requeues 0 
+>   earlydrop 0 penaltydrop 0 bucketdrop 0 queuedrop 549245 childdrop 0 marked 0
+>   maxqlen 0 maxprob 0.00000 avgprob 0.00000 
+> 
+> Signed-off-by: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Eric, in this particular case, since we've already done a
-'capable(CAP_NET_ADMIN)', I woudl argue that doing the check
-for CAP_SYS_ADMIN without auditing failure (even if it requires
-a new helper in capability.c) isn't horrible.  Thoughts?
+Applied (to net-next branch)
 
--serge
+
+-- 
