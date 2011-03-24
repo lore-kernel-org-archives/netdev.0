@@ -1,49 +1,93 @@
-From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [RFC PATCH] et1011c: Replaced PHY driver by a small dm646x board fixup
-Date: Wed, 23 Mar 2011 19:24:04 -0500
-Message-ID: <AANLkTin14WSZsc7+B-rK1dSn=XShNrF63k_47RXu-3G6@mail.gmail.com>
-References: <091F7EC1-5D33-4C90-AFC1-D6E24EF3EEC6@boeing.com>
-	<1300919616-6780-1-git-send-email-Kyle.D.Moffett@boeing.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 02/36] scsi,rcu: convert call_rcu(fc_rport_free_rcu) to
+ kfree_rcu()
+Date: Wed, 23 Mar 2011 17:32:23 -0700
+Message-ID: <20110324003223.GF2322@linux.vnet.ibm.com>
+References: <4D82D071.5020703@cn.fujitsu.com>
+ <4D82D3FF.2080303@cn.fujitsu.com>
+ <4D82D45A.30102@cn.fujitsu.com>
+ <1300814913.19083.427.camel@fritz>
+ <20110323065014.GU2322@linux.vnet.ibm.com>
+ <1300889151.15899.4.camel@mulgrave.site>
+ <20110323222456.GC2322@linux.vnet.ibm.com>
+ <1300920332.15899.45.camel@mulgrave.site>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Kevin Hilman <khilman@deeprootsystems.com>,
-	Russell King <linux@arm.linux.org.uk>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Love <robert.w.love@intel.com>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>,
+	Ingo Molnar <mingo@elte.hu>, Jens Axboe <axboe@kernel.dk>,
+	Neil Horman <nhorman@tuxdriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	=?ISO-8859-1?Q?Uwe_Kleine=2DK=F6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	"David J. Choi" <david.choi@micrel.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1300919616-6780-1-git-send-email-Kyle.D.Moffett@boeing.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Tejun Heo <tj@kernel.org>, Jarek Poplawski <jarkao2@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@open-fcoe.org" <devel@open-fcoe.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: James Bottomley <James.Bottomley@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:51141 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933406Ab1CXAca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 20:32:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1300920332.15899.45.camel@mulgrave.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 23, 2011 at 5:33 PM, Kyle Moffett <Kyle.D.Moffett@boeing.co=
-m> wrote:
+On Wed, Mar 23, 2011 at 05:45:32PM -0500, James Bottomley wrote:
+> On Wed, 2011-03-23 at 15:24 -0700, Paul E. McKenney wrote:
+> > On Wed, Mar 23, 2011 at 09:05:51AM -0500, James Bottomley wrote:
+> > > On Tue, 2011-03-22 at 23:50 -0700, Paul E. McKenney wrote:
+> > > > The kfree_rcu() definition is as
+> > > > follows:
+> > > > 
+> > > > #define kfree_rcu(ptr, rcu_head)					\
+> > > > 	__kfree_rcu(&((ptr)->rcu_head), offsetof(typeof(*(ptr)), rcu_head))
+> > > 
+> > > Isn't this one of those cases where the obvious use of the interface is
+> > > definitely wrong?
+> > > 
+> > > It's also another nasty pseudo C prototype.  I know we do this sort of
+> > > thing for container_of et al, but I don't really think we want to extend
+> > > it.
+> > > 
+> > > Why not make the interface take a pointer to the embedding structure and
+> > > one to the rcu_head ... that way all pointer mathematics can be
+> > > contained inside the RCU routines.
+> > 
+> > Hello, James,
+> > 
+> > If you pass in a pair of pointers, then it is difficult for RCU to detect
+> > bugs where the two pointers are unrelated.  Yes, you can do some sanity
+> > checks, but these get cumbersome and have corner cases where they can
+> > be fooled.  In contrast, Lai's interface allows the compiler to do the
+> > needed type checking -- unless the second argument is a field of type
+> > struct rcu_head in the structure pointed to by the first argument, the
+> > compiler will complain.
+> > 
+> > Either way, the pointer mathematics are buried in the RCU API.
+> > 
+> > Or am I missing something here?
+> 
+> No ... I like the utility ... I just dislike the inelegance of having to
+> name a structure element in what looks like a C prototype.
+> 
+> I can see this proliferating everywhere since most of our reference
+> counting release callbacks basically free the enclosing object ...
 
-> -
-> -static struct phy_driver et1011c_driver =3D {
-> - =A0 =A0 =A0 .phy_id =A0 =A0 =A0 =A0 =3D 0x0282f014,
-> - =A0 =A0 =A0 .name =A0 =A0 =A0 =A0 =A0 =3D "ET1011C",
-> - =A0 =A0 =A0 .phy_id_mask =A0 =A0=3D 0xfffffff0,
-> - =A0 =A0 =A0 .features =A0 =A0 =A0 =3D (PHY_BASIC_FEATURES | SUPPORT=
-ED_1000baseT_Full),
-> - =A0 =A0 =A0 .flags =A0 =A0 =A0 =A0 =A0=3D PHY_POLL,
-> - =A0 =A0 =A0 .config_aneg =A0 =A0=3D et1011c_config_aneg,
-> - =A0 =A0 =A0 .read_status =A0 =A0=3D et1011c_read_status,
-> - =A0 =A0 =A0 .driver =A0 =A0 =A0 =A0 =3D { .owner =3D THIS_MODULE,},
-> -};
+Indeed!  Improvements are welcome -- it is just that I am not convinced
+that the dual-pointer approach is really an improvement.
 
+The C preprocessor...  It is ugly, inelegant, painful, annoying, and
+should have been strangled at birth -- but it is always there when you
+need it!
 
-Might I suggest that you not eliminate the whole driver?  If you leave
-just this part (and the init stuff below it), and convert the
-config_aneg and read_status pointers to use the genphy versions, the
-kernel will, at least, be able to report what type of PHY it is.  And
-maybe one day, someone who is familiar with the inner workings of this
-PHY will fill in a more correct driver.
-
-Andy
+							Thanx, Paul
