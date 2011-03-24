@@ -1,52 +1,77 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] tc : SFB flow scheduler
-Date: Thu, 24 Mar 2011 14:59:51 -0700
-Message-ID: <20110324145951.153b0059@nehalam>
-References: <1298390536.2861.9.camel@edumazet-laptop>
-	<1298474091.3301.364.camel@edumazet-laptop>
-	<1298494577.2898.9.camel@edumazet-laptop>
-	<20110223.140614.112607341.davem@davemloft.net>
-	<1298526035.2898.20.camel@edumazet-laptop>
-	<20110223225143.30226902@nehalam>
-	<1300988649.3747.160.camel@edumazet-laptop>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: Re: [PATCH] ipv4: fix fib metrics
+Date: Thu, 24 Mar 2011 23:11:06 +0100
+Message-ID: <AANLkTin_gxMF1hyK_yhN+G9UGfcBKAhPE24r7tLe5j3D@mail.gmail.com>
+References: <AANLkTik6+TrjiC6ZF+KHhZ1iPzEe2jDayr363C0HgQN4@mail.gmail.com>
+	<1300980118.3747.42.camel@edumazet-laptop>
+	<AANLkTikZhT5LaA-UEXniDvkneH8JScaVaCaCd4LT59cV@mail.gmail.com>
+	<1300983340.3747.44.camel@edumazet-laptop>
+	<1300986084.3747.101.camel@edumazet-laptop>
+	<AANLkTik+Rf45wUxN86t+Zp7+AXjcJsy0vmZgvmLj-95x@mail.gmail.com>
+	<1300992308.3747.205.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Juliusz.Chroboczek@pps.jussieu.fr, netdev <netdev@vger.kernel.org>,
-	Jonathan Morton <chromatix99@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50527 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756417Ab1CXV7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2011 17:59:53 -0400
-In-Reply-To: <1300988649.3747.160.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1300992308.3747.205.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Mar 2011 18:44:09 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, Mar 24, 2011 at 7:45 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le jeudi 24 mars 2011 =E0 19:14 +0100, Alessandro Suardi a =E9crit :
+>
+>>
+>> I will however make one more bug report, as vpnc is broken before
+>> =A0and after this patch - have to dig out what vpnc-script tries to =
+do,
+>> =A0which results in
+>>
+>> Error: either "to" is duplicate, or "ipid" is a garbage.
+>>
+>> =A0after establishing the VPN tunnel.
+>>
+>
+> try following patch
+>
+> http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dco=
+mmit;h=3D406b6f974dae76a5b795d5c251d11c979a4e509b
 
-> From: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
-> 
-> Supports SFB qdisc (included in linux-2.6.39)
-> 
-> 1) Setup phase : accept non default parameters
-> 
-> 2) dump information 
-> 
-> qdisc sfb 11: parent 1:11 limit 1 max 25 target 20
->   increment 0.00050 decrement 0.00005 penalty rate 10 burst 20 (600000ms 60000ms)
->  Sent 47991616 bytes 521648 pkt (dropped 549245, overlimits 549245 requeues 0) 
->  rate 7193Kbit 9774pps backlog 0b 0p requeues 0 
->   earlydrop 0 penaltydrop 0 bucketdrop 0 queuedrop 549245 childdrop 0 marked 0
->   maxqlen 0 maxprob 0.00000 avgprob 0.00000 
-> 
-> Signed-off-by: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+That one doesn't work.
 
-Applied (to net-next branch)
+On a -git14 kernel + both the fib metrics and the above git diff, I
+strace'd vpnc
+ and found out this (first triplet of public IP masked intentionally)
+
+[root@duff tmp]# egrep 'execve|garbage' strace.log |egrep '/ip|garbage'
+[pid  4228] execve("/sbin/ip", ["/sbin/ip", "route", "get",
+"xxx.9.13.212"], [/* 32 vars */]) =3D 0
+[pid  4231] execve("/sbin/ip", ["/sbin/ip", "route", "replace",
+"10.175.0.0/19", "dev", "tun0"], [/* 32 vars */]) =3D 0
+[pid  4232] execve("/sbin/ip", ["/sbin/ip", "route", "flush",
+"cache"], [/* 32 vars */]) =3D 0
+[pid  4234] execve("/sbin/ip", ["/sbin/ip", "route", "get",
+"xxx.9.13.212"], [/* 32 vars */]) =3D 0
+[pid  4237] execve("/sbin/ip", ["/sbin/ip", "route", "add",
+"xxx.9.13.212", "via", "192.168.1.1", "dev", "eth1", "src",
+"192.168.1.8", "ipid", "0x043f", "advmss", "1400"], [/* 32 vars */]) =3D
+0
+[pid  4237] write(2, "Error: either \"to\" is duplicate,"..., 57Error:
+either "to" is duplicate, or "ipid" is a garbage.
+
+192.168.1.1 is my DSL router and 192.168.1.8 is my computer's wireless =
+IP.
+
+Does this ring any bell ?
 
 
--- 
+Thanks,
+
+--alessandro
+
+=A0"There's always a siren singing you to shipwreck"
+
+=A0=A0 (Radiohead, "There There")
