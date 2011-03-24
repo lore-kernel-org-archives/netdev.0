@@ -1,56 +1,74 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Need a special way tune TCP IPv6->IPv4 fallback timeout
-Date: Thu, 24 Mar 2011 09:57:02 -0700
-Message-ID: <20110324095702.6f6bade0@nehalam>
-References: <AANLkTikP7AFMnQ4BdnE2272zNupv_ysb3BDWTqy=9s34@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv4: fix fib metrics
+Date: Thu, 24 Mar 2011 18:01:24 +0100
+Message-ID: <1300986084.3747.101.camel@edumazet-laptop>
+References: <AANLkTik6+TrjiC6ZF+KHhZ1iPzEe2jDayr363C0HgQN4@mail.gmail.com>
+	 <1300980118.3747.42.camel@edumazet-laptop>
+	 <AANLkTikZhT5LaA-UEXniDvkneH8JScaVaCaCd4LT59cV@mail.gmail.com>
+	 <1300983340.3747.44.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Guillaume Leclanche <guillaume@leclanche.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44574 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750724Ab1CXQ5I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2011 12:57:08 -0400
-In-Reply-To: <AANLkTikP7AFMnQ4BdnE2272zNupv_ysb3BDWTqy=9s34@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Alessandro Suardi <alessandro.suardi@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1300983340.3747.44.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Mar 2011 17:23:15 +0100
-Guillaume Leclanche <guillaume@leclanche.net> wrote:
+Le jeudi 24 mars 2011 =C3=A0 17:15 +0100, Eric Dumazet a =C3=A9crit :
 
-> Hi,
-> 
-> (this is a copy of text I've put in
-> https://bugzilla.kernel.org/show_bug.cgi?id=23242 for anyone who would
-> like to do something with bugzilla).
-> 
-> When applications call the connect() API, if AAAA record is returned
-> and correct routing is present, the system will start a TCP connection
-> over IPv6.
-> However, if the host is finally unreachable, the system waits until
-> the IPv6 TCP connection attempt fails, that is roughly 3 min (5
-> retries, backoff, well, you know that). Then it falls back to IPv4.
-> 
-> Afaik, the only way to tune this timeout of 3 mins in the kernel is
-> the tcp_syn_retries sysctl (RTO tuning not available in Linux TCP). By
-> setting the value to 2, you can reduce the delay to ~10s which is more
-> acceptable, and still 3 SYN are sent.
-> 
-> In order not to modify uselessly the TCP parameters for standard
-> IPv4-only connections at the same time, it would be necessary to have
-> a *separate* parameter-set to decrease the v6->v4 fallback delay.
-> 
-> No idea how feasible this is, nor if it has already been discussed
-> here in the past.
-> 
-> // Not subscribed, please CC me.
-> 
-> Best regards,
-> Guillaume
+> I am testing following patch :
+>=20
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index 622ac4c..654ef5b 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -251,7 +251,7 @@ static struct fib_info *fib_find_info(const struc=
+t fib_info *nfi)
+>  		    nfi->fib_prefsrc =3D=3D fi->fib_prefsrc &&
+>  		    nfi->fib_priority =3D=3D fi->fib_priority &&
+>  		    memcmp(nfi->fib_metrics, fi->fib_metrics,
+> -			   sizeof(fi->fib_metrics)) =3D=3D 0 &&
+> +			   sizeof(u32) * RTAX_MAX) =3D=3D 0 &&
+>  		    ((nfi->fib_flags ^ fi->fib_flags) & ~RTNH_F_DEAD) =3D=3D 0 &&
+>  		    (nfi->fib_nhs =3D=3D 0 || nh_comp(fi, nfi) =3D=3D 0))
+>  			return fi;
+>=20
+>=20
 
-The best way is to try both at the same time. This trick is known
-as "Happy Eyeballs"
+This works. Here is the formal submission :
 
-  http://tools.ietf.org/html/draft-wing-v6ops-happy-eyeballs-ipv6-01
+Thanks !
+
+[PATCH] ipv4: fix fib metrics
+
+Alessandro Suardi reported that we could not change route metrics :
+
+ip ro change default .... advmss 1400
+
+This regression came with commit 9c150e82ac50 (Allocate fib metrics
+dynamically). fib_metrics is no longer an array, but a pointer to an
+array.
+
+Reported-by: Alessandro Suardi <alessandro.suardi@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/fib_semantics.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 622ac4c..75b9fb5 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -251,7 +251,7 @@ static struct fib_info *fib_find_info(const struct =
+fib_info *nfi)
+ 		    nfi->fib_prefsrc =3D=3D fi->fib_prefsrc &&
+ 		    nfi->fib_priority =3D=3D fi->fib_priority &&
+ 		    memcmp(nfi->fib_metrics, fi->fib_metrics,
+-			   sizeof(fi->fib_metrics)) =3D=3D 0 &&
++			   sizeof(u32) * RTAX_MAX) =3D=3D 0 &&
+ 		    ((nfi->fib_flags ^ fi->fib_flags) & ~RTNH_F_DEAD) =3D=3D 0 &&
+ 		    (nfi->fib_nhs =3D=3D 0 || nh_comp(fi, nfi) =3D=3D 0))
+ 			return fi;
