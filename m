@@ -1,26 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2011-03-24
-Date: Thu, 24 Mar 2011 11:43:24 -0700 (PDT)
-Message-ID: <20110324.114324.241429264.davem@davemloft.net>
-References: <20110324174606.GB2503@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: fix fib metrics
+Date: Thu, 24 Mar 2011 19:45:08 +0100
+Message-ID: <1300992308.3747.205.camel@edumazet-laptop>
+References: <AANLkTik6+TrjiC6ZF+KHhZ1iPzEe2jDayr363C0HgQN4@mail.gmail.com>
+	 <1300980118.3747.42.camel@edumazet-laptop>
+	 <AANLkTikZhT5LaA-UEXniDvkneH8JScaVaCaCd4LT59cV@mail.gmail.com>
+	 <1300983340.3747.44.camel@edumazet-laptop>
+	 <1300986084.3747.101.camel@edumazet-laptop>
+	 <AANLkTik+Rf45wUxN86t+Zp7+AXjcJsy0vmZgvmLj-95x@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110324174606.GB2503-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Alessandro Suardi <alessandro.suardi@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTik+Rf45wUxN86t+Zp7+AXjcJsy0vmZgvmLj-95x@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 24 Mar 2011 13:46:06 -0400
+Le jeudi 24 mars 2011 =C3=A0 19:14 +0100, Alessandro Suardi a =C3=A9cri=
+t :
 
-> git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+>=20
+> I will however make one more bug report, as vpnc is broken before
+>  and after this patch - have to dig out what vpnc-script tries to do,
+>  which results in
+>=20
+> Error: either "to" is duplicate, or "ipid" is a garbage.
+>=20
+>  after establishing the VPN tunnel.
+>=20
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+try following patch
+
+http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcomm=
+it;h=3D406b6f974dae76a5b795d5c251d11c979a4e509b
