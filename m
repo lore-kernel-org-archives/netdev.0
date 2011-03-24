@@ -1,92 +1,39 @@
-From: "Moffett, Kyle D" <Kyle.D.Moffett@boeing.com>
-Subject: Re: [RFC PATCH] et1011c: Replaced PHY driver by a small dm646x
-	board fixup
-Date: Wed, 23 Mar 2011 20:38:04 -0500
-Message-ID: <60663E62-39F3-4F4E-9FF5-EDA9800B30D9@boeing.com>
-References: <091F7EC1-5D33-4C90-AFC1-D6E24EF3EEC6@boeing.com><1300919616-6780-1-git-send-email-Kyle.D.Moffett@boeing.com>
-	<AANLkTin14WSZsc7+B-rK1dSn=XShNrF63k_47RXu-3G6@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and avoid TX queue overrun through packet drop
+Date: Thu, 24 Mar 2011 11:00:53 +1030
+Message-ID: <87r59xbbr6.fsf@rustcorp.com.au>
+References: <20110318133311.GA20623@gondor.apana.org.au> <1300498915.3441.21.camel@localhost.localdomain> <1300730587.3441.24.camel@localhost.localdomain> <20110322113649.GA17071@redhat.com> <1300847204.3441.26.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David J. Choi" <david.choi@micrel.com>,
-	=?iso-8859-1?Q?Uwe_Kleine-K=F6nig?= <u.kleine-koenig@pengutronix.de>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>, "David
-	S. Miller" <davem@davemloft.net>, "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Andy Fleming <afleming@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <AANLkTin14WSZsc7+B-rK1dSn=XShNrF63k_47RXu-3G6@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:38111 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756546Ab1CXC6t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2011 22:58:49 -0400
+In-Reply-To: <1300847204.3441.26.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mar 23, 2011, at 20:24, Andy Fleming wrote:
-> On Wed, Mar 23, 2011 at 5:33 PM, Kyle Moffett <Kyle.D.Moffett@boeing.com> wrote:
->> -
->> -static struct phy_driver et1011c_driver = {
->> -       .phy_id         = 0x0282f014,
->> -       .name           = "ET1011C",
->> -       .phy_id_mask    = 0xfffffff0,
->> -       .features       = (PHY_BASIC_FEATURES | SUPPORTED_1000baseT_Full),
->> -       .flags          = PHY_POLL,
->> -       .config_aneg    = et1011c_config_aneg,
->> -       .read_status    = et1011c_read_status,
->> -       .driver         = { .owner = THIS_MODULE,},
->> -};
-> 
-> Might I suggest that you not eliminate the whole driver?  If you leave
-> just this part (and the init stuff below it), and convert the
-> config_aneg and read_status pointers to use the genphy versions, the
-> kernel will, at least, be able to report what type of PHY it is.  And
-> maybe one day, someone who is familiar with the inner workings of this
-> PHY will fill in a more correct driver.
+> With simply removing the notify here, it does help the case when TX
+> overrun hits too often, for example for 1K message size, the single
+> TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
 
-Hmm, I suppose that's an option, but really that's missing the point of
-the "genphy" driver, which gives full functionality with any PHY that
-correctly implements that portion of the standard IEEE 802.3 spec.
+OK, we'll be getting rid of the "kick on full", so please delete that on
+all benchmarks.
 
-I've looked through the ET1011C datasheet/programming-guide, and I can't
-see anything (aside from hardware bugs/errata) that would interfere with
-the proper operation of the PHY using the generic driver.
+Now, does the capacity check before add_buf() still win anything?  I
+can't see how unless we have some weird bug.
 
-There are a *lot* of PHYs which don't have their own Linux drivers,
-simply because a custom driver is mostly unnecessary for a properly
-designed PHY.  The only exception is that PHYs supporting IRQ-driven
-operation need .ack_interrupt() and .config_intr(), but that wasn't
-included in the first driver either (IE: it is "PHY_POLL").
+Once we've sorted that out, we should look at the more radical change
+of publishing last_used and using that to intuit whether interrupts
+should be sent.  If we're not careful with ordering and barriers that
+could introduce more bugs.
 
-Looking at the representative sample of the PHY drivers in linux:
-  bcm63xx: IRQ support
-  bcm54xx: IRQ support, hardware errata, custom LED settings
-  cicada: IRQ support, hardware errata
-  davicom: IRQ support, hardware errata
-  icplus: Ethernet switch posing as a PHY
-  lxt: IRQ support, copper/fiber switching
-  marvell: IRQ support, hardware errata, copper/fiber switching
-  micrel: IRQ support
-  national: IRQ support, hardware-specific initialization
-  qsemi: IRQ support
-  realtek: IRQ support
-  ste10Xp: IRQ support
-  vitesse: IRQ support, copper/fiber switching
+Anything else on the optimization agenda I've missed?
 
-Besides which, for just identifying unknown PHYs we can look in the PHY
-registers 2 and 3, they're defined to contain a 22-bit manufacturer OUI
-and some additional model/revision numbers.  We can map that to
-human-readable strings in userspace today the same way as PCI, USB, etc.
-
-Cheers,
-Kyle Moffett
+Thanks,
+Rusty.
