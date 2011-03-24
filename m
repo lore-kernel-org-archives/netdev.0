@@ -1,87 +1,112 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
- avoid TX queue overrun through packet drop
-Date: Thu, 24 Mar 2011 10:46:49 -0700
-Message-ID: <1300988809.3441.48.camel@localhost.localdomain>
-References: <20110318133311.GA20623@gondor.apana.org.au>
-	 <1300498915.3441.21.camel@localhost.localdomain>
-	 <1300730587.3441.24.camel@localhost.localdomain>
-	 <20110322113649.GA17071@redhat.com>
-	 <1300847204.3441.26.camel@localhost.localdomain>
-	 <87r59xbbr6.fsf@rustcorp.com.au>  <20110324142822.GD12958@redhat.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6 2011-03-24
+Date: Thu, 24 Mar 2011 13:46:06 -0400
+Message-ID: <20110324174606.GB2503@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110324142822.GD12958@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-03-24 at 16:28 +0200, Michael S. Tsirkin wrote:
-> On Thu, Mar 24, 2011 at 11:00:53AM +1030, Rusty Russell wrote:
-> > > With simply removing the notify here, it does help the case when TX
-> > > overrun hits too often, for example for 1K message size, the single
-> > > TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
-> > 
-> > OK, we'll be getting rid of the "kick on full", so please delete that on
-> > all benchmarks.
-> > 
-> > Now, does the capacity check before add_buf() still win anything?  I
-> > can't see how unless we have some weird bug.
-> > 
-> > Once we've sorted that out, we should look at the more radical change
-> > of publishing last_used and using that to intuit whether interrupts
-> > should be sent.  If we're not careful with ordering and barriers that
-> > could introduce more bugs.
-> 
-> Right. I am working on this, and trying to be careful.
-> One thing I'm in doubt about: sometimes we just want to
-> disable interrupts. Should still use flags in that case?
-> I thought that if we make the published index 0 to vq->num - 1,
-> then a special value in the index field could disable
-> interrupts completely. We could even reuse the space
-> for the flags field to stick the index in. Too complex?
-> > Anything else on the optimization agenda I've missed?
-> > 
-> > Thanks,
-> > Rusty.
-> 
-> Several other things I am looking at, wellcome cooperation:
-> 1. It's probably a good idea to update avail index
->    immediately instead of upon kick: for RX
->    this might help parallelism with the host.
-Is that possible to use the same idea for publishing last used idx to
-publish avail idx? Then we can save guest iowrite/exits.
+Dave,
 
-> 2. Adding an API to add a single buffer instead of s/g,
->    seems to help a bit.
-> 
-> 3. For TX sometimes we free a single buffer, sometimes
->    a ton of them, which might make the transmit latency
->    vary. It's probably a good idea to limit this,
->    maybe free the minimal number possible to keep the device
->    going without stops, maybe free up to MAX_SKB_FRAGS.
+A few more fixes intended for 2.6.39...
 
-I am playing with it now, to collect more perf data to see what's the
-best value to free number of used buffers.
+This includes an iwlagn fix where we were checking an address insted
+of the value stored there in a wait_event_timeout (oops!), an ath9k
+fix for an invalid memory access, another ath9k fix for a regression
+that could cause a stuck tx queue, and an orinoco fix to zero-out an
+invalid pointer to prevent a resulting invalid pointer dereference.
 
-> 4. If the ring is full, we now notify right after
->    the first entry is consumed. For TX this is suboptimal,
->    we should try delaying the interrupt on host.
+Please let me know if there are problems!
 
-> More ideas, would be nice if someone can try them out:
-> 1. We are allocating/freeing buffers for indirect descriptors.
->    Use some kind of pool instead?
->    And we could preformat part of the descriptor.
-> 2. I didn't have time to work on virtio2 ideas presented
->    at the kvm forum yet, any takers?
-If I have time, I will look at this.
+Thanks,
 
-Thanks
-Shirley
+John
 
+---
 
+The following changes since commit 8c64b4cc0201cf05b218ea3271a2abb4f86acb7b:
+
+  Merge branch 'sfc-2.6.39' of git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-2.6 (2011-03-23 15:56:02 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+Johannes Berg (1):
+      iwlagn: fix error in command waiting
+
+Senthil Balasubramanian (2):
+      ath9k: Fix kernel panic caused by invalid rate index access.
+      ath9k: Fix TX queue stuck issue.
+
+armadefuego@gmail.com (1):
+      orinoco: Clear dangling pointer on hardware busy
+
+ drivers/net/wireless/ath/ath9k/main.c      |    2 ++
+ drivers/net/wireless/ath/ath9k/rc.c        |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-lib.c |    2 +-
+ drivers/net/wireless/orinoco/cfg.c         |    3 +++
+ 4 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
+index 115f162..5248257 100644
+--- a/drivers/net/wireless/ath/ath9k/main.c
++++ b/drivers/net/wireless/ath/ath9k/main.c
+@@ -2160,6 +2160,8 @@ static void ath9k_flush(struct ieee80211_hw *hw, bool drop)
+ 	if (!ath_drain_all_txq(sc, false))
+ 		ath_reset(sc, false);
+ 
++	ieee80211_wake_queues(hw);
++
+ out:
+ 	ieee80211_queue_delayed_work(hw, &sc->tx_complete_work, 0);
+ 	mutex_unlock(&sc->mutex);
+diff --git a/drivers/net/wireless/ath/ath9k/rc.c b/drivers/net/wireless/ath/ath9k/rc.c
+index 960d717..a3241cd 100644
+--- a/drivers/net/wireless/ath/ath9k/rc.c
++++ b/drivers/net/wireless/ath/ath9k/rc.c
+@@ -1328,7 +1328,7 @@ static void ath_tx_status(void *priv, struct ieee80211_supported_band *sband,
+ 
+ 	hdr = (struct ieee80211_hdr *)skb->data;
+ 	fc = hdr->frame_control;
+-	for (i = 0; i < IEEE80211_TX_MAX_RATES; i++) {
++	for (i = 0; i < sc->hw->max_rates; i++) {
+ 		struct ieee80211_tx_rate *rate = &tx_info->status.rates[i];
+ 		if (!rate->count)
+ 			break;
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+index 2003c1d..08ccb94 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn-lib.c
+@@ -2265,7 +2265,7 @@ signed long iwlagn_wait_notification(struct iwl_priv *priv,
+ 	int ret;
+ 
+ 	ret = wait_event_timeout(priv->_agn.notif_waitq,
+-				 &wait_entry->triggered,
++				 wait_entry->triggered,
+ 				 timeout);
+ 
+ 	spin_lock_bh(&priv->_agn.notif_wait_lock);
+diff --git a/drivers/net/wireless/orinoco/cfg.c b/drivers/net/wireless/orinoco/cfg.c
+index 09fae2f..736bbb9 100644
+--- a/drivers/net/wireless/orinoco/cfg.c
++++ b/drivers/net/wireless/orinoco/cfg.c
+@@ -153,6 +153,9 @@ static int orinoco_scan(struct wiphy *wiphy, struct net_device *dev,
+ 	priv->scan_request = request;
+ 
+ 	err = orinoco_hw_trigger_scan(priv, request->ssids);
++	/* On error the we aren't processing the request */
++	if (err)
++		priv->scan_request = NULL;
+ 
+ 	return err;
+ }
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
