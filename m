@@ -1,39 +1,43 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and avoid TX queue overrun through packet drop
-Date: Thu, 24 Mar 2011 11:00:53 +1030
-Message-ID: <87r59xbbr6.fsf@rustcorp.com.au>
-References: <20110318133311.GA20623@gondor.apana.org.au> <1300498915.3441.21.camel@localhost.localdomain> <1300730587.3441.24.camel@localhost.localdomain> <20110322113649.GA17071@redhat.com> <1300847204.3441.26.camel@localhost.localdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [PATCH v2 08/16] mlx4_en: Reporting HW revision in ethtool -i
+Date: Thu, 24 Mar 2011 03:40:19 +0000
+Message-ID: <1300938019.26693.528.camel@localhost>
+References: <4D89B16F.4040008@mellanox.co.il>
+	 <1300889054.26693.527.camel@localhost>
+	 <953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38111 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756546Ab1CXC6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2011 22:58:49 -0400
-In-Reply-To: <1300847204.3441.26.camel@localhost.localdomain>
+Received: from exchange.solarflare.com ([216.237.3.220]:24929 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933081Ab1CXDkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2011 23:40:23 -0400
+In-Reply-To: <953B660C027164448AE903364AC447D20705BE28@mtldag01.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> With simply removing the notify here, it does help the case when TX
-> overrun hits too often, for example for 1K message size, the single
-> TCP_STREAM performance improved from 2.xGb/s to 4.xGb/s.
+On Wed, 2011-03-23 at 15:10 +0000, Yevgeny Petrilin wrote:
+> > 
+> > This is an abuse of the ethtool_drvinfo::driver field.
+> > 
+> > Your users can use lspci -v, can't they?
+> > 
+> I don't think there is a problem here.
+> We have always reported the HW model via Ethtool, we just expanded the information
+> we provide.
+> Our users prefer to see the information in ethtool.
 
-OK, we'll be getting rid of the "kick on full", so please delete that on
-all benchmarks.
+I can provide a patch for David if you won't.
 
-Now, does the capacity check before add_buf() still win anything?  I
-can't see how unless we have some weird bug.
+Ben.
 
-Once we've sorted that out, we should look at the more radical change
-of publishing last_used and using that to intuit whether interrupts
-should be sent.  If we're not careful with ordering and barriers that
-could introduce more bugs.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Anything else on the optimization agenda I've missed?
-
-Thanks,
-Rusty.
