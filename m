@@ -1,68 +1,75 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 4/4] can: c_can: remove duplicated #include
-Date: Thu, 24 Mar 2011 17:15:50 +0100
-Message-ID: <4D8B6E36.601@grandegger.com>
-References: <1300457247-2652-1-git-send-email-weiyi.huang@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: regression: ip r change mss doesn't work in 2.6.38-git14
+Date: Thu, 24 Mar 2011 17:15:40 +0100
+Message-ID: <1300983340.3747.44.camel@edumazet-laptop>
+References: <AANLkTik6+TrjiC6ZF+KHhZ1iPzEe2jDayr363C0HgQN4@mail.gmail.com>
+	 <1300980118.3747.42.camel@edumazet-laptop>
+	 <AANLkTikZhT5LaA-UEXniDvkneH8JScaVaCaCd4LT59cV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Huang Weiyi <weiyi.huang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1300457247-2652-1-git-send-email-weiyi.huang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Alessandro Suardi <alessandro.suardi@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikZhT5LaA-UEXniDvkneH8JScaVaCaCd4LT59cV@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/18/2011 03:07 PM, Huang Weiyi wrote:
-> Remove duplicated #include('s) in
->   drivers/net/can/c_can/c_can.c
->   drivers/net/can/c_can/c_can_platform.c
-> 
-> Signed-off-by: Huang Weiyi <weiyi.huang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/can/c_can/c_can.c          |    1 -
->  drivers/net/can/c_can/c_can_platform.c |    1 -
->  2 files changed, 0 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-> index 1405078..b343bcb 100644
-> --- a/drivers/net/can/c_can/c_can.c
-> +++ b/drivers/net/can/c_can/c_can.c
-> @@ -34,7 +34,6 @@
->  #include <linux/if_arp.h>
->  #include <linux/if_ether.h>
->  #include <linux/list.h>
-> -#include <linux/delay.h>
->  #include <linux/io.h>
->  
->  #include <linux/can.h>
-> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-> index e629b96..61c41ba 100644
-> --- a/drivers/net/can/c_can/c_can_platform.c
-> +++ b/drivers/net/can/c_can/c_can_platform.c
-> @@ -28,7 +28,6 @@
->  #include <linux/if_arp.h>
->  #include <linux/if_ether.h>
->  #include <linux/list.h>
-> -#include <linux/delay.h>
->  #include <linux/io.h>
->  #include <linux/platform_device.h>
->  #include <linux/clk.h>
+Le jeudi 24 mars 2011 =C3=A0 16:52 +0100, Alessandro Suardi a =C3=A9cri=
+t :
+> On Thu, Mar 24, 2011 at 4:21 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Le jeudi 24 mars 2011 =C3=A0 16:08 +0100, Alessandro Suardi a =C3=A9=
+crit :
+> >> After fixing the display issue thanks to Chris Wilson, I now have
+> >> another problem
+> >>  (which didn't exist in 2.6.38-git2); most websites outside of my =
+DSL link don't
+> >>  work properly (connection packet goes through, but the page load =
+times out
+> >>  within Firefox) unless I do
+> >>
+> >> ip r change default via 192.168.1.1 dev eth1 advmss 1400
+> >>
+> >> This however doesn't change advmss anymore:
+> >>
+> >> [root@duff ~]# ip r
+> >> default via 192.168.1.1 dev eth1
+> >> 169.254.0.0/16 dev eth1  scope link  metric 1004
+> >> 192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.8
+> >> [root@duff ~]# ip r change default via 192.168.1.1 dev eth1 advmss=
+ 1400
+> >> [root@duff ~]# ip r
+> >> default via 192.168.1.1 dev eth1
+> >> 169.254.0.0/16 dev eth1  scope link  metric 1004
+> >> 192.168.1.0/24 dev eth1  proto kernel  scope link  src 192.168.1.8
+> >
+> > Indeed, we'll take a look, thanks for the report.
+> >
+> > In the time being you can do :
+> >
+> > ip ro change default via 192.168.1.1 dev eth1 advmss 1400 mtu 1500
+>=20
+> Thanks - this one works for me.
+>=20
+> I'm available to test patches if needed, though I have a feeling you
+>  already have a handle on the issue and won't need that ;)
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+;)
 
-I added a CC to the netdev mailing list. Hope that's sufficient to get
-the patch accepted.
+I am testing following patch :
 
-Thanks,
-
-Wolfgang.
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 622ac4c..654ef5b 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -251,7 +251,7 @@ static struct fib_info *fib_find_info(const struct =
+fib_info *nfi)
+ 		    nfi->fib_prefsrc =3D=3D fi->fib_prefsrc &&
+ 		    nfi->fib_priority =3D=3D fi->fib_priority &&
+ 		    memcmp(nfi->fib_metrics, fi->fib_metrics,
+-			   sizeof(fi->fib_metrics)) =3D=3D 0 &&
++			   sizeof(u32) * RTAX_MAX) =3D=3D 0 &&
+ 		    ((nfi->fib_flags ^ fi->fib_flags) & ~RTNH_F_DEAD) =3D=3D 0 &&
+ 		    (nfi->fib_nhs =3D=3D 0 || nh_comp(fi, nfi) =3D=3D 0))
+ 			return fi;
