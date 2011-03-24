@@ -1,83 +1,118 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: Re: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
-Date: Thu, 12 May 2011 13:59:59 +0200
-Message-ID: <20110512115959.GA37368@tuxmaker.boeblingen.de.ibm.com>
-References: <20110512054318.241733700@de.ibm.com> <20110512054415.435611676@de.ibm.com> <BANLkTinO4Hity5++152Ff-RuACFDtoAV2Q@mail.gmail.com> <20110512072132.GA31817@tuxmaker.boeblingen.de.ibm.com> <BANLkTimAisv82ZbFb8D1AkL8vuK1V5zAXw@mail.gmail.com> <20110512111009.GA4176@tuxmaker.boeblingen.de.ibm.com> <BANLkTimUq-6E1F_ns_jTvXuYoPU-sLUmqw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:34397 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756275Ab1ELMAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 08:00:02 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTimUq-6E1F_ns_jTvXuYoPU-sLUmqw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Weiping=20Pan=28=E6=BD=98=E5=8D=AB=E5=B9=B3=29?=
+	<panweiping3@gmail.com>
+Subject: [PATCH net-next] net:set valid name before calling ndo_init()
+Date: Wed, 23 Mar 2011 23:16:38 -0400
+Message-ID: <1300936598-3971-1-git-send-email-panweiping3@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pan Weiping <panweiping3@gmail.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com, xiaosuo@gmail.com,
+	mirq-linux@rere.qmqm.pl, jpirko@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 12, 2011 at 01:25:51PM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> W dniu 12 maja 2011 13:10 u=C5=BCytkownik Frank Blaschka
-> <blaschka@linux.vnet.ibm.com> napisa=C5=82:
-> > On Thu, May 12, 2011 at 10:12:51AM +0200, Micha=C5=82 Miros=C5=82aw=
- wrote:
-> >> W dniu 12 maja 2011 09:21 u=C5=BCytkownik Frank Blaschka
-> >> <blaschka@linux.vnet.ibm.com> napisa=C5=82:
-> >> > On Thu, May 12, 2011 at 07:59:45AM +0200, Micha=C5=82 Miros=C5=82=
-aw wrote:
-> >> >> 2011/5/12 =C2=A0<frank.blaschka@de.ibm.com>:
-> >> >> > Set rx csum default to hw checksumming again.
-> >> >> > Remove sysfs interface for rx csum (checksumming) and TSO (la=
-rge_send).
-> >> >> > With the new hw_features it does not work to keep the old sys=
-fs
-> >> >> > interface in parallel. Convert options.checksum_type to new h=
-w_features.
-> >> >> [...]
-> >> >> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* hw may =
-have changed during offline or recovery */
-> >> >> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!qeth_=
-is_supported(card, IPA_INBOUND_CHECKSUM)) {
-> >> >> [...]
-> >> >>
-> >> >> This check should go to ndo_fix_features callback. If it fails =
-then
-> >> >> just return features &~NETIF_F_RXCSUM from there ...
-> >> >>
-> > Ok so all I have to do to complete this is to remove
-> > =C2=A0card->dev->hw_features &=3D ~NETIF_F_RXCSUM;
-> > from here (ndo_fix_feature has already the check)?
-> >
-> > Since we might be in recovery it is smarter to keep the support che=
-ck here so we
-> > do not have to use try and error approach to see if capabilities ha=
-ve
-> > changed. Do you aggree?
->=20
-> The key is that the driver should call netdev_update_features()
-> whenever some conditions affecting available features might have
-> changed. If you can keep the checks contained inside ndo_fix_features
-> callback, you can avoid caring about the offloads in the recovery
-> process.
-Ok, we have this now.
->=20
-> There's also the question what happens when packets are queued while
-> there's ongoing recovery? Simplest way would be to drop them all unti=
-l
-> recovery completes.
-Since this is RX processing there is nothing queued during recovery. Bu=
-t
-you are right for tx csum or TSO we have to think about this. For now
-I would like to complete this patch.
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-s390"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Pan Weiping <panweiping3@gmail.com>
+
+A bug of bonding was invloved by e815d19ffe02bdfda1260949ef2b1806171,
+see example 1 and 2.
+
+In register_netdevice(), the name of net_device is not valid until
+dev_get_valid_name() is called. But dev->netdev_ops->ndo_init(that is
+bond_init) is called before dev_get_valid_name(),
+and it uses the invalid name of net_device.
+
+I think register_netdevice() should make sure that the name of net_device is
+valid before calling ndo_init().
+
+example 1:
+modprobe bonding
+ls  /proc/net/bonding/bond%d
+
+ps -eLf
+root      3398     2  3398  0    1 21:34 ?        00:00:00 [bond%d]
+
+example 2:
+modprobe bonding max_bonds=3
+
+[  170.100292] bonding: Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
+[  170.101090] bonding: Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.
+[  170.102469] ------------[ cut here ]------------
+[  170.103150] WARNING: at /home/pwp/net-next-2.6/fs/proc/generic.c:586 proc_register+0x126/0x157()
+[  170.104075] Hardware name: VirtualBox
+[  170.105065] proc_dir_entry 'bonding/bond%d' already registered
+[  170.105613] Modules linked in: bonding(+) sunrpc ipv6 uinput microcode ppdev parport_pc parport joydev e1000 pcspkr i2c_piix4 i2c_core [last unloaded: bonding]
+[  170.108397] Pid: 3457, comm: modprobe Not tainted 2.6.39-rc2+ #14
+[  170.108935] Call Trace:
+[  170.109382]  [<c0438f3b>] warn_slowpath_common+0x6a/0x7f
+[  170.109911]  [<c051a42a>] ? proc_register+0x126/0x157
+[  170.110329]  [<c0438fc3>] warn_slowpath_fmt+0x2b/0x2f
+[  170.110846]  [<c051a42a>] proc_register+0x126/0x157
+[  170.111870]  [<c051a4dd>] proc_create_data+0x82/0x98
+[  170.112335]  [<f94e6af6>] bond_create_proc_entry+0x3f/0x73 [bonding]
+[  170.112905]  [<f94dd806>] bond_init+0x77/0xa5 [bonding]
+[  170.113319]  [<c0721ac6>] register_netdevice+0x8c/0x1d3
+[  170.113848]  [<f94e0e30>] bond_create+0x6c/0x90 [bonding]
+[  170.114322]  [<f94f4763>] bonding_init+0x763/0x7b1 [bonding]
+[  170.114879]  [<c0401240>] do_one_initcall+0x76/0x122
+[  170.115317]  [<f94f4000>] ? 0xf94f3fff
+[  170.115799]  [<c0463f1e>] sys_init_module+0x1286/0x140d
+[  170.116879]  [<c07c6d9f>] sysenter_do_call+0x12/0x28
+[  170.117404] ---[ end trace 64e4fac3ae5fff1a ]---
+[  170.117924] bond%d: Warning: failed to register to debugfs
+[  170.128728] ------------[ cut here ]------------
+[  170.129360] WARNING: at /home/pwp/net-next-2.6/fs/proc/generic.c:586 proc_register+0x126/0x157()
+[  170.130323] Hardware name: VirtualBox
+[  170.130797] proc_dir_entry 'bonding/bond%d' already registered
+[  170.131315] Modules linked in: bonding(+) sunrpc ipv6 uinput microcode ppdev parport_pc parport joydev e1000 pcspkr i2c_piix4 i2c_core [last unloaded: bonding]
+[  170.133731] Pid: 3457, comm: modprobe Tainted: G        W   2.6.39-rc2+ #14
+[  170.134308] Call Trace:
+[  170.134743]  [<c0438f3b>] warn_slowpath_common+0x6a/0x7f
+[  170.135305]  [<c051a42a>] ? proc_register+0x126/0x157
+[  170.135820]  [<c0438fc3>] warn_slowpath_fmt+0x2b/0x2f
+[  170.137168]  [<c051a42a>] proc_register+0x126/0x157
+[  170.137700]  [<c051a4dd>] proc_create_data+0x82/0x98
+[  170.138174]  [<f94e6af6>] bond_create_proc_entry+0x3f/0x73 [bonding]
+[  170.138745]  [<f94dd806>] bond_init+0x77/0xa5 [bonding]
+[  170.139278]  [<c0721ac6>] register_netdevice+0x8c/0x1d3
+[  170.139828]  [<f94e0e30>] bond_create+0x6c/0x90 [bonding]
+[  170.140361]  [<f94f4763>] bonding_init+0x763/0x7b1 [bonding]
+[  170.140927]  [<c0401240>] do_one_initcall+0x76/0x122
+[  170.141494]  [<f94f4000>] ? 0xf94f3fff
+[  170.141975]  [<c0463f1e>] sys_init_module+0x1286/0x140d
+[  170.142463]  [<c07c6d9f>] sysenter_do_call+0x12/0x28
+[  170.142974] ---[ end trace 64e4fac3ae5fff1b ]---
+[  170.144949] bond%d: Warning: failed to register to debugfs
+
+Signed-off-by: Pan Weiping <panweiping3@gmail.com>
+---
+ net/core/dev.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 75898a3..f289117 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5412,6 +5412,10 @@ int register_netdevice(struct net_device *dev)
+ 
+ 	dev->iflink = -1;
+ 
++	ret = dev_get_valid_name(dev, dev->name);
++	if (ret < 0)
++		goto out;
++
+ 	/* Init, if this function is available */
+ 	if (dev->netdev_ops->ndo_init) {
+ 		ret = dev->netdev_ops->ndo_init(dev);
+@@ -5422,10 +5426,6 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	ret = dev_get_valid_name(dev, dev->name);
+-	if (ret < 0)
+-		goto err_uninit;
+-
+ 	dev->ifindex = dev_new_index(net);
+ 	if (dev->iflink == -1)
+ 		dev->iflink = dev->ifindex;
+-- 
+1.7.4
