@@ -1,38 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Need a special way tune TCP IPv6->IPv4 fallback timeout
-Date: Thu, 24 Mar 2011 10:24:01 -0700
-Message-ID: <20110324102401.682f0e1e@nehalam>
-References: <AANLkTikP7AFMnQ4BdnE2272zNupv_ysb3BDWTqy=9s34@mail.gmail.com>
-	<20110324095702.6f6bade0@nehalam>
-	<AANLkTinb_4N_S7LG8MjT0YTAjVSkEyViv+Y-_ZN2SemC@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Guillaume Leclanche <guillaume@leclanche.net>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [RFC] myri10ge: small rx_done refactoring
+Date: Thu, 24 Mar 2011 17:29:06 +0000
+Message-ID: <25658.1300987746@redhat.com>
+References: <20110324155937.GA6041@redhat.com> <20110323124939.GA7834@redhat.com> <20110323083357.457f10aa@nehalam> <20110324081621.GA5508@redhat.com> <20110324081539.47ad0972@nehalam>
+Cc: dhowells@redhat.com, Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55363 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34925 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751381Ab1CXRYH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 13:24:07 -0400
-In-Reply-To: <AANLkTinb_4N_S7LG8MjT0YTAjVSkEyViv+Y-_ZN2SemC@mail.gmail.com>
+	id S1750748Ab1CXR3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Mar 2011 13:29:21 -0400
+In-Reply-To: <20110324155937.GA6041@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Mar 2011 18:05:35 +0100
-Guillaume Leclanche <guillaume@leclanche.net> wrote:
+Stanislaw Gruszka <sgruszka@redhat.com> wrote:
 
-> 2011/3/24 Stephen Hemminger <shemminger@vyatta.com>:
-> > The best way is to try both at the same time. This trick is known
-> > as "Happy Eyeballs"
-> >
-> > =C2=A0http://tools.ietf.org/html/draft-wing-v6ops-happy-eyeballs-ip=
-v6-01
->=20
-> Happy eyeballs implementation would be royal, I thought my proposal
-> would be easier to implement as a first step. I'm very likely to be
-> wrong though :) Well, if anybody is working currently on Happy
-> Eyeballs implementations in the TCP stack, it's great !
+> David, can you confirm that Staphen is correct?
 
-It is best handled in client. Not in the stack itself because
-only client has DNS records to work with.
+Stephen is correct.  The compiler is perfectly at liberty to merge the two
+loads if the value being read is not marked volatile.
+
+If you stick a barrier() in there between the reads, then I think the compiler
+will be required to emit two load instructions.  However, the _CPU_ is then
+entitled to merge them.
+
+If you don't want the CPU to merge them, you have to use smp_rmb() or smp_mb()
+between.
+
+However, the compiler is also allowed to re-read the variable (ie. emit two
+load instructions) if it would otherwise have to save the value on the stack
+to free up a register, unless the pointed to value is marked volatile.
+
+If you want to ensure that the value is read once only, then you need to use
+ACCESS_ONCE() or stick a read/full barrier of some degree after the read.
+
+Note the use of a barrier implies a partial ordering between two memory
+accesses in the same instruction stream.  If you can't say which two memory
+memory accesses you want to order, you probably shouldn't be using a barrier.
+
+David
