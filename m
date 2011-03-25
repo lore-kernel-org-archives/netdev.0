@@ -1,237 +1,179 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] ipv4: Invalidate nexthop cache nh_saddr more correctly.
-Date: Thu, 24 Mar 2011 18:14:15 -0700 (PDT)
-Message-ID: <20110324.181415.149842651.davem@davemloft.net>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: Re: [PATCH] ipv4: fix fib metrics
+Date: Fri, 25 Mar 2011 02:25:04 +0100
+Message-ID: <AANLkTinQq=BAVS1FrH80+VukTfAK1OKOkjEH4=gwZkv6@mail.gmail.com>
+References: <1301005107.2714.113.camel@edumazet-laptop>
+	<AANLkTinv+XGBjbFoK6vpyiDW6gBEBKFjUef+mCAMJU9i@mail.gmail.com>
+	<1301005946.2714.130.camel@edumazet-laptop>
+	<20110324.153623.45921344.davem@davemloft.net>
+	<1301006652.2714.145.camel@edumazet-laptop>
+	<AANLkTi=Xb3KCBKoVCcaVD5iyCtMCAnYaGF_DTeFQ0ays@mail.gmail.com>
+	<AANLkTinh9Li7DGgSqcZ+p9peS5XrHWomerSvKTYwHZ9-@mail.gmail.com>
+	<AANLkTi=hgOcwO8ojQBtmqbROS1qrhm5HCmq7tRxesc=6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57993
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932206Ab1CYBNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2011 21:13:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kyle Moffett <kyle@moffetthome.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=hgOcwO8ojQBtmqbROS1qrhm5HCmq7tRxesc=6@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Fri, Mar 25, 2011 at 2:04 AM, Alessandro Suardi
+<alessandro.suardi@gmail.com> wrote:
+> On Fri, Mar 25, 2011 at 1:53 AM, Kyle Moffett <kyle@moffetthome.net> =
+wrote:
+>> On Thu, Mar 24, 2011 at 20:12, Alessandro Suardi
+>> <alessandro.suardi@gmail.com> wrote:
+>>> On Thu, Mar 24, 2011 at 11:44 PM, Eric Dumazet <eric.dumazet@gmail.=
+com> wrote:
+>>>> Le jeudi 24 mars 2011 =E0 15:36 -0700, David Miller a =E9crit :
+>>>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>>>> Date: Thu, 24 Mar 2011 23:32:26 +0100
+>>>>>
+>>>>> > Then it doesnt work anymore because it parses an ipip field fro=
+m
+>>>>> > ip route get ...
+>>>>> >
+>>>>> > $ ip ro get 192.168.1.1
+>>>>> > 192.168.1.1 dev wlan0 =A0src 192.168.1.21
+>>>>> > =A0 =A0 cache =A0ipid 0x784c mtu 1500 advmss 1460 hoplimit 64
+>>>>> >
+>>>>> >
+>>>>> > Maybe you upgraded iproute2
+>>>>>
+>>>>> I'm leaning towards app bug too.
+>>>>>
+>>>>> These default metrics wouldn't get printed before, but now becaus=
+e of
+>>>>> how metrics are handled, they will.
+>>>>>
+>>>>> Userland needs to cope properly with this.
+>>>>
+>>>>
+>>>> BTW, ipip is not always printed (even on old kernels) : One needs =
+to
+>>>> actually need ipip generation .
+>>>>
+>>>> edumazet@edumazet-laptop:~$ ping 4.4.4.4
+>>>> PING 4.4.4.4 (4.4.4.4) 56(84) bytes of data.
+>>>> ^C
+>>>>
+>>>> edumazet@edumazet-laptop:~$ ip ro get 4.4.4.4
+>>>> 4.4.4.4 dev ppp0 =A0src 10.150.51.210
+>>>> =A0 =A0cache =A0mtu 1500 advmss 1460 hoplimit 64
+>>>>
+>>>> edumazet@edumazet-laptop:~$ ping -s 2000 4.4.4.4
+>>>> PING 4.4.4.4 (4.4.4.4) 2000(2028) bytes of data.
+>>>> ^C
+>>>>
+>>>> edumazet@edumazet-laptop:~$ ip ro get 4.4.4.4
+>>>> 4.4.4.4 dev ppp0 =A0src 10.150.51.210
+>>>> =A0 =A0cache =A0ipid 0xf99a mtu 1500 advmss 1460 hoplimit 64
+>>>>
+>>>>
+>>>> This on a 2.6.35 kernel
+>>>>
+>>>> I suspect Alessandro tool had a bug anyway.
+>>>
+>>> I still contend this is a kernel regression :)
+>>>
+>>>
+>>> vpnc is a custom build from trunk as of June 2010, with openssl sup=
+port
+>>> =A0to talk to my corporate VPN concentrator:
+>>>
+>> [...snip...]
+>>>
+>>> My iproute package, on this up-to-date Fedora 14 x86_64, has last b=
+een
+>>> =A0updated on 20 Nov 2010, and back then I was running 2.6.37-rc2-g=
+it4
+>>> =A0(I keep around my historical .config files, so I know for sure).
+>>>
+>>> [root@duff ~]# ip -V
+>>> ip utility, iproute2-ss100804
+>>> [root@duff ~]# rpm -qf /sbin/ip
+>>> iproute-2.6.35-6.fc14.x86_64
+>>>
+>>> The behavior of this version of 'ip' as invoked by this version of =
+'vpnc'
+>>> =A0is something that has worked for the last 4 months, and isn't wo=
+rking
+>>> =A0right now. Furthermore, previous versions of 'ip' in Fedora 14 w=
+ere
+>>> =A0also working with the same 'vpnc', which means it's actually 9 m=
+onths
+>>> =A0minimum of working behavior.
+>>>
+>>> If some change in the kernel broke my userspace, this usually quali=
+fies
+>>> =A0as a regression.
+>>>
+>>> That said, if you can point me to a working version of iproute with=
+ the
+>>> =A0current kernel, I have no problem in upgrading it :)
+>>
+>> Historically you could usually take the text output of "ip route get=
+"
+>> and feed it right back to "ip route add", and it would work, but thi=
+s
+>> was never guaranteed.
+>>
+>> Recently, the "ip route get" command started printing extra statisti=
+cs
+>> (like "ipid") after the other information, but obviously those
+>> statistics are not valid for an "ip route add" command.
+>>
+>> The kernel bug was that the "ip" command was not always getting thos=
+e
+>> statistics from the kernel, so obviously they would not be printed.
+>>
+>> Unfortunately vpnc still tries to pass the entire output of "ip rout=
+e
+>> get" as arguments to "ip route add"; the latter command reports an
+>> error when it gets the statistics from the former command as input.
+>>
+>> So this is certainly not a kernel bug. =A0At *best* it's an iproute =
+bug,
+>> depending on whether or not this is considered valid:
+>> =A0RT=3D"$(ip route get [...])"
+>> =A0ip route flush
+>> =A0ip route add ${RT}
+>
+> Fair enough, I get it.
+>
+> Looks like the fix_ip_get_output() function in /etc/vpnc/vpnc-script
+> =A0needs to be augmented from the current
+>
+> =A0sed 's/cache//;s/metric \?[0-9]\+ [0-9]\+//g;s/hoplimit [0-9]\+//g=
+'
+>
+> =A0to something slightly more comprehensive.
+>
+>
+> Thanks for the explanation - will keep around -git2 for my vpnc
+> =A0needs until I get this one sorted out :)
+
+=2E..which didn't take that long - one last bugging question and I'm ha=
+ppily
+ off to sleep; does ipid always come in the form of 0x followed by four
+ bytes representing hex values ? In a perhaps inelegant but working way
+ (I'm now writing through the VPN tunnel),
+
+  sed 's/cache//;s/metric \?[0-9]\+ [0-9]\+//g;s/hoplimit
+[0-9]\+//g;s/ipid 0x....//g'
+
+ appears to be Work For Me (TM).
 
 
-Any operation that:
+Thanks loads,
 
-1) Brings up an interface
-2) Adds an IP address to an interface
-3) Deletes an IP address from an interface
+--alessandro
 
-can potentially invalidate the nh_saddr value, requiring
-it to be recomputed.
+=A0"There's always a siren singing you to shipwreck"
 
-Perform the recomputation lazily using a generation ID.
-
-Reported-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/ip_fib.h     |   12 ++++++++++--
- include/net/netns/ipv4.h |    1 +
- net/ipv4/fib_frontend.c  |   11 +++++++----
- net/ipv4/fib_semantics.c |   32 +++++++++++---------------------
- net/ipv4/route.c         |    6 ++++--
- 5 files changed, 33 insertions(+), 29 deletions(-)
-
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index a1a8580..cd92b92 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -62,6 +62,7 @@ struct fib_nh {
- 	int			nh_oif;
- 	__be32			nh_gw;
- 	__be32			nh_saddr;
-+	int			nh_saddr_genid;
- };
- 
- /*
-@@ -141,12 +142,19 @@ struct fib_result_nl {
- 
- #endif /* CONFIG_IP_ROUTE_MULTIPATH */
- 
--#define FIB_RES_SADDR(res)		(FIB_RES_NH(res).nh_saddr)
-+extern __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh);
-+
-+#define FIB_RES_SADDR(net, res)				\
-+	((FIB_RES_NH(res).nh_saddr_genid ==		\
-+	  atomic_read(&(net)->ipv4.dev_addr_genid)) ?	\
-+	 FIB_RES_NH(res).nh_saddr :			\
-+	 fib_info_update_nh_saddr((net), &FIB_RES_NH(res)))
- #define FIB_RES_GW(res)			(FIB_RES_NH(res).nh_gw)
- #define FIB_RES_DEV(res)		(FIB_RES_NH(res).nh_dev)
- #define FIB_RES_OIF(res)		(FIB_RES_NH(res).nh_oif)
- 
--#define FIB_RES_PREFSRC(res)		((res).fi->fib_prefsrc ? : FIB_RES_SADDR(res))
-+#define FIB_RES_PREFSRC(net, res)	((res).fi->fib_prefsrc ? : \
-+					 FIB_RES_SADDR(net, res))
- 
- struct fib_table {
- 	struct hlist_node tb_hlist;
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index e2e2ef5..542195d 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -55,6 +55,7 @@ struct netns_ipv4 {
- 	int current_rt_cache_rebuild_count;
- 
- 	atomic_t rt_genid;
-+	atomic_t dev_addr_genid;
- 
- #ifdef CONFIG_IP_MROUTE
- #ifndef CONFIG_IP_MROUTE_MULTIPLE_TABLES
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 02c3ba6..f116ce8 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -228,7 +228,7 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
- 		if (res.type != RTN_LOCAL || !accept_local)
- 			goto e_inval;
- 	}
--	*spec_dst = FIB_RES_PREFSRC(res);
-+	*spec_dst = FIB_RES_PREFSRC(net, res);
- 	fib_combine_itag(itag, &res);
- 	dev_match = false;
- 
-@@ -258,7 +258,7 @@ int fib_validate_source(__be32 src, __be32 dst, u8 tos, int oif,
- 	ret = 0;
- 	if (fib_lookup(net, &fl4, &res) == 0) {
- 		if (res.type == RTN_UNICAST) {
--			*spec_dst = FIB_RES_PREFSRC(res);
-+			*spec_dst = FIB_RES_PREFSRC(net, res);
- 			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
- 		}
- 	}
-@@ -960,6 +960,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
- {
- 	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
- 	struct net_device *dev = ifa->ifa_dev->dev;
-+	struct net *net = dev_net(dev);
- 
- 	switch (event) {
- 	case NETDEV_UP:
-@@ -967,12 +968,12 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 		fib_sync_up(dev);
- #endif
--		fib_update_nh_saddrs(dev);
-+		atomic_inc(&net->ipv4.dev_addr_genid);
- 		rt_cache_flush(dev_net(dev), -1);
- 		break;
- 	case NETDEV_DOWN:
- 		fib_del_ifaddr(ifa, NULL);
--		fib_update_nh_saddrs(dev);
-+		atomic_inc(&net->ipv4.dev_addr_genid);
- 		if (ifa->ifa_dev->ifa_list == NULL) {
- 			/* Last address was deleted from this interface.
- 			 * Disable IP.
-@@ -990,6 +991,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- {
- 	struct net_device *dev = ptr;
- 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
-+	struct net *net = dev_net(dev);
- 
- 	if (event == NETDEV_UNREGISTER) {
- 		fib_disable_ip(dev, 2, -1);
-@@ -1007,6 +1009,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 		fib_sync_up(dev);
- #endif
-+		atomic_inc(&net->ipv4.dev_addr_genid);
- 		rt_cache_flush(dev_net(dev), -1);
- 		break;
- 	case NETDEV_DOWN:
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 75b9fb5..2d4bebc 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -695,6 +695,16 @@ static void fib_info_hash_move(struct hlist_head *new_info_hash,
- 	fib_info_hash_free(old_laddrhash, bytes);
- }
- 
-+__be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh)
-+{
-+	nh->nh_saddr = inet_select_addr(nh->nh_dev,
-+					nh->nh_gw,
-+					nh->nh_cfg_scope);
-+	nh->nh_saddr_genid = atomic_read(&net->ipv4.dev_addr_genid);
-+
-+	return nh->nh_saddr;
-+}
-+
- struct fib_info *fib_create_info(struct fib_config *cfg)
- {
- 	int err;
-@@ -855,9 +865,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 
- 	change_nexthops(fi) {
- 		nexthop_nh->nh_cfg_scope = cfg->fc_scope;
--		nexthop_nh->nh_saddr = inet_select_addr(nexthop_nh->nh_dev,
--							nexthop_nh->nh_gw,
--							nexthop_nh->nh_cfg_scope);
-+		fib_info_update_nh_saddr(net, nexthop_nh);
- 	} endfor_nexthops(fi)
- 
- link_it:
-@@ -1128,24 +1136,6 @@ out:
- 	return;
- }
- 
--void fib_update_nh_saddrs(struct net_device *dev)
--{
--	struct hlist_head *head;
--	struct hlist_node *node;
--	struct fib_nh *nh;
--	unsigned int hash;
--
--	hash = fib_devindex_hashfn(dev->ifindex);
--	head = &fib_info_devhash[hash];
--	hlist_for_each_entry(nh, node, head, nh_hash) {
--		if (nh->nh_dev != dev)
--			continue;
--		nh->nh_saddr = inet_select_addr(nh->nh_dev,
--						nh->nh_gw,
--						nh->nh_cfg_scope);
--	}
--}
--
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 
- /*
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 34921b0..4b0c811 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1718,7 +1718,7 @@ void ip_rt_get_source(u8 *addr, struct rtable *rt)
- 
- 		rcu_read_lock();
- 		if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res) == 0)
--			src = FIB_RES_PREFSRC(res);
-+			src = FIB_RES_PREFSRC(dev_net(rt->dst.dev), res);
- 		else
- 			src = inet_select_addr(rt->dst.dev, rt->rt_gateway,
- 					RT_SCOPE_UNIVERSE);
-@@ -2615,7 +2615,7 @@ static struct rtable *ip_route_output_slow(struct net *net,
- 		fib_select_default(&res);
- 
- 	if (!fl4.saddr)
--		fl4.saddr = FIB_RES_PREFSRC(res);
-+		fl4.saddr = FIB_RES_PREFSRC(net, res);
- 
- 	dev_out = FIB_RES_DEV(res);
- 	fl4.flowi4_oif = dev_out->ifindex;
-@@ -3219,6 +3219,8 @@ static __net_init int rt_genid_init(struct net *net)
- {
- 	get_random_bytes(&net->ipv4.rt_genid,
- 			 sizeof(net->ipv4.rt_genid));
-+	get_random_bytes(&net->ipv4.dev_addr_genid,
-+			 sizeof(net->ipv4.dev_addr_genid));
- 	return 0;
- }
- 
--- 
-1.7.4.1
-
+=A0=A0 (Radiohead, "There There")
