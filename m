@@ -1,56 +1,40 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 0/2] Fix nh_saddr caching.
-Date: Sat, 26 Mar 2011 01:30:18 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1103260127230.1648@ja.ssi.bg>
-References: <20110324.181413.173844730.davem@davemloft.net>
+Subject: [PATCH] ipv4: do not ignore route errors
+Date: Sat, 26 Mar 2011 01:45:25 +0200
+Message-ID: <201103252345.p2PNjP1n025209@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:53870 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:51816 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752395Ab1CYXYu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Mar 2011 19:24:50 -0400
-In-Reply-To: <20110324.181413.173844730.davem@davemloft.net>
+	id S1752095Ab1CYXjz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Mar 2011 19:39:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+	The "ipv4: Inline fib_semantic_match into check_leaf"
+change forgets to return the route errors. check_leaf should
+return the same results as fib_table_lookup.
 
- 	Hello,
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv4/fib_trie.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On Thu, 24 Mar 2011, David Miller wrote:
-
-> Julian, the following two patches should take all of the
-> issues we discovered the other week wrt. nh_saddr caching.
->
-> First, we use a generation ID to invalidate cache nh_saddr
-> settings any time a device goes up or an IP address is
-> added/removed.
->
-> Second, we move fa_scope up to fib_info->fib_scope, so that
-> we always use the correct scope when computing the cached
-> nh_saddr.
->
-> Please review this carefully as this is delicate code.
-
- 	Looks very good. I checked the tree to make sure that
-FIB_RES_PREFSRC, FIB_RES_DEV and fib_info_update_nh_saddr are
-called only for res after successful fib_lookup. Even
-fib_create_info calls fib_info_update_nh_saddr at a place
-where nh_dev != NULL.
-
- 	Only one thing: as the preferred addresses can be used
-even if they are configured on downed interface there is no
-gain to increase dev_addr_genid in fib_netdev_event(). If there are
-address changes while some device is down all nh_saddr_genid
-values for the downed device will be outdated because there is
-no traffic that can refresh the nh_saddr.
-
- 	Tests revealed unrelated problem in fib_trie, preparing
-separate patch...
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff -urp net-2.6-fcd13f4/linux/net/ipv4/fib_trie.c linux/net/ipv4/fib_trie.c
+--- net-2.6-fcd13f4/linux/net/ipv4/fib_trie.c	2011-03-25 22:33:44.000000000 +0200
++++ linux/net/ipv4/fib_trie.c	2011-03-26 01:37:15.027383449 +0200
+@@ -1365,9 +1365,9 @@ static int check_leaf(struct fib_table *
+ 			err = fib_props[fa->fa_type].error;
+ 			if (err) {
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+-				t->stats.semantic_match_miss++;
++				t->stats.semantic_match_passed++;
+ #endif
+-				return 1;
++				return err;
+ 			}
+ 			if (fi->fib_flags & RTNH_F_DEAD)
+ 				continue;
