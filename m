@@ -1,61 +1,66 @@
-From: Cesar Eduardo Barros <cesarb@cesarb.net>
-Subject: [PATCH] net: use CHECKSUM_NONE instead of magic number
-Date: Sat, 26 Mar 2011 12:10:30 -0300
-Message-ID: <1301152230-4897-1-git-send-email-cesarb@cesarb.net>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tristram Ha <Tristram.Ha@micrel.com>,
-	linux-kernel@vger.kernel.org,
-	Cesar Eduardo Barros <cesarb@cesarb.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Received: from unknown (HELO localhost.localdomain) (zcncxNmDysja2tXBptWToZWJlF6Wp6IuYnI=@[200.157.204.20])
-          (envelope-sender <cesarb@cesarb.net>)
-          by smtp-02.mandic.com.br (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
-          for <netdev@vger.kernel.org>; 26 Mar 2011 15:10:36 -0000
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [Bonding-devel] bonding inside a bridge does not work when using
+ arp monitoring
+Date: Sat, 26 Mar 2011 16:42:54 +0100
+Message-ID: <AANLkTimkVqHaU=Ye96xK4Zs7XyzcL3Xgh5ouz5m2KXur@mail.gmail.com>
+References: <1300302933.1462.5.camel@bordalnx> <4D8121EF.3030200@free.fr>
+ <1300914794.32252.68.camel@bordalnx> <4D8DDA06.4040704@gmail.com> <20110326140115.GA2882@psychotron.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>,
+	Leonardo Borda <leonardo.borda@canonical.com>,
+	=?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>,
+	Bridge <bridge@lists.linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:62752 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752453Ab1CZPnP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Mar 2011 11:43:15 -0400
+Received: by qwk3 with SMTP id 3so1136380qwk.19
+        for <netdev@vger.kernel.org>; Sat, 26 Mar 2011 08:43:14 -0700 (PDT)
+In-Reply-To: <20110326140115.GA2882@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Two places in the kernel were doing skb->ip_summed = 0.
+2011/3/26 Jiri Pirko <jpirko@redhat.com>:
+> Sat, Mar 26, 2011 at 01:20:22PM CET, nicolas.2p.debian@gmail.com wrot=
+e:
+>>Le 23/03/2011 22:13, Leonardo Borda a =E9crit :
+>>>Thank you for answering my question.
+>>>Actually this is what I want to achieve:
+>>>
+>>>eth0----+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 +----bond0.100----br0-100---{+=
+virtual machines
+>>> =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 =A0 =A0 =A0 |
+>>> =A0 =A0 =A0 =A0 =A0 +----bond0----+----br0---(LAN)
+>>> =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 =A0 =A0 =A0 |
+>>>eth1----+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 +----bond0.200----br0-200---{+=
+virtual machines
+>>
+>>Hi Leonardo,
+>>
+>>I'm not sure recent kernels allow for a given interface to be a port
+>>for a bridge and the base interface for vlan interfaces at the same
+>>time. This might be particularly true for 2.6.38 or 2.6.38+, because
+>>of the new rx_handler usage.
+>
+> This topology is not legit and should/will be prohibited.
+>
+> Only consider that you have + br0.100 device on top of br0. Where sho=
+uld
+> the packet go?
+>
+> I suggest to consider topology change.
 
-Change both to skb->ip_summed = CHECKSUM_NONE, which is more readable.
+It should be possible to have bridge for untagged (or 802.1p only)
+packets independent of 802.1q tagged packets. I wonder if tag 0
+devices should be expanded to have a flag that will enable handling
+untagged packets by it.
 
-Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
----
- drivers/net/ksz884x.c |    2 +-
- net/ipv6/ip6mr.c      |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
-index 540a8dc..7f7d570 100644
---- a/drivers/net/ksz884x.c
-+++ b/drivers/net/ksz884x.c
-@@ -4898,7 +4898,7 @@ static netdev_tx_t netdev_tx(struct sk_buff *skb, struct net_device *dev)
- 				goto unlock;
- 			}
- 			skb_copy_and_csum_dev(org_skb, skb->data);
--			org_skb->ip_summed = 0;
-+			org_skb->ip_summed = CHECKSUM_NONE;
- 			skb->len = org_skb->len;
- 			copy_old_skb(org_skb, skb);
- 		}
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 7ff0343..29e4859 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -663,7 +663,7 @@ static int pim6_rcv(struct sk_buff *skb)
- 	skb_pull(skb, (u8 *)encap - skb->data);
- 	skb_reset_network_header(skb);
- 	skb->protocol = htons(ETH_P_IPV6);
--	skb->ip_summed = 0;
-+	skb->ip_summed = CHECKSUM_NONE;
- 	skb->pkt_type = PACKET_HOST;
- 
- 	skb_tunnel_rx(skb, reg_dev);
--- 
-1.7.4
+Best Regards,
+Micha=B3 Miros=B3aw
