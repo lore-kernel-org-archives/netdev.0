@@ -1,76 +1,81 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V12 4/4] ptp: Added a clock driver for the National
-	Semiconductor PHYTER.
-Date: Sat, 26 Mar 2011 14:40:59 +0100
-Message-ID: <20110326134059.GC23260@riccoc20.at.omicron.at>
-References: <cover.1298878618.git.richard.cochran@omicron.at>
-	<f8af215ebe32a8c0f4b3a82b8ee7e8008b4feb1e.1298878618.git.richard.cochran@omicron.at>
-	<1300916785.848.54.camel@work-vm>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Bonding-devel] bonding inside a bridge does not work when using
+ arp monitoring
+Date: Sat, 26 Mar 2011 15:01:16 +0100
+Message-ID: <20110326140115.GA2882@psychotron.redhat.com>
+References: <1300302933.1462.5.camel@bordalnx>
+ <4D8121EF.3030200@free.fr>
+ <1300914794.32252.68.camel@bordalnx>
+ <4D8DDA06.4040704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Leonardo Borda <leonardo.borda@canonical.com>,
+	Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@free.fr>,
+	Bridge <bridge@lists.linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45589 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751511Ab1CZOBc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Mar 2011 10:01:32 -0400
 Content-Disposition: inline
-In-Reply-To: <1300916785.848.54.camel@work-vm>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4D8DDA06.4040704@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 23, 2011 at 02:46:25PM -0700, John Stultz wrote:
-> On Mon, 2011-02-28 at 08:58 +0100, Richard Cochran wrote:
-> > +static int tdr_write(int bc, struct phy_device *dev,
-> > +		     const struct timespec *ts, u16 cmd)
-> > +{
-> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_nsec & 0xffff);/* ns[15:0]  */
-> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_nsec >> 16);   /* ns[31:16] */
-> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_sec & 0xffff); /* sec[15:0] */
-> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_sec >> 16);    /* sec[31:16]*/
-> > +
-> > +	ext_write(bc, dev, PAGE4, PTP_CTL, cmd);
-> > +
-> > +	return 0;
-> > +}
-> 
-> The above needs to hold the extreg_lock, and should be commented as
-> such.
+Sat, Mar 26, 2011 at 01:20:22PM CET, nicolas.2p.debian@gmail.com wrote:
+>Le 23/03/2011 22:13, Leonardo Borda a =E9crit :
+>>Hi Nicolas,
+>>
+>>Thank you for answering my question.
+>>Actually this is what I want to achieve:
+>>
+>>eth0----+               +----bond0.100----br0-100---{+virtual machine=
+s
+>>           |             |
+>>           +----bond0----+----br0---(LAN)
+>>           |             |
+>>eth1----+               +----bond0.200----br0-200---{+virtual machine=
+s
+>
+>Hi Leonardo,
+>
+>I'm not sure recent kernels allow for a given interface to be a port
+>for a bridge and the base interface for vlan interfaces at the same
+>time. This might be particularly true for 2.6.38 or 2.6.38+, because
+>of the new rx_handler usage.
 
-Okay, will do.
+This topology is not legit and should/will be prohibited.
 
-> And again, the function names are sort of generic, and could use a
-> dp83640_ prefix or something.
+Only consider that you have + br0.100 device on top of br0. Where shoul=
+d
+the packet go?
 
-So, I will rename the IXP functions in the other driver to make them
-more unique, but in this case I really prefer to keep the short names
-for the sake of readability.
+I suggest to consider topology change.
 
-Just about every operation on this PHY requires four 16-bit writes,
-where each write can really mean two writes, with the first one to set
-a "page" register for the following write.
-
-Keeping the tabular style (shown above) makes it much more clear what
-is going on, IMHO. If the function names become longer, that would
-force line breaks and spoil the nice formatting.
-
-Also, these names are not in use anywhere else in the kernel's eight
-million LOC.
-
-Thanks,
-
-Richard
+>
+>cc: netdev and Jiri Pirko, for advices. For the history of the thread,=
+ see:
+>
+>http://sourceforge.net/mailarchive/forum.php?thread_name=3D1300914794.=
+32252.68.camel%40bordalnx&
+>forum_name=3Dbonding-devel
+>
+>>br0 -->  br0 in my understanding is an untagged vlan therefore it
+>>provides access to my LAN. So i am able to access that server from my
+>>internal network.
+>>br0-100 and br0-200 ->  Vlans over a bridged interface will allow me =
+to
+>>have many virtual machines in the same vlan on each bridged interface=
+=2E
+>>
+>>I am misunderstanding concepts, maybe?
+>>If you need to do further tests I have a test environment ready for u=
+se.
+>>
+>>Leonardo
