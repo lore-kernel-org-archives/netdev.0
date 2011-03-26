@@ -1,56 +1,79 @@
-From: Sage Weil <sage@newdream.net>
-Subject: Re: [PATCH] ceph: fix possible NULL pointer dereference
-Date: Sat, 26 Mar 2011 13:48:05 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.1103261347580.17758@cobra.newdream.net>
-References: <1301164174-8597-1-git-send-email-mk@lab.zgora.pl>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mariusz Kozlowski <mk@lab.zgora.pl>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <1301164174-8597-1-git-send-email-mk@lab.zgora.pl>
-Sender: ceph-devel-owner@vger.kernel.org
+From: Wu Zhangjin <wuzhangjin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RFC PATCH] rtl8187: Fix led support for rfkill
+Date: Sun, 27 Mar 2011 05:19:54 +0800
+Message-ID: <1301174394-12642-1-git-send-email-wuzhangjin@gmail.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Wu Zhangjin <wuzhangjin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Applied, thanks!
+led can not be turned off normally when rfkill is blocked, the cause is
+the led_turn_off() function exit as not expected:
 
-sage
+drivers/net/wireless/rtl818x/rtl8187/leds.c:
 
+static void led_turn_off(struct work_struct *work)
+{
+	[...]
+	/* Don't change the LED, when the device is down. */
+	if (!priv->vif || priv->vif->type == NL80211_IFTYPE_UNSPECIFIED)
+		return ;
+	[...]
 
-On Sat, 26 Mar 2011, Mariusz Kozlowski wrote:
+When rfkill is blocked, the function calling order looks like this:
 
-> This patch fixes 'event_work' dereference before it is checked for NULL.
-> 
-> Signed-off-by: Mariusz Kozlowski <mk@lab.zgora.pl>
-> ---
->  net/ceph/osd_client.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-> index 02212ed..b6776cb 100644
-> --- a/net/ceph/osd_client.c
-> +++ b/net/ceph/osd_client.c
-> @@ -1602,11 +1602,11 @@ void handle_watch_notify(struct ceph_osd_client *osdc, struct ceph_msg *msg)
->  	     cookie, ver, event);
->  	if (event) {
->  		event_work = kmalloc(sizeof(*event_work), GFP_NOIO);
-> -		INIT_WORK(&event_work->work, do_event_work);
->  		if (!event_work) {
->  			dout("ERROR: could not allocate event_work\n");
->  			goto done_err;
->  		}
-> +		INIT_WORK(&event_work->work, do_event_work);
->  		event_work->event = event;
->  		event_work->ver = ver;
->  		event_work->notify_id = notify_id;
-> -- 
-> 1.7.0.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe ceph-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+net/mac80211/iface.c:
+
+ieee80211_do_stop
+	-> drv_remove_interface = rtl8187_remove_interface
+	-> ieee80211_stop_device
+		-> led_set_brightness
+			-> led_turn_off
+	-> drv_stop = rtl8187_stop
+
+rtl8187_remove_interface() set priv->vif to NULL, so, led_turn_off()
+will return and will not be able to turn off the led. delay the setting
+of priv->vif to rtl8187_stop() can solve it.
+
+Signed-off-by: Wu Zhangjin <wuzhangjin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/rtl818x/rtl8187/dev.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+index 2bb5297..1fea0cd 100644
+--- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
++++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+@@ -1007,6 +1007,9 @@ static void rtl8187_stop(struct ieee80211_hw *dev)
+ 	u32 reg;
+ 
+ 	mutex_lock(&priv->conf_mutex);
++
++	priv->vif = NULL;
++
+ 	rtl818x_iowrite16(priv, &priv->map->INT_MASK, 0);
+ 
+ 	reg = rtl818x_ioread8(priv, &priv->map->CMD);
+@@ -1067,10 +1070,7 @@ exit:
+ static void rtl8187_remove_interface(struct ieee80211_hw *dev,
+ 				     struct ieee80211_vif *vif)
+ {
+-	struct rtl8187_priv *priv = dev->priv;
+-	mutex_lock(&priv->conf_mutex);
+-	priv->vif = NULL;
+-	mutex_unlock(&priv->conf_mutex);
++	/* Nothing to do */
+ }
+ 
+ static int rtl8187_config(struct ieee80211_hw *dev, u32 changed)
+-- 
+1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
