@@ -1,101 +1,90 @@
-From: Sasikanth V <sasikanth.v19@gmail.com>
-Subject: Re: [PATCH] Bridge allows the userspace to configure the
- bridge parameters with values not defined in the IEEE 802.1D std
-Date: Sun, 27 Mar 2011 00:01:11 +0530
-Message-ID: <AANLkTim=futKP0Opnedc10zH83r=WYEhaSUHCtf+qbw3@mail.gmail.com>
-References: <1301150997-4639-1-git-send-email-sasikanth.v19@gmail.com>
-	<20110326085536.1ef03edb@nehalam>
+From: =?ISO-8859-2?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [Bonding-devel] bonding inside a bridge does not work when using
+ arp monitoring
+Date: Sat, 26 Mar 2011 21:32:53 +0100
+Message-ID: <4D8E4D75.1020206@gmail.com>
+References: <1300302933.1462.5.camel@bordalnx> <4D8121EF.3030200@free.fr> <1300914794.32252.68.camel@bordalnx> <4D8DDA06.4040704@gmail.com> <20110326140115.GA2882@psychotron.redhat.com> <AANLkTimkVqHaU=Ye96xK4Zs7XyzcL3Xgh5ouz5m2KXur@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1667435124862700878=="
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20110326085536.1ef03edb@nehalam>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Mime-version: 1.0
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	=?ISO-8859-2?Q?Nicolas_de_Peslo=FC?= =?ISO-8859-2?Q?an?=
+	<nicolas.2p.debian@free.fr>,
+	Bridge <bridge@lists.linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>,
+	Leonardo Borda <leonardo.borda@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63159 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753985Ab1CZUc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Mar 2011 16:32:58 -0400
+Received: by wya21 with SMTP id 21so1920908wya.19
+        for <netdev@vger.kernel.org>; Sat, 26 Mar 2011 13:32:56 -0700 (PDT)
+In-Reply-To: <AANLkTimkVqHaU=Ye96xK4Zs7XyzcL3Xgh5ouz5m2KXur@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============1667435124862700878==
-Content-Type: multipart/alternative; boundary=20cf307f3bbe329298049f66ea14
-
---20cf307f3bbe329298049f66ea14
-Content-Type: text/plain; charset=ISO-8859-1
-
-On Sat, Mar 26, 2011 at 9:25 PM, Stephen Hemminger <
-shemminger@linux-foundation.org> wrote:
-
-> On Sat, 26 Mar 2011 20:19:57 +0530
-> Sasikanth V <sasikanth.v19@gmail.com> wrote:
+Le 26/03/2011 16:42, Micha=B3 Miros=B3aw a =E9crit :
+> 2011/3/26 Jiri Pirko<jpirko@redhat.com>:
+>> Sat, Mar 26, 2011 at 01:20:22PM CET, nicolas.2p.debian@gmail.com wro=
+te:
+>>> Le 23/03/2011 22:13, Leonardo Borda a =E9crit :
+>>>> Thank you for answering my question.
+>>>> Actually this is what I want to achieve:
+>>>>
+>>>> eth0----+               +----bond0.100----br0-100---{+virtual mach=
+ines
+>>>>            |             |
+>>>>            +----bond0----+----br0---(LAN)
+>>>>            |             |
+>>>> eth1----+               +----bond0.200----br0-200---{+virtual mach=
+ines
+>>>
+>>> Hi Leonardo,
+>>>
+>>> I'm not sure recent kernels allow for a given interface to be a por=
+t
+>>> for a bridge and the base interface for vlan interfaces at the same
+>>> time. This might be particularly true for 2.6.38 or 2.6.38+, becaus=
+e
+>>> of the new rx_handler usage.
+>>
+>> This topology is not legit and should/will be prohibited.
+>>
+>> Only consider that you have + br0.100 device on top of br0. Where sh=
+ould
+>> the packet go?
+>>
+>> I suggest to consider topology change.
 >
-> >
-> > Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
-> > ---
->
-> I will clean this up. There are things like introducing
-> global function names (set_forward_delay, etc) that need
-> to be fixed.
->
+> It should be possible to have bridge for untagged (or 802.1p only)
+> packets independent of 802.1q tagged packets. I wonder if tag 0
+> devices should be expanded to have a flag that will enable handling
+> untagged packets by it.
 
-   Thanks for looking at the patch.  I made 5 set functions
-(set_forward_delay, set_max_age,
-   set_hello_time, set_priority and set_ageing_time) in br_sysfs_br.c global
-to use in br_ioctl.c to
-   avoid code duplication (but it looks it is not a good idea).
+Isn't the BROUTING chain of the broute table of ebtables designed exact=
+ly for that?
 
-   Now  i thought something like making those 5 functions static inline and
-moving it to br_private.h.
-   If this is fine , I will resend the patch
+I think DROPing in this chain should allow delivery to VLAN:
 
---20cf307f3bbe329298049f66ea14
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+In br_input.c :
 
-<div dir=3D"ltr">
-<br><br><div class=3D"gmail_quote">On Sat, Mar 26, 2011 at 9:25 PM, Stephen=
- Hemminger <span dir=3D"ltr">&lt;<a href=3D"mailto:shemminger@linux-foundat=
-ion.org">shemminger@linux-foundation.org</a>&gt;</span> wrote:<br><blockquo=
-te class=3D"gmail_quote" style=3D"margin: 0pt 0pt 0pt 0.8ex; border-left: 1=
-px solid rgb(204, 204, 204); padding-left: 1ex;">
-<div class=3D"im">On Sat, 26 Mar 2011 20:19:57 +0530<br>
-Sasikanth V &lt;<a href=3D"mailto:sasikanth.v19@gmail.com">sasikanth.v19@gm=
-ail.com</a>&gt; wrote:<br>
-<br>
-&gt;<br>
-&gt; Signed-off-by: Sasikanth V &lt;<a href=3D"mailto:sasikanth.v19@gmail.c=
-om">sasikanth.v19@gmail.com</a>&gt;<br>
-&gt; ---<br>
-<br>
-</div>I will clean this up. There are things like introducing<br>
-global function names (set_forward_delay, etc) that need<br>
-to be fixed.<br>
-</blockquote></div><br>=A0=A0 Thanks for looking at the patch.=A0 I made 5 =
-set functions (set_forward_delay, set_max_age, <br>=A0=A0 set_hello_time, s=
-et_priority and set_ageing_time) in br_sysfs_br.c global to use in br_ioctl=
-.c to <br>
-=A0=A0 avoid code duplication (but it looks it is not a good idea). <br><br=
->=A0=A0 Now=A0 i thought something like making those 5 functions static inl=
-ine and moving it to br_private.h.<br>=A0=A0 If this is fine , I will resen=
-d the patch<br>
-=A0 <br>=A0=A0 <br><br></div>
+                 rhook =3D rcu_dereference(br_should_route_hook);
+                 if (rhook) {
+                         if ((*rhook)(skb)) {
+                                 *pskb =3D skb;
+                                 return RX_HANDLER_PASS;
+                         }
 
---20cf307f3bbe329298049f66ea14--
+RX_HANDLER_PASS causes the skb to be normally delivered in __netif_rece=
+ive_skb.
 
---===============1667435124862700878==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Leonardo, would you please try to DROP vlan tagged packets in the BROUT=
+ING chain of the broute table=20
+of ebtables?
 
-_______________________________________________
-Bridge mailing list
-Bridge@lists.linux-foundation.org
-https://lists.linux-foundation.org/mailman/listinfo/bridge
---===============1667435124862700878==--
+	Nicolas.
