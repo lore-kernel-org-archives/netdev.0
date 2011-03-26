@@ -1,30 +1,41 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Bridge allows the userspace to configure the bridge
- parameters with values not defined in the IEEE 802.1D std
-Date: Sat, 26 Mar 2011 08:55:36 -0700
-Message-ID: <20110326085536.1ef03edb@nehalam>
-References: <1301150997-4639-1-git-send-email-sasikanth.v19@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Sasikanth V <sasikanth.v19@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35164 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752217Ab1CZPzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Mar 2011 11:55:41 -0400
-In-Reply-To: <1301150997-4639-1-git-send-email-sasikanth.v19@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mariusz Kozlowski <mk@lab.zgora.pl>
+Subject: [PATCH] mac80211: fix possible NULL pointer dereference
+Date: Sat, 26 Mar 2011 18:58:51 +0100
+Message-ID: <1301162331-5236-1-git-send-email-mk@lab.zgora.pl>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Mariusz Kozlowski <mk@lab.zgora.pl>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 26 Mar 2011 20:19:57 +0530
-Sasikanth V <sasikanth.v19@gmail.com> wrote:
+This patch moves 'key' dereference after BUG_ON(!key) so that when key is NULL
+we will see proper trace instead of oops.
 
-> 
-> Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
-> ---
+Signed-off-by: Mariusz Kozlowski <mk@lab.zgora.pl>
+---
+ net/mac80211/key.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-I will clean this up. There are things like introducing
-global function names (set_forward_delay, etc) that need
-to be fixed.
+diff --git a/net/mac80211/key.c b/net/mac80211/key.c
+index 8c02469..fd97925 100644
+--- a/net/mac80211/key.c
++++ b/net/mac80211/key.c
+@@ -400,11 +400,12 @@ int ieee80211_key_link(struct ieee80211_key *key,
+ {
+ 	struct ieee80211_key *old_key;
+ 	int idx, ret;
+-	bool pairwise = key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE;
++	bool pairwise;
+ 
+ 	BUG_ON(!sdata);
+ 	BUG_ON(!key);
+ 
++	pairwise = key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE;
+ 	idx = key->conf.keyidx;
+ 	key->local = sdata->local;
+ 	key->sdata = sdata;
+-- 
+1.7.0.4
