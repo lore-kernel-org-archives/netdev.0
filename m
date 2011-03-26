@@ -1,77 +1,76 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] ip_fragment:kernel may panic when replay big packet with
- RST flag
-Date: Sat, 26 Mar 2011 21:36:15 +0800
-Message-ID: <AANLkTimOzYG4Weh7wanYfU_qBM4tJDPz+zJZQx_H-vn0@mail.gmail.com>
-References: <AANLkTikoSxVd3kTggsCGpjXz-5CFuVNxjnpuZNgWd3eV@mail.gmail.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V12 4/4] ptp: Added a clock driver for the National
+	Semiconductor PHYTER.
+Date: Sat, 26 Mar 2011 14:40:59 +0100
+Message-ID: <20110326134059.GC23260@riccoc20.at.omicron.at>
+References: <cover.1298878618.git.richard.cochran@omicron.at>
+	<f8af215ebe32a8c0f4b3a82b8ee7e8008b4feb1e.1298878618.git.richard.cochran@omicron.at>
+	<1300916785.848.54.camel@work-vm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Feng Gao <kernel.goter@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikoSxVd3kTggsCGpjXz-5CFuVNxjnpuZNgWd3eV@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1300916785.848.54.camel@work-vm>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 23, 2011 at 6:49 PM, Feng Gao <kernel.goter@gmail.com> wrot=
-e:
-> Hello everyone:
->
-> PC(A)-linux(B)-PC(C)
-> computer(linux B) with two net interface,eth0 and eth1.
-> PC(A) send syn to PC(C) =A0though linux B.
-> then PC(C) replay a big packet =A0with RST flag(use tcpsic or other t=
-ools).
->
-> This RST packet(1480) come in from eth0(mtu 1500) and go out from
-> eth1(mtu 700), so this RST packet should fragment.
->
-> BUT in tcp_packet func: if the connection has no reply packet,and
-> receive the RST packet.ip_conntrack should =A0destroy.
-> =A0if (!test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* If only reply is a RST, we can cons=
-ider ourselves not to
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 have an established connection: t=
-his is a fairly common
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 problem case, so we can delete th=
-e conntrack
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 immediately. =A0--RR */
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (th->rst) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0nf_ct_kill_acct(ct, ct=
-info, skb);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return NF_ACCEPT;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0}
->
-> BUT the skb->nfct is not set NULL in func nf_ct_kill_acct.
-> so when this RST packet goto ip_fragment,ip_fragment call nf_copy, in
-> __nf_copy func
-> the fragment skb->nfct point to the destory mem.
-> dst->nfct =3D src->nfct;
-> nf_conntrack_get(src->nfct);
->
-> SO finally.kfree_skb call destroy_conntrack again. this may result in
-> LINUX B kernel panic.
->
->
+On Wed, Mar 23, 2011 at 02:46:25PM -0700, John Stultz wrote:
+> On Mon, 2011-02-28 at 08:58 +0100, Richard Cochran wrote:
+> > +static int tdr_write(int bc, struct phy_device *dev,
+> > +		     const struct timespec *ts, u16 cmd)
+> > +{
+> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_nsec & 0xffff);/* ns[15:0]  */
+> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_nsec >> 16);   /* ns[31:16] */
+> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_sec & 0xffff); /* sec[15:0] */
+> > +	ext_write(bc, dev, PAGE4, PTP_TDR, ts->tv_sec >> 16);    /* sec[31:16]*/
+> > +
+> > +	ext_write(bc, dev, PAGE4, PTP_CTL, cmd);
+> > +
+> > +	return 0;
+> > +}
+> 
+> The above needs to hold the extreg_lock, and should be commented as
+> such.
 
-Have you ever tested that? I am afraid no panic will happen.
-nf_ct_kill_acct() just drops the reference owned by the corresponding
-timeout timer to the ct if the timer is installed, so the skb still
-has the reference to the ct after nf_ct_kill_acct() returns. Thanks.
+Okay, will do.
 
-BTW: all the patches related to netfilter should be sent to the
-netfilter developer mailing list.
+> And again, the function names are sort of generic, and could use a
+> dp83640_ prefix or something.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So, I will rename the IXP functions in the other driver to make them
+more unique, but in this case I really prefer to keep the short names
+for the sake of readability.
+
+Just about every operation on this PHY requires four 16-bit writes,
+where each write can really mean two writes, with the first one to set
+a "page" register for the following write.
+
+Keeping the tabular style (shown above) makes it much more clear what
+is going on, IMHO. If the function names become longer, that would
+force line breaks and spoil the nice formatting.
+
+Also, these names are not in use anywhere else in the kernel's eight
+million LOC.
+
+Thanks,
+
+Richard
