@@ -1,57 +1,120 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
- kernel modules
-Date: Sat, 26 Mar 2011 13:35:39 +0300
-Message-ID: <20110326103539.GA4719@albatros>
-References: <1300991584.2689.35.camel@bwh-desktop>
- <20110324202634.GB9191@peq.hallyn.com>
- <20110324143944.29f4c362@nehalam>
- <20110324.144628.58411809.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH] Net / jme: Do not use legacy PCI power management
+Date: Sat, 26 Mar 2011 12:34:06 +0100
+Message-ID: <201103261234.06274.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, serge.hallyn@ubuntu.com,
-	bhutchings@solarflare.com, eparis@redhat.com,
-	eparis@parisplace.org, linux-kernel@vger.kernel.org,
-	mjt@tls.msk.ru, arnd@arndb.de, mirqus@gmail.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	eric.dumazet@gmail.com, therbert@google.com, xiaosuo@gmail.com,
-	jesse@nicira.com, kees.cook@canonical.com, eugene@redhat.com,
-	dan.j.rosenberg@gmail.com, akpm@linux-foundation.org,
-	greg@kroah.com, sds@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, dwalsh@redhat.com,
-	dhowells@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110324.144628.58411809.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Linux PM mailing list <linux-pm@lists.linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 24, 2011 at 14:46 -0700, David Miller wrote:
-> You can't say "userland will fix things up"
-> 
-> Because we're never supposed to break userland in the first place.
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
-I admit that the patch breaks things.
+The jme driver uses the legacy PCI power management, so it has to do
+some PCI-specific things in its ->suspend() and ->resume() callbacks,
+which isn't necessary and should better be done by the PCI
+sybsystem-level power management code.  It also doesn't use device
+wakeup flags correctly.
 
-But the thing is that kernel changes _are_ breaking userspace here and
-there, not only by such obvious policy changes, but by indirect changes.
-Note that the patch that changed CAP_SYS_MODULE to CAP_NET_ADMIN has
-broken userspace behavior too - one could load modules with
-CAP_SYS_MODULE without CAP_NET_ADMIN via "ifconfig wifi0" and after the
-patch it could not.
+Convert jme to the new PCI power management framework and make it
+let the PCI subsystem take care of all the PCI-specific aspects of
+device handling during system power transitions.
 
-Look at this patch:
-http://patchwork.ozlabs.org/patch/42148/
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/jme.c |   30 ++++++++++++++++--------------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
 
-It breaks userspace tools too - one might run LSM in learning mode to
-create a profile for netfilter configuring, saw it didn't need any CAP_*
-and totally denied them in the profile.  After many years (the bug was
-fixed after 5+ years!) of good work it was broken by the patch.  The same
-with plenty of patches that introduce different checks in places where
-there were no permission checks at all or these checks were broken.
-
--- 
-Vasiliy Kulikov
-http://www.openwall.com - bringing security into open computing environments
+Index: linux-2.6/drivers/net/jme.c
+===================================================================
+--- linux-2.6.orig/drivers/net/jme.c
++++ linux-2.6/drivers/net/jme.c
+@@ -273,7 +273,7 @@ jme_clear_pm(struct jme_adapter *jme)
+ {
+ 	jwrite32(jme, JME_PMCS, 0xFFFF0000 | jme->reg_pmcs);
+ 	pci_set_power_state(jme->pdev, PCI_D0);
+-	pci_enable_wake(jme->pdev, PCI_D0, false);
++	device_set_wakeup_enable(&jme->pdev->dev, false);
+ }
+ 
+ static int
+@@ -2538,6 +2538,8 @@ jme_set_wol(struct net_device *netdev,
+ 
+ 	jwrite32(jme, JME_PMCS, jme->reg_pmcs);
+ 
++	device_set_wakeup_enable(&jme->pdev->dev, jme->reg_pmcs);
++
+ 	return 0;
+ }
+ 
+@@ -3172,9 +3174,9 @@ jme_shutdown(struct pci_dev *pdev)
+ }
+ 
+ #ifdef CONFIG_PM
+-static int
+-jme_suspend(struct pci_dev *pdev, pm_message_t state)
++static int jme_suspend(struct device *dev)
+ {
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct jme_adapter *jme = netdev_priv(netdev);
+ 
+@@ -3206,22 +3208,18 @@ jme_suspend(struct pci_dev *pdev, pm_mes
+ 	tasklet_hi_enable(&jme->rxclean_task);
+ 	tasklet_hi_enable(&jme->rxempty_task);
+ 
+-	pci_save_state(pdev);
+ 	jme_powersave_phy(jme);
+-	pci_enable_wake(jme->pdev, PCI_D3hot, true);
+-	pci_set_power_state(pdev, PCI_D3hot);
+ 
+ 	return 0;
+ }
+ 
+-static int
+-jme_resume(struct pci_dev *pdev)
++static int jme_resume(struct device *dev)
+ {
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct jme_adapter *jme = netdev_priv(netdev);
+ 
+-	jme_clear_pm(jme);
+-	pci_restore_state(pdev);
++	jwrite32(jme, JME_PMCS, 0xFFFF0000 | jme->reg_pmcs);
+ 
+ 	jme_phy_on(jme);
+ 	if (test_bit(JME_FLAG_SSET, &jme->flags))
+@@ -3238,6 +3236,13 @@ jme_resume(struct pci_dev *pdev)
+ 
+ 	return 0;
+ }
++
++static SIMPLE_DEV_PM_OPS(jme_pm_ops, jme_suspend, jme_resume);
++#define JME_PM_OPS (&jme_pm_ops)
++
++#else
++
++#define JME_PM_OPS NULL
+ #endif
+ 
+ static DEFINE_PCI_DEVICE_TABLE(jme_pci_tbl) = {
+@@ -3251,11 +3256,8 @@ static struct pci_driver jme_driver = {
+ 	.id_table       = jme_pci_tbl,
+ 	.probe          = jme_init_one,
+ 	.remove         = __devexit_p(jme_remove_one),
+-#ifdef CONFIG_PM
+-	.suspend        = jme_suspend,
+-	.resume         = jme_resume,
+-#endif /* CONFIG_PM */
+ 	.shutdown       = jme_shutdown,
++	.driver.pm	= JME_PM_OPS,
+ };
+ 
+ static int __init
