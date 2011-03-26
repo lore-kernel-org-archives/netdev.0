@@ -1,7 +1,7 @@
 From: Mariusz Kozlowski <mk@lab.zgora.pl>
-Subject: [PATCH] mac80211: fix possible NULL pointer dereference
-Date: Sat, 26 Mar 2011 18:58:51 +0100
-Message-ID: <1301162331-5236-1-git-send-email-mk@lab.zgora.pl>
+Subject: [PATCH] cfg80211:: fix possible NULL pointer dereference
+Date: Sat, 26 Mar 2011 19:26:55 +0100
+Message-ID: <1301164015-7978-1-git-send-email-mk@lab.zgora.pl>
 Cc: "John W. Linville" <linville@tuxdriver.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
@@ -11,31 +11,44 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch moves 'key' dereference after BUG_ON(!key) so that when key is NULL
-we will see proper trace instead of oops.
+In cfg80211_inform_bss_frame() wiphy is first dereferenced on privsz
+initialisation and then it is checked for NULL. This patch fixes that.
 
 Signed-off-by: Mariusz Kozlowski <mk@lab.zgora.pl>
 ---
- net/mac80211/key.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/wireless/scan.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/net/mac80211/key.c b/net/mac80211/key.c
-index 8c02469..fd97925 100644
---- a/net/mac80211/key.c
-+++ b/net/mac80211/key.c
-@@ -400,11 +400,12 @@ int ieee80211_key_link(struct ieee80211_key *key,
- {
- 	struct ieee80211_key *old_key;
- 	int idx, ret;
--	bool pairwise = key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE;
-+	bool pairwise;
+diff --git a/net/wireless/scan.c b/net/wireless/scan.c
+index ea427f4..300c11d 100644
+--- a/net/wireless/scan.c
++++ b/net/wireless/scan.c
+@@ -585,16 +585,23 @@ cfg80211_inform_bss_frame(struct wiphy *wiphy,
+ 	struct cfg80211_internal_bss *res;
+ 	size_t ielen = len - offsetof(struct ieee80211_mgmt,
+ 				      u.probe_resp.variable);
+-	size_t privsz = wiphy->bss_priv_size;
++	size_t privsz;
++
++	if (WARN_ON(!mgmt))
++		return NULL;
++
++	if (WARN_ON(!wiphy))
++		return NULL;
  
- 	BUG_ON(!sdata);
- 	BUG_ON(!key);
+ 	if (WARN_ON(wiphy->signal_type == CFG80211_SIGNAL_TYPE_UNSPEC &&
+ 	            (signal < 0 || signal > 100)))
+ 		return NULL;
  
-+	pairwise = key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE;
- 	idx = key->conf.keyidx;
- 	key->local = sdata->local;
- 	key->sdata = sdata;
+-	if (WARN_ON(!mgmt || !wiphy ||
+-		    len < offsetof(struct ieee80211_mgmt, u.probe_resp.variable)))
++	if (WARN_ON(len < offsetof(struct ieee80211_mgmt, u.probe_resp.variable)))
+ 		return NULL;
+ 
++	privsz = wiphy->bss_priv_size;
++
+ 	res = kzalloc(sizeof(*res) + privsz + ielen, gfp);
+ 	if (!res)
+ 		return NULL;
 -- 
 1.7.0.4
