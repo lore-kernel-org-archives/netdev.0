@@ -1,86 +1,42 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: [PATCH] bridge: mcast snooping, fix IPv6 MLD checksum
- calculation
-Date: Sun, 27 Mar 2011 09:06:45 +0200
-Message-ID: <20110327070645.GA1734@Sellars>
-References: <20110327034404.GC31916@Sellars>
- <1301207244-10428-1-git-send-email-linus.luessing@web.de>
- <1301207244-10428-2-git-send-email-linus.luessing@web.de>
- <20110327063749.GA24299@gondor.apana.org.au>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: do not ignore route errors
+Date: Sun, 27 Mar 2011 09:17:49 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1103270908370.1466@ja.ssi.bg>
+References: <201103252345.p2PNjP1n025209@ja.ssi.bg> <20110325.203338.193726112.davem@davemloft.net> <20110327003536.GD31554@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bridge@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate01.web.de ([217.72.192.221]:56177 "EHLO
-	fmmailgate01.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653Ab1C0HHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 03:07:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20110327063749.GA24299@gondor.apana.org.au>
+Received: from ja.ssi.bg ([178.16.129.10]:48849 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751669Ab1C0HNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Mar 2011 03:13:06 -0400
+In-Reply-To: <20110327003536.GD31554@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So instead of 'if (!csum_fold(skb2->csum))' it should be this?
----
-if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
-                     skb2->len, nexthdr, skb2->csum))
----
-(I'm peeking a little bit at
-http://lxr.linux.no/linux+*/net/ipv6/netfilter.c#L98)
 
-Hmm, if so, then I don't know how to test and verify that now though.
+	Hello,
 
-Cheers, Linus
+On Sun, 27 Mar 2011, Simon Horman wrote:
 
-On Sun, Mar 27, 2011 at 02:37:49PM +0800, Herbert Xu wrote:
-> On Sun, Mar 27, 2011 at 08:27:23AM +0200, Linus L=C3=BCssing wrote:
-> > In contrast to IGMP, the MLDv1/2 message checksum needs to include =
-an
-> > IPv6 "pseudo-header" in the calculations (see RFC2710, section 3.3;
-> > RFC3810, section 5.1.2).
-> >=20
-> > The multicast snooping feature of the bridge code however did not t=
-ake
-> > this "pseudo-header" into consideration for the checksum validation=
- when
-> > parsing a snooped IPv6 MLDv1/2 message of another host, leading to
-> > possibly ignored, though valid MLDv1/2 messages. This commit shall =
-fix
-> > this issue.
-> >=20
-> > Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
-> > ---
-> >  net/bridge/br_multicast.c |    5 ++++-
-> >  1 files changed, 4 insertions(+), 1 deletions(-)
-> >=20
-> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> > index f61eb2e..47fae4f 100644
-> > --- a/net/bridge/br_multicast.c
-> > +++ b/net/bridge/br_multicast.c
-> > @@ -1525,7 +1525,10 @@ static int br_multicast_ipv6_rcv(struct net_=
-bridge *br,
-> >  			break;
-> >  		/*FALLTHROUGH*/
-> >  	case CHECKSUM_NONE:
-> > -		skb2->csum =3D 0;
-> > +		skb2->csum =3D ~csum_unfold(csum_ipv6_magic(&ip6h->saddr,
-> > +							  &ip6h->daddr,
-> > +							  skb2->len,
-> > +							  nexthdr, 0));
->=20
-> You also need to include the pseudo-header for the CHECKSUM_COMPLETE
-> case, before we've fallen through (which only happens if the
-> hardware checksum doesn't match).
->=20
-> Thanks,
-> --=20
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
->=20
+> > Your mailer corrupted this patch, so I applied it by hand.
+> 
+> I have noticed that Julian's patches usually arrive
+> with two leading spaces where there should be one but
+> are otherwise intact.  And that its not a new thing,
+> I can remember seeing this 6 months ago, and I don't think
+> it was a new thing then either.
+> 
+> Just an observation.
+
+	Yes, I just yesterday discovered this format=flowed
+problem myself. Then I found Documentation/email-clients.txt
+explaining everything. Sorry, I hope now there should be
+no problems with my emails.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
