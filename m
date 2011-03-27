@@ -1,49 +1,495 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] netdev: bfin_mac: document TE setting in RMII modes
-Date: Mon, 28 Mar 2011 03:17:29 -0400
-Message-ID: <1301296649-25603-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:35104 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016Ab1C1IQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2011 04:16:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrzej Zaborowski <andrew.zaborowski@intel.com>
+Subject: [PATCH] net/usb: Ethernet quirks for the LG-VL600 4G modem
+Date: Mon, 28 Mar 2011 00:04:33 +0200
+Message-ID: <1301263473-27849-1-git-send-email-andrew.zaborowski@intel.com>
+Cc: Oliver Neukum <oliver@neukum.name>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	linux-kernel@vger.kernel.org, balrogg@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The current code sometimes generates build warnings due to how it checks
-the silicon revision, so clean it up and properly document things.
+This adds a driver for the CDC Ethernet part of this modem.  The
+device's ID is blacklisted in cdc_ether.c and is white-listed in
+this new driver because of the quirks needed to make it useful.
+The modem's firmware exposes a CDC ACM port for modem control and a
+CDC Ethernet port for network data.  The descriptors look fine but
+both ports actually are some sort of multiplexers requiring non-
+standard headers added/removed from every packet or else they're
+ignored.  The CDC Ethernet port is not technically an ethernet
+interface because the ethernet header is stripped away from packets
+and only packets sent to/from the gateway IP are allowed.  But
+treating it like an ethernet interface lets us to reuse a lot of
+driver code and userspace code like DHCP.  All information is
+based on a usb traffic log from a Windows machine.
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+Comments on how to improve the code are welcome.  Note that
+usb_skb_return is used in tx_fixup without a bottom half, which
+other drivers don't do.
+
+On the Verizon 4G network I've seen speeds up to 1.1MB/s so far with
+this driver, a speed-o-meter site reports 16.2Mbps/10.5Mbps.
+Userspace scripts are required to talk to the CDC ACM port.
+
+Signed-off-by: Andrzej Zaborowski <balrogg@gmail.com>
 ---
- drivers/net/bfin_mac.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/usb/Kconfig     |   15 ++
+ drivers/net/usb/Makefile    |    1 +
+ drivers/net/usb/cdc_ether.c |   21 ++-
+ drivers/net/usb/lg-vl600.c  |  325 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/usb/usbnet.h  |    4 +-
+ 5 files changed, 356 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/usb/lg-vl600.c
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 22abfb3..0c68816 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -1237,9 +1237,16 @@ static int bfin_mac_enable(struct phy_device *phydev)
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 6f600cc..b849017 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -433,4 +433,19 @@ config USB_SIERRA_NET
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called sierra_net.
  
- 	if (phydev->interface == PHY_INTERFACE_MODE_RMII) {
- 		opmode |= RMII; /* For Now only 100MBit are supported */
--#if (defined(CONFIG_BF537) || defined(CONFIG_BF536)) && CONFIG_BF_REV_0_2
--		opmode |= TE;
--#endif
-+		if (__SILICON_REVISION__ < 3) {
-+			/*
-+			 * This isn't publicly documented (fun times!), but in
-+			 * silicon <=0.2, the RX and TX pins are clocked together.
-+			 * So in order to recv, we must enable the transmit side
-+			 * as well.  This will cause a spurious TX interrupt too,
-+			 * but we can easily consume that.
-+			 */
-+			opmode |= TE;
-+		}
++config USB_VL600
++	tristate "LG VL600 modem dongle"
++	depends on USB_NET_CDCETHER
++	select USB_ACM
++	help
++	  Select this if you want to use an LG Electronics 4G/LTE usb modem
++	  called VL600.  This driver only handles the ethernet
++	  interface exposed by the modem firmware.  To establish a connection
++	  you will first need a userspace program that sends the right
++	  command to the modem through its CDC ACM port, and most
++	  likely also a DHCP client.  See this thread about using the
++	  4G modem from Verizon:
++
++	  http://ubuntuforums.org/showpost.php?p=10589647&postcount=17
++
+ endmenu
+diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+index cac1703..c7ec8a5 100644
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -27,4 +27,5 @@ obj-$(CONFIG_USB_IPHETH)	+= ipheth.o
+ obj-$(CONFIG_USB_SIERRA_NET)	+= sierra_net.o
+ obj-$(CONFIG_USB_NET_CX82310_ETH)	+= cx82310_eth.o
+ obj-$(CONFIG_USB_NET_CDC_NCM)	+= cdc_ncm.o
++obj-$(CONFIG_USB_VL600)		+= lg-vl600.o
+ 
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 9a60e41..8bcb3d9 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -378,7 +378,7 @@ static void dumpspeed(struct usbnet *dev, __le32 *speeds)
+ 		   __le32_to_cpu(speeds[1]) / 1000);
+ }
+ 
+-static void cdc_status(struct usbnet *dev, struct urb *urb)
++void usbnet_cdc_status(struct usbnet *dev, struct urb *urb)
+ {
+ 	struct usb_cdc_notification	*event;
+ 
+@@ -418,8 +418,9 @@ static void cdc_status(struct usbnet *dev, struct urb *urb)
+ 		break;
  	}
+ }
++EXPORT_SYMBOL_GPL(usbnet_cdc_status);
  
- 	/* Turn on the EMAC rx */
+-static int cdc_bind(struct usbnet *dev, struct usb_interface *intf)
++int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	int				status;
+ 	struct cdc_state		*info = (void *) &dev->data;
+@@ -441,6 +442,7 @@ static int cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	 */
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(usbnet_cdc_bind);
+ 
+ static int cdc_manage_power(struct usbnet *dev, int on)
+ {
+@@ -452,18 +454,18 @@ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+ 	.flags =	FLAG_ETHER,
+ 	// .check_connect = cdc_check_connect,
+-	.bind =		cdc_bind,
++	.bind =		usbnet_cdc_bind,
+ 	.unbind =	usbnet_cdc_unbind,
+-	.status =	cdc_status,
++	.status =	usbnet_cdc_status,
+ 	.manage_power =	cdc_manage_power,
+ };
+ 
+ static const struct driver_info mbm_info = {
+ 	.description =	"Mobile Broadband Network Device",
+ 	.flags =	FLAG_WWAN,
+-	.bind = 	cdc_bind,
++	.bind =		usbnet_cdc_bind,
+ 	.unbind =	usbnet_cdc_unbind,
+-	.status =	cdc_status,
++	.status =	usbnet_cdc_status,
+ 	.manage_power =	cdc_manage_power,
+ };
+ 
+@@ -560,6 +562,13 @@ static const struct usb_device_id	products [] = {
+ 	.driver_info		= 0,
+ },
+ 
++/* LG Electronics VL600 wants additional headers on every frame */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(0x1004, 0x61aa, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info		= 0,
++},
++
+ /*
+  * WHITELIST!!!
+  *
+diff --git a/drivers/net/usb/lg-vl600.c b/drivers/net/usb/lg-vl600.c
+new file mode 100644
+index 0000000..4f54661
+--- /dev/null
++++ b/drivers/net/usb/lg-vl600.c
+@@ -0,0 +1,325 @@
++/*
++ * Ethernet interface part of the LG VL600 LTE modem (4G dongle)
++ *
++ * Copyright (C) 2011 Intel Corporation
++ * Author: Andrzej Zaborowski <balrogg@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/mii.h>
++#include <linux/usb.h>
++#include <linux/usb/cdc.h>
++#include <linux/usb/usbnet.h>
++#include <linux/if_ether.h>
++#include <linux/if_arp.h>
++#include <linux/inetdevice.h>
++
++/*
++ * The device has a CDC ACM port for modem control (it claims to be
++ * CDC ACM anyway) and a CDC Ethernet port for actual network data.
++ * It will however ignore data on both ports that is not encapsulated
++ * in a specific way, any data returned is also encapsulated the same
++ * way.  The headers don't seem to follow any popular standard.
++ *
++ * This driver adds and strips these headers from the ethernet frames
++ * sent/received from the CDC Ethernet port.  The proprietary header
++ * replaces the standard ethernet header in a packet so only actual
++ * ethernet frames are allowed.  The headers allow some form of
++ * multiplexing by using non standard values of the .h_proto field.
++ * Windows/Mac drivers do send a couple of such frames to the device
++ * during initialisation, with protocol set to 0x0906 or 0x0b06 and (what
++ * seems to be) a flag in the .dummy_flags.  This doesn't seem necessary
++ * for modem operation but can possibly be used for GPS or other funcitons.
++ */
++
++struct vl600_frame_hdr {
++	__le32 len;
++	__le32 serial;
++	__le32 pkt_cnt;
++	__le32 dummy_flags;
++	__le32 dummy;
++	__le32 magic;
++} __attribute__((packed));
++
++struct vl600_pkt_hdr {
++	__le32 dummy[2];
++	__le32 len;
++	__be16 h_proto;
++} __attribute__((packed));
++
++/* Note: Turbo-hack! The modem firmware (or someone on the Verizon
++ * network side) works as a DHCP server and gateway between us and
++ * the intarwebs.  It has a dynamically assigned IP address on the
++ * same subnet as our IP and all communications goes through it.
++ * Effectively the subnet can contain only exactly two hosts (local
++ * and remote) and thus hardware addresses have no meaning any more
++ * making the ARP layer useless.  The source and the destination of
++ * each packet on the IN and on the OUT endpoints are known and are
++ * not included in the usb frames unlike on real ethernet.
++ * Apparently someone has noticed that ARP is not needed and the
++ * remote host doesn't bother answering ARP requests.  So we look
++ * for ARP requests in vl600_tx_fixup and we fake a response from
++ * the remote side containing a fake hardware address.
++ */
++static int vl600_handle_arp(struct usbnet *dev, struct sk_buff *skb)
++{
++	struct sk_buff *resp;
++	struct ethhdr *eth_req, *eth_resp;
++	struct arphdr *arp_req, *arp_resp;
++	int arp_len = arp_hdr_len(dev->net);
++	struct in_device *in_dev = dev->net->ip_ptr;
++
++	if (skb->len < sizeof(*eth_resp) + arp_len)
++		return 0;
++
++	arp_req = (struct arphdr *) (skb->data + sizeof(*eth_req));
++	if (be16_to_cpup(&arp_req->ar_hrd) != ARPHRD_ETHER ||
++			be16_to_cpup(&arp_req->ar_pro) != ETH_P_IP ||
++			arp_req->ar_hln != ETH_ALEN ||
++			arp_req->ar_pln != 4 ||
++			be16_to_cpup(&arp_req->ar_op) != ARPOP_REQUEST)
++		return 0;
++
++	if (!in_dev || !in_dev->ifa_list)
++		return 0;
++
++	/* This is a poor check that this request is not just ourselves asking
++	 * if the address proposed to us by DHCP is taken.. */
++	if (!memcmp(skb->data + sizeof(*eth_req) + sizeof(*arp_req) + ETH_ALEN,
++				"\0\0\0\0", 4))
++		return 0;
++
++	/* Build response packet */
++	resp = dev_alloc_skb(sizeof(*eth_resp) + arp_len);
++
++	eth_req = (struct ethhdr *) skb->data;
++	eth_resp = (struct ethhdr *) skb_put(resp, sizeof(*eth_resp));
++	eth_resp->h_proto = eth_req->h_proto;
++	memcpy(&eth_resp->h_dest, eth_req->h_source, ETH_ALEN);
++	memset(&eth_resp->h_source, 0, ETH_ALEN);
++
++	arp_req = (struct arphdr *) (skb->data + sizeof(*eth_req));
++	arp_resp = (struct arphdr *) skb_put(resp, sizeof(*arp_resp));
++	arp_resp->ar_hrd = arp_req->ar_hrd;
++	arp_resp->ar_pro = arp_req->ar_pro;
++	arp_resp->ar_hln = arp_req->ar_hln;
++	arp_resp->ar_pln = arp_req->ar_pln;
++	arp_resp->ar_op = cpu_to_be16(ARPOP_REPLY);
++
++	memcpy(skb_put(resp, ETH_ALEN + 4),
++			skb->data + sizeof(*eth_req) + sizeof(*arp_req) +
++			ETH_ALEN + 4, ETH_ALEN + 4);
++	memcpy(skb_put(resp, ETH_ALEN + 4),
++			skb->data + sizeof(*eth_req) + sizeof(*arp_req),
++			ETH_ALEN + 4);
++
++	usbnet_skb_return(dev, resp);
++
++	return 1;
++}
++
++static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
++{
++	struct vl600_frame_hdr *frame;
++	struct vl600_pkt_hdr *packet;
++	struct ethhdr *ethhdr;
++	int packet_len, count;
++	struct sk_buff *clone;
++
++	frame = (struct vl600_frame_hdr *) skb->data;
++	/* Frame lengths are generally 4B multiplies but every couple of
++	 * hours there's an odd number of bytes sized yet correct frame,
++	 * so don't check for this.  */
++	if (skb->len < sizeof(*frame) ||
++			skb->len != le32_to_cpup(&frame->len)) {
++		netif_err(dev, ifup, dev->net, "Invalid frame length");
++		dev->net->stats.rx_length_errors++;
++		return 0;
++	}
++
++	/* Should check that frame->magic == 0x53544448 or so? */
++
++	count = le32_to_cpup(&frame->pkt_cnt);
++
++	skb_pull(skb, sizeof(*frame));
++
++	while (count--) {
++		if (skb->len < sizeof(*packet)) {
++			netif_err(dev, ifup, dev->net, "Frame too short");
++			dev->net->stats.rx_errors++;
++			return 0;
++		}
++
++		packet = (struct vl600_pkt_hdr *) skb->data;
++		packet_len = sizeof(*packet) + le32_to_cpup(&packet->len);
++		if (packet_len > skb->len) {
++			netif_err(dev, ifup, dev->net,
++					"Bad packet length stored in header");
++			dev->net->stats.rx_errors++;
++			return 0;
++		}
++
++		/* Packet header is same size as ethernet packet header
++		 * (sizeof(*packet) == sizeof(*ethhdr)), additionally
++		 * the h_proto field is in the same place so we just leave it
++		 * alone and fill in the remaining fields.
++		 */
++		ethhdr = (struct ethhdr *) skb->data;
++		if (be16_to_cpup(&ethhdr->h_proto) == ETH_P_ARP &&
++				skb->len > 0x26) {
++			/* Copy the addresses from packet contents */
++			memcpy(ethhdr->h_source,
++					&skb->data[sizeof(*ethhdr) + 0x8],
++					ETH_ALEN);
++			memcpy(ethhdr->h_dest,
++					&skb->data[sizeof(*ethhdr) + 0x12],
++					ETH_ALEN);
++		} else {
++			memset(ethhdr->h_source, 0, ETH_ALEN);
++			memcpy(ethhdr->h_dest, &dev->net->dev_addr, ETH_ALEN);
++		}
++
++		if (count) {
++			/* Not the last packet in this batch */
++			clone = skb_clone(skb, GFP_ATOMIC);
++			skb_trim(clone, packet_len);
++			usbnet_skb_return(dev, clone);
++
++			skb_pull(skb, (packet_len + 3) & ~3);
++		} else {
++			skb_trim(skb, packet_len);
++			return 1;
++		}
++	}
++
++	return 0;
++}
++
++static struct sk_buff *vl600_tx_fixup(struct usbnet *dev,
++		struct sk_buff *skb, gfp_t flags)
++{
++	struct sk_buff *ret;
++	struct vl600_frame_hdr *frame;
++	struct vl600_pkt_hdr *packet;
++	static uint32_t serial = 1;
++	int orig_len = skb->len - sizeof(struct ethhdr);
++	int full_len = (skb->len + sizeof(struct vl600_frame_hdr) + 3) & ~3;
++
++	frame = (struct vl600_frame_hdr *) skb->data;
++	if (skb->len > sizeof(*frame) && skb->len == le32_to_cpup(&frame->len))
++		return skb; /* Already encapsulated? */
++
++	if (skb->len < sizeof(struct ethhdr))
++		/* Drop, device can only deal with ethernet packets */
++		return NULL;
++
++	packet = (struct vl600_pkt_hdr *) skb->data;
++	if (be16_to_cpup(&packet->h_proto) == ETH_P_ARP)
++		if (vl600_handle_arp(dev, skb))
++			/* Drop if response faked */
++			return NULL;
++
++	if (!skb_cloned(skb)) {
++		int headroom = skb_headroom(skb);
++		int tailroom = skb_tailroom(skb);
++
++		if (tailroom >= full_len - skb->len - sizeof(*frame) &&
++				headroom >= sizeof(*frame))
++			/* There's enough head and tail room */
++			goto encapsulate;
++
++		if (headroom + tailroom + skb->len >= full_len) {
++			/* There's enough total room, just readjust */
++			skb->data = memmove(skb->head + sizeof(*frame),
++					skb->data, skb->len);
++			skb_set_tail_pointer(skb, skb->len);
++			goto encapsulate;
++		}
++	}
++
++	/* Alloc a new skb with the required size */
++	ret = skb_copy_expand(skb, sizeof(struct vl600_frame_hdr), full_len -
++			skb->len - sizeof(struct vl600_frame_hdr), flags);
++	dev_kfree_skb_any(skb);
++	if (!ret)
++		return ret;
++	skb = ret;
++
++encapsulate:
++	/* Packet header is same size as ethernet packet header
++	 * (sizeof(*packet) == sizeof(struct ethhdr)), additionally the
++	 * h_proto field is in the same place so we just leave it alone and
++	 * overwrite the remaining fields.
++	 */
++	packet = (struct vl600_pkt_hdr *) skb->data;
++	memset(&packet->dummy, 0, sizeof(packet->dummy));
++	packet->len = cpu_to_le32(orig_len);
++
++	frame = (struct vl600_frame_hdr *) skb_push(skb, sizeof(*frame));
++	memset(frame, 0, sizeof(*frame));
++	frame->len = cpu_to_le32(full_len);
++	frame->serial = cpu_to_le32(serial++);
++	frame->pkt_cnt = cpu_to_le32(1);
++
++	if (skb->len < full_len) /* Pad */
++		skb_put(skb, full_len - skb->len);
++
++	return skb;
++}
++
++static const struct driver_info	vl600_info = {
++	.description	= "LG VL600 modem",
++	.flags		= FLAG_ETHER,
++	.bind		= usbnet_cdc_bind,
++	.unbind		= usbnet_cdc_unbind,
++	.status		= usbnet_cdc_status,
++	.rx_fixup	= vl600_rx_fixup,
++	.tx_fixup	= vl600_tx_fixup,
++};
++
++static const struct usb_device_id products[] = {
++	{
++		USB_DEVICE_AND_INTERFACE_INFO(0x1004, 0x61aa, USB_CLASS_COMM,
++				USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++		.driver_info	= (unsigned long) &vl600_info,
++	},
++	{},	/* End */
++};
++MODULE_DEVICE_TABLE(usb, products);
++
++static struct usb_driver lg_vl600_driver = {
++	.name		= "lg-vl600",
++	.id_table	= products,
++	.probe		= usbnet_probe,
++	.disconnect	= usbnet_disconnect,
++	.suspend	= usbnet_suspend,
++	.resume		= usbnet_resume,
++};
++
++static int __init vl600_init(void)
++{
++	return usb_register(&lg_vl600_driver);
++}
++module_init(vl600_init);
++
++static void __exit vl600_exit(void)
++{
++	usb_deregister(&lg_vl600_driver);
++}
++module_exit(vl600_exit);
++
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 44842c8..3bef970 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -172,7 +172,9 @@ struct cdc_state {
+ };
+ 
+ extern int usbnet_generic_cdc_bind(struct usbnet *, struct usb_interface *);
+-extern void usbnet_cdc_unbind(struct usbnet *, struct usb_interface *);
++extern int usbnet_cdc_bind(struct usbnet *, struct usb_interface *);
++extern void usbnet_cdc_unbind(struct usbnet *, struct usb_interface *);
++extern void usbnet_cdc_status(struct usbnet *, struct urb *);
+ 
+ /* CDC and RNDIS support the same host-chosen packet filters for IN transfers */
+ #define	DEFAULT_FILTER	(USB_CDC_PACKET_TYPE_BROADCAST \
 -- 
-1.7.4.1
-
+1.7.1.86.g0e460.dirty
