@@ -1,105 +1,106 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] kstrtox: convert drivers/isdn/
-Date: Sun, 27 Mar 2011 15:58:35 +0300
-Message-ID: <20110327125835.GA5820@p183.telecom.by>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: Multicast Fails Over Multipoint GRE Tunnel
+Date: Sun, 27 Mar 2011 19:17:23 +0300
+Message-ID: <4D8F6313.60408@iki.fi>
+References: <500208.18069.qm@web39303.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: t.schmidt@phoenixsoftware.de
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Doug Kehn <rdkehn@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:34805 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411Ab1C0N6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 09:58:41 -0400
-Received: by bwz15 with SMTP id 15so1863312bwz.19
-        for <netdev@vger.kernel.org>; Sun, 27 Mar 2011 06:58:39 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:32992 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753949Ab1C0QR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 12:17:27 -0400
+Received: by ewy4 with SMTP id 4so970593ewy.19
+        for <netdev@vger.kernel.org>; Sun, 27 Mar 2011 09:17:25 -0700 (PDT)
+In-Reply-To: <500208.18069.qm@web39303.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+On 03/16/2011 10:02 PM, Doug Kehn wrote:
+>> From: Timo Ter=E4s <timo.teras@iki.fi>
+>> Subject: Re: Multicast Fails Over Multipoint GRE Tunnel
+>> To: "Doug Kehn" <rdkehn@yahoo.com>
+>> Cc: "Eric Dumazet" <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+>> Date: Wednesday, March 16, 2011, 2:01 AM
+>> On 03/15/2011 11:35 PM, Doug Kehn
+>> wrote:
+>>>> From: Timo Ter=E4s <timo.teras@iki.fi>
+>>>> Subject: Re: Multicast Fails Over Multipoint GRE Tunnel
+>>>> To: "Eric Dumazet" <eric.dumazet@gmail.com>
+>>>> Cc: "Doug Kehn" <rdkehn@yahoo.com>, netdev@vger.kernel.org
+>>>> Date: Tuesday, March 15, 2011, 12:36 PM
+>>>> On 03/15/2011 05:34 PM, Eric Dumazet wrote:
+>>>> Le lundi 14 mars 2011 =E0 16:34 -0700, Doug Kehn a =E9crit :
+>>>> I'm running kernel version 2.6.36 on ARM XSCALE
+>>>> (big-endian) and multicast over a multipoint GRE tunnel
+>>>> isn't working.  For my architecture, this worked on
+>>>> 2.6.26.8.  For x86, multicast over a multipoint GRE
+>>>> tunnel worked with kernel version 2.6.31 but failed with
+>>>> version 2.6.35.  Multicast over a multipoint GRE tunnel
+>>>> fails because ipgre_header() fails the 'if (iph->daddr)'
+>>>> check and reutrns -t->hlen. ipgre_header() is being
+>>>> called, from neigh_connected_output(), with a non-null
+>>>> daddr; the contents of daddr is zero.
+>>>
+>>> I wasn't sure if the above patch was in addition too
+>>> or in lieu of the partial revert of ipgre_header() suggested
+>>> by Eric; both cases were attempted.
+>>
+>> It was intended without the ipgre_header revert. The
+>> partial revert does
+>> not differ from full revert related to my problem.
+>>
+>>> The multicast scenario described does not work if only
+>> the arp_mc_map() patch is applied.
+>>
+>> Uh. Right, the if test had wrong condition. The intention
+>> was to show the idea that we create the multicast-to-multicast
+>> GRE NOARP mappings in arp code where it should've been done in
+>> the first place (IMHO).
+>>
+>> Could you try the below patch? That should work better. And
+>> the ipgre_header should not be touched.
+>=20
+> It does!  With this patch my configuration works.
 
- drivers/isdn/gigaset/ev-layer.c    |   26 +++++++++-----------------
- drivers/isdn/hysdn/hysdn_proclog.c |   11 ++++-------
- 2 files changed, 13 insertions(+), 24 deletions(-)
+I've been trying to think what would be the proper way to handle
+multicast in ip_gre. I would also hope to get the ipmr code integrated
+with opennhrp and ip_gre (see my earlier mail from couple of years ago:
+http://lists.openwall.net/netdev/2009/08/11/27).
 
---- a/drivers/isdn/gigaset/ev-layer.c
-+++ b/drivers/isdn/gigaset/ev-layer.c
-@@ -390,12 +390,12 @@ static const struct zsau_resp_t {
-  */
- static int cid_of_response(char *s)
- {
--	unsigned long cid;
-+	int cid;
- 	int rc;
- 
- 	if (s[-1] != ';')
- 		return 0;	/* no CID separator */
--	rc = strict_strtoul(s, 10, &cid);
-+	rc = kstrtoint(s, 10, &cid);
- 	if (rc)
- 		return 0;	/* CID not numeric */
- 	if (cid < 1 || cid > 65535)
-@@ -566,27 +566,19 @@ void gigaset_handle_modem_response(struct cardstate *cs)
- 		case RT_ZCAU:
- 			event->parameter = -1;
- 			if (curarg + 1 < params) {
--				unsigned long type, value;
--
--				i = strict_strtoul(argv[curarg++], 16, &type);
--				j = strict_strtoul(argv[curarg++], 16, &value);
-+				u8 type, value;
- 
--				if (i == 0 && type < 256 &&
--				    j == 0 && value < 256)
-+				i = kstrtou8(argv[curarg++], 16, &type);
-+				j = kstrtou8(argv[curarg++], 16, &value);
-+				if (i == 0 && j == 0)
- 					event->parameter = (type << 8) | value;
- 			} else
- 				curarg = params - 1;
- 			break;
- 		case RT_NUMBER:
--			event->parameter = -1;
--			if (curarg < params) {
--				unsigned long res;
--				int rc;
--
--				rc = strict_strtoul(argv[curarg++], 10, &res);
--				if (rc == 0)
--					event->parameter = res;
--			}
-+			if (curarg >= params ||
-+			    kstrtoint(argv[curarg++], 10, &event->parameter))
-+				event->parameter = -1;
- 			gig_dbg(DEBUG_EVENT, "parameter==%d", event->parameter);
- 			break;
- 		}
---- a/drivers/isdn/hysdn/hysdn_proclog.c
-+++ b/drivers/isdn/hysdn/hysdn_proclog.c
-@@ -155,7 +155,6 @@ put_log_buffer(hysdn_card * card, char *cp)
- static ssize_t
- hysdn_log_write(struct file *file, const char __user *buf, size_t count, loff_t * off)
- {
--	unsigned long u = 0;
- 	int rc;
- 	unsigned char valbuf[128];
- 	hysdn_card *card = file->private_data;
-@@ -167,12 +166,10 @@ hysdn_log_write(struct file *file, const char __user *buf, size_t count, loff_t
- 
- 	valbuf[count] = 0;	/* terminating 0 */
- 
--	rc = strict_strtoul(valbuf, 0, &u);
--
--	if (rc == 0) {
--		card->debug_flags = u;	/* remember debug flags */
--		hysdn_addlog(card, "debug set to 0x%lx", card->debug_flags);
--	}
-+	rc = kstrtoul(valbuf, 0, &card->debug_flags);
-+	if (rc < 0)
-+		return rc;
-+	hysdn_addlog(card, "debug set to 0x%lx", card->debug_flags);
- 	return (count);
- }				/* hysdn_log_write */
- 
+I believe we should just create the noarp multicast mappings as my patc=
+h
+suggests. Both for IPv4 and IPv6 we map the inner multicast group to th=
+e
+IPv4 header of GRE. And I believe we should drop the support of
+auto-mapping unicast addresses to unicast address. Does anyone think
+it's useful if sending to 1.2.3.4 in gre1, would result in automapping
+the outer IP also to 1.2.3.4 in case the interface was in NOARP mode? I
+believe the user should just insert manually the ARP entries in this ca=
+se.
+
+Also, I noticed that ipmr got support for multiple tables, that fixes
+one of the problem I stated along with the old patch. So I'm planning t=
+o
+reimplement at some point the patch from the above link. It'd probably
+involve also hooking link-local multicast traffic through the ipmr
+engine when using the NBMA mode. Obviously the ipmr when configured
+would override the static NOARP multicast mappings.
+
+If no one has objections I'll write up an official-looking patch that
+adds the IPv4 multicast mappings, and try to fix up the same for IPv6
+side. When this is done, it should be possible the get rid of the "if
+((dst =3D tiph->daddr) =3D=3D 0) {" block in ipgre_tunnel_xmit(), since=
+ we are
+then creating all the mappings from the ARP code where it should be don=
+e
+anyway.
+
+Any comments for this plan? Eric? Dave?
+
+Cheers,
+  Timo
