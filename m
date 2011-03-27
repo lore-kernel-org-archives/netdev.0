@@ -1,47 +1,101 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] bridge: mcast snooping, fix IPv6 MLD checksum
-	calculation
-Date: Sun, 27 Mar 2011 15:52:42 +0800
-Message-ID: <20110327075242.GA24677@gondor.apana.org.au>
-References: <20110327034404.GC31916@Sellars> <1301207244-10428-1-git-send-email-linus.luessing@web.de> <1301207244-10428-2-git-send-email-linus.luessing@web.de> <20110327063749.GA24299@gondor.apana.org.au> <20110327070645.GA1734@Sellars>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/2] virtio_net: remove send completion interrupts and
+ avoid TX queue overrun through packet drop
+Date: Sun, 27 Mar 2011 09:52:54 +0200
+Message-ID: <20110327075254.GA3776@redhat.com>
+References: <20110318133311.GA20623@gondor.apana.org.au>
+ <1300498915.3441.21.camel@localhost.localdomain>
+ <1300730587.3441.24.camel@localhost.localdomain>
+ <20110322113649.GA17071@redhat.com>
+ <1300847204.3441.26.camel@localhost.localdomain>
+ <87r59xbbr6.fsf@rustcorp.com.au>
+ <20110324142822.GD12958@redhat.com>
+ <87mxkjls61.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bridge@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org
-To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:47502 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058Ab1C0Hwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 03:52:54 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>, davem@davemloft.net,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110327070645.GA1734@Sellars>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <87mxkjls61.fsf@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 27, 2011 at 09:06:45AM +0200, Linus L=FCssing wrote:
-> So instead of 'if (!csum_fold(skb2->csum))' it should be this?
-> ---
-> if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
->                      skb2->len, nexthdr, skb2->csum))
-> ---
-> (I'm peeking a little bit at
-> http://lxr.linux.no/linux+*/net/ipv6/netfilter.c#L98)
+On Fri, Mar 25, 2011 at 03:20:46PM +1030, Rusty Russell wrote:
+> > 3. For TX sometimes we free a single buffer, sometimes
+> >    a ton of them, which might make the transmit latency
+> >    vary. It's probably a good idea to limit this,
+> >    maybe free the minimal number possible to keep the device
+> >    going without stops, maybe free up to MAX_SKB_FRAGS.
+> 
+> This kind of heuristic is going to be quite variable depending on
+> circumstance, I think, so it's a lot of work to make sure we get it
+> right.
 
-Yes that looks about right.
+Hmm, trying to keep the amount of work per descriptor
+constant seems to make sense though, no?
+Latency variations are not good for either RT uses or
+protocols such as TCP.
 
-> Hmm, if so, then I don't know how to test and verify that now though.
+> > 4. If the ring is full, we now notify right after
+> >    the first entry is consumed. For TX this is suboptimal,
+> >    we should try delaying the interrupt on host.
+> 
+> Lguest already does that: only sends an interrupt when it's run out of
+> things to do.  It does update the used ring, however, as it processes
+> them.
 
-You'd need a NIC that supported this to test.  Although I wouldn't
-worry about it too much as the same code patterns appears over and
-over again in our stack.  Perhaps we should put it in a helper.
+There are many approaches here I suspect something like
+interrupt after half work is done might be better for
+parallelism.
 
-Thanks,
---=20
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> This seems sensible to me, but needs to be measured separately as well.
+
+Agree.
+
+> > More ideas, would be nice if someone can try them out:
+> > 1. We are allocating/freeing buffers for indirect descriptors.
+> >    Use some kind of pool instead?
+> >    And we could preformat part of the descriptor.
+> 
+> We need some poolish mechanism for virtio_blk too; perhaps an allocation
+> callback which both can use (virtio_blk to alloc from a pool, virtio_net
+> to recycle?).
+
+BTW for recycling, need to be careful about numa effects:
+probably store cpu id and reallocate if we switch cpus ...
+(or noma nodes - unfortunately not always described correctly).
+
+> Along similar lines to preformatting, we could actually try to prepend
+> the skb_vnet_hdr to the vnet data, and use a single descriptor for the
+> hdr and the first part of the packet.
+> 
+> Though IIRC, qemu's virtio barfs if the first descriptor isn't just the
+> hdr (barf...).
+
+Maybe we can try fixing this before adding more flags,
+then e.g. publish used flag can be resued to also
+tell us layout is flexible. Or just add a feature flag for that.
+
+> > 2. I didn't have time to work on virtio2 ideas presented
+> >    at the kvm forum yet, any takers?
+> 
+> I didn't even attend.
+
+Hmm, right. But what was presented there was discussed on list as well:
+a single R/W descriptor ring with valid bit instead of 2 rings
++ a descriptor array.
+
+>  But I think that virtio is moribund for the
+> moment; there wasn't enough demand and it's clear that there are
+> optimization unexplored in virtio1.
+
+I agree absolutely that not all lessons has been learned,
+playing with different ring layouts would make at least
+an interesting paper IMO.
+
+-- 
+MST
