@@ -1,96 +1,119 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] vlan: Fix duplicate delivery of vlan 0 packets to ETH_P_ALL packet sockets
-Date: Sat, 26 Mar 2011 23:27:38 -0700
-Message-ID: <m1zkoh9ixx.fsf@fess.ebiederm.org>
-References: <m1sjugi2d0.fsf@fess.ebiederm.org>
-	<AANLkTinYDOAbF8TO_LA9UccEnBNCqLEyx7mpDBtfmH8z@mail.gmail.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH V13 0/4] ptp: IEEE 1588 hardware clock support
+Date: Sun, 27 Mar 2011 08:37:12 +0200
+Message-ID: <cover.1301206090.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	=?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:41090 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881Ab1C0G1q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 02:27:46 -0400
-In-Reply-To: <AANLkTinYDOAbF8TO_LA9UccEnBNCqLEyx7mpDBtfmH8z@mail.gmail.com>
-	(Jesse Gross's message of "Wed, 23 Mar 2011 13:59:25 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jesse Gross <jesse@nicira.com> writes:
+* Introduction
 
-> On Mon, Mar 21, 2011 at 2:35 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->>
->> For vlan data coming in from nics without vlan hardware accelleratio=
-n we
->> get two copies of vlan packets with vlan id 0 on pf_packet sockets, =
-causing
->> userspace to break. =C2=A0This is caused by delivering the same pack=
-et to the same
->> networking device more than once.
->
-> I agree that this is a problem and the code consolidation is very nic=
-e
-> but I'm concerned that there is extra complexity for the rest of the
-> system to counterbalance what is saved here.
->
->> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->> index ce8e3ab..a0849b9 100644
->> --- a/net/8021q/vlan_core.c
->> +++ b/net/8021q/vlan_core.c
->> +void emulate_vlan_hwaccel(struct sk_buff *skb)
->> +{
->> + =C2=A0 =C2=A0 =C2=A0 struct vlan_hdr *vhdr =3D (struct vlan_hdr *)=
-skb->data;
->> + =C2=A0 =C2=A0 =C2=A0 __be16 proto;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 if (!pskb_may_pull(skb, VLAN_HLEN))
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 __vlan_hwaccel_put_tag(skb, vhdr->h_vlan_TCI)=
-;
->> + =C2=A0 =C2=A0 =C2=A0 skb_pull_rcsum(skb, VLAN_HLEN);
->
-> Doesn't this break things which push the header back on?  Bridging
-> pushes ETH_HLEN before forwarding but here it will be a garbage value
-> due to the extra vlan header.  AF_PACKET pushes the mac header back
-> on, which in this case includes the original vlan header.  However,
-> since we've also put the tag in skb->vlan_tci, won't it appear to be
-> double tagged?
+  The aim of this patch set is to add support for PTP Hardware Clocks
+  (PHCs) into the Linux kernel. The patch series builds upon the
+  dynamic posix clock work appearing in kernel version 2.6.39.
 
-Probably that part does indeed look like a bug, and my testing certainl=
-y
-shows that there are problems with my patch.
+  Support for obtaining timestamps from a PHC already exists via the
+  SO_TIMESTAMPING socket option, integrated in kernel version 2.6.30.
+  This patch set completes the picture by allow user space programs to
+  adjust the PHC and to control its ancillary features.
 
-> More generally, even though we pull the tag off the skb it's pretty
-> common on the receive path to look backwards into previous headers.
-> Given that this can happen, I think it's somewhat confusing/fragile t=
-o
-> have packet data which effectively should not be there.  It also adds
-> a third case to any generic vlan handling code: tag in packet (can
-> still happen, such as on transmit), received on vlan accelerated NIC =
--
-> tag in skb but not in packet, receive on non-vlan accelerated NIC -
-> tag in both skb and packet.
->
-> If we actually removed the tag in the emulated case that would avoid
-> these concerns but would, of course, add extra overhead in some
-> situations.
+* Why all the CCs?
+  - One driver is for PowerPC, and adds device tree stuff.
+  - One driver is for the ARM Xscale IXP465.
 
-The only extra overhead I can really see is the need to put the vlan
-tag back on in a few instances.   Moving the ethernet addresses around
-in the packet (the cost of adding/removing the vlan header) since they
-are in a hot cacheline doesn't concern me very much.
+* PHC Patch ChangeLog
+** v13
+*** Incorporate v12 review from Andrew Morton
+    - external timestamp read: mutex was held unnecessarily long
+    - external timestamp read: require size to be multiple of sizeof(extts)
+    - replaced 'uint' with 'unsigned int' in poll function
+    - replaced empty release function with NULL function pointer
+*** Incorporate v12 review from John Stultz
+    - added comment to explain the ppm to ppb conversion
+    - commented the locking rules for the queue_cnt() function
+    - commented the ppb to ppm conversion in the example program
+    - fixed incomplete locking of external timestamp queue
+    - gianfar, dp83640: comment on the locking rules
+    - gianfar: fixed unlikely unprotected register access in probe()
+    - ixp4xx: gave some private functions more unique names
 
-But we definitely need to do something to fix the regression for
-pf_packet sockets.
+* Previous Discussions
+  - [V12] http://lkml.org/lkml/2011/2/28/53
+  - [V11] http://lkml.org/lkml/2011/2/23/107
+  - [V10] http://lkml.org/lkml/2011/1/27/71
 
-Eric
 
+Richard Cochran (4):
+  ptp: Added a brand new class driver for ptp clocks.
+  ptp: Added a clock that uses the eTSEC found on the MPC85xx.
+  ptp: Added a clock driver for the IXP46x.
+  ptp: Added a clock driver for the National Semiconductor PHYTER.
+
+ Documentation/ABI/testing/sysfs-ptp                |   98 ++
+ .../devicetree/bindings/net/fsl-tsec-phy.txt       |   54 +
+ Documentation/ptp/ptp.txt                          |   89 ++
+ Documentation/ptp/testptp.c                        |  368 +++++++
+ Documentation/ptp/testptp.mk                       |   33 +
+ arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h      |   78 ++
+ arch/powerpc/boot/dts/mpc8313erdb.dts              |   13 +
+ arch/powerpc/boot/dts/mpc8572ds.dts                |   13 +
+ arch/powerpc/boot/dts/p2020ds.dts                  |   13 +
+ arch/powerpc/boot/dts/p2020rdb.dts                 |   13 +
+ drivers/Kconfig                                    |    2 +
+ drivers/Makefile                                   |    1 +
+ drivers/net/Makefile                               |    1 +
+ drivers/net/arm/ixp4xx_eth.c                       |  192 ++++-
+ drivers/net/gianfar_ptp.c                          |  588 +++++++++++
+ drivers/net/phy/Makefile                           |    1 +
+ drivers/net/phy/dp83640.c                          | 1015 ++++++++++++++++++++
+ drivers/net/phy/dp83640_reg.h                      |  267 +++++
+ drivers/ptp/Kconfig                                |   75 ++
+ drivers/ptp/Makefile                               |    7 +
+ drivers/ptp/ptp_chardev.c                          |  155 +++
+ drivers/ptp/ptp_clock.c                            |  339 +++++++
+ drivers/ptp/ptp_ixp46x.c                           |  332 +++++++
+ drivers/ptp/ptp_private.h                          |   91 ++
+ drivers/ptp/ptp_sysfs.c                            |  230 +++++
+ include/linux/Kbuild                               |    1 +
+ include/linux/ptp_clock.h                          |   84 ++
+ include/linux/ptp_clock_kernel.h                   |  139 +++
+ 28 files changed, 4289 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/ABI/testing/sysfs-ptp
+ create mode 100644 Documentation/ptp/ptp.txt
+ create mode 100644 Documentation/ptp/testptp.c
+ create mode 100644 Documentation/ptp/testptp.mk
+ create mode 100644 arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
+ create mode 100644 drivers/net/gianfar_ptp.c
+ create mode 100644 drivers/net/phy/dp83640.c
+ create mode 100644 drivers/net/phy/dp83640_reg.h
+ create mode 100644 drivers/ptp/Kconfig
+ create mode 100644 drivers/ptp/Makefile
+ create mode 100644 drivers/ptp/ptp_chardev.c
+ create mode 100644 drivers/ptp/ptp_clock.c
+ create mode 100644 drivers/ptp/ptp_ixp46x.c
+ create mode 100644 drivers/ptp/ptp_private.h
+ create mode 100644 drivers/ptp/ptp_sysfs.c
+ create mode 100644 include/linux/ptp_clock.h
+ create mode 100644 include/linux/ptp_clock_kernel.h
