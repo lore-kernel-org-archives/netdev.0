@@ -1,42 +1,47 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipv4: do not ignore route errors
-Date: Sun, 27 Mar 2011 09:17:49 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1103270908370.1466@ja.ssi.bg>
-References: <201103252345.p2PNjP1n025209@ja.ssi.bg> <20110325.203338.193726112.davem@davemloft.net> <20110327003536.GD31554@verge.net.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] bridge: mcast snooping, fix IPv6 MLD checksum
+	calculation
+Date: Sun, 27 Mar 2011 15:52:42 +0800
+Message-ID: <20110327075242.GA24677@gondor.apana.org.au>
+References: <20110327034404.GC31916@Sellars> <1301207244-10428-1-git-send-email-linus.luessing@web.de> <1301207244-10428-2-git-send-email-linus.luessing@web.de> <20110327063749.GA24299@gondor.apana.org.au> <20110327070645.GA1734@Sellars>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bridge@lists.linux-foundation.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org
+To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:48849 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751669Ab1C0HNG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Mar 2011 03:13:06 -0400
-In-Reply-To: <20110327003536.GD31554@verge.net.au>
+Received: from helcar.apana.org.au ([209.40.204.226]:47502 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752058Ab1C0Hwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 03:52:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20110327070645.GA1734@Sellars>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Mar 27, 2011 at 09:06:45AM +0200, Linus L=FCssing wrote:
+> So instead of 'if (!csum_fold(skb2->csum))' it should be this?
+> ---
+> if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+>                      skb2->len, nexthdr, skb2->csum))
+> ---
+> (I'm peeking a little bit at
+> http://lxr.linux.no/linux+*/net/ipv6/netfilter.c#L98)
 
-	Hello,
+Yes that looks about right.
 
-On Sun, 27 Mar 2011, Simon Horman wrote:
+> Hmm, if so, then I don't know how to test and verify that now though.
 
-> > Your mailer corrupted this patch, so I applied it by hand.
-> 
-> I have noticed that Julian's patches usually arrive
-> with two leading spaces where there should be one but
-> are otherwise intact.  And that its not a new thing,
-> I can remember seeing this 6 months ago, and I don't think
-> it was a new thing then either.
-> 
-> Just an observation.
+You'd need a NIC that supported this to test.  Although I wouldn't
+worry about it too much as the same code patterns appears over and
+over again in our stack.  Perhaps we should put it in a helper.
 
-	Yes, I just yesterday discovered this format=flowed
-problem myself. Then I found Documentation/email-clients.txt
-explaining everything. Sorry, I hope now there should be
-no problems with my emails.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Thanks,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
