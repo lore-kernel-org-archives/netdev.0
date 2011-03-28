@@ -1,39 +1,36 @@
-From: "G.Balaji" <balajig81@gmail.com>
-Subject: [PATCH] drivers net: Fix declaration ordering in inline functions.
-Date: Mon, 28 Mar 2011 08:45:19 +0530
-Message-ID: <1301282119-2887-1-git-send-email-balajig81@gmail.com>
-Cc: netdev@vger.kernel.org, "G.Balaji" <balajig81@gmail.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] solos-pci: Debugging fixes
+Date: Sun, 27 Mar 2011 21:08:17 -0700 (PDT)
+Message-ID: <20110327.210817.27801609.davem@davemloft.net>
+References: <4D8FEC4E.10509@redfish-solutions.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: philipp_subx@redfish-solutions.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:39312 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569Ab1C1DPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 23:15:47 -0400
-Received: by iyb14 with SMTP id 14so2652415iyb.19
-        for <netdev@vger.kernel.org>; Sun, 27 Mar 2011 20:15:47 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33952
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751257Ab1C1EIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 00:08:55 -0400
+In-Reply-To: <4D8FEC4E.10509@redfish-solutions.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The correct usage should be "static inline void" instead of "static void inline"
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Date: Sun, 27 Mar 2011 19:02:54 -0700
 
-Signed-off-by: G.Balaji <balajig81@gmail.com>
----
- drivers/net/bnx2.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+>     Use VPI.VCI notation consistently.
+> 
+> Signed-off-by: Philip Prindeville<philipp@redfish-solutions.com>
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index d1865cc..8e6d618 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -8317,7 +8317,7 @@ static const struct net_device_ops bnx2_netdev_ops = {
- #endif
- };
- 
--static void inline vlan_features_add(struct net_device *dev, u32 flags)
-+static inline void vlan_features_add(struct net_device *dev, u32 flags)
- {
- 	dev->vlan_features |= flags;
- }
--- 
-1.7.4
+The Subject line is where you describe what the change does.
 
+If you use the same exact subject line in a set of changes,
+over and over again, people have no idea what distinguishes
+one of the change from the others.
+
+Please fix up your commit messages so that the Subject lines
+are more informative.
+
+Thanks.
