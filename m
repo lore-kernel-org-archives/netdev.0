@@ -1,32 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 4/4] can: c_can: remove duplicated #include
-Date: Sun, 27 Mar 2011 18:24:40 -0700 (PDT)
-Message-ID: <20110327.182440.70209348.davem@davemloft.net>
-References: <1300457247-2652-1-git-send-email-weiyi.huang@gmail.com>
-	<4D8B6E36.601@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix IP timestamp option (IPOPT_TS_PRESPEC) handling in
+ ip_options_echo()
+Date: Sun, 27 Mar 2011 18:32:11 -0700 (PDT)
+Message-ID: <20110327.183211.232760520.davem@davemloft.net>
+References: <1300988662-13204-1-git-send-email-jluebbe@debian.org>
+	<20110324.162005.71589730.davem@davemloft.net>
+	<1301033472.3890.181.camel@mordor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	weiyi.huang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D8B6E36.601-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: jluebbe@debian.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52737
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753056Ab1C1Bcu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Mar 2011 21:32:50 -0400
+In-Reply-To: <1301033472.3890.181.camel@mordor>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Date: Thu, 24 Mar 2011 17:15:50 +0100
+=46rom: Jan L=FCbbe <jluebbe@debian.org>
+Date: Fri, 25 Mar 2011 07:11:12 +0100
 
-> I added a CC to the netdev mailing list. Hope that's sufficient to get
-> the patch accepted.
+> The encoding of soffset is a bit unusual, in that the option is 'full=
+'
+> when soffset =3D optlen + 1. We need to keep advancing soffset by 8
+> because that's really the amount of data per entry.
 
-It's not, the patch must be submitted originally to netdev.
+Ok, this code is officially terrible :-)
+
+Thanks for explaining things, I've applied your patch, thanks.
