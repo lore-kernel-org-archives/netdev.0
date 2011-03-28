@@ -1,17 +1,16 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] can: c_can: disable one shot mode until driver is fixed
-Date: Sun, 27 Mar 2011 18:19:23 -0700 (PDT)
-Message-ID: <20110327.181923.102561338.davem@davemloft.net>
-References: <1300964453-2634-1-git-send-email-mkl@pengutronix.de>
-	<4D8B3163.8080706@grandegger.com>
+Subject: Re: [PATCH 2/2] can: c_can_platform: fix irq check in probe
+Date: Sun, 27 Mar 2011 18:20:56 -0700 (PDT)
+Message-ID: <20110327.182056.179949047.davem@davemloft.net>
+References: <1300970073-25522-1-git-send-email-mkl@pengutronix.de>
+	<1300970073-25522-3-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org
-To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org
+To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D8B3163.8080706-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+In-Reply-To: <1300970073-25522-3-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -23,22 +22,13 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Date: Thu, 24 Mar 2011 12:56:19 +0100
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Thu, 24 Mar 2011 13:34:33 +0100
 
-> On 03/24/2011 12:00 PM, Marc Kleine-Budde wrote:
->> This patch disables the one shot mode, until the driver has been fixed and
->> tested to support it.
->> 
->>> I'm quite sure I've seen a situation where msg_obj 17 "seemed" to be
->>> pending, while msg_obj 18 and 19 already have been transmitted. But
->>> in that case, I enabled ONESHOT for the can interface, which enables
->>> the DA mode (automatic retransmission is disabled).
->> 
->> Reported-by: Jan Altenberg <jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
->> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->> Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
->> Cc: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> This patch fixes the check in the probe function whether a IRQ was supplied
+> to the driver. The original driver check the irq "struct resource *" against
+> <= 0. Use "platform_get_irq" instead.
+> 
+> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
-Applied, thanks everyone.
+Applied.
