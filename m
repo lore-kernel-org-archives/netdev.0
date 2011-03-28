@@ -1,45 +1,59 @@
 From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: [PATCH 1/2] solos-pci: Debugging fixes
-Date: Sun, 27 Mar 2011 19:02:54 -0700
-Message-ID: <4D8FEC4E.10509@redfish-solutions.com>
+Subject: [PATCH 2/2] solos-pci: Debugging fixes
+Date: Sun, 27 Mar 2011 19:04:04 -0700
+Message-ID: <4D8FEC94.6000901@redfish-solutions.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:57320 "EHLO
+Received: from mail.redfish-solutions.com ([66.232.79.143]:57321 "EHLO
 	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752744Ab1C1CDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 22:03:02 -0400
+	by vger.kernel.org with ESMTP id S1753466Ab1C1CEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 22:04:12 -0400
 Received: from Philip-Prindevilles-MacBook-Pro.local (pool-71-111-146-59.ptldor.dsl-w.verizon.net [71.111.146.59])
 	(authenticated bits=0)
-	by mail.redfish-solutions.com (8.14.4/8.14.4) with ESMTP id p2S22sHa018705
+	by mail.redfish-solutions.com (8.14.4/8.14.4) with ESMTP id p2S245WG018721
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sun, 27 Mar 2011 20:03:01 -0600
+	for <netdev@vger.kernel.org>; Sun, 27 Mar 2011 20:04:11 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-     Use VPI.VCI notation consistently.
+     Don't include pseudo-header as part of frame hex-dump on transmit.
 
 Signed-off-by: Philip Prindeville<philipp@redfish-solutions.com>
 ---
-  drivers/atm/solos-pci.c |    4 ++--
-  1 files changed, 2 insertions(+), 2 deletions(-)
+  drivers/atm/solos-pci.c |    9 ++++++++-
+  1 files changed, 8 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 25ef1a4..2c4146a 100644
+index 2c4146a..968f022 100644
 --- a/drivers/atm/solos-pci.c
 +++ b/drivers/atm/solos-pci.c
-@@ -710,8 +710,8 @@ void solos_bh(unsigned long card_arg)
-  					       le16_to_cpu(header->vci));
-  				if (!vcc) {
-  					if (net_ratelimit())
--						dev_warn(&card->dev->dev, "Received packet for unknown VCI.VPI %d.%d on port %d\n",
--							 le16_to_cpu(header->vci), le16_to_cpu(header->vpi),
-+						dev_warn(&card->dev->dev, "Received packet for unknown VPI.VCI %d.%d on port %d\n",
-+							 le16_to_cpu(header->vpi), le16_to_cpu(header->vci),
-  							 port);
-  					continue;
-  				}
+@@ -697,7 +697,7 @@ void solos_bh(unsigned long card_arg)
+  					      size);
+  			}
+  			if (atmdebug) {
+-				dev_info(&card->dev->dev, "Received: device %d\n", port);
++				dev_info(&card->dev->dev, "Received: port %d\n", port);
+  				dev_info(&card->dev->dev, "size: %d VPI: %d VCI: %d\n",
+  					 size, le16_to_cpu(header->vpi),
+  					 le16_to_cpu(header->vci));
+@@ -1018,8 +1018,15 @@ static uint32_t fpga_tx(struct solos_card *card)
+
+  			/* Clean up and free oldskb now it's gone */
+  			if (atmdebug) {
++				struct pkt_hdr *header = (void *)oldskb->data;
++				int size = le16_to_cpu(header->size);
++
++				skb_pull(oldskb, sizeof(*header));
+  				dev_info(&card->dev->dev, "Transmitted: port %d\n",
+  					 port);
++				dev_info(&card->dev->dev, "size: %d VPI: %d VCI: %d\n",
++					 size, le16_to_cpu(header->vpi),
++					 le16_to_cpu(header->vci));
+  				print_buffer(oldskb);
+  			}
+
 
 
