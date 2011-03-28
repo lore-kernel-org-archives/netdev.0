@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: use CHECKSUM_NONE instead of magic number
-Date: Sun, 27 Mar 2011 18:37:19 -0700 (PDT)
-Message-ID: <20110327.183719.242146299.davem@davemloft.net>
-References: <1301152230-4897-1-git-send-email-cesarb@cesarb.net>
+Subject: Re: [PATCH 1/3] tg3: use <linux/io.h> and <linux/uaccess.h>
+ instead <asm/io.h> and <asm/uaccess.h>
+Date: Sun, 27 Mar 2011 18:38:43 -0700 (PDT)
+Message-ID: <20110327.183843.116365744.davem@davemloft.net>
+References: <1301193753-10045-1-git-send-email-martinez.javier@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	eric.dumazet@gmail.com, Tristram.Ha@micrel.com,
-	linux-kernel@vger.kernel.org
-To: cesarb@cesarb.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1301152230-4897-1-git-send-email-cesarb@cesarb.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: martinez.javier@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54531
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753235Ab1C1BjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 21:39:21 -0400
+In-Reply-To: <1301193753-10045-1-git-send-email-martinez.javier@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cesar Eduardo Barros <cesarb@cesarb.net>
-Date: Sat, 26 Mar 2011 12:10:30 -0300
+From: Javier Martinez Canillas <martinez.javier@gmail.com>
+Date: Sun, 27 Mar 2011 04:42:31 +0200
 
-> Two places in the kernel were doing skb->ip_summed = 0.
+> It is proper style to include linux/foo.h instead asm/foo.h if both exist
 > 
-> Change both to skb->ip_summed = CHECKSUM_NONE, which is more readable.
-> 
-> Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+> Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
 
-Applied, thank you.
+Applied.
