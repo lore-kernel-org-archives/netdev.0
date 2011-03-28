@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] solos-pci:Don't include pseudo-header in dump of
- frame
-Date: Sun, 27 Mar 2011 23:30:55 -0700 (PDT)
-Message-ID: <20110327.233055.98882402.davem@davemloft.net>
-References: <4D901AF2.2040503@redfish-solutions.com>
+Subject: Re: [PATCH] netxen: fix LRO disable warning
+Date: Sun, 27 Mar 2011 23:31:53 -0700 (PDT)
+Message-ID: <20110327.233153.241453102.davem@davemloft.net>
+References: <20110327.180818.39174806.davem@davemloft.net>
+	<99737F4847ED0A48AECC9F4A1974A4B80FD10E8849@MNEXMB2.qlogic.org>
+	<20110328051744.GA2275@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: philipp_subx@redfish-solutions.com
+Cc: amit.salecha@qlogic.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	rajesh.borundia@qlogic.com
+To: sgruszka@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46171
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46176
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752112Ab1C1Gbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 02:31:33 -0400
-In-Reply-To: <4D901AF2.2040503@redfish-solutions.com>
+	by vger.kernel.org with ESMTP id S1751212Ab1C1Gcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 02:32:31 -0400
+In-Reply-To: <20110328051744.GA2275@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Date: Sun, 27 Mar 2011 22:21:54 -0700
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Date: Mon, 28 Mar 2011 07:17:46 +0200
 
->     Don't include pseudo-header as part of frame hex-dump on transmit.
+> Patch is here:
+> http://patchwork.ozlabs.org/patch/88060/
+> 
+> I could also repost rebased patch if needed.
 
-Don't add this indentation in your commit messages, please.
-
-> Signed-off-by: Philip Prindeville<philipp@redfish-solutions.com>
-
-Also, where is the respun patch #1?
-
-This is getty real tiring.
-
-We have extensive documentation about how to submit patches
-properly, you can start with Documentation/SubmittingPatches
-in the kernel sources.
-
-When I ask you to make changes to a patch series, resubmit
-everything because I'm just going to mark whatever you submitted
-already as "Changes Requested".
-
-Thanks.
+Not necessary, thanks.
