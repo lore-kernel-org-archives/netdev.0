@@ -1,66 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2 v2] tg3: Don't use IRQF_SAMPLE_RANDOM
-Date: Mon, 28 Mar 2011 18:20:22 +0100
-Message-ID: <1301332822.2716.12.camel@bwh-desktop>
-References: <1301314543-3666-1-git-send-email-martinez.javier@gmail.com>
-	 <1301315152.3182.19.camel@edumazet-laptop>
-	 <AANLkTi=Qkf2qn6nQ-6AXE8LtFSD++=eZRxa6ND6KPsk1@mail.gmail.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH] cxgb3: Apply interrupt coalescing settings to all queues
+Date: Mon, 28 Mar 2011 10:41:54 -0700
+Message-ID: <4D90C862.2080207@chelsio.com>
+References: <20110328135041.57cec646@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Dan Carpenter <error27@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Javier Martinez Canillas <martinez.javier@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:57071 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752832Ab1C1RUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 13:20:25 -0400
-In-Reply-To: <AANLkTi=Qkf2qn6nQ-6AXE8LtFSD++=eZRxa6ND6KPsk1@mail.gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:16333 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752443Ab1C1Rmk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 13:42:40 -0400
+In-Reply-To: <20110328135041.57cec646@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-03-28 at 17:46 +0200, Javier Martinez Canillas wrote:
-> On Mon, Mar 28, 2011 at 2:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > 1) We dont believe its Janitor material ;)
-> >
-> > http://thread.gmane.org/gmane.linux.kernel/680723
-> >
-> > http://kerneltrap.org/mailarchive/linux-netdev/2009/4/6/5417754
-> >
-> 
-> I wasn't aware of this discussion. In one hand network drivers are not
-> a good source of entropy because they can be controlled externally,
-> but in embedded systems with only network cards (no video, audio,
-> keyboard, etc) the only source of entropy they have is their network
-> cards (at the kernel level i.e: not using EGD to feed /dev/random).
+On 03/27/2011 07:50 PM, Anton Blanchard wrote:
+>
+>
+> While testing the performance of different receive interrupt
+> coalescing settings on a single stream TCP benchmark, I noticed two
+> very different results. With rx-usecs=50, most of the time a
+> connection would hit 8280 Mbps but once in a while it would hit
+> 9330 Mbps.
+>
+> It turns out we are only applying the interrupt coalescing settings
+> to the first queue and whenever the rx hash would direct us onto
+> that queue we ran faster.
+>
+> With this patch applied and rx-usecs=50, I get 9330 Mbps
+> consistently.
+>
+> Signed-off-by: Anton Blanchard <anton@samba.org>
 
-It may be the only source of entropy, but given how poor a source it is
-these drivers are basically telling sweet little lies to the kernel and
-the applications that demand real random numbers.
+Acked-by: Divy Le Ray <divy@chelsio.com>
 
-This also applies to many servers just as much as embedded systems.
-
-As you acknowledge, these systems can still get entropy using the EGD
-protocol over a secure channel.  (Or an entropy sampling device such as
-the Entropy Key.)
-
-> Yes this definitely is not janitor material :)
-> 
-> I just sent the patch because I saw IRQF_SAMPLE_RANDOM in
-> Documentation/feature-removal-schedule.txt. I can resend a patch
-> removing the macro in the remaining network cards if the decision is
-> to remove IRQF_SAMPLE_RANDOM.
-
-It's not my call, but I would support it.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> ---
+>
+> Index: powerpc.git/drivers/net/cxgb3/cxgb3_main.c
+> ===================================================================
+> --- powerpc.git.orig/drivers/net/cxgb3/cxgb3_main.c     2011-03-28 
+> 12:36:41.775206214 +1100
+> +++ powerpc.git/drivers/net/cxgb3/cxgb3_main.c  2011-03-28 
+> 12:41:29.892189120 +1100
+> @@ -1983,14 +1983,20 @@ static int set_coalesce(struct net_devic
+>  {
+>         struct port_info *pi = netdev_priv(dev);
+>         struct adapter *adapter = pi->adapter;
+> -       struct qset_params *qsp = &adapter->params.sge.qset[0];
+> -       struct sge_qset *qs = &adapter->sge.qs[0];
+> +       struct qset_params *qsp;
+> +       struct sge_qset *qs;
+> +       int i;
+>
+>         if (c->rx_coalesce_usecs * 10 > M_NEWTIMER)
+>                 return -EINVAL;
+>
+> -       qsp->coalesce_usecs = c->rx_coalesce_usecs;
+> -       t3_update_qset_coalesce(qs, qsp);
+> +       for (i = 0; i < pi->nqsets; i++) {
+> +               qsp = &adapter->params.sge.qset[i];
+> +               qs = &adapter->sge.qs[i];
+> +               qsp->coalesce_usecs = c->rx_coalesce_usecs;
+> +               t3_update_qset_coalesce(qs, qsp);
+> +       }
+> +
+>         return 0;
+>  }
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at http://vger.kernel.org/majordomo-info.html
 
