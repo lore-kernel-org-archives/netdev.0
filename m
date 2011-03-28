@@ -1,51 +1,63 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: [PATCH 2/2] solos-pci: Signaling changes to carrier state
-Date: Sun, 27 Mar 2011 19:07:41 -0700
-Message-ID: <4D8FED6D.2090108@redfish-solutions.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] cxgb3: Apply interrupt coalescing settings to all queues
+Date: Mon, 28 Mar 2011 13:50:41 +1100
+Message-ID: <20110328135041.57cec646@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:60897 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753237Ab1C1CHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 22:07:48 -0400
-Received: from Philip-Prindevilles-MacBook-Pro.local (pool-71-111-146-59.ptldor.dsl-w.verizon.net [71.111.146.59])
-	(authenticated bits=0)
-	by mail.redfish-solutions.com (8.14.4/8.14.4) with ESMTP id p2S27fk6018757
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sun, 27 Mar 2011 20:07:47 -0600
+Received: from ozlabs.org ([203.10.76.45]:39124 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753271Ab1C1Cup (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Mar 2011 22:50:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-     Don't drop VCs when carrier state changes.
 
-Signed-off-by: Philip Prindeville<philipp@redfish-solutions.com>
+While testing the performance of different receive interrupt
+coalescing settings on a single stream TCP benchmark, I noticed two
+very different results. With rx-usecs=50, most of the time a
+connection would hit 8280 Mbps but once in a while it would hit
+9330 Mbps.
+
+It turns out we are only applying the interrupt coalescing settings
+to the first queue and whenever the rx hash would direct us onto 
+that queue we ran faster.
+
+With this patch applied and rx-usecs=50, I get 9330 Mbps
+consistently.
+
+Signed-off-by: Anton Blanchard <anton@samba.org> 
 ---
-  drivers/atm/solos-pci.c |    3 +--
-  1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 265bbdf..cd0ff66 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -383,7 +383,6 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
-  	/* Anything but 'Showtime' is down */
-  	if (strcmp(state_str, "Showtime")) {
-  		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
--		atm_dev_release_vccs(card->atmdev[port]);
-  		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
-  		return 0;
-  	}
-@@ -1246,7 +1245,7 @@ static int atm_init(struct solos_card *card, struct device *parent)
-  		card->atmdev[i]->ci_range.vci_bits = 16;
-  		card->atmdev[i]->dev_data = card;
-  		card->atmdev[i]->phy_data = (void *)(unsigned long)i;
--		atm_dev_signal_change(card->atmdev[i], ATM_PHY_SIG_UNKNOWN);
-+		atm_dev_signal_change(card->atmdev[i], ATM_PHY_SIG_FOUND);
-
-  		skb = alloc_skb(sizeof(*header), GFP_ATOMIC);
-  		if (!skb) {
-
-
+Index: powerpc.git/drivers/net/cxgb3/cxgb3_main.c
+===================================================================
+--- powerpc.git.orig/drivers/net/cxgb3/cxgb3_main.c	2011-03-28 12:36:41.775206214 +1100
++++ powerpc.git/drivers/net/cxgb3/cxgb3_main.c	2011-03-28 12:41:29.892189120 +1100
+@@ -1983,14 +1983,20 @@ static int set_coalesce(struct net_devic
+ {
+ 	struct port_info *pi = netdev_priv(dev);
+ 	struct adapter *adapter = pi->adapter;
+-	struct qset_params *qsp = &adapter->params.sge.qset[0];
+-	struct sge_qset *qs = &adapter->sge.qs[0];
++	struct qset_params *qsp;
++	struct sge_qset *qs;
++	int i;
+ 
+ 	if (c->rx_coalesce_usecs * 10 > M_NEWTIMER)
+ 		return -EINVAL;
+ 
+-	qsp->coalesce_usecs = c->rx_coalesce_usecs;
+-	t3_update_qset_coalesce(qs, qsp);
++	for (i = 0; i < pi->nqsets; i++) {
++		qsp = &adapter->params.sge.qset[i];
++		qs = &adapter->sge.qs[i];
++		qsp->coalesce_usecs = c->rx_coalesce_usecs;
++		t3_update_qset_coalesce(qs, qsp);
++	}
++
+ 	return 0;
+ }
+ 
