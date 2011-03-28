@@ -1,208 +1,155 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH net-next] net-ethtool: Allow ethtool to set interface in loopback mode.
-Date: Mon, 28 Mar 2011 15:24:25 -0700
-Message-ID: <1301351066-24916-1-git-send-email-maheshb@google.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Mahesh Bandewar <maheshb@google.com>
-To: David Miller <davem@davemloft.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: BUG: ping without route segfaults in dst_release
+Date: Tue, 29 Mar 2011 01:18:48 +0200
+Message-ID: <4D911758.3010608@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigF3E0530C9657FA1A4857D45A"
+Cc: David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: Netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:21302 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102Ab1C1WYp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 18:24:45 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49520 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932184Ab1C1XSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 19:18:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add second word for feature (currently it's single word). Also use the first
-bit of the second word to set the loopback mode. By configuring the interface
-in loopback mode in conjunction with a policy route / rule, a user-land
-application can stress the egress / ingress path exposing the flows of the
-change in progress and potentially help developer(s) understand the impact of
-those changes without even sending a packet out on the network.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigF3E0530C9657FA1A4857D45A
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Following set of commands illustrates one such example -
-    a) ip -4 addr add 192.168.1.1/24 dev eth1
-    b) ip -4 rule add from all iif eth1 lookup 250
-    c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
-    d) arp -Ds 192.168.1.100 eth1
-    e) arp -Ds 192.168.1.200 eth1
-    f) sysctl -w net.ipv4.ip_nonlocal_bind=1
-    g) sysctl -w net.ipv4.conf.all.accept_local=1
-    # Assuming that the machine has 8 cores
-    h) taskset 000f netserver -L 192.168.1.200
-    i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
+Hello,
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- include/linux/ethtool.h |   14 ++++++++++++
- net/core/ethtool.c      |   54 +++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 64 insertions(+), 4 deletions(-)
+I just found this breakage in current mainline (v2.6.38-8876-g036a982)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index aac3e2e..a42f60c 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -526,6 +526,8 @@ struct ethtool_flash {
- 
- /* for returning and changing feature sets */
- 
-+#define ETHTOOL_DEV_FEATURE_WORDS	2
-+
- /**
-  * struct ethtool_get_features_block - block with state of 32 features
-  * @available: mask of changeable features
-@@ -594,6 +596,8 @@ struct ethtool_sfeatures {
-  *   %ETHTOOL_F_COMPAT - some or all changes requested were made by calling
-  *      compatibility functions. Requested offload state cannot be properly
-  *      managed by kernel.
-+ *   %ETHTOOL_F_2NDWORD - some or all changes requested in the second word of
-+ *      the features failed.
-  *
-  * Meaning of bits in the masks are obtained by %ETHTOOL_GSSET_INFO (number of
-  * bits in the arrays - always multiple of 32) and %ETHTOOL_GSTRINGS commands
-@@ -604,11 +608,13 @@ enum ethtool_sfeatures_retval_bits {
- 	ETHTOOL_F_UNSUPPORTED__BIT,
- 	ETHTOOL_F_WISH__BIT,
- 	ETHTOOL_F_COMPAT__BIT,
-+	ETHTOOL_F_2NDWORD__BIT,
- };
- 
- #define ETHTOOL_F_UNSUPPORTED   (1 << ETHTOOL_F_UNSUPPORTED__BIT)
- #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
- #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
-+#define ETHTOOL_F_2NDWORD       (1 << ETHTOOL_F_2NDWORD__BIT)
- 
- #ifdef __KERNEL__
- 
-@@ -764,6 +770,8 @@ struct ethtool_ops {
- 				  struct ethtool_rxfh_indir *);
- 	int	(*set_rxfh_indir)(struct net_device *,
- 				  const struct ethtool_rxfh_indir *);
-+	int (*get_loopback)(struct net_device *);
-+	int (*set_loopback)(struct net_device *, u32);
- };
- #endif /* __KERNEL__ */
- 
-@@ -837,6 +845,12 @@ struct ethtool_ops {
- #define SPARC_ETH_GSET		ETHTOOL_GSET
- #define SPARC_ETH_SSET		ETHTOOL_SSET
- 
-+/* Additional features (2 word of the feature-set) */
-+#define ETHTOOL_LOOPBACK	(1 << 0)  /* Enable/Disable loop-back feature */
-+
-+/* Mask of all valid 2nd word features */
-+#define ETHTOOL_VALID_2NDWORD_FEATURES	ETHTOOL_LOOPBACK
-+
- /* Indicates what features are supported by the interface. */
- #define SUPPORTED_10baseT_Half		(1 << 0)
- #define SUPPORTED_10baseT_Full		(1 << 1)
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index c1a71bb..4f2c2d5 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -166,8 +166,6 @@ EXPORT_SYMBOL(ethtool_ntuple_flush);
- 
- /* Handlers for each ethtool command */
- 
--#define ETHTOOL_DEV_FEATURE_WORDS	1
--
- static void ethtool_get_features_compat(struct net_device *dev,
- 	struct ethtool_get_features_block *features)
- {
-@@ -238,6 +236,38 @@ static int ethtool_set_features_compat(struct net_device *dev,
- 	return compat;
- }
- 
-+static void ethtool_get_secondword_features(struct net_device *dev,
-+		struct ethtool_get_features_block *features)
-+{
-+	if (!dev->ethtool_ops)
-+		return;
-+
-+	if (dev->ethtool_ops->get_loopback) {
-+		if (dev->ethtool_ops->get_loopback(dev))
-+		    features[1].active |= ETHTOOL_LOOPBACK;
-+	} else
-+		features[1].available &= ~ETHTOOL_LOOPBACK;
-+
-+
-+	return;
-+}
-+
-+static int ethtool_set_secondword_features(struct net_device *dev,
-+		struct ethtool_set_features_block *features)
-+{
-+	int ret = 0;
-+
-+	if (features[1].valid & ETHTOOL_LOOPBACK) {
-+		features[1].valid &= ~ETHTOOL_LOOPBACK;
-+		if (dev->ethtool_ops->set_loopback) {	
-+			ret |= dev->ethtool_ops->set_loopback(dev,
-+				!!(features[1].requested & ETHTOOL_LOOPBACK));
-+		}
-+	}
-+
-+	return(ret);
-+}
-+
- static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_gfeatures cmd = {
-@@ -251,12 +281,19 @@ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
- 			.active = dev->features,
- 			.never_changed = NETIF_F_NEVER_CHANGE,
- 		},
-+		{
-+			.available = ETHTOOL_VALID_2NDWORD_FEATURES,
-+			.active = 0,
-+		},
- 	};
- 	u32 __user *sizeaddr;
- 	u32 copy_size;
- 
- 	ethtool_get_features_compat(dev, features);
- 
-+	/* Get 2nd-word features */
-+	ethtool_get_secondword_features(dev, features);
-+
- 	sizeaddr = useraddr + offsetof(struct ethtool_gfeatures, size);
- 	if (get_user(copy_size, sizeaddr))
- 		return -EFAULT;
-@@ -289,14 +326,20 @@ static int ethtool_set_features(struct net_device *dev, void __user *useraddr)
- 	if (copy_from_user(features, useraddr, sizeof(features)))
- 		return -EFAULT;
- 
--	if (features[0].valid & ~NETIF_F_ETHTOOL_BITS)
-+	if (features[0].valid & ~NETIF_F_ETHTOOL_BITS ||
-+	    features[1].valid & ~ETHTOOL_VALID_2NDWORD_FEATURES)
- 		return -EINVAL;
- 
- 	if (ethtool_set_features_compat(dev, features))
- 		ret |= ETHTOOL_F_COMPAT;
- 
--	if (features[0].valid & ~dev->hw_features) {
-+	if (ethtool_set_secondword_features(dev, features))
-+		ret |= ETHTOOL_F_2NDWORD;
-+
-+	if ((features[0].valid & ~dev->hw_features) ||
-+	    (features[1].valid & ~ETHTOOL_VALID_2NDWORD_FEATURES)) {
- 		features[0].valid &= dev->hw_features;
-+		features[1].valid &= ETHTOOL_VALID_2NDWORD_FEATURES;
- 		ret |= ETHTOOL_F_UNSUPPORTED;
- 	}
- 
-@@ -346,6 +389,9 @@ static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * 32][ETH_GS
- 	/* NETIF_F_RXCSUM */          "rx-checksum",
- 	"",
- 	"",
-+
-+	/* 2nd word of features */
-+	/* ETHTOOL_LOOPBACK */        "loopback",
- };
- 
- static int __ethtool_get_sset_count(struct net_device *dev, int sset)
--- 
-1.7.3.1
+root@ptx:~ ifconfig
+eth0      Link encap:Ethernet  HWaddr 00:04:9F:01:7E:E9
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
 
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+root@ptx:~ ping 130.75.1.32
+PING 130.75.1.32 (130.75[   10.160000] Unable to handle kernel paging req=
+uest at virtual address ffffffdb
+[   10.160000] pgd =3D c7998000
+[   10.160000] [ffffffdb] *pgd=3D47ffe831, *pte=3D00000000, *ppte=3D00000=
+000
+[   10.160000] Internal error: Oops: 1 [#1]
+[   10.160000] last sysfs file: /sys/kernel/uevent_seqnum
+[   10.160000] Modules linked in:
+[   10.160000] CPU: 0    Not tainted  (2.6.38+ #10)
+[   10.160000] PC is at dst_release+0x1c/0x80
+[   10.160000] LR is at raw_sendmsg+0x68c/0x714
+[   10.160000] pc : [<c017a3fc>]    lr : [<c01ae0d0>]    psr: a0000093
+[   10.160000] sp : c7965d70  ip : 8220014b  fp : 00000000
+[   10.160000] r10: 00000000  r9 : 00000000  r8 : 20014b82
+[   10.160000] r7 : 00000001  r6 : c78e1b40  r5 : ffffff9b  r4 : ffffff9b=
+
+[   10.160000] r3 : a0000093  r2 : a0000013  r1 : 6b006b83  r0 : ffffff9b=
+
+[   10.160000] Flags: NzCv  IRQs off  FIQs on  Mode SVC_32  ISA ARM  Segm=
+ent user
+[   10.160000] Control: 0005317f  Table: 47998000  DAC: 00000015
+[   10.160000] Process ping (pid: 102, stack limit =3D 0xc7964270)
+[   10.160000] Stack: (0xc7965d70 to 0xc7966000)
+[   10.160000] 5d60:                                     00000000 ffffff9=
+b c7965f5c c01ae0d0
+[   10.160000] 5d80: 60000013 c7994fc0 00000000 80000093 00000040 0000000=
+0 00000000 00000000
+[   10.160000] 5da0: 00000000 04010000 00000000 20014b82 00000000 0000000=
+8 20014b82 00000000
+[   10.160000] 5dc0: 00000000 c791f500 c7965dec ffffff9b 00000062 c78e1b4=
+0 00000040 c7965e10
+[   10.160000] 5de0: c7965f5c 00085cc8 c7964000 0000001c be8b4e54 c01b785=
+8 00000000 00000000
+[   10.160000] 5e00: 00000000 00000000 c7965edc c0163810 c03d8e60 0000000=
+0 00000000 00000001
+[   10.160000] 5e20: ffffffff 00000000 00000000 00000000 00000000 0000000=
+0 c7994fc0 00000200
+[   10.160000] 5e40: 00000000 00000000 0006a000 c03d8e60 c7965e88 0000000=
+0 c7998000 c791f580
+[   10.160000] 5e60: c79761a8 0006a000 c7998000 00000000 c7a16000 c007a8c=
+8 00000062 00000000
+[   10.160000] 5e80: 00000000 c03cf7e0 00000000 c006b76c c03cf7e0 0000004=
+0 c74752c0 00000000
+[   10.160000] 5ea0: 00000000 c7965f5c c7998000 c74752c0 00000000 c7965ed=
+c 00085cc8 c7965edc
+[   10.160000] 5ec0: 0000001c 00000000 00000040 c74752c0 00000000 c016414=
+4 80000005 00000002
+[   10.160000] 5ee0: 20014b82 00000000 00000000 00000000 00000000 0000000=
+0 00000005 c7965fb0
+[   10.160000] 5f00: 0006a2bc be8b4e54 00085c70 c0021220 c02a4408 c01f13b=
+4 00000000 c008e684
+[   10.160000] 5f20: c7965f58 00000000 00000001 c78e1b40 00001c70 c74752c=
+0 00000000 c0168020
+[   10.160000] 5f40: c7965f4c c016456c c0296310 be8b4968 00000002 000000a=
+e c0022088 c7965edc
+[   10.160000] 5f60: 0000001c c7965f78 00000001 00000000 00000000 0000000=
+0 00ad80f8 00000040
+[   10.160000] 5f80: 00000000 00000000 00000000 00085cc8 0000001c 00085c7=
+0 00000122 c0022088
+[   10.160000] 5fa0: 00000000 c0021ee0 00085cc8 0000001c 00000003 00ad80f=
+8 00000040 00000000
+[   10.160000] 5fc0: 00085cc8 0000001c 00085c70 00000122 00000000 be8b4e5=
+4 00085c70 be8b4e54
+[   10.160000] 5fe0: 000179d4 be8b4b70 0000da90 401a7f28 60000010 0000000=
+3 00000001 0000000a
+[   10.160000] [<c017a3fc>] (dst_release+0x1c/0x80) from [<c01ae0d0>] (ra=
+w_sendmsg+0x68c/0x714)
+[   10.160000] [<c01ae0d0>] (raw_sendmsg+0x68c/0x714) from [<c01b7858>] (=
+inet_sendmsg+0x68/0x74)
+[   10.160000] [<c01b7858>] (inet_sendmsg+0x68/0x74) from [<c0163810>] (s=
+ock_sendmsg+0x88/0xa8)
+[   10.160000] [<c0163810>] (sock_sendmsg+0x88/0xa8) from [<c0164144>] (s=
+ys_sendto+0xb4/0xd8)
+[   10.160000] [<c0164144>] (sys_sendto+0xb4/0xd8) from [<c0021ee0>] (ret=
+_fast_syscall+0x0/0x2c)
+[   10.160000] Code: 0a000017 e10f2000 e3823080 e121f003 (e5953040)
+=2E1.32): 56 data bytes
+[   10.470000] ---[ end trace 6d4174e1407fa33f ]---
+Segmentation fault
+
+2.6.38 works:
+
+root@ptx:~ ping 130.75.1.32
+PING 130.75.1.32 (130.75.1.32): 56 data bytes
+ping: sendto: Network is unreachable
+
+cheers, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigF3E0530C9657FA1A4857D45A
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk2RF1sACgkQjTAFq1RaXHM8OwCfUnjt0ULV8Pa/XiIs00j7Jb0+
+JYIAniGMRjjXug5injBDAUNHNNhccWZI
+=PuXh
+-----END PGP SIGNATURE-----
+
+--------------enigF3E0530C9657FA1A4857D45A--
