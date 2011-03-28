@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix IP timestamp option (IPOPT_TS_PRESPEC) handling in
- ip_options_echo()
-Date: Sun, 27 Mar 2011 18:32:11 -0700 (PDT)
-Message-ID: <20110327.183211.232760520.davem@davemloft.net>
-References: <1300988662-13204-1-git-send-email-jluebbe@debian.org>
-	<20110324.162005.71589730.davem@davemloft.net>
-	<1301033472.3890.181.camel@mordor>
+Subject: Re: [PATCH] bridge: notify applications if address of bridge
+ device changes
+Date: Sun, 27 Mar 2011 18:34:13 -0700 (PDT)
+Message-ID: <20110327.183413.229737801.davem@davemloft.net>
+References: <20110324162401.2f322e3e@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: jluebbe@debian.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52737
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51275
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753056Ab1C1Bcu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Mar 2011 21:32:50 -0400
-In-Reply-To: <1301033472.3890.181.camel@mordor>
+	by vger.kernel.org with ESMTP id S1753215Ab1C1Bev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 21:34:51 -0400
+In-Reply-To: <20110324162401.2f322e3e@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jan L=FCbbe <jluebbe@debian.org>
-Date: Fri, 25 Mar 2011 07:11:12 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 24 Mar 2011 16:24:01 -0700
 
-> The encoding of soffset is a bit unusual, in that the option is 'full=
-'
-> when soffset =3D optlen + 1. We need to keep advancing soffset by 8
-> because that's really the amount of data per entry.
+> The mac address of the bridge device may be changed when a new interface
+> is added to the bridge. If this happens, then the bridge needs to call
+> the network notifiers to tickle any other systems that care. Since bridge
+> can be a module, this also means exporting the notifier function.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Ok, this code is officially terrible :-)
-
-Thanks for explaining things, I've applied your patch, thanks.
+Applied, thanks Stephen.
