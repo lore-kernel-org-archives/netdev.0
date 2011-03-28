@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ROSE: prevent heap corruption with bad facilities
-Date: Sun, 27 Mar 2011 17:59:36 -0700 (PDT)
-Message-ID: <20110327.175936.189721420.davem@davemloft.net>
-References: <1300603423.1869.18.camel@dan>
-	<1300639685.26693.286.camel@localhost>
+Subject: Re: [PATCH] irda: validate peer name and attribute lengths
+Date: Sun, 27 Mar 2011 17:59:43 -0700 (PDT)
+Message-ID: <20110327.175943.112617524.davem@davemloft.net>
+References: <1300671126.9043.8.camel@dan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: drosenberg@vsecurity.com, ralf@linux-mips.org,
-	netdev@vger.kernel.org, security@kernel.org
-To: ben@decadent.org.uk
+Cc: samuel@sortiz.org, netdev@vger.kernel.org, security@kernel.org
+To: drosenberg@vsecurity.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45913
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45922
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752340Ab1C1BAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 21:00:15 -0400
-In-Reply-To: <1300639685.26693.286.camel@localhost>
+	by vger.kernel.org with ESMTP id S1753023Ab1C1BAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 21:00:21 -0400
+In-Reply-To: <1300671126.9043.8.camel@dan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 20 Mar 2011 16:48:05 +0000
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Date: Sun, 20 Mar 2011 21:32:06 -0400
 
-> Subject: [PATCH] rose: Add length checks to CALL_REQUEST parsing
+> Length fields provided by a peer for names and attributes may be longer
+> than the destination array sizes.  Validate lengths to prevent stack
+> buffer overflows.
 > 
-> Define some constant offsets for CALL_REQUEST based on the description
-> at <http://www.techfest.com/networking/wan/x25plp.htm> and the
-> definition of ROSE as using 10-digit (5-byte) addresses.  Use them
-> consistently.  Validate all implicit and explicit facilities lengths.
-> Validate the address length byte rather than either trusting or
-> assuming its value.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+> Cc: stable@kernel.org
 
 Applied.
