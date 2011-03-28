@@ -1,7 +1,8 @@
 From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: [PATCH 0/2] solos-pci: debugging fixes
-Date: Sun, 27 Mar 2011 23:55:19 -0700
-Message-ID: <4D9030D7.9080806@redfish-solutions.com>
+Subject: [PATCH 1/2] solos-pci: Use VPI.VCI notation consistently throughout
+ module
+Date: Sun, 27 Mar 2011 23:56:13 -0700
+Message-ID: <4D90310D.5000601@redfish-solutions.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,19 +11,37 @@ Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
 	Karl Hiramoto <karl@hiramoto.org>
 To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:60918 "EHLO
+Received: from mail.redfish-solutions.com ([66.232.79.143]:60922 "EHLO
 	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750776Ab1C1G6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 02:58:15 -0400
+	by vger.kernel.org with ESMTP id S1750818Ab1C1G7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 02:59:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Philip Prindeville <philipp@redfish-solutions.com>
 
-Two patches for net-2.6 HEAD:
+Use VPI.VCI notation consistently throughout the module. This is the one remaining place where the VCI
+is used before the VPI in any output.
 
-The first changes the one remaining instance where the VCI (virtual circuit identifier) is output before the VPI (virtual path identifier).  Standard notation is VPI *then* VCI, and this is used everywhere else.
+Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
+---
+  drivers/atm/solos-pci.c |    4 ++--
+  1 files changed, 2 insertions(+), 2 deletions(-)
 
-The second does a "pull" on the sk_buff to remove the "struct pkt_hdr" that prefaces the actual ATM frame data (and includes message type, message size, and VPI/VCI tuple). Logging is the last thing done before releasing the sk_buff, so the header can safely be pulled up at this point.  Also, we alternate between using the term "device" and "port" in the driver, which is inconsistent and confusing. So we also change the term "device" to "port".
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 25ef1a4..2c4146a 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -710,8 +710,8 @@ void solos_bh(unsigned long card_arg)
+  					       le16_to_cpu(header->vci));
+  				if (!vcc) {
+  					if (net_ratelimit())
+-						dev_warn(&card->dev->dev, "Received packet for unknown VCI.VPI %d.%d on port %d\n",
+-							 le16_to_cpu(header->vci), le16_to_cpu(header->vpi),
++						dev_warn(&card->dev->dev, "Received packet for unknown VPI.VCI %d.%d on port %d\n",
++							 le16_to_cpu(header->vpi), le16_to_cpu(header->vci),
+  							 port);
+  					continue;
+  				}
 
 
