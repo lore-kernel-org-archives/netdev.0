@@ -1,31 +1,34 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: RE: smatch stuff: use after free bug
-Date: Mon, 28 Mar 2011 12:34:41 +0000
-Message-ID: <953B660C027164448AE903364AC447D20705EEB2@mtldag01.mtl.com>
-References: <20110328103140.GJ1885@bicker>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH]: linux-firmware: add myri10ge firmware
+Date: Mon, 28 Mar 2011 09:43:20 -0400
+Message-ID: <4D909078.1020002@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stanislaw Gruszka <sgruszka@redhat.com>
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:36748 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753360Ab1C1Met convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 08:34:49 -0400
-In-Reply-To: <20110328103140.GJ1885@bicker>
-Content-Language: en-US
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:51175 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754195Ab1C1NnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 09:43:24 -0400
+Received: by vws1 with SMTP id 1so2263184vws.19
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2011 06:43:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Subject: smatch stuff: use after free bug
-> 
-> Smatch complains about this.  It's not obvious to me how to fix it.
-> The
-> bug was introduced in b12d93d63 "mlx4: Add support for promiscuous mode
-> in the new steering model.".
+Hi,
 
-Thanks,
-Will send a fix.
+I have prepared a binary diff (hopefully correctly this time)
+which adds the myri10ge firmware to the linux-firmware tree.
+Due to the large size, I've uploaded the patch to the following URL
+rather than attaching it:
 
-Yevgeny
+http://www.myri.com/staff/gallatin/fw/0001-linux-firmware-add-myri10ge-firmware.patch
+
+Thanks to sgruszka@redhat.com for teaching me how to properly prepare
+the patch.
+
+
+Drew
