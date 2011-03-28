@@ -1,61 +1,64 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [RFC PATCH] rtl8187: Fix led support for rfkill
-Date: Sun, 27 Mar 2011 17:47:36 -0500
-Message-ID: <4D8FBE88.3050907@lwfinger.net>
-References: <1301174394-12642-1-git-send-email-wuzhangjin@gmail.com>	<4D8E5BA3.1090909@users.sourceforge.net> <AANLkTind3Va9J_tvZBDAPfbuyQtgxoAE+ZzG6VpU1b1q@mail.gmail.com> <4D8E8B1E.3030709@users.sourceforge.net>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] net: Always allocate at least 16 skb frags regardless of
+ page size
+Date: Mon, 28 Mar 2011 11:57:26 +1100
+Message-ID: <20110328115726.4cca214d@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wu zhangjin <wuzhangjin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Roman Mamedov <rm-pzoh41kZ4TQvJsYlp49lxw@public.gmane.org>
-To: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4D8E8B1E.3030709-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, eric.dumazet@gmail.com,
+	herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:54818 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752543Ab1C1A5b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Mar 2011 20:57:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/26/2011 07:55 PM, Hin-Tak Leung wrote:
-> wu zhangjin wrote:
->> On Sun, Mar 27, 2011 at 5:33 AM, Hin-Tak Leung
->> <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org> wrote:
->>> Wu Zhangjin wrote:
->>>> led can not be turned off normally when rfkill is blocked, the cause is
->>>> the led_turn_off() function exit as not expected:
->>> Hmm. While this sounds more sensible, is it needed? And what does the
->>> windows driver do?
->>>
->>> I think there are two kind of LEDs - one that comes on and off with the
->>> rfkill switch; Larry or Herton makes the 2nd one, if there is one, blink
->>> while there is traffic (and stay steady on otherwise).
->>
->> I have used this driver on the YeeLoong netbook(only support Linux),
->> there is only one LED for rtl8187, when there is traffic, it blinks
->> perfectly, but If press the hotkey to turn off the rf, the network
->> interface is down, but the LED is still light, then, the users may
->> mistakenly think the hotkey or rfkill support doesn't work or simply
->> think the interface is still on. So, that's why we may need to fix it.
->
-> My laptop (a Toshiba one) has the other kind of LED - the LED only comes on and
-> off in relation to the rfkill switch, and does not blink with traffic. I think
-> Herton or Larry has some devices with both types.
->
-> Hmm, I seem to have the impression that there is code somewhere for switching a
-> singular LED's behavior of the driver between one or the other, by echo'ing into
-> sysfs or some other trickery? Or would that be a desired approach if that's not
-> done at the moment?
 
-My rtl8187 devices are both external USB sticks, thus they have no interaction 
-with a radio-kill switch. I will test your patch to make sure it does no harm to 
-my system.
+When analysing performance of the cxgb3 on a ppc64 box I noticed that
+we weren't doing much GRO merging. It turns out we are limited by the
+number of SKB frags:
 
-I think the commit message should be revised. A simple statement like "the LED 
-does not turn off when the rfkill switch is off" should be sufficient.
+#define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
 
-Larry
+With a 4kB page size we have 18 frags, but with a 64kB page size we
+only have 3 frags.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I ran a single stream TCP bandwidth test to compare the performance of
+different values of MAX_SKB_FRAGS on the receiver:
+
+MAX_SKB_FRAGS   Mbps
+3               7080	
+8               7931    (+12%)
+16              8335	(+17%)
+32              8349	(+17%)
+
+Performance continues to increase up to 16 frags then levels off so
+the patch below puts a lower bound of 16 on MAX_SKB_FRAGS.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
+---
+
+Index: powerpc.git/include/linux/skbuff.h
+===================================================================
+--- powerpc.git.orig/include/linux/skbuff.h	2011-03-28 09:41:25.392124844 +1100
++++ powerpc.git/include/linux/skbuff.h	2011-03-28 10:18:58.253050000 +1100
+@@ -122,8 +122,14 @@ struct sk_buff_head {
+ 
+ struct sk_buff;
+ 
+-/* To allow 64K frame to be packed as single skb without frag_list */
++/* To allow 64K frame to be packed as single skb without frag_list. Since
++ * GRO uses frags we allocate at least 16 regardless of page size.
++ */
++#if (65536/PAGE_SIZE + 2) < 16
++#define MAX_SKB_FRAGS 16
++#else
+ #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
++#endif
+ 
+ typedef struct skb_frag_struct skb_frag_t;
+ 
