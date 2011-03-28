@@ -1,53 +1,98 @@
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: Re: [PATCH 2/2 v2] tg3: Don't use IRQF_SAMPLE_RANDOM
-Date: Mon, 28 Mar 2011 17:46:23 +0200
-Message-ID: <AANLkTi=Qkf2qn6nQ-6AXE8LtFSD++=eZRxa6ND6KPsk1@mail.gmail.com>
-References: <1301314543-3666-1-git-send-email-martinez.javier@gmail.com> <1301315152.3182.19.camel@edumazet-laptop>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: poll broken (for can) (was: Re: Multiple programs
+ trying to access the socket)
+Date: Mon, 28 Mar 2011 18:13:36 +0200
+Message-ID: <4D90B3B0.2010401@pengutronix.de>
+References: <1301321142.9519.10.camel@lukonin-pc>	<4D90A7E9.1080804@grandegger.com>
+	<4D90AA8A.9010804@pengutronix.de> <4D90AF67.1080405@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Dan Carpenter <error27@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34118 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750Ab1C1PrH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 11:47:07 -0400
-In-Reply-To: <1301315152.3182.19.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============3494630910939338135=="
+Cc: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D90AF67.1080405-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 28, 2011 at 2:25 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->
-> 1) We dont believe its Janitor material ;)
->
-> http://thread.gmane.org/gmane.linux.kernel/680723
->
-> http://kerneltrap.org/mailarchive/linux-netdev/2009/4/6/5417754
->
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============3494630910939338135==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig4DD16C90C15C6A941B461915"
 
-I wasn't aware of this discussion. In one hand network drivers are not
-a good source of entropy because they can be controlled externally,
-but in embedded systems with only network cards (no video, audio,
-keyboard, etc) the only source of entropy they have is their network
-cards (at the kernel level i.e: not using EGD to feed /dev/random).
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig4DD16C90C15C6A941B461915
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Yes this definitely is not janitor material :)
+On 03/28/2011 05:55 PM, Wolfgang Grandegger wrote:
+>> BTW: I figured out why poll() wakes you up but the next write will fai=
+l
+>> with -ENOBUFS again.
+>=20
+> Ah, I'm curious? I also did realize that poll does burn CPU cycles
+> (instead of waiting).
 
-I just sent the patch because I saw IRQF_SAMPLE_RANDOM in
-Documentation/feature-removal-schedule.txt. I can resend a patch
-removing the macro in the remaining network cards if the decision is
-to remove IRQF_SAMPLE_RANDOM.
+The poll callback checks if the used memory is less than the half of per
+socket snd buffer (IIRC ~60K). See:
 
-Best regards,
+datagram_poll (http://lxr.linux.no/linux+v2.6.38/net/core/datagram.c#L737=
+)
+sock_writeable (http://lxr.linux.no/linux+v2.6.38/include/net/sock.h#L161=
+8)
 
------------------------------------------
-Javier Mart=C3=ADnez Canillas
-(+34) 682 39 81 69
-PhD Student in High Performance Computing
-Computer Architecture and Operating System Department (CAOS)
-Universitat Aut=C3=B2noma de Barcelona
-Barcelona, Spain
+Because the size of a can frame (+the skb overhead) is much less then
+the ethernet frame (+overhead) the default value for the snd buffer is
+too big for can.
+
+We get the -ENOBUF from write() if the tx_queue_len (default 10) is
+exceeded.
+
+http://lxr.linux.no/linux+v2.6.38/drivers/net/can/dev.c#L435
+http://lxr.linux.no/linux+v2.6.38/net/can/af_can.c#L268
+
+cheers, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig4DD16C90C15C6A941B461915
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk2Qs7AACgkQjTAFq1RaXHMtEACfZNdpx0zruJcGUW9nWqeciymv
+BtMAn239SimAeuQ9EorNVvvsMfZ3PQcL
+=FJnr
+-----END PGP SIGNATURE-----
+
+--------------enig4DD16C90C15C6A941B461915--
+
+--===============3494630910939338135==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-users mailing list
+Socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-users
+
+--===============3494630910939338135==--
