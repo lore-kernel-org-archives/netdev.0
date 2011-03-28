@@ -1,41 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usbnet: fix memory leak in usbnet_disconnect()
-Date: Sun, 27 Mar 2011 18:11:07 -0700 (PDT)
-Message-ID: <20110327.181107.115927388.davem@davemloft.net>
-References: <AANLkTintuq7z45e-Cr8Ma5_Bm+UtnO+Gsysn6A3kv+CZ@mail.gmail.com>
+Subject: Re: [Patch] net: remove useless comments in net/core/dev.c
+Date: Sun, 27 Mar 2011 18:12:37 -0700 (PDT)
+Message-ID: <20110327.181237.48513830.davem@davemloft.net>
+References: <1300795189-24655-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, a20612@motorola.com, jxchang@motorola.com
-To: xmb836@motorola.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39896
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752553Ab1C1BLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 21:11:45 -0400
-In-Reply-To: <AANLkTintuq7z45e-Cr8Ma5_Bm+UtnO+Gsysn6A3kv+CZ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	xiaosuo@gmail.com, therbert@google.com, jesse@nicira.com,
+	netdev@vger.kernel.org
+To: amwang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1300795189-24655-1-git-send-email-amwang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: DMITRIY GRUZMAN <xmb836@motorola.com>
-Date: Mon, 21 Mar 2011 16:49:50 -0500
+From: Amerigo Wang <amwang@redhat.com>
+Date: Tue, 22 Mar 2011 19:59:47 +0800
 
-> usb_probe() allocates memory for transfer buffer and urb and this
-> memory was not properly released in usbnet_disconnect().   The issue
-> was found and the fix was recommended by Fu-Lei Tian and Jun-Xiao
-> Chang.
+> The code itself can explain what it is doing, no need these comments.
 > 
-> Signed-off-by: Dmitriy Gruzman <xmb836@motorola.com>
+> Signed-off-by: WANG Cong <amwang@redhat.com>
 
-Your email client corrupted your patch, among other things:
-
-> @@ -210,6 +210,7 @@ static int init_status (struct usbnet *dev, struct
-> usb_interface *intf)
-
-it chopped up long lines.
-
-Please fix this up, test your setup by emailing the patch to yourself
-and trying to apply what you receive, then try submitting it here
-freshly again.
-
-Thanks.
+Agreed, these comments are superfluous, applied thanks!
