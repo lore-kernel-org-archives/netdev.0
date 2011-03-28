@@ -1,62 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ip_fragment:kernel may panic when replay big packet with
- RST flag
-Date: Mon, 28 Mar 2011 13:30:23 +0200
-Message-ID: <4D90714F.6060408@trash.net>
-References: <AANLkTikoSxVd3kTggsCGpjXz-5CFuVNxjnpuZNgWd3eV@mail.gmail.com> <AANLkTimOzYG4Weh7wanYfU_qBM4tJDPz+zJZQx_H-vn0@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Feng Gao <kernel.goter@gmail.com>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimOzYG4Weh7wanYfU_qBM4tJDPz+zJZQx_H-vn0@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Javier Martinez Canillas <martinez.javier@gmail.com>
+Subject: [PATCH 2/2 v2] tg3: Don't use IRQF_SAMPLE_RANDOM
+Date: Mon, 28 Mar 2011 14:15:43 +0200
+Message-ID: <1301314543-3666-1-git-send-email-martinez.javier@gmail.com>
+Cc: Dan Carpenter <error27@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Javier Martinez Canillas <martinez.javier@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63051 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756Ab1C1MPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 08:15:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 26.03.2011 14:36, Changli Gao wrote:
-> On Wed, Mar 23, 2011 at 6:49 PM, Feng Gao <kernel.goter@gmail.com> wrote:
->> Hello everyone:
->>
->> PC(A)-linux(B)-PC(C)
->> computer(linux B) with two net interface,eth0 and eth1.
->> PC(A) send syn to PC(C)  though linux B.
->> then PC(C) replay a big packet  with RST flag(use tcpsic or other tools).
->>
->> This RST packet(1480) come in from eth0(mtu 1500) and go out from
->> eth1(mtu 700), so this RST packet should fragment.
->>
->> BUT in tcp_packet func: if the connection has no reply packet,and
->> receive the RST packet.ip_conntrack should  destroy.
->>  if (!test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
->>                /* If only reply is a RST, we can consider ourselves not to
->>                   have an established connection: this is a fairly common
->>                   problem case, so we can delete the conntrack
->>                   immediately.  --RR */
->>                if (th->rst) {
->>                        nf_ct_kill_acct(ct, ctinfo, skb);
->>                        return NF_ACCEPT;
->>                }
->>        }
->>
->> BUT the skb->nfct is not set NULL in func nf_ct_kill_acct.
->> so when this RST packet goto ip_fragment,ip_fragment call nf_copy, in
->> __nf_copy func
->> the fragment skb->nfct point to the destory mem.
->> dst->nfct = src->nfct;
->> nf_conntrack_get(src->nfct);
->>
->> SO finally.kfree_skb call destroy_conntrack again. this may result in
->> LINUX B kernel panic.
->>
-> 
-> Have you ever tested that? I am afraid no panic will happen.
-> nf_ct_kill_acct() just drops the reference owned by the corresponding
-> timeout timer to the ct if the timer is installed, so the skb still
-> has the reference to the ct after nf_ct_kill_acct() returns. Thanks.
+This flag is scheduled for removal so we shouldn't used it.
 
-That's correct, the skb's reference is refcounted seperately and
-only dropped at the final kfree_skb().
+Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
+---
+v2: Initialize flags to zero suggested by Dan Carpenter.
+
+ drivers/net/tg3.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 5135655..7adbf63 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -8839,12 +8839,12 @@ static int tg3_request_irq(struct tg3 *tp, int irq_num)
+ 		fn = tg3_msi;
+ 		if (tp->tg3_flags2 & TG3_FLG2_1SHOT_MSI)
+ 			fn = tg3_msi_1shot;
+-		flags = IRQF_SAMPLE_RANDOM;
++		flags = 0;
+ 	} else {
+ 		fn = tg3_interrupt;
+ 		if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
+ 			fn = tg3_interrupt_tagged;
+-		flags = IRQF_SHARED | IRQF_SAMPLE_RANDOM;
++		flags = IRQF_SHARED;
+ 	}
+ 
+ 	return request_irq(tnapi->irq_vec, fn, flags, name, tnapi);
+@@ -8875,7 +8875,7 @@ static int tg3_test_interrupt(struct tg3 *tp)
+ 	}
+ 
+ 	err = request_irq(tnapi->irq_vec, tg3_test_isr,
+-			  IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, tnapi);
++			  IRQF_SHARED, dev->name, tnapi);
+ 	if (err)
+ 		return err;
+ 
+-- 
+1.7.2.5
+
