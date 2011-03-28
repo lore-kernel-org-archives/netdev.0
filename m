@@ -1,75 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: zero copy for relay server
-Date: Mon, 28 Mar 2011 18:52:18 +0200
-Message-ID: <1301331138.3182.43.camel@edumazet-laptop>
-References: <D69C90565D53114396BF743585AF5A09122E61E9E7@VSHINMSMBX01.vshodc.lntinfotech.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/2 v2] tg3: Don't use IRQF_SAMPLE_RANDOM
+Date: Mon, 28 Mar 2011 18:20:22 +0100
+Message-ID: <1301332822.2716.12.camel@bwh-desktop>
+References: <1301314543-3666-1-git-send-email-martinez.javier@gmail.com>
+	 <1301315152.3182.19.camel@edumazet-laptop>
+	 <AANLkTi=Qkf2qn6nQ-6AXE8LtFSD++=eZRxa6ND6KPsk1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Viral Mehta <Viral.Mehta@lntinfotech.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Dan Carpenter <error27@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Javier Martinez Canillas <martinez.javier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:45261 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754949Ab1C1Qwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 12:52:32 -0400
-Received: by fxm17 with SMTP id 17so2814706fxm.19
-        for <netdev@vger.kernel.org>; Mon, 28 Mar 2011 09:52:31 -0700 (PDT)
-In-Reply-To: <D69C90565D53114396BF743585AF5A09122E61E9E7@VSHINMSMBX01.vshodc.lntinfotech.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:57071 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752832Ab1C1RUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2011 13:20:25 -0400
+In-Reply-To: <AANLkTi=Qkf2qn6nQ-6AXE8LtFSD++=eZRxa6ND6KPsk1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 28 mars 2011 =C3=A0 21:57 +0530, Viral Mehta a =C3=A9crit :
-> Hi,
-> I am implementing a particular application where
-> my application acts nothing but like Relay Server.
->=20
-> Relay server accepts connection from machine A.
-> It also accepts connection from Machine B.
->=20
-> Machine A and B are on different LAN/subnnets.
-> Now, there are two connections.
-> What server is supposed to do is RECV packets from machine A and SEND=
- same
-> to machine B.
->=20
-> Pseudo Code is something like,
-> while(1)
-> {
-> recvagain:
->    n =3D3D recv(incoming_fd, &buf, 8192, ...)
->    if(n < 0)
->         goto recvagain;
->    send(outgoing_fd, &buf, n, ...);
-> }
->=20
-> Now the question is,
-> I want to avoid kernel-user copy for such application.
-> I found that a syscall like "sendfile"; I wanted to know if there is =
-any
-> similar thing exists in-kernel which can take 2 socket descriptors...=
-=2E
->=20
-> If not, is it possible ? I would like to implement the same if someon=
-e
-> can suggest some pointers.
+On Mon, 2011-03-28 at 17:46 +0200, Javier Martinez Canillas wrote:
+> On Mon, Mar 28, 2011 at 2:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > 1) We dont believe its Janitor material ;)
+> >
+> > http://thread.gmane.org/gmane.linux.kernel/680723
+> >
+> > http://kerneltrap.org/mailarchive/linux-netdev/2009/4/6/5417754
+> >
+> 
+> I wasn't aware of this discussion. In one hand network drivers are not
+> a good source of entropy because they can be controlled externally,
+> but in embedded systems with only network cards (no video, audio,
+> keyboard, etc) the only source of entropy they have is their network
+> cards (at the kernel level i.e: not using EGD to feed /dev/random).
 
-linux way (if you want to avoid netfilter stuff and use userland code)
-is to use splice() system call, and a pipe between two sockets.
+It may be the only source of entropy, but given how poor a source it is
+these drivers are basically telling sweet little lies to the kernel and
+the applications that demand real random numbers.
 
+This also applies to many servers just as much as embedded systems.
 
-/* skeleton : must add error checking to exit the loop properly */
-int fds[2];
-pipe(fds);
+As you acknowledge, these systems can still get entropy using the EGD
+protocol over a secure channel.  (Or an entropy sampling device such as
+the Entropy Key.)
 
-while (1) {
-	splice(incoming_fd, NULL, fds[1], NULL, 65536, 0);
-	splice(fds[0], NULL, outgoing_fd, NULL, 65536, 0);
-}
+> Yes this definitely is not janitor material :)
+> 
+> I just sent the patch because I saw IRQF_SAMPLE_RANDOM in
+> Documentation/feature-removal-schedule.txt. I can resend a patch
+> removing the macro in the remaining network cards if the decision is
+> to remove IRQF_SAMPLE_RANDOM.
 
-This way, messages dont cross kernel<>user boundary.
+It's not my call, but I would support it.
 
-The pipe is acting as a buffer between the two sockets.
+Ben.
 
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
