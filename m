@@ -1,35 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: Make some local functions static
-Date: Sun, 27 Mar 2011 18:16:03 -0700 (PDT)
-Message-ID: <20110327.181603.246526652.davem@davemloft.net>
-References: <4D89CFE7.4050907@freyther.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] can: c_can: disable one shot mode until driver is fixed
+Date: Sun, 27 Mar 2011 18:19:23 -0700 (PDT)
+Message-ID: <20110327.181923.102561338.davem@davemloft.net>
+References: <1300964453-2634-1-git-send-email-mkl@pengutronix.de>
+	<4D8B3163.8080706@grandegger.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: holger@freyther.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57410
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752553Ab1C1BQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2011 21:16:41 -0400
-In-Reply-To: <4D89CFE7.4050907@freyther.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D8B3163.8080706-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Holger Hans Peter Freyther <holger@freyther.de>
-Date: Wed, 23 Mar 2011 11:48:07 +0100
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Date: Thu, 24 Mar 2011 12:56:19 +0100
 
-> @@ -132,8 +132,8 @@ void  sctp_init_cause(struct sctp_chunk *chunk, __be16
-> cause_code,
+> On 03/24/2011 12:00 PM, Marc Kleine-Budde wrote:
+>> This patch disables the one shot mode, until the driver has been fixed and
+>> tested to support it.
+>> 
+>>> I'm quite sure I've seen a situation where msg_obj 17 "seemed" to be
+>>> pending, while msg_obj 18 and 19 already have been transmitted. But
+>>> in that case, I enabled ONESHOT for the can interface, which enables
+>>> the DA mode (automatic retransmission is disabled).
+>> 
+>> Reported-by: Jan Altenberg <jan-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+>> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>> Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+>> Cc: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-Your patches are corrupted by your email client, in particular it has
-chopped up long lines.
-
-Please fix your email setup, test it out by emailing both of your SCTP
-patches to yourself, then try to apply the patches in the emails you
-receive.
-
-Then you can freshly resubmit them here.
-
-Thank you.
+Applied, thanks everyone.
