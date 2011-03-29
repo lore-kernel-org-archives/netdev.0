@@ -1,51 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Always allocate at least 16 skb frags regardless
- of page size
-Date: Mon, 28 Mar 2011 22:27:02 -0700 (PDT)
-Message-ID: <20110328.222702.39186706.davem@davemloft.net>
-References: <20110328115726.4cca214d@kryten>
+Subject: Re: [PATCH] cxgb3: Apply interrupt coalescing settings to all
+ queues
+Date: Mon, 28 Mar 2011 22:27:17 -0700 (PDT)
+Message-ID: <20110328.222717.59681471.davem@davemloft.net>
+References: <20110328135041.57cec646@kryten>
+	<4D90C862.2080207@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: anton@samba.org
+Cc: anton@samba.org, netdev@vger.kernel.org
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59488
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59494
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751665Ab1C2F1k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 01:27:40 -0400
-In-Reply-To: <20110328115726.4cca214d@kryten>
+	by vger.kernel.org with ESMTP id S1751665Ab1C2F1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 01:27:55 -0400
+In-Reply-To: <4D90C862.2080207@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anton Blanchard <anton@samba.org>
-Date: Mon, 28 Mar 2011 11:57:26 +1100
+From: Divy Le Ray <divy@chelsio.com>
+Date: Mon, 28 Mar 2011 10:41:54 -0700
 
+> On 03/27/2011 07:50 PM, Anton Blanchard wrote:
+>>
+>>
+>> While testing the performance of different receive interrupt
+>> coalescing settings on a single stream TCP benchmark, I noticed two
+>> very different results. With rx-usecs=50, most of the time a
+>> connection would hit 8280 Mbps but once in a while it would hit
+>> 9330 Mbps.
+>>
+>> It turns out we are only applying the interrupt coalescing settings
+>> to the first queue and whenever the rx hash would direct us onto
+>> that queue we ran faster.
+>>
+>> With this patch applied and rx-usecs=50, I get 9330 Mbps
+>> consistently.
+>>
+>> Signed-off-by: Anton Blanchard <anton@samba.org>
 > 
-> When analysing performance of the cxgb3 on a ppc64 box I noticed that
-> we weren't doing much GRO merging. It turns out we are limited by the
-> number of SKB frags:
-> 
-> #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
-> 
-> With a 4kB page size we have 18 frags, but with a 64kB page size we
-> only have 3 frags.
-> 
-> I ran a single stream TCP bandwidth test to compare the performance of
-> different values of MAX_SKB_FRAGS on the receiver:
-> 
-> MAX_SKB_FRAGS   Mbps
-> 3               7080	
-> 8               7931    (+12%)
-> 16              8335	(+17%)
-> 32              8349	(+17%)
-> 
-> Performance continues to increase up to 16 frags then levels off so
-> the patch below puts a lower bound of 16 on MAX_SKB_FRAGS.
-> 
-> Signed-off-by: Anton Blanchard <anton@samba.org>
+> Acked-by: Divy Le Ray <divy@chelsio.com>
 
-Thanks for investigating this and fixing the problem.
-
-Applied.
+Applied, thanks.
