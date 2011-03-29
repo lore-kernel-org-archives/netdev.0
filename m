@@ -1,68 +1,53 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] net: gre: provide multicast mappings for ipv4 and ipv6
-Date: Tue, 29 Mar 2011 13:00:32 +0300
-Message-ID: <4D91ADC0.9090400@iki.fi>
-References: <4D8F6313.60408@iki.fi>	 <1301388053-6083-1-git-send-email-timo.teras@iki.fi> <1301389905.3161.3.camel@edumazet-laptop>
+From: Javier Martinez Canillas <martinez.javier@gmail.com>
+Subject: Re: [PATCH 2/2 v2] tg3: Don't use IRQF_SAMPLE_RANDOM
+Date: Tue, 29 Mar 2011 13:26:27 +0200
+Message-ID: <AANLkTikcQyvAhVrjhJKdVexU2EaGtjMqHoK7BfKSq9Jg@mail.gmail.com>
+References: <1301315152.3182.19.camel@edumazet-laptop> <AANLkTi=Qkf2qn6nQ-6AXE8LtFSD++=eZRxa6ND6KPsk1@mail.gmail.com>
+ <1301332822.2716.12.camel@bwh-desktop> <20110328.165311.226778266.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Doug Kehn <rdkehn@yahoo.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: bhutchings@solarflare.com, eric.dumazet@gmail.com,
+	error27@gmail.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:59111 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251Ab1C2KAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 06:00:35 -0400
-Received: by eyx24 with SMTP id 24so1417325eyx.19
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2011 03:00:34 -0700 (PDT)
-In-Reply-To: <1301389905.3161.3.camel@edumazet-laptop>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:48307 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752782Ab1C2L1G convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 07:27:06 -0400
+In-Reply-To: <20110328.165311.226778266.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/29/2011 12:11 PM, Eric Dumazet wrote:
-> Le mardi 29 mars 2011 =C3=A0 11:40 +0300, Timo Ter=C3=A4s a =C3=A9cri=
-t :
->> My commit 6d55cb91a0020ac0 (gre: fix hard header destination
->> address checking) broke multicast.
+On Tue, Mar 29, 2011 at 1:53 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 28 Mar 2011 18:20:22 +0100
+>
+>> On Mon, 2011-03-28 at 17:46 +0200, Javier Martinez Canillas wrote:
+>>> Yes this definitely is not janitor material :)
+>>>
+>>> I just sent the patch because I saw IRQF_SAMPLE_RANDOM in
+>>> Documentation/feature-removal-schedule.txt. I can resend a patch
+>>> removing the macro in the remaining network cards if the decision i=
+s
+>>> to remove IRQF_SAMPLE_RANDOM.
 >>
->> The reason is that ip_gre used to get ipgre_header() calls with
->> zero destination if we have NOARP or multicast destination. Instead
->> the actual target was decided at ipgre_tunnel_xmit() time based on
->> per-protocol dissection.
->>
->> Instead of allowing the "abuse" of ->header() calls with invalid
->> destination, this creates multicast mappings for ip_gre. This also
->> fixes "ip neigh show nud noarp" to display the proper multicast
->> mappings used by the gre device.
->>
->> Reported-by: Doug Kehn <rdkehn@yahoo.com>
->> Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
->> ---
->> Compile tested only. Doug tested IPv4 side with the earlier patch.
->=20
->=20
->> +static inline int ipv6_ipgre_mc_map(const struct in6_addr *addr,
->> +				    const unsigned char *broadcast, char *buf)
->> +{
->> +	if ((broadcast[0] | broadcast[1] | broadcast[2] | broadcast[3]) !=3D=
- 0) {
->> +		memcpy(buf, broadcast, 4);
->> +	} else {
->> +		/* v4mapped? */
->> +		if ((addr->s6_addr32[0] | addr->s6_addr32[1] |
->> +		     (addr->s6_addr32[2] ^ htonl(0x0000ffff))) !=3D 0)
->> +			return -EINVAL;
->=20
-> 		if (ipv6_addr_v4mapped(addr))
->=20
->=20
->> +		memcpy(buf, &addr->s6_addr32[3], 4);
->> +	}
->> +	return 0;
->> +}
+>> It's not my call, but I would support it.
+>
+> FWIW, I support it too.
+>
 
-I wanted to put the function same header as all other similar ones:
-net/if_inet6.h. However, ipv6_addr_v4mapped() is defined in net/ipv6.h
-which includes net/if_inet6.h. So I can't really use that function ther=
-e.
+Ok, I just sent a patch removing the IRQF_SAMPLE_RANDOM flag in all
+the network drivers in the case everyone agrees.
 
+Best regards,
+
+-----------------------------------------
+Javier Mart=C3=ADnez Canillas
+(+34) 682 39 81 69
+PhD Student in High Performance Computing
+Computer Architecture and Operating System Department (CAOS)
+Universitat Aut=C3=B2noma de Barcelona
+Barcelona, Spain
