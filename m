@@ -1,195 +1,220 @@
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: [PATCH] drivers/net: Remove IRQF_SAMPLE_RANDOM flag from network drivers
-Date: Tue, 29 Mar 2011 04:27:31 +0200
-Message-ID: <1301365651-9106-1-git-send-email-martinez.javier@gmail.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Florian Fainelli <ffainelli@freebox.fr>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Javier Martinez Canillas <martinez.javier@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 1/2] via-ircc: Use pci_{get,set}_drvdata() instead of
+ static pointer variable
+Date: Tue, 29 Mar 2011 04:10:43 +0100
+Message-ID: <1301368243.26693.751.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Andrew Buckeridge <andrewb@bgc.com.au>,
+	Samuel Ortiz <samuel@sortiz.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51279 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755167Ab1C2DKv convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Mar 2011 23:10:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The IRQF_SAMPLE_RANDOM flag is marked as deprecated and will be removed.
+via-ircc still maintains its own array of device pointers in Linux 2.4
+style.  Worse, it always uses index 0, so it will crash if there are
+multiple suitable devices in the system.
 
-Every input point to the kernel's entropy pool have to better document the
-type of entropy source it is.
-
-drivers/char/random.c now implements a set of interfaces that can be used for
-devices to collect enviromental noise. IRQF_SAMPLE_RANDOM will be replaced
-with these add_*_randomness exported functions.
-
-Network drivers are not a good source of entropy. They use as a source of
-entropy essentially a remote host. Which means that the source of entropy can
-be potentially controlled by an attacker. Also, with heavy workloads the
-entropy decreases due to less hardware interrupts happening thanks to irq
-mitigation and NAPI.
-
-If a system relies in its network interface as a entropy source it has a false
-sense of security. Systems that don't have devices whose drivers are good
-sources of entropy, should either use a hardware random number generator or
-feed the kernel's entropy pool from userspace using other sources of entropy
-such as EGD, video_entropyd, timer_entropyd and audio-entropyd.
-
-Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- drivers/net/atlx/atl1.c              |    2 +-
- drivers/net/bcm63xx_enet.c           |    4 ++--
- drivers/net/cris/eth_v10.c           |    4 ++--
- drivers/net/ibmlana.c                |    3 ++-
- drivers/net/macb.c                   |    3 +--
- drivers/net/netxen/netxen_nic_main.c |    2 +-
- drivers/net/niu.c                    |    3 +--
- drivers/net/qla3xxx.c                |    2 +-
- drivers/net/tg3.c                    |    4 ++--
- drivers/net/xen-netfront.c           |    3 +--
- 10 files changed, 14 insertions(+), 16 deletions(-)
+It seems that a bunch of 'FIXME' comments with hints aren't enough to
+attract kernel janitors (they've been there since the start of git
+history).
 
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 67f40b9..e973d05 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -2572,7 +2572,7 @@ static s32 atl1_up(struct atl1_adapter *adapter)
+This is really cleanup in preparation for another fix.  Andrew
+Buckeridge has tested this as far as loading the driver, but the IrDA
+header isn't connected on his system.
+
+Ben.
+
+ drivers/net/irda/via-ircc.c |   82 ++++++++-----------------------------------
+ 1 files changed, 15 insertions(+), 67 deletions(-)
+
+diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
+index 67c0ad4..cc6faca 100644
+--- a/drivers/net/irda/via-ircc.c
++++ b/drivers/net/irda/via-ircc.c
+@@ -75,15 +75,9 @@ static int dongle_id = 0;	/* default: probe */
+ /* We can't guess the type of connected dongle, user *must* supply it. */
+ module_param(dongle_id, int, 0);
+ 
+-/* FIXME : we should not need this, because instances should be automatically
+- * managed by the PCI layer. Especially that we seem to only be using the
+- * first entry. Jean II */
+-/* Max 4 instances for now */
+-static struct via_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL };
+-
+ /* Some prototypes */
+-static int via_ircc_open(int i, chipio_t * info, unsigned int id);
+-static int via_ircc_close(struct via_ircc_cb *self);
++static int via_ircc_open(struct pci_dev *pdev, chipio_t * info,
++			 unsigned int id);
+ static int via_ircc_dma_receive(struct via_ircc_cb *self);
+ static int via_ircc_dma_receive_complete(struct via_ircc_cb *self,
+ 					 int iobase);
+@@ -215,7 +209,7 @@ static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_devi
+ 			pci_write_config_byte(pcidev,0x42,(bTmp | 0xf0));
+ 			pci_write_config_byte(pcidev,0x5a,0xc0);
+ 			WriteLPCReg(0x28, 0x70 );
+-			if (via_ircc_open(0, &info,0x3076) == 0)
++			if (via_ircc_open(pcidev, &info, 0x3076) == 0)
+ 				rc=0;
+ 		} else
+ 			rc = -ENODEV; //IR not turn on	 
+@@ -254,7 +248,7 @@ static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_devi
+ 			info.irq=FirIRQ;
+ 			info.dma=FirDRQ1;
+ 			info.dma2=FirDRQ0;
+-			if (via_ircc_open(0, &info,0x3096) == 0)
++			if (via_ircc_open(pcidev, &info, 0x3096) == 0)
+ 				rc=0;
+ 		} else
+ 			rc = -ENODEV; //IR not turn on !!!!!
+@@ -264,48 +258,10 @@ static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_devi
+ 	return rc;
+ }
+ 
+-/*
+- * Function via_ircc_clean ()
+- *
+- *    Close all configured chips
+- *
+- */
+-static void via_ircc_clean(void)
+-{
+-	int i;
+-
+-	IRDA_DEBUG(3, "%s()\n", __func__);
+-
+-	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
+-		if (dev_self[i])
+-			via_ircc_close(dev_self[i]);
+-	}
+-}
+-
+-static void __devexit via_remove_one (struct pci_dev *pdev)
+-{
+-	IRDA_DEBUG(3, "%s()\n", __func__);
+-
+-	/* FIXME : This is ugly. We should use pci_get_drvdata(pdev);
+-	 * to get our driver instance and call directly via_ircc_close().
+-	 * See vlsi_ir for details...
+-	 * Jean II */
+-	via_ircc_clean();
+-
+-	/* FIXME : This should be in via_ircc_close(), because here we may
+-	 * theoritically disable still configured devices :-( - Jean II */
+-	pci_disable_device(pdev);
+-}
+-
+ static void __exit via_ircc_cleanup(void)
  {
- 	struct net_device *netdev = adapter->netdev;
- 	int err;
--	int irq_flags = IRQF_SAMPLE_RANDOM;
-+	int irq_flags = 0;
+ 	IRDA_DEBUG(3, "%s()\n", __func__);
  
- 	/* hardware has been reset, we need to reload some things */
- 	atlx_set_multi(netdev);
-diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
-index e94a966a..2af413f 100644
---- a/drivers/net/bcm63xx_enet.c
-+++ b/drivers/net/bcm63xx_enet.c
-@@ -839,8 +839,8 @@ static int bcm_enet_open(struct net_device *dev)
- 	if (ret)
- 		goto out_phy_disconnect;
+-	/* FIXME : This should be redundant, as pci_unregister_driver()
+-	 * should call via_remove_one() on each device.
+-	 * Jean II */
+-	via_ircc_clean();
+-
+ 	/* Cleanup all instances of the driver */
+ 	pci_unregister_driver (&via_driver); 
+ }
+@@ -324,12 +280,13 @@ static const struct net_device_ops via_ircc_fir_ops = {
+ };
  
--	ret = request_irq(priv->irq_rx, bcm_enet_isr_dma,
--			  IRQF_SAMPLE_RANDOM | IRQF_DISABLED, dev->name, dev);
-+	ret = request_irq(priv->irq_rx, bcm_enet_isr_dma, IRQF_DISABLED,
-+			  dev->name, dev);
- 	if (ret)
- 		goto out_freeirq;
- 
-diff --git a/drivers/net/cris/eth_v10.c b/drivers/net/cris/eth_v10.c
-index 80c2fee..e759d74 100644
---- a/drivers/net/cris/eth_v10.c
-+++ b/drivers/net/cris/eth_v10.c
-@@ -491,8 +491,8 @@ e100_open(struct net_device *dev)
- 
- 	/* allocate the irq corresponding to the receiving DMA */
- 
--	if (request_irq(NETWORK_DMA_RX_IRQ_NBR, e100rxtx_interrupt,
--			IRQF_SAMPLE_RANDOM, cardname, (void *)dev)) {
-+	if (request_irq(NETWORK_DMA_RX_IRQ_NBR, e100rxtx_interrupt, 0, cardname,
-+			(void *)dev)) {
- 		goto grace_exit0;
- 	}
- 
-diff --git a/drivers/net/ibmlana.c b/drivers/net/ibmlana.c
-index 94d9969..f872f96 100644
---- a/drivers/net/ibmlana.c
-+++ b/drivers/net/ibmlana.c
-@@ -782,7 +782,8 @@ static int ibmlana_open(struct net_device *dev)
- 
- 	/* register resources - only necessary for IRQ */
- 
--	result = request_irq(priv->realirq, irq_handler, IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
-+	result = request_irq(priv->realirq, irq_handler, IRQF_SHARED,
-+			     dev->name, dev);
- 	if (result != 0) {
- 		printk(KERN_ERR "%s: failed to register irq %d\n", dev->name, dev->irq);
- 		return result;
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index 79ccb54..2cb4e792 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -1171,8 +1171,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 	}
- 
- 	dev->irq = platform_get_irq(pdev, 0);
--	err = request_irq(dev->irq, macb_interrupt, IRQF_SAMPLE_RANDOM,
--			  dev->name, dev);
-+	err = request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
- 	if (err) {
- 		printk(KERN_ERR
- 		       "%s: Unable to request IRQ %d (error %d)\n",
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 83348dc..9336715 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -905,7 +905,7 @@ netxen_nic_request_irq(struct netxen_adapter *adapter)
- 	struct nx_host_sds_ring *sds_ring;
- 	int err, ring;
- 
--	unsigned long flags = IRQF_SAMPLE_RANDOM;
-+	unsigned long flags = 0;
- 	struct net_device *netdev = adapter->netdev;
- 	struct netxen_recv_context *recv_ctx = &adapter->recv_ctx;
- 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 32678b6..681a42c 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -6071,8 +6071,7 @@ static int niu_request_irq(struct niu *np)
- 	for (i = 0; i < np->num_ldg; i++) {
- 		struct niu_ldg *lp = &np->ldg[i];
- 
--		err = request_irq(lp->irq, niu_interrupt,
--				  IRQF_SHARED | IRQF_SAMPLE_RANDOM,
-+		err = request_irq(lp->irq, niu_interrupt, IRQF_SHARED,
- 				  np->irq_name[i], lp);
- 		if (err)
- 			goto out_free_irqs;
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-index 348b4f136..f3f737b 100644
---- a/drivers/net/qla3xxx.c
-+++ b/drivers/net/qla3xxx.c
-@@ -3468,7 +3468,7 @@ static int ql_adapter_up(struct ql3_adapter *qdev)
+ /*
+- * Function via_ircc_open (iobase, irq)
++ * Function via_ircc_open(pdev, iobase, irq)
+  *
+  *    Open driver instance
+  *
+  */
+-static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
++static __devinit int via_ircc_open(struct pci_dev *pdev, chipio_t * info,
++				   unsigned int id)
  {
- 	struct net_device *ndev = qdev->ndev;
- 	int err;
--	unsigned long irq_flags = IRQF_SAMPLE_RANDOM | IRQF_SHARED;
-+	unsigned long irq_flags = IRQF_SHARED;
- 	unsigned long hw_flags;
+ 	struct net_device *dev;
+ 	struct via_ircc_cb *self;
+@@ -337,9 +294,6 @@ static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
  
- 	if (ql_alloc_mem_resources(qdev)) {
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ebec888..89b76f0 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -8839,12 +8839,12 @@ static int tg3_request_irq(struct tg3 *tp, int irq_num)
- 		fn = tg3_msi;
- 		if (tp->tg3_flags2 & TG3_FLG2_1SHOT_MSI)
- 			fn = tg3_msi_1shot;
--		flags = IRQF_SAMPLE_RANDOM;
-+		flags = 0;
- 	} else {
- 		fn = tg3_interrupt;
- 		if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
- 			fn = tg3_interrupt_tagged;
--		flags = IRQF_SHARED | IRQF_SAMPLE_RANDOM;
-+		flags = IRQF_SHARED;
- 	}
+ 	IRDA_DEBUG(3, "%s()\n", __func__);
  
- 	return request_irq(tnapi->irq_vec, fn, flags, name, tnapi);
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 5c8d9c3..c06f5a0 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1416,8 +1416,7 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
- 		goto fail;
+-	if (i >= ARRAY_SIZE(dev_self))
+-		return -ENOMEM;
+-
+ 	/* Allocate new instance of the driver */
+ 	dev = alloc_irdadev(sizeof(struct via_ircc_cb));
+ 	if (dev == NULL) 
+@@ -349,13 +303,8 @@ static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
+ 	self->netdev = dev;
+ 	spin_lock_init(&self->lock);
  
- 	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
--					IRQF_SAMPLE_RANDOM, netdev->name,
--					netdev);
-+					0, netdev->name, netdev);
- 	if (err < 0)
- 		goto fail;
- 	netdev->irq = err;
+-	/* FIXME : We should store our driver instance in the PCI layer,
+-	 * using pci_set_drvdata(), not in this array.
+-	 * See vlsi_ir for details... - Jean II */
+-	/* FIXME : 'i' is always 0 (see via_init_one()) :-( - Jean II */
+-	/* Need to store self somewhere */
+-	dev_self[i] = self;
+-	self->index = i;
++	pci_set_drvdata(pdev, self);
++
+ 	/* Initialize Resource */
+ 	self->io.cfg_base = info->cfg_base;
+ 	self->io.fir_base = info->fir_base;
+@@ -463,25 +412,24 @@ static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
+  err_out2:
+ 	release_region(self->io.fir_base, self->io.fir_ext);
+  err_out1:
++	pci_set_drvdata(pdev, NULL);
+ 	free_netdev(dev);
+-	dev_self[i] = NULL;
+ 	return err;
+ }
+ 
+ /*
+- * Function via_ircc_close (self)
++ * Function via_remove_one(pdev)
+  *
+  *    Close driver instance
+  *
+  */
+-static int via_ircc_close(struct via_ircc_cb *self)
++static void __devexit via_remove_one(struct pci_dev *pdev)
+ {
++	struct via_ircc_cb *self = pci_get_drvdata(pdev);
+ 	int iobase;
+ 
+ 	IRDA_DEBUG(3, "%s()\n", __func__);
+ 
+-	IRDA_ASSERT(self != NULL, return -1;);
+-
+ 	iobase = self->io.fir_base;
+ 
+ 	ResetChip(iobase, 5);	//hardware reset.
+@@ -498,11 +446,11 @@ static int via_ircc_close(struct via_ircc_cb *self)
+ 	if (self->rx_buff.head)
+ 		dma_free_coherent(NULL, self->rx_buff.truesize,
+ 				  self->rx_buff.head, self->rx_buff_dma);
+-	dev_self[self->index] = NULL;
++	pci_set_drvdata(pdev, NULL);
+ 
+ 	free_netdev(self->netdev);
+ 
+-	return 0;
++	pci_disable_device(pdev);
+ }
+ 
+ /*
 -- 
-1.7.2.5
+1.7.4.1
+
+
+
