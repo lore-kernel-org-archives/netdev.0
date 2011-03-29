@@ -1,131 +1,84 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] net: Handle gso packets in dev_forward_skb
-Date: Tue, 29 Mar 2011 14:02:58 -0700
-Message-ID: <m1aagdhc71.fsf@fess.ebiederm.org>
-References: <m1wrjsi2tf.fsf@fess.ebiederm.org>
-	<1300743744.2837.7.camel@edumazet-laptop>
-	<m1hbawi15z.fsf@fess.ebiederm.org>
-	<20110327.180922.59673799.davem@davemloft.net>
-	<1301340048.2506.13.camel@edumazet-laptop> <4D91D693.1070202@free.fr>
+From: Mathieu Poirier <mathieu.poirier@linaro.org>
+Subject: Re: [PATCH] net: allow shifted address in smsc911x
+Date: Tue, 29 Mar 2011 15:17:22 -0600
+Message-ID: <AANLkTinkqvXsyrWdSN9KP+6iZnchvnn8=UECwOcKz6tP@mail.gmail.com>
+References: <1301088437-31915-1-git-send-email-mathieu.poirier@linaro.org>
+	<20110325.143103.25112180.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	greearb@candelatech.com, arnd@arndb.de, kaber@trash.net
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
+	lee.jones@linaro.org, patches@linaro.org, linus.walleij@linaro.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:39217 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754431Ab1C2VDH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 17:03:07 -0400
-In-Reply-To: <4D91D693.1070202@free.fr> (Daniel Lezcano's message of "Tue, 29
-	Mar 2011 14:54:43 +0200")
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:63869 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809Ab1C2VSL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 17:18:11 -0400
+Received: by fxm17 with SMTP id 17so573994fxm.19
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2011 14:18:10 -0700 (PDT)
+In-Reply-To: <20110325.143103.25112180.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano <daniel.lezcano@free.fr> writes:
+My first email bounced on the list, hence sending again.
 
-> On 03/28/2011 09:20 PM, Eric Dumazet wrote:
->> Le dimanche 27 mars 2011 =C3=A0 18:09 -0700, David Miller a =C3=A9cr=
-it :
->>> From: ebiederm@xmission.com (Eric W. Biederman)
->>> Date: Mon, 21 Mar 2011 15:00:56 -0700
->>>
->>>> Eric Dumazet<eric.dumazet@gmail.com>  writes:
->>>>
->>>>> Hmm, did you follow http://patchwork.ozlabs.org/patch/86815/
->>>>> discussion ?
->>>> No.  It seems I missed it, but I do have the same problem, and
->>>> essentially the same fix.
->>> Can someone work on getting this straightened out and resubmit the
->>> final patch so I can apply something?
->>>
->> Apparently Daniel is busy.
+Please see my comments below.
+
+Thanks,
+Mathieu.
+
+On 25 March 2011 15:31, David Miller <davem@davemloft.net> wrote:
+> From: mathieu.poirier@linaro.org
+> Date: Fri, 25 Mar 2011 15:27:17 -0600
 >
-> Yes, sorry for the delay.
-> I would like to fix it but I am not sure to understand the different =
-solutions
-> proposed.
+>> From: Alessandro Rubini <rubini@gnudd.com>
+>>
+>> At least one device I'm using needs address shifting to access
+>> registers in the LAN9221 device (smsc911x driver). =A0This patch
+>> adds a shift parameter in platform_data. The feature must be
+>> enabled at configuration time, because shifting by a pdata
+>> parameter makes access slower in those devices where no shift is
+>> needed (I tested one, it was 20% slower).
+>>
+>> If the platform data requests shifted access but the feature is
+>> unavailable, the probe method complains to the console. Board
+>> config files should set the configuration option when needed.
+>>
+>> Signed-off-by: Alessandro Rubini <rubini@gnudd.com>
+>> Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
 >
-> On 03/28/2011 09:20 PM, Eric Dumazet wrote:
->> Le dimanche 27 mars 2011 =C3=A0 18:09 -0700, David Miller a =C3=A9cr=
-it :
->>> From: ebiederm@xmission.com (Eric W. Biederman)
->>> Date: Mon, 21 Mar 2011 15:00:56 -0700
->>>
->>>> Eric Dumazet<eric.dumazet@gmail.com>  writes:
->>>>
->>>>> Hmm, did you follow http://patchwork.ozlabs.org/patch/86815/
->>>>> discussion ?
->>>> No.  It seems I missed it, but I do have the same problem, and
->>>> essentially the same fix.
->>> Can someone work on getting this straightened out and resubmit the
->>> final patch so I can apply something?
->>>
->> Apparently Daniel is busy.
+> Implement this at run time, keying off of a boolean or similar
+> in the platform data.
 >
-> Yes, sorry for the delay.
-> I would like to fix it, but my knowledge in limited on offloading.
+> Implement a set of ops, one to do a PIO read one to do a PIO write,
+> and choose the set of ops appropriate for the device depending upon
+> the setting found in the platform device.
 >
-> I did the following patch, it fixes the problem. If it looks good I c=
-an resend
-> it in patch format:
 
-It looks fine to me.  I would resubmit it so that if anyone else has
-complaints they will be jolted into looking at the patch again.
+I'm find with this approach but confused on the way to implement it.
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+I could add the shifted read/write functions in smsc911x.c and choose,
+based on a boolean found in the 'smsc911x_platform_config' struct,
+which will be used (the original or the shifted methods). =A0The
+drawback with this approach is the new shifted read/write methods are
+polluting smsc911x.c, something I'm not so fond of. =A0It might be
+acceptable for one set of OPS but what if there is many more ?
 
+A better approach would be to pass the read/write methods to the
+smsc911x core using the 'smsc911x_platform_config' structure. =A0That
+way smsc911x.c is kept clean but we'd have to move 'struct
+smsc911x_data' to smsc911x.h to implement the methods from the board
+files, something I'm not about do to without some sort of consensus.
 
-Eric
+'smsc911x_tx_writefifo' and 'smsc911x_rx_readfifo' are also of concern
+to me. =A0I understand the usage of writesl/readsl but it introduces
+more challenges. =A0If we don't want to replace their usage by a while
+loop as it is the case when SMSC911X_SWAP_FIFO and SMSC911X_USE_16BIT
+are set, we will need to introduce rx_readfifo and rx_writefifo in the
+OPS.
 
+Enlightenment is required on the above.
 
-
->
-> Index: net-2.6/net/core/dev.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- net-2.6.orig/net/core/dev.c 2011-03-29 14:50:00.047646000 +0200
-> +++ net-2.6/net/core/dev.c      2011-03-29 14:50:35.587646000 +0200
-> @@ -1454,6 +1454,27 @@ static inline void net_timestamp_check(s
->                 __net_timestamp(skb);
->  }
->
-> +static inline bool is_skb_forwardable(struct net_device *dev,
-> +                                     struct sk_buff *skb)
-> +{
-> +       unsigned int len;
-> +
-> +       if (!(dev->flags & IFF_UP))
-> +               return false;
-> +
-> +       len =3D dev->mtu + dev->hard_header_len + VLAN_HLEN;
-> +       if (skb->len <=3D len)
-> +               return true;
-> +
-> +       /* if TSO is enabled, we don't care about the length as the p=
-acket
-> +        * could be forwarded without being segmented before
-> +        */
-> +       if (skb_is_gso(skb))
-> +               return true;
-> +
-> +       return false;
-> +}
-> +
->  /**
->   * dev_forward_skb - loopback an skb to another netif
->   *
-> @@ -1477,8 +1498,7 @@ int dev_forward_skb(struct net_device *d
->         skb_orphan(skb);
->         nf_reset(skb);
->
-> -       if (unlikely(!(dev->flags & IFF_UP) ||
-> -                    (skb->len > (dev->mtu + dev->hard_header_len +
-> VLAN_HLEN)))) {
-> +       if (unlikely(!is_skb_forwardable(dev, skb))) {
->                 atomic_long_inc(&dev->rx_dropped);
->                 kfree_skb(skb);
->                 return NET_RX_DROP;
+Best regards,
+Mathieu.
