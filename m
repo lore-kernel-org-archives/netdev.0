@@ -1,52 +1,64 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] NFS4: some cleanup in kernel thread creation
-Date: Tue, 29 Mar 2011 13:06:38 +0400
-Message-ID: <20110329090442.10367.54282.stgit@localhost6.localdomain6>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: gre: provide multicast mappings for ipv4 and ipv6
+Date: Tue, 29 Mar 2011 11:11:45 +0200
+Message-ID: <1301389905.3161.3.camel@edumazet-laptop>
+References: <4D8F6313.60408@iki.fi>
+	 <1301388053-6083-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Doug Kehn <rdkehn@yahoo.com>
+To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:39753 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749Ab1C2JLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 05:11:49 -0400
+Received: by fxm17 with SMTP id 17so26263fxm.19
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2011 02:11:48 -0700 (PDT)
+In-Reply-To: <1301388053-6083-1-git-send-email-timo.teras@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-kthread_run() macro allows to pass kthread name with parameters in printf
-style. So, additinal array for kthread name is redundant and was removed.
+Le mardi 29 mars 2011 =C3=A0 11:40 +0300, Timo Ter=C3=A4s a =C3=A9crit =
+:
+> My commit 6d55cb91a0020ac0 (gre: fix hard header destination
+> address checking) broke multicast.
+>=20
+> The reason is that ip_gre used to get ipgre_header() calls with
+> zero destination if we have NOARP or multicast destination. Instead
+> the actual target was decided at ipgre_tunnel_xmit() time based on
+> per-protocol dissection.
+>=20
+> Instead of allowing the "abuse" of ->header() calls with invalid
+> destination, this creates multicast mappings for ip_gre. This also
+> fixes "ip neigh show nud noarp" to display the proper multicast
+> mappings used by the gre device.
+>=20
+> Reported-by: Doug Kehn <rdkehn@yahoo.com>
+> Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+> ---
+> Compile tested only. Doug tested IPv4 side with the earlier patch.
 
-Patch for 2.6.38
-Found in 2.6.32
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@openvz.org>
+> +static inline int ipv6_ipgre_mc_map(const struct in6_addr *addr,
+> +				    const unsigned char *broadcast, char *buf)
+> +{
+> +	if ((broadcast[0] | broadcast[1] | broadcast[2] | broadcast[3]) !=3D=
+ 0) {
+> +		memcpy(buf, broadcast, 4);
+> +	} else {
+> +		/* v4mapped? */
+> +		if ((addr->s6_addr32[0] | addr->s6_addr32[1] |
+> +		     (addr->s6_addr32[2] ^ htonl(0x0000ffff))) !=3D 0)
+> +			return -EINVAL;
 
----
- fs/nfs/callback.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+		if (ipv6_addr_v4mapped(addr))
 
-diff --git a/fs/nfs/callback.c b/fs/nfs/callback.c
-index e3d2942..9e5220f 100644
---- a/fs/nfs/callback.c
-+++ b/fs/nfs/callback.c
-@@ -250,7 +250,6 @@ int nfs_callback_up(u32 minorversion, struct rpc_xprt *xprt)
- 	struct svc_rqst *rqstp;
- 	int (*callback_svc)(void *vrqstp);
- 	struct nfs_callback_data *cb_info = &nfs_callback_info[minorversion];
--	char svc_name[12];
- 	int ret = 0;
- 	int minorversion_setup;
- 
-@@ -280,10 +279,10 @@ int nfs_callback_up(u32 minorversion, struct rpc_xprt *xprt)
- 
- 	svc_sock_update_bufs(serv);
- 
--	sprintf(svc_name, "nfsv4.%u-svc", minorversion);
- 	cb_info->serv = serv;
- 	cb_info->rqst = rqstp;
--	cb_info->task = kthread_run(callback_svc, cb_info->rqst, svc_name);
-+	cb_info->task = kthread_run(callback_svc, cb_info->rqst,
-+					"nfsv4.%u-svc", minorversion);
- 	if (IS_ERR(cb_info->task)) {
- 		ret = PTR_ERR(cb_info->task);
- 		svc_exit_thread(cb_info->rqst);
+
+> +		memcpy(buf, &addr->s6_addr32[3], 4);
+> +	}
+> +	return 0;
+> +}
+
+
