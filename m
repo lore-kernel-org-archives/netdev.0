@@ -1,88 +1,57 @@
-From: Sasikanth V <sasikanth.v19@gmail.com>
-Subject: [PATCH] Bridge: Removed unwanted check and improper usage of bridge locks
-Date: Tue, 29 Mar 2011 23:54:32 +0530
-Message-ID: <1301423072-28093-1-git-send-email-sasikanth.v19@gmail.com>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Sasikanth V <sasikanth.v19@gmail.com>
-To: shemminger@linux-foundation.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: SAE J1939: update
+Date: Tue, 29 Mar 2011 21:41:22 +0200
+Message-ID: <4D9235E2.2030807@hartkopp.net>
+References: <20110314132004.GA333@e-circ.dyndns.org> <20110314135917.GF333@e-circ.dyndns.org> <4D8623BE.2080807@hartkopp.net> <20110329142907.GB335@kurt.e-circ.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:41393 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752259Ab1C2SZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 14:25:07 -0400
-Received: by ywj3 with SMTP id 3so191923ywj.19
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2011 11:25:06 -0700 (PDT)
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:56838 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751836Ab1C2Tl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 15:41:27 -0400
+In-Reply-To: <20110329142907.GB335@kurt.e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 29.03.2011 16:29, Kurt Van Dijck wrote:
+> Oliver,
+> 
+> Some progress:
+> 
+> I dropped the state-machine for the address claiming. This makes it less
+> confusing I hope.
 
-Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
----
- net/bridge/br_device.c    |    5 ++++-
- net/bridge/br_stp_if.c    |    2 --
- net/bridge/br_stp_timer.c |    3 ---
- 3 files changed, 4 insertions(+), 6 deletions(-)
+Thanks.
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 21e5901..6cc612b 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -80,10 +80,13 @@ static int br_dev_open(struct net_device *dev)
- 
- 	netif_carrier_off(dev);
- 
--	br_features_recompute(br);
- 	netif_start_queue(dev);
-+
-+	spin_lock_bh(&br->lock);
-+	br_features_recompute(br);
- 	br_stp_enable_bridge(br);
- 	br_multicast_open(br);
-+	spin_unlock_bh(&br->lock);
- 
- 	return 0;
- }
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 5593f5a..472d8b2 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -44,7 +44,6 @@ void br_stp_enable_bridge(struct net_bridge *br)
- {
- 	struct net_bridge_port *p;
- 
--	spin_lock_bh(&br->lock);
- 	mod_timer(&br->hello_timer, jiffies + br->hello_time);
- 	mod_timer(&br->gc_timer, jiffies + HZ/10);
- 
-@@ -55,7 +54,6 @@ void br_stp_enable_bridge(struct net_bridge *br)
- 			br_stp_enable_port(p);
- 
- 	}
--	spin_unlock_bh(&br->lock);
- }
- 
- /* NO locks held */
-diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
-index 3e96514..18244b2 100644
---- a/net/bridge/br_stp_timer.c
-+++ b/net/bridge/br_stp_timer.c
-@@ -65,8 +65,6 @@ static void br_message_age_timer_expired(unsigned long arg)
- 	 * check is redundant. I'm leaving it in for now, though.
- 	 */
- 	spin_lock(&br->lock);
--	if (p->state == BR_STATE_DISABLED)
--		goto unlock;
- 	was_root = br_is_root_bridge(br);
- 
- 	br_become_designated_port(p);
-@@ -74,7 +72,6 @@ static void br_message_age_timer_expired(unsigned long arg)
- 	br_port_state_selection(br);
- 	if (br_is_root_bridge(br) && !was_root)
- 		br_become_root_bridge(br);
-- unlock:
- 	spin_unlock(&br->lock);
- }
- 
--- 
-1.7.3.4
+> I dropped SO_J1939_DEST_MASK. This could be done in userspace by
+> accessing a procfs file, or additional rtnetlink ...
+> Lookup up remote ecu's is not strictly necessary in kernel.
+> I have no idea yet how such library would look like.
 
+I'll check that with my colleague Urs, who knows very good, which concepts and
+'mechanics' are commonly used for such kind of requirements.
+
+> Can userspace tools be attached to the socketCAN subversion can-utils, or
+> would a seperate dir be necessary?
+
+I assume about 3-4 tools (like an AC-daemon, some dump or sniffer tool and a
+library with some header file) to emerge in can-utils then, which should be
+ok. There could also be some test-programms or src-samples that could be
+placed in trunk/test .
+
+> I'd say 'suggestions are welcome' but I know you'd suggest to remove
+> address claiming..
+
+I'm really very interested in having the address claiming - just somewhere in
+userspace :-)
+
+But of course it might become an ambitious target to support the address
+claiming with an appropriate infrastructure to help users to fulfill their
+needs without getting confused.
+
+Thanks & best regards,
+Oliver
