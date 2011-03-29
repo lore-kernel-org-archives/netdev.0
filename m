@@ -1,95 +1,86 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/4] xfrm: Move the test on replay window size into the
- replay check functions
-Date: Tue, 29 Mar 2011 07:45:52 +0200
-Message-ID: <20110329054552.GI1290@secunet.com>
+Subject: [PATCH 2/4] xfrm: Assign esn pointers when cloning a state
+Date: Tue, 29 Mar 2011 07:46:39 +0200
+Message-ID: <20110329054639.GJ1290@secunet.com>
+References: <20110329054552.GI1290@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36966 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:52869 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752131Ab1C2Fp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Mar 2011 01:45:58 -0400
+	id S1752347Ab1C2Fql (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Mar 2011 01:46:41 -0400
 Content-Disposition: inline
+In-Reply-To: <20110329054552.GI1290@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As it is, the replay check is just performed if the replay window of the
-legacy implementation is nonzero. So we move the test on a nonzero replay
-window inside the replay check functions to be sure we are testing for the
-right implementation.
+When we clone a xfrm state we have to assign the replay_esn
+and the preplay_esn pointers to the state if we use the
+new replay detection method. To this end, we add a
+xfrm_replay_clone() function that allocates memory for
+the replay detection and takes over the necessary values
+from the original state.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_input.c  |    2 +-
- net/xfrm/xfrm_replay.c |   17 +++++++++++++++--
- 2 files changed, 16 insertions(+), 3 deletions(-)
+ include/net/xfrm.h    |   22 ++++++++++++++++++++++
+ net/xfrm/xfrm_state.c |    6 ++++++
+ 2 files changed, 28 insertions(+), 0 deletions(-)
 
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 872065c..e063638 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -173,7 +173,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 			goto drop_unlock;
- 		}
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index cffa5dc..6ae4bc5 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1601,6 +1601,28 @@ static inline int xfrm_replay_state_esn_len(struct xfrm_replay_state_esn *replay
+ }
  
--		if (x->props.replay_window && x->repl->check(x, skb, seq)) {
-+		if (x->repl->check(x, skb, seq)) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATESEQERROR);
- 			goto drop_unlock;
- 		}
-diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
-index 2f5be5b..f218385 100644
---- a/net/xfrm/xfrm_replay.c
-+++ b/net/xfrm/xfrm_replay.c
-@@ -118,6 +118,9 @@ static int xfrm_replay_check(struct xfrm_state *x,
- 	u32 diff;
- 	u32 seq = ntohl(net_seq);
- 
-+	if (!x->props.replay_window)
-+		return 0;
+ #ifdef CONFIG_XFRM_MIGRATE
++static inline int xfrm_replay_clone(struct xfrm_state *x,
++				     struct xfrm_state *orig)
++{
++	x->replay_esn = kzalloc(xfrm_replay_state_esn_len(orig->replay_esn),
++				GFP_KERNEL);
++	if (!x->replay_esn)
++		return -ENOMEM;
 +
- 	if (unlikely(seq == 0))
- 		goto err;
- 
-@@ -193,9 +196,14 @@ static int xfrm_replay_check_bmp(struct xfrm_state *x,
++	x->replay_esn->bmp_len = orig->replay_esn->bmp_len;
++	x->replay_esn->replay_window = orig->replay_esn->replay_window;
++
++	x->preplay_esn = kmemdup(x->replay_esn,
++				 xfrm_replay_state_esn_len(x->replay_esn),
++				 GFP_KERNEL);
++	if (!x->preplay_esn) {
++		kfree(x->replay_esn);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
+ static inline struct xfrm_algo *xfrm_algo_clone(struct xfrm_algo *orig)
  {
- 	unsigned int bitnr, nr;
- 	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
-+	u32 pos;
- 	u32 seq = ntohl(net_seq);
- 	u32 diff =  replay_esn->seq - seq;
--	u32 pos = (replay_esn->seq - 1) % replay_esn->replay_window;
-+
-+	if (!replay_esn->replay_window)
-+		return 0;
-+
-+	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
+ 	return kmemdup(orig, xfrm_alg_len(orig), GFP_KERNEL);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index f83a3d1..dd78536 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1181,6 +1181,12 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
+ 			goto error;
+ 	}
  
- 	if (unlikely(seq == 0))
- 		goto err;
-@@ -373,12 +381,17 @@ static int xfrm_replay_check_esn(struct xfrm_state *x,
- 	unsigned int bitnr, nr;
- 	u32 diff;
- 	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
-+	u32 pos;
- 	u32 seq = ntohl(net_seq);
--	u32 pos = (replay_esn->seq - 1) % replay_esn->replay_window;
- 	u32 wsize = replay_esn->replay_window;
- 	u32 top = replay_esn->seq;
- 	u32 bottom = top - wsize + 1;
++	if (orig->replay_esn) {
++		err = xfrm_replay_clone(x, orig);
++		if (err)
++			goto error;
++	}
++
+ 	memcpy(&x->mark, &orig->mark, sizeof(x->mark));
  
-+	if (!wsize)
-+		return 0;
-+
-+	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
-+
- 	if (unlikely(seq == 0 && replay_esn->seq_hi == 0 &&
- 		     (replay_esn->seq < replay_esn->replay_window - 1)))
- 		goto err;
+ 	err = xfrm_init_state(x);
 -- 
 1.7.0.4
 
