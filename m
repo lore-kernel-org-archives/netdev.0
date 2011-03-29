@@ -1,45 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: zero copy for relay server
-Date: Tue, 29 Mar 2011 16:13:37 +0200
-Message-ID: <1301408017.3161.154.camel@edumazet-laptop>
-References: <D69C90565D53114396BF743585AF5A09122E61E9E7@VSHINMSMBX01.vshodc.lntinfotech.com>
-	 <1301331138.3182.43.camel@edumazet-laptop>
-	 <D69C90565D53114396BF743585AF5A09122E61E9E9@VSHINMSMBX01.vshodc.lntinfotech.com>
-	 <1301337257.2506.8.camel@edumazet-laptop>
-	 <AANLkTimWf4kyi4HJFToXP=HH==hQgObQsHYyRfrSe0FS@mail.gmail.com>
-	 <1301372590.2506.57.camel@edumazet-laptop>
-	 <AANLkTi=GYxOP19HwdD0X33hX-Ku12oxwcX5=-okC9Let@mail.gmail.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: SAE J1939: update
+Date: Tue, 29 Mar 2011 16:29:07 +0200
+Message-ID: <20110329142907.GB335@kurt.e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314135917.GF333@e-circ.dyndns.org>
+	<4D8623BE.2080807@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Viral Mehta <Viral.Mehta@lntinfotech.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:38702 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753463Ab1C2ONm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 10:13:42 -0400
-Received: by bwz15 with SMTP id 15so206688bwz.19
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2011 07:13:41 -0700 (PDT)
-In-Reply-To: <AANLkTi=GYxOP19HwdD0X33hX-Ku12oxwcX5=-okC9Let@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D8623BE.2080807-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 29 mars 2011 =C3=A0 19:28 +0800, Changli Gao a =C3=A9crit :
+Oliver,
 
-> It is a waste of fd using pipe buffer with two fds. In fact, I had
-> ever posted a patch, which extends pipe(2) to return a O_RDWR fd when
-> NULL is passed in.
->=20
+Some progress:
 
-Oh well, one extra fd is less than 256 bytes.
+I dropped the state-machine for the address claiming. This makes it less
+confusing I hope.
 
-Adding a syscall means you force users to have latest kernel.
+I dropped SO_J1939_DEST_MASK. This could be done in userspace by
+accessing a procfs file, or additional rtnetlink ...
+Lookup up remote ecu's is not strictly necessary in kernel.
+I have no idea yet how such library would look like.
 
-All this is hypothetical, nobody gave performance numbers demonstrating
-splice()/splice() is slow enough we have to optimize it and add kernel
-bloat...
+Can userspace tools be attached to the socketCAN subversion can-utils, or
+would a seperate dir be necessary?
 
+I'd say 'suggestions are welcome' but I know you'd suggest to remove
+address claiming..
 
-
+Kurt
