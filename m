@@ -1,77 +1,125 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ping when network down BUG: unable to handle kernel NULL
- pointer dereference at 000000000000001b
-Date: Tue, 29 Mar 2011 16:59:24 +0200
-Message-ID: <1301410764.3161.156.camel@edumazet-laptop>
-References: <AANLkTinthHDRYpfNrXSiOz9t_y5HyVMpjP-dLm_bn0es@mail.gmail.com>
+From: Sasikanth V <sasikanth.v19@gmail.com>
+Subject: Re: [PATCH] Bridge allows the userspace to configure the
+ bridge parameters with values not defined in the IEEE 802.1D std
+Date: Tue, 29 Mar 2011 21:06:47 +0530
+Message-ID: <AANLkTikGEWmY1_Hyqzq2PMxz_Uu0d1t9J4Sf_GtR=dgZ@mail.gmail.com>
+References: <1301150997-4639-1-git-send-email-sasikanth.v19@gmail.com>
+	<20110326085536.1ef03edb@nehalam>
+	<AANLkTim=futKP0Opnedc10zH83r=WYEhaSUHCtf+qbw3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Jeff Chua <jeff.chua.linux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinthHDRYpfNrXSiOz9t_y5HyVMpjP-dLm_bn0es@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============6357426648230157179=="
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <AANLkTim=futKP0Opnedc10zH83r=WYEhaSUHCtf+qbw3@mail.gmail.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Mime-version: 1.0
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 29 mars 2011 =C3=A0 22:54 +0800, Jeff Chua a =C3=A9crit :
-> I don't know when this started happening as my network was always up.
-> Just down, I shutdown my network, and ping a known host and
-> encountered this BUG.
->=20
-> # ifconfig eth0 down
-> # ping knowngoodhost
->=20
-> Pid: 2144, comm: ping Not tainted 2.6.38 #34 LENOVO 5413FGA/5413FGA
-> RIP: 0010:[<ffffffff81421047>]  [<ffffffff81421047>] dst_release+0x11=
-/0x57
-> RSP: 0018:ffff880231975c28  EFLAGS: 00010286
-> RAX: ffffffffffffff9b RBX: ffffffffffffff9b RCX: 00000000fffffffd
-> RDX: 0000000000000000 RSI: 00000000000000fd RDI: ffffffffffffff9b
-> RBP: 00000000ffffffff R08: ffff880231975bc8 R09: ffff88023bd8e1c8
-> R10: 0000000000000001 R11: ffff880231975a08 R12: 0000000000000040
-> R13: 00000000bcc8a19b R14: 00000000ffffff9b R15: 0000000000000000
-> FS:  00007fa75ba60700(0000) GS:ffff88023bc00000(0000) knlGS:000000000=
-0000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 000000000000001b CR3: 000000022f886000 CR4: 00000000000006f0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process ping (pid: 2144, threadinfo ffff880231974000, task ffff880233=
-0e2d00)
-> Stack:
->  ffff880231889b00 ffff880231889b00 ffff880231975ee8 ffffffff81464f97
->  ffffffff0100007f 0000000000000202 ffffffff818385b0 0000000000000002
->  0000000000000000 0401000000000000 bcc8a19b00000000 0000000800000000
-> Call Trace:
->  [<ffffffff81464f97>] ? raw_sendmsg+0x66c/0x6c1
->  [<ffffffff8140b0be>] ? sock_sendmsg+0xab/0xc3
->  [<ffffffff8109cf03>] ? alloc_pages_vma+0x150/0x1fa
->  [<ffffffff8104bde6>] ? up+0xe/0x36
->  [<ffffffff81032cd8>] ? console_unlock+0x160/0x187
->  [<ffffffff8104bde6>] ? up+0xe/0x36
->  [<ffffffff810484b0>] ? remove_wait_queue+0x11/0x4a
->  [<ffffffff8140b12d>] ? sockfd_lookup_light+0x1a/0x52
->  [<ffffffff8140ab12>] ? move_addr_to_kernel+0x26/0x37
->  [<ffffffff8140b7e7>] ? sys_sendto+0x114/0x148
->  [<ffffffff8103d5e1>] ? do_sigaction+0x160/0x178
->  [<ffffffff814b7d12>] ? system_call_fastpath+0x16/0x1b
-> Code: 00 48 c7 c7 70 4c 72 81 e8 41 37 c2 ff 48 c7 c7 50 4c 72 81 5b
-> e9 90 60 09 00 55 53 48 89 fb 48 83 ec 08 48 85 ff 74 45 83 cd ff <f0=
+--===============6357426648230157179==
+Content-Type: multipart/alternative; boundary=90e6ba53aa000465de049fa0d4f7
+
+--90e6ba53aa000465de049fa0d4f7
+Content-Type: text/plain; charset=ISO-8859-1
+
+On Sun, Mar 27, 2011 at 12:01 AM, Sasikanth V <sasikanth.v19@gmail.com>wrote:
+
 >
-> 0f c1 af 80 00 00 00 ff cd 79 11 be 16 01 00 00 48 c7 c7 84
-> RIP  [<ffffffff81421047>] dst_release+0x11/0x57
->  RSP <ffff880231975c28>
-> CR2: 000000000000001b
-> ---[ end trace 4b75e8b1559e0b81 ]---
-> --
+>
+> On Sat, Mar 26, 2011 at 9:25 PM, Stephen Hemminger <
+> shemminger@linux-foundation.org> wrote:
+>
+>> On Sat, 26 Mar 2011 20:19:57 +0530
+>> Sasikanth V <sasikanth.v19@gmail.com> wrote:
+>>
+>> >
+>> > Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
+>> > ---
+>>
+>> I will clean this up. There are things like introducing
+>> global function names (set_forward_delay, etc) that need
+>> to be fixed.
+>>
+>
+>    Thanks for looking at the patch.  I made 5 set functions
+> (set_forward_delay, set_max_age,
+>    set_hello_time, set_priority and set_ageing_time) in br_sysfs_br.c
+> global to use in br_ioctl.c to
+>    avoid code duplication (but it looks it is not a good idea).
+>
+>    Now  i thought something like making those 5 functions static inline and
+> moving it to br_private.h.
+>    If this is fine , I will resend the patch
+>
+>
+>
+>   Since I am new to patch states and workflow. Can you guys please let me,
+what  I have to do when the
+  patch state is in Awaiting Stream.
 
-Hello Jeff.
+  Thanks
 
-Known problem, should be fixed by=20
+--90e6ba53aa000465de049fa0d4f7
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcomm=
-it;h=3D4910ac6c526d2868adcb5893e0c428473de862b5
+<div dir=3D"ltr"><br><br><div class=3D"gmail_quote">On Sun, Mar 27, 2011 at=
+ 12:01 AM, Sasikanth V <span dir=3D"ltr">&lt;<a href=3D"mailto:sasikanth.v1=
+9@gmail.com">sasikanth.v19@gmail.com</a>&gt;</span> wrote:<br><blockquote c=
+lass=3D"gmail_quote" style=3D"margin: 0pt 0pt 0pt 0.8ex; border-left: 1px s=
+olid rgb(204, 204, 204); padding-left: 1ex;">
+<div dir=3D"ltr"><div><div></div><div class=3D"h5">
+<br><br><div class=3D"gmail_quote">On Sat, Mar 26, 2011 at 9:25 PM, Stephen=
+ Hemminger <span dir=3D"ltr">&lt;<a href=3D"mailto:shemminger@linux-foundat=
+ion.org" target=3D"_blank">shemminger@linux-foundation.org</a>&gt;</span> w=
+rote:<br>
+<blockquote class=3D"gmail_quote" style=3D"margin: 0pt 0pt 0pt 0.8ex; borde=
+r-left: 1px solid rgb(204, 204, 204); padding-left: 1ex;">
+<div>On Sat, 26 Mar 2011 20:19:57 +0530<br>
+Sasikanth V &lt;<a href=3D"mailto:sasikanth.v19@gmail.com" target=3D"_blank=
+">sasikanth.v19@gmail.com</a>&gt; wrote:<br>
+<br>
+&gt;<br>
+&gt; Signed-off-by: Sasikanth V &lt;<a href=3D"mailto:sasikanth.v19@gmail.c=
+om" target=3D"_blank">sasikanth.v19@gmail.com</a>&gt;<br>
+&gt; ---<br>
+<br>
+</div>I will clean this up. There are things like introducing<br>
+global function names (set_forward_delay, etc) that need<br>
+to be fixed.<br>
+</blockquote></div><br></div></div>=A0=A0 Thanks for looking at the patch.=
+=A0 I made 5 set functions (set_forward_delay, set_max_age, <br>=A0=A0 set_=
+hello_time, set_priority and set_ageing_time) in br_sysfs_br.c global to us=
+e in br_ioctl.c to <br>
 
-Thanks
+=A0=A0 avoid code duplication (but it looks it is not a good idea). <br><br=
+>=A0=A0 Now=A0 i thought something like making those 5 functions static inl=
+ine and moving it to br_private.h.<br>=A0=A0 If this is fine , I will resen=
+d the patch<br>
+
+=A0 <br>=A0=A0 <br><br></div>
+</blockquote></div>=A0 Since I am new to patch states and workflow. Can you=
+ guys please let me, what=A0 I have to do when the <br>=A0 patch state is i=
+n Awaiting Stream.<br><br>=A0 Thanks <br>=A0 <br></div>
+
+--90e6ba53aa000465de049fa0d4f7--
+
+--===============6357426648230157179==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Bridge mailing list
+Bridge@lists.linux-foundation.org
+https://lists.linux-foundation.org/mailman/listinfo/bridge
+--===============6357426648230157179==--
