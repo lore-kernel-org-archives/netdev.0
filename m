@@ -1,220 +1,87 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 1/2] via-ircc: Use pci_{get,set}_drvdata() instead of
- static pointer variable
-Date: Tue, 29 Mar 2011 04:10:43 +0100
-Message-ID: <1301368243.26693.751.camel@localhost>
+Subject: [PATCH 2/2] via-ircc: Pass PCI device pointer to
+ dma_{alloc,free}_coherent()
+Date: Tue, 29 Mar 2011 04:12:52 +0100
+Message-ID: <1301368372.26693.753.camel@localhost>
+References: <1301368243.26693.751.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
 Cc: netdev <netdev@vger.kernel.org>,
 	Andrew Buckeridge <andrewb@bgc.com.au>,
-	Samuel Ortiz <samuel@sortiz.org>
+	Samuel Ortiz <samuel@sortiz.org>, 619450@bugs.debian.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51279 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51297 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755167Ab1C2DKv convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1755505Ab1C2DMz convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2011 23:10:51 -0400
+	Mon, 28 Mar 2011 23:12:55 -0400
+In-Reply-To: <1301368243.26693.751.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-via-ircc still maintains its own array of device pointers in Linux 2.4
-style.  Worse, it always uses index 0, so it will crash if there are
-multiple suitable devices in the system.
+via-ircc has been passing a NULL pointer to DMA allocation functions,
+which is completely invalid and results in a BUG on PowerPC.  Now
+that we always have the device pointer available, pass it in.
 
+Reference: http://bugs.debian.org/619450
+Reported-by: Andrew Buckeridge <andrewb@bgc.com.au>
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Tested-by: Andrew Buckeridge <andrewb@bgc.com.au> [against 2.6.32]
 ---
-It seems that a bunch of 'FIXME' comments with hints aren't enough to
-attract kernel janitors (they've been there since the start of git
-history).
-
-This is really cleanup in preparation for another fix.  Andrew
-Buckeridge has tested this as far as loading the driver, but the IrDA
-header isn't connected on his system.
-
-Ben.
-
- drivers/net/irda/via-ircc.c |   82 ++++++++-----------------------------------
- 1 files changed, 15 insertions(+), 67 deletions(-)
+ drivers/net/irda/via-ircc.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
-index 67c0ad4..cc6faca 100644
+index cc6faca..186cd28 100644
 --- a/drivers/net/irda/via-ircc.c
 +++ b/drivers/net/irda/via-ircc.c
-@@ -75,15 +75,9 @@ static int dongle_id = 0;	/* default: probe */
- /* We can't guess the type of connected dongle, user *must* supply it. */
- module_param(dongle_id, int, 0);
+@@ -363,7 +363,7 @@ static __devinit int via_ircc_open(struct pci_dev *pdev, chipio_t * info,
  
--/* FIXME : we should not need this, because instances should be automatically
-- * managed by the PCI layer. Especially that we seem to only be using the
-- * first entry. Jean II */
--/* Max 4 instances for now */
--static struct via_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL };
--
- /* Some prototypes */
--static int via_ircc_open(int i, chipio_t * info, unsigned int id);
--static int via_ircc_close(struct via_ircc_cb *self);
-+static int via_ircc_open(struct pci_dev *pdev, chipio_t * info,
-+			 unsigned int id);
- static int via_ircc_dma_receive(struct via_ircc_cb *self);
- static int via_ircc_dma_receive_complete(struct via_ircc_cb *self,
- 					 int iobase);
-@@ -215,7 +209,7 @@ static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_devi
- 			pci_write_config_byte(pcidev,0x42,(bTmp | 0xf0));
- 			pci_write_config_byte(pcidev,0x5a,0xc0);
- 			WriteLPCReg(0x28, 0x70 );
--			if (via_ircc_open(0, &info,0x3076) == 0)
-+			if (via_ircc_open(pcidev, &info, 0x3076) == 0)
- 				rc=0;
- 		} else
- 			rc = -ENODEV; //IR not turn on	 
-@@ -254,7 +248,7 @@ static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_devi
- 			info.irq=FirIRQ;
- 			info.dma=FirDRQ1;
- 			info.dma2=FirDRQ0;
--			if (via_ircc_open(0, &info,0x3096) == 0)
-+			if (via_ircc_open(pcidev, &info, 0x3096) == 0)
- 				rc=0;
- 		} else
- 			rc = -ENODEV; //IR not turn on !!!!!
-@@ -264,48 +258,10 @@ static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_devi
- 	return rc;
- }
+ 	/* Allocate memory if needed */
+ 	self->rx_buff.head =
+-		dma_alloc_coherent(NULL, self->rx_buff.truesize,
++		dma_alloc_coherent(&pdev->dev, self->rx_buff.truesize,
+ 				   &self->rx_buff_dma, GFP_KERNEL);
+ 	if (self->rx_buff.head == NULL) {
+ 		err = -ENOMEM;
+@@ -372,7 +372,7 @@ static __devinit int via_ircc_open(struct pci_dev *pdev, chipio_t * info,
+ 	memset(self->rx_buff.head, 0, self->rx_buff.truesize);
  
--/*
-- * Function via_ircc_clean ()
-- *
-- *    Close all configured chips
-- *
-- */
--static void via_ircc_clean(void)
--{
--	int i;
--
--	IRDA_DEBUG(3, "%s()\n", __func__);
--
--	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
--		if (dev_self[i])
--			via_ircc_close(dev_self[i]);
--	}
--}
--
--static void __devexit via_remove_one (struct pci_dev *pdev)
--{
--	IRDA_DEBUG(3, "%s()\n", __func__);
--
--	/* FIXME : This is ugly. We should use pci_get_drvdata(pdev);
--	 * to get our driver instance and call directly via_ircc_close().
--	 * See vlsi_ir for details...
--	 * Jean II */
--	via_ircc_clean();
--
--	/* FIXME : This should be in via_ircc_close(), because here we may
--	 * theoritically disable still configured devices :-( - Jean II */
--	pci_disable_device(pdev);
--}
--
- static void __exit via_ircc_cleanup(void)
- {
- 	IRDA_DEBUG(3, "%s()\n", __func__);
- 
--	/* FIXME : This should be redundant, as pci_unregister_driver()
--	 * should call via_remove_one() on each device.
--	 * Jean II */
--	via_ircc_clean();
--
- 	/* Cleanup all instances of the driver */
- 	pci_unregister_driver (&via_driver); 
- }
-@@ -324,12 +280,13 @@ static const struct net_device_ops via_ircc_fir_ops = {
- };
- 
- /*
-- * Function via_ircc_open (iobase, irq)
-+ * Function via_ircc_open(pdev, iobase, irq)
-  *
-  *    Open driver instance
-  *
-  */
--static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
-+static __devinit int via_ircc_open(struct pci_dev *pdev, chipio_t * info,
-+				   unsigned int id)
- {
- 	struct net_device *dev;
- 	struct via_ircc_cb *self;
-@@ -337,9 +294,6 @@ static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
- 
- 	IRDA_DEBUG(3, "%s()\n", __func__);
- 
--	if (i >= ARRAY_SIZE(dev_self))
--		return -ENOMEM;
--
- 	/* Allocate new instance of the driver */
- 	dev = alloc_irdadev(sizeof(struct via_ircc_cb));
- 	if (dev == NULL) 
-@@ -349,13 +303,8 @@ static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
- 	self->netdev = dev;
- 	spin_lock_init(&self->lock);
- 
--	/* FIXME : We should store our driver instance in the PCI layer,
--	 * using pci_set_drvdata(), not in this array.
--	 * See vlsi_ir for details... - Jean II */
--	/* FIXME : 'i' is always 0 (see via_init_one()) :-( - Jean II */
--	/* Need to store self somewhere */
--	dev_self[i] = self;
--	self->index = i;
-+	pci_set_drvdata(pdev, self);
-+
- 	/* Initialize Resource */
- 	self->io.cfg_base = info->cfg_base;
- 	self->io.fir_base = info->fir_base;
-@@ -463,25 +412,24 @@ static __devinit int via_ircc_open(int i, chipio_t * info, unsigned int id)
+ 	self->tx_buff.head =
+-		dma_alloc_coherent(NULL, self->tx_buff.truesize,
++		dma_alloc_coherent(&pdev->dev, self->tx_buff.truesize,
+ 				   &self->tx_buff_dma, GFP_KERNEL);
+ 	if (self->tx_buff.head == NULL) {
+ 		err = -ENOMEM;
+@@ -404,10 +404,10 @@ static __devinit int via_ircc_open(struct pci_dev *pdev, chipio_t * info,
+ 	via_hw_init(self);
+ 	return 0;
+  err_out4:
+-	dma_free_coherent(NULL, self->tx_buff.truesize,
++	dma_free_coherent(&pdev->dev, self->tx_buff.truesize,
+ 			  self->tx_buff.head, self->tx_buff_dma);
+  err_out3:
+-	dma_free_coherent(NULL, self->rx_buff.truesize,
++	dma_free_coherent(&pdev->dev, self->rx_buff.truesize,
+ 			  self->rx_buff.head, self->rx_buff_dma);
   err_out2:
  	release_region(self->io.fir_base, self->io.fir_ext);
-  err_out1:
-+	pci_set_drvdata(pdev, NULL);
- 	free_netdev(dev);
--	dev_self[i] = NULL;
- 	return err;
- }
- 
- /*
-- * Function via_ircc_close (self)
-+ * Function via_remove_one(pdev)
-  *
-  *    Close driver instance
-  *
-  */
--static int via_ircc_close(struct via_ircc_cb *self)
-+static void __devexit via_remove_one(struct pci_dev *pdev)
- {
-+	struct via_ircc_cb *self = pci_get_drvdata(pdev);
- 	int iobase;
- 
- 	IRDA_DEBUG(3, "%s()\n", __func__);
- 
--	IRDA_ASSERT(self != NULL, return -1;);
--
- 	iobase = self->io.fir_base;
- 
- 	ResetChip(iobase, 5);	//hardware reset.
-@@ -498,11 +446,11 @@ static int via_ircc_close(struct via_ircc_cb *self)
+@@ -441,10 +441,10 @@ static void __devexit via_remove_one(struct pci_dev *pdev)
+ 		   __func__, self->io.fir_base);
+ 	release_region(self->io.fir_base, self->io.fir_ext);
+ 	if (self->tx_buff.head)
+-		dma_free_coherent(NULL, self->tx_buff.truesize,
++		dma_free_coherent(&pdev->dev, self->tx_buff.truesize,
+ 				  self->tx_buff.head, self->tx_buff_dma);
  	if (self->rx_buff.head)
- 		dma_free_coherent(NULL, self->rx_buff.truesize,
+-		dma_free_coherent(NULL, self->rx_buff.truesize,
++		dma_free_coherent(&pdev->dev, self->rx_buff.truesize,
  				  self->rx_buff.head, self->rx_buff_dma);
--	dev_self[self->index] = NULL;
-+	pci_set_drvdata(pdev, NULL);
+ 	pci_set_drvdata(pdev, NULL);
  
- 	free_netdev(self->netdev);
- 
--	return 0;
-+	pci_disable_device(pdev);
- }
- 
- /*
 -- 
 1.7.4.1
-
 
 
