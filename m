@@ -1,53 +1,121 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 0/3] igb: cleanup and code deduplication
-Date: Tue, 29 Mar 2011 17:00:35 -0700
-Message-ID: <AANLkTinxcU173eaDEL9J8HecEqpFuwzMrx1kT5vwC=yZ@mail.gmail.com>
-References: <1301404186-20872-1-git-send-email-sassmann@kpanic.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: ethtool physical identify vs netlink locking?
+Date: Wed, 30 Mar 2011 01:07:56 +0100
+Message-ID: <1301443676.10056.57.camel@localhost>
+References: <20110329135252.116bf5e0@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stefan Assmann <sassmann@kpanic.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1301404186-20872-1-git-send-email-sassmann@kpanic.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:48848 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751605Ab1C3AID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 20:08:03 -0400
+In-Reply-To: <20110329135252.116bf5e0@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBNYXIgMjksIDIwMTEgYXQgMDY6MDksIFN0ZWZhbiBBc3NtYW5uIDxzYXNzbWFubkBr
-cGFuaWMuZGU+IHdyb3RlOgo+IFNvbWUgY2xlYW51cHMgZm9yIGlnYi4KPiBGaXJzdCBwYXRjaCBp
-cyBqdXN0IGEgc2ltcGxlIHR5cG8gZml4Lgo+IFNlY29uZCBwYXRjaCB0dXJucyBpZ2JfdXBkYXRl
-X252bV9jaGVja3N1bSBhbmQgaWdiX3ZhbGlkYXRlX252bV9jaGVja3N1bQo+IGludG8gd3JhcHBl
-ciBmdW5jdGlvbnMgdG8gZGVkdXBsaWNhdGUgY29kZS4KPiBUaGlyZCBwYXRjaCBwdXRzIHRoZSB0
-aGVybWFsIHNlbnNvciBjb2RlIGludG8gYSBmdW5jdGlvbi4gVGhpcyBwYXRjaCBjb3VsZCB1c2UK
-PiBzb21lIHRlc3RpbmcgYXMgSSBjb3VsZG4ndCByZWFsbHkgdGVzdCBpdCBkdWUgdG8gbGFjayBv
-ZiBoYXJkd2FyZS4KPgo+IMKgU3RlZmFuCj4KPiBTdGVmYW4gQXNzbWFubiAoMyk6Cj4gwqBpZ2I6
-IGZpeCB0eXBvIGluIGlnYl92YWxpZGF0ZV9udm1fY2hlY2tzdW1fODI1ODAKPiDCoGlnYjogdHJh
-bnNmb3JtIGlnYl97dXBkYXRlLHZhbGlkYXRlfV9udm1fY2hlY2tzdW0gaW50byB3cmFwcGVycyBv
-Zgo+IMKgIMKgdGhlaXIgKl93aXRoX29mZnNldCBlcXVpdmFsZW50cwo+IMKgaWdiOiBpbnRyb2R1
-Y2UgaWdiX3RoZXJtYWxfc2Vuc29yX2V2ZW50IGZvciBzZW5zb3IgY2hlY2tpbmcKPgo+IMKgZHJp
-dmVycy9uZXQvaWdiL2UxMDAwXzgyNTc1LmMgfCDCoCA3OSArKy0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2IvZTEwMDBfbnZtLmMgwqAgfCDC
-oCAzOCArKysrKysrKysrKysrKystLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2IvZTEwMDBfbnZtLmgg
-wqAgfCDCoCDCoDIgKwo+IMKgZHJpdmVycy9uZXQvaWdiL2lnYl9tYWluLmMgwqAgwqB8IMKgIDY3
-ICsrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0KPiDCoDQgZmlsZXMgY2hhbmdlZCwg
-NzAgaW5zZXJ0aW9ucygrKSwgMTE2IGRlbGV0aW9ucygtKQo+Cj4KClRoYW5rcyBTdGVmYW4sIEkg
-aGF2ZSBhZGRlZCB0aGVzZSBwYXRjaGVzIHRvIG15IGlnYi1xdWV1ZS4KCi0tIApDaGVlcnMsCkpl
-ZmYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpFbmFibGUgeW91ciBzb2Z0d2FyZSBmb3IgSW50ZWwo
-UikgQWN0aXZlIE1hbmFnZW1lbnQgVGVjaG5vbG9neSB0byBtZWV0IHRoZQpncm93aW5nIG1hbmFn
-ZWFiaWxpdHkgYW5kIHNlY3VyaXR5IGRlbWFuZHMgb2YgeW91ciBjdXN0b21lcnMuIEJ1c2luZXNz
-ZXMKYXJlIHRha2luZyBhZHZhbnRhZ2Ugb2YgSW50ZWwoUikgdlBybyAoVE0pIHRlY2hub2xvZ3kg
-LSB3aWxsIHlvdXIgc29mdHdhcmUgCmJlIGEgcGFydCBvZiB0aGUgc29sdXRpb24/IERvd25sb2Fk
-IHRoZSBJbnRlbChSKSBNYW5hZ2VhYmlsaXR5IENoZWNrZXIgCnRvZGF5ISBodHRwOi8vcC5zZi5u
-ZXQvc2Z1L2ludGVsLWRldjJkZXZtYXIKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3Rz
-LnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0
-aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0
-LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+On Tue, 2011-03-29 at 13:52 -0700, Stephen Hemminger wrote:
+> Right now if an administrator uses the ethtool function to identify network
+> interface, the netlink lock can be held indefinitely. In other words, doing
+> "ethtool -p eth1" will stop all other netlink activity. This is bad, imagine
+> the case of an operator doing that to find a NIC in a rack, and because of
+> the netlink lockout all routing daemon activity stops.
+
+Also, glibc can enumerate devices during name lookup now (if I remember
+correctly), so new connections to servers that do reverse name lookups
+tend to stall immediately.
+
+> There are several possible solutions but most involve fixing all the device
+> drivers (24). Options:
+> 
+> 1. Have device driver drop and reacquire rtnl() while blinking
+> 2. Have ethtool core drop rtnl before calling device driver
+> 3. Add per-device ethtool rtnl lock
+> 
+> #1 is the least disruption
+
+but nasty!
+
+> #2 means additional locking maybe required for each device driver
+> #3 seems like excessive overhead.
+
+In the sfc driver, physical ID used to be delegated to the PHY
+operations.  Then I realised that it was pointless to use a PHY's blink
+mode where it was available and a periodic timer on the host where it
+wasn't, when the latter would work for all of them.  So I would propose:
+
+4. Define a ethtool operation 'set_id_state' with an argument that sets
+identification on/off/inactive/active (the last optional, for any driver
+that really wants to do this differently).  When this is defined, the
+ethtool core runs the loop and acquires the lock each time it calls this
+operation.
+
+This requires changes to every driver, though not all at once.  As an
+additional benefit, it should result in consistent behaviour for the
+count = 0 case.
+
+The core ethtool function would look something like:
+
+static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+{
+	struct ethtool_value id;
+	int rc;
+
+	if (!dev->ethtool_ops->phys_id && !dev->ethtool_ops->set_id_led)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&id, useraddr, sizeof(id)))
+		return -EFAULT;
+
+	if (!dev->ethtool_ops->set_id_led)
+		/* Do it the old way */
+		return dev->ethtool_ops->phys_id(dev, id.data);
+
+	rc = dev->ethtool_ops->set_id_state(dev, ETHTOOL_ID_ACTIVE);
+	if (rc && rc != -EINVAL)
+		return rc;
+
+	dev_hold(dev);
+	rtnl_unlock();
+
+	if (rc == 0) {
+		/* Driver will handle this itself */
+		schedule_timeout_interruptible(
+			id.data ? id.data : MAX_SCHEDULE_TIMEOUT);
+	} else {
+		/* Driver expects to be called periodically */
+		do {
+			rtnl_lock();
+			rc = dev->ethtool_ops->set_id_state(dev, ETHTOOL_ID_ON);
+			rtnl_unlock();
+			if (rc)
+				break;
+			schedule_timeout_interruptible(HZ / 2);
+
+			rtnl_lock();
+			rc = dev->ethtool_ops->set_id_state(dev, ETHTOOL_ID_OFF);
+			rtnl_unlock();
+			if (rc)
+				break;
+			schedule_timeout_interruptible(HZ / 2);
+		} while (!signal_pending(current) &&
+			 (id.data == 0 || --id.data != 0));
+	}
+
+	rtnl_lock();
+	dev_put(dev);
+
+	(void)dev->ethtool_ops->set_id_state(dev, ETHTOOL_ID_INACTIVE);
+	return rc;
+}
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
