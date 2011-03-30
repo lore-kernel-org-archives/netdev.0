@@ -1,39 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [V4] dev : fix mtu check when TSO is enabled
-Date: Wed, 30 Mar 2011 02:42:31 -0700 (PDT)
-Message-ID: <20110330.024231.57465584.davem@davemloft.net>
-References: <1301478035-324-1-git-send-email-daniel@free.fr>
+From: Rob Landley <rlandley@parallels.com>
+Subject: Re: 2.6.38 containers bug: Infinite loop in /proc/sys/net/ipv6/neigh/neigh/neigh...
+Date: Wed, 30 Mar 2011 05:16:19 -0500
+Message-ID: <4D9302F3.6080206@parallels.com>
+References: <4D92E9DC.3070405@parallels.com> <20110330.020120.02272125.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, eric.dumazet@gmail.com, kaber@trash.net,
-	nightnord@gmail.com, netdev@vger.kernel.org
-To: daniel@free.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51663
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932184Ab1C3JnJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 05:43:09 -0400
-In-Reply-To: <1301478035-324-1-git-send-email-daniel@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>,
+	<containers@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
+	<stable@kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110330.020120.02272125.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Lezcano <daniel@free.fr>
-Date: Wed, 30 Mar 2011 11:40:35 +0200
+On 03/30/2011 04:01 AM, David Miller wrote:
+> From: Rob Landley <rlandley@parallels.com>
+> Date: Wed, 30 Mar 2011 03:29:16 -0500
+> 
+>> In the host context a find on /proc completes, but inside an lxc
+>> container a find on /proc never completes, due to the endless loop in
+>> the title.  (It's not a symlink, it seems to be a cross linked directory.)
+>>
+>> This is vanilla 2.6.38, I can attach my .config if you think it'd help.
+>>  (The container's the lxc debian sid template but that's probably not
+>> relevant.)
+> 
+> Please CC: netdev@vger.kernel.org when a bug might be related to
+> networking, as is obviously the case here.
+> 
+> This bug should be fixed by the following patch:
+> 
+> --------------------
+> commit 9d2a8fa96a44ba242de3a6f56acaef7a40a97b97
+> Author: Eric W. Biederman <ebiederm@aristanetworks.com>
+> Date:   Mon Mar 21 18:23:34 2011 -0700
+> 
+>     net ipv6: Fix duplicate /proc/sys/net/ipv6/neigh directory entries.
+>     
+>     When I was fixing issues with unregisgtering tables under /proc/sys/net/ipv6/neigh
+>     by adding a mount point it appears I missed a critical ordering issue, in the
+>     ipv6 initialization.  I had not realized that ipv6_sysctl_register is called
+>     at the very end of the ipv6 initialization and in particular after we call
+>     neigh_sysctl_register from ndisc_init.
+>     
+>     "neigh" needs to be initialized in ipv6_static_sysctl_register which is
+>     the first ipv6 table to initialized, and definitely before ndisc_init.
+>     This removes the weirdness of duplicate tables while still providing a
+>     "neigh" mount point which prevents races in sysctl unregistering.
+>     
+>     This was initially reported at https://bugzilla.kernel.org/show_bug.cgi?id=31232
+>     Reported-by: sunkan@zappa.cx
+>     Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> From: Daniel Lezcano <daniel.lezcano@free.fr>
-> 
-> In case the device where is coming from the packet has TSO enabled,
-> we should not check the mtu size value as this one could be bigger
-> than the expected value.
-> 
-> This is the case for the macvlan driver when the lower device has
-> TSO enabled. The macvlan inherit this feature and forward the packets
-> without fragmenting them. Then the packets go through dev_forward_skb
-> and are dropped. This patch fix this by checking TSO is not enabled
-> when we want to check the mtu size.
-> 
-> Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
-> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Applied.
+Yes, that fixed it.  Pinging the stable guys to make sure this goes in a
+dot release.
+
+Thanks,
+
+Rob
