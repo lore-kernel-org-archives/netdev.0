@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ethtool physical identify vs netlink locking?
-Date: Tue, 29 Mar 2011 17:13:28 -0700 (PDT)
-Message-ID: <20110329.171328.28814158.davem@davemloft.net>
-References: <20110329135252.116bf5e0@s6510>
-	<1301443676.10056.57.camel@localhost>
+Subject: Re: [Bugme-new] [Bug 28512] New: IPv6 SLAAC address preferred over
+ static one as source address
+Date: Tue, 29 Mar 2011 17:20:00 -0700 (PDT)
+Message-ID: <20110329.172000.102543782.davem@davemloft.net>
+References: <bug-28512-10286@https.bugzilla.kernel.org/>
+	<20110207152048.22c51184.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, ghen@telenet.be
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36981
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45940
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751605Ab1C3AOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 20:14:07 -0400
-In-Reply-To: <1301443676.10056.57.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751605Ab1C3AUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 20:20:38 -0400
+In-Reply-To: <20110207152048.22c51184.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 30 Mar 2011 01:07:56 +0100
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 7 Feb 2011 15:20:48 -0800
 
-> In the sfc driver, physical ID used to be delegated to the PHY
-> operations.  Then I realised that it was pointless to use a PHY's blink
-> mode where it was available and a periodic timer on the host where it
-> wasn't, when the latter would work for all of them.  So I would propose:
-> 
-> 4. Define a ethtool operation 'set_id_state' with an argument that sets
-> identification on/off/inactive/active (the last optional, for any driver
-> that really wants to do this differently).  When this is defined, the
-> ethtool core runs the loop and acquires the lock each time it calls this
-> operation.
-> 
-> This requires changes to every driver, though not all at once.  As an
-> additional benefit, it should result in consistent behaviour for the
-> count = 0 case.
+>> SLAAC addresses will have a limited preferred lifetime (as defined by the
+>> router), static addresses will usually have an unlimited preferred lifetime
+>> (0).  So it makes a lot of sense to take this preferred lifetime into account
+>> for source address selection (how is it otherwise "preferred"?).
 
-This seems like a good way to solve the problem.
+This is debatable.
+
+One could just as easily say that an address with a shorter preferred
+lifetime has been revalidated more recently, and therefore is more
+likely to be uptodate, valid, and lead to a usable path.
+
+I think the lack of specification for the final tie-breaker in the RFC
+was intentional :-)
+
+The specification has to address this, and until the situation is more
+clear cut than it is now I don't see any benefit for changing Linux's
+behavior.  Especially since there is a configuration based workaround
+which works for people in the short-term.
+
+But I'm willing to be convinced, and those wanting to convince me can
+post a patch for review to netdev@vger.kernel.org :-)
