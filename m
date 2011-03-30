@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: poll broken (for can)
-Date: Wed, 30 Mar 2011 00:05:18 -0700 (PDT)
-Message-ID: <20110330.000518.242131416.davem@davemloft.net>
-References: <4D90CB17.4030205@hartkopp.net>
-	<4D90E262.1090201@pengutronix.de>
-	<4D923B00.20500@hartkopp.net>
+Subject: Re: [PATCH] net: Handle gso packets in dev_forward_skb
+Date: Wed, 30 Mar 2011 00:06:57 -0700 (PDT)
+Message-ID: <20110330.000657.116379126.davem@davemloft.net>
+References: <1301340048.2506.13.camel@edumazet-laptop>
+	<4D91D693.1070202@free.fr>
+	<m1aagdhc71.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, wg@grandegger.com,
-	socketcan-users@lists.berlios.de, netdev@vger.kernel.org
-To: socketcan@hartkopp.net
+Cc: daniel.lezcano@free.fr, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, greearb@candelatech.com, arnd@arndb.de,
+	kaber@trash.net
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52144
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52150
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751459Ab1C3HF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 03:05:57 -0400
-In-Reply-To: <4D923B00.20500@hartkopp.net>
+	by vger.kernel.org with ESMTP id S1752799Ab1C3HHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 03:07:35 -0400
+In-Reply-To: <m1aagdhc71.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Tue, 29 Mar 2011 22:03:12 +0200
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 29 Mar 2011 14:02:58 -0700
 
-> Hm - the problem could be that people expect their frames to be sent 'in
-> time', so if we increase the tx_queue_len, it's not transparent when the
-> frames are potentially leaving the system - and if the application data is
-> already out-dated when hitting the medium.
+> It looks fine to me.  I would resubmit it so that if anyone else has
+> complaints they will be jolted into looking at the patch again.
 > 
-> What about having up to three CAN frames in each CAN_RAW socket send buffer
-> and e.g.50 frames in the tx_queue_len of the netdevice as a starting point?
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Setting tx_queue_len low is bound to cause all kinds of problems.
-
-This poll() peculiarity is just one such problem.
-
-I would suggest increasing it for CAN devices to at least 100.
+I'm waiting patiently for this resubmission.
