@@ -1,55 +1,65 @@
-From: Geert Hendrickx <geert@hendrickx.be>
-Subject: Re: [Bugme-new] [Bug 28512] New: IPv6 SLAAC address preferred over
- static one as source address
-Date: Wed, 30 Mar 2011 09:31:39 +0200
-Message-ID: <20110330073139.GA8190@boris.ghen.be>
-References: <bug-28512-10286@https.bugzilla.kernel.org/>
- <20110207152048.22c51184.akpm@linux-foundation.org>
- <20110329.172000.102543782.davem@davemloft.net>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: [Socketcan-users] poll broken (for can)
+Date: Wed, 30 Mar 2011 09:46:23 +0200
+Message-ID: <20110330074623.GB339@kurt.e-circ.dyndns.org>
+References: <1301321142.9519.10.camel@lukonin-pc>
+ <4D90A7E9.1080804@grandegger.com>
+ <4D90AA8A.9010804@pengutronix.de>
+ <4D90AF67.1080405@grandegger.com>
+ <4D90B3B0.2010401@pengutronix.de>
+ <4D90CB17.4030205@hartkopp.net>
+ <4D90E262.1090201@pengutronix.de>
+ <4D923B00.20500@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, Netdev@vger.kernel.org,
+	socketcan-users@lists.berlios.de,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brigitte.telenet-ops.be ([195.130.137.66]:58259 "EHLO
-	brigitte.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752641Ab1C3Hbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 03:31:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20110329.172000.102543782.davem@davemloft.net>
+In-Reply-To: <4D923B00.20500@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 29, 2011 at 17:20:00 -0700, David Miller wrote:
-> This is debatable.
+On Tue, Mar 29, 2011 at 10:03:12PM +0200, Oliver Hartkopp wrote:
+> On 28.03.2011 21:32, Marc Kleine-Budde wrote:
+> > On 03/28/2011 07:53 PM, Oliver Hartkopp wrote:
+> >> On 28.03.2011 18:13, Marc Kleine-Budde wrote:
+> >>> On 03/28/2011 05:55 PM, Wolfgang Grandegger wrote:
+
+> > What do we really want to specify?
 > 
-> One could just as easily say that an address with a shorter preferred
-> lifetime has been revalidated more recently, and therefore is more
-> likely to be uptodate, valid, and lead to a usable path.
-
-
-There we're at "most recent" again.  In practice, this will often be a SLAAC
-address, which will rarely be preferred over a staticly configured one.
-
-
-
-> I think the lack of specification for the final tie-breaker in the RFC
-> was intentional :-)
+> Hm - the problem could be that people expect their frames to be sent 'in
+> time', so if we increase the tx_queue_len, it's not transparent when the
+> frames are potentially leaving the system - and if the application data is
+> already out-dated when hitting the medium.
 > 
-> The specification has to address this, and until the situation is more
-> clear cut than it is now I don't see any benefit for changing Linux's
-> behavior.  Especially since there is a configuration based workaround
-> which works for people in the short-term.
-
-
-What workaround are you referring to?
-
-
-	Geert
-
-
--- 
-geert.hendrickx.be :: geert@hendrickx.be :: PGP: 0xC4BB9E9F
-This e-mail was composed using 100% recycled spam messages!
+> What about having up to three CAN frames in each CAN_RAW socket send buffer
+> and e.g.50 frames in the tx_queue_len of the netdevice as a starting point?
+50 looks good, but 3 is a bit small IMHO.
+> 
+> 
+> > 
+> > Something like: queue up to X frames per socket and queue only Y frames
+> > per device. Where Y = X * n and n is "I don't know yet"?
+> > 
+> > Y is simple, it's the tx_queue_len. But X is more complicated. The can
+> > frames have non constant length (i.e. dlc) and I'm not sure that the
+> > netdev people say if we misuse the sock_alloc_send_pskb() for our
+> > tx-flow-control :)
+> 
+> I would propose to count the CAN frames independently from the can_dlc.
+ack.
+> AFAIK
+> the tx_queue_len is dealing with skb's - and the skb->len for the socket send
+> buffer is also size of struct can_frame, right?
+ack.
+> 
+> Regards,
+> Oliver
+> 
+> _______________________________________________
+> Socketcan-users mailing list
+> Socketcan-users@lists.berlios.de
+> https://lists.berlios.de/mailman/listinfo/socketcan-users
