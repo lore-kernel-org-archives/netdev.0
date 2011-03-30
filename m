@@ -1,84 +1,53 @@
-From: Mathieu Poirier <mathieu.poirier@linaro.org>
-Subject: Re: [PATCH] net: allow shifted address in smsc911x
-Date: Tue, 29 Mar 2011 15:17:22 -0600
-Message-ID: <AANLkTinkqvXsyrWdSN9KP+6iZnchvnn8=UECwOcKz6tP@mail.gmail.com>
-References: <1301088437-31915-1-git-send-email-mathieu.poirier@linaro.org>
-	<20110325.143103.25112180.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/3] igb: cleanup and code deduplication
+Date: Tue, 29 Mar 2011 17:00:35 -0700
+Message-ID: <AANLkTinxcU173eaDEL9J8HecEqpFuwzMrx1kT5vwC=yZ@mail.gmail.com>
+References: <1301404186-20872-1-git-send-email-sassmann@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
-	lee.jones@linaro.org, patches@linaro.org, linus.walleij@linaro.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:63869 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752809Ab1C2VSL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2011 17:18:11 -0400
-Received: by fxm17 with SMTP id 17so573994fxm.19
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2011 14:18:10 -0700 (PDT)
-In-Reply-To: <20110325.143103.25112180.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stefan Assmann <sassmann@kpanic.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1301404186-20872-1-git-send-email-sassmann@kpanic.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-My first email bounced on the list, hence sending again.
-
-Please see my comments below.
-
-Thanks,
-Mathieu.
-
-On 25 March 2011 15:31, David Miller <davem@davemloft.net> wrote:
-> From: mathieu.poirier@linaro.org
-> Date: Fri, 25 Mar 2011 15:27:17 -0600
->
->> From: Alessandro Rubini <rubini@gnudd.com>
->>
->> At least one device I'm using needs address shifting to access
->> registers in the LAN9221 device (smsc911x driver). =A0This patch
->> adds a shift parameter in platform_data. The feature must be
->> enabled at configuration time, because shifting by a pdata
->> parameter makes access slower in those devices where no shift is
->> needed (I tested one, it was 20% slower).
->>
->> If the platform data requests shifted access but the feature is
->> unavailable, the probe method complains to the console. Board
->> config files should set the configuration option when needed.
->>
->> Signed-off-by: Alessandro Rubini <rubini@gnudd.com>
->> Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
->
-> Implement this at run time, keying off of a boolean or similar
-> in the platform data.
->
-> Implement a set of ops, one to do a PIO read one to do a PIO write,
-> and choose the set of ops appropriate for the device depending upon
-> the setting found in the platform device.
->
-
-I'm find with this approach but confused on the way to implement it.
-
-I could add the shifted read/write functions in smsc911x.c and choose,
-based on a boolean found in the 'smsc911x_platform_config' struct,
-which will be used (the original or the shifted methods). =A0The
-drawback with this approach is the new shifted read/write methods are
-polluting smsc911x.c, something I'm not so fond of. =A0It might be
-acceptable for one set of OPS but what if there is many more ?
-
-A better approach would be to pass the read/write methods to the
-smsc911x core using the 'smsc911x_platform_config' structure. =A0That
-way smsc911x.c is kept clean but we'd have to move 'struct
-smsc911x_data' to smsc911x.h to implement the methods from the board
-files, something I'm not about do to without some sort of consensus.
-
-'smsc911x_tx_writefifo' and 'smsc911x_rx_readfifo' are also of concern
-to me. =A0I understand the usage of writesl/readsl but it introduces
-more challenges. =A0If we don't want to replace their usage by a while
-loop as it is the case when SMSC911X_SWAP_FIFO and SMSC911X_USE_16BIT
-are set, we will need to introduce rx_readfifo and rx_writefifo in the
-OPS.
-
-Enlightenment is required on the above.
-
-Best regards,
-Mathieu.
+T24gVHVlLCBNYXIgMjksIDIwMTEgYXQgMDY6MDksIFN0ZWZhbiBBc3NtYW5uIDxzYXNzbWFubkBr
+cGFuaWMuZGU+IHdyb3RlOgo+IFNvbWUgY2xlYW51cHMgZm9yIGlnYi4KPiBGaXJzdCBwYXRjaCBp
+cyBqdXN0IGEgc2ltcGxlIHR5cG8gZml4Lgo+IFNlY29uZCBwYXRjaCB0dXJucyBpZ2JfdXBkYXRl
+X252bV9jaGVja3N1bSBhbmQgaWdiX3ZhbGlkYXRlX252bV9jaGVja3N1bQo+IGludG8gd3JhcHBl
+ciBmdW5jdGlvbnMgdG8gZGVkdXBsaWNhdGUgY29kZS4KPiBUaGlyZCBwYXRjaCBwdXRzIHRoZSB0
+aGVybWFsIHNlbnNvciBjb2RlIGludG8gYSBmdW5jdGlvbi4gVGhpcyBwYXRjaCBjb3VsZCB1c2UK
+PiBzb21lIHRlc3RpbmcgYXMgSSBjb3VsZG4ndCByZWFsbHkgdGVzdCBpdCBkdWUgdG8gbGFjayBv
+ZiBoYXJkd2FyZS4KPgo+IMKgU3RlZmFuCj4KPiBTdGVmYW4gQXNzbWFubiAoMyk6Cj4gwqBpZ2I6
+IGZpeCB0eXBvIGluIGlnYl92YWxpZGF0ZV9udm1fY2hlY2tzdW1fODI1ODAKPiDCoGlnYjogdHJh
+bnNmb3JtIGlnYl97dXBkYXRlLHZhbGlkYXRlfV9udm1fY2hlY2tzdW0gaW50byB3cmFwcGVycyBv
+Zgo+IMKgIMKgdGhlaXIgKl93aXRoX29mZnNldCBlcXVpdmFsZW50cwo+IMKgaWdiOiBpbnRyb2R1
+Y2UgaWdiX3RoZXJtYWxfc2Vuc29yX2V2ZW50IGZvciBzZW5zb3IgY2hlY2tpbmcKPgo+IMKgZHJp
+dmVycy9uZXQvaWdiL2UxMDAwXzgyNTc1LmMgfCDCoCA3OSArKy0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2IvZTEwMDBfbnZtLmMgwqAgfCDC
+oCAzOCArKysrKysrKysrKysrKystLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2IvZTEwMDBfbnZtLmgg
+wqAgfCDCoCDCoDIgKwo+IMKgZHJpdmVycy9uZXQvaWdiL2lnYl9tYWluLmMgwqAgwqB8IMKgIDY3
+ICsrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0KPiDCoDQgZmlsZXMgY2hhbmdlZCwg
+NzAgaW5zZXJ0aW9ucygrKSwgMTE2IGRlbGV0aW9ucygtKQo+Cj4KClRoYW5rcyBTdGVmYW4sIEkg
+aGF2ZSBhZGRlZCB0aGVzZSBwYXRjaGVzIHRvIG15IGlnYi1xdWV1ZS4KCi0tIApDaGVlcnMsCkpl
+ZmYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpFbmFibGUgeW91ciBzb2Z0d2FyZSBmb3IgSW50ZWwo
+UikgQWN0aXZlIE1hbmFnZW1lbnQgVGVjaG5vbG9neSB0byBtZWV0IHRoZQpncm93aW5nIG1hbmFn
+ZWFiaWxpdHkgYW5kIHNlY3VyaXR5IGRlbWFuZHMgb2YgeW91ciBjdXN0b21lcnMuIEJ1c2luZXNz
+ZXMKYXJlIHRha2luZyBhZHZhbnRhZ2Ugb2YgSW50ZWwoUikgdlBybyAoVE0pIHRlY2hub2xvZ3kg
+LSB3aWxsIHlvdXIgc29mdHdhcmUgCmJlIGEgcGFydCBvZiB0aGUgc29sdXRpb24/IERvd25sb2Fk
+IHRoZSBJbnRlbChSKSBNYW5hZ2VhYmlsaXR5IENoZWNrZXIgCnRvZGF5ISBodHRwOi8vcC5zZi5u
+ZXQvc2Z1L2ludGVsLWRldjJkZXZtYXIKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3Rz
+LnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0
+aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0
+LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
