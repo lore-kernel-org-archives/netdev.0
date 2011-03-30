@@ -1,7 +1,7 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 2/9 net-next-2.6] qlcnic: Fix memory leak bug in error path
-Date: Wed, 30 Mar 2011 13:22:00 -0700
-Message-ID: <alpine.OSX.2.00.1103301301260.31005@macintosh-2.local>
+Subject: [PATCH 5/9 net-next-2.6] qlcnic: Changes to VLAN code
+Date: Wed, 30 Mar 2011 13:23:04 -0700
+Message-ID: <alpine.OSX.2.00.1103301312200.31005@macintosh-2.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 8BIT
@@ -9,42 +9,183 @@ Cc: Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
 To: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:31103
-	"EHLO DB3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932906Ab1C3UX4 convert rfc822-to-8bit
+Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:46406
+	"EHLO VA3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932977Ab1C3UYO convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Mar 2011 16:23:56 -0400
+	Wed, 30 Mar 2011 16:24:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+Incorporated changes to comply with reworked VLAN infrastructure in kernel.
 
-A memory leak exists in the error path of getting PCI info code. Fix it by
-going via the memory free path before returning.
-
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/qlcnic/qlcnic.h      |    4 ++-
+ drivers/net/qlcnic/qlcnic_init.c |   15 ++++++-------
+ drivers/net/qlcnic/qlcnic_main.c |   42 ++++++++++++++++++++++---------------
+ 3 files changed, 35 insertions(+), 26 deletions(-)
 
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index a5b28d1..be9c329 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -29,6 +29,8 @@
+
+ #include <linux/io.h>
+ #include <asm/byteorder.h>
++#include <linux/bitops.h>
++#include <linux/if_vlan.h>
+
+ #include "qlcnic_hdr.h"
+
+@@ -982,8 +984,8 @@ struct qlcnic_adapter {
+        u8 mac_addr[ETH_ALEN];
+
+        u64 dev_rst_time;
++       unsigned long vlans[BITS_TO_LONGS(VLAN_N_VID)];
+
+-       struct vlan_group *vlgrp;
+        struct qlcnic_npar_info *npars;
+        struct qlcnic_eswitch *eswitch;
+        struct qlcnic_nic_template *nic_ops;
+diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
+index 476ea14..74ec96d 100644
+--- a/drivers/net/qlcnic/qlcnic_init.c
++++ b/drivers/net/qlcnic/qlcnic_init.c
+@@ -1467,10 +1467,10 @@ qlcnic_process_rcv(struct qlcnic_adapter *adapter,
+
+        skb->protocol = eth_type_trans(skb, netdev);
+
+-       if ((vid != 0xffff) && adapter->vlgrp)
+-               vlan_gro_receive(&sds_ring->napi, adapter->vlgrp, vid, skb);
+-       else
+-               napi_gro_receive(&sds_ring->napi, skb);
++       if (vid != 0xffff)
++               __vlan_hwaccel_put_tag(skb, vid);
++
++       napi_gro_receive(&sds_ring->napi, skb);
+
+        adapter->stats.rx_pkts++;
+        adapter->stats.rxbytes += length;
+@@ -1552,10 +1552,9 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+
+        length = skb->len;
+
+-       if ((vid != 0xffff) && adapter->vlgrp)
+-               vlan_hwaccel_receive_skb(skb, adapter->vlgrp, vid);
+-       else
+-               netif_receive_skb(skb);
++       if (vid != 0xffff)
++               __vlan_hwaccel_put_tag(skb, vid);
++       netif_receive_skb(skb);
+
+        adapter->stats.lro_pkts++;
+        adapter->stats.lrobytes += length;
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index d230fdd..de6f866 100644
+index 3b740f5..b75aef0 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -464,8 +464,10 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+@@ -13,7 +13,6 @@
 
-        for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
-                pfn = pci_info[i].id;
--               if (pfn > QLCNIC_MAX_PCI_FUNC)
--                       return QL_STATUS_INVALID_PARAM;
-+               if (pfn > QLCNIC_MAX_PCI_FUNC) {
-+                       ret = QL_STATUS_INVALID_PARAM;
-+                       goto err_eswitch;
-+               }
-                adapter->npars[pfn].active = (u8)pci_info[i].active;
-                adapter->npars[pfn].type = (u8)pci_info[i].type;
-                adapter->npars[pfn].phy_port = (u8)pci_info[i].default_port;
+ #include <linux/swab.h>
+ #include <linux/dma-mapping.h>
+-#include <linux/if_vlan.h>
+ #include <net/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/inetdevice.h>
+@@ -98,6 +97,9 @@ static int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *, u32);
+ static int qlcnicvf_start_firmware(struct qlcnic_adapter *);
+ static void qlcnic_set_netdev_features(struct qlcnic_adapter *,
+                                struct qlcnic_esw_func_cfg *);
++static void qlcnic_vlan_rx_add(struct net_device *, u16);
++static void qlcnic_vlan_rx_del(struct net_device *, u16);
++
+ /*  PCI Device ID Table  */
+ #define ENTRY(device) \
+        {PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, (device)), \
+@@ -317,13 +319,6 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+        return 0;
+ }
+
+-static void qlcnic_vlan_rx_register(struct net_device *netdev,
+-               struct vlan_group *grp)
+-{
+-       struct qlcnic_adapter *adapter = netdev_priv(netdev);
+-       adapter->vlgrp = grp;
+-}
+-
+ static const struct net_device_ops qlcnic_netdev_ops = {
+        .ndo_open          = qlcnic_open,
+        .ndo_stop          = qlcnic_close,
+@@ -334,7 +329,8 @@ static const struct net_device_ops qlcnic_netdev_ops = {
+        .ndo_set_mac_address    = qlcnic_set_mac,
+        .ndo_change_mtu    = qlcnic_change_mtu,
+        .ndo_tx_timeout    = qlcnic_tx_timeout,
+-       .ndo_vlan_rx_register = qlcnic_vlan_rx_register,
++       .ndo_vlan_rx_add_vid    = qlcnic_vlan_rx_add,
++       .ndo_vlan_rx_kill_vid   = qlcnic_vlan_rx_del,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+        .ndo_poll_controller = qlcnic_poll_controller,
+ #endif
+@@ -710,6 +706,22 @@ qlcnic_set_vlan_config(struct qlcnic_adapter *adapter,
+ }
+
+ static void
++qlcnic_vlan_rx_add(struct net_device *netdev, u16 vid)
++{
++       struct qlcnic_adapter *adapter = netdev_priv(netdev);
++       set_bit(vid, adapter->vlans);
++}
++
++static void
++qlcnic_vlan_rx_del(struct net_device *netdev, u16 vid)
++{
++       struct qlcnic_adapter *adapter = netdev_priv(netdev);
++
++       qlcnic_restore_indev_addr(netdev, NETDEV_DOWN);
++       clear_bit(vid, adapter->vlans);
++}
++
++static void
+ qlcnic_set_eswitch_port_features(struct qlcnic_adapter *adapter,
+                struct qlcnic_esw_func_cfg *esw_cfg)
+ {
+@@ -755,7 +767,7 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
+        features = (NETIF_F_SG | NETIF_F_IP_CSUM |
+                        NETIF_F_IPV6_CSUM | NETIF_F_GRO);
+        vlan_features = (NETIF_F_SG | NETIF_F_IP_CSUM |
+-                       NETIF_F_IPV6_CSUM);
++                       NETIF_F_IPV6_CSUM | NETIF_F_HW_VLAN_FILTER);
+
+        if (adapter->capabilities & QLCNIC_FW_CAPABILITY_TSO) {
+                features |= (NETIF_F_TSO | NETIF_F_TSO6);
+@@ -1448,7 +1460,7 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter,
+        netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
+                NETIF_F_IPV6_CSUM | NETIF_F_GRO | NETIF_F_HW_VLAN_RX);
+        netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
+-               NETIF_F_IPV6_CSUM);
++               NETIF_F_IPV6_CSUM | NETIF_F_HW_VLAN_FILTER);
+
+        if (adapter->capabilities & QLCNIC_FW_CAPABILITY_TSO) {
+                netdev->features |= (NETIF_F_TSO | NETIF_F_TSO6);
+@@ -4068,14 +4080,10 @@ qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
+
+        qlcnic_config_indev_addr(adapter, netdev, event);
+
+-       if (!adapter->vlgrp)
+-               return;
+-
+-       for (vid = 0; vid < VLAN_N_VID; vid++) {
+-               dev = vlan_group_get_device(adapter->vlgrp, vid);
++       for_each_set_bit(vid, adapter->vlans, VLAN_N_VID) {
++               dev = vlan_find_dev(netdev, vid);
+                if (!dev)
+                        continue;
+-
+                qlcnic_config_indev_addr(adapter, dev, event);
+        }
+ }
 --
 1.6.5.2
 
