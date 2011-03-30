@@ -1,99 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.38 containers bug: Infinite loop in
- /proc/sys/net/ipv6/neigh/neigh/neigh...
-Date: Wed, 30 Mar 2011 02:01:20 -0700 (PDT)
-Message-ID: <20110330.020120.02272125.davem@davemloft.net>
-References: <4D92E9DC.3070405@parallels.com>
+From: Geert Hendrickx <geert@hendrickx.be>
+Subject: Re: [Bug 28512] IPv6 SLAAC address preferred over static one as
+ source address
+Date: Wed, 30 Mar 2011 11:11:15 +0200
+Message-ID: <20110330091115.GA8520@boris.ghen.be>
+References: <bug-28512-25842@https.bugzilla.kernel.org/>
+ <201103300900.p2U90PTc010650@demeter1.kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	containers@lists.linux-foundation.org, netdev@vger.kernel.org
-To: rlandley@parallels.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D92E9DC.3070405@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: bugzilla-daemon@bugzilla.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from juliette.telenet-ops.be ([195.130.137.74]:60918 "EHLO
+	juliette.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754552Ab1C3JLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 05:11:17 -0400
+Content-Disposition: inline
+In-Reply-To: <201103300900.p2U90PTc010650@demeter1.kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Landley <rlandley@parallels.com>
-Date: Wed, 30 Mar 2011 03:29:16 -0500
-
-> In the host context a find on /proc completes, but inside an lxc
-> container a find on /proc never completes, due to the endless loop in
-> the title.  (It's not a symlink, it seems to be a cross linked directory.)
+On Wed, Mar 30, 2011 at 09:00:25 +0000, bugzilla-daemon@bugzilla.kernel.org wrote:
+> The script posted at:
 > 
-> This is vanilla 2.6.38, I can attach my .config if you think it'd help.
->  (The container's the lxc debian sid template but that's probably not
-> relevant.)
+> http://www.davidc.net/networking/ipv6-source-address-selection-linux
+> 
+> to mark the addresses as deprecated.
 
-Please CC: netdev@vger.kernel.org when a bug might be related to
-networking, as is obviously the case here.
 
-This bug should be fixed by the following patch:
+That requires you to know the SLAAC address (and thus the MAC address) in
+advance, so not always applicable.  It's also no longer "stateless auto
+configuration" if you have to hardcode the address in your startup config.
 
---------------------
-commit 9d2a8fa96a44ba242de3a6f56acaef7a40a97b97
-Author: Eric W. Biederman <ebiederm@aristanetworks.com>
-Date:   Mon Mar 21 18:23:34 2011 -0700
 
-    net ipv6: Fix duplicate /proc/sys/net/ipv6/neigh directory entries.
-    
-    When I was fixing issues with unregisgtering tables under /proc/sys/net/ipv6/neigh
-    by adding a mount point it appears I missed a critical ordering issue, in the
-    ipv6 initialization.  I had not realized that ipv6_sysctl_register is called
-    at the very end of the ipv6 initialization and in particular after we call
-    neigh_sysctl_register from ndisc_init.
-    
-    "neigh" needs to be initialized in ipv6_static_sysctl_register which is
-    the first ipv6 table to initialized, and definitely before ndisc_init.
-    This removes the weirdness of duplicate tables while still providing a
-    "neigh" mount point which prevents races in sysctl unregistering.
-    
-    This was initially reported at https://bugzilla.kernel.org/show_bug.cgi?id=31232
-    Reported-by: sunkan@zappa.cx
-    Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 7cb65ef..6dcf5e7 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -17,6 +17,16 @@
+	Geert
  
- static struct ctl_table empty[1];
- 
-+static ctl_table ipv6_static_skeleton[] = {
-+	{
-+		.procname	= "neigh",
-+		.maxlen		= 0,
-+		.mode		= 0555,
-+		.child		= empty,
-+	},
-+	{ }
-+};
-+
- static ctl_table ipv6_table_template[] = {
- 	{
- 		.procname	= "route",
-@@ -37,12 +47,6 @@ static ctl_table ipv6_table_template[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
--	{
--		.procname	= "neigh",
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= empty,
--	},
- 	{ }
- };
- 
-@@ -160,7 +164,7 @@ static struct ctl_table_header *ip6_base;
- 
- int ipv6_static_sysctl_register(void)
- {
--	ip6_base = register_sysctl_paths(net_ipv6_ctl_path, empty);
-+	ip6_base = register_sysctl_paths(net_ipv6_ctl_path, ipv6_static_skeleton);
- 	if (ip6_base == NULL)
- 		return -ENOMEM;
- 	return 0;
+
+-- 
+geert.hendrickx.be :: geert@hendrickx.be :: PGP: 0xC4BB9E9F
+This e-mail was composed using 100% recycled spam messages!
