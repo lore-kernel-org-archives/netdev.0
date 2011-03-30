@@ -1,135 +1,714 @@
-From: Sasikanth V <sasikanth.v19@gmail.com>
-Subject: =?UTF-8?q?=5BPATCH=5D=20BRIDGE=3A=20As=20per=20802=2E1D=20clause=209=2E3=2E4=20Added=20support=20to=20prevent=20processing=20port=27s=20own=20BPDU=20=28If=20a=20loopback=20condition=20exists=29?=
-Date: Wed, 30 Mar 2011 21:03:36 +0530
-Message-ID: <1301499216-3836-1-git-send-email-sasikanth.v19@gmail.com>
+From: Daniel Walter <dwalter@barracuda.com>
+Subject: [PATCH] ipv6: Add support for RTA_PREFSRC
+Date: Wed, 30 Mar 2011 17:29:51 +0200
+Message-ID: <1301498991.31789.187.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Sasikanth V <sasikanth.v19@gmail.com>
-To: shemminger@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:43844 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932136Ab1C3Pdp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 11:33:45 -0400
-Received: by ywj3 with SMTP id 3so559911ywj.19
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2011 08:33:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="=-Ph+wg+tryrE8bFkiYRL4"
+Cc: <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+--=-Ph+wg+tryrE8bFkiYRL4
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
+=EF=BB=BFFrom: Daniel Walter <dwalter@barracuda.com>
+
+[ipv6] Add support for RTA_PREFSRC
+
+This patch allows a user to select the preferred source address
+for a specific IPv6-Route. It can be set via a netlink message
+setting RTA_PREFSRC to a valid IPv6 address which must be
+up on the device the route will be bound to.=20
+=20
+Signed-off-by: Daniel Walter <dwalter@barracuda.com>
 ---
- net/bridge/br_private.h   |    1 +
- net/bridge/br_stp.c       |   20 ++++++++++++++++++--
- net/bridge/br_stp_if.c    |    2 ++
- net/bridge/br_stp_timer.c |    1 +
- 4 files changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 387013d..d9f79dd 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -149,6 +149,7 @@ struct net_bridge_port
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll			*np;
- #endif
-+	u8                              is_own_bpdu; /*Port recvd its own BPD=
-U*/
- };
+patch should apply clean against linux-2.3.39 HEAD
+
+ include/linux/ipv6_route.h |    1 +
+ include/net/ip6_fib.h      |    2 +
+ include/net/ip6_route.h    |    1 +
+ net/ipv6/addrconf.c        |    2 +
+ net/ipv6/ip6_output.c      |   12 +++++--
+ net/ipv6/route.c           |   68 ++++++++++++++++++++++++++++++++++++++++=
+++--
+ 6 files changed, 79 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/ipv6_route.h b/include/linux/ipv6_route.h
+index 1e7d8af..9845953 100644
+--- a/include/linux/ipv6_route.h
++++ b/include/linux/ipv6_route.h
+@@ -44,6 +44,7 @@
+ struct in6_rtmsg {
+ 	struct in6_addr		rtmsg_dst;
+ 	struct in6_addr		rtmsg_src;
++	struct in6_addr		rtmsg_prefsrc;
+ 	struct in6_addr		rtmsg_gateway;
+ 	__u32			rtmsg_type;
+ 	__u16			rtmsg_dst_len;
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index bc3cde0..98348d5 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -42,6 +42,7 @@ struct fib6_config {
 =20
- #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 7370d14..491d9c6 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -107,6 +107,12 @@ static void br_root_selection(struct net_bridge *b=
-r)
- 	u16 root_port =3D 0;
+ 	struct in6_addr	fc_dst;
+ 	struct in6_addr	fc_src;
++	struct in6_addr	fc_prefsrc;
+ 	struct in6_addr	fc_gateway;
 =20
- 	list_for_each_entry(p, &br->port_list, list) {
-+		/*Don't consider the Port for root selection
-+  		  which rx'd its own bpdu because of loopback
-+		  in the bridge
-+  		 */
-+		if (p->is_own_bpdu)
-+			continue;
- 		if (br_should_become_root_port(p, root_port))
- 			root_port =3D p->port_no;
+ 	unsigned long	fc_expires;
+@@ -107,6 +108,7 @@ struct rt6_info {
+ 	struct rt6key			rt6i_dst ____cacheline_aligned_in_smp;
+ 	u32				rt6i_flags;
+ 	struct rt6key			rt6i_src;
++	struct rt6key			rt6i_prefsrc;
+ 	u32				rt6i_metric;
+ 	u32				rt6i_peer_genid;
 =20
-@@ -278,8 +284,16 @@ static int br_supersedes_port_info(struct net_brid=
-ge_port *p, struct br_config_b
- 	if (memcmp(&bpdu->bridge_id, &p->br->bridge_id, 8))
- 		return 1;
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index c850e5f..2b37c20 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -141,6 +141,7 @@ struct rt6_rtnl_dump_arg {
+ extern int rt6_dump_route(struct rt6_info *rt, void *p_arg);
+ extern void rt6_ifdown(struct net *net, struct net_device *dev);
+ extern void rt6_mtu_change(struct net_device *dev, unsigned mtu);
++extern void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
 =20
--	if (bpdu->port_id <=3D p->designated_port)
-+	if (bpdu->port_id <=3D p->designated_port) {
-+		/*802.1D 9.3.4 Validation of received BPDUs
-+ 		 NOTE 1=E2=80=94If the Bridge Identifier and Port Identifier both=20
-+ 		 match the values that would be transmitted in a Configuration
-+		 BPDU, the BPDU is discarded to prevent processing of the Port=E2=80=
-=99s=20
-+		 own BPDUs;*/
-+		if (bpdu->port_id =3D=3D p->designated_port)
-+			p->is_own_bpdu =3D 1;
- 		return 1;
-+	}
+
+ /*
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3daaf3c..26f9e14 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -825,6 +825,8 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 		dst_release(&rt->dst);
+ 	}
 =20
- 	return 0;
++	/* clean up prefsrc entries */
++	rt6_remove_prefsrc(ifp);
+ out:
+ 	in6_ifa_put(ifp);
  }
-@@ -411,7 +425,7 @@ void br_port_state_selection(struct net_bridge *br)
- 			p->config_pending =3D 0;
- 			p->topology_change_ack =3D 0;
- 			br_make_forwarding(p);
--		} else if (br_is_designated_port(p)) {
-+		} else if (!p->is_own_bpdu && br_is_designated_port(p)) {
- 			del_timer(&p->message_age_timer);
- 			br_make_forwarding(p);
- 		} else {
-@@ -446,6 +460,8 @@ void br_received_config_bpdu(struct net_bridge_port=
- *p, struct br_config_bpdu *b
- 	br =3D p->br;
- 	was_root =3D br_is_root_bridge(br);
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 1820887..e2d8463 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -930,10 +930,14 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 		goto out_err_release;
 =20
-+	p->is_own_bpdu =3D 0;
+ 	if (ipv6_addr_any(&fl6->saddr)) {
+-		err =3D ipv6_dev_get_saddr(net, ip6_dst_idev(*dst)->dev,
+-					 &fl6->daddr,
+-					 sk ? inet6_sk(sk)->srcprefs : 0,
+-					 &fl6->saddr);
++		struct rt6_info *rt =3D (struct rt6_info *) *dst;
++		if (rt->rt6i_prefsrc.plen)
++			ipv6_addr_copy(&fl6->saddr, &rt->rt6i_prefsrc.addr);
++		else
++			err =3D ipv6_dev_get_saddr(net, ip6_dst_idev(*dst)->dev,
++						 &fl6->daddr,
++						 sk ? inet6_sk(sk)->srcprefs : 0,
++						 &fl6->saddr);
+ 		if (err)
+ 			goto out_err_release;
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 843406f..b53089d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1325,6 +1325,20 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	if (dev =3D=3D NULL)
+ 		goto out;
+=20
++	/* check if prefsrc is set */
++	if (!ipv6_addr_any(&cfg->fc_prefsrc)) {
++		struct in6_addr saddr_buf;
++		ipv6_addr_copy(&saddr_buf, &cfg->fc_prefsrc);
++		if (!ipv6_chk_addr(net, &saddr_buf, dev, 0)) {
++			printk(KERN_DEBUG "invalid pref_src\n");
++			err =3D -EINVAL;
++			goto out;
++		}
++		ipv6_addr_copy(&rt->rt6i_prefsrc.addr, &cfg->fc_prefsrc);
++		rt->rt6i_prefsrc.plen =3D 128;
++	} else
++		rt->rt6i_prefsrc.plen =3D 0;
 +
- 	if (br_supersedes_port_info(p, bpdu)) {
- 		br_record_config_information(p, bpdu);
- 		br_configuration_update(br);
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 5593f5a..fc4ec63 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -37,6 +37,7 @@ void br_init_port(struct net_bridge_port *p)
- 	p->state =3D BR_STATE_BLOCKING;
- 	p->topology_change_ack =3D 0;
- 	p->config_pending =3D 0;
-+	p->is_own_bpdu =3D 0;
+ 	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
+ 		rt->rt6i_nexthop =3D __neigh_lookup_errno(&nd_tbl, &rt->rt6i_gateway, de=
+v);
+ 		if (IS_ERR(rt->rt6i_nexthop)) {
+@@ -1893,6 +1907,7 @@ static void rtmsg_to_fib6_config(struct net *net,
+ 	ipv6_addr_copy(&cfg->fc_dst, &rtmsg->rtmsg_dst);
+ 	ipv6_addr_copy(&cfg->fc_src, &rtmsg->rtmsg_src);
+ 	ipv6_addr_copy(&cfg->fc_gateway, &rtmsg->rtmsg_gateway);
++	ipv6_addr_copy(&cfg->fc_prefsrc, &rtmsg->rtmsg_prefsrc);
  }
 =20
- /* called under bridge lock */
-@@ -101,6 +102,7 @@ void br_stp_disable_port(struct net_bridge_port *p)
- 	p->state =3D BR_STATE_DISABLED;
- 	p->topology_change_ack =3D 0;
- 	p->config_pending =3D 0;
-+	p->is_own_bpdu =3D 0;
+ int ipv6_route_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+@@ -2037,6 +2052,39 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev=
+ *idev,
+ 	return rt;
+ }
 =20
- 	del_timer(&p->message_age_timer);
- 	del_timer(&p->forward_delay_timer);
-diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
-index 3e96514..99ea288 100644
---- a/net/bridge/br_stp_timer.c
-+++ b/net/bridge/br_stp_timer.c
-@@ -67,6 +67,7 @@ static void br_message_age_timer_expired(unsigned lon=
-g arg)
- 	spin_lock(&br->lock);
- 	if (p->state =3D=3D BR_STATE_DISABLED)
- 		goto unlock;
-+	p->is_own_bpdu =3D 0;
- 	was_root =3D br_is_root_bridge(br);
++/* remove deleted ip from prefsrc entries */
++struct arg_dev_net_ip {
++	struct net_device *dev;
++	struct net *net;
++	struct in6_addr *addr;
++};
++
++static int fib6_remove_prefsrc(struct rt6_info *rt, void *arg)
++{
++	struct net_device *dev =3D ((struct arg_dev_net_ip *)arg)->dev;
++	struct net *net =3D ((struct arg_dev_net_ip *)arg)->net;
++	struct in6_addr *addr =3D ((struct arg_dev_net_ip *)arg)->addr;
++
++	if (((void *)rt->rt6i_dev =3D=3D dev || dev =3D=3D NULL) &&
++	    rt !=3D net->ipv6.ip6_null_entry &&
++	    ipv6_addr_equal(addr, &rt->rt6i_prefsrc.addr)) {
++		/* remove prefsrc entry */
++		rt->rt6i_prefsrc.plen =3D 0;
++	}
++	return 0;
++}
++
++void rt6_remove_prefsrc(struct inet6_ifaddr *ifp)
++{
++	struct net *net =3D dev_net(ifp->idev->dev);
++	struct arg_dev_net_ip adni =3D {
++		.dev =3D ifp->idev->dev,
++		.net =3D net,
++		.addr =3D &ifp->addr,
++	};
++	fib6_clean_all(net, fib6_remove_prefsrc, 0, &adni);
++}
++
+ struct arg_dev_net {
+ 	struct net_device *dev;
+ 	struct net *net;
+@@ -2183,6 +2231,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, st=
+ruct nlmsghdr *nlh,
+ 		nla_memcpy(&cfg->fc_src, tb[RTA_SRC], plen);
+ 	}
 =20
- 	br_become_designated_port(p);
---=20
-1.7.3.4
++	if (tb[RTA_PREFSRC])
++		nla_memcpy(&cfg->fc_prefsrc, tb[RTA_PREFSRC], 16);
++
+ 	if (tb[RTA_OIF])
+ 		cfg->fc_ifindex =3D nla_get_u32(tb[RTA_OIF]);
+=20
+@@ -2325,11 +2376,22 @@ static int rt6_fill_node(struct net *net,
+ #endif
+ 			NLA_PUT_U32(skb, RTA_IIF, iif);
+ 	} else if (dst) {
+-		struct inet6_dev *idev =3D ip6_dst_idev(&rt->dst);
+ 		struct in6_addr saddr_buf;
+-		if (ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
+-				       dst, 0, &saddr_buf) =3D=3D 0)
++		if (rt->rt6i_prefsrc.plen) {
++			ipv6_addr_copy(&saddr_buf, &rt->rt6i_prefsrc.addr);
+ 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
++		} else {
++			struct inet6_dev *idev =3D ip6_dst_idev(&rt->dst);
++			if (ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
++					       dst, 0, &saddr_buf) =3D=3D 0)
++				NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
++		}
++	}
++
++	if (rt->rt6i_prefsrc.plen) {
++		struct in6_addr saddr_buf;
++		ipv6_addr_copy(&saddr_buf, &rt->rt6i_prefsrc.addr);
++		NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+ 	}
+=20
+ 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
 
+
+
+
+
+
+
+
+
+
+
+From: Daniel Walter <dwalter@barracuda.com>
+
+[ipv6] Add support for RTA_PREFSRC
+
+This patch allows a user to select the preferred source address
+for a specific IPv6-Route. It can be set via a netlink message
+setting RTA_PREFSRC to a valid IPv6 address which must be
+up on the device the route will be bound to.=20
+=20
+Signed-off-by: Daniel Walter <dwalter@barracuda.com>
+---
+
+patch should apply clean against linux-2.3.39 HEAD
+
+ include/linux/ipv6_route.h |    1 +
+ include/net/ip6_fib.h      |    2 +
+ include/net/ip6_route.h    |    1 +
+ net/ipv6/addrconf.c        |    2 +
+ net/ipv6/ip6_output.c      |   12 +++++--
+ net/ipv6/route.c           |   68 ++++++++++++++++++++++++++++++++++++++++=
+++--
+ 6 files changed, 79 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/ipv6_route.h b/include/linux/ipv6_route.h
+index 1e7d8af..9845953 100644
+--- a/include/linux/ipv6_route.h
++++ b/include/linux/ipv6_route.h
+@@ -44,6 +44,7 @@
+ struct in6_rtmsg {
+ 	struct in6_addr		rtmsg_dst;
+ 	struct in6_addr		rtmsg_src;
++	struct in6_addr		rtmsg_prefsrc;
+ 	struct in6_addr		rtmsg_gateway;
+ 	__u32			rtmsg_type;
+ 	__u16			rtmsg_dst_len;
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index bc3cde0..98348d5 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -42,6 +42,7 @@ struct fib6_config {
+=20
+ 	struct in6_addr	fc_dst;
+ 	struct in6_addr	fc_src;
++	struct in6_addr	fc_prefsrc;
+ 	struct in6_addr	fc_gateway;
+=20
+ 	unsigned long	fc_expires;
+@@ -107,6 +108,7 @@ struct rt6_info {
+ 	struct rt6key			rt6i_dst ____cacheline_aligned_in_smp;
+ 	u32				rt6i_flags;
+ 	struct rt6key			rt6i_src;
++	struct rt6key			rt6i_prefsrc;
+ 	u32				rt6i_metric;
+ 	u32				rt6i_peer_genid;
+=20
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index c850e5f..2b37c20 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -141,6 +141,7 @@ struct rt6_rtnl_dump_arg {
+ extern int rt6_dump_route(struct rt6_info *rt, void *p_arg);
+ extern void rt6_ifdown(struct net *net, struct net_device *dev);
+ extern void rt6_mtu_change(struct net_device *dev, unsigned mtu);
++extern void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
+=20
+
+ /*
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3daaf3c..26f9e14 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -825,6 +825,8 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 		dst_release(&rt->dst);
+ 	}
+=20
++	/* clean up prefsrc entries */
++	rt6_remove_prefsrc(ifp);
+ out:
+ 	in6_ifa_put(ifp);
+ }
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 1820887..e2d8463 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -930,10 +930,14 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 		goto out_err_release;
+=20
+ 	if (ipv6_addr_any(&fl6->saddr)) {
+-		err =3D ipv6_dev_get_saddr(net, ip6_dst_idev(*dst)->dev,
+-					 &fl6->daddr,
+-					 sk ? inet6_sk(sk)->srcprefs : 0,
+-					 &fl6->saddr);
++		struct rt6_info *rt =3D (struct rt6_info *) *dst;
++		if (rt->rt6i_prefsrc.plen)
++			ipv6_addr_copy(&fl6->saddr, &rt->rt6i_prefsrc.addr);
++		else
++			err =3D ipv6_dev_get_saddr(net, ip6_dst_idev(*dst)->dev,
++						 &fl6->daddr,
++						 sk ? inet6_sk(sk)->srcprefs : 0,
++						 &fl6->saddr);
+ 		if (err)
+ 			goto out_err_release;
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 843406f..b53089d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1325,6 +1325,20 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	if (dev =3D=3D NULL)
+ 		goto out;
+=20
++	/* check if prefsrc is set */
++	if (!ipv6_addr_any(&cfg->fc_prefsrc)) {
++		struct in6_addr saddr_buf;
++		ipv6_addr_copy(&saddr_buf, &cfg->fc_prefsrc);
++		if (!ipv6_chk_addr(net, &saddr_buf, dev, 0)) {
++			printk(KERN_DEBUG "invalid pref_src\n");
++			err =3D -EINVAL;
++			goto out;
++		}
++		ipv6_addr_copy(&rt->rt6i_prefsrc.addr, &cfg->fc_prefsrc);
++		rt->rt6i_prefsrc.plen =3D 128;
++	} else
++		rt->rt6i_prefsrc.plen =3D 0;
++
+ 	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
+ 		rt->rt6i_nexthop =3D __neigh_lookup_errno(&nd_tbl, &rt->rt6i_gateway, de=
+v);
+ 		if (IS_ERR(rt->rt6i_nexthop)) {
+@@ -1893,6 +1907,7 @@ static void rtmsg_to_fib6_config(struct net *net,
+ 	ipv6_addr_copy(&cfg->fc_dst, &rtmsg->rtmsg_dst);
+ 	ipv6_addr_copy(&cfg->fc_src, &rtmsg->rtmsg_src);
+ 	ipv6_addr_copy(&cfg->fc_gateway, &rtmsg->rtmsg_gateway);
++	ipv6_addr_copy(&cfg->fc_prefsrc, &rtmsg->rtmsg_prefsrc);
+ }
+=20
+ int ipv6_route_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+@@ -2037,6 +2052,39 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev=
+ *idev,
+ 	return rt;
+ }
+=20
++/* remove deleted ip from prefsrc entries */
++struct arg_dev_net_ip {
++	struct net_device *dev;
++	struct net *net;
++	struct in6_addr *addr;
++};
++
++static int fib6_remove_prefsrc(struct rt6_info *rt, void *arg)
++{
++	struct net_device *dev =3D ((struct arg_dev_net_ip *)arg)->dev;
++	struct net *net =3D ((struct arg_dev_net_ip *)arg)->net;
++	struct in6_addr *addr =3D ((struct arg_dev_net_ip *)arg)->addr;
++
++	if (((void *)rt->rt6i_dev =3D=3D dev || dev =3D=3D NULL) &&
++	    rt !=3D net->ipv6.ip6_null_entry &&
++	    ipv6_addr_equal(addr, &rt->rt6i_prefsrc.addr)) {
++		/* remove prefsrc entry */
++		rt->rt6i_prefsrc.plen =3D 0;
++	}
++	return 0;
++}
++
++void rt6_remove_prefsrc(struct inet6_ifaddr *ifp)
++{
++	struct net *net =3D dev_net(ifp->idev->dev);
++	struct arg_dev_net_ip adni =3D {
++		.dev =3D ifp->idev->dev,
++		.net =3D net,
++		.addr =3D &ifp->addr,
++	};
++	fib6_clean_all(net, fib6_remove_prefsrc, 0, &adni);
++}
++
+ struct arg_dev_net {
+ 	struct net_device *dev;
+ 	struct net *net;
+@@ -2183,6 +2231,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, st=
+ruct nlmsghdr *nlh,
+ 		nla_memcpy(&cfg->fc_src, tb[RTA_SRC], plen);
+ 	}
+=20
++	if (tb[RTA_PREFSRC])
++		nla_memcpy(&cfg->fc_prefsrc, tb[RTA_PREFSRC], 16);
++
+ 	if (tb[RTA_OIF])
+ 		cfg->fc_ifindex =3D nla_get_u32(tb[RTA_OIF]);
+=20
+@@ -2325,11 +2376,22 @@ static int rt6_fill_node(struct net *net,
+ #endif
+ 			NLA_PUT_U32(skb, RTA_IIF, iif);
+ 	} else if (dst) {
+-		struct inet6_dev *idev =3D ip6_dst_idev(&rt->dst);
+ 		struct in6_addr saddr_buf;
+-		if (ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
+-				       dst, 0, &saddr_buf) =3D=3D 0)
++		if (rt->rt6i_prefsrc.plen) {
++			ipv6_addr_copy(&saddr_buf, &rt->rt6i_prefsrc.addr);
+ 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
++		} else {
++			struct inet6_dev *idev =3D ip6_dst_idev(&rt->dst);
++			if (ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
++					       dst, 0, &saddr_buf) =3D=3D 0)
++				NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
++		}
++	}
++
++	if (rt->rt6i_prefsrc.plen) {
++		struct in6_addr saddr_buf;
++		ipv6_addr_copy(&saddr_buf, &rt->rt6i_prefsrc.addr);
++		NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+ 	}
+=20
+ 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
+
+
+
+
+
+
+
+
+
+
+
+Daniel Walter
+Software Engineer
+
+Barracuda Networks AG
+Eduard-Bodem-Gasse 1
+6020 Innsbruck
+Austria
+
+Phone: +43 (0) 508 100
+Fax: +43 508 100 20
+eMail: mailto:DWalter@barracuda.com
+Web: www.barracudanetworks.com, www.phion.com
+
+
+
+
+
+
+
+Barracuda Networks AG
+Vorsitzender des Aufsichtsrates/ Chairman of the supervisory board: Dean Dr=
+ako
+Vorstand/ Executive Board: Dr. Wieland Alge, Mag. Guenter Klausner
+Sitz der Gesellschaft/ Registered office: 6020 Innsbruck, Austria
+Handelsgericht Innsbruck Firmenbuch/ Registration Number: 184392s
+UID-Nr/ VAT Number: ATU47509003
+
+Diese Nachricht und allfaellige angehaengte Dokumente sind vertraulich und =
+nur fuer den/die Adressaten bestimmt. Sollten Sie nicht der beabsichtigte A=
+dressat sein, ist jede Offenlegung, Weiterleitung oder sonstige Verwendung =
+dieser Information nicht gestattet. In diesem Fall bitten wir, den Absender=
+ zu verstaendigen und die Information zu vernichten. Fuer Uebermittlungsfeh=
+ler oder sonstige Irrtuemer bei Uebermittlung besteht keine Haftung.
+
+This message and any attached files are confidential and intended solely fo=
+r the addressee(s). Any publication, transmission or other use of the infor=
+mation by a person or entity other than the intended addressee is prohibite=
+d. If you receive this in error please contact the sender and delete the ma=
+terial. The sender does not accept liability for any errors or omissions as=
+ a result of the transmission.
+
+
+Barracuda Networks solutions are now available as virtual appliances. =0D
+Visit www.barracudanetworks.com/vx for more information.=0D
+=0D
+=0D
+
+
+--=-Ph+wg+tryrE8bFkiYRL4
+Content-Disposition: attachment;
+	filename="linux-ipv6-prefsrc-selection.patch"
+Content-Type: text/x-patch; name="linux-ipv6-prefsrc-selection.patch";
+	charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+diff --git a/include/linux/ipv6_route.h b/include/linux/ipv6_route.h
+index 1e7d8af..9845953 100644
+--- a/include/linux/ipv6_route.h
++++ b/include/linux/ipv6_route.h
+@@ -44,6 +44,7 @@
+ struct in6_rtmsg {
+ 	struct in6_addr		rtmsg_dst;
+ 	struct in6_addr		rtmsg_src;
++	struct in6_addr		rtmsg_prefsrc;
+ 	struct in6_addr		rtmsg_gateway;
+ 	__u32			rtmsg_type;
+ 	__u16			rtmsg_dst_len;
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index bc3cde0..98348d5 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -42,6 +42,7 @@ struct fib6_config {
+ 
+ 	struct in6_addr	fc_dst;
+ 	struct in6_addr	fc_src;
++	struct in6_addr	fc_prefsrc;
+ 	struct in6_addr	fc_gateway;
+ 
+ 	unsigned long	fc_expires;
+@@ -107,6 +108,7 @@ struct rt6_info {
+ 	struct rt6key			rt6i_dst ____cacheline_aligned_in_smp;
+ 	u32				rt6i_flags;
+ 	struct rt6key			rt6i_src;
++	struct rt6key			rt6i_prefsrc;
+ 	u32				rt6i_metric;
+ 	u32				rt6i_peer_genid;
+ 
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index c850e5f..2b37c20 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -141,6 +141,7 @@ struct rt6_rtnl_dump_arg {
+ extern int rt6_dump_route(struct rt6_info *rt, void *p_arg);
+ extern void rt6_ifdown(struct net *net, struct net_device *dev);
+ extern void rt6_mtu_change(struct net_device *dev, unsigned mtu);
++extern void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
+ 
+ 
+ /*
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3daaf3c..26f9e14 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -825,6 +825,8 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 		dst_release(&rt->dst);
+ 	}
+ 
++	/* clean up prefsrc entries */
++	rt6_remove_prefsrc(ifp);
+ out:
+ 	in6_ifa_put(ifp);
+ }
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 1820887..e2d8463 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -930,10 +930,14 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 		goto out_err_release;
+ 
+ 	if (ipv6_addr_any(&fl6->saddr)) {
+-		err = ipv6_dev_get_saddr(net, ip6_dst_idev(*dst)->dev,
+-					 &fl6->daddr,
+-					 sk ? inet6_sk(sk)->srcprefs : 0,
+-					 &fl6->saddr);
++		struct rt6_info *rt = (struct rt6_info *) *dst;
++		if (rt->rt6i_prefsrc.plen)
++			ipv6_addr_copy(&fl6->saddr, &rt->rt6i_prefsrc.addr);
++		else
++			err = ipv6_dev_get_saddr(net, ip6_dst_idev(*dst)->dev,
++						 &fl6->daddr,
++						 sk ? inet6_sk(sk)->srcprefs : 0,
++						 &fl6->saddr);
+ 		if (err)
+ 			goto out_err_release;
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 843406f..b53089d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1325,6 +1325,20 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	if (dev == NULL)
+ 		goto out;
+ 
++	/* check if prefsrc is set */
++	if (!ipv6_addr_any(&cfg->fc_prefsrc)) {
++		struct in6_addr saddr_buf;
++		ipv6_addr_copy(&saddr_buf, &cfg->fc_prefsrc);
++		if (!ipv6_chk_addr(net, &saddr_buf, dev, 0)) {
++			printk(KERN_DEBUG "invalid pref_src\n");
++			err = -EINVAL;
++			goto out;
++		}
++		ipv6_addr_copy(&rt->rt6i_prefsrc.addr, &cfg->fc_prefsrc);
++		rt->rt6i_prefsrc.plen = 128;
++	} else
++		rt->rt6i_prefsrc.plen = 0;
++
+ 	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
+ 		rt->rt6i_nexthop = __neigh_lookup_errno(&nd_tbl, &rt->rt6i_gateway, dev);
+ 		if (IS_ERR(rt->rt6i_nexthop)) {
+@@ -1893,6 +1907,7 @@ static void rtmsg_to_fib6_config(struct net *net,
+ 	ipv6_addr_copy(&cfg->fc_dst, &rtmsg->rtmsg_dst);
+ 	ipv6_addr_copy(&cfg->fc_src, &rtmsg->rtmsg_src);
+ 	ipv6_addr_copy(&cfg->fc_gateway, &rtmsg->rtmsg_gateway);
++	ipv6_addr_copy(&cfg->fc_prefsrc, &rtmsg->rtmsg_prefsrc);
+ }
+ 
+ int ipv6_route_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+@@ -2037,6 +2052,39 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 	return rt;
+ }
+ 
++/* remove deleted ip from prefsrc entries */
++struct arg_dev_net_ip {
++	struct net_device *dev;
++	struct net *net;
++	struct in6_addr *addr;
++};
++
++static int fib6_remove_prefsrc(struct rt6_info *rt, void *arg)
++{
++	struct net_device *dev = ((struct arg_dev_net_ip *)arg)->dev;
++	struct net *net = ((struct arg_dev_net_ip *)arg)->net;
++	struct in6_addr *addr = ((struct arg_dev_net_ip *)arg)->addr;
++
++	if (((void *)rt->rt6i_dev == dev || dev == NULL) &&
++	    rt != net->ipv6.ip6_null_entry &&
++	    ipv6_addr_equal(addr, &rt->rt6i_prefsrc.addr)) {
++		/* remove prefsrc entry */
++		rt->rt6i_prefsrc.plen = 0;
++	}
++	return 0;
++}
++
++void rt6_remove_prefsrc(struct inet6_ifaddr *ifp)
++{
++	struct net *net = dev_net(ifp->idev->dev);
++	struct arg_dev_net_ip adni = {
++		.dev = ifp->idev->dev,
++		.net = net,
++		.addr = &ifp->addr,
++	};
++	fib6_clean_all(net, fib6_remove_prefsrc, 0, &adni);
++}
++
+ struct arg_dev_net {
+ 	struct net_device *dev;
+ 	struct net *net;
+@@ -2183,6 +2231,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		nla_memcpy(&cfg->fc_src, tb[RTA_SRC], plen);
+ 	}
+ 
++	if (tb[RTA_PREFSRC])
++		nla_memcpy(&cfg->fc_prefsrc, tb[RTA_PREFSRC], 16);
++
+ 	if (tb[RTA_OIF])
+ 		cfg->fc_ifindex = nla_get_u32(tb[RTA_OIF]);
+ 
+@@ -2325,11 +2376,22 @@ static int rt6_fill_node(struct net *net,
+ #endif
+ 			NLA_PUT_U32(skb, RTA_IIF, iif);
+ 	} else if (dst) {
+-		struct inet6_dev *idev = ip6_dst_idev(&rt->dst);
+ 		struct in6_addr saddr_buf;
+-		if (ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
+-				       dst, 0, &saddr_buf) == 0)
++		if (rt->rt6i_prefsrc.plen) {
++			ipv6_addr_copy(&saddr_buf, &rt->rt6i_prefsrc.addr);
+ 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
++		} else {
++			struct inet6_dev *idev = ip6_dst_idev(&rt->dst);
++			if (ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
++					       dst, 0, &saddr_buf) == 0)
++				NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
++		}
++	}
++
++	if (rt->rt6i_prefsrc.plen) {
++		struct in6_addr saddr_buf;
++		ipv6_addr_copy(&saddr_buf, &rt->rt6i_prefsrc.addr);
++		NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+ 	}
+ 
+ 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
+
+--=-Ph+wg+tryrE8bFkiYRL4--
