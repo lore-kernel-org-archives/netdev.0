@@ -1,35 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] via-ircc: Pass PCI device pointer to
- dma_{alloc,free}_coherent()
-Date: Wed, 30 Mar 2011 00:13:09 -0700 (PDT)
-Message-ID: <20110330.001309.258110623.davem@davemloft.net>
-References: <1301368243.26693.751.camel@localhost>
-	<1301368372.26693.753.camel@localhost>
+From: Geert Hendrickx <geert@hendrickx.be>
+Subject: Re: [Bugme-new] [Bug 28512] New: IPv6 SLAAC address preferred over
+ static one as source address
+Date: Wed, 30 Mar 2011 09:31:39 +0200
+Message-ID: <20110330073139.GA8190@boris.ghen.be>
+References: <bug-28512-10286@https.bugzilla.kernel.org/>
+ <20110207152048.22c51184.akpm@linux-foundation.org>
+ <20110329.172000.102543782.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrewb@bgc.com.au, samuel@sortiz.org,
-	619450@bugs.debian.org
-To: ben@decadent.org.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42438
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754405Ab1C3HNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 03:13:47 -0400
-In-Reply-To: <1301368372.26693.753.camel@localhost>
+Received: from brigitte.telenet-ops.be ([195.130.137.66]:58259 "EHLO
+	brigitte.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752641Ab1C3Hbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 03:31:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20110329.172000.102543782.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Tue, 29 Mar 2011 04:12:52 +0100
-
-> via-ircc has been passing a NULL pointer to DMA allocation functions,
-> which is completely invalid and results in a BUG on PowerPC.  Now
-> that we always have the device pointer available, pass it in.
+On Tue, Mar 29, 2011 at 17:20:00 -0700, David Miller wrote:
+> This is debatable.
 > 
-> Reference: http://bugs.debian.org/619450
-> Reported-by: Andrew Buckeridge <andrewb@bgc.com.au>
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> Tested-by: Andrew Buckeridge <andrewb@bgc.com.au> [against 2.6.32]
+> One could just as easily say that an address with a shorter preferred
+> lifetime has been revalidated more recently, and therefore is more
+> likely to be uptodate, valid, and lead to a usable path.
 
-Applied.
+
+There we're at "most recent" again.  In practice, this will often be a SLAAC
+address, which will rarely be preferred over a staticly configured one.
+
+
+
+> I think the lack of specification for the final tie-breaker in the RFC
+> was intentional :-)
+> 
+> The specification has to address this, and until the situation is more
+> clear cut than it is now I don't see any benefit for changing Linux's
+> behavior.  Especially since there is a configuration based workaround
+> which works for people in the short-term.
+
+
+What workaround are you referring to?
+
+
+	Geert
+
+
+-- 
+geert.hendrickx.be :: geert@hendrickx.be :: PGP: 0xC4BB9E9F
+This e-mail was composed using 100% recycled spam messages!
