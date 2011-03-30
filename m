@@ -1,8 +1,7 @@
 From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 2/4] enic: Add wrapper routines for new fw
-	devcmds for port profile handling
-Date: Tue, 29 Mar 2011 23:35:56 -0700
-Message-ID: <20110330063556.7187.91578.stgit@savbu-pc100.cisco.com>
+Subject: [net-next-2.6 PATCH 3/4] enic: Cleanups in port profile helper code
+Date: Tue, 29 Mar 2011 23:36:02 -0700
+Message-ID: <20110330063602.7187.55953.stgit@savbu-pc100.cisco.com>
 References: <20110330063533.7187.80458.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,134 +9,88 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:20341 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754298Ab1C3Gf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 02:35:57 -0400
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:14662 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754339Ab1C3GgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 02:36:02 -0400
 In-Reply-To: <20110330063533.7187.80458.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roprabhu@cisco.com>
 
-This patch adds wrapper routines to new port profile related fw devcmds and
-removes the old ones
+This patch does the following:
+- Introduces a new macro VIC_PROVINFO_ADD_TLV
+- Adds a new OS type in vic_generic_prov_os_type
+- Changes some vic_provinfo* helper routine args to constants
 
 Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
 Signed-off-by: David Wang <dwang2@cisco.com>
 Signed-off-by: Christian Benvenuti <benve@cisco.com>
 ---
- drivers/net/enic/enic_dev.c |   62 ++++++++++++++++++++++++++++++++++++++++---
- drivers/net/enic/enic_dev.h |    7 +++--
- 2 files changed, 63 insertions(+), 6 deletions(-)
+ drivers/net/enic/vnic_vic.c |    5 +++--
+ drivers/net/enic/vnic_vic.h |   13 +++++++++++--
+ 2 files changed, 14 insertions(+), 4 deletions(-)
 
 
-diff --git a/drivers/net/enic/enic_dev.c b/drivers/net/enic/enic_dev.c
-index 37ad3a1..90687b1 100644
---- a/drivers/net/enic/enic_dev.c
-+++ b/drivers/net/enic/enic_dev.c
-@@ -177,24 +177,24 @@ int enic_vnic_dev_deinit(struct enic *enic)
- 	return err;
- }
+diff --git a/drivers/net/enic/vnic_vic.c b/drivers/net/enic/vnic_vic.c
+index 4725b79..24ef8cd 100644
+--- a/drivers/net/enic/vnic_vic.c
++++ b/drivers/net/enic/vnic_vic.c
+@@ -23,7 +23,8 @@
  
--int enic_dev_init_prov(struct enic *enic, struct vic_provinfo *vp)
-+int enic_dev_init_prov2(struct enic *enic, struct vic_provinfo *vp)
+ #include "vnic_vic.h"
+ 
+-struct vic_provinfo *vic_provinfo_alloc(gfp_t flags, u8 *oui, u8 type)
++struct vic_provinfo *vic_provinfo_alloc(gfp_t flags, const u8 *oui,
++	const u8 type)
  {
- 	int err;
+ 	struct vic_provinfo *vp;
  
- 	spin_lock(&enic->devcmd_lock);
--	err = vnic_dev_init_prov(enic->vdev,
-+	err = vnic_dev_init_prov2(enic->vdev,
- 		(u8 *)vp, vic_provinfo_size(vp));
- 	spin_unlock(&enic->devcmd_lock);
- 
- 	return err;
+@@ -47,7 +48,7 @@ void vic_provinfo_free(struct vic_provinfo *vp)
  }
  
--int enic_dev_init_done(struct enic *enic, int *done, int *error)
-+int enic_dev_deinit_done(struct enic *enic, int *status)
+ int vic_provinfo_add_tlv(struct vic_provinfo *vp, u16 type, u16 length,
+-	void *value)
++	const void *value)
  {
- 	int err;
+ 	struct vic_provinfo_tlv *tlv;
  
- 	spin_lock(&enic->devcmd_lock);
--	err = vnic_dev_init_done(enic->vdev, done, error);
-+	err = vnic_dev_deinit_done(enic->vdev, status);
- 	spin_unlock(&enic->devcmd_lock);
+diff --git a/drivers/net/enic/vnic_vic.h b/drivers/net/enic/vnic_vic.h
+index f700f5d..9ef81f1 100644
+--- a/drivers/net/enic/vnic_vic.h
++++ b/drivers/net/enic/vnic_vic.h
+@@ -47,6 +47,7 @@ enum vic_generic_prov_os_type {
+ 	VIC_GENERIC_PROV_OS_TYPE_ESX = 1,
+ 	VIC_GENERIC_PROV_OS_TYPE_LINUX = 2,
+ 	VIC_GENERIC_PROV_OS_TYPE_WINDOWS = 3,
++	VIC_GENERIC_PROV_OS_TYPE_SOLARIS = 4,
+ };
  
- 	return err;
-@@ -219,3 +219,57 @@ void enic_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	enic_del_vlan(enic, vid);
- 	spin_unlock(&enic->devcmd_lock);
- }
-+
-+int enic_dev_enable2(struct enic *enic, int active)
-+{
-+	int err;
-+
-+	spin_lock(&enic->devcmd_lock);
-+	err = vnic_dev_enable2(enic->vdev, active);
-+	spin_unlock(&enic->devcmd_lock);
-+
-+	return err;
-+}
-+
-+int enic_dev_enable2_done(struct enic *enic, int *status)
-+{
-+	int err;
-+
-+	spin_lock(&enic->devcmd_lock);
-+	err = vnic_dev_enable2_done(enic->vdev, status);
-+	spin_unlock(&enic->devcmd_lock);
-+
-+	return err;
-+}
-+
-+int enic_dev_status_to_errno(int devcmd_status)
-+{
-+	switch (devcmd_status) {
-+	case ERR_SUCCESS:
-+		return 0;
-+	case ERR_EINVAL:
-+		return -EINVAL;
-+	case ERR_EFAULT:
-+		return -EFAULT;
-+	case ERR_EPERM:
-+		return -EPERM;
-+	case ERR_EBUSY:
-+		return -EBUSY;
-+	case ERR_ECMDUNKNOWN:
-+	case ERR_ENOTSUPPORTED:
-+		return -EOPNOTSUPP;
-+	case ERR_EBADSTATE:
-+		return -EINVAL;
-+	case ERR_ENOMEM:
-+		return -ENOMEM;
-+	case ERR_ETIMEDOUT:
-+		return -ETIMEDOUT;
-+	case ERR_ELINKDOWN:
-+		return -ENETDOWN;
-+	case ERR_EINPROGRESS:
-+		return -EINPROGRESS;
-+	case ERR_EMAXRES:
-+	default:
-+		return (devcmd_status < 0) ? devcmd_status : -1;
-+	}
-+}
-diff --git a/drivers/net/enic/enic_dev.h b/drivers/net/enic/enic_dev.h
-index 495f57f..d5f6813 100644
---- a/drivers/net/enic/enic_dev.h
-+++ b/drivers/net/enic/enic_dev.h
-@@ -35,7 +35,10 @@ int enic_dev_set_ig_vlan_rewrite_mode(struct enic *enic);
- int enic_dev_enable(struct enic *enic);
- int enic_dev_disable(struct enic *enic);
- int enic_vnic_dev_deinit(struct enic *enic);
--int enic_dev_init_prov(struct enic *enic, struct vic_provinfo *vp);
--int enic_dev_init_done(struct enic *enic, int *done, int *error);
-+int enic_dev_init_prov2(struct enic *enic, struct vic_provinfo *vp);
-+int enic_dev_deinit_done(struct enic *enic, int *status);
-+int enic_dev_enable2(struct enic *enic, int arg);
-+int enic_dev_enable2_done(struct enic *enic, int *status);
-+int enic_dev_status_to_errno(int devcmd_status);
+ struct vic_provinfo {
+@@ -61,14 +62,22 @@ struct vic_provinfo {
+ 	} tlv[0];
+ } __packed;
  
- #endif /* _ENIC_DEV_H_ */
++#define VIC_PROVINFO_ADD_TLV(vp, tlvtype, tlvlen, data) \
++	do { \
++		err = vic_provinfo_add_tlv(vp, tlvtype, tlvlen, data); \
++		if (err) \
++			goto add_tlv_failure; \
++	} while (0)
++
+ #define VIC_PROVINFO_MAX_DATA		1385
+ #define VIC_PROVINFO_MAX_TLV_DATA (VIC_PROVINFO_MAX_DATA - \
+ 	sizeof(struct vic_provinfo))
+ 
+-struct vic_provinfo *vic_provinfo_alloc(gfp_t flags, u8 *oui, u8 type);
++struct vic_provinfo *vic_provinfo_alloc(gfp_t flags, const u8 *oui,
++	const u8 type);
+ void vic_provinfo_free(struct vic_provinfo *vp);
+ int vic_provinfo_add_tlv(struct vic_provinfo *vp, u16 type, u16 length,
+-	void *value);
++	const void *value);
+ size_t vic_provinfo_size(struct vic_provinfo *vp);
+ 
+ #endif	/* _VNIC_VIC_H_ */
 
