@@ -1,40 +1,41 @@
 From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: Re: [PATCH 1/2] Use VPI.VCI notation uniformly.
-Date: Wed, 30 Mar 2011 17:17:58 -0600
-Message-ID: <4D93BA26.2010405@redfish-solutions.com>
-References: <1301525787-28447-1-git-send-email-philipp_subx@redfish-solutions.com> <20110330.160358.55865087.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH 1/2] atm/solos-pci: Use VPI.VCI notation uniformly.
+Date: Wed, 30 Mar 2011 17:22:45 -0600
+Message-ID: <1301527365-28995-1-git-send-email-philipp_subx@redfish-solutions.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:41831 "EHLO
+Received: from mail.redfish-solutions.com ([66.232.79.143]:39287 "EHLO
 	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753613Ab1C3XSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 19:18:00 -0400
-In-Reply-To: <20110330.160358.55865087.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1753826Ab1C3XWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 19:22:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/30/11 5:03 PM, David Miller wrote:
-> From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-> Date: Wed, 30 Mar 2011 16:56:27 -0600
->
->> From: Philip A. Prindeville <philipp@redfish-solutions.com>
->>
->> Use VPI.VCI notation consistently throughout the module. This is the
->> one remaining place where the VCI is used before the VPI in any output.
->>
->> Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
->> ---
->>  drivers/atm/solos-pci.c |    4 ++--
->>  1 files changed, 2 insertions(+), 2 deletions(-)
-> Why do your subject lines not have an appropriate prefix?
->
-> How will someone scanning the commit header lines in the tree know
-> that this is a change to the solos-pci driver unless you prefix
-> them with "solos-pci: " or similar?
+From: Philip A. Prindeville <philipp@redfish-solutions.com>
 
-It was an oversight.  Want me to resubmit?
+Use VPI.VCI notation consistently throughout the module. This is the
+one remaining place where the VCI is used before the VPI in any output.
+
+Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
+---
+ drivers/atm/solos-pci.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 25ef1a4..2c4146a 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -710,8 +710,8 @@ void solos_bh(unsigned long card_arg)
+ 					       le16_to_cpu(header->vci));
+ 				if (!vcc) {
+ 					if (net_ratelimit())
+-						dev_warn(&card->dev->dev, "Received packet for unknown VCI.VPI %d.%d on port %d\n",
+-							 le16_to_cpu(header->vci), le16_to_cpu(header->vpi),
++						dev_warn(&card->dev->dev, "Received packet for unknown VPI.VCI %d.%d on port %d\n",
++							 le16_to_cpu(header->vpi), le16_to_cpu(header->vci),
+ 							 port);
+ 					continue;
+ 				}
+-- 
+1.7.4
 
