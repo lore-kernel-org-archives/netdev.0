@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Fix compilation warning in function
- br_stp_recalculate_bridge_id()
-Date: Tue, 29 Mar 2011 23:37:38 -0700 (PDT)
-Message-ID: <20110329.233738.15243255.davem@davemloft.net>
-References: <1301415604-3871-1-git-send-email-balajig81@gmail.com>
-	<20110329111038.2928bef7@s6510>
+Subject: Re: poll broken (for can)
+Date: Wed, 30 Mar 2011 00:05:18 -0700 (PDT)
+Message-ID: <20110330.000518.242131416.davem@davemloft.net>
+References: <4D90CB17.4030205@hartkopp.net>
+	<4D90E262.1090201@pengutronix.de>
+	<4D923B00.20500@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: balajig81@gmail.com, shemminger@linux-foundation.org,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mkl@pengutronix.de, wg@grandegger.com,
+	socketcan-users@lists.berlios.de, netdev@vger.kernel.org
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55426
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52144
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751134Ab1C3GiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 02:38:17 -0400
-In-Reply-To: <20110329111038.2928bef7@s6510>
+	by vger.kernel.org with ESMTP id S1751459Ab1C3HF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 03:05:57 -0400
+In-Reply-To: <4D923B00.20500@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHNoZW1taW5nZXJAdnlhdHRhLmNvbT4NCkRhdGU6IFR1
-ZSwgMjkgTWFyIDIwMTEgMTE6MTA6MzggLTA3MDANCg0KPiBPbiBUdWUsIDI5IE1hciAyMDExIDIx
-OjUwOjA0ICswNTMwDQo+ICJHLkJhbGFqaSIgPGJhbGFqaWc4MUBnbWFpbC5jb20+IHdyb3RlOg0K
-PiANCj4+IG5ldC9icmlkZ2UvYnJfc3RwX2lmLmM6IEluIGZ1bmN0aW9uIKFicl9zdHBfcmVjYWxj
-dWxhdGVfYnJpZGdlX2lkojoNCj4+IG5ldC9icmlkZ2UvYnJfc3RwX2lmLmM6MjE2OjM6IHdhcm5p
-bmc6IKFyZXR1cm6iIHdpdGggbm8gdmFsdWUsIGluIGZ1bmN0aW9uIHJldHVybmluZyBub24tdm9p
-ZA0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBHLkJhbGFqaSA8YmFsYWppZzgxQGdtYWlsLmNvbT4N
-Cj4gDQo+IEFja2VkLWJ5OiBTdGVwaGVuIEhlbW1pbmdlciA8c2hlbW1pbmdlckB2eWF0dGEuY29t
-Pg0KPiANCj4gKEZvcmdldCB0byByZWZyZXNoIHF1aWx0IHBhdGNoIGJlZm9yZSBzZW5kaW5nKS4N
-Cg0KQXBwbGllZC4NCg==
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Tue, 29 Mar 2011 22:03:12 +0200
+
+> Hm - the problem could be that people expect their frames to be sent 'in
+> time', so if we increase the tx_queue_len, it's not transparent when the
+> frames are potentially leaving the system - and if the application data is
+> already out-dated when hitting the medium.
+> 
+> What about having up to three CAN frames in each CAN_RAW socket send buffer
+> and e.g.50 frames in the tx_queue_len of the netdevice as a starting point?
+
+Setting tx_queue_len low is bound to cause all kinds of problems.
+
+This poll() peculiarity is just one such problem.
+
+I would suggest increasing it for CAN devices to at least 100.
