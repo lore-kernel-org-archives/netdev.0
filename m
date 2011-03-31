@@ -1,161 +1,461 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH RESEND] net: convert xen-netfront to hw_features
+Subject: [PATCH] net: convert SMSC USB net drivers to hw_features
 Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
-Message-ID: <20110331110136.03A1A13A6A@rere.qmqm.pl>
+Message-ID: <20110331110135.E66E413A6B@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	xen-devel@lists.xensource.com,
-	virtualization@lists.linux-foundation.org
+Cc: Steve Glendinning <steve.glendinning@smsc.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:50968 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:50966 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757306Ab1CaLBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757303Ab1CaLBk (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 31 Mar 2011 07:01:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not tested in any way. The original code for offload setting seems brok=
-en
-as it resets the features on every netback reconnect.
+There's a race (not fixed here) in smsc75xx in setting RFE_CTL that's n=
+ot
+properly handled via rfe_ctl_lock. Spinlock is not a good tool here, as
+this has to wait for URB completion (or maybe just submission) after is=
+suing
+register write request. Otherwise, the rfe_ctl might be changed just af=
+ter
+spin_unlock() and device left programmed with other value.
 
-This will set GSO_ROBUST at device creation time (earlier than connect =
-time).
+smsc95xx has increased hard_header_len for the case of TX checksumming.
 
-RX checksum offload is forced on - so advertise as it is.
+smsc75xx is fixed to advertise IP+IPV6_CSUM instead of HW_CSUM as it do=
+es
+not use csum_start/csum_offset.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
-[I don't know Xen code enough to say this is correct. There is Xen netb=
-ack
-driver coming in, that has similar changes to be made. Please match
-them up if you can.]
+[Not so trivial conversion to hw_features. Please update this if needed
+as I don't have the hardware to test.]
 
- drivers/net/xen-netfront.c |   57 +++++++++++++++++-------------------=
--------
- 1 files changed, 23 insertions(+), 34 deletions(-)
+ drivers/net/usb/smsc75xx.c |  122 ++++++++++++++++--------------------=
+--------
+ drivers/net/usb/smsc95xx.c |   74 ++++++---------------------
+ 2 files changed, 60 insertions(+), 136 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 5c8d9c3..2a71c9f 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1148,6 +1148,8 @@ static const struct net_device_ops xennet_netdev_=
-ops =3D {
- 	.ndo_change_mtu	     =3D xennet_change_mtu,
- 	.ndo_set_mac_address =3D eth_mac_addr,
- 	.ndo_validate_addr   =3D eth_validate_addr,
-+	.ndo_fix_features    =3D xennet_fix_features,
-+	.ndo_set_features    =3D xennet_set_features,
- };
-=20
- static struct net_device * __devinit xennet_create_dev(struct xenbus_d=
-evice *dev)
-@@ -1209,7 +1211,9 @@ static struct net_device * __devinit xennet_creat=
-e_dev(struct xenbus_device *dev
- 	netdev->netdev_ops	=3D &xennet_netdev_ops;
-=20
- 	netif_napi_add(netdev, &np->napi, xennet_poll, 64);
--	netdev->features        =3D NETIF_F_IP_CSUM;
-+	netdev->features        =3D NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
-+				  NETIF_F_GSO_ROBUST;
-+	netdev->hw_features	=3D NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO;
-=20
- 	SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
- 	SET_NETDEV_DEV(netdev, &dev->dev);
-@@ -1510,52 +1514,40 @@ again:
- 	return err;
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index 753ee6e..33c7756 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -65,7 +65,6 @@ struct smsc75xx_priv {
+ 	struct usbnet *dev;
+ 	u32 rfe_ctl;
+ 	u32 multicast_hash_table[DP_SEL_VHF_HASH_LEN];
+-	bool use_rx_csum;
+ 	struct mutex dataport_mutex;
+ 	spinlock_t rfe_ctl_lock;
+ 	struct work_struct set_multicast;
+@@ -548,28 +547,6 @@ static void smsc75xx_status(struct usbnet *dev, st=
+ruct urb *urb)
+ 			"unexpected interrupt, intdata=3D0x%08X", intdata);
  }
 =20
--static int xennet_set_sg(struct net_device *dev, u32 data)
-+static u32 xennet_fix_features(struct net_device *dev, u32 features)
- {
--	if (data) {
--		struct netfront_info *np =3D netdev_priv(dev);
--		int val;
-+	struct netfront_info *np =3D netdev_priv(dev);
-+	int val;
-=20
-+	if (features & NETIF_F_SG) {
- 		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend, "feature-sg",
- 				 "%d", &val) < 0)
- 			val =3D 0;
-+
- 		if (!val)
--			return -ENOSYS;
--	} else if (dev->mtu > ETH_DATA_LEN)
--		dev->mtu =3D ETH_DATA_LEN;
+-/* Enable or disable Rx checksum offload engine */
+-static int smsc75xx_set_rx_csum_offload(struct usbnet *dev)
+-{
+-	struct smsc75xx_priv *pdata =3D (struct smsc75xx_priv *)(dev->data[0]=
+);
+-	unsigned long flags;
+-	int ret;
 -
--	return ethtool_op_set_sg(dev, data);
+-	spin_lock_irqsave(&pdata->rfe_ctl_lock, flags);
+-
+-	if (pdata->use_rx_csum)
+-		pdata->rfe_ctl |=3D RFE_CTL_TCPUDP_CKM | RFE_CTL_IP_CKM;
+-	else
+-		pdata->rfe_ctl &=3D ~(RFE_CTL_TCPUDP_CKM | RFE_CTL_IP_CKM);
+-
+-	spin_unlock_irqrestore(&pdata->rfe_ctl_lock, flags);
+-
+-	ret =3D smsc75xx_write_reg(dev, RFE_CTL, pdata->rfe_ctl);
+-	check_warn_return(ret, "Error writing RFE_CTL");
+-
+-	return 0;
 -}
 -
--static int xennet_set_tso(struct net_device *dev, u32 data)
--{
--	if (data) {
--		struct netfront_info *np =3D netdev_priv(dev);
--		int val;
-+			features &=3D ~NETIF_F_SG;
-+	}
+ static int smsc75xx_ethtool_get_eeprom_len(struct net_device *net)
+ {
+ 	return MAX_EEPROM_SIZE;
+@@ -599,34 +576,6 @@ static int smsc75xx_ethtool_set_eeprom(struct net_=
+device *netdev,
+ 	return smsc75xx_write_eeprom(dev, ee->offset, ee->len, data);
+ }
 =20
-+	if (features & NETIF_F_TSO) {
- 		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
- 				 "feature-gso-tcpv4", "%d", &val) < 0)
- 			val =3D 0;
+-static u32 smsc75xx_ethtool_get_rx_csum(struct net_device *netdev)
+-{
+-	struct usbnet *dev =3D netdev_priv(netdev);
+-	struct smsc75xx_priv *pdata =3D (struct smsc75xx_priv *)(dev->data[0]=
+);
+-
+-	return pdata->use_rx_csum;
+-}
+-
+-static int smsc75xx_ethtool_set_rx_csum(struct net_device *netdev, u32=
+ val)
+-{
+-	struct usbnet *dev =3D netdev_priv(netdev);
+-	struct smsc75xx_priv *pdata =3D (struct smsc75xx_priv *)(dev->data[0]=
+);
+-
+-	pdata->use_rx_csum =3D !!val;
+-
+-	return smsc75xx_set_rx_csum_offload(dev);
+-}
+-
+-static int smsc75xx_ethtool_set_tso(struct net_device *netdev, u32 dat=
+a)
+-{
+-	if (data)
+-		netdev->features |=3D NETIF_F_TSO | NETIF_F_TSO6;
+-	else
+-		netdev->features &=3D ~(NETIF_F_TSO | NETIF_F_TSO6);
+-
+-	return 0;
+-}
+-
+ static const struct ethtool_ops smsc75xx_ethtool_ops =3D {
+ 	.get_link	=3D usbnet_get_link,
+ 	.nway_reset	=3D usbnet_nway_reset,
+@@ -638,12 +587,6 @@ static const struct ethtool_ops smsc75xx_ethtool_o=
+ps =3D {
+ 	.get_eeprom_len	=3D smsc75xx_ethtool_get_eeprom_len,
+ 	.get_eeprom	=3D smsc75xx_ethtool_get_eeprom,
+ 	.set_eeprom	=3D smsc75xx_ethtool_set_eeprom,
+-	.get_tx_csum	=3D ethtool_op_get_tx_csum,
+-	.set_tx_csum	=3D ethtool_op_set_tx_hw_csum,
+-	.get_rx_csum	=3D smsc75xx_ethtool_get_rx_csum,
+-	.set_rx_csum	=3D smsc75xx_ethtool_set_rx_csum,
+-	.get_tso	=3D ethtool_op_get_tso,
+-	.set_tso	=3D smsc75xx_ethtool_set_tso,
+ };
+=20
+ static int smsc75xx_ioctl(struct net_device *netdev, struct ifreq *rq,=
+ int cmd)
+@@ -782,6 +725,30 @@ static int smsc75xx_change_mtu(struct net_device *=
+netdev, int new_mtu)
+ 	return usbnet_change_mtu(netdev, new_mtu);
+ }
+=20
++/* Enable or disable Rx checksum offload engine */
++static int smsc75xx_set_features(struct net_device *netdev, u32 featur=
+es)
++{
++	struct usbnet *dev =3D netdev_priv(netdev);
++	struct smsc75xx_priv *pdata =3D (struct smsc75xx_priv *)(dev->data[0]=
+);
++	unsigned long flags;
++	int ret;
 +
- 		if (!val)
--			return -ENOSYS;
-+			features &=3D ~NETIF_F_TSO;
++	spin_lock_irqsave(&pdata->rfe_ctl_lock, flags);
++
++	if (features & NETIF_F_RXCSUM)
++		pdata->rfe_ctl |=3D RFE_CTL_TCPUDP_CKM | RFE_CTL_IP_CKM;
++	else
++		pdata->rfe_ctl &=3D ~(RFE_CTL_TCPUDP_CKM | RFE_CTL_IP_CKM);
++
++	spin_unlock_irqrestore(&pdata->rfe_ctl_lock, flags);
++	/* it's racing here! */
++
++	ret =3D smsc75xx_write_reg(dev, RFE_CTL, pdata->rfe_ctl);
++	check_warn_return(ret, "Error writing RFE_CTL");
++
++	return 0;
++}
++
+ static int smsc75xx_reset(struct usbnet *dev)
+ {
+ 	struct smsc75xx_priv *pdata =3D (struct smsc75xx_priv *)(dev->data[0]=
+);
+@@ -960,11 +927,7 @@ static int smsc75xx_reset(struct usbnet *dev)
+ 	netif_dbg(dev, ifup, dev->net, "RFE_CTL set to 0x%08x", pdata->rfe_ct=
+l);
+=20
+ 	/* Enable or disable checksum offload engines */
+-	ethtool_op_set_tx_hw_csum(dev->net, DEFAULT_TX_CSUM_ENABLE);
+-	ret =3D smsc75xx_set_rx_csum_offload(dev);
+-	check_warn_return(ret, "Failed to set rx csum offload: %d", ret);
+-
+-	smsc75xx_ethtool_set_tso(dev->net, DEFAULT_TSO_ENABLE);
++	smsc75xx_set_features(dev->net, dev->net->features);
+=20
+ 	smsc75xx_set_multicast(dev->net);
+=20
+@@ -1037,6 +1000,7 @@ static const struct net_device_ops smsc75xx_netde=
+v_ops =3D {
+ 	.ndo_validate_addr	=3D eth_validate_addr,
+ 	.ndo_do_ioctl 		=3D smsc75xx_ioctl,
+ 	.ndo_set_multicast_list =3D smsc75xx_set_multicast,
++	.ndo_set_features	=3D smsc75xx_set_features,
+ };
+=20
+ static int smsc75xx_bind(struct usbnet *dev, struct usb_interface *int=
+f)
+@@ -1065,10 +1029,17 @@ static int smsc75xx_bind(struct usbnet *dev, st=
+ruct usb_interface *intf)
+=20
+ 	INIT_WORK(&pdata->set_multicast, smsc75xx_deferred_multicast_write);
+=20
+-	pdata->use_rx_csum =3D DEFAULT_RX_CSUM_ENABLE;
++	if (DEFAULT_TX_CSUM_ENABLE) {
++		dev->net->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
++		if (DEFAULT_TSO_ENABLE)
++			dev->net->features |=3D NETIF_F_SG |
++				NETIF_F_TSO | NETIF_F_TSO6;
++	}
++	if (DEFAULT_RX_CSUM_ENABLE)
++		dev->net->features |=3D NETIF_F_RXCSUM;
+=20
+-	/* We have to advertise SG otherwise TSO cannot be enabled */
+-	dev->net->features |=3D NETIF_F_SG;
++	dev->net->hw_features =3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++		NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_RXCSUM;
+=20
+ 	/* Init all registers */
+ 	ret =3D smsc75xx_reset(dev);
+@@ -1091,10 +1062,11 @@ static void smsc75xx_unbind(struct usbnet *dev,=
+ struct usb_interface *intf)
+ 	}
+ }
+=20
+-static void smsc75xx_rx_csum_offload(struct sk_buff *skb, u32 rx_cmd_a=
+,
+-				     u32 rx_cmd_b)
++static void smsc75xx_rx_csum_offload(struct usbnet *dev, struct sk_buf=
+f *skb,
++				     u32 rx_cmd_a, u32 rx_cmd_b)
+ {
+-	if (unlikely(rx_cmd_a & RX_CMD_A_LCSM)) {
++	if (!(dev->net->features & NETIF_F_RXCSUM) ||
++	    unlikely(rx_cmd_a & RX_CMD_A_LCSM)) {
+ 		skb->ip_summed =3D CHECKSUM_NONE;
+ 	} else {
+ 		skb->csum =3D ntohs((u16)(rx_cmd_b >> RX_CMD_B_CSUM_SHIFT));
+@@ -1145,11 +1117,8 @@ static int smsc75xx_rx_fixup(struct usbnet *dev,=
+ struct sk_buff *skb)
+=20
+ 			/* last frame in this batch */
+ 			if (skb->len =3D=3D size) {
+-				if (pdata->use_rx_csum)
+-					smsc75xx_rx_csum_offload(skb, rx_cmd_a,
+-						rx_cmd_b);
+-				else
+-					skb->ip_summed =3D CHECKSUM_NONE;
++				smsc75xx_rx_csum_offload(dev, skb, rx_cmd_a,
++					rx_cmd_b);
+=20
+ 				skb_trim(skb, skb->len - 4); /* remove fcs */
+ 				skb->truesize =3D size + sizeof(struct sk_buff);
+@@ -1167,11 +1136,8 @@ static int smsc75xx_rx_fixup(struct usbnet *dev,=
+ struct sk_buff *skb)
+ 			ax_skb->data =3D packet;
+ 			skb_set_tail_pointer(ax_skb, size);
+=20
+-			if (pdata->use_rx_csum)
+-				smsc75xx_rx_csum_offload(ax_skb, rx_cmd_a,
+-					rx_cmd_b);
+-			else
+-				ax_skb->ip_summed =3D CHECKSUM_NONE;
++			smsc75xx_rx_csum_offload(dev, ax_skb, rx_cmd_a,
++				rx_cmd_b);
+=20
+ 			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+ 			ax_skb->truesize =3D size + sizeof(struct sk_buff);
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 727874d..b4f6cc3 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -52,8 +52,6 @@ struct smsc95xx_priv {
+ 	u32 hash_hi;
+ 	u32 hash_lo;
+ 	spinlock_t mac_cr_lock;
+-	bool use_tx_csum;
+-	bool use_rx_csum;
+ };
+=20
+ struct usb_context {
+@@ -517,8 +515,9 @@ static void smsc95xx_status(struct usbnet *dev, str=
+uct urb *urb)
+ }
+=20
+ /* Enable or disable Tx & Rx checksum offload engines */
+-static int smsc95xx_set_csums(struct usbnet *dev)
++static int smsc95xx_set_features(struct net_device *netdev, u32 featur=
+es)
+ {
++	struct usbnet *dev =3D netdev_priv(netdev);
+ 	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[0]=
+);
+ 	u32 read_buf;
+ 	int ret =3D smsc95xx_read_reg(dev, COE_CR, &read_buf);
+@@ -527,12 +526,12 @@ static int smsc95xx_set_csums(struct usbnet *dev)
+ 		return ret;
  	}
 =20
--	return ethtool_op_set_tso(dev, data);
-+	return features;
+-	if (pdata->use_tx_csum)
++	if (features & NETIF_F_HW_CSUM)
+ 		read_buf |=3D Tx_COE_EN_;
+ 	else
+ 		read_buf &=3D ~Tx_COE_EN_;
+=20
+-	if (pdata->use_rx_csum)
++	if (features & NETIF_F_RXCSUM)
+ 		read_buf |=3D Rx_COE_EN_;
+ 	else
+ 		read_buf &=3D ~Rx_COE_EN_;
+@@ -576,43 +575,6 @@ static int smsc95xx_ethtool_set_eeprom(struct net_=
+device *netdev,
+ 	return smsc95xx_write_eeprom(dev, ee->offset, ee->len, data);
  }
 =20
--static void xennet_set_features(struct net_device *dev)
-+static int xennet_set_features(struct net_device *dev, u32 features)
- {
--	/* Turn off all GSO bits except ROBUST. */
--	dev->features &=3D ~NETIF_F_GSO_MASK;
--	dev->features |=3D NETIF_F_GSO_ROBUST;
--	xennet_set_sg(dev, 0);
-+	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN) {
-+		netdev_info(dev, "Reducing MTU because no SG offload");
-+		dev->mtu =3D ETH_DATA_LEN;
-+	}
-=20
--	/* We need checksum offload to enable scatter/gather and TSO. */
--	if (!(dev->features & NETIF_F_IP_CSUM))
--		return;
+-static u32 smsc95xx_ethtool_get_rx_csum(struct net_device *netdev)
+-{
+-	struct usbnet *dev =3D netdev_priv(netdev);
+-	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[0]=
+);
 -
--	if (!xennet_set_sg(dev, 1))
--		xennet_set_tso(dev, 1);
-+	return 0;
+-	return pdata->use_rx_csum;
+-}
+-
+-static int smsc95xx_ethtool_set_rx_csum(struct net_device *netdev, u32=
+ val)
+-{
+-	struct usbnet *dev =3D netdev_priv(netdev);
+-	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[0]=
+);
+-
+-	pdata->use_rx_csum =3D !!val;
+-
+-	return smsc95xx_set_csums(dev);
+-}
+-
+-static u32 smsc95xx_ethtool_get_tx_csum(struct net_device *netdev)
+-{
+-	struct usbnet *dev =3D netdev_priv(netdev);
+-	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[0]=
+);
+-
+-	return pdata->use_tx_csum;
+-}
+-
+-static int smsc95xx_ethtool_set_tx_csum(struct net_device *netdev, u32=
+ val)
+-{
+-	struct usbnet *dev =3D netdev_priv(netdev);
+-	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[0]=
+);
+-
+-	pdata->use_tx_csum =3D !!val;
+-
+-	ethtool_op_set_tx_hw_csum(netdev, pdata->use_tx_csum);
+-	return smsc95xx_set_csums(dev);
+-}
+-
+ static const struct ethtool_ops smsc95xx_ethtool_ops =3D {
+ 	.get_link	=3D usbnet_get_link,
+ 	.nway_reset	=3D usbnet_nway_reset,
+@@ -624,10 +586,6 @@ static const struct ethtool_ops smsc95xx_ethtool_o=
+ps =3D {
+ 	.get_eeprom_len	=3D smsc95xx_ethtool_get_eeprom_len,
+ 	.get_eeprom	=3D smsc95xx_ethtool_get_eeprom,
+ 	.set_eeprom	=3D smsc95xx_ethtool_set_eeprom,
+-	.get_tx_csum	=3D smsc95xx_ethtool_get_tx_csum,
+-	.set_tx_csum	=3D smsc95xx_ethtool_set_tx_csum,
+-	.get_rx_csum	=3D smsc95xx_ethtool_get_rx_csum,
+-	.set_rx_csum	=3D smsc95xx_ethtool_set_rx_csum,
+ };
+=20
+ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq,=
+ int cmd)
+@@ -975,12 +933,7 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 	}
+=20
+ 	/* Enable or disable checksum offload engines */
+-	ethtool_op_set_tx_hw_csum(netdev, pdata->use_tx_csum);
+-	ret =3D smsc95xx_set_csums(dev);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Failed to set csum offload: %d\n", ret);
+-		return ret;
+-	}
++	smsc95xx_set_features(dev->net, dev->net->features);
+=20
+ 	smsc95xx_set_multicast(dev->net);
+=20
+@@ -1019,6 +972,7 @@ static const struct net_device_ops smsc95xx_netdev=
+_ops =3D {
+ 	.ndo_validate_addr	=3D eth_validate_addr,
+ 	.ndo_do_ioctl 		=3D smsc95xx_ioctl,
+ 	.ndo_set_multicast_list =3D smsc95xx_set_multicast,
++	.ndo_set_features	=3D smsc95xx_set_features,
+ };
+=20
+ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *int=
+f)
+@@ -1045,8 +999,12 @@ static int smsc95xx_bind(struct usbnet *dev, stru=
+ct usb_interface *intf)
+=20
+ 	spin_lock_init(&pdata->mac_cr_lock);
+=20
+-	pdata->use_tx_csum =3D DEFAULT_TX_CSUM_ENABLE;
+-	pdata->use_rx_csum =3D DEFAULT_RX_CSUM_ENABLE;
++	if (DEFAULT_TX_CSUM_ENABLE)
++		dev->net->features |=3D NETIF_F_HW_CSUM;
++	if (DEFAULT_RX_CSUM_ENABLE)
++		dev->net->features |=3D NETIF_F_RXCSUM;
++
++	dev->net->hw_features =3D NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+=20
+ 	smsc95xx_init_mac_address(dev);
+=20
+@@ -1056,7 +1014,7 @@ static int smsc95xx_bind(struct usbnet *dev, stru=
+ct usb_interface *intf)
+ 	dev->net->netdev_ops =3D &smsc95xx_netdev_ops;
+ 	dev->net->ethtool_ops =3D &smsc95xx_ethtool_ops;
+ 	dev->net->flags |=3D IFF_MULTICAST;
+-	dev->net->hard_header_len +=3D SMSC95XX_TX_OVERHEAD;
++	dev->net->hard_header_len +=3D SMSC95XX_TX_OVERHEAD_CSUM;
+ 	return 0;
  }
 =20
- static int xennet_connect(struct net_device *dev)
-@@ -1582,7 +1574,7 @@ static int xennet_connect(struct net_device *dev)
- 	if (err)
- 		return err;
+@@ -1123,7 +1081,7 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, =
+struct sk_buff *skb)
 =20
--	xennet_set_features(dev);
-+	netdev_update_features(dev);
+ 			/* last frame in this batch */
+ 			if (skb->len =3D=3D size) {
+-				if (pdata->use_rx_csum)
++				if (dev->net->features & NETIF_F_RXCSUM)
+ 					smsc95xx_rx_csum_offload(skb);
+ 				skb_trim(skb, skb->len - 4); /* remove fcs */
+ 				skb->truesize =3D size + sizeof(struct sk_buff);
+@@ -1141,7 +1099,7 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, =
+struct sk_buff *skb)
+ 			ax_skb->data =3D packet;
+ 			skb_set_tail_pointer(ax_skb, size);
 =20
- 	spin_lock_bh(&np->rx_lock);
- 	spin_lock_irq(&np->tx_lock);
-@@ -1710,9 +1702,6 @@ static void xennet_get_strings(struct net_device =
-*dev, u32 stringset, u8 * data)
-=20
- static const struct ethtool_ops xennet_ethtool_ops =3D
+-			if (pdata->use_rx_csum)
++			if (dev->net->features & NETIF_F_RXCSUM)
+ 				smsc95xx_rx_csum_offload(ax_skb);
+ 			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+ 			ax_skb->truesize =3D size + sizeof(struct sk_buff);
+@@ -1175,7 +1133,7 @@ static struct sk_buff *smsc95xx_tx_fixup(struct u=
+sbnet *dev,
+ 					 struct sk_buff *skb, gfp_t flags)
  {
--	.set_tx_csum =3D ethtool_op_set_tx_csum,
--	.set_sg =3D xennet_set_sg,
--	.set_tso =3D xennet_set_tso,
- 	.get_link =3D ethtool_op_get_link,
+ 	struct smsc95xx_priv *pdata =3D (struct smsc95xx_priv *)(dev->data[0]=
+);
+-	bool csum =3D pdata->use_tx_csum && (skb->ip_summed =3D=3D CHECKSUM_P=
+ARTIAL);
++	bool csum =3D skb->ip_summed =3D=3D CHECKSUM_PARTIAL;
+ 	int overhead =3D csum ? SMSC95XX_TX_OVERHEAD_CSUM : SMSC95XX_TX_OVERH=
+EAD;
+ 	u32 tx_cmd_a, tx_cmd_b;
 =20
- 	.get_sset_count =3D xennet_get_sset_count,
 --=20
 1.7.2.5
 
