@@ -1,45 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: Remove IRQF_SAMPLE_RANDOM flag from
- network drivers
-Date: Wed, 30 Mar 2011 22:28:32 -0700 (PDT)
-Message-ID: <20110330.222832.193698433.davem@davemloft.net>
-References: <1301365651-9106-1-git-send-email-martinez.javier@gmail.com>
+Subject: Re: [PATCH 1/2] socket: increase default maximum listen queue
+ length
+Date: Wed, 30 Mar 2011 22:52:54 -0700 (PDT)
+Message-ID: <20110330.225254.104054904.davem@davemloft.net>
+References: <1301077899-16482-1-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, ffainelli@freebox.fr,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: martinez.javier@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1301365651-9106-1-git-send-email-martinez.javier@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: hagen@jauu.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39662
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755327Ab1CaFxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2011 01:53:31 -0400
+In-Reply-To: <1301077899-16482-1-git-send-email-hagen@jauu.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Date: Tue, 29 Mar 2011 04:27:31 +0200
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Date: Fri, 25 Mar 2011 19:31:38 +0100
 
-> The IRQF_SAMPLE_RANDOM flag is marked as deprecated and will be removed.
-> 
-> Every input point to the kernel's entropy pool have to better document the
-> type of entropy source it is.
-> 
-> drivers/char/random.c now implements a set of interfaces that can be used for
-> devices to collect enviromental noise. IRQF_SAMPLE_RANDOM will be replaced
-> with these add_*_randomness exported functions.
-> 
-> Network drivers are not a good source of entropy. They use as a source of
-> entropy essentially a remote host. Which means that the source of entropy can
-> be potentially controlled by an attacker. Also, with heavy workloads the
-> entropy decreases due to less hardware interrupts happening thanks to irq
-> mitigation and NAPI.
-> 
-> If a system relies in its network interface as a entropy source it has a false
-> sense of security. Systems that don't have devices whose drivers are good
-> sources of entropy, should either use a hardware random number generator or
-> feed the kernel's entropy pool from userspace using other sources of entropy
-> such as EGD, video_entropyd, timer_entropyd and audio-entropyd.
-> 
-> Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
+> sysctl_max_syn_backlog on the other hand provides similar functionality:
+> provides a system wide upper limit of request sockets per listen socket.
+> But sysctl_max_syn_backlog provides a more accurate value by considerate
+> the actual memory situation of the system. 256 by default, 128 for
+> systems with low memory and up to 1024 for larger systems.
 
-Appied to net-next-2.6, thanks!
+sysctl_max_syn_backlog is not "256 by default", the calculation is:
+
+	cnt = tcp_hashinfo.ehash_mask + 1;
+ ...
+	sysctl_max_syn_backlog = max(128, cnt / 256);
+
+And I think we should leave the SOMAXCONN define alone (it's a
+historic relic for userspace, and any sane server passes something
+like ~0 into listen()).
+
+And calculate the somaxconn sysctl at run time using a similar
+formula to that used by sysctl_max_syn_backlog.
