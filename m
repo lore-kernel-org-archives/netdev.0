@@ -1,54 +1,45 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH] mlx4: Fixing use after free
-Date: Thu, 31 Mar 2011 11:28:52 +0200
-Message-ID: <4D944954.9000701@mellanox.co.il>
+Subject: [PATCH] mlx4: Fixing bad size of event queue buffer
+Date: Thu, 31 Mar 2011 11:30:17 +0200
+Message-ID: <4D9449A9.9070600@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<error27@gmail.com>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:53776 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:53906 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933184Ab1CaJ24 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Mar 2011 05:28:56 -0400
+	id S1754165Ab1CaJaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Mar 2011 05:30:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We should reduce the number of reserved completion queues from the total
+number of entries. Since the queue size is power of two, not reducing the
+reserved entries, caused a double queue size, which may lead to allocation
+failures in some cases.
 
-In case of allocation failure, tried to use the promiscuous QP
-entry that was previously freed.
-Now freeing this entry only in case we will not put it back to the list
-of promiscuous entries.
-
-Reported-by: Dan Carpenter <error27@gmail.com>
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/mcg.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/mlx4/eq.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/mlx4/mcg.c b/drivers/net/mlx4/mcg.c
-index e71372a..37150b2 100644
---- a/drivers/net/mlx4/mcg.c
-+++ b/drivers/net/mlx4/mcg.c
-@@ -469,7 +469,6 @@ static int remove_promisc_qp(struct mlx4_dev *dev, u8 vep_num, u8 port,
+diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
+index 506cfd0..1ad1f60 100644
+--- a/drivers/net/mlx4/eq.c
++++ b/drivers/net/mlx4/eq.c
+@@ -603,7 +603,9 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
+ 	}
  
- 	/*remove from list of promisc qps */
- 	list_del(&pqp->list);
--	kfree(pqp);
- 
- 	/* set the default entry not to include the removed one */
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
-@@ -528,6 +527,8 @@ out_mailbox:
- out_list:
- 	if (back_to_list)
- 		list_add_tail(&pqp->list, &s_steer->promisc_qps[steer]);
-+	else
-+		kfree(pqp);
- out_mutex:
- 	mutex_unlock(&priv->mcg_table.mutex);
- 	return err;
+ 	for (i = 0; i < dev->caps.num_comp_vectors; ++i) {
+-		err = mlx4_create_eq(dev, dev->caps.num_cqs + MLX4_NUM_SPARE_EQE,
++		err = mlx4_create_eq(dev, dev->caps.num_cqs -
++					  dev->caps.reserved_cqs +
++					  MLX4_NUM_SPARE_EQE,
+ 				     (dev->flags & MLX4_FLAG_MSI_X) ? i : 0,
+ 				     &priv->eq_table.eq[i]);
+ 		if (err) {
 -- 
 1.6.0.2
 
