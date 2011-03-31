@@ -1,135 +1,111 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] skge: convert to hw_features
+Subject: [PATCH] virtio_net: convert to hw_features
 Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
-Message-ID: <20110331110135.9625513A68@rere.qmqm.pl>
+Message-ID: <20110331110135.6988113A64@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:50964 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:50959 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757291Ab1CaLBj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Mar 2011 07:01:39 -0400
+	id S1757297Ab1CaLBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Mar 2011 07:01:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From the code it looks like the hardware might support full HW_CSUM no=
-t
-just IP_CSUM.  This needs testing and so is not changed here.
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/skge.c |   53 ++++----------------------------------------=
--------
- drivers/net/skge.h |    1 -
- 2 files changed, 5 insertions(+), 49 deletions(-)
+ drivers/net/virtio_net.c |   46 +++++++++++++++++++-------------------=
+--------
+ 1 files changed, 19 insertions(+), 27 deletions(-)
 
-[Simple conversion to hw_features, where constraints can be
-detected at device init time.]
+This is an example conversion to hw_features when constraints are
+constant and can be detected at init time.
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 35b28f4..0082808 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -537,46 +537,6 @@ static int skge_nway_reset(struct net_device *dev)
+Build tested only.
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 82dba5a..0cb0b06 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -710,17 +710,6 @@ static int virtnet_close(struct net_device *dev)
  	return 0;
  }
 =20
--static int skge_set_sg(struct net_device *dev, u32 data)
+-static int virtnet_set_tx_csum(struct net_device *dev, u32 data)
 -{
--	struct skge_port *skge =3D netdev_priv(dev);
--	struct skge_hw *hw =3D skge->hw;
+-	struct virtnet_info *vi =3D netdev_priv(dev);
+-	struct virtio_device *vdev =3D vi->vdev;
 -
--	if (hw->chip_id =3D=3D CHIP_ID_GENESIS && data)
--		return -EOPNOTSUPP;
--	return ethtool_op_set_sg(dev, data);
+-	if (data && !virtio_has_feature(vdev, VIRTIO_NET_F_CSUM))
+-		return -ENOSYS;
+-
+-	return ethtool_op_set_tx_hw_csum(dev, data);
 -}
 -
--static int skge_set_tx_csum(struct net_device *dev, u32 data)
--{
--	struct skge_port *skge =3D netdev_priv(dev);
--	struct skge_hw *hw =3D skge->hw;
--
--	if (hw->chip_id =3D=3D CHIP_ID_GENESIS && data)
--		return -EOPNOTSUPP;
--
--	return ethtool_op_set_tx_csum(dev, data);
--}
--
--static u32 skge_get_rx_csum(struct net_device *dev)
--{
--	struct skge_port *skge =3D netdev_priv(dev);
--
--	return skge->rx_csum;
--}
--
--/* Only Yukon supports checksum offload. */
--static int skge_set_rx_csum(struct net_device *dev, u32 data)
--{
--	struct skge_port *skge =3D netdev_priv(dev);
--
--	if (skge->hw->chip_id =3D=3D CHIP_ID_GENESIS && data)
--		return -EOPNOTSUPP;
--
--	skge->rx_csum =3D data;
--	return 0;
--}
--
- static void skge_get_pauseparam(struct net_device *dev,
- 				struct ethtool_pauseparam *ecmd)
+ static void virtnet_set_rx_mode(struct net_device *dev)
  {
-@@ -925,10 +885,6 @@ static const struct ethtool_ops skge_ethtool_ops =3D=
- {
- 	.set_pauseparam =3D skge_set_pauseparam,
- 	.get_coalesce	=3D skge_get_coalesce,
- 	.set_coalesce	=3D skge_set_coalesce,
--	.set_sg		=3D skge_set_sg,
--	.set_tx_csum	=3D skge_set_tx_csum,
--	.get_rx_csum	=3D skge_get_rx_csum,
--	.set_rx_csum	=3D skge_set_rx_csum,
- 	.get_strings	=3D skge_get_strings,
- 	.phys_id	=3D skge_phys_id,
- 	.get_sset_count =3D skge_get_sset_count,
-@@ -3085,7 +3041,8 @@ static struct sk_buff *skge_rx_get(struct net_dev=
-ice *dev,
- 	}
+ 	struct virtnet_info *vi =3D netdev_priv(dev);
+@@ -822,10 +811,6 @@ static void virtnet_vlan_rx_kill_vid(struct net_de=
+vice *dev, u16 vid)
+ }
 =20
- 	skb_put(skb, len);
--	if (skge->rx_csum) {
+ static const struct ethtool_ops virtnet_ethtool_ops =3D {
+-	.set_tx_csum =3D virtnet_set_tx_csum,
+-	.set_sg =3D ethtool_op_set_sg,
+-	.set_tso =3D ethtool_op_set_tso,
+-	.set_ufo =3D ethtool_op_set_ufo,
+ 	.get_link =3D ethtool_op_get_link,
+ };
+=20
+@@ -912,22 +897,29 @@ static int virtnet_probe(struct virtio_device *vd=
+ev)
+ 	SET_NETDEV_DEV(dev, &vdev->dev);
+=20
+ 	/* Do we support "hardware" checksums? */
+-	if (csum && virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
+ 		/* This opens up the world of extra features. */
+-		dev->features |=3D NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
+-			dev->features |=3D NETIF_F_TSO | NETIF_F_UFO
++		dev->hw_features |=3D NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++		if (csum)
++			dev->features |=3D NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
 +
-+	if (dev->features & NETIF_F_RXCSUM) {
- 		skb->csum =3D csum;
- 		skb->ip_summed =3D CHECKSUM_COMPLETE;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
++			dev->hw_features |=3D NETIF_F_TSO | NETIF_F_UFO
+ 				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
+ 		}
+ 		/* Individual feature bits: what can host handle? */
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO4))
+-			dev->features |=3D NETIF_F_TSO;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO6))
+-			dev->features |=3D NETIF_F_TSO6;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
+-			dev->features |=3D NETIF_F_TSO_ECN;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
+-			dev->features |=3D NETIF_F_UFO;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO4))
++			dev->hw_features |=3D NETIF_F_TSO;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO6))
++			dev->hw_features |=3D NETIF_F_TSO6;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
++			dev->hw_features |=3D NETIF_F_TSO_ECN;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
++			dev->hw_features |=3D NETIF_F_UFO;
++
++		if (gso)
++			dev->features |=3D dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO)=
+;
++		/* (!csum && gso) case will be fixed by register_netdev() */
  	}
-@@ -3847,10 +3804,10 @@ static struct net_device *skge_devinit(struct s=
-kge_hw *hw, int port,
- 	setup_timer(&skge->link_timer, xm_link_timer, (unsigned long) skge);
 =20
- 	if (hw->chip_id !=3D CHIP_ID_GENESIS) {
--		dev->features |=3D NETIF_F_IP_CSUM | NETIF_F_SG;
--		skge->rx_csum =3D 1;
-+		dev->hw_features =3D NETIF_F_IP_CSUM | NETIF_F_SG |
-+		                   NETIF_F_RXCSUM;
-+		dev->features |=3D dev->hw_features;
- 	}
--	dev->features |=3D NETIF_F_GRO;
-=20
- 	/* read the mac address */
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
-diff --git a/drivers/net/skge.h b/drivers/net/skge.h
-index 507addc..f055c47 100644
---- a/drivers/net/skge.h
-+++ b/drivers/net/skge.h
-@@ -2460,7 +2460,6 @@ struct skge_port {
- 	struct timer_list    link_timer;
- 	enum pause_control   flow_control;
- 	enum pause_status    flow_status;
--	u8		     rx_csum;
- 	u8		     blink_on;
- 	u8		     wol;
- 	u8		     autoneg;	/* AUTONEG_ENABLE, AUTONEG_DISABLE */
+ 	/* Configuration may specify what MAC to use.  Otherwise random. */
 --=20
 1.7.2.5
 
