@@ -1,43 +1,83 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: connector: convert to synchronous netlink message processing
-Date: Wed, 30 Mar 2011 17:15:03 -0700 (PDT)
-Message-ID: <20110330.171503.124058845.davem@davemloft.net>
-References: <4D90D5E8.4080002@trash.net>
-	<20110330133913.GA9425@ioremap.net>
+Subject: Re: loading sctp fails an order 10 allocation.
+Date: Wed, 30 Mar 2011 17:52:02 -0700 (PDT)
+Message-ID: <20110330.175202.235689626.davem@davemloft.net>
+References: <20110330234020.GA24517@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: zbr@ioremap.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34360
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55255
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756566Ab1CaAPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 20:15:43 -0400
-In-Reply-To: <20110330133913.GA9425@ioremap.net>
+	by vger.kernel.org with ESMTP id S1756556Ab1CaAwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2011 20:52:41 -0400
+In-Reply-To: <20110330234020.GA24517@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Date: Wed, 30 Mar 2011 17:39:13 +0400
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 30 Mar 2011 19:40:21 -0400
 
-> Hi Patrick
-> 
-> On Mon, Mar 28, 2011 at 08:39:36PM +0200, Patrick McHardy (kaber@trash.net) wrote:
->> This patch fixes up connector to work properly with the recent
->> netlink changes that require synchronous netlink message processing.
->> 
->> The patch is so far only compile tested since I'm still looking
->> for a good way to test it. If you could point me to some software
->> using the proc events that would be appreciated.
-> 
-> There is test module in Documentation/connector/ and/or samples/ which I
-> used for tests. It was quite for a while when it was used last time
-> though.
-> 
-> Your patch looks very good and I definitely ack this :)
+> modprobe sctp on my laptop does this which looks crazy..
+ ...
+> it doesn't look like the hashtable allocation code has changed in ages, so I'm 
+> not sure why I've never triggered this before.
 
-Applied, if there are some bugs spotted, please just send the fixes
-as follow-on patches.
+I decided to take a break from watching Charlie Sheen dubstep remixes
+in a loop on youtube to look at this bug.
 
-Thanks.
+This situation is amusing because SCTP actually tries to allocate an
+initially smaller hash table than, for example, the DCCP module does.
+
+But DCCP won't show the behavior you see.
+
+The thing that's different is that SCTP forgets to pass __GFP_NOWARN
+to the allocation.  The code there is able to handle failures just
+fine and simply tries to progressively grab a smaller table when that
+happens.
+
+I'll commit the following to net-2.6, thanks.
+
+Now back to Adonis dubsteps...
+
+--------------------
+sctp: Pass __GFP_NOWARN to hash table allocation attempts.
+
+Like DCCP and other similar pieces of code, there are mechanisms
+here to try allocating smaller hash tables if the allocation
+fails.  So pass in __GFP_NOWARN like the others do instead of
+emitting a scary message.
+
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sctp/protocol.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 152976e..d5bf91d 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1205,7 +1205,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 		if ((sctp_assoc_hashsize > (64 * 1024)) && order > 0)
+ 			continue;
+ 		sctp_assoc_hashtable = (struct sctp_hashbucket *)
+-					__get_free_pages(GFP_ATOMIC, order);
++			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+ 	} while (!sctp_assoc_hashtable && --order > 0);
+ 	if (!sctp_assoc_hashtable) {
+ 		pr_err("Failed association hash alloc\n");
+@@ -1238,7 +1238,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 		if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
+ 			continue;
+ 		sctp_port_hashtable = (struct sctp_bind_hashbucket *)
+-					__get_free_pages(GFP_ATOMIC, order);
++			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+ 	} while (!sctp_port_hashtable && --order > 0);
+ 	if (!sctp_port_hashtable) {
+ 		pr_err("Failed bind hash alloc\n");
+-- 
+1.7.4.2
+
