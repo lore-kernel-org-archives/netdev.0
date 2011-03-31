@@ -1,113 +1,174 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] veth: convert to hw_features
-Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
-Message-ID: <20110331110135.890D113A67@rere.qmqm.pl>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [PATCH RESEND] net: convert xen-netfront to hw_features
+Date: Thu, 31 Mar 2011 12:13:30 +0100
+Message-ID: <1301570010.27123.172.camel@zakaz.uk.xensource.com>
+References: <20110331110136.03A1A13A6A@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:50965 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751677Ab1CaLBj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Mar 2011 07:01:39 -0400
+Received: from smtp.eu.citrix.com ([62.200.22.115]:12296 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751677Ab1CaLNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2011 07:13:32 -0400
+In-Reply-To: <20110331110136.03A1A13A6A@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should probably get TSO available as it's basically a loopback dev=
-ice.
-Offloads are left disabled by default - as before.
+On Thu, 2011-03-31 at 12:01 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> Not tested in any way. The original code for offload setting seems br=
+oken
+> as it resets the features on every netback reconnect.
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- drivers/net/veth.c |   45 +++++---------------------------------------=
--
- 1 files changed, 5 insertions(+), 40 deletions(-)
+Thanks, I've got a pending TODO item to test this and propagate similar
+changes to netback. I hope to get to it soon...
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 2de9b90..6542288 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -36,7 +36,6 @@ struct veth_net_stats {
- struct veth_priv {
- 	struct net_device *peer;
- 	struct veth_net_stats __percpu *stats;
--	unsigned ip_summed;
- };
-=20
- /*
-@@ -99,47 +98,10 @@ static void veth_get_ethtool_stats(struct net_devic=
-e *dev,
- 	data[0] =3D priv->peer->ifindex;
- }
-=20
--static u32 veth_get_rx_csum(struct net_device *dev)
--{
--	struct veth_priv *priv;
--
--	priv =3D netdev_priv(dev);
--	return priv->ip_summed =3D=3D CHECKSUM_UNNECESSARY;
--}
--
--static int veth_set_rx_csum(struct net_device *dev, u32 data)
--{
--	struct veth_priv *priv;
--
--	priv =3D netdev_priv(dev);
--	priv->ip_summed =3D data ? CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
--	return 0;
--}
--
--static u32 veth_get_tx_csum(struct net_device *dev)
--{
--	return (dev->features & NETIF_F_NO_CSUM) !=3D 0;
--}
--
--static int veth_set_tx_csum(struct net_device *dev, u32 data)
--{
--	if (data)
--		dev->features |=3D NETIF_F_NO_CSUM;
--	else
--		dev->features &=3D ~NETIF_F_NO_CSUM;
--	return 0;
--}
--
- static const struct ethtool_ops veth_ethtool_ops =3D {
- 	.get_settings		=3D veth_get_settings,
- 	.get_drvinfo		=3D veth_get_drvinfo,
- 	.get_link		=3D ethtool_op_get_link,
--	.get_rx_csum		=3D veth_get_rx_csum,
--	.set_rx_csum		=3D veth_set_rx_csum,
--	.get_tx_csum		=3D veth_get_tx_csum,
--	.set_tx_csum		=3D veth_set_tx_csum,
--	.get_sg			=3D ethtool_op_get_sg,
--	.set_sg			=3D ethtool_op_set_sg,
- 	.get_strings		=3D veth_get_strings,
- 	.get_sset_count		=3D veth_get_sset_count,
- 	.get_ethtool_stats	=3D veth_get_ethtool_stats,
-@@ -168,8 +130,9 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, s=
-truct net_device *dev)
-=20
- 	/* don't change ip_summed =3D=3D CHECKSUM_PARTIAL, as that
- 	   will cause bad checksum on forwarded packets */
--	if (skb->ip_summed =3D=3D CHECKSUM_NONE)
--		skb->ip_summed =3D rcv_priv->ip_summed;
-+	if (skb->ip_summed =3D=3D CHECKSUM_NONE &&
-+	    rcv->features & NETIF_F_RXCSUM)
-+		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
-=20
- 	length =3D skb->len;
- 	if (dev_forward_skb(rcv, skb) !=3D NET_RX_SUCCESS)
-@@ -304,6 +267,8 @@ static void veth_setup(struct net_device *dev)
- 	dev->ethtool_ops =3D &veth_ethtool_ops;
- 	dev->features |=3D NETIF_F_LLTX;
- 	dev->destructor =3D veth_dev_free;
-+
-+	dev->hw_features =3D NETIF_F_NO_CSUM | NETIF_F_SG | NETIF_F_RXCSUM;
- }
-=20
- /*
---=20
-1.7.2.5
+Is this urgent (for 2.6.39) IYHO? I think it's been broken this way for
+a long time now...
+
+Ian.
+
+>=20
+> This will set GSO_ROBUST at device creation time (earlier than connec=
+t time).
+>=20
+> RX checksum offload is forced on - so advertise as it is.
+>=20
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> ---
+> [I don't know Xen code enough to say this is correct. There is Xen ne=
+tback
+> driver coming in, that has similar changes to be made. Please match
+> them up if you can.]
+>=20
+>  drivers/net/xen-netfront.c |   57 +++++++++++++++++-----------------=
+---------
+>  1 files changed, 23 insertions(+), 34 deletions(-)
+>=20
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 5c8d9c3..2a71c9f 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1148,6 +1148,8 @@ static const struct net_device_ops xennet_netde=
+v_ops =3D {
+>  	.ndo_change_mtu	     =3D xennet_change_mtu,
+>  	.ndo_set_mac_address =3D eth_mac_addr,
+>  	.ndo_validate_addr   =3D eth_validate_addr,
+> +	.ndo_fix_features    =3D xennet_fix_features,
+> +	.ndo_set_features    =3D xennet_set_features,
+>  };
+> =20
+>  static struct net_device * __devinit xennet_create_dev(struct xenbus=
+_device *dev)
+> @@ -1209,7 +1211,9 @@ static struct net_device * __devinit xennet_cre=
+ate_dev(struct xenbus_device *dev
+>  	netdev->netdev_ops	=3D &xennet_netdev_ops;
+> =20
+>  	netif_napi_add(netdev, &np->napi, xennet_poll, 64);
+> -	netdev->features        =3D NETIF_F_IP_CSUM;
+> +	netdev->features        =3D NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+> +				  NETIF_F_GSO_ROBUST;
+> +	netdev->hw_features	=3D NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO;
+> =20
+>  	SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
+>  	SET_NETDEV_DEV(netdev, &dev->dev);
+> @@ -1510,52 +1514,40 @@ again:
+>  	return err;
+>  }
+> =20
+> -static int xennet_set_sg(struct net_device *dev, u32 data)
+> +static u32 xennet_fix_features(struct net_device *dev, u32 features)
+>  {
+> -	if (data) {
+> -		struct netfront_info *np =3D netdev_priv(dev);
+> -		int val;
+> +	struct netfront_info *np =3D netdev_priv(dev);
+> +	int val;
+> =20
+> +	if (features & NETIF_F_SG) {
+>  		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend, "feature-sg",
+>  				 "%d", &val) < 0)
+>  			val =3D 0;
+> +
+>  		if (!val)
+> -			return -ENOSYS;
+> -	} else if (dev->mtu > ETH_DATA_LEN)
+> -		dev->mtu =3D ETH_DATA_LEN;
+> -
+> -	return ethtool_op_set_sg(dev, data);
+> -}
+> -
+> -static int xennet_set_tso(struct net_device *dev, u32 data)
+> -{
+> -	if (data) {
+> -		struct netfront_info *np =3D netdev_priv(dev);
+> -		int val;
+> +			features &=3D ~NETIF_F_SG;
+> +	}
+> =20
+> +	if (features & NETIF_F_TSO) {
+>  		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
+>  				 "feature-gso-tcpv4", "%d", &val) < 0)
+>  			val =3D 0;
+> +
+>  		if (!val)
+> -			return -ENOSYS;
+> +			features &=3D ~NETIF_F_TSO;
+>  	}
+> =20
+> -	return ethtool_op_set_tso(dev, data);
+> +	return features;
+>  }
+> =20
+> -static void xennet_set_features(struct net_device *dev)
+> +static int xennet_set_features(struct net_device *dev, u32 features)
+>  {
+> -	/* Turn off all GSO bits except ROBUST. */
+> -	dev->features &=3D ~NETIF_F_GSO_MASK;
+> -	dev->features |=3D NETIF_F_GSO_ROBUST;
+> -	xennet_set_sg(dev, 0);
+> +	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN) {
+> +		netdev_info(dev, "Reducing MTU because no SG offload");
+> +		dev->mtu =3D ETH_DATA_LEN;
+> +	}
+> =20
+> -	/* We need checksum offload to enable scatter/gather and TSO. */
+> -	if (!(dev->features & NETIF_F_IP_CSUM))
+> -		return;
+> -
+> -	if (!xennet_set_sg(dev, 1))
+> -		xennet_set_tso(dev, 1);
+> +	return 0;
+>  }
+> =20
+>  static int xennet_connect(struct net_device *dev)
+> @@ -1582,7 +1574,7 @@ static int xennet_connect(struct net_device *de=
+v)
+>  	if (err)
+>  		return err;
+> =20
+> -	xennet_set_features(dev);
+> +	netdev_update_features(dev);
+> =20
+>  	spin_lock_bh(&np->rx_lock);
+>  	spin_lock_irq(&np->tx_lock);
+> @@ -1710,9 +1702,6 @@ static void xennet_get_strings(struct net_devic=
+e *dev, u32 stringset, u8 * data)
+> =20
+>  static const struct ethtool_ops xennet_ethtool_ops =3D
+>  {
+> -	.set_tx_csum =3D ethtool_op_set_tx_csum,
+> -	.set_sg =3D xennet_set_sg,
+> -	.set_tso =3D xennet_set_tso,
+>  	.get_link =3D ethtool_op_get_link,
+> =20
+>  	.get_sset_count =3D xennet_get_sset_count,
+
 
