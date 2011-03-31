@@ -1,52 +1,92 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: Re: [PATCH 1/9 net-next-2.6] qlcnic: make PCI info available in all
- modes
-Date: Thu, 31 Mar 2011 10:04:44 -0700
-Message-ID: <03F0A54F-212D-4867-8F03-4A7C33481FB7@qlogic.com>
-References: <alpine.OSX.2.00.1103301258180.31005@macintosh-2.local>
- <20110330.214049.137846353.davem@davemloft.net>
+From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
+Subject: Re: [RFC PATCH] rtl8187: Fix led support for rfkill
+Date: Thu, 31 Mar 2011 14:19:03 -0300
+Message-ID: <20110331171902.GA4010@herton-IdeaPad-Y430>
+References: <1301174394-12642-1-git-send-email-wuzhangjin@gmail.com>
+ <4D8E5BA3.1090909@users.sourceforge.net>
+ <AANLkTind3Va9J_tvZBDAPfbuyQtgxoAE+ZzG6VpU1b1q@mail.gmail.com>
+ <4D8E8B1E.3030709@users.sourceforge.net>
+ <4D8FBE88.3050907@lwfinger.net>
+ <20110328154046.GB2333@herton-IdeaPad-Y430>
+ <AANLkTinwG5BR5=S14XYcwZ39c3k0xc9+2VsQFS+JHB0f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Hin-Tak Leung <htl10@users.sourceforge.net>,
+	Herton Ronaldo Krzesinski <herton@canonical.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Roman Mamedov <rm@romanrm.ru>
+To: wu zhangjin <wuzhangjin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe002.messaging.microsoft.com ([213.199.154.140]:21538
-	"EHLO DB3EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758287Ab1CaRFp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Mar 2011 13:05:45 -0400
-In-Reply-To: <20110330.214049.137846353.davem@davemloft.net>
-Content-Language: en-US
+Received: from adelie.canonical.com ([91.189.90.139]:47675 "EHLO
+	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758723Ab1CaRTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2011 13:19:14 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTinwG5BR5=S14XYcwZ39c3k0xc9+2VsQFS+JHB0f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Apr 01, 2011 at 12:22:51AM +0800, wu zhangjin wrote:
+> On Mon, Mar 28, 2011 at 11:40 PM, Herton Ronaldo Krzesinski
+> <herton.krzesinski@canonical.com> wrote:
+> [...]
+> >>
+> >> My rtl8187 devices are both external USB sticks, thus they have no
+> >> interaction with a radio-kill switch. I will test your patch to make
+> >> sure it does no harm to my system.
+> >>
+> >> I think the commit message should be revised. A simple statement
+> >> like "the LED does not turn off when the rfkill switch is off"
+> >> should be sufficient.
+> >
+> > The patch should work, but I wonder if we should be fiddling with priv->vif
+> > for this, perhaps we should not assume vif to be valid after
+> > rtl8187_remove_interface (I don't see problems with current
+> > rtl8187/mac80211 code on a quick look, but...)
+> >
+> 
+> Yes, but seems only two places have touched the vif pointer.
+> 
+> $ grep "vif =" -ur drivers/net/wireless/rtl818x/rtl8187/
+> drivers/net/wireless/rtl818x/rtl8187/dev.c:	priv->vif = NULL;
+> drivers/net/wireless/rtl818x/rtl8187/dev.c:	priv->vif = vif;
+> 
+> > I cleaner solution may be to use a priv->mode like p54.
+> 
+> Yep, then, we may need to add a 'mode' member to rtl8187_priv and
+> update it properly like p54.
+> 
+> So, What do you prefer? I will prepare a new patch asap.
 
-On Mar 30, 2011, at 9:40 PM, David Miller wrote:
+In the led code we dereference priv->vif, checking for priv->vif->type.
+vif is a pointer from mac80211, and after rtl8187_remove_interface is
+called by it, at least from my POV can do anything it wants with vif,
+like freeing the sdata vif points to. From what I checked, it doesn't
+free currently and your patch don't have issues, but may be it's better
+to be safe and add a new "future proof" mode field.
 
-> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-> Date: Wed, 30 Mar 2011 13:21:36 -0700
->
->> From: Sony Chacko <sony.chacko@qlogic.com>
->>
->> Before this fix, PCI info was available only when multiple NIC functions were
->> present on a port.
->>
->> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
->> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
->
-> Your email client has mangled all of these patches, turning tab characters
-> into spaces.
->
-> Given the number of patches that come in for the qlcnic driver, you guys
-> have to do better than this.
+And as your bug shows, the led code access priv->vif after
+rtl8187_remove_interface, so we hit the case where vif could be
+considered invalid.
 
-Sorry about that. I use pine to send patches, not sure how it messed it up. I will resend it.
-Thanks.
+So because of this and being cleaner I would go adding 'mode'.
 
--Anirban
+> 
+> Best Regards,
+> Wu Zhangjin
+> 
+> >
+> >>
+> >> Larry
+> >>
+> >
+> > --
+> > []'s
+> > Herton
+> >
+> 
 
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
-
+-- 
+[]'s
+Herton
