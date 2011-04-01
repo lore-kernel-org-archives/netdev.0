@@ -1,140 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel panic nf_nat_setup_info+0x5b3/0x6e0
-Date: Fri, 01 Apr 2011 07:30:40 +0200
-Message-ID: <1301635840.2881.19.camel@edumazet-laptop>
-References: <118081298480841@web25.yandex.ru> <4D6E2BEB.50805@trash.net>
-	 <AANLkTikkz23221ZSiat8N5tnE_bkHN=1EUNQTDdnC30L@mail.gmail.com>
-	 <124481299095426@web67.yandex.ru>
-	 <AANLkTik87dd0=CqcMOcwKN-Hx7W6KD7A36DUhGAzLddr@mail.gmail.com>
-	 <AANLkTi=v_Ckn00N=b2R2pW7jb3BmyyWPSkeCYRxBW0CW@mail.gmail.com>
-	 <586191301580222@web107.yandex.ru>
-	 <1301582872.3169.44.camel@edumazet-laptop>
-	 <AANLkTinBn+dKCaHN2Hq7kOocfMsvCO8wBpOgWd3VBV3g@mail.gmail.com>
+From: Florian Adamsky <florian-netdev@adamsky.it>
+Subject: Duplicated Acknowledgments
+Date: Fri, 1 Apr 2011 08:20:49 +0200
+Message-ID: <20110401082049.03c59625@asmara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinBn+dKCaHN2Hq7kOocfMsvCO8wBpOgWd3VBV3g@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.109.81.47.78.clients.your-server.de ([78.47.81.109]:48022
+	"EHLO haktar.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754142Ab1DAG03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 02:26:29 -0400
+Received: from asmara (p4FE8F073.dip.t-dialin.net [79.232.240.115])
+	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	(Authenticated sender: cit)
+	by haktar.org (Postfix) with ESMTPSA id DF30B258EBAC
+	for <netdev@vger.kernel.org>; Fri,  1 Apr 2011 08:20:50 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 01 avril 2011 =C3=A0 10:02 +0800, Changli Gao a =C3=A9crit =
-:
-> On Thu, Mar 31, 2011 at 10:47 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
-> >
-> > I wonder if this is not hiding another bug.
-> >
-> > Adding an RCU grace period might reduce the probability window.
->=20
-> What bug? This one?
->=20
+Dear Kernel-Hackers,
 
-Yes. I am saying your patch is a brown paper bag.
+I'm a security researcher and want to try out the opt-ack and lazy
+opt-ack attack with different congestion avoidance systems and under
+different environments. At first I want to dedicate myself to the lazy
+opt-ack attack. For those of you how are not familiar with it: the
+attacker has an modified TCP/IP stack which doesn't send any duplicated
+acknowledgements. If the receiver is in slow start and doesn't get any
+duplicated ack, he will introduce more and more packets into the
+network. [1]
 
-Real bug is elsewhere, and we must find it, not make it happen less
-frequently.
+I'm not a kernel hacker but I know a litte bit of C. So I found the
+function "tcp_send_dupack()". Additionally I wrote a sysctl for it to
+activate and deactivate this behaviour. After trying this out I don't
+get the expected results. I start to analyze my pcap file with tcptrace
+and it says the attacker sends 22 duplicated acks. Attached you'll find
+my changes on the code I made. I want to be absolutely sure that I
+don't miss anything, so is there any other place in the source I have
+to modify?
 
-Maybe its a missing barrier, and adding a full RCU grace period is a
-waste (of cpu caches space, since call_rcu() fill a potential big list)
+Thank you very much in advance. Btw I know that window updates are
+looking like duplicated acks, I only want to be sure that the kernel is
+not sending any duplicated acks.
 
-> >
-> > By the time nf_conntrack_free(ct) is called, no other cpu/thread
-> > could/should use ct, or ct->ext ?
->=20
-> nat->ct may refer it.
->=20
+Best wishes,
+Florian
 
-conntrack must have a real problem of refcounting then.
-
-Each time an object A has a reference to object B, we should increase B
-refcount, so B cannot disappear.
-
-nat->ct _cannot_ refer ct if we are freeing ct. Thats quite simple rule=
-=2E
-
-> >
-> > Sure, another thread can find/pass_on ct in a lookup but should not=
- use
-> > it, since its refcount (ct_general.use) should be 0.
-> >
-> >
->=20
-> As SLAB_DESTROY_BY_RCU is used, we should validate ct->orig_tuple too=
-=2E
->=20
-> There is another minor problem.
->=20
-
-minor or serious ?
+[1] http://www.cs.umd.edu/~capveg/optack/optack-extended.pdf
 
 
-> nf_nat_core.c:
->=20
-> 133         rcu_read_lock();
-> 134         hlist_for_each_entry_rcu(nat, n,
-> &net->ipv4.nat_bysource[h], bysourc    e) {
-> 135                 ct =3D nat->ct;
-> 136                 if (same_src(ct, tuple) && nf_ct_zone(ct) =3D=3D =
-zone) {
-> 137                         /* Copy source part from reply tuple. */
-> 138                         nf_ct_invert_tuplepr(result,
-> 139
-> &ct->tuplehash[IP_CT_DIR_REPLY].tuple    );
-> 140                         result->dst =3D tuple->dst;
-> 141
-> 142                         if (in_range(result, range)) {
-> 143                                 rcu_read_unlock();
-> 144                                 return 1;
-> 145                         }
-> 146                 }
-> 147         }
-> 148         rcu_read_unlock();
->=20
-> If the ct is reused, NAT mapping will be wrong. It isn't a serious
-> problem, and can't be fixed, even though we check the reference
-> counter before using it, but we can't validate it with the original
-> tuple.
->=20
+--- /home/cit/linux-source-2.6.35/include/net/tcp.h	2011-03-01
+15:40:39.000000000 +0100 +++ include/net/tcp.h	2011-03-25
+22:57:08.403570245 +0100 @@ -205,6 +205,7 @@
+ extern int sysctl_tcp_timestamps;
+ extern int sysctl_tcp_window_scaling;
+ extern int sysctl_tcp_sack;
++extern int sysctl_tcp_send_dupack;
+ extern int sysctl_tcp_fin_timeout;
+ extern int sysctl_tcp_keepalive_time;
+ extern int sysctl_tcp_keepalive_probes;
+       
+--- /home/cit/linux-source-2.6.35/net/ipv4/sysctl_net_ipv4.c
+2010-08-02 00:11:14.000000000 +0200 +++
+net/ipv4/sysctl_net_ipv4.c	2011-03-25 22:44:32.687914571 +0100
+@@ -141,6 +141,13 @@ .mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++        {
++                .procname       = "tcp_send_dupack",
++                .data           = &sysctl_tcp_send_dupack,
++                .maxlen         = sizeof(int),
++                .mode           = 0644,
++                .proc_handler   = proc_dointvec
++        },
+ 	{
+ 		.procname	= "tcp_retrans_collapse",
+ 		.data		= &sysctl_tcp_retrans_collapse,
 
-I call this a serious problem. netfilter is not a fuzzy logic.
-
-> Maybe we can do it in this way
->=20
->                 ct =3D nat->ct;
->                 if (!nf_ct_is_dying(ct) &&
-> atomic_inc_not_zero(&ct->ct_general.use))) {
->                                if (nf_ct_ext_find(ct, NF_CT_EXT_NAT) =
-=3D=3D nat) {
->                                         /* ct is valid, do sth... */
->                                }
->                                nf_ct_put(ct);
->                 }
->=20
-> I think two additional atomic operations are expensive. It isn't a go=
-od idea.
->=20
-
-It depends. This is better than taking the conntrack lock.
-
-SLAB_DESTROY_BY_RCU is not allowing for fuzzy logic. Rules are we _must=
-_
-take a reference on object after finding it, and _recheck_ validity of
-the object before using it.
-
-Another way to avoid atomic operations in find_appropriate_src() is to
-use a seqcount (or seqlock), and change the seqcount every time
-something is changed in ct.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- /home/cit/linux-source-2.6.35/net/ipv4/tcp_input.c
+2011-03-01 15:40:39.000000000 +0100 +++ net/ipv4/tcp_input.c
+2011-03-25 22:16:21.045352995 +0100 @@ -76,6 +76,7 @@
+ int sysctl_tcp_timestamps __read_mostly = 1;
+ int sysctl_tcp_window_scaling __read_mostly = 1;
+ int sysctl_tcp_sack __read_mostly = 1;
++int sysctl_tcp_send_dupack __read_mostly = 1;
+ int sysctl_tcp_fack __read_mostly = 1;
+ int sysctl_tcp_reordering __read_mostly = TCP_FASTRETRANS_THRESH;
+ int sysctl_tcp_ecn __read_mostly = 2;
+@@ -5154,7 +5155,8 @@
+ 	    tcp_paws_discard(sk, skb)) {
+ 		if (!th->rst) {
+ 			NET_INC_STATS_BH(sock_net(sk),
+LINUX_MIB_PAWSESTABREJECTED);
+-			tcp_send_dupack(sk, skb);
++			if (sysctl_tcp_send_dupack)
++				tcp_send_dupack(sk, skb);
+ 			goto discard;
+ 		}
+ 		/* Reset is accepted even if it did not pass PAWS. */
+@@ -5169,7 +5171,8 @@
+ 		 * bit is set, if so drop the segment and return)".
+ 		 */
+ 		if (!th->rst)
+-			tcp_send_dupack(sk, skb);
++			if (sysctl_tcp_send_dupack)
++				tcp_send_dupack(sk, skb);
+ 		goto discard;
+ 	}
