@@ -1,153 +1,101 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: Re: [PATCH net-next-2.6 v1] sctp: Add Auto-ASCONF support
-Date: Fri, 1 Apr 2011 11:41:40 +0900
-Message-ID: <93D0B4BF-3824-4D60-9143-10C00FAE62AD@sfc.wide.ad.jp>
-References: <8484E05B-B474-4D3B-A192-7413FC6B9141@sfc.wide.ad.jp> <4D9422EF.2090007@cn.fujitsu.com> <5A16054A-EC79-4157-89E4-DC3BEE4124B4@sfc.wide.ad.jp> <4D95299C.6020507@cn.fujitsu.com>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+From: wu zhangjin <wuzhangjin@gmail.com>
+Subject: Re: [RFC PATCH] rtl8187: Fix led support for rfkill
+Date: Fri, 1 Apr 2011 11:12:11 +0800
+Message-ID: <AANLkTi==LeJvEgmnYaphO1aPeS7MSn3P4v-O_ynb-yNb@mail.gmail.com>
+References: <1301174394-12642-1-git-send-email-wuzhangjin@gmail.com>
+	<4D8E5BA3.1090909@users.sourceforge.net>
+	<AANLkTind3Va9J_tvZBDAPfbuyQtgxoAE+ZzG6VpU1b1q@mail.gmail.com>
+	<4D8E8B1E.3030709@users.sourceforge.net>
+	<4D8FBE88.3050907@lwfinger.net>
+	<20110328154046.GB2333@herton-IdeaPad-Y430>
+	<AANLkTinwG5BR5=S14XYcwZ39c3k0xc9+2VsQFS+JHB0f@mail.gmail.com>
+	<20110331171902.GA4010@herton-IdeaPad-Y430>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Hin-Tak Leung <htl10@users.sourceforge.net>,
+	Herton Ronaldo Krzesinski <herton@canonical.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Roman Mamedov <rm@romanrm.ru>
+To: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:49942 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753022Ab1DAClm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2011 22:41:42 -0400
-In-Reply-To: <4D95299C.6020507@cn.fujitsu.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:41708 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754306Ab1DADMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2011 23:12:13 -0400
+In-Reply-To: <20110331171902.GA4010@herton-IdeaPad-Y430>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 4/1/11, Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com> wrote:
+> On Fri, Apr 01, 2011 at 12:22:51AM +0800, wu zhangjin wrote:
+>> On Mon, Mar 28, 2011 at 11:40 PM, Herton Ronaldo Krzesinski
+>> <herton.krzesinski@canonical.com> wrote:
+>> [...]
+>> >>
+>> >> My rtl8187 devices are both external USB sticks, thus they have no
+>> >> interaction with a radio-kill switch. I will test your patch to make
+>> >> sure it does no harm to my system.
+>> >>
+>> >> I think the commit message should be revised. A simple statement
+>> >> like "the LED does not turn off when the rfkill switch is off"
+>> >> should be sufficient.
+>> >
+>> > The patch should work, but I wonder if we should be fiddling with
+>> > priv->vif
+>> > for this, perhaps we should not assume vif to be valid after
+>> > rtl8187_remove_interface (I don't see problems with current
+>> > rtl8187/mac80211 code on a quick look, but...)
+>> >
+>>
+>> Yes, but seems only two places have touched the vif pointer.
+>>
+>> $ grep "vif =" -ur drivers/net/wireless/rtl818x/rtl8187/
+>> drivers/net/wireless/rtl818x/rtl8187/dev.c:	priv->vif = NULL;
+>> drivers/net/wireless/rtl818x/rtl8187/dev.c:	priv->vif = vif;
+>>
+>> > I cleaner solution may be to use a priv->mode like p54.
+>>
+>> Yep, then, we may need to add a 'mode' member to rtl8187_priv and
+>> update it properly like p54.
+>>
+>> So, What do you prefer? I will prepare a new patch asap.
+>
+> In the led code we dereference priv->vif, checking for priv->vif->type.
+> vif is a pointer from mac80211, and after rtl8187_remove_interface is
+> called by it, at least from my POV can do anything it wants with vif,
+> like freeing the sdata vif points to. From what I checked, it doesn't
+> free currently and your patch don't have issues, but may be it's better
+> to be safe and add a new "future proof" mode field.
+>
+> And as your bug shows, the led code access priv->vif after
+> rtl8187_remove_interface, so we hit the case where vif could be
+> considered invalid.
+>
+> So because of this and being cleaner I would go adding 'mode'.
 
-On Apr 1, 2011, at 10:25 , Wei Yongjun wrote:
+Ok, thanks ;-)
 
-> 
->> Hi, 
->> 
->> Thanks for your comments.  
->> I would like to discuss some of them in-line before resubmission.  
->> 
->> Cheers,
->> - Michio
->> 
->> On Mar 31, 2011, at 15:45 , Wei Yongjun wrote:
->> 
->>> Hi Michio Honda
->>> 
->>> I try to understand what you are doing now, and some comments inline.
->>> 
->>> And
->>> 
->>> this patch is too big for review, you'd better to split it to a patchset:
->>> the improve on orig asconf code, the auto-asconf support, the socket
->>> option etc.
->>> 
->>>> @@ -599,6 +597,28 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
->>>> 						    SCTP_ADDR_NEW, GFP_ATOMIC);
->>>> 			addr_buf += af->sockaddr_len;
->>>> 		}
->>>> +		list_for_each_entry(trans, &asoc->peer.transport_addr_list,
->>>> +		    transports) {
->>>> +			if (asoc->asconf_addr_del_pending != NULL)
->>>> +				/* This ADDIP ASCONF piggybacks DELIP for the
->>>> +				 * last address, so need to select src addr
->>>> +				 * from the out_of_asoc addrs
->>>> +				 */
->>>> +				asoc->src_out_of_asoc_ok = 1;
->>>> +			/* Clear the source and route cache in the path */
->>>> +			memset(&trans->saddr, 0, sizeof(union sctp_addr));
->>>> +			dst_release(trans->dst);
->>>> +			trans->cwnd = min(4*asoc->pathmtu, max_t(__u32,
->>>> +			    2*asoc->pathmtu, 4380));
->>>> +			trans->ssthresh = asoc->peer.i.a_rwnd;
->>>> +			trans->rto = asoc->rto_initial;
->>>> +			trans->rtt = 0;
->>>> +			trans->srtt = 0;
->>>> +			trans->rttvar = 0;
->>>> +			sctp_transport_route(trans, NULL,
->>>> +			    sctp_sk(asoc->base.sk));
->>>> +		}
->>>> +		retval = sctp_send_asconf(asoc, chunk);
->>> We need to do this really?
->> We have to reset path information before transmitting ASCONF from the new source address.  
->> Because when we obviously change the source address (i.e., deletion of the last local address), we don't know any information of the path (e.g., RTT) between the new source address and the existing destination address.  
-> 
-> Do you means we deleted all of the local address? This is prohibit
-> by rfc5061. If we have other address, we can use it.
-> 
->   F5)  An endpoint MUST NOT delete its last remaining IP address from
->        an association.  In other words, if an endpoint is NOT multi-
->        homed, it MUST NOT use the delete IP address without an Add IP
->        Address preceding the delete parameter in the ASCONF Chunk.  Or,
->        if an endpoint sends multiple requests to delete IP addresses,
->        it MUST NOT delete all of the IP addresses that the peer has
->        listed for the requester.
-> 
-> 
-> But the rfc does not said what we should do if all of the local addresses
-> are invalid.
-Sorry for my bad description, I mean, suppose the host having one local IP address changes the IP address to new one.   
-The host will remove the old address, and configure the new IP address.  
-Then, I believe following steps in SCTP implementation could make sense.  
-1. When the host removes the local address, SCTP implementation postpones to remove the local address from the association, because it is the last local address in the association.    
-2. After the configuration of the new IP address, the SCTP implementation tries to send an ASCONF with ADD_IP_ADDRESS from the newly configured address.  This address can be used for ASCONF while it cannot be used for the other chunks.  This ASCONF also contains DELETE_IP_ADDRESS for the old address.  (This is allowed as Sec.5.3 F5 describes)
-Then, the path where the ASCONF goes is obviously new path because of the new source address, thus we should reset old path parameters, otherwise the SCTP implementation might set wrong RTO and estimate wrong RTT for that ASCONF.    
+Best Regards,
+Wu Zhangjin
 
-
-> 
-> 
->>>> @@ -3341,6 +3587,44 @@ static int sctp_setsockopt_del_key(struct sock *sk,
->>>> 
->>>> +static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
->>>> +					unsigned int optlen)
->>>> +{
->>>> +	int val;
->>>> +	struct sctp_ep_common *epb;
->>>> +
->>>> +	if (optlen < sizeof(int))
->>>> +		return -EINVAL;
->>>> +	if (get_user(val, (int __user *)optval))
->>>> +		return -EFAULT;
->>>> +	if (!sctp_is_ep_boundall(sk) && val)
->>>> +		return -EINVAL;
->>>> +	list_for_each_entry(epb, &sctp_auto_asconf_eplist, auto_asconf_list) {
->>>> +		if (epb->sk == sk) {
->>>> +			if (val == 0)
->>>> +				list_del(&epb->auto_asconf_list);
->>>> +			return 0;
->>>> +		}
->>>> +	}
->>>> +	if (val)
->>>> +		list_add_tail(&sctp_sk(sk)->ep->base.auto_asconf_list,
->>>> +		    &sctp_auto_asconf_eplist);
->>>> +	return 0;
->>>> +}
->>> The sctp_setsockopt_auto_asconf is not correct, if we enable this option
->>> twice, the list will be broken.
->> Oops, I fix, thanks!
->>> We'd better to introcude a auto_asconf flag to ep, and then, we do not
->>> need to scanf the asconf_list.
->>> If auto_asconf flag is true, it is exists in the list, otherwise, not.
->> Agreed, it's more simple.   
->>> All of the sctp sockets are added to sctp_auto_asconf_eplist.
->>> I think none of the sockets should exists in this list by default,
->>> only after we enable AUTO_ASCONF, we should add it to this list.
->> Sockets are added to auto_asconf_eplist only when the sysctl parameter is on.   
-> 
-> If so, the SCTP_AUTO_ASCONF will be broken.
-> 
-> I think before SCTP_AUTO_ASCONF be document, the sysctl parameter
-> is used to enable/disable the auto asconf, but after SCTP_AUTO_ASCONF
-> defined, sysctl parameter should be deprecated.
-Mmm, not sure, we should ask Randy and Michael.  I'll send separate email soon.  
-> 
->>> Is the sysctl parameter necessary, since auto_asconf is disabled
->>> by default, and we need to set the option to enabled it.
->> I believe auto_asconf should be enabled by both of sysctl and setsockopt as well as FreeBSD implementation does.  
->> Adopting the same methods could be helpful for applications concerning auto_asconf availability.  
->> I agree to set the sysctl parameter to 0 by default.    
->> 
->>> 
->>> 
->> 
->> 
-
+>
+>>
+>> Best Regards,
+>> Wu Zhangjin
+>>
+>> >
+>> >>
+>> >> Larry
+>> >>
+>> >
+>> > --
+>> > []'s
+>> > Herton
+>> >
+>>
+>
+> --
+> []'s
+> Herton
+>
