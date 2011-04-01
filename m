@@ -1,91 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Thu, 31 Mar 2011 23:31:22 -0700 (PDT)
-Message-ID: <20110331.233122.193724953.davem@davemloft.net>
+Subject: [PATCH] net: Order ports in same order as addresses in flow
+ objects.
+Date: Thu, 31 Mar 2011 23:35:48 -0700 (PDT)
+Message-ID: <20110331.233548.71126318.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54507
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754035Ab1DAGgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 02:36:25 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 9F69324C088
+	for <netdev@vger.kernel.org>; Thu, 31 Mar 2011 23:35:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoxKSBSZWdyZXNzaW9uLCBHUkUgdHVubmVscyBzdG9wcGVkIHdvcmtpbmcgcHJvcGVybHkgd2l0
-aCBtdWx0aWNhc3QuDQogICBGaXggZnJvbSBUaW1vIFRlcsOkcy4NCg0KMikgRml4IERNQSBtYXBw
-aW5nIGJ1Z3MgaW4gdmlhLWlyY2MgSVJEQSBkcml2ZXIsIGZyb20gQmVuIEh1dGNoaW5ncy4NCg0K
-MykgSGVhZGVyIGxlbmd0aCBjYWxjIHdyb25nIGluIGJyX211bHRpY2FzdF9pcHY2X3JjdigpLCBm
-cm9tIExpbnVzDQogICBMw7xzc2luZy4NCg0KNCkgcGh5X2luaXRfaHcoKSBmYWlsdXJlcyBub3Qg
-aGFuZGxlZCwgZnJvbSBNYXJjIEtsZWluZS1CdWRkZS4NCg0KNSkgU3VwcG9ydCBMRy1WTDYwMCA0
-RyBtb2RlbXMgcHJvcGVybHksIGZyb20gQW5kcnplaiBaYWJvcm93c2tpLg0KDQo2KSBkZXZfZm9y
-d2FyZF9za2IoKSBuZWVkcyB0byB0YWtlIFRTTyBpbnRvIGFjY291bnQsIGZyb20gRGFuaWVsDQog
-ICBMZXpjYW5vIGFuZCBFcmljIFcuIEJpZWRlcm1hbi4NCg0KNykgTWVtb3J5IGxlYWtzIGluIGF0
-bDIgZHJpdmVyLCBmcm9tIEplc3BlciBKdWhsLg0KDQo4KSBTb2xvcy1QQ0kgQVRNIGRyaXZlciBm
-aXhlcyBmcm9tIFBoaWxpcCBBLiBQcmluZGV2aWxsZQ0KDQo5KSBNaXNzaW5nIFJUTkwgbG9ja2lu
-ZyBpbiBpcF9maWJfbmV0X2V4aXQoKSwgZnJvbSBFcmljIER1bWF6ZXQuDQoNCjEwKSBSZWdyZXNz
-aW9uIGluIGNvbm5lY3RvciwgYWxsIG5ldGxpbmsgcmVxdWVzdHMgbXVzdCBiZSBwcm9jZXNzZWQN
-CiAgICBzeW5jaHJvbm91c2x5IG5vdy4gIEZyb20gUGF0cmljayBNY0hhcmR5Lg0KDQoxMSkgRml4
-IGVycm9uZW91cyBtZW1vcnkgZmFpbHVyZSBrZXJuZWwgbWVzc2FnZXMgaW4gU0NUUCBoYXNoIHRh
-YmxlDQogICAgYWxsb2NhdGlvbiwgcmVwb3J0ZWQgYnkgRGF2ZSBKb25lcy4NCg0KMTIpIE1MWDQg
-ZHJpdmVyIHVzZS1hZnRlci1mcmVlIGFuZCBldmVudCBxdWV1ZSBzaXppbmcgZml4IGZyb20NCiAg
-ICBZZXZnZW55IFBldHJpbGluLg0KDQoxMykgRml4IGFub3RoZXIgcmVncmVzc2lvbiBpbiBhdGFs
-a19yZWxlYXNlKCkgYWRkZWQgYnkgdGhlIGtlcm5lbA0KICAgIGxvY2sgcmVtb3ZhbC4gIFJlcG9y
-dGVkIGJ5IERhdmUgSm9uZXMuDQoNClRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQg
-ZWNiNzhhYjZmMzAxMDZhYjcyYTU3NWEyNWIxY2RmZDE2MzNiN2NhMjoNCg0KICBNZXJnZSBicmFu
-Y2ggJ3JlbGVhc2UnIG9mIGdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVs
-L2dpdC9hZWdsL2xpbnV4LTIuNiAoMjAxMS0wMy0zMCAxMjoyMjoxNSAtMDcwMCkNCg0KYXJlIGF2
-YWlsYWJsZSBpbiB0aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQoNCiAgbWFzdGVyLmtlcm5lbC5vcmc6
-L3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQtMi42LmdpdCBtYXN0ZXINCg0KQW5k
-cnplaiBaYWJvcm93c2tpICgxKToNCiAgICAgIG5ldC91c2I6IEV0aGVybmV0IHF1aXJrcyBmb3Ig
-dGhlIExHLVZMNjAwIDRHIG1vZGVtDQoNCkJhbGFqaSBHICgxKToNCiAgICAgIGJyaWRnZTogRml4
-IGNvbXBpbGF0aW9uIHdhcm5pbmcgaW4gZnVuY3Rpb24gYnJfc3RwX3JlY2FsY3VsYXRlX2JyaWRn
-ZV9pZCgpDQoNCkJlbiBIdXRjaGluZ3MgKDIpOg0KICAgICAgdmlhLWlyY2M6IFVzZSBwY2lfe2dl
-dCwgc2V0fV9kcnZkYXRhKCkgaW5zdGVhZCBvZiBzdGF0aWMgcG9pbnRlciB2YXJpYWJsZQ0KICAg
-ICAgdmlhLWlyY2M6IFBhc3MgUENJIGRldmljZSBwb2ludGVyIHRvIGRtYV97YWxsb2MsIGZyZWV9
-X2NvaGVyZW50KCkNCg0KRGFuaWVsIExlemNhbm8gKDEpOg0KICAgICAgbmV0ZGV2OiBmaXggbXR1
-IGNoZWNrIHdoZW4gVFNPIGlzIGVuYWJsZWQNCg0KRGF2aWQgUy4gTWlsbGVyICgzKToNCiAgICAg
-IG5ldDogRml4IHdhcm5pbmdzIGNhdXNlZCBieSBNQVhfU0tCX0ZSQUdTIGNoYW5nZS4NCiAgICAg
-IHNjdHA6IFBhc3MgX19HRlBfTk9XQVJOIHRvIGhhc2ggdGFibGUgYWxsb2NhdGlvbiBhdHRlbXB0
-cy4NCiAgICAgIGFwcGxldGFsazogRml4IE9PUFMgaW4gYXRhbGtfcmVsZWFzZSgpLg0KDQpFcmlj
-IER1bWF6ZXQgKDEpOg0KICAgICAgZmliOiBhZGQgcnRubCBsb2NraW5nIGluIGlwX2ZpYl9uZXRf
-ZXhpdA0KDQpKZXNwZXIgSnVobCAoMSk6DQogICAgICBBdGhlcm9zLCBhdGwyOiBGaXggbWVtIGxl
-YWtzIGluIGVycm9yIHBhdGhzIG9mIGF0bDJfc2V0X2VlcHJvbQ0KDQpMaW51cyBMw7xzc2luZyAo
-MSk6DQogICAgICBicmlkZ2U6IG1jYXN0IHNub29waW5nLCBmaXggbGVuZ3RoIGNoZWNrIG9mIHNu
-b29wZWQgTUxEdjEvMg0KDQpNYXJjIEtsZWluZS1CdWRkZSAoMSk6DQogICAgICBwaHlsaWI6IHBo
-eV9hdHRhY2hfZGlyZWN0OiBwaHlfaW5pdF9odyBjYW4gZmFpbCwgYWRkIGNsZWFudXANCg0KUGF0
-cmljayBNY0hhcmR5ICgxKToNCiAgICAgIGNvbm5lY3RvcjogY29udmVydCB0byBzeW5jaHJvbm91
-cyBuZXRsaW5rIG1lc3NhZ2UgcHJvY2Vzc2luZw0KDQpQZXRlciBQYW4o5r2Y5Y2r5bmzKSAoMSk6
-DQogICAgICBib25kaW5nOnR5cG8gaW4gY29tbWVudA0KDQpQaGlsaXAgQS4gUHJpbmRldmlsbGUg
-KDMpOg0KICAgICAgYXRtL3NvbG9zLXBjaTogVXNlIFZQSS5WQ0kgbm90YXRpb24gdW5pZm9ybWx5
-Lg0KICAgICAgYXRtL3NvbG9zLXBjaTogRG9uJ3QgaW5jbHVkZSBmcmFtZSBwc2V1ZG8taGVhZGVy
-IG9uIHRyYW5zbWl0IGhleC1kdW1wDQogICAgICBhdG0vc29sb3MtcGNpOiBEb24ndCBmbGFwIFZD
-cyB3aGVuIGNhcnJpZXIgc3RhdGUgY2hhbmdlcw0KDQpUaW1vIFRlcsOkcyAoMSk6DQogICAgICBu
-ZXQ6IGdyZTogcHJvdmlkZSBtdWx0aWNhc3QgbWFwcGluZ3MgZm9yIGlwdjQgYW5kIGlwdjYNCg0K
-WWV2Z2VueSBQZXRyaWxpbiAoMik6DQogICAgICBtbHg0OiBGaXhpbmcgdXNlIGFmdGVyIGZyZWUN
-CiAgICAgIG1seDQ6IEZpeGluZyBiYWQgc2l6ZSBvZiBldmVudCBxdWV1ZSBidWZmZXINCg0KIGRy
-aXZlcnMvYXRtL3NvbG9zLXBjaS5jICAgICAgICB8ICAgMzkgKystLS0tDQogZHJpdmVycy9jb25u
-ZWN0b3IvY25fcXVldWUuYyAgIHwgICA1OCArKy0tLS0tDQogZHJpdmVycy9jb25uZWN0b3IvY29u
-bmVjdG9yLmMgIHwgICA0NyArKy0tLS0NCiBkcml2ZXJzL25ldC9hdGx4L2F0bDIuYyAgICAgICAg
-fCAgIDIyICsrLQ0KIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9hbGIuaCB8ICAgIDIgKy0NCiBk
-cml2ZXJzL25ldC9pcmRhL3ZpYS1pcmNjLmMgICAgfCAgIDk0ICsrKy0tLS0tLS0tLQ0KIGRyaXZl
-cnMvbmV0L21seDQvZXEuYyAgICAgICAgICB8ICAgIDQgKy0NCiBkcml2ZXJzL25ldC9tbHg0L21j
-Zy5jICAgICAgICAgfCAgICAzICstDQogZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYyAgIHwg
-ICAgOCArLQ0KIGRyaXZlcnMvbmV0L3VzYi9LY29uZmlnICAgICAgICB8ICAgMTUgKysNCiBkcml2
-ZXJzL25ldC91c2IvTWFrZWZpbGUgICAgICAgfCAgICAxICsNCiBkcml2ZXJzL25ldC91c2IvY2Rj
-X2V0aGVyLmMgICAgfCAgIDIxICsrLQ0KIGRyaXZlcnMvbmV0L3VzYi9sZy12bDYwMC5jICAgICB8
-ICAzNDYgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KIGRyaXZlcnMv
-bmV0L3VzYi91c2JuZXQuYyAgICAgICB8ICAgMTAgKy0NCiBpbmNsdWRlL2xpbnV4L2F0bWRldi5o
-ICAgICAgICAgfCAgICAxICsNCiBpbmNsdWRlL2xpbnV4L2Nvbm5lY3Rvci5oICAgICAgfCAgIDE2
-ICstLQ0KIGluY2x1ZGUvbGludXgvc2tidWZmLmggICAgICAgICB8ICAgIDIgKy0NCiBpbmNsdWRl
-L2xpbnV4L3VzYi91c2JuZXQuaCAgICAgfCAgICAzICsNCiBpbmNsdWRlL25ldC9pZl9pbmV0Ni5o
-ICAgICAgICAgfCAgIDE2ICsrDQogaW5jbHVkZS9uZXQvaXAuaCAgICAgICAgICAgICAgIHwgICAg
-OCArDQogbmV0L2FwcGxldGFsay9kZHAuYyAgICAgICAgICAgIHwgICAxMSArLQ0KIG5ldC9hdG0v
-Y29tbW9uLmMgICAgICAgICAgICAgICB8ICAgIDEgKw0KIG5ldC9icmlkZ2UvYnJfbXVsdGljYXN0
-LmMgICAgICB8ICAgIDIgKy0NCiBuZXQvYnJpZGdlL2JyX3N0cF9pZi5jICAgICAgICAgfCAgICAy
-ICstDQogbmV0L2NvcmUvZGV2LmMgICAgICAgICAgICAgICAgIHwgICAyNCArKystDQogbmV0L2lw
-djQvYXJwLmMgICAgICAgICAgICAgICAgIHwgICAgMyArDQogbmV0L2lwdjQvZmliX2Zyb250ZW5k
-LmMgICAgICAgIHwgICAgMiArDQogbmV0L2lwdjYvbmRpc2MuYyAgICAgICAgICAgICAgIHwgICAg
-MiArDQogbmV0L3NjdHAvcHJvdG9jb2wuYyAgICAgICAgICAgIHwgICAgNCArLQ0KIDI5IGZpbGVz
-IGNoYW5nZWQsIDU0MyBpbnNlcnRpb25zKCspLCAyMjQgZGVsZXRpb25zKC0pDQogY3JlYXRlIG1v
-ZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L3VzYi9sZy12bDYwMC5jDQo=
+
+For consistency.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/flow.h |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 37e77d6..c6d5fe5 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -26,8 +26,8 @@ struct flowi_common {
+ 
+ union flowi_uli {
+ 	struct {
+-		__be16	sport;
+ 		__be16	dport;
++		__be16	sport;
+ 	} ports;
+ 
+ 	struct {
+@@ -36,8 +36,8 @@ union flowi_uli {
+ 	} icmpt;
+ 
+ 	struct {
+-		__le16	sport;
+ 		__le16	dport;
++		__le16	sport;
+ 	} dnports;
+ 
+ 	__be32		spi;
+@@ -86,8 +86,8 @@ static inline void flowi4_init_output(struct flowi4 *fl4, int oif,
+ 	fl4->flowi4_secid = 0;
+ 	fl4->daddr = daddr;
+ 	fl4->saddr = saddr;
+-	fl4->fl4_sport = sport;
+ 	fl4->fl4_dport = dport;
++	fl4->fl4_sport = sport;
+ }
+ 				      
+ 
+-- 
+1.7.4.2
+
