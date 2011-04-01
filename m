@@ -1,101 +1,110 @@
-From: wu zhangjin <wuzhangjin@gmail.com>
-Subject: Re: [RFC PATCH] rtl8187: Fix led support for rfkill
-Date: Fri, 1 Apr 2011 11:12:11 +0800
-Message-ID: <AANLkTi==LeJvEgmnYaphO1aPeS7MSn3P4v-O_ynb-yNb@mail.gmail.com>
-References: <1301174394-12642-1-git-send-email-wuzhangjin@gmail.com>
-	<4D8E5BA3.1090909@users.sourceforge.net>
-	<AANLkTind3Va9J_tvZBDAPfbuyQtgxoAE+ZzG6VpU1b1q@mail.gmail.com>
-	<4D8E8B1E.3030709@users.sourceforge.net>
-	<4D8FBE88.3050907@lwfinger.net>
-	<20110328154046.GB2333@herton-IdeaPad-Y430>
-	<AANLkTinwG5BR5=S14XYcwZ39c3k0xc9+2VsQFS+JHB0f@mail.gmail.com>
-	<20110331171902.GA4010@herton-IdeaPad-Y430>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v3] net: Allow no-cache copy from user on transmit
+Date: Thu, 31 Mar 2011 21:05:30 -0700
+Message-ID: <BANLkTinHh6L7mtKp3G5x-6e7Z5-pTdvjYw@mail.gmail.com>
+References: <alpine.DEB.2.00.1103302156270.17065@pokey.mtv.corp.google.com>
+	<AANLkTimJR+SxeoiZnyP3_vyuK7Z+w_2G2gtUp7pZGZiR@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Hin-Tak Leung <htl10@users.sourceforge.net>,
-	Herton Ronaldo Krzesinski <herton@canonical.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Roman Mamedov <rm@romanrm.ru>
-To: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:41708 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754306Ab1DADMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2011 23:12:13 -0400
-In-Reply-To: <20110331171902.GA4010@herton-IdeaPad-Y430>
+Received: from smtp-out.google.com ([216.239.44.51]:21678 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750747Ab1DAEFd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 00:05:33 -0400
+Received: from kpbe12.cbf.corp.google.com (kpbe12.cbf.corp.google.com [172.25.105.76])
+	by smtp-out.google.com with ESMTP id p3145WcP012373
+	for <netdev@vger.kernel.org>; Thu, 31 Mar 2011 21:05:32 -0700
+Received: from ywa1 (ywa1.prod.google.com [10.192.1.1])
+	by kpbe12.cbf.corp.google.com with ESMTP id p3145UrI019991
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 31 Mar 2011 21:05:31 -0700
+Received: by ywa1 with SMTP id 1so2636115ywa.25
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2011 21:05:30 -0700 (PDT)
+In-Reply-To: <AANLkTimJR+SxeoiZnyP3_vyuK7Z+w_2G2gtUp7pZGZiR@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/1/11, Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com> wrote:
-> On Fri, Apr 01, 2011 at 12:22:51AM +0800, wu zhangjin wrote:
->> On Mon, Mar 28, 2011 at 11:40 PM, Herton Ronaldo Krzesinski
->> <herton.krzesinski@canonical.com> wrote:
->> [...]
->> >>
->> >> My rtl8187 devices are both external USB sticks, thus they have no
->> >> interaction with a radio-kill switch. I will test your patch to make
->> >> sure it does no harm to my system.
->> >>
->> >> I think the commit message should be revised. A simple statement
->> >> like "the LED does not turn off when the rfkill switch is off"
->> >> should be sufficient.
->> >
->> > The patch should work, but I wonder if we should be fiddling with
->> > priv->vif
->> > for this, perhaps we should not assume vif to be valid after
->> > rtl8187_remove_interface (I don't see problems with current
->> > rtl8187/mac80211 code on a quick look, but...)
->> >
->>
->> Yes, but seems only two places have touched the vif pointer.
->>
->> $ grep "vif =" -ur drivers/net/wireless/rtl818x/rtl8187/
->> drivers/net/wireless/rtl818x/rtl8187/dev.c:	priv->vif = NULL;
->> drivers/net/wireless/rtl818x/rtl8187/dev.c:	priv->vif = vif;
->>
->> > I cleaner solution may be to use a priv->mode like p54.
->>
->> Yep, then, we may need to add a 'mode' member to rtl8187_priv and
->> update it properly like p54.
->>
->> So, What do you prefer? I will prepare a new patch asap.
->
-> In the led code we dereference priv->vif, checking for priv->vif->type.
-> vif is a pointer from mac80211, and after rtl8187_remove_interface is
-> called by it, at least from my POV can do anything it wants with vif,
-> like freeing the sdata vif points to. From what I checked, it doesn't
-> free currently and your patch don't have issues, but may be it's better
-> to be safe and add a new "future proof" mode field.
->
-> And as your bug shows, the led code access priv->vif after
-> rtl8187_remove_interface, so we hit the case where vif could be
-> considered invalid.
->
-> So because of this and being cleaner I would go adding 'mode'.
+> BTW, the checks should take protocol into account. If, for example,
+> device has NOCACHE_COPY and CSUM_IPV4, but not CSUM_IPV6, then it wil=
+l
+> take a hit for every IPv6 packet that needs checksumming in software.
 
-Ok, thanks ;-)
+If the HW does not do checksum for a protocol, then the checksum-copy
+path is taken for packets so there should be no hit.  The logic of the
+default setting is that if HW does not checksum offload, then there is
+likely no benefit to turning on no cache copy; all the packets would
+go through copy checksum.
 
-Best Regards,
-Wu Zhangjin
+> Maybe this can be taken into account when sk_route_caps are set?
+>
+> [...]
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+>> index 1a6e9eb..59b6ce9 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -1407,7 +1407,7 @@ static int bond_compute_features(struct bondin=
+g *bond)
+>> =A0 =A0 =A0 =A0int i;
+>>
+>> =A0 =A0 =A0 =A0features &=3D ~(NETIF_F_ALL_CSUM | BOND_VLAN_FEATURES=
+);
+>> - =A0 =A0 =A0 features |=3D =A0NETIF_F_GSO_MASK | NETIF_F_NO_CSUM;
+>> + =A0 =A0 =A0 features |=3D =A0NETIF_F_GSO_MASK | NETIF_F_NO_CSUM | =
+NETIF_F_NOCACHE_COPY;
+>>
+>> =A0 =A0 =A0 =A0if (!bond->first_slave)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto done;
+> [...]
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 0b88eba..454abfd 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -5444,6 +5444,13 @@ int register_netdevice(struct net_device *dev=
+)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->features &=3D ~NETIF_F_GSO;
+>> =A0 =A0 =A0 =A0}
+>>
+>> + =A0 =A0 =A0 /* Turn no cache copy off if HW isn't doing checksum *=
+/
+>> + =A0 =A0 =A0 if (!(dev->features & NETIF_F_ALL_CSUM) ||
+>> + =A0 =A0 =A0 =A0 =A0 (dev->features & NETIF_F_NO_CSUM)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->wanted_features &=3D ~NETIF_F_NOC=
+ACHE_COPY;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->features &=3D ~NETIF_F_NOCACHE_CO=
+PY;
+>> + =A0 =A0 =A0 }
+>> +
+>> =A0 =A0 =A0 =A0/* Enable GRO and NETIF_F_HIGHDMA for vlans by defaul=
+t,
+>> =A0 =A0 =A0 =A0 * vlan_dev_init() will do the dev->features check, s=
+o these features
+>> =A0 =A0 =A0 =A0 * are enabled only if supported by underlying device=
+=2E
+>
+> Why NO_CSUM is disabling NOCACHE_COPY? You combine those features in
+> bonding code anyway.
+>
+This is likely loopback in which case no cache copy probably does not
+help.  For bonding, no cache copy is only enabled when all slaves are
+doing it.
 
+> You didn't add netdev_fix_features() checks, so NOCACHE_COPY might be
+> enabled via ethtool after device is registered even if driver doesn't
+> support checksum offloads.
 >
->>
->> Best Regards,
->> Wu Zhangjin
->>
->> >
->> >>
->> >> Larry
->> >>
->> >
->> > --
->> > []'s
->> > Herton
->> >
->>
->
-> --
-> []'s
-> Herton
->
+I don't see a reason to strictly enforce this.  It's not guaranteed
+that if a driver doesn't support csum offload then no cache copy is
+bad (again it's probably noop anyway because of copy-csum path).
+Turning it on for loopback is a benefit if sender and receiver are in
+different cache domains is good.
+
+I do need to send another patch.  The skb_add_data function can also
+use this.  I will create skb_do_copy_data_nocache and
+skb_add_data_nocache to make the use of this explicit in each protocol
+(TCP being the first supported).
+
+Tom
