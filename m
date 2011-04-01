@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Driver for Asix AX88172A only?
-Date: Fri, 01 Apr 2011 12:54:37 -0700 (PDT)
-Message-ID: <20110401.125437.193712220.davem@davemloft.net>
-References: <20110401165328.20091msct39m3en4@webmail.df.eu>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: [PATCH 0/9 net-next-2.6] qlcnic: Code cleanup and fixes
+Date: Fri, 1 Apr 2011 15:03:49 -0700
+Message-ID: <E6A59B41-286C-4C7D-881D-652963BAFA9D@qlogic.com>
+References: <alpine.OSX.2.00.1103312119400.47460@n5102mn2hhgf91.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael@riesch.at
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48005
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754857Ab1DATzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 15:55:15 -0400
-In-Reply-To: <20110401165328.20091msct39m3en4@webmail.df.eu>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:23691 "EHLO
+	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757317Ab1DAWEx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Apr 2011 18:04:53 -0400
+In-Reply-To: <alpine.OSX.2.00.1103312119400.47460@n5102mn2hhgf91.qlogic.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Riesch <michael@riesch.at>
-Date: Fri, 01 Apr 2011 16:53:28 +0200
 
-> What do you think: should the mainline driver be adapted to support
-> the AX88172A (with all his features) or a new driver for the AX88172A
-> only should be created (probably based on the existing mainline
-> driver).
+On Mar 31, 2011, at 9:31 PM, Anirban Chakraborty wrote:
 
-I think the mainline driver should be adapted to support the new
-chips with external PHYs etc.
+> Please apply.
+>
+> thanks,
+> Anirban
+>
+
+It turned out that patch no. 8 has a conflict with the following patch:
+
+commit 673e63c688f43104c73aad8ea4237f7ad41fa14d
+net: fix ethtool->set_flags not intended -EINVAL return value
+
+Please do not apply the current series as I'm resending it.
+
+thanks,
+Anirban
+
+
+
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+
