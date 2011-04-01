@@ -1,111 +1,146 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH 2/2] sctp: malloc enough room for asconf-ack chunk
-Date: Fri, 01 Apr 2011 17:42:55 +0800
-Message-ID: <4D959E1F.80504@cn.fujitsu.com>
-References: <4D959D2E.40605@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: lksctp <linux-sctp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH] net: ethtool support to configure number of channels
+Date: Fri,  1 Apr 2011 03:01:15 -0700
+Message-ID: <1301652075-382-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	sucheta.chakraborty@qlogic.com, anirban.chakraborty@qlogic.com,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59497 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755396Ab1DAJmi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Apr 2011 05:42:38 -0400
-In-Reply-To: <4D959D2E.40605@cn.fujitsu.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:51102 "EHLO unm84.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755322Ab1DAKBl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Apr 2011 06:01:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sometime the ASCONF_ACK parameters can equal to the fourfold of
-ASCONF parameters, this only happend in some special case:
+o Instead of cluttering struct ethtool_channels, defined channel type in
+  struct ethtool_channels, making it scalable for addition future channels.
+  Application needs to send different ioctl for each channel type.
+o There exist ETHTOOL_GRXRINGS command for getting number of RX rings,
+  but it is tigtly coupled with RX flow hash configuration.
+o New channel id can be added in ethtool_channel_id to make it configurable.
+o Patches for qlcnic and netxen_nic driver supporting rx channel will follow
+  soon.
 
-  ASCONF parameter is :
-    Unrecognized Parameter (4 bytes)
-  ASCONF_ACK parameter should be:
-    Error Cause Indication parameter (8 bytes header)
-     + Error Cause (4 bytes header)
-       + Unrecognized Parameter (4bytes)
-
-Four 4bytes Unrecognized Parameters in ASCONF chunk will cause panic.
-
-Pid: 0, comm: swapper Not tainted 2.6.38-next+ #22 Bochs Bochs
-EIP: 0060:[<c0717eae>] EFLAGS: 00010246 CPU: 0
-EIP is at skb_put+0x60/0x70
-EAX: 00000077 EBX: c09060e2 ECX: dec1dc30 EDX: c09469c0
-ESI: 00000000 EDI: de3c8d40 EBP: dec1dc58 ESP: dec1dc2c
- DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-Process swapper (pid: 0, ti=dec1c000 task=c09aef20 task.ti=c0980000)
-Stack:
- c09469c0 e1894fa4 00000044 00000004 de3c8d00 de3c8d00 de3c8d44 de3c8d40
- c09060e2 de25dd80 de3c8d40 dec1dc7c e1894fa4 dec1dcb0 00000040 00000004
- 00000000 00000800 00000004 00000004 dec1dce0 e1895a2b dec1dcb4 de25d960
-Call Trace:
- [<e1894fa4>] ? sctp_addto_chunk+0x4e/0x89 [sctp]
- [<e1894fa4>] sctp_addto_chunk+0x4e/0x89 [sctp]
- [<e1895a2b>] sctp_process_asconf+0x32f/0x3d1 [sctp]
- [<e188d554>] sctp_sf_do_asconf+0xf8/0x173 [sctp]
- [<e1890b02>] sctp_do_sm+0xb8/0x159 [sctp]
- [<e18a2248>] ? sctp_cname+0x0/0x52 [sctp]
- [<e189392d>] sctp_assoc_bh_rcv+0xac/0xe3 [sctp]
- [<e1897d76>] sctp_inq_push+0x2d/0x30 [sctp]
- [<e18a21b2>] sctp_rcv+0x7a7/0x83d [sctp]
- [<c077a95c>] ? ipv4_confirm+0x118/0x125
- [<c073a970>] ? nf_iterate+0x34/0x62
- [<c074789d>] ? ip_local_deliver_finish+0x0/0x194
- [<c074789d>] ? ip_local_deliver_finish+0x0/0x194
- [<c0747992>] ip_local_deliver_finish+0xf5/0x194
- [<c074789d>] ? ip_local_deliver_finish+0x0/0x194
- [<c0747a6e>] NF_HOOK.clone.1+0x3d/0x44
- [<c0747ab3>] ip_local_deliver+0x3e/0x44
- [<c074789d>] ? ip_local_deliver_finish+0x0/0x194
- [<c074775c>] ip_rcv_finish+0x29f/0x2c7
- [<c07474bd>] ? ip_rcv_finish+0x0/0x2c7
- [<c0747a6e>] NF_HOOK.clone.1+0x3d/0x44
- [<c0747cae>] ip_rcv+0x1f5/0x233
- [<c07474bd>] ? ip_rcv_finish+0x0/0x2c7
- [<c071dce3>] __netif_receive_skb+0x310/0x336
- [<c07221f3>] netif_receive_skb+0x4b/0x51
- [<e0a4ed3d>] cp_rx_poll+0x1e7/0x29c [8139cp]
- [<c072275e>] net_rx_action+0x65/0x13a
- [<c0445a54>] __do_softirq+0xa1/0x149
- [<c04459b3>] ? __do_softirq+0x0/0x149
- <IRQ>
- [<c0445891>] ? irq_exit+0x37/0x72
- [<c040a7e9>] ? do_IRQ+0x81/0x95
- [<c07b3670>] ? common_interrupt+0x30/0x38
- [<c0428058>] ? native_safe_halt+0xa/0xc
- [<c040f5d7>] ? default_idle+0x58/0x92
- [<c0408fb0>] ? cpu_idle+0x96/0xb2
- [<c0797989>] ? rest_init+0x5d/0x5f
- [<c09fd90c>] ? start_kernel+0x34b/0x350
- [<c09fd0cb>] ? i386_start_kernel+0xba/0xc1
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- net/sctp/sm_make_chunk.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ include/linux/ethtool.h |   27 +++++++++++++++++++++++++++
+ net/core/ethtool.c      |   41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 68 insertions(+), 0 deletions(-)
 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index de98665..b3434cc 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3106,10 +3106,10 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index c8fcbdd..cdb69d6 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -229,6 +229,28 @@ struct ethtool_ringparam {
+ 	__u32	tx_pending;
+ };
  
- 	/* create an ASCONF_ACK chunk.
- 	 * Based on the definitions of parameters, we know that the size of
--	 * ASCONF_ACK parameters are less than or equal to the twice of ASCONF
-+	 * ASCONF_ACK parameters are less than or equal to the fourfold of ASCONF
- 	 * parameters.
- 	 */
--	asconf_ack = sctp_make_asconf_ack(asoc, serial, chunk_len * 2);
-+	asconf_ack = sctp_make_asconf_ack(asoc, serial, chunk_len * 4);
- 	if (!asconf_ack)
- 		goto done;
++/* for configuring number of network channel */
++struct ethtool_channels {
++	__u32	cmd;	/* ETHTOOL_{G,S}CHANNELS */
++	__u32	type;	/* Channel type defined in ethtool_channel_id */
++
++	/* Read only attributes.  These indicate the maximum number
++	 * of channel the driver will allow the user to set.
++	 */
++	__u32	max;
++
++	/* Values changeable by the user.  The valid values are
++	 * in the range 1 to the "*_max" counterpart above.
++	 */
++	__u32	pending;
++};
++
++/* Channel ID is made up of a type */
++enum ethtool_channel_id {
++	ETH_CHAN_TYPE_RX = 0x1,
++	ETH_CHAN_TYPE_TX = 0x2
++};
++
+ /* for configuring link flow control parameters */
+ struct ethtool_pauseparam {
+ 	__u32	cmd;	/* ETHTOOL_{G,S}PAUSEPARAM */
+@@ -802,6 +824,9 @@ struct ethtool_ops {
+ 				  struct ethtool_rxfh_indir *);
+ 	int	(*set_rxfh_indir)(struct net_device *,
+ 				  const struct ethtool_rxfh_indir *);
++	int	(*get_channels)(struct net_device *, struct ethtool_channels *);
++	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
++
+ };
+ #endif /* __KERNEL__ */
  
+@@ -870,6 +895,8 @@ struct ethtool_ops {
+ 
+ #define ETHTOOL_GFEATURES	0x0000003a /* Get device offload settings */
+ #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings */
++#define ETHTOOL_GCHANNELS	0x0000003c /* Get no of channels */
++#define ETHTOOL_SCHANNELS	0x0000003d /* Set no of channels */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 74ead9e..91c3c6d 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1441,6 +1441,41 @@ static int ethtool_set_ringparam(struct net_device *dev, void __user *useraddr)
+ 	return dev->ethtool_ops->set_ringparam(dev, &ringparam);
+ }
+ 
++static noinline_for_stack int ethtool_get_channels(struct net_device *dev,
++						   void __user *useraddr)
++{
++	struct ethtool_channels channels;
++	int rc;
++
++	if (!dev->ethtool_ops->get_channels)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&channels, useraddr, sizeof(channels)))
++		return -EFAULT;
++
++	rc = dev->ethtool_ops->get_channels(dev, &channels);
++	if (rc)
++		return rc;
++
++	if (copy_to_user(useraddr, &channels, sizeof(channels)))
++		return -EFAULT;
++	return 0;
++}
++
++static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
++						   void __user *useraddr)
++{
++	struct ethtool_channels channels;
++
++	if (!dev->ethtool_ops->set_channels)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&channels, useraddr, sizeof(channels)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_channels(dev, &channels);
++}
++
+ static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_pauseparam pauseparam = { ETHTOOL_GPAUSEPARAM };
+@@ -1953,6 +1988,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SGRO:
+ 		rc = ethtool_set_one_feature(dev, useraddr, ethcmd);
+ 		break;
++	case ETHTOOL_GCHANNELS:
++		rc = ethtool_get_channels(dev, useraddr);
++		break;
++	case ETHTOOL_SCHANNELS:
++		rc = ethtool_set_channels(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
-1.6.5.2
-
+1.7.3.2
 
