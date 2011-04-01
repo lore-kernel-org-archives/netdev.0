@@ -1,7 +1,7 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 8/9 net-next-2.6] qlcnic: Fix LRO disable
-Date: Thu, 31 Mar 2011 21:41:05 -0700
-Message-ID: <alpine.OSX.2.00.1103312140210.47460@n5102mn2hhgf91.qlogic.org>
+Subject: [PATCH 9/9 net-next-2.6] qlcnic: Updated version number to 5.0.16
+Date: Thu, 31 Mar 2011 21:41:48 -0700
+Message-ID: <alpine.OSX.2.00.1103312141080.47460@n5102mn2hhgf91.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 8BIT
@@ -9,109 +9,37 @@ Cc: Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
 To: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.184]:45771
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752068Ab1DAEmE convert rfc822-to-8bit
+Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:41917
+	"EHLO VA3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752005Ab1DAEne convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Apr 2011 00:42:04 -0400
+	Fri, 1 Apr 2011 00:43:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-o In dev->open LRO was enabled by default, enable it depending
-  upon netdev->features , kernel may have disabled it.
-o Configure LRO when interface is up.
+Bumped up version number to 5.0.16
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_ethtool.c |   26 ++++++++++++++++----------
- drivers/net/qlcnic/qlcnic_hw.c      |    6 ++++++
- drivers/net/qlcnic/qlcnic_main.c    |    3 ++-
- 3 files changed, 24 insertions(+), 11 deletions(-)
+ drivers/net/qlcnic/qlcnic.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index e03108a..2656ec9 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -998,22 +998,28 @@ static int qlcnic_set_flags(struct net_device *netdev, u32 data)
-        if (data & ~ETH_FLAG_LRO)
-                return -EINVAL;
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index d9dd2c4..dc6f7c6 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -36,8 +36,8 @@
 
--       if (!(adapter->capabilities & QLCNIC_FW_CAPABILITY_HW_LRO))
--               return -EINVAL;
-+       if (data & ETH_FLAG_LRO) {
-
--       if (!adapter->rx_csum) {
--               dev_info(&adapter->pdev->dev, "rx csum is off, "
--                       "cannot toggle lro\n");
--               return -EINVAL;
--       }
-+               if (netdev->features & NETIF_F_LRO)
-+                       return 0;
-
--       if ((data & ETH_FLAG_LRO) && (netdev->features & NETIF_F_LRO))
--               return 0;
-+               if (!(adapter->capabilities & QLCNIC_FW_CAPABILITY_HW_LRO))
-+                       return -EINVAL;
-+
-+               if (!adapter->rx_csum) {
-+                       dev_info(&adapter->pdev->dev, "rx csum is off, "
-+                               "cannot toggle lro\n");
-+                       return -EINVAL;
-+               }
-
--       if (data & ETH_FLAG_LRO) {
-                hw_lro = QLCNIC_LRO_ENABLED;
-                netdev->features |= NETIF_F_LRO;
-+
-        } else {
-+
-+               if (!(netdev->features & NETIF_F_LRO))
-+                       return 0;
-+
-                hw_lro = 0;
-                netdev->features &= ~NETIF_F_LRO;
-        }
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index 3901be8..498cca9 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -566,6 +566,9 @@ int qlcnic_config_hw_lro(struct qlcnic_adapter *adapter, int enable)
-        u64 word;
-        int rv;
-
-+       if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
-+               return 0;
-+
-        memset(&req, 0, sizeof(struct qlcnic_nic_req));
-
-        req.qhdr = cpu_to_le64(QLCNIC_HOST_REQUEST << 23);
-@@ -711,6 +714,9 @@ int qlcnic_send_lro_cleanup(struct qlcnic_adapter *adapter)
-        u64 word;
-        int rv;
-
-+       if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
-+               return 0;
-+
-        memset(&req, 0, sizeof(struct qlcnic_nic_req));
-        req.qhdr = cpu_to_le64(QLCNIC_HOST_REQUEST << 23);
-
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 8bf9a96..7f9edb2 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -773,7 +773,8 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
-                features |= (NETIF_F_TSO | NETIF_F_TSO6);
-                vlan_features |= (NETIF_F_TSO | NETIF_F_TSO6);
-        }
--       if (adapter->capabilities & QLCNIC_FW_CAPABILITY_HW_LRO)
-+
-+       if (netdev->features & NETIF_F_LRO)
-                features |= NETIF_F_LRO;
-
-        if (esw_cfg->offload_flags & BIT_0) {
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 0
+-#define _QLCNIC_LINUX_SUBVERSION 15
+-#define QLCNIC_LINUX_VERSIONID  "5.0.15"
++#define _QLCNIC_LINUX_SUBVERSION 16
++#define QLCNIC_LINUX_VERSIONID  "5.0.16"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+                 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
 --
 1.7.4.1
 
