@@ -1,455 +1,201 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [patch net-next-2.6] net: vlan: make non-hw-accel rx path
- similar to hw-accel
-Date: Sat, 2 Apr 2011 08:55:24 -0700
-Message-ID: <20110402085524.6692131a@nehalam>
-References: <1301739966-7604-1-git-send-email-jpirko@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Support e1000 M88 PHY registers in -d
+Date: Sat, 02 Apr 2011 17:24:01 +0100
+Message-ID: <1301761441.10056.197.camel@localhost>
+References: <20100319043229.24908.99968.reportbug@Feynman.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
-	fubar@us.ibm.com, eric.dumazet@gmail.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net, xiaosuo@gmail.com,
-	jesse@nicira.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37528 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753163Ab1DBPz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2011 11:55:58 -0400
-In-Reply-To: <1301739966-7604-1-git-send-email-jpirko@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>,
+	574574@bugs.debian.org
+To: Anthony DeRobertis <anthony@derobert.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100319043229.24908.99968.reportbug@Feynman.home>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sat,  2 Apr 2011 12:26:06 +0200
-Jiri Pirko <jpirko@redhat.com> wrote:
+Anthony,
 
-> Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
-> enabled, skb is untagged by NIC, vlan_tci is set and the skb gets into
-> vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
+I'm now upstream maintainer for ethtool so I've picked up your patch
+again.
+
+On Fri, 2010-03-19 at 00:32 -0400, Anthony DeRobertis wrote:
+> Package: ethtool
+> Version: 1:2.6.33-1
+> Severity: wishlist
 > 
-> For non-rx-vlan-hw-accel however, tagged skb goes thru whole
-> __netif_receive_skb, it's untagged in ptype_base hander and reinjected
-> 
-> This incosistency is fixed by this patch. Vlan untagging happens early in
-> __netif_receive_skb so the rest of code (ptype_all handlers, rx_handlers)
-> see the skb like it was untagged by hw.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> ---
->  include/linux/if_vlan.h |   10 ++-
->  net/8021q/vlan.c        |    8 --
->  net/8021q/vlan.h        |    2 -
->  net/8021q/vlan_core.c   |   86 +++++++++++++++++++++++-
->  net/8021q/vlan_dev.c    |  173 -----------------------------------------------
->  net/core/dev.c          |    8 ++-
->  6 files changed, 100 insertions(+), 187 deletions(-)
-> 
-> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-> index 635e1fa..998b299 100644
-> --- a/include/linux/if_vlan.h
-> +++ b/include/linux/if_vlan.h
-> @@ -132,7 +132,8 @@ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+> The M88 PHY registers contain useful information like the cable length
+> estimate and the MDI/MDIX status. The attached patch makes -d dump
+> them.
+
+Patches for ethtool should include a commit message and Signed-off-by
+line, as in the Linux kernel.  See sections 2 and 12 of
+<http://www.kernel.org/doc/Documentation/SubmittingPatches>.  They
+should be sent to this address and to netdev.
+
+I'm forwarding this patch to netdev and the e1000 developers for review.
+
+Ben.
+
+[...]
+> diff -rdbU3 ethtool-2.6.33/e1000.c ethtool-2.6.33.new//e1000.c
+> --- ethtool-2.6.33/e1000.c      2009-02-08 18:52:12.000000000 -0500
+> +++ ethtool-2.6.33.new//e1000.c 2010-03-19 00:26:33.044052610 -0400
+> @@ -110,6 +110,61 @@
+>  #define E1000_TCTL_RTLC   0x01000000    /* Re-transmit on late collision */
+>  #define E1000_TCTL_NRTU   0x02000000    /* No Re-transmit on underrun */
 >  
->  extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
->  			     u16 vlan_tci, int polling);
-> -extern bool vlan_hwaccel_do_receive(struct sk_buff **skb);
-> +extern bool vlan_do_receive(struct sk_buff **skb);
-> +extern struct sk_buff *vlan_untag(struct sk_buff *skb);
->  extern gro_result_t
->  vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
->  		 unsigned int vlan_tci, struct sk_buff *skb);
-> @@ -166,13 +167,18 @@ static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
->  	return NET_XMIT_SUCCESS;
+> +/* M88E1000 PHY Specific Status Register */
+> +#define M88_PSSR_JABBER             0x0001 /* 1=Jabber */
+> +#define M88_PSSR_REV_POLARITY       0x0002 /* 1=Polarity reversed */
+> +#define M88_PSSR_DOWNSHIFT          0x0020 /* 1=Downshifted */
+> +#define M88_PSSR_MDIX               0x0040 /* 1=MDIX; 0=MDI */
+> +#define M88_PSSR_CABLE_LENGTH       0x0380 /* 0=<50M;1=50-80M;2=80-110M;
+> +                                            * 3=110-140M;4=>140M */
+> +#define M88_PSSR_LINK               0x0400 /* 1=Link up, 0=Link down */
+> +#define M88_PSSR_SPD_DPLX_RESOLVED  0x0800 /* 1=Speed & Duplex resolved */
+> +#define M88_PSSR_PAGE_RCVD          0x1000 /* 1=Page received */
+> +#define M88_PSSR_DPLX               0x2000 /* 1=Duplex 0=Half Duplex */
+> +#define M88_PSSR_SPEED              0xC000 /* Speed, bits 14:15 */
+> +#define M88_PSSR_10MBS              0x0000 /* 00=10Mbs */
+> +#define M88_PSSR_100MBS             0x4000 /* 01=100Mbs */
+> +#define M88_PSSR_1000MBS            0x8000 /* 10=1000Mbs */
+> +
+> +#define M88_PSSR_CL_0_50     (0<<7)
+> +#define M88_PSSR_CL_50_80    (1<<7)
+> +#define M88_PSSR_CL_80_110   (2<<7)
+> +#define M88_PSSR_CL_110_140  (3<<7)
+> +#define M88_PSSR_CL_140_PLUS (4<<7)
+> +
+> +/* M88E1000 PHY Specific Control Register */
+> +#define M88_PSCR_JABBER_DISABLE    0x0001  /* 1=Jabber Function disabled */
+> +#define M88_PSCR_POLARITY_REVERSAL 0x0002  /* 1=Polarity Reversal enabled */
+> +#define M88_PSCR_SQE_TEST          0x0004  /* 1=SQE Test enabled */
+> +#define M88_PSCR_CLK125_DISABLE    0x0010  /* 1=CLK125 low,
+> +                                            * 0=CLK125 toggling
+> +                                            */
+> +#define M88_PSCR_MDI_MASK         0x0060
+> +#define M88_PSCR_MDI_MANUAL_MODE  0x0000   /* MDI Crossover Mode bits 6:5 */
+> +                                          /* Manual MDI configuration */
+> +#define M88_PSCR_MDIX_MANUAL_MODE 0x0020   /* Manual MDIX configuration */
+> +#define M88_PSCR_AUTO_X_1000T     0x0040   /* 1000BASE-T: Auto crossover,
+> +                                            *  100BASE-TX/10BASE-T:
+> +                                            *  MDI Mode
+> +                                            */
+> +#define M88_PSCR_AUTO_X_MODE      0x0060   /* Auto crossover enabled
+> +                                            * all speeds.
+> +                                            */
+> +#define M88_PSCR_10BT_EXT_DIST_ENABLE 0x0080
+> +                                   /* 1=Enable Extended 10BASE-T distance
+> +                                    * (Lower 10BASE-T RX Threshold)
+> +                                    * 0=Normal 10BASE-T RX Threshold */
+> +#define M88_PSCR_MII_5BIT_ENABLE      0x0100
+> +                                   /* 1=5-Bit interface in 100BASE-TX
+> +                                    * 0=MII interface in 100BASE-TX */
+> +#define M88_PSCR_SCRAMBLER_DISABLE    0x0200       /* 1=Scrambler disable */
+> +#define M88_PSCR_FORCE_LINK_GOOD      0x0400       /* 1=Force link good */
+> +#define M88_PSCR_ASSERT_CRS_ON_TX     0x0800       /* 1=Assert CRS on Transmit */
+> +
+> +#define M88_PSCR_POLARITY_REVERSAL_SHIFT    1
+> +#define M88_PSCR_AUTO_X_MODE_SHIFT          5
+> +#define M88_PSCR_10BT_EXT_DIST_ENABLE_SHIFT 7
+> +
+>  /* PCI Device IDs */
+>  #define E1000_DEV_ID_82542                    0x1000
+>  #define E1000_DEV_ID_82543GC_FIBER            0x1001
+> @@ -515,6 +570,72 @@
+>                 regs_buff[12] == 1 ? "IGP" :
+>                 regs_buff[12] == 2 ? "IGP2" : "unknown" );
+>  
+> +       if (0 == regs_buff[12]) {
+> +               reg = regs_buff[13];
+> +               fprintf(stdout,
+> +                       "M88 PHY STATUS REGISTER:                 0x%08X\n"
+> +                       "      Jabber:                            %s\n"
+> +                       "      Polarity:                          %s\n"
+> +                       "      Downshifted:                       %s\n"
+> +                       "      MDI/MDIX:                          %s\n"
+> +                       "      Cable Length Estimate:             %s meters\n"
+> +                       "      Link State:                        %s\n"
+> +                       "      Speed & Duplex Resolved:           %s\n"
+> +                       "      Page Received:                     %s\n"
+> +                       "      Duplex:                            %s\n"
+> +                       "      Speed:                             %s mbps\n",
+> +                       reg,
+> +                       reg & M88_PSSR_JABBER       ? "yes"     : "no",
+> +                       reg & M88_PSSR_REV_POLARITY ? "reverse" : "normal",
+> +                       reg & M88_PSSR_DOWNSHIFT    ? "yes"     : "no",
+> +                       reg & M88_PSSR_MDIX         ? "MDIX"    : "MDI",
+> +                       ((reg & M88_PSSR_CABLE_LENGTH)==M88_PSSR_CL_0_50 ? "0-50"
+> +                               : (reg & M88_PSSR_CABLE_LENGTH)==M88_PSSR_CL_50_80 ? "50-80"
+> +                               : (reg & M88_PSSR_CABLE_LENGTH)==M88_PSSR_CL_80_110 ? "80-110"
+> +                               : (reg & M88_PSSR_CABLE_LENGTH)==M88_PSSR_CL_110_140? "110-140"
+> +                               : (reg & M88_PSSR_CABLE_LENGTH)==M88_PSSR_CL_140_PLUS ? "140+"
+> +                               : "unknown"),
+> +                       reg & M88_PSSR_LINK              ? "Up"      : "Down",
+> +                       reg & M88_PSSR_SPD_DPLX_RESOLVED ? "Yes"     : "No",
+> +                       reg & M88_PSSR_PAGE_RCVD         ? "Yes"     : "No",
+> +                       reg & M88_PSSR_DPLX              ? "Full"    : "Half",
+> +                       ((reg & M88_PSSR_SPEED)==M88_PSSR_10MBS        ? "10"
+> +                               : (reg & M88_PSSR_SPEED)==M88_PSSR_100MBS  ? "100"
+> +                               : (reg & M88_PSSR_SPEED)==M88_PSSR_1000MBS ? "1000"
+> +                               : "unknown")
+> +               );
+> +
+> +               reg = regs_buff[17];
+> +               fprintf(stdout,
+> +                       "M88 PHY CONTROL REGISTER:                0x%08X\n"
+> +                       "      Jabber funtion:                    %s\n"
+> +                       "      Auto-polarity:                     %s\n"
+> +                       "      SQE Test:                          %s\n"
+> +                       "      CLK125:                            %s\n"
+> +                       "      Auto-MDIX:                         %s\n"
+> +                       "      Extended 10Base-T Distance:        %s\n"
+> +                       "      100Base-TX Interface:              %s\n"
+> +                       "      Scrambler:                         %s\n"
+> +                       "      Force Link Good:                   %s\n"
+> +                       "      Assert CRS on Transmit:            %s\n",
+> +                       reg,
+> +                       reg & M88_PSCR_JABBER_DISABLE    ? "disabled" : "enabled",
+> +                       reg & M88_PSCR_POLARITY_REVERSAL ? "enabled"  : "disabled",
+> +                       reg & M88_PSCR_SQE_TEST          ? "enabled"  : "disabled",
+> +                       reg & M88_PSCR_CLK125_DISABLE    ? "disabled" : "enabled",
+> +                       ((reg & M88_PSCR_MDI_MASK)==M88_PSCR_MDI_MANUAL_MODE ? "force MDI"
+> +                               : (reg & M88_PSCR_MDI_MASK)==M88_PSCR_MDIX_MANUAL_MODE ? "force MDIX"
+> +                               : (reg & M88_PSCR_MDI_MASK)==M88_PSCR_AUTO_X_1000T ? "1000 auto, 10/100 MDI"
+> +                               : (reg & M88_PSCR_MDI_MASK)==M88_PSCR_AUTO_X_MODE ? "auto"
+> +                               : "wtf"),
+> +                       reg & M88_PSCR_10BT_EXT_DIST_ENABLE ? "enabled" : "disabled",
+> +                       reg & M88_PSCR_MII_5BIT_ENABLE ? "5-bit" : "MII",
+> +                       reg & M88_PSCR_SCRAMBLER_DISABLE ? "disabled" : "enabled",
+> +                       reg & M88_PSCR_FORCE_LINK_GOOD ? "forced" : "disabled",
+> +                       reg & M88_PSCR_ASSERT_CRS_ON_TX ? "enabled" : "disabled"
+> +               );
+> +       }
+> +
+>         return 0;
 >  }
->  
-> -static inline bool vlan_hwaccel_do_receive(struct sk_buff **skb)
-> +static inline bool vlan_do_receive(struct sk_buff **skb)
->  {
->  	if ((*skb)->vlan_tci & VLAN_VID_MASK)
->  		(*skb)->pkt_type = PACKET_OTHERHOST;
->  	return false;
->  }
-
-Why the added unnecessary indirection
+>   
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
 
-> +inline struct sk_buff *vlan_untag(struct sk_buff *skb)
-> +{
-> +	return skb;
-> +}
-
-This adds no value.
-
->  static inline gro_result_t
->  vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
->  		 unsigned int vlan_tci, struct sk_buff *skb)
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index 7850412..59f0a9d 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -49,11 +49,6 @@ const char vlan_version[] = DRV_VERSION;
->  static const char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
->  static const char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
->  
-> -static struct packet_type vlan_packet_type __read_mostly = {
-> -	.type = cpu_to_be16(ETH_P_8021Q),
-> -	.func = vlan_skb_recv, /* VLAN receive method */
-> -};
-> -
->  /* End of global variables definitions. */
->  
->  static void vlan_group_free(struct vlan_group *grp)
-> @@ -688,7 +683,6 @@ static int __init vlan_proto_init(void)
->  	if (err < 0)
->  		goto err4;
->  
-> -	dev_add_pack(&vlan_packet_type);
->  	vlan_ioctl_set(vlan_ioctl_handler);
->  	return 0;
->  
-> @@ -709,8 +703,6 @@ static void __exit vlan_cleanup_module(void)
->  
->  	unregister_netdevice_notifier(&vlan_notifier_block);
->  
-> -	dev_remove_pack(&vlan_packet_type);
-> -
->  	unregister_pernet_subsys(&vlan_net_ops);
->  	rcu_barrier(); /* Wait for completion of call_rcu()'s */
->  
-> diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
-> index 5687c9b..c3408de 100644
-> --- a/net/8021q/vlan.h
-> +++ b/net/8021q/vlan.h
-> @@ -75,8 +75,6 @@ static inline struct vlan_dev_info *vlan_dev_info(const struct net_device *dev)
->  }
->  
->  /* found in vlan_dev.c */
-> -int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
-> -		  struct packet_type *ptype, struct net_device *orig_dev);
->  void vlan_dev_set_ingress_priority(const struct net_device *dev,
->  				   u32 skb_prio, u16 vlan_prio);
->  int vlan_dev_set_egress_priority(const struct net_device *dev,
-> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> index ce8e3ab..bc83ecc 100644
-> --- a/net/8021q/vlan_core.c
-> +++ b/net/8021q/vlan_core.c
-> @@ -4,7 +4,7 @@
->  #include <linux/netpoll.h>
->  #include "vlan.h"
->  
-> -bool vlan_hwaccel_do_receive(struct sk_buff **skbp)
-> +bool vlan_do_receive(struct sk_buff **skbp)
->  {
->  	struct sk_buff *skb = *skbp;
->  	u16 vlan_id = skb->vlan_tci & VLAN_VID_MASK;
-> @@ -88,3 +88,87 @@ gro_result_t vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
->  	return napi_gro_frags(napi);
->  }
->  EXPORT_SYMBOL(vlan_gro_frags);
-> +
-> +static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
-> +{
-> +	if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
-> +		if (skb_cow(skb, skb_headroom(skb)) < 0)
-> +			skb = NULL;
-> +		if (skb) {
-> +			/* Lifted from Gleb's VLAN code... */
-> +			memmove(skb->data - ETH_HLEN,
-> +				skb->data - VLAN_ETH_HLEN, 12);
-> +			skb->mac_header += VLAN_HLEN;
-> +		}
-> +	}
-> +	return skb;
-> +}
-
-Do not mark code as 'static inline' let compiler decide.
-
-> +static inline void vlan_set_encap_proto(struct sk_buff *skb,
-> +					struct vlan_hdr *vhdr)
-> +{
-> +	__be16 proto;
-> +	unsigned char *rawp;
-> +
-> +	/*
-> +	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
-> +	 * three protocols care about.
-> +	 */
-> +
-> +	proto = vhdr->h_vlan_encapsulated_proto;
-> +	if (ntohs(proto) >= 1536) {
-> +		skb->protocol = proto;
-> +		return;
-> +	}
-> +
-> +	rawp = skb->data;
-> +	if (*(unsigned short *) rawp == 0xFFFF)
-> +		/*
-> +		 * This is a magic hack to spot IPX packets. Older Novell
-> +		 * breaks the protocol design and runs IPX over 802.3 without
-> +		 * an 802.2 LLC layer. We look for FFFF which isn't a used
-> +		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
-> +		 * but does for the rest.
-> +		 */
-> +		skb->protocol = htons(ETH_P_802_3);
-> +	else
-> +		/*
-> +		 * Real 802.2 LLC
-> +		 */
-> +		skb->protocol = htons(ETH_P_802_2);
-> +}
-
-What about doublely tagged packets?
-
-> +struct sk_buff *vlan_untag(struct sk_buff *skb)
-> +{
-> +	struct vlan_hdr *vhdr;
-> +	u16 vlan_tci;
-> +
-> +	if (unlikely(vlan_tx_tag_present(skb))) {
-> +		/* vlan_tci is already set-up so leave this for another time */
-> +		return skb;
-> +	}
-> +
-> +	skb = skb_share_check(skb, GFP_ATOMIC);
-> +	if (unlikely(!skb))
-> +		goto err_free;
-> +
-> +	if (unlikely(!pskb_may_pull(skb, VLAN_HLEN)))
-> +		goto err_free;
-> +
-> +	vhdr = (struct vlan_hdr *) skb->data;
-> +	vlan_tci = ntohs(vhdr->h_vlan_TCI);
-> +	__vlan_hwaccel_put_tag(skb, vlan_tci);
-> +
-> +	skb_pull_rcsum(skb, VLAN_HLEN);
-> +	vlan_set_encap_proto(skb, vhdr);
-> +
-> +	skb = vlan_check_reorder_header(skb);
-> +	if (unlikely(!skb))
-> +		goto err_free;
-> +
-> +	return skb;
-> +
-> +err_free:
-> +	kfree_skb(skb);
-> +	return NULL;
-> +}
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index e34ea9e..b4f061f 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -65,179 +65,6 @@ static int vlan_dev_rebuild_header(struct sk_buff *skb)
->  	return 0;
->  }
->  
-> -static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
-> -{
-> -	if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
-> -		if (skb_cow(skb, skb_headroom(skb)) < 0)
-> -			skb = NULL;
-> -		if (skb) {
-> -			/* Lifted from Gleb's VLAN code... */
-> -			memmove(skb->data - ETH_HLEN,
-> -				skb->data - VLAN_ETH_HLEN, 12);
-> -			skb->mac_header += VLAN_HLEN;
-> -		}
-> -	}
-> -
-> -	return skb;
-> -}
-> -
-> -static inline void vlan_set_encap_proto(struct sk_buff *skb,
-> -		struct vlan_hdr *vhdr)
-> -{
-> -	__be16 proto;
-> -	unsigned char *rawp;
-> -
-> -	/*
-> -	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
-> -	 * three protocols care about.
-> -	 */
-> -
-> -	proto = vhdr->h_vlan_encapsulated_proto;
-> -	if (ntohs(proto) >= 1536) {
-> -		skb->protocol = proto;
-> -		return;
-> -	}
-> -
-> -	rawp = skb->data;
-> -	if (*(unsigned short *)rawp == 0xFFFF)
-> -		/*
-> -		 * This is a magic hack to spot IPX packets. Older Novell
-> -		 * breaks the protocol design and runs IPX over 802.3 without
-> -		 * an 802.2 LLC layer. We look for FFFF which isn't a used
-> -		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
-> -		 * but does for the rest.
-> -		 */
-> -		skb->protocol = htons(ETH_P_802_3);
-> -	else
-> -		/*
-> -		 * Real 802.2 LLC
-> -		 */
-> -		skb->protocol = htons(ETH_P_802_2);
-> -}
-> -
-> -/*
-> - *	Determine the packet's protocol ID. The rule here is that we
-> - *	assume 802.3 if the type field is short enough to be a length.
-> - *	This is normal practice and works for any 'now in use' protocol.
-> - *
-> - *  Also, at this point we assume that we ARE dealing exclusively with
-> - *  VLAN packets, or packets that should be made into VLAN packets based
-> - *  on a default VLAN ID.
-> - *
-> - *  NOTE:  Should be similar to ethernet/eth.c.
-> - *
-> - *  SANITY NOTE:  This method is called when a packet is moving up the stack
-> - *                towards userland.  To get here, it would have already passed
-> - *                through the ethernet/eth.c eth_type_trans() method.
-> - *  SANITY NOTE 2: We are referencing to the VLAN_HDR frields, which MAY be
-> - *                 stored UNALIGNED in the memory.  RISC systems don't like
-> - *                 such cases very much...
-> - *  SANITY NOTE 2a: According to Dave Miller & Alexey, it will always be
-> - *  		    aligned, so there doesn't need to be any of the unaligned
-> - *  		    stuff.  It has been commented out now...  --Ben
-> - *
-> - */
-> -int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
-> -		  struct packet_type *ptype, struct net_device *orig_dev)
-> -{
-> -	struct vlan_hdr *vhdr;
-> -	struct vlan_pcpu_stats *rx_stats;
-> -	struct net_device *vlan_dev;
-> -	u16 vlan_id;
-> -	u16 vlan_tci;
-> -
-> -	skb = skb_share_check(skb, GFP_ATOMIC);
-> -	if (skb == NULL)
-> -		goto err_free;
-> -
-> -	if (unlikely(!pskb_may_pull(skb, VLAN_HLEN)))
-> -		goto err_free;
-> -
-> -	vhdr = (struct vlan_hdr *)skb->data;
-> -	vlan_tci = ntohs(vhdr->h_vlan_TCI);
-> -	vlan_id = vlan_tci & VLAN_VID_MASK;
-> -
-> -	rcu_read_lock();
-> -	vlan_dev = vlan_find_dev(dev, vlan_id);
-> -
-> -	/* If the VLAN device is defined, we use it.
-> -	 * If not, and the VID is 0, it is a 802.1p packet (not
-> -	 * really a VLAN), so we will just netif_rx it later to the
-> -	 * original interface, but with the skb->proto set to the
-> -	 * wrapped proto: we do nothing here.
-> -	 */
-> -
-> -	if (!vlan_dev) {
-> -		if (vlan_id) {
-> -			pr_debug("%s: ERROR: No net_device for VID: %u on dev: %s\n",
-> -				 __func__, vlan_id, dev->name);
-> -			goto err_unlock;
-> -		}
-> -		rx_stats = NULL;
-> -	} else {
-> -		skb->dev = vlan_dev;
-> -
-> -		rx_stats = this_cpu_ptr(vlan_dev_info(skb->dev)->vlan_pcpu_stats);
-> -
-> -		u64_stats_update_begin(&rx_stats->syncp);
-> -		rx_stats->rx_packets++;
-> -		rx_stats->rx_bytes += skb->len;
-> -
-> -		skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tci);
-> -
-> -		pr_debug("%s: priority: %u for TCI: %hu\n",
-> -			 __func__, skb->priority, vlan_tci);
-> -
-> -		switch (skb->pkt_type) {
-> -		case PACKET_BROADCAST:
-> -			/* Yeah, stats collect these together.. */
-> -			/* stats->broadcast ++; // no such counter :-( */
-> -			break;
-> -
-> -		case PACKET_MULTICAST:
-> -			rx_stats->rx_multicast++;
-> -			break;
-> -
-> -		case PACKET_OTHERHOST:
-> -			/* Our lower layer thinks this is not local, let's make
-> -			 * sure.
-> -			 * This allows the VLAN to have a different MAC than the
-> -			 * underlying device, and still route correctly.
-> -			 */
-> -			if (!compare_ether_addr(eth_hdr(skb)->h_dest,
-> -						skb->dev->dev_addr))
-> -				skb->pkt_type = PACKET_HOST;
-> -			break;
-> -		default:
-> -			break;
-> -		}
-> -		u64_stats_update_end(&rx_stats->syncp);
-> -	}
-> -
-> -	skb_pull_rcsum(skb, VLAN_HLEN);
-> -	vlan_set_encap_proto(skb, vhdr);
-> -
-> -	if (vlan_dev) {
-> -		skb = vlan_check_reorder_header(skb);
-> -		if (!skb) {
-> -			rx_stats->rx_errors++;
-> -			goto err_unlock;
-> -		}
-> -	}
-> -
-> -	netif_rx(skb);
-> -
-> -	rcu_read_unlock();
-> -	return NET_RX_SUCCESS;
-> -
-> -err_unlock:
-> -	rcu_read_unlock();
-> -err_free:
-> -	atomic_long_inc(&dev->rx_dropped);
-> -	kfree_skb(skb);
-> -	return NET_RX_DROP;
-> -}
-> -
->  static inline u16
->  vlan_dev_get_egress_qos_mask(struct net_device *dev, struct sk_buff *skb)
->  {
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 3da9fb0..bfe9fce 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3130,6 +3130,12 @@ another_round:
->  
->  	__this_cpu_inc(softnet_data.processed);
->  
-> +	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
-> +		skb = vlan_untag(skb);
-> +		if (unlikely(!skb))
-> +			goto out;
-> +	}
-
-This becomes a NOP, why is it here?
-
-
->  #ifdef CONFIG_NET_CLS_ACT
->  	if (skb->tc_verd & TC_NCLS) {
->  		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
-> @@ -3177,7 +3183,7 @@ ncls:
->  			ret = deliver_skb(skb, pt_prev, orig_dev);
->  			pt_prev = NULL;
->  		}
-> -		if (vlan_hwaccel_do_receive(&skb)) {
-> +		if (vlan_do_receive(&skb)) {
->  			ret = __netif_receive_skb(skb);
->  			goto out;
->  		} else if (unlikely(!skb))
-
-
-Why rename the function?
-
-
+------------------------------------------------------------------------------
+Create and publish websites with WebMatrix
+Use the most popular FREE web apps or write code yourself; 
+WebMatrix provides all the features you need to develop and 
+publish your website. http://p.sf.net/sfu/ms-webmatrix-sf
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
