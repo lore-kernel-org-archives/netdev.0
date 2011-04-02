@@ -1,73 +1,67 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: Re: [PATCH] net: ethtool support to configure number of channels
-Date: Fri, 1 Apr 2011 22:47:01 -0700
-Message-ID: <BEEA5B09-0726-463D-B542-234C4FB49FC5@qlogic.com>
-References: <1301652075-382-1-git-send-email-amit.salecha@qlogic.com>
- <1301677824.4679.10.camel@bwh-desktop>
- <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D93@MNEXMB2.qlogic.org>
- <1301712946.10056.179.camel@localhost>
+From: Aisheng.Dong <b29396@freescale.com>
+Subject: [PATCH 1/1] net/fec: do not pass NULL dev to DMA API
+Date: Sat, 2 Apr 2011 14:39:51 +0800
+Message-ID: <1301726391-7431-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:20627 "EHLO
-	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751318Ab1DBFsM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Apr 2011 01:48:12 -0400
-In-Reply-To: <1301712946.10056.179.camel@localhost>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
+Fec will crash when DMABOUNCE is enabled.
+Unable to handle kernel NULL pointer dereference at virtual address 000000bc
+pgd = 80004000
+[000000bc] *pgd=00000000
+Internal error: Oops: 5 [#1] PREEMPT
+last sysfs file:
+Modules linked in:
+CPU: 0    Not tainted  (2.6.35.3-00845-g204c152-dirty #112)
+PC is at dma_map_single+0x2c/0x2a0
+LR is at fec_enet_interrupt+0x1d4/0x450
 
-On Apr 1, 2011, at 7:55 PM, Ben Hutchings wrote:
+The reason is DMA API of dmabounce needs the dev passed in is not NULL.
 
-> On Fri, 2011-04-01 at 21:36 -0500, Amit Salecha wrote:
->>> I'm not sure why you reduced this to a single count.  If if the driver
->>> or hardware doesn't allow certain combinations of counts, it might be
->>> necessary to configure several types at the same time
->>>
->>>> +/* Channel ID is made up of a type */
->>>> +enum ethtool_channel_id {
->>>> +   ETH_CHAN_TYPE_RX = 0x1,
->>>> +   ETH_CHAN_TYPE_TX = 0x2
->>>> +};
->>> [...]
->>>
->>> enum ethtool_channel_id was meant to be an identifier of a specific
->>> channel.  An enumeration of channel types should be named differently.
->>>
->>
->> I will name it as ethtool_channel_type. Any other suggestion ?
->>
->>> This also omits the 'combined' and 'other' types.  Most multiqueue
->>> drivers pair up RX and TX queues so that most channels combine RX and
->>> TX
->>> work.
->>
->> 'combined' is ok, what is use of 'other' ?
->
-> Could be link interrupts, SR-IOV coordination, or something else.  Not
-> something you'd likely be able to change, but it could be useful to know
-> that some interrupts are allocated to them.  Actually, that does mean it
-> might be helpful for the 'get' operation to return a minimum value along
-> with the maximum value.
+Here we'd always pass in a struct device if there is one available
+for using DMA API to improve the code robustness sicne it may not
+always work when passing a NULL dev.
 
-Are you thinking of using the 'other' field as a way to a represent a 'virtual port'
-that a VF could have. A virtual port could have a set of rx/tx rings, interrupts,
-QoS parameters, MAC filters, VLAN ids etc. etc. A VF could have one or many such
-channels. If thats the case, I would think that configuring these channels should
-be done via a PF rather than on a VF. It is possible I could get you totally wrong here,
-however it would be good to hear your thoughts.
+Signed-off-by: Aisheng.Dong <b29396@freescale.com>
+---
+ drivers/net/fec.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
--Anirban
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
-
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index cd0282d..89a2ba4 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -527,7 +527,7 @@ fec_enet_rx(struct net_device *dev)
+ 		dev->stats.rx_bytes += pkt_len;
+ 		data = (__u8*)__va(bdp->cbd_bufaddr);
+ 
+-	        dma_unmap_single(NULL, bdp->cbd_bufaddr, bdp->cbd_datlen,
++		dma_unmap_single(&dev->dev, bdp->cbd_bufaddr, bdp->cbd_datlen,
+         			DMA_FROM_DEVICE);
+ 
+ 		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
+@@ -552,7 +552,7 @@ fec_enet_rx(struct net_device *dev)
+ 			netif_rx(skb);
+ 		}
+ 
+-        	bdp->cbd_bufaddr = dma_map_single(NULL, data, bdp->cbd_datlen,
++		bdp->cbd_bufaddr = dma_map_single(&dev->dev, data, bdp->cbd_datlen,
+ 			DMA_FROM_DEVICE);
+ rx_processing_done:
+ 		/* Clear the status flags for this buffer */
+-- 
+1.7.0.4
