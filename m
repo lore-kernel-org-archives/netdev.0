@@ -1,70 +1,117 @@
-From: Cyril =?utf-8?q?Bont=C3=A9?= <cyril.bonte@free.fr>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: tcp: disallow bind() to reuse addr/port regression in 2.6.38
-Date: Sat, 2 Apr 2011 20:46:11 +0200
-Message-ID: <201104022046.11701.cyril.bonte@free.fr>
-References: <201104022001.48144.cyril.bonte@free.fr> <1301767848.2837.14.camel@edumazet-laptop>
+Date: Sat, 2 Apr 2011 21:15:16 +0200
+Message-ID: <20110402191516.GG5552@1wt.eu>
+References: <201104022001.48144.cyril.bonte@free.fr> <1301767848.2837.14.camel@edumazet-laptop> <201104022046.11701.cyril.bonte@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Daniel Baluta <daniel.baluta@gmail.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Daniel Baluta <daniel.baluta@gmail.com>,
 	Gaspar Chilingarov <gasparch@gmail.com>,
-	Charles Duffy <charles@dyfis.net>, Willy Tarreau <w@1wt.eu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Charles Duffy <charles@dyfis.net>
+To: Cyril =?iso-8859-1?Q?Bont=E9?= <cyril.bonte@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:45097 "EHLO smtp5-g21.free.fr"
+Received: from 1wt.eu ([62.212.114.60]:62123 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750874Ab1DBSqU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2011 14:46:20 -0400
-In-Reply-To: <1301767848.2837.14.camel@edumazet-laptop>
+	id S1756426Ab1DBTZv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Apr 2011 15:25:51 -0400
+Content-Disposition: inline
+In-Reply-To: <201104022046.11701.cyril.bonte@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 2 avril 2011 20:10:48, Eric Dumazet a =C3=A9crit :
-> Le samedi 02 avril 2011 =C3=A0 20:01 +0200, Cyril Bont=C3=A9 a =C3=A9=
-crit :
-> (...)
-> > > 		if (shutdown(listenfd, SHUT_WR) =3D=3D 0 &&
-> > 	=09
-> > 		    listen(listenfd, 1024) =3D=3D 0 &&
-> > 		    shutdown(listenfd, SHUT_RD) =3D=3D 0) {
-> > 		=09
-> > 			printf("shutdown OK\n");
-> > 	=09
-> > 		}
-> > =09
-> > 	}
-> > 	exit(0);
+Hi Eric,
+
+On Sat, Apr 02, 2011 at 08:46:11PM +0200, Cyril Bont=E9 wrote:
+> Le samedi 2 avril 2011 20:10:48, Eric Dumazet a =E9crit :
+> > Le samedi 02 avril 2011 =E0 20:01 +0200, Cyril Bont=E9 a =E9crit :
+> > (...)
+> > > > 		if (shutdown(listenfd, SHUT_WR) =3D=3D 0 &&
+> > > 	=09
+> > > 		    listen(listenfd, 1024) =3D=3D 0 &&
+> > > 		    shutdown(listenfd, SHUT_RD) =3D=3D 0) {
+> > > 		=09
+> > > 			printf("shutdown OK\n");
+> > > 	=09
+> > > 		}
+> > > =09
+> > > 	}
+> > > 	exit(0);
+> > >=20
+> > > }
 > >=20
-> > }
+> > Wow, not clear what this is doing....
+> >=20
+> > for sure the listen() call is not needed ?
+> >=20
+> > And the shutdown(listenfd, SHUT_WR) is clearly useless too.
 >=20
-> Wow, not clear what this is doing....
+> Well, I'm not the best one to explain that part but from what i read =
+in the=20
+> comments of this part of code, both listen and SHUT_WR are used to de=
+tect=20
+> errors on various OS (OpenBSD, Solaris, ...).
 >=20
-> for sure the listen() call is not needed ?
+> > I feel you only needed the shutdown(listenfd, SHUT_RD) call.
+> >=20
+> > Why haproxy needs to setup a second listening socket on same port ?
 >=20
-> And the shutdown(listenfd, SHUT_WR) is clearly useless too.
+> I simplified the test case, which is far from what haproxy do (just f=
+orgot to=20
+> explain the real behaviour).
+> To reload the configuration, a new haproxy process is launched, sendi=
+ng a=20
+> signal to the previous one and asking it to free the ports for a whil=
+e (the=20
+> shutdown part in the test). The new process then tries to bind the po=
+rts,=20
+> which worked until 2.6.38 (if an error occurs, a new signal is sent t=
+o the=20
+> previous process to listen to its sockets again).
 
-Well, I'm not the best one to explain that part but from what i read in=
- the=20
-comments of this part of code, both listen and SHUT_WR are used to dete=
-ct=20
-errors on various OS (OpenBSD, Solaris, ...).
+Indeed, here's what normally happens when haproxy reloads.
 
-> I feel you only needed the shutdown(listenfd, SHUT_RD) call.
->=20
-> Why haproxy needs to setup a second listening socket on same port ?
+New process is loaded with a new config. Once the config correctly pars=
+es,
+it sends a signal to the previous process asking it to temporarily rele=
+ase
+its listening ports so that the new one can bind, hence the shutdown(SH=
+UT_RD)
+performed in the old process.
 
-I simplified the test case, which is far from what haproxy do (just for=
-got to=20
-explain the real behaviour).
-To reload the configuration, a new haproxy process is launched, sending=
- a=20
-signal to the previous one and asking it to free the ports for a while =
-(the=20
-shutdown part in the test). The new process then tries to bind the port=
-s,=20
-which worked until 2.6.38 (if an error occurs, a new signal is sent to =
-the=20
-previous process to listen to its sockets again).
+Then the new process can grab the ports and listen to them. Once that's=
+ OK,
+it sends another signal to the old process telling it it can go away. B=
+ut
+if the new process failed to completely start (eg: could not grab one p=
+ort),
+then it sends a third signal to the old process asking it to rebind the=
+ port
+and serve them again, and the new one dies with an error.
 
---=20
-Cyril Bont=C3=A9
+That way, the service is never interrupted even if the new config fails
+late, because the old process has the ability to rebind to the port it
+temporarily released.
+
+Now with 2.6.38, as Cyril diagnosed it, the new bind() fails when the
+old process has just performed its shutdown(SHUT_RD), preventing the
+new process from binding to the ports until the old process has
+definitely closed them.
+
+The behaviour is very useful, because the old process might have lost
+its privileges, it will not have to rebind to the socket, just listen
+on it again since it is never closed.
+
+This is quite embarrassing, because this code used to work for the
+last 10 years, at least since kernel 2.2, and maybe even 2.0, I don't
+remember.
+
+I'm not sure what the original intent of the patch was, not what was
+the reported issue, but maybe we could find a way to both fix the
+reported issue (if any) and restore the old behaviour in order not
+to break existing programs.
+
+Best regards,
+Willy
+
