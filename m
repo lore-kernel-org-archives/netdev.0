@@ -1,163 +1,73 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv3 NEXT 1/1] net: ethtool support to configure number of channels
-Date: Fri,  1 Apr 2011 21:58:03 -0700
-Message-ID: <1301720283-25038-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: davem@davemloft.net
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: [PATCH] net: ethtool support to configure number of channels
+Date: Fri, 1 Apr 2011 22:47:01 -0700
+Message-ID: <BEEA5B09-0726-463D-B542-234C4FB49FC5@qlogic.com>
+References: <1301652075-382-1-git-send-email-amit.salecha@qlogic.com>
+ <1301677824.4679.10.camel@bwh-desktop>
+ <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D93@MNEXMB2.qlogic.org>
+ <1301712946.10056.179.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Amit Salecha <amit.salecha@qlogic.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:35155 "EHLO unm84.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750754Ab1DBE6P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Apr 2011 00:58:15 -0400
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:20627 "EHLO
+	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751318Ab1DBFsM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Apr 2011 01:48:12 -0400
+In-Reply-To: <1301712946.10056.179.camel@localhost>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o There exist ETHTOOL_GRXRINGS command for getting number of RX rings,
-  but it is tigtly coupled with RX flow hash configuration.
-o Patches for qlcnic and netxen_nic driver supporting rx channel will follow
-  soon.
-o This patch is reworked on Ben Hutchings "ethtool: NUMA affinity control" patch,
-  dropping the affinity control from it.
 
-Ben Hutching:
-o define 'combined' and 'other' types.  Most multiqueue drivers pair up RX and TX
-  queues so that most channels combine RX and TX work.
-o Please could you use a kernel-doc comment to describe the structure.
+On Apr 1, 2011, at 7:55 PM, Ben Hutchings wrote:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- include/linux/ethtool.h |   41 +++++++++++++++++++++++++++++++++++++++++
- net/core/ethtool.c      |   41 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 82 insertions(+), 0 deletions(-)
+> On Fri, 2011-04-01 at 21:36 -0500, Amit Salecha wrote:
+>>> I'm not sure why you reduced this to a single count.  If if the driver
+>>> or hardware doesn't allow certain combinations of counts, it might be
+>>> necessary to configure several types at the same time
+>>>
+>>>> +/* Channel ID is made up of a type */
+>>>> +enum ethtool_channel_id {
+>>>> +   ETH_CHAN_TYPE_RX = 0x1,
+>>>> +   ETH_CHAN_TYPE_TX = 0x2
+>>>> +};
+>>> [...]
+>>>
+>>> enum ethtool_channel_id was meant to be an identifier of a specific
+>>> channel.  An enumeration of channel types should be named differently.
+>>>
+>>
+>> I will name it as ethtool_channel_type. Any other suggestion ?
+>>
+>>> This also omits the 'combined' and 'other' types.  Most multiqueue
+>>> drivers pair up RX and TX queues so that most channels combine RX and
+>>> TX
+>>> work.
+>>
+>> 'combined' is ok, what is use of 'other' ?
+>
+> Could be link interrupts, SR-IOV coordination, or something else.  Not
+> something you'd likely be able to change, but it could be useful to know
+> that some interrupts are allocated to them.  Actually, that does mean it
+> might be helpful for the 'get' operation to return a minimum value along
+> with the maximum value.
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index c8fcbdd..3c4d968 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -229,6 +229,42 @@ struct ethtool_ringparam {
- 	__u32	tx_pending;
- };
- 
-+/**
-+ * struct ethtool_channels - configuring number of network channel
-+ * @cmd: ETHTOOL_{G,S}CHANNELS
-+ * @type: Channel type defined in ethtool_channel_type
-+ * @max_XX: Read only. Maximum number of channel the driver support
-+ * @XX_count: Valid values are in the range 1 to the "max_XX" counterpart above.
-+ *
-+ * This can be used to configure RX,TX and other channels.
-+ */
-+
-+struct ethtool_channels {
-+	__u32	cmd;
-+	__u32	type;
-+	__u32	max_rx;
-+	__u32	max_tx;
-+	__u32	max_other;
-+	__u32	rx_count;
-+	__u32	tx_count;
-+	__u32	other_count;
-+};
-+
-+/* Channel type */
-+/* Channel type should be pass in type field of ethtool_channels.
-+ * TYPE_ALL indicates set all channels to XX_count values.
-+ * TYPE_RX and TYPE_TX is to get and set RX and TX channels correspondingly.
-+ * TYPE_COMBINED is to set both RX and TX channels to rx_count and tx_count
-+ * correspondingly. TYPE_OTHER is to configure other channel.
-+ */
-+enum ethtool_channel_type {
-+	ETH_CHAN_TYPE_ALL	= 0,
-+	ETH_CHAN_TYPE_RX,
-+	ETH_CHAN_TYPE_TX,
-+	ETH_CHAN_TYPE_COMBINED,
-+	ETH_CHAN_TYPE_OTHER,
-+};
-+
- /* for configuring link flow control parameters */
- struct ethtool_pauseparam {
- 	__u32	cmd;	/* ETHTOOL_{G,S}PAUSEPARAM */
-@@ -802,6 +838,9 @@ struct ethtool_ops {
- 				  struct ethtool_rxfh_indir *);
- 	int	(*set_rxfh_indir)(struct net_device *,
- 				  const struct ethtool_rxfh_indir *);
-+	int	(*get_channels)(struct net_device *, struct ethtool_channels *);
-+	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
-+
- };
- #endif /* __KERNEL__ */
- 
-@@ -870,6 +909,8 @@ struct ethtool_ops {
- 
- #define ETHTOOL_GFEATURES	0x0000003a /* Get device offload settings */
- #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings */
-+#define ETHTOOL_GCHANNELS	0x0000003c /* Get no of channels */
-+#define ETHTOOL_SCHANNELS	0x0000003d /* Set no of channels */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 74ead9e..91c3c6d 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1441,6 +1441,41 @@ static int ethtool_set_ringparam(struct net_device *dev, void __user *useraddr)
- 	return dev->ethtool_ops->set_ringparam(dev, &ringparam);
- }
- 
-+static noinline_for_stack int ethtool_get_channels(struct net_device *dev,
-+						   void __user *useraddr)
-+{
-+	struct ethtool_channels channels;
-+	int rc;
-+
-+	if (!dev->ethtool_ops->get_channels)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&channels, useraddr, sizeof(channels)))
-+		return -EFAULT;
-+
-+	rc = dev->ethtool_ops->get_channels(dev, &channels);
-+	if (rc)
-+		return rc;
-+
-+	if (copy_to_user(useraddr, &channels, sizeof(channels)))
-+		return -EFAULT;
-+	return 0;
-+}
-+
-+static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
-+						   void __user *useraddr)
-+{
-+	struct ethtool_channels channels;
-+
-+	if (!dev->ethtool_ops->set_channels)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&channels, useraddr, sizeof(channels)))
-+		return -EFAULT;
-+
-+	return dev->ethtool_ops->set_channels(dev, &channels);
-+}
-+
- static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_pauseparam pauseparam = { ETHTOOL_GPAUSEPARAM };
-@@ -1953,6 +1988,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SGRO:
- 		rc = ethtool_set_one_feature(dev, useraddr, ethcmd);
- 		break;
-+	case ETHTOOL_GCHANNELS:
-+		rc = ethtool_get_channels(dev, useraddr);
-+		break;
-+	case ETHTOOL_SCHANNELS:
-+		rc = ethtool_set_channels(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
--- 
-1.7.3.2
+Are you thinking of using the 'other' field as a way to a represent a 'virtual port'
+that a VF could have. A virtual port could have a set of rx/tx rings, interrupts,
+QoS parameters, MAC filters, VLAN ids etc. etc. A VF could have one or many such
+channels. If thats the case, I would think that configuring these channels should
+be done via a PF rather than on a VF. It is possible I could get you totally wrong here,
+however it would be good to hear your thoughts.
+
+-Anirban
+
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
