@@ -1,53 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: Allow no-cache copy from user on transmit
-Date: Fri, 01 Apr 2011 20:52:52 -0700 (PDT)
-Message-ID: <20110401.205252.102551587.davem@davemloft.net>
-References: <alpine.DEB.2.00.1103302156270.17065@pokey.mtv.corp.google.com>
-	<20110401.204922.28812273.davem@davemloft.net>
+Subject: Re: [PATCH] virtio_net: convert to hw_features
+Date: Fri, 01 Apr 2011 20:54:34 -0700 (PDT)
+Message-ID: <20110401.205434.179939370.davem@davemloft.net>
+References: <20110331110135.6988113A64@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33245
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40246
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751760Ab1DBDx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 23:53:29 -0400
-In-Reply-To: <20110401.204922.28812273.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1752014Ab1DBDzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 23:55:12 -0400
+In-Reply-To: <20110331110135.6988113A64@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAwMSBB
-cHIgMjAxMSAyMDo0OToyMiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFRvbSBIZXJiZXJ0IDx0aGVy
-YmVydEBnb29nbGUuY29tPg0KPiBEYXRlOiBXZWQsIDMwIE1hciAyMDExIDIyOjA0OjMyIC0wNzAw
-IChQRFQpDQo+IA0KPj4gVGhpcyBwYXRjaCB1c2VzIF9fY29weV9mcm9tX3VzZXJfbm9jYWNoZSAo
-ZnJvbSBza2JfY29weV90b19wYWdlKQ0KPj4gb24gdHJhbnNtaXQgdG8gYnlwYXNzIGRhdGEgY2Fj
-aGUgZm9yIGEgcGVyZm9ybWFuY2UgaW1wcm92ZW1lbnQuDQo+PiBUaGlzIGZ1bmN0aW9uYWxpdHkg
-aXMgY29uZmlndXJhYmxlIHBlciBkZXZpY2UgdXNpbmcgZXRodG9vbC4NCj4gLi4uDQo+PiBTaWdu
-ZWQtb2ZmLWJ5OiBUb20gSGVyYmVydCA8dGhlcmJlcnRAZ29vZ2xlLmNvbT4NCj4gDQo+IEl0J3Mg
-ZWFybHkgaW4gbmV0LW5leHQtMi42LCBzbyBJJ3ZlIGFwcGxpZWQgdGhpcyBub3cgYW5kIHdlIGNh
-bg0KPiBhZGQgYW55IGZpeHVwcyBhbmQgdHdlYWtzIGFzIG5lZWRlZC4NCg0KTmV2ZXJtaW5kLCB5
-b3UgaGF2ZSBzb21lIHdvcmsgdG8gZG8gaW4gdGhlIGdlbmVyaWMga2VybmVsIGJlZm9yZSBJDQpj
-YW4gYWRkIHRoaXMsIGJlY2F1c2Ugbm9jYWNoZSBjb3BpZXMgYXJlIG5vdCBhIHVuaXZlcnNhbGx5
-IGF2YWlsYWJsZQ0KZmVhdHVyZSwgZm9yIGV4YW1wbGUgb24gc3BhcmM2NDoNCg0KSW4gZmlsZSBp
-bmNsdWRlZCBmcm9tIGluY2x1ZGUvbGludXgvdGNwLmg6MjEwLA0KICAgICAgICAgICAgICAgICBm
-cm9tIGluY2x1ZGUvbGludXgvaXB2Ni5oOjIyMSwNCiAgICAgICAgICAgICAgICAgZnJvbSBpbmNs
-dWRlL25ldC9pcF92cy5oOjI2LA0KICAgICAgICAgICAgICAgICBmcm9tIGtlcm5lbC9zeXNjdGxf
-YmluYXJ5LmM6NjoNCmluY2x1ZGUvbmV0L3NvY2suaDogSW4gZnVuY3Rpb24goXNrYl9jb3B5X3Rv
-X3BhZ2WiOg0KaW5jbHVkZS9uZXQvc29jay5oOjE0MDY6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJh
-dGlvbiBvZiBmdW5jdGlvbiChX19jb3B5X2Zyb21fdXNlcl9ub2NhY2hlog0KbWFrZVsxXTogKioq
-IFtrZXJuZWwvc3lzY3RsX2JpbmFyeS5vXSBFcnJvciAxDQptYWtlOiAqKiogW2tlcm5lbF0gRXJy
-b3IgMg0KbWFrZTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4NCkluIGZpbGUg
-aW5jbHVkZWQgZnJvbSBpbmNsdWRlL2xpbnV4L2lmX3BwcG94Lmg6MTcwLA0KICAgICAgICAgICAg
-ICAgICBmcm9tIGZzL2NvbXBhdF9pb2N0bC5jOjM4Og0KaW5jbHVkZS9uZXQvc29jay5oOiBJbiBm
-dW5jdGlvbiChc2tiX2NvcHlfdG9fcGFnZaI6DQppbmNsdWRlL25ldC9zb2NrLmg6MTQwNjogZXJy
-b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFfX2NvcHlfZnJvbV91c2VyX25v
-Y2FjaGWiDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9oaWdobWVtLmg6NywN
-CiAgICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L3BhZ2VtYXAuaDoxMCwNCiAgICAg
-ICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L2Jsa2Rldi5oOjEyLA0KICAgICAgICAgICAg
-ICAgICBmcm9tIGZzL2NvbXBhdF9pb2N0bC5jOjQ4Og0KaW5jbHVkZS9saW51eC91YWNjZXNzLmg6
-IEF0IHRvcCBsZXZlbDoNCmluY2x1ZGUvbGludXgvdWFjY2Vzcy5oOjQ5OiBlcnJvcjogY29uZmxp
-Y3RpbmcgdHlwZXMgZm9yIKFfX2NvcHlfZnJvbV91c2VyX25vY2FjaGWiDQppbmNsdWRlL25ldC9z
-b2NrLmg6MTQwNjogbm90ZTogcHJldmlvdXMgaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgoV9fY29w
-eV9mcm9tX3VzZXJfbm9jYWNoZaIgd2FzIGhlcmUNCg==
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
+
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+
+Applied.
