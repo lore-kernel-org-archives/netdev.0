@@ -1,47 +1,159 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] net: ethtool support to configure number of channels
-Date: Fri, 1 Apr 2011 21:36:52 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D93@MNEXMB2.qlogic.org>
-References: <1301652075-382-1-git-send-email-amit.salecha@qlogic.com>
- <1301677824.4679.10.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [PATCH 24/24] sysctl: neigh: ipv4 and ipv6 neigh tables as private children
+Date: Sat,  2 Apr 2011 04:53:38 +0200
+Message-ID: <6d6e3bdbccbd197cdf416140f0a88411f31dc31b.1301711868.git.lucian.grijincu@gmail.com>
+References: <cover.1301711868.git.lucian.grijincu@gmail.com>
+Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: "'David S . Miller'" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	"Eric W . Biederman" <ebiederm@xmission.com>,
+	Octavian Purdila <tavi@cs.pub.ro>,
+	linux-kernel@vger.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:10451
-	"EHLO VA3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751082Ab1DBChC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:37:02 -0400
-In-Reply-To: <1301677824.4679.10.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:32917 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757251Ab1DBCzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:55:08 -0400
+In-Reply-To: <cover.1301711868.git.lucian.grijincu@gmail.com>
+In-Reply-To: <cover.1301711868.git.lucian.grijincu@gmail.com>
+References: <cover.1301711868.git.lucian.grijincu@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBJJ20gbm90IHN1cmUgd2h5IHlvdSByZWR1Y2VkIHRoaXMgdG8gYSBzaW5nbGUgY291bnQuICBJ
-ZiBpZiB0aGUgZHJpdmVyDQo+IG9yIGhhcmR3YXJlIGRvZXNuJ3QgYWxsb3cgY2VydGFpbiBjb21i
-aW5hdGlvbnMgb2YgY291bnRzLCBpdCBtaWdodCBiZQ0KPiBuZWNlc3NhcnkgdG8gY29uZmlndXJl
-IHNldmVyYWwgdHlwZXMgYXQgdGhlIHNhbWUgdGltZQ0KPg0KPiA+ICsvKiBDaGFubmVsIElEIGlz
-IG1hZGUgdXAgb2YgYSB0eXBlICovDQo+ID4gK2VudW0gZXRodG9vbF9jaGFubmVsX2lkIHsNCj4g
-PiArICAgRVRIX0NIQU5fVFlQRV9SWCA9IDB4MSwNCj4gPiArICAgRVRIX0NIQU5fVFlQRV9UWCA9
-IDB4Mg0KPiA+ICt9Ow0KPiBbLi4uXQ0KPg0KPiBlbnVtIGV0aHRvb2xfY2hhbm5lbF9pZCB3YXMg
-bWVhbnQgdG8gYmUgYW4gaWRlbnRpZmllciBvZiBhIHNwZWNpZmljDQo+IGNoYW5uZWwuICBBbiBl
-bnVtZXJhdGlvbiBvZiBjaGFubmVsIHR5cGVzIHNob3VsZCBiZSBuYW1lZCBkaWZmZXJlbnRseS4N
-Cj4NCg0KSSB3aWxsIG5hbWUgaXQgYXMgZXRodG9vbF9jaGFubmVsX3R5cGUuIEFueSBvdGhlciBz
-dWdnZXN0aW9uID8NCg0KPiBUaGlzIGFsc28gb21pdHMgdGhlICdjb21iaW5lZCcgYW5kICdvdGhl
-cicgdHlwZXMuICBNb3N0IG11bHRpcXVldWUNCj4gZHJpdmVycyBwYWlyIHVwIFJYIGFuZCBUWCBx
-dWV1ZXMgc28gdGhhdCBtb3N0IGNoYW5uZWxzIGNvbWJpbmUgUlggYW5kDQo+IFRYDQo+IHdvcmsu
-DQoNCidjb21iaW5lZCcgaXMgb2ssIHdoYXQgaXMgdXNlIG9mICdvdGhlcicgPw0KDQotYW1pdA0K
-DQpUaGlzIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2hlZCBkb2N1bWVudHMgY29udGFpbiBpbmZvcm1h
-dGlvbiBmcm9tIFFMb2dpYyBDb3Jwb3JhdGlvbiBvciBpdHMgd2hvbGx5LW93bmVkIHN1YnNpZGlh
-cmllcyB0aGF0IG1heSBiZSBjb25maWRlbnRpYWwuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRl
-ZCByZWNpcGllbnQsIHlvdSBtYXkgbm90IHJlYWQsIGNvcHksIGRpc3RyaWJ1dGUsIG9yIHVzZSB0
-aGlzIGluZm9ybWF0aW9uLiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIHRyYW5zbWlzc2lvbiBp
-biBlcnJvciwgcGxlYXNlIG5vdGlmeSB0aGUgc2VuZGVyIGltbWVkaWF0ZWx5IGJ5IHJlcGx5IGUt
-bWFpbCBhbmQgdGhlbiBkZWxldGUgdGhpcyBtZXNzYWdlLg0K
+$ time modprobe dummy numdummies=$n
+
+Without this patch:
+ - n=5000 => real:  9:14m, sys: 8:46m
+ - n=2000 => real:  1:19m, sys: 1:17m
+ - n=1000 => real:  0:14m, sys: 0:14m
+
+With this patch:
+ - n=5000 => real: 12.50s
+ - n=2000 => real:  1.59s
+ - n=1000 => real:  0.44s
+
+$ time find /proc/sys/net/ > /dev/null
+
+Without this patch:
+ - n=5000 => real: 15s
+ - n=2000 => real: 12s
+ - n=1000 => real:  4s
+
+With this patch:
+ - n=5000 => real: 3.77s
+ - n=2000 => real: 1.55s
+ - n=1000 => real: 1.43s
+
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+---
+ include/net/neighbour.h |    9 ++++-----
+ net/core/neighbour.c    |    6 ++++--
+ net/ipv4/arp.c          |    3 ++-
+ net/ipv4/devinet.c      |    3 ++-
+ net/ipv6/addrconf.c     |    3 ++-
+ net/ipv6/ndisc.c        |    3 ++-
+ 6 files changed, 16 insertions(+), 11 deletions(-)
+
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 4014b62..3fabfa3 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -259,11 +259,10 @@ extern void *neigh_seq_start(struct seq_file *, loff_t *, struct neigh_table *,
+ extern void *neigh_seq_next(struct seq_file *, void *, loff_t *);
+ extern void neigh_seq_stop(struct seq_file *, void *);
+ 
+-extern int			neigh_sysctl_register(struct net_device *dev, 
+-						      struct neigh_parms *p,
+-						      char *p_name,
+-						      proc_handler *proc_handler);
+-extern void			neigh_sysctl_unregister(struct neigh_parms *p);
++extern int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
++				 char *p_name, proc_handler *proc_handler,
++				 struct ctl_table_header *parent_header);
++extern void neigh_sysctl_unregister(struct neigh_parms *p);
+ 
+ static inline void __neigh_parms_put(struct neigh_parms *parms)
+ {
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 799f06e..48141cb 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2804,7 +2804,8 @@ static struct neigh_sysctl_table {
+ };
+ 
+ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
+-			  char *p_name, proc_handler *handler)
++			  char *p_name, proc_handler *handler,
++			  struct ctl_table_header *parent_header)
+ {
+ 	struct neigh_sysctl_table *t;
+ 	const char *dev_name_source = NULL;
+@@ -2877,7 +2878,8 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
+ 	neigh_path[NEIGH_CTL_PATH_PROTO].procname = p_name;
+ 
+ 	t->sysctl_header =
+-		register_net_sysctl_table(neigh_parms_net(p), neigh_path, t->neigh_vars);
++		register_net_sysctl_table_with_parent(neigh_parms_net(p),
++				      neigh_path, t->neigh_vars, parent_header);
+ 	if (!t->sysctl_header)
+ 		goto free_procname;
+ 
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index d38654f..a5ba277 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1509,7 +1509,8 @@ static int __net_init arp_sysctl_net_init(struct net *net)
+ 	/* register /proc/sys/net/ipv4/neigh/default */
+ 	if (net_eq(net, &init_net)) {
+ 		int err;
+-		err = neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4", NULL);
++		err = neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4",
++					    NULL, net->ipv4.neigh_hdr);
+ 		if (err) {
+ 			unregister_net_sysctl_table(net->ipv4.neigh_hdr);
+ 			return err;
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 2a10365..461466c 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1687,7 +1687,8 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
+ 
+ static void devinet_sysctl_register(struct in_device *idev)
+ {
+-	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4", NULL);
++	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4",
++			      NULL, dev_net(idev->dev)->ipv4.neigh_hdr);
+ 	__devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
+ 					&idev->cnf);
+ }
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6ac29d0..30c163c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4545,7 +4545,8 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
+ static void addrconf_sysctl_register(struct inet6_dev *idev)
+ {
+ 	neigh_sysctl_register(idev->dev, idev->nd_parms, "ipv6",
+-			      &ndisc_ifinfo_sysctl_change);
++			      &ndisc_ifinfo_sysctl_change,
++			      dev_net(idev->dev)->ipv6.sysctl.neigh_hdr);
+ 	__addrconf_sysctl_register(dev_net(idev->dev), idev->dev->name,
+ 					idev, &idev->cnf);
+ }
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 1cbc3c6..005d163 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1828,7 +1828,8 @@ static int __net_init ndisc_net_init(struct net *net)
+ 	/* register /proc/sys/net/ipv6/neigh/default */
+ 	if (net_eq(net, &init_net)) {
+ 		err = neigh_sysctl_register(NULL, &nd_tbl.parms, "ipv6",
+-					    &ndisc_ifinfo_sysctl_change);
++					    &ndisc_ifinfo_sysctl_change,
++					    net->ipv6.sysctl.neigh_hdr);
+ 		if (err)
+ 			goto neigh_sysctl_register_fail;
+ 	}
+-- 
+1.7.5.rc0
 
