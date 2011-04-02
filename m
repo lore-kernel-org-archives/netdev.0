@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [PATCH 12/24] sysctl: cookie: share event_sysctl_table between nets
-Date: Sat,  2 Apr 2011 04:53:26 +0200
-Message-ID: <561af9ebd11c312e98bfa237479c251140718740.1301711868.git.lucian.grijincu__18130.7324477986$1301713139$gmane$org@gmail.com>
+Subject: [PATCH 08/24] sysctl: cookie: share ipv4_net_table between nets
+Date: Sat,  2 Apr 2011 04:53:22 +0200
+Message-ID: <52083d44430cc1c2ce42bd417d28bb4e0f08f9a4.1301711868.git.lucian.grijincu__23154.2613277727$1301713149$gmane$org@gmail.com>
 References: <cover.1301711868.git.lucian.grijincu@gmail.com>
 Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: "'David S . Miller'" <davem@davemloft.net>,
@@ -10,10 +10,10 @@ To: "'David S . Miller'" <davem@davemloft.net>,
 	Octavian Purdila <tavi@cs.pub.ro>,
 	linux-kernel@vger.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:32917 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755476Ab1DBCyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:54:38 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:40187 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754312Ab1DBCy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:54:28 -0400
 In-Reply-To: <cover.1301711868.git.lucian.grijincu@gmail.com>
 In-Reply-To: <cover.1301711868.git.lucian.grijincu@gmail.com>
 References: <cover.1301711868.git.lucian.grijincu@gmail.com>
@@ -22,72 +22,126 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- net/netfilter/nf_conntrack_ecache.c |   30 +++++-------------------------
- 1 files changed, 5 insertions(+), 25 deletions(-)
+ net/ipv4/sysctl_net_ipv4.c |   53 +++++++------------------------------------
+ 1 files changed, 9 insertions(+), 44 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
-index 63a1b91..b799e9e 100644
---- a/net/netfilter/nf_conntrack_ecache.c
-+++ b/net/netfilter/nf_conntrack_ecache.c
-@@ -163,14 +163,14 @@ static struct ctl_table event_sysctl_table[] = {
- 		.data		= &init_net.ct.sysctl_events,
- 		.maxlen		= sizeof(unsigned int),
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 1766d2e..b7b8dbd 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -635,49 +635,49 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.data		= &init_net.ipv4.sysctl_icmp_echo_ignore_all,
+ 		.maxlen		= sizeof(int),
  		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
+-		.proc_handler	= proc_dointvec
 +		.proc_handler	= netns_proc_dointvec,
  	},
  	{
- 		.procname	= "nf_conntrack_events_retry_timeout",
- 		.data		= &init_net.ct.sysctl_events_retry_timeout,
- 		.maxlen		= sizeof(unsigned int),
+ 		.procname	= "icmp_echo_ignore_broadcasts",
+ 		.data		= &init_net.ipv4.sysctl_icmp_echo_ignore_broadcasts,
+ 		.maxlen		= sizeof(int),
  		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
-+		.proc_handler	= netns_proc_dointvec_jiffies,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= netns_proc_dointvec,
  	},
- 	{}
+ 	{
+ 		.procname	= "icmp_ignore_bogus_error_responses",
+ 		.data		= &init_net.ipv4.sysctl_icmp_ignore_bogus_error_responses,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= netns_proc_dointvec,
+ 	},
+ 	{
+ 		.procname	= "icmp_errors_use_inbound_ifaddr",
+ 		.data		= &init_net.ipv4.sysctl_icmp_errors_use_inbound_ifaddr,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= netns_proc_dointvec,
+ 	},
+ 	{
+ 		.procname	= "icmp_ratelimit",
+ 		.data		= &init_net.ipv4.sysctl_icmp_ratelimit,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec_ms_jiffies,
++		.proc_handler	= netns_proc_dointvec_ms_jiffies,
+ 	},
+ 	{
+ 		.procname	= "icmp_ratemask",
+ 		.data		= &init_net.ipv4.sysctl_icmp_ratemask,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= netns_proc_dointvec,
+ 	},
+ 	{
+ 		.procname	= "rt_cache_rebuild_count",
+ 		.data		= &init_net.ipv4.sysctl_rt_cache_rebuild_count,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= netns_proc_dointvec,
+ 	},
+ 	{ }
  };
-@@ -185,38 +185,18 @@ static struct nf_ct_ext_type event_extend __read_mostly = {
- #ifdef CONFIG_SYSCTL
- static int nf_conntrack_event_init_sysctl(struct net *net)
+@@ -691,53 +691,18 @@ EXPORT_SYMBOL_GPL(net_ipv4_ctl_path);
+ 
+ static __net_init int ipv4_sysctl_init_net(struct net *net)
  {
 -	struct ctl_table *table;
 -
--	table = kmemdup(event_sysctl_table, sizeof(event_sysctl_table),
--			GFP_KERNEL);
--	if (!table)
--		goto out;
+-	table = ipv4_net_table;
+-	if (!net_eq(net, &init_net)) {
+-		table = kmemdup(table, sizeof(ipv4_net_table), GFP_KERNEL);
+-		if (table == NULL)
+-			goto err_alloc;
 -
--	table[0].data = &net->ct.sysctl_events;
--	table[1].data = &net->ct.sysctl_events_retry_timeout;
+-		table[0].data =
+-			&net->ipv4.sysctl_icmp_echo_ignore_all;
+-		table[1].data =
+-			&net->ipv4.sysctl_icmp_echo_ignore_broadcasts;
+-		table[2].data =
+-			&net->ipv4.sysctl_icmp_ignore_bogus_error_responses;
+-		table[3].data =
+-			&net->ipv4.sysctl_icmp_errors_use_inbound_ifaddr;
+-		table[4].data =
+-			&net->ipv4.sysctl_icmp_ratelimit;
+-		table[5].data =
+-			&net->ipv4.sysctl_icmp_ratemask;
+-		table[6].data =
+-			&net->ipv4.sysctl_rt_cache_rebuild_count;
+-	}
 -
--	net->ct.event_sysctl_header =
--		register_net_sysctl_table(net,
--					  nf_net_netfilter_sysctl_path, table);
-+	net->ct.event_sysctl_header = register_net_sysctl_table(net,
-+			  nf_net_netfilter_sysctl_path, event_sysctl_table);
- 	if (!net->ct.event_sysctl_header) {
- 		printk(KERN_ERR "nf_ct_event: can't register to sysctl.\n");
--		goto out_register;
+ 	net->ipv4.sysctl_rt_cache_rebuild_count = 4;
+ 
+ 	net->ipv4.ipv4_hdr = register_net_sysctl_table(net,
+-			net_ipv4_ctl_path, table);
++			net_ipv4_ctl_path, ipv4_net_table);
+ 	if (net->ipv4.ipv4_hdr == NULL)
+-		goto err_reg;
+-
 +		return -ENOMEM;
- 	}
  	return 0;
 -
--out_register:
--	kfree(table);
--out:
+-err_reg:
+-	if (!net_eq(net, &init_net))
+-		kfree(table);
+-err_alloc:
 -	return -ENOMEM;
  }
  
- static void nf_conntrack_event_fini_sysctl(struct net *net)
+ static __net_exit void ipv4_sysctl_exit_net(struct net *net)
  {
 -	struct ctl_table *table;
 -
--	table = net->ct.event_sysctl_header->ctl_table_arg;
- 	unregister_net_sysctl_table(net->ct.event_sysctl_header);
+-	table = net->ipv4.ipv4_hdr->ctl_table_arg;
+ 	unregister_net_sysctl_table(net->ipv4.ipv4_hdr);
 -	kfree(table);
  }
- #else
- static int nf_conntrack_event_init_sysctl(struct net *net)
+ 
+ static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
 -- 
 1.7.5.rc0
 
