@@ -1,15 +1,15 @@
 From: anirban.chakraborty@qlogic.com
-Subject: [PATCH 5/9 net-next-2.6] qlcnic: Changes to VLAN code
-Date: Fri,  1 Apr 2011 17:07:12 -0700
-Message-ID: <1301702836-3265-5-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH 4/9 net-next-2.6] qlcnic: Code optimization patch
+Date: Fri,  1 Apr 2011 17:07:11 -0700
+Message-ID: <1301702836-3265-4-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1301702836-3265-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: davem@davemloft.com, Dept_NX_Linux_NIC_driver@qlogic.com,
 	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:40994 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:40993 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754786Ab1DBAWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754695Ab1DBAWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 1 Apr 2011 20:22:16 -0400
 In-Reply-To: <1301702836-3265-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,175 +17,415 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 
-Made changes to VLAN code comply with new VLAN infrastructure in kernel
+Optimized code resulted in achieving lower CPU utilization on transmit path
+and higher throughput for small packet sizes (64 bytes).
 
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    4 ++-
- drivers/net/qlcnic/qlcnic_init.c |   15 ++++++-------
- drivers/net/qlcnic/qlcnic_main.c |   42 ++++++++++++++++++++++---------------
- 3 files changed, 35 insertions(+), 26 deletions(-)
+ drivers/net/qlcnic/qlcnic.h      |   30 +++---
+ drivers/net/qlcnic/qlcnic_main.c |  210 ++++++++++++++++++--------------------
+ 2 files changed, 115 insertions(+), 125 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index a5b28d1..be9c329 100644
+index 15d950a..a5b28d1 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -29,6 +29,8 @@
+@@ -434,50 +434,49 @@ struct qlcnic_adapter_stats {
+  * be one Rcv Descriptor for normal packets, one for jumbo and may be others.
+  */
+ struct qlcnic_host_rds_ring {
+-	u32 producer;
++	void __iomem *crb_rcv_producer;
++	struct rcv_desc *desc_head;
++	struct qlcnic_rx_buffer *rx_buf_arr;
+ 	u32 num_desc;
++	u32 producer;
+ 	u32 dma_size;
+ 	u32 skb_size;
+ 	u32 flags;
+-	void __iomem *crb_rcv_producer;
+-	struct rcv_desc *desc_head;
+-	struct qlcnic_rx_buffer *rx_buf_arr;
+ 	struct list_head free_list;
+ 	spinlock_t lock;
+ 	dma_addr_t phys_addr;
+-};
++} ____cacheline_internodealigned_in_smp;
  
- #include <linux/io.h>
- #include <asm/byteorder.h>
-+#include <linux/bitops.h>
-+#include <linux/if_vlan.h>
+ struct qlcnic_host_sds_ring {
+ 	u32 consumer;
+ 	u32 num_desc;
+ 	void __iomem *crb_sts_consumer;
+-	void __iomem *crb_intr_mask;
  
- #include "qlcnic_hdr.h"
+ 	struct status_desc *desc_head;
+ 	struct qlcnic_adapter *adapter;
+ 	struct napi_struct napi;
+ 	struct list_head free_list[NUM_RCV_DESC_RINGS];
  
-@@ -982,8 +984,8 @@ struct qlcnic_adapter {
- 	u8 mac_addr[ETH_ALEN];
++	void __iomem *crb_intr_mask;
+ 	int irq;
  
- 	u64 dev_rst_time;
-+	unsigned long vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	dma_addr_t phys_addr;
+ 	char name[IFNAMSIZ+4];
+-};
++} ____cacheline_internodealigned_in_smp;
  
--	struct vlan_group *vlgrp;
- 	struct qlcnic_npar_info *npars;
- 	struct qlcnic_eswitch *eswitch;
- 	struct qlcnic_nic_template *nic_ops;
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 476ea14..74ec96d 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1467,10 +1467,10 @@ qlcnic_process_rcv(struct qlcnic_adapter *adapter,
- 
- 	skb->protocol = eth_type_trans(skb, netdev);
- 
--	if ((vid != 0xffff) && adapter->vlgrp)
--		vlan_gro_receive(&sds_ring->napi, adapter->vlgrp, vid, skb);
--	else
--		napi_gro_receive(&sds_ring->napi, skb);
-+	if (vid != 0xffff)
-+		__vlan_hwaccel_put_tag(skb, vid);
+ struct qlcnic_host_tx_ring {
+ 	u32 producer;
+-	__le32 *hw_consumer;
+ 	u32 sw_consumer;
+-	void __iomem *crb_cmd_producer;
+ 	u32 num_desc;
+-
+-	struct netdev_queue *txq;
+-
+-	struct qlcnic_cmd_buffer *cmd_buf_arr;
++	void __iomem *crb_cmd_producer;
+ 	struct cmd_desc_type0 *desc_head;
++	struct qlcnic_cmd_buffer *cmd_buf_arr;
++	__le32 *hw_consumer;
 +
-+	napi_gro_receive(&sds_ring->napi, skb);
+ 	dma_addr_t phys_addr;
+ 	dma_addr_t hw_cons_phys_addr;
+-};
++	struct netdev_queue *txq;
++} ____cacheline_internodealigned_in_smp;
  
- 	adapter->stats.rx_pkts++;
- 	adapter->stats.rxbytes += length;
-@@ -1552,10 +1552,9 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+ /*
+  * Receive context. There is one such structure per instance of the
+@@ -1328,8 +1327,7 @@ static const struct qlcnic_brdinfo qlcnic_boards[] = {
  
- 	length = skb->len;
- 
--	if ((vid != 0xffff) && adapter->vlgrp)
--		vlan_hwaccel_receive_skb(skb, adapter->vlgrp, vid);
--	else
--		netif_receive_skb(skb);
-+	if (vid != 0xffff)
-+		__vlan_hwaccel_put_tag(skb, vid);
-+	netif_receive_skb(skb);
- 
- 	adapter->stats.lro_pkts++;
- 	adapter->stats.lrobytes += length;
+ static inline u32 qlcnic_tx_avail(struct qlcnic_host_tx_ring *tx_ring)
+ {
+-	smp_mb();
+-	if (tx_ring->producer < tx_ring->sw_consumer)
++	if (likely(tx_ring->producer < tx_ring->sw_consumer))
+ 		return tx_ring->sw_consumer - tx_ring->producer;
+ 	else
+ 		return tx_ring->sw_consumer + tx_ring->num_desc -
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 3b740f5..b75aef0 100644
+index dde7e44..3b740f5 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -13,7 +13,6 @@
+@@ -1861,6 +1861,7 @@ static void qlcnic_change_filter(struct qlcnic_adapter *adapter,
+ 	vlan_req->vlan_id = vlan_id;
  
- #include <linux/swab.h>
- #include <linux/dma-mapping.h>
--#include <linux/if_vlan.h>
- #include <net/ip.h>
- #include <linux/ipv6.h>
- #include <linux/inetdevice.h>
-@@ -98,6 +97,9 @@ static int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *, u32);
- static int qlcnicvf_start_firmware(struct qlcnic_adapter *);
- static void qlcnic_set_netdev_features(struct qlcnic_adapter *,
- 				struct qlcnic_esw_func_cfg *);
-+static void qlcnic_vlan_rx_add(struct net_device *, u16);
-+static void qlcnic_vlan_rx_del(struct net_device *, u16);
-+
- /*  PCI Device ID Table  */
- #define ENTRY(device) \
- 	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, (device)), \
-@@ -317,13 +319,6 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
- 	return 0;
+ 	tx_ring->producer = get_next_index(producer, tx_ring->num_desc);
++	smp_mb();
  }
  
--static void qlcnic_vlan_rx_register(struct net_device *netdev,
--		struct vlan_group *grp)
--{
--	struct qlcnic_adapter *adapter = netdev_priv(netdev);
--	adapter->vlgrp = grp;
--}
--
- static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_open	   = qlcnic_open,
- 	.ndo_stop	   = qlcnic_close,
-@@ -334,7 +329,8 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_set_mac_address    = qlcnic_set_mac,
- 	.ndo_change_mtu	   = qlcnic_change_mtu,
- 	.ndo_tx_timeout	   = qlcnic_tx_timeout,
--	.ndo_vlan_rx_register = qlcnic_vlan_rx_register,
-+	.ndo_vlan_rx_add_vid	= qlcnic_vlan_rx_add,
-+	.ndo_vlan_rx_kill_vid	= qlcnic_vlan_rx_del,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = qlcnic_poll_controller,
- #endif
-@@ -710,6 +706,22 @@ qlcnic_set_vlan_config(struct qlcnic_adapter *adapter,
+ #define QLCNIC_MAC_HASH(MAC)\
+@@ -1921,58 +1922,122 @@ qlcnic_send_filter(struct qlcnic_adapter *adapter,
+ 	spin_unlock(&adapter->mac_learn_lock);
  }
  
- static void
-+qlcnic_vlan_rx_add(struct net_device *netdev, u16 vid)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	set_bit(vid, adapter->vlans);
-+}
-+
-+static void
-+qlcnic_vlan_rx_del(struct net_device *netdev, u16 vid)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+
-+	qlcnic_restore_indev_addr(netdev, NETDEV_DOWN);
-+	clear_bit(vid, adapter->vlans);
-+}
-+
-+static void
- qlcnic_set_eswitch_port_features(struct qlcnic_adapter *adapter,
- 		struct qlcnic_esw_func_cfg *esw_cfg)
+-static void
+-qlcnic_tso_check(struct net_device *netdev,
+-		struct qlcnic_host_tx_ring *tx_ring,
++static int
++qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
+ 		struct cmd_desc_type0 *first_desc,
+ 		struct sk_buff *skb)
  {
-@@ -755,7 +767,7 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
- 	features = (NETIF_F_SG | NETIF_F_IP_CSUM |
- 			NETIF_F_IPV6_CSUM | NETIF_F_GRO);
- 	vlan_features = (NETIF_F_SG | NETIF_F_IP_CSUM |
--			NETIF_F_IPV6_CSUM);
-+			NETIF_F_IPV6_CSUM | NETIF_F_HW_VLAN_FILTER);
+-	u8 opcode = TX_ETHER_PKT;
+-	__be16 protocol = skb->protocol;
+-	u16 flags = 0;
+-	int copied, offset, copy_len, hdr_len = 0, tso = 0;
++	u8 opcode = 0, hdr_len = 0;
++	u16 flags = 0, vlan_tci = 0;
++	int copied, offset, copy_len;
+ 	struct cmd_desc_type0 *hwdesc;
+ 	struct vlan_ethhdr *vh;
+-	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct qlcnic_host_tx_ring *tx_ring = adapter->tx_ring;
++	u16 protocol = ntohs(skb->protocol);
+ 	u32 producer = tx_ring->producer;
+-	__le16 vlan_oob = first_desc->flags_opcode &
+-				cpu_to_le16(FLAGS_VLAN_OOB);
++
++	if (protocol == ETH_P_8021Q) {
++		vh = (struct vlan_ethhdr *)skb->data;
++		flags = FLAGS_VLAN_TAGGED;
++		vlan_tci = vh->h_vlan_TCI;
++	} else if (vlan_tx_tag_present(skb)) {
++		flags = FLAGS_VLAN_OOB;
++		vlan_tci = vlan_tx_tag_get(skb);
++	}
++	if (unlikely(adapter->pvid)) {
++		if (vlan_tci && !(adapter->flags & QLCNIC_TAGGING_ENABLED))
++			return -EIO;
++		if (vlan_tci && (adapter->flags & QLCNIC_TAGGING_ENABLED))
++			goto set_flags;
++
++		flags = FLAGS_VLAN_OOB;
++		vlan_tci = adapter->pvid;
++	}
++set_flags:
++	qlcnic_set_tx_vlan_tci(first_desc, vlan_tci);
++	qlcnic_set_tx_flags_opcode(first_desc, flags, opcode);
  
- 	if (adapter->capabilities & QLCNIC_FW_CAPABILITY_TSO) {
- 		features |= (NETIF_F_TSO | NETIF_F_TSO6);
-@@ -1448,7 +1460,7 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter,
- 	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
- 		NETIF_F_IPV6_CSUM | NETIF_F_GRO | NETIF_F_HW_VLAN_RX);
- 	netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
--		NETIF_F_IPV6_CSUM);
-+		NETIF_F_IPV6_CSUM | NETIF_F_HW_VLAN_FILTER);
+ 	if (*(skb->data) & BIT_0) {
+ 		flags |= BIT_0;
+ 		memcpy(&first_desc->eth_addr, skb->data, ETH_ALEN);
+ 	}
+-
+-	if ((netdev->features & (NETIF_F_TSO | NETIF_F_TSO6)) &&
++	opcode = TX_ETHER_PKT;
++	if ((adapter->netdev->features & (NETIF_F_TSO | NETIF_F_TSO6)) &&
+ 			skb_shinfo(skb)->gso_size > 0) {
  
- 	if (adapter->capabilities & QLCNIC_FW_CAPABILITY_TSO) {
- 		netdev->features |= (NETIF_F_TSO | NETIF_F_TSO6);
-@@ -4068,14 +4080,10 @@ qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
+ 		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
  
- 	qlcnic_config_indev_addr(adapter, netdev, event);
+ 		first_desc->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
+ 		first_desc->total_hdr_length = hdr_len;
+-		if (vlan_oob) {
++
++		opcode = (protocol == ETH_P_IPV6) ? TX_TCP_LSO6 : TX_TCP_LSO;
++
++		/* For LSO, we need to copy the MAC/IP/TCP headers into
++		* the descriptor ring */
++		copied = 0;
++		offset = 2;
++
++		if (flags & FLAGS_VLAN_OOB) {
+ 			first_desc->total_hdr_length += VLAN_HLEN;
+ 			first_desc->tcp_hdr_offset = VLAN_HLEN;
+ 			first_desc->ip_hdr_offset = VLAN_HLEN;
+ 			/* Only in case of TSO on vlan device */
+ 			flags |= FLAGS_VLAN_TAGGED;
++
++			/* Create a TSO vlan header template for firmware */
++
++			hwdesc = &tx_ring->desc_head[producer];
++			tx_ring->cmd_buf_arr[producer].skb = NULL;
++
++			copy_len = min((int)sizeof(struct cmd_desc_type0) -
++				offset, hdr_len + VLAN_HLEN);
++
++			vh = (struct vlan_ethhdr *)((char *) hwdesc + 2);
++			skb_copy_from_linear_data(skb, vh, 12);
++			vh->h_vlan_proto = htons(ETH_P_8021Q);
++			vh->h_vlan_TCI = htons(vlan_tci);
++
++			skb_copy_from_linear_data_offset(skb, 12,
++				(char *)vh + 16, copy_len - 16);
++
++			copied = copy_len - VLAN_HLEN;
++			offset = 0;
++
++			producer = get_next_index(producer, tx_ring->num_desc);
+ 		}
  
--	if (!adapter->vlgrp)
+-		opcode = (protocol == cpu_to_be16(ETH_P_IPV6)) ?
+-				TX_TCP_LSO6 : TX_TCP_LSO;
+-		tso = 1;
++		while (copied < hdr_len) {
++
++			copy_len = min((int)sizeof(struct cmd_desc_type0) -
++				offset, (hdr_len - copied));
++
++			hwdesc = &tx_ring->desc_head[producer];
++			tx_ring->cmd_buf_arr[producer].skb = NULL;
++
++			skb_copy_from_linear_data_offset(skb, copied,
++				 (char *) hwdesc + offset, copy_len);
++
++			copied += copy_len;
++			offset = 0;
++
++			producer = get_next_index(producer, tx_ring->num_desc);
++		}
++
++		tx_ring->producer = producer;
++		smp_mb();
++		adapter->stats.lso_frames++;
+ 
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		u8 l4proto;
+ 
+-		if (protocol == cpu_to_be16(ETH_P_IP)) {
++		if (protocol == ETH_P_IP) {
+ 			l4proto = ip_hdr(skb)->protocol;
+ 
+ 			if (l4proto == IPPROTO_TCP)
+ 				opcode = TX_TCP_PKT;
+ 			else if (l4proto == IPPROTO_UDP)
+ 				opcode = TX_UDP_PKT;
+-		} else if (protocol == cpu_to_be16(ETH_P_IPV6)) {
++		} else if (protocol == ETH_P_IPV6) {
+ 			l4proto = ipv6_hdr(skb)->nexthdr;
+ 
+ 			if (l4proto == IPPROTO_TCP)
+@@ -1981,63 +2046,11 @@ qlcnic_tso_check(struct net_device *netdev,
+ 				opcode = TX_UDPV6_PKT;
+ 		}
+ 	}
+-
+ 	first_desc->tcp_hdr_offset += skb_transport_offset(skb);
+ 	first_desc->ip_hdr_offset += skb_network_offset(skb);
+ 	qlcnic_set_tx_flags_opcode(first_desc, flags, opcode);
+ 
+-	if (!tso)
 -		return;
 -
--	for (vid = 0; vid < VLAN_N_VID; vid++) {
--		dev = vlan_group_get_device(adapter->vlgrp, vid);
-+	for_each_set_bit(vid, adapter->vlans, VLAN_N_VID) {
-+		dev = vlan_find_dev(netdev, vid);
- 		if (!dev)
- 			continue;
+-	/* For LSO, we need to copy the MAC/IP/TCP headers into
+-	 * the descriptor ring
+-	 */
+-	copied = 0;
+-	offset = 2;
 -
- 		qlcnic_config_indev_addr(adapter, dev, event);
- 	}
+-	if (vlan_oob) {
+-		/* Create a TSO vlan header template for firmware */
+-
+-		hwdesc = &tx_ring->desc_head[producer];
+-		tx_ring->cmd_buf_arr[producer].skb = NULL;
+-
+-		copy_len = min((int)sizeof(struct cmd_desc_type0) - offset,
+-				hdr_len + VLAN_HLEN);
+-
+-		vh = (struct vlan_ethhdr *)((char *)hwdesc + 2);
+-		skb_copy_from_linear_data(skb, vh, 12);
+-		vh->h_vlan_proto = htons(ETH_P_8021Q);
+-		vh->h_vlan_TCI = (__be16)swab16((u16)first_desc->vlan_TCI);
+-
+-		skb_copy_from_linear_data_offset(skb, 12,
+-				(char *)vh + 16, copy_len - 16);
+-
+-		copied = copy_len - VLAN_HLEN;
+-		offset = 0;
+-
+-		producer = get_next_index(producer, tx_ring->num_desc);
+-	}
+-
+-	while (copied < hdr_len) {
+-
+-		copy_len = min((int)sizeof(struct cmd_desc_type0) - offset,
+-				(hdr_len - copied));
+-
+-		hwdesc = &tx_ring->desc_head[producer];
+-		tx_ring->cmd_buf_arr[producer].skb = NULL;
+-
+-		skb_copy_from_linear_data_offset(skb, copied,
+-				 (char *)hwdesc + offset, copy_len);
+-
+-		copied += copy_len;
+-		offset = 0;
+-
+-		producer = get_next_index(producer, tx_ring->num_desc);
+-	}
+-
+-	tx_ring->producer = producer;
+-	barrier();
+-	adapter->stats.lso_frames++;
++	return 0;
  }
+ 
+ static int
+@@ -2088,39 +2101,21 @@ out_err:
+ 	return -ENOMEM;
+ }
+ 
+-static int
+-qlcnic_check_tx_tagging(struct qlcnic_adapter *adapter,
+-			struct sk_buff *skb,
+-			struct cmd_desc_type0 *first_desc)
++static void
++qlcnic_unmap_buffers(struct pci_dev *pdev, struct sk_buff *skb,
++			struct qlcnic_cmd_buffer *pbuf)
+ {
+-	u8 opcode = 0;
+-	u16 flags = 0;
+-	__be16 protocol = skb->protocol;
+-	struct vlan_ethhdr *vh;
++	struct qlcnic_skb_frag *nf = &pbuf->frag_array[0];
++	int nr_frags = skb_shinfo(skb)->nr_frags;
++	int i;
+ 
+-	if (protocol == cpu_to_be16(ETH_P_8021Q)) {
+-		vh = (struct vlan_ethhdr *)skb->data;
+-		protocol = vh->h_vlan_encapsulated_proto;
+-		flags = FLAGS_VLAN_TAGGED;
+-		qlcnic_set_tx_vlan_tci(first_desc, ntohs(vh->h_vlan_TCI));
+-	} else if (vlan_tx_tag_present(skb)) {
+-		flags = FLAGS_VLAN_OOB;
+-		qlcnic_set_tx_vlan_tci(first_desc, vlan_tx_tag_get(skb));
++	for (i = 0; i < nr_frags; i++) {
++		nf = &pbuf->frag_array[i+1];
++		pci_unmap_page(pdev, nf->dma, nf->length, PCI_DMA_TODEVICE);
+ 	}
+-	if (unlikely(adapter->pvid)) {
+-		if (first_desc->vlan_TCI &&
+-				!(adapter->flags & QLCNIC_TAGGING_ENABLED))
+-			return -EIO;
+-		if (first_desc->vlan_TCI &&
+-				(adapter->flags & QLCNIC_TAGGING_ENABLED))
+-			goto set_flags;
+ 
+-		flags = FLAGS_VLAN_OOB;
+-		qlcnic_set_tx_vlan_tci(first_desc, adapter->pvid);
+-	}
+-set_flags:
+-	qlcnic_set_tx_flags_opcode(first_desc, flags, opcode);
+-	return 0;
++	nf = &pbuf->frag_array[0];
++	pci_unmap_single(pdev, nf->dma, skb_headlen(skb), PCI_DMA_TODEVICE);
+ }
+ 
+ static inline void
+@@ -2144,7 +2139,7 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	int i, k;
+ 
+ 	u32 producer;
+-	int frag_count, no_of_desc;
++	int frag_count;
+ 	u32 num_txd = tx_ring->num_desc;
+ 
+ 	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
+@@ -2161,12 +2156,8 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	frag_count = skb_shinfo(skb)->nr_frags + 1;
+ 
+-	/* 4 fragments per cmd des */
+-	no_of_desc = (frag_count + 3) >> 2;
+-
+ 	if (unlikely(qlcnic_tx_avail(tx_ring) <= TX_STOP_THRESH)) {
+ 		netif_stop_queue(netdev);
+-		smp_mb();
+ 		if (qlcnic_tx_avail(tx_ring) > TX_STOP_THRESH)
+ 			netif_start_queue(netdev);
+ 		else {
+@@ -2183,9 +2174,6 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	first_desc = hwdesc = &tx_ring->desc_head[producer];
+ 	qlcnic_clear_cmddesc((u64 *)hwdesc);
+ 
+-	if (qlcnic_check_tx_tagging(adapter, skb, first_desc))
+-		goto drop_packet;
+-
+ 	if (qlcnic_map_tx_skb(pdev, skb, pbuf)) {
+ 		adapter->stats.tx_dma_map_error++;
+ 		goto drop_packet;
+@@ -2229,8 +2217,10 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	}
+ 
+ 	tx_ring->producer = get_next_index(producer, num_txd);
++	smp_mb();
+ 
+-	qlcnic_tso_check(netdev, tx_ring, first_desc, skb);
++	if (unlikely(qlcnic_tx_pkt(adapter, first_desc, skb)))
++		goto unwind_buff;
+ 
+ 	if (qlcnic_mac_learn)
+ 		qlcnic_send_filter(adapter, tx_ring, first_desc, skb);
+@@ -2242,6 +2232,8 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	return NETDEV_TX_OK;
+ 
++unwind_buff:
++	qlcnic_unmap_buffers(pdev, skb, pbuf);
+ drop_packet:
+ 	adapter->stats.txdropped++;
+ 	dev_kfree_skb_any(skb);
 -- 
 1.7.1
 
