@@ -1,55 +1,33 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] net: ethtool support to configure number of channels
-Date: Fri, 1 Apr 2011 22:22:16 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D96@MNEXMB2.qlogic.org>
-References: <1301652075-382-1-git-send-email-amit.salecha@qlogic.com>
-	 <1301677824.4679.10.camel@bwh-desktop>
-	 <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D93@MNEXMB2.qlogic.org>
- <1301712946.10056.179.camel@localhost>
- <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D95@MNEXMB2.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Fix dev dev_ethtool_get_rx_csum() for forced
+ NETIF_F_RXCSUM
+Date: Fri, 01 Apr 2011 20:23:35 -0700 (PDT)
+Message-ID: <20110401.202335.260089653.davem@davemloft.net>
+References: <f658c6e20dad946b50fda008c120a0347ad58314.1301565174.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.186]:51369
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752207Ab1DBDW2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 23:22:28 -0400
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D95@MNEXMB2.qlogic.org>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45001
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752207Ab1DBDYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 23:24:15 -0400
+In-Reply-To: <f658c6e20dad946b50fda008c120a0347ad58314.1301565174.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ID4NCj4gPiA+ID4gVGhpcyBhbHNvIG9taXRzIHRoZSAnY29tYmluZWQnIGFuZCAnb3RoZXIn
-IHR5cGVzLiAgTW9zdA0KPiBtdWx0aXF1ZXVlDQo+ID4gPiA+IGRyaXZlcnMgcGFpciB1cCBSWCBh
-bmQgVFggcXVldWVzIHNvIHRoYXQgbW9zdCBjaGFubmVscyBjb21iaW5lIFJYDQo+ID4gYW5kDQo+
-ID4gPiA+IFRYDQo+ID4gPiA+IHdvcmsuDQo+ID4gPg0KPiA+ID4gJ2NvbWJpbmVkJyBpcyBvaywg
-d2hhdCBpcyB1c2Ugb2YgJ290aGVyJyA/DQo+ID4NCj4gPiBDb3VsZCBiZSBsaW5rIGludGVycnVw
-dHMsIFNSLUlPViBjb29yZGluYXRpb24sIG9yIHNvbWV0aGluZyBlbHNlLg0KPiBOb3QNCj4gPiBz
-b21ldGhpbmcgeW91J2QgbGlrZWx5IGJlIGFibGUgdG8gY2hhbmdlLCBidXQgaXQgY291bGQgYmUg
-dXNlZnVsIHRvDQo+ID4ga25vdw0KPiA+IHRoYXQgc29tZSBpbnRlcnJ1cHRzIGFyZSBhbGxvY2F0
-ZWQgdG8gdGhlbS4gIEFjdHVhbGx5LCB0aGF0IGRvZXMgbWVhbg0KPiA+IGl0DQo+ID4gbWlnaHQg
-YmUgaGVscGZ1bCBmb3IgdGhlICdnZXQnIG9wZXJhdGlvbiB0byByZXR1cm4gYSBtaW5pbXVtIHZh
-bHVlDQo+ID4gYWxvbmcNCj4gPiB3aXRoIHRoZSBtYXhpbXVtIHZhbHVlLg0KPiA+DQo+IEluc3Rl
-YWQgb2YgbmFtaW5nIGFzICdvdGhlcicsIGNvcnJlc3BvbmRpbmcgY2hhbm5lbCB0eXBlIHNob3Vs
-ZCBiZQ0KPiBkZWNsYXJlZC4NCj4gQWRhcHRlciBtYXkgaGF2ZSBtdWx0aXBsZSAnb3RoZXInIGNo
-YW5uZWwuIEl0J3MgYmV0dGVyIHRvIG5hbWUgdGhlbS4NCj4gTmFtaW5nIHRoZW0gd2lsbCBiZSB1
-c2VmdWwsIGlmIG9uZSB3YW50IHRvIGNvbmZpZ3VyZSB0aGVtLg0KPiBTbyBJIHdpbGwgcmF0aGVy
-IGxlYXZlIHRoaXMgb3BlbiBhbmQgbGV0IHBlb3BsZSB0byBkZWNsYXJlZCBjaGFubmVsDQo+IHR5
-cGUgYXMgdGhleSByZXF1aXJlZC4NCj4NCg0KSSB3aWxsIGRlY2xhcmUgJ290aGVyJyBjaGFubmVs
-IHR5cGUsIHdoaWNoIHdpbGwgbWVhbiBjaGFubmVsIG90aGVyIHRoYW4NCmRlY2xhcmVkIGluIGV0
-aHRvb2xfY2hhbm5lbF90eXBlIChub3Qgb3RoZXIgdGhhbiBSWC9UWCkuDQoNClRoaXMgbWVzc2Fn
-ZSBhbmQgYW55IGF0dGFjaGVkIGRvY3VtZW50cyBjb250YWluIGluZm9ybWF0aW9uIGZyb20gUUxv
-Z2ljIENvcnBvcmF0aW9uIG9yIGl0cyB3aG9sbHktb3duZWQgc3Vic2lkaWFyaWVzIHRoYXQgbWF5
-IGJlIGNvbmZpZGVudGlhbC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwg
-eW91IG1heSBub3QgcmVhZCwgY29weSwgZGlzdHJpYnV0ZSwgb3IgdXNlIHRoaXMgaW5mb3JtYXRp
-b24uIElmIHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgdHJhbnNtaXNzaW9uIGluIGVycm9yLCBwbGVh
-c2Ugbm90aWZ5IHRoZSBzZW5kZXIgaW1tZWRpYXRlbHkgYnkgcmVwbHkgZS1tYWlsIGFuZCB0aGVu
-IGRlbGV0ZSB0aGlzIG1lc3NhZ2UuDQo=
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Thu, 31 Mar 2011 11:58:08 +0200 (CEST)
 
+> dev_ethtool_get_rx_csum() won't report rx checksumming when it's not
+> changeable and driver is converted to hw_features and friends. Fix th=
+is.
+>=20
+> (dev->hw_features & NETIF_F_RXCSUM) check is dropped - if the
+> ethtool_ops->get_rx_csum is set, then driver is not coverted, yet.
+>=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+
+Applied, thanks.
