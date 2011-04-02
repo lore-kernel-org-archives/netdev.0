@@ -1,49 +1,70 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [RFC PATCH] vlan: convert VLAN devices to use hw_features
-Date: Fri, 1 Apr 2011 18:55:04 -0700
-Message-ID: <AANLkTim68LoiyFA4+3weHkmuVpc=xxmHnheiEf_OH0LK@mail.gmail.com>
-References: <20110331110135.19BE6138DD@rere.qmqm.pl>
+Subject: Re: bnx2 vlan issue
+Date: Fri, 1 Apr 2011 19:01:08 -0700
+Message-ID: <AANLkTi=CaWMSmRsN8SXfn999=4RNnFESTLjyBytYVzR2@mail.gmail.com>
+References: <AANLkTik0BOuDj5wmfHabZx_OzXDROtDLR2qtqUqQu4ko@mail.gmail.com>
+ <AANLkTi=rOjHZt_F01UfunrTm=2r1BO5QGFDeV9XyKX4G@mail.gmail.com>
+ <AANLkTimAnHcoVDY_p8PqZLMJdMz2w7bMnSbOwzn4aR4i@mail.gmail.com>
+ <AANLkTimJsBYefz3+3HgBgrHUR33g+TWuBp15E=VODohb@mail.gmail.com>
+ <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
+ <AANLkTi=7ETnRWOLRVAWhv=3BHZdzUnLvAqzxXOz399Xx@mail.gmail.com>
+ <AANLkTi=D9Qw+Tw7wHb2T7UG_o9zkZcr2meHE3fwcMwvF@mail.gmail.com>
+ <AANLkTimnKRDY8QLiJMMLqNzCA_-6UJmUDHKf-i1Yt3V5@mail.gmail.com>
+ <AANLkTi=zfhwHTB7kitgwk3AzSa0aFFyxgM_ZY-3wObR5@mail.gmail.com> <AANLkTi=gsP3ZZyEwO+CcM3uB6G5-QswYEfqdtiy8oOyv@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Cc: netdev <netdev@vger.kernel.org>
+To: Seblu <seblu@seblu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:45509 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43088 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753587Ab1DBBzZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 21:55:25 -0400
-Received: by bwz15 with SMTP id 15so2905290bwz.19
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2011 18:55:24 -0700 (PDT)
-In-Reply-To: <20110331110135.19BE6138DD@rere.qmqm.pl>
+	with ESMTP id S1755065Ab1DBCB3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:01:29 -0400
+Received: by bwz15 with SMTP id 15so2906972bwz.19
+        for <netdev@vger.kernel.org>; Fri, 01 Apr 2011 19:01:28 -0700 (PDT)
+In-Reply-To: <AANLkTi=gsP3ZZyEwO+CcM3uB6G5-QswYEfqdtiy8oOyv@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/3/31 Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>:
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index e34ea9e..b84a46b 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -704,8 +704,8 @@ static int vlan_dev_init(struct net_device *dev)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0(1<<__LINK_STATE_DORMANT))) |
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0(1<<__LINK_STATE_PRESENT);
->
-> - =C2=A0 =C2=A0 =C2=A0 dev->features |=3D real_dev->features & real_d=
-ev->vlan_features;
-> - =C2=A0 =C2=A0 =C2=A0 dev->features |=3D NETIF_F_LLTX;
-> + =C2=A0 =C2=A0 =C2=A0 dev->hw_features =3D real_dev->vlan_features &=
- NETIF_F_ALL_TX_OFFLOADS;
-> + =C2=A0 =C2=A0 =C2=A0 dev->features |=3D real_dev->vlan_features | N=
-ETIF_F_LLTX;
+On Thu, Mar 24, 2011 at 5:26 PM, Seblu <seblu@seblu.net> wrote:
+> On Thu, Mar 24, 2011 at 8:55 PM, Jesse Gross <jesse@nicira.com> wrote=
+:
+>> On Thu, Mar 24, 2011 at 5:58 AM, Seblu <seblu@seblu.net> wrote:
+>>>> I don't necessarily disagree that there should be a better way to =
+do
+>>>> this, though as of the moment the above is probably your best bet.
+>>>>
+>>>> To me, the most important thing is to have consistent behavior acr=
+oss
+>>>> different cards.
+>>>
+>>> Speaking of that, i've tryed =A02.6.38 on my station (dell opitplex=
+ 980)
+>>> to use the new bridging schema and it doesn't work.
+>>> Exactly the case previously described: ip on br0 (eth0+eth1) and ip=
+ on
+>>> br0.42. eth0 driver is e1000e and eth1 is tg3. br0.42 don't receive
+>>> traffic.
+>>> I have to open a bug report?
+>>
+>> The change was deliberate, not an accidental mistake, so don't expec=
+t
+>> 2.6.38 to suddenly switch back to the previous behavior. =A0There's =
+no
+>> need to file a bug report - the new behavior is known (I was the one
+>> who changed it in the first place). =A0I will look into nicer semant=
+ics
+>> in the future.
+>>
+> Maybe i was not enough clear. It seems to me that new behaviour, with
+> vlan on top of bridge rather than above interface in bridge is not
+> functional.
+> In other words, i cannot use vlan and bridge together in 2.6.38 (with=
+ e1000e).
 
-Shouldn't this continue to use real_dev->feaures &
-real_dev->vlan_features?  In some places capabilities are blindly
-added to vlan_features on the assumption that they will later be ANDed
-with the real capabilities of the hardware (for example, see
-register_netdevice()).
+Sorry, I misunderstood what you were saying before.  Can you try and
+see where the packets are getting lost or improperly handled by
+running tcpdump on the various interfaces?  For example, check that
+packets are coming in with tags on the physical interfaces, have tags
+on the bridge interface, no tag on the vlan interface, etc.
