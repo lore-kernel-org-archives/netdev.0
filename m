@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: convert SMSC USB net drivers to hw_features
-Date: Fri, 01 Apr 2011 20:54:47 -0700 (PDT)
-Message-ID: <20110401.205447.245401122.davem@davemloft.net>
-References: <20110331110135.E66E413A6B@rere.qmqm.pl>
+Subject: Re: [PATCH RESEND] net: convert xen-netfront to hw_features
+Date: Fri, 01 Apr 2011 20:54:55 -0700 (PDT)
+Message-ID: <20110401.205455.70198735.davem@davemloft.net>
+References: <20110331110136.03A1A13A6A@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com
+Cc: netdev@vger.kernel.org, jeremy.fitzhardinge@citrix.com,
+	konrad.wilk@oracle.com, Ian.Campbell@citrix.com,
+	xen-devel@lists.xensource.com,
+	virtualization@lists.linux-foundation.org
 To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40251
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40257
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752339Ab1DBDzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 23:55:25 -0400
-In-Reply-To: <20110331110135.E66E413A6B@rere.qmqm.pl>
+	by vger.kernel.org with ESMTP id S1753011Ab1DBDzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 23:55:32 -0400
+In-Reply-To: <20110331110136.03A1A13A6A@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
 
-> There's a race (not fixed here) in smsc75xx in setting RFE_CTL that's=
- not
-> properly handled via rfe_ctl_lock. Spinlock is not a good tool here, =
-as
-> this has to wait for URB completion (or maybe just submission) after =
-issuing
-> register write request. Otherwise, the rfe_ctl might be changed just =
-after
-> spin_unlock() and device left programmed with other value.
+> Not tested in any way. The original code for offload setting seems br=
+oken
+> as it resets the features on every netback reconnect.
 >=20
-> smsc95xx has increased hard_header_len for the case of TX checksummin=
-g.
+> This will set GSO_ROBUST at device creation time (earlier than connec=
+t time).
 >=20
-> smsc75xx is fixed to advertise IP+IPV6_CSUM instead of HW_CSUM as it =
-does
-> not use csum_start/csum_offset.
+> RX checksum offload is forced on - so advertise as it is.
 >=20
 > Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
