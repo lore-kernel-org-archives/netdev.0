@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [PATCH 24/24] sysctl: neigh: ipv4 and ipv6 neigh tables as private children
-Date: Sat,  2 Apr 2011 04:53:38 +0200
-Message-ID: <6d6e3bdbccbd197cdf416140f0a88411f31dc31b.1301711868.git.lucian.grijincu@gmail.com>
+Subject: [PATCH 22/24] sysctl: ipv4: register /proc/sys/net/ipv4/neigh empty directory
+Date: Sat,  2 Apr 2011 04:53:36 +0200
+Message-ID: <012acbd2c767198bdd88d6bd724b5c8b43997cf7.1301711868.git.lucian.grijincu@gmail.com>
 References: <cover.1301711868.git.lucian.grijincu@gmail.com>
 Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: "'David S . Miller'" <davem@davemloft.net>,
@@ -12,148 +12,169 @@ To: "'David S . Miller'" <davem@davemloft.net>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-wy0-f174.google.com ([74.125.82.174]:32917 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757251Ab1DBCzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:55:08 -0400
+	with ESMTP id S1756990Ab1DBCzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:55:02 -0400
 In-Reply-To: <cover.1301711868.git.lucian.grijincu@gmail.com>
 In-Reply-To: <cover.1301711868.git.lucian.grijincu@gmail.com>
 References: <cover.1301711868.git.lucian.grijincu@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-$ time modprobe dummy numdummies=$n
+As opposed to the patches that added the /proc/sys/net/ipv4/conf and
+/proc/sys/net/ipv6/conf empty directories, this patch does include a
+change in semantics.
 
-Without this patch:
- - n=5000 => real:  9:14m, sys: 8:46m
- - n=2000 => real:  1:19m, sys: 1:17m
- - n=1000 => real:  0:14m, sys: 0:14m
+Before this patch /proc/sys/net/ipv4/neigh/default/ was registered
+from arp_init() directly.
 
-With this patch:
- - n=5000 => real: 12.50s
- - n=2000 => real:  1.59s
- - n=1000 => real:  0.44s
+This patch adds new pernet_operations in which it first registers
+/proc/sys/net/ipv4/neigh/ and afterwards /proc/sys/net/ipv4/neigh/default/.
 
-$ time find /proc/sys/net/ > /dev/null
+These operations are ran for each network namespace in part, even for
+init_net (which is the only net that sees the 'default' entry), thus
+/proc/sys/net/ipv4/neigh/default/ gets registered, just that the
+registration now happens later that before this patch.
 
-Without this patch:
- - n=5000 => real: 15s
- - n=2000 => real: 12s
- - n=1000 => real:  4s
-
-With this patch:
- - n=5000 => real: 3.77s
- - n=2000 => real: 1.55s
- - n=1000 => real: 1.43s
+In testing this did not seem to create problems, but I haven't checked
+the code thoroughly.
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- include/net/neighbour.h |    9 ++++-----
- net/core/neighbour.c    |    6 ++++--
- net/ipv4/arp.c          |    3 ++-
- net/ipv4/devinet.c      |    3 ++-
- net/ipv6/addrconf.c     |    3 ++-
- net/ipv6/ndisc.c        |    3 ++-
- 6 files changed, 16 insertions(+), 11 deletions(-)
+ include/net/netns/ipv4.h |    1 +
+ net/ipv4/arp.c           |   70 ++++++++++++++++++++++++++++++++++++++++++++--
+ net/ipv4/route.c         |   13 ++++----
+ 3 files changed, 74 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 4014b62..3fabfa3 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -259,11 +259,10 @@ extern void *neigh_seq_start(struct seq_file *, loff_t *, struct neigh_table *,
- extern void *neigh_seq_next(struct seq_file *, void *, loff_t *);
- extern void neigh_seq_stop(struct seq_file *, void *);
- 
--extern int			neigh_sysctl_register(struct net_device *dev, 
--						      struct neigh_parms *p,
--						      char *p_name,
--						      proc_handler *proc_handler);
--extern void			neigh_sysctl_unregister(struct neigh_parms *p);
-+extern int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
-+				 char *p_name, proc_handler *proc_handler,
-+				 struct ctl_table_header *parent_header);
-+extern void neigh_sysctl_unregister(struct neigh_parms *p);
- 
- static inline void __neigh_parms_put(struct neigh_parms *parms)
- {
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 799f06e..48141cb 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2804,7 +2804,8 @@ static struct neigh_sysctl_table {
- };
- 
- int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
--			  char *p_name, proc_handler *handler)
-+			  char *p_name, proc_handler *handler,
-+			  struct ctl_table_header *parent_header)
- {
- 	struct neigh_sysctl_table *t;
- 	const char *dev_name_source = NULL;
-@@ -2877,7 +2878,8 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
- 	neigh_path[NEIGH_CTL_PATH_PROTO].procname = p_name;
- 
- 	t->sysctl_header =
--		register_net_sysctl_table(neigh_parms_net(p), neigh_path, t->neigh_vars);
-+		register_net_sysctl_table_with_parent(neigh_parms_net(p),
-+				      neigh_path, t->neigh_vars, parent_header);
- 	if (!t->sysctl_header)
- 		goto free_procname;
- 
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index cdb8307..182dc69 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -17,6 +17,7 @@ struct netns_ipv4 {
+ #ifdef CONFIG_SYSCTL
+ 	struct ctl_table_header	*forw_hdr;   /* /proc/sys/net/ipv4/ip_forward */
+ 	struct ctl_table_header	*conf_hdr;   /* /proc/sys/net/ipv4/conf/ */
++	struct ctl_table_header	*neigh_hdr;  /* /proc/sys/net/ipv4/neigh/ */
+ 	struct ctl_table_header	*frags_hdr;  /* /proc/sys/net/ipv4/ipfrag_* */
+ 	struct ctl_table_header	*ipv4_hdr;   /* see @ipv4_net_table */
+ 	struct ctl_table_header *route_hdr;  /* /proc/sys/net/ipv4/route/flush */
 diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index d38654f..a5ba277 100644
+index 090d273..d38654f 100644
 --- a/net/ipv4/arp.c
 +++ b/net/ipv4/arp.c
-@@ -1509,7 +1509,8 @@ static int __net_init arp_sysctl_net_init(struct net *net)
- 	/* register /proc/sys/net/ipv4/neigh/default */
- 	if (net_eq(net, &init_net)) {
- 		int err;
--		err = neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4", NULL);
-+		err = neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4",
-+					    NULL, net->ipv4.neigh_hdr);
- 		if (err) {
- 			unregister_net_sysctl_table(net->ipv4.neigh_hdr);
- 			return err;
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 2a10365..461466c 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1687,7 +1687,8 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
+@@ -1302,6 +1302,7 @@ static struct packet_type arp_packet_type __read_mostly = {
+ };
  
- static void devinet_sysctl_register(struct in_device *idev)
+ static int arp_proc_init(void);
++static int __init arp_sysctl_init(void);
+ 
+ void __init arp_init(void)
  {
--	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4", NULL);
-+	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4",
-+			      NULL, dev_net(idev->dev)->ipv4.neigh_hdr);
- 	__devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 					&idev->cnf);
+@@ -1309,9 +1310,7 @@ void __init arp_init(void)
+ 
+ 	dev_add_pack(&arp_packet_type);
+ 	arp_proc_init();
+-#ifdef CONFIG_SYSCTL
+-	neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4", NULL);
+-#endif
++	arp_sysctl_init();
+ 	register_netdevice_notifier(&arp_netdev_notifier);
  }
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6ac29d0..30c163c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4545,7 +4545,8 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
- static void addrconf_sysctl_register(struct inet6_dev *idev)
+ 
+@@ -1478,3 +1477,68 @@ static int __init arp_proc_init(void)
+ }
+ 
+ #endif /* CONFIG_PROC_FS */
++
++
++
++#ifdef CONFIG_SYSCTL
++
++/* empty entry for '/proc/sys/net/ipv4/neigh/' */
++static struct ctl_table empty[1];
++static struct ctl_table ipv4_neigh_skel[] = {
++	{
++		.procname       = "neigh",
++		.mode           = 0555,
++		.child          = empty,
++	},
++	{ },
++};
++static __net_initdata const struct ctl_path net_ipv4_path[] = {
++	{ .procname = "net", },
++	{ .procname = "ipv4", },
++	{ },
++};
++
++static int __net_init arp_sysctl_net_init(struct net *net)
++{
++	/* register empty dir for /proc/sys/net/ipv4/neigh/ */
++	net->ipv4.neigh_hdr = register_net_sysctl_table(net,
++					net_ipv4_path, ipv4_neigh_skel);
++	if (net->ipv4.neigh_hdr == NULL)
++		return -ENOMEM;
++
++	/* register /proc/sys/net/ipv4/neigh/default */
++	if (net_eq(net, &init_net)) {
++		int err;
++		err = neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4", NULL);
++		if (err) {
++			unregister_net_sysctl_table(net->ipv4.neigh_hdr);
++			return err;
++		}
++	}
++	return 0;
++}
++
++static void __net_exit arp_sysctl_net_exit(struct net *net)
++{
++	neigh_sysctl_unregister(&arp_tbl.parms);
++	unregister_sysctl_table(net->ipv4.neigh_hdr);
++}
++
++static struct pernet_operations arp_sysctl_ops = {
++	.init = arp_sysctl_net_init,
++	.exit = arp_sysctl_net_exit,
++};
++
++static int __init arp_sysctl_init(void)
++{
++	return register_pernet_subsys(&arp_sysctl_ops);
++}
++
++#else /* CONFIG_SYSCTL */
++
++static int __init arp_sysctl_init(void)
++{
++	return 0;
++}
++
++#endif /* CONFIG_SYSCTL */
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 1e99f01..180a10d 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -3139,15 +3139,14 @@ static ctl_table ipv4_route_table[] = {
+ 	{ }
+ };
+ 
+-static struct ctl_table empty[1];
+-
+ static struct ctl_table ipv4_skeleton[] =
  {
- 	neigh_sysctl_register(idev->dev, idev->nd_parms, "ipv6",
--			      &ndisc_ifinfo_sysctl_change);
-+			      &ndisc_ifinfo_sysctl_change,
-+			      dev_net(idev->dev)->ipv6.sysctl.neigh_hdr);
- 	__addrconf_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 					idev, &idev->cnf);
- }
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 1cbc3c6..005d163 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1828,7 +1828,8 @@ static int __net_init ndisc_net_init(struct net *net)
- 	/* register /proc/sys/net/ipv6/neigh/default */
- 	if (net_eq(net, &init_net)) {
- 		err = neigh_sysctl_register(NULL, &nd_tbl.parms, "ipv6",
--					    &ndisc_ifinfo_sysctl_change);
-+					    &ndisc_ifinfo_sysctl_change,
-+					    net->ipv6.sysctl.neigh_hdr);
- 		if (err)
- 			goto neigh_sysctl_register_fail;
- 	}
+-	{ .procname = "route", 
+-	  .mode = 0555, .child = ipv4_route_table},
+-	{ .procname = "neigh", 
+-	  .mode = 0555, .child = empty},
+-	{ }
++	{
++		.procname = "route",
++		.mode     = 0555,
++		.child    = ipv4_route_table,
++	},
++	{ },
+ };
+ 
+ static __net_initdata struct ctl_path ipv4_path[] = {
 -- 
 1.7.5.rc0
 
