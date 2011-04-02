@@ -1,81 +1,44 @@
-From: Dong Aisheng-B29396 <B29396@freescale.com>
-Subject: RE: [PATCH 1/1] net/fec: do not pass NULL dev to DMA API
-Date: Sat, 2 Apr 2011 08:40:00 +0000
-Message-ID: <65EE16ACC360FA4D99C96DC085B3F77214DD02@039-SN1MPN1-001.039d.mgd.msft.net>
-References: <20110402.005714.258110130.davem@davemloft.net>
-	<20110402083131.GB26533@S2100-06.ap.freescale.net>
-	<AANLkTi=FMsH7Px2m9WkRVyHfGZ9MLvgp-XPHu3Amsu7+@mail.gmail.com>
-	<20110402.013541.02274640.davem@davemloft.net>
+From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Subject: nfs client doesn't work [was: mmotm 2011-03-31-14-48 uploaded]
+Date: Sat, 02 Apr 2011 10:56:37 +0200
+Message-ID: <4D96E4C5.2080302@suse.cz>
+References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Guo Shawn-R65073 <R65073@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: David Miller <davem@davemloft.net>, "liu.h.jason@gmail.com"
-	<liu.h.jason@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20110402.013541.02274640.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, mm-commits-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201103312224.p2VMOA5g000983-AB4EexQrvXRQetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, April 02, 2011 4:36 PM
-> To: liu.h.jason@gmail.com
-> Cc: Guo Shawn-R65073; netdev@vger.kernel.org; Dong Aisheng-B29396; linux-
-> arm-kernel@lists.infradead.org
-> Subject: Re: [PATCH 1/1] net/fec: do not pass NULL dev to DMA API
-> =
+On 03/31/2011 11:48 PM, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org wrote:
+> The mm-of-the-moment snapshot 2011-03-31-14-48 has been uploaded to
 
-> From: Jason Liu <liu.h.jason@gmail.com>
-> Date: Sat, 2 Apr 2011 16:35:19 +0800
-> =
+Hi, nfs client is defunct in this kernel. Tcpdump says:
+10:51:55.489717 IP 10.20.11.33.759945860 > 10.20.3.2.2049: 132 getattr
+fh 0,0/24
+10:51:55.515927 IP 10.20.3.2.2049 > 10.20.11.33.759945860: reply ok 44
+getattr ERROR: Operation not permitted
+10:51:55.515949 IP 10.20.11.33.921 > 10.20.3.2.2049: Flags [.], ack
+3569361440, win 115, options [nop,nop,TS val 599750 ecr 255058541], length 0
+10:52:04.130310 IP 10.20.11.33.793500292 > 10.20.3.2.2049: 76 getattr fh
+0,0/24
+10:52:04.152178 IP 10.20.3.2.2049 > 10.20.11.33.793500292: reply ok 44
+getattr ERROR: Operation not permitted
 
-> > 2011/4/2 Shawn Guo <shawn.guo@freescale.com>:
-> >> Hi David,
-> >>
-> >> On Sat, Apr 02, 2011 at 12:57:14AM -0700, David Miller wrote:
-> >>>
-> >>> First, your patches never make it to the mailing list because the
-> >>> list server rejects your postings, due to the fact that there are
-> >>> syntax errors in your email headers:
-> >>>
-> >>> Illegal-Object: =A0 =A0 =A0 Syntax error in From: address found on
-> vger.kernel.org:
-> >>> =A0 =A0 =A0 From: =A0 Aisheng.Dong<b29396@freescale.com>
-> >>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ^=
--missing end of mailbox
-> >>>
-> >> Yes, we were aware of that the mail did not get distributed by vger
-> >> list. =A0But we do not know why. =A0Thanks for telling.
-> >>
-> >> I'm not quite sure about the "^" indication. =A0Is it telling that
-> >> there should be a space between display name and mail address?
-> >
-> > We should not use A.B <>, instead should use A B <>.
-> =
+If I run the same mount command (mount -oro,intr host:dir mountpoint)
+from within a virtual machine with 2.6.38.2 there, everything mounts OK.
 
-> Yes, this is also true.
-> =
-
-> Characters such as "." must not appear in email headers in this context
-> unless protected by double quotes.
-Thanks a lot David.
-This issue has bothered me a lot and finally the root cause is found.
-
-For the patch I just found it was already fixed in your 2.6.x -next tree.
-Thanks for the info.
-
-Regards
-Aisheng
+thanks,
+-- 
+js
+suse labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
