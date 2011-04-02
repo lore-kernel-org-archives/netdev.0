@@ -1,72 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tcp: disallow bind() to reuse addr/port regression in 2.6.38
-Date: Sat, 02 Apr 2011 20:10:48 +0200
-Message-ID: <1301767848.2837.14.camel@edumazet-laptop>
-References: <201104022001.48144.cyril.bonte@free.fr>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding-tlb: better balance when choosing slaves
+Date: Sat, 02 Apr 2011 11:25:03 -0700
+Message-ID: <20427.1301768703@death>
+References: <1301753395-1205-1-git-send-email-panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Daniel Baluta <daniel.baluta@gmail.com>,
-	Gaspar Chilingarov <gasparch@gmail.com>,
-	Charles Duffy <charles@dyfis.net>, Willy Tarreau <w@1wt.eu>
-To: Cyril =?ISO-8859-1?Q?Bont=E9?= <cyril.bonte@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:51794 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756217Ab1DBSKy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2011 14:10:54 -0400
-Received: by wya21 with SMTP id 21so3738344wya.19
-        for <netdev@vger.kernel.org>; Sat, 02 Apr 2011 11:10:53 -0700 (PDT)
-In-Reply-To: <201104022001.48144.cyril.bonte@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Le samedi 02 avril 2011 =C3=A0 20:01 +0200, Cyril Bont=C3=A9 a =C3=A9cr=
-it :
-> Hi All,
->=20
-> (2nd try to fix the mailing list address)
->=20
-> It has been reported that kernel 2.6.38 prevented the load balancer h=
-aproxy to=20
-> reload. After reading the kernel Changelog, it looks like the followi=
-ng commit=20
-> has a negative side effect on the the way haproxy "pauses" its listen=
-ing=20
-> sockets to start a new process :
->=20
-> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commit;h=3Dc191a836a908d1dd6b40c503741f91b914de3348
->=20
-> Disabling the TCPF_CLOSE flag condition reallows to work as before. I=
- guess=20
-> this was done for good reasons (Sorry, I haven't found the thread abo=
-ut that=20
-> commit in the archives yet) but other applications may also be impact=
-ed by=20
-> this change.
->=20
-> I add Willy Tarreau to the CC to open the discussion.
->=20
-
-> 		if (shutdown(listenfd, SHUT_WR) =3D=3D 0 &&
-> 		    listen(listenfd, 1024) =3D=3D 0 &&
-> 		    shutdown(listenfd, SHUT_RD) =3D=3D 0) {
-> 			printf("shutdown OK\n");
-> 		}
-> 	}
-> 	exit(0);
-> }
->=20
-
-Wow, not clear what this is doing....=20
-
-for sure the listen() call is not needed ?
-
-And the shutdown(listenfd, SHUT_WR) is clearly useless too.
-
-I feel you only needed the shutdown(listenfd, SHUT_RD) call.
-
-Why haproxy needs to setup a second listening socket on same port ?
+Cc: Andy Gospodarek (supporter:BONDING DRIVER) <andy@greyhouse.net>,
+	netdev@vger.kernel.org (open list:BONDING DRIVER),
+	linux-kernel@vger.kernel.org (open list)
+To: =?UTF-8?q?Weiping=20Pan=28=E6=BD=98=E5=8D=AB=E5=B9=B3=29?=
+	<panweiping3@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1301753395-1205-1-git-send-email-panweiping3@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+>tlb_get_least_loaded_slave() always chooses slave from
+>bonding->first_slave, that gives the beginnig slaves more chances to b=
+e used.
+>
+>Let tlb_get_least_loaded_slave() chooses slave from a random positon i=
+n the
+>slave list, make all slaves transmit packets more balanced.
+
+	If outgoing traffic is not being starved (i.e., connections are
+being balanced such that they are stacking up on one slave but
+under-utilizing another), then I don't understand what benefit this has=
+=2E
+
+	There is already some degree of randomness, as peers will be
+assigned in the order that packets are transmitted to them after each
+rebalance.  The busiest peers will tend to be on the earlier slaves, an=
+d
+vice versa, but I'm not sure this is a bad thing.
+
+	Does this have any real gain other than making the rx/tx
+statistics for the slaves more equal over time?
+
+	I haven't measured it, but I would expect that for small numbers
+of peers, having them tend to stay on the same slaves over time is
+probably a good thing.
+
+	-J
+
+>Signed-off-by: Weiping Pan(=E6=BD=98=E5=8D=AB=E5=B9=B3) <panweiping3@g=
+mail.com>
+>---
+> drivers/net/bonding/bond_alb.c |   17 +++++++++++++++--
+> 1 files changed, 15 insertions(+), 2 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond=
+_alb.c
+>index 9bc5de3..9fa64b0 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -36,6 +36,7 @@
+> #include <linux/if_bonding.h>
+> #include <linux/if_vlan.h>
+> #include <linux/in.h>
+>+#include <linux/random.h>
+> #include <net/ipx.h>
+> #include <net/arp.h>
+> #include <net/ipv6.h>
+>@@ -206,15 +207,27 @@ static long long compute_gap(struct slave *slave=
+)
+> /* Caller must hold bond lock for read */
+> static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+> {
+>-	struct slave *slave, *least_loaded;
+>+	struct slave *slave, *least_loaded, *start_slave;
+> 	long long max_gap;
+> 	int i;
+>+	u8 n;
+>
+> 	least_loaded =3D NULL;
+>+	start_slave =3D bond->first_slave;
+> 	max_gap =3D LLONG_MIN;
+>+       =20
+>+	get_random_bytes(&n, 1);
+>+
+>+	if (bond->slave_cnt =3D=3D 0)
+>+		return NULL;
+>+	n =3D n % bond->slave_cnt;
+>+
+>+	for (i=3D0; i<n; ++i) {
+>+		start_slave =3D start_slave->next;
+>+	}
+>
+> 	/* Find the slave with the largest gap */
+>-	bond_for_each_slave(bond, slave, i) {
+>+	bond_for_each_slave_from(bond, slave, i, start_slave) {
+> 		if (SLAVE_IS_OK(slave)) {
+> 			long long gap =3D compute_gap(slave);
+>
+>--=20
+>1.7.4
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
