@@ -1,32 +1,53 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH v1] net: filter: Just In Time compiler
-Date: Sun, 3 Apr 2011 00:50:02 +0200
-Message-ID: <20110402225002.GJ3108@nuttenaction>
+Date: Sat, 02 Apr 2011 23:53:17 +0100
+Message-ID: <1301784797.3110.4.camel@localhost>
 References: <1301783301.2837.77.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Arnaldo Carvalho de Melo <acme@infradead.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:38472 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753017Ab1DBWuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2011 18:50:05 -0400
-Content-Disposition: inline
+Received: from mail.solarflare.com ([216.237.3.220]:33707 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753186Ab1DBWxX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2011 18:53:23 -0400
 In-Reply-To: <1301783301.2837.77.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Eric Dumazet | 2011-04-03 00:28:21 [+0200]:
+On Sun, 2011-04-03 at 00:28 +0200, Eric Dumazet wrote:
+> In order to speedup packet filtering, here is an implementation of a JIT
+> compiler for x86_64
 
->In order to speedup packet filtering, here is an implementation of a JIT
->compiler for x86_64
+Then put it under arch/x86!
 
-Great work! Eric, do you have some numbers? For a trivial "ret" filter the
-performance gain should be marginal - if any. But what with complex filter
-rules? And as said last time: libpcap optimizer seems to be target number one
-for optimization. Again: great work!
+[...]
+> diff --git a/net/Kconfig b/net/Kconfig
+> index 79cabf1..04a1726 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -232,6 +232,11 @@ config XPS
+>  	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+>  	default y
+>  
+> +config BPF_JIT
+> +	boolean
+> +	depends on X86_64
+> +	default y
+[...]
 
-Hagen
+This should presumably be:
+	depends on HAVE_BPF_JIT
+while arch/x86/Kconfig would define HAVE_BPF_JIT.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
