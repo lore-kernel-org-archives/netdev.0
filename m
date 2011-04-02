@@ -1,25 +1,21 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 1/1] net: ethtool support to configure number of channels
-Date: Fri,  1 Apr 2011 21:51:15 -0700
-Message-ID: <1301719875-24888-1-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv3 NEXT 1/1] net: ethtool support to configure number of channels
+Date: Fri,  1 Apr 2011 21:58:03 -0700
+Message-ID: <1301720283-25038-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	anirban.chakraborty@qlogic.com,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:8392 "EHLO unm84.unminc.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:35155 "EHLO unm84.unminc.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750865Ab1DBEvw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Apr 2011 00:51:52 -0400
+	id S1750754Ab1DBE6P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Apr 2011 00:58:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Instead of cluttering struct ethtool_channels, defined channel type in
-  struct ethtool_channels, making it scalable for addition future channels.
-  Application needs to send different ioctl for each channel type.
 o There exist ETHTOOL_GRXRINGS command for getting number of RX rings,
   but it is tigtly coupled with RX flow hash configuration.
-o New channel id can be added in ethtool_channel_id to make it configurable.
 o Patches for qlcnic and netxen_nic driver supporting rx channel will follow
   soon.
 o This patch is reworked on Ben Hutchings "ethtool: NUMA affinity control" patch,
