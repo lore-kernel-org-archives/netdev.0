@@ -1,70 +1,73 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: bnx2 vlan issue
-Date: Fri, 1 Apr 2011 19:01:08 -0700
-Message-ID: <AANLkTi=CaWMSmRsN8SXfn999=4RNnFESTLjyBytYVzR2@mail.gmail.com>
-References: <AANLkTik0BOuDj5wmfHabZx_OzXDROtDLR2qtqUqQu4ko@mail.gmail.com>
- <AANLkTi=rOjHZt_F01UfunrTm=2r1BO5QGFDeV9XyKX4G@mail.gmail.com>
- <AANLkTimAnHcoVDY_p8PqZLMJdMz2w7bMnSbOwzn4aR4i@mail.gmail.com>
- <AANLkTimJsBYefz3+3HgBgrHUR33g+TWuBp15E=VODohb@mail.gmail.com>
- <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
- <AANLkTi=7ETnRWOLRVAWhv=3BHZdzUnLvAqzxXOz399Xx@mail.gmail.com>
- <AANLkTi=D9Qw+Tw7wHb2T7UG_o9zkZcr2meHE3fwcMwvF@mail.gmail.com>
- <AANLkTimnKRDY8QLiJMMLqNzCA_-6UJmUDHKf-i1Yt3V5@mail.gmail.com>
- <AANLkTi=zfhwHTB7kitgwk3AzSa0aFFyxgM_ZY-3wObR5@mail.gmail.com> <AANLkTi=gsP3ZZyEwO+CcM3uB6G5-QswYEfqdtiy8oOyv@mail.gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: extending feature word.
+Date: Fri, 1 Apr 2011 19:07:05 -0700
+Message-ID: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Seblu <seblu@seblu.net>
+To: linux-netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:43088 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755065Ab1DBCB3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:01:29 -0400
-Received: by bwz15 with SMTP id 15so2906972bwz.19
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2011 19:01:28 -0700 (PDT)
-In-Reply-To: <AANLkTi=gsP3ZZyEwO+CcM3uB6G5-QswYEfqdtiy8oOyv@mail.gmail.com>
+Received: from smtp-out.google.com ([216.239.44.51]:14262 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754225Ab1DBCHJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2011 22:07:09 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id p32278Vr024479
+	for <netdev@vger.kernel.org>; Fri, 1 Apr 2011 19:07:08 -0700
+Received: from bwz14 (bwz14.prod.google.com [10.188.26.14])
+	by wpaz33.hot.corp.google.com with ESMTP id p32276PO014374
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 1 Apr 2011 19:07:07 -0700
+Received: by bwz14 with SMTP id 14so3186427bwz.30
+        for <netdev@vger.kernel.org>; Fri, 01 Apr 2011 19:07:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2011 at 5:26 PM, Seblu <seblu@seblu.net> wrote:
-> On Thu, Mar 24, 2011 at 8:55 PM, Jesse Gross <jesse@nicira.com> wrote=
-:
->> On Thu, Mar 24, 2011 at 5:58 AM, Seblu <seblu@seblu.net> wrote:
->>>> I don't necessarily disagree that there should be a better way to =
-do
->>>> this, though as of the moment the above is probably your best bet.
->>>>
->>>> To me, the most important thing is to have consistent behavior acr=
-oss
->>>> different cards.
->>>
->>> Speaking of that, i've tryed =A02.6.38 on my station (dell opitplex=
- 980)
->>> to use the new bridging schema and it doesn't work.
->>> Exactly the case previously described: ip on br0 (eth0+eth1) and ip=
- on
->>> br0.42. eth0 driver is e1000e and eth1 is tg3. br0.42 don't receive
->>> traffic.
->>> I have to open a bug report?
->>
->> The change was deliberate, not an accidental mistake, so don't expec=
-t
->> 2.6.38 to suddenly switch back to the previous behavior. =A0There's =
-no
->> need to file a bug report - the new behavior is known (I was the one
->> who changed it in the first place). =A0I will look into nicer semant=
-ics
->> in the future.
->>
-> Maybe i was not enough clear. It seems to me that new behaviour, with
-> vlan on top of bridge rather than above interface in bridge is not
-> functional.
-> In other words, i cannot use vlan and bridge together in 2.6.38 (with=
- e1000e).
+Thanks for your comments on my loop-back patch. I was looking at the
+code today from the perspective of extending various "features" for
+word to an array of words and as Michael has pointed out, it's a huge
+change. So I'm thinking on the following lines
+(include/linux/netdevice.h)
 
-Sorry, I misunderstood what you were saying before.  Can you try and
-see where the packets are getting lost or improperly handled by
-running tcpdump on the various interfaces?  For example, check that
-packets are coming in with tags on the physical interfaces, have tags
-on the bridge interface, no tag on the vlan interface, etc.
++#define DEV_FEATURE_WORDS =A0 =A0 =A02
++#define LEGACY_FEATURE_WORD =A0 =A00
+=A0 =A0 =A0 =A0/* currently active device features */
+- =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 features;
++ =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 features[DEV_=
+=46EATURE_WORDS];
+=A0 =A0 =A0 =A0/* user-changeable features */
+- =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw_features;
++ =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw_features[D=
+EV_FEATURE_WORDS];
+=A0 =A0 =A0 =A0/* user-requested features */
+- =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 wanted_featur=
+es;
++ =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 wanted_featur=
+es[DEV_FEATURE_WORDS];
+=A0 =A0 =A0 =A0/* VLAN feature mask */
+- =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_features=
+;
++ =A0 =A0 =A0 u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_features=
+[DEV_FEATURE_WORDS];
++#define legacy_features =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0features[LEGACY=
+_FEATURE_WORD]
++#define legacy_hw_features =A0 =A0 hw_features[LEGACY_FEATURE_WORD]
++#define legacy_wanted_features wanted_features[LEGACY_FEATURE_WORD]
++#define=A0legacy_vlan_features =A0 =A0vlan_features[LEGACY_FEATURE_WOR=
+D]
+
+
+So that it will be a matter of -
+
+s/features/legacy_features/
+s/hw_features/legacy_hw_features/
+s/wanted_features/legacy_wanted_features/
+s/vlan_features/legacy_vlan_features/
+
+to start with as a first step. Once this is done, legacy_* can be
+changed with respective arrays and modified as per the need. Comments?
+
+--mahesh..
