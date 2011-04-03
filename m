@@ -1,52 +1,48 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-next-2.6 2/6] sfc: Implement generic features
-	interface
-Date: Sun, 3 Apr 2011 22:50:12 +0200
-Message-ID: <20110403205012.GA16335@rere.qmqm.pl>
-References: <1301859889.2935.23.camel@localhost> <1301860281.2935.25.camel@localhost>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH net-next-2.6 4/6] ethtool: Fill out and update comment for
+ struct ethtool_ops
+Date: Sun, 3 Apr 2011 23:25:23 +0200
+Message-ID: <BANLkTik-+yCyrdSKhirfUSw7ecr0rg=PFA@mail.gmail.com>
+References: <1301859889.2935.23.camel@localhost> <1301860351.2935.27.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:34592 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449Ab1DCUuN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Apr 2011 16:50:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1301860281.2935.25.camel@localhost>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:41793 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876Ab1DCVZo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 17:25:44 -0400
+Received: by qyg14 with SMTP id 14so3454792qyg.19
+        for <netdev@vger.kernel.org>; Sun, 03 Apr 2011 14:25:43 -0700 (PDT)
+In-Reply-To: <1301860351.2935.27.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 03, 2011 at 08:51:21PM +0100, Ben Hutchings wrote:
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/sfc/efx.c        |   17 ++++++++-
->  drivers/net/sfc/ethtool.c    |   78 --------------------------------=
-----------
->  drivers/net/sfc/net_driver.h |    2 -
->  drivers/net/sfc/rx.c         |    2 +-
->  4 files changed, 16 insertions(+), 83 deletions(-)
-
-Noticed one more thing:
-
-> diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-> index d890679..98da250 100644
-> --- a/drivers/net/sfc/efx.c
-> +++ b/drivers/net/sfc/efx.c
+2011/4/3 Ben Hutchings <bhutchings@solarflare.com>:
+> Briefly document all operations (except get_rx_ntuple), including
+> whether they may return an error code and whether they are deprecated=
+=2E
+> Also mention some things that should be handled by the ethtool core
+> rather than by drivers.
 [...]
-> @@ -2452,12 +2463,14 @@ static int __devinit efx_pci_probe(struct pci=
-_dev *pci_dev,
->  		return -ENOMEM;
->  	net_dev->features |=3D (type->offload_features | NETIF_F_SG |
->  			      NETIF_F_HIGHDMA | NETIF_F_TSO |
-> -			      NETIF_F_GRO);
-> +			      NETIF_F_GRO | NETIF_F_RXCSUM);
+> + * @set_pauseparam: Set pause parameters. =C2=A0Returns a negative e=
+rror code
+> + * =C2=A0 =C2=A0 or zero.
+> + * @get_rx_csum: Deprecated in favour of the netdev feature %NETIF_F=
+_RXCSUM.
+> + * =C2=A0 =C2=A0 Report whether receive checksums are turned on or o=
+ff.
+> + * @set_rx_csum: Deprecated in favour of the netdev op ndo_set_flags=
+=2E =C2=A0Turn
+> + * =C2=A0 =C2=A0 receive checksum on or off. =C2=A0Returns a negativ=
+e error code or zero.
 
-NETIF_F_GRO is enabled in register_netdev() now , so it's not
-needed here.
+Correct op is ndo_set_features and not ndo_set_flags. This should also
+refer to hw_features field as that's more likely to be the thing
+needed as the replacement.
 
 Best Regards,
-Micha=B3 Miros=B3aw
+Micha=C5=82 Miros=C5=82aw
