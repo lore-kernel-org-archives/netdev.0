@@ -1,36 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] vlan: convert VLAN devices to use ndo_fix_features()
-Date: Sat, 02 Apr 2011 22:50:25 -0700 (PDT)
-Message-ID: <20110402.225025.98880429.davem@davemloft.net>
-References: <20110331110135.19BE6138DD@rere.qmqm.pl>
-	<AANLkTim68LoiyFA4+3weHkmuVpc=xxmHnheiEf_OH0LK@mail.gmail.com>
-	<20110402144141.0666C1389B@rere.qmqm.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1] net: filter: Just In Time compiler
+Date: Sun, 03 Apr 2011 11:04:07 +0200
+Message-ID: <1301821447.2837.127.camel@edumazet-laptop>
+References: <1301783301.2837.77.camel@edumazet-laptop>
+	 <20110402.224344.191403947.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jesse@nicira.com, kaber@trash.net,
-	john.r.fastabend@intel.com, eric.dumazet@gmail.com
-To: mirq-linux@rere.qmqm.pl
+Cc: netdev@vger.kernel.org, acme@infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45748
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751501Ab1DCFvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 01:51:03 -0400
-In-Reply-To: <20110402144141.0666C1389B@rere.qmqm.pl>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45407 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932Ab1DCJEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 05:04:14 -0400
+Received: by wwa36 with SMTP id 36so5463864wwa.1
+        for <netdev@vger.kernel.org>; Sun, 03 Apr 2011 02:04:13 -0700 (PDT)
+In-Reply-To: <20110402.224344.191403947.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Sat,  2 Apr 2011 16:41:41 +0200 (CEST)
-
-> Note: get_flags was actually broken, because it should return the
-> flags capped with vlan_features. This is now done implicitly by
-> limiting netdev->hw_features.
+Le samedi 02 avril 2011 =C3=A0 22:43 -0700, David Miller a =C3=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sun, 03 Apr 2011 00:28:21 +0200
 >=20
-> RX checksumming offload control is (and was) broken, as there was no =
-way
-> before to say whether it's done for tagged packets.
+> > In order to speedup packet filtering, here is an implementation of =
+a JIT
+> > compiler for x86_64
 >=20
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> Looks great.  Of course, everything should sit under arch/${ARCH}/ in=
+ the
+> end, but this is an excellent proof of concept!
 
-Applied.
+Yes. The real thing would be to implement iptables as JIT ;)
+
+
