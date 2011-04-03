@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1] net: filter: Just In Time compiler
-Date: Sat, 02 Apr 2011 22:43:44 -0700 (PDT)
-Message-ID: <20110402.224344.191403947.davem@davemloft.net>
-References: <1301783301.2837.77.camel@edumazet-laptop>
+Subject: Re: [PATCH] net: Call netdev_features_change() from
+ netdev_update_features()
+Date: Sat, 02 Apr 2011 22:50:19 -0700 (PDT)
+Message-ID: <20110402.225019.241921171.davem@davemloft.net>
+References: <20110402144141.0192613909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acme@infradead.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com, jesse@nicira.com
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52490
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45741
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751470Ab1DCFoV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 01:44:21 -0400
-In-Reply-To: <1301783301.2837.77.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751396Ab1DCFu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 01:50:57 -0400
+In-Reply-To: <20110402144141.0192613909@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 03 Apr 2011 00:28:21 +0200
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Sat,  2 Apr 2011 16:41:40 +0200 (CEST)
 
-> In order to speedup packet filtering, here is an implementation of a JIT
-> compiler for x86_64
+> Issue FEAT_CHANGE notification when features are changed by
+> netdev_update_features().  This will allow changes made by extra cons=
+traints
+> on e.g. MTU change to be properly propagated like changes via ethtool=
+=2E
+>=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-Looks great.  Of course, everything should sit under arch/${ARCH}/ in the
-end, but this is an excellent proof of concept!
+Applied.
