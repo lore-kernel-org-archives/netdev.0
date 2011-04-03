@@ -1,56 +1,54 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH] xen: netfront: fix declaration order
-Date: Sun, 3 Apr 2011 19:35:26 +0200
-Message-ID: <20110403173526.GA2082@rere.qmqm.pl>
-References: <20110331110136.03A1A13A6A@rere.qmqm.pl> <20110401.205455.70198735.davem@davemloft.net> <1301828839.2837.143.camel@edumazet-laptop>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen:  fix
+	LRO disable warning)
+Date: Sun, 3 Apr 2011 21:05:55 +0200
+Message-ID: <20110403190555.GA16196@torres.zugschlus.de>
+References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jeremy.fitzhardinge@citrix.com, konrad.wilk@oracle.com,
-	Ian.Campbell@citrix.com, xen-devel@lists.xensource.com,
-	virtualization@lists.linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:52897 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752604Ab1DCRf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Apr 2011 13:35:29 -0400
+Received: from torres.zugschlus.de ([85.214.131.164]:58976 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752235Ab1DCTOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 15:14:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1301828839.2837.143.camel@edumazet-laptop>
+In-Reply-To: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 03, 2011 at 01:07:19PM +0200, Eric Dumazet wrote:
-> Le vendredi 01 avril 2011 =C3=A0 20:54 -0700, David Miller a =C3=A9cr=
-it :
-> > From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> > Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
-> >=20
-> > > Not tested in any way. The original code for offload setting seem=
-s broken
-> > > as it resets the features on every netback reconnect.
-> > >=20
-> > > This will set GSO_ROBUST at device creation time (earlier than co=
-nnect time).
-> > >=20
-> > > RX checksum offload is forced on - so advertise as it is.
-> > >=20
-> > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl=
->
-> > Applied.
-> Hmm... I had to apply following patch to make it actually compile.
+Hi,
 
-> [PATCH] xen: netfront: fix declaration order
->=20
-> Must declare xennet_fix_features() and xennet_set_features() before
-> using them.
+On Mon, Mar 21, 2011 at 03:37:08AM -0700, Amit Kumar Salecha wrote:
+> netxen_nic_set_flags() rejects data if other flag than ETH_FLAG_LRO is set.
+> Driver also supports NETIF_F_HW_VLAN_TX.
+> Now compare data with ethtool_op_get_flags(), to get all supported features.
 
-Hmm. Sorry for that. Looks like x86 allyesconfig doesn't include this
-driver in the build. :/
+Could that be the cause for packet loss on kernel 2.6.38.2 if:
 
-There really needs to be something like CONFIG_LINT...
+  - receiving card is NX3031 [4040:0100]
+  - frames are received with VLAN tags
+  - large received offload is on.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Packet Loss of this kind is noticed when doing TCP data transfers
+towards the host with the Netxen Interface and the TCP session is
+terminated on the Netxen host itself. TCP sessions routed through the
+Netxen host are not affected.
 
+My ethtool doesn't allow me to influence the LRO setting alone - it is
+disabled when I set rx off but doesn't come on again when rx is set to
+on again. So, ethtool -K rx off, ethtool -K rx on fixes the issue.
+
+Is this a known bug, maybe with an available patch?
+
+Greetings
+Marc
+
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
