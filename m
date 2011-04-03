@@ -1,151 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] xen: netfront: fix declaration order
-Date: Sun, 03 Apr 2011 13:07:19 +0200
-Message-ID: <1301828839.2837.143.camel@edumazet-laptop>
-References: <20110331110136.03A1A13A6A@rere.qmqm.pl>
-	 <20110401.205455.70198735.davem@davemloft.net>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next-2.6 1/2] be2net: Rename some struct members for clarity
+Date: Sun, 3 Apr 2011 17:24:11 +0530
+Message-ID: <71102a3a-3920-4b00-92f3-84228ed1c79a@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
-	jeremy.fitzhardinge@citrix.com, konrad.wilk@oracle.com,
-	Ian.Campbell@citrix.com, xen-devel@lists.xensource.com,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
+	"Sarveswara Rao Mygapula" <sarveswararao.mygapula@emulex.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37314 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751488Ab1DCLH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 07:07:27 -0400
-Received: by wya21 with SMTP id 21so3995515wya.19
-        for <netdev@vger.kernel.org>; Sun, 03 Apr 2011 04:07:26 -0700 (PDT)
-In-Reply-To: <20110401.205455.70198735.davem@davemloft.net>
+Received: from exht1.emulex.com ([138.239.113.183]:1957 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752046Ab1DCLyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 07:54:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 01 avril 2011 =C3=A0 20:54 -0700, David Miller a =C3=A9crit=
- :
-> From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
->=20
-> > Not tested in any way. The original code for offload setting seems =
-broken
-> > as it resets the features on every netback reconnect.
-> >=20
-> > This will set GSO_ROBUST at device creation time (earlier than conn=
-ect time).
-> >=20
-> > RX checksum offload is forced on - so advertise as it is.
-> >=20
-> > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
->=20
-> Applied.
+Renamed msix_vec_idx to eq_idx in be_eq_obj struct.
+Renamed msix_vec_next_idx to eq_next_idx in be_adapter structure.
+These members are used in INTX mode also.
 
-Hmm... I had to apply following patch to make it actually compile.
-
-Thanks
-
-[PATCH] xen: netfront: fix declaration order
-
-Must declare xennet_fix_features() and xennet_set_features() before
-using them.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Sarveswara Rao Mygapula <sarveswararao.mygapula@emulex.com>
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/xen-netfront.c |   72 +++++++++++++++++------------------
- 1 file changed, 36 insertions(+), 36 deletions(-)
+ drivers/net/benet/be.h      |    4 ++--
+ drivers/net/benet/be_main.c |   10 +++++-----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index f6e7e27..0cfe4cc 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1140,6 +1140,42 @@ static void xennet_uninit(struct net_device *dev=
-)
- 	gnttab_free_grant_references(np->gref_rx_head);
- }
-=20
-+static u32 xennet_fix_features(struct net_device *dev, u32 features)
-+{
-+	struct netfront_info *np =3D netdev_priv(dev);
-+	int val;
-+
-+	if (features & NETIF_F_SG) {
-+		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend, "feature-sg",
-+				 "%d", &val) < 0)
-+			val =3D 0;
-+
-+		if (!val)
-+			features &=3D ~NETIF_F_SG;
-+	}
-+
-+	if (features & NETIF_F_TSO) {
-+		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
-+				 "feature-gso-tcpv4", "%d", &val) < 0)
-+			val =3D 0;
-+
-+		if (!val)
-+			features &=3D ~NETIF_F_TSO;
-+	}
-+
-+	return features;
-+}
-+
-+static int xennet_set_features(struct net_device *dev, u32 features)
-+{
-+	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN) {
-+		netdev_info(dev, "Reducing MTU because no SG offload");
-+		dev->mtu =3D ETH_DATA_LEN;
-+	}
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops xennet_netdev_ops =3D {
- 	.ndo_open            =3D xennet_open,
- 	.ndo_uninit          =3D xennet_uninit,
-@@ -1513,42 +1549,6 @@ again:
- 	return err;
- }
-=20
--static u32 xennet_fix_features(struct net_device *dev, u32 features)
--{
--	struct netfront_info *np =3D netdev_priv(dev);
--	int val;
--
--	if (features & NETIF_F_SG) {
--		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend, "feature-sg",
--				 "%d", &val) < 0)
--			val =3D 0;
--
--		if (!val)
--			features &=3D ~NETIF_F_SG;
--	}
--
--	if (features & NETIF_F_TSO) {
--		if (xenbus_scanf(XBT_NIL, np->xbdev->otherend,
--				 "feature-gso-tcpv4", "%d", &val) < 0)
--			val =3D 0;
--
--		if (!val)
--			features &=3D ~NETIF_F_TSO;
--	}
--
--	return features;
--}
--
--static int xennet_set_features(struct net_device *dev, u32 features)
--{
--	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN) {
--		netdev_info(dev, "Reducing MTU because no SG offload");
--		dev->mtu =3D ETH_DATA_LEN;
--	}
--
--	return 0;
--}
--
- static int xennet_connect(struct net_device *dev)
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 3937bca..29f1210 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -155,7 +155,7 @@ struct be_eq_obj {
+ 	u16 min_eqd;		/* in usecs */
+ 	u16 max_eqd;		/* in usecs */
+ 	u16 cur_eqd;		/* in usecs */
+-	u8  msix_vec_idx;
++	u8  eq_idx;
+ 
+ 	struct napi_struct napi;
+ };
+@@ -292,7 +292,7 @@ struct be_adapter {
+ 	u32 num_rx_qs;
+ 	u32 big_page_size;	/* Compounded page size shared by rx wrbs */
+ 
+-	u8 msix_vec_next_idx;
++	u8 eq_next_idx;
+ 	struct be_drv_stats drv_stats;
+ 
+ 	struct vlan_group *vlan_grp;
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index a24fb45..351c1f2 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1509,7 +1509,7 @@ static int be_tx_queues_create(struct be_adapter *adapter)
+ 	if (be_cmd_eq_create(adapter, eq, adapter->tx_eq.cur_eqd))
+ 		goto tx_eq_free;
+ 
+-	adapter->tx_eq.msix_vec_idx = adapter->msix_vec_next_idx++;
++	adapter->tx_eq.eq_idx = adapter->eq_next_idx++;
+ 
+ 
+ 	/* Alloc TX eth compl queue */
+@@ -1621,7 +1621,7 @@ static int be_rx_queues_create(struct be_adapter *adapter)
+ 		if (rc)
+ 			goto err;
+ 
+-		rxo->rx_eq.msix_vec_idx = adapter->msix_vec_next_idx++;
++		rxo->rx_eq.eq_idx = adapter->eq_next_idx++;
+ 
+ 		/* CQ */
+ 		cq = &rxo->cq;
+@@ -1697,11 +1697,11 @@ static irqreturn_t be_intx(int irq, void *dev)
+ 		if (!isr)
+ 			return IRQ_NONE;
+ 
+-		if ((1 << adapter->tx_eq.msix_vec_idx & isr))
++		if ((1 << adapter->tx_eq.eq_idx & isr))
+ 			event_handle(adapter, &adapter->tx_eq);
+ 
+ 		for_all_rx_queues(adapter, rxo, i) {
+-			if ((1 << rxo->rx_eq.msix_vec_idx & isr))
++			if ((1 << rxo->rx_eq.eq_idx & isr))
+ 				event_handle(adapter, &rxo->rx_eq);
+ 		}
+ 	}
+@@ -1964,7 +1964,7 @@ static void be_sriov_disable(struct be_adapter *adapter)
+ static inline int be_msix_vec_get(struct be_adapter *adapter,
+ 					struct be_eq_obj *eq_obj)
  {
- 	struct netfront_info *np =3D netdev_priv(dev);
-
+-	return adapter->msix_entries[eq_obj->msix_vec_idx].vector;
++	return adapter->msix_entries[eq_obj->eq_idx].vector;
+ }
+ 
+ static int be_request_irq(struct be_adapter *adapter,
+-- 
+1.6.0.2
 
