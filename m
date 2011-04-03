@@ -1,30 +1,41 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next-2.6 0/2] be2net: Patches for fixing suspend/resume
-Date: Sun, 3 Apr 2011 17:23:52 +0530
-Message-ID: <756be716-7252-48f7-9a48-cf958c83a56f@exht1.ad.emulex.com>
+Subject: [PATCH net-next-2.6 2/2] be2net: Fix suspend/resume operation
+Date: Sun, 3 Apr 2011 17:24:39 +0530
+Message-ID: <afcca139-dadd-48ca-87d5-be101f5ab3a0@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
+	"Sarveswara Rao Mygapula" <sarveswararao.mygapula@emulex.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:1957 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:1963 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752037Ab1DCLyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 07:54:45 -0400
+	with ESMTP id S1752102Ab1DCLzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 07:55:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-	Following are patches to fix suspend/resume operation.
-Please apply.
-Thanks,
-Padmanabh
+eq_next_idx is not getting reset to zero during suspend.
+This causes resume to fail. Added the fix.
 
-Padmanabh Ratnakar (2):
-  be2net: Rename some struct members for clarity
-  be2net: Fix suspend/resume operation
+Signed-off-by: Sarveswara Rao Mygapula <sarveswararao.mygapula@emulex.com>
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+---
+ drivers/net/benet/be_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
- drivers/net/benet/be.h      |    4 ++--
- drivers/net/benet/be_main.c |   11 ++++++-----
- 2 files changed, 8 insertions(+), 7 deletions(-)
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 351c1f2..3e6c1cb 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -2356,6 +2356,7 @@ static int be_clear(struct be_adapter *adapter)
+ 	be_mcc_queues_destroy(adapter);
+ 	be_rx_queues_destroy(adapter);
+ 	be_tx_queues_destroy(adapter);
++	adapter->eq_next_idx = 0;
+ 
+ 	if (be_physfn(adapter) && adapter->sriov_enabled)
+ 		for (vf = 0; vf < num_vfs; vf++)
+-- 
+1.6.0.2
 
