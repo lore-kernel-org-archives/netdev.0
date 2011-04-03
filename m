@@ -1,104 +1,56 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6] net: vlan: make non-hw-accel rx path similar
- to hw-accel
-Date: Sun, 03 Apr 2011 17:23:44 +0200
-Message-ID: <4D989100.1090207@gmail.com>
-References: <1301739966-7604-1-git-send-email-jpirko@redhat.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] xen: netfront: fix declaration order
+Date: Sun, 3 Apr 2011 19:35:26 +0200
+Message-ID: <20110403173526.GA2082@rere.qmqm.pl>
+References: <20110331110136.03A1A13A6A@rere.qmqm.pl> <20110401.205455.70198735.davem@davemloft.net> <1301828839.2837.143.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, xiaosuo@gmail.com,
-	jesse@nicira.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jeremy.fitzhardinge@citrix.com, konrad.wilk@oracle.com,
+	Ian.Campbell@citrix.com, xen-devel@lists.xensource.com,
+	virtualization@lists.linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:51470 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048Ab1DCPXt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 11:23:49 -0400
-Received: by wya21 with SMTP id 21so4079807wya.19
-        for <netdev@vger.kernel.org>; Sun, 03 Apr 2011 08:23:48 -0700 (PDT)
-In-Reply-To: <1301739966-7604-1-git-send-email-jpirko@redhat.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:52897 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752604Ab1DCRf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Apr 2011 13:35:29 -0400
+Content-Disposition: inline
+In-Reply-To: <1301828839.2837.143.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 02/04/2011 12:26, Jiri Pirko a =E9crit :
-> Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
-> enabled, skb is untagged by NIC, vlan_tci is set and the skb gets int=
-o
-> vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
+On Sun, Apr 03, 2011 at 01:07:19PM +0200, Eric Dumazet wrote:
+> Le vendredi 01 avril 2011 =C3=A0 20:54 -0700, David Miller a =C3=A9cr=
+it :
+> > From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> > Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
+> >=20
+> > > Not tested in any way. The original code for offload setting seem=
+s broken
+> > > as it resets the features on every netback reconnect.
+> > >=20
+> > > This will set GSO_ROBUST at device creation time (earlier than co=
+nnect time).
+> > >=20
+> > > RX checksum offload is forced on - so advertise as it is.
+> > >=20
+> > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl=
 >
-> For non-rx-vlan-hw-accel however, tagged skb goes thru whole
-> __netif_receive_skb, it's untagged in ptype_base hander and reinjecte=
-d
->
-> This incosistency is fixed by this patch. Vlan untagging happens earl=
-y in
-> __netif_receive_skb so the rest of code (ptype_all handlers, rx_handl=
-ers)
-> see the skb like it was untagged by hw.
->
-> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
-<snip>
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 3da9fb0..bfe9fce 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3130,6 +3130,12 @@ another_round:
->
->   	__this_cpu_inc(softnet_data.processed);
->
-> +	if (skb->protocol =3D=3D cpu_to_be16(ETH_P_8021Q)) {
-> +		skb =3D vlan_untag(skb);
-> +		if (unlikely(!skb))
-> +			goto out;
-> +	}
-> +
+> > Applied.
+> Hmm... I had to apply following patch to make it actually compile.
 
-I like the general idea of this patch, but I don't like the idea of re-=
-inserting specific code=20
-inside __netif_receive_skb.
+> [PATCH] xen: netfront: fix declaration order
+>=20
+> Must declare xennet_fix_features() and xennet_set_features() before
+> using them.
 
-You made a great work removing most - if not all - device specific part=
-s from __netif_receive_skb,=20
-by introducing rx_handler.
+Hmm. Sorry for that. Looks like x86 allyesconfig doesn't include this
+driver in the build. :/
 
-I think the above part (and vlan_untag) should be moved to a vlan_rx_ha=
-ndler that would be set on=20
-the net_devices that are the parent of a vlan net_device and are NOT hw=
-accel.
+There really needs to be something like CONFIG_LINT...
 
-vlan_rx_handler would return RX_HANDLER_ANOTHER if skb holds a tagged f=
-rame (skb->dev changed) and=20
-RX_HANDLER_PASS if skb holds an untagged frame (skb->dev unchanged).
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
 
-This would also cause protocol handlers to receive the untouched (tagge=
-d) frame, if no setup=20
-required the frame to be untagged, which I think is the right thing to =
-do.
-
- > @@ -3177,7 +3183,7 @@ ncls:
- >   			ret =3D deliver_skb(skb, pt_prev, orig_dev);
- >   			pt_prev =3D NULL;
- >   		}
- > -		if (vlan_hwaccel_do_receive(&skb)) {
- > +		if (vlan_do_receive(&skb)) {
- >   			ret =3D __netif_receive_skb(skb);
- >   			goto out;
- >   		} else if (unlikely(!skb))
-
-Why are you calling __netif_receive_skb here? Can't we simply goto anot=
-her_round?
-
-I really think vlan_untag and vlan_do_receive could me merged in a vlan=
-_rx_handler.
-
-And if someone consider rx_handler processing happens to late for ptype=
-_all handlers, may be it is=20
-time to have a look at one of my previous proposed patch: http://patchw=
-ork.ozlabs.org/patch/85578/
-
-	Nicolas.
