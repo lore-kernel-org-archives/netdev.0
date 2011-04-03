@@ -1,142 +1,107 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6] net: vlan: make non-hw-accel rx path similar
- to hw-accel
-Date: Mon, 04 Apr 2011 08:54:40 +0200
-Message-ID: <4D996B30.3080408@gmail.com>
-References: <1301739966-7604-1-git-send-email-jpirko@redhat.com> <4D989100.1090207@gmail.com> <BANLkTin-VVOLQgPA7+CrtBdntnO-0C+R+g@mail.gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: extending feature word.
+Date: Sat, 2 Apr 2011 20:09:14 -0700
+Message-ID: <BANLkTi=hCqT5BPe926N36omObpYvMcNtjg@mail.gmail.com>
+References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com>
+	<20110402124207.GB3147@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, xiaosuo@gmail.com,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Jesse Gross <jesse@kernel.org>
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54011 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753699Ab1DDGyq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 02:54:46 -0400
-Received: by wya21 with SMTP id 21so4401058wya.19
-        for <netdev@vger.kernel.org>; Sun, 03 Apr 2011 23:54:44 -0700 (PDT)
-In-Reply-To: <BANLkTin-VVOLQgPA7+CrtBdntnO-0C+R+g@mail.gmail.com>
+Received: from smtp-out.google.com ([74.125.121.67]:52338 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757596Ab1DCDJV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2011 23:09:21 -0400
+Received: from kpbe19.cbf.corp.google.com (kpbe19.cbf.corp.google.com [172.25.105.83])
+	by smtp-out.google.com with ESMTP id p3339IfG026978
+	for <netdev@vger.kernel.org>; Sat, 2 Apr 2011 20:09:19 -0700
+Received: from wwb28 (wwb28.prod.google.com [10.241.241.92])
+	by kpbe19.cbf.corp.google.com with ESMTP id p3339GKR024816
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sat, 2 Apr 2011 20:09:17 -0700
+Received: by wwb28 with SMTP id 28so4461479wwb.27
+        for <netdev@vger.kernel.org>; Sat, 02 Apr 2011 20:09:16 -0700 (PDT)
+In-Reply-To: <20110402124207.GB3147@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/04/2011 22:38, Jesse Gross a =E9crit :
-> On Sun, Apr 3, 2011 at 8:23 AM, Nicolas de Peslo=FCan
-> <nicolas.2p.debian@gmail.com>  wrote:
->> Le 02/04/2011 12:26, Jiri Pirko a =E9crit :
->>>
->>> Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
->>> enabled, skb is untagged by NIC, vlan_tci is set and the skb gets i=
-nto
->>> vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
->>>
->>> For non-rx-vlan-hw-accel however, tagged skb goes thru whole
->>> __netif_receive_skb, it's untagged in ptype_base hander and reinjec=
-ted
->>>
->>> This incosistency is fixed by this patch. Vlan untagging happens ea=
-rly in
->>> __netif_receive_skb so the rest of code (ptype_all handlers, rx_han=
-dlers)
->>> see the skb like it was untagged by hw.
->>>
->>> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
->
-> You saw Eric B.'s recent patch trying to tackle the same issues, righ=
-t?:
-> http://permalink.gmane.org/gmane.linux.network/190229
-
-Yes, of course I saw it.
-
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index 3da9fb0..bfe9fce 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -3130,6 +3130,12 @@ another_round:
->>>
->>>         __this_cpu_inc(softnet_data.processed);
->>>
->>> +       if (skb->protocol =3D=3D cpu_to_be16(ETH_P_8021Q)) {
->>> +               skb =3D vlan_untag(skb);
->>> +               if (unlikely(!skb))
->>> +                       goto out;
->>> +       }
->>> +
->>
->> I like the general idea of this patch, but I don't like the idea of
->> re-inserting specific code inside __netif_receive_skb.
->>
->> You made a great work removing most - if not all - device specific p=
-arts
->> from __netif_receive_skb, by introducing rx_handler.
->>
->> I think the above part (and vlan_untag) should be moved to a vlan_rx=
-_handler
->> that would be set on the net_devices that are the parent of a vlan
->> net_device and are NOT hwaccel.
->>
->> vlan_rx_handler would return RX_HANDLER_ANOTHER if skb holds a tagge=
-d frame
->> (skb->dev changed) and RX_HANDLER_PASS if skb holds an untagged fram=
+On Sat, Apr 2, 2011 at 5:42 AM, Micha=C5=82 Miros=C5=82aw <mirq-linux@r=
+ere.qmqm.pl> wrote:
+> On Fri, Apr 01, 2011 at 07:07:05PM -0700, Mahesh Bandewar wrote:
+>> Thanks for your comments on my loop-back patch. I was looking at the
+>> code today from the perspective of extending various "features" for
+>> word to an array of words and as Michael has pointed out, it's a hug=
 e
->> (skb->dev unchanged).
->
-> It would be nice to merge all of this together.  One complication is
-> the interaction of bridging and vlan on the same device.  Some people
-> want to have a bridge for each vlan and a bridge for untagged packets=
-=2E
->   On older kernels with vlan accelerated hardware this was possible
-> because vlan devices would get packets before bridging and on current
-> kernels it is possible with ebtables rules.  If we use rx_handler for
-> both I believe we would need to extend it some to allow multiple
-> handlers.
-
-I totally agree.
-
-Remember that Jiri's original proposal (last summer) was to have severa=
-l rx_handlers per net_device.=20
-I still think we need several of them, because the network stack need t=
-o be generic and allow for=20
-any complex stacking setup. The rx_handler framework may need to be enh=
-anced for that, but I think=20
-it is the right tool to do all those per net_device specific features.
-
->> This would also cause protocol handlers to receive the untouched (ta=
-gged)
->> frame, if no setup required the frame to be untagged, which I think =
-is the
->> right thing to do.
->
-> At the very least we need to make sure that these packets are marked
-> as PACKET_OTHERHOST because protocol handlers don't pay attention to
-> the vlan field.
-
-Agreed.
-
->>> @@ -3177,7 +3183,7 @@ ncls:
->>>                        ret =3D deliver_skb(skb, pt_prev, orig_dev);
->>>                        pt_prev =3D NULL;
->>>                }
->>> -             if (vlan_hwaccel_do_receive(&skb)) {
->>> +             if (vlan_do_receive(&skb)) {
->>>                        ret =3D __netif_receive_skb(skb);
->>>                        goto out;
->>>                } else if (unlikely(!skb))
+>> change. So I'm thinking on the following lines
+>> (include/linux/netdevice.h)
 >>
->> Why are you calling __netif_receive_skb here? Can't we simply goto
->> another_round?
+>> +#define DEV_FEATURE_WORDS =C2=A0 =C2=A0 =C2=A02
+>> +#define LEGACY_FEATURE_WORD =C2=A0 =C2=A00
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* currently active device features */
+>> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 features;
+>> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 features[DEV_FEATURE_WORDS];
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* user-changeable features */
+>> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 hw_features;
+>> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 hw_features[DEV_FEATURE_WORDS];
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* user-requested features */
+>> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 wanted_features;
+>> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 wanted_features[DEV_FEATURE_WORDS];
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* VLAN feature mask */
+>> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 vlan_features;
+>> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 vlan_features[DEV_FEATURE_WORDS];
+>> +#define legacy_features =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0features[LEGACY_FEATURE_WORD]
+>> +#define legacy_hw_features =C2=A0 =C2=A0 hw_features[LEGACY_FEATURE=
+_WORD]
+>> +#define legacy_wanted_features wanted_features[LEGACY_FEATURE_WORD]
+>> +#define=C2=A0legacy_vlan_features =C2=A0 =C2=A0vlan_features[LEGACY=
+_FEATURE_WORD]
+>>
+>>
+>> So that it will be a matter of -
+>>
+>> s/features/legacy_features/
+>> s/hw_features/legacy_hw_features/
+>> s/wanted_features/legacy_wanted_features/
+>> s/vlan_features/legacy_vlan_features/
+>>
+>> to start with as a first step. Once this is done, legacy_* can be
+>> changed with respective arrays and modified as per the need. Comment=
+s?
 >
-> This code (other than the name change) predates the
-> another_round/rx_handler changes.
+> You could just s/features/features[0]/ as well. Why the extra hiding?
+>
+I was thinking that features[0] is really a short term solution sine
+there are only couple of bits left in this word and any new will have
+to be added into the next word. So eventually it should be managed
+properly at all these places where we'll replace it with features[0].
+So it's a nice indication that this was the legacy way of dealing and
+need to be altered for additional bits (especially where we see
+legacy_* stuff) where ever required.
 
-Yes, you are right. Let's keep this for a possible follow-up patch, to =
-avoid skb reinjection when it=20
-is not strictly necessary.
+On the other hand replacing with features[0] breaks the NETDEVICE_SHOW
+macro in net/core/net-sysfs.c and need to be expanded manually.
 
-	Nicolas.
+> If you want to split the work, it would be clearer to first convert
+> hw_features and wanted_features (with all the core code touching it -
+> this is the easy part), then vlan_features (this includes drivers'
+> and VLAN code) and then features (it's all over).
+>
+I like the idea of splitting but it will be only useful when all of it
+is done and not partially, isn't it? Or am I missing something?
+
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
+>
