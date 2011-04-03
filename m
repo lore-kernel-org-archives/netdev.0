@@ -1,54 +1,55 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen:  fix
-	LRO disable warning)
-Date: Sun, 3 Apr 2011 21:05:55 +0200
-Message-ID: <20110403190555.GA16196@torres.zugschlus.de>
-References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-next-2.6 2011-04-03
+Date: Sun, 03 Apr 2011 20:44:49 +0100
+Message-ID: <1301859889.2935.23.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	ameen.rahman@qlogic.com,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:58976 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752235Ab1DCTOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 15:14:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:9457 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752549Ab1DCTox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 15:44:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The following changes since commit 9b12c75bf4d58dd85c987ee7b6a4356fdc7c1222:
+  David S. Miller (1):
+        net: Order ports in same order as addresses in flow objects.
 
-On Mon, Mar 21, 2011 at 03:37:08AM -0700, Amit Kumar Salecha wrote:
-> netxen_nic_set_flags() rejects data if other flag than ETH_FLAG_LRO is set.
-> Driver also supports NETIF_F_HW_VLAN_TX.
-> Now compare data with ethtool_op_get_flags(), to get all supported features.
+are available in the git repository at:
 
-Could that be the cause for packet loss on kernel 2.6.38.2 if:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git master
 
-  - receiving card is NX3031 [4040:0100]
-  - frames are received with VLAN tags
-  - large received offload is on.
+1. Implement of generic features interface in sfc.
+2. Update ethtool_ops documentation.
+3. Reimplement ETHTOOL_PHYS_ID as dicussed, dropping the RTNL lock.
 
-Packet Loss of this kind is noticed when doing TCP data transfers
-towards the host with the Netxen Interface and the TCP session is
-terminated on the Netxen host itself. TCP sessions routed through the
-Netxen host are not affected.
+Please allow some time for others to review before pulling.
 
-My ethtool doesn't allow me to influence the LRO setting alone - it is
-disabled when I set rx off but doesn't come on again when rx is set to
-on again. So, ethtool -K rx off, ethtool -K rx on fixes the issue.
+Ben.
 
-Is this a known bug, maybe with an available patch?
+Ben Hutchings (6):
+      sfc: Move test of rx_checksum_enabled from nic.c to rx.c
+      sfc: Implement generic features interface
+      ethtool: Convert struct ethtool_ops comment to kernel-doc format
+      ethtool: Fill out and update comment for struct ethtool_ops
+      ethtool: Change ETHTOOL_PHYS_ID implementation to allow dropping RTNL
+      sfc: Implement ethtool_ops::set_phys_id instead of ethtool_ops::phys_id
 
-Greetings
-Marc
+ drivers/net/sfc/efx.c        |   17 ++++-
+ drivers/net/sfc/ethtool.c    |  106 ++++---------------------
+ drivers/net/sfc/net_driver.h |    2 -
+ drivers/net/sfc/nic.c        |    6 +-
+ drivers/net/sfc/rx.c         |    3 +
+ include/linux/ethtool.h      |  177 ++++++++++++++++++++++++++++++------------
+ net/core/ethtool.c           |   46 +++++++++++-
+ 7 files changed, 209 insertions(+), 148 deletions(-)
 
 -- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
