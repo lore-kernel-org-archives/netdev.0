@@ -1,49 +1,122 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6 2/6] sfc: Implement generic features
- interface
-Date: Sun, 03 Apr 2011 21:27:31 +0100
-Message-ID: <1301862451.2935.49.camel@localhost>
-References: <1301859889.2935.23.camel@localhost>
-	 <1301860281.2935.25.camel@localhost>  <20110403201322.GA13122@rere.qmqm.pl>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [patch net-next-2.6] net: vlan: make non-hw-accel rx path similar
+ to hw-accel
+Date: Sun, 3 Apr 2011 13:38:00 -0700
+Message-ID: <BANLkTin-VVOLQgPA7+CrtBdntnO-0C+R+g@mail.gmail.com>
+References: <1301739966-7604-1-git-send-email-jpirko@redhat.com> <4D989100.1090207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, xiaosuo@gmail.com,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:12139 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753114Ab1DCU1f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 16:27:35 -0400
-In-Reply-To: <20110403201322.GA13122@rere.qmqm.pl>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:41249 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753415Ab1DCUiW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 16:38:22 -0400
+Received: by vws1 with SMTP id 1so3735163vws.19
+        for <netdev@vger.kernel.org>; Sun, 03 Apr 2011 13:38:21 -0700 (PDT)
+In-Reply-To: <4D989100.1090207@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-04-03 at 22:13 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> On Sun, Apr 03, 2011 at 08:51:21PM +0100, Ben Hutchings wrote:
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > ---
-> >  drivers/net/sfc/efx.c        |   17 ++++++++-
-> >  drivers/net/sfc/ethtool.c    |   78 ------------------------------=
-------------
-> >  drivers/net/sfc/net_driver.h |    2 -
-> >  drivers/net/sfc/rx.c         |    2 +-
-> >  4 files changed, 16 insertions(+), 83 deletions(-)
-> >=20
-> [cut patch]
->=20
-> Looks ok to me.
->=20
-> BTW, I noticed that TSO6 is not enabled in vlan_features. Is this int=
-entional?
+On Sun, Apr 3, 2011 at 8:23 AM, Nicolas de Peslo=FCan
+<nicolas.2p.debian@gmail.com> wrote:
+> Le 02/04/2011 12:26, Jiri Pirko a =E9crit :
+>>
+>> Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
+>> enabled, skb is untagged by NIC, vlan_tci is set and the skb gets in=
+to
+>> vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
+>>
+>> For non-rx-vlan-hw-accel however, tagged skb goes thru whole
+>> __netif_receive_skb, it's untagged in ptype_base hander and reinject=
+ed
+>>
+>> This incosistency is fixed by this patch. Vlan untagging happens ear=
+ly in
+>> __netif_receive_skb so the rest of code (ptype_all handlers, rx_hand=
+lers)
+>> see the skb like it was untagged by hw.
+>>
+>> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
 
-Well spotted.  It's not intentional.
+You saw Eric B.'s recent patch trying to tackle the same issues, right?=
+:
+http://permalink.gmane.org/gmane.linux.network/190229
 
-Ben.
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 3da9fb0..bfe9fce 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -3130,6 +3130,12 @@ another_round:
+>>
+>> =A0 =A0 =A0 =A0__this_cpu_inc(softnet_data.processed);
+>>
+>> + =A0 =A0 =A0 if (skb->protocol =3D=3D cpu_to_be16(ETH_P_8021Q)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D vlan_untag(skb);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (unlikely(!skb))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+>> + =A0 =A0 =A0 }
+>> +
+>
+> I like the general idea of this patch, but I don't like the idea of
+> re-inserting specific code inside __netif_receive_skb.
+>
+> You made a great work removing most - if not all - device specific pa=
+rts
+> from __netif_receive_skb, by introducing rx_handler.
+>
+> I think the above part (and vlan_untag) should be moved to a vlan_rx_=
+handler
+> that would be set on the net_devices that are the parent of a vlan
+> net_device and are NOT hwaccel.
+>
+> vlan_rx_handler would return RX_HANDLER_ANOTHER if skb holds a tagged=
+ frame
+> (skb->dev changed) and RX_HANDLER_PASS if skb holds an untagged frame
+> (skb->dev unchanged).
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It would be nice to merge all of this together.  One complication is
+the interaction of bridging and vlan on the same device.  Some people
+want to have a bridge for each vlan and a bridge for untagged packets.
+ On older kernels with vlan accelerated hardware this was possible
+because vlan devices would get packets before bridging and on current
+kernels it is possible with ebtables rules.  If we use rx_handler for
+both I believe we would need to extend it some to allow multiple
+handlers.
 
+>
+> This would also cause protocol handlers to receive the untouched (tag=
+ged)
+> frame, if no setup required the frame to be untagged, which I think i=
+s the
+> right thing to do.
+
+At the very least we need to make sure that these packets are marked
+as PACKET_OTHERHOST because protocol handlers don't pay attention to
+the vlan field.
+
+>
+>> @@ -3177,7 +3183,7 @@ ncls:
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D deliver_skb(skb,=
+ pt_prev, orig_dev);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pt_prev =3D NULL;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> - =A0 =A0 =A0 =A0 =A0 =A0 if (vlan_hwaccel_do_receive(&skb)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 if (vlan_do_receive(&skb)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D __netif_receive_=
+skb(skb);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else if (unlikely(!skb))
+>
+> Why are you calling __netif_receive_skb here? Can't we simply goto
+> another_round?
+
+This code (other than the name change) predates the
+another_round/rx_handler changes.
