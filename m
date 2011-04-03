@@ -1,96 +1,138 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v2] ROSE: prevent heap corruption with bad facilities
-Date: Sun, 03 Apr 2011 05:23:10 +0100
-Message-ID: <1301804590.4157.53.camel@localhost>
-References: <1300603423.1869.18.camel@dan>
-	 <1300639685.26693.286.camel@localhost>
-	 <20110331180225.GA6677@midget.suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1] net: filter: Just In Time compiler
+Date: Sun, 03 Apr 2011 07:41:58 +0200
+Message-ID: <1301809318.2837.125.camel@edumazet-laptop>
+References: <1301783301.2837.77.camel@edumazet-laptop>
+	 <20110402225002.GJ3108@nuttenaction>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512"; protocol="application/pgp-signature"; boundary="=-Zela8St/cLZAugdg765C"
-Cc: Dan Rosenberg <drosenberg@vsecurity.com>, ralf@linux-mips.org,
-	davem@davemloft.net, netdev@vger.kernel.org, security@kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49903 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750885Ab1DCEXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 00:23:24 -0400
-In-Reply-To: <20110331180225.GA6677@midget.suse.cz>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:54624 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479Ab1DCFmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 01:42:06 -0400
+Received: by wwa36 with SMTP id 36so5399202wwa.1
+        for <netdev@vger.kernel.org>; Sat, 02 Apr 2011 22:42:04 -0700 (PDT)
+In-Reply-To: <20110402225002.GJ3108@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-Zela8St/cLZAugdg765C
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2011-03-31 at 20:02 +0200, Jiri Bohac wrote:
-[...]
-> This last hunk does not look correct. In the default branch of
-> the switch, you set len =3D 1, which means=20
-> 	p +=3D 2; facilities_len -=3D 2.
+Le dimanche 03 avril 2011 =C3=A0 00:50 +0200, Hagen Paul Pfeifer a =C3=A9=
+crit :
+> * Eric Dumazet | 2011-04-03 00:28:21 [+0200]:
 >=20
-> The original code does=20
-> 	facilities_len--; p++;
-> ... and it looks correct. So, to get the old behaviour back:
+> >In order to speedup packet filtering, here is an implementation of a=
+ JIT
+> >compiler for x86_64
 >=20
-> diff --git a/net/rose/rose_subr.c b/net/rose/rose_subr.c
-> index f6c71ca..9777700 100644
-> --- a/net/rose/rose_subr.c
-> +++ b/net/rose/rose_subr.c
-> @@ -418,7 +418,7 @@ int rose_parse_facilities(unsigned char *p, unsigned =
-packet_len,
-> =20
->  		default:
->  			printk(KERN_DEBUG "ROSE: rose_parse_facilities - unknown facilities f=
-amily %02X\n", *p);
-> -			len =3D 1;
-> +			len =3D 0;
->  			break;
->  		}
+> Great work! Eric, do you have some numbers? For a trivial "ret" filte=
+r the
+> performance gain should be marginal - if any. But what with complex f=
+ilter
+> rules? And as said last time: libpcap optimizer seems to be target nu=
+mber one
+> for optimization. Again: great work!
 
-Yes, agreed.
+Preliminary performance results are good, even for basic filter.
 
-> However, I wonder how much sense it makes to continue parsing the
-> facilities if an unknown facility family appears. We don't know
-> the length of its data, so we will interpret each 16 bytes a new
-> facilities header, hopefully soon bailing out on *p !=3D 0x00.
->
-> In case of a long packet where every other byte is zero, the loop
-> will spam the kernel log with the printk ... which could probably
-> be classified as a security problem on its own. So how about the
-> following instead? I have no idea if this breaks some rose
-> specification, though.=20
-[...]
+(I changed the AND operator to be able to use "and $imm8,%al" for
+typical net addr/[24-31] operations, and "and $imm16,%ax" for
+addr/[16-23] ones)
 
-I don't know any more than you do; maybe Ralf knows or can find out.
+case BPF_S_ALU_AND_K:
+	if (K >=3D 0xFFFFFF00) {
+		EMIT2(0x24, K & 0xFF); /* and imm8,%al */
+	} else if (K >=3D 0xFFFF0000) {
+		EMIT2(0x66, 0x25);	/* and imm16,%ax */
+		EMIT2(K, 2);
+	} else {
+		EMIT1_off32(0x25, K);	/* and imm32,%eax */
+	}
+	break;
 
-Ben.
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
+dummy0 udpflood, and following basic active tcpdump, catching no frames
+(condition is not met)
 
---=-Zela8St/cLZAugdg765C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+# tcpdump -p -n -s 0 -i dummy0 net 192.168.2.0/24 -d
+(000) ldh      [12]
+(001) jeq      #0x800           jt 2	jf 8
+(002) ld       [26]
+(003) and      #0xffffff00
+(004) jeq      #0xc0a80200      jt 16	jf 5
+(005) ld       [30]
+(006) and      #0xffffff00
+(007) jeq      #0xc0a80200      jt 16	jf 17
+(008) jeq      #0x806           jt 10	jf 9
+(009) jeq      #0x8035          jt 10	jf 17
+(010) ld       [28]
+(011) and      #0xffffff00
+(012) jeq      #0xc0a80200      jt 16	jf 13
+(013) ld       [38]
+(014) and      #0xffffff00
+(015) jeq      #0xc0a80200      jt 16	jf 17
+(016) ret      #65535
+(017) ret      #0
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+flen=3D18 proglen=3D147 pass=3D3 image=3Dffffffffa00b5000
+JIT code: ffffffffa00b5000: 55 48 89 e5 48 83 ec 60 48 89 5d f8 44 8b 4=
+f 60
+JIT code: ffffffffa00b5010: 44 2b 4f 64 4c 8b 87 b8 00 00 00 be 0c 00 0=
+0 00
+JIT code: ffffffffa00b5020: e8 24 dc 2e e1 3d 00 08 00 00 75 28 be 1a 0=
+0 00
+JIT code: ffffffffa00b5030: 00 e8 fe db 2e e1 24 00 3d 00 02 a8 c0 74 4=
+9 be
+JIT code: ffffffffa00b5040: 1e 00 00 00 e8 eb db 2e e1 24 00 3d 00 02 a=
+8 c0
+JIT code: ffffffffa00b5050: 74 36 eb 3b 3d 06 08 00 00 74 07 3d 35 80 0=
+0 00
+JIT code: ffffffffa00b5060: 75 2d be 1c 00 00 00 e8 c8 db 2e e1 24 00 3=
+d 00
+JIT code: ffffffffa00b5070: 02 a8 c0 74 13 be 26 00 00 00 e8 b5 db 2e e=
+1 24
+JIT code: ffffffffa00b5080: 00 3d 00 02 a8 c0 75 07 b8 ff ff 00 00 eb 0=
+2 31
+JIT code: ffffffffa00b5090: c0 c9 c3
 
-iQIVAwUATZf2KOe/yOyVhhEJAQocfw//S3L5q7+L7HlTk/OI1k37XYNoBGvhppa6
-d8NBOlWqF7JMOaFCEc5q3VsBRbK9NUwO6YtJeXN1Byb2PALUZ+qVDGg/h7EaQBD/
-jRqw2YtVQLFQ9LEZps1Di9mZWpphIZ9EpjglfPguvZ0FneLGus/KD3/ODy+p10BD
-jrGekJojoCL2DK1BLoGD/SeF78KSapJps7Q9Lgme8pJflXe4wTgzbJc5et9scpt+
-aXw+rKigTAlJIw7xHLwnRVEmTkOV9vhw0D79QTu1c6Yc0tmnbjAW/fOpY37SmTCC
-gp1YLj9pt7OHvN5uyBvHydiqrfqZyjhk5CK/o+ETVef30IXLMDG71QVSIWMdr7OY
-Yhuuf1Bil211HG8kFPVwC8n3Ip4D7x73/ICZOuEUcVTV1TDAwm7UX8tT2vlYQ49e
-TfLd1CKtXqx5Om41B/Nu1aFZ4lKQVB7VivY4jJymP+pjn+RzrnIG2bDs+KKIkPOG
-bHamDZOGIVBvQP3vxWYnJQKZ7LJ0aF3KskrHLMyYSY0DoOZ3gBx+mYR3xRdCRN8+
-ikmiyDeoAh1t09WOcQAXufZyqACo/DYLd2XAUwzjQiVcUNu/3wSVMEfxxnZgw/d1
-ojiHMMWgT9N/ZGOC7pNLrpXY2qvQRZ8rTM58v++Q3/Hw9BI1+MQTQDNOUlu4FxG7
-QSwv8qlAUOE=
-=dn3T
------END PGP SIGNATURE-----
+Benchmark :
+ifconfig dummy0 10.2.2.2 netmask 255.255.255.0 up
 
---=-Zela8St/cLZAugdg765C--
+1) Baseline (no active tcpdump)
+
+# time /root/udpflood -f -l 10000000 10.2.2.1
+
+real	0m7.941s
+user	0m0.823s
+sys	0m7.103s
+
+2) Time with normal filtering (JIT disabled)
+
+# time /root/udpflood -f -l 10000000 10.2.2.1
+
+real	0m10.165s
+user	0m1.000s
+sys	0m9.149s
+
+
+3) JIT enabled
+
+# time /root/udpflood -f -l 10000000 10.2.2.1
+
+real	0m9.615s
+user	0m1.022s
+sys	0m8.578s
+
+Thats about 50ns saved per invocation, on a E5540  @ 2.53GHz
+
+We could get better results if we inline the fastpath of ld/ldh/ldb,
+instead of calling helpers. (In this case, avoiding three call/ret
+instructions pair).
+
+
+
