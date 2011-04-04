@@ -1,92 +1,40 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: mISDN: fix "persistant" typo
-Date: Mon, 4 Apr 2011 01:31:06 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1104040130390.21333@obet.zrqbmnf.qr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xen: netfront: fix declaration order
+Date: Sun, 03 Apr 2011 17:24:07 -0700 (PDT)
+Message-ID: <20110403.172407.91341067.davem@davemloft.net>
+References: <20110331110136.03A1A13A6A@rere.qmqm.pl>
+	<20110401.205455.70198735.davem@davemloft.net>
+	<1301828839.2837.143.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: isdn@linux-pingi.de
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
+	jeremy.fitzhardinge@citrix.com, konrad.wilk@oracle.com,
+	Ian.Campbell@citrix.com, xen-devel@lists.xensource.com,
+	virtualization@lists.linux-foundation.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:42354 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752725Ab1DCXbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Apr 2011 19:31:07 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48295
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752031Ab1DDAYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 20:24:45 -0400
+In-Reply-To: <1301828839.2837.143.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-parent fdbba80c7a1638bb2041d6349db27762e951a074 (v2.6.39-rc1-187-gfdbba80)
-commit 4d556433b96279a2ca5837a6e9314d9d7bf56a29
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Mon Apr 4 01:30:35 2011 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 03 Apr 2011 13:07:19 +0200
 
-mISDN: fix "persistant" typo
+> [PATCH] xen: netfront: fix declaration order
+>=20
+> Must declare xennet_fix_features() and xennet_set_features() before
+> using them.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- drivers/isdn/mISDN/layer2.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+Ugh, it makes no sense that XEN won't make it into the x86_32
+allmodconfig build.  Those dependencies in arch/x86/xen/Kconfig
+are terrible.
 
-diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-index 4ae7505..9e1610f 100644
---- a/drivers/isdn/mISDN/layer2.c
-+++ b/drivers/isdn/mISDN/layer2.c
-@@ -1640,7 +1640,7 @@ l2_tei_remove(struct FsmInst *fi, int event, void *arg)
- }
- 
- static void
--l2_st14_persistant_da(struct FsmInst *fi, int event, void *arg)
-+l2_st14_persistent_da(struct FsmInst *fi, int event, void *arg)
- {
- 	struct layer2 *l2 = fi->userdata;
- 	struct sk_buff *skb = arg;
-@@ -1654,7 +1654,7 @@ l2_st14_persistant_da(struct FsmInst *fi, int event, void *arg)
- }
- 
- static void
--l2_st5_persistant_da(struct FsmInst *fi, int event, void *arg)
-+l2_st5_persistent_da(struct FsmInst *fi, int event, void *arg)
- {
- 	struct layer2 *l2 = fi->userdata;
- 	struct sk_buff *skb = arg;
-@@ -1671,7 +1671,7 @@ l2_st5_persistant_da(struct FsmInst *fi, int event, void *arg)
- }
- 
- static void
--l2_st6_persistant_da(struct FsmInst *fi, int event, void *arg)
-+l2_st6_persistent_da(struct FsmInst *fi, int event, void *arg)
- {
- 	struct layer2 *l2 = fi->userdata;
- 	struct sk_buff *skb = arg;
-@@ -1685,7 +1685,7 @@ l2_st6_persistant_da(struct FsmInst *fi, int event, void *arg)
- }
- 
- static void
--l2_persistant_da(struct FsmInst *fi, int event, void *arg)
-+l2_persistent_da(struct FsmInst *fi, int event, void *arg)
- {
- 	struct layer2 *l2 = fi->userdata;
- 	struct sk_buff *skb = arg;
-@@ -1829,14 +1829,14 @@ static struct FsmNode L2FnList[] =
- 	{ST_L2_6, EV_L2_FRAME_ERROR, l2_frame_error},
- 	{ST_L2_7, EV_L2_FRAME_ERROR, l2_frame_error_reest},
- 	{ST_L2_8, EV_L2_FRAME_ERROR, l2_frame_error_reest},
--	{ST_L2_1, EV_L1_DEACTIVATE, l2_st14_persistant_da},
-+	{ST_L2_1, EV_L1_DEACTIVATE, l2_st14_persistent_da},
- 	{ST_L2_2, EV_L1_DEACTIVATE, l2_st24_tei_remove},
- 	{ST_L2_3, EV_L1_DEACTIVATE, l2_st3_tei_remove},
--	{ST_L2_4, EV_L1_DEACTIVATE, l2_st14_persistant_da},
--	{ST_L2_5, EV_L1_DEACTIVATE, l2_st5_persistant_da},
--	{ST_L2_6, EV_L1_DEACTIVATE, l2_st6_persistant_da},
--	{ST_L2_7, EV_L1_DEACTIVATE, l2_persistant_da},
--	{ST_L2_8, EV_L1_DEACTIVATE, l2_persistant_da},
-+	{ST_L2_4, EV_L1_DEACTIVATE, l2_st14_persistent_da},
-+	{ST_L2_5, EV_L1_DEACTIVATE, l2_st5_persistent_da},
-+	{ST_L2_6, EV_L1_DEACTIVATE, l2_st6_persistent_da},
-+	{ST_L2_7, EV_L1_DEACTIVATE, l2_persistent_da},
-+	{ST_L2_8, EV_L1_DEACTIVATE, l2_persistent_da},
- };
- 
- static int
--- 
-# Created with git-export-patch
-
+=46or if it did, I would have caught this immediately.
