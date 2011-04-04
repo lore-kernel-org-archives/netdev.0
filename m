@@ -1,29 +1,59 @@
-From: Kumar S <ps2kumar@yahoo.com>
-Subject: phylib autonegotiation issue with the Freescale Quicc engine and BCM 5481 Phy
-Date: Mon, 4 Apr 2011 10:53:42 -0700 (PDT)
-Message-ID: <773273.75785.qm@web113916.mail.gq1.yahoo.com>
+From: MR MICHAEL GRANT <yquispez@icn.minsa.gob.pe>
+Subject: (unknown)
+Date: Mon, 04 Apr 2011 06:17:01 -0500
+Message-ID: <20110404061701.77535g2c6ahsjpnx@mail.icn.minsa.gob.pe>
+Reply-To: michaelgrant1@mail.net.sa
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm27.bullet.mail.sp2.yahoo.com ([98.139.91.97]:39353 "HELO
-	nm27.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754973Ab1DDRxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 13:53:43 -0400
+Received: from mail.icn.minsa.gob.pe ([190.12.89.67]:53210 "EHLO
+	icn.minsa.gob.pe" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754880Ab1DDRz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 13:55:58 -0400
+Subject: 
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-We are using Freescale MPC8360E with Quicc Engine and BCM 5481 Phy. BCM 5481 supports autonegotiation and the Quicc Engine drivers allows us to configure the MAC and phy with auto negotiation and force speed. But when the auto negotian is off, looks like the phylib is autonegotiating and trying different rates similar to:
- 
-http://kerneltrap.org/mailarchive/linux-netdev/2008/7/3/2340034
- 
-I'm not sure whether I should be using the phylib. Also I'm not sure whether I can disable it. I'm new to linux drivers. Could somebody give me some pointers on this issue?
- 
-Thanks & regards
-Kumar
 
 
+Good Day,
+
+Apply For A Loan,I am Mr Michael Grant, a private Loan lender and a
+cooperate financial for real estate and any kinds of business financing. I
+also offer Loans to individuals, Firms and cooperate bodies at 3% interest
+rate We offer any kind of loans. email us via:michaelgrant@mail.net.sa
+
+BORROWERS INFORMATION
+
+Your names:
+Sex:
+Your country:
+State:
+City:
+Your address
+Your occupation:
+Your marital status
+Current Status at place of
+work:
+Phone number:
+Monthly Income:
+Loan Amount:
+Loan Duration:
+
+email us via: michaelgrant1@mail.net.sa
+I await your urgent response.
+
+Best Regards
+MR MICHAEL GRANT
++234-704-379-0660
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
 
 
-      
