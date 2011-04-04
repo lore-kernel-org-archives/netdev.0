@@ -1,57 +1,38 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
+From: Jesse Gross <jesse@kernel.org>
 Subject: Re: [patch net-next-2.6] net: vlan: make non-hw-accel rx path similar
  to hw-accel
-Date: Mon, 04 Apr 2011 22:47:48 +0200
-Message-ID: <4D9A2E74.70105@gmail.com>
-References: <1301739966-7604-1-git-send-email-jpirko@redhat.com>	<4D989100.1090207@gmail.com>	<BANLkTin-VVOLQgPA7+CrtBdntnO-0C+R+g@mail.gmail.com>	<4D996B30.3080408@gmail.com>	<20110404071453.GA2791@psychotron.redhat.com>	<4D9A1530.1010102@gmail.com> <m1d3l1eqw8.fsf@fess.ebiederm.org>
+Date: Mon, 4 Apr 2011 13:50:37 -0700
+Message-ID: <BANLkTikpUTSxeHo-DA+=Ta7A7C95_+Kfdg@mail.gmail.com>
+References: <1301739966-7604-1-git-send-email-jpirko@redhat.com>
+ <4D989100.1090207@gmail.com> <BANLkTin-VVOLQgPA7+CrtBdntnO-0C+R+g@mail.gmail.com>
+ <4D996B30.3080408@gmail.com> <20110404071453.GA2791@psychotron.redhat.com>
+ <4D9A1530.1010102@gmail.com> <m1d3l1eqw8.fsf@fess.ebiederm.org> <4D9A2E74.70105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, Jesse Gross <jesse@kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, xiaosuo@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, xiaosuo@gmail.com
+To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:56542 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755675Ab1DDUrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 16:47:52 -0400
-Received: by wwk4 with SMTP id 4so2072316wwk.1
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2011 13:47:50 -0700 (PDT)
-In-Reply-To: <m1d3l1eqw8.fsf@fess.ebiederm.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:48849 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755502Ab1DDUu6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 16:50:58 -0400
+Received: by vxi39 with SMTP id 39so4477923vxi.19
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2011 13:50:57 -0700 (PDT)
+In-Reply-To: <4D9A2E74.70105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 04/04/2011 21:51, Eric W. Biederman a =C3=A9crit :
+On Mon, Apr 4, 2011 at 1:47 PM, Nicolas de Peslo=FCan
+<nicolas.2p.debian@gmail.com> wrote:
+> Can someone clarify whether hwaccel capable NIC will always untag tag=
+ged
+> frames or will only do so if requested at device setup?
 
->
-> __netif_receive_skb is actually late for untagging.  eth_type_trans
-> would be better but not path of control into __netif_receive_skb
-> actually calls eth_type_trans.
-
-Because vlan may nest, we need to keep some sort of frame untagging ins=
-ide __netif_receive_skb.
-
-In order to avoid duplicate code, I suggest to manage the first level u=
-ntagging (for non hwaccel)=20
-the same way we manage other levels of untagging (which are by design n=
-on hwaccell).
-
-Hence my proposal to use a rx_handler on the parent device of the vlan =
-device, if we know the parent=20
-device lack hwaccel vlan handling.
-
-So, instead of trying to mimic the hwaccel path in software, I suggest =
-to simply disable software=20
-untagging when we know hwaccel untagging is present, by removing (or no=
-t installing) the vlan=20
-rx_handler from the hwaccel net_device.
-
-Can someone clarify whether hwaccel capable NIC will always untag tagge=
-d frames or will only do so=20
-if requested at device setup?
-
-	Nicolas.
+It can be changed on the fly by ethtool, similar to other forms of offl=
+oading.
