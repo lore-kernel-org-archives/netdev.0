@@ -1,28 +1,152 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6 00/12] Convert more drivers to ethtool
- set_phys_id
-Date: Tue, 05 Apr 2011 00:07:15 +0100
-Message-ID: <1301958435.2935.56.camel@localhost>
-References: <20110404184340.604594357@linuxplumber.net>
+Subject: Re: [PATCH 4/8] s2io: convert to set_phys_id
+Date: Tue, 05 Apr 2011 00:17:16 +0100
+Message-ID: <1301959036.2935.58.camel@localhost>
+References: <20110404210634.840793593@linuxplumber.net>
+	 <20110404210805.593573200@linuxplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:38730 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:39524 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753920Ab1DDXHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 19:07:18 -0400
-In-Reply-To: <20110404184340.604594357@linuxplumber.net>
+	with ESMTP id S1753148Ab1DDXRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 19:17:19 -0400
+In-Reply-To: <20110404210805.593573200@linuxplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-04-04 at 11:43 -0700, Stephen Hemminger wrote:
-> Did a bunch of the easy drivers to convert.
+On Mon, 2011-04-04 at 14:06 -0700, Stephen Hemminger wrote:
+> plain text document attachment (s2io-set-phys.patch)
+> Convert to new ethtool set physical id model. Remove no longer used
+> timer, and fix docbook comment.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> 
+> --- a/drivers/net/s2io.c	2011-04-04 12:56:26.680911740 -0700
+> +++ b/drivers/net/s2io.c	2011-04-04 13:12:34.591276022 -0700
+> @@ -5484,53 +5484,50 @@ static void s2io_ethtool_gregs(struct ne
+>  	}
+>  }
+>  
+> -/**
+> - *  s2io_phy_id  - timer function that alternates adapter LED.
+> - *  @data : address of the private member of the device structure, which
+> - *  is a pointer to the s2io_nic structure, provided as an u32.
+> - * Description: This is actually the timer function that alternates the
+> - * adapter LED bit of the adapter control bit to set/reset every time on
+> - * invocation. The timer is set for 1/2 a second, hence tha NIC blinks
+> - *  once every second.
+> +/*
+> + *  s2io_set_led - control NIC led
+>   */
+> -static void s2io_phy_id(unsigned long data)
+> +static void s2io_set_led(struct s2io_nic *sp, bool on)
+>  {
+> -	struct s2io_nic *sp = (struct s2io_nic *)data;
+>  	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+> -	u64 val64 = 0;
+> -	u16 subid;
+> +	u16 subid = sp->pdev->subsystem_device;
+> +	u64 val64;
+>  
+> -	subid = sp->pdev->subsystem_device;
+>  	if ((sp->device_type == XFRAME_II_DEVICE) ||
+>  	    ((subid & 0xFF) >= 0x07)) {
+>  		val64 = readq(&bar0->gpio_control);
+> -		val64 ^= GPIO_CTRL_GPIO_0;
+> +		if (on)
+> +			val64 |= GPIO_CTRL_GPIO_0;
+> +		else
+> +			val64 &= ~GPIO_CTRL_GPIO_0;
+> +
+>  		writeq(val64, &bar0->gpio_control);
+>  	} else {
+>  		val64 = readq(&bar0->adapter_control);
+> -		val64 ^= ADAPTER_LED_ON;
+> +		if (on)
+> +			val64 |= ADAPTER_LED_ON;
+> +		else
+> +			val64 &= ~ADAPTER_LED_ON;
+> +
+>  		writeq(val64, &bar0->adapter_control);
+>  	}
+>  
+> -	mod_timer(&sp->id_timer, jiffies + HZ / 2);
+>  }
+>  
+>  /**
+> - * s2io_ethtool_idnic - To physically identify the nic on the system.
+> - * @sp : private member of the device structure, which is a pointer to the
+> - * s2io_nic structure.
+> - * @id : pointer to the structure with identification parameters given by
+> - * ethtool.
+> + * s2io_ethtool_set_led - To physically identify the nic on the system.
+> + * @dev : network device
+> + * @state: led setting
+> + *
+>   * Description: Used to physically identify the NIC on the system.
+>   * The Link LED will blink for a time specified by the user for
+>   * identification.
+>   * NOTE: The Link has to be Up to be able to blink the LED. Hence
+>   * identification is possible only if it's link is up.
+> - * Return value:
+> - * int , returns 0 on success
+>   */
+>  
+> -static int s2io_ethtool_idnic(struct net_device *dev, u32 data)
+> +static int s2io_ethtool_set_led(struct net_device *dev,
+> +				enum ethtool_phys_id_state state)
+>  {
+>  	u64 val64 = 0, last_gpio_ctrl_val;
+>  	struct s2io_nic *sp = netdev_priv(dev);
+> @@ -5543,24 +5540,27 @@ static int s2io_ethtool_idnic(struct net
+>  		val64 = readq(&bar0->adapter_control);
+>  		if (!(val64 & ADAPTER_CNTL_EN)) {
+>  			pr_err("Adapter Link down, cannot blink LED\n");
+> -			return -EFAULT;
+> +			return -EAGAIN;
+>  		}
+>  	}
+> -	if (sp->id_timer.function == NULL) {
+> -		init_timer(&sp->id_timer);
+> -		sp->id_timer.function = s2io_phy_id;
+> -		sp->id_timer.data = (unsigned long)sp;
+> -	}
+> -	mod_timer(&sp->id_timer, jiffies);
+> -	if (data)
+> -		msleep_interruptible(data * HZ);
+> -	else
+> -		msleep_interruptible(MAX_FLICKER_TIME);
+> -	del_timer_sync(&sp->id_timer);
+>  
+> -	if (CARDS_WITH_FAULTY_LINK_INDICATORS(sp->device_type, subid)) {
+> -		writeq(last_gpio_ctrl_val, &bar0->gpio_control);
+> -		last_gpio_ctrl_val = readq(&bar0->gpio_control);
+> +	switch (state) {
+> +	case ETHTOOL_ID_ACTIVE:
+> +		return -EINVAL;
+> +
+> +	case ETHTOOL_ID_ON:
+> +		s2io_set_led(sp, true);
+> +		break;
+> +
+> +	case ETHTOOL_ID_OFF:
+> +		s2io_set_led(sp, false);
+> +		break;
+> +
+> +	case ETHTOOL_ID_INACTIVE:
+> +		if (CARDS_WITH_FAULTY_LINK_INDICATORS(sp->device_type, subid)) {
+> +			writeq(last_gpio_ctrl_val, &bar0->gpio_control);
+> +			last_gpio_ctrl_val = readq(&bar0->gpio_control);
+[...]
 
-Thanks Stephen.  I would have done some of these but I'm pretty snowed
-under at the moment.
+I think last_gpio_ctrl_val needs to be moved to struct s2io_nic and
+initialised only in the ETHTOOL_ID_ACTIVE case.
 
 Ben.
 
