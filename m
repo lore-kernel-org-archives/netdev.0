@@ -1,117 +1,97 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next-2.6 12/12] qlcnic: convert to set_phys_id
-Date: Mon, 04 Apr 2011 11:43:52 -0700
-Message-ID: <20110404184502.382340801@linuxplumber.net>
+Subject: [PATCH net-next-2.6 10/12] tg3: implement ethtool set_phys_id
+Date: Mon, 04 Apr 2011 11:43:50 -0700
+Message-ID: <20110404184502.194825403@linuxplumber.net>
 References: <20110404184340.604594357@linuxplumber.net>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52834 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:52831 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755307Ab1DDSvS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2011 14:51:18 -0400
-Content-Disposition: inline; filename=qlcnic-set-phys.patch
+	id S1755301Ab1DDSvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 14:51:16 -0400
+Content-Disposition: inline; filename=tg3-set-phys-id.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert driver to use new ethtool set_phys_id.
-Not completely sure that this is correct for all cases of device
-up/down and doing operation. Compile tested only.
+Implement control of LED via set_phys_id. 
+Note: since PHY is powered off if device is down, this board
+only allows blinking if device is up.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/qlcnic/qlcnic_ethtool.c	2011-04-04 11:30:54.689092370 -0700
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c	2011-04-04 11:36:55.776744627 -0700
-@@ -831,48 +831,51 @@ static int qlcnic_set_tso(struct net_dev
+
+--- a/drivers/net/tg3.c	2011-04-04 11:04:20.373199183 -0700
++++ b/drivers/net/tg3.c	2011-04-04 11:05:19.485863394 -0700
+@@ -10317,35 +10317,38 @@ static void tg3_get_strings(struct net_d
+ 	}
+ }
+ 
+-static int tg3_phys_id(struct net_device *dev, u32 data)
++static int tg3_set_phys_id(struct net_device *dev,
++			    enum ethtool_phys_id_state state)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+-	int i;
+ 
+ 	if (!netif_running(tp->dev))
+ 		return -EAGAIN;
+ 
+-	if (data == 0)
+-		data = UINT_MAX / 2;
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		return -EINVAL;
+ 
+-	for (i = 0; i < (data * 2); i++) {
+-		if ((i % 2) == 0)
+-			tw32(MAC_LED_CTRL, LED_CTRL_LNKLED_OVERRIDE |
+-					   LED_CTRL_1000MBPS_ON |
+-					   LED_CTRL_100MBPS_ON |
+-					   LED_CTRL_10MBPS_ON |
+-					   LED_CTRL_TRAFFIC_OVERRIDE |
+-					   LED_CTRL_TRAFFIC_BLINK |
+-					   LED_CTRL_TRAFFIC_LED);
++	case ETHTOOL_ID_ON:
++		tw32(MAC_LED_CTRL, LED_CTRL_LNKLED_OVERRIDE |
++		     LED_CTRL_1000MBPS_ON |
++		     LED_CTRL_100MBPS_ON |
++		     LED_CTRL_10MBPS_ON |
++		     LED_CTRL_TRAFFIC_OVERRIDE |
++		     LED_CTRL_TRAFFIC_BLINK |
++		     LED_CTRL_TRAFFIC_LED);
++		break;
+ 
+-		else
+-			tw32(MAC_LED_CTRL, LED_CTRL_LNKLED_OVERRIDE |
+-					   LED_CTRL_TRAFFIC_OVERRIDE);
++	case ETHTOOL_ID_OFF:
++		tw32(MAC_LED_CTRL, LED_CTRL_LNKLED_OVERRIDE |
++		     LED_CTRL_TRAFFIC_OVERRIDE);
++		break;
+ 
+-		if (msleep_interruptible(500))
+-			break;
++	case ETHTOOL_ID_INACTIVE:
++		tw32(MAC_LED_CTRL, tp->led_ctrl);
++		break;
+ 	}
+-	tw32(MAC_LED_CTRL, tp->led_ctrl);
++
  	return 0;
  }
  
--static int qlcnic_blink_led(struct net_device *dev, u32 val)
-+static int qlcnic_set_led(struct net_device *dev,
-+			  enum ethtool_phys_id_state state)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(dev);
- 	int max_sds_rings = adapter->max_sds_rings;
--	int dev_down = 0;
- 	int ret;
- 
--	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
--		dev_down = 1;
--		if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
--			return -EIO;
--
--		ret = qlcnic_diag_alloc_res(dev, QLCNIC_LED_TEST);
-+	switch (state) {
-+	case ETHTOOL_ID_ACTIVE:
-+		if (!test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
-+			if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
-+				return -EIO;
-+
-+			ret = qlcnic_diag_alloc_res(dev, QLCNIC_LED_TEST);
-+			if (ret) {
-+				clear_bit(__QLCNIC_RESETTING, &adapter->state);
-+				return ret;
-+			}
-+		}
-+
-+		ret = adapter->nic_ops->config_led(adapter, 1, 0xf);
- 		if (ret) {
--			clear_bit(__QLCNIC_RESETTING, &adapter->state);
--			return ret;
-+			dev_err(&adapter->pdev->dev,
-+				"Failed to set LED blink state.\n");
-+			break;
- 		}
--	}
--
--	ret = adapter->nic_ops->config_led(adapter, 1, 0xf);
--	if (ret) {
--		dev_err(&adapter->pdev->dev,
--			"Failed to set LED blink state.\n");
--		goto done;
--	}
-+		return 0;
- 
--	msleep_interruptible(val * 1000);
-+	case ETHTOOL_ID_INACTIVE:
-+		ret = adapter->nic_ops->config_led(adapter, 0, 0xf);
-+		if (ret)
-+			dev_err(&adapter->pdev->dev,
-+				"Failed to reset LED blink state.\n");
-+		break;
- 
--	ret = adapter->nic_ops->config_led(adapter, 0, 0xf);
--	if (ret) {
--		dev_err(&adapter->pdev->dev,
--			"Failed to reset LED blink state.\n");
--		goto done;
-+	default:
-+		return -EINVAL;
- 	}
- 
--done:
--	if (dev_down) {
-+	if (!netif_running(dev)) {
- 		qlcnic_diag_free_res(dev, max_sds_rings);
- 		clear_bit(__QLCNIC_RESETTING, &adapter->state);
- 	}
--	return ret;
- 
-+	return ret;
- }
- 
- static void
-@@ -1080,7 +1083,7 @@ const struct ethtool_ops qlcnic_ethtool_
- 	.set_coalesce = qlcnic_set_intr_coalesce,
- 	.get_flags = ethtool_op_get_flags,
- 	.set_flags = qlcnic_set_flags,
--	.phys_id = qlcnic_blink_led,
-+	.set_phys_id = qlcnic_set_led,
- 	.set_msglevel = qlcnic_set_msglevel,
- 	.get_msglevel = qlcnic_get_msglevel,
- };
+@@ -11371,7 +11374,7 @@ static const struct ethtool_ops tg3_etht
+ 	.set_tso		= tg3_set_tso,
+ 	.self_test		= tg3_self_test,
+ 	.get_strings		= tg3_get_strings,
+-	.phys_id		= tg3_phys_id,
++	.set_phys_id		= tg3_set_phys_id,
+ 	.get_ethtool_stats	= tg3_get_ethtool_stats,
+ 	.get_coalesce		= tg3_get_coalesce,
+ 	.set_coalesce		= tg3_set_coalesce,
 
 
