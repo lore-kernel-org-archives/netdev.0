@@ -1,42 +1,48 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6] net: vlan: make non-hw-accel rx path similar
- to hw-accel
-Date: Mon, 04 Apr 2011 22:51:25 +0200
-Message-ID: <4D9A2F4D.1000100@gmail.com>
-References: <1301739966-7604-1-git-send-email-jpirko@redhat.com> <4D989100.1090207@gmail.com> <BANLkTin-VVOLQgPA7+CrtBdntnO-0C+R+g@mail.gmail.com> <4D996B30.3080408@gmail.com> <20110404071453.GA2791@psychotron.redhat.com> <4D9A1530.1010102@gmail.com> <20110404203002.GB3657@psychotron.redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6 00/12] Convert more drivers to ethtool
+ set_phys_id
+Date: Mon, 4 Apr 2011 13:52:41 -0700
+Message-ID: <20110404135241.0caa23f7@nehalam>
+References: <20110404184340.604594357@linuxplumber.net>
+	<BANLkTimfFPEhr4GozxBZB5Pc-LGXWfGTPQ@mail.gmail.com>
+	<20110404131459.793f67fc@nehalam>
+	<1301949164.3842.1.camel@jtkirshe-MOBL1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@kernel.org>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, xiaosuo@gmail.com,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46283 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755455Ab1DDUv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 16:51:28 -0400
-Received: by wwa36 with SMTP id 36so6925758wwa.1
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2011 13:51:27 -0700 (PDT)
-In-Reply-To: <20110404203002.GB3657@psychotron.redhat.com>
+Received: from mail.vyatta.com ([76.74.103.46]:36623 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755307Ab1DDUwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 16:52:44 -0400
+In-Reply-To: <1301949164.3842.1.camel@jtkirshe-MOBL1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 04/04/2011 22:30, Jiri Pirko a =E9crit :
-> Mon, Apr 04, 2011 at 09:00:00PM CEST, nicolas.2p.debian@gmail.com wro=
-te:
->> Le 04/04/2011 09:14, Jiri Pirko a =E9crit :
-<snip>
->> So you want to move vlan_do_receive into an rx_handler, but want
->> untagging to stay hard-coded at the beginning of __netif_receive_skb=
-=2E
->> I don't think I understand the rational behind that.
->
-> vlan_hwaccel_do_receive/vlan_do_receive could be converted to
-> rx_handler, not untagging.
+On Mon, 04 Apr 2011 13:32:44 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-Why do you consider untagging cannot be converted to rx_handler?
+> On Mon, 2011-04-04 at 13:14 -0700, Stephen Hemminger wrote:
+> > On Mon, 4 Apr 2011 12:53:14 -0700
+> > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > 
+> > > On Mon, Apr 4, 2011 at 11:43, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> > > > Did a bunch of the easy drivers to convert.
+> > > >
+> > > >
+> > > 
+> > > I have added patches 3-9 (Intel driver conversions) to my queue of
+> > > patches.  Thanks Stephen.
+> > 
+> > I changed the behaviour of igbvf for 'ethtool -p' to return not supported.
+> > This seems correct, but it may break somebody who has some weird script running
+> > in a virt environment.
+> 
+> I also noticed you did not convert ixgbevf, so we will take a look at
+> your changes for igbvf and come up with a patch for ixgbevf.
+
+ixgbevf has no hook for phys_id and therefore no change is needed.
