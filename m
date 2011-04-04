@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next-2.6 04/12] e1000: convert to set_phys_id
-Date: Mon, 04 Apr 2011 11:43:44 -0700
-Message-ID: <20110404184501.640779086@linuxplumber.net>
+Subject: [PATCH net-next-2.6 09/12] ixgb: convert to set_phys_id
+Date: Mon, 04 Apr 2011 11:43:49 -0700
+Message-ID: <20110404184502.102613916@linuxplumber.net>
 References: <20110404184340.604594357@linuxplumber.net>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
@@ -10,109 +10,95 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Bruce A
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52805 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:52822 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753752Ab1DDSvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2011 14:51:07 -0400
-Content-Disposition: inline; filename=e1000-set-phys-id.patch
+	id S1755198Ab1DDSvK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 14:51:10 -0400
+Content-Disposition: inline; filename=ixgb-set-phys.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert to new LED control infrastucture and remove no longer
-necessary bits.
-
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
----
- drivers/net/e1000/e1000.h         |    3 --
- drivers/net/e1000/e1000_ethtool.c |   50 ++++++++++++--------------------------
- 2 files changed, 16 insertions(+), 37 deletions(-)
-
---- a/drivers/net/e1000/e1000.h	2011-04-04 11:22:23.951992540 -0700
-+++ b/drivers/net/e1000/e1000.h	2011-04-04 11:22:32.832071659 -0700
-@@ -238,9 +238,6 @@ struct e1000_adapter {
- 	struct work_struct reset_task;
- 	u8 fc_autoneg;
+--- a/drivers/net/ixgb/ixgb.h	2011-04-04 11:38:54.837945742 -0700
++++ b/drivers/net/ixgb/ixgb.h	2011-04-04 11:38:59.441992978 -0700
+@@ -157,9 +157,6 @@ struct ixgb_adapter {
+ 	u16 link_duplex;
+ 	struct work_struct tx_timeout_task;
  
 -	struct timer_list blink_timer;
 -	unsigned long led_status;
 -
  	/* TX */
- 	struct e1000_tx_ring *tx_ring;      /* One per active queue */
+ 	struct ixgb_desc_ring tx_ring ____cacheline_aligned_in_smp;
  	unsigned int restart_queue;
---- a/drivers/net/e1000/e1000_ethtool.c	2011-04-04 11:21:31.663536366 -0700
-+++ b/drivers/net/e1000/e1000_ethtool.c	2011-04-04 11:26:51.978552805 -0700
-@@ -1753,46 +1753,28 @@ static int e1000_set_wol(struct net_devi
- 	return 0;
+--- a/drivers/net/ixgb/ixgb_ethtool.c	2011-04-04 11:38:04.089428786 -0700
++++ b/drivers/net/ixgb/ixgb_ethtool.c	2011-04-04 11:40:39.458950195 -0700
+@@ -610,45 +610,23 @@ err_setup_rx:
+ 	return err;
  }
  
 -/* toggle LED 4 times per second = 2 "blinks" per second */
--#define E1000_ID_INTERVAL	(HZ/4)
+-#define IXGB_ID_INTERVAL	(HZ/4)
 -
 -/* bit defines for adapter->led_status */
--#define E1000_LED_ON		0
+-#define IXGB_LED_ON		0
 -
--static void e1000_led_blink_callback(unsigned long data)
-+static int e1000_set_phys_id(struct net_device *netdev,
-+			     enum ethtool_phys_id_state state)
- {
--	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (test_and_change_bit(E1000_LED_ON, &adapter->led_status))
--		e1000_led_off(hw);
--	else
--		e1000_led_on(hw);
--
--	mod_timer(&adapter->blink_timer, jiffies + E1000_ID_INTERVAL);
--}
-+	switch (state) {
-+	case ETHTOOL_ID_ACTIVE:
-+		e1000_setup_led(hw);
-+		return -EINVAL;
- 
--static int e1000_phys_id(struct net_device *netdev, u32 data)
+-static void
+-ixgb_led_blink_callback(unsigned long data)
 -{
--	struct e1000_adapter *adapter = netdev_priv(netdev);
--	struct e1000_hw *hw = &adapter->hw;
-+	case ETHTOOL_ID_ON:
-+		e1000_led_on(hw);
-+		break;
+-	struct ixgb_adapter *adapter = (struct ixgb_adapter *)data;
+-
+-	if (test_and_change_bit(IXGB_LED_ON, &adapter->led_status))
+-		ixgb_led_off(&adapter->hw);
+-	else
+-		ixgb_led_on(&adapter->hw);
+-
+-	mod_timer(&adapter->blink_timer, jiffies + IXGB_ID_INTERVAL);
+-}
+-
+ static int
+-ixgb_phys_id(struct net_device *netdev, u32 data)
++ixgb_set_phys_id(struct net_device *netdev, enum ethtool_phys_id_state state)
+ {
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
  
 -	if (!data)
 -		data = INT_MAX;
-+	case ETHTOOL_ID_OFF:
-+		e1000_led_off(hw);
-+		break;
- 
+-
 -	if (!adapter->blink_timer.function) {
 -		init_timer(&adapter->blink_timer);
--		adapter->blink_timer.function = e1000_led_blink_callback;
+-		adapter->blink_timer.function = ixgb_led_blink_callback;
 -		adapter->blink_timer.data = (unsigned long)adapter;
-+	case ETHTOOL_ID_INACTIVE:
-+		e1000_cleanup_led(hw);
- 	}
--	e1000_setup_led(hw);
+-	}
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		return -EINVAL;
+ 
 -	mod_timer(&adapter->blink_timer, jiffies);
++	case ETHTOOL_ID_ON:
++		ixgb_led_on(&adapter->hw);
++		break;
+ 
 -	msleep_interruptible(data * 1000);
 -	del_timer_sync(&adapter->blink_timer);
--
--	e1000_led_off(hw);
--	clear_bit(E1000_LED_ON, &adapter->led_status);
--	e1000_cleanup_led(hw);
+-	ixgb_led_off(&adapter->hw);
+-	clear_bit(IXGB_LED_ON, &adapter->led_status);
++	case ETHTOOL_ID_OFF:
++	case ETHTOOL_ID_INACTIVE:
++		ixgb_led_off(&adapter->hw);
++	}
  
  	return 0;
  }
-@@ -1929,7 +1911,7 @@ static const struct ethtool_ops e1000_et
- 	.set_tso                = e1000_set_tso,
- 	.self_test              = e1000_diag_test,
- 	.get_strings            = e1000_get_strings,
--	.phys_id                = e1000_phys_id,
-+	.set_phys_id            = e1000_set_phys_id,
- 	.get_ethtool_stats      = e1000_get_ethtool_stats,
- 	.get_sset_count         = e1000_get_sset_count,
- 	.get_coalesce           = e1000_get_coalesce,
+@@ -766,7 +744,7 @@ static const struct ethtool_ops ixgb_eth
+ 	.set_msglevel = ixgb_set_msglevel,
+ 	.set_tso = ixgb_set_tso,
+ 	.get_strings = ixgb_get_strings,
+-	.phys_id = ixgb_phys_id,
++	.set_phys_id = ixgb_set_phys_id,
+ 	.get_sset_count = ixgb_get_sset_count,
+ 	.get_ethtool_stats = ixgb_get_ethtool_stats,
+ 	.get_flags = ethtool_op_get_flags,
 
 
