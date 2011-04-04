@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] net: convert xen-netfront to hw_features
-Date: Mon, 04 Apr 2011 11:08:12 -0700 (PDT)
-Message-ID: <20110404.110812.90805188.davem@davemloft.net>
-References: <20110331110136.03A1A13A6A@rere.qmqm.pl>
-	<20110401.205455.70198735.davem@davemloft.net>
-	<1301920159.23887.96.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler
+Date: Mon, 04 Apr 2011 11:10:39 -0700 (PDT)
+Message-ID: <20110404.111039.135529829.davem@davemloft.net>
+References: <20110404083058.2f2be9f1@nehalam>
+	<1301934840.3142.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
-	Jeremy.Fitzhardinge@citrix.com, konrad.wilk@oracle.com,
-	xen-devel@lists.xensource.com,
-	virtualization@lists.linux-foundation.org
-To: Ian.Campbell@eu.citrix.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	fabio@gandalf.sssup.it, rizzo@iet.unipi.it
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59167
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54285
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755183Ab1DDSIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 14:08:49 -0400
-In-Reply-To: <1301920159.23887.96.camel@zakaz.uk.xensource.com>
+	by vger.kernel.org with ESMTP id S1754907Ab1DDSLQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 14:11:16 -0400
+In-Reply-To: <1301934840.3142.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Date: Mon, 4 Apr 2011 13:29:19 +0100
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 04 Apr 2011 18:34:00 +0200
 
->>From 0b56469abe56efae415b4603ef508ce9aec0e4c1 Mon Sep 17 00:00:00 2001
-> From: Ian Campbell <ian.campbell@citrix.com>
-> Date: Mon, 4 Apr 2011 10:58:50 +0100
-> Subject: [PATCH] xen: netfront: assume all hw features are available until backend connection setup
-> 
-> We need to assume that all features will be available when registering the
-> netdev otherwise they are ommitted from the initial set of
-> dev->wanted_features. When we connect to the backed we reduce the set as
-> necessary due to the call to netdev_update_features() in xennet_connect().
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Le lundi 04 avril 2011 =E0 08:30 -0700, Stephen Hemminger a =E9crit :
+>> This is an implementation of the Quick Fair Queue scheduler develope=
+d
+>> by Fabio Checconi. The same algorithm is already implemented in ipfw
+>> in FreeBSD. Fabio had an earlier version developed on Linux, I just
+>> cleaned it up.  Thanks to Eric Dumazet for testing this under load.
+>>=20
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>=20
+>> ---
+>> v6.1 - add one more printk on error path
+>=20
+> Tested again this last version on net-next-2.6 and it seems fine.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I've applied this, thanks Ian.
+Applied, thanks everyone.
