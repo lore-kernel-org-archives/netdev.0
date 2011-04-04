@@ -1,42 +1,42 @@
-From: Ulrich Weber <uweber@astaro.com>
-Subject: [PATCH] pppoe: drop PPPOX_ZOMBIEs in pppoe_flush_dev
-Date: Mon, 4 Apr 2011 14:33:24 +0200
-Message-ID: <20110404123324.GA12662@babylon>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: connector: convert to synchronous netlink message processing
+Date: Mon, 04 Apr 2011 14:47:39 +0200
+Message-ID: <4D99BDEB.6000603@trash.net>
+References: <4D90D5E8.4080002@trash.net> <20110330133913.GA9425@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-45.dex002.intermedia.net ([64.78.21.137]:18373 "EHLO
-	dhost002-45.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751288Ab1DDMrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 08:47:43 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:51572 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142Ab1DDMrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 08:47:49 -0400
+In-Reply-To: <20110330133913.GA9425@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-otherwise we loop forever if a PPPoE socket was set
-to PPPOX_ZOMBIE state by a PADT message when the
-ethernet device is going down afterwards.
+On 30.03.2011 15:39, Evgeniy Polyakov wrote:
+> Hi Patrick
+> 
+> On Mon, Mar 28, 2011 at 08:39:36PM +0200, Patrick McHardy (kaber@trash.net) wrote:
+>> This patch fixes up connector to work properly with the recent
+>> netlink changes that require synchronous netlink message processing.
+>>
+>> The patch is so far only compile tested since I'm still looking
+>> for a good way to test it. If you could point me to some software
+>> using the proc events that would be appreciated.
+> 
+> There is test module in Documentation/connector/ and/or samples/ which I
+> used for tests. It was quite for a while when it was used last time
+> though.
 
-Signed-off-by: Ulrich Weber <uweber@astaro.com>
----
- drivers/net/pppoe.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Thanks, I'll run some test just to be sure.
 
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index 78c0e3c..71b1d8f 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -317,7 +317,7 @@ static void pppoe_flush_dev(struct net_device *dev)
- 			lock_sock(sk);
- 
- 			if (po->pppoe_dev == dev &&
--			    sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND)) {
-+			    sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND | PPPOX_ZOMBIE)) {
- 				pppox_unbind_sock(sk);
- 				sk->sk_state = PPPOX_ZOMBIE;
- 				sk->sk_state_change(sk);
--- 
-1.7.1
+> Your patch looks very good and I definitely ack this :)
+
+Thanks!
+
+
 
