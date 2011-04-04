@@ -1,58 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 1/7] tg3: Add 5720 ASIC rev
-Date: Mon, 04 Apr 2011 11:37:42 -0700
-Message-ID: <1301942262.1941.60.camel@Joe-Laptop>
-References: <1301941495-8069-2-git-send-email-mcarlson@broadcom.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 1/1] bna: Fix for handling firmware heartbeat failure
+Date: Mon, 4 Apr 2011 11:29:59 -0700
+Message-ID: <1301941799-25324-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4502 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752109Ab1DDSho (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2011 14:37:44 -0400
-In-Reply-To: <1301941495-8069-2-git-send-email-mcarlson@broadcom.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:56754 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754090Ab1DDSiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 14:38:09 -0400
+Received: from pps.filterd (m0000542 [127.0.0.1])
+	by mx0a-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id p34IMF4a029637
+	for <netdev@vger.kernel.org>; Mon, 4 Apr 2011 11:30:28 -0700
+Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.140.11])
+	by mx0a-000f0801.pphosted.com with ESMTP id vfh9j0308-2
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 04 Apr 2011 11:30:28 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-04-04 at 11:24 -0700, Matt Carlson wrote:
-> This patch adds support for the 5720 ASIC rev.
-> 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Reviewed-by: Michael Chan <mchan@broadcom.com>
-> ---
->  drivers/net/tg3.c |   67 +++++++++++++++++++++++++++++++++++++---------------
->  drivers/net/tg3.h |    5 ++++
->  2 files changed, 52 insertions(+), 20 deletions(-)
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index b7e03a6..b105cdd 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -98,12 +98,14 @@
->   */
->  #define TG3_RX_STD_RING_SIZE(tp) \
->  	((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 || \
-> -	  GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) ? \
-> +	  GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 || \
-> +	  GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) ? \
+This patch contains a fix for gracefully handling firmware heartbeat
+failure instead of forcing panic.
 
-Maybe it'd be better to convert all of these:
+Signed-off-by: Debashis Dutt <ddutt@brocade.com>
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/bna/bfa_ioc.c |   10 +++-------
+ 1 files changed, 3 insertions(+), 7 deletions(-)
 
-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
-
-tests to a common functions something like:
-
-static bool can_asic_<foo>(struct tg3 *tp)
-{
-	int rev = GET_ASIC_REV(tp->pci_chip_rev_id);
-	return (rev == ASIC_REV_5717) ||
-	       (rev == ASIC_REV_5719) ||
-	       (rev == ASIC_REV_5720);
-}
-
+diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
+index 34933cb..e3de0b8 100644
+--- a/drivers/net/bna/bfa_ioc.c
++++ b/drivers/net/bna/bfa_ioc.c
+@@ -2219,13 +2219,9 @@ bfa_nw_ioc_get_mac(struct bfa_ioc *ioc)
+ static void
+ bfa_ioc_recover(struct bfa_ioc *ioc)
+ {
+-	u16 bdf;
+-
+-	bdf = (ioc->pcidev.pci_slot << 8 | ioc->pcidev.pci_func << 3 |
+-					ioc->pcidev.device_id);
+-
+-	pr_crit("Firmware heartbeat failure at %d", bdf);
+-	BUG_ON(1);
++	pr_crit("Heart Beat of IOC has failed\n");
++	bfa_ioc_stats(ioc, ioc_hbfails);
++	bfa_fsm_send_event(ioc, IOC_E_HBFAIL);
+ }
+ 
+ static void
+-- 
+1.7.1
 
