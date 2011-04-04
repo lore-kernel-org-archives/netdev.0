@@ -1,41 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler
-Date: Mon, 04 Apr 2011 18:34:00 +0200
-Message-ID: <1301934840.3142.23.camel@edumazet-laptop>
-References: <20110404083058.2f2be9f1@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net: Allow no-cache copy from user on transmit
+Date: Mon, 04 Apr 2011 09:52:07 -0700 (PDT)
+Message-ID: <20110404.095207.137846978.davem@davemloft.net>
+References: <20110403.220305.71570981.davem@davemloft.net>
+	<20110403.222341.149838774.davem@davemloft.net>
+	<BANLkTik__2JSNHXf4JBDqQPgDmMgsT9Lug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Fabio Checconi <fabio@gandalf.sssup.it>,
-	Luigi Rizzo <rizzo@iet.unipi.it>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63492 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753154Ab1DDQeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 12:34:07 -0400
-Received: by wwa36 with SMTP id 36so6668061wwa.1
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2011 09:34:05 -0700 (PDT)
-In-Reply-To: <20110404083058.2f2be9f1@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54300
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754027Ab1DDQwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 12:52:44 -0400
+In-Reply-To: <BANLkTik__2JSNHXf4JBDqQPgDmMgsT9Lug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 04 avril 2011 =C3=A0 08:30 -0700, Stephen Hemminger a =C3=A9cr=
-it :
-> This is an implementation of the Quick Fair Queue scheduler developed
-> by Fabio Checconi. The same algorithm is already implemented in ipfw
-> in FreeBSD. Fabio had an earlier version developed on Linux, I just
-> cleaned it up.  Thanks to Eric Dumazet for testing this under load.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> ---
-> v6.1 - add one more printk on error path
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 4 Apr 2011 08:10:08 -0700
 
-Tested again this last version on net-next-2.6 and it seems fine.
+>> So it's not correct to use ARCH_HAS_NOCACHE_UACCESS to conditionalize
+>> things in the networking, just make sure linux/uaccess.h is included
+>> at the call sites.
+>>
+> Why isn't this correct?  Shouldn't it be okay if linux/uaccess.h
+> (asm/uaccess.h) is always included where  ARCH_HAS_NOCACHE_UACCESS is
+> used?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+I'm simply saying to get rid of the ARCH_HAS_NOCACHE_UACCESS ifdefs
+you're adding to the networking code, since linux/uaccess.h makes sure
+that a nop version of the nocache routines are available always.
 
-
-
+If you ifdef the networking bits unnecessarily, those code paths
+won't get build tested in the majority of my test builds, which are
+on sparc64.  So I want to avoid the conditionalized compilation if
+at all possible.
