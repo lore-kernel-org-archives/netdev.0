@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen: netfront: fix declaration order
-Date: Sun, 03 Apr 2011 17:24:07 -0700 (PDT)
-Message-ID: <20110403.172407.91341067.davem@davemloft.net>
-References: <20110331110136.03A1A13A6A@rere.qmqm.pl>
-	<20110401.205455.70198735.davem@davemloft.net>
-	<1301828839.2837.143.camel@edumazet-laptop>
+Subject: Re: pull request: sfc-next-2.6 2011-04-03
+Date: Sun, 03 Apr 2011 17:50:07 -0700 (PDT)
+Message-ID: <20110403.175007.214221616.davem@davemloft.net>
+References: <1301859889.2935.23.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
-	jeremy.fitzhardinge@citrix.com, konrad.wilk@oracle.com,
-	Ian.Campbell@citrix.com, xen-devel@lists.xensource.com,
-	virtualization@lists.linux-foundation.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48295
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48709
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752031Ab1DDAYp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 20:24:45 -0400
-In-Reply-To: <1301828839.2837.143.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751042Ab1DDAuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2011 20:50:44 -0400
+In-Reply-To: <1301859889.2935.23.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 03 Apr 2011 13:07:19 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Sun, 03 Apr 2011 20:44:49 +0100
 
-> [PATCH] xen: netfront: fix declaration order
->=20
-> Must declare xennet_fix_features() and xennet_set_features() before
-> using them.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> The following changes since commit 9b12c75bf4d58dd85c987ee7b6a4356fdc7c1222:
+>   David S. Miller (1):
+>         net: Order ports in same order as addresses in flow objects.
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git master
+> 
+> 1. Implement of generic features interface in sfc.
+> 2. Update ethtool_ops documentation.
+> 3. Reimplement ETHTOOL_PHYS_ID as dicussed, dropping the RTNL lock.
+> 
+> Please allow some time for others to review before pulling.
 
-Ugh, it makes no sense that XEN won't make it into the x86_32
-allmodconfig build.  Those dependencies in arch/x86/xen/Kconfig
-are terrible.
-
-=46or if it did, I would have caught this immediately.
+Ok, it seems there has been some feedback and you'll need to respin
+these changes.
