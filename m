@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Don't pass invalid dst_entry pointer to
- dst_release().
-Date: Mon, 04 Apr 2011 13:07:39 -0700 (PDT)
-Message-ID: <20110404.130739.209975217.davem@davemloft.net>
-References: <1301946910-5530-1-git-send-email-ostr@amd64.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6 00/12] Convert more drivers to ethtool
+ set_phys_id
+Date: Mon, 4 Apr 2011 13:14:59 -0700
+Message-ID: <20110404131459.793f67fc@nehalam>
+References: <20110404184340.604594357@linuxplumber.net>
+	<BANLkTimfFPEhr4GozxBZB5Pc-LGXWfGTPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	boris.ostrovsky@amd.com
-To: ostr@amd64.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1301946910-5530-1-git-send-email-ostr@amd64.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:44677 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755590Ab1DDUPC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 16:15:02 -0400
+In-Reply-To: <BANLkTimfFPEhr4GozxBZB5Pc-LGXWfGTPQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Boris Ostrovsky <ostr@amd64.org>
-Date: Mon,  4 Apr 2011 15:55:10 -0400
+On Mon, 4 Apr 2011 12:53:14 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-> From: Boris Ostrovsky <boris.ostrovsky@amd.com>
+> On Mon, Apr 4, 2011 at 11:43, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> > Did a bunch of the easy drivers to convert.
+> >
+> >
 > 
-> Make sure dst_release() is not called with error pointer. This is
-> similar to commit 4910ac6c526d2868adcb5893e0c428473de862b5.
-> 
-> Signed-off-by: Boris Ostrovsky <boris.ostrovsky@amd.com>
+> I have added patches 3-9 (Intel driver conversions) to my queue of
+> patches.  Thanks Stephen.
 
-Applied, thank you.
+I changed the behaviour of igbvf for 'ethtool -p' to return not supported.
+This seems correct, but it may break somebody who has some weird script running
+in a virt environment.
