@@ -1,27 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: mISDN: fix "persistant" typo
-Date: Sun, 03 Apr 2011 22:03:14 -0700 (PDT)
-Message-ID: <20110403.220314.220054508.davem@davemloft.net>
-References: <alpine.LNX.2.01.1104040130390.21333@obet.zrqbmnf.qr>
+Subject: Re: [PATCH] mlx4: fix kfree on error path in new_steering_entry()
+Date: Sun, 03 Apr 2011 22:04:10 -0700 (PDT)
+Message-ID: <20110403.220410.123991133.davem@davemloft.net>
+References: <1301865983-6584-1-git-send-email-mk@lab.zgora.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org
-To: jengelh@medozas.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53093
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751670Ab1DDFDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 01:03:51 -0400
-In-Reply-To: <alpine.LNX.2.01.1104040130390.21333@obet.zrqbmnf.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yevgenyp@mellanox.co.il, rolandd@cisco.com, alekseys@voltaire.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mk@lab.zgora.pl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1301865983-6584-1-git-send-email-mk@lab.zgora.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@medozas.de>
-Date: Mon, 4 Apr 2011 01:31:06 +0200 (CEST)
+From: Mariusz Kozlowski <mk@lab.zgora.pl>
+Date: Sun,  3 Apr 2011 23:26:23 +0200
 
-> mISDN: fix "persistant" typo
+> On error path kfree() should get pointer to memory allocated by
+> kmalloc() not the address of variable holding it (which is on stack).
 > 
-> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+> Signed-off-by: Mariusz Kozlowski <mk@lab.zgora.pl>
 
-Applied.
+Applied, thanks.
