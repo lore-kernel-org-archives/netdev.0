@@ -1,56 +1,61 @@
-From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: Re: [PATCH] X86:NET:Replaced a deprecated function .
-Date: Mon, 4 Apr 2011 11:36:20 +0200
-Message-ID: <20110404093620.GA4896@isilmar-3.linta.de>
-References: <1301909548-20031-1-git-send-email-wanlong.gao@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Support e1000 M88 PHY registers in -d
+Date: Mon, 04 Apr 2011 10:41:42 +0100
+Message-ID: <1301910102.2935.52.camel@localhost>
+References: <20100319043229.24908.99968.reportbug@Feynman.home>
+	 <1301761441.10056.197.camel@localhost>
+	 <BANLkTik7G82DwhA_EU8KrKJO25+W=yjWFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, padovan@profusion.mobi, joe@perches.com,
-	marcel@holtmann.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: wanlong.gao@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1301909548-20031-1-git-send-email-wanlong.gao@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Anthony DeRobertis <anthony@derobert.net>,
+	netdev <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net, 574574@bugs.debian.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:19442 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751116Ab1DDJlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 05:41:47 -0400
+In-Reply-To: <BANLkTik7G82DwhA_EU8KrKJO25+W=yjWFg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Mon, Apr 04, 2011 at 05:32:28PM +0800, wanlong.gao@gmail.com wrote:
-> From: Wanlong Gao <wanlong.gao@gmail.com>
+On Mon, 2011-04-04 at 01:36 -0700, Jeff Kirsher wrote:
+> On Sat, Apr 2, 2011 at 09:24, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > Anthony,
+> >
+> > I'm now upstream maintainer for ethtool so I've picked up your patch
+> > again.
+> >
+> > On Fri, 2010-03-19 at 00:32 -0400, Anthony DeRobertis wrote:
+> >> Package: ethtool
+> >> Version: 1:2.6.33-1
+> >> Severity: wishlist
+> >>
+> >> The M88 PHY registers contain useful information like the cable length
+> >> estimate and the MDI/MDIX status. The attached patch makes -d dump
+> >> them.
+> >
+> > Patches for ethtool should include a commit message and Signed-off-by
+> > line, as in the Linux kernel.  See sections 2 and 12 of
+> > <http://www.kernel.org/doc/Documentation/SubmittingPatches>.  They
+> > should be sent to this address and to netdev.
+> >
+> > I'm forwarding this patch to netdev and the e1000 developers for review.
+> >
+> > Ben.
 > 
-> kernel_warning: pcmcia_request_exclusive_irq is deprecated .
+> Thanks Ben.  Just to be clear, have you applied these e1000 changes to
+> the ethtool?
+[...]
 
-NACK. This papers over the issue, instead of fixing it. To properly fix it,
-one needs to verify that the IRQ handler used in this driver is capable of
-handling a shared IRQ line.
+I have not applied these changes either anywhere.
 
-Best,
-	Dominik
+Ben.
 
-> Signed-off-by: Wanlong Gao <wanlong.gao@gmail.com>
-> ---
->  drivers/net/pcmcia/nmclan_cs.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
-> index 76683d9..bf97231
-> --- a/drivers/net/pcmcia/nmclan_cs.c
-> +++ b/drivers/net/pcmcia/nmclan_cs.c
-> @@ -625,7 +625,7 @@ static int nmclan_config(struct pcmcia_device *link)
->    ret = pcmcia_request_io(link);
->    if (ret)
->  	  goto failed;
-> -  ret = pcmcia_request_exclusive_irq(link, mace_interrupt);
-> +  ret = __pcmcia_request_exclusive_irq(link, mace_interrupt);
->    if (ret)
->  	  goto failed;
->    ret = pcmcia_enable_device(link);
-> -- 
-> 1.7.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
