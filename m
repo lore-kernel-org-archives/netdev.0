@@ -1,33 +1,35 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next-2.6 00/12] Convert more drivers to ethtool set_phys_id
-Date: Mon, 4 Apr 2011 12:53:14 -0700
-Message-ID: <BANLkTimfFPEhr4GozxBZB5Pc-LGXWfGTPQ@mail.gmail.com>
-References: <20110404184340.604594357@linuxplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54253 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754852Ab1DDTxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 15:53:15 -0400
-Received: by fxm17 with SMTP id 17so4159025fxm.19
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2011 12:53:14 -0700 (PDT)
-In-Reply-To: <20110404184340.604594357@linuxplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Boris Ostrovsky <ostr@amd64.org>
+Subject: [PATCH] ipv6: Don't pass invalid dst_entry pointer to dst_release().
+Date: Mon,  4 Apr 2011 15:55:10 -0400
+Message-ID: <1301946910-5530-1-git-send-email-ostr@amd64.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Boris Ostrovsky <boris.ostrovsky@amd.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 4, 2011 at 11:43, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> Did a bunch of the easy drivers to convert.
->
->
+From: Boris Ostrovsky <boris.ostrovsky@amd.com>
 
-I have added patches 3-9 (Intel driver conversions) to my queue of
-patches.  Thanks Stephen.
+Make sure dst_release() is not called with error pointer. This is
+similar to commit 4910ac6c526d2868adcb5893e0c428473de862b5.
 
+Signed-off-by: Boris Ostrovsky <boris.ostrovsky@amd.com>
+---
+ net/ipv6/tcp_ipv6.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 2b0c186..56fa125 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -503,6 +503,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req,
+ 	dst = ip6_dst_lookup_flow(sk, &fl6, final_p, false);
+ 	if (IS_ERR(dst)) {
+ 		err = PTR_ERR(dst);
++		dst = NULL;
+ 		goto done;
+ 	}
+ 	skb = tcp_make_synack(sk, dst, req, rvp);
 -- 
-Cheers,
-Jeff
+1.7.1
