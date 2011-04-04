@@ -1,49 +1,117 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next-2.6 07/12] igbvf: remove bogus phys_id
-Date: Mon, 04 Apr 2011 11:43:47 -0700
-Message-ID: <20110404184501.915865252@linuxplumber.net>
+Subject: [PATCH net-next-2.6 12/12] qlcnic: convert to set_phys_id
+Date: Mon, 04 Apr 2011 11:43:52 -0700
+Message-ID: <20110404184502.382340801@linuxplumber.net>
 References: <20110404184340.604594357@linuxplumber.net>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce A
+	Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52826 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:52834 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755295Ab1DDSvP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2011 14:51:15 -0400
-Content-Disposition: inline; filename=igvf-set-phys.patch
+	id S1755307Ab1DDSvS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 14:51:18 -0400
+Content-Disposition: inline; filename=qlcnic-set-phys.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This device lies about supporting phys_id. Remove it and just
-let the upper layer report not supported.
+Convert driver to use new ethtool set_phys_id.
+Not completely sure that this is correct for all cases of device
+up/down and doing operation. Compile tested only.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/igbvf/ethtool.c	2011-04-04 11:15:50.477019338 -0700
-+++ b/drivers/net/igbvf/ethtool.c	2011-04-04 11:16:12.661202774 -0700
-@@ -391,11 +391,6 @@ static int igbvf_set_wol(struct net_devi
- 	return -EOPNOTSUPP;
+--- a/drivers/net/qlcnic/qlcnic_ethtool.c	2011-04-04 11:30:54.689092370 -0700
++++ b/drivers/net/qlcnic/qlcnic_ethtool.c	2011-04-04 11:36:55.776744627 -0700
+@@ -831,48 +831,51 @@ static int qlcnic_set_tso(struct net_dev
+ 	return 0;
  }
  
--static int igbvf_phys_id(struct net_device *netdev, u32 data)
--{
--	return 0;
--}
--
- static int igbvf_get_coalesce(struct net_device *netdev,
-                               struct ethtool_coalesce *ec)
+-static int qlcnic_blink_led(struct net_device *dev, u32 val)
++static int qlcnic_set_led(struct net_device *dev,
++			  enum ethtool_phys_id_state state)
  {
-@@ -527,7 +522,6 @@ static const struct ethtool_ops igbvf_et
- 	.self_test		= igbvf_diag_test,
- 	.get_sset_count		= igbvf_get_sset_count,
- 	.get_strings		= igbvf_get_strings,
--	.phys_id		= igbvf_phys_id,
- 	.get_ethtool_stats	= igbvf_get_ethtool_stats,
- 	.get_coalesce		= igbvf_get_coalesce,
- 	.set_coalesce		= igbvf_set_coalesce,
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+ 	int max_sds_rings = adapter->max_sds_rings;
+-	int dev_down = 0;
+ 	int ret;
+ 
+-	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
+-		dev_down = 1;
+-		if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
+-			return -EIO;
+-
+-		ret = qlcnic_diag_alloc_res(dev, QLCNIC_LED_TEST);
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		if (!test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
++			if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
++				return -EIO;
++
++			ret = qlcnic_diag_alloc_res(dev, QLCNIC_LED_TEST);
++			if (ret) {
++				clear_bit(__QLCNIC_RESETTING, &adapter->state);
++				return ret;
++			}
++		}
++
++		ret = adapter->nic_ops->config_led(adapter, 1, 0xf);
+ 		if (ret) {
+-			clear_bit(__QLCNIC_RESETTING, &adapter->state);
+-			return ret;
++			dev_err(&adapter->pdev->dev,
++				"Failed to set LED blink state.\n");
++			break;
+ 		}
+-	}
+-
+-	ret = adapter->nic_ops->config_led(adapter, 1, 0xf);
+-	if (ret) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to set LED blink state.\n");
+-		goto done;
+-	}
++		return 0;
+ 
+-	msleep_interruptible(val * 1000);
++	case ETHTOOL_ID_INACTIVE:
++		ret = adapter->nic_ops->config_led(adapter, 0, 0xf);
++		if (ret)
++			dev_err(&adapter->pdev->dev,
++				"Failed to reset LED blink state.\n");
++		break;
+ 
+-	ret = adapter->nic_ops->config_led(adapter, 0, 0xf);
+-	if (ret) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to reset LED blink state.\n");
+-		goto done;
++	default:
++		return -EINVAL;
+ 	}
+ 
+-done:
+-	if (dev_down) {
++	if (!netif_running(dev)) {
+ 		qlcnic_diag_free_res(dev, max_sds_rings);
+ 		clear_bit(__QLCNIC_RESETTING, &adapter->state);
+ 	}
+-	return ret;
+ 
++	return ret;
+ }
+ 
+ static void
+@@ -1080,7 +1083,7 @@ const struct ethtool_ops qlcnic_ethtool_
+ 	.set_coalesce = qlcnic_set_intr_coalesce,
+ 	.get_flags = ethtool_op_get_flags,
+ 	.set_flags = qlcnic_set_flags,
+-	.phys_id = qlcnic_blink_led,
++	.set_phys_id = qlcnic_set_led,
+ 	.set_msglevel = qlcnic_set_msglevel,
+ 	.get_msglevel = qlcnic_get_msglevel,
+ };
 
 
