@@ -1,35 +1,42 @@
-From: Armin Schindler <armin@melware.de>
-Subject: Re: [PATCH 12/34] isdn/diva: Drop __TIME__ usage
-Date: Tue, 5 Apr 2011 18:07:05 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1104051806230.7624@justus.melware.de>
-References: <1302015561-21047-1-git-send-email-mmarek@suse.cz>  <1302015561-21047-13-git-send-email-mmarek@suse.cz>  <alpine.DEB.2.00.1104051709040.7262@justus.melware.de> <1302017861.2932.13.camel@bwh-desktop>
+From: "WEB MAIL SERVICE" <accountaccess14@hotmail.com>
+Subject: Dear Webmail/E-mail user
+Date: Mon, 4 Apr 2011 17:24:35 -0400 (EDT)
+Message-ID: <3036.115.242.246.16.1301952275.squirrel@115.242.246.16>
+Reply-To: alertweb333@hotmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Michal Marek <mmarek@suse.cz>, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <1302017861.2932.13.camel@bwh-desktop>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dedicated.stoinet.com ([72.4.160.228]:40236 "EHLO
+	dedicated.stoinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753441Ab1DEQf4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 12:35:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 5 Apr 2011, Ben Hutchings wrote:
-> On Tue, 2011-04-05 at 17:10 +0200, Armin Schindler wrote:
->> On Tue, 5 Apr 2011, Michal Marek wrote:
->>> The kernel already prints its build timestamp during boot, no need to
->>> repeat it in random drivers and produce different object files each
->>> time.
->>
->> The module can be build separately from the kernel, therefore it can have
->> an own build timestamp.
-> [...]
->
-> If you want to distribute an out-of-tree version, that's your own
-> business.  It shouldn't limit what is done with the in-tree version.
-> Perhaps we could make modpost add a build timestamp to OOT modules,
-> though.
 
-I know out-of-tree stuff doesn't matter here. But I'm thinking
-about just doing 'make modules'.
 
-Armin
+
+Dear Account Owner.
+
+This mail is to inform all our {Web Mail} users that we will be upgrading
+our site in a couple of days from now. So you as a Subscriber of our site
+you are required send us your Email account details so as to enable us
+know if you are still making use of your mail box if you still do to add
+more space to you. Further be informed that we will be deleting all mail
+account that is not functioning so as to create more space for new user.
+
+you will have to confirm your webmail account details by providing the
+following:
+
+1.NetID:....................................
+2.Password:...................................
+3.Date of Birth:...............................
+
+Failure to do this will immediately render your email address deactivated
+from our database.
+
+Thank you for using our WEB SERVICE !
+FROM THE WEB MAIL SUPPORT TEAM
+
