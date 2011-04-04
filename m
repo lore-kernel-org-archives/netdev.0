@@ -1,59 +1,32 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: h323: bug in parsing of ASN1 SEQOF field
-Date: Mon, 04 Apr 2011 15:24:19 +0200
-Message-ID: <4D99C683.5070000@trash.net>
-References: <1300794929-1541-1-git-send-email-dsterba@suse.cz> <20110322.193349.102533280.davem@davemloft.net>
+Subject: Re: [GIT PULL nf-2.6] IPVS
+Date: Mon, 04 Apr 2011 15:27:22 +0200
+Message-ID: <4D99C73A.7010101@trash.net>
+References: <1301535135-4288-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: dsterba@suse.cz, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110322.193349.102533280.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1301535135-4288-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 23.03.2011 03:33, David Miller wrote:
-> From: David Sterba <dsterba@suse.cz>
-> Date: Tue, 22 Mar 2011 12:55:29 +0100
+On 31.03.2011 03:32, Simon Horman wrote:
+> Hi Patrick,
 > 
->> Static analyzer of clang found a dead store which appears to be a bug in
->> reading count of items in SEQOF field, only the lower byte of word is
->> stored. This may lead to corrupted read and communication shutdown.
->>
->> The bug has been in the module since it's first inclusion into linux
->> kernel.
->>
->> Signed-off-by: David Sterba <dsterba@suse.cz>
+> please consider pulling
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
+> to get the following fix from Hans.
 > 
-> Please send netfilter patches to the listed netfilter maintainer
-> and appropriate mailing lists.  I've added them to the CC:
-> 
-> Otherwise your patch will not be looked at by the right people.
-> 
->> CC: David Miller <davem@davemloft.net>
->> CC: netdev@vger.kernel.org
->> CC: stable@kernel.org
->> ---
->>  net/netfilter/nf_conntrack_h323_asn1.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/netfilter/nf_conntrack_h323_asn1.c b/net/netfilter/nf_conntrack_h323_asn1.c
->> index 8678823..bcd5ed6 100644
->> --- a/net/netfilter/nf_conntrack_h323_asn1.c
->> +++ b/net/netfilter/nf_conntrack_h323_asn1.c
->> @@ -631,7 +631,7 @@ static int decode_seqof(bitstr_t *bs, const struct field_t *f,
->>  		CHECK_BOUND(bs, 2);
->>  		count = *bs->cur++;
->>  		count <<= 8;
->> -		count = *bs->cur++;
->> +		count += *bs->cur++;
->>  		break;
+> I have based this patch on net-2.6/master as nf-2.6/master seems a little
+> out of date (i.e. pre 2.6.39-rc1). Please let me know if you would
+> prefer me to use a different base. Alternatively, feel free to apply
+> the single patch by hand.
 
-This looks correct to me. The problem is without practical consequence
-though, the largest amount of sequence-of members we parse is 30.
-
-Applied, thanks.
+I'll apply this by hand to avoid possible unnecessary merge commits.
+I've also updated nf-2.6.git to net-2.6.git.
