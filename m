@@ -1,61 +1,35 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: Fix dev dev_ethtool_get_rx_csum() for forced
- NETIF_F_RXCSUM
-Date: Mon, 04 Apr 2011 15:54:40 +0100
-Message-ID: <1301928880.2807.4.camel@bwh-desktop>
-References: <f658c6e20dad946b50fda008c120a0347ad58314.1301565174.git.mirq-linux@rere.qmqm.pl>
-	 <20110401.202335.260089653.davem@davemloft.net>
-	 <20110404141443.GA26686@rere.qmqm.pl>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next-2.6] netfilter: get rid of atomic ops in fast
+ path
+Date: Mon, 04 Apr 2011 17:05:04 +0200
+Message-ID: <4D99DE20.2060404@trash.net>
+References: <1300468038.2888.160.camel@edumazet-laptop> <1301836523.2837.159.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:40925 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754628Ab1DDOyn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 10:54:43 -0400
-In-Reply-To: <20110404141443.GA26686@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1301836523.2837.159.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-04-04 at 16:14 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> On Fri, Apr 01, 2011 at 08:23:35PM -0700, David Miller wrote:
-> > From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> > Date: Thu, 31 Mar 2011 11:58:08 +0200 (CEST)
-> > > dev_ethtool_get_rx_csum() won't report rx checksumming when it's =
-not
-> > > changeable and driver is converted to hw_features and friends. Fi=
-x this.
-> > >=20
-> > > (dev->hw_features & NETIF_F_RXCSUM) check is dropped - if the
-> > > ethtool_ops->get_rx_csum is set, then driver is not coverted, yet=
-=2E
-> > >=20
-> > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl=
->
-> > Applied, thanks.
->=20
-> I noticed this didn't get into your net-next tree (it's only in net).
-> This impacts the hw_features conversions that are in net-next.
->=20
-> BTW, what's the policy for this kind of patches? I send them relative
-> to net-next normally and note if this is also for -rc/stable - is thi=
-s
-> The Good Way(tm)?
+On 03.04.2011 15:15, Eric Dumazet wrote:
+> We currently use a percpu spinlock to 'protect' rule bytes/packets
+> counters, after various attempts to use RCU instead.
+> 
+> Lately we added a seqlock so that get_counters() can run without
+> blocking BH or 'writers'. But we really only need the seqcount in it.
+> 
+> Spinlock itself is only locked by the current/owner cpu, so we can
+> remove it completely.
+> 
+> This cleanups api, using correct 'writer' vs 'reader' semantic.
+> 
+> At replace time, the get_counters() call makes sure all cpus are done
+> using the old table.
 
-If you want a change to be included in the upcoming release, it must be
-applied initially to net-2.6; therefore it must be based on net-2.6.
-
-David will periodically merge net-2.6 into net-next-2.6.  You can
-probably do a test merge yourself if you want to see what the result
-will be.
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Applied, thanks Eric.
