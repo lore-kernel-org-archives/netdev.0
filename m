@@ -1,22 +1,28 @@
-From: "wanlong.gao" <wanlong.gao@gmail.com>
+From: Dominik Brodowski <linux@dominikbrodowski.net>
 Subject: Re: Re: [PATCH] X86:NET:Replaced a deprecated function .
-Date: Mon, 4 Apr 2011 17:44:00 +0800
-Message-ID: <201104041743511096883@gmail.com>
-References: <1301909548-20031-1-git-send-email-wanlong.gao@gmail.com>,
- <20110404093620.GA4896@isilmar-3.linta.de>
+Date: Mon, 4 Apr 2011 11:53:22 +0200
+Message-ID: <20110404095322.GA10089@isilmar-3.linta.de>
+References: <20110404093620.GA4896@isilmar-3.linta.de> <201104041743511096883@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: 7bit
-Cc: "davem" <davem@davemloft.net>, "padovan" <padovan@profusion.mobi>,
-	"joe" <joe@perches.com>, "marcel" <marcel@holtmann.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>
-To: "Dominik Brodowski" <linux@dominikbrodowski.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem <davem@davemloft.net>, padovan <padovan@profusion.mobi>,
+	joe <joe@perches.com>, marcel <marcel@holtmann.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: "wanlong.gao" <wanlong.gao@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201104041743511096883@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-You means that some drivers still not capable of IRQF_SHARED?
+On Mon, Apr 04, 2011 at 05:44:00PM +0800, wanlong.gao wrote:
+> You means that some drivers still not capable of IRQF_SHARED?
 
-Thanks 
+That's the issue. I do not know whether this driver is capable of
+IRQF_SHARED as it should be. If it is, you may replace the
+pcmcia_request_exclusive_irq() with pcmcia_request_irq(), and the warning
+will be gone.
+
+Best,
+	Dominik
