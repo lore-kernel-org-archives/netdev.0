@@ -1,78 +1,38 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: Signed bit field; int have_hotplug_status_watch:1
-Date: Mon, 4 Apr 2011 09:26:24 +0100
-Message-ID: <1301905584.23887.49.camel@zakaz.uk.xensource.com>
-References: <20110403213241.GA25913@gallifrey>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: fix stats locking in e1000_watchdog_task
+Date: Mon, 4 Apr 2011 01:32:23 -0700
+Message-ID: <BANLkTinBLnZ3j5dLD4+Ze+pPuqY+OFgZZg@mail.gmail.com>
+References: <1301681764-25315-1-git-send-email-fleitner@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org, xen-devel <xen-devel@lists.xensource.com>
-To: "Dr. David Alan Gilbert" <linux@treblig.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Flavio Leitner <fleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:47642 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754025Ab1DDI00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 04:26:26 -0400
-In-Reply-To: <20110403213241.GA25913@gallifrey>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:51876 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848Ab1DDIcZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 04:32:25 -0400
+Received: by fxm17 with SMTP id 17so3725681fxm.19
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2011 01:32:24 -0700 (PDT)
+In-Reply-To: <1301681764-25315-1-git-send-email-fleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-04-03 at 22:32 +0100, Dr. David Alan Gilbert wrote:
-> Hi Ian,
->    I've been going through some sparse scans of the kernel and
-> it threw up:
-> 
->   CHECK   drivers/net/xen-netback/xenbus.c
-> drivers/net/xen-netback/xenbus.c:29:40: error: dubious one-bit signed bitfield
-> 
->         int have_hotplug_status_watch:1;
-> 
-> from your patch f942dc2552b8bfdee607be867b12a8971bb9cd85 
-> 
-> It does look like that should be an unsigned (given it's assigned
-> 0 and 1)
+On Fri, Apr 1, 2011 at 11:16, Flavio Leitner <fleitner@redhat.com> wrot=
+e:
+> Just move the unlock down a bit because it unlocks too
+> early leaving a chance for get_stats64() run in parallel
+> while it is still accessing the stats.
+>
+> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+> ---
+> =C2=A0drivers/net/e1000e/netdev.c | =C2=A0 =C2=A02 +-
+> =C2=A01 files changed, 1 insertions(+), 1 deletions(-)
+>
 
-I agree.
+Thanks!  I have added this to my e1000e queue of patches.
 
-8<----------------------------------
-
->From 38fdb7199a0c3c5eb18ec27d2380e21116c97e29 Mon Sep 17 00:00:00 2001
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Mon, 4 Apr 2011 09:18:35 +0100
-Subject: [PATCH] xen: netback: use unsigned type for one-bit bitfield.
-
-Fixes error from sparse:
-  CHECK   drivers/net/xen-netback/xenbus.c
-drivers/net/xen-netback/xenbus.c:29:40: error: dubious one-bit signed bitfield
-
-        int have_hotplug_status_watch:1;
-
-Reported-by: Dr. David Alan Gilbert <linux@treblig.org>
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: netdev@vger.kernel.org
-Cc: xen-devel@lists.xensource.com
----
- drivers/net/xen-netback/xenbus.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 22b8c35..1ce729d 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -26,7 +26,7 @@ struct backend_info {
- 	struct xenvif *vif;
- 	enum xenbus_state frontend_state;
- 	struct xenbus_watch hotplug_status_watch;
--	int have_hotplug_status_watch:1;
-+	u8 have_hotplug_status_watch:1;
- };
- 
- static int connect_rings(struct backend_info *);
--- 
-1.7.2.5
-
-
+--=20
+Cheers,
+Jeff
