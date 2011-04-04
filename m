@@ -1,42 +1,59 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: connector: convert to synchronous netlink message processing
-Date: Mon, 04 Apr 2011 14:47:39 +0200
-Message-ID: <4D99BDEB.6000603@trash.net>
-References: <4D90D5E8.4080002@trash.net> <20110330133913.GA9425@ioremap.net>
+Subject: Re: [PATCH] netfilter: h323: bug in parsing of ASN1 SEQOF field
+Date: Mon, 04 Apr 2011 15:24:19 +0200
+Message-ID: <4D99C683.5070000@trash.net>
+References: <1300794929-1541-1-git-send-email-dsterba@suse.cz> <20110322.193349.102533280.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51572 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142Ab1DDMrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2011 08:47:49 -0400
-In-Reply-To: <20110330133913.GA9425@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dsterba@suse.cz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110322.193349.102533280.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 30.03.2011 15:39, Evgeniy Polyakov wrote:
-> Hi Patrick
+On 23.03.2011 03:33, David Miller wrote:
+> From: David Sterba <dsterba@suse.cz>
+> Date: Tue, 22 Mar 2011 12:55:29 +0100
 > 
-> On Mon, Mar 28, 2011 at 08:39:36PM +0200, Patrick McHardy (kaber@trash.net) wrote:
->> This patch fixes up connector to work properly with the recent
->> netlink changes that require synchronous netlink message processing.
+>> Static analyzer of clang found a dead store which appears to be a bug in
+>> reading count of items in SEQOF field, only the lower byte of word is
+>> stored. This may lead to corrupted read and communication shutdown.
 >>
->> The patch is so far only compile tested since I'm still looking
->> for a good way to test it. If you could point me to some software
->> using the proc events that would be appreciated.
+>> The bug has been in the module since it's first inclusion into linux
+>> kernel.
+>>
+>> Signed-off-by: David Sterba <dsterba@suse.cz>
 > 
-> There is test module in Documentation/connector/ and/or samples/ which I
-> used for tests. It was quite for a while when it was used last time
-> though.
+> Please send netfilter patches to the listed netfilter maintainer
+> and appropriate mailing lists.  I've added them to the CC:
+> 
+> Otherwise your patch will not be looked at by the right people.
+> 
+>> CC: David Miller <davem@davemloft.net>
+>> CC: netdev@vger.kernel.org
+>> CC: stable@kernel.org
+>> ---
+>>  net/netfilter/nf_conntrack_h323_asn1.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/netfilter/nf_conntrack_h323_asn1.c b/net/netfilter/nf_conntrack_h323_asn1.c
+>> index 8678823..bcd5ed6 100644
+>> --- a/net/netfilter/nf_conntrack_h323_asn1.c
+>> +++ b/net/netfilter/nf_conntrack_h323_asn1.c
+>> @@ -631,7 +631,7 @@ static int decode_seqof(bitstr_t *bs, const struct field_t *f,
+>>  		CHECK_BOUND(bs, 2);
+>>  		count = *bs->cur++;
+>>  		count <<= 8;
+>> -		count = *bs->cur++;
+>> +		count += *bs->cur++;
+>>  		break;
 
-Thanks, I'll run some test just to be sure.
+This looks correct to me. The problem is without practical consequence
+though, the largest amount of sequence-of members we parse is 30.
 
-> Your patch looks very good and I definitely ack this :)
-
-Thanks!
-
-
-
+Applied, thanks.
