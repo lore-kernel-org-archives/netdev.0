@@ -1,114 +1,167 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 8/8] ewrk3: convert to set_phys_id
-Date: Mon, 04 Apr 2011 14:06:42 -0700
-Message-ID: <20110404210805.998401718@linuxplumber.net>
+Subject: [PATCH 4/8] s2io: convert to set_phys_id
+Date: Mon, 04 Apr 2011 14:06:38 -0700
+Message-ID: <20110404210805.593573200@linuxplumber.net>
 References: <20110404210634.840793593@linuxplumber.net>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jon Mason <jdmason@kudzu.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:43894 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:43889 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754631Ab1DDWST (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2011 18:18:19 -0400
-Content-Disposition: inline; filename=ewrk3-set-phys.patch
+	id S1755756Ab1DDWSS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 18:18:18 -0400
+Content-Disposition: inline; filename=s2io-set-phys.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keep orginal locking and error handling.
+Convert to new ethtool set physical id model. Remove no longer used
+timer, and fix docbook comment.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/drivers/net/ewrk3.c	2011-04-04 13:41:41.717791151 -0700
-+++ b/drivers/net/ewrk3.c	2011-04-04 13:46:55.425138028 -0700
-@@ -1604,55 +1604,51 @@ static u32 ewrk3_get_link(struct net_dev
- 	return !(cmr & CMR_LINK);
+--- a/drivers/net/s2io.c	2011-04-04 12:56:26.680911740 -0700
++++ b/drivers/net/s2io.c	2011-04-04 13:12:34.591276022 -0700
+@@ -5484,53 +5484,50 @@ static void s2io_ethtool_gregs(struct ne
+ 	}
  }
  
--static int ewrk3_phys_id(struct net_device *dev, u32 data)
-+static int ewrk3_set_phys_id(struct net_device *dev,
-+			     enum ethtool_phys_id_state state)
+-/**
+- *  s2io_phy_id  - timer function that alternates adapter LED.
+- *  @data : address of the private member of the device structure, which
+- *  is a pointer to the s2io_nic structure, provided as an u32.
+- * Description: This is actually the timer function that alternates the
+- * adapter LED bit of the adapter control bit to set/reset every time on
+- * invocation. The timer is set for 1/2 a second, hence tha NIC blinks
+- *  once every second.
++/*
++ *  s2io_set_led - control NIC led
+  */
+-static void s2io_phy_id(unsigned long data)
++static void s2io_set_led(struct s2io_nic *sp, bool on)
  {
- 	struct ewrk3_private *lp = netdev_priv(dev);
- 	unsigned long iobase = dev->base_addr;
- 	unsigned long flags;
- 	u8 cr;
--	int count;
--
--	/* Toggle LED 4x per second */
--	count = data << 2;
+-	struct s2io_nic *sp = (struct s2io_nic *)data;
+ 	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+-	u64 val64 = 0;
+-	u16 subid;
++	u16 subid = sp->pdev->subsystem_device;
++	u64 val64;
  
- 	spin_lock_irqsave(&lp->hw_lock, flags);
+-	subid = sp->pdev->subsystem_device;
+ 	if ((sp->device_type == XFRAME_II_DEVICE) ||
+ 	    ((subid & 0xFF) >= 0x07)) {
+ 		val64 = readq(&bar0->gpio_control);
+-		val64 ^= GPIO_CTRL_GPIO_0;
++		if (on)
++			val64 |= GPIO_CTRL_GPIO_0;
++		else
++			val64 &= ~GPIO_CTRL_GPIO_0;
++
+ 		writeq(val64, &bar0->gpio_control);
+ 	} else {
+ 		val64 = readq(&bar0->adapter_control);
+-		val64 ^= ADAPTER_LED_ON;
++		if (on)
++			val64 |= ADAPTER_LED_ON;
++		else
++			val64 &= ~ADAPTER_LED_ON;
++
+ 		writeq(val64, &bar0->adapter_control);
+ 	}
  
--	/* Bail if a PHYS_ID is already in progress */
--	if (lp->led_mask == 0) {
--		spin_unlock_irqrestore(&lp->hw_lock, flags);
--		return -EBUSY;
+-	mod_timer(&sp->id_timer, jiffies + HZ / 2);
+ }
+ 
+ /**
+- * s2io_ethtool_idnic - To physically identify the nic on the system.
+- * @sp : private member of the device structure, which is a pointer to the
+- * s2io_nic structure.
+- * @id : pointer to the structure with identification parameters given by
+- * ethtool.
++ * s2io_ethtool_set_led - To physically identify the nic on the system.
++ * @dev : network device
++ * @state: led setting
++ *
+  * Description: Used to physically identify the NIC on the system.
+  * The Link LED will blink for a time specified by the user for
+  * identification.
+  * NOTE: The Link has to be Up to be able to blink the LED. Hence
+  * identification is possible only if it's link is up.
+- * Return value:
+- * int , returns 0 on success
+  */
+ 
+-static int s2io_ethtool_idnic(struct net_device *dev, u32 data)
++static int s2io_ethtool_set_led(struct net_device *dev,
++				enum ethtool_phys_id_state state)
+ {
+ 	u64 val64 = 0, last_gpio_ctrl_val;
+ 	struct s2io_nic *sp = netdev_priv(dev);
+@@ -5543,24 +5540,27 @@ static int s2io_ethtool_idnic(struct net
+ 		val64 = readq(&bar0->adapter_control);
+ 		if (!(val64 & ADAPTER_CNTL_EN)) {
+ 			pr_err("Adapter Link down, cannot blink LED\n");
+-			return -EFAULT;
++			return -EAGAIN;
+ 		}
+ 	}
+-	if (sp->id_timer.function == NULL) {
+-		init_timer(&sp->id_timer);
+-		sp->id_timer.function = s2io_phy_id;
+-		sp->id_timer.data = (unsigned long)sp;
 -	}
+-	mod_timer(&sp->id_timer, jiffies);
+-	if (data)
+-		msleep_interruptible(data * HZ);
+-	else
+-		msleep_interruptible(MAX_FLICKER_TIME);
+-	del_timer_sync(&sp->id_timer);
+ 
+-	if (CARDS_WITH_FAULTY_LINK_INDICATORS(sp->device_type, subid)) {
+-		writeq(last_gpio_ctrl_val, &bar0->gpio_control);
+-		last_gpio_ctrl_val = readq(&bar0->gpio_control);
 +	switch (state) {
 +	case ETHTOOL_ID_ACTIVE:
-+		/* Bail if a PHYS_ID is already in progress */
-+		if (lp->led_mask == 0) {
-+			spin_unlock_irqrestore(&lp->hw_lock, flags);
-+			return -EBUSY;
-+		}
- 
--	/* Prevent ISR from twiddling the LED */
--	lp->led_mask = 0;
-+		/* Prevent ISR from twiddling the LED */
-+		lp->led_mask = 0;
-+		spin_unlock_irqrestore(&lp->hw_lock, flags);
 +		return -EINVAL;
- 
--	while (count--) {
-+	case ETHTOOL_ID_ON:
-+	case ETHTOOL_ID_OFF:
- 		/* Toggle the LED */
- 		cr = inb(EWRK3_CR);
- 		outb(cr ^ CR_LED, EWRK3_CR);
-+		break;
- 
--		/* Wait a little while */
--		spin_unlock_irqrestore(&lp->hw_lock, flags);
--		msleep(250);
--		spin_lock_irqsave(&lp->hw_lock, flags);
--
--		/* Exit if we got a signal */
--		if (signal_pending(current))
--			break;
-+	case ETHTOOL_ID_INACTIVE:
-+		lp->led_mask = CR_LED;
-+		cr = inb(EWRK3_CR);
-+		outb(cr & ~CR_LED, EWRK3_CR);
- 	}
--
--	lp->led_mask = CR_LED;
--	cr = inb(EWRK3_CR);
--	outb(cr & ~CR_LED, EWRK3_CR);
- 	spin_unlock_irqrestore(&lp->hw_lock, flags);
--	return signal_pending(current) ? -ERESTARTSYS : 0;
 +
-+	return 0;
- }
++	case ETHTOOL_ID_ON:
++		s2io_set_led(sp, true);
++		break;
++
++	case ETHTOOL_ID_OFF:
++		s2io_set_led(sp, false);
++		break;
++
++	case ETHTOOL_ID_INACTIVE:
++		if (CARDS_WITH_FAULTY_LINK_INDICATORS(sp->device_type, subid)) {
++			writeq(last_gpio_ctrl_val, &bar0->gpio_control);
++			last_gpio_ctrl_val = readq(&bar0->gpio_control);
++		}
+ 	}
  
- static const struct ethtool_ops ethtool_ops_203 = {
- 	.get_drvinfo = ewrk3_get_drvinfo,
- 	.get_settings = ewrk3_get_settings,
- 	.set_settings = ewrk3_set_settings,
--	.phys_id = ewrk3_phys_id,
-+	.set_phys_id = ewrk3_set_phys_id,
+ 	return 0;
+@@ -6776,7 +6776,7 @@ static const struct ethtool_ops netdev_e
+ 	.set_ufo = ethtool_op_set_ufo,
+ 	.self_test = s2io_ethtool_test,
+ 	.get_strings = s2io_ethtool_get_strings,
+-	.phys_id = s2io_ethtool_idnic,
++	.set_phys_id = s2io_ethtool_set_led,
+ 	.get_ethtool_stats = s2io_get_ethtool_stats,
+ 	.get_sset_count = s2io_get_sset_count,
  };
+--- a/drivers/net/s2io.h	2011-04-04 13:05:25.570692566 -0700
++++ b/drivers/net/s2io.h	2011-04-04 13:05:29.762736762 -0700
+@@ -893,9 +893,6 @@ struct s2io_nic {
+ 	u16 all_multi_pos;
+ 	u16 promisc_flg;
  
- static const struct ethtool_ops ethtool_ops = {
-@@ -1660,7 +1656,7 @@ static const struct ethtool_ops ethtool_
- 	.get_settings = ewrk3_get_settings,
- 	.set_settings = ewrk3_set_settings,
- 	.get_link = ewrk3_get_link,
--	.phys_id = ewrk3_phys_id,
-+	.set_phys_id = ewrk3_set_phys_id,
- };
- 
- /*
+-	/*  Id timer, used to blink NIC to physically identify NIC. */
+-	struct timer_list id_timer;
+-
+ 	/*  Restart timer, used to restart NIC if the device is stuck and
+ 	 *  a schedule task that will set the correct Link state once the
+ 	 *  NIC's PHY has stabilized after a state change.
 
 
