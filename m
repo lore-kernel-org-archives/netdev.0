@@ -1,43 +1,54 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: [PATCH 12/34] isdn/diva: Drop __TIME__ usage
-Date: Tue,  5 Apr 2011 16:58:59 +0200
-Message-ID: <1302015561-21047-13-git-send-email-mmarek@suse.cz>
-References: <1302015561-21047-1-git-send-email-mmarek@suse.cz>
-Cc: linux-kernel@vger.kernel.org, Armin Schindler <mac@melware.de>,
-	netdev@vger.kernel.org
-To: linux-kbuild@vger.kernel.org
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <1302015561-21047-1-git-send-email-mmarek@suse.cz>
-Sender: linux-kbuild-owner@vger.kernel.org
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH 0/4] [RFC rev2] Implement multiqueue (RX & TX) virtio-net
+Date: Tue, 05 Apr 2011 20:38:26 +0530
+Message-ID: <20110405150826.20501.39679.sendpatchset@krkumar2.in.ibm.com>
+Cc: eric.dumazet@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
+	horms@verge.net.au, avi@redhat.com, anthony@codemonkey.ws,
+	kvm@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+To: rusty@rustcorp.com.au, davem@davemloft.net, mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The kernel already prints its build timestamp during boot, no need to
-repeat it in random drivers and produce different object files each
-time.
+This patchset implements both RX and TX MQ. Patch against virtio-net,
+vhost and qemu are included.
 
-Cc: Armin Schindler <mac@melware.de>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Michal Marek <mmarek@suse.cz>
+Changes from rev1:
+-------------------
+1. vqs are allocated as: rx/tx, rx/tx, rx/tx, etc. Lot of code in
+   guest/host/qemu changes, but code becomes simpler.
+2. vhost cache align of vhost_dev correctly.
+3. virtio-net: cleanup properly on errors (eg detach buf for vq>0 as 
+   pointed out by Micheal).
+4. Minor changes:
+	- Fixed some typos.
+	- Changed vhost_get_thread_index to use MAX_VHOST_THREADS.
+	- Removed VIRTIO_MAX_TXQS.
+	- Changed capability to VIRTIO_NET_F_MULTIQUEUE.
+	- Modified "numtxqs" in virtnet_info to "num_queue_pairs".
+	  virtnet_info still has numtxqs as it is more convenient.
+	- Moved code for VIRTIO_NET_F_CTRL_VLAN into probe function.
+	- Improve check for return value of virtio_config_val().
+	- Removed cache align directives in guest as it was redundant.
+5. "If we have a wrapper to init all vqs, pls add a wrapper to clean up
+    all vqs as well": I haven't done this as some errors are very
+    specific to the failure location (and what was initialized till
+    then). So only those errors are cleaned up using goto's like the
+    rest of the code. I can change in next version if you feel this is
+    still required.
+6.  "I think we should have free_unused_bufs that handles a single queue,
+    and call it in a loop": I haven't done this as I think the caller wants
+    all rx/tx queues to be cleaned up by calling this function.
+
+TODO's:
+--------
+1. Reduce vectors for find_vqs().
+2. Make vhost changes minimal. For now, I have restricted the number of
+   vhost threads to 4. This can be either made unrestricted; or if the
+   userspace vhost works, it can be removed altogether.
+
+Please review and provide feedback. I am travelling a bit in the next
+few days but will respond at the earliest.
+
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- drivers/isdn/hardware/eicon/divasfunc.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/isdn/hardware/eicon/divasfunc.c b/drivers/isdn/hardware/eicon/divasfunc.c
-index d36a4c0..0bbee78 100644
---- a/drivers/isdn/hardware/eicon/divasfunc.c
-+++ b/drivers/isdn/hardware/eicon/divasfunc.c
-@@ -113,9 +113,8 @@ void diva_xdi_didd_remove_adapter(int card)
- static void start_dbg(void)
- {
- 	DbgRegister("DIVAS", DRIVERRELEASE_DIVAS, (debugmask) ? debugmask : DBG_DEFAULT);
--	DBG_LOG(("DIVA ISDNXDI BUILD (%s[%s]-%s-%s)",
--		 DIVA_BUILD, diva_xdi_common_code_build, __DATE__,
--		 __TIME__))
-+	DBG_LOG(("DIVA ISDNXDI BUILD (%s[%s])",
-+		 DIVA_BUILD, diva_xdi_common_code_build))
- }
- 
- /*
--- 
-1.7.4.1
-
