@@ -1,70 +1,145 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: pull request: sfc-next-2.6 2011-04-05
-Date: Tue, 05 Apr 2011 19:00:46 +0100
-Message-ID: <1302026446.2932.56.camel@bwh-desktop>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH net-next-2.6 v2] can: convert protocol handling to RCU
+Date: Tue, 05 Apr 2011 20:01:16 +0200
+Message-ID: <4D9B58EC.9090903@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	sf-linux-drivers <linux-net-drivers@solarflare.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Kurt Van Dijck <kurt.van.dijck@eia.be>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Urs Thuermann <urs@isnogud.escape.de>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:14926 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807Ab1DESAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:00:49 -0400
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:39893 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753554Ab1DESB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:01:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 9b12c75bf4d58dd85c987ee7b6a4356fdc7c1222:
+This patch removes spin_locks at CAN socket creation time by using RCU.
 
-  net: Order ports in same order as addresses in flow objects. (2011-03-31 18:03:35 -0700)
+Inspired by the discussion with Kurt van Dijck and Eric Dumazet the RCU code
+was partly derived from af_phonet.c
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-1. Implement generic features interface in sfc.
-2. Update ethtool_ops documentation.
-3. Reimplement ETHTOOL_PHYS_ID as dicussed, dropping the RTNL lock.
+---
 
-Changes since the previous request:
-
-1a. Drop NETIF_F_GRO from net_device::features; let the core enable it.
-1b. Add NETIF_F_ALL_TSO and NETIF_F_RXCSUM to net_device::vlan_features;
-TSO-IPv6 and RX checksum offload do work with VLAN-tagged packets.
-2. In comments on deprecated offload control operations, refer to
-'generic netdev features' rather than 'the netdev op ndo_set_flags'.
-Add a note at the bottom referring to struct net_device and struct
-net_device_ops.
-3a. Change comment 'must set the state' to 'should set the state'. We
-don't really care if ON and OFF get inverted, and some of Stephen's
-implementations just invert the LED state in either case.
-3b. Prevent reentry of the ETHTOOL_PHYS_ID loop.
-
-Ben.
-
-Ben Hutchings (7):
-      sfc: Move test of rx_checksum_enabled from nic.c to rx.c
-      sfc: Enable all TSO features on VLANs
-      sfc: Implement generic features interface
-      ethtool: Convert struct ethtool_ops comment to kernel-doc format
-      ethtool: Fill out and update comment for struct ethtool_ops
-      ethtool: Change ETHTOOL_PHYS_ID implementation to allow dropping RTNL
-      sfc: Implement ethtool_ops::set_phys_id instead of ethtool_ops::phys_id
-
- drivers/net/sfc/efx.c        |   20 ++++-
- drivers/net/sfc/ethtool.c    |  106 ++++--------------------
- drivers/net/sfc/net_driver.h |    2 -
- drivers/net/sfc/nic.c        |    6 +-
- drivers/net/sfc/rx.c         |    3 +
- include/linux/ethtool.h      |  180 ++++++++++++++++++++++++++++++------------
- net/core/ethtool.c           |   55 ++++++++++++-
- 7 files changed, 223 insertions(+), 149 deletions(-)
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 733d66f..a8dcaa4 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -85,7 +85,7 @@ static struct kmem_cache *rcv_cache __read_mostly;
+ 
+ /* table of registered CAN protocols */
+ static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
+-static DEFINE_SPINLOCK(proto_tab_lock);
++static DEFINE_MUTEX(proto_tab_lock);
+ 
+ struct timer_list can_stattimer;   /* timer for statistics update */
+ struct s_stats    can_stats;       /* packet statistics */
+@@ -115,6 +115,19 @@ static void can_sock_destruct(struct sock *sk)
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ }
+ 
++static struct can_proto *can_try_module_get(int protocol)
++{
++	struct can_proto *cp;
++
++	rcu_read_lock();
++	cp = rcu_dereference(proto_tab[protocol]);
++	if (cp && !try_module_get(cp->prot->owner))
++		cp = NULL;
++	rcu_read_unlock();
++
++	return cp;
++}
++
+ static int can_create(struct net *net, struct socket *sock, int protocol,
+ 		      int kern)
+ {
+@@ -130,9 +143,12 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+ 	if (!net_eq(net, &init_net))
+ 		return -EAFNOSUPPORT;
+ 
++	cp = can_try_module_get(protocol);
++
+ #ifdef CONFIG_MODULES
+-	/* try to load protocol module kernel is modular */
+-	if (!proto_tab[protocol]) {
++	if (!cp) {
++		/* try to load protocol module if kernel is modular */
++
+ 		err = request_module("can-proto-%d", protocol);
+ 
+ 		/*
+@@ -143,22 +159,18 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+ 		if (err && printk_ratelimit())
+ 			printk(KERN_ERR "can: request_module "
+ 			       "(can-proto-%d) failed.\n", protocol);
++
++		cp = can_try_module_get(protocol);
+ 	}
+ #endif
+ 
+-	spin_lock(&proto_tab_lock);
+-	cp = proto_tab[protocol];
+-	if (cp && !try_module_get(cp->prot->owner))
+-		cp = NULL;
+-	spin_unlock(&proto_tab_lock);
+-
+ 	/* check for available protocol and correct usage */
+ 
+ 	if (!cp)
+ 		return -EPROTONOSUPPORT;
+ 
+ 	if (cp->type != sock->type) {
+-		err = -EPROTONOSUPPORT;
++		err = -EPROTOTYPE;
+ 		goto errout;
+ 	}
+ 
+@@ -694,15 +706,16 @@ int can_proto_register(struct can_proto *cp)
+ 	if (err < 0)
+ 		return err;
+ 
+-	spin_lock(&proto_tab_lock);
++	mutex_lock(&proto_tab_lock);
++
+ 	if (proto_tab[proto]) {
+ 		printk(KERN_ERR "can: protocol %d already registered\n",
+ 		       proto);
+ 		err = -EBUSY;
+ 	} else
+-		proto_tab[proto] = cp;
++		rcu_assign_pointer(proto_tab[proto], cp);
+ 
+-	spin_unlock(&proto_tab_lock);
++	mutex_unlock(&proto_tab_lock);
+ 
+ 	if (err < 0)
+ 		proto_unregister(cp->prot);
+@@ -719,13 +732,12 @@ void can_proto_unregister(struct can_proto *cp)
+ {
+ 	int proto = cp->protocol;
+ 
+-	spin_lock(&proto_tab_lock);
+-	if (!proto_tab[proto]) {
+-		printk(KERN_ERR "BUG: can: protocol %d is not registered\n",
+-		       proto);
+-	}
+-	proto_tab[proto] = NULL;
+-	spin_unlock(&proto_tab_lock);
++	mutex_lock(&proto_tab_lock);
++	BUG_ON(proto_tab[proto] != cp);
++	rcu_assign_pointer(proto_tab[proto], NULL);
++	mutex_unlock(&proto_tab_lock);
++
++	synchronize_rcu();
+ 
+ 	proto_unregister(cp->prot);
+ }
 
