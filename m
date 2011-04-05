@@ -1,120 +1,157 @@
 From: kaber@trash.net
-Subject: [PATCH 5/8] netfilter: af_info: add network namespace parameter to route hook
-Date: Tue,  5 Apr 2011 15:04:16 +0200
-Message-ID: <1302008659-21141-6-git-send-email-kaber@trash.net>
+Subject: [PATCH 1/8] netfilter: ipset: list:set timeout variant fixes
+Date: Tue,  5 Apr 2011 15:04:12 +0200
+Message-ID: <1302008659-21141-2-git-send-email-kaber@trash.net>
 References: <1302008659-21141-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:39604 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752750Ab1DENEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 09:04:34 -0400
 In-Reply-To: <1302008659-21141-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-This is required to eventually replace the rt6_lookup call in
-xt_addrtype.c with nf_afinfo->route().
+- the timeout value was actually not set
+- the garbage collector was broken
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: David S. Miller <davem@davemloft.net>
+The variant is fixed, the tests to the ipset testsuite are added.
+
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter.h              |    3 ++-
- net/ipv4/netfilter.c                   |    5 +++--
- net/ipv6/netfilter.c                   |    5 +++--
- net/netfilter/nf_conntrack_h323_main.c |    8 ++++----
- net/netfilter/xt_TCPMSS.c              |    2 +-
- 5 files changed, 13 insertions(+), 10 deletions(-)
+ net/netfilter/ipset/ip_set_list_set.c |   53 +++++++++++++++------------------
+ 1 files changed, 24 insertions(+), 29 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index eeec00a..20ed452 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -270,7 +270,8 @@ struct nf_afinfo {
- 					    unsigned int dataoff,
- 					    unsigned int len,
- 					    u_int8_t protocol);
--	int		(*route)(struct dst_entry **dst, struct flowi *fl);
-+	int		(*route)(struct net *net, struct dst_entry **dst,
-+				 struct flowi *fl);
- 	void		(*saveroute)(const struct sk_buff *skb,
- 				     struct nf_queue_entry *entry);
- 	int		(*reroute)(struct sk_buff *skb,
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index f3c0b54..f1035f0 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -221,9 +221,10 @@ static __sum16 nf_ip_checksum_partial(struct sk_buff *skb, unsigned int hook,
- 	return csum;
- }
- 
--static int nf_ip_route(struct dst_entry **dst, struct flowi *fl)
-+static int nf_ip_route(struct net *net, struct dst_entry **dst,
-+		       struct flowi *fl)
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index a47c329..f4a46c0 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -43,14 +43,19 @@ struct list_set {
+ static inline struct set_elem *
+ list_set_elem(const struct list_set *map, u32 id)
  {
--	struct rtable *rt = ip_route_output_key(&init_net, &fl->u.ip4);
-+	struct rtable *rt = ip_route_output_key(net, &fl->u.ip4);
- 	if (IS_ERR(rt))
- 		return PTR_ERR(rt);
- 	*dst = &rt->dst;
-diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
-index 39aaca2..e008b9b 100644
---- a/net/ipv6/netfilter.c
-+++ b/net/ipv6/netfilter.c
-@@ -90,9 +90,10 @@ static int nf_ip6_reroute(struct sk_buff *skb,
- 	return 0;
+-	return (struct set_elem *)((char *)map->members + id * map->dsize);
++	return (struct set_elem *)((void *)map->members + id * map->dsize);
++}
++
++static inline struct set_telem *
++list_set_telem(const struct list_set *map, u32 id)
++{
++	return (struct set_telem *)((void *)map->members + id * map->dsize);
  }
  
--static int nf_ip6_route(struct dst_entry **dst, struct flowi *fl)
-+static int nf_ip6_route(struct net *net, struct dst_entry **dst,
-+			struct flowi *fl)
+ static inline bool
+ list_set_timeout(const struct list_set *map, u32 id)
  {
--	*dst = ip6_route_output(&init_net, NULL, &fl->u.ip6);
-+	*dst = ip6_route_output(net, NULL, &fl->u.ip6);
- 	return (*dst)->error;
+-	const struct set_telem *elem =
+-		(const struct set_telem *) list_set_elem(map, id);
++	const struct set_telem *elem = list_set_telem(map, id);
+ 
+ 	return ip_set_timeout_test(elem->timeout);
+ }
+@@ -58,19 +63,11 @@ list_set_timeout(const struct list_set *map, u32 id)
+ static inline bool
+ list_set_expired(const struct list_set *map, u32 id)
+ {
+-	const struct set_telem *elem =
+-		(const struct set_telem *) list_set_elem(map, id);
++	const struct set_telem *elem = list_set_telem(map, id);
+ 
+ 	return ip_set_timeout_expired(elem->timeout);
  }
  
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 533a183..39a4538 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -731,9 +731,9 @@ static int callforward_do_filter(const union nf_inet_addr *src,
+-static inline int
+-list_set_exist(const struct set_telem *elem)
+-{
+-	return elem->id != IPSET_INVALID_ID &&
+-	       !ip_set_timeout_expired(elem->timeout);
+-}
+-
+ /* Set list without and with timeout */
  
- 		memset(&fl2, 0, sizeof(fl2));
- 		fl2.daddr = dst->ip;
--		if (!afinfo->route((struct dst_entry **)&rt1,
-+		if (!afinfo->route(&init_net, (struct dst_entry **)&rt1,
- 				   flowi4_to_flowi(&fl1))) {
--			if (!afinfo->route((struct dst_entry **)&rt2,
-+			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
- 					   flowi4_to_flowi(&fl2))) {
- 				if (rt1->rt_gateway == rt2->rt_gateway &&
- 				    rt1->dst.dev  == rt2->dst.dev)
-@@ -755,9 +755,9 @@ static int callforward_do_filter(const union nf_inet_addr *src,
+ static int
+@@ -146,11 +143,11 @@ list_elem_tadd(struct list_set *map, u32 i, ip_set_id_t id,
+ 	struct set_telem *e;
  
- 		memset(&fl2, 0, sizeof(fl2));
- 		ipv6_addr_copy(&fl2.daddr, &dst->in6);
--		if (!afinfo->route((struct dst_entry **)&rt1,
-+		if (!afinfo->route(&init_net, (struct dst_entry **)&rt1,
- 				   flowi6_to_flowi(&fl1))) {
--			if (!afinfo->route((struct dst_entry **)&rt2,
-+			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
- 					   flowi6_to_flowi(&fl2))) {
- 				if (!memcmp(&rt1->rt6i_gateway, &rt2->rt6i_gateway,
- 					    sizeof(rt1->rt6i_gateway)) &&
-diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-index 6e6b46c..8690125 100644
---- a/net/netfilter/xt_TCPMSS.c
-+++ b/net/netfilter/xt_TCPMSS.c
-@@ -166,7 +166,7 @@ static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
- 	rcu_read_lock();
- 	ai = nf_get_afinfo(family);
- 	if (ai != NULL)
--		ai->route((struct dst_entry **)&rt, &fl);
-+		ai->route(&init_net, (struct dst_entry **)&rt, &fl);
- 	rcu_read_unlock();
+ 	for (; i < map->size; i++) {
+-		e = (struct set_telem *)list_set_elem(map, i);
++		e = list_set_telem(map, i);
+ 		swap(e->id, id);
++		swap(e->timeout, timeout);
+ 		if (e->id == IPSET_INVALID_ID)
+ 			break;
+-		swap(e->timeout, timeout);
+ 	}
+ }
  
- 	if (rt != NULL) {
+@@ -164,7 +161,7 @@ list_set_add(struct list_set *map, u32 i, ip_set_id_t id,
+ 		/* Last element replaced: e.g. add new,before,last */
+ 		ip_set_put_byindex(e->id);
+ 	if (with_timeout(map->timeout))
+-		list_elem_tadd(map, i, id, timeout);
++		list_elem_tadd(map, i, id, ip_set_timeout_set(timeout));
+ 	else
+ 		list_elem_add(map, i, id);
+ 
+@@ -172,11 +169,11 @@ list_set_add(struct list_set *map, u32 i, ip_set_id_t id,
+ }
+ 
+ static int
+-list_set_del(struct list_set *map, ip_set_id_t id, u32 i)
++list_set_del(struct list_set *map, u32 i)
+ {
+ 	struct set_elem *a = list_set_elem(map, i), *b;
+ 
+-	ip_set_put_byindex(id);
++	ip_set_put_byindex(a->id);
+ 
+ 	for (; i < map->size - 1; i++) {
+ 		b = list_set_elem(map, i + 1);
+@@ -308,11 +305,11 @@ list_set_uadt(struct ip_set *set, struct nlattr *tb[],
+ 				 (before == 0 ||
+ 				  (before > 0 &&
+ 				   next_id_eq(map, i, refid))))
+-				ret = list_set_del(map, id, i);
++				ret = list_set_del(map, i);
+ 			else if (before < 0 &&
+ 				 elem->id == refid &&
+ 				 next_id_eq(map, i, id))
+-				ret = list_set_del(map, id, i + 1);
++				ret = list_set_del(map, i + 1);
+ 		}
+ 		break;
+ 	default:
+@@ -460,17 +457,15 @@ list_set_gc(unsigned long ul_set)
+ 	struct list_set *map = set->data;
+ 	struct set_telem *e;
+ 	u32 i;
+-
+-	/* We run parallel with other readers (test element)
+-	 * but adding/deleting new entries is locked out */
+-	read_lock_bh(&set->lock);
+-	for (i = map->size - 1; i >= 0; i--) {
+-		e = (struct set_telem *) list_set_elem(map, i);
+-		if (e->id != IPSET_INVALID_ID &&
+-		    list_set_expired(map, i))
+-			list_set_del(map, e->id, i);
++	
++	/* nfnl_lock should be called */
++	write_lock_bh(&set->lock);
++	for (i = 0; i < map->size; i++) {
++		e = list_set_telem(map, i);
++		if (e->id != IPSET_INVALID_ID && list_set_expired(map, i))
++			list_set_del(map, i);
+ 	}
+-	read_unlock_bh(&set->lock);
++	write_unlock_bh(&set->lock);
+ 
+ 	map->gc.expires = jiffies + IPSET_GC_PERIOD(map->timeout) * HZ;
+ 	add_timer(&map->gc);
 -- 
 1.7.2.3
 
