@@ -1,41 +1,82 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: extending feature word.
-Date: Tue, 5 Apr 2011 13:30:07 +0200
-Message-ID: <20110405113007.GA21358@rere.qmqm.pl>
-References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com> <20110402124207.GB3147@rere.qmqm.pl> <BANLkTi=hCqT5BPe926N36omObpYvMcNtjg@mail.gmail.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH 3/14] ehea: Remove force_irq logic in napi poll routine
+Date: Tue, 5 Apr 2011 21:30:55 +1000
+Message-ID: <20110405213055.757a270a@kryten>
+References: <20110405212825.6eb85677@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, michael@ellerman.id.au
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:44243 "EHLO rere.qmqm.pl"
+Received: from ozlabs.org ([203.10.76.45]:55430 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753183Ab1DELaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2011 07:30:09 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTi=hCqT5BPe926N36omObpYvMcNtjg@mail.gmail.com>
+	id S1753183Ab1DELa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 07:30:57 -0400
+In-Reply-To: <20110405212825.6eb85677@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 02, 2011 at 08:09:14PM -0700, Mahesh Bandewar wrote:
-> On Sat, Apr 2, 2011 at 5:42 AM, Micha=B3 Miros=B3aw <mirq-linux@rere.=
-qmqm.pl> wrote:
-> > On Fri, Apr 01, 2011 at 07:07:05PM -0700, Mahesh Bandewar wrote:
-> > If you want to split the work, it would be clearer to first convert
-> > hw_features and wanted_features (with all the core code touching it=
- -
-> > this is the easy part), then vlan_features (this includes drivers'
-> > and VLAN code) and then features (it's all over).
-> I like the idea of splitting but it will be only useful when all of i=
-t
-> is done and not partially, isn't it? Or am I missing something?
 
-Since this is a big change, when split it might be easier to follow.
-OTOH, with your idea of macro it might be easier to do incremental
-changes (I think this will be a lot of work for no gain in this case).
+commit 18604c548545 (ehea: NAPI multi queue TX/RX path for SMP) added
+driver specific logic for exiting napi mode. I'm not sure what it was
+trying to solve and it should be up to the network stack to decide when
+we are done polling so remove it.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Signed-off-by: Anton Blanchard <anton@samba.org>
+---
+
+Index: linux-2.6/drivers/net/ehea/ehea_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ehea/ehea_main.c	2011-03-21 09:44:15.792816780 +1100
++++ linux-2.6/drivers/net/ehea/ehea_main.c	2011-03-21 14:18:42.213238477 +1100
+@@ -931,7 +931,6 @@ static struct ehea_cqe *ehea_proc_cqes(s
+ 	return cqe;
+ }
+ 
+-#define EHEA_NAPI_POLL_NUM_BEFORE_IRQ 16
+ #define EHEA_POLL_MAX_CQES 65535
+ 
+ static int ehea_poll(struct napi_struct *napi, int budget)
+@@ -941,18 +940,13 @@ static int ehea_poll(struct napi_struct
+ 	struct net_device *dev = pr->port->netdev;
+ 	struct ehea_cqe *cqe;
+ 	struct ehea_cqe *cqe_skb = NULL;
+-	int force_irq, wqe_index;
++	int wqe_index;
+ 	int rx = 0;
+ 
+-	force_irq = (pr->poll_counter > EHEA_NAPI_POLL_NUM_BEFORE_IRQ);
+ 	cqe_skb = ehea_proc_cqes(pr, EHEA_POLL_MAX_CQES);
++	rx += ehea_proc_rwqes(dev, pr, budget - rx);
+ 
+-	if (!force_irq)
+-		rx += ehea_proc_rwqes(dev, pr, budget - rx);
+-
+-	while ((rx != budget) || force_irq) {
+-		pr->poll_counter = 0;
+-		force_irq = 0;
++	while ((rx != budget)) {
+ 		napi_complete(napi);
+ 		ehea_reset_cq_ep(pr->recv_cq);
+ 		ehea_reset_cq_ep(pr->send_cq);
+@@ -972,7 +966,6 @@ static int ehea_poll(struct napi_struct
+ 		rx += ehea_proc_rwqes(dev, pr, budget - rx);
+ 	}
+ 
+-	pr->poll_counter++;
+ 	return rx;
+ }
+ 
+Index: linux-2.6/drivers/net/ehea/ehea.h
+===================================================================
+--- linux-2.6.orig/drivers/net/ehea/ehea.h	2011-03-21 14:18:26.442655734 +1100
++++ linux-2.6/drivers/net/ehea/ehea.h	2011-03-21 14:18:33.252907379 +1100
+@@ -383,7 +383,6 @@ struct ehea_port_res {
+ 	u64 tx_bytes;
+ 	u64 rx_packets;
+ 	u64 rx_bytes;
+-	u32 poll_counter;
+ 	struct net_lro_mgr lro_mgr;
+ 	struct net_lro_desc lro_desc[MAX_LRO_DESCRIPTORS];
+ 	int sq_restart_flag;
