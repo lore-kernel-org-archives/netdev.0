@@ -1,66 +1,61 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
-Date: Tue, 5 Apr 2011 12:47:55 +0100
-Message-ID: <20110405114754.GG4797@pulham.picochip.com>
-References: <4D86F25A.7060405@atmel.com>
- <20110321111838.GC2610@pulham.picochip.com>
- <20110322161811.GF6466@game.jcrosoft.org>
- <20110322163917.GD10058@pulham.picochip.com>
- <20110322175523.GE10058@pulham.picochip.com>
- <20110324162517.GI6466@game.jcrosoft.org>
- <20110331094041.GD3371@pulham.picochip.com>
- <20110405102842.GC22192@game.jcrosoft.org>
- <20110405104910.GE4797@pulham.picochip.com>
- <20110405112102.GB19268@game.jcrosoft.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Kernel panic nf_nat_setup_info+0x5b3/0x6e0
+Date: Tue, 05 Apr 2011 13:49:51 +0200
+Message-ID: <4D9B01DF.2050206@trash.net>
+References: <118081298480841@web25.yandex.ru> <4D6E2BEB.50805@trash.net>	 <AANLkTikkz23221ZSiat8N5tnE_bkHN=1EUNQTDdnC30L@mail.gmail.com>	 <124481299095426@web67.yandex.ru>	 <AANLkTik87dd0=CqcMOcwKN-Hx7W6KD7A36DUhGAzLddr@mail.gmail.com>	 <AANLkTi=v_Ckn00N=b2R2pW7jb3BmyyWPSkeCYRxBW0CW@mail.gmail.com>	 <586191301580222@web107.yandex.ru> <1301582872.3169.44.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
-	David Miller <davem@davemloft.net>,
-	Peter Korsgaard <jacmet@sunsite.dk>,
-	Andrew Victor <linux@maxim.org.za>,
-	linux-arm-kernel@lists.infradead.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37827 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752886Ab1DELr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 07:47:59 -0400
-Received: by wya21 with SMTP id 21so241727wya.19
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2011 04:47:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110405112102.GB19268@game.jcrosoft.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Oleg A. Arkhangelsky" <sysoleg@yandex.ru>,
+	Changli Gao <xiaosuo@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Paul E McKenney <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1301582872.3169.44.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 05, 2011 at 01:21:02PM +0200, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> On 11:49 Tue 05 Apr     , Jamie Iles wrote:
-> > On Tue, Apr 05, 2011 at 12:28:42PM +0200, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > > work fine on 9263ek except the IP version detection.
-> > > 
-> > > the at91 macb ip version is supposed to be at 0x0601010C but it's not.
-> > > At least on 9263 it's 0x0001010C. So we can not detect the arch at runtime
-> > > but we can detect that it's a macb.
-> > > 
-> > > So could keep the ifdef for 2 archs but use the ip version on arm
-> > 
-> > OK, well I think my patches are already doing that so should be OK as 
-> > they are.
-> > 
-> > Russell, are you able to take these through your tree (I think they 
-> > count as consolidation work) or should I ask Stephen for a tree in 
-> > linux-next for a while first?
-> no please do not us the is_gem but the same way as I did in the ip detection
-> keep the version register and then check it.
-> 
-> as this ip can be used on other arch we do not want to see thousands 
-> of is_xxx
+On 31.03.2011 16:47, Eric Dumazet wrote:
+> Le jeudi 31 mars 2011 =E0 18:03 +0400, "Oleg A. Arkhangelsky" a =E9cr=
+it :
+>>
+>> 26.03.2011, 16:44, "Changli Gao" <xiaosuo@gmail.com>:
+>>> On Thu, Mar 3, 2011 at 3:33 PM, Changli Gao <xiaosuo@gmail.com>; wr=
+ote:
+>>>
+>>>>  Please try the patch attached and test if the problem is solved o=
+r not. Thanks.
+>>>
+>>> Any feedback? Thanks.
+>>>
+>>
+>> Seems that patch is fine.
+>>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=3D21512
+>>
+>=20
+> I wonder if this is not hiding another bug.
+>=20
+> Adding an RCU grace period might reduce the probability window.
+>=20
+> By the time nf_conntrack_free(ct) is called, no other cpu/thread
+> could/should use ct, or ct->ext ?
+>=20
+> Sure, another thread can find/pass_on ct in a lookup but should not u=
+se
+> it, since its refcount (ct_general.use) should be 0.
+>=20
+> Patrick ?
 
-But GEM isn't an architecture/machine type, it's a new Cadence Ethernet 
-controller that follows on from MACB, not some arch specific tweaks so 
-we really only have two options - MACB or GEM.
-
-Still, if it's important to you then I'll make the change.
-
-Jamie
+I think what's happening is that the conntrack entry is destroyed
+and the NAT ct_extend destructor invoked, which removes the nat
+extension from the RCU protected bysource hash, after which the
+entire extension area is freed. Another CPU might still find the
+old NAT entry with undefined contents in the hash though, so I
+think using RCU to free the extension area is correct.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
