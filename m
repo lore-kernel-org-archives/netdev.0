@@ -1,49 +1,84 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
-Date: Tue, 05 Apr 2011 13:12:02 +0200
-Message-ID: <8739lxx88t.fsf@macbook.be.48ers.dk>
-References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
-	<20110316.131734.242138246.davem@davemloft.net>
-	<4D86F25A.7060405@atmel.com>
-	<20110321111838.GC2610@pulham.picochip.com>
-	<20110322161811.GF6466@game.jcrosoft.org>
-	<20110322163917.GD10058@pulham.picochip.com>
-	<20110322175523.GE10058@pulham.picochip.com>
-	<20110324162517.GI6466@game.jcrosoft.org>
-	<20110331094041.GD3371@pulham.picochip.com>
-	<20110405102842.GC22192@game.jcrosoft.org>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH 1/14] ehea: Remove NETIF_F_LLTX
+Date: Tue, 5 Apr 2011 21:28:25 +1000
+Message-ID: <20110405212825.6eb85677@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	David Miller <davem@davemloft.net>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Andrew Victor <linux@maxim.org.za>
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, michael@ellerman.id.au
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:52656 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920Ab1DELML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 07:12:11 -0400
-Received: by wwk4 with SMTP id 4so2606000wwk.1
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2011 04:12:10 -0700 (PDT)
-In-Reply-To: <20110405102842.GC22192@game.jcrosoft.org> (Jean-Christophe
-	PLAGNIOL-VILLARD's message of "Tue, 5 Apr 2011 12:28:42 +0200")
+Received: from ozlabs.org ([203.10.76.45]:42141 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753138Ab1DEL22 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 07:28:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Jean-Christophe" == Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com> writes:
 
-Hi,
+Remove the deprecated NETIF_F_LLTX feature. Since the network stack
+now provides the locking we can remove the driver specific
+pr->xmit_lock.
 
- JC> work fine on 9263ek except the IP version detection.
+Signed-off-by: Anton Blanchard <anton@samba.org>
+---
 
- JC> the at91 macb ip version is supposed to be at 0x0601010C but it's not.
- JC> At least on 9263 it's 0x0001010C. So we can not detect the arch at runtime
- JC> but we can detect that it's a macb.
-
-Same here on a 9g45.
-
--- 
-Bye, Peter Korsgaard
+Index: linux-2.6/drivers/net/ehea/ehea_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ehea/ehea_main.c	2011-03-14 09:44:36.568408321 +1100
++++ linux-2.6/drivers/net/ehea/ehea_main.c	2011-03-14 09:44:38.538481778 +1100
+@@ -1536,7 +1536,6 @@ static int ehea_init_port_res(struct ehe
+ 	pr->rx_packets = rx_packets;
+ 
+ 	pr->port = port;
+-	spin_lock_init(&pr->xmit_lock);
+ 	spin_lock_init(&pr->netif_queue);
+ 
+ 	pr->eq = ehea_create_eq(adapter, eq_type, EHEA_MAX_ENTRIES_EQ, 0);
+@@ -2261,14 +2260,9 @@ static int ehea_start_xmit(struct sk_buf
+ 
+ 	pr = &port->port_res[ehea_hash_skb(skb, port->num_tx_qps)];
+ 
+-	if (!spin_trylock(&pr->xmit_lock))
++	if (pr->queue_stopped)
+ 		return NETDEV_TX_BUSY;
+ 
+-	if (pr->queue_stopped) {
+-		spin_unlock(&pr->xmit_lock);
+-		return NETDEV_TX_BUSY;
+-	}
+-
+ 	swqe = ehea_get_swqe(pr->qp, &swqe_index);
+ 	memset(swqe, 0, SWQE_HEADER_SIZE);
+ 	atomic_dec(&pr->swqe_avail);
+@@ -2332,8 +2326,6 @@ static int ehea_start_xmit(struct sk_buf
+ 		}
+ 		spin_unlock_irqrestore(&pr->netif_queue, flags);
+ 	}
+-	dev->trans_start = jiffies; /* NETIF_F_LLTX driver :( */
+-	spin_unlock(&pr->xmit_lock);
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -3264,8 +3256,7 @@ struct ehea_port *ehea_setup_single_port
+ 
+ 	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO
+ 		      | NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
+-		      | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER
+-		      | NETIF_F_LLTX;
++		      | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER;
+ 	dev->watchdog_timeo = EHEA_WATCH_DOG_TIMEOUT;
+ 
+ 	if (use_lro)
+Index: linux-2.6/drivers/net/ehea/ehea.h
+===================================================================
+--- linux-2.6.orig/drivers/net/ehea/ehea.h	2011-03-14 09:44:26.428030236 +1100
++++ linux-2.6/drivers/net/ehea/ehea.h	2011-03-14 09:44:38.538481778 +1100
+@@ -363,7 +363,6 @@ struct ehea_port_res {
+ 	struct port_stats p_stats;
+ 	struct ehea_mr send_mr;       	/* send memory region */
+ 	struct ehea_mr recv_mr;       	/* receive memory region */
+-	spinlock_t xmit_lock;
+ 	struct ehea_port *port;
+ 	char int_recv_name[EHEA_IRQ_NAME_SIZE];
+ 	char int_send_name[EHEA_IRQ_NAME_SIZE];
