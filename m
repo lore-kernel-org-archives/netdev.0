@@ -1,79 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: extending feature word.
-Date: Tue, 05 Apr 2011 13:07:41 +0100
-Message-ID: <1302005261.2932.4.camel@bwh-desktop>
-References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com>
-	 <20110402124207.GB3147@rere.qmqm.pl>
-	 <BANLkTi=hCqT5BPe926N36omObpYvMcNtjg@mail.gmail.com>
-	 <20110405113007.GA21358@rere.qmqm.pl>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Re: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen:
+	fix LRO disable warning)
+Date: Tue, 5 Apr 2011 14:41:58 +0200
+Message-ID: <20110405124158.GA28382@torres.zugschlus.de>
+References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com> <20110403190555.GA16196@torres.zugschlus.de> <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	linux-netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=utf-8
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:35559 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752743Ab1DEMHo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 08:07:44 -0400
-In-Reply-To: <20110405113007.GA21358@rere.qmqm.pl>
+Received: from torres.zugschlus.de ([85.214.131.164]:42336 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753558Ab1DEMl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 08:41:59 -0400
+Content-Disposition: inline
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-04-05 at 13:30 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> On Sat, Apr 02, 2011 at 08:09:14PM -0700, Mahesh Bandewar wrote:
-> > On Sat, Apr 2, 2011 at 5:42 AM, Micha=C5=82 Miros=C5=82aw <mirq-lin=
-ux@rere.qmqm.pl> wrote:
-> > > On Fri, Apr 01, 2011 at 07:07:05PM -0700, Mahesh Bandewar wrote:
-> > > If you want to split the work, it would be clearer to first conve=
-rt
-> > > hw_features and wanted_features (with all the core code touching =
-it -
-> > > this is the easy part), then vlan_features (this includes drivers=
-'
-> > > and VLAN code) and then features (it's all over).
-> > I like the idea of splitting but it will be only useful when all of=
- it
-> > is done and not partially, isn't it? Or am I missing something?
->=20
-> Since this is a big change, when split it might be easier to follow.
-> OTOH, with your idea of macro it might be easier to do incremental
-> changes (I think this will be a lot of work for no gain in this case)=
-=2E
+On Tue, Apr 05, 2011 at 12:38:11AM -0500, Amit Salecha wrote:
+> > On Mon, Mar 21, 2011 at 03:37:08AM -0700, Amit Kumar Salecha wrote:
+> > > netxen_nic_set_flags() rejects data if other flag than ETH_FLAG_LRO
+> > is set.
+> > > Driver also supports NETIF_F_HW_VLAN_TX.
+> > > Now compare data with ethtool_op_get_flags(), to get all supported
+> > features.
+> >
+> > Could that be the cause for packet loss on kernel 2.6.38.2 if:
+> >
+> >   - receiving card is NX3031 [4040:0100]
+> >   - frames are received with VLAN tags
+> >   - large received offload is on.
+> 
+> If ip_forwarding or routing is enable ....then you may see packet loss.
 
-I strongly disagree with using macros for this.  They are very likely t=
-o
-conflict with other identifiers..
+The box is intended to route, so disabling routing is
+contraproductive. I just would like to download software updates to
+the box with decent speed as well.
 
-We might be able to get away with something like:
+> > Packet Loss of this kind is noticed when doing TCP data transfers
+> > towards the host with the Netxen Interface and the TCP session is
+> > terminated on the Netxen host itself. TCP sessions routed through the
+> > Netxen host are not affected.
+> >
+> > My ethtool doesn't allow me to influence the LRO setting alone - it is
+> > disabled when I set rx off but doesn't come on again when rx is set to
+> > on again. So, ethtool -K rx off, ethtool -K rx on fixes the issue.
+> >
+> If rx csum is disabled, LRO will be disable. LRO won't be enabled automatically if you enable rx csum.
+> You need to explicitly enable LRO.
 
-	union {
-		u32 features;
-		u32 feature[N];
-	};
-	union {
-		u32 vlan_features;
-		u32 vlan_feature[N];
-	};
-	union {
-		u32 hw_features;
-		u32 hw_feature[N];
-	};
+Explicitly enabling LRO does not work ("invalid argument", if I recall
+correctly).
 
-(assuming hw_features is new enough that there is no need for the
-alias).
+> > Is this a known bug, maybe with an available patch?
+> >
+> You need to retest with this patch
+> http://patchwork.ozlabs.org/patch/88060/. This patch got applied
+> instead of mine.
 
-Anyway, if we're going to put all the feature words in net_device
-there's no longer any reason for NETIF_F_LOOPBACK not to be in the firs=
-t
-word.
+Will that patch fix the behavior of the interface regarding the packet
+loss, or only its connection to ethtool?
 
-Ben.
+Greetings
+Marc
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
