@@ -1,145 +1,77 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH net-next-2.6 v2] can: convert protocol handling to RCU
-Date: Tue, 05 Apr 2011 20:01:16 +0200
-Message-ID: <4D9B58EC.9090903@hartkopp.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCHv2 net-next-2.6 1/7] sfc: Move test of rx_checksum_enabled
+ from nic.c to rx.c
+Date: Tue, 05 Apr 2011 19:02:09 +0100
+Message-ID: <1302026529.2932.57.camel@bwh-desktop>
+References: <1302026446.2932.56.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Urs Thuermann <urs@isnogud.escape.de>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:39893 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753554Ab1DESB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:01:26 -0400
+Received: from mail.solarflare.com ([216.237.3.220]:15139 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807Ab1DESCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:02:12 -0400
+In-Reply-To: <1302026446.2932.56.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes spin_locks at CAN socket creation time by using RCU.
+This is preparation for using the generic netdev features interface,
+and should have no effect in itself.
 
-Inspired by the discussion with Kurt van Dijck and Eric Dumazet the RCU code
-was partly derived from af_phonet.c
-
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
-
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
+ drivers/net/sfc/nic.c |    6 ++----
+ drivers/net/sfc/rx.c  |    3 +++
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 733d66f..a8dcaa4 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -85,7 +85,7 @@ static struct kmem_cache *rcv_cache __read_mostly;
+diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
+index e839661..2594f39 100644
+--- a/drivers/net/sfc/nic.c
++++ b/drivers/net/sfc/nic.c
+@@ -850,7 +850,6 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
+ 	unsigned expected_ptr;
+ 	bool rx_ev_pkt_ok, discard = false, checksummed;
+ 	struct efx_rx_queue *rx_queue;
+-	struct efx_nic *efx = channel->efx;
  
- /* table of registered CAN protocols */
- static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
--static DEFINE_SPINLOCK(proto_tab_lock);
-+static DEFINE_MUTEX(proto_tab_lock);
- 
- struct timer_list can_stattimer;   /* timer for statistics update */
- struct s_stats    can_stats;       /* packet statistics */
-@@ -115,6 +115,19 @@ static void can_sock_destruct(struct sock *sk)
- 	skb_queue_purge(&sk->sk_receive_queue);
- }
- 
-+static struct can_proto *can_try_module_get(int protocol)
-+{
-+	struct can_proto *cp;
-+
-+	rcu_read_lock();
-+	cp = rcu_dereference(proto_tab[protocol]);
-+	if (cp && !try_module_get(cp->prot->owner))
-+		cp = NULL;
-+	rcu_read_unlock();
-+
-+	return cp;
-+}
-+
- static int can_create(struct net *net, struct socket *sock, int protocol,
- 		      int kern)
- {
-@@ -130,9 +143,12 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
- 	if (!net_eq(net, &init_net))
- 		return -EAFNOSUPPORT;
- 
-+	cp = can_try_module_get(protocol);
-+
- #ifdef CONFIG_MODULES
--	/* try to load protocol module kernel is modular */
--	if (!proto_tab[protocol]) {
-+	if (!cp) {
-+		/* try to load protocol module if kernel is modular */
-+
- 		err = request_module("can-proto-%d", protocol);
- 
- 		/*
-@@ -143,22 +159,18 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
- 		if (err && printk_ratelimit())
- 			printk(KERN_ERR "can: request_module "
- 			       "(can-proto-%d) failed.\n", protocol);
-+
-+		cp = can_try_module_get(protocol);
- 	}
- #endif
- 
--	spin_lock(&proto_tab_lock);
--	cp = proto_tab[protocol];
--	if (cp && !try_module_get(cp->prot->owner))
--		cp = NULL;
--	spin_unlock(&proto_tab_lock);
--
- 	/* check for available protocol and correct usage */
- 
- 	if (!cp)
- 		return -EPROTONOSUPPORT;
- 
- 	if (cp->type != sock->type) {
--		err = -EPROTONOSUPPORT;
-+		err = -EPROTOTYPE;
- 		goto errout;
+ 	/* Basic packet information */
+ 	rx_ev_byte_cnt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_BYTE_CNT);
+@@ -873,9 +872,8 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
+ 		 * UDP/IP, then we can rely on the hardware checksum.
+ 		 */
+ 		checksummed =
+-			likely(efx->rx_checksum_enabled) &&
+-			(rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
+-			 rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP);
++			rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
++			rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP;
+ 	} else {
+ 		efx_handle_rx_not_ok(rx_queue, event, &rx_ev_pkt_ok, &discard);
+ 		checksummed = false;
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+index c0fdb59..fb402c5 100644
+--- a/drivers/net/sfc/rx.c
++++ b/drivers/net/sfc/rx.c
+@@ -605,6 +605,9 @@ void __efx_rx_packet(struct efx_channel *channel,
+ 		skb_record_rx_queue(skb, channel->channel);
  	}
  
-@@ -694,15 +706,16 @@ int can_proto_register(struct can_proto *cp)
- 	if (err < 0)
- 		return err;
- 
--	spin_lock(&proto_tab_lock);
-+	mutex_lock(&proto_tab_lock);
++	if (unlikely(!efx->rx_checksum_enabled))
++		checksummed = false;
 +
- 	if (proto_tab[proto]) {
- 		printk(KERN_ERR "can: protocol %d already registered\n",
- 		       proto);
- 		err = -EBUSY;
- 	} else
--		proto_tab[proto] = cp;
-+		rcu_assign_pointer(proto_tab[proto], cp);
- 
--	spin_unlock(&proto_tab_lock);
-+	mutex_unlock(&proto_tab_lock);
- 
- 	if (err < 0)
- 		proto_unregister(cp->prot);
-@@ -719,13 +732,12 @@ void can_proto_unregister(struct can_proto *cp)
- {
- 	int proto = cp->protocol;
- 
--	spin_lock(&proto_tab_lock);
--	if (!proto_tab[proto]) {
--		printk(KERN_ERR "BUG: can: protocol %d is not registered\n",
--		       proto);
--	}
--	proto_tab[proto] = NULL;
--	spin_unlock(&proto_tab_lock);
-+	mutex_lock(&proto_tab_lock);
-+	BUG_ON(proto_tab[proto] != cp);
-+	rcu_assign_pointer(proto_tab[proto], NULL);
-+	mutex_unlock(&proto_tab_lock);
-+
-+	synchronize_rcu();
- 
- 	proto_unregister(cp->prot);
- }
+ 	if (likely(checksummed || rx_buf->is_page)) {
+ 		efx_rx_packet_gro(channel, rx_buf, eh, checksummed);
+ 		return;
+-- 
+1.7.4
+
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
