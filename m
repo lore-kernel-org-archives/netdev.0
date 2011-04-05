@@ -1,75 +1,107 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen:
-	fix LRO disable warning)
-Date: Tue, 5 Apr 2011 14:41:58 +0200
-Message-ID: <20110405124158.GA28382@torres.zugschlus.de>
-References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com> <20110403190555.GA16196@torres.zugschlus.de> <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: Amit Salecha <amit.salecha@qlogic.com>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] dsa/mv88e6131: add support for mv88e6085 switch
+Date: Tue,  5 Apr 2011 15:03:56 +0200
+Message-ID: <1302008636-6544-1-git-send-email-jacmet@sunsite.dk>
+Cc: Peter Korsgaard <jacmet@sunsite.dk>
+To: davem@davemloft.net, buytenh@wantstofly.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:42336 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558Ab1DEMl7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 08:41:59 -0400
-Content-Disposition: inline
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46814 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751954Ab1DENED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 09:04:03 -0400
+Received: by wya21 with SMTP id 21so301138wya.19
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2011 06:04:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 05, 2011 at 12:38:11AM -0500, Amit Salecha wrote:
-> > On Mon, Mar 21, 2011 at 03:37:08AM -0700, Amit Kumar Salecha wrote:
-> > > netxen_nic_set_flags() rejects data if other flag than ETH_FLAG_LRO
-> > is set.
-> > > Driver also supports NETIF_F_HW_VLAN_TX.
-> > > Now compare data with ethtool_op_get_flags(), to get all supported
-> > features.
-> >
-> > Could that be the cause for packet loss on kernel 2.6.38.2 if:
-> >
-> >   - receiving card is NX3031 [4040:0100]
-> >   - frames are received with VLAN tags
-> >   - large received offload is on.
-> 
-> If ip_forwarding or routing is enable ....then you may see packet loss.
+The mv88e6085 is identical to the mv88e6095, except that all ports are
+10/100 Mb/s, so use the existing setup code except for the cpu/dsa speed
+selection in _setup_port().
 
-The box is intended to route, so disabling routing is
-contraproductive. I just would like to download software updates to
-the box with decent speed as well.
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+---
+ net/dsa/mv88e6131.c |   23 +++++++++++++++++++----
+ net/dsa/mv88e6xxx.h |    2 ++
+ 2 files changed, 21 insertions(+), 4 deletions(-)
 
-> > Packet Loss of this kind is noticed when doing TCP data transfers
-> > towards the host with the Netxen Interface and the TCP session is
-> > terminated on the Netxen host itself. TCP sessions routed through the
-> > Netxen host are not affected.
-> >
-> > My ethtool doesn't allow me to influence the LRO setting alone - it is
-> > disabled when I set rx off but doesn't come on again when rx is set to
-> > on again. So, ethtool -K rx off, ethtool -K rx on fixes the issue.
-> >
-> If rx csum is disabled, LRO will be disable. LRO won't be enabled automatically if you enable rx csum.
-> You need to explicitly enable LRO.
-
-Explicitly enabling LRO does not work ("invalid argument", if I recall
-correctly).
-
-> > Is this a known bug, maybe with an available patch?
-> >
-> You need to retest with this patch
-> http://patchwork.ozlabs.org/patch/88060/. This patch got applied
-> instead of mine.
-
-Will that patch fix the behavior of the interface regarding the packet
-loss, or only its connection to ethtool?
-
-Greetings
-Marc
-
+diff --git a/net/dsa/mv88e6131.c b/net/dsa/mv88e6131.c
+index bb2b41b..a8e4f8c 100644
+--- a/net/dsa/mv88e6131.c
++++ b/net/dsa/mv88e6131.c
+@@ -14,6 +14,13 @@
+ #include "dsa_priv.h"
+ #include "mv88e6xxx.h"
+ 
++/*
++ * Switch product IDs
++ */
++#define ID_6085		0x04a0
++#define ID_6095		0x0950
++#define ID_6131		0x1060
++
+ static char *mv88e6131_probe(struct mii_bus *bus, int sw_addr)
+ {
+ 	int ret;
+@@ -21,9 +28,11 @@ static char *mv88e6131_probe(struct mii_bus *bus, int sw_addr)
+ 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), 0x03);
+ 	if (ret >= 0) {
+ 		ret &= 0xfff0;
+-		if (ret == 0x0950)
++		if (ret == ID_6085)
++			return "Marvell 88E6085";
++		if (ret == ID_6095)
+ 			return "Marvell 88E6095/88E6095F";
+-		if (ret == 0x1060)
++		if (ret == ID_6131)
+ 			return "Marvell 88E6131";
+ 	}
+ 
+@@ -164,6 +173,7 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+ 
+ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
+ {
++	struct mv88e6xxx_priv_state *ps = (void *)(ds + 1);
+ 	int addr = REG_PORT(p);
+ 	u16 val;
+ 
+@@ -171,10 +181,13 @@ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
+ 	 * MAC Forcing register: don't force link, speed, duplex
+ 	 * or flow control state to any particular values on physical
+ 	 * ports, but force the CPU port and all DSA ports to 1000 Mb/s
+-	 * full duplex.
++	 * (100 Mb/s on 6085) full duplex.
+ 	 */
+ 	if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p))
+-		REG_WRITE(addr, 0x01, 0x003e);
++		if (ps->id == ID_6085)
++			REG_WRITE(addr, 0x01, 0x003d); /* 100 Mb/s */
++		else
++			REG_WRITE(addr, 0x01, 0x003e); /* 1000 Mb/s */
+ 	else
+ 		REG_WRITE(addr, 0x01, 0x0003);
+ 
+@@ -286,6 +299,8 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	mv88e6xxx_ppu_state_init(ds);
+ 	mutex_init(&ps->stats_mutex);
+ 
++	ps->id = REG_READ(REG_PORT(0), 0x03) & 0xfff0;
++
+ 	ret = mv88e6131_switch_reset(ds);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/net/dsa/mv88e6xxx.h b/net/dsa/mv88e6xxx.h
+index eb0e0aa..61156ca2 100644
+--- a/net/dsa/mv88e6xxx.h
++++ b/net/dsa/mv88e6xxx.h
+@@ -39,6 +39,8 @@ struct mv88e6xxx_priv_state {
+ 	 * Hold this mutex over snapshot + dump sequences.
+ 	 */
+ 	struct mutex	stats_mutex;
++
++	int		id; /* switch product id */
+ };
+ 
+ struct mv88e6xxx_hw_stat {
 -- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+1.7.2.3
+
