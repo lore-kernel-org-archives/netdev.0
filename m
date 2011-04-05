@@ -1,185 +1,182 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 5/7] ethtool: Fill out and update comment for
- struct ethtool_ops
-Date: Tue, 05 Apr 2011 19:04:12 +0100
-Message-ID: <1302026652.2932.61.camel@bwh-desktop>
+Subject: [PATCHv2 net-next-2.6 6/7] ethtool: Change ETHTOOL_PHYS_ID
+ implementation to allow dropping RTNL
+Date: Tue, 05 Apr 2011 19:05:56 +0100
+Message-ID: <1302026756.2932.63.camel@bwh-desktop>
 References: <1302026446.2932.56.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+	Stephen Hemminger <shemminger@vyatta.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:15412 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:15699 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753554Ab1DESEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:04:16 -0400
+	with ESMTP id S1750807Ab1DESF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:05:59 -0400
 In-Reply-To: <1302026446.2932.56.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Briefly document all operations (except get_rx_ntuple), including
-whether they may return an error code and whether they are deprecated.
-Also mention some things that should be handled by the ethtool core
-rather than by drivers.
+The ethtool ETHTOOL_PHYS_ID command runs for an arbitrarily long
+period of time, holding the RTNL lock.  This blocks routing updates,
+device enumeration, and various important operations that one might
+want to keep running while hunting for the flashing LED.
 
-Briefly document general requirements for callers.
+We need to drop the RTNL lock during this operation, but currently the
+core implementation is a thin wrapper around a driver operation and
+drivers may well depend upon holding the lock.
+
+Define a new driver operation 'set_phys_id' with an argument that sets
+the ID indicator on/off/inactive/active (the last optional, for any
+driver or firmware that prefers to handle blinking asynchronously).
+When this is defined, the ethtool core drops the lock while waiting
+and only acquires it around calls to this operation.
+
+Deprecate the 'phys_id' operation in favour of this.  It can be
+removed once all in-tree drivers are converted.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/ethtool.h |  124 +++++++++++++++++++++++++++++++++++------------
- 1 files changed, 93 insertions(+), 31 deletions(-)
+ include/linux/ethtool.h |   30 ++++++++++++++++++++++++-
+ net/core/ethtool.c      |   55 +++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 82 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index ab12f84..ead7dcb 100644
+index ead7dcb..c04d131 100644
 --- a/include/linux/ethtool.h
 +++ b/include/linux/ethtool.h
-@@ -683,22 +683,28 @@ void ethtool_ntuple_flush(struct net_device *dev);
- bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
+@@ -663,6 +663,22 @@ struct ethtool_rx_ntuple_list {
+ 	unsigned int		count;
+ };
  
- /**
-- * struct ethtool_ops - Alter and report network device settings
-- * @get_settings: Get device-specific settings.
-- *	@get_settings is passed an &ethtool_cmd to fill in.  It returns
-- *	an negative errno or zero.
-- * @set_settings: Set device-specific settings.
-- *	@set_settings is passed an &ethtool_cmd and should attempt to set
-- *	all the settings this device supports.  It may return an error value
-- *	if something goes wrong (otherwise 0).
-- * @get_drvinfo: Report driver information
-+ * struct ethtool_ops - optional netdev operations
-+ * @get_settings: Get various device settings including Ethernet link
-+ *	settings.  Returns a negative error code or zero.
-+ * @set_settings: Set various device settings including Ethernet link
-+ *	settings.  Returns a negative error code or zero.
-+ * @get_drvinfo: Report driver/device information.  Should only set the
-+ *	@driver, @version, @fw_version and @bus_info fields.  If not
-+ *	implemented, the @driver and @bus_info fields will be filled in
-+ *	according to the netdev's parent device.
-+ * @get_regs_len: Get buffer length required for @get_regs
-  * @get_regs: Get device registers
-  * @get_wol: Report whether Wake-on-Lan is enabled
-- * @set_wol: Turn Wake-on-Lan on or off
-- * @get_msglevel: Report driver message level
-+ * @set_wol: Turn Wake-on-Lan on or off.  Returns a negative error code
-+ *	or zero.
-+ * @get_msglevel: Report driver message level.  This should be the value
-+ *	of the @msg_enable field used by netif logging functions.
-  * @set_msglevel: Set driver message level
-- * @nway_reset: Restart autonegotiation
-- * @get_link: Get link status
-+ * @nway_reset: Restart autonegotiation.  Returns a negative error code
-+ *	or zero.
-+ * @get_link: Report whether physical link is up.  Will only be called if
-+ *	the netdev is up.  Should usually be set to ethtool_op_get_link(),
-+ *	which uses netif_carrier_ok().
-  * @get_eeprom: Read data from the device EEPROM.
-  *	Should fill in the magic field.  Don't need to check len for zero
-  *	or wraparound.  Fill in the data argument with the eeprom values
-@@ -708,28 +714,84 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
-  *	Should validate the magic field.  Don't need to check len for zero
-  *	or wraparound.  Update len to the amount written.  Returns an error
-  *	or zero.
-- * @get_coalesce: Get interrupt coalescing parameters
-- * @set_coalesce: Set interrupt coalescing parameters
-+ * @get_coalesce: Get interrupt coalescing parameters.  Returns a negative
-+ *	error code or zero.
-+ * @set_coalesce: Set interrupt coalescing parameters.  Returns a negative
-+ *	error code or zero.
-  * @get_ringparam: Report ring sizes
-- * @set_ringparam: Set ring sizes
-+ * @set_ringparam: Set ring sizes.  Returns a negative error code or zero.
-  * @get_pauseparam: Report pause parameters
-- * @set_pauseparam: Set pause parameters
-- * @get_rx_csum: Report whether receive checksums are turned on or off
-- * @set_rx_csum: Turn receive checksum on or off
-- * @get_tx_csum: Report whether transmit checksums are turned on or off
-- * @set_tx_csum: Turn transmit checksums on or off
-- * @get_sg: Report whether scatter-gather is enabled
-- * @set_sg: Turn scatter-gather on or off
-- * @get_tso: Report whether TCP segmentation offload is enabled
-- * @set_tso: Turn TCP segmentation offload on or off
-- * @get_ufo: Report whether UDP fragmentation offload is enabled
-- * @set_ufo: Turn UDP fragmentation offload on or off
-+ * @set_pauseparam: Set pause parameters.  Returns a negative error code
-+ *	or zero.
-+ * @get_rx_csum: Deprecated in favour of the netdev feature %NETIF_F_RXCSUM.
-+ *	Report whether receive checksums are turned on or off.
-+ * @set_rx_csum: Deprecated in favour of generic netdev features.  Turn
-+ *	receive checksum on or off.  Returns a negative error code or zero.
-+ * @get_tx_csum: Deprecated as redundant. Report whether transmit checksums
-+ *	are turned on or off.
-+ * @set_tx_csum: Deprecated in favour of generic netdev features.  Turn
-+ *	transmit checksums on or off.  Returns a egative error code or zero.
-+ * @get_sg: Deprecated as redundant.  Report whether scatter-gather is
-+ *	enabled.  
-+ * @set_sg: Deprecated in favour of generic netdev features.  Turn
-+ *	scatter-gather on or off. Returns a negative error code or zero.
-+ * @get_tso: Deprecated as redundant.  Report whether TCP segmentation
-+ *	offload is enabled.
-+ * @set_tso: Deprecated in favour of generic netdev features.  Turn TCP
-+ *	segmentation offload on or off.  Returns a negative error code or zero.
++/**
++ * enum ethtool_phys_id_state - indicator state for physical identification
++ * @ETHTOOL_ID_INACTIVE: Physical ID indicator should be deactivated
++ * @ETHTOOL_ID_ACTIVE: Physical ID indicator should be activated
++ * @ETHTOOL_ID_ON: LED should be turned on (used iff %ETHTOOL_ID_ACTIVE
++ *	is not supported)
++ * @ETHTOOL_ID_OFF: LED should be turned off (used iff %ETHTOOL_ID_ACTIVE
++ *	is not supported)
++ */
++enum ethtool_phys_id_state {
++	ETHTOOL_ID_INACTIVE,
++	ETHTOOL_ID_ACTIVE,
++	ETHTOOL_ID_ON,
++	ETHTOOL_ID_OFF
++};
++
+ struct net_device;
+ 
+ /* Some generic methods drivers may use in their ethtool_ops */
+@@ -741,7 +757,18 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
+  *	segmentation offload on or off.  Returns a negative error code or zero.
   * @self_test: Run specified self-tests
   * @get_strings: Return a set of strings that describe the requested objects
-- * @phys_id: Identify the device
-- * @get_stats: Return statistics about the device
-- * @get_flags: get 32-bit flags bitmap
-- * @set_flags: set 32-bit flags bitmap
-+ * @phys_id: Identify the physical device, e.g. by flashing an LED
-+ *	attached to it until interrupted by a signal or the given time
-+ *	(in seconds) elapses.  If the given time is zero, use a default
-+ *	time limit.  Returns a negative error code or zero.  Being
-+ *	interrupted by a signal is not an error.
-+ * @get_ethtool_stats: Return extended statistics about the device.
-+ *	This is only useful if the device maintains statistics not
-+ *	included in &struct rtnl_link_stats64.
-+ * @begin: Function to be called before any other operation.  Returns a
+- * @phys_id: Identify the physical device, e.g. by flashing an LED
++ * @set_phys_id: Identify the physical devices, e.g. by flashing an LED
++ *	attached to it.  The implementation may update the indicator
++ *	asynchronously or synchronously, but in either case it must return
++ *	quickly.  It is initially called with the argument %ETHTOOL_ID_ACTIVE,
++ *	and must either activate asynchronous updates or return -%EINVAL.
++ *	If it returns -%EINVAL then it will be called again at intervals with
++ *	argument %ETHTOOL_ID_ON or %ETHTOOL_ID_OFF and should set the state of
++ *	the indicator accordingly.  Finally, it is called with the argument
++ *	%ETHTOOL_ID_INACTIVE and must deactivate the indicator.  Returns a
 + *	negative error code or zero.
-+ * @complete: Function to be called after any other operation except
-+ *	@begin.  Will be called even if the other operation failed.
-+ * @get_ufo: Deprecated as redundant.  Report whether UDP fragmentation
-+ *	offload is enabled.
-+ * @set_ufo: Deprecated in favour of generic netdev features.  Turn UDP
-+ *	fragmentation offload on or off.  Returns a negative error code or zero.
-+ * @get_flags: Deprecated as redundant.  Report features included in
-+ *	&enum ethtool_flags that are enabled.  
-+ * @set_flags: Deprecated in favour of generic netdev features.  Turn
-+ *	features included in &enum ethtool_flags on or off.  Returns a
-+ *	negative error code or zero.
-+ * @get_priv_flags: Report driver-specific feature flags.
-+ * @set_priv_flags: Set driver-specific feature flags.  Returns a negative
-+ *	error code or zero.
-+ * @get_sset_count: Get number of strings that @get_strings will write.
-+ * @get_rxnfc: Get RX flow classification rules.  Returns a negative
-+ *	error code or zero.
-+ * @set_rxnfc: Set RX flow classification rules.  Returns a negative
-+ *	error code or zero.
-+ * @flash_device: Write a firmware image to device's flash memory.
-+ *	Returns a negative error code or zero.
-+ * @reset: Reset (part of) the device, as specified by a bitmask of
-+ *	flags from &enum ethtool_reset_flags.  Returns a negative
-+ *	error code or zero.
-+ * @set_rx_ntuple: Set an RX n-tuple rule.  Returns a negative error code
-+ *	or zero.
-+ * @get_rx_ntuple: Deprecated.
-+ * @get_rxfh_indir: Get the contents of the RX flow hash indirection table.
-+ *	Returns a negative error code or zero.
-+ * @set_rxfh_indir: Set the contents of the RX flow hash indirection table.
-+ *	Returns a negative error code or zero.
-+ *
-+ * All operations are optional (i.e. the function pointer may be set
-+ * to %NULL) and callers must take this into account.  Callers must
-+ * hold the RTNL, except that for @get_drvinfo the caller may or may
-+ * not hold the RTNL.
-+ *
-+ * See the structures used by these operations for further documentation.
-+ *
-+ * See &struct net_device and &struct net_device_ops for documentation
-+ * of the generic netdev features interface.
-  */
- struct ethtool_ops {
- 	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
++ * @phys_id: Deprecated in favour of @set_phys_id.
++ *	Identify the physical device, e.g. by flashing an LED
+  *	attached to it until interrupted by a signal or the given time
+  *	(in seconds) elapses.  If the given time is zero, use a default
+  *	time limit.  Returns a negative error code or zero.  Being
+@@ -830,6 +857,7 @@ struct ethtool_ops {
+ 	int	(*set_tso)(struct net_device *, u32);
+ 	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
+ 	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
++	int	(*set_phys_id)(struct net_device *, enum ethtool_phys_id_state);
+ 	int	(*phys_id)(struct net_device *, u32);
+ 	void	(*get_ethtool_stats)(struct net_device *,
+ 				     struct ethtool_stats *, u64 *);
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 74ead9e..1c95f0f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -21,6 +21,8 @@
+ #include <linux/uaccess.h>
+ #include <linux/vmalloc.h>
+ #include <linux/slab.h>
++#include <linux/rtnetlink.h>
++#include <linux/sched.h>
+ 
+ /*
+  * Some useful ethtool_ops methods that're device independent.
+@@ -1618,14 +1620,63 @@ out:
+ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_value id;
++	static bool busy;
++	int rc;
+ 
+-	if (!dev->ethtool_ops->phys_id)
++	if (!dev->ethtool_ops->set_phys_id && !dev->ethtool_ops->phys_id)
+ 		return -EOPNOTSUPP;
+ 
++	if (busy)
++		return -EBUSY;
++
+ 	if (copy_from_user(&id, useraddr, sizeof(id)))
+ 		return -EFAULT;
+ 
+-	return dev->ethtool_ops->phys_id(dev, id.data);
++	if (!dev->ethtool_ops->set_phys_id)
++		/* Do it the old way */
++		return dev->ethtool_ops->phys_id(dev, id.data);
++
++	rc = dev->ethtool_ops->set_phys_id(dev, ETHTOOL_ID_ACTIVE);
++	if (rc && rc != -EINVAL)
++		return rc;
++
++	/* Drop the RTNL lock while waiting, but prevent reentry or
++	 * removal of the device.
++	 */
++	busy = true;
++	dev_hold(dev);
++	rtnl_unlock();
++
++	if (rc == 0) {
++		/* Driver will handle this itself */
++		schedule_timeout_interruptible(
++			id.data ? id.data : MAX_SCHEDULE_TIMEOUT);
++	} else {
++		/* Driver expects to be called periodically */
++		do {
++			rtnl_lock();
++			rc = dev->ethtool_ops->set_phys_id(dev, ETHTOOL_ID_ON);
++			rtnl_unlock();
++			if (rc)
++				break;
++			schedule_timeout_interruptible(HZ / 2);
++
++			rtnl_lock();
++			rc = dev->ethtool_ops->set_phys_id(dev, ETHTOOL_ID_OFF);
++			rtnl_unlock();
++			if (rc)
++				break;
++			schedule_timeout_interruptible(HZ / 2);
++		} while (!signal_pending(current) &&
++			 (id.data == 0 || --id.data != 0));
++	}
++
++	rtnl_lock();
++	dev_put(dev);
++	busy = false;
++
++	(void)dev->ethtool_ops->set_phys_id(dev, ETHTOOL_ID_INACTIVE);
++	return rc;
+ }
+ 
+ static int ethtool_get_stats(struct net_device *dev, void __user *useraddr)
 -- 
 1.7.4
 
