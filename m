@@ -1,7 +1,7 @@
 From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH 9/14] ehea: Merge swqe2 TSO and non TSO paths
-Date: Tue, 5 Apr 2011 21:40:13 +1000
-Message-ID: <20110405214013.1f54f04e@kryten>
+Subject: [PATCH 10/14] ehea: Simplify type 3 transmit routine
+Date: Tue, 5 Apr 2011 21:41:08 +1000
+Message-ID: <20110405214108.2fbed081@kryten>
 References: <20110405212825.6eb85677@kryten>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -9,126 +9,55 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, michael@ellerman.id.au
 To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43169 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:46695 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753183Ab1DELkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2011 07:40:16 -0400
+	id S1753183Ab1DELlL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 07:41:11 -0400
 In-Reply-To: <20110405212825.6eb85677@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-write_swqe2_TSO and write_swqe2_nonTSO are almost identical.
-
-For TSO we have to set the TSO and mss bits in the wqe and we only
-put the header in the immediate area, no data. Collapse both
-functions into write_swqe2_immediate.
+If a nonlinear skb fits within the immediate area, use skb_copy_bits
+instead of copying the frags by hand.
 
 Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
 
 Index: linux-2.6/drivers/net/ehea/ehea_main.c
 ===================================================================
---- linux-2.6.orig/drivers/net/ehea/ehea_main.c	2011-03-21 18:32:42.518587298 +1100
-+++ linux-2.6/drivers/net/ehea/ehea_main.c	2011-03-21 18:32:44.258651836 +1100
-@@ -1681,65 +1681,35 @@ static int ehea_clean_portres(struct ehe
- 	return ret;
- }
- 
--static void write_swqe2_TSO(struct sk_buff *skb,
--			    struct ehea_swqe *swqe, u32 lkey)
--{
--	struct ehea_vsgentry *sg1entry = &swqe->u.immdata_desc.sg_entry;
--	u8 *imm_data = &swqe->u.immdata_desc.immediate_data[0];
--	int skb_data_size = skb_headlen(skb);
--	int headersize;
--
--	/* Packet is TCP with TSO enabled */
--	swqe->tx_control |= EHEA_SWQE_TSO;
--	swqe->mss = skb_shinfo(skb)->gso_size;
--	/* copy only eth/ip/tcp headers to immediate data and
--	 * the rest of skb->data to sg1entry
--	 */
--	headersize = ETH_HLEN + ip_hdrlen(skb) + tcp_hdrlen(skb);
--
--	skb_data_size = skb_headlen(skb);
--
--	if (skb_data_size >= headersize) {
--		/* copy immediate data */
--		skb_copy_from_linear_data(skb, imm_data, headersize);
--		swqe->immediate_data_length = headersize;
--
--		if (skb_data_size > headersize) {
--			/* set sg1entry data */
--			sg1entry->l_key = lkey;
--			sg1entry->len = skb_data_size - headersize;
--			sg1entry->vaddr =
--				ehea_map_vaddr(skb->data + headersize);
--			swqe->descriptors++;
--		}
--	} else
--		pr_err("cannot handle fragmented headers\n");
--}
--
--static void write_swqe2_nonTSO(struct sk_buff *skb,
--			       struct ehea_swqe *swqe, u32 lkey)
-+static void write_swqe2_immediate(struct sk_buff *skb, struct ehea_swqe *swqe,
-+				  u32 lkey)
+--- linux-2.6.orig/drivers/net/ehea/ehea_main.c	2011-03-21 18:32:44.258651836 +1100
++++ linux-2.6/drivers/net/ehea/ehea_main.c	2011-03-21 18:32:50.638888481 +1100
+@@ -2095,29 +2095,14 @@ static void ehea_xmit2(struct sk_buff *s
+ static void ehea_xmit3(struct sk_buff *skb, struct net_device *dev,
+ 		       struct ehea_swqe *swqe)
  {
- 	int skb_data_size = skb_headlen(skb);
- 	u8 *imm_data = &swqe->u.immdata_desc.immediate_data[0];
- 	struct ehea_vsgentry *sg1entry = &swqe->u.immdata_desc.sg_entry;
-+	unsigned int immediate_len = SWQE2_MAX_IMM;
+-	int nfrags = skb_shinfo(skb)->nr_frags;
+ 	u8 *imm_data = &swqe->u.immdata_nodesc.immediate_data[0];
+-	skb_frag_t *frag;
+-	int i;
  
--	/* Packet is any nonTSO type
--	 *
--	 * Copy as much as possible skb->data to immediate data and
--	 * the rest to sg1entry
--	 */
--	if (skb_data_size >= SWQE2_MAX_IMM) {
--		/* copy immediate data */
--		skb_copy_from_linear_data(skb, imm_data, SWQE2_MAX_IMM);
-+	swqe->descriptors = 0;
-+
-+	if (skb_is_gso(skb)) {
-+		swqe->tx_control |= EHEA_SWQE_TSO;
-+		swqe->mss = skb_shinfo(skb)->gso_size;
-+		/*
-+		 * For TSO packets we only copy the headers into the
-+		 * immediate area.
-+		 */
-+		immediate_len = ETH_HLEN + ip_hdrlen(skb) + tcp_hdrlen(skb);
-+	}
+ 	xmit_common(skb, swqe);
  
--		swqe->immediate_data_length = SWQE2_MAX_IMM;
-+	if (skb_is_gso(skb) || skb_data_size >= SWQE2_MAX_IMM) {
-+		skb_copy_from_linear_data(skb, imm_data, immediate_len);
-+		swqe->immediate_data_length = immediate_len;
+-	if (nfrags == 0) {
++	if (!skb->data_len)
+ 		skb_copy_from_linear_data(skb, imm_data, skb->len);
+-	} else {
+-		skb_copy_from_linear_data(skb, imm_data,
+-					  skb_headlen(skb));
+-		imm_data += skb_headlen(skb);
+-
+-		/* ... then copy data from the fragments */
+-		for (i = 0; i < nfrags; i++) {
+-			frag = &skb_shinfo(skb)->frags[i];
+-			memcpy(imm_data,
+-			       page_address(frag->page) + frag->page_offset,
+-			       frag->size);
+-			imm_data += frag->size;
+-		}
+-	}
++	else
++		skb_copy_bits(skb, 0, imm_data, skb->len);
  
--		if (skb_data_size > SWQE2_MAX_IMM) {
--			/* copy sg1entry data */
-+		if (skb_data_size > immediate_len) {
- 			sg1entry->l_key = lkey;
--			sg1entry->len = skb_data_size - SWQE2_MAX_IMM;
-+			sg1entry->len = skb_data_size - immediate_len;
- 			sg1entry->vaddr =
--				ehea_map_vaddr(skb->data + SWQE2_MAX_IMM);
-+				ehea_map_vaddr(skb->data + immediate_len);
- 			swqe->descriptors++;
- 		}
- 	} else {
-@@ -1758,13 +1728,9 @@ static inline void write_swqe2_data(stru
- 	nfrags = skb_shinfo(skb)->nr_frags;
- 	sg1entry = &swqe->u.immdata_desc.sg_entry;
- 	sg_list = (struct ehea_vsgentry *)&swqe->u.immdata_desc.sg_list;
--	swqe->descriptors = 0;
- 	sg1entry_contains_frag_data = 0;
- 
--	if (skb_is_gso(skb))
--		write_swqe2_TSO(skb, swqe, lkey);
--	else
--		write_swqe2_nonTSO(skb, swqe, lkey);
-+	write_swqe2_immediate(skb, swqe, lkey);
- 
- 	/* write descriptors */
- 	if (nfrags > 0) {
+ 	swqe->immediate_data_length = skb->len;
+ 	dev_kfree_skb(skb);
