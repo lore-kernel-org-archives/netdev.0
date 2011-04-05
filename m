@@ -1,86 +1,84 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCHv2 net-next-2.6 3/7] sfc: Implement generic features
-	interface
-Date: Tue, 5 Apr 2011 20:29:36 +0200
-Message-ID: <20110405182936.GA19316@rere.qmqm.pl>
-References: <1302026446.2932.56.camel@bwh-desktop> <1302026609.2932.59.camel@bwh-desktop> <20110405181552.GB16977@rere.qmqm.pl> <1302027640.2932.70.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: NETIF_F_TSO vs NETIF_F_TSO{6,_ECN}
+Date: Tue, 05 Apr 2011 19:31:38 +0100
+Message-ID: <1302028298.2932.76.camel@bwh-desktop>
+References: <1302018602.2932.22.camel@bwh-desktop>
+	 <20110405180337.GA16977@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:60926 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754781Ab1DES3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2011 14:29:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1302027640.2932.70.camel@bwh-desktop>
+Received: from mail.solarflare.com ([216.237.3.220]:18666 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753994Ab1DESbl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:31:41 -0400
+In-Reply-To: <20110405180337.GA16977@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 05, 2011 at 07:20:40PM +0100, Ben Hutchings wrote:
-> On Tue, 2011-04-05 at 20:15 +0200, Micha=B3 Miros=B3aw wrote:
-> > On Tue, Apr 05, 2011 at 07:03:29PM +0100, Ben Hutchings wrote:
-> > > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > > ---
-> > >  drivers/net/sfc/efx.c        |   20 +++++++++--
-> > >  drivers/net/sfc/ethtool.c    |   78 ----------------------------=
---------------
-> > >  drivers/net/sfc/net_driver.h |    2 -
-> > >  drivers/net/sfc/rx.c         |    2 +-
-> > >  4 files changed, 18 insertions(+), 84 deletions(-)
-> > >=20
-> > > diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-> > > index 542f32d..db72a6e 100644
-> > > --- a/drivers/net/sfc/efx.c
-> > > +++ b/drivers/net/sfc/efx.c
-> > [...]
-> > > @@ -2452,12 +2463,15 @@ static int __devinit efx_pci_probe(struct=
- pci_dev *pci_dev,
-> > >  		return -ENOMEM;
-> > >  	net_dev->features |=3D (type->offload_features | NETIF_F_SG |
-> > >  			      NETIF_F_HIGHDMA | NETIF_F_TSO |
-> > > -			      NETIF_F_GRO);
-> > > +			      NETIF_F_RXCSUM);
-> > >  	if (type->offload_features & NETIF_F_V6_CSUM)
-> > >  		net_dev->features |=3D NETIF_F_TSO6;
-> > >  	/* Mask for features that also apply to VLAN devices */
-> > >  	net_dev->vlan_features |=3D (NETIF_F_ALL_CSUM | NETIF_F_SG |
-> > > -				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO);
-> > > +				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
-> > > +				   NETIF_F_RXCSUM);
-> > > +	/* All offloads can be toggled */
-> > > +	net_dev->hw_features =3D net_dev->features & ~NETIF_F_HIGHDMA;
-> > >  	efx =3D netdev_priv(net_dev);
-> > >  	pci_set_drvdata(pci_dev, efx);
-> > >  	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
+On Tue, 2011-04-05 at 20:03 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> On Tue, Apr 05, 2011 at 04:50:02PM +0100, Ben Hutchings wrote:
+> > According to the commit that introduced NETIF_F_TSO6
+> > (f83ef8c0b58dac17211a4c0b6df0e2b1bd6637b1):
+> >    =20
+> >         This patch will introduce a new flag NETIF_F_TSO6 which wil=
+l be used
+> >         to check whether device supports TSO over IPv6. If device s=
+upport TSO
+> >         over IPv6 then we don't clear of NETIF_F_TSO and which will=
+ make the
+> >         TCP layer to create TSO packets. Any device supporting TSO =
+over IPv6
+> >         will set NETIF_F_TSO6 flag in "dev->features" along with NE=
+TIF_F_TSO.
+> >    =20
+> >         In case when user disables TSO using ethtool, NETIF_F_TSO w=
+ill get
+> >         cleared from "dev->features". So even if we have NETIF_F_TS=
+O6 we don't
+> >         get TSO packets created by TCP layer.
 > >=20
-> > Does the driver really allow independent switching of RX checksummi=
-ng
-> > for tagged and untagged frames?
+> > So I think we need to either:
+> > 1. Disallow toggling NETIF_F_TSO6 (following the previous rule)
+> > 2. Disable NETIF_F_TSO6 when NETIF_F_TSO is disabled
+> >=20
+> > The same presumably applies to NETIF_F_TSO_ECN.
 >=20
-> No.
->=20
-> > The VLAN code currently doesn't ignore
-> > HW checksum when present in skb and doesn't allow toggling of the f=
-eature
-> > (see: vlan_fix_features() and vlan_skb_recv() in net/8021q/vlan_dev=
-=2Ec).
-> So RX checksum offload is reported as enabled on the VLAN device iff =
-it
-> is enabled for the physical device, which is correct.
+> There seems to be no such dependency in the networking code. I.e. TSO=
+6
+> should just work with TSO4 disabled.
 
-Exactly.
+*sigh*  So it seems the commit message was wrong... and it should have
+included a change like this:
 
-What I wanted to point out is that NETIF_F_RXCSUM is set (or cleared) f=
-or
-VLAN devices regardless if it is set in vlan_features. It would be clea=
-ner
-to not allow it in vlan_features because it's currently not inherited l=
-ike
-other features.
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5203,9 +5203,9 @@ u32 netdev_fix_features(struct net_device *dev, u=
+32 features)
+ 	}
+=20
+ 	/* TSO requires that SG is present as well. */
+-	if ((features & NETIF_F_TSO) && !(features & NETIF_F_SG)) {
+-		netdev_info(dev, "Dropping NETIF_F_TSO since no SG feature.\n");
+-		features &=3D ~NETIF_F_TSO;
++	if ((features & NETIF_F_ALL_TSO) && !(features & NETIF_F_SG)) {
++		netdev_info(dev, "Dropping TSO since no SG feature.\n");
++		features &=3D ~NETIF_F_ALL_TSO;
+ 	}
+=20
+ 	/* Software GSO depends on SG. */
+---
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Now that we're relying on these checks for dynamic changes to features,
+this is pretty important.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
