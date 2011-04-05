@@ -1,43 +1,43 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH 14/14] ehea: Add GRO support
-Date: Tue, 5 Apr 2011 14:29:14 -0700
-Message-ID: <BANLkTiksELHr4Ln9pW_k4qcNcXBmBuT2aw@mail.gmail.com>
-References: <20110405212825.6eb85677@kryten> <20110405214501.111d3638@kryten>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH 12/14] ehea: Add some more ethtool operations and 64bit
+ stats
+Date: Wed, 6 Apr 2011 07:35:36 +1000
+Message-ID: <20110406073536.71f4052d@kryten>
+References: <20110405212825.6eb85677@kryten>
+	<20110405214249.36d248e7@kryten>
+	<1302008877.2932.6.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
 	michael@ellerman.id.au
-To: Anton Blanchard <anton@samba.org>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:50263 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755025Ab1DEV3f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 17:29:35 -0400
-Received: by vws1 with SMTP id 1so646385vws.19
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2011 14:29:34 -0700 (PDT)
-In-Reply-To: <20110405214501.111d3638@kryten>
+Received: from ozlabs.org ([203.10.76.45]:51733 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755025Ab1DEVfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 17:35:39 -0400
+In-Reply-To: <1302008877.2932.6.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 5, 2011 at 4:45 AM, Anton Blanchard <anton@samba.org> wrote=
-:
-> @@ -728,7 +716,14 @@ static int ehea_proc_rwqes(struct net_de
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0processed_bytes +=3D s=
-kb->len;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ehea_proc_skb(pr, cqe, =
-skb);
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((cqe->status & EHEA=
-_CQE_VLAN_TAG_XTRACT) &&
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr->port->vgrp)=
- {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlan_gr=
-o_receive(&pr->napi, pr->port->vgrp,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 cqe->vlan_tag, skb);
 
-Thank you for removing the old LRO code but the vlan-specific GRO
-entry point is deprecated as well so please don't add new uses of it.
+Hi Ben, Jesse,
+
+> > We can use the standard ethtool functions for set_tx_csum and
+> > set_sg.
+> 
+> These are deprecated.  Please use the generic features interface
+> instead.
+> 
+> > Also switch to using ndo_get_stats64 to get 64bit tx/rx stats.
+
+and
+
+> Thank you for removing the old LRO code but the vlan-specific GRO
+> entry point is deprecated as well so please don't add new uses of it.
+
+Thanks for the suggestions, I'll incorporate the changes and resubmit.
+
+Anton
