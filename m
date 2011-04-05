@@ -1,7 +1,7 @@
 From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH 8/14] ehea: Simplify ehea_xmit2 and ehea_xmit3
-Date: Tue, 5 Apr 2011 21:39:09 +1000
-Message-ID: <20110405213909.31602f45@kryten>
+Subject: [PATCH 9/14] ehea: Merge swqe2 TSO and non TSO paths
+Date: Tue, 5 Apr 2011 21:40:13 +1000
+Message-ID: <20110405214013.1f54f04e@kryten>
 References: <20110405212825.6eb85677@kryten>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -9,212 +9,126 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, michael@ellerman.id.au
 To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:40648 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:43169 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753138Ab1DELjM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2011 07:39:12 -0400
+	id S1753183Ab1DELkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 07:40:16 -0400
 In-Reply-To: <20110405212825.6eb85677@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Based on a patch from Michael Ellerman, clean up a significant
-portion of the transmit path. There was a lot of duplication here.
-Even worse, we were always checksumming tx packets and ignoring the
-skb->ip_summed field.
+write_swqe2_TSO and write_swqe2_nonTSO are almost identical.
 
-Also remove NETIF_F_FRAGLIST from dev->features, I'm not sure why
-it was enabled.
+For TSO we have to set the TSO and mss bits in the wqe and we only
+put the header in the immediate area, no data. Collapse both
+functions into write_swqe2_immediate.
 
 Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
 
 Index: linux-2.6/drivers/net/ehea/ehea_main.c
 ===================================================================
---- linux-2.6.orig/drivers/net/ehea/ehea_main.c	2011-04-05 20:36:34.437226735 +1000
-+++ linux-2.6/drivers/net/ehea/ehea_main.c	2011-04-05 20:36:38.726736977 +1000
-@@ -1681,37 +1681,6 @@ static int ehea_clean_portres(struct ehe
+--- linux-2.6.orig/drivers/net/ehea/ehea_main.c	2011-03-21 18:32:42.518587298 +1100
++++ linux-2.6/drivers/net/ehea/ehea_main.c	2011-03-21 18:32:44.258651836 +1100
+@@ -1681,65 +1681,35 @@ static int ehea_clean_portres(struct ehe
  	return ret;
  }
  
--/*
-- * The write_* functions store information in swqe which is used by
-- * the hardware to calculate the ip/tcp/udp checksum
-- */
--
--static inline void write_ip_start_end(struct ehea_swqe *swqe,
--				      const struct sk_buff *skb)
+-static void write_swqe2_TSO(struct sk_buff *skb,
+-			    struct ehea_swqe *swqe, u32 lkey)
 -{
--	swqe->ip_start = skb_network_offset(skb);
--	swqe->ip_end = (u8)(swqe->ip_start + ip_hdrlen(skb) - 1);
--}
+-	struct ehea_vsgentry *sg1entry = &swqe->u.immdata_desc.sg_entry;
+-	u8 *imm_data = &swqe->u.immdata_desc.immediate_data[0];
+-	int skb_data_size = skb_headlen(skb);
+-	int headersize;
 -
--static inline void write_tcp_offset_end(struct ehea_swqe *swqe,
--					const struct sk_buff *skb)
--{
--	swqe->tcp_offset =
--		(u8)(swqe->ip_end + 1 + offsetof(struct tcphdr, check));
+-	/* Packet is TCP with TSO enabled */
+-	swqe->tx_control |= EHEA_SWQE_TSO;
+-	swqe->mss = skb_shinfo(skb)->gso_size;
+-	/* copy only eth/ip/tcp headers to immediate data and
+-	 * the rest of skb->data to sg1entry
+-	 */
+-	headersize = ETH_HLEN + ip_hdrlen(skb) + tcp_hdrlen(skb);
 -
--	swqe->tcp_end = (u16)skb->len - 1;
--}
+-	skb_data_size = skb_headlen(skb);
 -
--static inline void write_udp_offset_end(struct ehea_swqe *swqe,
--					const struct sk_buff *skb)
--{
--	swqe->tcp_offset =
--		(u8)(swqe->ip_end + 1 + offsetof(struct udphdr, check));
+-	if (skb_data_size >= headersize) {
+-		/* copy immediate data */
+-		skb_copy_from_linear_data(skb, imm_data, headersize);
+-		swqe->immediate_data_length = headersize;
 -
--	swqe->tcp_end = (u16)skb->len - 1;
--}
--
--
- static void write_swqe2_TSO(struct sk_buff *skb,
- 			    struct ehea_swqe *swqe, u32 lkey)
- {
-@@ -2113,41 +2082,46 @@ static int ehea_change_mtu(struct net_de
- 	return 0;
- }
- 
--static void ehea_xmit2(struct sk_buff *skb, struct net_device *dev,
--		       struct ehea_swqe *swqe, u32 lkey)
-+static void xmit_common(struct sk_buff *skb, struct ehea_swqe *swqe)
- {
--	if (skb->protocol == htons(ETH_P_IP)) {
--		const struct iphdr *iph = ip_hdr(skb);
-+	swqe->tx_control |= EHEA_SWQE_IMM_DATA_PRESENT | EHEA_SWQE_CRC;
- 
--		/* IPv4 */
--		swqe->tx_control |= EHEA_SWQE_CRC
--				 | EHEA_SWQE_IP_CHECKSUM
--				 | EHEA_SWQE_TCP_CHECKSUM
--				 | EHEA_SWQE_IMM_DATA_PRESENT
--				 | EHEA_SWQE_DESCRIPTORS_PRESENT;
--
--		write_ip_start_end(swqe, skb);
--
--		if (iph->protocol == IPPROTO_UDP) {
--			if ((iph->frag_off & IP_MF) ||
--			    (iph->frag_off & IP_OFFSET))
--				/* IP fragment, so don't change cs */
--				swqe->tx_control &= ~EHEA_SWQE_TCP_CHECKSUM;
--			else
--				write_udp_offset_end(swqe, skb);
--		} else if (iph->protocol == IPPROTO_TCP) {
--			write_tcp_offset_end(swqe, skb);
+-		if (skb_data_size > headersize) {
+-			/* set sg1entry data */
+-			sg1entry->l_key = lkey;
+-			sg1entry->len = skb_data_size - headersize;
+-			sg1entry->vaddr =
+-				ehea_map_vaddr(skb->data + headersize);
+-			swqe->descriptors++;
 -		}
-+	if (skb->protocol != htons(ETH_P_IP))
-+		return;
- 
--		/* icmp (big data) and ip segmentation packets (all other ip
--		   packets) do not require any special handling */
-+	if (skb->ip_summed == CHECKSUM_PARTIAL)
-+		swqe->tx_control |= EHEA_SWQE_IP_CHECKSUM;
- 
--	} else {
--		/* Other Ethernet Protocol */
--		swqe->tx_control |= EHEA_SWQE_CRC
--				 | EHEA_SWQE_IMM_DATA_PRESENT
--				 | EHEA_SWQE_DESCRIPTORS_PRESENT;
-+	swqe->ip_start = skb_network_offset(skb);
-+	swqe->ip_end = swqe->ip_start + ip_hdrlen(skb) - 1;
-+
-+	switch (ip_hdr(skb)->protocol) {
-+	case IPPROTO_UDP:
-+		if (skb->ip_summed == CHECKSUM_PARTIAL)
-+			swqe->tx_control |= EHEA_SWQE_TCP_CHECKSUM;
-+
-+		swqe->tcp_offset = swqe->ip_end + 1 +
-+				   offsetof(struct udphdr, check);
-+		swqe->tcp_end = skb->len - 1;
-+		break;
-+
-+	case IPPROTO_TCP:
-+		if (skb->ip_summed == CHECKSUM_PARTIAL)
-+			swqe->tx_control |= EHEA_SWQE_TCP_CHECKSUM;
-+
-+		swqe->tcp_offset = swqe->ip_end + 1 +
-+				   offsetof(struct tcphdr, check);
-+		swqe->tcp_end = skb->len - 1;
-+		break;
- 	}
-+}
-+
-+static void ehea_xmit2(struct sk_buff *skb, struct net_device *dev,
-+		       struct ehea_swqe *swqe, u32 lkey)
-+{
-+	swqe->tx_control |= EHEA_SWQE_DESCRIPTORS_PRESENT;
-+
-+	xmit_common(skb, swqe);
- 
- 	write_swqe2_data(skb, dev, swqe, lkey);
- }
-@@ -2160,51 +2134,11 @@ static void ehea_xmit3(struct sk_buff *s
- 	skb_frag_t *frag;
- 	int i;
- 
--	if (skb->protocol == htons(ETH_P_IP)) {
--		const struct iphdr *iph = ip_hdr(skb);
+-	} else
+-		pr_err("cannot handle fragmented headers\n");
+-}
 -
--		/* IPv4 */
--		write_ip_start_end(swqe, skb);
-+	xmit_common(skb, swqe);
+-static void write_swqe2_nonTSO(struct sk_buff *skb,
+-			       struct ehea_swqe *swqe, u32 lkey)
++static void write_swqe2_immediate(struct sk_buff *skb, struct ehea_swqe *swqe,
++				  u32 lkey)
+ {
+ 	int skb_data_size = skb_headlen(skb);
+ 	u8 *imm_data = &swqe->u.immdata_desc.immediate_data[0];
+ 	struct ehea_vsgentry *sg1entry = &swqe->u.immdata_desc.sg_entry;
++	unsigned int immediate_len = SWQE2_MAX_IMM;
  
--		if (iph->protocol == IPPROTO_TCP) {
--			swqe->tx_control |= EHEA_SWQE_CRC
--					 | EHEA_SWQE_IP_CHECKSUM
--					 | EHEA_SWQE_TCP_CHECKSUM
--					 | EHEA_SWQE_IMM_DATA_PRESENT;
--
--			write_tcp_offset_end(swqe, skb);
--
--		} else if (iph->protocol == IPPROTO_UDP) {
--			if ((iph->frag_off & IP_MF) ||
--			    (iph->frag_off & IP_OFFSET))
--				/* IP fragment, so don't change cs */
--				swqe->tx_control |= EHEA_SWQE_CRC
--						 | EHEA_SWQE_IMM_DATA_PRESENT;
--			else {
--				swqe->tx_control |= EHEA_SWQE_CRC
--						 | EHEA_SWQE_IP_CHECKSUM
--						 | EHEA_SWQE_TCP_CHECKSUM
--						 | EHEA_SWQE_IMM_DATA_PRESENT;
--
--				write_udp_offset_end(swqe, skb);
--			}
--		} else {
--			/* icmp (big data) and
--			   ip segmentation packets (all other ip packets) */
--			swqe->tx_control |= EHEA_SWQE_CRC
--					 | EHEA_SWQE_IP_CHECKSUM
--					 | EHEA_SWQE_IMM_DATA_PRESENT;
--		}
--	} else {
--		/* Other Ethernet Protocol */
--		swqe->tx_control |= EHEA_SWQE_CRC | EHEA_SWQE_IMM_DATA_PRESENT;
--	}
--	/* copy (immediate) data */
- 	if (nfrags == 0) {
--		/* data is in a single piece */
- 		skb_copy_from_linear_data(skb, imm_data, skb->len);
- 	} else {
--		/* first copy data from the skb->data buffer ... */
- 		skb_copy_from_linear_data(skb, imm_data,
- 					  skb_headlen(skb));
- 		imm_data += skb_headlen(skb);
-@@ -2218,6 +2152,7 @@ static void ehea_xmit3(struct sk_buff *s
- 			imm_data += frag->size;
+-	/* Packet is any nonTSO type
+-	 *
+-	 * Copy as much as possible skb->data to immediate data and
+-	 * the rest to sg1entry
+-	 */
+-	if (skb_data_size >= SWQE2_MAX_IMM) {
+-		/* copy immediate data */
+-		skb_copy_from_linear_data(skb, imm_data, SWQE2_MAX_IMM);
++	swqe->descriptors = 0;
++
++	if (skb_is_gso(skb)) {
++		swqe->tx_control |= EHEA_SWQE_TSO;
++		swqe->mss = skb_shinfo(skb)->gso_size;
++		/*
++		 * For TSO packets we only copy the headers into the
++		 * immediate area.
++		 */
++		immediate_len = ETH_HLEN + ip_hdrlen(skb) + tcp_hdrlen(skb);
++	}
+ 
+-		swqe->immediate_data_length = SWQE2_MAX_IMM;
++	if (skb_is_gso(skb) || skb_data_size >= SWQE2_MAX_IMM) {
++		skb_copy_from_linear_data(skb, imm_data, immediate_len);
++		swqe->immediate_data_length = immediate_len;
+ 
+-		if (skb_data_size > SWQE2_MAX_IMM) {
+-			/* copy sg1entry data */
++		if (skb_data_size > immediate_len) {
+ 			sg1entry->l_key = lkey;
+-			sg1entry->len = skb_data_size - SWQE2_MAX_IMM;
++			sg1entry->len = skb_data_size - immediate_len;
+ 			sg1entry->vaddr =
+-				ehea_map_vaddr(skb->data + SWQE2_MAX_IMM);
++				ehea_map_vaddr(skb->data + immediate_len);
+ 			swqe->descriptors++;
  		}
- 	}
-+
- 	swqe->immediate_data_length = skb->len;
- 	dev_kfree_skb(skb);
- }
-@@ -3221,7 +3156,7 @@ struct ehea_port *ehea_setup_single_port
- 	dev->netdev_ops = &ehea_netdev_ops;
- 	ehea_set_ethtool_ops(dev);
+ 	} else {
+@@ -1758,13 +1728,9 @@ static inline void write_swqe2_data(stru
+ 	nfrags = skb_shinfo(skb)->nr_frags;
+ 	sg1entry = &swqe->u.immdata_desc.sg_entry;
+ 	sg_list = (struct ehea_vsgentry *)&swqe->u.immdata_desc.sg_list;
+-	swqe->descriptors = 0;
+ 	sg1entry_contains_frag_data = 0;
  
--	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO
-+	dev->features = NETIF_F_SG | NETIF_F_TSO
- 		      | NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
- 		      | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER;
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_TSO | NETIF_F_HIGHDMA |
+-	if (skb_is_gso(skb))
+-		write_swqe2_TSO(skb, swqe, lkey);
+-	else
+-		write_swqe2_nonTSO(skb, swqe, lkey);
++	write_swqe2_immediate(skb, swqe, lkey);
+ 
+ 	/* write descriptors */
+ 	if (nfrags > 0) {
