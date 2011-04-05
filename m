@@ -1,201 +1,103 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 5/7] bridge: allow creating/deleting fdb entries via netlink
-Date: Mon, 04 Apr 2011 17:03:31 -0700
-Message-ID: <20110405000537.372602366@vyatta.com>
+Subject: [PATCH 2/7] bridge: track last used time in forwarding table
+Date: Mon, 04 Apr 2011 17:03:28 -0700
+Message-ID: <20110405000537.094334160@vyatta.com>
 References: <20110405000326.714524584@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:42825 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:42821 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750906Ab1DEAJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2011 20:09:50 -0400
-Content-Disposition: inline; filename=br-fdb-newneigh.patch
+	id S1750812Ab1DEAJt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 20:09:49 -0400
+Content-Disposition: inline; filename=br-fdb-used.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use RTM_NEWNEIGH and RTM_DELNEIGH to allow updating of entries
-in bridge forwarding table. This allows manipulating static entries
-which is not possible with existing tools.
-
-Example (using bridge extensions to iproute2)
-   # br fdb add 00:02:03:04:05:06 dev eth0
+Adds tracking the last used time in forwarding table.
+Rename ageing_timer to updated to better describe it.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
- net/bridge/br_fdb.c     |  139 ++++++++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_netlink.c |    3 +
- net/bridge/br_private.h |    2 
- 3 files changed, 144 insertions(+)
+ net/bridge/br_fdb.c     |   10 +++++-----
+ net/bridge/br_input.c   |    5 +++--
+ net/bridge/br_private.h |    3 ++-
+ 3 files changed, 10 insertions(+), 8 deletions(-)
 
---- a/net/bridge/br_fdb.c	2011-03-22 10:25:00.329008182 -0700
-+++ b/net/bridge/br_fdb.c	2011-03-22 10:25:01.057042585 -0700
-@@ -555,3 +555,142 @@ skip:
- 
- 	return skb->len;
+--- a/net/bridge/br_fdb.c	2011-04-03 09:39:13.000000000 -0700
++++ b/net/bridge/br_fdb.c	2011-04-03 09:39:21.221199041 -0700
+@@ -62,7 +62,7 @@ static inline int has_expired(const stru
+ 				  const struct net_bridge_fdb_entry *fdb)
+ {
+ 	return !fdb->is_static &&
+-		time_before_eq(fdb->ageing_timer + hold_time(br), jiffies);
++		time_before_eq(fdb->updated + hold_time(br), jiffies);
  }
-+
-+/* Create new static fdb entry */
-+static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
-+			 __u16 state)
-+{
-+	struct net_bridge *br = source->br;
-+	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
-+	struct net_bridge_fdb_entry *fdb;
-+
-+	fdb = fdb_find(head, addr);
-+	if (fdb)
-+		return -EEXIST;
-+
-+	fdb = fdb_create(head, source, addr);
-+	if (!fdb)
-+		return -ENOMEM;
-+
-+	if (state & NUD_PERMANENT)
-+		fdb->is_local = fdb->is_static = 1;
-+	else if (state & NUD_NOARP)
-+		fdb->is_static = 1;
-+	return 0;
-+}
-+
-+/* Add new permanent fdb entry with RTM_NEWNEIGH */
-+int br_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct ndmsg *ndm;
-+	struct nlattr *tb[NDA_MAX+1];
-+	struct net_device *dev;
-+	struct net_bridge_port *p;
-+	const __u8 *addr;
-+	int err;
-+
-+	ASSERT_RTNL();
-+	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
-+	if (err < 0)
-+		return err;
-+
-+	ndm = nlmsg_data(nlh);
-+	if (ndm->ndm_ifindex == 0) {
-+		pr_info("bridge: RTM_NEWNEIGH with invalid ifindex\n");
-+		return -EINVAL;
-+	}
-+
-+	dev = __dev_get_by_index(net, ndm->ndm_ifindex);
-+	if (dev == NULL) {
-+		pr_info("bridge: RTM_NEWNEIGH with unknown ifindex\n");
-+		return -ENODEV;
-+	}
-+
-+	if (!tb[NDA_LLADDR] || nla_len(tb[NDA_LLADDR]) != ETH_ALEN) {
-+		pr_info("bridge: RTM_NEWNEIGH with invalid address\n");
-+		return -EINVAL;
-+	}
-+
-+	addr = nla_data(tb[NDA_LLADDR]);
-+	if (!is_valid_ether_addr(addr)) {
-+		pr_info("bridge: RTM_NEWNEIGH with invalid ether address\n");
-+		return -EINVAL;
-+	}
-+
-+	p = br_port_get_rtnl(dev);
-+	if (p == NULL) {
-+		pr_info("bridge: RTM_NEWNEIGH %s not a bridge port\n",
-+			dev->name);
-+		return -EINVAL;
-+	}
-+
-+	spin_lock_bh(&p->br->hash_lock);
-+	err = fdb_add_entry(p, addr, ndm->ndm_state);
-+	spin_unlock_bh(&p->br->hash_lock);
-+
-+	return err;
-+}
-+
-+static int fdb_delete_by_addr(struct net_bridge_port *p, const u8 *addr)
-+{
-+	struct net_bridge *br = p->br;
-+	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
-+	struct net_bridge_fdb_entry *fdb;
-+
-+	fdb = fdb_find(head, addr);
-+	if (!fdb)
-+		return -ENOENT;
-+
-+	fdb_delete(fdb);
-+	return 0;
-+}
-+
-+/* Remove neighbor entry with RTM_DELNEIGH */
-+int br_fdb_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct ndmsg *ndm;
-+	struct net_bridge_port *p;
-+	struct nlattr *llattr;
-+	const __u8 *addr;
-+	struct net_device *dev;
-+	int err;
-+
-+	ASSERT_RTNL();
-+	if (nlmsg_len(nlh) < sizeof(*ndm))
-+		return -EINVAL;
-+
-+	ndm = nlmsg_data(nlh);
-+	if (ndm->ndm_ifindex == 0) {
-+		pr_info("bridge: RTM_DELNEIGH with invalid ifindex\n");
-+		return -EINVAL;
-+	}
-+
-+	dev = __dev_get_by_index(net, ndm->ndm_ifindex);
-+	if (dev == NULL) {
-+		pr_info("bridge: RTM_DELNEIGH with unknown ifindex\n");
-+		return -ENODEV;
-+	}
-+
-+	llattr = nlmsg_find_attr(nlh, sizeof(*ndm), NDA_LLADDR);
-+	if (llattr == NULL || nla_len(llattr) != ETH_ALEN) {
-+		pr_info("bridge: RTM_DELNEIGH with invalid address\n");
-+		return -EINVAL;
-+	}
-+
-+	addr = nla_data(llattr);
-+
-+	p = br_port_get_rtnl(dev);
-+	if (p == NULL) {
-+		pr_info("bridge: RTM_DELNEIGH %s not a bridge port\n",
-+			dev->name);
-+		return -EINVAL;
-+	}
-+
-+	spin_lock_bh(&p->br->hash_lock);
-+	err = fdb_delete_by_addr(p, addr);
-+	spin_unlock_bh(&p->br->hash_lock);
-+
-+	return err;
-+}
---- a/net/bridge/br_netlink.c	2011-03-22 10:25:00.329008182 -0700
-+++ b/net/bridge/br_netlink.c	2011-03-22 10:25:01.057042585 -0700
-@@ -196,6 +196,9 @@ int __init br_netlink_init(void)
  
- 	/* Only the first call to __rtnl_register can fail */
- 	__rtnl_register(PF_BRIDGE, RTM_SETLINK, br_rtm_setlink, NULL);
-+
-+	__rtnl_register(PF_BRIDGE, RTM_NEWNEIGH, br_fdb_add, NULL);
-+	__rtnl_register(PF_BRIDGE, RTM_DELNEIGH, br_fdb_delete, NULL);
- 	__rtnl_register(PF_BRIDGE, RTM_GETNEIGH, NULL, br_fdb_dump);
+ static inline int br_mac_hash(const unsigned char *mac)
+@@ -140,7 +140,7 @@ void br_fdb_cleanup(unsigned long _data)
+ 			unsigned long this_timer;
+ 			if (f->is_static)
+ 				continue;
+-			this_timer = f->ageing_timer + delay;
++			this_timer = f->updated + delay;
+ 			if (time_before_eq(this_timer, jiffies))
+ 				fdb_delete(f);
+ 			else if (time_before(this_timer, next_timer))
+@@ -293,7 +293,7 @@ int br_fdb_fillbuf(struct net_bridge *br
  
- 	return 0;
---- a/net/bridge/br_private.h	2011-03-22 10:25:00.329008182 -0700
-+++ b/net/bridge/br_private.h	2011-03-22 10:25:01.057042585 -0700
-@@ -355,6 +355,8 @@ extern void br_fdb_update(struct net_bri
- 			  struct net_bridge_port *source,
- 			  const unsigned char *addr);
- extern int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb);
-+extern int br_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
-+extern int br_fdb_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
+ 			fe->is_local = f->is_local;
+ 			if (!f->is_static)
+-				fe->ageing_timer_value = jiffies_to_clock_t(jiffies - f->ageing_timer);
++				fe->ageing_timer_value = jiffies_to_clock_t(jiffies - f->updated);
+ 			++fe;
+ 			++num;
+ 		}
+@@ -330,7 +330,7 @@ static struct net_bridge_fdb_entry *fdb_
+ 		fdb->dst = source;
+ 		fdb->is_local = 0;
+ 		fdb->is_static = 0;
+-		fdb->ageing_timer = jiffies;
++		fdb->updated = fdb->used = jiffies;
+ 		hlist_add_head_rcu(&fdb->hlist, head);
+ 	}
+ 	return fdb;
+@@ -404,7 +404,7 @@ void br_fdb_update(struct net_bridge *br
+ 		} else {
+ 			/* fastpath: update of existing entry */
+ 			fdb->dst = source;
+-			fdb->ageing_timer = jiffies;
++			fdb->updated = jiffies;
+ 		}
+ 	} else {
+ 		spin_lock(&br->hash_lock);
+--- a/net/bridge/br_input.c	2011-04-01 11:30:16.000000000 -0700
++++ b/net/bridge/br_input.c	2011-04-03 09:39:21.221199041 -0700
+@@ -98,9 +98,10 @@ int br_handle_frame_finish(struct sk_buf
+ 	}
  
- /* br_forward.c */
- extern void br_deliver(const struct net_bridge_port *to,
+ 	if (skb) {
+-		if (dst)
++		if (dst) {
++			dst->used = jiffies;
+ 			br_forward(dst->dst, skb, skb2);
+-		else
++		} else
+ 			br_flood_forward(br, skb, skb2);
+ 	}
+ 
+--- a/net/bridge/br_private.h	2011-04-01 11:30:16.000000000 -0700
++++ b/net/bridge/br_private.h	2011-04-03 09:39:21.221199041 -0700
+@@ -64,7 +64,8 @@ struct net_bridge_fdb_entry
+ 	struct net_bridge_port		*dst;
+ 
+ 	struct rcu_head			rcu;
+-	unsigned long			ageing_timer;
++	unsigned long			updated;
++	unsigned long			used;
+ 	mac_addr			addr;
+ 	unsigned char			is_local;
+ 	unsigned char			is_static;
 
 
