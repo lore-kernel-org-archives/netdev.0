@@ -1,36 +1,40 @@
-From: kaber@trash.net
-Subject: [PATCH 0/8] netfilter: netfilter fixes for 2.6.39-rc1
-Date: Tue,  5 Apr 2011 15:04:11 +0200
-Message-ID: <1302008659-21141-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 12/14] ehea: Add some more ethtool operations and 64bit
+ stats
+Date: Tue, 05 Apr 2011 14:07:57 +0100
+Message-ID: <1302008877.2932.6.camel@bwh-desktop>
+References: <20110405212825.6eb85677@kryten>
+	 <20110405214249.36d248e7@kryten>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	michael@ellerman.id.au
+To: Anton Blanchard <anton@samba.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:41043 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752190Ab1DENIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 09:08:00 -0400
+In-Reply-To: <20110405214249.36d248e7@kryten>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Tue, 2011-04-05 at 21:42 +1000, Anton Blanchard wrote:
+> We can use the standard ethtool functions for set_tx_csum and set_sg.
 
-the following patches for 2.6.39-rc1 fix a few bugs in netfilter:
+These are deprecated.  Please use the generic features interface
+instead.
 
-- ipset list:set timeout variant was broken, from Jozsef
+> Also switch to using ndo_get_stats64 to get 64bit tx/rx stats.
+[...]
 
-- incorrect locking in ipset, from Jozsef
+Should be a separate patch, really.
 
-- incorrect parsing of the amount of elements encoded in SEQUENCE OF for
-  numbers between 2^8 and 2^16-1 in the H.323 conntrack ASN.1 parser,
-  from David Sterba
+Ben.
 
-- a NULL pointer dereference in ip_vs_genl_dump_daemons(), from Hans
-
-- patches from Florian to avoid pulling in the IPv6 module when loading
-  the xt_addrtype module
-
-- an inverted check for inversion in the conntrack direction match,
-  from Florian
-
-Please apply or pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
-
-Thanks!
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
