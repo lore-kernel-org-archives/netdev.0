@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 4/8] IPVS: fix NULL ptr dereference in ip_vs_ctl.c ip_vs_genl_dump_daemons()
-Date: Tue,  5 Apr 2011 15:04:15 +0200
-Message-ID: <1302008659-21141-5-git-send-email-kaber@trash.net>
+Subject: [PATCH 3/8] netfilter: h323: bug in parsing of ASN1 SEQOF field
+Date: Tue,  5 Apr 2011 15:04:14 +0200
+Message-ID: <1302008659-21141-4-git-send-email-kaber@trash.net>
 References: <1302008659-21141-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,47 +10,37 @@ In-Reply-To: <1302008659-21141-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: David Sterba <dsterba@suse.cz>
 
-ipvsadm -ln --daemon will trigger a Null pointer exception because
-ip_vs_genl_dump_daemons() uses skb_net() instead of skb_sknet().
+Static analyzer of clang found a dead store which appears to be a bug in
+reading count of items in SEQOF field, only the lower byte of word is
+stored. This may lead to corrupted read and communication shutdown.
 
-To prevent others from NULL ptr a check is made in ip_vs.h skb_net().
+The bug has been in the module since it's first inclusion into linux
+kernel.
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+[Patrick: the bug is real, but without practical consequence since the
+ largest amount of sequence-of members we parse is 30.]
+
+Signed-off-by: David Sterba <dsterba@suse.cz>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/ip_vs.h            |    2 +-
- net/netfilter/ipvs/ip_vs_ctl.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_h323_asn1.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 30b49ed..4d1b71a 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -52,7 +52,7 @@ static inline struct net *skb_net(const struct sk_buff *skb)
- 	 */
- 	if (likely(skb->dev && skb->dev->nd_net))
- 		return dev_net(skb->dev);
--	if (skb_dst(skb)->dev)
-+	if (skb_dst(skb) && skb_dst(skb)->dev)
- 		return dev_net(skb_dst(skb)->dev);
- 	WARN(skb->sk, "Maybe skb_sknet should be used in %s() at line:%d\n",
- 		      __func__, __LINE__);
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 33733c8..ae47090 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3120,7 +3120,7 @@ nla_put_failure:
- static int ip_vs_genl_dump_daemons(struct sk_buff *skb,
- 				   struct netlink_callback *cb)
- {
--	struct net *net = skb_net(skb);
-+	struct net *net = skb_sknet(skb);
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	mutex_lock(&__ip_vs_mutex);
+diff --git a/net/netfilter/nf_conntrack_h323_asn1.c b/net/netfilter/nf_conntrack_h323_asn1.c
+index 8678823..bcd5ed6 100644
+--- a/net/netfilter/nf_conntrack_h323_asn1.c
++++ b/net/netfilter/nf_conntrack_h323_asn1.c
+@@ -631,7 +631,7 @@ static int decode_seqof(bitstr_t *bs, const struct field_t *f,
+ 		CHECK_BOUND(bs, 2);
+ 		count = *bs->cur++;
+ 		count <<= 8;
+-		count = *bs->cur++;
++		count += *bs->cur++;
+ 		break;
+ 	case SEMI:
+ 		BYTE_ALIGN(bs);
 -- 
 1.7.2.3
 
