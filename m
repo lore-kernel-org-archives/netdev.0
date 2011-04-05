@@ -1,72 +1,39 @@
-From: Gertjan van Wingerde <gwingerde@gmail.com>
-Subject: Re: [PATCH 19/34] rt2x00: Drop __TIME__ usage
-Date: Tue, 5 Apr 2011 17:28:59 +0200
-Message-ID: <BANLkTikK+sYFOE4iCL7N8iZLO5bbx4K4FQ@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 12/34] isdn/diva: Drop __TIME__ usage
+Date: Tue, 05 Apr 2011 16:37:41 +0100
+Message-ID: <1302017861.2932.13.camel@bwh-desktop>
 References: <1302015561-21047-1-git-send-email-mmarek@suse.cz>
-	<1302015561-21047-20-git-send-email-mmarek@suse.cz>
+	 <1302015561-21047-13-git-send-email-mmarek@suse.cz>
+	 <alpine.DEB.2.00.1104051709040.7262@justus.melware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ivo van Doorn <IvDoorn@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Michal Marek <mmarek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:61269 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753996Ab1DEP3A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 11:29:00 -0400
-In-Reply-To: <1302015561-21047-20-git-send-email-mmarek@suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Marek <mmarek@suse.cz>, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Armin Schindler <armin@melware.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1104051709040.7262@justus.melware.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 5, 2011 at 4:59 PM, Michal Marek <mmarek@suse.cz> wrote:
-> The kernel already prints its build timestamp during boot, no need to
-> repeat it in random drivers and produce different object files each
-> time.
->
-> Cc: Ivo van Doorn <IvDoorn@gmail.com>
-> Cc: Gertjan van Wingerde <gwingerde@gmail.com>
-> Cc: linux-wireless@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Michal Marek <mmarek@suse.cz>
+On Tue, 2011-04-05 at 17:10 +0200, Armin Schindler wrote:
+> On Tue, 5 Apr 2011, Michal Marek wrote:
+> > The kernel already prints its build timestamp during boot, no need to
+> > repeat it in random drivers and produce different object files each
+> > time.
+> 
+> The module can be build separately from the kernel, therefore it can have
+> an own build timestamp.
+[...]
 
-Note that this timestamp is not in the kernel log, but in a special
-debug file in debugfs.
-However, I cannot see how a timestamp is actually useful for debugging
-the driver, so
+If you want to distribute an out-of-tree version, that's your own
+business.  It shouldn't limit what is done with the in-tree version.
+Perhaps we could make modpost add a build timestamp to OOT modules,
+though.
 
-Acked-by: Gertjan van Wingerde <gwingerde@gmail.com>
+Ben.
 
-> ---
-> =A0drivers/net/wireless/rt2x00/rt2x00debug.c | =A0 =A01 -
-> =A01 files changed, 0 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/=
-wireless/rt2x00/rt2x00debug.c
-> index c92db32..66166ef 100644
-> --- a/drivers/net/wireless/rt2x00/rt2x00debug.c
-> +++ b/drivers/net/wireless/rt2x00/rt2x00debug.c
-> @@ -568,7 +568,6 @@ static struct dentry *rt2x00debug_create_file_dri=
-ver(const char *name,
-> =A0 =A0 =A0 =A0blob->data =3D data;
-> =A0 =A0 =A0 =A0data +=3D sprintf(data, "driver:\t%s\n", intf->rt2x00d=
-ev->ops->name);
-> =A0 =A0 =A0 =A0data +=3D sprintf(data, "version:\t%s\n", DRV_VERSION)=
-;
-> - =A0 =A0 =A0 data +=3D sprintf(data, "compiled:\t%s %s\n", __DATE__,=
- __TIME__);
-> =A0 =A0 =A0 =A0blob->size =3D strlen(blob->data);
->
-> =A0 =A0 =A0 =A0return debugfs_create_blob(name, S_IRUSR, intf->driver=
-_folder, blob);
-> --
-> 1.7.4.1
->
->
-
-
-
---=20
----
-Gertjan
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
