@@ -1,70 +1,43 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next-2.6 1/7] sfc: Move test of rx_checksum_enabled
- from nic.c to rx.c
-Date: Tue, 05 Apr 2011 19:02:09 +0100
-Message-ID: <1302026529.2932.57.camel@bwh-desktop>
+Subject: [PATCHv2 net-next-2.6 2/7] sfc: Enable all TSO features on VLANs
+Date: Tue, 05 Apr 2011 19:02:53 +0100
+Message-ID: <1302026573.2932.58.camel@bwh-desktop>
 References: <1302026446.2932.56.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:15139 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:15241 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807Ab1DESCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:02:12 -0400
+	with ESMTP id S1754051Ab1DESC4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:02:56 -0400
 In-Reply-To: <1302026446.2932.56.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is preparation for using the generic netdev features interface,
-and should have no effect in itself.
+The TSO code already supports IPv6 on VLAN, so enable it.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/nic.c |    6 ++----
- drivers/net/sfc/rx.c  |    3 +++
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/sfc/efx.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
-index e839661..2594f39 100644
---- a/drivers/net/sfc/nic.c
-+++ b/drivers/net/sfc/nic.c
-@@ -850,7 +850,6 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
- 	unsigned expected_ptr;
- 	bool rx_ev_pkt_ok, discard = false, checksummed;
- 	struct efx_rx_queue *rx_queue;
--	struct efx_nic *efx = channel->efx;
- 
- 	/* Basic packet information */
- 	rx_ev_byte_cnt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_BYTE_CNT);
-@@ -873,9 +872,8 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
- 		 * UDP/IP, then we can rely on the hardware checksum.
- 		 */
- 		checksummed =
--			likely(efx->rx_checksum_enabled) &&
--			(rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
--			 rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP);
-+			rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
-+			rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP;
- 	} else {
- 		efx_handle_rx_not_ok(rx_queue, event, &rx_ev_pkt_ok, &discard);
- 		checksummed = false;
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index c0fdb59..fb402c5 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -605,6 +605,9 @@ void __efx_rx_packet(struct efx_channel *channel,
- 		skb_record_rx_queue(skb, channel->channel);
- 	}
- 
-+	if (unlikely(!efx->rx_checksum_enabled))
-+		checksummed = false;
-+
- 	if (likely(checksummed || rx_buf->is_page)) {
- 		efx_rx_packet_gro(channel, rx_buf, eh, checksummed);
- 		return;
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index d890679..542f32d 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -2457,7 +2457,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 		net_dev->features |= NETIF_F_TSO6;
+ 	/* Mask for features that also apply to VLAN devices */
+ 	net_dev->vlan_features |= (NETIF_F_ALL_CSUM | NETIF_F_SG |
+-				   NETIF_F_HIGHDMA | NETIF_F_TSO);
++				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO);
+ 	efx = netdev_priv(net_dev);
+ 	pci_set_drvdata(pci_dev, efx);
+ 	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
 -- 
 1.7.4
 
