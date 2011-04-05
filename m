@@ -1,7 +1,8 @@
 From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH 11/14] ehea: Remove some unused definitions
-Date: Tue, 5 Apr 2011 21:41:45 +1000
-Message-ID: <20110405214145.4d2dc8f6@kryten>
+Subject: [PATCH 12/14] ehea: Add some more ethtool operations and 64bit
+ stats
+Date: Tue, 5 Apr 2011 21:42:49 +1000
+Message-ID: <20110405214249.36d248e7@kryten>
 References: <20110405212825.6eb85677@kryten>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -9,60 +10,57 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, michael@ellerman.id.au
 To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:37409 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:53829 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753183Ab1DELls (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2011 07:41:48 -0400
+	id S1752743Ab1DELmv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 07:42:51 -0400
 In-Reply-To: <20110405212825.6eb85677@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The queue macros are many levels deep and it makes it harder to
-work your way through them when many of the versions are unused.
-Remove the unused versions.
+We can use the standard ethtool functions for set_tx_csum and set_sg.
+Also switch to using ndo_get_stats64 to get 64bit tx/rx stats.
 
 Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
 
-Index: linux-2.6/drivers/net/ehea/ehea_hw.h
+Index: linux-2.6/drivers/net/ehea/ehea_ethtool.c
 ===================================================================
---- linux-2.6.orig/drivers/net/ehea/ehea_hw.h	2011-03-21 14:18:18.642367504 +1100
-+++ linux-2.6/drivers/net/ehea/ehea_hw.h	2011-03-21 14:18:52.523619465 +1100
-@@ -210,36 +210,11 @@ static inline void epa_store_acc(struct
- 	__raw_writeq(value, (void __iomem *)(epa.addr + offset));
+--- linux-2.6.orig/drivers/net/ehea/ehea_ethtool.c	2011-03-25 18:34:06.358846652 +1100
++++ linux-2.6/drivers/net/ehea/ehea_ethtool.c	2011-03-25 18:37:37.982330408 +1100
+@@ -295,6 +295,8 @@ const struct ethtool_ops ehea_ethtool_op
+ 	.get_flags = ethtool_op_get_flags,
+ 	.set_flags = ehea_set_flags,
+ 	.nway_reset = ehea_nway_reset,		/* Restart autonegotiation */
++	.set_tx_csum = ethtool_op_set_tx_csum,
++	.set_sg = ethtool_op_set_sg,
+ };
+ 
+ void ehea_set_ethtool_ops(struct net_device *netdev)
+Index: linux-2.6/drivers/net/ehea/ehea_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ehea/ehea_main.c	2011-03-25 18:34:06.378861533 +1100
++++ linux-2.6/drivers/net/ehea/ehea_main.c	2011-03-25 18:37:02.810025945 +1100
+@@ -321,10 +321,10 @@ out:
+ 	spin_unlock_irqrestore(&ehea_bcmc_regs.lock, flags);
  }
  
--#define epa_store_eq(epa, offset, value)\
--	epa_store(epa, EQTEMM_OFFSET(offset), value)
--#define epa_load_eq(epa, offset)\
--	epa_load(epa, EQTEMM_OFFSET(offset))
--
- #define epa_store_cq(epa, offset, value)\
- 	epa_store(epa, CQTEMM_OFFSET(offset), value)
- #define epa_load_cq(epa, offset)\
- 	epa_load(epa, CQTEMM_OFFSET(offset))
- 
--#define epa_store_qp(epa, offset, value)\
--	epa_store(epa, QPTEMM_OFFSET(offset), value)
--#define epa_load_qp(epa, offset)\
--	epa_load(epa, QPTEMM_OFFSET(offset))
--
--#define epa_store_qped(epa, offset, value)\
--	epa_store(epa, QPEDMM_OFFSET(offset), value)
--#define epa_load_qped(epa, offset)\
--	epa_load(epa, QPEDMM_OFFSET(offset))
--
--#define epa_store_mrmw(epa, offset, value)\
--	epa_store(epa, MRMWMM_OFFSET(offset), value)
--#define epa_load_mrmw(epa, offset)\
--	epa_load(epa, MRMWMM_OFFSET(offset))
--
--#define epa_store_base(epa, offset, value)\
--	epa_store(epa, HCAGR_OFFSET(offset), value)
--#define epa_load_base(epa, offset)\
--	epa_load(epa, HCAGR_OFFSET(offset))
--
- static inline void ehea_update_sqa(struct ehea_qp *qp, u16 nr_wqes)
+-static struct net_device_stats *ehea_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64 *ehea_get_stats64(struct net_device *dev,
++					struct rtnl_link_stats64 *stats)
  {
- 	struct h_epa epa = qp->epas.kernel;
+ 	struct ehea_port *port = netdev_priv(dev);
+-	struct net_device_stats *stats = &port->stats;
+ 	struct hcp_ehea_port_cb2 *cb2;
+ 	u64 hret, rx_packets, tx_packets, rx_bytes = 0, tx_bytes = 0;
+ 	int i;
+@@ -3038,7 +3038,7 @@ static const struct net_device_ops ehea_
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ehea_netpoll,
+ #endif
+-	.ndo_get_stats		= ehea_get_stats,
++	.ndo_get_stats64	= ehea_get_stats64,
+ 	.ndo_set_mac_address	= ehea_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_multicast_list	= ehea_set_multicast_list,
