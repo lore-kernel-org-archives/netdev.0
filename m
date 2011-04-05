@@ -1,39 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 12/34] isdn/diva: Drop __TIME__ usage
-Date: Tue, 05 Apr 2011 16:37:41 +0100
-Message-ID: <1302017861.2932.13.camel@bwh-desktop>
-References: <1302015561-21047-1-git-send-email-mmarek@suse.cz>
-	 <1302015561-21047-13-git-send-email-mmarek@suse.cz>
-	 <alpine.DEB.2.00.1104051709040.7262@justus.melware.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen: fix
+ LRO disable warning)
+Date: Tue, 5 Apr 2011 08:46:55 -0700
+Message-ID: <20110405084655.10937250@nehalam>
+References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
+	<20110403190555.GA16196@torres.zugschlus.de>
+	<99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
+	<20110405124158.GA28382@torres.zugschlus.de>
+	<99737F4847ED0A48AECC9F4A1974A4B80FD1383943@MNEXMB2.qlogic.org>
+	<20110405151854.GA32759@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michal Marek <mmarek@suse.cz>, linux-kbuild@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Armin Schindler <armin@melware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1104051709040.7262@justus.melware.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Amit Salecha <amit.salecha@qlogic.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Marc Haber <mh+netdev@zugschlus.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:33763 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753601Ab1DEPq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 11:46:57 -0400
+In-Reply-To: <20110405151854.GA32759@torres.zugschlus.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-04-05 at 17:10 +0200, Armin Schindler wrote:
-> On Tue, 5 Apr 2011, Michal Marek wrote:
-> > The kernel already prints its build timestamp during boot, no need to
-> > repeat it in random drivers and produce different object files each
-> > time.
+On Tue, 5 Apr 2011 17:18:54 +0200
+Marc Haber <mh+netdev@zugschlus.de> wrote:
+
+> On Tue, Apr 05, 2011 at 08:15:16AM -0500, Amit Salecha wrote:
+> > This will fix LRO configuration problem. Do you see packet loss with
+> > LRO disable ?
 > 
-> The module can be build separately from the kernel, therefore it can have
-> an own build timestamp.
-[...]
+> No, with LRO disabled things seem to be fine. LRO gets enabled by
+> default though.
 
-If you want to distribute an out-of-tree version, that's your own
-business.  It shouldn't limit what is done with the in-tree version.
-Perhaps we could make modpost add a build timestamp to OOT modules,
-though.
+LRO and routing are fundamentally incompatible, that is why
+the kernel attempts to turn it off. When forwarding packets
+should not be combined (end-to-end principle) and that is what
+LRO does.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Therefore if doing anything like bridging or forwarding kernel
+attempts to get driver to turn LRO off.
