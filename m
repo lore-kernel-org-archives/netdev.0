@@ -1,455 +1,330 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 7/7] bridge: range check STP parameters
-Date: Mon, 04 Apr 2011 17:03:33 -0700
-Message-ID: <20110405000537.559988210@vyatta.com>
+Subject: [PATCH 6/7] bridge: allow creating bridge devices with netlink
+Date: Mon, 04 Apr 2011 17:03:32 -0700
+Message-ID: <20110405000537.465352687@vyatta.com>
 References: <20110405000326.714524584@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Sasikanth V <sasikanth.v19@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:42828 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:42826 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751145Ab1DEAJx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2011 20:09:53 -0400
-Content-Disposition: inline; filename=br-param.patch
+	id S1750930Ab1DEAJu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2011 20:09:50 -0400
+Content-Disposition: inline; filename=br-newlink.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Apply restrictions on STP parameters based 802.1D 1998 standard.
-   * Fixes missing locking in set path cost ioctl
-   * Uses common code for both ioctl and sysfs
+Add netlink device ops to allow creating bridge device via netlink.
+This works in a manner similar to vlan, macvlan and bonding.
 
-This is based on an earlier patch Sasikanth V but with overhaul.
+Example:
+  # ip link add link dev br0 type bridge
+  # ip link del dev br0
 
-Note:
-1. It does NOT enforce the restriction on the relationship max_age and
-   forward delay or hello time because in existing implementation these are
-   set as independant operations.
-
-2. If STP is disabled, there is no restriction on forward delay
-
-3. No restriction on holding time because users use Linux code to act
-   as hub or be sticky.
-
-4. Although standard allow 0-255, Linux only allows 0-63 for port priority
-   because more bits are reserved for port number.
+The change required rearranging initializtion code to deal with
+being called by create link. Most of the initialization happens
+in br_dev_setup, but allocation of stats is done in ndo_init callback
+to deal with allocation failure. Sysfs setup has to wait until
+after the network device kobject is registered.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
 ---
- net/bridge/br_ioctl.c       |   40 ++++++++----------------------------
- net/bridge/br_private.h     |   13 ++++++++---
- net/bridge/br_private_stp.h |   13 +++++++++++
- net/bridge/br_stp.c         |   48 ++++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_stp_if.c      |   21 +++++++++++++++----
- net/bridge/br_sysfs_br.c    |   39 ++---------------------------------
- net/bridge/br_sysfs_if.c    |   26 +++++++----------------
- 7 files changed, 107 insertions(+), 93 deletions(-)
+ net/bridge/br.c         |    1 
+ net/bridge/br_device.c  |   41 +++++++++++++++++++++++
+ net/bridge/br_if.c      |   83 ++----------------------------------------------
+ net/bridge/br_netlink.c |   55 +++++++++++++++++++++++++++----
+ net/bridge/br_notify.c  |    6 +++
+ 5 files changed, 100 insertions(+), 86 deletions(-)
 
---- a/net/bridge/br_ioctl.c	2011-04-04 15:46:46.822291708 -0700
-+++ b/net/bridge/br_ioctl.c	2011-04-04 16:34:29.164630581 -0700
-@@ -181,40 +181,19 @@ static int old_dev_ioctl(struct net_devi
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		spin_lock_bh(&br->lock);
--		br->bridge_forward_delay = clock_t_to_jiffies(args[1]);
--		if (br_is_root_bridge(br))
--			br->forward_delay = br->bridge_forward_delay;
--		spin_unlock_bh(&br->lock);
--		return 0;
-+		return br_set_forward_delay(br, args[1]);
- 
- 	case BRCTL_SET_BRIDGE_HELLO_TIME:
--	{
--		unsigned long t = clock_t_to_jiffies(args[1]);
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		if (t < HZ)
--			return -EINVAL;
--
--		spin_lock_bh(&br->lock);
--		br->bridge_hello_time = t;
--		if (br_is_root_bridge(br))
--			br->hello_time = br->bridge_hello_time;
--		spin_unlock_bh(&br->lock);
--		return 0;
--	}
-+		return br_set_hello_time(br, args[1]);
- 
- 	case BRCTL_SET_BRIDGE_MAX_AGE:
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		spin_lock_bh(&br->lock);
--		br->bridge_max_age = clock_t_to_jiffies(args[1]);
--		if (br_is_root_bridge(br))
--			br->max_age = br->bridge_max_age;
--		spin_unlock_bh(&br->lock);
--		return 0;
-+		return br_set_max_age(br, args[1]);
- 
- 	case BRCTL_SET_AGEING_TIME:
- 		if (!capable(CAP_NET_ADMIN))
-@@ -275,19 +254,16 @@ static int old_dev_ioctl(struct net_devi
- 	case BRCTL_SET_PORT_PRIORITY:
- 	{
- 		struct net_bridge_port *p;
--		int ret = 0;
-+		int ret;
- 
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 
--		if (args[2] >= (1<<(16-BR_PORT_BITS)))
--			return -ERANGE;
--
- 		spin_lock_bh(&br->lock);
- 		if ((p = br_get_port(br, args[1])) == NULL)
- 			ret = -EINVAL;
- 		else
--			br_stp_set_port_priority(p, args[2]);
-+			ret = br_stp_set_port_priority(p, args[2]);
- 		spin_unlock_bh(&br->lock);
- 		return ret;
- 	}
-@@ -295,15 +271,17 @@ static int old_dev_ioctl(struct net_devi
- 	case BRCTL_SET_PATH_COST:
- 	{
- 		struct net_bridge_port *p;
--		int ret = 0;
-+		int ret;
- 
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 
-+		spin_lock_bh(&br->lock);
- 		if ((p = br_get_port(br, args[1])) == NULL)
- 			ret = -EINVAL;
- 		else
--			br_stp_set_path_cost(p, args[2]);
-+			ret = br_stp_set_path_cost(p, args[2]);
-+		spin_unlock_bh(&br->lock);
- 
- 		return ret;
- 	}
---- a/net/bridge/br_private.h	2011-04-04 15:39:32.777614097 -0700
-+++ b/net/bridge/br_private.h	2011-04-04 16:39:55.816195002 -0700
-@@ -495,6 +495,11 @@ extern struct net_bridge_port *br_get_po
- extern void br_init_port(struct net_bridge_port *p);
- extern void br_become_designated_port(struct net_bridge_port *p);
- 
-+extern int br_set_forward_delay(struct net_bridge *br, unsigned long x);
-+extern int br_set_hello_time(struct net_bridge *br, unsigned long x);
-+extern int br_set_max_age(struct net_bridge *br, unsigned long x);
-+
-+
- /* br_stp_if.c */
- extern void br_stp_enable_bridge(struct net_bridge *br);
- extern void br_stp_disable_bridge(struct net_bridge *br);
-@@ -505,10 +510,10 @@ extern bool br_stp_recalculate_bridge_id
- extern void br_stp_change_bridge_id(struct net_bridge *br, const unsigned char *a);
- extern void br_stp_set_bridge_priority(struct net_bridge *br,
- 				       u16 newprio);
--extern void br_stp_set_port_priority(struct net_bridge_port *p,
--				     u8 newprio);
--extern void br_stp_set_path_cost(struct net_bridge_port *p,
--				 u32 path_cost);
-+extern int br_stp_set_port_priority(struct net_bridge_port *p,
-+				    unsigned long newprio);
-+extern int br_stp_set_path_cost(struct net_bridge_port *p,
-+				unsigned long path_cost);
- extern ssize_t br_show_bridge_id(char *buf, const struct bridge_id *id);
- 
- /* br_stp_bpdu.c */
---- a/net/bridge/br_private_stp.h	2011-04-04 15:40:02.125930146 -0700
-+++ b/net/bridge/br_private_stp.h	2011-04-04 16:21:05.960073263 -0700
-@@ -16,6 +16,19 @@
- #define BPDU_TYPE_CONFIG 0
- #define BPDU_TYPE_TCN 0x80
- 
-+/* IEEE 802.1D-1998 timer values */
-+#define BR_MIN_HELLO_TIME	(1*HZ)
-+#define BR_MAX_HELLO_TIME	(10*HZ)
-+
-+#define BR_MIN_FORWARD_DELAY	(2*HZ)
-+#define BR_MAX_FORWARD_DELAY	(30*HZ)
-+
-+#define BR_MIN_MAX_AGE		(6*HZ)
-+#define BR_MAX_MAX_AGE		(40*HZ)
-+
-+#define BR_MIN_PATH_COST	1
-+#define BR_MAX_PATH_COST	65535
-+
- struct br_config_bpdu
- {
- 	unsigned	topology_change:1;
---- a/net/bridge/br_stp.c	2011-04-04 15:47:54.707023927 -0700
-+++ b/net/bridge/br_stp.c	2011-04-04 16:33:49.908201916 -0700
-@@ -484,3 +484,51 @@ void br_received_tcn_bpdu(struct net_bri
- 		br_topology_change_acknowledge(p);
- 	}
+--- a/net/bridge/br_device.c	2011-03-22 10:14:12.669553975 -0700
++++ b/net/bridge/br_device.c	2011-03-22 10:25:05.369243058 -0700
+@@ -74,6 +74,17 @@ out:
+ 	return NETDEV_TX_OK;
  }
-+
-+/* Change bridge STP parameter */
-+int br_set_hello_time(struct net_bridge *br, unsigned long val)
+ 
++static int br_dev_init(struct net_device *dev)
 +{
-+	unsigned long t = clock_t_to_jiffies(val);
++	struct net_bridge *br = netdev_priv(dev);
 +
-+	if (t < BR_MIN_HELLO_TIME || t > BR_MAX_HELLO_TIME)
-+		return -ERANGE;
++	br->stats = alloc_percpu(struct br_cpu_netstats);
++	if (!br->stats)
++		return -ENOMEM;
 +
-+	spin_lock_bh(&br->lock);
-+	br->bridge_hello_time = t;
-+	if (br_is_root_bridge(br))
-+		br->hello_time = br->bridge_hello_time;
-+	spin_unlock_bh(&br->lock);
 +	return 0;
 +}
 +
-+int br_set_max_age(struct net_bridge *br, unsigned long val)
-+{
-+	unsigned long t = clock_t_to_jiffies(val);
-+
-+	if (t < BR_MIN_MAX_AGE || t > BR_MAX_MAX_AGE)
-+		return -ERANGE;
-+
-+	spin_lock_bh(&br->lock);
-+	br->bridge_max_age = t;
-+	if (br_is_root_bridge(br))
-+		br->max_age = br->bridge_max_age;
-+	spin_unlock_bh(&br->lock);
-+	return 0;
-+
-+}
-+
-+int br_set_forward_delay(struct net_bridge *br, unsigned long val)
-+{
-+	unsigned long t = clock_t_to_jiffies(val);
-+
-+	if (br->stp_enabled != BR_NO_STP &&
-+	    (t < BR_MIN_FORWARD_DELAY || t > BR_MAX_FORWARD_DELAY))
-+		return -ERANGE;
-+
-+	spin_lock_bh(&br->lock);
-+	br->bridge_forward_delay = t;
-+	if (br_is_root_bridge(br))
-+		br->forward_delay = br->bridge_forward_delay;
-+	spin_unlock_bh(&br->lock);
-+	return 0;
-+}
---- a/net/bridge/br_stp_if.c	2011-04-04 16:11:56.538282617 -0700
-+++ b/net/bridge/br_stp_if.c	2011-04-04 16:33:49.888201699 -0700
-@@ -20,7 +20,7 @@
- 
- 
- /* Port id is composed of priority and port number.
-- * NB: least significant bits of priority are dropped to
-+ * NB: some bits of priority are dropped to
-  *     make room for more ports.
-  */
- static inline port_id br_make_port_id(__u8 priority, __u16 port_no)
-@@ -29,6 +29,8 @@ static inline port_id br_make_port_id(__
- 		| (port_no & ((1<<BR_PORT_BITS)-1));
- }
- 
-+#define BR_MAX_PORT_PRIORITY ((u16)~0 >> BR_PORT_BITS)
-+
- /* called under bridge lock */
- void br_init_port(struct net_bridge_port *p)
+ static int br_dev_open(struct net_device *dev)
  {
-@@ -255,10 +257,14 @@ void br_stp_set_bridge_priority(struct n
+ 	struct net_bridge *br = netdev_priv(dev);
+@@ -334,6 +345,7 @@ static const struct ethtool_ops br_ethto
+ static const struct net_device_ops br_netdev_ops = {
+ 	.ndo_open		 = br_dev_open,
+ 	.ndo_stop		 = br_dev_stop,
++	.ndo_init		 = br_dev_init,
+ 	.ndo_start_xmit		 = br_dev_xmit,
+ 	.ndo_get_stats64	 = br_get_stats64,
+ 	.ndo_set_mac_address	 = br_set_mac_address,
+@@ -357,18 +369,47 @@ static void br_dev_free(struct net_devic
+ 	free_netdev(dev);
  }
  
- /* called under bridge lock */
--void br_stp_set_port_priority(struct net_bridge_port *p, u8 newprio)
-+int br_stp_set_port_priority(struct net_bridge_port *p, unsigned long newprio)
- {
--	port_id new_port_id = br_make_port_id(newprio, p->port_no);
-+	port_id new_port_id;
++static struct device_type br_type = {
++	.name	= "bridge",
++};
 +
-+	if (newprio > BR_MAX_PORT_PRIORITY)
-+		return -ERANGE;
- 
-+	new_port_id = br_make_port_id(newprio, p->port_no);
- 	if (br_is_designated_port(p))
- 		p->designated_port = new_port_id;
- 
-@@ -269,14 +275,21 @@ void br_stp_set_port_priority(struct net
- 		br_become_designated_port(p);
- 		br_port_state_selection(p->br);
- 	}
+ void br_dev_setup(struct net_device *dev)
+ {
++	struct net_bridge *br = netdev_priv(dev);
 +
-+	return 0;
- }
+ 	random_ether_addr(dev->dev_addr);
+ 	ether_setup(dev);
  
- /* called under bridge lock */
--void br_stp_set_path_cost(struct net_bridge_port *p, u32 path_cost)
-+int br_stp_set_path_cost(struct net_bridge_port *p, unsigned long path_cost)
- {
-+	if (path_cost < BR_MIN_PATH_COST ||
-+	    path_cost > BR_MAX_PATH_COST)
-+		return -ERANGE;
+ 	dev->netdev_ops = &br_netdev_ops;
+ 	dev->destructor = br_dev_free;
+ 	SET_ETHTOOL_OPS(dev, &br_ethtool_ops);
++	SET_NETDEV_DEVTYPE(dev, &br_type);
+ 	dev->tx_queue_len = 0;
+ 	dev->priv_flags = IFF_EBRIDGE;
+ 
+ 	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
+ 			NETIF_F_GSO_MASK | NETIF_F_NO_CSUM | NETIF_F_LLTX |
+ 			NETIF_F_NETNS_LOCAL | NETIF_F_GSO | NETIF_F_HW_VLAN_TX;
 +
- 	p->path_cost = path_cost;
- 	br_configuration_update(p->br);
- 	br_port_state_selection(p->br);
-+	return 0;
- }
- 
- ssize_t br_show_bridge_id(char *buf, const struct bridge_id *id)
---- a/net/bridge/br_sysfs_br.c	2011-04-04 15:56:51.112815302 -0700
-+++ b/net/bridge/br_sysfs_br.c	2011-04-04 15:59:07.710269828 -0700
-@@ -43,9 +43,7 @@ static ssize_t store_bridge_parm(struct
- 	if (endp == buf)
- 		return -EINVAL;
- 
--	spin_lock_bh(&br->lock);
- 	err = (*set)(br, val);
--	spin_unlock_bh(&br->lock);
- 	return err ? err : len;
- }
- 
-@@ -57,20 +55,11 @@ static ssize_t show_forward_delay(struct
- 	return sprintf(buf, "%lu\n", jiffies_to_clock_t(br->forward_delay));
- }
- 
--static int set_forward_delay(struct net_bridge *br, unsigned long val)
--{
--	unsigned long delay = clock_t_to_jiffies(val);
--	br->forward_delay = delay;
--	if (br_is_root_bridge(br))
--		br->bridge_forward_delay = delay;
--	return 0;
--}
--
- static ssize_t store_forward_delay(struct device *d,
- 				   struct device_attribute *attr,
- 				   const char *buf, size_t len)
- {
--	return store_bridge_parm(d, buf, len, set_forward_delay);
-+	return store_bridge_parm(d, buf, len, br_set_forward_delay);
- }
- static DEVICE_ATTR(forward_delay, S_IRUGO | S_IWUSR,
- 		   show_forward_delay, store_forward_delay);
-@@ -82,24 +71,11 @@ static ssize_t show_hello_time(struct de
- 		       jiffies_to_clock_t(to_bridge(d)->hello_time));
- }
- 
--static int set_hello_time(struct net_bridge *br, unsigned long val)
--{
--	unsigned long t = clock_t_to_jiffies(val);
--
--	if (t < HZ)
--		return -EINVAL;
--
--	br->hello_time = t;
--	if (br_is_root_bridge(br))
--		br->bridge_hello_time = t;
--	return 0;
--}
--
- static ssize_t store_hello_time(struct device *d,
- 				struct device_attribute *attr, const char *buf,
- 				size_t len)
- {
--	return store_bridge_parm(d, buf, len, set_hello_time);
-+	return store_bridge_parm(d, buf, len, br_set_hello_time);
- }
- static DEVICE_ATTR(hello_time, S_IRUGO | S_IWUSR, show_hello_time,
- 		   store_hello_time);
-@@ -111,19 +87,10 @@ static ssize_t show_max_age(struct devic
- 		       jiffies_to_clock_t(to_bridge(d)->max_age));
- }
- 
--static int set_max_age(struct net_bridge *br, unsigned long val)
--{
--	unsigned long t = clock_t_to_jiffies(val);
--	br->max_age = t;
--	if (br_is_root_bridge(br))
--		br->bridge_max_age = t;
--	return 0;
--}
--
- static ssize_t store_max_age(struct device *d, struct device_attribute *attr,
- 			     const char *buf, size_t len)
- {
--	return store_bridge_parm(d, buf, len, set_max_age);
-+	return store_bridge_parm(d, buf, len, br_set_max_age);
- }
- static DEVICE_ATTR(max_age, S_IRUGO | S_IWUSR, show_max_age, store_max_age);
- 
---- a/net/bridge/br_sysfs_if.c	2011-04-04 16:11:07.277767864 -0700
-+++ b/net/bridge/br_sysfs_if.c	2011-04-04 16:32:56.123614502 -0700
-@@ -23,7 +23,7 @@
- struct brport_attribute {
- 	struct attribute	attr;
- 	ssize_t (*show)(struct net_bridge_port *, char *);
--	ssize_t (*store)(struct net_bridge_port *, unsigned long);
-+	int (*store)(struct net_bridge_port *, unsigned long);
- };
- 
- #define BRPORT_ATTR(_name,_mode,_show,_store)		        \
-@@ -38,27 +38,17 @@ static ssize_t show_path_cost(struct net
- {
- 	return sprintf(buf, "%d\n", p->path_cost);
- }
--static ssize_t store_path_cost(struct net_bridge_port *p, unsigned long v)
--{
--	br_stp_set_path_cost(p, v);
--	return 0;
--}
++	br->dev = dev;
++	spin_lock_init(&br->lock);
++	INIT_LIST_HEAD(&br->port_list);
++	spin_lock_init(&br->hash_lock);
 +
- static BRPORT_ATTR(path_cost, S_IRUGO | S_IWUSR,
--		   show_path_cost, store_path_cost);
-+		   show_path_cost, br_stp_set_path_cost);
- 
- static ssize_t show_priority(struct net_bridge_port *p, char *buf)
- {
- 	return sprintf(buf, "%d\n", p->priority);
- }
--static ssize_t store_priority(struct net_bridge_port *p, unsigned long v)
--{
--	if (v >= (1<<(16-BR_PORT_BITS)))
--		return -ERANGE;
--	br_stp_set_port_priority(p, v);
--	return 0;
--}
++	br->bridge_id.prio[0] = 0x80;
++	br->bridge_id.prio[1] = 0x00;
 +
- static BRPORT_ATTR(priority, S_IRUGO | S_IWUSR,
--			 show_priority, store_priority);
-+			 show_priority, br_stp_set_port_priority);
- 
- static ssize_t show_designated_root(struct net_bridge_port *p, char *buf)
- {
-@@ -136,7 +126,7 @@ static ssize_t show_hold_timer(struct ne
++	memcpy(br->group_addr, br_group_address, ETH_ALEN);
++
++	br->feature_mask = dev->features;
++	br->stp_enabled = BR_NO_STP;
++	br->designated_root = br->bridge_id;
++	br->bridge_max_age = br->max_age = 20 * HZ;
++	br->bridge_hello_time = br->hello_time = 2 * HZ;
++	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
++	br->ageing_time = 300 * HZ;
++
++	br_netfilter_rtable_init(br);
++	br_stp_timer_init(br);
++	br_multicast_init(br);
  }
- static BRPORT_ATTR(hold_timer, S_IRUGO, show_hold_timer, NULL);
+--- a/net/bridge/br_netlink.c	2011-03-22 10:25:01.057042585 -0700
++++ b/net/bridge/br_netlink.c	2011-03-22 10:25:05.369243058 -0700
+@@ -12,9 +12,11 @@
  
--static ssize_t store_flush(struct net_bridge_port *p, unsigned long v)
-+static int store_flush(struct net_bridge_port *p, unsigned long v)
- {
- 	br_fdb_delete_by_port(p->br, p, 0); // Don't delete local entry
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
++#include <linux/etherdevice.h>
+ #include <net/rtnetlink.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
++
+ #include "br_private.h"
+ 
+ static inline size_t br_nlmsg_size(void)
+@@ -188,24 +190,61 @@ static int br_rtm_setlink(struct sk_buff
  	return 0;
-@@ -148,7 +138,7 @@ static ssize_t show_hairpin_mode(struct
- 	int hairpin_mode = (p->flags & BR_HAIRPIN_MODE) ? 1 : 0;
- 	return sprintf(buf, "%d\n", hairpin_mode);
- }
--static ssize_t store_hairpin_mode(struct net_bridge_port *p, unsigned long v)
-+static int store_hairpin_mode(struct net_bridge_port *p, unsigned long v)
- {
- 	if (v)
- 		p->flags |= BR_HAIRPIN_MODE;
-@@ -165,7 +155,7 @@ static ssize_t show_multicast_router(str
- 	return sprintf(buf, "%d\n", p->multicast_router);
  }
  
--static ssize_t store_multicast_router(struct net_bridge_port *p,
-+static int store_multicast_router(struct net_bridge_port *p,
- 				      unsigned long v)
++static int br_validate(struct nlattr *tb[], struct nlattr *data[])
++{
++	if (tb[IFLA_ADDRESS]) {
++		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
++			return -EINVAL;
++		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
++			return -EADDRNOTAVAIL;
++	}
++
++	return 0;
++}
++
++static struct rtnl_link_ops br_link_ops __read_mostly = {
++	.kind		= "bridge",
++	.priv_size	= sizeof(struct net_bridge),
++	.setup		= br_dev_setup,
++	.validate	= br_validate,
++};
+ 
+ int __init br_netlink_init(void)
  {
- 	return br_multicast_set_port_router(p, v);
+-	if (__rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, br_dump_ifinfo))
+-		return -ENOBUFS;
++	int err;
+ 
+-	/* Only the first call to __rtnl_register can fail */
+-	__rtnl_register(PF_BRIDGE, RTM_SETLINK, br_rtm_setlink, NULL);
++	err = rtnl_link_register(&br_link_ops);
++	if (err < 0)
++		goto err1;
+ 
+-	__rtnl_register(PF_BRIDGE, RTM_NEWNEIGH, br_fdb_add, NULL);
+-	__rtnl_register(PF_BRIDGE, RTM_DELNEIGH, br_fdb_delete, NULL);
+-	__rtnl_register(PF_BRIDGE, RTM_GETNEIGH, NULL, br_fdb_dump);
++	err = __rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, br_dump_ifinfo);
++	if (err)
++		goto err2;
++	err = __rtnl_register(PF_BRIDGE, RTM_SETLINK, br_rtm_setlink, NULL);
++	if (err)
++		goto err3;
++	err = __rtnl_register(PF_BRIDGE, RTM_NEWNEIGH, br_fdb_add, NULL);
++	if (err)
++		goto err3;
++	err = __rtnl_register(PF_BRIDGE, RTM_DELNEIGH, br_fdb_delete, NULL);
++	if (err)
++		goto err3;
++	err = __rtnl_register(PF_BRIDGE, RTM_GETNEIGH, NULL, br_fdb_dump);
++	if (err)
++		goto err3;
+ 
+ 	return 0;
++
++err3:
++	rtnl_unregister_all(PF_BRIDGE);
++err2:
++	rtnl_link_unregister(&br_link_ops);
++err1:
++	return err;
+ }
+ 
+ void __exit br_netlink_fini(void)
+ {
++	rtnl_link_unregister(&br_link_ops);
+ 	rtnl_unregister_all(PF_BRIDGE);
+ }
+-
+--- a/net/bridge/br_if.c	2011-03-22 10:24:50.420524900 -0700
++++ b/net/bridge/br_if.c	2011-03-22 10:25:05.369243058 -0700
+@@ -175,56 +175,6 @@ static void del_br(struct net_bridge *br
+ 	unregister_netdevice_queue(br->dev, head);
+ }
+ 
+-static struct net_device *new_bridge_dev(struct net *net, const char *name)
+-{
+-	struct net_bridge *br;
+-	struct net_device *dev;
+-
+-	dev = alloc_netdev(sizeof(struct net_bridge), name,
+-			   br_dev_setup);
+-
+-	if (!dev)
+-		return NULL;
+-	dev_net_set(dev, net);
+-
+-	br = netdev_priv(dev);
+-	br->dev = dev;
+-
+-	br->stats = alloc_percpu(struct br_cpu_netstats);
+-	if (!br->stats) {
+-		free_netdev(dev);
+-		return NULL;
+-	}
+-
+-	spin_lock_init(&br->lock);
+-	INIT_LIST_HEAD(&br->port_list);
+-	spin_lock_init(&br->hash_lock);
+-
+-	br->bridge_id.prio[0] = 0x80;
+-	br->bridge_id.prio[1] = 0x00;
+-
+-	memcpy(br->group_addr, br_group_address, ETH_ALEN);
+-
+-	br->feature_mask = dev->features;
+-	br->stp_enabled = BR_NO_STP;
+-	br->designated_root = br->bridge_id;
+-	br->root_path_cost = 0;
+-	br->root_port = 0;
+-	br->bridge_max_age = br->max_age = 20 * HZ;
+-	br->bridge_hello_time = br->hello_time = 2 * HZ;
+-	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
+-	br->topology_change = 0;
+-	br->topology_change_detected = 0;
+-	br->ageing_time = 300 * HZ;
+-
+-	br_netfilter_rtable_init(br);
+-
+-	br_stp_timer_init(br);
+-	br_multicast_init(br);
+-
+-	return dev;
+-}
+-
+ /* find an available port number */
+ static int find_portno(struct net_bridge *br)
+ {
+@@ -277,42 +227,19 @@ static struct net_bridge_port *new_nbp(s
+ 	return p;
+ }
+ 
+-static struct device_type br_type = {
+-	.name	= "bridge",
+-};
+-
+ int br_add_bridge(struct net *net, const char *name)
+ {
+ 	struct net_device *dev;
+-	int ret;
+ 
+-	dev = new_bridge_dev(net, name);
++	dev = alloc_netdev(sizeof(struct net_bridge), name,
++			   br_dev_setup);
++
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+-	rtnl_lock();
+-	if (strchr(dev->name, '%')) {
+-		ret = dev_alloc_name(dev, dev->name);
+-		if (ret < 0)
+-			goto out_free;
+-	}
+-
+-	SET_NETDEV_DEVTYPE(dev, &br_type);
++	dev_net_set(dev, net);
+ 
+-	ret = register_netdevice(dev);
+-	if (ret)
+-		goto out_free;
+-
+-	ret = br_sysfs_addbr(dev);
+-	if (ret)
+-		unregister_netdevice(dev);
+- out:
+-	rtnl_unlock();
+-	return ret;
+-
+-out_free:
+-	free_netdev(dev);
+-	goto out;
++	return register_netdev(dev);
+ }
+ 
+ int br_del_bridge(struct net *net, const char *name)
+--- a/net/bridge/br.c	2011-03-22 10:13:27.074313779 -0700
++++ b/net/bridge/br.c	2011-03-22 10:25:05.369243058 -0700
+@@ -104,3 +104,4 @@ module_init(br_init)
+ module_exit(br_deinit)
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(BR_VERSION);
++MODULE_ALIAS_RTNL_LINK("bridge");
+--- a/net/bridge/br_notify.c	2011-03-22 10:13:27.090305095 -0700
++++ b/net/bridge/br_notify.c	2011-03-22 10:25:05.369243058 -0700
+@@ -36,6 +36,12 @@ static int br_device_event(struct notifi
+ 	struct net_bridge *br;
+ 	int err;
+ 
++	/* register of bridge completed, add sysfs entries */
++	if ((dev->priv_flags && IFF_EBRIDGE) && event == NETDEV_REGISTER) {
++		br_sysfs_addbr(dev);
++		return NOTIFY_DONE;
++	}
++
+ 	/* not a port of a bridge */
+ 	p = br_port_get_rtnl(dev);
+ 	if (!p)
 
 
