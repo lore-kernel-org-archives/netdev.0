@@ -1,75 +1,79 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
-Date: Tue, 5 Apr 2011 13:57:51 +0200
-Message-ID: <20110405115751.GA24997@game.jcrosoft.org>
-References: <20110321111838.GC2610@pulham.picochip.com>
- <20110322161811.GF6466@game.jcrosoft.org>
- <20110322163917.GD10058@pulham.picochip.com>
- <20110322175523.GE10058@pulham.picochip.com>
- <20110324162517.GI6466@game.jcrosoft.org>
- <20110331094041.GD3371@pulham.picochip.com>
- <20110405102842.GC22192@game.jcrosoft.org>
- <20110405104910.GE4797@pulham.picochip.com>
- <20110405112102.GB19268@game.jcrosoft.org>
- <20110405114754.GG4797@pulham.picochip.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: extending feature word.
+Date: Tue, 05 Apr 2011 13:07:41 +0100
+Message-ID: <1302005261.2932.4.camel@bwh-desktop>
+References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com>
+	 <20110402124207.GB3147@rere.qmqm.pl>
+	 <BANLkTi=hCqT5BPe926N36omObpYvMcNtjg@mail.gmail.com>
+	 <20110405113007.GA21358@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
-	David Miller <davem@davemloft.net>,
-	Peter Korsgaard <jacmet@sunsite.dk>,
-	Andrew Victor <linux@maxim.org.za>,
-	linux-arm-kernel@lists.infradead.org
-To: Jamie Iles <jamie@jamieiles.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	linux-netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 63.mail-out.ovh.net ([91.121.185.56]:42246 "HELO
-	63.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752886Ab1DEMFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 08:05:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20110405114754.GG4797@pulham.picochip.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:35559 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752743Ab1DEMHo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 08:07:44 -0400
+In-Reply-To: <20110405113007.GA21358@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12:47 Tue 05 Apr     , Jamie Iles wrote:
-> On Tue, Apr 05, 2011 at 01:21:02PM +0200, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > On 11:49 Tue 05 Apr     , Jamie Iles wrote:
-> > > On Tue, Apr 05, 2011 at 12:28:42PM +0200, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > > > work fine on 9263ek except the IP version detection.
-> > > > 
-> > > > the at91 macb ip version is supposed to be at 0x0601010C but it's not.
-> > > > At least on 9263 it's 0x0001010C. So we can not detect the arch at runtime
-> > > > but we can detect that it's a macb.
-> > > > 
-> > > > So could keep the ifdef for 2 archs but use the ip version on arm
-> > > 
-> > > OK, well I think my patches are already doing that so should be OK as 
-> > > they are.
-> > > 
-> > > Russell, are you able to take these through your tree (I think they 
-> > > count as consolidation work) or should I ask Stephen for a tree in 
-> > > linux-next for a while first?
-> > no please do not us the is_gem but the same way as I did in the ip detection
-> > keep the version register and then check it.
-> > 
-> > as this ip can be used on other arch we do not want to see thousands 
-> > of is_xxx
-> 
-> But GEM isn't an architecture/machine type, it's a new Cadence Ethernet 
-> controller that follows on from MACB, not some arch specific tweaks so 
-> we really only have two options - MACB or GEM.
-I agree but you can have this ip in other soc so we need to try to make it
-as generic as possible
-and socs can have specific tweaks
-So use the version register and mask it is better in my mind and more flexible
-It's a shame that we can not detect the diff between avr32 and at91 via ip
-version.
+On Tue, 2011-04-05 at 13:30 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> On Sat, Apr 02, 2011 at 08:09:14PM -0700, Mahesh Bandewar wrote:
+> > On Sat, Apr 2, 2011 at 5:42 AM, Micha=C5=82 Miros=C5=82aw <mirq-lin=
+ux@rere.qmqm.pl> wrote:
+> > > On Fri, Apr 01, 2011 at 07:07:05PM -0700, Mahesh Bandewar wrote:
+> > > If you want to split the work, it would be clearer to first conve=
+rt
+> > > hw_features and wanted_features (with all the core code touching =
+it -
+> > > this is the easy part), then vlan_features (this includes drivers=
+'
+> > > and VLAN code) and then features (it's all over).
+> > I like the idea of splitting but it will be only useful when all of=
+ it
+> > is done and not partially, isn't it? Or am I missing something?
+>=20
+> Since this is a big change, when split it might be easier to follow.
+> OTOH, with your idea of macro it might be easier to do incremental
+> changes (I think this will be a lot of work for no gain in this case)=
+=2E
 
-I hope that ip variation could be detected via version register.
-Next time.
-> 
-> Still, if it's important to you then I'll make the change.
-If you don't ming please
+I strongly disagree with using macros for this.  They are very likely t=
+o
+conflict with other identifiers..
 
-Best Regards,
-J.
+We might be able to get away with something like:
+
+	union {
+		u32 features;
+		u32 feature[N];
+	};
+	union {
+		u32 vlan_features;
+		u32 vlan_feature[N];
+	};
+	union {
+		u32 hw_features;
+		u32 hw_feature[N];
+	};
+
+(assuming hw_features is new enough that there is no need for the
+alias).
+
+Anyway, if we're going to put all the feature words in net_device
+there's no longer any reason for NETIF_F_LOOPBACK not to be in the firs=
+t
+word.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
