@@ -1,65 +1,49 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCHv2 0/9] macb: add support for Cadence GEM
-Date: Tue, 5 Apr 2011 12:28:42 +0200
-Message-ID: <20110405102842.GC22192@game.jcrosoft.org>
-References: <1300184096-13937-1-git-send-email-jamie@jamieiles.com>
- <20110316.131734.242138246.davem@davemloft.net>
- <4D86F25A.7060405@atmel.com>
- <20110321111838.GC2610@pulham.picochip.com>
- <20110322161811.GF6466@game.jcrosoft.org>
- <20110322163917.GD10058@pulham.picochip.com>
- <20110322175523.GE10058@pulham.picochip.com>
- <20110324162517.GI6466@game.jcrosoft.org>
- <20110331094041.GD3371@pulham.picochip.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen: fix
+ LRO disable warning)
+Date: Tue, 5 Apr 2011 12:38:08 +0200
+Message-ID: <BANLkTi=i7A+J2WKPgATpH6ekFAeb-sn+UQ@mail.gmail.com>
+References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
+ <20110403190555.GA16196@torres.zugschlus.de> <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	David Miller <davem@davemloft.net>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Andrew Victor <linux@maxim.org.za>,
-	Peter Korsgaard <jacmet@sunsite.dk>
-To: Jamie Iles <jamie@jamieiles.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marc Haber <mh+netdev@zugschlus.de>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 63.mail-out.ovh.net ([91.121.185.56]:50464 "HELO
-	63.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752568Ab1DEKgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 06:36:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20110331094041.GD3371@pulham.picochip.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:54231 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223Ab1DEKi3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 06:38:29 -0400
+Received: by qwk3 with SMTP id 3so124182qwk.19
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2011 03:38:28 -0700 (PDT)
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10:40 Thu 31 Mar     , Jamie Iles wrote:
-> Hi Jean-Christophe,
-> 
-> On Thu, Mar 24, 2011 at 05:25:17PM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > On 17:55 Tue 22 Mar     , Jamie Iles wrote:
-> > > Hi Jean-Christophe,
-> > > > Also, can you confirm that the module ID's that you are using to 
-> > > > differentiate between AT91 and AVR32 won't clash with MACB uses in 
-> > > > other, non-at91/avr32 chips, or that it doesn't matter?
-> > > 
-> > > If this does work, then it would be nice if we made the else path of the 
-> > > RMII AT91 tests also test for avr32 too so we aren't driving the USRIO 
-> > > pins on platforms that aren't at91 but also aren't avr32.  So something 
-> > > the patch below instead.
-> > I'm currently traveling so I can not test it yet will test it next week
-> > but looks good
-> 
-> Just wondering if you'd had chance to test.  If so, would you mind 
-> reposting and I'll rebase my patches on top of it.
-> 
-> I also have patches for checksum offloading, receive packet timestamping 
-> and wake-on-lan support but I'd like to get the basic GEM ones into next 
-> first.
-work fine on 9263ek except the IP version detection.
+2011/4/5 Amit Salecha <amit.salecha@qlogic.com>:
+>> On Mon, Mar 21, 2011 at 03:37:08AM -0700, Amit Kumar Salecha wrote:
+>> > netxen_nic_set_flags() rejects data if other flag than ETH_FLAG_LR=
+O
+>> is set.
+>> > Driver also supports NETIF_F_HW_VLAN_TX.
+>> > Now compare data with ethtool_op_get_flags(), to get all supported
+>> features.
+[...]
+>> My ethtool doesn't allow me to influence the LRO setting alone - it =
+is
+>> disabled when I set rx off but doesn't come on again when rx is set =
+to
+>> on again. So, ethtool -K rx off, ethtool -K rx on fixes the issue.
+> If rx csum is disabled, LRO will be disable. LRO won't be enabled aut=
+omatically if you enable rx csum.
+> You need to explicitly enable LRO.
 
-the at91 macb ip version is supposed to be at 0x0601010C but it's not.
-At least on 9263 it's 0x0001010C. So we can not detect the arch at runtime
-but we can detect that it's a macb.
-
-So could keep the ifdef for 2 archs but use the ip version on arm
+This will change once the driver is converted to hw_features.
 
 Best Regards,
-J.
+Micha=C5=82 Miros=C5=82aw
