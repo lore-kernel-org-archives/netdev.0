@@ -1,73 +1,33 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen:	fix
- LRO disable warning)
-Date: Tue, 5 Apr 2011 08:15:16 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD1383943@MNEXMB2.qlogic.org>
-References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
- <20110403190555.GA16196@torres.zugschlus.de>
- <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
- <20110405124158.GA28382@torres.zugschlus.de>
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Subject: problem of "ipv4: revert Set rt->rt_iif more sanely on output routes."
+Date: Tue, 05 Apr 2011 22:05:10 +0900
+Message-ID: <87oc4kj1bt.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: Marc Haber <mh+netdev@zugschlus.de>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:51530
-	"EHLO DB3EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751169Ab1DENPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 09:15:55 -0400
-In-Reply-To: <20110405124158.GA28382@torres.zugschlus.de>
-Content-Language: en-US
+Received: from mail.parknet.co.jp ([210.171.160.6]:44950 "EHLO
+	mail.parknet.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752401Ab1DENY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 09:24:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBUdWUsIEFwciAwNSwgMjAxMSBhdCAxMjozODoxMUFNIC0wNTAwLCBBbWl0IFNhbGVjaGEg
-d3JvdGU6DQo+ID4gPiBPbiBNb24sIE1hciAyMSwgMjAxMSBhdCAwMzozNzowOEFNIC0wNzAwLCBB
-bWl0IEt1bWFyIFNhbGVjaGEgd3JvdGU6DQo+ID4gPiA+IG5ldHhlbl9uaWNfc2V0X2ZsYWdzKCkg
-cmVqZWN0cyBkYXRhIGlmIG90aGVyIGZsYWcgdGhhbg0KPiBFVEhfRkxBR19MUk8NCj4gPiA+IGlz
-IHNldC4NCj4gPiA+ID4gRHJpdmVyIGFsc28gc3VwcG9ydHMgTkVUSUZfRl9IV19WTEFOX1RYLg0K
-PiA+ID4gPiBOb3cgY29tcGFyZSBkYXRhIHdpdGggZXRodG9vbF9vcF9nZXRfZmxhZ3MoKSwgdG8g
-Z2V0IGFsbA0KPiBzdXBwb3J0ZWQNCj4gPiA+IGZlYXR1cmVzLg0KPiA+ID4NCj4gPiA+IENvdWxk
-IHRoYXQgYmUgdGhlIGNhdXNlIGZvciBwYWNrZXQgbG9zcyBvbiBrZXJuZWwgMi42LjM4LjIgaWY6
-DQo+ID4gPg0KPiA+ID4gICAtIHJlY2VpdmluZyBjYXJkIGlzIE5YMzAzMSBbNDA0MDowMTAwXQ0K
-PiA+ID4gICAtIGZyYW1lcyBhcmUgcmVjZWl2ZWQgd2l0aCBWTEFOIHRhZ3MNCj4gPiA+ICAgLSBs
-YXJnZSByZWNlaXZlZCBvZmZsb2FkIGlzIG9uLg0KPiA+DQo+ID4gSWYgaXBfZm9yd2FyZGluZyBv
-ciByb3V0aW5nIGlzIGVuYWJsZSAuLi4udGhlbiB5b3UgbWF5IHNlZSBwYWNrZXQNCj4gbG9zcy4N
-Cj4NCj4gVGhlIGJveCBpcyBpbnRlbmRlZCB0byByb3V0ZSwgc28gZGlzYWJsaW5nIHJvdXRpbmcg
-aXMNCj4gY29udHJhcHJvZHVjdGl2ZS4gSSBqdXN0IHdvdWxkIGxpa2UgdG8gZG93bmxvYWQgc29m
-dHdhcmUgdXBkYXRlcyB0bw0KPiB0aGUgYm94IHdpdGggZGVjZW50IHNwZWVkIGFzIHdlbGwuDQoN
-CldoYXQgSSBtZWFudCwgd2l0aCBMUk8gZW5hYmxlIGFuZCByb3V0aW5nLCB5b3UgbWF5IHNlZSBw
-YWNrZXQgbG9zcy4NCj4NCj4gPiA+IFBhY2tldCBMb3NzIG9mIHRoaXMga2luZCBpcyBub3RpY2Vk
-IHdoZW4gZG9pbmcgVENQIGRhdGEgdHJhbnNmZXJzDQo+ID4gPiB0b3dhcmRzIHRoZSBob3N0IHdp
-dGggdGhlIE5ldHhlbiBJbnRlcmZhY2UgYW5kIHRoZSBUQ1Agc2Vzc2lvbiBpcw0KPiA+ID4gdGVy
-bWluYXRlZCBvbiB0aGUgTmV0eGVuIGhvc3QgaXRzZWxmLiBUQ1Agc2Vzc2lvbnMgcm91dGVkIHRo
-cm91Z2gNCj4gdGhlDQo+ID4gPiBOZXR4ZW4gaG9zdCBhcmUgbm90IGFmZmVjdGVkLg0KPiA+ID4N
-Cj4gPiA+IE15IGV0aHRvb2wgZG9lc24ndCBhbGxvdyBtZSB0byBpbmZsdWVuY2UgdGhlIExSTyBz
-ZXR0aW5nIGFsb25lIC0gaXQNCj4gaXMNCj4gPiA+IGRpc2FibGVkIHdoZW4gSSBzZXQgcnggb2Zm
-IGJ1dCBkb2Vzbid0IGNvbWUgb24gYWdhaW4gd2hlbiByeCBpcyBzZXQNCj4gdG8NCj4gPiA+IG9u
-IGFnYWluLiBTbywgZXRodG9vbCAtSyByeCBvZmYsIGV0aHRvb2wgLUsgcnggb24gZml4ZXMgdGhl
-IGlzc3VlLg0KPiA+ID4NCj4gPiBJZiByeCBjc3VtIGlzIGRpc2FibGVkLCBMUk8gd2lsbCBiZSBk
-aXNhYmxlLiBMUk8gd29uJ3QgYmUgZW5hYmxlZA0KPiBhdXRvbWF0aWNhbGx5IGlmIHlvdSBlbmFi
-bGUgcnggY3N1bS4NCj4gPiBZb3UgbmVlZCB0byBleHBsaWNpdGx5IGVuYWJsZSBMUk8uDQo+DQo+
-IEV4cGxpY2l0bHkgZW5hYmxpbmcgTFJPIGRvZXMgbm90IHdvcmsgKCJpbnZhbGlkIGFyZ3VtZW50
-IiwgaWYgSSByZWNhbGwNCj4gY29ycmVjdGx5KS4NCj4NCg0KV2l0aCBiZWxvdyBwYXRjaCBlbmFi
-bGluZy9kaXNhYmxpbmcgTFJPIHdpbGwgd29yay4NCg0KPiA+ID4gSXMgdGhpcyBhIGtub3duIGJ1
-ZywgbWF5YmUgd2l0aCBhbiBhdmFpbGFibGUgcGF0Y2g/DQo+ID4gPg0KPiA+IFlvdSBuZWVkIHRv
-IHJldGVzdCB3aXRoIHRoaXMgcGF0Y2gNCj4gPiBodHRwOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcv
-cGF0Y2gvODgwNjAvLiBUaGlzIHBhdGNoIGdvdCBhcHBsaWVkDQo+ID4gaW5zdGVhZCBvZiBtaW5l
-Lg0KPg0KPiBXaWxsIHRoYXQgcGF0Y2ggZml4IHRoZSBiZWhhdmlvciBvZiB0aGUgaW50ZXJmYWNl
-IHJlZ2FyZGluZyB0aGUgcGFja2V0DQo+IGxvc3MsIG9yIG9ubHkgaXRzIGNvbm5lY3Rpb24gdG8g
-ZXRodG9vbD8NCj4NClRoaXMgd2lsbCBmaXggTFJPIGNvbmZpZ3VyYXRpb24gcHJvYmxlbS4gRG8g
-eW91IHNlZSBwYWNrZXQgbG9zcyB3aXRoIExSTyBkaXNhYmxlID8NCg0KVGhpcyBtZXNzYWdlIGFu
-ZCBhbnkgYXR0YWNoZWQgZG9jdW1lbnRzIGNvbnRhaW4gaW5mb3JtYXRpb24gZnJvbSBRTG9naWMg
-Q29ycG9yYXRpb24gb3IgaXRzIHdob2xseS1vd25lZCBzdWJzaWRpYXJpZXMgdGhhdCBtYXkgYmUg
-Y29uZmlkZW50aWFsLiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3Ug
-bWF5IG5vdCByZWFkLCBjb3B5LCBkaXN0cmlidXRlLCBvciB1c2UgdGhpcyBpbmZvcm1hdGlvbi4g
-SWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyB0cmFuc21pc3Npb24gaW4gZXJyb3IsIHBsZWFzZSBu
-b3RpZnkgdGhlIHNlbmRlciBpbW1lZGlhdGVseSBieSByZXBseSBlLW1haWwgYW5kIHRoZW4gZGVs
-ZXRlIHRoaXMgbWVzc2FnZS4NCg==
+Hi,
 
+ipv4: Set rt->rt_iif more sanely on output routes.
+(1018b5c01636c7c6bda31a719bda34fc631db29a)
+
+The above patch seems to be caused of avahi breakage.
+
+I'm not debugging fully though, avahi is using IP_PKTINFO and checking
+in_pktinfo->ipi_ifindex > 0.
+
+And if I reverted above patch, it seems to fix avahi's IP_PKTINFO problem.
+
+Ideas?
+
+Thanks.
+-- 
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
