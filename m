@@ -1,43 +1,70 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net-next-2.6] can: convert protocol handling to RCU
-Date: Tue, 05 Apr 2011 19:52:35 +0200
-Message-ID: <4D9B56E3.9080207@hartkopp.net>
-References: <4D9A2844.2080304@hartkopp.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-next-2.6 2011-04-05
+Date: Tue, 05 Apr 2011 19:00:46 +0100
+Message-ID: <1302026446.2932.56.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Urs Thuermann <urs@isnogud.escape.de>
+Cc: netdev <netdev@vger.kernel.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:31054 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752723Ab1DERwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 13:52:50 -0400
-In-Reply-To: <4D9A2844.2080304@hartkopp.net>
+Received: from mail.solarflare.com ([216.237.3.220]:14926 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807Ab1DESAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 14:00:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04.04.2011 22:21, Oliver Hartkopp wrote:
-> This patch removes spin_locks at CAN socket creation time by using RCU.
-> 
+The following changes since commit 9b12c75bf4d58dd85c987ee7b6a4356fdc7c1222:
 
+  net: Order ports in same order as addresses in flow objects. (2011-03-31 18:03:35 -0700)
 
-> @@ -143,22 +159,18 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
->  		if (err && printk_ratelimit())
->  			printk(KERN_ERR "can: request_module "
->  			       "(can-proto-%d) failed.\n", protocol);
-> +		else
-> +			cp = can_try_module_get(protocol);
->  	}
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
 
-Hm, i just discovered a tiny issue here as putting can_try_module_get() into
-the 'else' path is not needed.
+1. Implement generic features interface in sfc.
+2. Update ethtool_ops documentation.
+3. Reimplement ETHTOOL_PHYS_ID as dicussed, dropping the RTNL lock.
 
-Will send a V2 in a few minutes.
+Changes since the previous request:
 
+1a. Drop NETIF_F_GRO from net_device::features; let the core enable it.
+1b. Add NETIF_F_ALL_TSO and NETIF_F_RXCSUM to net_device::vlan_features;
+TSO-IPv6 and RX checksum offload do work with VLAN-tagged packets.
+2. In comments on deprecated offload control operations, refer to
+'generic netdev features' rather than 'the netdev op ndo_set_flags'.
+Add a note at the bottom referring to struct net_device and struct
+net_device_ops.
+3a. Change comment 'must set the state' to 'should set the state'. We
+don't really care if ON and OFF get inverted, and some of Stephen's
+implementations just invert the LED state in either case.
+3b. Prevent reentry of the ETHTOOL_PHYS_ID loop.
 
-Regards,
-Oliver
+Ben.
+
+Ben Hutchings (7):
+      sfc: Move test of rx_checksum_enabled from nic.c to rx.c
+      sfc: Enable all TSO features on VLANs
+      sfc: Implement generic features interface
+      ethtool: Convert struct ethtool_ops comment to kernel-doc format
+      ethtool: Fill out and update comment for struct ethtool_ops
+      ethtool: Change ETHTOOL_PHYS_ID implementation to allow dropping RTNL
+      sfc: Implement ethtool_ops::set_phys_id instead of ethtool_ops::phys_id
+
+ drivers/net/sfc/efx.c        |   20 ++++-
+ drivers/net/sfc/ethtool.c    |  106 ++++--------------------
+ drivers/net/sfc/net_driver.h |    2 -
+ drivers/net/sfc/nic.c        |    6 +-
+ drivers/net/sfc/rx.c         |    3 +
+ include/linux/ethtool.h      |  180 ++++++++++++++++++++++++++++++------------
+ net/core/ethtool.c           |   55 ++++++++++++-
+ 7 files changed, 223 insertions(+), 149 deletions(-)
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
