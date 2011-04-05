@@ -1,49 +1,51 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: Netxen packet loss with VLANs and LRO (was: [PATCH] netxen: fix
- LRO disable warning)
-Date: Tue, 5 Apr 2011 12:38:08 +0200
-Message-ID: <BANLkTi=i7A+J2WKPgATpH6ekFAeb-sn+UQ@mail.gmail.com>
-References: <1300703828-6291-1-git-send-email-amit.salecha@qlogic.com>
- <20110403190555.GA16196@torres.zugschlus.de> <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: shutdown oops in xt_compat_calc_jump
+Date: Tue, 05 Apr 2011 12:41:10 +0200
+Message-ID: <4D9AF1C6.6050304@trash.net>
+References: <20110404194856.GA3720@dannf.org>  <4D9A23BC.4010505@trash.net>	 <1301949477.3021.55.camel@edumazet-laptop>	 <1301957293.3021.191.camel@edumazet-laptop>	 <1301984679.3021.655.camel@edumazet-laptop> <1301987879.3021.714.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marc Haber <mh+netdev@zugschlus.de>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: Amit Salecha <amit.salecha@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:54231 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223Ab1DEKi3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 06:38:29 -0400
-Received: by qwk3 with SMTP id 3so124182qwk.19
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2011 03:38:28 -0700 (PDT)
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD10E8E3C@MNEXMB2.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: dann frazier <dannf@dannf.org>, netdev@vger.kernel.org,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1301987879.3021.714.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2011/4/5 Amit Salecha <amit.salecha@qlogic.com>:
->> On Mon, Mar 21, 2011 at 03:37:08AM -0700, Amit Kumar Salecha wrote:
->> > netxen_nic_set_flags() rejects data if other flag than ETH_FLAG_LR=
-O
->> is set.
->> > Driver also supports NETIF_F_HW_VLAN_TX.
->> > Now compare data with ethtool_op_get_flags(), to get all supported
->> features.
-[...]
->> My ethtool doesn't allow me to influence the LRO setting alone - it =
-is
->> disabled when I set rx off but doesn't come on again when rx is set =
-to
->> on again. So, ethtool -K rx off, ethtool -K rx on fixes the issue.
-> If rx csum is disabled, LRO will be disable. LRO won't be enabled aut=
-omatically if you enable rx csum.
-> You need to explicitly enable LRO.
+On 05.04.2011 09:17, Eric Dumazet wrote:
+> Here is the cumulative patch
 
-This will change once the driver is converted to hw_features.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Thanks Eric. I'll wait for confirmation from Dann before applying this.
+
+> [PATCH] netfilter: fix ebtables
+> 
+> commit 255d0dc34068a976 (netfilter: x_table: speedup compat operations)
+> made ebtables not working anymore.
+> 
+> 1) xt_compat_calc_jump() is not an exact match lookup, and 
+> 2) compat_table_info() has a typo in xt_compat_init_offsets() call
+> 3) compat_do_replace() misses a xt_compat_init_offsets() call
+> 
+> Reported-by: dann frazier <dannf@dannf.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/bridge/netfilter/ebtables.c |    3 ++-
+>  net/netfilter/x_tables.c        |    3 +++
+>  2 files changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+> index 893669c..c66aa80 100644
+> --- a/net/bridge/netfilter/ebtables.c
+> +++ b/net/bridge/netfilter/ebtables.c
+> @@ -1766,7 +1766,7 @@ static int compat_table_info(const struct ebt_table_info *info,
+>  
+>  	newinfo->entries_size = size;
+>  
+> -	xt_compat_init_offsets(AF_INET, info->nentries);
+> +	xt_compat_init_offsets(NFPROTO_BRIDGE, info->nentries /* + 4*/);
+
+I assume the /* + 4 */ is left over from debugging, I'll remove it
+before applying.
