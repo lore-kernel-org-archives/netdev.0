@@ -1,47 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: fedora 14 kernel performance with ip forwarding workload
-Date: Wed, 06 Apr 2011 22:32:25 +0200
-Message-ID: <1302121945.2701.31.camel@edumazet-laptop>
-References: <20110406195719.GE14697@ghostprotocols.net>
-	 <20110406.130239.232756965.davem@davemloft.net>
-	 <1302121136.2701.16.camel@edumazet-laptop>
-	 <20110406.132906.200378990.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dsa/mv88e6131: add support for mv88e6085 switch
+Date: Wed, 06 Apr 2011 13:33:04 -0700 (PDT)
+Message-ID: <20110406.133304.258116649.davem@davemloft.net>
+References: <1302008636-6544-1-git-send-email-jacmet@sunsite.dk>
+	<20110405133944.GG22881@wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@ghostprotocols.net, jesse.brandeburg@gmail.com,
-	fedora-kernel-list@redhat.com, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jacmet@sunsite.dk, netdev@vger.kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38138 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755805Ab1DFUca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 16:32:30 -0400
-Received: by wwa36 with SMTP id 36so2235968wwa.1
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2011 13:32:29 -0700 (PDT)
-In-Reply-To: <20110406.132906.200378990.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50947
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755805Ab1DFUdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 16:33:41 -0400
+In-Reply-To: <20110405133944.GG22881@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 06 avril 2011 =C3=A0 13:29 -0700, David Miller a =C3=A9crit=
- :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 06 Apr 2011 22:18:56 +0200
->=20
-> > I remember last time I work on a fedora kernel, it had conntrack en=
-abled
-> >=20
-> > And yes, conntrack can really slowdown a router, because of default
-> > parameters.
->=20
-> Yes, if conntrack is enabled performance will indeed tank.
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Tue, 5 Apr 2011 15:39:44 +0200
 
-I just check on latest fedora14 (yum updated) :
+> On Tue, Apr 05, 2011 at 03:03:56PM +0200, Peter Korsgaard wrote:
+> 
+>> The mv88e6085 is identical to the mv88e6095, except that all ports are
+>> 10/100 Mb/s, so use the existing setup code except for the cpu/dsa speed
+>> selection in _setup_port().
+>> 
+>> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+> 
+> I don't have access to DSA chip docs anymore, but assuming that you've
+> tested this:
+> 
+> Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-- conntrack is statically included in kernel, you cannot remove it.
-
-
-Hmm...
-
-
+Applied, thanks.
