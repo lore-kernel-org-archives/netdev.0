@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NETIF_F_TSO vs NETIF_F_TSO{6,_ECN}
-Date: Wed, 06 Apr 2011 14:22:58 -0700 (PDT)
-Message-ID: <20110406.142258.27795713.davem@davemloft.net>
-References: <1302018602.2932.22.camel@bwh-desktop>
-	<20110405180337.GA16977@rere.qmqm.pl>
-	<1302028298.2932.76.camel@bwh-desktop>
+Subject: Re: [PATCH net-next-2.6 01/12] sky2: support ethtool set_phys_id
+Date: Wed, 06 Apr 2011 14:30:35 -0700 (PDT)
+Message-ID: <20110406.143035.191389005.davem@davemloft.net>
+References: <20110404184340.604594357@linuxplumber.net>
+	<20110404184501.356412753@linuxplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: bhutchings@solarflare.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53930
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53167
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756867Ab1DFVXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 17:23:34 -0400
-In-Reply-To: <1302028298.2932.76.camel@bwh-desktop>
+	by vger.kernel.org with ESMTP id S932162Ab1DFVbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 17:31:12 -0400
+In-Reply-To: <20110404184501.356412753@linuxplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 05 Apr 2011 19:31:38 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 04 Apr 2011 11:43:41 -0700
 
-> *sigh*  So it seems the commit message was wrong... and it should have
-> included a change like this:
+> Use ethtool set_phys_id to control LED. Fixes issues with RTNL being
+> held for extended periods.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-This seems correct, can you formally submit this fix?
-
-Thanks.
+Applied.
