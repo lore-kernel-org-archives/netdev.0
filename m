@@ -1,43 +1,49 @@
-From: Martin Lucina <mato@kotelna.sk>
-Subject: Correct procedure to close an in-kernel TCP socket
-Date: Wed, 6 Apr 2011 13:55:45 +0200
-Message-ID: <20110406115545.GA16094@dezo.moloch.sk>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH] netfilter: Fix build failure when ipv6 but xt_tproxy
+ is built in
+Date: Wed, 06 Apr 2011 14:08:50 +0200
+Message-ID: <4D9C57D2.20303@balabit.hu>
+References: <1301451199.14261.327.camel@gandalf.stny.rr.com>	 <20110329.223536.245392030.davem@davemloft.net>	 <4D99CDA0.3030305@trash.net> <1302014626.67568.1.camel@nienna.balabit> <4D9B2BF2.2010606@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin Sustrik <sustrik@250bpm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chrocht.moloch.sk ([62.176.169.44]:58358 "EHLO mail.moloch.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754958Ab1DFMGK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2011 08:06:10 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, rostedt@goodmis.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D9B2BF2.2010606@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi,
 
-We're having some problems with code that uses in-kernel TCP sockets
-created with sock_create_kern().
+On 04/05/2011 04:49 PM, Patrick McHardy wrote:
+>> What about something like this?
+>>
+>> diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+>> index dcfd57e..1ef0e56 100644
+>> --- a/net/netfilter/xt_TPROXY.c
+>> +++ b/net/netfilter/xt_TPROXY.c
+>> @@ -283,10 +283,10 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
+>>         const struct in6_addr *laddr;
+>>         __be16 lport;
+>>         int thoff;
+>> -       int tproto;
+>> +       u8 tproto = iph->nexthdr;
+>>  
+>> -       tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
+>> -       if (tproto < 0) {
+>> +       thoff = ipv6_skip_exthdr(skb, sizeof(*iph), &tproto);
+>> +       if (thoff < 0) {
+>>                 pr_debug("unable to find transport header in IPv6 packet, dropping\n");
+>>                 return NF_DROP;
+>>         }
+> 
+> Looks good to me. Please formally submit this including a Signed-off-by:
+> line and I'll push it upstream.
 
-At the moment we are doing this when closing a socket:
+Will do, as soon as I have a chance to run the test suite. Thanks Patrick.
 
-	write_lock_bh(&s->sk->sk_callback_lock);
-	s->sk->sk_state_change = old_sk_state_change;
-	s->sk->sk_data_ready = old_sk_data_ready;
-	s->sk->sk_write_space = old_sk_write_space;
-	write_unlock_bh(&s->sk->sk_callback_lock);
-
-        /* ... */
-	
-        sock_release(s);
-
-We then see that at some point in the future our s->sk->sk_state_change
-callback is still being called despite the code above restoring the
-original values.
-
-Is there something we're doing wrong? 
-
-Thanks,
-
--mato
+-- 
+KOVACS Krisztian
