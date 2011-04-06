@@ -1,41 +1,227 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH v2 net-next 8/9] tg3: Enable 5720 support
-Date: Tue, 5 Apr 2011 17:22:50 -0700
-Message-ID: <1302049371-13799-9-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH v2 net-next 5/9] tg3: Add 5720 NVRAM decoding
+Date: Tue, 5 Apr 2011 17:22:47 -0700
+Message-ID: <1302049371-13799-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4650 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4468 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753328Ab1DFAQx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751994Ab1DFAQx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Apr 2011 20:16:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the 5720 device ID to the PCI table, thus enabling 5720
-support.
+The 5720 implements its own NVRAM pin strapping scheme.  This patch adds
+the required support.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/tg3.c |  117 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/tg3.h |   36 ++++++++++++++++
+ 2 files changed, 152 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 886174d..a065beb 100644
+index 53a1209..a079e74 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -264,6 +264,7 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57791)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57795)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5719)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5720)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9DXX)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9MXX)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1000)},
+@@ -11889,6 +11889,118 @@ static void __devinit tg3_get_5717_nvram_info(struct tg3 *tp)
+ 		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
+ }
+ 
++static void __devinit tg3_get_5720_nvram_info(struct tg3 *tp)
++{
++	u32 nvcfg1, nvmpinstrp;
++
++	nvcfg1 = tr32(NVRAM_CFG1);
++	nvmpinstrp = nvcfg1 & NVRAM_CFG1_5752VENDOR_MASK;
++
++	switch (nvmpinstrp) {
++	case FLASH_5720_EEPROM_HD:
++	case FLASH_5720_EEPROM_LD:
++		tp->nvram_jedecnum = JEDEC_ATMEL;
++		tp->tg3_flags |= TG3_FLAG_NVRAM_BUFFERED;
++
++		nvcfg1 &= ~NVRAM_CFG1_COMPAT_BYPASS;
++		tw32(NVRAM_CFG1, nvcfg1);
++		if (nvmpinstrp == FLASH_5720_EEPROM_HD)
++			tp->nvram_pagesize = ATMEL_AT24C512_CHIP_SIZE;
++		else
++			tp->nvram_pagesize = ATMEL_AT24C02_CHIP_SIZE;
++		return;
++	case FLASH_5720VENDOR_M_ATMEL_DB011D:
++	case FLASH_5720VENDOR_A_ATMEL_DB011B:
++	case FLASH_5720VENDOR_A_ATMEL_DB011D:
++	case FLASH_5720VENDOR_M_ATMEL_DB021D:
++	case FLASH_5720VENDOR_A_ATMEL_DB021B:
++	case FLASH_5720VENDOR_A_ATMEL_DB021D:
++	case FLASH_5720VENDOR_M_ATMEL_DB041D:
++	case FLASH_5720VENDOR_A_ATMEL_DB041B:
++	case FLASH_5720VENDOR_A_ATMEL_DB041D:
++	case FLASH_5720VENDOR_M_ATMEL_DB081D:
++	case FLASH_5720VENDOR_A_ATMEL_DB081D:
++	case FLASH_5720VENDOR_ATMEL_45USPT:
++		tp->nvram_jedecnum = JEDEC_ATMEL;
++		tp->tg3_flags |= TG3_FLAG_NVRAM_BUFFERED;
++		tp->tg3_flags2 |= TG3_FLG2_FLASH;
++
++		switch (nvmpinstrp) {
++		case FLASH_5720VENDOR_M_ATMEL_DB021D:
++		case FLASH_5720VENDOR_A_ATMEL_DB021B:
++		case FLASH_5720VENDOR_A_ATMEL_DB021D:
++			tp->nvram_size = TG3_NVRAM_SIZE_256KB;
++			break;
++		case FLASH_5720VENDOR_M_ATMEL_DB041D:
++		case FLASH_5720VENDOR_A_ATMEL_DB041B:
++		case FLASH_5720VENDOR_A_ATMEL_DB041D:
++			tp->nvram_size = TG3_NVRAM_SIZE_512KB;
++			break;
++		case FLASH_5720VENDOR_M_ATMEL_DB081D:
++		case FLASH_5720VENDOR_A_ATMEL_DB081D:
++			tp->nvram_size = TG3_NVRAM_SIZE_1MB;
++			break;
++		default:
++			tp->nvram_size = TG3_NVRAM_SIZE_128KB;
++			break;
++		}
++		break;
++	case FLASH_5720VENDOR_M_ST_M25PE10:
++	case FLASH_5720VENDOR_M_ST_M45PE10:
++	case FLASH_5720VENDOR_A_ST_M25PE10:
++	case FLASH_5720VENDOR_A_ST_M45PE10:
++	case FLASH_5720VENDOR_M_ST_M25PE20:
++	case FLASH_5720VENDOR_M_ST_M45PE20:
++	case FLASH_5720VENDOR_A_ST_M25PE20:
++	case FLASH_5720VENDOR_A_ST_M45PE20:
++	case FLASH_5720VENDOR_M_ST_M25PE40:
++	case FLASH_5720VENDOR_M_ST_M45PE40:
++	case FLASH_5720VENDOR_A_ST_M25PE40:
++	case FLASH_5720VENDOR_A_ST_M45PE40:
++	case FLASH_5720VENDOR_M_ST_M25PE80:
++	case FLASH_5720VENDOR_M_ST_M45PE80:
++	case FLASH_5720VENDOR_A_ST_M25PE80:
++	case FLASH_5720VENDOR_A_ST_M45PE80:
++	case FLASH_5720VENDOR_ST_25USPT:
++	case FLASH_5720VENDOR_ST_45USPT:
++		tp->nvram_jedecnum = JEDEC_ST;
++		tp->tg3_flags |= TG3_FLAG_NVRAM_BUFFERED;
++		tp->tg3_flags2 |= TG3_FLG2_FLASH;
++
++		switch (nvmpinstrp) {
++		case FLASH_5720VENDOR_M_ST_M25PE20:
++		case FLASH_5720VENDOR_M_ST_M45PE20:
++		case FLASH_5720VENDOR_A_ST_M25PE20:
++		case FLASH_5720VENDOR_A_ST_M45PE20:
++			tp->nvram_size = TG3_NVRAM_SIZE_256KB;
++			break;
++		case FLASH_5720VENDOR_M_ST_M25PE40:
++		case FLASH_5720VENDOR_M_ST_M45PE40:
++		case FLASH_5720VENDOR_A_ST_M25PE40:
++		case FLASH_5720VENDOR_A_ST_M45PE40:
++			tp->nvram_size = TG3_NVRAM_SIZE_512KB;
++			break;
++		case FLASH_5720VENDOR_M_ST_M25PE80:
++		case FLASH_5720VENDOR_M_ST_M45PE80:
++		case FLASH_5720VENDOR_A_ST_M25PE80:
++		case FLASH_5720VENDOR_A_ST_M45PE80:
++			tp->nvram_size = TG3_NVRAM_SIZE_1MB;
++			break;
++		default:
++			tp->nvram_size = TG3_NVRAM_SIZE_128KB;
++			break;
++		}
++		break;
++	default:
++		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM;
++		return;
++	}
++
++	tg3_nvram_get_pagesize(tp, nvcfg1);
++	if (tp->nvram_pagesize != 264 && tp->nvram_pagesize != 528)
++		tp->tg3_flags3 |= TG3_FLG3_NO_NVRAM_ADDR_TRANS;
++}
++
+ /* Chips other than 5700/5701 use the NVRAM for fetching info. */
+ static void __devinit tg3_nvram_init(struct tg3 *tp)
+ {
+@@ -11933,8 +12045,11 @@ static void __devinit tg3_nvram_init(struct tg3 *tp)
+ 		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 ||
+ 			 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765)
+ 			tg3_get_57780_nvram_info(tp);
+-		else if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)
++		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++			 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
+ 			tg3_get_5717_nvram_info(tp);
++		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
++			tg3_get_5720_nvram_info(tp);
+ 		else
+ 			tg3_get_nvram_info(tp);
+ 
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 45605f2..169a6ce 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -1827,6 +1827,38 @@
+ #define  FLASH_5717VENDOR_ATMEL_45USPT	 0x03400000
+ #define  FLASH_5717VENDOR_ST_25USPT	 0x03400002
+ #define  FLASH_5717VENDOR_ST_45USPT	 0x03400001
++#define  FLASH_5720_EEPROM_HD		 0x00000001
++#define  FLASH_5720_EEPROM_LD		 0x00000003
++#define  FLASH_5720VENDOR_M_ATMEL_DB011D 0x01000000
++#define  FLASH_5720VENDOR_M_ATMEL_DB021D 0x01000002
++#define  FLASH_5720VENDOR_M_ATMEL_DB041D 0x01000001
++#define  FLASH_5720VENDOR_M_ATMEL_DB081D 0x01000003
++#define  FLASH_5720VENDOR_M_ST_M25PE10	 0x02000000
++#define  FLASH_5720VENDOR_M_ST_M25PE20	 0x02000002
++#define  FLASH_5720VENDOR_M_ST_M25PE40	 0x02000001
++#define  FLASH_5720VENDOR_M_ST_M25PE80	 0x02000003
++#define  FLASH_5720VENDOR_M_ST_M45PE10	 0x03000000
++#define  FLASH_5720VENDOR_M_ST_M45PE20	 0x03000002
++#define  FLASH_5720VENDOR_M_ST_M45PE40	 0x03000001
++#define  FLASH_5720VENDOR_M_ST_M45PE80	 0x03000003
++#define  FLASH_5720VENDOR_A_ATMEL_DB011B 0x01800000
++#define  FLASH_5720VENDOR_A_ATMEL_DB021B 0x01800002
++#define  FLASH_5720VENDOR_A_ATMEL_DB041B 0x01800001
++#define  FLASH_5720VENDOR_A_ATMEL_DB011D 0x01c00000
++#define  FLASH_5720VENDOR_A_ATMEL_DB021D 0x01c00002
++#define  FLASH_5720VENDOR_A_ATMEL_DB041D 0x01c00001
++#define  FLASH_5720VENDOR_A_ATMEL_DB081D 0x01c00003
++#define  FLASH_5720VENDOR_A_ST_M25PE10	 0x02800000
++#define  FLASH_5720VENDOR_A_ST_M25PE20	 0x02800002
++#define  FLASH_5720VENDOR_A_ST_M25PE40	 0x02800001
++#define  FLASH_5720VENDOR_A_ST_M25PE80	 0x02800003
++#define  FLASH_5720VENDOR_A_ST_M45PE10	 0x02c00000
++#define  FLASH_5720VENDOR_A_ST_M45PE20	 0x02c00002
++#define  FLASH_5720VENDOR_A_ST_M45PE40	 0x02c00001
++#define  FLASH_5720VENDOR_A_ST_M45PE80	 0x02c00003
++#define  FLASH_5720VENDOR_ATMEL_45USPT	 0x03c00000
++#define  FLASH_5720VENDOR_ST_25USPT	 0x03c00002
++#define  FLASH_5720VENDOR_ST_45USPT	 0x03c00001
+ #define  NVRAM_CFG1_5752PAGE_SIZE_MASK	 0x70000000
+ #define  FLASH_5752PAGE_SIZE_256	 0x00000000
+ #define  FLASH_5752PAGE_SIZE_512	 0x10000000
+@@ -3060,6 +3092,7 @@ struct tg3 {
+ 
+ 	int				nvram_lock_cnt;
+ 	u32				nvram_size;
++#define TG3_NVRAM_SIZE_2KB		0x00000800
+ #define TG3_NVRAM_SIZE_64KB		0x00010000
+ #define TG3_NVRAM_SIZE_128KB		0x00020000
+ #define TG3_NVRAM_SIZE_256KB		0x00040000
+@@ -3075,6 +3108,9 @@ struct tg3 {
+ #define JEDEC_SAIFUN			0x4f
+ #define JEDEC_SST			0xbf
+ 
++#define ATMEL_AT24C02_CHIP_SIZE		TG3_NVRAM_SIZE_2KB
++#define ATMEL_AT24C02_PAGE_SIZE		(8)
++
+ #define ATMEL_AT24C64_CHIP_SIZE		TG3_NVRAM_SIZE_64KB
+ #define ATMEL_AT24C64_PAGE_SIZE		(32)
+ 
 -- 
 1.7.3.4
 
