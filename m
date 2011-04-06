@@ -1,46 +1,42 @@
-From: Simon Wood <simon@mungewell.org>
-Subject: [PatchV2 : PL25A1 Support - 3/3] reset_debug
-Date: Tue,  5 Apr 2011 22:16:46 -0600
-Message-ID: <1302063406-13077-3-git-send-email-simon@mungewell.org>
-References: <1301456667-1648-1-git-send-email-simon@mungewell.org>
-Cc: David Brownell <david-b@pacbell.net>,
-	Sergei Shtylyov <sshtylyov@mvista.com>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Simon Wood <simon@mungewell.org>
-To: Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1301456667-1648-1-git-send-email-simon@mungewell.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: shutdown oops in xt_compat_calc_jump
+Date: Wed, 06 Apr 2011 06:42:07 +0200
+Message-ID: <1302064927.3020.1.camel@edumazet-laptop>
+References: <20110404194856.GA3720@dannf.org> <4D9A23BC.4010505@trash.net>
+	 <1301949477.3021.55.camel@edumazet-laptop>
+	 <1301957293.3021.191.camel@edumazet-laptop>
+	 <1301984679.3021.655.camel@edumazet-laptop>
+	 <1301987879.3021.714.camel@edumazet-laptop>
+	 <20110405234216.GD32579@Chamillionaire.breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, dann frazier <dannf@dannf.org>,
+	netdev@vger.kernel.org,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110405234216.GD32579@Chamillionaire.breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds some debug in the event that reseting chip fails for some reason
+Le mercredi 06 avril 2011 =C3=A0 01:42 +0200, Florian Westphal a =C3=A9=
+crit :
 
-Signed-off-by: Simon Wood <simon@mungewell.org>
----
- drivers/net/usb/plusb.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+> using ninfo->nentries does not always work because ebtables compat
+> can call xt_compat_add_offset() more than once per entry.
+>=20
 
-diff --git a/drivers/net/usb/plusb.c b/drivers/net/usb/plusb.c
-index b9649e0..11ff297 100644
---- a/drivers/net/usb/plusb.c
-+++ b/drivers/net/usb/plusb.c
-@@ -94,11 +94,15 @@ pl_set_QuickLink_features(struct usbnet *dev, int val)
- 
- static int pl_reset(struct usbnet *dev)
- {
-+	int     status;
-+
- 	/* some units seem to need this reset, others reject it utterly.
- 	 * FIXME be more like "naplink" or windows drivers.
- 	 */
--	(void) pl_set_QuickLink_features(dev,
-+	status = pl_set_QuickLink_features(dev,
- 		PL_S_EN|PL_RESET_OUT|PL_RESET_IN|PL_PEER_E);
-+	if (status != 0 && netif_msg_probe(dev))
-+		netif_dbg(dev, link, dev->net, "pl_reset --> %d\n", status);
- 	return 0;
- }
- 
--- 
-1.7.0.4
+With same offset ? Maybe we should tweak xt_compat_add_offset() to
+detect this and add delta to previous delta in this case
+
+> That is of course not necessary; the ebt compat code should do better=
+=2E
+> I plan to look at this in the evening.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
