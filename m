@@ -1,86 +1,56 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] ipv6: Enable RFS sk_rxhash tracking for ipv6 sockets
-Date: Wed,  6 Apr 2011 13:54:25 -0400
-Message-ID: <1302112465-6842-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46459 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754903Ab1DFR6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 13:58:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
+ to drivers
+Date: Wed, 06 Apr 2011 19:07:08 +0100
+Message-ID: <1302113228.2840.29.camel@bwh-desktop>
+References: <20110401104756.2f5c6f7a@debxo>
+	 <BANLkTi=bCd_+f=EG-O=U5VH_ZNjFhxkziQ@mail.gmail.com>
+	 <20110401235239.GE29397@sortiz-mobl>
+	 <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
+	 <20110404100314.GC2751@sortiz-mobl>
+	 <20110405030428.GB29522@ponder.secretlab.ca>
+	 <20110406152322.GA2757@sortiz-mobl> <20110406155805.GA20095@suse.de>
+	 <20110406170537.GB2757@sortiz-mobl> <1302110209.2840.20.camel@bwh-desktop>
+	 <20110406175113.GC2757@sortiz-mobl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>, Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+	Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+	khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org,
+	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
+	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Mocean Laboratories <info-l7gf1WXxx3uGw+nKnLezzg@public.gmane.org>
+To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110406175113.GC2757@sortiz-mobl>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-properly record sk_rxhash in ipv6 sockets
+On Wed, 2011-04-06 at 19:51 +0200, Samuel Ortiz wrote:
+> Hi Ben,
+> 
+> On Wed, Apr 06, 2011 at 06:16:49PM +0100, Ben Hutchings wrote:
+> > > So, adding an MFD cell pointer to the device structure allows us to cleanly
+> > > pass both pieces of information, while keeping all the MFD sub drivers
+> > > independant from the MFD core if they want/can.
+> > 
+> > Why isn't an MFD the parent of its component devices?
+> It actually is. How would that help here ?
 
-Noticed while working on another project that flows to sockets which I had open
-on a test systems weren't getting steered properly when I had RFS enabled.
-Looking more closely I found that:
+I was thinking you could encode the component address in the
+platform_device name (just as the bus address is the name of a normal
+bus device).  That plus the parent device pointer would be sufficient
+information to look up the mfd_cell.
 
-1) The affected sockets were all ipv6
-2) They weren't getting steered because sk->sk_rxhash was never set from the
-incomming skbs on that socket.
+Ben.
 
-This was occuring because there are several points in the IPv4 tcp and udp code
-which save the rxhash value when a new connection is established.  Those calls
-to sock_rps_save_rxhash were never added to the corresponding ipv6 code paths.
-This patch adds those calls.  Tested by myself to properly enable RFS
-functionalty on ipv6.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-CC: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
-CC: James Morris <jmorris@namei.org>
-CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-CC: Patrick McHardy <kaber@trash.net>
----
- net/ipv6/tcp_ipv6.c |    4 +++-
- net/ipv6/udp.c      |    2 ++
- 2 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 2b0c186..97917bb 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1621,6 +1621,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		opt_skb = skb_clone(skb, GFP_ATOMIC);
- 
- 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
-+		sock_rps_save_rxhash(sk, skb->rxhash);
- 		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len))
- 			goto reset;
- 		if (opt_skb)
-@@ -1648,7 +1649,8 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 				__kfree_skb(opt_skb);
- 			return 0;
- 		}
--	}
-+	} else
-+		sock_rps_save_rxhash(sk, skb->rxhash);
- 
- 	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len))
- 		goto reset;
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index d7037c0..aa3e327 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -505,6 +505,8 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
- 	int rc;
- 	int is_udplite = IS_UDPLITE(sk);
- 
-+	sock_rps_save_rxhash(sk, skb->rxhash);
-+
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto drop;
- 
 -- 
-1.7.4
-
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
