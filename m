@@ -1,49 +1,70 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: Re: [PATCH 00/34] Make kernel build deterministic
-Date: Wed, 06 Apr 2011 11:23:40 +0200
-Message-ID: <4D9C311C.4080008@suse.cz>
-References: <1302015561-21047-1-git-send-email-mmarek@suse.cz>
-	<20110405154918.GA31337@suse.de>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: [PATCH net-next-2.6 v2] can: convert protocol handling to RCU
+Date: Wed, 6 Apr 2011 11:27:27 +0200
+Message-ID: <20110406092727.GC342@kurt.e-circ.dyndns.org>
+References: <4D9B58EC.9090903@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: anil_ravindranath@pmc-sierra.com, mchehab@redhat.com,
-	benh@kernel.crashing.org, x86@kernel.org, mac@melware.de,
-	aacraid@adaptec.com, linux-mtd@lists.infradead.org,
-	allan.stephens@windriver.com, hpa@zytor.com,
-	netdev@vger.kernel.org, t.sailer@alumni.ethz.ch,
-	gwingerde@gmail.com, IvDoorn@gmail.com, elf@buici.com,
-	cluster-devel@redhat.com, ccaulfie@redhat.com, mingo@redhat.com,
-	dougthompson@xmission.com, linux-media@vger.kernel.org,
-	arnaud.giersch@free.fr, linux-kbuild@vger.kernel.org,
-	teigland@redhat.com, tony.olech@elandigitalsystems.com,
-	apw@canonical.com, linux-hams@vger.kernel.org,
-	tglx@linutronix.de, swhiteho@redhat.com,
-	linux-arm-kernel@lists.infradead.org, linux-edac@vger.kernel.org,
-	jon.maloy@ericsson.com, linux-scsi@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-usb@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bluesmoke-
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20110405154918.GA31337@suse.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Urs Thuermann <urs@isnogud.escape.de>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.eia.be ([194.78.71.18]:26071 "EHLO mail.eia.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755212Ab1DFJ1b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2011 05:27:31 -0400
+Content-Disposition: inline
+In-Reply-To: <4D9B58EC.9090903@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5.4.2011 17:49, Greg KH wrote:
-> Very nice stuff.  Do you want to take the individual patches through one
-> of your trees, or do you mind if the subsystem maintainers take them
-> through theirs?
+On Tue, Apr 05, 2011 at 08:01:16PM +0200, Oliver Hartkopp wrote:
+> This patch removes spin_locks at CAN socket creation time by using RCU.
+Good thing.
 
-I'd leave it up to the subsystem maintainers. I'll check once the merge
-window opens and send the remaining patches to Linus directly.
-
-Michal
+I'm interested in RCU also for my J1939 code.
+I do have some questions below. These are mainly since I'm not yet used
+to RCU. Btw, I must have missed v1 of the patch, so I may ask 'already
+resolved' things...
+> 
+>  
+> +static struct can_proto *can_try_module_get(int protocol)
+> +{
+> +	struct can_proto *cp;
+> +
+> +	rcu_read_lock();
+> +	cp = rcu_dereference(proto_tab[protocol]);
+> +	if (cp && !try_module_get(cp->prot->owner))
+After the xxx_get, is the 'cp' pointer persistent?
+> +		cp = NULL;
+> +	rcu_read_unlock();
+> +
+> +	return cp;
+> +}
+> +
+>  static int can_create(struct net *net, struct socket *sock, int protocol,
+>  		      int kern)
+>  {
+> @@ -130,9 +143,12 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+>  	if (!net_eq(net, &init_net))
+>  		return -EAFNOSUPPORT;
+>  
+> +	cp = can_try_module_get(protocol);
+> +
+>  
+[...]
+>  	/* check for available protocol and correct usage */
+>  
+>  	if (!cp)
+>  		return -EPROTONOSUPPORT;
+>  
+>  	if (cp->type != sock->type) {
+I don't see how this will evaluate to true?
+can_proto_register takes care of it.
+> -		err = -EPROTONOSUPPORT;
+> +		err = -EPROTOTYPE;
+>  		goto errout;
+>  	}
+>  
