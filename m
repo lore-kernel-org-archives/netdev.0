@@ -1,45 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 NEXT 1/1] net: ethtool support to configure number of
- channels
-Date: Wed, 06 Apr 2011 12:56:37 -0700 (PDT)
-Message-ID: <20110406.125637.70201394.davem@davemloft.net>
-References: <1301720283-25038-1-git-send-email-amit.salecha@qlogic.com>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: fedora 14 kernel performance with ip forwarding workload
+Date: Wed, 6 Apr 2011 16:57:19 -0300
+Message-ID: <20110406195719.GE14697@ghostprotocols.net>
+References: <BANLkTikZfp_GLyNRufAzqv3Yeb5d12BPDA@mail.gmail.com> <20110406.121208.189703414.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com, bhutchings@solarflare.com
-To: amit.salecha@qlogic.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse.brandeburg@gmail.com, fedora-kernel-list@redhat.com,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60459
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753455Ab1DFT5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 15:57:13 -0400
-In-Reply-To: <1301720283-25038-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:44328 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756705Ab1DFT51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 15:57:27 -0400
+Received: by gyd10 with SMTP id 10so713346gyd.19
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2011 12:57:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110406.121208.189703414.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Fri,  1 Apr 2011 21:58:03 -0700
-
-> o There exist ETHTOOL_GRXRINGS command for getting number of RX rings,
->   but it is tigtly coupled with RX flow hash configuration.
-> o Patches for qlcnic and netxen_nic driver supporting rx channel will follow
->   soon.
-> o This patch is reworked on Ben Hutchings "ethtool: NUMA affinity control" patch,
->   dropping the affinity control from it.
+Em Wed, Apr 06, 2011 at 12:12:08PM -0700, David Miller escreveu:
+> From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+> Date: Wed, 6 Apr 2011 11:51:06 -0700
+> > perf showed netfilter being prominent, and removing it gives me much
+> > higher throughput.  Is there a reason CONFIG_NETFILTER=y ?  Isn't it a
+> > good thing to be able to disable netfilter if you want to?
 > 
-> Ben Hutching:
-> o define 'combined' and 'other' types.  Most multiqueue drivers pair up RX and TX
->   queues so that most channels combine RX and TX work.
-> o Please could you use a kernel-doc comment to describe the structure.
+> CONFIG_NETFILTER=y is the only possible non-disabled setting, as it's
+> a boolean.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> All that is enabling is the hooks, and it's not possible to provide
+> netfilter at all without the hooks being compiled into the kernel
+> image.
+> 
+> Fedora by default is also probably installing several defauly
+> netfilter rules, make sure to remove them.
 
-Ben, are you currently OK with this patch?
+Was there ever any attempt to try to have netfilter built-in but not
+causing the performance impact?
 
-There was some back and forth, and I just want to make sure all of the
-issues you raised were addressed to your satisfaction.
+Something like ftrace code changing when the user inserts the first
+rule?
 
-Thanks.
+People wanting top performance disable it in the build, but thos wanting
+to stick to vendor provided kernels don't have that choice :)
+
+- Arnaldo
