@@ -1,50 +1,34 @@
-From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Patch] iwlwifi: remove obsoleted module alias and parameters
-Date: Wed, 6 Apr 2011 14:57:29 +0200
-Message-ID: <20110406125728.GA2197@redhat.com>
-References: <1302083382-6715-1-git-send-email-amwang@redhat.com>
- <1302084582.3811.9.camel@jlt3.sipsolutions.net>
- <4D9C43A8.5060500@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] ixgbe: is DCA really that good ?
+Date: Wed, 06 Apr 2011 15:44:04 +0200
+Message-ID: <1302097444.3209.85.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Meenakshi Venkataraman <meenakshi.venkataraman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-To: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4D9C43A8.5060500-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Brattain <ross.b.brattain@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:37160 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755886Ab1DFNoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 09:44:09 -0400
+Received: by wwk4 with SMTP id 4so3949887wwk.1
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2011 06:44:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 06, 2011 at 06:42:48PM +0800, Cong Wang wrote:
-> =E4=BA=8E 2011=E5=B9=B404=E6=9C=8806=E6=97=A5 18:09, Johannes Berg =E5=
-=86=99=E9=81=93:
-> >On Wed, 2011-04-06 at 17:49 +0800, Amerigo Wang wrote:
-> >>As scheduled in Documentation/feature-removal-schedule.txt,
-> >>remove "*50", "disable_hw_scan" module parameters and MODULE_ALIAS(=
-"iwl4965").
-> >
-> >Mostly fine, but for iwlegacy Stanislaw we want to keep hw scan (and=
- it
-> >was actually made default now)
+Hi guys
 
-Indeed, disable_hw_scan should be removed in iwlwifi but leaved in iwle=
-gacy.
 
-> Ok, I will wait for Stanislaw's response and then send an updated pat=
-ch.
+In a forwarding [or RPS/RFS] setup, why should we populate cpu caches
+with full frames content ? We only need first cache line to perform
+routing [or RPS/RFS] decision.
 
-Have it now :-)
+-> DCA should be a knob (ethtool ?) that an admin can switch off and on,
+port by port, not a CONFIG_IXGBE_DCA thing.
 
-Stanislaw
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+
+
