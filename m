@@ -1,93 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: ethtool support to configure number of channels
-Date: Wed, 06 Apr 2011 23:18:08 +0100
-Message-ID: <1302128288.2840.72.camel@bwh-desktop>
-References: <1301652075-382-1-git-send-email-amit.salecha@qlogic.com>
-	 <1301677824.4679.10.camel@bwh-desktop>
-	 <99737F4847ED0A48AECC9F4A1974A4B80FD10E8D93@MNEXMB2.qlogic.org>
-	 <1301712946.10056.179.camel@localhost>
-	 <BEEA5B09-0726-463D-B542-234C4FB49FC5@qlogic.com>
+From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
+ to drivers
+Date: Wed, 6 Apr 2011 15:09:00 -0700
+Message-ID: <20110406220900.GA16117@suse.de>
+References: <20110401235239.GE29397@sortiz-mobl>
+ <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
+ <20110404100314.GC2751@sortiz-mobl>
+ <20110405030428.GB29522@ponder.secretlab.ca>
+ <20110406152322.GA2757@sortiz-mobl>
+ <20110406155805.GA20095@suse.de>
+ <20110406170537.GB2757@sortiz-mobl>
+ <20110406175647.GA8048@suse.de>
+ <20110406184733.GD2757@sortiz-mobl>
+ <20110406185902.GN25654@legolas.emea.dhcp.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:29396 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756493Ab1DFWSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 18:18:12 -0400
-In-Reply-To: <BEEA5B09-0726-463D-B542-234C4FB49FC5@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+	Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+	khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org,
+	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
+	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Mocean Laboratories <info-l7gf1WXxx3uGw+nKnLezzg@public.gmane.org>
+To: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110406185902.GN25654-UiBtZHVXSwEVvW8u9ZQWYwjfymiNCTlR@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-04-01 at 22:47 -0700, Anirban Chakraborty wrote:
-> On Apr 1, 2011, at 7:55 PM, Ben Hutchings wrote:
+On Wed, Apr 06, 2011 at 09:59:02PM +0300, Felipe Balbi wrote:
+> Hi,
 > 
-> > On Fri, 2011-04-01 at 21:36 -0500, Amit Salecha wrote:
-> >>> I'm not sure why you reduced this to a single count.  If if the driver
-> >>> or hardware doesn't allow certain combinations of counts, it might be
-> >>> necessary to configure several types at the same time
-> >>>
-> >>>> +/* Channel ID is made up of a type */
-> >>>> +enum ethtool_channel_id {
-> >>>> +   ETH_CHAN_TYPE_RX = 0x1,
-> >>>> +   ETH_CHAN_TYPE_TX = 0x2
-> >>>> +};
-> >>> [...]
-> >>>
-> >>> enum ethtool_channel_id was meant to be an identifier of a specific
-> >>> channel.  An enumeration of channel types should be named differently.
-> >>>
-> >>
-> >> I will name it as ethtool_channel_type. Any other suggestion ?
-> >>
-> >>> This also omits the 'combined' and 'other' types.  Most multiqueue
-> >>> drivers pair up RX and TX queues so that most channels combine RX and
-> >>> TX
-> >>> work.
-> >>
-> >> 'combined' is ok, what is use of 'other' ?
-> >
-> > Could be link interrupts, SR-IOV coordination, or something else.  Not
-> > something you'd likely be able to change, but it could be useful to know
-> > that some interrupts are allocated to them.  Actually, that does mean it
-> > might be helpful for the 'get' operation to return a minimum value along
-> > with the maximum value.
+> On Wed, Apr 06, 2011 at 08:47:34PM +0200, Samuel Ortiz wrote:
+> > > > > What is a "MFD cell pointer" and why is it needed in struct device?
+> > > > An MFD cell is an MFD instantiated device.
+> > > > MFD (Multi Function Device) drivers instantiate platform devices. Those
+> > > > devices drivers sometimes need a platform data pointer, sometimes an MFD
+> > > > specific pointer, and sometimes both. Also, some of those drivers have been
+> > > > implemented as MFD sub drivers, while others know nothing about MFD and just
+> > > > expect a plain platform_data pointer.
+> > > 
+> > > That sounds like a bug in those drivers, why not fix them to properly
+> > > pass in the correct pointer?
+> > Because they're drivers for generic IPs, not MFD ones. By forcing them to use
+> > MFD specific structure and APIs, we make it more difficult for platform code
+> > to instantiate them.
 > 
-> Are you thinking of using the 'other' field as a way to a represent a 'virtual port'
-> that a VF could have. A virtual port could have a set of rx/tx rings, interrupts,
-> QoS parameters, MAC filters, VLAN ids etc. etc. A VF could have one or many such
-> channels. If thats the case, I would think that configuring these channels should
-> be done via a PF rather than on a VF. It is possible I could get you totally wrong here,
-> however it would be good to hear your thoughts.
+> I agree. What I do on those cases is to have a simple platform_device
+> for the core IP driver and use platform_device_id tables to do runtime
+> checks of the small differences. If one platform X doesn't use a
+> platform_bus, it uses e.g. PCI, then you make a PCI "bridge" which
+> allocates a platform_device with the correct name and adds that to the
+> driver model.
+> 
+> See [1] (for the core driver) and [2] (for a PCI bridge driver) for an
+> example of what I'm talking about.
 
-The net device for a VF could have all sorts of channels, and their
-numbers may or may not be configurable depending on limitations of the
-hardware, firmware, driver or hypervisor.
+Yes, thanks for providing a real example, this is the best way to handle
+this.
 
-The channel counts reported by a net device should include all those
-IRQs allocated by the net device driver for its parent device (e.g. a
-PCI device).
+thanks,
 
-To be more concrete, here is how I would count channels:
-
-1. RX queue with IRQ, exposed to the network stack => RX channel
-2. TX queue with IRQ, exposed to the network stack => TX channel
-3. RX and TX queue sharing IRQ, exposed to the network stack => combined channel
-4. Link change IRQ => other channel
-5. Queue(s) and IRQ for iSCSI traffic, not exposed to the network stack => other channel
-6. Qeuue(s) and IRQ for coordination between PCI functions => other channel
-7. Queue(s) and IRQ allocated to other PCI function => not counted
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+greg k-h
