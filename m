@@ -1,49 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: fedora 14 kernel performance with ip forwarding workload
-Date: Wed, 06 Apr 2011 23:11:09 +0200
-Message-ID: <1302124269.2701.36.camel@edumazet-laptop>
-References: <20110406195719.GE14697@ghostprotocols.net>
-	 <20110406.130239.232756965.davem@davemloft.net>
-	 <1302121136.2701.16.camel@edumazet-laptop>
-	 <20110406.132906.200378990.davem@davemloft.net>
-	 <1302121945.2701.31.camel@edumazet-laptop>
-	 <alpine.WNT.2.00.1104061400320.6556@JBRANDEB-DESK2.amr.corp.intel.com>
+From: Eric B Munson <emunson@mgebm.net>
+Subject: Re: 2.6.39-rc2 boot crash
+Date: Wed, 6 Apr 2011 17:20:41 -0400
+Message-ID: <20110406212041.GA2596@mgebm.net>
+References: <20110406184753.GA7691@mgebm.net>
+ <1302115953.8094.217.camel@nimitz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"acme@ghostprotocols.net" <acme@ghostprotocols.net>,
-	"jesse.brandeburg@gmail.com" <jesse.brandeburg@gmail.com>,
-	"fedora-kernel-list@redhat.com" <fedora-kernel-list@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36668 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371Ab1DFVLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 17:11:14 -0400
-Received: by wwa36 with SMTP id 36so2269858wwa.1
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2011 14:11:13 -0700 (PDT)
-In-Reply-To: <alpine.WNT.2.00.1104061400320.6556@JBRANDEB-DESK2.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="UugvWAfsgieZRqgk"
+Cc: linux-kernel@vger.kernel.org, kaber@trash.net, zbr@ioremap.net,
+	davem@davemloft.net, gregkh@suse.de, ksrinivasan@novell.com,
+	netdev@vger.kernel.org
+To: Dave Hansen <dave@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1302115953.8094.217.camel@nimitz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 06 avril 2011 =C3=A0 14:08 -0700, Brandeburg, Jesse a =C3=A9=
-crit :
-> Thanks for the replies,=20
-> Yes indeed, I bet that conntrack was the item that caused the grief I=
- saw. =20
-> In fact turning off CONFIG_NETFILTER disables conntrack and solved my=
-=20
-> problem. :-)
+
+--UugvWAfsgieZRqgk
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 06 Apr 2011, Dave Hansen wrote:
+
+> On Wed, 2011-04-06 at 14:47 -0400, Eric B Munson wrote:
+> > I am seeing a boot crash on my machine with 2.6.39-rc2.  I don't yet ha=
+ve
+> > netconsole setup and I don't have serial so the best I can do at the mo=
+ment
+> > is a couple of pictures of the stack trace.
+> >=20
+> > http://tinypic.com/r/2zsr19i/7
+> >=20
+> > And=20
+> >=20
+> > http://tinypic.com/r/2iw22dj/7
+> >=20
+> > I will try and get a net console working for better output, is there
+> > anything else that would help?
 >=20
-> Now the question is how to get the netfiltery/conntracky goodness wit=
-hout=20
-> impacting those who want to go fast, maybe without a helmet.
+> This:
+>=20
+> > boot_delay=3D     Milliseconds to delay each printk during boot.
+> >                         Values larger than 10 seconds (10000) are chang=
+ed to
+> >                         no delay (0).
+> >                         Format: integer
+>=20
+> sometimes gives you enough time to get something out of the system.  You
+> might also want to try and boot the same kernel in a VM.  It might just
+> be a weird configuration issue, or maybe even a lockdep bug.  If it's
+> not hardware related, booting in a VM should help a lot.
+>=20
+> -- Dave
+>=20
 
-Thats pretty simple, just load netfilter modules if necessary.
+A bisect points at commit 04f482faf50535229a5a5c8d629cf963899f857c for the
+first bad one.  Unfortunately, I have not made netconsole work yet and the
+hang is happening mostly right when X starts so I can't even see the consol=
+e.
+I will keep at the netconsole and see if I can get it functioning, also I w=
+ill
+try to boot this kernel in a VM and see if that helps.
 
-If not loaded, cost is pretty small, being predicted branches.
+Eric
 
+--UugvWAfsgieZRqgk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
+iQEcBAEBAgAGBQJNnNkpAAoJEH65iIruGRnNesUIAMZSAbFc+AyCMSBCUY1vidw/
+VV3XIhkhfOMDNulXv+csvCb+7s0RXmVtmywvXYfBqx7ccpHKPGkXr506aKdVGQvq
+cRlYShJeAodIqOjxDc2qefoXZPDwXEe2JsA/TZznNKsa6AluMb78sfbPjptRjDim
+K6uyric75t4UftpoPbb5MG3gLw+0BiE50ZS9gxhTewQT+j/Fx2nPL+ibdHlssI6x
+YakX26kX7bXRfgTyl3T1JiOM2O0GidV/GMKq/G/WEobx5vVLkgNxLkJ/q4CDd1qR
+zFgvt4+0tILNDlshLrRDF/o8eLQetubd94EHE5RxyLq6llH2hsXWMrwKb+bqrCQ=
+=wQLp
+-----END PGP SIGNATURE-----
+
+--UugvWAfsgieZRqgk--
