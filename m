@@ -1,79 +1,51 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [PATCH net-next-2.6 v2] can: convert protocol handling to RCU
-Date: Wed, 6 Apr 2011 17:34:40 +0200
-Message-ID: <20110406153440.GA2277@kurt.e-circ.dyndns.org>
-References: <4D9B58EC.9090903@hartkopp.net>
- <20110406092727.GC342@kurt.e-circ.dyndns.org>
- <4D9C7B07.20903@hartkopp.net>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH] be2net: Fix a potential crash during shutdown.
+Date: Wed, 6 Apr 2011 10:53:13 -0500
+Message-ID: <20110406155313.GA2246@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:28221 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932131Ab1DFPep (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2011 11:34:45 -0400
+Received: from exht1.emulex.com ([138.239.113.183]:45021 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756325Ab1DFPxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 11:53:36 -0400
 Content-Disposition: inline
-In-Reply-To: <4D9C7B07.20903@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 06, 2011 at 04:39:03PM +0200, Oliver Hartkopp wrote:
-> On 06.04.2011 11:27, Kurt Van Dijck wrote:
-> > On Tue, Apr 05, 2011 at 08:01:16PM +0200, Oliver Hartkopp wrote:
-> 
-> >>  
-> >> +static struct can_proto *can_try_module_get(int protocol)
-> >> +{
-> >> +	struct can_proto *cp;
-> >> +
-> >> +	rcu_read_lock();
-> >> +	cp = rcu_dereference(proto_tab[protocol]);
-> >> +	if (cp && !try_module_get(cp->prot->owner))
-> > After the xxx_get, is the 'cp' pointer persistent?
-> 
-> try_module_get() increases the usage counter of the module - therefore it is.
-> It is protected until module_put(cp->prot->owner) at the end of can_create() .
-Ok, I understand correctly now.
-> 
-> >>  	/* check for available protocol and correct usage */
-> >>  
-> >>  	if (!cp)
-> >>  		return -EPROTONOSUPPORT;
-> >>  
-> >>  	if (cp->type != sock->type) {
-> > I don't see how this will evaluate to true?
-> > can_proto_register takes care of it.
-> 
-> This check compares the type of the socket that is to be created with the type
-> that's defined for this protocol.
-> 
-> E.g. if you would give
-> 
-> s = socket(PF_CAN, SOCK_STREAM, CAN_RAW);
-> 
-> instead of the correct
-> 
-> s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-> 
-> you will get this error.
+adapter could remain uninitialized if probe fails for some reason.
+A null pointer access could cause a crash if be_shutdown
+is called after that.
 
-Right, I see my mistake now.
-> 
-> >> -		err = -EPROTONOSUPPORT;
-> >> +		err = -EPROTOTYPE;
-> >>  		goto errout;
-> >>  	}
-> >>  
-> 
-> Regards,
-> Oliver
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/benet/be_main.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-Regards,
-Kurt
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index a71163f..6e8e211 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -3141,12 +3141,14 @@ static int be_resume(struct pci_dev *pdev)
+ static void be_shutdown(struct pci_dev *pdev)
+ {
+ 	struct be_adapter *adapter = pci_get_drvdata(pdev);
+-	struct net_device *netdev =  adapter->netdev;
+ 
+-	if (netif_running(netdev))
++	if (!adapter)
++		return;
++
++	if (netif_running(adapter->netdev))
+ 		cancel_delayed_work_sync(&adapter->work);
+ 
+-	netif_device_detach(netdev);
++	netif_device_detach(adapter->netdev);
+ 
+ 	be_cmd_reset_function(adapter);
+ 
+-- 
+1.7.1
 
-Acked-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
