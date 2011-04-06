@@ -1,39 +1,44 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH/RFC] can: mcp251x: Allow pass IRQ flags through
-	platform data.
-Date: Wed, 6 Apr 2011 09:14:57 +0200
-Message-ID: <20110406071457.GC284@kurt.e-circ.dyndns.org>
-References: <1302023321-25182-1-git-send-email-eballetbo@iseebcn.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: shutdown oops in xt_compat_calc_jump
+Date: Wed, 6 Apr 2011 09:40:47 +0200
+Message-ID: <20110406074047.GE32579@Chamillionaire.breakpoint.cc>
+References: <20110404194856.GA3720@dannf.org>
+ <4D9A23BC.4010505@trash.net>
+ <1301949477.3021.55.camel@edumazet-laptop>
+ <1301957293.3021.191.camel@edumazet-laptop>
+ <1301984679.3021.655.camel@edumazet-laptop>
+ <1301987879.3021.714.camel@edumazet-laptop>
+ <20110405234216.GD32579@Chamillionaire.breakpoint.cc>
+ <1302064927.3020.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: Enric Balletbo i Serra <eballetbo-VIneJrwqLopBDgjK7y7TUQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Westphal <fw@strlen.de>, Patrick McHardy <kaber@trash.net>,
+	dann frazier <dannf@dannf.org>, netdev@vger.kernel.org,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1302023321-25182-1-git-send-email-eballetbo-VIneJrwqLopBDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <1302064927.3020.1.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 05, 2011 at 07:08:41PM +0200, Enric Balletbo i Serra wrote:
->  	ret = request_threaded_irq(spi->irq, NULL, mcp251x_can_ist,
-> -			  IRQF_TRIGGER_FALLING, DEVICE_NAME, priv);
-> +		  pdata->irq_flags ? pdata->irq_flags : IRQF_TRIGGER_FALLING,
-> +		  DEVICE_NAME, priv);
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Le mercredi 06 avril 2011 =E0 01:42 +0200, Florian Westphal a =E9crit=
+ :
+>=20
+> > using ninfo->nentries does not always work because ebtables compat
+> > can call xt_compat_add_offset() more than once per entry.
+> >=20
+>=20
+> With same offset ? Maybe we should tweak xt_compat_add_offset() to
+> detect this and add delta to previous delta in this case
 
-IMHO, doing like this looks just a tiny bit cleaner
-> +		  pdata->irq_flags ?: IRQF_TRIGGER_FALLING,
-> +		  DEVICE_NAME, priv);
-
-That's really the only remark :-)
-
-Regards,
-Kurt
+No, different offset (it calls it per match/watcher/target instead
+of summing up the match/target deltas and using that in a single
+add_offset call).
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
