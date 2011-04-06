@@ -1,48 +1,68 @@
-From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
-Subject: Re: [Patch] iwlwifi: remove obsoleted module alias and parameters
-Date: Wed, 06 Apr 2011 07:05:55 -0700
-Message-ID: <1302098755.14995.112.camel@wwguy-huron>
-References: <1302083382-6715-1-git-send-email-amwang@redhat.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net-next-2.6 v2] can: convert protocol handling to RCU
+Date: Wed, 06 Apr 2011 16:39:03 +0200
+Message-ID: <4D9C7B07.20903@hartkopp.net>
+References: <4D9B58EC.9090903@hartkopp.net> <20110406092727.GC342@kurt.e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	"Venkataraman, Meenakshi" <meenakshi.venkataraman@intel.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Amerigo Wang <amwang@redhat.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Urs Thuermann <urs@isnogud.escape.de>
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31294 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756249Ab1DFOZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2011 10:25:08 -0400
-In-Reply-To: <1302083382-6715-1-git-send-email-amwang@redhat.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:19762 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756054Ab1DFOjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 10:39:15 -0400
+In-Reply-To: <20110406092727.GC342@kurt.e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-06 at 02:49 -0700, Amerigo Wang wrote:
-> As scheduled in Documentation/feature-removal-schedule.txt,
-> remove "*50", "disable_hw_scan" module parameters and MODULE_ALIAS("iwl4965").
-> 
-> Cc: Intel Linux Wireless <ilw@linux.intel.com>
-> Cc: Johannes Berg <johannes.berg@intel.com>
-> Cc: "John W. Linville" <linville@tuxdriver.com>
-> Cc: Wey-Yi Guy <wey-yi.w.guy@intel.com> 
-> Cc: Stanislaw Gruszka <sgruszka@redhat.com>
-> Cc: Meenakshi Venkataraman <meenakshi.venkataraman@intel.com>
-> Cc: Larry Finger <Larry.Finger@lwfinger.net>
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> 
-> ---
-what tree you are base on?
-please check commit#7eaa6a5e964f1ab02d849bda36950c0d30be8ce2 in
-wireless-next-2.6
+On 06.04.2011 11:27, Kurt Van Dijck wrote:
+> On Tue, Apr 05, 2011 at 08:01:16PM +0200, Oliver Hartkopp wrote:
 
-Thanks
-Wey
+>>  
+>> +static struct can_proto *can_try_module_get(int protocol)
+>> +{
+>> +	struct can_proto *cp;
+>> +
+>> +	rcu_read_lock();
+>> +	cp = rcu_dereference(proto_tab[protocol]);
+>> +	if (cp && !try_module_get(cp->prot->owner))
+> After the xxx_get, is the 'cp' pointer persistent?
 
+try_module_get() increases the usage counter of the module - therefore it is.
+It is protected until module_put(cp->prot->owner) at the end of can_create() .
 
+>>  	/* check for available protocol and correct usage */
+>>  
+>>  	if (!cp)
+>>  		return -EPROTONOSUPPORT;
+>>  
+>>  	if (cp->type != sock->type) {
+> I don't see how this will evaluate to true?
+> can_proto_register takes care of it.
+
+This check compares the type of the socket that is to be created with the type
+that's defined for this protocol.
+
+E.g. if you would give
+
+s = socket(PF_CAN, SOCK_STREAM, CAN_RAW);
+
+instead of the correct
+
+s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+
+you will get this error.
+
+>> -		err = -EPROTONOSUPPORT;
+>> +		err = -EPROTOTYPE;
+>>  		goto errout;
+>>  	}
+>>  
+
+Regards,
+Oliver
