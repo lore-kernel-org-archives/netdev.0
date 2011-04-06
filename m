@@ -1,87 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
- to drivers
-Date: Wed, 06 Apr 2011 18:16:49 +0100
-Message-ID: <1302110209.2840.20.camel@bwh-desktop>
-References: <20110331230522.GI437@ponder.secretlab.ca>
-	 <20110401112030.GA3447@sortiz-mobl> <20110401104756.2f5c6f7a@debxo>
-	 <BANLkTi=bCd_+f=EG-O=U5VH_ZNjFhxkziQ@mail.gmail.com>
-	 <20110401235239.GE29397@sortiz-mobl>
-	 <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
-	 <20110404100314.GC2751@sortiz-mobl>
-	 <20110405030428.GB29522@ponder.secretlab.ca>
-	 <20110406152322.GA2757@sortiz-mobl> <20110406155805.GA20095@suse.de>
-	 <20110406170537.GB2757@sortiz-mobl>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH v2 net-next 3/9] tg3: Reintroduce 5717_PLUS
+Date: Wed, 6 Apr 2011 10:33:26 -0700
+Message-ID: <20110406173325.GA14870@mcarlson.broadcom.com>
+References: <1302049371-13799-4-git-send-email-mcarlson@broadcom.com>
+ <1302067853.1683.29.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>, Grant Likely <grant.likely@secretlab.ca>,
-	Andres Salomon <dilinger@queued.net>,
-	linux-kernel@vger.kernel.org,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	khali@linux-fr.org, ben-linux@fluff.org,
-	Peter Korsgaard <jacmet@sunsite.dk>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	linux-i2c@vger.kernel.org, linux-media@vger.kernel.org,
-	netdev@vger.kernel.org, spi-devel-general@lists.sourceforge.net,
-	Mocean Laboratories <info@mocean-labs.com>
-To: Samuel Ortiz <sameo@linux.intel.com>
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Joe Perches" <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:2661 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754829Ab1DFRQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 13:16:54 -0400
-In-Reply-To: <20110406170537.GB2757@sortiz-mobl>
+Received: from mms3.broadcom.com ([216.31.210.19]:4104 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754502Ab1DFR1J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2011 13:27:09 -0400
+In-Reply-To: <1302067853.1683.29.camel@Joe-Laptop>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-06 at 19:05 +0200, Samuel Ortiz wrote:
-> Hi Greg,
+On Tue, Apr 05, 2011 at 10:30:53PM -0700, Joe Perches wrote:
+> On Tue, 2011-04-05 at 17:22 -0700, Matt Carlson wrote:
+> > This patch reintroduces the TG3_FLG3_5717_PLUS to identify 5717 and
+> > later devices.
+> []
+> > @@ -13427,8 +13422,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+> []
+> > +	if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)
+> >  		tp->tg3_flags3 |= TG3_FLG3_LRG_PROD_RING_CAP;
 > 
-> On Wed, Apr 06, 2011 at 08:58:05AM -0700, Greg KH wrote:
-> > On Wed, Apr 06, 2011 at 05:23:23PM +0200, Samuel Ortiz wrote:
-> > > --- a/include/linux/device.h
-> > > +++ b/include/linux/device.h
-> > > @@ -33,6 +33,7 @@ struct class;
-> > >  struct subsys_private;
-> > >  struct bus_type;
-> > >  struct device_node;
-> > > +struct mfd_cell;
-> > >  
-> > >  struct bus_attribute {
-> > >  	struct attribute	attr;
-> > > @@ -444,6 +445,8 @@ struct device {
-> > >  	struct device_node	*of_node; /* associated device tree node */
-> > >  	const struct of_device_id *of_match; /* matching of_device_id from driver */
-> > >  
-> > > +	struct mfd_cell	*mfd_cell; /* MFD cell pointer */
-> > > +
-> > 
-> > What is a "MFD cell pointer" and why is it needed in struct device?
-> An MFD cell is an MFD instantiated device.
-> MFD (Multi Function Device) drivers instantiate platform devices. Those
-> devices drivers sometimes need a platform data pointer, sometimes an MFD
-> specific pointer, and sometimes both. Also, some of those drivers have been
-> implemented as MFD sub drivers, while others know nothing about MFD and just
-> expect a plain platform_data pointer.
+> This seems redundant.  Maybe consolidate to just
+> TG3_FLG3_5717_PLUS and remove LRG_PROD_RING_CAP?
 > 
-> We've been faced with the problem of being able to pass both MFD related data
-> and a platform_data pointer to some of those drivers. Squeezing the MFD bits
-> in the sub driver platform_data pointer doesn't work for drivers that know
-> nothing about MFDs. It also adds an additional dependency on the MFD API to
-> all MFD sub drivers. That prevents any of those drivers to eventually be used
-> as plain platform device drivers.
-> So, adding an MFD cell pointer to the device structure allows us to cleanly
-> pass both pieces of information, while keeping all the MFD sub drivers
-> independant from the MFD core if they want/can.
+> I don't know if these attributes really are linked.
+> 
+> Another option may be to use DECLARE_BITMAP
+> and set_bit/test_bit so there's no real need
+> to use FLAG/FLG2/FLG3, etc.
 
-Why isn't an MFD the parent of its component devices?
+A while back, I submitted a patch that extended the rx ring sizes for
+those devices that were capable.  Dave Miller commented that he didn't
+think the additional buffering was benefitial and in fact had a
+downside.  (Larger ring sizes will result in more inefficient cache
+usage.)
 
-Ben.
+To fix the problem, the driver will need to be able to easily identify
+which devices support the larger ring sizes.  This patch represents a
+step in that direction.  Follow-on patches will make more use of the
+flag, which should justify its existence.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+For the record though, I did consider using the TG3_FLG3_5717_PLUS flag.
+I'm uncomfortable with using it here because this is more of a server
+class device feature.  Should another mobile or desktop device be
+created in the future, I'd have to devise this type of flag to identify
+what feature I'm really talking about.  I thought it prudent to just
+take care of that now.
+
+(Not that this is a compelling argument, but it also is a handy way to
+enable and disable the feature while debugging.)
 
