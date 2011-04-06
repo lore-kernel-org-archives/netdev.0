@@ -1,39 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH/RFC] can: mcp251x: Allow pass IRQ flags through
-	platform data.
-Date: Wed, 06 Apr 2011 12:24:37 -0700 (PDT)
-Message-ID: <20110406.122437.183036685.davem@davemloft.net>
-References: <1302023321-25182-1-git-send-email-eballetbo@iseebcn.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] ipv6: Enable RFS sk_rxhash tracking for ipv6 sockets
+Date: Wed, 6 Apr 2011 15:19:40 -0400
+Message-ID: <20110406191940.GD6825@hmsreliant.think-freely.org>
+References: <1302112465-6842-1-git-send-email-nhorman@tuxdriver.com>
+ <1302113253.3209.126.camel@edumazet-laptop>
+ <20110406183913.GB6825@hmsreliant.think-freely.org>
+ <4D9CB697.3050209@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: eballetbo-VIneJrwqLopBDgjK7y7TUQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1302023321-25182-1-git-send-email-eballetbo-VIneJrwqLopBDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <therbert@google.com>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34558 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756656Ab1DFTZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 15:25:29 -0400
+Content-Disposition: inline
+In-Reply-To: <4D9CB697.3050209@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Enric Balletbo i Serra <eballetbo-VIneJrwqLopBDgjK7y7TUQ@public.gmane.org>
-Date: Tue,  5 Apr 2011 19:08:41 +0200
-
-> When an interrupt occurs, the INT pin is driven low by the
-> MCP251x controller (falling edge) but in some cases the INT
-> pin can be connected to the MPU through a transistor or level
-> translator which inverts this signal. In this case interrupt
-> should be configured in rising edge.
+On Wed, Apr 06, 2011 at 02:53:11PM -0400, Brian Haley wrote:
+> On 04/06/2011 02:39 PM, Neil Horman wrote: 
+> > Also, do we have a macro already to see if an ipv6 address is all zeros?  I'm
+> > not finding one, but I'd hate to re-invent the wheel if I'm just missing it.
 > 
-> This patch adds support to pass the IRQ flags via
-> mcp251x_platform_data.
+> ipv6_addr_any() inline in ipv6.h
 > 
-> Signed-off-by: Enric Balletbo i Serra <eballetbo-VIneJrwqLopBDgjK7y7TUQ@public.gmane.org>
+Ah thanks!
+Neil
 
-Applied, thanks.
+> -Brian
+> 
