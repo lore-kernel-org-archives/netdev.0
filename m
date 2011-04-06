@@ -1,29 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix panic in ip6_pol_route
-Date: Wed, 06 Apr 2011 01:21:33 -0700 (PDT)
-Message-ID: <20110406.012133.71132393.davem@davemloft.net>
-References: <20110406064504.30691.36599.sendpatchset@krkumar2.in.ibm.com>
-	<20110406.004043.193732725.davem@davemloft.net>
-	<OFCD49CDC4.C2B9408D-ON6525786A.002C2B92-6525786A.002CBDC6@in.ibm.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 00/34] Make kernel build deterministic
+Date: Wed, 6 Apr 2011 10:57:12 +0200
+Message-ID: <20110406085712.GA16597@elte.hu>
+References: <1302015561-21047-1-git-send-email-mmarek@suse.cz>
+	<20110405154918.GA31337@suse.de> <1302031447.2608.41.camel@koala>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: krkumar2@in.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51269
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754635Ab1DFIWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 04:22:10 -0400
-In-Reply-To: <OFCD49CDC4.C2B9408D-ON6525786A.002C2B92-6525786A.002CBDC6@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: anil_ravindranath@pmc-sierra.com, mchehab@redhat.com,
+	benh@kernel.crashing.org, mac@melware.de, aacraid@adaptec.com,
+	linux-mtd@lists.infradead.org, allan.stephens@windriver.com,
+	hpa@zytor.com, t.sailer@alumni.ethz.ch, gwingerde@gmail.com,
+	x86@kernel.org, elf@buici.com, cluster-devel@redhat.com,
+	ccaulfie@redhat.com, mingo@redhat.com, dougthompson@xmission.com,
+	tipc-discussion@lists.sourceforge.net, dwmw2@infradead.org,
+	linux-media@vger.kernel.org, jon.maloy@ericsson.com,
+	arnaud.giersch@free.fr, linux-kbuild@vger.kernel.org,
+	IvDoorn@gmail.com, teigland@redhat.com,
+	tony.olech@elandigitalsystems.com, apw@canonical.com,
+	linux-hams@vger.kernel.org, tglx@linutronix.de,
+	swhiteho@redhat.com, linux-arm-kernel@lists.infradead.org,
+	linux-edac@vger.kernel.org, Michal Marek <mmarek@suse.cz>,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	Greg KH <gregkh@suse.de>, linux-wireless
+To: Artem Bityutskiy <dedekind1@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1302031447.2608.41.camel@koala>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Wed, 6 Apr 2011 13:40:57 +0530
 
-> Is it better to disallow configuring vlan on lo?
+* Artem Bityutskiy <dedekind1@gmail.com> wrote:
 
-Yes, but the real stinker to me is that the IFF_LOOPBACK flag
-propagates to the VLAN device, that really seems even more
-wrong to me.
+> On Tue, 2011-04-05 at 08:49 -0700, Greg KH wrote:
+> > On Tue, Apr 05, 2011 at 04:58:47PM +0200, Michal Marek wrote:
+> > > 
+> > > Hi,
+> > > 
+> > > this series makes it possible to build bit-identical kernel image and
+> > > modules from identical sources. Of course the build is already
+> > > deterministic in terms of behavior of the code, but the various
+> > > timestamps embedded in the object files make it hard to compare two
+> > > builds, for instance to verify that a makefile cleanup didn't
+> > > accidentally change something. A prime example is /proc/config.gz, which
+> > > has both a timestamp in the gzip header and a timestamp in the payload
+> > > data. With this series applied, a script like this will produce
+> > > identical kernels each time:
+> > 
+> > Very nice stuff.  Do you want to take the individual patches through one
+> > of your trees, or do you mind if the subsystem maintainers take them
+> > through theirs?
+> 
+> But unfortunately, it is very easy to break this and for sure it'll be
+> broken very soon.
+> 
+> So additionally, I'd suggest:
+> 1. Instrument checkpatch.pl and make it err or warn on timestamps.
+
+See the grandparent mail:
+
+  checkpatch: Warn about usage of __DATE__, __TIME__ and __TIMESTAMP__
+
+Thanks,
+
+	Ingo
