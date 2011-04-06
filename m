@@ -1,34 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2011-04-06
-Date: Wed, 06 Apr 2011 14:05:43 -0700 (PDT)
-Message-ID: <20110406.140543.02286734.davem@davemloft.net>
-References: <20110406200032.GK11941@tuxdriver.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: fedora 14 kernel performance with ip forwarding workload
+Date: Wed, 6 Apr 2011 14:08:01 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.1104061400320.6556@JBRANDEB-DESK2.amr.corp.intel.com>
+References: <20110406195719.GE14697@ghostprotocols.net>  <20110406.130239.232756965.davem@davemloft.net>  <1302121136.2701.16.camel@edumazet-laptop>  <20110406.132906.200378990.davem@davemloft.net> <1302121945.2701.31.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110406200032.GK11941@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"acme@ghostprotocols.net" <acme@ghostprotocols.net>,
+	"jesse.brandeburg@gmail.com" <jesse.brandeburg@gmail.com>,
+	"fedora-kernel-list@redhat.com" <fedora-kernel-list@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:35213 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751371Ab1DFVIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2011 17:08:18 -0400
+In-Reply-To: <1302121945.2701.31.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 6 Apr 2011 16:00:33 -0400
 
-> Here is another batch of fixes intended for 2.6.39...
-> 
-> This includes a fix to avoid receiving duplicate frames in "cooked"
-> monitor mode, a mac80211 documentation fix to avoid developer
-> confusion, an rt2x00 fix to avoid cancelling some uninitialized work,
-> a wl12xx buffer overflow fix, an email address correction for wl12xx
-> module info, a zd1211rw regression fix, a zd1211rw WARNING fix,
-> and rtlwifi fix to avoid using some uninitialized variables, a fix
-> to broaden the iwl600 hardware supported by iwlagn to match what the
-> Windows driver is supporting, a b43 fix to allocate properly sized
-> receive buffers, and some stuff related to device IDs.
-> 
-> Please let me know if there are problems!
 
-Pulled, thanks John.
+On Wed, 6 Apr 2011, Eric Dumazet wrote:
+
+> Le mercredi 06 avril 2011 =C3=A0 13:29 -0700, David Miller a =C3=A9cr=
+it :
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Wed, 06 Apr 2011 22:18:56 +0200
+> >=20
+> > > I remember last time I work on a fedora kernel, it had conntrack =
+enabled
+> > >=20
+> > > And yes, conntrack can really slowdown a router, because of defau=
+lt
+> > > parameters.
+> >=20
+> > Yes, if conntrack is enabled performance will indeed tank.
+>=20
+> I just check on latest fedora14 (yum updated) :
+>=20
+> - conntrack is statically included in kernel, you cannot remove it.
+>=20
+>=20
+> Hmm...
+
+Thanks for the replies,=20
+Yes indeed, I bet that conntrack was the item that caused the grief I s=
+aw. =20
+In fact turning off CONFIG_NETFILTER disables conntrack and solved my=20
+problem. :-)
+
+Now the question is how to get the netfiltery/conntracky goodness witho=
+ut=20
+impacting those who want to go fast, maybe without a helmet.
