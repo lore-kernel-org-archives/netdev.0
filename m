@@ -1,36 +1,87 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: mourning the loss of David Brownell
-Date: Wed, 6 Apr 2011 10:11:45 -0700
-Message-ID: <20110406171144.GG17376@atomide.com>
-References: <BANLkTi=0Wj56uO0qAwMfkWNg0+PtKFiMiA@mail.gmail.com>
- <Pine.LNX.4.44L0.1104051350480.1972-100000@iolanthe.rowland.org>
- <20110406002144.GC6983@xanatos>
- <BANLkTikRJ+fBRJYfH=LEJk6dt58Gdk61Zg@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
+ to drivers
+Date: Wed, 06 Apr 2011 18:16:49 +0100
+Message-ID: <1302110209.2840.20.camel@bwh-desktop>
+References: <20110331230522.GI437@ponder.secretlab.ca>
+	 <20110401112030.GA3447@sortiz-mobl> <20110401104756.2f5c6f7a@debxo>
+	 <BANLkTi=bCd_+f=EG-O=U5VH_ZNjFhxkziQ@mail.gmail.com>
+	 <20110401235239.GE29397@sortiz-mobl>
+	 <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
+	 <20110404100314.GC2751@sortiz-mobl>
+	 <20110405030428.GB29522@ponder.secretlab.ca>
+	 <20110406152322.GA2757@sortiz-mobl> <20110406155805.GA20095@suse.de>
+	 <20110406170537.GB2757@sortiz-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Greg KH <greg@kroah.com>, Oliver Neukum <oliver@neukum.org>,
-	Bill Gatliff <bgat@billgatliff.com>,
-	Kernel development list <linux-kernel@vger.kernel.org>,
-	USB list <linux-usb@vger.kernel.org>,
-	linux-omap@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jidong Xiao <jidong.xiao@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTikRJ+fBRJYfH=LEJk6dt58Gdk61Zg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <gregkh@suse.de>, Grant Likely <grant.likely@secretlab.ca>,
+	Andres Salomon <dilinger@queued.net>,
+	linux-kernel@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	khali@linux-fr.org, ben-linux@fluff.org,
+	Peter Korsgaard <jacmet@sunsite.dk>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	linux-i2c@vger.kernel.org, linux-media@vger.kernel.org,
+	netdev@vger.kernel.org, spi-devel-general@lists.sourceforge.net,
+	Mocean Laboratories <info@mocean-labs.com>
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:2661 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754829Ab1DFRQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 13:16:54 -0400
+In-Reply-To: <20110406170537.GB2757@sortiz-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Jidong Xiao <jidong.xiao@gmail.com> [110405 20:33]:
-> >
-> Me too. David and the other developers you mentioned here helped me a
-> lot. So sad, he is so young.
+On Wed, 2011-04-06 at 19:05 +0200, Samuel Ortiz wrote:
+> Hi Greg,
+> 
+> On Wed, Apr 06, 2011 at 08:58:05AM -0700, Greg KH wrote:
+> > On Wed, Apr 06, 2011 at 05:23:23PM +0200, Samuel Ortiz wrote:
+> > > --- a/include/linux/device.h
+> > > +++ b/include/linux/device.h
+> > > @@ -33,6 +33,7 @@ struct class;
+> > >  struct subsys_private;
+> > >  struct bus_type;
+> > >  struct device_node;
+> > > +struct mfd_cell;
+> > >  
+> > >  struct bus_attribute {
+> > >  	struct attribute	attr;
+> > > @@ -444,6 +445,8 @@ struct device {
+> > >  	struct device_node	*of_node; /* associated device tree node */
+> > >  	const struct of_device_id *of_match; /* matching of_device_id from driver */
+> > >  
+> > > +	struct mfd_cell	*mfd_cell; /* MFD cell pointer */
+> > > +
+> > 
+> > What is a "MFD cell pointer" and why is it needed in struct device?
+> An MFD cell is an MFD instantiated device.
+> MFD (Multi Function Device) drivers instantiate platform devices. Those
+> devices drivers sometimes need a platform data pointer, sometimes an MFD
+> specific pointer, and sometimes both. Also, some of those drivers have been
+> implemented as MFD sub drivers, while others know nothing about MFD and just
+> expect a plain platform_data pointer.
+> 
+> We've been faced with the problem of being able to pass both MFD related data
+> and a platform_data pointer to some of those drivers. Squeezing the MFD bits
+> in the sub driver platform_data pointer doesn't work for drivers that know
+> nothing about MFDs. It also adds an additional dependency on the MFD API to
+> all MFD sub drivers. That prevents any of those drivers to eventually be used
+> as plain platform device drivers.
+> So, adding an MFD cell pointer to the device structure allows us to cleanly
+> pass both pieces of information, while keeping all the MFD sub drivers
+> independant from the MFD core if they want/can.
 
-Dave certainly contributed a lot and helped many people. 
-He also helped a lot with omap development.
+Why isn't an MFD the parent of its component devices?
 
-Regards,
+Ben.
 
-Tony
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
