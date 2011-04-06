@@ -1,155 +1,152 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH v2 net-next 1/9] tg3: Cleanup extended rx ring size code
-Date: Tue, 5 Apr 2011 17:22:43 -0700
-Message-ID: <1302049371-13799-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH v2 net-next 4/9] tg3: Add 5720 ASIC rev
+Date: Tue, 5 Apr 2011 17:22:46 -0700
+Message-ID: <1302049371-13799-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4641 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4652 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753159Ab1DFAQx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753255Ab1DFAQx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Apr 2011 20:16:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hardcoded values are used in multiple places to describe the maximum rx
-ring sizes.  This patch replaces those values with preprocessor
-constants.  This patch also introduces a new TG3_FLG3_LRG_PROD_RING_CAP
-to determine if the device is capable of supporting larger ring sizes.
+This patch adds support for the 5720 ASIC rev.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   37 +++++++++++++++++++------------------
- drivers/net/tg3.h |   11 ++++++++---
- 2 files changed, 27 insertions(+), 21 deletions(-)
+ drivers/net/tg3.c |   30 ++++++++++++++++++++++--------
+ drivers/net/tg3.h |    5 +++++
+ 2 files changed, 27 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index b7e03a6..8ffa5af 100644
+index dc6b60b..53a1209 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -97,14 +97,12 @@
-  * them in the NIC onboard memory.
-  */
- #define TG3_RX_STD_RING_SIZE(tp) \
--	((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 || \
--	  GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) ? \
--	 RX_STD_MAX_SIZE_5717 : 512)
-+	((tp->tg3_flags3 & TG3_FLG3_LRG_PROD_RING_CAP) ? \
-+	 TG3_RX_STD_MAX_SIZE_5717 : TG3_RX_STD_MAX_SIZE_5700)
- #define TG3_DEF_RX_RING_PENDING		200
- #define TG3_RX_JMB_RING_SIZE(tp) \
--	((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 || \
--	  GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) ? \
--	 1024 : 256)
-+	((tp->tg3_flags3 & TG3_FLG3_LRG_PROD_RING_CAP) ? \
-+	 TG3_RX_JMB_MAX_SIZE_5717 : TG3_RX_JMB_MAX_SIZE_5700)
- #define TG3_DEF_RX_JUMBO_RING_PENDING	100
- #define TG3_RSS_INDIR_TBL_SIZE		128
+@@ -2125,7 +2125,8 @@ static void tg3_frob_aux_power(struct tg3 *tp)
  
-@@ -8115,9 +8113,10 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 			     ((u64) tpr->rx_jmb_mapping >> 32));
- 			tw32(RCVDBDI_JUMBO_BD + TG3_BDINFO_HOST_ADDR + TG3_64BIT_REG_LOW,
- 			     ((u64) tpr->rx_jmb_mapping & 0xffffffff));
-+			val = TG3_RX_JMB_RING_SIZE(tp) <<
-+			      BDINFO_FLAGS_MAXLEN_SHIFT;
- 			tw32(RCVDBDI_JUMBO_BD + TG3_BDINFO_MAXLEN_FLAGS,
--			     (RX_JUMBO_MAX_SIZE << BDINFO_FLAGS_MAXLEN_SHIFT) |
--			     BDINFO_FLAGS_USE_EXT_RECV);
-+			     val | BDINFO_FLAGS_USE_EXT_RECV);
- 			if (!(tp->tg3_flags3 & TG3_FLG3_USE_JUMBO_BDFLAG) ||
- 			    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765)
- 				tw32(RCVDBDI_JUMBO_BD + TG3_BDINFO_NIC_ADDR,
-@@ -8129,15 +8128,15 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
+ 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
+-	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) &&
++	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) &&
+ 	    tp->pdev_peer != tp->pdev) {
+ 		struct net_device *dev_peer;
  
- 		if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS) {
- 			if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765)
--				val = RX_STD_MAX_SIZE_5705;
-+				val = TG3_RX_STD_MAX_SIZE_5700;
- 			else
--				val = RX_STD_MAX_SIZE_5717;
-+				val = TG3_RX_STD_MAX_SIZE_5717;
- 			val <<= BDINFO_FLAGS_MAXLEN_SHIFT;
- 			val |= (TG3_RX_STD_DMA_SZ << 2);
- 		} else
- 			val = TG3_RX_STD_DMA_SZ << BDINFO_FLAGS_MAXLEN_SHIFT;
- 	} else
--		val = RX_STD_MAX_SIZE_5705 << BDINFO_FLAGS_MAXLEN_SHIFT;
-+		val = TG3_RX_STD_MAX_SIZE_5700 << BDINFO_FLAGS_MAXLEN_SHIFT;
- 
- 	tw32(RCVDBDI_STD_BD + TG3_BDINFO_MAXLEN_FLAGS, val);
- 
-@@ -8421,8 +8420,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	tw32(SNDBDC_MODE, SNDBDC_MODE_ENABLE | SNDBDC_MODE_ATTN_ENABLE);
- 	tw32(RCVBDI_MODE, RCVBDI_MODE_ENABLE | RCVBDI_MODE_RCB_ATTN_ENAB);
- 	val = RCVDBDI_MODE_ENABLE | RCVDBDI_MODE_INV_RING_SZ;
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
--	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
-+	if (tp->tg3_flags3 & TG3_FLG3_LRG_PROD_RING_CAP)
- 		val |= RCVDBDI_MODE_LRG_RING_SZ;
- 	tw32(RCVDBDI_MODE, val);
- 	tw32(SNDDATAI_MODE, SNDDATAI_MODE_ENABLE);
-@@ -13125,14 +13123,13 @@ static inline void vlan_features_add(struct net_device *dev, unsigned long flags
- 
- static inline u32 tg3_rx_ret_ring_size(struct tg3 *tp)
- {
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
--	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
--		return 4096;
-+	if (tp->tg3_flags3 & TG3_FLG3_LRG_PROD_RING_CAP)
-+		return TG3_RX_RET_MAX_SIZE_5717;
- 	else if ((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) &&
- 		 !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS))
--		return 1024;
-+		return TG3_RX_RET_MAX_SIZE_5700;
- 	else
--		return 512;
-+		return TG3_RX_RET_MAX_SIZE_5705;
- }
- 
- static DEFINE_PCI_DEVICE_TABLE(tg3_write_reorder_chipsets) = {
-@@ -13430,6 +13427,10 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		tp->tg3_flags3 |= TG3_FLG3_40BIT_DMA_LIMIT_BUG;
+@@ -7251,6 +7252,11 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 		tw32(0x7c00, val | (1 << 25));
  	}
  
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
-+		tp->tg3_flags3 |= TG3_FLG3_LRG_PROD_RING_CAP;
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
++		val = tr32(TG3_CPMU_CLCK_ORIDE);
++		tw32(TG3_CPMU_CLCK_ORIDE, val & ~CPMU_CLCK_ORIDE_MAC_ORIDE_EN);
++	}
 +
- 	if ((tp->tg3_flags3 & TG3_FLG3_5717_PLUS) &&
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5719)
- 		tp->tg3_flags3 |= TG3_FLG3_USE_JUMBO_BDFLAG;
+ 	/* Reprobe ASF enable state.  */
+ 	tp->tg3_flags &= ~TG3_FLAG_ENABLE_ASF;
+ 	tp->tg3_flags2 &= ~TG3_FLG2_ASF_NEW_HANDSHAKE;
+@@ -8214,7 +8220,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 ||
+ 	    (tp->tg3_flags3 & TG3_FLG3_57765_PLUS)) {
+ 		val = tr32(TG3_RDMA_RSRVCTRL_REG);
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) {
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
+ 			val &= ~(TG3_RDMA_RSRVCTRL_TXMRGN_MASK |
+ 				 TG3_RDMA_RSRVCTRL_FIFO_LWM_MASK |
+ 				 TG3_RDMA_RSRVCTRL_FIFO_HWM_MASK);
+@@ -8226,7 +8233,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		     val | TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX);
+ 	}
+ 
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) {
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
+ 		val = tr32(TG3_LSO_RD_DMA_CRPTEN_CTRL);
+ 		tw32(TG3_LSO_RD_DMA_CRPTEN_CTRL, val |
+ 		     TG3_LSO_RD_DMA_CRPTEN_CTRL_BLEN_BD_4K |
+@@ -9050,7 +9058,9 @@ static bool tg3_enable_msix(struct tg3 *tp)
+ 
+ 	if (tp->irq_cnt > 1) {
+ 		tp->tg3_flags3 |= TG3_FLG3_ENABLE_RSS;
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719) {
++
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
+ 			tp->tg3_flags3 |= TG3_FLG3_ENABLE_TSS;
+ 			netif_set_real_num_tx_queues(tp->dev, tp->irq_cnt - 1);
+ 		}
+@@ -13166,7 +13176,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 
+ 		if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_5717 ||
+ 		    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 ||
+-		    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5719)
++		    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5719 ||
++		    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5720)
+ 			pci_read_config_dword(tp->pdev,
+ 					      TG3PCI_GEN2_PRODID_ASICREV,
+ 					      &prod_id_asic_rev);
+@@ -13321,11 +13332,13 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717)
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
+ 		tp->pdev_peer = tg3_find_peer(tp);
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
+ 		tp->tg3_flags3 |= TG3_FLG3_5717_PLUS;
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 ||
+@@ -13444,7 +13457,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		tp->tg3_flags2 |= TG3_FLG2_PCI_EXPRESS;
+ 
+ 		tp->pcie_readrq = 4096;
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
+ 			tp->pcie_readrq = 2048;
+ 
+ 		pcie_set_readrq(tp->pdev, tp->pcie_readrq);
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 73884b6..4c498ed 100644
+index b8e6acc..45605f2 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -25,9 +25,13 @@
+@@ -58,6 +58,7 @@
+ #define  TG3PCI_DEVICE_TIGON3_57791	 0x16b2
+ #define  TG3PCI_DEVICE_TIGON3_57795	 0x16b6
+ #define  TG3PCI_DEVICE_TIGON3_5719	 0x1657
++#define  TG3PCI_DEVICE_TIGON3_5720	 0x165f
+ /* 0x04 --> 0x2c unused */
+ #define TG3PCI_SUBVENDOR_ID_BROADCOM		PCI_VENDOR_ID_BROADCOM
+ #define TG3PCI_SUBDEVICE_ID_BROADCOM_95700A6	0x1644
+@@ -167,6 +168,7 @@
+ #define   ASIC_REV_5717			 0x5717
+ #define   ASIC_REV_57765		 0x57785
+ #define   ASIC_REV_5719			 0x5719
++#define   ASIC_REV_5720			 0x5720
+ #define  GET_CHIP_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 8)
+ #define   CHIPREV_5700_AX		 0x70
+ #define   CHIPREV_5700_BX		 0x71
+@@ -1083,6 +1085,9 @@
+ #define  CPMU_HST_ACC_MACCLK_6_25	 0x00130000
+ /* 0x3620 --> 0x3630 unused */
  
- #define TG3_RX_INTERNAL_RING_SZ_5906	32
- 
--#define RX_STD_MAX_SIZE_5705		512
--#define RX_STD_MAX_SIZE_5717		2048
--#define RX_JUMBO_MAX_SIZE		0xdeadbeef /* XXX */
-+#define TG3_RX_STD_MAX_SIZE_5700	512
-+#define TG3_RX_STD_MAX_SIZE_5717	2048
-+#define TG3_RX_JMB_MAX_SIZE_5700	256
-+#define TG3_RX_JMB_MAX_SIZE_5717	1024
-+#define TG3_RX_RET_MAX_SIZE_5700	1024
-+#define TG3_RX_RET_MAX_SIZE_5705	512
-+#define TG3_RX_RET_MAX_SIZE_5717	4096
- 
- /* First 256 bytes are a mirror of PCI config space. */
- #define TG3PCI_VENDOR			0x00000000
-@@ -2897,6 +2901,7 @@ struct tg3 {
- #define TG3_FLG3_5701_DMA_BUG		0x00000008
- #define TG3_FLG3_USE_PHYLIB		0x00000010
- #define TG3_FLG3_MDIOBUS_INITED		0x00000020
-+#define TG3_FLG3_LRG_PROD_RING_CAP	0x00000080
- #define TG3_FLG3_RGMII_INBAND_DISABLE	0x00000100
- #define TG3_FLG3_RGMII_EXT_IBND_RX_EN	0x00000200
- #define TG3_FLG3_RGMII_EXT_IBND_TX_EN	0x00000400
++#define TG3_CPMU_CLCK_ORIDE		0x00003624
++#define  CPMU_CLCK_ORIDE_MAC_ORIDE_EN	 0x80000000
++
+ #define TG3_CPMU_CLCK_STAT		0x00003630
+ #define  CPMU_CLCK_STAT_MAC_CLCK_MASK	 0x001f0000
+ #define  CPMU_CLCK_STAT_MAC_CLCK_62_5	 0x00000000
 -- 
 1.7.3.4
 
