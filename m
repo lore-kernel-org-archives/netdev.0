@@ -1,56 +1,63 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
- to drivers
-Date: Wed, 06 Apr 2011 19:07:08 +0100
-Message-ID: <1302113228.2840.29.camel@bwh-desktop>
-References: <20110401104756.2f5c6f7a@debxo>
-	 <BANLkTi=bCd_+f=EG-O=U5VH_ZNjFhxkziQ@mail.gmail.com>
-	 <20110401235239.GE29397@sortiz-mobl>
-	 <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
-	 <20110404100314.GC2751@sortiz-mobl>
-	 <20110405030428.GB29522@ponder.secretlab.ca>
-	 <20110406152322.GA2757@sortiz-mobl> <20110406155805.GA20095@suse.de>
-	 <20110406170537.GB2757@sortiz-mobl> <1302110209.2840.20.camel@bwh-desktop>
-	 <20110406175113.GC2757@sortiz-mobl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: Enable RFS sk_rxhash tracking for ipv6 sockets
+Date: Wed, 06 Apr 2011 20:07:33 +0200
+Message-ID: <1302113253.3209.126.camel@edumazet-laptop>
+References: <1302112465-6842-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>, Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org,
-	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
-	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Mocean Laboratories <info-l7gf1WXxx3uGw+nKnLezzg@public.gmane.org>
-To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110406175113.GC2757@sortiz-mobl>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <therbert@google.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35069 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755550Ab1DFSHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 14:07:38 -0400
+Received: by wya21 with SMTP id 21so1540731wya.19
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2011 11:07:36 -0700 (PDT)
+In-Reply-To: <1302112465-6842-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-06 at 19:51 +0200, Samuel Ortiz wrote:
-> Hi Ben,
-> 
-> On Wed, Apr 06, 2011 at 06:16:49PM +0100, Ben Hutchings wrote:
-> > > So, adding an MFD cell pointer to the device structure allows us to cleanly
-> > > pass both pieces of information, while keeping all the MFD sub drivers
-> > > independant from the MFD core if they want/can.
-> > 
-> > Why isn't an MFD the parent of its component devices?
-> It actually is. How would that help here ?
+Le mercredi 06 avril 2011 =C3=A0 13:54 -0400, Neil Horman a =C3=A9crit =
+:
 
-I was thinking you could encode the component address in the
-platform_device name (just as the bus address is the name of a normal
-bus device).  That plus the parent device pointer would be sufficient
-information to look up the mfd_cell.
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index d7037c0..aa3e327 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -505,6 +505,8 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct =
+sk_buff *skb)
+>  	int rc;
+>  	int is_udplite =3D IS_UDPLITE(sk);
+> =20
+> +	sock_rps_save_rxhash(sk, skb->rxhash);
+> +
+>  	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+>  		goto drop;
+> =20
 
-Ben.
+Problem is every packet received might have a different rxhash if
+multiple senders are active.=20
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+This can hurt performance (cache misses on RFS table) on a DNS server
+workload for example.
+
+This is why we used on ipv4 :
+
+if (inet_sk(sk)->inet_daddr)
+	sock_rps_save_rxhash(sk, skb->rxhash);
+
+
+Only arm RFS on UDP if socket is bound to a given remote peer.
+
+BTW you forgot Tom Herbert. (I added him in CC)
+
+
+
