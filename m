@@ -1,95 +1,42 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
- to drivers
-Date: Wed, 6 Apr 2011 20:47:34 +0200
-Message-ID: <20110406184733.GD2757@sortiz-mobl>
-References: <20110401104756.2f5c6f7a@debxo>
- <BANLkTi=bCd_+f=EG-O=U5VH_ZNjFhxkziQ@mail.gmail.com>
- <20110401235239.GE29397@sortiz-mobl>
- <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
- <20110404100314.GC2751@sortiz-mobl>
- <20110405030428.GB29522@ponder.secretlab.ca>
- <20110406152322.GA2757@sortiz-mobl>
- <20110406155805.GA20095@suse.de>
- <20110406170537.GB2757@sortiz-mobl>
- <20110406175647.GA8048@suse.de>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: fedora 14 kernel performance with ip forwarding workload
+Date: Wed, 6 Apr 2011 11:51:06 -0700
+Message-ID: <BANLkTikZfp_GLyNRufAzqv3Yeb5d12BPDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	Andres Salomon <dilinger@queued.net>,
-	linux-kernel@vger.kernel.org,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	khali@linux-fr.org, ben-linux@fluff.org,
-	Peter Korsgaard <jacmet@sunsite.dk>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	linux-i2c@vger.kernel.org, linux-media@vger.kernel.org,
-	netdev@vger.kernel.org, spi-devel-general@lists.sourceforge.net,
-	Mocean Laboratories <info@mocean-labs.com>
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110406175647.GA8048@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	NetDEV list <netdev@vger.kernel.org>
+To: fedora-kernel-list@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:50286 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756518Ab1DFSvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 14:51:08 -0400
+Received: by bwz15 with SMTP id 15so1403366bwz.19
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2011 11:51:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 06, 2011 at 10:56:47AM -0700, Greg KH wrote:
-> On Wed, Apr 06, 2011 at 07:05:38PM +0200, Samuel Ortiz wrote:
-> > Hi Greg,
-> > 
-> > On Wed, Apr 06, 2011 at 08:58:05AM -0700, Greg KH wrote:
-> > > On Wed, Apr 06, 2011 at 05:23:23PM +0200, Samuel Ortiz wrote:
-> > > > --- a/include/linux/device.h
-> > > > +++ b/include/linux/device.h
-> > > > @@ -33,6 +33,7 @@ struct class;
-> > > >  struct subsys_private;
-> > > >  struct bus_type;
-> > > >  struct device_node;
-> > > > +struct mfd_cell;
-> > > >  
-> > > >  struct bus_attribute {
-> > > >  	struct attribute	attr;
-> > > > @@ -444,6 +445,8 @@ struct device {
-> > > >  	struct device_node	*of_node; /* associated device tree node */
-> > > >  	const struct of_device_id *of_match; /* matching of_device_id from driver */
-> > > >  
-> > > > +	struct mfd_cell	*mfd_cell; /* MFD cell pointer */
-> > > > +
-> > > 
-> > > What is a "MFD cell pointer" and why is it needed in struct device?
-> > An MFD cell is an MFD instantiated device.
-> > MFD (Multi Function Device) drivers instantiate platform devices. Those
-> > devices drivers sometimes need a platform data pointer, sometimes an MFD
-> > specific pointer, and sometimes both. Also, some of those drivers have been
-> > implemented as MFD sub drivers, while others know nothing about MFD and just
-> > expect a plain platform_data pointer.
-> 
-> That sounds like a bug in those drivers, why not fix them to properly
-> pass in the correct pointer?
-Because they're drivers for generic IPs, not MFD ones. By forcing them to use
-MFD specific structure and APIs, we make it more difficult for platform code
-to instantiate them.
-The timberdale MFD for example is built with a Xilinx SPI controller, and a
-Micrel ks8842 ethernet switch IP. Forcing those devices into being MFD devices
-would mean any platform willing to instantiate them would have to use the MFD
-APIs. That sounds a bit artificial to me.
-Although there is currently no drivers instantiated by both an MFD driver
-and some platform code, Grant complaint about the Xilinx SPI driver moving
-from a platform driver to an MFD one makes sense to me. 
+The other day I was running the stock fedora kernel on my ip
+forwarding setup, to see what the performance was, and the performance
+wasn't very good.
 
-> > So, adding an MFD cell pointer to the device structure allows us to cleanly
-> > pass both pieces of information, while keeping all the MFD sub drivers
-> > independant from the MFD core if they want/can.
-> 
-> They shouldn't be "independant", 
-Excuse my poor spelling.
+system is S5520HC dual socket 2.93GHz Xeon 5570 (Nehalem) with 3 quad
+port 82580 adapters (12 ports).  Traffic is bidirectional 64 byte
+packets being forwarded and received on each port, basically port to
+port routing.  I am only using 12 flows currently.
 
-> make them "dependant" and go from there.
-That's what the code currently does.
+The driver is igb, and I am using an affinity script that lines up
+each pair of ports that are forwarding traffic into optimal
+configurations for cache locality.  I am also disabling
+remote_node_defrag_ratio to stop cross node traffic.
 
-Cheers,
-Samuel.
+With the fedora default kernel from F14 it appears that
+CONFIG_NETFILTER=y means that I cannot unload all of netfilter even if
+I stop iptables service.
 
--- 
-Intel Open Source Technology Centre
-http://oss.intel.com/
+perf showed netfilter being prominent, and removing it gives me much
+higher throughput.  Is there a reason CONFIG_NETFILTER=y ?  Isn't it a
+good thing to be able to disable netfilter if you want to?
+
+Jesse
