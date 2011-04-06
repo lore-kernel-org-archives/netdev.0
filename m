@@ -1,67 +1,141 @@
-From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
- to drivers
-Date: Wed, 6 Apr 2011 11:38:54 -0700
-Message-ID: <20110406183854.GA10058@suse.de>
-References: <BANLkTi=bCd_+f=EG-O=U5VH_ZNjFhxkziQ@mail.gmail.com>
- <20110401235239.GE29397@sortiz-mobl>
- <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
- <20110404100314.GC2751@sortiz-mobl>
- <20110405030428.GB29522@ponder.secretlab.ca>
- <20110406152322.GA2757@sortiz-mobl>
- <20110406155805.GA20095@suse.de>
- <20110406170537.GB2757@sortiz-mobl>
- <20110406175647.GA8048@suse.de>
- <20110406112557.5c4c9bfe@debxo>
+From: dann frazier <dannf@dannf.org>
+Subject: Re: shutdown oops in xt_compat_calc_jump
+Date: Wed, 6 Apr 2011 12:45:03 -0600
+Message-ID: <20110406184503.GA2718@dannf.org>
+References: <20110404194856.GA3720@dannf.org>
+ <4D9A23BC.4010505@trash.net>
+ <1301949477.3021.55.camel@edumazet-laptop>
+ <1301957293.3021.191.camel@edumazet-laptop>
+ <1301984679.3021.655.camel@edumazet-laptop>
+ <1301987879.3021.714.camel@edumazet-laptop>
+ <20110406162547.GA3064@dannf.org>
+ <1302108258.3209.117.camel@edumazet-laptop>
+ <1302108567.3209.121.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org,
-	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
-	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Mocean Laboratories <info-l7gf1WXxx3uGw+nKnLezzg@public.gmane.org>
-To: Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110406112557.5c4c9bfe@debxo>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1302108567.3209.121.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 06, 2011 at 11:25:57AM -0700, Andres Salomon wrote:
-> > > We've been faced with the problem of being able to pass both MFD
-> > > related data and a platform_data pointer to some of those drivers.
-> > > Squeezing the MFD bits in the sub driver platform_data pointer
-> > > doesn't work for drivers that know nothing about MFDs. It also adds
-> > > an additional dependency on the MFD API to all MFD sub drivers.
-> > > That prevents any of those drivers to eventually be used as plain
-> > > platform device drivers.
-> > 
-> > Then they shouldn't be "plain" platform drivers, that should only be
-> > reserved for drivers that are the "lowest" type.  Just make them MFD
-> > devices and go from there.
-> 
-> 
-> The problem is of mixing "plain" platform devices and MFD devices.
+On Wed, Apr 06, 2011 at 06:49:27PM +0200, Eric Dumazet wrote:
+> Le mercredi 06 avril 2011 =E0 18:44 +0200, Eric Dumazet a =E9crit :
+> > Le mercredi 06 avril 2011 =E0 10:25 -0600, dann frazier a =E9crit :
+> >=20
+> > > Thanks Eric. Unfortunately that didn't solve the problem I am see=
+ing.
+> > > I rebaselined (same kernel build as before), and found that I'm a=
+ble
+> > > to reproduce this 100% of the time by running only:
+> > >=20
+> > >   sudo ebtables -t filter --init-table
+> > >=20
+> > > The backtrace I received was this:
+> >=20
+> >=20
+> > Oh yeah, I forgot to remove the WARN_ON_ONCE(1) at the end of
+> > xt_compat_calc_jump()
+> >=20
+> > I focused on restoring ebtables (for example ebtables -A INPUT ...)
+> >=20
+> > Just ignore the warning for the time being ;)
+> >=20
+> >=20
+> > # ebtables -A INPUT -p arp -s 00:01:02:03:04:05 -j ACCEPT
+> > # ebtables -A INPUT -p arp -s 00:01:02:03:04:06 -j ACCEPT
+> > # ebtables -L
+> > Bridge table: filter
+> >=20
+> > Bridge chain: INPUT, entries: 2, policy: ACCEPT
+> > -p ARP -s 0:1:2:3:4:5 -j ACCEPT=20
+> > -p ARP -s 0:1:2:3:4:6 -j ACCEPT=20
+> >=20
+> > Bridge chain: FORWARD, entries: 0, policy: ACCEPT
+> >=20
+> > Bridge chain: OUTPUT, entries: 0, policy: ACCEPT
+> >=20
 
-Then don't do that.
+Tested-by: dann frazier <dannf@dannf.org>
 
-> It's reasonable to assume that different hardware may be using
-> one method or the other to create devices; in order to maintain
-> compatibility with the driver, one either needs to use a plain platform
-> device.  Alternatively, if an MFD-specific device class is created,
-> then MFD devices would start showing up in weird places.
+Thanks!
 
-Then fix it.  Lots of other drivers handle different "bus types" just
-fine (look at the EHCI USB driver for an example.)  Don't polute the
-driver core just because you don't want to fix up the individual driver
-issues that are quite obvious.
-
-thanks,
-
-greg k-h
+> [PATCH] netfilter: fix ebtables
+>=20
+> commit 255d0dc34068a976 (netfilter: x_table: speedup compat operation=
+s)
+> made ebtables not working anymore.
+>=20
+> 1) xt_compat_calc_jump() is not an exact match lookup
+> 2) compat_table_info() has a typo in xt_compat_init_offsets() call
+> 3) compat_do_replace() misses a xt_compat_init_offsets() call
+>=20
+> Reported-by: dann frazier <dannf@dannf.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> V2: 	remove a comment from V1 (as Patrick suggested)
+> 	remove the WARN_ON_ONCE() in xt_compat_calc_jump()
+>=20
+>=20
+>  net/bridge/netfilter/ebtables.c |    3 ++-
+>  net/netfilter/x_tables.c        |    4 ++--
+>  2 files changed, 4 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/e=
+btables.c
+> index 893669c..c66aa80 100644
+> --- a/net/bridge/netfilter/ebtables.c
+> +++ b/net/bridge/netfilter/ebtables.c
+> @@ -1766,7 +1766,7 @@ static int compat_table_info(const struct ebt_t=
+able_info *info,
+> =20
+>  	newinfo->entries_size =3D size;
+> =20
+> -	xt_compat_init_offsets(AF_INET, info->nentries);
+> +	xt_compat_init_offsets(NFPROTO_BRIDGE, info->nentries);
+>  	return EBT_ENTRY_ITERATE(entries, size, compat_calc_entry, info,
+>  							entries, newinfo);
+>  }
+> @@ -2240,6 +2240,7 @@ static int compat_do_replace(struct net *net, v=
+oid __user *user,
+> =20
+>  	xt_compat_lock(NFPROTO_BRIDGE);
+> =20
+> +	xt_compat_init_offsets(NFPROTO_BRIDGE, tmp.nentries);
+>  	ret =3D compat_copy_entries(entries_tmp, tmp.entries_size, &state);
+>  	if (ret < 0)
+>  		goto out_unlock;
+> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+> index a9adf4c..8a025a5 100644
+> --- a/net/netfilter/x_tables.c
+> +++ b/net/netfilter/x_tables.c
+> @@ -455,6 +455,7 @@ void xt_compat_flush_offsets(u_int8_t af)
+>  		vfree(xt[af].compat_tab);
+>  		xt[af].compat_tab =3D NULL;
+>  		xt[af].number =3D 0;
+> +		xt[af].cur =3D 0;
+>  	}
+>  }
+>  EXPORT_SYMBOL_GPL(xt_compat_flush_offsets);
+> @@ -473,8 +474,7 @@ int xt_compat_calc_jump(u_int8_t af, unsigned int=
+ offset)
+>  		else
+>  			return mid ? tmp[mid - 1].delta : 0;
+>  	}
+> -	WARN_ON_ONCE(1);
+> -	return 0;
+> +	return left ? tmp[left - 1].delta : 0;
+>  }
+>  EXPORT_SYMBOL_GPL(xt_compat_calc_jump);
+> =20
+>=20
+>=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
