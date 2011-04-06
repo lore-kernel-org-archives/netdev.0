@@ -1,54 +1,54 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: shutdown oops in xt_compat_calc_jump
-Date: Wed, 6 Apr 2011 01:42:16 +0200
-Message-ID: <20110405234216.GD32579@Chamillionaire.breakpoint.cc>
-References: <20110404194856.GA3720@dannf.org>
- <4D9A23BC.4010505@trash.net>
- <1301949477.3021.55.camel@edumazet-laptop>
- <1301957293.3021.191.camel@edumazet-laptop>
- <1301984679.3021.655.camel@edumazet-laptop>
- <1301987879.3021.714.camel@edumazet-laptop>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH v2 net-next 7/9] tg3: Add 5720 PHY ID
+Date: Tue, 5 Apr 2011 17:22:49 -0700
+Message-ID: <1302049371-13799-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, dann frazier <dannf@dannf.org>,
-	netdev@vger.kernel.org,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42359 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751859Ab1DEXmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2011 19:42:19 -0400
-Content-Disposition: inline
-In-Reply-To: <1301987879.3021.714.camel@edumazet-laptop>
+Received: from mms1.broadcom.com ([216.31.210.17]:4469 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752743Ab1DFAQx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2011 20:16:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> [PATCH] netfilter: fix ebtables
-> 
-> commit 255d0dc34068a976 (netfilter: x_table: speedup compat operations)
-> made ebtables not working anymore.
-> 
-> 1) xt_compat_calc_jump() is not an exact match lookup, and 
-> 2) compat_table_info() has a typo in xt_compat_init_offsets() call
-> 3) compat_do_replace() misses a xt_compat_init_offsets() call
+This patch adds the 5720 PHY ID.
 
-Looks good, but
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |    1 +
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-> index 893669c..c66aa80 100644
-> --- a/net/bridge/netfilter/ebtables.c
-> +++ b/net/bridge/netfilter/ebtables.c
-> @@ -1766,7 +1766,7 @@ static int compat_table_info(const struct ebt_table_info *info,
->  
->  	newinfo->entries_size = size;
->  
-> -	xt_compat_init_offsets(AF_INET, info->nentries);
-> +	xt_compat_init_offsets(NFPROTO_BRIDGE, info->nentries /* + 4*/);
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 263f151..886174d 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -14673,6 +14673,7 @@ static char * __devinit tg3_phy_string(struct tg3 *tp)
+ 	case TG3_PHY_ID_BCM5718S:	return "5718S";
+ 	case TG3_PHY_ID_BCM57765:	return "57765";
+ 	case TG3_PHY_ID_BCM5719C:	return "5719C";
++	case TG3_PHY_ID_BCM5720C:	return "5720C";
+ 	case TG3_PHY_ID_BCM8002:	return "8002/serdes";
+ 	case 0:			return "serdes";
+ 	default:		return "unknown";
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index a936727..e7880d5 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -3035,6 +3035,7 @@ struct tg3 {
+ #define TG3_PHY_ID_BCM5718S		0xbc050ff0
+ #define TG3_PHY_ID_BCM57765		0x5c0d8a40
+ #define TG3_PHY_ID_BCM5719C		0x5c0d8a20
++#define TG3_PHY_ID_BCM5720C		0x5c0d8b60
+ #define TG3_PHY_ID_BCM5906		0xdc00ac40
+ #define TG3_PHY_ID_BCM8002		0x60010140
+ #define TG3_PHY_ID_INVALID		0xffffffff
+-- 
+1.7.3.4
 
-using ninfo->nentries does not always work because ebtables compat
-can call xt_compat_add_offset() more than once per entry.
 
-That is of course not necessary; the ebt compat code should do better.
-I plan to look at this in the evening.
