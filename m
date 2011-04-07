@@ -1,92 +1,169 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2 14/16] Intel net drivers: convert to ndo_fix_features
-Date: Thu, 07 Apr 2011 08:00:05 -0700
-Message-ID: <1302188405.2789.25.camel@jtkirshe-MOBL1>
-References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
-	 <28a1c0f6e1ab9a523ee1e947ca4a013fd5730539.1295734271.git.mirq-linux@rere.qmqm.pl>
-	 <AANLkTikYg6x-T42eSh-ou=bJr=16wLxoVYXON5qiyyvu@mail.gmail.com>
-	 <20110407125127.GA16755@rere.qmqm.pl>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
+ to drivers
+Date: Thu, 7 Apr 2011 17:03:23 +0200
+Message-ID: <20110407150322.GB3923@sortiz-mobl>
+References: <20110404100314.GC2751@sortiz-mobl>
+ <20110405030428.GB29522@ponder.secretlab.ca>
+ <20110406152322.GA2757@sortiz-mobl>
+ <20110406155805.GA20095@suse.de>
+ <20110406170537.GB2757@sortiz-mobl>
+ <20110406175647.GA8048@suse.de>
+ <20110406184733.GD2757@sortiz-mobl>
+ <20110406185902.GN25654@legolas.emea.dhcp.ti.com>
+ <20110407133717.GA3923@sortiz-mobl>
+ <20110407143515.GC26452@angua.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-PDpgbbyuTFrWcp6AzDKV"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:7065 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753765Ab1DGPA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2011 11:00:26 -0400
-In-Reply-To: <20110407125127.GA16755@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>, Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+	khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org,
+	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
+	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Mocean Laboratories <info-l7gf1WXxx3uGw+nKnLezzg@public.gmane.org>
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110407143515.GC26452-MrY2KI0G/OVr83L8+7iqerDks+cytr/Z@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
---=-PDpgbbyuTFrWcp6AzDKV
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2011-04-07 at 05:51 -0700, Micha=C5=82 Miros=C5=82aw wrote:
-> On Wed, Jan 26, 2011 at 01:47:46AM -0800, Jeff Kirsher wrote:
-> > 2011/1/22 Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>:
-> > > Private rx_csum flags are now duplicate of netdev->features & NETIF_F=
-_RXCSUM.
-> > > Removing this needs deeper surgery.
-> > >
-> > > Since ixgbevf doesn't change hardware state on RX csum enable/disable
-> > > its reset is avoided.
-> > >
-> > > Things noticed:
-> > >  - e1000, e1000e and ixgb have RX csum disabled by default
-> > >  - HW VLAN acceleration probably can be toggled, but it's left as is
-> > >  - the resets on RX csum offload change can probably be avoided
-> > >  - there is A LOT of copy-and-pasted code here
-> [...]
-> > Upon initial reviews of the patch, we found issues with the e1000e
-> > changes so far.  We are working to put together a patch to resolve the
-> > issues (and to do the conversion to ndo_fix_features).  Based on the
-> > initial work done by Michal, we can take care of the changes necessary
-> > for the Intel Wired Ethernet drivers, and will wait for acceptance of
-> > the net and ethtool changes before pushing the Intel patch.  Is that
-> > acceptable?
-> >=20
-> > For e1000e, this patch breaks the ability to manually override the
-> > default behavior of disabling TSO for 10/100, and there is some
-> > additional cleanup that can be done w.r.t. Rx csum flags.
->=20
-> I resent other patches after the ethtool changes got it 2.6.39-rc, but sk=
-ipped
-> this one based on your mail. Do you want me to resend parts not relevant
-> to e1000e or can I drop it altogether from my queue?
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
-
-You can drop them from your queue.  We have been working on these
-patches.  We found other issues with the other drivers as well, so we
-are making the appropriate changes to get this conversion completed.
-
-Thanks Michal.
+On Thu, Apr 07, 2011 at 07:35:15AM -0700, Grant Likely wrote:
+> > Below is a patch for the Xilinx SPI example. Although this would fix the
+> > issue, we'd still have to do that on device per device basis. I had a similar
+> > solution where MFD drivers would set a flag for sub drivers that don't need
+> > any of the MFD bits. In that case the MFD core code would just forward the
+> > platform data, instead of embedding it through an MFD cell.
+> 
+> platform_data is already a fiddly bit where you don't know what
+> structure type platform_data points at; it is implicitly known and
+> easy to get wrong.  This solution makes me *very* nervous
+> because it would become even easier to get a mismatch on the
+> platform_data pointer type.
+How would that be more error prone than say a board file instantiating a
+platform device after having set the platform_data pointer to point to an
+implicitely know structure reference ?
 
 Cheers,
-Jeff
+Samuel.
 
---=-PDpgbbyuTFrWcp6AzDKV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+P.S.: Would you be ok with something like the patch below ?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+> > ---
+> >  drivers/mfd/timberdale.c |    8 ++++----
+> >  drivers/spi/xilinx_spi.c |   19 ++++++++++++++++++-
+> >  include/linux/mfd/core.h |    3 +++
+> >  3 files changed, 25 insertions(+), 5 deletions(-)
+> > 
+> > diff --git a/drivers/mfd/timberdale.c b/drivers/mfd/timberdale.c
+> > index 94c6c8a..c9220ce 100644
+> > --- a/drivers/mfd/timberdale.c
+> > +++ b/drivers/mfd/timberdale.c
+> > @@ -416,7 +416,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg0[] = {
+> >  		.mfd_data = &timberdale_radio_platform_data,
+> >  	},
+> >  	{
+> > -		.name = "xilinx_spi",
+> > +		.name = "mfd_xilinx_spi",
+> >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> >  		.resources = timberdale_spi_resources,
+> >  		.mfd_data = &timberdale_xspi_platform_data,
+> > @@ -476,7 +476,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg1[] = {
+> >  		.mfd_data = &timberdale_radio_platform_data,
+> >  	},
+> >  	{
+> > -		.name = "xilinx_spi",
+> > +		.name = "mfd_xilinx_spi",
+> >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> >  		.resources = timberdale_spi_resources,
+> >  		.mfd_data = &timberdale_xspi_platform_data,
+> > @@ -526,7 +526,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg2[] = {
+> >  		.mfd_data = &timberdale_radio_platform_data,
+> >  	},
+> >  	{
+> > -		.name = "xilinx_spi",
+> > +		.name = "mfd_xilinx_spi",
+> >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> >  		.resources = timberdale_spi_resources,
+> >  		.mfd_data = &timberdale_xspi_platform_data,
+> > @@ -570,7 +570,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg3[] = {
+> >  		.mfd_data = &timberdale_radio_platform_data,
+> >  	},
+> >  	{
+> > -		.name = "xilinx_spi",
+> > +		.name = "mfd_xilinx_spi",
+> >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> >  		.resources = timberdale_spi_resources,
+> >  		.mfd_data = &timberdale_xspi_platform_data,
+> > diff --git a/drivers/spi/xilinx_spi.c b/drivers/spi/xilinx_spi.c
+> > index c69c6f2..3287b84 100644
+> > --- a/drivers/spi/xilinx_spi.c
+> > +++ b/drivers/spi/xilinx_spi.c
+> > @@ -471,7 +471,11 @@ static int __devinit xilinx_spi_probe(struct platform_device *dev)
+> >  	struct spi_master *master;
+> >  	u8 i;
+> >  
+> > -	pdata = mfd_get_data(dev);
+> > +	if (platform_get_device_id(dev) &&
+> > +	    platform_get_device_id(dev)->driver_data & MFD_PLATFORM_DEVICE)
+> > +		pdata = mfd_get_data(dev);
+> > +	else
+> > +		pdata = dev->dev.platform_data;
+> >  	if (pdata) {
+> >  		num_cs = pdata->num_chipselect;
+> >  		little_endian = pdata->little_endian;
+> > @@ -530,6 +534,18 @@ static int __devexit xilinx_spi_remove(struct platform_device *dev)
+> >  /* work with hotplug and coldplug */
+> >  MODULE_ALIAS("platform:" XILINX_SPI_NAME);
+> >  
+> > +static const struct platform_device_id xilinx_spi_id_table[] = {
+> > +	{
+> > +		.name	= XILINX_SPI_NAME,
+> > +	},
+> > +	{
+> > +		.name	= "mfd_xilinx_spi",
+> > +		.driver_data = MFD_PLATFORM_DEVICE,
+> > +	},
+> > +	{  },	/* Terminating Entry */
+> > +};
+> > +MODULE_DEVICE_TABLE(platform, xilinx_spi_id_table);
+> > +
+> >  static struct platform_driver xilinx_spi_driver = {
+> >  	.probe = xilinx_spi_probe,
+> >  	.remove = __devexit_p(xilinx_spi_remove),
+> > @@ -538,6 +554,7 @@ static struct platform_driver xilinx_spi_driver = {
+> >  		.owner = THIS_MODULE,
+> >  		.of_match_table = xilinx_spi_of_match,
+> >  	},
+> > +	.id_table	= xilinx_spi_id_table,
+> >  };
+> >  
+> >  static int __init xilinx_spi_pltfm_init(void)
+> > diff --git a/include/linux/mfd/core.h b/include/linux/mfd/core.h
+> > index ad1b19a..13f31f4 100644
+> > --- a/include/linux/mfd/core.h
+> > +++ b/include/linux/mfd/core.h
+> > @@ -89,6 +89,9 @@ static inline const struct mfd_cell *mfd_get_cell(struct platform_device *pdev)
+> >  	return pdev->dev.platform_data;
+> >  }
+> >  
+> > +/* */
+> > +#define MFD_PLATFORM_DEVICE BIT(0)
+> > +
+> >  /*
+> >   * Given a platform device that's been created by mfd_add_devices(), fetch
+> >   * the .mfd_data entry from the mfd_cell that created it.
+> > 
+> > 
+> > -- 
+> > Intel Open Source Technology Centre
+> > http://oss.intel.com/
 
-iQEcBAABAgAGBQJNndF1AAoJECTsCADr/EWUeK4H/0qGE+MaKKeVfO2yMYrHeiFQ
-AsfPTssgsTdiI8AYp+2HHi4t7BZM9Qivhq15c6Fo6RtlG6Ki2VtEt8ASCYYyHkkm
-CkqAPrVaLELmGUPPpy3vhQlIOxTdIW5TUNWFbb0XIAG5H2qrBPCO2ScXHYnYDTAz
-yEe1VqqkcEl7YdQK0hx9WVRwF0CQCK+q9GGG62ItFxCwztR7wtySi6B0+w2RBDY8
-Rtao9amLa0OC/tquUoM1A1RgckSzorFBxjXL/auvyqmz9WhkwjFruG13eLRIa1Vi
-+oBUV4iBTVfMbsToePLC8xlKD4/eIYgGun4s4w5Padpa3fxA0TILBp4TR+W1a9E=
-=hczL
------END PGP SIGNATURE-----
-
---=-PDpgbbyuTFrWcp6AzDKV--
-
+-- 
+Intel Open Source Technology Centre
+http://oss.intel.com/
