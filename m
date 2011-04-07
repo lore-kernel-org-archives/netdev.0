@@ -1,91 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Question on "net: allocate skbs on local node"
-Date: Thu, 07 Apr 2011 08:16:52 +0200
-Message-ID: <1302157012.2701.73.camel@edumazet-laptop>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302152327.2701.50.camel@edumazet-laptop>
-	 <1302153412.2701.64.camel@edumazet-laptop>
+From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: nfs client doesn't work [was: mmotm 2011-03-31-14-48 uploaded]
+Date: Thu, 07 Apr 2011 08:42:17 +0200
+Message-ID: <4D9D5CC9.2040002@suse.cz>
+References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org> <4D96E4C5.2080302@suse.cz> <1302122693.16786.0.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Wei Gu <wei.gu@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53723 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751046Ab1DGGQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 02:16:57 -0400
-Received: by wwa36 with SMTP id 36so2631960wwa.1
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2011 23:16:56 -0700 (PDT)
-In-Reply-To: <1302153412.2701.64.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, mm-commits-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1302122693.16786.0.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 07 avril 2011 =C3=A0 07:16 +0200, Eric Dumazet a =C3=A9crit :
-> Le jeudi 07 avril 2011 =C3=A0 06:58 +0200, Eric Dumazet a =C3=A9crit =
-:
-> > Le jeudi 07 avril 2011 =C3=A0 10:16 +0800, Wei Gu a =C3=A9crit :
-> > > Hi Eric,
-> > > Testing with ixgbe Linux 2.6.38 driver:
-> > > We have a little better thruput figure with this driver, but it l=
-ooks
-> > > not scalling at all, I always stressed one CPU core/24.
-> > > And when look the perf report for ksoftirqd/24, the most cost fun=
-ction
-> > > is still "_raw_spin_unlock_irqstore" and the IRQ/s is huge, it's
-> > > somehow conflicts with desgin of NAPI. On linux 2.6.32 while the =
-CPU
-> > > was stressed the IRQ will descreased while the NAPI will running =
-much
-> > > on the polling mode. I don't know why on 2.6.38 the IRQ was keep
-> > > increasing.
-> >=20
-> >=20
-> > CC netdev and Intel guys, since they said it should not happen (TM)
-> >=20
-> > IF you dont use DCA (make sure ioatdma module is not loaded), how c=
-omes
-> > alloc_iova() is called at all ?
-> >=20
-> > IF you use DCA, how comes its called, since the same CPU serves a g=
-iven
-> > interrupt ?
-> >=20
-> >=20
->=20
-> But then, maybe you forgot to cpu affine IRQS ?
->=20
-> High performance routing setup is tricky, since you probably want to
-> disable many features that are ON by default : Most machines act as a
-> end host.
->=20
->=20
+On 04/06/2011 10:44 PM, Myklebust, Trond wrote:
+> On Sat, 2011-04-02 at 10:56 +0200, Jiri Slaby wrote:
+>> On 03/31/2011 11:48 PM, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org wrote:
+>> > The mm-of-the-moment snapshot 2011-03-31-14-48 has been uploaded to
+>>
+>> Hi, nfs client is defunct in this kernel. Tcpdump says:
+>> 10:51:55.489717 IP 10.20.11.33.759945860 > 10.20.3.2.2049: 132 getattr
+>> fh 0,0/24
+>> 10:51:55.515927 IP 10.20.3.2.2049 > 10.20.11.33.759945860: reply ok 44
+>> getattr ERROR: Operation not permitted
+>> 10:51:55.515949 IP 10.20.11.33.921 > 10.20.3.2.2049: Flags [.], ack
+>> 3569361440, win 115, options [nop,nop,TS val 599750 ecr 255058541],
+> length 0
+>> 10:52:04.130310 IP 10.20.11.33.793500292 > 10.20.3.2.2049: 76 getattr fh
+>> 0,0/24
+>> 10:52:04.152178 IP 10.20.3.2.2049 > 10.20.11.33.793500292: reply ok 44
+>> getattr ERROR: Operation not permitted
+>>
+>> If I run the same mount command (mount -oro,intr host:dir mountpoint)
+>> from within a virtual machine with 2.6.38.2 there, everything mounts OK.
+> 
+> Does the attached patch help?
 
-Please dont send me anymore private mails, I do think the issue you hav=
-e
-is on a setup, not a particular optimization done in network stack.
+No, still the operation not permitted in the tcpdump output and no mount.
 
-
-Copy of your private mail :
-
-> On 2.6.38, I got a lot of "rx_missed_errors" on NIC, which means the
-> rx loop was really busy to get packet from the receiving ring. Usuall=
-y
-> in this case it shouldn't exit the softirqs and keep polling in order
-> to decrease the initrs.
->=20
-> On 2.6.32, I can Rx and Tx 2.3Mpps with no packet lost(error on NIC),
-> but on 2.6.38 I can only reach 50kpps with a lot of
-> "rx_missed_errors", and all the binding cpu core was 100% in SI. I
-> don't think there was any optimizations on it.
-
-I hope you understand there is something wrong with your setup ?
-
-50.000 pps on a 64 cpu machine is a bad joke.
-
-We can reach +10.000.000 on a 16 cpus one.
-
-
-
+thanks,
+-- 
+js
+suse labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
