@@ -1,181 +1,155 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: enic: convert to hw_features
+Subject: [PATCH] net: benet: convert to hw_features
 Date: Thu,  7 Apr 2011 14:43:48 +0200 (CEST)
-Message-ID: <20110407124348.BB13A138ED@rere.qmqm.pl>
+Message-ID: <20110407124348.A8F1E13909@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christian Benvenuti <benve@cisco.com>,
-	Vasanthy Kolluri <vkolluri@cisco.com>,
-	Roopa Prabhu <roprabhu@cisco.com>,
-	David Wang <dwang2@cisco.com>
+Cc: Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:52331 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:52330 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753437Ab1DGMnu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756100Ab1DGMnu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 7 Apr 2011 08:43:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the driver uses GRO and not LRO, LRO settings are ignored anyway
-and are removed here to avoid confusion.
+Simple conversion.
+
+This also fixes a bug in TX checksum toggling --- driver was changing
+NETIF_F_HW_CSUM instead of NETIF_F_IP_CSUM+NETIF_F_IPV6_CSUM.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/enic/enic.h      |    1 -
- drivers/net/enic/enic_main.c |   74 ++++------------------------------=
--------
- drivers/net/enic/enic_res.c  |    4 +-
- 3 files changed, 10 insertions(+), 69 deletions(-)
+ drivers/net/benet/be.h         |    1 -
+ drivers/net/benet/be_ethtool.c |   27 ---------------------------
+ drivers/net/benet/be_main.c    |   19 ++++++++++---------
+ 3 files changed, 10 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index 178b94d..38b351c 100644
---- a/drivers/net/enic/enic.h
-+++ b/drivers/net/enic/enic.h
-@@ -84,7 +84,6 @@ struct enic {
- 	unsigned int flags;
- 	unsigned int mc_count;
- 	unsigned int uc_count;
--	int csum_rx_enabled;
- 	u32 port_mtu;
- 	u32 rx_coalesce_usecs;
- 	u32 tx_coalesce_usecs;
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.=
-c
-index 9a3a027..b224551 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -251,56 +251,6 @@ static void enic_get_ethtool_stats(struct net_devi=
-ce *netdev,
- 		*(data++) =3D ((u64 *)&vstats->rx)[enic_rx_stats[i].offset];
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 0899d91..30d52b0 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -309,7 +309,6 @@ struct be_adapter {
+ 	u16 work_counter;
+=20
+ 	/* Ethtool knobs and info */
+-	bool rx_csum; 		/* BE card must perform rx-checksumming */
+ 	char fw_ver[FW_VER_LEN];
+ 	u32 if_handle;		/* Used to configure filtering */
+ 	u32 pmac_id;		/* MAC addr handle used by BE card */
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_etht=
+ool.c
+index a665697..bc8ba8d 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -261,25 +261,6 @@ be_set_coalesce(struct net_device *netdev, struct =
+ethtool_coalesce *coalesce)
+ 	return 0;
  }
 =20
--static u32 enic_get_rx_csum(struct net_device *netdev)
+-static u32 be_get_rx_csum(struct net_device *netdev)
 -{
--	struct enic *enic =3D netdev_priv(netdev);
--	return enic->csum_rx_enabled;
+-	struct be_adapter *adapter =3D netdev_priv(netdev);
+-
+-	return adapter->rx_csum;
 -}
 -
--static int enic_set_rx_csum(struct net_device *netdev, u32 data)
+-static int be_set_rx_csum(struct net_device *netdev, uint32_t data)
 -{
--	struct enic *enic =3D netdev_priv(netdev);
--
--	if (data && !ENIC_SETTING(enic, RXCSUM))
--		return -EINVAL;
--
--	enic->csum_rx_enabled =3D !!data;
--
--	return 0;
--}
--
--static int enic_set_tx_csum(struct net_device *netdev, u32 data)
--{
--	struct enic *enic =3D netdev_priv(netdev);
--
--	if (data && !ENIC_SETTING(enic, TXCSUM))
--		return -EINVAL;
+-	struct be_adapter *adapter =3D netdev_priv(netdev);
 -
 -	if (data)
--		netdev->features |=3D NETIF_F_HW_CSUM;
+-		adapter->rx_csum =3D true;
 -	else
--		netdev->features &=3D ~NETIF_F_HW_CSUM;
+-		adapter->rx_csum =3D false;
 -
 -	return 0;
 -}
 -
--static int enic_set_tso(struct net_device *netdev, u32 data)
--{
--	struct enic *enic =3D netdev_priv(netdev);
--
--	if (data && !ENIC_SETTING(enic, TSO))
--		return -EINVAL;
--
--	if (data)
--		netdev->features |=3D
--			NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN;
--	else
--		netdev->features &=3D
--			~(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN);
--
--	return 0;
--}
--
- static u32 enic_get_msglevel(struct net_device *netdev)
- {
- 	struct enic *enic =3D netdev_priv(netdev);
-@@ -388,17 +338,8 @@ static const struct ethtool_ops enic_ethtool_ops =3D=
- {
- 	.get_strings =3D enic_get_strings,
- 	.get_sset_count =3D enic_get_sset_count,
- 	.get_ethtool_stats =3D enic_get_ethtool_stats,
--	.get_rx_csum =3D enic_get_rx_csum,
--	.set_rx_csum =3D enic_set_rx_csum,
+ static void
+ be_get_ethtool_stats(struct net_device *netdev,
+ 		struct ethtool_stats *stats, uint64_t *data)
+@@ -748,14 +729,6 @@ const struct ethtool_ops be_ethtool_ops =3D {
+ 	.get_ringparam =3D be_get_ringparam,
+ 	.get_pauseparam =3D be_get_pauseparam,
+ 	.set_pauseparam =3D be_set_pauseparam,
+-	.get_rx_csum =3D be_get_rx_csum,
+-	.set_rx_csum =3D be_set_rx_csum,
 -	.get_tx_csum =3D ethtool_op_get_tx_csum,
--	.set_tx_csum =3D enic_set_tx_csum,
+-	.set_tx_csum =3D ethtool_op_set_tx_hw_csum,
 -	.get_sg =3D ethtool_op_get_sg,
 -	.set_sg =3D ethtool_op_set_sg,
 -	.get_tso =3D ethtool_op_get_tso,
--	.set_tso =3D enic_set_tso,
- 	.get_coalesce =3D enic_get_coalesce,
- 	.set_coalesce =3D enic_set_coalesce,
--	.get_flags =3D ethtool_op_get_flags,
- };
+-	.set_tso =3D ethtool_op_set_tso,
+ 	.get_strings =3D be_get_stat_strings,
+ 	.set_phys_id =3D be_set_phys_id,
+ 	.get_sset_count =3D be_get_sset_count,
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index a24fb45..41816a7 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -993,9 +993,10 @@ static void be_rx_compl_process(struct be_adapter =
+*adapter,
+ 			struct be_rx_obj *rxo,
+ 			struct be_rx_compl_info *rxcp)
+ {
++	struct net_device *netdev =3D adapter->netdev;
+ 	struct sk_buff *skb;
 =20
- static void enic_free_wq_buf(struct vnic_wq *wq, struct vnic_wq_buf *b=
-uf)
-@@ -1309,7 +1250,7 @@ static void enic_rq_indicate_buf(struct vnic_rq *=
-rq,
- 		skb_put(skb, bytes_written);
- 		skb->protocol =3D eth_type_trans(skb, netdev);
+-	skb =3D netdev_alloc_skb_ip_align(adapter->netdev, BE_HDR_LEN);
++	skb =3D netdev_alloc_skb_ip_align(netdev, BE_HDR_LEN);
+ 	if (unlikely(!skb)) {
+ 		if (net_ratelimit())
+ 			dev_warn(&adapter->pdev->dev, "skb alloc failed\n");
+@@ -1005,13 +1006,13 @@ static void be_rx_compl_process(struct be_adapt=
+er *adapter,
 =20
--		if (enic->csum_rx_enabled && !csum_not_calc) {
-+		if ((netdev->features & NETIF_F_RXCSUM) && !csum_not_calc) {
- 			skb->csum =3D htons(checksum);
- 			skb->ip_summed =3D CHECKSUM_COMPLETE;
- 		}
-@@ -2438,17 +2379,18 @@ static int __devinit enic_probe(struct pci_dev =
-*pdev,
- 		dev_info(dev, "loopback tag=3D0x%04x\n", enic->loop_tag);
- 	}
- 	if (ENIC_SETTING(enic, TXCSUM))
--		netdev->features |=3D NETIF_F_SG | NETIF_F_HW_CSUM;
-+		netdev->hw_features |=3D NETIF_F_SG | NETIF_F_HW_CSUM;
- 	if (ENIC_SETTING(enic, TSO))
--		netdev->features |=3D NETIF_F_TSO |
-+		netdev->hw_features |=3D NETIF_F_TSO |
- 			NETIF_F_TSO6 | NETIF_F_TSO_ECN;
--	if (ENIC_SETTING(enic, LRO))
--		netdev->features |=3D NETIF_F_GRO;
-+	if (ENIC_SETTING(enic, RXCSUM))
-+		netdev->hw_features |=3D NETIF_F_RXCSUM;
+ 	skb_fill_rx_data(adapter, rxo, skb, rxcp);
+=20
+-	if (likely(adapter->rx_csum && csum_passed(rxcp)))
++	if (likely((netdev->features & NETIF_F_RXCSUM) && csum_passed(rxcp)))
+ 		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+ 	else
+ 		skb_checksum_none_assert(skb);
+=20
+ 	skb->truesize =3D skb->len + sizeof(struct sk_buff);
+-	skb->protocol =3D eth_type_trans(skb, adapter->netdev);
++	skb->protocol =3D eth_type_trans(skb, netdev);
+=20
+ 	if (unlikely(rxcp->vlanf)) {
+ 		if (!adapter->vlan_grp || adapter->vlans_added =3D=3D 0) {
+@@ -2609,10 +2610,12 @@ static void be_netdev_init(struct net_device *n=
+etdev)
+ 	struct be_rx_obj *rxo;
+ 	int i;
+=20
+-	netdev->features |=3D NETIF_F_SG | NETIF_F_HW_VLAN_RX | NETIF_F_TSO |
+-		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
+-		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-		NETIF_F_GRO | NETIF_F_TSO6;
++	netdev->hw_features |=3D NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
++		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM;
 +
-+	netdev->features |=3D netdev->hw_features;
-+
- 	if (using_dac)
- 		netdev->features |=3D NETIF_F_HIGHDMA;
++	netdev->features |=3D netdev->hw_features |
++		NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
++		NETIF_F_HW_VLAN_FILTER;
 =20
--	enic->csum_rx_enabled =3D ENIC_SETTING(enic, RXCSUM);
+ 	netdev->vlan_features |=3D NETIF_F_SG | NETIF_F_TSO |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+@@ -2622,8 +2625,6 @@ static void be_netdev_init(struct net_device *net=
+dev)
+=20
+ 	netdev->flags |=3D IFF_MULTICAST;
+=20
+-	adapter->rx_csum =3D true;
 -
- 	err =3D register_netdev(netdev);
- 	if (err) {
- 		dev_err(dev, "Cannot register net device, aborting\n");
-diff --git a/drivers/net/enic/enic_res.c b/drivers/net/enic/enic_res.c
-index f111a37..6e5c635 100644
---- a/drivers/net/enic/enic_res.c
-+++ b/drivers/net/enic/enic_res.c
-@@ -98,9 +98,9 @@ int enic_get_vnic_config(struct enic *enic)
- 		"vNIC MAC addr %pM wq/rq %d/%d mtu %d\n",
- 		enic->mac_addr, c->wq_desc_count, c->rq_desc_count, c->mtu);
- 	dev_info(enic_get_dev(enic), "vNIC csum tx/rx %d/%d "
--		"tso/lro %d/%d intr timer %d usec rss %d\n",
-+		"tso %d intr timer %d usec rss %d\n",
- 		ENIC_SETTING(enic, TXCSUM), ENIC_SETTING(enic, RXCSUM),
--		ENIC_SETTING(enic, TSO), ENIC_SETTING(enic, LRO),
-+		ENIC_SETTING(enic, TSO),
- 		c->intr_timer_usec, ENIC_SETTING(enic, RSS));
-=20
- 	return 0;
+ 	/* Default settings for Rx and Tx flow control */
+ 	adapter->rx_fc =3D true;
+ 	adapter->tx_fc =3D true;
 --=20
 1.7.2.5
 
