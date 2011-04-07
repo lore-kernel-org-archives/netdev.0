@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Thu, 07 Apr 2011 13:48:21 -0700 (PDT)
-Message-ID: <20110407.134821.71129934.davem@davemloft.net>
-References: <20110407113943.2f054e2f.sfr@canb.auug.org.au>
+Subject: Re: problem of "ipv4: revert Set rt->rt_iif more sanely on output
+ routes."
+Date: Thu, 07 Apr 2011 13:58:49 -0700 (PDT)
+Message-ID: <20110407.135849.104066788.davem@davemloft.net>
+References: <877hb6sf43.fsf@devron.myhome.or.jp>
+	<8739lusbvz.fsf@devron.myhome.or.jp>
+	<87wrj6qx5a.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sathya.perla@emulex.com,
-	ajit.khaparde@emulex.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110407113943.2f054e2f.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hirofumi@mail.parknet.co.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54266
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750886Ab1DGU70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 16:59:26 -0400
+In-Reply-To: <87wrj6qx5a.fsf@devron.myhome.or.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 7 Apr 2011 11:39:43 +1000
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Date: Thu, 07 Apr 2011 17:32:49 +0900
 
-> Hi all,
+> OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> writes:
 > 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/benet/be_main.c between commit 2d5d41546504 ("be2net: Fix a
-> potential crash during shutdown.") from the net-current tree and commit
-> 0f4a68288217 ("be2net: cancel be_worker in be_shutdown() even when i/f is
-> down") from the net tree.
+>> This patch seems to work for avahi-daemon without any warning.
+>>
+>> BTW, the above meant change from (there was before) "fl.iif" to
+>> "rt_route_iif"? If so, this patch is not enough. I'm not sure
+>>
+>> +	rth->rt_route_iif = 0;
+>> +	rth->rt_iif	= oldflp4->flowi4_oif ? : dev_out->ifindex;
+>>
+>> is correct one or not. Please review.
 > 
-> I fixed it up (see below) and can carry the fix as necessary.
+> Forgot the patch.
 
-I'll do a merge to clear this up for you, thanks Stephen.
+I am reviewing your patch right now, thank you so much for working
+on this bug.
