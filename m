@@ -1,146 +1,180 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH net-next 2/5] be2net: use common method to check for
- sriov function type
-Date: Thu, 07 Apr 2011 14:37:39 +0100
-Message-ID: <1302183459.2878.7.camel@bwh-desktop>
-References: <20110407040801.GA4199@akhaparde-VBox>
-	 ,<1302164041.5282.3.camel@localhost>
-	 <49395329523DD64492581B505F80C86D5A5BCD3946@EXMAIL.ad.emulex.com>
+From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
+ to drivers
+Date: Thu, 7 Apr 2011 15:40:23 +0200
+Message-ID: <20110407133717.GA3923@sortiz-mobl>
+References: <20110401235239.GE29397@sortiz-mobl>
+ <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
+ <20110404100314.GC2751@sortiz-mobl>
+ <20110405030428.GB29522@ponder.secretlab.ca>
+ <20110406152322.GA2757@sortiz-mobl>
+ <20110406155805.GA20095@suse.de>
+ <20110406170537.GB2757@sortiz-mobl>
+ <20110406175647.GA8048@suse.de>
+ <20110406184733.GD2757@sortiz-mobl>
+ <20110406185902.GN25654@legolas.emea.dhcp.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ajit.Khaparde@Emulex.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:25046 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751279Ab1DGNhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 09:37:42 -0400
-In-Reply-To: <49395329523DD64492581B505F80C86D5A5BCD3946@EXMAIL.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>, Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+	Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+	khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org,
+	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
+	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Mocean Laboratories <info-l7gf1WXxx3uGw+nKnLezzg@public.gmane.org>
+To: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110406185902.GN25654-UiBtZHVXSwEVvW8u9ZQWYwjfymiNCTlR@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-04-07 at 05:34 -0700, Ajit.Khaparde@Emulex.Com wrote:
-> ________________________________________
-> > From: Ben Hutchings [bhutchings@solarflare.com]
-> > Sent: Thursday, April 07, 2011 3:14 AM
-> > To: Khaparde, Ajit
-> > Cc: netdev@vger.kernel.org
-> > Subject: Re: [PATCH net-next 2/5] be2net: use common method to check for sriov function type
+Hi Felipe,
+
+On Wed, Apr 06, 2011 at 09:59:02PM +0300, Felipe Balbi wrote:
+> Hi,
 > 
-> > On Wed, 2011-04-06 at 23:08 -0500, Ajit Khaparde wrote:
-> >> Lancer and BE can both use SLI_INTF_REG to check a VF or a PF.
-> > [...]
+> On Wed, Apr 06, 2011 at 08:47:34PM +0200, Samuel Ortiz wrote:
+> > > > > What is a "MFD cell pointer" and why is it needed in struct device?
+> > > > An MFD cell is an MFD instantiated device.
+> > > > MFD (Multi Function Device) drivers instantiate platform devices. Those
+> > > > devices drivers sometimes need a platform data pointer, sometimes an MFD
+> > > > specific pointer, and sometimes both. Also, some of those drivers have been
+> > > > implemented as MFD sub drivers, while others know nothing about MFD and just
+> > > > expect a plain platform_data pointer.
+> > > 
+> > > That sounds like a bug in those drivers, why not fix them to properly
+> > > pass in the correct pointer?
+> > Because they're drivers for generic IPs, not MFD ones. By forcing them to use
+> > MFD specific structure and APIs, we make it more difficult for platform code
+> > to instantiate them.
 > 
-> > This seems pretty unreliable (both in the previous and the current
-> > version).  You cannot rely on the whole of PCI config space being mapped
-> > to a VM guest.  KVM certainly didn't do this when I used PCI pass-
-> > through.
-> 
-> That's interesting. I have been using the new method for a while now.
-> And the older one has worked pretty well for a long time.
-> Can you give some details about the adapter used?
-> Let's start with the firmware version, lspci output.
+> I agree. What I do on those cases is to have a simple platform_device
+> for the core IP driver and use platform_device_id tables to do runtime
+> checks of the small differences. If one platform X doesn't use a
+> platform_bus, it uses e.g. PCI, then you make a PCI "bridge" which
+> allocates a platform_device with the correct name and adds that to the
+> driver model.
+I see, thanks.
+Below is a patch for the Xilinx SPI example. Although this would fix the
+issue, we'd still have to do that on device per device basis. I had a similar
+solution where MFD drivers would set a flag for sub drivers that don't need
+any of the MFD bits. In that case the MFD core code would just forward the
+platform data, instead of embedding it through an MFD cell.
 
-I've tried this with PFs on Solarflare adapters.
+Cheers,
+Samuel.
 
-This is how the PF looks in the KVM host:
+---
+ drivers/mfd/timberdale.c |    8 ++++----
+ drivers/spi/xilinx_spi.c |   19 ++++++++++++++++++-
+ include/linux/mfd/core.h |    3 +++
+ 3 files changed, 25 insertions(+), 5 deletions(-)
 
-# lspci -vv -xxx -s 06:00.1
-06:00.1 Ethernet controller: Solarflare Communications SFC9020 [Solarstorm]
-	Subsystem: Solarflare Communications SFN5122F-R5
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0, Cache Line Size: 32 bytes
-	Interrupt: pin B routed to IRQ 95
-	Region 0: I/O ports at 2400 [size=256]
-	Region 2: Memory at dd000000 (64-bit, non-prefetchable) [size=16M]
-	Region 4: Memory at de010000 (64-bit, non-prefetchable) [size=64K]
-	Expansion ROM at de420000 [size=128K]
-	Capabilities: [40] Power Management version 3
-		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold-)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-	Capabilities: [50] Message Signalled Interrupts: 64bit+ Queue=0/5 Enable+
-		Address: 00000000fee0f00c  Data: 41d6
-	Capabilities: [70] Express Endpoint IRQ 0
-		Device: Supported: MaxPayload 256 bytes, PhantFunc 0, ExtTag-
-		Device: Latency L0s <64ns, L1 <8us
-		Device: AtnBtn- AtnInd- PwrInd-
-		Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
-		Device: RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop-
-		Device: MaxPayload 256 bytes, MaxReadReq 512 bytes
-		Link: Supported Speed unknown, Width x8, ASPM L0s L1, Port 0
-		Link: Latency L0s <512ns, L1 <64us
-		Link: ASPM Disabled RCB 64 bytes CommClk+ ExtSynch-
-		Link: Speed unknown, Width x8
-	Capabilities: [b0] MSI-X: Enable- Mask- TabSize=32
-		Vector table: BAR=4 offset=00000000
-		PBA: BAR=4 offset=00008000
-	Capabilities: [d0] Vital Product Data
-	Capabilities: [100] Advanced Error Reporting
-	Capabilities: [140] Device Serial Number 88-3c-01-ff-ff-53-0f-00
-	Capabilities: [150] Unknown (14)
-	Capabilities: [160] Unknown (16)
-00: 24 19 03 08 07 04 10 00 00 00 00 02 08 00 80 00
-10: 01 24 00 00 00 00 00 00 04 00 00 dd 00 00 00 00
-20: 04 00 01 de 00 00 00 00 00 00 00 00 24 19 05 62
-30: 01 00 42 de 40 00 00 00 00 00 00 00 0b 02 00 00
-40: 01 50 03 48 08 00 00 00 00 00 00 00 00 00 00 00
-50: 05 70 8b 01 0c f0 e0 fe 00 00 00 00 d6 41 00 00
-60: fe ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00
-70: 10 b0 02 00 01 86 00 10 30 20 00 00 82 3c 03 00
-80: 40 00 82 10 00 00 00 00 00 00 00 00 00 00 00 00
-90: 00 00 00 00 1f 00 00 00 00 00 00 00 00 00 00 00
-a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-b0: 11 d0 1f 00 04 00 00 00 04 80 00 00 00 00 00 00
-c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-d0: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+diff --git a/drivers/mfd/timberdale.c b/drivers/mfd/timberdale.c
+index 94c6c8a..c9220ce 100644
+--- a/drivers/mfd/timberdale.c
++++ b/drivers/mfd/timberdale.c
+@@ -416,7 +416,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg0[] = {
+ 		.mfd_data = &timberdale_radio_platform_data,
+ 	},
+ 	{
+-		.name = "xilinx_spi",
++		.name = "mfd_xilinx_spi",
+ 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+ 		.resources = timberdale_spi_resources,
+ 		.mfd_data = &timberdale_xspi_platform_data,
+@@ -476,7 +476,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg1[] = {
+ 		.mfd_data = &timberdale_radio_platform_data,
+ 	},
+ 	{
+-		.name = "xilinx_spi",
++		.name = "mfd_xilinx_spi",
+ 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+ 		.resources = timberdale_spi_resources,
+ 		.mfd_data = &timberdale_xspi_platform_data,
+@@ -526,7 +526,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg2[] = {
+ 		.mfd_data = &timberdale_radio_platform_data,
+ 	},
+ 	{
+-		.name = "xilinx_spi",
++		.name = "mfd_xilinx_spi",
+ 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+ 		.resources = timberdale_spi_resources,
+ 		.mfd_data = &timberdale_xspi_platform_data,
+@@ -570,7 +570,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg3[] = {
+ 		.mfd_data = &timberdale_radio_platform_data,
+ 	},
+ 	{
+-		.name = "xilinx_spi",
++		.name = "mfd_xilinx_spi",
+ 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+ 		.resources = timberdale_spi_resources,
+ 		.mfd_data = &timberdale_xspi_platform_data,
+diff --git a/drivers/spi/xilinx_spi.c b/drivers/spi/xilinx_spi.c
+index c69c6f2..3287b84 100644
+--- a/drivers/spi/xilinx_spi.c
++++ b/drivers/spi/xilinx_spi.c
+@@ -471,7 +471,11 @@ static int __devinit xilinx_spi_probe(struct platform_device *dev)
+ 	struct spi_master *master;
+ 	u8 i;
+ 
+-	pdata = mfd_get_data(dev);
++	if (platform_get_device_id(dev) &&
++	    platform_get_device_id(dev)->driver_data & MFD_PLATFORM_DEVICE)
++		pdata = mfd_get_data(dev);
++	else
++		pdata = dev->dev.platform_data;
+ 	if (pdata) {
+ 		num_cs = pdata->num_chipselect;
+ 		little_endian = pdata->little_endian;
+@@ -530,6 +534,18 @@ static int __devexit xilinx_spi_remove(struct platform_device *dev)
+ /* work with hotplug and coldplug */
+ MODULE_ALIAS("platform:" XILINX_SPI_NAME);
+ 
++static const struct platform_device_id xilinx_spi_id_table[] = {
++	{
++		.name	= XILINX_SPI_NAME,
++	},
++	{
++		.name	= "mfd_xilinx_spi",
++		.driver_data = MFD_PLATFORM_DEVICE,
++	},
++	{  },	/* Terminating Entry */
++};
++MODULE_DEVICE_TABLE(platform, xilinx_spi_id_table);
++
+ static struct platform_driver xilinx_spi_driver = {
+ 	.probe = xilinx_spi_probe,
+ 	.remove = __devexit_p(xilinx_spi_remove),
+@@ -538,6 +554,7 @@ static struct platform_driver xilinx_spi_driver = {
+ 		.owner = THIS_MODULE,
+ 		.of_match_table = xilinx_spi_of_match,
+ 	},
++	.id_table	= xilinx_spi_id_table,
+ };
+ 
+ static int __init xilinx_spi_pltfm_init(void)
+diff --git a/include/linux/mfd/core.h b/include/linux/mfd/core.h
+index ad1b19a..13f31f4 100644
+--- a/include/linux/mfd/core.h
++++ b/include/linux/mfd/core.h
+@@ -89,6 +89,9 @@ static inline const struct mfd_cell *mfd_get_cell(struct platform_device *pdev)
+ 	return pdev->dev.platform_data;
+ }
+ 
++/* */
++#define MFD_PLATFORM_DEVICE BIT(0)
++
+ /*
+  * Given a platform device that's been created by mfd_add_devices(), fetch
+  * the .mfd_data entry from the mfd_cell that created it.
 
-This is how it looks in the guest:
-
-# lspci -vv -xxx -d 1924:
-00:03.0 Ethernet controller: Solarflare Communications SFC9020 [Solarstorm]
-	Subsystem: Solarflare Communications SFN5122F-R5
-	Physical Slot: 3
-	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-	Interrupt: pin B routed to IRQ 11
-	Region 0: I/O ports at c100 [size=256]
-	Region 2: Memory at f3000000 (32-bit, non-prefetchable) [size=16M]
-	Region 4: Memory at f4000000 (32-bit, non-prefetchable) [size=64K]
-	Expansion ROM at f4020000 [disabled] [size=128K]
-	Capabilities: [40] MSI: Enable- Count=1/1 Maskable- 64bit-
-		Address: 00000000  Data: 0000
-	Capabilities: [50] MSI-X: Enable- Count=32 Masked-
-		Vector table: BAR=4 offset=00000000
-		PBA: BAR=4 offset=00008000
-00: 24 19 03 08 03 04 10 00 00 00 00 02 08 00 80 00
-10: 01 c1 00 00 00 00 00 00 00 00 00 f3 00 00 00 00
-20: 00 00 00 f4 00 00 00 00 00 00 00 00 24 19 05 62
-30: 00 00 02 f4 40 00 00 00 00 00 00 00 0b 02 00 00
-40: 05 50 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-50: 11 00 1f 00 04 00 00 00 04 80 00 00 28 41 00 00
-60: fe ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00
-70: 10 b0 02 00 01 86 00 10 30 20 00 00 82 3c 03 00
-80: 40 00 82 10 00 00 00 00 00 00 00 00 00 00 00 00
-90: 00 00 00 00 1f 00 00 00 00 00 00 00 00 00 00 00
-a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-b0: 11 d0 1f 00 04 00 00 00 04 80 00 00 00 00 00 00
-c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-d0: 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-
-The capability list is significantly changed.  The hex dump seems to
-show that config space beyond about offset 0x60 is still passed through
-unchanged, but I wouldn't want to rely on that remaining true.
-
-Ben.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Intel Open Source Technology Centre
+http://oss.intel.com/
