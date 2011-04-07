@@ -1,75 +1,68 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Thu, 07 Apr 2011 09:20:53 -0700
-Message-ID: <4D9DE465.1080008@intel.com>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>	 <1302152327.2701.50.camel@edumazet-laptop>	 <1302153412.2701.64.camel@edumazet-laptop>	 <1302157012.2701.73.camel@edumazet-laptop>	 <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>	 <1302163650.3357.8.camel@edumazet-laptop>	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>	 <1302167168.3357.12.camel@edumazet-laptop>	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com> <1302192218.3357.47.camel@edumazet-laptop>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available to drivers
+Date: Thu, 7 Apr 2011 09:24:01 -0700
+Message-ID: <BANLkTi=tZ56CEVcGQ_dQb=HmNDP6TEKxMg@mail.gmail.com>
+References: <20110202195417.228e2656@queued.net> <20110202200812.3d8d6cba@queued.net>
+ <20110331230522.GI437@ponder.secretlab.ca> <20110401112030.GA3447@sortiz-mobl>
+ <20110401104756.2f5c6f7a@debxo> <BANLkTi=bCd_+f=EG-O=U5VH_ZNjFhxkziQ@mail.gmail.com>
+ <20110401235239.GE29397@sortiz-mobl> <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
+ <20110404100314.GC2751@sortiz-mobl> <20110405030428.GB29522@ponder.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wei Gu <wei.gu@ericsson.com>, netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:60617 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753949Ab1DGQUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2011 12:20:53 -0400
-In-Reply-To: <1302192218.3357.47.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andres Salomon <dilinger@queued.net>, linux-kernel@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	khali@linux-fr.org, ben-linux@fluff.org,
+	Peter Korsgaard <jacmet@sunsite.dk>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	linux-i2c@vger.kernel.org, linux-media@vger.kernel.org,
+	netdev@vger.kernel.org, spi-devel-general@lists.sourceforge.net,
+	Mocean Laboratories <info@mocean-labs.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110405030428.GB29522@ponder.secretlab.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/7/2011 9:03 AM, Eric Dumazet wrote:
-> Le jeudi 07 avril 2011 =C3=A0 08:58 -0700, Alexander Duyck a =C3=A9cr=
-it :
->> On 4/7/2011 4:46 AM, Eric Dumazet wrote:
->>> Le jeudi 07 avril 2011 =C3=A0 19:15 +0800, Wei Gu a =C3=A9crit :
->>>> Hi,
->>>> I compile the ixgbe driver into the kernel and run the test again =
-and also change the copy to clone in the fw hook
->>>> This is the perf report while I was forwarding 150Kpps with
->>>> The attached file include the basic info about my test system. Ple=
-ase let me know if I did some thing wrong.
->>>>
->>>> +     71.91%          swapper  [kernel.kallsyms]            [k] po=
-ll_idle
->>>> +     10.43%          swapper  [kernel.kallsyms]            [k] in=
-tel_idle
->>>> -      8.00%     ksoftirqd/24  [kernel.kallsyms]            [k] _r=
-aw_spin_unlock_irqrestore
->>>> \u2592   - _raw_spin_unlock_irqrestore
->>>> \u2592      - 42.25% alloc_iova
->>>> \u2592           intel_alloc_iova
->>>> \u2592           __intel_map_single
->>>> \u2592           intel_map_page
+On Mon, Apr 4, 2011 at 8:04 PM, Grant Likely <grant.likely@secretlab.ca=
+> wrote:
+> On Mon, Apr 04, 2011 at 12:03:15PM +0200, Samuel Ortiz wrote:
+>> diff --git a/include/linux/platform_device.h b/include/linux/platfor=
+m_device.h
+>> index d96db98..734d254 100644
+>> --- a/include/linux/platform_device.h
+>> +++ b/include/linux/platform_device.h
+>> @@ -14,6 +14,8 @@
+>> =A0#include <linux/device.h>
+>> =A0#include <linux/mod_devicetable.h>
 >>
->> I'm almost certain this is the issue here.  I am pretty sure the
->> intel_map_page call indicates that you are running with the Intel IO=
-MMU
->> enabled.  As Eric suggested you can either rebuild your kernel with
->> "CONFIG_DMAR=3DN", or pass the kernel the parameter "intel_iommu=3Do=
-ff" in
->> order to disable it so that it will instead just use SWIOTLB.
+>> +struct mfd_cell;
+>> +
+>> =A0struct platform_device {
+>> =A0 =A0 =A0 const char =A0 =A0 =A0* name;
+>> =A0 =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 id;
+>> @@ -23,6 +25,9 @@ struct platform_device {
+>>
+>> =A0 =A0 =A0 const struct platform_device_id *id_entry;
+>>
+>> + =A0 =A0 /* MFD cell pointer */
+>> + =A0 =A0 struct mfd_cell *mfd_cell;
+>> +
 >
-> What's the purpose of intel_iommu ?
->
-> Could this be speedup if ixgbe uses a perqueue iommu context instead =
-of
-> a per device, so that we dont hit a single spinlock ?
+> Move this down to by the of_node pointer. =A0May as well collect all =
+the
+> supplemental data about the device in the same place.
 
-The intel_iommu is meant to be a security feature.  Primarily it is use=
-d=20
-in virtualzation where it allows KVM or Xen to direct assign a device=20
-without having to worry about the guest getting access to the hosts=20
-physical memory by submitting invalid DMA requests.
+So, okay.  wow.  I have *no* idea what I was smoking at this point in
+time.  The of_node pointer is in struct device which is definitely not
+the place to put the mfd_cell pointer (and you probably though I was
+crazy when I suggested it).  Greg was totally right to complain about
+moving it into struct device.  Sorry for causing trouble.
 
-If virtualzation isn't in use I would recommend turning it off as it ca=
-n=20
-have a negative impact especially on small packet performance due to th=
-e=20
-extra locking overhead that is required for DMA map and unmap calls.
+Move it back into struct platform_device and you should be good.  I
+just talked to greg, and there should be any issues with locating it
+there.
 
-Thanks,
-
-Alex
-
+g.
