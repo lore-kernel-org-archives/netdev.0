@@ -1,40 +1,37 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: ipv6: Add support for RTA_PREFSRC
-Date: Thu, 7 Apr 2011 23:25:52 +0200
-Message-ID: <20110407212552.GA11115@Chamillionaire.breakpoint.cc>
-References: <20110401.204613.246536923.davem@davemloft.net>
- <1301903804.31789.234.camel@localhost>
- <20110406.183716.226766155.davem@davemloft.net>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [PATCH] net: benet: convert to hw_features
+Date: Thu, 7 Apr 2011 14:35:52 -0700
+Message-ID: <c8b7f620-d2da-482e-9601-b828d61cc9ec@exht1.ad.emulex.com>
+References: <20110407124348.A8F1E13909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dwalter@barracuda.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <Sathya.Perla@Emulex.Com>, <subbu.seetharaman@emulex.com>
+To: <mirq-linux@rere.qmqm.pl>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:37088 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751578Ab1DGVZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 17:25:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20110406.183716.226766155.davem@davemloft.net>
+Received: from exht1.emulex.com ([138.239.113.183]:9431 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753158Ab1DGVjj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 17:39:39 -0400
+In-Reply-To: <20110407124348.A8F1E13909@rere.qmqm.pl>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Daniel Walter <dwalter@barracuda.com>
-> Date: Mon, 4 Apr 2011 09:56:44 +0200
-> > This reduces the RTA_PREFSRC support to netlink only, unless
-> > we break the struct.
-> 
-[..]
-> Since you do the prefsrc extraction in at least two places, make a
-> helper function that does the whole "if prefsrc.plen use prefsrc, else
-> use ipv6_dev_get_saddr()"
-> 
-> This would be akin to ipv4's FIB_RES_PREFSRC
+________________________________________
+=46rom: Micha=B3 Miros=B3aw [mirq-linux@rere.qmqm.pl]
+Sent: Thursday, April 07, 2011 7:43 AM
+To: netdev@vger.kernel.org
+Cc: Perla, Sathya; Seetharaman, Subramanian; Khaparde, Ajit
+Subject: [PATCH] net: benet: convert to hw_features
 
-OK, I'll bite.
+> Simple conversion.
 
-Whats wrong with using ipv6 addrlabels to pick the desired address,
-and, if there is a problem, why is it not fixable?
+> This also fixes a bug in TX checksum toggling --- driver was changing
+> NETIF_F_HW_CSUM instead of NETIF_F_IP_CSUM+NETIF_F_IPV6_CSUM.
 
-Just wondering...
+> Signed-off-by: Micha=B3 Miros=B3aw mirq-linux@rere.qmqm.pl
+
+Acked-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+
+Thanks
