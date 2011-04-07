@@ -1,70 +1,45 @@
-From: <Ajit.Khaparde@Emulex.Com>
-Subject: RE: [PATCH net-next 1/5] be2net: add rxhash support
-Date: Thu, 7 Apr 2011 12:57:27 -0700
-Message-ID: <49395329523DD64492581B505F80C86D5A5BCD3949@EXMAIL.ad.emulex.com>
-References: <20110407040743.GA4183@akhaparde-VBox>,<1302152725.2701.60.camel@edumazet-laptop>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [RFC 1/6]Fix typo "recieve" in various parts of the kernel.
+Date: Thu, 7 Apr 2011 22:05:41 +0200
+Message-ID: <20110407200541.GC8569@pengutronix.de>
+References: <1302192567-842-1-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:7289 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756898Ab1DGUA6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 16:00:58 -0400
-In-Reply-To: <1302152725.2701.60.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: trivial@kernel.org, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, socketcan-core@lists.berlios.de,
+	linux-mtd@lists.infradead.org, linux-input@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1302192567-842-1-git-send-email-justinmattock@gmail.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-________________________________________
-=46rom: Eric Dumazet [eric.dumazet@gmail.com]
-Sent: Thursday, April 07, 2011 12:05 AM
-To: Khaparde, Ajit
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH net-next 1/5] be2net: add rxhash support
+On Thu, Apr 07, 2011 at 09:09:22AM -0700, Justin P. Mattock wrote:
+> The patch below fixes some typos "recieve" in various parts of the ke=
+rnel.
+> Note: these below are in actual code rather than comments(excpet for =
+r852.c which
+s/excpet/except/
 
-> Le mercredi 06 avril 2011 =E0 23:07 -0500, Ajit Khaparde a =E9crit :
->> Add rxhash support,
->> Based on initial work by Eric Dumazet.
->>
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
->> ---
->>  drivers/net/benet/be.h         |    5 +++++
->>  drivers/net/benet/be_ethtool.c |   13 +++++++++++++
->>  drivers/net/benet/be_main.c    |   17 ++++++++++++-----
->>  3 files changed, 30 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
->> index 0899d91..8941b98 100644
->> --- a/drivers/net/benet/be.h
->> +++ b/drivers/net/benet/be.h
->> @@ -485,6 +485,11 @@ static inline void be_vf_eth_addr_generate(stru=
-ct be_adapter *adapter, u8 *mac)
->>       memcpy(mac, adapter->netdev->dev_addr, 3);
->>  }
->>
-> +static inline bool be_multi_rxq(struct be_adapter *adapter)
+> has a code fix, and comment).
+> compile tested as best as I can...
+I'm not a native speaker, but "as good as" sounds better in my ears.
 
-> static inline bool be_multi_rxq(const struct be_adapter *adapter)
+Best regards
+Uwe
 
-
->> +{
->> +     return (adapter->num_rx_qs > 1);
-
->        return adapter->num_rx_qs > 1;
-
->> +}
->> +
-
-> Other parts seems fine, thanks !
-
-Thanks Eric.
-
-Dave, do you want me to respin patch or you can accomodate Eric's sugge=
-stion?
-
-Thanks
--Ajit
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
