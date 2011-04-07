@@ -1,53 +1,35 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH] xen: drop anti-dependency on X86_VISWS
-Date: Thu, 07 Apr 2011 10:00:21 -0700
-Message-ID: <4D9DEDA5.6020706@zytor.com>
-References: <1301828839.2837.143.camel@edumazet-laptop>	 <20110403.172407.91341067.davem@davemloft.net>	 <1301910955.23887.75.camel@zakaz.uk.xensource.com>	 <20110406.144515.235693855.davem@davemloft.net> <1302159483.31620.36.camel@localhost.localdomain>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [RFC net-next] qlge: use ethtool set_phys_id
+Date: Thu, 7 Apr 2011 09:49:21 -0700
+Message-ID: <20110407164921.GA23693@linux-ox1b.qlogic.org>
+References: <20110406164750.11cfeef3@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"randy.dunlap@oracle.com" <randy.dunlap@oracle.com>,
-	"pazke@donpac.ru" <pazke@donpac.ru>,
-	"linux-visws-devel@lists.sf.net" <linux-visws-devel@lists.sf.net>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>
-To: Ian Campbell <Ian.Campbell@eu.citrix.com>
+	Linux Driver <Linux-Driver@qlogic.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:40113 "EHLO mail.zytor.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756155Ab1DGRBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2011 13:01:16 -0400
-In-Reply-To: <1302159483.31620.36.camel@localhost.localdomain>
+Received: from cain.qlogic.com ([198.70.193.223]:39969 "EHLO cain.qlc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751861Ab1DGRaO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2011 13:30:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20110406164750.11cfeef3@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/06/2011 11:58 PM, Ian Campbell wrote:
+On Wed, Apr 06, 2011 at 04:47:50PM -0700, Stephen Hemminger wrote:
+> This is a stab at replacing old ethtool phys_id with set_phys_id
+> on the Qlogic 10Gb driver. Compile tested only.
 > 
-> I'm not sure why ELAN belongs in the EXTENDED_PLATFORM option space
-> rather than in the CPU choice option, since its only impact seems to be
-> on -march, MODULE_PROC_FAMILY and some cpufreq drivers which doesn't
-> sound like an extended platform to me but does it appear to be
-> deliberate (see 9e111f3e167a "x86: move ELAN to the
-> NON_STANDARD_PLATFORM section", that was the old name for
-> EXTENDED_PLATFORM).
-> 
+> Not sure if set_led_cfg will flash continuously, or needs
+> to be replaced by ETHTOOL_ID_ON/ETHTOOL_ID_OFF
+>
 
-Historic... we used to have nonstandard A20M# handling on Elan, until it
-was discovered that we could make it work without it.
+Stephen,
+We are in the middle of a release cycle on another product.  We will
+test this and get back to you next week.
 
-	-hpa
-
-
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
-
+Regards,
+Ron Mercer
