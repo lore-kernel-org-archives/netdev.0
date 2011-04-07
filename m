@@ -1,22 +1,27 @@
-From: Wang Lei <nguler@posta.adiyaman.edu.tr>
-Subject: (unknown)
-Date: Thu, 7 Apr 2011 06:22:29 +0300 (EEST)
-Message-ID: <886203168.61119.1302146549279.JavaMail.root__40024.0489434966$1302148172$gmane$org@posta.adiyaman.edu.tr>
-Reply-To: Wang Lei <wlei2344@gala.net>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next 0/5] be2net: Patch series
+Date: Wed, 6 Apr 2011 23:07:06 -0500
+Message-ID: <20110407040706.GA4166@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from posta.adiyaman.edu.tr ([193.255.111.219]:37684 "EHLO
-	posta.adiyaman.edu.tr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752781Ab1DGDsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 23:48:52 -0400
-Subject: 
+Received: from exht1.emulex.com ([138.239.113.183]:55043 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750954Ab1DGEHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 00:07:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Series of 5 patches. Please apply.
 
+Thanks
+-Ajit
 
-I'm Wang Lei, I have a deal worth 25 Million USD if interested, please contact me via my personal email: wlei2344@gala.net
-
+[1/5] add rxhash support
+[2/5] use common method to check for sriov function type
+[3/5] fix to get max VFs supported from adapter
+[4/5] dynamically allocate adapter->vf_cfg
+[5/5] call FLR after setup wol in be_shutdown
