@@ -1,65 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] cxgb4: don't hold RTNL during ethtool phys_id
-Date: Thu, 07 Apr 2011 01:35:23 +0100
-Message-ID: <1302136523.2935.182.camel@localhost>
-References: <20110406170929.6e427b36@nehalam>
-	 <201104061720.30219.leedom@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv6: Add support for RTA_PREFSRC
+Date: Wed, 06 Apr 2011 18:37:16 -0700 (PDT)
+Message-ID: <20110406.183716.226766155.davem@davemloft.net>
+References: <20110401.204613.246536923.davem@davemloft.net>
+	<1301903804.31789.234.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Casey Leedom <leedom@chelsio.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: dwalter@barracuda.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:39648 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755745Ab1DGAf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 20:35:28 -0400
-In-Reply-To: <201104061720.30219.leedom@chelsio.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39734
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752555Ab1DGBhx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 21:37:53 -0400
+In-Reply-To: <1301903804.31789.234.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-06 at 17:20 -0700, Casey Leedom wrote:
-> | From: Stephen Hemminger <shemminger@linux-foundation.org>
-> | Date: Wednesday, April 06, 2011 05:09 pm
-> | 
-> | The Chelsio cxgb4 drivers implement blinking in a unique way by
-> | waiting on the mailbox. This patch cleans it up slightly by no longer
-> | holding the system wide network configuration lock during the process.
-> | 
-> | The patch also uses correct semantics for the time argument
-> | which is supposed to be in seconds; and zero is supposed
-> | to signify infinite blinking.
-> | 
-> | This is still a bad firmware interface design for this
-> | since it means the board is basically hung while doing the blink.
-> | But fixing it correctly would require hardware and firmware
-> | documentation. With that information the device could be converted
-> | to the new set_phys_id.
-> | 
-> | Compile tested only.
-> | 
-> | Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
->   Are you assuming that the firmware won't respond with a command completion 
-> until the LED blinking is complete?  If so, that's a bad assumption.  The 
-> firmware runs as an asynchronous real-time OS.  The LED blinking simply becomes 
-> a thread of activity within the OS and the command completes immediately.
-[...]
-
-Stephen was assuming (as I did) that you actually implemented this
-operation correctly.  You're supposed to blink the LED for the specified
-time but let the user interrupt early.  If you just start the LED
-blinking and then return, then it appears the user has no way to
-interrupt it.
-
-Is there a defined firmware command to stop blinking the LED?
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+RnJvbTogRGFuaWVsIFdhbHRlciA8ZHdhbHRlckBiYXJyYWN1ZGEuY29tPg0KRGF0ZTogTW9uLCA0
+IEFwciAyMDExIDA5OjU2OjQ0ICswMjAwDQoNCj4g77u/T24gRnJpLCAyMDExLTA0LTAxIGF0IDIw
+OjQ2IC0wNzAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+PiBZb3UgY2FuJ3QgY2hhbmdlIHRoZSBs
+YXlvdXQgb2YgInN0cnVjdCBpbjZfcnRtc2ciLCBhcyB0aGF0IHN0cnVjdHVyZQ0KPj4gaXMgZXhw
+bGljaXRseSBleHBvcnRlZCB0byB1c2VyIHNwYWNlIGFuZCBjaGFuZ2luZyBpdCB3aWxsIGJyZWFr
+IGV2ZXJ5DQo+PiBhcHBsaWNhdGlvbiBvdXQgdGhlcmUuDQo+IA0KPiBIaSwNCj4gDQo+IEkndmUg
+a2lja2VkIHN1cHBvcnQgZm9yIHNldHRpbmcgdGhlIHByZWZlcnJlZCBzb3VyY2UgdmlhIGlvY3Rs
+LA0KPiB0byBrZWVwICJzdHJ1Y3QgaW42X3J0bXNnIiB1bnRvdWNoZWQuDQo+IFRoaXMgcmVkdWNl
+cyB0aGUgUlRBX1BSRUZTUkMgc3VwcG9ydCB0byBuZXRsaW5rIG9ubHksIHVubGVzcw0KPiB3ZSBi
+cmVhayB0aGUgc3RydWN0Lg0KPiANCj4gRG8geW91IHNlZSBhbnkgb3RoZXIgd2F5IGFyb3VuZCB0
+aGlzIHByb2JsZW0/DQoNClRoaXMgaXMgZmluZSwgYWRkaW5nIG5ldyBmZWF0dXJlIHN1cHBvcnQg
+dG8gZGVwcmVjYXRlZCB0aGluZ3MgbGlrZQ0KdGhlIGlvY3RsIHJvdXRpbmcgY2FsbHMgaXMgdW5k
+ZXNpcmFibGUgYW55d2F5cy4NCg0KU2luY2UgeW91IGRvIHRoZSBwcmVmc3JjIGV4dHJhY3Rpb24g
+aW4gYXQgbGVhc3QgdHdvIHBsYWNlcywgbWFrZSBhDQpoZWxwZXIgZnVuY3Rpb24gdGhhdCBkb2Vz
+IHRoZSB3aG9sZSAiaWYgcHJlZnNyYy5wbGVuIHVzZSBwcmVmc3JjLCBlbHNlDQp1c2UgaXB2Nl9k
+ZXZfZ2V0X3NhZGRyKCkiDQoNClRoaXMgd291bGQgYmUgYWtpbiB0byBpcHY0J3MgRklCX1JFU19Q
+UkVGU1JDDQo=
