@@ -1,73 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: problem of "ipv4: revert Set rt->rt_iif more sanely on output
- routes."
-Date: Wed, 06 Apr 2011 22:42:44 -0700 (PDT)
-Message-ID: <20110406.224244.104071339.davem@davemloft.net>
-References: <20110406.132829.116375350.davem@davemloft.net>
-	<87ipuqsmwl.fsf@devron.myhome.or.jp>
-	<20110406.223400.71127145.davem@davemloft.net>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCHv3 NEXT 1/1] net: ethtool support to configure number of
+ channels
+Date: Thu, 7 Apr 2011 01:03:16 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD1383AE1@MNEXMB2.qlogic.org>
+References: <1301720283-25038-1-git-send-email-amit.salecha@qlogic.com>
+	<20110406.125637.70201394.davem@davemloft.net>
+	<1302121247.2840.50.camel@bwh-desktop>
+ <20110406.133019.212692386.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hirofumi@mail.parknet.co.jp
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: David Miller <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42051
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751401Ab1DGFnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 01:43:21 -0400
-In-Reply-To: <20110406.223400.71127145.davem@davemloft.net>
+Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.181]:48604
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751672Ab1DGGDZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2011 02:03:25 -0400
+In-Reply-To: <20110406.133019.212692386.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 06 Apr 2011 22:34:00 -0700 (PDT)
 
-> From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-> Date: Thu, 07 Apr 2011 13:31:06 +0900
-> 
->> I'm not pretty sure though, output message is
->> 
->> 	ip_finish_output2: No header cache and no neighbour!
->> 
->> I'm not debugging this though,
->> 
->> static inline bool rt_is_output_route(struct rtable *rt)
->> {
->> 	return rt->rt_iif == 0;
->> }
->> 
->> from review I guess the above is one of cause.
-> 
-> arp_bind_neighbour() is only called if rt_is_output_route() is true
-> or route is unicast.
-> 
-> If packet is sent using a route for which arp_bind_neighbour() has not
-> been called, you will see that warning message.
+>
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 06 Apr 2011 21:20:47 +0100
+>
+> > Amit, I told you already that you must not use my Signed-off-by line
+> > since you are changing the patch significantly.
+>
+> Amit, this is a very serious infraction.
+>
+> You must not ever add someone else's signed-off-by when you make
+> changes to a patch, unless you have their very clear and explicit
+> permission to do so.
 
-Ok, the problem is that, for output routes in original code:
+As this patch is based on Ben patch, so I thought its my duty to add his Signed-off.
+Then I misinterpreted Ben comment and thought he want me to explain his contribution.
+Sorry Ben.
 
-1) user's flow device index is stored in rt->rt_iif
+-Amit
 
-2) arp_bind_neighbour() tests meanwhile used rt->fl.iif
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
-So we do need, for now, to add a new member.  But I think for
-correct semantics it needs to have inverse meaning to the one
-you added in your RFC patch.
-
-So fix is something like:
-
-1) Add "int rt_route_iif;" to struct rtable
-
-2) For input routes, always set rt_route_iif to same value as rt_iif
-
-3) For output routes, always set rt_route_iif to zero.  Set rt_iif
-   as it is done currently.
-
-4) Change rt_is_{output,input}_route() to test rt_route_iif
-
-This should fix the bug and not introduce new regressions.
-
-Can you write and test such a patch with your test case?
-
-Thank you!
