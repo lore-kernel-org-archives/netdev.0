@@ -1,17 +1,17 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
+From: Michio Honda <micchie@sfc.keio.ac.jp>
 Subject: [PATCH net-next-2.6 v2 0/2] sctp: Add Auto-ASCONF support
-Date: Thu, 7 Apr 2011 18:08:15 +0900
-Message-ID: <BC3A4B88-4312-4371-9209-39666C698F60@sfc.wide.ad.jp>
+Date: Thu, 7 Apr 2011 18:02:01 +0900
+Message-ID: <B28EBC3D-B21D-4A22-91EF-2868D0506FBE@sfc.keio.ac.jp>
 Mime-Version: 1.0 (Apple Message framework v1082)
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
 Cc: lksctp-developers@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:43412 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751633Ab1DGJIR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 05:08:17 -0400
+Received: from mail-gw1.sfc.keio.ac.jp ([133.27.4.126]:13277 "EHLO
+	mail-gw1.sfc.keio.ac.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751186Ab1DGJMC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 05:12:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
