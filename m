@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tg3: convert to hw_features
-Date: Thu, 07 Apr 2011 20:18:21 -0700 (PDT)
-Message-ID: <20110407.201821.189708284.davem@davemloft.net>
-References: <20110407133507.13FDA13909@rere.qmqm.pl>
-	<20110407202328.GA18645@mcarlson.broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org, mchan@broadcom.com
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36118
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757358Ab1DHDS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 23:18:57 -0400
-In-Reply-To: <20110407202328.GA18645@mcarlson.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Wood <simon@mungewell.org>
+Subject: [PatchV3 1/3] usb: plusb: Whitespace
+Date: Thu,  7 Apr 2011 00:40:13 -0700
+Message-ID: <1302162015-22504-1-git-send-email-simon@mungewell.org>
+References: <1301456667-1648-1-git-send-email-simon@mungewell.org>
+Cc: Sergei Shtylyov <sshtylyov@mvista.com>, davem@davemloft.net,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Simon Wood <simon@mungewell.org>
+To: Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1301456667-1648-1-git-send-email-simon@mungewell.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Thu, 7 Apr 2011 13:23:28 -0700
+From: simon <simon@ubuntu.(none)>
 
-> Nice cleanup.  I visually studied it for a bit and didn't find anything
-> wrong.
-> 
-> Acked-by: Matt Carlson <mcarlson@broadcom.com>
-> 
-> On Thu, Apr 07, 2011 at 06:35:07AM -0700, Micha?? Miros??aw wrote:
->> Cleanup hint: Some features are calculated in tg3_get_invariants() and
->> the rest in its caller --- tg3_init_one(). This is not changed here.
->> 
->> Signed-off-by: Micha?? Miros??aw <mirq-linux@rere.qmqm.pl>
+This patch cleans up a couple of instances of incorrect whitespace
 
-Applied.
+Signed-off-by: Simon Wood <simon@mungewell.org>
+---
+ drivers/net/usb/plusb.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/usb/plusb.c b/drivers/net/usb/plusb.c
+index 823c537..2fe1bb5 100644
+--- a/drivers/net/usb/plusb.c
++++ b/drivers/net/usb/plusb.c
+@@ -134,13 +134,13 @@ static struct usb_driver plusb_driver = {
+ 
+ static int __init plusb_init(void)
+ {
+- 	return usb_register(&plusb_driver);
++	return usb_register(&plusb_driver);
+ }
+ module_init(plusb_init);
+ 
+ static void __exit plusb_exit(void)
+ {
+- 	usb_deregister(&plusb_driver);
++	usb_deregister(&plusb_driver);
+ }
+ module_exit(plusb_exit);
+ 
+-- 
+1.7.4.1
