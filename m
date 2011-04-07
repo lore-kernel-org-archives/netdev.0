@@ -1,63 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Thu, 07 Apr 2011 18:37:07 +0200
-Message-ID: <1302194227.3357.52.camel@edumazet-laptop>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302152327.2701.50.camel@edumazet-laptop>
-	 <1302153412.2701.64.camel@edumazet-laptop>
-	 <1302157012.2701.73.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302163650.3357.8.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302167168.3357.12.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
-	 <1302192218.3357.47.camel@edumazet-laptop>  <4D9DE465.1080008@intel.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH] xen: drop anti-dependency on X86_VISWS
+Date: Thu, 07 Apr 2011 10:00:21 -0700
+Message-ID: <4D9DEDA5.6020706@zytor.com>
+References: <1301828839.2837.143.camel@edumazet-laptop>	 <20110403.172407.91341067.davem@davemloft.net>	 <1301910955.23887.75.camel@zakaz.uk.xensource.com>	 <20110406.144515.235693855.davem@davemloft.net> <1302159483.31620.36.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wei Gu <wei.gu@ericsson.com>, netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"randy.dunlap@oracle.com" <randy.dunlap@oracle.com>,
+	"pazke@donpac.ru" <pazke@donpac.ru>,
+	"linux-visws-devel@lists.sf.net" <linux-visws-devel@lists.sf.net>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>
+To: Ian Campbell <Ian.Campbell@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:49166 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754355Ab1DGQhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 12:37:11 -0400
-Received: by wwa36 with SMTP id 36so3254062wwa.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2011 09:37:10 -0700 (PDT)
-In-Reply-To: <4D9DE465.1080008@intel.com>
+Received: from terminus.zytor.com ([198.137.202.10]:40113 "EHLO mail.zytor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756155Ab1DGRBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2011 13:01:16 -0400
+In-Reply-To: <1302159483.31620.36.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 07 avril 2011 =C3=A0 09:20 -0700, Alexander Duyck a =C3=A9crit=
- :
+On 04/06/2011 11:58 PM, Ian Campbell wrote:
+> 
+> I'm not sure why ELAN belongs in the EXTENDED_PLATFORM option space
+> rather than in the CPU choice option, since its only impact seems to be
+> on -march, MODULE_PROC_FAMILY and some cpufreq drivers which doesn't
+> sound like an extended platform to me but does it appear to be
+> deliberate (see 9e111f3e167a "x86: move ELAN to the
+> NON_STANDARD_PLATFORM section", that was the old name for
+> EXTENDED_PLATFORM).
+> 
 
-> The intel_iommu is meant to be a security feature.  Primarily it is u=
-sed=20
-> in virtualzation where it allows KVM or Xen to direct assign a device=
-=20
-> without having to worry about the guest getting access to the hosts=20
-> physical memory by submitting invalid DMA requests.
->=20
+Historic... we used to have nonstandard A20M# handling on Elan, until it
+was discovered that we could make it work without it.
 
-I see
+	-hpa
 
-> If virtualzation isn't in use I would recommend turning it off as it =
-can=20
-> have a negative impact especially on small packet performance due to =
-the=20
-> extra locking overhead that is required for DMA map and unmap calls.
 
-Sure, but then, if this thing is ON, we should copy small packets in
-freshly allocated skbs and reuse old one in driver rx handler, to avoid
-the expensive dma calls ?
-
-[ The thing called copybreak ]
-
-I understand tx path cost cannot be avoided, so it would not help Wei
-use case.
-
-Thanks !
-
+-- 
+H. Peter Anvin, Intel Open Source Technology Center
+I work for Intel.  I don't speak on their behalf.
 
