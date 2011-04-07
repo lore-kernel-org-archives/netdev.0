@@ -1,85 +1,58 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: Re: [net-next-2.6] Revert "net: Allow no-cache copy from user on transmit"
-Date: Thu, 7 Apr 2011 13:03:08 +0200
-Message-ID: <BANLkTi=GFbgwV_7XJAJgKrY6A6J8-4FAdQ@mail.gmail.com>
-References: <BANLkTim5Yv2Ekg1yXQy-8KZfS=hF0i2+2Q@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.39-rc2 boot crash
+Date: Thu, 07 Apr 2011 13:06:12 +0200
+Message-ID: <4D9D9AA4.6060304@trash.net>
+References: <20110406184753.GA7691@mgebm.net> <1302115953.8094.217.camel@nimitz> <20110406212041.GA2596@mgebm.net> <20110406.142157.68145422.davem@davemloft.net> <20110406220512.GA2460@mgebm.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Jesse Gross <jesse@nicira.com>,
-	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	Kees Cook <kees.cook@canonical.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-To: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <BANLkTim5Yv2Ekg1yXQy-8KZfS=hF0i2+2Q@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, dave@linux.vnet.ibm.com,
+	linux-kernel@vger.kernel.org, zbr@ioremap.net, gregkh@suse.de,
+	ksrinivasan@novell.com, NetDev <netdev@vger.kernel.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: Eric B Munson <emunson@mgebm.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110406220512.GA2460@mgebm.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-...will try the patch from [1]:
+Am 07.04.2011 00:05, schrieb Eric B Munson:
+> On Wed, 06 Apr 2011, David Miller wrote:
+> 
+>> From: Eric B Munson <emunson@mgebm.net>
+>> Date: Wed, 6 Apr 2011 17:20:41 -0400
+>>
+>>> A bisect points at commit 04f482faf50535229a5a5c8d629cf963899f857c for the
+>>> first bad one.  Unfortunately, I have not made netconsole work yet and the
+>>> hang is happening mostly right when X starts so I can't even see the console.
+>>> I will keep at the netconsole and see if I can get it functioning, also I will
+>>> try to boot this kernel in a VM and see if that helps.
+>>
+>> Patrick, please help Eric so we can fix this bug.
+>>
+>> Thanks.
+>>
+> 
+> I have a useful trace now from netconsole:
+> 
+> [   18.029521] BUG: sleeping function called from invalid context at arch/x86/mm/fault.c:1087
+> [   18.029527] in_atomic(): 0, irqs_disabled(): 1, pid: 2018, name: cgrulesengd
+> [   18.029693] BUG: unable to handle kernel paging request at 0000100000000000
+> [   18.029730] IP: [<ffffffff814c3db8>] __skb_recv_datagram+0x128/0x2b0
+> [   18.029756] PGD 0 
+> [   18.029768] Oops: 0002 [#1] SMP 
+> [   18.029790] last sysfs file: /sys/devices/pci0000:00/0000:00:02.0/0000:02:00.0/usb10/10-0:1.0/bInterfaceClass
+> [   18.029824] CPU 0 
+> [   18.029833] Modules linked in: kvm_intel kvm parport_pc ppdev snd_hda_codec_hdmi snd_hda_codec_realtek nfs lockd fscache auth_rpcgss nfs_acl sunrpc radeon deflate zlib_deflate ctr twofish_generic twofish_x86_64 twofish_common ttm camellia serpent drm_kms_helper snd_usb_audio blowfish cast5 snd_hda_intel drm des_generic snd_hda_codec snd_hwdep aesni_intel snd_usbmidi_lib cryptd aes_x86_64 aes_generic snd_pcm xcbc snd_seq_midi rmd160 snd_rawmidi sha512_generic sha256_generic uvcvideo snd_seq_midi_event sha1_generic snd_seq snd_timer crypto_null snd_seq_device snd af_key xhci_hcd i7core_edac videodev joydev psmouse edac_core v4l2_compat_ioctl32 w83627ehf soundcore serio_raw hwmon_vid snd_page_alloc max6650 hid_microsoft i2c_algo_bit lp parport asus_atk0110 usbhid hid firewire_ohci firewi
+ re_core crc_itu_t
+> [   18.030424] 
+> [   18.030432] Pid: 2018, comm: cgrulesengd Not tainted 2.6.39-rc2+ #52 System manufacturer System Product Name/P6X58D PREMIUM
+> [   18.030477] RIP: 0010:[<ffffffff814c3db8>]  [<ffffffff814c3db8>] __skb_recv_datagram+0x128/0x2b0
+>...
+> 
+> I haven't dug into it at all, but I am happy to help test potential fixes.
 
-- Sedat -
-
-[1] http://marc.info/?l=linux-netdev&m=130215119417648&w=2
-
-On Thu, Apr 7, 2011 at 12:49 PM, Sedat Dilek <sedat.dilek@googlemail.com> wrote:
-> [ The long CC list I got via ./scripts/get_maintainer.pl ]
->
-> Hi,
->
-> with yesterday's linux-next (next-20110406) I discovered first time
-> network problems.
-> Today's next-20110407 shows the same symptoms.
-> In my IRC client the connection via SSL-encryption to freenode and
-> oftc are not established.
-> Also, I saw "stalls" on websites in firefox.
->
-> Luckily, next-20110405 was OK, so I started to look at the
-> net-next-2.6 merge and its commits.
-> ( Furthermore, I tested a 2.6.39-rc2 vanilla kernel to ensure the
-> problem comes from linux-next patch. )
->
-> By reverting all 10 commits my system worked as expected, here the list:
->
-> 0001-Revert-net-Allow-no-cache-copy-from-user-on-transmit.patch
-> 0002-Revert-bridge-range-check-STP-parameters.patch
-> 0003-Revert-bridge-allow-creating-bridge-devices-with-net.patch
-> 0004-Revert-bridge-allow-creating-deleting-fdb-entries-vi.patch
-> 0005-Revert-bridge-add-netlink-notification-on-forward-en.patch
-> 0006-Revert-bridge-split-rcu-and-no-rcu-cases-of-fdb-look.patch
-> 0007-Revert-bridge-track-last-used-time-in-forwarding-tab.patch
-> 0008-Revert-bridge-change-arguments-to-fdb_create.patch
-> 0009-Revert-pkt_sched-QFQ-quick-fair-queue-scheduler.patch
-> 0010-Revert-xen-netfront-assume-all-hw-features-are-avail.patch
->
-> In a next run, I started with only
-> "0001-Revert-net-Allow-no-cache-copy-from-user-on-transmit.patch".
-> It turned out that this is the culprit commit.
-> ( I have not played with the new ethtool option tx-nocache-copy in
-> "BROKEN" kernel. )
->
-> My wificard is an Atheros ath5k.
-> I attached my kernel-config and the revert-patch which makes the
-> system stable again.
->
-> Can you have a look at it?
->
-> I you want me to help with debugging, please give me precise instructions.
->
-> Regards,
-> - Sedat -
->
+I can't figure this out, the only thing that should have changed is the
+time the initial PROC_CN_MCAST_LISTEN message is received. Apparently
+at that point connector is not fully initialized yet. Please post your
+config and the full boot log. Thanks.
