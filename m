@@ -1,85 +1,50 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH] mlx4: Sensing link type at device initialization
-Date: Thu, 7 Apr 2011 12:24:42 +0300
-Message-ID: <4D9D82DA.2090301@mellanox.co.il>
+Subject: [PATCH] mlx4_en: Restoring RX buffer pointer in case of failure
+Date: Thu, 7 Apr 2011 12:25:45 +0300
+Message-ID: <4D9D8319.4030208@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:52875 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:56588 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751646Ab1DGJYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2011 05:24:46 -0400
+	id S1751646Ab1DGJZv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2011 05:25:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-When bringing the port up, performing a SENSE_PORT command
-To try and check to which physical link type (IB or Ethernet) the physical
-port is connected.
-In case there is no valid link partner, the port will come up as its
-supported default.
+If not done, second attempt to open the RX ring would cause memory corruption.
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/main.c  |    5 +++++
- drivers/net/mlx4/mlx4.h  |    2 ++
- drivers/net/mlx4/sense.c |    4 ++--
- 3 files changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/mlx4/en_rx.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
-index 62fa7ee..3814fc9 100644
---- a/drivers/net/mlx4/main.c
-+++ b/drivers/net/mlx4/main.c
-@@ -944,6 +944,10 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 	}
- 
- 	for (port = 1; port <= dev->caps.num_ports; port++) {
-+		enum mlx4_port_type port_type = 0;
-+		mlx4_SENSE_PORT(dev, port, &port_type);
-+		if (port_type)
-+			dev->caps.port_type[port] = port_type;
- 		ib_port_default_caps = 0;
- 		err = mlx4_get_port_ib_caps(dev, port, &ib_port_default_caps);
- 		if (err)
-@@ -958,6 +962,7 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 			goto err_mcg_table_free;
+diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
+index a0423eb..33edecb 100644
+--- a/drivers/net/mlx4/en_rx.c
++++ b/drivers/net/mlx4/en_rx.c
+@@ -345,6 +345,8 @@ int mlx4_en_activate_rx_rings(struct mlx4_en_priv *priv)
+ 		err = mlx4_en_init_allocator(priv, ring);
+ 		if (err) {
+ 			en_err(priv, "Failed initializing ring allocator\n");
++			if (ring->stride <= TXBB_SIZE)
++				ring->buf -= TXBB_SIZE;
+ 			ring_ind--;
+ 			goto err_allocator;
  		}
+@@ -369,6 +371,8 @@ err_buffers:
+ 	ring_ind = priv->rx_ring_num - 1;
+ err_allocator:
+ 	while (ring_ind >= 0) {
++		if (priv->rx_ring[ring_ind].stride <= TXBB_SIZE)
++			priv->rx_ring[ring_ind].buf -= TXBB_SIZE;
+ 		mlx4_en_destroy_allocator(priv, &priv->rx_ring[ring_ind]);
+ 		ring_ind--;
  	}
-+	mlx4_set_port_mask(dev);
- 
- 	return 0;
- 
-diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index c1e0e5f..dd7d745 100644
---- a/drivers/net/mlx4/mlx4.h
-+++ b/drivers/net/mlx4/mlx4.h
-@@ -431,6 +431,8 @@ void mlx4_srq_event(struct mlx4_dev *dev, u32 srqn, int event_type);
- 
- void mlx4_handle_catas_err(struct mlx4_dev *dev);
- 
-+int mlx4_SENSE_PORT(struct mlx4_dev *dev, int port,
-+		    enum mlx4_port_type *type);
- void mlx4_do_sense_ports(struct mlx4_dev *dev,
- 			 enum mlx4_port_type *stype,
- 			 enum mlx4_port_type *defaults);
-diff --git a/drivers/net/mlx4/sense.c b/drivers/net/mlx4/sense.c
-index 015fbe7..e2337a7 100644
---- a/drivers/net/mlx4/sense.c
-+++ b/drivers/net/mlx4/sense.c
-@@ -38,8 +38,8 @@
- 
- #include "mlx4.h"
- 
--static int mlx4_SENSE_PORT(struct mlx4_dev *dev, int port,
--			   enum mlx4_port_type *type)
-+int mlx4_SENSE_PORT(struct mlx4_dev *dev, int port,
-+		    enum mlx4_port_type *type)
- {
- 	u64 out_param;
- 	int err = 0;
 -- 
 1.6.0.2
 
