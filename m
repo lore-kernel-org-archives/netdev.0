@@ -1,270 +1,190 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: atl*: convert to hw_features
-Date: Thu,  7 Apr 2011 19:32:18 +0200 (CEST)
-Message-ID: <20110407173218.1532213909@rere.qmqm.pl>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
+ to drivers
+Date: Thu, 7 Apr 2011 11:06:50 -0700
+Message-ID: <20110407180650.GA3261@angua.secretlab.ca>
+References: <20110405030428.GB29522@ponder.secretlab.ca>
+ <20110406152322.GA2757@sortiz-mobl>
+ <20110406155805.GA20095@suse.de>
+ <20110406170537.GB2757@sortiz-mobl>
+ <20110406175647.GA8048@suse.de>
+ <20110406184733.GD2757@sortiz-mobl>
+ <20110406185902.GN25654@legolas.emea.dhcp.ti.com>
+ <20110407133717.GA3923@sortiz-mobl>
+ <20110407143515.GC26452@angua.secretlab.ca>
+ <20110407150322.GB3923@sortiz-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:47706 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754889Ab1DGRcV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2011 13:32:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>, Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
+	khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org, ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org,
+	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
+	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Mocean Laboratories <info-l7gf1WXxx3uGw+nKnLezzg@public.gmane.org>
+To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110407150322.GB3923@sortiz-mobl>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Things left as they were:
- - atl1: is RX checksum really enabled?
- - atl2: copy-paste from atl1, with-errors-on-modify I presume
- - atl1c: there's a bug: MTU can't be changed if device is not up
+On Thu, Apr 07, 2011 at 05:03:23PM +0200, Samuel Ortiz wrote:
+> On Thu, Apr 07, 2011 at 07:35:15AM -0700, Grant Likely wrote:
+> > > Below is a patch for the Xilinx SPI example. Although this would fix the
+> > > issue, we'd still have to do that on device per device basis. I had a similar
+> > > solution where MFD drivers would set a flag for sub drivers that don't need
+> > > any of the MFD bits. In that case the MFD core code would just forward the
+> > > platform data, instead of embedding it through an MFD cell.
+> > 
+> > platform_data is already a fiddly bit where you don't know what
+> > structure type platform_data points at; it is implicitly known and
+> > easy to get wrong.  This solution makes me *very* nervous
+> > because it would become even easier to get a mismatch on the
+> > platform_data pointer type.
+> How would that be more error prone than say a board file instantiating a
+> platform device after having set the platform_data pointer to point to an
+> implicitely know structure reference ?
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- drivers/net/atl1c/atl1c_ethtool.c |    8 --------
- drivers/net/atl1c/atl1c_main.c    |   23 ++++++++++++++---------
- drivers/net/atl1e/atl1e_ethtool.c |    3 ---
- drivers/net/atl1e/atl1e_main.c    |   12 ++++--------
- drivers/net/atlx/atl1.c           |   15 +++++----------
- drivers/net/atlx/atl2.c           |   14 +-------------
- 6 files changed, 24 insertions(+), 51 deletions(-)
+Yes, platform_data is already troublesome, but at least current
+convention is a 1:1 relationship between driver and platform_data
+type.  I still hate it and want something better, but it is what we
+have.  The problem with what having a different platform_data pointer
+depending on the instantiation means that it adds yet another level of
+decision that needs to be made and is very easy to get wrong.
 
-diff --git a/drivers/net/atl1c/atl1c_ethtool.c b/drivers/net/atl1c/atl1=
-c_ethtool.c
-index 7c52150..3af5a33 100644
---- a/drivers/net/atl1c/atl1c_ethtool.c
-+++ b/drivers/net/atl1c/atl1c_ethtool.c
-@@ -113,11 +113,6 @@ static int atl1c_set_settings(struct net_device *n=
-etdev,
- 	return 0;
- }
-=20
--static u32 atl1c_get_tx_csum(struct net_device *netdev)
--{
--	return (netdev->features & NETIF_F_HW_CSUM) !=3D 0;
--}
--
- static u32 atl1c_get_msglevel(struct net_device *netdev)
- {
- 	struct atl1c_adapter *adapter =3D netdev_priv(netdev);
-@@ -307,9 +302,6 @@ static const struct ethtool_ops atl1c_ethtool_ops =3D=
- {
- 	.get_link               =3D ethtool_op_get_link,
- 	.get_eeprom_len         =3D atl1c_get_eeprom_len,
- 	.get_eeprom             =3D atl1c_get_eeprom,
--	.get_tx_csum            =3D atl1c_get_tx_csum,
--	.get_sg                 =3D ethtool_op_get_sg,
--	.set_sg                 =3D ethtool_op_set_sg,
- };
-=20
- void atl1c_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_m=
-ain.c
-index 7d9d506..894d485 100644
---- a/drivers/net/atl1c/atl1c_main.c
-+++ b/drivers/net/atl1c/atl1c_main.c
-@@ -484,6 +484,15 @@ static void atl1c_set_rxbufsize(struct atl1c_adapt=
-er *adapter,
- 	adapter->rx_buffer_len =3D mtu > AT_RX_BUF_SIZE ?
- 		roundup(mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN, 8) : AT_RX_BUF_SIZ=
-E;
- }
-+
-+static u32 atl1c_fix_features(struct net_device *netdev, u32 features)
-+{
-+	if (netdev->mtu > MAX_TSO_FRAME_SIZE)
-+		features &=3D ~(NETIF_F_TSO | NETIF_F_TSO6);
-+
-+	return features;
-+}
-+
- /*
-  * atl1c_change_mtu - Change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-@@ -510,14 +519,8 @@ static int atl1c_change_mtu(struct net_device *net=
-dev, int new_mtu)
- 		netdev->mtu =3D new_mtu;
- 		adapter->hw.max_frame_size =3D new_mtu;
- 		atl1c_set_rxbufsize(adapter, netdev);
--		if (new_mtu > MAX_TSO_FRAME_SIZE) {
--			adapter->netdev->features &=3D ~NETIF_F_TSO;
--			adapter->netdev->features &=3D ~NETIF_F_TSO6;
--		} else {
--			adapter->netdev->features |=3D NETIF_F_TSO;
--			adapter->netdev->features |=3D NETIF_F_TSO6;
--		}
- 		atl1c_down(adapter);
-+		netdev_update_features(netdev);
- 		atl1c_up(adapter);
- 		clear_bit(__AT_RESETTING, &adapter->flags);
- 		if (adapter->hw.ctrl_flags & ATL1C_FPGA_VERSION) {
-@@ -2585,6 +2588,7 @@ static const struct net_device_ops atl1c_netdev_o=
-ps =3D {
- 	.ndo_set_mac_address 	=3D atl1c_set_mac_addr,
- 	.ndo_set_multicast_list =3D atl1c_set_multi,
- 	.ndo_change_mtu		=3D atl1c_change_mtu,
-+	.ndo_fix_features	=3D atl1c_fix_features,
- 	.ndo_do_ioctl		=3D atl1c_ioctl,
- 	.ndo_tx_timeout		=3D atl1c_tx_timeout,
- 	.ndo_get_stats		=3D atl1c_get_stats,
-@@ -2605,12 +2609,13 @@ static int atl1c_init_netdev(struct net_device =
-*netdev, struct pci_dev *pdev)
- 	atl1c_set_ethtool_ops(netdev);
-=20
- 	/* TODO: add when ready */
--	netdev->features =3D	NETIF_F_SG	   |
-+	netdev->hw_features =3D	NETIF_F_SG	   |
- 				NETIF_F_HW_CSUM	   |
- 				NETIF_F_HW_VLAN_TX |
--				NETIF_F_HW_VLAN_RX |
- 				NETIF_F_TSO	   |
- 				NETIF_F_TSO6;
-+	netdev->features =3D	netdev->hw_features |
-+				NETIF_F_HW_VLAN_RX;
- 	return 0;
- }
-=20
-diff --git a/drivers/net/atl1e/atl1e_ethtool.c b/drivers/net/atl1e/atl1=
-e_ethtool.c
-index 1209297..4778374 100644
---- a/drivers/net/atl1e/atl1e_ethtool.c
-+++ b/drivers/net/atl1e/atl1e_ethtool.c
-@@ -382,9 +382,6 @@ static const struct ethtool_ops atl1e_ethtool_ops =3D=
- {
- 	.get_eeprom_len         =3D atl1e_get_eeprom_len,
- 	.get_eeprom             =3D atl1e_get_eeprom,
- 	.set_eeprom             =3D atl1e_set_eeprom,
--	.set_tx_csum            =3D ethtool_op_set_tx_hw_csum,
--	.set_sg                 =3D ethtool_op_set_sg,
--	.set_tso                =3D ethtool_op_set_tso,
- };
-=20
- void atl1e_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_m=
-ain.c
-index 1ff001a..c05b2e7 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -1927,11 +1927,7 @@ void atl1e_down(struct atl1e_adapter *adapter)
- 	 * reschedule our watchdog timer */
- 	set_bit(__AT_DOWN, &adapter->flags);
-=20
--#ifdef NETIF_F_LLTX
- 	netif_stop_queue(netdev);
--#else
--	netif_tx_disable(netdev);
--#endif
-=20
- 	/* reset MAC to disable all RX/TX */
- 	atl1e_reset_hw(&adapter->hw);
-@@ -2223,10 +2219,10 @@ static int atl1e_init_netdev(struct net_device =
-*netdev, struct pci_dev *pdev)
- 	netdev->watchdog_timeo =3D AT_TX_WATCHDOG;
- 	atl1e_set_ethtool_ops(netdev);
-=20
--	netdev->features =3D NETIF_F_SG | NETIF_F_HW_CSUM |
--		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--	netdev->features |=3D NETIF_F_LLTX;
--	netdev->features |=3D NETIF_F_TSO;
-+	netdev->hw_features =3D NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_TSO |
-+		NETIF_F_HW_VLAN_TX;
-+	netdev->features =3D netdev->hw_features |
-+		NETIF_F_HW_VLAN_RX | NETIF_F_LLTX;
-=20
- 	return 0;
- }
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index e973d05..98334a1 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -2986,6 +2986,11 @@ static int __devinit atl1_probe(struct pci_dev *=
-pdev,
- 	netdev->features |=3D NETIF_F_SG;
- 	netdev->features |=3D (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
-=20
-+	netdev->hw_features =3D NETIF_F_HW_CSUM | NETIF_F_SG | NETIF_F_TSO;
-+
-+	/* is this valid? see atl1_setup_mac_ctrl() */
-+	netdev->features |=3D NETIF_F_RXCSUM;
-+
- 	/*
- 	 * patch for some L1 of old version,
- 	 * the final version of L1 may not need these
-@@ -3595,12 +3600,6 @@ static int atl1_set_pauseparam(struct net_device=
- *netdev,
- 	return 0;
- }
-=20
--/* FIXME: is this right? -- CHS */
--static u32 atl1_get_rx_csum(struct net_device *netdev)
--{
--	return 1;
--}
--
- static void atl1_get_strings(struct net_device *netdev, u32 stringset,
- 	u8 *data)
- {
-@@ -3668,13 +3667,9 @@ static const struct ethtool_ops atl1_ethtool_ops=
- =3D {
- 	.set_ringparam		=3D atl1_set_ringparam,
- 	.get_pauseparam		=3D atl1_get_pauseparam,
- 	.set_pauseparam		=3D atl1_set_pauseparam,
--	.get_rx_csum		=3D atl1_get_rx_csum,
--	.set_tx_csum		=3D ethtool_op_set_tx_hw_csum,
- 	.get_link		=3D ethtool_op_get_link,
--	.set_sg			=3D ethtool_op_set_sg,
- 	.get_strings		=3D atl1_get_strings,
- 	.nway_reset		=3D atl1_nway_reset,
- 	.get_ethtool_stats	=3D atl1_get_ethtool_stats,
- 	.get_sset_count		=3D atl1_get_sset_count,
--	.set_tso		=3D ethtool_op_set_tso,
- };
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-index 937ef1a..02761dd 100644
---- a/drivers/net/atlx/atl2.c
-+++ b/drivers/net/atlx/atl2.c
-@@ -1411,9 +1411,8 @@ static int __devinit atl2_probe(struct pci_dev *p=
-dev,
-=20
- 	err =3D -EIO;
-=20
--#ifdef NETIF_F_HW_VLAN_TX
-+	netdev->hw_features =3D NETIF_F_SG;
- 	netdev->features |=3D (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
--#endif
-=20
- 	/* Init PHY as early as possible due to power saving issue  */
- 	atl2_phy_init(&adapter->hw);
-@@ -1840,11 +1839,6 @@ static int atl2_set_settings(struct net_device *=
-netdev,
- 	return 0;
- }
-=20
--static u32 atl2_get_tx_csum(struct net_device *netdev)
--{
--	return (netdev->features & NETIF_F_HW_CSUM) !=3D 0;
--}
--
- static u32 atl2_get_msglevel(struct net_device *netdev)
- {
- 	return 0;
-@@ -2112,12 +2106,6 @@ static const struct ethtool_ops atl2_ethtool_ops=
- =3D {
- 	.get_eeprom_len		=3D atl2_get_eeprom_len,
- 	.get_eeprom		=3D atl2_get_eeprom,
- 	.set_eeprom		=3D atl2_set_eeprom,
--	.get_tx_csum		=3D atl2_get_tx_csum,
--	.get_sg			=3D ethtool_op_get_sg,
--	.set_sg			=3D ethtool_op_set_sg,
--#ifdef NETIF_F_TSO
--	.get_tso		=3D ethtool_op_get_tso,
--#endif
- };
-=20
- static void atl2_set_ethtool_ops(struct net_device *netdev)
---=20
-1.7.2.5
+So, yes, platform_data is bad.  I don't want to see it get any worse.
 
+> 
+> Cheers,
+> Samuel.
+> 
+> P.S.: Would you be ok with something like the patch below ?
+
+Not really because it requires the driver to make the correct decision
+about the platform_data type depending on the driver name.  It is easy
+to get wrong and the compiler cannot help you catch it.
+
+I've talked with Greg, and adding the mfd_cell pointer to
+platform_device will be okay in the short term.  In the long term I'm
+looking at creating a better way of attaching type-safe data to
+devices that will pretty much eliminate this issue.
+
+> 
+> > > ---
+> > >  drivers/mfd/timberdale.c |    8 ++++----
+> > >  drivers/spi/xilinx_spi.c |   19 ++++++++++++++++++-
+> > >  include/linux/mfd/core.h |    3 +++
+> > >  3 files changed, 25 insertions(+), 5 deletions(-)
+> > > 
+> > > diff --git a/drivers/mfd/timberdale.c b/drivers/mfd/timberdale.c
+> > > index 94c6c8a..c9220ce 100644
+> > > --- a/drivers/mfd/timberdale.c
+> > > +++ b/drivers/mfd/timberdale.c
+> > > @@ -416,7 +416,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg0[] = {
+> > >  		.mfd_data = &timberdale_radio_platform_data,
+> > >  	},
+> > >  	{
+> > > -		.name = "xilinx_spi",
+> > > +		.name = "mfd_xilinx_spi",
+> > >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> > >  		.resources = timberdale_spi_resources,
+> > >  		.mfd_data = &timberdale_xspi_platform_data,
+> > > @@ -476,7 +476,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg1[] = {
+> > >  		.mfd_data = &timberdale_radio_platform_data,
+> > >  	},
+> > >  	{
+> > > -		.name = "xilinx_spi",
+> > > +		.name = "mfd_xilinx_spi",
+> > >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> > >  		.resources = timberdale_spi_resources,
+> > >  		.mfd_data = &timberdale_xspi_platform_data,
+> > > @@ -526,7 +526,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg2[] = {
+> > >  		.mfd_data = &timberdale_radio_platform_data,
+> > >  	},
+> > >  	{
+> > > -		.name = "xilinx_spi",
+> > > +		.name = "mfd_xilinx_spi",
+> > >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> > >  		.resources = timberdale_spi_resources,
+> > >  		.mfd_data = &timberdale_xspi_platform_data,
+> > > @@ -570,7 +570,7 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg3[] = {
+> > >  		.mfd_data = &timberdale_radio_platform_data,
+> > >  	},
+> > >  	{
+> > > -		.name = "xilinx_spi",
+> > > +		.name = "mfd_xilinx_spi",
+> > >  		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
+> > >  		.resources = timberdale_spi_resources,
+> > >  		.mfd_data = &timberdale_xspi_platform_data,
+> > > diff --git a/drivers/spi/xilinx_spi.c b/drivers/spi/xilinx_spi.c
+> > > index c69c6f2..3287b84 100644
+> > > --- a/drivers/spi/xilinx_spi.c
+> > > +++ b/drivers/spi/xilinx_spi.c
+> > > @@ -471,7 +471,11 @@ static int __devinit xilinx_spi_probe(struct platform_device *dev)
+> > >  	struct spi_master *master;
+> > >  	u8 i;
+> > >  
+> > > -	pdata = mfd_get_data(dev);
+> > > +	if (platform_get_device_id(dev) &&
+> > > +	    platform_get_device_id(dev)->driver_data & MFD_PLATFORM_DEVICE)
+> > > +		pdata = mfd_get_data(dev);
+> > > +	else
+> > > +		pdata = dev->dev.platform_data;
+> > >  	if (pdata) {
+> > >  		num_cs = pdata->num_chipselect;
+> > >  		little_endian = pdata->little_endian;
+> > > @@ -530,6 +534,18 @@ static int __devexit xilinx_spi_remove(struct platform_device *dev)
+> > >  /* work with hotplug and coldplug */
+> > >  MODULE_ALIAS("platform:" XILINX_SPI_NAME);
+> > >  
+> > > +static const struct platform_device_id xilinx_spi_id_table[] = {
+> > > +	{
+> > > +		.name	= XILINX_SPI_NAME,
+> > > +	},
+> > > +	{
+> > > +		.name	= "mfd_xilinx_spi",
+> > > +		.driver_data = MFD_PLATFORM_DEVICE,
+> > > +	},
+> > > +	{  },	/* Terminating Entry */
+> > > +};
+> > > +MODULE_DEVICE_TABLE(platform, xilinx_spi_id_table);
+> > > +
+> > >  static struct platform_driver xilinx_spi_driver = {
+> > >  	.probe = xilinx_spi_probe,
+> > >  	.remove = __devexit_p(xilinx_spi_remove),
+> > > @@ -538,6 +554,7 @@ static struct platform_driver xilinx_spi_driver = {
+> > >  		.owner = THIS_MODULE,
+> > >  		.of_match_table = xilinx_spi_of_match,
+> > >  	},
+> > > +	.id_table	= xilinx_spi_id_table,
+> > >  };
+> > >  
+> > >  static int __init xilinx_spi_pltfm_init(void)
+> > > diff --git a/include/linux/mfd/core.h b/include/linux/mfd/core.h
+> > > index ad1b19a..13f31f4 100644
+> > > --- a/include/linux/mfd/core.h
+> > > +++ b/include/linux/mfd/core.h
+> > > @@ -89,6 +89,9 @@ static inline const struct mfd_cell *mfd_get_cell(struct platform_device *pdev)
+> > >  	return pdev->dev.platform_data;
+> > >  }
+> > >  
+> > > +/* */
+> > > +#define MFD_PLATFORM_DEVICE BIT(0)
+> > > +
+> > >  /*
+> > >   * Given a platform device that's been created by mfd_add_devices(), fetch
+> > >   * the .mfd_data entry from the mfd_cell that created it.
+> > > 
+> > > 
+> > > -- 
+> > > Intel Open Source Technology Centre
+> > > http://oss.intel.com/
+> 
+> -- 
+> Intel Open Source Technology Centre
+> http://oss.intel.com/
