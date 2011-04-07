@@ -1,49 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6: Add support for RTA_PREFSRC
-Date: Thu, 07 Apr 2011 13:27:54 -0700 (PDT)
-Message-ID: <20110407.132754.226758337.davem@davemloft.net>
-References: <1301903804.31789.234.camel@localhost>
-	<20110406.183716.226766155.davem@davemloft.net>
-	<1302168237.31789.245.camel@localhost>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: Re: [RFC 1/6]Fix typo "recieve" in various parts of the kernel.
+Date: Thu, 7 Apr 2011 22:32:39 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1104072230440.1538@swampdragon.chaosbits.net>
+References: <1302192567-842-1-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: dwalter@barracuda.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48194
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757056Ab1DGU2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 16:28:31 -0400
-In-Reply-To: <1302168237.31789.245.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
+	linux-input@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-mtd@lists.infradead.org, netdev@vger.kernel.org,
+	socketcan-core@lists.berlios.de, linux-scsi@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <1302192567-842-1-git-send-email-justinmattock@gmail.com>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGFuaWVsIFdhbHRlciA8ZHdhbHRlckBiYXJyYWN1ZGEuY29tPg0KRGF0ZTogVGh1LCA3
-IEFwciAyMDExIDExOjIzOjU3ICswMjAwDQoNCj4gT24gV2VkLCAyMDExLTA0LTA2IGF0IDE4OjM3
-IC0wNzAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+PiBGcm9tOiBEYW5pZWwgV2FsdGVyIDxkd2Fs
-dGVyQGJhcnJhY3VkYS5jb20+DQo+PiBEYXRlOiBNb24sIDQgQXByIDIwMTEgMDk6NTY6NDQgKzAy
-MDANCj4+IA0KPj4gPiDvu79PbiBGcmksIDIwMTEtMDQtMDEgYXQgMjA6NDYgLTA3MDAsIERhdmlk
-IE1pbGxlciB3cm90ZToNCj4+ID4+IFlvdSBjYW4ndCBjaGFuZ2UgdGhlIGxheW91dCBvZiAic3Ry
-dWN0IGluNl9ydG1zZyIsIGFzIHRoYXQgc3RydWN0dXJlDQo+PiA+PiBpcyBleHBsaWNpdGx5IGV4
-cG9ydGVkIHRvIHVzZXIgc3BhY2UgYW5kIGNoYW5naW5nIGl0IHdpbGwgYnJlYWsgZXZlcnkNCj4+
-ID4+IGFwcGxpY2F0aW9uIG91dCB0aGVyZS4NCj4+ID4gDQo+PiA+IEhpLA0KPj4gPiANCj4+ID4g
-SSd2ZSBraWNrZWQgc3VwcG9ydCBmb3Igc2V0dGluZyB0aGUgcHJlZmVycmVkIHNvdXJjZSB2aWEg
-aW9jdGwsDQo+PiA+IHRvIGtlZXAgInN0cnVjdCBpbjZfcnRtc2ciIHVudG91Y2hlZC4NCj4+ID4g
-VGhpcyByZWR1Y2VzIHRoZSBSVEFfUFJFRlNSQyBzdXBwb3J0IHRvIG5ldGxpbmsgb25seSwgdW5s
-ZXNzDQo+PiA+IHdlIGJyZWFrIHRoZSBzdHJ1Y3QuDQo+PiA+IA0KPj4gPiBEbyB5b3Ugc2VlIGFu
-eSBvdGhlciB3YXkgYXJvdW5kIHRoaXMgcHJvYmxlbT8NCj4+IA0KPj4gVGhpcyBpcyBmaW5lLCBh
-ZGRpbmcgbmV3IGZlYXR1cmUgc3VwcG9ydCB0byBkZXByZWNhdGVkIHRoaW5ncyBsaWtlDQo+PiB0
-aGUgaW9jdGwgcm91dGluZyBjYWxscyBpcyB1bmRlc2lyYWJsZSBhbnl3YXlzLg0KPj4gDQo+PiBT
-aW5jZSB5b3UgZG8gdGhlIHByZWZzcmMgZXh0cmFjdGlvbiBpbiBhdCBsZWFzdCB0d28gcGxhY2Vz
-LCBtYWtlIGENCj4+IGhlbHBlciBmdW5jdGlvbiB0aGF0IGRvZXMgdGhlIHdob2xlICJpZiBwcmVm
-c3JjLnBsZW4gdXNlIHByZWZzcmMsIGVsc2UNCj4+IHVzZSBpcHY2X2Rldl9nZXRfc2FkZHIoKSIN
-Cj4+IA0KPj4gVGhpcyB3b3VsZCBiZSBha2luIHRvIGlwdjQncyBGSUJfUkVTX1BSRUZTUkMNCj4g
-SGksDQo+IA0KPiBJJ3ZlIG1vdmVkIHRoZSBleHRyYWN0aW9uIGludG8gYSBoZWxwZXIgZnVuY3Rp
-b24gYXMgc3VnZ2VzdGVkIGFuZCBkaWQNCj4gc29tZSBjbGVhbnVwLg0KDQpEYW5pZWwsIHBsZWFz
-ZSwgd2hlbiB5b3Ugc3VibWl0IG5ldyB2ZXJzaW9ucyBvZiBwYXRjaGVzIGRvIG1ha2UgYSBmdWxs
-DQphbmQgY29tcGxldGUgcmVzdWJtaXNzaW9uLg0KDQpUaGlzIG1lYW5zLCB3cml0ZSBhIG5ldyBl
-bWFpbCwgcHJvdmlkZSBhIGZ1bGwgY29tbWl0IG1lc3NhZ2UsIHByb3Blcg0KU3ViamVjdCwgYW5k
-IFNpZ25lZC1vZmYtYnk6IGxpbmVzLg0KDQpEb24ndCBqdXN0IHJlcGx5IHRvIG15IHJlcXVlc3Qg
-d2l0aCBhIG5ldyBwYXRjaCwgdGhhdCBkb2Vzbid0IHdvcmsNCmFuZCB5b3VyIGNoYW5nZXMgd29u
-J3QgZ2V0IHRyYWNrZWQgcHJvcGVybHkuDQo=
+On Thu, 7 Apr 2011, Justin P. Mattock wrote:
+
+> The patch below fixes some typos "recieve" in various parts of the kernel.
+> Note: these below are in actual code rather than comments(excpet for r852.c which
+> has a code fix, and comment).
+> compile tested as best as I can...
+> 
+> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+> CC: linux-input@vger.kernel.org
+> CC: linux-arm-kernel@lists.infradead.org 
+> CC: linux-mtd@lists.infradead.org
+> CC: netdev@vger.kernel.org
+> CC: socketcan-core@lists.berlios.de
+> CC: linux-scsi@vger.kernel.org 
+> CC: linux-usb@vger.kernel.org
+
+Looks good to me.
+
+Reviewed-by: Jesper Juhl <jj@chaosbits.net>
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
+
