@@ -1,180 +1,162 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: Re: problem of "ipv4: revert Set rt->rt_iif more sanely on output routes."
-Date: Thu, 07 Apr 2011 17:32:49 +0900
-Message-ID: <87wrj6qx5a.fsf@devron.myhome.or.jp>
-References: <20110406.132829.116375350.davem@davemloft.net>
-	<87ipuqsmwl.fsf@devron.myhome.or.jp>
-	<20110406.223400.71127145.davem@davemloft.net>
-	<20110406.224244.104071339.davem@davemloft.net>
-	<877hb6sf43.fsf@devron.myhome.or.jp>
-	<8739lusbvz.fsf@devron.myhome.or.jp>
+From: Wei Gu <wei.gu@ericsson.com>
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+Date: Thu, 7 Apr 2011 16:39:20 +0800
+Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
+References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302152327.2701.50.camel@edumazet-laptop>
+	 <1302153412.2701.64.camel@edumazet-laptop>
+	 <1302157012.2701.73.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>
+ <1302163650.3357.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.parknet.co.jp ([210.171.160.6]:50729 "EHLO
-	mail.parknet.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754302Ab1DGIcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 04:32:52 -0400
-In-Reply-To: <8739lusbvz.fsf@devron.myhome.or.jp> (OGAWA Hirofumi's message of
-	"Thu, 07 Apr 2011 17:29:04 +0900")
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:54883 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755233Ab1DGIkh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 04:40:37 -0400
+In-Reply-To: <1302163650.3357.8.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> writes:
+I'm only insert a prerouting hook to make a copy of the incomming packe=
+t and swap the L2/L3 header, send it back on the same interface.
 
-> OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> writes:
+BTW, some times I notices that the perf tool was not mapping the symbol=
+ correclly, I don't why?
+
+I will try a fresh install of kernel 2.6.30 and do the test with the sh=
+ipped ixgbe driver again.
+
+
+-----Original Message-----
+=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+Sent: Thursday, April 07, 2011 4:08 PM
+To: Wei Gu
+Cc: netdev; Alexander Duyck; Jeff Kirsher
+Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+
+Le jeudi 07 avril 2011 =E0 15:22 +0800, Wei Gu a =E9crit :
+> Hi guys,
+> As I talked with Eric, that I get a very low performance on Linux 2.6=
+=2E38 kernel with intel ixgbe-3.2.10 driver.
+> I test different rx buff size on the Intel 10G NIC, by setting ethtoo=
+l -G rx 4096.
+> I get the lowest performance(~50Kpps Rx&Tx) by setting the rx=3D=3D40=
+96.
+> Once I decrease the Rx to 512 (default) then I can get Max 250Kpps Rx=
+&Tx on 1 NIC.
 >
->> David Miller <davem@davemloft.net> writes:
->>
->>> So fix is something like:
->>>
->>> 1) Add "int rt_route_iif;" to struct rtable
->>>
->>> 2) For input routes, always set rt_route_iif to same value as rt_iif
->>>
->>> 3) For output routes, always set rt_route_iif to zero.  Set rt_iif
->>>    as it is done currently.
->>>
->>> 4) Change rt_is_{output,input}_route() to test rt_route_iif
->>>
->>> This should fix the bug and not introduce new regressions.
->>>
->>> Can you write and test such a patch with your test case?
->>
->> Ok. I'll try, but I'm not sure I understand the above correctly. Well,
->> I'll send the patch after testing.
+> I was runing this test with HP DL580 4 Sock CPUs, and full memeory co=
+nfiguration.
+> modprobe ixgbe RSS=3D8,8,8,8,8,8,8,8 FdirMode=3D0,0,0,0,0,0,0,0
+> Node=3D0,0,1,1,2,2,3,3 Numactrl --hardware
+> available: 4 nodes (0-3)
+> node 0 cpus: 0 1 2 3 4 5 6 7 32 33 34 35 36 37 38 39 node 0 size:
+> 65525 MB node 0 free: 63053 MB node 1 cpus: 8 9 10 11 12 13 14 15 40
+> 41 42 43 44 45 46 47 node 1 size: 65536 MB node 1 free: 63388 MB node
+> 2 cpus: 16 17 18 19 20 21 22 23 48 49 50 51 52 53 54 55 node 2 size:
+> 65536 MB node 2 free: 63344 MB node 3 cpus: 24 25 26 27 28 29 30 31 5=
+6
+> 57 58 59 60 61 62 63 node 3 size: 65535 MB node 3 free: 63376 MB
 >
-> This patch seems to work for avahi-daemon without any warning.
+> Then I binding the eth10's rx and tx's IRQs to core "24 25 26 27 28 2=
+9 30 31", one by one, which means 1 rx and 1 tx was share 1 core.
 >
-> BTW, the above meant change from (there was before) "fl.iif" to
-> "rt_route_iif"? If so, this patch is not enough. I'm not sure
 >
-> +	rth->rt_route_iif = 0;
-> +	rth->rt_iif	= oldflp4->flowi4_oif ? : dev_out->ifindex;
+> I did the same test on 2.6.32 kernel, I can get >2.5M tx&rx with the
+> same setup on RHEL6(2.6.32) Linux. But never reach 10.000.000 rx&tx o=
+n
+> a single NIC:)
 >
-> is correct one or not. Please review.
+> I also test the 2.6.38 shipped intel ixgbe driver It has the same pro=
+blem.
+>
+> This is a perf record with linux shipped ixgbe driver, looks it has a
+> very high irq/s rate. And the softirq was busy on alloc_iova
+>
+>
+> PerfTop:  512417 irqs/sec  kernel:91.3%  exact:  0.0% [1000Hz
+> cpu-clock-msecs],  (all, 64 CPUs)
+> ---------------------------------------------------------------------=
+-----------------------------------------------------------------------=
+----------
+> -      0.82%     ksoftirqd/24  [kernel.kallsyms]          [k] _raw_sp=
+in_unlock_irqrestore
+> \u2592   - _raw_spin_unlock_irqrestore
+> \u2592      - 44.27% alloc_iova
+> \u2592           intel_alloc_iova
+> \u2592           __intel_map_single
+> \u2592           intel_map_page
+> \u2592         - ixgbe_init_interrupt_scheme
+> \u2592            - 59.97% ixgbe_alloc_rx_buffers
+> \u2592                 ixgbe_clean_rx_irq
+> \u2592                 0xffffffffa033a5
+> \u2592                 net_rx_action
+> u2592                 __do_softirq
+> \u2592               + call_softirq
+> \u2592            - 40.03% ixgbe_change_mtu
+> \u2592                 ixgbe_change_mtu
+> \u2592                 dev_hard_start_xmit
+> \u2592                 sch_direct_xmit
+> \u2592                 dev_queue_xmit
+> \u2592                 vlan_dev_hard_start_xmit
+> \u2592                 hook_func
+> \u2592                 nf_iterate
+> \u2592                nf_hook_slow
+> \u2592                 NF_HOOK.clone.1
+> \u2592                 ip_rcv
+> \u2592                 __netif_receive_skb
+> \u2592                 __netif_receive_skb
+> \u2592                 netif_receive_skb
+> \u2592                 napi_skb_finish
+> \u2592                 napi_gro_receive
+> \u2592                 ixgbe_clean_rx_irq
+> \u2592                 0xffffffffa033a5
+> \u2592                 net_rx_action
+> \u2592                 __do_softirq
+> \u2592               + call_softirq
+> \u2592      + 35.85% find_iova
+> \u2592      + 19.44% add_unmap
+>
+>
+> Thanks
+> WeiGu
 
-Forgot the patch.
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+What about using the driver as provided in 2.6.38 ?
+
+No custom module parameter, only play with irq affinities
+
+Say you have 64 queues but want only 8 cpus (24 -> 31) receiving trafic
+
+for i in `seq 0 7`
+do
+ echo 01000000 >/proc/irq/*/eth1-fp-$i/../smp_affinity
+done
+
+for i in `seq 8 15`
+do
+ echo 02000000 >/proc/irq/*/eth1-fp-$i/../smp_affinity
+done
+
+=2E..
+
+for i in `seq 56 63`
+do
+ echo 80000000 >/proc/irq/*/eth1-fp-$i/../smp_affinity
+done
 
 
-[PATCH] Fix  "Set rt->rt_iif more sanely on output routes."
+Why is ixgbe_change_mtu() seen on your profile ?
+Its damn expensive, since it must call ixgbe_reinit_locked()
+
+Are you using a custom code in kernel ?
 
 
-1018b5c01636c7c6bda31a719bda34fc631db29a breaks rt_is_{output,input}_route.
 
-This became the cause to return "IP_PKTINFO's ->ipi_ifindex == 0".
-
-To fix it, this does
-
-1) Add "int rt_route_iif;" to struct rtable
-
-2) For input routes, always set rt_route_iif to same value as rt_iif
-
-3) For output routes, always set rt_route_iif to zero.  Set rt_iif
-   as it is done currently.
-
-4) Change rt_is_{output,input}_route() to test rt_route_iif
-
-Signed-off-by: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
----
-
- include/net/route.h     |    5 +++--
- net/ipv4/route.c        |    8 ++++++--
- net/ipv4/xfrm4_policy.c |    1 +
- 3 files changed, 10 insertions(+), 4 deletions(-)
-
-diff -puN include/net/route.h~revert-avahi-breaker include/net/route.h
---- linux-2.6/include/net/route.h~revert-avahi-breaker	2011-04-07 17:12:05.000000000 +0900
-+++ linux-2.6-hirofumi/include/net/route.h	2011-04-07 17:12:05.000000000 +0900
-@@ -64,6 +64,7 @@ struct rtable {
- 
- 	__be32			rt_dst;	/* Path destination	*/
- 	__be32			rt_src;	/* Path source		*/
-+	int			rt_route_iif;
- 	int			rt_iif;
- 	int			rt_oif;
- 	__u32			rt_mark;
-@@ -80,12 +81,12 @@ struct rtable {
- 
- static inline bool rt_is_input_route(struct rtable *rt)
- {
--	return rt->rt_iif != 0;
-+	return rt->rt_route_iif != 0;
- }
- 
- static inline bool rt_is_output_route(struct rtable *rt)
- {
--	return rt->rt_iif == 0;
-+	return rt->rt_route_iif == 0;
- }
- 
- struct ip_rt_acct {
-diff -puN net/ipv4/route.c~revert-avahi-breaker net/ipv4/route.c
---- linux-2.6/net/ipv4/route.c~revert-avahi-breaker	2011-04-07 17:12:05.000000000 +0900
-+++ linux-2.6-hirofumi/net/ipv4/route.c	2011-04-07 17:12:05.000000000 +0900
-@@ -1891,6 +1891,7 @@ static int ip_route_input_mc(struct sk_b
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 	rth->dst.tclassid = itag;
- #endif
-+	rth->rt_route_iif = dev->ifindex;
- 	rth->rt_iif	= dev->ifindex;
- 	rth->dst.dev	= init_net.loopback_dev;
- 	dev_hold(rth->dst.dev);
-@@ -2026,6 +2027,7 @@ static int __mkroute_input(struct sk_buf
- 	rth->rt_key_src	= saddr;
- 	rth->rt_src	= saddr;
- 	rth->rt_gateway	= daddr;
-+	rth->rt_route_iif = in_dev->dev->ifindex;
- 	rth->rt_iif 	= in_dev->dev->ifindex;
- 	rth->dst.dev	= (out_dev)->dev;
- 	dev_hold(rth->dst.dev);
-@@ -2202,6 +2204,7 @@ local_input:
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 	rth->dst.tclassid = itag;
- #endif
-+	rth->rt_route_iif = dev->ifindex;
- 	rth->rt_iif	= dev->ifindex;
- 	rth->dst.dev	= net->loopback_dev;
- 	dev_hold(rth->dst.dev);
-@@ -2401,7 +2404,8 @@ static struct rtable *__mkroute_output(c
- 	rth->rt_mark    = oldflp4->flowi4_mark;
- 	rth->rt_dst	= fl4->daddr;
- 	rth->rt_src	= fl4->saddr;
--	rth->rt_iif	= 0;
-+	rth->rt_route_iif = 0;
-+	rth->rt_iif	= oldflp4->flowi4_oif ? : dev_out->ifindex;
- 	/* get references to the devices that are to be hold by the routing
- 	   cache entry */
- 	rth->dst.dev	= dev_out;
-@@ -2716,6 +2720,7 @@ struct dst_entry *ipv4_blackhole_route(s
- 		rt->rt_key_dst = ort->rt_key_dst;
- 		rt->rt_key_src = ort->rt_key_src;
- 		rt->rt_tos = ort->rt_tos;
-+		rt->rt_route_iif = ort->rt_route_iif;
- 		rt->rt_iif = ort->rt_iif;
- 		rt->rt_oif = ort->rt_oif;
- 		rt->rt_mark = ort->rt_mark;
-@@ -2725,7 +2730,6 @@ struct dst_entry *ipv4_blackhole_route(s
- 		rt->rt_type = ort->rt_type;
- 		rt->rt_dst = ort->rt_dst;
- 		rt->rt_src = ort->rt_src;
--		rt->rt_iif = ort->rt_iif;
- 		rt->rt_gateway = ort->rt_gateway;
- 		rt->rt_spec_dst = ort->rt_spec_dst;
- 		rt->peer = ort->peer;
-diff -puN net/ipv4/xfrm4_policy.c~revert-avahi-breaker net/ipv4/xfrm4_policy.c
---- linux-2.6/net/ipv4/xfrm4_policy.c~revert-avahi-breaker	2011-04-07 17:12:05.000000000 +0900
-+++ linux-2.6-hirofumi/net/ipv4/xfrm4_policy.c	2011-04-07 17:12:05.000000000 +0900
-@@ -74,6 +74,7 @@ static int xfrm4_fill_dst(struct xfrm_ds
- 	rt->rt_key_dst = fl4->daddr;
- 	rt->rt_key_src = fl4->saddr;
- 	rt->rt_tos = fl4->flowi4_tos;
-+	rt->rt_route_iif = fl4->flowi4_iif;
- 	rt->rt_iif = fl4->flowi4_iif;
- 	rt->rt_oif = fl4->flowi4_oif;
- 	rt->rt_mark = fl4->flowi4_mark;
-_
