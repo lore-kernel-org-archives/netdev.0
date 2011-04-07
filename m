@@ -1,176 +1,161 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Thu, 07 Apr 2011 13:46:51 +0200
-Message-ID: <1302176811.3357.15.camel@edumazet-laptop>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302152327.2701.50.camel@edumazet-laptop>
-	 <1302153412.2701.64.camel@edumazet-laptop>
-	 <1302157012.2701.73.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302163650.3357.8.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302167168.3357.12.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Wei Gu <wei.gu@ericsson.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCHv4 NEXT 1/1] net: ethtool support to configure number of channels
+Date: Thu,  7 Apr 2011 04:58:42 -0700
+Message-ID: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	sucheta.chakraborty@qlogic.com, anirban.chakraborty@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:37807 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754541Ab1DGLqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 07:46:55 -0400
-Received: by wwk4 with SMTP id 4so4982790wwk.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2011 04:46:54 -0700 (PDT)
-In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:8578 "EHLO unm84.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755881Ab1DGL6y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2011 07:58:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 07 avril 2011 =C3=A0 19:15 +0800, Wei Gu a =C3=A9crit :
-> Hi,
-> I compile the ixgbe driver into the kernel and run the test again and=
- also change the copy to clone in the fw hook
-> This is the perf report while I was forwarding 150Kpps with
-> The attached file include the basic info about my test system. Please=
- let me know if I did some thing wrong.
->=20
-> +     71.91%          swapper  [kernel.kallsyms]            [k] poll_=
-idle
-> +     10.43%          swapper  [kernel.kallsyms]            [k] intel=
-_idle
-> -      8.00%     ksoftirqd/24  [kernel.kallsyms]            [k] _raw_=
-spin_unlock_irqrestore
-> \u2592   - _raw_spin_unlock_irqrestore
-> \u2592      - 42.25% alloc_iova
-> \u2592           intel_alloc_iova
-> \u2592           __intel_map_single
-> \u2592           intel_map_page
-> \u2592         - dma_map_single_attrs.clone.3
-> \u2592            + 59.89% ixgbe_alloc_rx_buffers
-> \u2592            - 40.11% ixgbe_xmit_frame_ring
-> \u2592                 ixgbe_xmit_frame
-> \u2592                 dev_hard_start_xmit
-> \u2592                 sch_direct_xmit
-> \u2592                 dev_queue_xmit
-> \u2592                 vlan_dev_hard_start_xmit
-> \u2592                 hook_func
-> \u2592                 nf_iterate
-> \u2592                 nf_hook_slow
-> \u2592                 NF_HOOK.clone.1
-> \u2592                 ip_rcv
-> \u2592                 __netif_receive_skb
-> \u2592                 __netif_receive_skb
-> \u2592                 netif_receive_skb
-> \u2592                 napi_skb_finish
-> \u2592                 napi_gro_receive
-> \u2592                 ixgbe_clean_rx_irq
-> \u2592                 ixgbe_clean_rxtx_many
-> \u2592                 net_rx_action
-> \u2592                 __do_softirq
-> \u2592               + call_softirq
-> \u2592      + 36.30% find_iova
-> \u2592      + 20.89% add_unmap
-> \u2592+      1.60%     kworker/24:1  [kernel.kallsyms]            [k]=
- _raw_spin_unlock_irqrestore
-> \u2592+      0.80%          swapper  [kernel.kallsyms]            [k]=
- _raw_spin_unlock_irqrestore
-> \u2592+      0.66%            snmpd  [kernel.kallsyms]            [k]=
- snmp_fold_field
-> \u2592+      0.53%     ksoftirqd/24  [kernel.kallsyms]            [k]=
- clflush_cache_range
->=20
->=20
-> If I zoom out to this ksoftirqd/24
-> +     80.38%  ksoftirqd/24  [kernel.kallsyms]  [k] _raw_spin_unlock_i=
-rqrestore
-> +      5.35%  ksoftirqd/24  [kernel.kallsyms]  [k] clflush_cache_rang=
-e
-> +      1.49%  ksoftirqd/24  [kernel.kallsyms]  [k] __domain_mapping
-> +      0.84%  ksoftirqd/24  [kernel.kallsyms]  [k] kmem_cache_alloc
-> +      0.55%  ksoftirqd/24  [kernel.kallsyms]  [k] _raw_spin_lock
-> +      0.54%  ksoftirqd/24  [kernel.kallsyms]  [k] ixgbe_xmit_frame_r=
-ing
-> +      0.52%  ksoftirqd/24  [kernel.kallsyms]  [k] ixgbe_clean_rx_irq
-> +      0.50%  ksoftirqd/24  [kernel.kallsyms]  [k] domain_get_iommu
-> +      0.49%  ksoftirqd/24  [kernel.kallsyms]  [k] dma_map_single_att=
-rs.clone.3
-> +      0.48%  ksoftirqd/24  [kernel.kallsyms]  [k] kmem_cache_free
->=20
-> Perf top
->=20
-> ---------------------------------------------------------------------=
------------------------------------------------------------------------=
--------------------------------------------------------------------
->    PerfTop:   10615 irqs/sec  kernel:99.7%  exact:  0.0% [1000Hz cpu-=
-clock-msecs],  (all, 64 CPUs)
-> ---------------------------------------------------------------------=
------------------------------------------------------------------------=
--------------------------------------------------------------------
->=20
->              samples  pcnt function                        DSO
->              _______ _____ _______________________________ __________=
-________________________________________________________________
->=20
->             11786.00 54.9% intel_idle                      [kernel.ka=
-llsyms]
->              7180.00 33.4% _raw_spin_unlock_irqrestore     [kernel.ka=
-llsyms]
->               469.00  2.2% clflush_cache_range             [kernel.ka=
-llsyms]
->               138.00  0.6% __domain_mapping                [kernel.ka=
-llsyms]
->                81.00  0.4% dso__find_symbol                /root/rpmb=
-uild/BUILD/kernel-2.6.38.el6/linux-2.6.38.x86_64/tools/perf/perf
->                73.00  0.3% _raw_spin_lock                  [kernel.ka=
-llsyms]
->                72.00  0.3% dso__load_sym.clone.0           /root/rpmb=
-uild/BUILD/kernel-2.6.38.el6/linux-2.6.38.x86_64/tools/perf/perf
->                68.00  0.3% kmem_cache_alloc                [kernel.ka=
-llsyms]
->                53.00  0.2% symbol_filter                   /root/rpmb=
-uild/BUILD/kernel-2.6.38.el6/linux-2.6.38.x86_64/tools/perf/perf
->                51.00  0.2% domain_get_iommu                [kernel.ka=
-llsyms]
->                44.00  0.2% ixgbe_clean_rx_irq              [kernel.ka=
-llsyms]
->                42.00  0.2% kmem_cache_free                 [kernel.ka=
-llsyms]
->                42.00  0.2% ixgbe_xmit_frame_ring           [kernel.ka=
-llsyms]
->                41.00  0.2% ixgbe_clean_tx_irq              [kernel.ka=
-llsyms]
->                40.00  0.2% dma_map_single_attrs.clone.3    [kernel.ka=
-llsyms]
->=20
->=20
-> Top:
->=20
-> Tasks: 425 total,   2 running, 423 sleeping,   0 stopped,   0 zombie
-> Cpu(s):  0.0%us,  0.0%sy,  0.0%ni, 96.0%id,  0.0%wa,  0.0%hi,  3.9%si=
-,  0.0%st
-> Mem:  264733684k total,  6374016k used, 258359668k free,    43720k bu=
-ffers
-> Swap:  4194300k total,        0k used,  4194300k free,   137308k cach=
-ed
->=20
->   PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+   P COMMA=
-ND
->    79 root      20   0     0    0    0 R 38.8  0.0  29:22.85 24 ksoft=
-irqd/24
->   233 root      20   0     0    0    0 S  7.6  0.0   4:06.60 24 kwork=
-er/24:1
->  1538 root      20   0     0    0    0 S  0.3  0.0   0:00.78 33 kwork=
-er/33:3
->  2271 root      20   0  200m 5564 1460 S  0.3  0.0   0:03.31  2 snmpd
->=20
->=20
-> Thanks
-> WeiGu
+Ethtool support to configure RX, TX and other channels. combined field
+in struct ethtool_channels to reflect set of channel (RX, TX or other).
+Other channel can be link interrupts, SR-IOV coordination etc.
 
-OK, please send your .config file
+ETHTOOL_GCHANNELS will report max and current number of RX channels,
+max and current number of TX channels, max and current number of other channel
+or max and current number of combined channel.
 
+Number of channel can be modify upto max number of channel through
+ETHTOOL_SCHANNELS command.
 
+Ben Hutchings:
+o define 'combined' and 'other' types.  Most multiqueue drivers pair up RX and TX
+  queues so that most channels combine RX and TX work.
+o Please could you use a kernel-doc comment to describe the structure.
+
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ include/linux/ethtool.h |   36 ++++++++++++++++++++++++++++++++++++
+ net/core/ethtool.c      |   35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 71 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index c04d131..9b2d554 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -229,6 +229,34 @@ struct ethtool_ringparam {
+ 	__u32	tx_pending;
+ };
+ 
++/**
++ * struct ethtool_channels - configuring number of network channel
++ * @cmd: ETHTOOL_{G,S}CHANNELS
++ * @max_rx: Read only. Maximum number of receive channel the driver support.
++ * @max_tx: Read only. Maximum number of transmit channel the driver support.
++ * @max_other: Read only. Maximum number of other channel the driver support.
++ * @max_combined: Read only. Maximum number of combined channel the driver
++ *	support. Set of queues RX, TX or other.
++ * @rx_count: Valid values are in the range 1 to the max_rx.
++ * @tx_count: Valid values are in the range 1 to the max_tx.
++ * @other_count: Valid values are in the range 1 to the max_other.
++ * @combined_count: Valid values are in the range 1 to the max_combined.
++ *
++ * This can be used to configure RX, TX and other channels.
++ */
++
++struct ethtool_channels {
++	__u32	cmd;
++	__u32	max_rx;
++	__u32	max_tx;
++	__u32	max_other;
++	__u32	max_combined;
++	__u32	rx_count;
++	__u32	tx_count;
++	__u32	other_count;
++	__u32	combined_count;
++};
++
+ /* for configuring link flow control parameters */
+ struct ethtool_pauseparam {
+ 	__u32	cmd;	/* ETHTOOL_{G,S}PAUSEPARAM */
+@@ -809,6 +837,9 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
+  *	Returns a negative error code or zero.
+  * @set_rxfh_indir: Set the contents of the RX flow hash indirection table.
+  *	Returns a negative error code or zero.
++ * @get_channels: Get number of channels.
++ * @set_channels: Set number of channels.  Returns a negative error code or
++ *	zero.
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -882,6 +913,9 @@ struct ethtool_ops {
+ 				  struct ethtool_rxfh_indir *);
+ 	int	(*set_rxfh_indir)(struct net_device *,
+ 				  const struct ethtool_rxfh_indir *);
++	void	(*get_channels)(struct net_device *, struct ethtool_channels *);
++	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
++
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -950,6 +984,8 @@ struct ethtool_ops {
+ 
+ #define ETHTOOL_GFEATURES	0x0000003a /* Get device offload settings */
+ #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings */
++#define ETHTOOL_GCHANNELS	0x0000003c /* Get no of channels */
++#define ETHTOOL_SCHANNELS	0x0000003d /* Set no of channels */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 1b7fa98..456d736 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1443,6 +1443,35 @@ static int ethtool_set_ringparam(struct net_device *dev, void __user *useraddr)
+ 	return dev->ethtool_ops->set_ringparam(dev, &ringparam);
+ }
+ 
++static noinline_for_stack int ethtool_get_channels(struct net_device *dev,
++						   void __user *useraddr)
++{
++	struct ethtool_channels channels = { .cmd = ETHTOOL_GCHANNELS };
++
++	if (!dev->ethtool_ops->get_channels)
++		return -EOPNOTSUPP;
++
++	dev->ethtool_ops->get_channels(dev, &channels);
++
++	if (copy_to_user(useraddr, &channels, sizeof(channels)))
++		return -EFAULT;
++	return 0;
++}
++
++static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
++						   void __user *useraddr)
++{
++	struct ethtool_channels channels;
++
++	if (!dev->ethtool_ops->set_channels)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&channels, useraddr, sizeof(channels)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_channels(dev, &channels);
++}
++
+ static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_pauseparam pauseparam = { ETHTOOL_GPAUSEPARAM };
+@@ -2004,6 +2033,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SGRO:
+ 		rc = ethtool_set_one_feature(dev, useraddr, ethcmd);
+ 		break;
++	case ETHTOOL_GCHANNELS:
++		rc = ethtool_get_channels(dev, useraddr);
++		break;
++	case ETHTOOL_SCHANNELS:
++		rc = ethtool_set_channels(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
+-- 
+1.7.3.2
 
