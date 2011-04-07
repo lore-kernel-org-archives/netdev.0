@@ -1,50 +1,40 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCHv3 NEXT 1/1] net: ethtool support to configure number of
- channels
-Date: Thu, 7 Apr 2011 01:03:16 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD1383AE1@MNEXMB2.qlogic.org>
-References: <1301720283-25038-1-git-send-email-amit.salecha@qlogic.com>
-	<20110406.125637.70201394.davem@davemloft.net>
-	<1302121247.2840.50.camel@bwh-desktop>
- <20110406.133019.212692386.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: fix skb_add_data_nocache() to calc csum
+ correctly
+Date: Wed, 06 Apr 2011 23:05:12 -0700 (PDT)
+Message-ID: <20110406.230512.189691681.davem@davemloft.net>
+References: <4D9D402C.60107@cn.fujitsu.com>
+	<BANLkTikspQHnjagFme0S3GdPUo-zw48zBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: David Miller <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.181]:48604
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751672Ab1DGGDZ convert rfc822-to-8bit
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37813
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751674Ab1DGGFt convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2011 02:03:25 -0400
-In-Reply-To: <20110406.133019.212692386.davem@davemloft.net>
-Content-Language: en-US
+	Thu, 7 Apr 2011 02:05:49 -0400
+In-Reply-To: <BANLkTikspQHnjagFme0S3GdPUo-zw48zBw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Tom Herbert <therbert@google.com>
+Date: Wed, 6 Apr 2011 21:50:55 -0700
 
->
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 06 Apr 2011 21:20:47 +0100
->
-> > Amit, I told you already that you must not use my Signed-off-by line
-> > since you are changing the patch significantly.
->
-> Amit, this is a very serious infraction.
->
-> You must not ever add someone else's signed-off-by when you make
-> changes to a patch, unless you have their very clear and explicit
-> permission to do so.
+> Nice catch.
+>=20
+> Acked-by: Tom Herbert <therbert@google.com>
+>=20
+> On Wed, Apr 6, 2011 at 9:40 PM, Wei Yongjun <yjwei@cn.fujitsu.com> wr=
+ote:
+>> commit c6e1a0d12ca7b4f22c58e55a16beacfb7d3d8462 broken the calc
+>> =A0(net: Allow no-cache copy from user on transmit)
+>> of checksum, which may cause some tcp packets be dropped because
+>> incorrect checksum. ssh does not work under today's net-next-2.6
+>> tree.
+>>
+>> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-As this patch is based on Ben patch, so I thought its my duty to add his Signed-off.
-Then I misinterpreted Ben comment and thought he want me to explain his contribution.
-Sorry Ben.
-
--Amit
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
-
+Applied, thanks everyone.
