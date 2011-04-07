@@ -1,150 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Thu, 07 Apr 2011 10:07:30 +0200
-Message-ID: <1302163650.3357.8.camel@edumazet-laptop>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302152327.2701.50.camel@edumazet-laptop>
-	 <1302153412.2701.64.camel@edumazet-laptop>
-	 <1302157012.2701.73.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH 07/19] timberdale: mfd_cell is now implicitly available
+ to drivers
+Date: Thu, 7 Apr 2011 11:09:22 +0300
+Message-ID: <20110407080921.GD29038@legolas.emea.dhcp.ti.com>
+References: <BANLkTi=bq=OGzXFp7qiBr7x_BnGOWf=DRQ@mail.gmail.com>
+ <20110404100314.GC2751@sortiz-mobl>
+ <20110405030428.GB29522@ponder.secretlab.ca>
+ <20110406152322.GA2757@sortiz-mobl>
+ <20110406155805.GA20095@suse.de>
+ <20110406170537.GB2757@sortiz-mobl>
+ <20110406175647.GA8048@suse.de>
+ <20110406184733.GD2757@sortiz-mobl>
+ <20110406185902.GN25654@legolas.emea.dhcp.ti.com>
+ <20110406220900.GA16117@suse.de>
+Reply-To: balbi@ti.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Wei Gu <wei.gu@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55107 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755393Ab1DGIHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 04:07:35 -0400
-Received: by wwa36 with SMTP id 36so2722177wwa.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2011 01:07:34 -0700 (PDT)
-In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Felipe Balbi <balbi@ti.com>, Samuel Ortiz <sameo@linux.intel.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Andres Salomon <dilinger@queued.net>,
+	linux-kernel@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	khali@linux-fr.org, ben-linux@fluff.org,
+	Peter Korsgaard <jacmet@sunsite.dk>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	linux-i2c@vger.kernel.org, linux-media@vger.kernel.org,
+	netdev@vger.kernel.org, spi-devel-general@lists.sourceforge.net,
+	Mocean Laboratories <info@mocean-labs.com>
+To: Greg KH <gregkh@suse.de>
+Return-path: <linux-media-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110406220900.GA16117@suse.de>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 07 avril 2011 =C3=A0 15:22 +0800, Wei Gu a =C3=A9crit :
-> Hi guys,
-> As I talked with Eric, that I get a very low performance on Linux 2.6=
-=2E38 kernel with intel ixgbe-3.2.10 driver.
-> I test different rx buff size on the Intel 10G NIC, by setting ethtoo=
-l -G rx 4096.
-> I get the lowest performance(~50Kpps Rx&Tx) by setting the rx=3D=3D40=
-96.
-> Once I decrease the Rx to 512 (default) then I can get Max 250Kpps Rx=
-&Tx on 1 NIC.
->=20
-> I was runing this test with HP DL580 4 Sock CPUs, and full memeory co=
-nfiguration.
-> modprobe ixgbe RSS=3D8,8,8,8,8,8,8,8 FdirMode=3D0,0,0,0,0,0,0,0 Node=3D=
-0,0,1,1,2,2,3,3
-> Numactrl --hardware
-> available: 4 nodes (0-3)
-> node 0 cpus: 0 1 2 3 4 5 6 7 32 33 34 35 36 37 38 39
-> node 0 size: 65525 MB
-> node 0 free: 63053 MB
-> node 1 cpus: 8 9 10 11 12 13 14 15 40 41 42 43 44 45 46 47
-> node 1 size: 65536 MB
-> node 1 free: 63388 MB
-> node 2 cpus: 16 17 18 19 20 21 22 23 48 49 50 51 52 53 54 55
-> node 2 size: 65536 MB
-> node 2 free: 63344 MB
-> node 3 cpus: 24 25 26 27 28 29 30 31 56 57 58 59 60 61 62 63
-> node 3 size: 65535 MB
-> node 3 free: 63376 MB
->=20
-> Then I binding the eth10's rx and tx's IRQs to core "24 25 26 27 28 2=
-9 30 31", one by one, which means 1 rx and 1 tx was share 1 core.
->=20
->=20
-> I did the same test on 2.6.32 kernel, I can get >2.5M tx&rx with the =
-same setup on RHEL6(2.6.32) Linux. But never reach 10.000.000 rx&tx on =
-a single NIC:)
->=20
-> I also test the 2.6.38 shipped intel ixgbe driver It has the same pro=
-blem.
->=20
-> This is a perf record with linux shipped ixgbe driver, looks it has a=
- very high irq/s rate. And the softirq was busy on alloc_iova
->=20
->=20
-> PerfTop:  512417 irqs/sec  kernel:91.3%  exact:  0.0% [1000Hz cpu-clo=
-ck-msecs],  (all, 64 CPUs)
-> ---------------------------------------------------------------------=
------------------------------------------------------------------------=
-----------
-> -      0.82%     ksoftirqd/24  [kernel.kallsyms]          [k] _raw_sp=
-in_unlock_irqrestore
-> \u2592   - _raw_spin_unlock_irqrestore
-> \u2592      - 44.27% alloc_iova
-> \u2592           intel_alloc_iova
-> \u2592           __intel_map_single
-> \u2592           intel_map_page
-> \u2592         - ixgbe_init_interrupt_scheme
-> \u2592            - 59.97% ixgbe_alloc_rx_buffers
-> \u2592                 ixgbe_clean_rx_irq
-> \u2592                 0xffffffffa033a5
-> \u2592                 net_rx_action
-> u2592                 __do_softirq
-> \u2592               + call_softirq
-> \u2592            - 40.03% ixgbe_change_mtu
-> \u2592                 ixgbe_change_mtu
-> \u2592                 dev_hard_start_xmit
-> \u2592                 sch_direct_xmit
-> \u2592                 dev_queue_xmit
-> \u2592                 vlan_dev_hard_start_xmit
-> \u2592                 hook_func
-> \u2592                 nf_iterate
-> \u2592                nf_hook_slow
-> \u2592                 NF_HOOK.clone.1
-> \u2592                 ip_rcv
-> \u2592                 __netif_receive_skb
-> \u2592                 __netif_receive_skb
-> \u2592                 netif_receive_skb
-> \u2592                 napi_skb_finish
-> \u2592                 napi_gro_receive
-> \u2592                 ixgbe_clean_rx_irq
-> \u2592                 0xffffffffa033a5
-> \u2592                 net_rx_action
-> \u2592                 __do_softirq
-> \u2592               + call_softirq
-> \u2592      + 35.85% find_iova
-> \u2592      + 19.44% add_unmap
->=20
->=20
-> Thanks
-> WeiGu
+Hi,
 
-What about using the driver as provided in 2.6.38 ?
+On Wed, Apr 06, 2011 at 03:09:00PM -0700, Greg KH wrote:
+> On Wed, Apr 06, 2011 at 09:59:02PM +0300, Felipe Balbi wrote:
+> > Hi,
+> > 
+> > On Wed, Apr 06, 2011 at 08:47:34PM +0200, Samuel Ortiz wrote:
+> > > > > > What is a "MFD cell pointer" and why is it needed in struct device?
+> > > > > An MFD cell is an MFD instantiated device.
+> > > > > MFD (Multi Function Device) drivers instantiate platform devices. Those
+> > > > > devices drivers sometimes need a platform data pointer, sometimes an MFD
+> > > > > specific pointer, and sometimes both. Also, some of those drivers have been
+> > > > > implemented as MFD sub drivers, while others know nothing about MFD and just
+> > > > > expect a plain platform_data pointer.
+> > > > 
+> > > > That sounds like a bug in those drivers, why not fix them to properly
+> > > > pass in the correct pointer?
+> > > Because they're drivers for generic IPs, not MFD ones. By forcing them to use
+> > > MFD specific structure and APIs, we make it more difficult for platform code
+> > > to instantiate them.
+> > 
+> > I agree. What I do on those cases is to have a simple platform_device
+> > for the core IP driver and use platform_device_id tables to do runtime
+> > checks of the small differences. If one platform X doesn't use a
+> > platform_bus, it uses e.g. PCI, then you make a PCI "bridge" which
+> > allocates a platform_device with the correct name and adds that to the
+> > driver model.
+> > 
+> > See [1] (for the core driver) and [2] (for a PCI bridge driver) for an
+> > example of what I'm talking about.
+> 
+> Yes, thanks for providing a real example, this is the best way to handle
+> this.
 
-No custom module parameter, only play with irq affinities
+no problem.
 
-Say you have 64 queues but want only 8 cpus (24 -> 31) receiving trafic
+ps: that's the driver for the USB3 controller which will come on OMAP5.
+Driver being validate on a pre-silicon platform right now :-D In a few
+weeks I'll send the driver for integration.
 
-for i in `seq 0 7`
-do
- echo 01000000 >/proc/irq/*/eth1-fp-$i/../smp_affinity
-done
-
-for i in `seq 8 15`
-do
- echo 02000000 >/proc/irq/*/eth1-fp-$i/../smp_affinity
-done
-
-=2E..
-
-for i in `seq 56 63`
-do
- echo 80000000 >/proc/irq/*/eth1-fp-$i/../smp_affinity
-done
-
-
-Why is ixgbe_change_mtu() seen on your profile ?
-Its damn expensive, since it must call ixgbe_reinit_locked()
-
-Are you using a custom code in kernel ?
-
-
-
+-- 
+balbi
