@@ -1,140 +1,98 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 1/5] be2net: add rxhash support
-Date: Wed, 6 Apr 2011 23:07:43 -0500
-Message-ID: <20110407040743.GA4183@akhaparde-VBox>
+Subject: [PATCH net-next 4/5] be2net: dynamically allocate adapter->vf_cfg
+Date: Wed, 6 Apr 2011 23:08:30 -0500
+Message-ID: <20110407040830.GA4231@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:55047 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:55054 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750714Ab1DGEIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 00:08:07 -0400
+	with ESMTP id S1750950Ab1DGEIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 00:08:41 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add rxhash support,
-Based on initial work by Eric Dumazet.
+Instead of a fixed sized array for vf_cfg, allocate the size dynamically
+depending on number of VFs the device supports.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/benet/be.h         |    5 +++++
- drivers/net/benet/be_ethtool.c |   13 +++++++++++++
- drivers/net/benet/be_main.c    |   17 ++++++++++++-----
- 3 files changed, 30 insertions(+), 5 deletions(-)
+ drivers/net/benet/be.h      |    4 +---
+ drivers/net/benet/be_main.c |   14 ++++++++++++--
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 0899d91..8941b98 100644
+index eba405b..1d976b8 100644
 --- a/drivers/net/benet/be.h
 +++ b/drivers/net/benet/be.h
-@@ -485,6 +485,11 @@ static inline void be_vf_eth_addr_generate(struct be_adapter *adapter, u8 *mac)
- 	memcpy(mac, adapter->netdev->dev_addr, 3);
- }
+@@ -92,8 +92,6 @@ static inline char *nic_name(struct pci_dev *pdev)
  
-+static inline bool be_multi_rxq(struct be_adapter *adapter)
-+{
-+	return (adapter->num_rx_qs > 1);
-+}
-+
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
- extern void be_link_status_update(struct be_adapter *adapter, bool link_up);
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index a665697..1565c81 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -735,6 +735,18 @@ be_read_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
- 	return status;
- }
+ #define FW_VER_LEN		32
  
-+static int be_set_flags(struct net_device *netdev, u32 data)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	int rc = -1;
-+
-+	if (be_multi_rxq(adapter))
-+		rc = ethtool_op_set_flags(netdev, data, ETH_FLAG_RXHASH |
-+				ETH_FLAG_TXVLAN | ETH_FLAG_RXVLAN);
-+
-+	return rc;
-+}
-+
- const struct ethtool_ops be_ethtool_ops = {
- 	.get_settings = be_get_settings,
- 	.get_drvinfo = be_get_drvinfo,
-@@ -764,4 +776,5 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.get_regs = be_get_regs,
- 	.flash_device = be_do_flash,
- 	.self_test = be_self_test,
-+	.set_flags = be_set_flags,
- };
+-#define BE_MAX_VF		32
+-
+ struct be_dma_mem {
+ 	void *va;
+ 	dma_addr_t dma;
+@@ -336,7 +334,7 @@ struct be_adapter {
+ 
+ 	bool be3_native;
+ 	bool sriov_enabled;
+-	struct be_vf_cfg vf_cfg[BE_MAX_VF];
++	struct be_vf_cfg *vf_cfg;
+ 	u8 is_virtfn;
+ 	u32 sli_family;
+ 	u8 hba_port_num;
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index a24fb45..4910055 100644
+index 9d6982a..6a43b26 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -116,11 +116,6 @@ static char *ue_status_hi_desc[] = {
- 	"Unknown"
- };
+@@ -2837,6 +2837,7 @@ static void __devexit be_remove(struct pci_dev *pdev)
  
--static inline bool be_multi_rxq(struct be_adapter *adapter)
--{
--	return (adapter->num_rx_qs > 1);
--}
--
- static void be_queue_free(struct be_adapter *adapter, struct be_queue_info *q)
- {
- 	struct be_dma_mem *mem = &q->dma_mem;
-@@ -1012,6 +1007,9 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 	be_ctrl_cleanup(adapter);
  
- 	skb->truesize = skb->len + sizeof(struct sk_buff);
- 	skb->protocol = eth_type_trans(skb, adapter->netdev);
-+	if (adapter->netdev->features & NETIF_F_RXHASH)
-+		skb->rxhash = rxcp->rss_hash;
++	kfree(adapter->vf_cfg);
+ 	be_sriov_disable(adapter);
+ 
+ 	be_msix_disable(adapter);
+@@ -3021,16 +3022,23 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	be_sriov_enable(adapter);
++	if (adapter->sriov_enabled) {
++		adapter->vf_cfg = kcalloc(num_vfs,
++			sizeof(struct be_vf_cfg), GFP_KERNEL);
 +
++		if (!adapter->vf_cfg)
++			goto free_netdev;
++	}
  
- 	if (unlikely(rxcp->vlanf)) {
- 		if (!adapter->vlan_grp || adapter->vlans_added == 0) {
-@@ -1072,6 +1070,8 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
- 	skb->data_len = rxcp->pkt_size;
- 	skb->truesize += rxcp->pkt_size;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	if (adapter->netdev->features & NETIF_F_RXHASH)
-+		skb->rxhash = rxcp->rss_hash;
+ 	status = be_ctrl_init(adapter);
+ 	if (status)
+-		goto free_netdev;
++		goto free_vf_cfg;
  
- 	if (likely(!rxcp->vlanf))
- 		napi_gro_frags(&eq_obj->napi);
-@@ -1101,6 +1101,8 @@ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, numfrags, compl);
- 	rxcp->pkt_type =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, cast_enc, compl);
-+	rxcp->rss_hash =
-+		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, rsshash, rxcp);
- 	if (rxcp->vlanf) {
- 		rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtm,
- 				compl);
-@@ -1131,6 +1133,8 @@ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, numfrags, compl);
- 	rxcp->pkt_type =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, cast_enc, compl);
-+	rxcp->rss_hash =
-+		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, rsshash, rxcp);
- 	if (rxcp->vlanf) {
- 		rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtm,
- 				compl);
-@@ -2614,6 +2618,9 @@ static void be_netdev_init(struct net_device *netdev)
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 		NETIF_F_GRO | NETIF_F_TSO6;
+ 	if (lancer_chip(adapter)) {
+ 		status = lancer_test_and_set_rdy_state(adapter);
+ 		if (status) {
+ 			dev_err(&pdev->dev, "Adapter in non recoverable error\n");
+-			goto free_netdev;
++			goto ctrl_clean;
+ 		}
+ 	}
  
-+	if (be_multi_rxq(adapter))
-+		netdev->features |= NETIF_F_RXHASH;
-+
- 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_TSO |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
- 
+@@ -3092,6 +3100,8 @@ stats_clean:
+ 	be_stats_cleanup(adapter);
+ ctrl_clean:
+ 	be_ctrl_cleanup(adapter);
++free_vf_cfg:
++	kfree(adapter->vf_cfg);
+ free_netdev:
+ 	be_sriov_disable(adapter);
+ 	free_netdev(netdev);
 -- 
 1.7.1
 
