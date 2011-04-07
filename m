@@ -1,46 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: problem of "ipv4: revert Set rt->rt_iif more sanely on output
- routes."
-Date: Thu, 07 Apr 2011 14:03:33 -0700 (PDT)
-Message-ID: <20110407.140333.189683738.davem@davemloft.net>
-References: <20110406.224244.104071339.davem@davemloft.net>
-	<877hb6sf43.fsf@devron.myhome.or.jp>
-	<8739lusbvz.fsf@devron.myhome.or.jp>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: ipv6: Add support for RTA_PREFSRC
+Date: Thu, 7 Apr 2011 23:25:52 +0200
+Message-ID: <20110407212552.GA11115@Chamillionaire.breakpoint.cc>
+References: <20110401.204613.246536923.davem@davemloft.net>
+ <1301903804.31789.234.camel@localhost>
+ <20110406.183716.226766155.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hirofumi@mail.parknet.co.jp
+Content-Type: text/plain; charset=us-ascii
+Cc: dwalter@barracuda.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60007
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751144Ab1DGVEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 17:04:10 -0400
-In-Reply-To: <8739lusbvz.fsf@devron.myhome.or.jp>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:37088 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751578Ab1DGVZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 17:25:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20110406.183716.226766155.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Date: Thu, 07 Apr 2011 17:29:04 +0900
-
-> I'm not sure
+David Miller <davem@davemloft.net> wrote:
+> From: Daniel Walter <dwalter@barracuda.com>
+> Date: Mon, 4 Apr 2011 09:56:44 +0200
+> > This reduces the RTA_PREFSRC support to netlink only, unless
+> > we break the struct.
 > 
-> +	rth->rt_route_iif = 0;
-> +	rth->rt_iif	= oldflp4->flowi4_oif ? : dev_out->ifindex;
+[..]
+> Since you do the prefsrc extraction in at least two places, make a
+> helper function that does the whole "if prefsrc.plen use prefsrc, else
+> use ipv6_dev_get_saddr()"
 > 
-> is correct one or not. Please review.
+> This would be akin to ipv4's FIB_RES_PREFSRC
 
-I am pretty sure this is indeed correct.
+OK, I'll bite.
 
-In old code this read:
+Whats wrong with using ipv6 addrlabels to pick the desired address,
+and, if there is a problem, why is it not fixable?
 
-	rth->rt_iif	= oldflp->oif ? : dev_out->ifindex;
-
-And rt->fl.iif was left without explicit setting, and thus left
-as zero (dst_alloc() use to bzero entire rtable object).
-
-So new code is equivalent and provides the necessary semantics.
-
-I think your patch is correct and I will add it to net-2.6, thanks
-again!
-
+Just wondering...
