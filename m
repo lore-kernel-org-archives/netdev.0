@@ -1,40 +1,54 @@
-From: "Song Lile" <song.lile901@yahoo.com.hk>
-Subject: Associate Needed Asap
-Date: Thu, 7 Apr 2011 06:04:38 +0800
-Message-ID: <20110406214156.M26158__7902.79601137644$1302136233$gmane$org@mail.hoyks.com.tw>
-Reply-To: songli904@rogers.com
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH net-next] cxgb4: don't hold RTNL during ethtool phys_id
+Date: Wed, 6 Apr 2011 17:33:08 -0700
+Message-ID: <20110406173308.4737e9d4@nehalam>
+References: <20110406170929.6e427b36@nehalam>
+	<201104061720.30219.leedom@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=big5
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Dimitris Michailidis <dm@chelsio.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Casey Leedom <leedom@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 60-249-141-148.HINET-IP.hinet.net ([60.249.141.148]:2931 "EHLO
-	mail.hoyks.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755745Ab1DGAaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 20:30:08 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41408 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755094Ab1DGAeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2011 20:34:11 -0400
+In-Reply-To: <201104061720.30219.leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 6 Apr 2011 17:20:29 -0700
+Casey Leedom <leedom@chelsio.com> wrote:
 
-Good Day,
+> | From: Stephen Hemminger <shemminger@linux-foundation.org>
+> | Date: Wednesday, April 06, 2011 05:09 pm
+> | 
+> | The Chelsio cxgb4 drivers implement blinking in a unique way by
+> | waiting on the mailbox. This patch cleans it up slightly by no longer
+> | holding the system wide network configuration lock during the process.
+> | 
+> | The patch also uses correct semantics for the time argument
+> | which is supposed to be in seconds; and zero is supposed
+> | to signify infinite blinking.
+> | 
+> | This is still a bad firmware interface design for this
+> | since it means the board is basically hung while doing the blink.
+> | But fixing it correctly would require hardware and firmware
+> | documentation. With that information the device could be converted
+> | to the new set_phys_id.
+> | 
+> | Compile tested only.
+> | 
+> | Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+>   Are you assuming that the firmware won't respond with a command completion 
+> until the LED blinking is complete?  If so, that's a bad assumption.  The 
+> firmware runs as an asynchronous real-time OS.  The LED blinking simply becomes 
+> a thread of activity within the OS and the command completes immediately.
+> 
+> Casey
 
-My name is Mr. Song Lile, I am the credit officer in Hang Seng Bank, Hong
-Kong. I have a business proposal of certain amount of funds to be transferred
-to an offshore account with your assistace if willing.
-
-After the successful transfer, we shall share in ratio of 30% for you and
-70% for me. Should you be interested, please respond to my letter
-immediately, so we can commence all arrangements and I will give you more
-information on the project and how we would handle it.
-
-You can contact me on my private email:( sogli903@asus.hk )
-and send me the following information for documentation purpose:
-
-1. Full names
-2. Private phone number
-3. Current residential address
-
-I look forward to hearing from you.
-
-Kind Regards,
-Mr. Song Lile.
+Then how is LED blinking stopped?
