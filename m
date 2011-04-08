@@ -1,123 +1,59 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [PATCH] igb: restore EEPROM 16kB access limit
-Date: Fri, 8 Apr 2011 13:10:30 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F0137E85E47@orsmsx508.amr.corp.intel.com>
-References: <1302269695-27188-1-git-send-email-sassmann@kpanic.de>
- <EDC0E76513226749BFBC9C3FB031318F0137E85A8E@orsmsx508.amr.corp.intel.com>
- <4D9F6A44.7060809@kpanic.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 32832] New: shutdown(2) does not fully shut down socket
+ any more
+Date: Fri, 08 Apr 2011 23:03:53 +0200
+Message-ID: <1302296633.2656.79.camel@edumazet-laptop>
+References: <20110406160713.7ff48ef1@nehalam>
+	 <20110406.164805.193714589.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Stefan Assmann <sassmann@kpanic.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:28341 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757840Ab1DHUKc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 16:10:32 -0400
-In-Reply-To: <4D9F6A44.7060809@kpanic.de>
-Content-Language: en-US
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:59640 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753401Ab1DHVD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 17:03:59 -0400
+Received: by wwa36 with SMTP id 36so4683644wwa.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2011 14:03:58 -0700 (PDT)
+In-Reply-To: <20110406.164805.193714589.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 06 avril 2011 =C3=A0 16:48 -0700, David Miller a =C3=A9crit=
+ :
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Wed, 6 Apr 2011 16:07:13 -0700
+>=20
+> > Begin forwarded message:
+> >=20
+> > Date: Wed, 6 Apr 2011 22:42:39 GMT
+> > From: bugzilla-daemon@bugzilla.kernel.org
+> > To: shemminger@linux-foundation.org
+> > Subject: [Bug 32832] New: shutdown(2) does not fully shut down sock=
+et any more
+> >=20
+> >=20
+> > https://bugzilla.kernel.org/show_bug.cgi?id=3D32832
+> >=20
+> >            Summary: shutdown(2) does not fully shut down socket any=
+ more
+>  ...
+> >=20
+> > In 2.6.35 and earlier, shutdown(2) will fully remove a socket. This=
+ does not
+> > appear to be true any more and is causing software to misbehave.
+> >=20
+>=20
+> This is already being discussed:
+>=20
+> http://marc.info/?l=3Dlinux-netdev&m=3D130176733401613&w=3D2
 
 
->-----Original Message-----
->From: Stefan Assmann [mailto:sassmann@kpanic.de]
->Sent: Friday, April 08, 2011 1:04 PM
->To: Wyborny, Carolyn
->Cc: netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net; Kirsher,
->Jeffrey T; Pieper, Jeffrey E; Ronciak, John
->Subject: Re: [PATCH] igb: restore EEPROM 16kB access limit
->
->On 08.04.2011 18:40, Wyborny, Carolyn wrote:
->>
->>
->>> -----Original Message-----
->>> From: Stefan Assmann [mailto:sassmann@kpanic.de]
->>> Sent: Friday, April 08, 2011 6:35 AM
->>> To: netdev@vger.kernel.org
->>> Cc: e1000-devel@lists.sourceforge.net; Kirsher, Jeffrey T; Pieper,
->>> Jeffrey E; Wyborny, Carolyn; Ronciak, John
->>> Subject: [PATCH] igb: restore EEPROM 16kB access limit
->>>
->>> The check limiting the EEPROM access up to 16kB was removed by
->>> commit 4322e561a93ec7ee034b603a6c610e7be90d4e8a. Without this check
->>> the kernel will try to checksum the EEPROM up to 2MB (observed with
->>> a 8086:10c9 NIC) and fail.
->>>
->>> igb 0000:03:00.0: 0 vfs allocated
->>> igb 0000:03:00.0: The NVM Checksum Is Not Valid
->>> ACPI: PCI interrupt for device 0000:03:00.0 disabled
->>> igb: probe of 0000:03:00.0 failed with error -5
->>>
->>> Reason for that being an overflow in u16 e1000_nvm_info->nvm
->>> while doing "nvm->word_size = 1 << size;" with size == 21.
->>> Putting the check back in place.
->>>
->>> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
->>> ---
->>> drivers/net/igb/e1000_82575.c |    4 ++++
->>> 1 files changed, 4 insertions(+), 0 deletions(-)
->>>
->>> diff --git a/drivers/net/igb/e1000_82575.c
->>> b/drivers/net/igb/e1000_82575.c
->>> index 6b256c2..5cfa37f 100644
->>> --- a/drivers/net/igb/e1000_82575.c
->>> +++ b/drivers/net/igb/e1000_82575.c
->>> @@ -244,6 +244,10 @@ static s32 igb_get_invariants_82575(struct
->e1000_hw
->>> *hw)
->>> 	 */
->>> 	size += NVM_WORD_SIZE_BASE_SHIFT;
->>>
->>> +	/* EEPROM access above 16k is unsupported */
->>> +	if (size > 14)
->>> +		size = 14;
->>> +
->>> 	nvm->word_size = 1 << size;
->>> 	if (nvm->word_size == (1 << 15))
->>> 		nvm->page_size = 128;
->>> --
->>> 1.7.4
->> NACK
->>
->> This doesn't apply against current upstream RC kernel.  There was more
->changed in that commit than just the removal of this.  There is a
->missing section of code that is needed, but not this.  This starts at
->line 251 in e1000_82575.c
->
->Carolyn,
->
->the patch applies against latest net-next-2.6
->(782d640afd15af7a1faf01cfe566ca4ac511319d).
->
->How do you explain the behaviour observed in the patch description?
->
->>
->> --snip--
->>         /* NVM Function Pointers */
->>         nvm->ops.acquire = igb_acquire_nvm_82575;
->>         if (nvm->word_size < (1 << 15))
->>                 nvm->ops.read = igb_read_nvm_eerd;
->>         else
->>                 nvm->ops.read = igb_read_nvm_spi;
->> --snip--
->
->Ok, so I assume some new NICs allow access beyond the 16k boundary.
->In that case we should identify which NICs and treat them separately,
->keeping the behaviour identical for the others.
->
->  Stefan
+Status update : I'll take time this week end to work on this and find a
+solution.
 
-Yes, there's more code changed than just the removal of what you're trying to add back.  The snip is the replacement but those function need to exist as well.  I believe that the commit referenced did not completely apply and you're missing some critical code.  The problem you are seeing should not occur with full patch.
+Thanks
 
-The version of e1000_82575.c in 2.6.39-rc2 has all the changes needed for this to work correctly.
-
-Carolyn
 
