@@ -1,31 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: atl*: convert to hw_features
-Date: Thu, 07 Apr 2011 20:19:09 -0700 (PDT)
-Message-ID: <20110407.201909.112607358.davem@davemloft.net>
-References: <20110407173218.1532213909@rere.qmqm.pl>
+From: andrei radulescu-banu <iubica2@yahoo.com>
+Subject: Re: Should ICMP echo responses be 'bound to the interface' of the incoming ICMP echo request?
+Date: Thu, 7 Apr 2011 20:32:22 -0700 (PDT)
+Message-ID: <814591.62002.qm@web56601.mail.re3.yahoo.com>
+References: <20110407.194420.193709030.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
-	jie.yang@atheros.com
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36123
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757411Ab1DHDTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 23:19:45 -0400
-In-Reply-To: <20110407173218.1532213909@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ketil@froyn.name, linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: swmike@swm.pp.se, David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20110407.194420.193709030.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Thu,  7 Apr 2011 19:32:18 +0200 (CEST)
+Thanks for the correction about the limit on the # of route domains, David.
 
-> Things left as they were:
->  - atl1: is RX checksum really enabled?
->  - atl2: copy-paste from atl1, with-errors-on-modify I presume
->  - atl1c: there's a bug: MTU can't be changed if device is not up
->=20
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Andrei
 
-Applied.
+--- On Thu, 4/7/11, David Miller <davem@davemloft.net> wrote:
+
+> From: David Miller <davem@davemloft.net>
+> Subject: Re: Should ICMP echo responses be 'bound to the interface' of the incoming ICMP echo request?
+> To: swmike@swm.pp.se
+> Cc: iubica2@yahoo.com, ketil@froyn.name, linux-net@vger.kernel.org, netdev@vger.kernel.org
+> Date: Thursday, April 7, 2011, 10:44 PM
+> From: Mikael Abrahamsson <swmike@swm.pp.se>
+> Date: Fri, 8 Apr 2011 03:02:53 +0200 (CEST)
+> 
+> > On Thu, 7 Apr 2011, andrei radulescu-banu wrote:
+> > 
+> >> But here's a problem: the kernel supports only up
+> to 256 route
+> >> domains, and I'd like to be able to use more
+> interfaces than that,
+> >> physical plus virtual.
+> > 
+> > Sounds like that 256 limit should be the thing to be
+> looked into then.
+> 
+> That limit was removed ages ago.
+> 
+> I notice that when discussions occur on this list, a lot of
+> misinformation
+> gets spread around.
+> 
+> The problem is that the actual networking developers don't
+> read this list,
+> they read netdev@vger.kernel.org
+> instead.
+> 
+> Maybe it's time that we just get rid of linux-net because
+> it's been nothing
+> but problematic as users search for information on it and
+> very few people
+> on that list are knowledgable enough to even consider
+> answering.
+> 
+> 
