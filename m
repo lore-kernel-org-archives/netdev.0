@@ -1,7 +1,7 @@
 From: Wei Gu <wei.gu@ericsson.com>
 Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Fri, 8 Apr 2011 17:15:51 +0800
-Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E48BA5A9@ESGSCCMS0001.eapac.ericsson.se>
+Date: Fri, 8 Apr 2011 17:41:25 +0800
+Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E48BA5DA@ESGSCCMS0001.eapac.ericsson.se>
 References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
 	 <1302152327.2701.50.camel@edumazet-laptop>
 	 <1302153412.2701.64.camel@edumazet-laptop>
@@ -18,24 +18,37 @@ References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.erics
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>,
+Cc: netdev <netdev@vger.kernel.org>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:60504 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754085Ab1DHJQk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 05:16:40 -0400
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:65448 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771Ab1DHJl3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 05:41:29 -0400
 In-Reply-To: <1302253651.4409.2.camel@edumazet-laptop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yeap, you are right, right now I will try the CONFIG_DMAR off:)
+Hi,
+I just tried the CONFIG_DMAR off and CONFIG_DMAR_DEFAULT_ON not set.
+I get a pretty good performance(1.5Mpps 400byte Rx&Tx) with shipped ixg=
+be driver.
 
-If you guys know the relation between CONFIG_DMAR and CONFIG_DMAR_DEFAU=
-LT_ON, please let me know:)
+The I think it is the root cause why I get that low performance previou=
+slly.
+
+Is it better to put some notes on the Intel-IOMMU.txt Or somewhere like=
+ the Q&A about the " CONFIG_DMAR" in no virtualization setup:)
+
+I will keep testing the large setup by enable the rest 3 NICs, to see h=
+ow much we can have with this 4 sock machine.
+
+BTW, even we gain some preformance with this shipped ixgbe driver, but =
+it doesn't seem that much scallable compare to the Intel offical releas=
+e 3.2.10 driver. I don't know if it is a problem?
 
 Thanks
 WeiGu
