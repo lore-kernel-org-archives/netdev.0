@@ -1,114 +1,185 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Fri, 08 Apr 2011 14:56:40 +0200
-Message-ID: <1302267400.4409.22.camel@edumazet-laptop>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302152327.2701.50.camel@edumazet-laptop>
-	 <1302153412.2701.64.camel@edumazet-laptop>
-	 <1302157012.2701.73.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302163650.3357.8.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302167168.3357.12.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
-	 <1302192218.3357.47.camel@edumazet-laptop> <4D9DE465.1080008@intel.com>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA58D@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302253651.4409.2.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
+From: Phil Sutter <phil@nwl.cc>
+Subject: ARM, AF_PACKET: caching problems on Marvell Kirkwood
+Date: Fri, 8 Apr 2011 15:06:43 +0200
+Message-ID: <20110408130643.GA8730@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Wei Gu <wei.gu@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36509 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234Ab1DHM4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 08:56:46 -0400
-Received: by wwa36 with SMTP id 36so4210363wwa.1
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2011 05:56:45 -0700 (PDT)
-In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ne@erfurth.eu
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 08 avril 2011 =C3=A0 20:19 +0800, Wei Gu a =C3=A9crit :
-> Hi again,
-> I tried more testing with by disable this CONFIG_DMAR with shipped
-> 2.6.38 ixgbe and Intel released 3.2.10/3.1.15.
-> All these test looks we can get >1Mpps 400bype packtes but not stable
-> at all, there will huge number missing errors with 100% CPU IDLE:
-> ethtool -S eth10 |grep rx_missed_errors
->=20
->         rx_missed_errors: 76832040
->=20
-> SUM: 1102212 ETH8: 0  ETH10: 1102212 ETH6: 0 ETH4: 0
-> SUM: 521841 ETH8: 0  ETH10: 521841 ETH6: 0 ETH4: 0
-> SUM: 426776 ETH8: 0  ETH10: 426776 ETH6: 0 ETH4: 0
-> SUM: 927520 ETH8: 0  ETH10: 927520 ETH6: 0 ETH4: 0
-> SUM: 1171995 ETH8: 0  ETH10: 1171995 ETH6: 0 ETH4: 0
-> SUM: 855980 ETH8: 0  ETH10: 855980 ETH6: 0 ETH4: 0
->=20
->=20
-> Do you know if there is other options in the kernel will cause high
-> rate rx_missed_errors with low CPU usage. (No problem on 2.6.32 with
-> same test case)
->=20
-> perf  record:
-> +     69.74%          swapper  [kernel.kallsyms]          [k] poll_id=
-le
-> +     11.62%          swapper  [kernel.kallsyms]          [k] intel_i=
-dle
-> +      0.80%          swapper  [ixgbe]                    [k] ixgbe_p=
-oll
-> +      0.79%             perf  [ixgbe]                    [k] ixgbe_p=
-oll
-> +      0.77%             perf  [kernel.kallsyms]          [k] skb_cop=
-y_bits
-> +      0.64%          swapper  [kernel.kallsyms]          [k] skb_cop=
-y_bits
-> +      0.48%             perf  [kernel.kallsyms]          [k] __kmall=
-oc_node_track_caller
-> +      0.44%          swapper  [kernel.kallsyms]          [k] __kmall=
-oc_node_track_caller
-> +      0.36%          swapper  [kernel.kallsyms]          [k] kmem_ca=
-che_alloc_node
-> +      0.35%          swapper  [kernel.kallsyms]          [k] kfree
-> +      0.35%             perf  [kernel.kallsyms]          [k] kmem_ca=
-che_alloc_node
->=20
+Dear lists,
 
+I am experiencing severe caching issues using the TX_RING feature of
+AF_PACKET on a Kirkwood-based system (i.e., OpenRD). This may likely be
+a bug of the CPU/SoC itself, at least it reacts a bit picky when using
+the preload data instruction (pld) in rather useless cases (but that's a
+different story).
 
-Make sure enough cpus serves interrupts, _before_ even starting your
-stress test.
+There is simple testing code at the end of this email, effectively just
+preparing a packet in the TX_RING and triggering it's delivery once per
+second. The experienced symptom is that sporadically nothing goes out in
+one iteration, and two packets in the following one.
 
-Then, make sure trafic is distributed to many different queues.
-If a single flow is used, it probably uses a single queue ->single CPU.
+It looks like the kernel doesn't get the changed value of tp_status in
+time, although userspace sees the correct value. Note that moving the
+sleep(1) from the end of the loop to just before calling sendto() fixes
+the problem.
 
-Say you have irq affinities set to fffffffffffff  (all cpus able to
-serve IRQ X,Y,Z,T,...)
+Another (more useful) workaround is to call flush_cache_all() at the
+beginning of packet_sendmsg() in net/packet/af_packet.c. I was not able
+to fix this with some more specific flushing at that place. Anyway, the
+call to flush_dcache_page() from __packet_get_status() in the same
+source file is meant to do the trick I guess. But somehow doesn't.
 
-Then you have a network burst (because you start your packet generator
-at full rate), spreaded on many queues.
+Feedback regardles of which kind is highly appreciated, of course!
 
-CPU0 takes hard interrupt for queue 0, eth8, and queues NAPI mode.
-CPU0 takes hard interrupt for queue 0, eth10, and queues NAPI mode.
-CPU0 takes hard interrupt for queue 1, eth8, and queues NAPI mode.
-CPU0 takes hard interrupt for queue 1, eth10, and queues NAPI mode.
-CPU0 takes hard interrupt for queue 2, eth8, and queues NAPI mode.
-CPU0 takes hard interrupt for queue 2, eth10, and queues NAPI mode.
-=2E..
-CPU0 takes hard interrupt for queue X, eth8, and queues NAPI mode.
-=2E..
+Greetings, Phil
 
-Then softirq can start, and only CPU0 is able to handle NAPI for all th=
-e
-queued devices. You are stuck, with CPU0 never leaving ksoftirqd.
+------------------[start of packet_mmap_test.c]--------------------
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
-NAPI handling is always performed on the CPU that received the hardware
-interrupt, until we exit NAPI (and rearm interrupt delivery).
-It cannot migrate to an "idle cpu"
+#define PERROR_EXIT(rc, mesg) { \
+	perror(mesg); \
+	return rc; \
+}
 
+int main(void)
+{
+	uint32_t size;
+	struct sockaddr_ll sa;
+	struct ifreq ifr;
+	int index;
+	int tmp;
+	int fd;
+	struct tpacket_req packet_req;
+	struct tpacket2_hdr * ps_header_start, *ps_header;
 
+	if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL))) < 0)
+		PERROR_EXIT(EXIT_FAILURE, "socket");
+
+	/* retrieve eth0's interface index number */
+	strncpy (ifr.ifr_name, "eth0", sizeof(ifr.ifr_name));
+	if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0)
+		PERROR_EXIT(EXIT_FAILURE, "ioctl(SIOCGIFINDEX)");
+
+	/* set sockaddr info */
+	memset(&sa, 0, sizeof(sa));
+	sa.sll_family = AF_PACKET;
+	sa.sll_protocol = ETH_P_ALL;
+	sa.sll_ifindex = ifr.ifr_ifindex;
+
+	/* bind port */
+	if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0)
+		PERROR_EXIT(EXIT_FAILURE, "bind()");
+
+	tmp = TPACKET_V2;
+	if (setsockopt(fd, SOL_PACKET, PACKET_VERSION, &tmp, sizeof(tmp)) < 0)
+		PERROR_EXIT(EXIT_FAILURE, "setsockopt(PACKET_VERSION)");
+
+	/* set packet loss option */
+	tmp = 1;
+	if (setsockopt(fd, SOL_PACKET, PACKET_LOSS, &tmp, sizeof(tmp)) < 0)
+		PERROR_EXIT(EXIT_FAILURE, "setsockopt(PACKET_LOSS)");
+
+	/* prepare Tx ring request */
+	packet_req.tp_block_size = 1024 * 8;
+	packet_req.tp_frame_size = 1024 * 8;
+	packet_req.tp_block_nr = 1024;
+	packet_req.tp_frame_nr = 1024;
+
+	/* send TX ring request */
+	if (setsockopt(fd, SOL_PACKET, PACKET_TX_RING,
+	               &packet_req, sizeof(packet_req)) < 0)
+		PERROR_EXIT(EXIT_FAILURE, "setsockopt: PACKET_TX_RING");
+
+	/* calculate memory to mmap in the kernel */
+	size = packet_req.tp_block_size * packet_req.tp_block_nr;
+
+	/* mmap Tx ring buffers memory */
+	ps_header_start = mmap(0, size,
+			PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	if (ps_header_start < 0)
+		PERROR_EXIT(EXIT_FAILURE, "mmap");
+
+	/* fill peer sockaddr for SOCK_DGRAM */
+	sa.sll_family = AF_PACKET;
+	sa.sll_protocol = htons(ETH_P_IP);
+	sa.sll_ifindex = ifr.ifr_ifindex;
+	sa.sll_halen = ETH_ALEN;
+	memset(&sa.sll_addr, 0xff, ETH_ALEN);
+
+	ps_header = ps_header_start;
+	while (1) {
+		int sendlen, j;
+
+		char *data = (void*)ps_header + TPACKET_HDRLEN
+		              - sizeof(struct sockaddr_ll);
+
+		switch((volatile uint32_t)ps_header->tp_status)
+		{
+		case TP_STATUS_AVAILABLE:
+			memset(data, 0x23, 150);
+			break;
+
+		case TP_STATUS_WRONG_FORMAT:
+			printf("An error has occured during transfer\n");
+			exit(EXIT_FAILURE);
+			break;
+
+		default:
+			printf("Buffer is not available, aborting\n");
+			exit(1);
+			break;
+		}
+		ps_header->tp_len = 150;
+		ps_header->tp_status = TP_STATUS_SEND_REQUEST;
+
+		sendlen = sendto(fd, NULL, 0, 0,
+				(struct sockaddr *)&sa, sizeof(sa));
+		if (sendlen < 0)
+			perror("sendto");
+		else if (sendlen == 0)
+			printf("sendto(): nothing sent!\n");
+		else
+			printf("sendto(): sent %d bytes out\n", sendlen);
+
+#define ST_IS(x) ((volatile uint32_t)ps_header->tp_status == x)
+		printf("tp_status after sending: %s\n",
+				ST_IS(TP_STATUS_AVAILABLE) ? "AVAILABLE" :
+				ST_IS(TP_STATUS_SEND_REQUEST) ? "SEND_REQUEST" :
+				ST_IS(TP_STATUS_WRONG_FORMAT) ? "WRONG_FORMAT" :
+				"unknown");
+#undef ST_IS
+
+		ps_header = (void *)ps_header + packet_req.tp_frame_size;
+		if (ps_header >= ps_header_start + size)
+			ps_header = ps_header_start;
+
+		sleep(1);
+	}
+	return 0;
+}
+--------------------[end of packet_mmap_test.c]--------------------
