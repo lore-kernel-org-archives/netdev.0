@@ -1,41 +1,59 @@
-From: =?UTF-8?q?Weiping=20Pan=28=E6=BD=98=E5=8D=AB=E5=B9=B3=29?=
-	<panweiping3@gmail.com>
-Subject: [PATCH] bonding:set save_load to 0 when initializing
-Date: Fri,  8 Apr 2011 21:40:19 +0800
-Message-ID: <1302270019-11698-1-git-send-email-panweiping3@gmail.com>
+From: Sebastian Nickel <Sebastian.Nickel@hetzner.de>
+Subject: Re: Kernel panic when using bridge
+Date: Fri, 8 Apr 2011 13:49:32 +0000 (UTC)
+Message-ID: <loom.20110408T153726-822@post.gmane.org>
+References: <4D9E62D9.5010400@scotdoyle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	=?UTF-8?q?Weiping=20Pan (=E6=BD=98=E5=8D=AB=E5=B9=B3) ?=
-	<panweiping3@gmail.com>
-To: fubar@us.ibm.com, andy@greyhouse.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:52824 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756887Ab1DHOAL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2011 10:00:11 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Q8CEJ-0004lC-QR
+	for netdev@vger.kernel.org; Fri, 08 Apr 2011 16:00:07 +0200
+Received: from static.34.25.40.188.clients.your-server.de ([188.40.25.34])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2011 16:00:07 +0200
+Received: from Sebastian.Nickel by static.34.25.40.188.clients.your-server.de with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2011 16:00:07 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is unnecessary to set save_load to 1 here,
-as the tx_hashtbl is just kzalloced.
+Scot Doyle <lkml <at> scotdoyle.com> writes:
 
-Signed-off-by: Weiping Pan(=E6=BD=98=E5=8D=AB=E5=B9=B3) <panweiping3@gm=
-ail.com>
----
- drivers/net/bonding/bond_alb.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> This kernel panic occurs when using a bridge. I would be grateful for 
+> any ideas on how to correct it.
+> 
+> The panic was captured on two servers after three or four days of 
+> minimal use, both configured as follows:
+> - unpatched kernel 2.6.39-rc1 (commit 
+> ecb78ab6f30106ab72a575a25b1cdfd1633b7ca2) with default .config options
+> - br0 on single intel igb NIC (3 other NIC's unused)
+> - br0 with ip address on distinct /27 subnet
+> - br0:1 with ip address on distinct /24 subnet
+> - br0:2 with ip address on distinct /24 subnet
+> - no iptables rules
+> - ebtables not installed
+> 
+> "net/bridge/br_netfilter.c" and "net/ipv4/ip_options.c" (in the current 
+> 2.6.39-rc2 and in net-next-2.6) are identical to the versions used to 
+> build this kernel.
+> 
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_=
-alb.c
-index 9bc5de3..ab69e5a 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -176,7 +176,7 @@ static int tlb_initialize(struct bonding *bond)
- 	bond_info->tx_hashtbl =3D new_hashtbl;
-=20
- 	for (i =3D 0; i < TLB_HASH_TABLE_SIZE; i++) {
--		tlb_init_table_entry(&bond_info->tx_hashtbl[i], 1);
-+		tlb_init_table_entry(&bond_info->tx_hashtbl[i], 0);
- 	}
-=20
- 	_unlock_tx_hashtbl(bond);
---=20
-1.7.4
+We have the same problems with kernel version 2.6.37.4 (unpatched). Almost same
+stacktrace.
+
+After some time there is a kernel panic.
+
+-br0 contains a realtek NIC (8169) and some vnet devices used with KVM.
+
+Any ideas would be great...
+
