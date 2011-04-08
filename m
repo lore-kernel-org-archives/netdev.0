@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 32832] New: shutdown(2) does not fully shut down socket
- any more
-Date: Fri, 08 Apr 2011 14:36:13 -0700 (PDT)
-Message-ID: <20110408.143613.112595253.davem@davemloft.net>
-References: <20110406160713.7ff48ef1@nehalam>
-	<20110406.164805.193714589.davem@davemloft.net>
-	<1302296633.2656.79.camel@edumazet-laptop>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next-2.6 PATCH 1/2] ethtool: prevent null pointer dereference
+	with NTUPLE set but no set_rx_ntuple
+Date: Fri, 08 Apr 2011 15:07:22 -0700
+Message-ID: <20110408220722.25468.98089.stgit@gitlad.jf.intel.com>
+References: <20110408220410.25468.49130.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44106
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751515Ab1DHVgu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2011 17:36:50 -0400
-In-Reply-To: <1302296633.2656.79.camel@edumazet-laptop>
+Received: from mga09.intel.com ([134.134.136.24]:10008 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757130Ab1DHWHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2011 18:07:24 -0400
+In-Reply-To: <20110408220410.25468.49130.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 08 Apr 2011 23:03:53 +0200
+This change is meant to prevent a possible null pointer dereference if
+NETIF_F_NTUPLE is defined but the set_rx_ntuple function pointer is not.
 
-> Le mercredi 06 avril 2011 =E0 16:48 -0700, David Miller a =E9crit :
->>=20
->> This is already being discussed:
->>=20
->> http://marc.info/?l=3Dlinux-netdev&m=3D130176733401613&w=3D2
->=20
->=20
-> Status update : I'll take time this week end to work on this and find=
- a
-> solution.
+The main motivation behind this patch is to eventually replace the ntuple
+interfaces entirely with the network flow classifier interfaces.  This
+allows the device drivers to maintain the ntuple check internally while
+using the network flow classifier interface for setting up and displaying
+rules.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
-Thanks a lot Eric.
+ net/core/ethtool.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 1b7fa98..704e176 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -910,6 +910,9 @@ static noinline_for_stack int ethtool_set_rx_ntuple(struct net_device *dev,
+ 	struct ethtool_rx_ntuple_flow_spec_container *fsc = NULL;
+ 	int ret;
+ 
++	if (!ops->set_rx_ntuple)
++		return -EOPNOTSUPP;
++
+ 	if (!(dev->features & NETIF_F_NTUPLE))
+ 		return -EINVAL;
+ 
+
