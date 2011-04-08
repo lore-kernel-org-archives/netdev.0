@@ -1,32 +1,164 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: shutdown(2) does not fully shut down socket any more
-Date: Fri, 08 Apr 2011 15:31:30 -0700 (PDT)
-Message-ID: <20110408.153130.226769035.davem@davemloft.net>
-References: <20110408221046.GW4050@outflux.net>
-	<20110408.152427.193714809.davem@davemloft.net>
-	<20110408223004.GY4050@outflux.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next-2.6 PATCH] v2 ethtool: add ntuple flow specifier data to
+	network flow classifier
+Date: Fri, 08 Apr 2011 15:34:52 -0700
+Message-ID: <20110408223451.27132.31805.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: kees.cook@canonical.com
+To: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51951
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754291Ab1DHWcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 18:32:07 -0400
-In-Reply-To: <20110408223004.GY4050@outflux.net>
+Received: from mga11.intel.com ([192.55.52.93]:21817 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752256Ab1DHWex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2011 18:34:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kees Cook <kees.cook@canonical.com>
-Date: Fri, 8 Apr 2011 15:30:04 -0700
+This change is meant to add an ntuple data extensions to the rx network flow
+classification specifiers.  The idea is to allow ntuple to be displayed via
+the network flow classification interface.
 
-> Ah! Thanks, I didn't noticed that; I saw no activity on the bugzilla entry,
-> so I thought it hadn't been seen yet.
+The first patch had some left over stuff from the original flow extension
+flags I had added.  That bit is removed in this patch.
 
-We bascially do not use kernel.org bugzilla for bug tracking, all
-work and discussions occur only here on the netdev list.
+This work is based on input from Ben Hutchings.
 
-So what Stephen Hemminger, Andrew Morton, and others do is simply
-forward the bug reports here to the list so we can work on them.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+
+ include/linux/ethtool.h |   51 +++++++++++++++++++++++++++++------------------
+ net/socket.c            |   14 ++++++-------
+ 2 files changed, 38 insertions(+), 27 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index c04d131..68a7310 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -380,27 +380,42 @@ struct ethtool_usrip4_spec {
+ 	__u8    proto;
+ };
+ 
++union ethtool_flow_union {
++	struct ethtool_tcpip4_spec		tcp_ip4_spec;
++	struct ethtool_tcpip4_spec		udp_ip4_spec;
++	struct ethtool_tcpip4_spec		sctp_ip4_spec;
++	struct ethtool_ah_espip4_spec		ah_ip4_spec;
++	struct ethtool_ah_espip4_spec		esp_ip4_spec;
++	struct ethtool_usrip4_spec		usr_ip4_spec;
++	struct ethhdr				ether_spec;
++	__u8					hdata[60];
++};
++
++struct ethtool_flow_ext {
++	__be16	vlan_etype;
++	__be16	vlan_tci;
++	__be32	data[2];
++};
++
+ /**
+  * struct ethtool_rx_flow_spec - specification for RX flow filter
+  * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
+  * @h_u: Flow fields to match (dependent on @flow_type)
++ * @h_ext: Additional fields to match
+  * @m_u: Masks for flow field bits to be ignored
++ * @m_ext: Masks for additional field bits to be ignored.
++ *	Note, all additional fields must be ignored unless @flow_type
++ *	includes the %FLOW_EXT flag.
+  * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
+  *	if packets should be discarded
+  * @location: Index of filter in hardware table
+  */
+ struct ethtool_rx_flow_spec {
+ 	__u32		flow_type;
+-	union {
+-		struct ethtool_tcpip4_spec		tcp_ip4_spec;
+-		struct ethtool_tcpip4_spec		udp_ip4_spec;
+-		struct ethtool_tcpip4_spec		sctp_ip4_spec;
+-		struct ethtool_ah_espip4_spec		ah_ip4_spec;
+-		struct ethtool_ah_espip4_spec		esp_ip4_spec;
+-		struct ethtool_usrip4_spec		usr_ip4_spec;
+-		struct ethhdr				ether_spec;
+-		__u8					hdata[72];
+-	} h_u, m_u;
++	union ethtool_flow_union h_u;
++	struct ethtool_flow_ext h_ext;
++	union ethtool_flow_union m_u;
++	struct ethtool_flow_ext m_ext;
+ 	__u64		ring_cookie;
+ 	__u32		location;
+ };
+@@ -458,16 +473,10 @@ struct ethtool_rxnfc {
+ 
+ struct compat_ethtool_rx_flow_spec {
+ 	u32		flow_type;
+-	union {
+-		struct ethtool_tcpip4_spec		tcp_ip4_spec;
+-		struct ethtool_tcpip4_spec		udp_ip4_spec;
+-		struct ethtool_tcpip4_spec		sctp_ip4_spec;
+-		struct ethtool_ah_espip4_spec		ah_ip4_spec;
+-		struct ethtool_ah_espip4_spec		esp_ip4_spec;
+-		struct ethtool_usrip4_spec		usr_ip4_spec;
+-		struct ethhdr				ether_spec;
+-		u8					hdata[72];
+-	} h_u, m_u;
++	union ethtool_flow_union h_u;
++	struct ethtool_flow_ext h_ext;
++	union ethtool_flow_union m_u;
++	struct ethtool_flow_ext m_ext;
+ 	compat_u64	ring_cookie;
+ 	u32		location;
+ };
+@@ -1072,6 +1081,8 @@ struct ethtool_ops {
+ #define	IPV4_FLOW	0x10	/* hash only */
+ #define	IPV6_FLOW	0x11	/* hash only */
+ #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
++/* Flag to enable additional fields in struct ethtool_rx_flow_spec */
++#define	FLOW_EXT	0x80000000
+ 
+ /* L3-L4 network traffic flow hash options */
+ #define	RXH_L2DA	(1 << 1)
+diff --git a/net/socket.c b/net/socket.c
+index 5212447..575c84f 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2643,13 +2643,13 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
+ 		return -EFAULT;
+ 
+ 	if (convert_in) {
+-		/* We expect there to be holes between fs.m_u and
++		/* We expect there to be holes between fs.m_ext and
+ 		 * fs.ring_cookie and at the end of fs, but nowhere else.
+ 		 */
+-		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_u) +
+-			     sizeof(compat_rxnfc->fs.m_u) !=
+-			     offsetof(struct ethtool_rxnfc, fs.m_u) +
+-			     sizeof(rxnfc->fs.m_u));
++		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_ext) +
++			     sizeof(compat_rxnfc->fs.m_ext) !=
++			     offsetof(struct ethtool_rxnfc, fs.m_ext) +
++			     sizeof(rxnfc->fs.m_ext));
+ 		BUILD_BUG_ON(
+ 			offsetof(struct compat_ethtool_rxnfc, fs.location) -
+ 			offsetof(struct compat_ethtool_rxnfc, fs.ring_cookie) !=
+@@ -2657,7 +2657,7 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
+ 			offsetof(struct ethtool_rxnfc, fs.ring_cookie));
+ 
+ 		if (copy_in_user(rxnfc, compat_rxnfc,
+-				 (void *)(&rxnfc->fs.m_u + 1) -
++				 (void *)(&rxnfc->fs.m_ext + 1) -
+ 				 (void *)rxnfc) ||
+ 		    copy_in_user(&rxnfc->fs.ring_cookie,
+ 				 &compat_rxnfc->fs.ring_cookie,
+@@ -2674,7 +2674,7 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
+ 
+ 	if (convert_out) {
+ 		if (copy_in_user(compat_rxnfc, rxnfc,
+-				 (const void *)(&rxnfc->fs.m_u + 1) -
++				 (const void *)(&rxnfc->fs.m_ext + 1) -
+ 				 (const void *)rxnfc) ||
+ 		    copy_in_user(&compat_rxnfc->fs.ring_cookie,
+ 				 &rxnfc->fs.ring_cookie,
+
