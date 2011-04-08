@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Should ICMP echo responses be 'bound to the interface' of the
- incoming ICMP echo request?
-Date: Thu, 07 Apr 2011 19:44:20 -0700 (PDT)
-Message-ID: <20110407.194420.193709030.davem@davemloft.net>
-References: <459953.12714.qm@web56602.mail.re3.yahoo.com>
-	<alpine.DEB.2.00.1104080301280.14027@uplift.swm.pp.se>
+Subject: Re: [PATCH] skge: convert to hw_features
+Date: Thu, 07 Apr 2011 20:17:46 -0700 (PDT)
+Message-ID: <20110407.201746.226777024.davem@davemloft.net>
+References: <20110331110135.9625513A68@rere.qmqm.pl>
+	<20110406.124843.28805522.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: iubica2@yahoo.com, ketil@froyn.name, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: swmike@swm.pp.se
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1104080301280.14027@uplift.swm.pp.se>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: mirq-linux@rere.qmqm.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50692
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757358Ab1DHDSX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2011 23:18:23 -0400
+In-Reply-To: <20110406.124843.28805522.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Date: Fri, 8 Apr 2011 03:02:53 +0200 (CEST)
+=46rom: David Miller <davem@davemloft.net>
+Date: Wed, 06 Apr 2011 12:48:43 -0700 (PDT)
 
-> On Thu, 7 Apr 2011, andrei radulescu-banu wrote:
-> 
->> But here's a problem: the kernel supports only up to 256 route
->> domains, and I'd like to be able to use more interfaces than that,
->> physical plus virtual.
-> 
-> Sounds like that 256 limit should be the thing to be looked into then.
+> From: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> Date: Thu, 31 Mar 2011 13:01:35 +0200 (CEST)
+>=20
+>>>From the code it looks like the hardware might support full HW_CSUM =
+not
+>> just IP_CSUM.  This needs testing and so is not changed here.
+>>=20
+>> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+>=20
+> Stephen, did you get a chance to test this patch like you said you
+> would?
 
-That limit was removed ages ago.
-
-I notice that when discussions occur on this list, a lot of misinformation
-gets spread around.
-
-The problem is that the actual networking developers don't read this list,
-they read netdev@vger.kernel.org instead.
-
-Maybe it's time that we just get rid of linux-net because it's been nothing
-but problematic as users search for information on it and very few people
-on that list are knowledgable enough to even consider answering.
+I don't see any value in waiting any longer, so I've applied this patch=
+=2E
 
