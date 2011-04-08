@@ -1,31 +1,46 @@
-From: Pallai Roland <pallair@magex.hu>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: Kernel panic when using bridge
-Date: Fri, 8 Apr 2011 21:12:59 +0200
-Message-ID: <BANLkTi=bk8uGAxwXUNh5h9HN0T-W2ruaYw@mail.gmail.com>
+Date: Fri, 8 Apr 2011 12:17:00 -0700
+Message-ID: <20110408121700.0aad53fe@nehalam>
 References: <4D9E62D9.5010400@scotdoyle.com>
-	<loom.20110408T153726-822@post.gmane.org>
-	<4D9F2248.90300@scotdoyle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Sebastian Nickel <Sebastian.Nickel@hetzner.de>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: Scot Doyle <lkml@scotdoyle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:62748 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757719Ab1DHTNB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 15:13:01 -0400
-Received: by bwz15 with SMTP id 15so3075586bwz.19
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2011 12:13:00 -0700 (PDT)
-In-Reply-To: <4D9F2248.90300@scotdoyle.com>
+Received: from mail.vyatta.com ([76.74.103.46]:41548 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752612Ab1DHTRD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2011 15:17:03 -0400
+In-Reply-To: <4D9E62D9.5010400@scotdoyle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/4/8 Scot Doyle <lkml@scotdoyle.com>:
-> Perhaps the problem is isolated to the bridging code? Neither KVM guest nor
-> associated tap device were running during my second reported panic.
-> Here's a similar stacktrace from a third person:
-> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=620201
-Yep, I'm the third person. :)
+On Thu, 07 Apr 2011 20:20:25 -0500
+Scot Doyle <lkml@scotdoyle.com> wrote:
 
-What I can tell you my servers are stable after bridging has been eliminated.
+> This kernel panic occurs when using a bridge. I would be grateful for 
+> any ideas on how to correct it.
+> 
+> The panic was captured on two servers after three or four days of 
+> minimal use, both configured as follows:
+> - unpatched kernel 2.6.39-rc1 (commit 
+> ecb78ab6f30106ab72a575a25b1cdfd1633b7ca2) with default .config options
+> - br0 on single intel igb NIC (3 other NIC's unused)
+> - br0 with ip address on distinct /27 subnet
+> - br0:1 with ip address on distinct /24 subnet
+> - br0:2 with ip address on distinct /24 subnet
+> - no iptables rules
+> - ebtables not installed
+> 
+> "net/bridge/br_netfilter.c" and "net/ipv4/ip_options.c" (in the current 
+> 2.6.39-rc2 and in net-next-2.6) are identical to the versions used to 
+> build this kernel.
+> 
+
+Please reproduce with exactly 2.6.39-rc2 there were some bug fixes
+to make sure that header was initialized.
+
+
+-- 
