@@ -1,46 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Kernel panic when using bridge
-Date: Fri, 8 Apr 2011 12:17:00 -0700
-Message-ID: <20110408121700.0aad53fe@nehalam>
-References: <4D9E62D9.5010400@scotdoyle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Scot Doyle <lkml@scotdoyle.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-next] cxgb4: drop phys_id interface and implement the newer set_phys_id
+Date: Fri,  8 Apr 2011 13:01:34 -0700
+Message-ID: <1302292894-18629-1-git-send-email-dm@chelsio.com>
+Cc: Dimitris Michailidis <dm@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41548 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752612Ab1DHTRD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2011 15:17:03 -0400
-In-Reply-To: <4D9E62D9.5010400@scotdoyle.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:16694 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757833Ab1DHUBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 16:01:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 07 Apr 2011 20:20:25 -0500
-Scot Doyle <lkml@scotdoyle.com> wrote:
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ drivers/net/cxgb4/cxgb4_main.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-> This kernel panic occurs when using a bridge. I would be grateful for 
-> any ideas on how to correct it.
-> 
-> The panic was captured on two servers after three or four days of 
-> minimal use, both configured as follows:
-> - unpatched kernel 2.6.39-rc1 (commit 
-> ecb78ab6f30106ab72a575a25b1cdfd1633b7ca2) with default .config options
-> - br0 on single intel igb NIC (3 other NIC's unused)
-> - br0 with ip address on distinct /27 subnet
-> - br0:1 with ip address on distinct /24 subnet
-> - br0:2 with ip address on distinct /24 subnet
-> - no iptables rules
-> - ebtables not installed
-> 
-> "net/bridge/br_netfilter.c" and "net/ipv4/ip_options.c" (in the current 
-> 2.6.39-rc2 and in net-next-2.6) are identical to the versions used to 
-> build this kernel.
-> 
-
-Please reproduce with exactly 2.6.39-rc2 there were some bug fixes
-to make sure that header was initialized.
-
-
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index 5352c8a..0af9c9f 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -1336,15 +1336,20 @@ static int restart_autoneg(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static int identify_port(struct net_device *dev, u32 data)
++static int identify_port(struct net_device *dev,
++			 enum ethtool_phys_id_state state)
+ {
++	unsigned int val;
+ 	struct adapter *adap = netdev2adap(dev);
+ 
+-	if (data == 0)
+-		data = 2;     /* default to 2 seconds */
++	if (state == ETHTOOL_ID_ACTIVE)
++		val = 0xffff;
++	else if (state == ETHTOOL_ID_INACTIVE)
++		val = 0;
++	else
++		return -EINVAL;
+ 
+-	return t4_identify_port(adap, adap->fn, netdev2pinfo(dev)->viid,
+-				data * 5);
++	return t4_identify_port(adap, adap->fn, netdev2pinfo(dev)->viid, val);
+ }
+ 
+ static unsigned int from_fw_linkcaps(unsigned int type, unsigned int caps)
+@@ -2011,7 +2016,7 @@ static struct ethtool_ops cxgb_ethtool_ops = {
+ 	.set_sg            = ethtool_op_set_sg,
+ 	.get_link          = ethtool_op_get_link,
+ 	.get_strings       = get_strings,
+-	.phys_id           = identify_port,
++	.set_phys_id       = identify_port,
+ 	.nway_reset        = restart_autoneg,
+ 	.get_sset_count    = get_sset_count,
+ 	.get_ethtool_stats = get_stats,
 -- 
+1.7.3.4
+
