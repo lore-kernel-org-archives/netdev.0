@@ -1,28 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Thu, 07 Apr 2011 20:49:09 -0700 (PDT)
-Message-ID: <20110407.204909.115926267.davem@davemloft.net>
-References: <20110408134551.521c6606.sfr@canb.auug.org.au>
+From: "WESTERN UNION MONEY TRANSFER" <marialan@cpenet.com.ar>
+Subject: (unknown)
+Date: Thu, 7 Apr 2011 22:17:46 -0300
+Message-ID: <3b7fe64fadbc1271bff776beda034967.squirrel@www.cpenet.com.ar>
+Reply-To: western.uniontransfer08@live.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lucas.demarchi@profusion.mobi,
-	joe@perches.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110408134551.521c6606.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailf.cpenet.com.ar ([201.251.13.25]:41332 "EHLO
+	mailf.cpenet.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296Ab1DHEeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 00:34:15 -0400
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 8 Apr 2011 13:45:51 +1000
 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/smsc911x.c between commit 25985edcedea ("Fix common
-> misspellings") from Linus' tree and commit dffc6b2432ea ("smsc911x: Use
-> pr_fmt, netdev_<level>, and netif_<level>") from the net tree.
-> 
-> I fixedd it up (see below) anc can carry the fix as necessary.
 
-Thanks Stephen, I'll clear this one up some time in the next week.
+
+We have been trying to reach you as My associate has helped me to send
+your first payment of US$7,500 to you
+as instructed by Minister, David Cameron the British prime minister after
+the last G20 meeting that was held on April 2nd in London, making you
+one of the beneficaries. Here is the information below:
+
+MONEY TRANSFER CONTROL NUMBER:8309124803
+SENDER NAME:SOLOMON
+Last name:DANEIL.Q
+AMOUNT: US$7,500
+
+I told him to keep sending you US$7,500 twice a week until the FULL
+payment of (US $360,000.00 Dollars) is completed within 6 (six)
+Months.For track, send your
+
+Full Names via Email to:
+
+Mr Garry Moore
+E-mail:western.uniontransfer08@live.com
+
