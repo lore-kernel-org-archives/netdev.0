@@ -1,185 +1,69 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: ARM, AF_PACKET: caching problems on Marvell Kirkwood
-Date: Fri, 8 Apr 2011 15:06:43 +0200
-Message-ID: <20110408130643.GA8730@orbit.nwl.cc>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH] igb: restore EEPROM 16kB access limit
+Date: Fri,  8 Apr 2011 15:34:55 +0200
+Message-ID: <1302269695-27188-1-git-send-email-sassmann@kpanic.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ne@erfurth.eu
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: e1000-devel@lists.sourceforge.net, john.ronciak@intel.com
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Dear lists,
+The check limiting the EEPROM access up to 16kB was removed by
+commit 4322e561a93ec7ee034b603a6c610e7be90d4e8a. Without this check
+the kernel will try to checksum the EEPROM up to 2MB (observed with
+a 8086:10c9 NIC) and fail.
 
-I am experiencing severe caching issues using the TX_RING feature of
-AF_PACKET on a Kirkwood-based system (i.e., OpenRD). This may likely be
-a bug of the CPU/SoC itself, at least it reacts a bit picky when using
-the preload data instruction (pld) in rather useless cases (but that's a
-different story).
+igb 0000:03:00.0: 0 vfs allocated
+igb 0000:03:00.0: The NVM Checksum Is Not Valid
+ACPI: PCI interrupt for device 0000:03:00.0 disabled
+igb: probe of 0000:03:00.0 failed with error -5
 
-There is simple testing code at the end of this email, effectively just
-preparing a packet in the TX_RING and triggering it's delivery once per
-second. The experienced symptom is that sporadically nothing goes out in
-one iteration, and two packets in the following one.
+Reason for that being an overflow in u16 e1000_nvm_info->nvm
+while doing "nvm->word_size = 1 << size;" with size == 21.
+Putting the check back in place.
 
-It looks like the kernel doesn't get the changed value of tp_status in
-time, although userspace sees the correct value. Note that moving the
-sleep(1) from the end of the loop to just before calling sendto() fixes
-the problem.
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/igb/e1000_82575.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Another (more useful) workaround is to call flush_cache_all() at the
-beginning of packet_sendmsg() in net/packet/af_packet.c. I was not able
-to fix this with some more specific flushing at that place. Anyway, the
-call to flush_dcache_page() from __packet_get_status() in the same
-source file is meant to do the trick I guess. But somehow doesn't.
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 6b256c2..5cfa37f 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -244,6 +244,10 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	 */
+ 	size += NVM_WORD_SIZE_BASE_SHIFT;
+ 
++	/* EEPROM access above 16k is unsupported */
++	if (size > 14)
++		size = 14;
++
+ 	nvm->word_size = 1 << size;
+ 	if (nvm->word_size == (1 << 15))
+ 		nvm->page_size = 128;
+-- 
+1.7.4
 
-Feedback regardles of which kind is highly appreciated, of course!
 
-Greetings, Phil
-
-------------------[start of packet_mmap_test.c]--------------------
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <linux/if_ether.h>
-#include <linux/if_packet.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-
-#define PERROR_EXIT(rc, mesg) { \
-	perror(mesg); \
-	return rc; \
-}
-
-int main(void)
-{
-	uint32_t size;
-	struct sockaddr_ll sa;
-	struct ifreq ifr;
-	int index;
-	int tmp;
-	int fd;
-	struct tpacket_req packet_req;
-	struct tpacket2_hdr * ps_header_start, *ps_header;
-
-	if ((fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL))) < 0)
-		PERROR_EXIT(EXIT_FAILURE, "socket");
-
-	/* retrieve eth0's interface index number */
-	strncpy (ifr.ifr_name, "eth0", sizeof(ifr.ifr_name));
-	if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0)
-		PERROR_EXIT(EXIT_FAILURE, "ioctl(SIOCGIFINDEX)");
-
-	/* set sockaddr info */
-	memset(&sa, 0, sizeof(sa));
-	sa.sll_family = AF_PACKET;
-	sa.sll_protocol = ETH_P_ALL;
-	sa.sll_ifindex = ifr.ifr_ifindex;
-
-	/* bind port */
-	if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0)
-		PERROR_EXIT(EXIT_FAILURE, "bind()");
-
-	tmp = TPACKET_V2;
-	if (setsockopt(fd, SOL_PACKET, PACKET_VERSION, &tmp, sizeof(tmp)) < 0)
-		PERROR_EXIT(EXIT_FAILURE, "setsockopt(PACKET_VERSION)");
-
-	/* set packet loss option */
-	tmp = 1;
-	if (setsockopt(fd, SOL_PACKET, PACKET_LOSS, &tmp, sizeof(tmp)) < 0)
-		PERROR_EXIT(EXIT_FAILURE, "setsockopt(PACKET_LOSS)");
-
-	/* prepare Tx ring request */
-	packet_req.tp_block_size = 1024 * 8;
-	packet_req.tp_frame_size = 1024 * 8;
-	packet_req.tp_block_nr = 1024;
-	packet_req.tp_frame_nr = 1024;
-
-	/* send TX ring request */
-	if (setsockopt(fd, SOL_PACKET, PACKET_TX_RING,
-	               &packet_req, sizeof(packet_req)) < 0)
-		PERROR_EXIT(EXIT_FAILURE, "setsockopt: PACKET_TX_RING");
-
-	/* calculate memory to mmap in the kernel */
-	size = packet_req.tp_block_size * packet_req.tp_block_nr;
-
-	/* mmap Tx ring buffers memory */
-	ps_header_start = mmap(0, size,
-			PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-	if (ps_header_start < 0)
-		PERROR_EXIT(EXIT_FAILURE, "mmap");
-
-	/* fill peer sockaddr for SOCK_DGRAM */
-	sa.sll_family = AF_PACKET;
-	sa.sll_protocol = htons(ETH_P_IP);
-	sa.sll_ifindex = ifr.ifr_ifindex;
-	sa.sll_halen = ETH_ALEN;
-	memset(&sa.sll_addr, 0xff, ETH_ALEN);
-
-	ps_header = ps_header_start;
-	while (1) {
-		int sendlen, j;
-
-		char *data = (void*)ps_header + TPACKET_HDRLEN
-		              - sizeof(struct sockaddr_ll);
-
-		switch((volatile uint32_t)ps_header->tp_status)
-		{
-		case TP_STATUS_AVAILABLE:
-			memset(data, 0x23, 150);
-			break;
-
-		case TP_STATUS_WRONG_FORMAT:
-			printf("An error has occured during transfer\n");
-			exit(EXIT_FAILURE);
-			break;
-
-		default:
-			printf("Buffer is not available, aborting\n");
-			exit(1);
-			break;
-		}
-		ps_header->tp_len = 150;
-		ps_header->tp_status = TP_STATUS_SEND_REQUEST;
-
-		sendlen = sendto(fd, NULL, 0, 0,
-				(struct sockaddr *)&sa, sizeof(sa));
-		if (sendlen < 0)
-			perror("sendto");
-		else if (sendlen == 0)
-			printf("sendto(): nothing sent!\n");
-		else
-			printf("sendto(): sent %d bytes out\n", sendlen);
-
-#define ST_IS(x) ((volatile uint32_t)ps_header->tp_status == x)
-		printf("tp_status after sending: %s\n",
-				ST_IS(TP_STATUS_AVAILABLE) ? "AVAILABLE" :
-				ST_IS(TP_STATUS_SEND_REQUEST) ? "SEND_REQUEST" :
-				ST_IS(TP_STATUS_WRONG_FORMAT) ? "WRONG_FORMAT" :
-				"unknown");
-#undef ST_IS
-
-		ps_header = (void *)ps_header + packet_req.tp_frame_size;
-		if (ps_header >= ps_header_start + size)
-			ps_header = ps_header_start;
-
-		sleep(1);
-	}
-	return 0;
-}
---------------------[end of packet_mmap_test.c]--------------------
+------------------------------------------------------------------------------
+Xperia(TM) PLAY
+It's a major breakthrough. An authentic gaming
+smartphone on the nation's most reliable network.
+And it wants your games.
+http://p.sf.net/sfu/verizon-sfdev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
