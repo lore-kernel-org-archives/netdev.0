@@ -1,21 +1,28 @@
-From: "Mrs. Grace Yee" <gry@qatar.io>
-Subject: Emergency Email
-Date: Fri, 8 Apr 2011 02:14:21 +0300
-Message-ID: <f27a05eb4fee3b35084f9737fd1f29a3.squirrel__9148.81145949966$1302234446$gmane$org@webmail.comu.edu.tr>
-Reply-To: graceyee001@qatar.io
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net tree with Linus' tree
+Date: Thu, 07 Apr 2011 20:49:09 -0700 (PDT)
+Message-ID: <20110407.204909.115926267.davem@davemloft.net>
+References: <20110408134551.521c6606.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.comu.edu.tr ([193.255.97.15]:35002 "EHLO mail.comu.edu.tr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757443Ab1DHDq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2011 23:46:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lucas.demarchi@profusion.mobi,
+	joe@perches.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110408134551.521c6606.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Deal worth US45,275,000.00. Interested?
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 8 Apr 2011 13:45:51 +1000
 
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/net/smsc911x.c between commit 25985edcedea ("Fix common
+> misspellings") from Linus' tree and commit dffc6b2432ea ("smsc911x: Use
+> pr_fmt, netdev_<level>, and netif_<level>") from the net tree.
+> 
+> I fixedd it up (see below) anc can carry the fix as necessary.
 
-
+Thanks Stephen, I'll clear this one up some time in the next week.
