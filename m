@@ -1,50 +1,52 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next] cnic: Fix rtnl deadlock
-Date: Fri, 8 Apr 2011 10:44:14 -0700
-Message-ID: <1302284654-25864-1-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH] Add support for SMSC LAN9530, LAN9730 and LAN89530
+Date: Fri,  8 Apr 2011 19:51:59 +0100
+Message-ID: <1302288719-17103-1-git-send-email-steve.glendinning@smsc.com>
+Cc: Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2081 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756856Ab1DHShZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2011 14:37:25 -0400
+Received: from drevil.shawell.net ([217.169.15.170]:43162 "EHLO
+	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756846Ab1DHS7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 14:59:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When cnic_stop_hw() -> cnic_cm_stop_bnx2x_hw() is called under rtnl_lock()
-from NETDEV_DOWN event, it waits for cnic_delete_task() to complete.
-It will deadlock when cnic_delete_task() takes rtnl_lock() before
-calling cnic_ulp_stop_one().
+This patch adds support for SMSC's LAN9530, LAN9730 and LAN89530 USB
+ethernet controllers to the existing smsc95xx driver by adding
+their new USB VID/PID pairs.
 
-We fix it by removing the rtnl_lock() in cnic_delete_task().
-cnic_ulp_stop_one() has mutex and atomic bit ops to prevent important
-operations from being done more than once, so it is not necessary to take
-rtnl_lock().
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 ---
- drivers/net/cnic.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/net/usb/smsc95xx.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 5dfbff0..cde59b4 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -3983,9 +3983,7 @@ static void cnic_delete_task(struct work_struct *work)
- 	if (test_and_clear_bit(CNIC_LCL_FL_STOP_ISCSI, &cp->cnic_local_flags)) {
- 		struct drv_ctl_info info;
- 
--		rtnl_lock();
- 		cnic_ulp_stop_one(cp, CNIC_ULP_ISCSI);
--		rtnl_unlock();
- 
- 		info.cmd = DRV_CTL_ISCSI_STOPPED_CMD;
- 		cp->ethdev->drv_ctl(dev->netdev, &info);
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 727874d..47a6c87 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1313,6 +1313,21 @@ static const struct usb_device_id products[] = {
+ 		USB_DEVICE(0x0424, 0x9909),
+ 		.driver_info = (unsigned long) &smsc95xx_info,
+ 	},
++	{
++		/* SMSC LAN9530 USB Ethernet Device */
++		USB_DEVICE(0x0424, 0x9530),
++		.driver_info = (unsigned long) &smsc95xx_info,
++	},
++	{
++		/* SMSC LAN9730 USB Ethernet Device */
++		USB_DEVICE(0x0424, 0x9730),
++		.driver_info = (unsigned long) &smsc95xx_info,
++	},
++	{
++		/* SMSC LAN89530 USB Ethernet Device */
++		USB_DEVICE(0x0424, 0x9E08),
++		.driver_info = (unsigned long) &smsc95xx_info,
++	},
+ 	{ },		/* END */
+ };
+ MODULE_DEVICE_TABLE(usb, products);
 -- 
-1.6.4.GIT
-
+1.7.2.5
 
