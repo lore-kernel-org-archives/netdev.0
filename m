@@ -1,69 +1,41 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH] igb: restore EEPROM 16kB access limit
-Date: Fri,  8 Apr 2011 15:34:55 +0200
-Message-ID: <1302269695-27188-1-git-send-email-sassmann@kpanic.de>
+From: =?UTF-8?q?Weiping=20Pan=28=E6=BD=98=E5=8D=AB=E5=B9=B3=29?=
+	<panweiping3@gmail.com>
+Subject: [PATCH] bonding:set save_load to 0 when initializing
+Date: Fri,  8 Apr 2011 21:40:19 +0800
+Message-ID: <1302270019-11698-1-git-send-email-panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, john.ronciak@intel.com
-To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Weiping=20Pan (=E6=BD=98=E5=8D=AB=E5=B9=B3) ?=
+	<panweiping3@gmail.com>
+To: fubar@us.ibm.com, andy@greyhouse.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The check limiting the EEPROM access up to 16kB was removed by
-commit 4322e561a93ec7ee034b603a6c610e7be90d4e8a. Without this check
-the kernel will try to checksum the EEPROM up to 2MB (observed with
-a 8086:10c9 NIC) and fail.
+It is unnecessary to set save_load to 1 here,
+as the tx_hashtbl is just kzalloced.
 
-igb 0000:03:00.0: 0 vfs allocated
-igb 0000:03:00.0: The NVM Checksum Is Not Valid
-ACPI: PCI interrupt for device 0000:03:00.0 disabled
-igb: probe of 0000:03:00.0 failed with error -5
-
-Reason for that being an overflow in u16 e1000_nvm_info->nvm
-while doing "nvm->word_size = 1 << size;" with size == 21.
-Putting the check back in place.
-
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Signed-off-by: Weiping Pan(=E6=BD=98=E5=8D=AB=E5=B9=B3) <panweiping3@gm=
+ail.com>
 ---
- drivers/net/igb/e1000_82575.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_alb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 6b256c2..5cfa37f 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -244,6 +244,10 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	 */
- 	size += NVM_WORD_SIZE_BASE_SHIFT;
- 
-+	/* EEPROM access above 16k is unsupported */
-+	if (size > 14)
-+		size = 14;
-+
- 	nvm->word_size = 1 << size;
- 	if (nvm->word_size == (1 << 15))
- 		nvm->page_size = 128;
--- 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_=
+alb.c
+index 9bc5de3..ab69e5a 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -176,7 +176,7 @@ static int tlb_initialize(struct bonding *bond)
+ 	bond_info->tx_hashtbl =3D new_hashtbl;
+=20
+ 	for (i =3D 0; i < TLB_HASH_TABLE_SIZE; i++) {
+-		tlb_init_table_entry(&bond_info->tx_hashtbl[i], 1);
++		tlb_init_table_entry(&bond_info->tx_hashtbl[i], 0);
+ 	}
+=20
+ 	_unlock_tx_hashtbl(bond);
+--=20
 1.7.4
-
-
-------------------------------------------------------------------------------
-Xperia(TM) PLAY
-It's a major breakthrough. An authentic gaming
-smartphone on the nation's most reliable network.
-And it wants your games.
-http://p.sf.net/sfu/verizon-sfdev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
