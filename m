@@ -1,34 +1,31 @@
-From: Kees Cook <kees.cook@canonical.com>
-Subject: shutdown(2) does not fully shut down socket any more
-Date: Fri, 8 Apr 2011 15:10:46 -0700
-Message-ID: <20110408221046.GW4050@outflux.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [ethtool PATCH 0/2] Minor ethtool cleanups
+Date: Fri, 08 Apr 2011 15:12:28 -0700
+Message-ID: <20110408221135.26893.50092.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com, bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.outflux.net ([198.145.64.163]:43454 "EHLO smtp.outflux.net"
+Received: from mga11.intel.com ([192.55.52.93]:37926 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752040Ab1DHWKr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2011 18:10:47 -0400
-Received: from www.outflux.net (serenity-end.outflux.net [10.2.0.2])
-	by vinyl.outflux.net (8.14.3/8.14.3/Debian-9.1ubuntu1) with ESMTP id p38MAklP014534
-	for <netdev@vger.kernel.org>; Fri, 8 Apr 2011 15:10:46 -0700
-Content-Disposition: inline
+	id S1757630Ab1DHWMb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2011 18:12:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey all,
+These changes address a few minor issues I noticed in ethtool.
 
-I've got a weird regression visible here:
-https://bugzilla.kernel.org/show_bug.cgi?id=32832
+---
 
-Can other people reproduce this, and if so, what's going on? Seems like a
-kernel bug unless I'm misunderstanding something.
+Alexander Duyck (2):
+      Add support for ESP as a separate protocol from AH
+      ethtool: fix manpage so that it will display tables again
 
-Thanks!
 
--Kees
+ ethtool.8.in |   18 ++++++++++--------
+ ethtool.c    |   21 ++++++++++++++++-----
+ 2 files changed, 26 insertions(+), 13 deletions(-)
 
 -- 
-Kees Cook
-Ubuntu Security Team
