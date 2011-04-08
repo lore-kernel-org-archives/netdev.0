@@ -1,300 +1,435 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH net-next-2.6 v2 3/3] sctp: Add a valid address list in association local
-Date: Fri, 8 Apr 2011 14:19:13 +0900
-Message-ID: <115A4380-6E63-4014-BD24-04A29472ACCD@sfc.wide.ad.jp>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: lksctp-developers@lists.sourceforge.net
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path similar to hw-accel
+Date: Fri,  8 Apr 2011 07:48:33 +0200
+Message-ID: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net, xiaosuo@gmail.com,
+	jesse@nicira.com, ebiederm@xmission.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:53961 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751334Ab1DHFTO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 01:19:14 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:34141 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751910Ab1DHFsy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2011 01:48:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the SCTP association transmits an ASCONF with ADD_IP_ADDRESS, that association cannot use the adding address until it receives ASCONF-ACK.  
-This patch prevents that associations that do not receive ASCONF-ACK use the adding address.
+Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
+enabled, skb is untagged by NIC, vlan_tci is set and the skb gets into
+vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
 
-Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+For non-rx-vlan-hw-accel however, tagged skb goes thru whole
+__netif_receive_skb, it's untagged in ptype_base hander and reinjected
+
+This incosistency is fixed by this patch. Vlan untagging happens early in
+__netif_receive_skb so the rest of code (ptype_all handlers, rx_handlers)
+see the skb like it was untagged by hw.
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+v1->v2:
+	remove "inline" from vlan_core.c functions
+
 ---
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 505845d..f1f439c 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -135,6 +135,7 @@ void sctp_sock_rfree(struct sk_buff *skb);
- void sctp_copy_sock(struct sock *newsk, struct sock *sk,
- 		    struct sctp_association *asoc);
- extern struct percpu_counter sctp_sockets_allocated;
-+void sctp_add_addr_to_laddr(struct sockaddr *, struct sctp_association *);
+ include/linux/if_vlan.h |   10 ++-
+ net/8021q/vlan.c        |    8 --
+ net/8021q/vlan.h        |    2 -
+ net/8021q/vlan_core.c   |   85 +++++++++++++++++++++++-
+ net/8021q/vlan_dev.c    |  173 -----------------------------------------------
+ net/core/dev.c          |    8 ++-
+ 6 files changed, 99 insertions(+), 187 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 635e1fa..998b299 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -132,7 +132,8 @@ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
  
- /*
-  * sctp/primitive.c
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index cc9185c..f6ca775 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1901,6 +1901,14 @@ struct sctp_association {
- 	 * after reaching 4294967295.
- 	 */
- 	__u32 addip_serial;
-+	/* list of valid addresses in association local
-+	 * This list is needed to ensure base.bind_addr being a valid address
-+	 * list of the endpoint-wide.  When one of associations receives
-+	 * ASCONF-ACK, that address is added to this list.  When all
-+	 * associations belonging to the same endpoint receive ASCONF-ACKs,
-+	 * that address is added to base.bind_addr
-+	 */
-+	struct list_head asoc_laddr_list;
- 
- 	/* SCTP AUTH: list of the endpoint shared keys.  These
- 	 * keys are provided out of band by the user applicaton
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 6b04287..614834f 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -279,6 +279,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	asoc->peer.asconf_capable = 0;
- 	if (sctp_addip_noauth)
- 		asoc->peer.asconf_capable = 1;
-+	INIT_LIST_HEAD(&asoc->asoc_laddr_list);
- 
- 	/* Create an input queue.  */
- 	sctp_inq_init(&asoc->base.inqueue);
-@@ -446,6 +447,15 @@ void sctp_association_free(struct sctp_association *asoc)
- 	/* Free any cached ASCONF_ACK chunk. */
- 	sctp_assoc_free_asconf_acks(asoc);
- 
-+	if (!list_empty(&asoc->asoc_laddr_list)) {
-+		struct sctp_sockaddr_entry *laddr, *tmp;
-+		list_for_each_entry_safe(laddr, tmp, &asoc->asoc_laddr_list, \
-+		    list) {
-+			list_del(&laddr->list);
-+			kfree(laddr);
-+		}
-+	}
-+
- 	/* Free any cached ASCONF chunk. */
- 	if (asoc->addip_last_asconf)
- 		sctp_chunk_free(asoc->addip_last_asconf);
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 865ce7b..bbf3152 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -333,6 +333,18 @@ static void sctp_v6_get_saddr(struct sctp_sock *sk,
- 			}
- 		}
- 	}
-+	if (baddr == NULL) {
-+		/* We don't have a valid src addr in "endpoint-wide".
-+		 * Looking up in assoc-locally valid address list.
-+		 */
-+		list_for_each_entry(laddr, &asoc->asoc_laddr_list, list) {
-+			bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
-+			if (!baddr || (matchlen < bmatchlen)) {
-+				baddr = &laddr->a;
-+				matchlen = bmatchlen;
-+			}
-+		}
-+	}
- 
- 	if (baddr) {
- 		memcpy(saddr, baddr, sizeof(union sctp_addr));
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 152976e..918a62e 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -516,6 +516,13 @@ static struct dst_entry *sctp_v4_get_dst(struct sctp_association *asoc,
- 				goto out_unlock;
- 		}
- 		rcu_read_unlock();
-+		/* We don't have a valid src addr in "endpoint-wide".
-+		 * Looking up in assoc-locally valid address list.
-+		 */
-+		list_for_each_entry(laddr, &asoc->asoc_laddr_list, list) {
-+			if (sctp_v4_cmp_addr(&dst_saddr, &laddr->a))
-+				goto out_unlock;
-+		}
- 
- 		/* None of the bound addresses match the source address of the
- 		 * dst. So release it.
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index de98665..1a44f88 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3171,7 +3171,6 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
- 	struct sctp_bind_addr *bp = &asoc->base.bind_addr;
- 	union sctp_addr_param *addr_param;
- 	struct sctp_transport *transport;
--	struct sctp_sockaddr_entry *saddr;
- 
- 	addr_param = (union sctp_addr_param *)
- 			((void *)asconf_param + sizeof(sctp_addip_param_t));
-@@ -3186,10 +3185,10 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
- 		 * held, so the list can not change.
- 		 */
- 		local_bh_disable();
--		list_for_each_entry(saddr, &bp->address_list, list) {
--			if (sctp_cmp_addr_exact(&saddr->a, &addr))
--				saddr->state = SCTP_ADDR_SRC;
--		}
-+		/* Until this ASCONF is acked on all associations, we cannot
-+		 * consider this address as ADDR_SRC
-+		 */
-+		sctp_add_addr_to_laddr(&addr.sa, asoc);
- 		local_bh_enable();
- 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
- 				transports) {
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 3951a10..1a06469 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -807,6 +807,145 @@ out:
- 	return retval;
+ extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 			     u16 vlan_tci, int polling);
+-extern bool vlan_hwaccel_do_receive(struct sk_buff **skb);
++extern bool vlan_do_receive(struct sk_buff **skb);
++extern struct sk_buff *vlan_untag(struct sk_buff *skb);
+ extern gro_result_t
+ vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
+ 		 unsigned int vlan_tci, struct sk_buff *skb);
+@@ -166,13 +167,18 @@ static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 	return NET_XMIT_SUCCESS;
  }
  
-+/* Add a new address to the list contains available addresses only in the
-+ * association.  If the new address is also available on the other associations
-+ * on the endpoint, it is marked as SCTP_ADDR_SRC in the bind address list on
-+ * the endpoint.  This situation is possible when some of associations receive
-+ * ASCONF-ACK for ADD_IP at the endpoint
-+ */
-+void
-+sctp_add_addr_to_laddr(struct sockaddr *sa, struct sctp_association *asoc)
+-static inline bool vlan_hwaccel_do_receive(struct sk_buff **skb)
++static inline bool vlan_do_receive(struct sk_buff **skb)
+ {
+ 	if ((*skb)->vlan_tci & VLAN_VID_MASK)
+ 		(*skb)->pkt_type = PACKET_OTHERHOST;
+ 	return false;
+ }
+ 
++inline struct sk_buff *vlan_untag(struct sk_buff *skb)
 +{
-+	struct sctp_endpoint *ep = asoc->ep;
-+	struct sctp_association *tmp = NULL;
-+	struct sctp_bind_addr *bp;
-+	struct sctp_sockaddr_entry *addr;
-+	struct sockaddr_in *sin = NULL;
-+	struct sockaddr_in6 *sin6 = NULL;
-+	int local;
-+	int found;
-+
-+	union sctp_addr *tmpaddr = NULL;
-+	tmpaddr = (union sctp_addr *)sa;
-+	SCTP_DEBUG_PRINTK_IPADDR("add_addr_to_laddr: asoc: %p ", " ep: %p",
-+	    asoc, tmpaddr, ep);
-+	if (sa->sa_family == AF_INET)
-+		sin = (struct sockaddr_in *)sa;
-+	else if (sa->sa_family == AF_INET6)
-+		sin6 = (struct sockaddr_in6 *)sa;
-+
-+	/* Check if this address is locally available in the other asocs */
-+	local = 0;
-+	list_for_each_entry(tmp, &ep->asocs, asocs) {
-+		if (tmp == asoc)
-+			continue;
-+		found = 0;
-+		list_for_each_entry(addr, &tmp->asoc_laddr_list, list) {
-+			tmpaddr = &addr->a;
-+			if (sa->sa_family != addr->a.sa.sa_family)
-+				continue;
-+			if (sa->sa_family == AF_INET) {
-+				if (sin->sin_addr.s_addr ==
-+				    addr->a.v4.sin_addr.s_addr)
-+					found = 1;
-+			} else if (sa->sa_family == AF_INET6) {
-+				if (ipv6_addr_equal(&sin6->sin6_addr,
-+				    &addr->a.v6.sin6_addr))
-+					found = 1;
-+
-+			}
-+		}
-+		if (!found) {
-+			SCTP_DEBUG_PRINTK("add_addr_to_laddr: not found in asoc %p\n", tmp);
-+			local = 1;
-+			break;
-+		}
-+	}
-+	addr = NULL;
-+
-+	if (local) {
-+		/* this address is not available in some of the other
-+		 * associations.  So add as locally-available in this
-+		 * asocciation
-+		 */
-+		addr = kmalloc(sizeof(struct sctp_sockaddr_entry), GFP_ATOMIC);
-+		if  (addr == NULL) {
-+			SCTP_DEBUG_PRINTK("add_addr_to_laddr: failed to allocate memory for this address\n");
-+			return;
-+		}
-+		memset(addr, 0, sizeof(struct sctp_sockaddr_entry));
-+		if (sa->sa_family == AF_INET) {
-+			addr->a.sa.sa_family = AF_INET;
-+			addr->a.v4.sin_port = sin->sin_port;
-+			addr->a.v4.sin_addr.s_addr = sin->sin_addr.s_addr;
-+		} else if (sa->sa_family == AF_INET6) {
-+			addr->a.sa.sa_family = AF_INET6;
-+			addr->a.v6.sin6_port = sin6->sin6_port;
-+			memcpy(&addr->a.v6.sin6_addr, &sin6->sin6_addr,
-+			    sizeof(struct in6_addr));
-+		}
-+		list_add_tail(&addr->list, &asoc->asoc_laddr_list);
-+		SCTP_DEBUG_PRINTK("add_addr_to_laddr: now we added this address to the local list on asoc %p\n", asoc);
-+	} else {
-+		/* this address is also available in all other asocs.  So set
-+		 * it as ADDR_SRC in the bind-addr list in the endpoint, then
-+		 * remove from the asoc_laddr_list on the associations.
-+		 */
-+		SCTP_DEBUG_PRINTK("add_addr_to_laddr: this address is available in all other asocs\n");
-+		bp = &asoc->base.bind_addr;
-+
-+		/* change state of the new address in the bind list */
-+		list_for_each_entry(addr, &bp->address_list, list) {
-+			if (addr->state != SCTP_ADDR_NEW)
-+				continue;
-+			if (addr->a.sa.sa_family != sa->sa_family)
-+				continue;
-+			if (addr->a.sa.sa_family == AF_INET) {
-+				if (sin->sin_port != addr->a.v4.sin_port)
-+					continue;
-+				if (sin->sin_addr.s_addr !=
-+				    addr->a.v4.sin_addr.s_addr)
-+					continue;
-+			} else if (addr->a.sa.sa_family == AF_INET6) {
-+				if (sin6->sin6_port != addr->a.v6.sin6_port)
-+					continue;
-+				if (!ipv6_addr_equal(&sin6->sin6_addr,
-+				    &addr->a.v6.sin6_addr))
-+					continue;
-+			}
-+			SCTP_DEBUG_PRINTK("add_addr_to_laddr: found the entry for this address with ADDR_NEW flag, set to ADDR_SRC\n");
-+			addr->state = SCTP_ADDR_SRC;
-+		}
-+
-+		/* remove the entry of this address from the asoc-local list */
-+		list_for_each_entry(tmp, &ep->asocs, asocs) {
-+			if (tmp == asoc)
-+				continue;
-+			addr = NULL;
-+			list_for_each_entry(addr, &tmp->asoc_laddr_list, list) {
-+				if (sa->sa_family != addr->a.sa.sa_family)
-+					continue;
-+				if (sa->sa_family == AF_INET) {
-+					if (sin->sin_addr.s_addr !=
-+					    addr->a.v4.sin_addr.s_addr)
-+						continue;
-+				} else if (sa->sa_family == AF_INET6) {
-+					if (!ipv6_addr_equal(&sin6->sin6_addr,
-+					    &addr->a.v6.sin6_addr))
-+						continue;
-+				}
-+				break;
-+			}
-+			if (addr == NULL) {
-+				SCTP_DEBUG_PRINTK("add_addr_to_laddr: Huh, asoc %p doesn't have the entry for this address?\n", asoc);
-+				continue;
-+			}
-+			list_del(&addr->list);
-+			kfree(addr);
-+		}
-+	}
++	return skb;
 +}
 +
- /* Helper for tunneling sctp_bindx() requests through sctp_setsockopt()
-  *
-  * API 8.1
+ static inline gro_result_t
+ vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
+ 		 unsigned int vlan_tci, struct sk_buff *skb)
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index e47600b..14ef5ef 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -49,11 +49,6 @@ const char vlan_version[] = DRV_VERSION;
+ static const char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
+ static const char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
+ 
+-static struct packet_type vlan_packet_type __read_mostly = {
+-	.type = cpu_to_be16(ETH_P_8021Q),
+-	.func = vlan_skb_recv, /* VLAN receive method */
+-};
+-
+ /* End of global variables definitions. */
+ 
+ static void vlan_group_free(struct vlan_group *grp)
+@@ -684,7 +679,6 @@ static int __init vlan_proto_init(void)
+ 	if (err < 0)
+ 		goto err4;
+ 
+-	dev_add_pack(&vlan_packet_type);
+ 	vlan_ioctl_set(vlan_ioctl_handler);
+ 	return 0;
+ 
+@@ -705,8 +699,6 @@ static void __exit vlan_cleanup_module(void)
+ 
+ 	unregister_netdevice_notifier(&vlan_notifier_block);
+ 
+-	dev_remove_pack(&vlan_packet_type);
+-
+ 	unregister_pernet_subsys(&vlan_net_ops);
+ 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ 
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 5687c9b..c3408de 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -75,8 +75,6 @@ static inline struct vlan_dev_info *vlan_dev_info(const struct net_device *dev)
+ }
+ 
+ /* found in vlan_dev.c */
+-int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+-		  struct packet_type *ptype, struct net_device *orig_dev);
+ void vlan_dev_set_ingress_priority(const struct net_device *dev,
+ 				   u32 skb_prio, u16 vlan_prio);
+ int vlan_dev_set_egress_priority(const struct net_device *dev,
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index ce8e3ab..41495dc 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -4,7 +4,7 @@
+ #include <linux/netpoll.h>
+ #include "vlan.h"
+ 
+-bool vlan_hwaccel_do_receive(struct sk_buff **skbp)
++bool vlan_do_receive(struct sk_buff **skbp)
+ {
+ 	struct sk_buff *skb = *skbp;
+ 	u16 vlan_id = skb->vlan_tci & VLAN_VID_MASK;
+@@ -88,3 +88,86 @@ gro_result_t vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
+ 	return napi_gro_frags(napi);
+ }
+ EXPORT_SYMBOL(vlan_gro_frags);
++
++static struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
++{
++	if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
++		if (skb_cow(skb, skb_headroom(skb)) < 0)
++			skb = NULL;
++		if (skb) {
++			/* Lifted from Gleb's VLAN code... */
++			memmove(skb->data - ETH_HLEN,
++				skb->data - VLAN_ETH_HLEN, 12);
++			skb->mac_header += VLAN_HLEN;
++		}
++	}
++	return skb;
++}
++
++static void vlan_set_encap_proto(struct sk_buff *skb, struct vlan_hdr *vhdr)
++{
++	__be16 proto;
++	unsigned char *rawp;
++
++	/*
++	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
++	 * three protocols care about.
++	 */
++
++	proto = vhdr->h_vlan_encapsulated_proto;
++	if (ntohs(proto) >= 1536) {
++		skb->protocol = proto;
++		return;
++	}
++
++	rawp = skb->data;
++	if (*(unsigned short *) rawp == 0xFFFF)
++		/*
++		 * This is a magic hack to spot IPX packets. Older Novell
++		 * breaks the protocol design and runs IPX over 802.3 without
++		 * an 802.2 LLC layer. We look for FFFF which isn't a used
++		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
++		 * but does for the rest.
++		 */
++		skb->protocol = htons(ETH_P_802_3);
++	else
++		/*
++		 * Real 802.2 LLC
++		 */
++		skb->protocol = htons(ETH_P_802_2);
++}
++
++struct sk_buff *vlan_untag(struct sk_buff *skb)
++{
++	struct vlan_hdr *vhdr;
++	u16 vlan_tci;
++
++	if (unlikely(vlan_tx_tag_present(skb))) {
++		/* vlan_tci is already set-up so leave this for another time */
++		return skb;
++	}
++
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (unlikely(!skb))
++		goto err_free;
++
++	if (unlikely(!pskb_may_pull(skb, VLAN_HLEN)))
++		goto err_free;
++
++	vhdr = (struct vlan_hdr *) skb->data;
++	vlan_tci = ntohs(vhdr->h_vlan_TCI);
++	__vlan_hwaccel_put_tag(skb, vlan_tci);
++
++	skb_pull_rcsum(skb, VLAN_HLEN);
++	vlan_set_encap_proto(skb, vhdr);
++
++	skb = vlan_check_reorder_header(skb);
++	if (unlikely(!skb))
++		goto err_free;
++
++	return skb;
++
++err_free:
++	kfree_skb(skb);
++	return NULL;
++}
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index b84a46b..d174c31 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -65,179 +65,6 @@ static int vlan_dev_rebuild_header(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
+-{
+-	if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_HDR) {
+-		if (skb_cow(skb, skb_headroom(skb)) < 0)
+-			skb = NULL;
+-		if (skb) {
+-			/* Lifted from Gleb's VLAN code... */
+-			memmove(skb->data - ETH_HLEN,
+-				skb->data - VLAN_ETH_HLEN, 12);
+-			skb->mac_header += VLAN_HLEN;
+-		}
+-	}
+-
+-	return skb;
+-}
+-
+-static inline void vlan_set_encap_proto(struct sk_buff *skb,
+-		struct vlan_hdr *vhdr)
+-{
+-	__be16 proto;
+-	unsigned char *rawp;
+-
+-	/*
+-	 * Was a VLAN packet, grab the encapsulated protocol, which the layer
+-	 * three protocols care about.
+-	 */
+-
+-	proto = vhdr->h_vlan_encapsulated_proto;
+-	if (ntohs(proto) >= 1536) {
+-		skb->protocol = proto;
+-		return;
+-	}
+-
+-	rawp = skb->data;
+-	if (*(unsigned short *)rawp == 0xFFFF)
+-		/*
+-		 * This is a magic hack to spot IPX packets. Older Novell
+-		 * breaks the protocol design and runs IPX over 802.3 without
+-		 * an 802.2 LLC layer. We look for FFFF which isn't a used
+-		 * 802.2 SSAP/DSAP. This won't work for fault tolerant netware
+-		 * but does for the rest.
+-		 */
+-		skb->protocol = htons(ETH_P_802_3);
+-	else
+-		/*
+-		 * Real 802.2 LLC
+-		 */
+-		skb->protocol = htons(ETH_P_802_2);
+-}
+-
+-/*
+- *	Determine the packet's protocol ID. The rule here is that we
+- *	assume 802.3 if the type field is short enough to be a length.
+- *	This is normal practice and works for any 'now in use' protocol.
+- *
+- *  Also, at this point we assume that we ARE dealing exclusively with
+- *  VLAN packets, or packets that should be made into VLAN packets based
+- *  on a default VLAN ID.
+- *
+- *  NOTE:  Should be similar to ethernet/eth.c.
+- *
+- *  SANITY NOTE:  This method is called when a packet is moving up the stack
+- *                towards userland.  To get here, it would have already passed
+- *                through the ethernet/eth.c eth_type_trans() method.
+- *  SANITY NOTE 2: We are referencing to the VLAN_HDR frields, which MAY be
+- *                 stored UNALIGNED in the memory.  RISC systems don't like
+- *                 such cases very much...
+- *  SANITY NOTE 2a: According to Dave Miller & Alexey, it will always be
+- *  		    aligned, so there doesn't need to be any of the unaligned
+- *  		    stuff.  It has been commented out now...  --Ben
+- *
+- */
+-int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
+-		  struct packet_type *ptype, struct net_device *orig_dev)
+-{
+-	struct vlan_hdr *vhdr;
+-	struct vlan_pcpu_stats *rx_stats;
+-	struct net_device *vlan_dev;
+-	u16 vlan_id;
+-	u16 vlan_tci;
+-
+-	skb = skb_share_check(skb, GFP_ATOMIC);
+-	if (skb == NULL)
+-		goto err_free;
+-
+-	if (unlikely(!pskb_may_pull(skb, VLAN_HLEN)))
+-		goto err_free;
+-
+-	vhdr = (struct vlan_hdr *)skb->data;
+-	vlan_tci = ntohs(vhdr->h_vlan_TCI);
+-	vlan_id = vlan_tci & VLAN_VID_MASK;
+-
+-	rcu_read_lock();
+-	vlan_dev = vlan_find_dev(dev, vlan_id);
+-
+-	/* If the VLAN device is defined, we use it.
+-	 * If not, and the VID is 0, it is a 802.1p packet (not
+-	 * really a VLAN), so we will just netif_rx it later to the
+-	 * original interface, but with the skb->proto set to the
+-	 * wrapped proto: we do nothing here.
+-	 */
+-
+-	if (!vlan_dev) {
+-		if (vlan_id) {
+-			pr_debug("%s: ERROR: No net_device for VID: %u on dev: %s\n",
+-				 __func__, vlan_id, dev->name);
+-			goto err_unlock;
+-		}
+-		rx_stats = NULL;
+-	} else {
+-		skb->dev = vlan_dev;
+-
+-		rx_stats = this_cpu_ptr(vlan_dev_info(skb->dev)->vlan_pcpu_stats);
+-
+-		u64_stats_update_begin(&rx_stats->syncp);
+-		rx_stats->rx_packets++;
+-		rx_stats->rx_bytes += skb->len;
+-
+-		skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tci);
+-
+-		pr_debug("%s: priority: %u for TCI: %hu\n",
+-			 __func__, skb->priority, vlan_tci);
+-
+-		switch (skb->pkt_type) {
+-		case PACKET_BROADCAST:
+-			/* Yeah, stats collect these together.. */
+-			/* stats->broadcast ++; // no such counter :-( */
+-			break;
+-
+-		case PACKET_MULTICAST:
+-			rx_stats->rx_multicast++;
+-			break;
+-
+-		case PACKET_OTHERHOST:
+-			/* Our lower layer thinks this is not local, let's make
+-			 * sure.
+-			 * This allows the VLAN to have a different MAC than the
+-			 * underlying device, and still route correctly.
+-			 */
+-			if (!compare_ether_addr(eth_hdr(skb)->h_dest,
+-						skb->dev->dev_addr))
+-				skb->pkt_type = PACKET_HOST;
+-			break;
+-		default:
+-			break;
+-		}
+-		u64_stats_update_end(&rx_stats->syncp);
+-	}
+-
+-	skb_pull_rcsum(skb, VLAN_HLEN);
+-	vlan_set_encap_proto(skb, vhdr);
+-
+-	if (vlan_dev) {
+-		skb = vlan_check_reorder_header(skb);
+-		if (!skb) {
+-			rx_stats->rx_errors++;
+-			goto err_unlock;
+-		}
+-	}
+-
+-	netif_rx(skb);
+-
+-	rcu_read_unlock();
+-	return NET_RX_SUCCESS;
+-
+-err_unlock:
+-	rcu_read_unlock();
+-err_free:
+-	atomic_long_inc(&dev->rx_dropped);
+-	kfree_skb(skb);
+-	return NET_RX_DROP;
+-}
+-
+ static inline u16
+ vlan_dev_get_egress_qos_mask(struct net_device *dev, struct sk_buff *skb)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5d0b4f6..52aed0a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3130,6 +3130,12 @@ another_round:
+ 
+ 	__this_cpu_inc(softnet_data.processed);
+ 
++	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
++		skb = vlan_untag(skb);
++		if (unlikely(!skb))
++			goto out;
++	}
++
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (skb->tc_verd & TC_NCLS) {
+ 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
+@@ -3177,7 +3183,7 @@ ncls:
+ 			ret = deliver_skb(skb, pt_prev, orig_dev);
+ 			pt_prev = NULL;
+ 		}
+-		if (vlan_hwaccel_do_receive(&skb)) {
++		if (vlan_do_receive(&skb)) {
+ 			ret = __netif_receive_skb(skb);
+ 			goto out;
+ 		} else if (unlikely(!skb))
+-- 
+1.7.4
 
