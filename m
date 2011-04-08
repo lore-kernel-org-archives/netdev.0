@@ -1,48 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 1/2] ethtool: fix manpage so that it will
- display tables again
-Date: Fri, 08 Apr 2011 23:45:38 +0100
-Message-ID: <1302302738.2871.36.camel@bwh-desktop>
-References: <20110408221135.26893.50092.stgit@gitlad.jf.intel.com>
-	 <20110408221234.26893.58812.stgit@gitlad.jf.intel.com>
+From: Kees Cook <kees.cook@canonical.com>
+Subject: Re: shutdown(2) does not fully shut down socket any more
+Date: Fri, 8 Apr 2011 15:46:24 -0700
+Message-ID: <20110408224624.GZ4050@outflux.net>
+References: <20110408221046.GW4050@outflux.net>
+ <20110408.152427.193714809.davem@davemloft.net>
+ <20110408223004.GY4050@outflux.net>
+ <20110408.153130.226769035.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:2336 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757858Ab1DHWpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 18:45:41 -0400
-In-Reply-To: <20110408221234.26893.58812.stgit@gitlad.jf.intel.com>
+Received: from smtp.outflux.net ([198.145.64.163]:33966 "EHLO smtp.outflux.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752843Ab1DHWq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2011 18:46:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20110408.153130.226769035.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-04-08 at 15:12 -0700, Alexander Duyck wrote:
-> The current ethtool manpage is not displaying tables.  After trying to pass
-> the manpage through tbl I repeatedly saw the error:
-> tbl:ethtool.8.in:707: unrecognised format `x'
-> tbl:ethtool.8.in:707: giving up on this table
+On Fri, Apr 08, 2011 at 03:31:30PM -0700, David Miller wrote:
+> From: Kees Cook <kees.cook@canonical.com>
+> Date: Fri, 8 Apr 2011 15:30:04 -0700
 > 
-> By dropping the 'x' the errors went away and when I built the manpage the
-> tables reappeared so I am assuming this is the correct approach.
-[...]
+> > Ah! Thanks, I didn't noticed that; I saw no activity on the bugzilla entry,
+> > so I thought it hadn't been seen yet.
+> 
+> We bascially do not use kernel.org bugzilla for bug tracking, all
+> work and discussions occur only here on the netdev list.
+> 
+> So what Stephen Hemminger, Andrew Morton, and others do is simply
+> forward the bug reports here to the list so we can work on them.
 
-I think this must depend somewhat on the version of tbl.  I must admit I
-haven't yet tested with a range of versions.
+Makes sense, yeah. It'd be cool if the forwarder added a note to the bug
+saying "this has been forwarded [here]". Then the reporter would know where
+to go look for status updates.
 
-In groff 1.20.1, the 'x' column flag requested an 'expanded' column
-which will be as wide as possible (after allowing for the other column
-contents) with its contents word-wrapped if necessary.  Without this
-flag, tbl wraps some columns poorly and complains about some tables
-being too wide (though I don't think they are).  Clearly that is less
-bad than having it discard the tables altogether, so I will apply this.
+But, regardless, it's being looked at. Thanks!
 
-Ben.
+-Kees
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Kees Cook
+Ubuntu Security Team
