@@ -1,52 +1,31 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] Add support for SMSC LAN9530, LAN9730 and LAN89530
-Date: Fri,  8 Apr 2011 19:51:59 +0100
-Message-ID: <1302288719-17103-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Pallai Roland <pallair@magex.hu>
+Subject: Re: Kernel panic when using bridge
+Date: Fri, 8 Apr 2011 21:12:59 +0200
+Message-ID: <BANLkTi=bk8uGAxwXUNh5h9HN0T-W2ruaYw@mail.gmail.com>
+References: <4D9E62D9.5010400@scotdoyle.com>
+	<loom.20110408T153726-822@post.gmane.org>
+	<4D9F2248.90300@scotdoyle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Sebastian Nickel <Sebastian.Nickel@hetzner.de>,
+	netdev@vger.kernel.org
+To: Scot Doyle <lkml@scotdoyle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([217.169.15.170]:43162 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756846Ab1DHS7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 14:59:11 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:62748 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757719Ab1DHTNB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 15:13:01 -0400
+Received: by bwz15 with SMTP id 15so3075586bwz.19
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2011 12:13:00 -0700 (PDT)
+In-Reply-To: <4D9F2248.90300@scotdoyle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for SMSC's LAN9530, LAN9730 and LAN89530 USB
-ethernet controllers to the existing smsc95xx driver by adding
-their new USB VID/PID pairs.
+2011/4/8 Scot Doyle <lkml@scotdoyle.com>:
+> Perhaps the problem is isolated to the bridging code? Neither KVM guest nor
+> associated tap device were running during my second reported panic.
+> Here's a similar stacktrace from a third person:
+> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=620201
+Yep, I'm the third person. :)
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/usb/smsc95xx.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 727874d..47a6c87 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1313,6 +1313,21 @@ static const struct usb_device_id products[] = {
- 		USB_DEVICE(0x0424, 0x9909),
- 		.driver_info = (unsigned long) &smsc95xx_info,
- 	},
-+	{
-+		/* SMSC LAN9530 USB Ethernet Device */
-+		USB_DEVICE(0x0424, 0x9530),
-+		.driver_info = (unsigned long) &smsc95xx_info,
-+	},
-+	{
-+		/* SMSC LAN9730 USB Ethernet Device */
-+		USB_DEVICE(0x0424, 0x9730),
-+		.driver_info = (unsigned long) &smsc95xx_info,
-+	},
-+	{
-+		/* SMSC LAN89530 USB Ethernet Device */
-+		USB_DEVICE(0x0424, 0x9E08),
-+		.driver_info = (unsigned long) &smsc95xx_info,
-+	},
- 	{ },		/* END */
- };
- MODULE_DEVICE_TABLE(usb, products);
--- 
-1.7.2.5
-
+What I can tell you my servers are stable after bridging has been eliminated.
