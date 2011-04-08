@@ -1,99 +1,66 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: Re: [PATCH] igb: restore EEPROM 16kB access limit
-Date: Fri, 08 Apr 2011 22:04:20 +0200
-Message-ID: <4D9F6A44.7060809@kpanic.de>
-References: <1302269695-27188-1-git-send-email-sassmann@kpanic.de> <EDC0E76513226749BFBC9C3FB031318F0137E85A8E@orsmsx508.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-next] cxgb4vf: drop phys_id interface and implement the newer set_phys_id
+Date: Fri,  8 Apr 2011 13:05:00 -0700
+Message-ID: <1302293100-18724-1-git-send-email-dm@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.xlhost.de ([213.202.242.118]:47287 "EHLO mysql1.xlhost.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757800Ab1DHUEc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2011 16:04:32 -0400
-In-Reply-To: <EDC0E76513226749BFBC9C3FB031318F0137E85A8E@orsmsx508.amr.corp.intel.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:23184 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757800Ab1DHUFC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 16:05:02 -0400
+Received: from tom.asicdesigners.com (tom.asicdesigners.com [10.192.167.168])
+	by stargate.chelsio.com (8.13.1/8.13.1) with ESMTP id p38K51QB016017
+	for <netdev@vger.kernel.org>; Fri, 8 Apr 2011 13:05:01 -0700
+Received: from tom.asicdesigners.com (localhost.localdomain [127.0.0.1])
+	by tom.asicdesigners.com (8.14.4/8.14.3) with ESMTP id p38K509T018754
+	for <netdev@vger.kernel.org>; Fri, 8 Apr 2011 13:05:02 -0700
+Received: (from dm@localhost)
+	by tom.asicdesigners.com (8.14.4/8.14.4/Submit) id p38K50GJ018752
+	for netdev@vger.kernel.org; Fri, 8 Apr 2011 13:05:00 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08.04.2011 18:40, Wyborny, Carolyn wrote:
-> 
-> 
->> -----Original Message-----
->> From: Stefan Assmann [mailto:sassmann@kpanic.de]
->> Sent: Friday, April 08, 2011 6:35 AM
->> To: netdev@vger.kernel.org
->> Cc: e1000-devel@lists.sourceforge.net; Kirsher, Jeffrey T; Pieper,
->> Jeffrey E; Wyborny, Carolyn; Ronciak, John
->> Subject: [PATCH] igb: restore EEPROM 16kB access limit
->>
->> The check limiting the EEPROM access up to 16kB was removed by
->> commit 4322e561a93ec7ee034b603a6c610e7be90d4e8a. Without this check
->> the kernel will try to checksum the EEPROM up to 2MB (observed with
->> a 8086:10c9 NIC) and fail.
->>
->> igb 0000:03:00.0: 0 vfs allocated
->> igb 0000:03:00.0: The NVM Checksum Is Not Valid
->> ACPI: PCI interrupt for device 0000:03:00.0 disabled
->> igb: probe of 0000:03:00.0 failed with error -5
->>
->> Reason for that being an overflow in u16 e1000_nvm_info->nvm
->> while doing "nvm->word_size = 1 << size;" with size == 21.
->> Putting the check back in place.
->>
->> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
->> ---
->> drivers/net/igb/e1000_82575.c |    4 ++++
->> 1 files changed, 4 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/igb/e1000_82575.c
->> b/drivers/net/igb/e1000_82575.c
->> index 6b256c2..5cfa37f 100644
->> --- a/drivers/net/igb/e1000_82575.c
->> +++ b/drivers/net/igb/e1000_82575.c
->> @@ -244,6 +244,10 @@ static s32 igb_get_invariants_82575(struct e1000_hw
->> *hw)
->> 	 */
->> 	size += NVM_WORD_SIZE_BASE_SHIFT;
->>
->> +	/* EEPROM access above 16k is unsupported */
->> +	if (size > 14)
->> +		size = 14;
->> +
->> 	nvm->word_size = 1 << size;
->> 	if (nvm->word_size == (1 << 15))
->> 		nvm->page_size = 128;
->> --
->> 1.7.4
-> NACK
-> 
-> This doesn't apply against current upstream RC kernel.  There was more changed in that commit than just the removal of this.  There is a missing section of code that is needed, but not this.  This starts at line 251 in e1000_82575.c
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ drivers/net/cxgb4vf/cxgb4vf_main.c |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
 
-Carolyn,
+diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
+index 6aad64d..b0d037e 100644
+--- a/drivers/net/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
+@@ -1352,11 +1352,20 @@ static int cxgb4vf_set_rx_csum(struct net_device *dev, u32 csum)
+ /*
+  * Identify the port by blinking the port's LED.
+  */
+-static int cxgb4vf_phys_id(struct net_device *dev, u32 id)
++static int cxgb4vf_phys_id(struct net_device *dev,
++			   enum ethtool_phys_id_state state)
+ {
++	unsigned int val;
+ 	struct port_info *pi = netdev_priv(dev);
+ 
+-	return t4vf_identify_port(pi->adapter, pi->viid, 5);
++	if (state == ETHTOOL_ID_ACTIVE)
++		val = 0xffff;
++	else if (state == ETHTOOL_ID_INACTIVE)
++		val = 0;
++	else
++		return -EINVAL;
++
++	return t4vf_identify_port(pi->adapter, pi->viid, val);
+ }
+ 
+ /*
+@@ -1588,7 +1597,7 @@ static struct ethtool_ops cxgb4vf_ethtool_ops = {
+ 	.set_sg			= ethtool_op_set_sg,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_strings		= cxgb4vf_get_strings,
+-	.phys_id		= cxgb4vf_phys_id,
++	.set_phys_id		= cxgb4vf_phys_id,
+ 	.get_sset_count		= cxgb4vf_get_sset_count,
+ 	.get_ethtool_stats	= cxgb4vf_get_ethtool_stats,
+ 	.get_regs_len		= cxgb4vf_get_regs_len,
+-- 
+1.7.3.4
 
-the patch applies against latest net-next-2.6
-(782d640afd15af7a1faf01cfe566ca4ac511319d).
-
-How do you explain the behaviour observed in the patch description?
-
-> 
-> --snip--
->         /* NVM Function Pointers */
->         nvm->ops.acquire = igb_acquire_nvm_82575;
->         if (nvm->word_size < (1 << 15))
->                 nvm->ops.read = igb_read_nvm_eerd;
->         else
->                 nvm->ops.read = igb_read_nvm_spi;
-> --snip--
-
-Ok, so I assume some new NICs allow access beyond the 16k boundary.
-In that case we should identify which NICs and treat them separately,
-keeping the behaviour identical for the others.
-
-  Stefan
