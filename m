@@ -1,168 +1,88 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next-2.6 PATCH] v3 ethtool: add ntuple flow specifier data to
-	network flow classifier
-Date: Fri, 08 Apr 2011 21:01:59 -0700
-Message-ID: <20110409040159.6064.79138.stgit@gitlad.jf.intel.com>
+From: Alexander H Duyck <alexander.h.duyck@intel.com>
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+Date: Fri, 08 Apr 2011 21:40:57 -0700
+Message-ID: <1302324057.15899.20.camel@ahduyck-mobl2.amr.corp.intel.com>
+References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302152327.2701.50.camel@edumazet-laptop>
+	 <1302153412.2701.64.camel@edumazet-laptop>
+	 <1302157012.2701.73.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48B9E82@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302163650.3357.8.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302167168.3357.12.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
+	 <1302192218.3357.47.camel@edumazet-laptop> <4D9DE465.1080008@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA58D@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302253651.4409.2.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
+	 <4D9F3629.9020506@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AF@ESGSCCMS0001.eapac.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	bhutchings@solarflare.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Wei Gu <wei.gu@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28459 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:7029 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750740Ab1DIECH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Apr 2011 00:02:07 -0400
+	id S1751196Ab1DIEhf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Apr 2011 00:37:35 -0400
+In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E48BA6AF@ESGSCCMS0001.eapac.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change is meant to add an ntuple data extensions to the rx network flow
-classification specifiers.  The idea is to allow ntuple to be displayed via
-the network flow classification interface.
+On Fri, 2011-04-08 at 20:36 -0700, Wei Gu wrote:
+> Hi Alexander, I do agree with you that if only the rx_missing_error
+> (rx_no_buffer_count: 0) indicates the memory bandwidth issue. But the
+> strange thing is I using the same test configuration on Linux 2.6.32,
+> which looks no this problem at all. SO it not a HW setup problem at
+> all, only difference in on the Kernel version, that's why I go back to
+> you guys for this new Linux 2.6.38, if it will affact this memory
+> bandwidth Or BIOS etc things?
 
-The first patch had some left over stuff from the original flow extension
-flags I had added.  That bit is removed in this patch.
+What were the numbers you were getting with 2.6.32?  I would be
+interested in seeing those number just to get an idea of how they
+compare against the 2.6.38 kernel.
 
-The second had some left over comments that stated we ignored bits in the
-masks when we actually match them.
+> The follow dump is done, while I was try to receive 290Kpps 400Byte
+> pakets from IXIA, and drop them in the prerouting hook. I bind the
+> eth10 8 RX queue to CPU sock ID 3 ( core 24-31) on NUMA NODE3
 
-This work is based on input from Ben Hutchings.
+Just to confirm this is with DMAR off?  I saw an earlier email that said
+you were getting a variable amount that was over 1Mpps and just want to
+confirm this is with the same config.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
+> ethtool -i eth10
+> driver: ixgbe
+> version: 3.2.10-NAPI
+> firmware-version: 0.9-3
+> bus-info: 0000:8d:00.0
+> 
+> ethtool -S eth10
+> NIC statistics:
+>      rx_packets: 14222510
+>      tx_packets: 109
+>      rx_bytes: 5575223920
+>      tx_bytes: 17790
+>      rx_missed_errors: 15150244
+>      rx_no_buffer_count: 0
 
- include/linux/ethtool.h |   53 ++++++++++++++++++++++++++++-------------------
- net/socket.c            |   14 ++++++------
- 2 files changed, 39 insertions(+), 28 deletions(-)
+I trimmed down your stats here pretty significantly.  This isn't an
+issue with the driver not keeping up.  The problem here is memory and/or
+bus bandwidth.  Based on the info you provided I am assuming you have a
+quad socket system.  I'm curious how the memory is laid out.  What is
+the total memory size, memory per node, and do you have all of the
+memory channels on each node populated?  One common thing I've seen
+cause these type of issues is an incorrect memory configuration.
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index c04d131..c7eff13 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -380,27 +380,42 @@ struct ethtool_usrip4_spec {
- 	__u8    proto;
- };
- 
-+union ethtool_flow_union {
-+	struct ethtool_tcpip4_spec		tcp_ip4_spec;
-+	struct ethtool_tcpip4_spec		udp_ip4_spec;
-+	struct ethtool_tcpip4_spec		sctp_ip4_spec;
-+	struct ethtool_ah_espip4_spec		ah_ip4_spec;
-+	struct ethtool_ah_espip4_spec		esp_ip4_spec;
-+	struct ethtool_usrip4_spec		usr_ip4_spec;
-+	struct ethhdr				ether_spec;
-+	__u8					hdata[60];
-+};
-+
-+struct ethtool_flow_ext {
-+	__be16	vlan_etype;
-+	__be16	vlan_tci;
-+	__be32	data[2];
-+};
-+
- /**
-  * struct ethtool_rx_flow_spec - specification for RX flow filter
-  * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
-  * @h_u: Flow fields to match (dependent on @flow_type)
-- * @m_u: Masks for flow field bits to be ignored
-+ * @h_ext: Additional fields to match
-+ * @m_u: Masks for flow field bits to be matched
-+ * @m_ext: Masks for additional field bits to be matched
-+ *	Note, all additional fields must be ignored unless @flow_type
-+ *	includes the %FLOW_EXT flag.
-  * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
-  *	if packets should be discarded
-  * @location: Index of filter in hardware table
-  */
- struct ethtool_rx_flow_spec {
- 	__u32		flow_type;
--	union {
--		struct ethtool_tcpip4_spec		tcp_ip4_spec;
--		struct ethtool_tcpip4_spec		udp_ip4_spec;
--		struct ethtool_tcpip4_spec		sctp_ip4_spec;
--		struct ethtool_ah_espip4_spec		ah_ip4_spec;
--		struct ethtool_ah_espip4_spec		esp_ip4_spec;
--		struct ethtool_usrip4_spec		usr_ip4_spec;
--		struct ethhdr				ether_spec;
--		__u8					hdata[72];
--	} h_u, m_u;
-+	union ethtool_flow_union h_u;
-+	struct ethtool_flow_ext h_ext;
-+	union ethtool_flow_union m_u;
-+	struct ethtool_flow_ext m_ext;
- 	__u64		ring_cookie;
- 	__u32		location;
- };
-@@ -458,16 +473,10 @@ struct ethtool_rxnfc {
- 
- struct compat_ethtool_rx_flow_spec {
- 	u32		flow_type;
--	union {
--		struct ethtool_tcpip4_spec		tcp_ip4_spec;
--		struct ethtool_tcpip4_spec		udp_ip4_spec;
--		struct ethtool_tcpip4_spec		sctp_ip4_spec;
--		struct ethtool_ah_espip4_spec		ah_ip4_spec;
--		struct ethtool_ah_espip4_spec		esp_ip4_spec;
--		struct ethtool_usrip4_spec		usr_ip4_spec;
--		struct ethhdr				ether_spec;
--		u8					hdata[72];
--	} h_u, m_u;
-+	union ethtool_flow_union h_u;
-+	struct ethtool_flow_ext h_ext;
-+	union ethtool_flow_union m_u;
-+	struct ethtool_flow_ext m_ext;
- 	compat_u64	ring_cookie;
- 	u32		location;
- };
-@@ -1072,6 +1081,8 @@ struct ethtool_ops {
- #define	IPV4_FLOW	0x10	/* hash only */
- #define	IPV6_FLOW	0x11	/* hash only */
- #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
-+/* Flag to enable additional fields in struct ethtool_rx_flow_spec */
-+#define	FLOW_EXT	0x80000000
- 
- /* L3-L4 network traffic flow hash options */
- #define	RXH_L2DA	(1 << 1)
-diff --git a/net/socket.c b/net/socket.c
-index 5212447..575c84f 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -2643,13 +2643,13 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
- 		return -EFAULT;
- 
- 	if (convert_in) {
--		/* We expect there to be holes between fs.m_u and
-+		/* We expect there to be holes between fs.m_ext and
- 		 * fs.ring_cookie and at the end of fs, but nowhere else.
- 		 */
--		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_u) +
--			     sizeof(compat_rxnfc->fs.m_u) !=
--			     offsetof(struct ethtool_rxnfc, fs.m_u) +
--			     sizeof(rxnfc->fs.m_u));
-+		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_ext) +
-+			     sizeof(compat_rxnfc->fs.m_ext) !=
-+			     offsetof(struct ethtool_rxnfc, fs.m_ext) +
-+			     sizeof(rxnfc->fs.m_ext));
- 		BUILD_BUG_ON(
- 			offsetof(struct compat_ethtool_rxnfc, fs.location) -
- 			offsetof(struct compat_ethtool_rxnfc, fs.ring_cookie) !=
-@@ -2657,7 +2657,7 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
- 			offsetof(struct ethtool_rxnfc, fs.ring_cookie));
- 
- 		if (copy_in_user(rxnfc, compat_rxnfc,
--				 (void *)(&rxnfc->fs.m_u + 1) -
-+				 (void *)(&rxnfc->fs.m_ext + 1) -
- 				 (void *)rxnfc) ||
- 		    copy_in_user(&rxnfc->fs.ring_cookie,
- 				 &compat_rxnfc->fs.ring_cookie,
-@@ -2674,7 +2674,7 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
- 
- 	if (convert_out) {
- 		if (copy_in_user(compat_rxnfc, rxnfc,
--				 (const void *)(&rxnfc->fs.m_u + 1) -
-+				 (const void *)(&rxnfc->fs.m_ext + 1) -
- 				 (const void *)rxnfc) ||
- 		    copy_in_user(&compat_rxnfc->fs.ring_cookie,
- 				 &rxnfc->fs.ring_cookie,
+Also if you could send me an lspci -vvv for 8d:00.0 specifically I would
+appreciate it as I would like to look over the PCIe config just to make
+sure the slot is a x8 PCIe gen 2.
+
+Thanks,
+
+Alex
 
