@@ -1,73 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] ethtool: remove phys_id from ethtool_ops
-Date: Fri, 8 Apr 2011 17:08:30 -0700
-Message-ID: <20110408170830.3ab079e8@nehalam>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 PATCH] v2 ethtool: add ntuple flow specifier
+ data to network flow classifier
+Date: Sat, 09 Apr 2011 01:13:06 +0100
+Message-ID: <1302307986.2871.65.camel@bwh-desktop>
+References: <20110408223451.27132.31805.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, Santwona Behera <santwona.behera@sun.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54065 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757983Ab1DIAId (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2011 20:08:33 -0400
+Received: from mail.solarflare.com ([216.237.3.220]:7981 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753419Ab1DIANK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2011 20:13:10 -0400
+In-Reply-To: <20110408223451.27132.31805.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hold this patch until after the Intel and Qlogic driver
-changes are merged into net-next. Patches have been submitted
-but still waiting for vendor.
+On Fri, 2011-04-08 at 15:34 -0700, Alexander Duyck wrote:
+> This change is meant to add an ntuple data extensions to the rx network flow
+> classification specifiers.  The idea is to allow ntuple to be displayed via
+> the network flow classification interface.
+[...]
+>  /**
+>   * struct ethtool_rx_flow_spec - specification for RX flow filter
+>   * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
+>   * @h_u: Flow fields to match (dependent on @flow_type)
+> + * @h_ext: Additional fields to match
+>   * @m_u: Masks for flow field bits to be ignored
+> + * @m_ext: Masks for additional field bits to be ignored.
+> + *	Note, all additional fields must be ignored unless @flow_type
+> + *	includes the %FLOW_EXT flag.
+[...]
 
-After that all the upstream kernel drivers now use phys_id, 
-and the old ethtool_ops interface (phys_id) can be removed.
+Sorry I didn't bring this up against v1:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I think you worked out that these masks are interpreted as bits to be
+matched, rather than bits to be ignored, in the existing implementation
+in niu.  Looking again at niu, I think that you were right about that.
+So please fix the comment while you're updating it.
 
---- a/include/linux/ethtool.h	2011-04-08 16:59:55.691452941 -0700
-+++ b/include/linux/ethtool.h	2011-04-08 17:00:26.135748450 -0700
-@@ -767,12 +767,6 @@ bool ethtool_invalid_flags(struct net_de
-  *	the indicator accordingly.  Finally, it is called with the argument
-  *	%ETHTOOL_ID_INACTIVE and must deactivate the indicator.  Returns a
-  *	negative error code or zero.
-- * @phys_id: Deprecated in favour of @set_phys_id.
-- *	Identify the physical device, e.g. by flashing an LED
-- *	attached to it until interrupted by a signal or the given time
-- *	(in seconds) elapses.  If the given time is zero, use a default
-- *	time limit.  Returns a negative error code or zero.  Being
-- *	interrupted by a signal is not an error.
-  * @get_ethtool_stats: Return extended statistics about the device.
-  *	This is only useful if the device maintains statistics not
-  *	included in &struct rtnl_link_stats64.
-@@ -858,7 +852,6 @@ struct ethtool_ops {
- 	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
- 	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
- 	int	(*set_phys_id)(struct net_device *, enum ethtool_phys_id_state);
--	int	(*phys_id)(struct net_device *, u32);
- 	void	(*get_ethtool_stats)(struct net_device *,
- 				     struct ethtool_stats *, u64 *);
- 	int	(*begin)(struct net_device *);
---- a/net/core/ethtool.c	2011-04-08 17:00:33.259817585 -0700
-+++ b/net/core/ethtool.c	2011-04-08 17:01:01.620092913 -0700
-@@ -1623,7 +1623,7 @@ static int ethtool_phys_id(struct net_de
- 	static bool busy;
- 	int rc;
- 
--	if (!dev->ethtool_ops->set_phys_id && !dev->ethtool_ops->phys_id)
-+	if (!dev->ethtool_ops->set_phys_id)
- 		return -EOPNOTSUPP;
- 
- 	if (busy)
-@@ -1632,10 +1632,6 @@ static int ethtool_phys_id(struct net_de
- 	if (copy_from_user(&id, useraddr, sizeof(id)))
- 		return -EFAULT;
- 
--	if (!dev->ethtool_ops->set_phys_id)
--		/* Do it the old way */
--		return dev->ethtool_ops->phys_id(dev, id.data);
--
- 	rc = dev->ethtool_ops->set_phys_id(dev, ETHTOOL_ID_ACTIVE);
- 	if (rc && rc != -EINVAL)
- 		return rc;
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
