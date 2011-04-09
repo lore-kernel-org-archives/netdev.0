@@ -1,179 +1,130 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH] v3 ethtool: add ntuple flow specifier
- data to network flow classifier
-Date: Sat, 09 Apr 2011 11:38:32 +0100
-Message-ID: <1302345512.5282.48.camel@localhost>
-References: <20110409040159.6064.79138.stgit@gitlad.jf.intel.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] net: 8139cp: convert to hw_features
+Date: Sat,  9 Apr 2011 12:58:18 +0200 (CEST)
+Message-ID: <20110409105818.F217813909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:42506 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754030Ab1DIKig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2011 06:38:36 -0400
-In-Reply-To: <20110409040159.6064.79138.stgit@gitlad.jf.intel.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:38260 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754195Ab1DIK6U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Apr 2011 06:58:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-04-08 at 21:01 -0700, Alexander Duyck wrote:
-> This change is meant to add an ntuple data extensions to the rx network flow
-> classification specifiers.  The idea is to allow ntuple to be displayed via
-> the network flow classification interface.
-> 
-> The first patch had some left over stuff from the original flow extension
-> flags I had added.  That bit is removed in this patch.
-> 
-> The second had some left over comments that stated we ignored bits in the
-> masks when we actually match them.
-> 
-> This work is based on input from Ben Hutchings.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ drivers/net/8139cp.c |   46 +++++++++++++++++-------------------------=
+----
+ 1 files changed, 17 insertions(+), 29 deletions(-)
 
-> ---
-> 
->  include/linux/ethtool.h |   53 ++++++++++++++++++++++++++++-------------------
->  net/socket.c            |   14 ++++++------
->  2 files changed, 39 insertions(+), 28 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index c04d131..c7eff13 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -380,27 +380,42 @@ struct ethtool_usrip4_spec {
->  	__u8    proto;
->  };
->  
-> +union ethtool_flow_union {
-> +	struct ethtool_tcpip4_spec		tcp_ip4_spec;
-> +	struct ethtool_tcpip4_spec		udp_ip4_spec;
-> +	struct ethtool_tcpip4_spec		sctp_ip4_spec;
-> +	struct ethtool_ah_espip4_spec		ah_ip4_spec;
-> +	struct ethtool_ah_espip4_spec		esp_ip4_spec;
-> +	struct ethtool_usrip4_spec		usr_ip4_spec;
-> +	struct ethhdr				ether_spec;
-> +	__u8					hdata[60];
-> +};
-> +
-> +struct ethtool_flow_ext {
-> +	__be16	vlan_etype;
-> +	__be16	vlan_tci;
-> +	__be32	data[2];
-> +};
-> +
->  /**
->   * struct ethtool_rx_flow_spec - specification for RX flow filter
->   * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
->   * @h_u: Flow fields to match (dependent on @flow_type)
-> - * @m_u: Masks for flow field bits to be ignored
-> + * @h_ext: Additional fields to match
-> + * @m_u: Masks for flow field bits to be matched
-> + * @m_ext: Masks for additional field bits to be matched
-> + *	Note, all additional fields must be ignored unless @flow_type
-> + *	includes the %FLOW_EXT flag.
->   * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
->   *	if packets should be discarded
->   * @location: Index of filter in hardware table
->   */
->  struct ethtool_rx_flow_spec {
->  	__u32		flow_type;
-> -	union {
-> -		struct ethtool_tcpip4_spec		tcp_ip4_spec;
-> -		struct ethtool_tcpip4_spec		udp_ip4_spec;
-> -		struct ethtool_tcpip4_spec		sctp_ip4_spec;
-> -		struct ethtool_ah_espip4_spec		ah_ip4_spec;
-> -		struct ethtool_ah_espip4_spec		esp_ip4_spec;
-> -		struct ethtool_usrip4_spec		usr_ip4_spec;
-> -		struct ethhdr				ether_spec;
-> -		__u8					hdata[72];
-> -	} h_u, m_u;
-> +	union ethtool_flow_union h_u;
-> +	struct ethtool_flow_ext h_ext;
-> +	union ethtool_flow_union m_u;
-> +	struct ethtool_flow_ext m_ext;
->  	__u64		ring_cookie;
->  	__u32		location;
->  };
-> @@ -458,16 +473,10 @@ struct ethtool_rxnfc {
->  
->  struct compat_ethtool_rx_flow_spec {
->  	u32		flow_type;
-> -	union {
-> -		struct ethtool_tcpip4_spec		tcp_ip4_spec;
-> -		struct ethtool_tcpip4_spec		udp_ip4_spec;
-> -		struct ethtool_tcpip4_spec		sctp_ip4_spec;
-> -		struct ethtool_ah_espip4_spec		ah_ip4_spec;
-> -		struct ethtool_ah_espip4_spec		esp_ip4_spec;
-> -		struct ethtool_usrip4_spec		usr_ip4_spec;
-> -		struct ethhdr				ether_spec;
-> -		u8					hdata[72];
-> -	} h_u, m_u;
-> +	union ethtool_flow_union h_u;
-> +	struct ethtool_flow_ext h_ext;
-> +	union ethtool_flow_union m_u;
-> +	struct ethtool_flow_ext m_ext;
->  	compat_u64	ring_cookie;
->  	u32		location;
->  };
-> @@ -1072,6 +1081,8 @@ struct ethtool_ops {
->  #define	IPV4_FLOW	0x10	/* hash only */
->  #define	IPV6_FLOW	0x11	/* hash only */
->  #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
-> +/* Flag to enable additional fields in struct ethtool_rx_flow_spec */
-> +#define	FLOW_EXT	0x80000000
->  
->  /* L3-L4 network traffic flow hash options */
->  #define	RXH_L2DA	(1 << 1)
-> diff --git a/net/socket.c b/net/socket.c
-> index 5212447..575c84f 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -2643,13 +2643,13 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
->  		return -EFAULT;
->  
->  	if (convert_in) {
-> -		/* We expect there to be holes between fs.m_u and
-> +		/* We expect there to be holes between fs.m_ext and
->  		 * fs.ring_cookie and at the end of fs, but nowhere else.
->  		 */
-> -		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_u) +
-> -			     sizeof(compat_rxnfc->fs.m_u) !=
-> -			     offsetof(struct ethtool_rxnfc, fs.m_u) +
-> -			     sizeof(rxnfc->fs.m_u));
-> +		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_ext) +
-> +			     sizeof(compat_rxnfc->fs.m_ext) !=
-> +			     offsetof(struct ethtool_rxnfc, fs.m_ext) +
-> +			     sizeof(rxnfc->fs.m_ext));
->  		BUILD_BUG_ON(
->  			offsetof(struct compat_ethtool_rxnfc, fs.location) -
->  			offsetof(struct compat_ethtool_rxnfc, fs.ring_cookie) !=
-> @@ -2657,7 +2657,7 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
->  			offsetof(struct ethtool_rxnfc, fs.ring_cookie));
->  
->  		if (copy_in_user(rxnfc, compat_rxnfc,
-> -				 (void *)(&rxnfc->fs.m_u + 1) -
-> +				 (void *)(&rxnfc->fs.m_ext + 1) -
->  				 (void *)rxnfc) ||
->  		    copy_in_user(&rxnfc->fs.ring_cookie,
->  				 &compat_rxnfc->fs.ring_cookie,
-> @@ -2674,7 +2674,7 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
->  
->  	if (convert_out) {
->  		if (copy_in_user(compat_rxnfc, rxnfc,
-> -				 (const void *)(&rxnfc->fs.m_u + 1) -
-> +				 (const void *)(&rxnfc->fs.m_ext + 1) -
->  				 (const void *)rxnfc) ||
->  		    copy_in_user(&compat_rxnfc->fs.ring_cookie,
->  				 &rxnfc->fs.ring_cookie,
-> 
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index dd16e83..10c4505 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -758,8 +758,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *s=
+kb,
+=20
+ 	entry =3D cp->tx_head;
+ 	eor =3D (entry =3D=3D (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
+-	if (dev->features & NETIF_F_TSO)
+-		mss =3D skb_shinfo(skb)->gso_size;
++	mss =3D skb_shinfo(skb)->gso_size;
+=20
+ 	if (skb_shinfo(skb)->nr_frags =3D=3D 0) {
+ 		struct cp_desc *txd =3D &cp->tx_ring[entry];
+@@ -1416,32 +1415,23 @@ static void cp_set_msglevel(struct net_device *=
+dev, u32 value)
+ 	cp->msg_enable =3D value;
+ }
+=20
+-static u32 cp_get_rx_csum(struct net_device *dev)
++static int cp_set_features(struct net_device *dev, u32 features)
+ {
+ 	struct cp_private *cp =3D netdev_priv(dev);
+-	return (cpr16(CpCmd) & RxChkSum) ? 1 : 0;
+-}
++	unsigned long flags;
+=20
+-static int cp_set_rx_csum(struct net_device *dev, u32 data)
+-{
+-	struct cp_private *cp =3D netdev_priv(dev);
+-	u16 cmd =3D cp->cpcmd, newcmd;
++	if (!((dev->features ^ features) & NETIF_F_RXCSUM))
++		return 0;
+=20
+-	newcmd =3D cmd;
++	spin_lock_irqsave(&cp->lock, flags);
+=20
+-	if (data)
+-		newcmd |=3D RxChkSum;
++	if (features & NETIF_F_RXCSUM)
++		cp->cpcmd |=3D RxChkSum;
+ 	else
+-		newcmd &=3D ~RxChkSum;
++		cp->cpcmd &=3D ~RxChkSum;
+=20
+-	if (newcmd !=3D cmd) {
+-		unsigned long flags;
+-
+-		spin_lock_irqsave(&cp->lock, flags);
+-		cp->cpcmd =3D newcmd;
+-		cpw16_f(CpCmd, newcmd);
+-		spin_unlock_irqrestore(&cp->lock, flags);
+-	}
++	cpw16_f(CpCmd, cp->cpcmd);
++	spin_unlock_irqrestore(&cp->lock, flags);
+=20
+ 	return 0;
+ }
+@@ -1554,11 +1544,6 @@ static const struct ethtool_ops cp_ethtool_ops =3D=
+ {
+ 	.get_link		=3D ethtool_op_get_link,
+ 	.get_msglevel		=3D cp_get_msglevel,
+ 	.set_msglevel		=3D cp_set_msglevel,
+-	.get_rx_csum		=3D cp_get_rx_csum,
+-	.set_rx_csum		=3D cp_set_rx_csum,
+-	.set_tx_csum		=3D ethtool_op_set_tx_csum, /* local! */
+-	.set_sg			=3D ethtool_op_set_sg,
+-	.set_tso		=3D ethtool_op_set_tso,
+ 	.get_regs		=3D cp_get_regs,
+ 	.get_wol		=3D cp_get_wol,
+ 	.set_wol		=3D cp_set_wol,
+@@ -1831,6 +1816,7 @@ static const struct net_device_ops cp_netdev_ops =
+=3D {
+ 	.ndo_do_ioctl		=3D cp_ioctl,
+ 	.ndo_start_xmit		=3D cp_start_xmit,
+ 	.ndo_tx_timeout		=3D cp_tx_timeout,
++	.ndo_set_features	=3D cp_set_features,
+ #if CP_VLAN_TAG_USED
+ 	.ndo_vlan_rx_register	=3D cp_vlan_rx_register,
+ #endif
+@@ -1934,6 +1920,9 @@ static int cp_init_one (struct pci_dev *pdev, con=
+st struct pci_device_id *ent)
+ 	cp->cpcmd =3D (pci_using_dac ? PCIDAC : 0) |
+ 		    PCIMulRW | RxChkSum | CpRxOn | CpTxOn;
+=20
++	dev->features |=3D NETIF_F_RXCSUM;
++	dev->hw_features |=3D NETIF_F_RXCSUM;
++
+ 	regs =3D ioremap(pciaddr, CP_REGS_SIZE);
+ 	if (!regs) {
+ 		rc =3D -EIO;
+@@ -1966,9 +1955,8 @@ static int cp_init_one (struct pci_dev *pdev, con=
+st struct pci_device_id *ent)
+ 	if (pci_using_dac)
+ 		dev->features |=3D NETIF_F_HIGHDMA;
+=20
+-#if 0 /* disabled by default until verified */
+-	dev->features |=3D NETIF_F_TSO;
+-#endif
++	/* disabled by default until verified */
++	dev->hw_features |=3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+=20
+ 	dev->irq =3D pdev->irq;
+=20
+--=20
+1.7.2.5
 
