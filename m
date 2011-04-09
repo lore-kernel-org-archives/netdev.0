@@ -1,130 +1,229 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: 8139cp: convert to hw_features
-Date: Sat,  9 Apr 2011 12:58:18 +0200 (CEST)
-Message-ID: <20110409105818.F217813909@rere.qmqm.pl>
+Subject: [PATCH] net: stmmac: convert to hw_features
+Date: Sat,  9 Apr 2011 14:46:55 +0200 (CEST)
+Message-ID: <20110409124655.A015B13909@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:38260 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:32897 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754195Ab1DIK6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Apr 2011 06:58:20 -0400
+	id S1754479Ab1DIMq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Apr 2011 08:46:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This also removes TSO as it's made fully in software --- better to leav=
+e this
+to networking core.
+
+If the MAC features can be detected at probe time and not at open, then
+stmmac_fix_features could be simplified by limiting hw_features. That's
+also better for users as they don't see offloads being togglable but
+never turned on.
+
+Redundant fallbacks for TX csum are removed as it's already handled
+by network core.
+
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/8139cp.c |   46 +++++++++++++++++-------------------------=
-----
- 1 files changed, 17 insertions(+), 29 deletions(-)
+ drivers/net/stmmac/stmmac_ethtool.c |   14 ------
+ drivers/net/stmmac/stmmac_main.c    |   83 ++++++++++-----------------=
+--------
+ 2 files changed, 23 insertions(+), 74 deletions(-)
 
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index dd16e83..10c4505 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -758,8 +758,7 @@ static netdev_tx_t cp_start_xmit (struct sk_buff *s=
-kb,
-=20
- 	entry =3D cp->tx_head;
- 	eor =3D (entry =3D=3D (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
--	if (dev->features & NETIF_F_TSO)
--		mss =3D skb_shinfo(skb)->gso_size;
-+	mss =3D skb_shinfo(skb)->gso_size;
-=20
- 	if (skb_shinfo(skb)->nr_frags =3D=3D 0) {
- 		struct cp_desc *txd =3D &cp->tx_ring[entry];
-@@ -1416,32 +1415,23 @@ static void cp_set_msglevel(struct net_device *=
-dev, u32 value)
- 	cp->msg_enable =3D value;
+diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/stmmac/s=
+tmmac_ethtool.c
+index fd719ed..156a805 100644
+--- a/drivers/net/stmmac/stmmac_ethtool.c
++++ b/drivers/net/stmmac/stmmac_ethtool.c
+@@ -197,13 +197,6 @@ static void stmmac_ethtool_gregs(struct net_device=
+ *dev,
+ 	}
  }
 =20
--static u32 cp_get_rx_csum(struct net_device *dev)
-+static int cp_set_features(struct net_device *dev, u32 features)
- {
- 	struct cp_private *cp =3D netdev_priv(dev);
--	return (cpr16(CpCmd) & RxChkSum) ? 1 : 0;
--}
-+	unsigned long flags;
-=20
--static int cp_set_rx_csum(struct net_device *dev, u32 data)
+-static u32 stmmac_ethtool_get_rx_csum(struct net_device *dev)
 -{
--	struct cp_private *cp =3D netdev_priv(dev);
--	u16 cmd =3D cp->cpcmd, newcmd;
-+	if (!((dev->features ^ features) & NETIF_F_RXCSUM))
-+		return 0;
-=20
--	newcmd =3D cmd;
-+	spin_lock_irqsave(&cp->lock, flags);
-=20
--	if (data)
--		newcmd |=3D RxChkSum;
-+	if (features & NETIF_F_RXCSUM)
-+		cp->cpcmd |=3D RxChkSum;
- 	else
--		newcmd &=3D ~RxChkSum;
-+		cp->cpcmd &=3D ~RxChkSum;
-=20
--	if (newcmd !=3D cmd) {
--		unsigned long flags;
+-	struct stmmac_priv *priv =3D netdev_priv(dev);
 -
--		spin_lock_irqsave(&cp->lock, flags);
--		cp->cpcmd =3D newcmd;
--		cpw16_f(CpCmd, newcmd);
--		spin_unlock_irqrestore(&cp->lock, flags);
--	}
-+	cpw16_f(CpCmd, cp->cpcmd);
-+	spin_unlock_irqrestore(&cp->lock, flags);
+-	return priv->rx_coe;
+-}
+-
+ static void
+ stmmac_get_pauseparam(struct net_device *netdev,
+ 		      struct ethtool_pauseparam *pause)
+@@ -358,11 +351,6 @@ static struct ethtool_ops stmmac_ethtool_ops =3D {
+ 	.get_regs =3D stmmac_ethtool_gregs,
+ 	.get_regs_len =3D stmmac_ethtool_get_regs_len,
+ 	.get_link =3D ethtool_op_get_link,
+-	.get_rx_csum =3D stmmac_ethtool_get_rx_csum,
+-	.get_tx_csum =3D ethtool_op_get_tx_csum,
+-	.set_tx_csum =3D ethtool_op_set_tx_ipv6_csum,
+-	.get_sg =3D ethtool_op_get_sg,
+-	.set_sg =3D ethtool_op_set_sg,
+ 	.get_pauseparam =3D stmmac_get_pauseparam,
+ 	.set_pauseparam =3D stmmac_set_pauseparam,
+ 	.get_ethtool_stats =3D stmmac_get_ethtool_stats,
+@@ -370,8 +358,6 @@ static struct ethtool_ops stmmac_ethtool_ops =3D {
+ 	.get_wol =3D stmmac_get_wol,
+ 	.set_wol =3D stmmac_set_wol,
+ 	.get_sset_count	=3D stmmac_get_sset_count,
+-	.get_tso =3D ethtool_op_get_tso,
+-	.set_tso =3D ethtool_op_set_tso,
+ };
 =20
+ void stmmac_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmm=
+ac_main.c
+index 0e5f031..62fa51e 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -139,7 +139,6 @@ static const u32 default_msg_level =3D (NETIF_MSG_D=
+RV | NETIF_MSG_PROBE |
+ 				      NETIF_MSG_IFDOWN | NETIF_MSG_TIMER);
+=20
+ static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
+-static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device =
+*dev);
+=20
+ /**
+  * stmmac_verify_args - verify the driver parameters.
+@@ -843,6 +842,7 @@ static int stmmac_open(struct net_device *dev)
+ 		pr_info("stmmac: Rx Checksum Offload Engine supported\n");
+ 	if (priv->plat->tx_coe)
+ 		pr_info("\tTX Checksum insertion supported\n");
++	netdev_update_features(dev);
+=20
+ 	/* Initialise the MMC (if present) to disable all interrupts. */
+ 	writel(0xffffffff, priv->ioaddr + MMC_HIGH_INTR_MASK);
+@@ -927,46 +927,6 @@ static int stmmac_release(struct net_device *dev)
  	return 0;
  }
-@@ -1554,11 +1544,6 @@ static const struct ethtool_ops cp_ethtool_ops =3D=
- {
- 	.get_link		=3D ethtool_op_get_link,
- 	.get_msglevel		=3D cp_get_msglevel,
- 	.set_msglevel		=3D cp_set_msglevel,
--	.get_rx_csum		=3D cp_get_rx_csum,
--	.set_rx_csum		=3D cp_set_rx_csum,
--	.set_tx_csum		=3D ethtool_op_set_tx_csum, /* local! */
--	.set_sg			=3D ethtool_op_set_sg,
--	.set_tso		=3D ethtool_op_set_tso,
- 	.get_regs		=3D cp_get_regs,
- 	.get_wol		=3D cp_get_wol,
- 	.set_wol		=3D cp_set_wol,
-@@ -1831,6 +1816,7 @@ static const struct net_device_ops cp_netdev_ops =
-=3D {
- 	.ndo_do_ioctl		=3D cp_ioctl,
- 	.ndo_start_xmit		=3D cp_start_xmit,
- 	.ndo_tx_timeout		=3D cp_tx_timeout,
-+	.ndo_set_features	=3D cp_set_features,
- #if CP_VLAN_TAG_USED
- 	.ndo_vlan_rx_register	=3D cp_vlan_rx_register,
+=20
+-/*
+- * To perform emulated hardware segmentation on skb.
+- */
+-static int stmmac_sw_tso(struct stmmac_priv *priv, struct sk_buff *skb=
+)
+-{
+-	struct sk_buff *segs, *curr_skb;
+-	int gso_segs =3D skb_shinfo(skb)->gso_segs;
+-
+-	/* Estimate the number of fragments in the worst case */
+-	if (unlikely(stmmac_tx_avail(priv) < gso_segs)) {
+-		netif_stop_queue(priv->dev);
+-		TX_DBG(KERN_ERR "%s: TSO BUG! Tx Ring full when queue awake\n",
+-		       __func__);
+-		if (stmmac_tx_avail(priv) < gso_segs)
+-			return NETDEV_TX_BUSY;
+-
+-		netif_wake_queue(priv->dev);
+-	}
+-	TX_DBG("\tstmmac_sw_tso: segmenting: skb %p (len %d)\n",
+-	       skb, skb->len);
+-
+-	segs =3D skb_gso_segment(skb, priv->dev->features & ~NETIF_F_TSO);
+-	if (IS_ERR(segs))
+-		goto sw_tso_end;
+-
+-	do {
+-		curr_skb =3D segs;
+-		segs =3D segs->next;
+-		TX_DBG("\t\tcurrent skb->len: %d, *curr %p,"
+-		       "*next %p\n", curr_skb->len, curr_skb, segs);
+-		curr_skb->next =3D NULL;
+-		stmmac_xmit(curr_skb, priv->dev);
+-	} while (segs);
+-
+-sw_tso_end:
+-	dev_kfree_skb(skb);
+-
+-	return NETDEV_TX_OK;
+-}
+-
+ static unsigned int stmmac_handle_jumbo_frames(struct sk_buff *skb,
+ 					       struct net_device *dev,
+ 					       int csum_insertion)
+@@ -1044,16 +1004,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *s=
+kb, struct net_device *dev)
+ 		       !skb_is_gso(skb) ? "isn't" : "is");
  #endif
-@@ -1934,6 +1920,9 @@ static int cp_init_one (struct pci_dev *pdev, con=
-st struct pci_device_id *ent)
- 	cp->cpcmd =3D (pci_using_dac ? PCIDAC : 0) |
- 		    PCIMulRW | RxChkSum | CpRxOn | CpTxOn;
 =20
-+	dev->features |=3D NETIF_F_RXCSUM;
-+	dev->hw_features |=3D NETIF_F_RXCSUM;
+-	if (unlikely(skb_is_gso(skb)))
+-		return stmmac_sw_tso(priv, skb);
+-
+-	if (likely((skb->ip_summed =3D=3D CHECKSUM_PARTIAL))) {
+-		if (unlikely((!priv->plat->tx_coe) ||
+-			     (priv->no_csum_insertion)))
+-			skb_checksum_help(skb);
+-		else
+-			csum_insertion =3D 1;
+-	}
++	csum_insertion =3D (skb->ip_summed =3D=3D CHECKSUM_PARTIAL);
+=20
+ 	desc =3D priv->dma_tx + entry;
+ 	first =3D desc;
+@@ -1373,18 +1324,29 @@ static int stmmac_change_mtu(struct net_device =
+*dev, int new_mtu)
+ 		return -EINVAL;
+ 	}
+=20
++	dev->mtu =3D new_mtu;
++	netdev_update_features(dev);
 +
- 	regs =3D ioremap(pciaddr, CP_REGS_SIZE);
- 	if (!regs) {
- 		rc =3D -EIO;
-@@ -1966,9 +1955,8 @@ static int cp_init_one (struct pci_dev *pdev, con=
-st struct pci_device_id *ent)
- 	if (pci_using_dac)
- 		dev->features |=3D NETIF_F_HIGHDMA;
++	return 0;
++}
++
++static u32 stmmac_fix_features(struct net_device *dev, u32 features)
++{
++	struct stmmac_priv *priv =3D netdev_priv(dev);
++
++	if (!priv->rx_coe)
++		features &=3D ~NETIF_F_RXCSUM;
++	if (!priv->plat->tx_coe)
++		features &=3D ~NETIF_F_ALL_CSUM;
++
+ 	/* Some GMAC devices have a bugged Jumbo frame support that
+ 	 * needs to have the Tx COE disabled for oversized frames
+ 	 * (due to limited buffer sizes). In this case we disable
+ 	 * the TX csum insertionin the TDES and not use SF. */
+-	if ((priv->plat->bugged_jumbo) && (priv->dev->mtu > ETH_DATA_LEN))
+-		priv->no_csum_insertion =3D 1;
+-	else
+-		priv->no_csum_insertion =3D 0;
++	if (priv->plat->bugged_jumbo && (dev->mtu > ETH_DATA_LEN))
++		features &=3D ~NETIF_F_ALL_CSUM;
 =20
--#if 0 /* disabled by default until verified */
--	dev->features |=3D NETIF_F_TSO;
--#endif
-+	/* disabled by default until verified */
-+	dev->hw_features |=3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+-	dev->mtu =3D new_mtu;
+-
+-	return 0;
++	return features;
+ }
 =20
- 	dev->irq =3D pdev->irq;
+ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+@@ -1464,6 +1426,7 @@ static const struct net_device_ops stmmac_netdev_=
+ops =3D {
+ 	.ndo_start_xmit =3D stmmac_xmit,
+ 	.ndo_stop =3D stmmac_release,
+ 	.ndo_change_mtu =3D stmmac_change_mtu,
++	.ndo_fix_features =3D stmmac_fix_features,
+ 	.ndo_set_multicast_list =3D stmmac_multicast_list,
+ 	.ndo_tx_timeout =3D stmmac_tx_timeout,
+ 	.ndo_do_ioctl =3D stmmac_ioctl,
+@@ -1494,8 +1457,8 @@ static int stmmac_probe(struct net_device *dev)
+ 	dev->netdev_ops =3D &stmmac_netdev_ops;
+ 	stmmac_set_ethtool_ops(dev);
 =20
+-	dev->features |=3D NETIF_F_SG | NETIF_F_HIGHDMA |
+-		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
++	dev->hw_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM=
+;
++	dev->features |=3D dev->hw_features | NETIF_F_HIGHDMA;
+ 	dev->watchdog_timeo =3D msecs_to_jiffies(watchdog);
+ #ifdef STMMAC_VLAN_TAG_USED
+ 	/* Both mac100 and gmac support receive VLAN tag detection */
 --=20
 1.7.2.5
 
