@@ -1,35 +1,30 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] net: sky2: convert to hw_features
-Date: Sun, 10 Apr 2011 11:53:02 -0700
-Message-ID: <20110410115302.450794c7@nehalam>
-References: <20110410131321.8CD9713A64@rere.qmqm.pl>
+From: "GET BACK TO ME IMMEDIATELY" <googleservice@terra.es>
+Subject: GET BACK TO ME IMMEDIATELY
+Date: Sun, 10 Apr 2011 20:20:08 +0000 (UTC)
+Message-ID: <20110410153339.9342F2A36425@mail.alsa.co.cr>
+Reply-To: <googleservice@terra.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53251 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754160Ab1DJSxH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Apr 2011 14:53:07 -0400
-In-Reply-To: <20110410131321.8CD9713A64@rere.qmqm.pl>
+Received: from logistix.cr ([201.201.66.140]:20157 "EHLO mail.alsa.co.cr"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753232Ab1DJUTz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Apr 2011 16:19:55 -0400
+Date: Fri, 29 Apr 2011 06:02:03 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 10 Apr 2011 15:13:21 +0200 (CEST)
-Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
+Hello 
 
-> Caveats:
->  - driver modifies vlan_features on HW VLAN TX changes
->  - broken RX checksum will be reenabled on features change
->=20
+I wish to ask for your consent for a partnership project that I would want both of us to execute mutually which is beneficial. However my name is Mr. Rodney Smith. Kindly get back to me to confirm the receipt of this massage so that I will give you full details of the project.
 
-To be more precise. This is acceptable if and only if all cases
-where features are disabled in response to MTU and chip versions
-are exactly the same. We don't want to let some user stumble upon
-cases where hardware features don't work in their configuration.
+Send your reply to my private email at rodney_smith@ibibo.com 
 
+I am waiting for your permission.
 
---=20
+Warm regards
+Mr. Rodney Smith
+Email:smithrodney@ibibo.com
