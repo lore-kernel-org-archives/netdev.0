@@ -1,59 +1,85 @@
-From: =?UTF-8?q?Weiping=20Pan=28=E6=BD=98=E5=8D=AB=E5=B9=B3=29?=
-	<panweiping3@gmail.com>
-Subject: [PATCH 4/4] bonding:fix two typos
-Date: Mon, 11 Apr 2011 18:16:32 +0800
-Message-ID: <1302516993-9612-1-git-send-email-panweiping3@gmail.com>
+From: Indrek Peri <Indrek.Peri@Ericsson.com>
+Subject: NCM driver improvments
+Date: Mon, 11 Apr 2011 13:42:15 +0200
+Message-ID: <4DA2E917.9050006@Ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Weiping=20Pan (=E6=BD=98=E5=8D=AB=E5=B9=B3) ?=
-	<panweiping3@gmail.com>,
-	Jay Vosburgh <fubar@us.ibm.com> (supporter:BONDING DRIVER),
-	Andy Gospodarek <andy@greyhouse.net> (supporter:BONDING DRIVER),
-	netdev@vger.kernel.org (open list:BONDING DRIVER),
-	linux-kernel@vger.kernel.org (open list)
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <alexey.orishko@stericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:42822 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752772Ab1DKLlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 07:41:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-replace relpy with reply.
-replace premanent with permanent.
+Hi all
 
-Signed-off-by: Weiping Pan(=E6=BD=98=E5=8D=AB=E5=B9=B3) <panweiping3@gm=
-ail.com>
----
- drivers/net/bonding/bond_alb.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+I have some ideas what could improve NCM driver. This is just for
+open discussion. 
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_=
-alb.c
-index 9bc5de3..6e176d6 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -701,7 +701,7 @@ static struct slave *rlb_arp_xmit(struct sk_buff *s=
-kb, struct bonding *bond)
- 		 */
- 		rlb_choose_channel(skb, bond);
-=20
--		/* The ARP relpy packets must be delayed so that
-+		/* The ARP reply packets must be delayed so that
- 		 * they can cancel out the influence of the ARP request.
- 		 */
- 		bond->alb_info.rlb_update_delay_counter =3D RLB_UPDATE_DELAY;
-@@ -1042,7 +1042,7 @@ static void alb_change_hw_addr_on_detach(struct b=
-onding *bond, struct slave *sla
-  *
-  * If the permanent hw address of @slave is @bond's hw address, we nee=
-d to
-  * find a different hw address to give @slave, that isn't in use by an=
-y other
-- * slave in the bond. This address must be, of course, one of the prem=
-anent
-+ * slave in the bond. This address must be, of course, one of the perm=
-anent
-  * addresses of the other slaves.
-  *
-  * We go over the slave list, and for each slave there we compare its
---=20
-1.7.4
+* Timer
+
+Current NCM driver introduces timer for sending collected packets.
+Driver keeps track of actual point of sending with member tx_timer_pending
+which is a counter. This counter is decreased in timeout function and
+timer is restarted if counter is bigger than 0. So, currently timeouts
+are static.
+
+One idea would be to reduce of amount of timeouts in system to replace
+tx_timer_pending counter with varing timer divider. For example, divider
+can be from 100 to 1000 (in scales).
+
+ ctx->tx_timer.expires = jiffies + ((HZ + 999) / tmr_divider);
+
+Scale can be calculated form packets and their data sizes collected.
+For example, if there is only one TCP download session then TX collects
+many small ACKs into buffer. In this case, for example, tmr_divider is 
+100 and when timer expires packets will be send out. This avoids system
+timeouts.
+
+Another idea is to try to remove timer at all if traffic is low. Every
+packet will be send over in one NCM frame. This reduces RTT time for
+packet.
+
+
+* Locks in timeout
+        
+        spin_lock(&ctx->mtx);
+        if (ctx->tx_timer_pending != 0) {
+                ctx->tx_timer_pending--;
+                restart = 1;
+        } else {
+                restart = 0;
+        }
+        spin_unlock(&ctx->mtx);
+
+        if (restart) {
+                spin_lock(&ctx->mtx);
+                cdc_ncm_tx_timeout_start(ctx);
+                spin_unlock(&ctx->mtx);
+        } else if (ctx->netdev != NULL) {
+                usbnet_start_xmit(NULL, ctx->netdev);
+        }
+
+Timer divider would reduce locking because cdc_ncm_fill_tx_frame
+function keeps the lock until to the end of function.
+Timeout would mean then call to send.
+
+* reset_resume
+
+In cdc_ncm_driver struct is function:
+
+        .reset_resume = usbnet_resume,
+
+I think that this is good to add.
+
+* usbnet_tx_timeout
+
+I have seen slow path warnings in kernel and call to usbnet_tx_timeout 
+with NCM driver. There is FIXME in usbnet and may be there is a need for 
+reset function inside NCM because NCM driver collects data? 
+
+BR, Indrek Peri
