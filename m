@@ -1,33 +1,27 @@
-From: =?utf-8?B?RnJhbsOnb2lz?= Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2] net: r8169: convert to hw_features
-Date: Mon, 11 Apr 2011 21:30:18 +0200
-Message-ID: <20110411193018.GB17331@electric-eye.fr.zoreil.com>
-References: <1302277067.19764.2.camel@obelisk.thedillows.org> <20110408163556.D8D1213909@rere.qmqm.pl> <20110410154508.GA17091@electric-eye.fr.zoreil.com> <20110411133029.GA12119@rere.qmqm.pl> <20110411184739.GA17331@electric-eye.fr.zoreil.com> <20110411191513.GB31338@rere.qmqm.pl>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: igmp_max_memberships and CONFIG_IP_MULTICAST
+Date: Mon, 11 Apr 2011 21:34:21 +0200
+Message-ID: <OF8B112606.401AF255-ONC125786F.006B302C-C125786F.006B840C@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Dillow <dave@thedillows.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:55169 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755432Ab1DKTjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 15:39:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20110411191513.GB31338@rere.qmqm.pl>
+Received: from gw1.transmode.se ([195.58.98.146]:51391 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753756Ab1DKTk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2011 15:40:27 -0400
+Received: from sesr04.transmode.se (sesr04.transmode.se [192.168.201.15])
+	by gw1.transmode.se (Postfix) with ESMTP id E835225803D
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 21:34:22 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2011 at 09:15:13PM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-[...]
-> Are you sure?
 
-Sure, especially when I'm wrong.
+Why is igmp_max_memberships hidden behind CONFIG_IP_MULTICAST?
 
-I did not document the change of behavior when the driver was
-converted to the new vlan model and I forgot what I did. Bad. :o(
+I am running Quagga(OSPF) without CONFIG_IP_MULTICAST and ran into
+this limit. Now I need to increase it but then I find it is hidden behind
+CONFIG_IP_MULTICAST. Is there a reason it is hidden?
 
---=20
-Ueimor
+ Jocke
+
