@@ -1,75 +1,39 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: [PATCH RESEND] uts: Set default hostname to "localhost", rather
- than "(none)"
-Date: Mon, 11 Apr 2011 07:39:19 -0500
-Message-ID: <20110411123919.GA17405@hallyn.com>
-References: <20110411050155.GA2507@feather>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v2] net: r8169: convert to hw_features
+Date: Mon, 11 Apr 2011 15:30:29 +0200
+Message-ID: <20110411133029.GA12119@rere.qmqm.pl>
+References: <1302277067.19764.2.camel@obelisk.thedillows.org> <20110408163556.D8D1213909@rere.qmqm.pl> <20110410154508.GA17091@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org
-To: Josh Triplett <josh@joshtriplett.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Dillow <dave@thedillows.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: =?iso-8859-2?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:49018 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751848Ab1DKNab (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2011 09:30:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20110411050155.GA2507@feather>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110410154508.GA17091@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Josh Triplett (josh@joshtriplett.org):
-> The "hostname" tool falls back to setting the hostname to "localhost" if
-> /etc/hostname does not exist.  Distribution init scripts have the same
-> fallback.  However, if userspace never calls sethostname, such as when
-> booting with init=/bin/sh, or otherwise booting a minimal system without
-> the usual init scripts, the default hostname of "(none)" remains,
-> unhelpfully appearing in various places such as prompts
-> ("root@(none):~#") and logs.  Furthrmore, "(none)" doesn't typically
-> resolve to anything useful, while "localhost" does.
-> 
-> Change the default hostname to "localhost".  This removes the need for
-> the standard fallback, provides a useful default for systems that never
-> call sethostname, and makes minimal systems that much more useful with
-> less configuration.
-> 
-> Signed-off-by: Josh Triplett <josh@joshtriplett.org>
+On Sun, Apr 10, 2011 at 05:45:08PM +0200, Fran=E7ois Romieu wrote:
+>=20
+> On Fri, Apr 08, 2011 at 06:35:56PM +0200, Micha=B3 Miros=B3aw wrote:
+> > Simple conversion with a bit of needed cleanup.
+> The description should include :
+> - Rx VLAN tag stripping is now enabled by default
 
-Seems good to me.  I'd have no idea if there were valid reasons to object
-to such a thing so my ack means nothing, but
+Actually, it was enabled by default before. NETIF_F_HW_VLAN_TX_RX was
+#defined to be NETIF_F_HW_VLAN_TX+NETIF_F_HW_VLAN_RX.
 
-Acked-by: Serge Hallyn <serge.hallyn@ubuntu.com>
+> As far as I understand it, it is fine to have dev->hw_features
+> strictly smaller than dev->features, right ?
 
-thanks,
--serge
+Yes. hw_features signifies what can be toggled by user, but does not
+imply state of features not present there.
 
-> ---
-> 
-> Looked at "(none)" one too many times, and figured I ought to do
-> something about it.
-> 
-> Resending, and adding CCs for networking and UTS.
-> 
->  include/linux/uts.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/uts.h b/include/linux/uts.h
-> index 73eb1ed..610bec2 100644
-> --- a/include/linux/uts.h
-> +++ b/include/linux/uts.h
-> @@ -9,7 +9,7 @@
->  #endif
->  
->  #ifndef UTS_NODENAME
-> -#define UTS_NODENAME "(none)"	/* set by sethostname() */
-> +#define UTS_NODENAME "localhost"	/* set by sethostname() */
->  #endif
->  
->  #ifndef UTS_DOMAINNAME
-> -- 
-> 1.7.4.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Best Regards,
+Micha=B3 Miros=B3aw
