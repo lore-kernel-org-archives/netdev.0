@@ -1,41 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NET-2.6 1/1] netxen: limit skb frags for non tso packet
-Date: Mon, 11 Apr 2011 15:57:36 -0700 (PDT)
-Message-ID: <20110411.155736.212673083.davem@davemloft.net>
-References: <1302547974-7310-1-git-send-email-amit.salecha@qlogic.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv2 NEXT 6/8] qlcnic: sparse warning fixes
+Date: Tue, 12 Apr 2011 00:00:01 +0100
+Message-ID: <1302562801.5282.576.camel@localhost>
+References: <1286205297-23214-1-git-send-email-amit.salecha@qlogic.com>
+	 <1286205297-23214-6-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com, stable@kernel.org
-To: amit.salecha@qlogic.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42916
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751856Ab1DKW6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 18:58:11 -0400
-In-Reply-To: <1302547974-7310-1-git-send-email-amit.salecha@qlogic.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:14473 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756290Ab1DKXAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 19:00:05 -0400
+In-Reply-To: <1286205297-23214-6-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Mon, 11 Apr 2011 11:52:54 -0700
-
-> Machines are getting deadlock in four node cluster environment.
-> All nodes are accessing (find /gfs2 -depth -print|cpio -ocv > /dev/null)
-> 200 GB storage on a GFS2 filesystem.
-> This result in memory fragmentation and driver receives 18 frags for
-> 1448 byte packets.
-> For non tso packet, fw drops the tx request, if it has >14 frags.
+On Mon, 2010-10-04 at 08:14 -0700, Amit Kumar Salecha wrote:
+> From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 > 
-> Fixing it by pulling extra frags.
-> 
-> Cc: stable@kernel.org
+> Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 > Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> ---
+>  drivers/net/qlcnic/qlcnic_ctx.c  |   12 ++++++------
+>  drivers/net/qlcnic/qlcnic_main.c |   10 +++++-----
+>  2 files changed, 11 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
+> index a4c4d09..75e3b19 100644
+> --- a/drivers/net/qlcnic/qlcnic_ctx.c
+> +++ b/drivers/net/qlcnic/qlcnic_ctx.c
+> @@ -742,15 +742,15 @@ int qlcnic_get_pci_info(struct qlcnic_adapter *adapter,
+>  
+>  	if (err == QLCNIC_RCODE_SUCCESS) {
+>  		for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++, npar++, pci_info++) {
+> -			pci_info->id = le32_to_cpu(npar->id);
+> -			pci_info->active = le32_to_cpu(npar->active);
+> -			pci_info->type = le32_to_cpu(npar->type);
+> +			pci_info->id = le16_to_cpu(npar->id);
+> +			pci_info->active = le16_to_cpu(npar->active);
+> +			pci_info->type = le16_to_cpu(npar->type);
+>  			pci_info->default_port =
+> -				le32_to_cpu(npar->default_port);
+> +				le16_to_cpu(npar->default_port);
+>  			pci_info->tx_min_bw =
+> -				le32_to_cpu(npar->tx_min_bw);
+> +				le16_to_cpu(npar->tx_min_bw);
+>  			pci_info->tx_max_bw =
+> -				le32_to_cpu(npar->tx_max_bw);
+> +				le16_to_cpu(npar->tx_max_bw);
+[...]
 
-I applied this to net-2.6 earlier today, so:
+It looks like this function was broken on big-endian systems.  The
+commit message should say that you are fixing a bug, not just that some
+unspecified 'sparse warning[s]' (that alerted you to the bug) were
+fixed.
 
-1) Why are you sending it again?
+Ben.
 
-2) On top of that, why are you sending two copies?
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
