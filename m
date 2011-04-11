@@ -1,63 +1,75 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] net: sky2: convert to hw_features
-Date: Mon, 11 Apr 2011 08:00:09 -0700
-Message-ID: <20110411080009.72c37538@nehalam>
-References: <20110410131321.8CD9713A64@rere.qmqm.pl>
-	<20110410115302.450794c7@nehalam>
-	<20110411005100.GA22103@rere.qmqm.pl>
+From: Wei Gu <wei.gu@ericsson.com>
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+Date: Mon, 11 Apr 2011 23:00:49 +0800
+Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E490970E@ESGSCCMS0001.eapac.ericsson.se>
+References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302167168.3357.12.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
+	 <1302192218.3357.47.camel@edumazet-laptop> <4D9DE465.1080008@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA58D@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302253651.4409.2.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302267400.4409.22.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302275223.4409.36.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
+ <1302330998.2656.113.camel@edumazet-laptop>
+ <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
+ <4DA3151B.4030507@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43842 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753972Ab1DKPAl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2011 11:00:41 -0400
-In-Reply-To: <20110411005100.GA22103@rere.qmqm.pl>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:55236 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753972Ab1DKPAx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 11:00:53 -0400
+In-Reply-To: <4DA3151B.4030507@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Apr 2011 02:51:00 +0200
-Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
+I will try the lastest driver 3.3.8 on  e1000.sf.net:)
 
-> On Sun, Apr 10, 2011 at 11:53:02AM -0700, Stephen Hemminger wrote:
-> > On Sun, 10 Apr 2011 15:13:21 +0200 (CEST)
-> > Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
-> > > Caveats:
-> > >  - driver modifies vlan_features on HW VLAN TX changes
-> > >  - broken RX checksum will be reenabled on features change
-> > To be more precise. This is acceptable if and only if all cases
-> > where features are disabled in response to MTU and chip versions
-> > are exactly the same. We don't want to let some user stumble upon
-> > cases where hardware features don't work in their configuration.
->=20
-> I was referring to the unlikely case detected by sky2_rx_checksum().
-> Before this conversion, user could reenable the feature using ethtool=
-=2E
-> The change is that now, in this case, it's reenabled also when other
-> features are changed (i.e. whenever netdev_update_features() gets cal=
-led).
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
+But I also tested the ixgbe-3.2.10 on the kernel 2.6.35.1 and 2.6.35.2,The problem start happens from 2.6.35.2, no problem at all with 2.6.35.1 kernel.
+I don't know if some patch between 2.6.35.1 and 2.35.2 had some impact to this Intel 10GE ixgbe driver.
 
-Ok.
+Thanks
+WeiGu
 
-It does expose a pre-existing issue. If this logic trips (and I have
-gotten reports of it happening), then the GRO will not get disabled.
-Probably need to mask of GRO as well, since GRO depends on RXCSUM.
+-----Original Message-----
+From: Alexander Duyck [mailto:alexander.h.duyck@intel.com]
+Sent: Monday, April 11, 2011 10:50 PM
+To: Wei Gu
+Cc: Eric Dumazet; netdev; Kirsher, Jeffrey T
+Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
 
---- a/drivers/net/sky2.c	2011-04-11 07:56:50.569361209 -0700
-+++ b/drivers/net/sky2.c	2011-04-11 07:57:34.502312648 -0700
-@@ -2538,7 +2538,7 @@ static void sky2_rx_checksum(struct sky2
- 		 * It will be reenabled on next ndo_set_features, but if it's
- 		 * really broken, will get disabled again
- 		 */
--		sky2->netdev->features &=3D ~NETIF_F_RXCSUM;
-+		sky2->netdev->features &=3D ~(NETIF_F_RXCSUM | NETIF_F_GRO);
- 		sky2_write32(sky2->hw, Q_ADDR(rxqaddr[sky2->port], Q_CSR),
- 			     BMU_DIS_RX_CHKSUM);
- 	}
+On 4/10/2011 12:02 AM, Wei Gu wrote:
+> Hi , I haven't enable the packet header spilting, so I think no
+> netdev_alloc_page() will be called in my case.
+>
+> BTW, I also did the same test from 2.6.33 to 2.6.35 kernel, looks the
+> problem happens from 2.6.35, cause 2.6.32/33/34 do not see this
+> problem at all, they all works pretty good.
+>
+> I modify the .configs base on the FC13/14, and also manully set the
+> DMAR DEFAULT to off, chose the SLAB as the memory allocator (same as
+> RHEL6 2.6.32). For more detail about the config, please check the
+> attached file
+>
+> Thanks WeiGu
+
+WeiGu,
+
+In order to try and isolate this issue I was wondering if you could try our out-of-tree ixgbe driver from e1000.sf.net?  The idea would be to test it on 2.6.34 and 2.6.35 in order to determine if the issue is due to a change in the kernel or a change in the driver.  If the performance is the same on these two kernels with our out-of-tree driver then we know the issue is a change somewhere in the ixgbe driver in the kernel.
+
+Thanks,
+
+Alex
+
