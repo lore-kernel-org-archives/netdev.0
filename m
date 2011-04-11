@@ -1,119 +1,111 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 1/3] stmmac: fixed dma lib build when turn-on the debug option
-Date: Mon, 11 Apr 2011 11:16:44 +0200
-Message-ID: <1302513406-3758-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:53817 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755384Ab1DKJpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 05:45:31 -0400
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id B982A138
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 09:16:55 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1D3101A78
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 09:16:55 +0000 (GMT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Weiping=20Pan=28=E6=BD=98=E5=8D=AB=E5=B9=B3=29?=
+	<panweiping3@gmail.com>
+Subject: [PATCH 2/4] net: fix tranmitted/tranmitting typo
+Date: Mon, 11 Apr 2011 18:15:57 +0800
+Message-ID: <1302516958-9535-1-git-send-email-panweiping3@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Weiping=20Pan (=E6=BD=98=E5=8D=AB=E5=B9=B3) ?=
+	<panweiping3@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com> (supporter:BONDING DRIVER),
+	Andy Gospodarek <andy@greyhouse.net> (supporter:BONDING DRIVER),
+	Lucas De Marchi <lucas.demarchi@profusion.mobi> (commit_signer:1/3=33%),
+	netdev@vger.kernel.org (open list:BONDING DRIVER),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes a compilation error when build the
-dwmac_lib with the DEBUG option enabled.
+replace tranmitted with transmitted.
+replace tranmitting with transmitting.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: Weiping Pan(=E6=BD=98=E5=8D=AB=E5=B9=B3) <panweiping3@gm=
+ail.com>
 ---
- drivers/net/stmmac/dwmac_lib.c |   28 ++++++++++++++--------------
- 1 files changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/bonding/bond_alb.h      |    2 +-
+ drivers/net/tokenring/3c359.c       |    4 ++--
+ drivers/net/tokenring/lanstreamer.c |    2 +-
+ drivers/net/tokenring/olympic.c     |    2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/stmmac/dwmac_lib.c b/drivers/net/stmmac/dwmac_lib.c
-index d65fab1..e250935 100644
---- a/drivers/net/stmmac/dwmac_lib.c
-+++ b/drivers/net/stmmac/dwmac_lib.c
-@@ -26,9 +26,9 @@
- 
- #undef DWMAC_DMA_DEBUG
- #ifdef DWMAC_DMA_DEBUG
--#define DBG(fmt, args...)  printk(fmt, ## args)
-+#define DWMAC_LIB_DBG(fmt, args...)  printk(fmt, ## args)
- #else
--#define DBG(fmt, args...)  do { } while (0)
-+#define DWMAC_LIB_DBG(fmt, args...)  do { } while (0)
- #endif
- 
- /* CSR1 enables the transmit DMA to check for new descriptor */
-@@ -152,7 +152,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
- 	/* read the status register (CSR5) */
- 	u32 intr_status = readl(ioaddr + DMA_STATUS);
- 
--	DBG(INFO, "%s: [CSR5: 0x%08x]\n", __func__, intr_status);
-+	DWMAC_LIB_DBG(KERN_INFO "%s: [CSR5: 0x%08x]\n", __func__, intr_status);
- #ifdef DWMAC_DMA_DEBUG
- 	/* It displays the DMA process states (CSR5 register) */
- 	show_tx_process_state(intr_status);
-@@ -160,43 +160,43 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
- #endif
- 	/* ABNORMAL interrupts */
- 	if (unlikely(intr_status & DMA_STATUS_AIS)) {
--		DBG(INFO, "CSR5[15] DMA ABNORMAL IRQ: ");
-+		DWMAC_LIB_DBG(KERN_INFO "CSR5[15] DMA ABNORMAL IRQ: ");
- 		if (unlikely(intr_status & DMA_STATUS_UNF)) {
--			DBG(INFO, "transmit underflow\n");
-+			DWMAC_LIB_DBG(KERN_INFO "transmit underflow\n");
- 			ret = tx_hard_error_bump_tc;
- 			x->tx_undeflow_irq++;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_TJT)) {
--			DBG(INFO, "transmit jabber\n");
-+			DWMAC_LIB_DBG(KERN_INFO "transmit jabber\n");
- 			x->tx_jabber_irq++;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_OVF)) {
--			DBG(INFO, "recv overflow\n");
-+			DWMAC_LIB_DBG(KERN_INFO "recv overflow\n");
- 			x->rx_overflow_irq++;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_RU)) {
--			DBG(INFO, "receive buffer unavailable\n");
-+			DWMAC_LIB_DBG(KERN_INFO "receive buffer unavailable\n");
- 			x->rx_buf_unav_irq++;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_RPS)) {
--			DBG(INFO, "receive process stopped\n");
-+			DWMAC_LIB_DBG(KERN_INFO "receive process stopped\n");
- 			x->rx_process_stopped_irq++;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_RWT)) {
--			DBG(INFO, "receive watchdog\n");
-+			DWMAC_LIB_DBG(KERN_INFO "receive watchdog\n");
- 			x->rx_watchdog_irq++;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_ETI)) {
--			DBG(INFO, "transmit early interrupt\n");
-+			DWMAC_LIB_DBG(KERN_INFO "transmit early interrupt\n");
- 			x->tx_early_irq++;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_TPS)) {
--			DBG(INFO, "transmit process stopped\n");
-+			DWMAC_LIB_DBG(KERN_INFO "transmit process stopped\n");
- 			x->tx_process_stopped_irq++;
- 			ret = tx_hard_error;
- 		}
- 		if (unlikely(intr_status & DMA_STATUS_FBI)) {
--			DBG(INFO, "fatal bus error\n");
-+			DWMAC_LIB_DBG(KERN_INFO "fatal bus error\n");
- 			x->fatal_bus_error_irq++;
- 			ret = tx_hard_error;
- 		}
-@@ -215,7 +215,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
- 	/* Clear the interrupt by writing a logic 1 to the CSR5[15-0] */
- 	writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
- 
--	DBG(INFO, "\n\n");
-+	DWMAC_LIB_DBG(KERN_INFO "\n\n");
- 	return ret;
- }
- 
--- 
-1.7.4.2
-
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_=
+alb.h
+index 86861f0..9af19fa 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -75,7 +75,7 @@ struct tlb_client_info {
+ 				 * gave this entry index.
+ 				 */
+ 	u32 tx_bytes;		/* Each Client accumulates the BytesTx that
+-				 * were tranmitted to it, and after each
++				 * were transmitted to it, and after each
+ 				 * CallBack the LoadHistory is divided
+ 				 * by the balance interval
+ 				 */
+diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c35=
+9.c
+index 8a3b191..ff32bef 100644
+--- a/drivers/net/tokenring/3c359.c
++++ b/drivers/net/tokenring/3c359.c
+@@ -1251,7 +1251,7 @@ static netdev_tx_t xl_xmit(struct sk_buff *skb, s=
+truct net_device *dev)
+ /*=20
+  * The NIC has told us that a packet has been downloaded onto the card=
+, we must
+  * find out which packet it has done, clear the skb and information fo=
+r the packet
+- * then advance around the ring for all tranmitted packets
++ * then advance around the ring for all transmitted packets
+  */
+=20
+ static void xl_dn_comp(struct net_device *dev)=20
+@@ -1568,7 +1568,7 @@ static void xl_arb_cmd(struct net_device *dev)
+ 			if (lan_status_diff & LSC_SOFT_ERR)
+ 					printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Ma=
+c Frame\n",dev->name);
+ 			if (lan_status_diff & LSC_TRAN_BCN)=20
+-					printk(KERN_INFO "%s: We are tranmitting the beacon, aaah\n",dev-=
+>name);
++					printk(KERN_INFO "%s: We are transmitting the beacon, aaah\n",dev=
+->name);
+ 			if (lan_status_diff & LSC_SS)=20
+ 					printk(KERN_INFO "%s: Single Station on the ring\n", dev->name);
+ 			if (lan_status_diff & LSC_RING_REC)
+diff --git a/drivers/net/tokenring/lanstreamer.c b/drivers/net/tokenrin=
+g/lanstreamer.c
+index 5bd1407..9354ca9 100644
+--- a/drivers/net/tokenring/lanstreamer.c
++++ b/drivers/net/tokenring/lanstreamer.c
+@@ -1675,7 +1675,7 @@ drop_frame:
+ 			if (lan_status_diff & LSC_SOFT_ERR)
+ 				printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Mac=
+ Frame\n", dev->name);
+ 			if (lan_status_diff & LSC_TRAN_BCN)
+-				printk(KERN_INFO "%s: We are tranmitting the beacon, aaah\n", dev-=
+>name);
++				printk(KERN_INFO "%s: We are transmitting the beacon, aaah\n", dev=
+->name);
+ 			if (lan_status_diff & LSC_SS)
+ 				printk(KERN_INFO "%s: Single Station on the ring\n", dev->name);
+ 			if (lan_status_diff & LSC_RING_REC)
+diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/ol=
+ympic.c
+index 3d2fbe6..2684003 100644
+--- a/drivers/net/tokenring/olympic.c
++++ b/drivers/net/tokenring/olympic.c
+@@ -1500,7 +1500,7 @@ drop_frame:
+ 			if (lan_status_diff & LSC_SOFT_ERR)
+ 					printk(KERN_WARNING "%s: Adapter transmitted Soft Error Report Ma=
+c Frame\n",dev->name);
+ 			if (lan_status_diff & LSC_TRAN_BCN)=20
+-					printk(KERN_INFO "%s: We are tranmitting the beacon, aaah\n",dev-=
+>name);
++					printk(KERN_INFO "%s: We are transmitting the beacon, aaah\n",dev=
+->name);
+ 			if (lan_status_diff & LSC_SS)=20
+ 					printk(KERN_INFO "%s: Single Station on the ring\n", dev->name);
+ 			if (lan_status_diff & LSC_RING_REC)
+--=20
+1.7.4
