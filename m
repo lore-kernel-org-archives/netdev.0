@@ -1,45 +1,36 @@
-From: Bruce Allan <bruce.w.allan@intel.com>
-Subject: [net-next-2.6 PATCH] ethtool: time to blink provided in seconds not
-	jiffies
-Date: Mon, 11 Apr 2011 16:01:59 -0700
-Message-ID: <20110411230159.6727.91380.stgit@gitlad.jf.intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCHv2 NEXT 2/8] qlcnic: fix eswitch stats
+Date: Mon, 11 Apr 2011 16:09:46 -0700
+Message-ID: <20110411160946.7a2ec69a@nehalam>
+References: <1286205297-23214-1-git-send-email-amit.salecha@qlogic.com>
+	<1286205297-23214-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10372 "EHLO mga09.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:37893 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756310Ab1DKXCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2011 19:02:30 -0400
-Received: from gitlad.jf.intel.com (gitlad.jf.intel.com [127.0.0.1])
-	by gitlad.jf.intel.com (8.14.2/8.14.2) with ESMTP id p3BN1xUF006756
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 16:01:59 -0700
+	id S1751609Ab1DKXKD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2011 19:10:03 -0400
+In-Reply-To: <1286205297-23214-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When blinking for a duration set by the user, the value specified is in
-seconds but it is used as the number of jiffies in the timeout after which
-the Physical ID indicator is deactivated.  Fix by converting the timeout
-to seconds.
+On Mon,  4 Oct 2010 08:14:51 -0700
+Amit Kumar Salecha <amit.salecha@qlogic.com> wrote:
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
----
+> +
+> +#define QLCNIC_ADD_ESW_STATS(VAL1, VAL2)\
+> +do {	\
+> +	if (((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) && \
+> +	    ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
+> +		(VAL1) = (VAL2); \
+> +	else if (((VAL1) != QLCNIC_ESW_STATS_NOT_AVAIL) && \
+> +		 ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
+> +			(VAL1) += (VAL2); \
+> +} while (0)
 
- net/core/ethtool.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 704e176..43ef09f 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1653,7 +1653,7 @@ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
- 	if (rc == 0) {
- 		/* Driver will handle this itself */
- 		schedule_timeout_interruptible(
--			id.data ? id.data : MAX_SCHEDULE_TIMEOUT);
-+			id.data ? (id.data * HZ) : MAX_SCHEDULE_TIMEOUT);
- 	} else {
- 		/* Driver expects to be called periodically */
- 		do {
-
+Fugly macro. Make it an inline function?
