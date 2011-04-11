@@ -1,61 +1,64 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Race condition when creating multiple namespaces?
-Date: Mon, 11 Apr 2011 23:01:46 +0200
-Message-ID: <201104112301.46776.hans@schillstrom.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured
+ incorrectly in fiber mode
+Date: Mon, 11 Apr 2011 14:02:39 -0700
+Message-ID: <20110411140239.646ace73.akpm@linux-foundation.org>
+References: <bug-33042-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Daniel Lezcano <daniel.lezcano@free.fr>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, Alex Dubov <oakad@yahoo.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	David Daney <ddaney@caviumnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:48221 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754239Ab1DKVCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 17:02:08 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44073 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754239Ab1DKVDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 17:03:30 -0400
+In-Reply-To: <bug-33042-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
-I'v been strugling with this for some time now
 
-When creating multiple namespaces using lxc-start,  un-initialized network namespace parts will be called by the new process in the namespace.
-ex. when using conntrack or ipvsadm to quickly,  (a sleep 2 "solves" the problem).
-(From what I can see syscall clone() is used in lx-start  i.e. do_fork will be called later on.)
-Actually I was debugging ip_vs when closing multiple ns  when I fell into this one.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-I have a loop that create 33 containers whith lxc-start ... -- test.sh
-the first thing the new conatiner does in test.sh is
-#!/bin/bash
-iptables -t mangle -A PREROUTING -m conntrack --ctstate RELATED,ESTABLISHED -j CONNMARK --restore-mark
-nc -l -p1234
+On Mon, 11 Apr 2011 09:28:18 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-This results in NULL ptr in ip_conntrack_net_init(struct *net)
+> https://bugzilla.kernel.org/show_bug.cgi?id=33042
+> 
+>            Summary: Marvell 88E1145 phy configured incorrectly in fiber
+>                     mode
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: Linux-2.6.39-rc1-00191
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: oakad@yahoo.com
+>         Regression: No
+> 
+> 
+> On my board, Marvell 88E1145 phy is attached to Freescale gianfar controller.
+> Backplane connection is detected by u-boot as 1000/Full fiber mode.
+> 
+> The network works perfectly in u-boot (dhcp, tftp of large files, ntp). Upon
+> booting, kernel detects the link as 100/Full and no data can be exchanged over
+> the interface.
+> 
+> As a quick fix, I tried setting .read_settings method of the 1145 driver to
+> marvell_read_status (instead of genphy_read_status). Now the link is correctly
+> detected as 1000/Full, but the data still can not be exchanged.
+> 
+> I assume, there's a configuration bit missing on the kernel side, as there are
+> no such problems in u-boot.
+> 
 
-and in anoither test test.sh looks like this
-#!/bin/bash
-ipvsadm --start-daemon=master --mcast-interface=lo
-nc -l -p1234
-
-And this results in an uniitialized spinlock in ip_vs_sync
-
-I put a printk in nsproxy: copy_namespaces() and could see a dozens of them
-before anything appears from ipvs or conntrack.
-
-My feeling is that when you start up user processes in a new name space, 
-all kernel related init should have been done (you should not need to add a sleep to get it working)
-
-All test  made by using todays net-next-2.6 (2.6.39-rc1)
-
-Note:
-That neither conntrack or ip_vs modules where loaded,
-if modules where loaded before creating new namespaces it all works...
-
-Finally the question,
-Should it really work to load modules within a namespace , 
-that is a part of netns ?
-
--- 
-Mvh
-Hasse Schillstrom
-070-699 7150
