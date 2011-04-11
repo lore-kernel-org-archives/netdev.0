@@ -1,106 +1,76 @@
-From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: nfs client doesn't work [was: mmotm 2011-03-31-14-48 uploaded]
-Date: Mon, 11 Apr 2011 23:08:06 +0200
-Message-ID: <4DA36DB6.8060108@suse.cz>
-References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org> <4D96E4C5.2080302@suse.cz> <1302122693.16786.0.camel@lade.trondhjem.org> <4D9D5CC9.2040002@suse.cz> <4DA36722.2020402@suse.cz> <4DA36758.4070203@suse.cz>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured incorrectly
+ in fiber mode
+Date: Mon, 11 Apr 2011 14:18:51 -0700
+Message-ID: <4DA3703B.1090802@caviumnetworks.com>
+References: <bug-33042-10286@https.bugzilla.kernel.org/> <20110411140239.646ace73.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	mm-commits-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4DA36758.4070203-AlSwsSmVLrQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, Alex Dubov <oakad@yahoo.com>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:2267 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753167Ab1DKVSx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 17:18:53 -0400
+In-Reply-To: <20110411140239.646ace73.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2011 10:40 PM, Jiri Slaby wrote:
-> Ccing Bryan
-> 
-> On 04/11/2011 10:40 PM, Jiri Slaby wrote:
->> On 04/07/2011 08:42 AM, Jiri Slaby wrote:
->>> On 04/06/2011 10:44 PM, Myklebust, Trond wrote:
->>>> On Sat, 2011-04-02 at 10:56 +0200, Jiri Slaby wrote:
->>>>> On 03/31/2011 11:48 PM, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org wrote:
->>>>>> The mm-of-the-moment snapshot 2011-03-31-14-48 has been uploaded to
->>>>>
->>>>> Hi, nfs client is defunct in this kernel. Tcpdump says:
->>>>> 10:51:55.489717 IP 10.20.11.33.759945860 > 10.20.3.2.2049: 132 getattr
->>>>> fh 0,0/24
->>>>> 10:51:55.515927 IP 10.20.3.2.2049 > 10.20.11.33.759945860: reply ok 44
->>>>> getattr ERROR: Operation not permitted
->>>>> 10:51:55.515949 IP 10.20.11.33.921 > 10.20.3.2.2049: Flags [.], ack
->>>>> 3569361440, win 115, options [nop,nop,TS val 599750 ecr 255058541],
->>>> length 0
->>>>> 10:52:04.130310 IP 10.20.11.33.793500292 > 10.20.3.2.2049: 76 getattr fh
->>>>> 0,0/24
->>>>> 10:52:04.152178 IP 10.20.3.2.2049 > 10.20.11.33.793500292: reply ok 44
->>>>> getattr ERROR: Operation not permitted
->>>>>
->>>>> If I run the same mount command (mount -oro,intr host:dir mountpoint)
->>>>> from within a virtual machine with 2.6.38.2 there, everything mounts OK.
->>>>
->>>> Does the attached patch help?
->>>
->>> No, still the operation not permitted in the tcpdump output and no mount.
+On 04/11/2011 02:02 PM, Andrew Morton wrote:
+>
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+>
+> On Mon, 11 Apr 2011 09:28:18 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=33042
 >>
->> The next tree from 20110411 still doesn't work. The topmost commit in
->> fs/nfs/namespace.c is:
->> commit 418875900e3de4831c84f86ae4756690dac5be77
->> Author: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
->> Date:   Wed Apr 6 14:33:28 2011 -0400
->>
->>     NFS: Fix a signed vs. unsigned secinfo bug
+>>             Summary: Marvell 88E1145 phy configured incorrectly in fiber
+>>                      mode
+>>             Product: Drivers
+>>             Version: 2.5
+>>      Kernel Version: Linux-2.6.39-rc1-00191
+>>            Platform: All
+>>          OS/Version: Linux
+>>                Tree: Mainline
+>>              Status: NEW
+>>            Severity: normal
+>>            Priority: P1
+>>           Component: Network
+>>          AssignedTo: drivers_network@kernel-bugs.osdl.org
+>>          ReportedBy: oakad@yahoo.com
+>>          Regression: No
 >>
 >>
->> I bisected it to (in vanilla already):
+>> On my board, Marvell 88E1145 phy is attached to Freescale gianfar controller.
+>> Backplane connection is detected by u-boot as 1000/Full fiber mode.
 >>
->> 8f70e95f9f4159184f557a1db60c909d7c1bd2e3 is the first bad commit
->> commit 8f70e95f9f4159184f557a1db60c909d7c1bd2e3
->> Author: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
->> Date:   Thu Mar 24 17:12:31 2011 +0000
+>> The network works perfectly in u-boot (dhcp, tftp of large files, ntp). Upon
+>> booting, kernel detects the link as 100/Full and no data can be exchanged over
+>> the interface.
 >>
->>     NFS: Determine initial mount security
+>> As a quick fix, I tried setting .read_settings method of the 1145 driver to
+>> marvell_read_status (instead of genphy_read_status). Now the link is correctly
+>> detected as 1000/Full, but the data still can not be exchanged.
 >>
->>     When sec=<something> is not presented as a mount option,
->>     we should attempt to determine what security flavor the
->>     server is using.
+>> I assume, there's a configuration bit missing on the kernel side, as there are
+>> no such problems in u-boot.
 >>
->>     Signed-off-by: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
->>     Signed-off-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
->>
->> :040000 040000 8e5a640b37e00f0df21e1d9cd9aff160df2d5938
->> 0152daa67bc8d12e32cda5f4a036807d2e380392 M      fs
->> :040000 040000 f74aa33f8597cb82cd0fd7d90d84e0660b7f5804
->> 527bc0ca6975cedc7e684b45dc9961f8aaf1207a M      include
->> :040000 040000 87559d2f211ea905343a86c8551b6610dd239891
->> 7e4ee0e5eddf12474b6de9e7fdb6218b6165bdb2 M      net
 
-Sorry for an extra message. I've just found out that there appears
-messages in dmesg:
-[   58.656048] RPC: AUTH_GSS upcall timed out.
-[   58.656050] Please check user daemon is running.
-[   88.656065] RPC: AUTH_GSS upcall timed out.
-[   88.656068] Please check user daemon is running.
-[  118.656077] RPC: AUTH_GSS upcall timed out.
-[  118.656080] Please check user daemon is running.
-[  148.656049] RPC: AUTH_GSS upcall timed out.
-[  148.656052] Please check user daemon is running.
-[  178.656046] RPC: AUTH_GSS upcall timed out.
-[  178.656049] Please check user daemon is running.
+How does your u-boot configure the part?  Does it write any of the 
+configuration registers, or is it just the default configuration set via 
+the strapping pins?
 
+In any event, you will probably have to read the configuration before 
+the drivers/net/phy/marvel.c changes them.  Then compare that to what 
+the driver is trying to set.  Then you will either have to override the 
+configuration with the device tree "marvell,reg-init" property, or if 
+you are not using the device tree, add a 88e1145 specific flag that you 
+set when calling phy_connect().
 
-I instrumented the code and it's stuck with trying RPC_AUTH_GSS_KRB5.
-
-I don't use GSS at all.
-
-regards,
--- 
-js
-suse labs
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+David Daney
