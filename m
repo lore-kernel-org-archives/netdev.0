@@ -1,27 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] caif: Add CAIF HSI Link Layer
-Date: Mon, 11 Apr 2011 13:08:44 -0700 (PDT)
-Message-ID: <20110411.130844.183063120.davem@davemloft.net>
-References: <1302552320-11549-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: r8169 doesn't report link state correctly.
+Date: Mon, 11 Apr 2011 13:09:19 -0700
+Message-ID: <4DA35FEF.1030009@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linus.walleij@stericsson.com,
-	sjurbren@gmail.com, daniel.martensson@stericsson.com
-To: sjur.brandeland@stericsson.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52634
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755751Ab1DKUJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:09:20 -0400
-In-Reply-To: <1302552320-11549-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from mail.candelatech.com ([208.74.158.172]:53619 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755927Ab1DKUJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:09:21 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p3BK9JjL008340
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 13:09:20 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sjur.brandeland@stericsson.com
-Date: Mon, 11 Apr 2011 22:05:20 +0200
+I notice that in kernel 2.6.38-wl, the realtek 8169 NIC doesn't
+report link down when in fact there is no cable connected.  Instead,
+it shows 10Mbps half-duplex.  I have no idea if this previously worked
+or not.
 
-> I've made cfhsi_tx_frm lock protected (by moving some spin_unlock)
-> and added a WARN_ON(!spin_is_locked(...)) to be safe.
+[root@lec2010-ath9k-1 lanforge]# ethtool -i eth1
+driver: r8169
+version: 2.3LK-NAPI
+firmware-version:
+bus-info: 0000:02:00.0
+[root@lec2010-ath9k-1 lanforge]# ethtool eth1
+Settings for eth1:
+	Supported ports: [ TP MII ]
+	Supported link modes:   10baseT/Half 10baseT/Full
+	                        100baseT/Half 100baseT/Full
+	                        1000baseT/Half 1000baseT/Full
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 10baseT/Full
+	                        100baseT/Half 100baseT/Full
+	                        1000baseT/Half 1000baseT/Full
+	Advertised pause frame use: No
+	Advertised auto-negotiation: Yes
+	Speed: 10Mb/s
+	Duplex: Half
+	Port: MII
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Supports Wake-on: pumbg
+	Wake-on: g
+	Current message level: 0x00000033 (51)
+			       drv probe ifdown ifup
+	Link detected: yes
 
-spin_is_locked() always returns false on uniprocessor builds.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
