@@ -1,41 +1,67 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v2] net: r8169: convert to hw_features
-Date: Mon, 11 Apr 2011 21:15:13 +0200
-Message-ID: <20110411191513.GB31338@rere.qmqm.pl>
-References: <1302277067.19764.2.camel@obelisk.thedillows.org> <20110408163556.D8D1213909@rere.qmqm.pl> <20110410154508.GA17091@electric-eye.fr.zoreil.com> <20110411133029.GA12119@rere.qmqm.pl> <20110411184739.GA17331@electric-eye.fr.zoreil.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: extending feature word.
+Date: Mon, 11 Apr 2011 12:16:45 -0700
+Message-ID: <BANLkTik3HaqDMUwCXWRiyiunFXeuXOJA4g@mail.gmail.com>
+References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com>
+	<20110408100535.GB10565@rere.qmqm.pl>
+	<BANLkTik4+P3GU+NzZ6JkKPgXhwip-+PM5w@mail.gmail.com>
+	<20110410101954.GA23753@rere.qmqm.pl>
+	<BANLkTimFzTGKmhfRxzEUt_LwrnhAaetU5Q@mail.gmail.com>
+	<20110411115459.13ac3c73@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Dillow <dave@thedillows.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: =?iso-8859-2?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:50851 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752461Ab1DKTPO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2011 15:15:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20110411184739.GA17331@electric-eye.fr.zoreil.com>
+Received: from smtp-out.google.com ([216.239.44.51]:5306 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753836Ab1DKTQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 15:16:49 -0400
+Received: from kpbe15.cbf.corp.google.com (kpbe15.cbf.corp.google.com [172.25.105.79])
+	by smtp-out.google.com with ESMTP id p3BJGm40030007
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 12:16:48 -0700
+Received: from bwz10 (bwz10.prod.google.com [10.188.26.10])
+	by kpbe15.cbf.corp.google.com with ESMTP id p3BJGkUG006347
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 12:16:47 -0700
+Received: by bwz10 with SMTP id 10so5201885bwz.38
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 12:16:45 -0700 (PDT)
+In-Reply-To: <20110411115459.13ac3c73@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2011 at 08:47:39PM +0200, Fran=E7ois Romieu wrote:
-> On Mon, Apr 11, 2011 at 03:30:29PM +0200, Micha=B3 Miros=B3aw wrote:
-> > On Sun, Apr 10, 2011 at 05:45:08PM +0200, Fran=E7ois Romieu wrote:
-> [...]
-> > > The description should include :
-> > > - Rx VLAN tag stripping is now enabled by default
-> > Actually, it was enabled by default before. NETIF_F_HW_VLAN_TX_RX w=
-as
-> > #defined to be NETIF_F_HW_VLAN_TX+NETIF_F_HW_VLAN_RX.
-> It was enabled in dev->features but it was necessary to configure at
-> least one VLAN before the hardware CPlusCmd register was instructed
-> to strip Rx vlan tag (let aside 8110SCd or tagged Tx packets which
-> where sent as such).
+On Mon, Apr 11, 2011 at 11:54 AM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> On Mon, 11 Apr 2011 11:45:05 -0700
+> Mahesh Bandewar <maheshb@google.com> wrote:
+>
+>> >> That is right! making it an array doesn't really buy us anything
+>> >> unless there is a uniform way of managing all the bits spread across
+>> >> multiple words inside that array. This was the reason why I have
+>> >> changed that array into a bitmap in the patch that I have posted
+>> >> earlier. This way the upper limit (currently only 32 bits) will be
+>> >> removed and we'll have a long term solution. There will be little bit
+>> >> of work involved but 'doing-things-right' has cost associated.
+>> >
+>> > I really don't like the bitmap idea. It multiplies the amount of code
+>> > needed to manipulate multiple bits at once --- and that's a common
+>> > thing for drivers to do. Almost every driver that needs ndo_fix_features
+>> > will clear sets --- checkumming set, TSO set, all TX offloads set, ...
+>> >
+>> Should the added code be of any concern? If that is happening in the
+>> control-path and does not affect the data-path as such; those added
+>> instructions is a cost of added flexibility to we got through bitmap.
+>> If performance is not at risk then that shouldn't be a problem.
+>
+> Just to be dense... What is wrong with just using u64?
+>
+I have already suggested that in this thread. With this theoretically
+you removing one limit and imposing another and that's why I said it
+would be a mid-term solution. But again by the time all 64 bits are
+gone (got used), we may have u128 available.
 
-Are you sure? rtl8169_vlan_mode() that configured this before was
-called from rtl8169_init_one(). The change is that this logic was
-merged with enabling RX csum offload in rtl8169_set_features().
-
-Best Regards,
-Micha=B3 Miros=B3aw
+> --
+>
