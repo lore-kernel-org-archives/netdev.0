@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 2/2] niu: Recognise original ethtool class
- code for AH/ESP flow hashing
-Date: Mon, 11 Apr 2011 13:29:17 -0700 (PDT)
-Message-ID: <20110411.132917.229759117.davem@davemloft.net>
-References: <1302306555.2871.59.camel@bwh-desktop>
+Subject: Re: [PATCH] IPV4:Removed the unnecessary loops and made
+ /proc/net/snmp ouput more readable
+Date: Mon, 11 Apr 2011 13:32:45 -0700 (PDT)
+Message-ID: <20110411.133245.35050120.davem@davemloft.net>
+References: <1302303099-6880-1-git-send-email-sasikanth.v19@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com,
-	santwona.behera@sun.com, jeffrey.t.kirsher@intel.com
-To: bhutchings@solarflare.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: sasikanth.v19@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54609
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54615
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754937Ab1DKU3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:29:52 -0400
-In-Reply-To: <1302306555.2871.59.camel@bwh-desktop>
+	by vger.kernel.org with ESMTP id S1751534Ab1DKUdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:33:21 -0400
+In-Reply-To: <1302303099-6880-1-git-send-email-sasikanth.v19@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 09 Apr 2011 00:49:15 +0100
+From: Sasikanth V <sasikanth.v19@gmail.com>
+Date: Sat,  9 Apr 2011 04:21:39 +0530
 
-> When the RX network flow classification interface was originally
-> defined for reporting and controlling of flow hashing, AH and ESP were
-> not given distinct flow class codes (apparently because the Sun
-> Neptune hardware treats them very similarly).
-> 
-> For flow steering, they must be distinguished, so new and separate
-> flow class codes were added for AH and ESP.  But for backward-
-> compatibility, flow hash operations should continue to support the
-> original class codes.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Sasikanth V <sasikanth.v19@gmail.com>
 
-Applied, thanks Ben.
+Programs parse the output of these files, you cannot change their
+layout or else you will break them.
