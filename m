@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: Re: [PATCH] net: sky2: convert to hw_features
-Date: Mon, 11 Apr 2011 07:58:29 -0700
-Message-ID: <20110411075829.7b9bf1e5@nehalam>
+Date: Mon, 11 Apr 2011 08:00:09 -0700
+Message-ID: <20110411080009.72c37538@nehalam>
 References: <20110410131321.8CD9713A64@rere.qmqm.pl>
 	<20110410115302.450794c7@nehalam>
 	<20110411005100.GA22103@rere.qmqm.pl>
@@ -11,11 +11,11 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:32996 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43842 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753834Ab1DKO7H convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1753972Ab1DKPAl convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2011 10:59:07 -0400
+	Mon, 11 Apr 2011 11:00:41 -0400
 In-Reply-To: <20110411005100.GA22103@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
