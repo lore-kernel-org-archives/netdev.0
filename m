@@ -1,74 +1,96 @@
-From: Scot Doyle <lkml@scotdoyle.com>
-Subject: Re: Kernel panic when using bridge
-Date: Mon, 11 Apr 2011 18:48:00 -0500
-Message-ID: <4DA39330.2030102@scotdoyle.com>
-References: <4D9E62D9.5010400@scotdoyle.com>	<20110408121700.0aad53fe@nehalam>	<4D9FE5BE.6060600@scotdoyle.com> <20110409161908.a2aca120.shimoda.hiroaki@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 32872] New: LLC PDU is dropped if skb is not
+ linear
+Date: Mon, 11 Apr 2011 16:48:12 -0700
+Message-ID: <20110411164812.8f84f995.akpm@linux-foundation.org>
+References: <bug-32872-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sebastian Nickel <Sebastian.Nickel@hetzner.de>,
-	Pallai Roland <pallair@magex.hu>
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: vitalyb@telenet.dn.ua
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.scotdoyle.com ([74.207.249.244]:47617 "EHLO
-	smtp.scotdoyle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752903Ab1DKXsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 19:48:01 -0400
-In-Reply-To: <20110409161908.a2aca120.shimoda.hiroaki@gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38374 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752903Ab1DKXsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 19:48:39 -0400
+In-Reply-To: <bug-32872-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/09/2011 02:19 AM, Hiroaki SHIMODA wrote:
->
-> It seems that the bug trap is occurred in ip_options_compile() due to
-> rt is NULL.
->
-> 	8b 96 cc 00 00 00       mov    0xcc(%rsi),%edx
-> rsi is rt, and 0xcc means rt->rt_spec_dst. So I think below code hit
-> the bug trap.
->
-> 332	if (skb) {
-> 333		memcpy(&optptr[optptr[2]-1],&rt->rt_spec_dst, 4);<- here
-> 334		opt->is_changed = 1;
-> 335	}
->
-> And call trace seems as follows.
->    __netif_receive_skb()
->      ->  br_handle_frame()
->           ->  NF_HOOK()
->                ->  br_nf_pre_routing()
->                     ->  br_parse_ip_options()
->                          ->  ip_options_compile()
->
-> br_parse_ip_options() was introduced at 462fb2a (bridge : Sanitize
-> skb before it enters the IP stack) but ip_options_compile() or
-> ip_options_rcv_srr() seems to be called with no rt info.
 
-Thanks to a tip from Sebastian, I can now reproduce this panic by 
-running "IP Stack Integrity Checker v0.07" from another machine on the 
-same subnet with command "icmpsic -s x.y.z.a -d x.y.z.b" where "x.y.z.a" 
-is IP address of the other machine and "x.y.z.b" is the IP address of 
-the target. When I enable iptables logging on the target machine, no 
-panic occurs. When I disable iptables logging (but otherwise leave the 
-same iptables rules) a panic occurs within a few seconds.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Thanks Hiroaki for the analysis of the kernel panic output. I've 
-confirmed that you are correct by placing a printk just before those two 
-lines. In every panic, the printk was triggered on line 333 of 
-net/ipv4/ip_options.c
+On Fri, 8 Apr 2011 09:52:34 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-The kernel panic does not occur after applying the following patch.
+> https://bugzilla.kernel.org/show_bug.cgi?id=32872
+> 
+>            Summary: LLC PDU is dropped if skb is not linear
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.32
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: vitalyb@telenet.dn.ua
+>         Regression: No
+> 
+> 
+> If skb consists of several fragments this check fails
+> net/llc/llc_input.c:
+> =============================================
+> llc_fixup_skb()
+> ...
+>     pdu = (struct llc_pdu_un *)skb->data;
+> ...
+>     __be16 pdulen = eth_hdr(skb)->h_proto;
+>     s32 data_size = ntohs(pdulen) - llc_len;
+> 
+>     if (data_size < 0 ||
+>         ((skb_tail_pointer(skb) -
+>           (u8 *)pdu) - llc_len) < data_size)
+>         return 0;
+> =============================================
+> 
+> and packet is silently dropped.
+> 
+> This breaks GVRP protocol if received packet is large ( > 512 bytes on my
+> system) and contains a Leave All message. Since Leave All is missed,
+> corresponding JoinIns are not sent and switch unregisters VLANs from port.
+> 
+> Attached patch seems to resolve this issue, but I don't know if it's a correct
+> solution.
 
-# diff net/ipv4/ip_options.c.original net/ipv4/ip_options.c.fix
-332c332
-<                 if (skb) {
----
- >                 if (skb && rt) {
-374c374
-<                     if (skb) {
----
- >                     if (skb && rt) {
+--- linux-2.6.32.36/net/llc/llc_input.c.orig	2009-12-03 05:51:21.000000000 +0200
++++ linux-2.6.32.36/net/llc/llc_input.c	2011-04-08 08:57:29.000000000 +0300
+@@ -105,6 +105,11 @@
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*pdu))))
+ 		return 0;
+ 
++	if (skb->data_len != 0){
++	    if (unlikely(skb_linearize(skb)))
++		return 0;
++	}
++
+ 	pdu = (struct llc_pdu_un *)skb->data;
+ 	if ((pdu->ctrl_1 & LLC_PDU_TYPE_MASK) == LLC_PDU_TYPE_U)
+ 		llc_len = 1;
 
-What do you all think? Will it cause other problems?
+
+2.6.32 is a pretty old kernel - we'll need to verify if current kernels
+have the same problem.
+
+Please don't send patches via bugzilla - it causes lots of problems
+with our usual patch management and review processes.  It's preferred
+that patches be sent via email as per Documentation/SubmittingPatches,
+and that they include a Signed-off-by:, as described in that file.
+
+Thanks.
