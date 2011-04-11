@@ -1,118 +1,106 @@
-From: Eric B Munson <emunson@mgebm.net>
-Subject: Re: 2.6.39-rc2 boot crash
-Date: Mon, 11 Apr 2011 17:07:47 -0400
-Message-ID: <20110411210746.GA2453@mgebm.net>
-References: <20110406184753.GA7691@mgebm.net>
- <1302115953.8094.217.camel@nimitz>
- <20110406212041.GA2596@mgebm.net>
- <20110406.142157.68145422.davem@davemloft.net>
- <20110406220512.GA2460@mgebm.net>
- <4D9D9AA4.6060304@trash.net>
+From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: nfs client doesn't work [was: mmotm 2011-03-31-14-48 uploaded]
+Date: Mon, 11 Apr 2011 23:08:06 +0200
+Message-ID: <4DA36DB6.8060108@suse.cz>
+References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org> <4D96E4C5.2080302@suse.cz> <1302122693.16786.0.camel@lade.trondhjem.org> <4D9D5CC9.2040002@suse.cz> <4DA36722.2020402@suse.cz> <4DA36758.4070203@suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="h31gzZEtNLTqOjlF"
-Cc: David Miller <davem@davemloft.net>, dave@linux.vnet.ibm.com,
-	linux-kernel@vger.kernel.org, zbr@ioremap.net, gregkh@suse.de,
-	ksrinivasan@novell.com, NetDev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D9D9AA4.6060304@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	mm-commits-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4DA36758.4070203-AlSwsSmVLrQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On 04/11/2011 10:40 PM, Jiri Slaby wrote:
+> Ccing Bryan
+> 
+> On 04/11/2011 10:40 PM, Jiri Slaby wrote:
+>> On 04/07/2011 08:42 AM, Jiri Slaby wrote:
+>>> On 04/06/2011 10:44 PM, Myklebust, Trond wrote:
+>>>> On Sat, 2011-04-02 at 10:56 +0200, Jiri Slaby wrote:
+>>>>> On 03/31/2011 11:48 PM, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org wrote:
+>>>>>> The mm-of-the-moment snapshot 2011-03-31-14-48 has been uploaded to
+>>>>>
+>>>>> Hi, nfs client is defunct in this kernel. Tcpdump says:
+>>>>> 10:51:55.489717 IP 10.20.11.33.759945860 > 10.20.3.2.2049: 132 getattr
+>>>>> fh 0,0/24
+>>>>> 10:51:55.515927 IP 10.20.3.2.2049 > 10.20.11.33.759945860: reply ok 44
+>>>>> getattr ERROR: Operation not permitted
+>>>>> 10:51:55.515949 IP 10.20.11.33.921 > 10.20.3.2.2049: Flags [.], ack
+>>>>> 3569361440, win 115, options [nop,nop,TS val 599750 ecr 255058541],
+>>>> length 0
+>>>>> 10:52:04.130310 IP 10.20.11.33.793500292 > 10.20.3.2.2049: 76 getattr fh
+>>>>> 0,0/24
+>>>>> 10:52:04.152178 IP 10.20.3.2.2049 > 10.20.11.33.793500292: reply ok 44
+>>>>> getattr ERROR: Operation not permitted
+>>>>>
+>>>>> If I run the same mount command (mount -oro,intr host:dir mountpoint)
+>>>>> from within a virtual machine with 2.6.38.2 there, everything mounts OK.
+>>>>
+>>>> Does the attached patch help?
+>>>
+>>> No, still the operation not permitted in the tcpdump output and no mount.
+>>
+>> The next tree from 20110411 still doesn't work. The topmost commit in
+>> fs/nfs/namespace.c is:
+>> commit 418875900e3de4831c84f86ae4756690dac5be77
+>> Author: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+>> Date:   Wed Apr 6 14:33:28 2011 -0400
+>>
+>>     NFS: Fix a signed vs. unsigned secinfo bug
+>>
+>>
+>> I bisected it to (in vanilla already):
+>>
+>> 8f70e95f9f4159184f557a1db60c909d7c1bd2e3 is the first bad commit
+>> commit 8f70e95f9f4159184f557a1db60c909d7c1bd2e3
+>> Author: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+>> Date:   Thu Mar 24 17:12:31 2011 +0000
+>>
+>>     NFS: Determine initial mount security
+>>
+>>     When sec=<something> is not presented as a mount option,
+>>     we should attempt to determine what security flavor the
+>>     server is using.
+>>
+>>     Signed-off-by: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+>>     Signed-off-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+>>
+>> :040000 040000 8e5a640b37e00f0df21e1d9cd9aff160df2d5938
+>> 0152daa67bc8d12e32cda5f4a036807d2e380392 M      fs
+>> :040000 040000 f74aa33f8597cb82cd0fd7d90d84e0660b7f5804
+>> 527bc0ca6975cedc7e684b45dc9961f8aaf1207a M      include
+>> :040000 040000 87559d2f211ea905343a86c8551b6610dd239891
+>> 7e4ee0e5eddf12474b6de9e7fdb6218b6165bdb2 M      net
 
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sorry for an extra message. I've just found out that there appears
+messages in dmesg:
+[   58.656048] RPC: AUTH_GSS upcall timed out.
+[   58.656050] Please check user daemon is running.
+[   88.656065] RPC: AUTH_GSS upcall timed out.
+[   88.656068] Please check user daemon is running.
+[  118.656077] RPC: AUTH_GSS upcall timed out.
+[  118.656080] Please check user daemon is running.
+[  148.656049] RPC: AUTH_GSS upcall timed out.
+[  148.656052] Please check user daemon is running.
+[  178.656046] RPC: AUTH_GSS upcall timed out.
+[  178.656049] Please check user daemon is running.
 
-On Thu, 07 Apr 2011, Patrick McHardy wrote:
 
-> Am 07.04.2011 00:05, schrieb Eric B Munson:
-> > On Wed, 06 Apr 2011, David Miller wrote:
-> >=20
-> >> From: Eric B Munson <emunson@mgebm.net>
-> >> Date: Wed, 6 Apr 2011 17:20:41 -0400
-> >>
-> >>> A bisect points at commit 04f482faf50535229a5a5c8d629cf963899f857c fo=
-r the
-> >>> first bad one.  Unfortunately, I have not made netconsole work yet an=
-d the
-> >>> hang is happening mostly right when X starts so I can't even see the =
-console.
-> >>> I will keep at the netconsole and see if I can get it functioning, al=
-so I will
-> >>> try to boot this kernel in a VM and see if that helps.
-> >>
-> >> Patrick, please help Eric so we can fix this bug.
-> >>
-> >> Thanks.
-> >>
-> >=20
-> > I have a useful trace now from netconsole:
-> >=20
-> > [   18.029521] BUG: sleeping function called from invalid context at ar=
-ch/x86/mm/fault.c:1087
-> > [   18.029527] in_atomic(): 0, irqs_disabled(): 1, pid: 2018, name: cgr=
-ulesengd
-> > [   18.029693] BUG: unable to handle kernel paging request at 000010000=
-0000000
-> > [   18.029730] IP: [<ffffffff814c3db8>] __skb_recv_datagram+0x128/0x2b0
-> > [   18.029756] PGD 0=20
-> > [   18.029768] Oops: 0002 [#1] SMP=20
-> > [   18.029790] last sysfs file: /sys/devices/pci0000:00/0000:00:02.0/00=
-00:02:00.0/usb10/10-0:1.0/bInterfaceClass
-> > [   18.029824] CPU 0=20
-> > [   18.029833] Modules linked in: kvm_intel kvm parport_pc ppdev snd_hd=
-a_codec_hdmi snd_hda_codec_realtek nfs lockd fscache auth_rpcgss nfs_acl su=
-nrpc radeon deflate zlib_deflate ctr twofish_generic twofish_x86_64 twofish=
-_common ttm camellia serpent drm_kms_helper snd_usb_audio blowfish cast5 sn=
-d_hda_intel drm des_generic snd_hda_codec snd_hwdep aesni_intel snd_usbmidi=
-_lib cryptd aes_x86_64 aes_generic snd_pcm xcbc snd_seq_midi rmd160 snd_raw=
-midi sha512_generic sha256_generic uvcvideo snd_seq_midi_event sha1_generic=
- snd_seq snd_timer crypto_null snd_seq_device snd af_key xhci_hcd i7core_ed=
-ac videodev joydev psmouse edac_core v4l2_compat_ioctl32 w83627ehf soundcor=
-e serio_raw hwmon_vid snd_page_alloc max6650 hid_microsoft i2c_algo_bit lp =
-parport asus_atk0110 usbhid hid firewire_ohci firewire_core crc_itu_t
-> > [   18.030424]=20
-> > [   18.030432] Pid: 2018, comm: cgrulesengd Not tainted 2.6.39-rc2+ #52=
- System manufacturer System Product Name/P6X58D PREMIUM
-> > [   18.030477] RIP: 0010:[<ffffffff814c3db8>]  [<ffffffff814c3db8>] __s=
-kb_recv_datagram+0x128/0x2b0
-> >...
-> >=20
-> > I haven't dug into it at all, but I am happy to help test potential fix=
-es.
->=20
-> I can't figure this out, the only thing that should have changed is the
-> time the initial PROC_CN_MCAST_LISTEN message is received. Apparently
-> at that point connector is not fully initialized yet. Please post your
-> config and the full boot log. Thanks.
->=20
+I instrumented the code and it's stuck with trying RPC_AUTH_GSS_KRB5.
 
-I am still seeing this on Linus' tree, is there anything more I can do to h=
-elp
-track the problem?
+I don't use GSS at all.
 
-Thanks,
-Eric
-
---h31gzZEtNLTqOjlF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNo22iAAoJEH65iIruGRnNZdYH/AnYjXgGDm8nKzAWvoXi0ak+
-ODuWMYda6VngeavBNeqWSnbK81pO9KtR5taooQGrUDxw71NDH6H/eV5ULnEFMU3v
-KvvM1ZyOs4zj9TpOR1R6xw5Z4l1o64iJoojbEIy1EFIm+JSn/3KqFAiEaNuJleeq
-b990zGnECwekk5hppAJfzZrInW8N/gXO94kck4MTXmCAkTsH+8JqyFxyc3LtIrEs
-nn1hihUAXH6waxvJoeAdjfL090gRwKMA9aMadMqHo9w26Yz1710o+qIV1y1NqIXu
-lEKPCcsmBhfI/IM5vqMsZ3uNpZlqz5Xy4YPzImjrT5trBHvoFGVRDe5ANmiUKD8=
-=MEdp
------END PGP SIGNATURE-----
-
---h31gzZEtNLTqOjlF--
+regards,
+-- 
+js
+suse labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
