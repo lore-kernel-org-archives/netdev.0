@@ -1,59 +1,119 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 3/3] stmmac: fix Transmit Underflow error
-Date: Mon, 11 Apr 2011 11:16:46 +0200
-Message-ID: <1302513406-3758-3-git-send-email-peppe.cavallaro@st.com>
-References: <1302513406-3758-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 1/3] stmmac: fixed dma lib build when turn-on the debug option
+Date: Mon, 11 Apr 2011 11:16:44 +0200
+Message-ID: <1302513406-3758-1-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:52567 "EHLO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753907Ab1DKJRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 05:17:11 -0400
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:53817 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755384Ab1DKJpb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 05:45:31 -0400
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 018FE14E
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 09:17:08 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id B982A138
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 09:16:55 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 9B4E21A5F
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 09:17:08 +0000 (GMT)
-In-Reply-To: <1302513406-3758-1-git-send-email-peppe.cavallaro@st.com>
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1D3101A78
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 09:16:55 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some old MAC chips without COE sometime the
-Transmit Underflow error is issued.
+This patch fixes a compilation error when build the
+dwmac_lib with the DEBUG option enabled.
 
-The driver aborted all the transmission process
-and initialized it from scratch.
-This breaks the network activity as raised by Nachiketa
-on a SPEAr board.
-
-The patch is to fix this rare underflow event.
-The driver will only clear the interrupt and the Tx
-DMA will go out the Suspend state as soon as the
-descriptor is fetched again.
-The driver will continue to bump-up the DMA FIFO threshold
-that, indeed, helped somebody to prevent this kind of error
-in the past as well.
-
-Reported-by: Nachiketa Prachanda <nprachanda@ncomputing.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/stmmac/stmmac_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/stmmac/dwmac_lib.c |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index 442a7ca..ba9daec 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -749,7 +749,6 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 			priv->hw->dma->dma_mode(priv->ioaddr, tc, SF_DMA_MODE);
- 			priv->xstats.threshold = tc;
+diff --git a/drivers/net/stmmac/dwmac_lib.c b/drivers/net/stmmac/dwmac_lib.c
+index d65fab1..e250935 100644
+--- a/drivers/net/stmmac/dwmac_lib.c
++++ b/drivers/net/stmmac/dwmac_lib.c
+@@ -26,9 +26,9 @@
+ 
+ #undef DWMAC_DMA_DEBUG
+ #ifdef DWMAC_DMA_DEBUG
+-#define DBG(fmt, args...)  printk(fmt, ## args)
++#define DWMAC_LIB_DBG(fmt, args...)  printk(fmt, ## args)
+ #else
+-#define DBG(fmt, args...)  do { } while (0)
++#define DWMAC_LIB_DBG(fmt, args...)  do { } while (0)
+ #endif
+ 
+ /* CSR1 enables the transmit DMA to check for new descriptor */
+@@ -152,7 +152,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
+ 	/* read the status register (CSR5) */
+ 	u32 intr_status = readl(ioaddr + DMA_STATUS);
+ 
+-	DBG(INFO, "%s: [CSR5: 0x%08x]\n", __func__, intr_status);
++	DWMAC_LIB_DBG(KERN_INFO "%s: [CSR5: 0x%08x]\n", __func__, intr_status);
+ #ifdef DWMAC_DMA_DEBUG
+ 	/* It displays the DMA process states (CSR5 register) */
+ 	show_tx_process_state(intr_status);
+@@ -160,43 +160,43 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
+ #endif
+ 	/* ABNORMAL interrupts */
+ 	if (unlikely(intr_status & DMA_STATUS_AIS)) {
+-		DBG(INFO, "CSR5[15] DMA ABNORMAL IRQ: ");
++		DWMAC_LIB_DBG(KERN_INFO "CSR5[15] DMA ABNORMAL IRQ: ");
+ 		if (unlikely(intr_status & DMA_STATUS_UNF)) {
+-			DBG(INFO, "transmit underflow\n");
++			DWMAC_LIB_DBG(KERN_INFO "transmit underflow\n");
+ 			ret = tx_hard_error_bump_tc;
+ 			x->tx_undeflow_irq++;
  		}
--		stmmac_tx_err(priv);
- 	} else if (unlikely(status == tx_hard_error))
- 		stmmac_tx_err(priv);
+ 		if (unlikely(intr_status & DMA_STATUS_TJT)) {
+-			DBG(INFO, "transmit jabber\n");
++			DWMAC_LIB_DBG(KERN_INFO "transmit jabber\n");
+ 			x->tx_jabber_irq++;
+ 		}
+ 		if (unlikely(intr_status & DMA_STATUS_OVF)) {
+-			DBG(INFO, "recv overflow\n");
++			DWMAC_LIB_DBG(KERN_INFO "recv overflow\n");
+ 			x->rx_overflow_irq++;
+ 		}
+ 		if (unlikely(intr_status & DMA_STATUS_RU)) {
+-			DBG(INFO, "receive buffer unavailable\n");
++			DWMAC_LIB_DBG(KERN_INFO "receive buffer unavailable\n");
+ 			x->rx_buf_unav_irq++;
+ 		}
+ 		if (unlikely(intr_status & DMA_STATUS_RPS)) {
+-			DBG(INFO, "receive process stopped\n");
++			DWMAC_LIB_DBG(KERN_INFO "receive process stopped\n");
+ 			x->rx_process_stopped_irq++;
+ 		}
+ 		if (unlikely(intr_status & DMA_STATUS_RWT)) {
+-			DBG(INFO, "receive watchdog\n");
++			DWMAC_LIB_DBG(KERN_INFO "receive watchdog\n");
+ 			x->rx_watchdog_irq++;
+ 		}
+ 		if (unlikely(intr_status & DMA_STATUS_ETI)) {
+-			DBG(INFO, "transmit early interrupt\n");
++			DWMAC_LIB_DBG(KERN_INFO "transmit early interrupt\n");
+ 			x->tx_early_irq++;
+ 		}
+ 		if (unlikely(intr_status & DMA_STATUS_TPS)) {
+-			DBG(INFO, "transmit process stopped\n");
++			DWMAC_LIB_DBG(KERN_INFO "transmit process stopped\n");
+ 			x->tx_process_stopped_irq++;
+ 			ret = tx_hard_error;
+ 		}
+ 		if (unlikely(intr_status & DMA_STATUS_FBI)) {
+-			DBG(INFO, "fatal bus error\n");
++			DWMAC_LIB_DBG(KERN_INFO "fatal bus error\n");
+ 			x->fatal_bus_error_irq++;
+ 			ret = tx_hard_error;
+ 		}
+@@ -215,7 +215,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
+ 	/* Clear the interrupt by writing a logic 1 to the CSR5[15-0] */
+ 	writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
+ 
+-	DBG(INFO, "\n\n");
++	DWMAC_LIB_DBG(KERN_INFO "\n\n");
+ 	return ret;
  }
+ 
 -- 
 1.7.4.2
 
