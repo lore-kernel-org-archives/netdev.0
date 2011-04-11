@@ -1,66 +1,100 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH RESEND] uts: Set default hostname to "localhost", rather
- than "(none)"
-Date: Mon, 11 Apr 2011 08:02:54 -0700
-Message-ID: <20110411080254.403d3166@nehalam>
-References: <20110411050155.GA2507@feather>
+From: Wei Gu <wei.gu@ericsson.com>
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+Date: Mon, 11 Apr 2011 23:14:44 +0800
+Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
+References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302167168.3357.12.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
+	 <1302192218.3357.47.camel@edumazet-laptop> <4D9DE465.1080008@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA58D@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302253651.4409.2.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302267400.4409.22.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302275223.4409.36.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
+ <1302330998.2656.113.camel@edumazet-laptop>
+ <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
+ <4DA3151B.4030507@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org
-To: Josh Triplett <josh@joshtriplett.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110411050155.GA2507@feather>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:60200 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673Ab1DKPOs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 11:14:48 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 10 Apr 2011 22:01:59 -0700
-Josh Triplett <josh@joshtriplett.org> wrote:
+ I tried the ixgbe-3.3.8 (insmod ixgbe.ko RSS=8,8,8,8,8,8,8,8 FdirMode=0,0,0,0,0,0,0,0 Node=0,0,1,1,2,2,3,3)  from e1000.sf.net both on 2.6.35.1 and 2.6.35.2, same observation as 3.2.10 ixgbe driver, On 2.6.35.2 it have high rx errors:
+Ethtool -S eth10 |grep error
+     rx_errors: 0
+     tx_errors: 0
+     rx_over_errors: 0
+     rx_crc_errors: 0
+     rx_frame_errors: 0
+     rx_fifo_errors: 0
+     rx_missed_errors: 2263088
+     tx_aborted_errors: 0
+     tx_carrier_errors: 0
+     tx_fifo_errors: 0
+     tx_heartbeat_errors: 0
+     rx_long_length_errors: 0
+     rx_short_length_errors: 0
+     rx_csum_offload_errors: 0
+     fcoe_last_errors: 0
 
-> The "hostname" tool falls back to setting the hostname to "localhost" if
-> /etc/hostname does not exist.  Distribution init scripts have the same
-> fallback.  However, if userspace never calls sethostname, such as when
-> booting with init=/bin/sh, or otherwise booting a minimal system without
-> the usual init scripts, the default hostname of "(none)" remains,
-> unhelpfully appearing in various places such as prompts
-> ("root@(none):~#") and logs.  Furthrmore, "(none)" doesn't typically
-> resolve to anything useful, while "localhost" does.
-> 
-> Change the default hostname to "localhost".  This removes the need for
-> the standard fallback, provides a useful default for systems that never
-> call sethostname, and makes minimal systems that much more useful with
-> less configuration.
-> 
-> Signed-off-by: Josh Triplett <josh@joshtriplett.org>
-> ---
-> 
-> Looked at "(none)" one too many times, and figured I ought to do
-> something about it.
-> 
-> Resending, and adding CCs for networking and UTS.
-> 
->  include/linux/uts.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/uts.h b/include/linux/uts.h
-> index 73eb1ed..610bec2 100644
-> --- a/include/linux/uts.h
-> +++ b/include/linux/uts.h
-> @@ -9,7 +9,7 @@
->  #endif
->  
->  #ifndef UTS_NODENAME
-> -#define UTS_NODENAME "(none)"	/* set by sethostname() */
-> +#define UTS_NODENAME "localhost"	/* set by sethostname() */
->  #endif
->  
->  #ifndef UTS_DOMAINNAME
 
-It makes sense but this behavior has existed so long in Linux
-that some distro might actually be depending on it.
+-----Original Message-----
+From: Wei Gu
+Sent: Monday, April 11, 2011 11:01 PM
+To: 'Alexander Duyck'
+Cc: Eric Dumazet; netdev; Kirsher, Jeffrey T
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
 
--- 
+I will try the lastest driver 3.3.8 on  e1000.sf.net:)
+
+But I also tested the ixgbe-3.2.10 on the kernel 2.6.35.1 and 2.6.35.2,The problem start happens from 2.6.35.2, no problem at all with 2.6.35.1 kernel.
+I don't know if some patch between 2.6.35.1 and 2.35.2 had some impact to this Intel 10GE ixgbe driver.
+
+Thanks
+WeiGu
+
+-----Original Message-----
+From: Alexander Duyck [mailto:alexander.h.duyck@intel.com]
+Sent: Monday, April 11, 2011 10:50 PM
+To: Wei Gu
+Cc: Eric Dumazet; netdev; Kirsher, Jeffrey T
+Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+
+On 4/10/2011 12:02 AM, Wei Gu wrote:
+> Hi , I haven't enable the packet header spilting, so I think no
+> netdev_alloc_page() will be called in my case.
+>
+> BTW, I also did the same test from 2.6.33 to 2.6.35 kernel, looks the
+> problem happens from 2.6.35, cause 2.6.32/33/34 do not see this
+> problem at all, they all works pretty good.
+>
+> I modify the .configs base on the FC13/14, and also manully set the
+> DMAR DEFAULT to off, chose the SLAB as the memory allocator (same as
+> RHEL6 2.6.32). For more detail about the config, please check the
+> attached file
+>
+> Thanks WeiGu
+
+WeiGu,
+
+In order to try and isolate this issue I was wondering if you could try our out-of-tree ixgbe driver from e1000.sf.net?  The idea would be to test it on 2.6.34 and 2.6.35 in order to determine if the issue is due to a change in the kernel or a change in the driver.  If the performance is the same on these two kernels with our out-of-tree driver then we know the issue is a change somewhere in the ixgbe driver in the kernel.
+
+Thanks,
+
+Alex
+
