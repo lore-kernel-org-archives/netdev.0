@@ -1,179 +1,91 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 2/2] netxen: support for GbE port settings
-Date: Fri, 11 Mar 2011 02:44:37 -0800
-Message-ID: <1299840277-30591-3-git-send-email-amit.salecha@qlogic.com>
-References: <1299840277-30591-1-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NET-2.6 1/1] netxen: limit skb frags for non tso packet
+Date: Mon, 11 Apr 2011 11:52:54 -0700
+Message-ID: <1302547974-7310-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
+	anirban.chakraborty@qlogic.com, stable@kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:5961 "EHLO
+Received: from mvnat01.qlogic.com ([198.186.3.73]:5658 "EHLO
 	dut4145.unminc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756148Ab1DKWwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 18:52:11 -0400
-In-Reply-To: <1299840277-30591-1-git-send-email-amit.salecha@qlogic.com>
+	with ESMTP id S1755676Ab1DKWwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 18:52:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+Machines are getting deadlock in four node cluster environment.
+All nodes are accessing (find /gfs2 -depth -print|cpio -ocv > /dev/null)
+200 GB storage on a GFS2 filesystem.
+This result in memory fragmentation and driver receives 18 frags for
+1448 byte packets.
+For non tso packet, fw drops the tx request, if it has >14 frags.
 
-o Allow setting speed and auto negotiation parameters for GbE ports.
-o Log an error message to indicate duplex setting is not supported in
-  the hardware currently.
+Fixing it by pulling extra frags.
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+Cc: stable@kernel.org
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/netxen/netxen_nic.h         |    6 ++-
- drivers/net/netxen/netxen_nic_ctx.c     |   15 +++++++
- drivers/net/netxen/netxen_nic_ethtool.c |   69 ++++++++++--------------------
- 3 files changed, 43 insertions(+), 47 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    4 ++--
+ drivers/net/netxen/netxen_nic_main.c |   17 +++++++++++++++++
+ 2 files changed, 19 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index a113805..d7299f1 100644
+index d7299f1..679dc85 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -739,7 +739,8 @@ struct netxen_recv_context {
- #define NX_CDRP_CMD_READ_PEXQ_PARAMETERS	0x0000001c
- #define NX_CDRP_CMD_GET_LIC_CAPABILITIES	0x0000001d
- #define NX_CDRP_CMD_READ_MAX_LRO_PER_BOARD	0x0000001e
--#define NX_CDRP_CMD_MAX				0x0000001f
-+#define NX_CDRP_CMD_CONFIG_GBE_PORT		0x0000001f
-+#define NX_CDRP_CMD_MAX				0x00000020
+@@ -174,7 +174,7 @@
  
- #define NX_RCODE_SUCCESS		0
- #define NX_RCODE_NO_HOST_MEM		1
-@@ -1054,6 +1055,7 @@ typedef struct {
- #define NX_FW_CAPABILITY_BDG			(1 << 8)
- #define NX_FW_CAPABILITY_FVLANTX		(1 << 9)
- #define NX_FW_CAPABILITY_HW_LRO			(1 << 10)
-+#define NX_FW_CAPABILITY_GBE_LINK_CFG		(1 << 11)
+ #define	MAX_NUM_CARDS		4
  
- /* module types */
- #define LINKEVENT_MODULE_NOT_PRESENT			1
-@@ -1349,6 +1351,8 @@ void netxen_advert_link_change(struct netxen_adapter *adapter, int linkup);
- void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u64 *);
- void netxen_pci_camqm_write_2M(struct netxen_adapter *, u64, u64);
+-#define MAX_BUFFERS_PER_CMD	32
++#define NETXEN_MAX_FRAGS_PER_TX	14
+ #define MAX_TSO_HEADER_DESC	2
+ #define MGMT_CMD_DESC_RESV	4
+ #define TX_STOP_THRESH		((MAX_SKB_FRAGS >> 2) + MAX_TSO_HEADER_DESC \
+@@ -558,7 +558,7 @@ struct netxen_recv_crb {
+  */
+ struct netxen_cmd_buffer {
+ 	struct sk_buff *skb;
+-	struct netxen_skb_frag frag_array[MAX_BUFFERS_PER_CMD + 1];
++	struct netxen_skb_frag frag_array[MAX_SKB_FRAGS + 1];
+ 	u32 frag_count;
+ };
  
-+int nx_fw_cmd_set_gbe_port(struct netxen_adapter *adapter,
-+				u32 speed, u32 duplex, u32 autoneg);
- int nx_fw_cmd_set_mtu(struct netxen_adapter *adapter, int mtu);
- int netxen_nic_change_mtu(struct net_device *netdev, int new_mtu);
- int netxen_config_hw_lro(struct netxen_adapter *adapter, int enable);
-diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
-index f7d06cb..f16966a 100644
---- a/drivers/net/netxen/netxen_nic_ctx.c
-+++ b/drivers/net/netxen/netxen_nic_ctx.c
-@@ -112,6 +112,21 @@ nx_fw_cmd_set_mtu(struct netxen_adapter *adapter, int mtu)
- 	return 0;
- }
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 83348dc..e8a4b66 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1844,6 +1844,8 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	struct cmd_desc_type0 *hwdesc, *first_desc;
+ 	struct pci_dev *pdev;
+ 	int i, k;
++	int delta = 0;
++	struct skb_frag_struct *frag;
  
-+int
-+nx_fw_cmd_set_gbe_port(struct netxen_adapter *adapter,
-+			u32 speed, u32 duplex, u32 autoneg)
-+{
+ 	u32 producer;
+ 	int frag_count, no_of_desc;
+@@ -1851,6 +1853,21 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	frag_count = skb_shinfo(skb)->nr_frags + 1;
+ 
++	/* 14 frags supported for normal packet and
++	 * 32 frags supported for TSO packet
++	 */
++	if (!skb_is_gso(skb) && frag_count > NETXEN_MAX_FRAGS_PER_TX) {
 +
-+	return netxen_issue_cmd(adapter,
-+				adapter->ahw.pci_func,
-+				NXHAL_VERSION,
-+				speed,
-+				duplex,
-+				autoneg,
-+				NX_CDRP_CMD_CONFIG_GBE_PORT);
++		for (i = 0; i < (frag_count - NETXEN_MAX_FRAGS_PER_TX); i++) {
++			frag = &skb_shinfo(skb)->frags[i];
++			delta += frag->size;
++		}
 +
-+}
++		if (!__pskb_pull_tail(skb, delta))
++			goto drop_packet;
 +
- static int
- nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
- {
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 587498e..481f331 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -214,7 +214,6 @@ skip:
- 			check_sfp_module = netif_running(dev) &&
- 				adapter->has_link_events;
- 		} else {
--			ecmd->autoneg = AUTONEG_ENABLE;
- 			ecmd->supported |= (SUPPORTED_TP |SUPPORTED_Autoneg);
- 			ecmd->advertising |=
- 				(ADVERTISED_TP | ADVERTISED_Autoneg);
-@@ -252,53 +251,31 @@ static int
- netxen_nic_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
--	__u32 status;
-+	int ret;
- 
--	/* read which mode */
--	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
--		/* autonegotiation */
--		if (adapter->phy_write &&
--		    adapter->phy_write(adapter,
--				       NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
--				       ecmd->autoneg) != 0)
--			return -EIO;
--		else
--			adapter->link_autoneg = ecmd->autoneg;
-+	if (adapter->ahw.port_type != NETXEN_NIC_GBE)
-+		return -EOPNOTSUPP;
- 
--		if (adapter->phy_read &&
--		    adapter->phy_read(adapter,
--				      NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
--				      &status) != 0)
--			return -EIO;
-+	if (!(adapter->capabilities & NX_FW_CAPABILITY_GBE_LINK_CFG)) {
-+		netdev_info(dev, "Firmware upgrade required to "
-+				"support this operation\n");
-+		return -EOPNOTSUPP;
++		frag_count = 1 + skb_shinfo(skb)->nr_frags;
 +	}
+ 	/* 4 fragments per cmd des */
+ 	no_of_desc = (frag_count + 3) >> 2;
  
--		/* speed */
--		switch (ecmd->speed) {
--		case SPEED_10:
--			netxen_set_phy_speed(status, 0);
--			break;
--		case SPEED_100:
--			netxen_set_phy_speed(status, 1);
--			break;
--		case SPEED_1000:
--			netxen_set_phy_speed(status, 2);
--			break;
--		}
--		/* set duplex mode */
--		if (ecmd->duplex == DUPLEX_HALF)
--			netxen_clear_phy_duplex(status);
--		if (ecmd->duplex == DUPLEX_FULL)
--			netxen_set_phy_duplex(status);
--		if (adapter->phy_write &&
--		    adapter->phy_write(adapter,
--				       NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
--				       *((int *)&status)) != 0)
--			return -EIO;
--		else {
--			adapter->link_speed = ecmd->speed;
--			adapter->link_duplex = ecmd->duplex;
--		}
--	} else
-+	ret = nx_fw_cmd_set_gbe_port(adapter, ecmd->speed, ecmd->duplex,
-+				     ecmd->autoneg);
-+	if (ret == NX_RCODE_NOT_SUPPORTED && ecmd->duplex == DUPLEX_HALF) {
-+		netdev_info(dev, "Speed and autoneg mode settings supported, "
-+			    "half duplex mode not supported\n");
- 		return -EOPNOTSUPP;
-+	} else if (ret) {
-+		netdev_info(dev, "Setting speed, duplex or autoneg failed\n");
-+		return -EIO;
-+	}
-+
-+	adapter->link_speed = ecmd->speed;
-+	adapter->link_duplex = ecmd->duplex;
-+	adapter->link_autoneg = ecmd->autoneg;
- 
- 	if (!netif_running(dev))
- 		return 0;
 -- 
-1.6.3.3
+1.7.3.2
 
