@@ -1,81 +1,50 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH RESEND] uts: Set default hostname to "localhost", rather
- than "(none)"
-Date: Mon, 11 Apr 2011 11:53:10 -0700
-Message-ID: <20110411185309.GA13391@feather>
-References: <20110411050155.GA2507@feather>
- <20110411080254.403d3166@nehalam>
- <BANLkTinVGTOAsxG1CiJO1mSGRxBSNP5P4Q@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: extending feature word.
+Date: Mon, 11 Apr 2011 11:54:59 -0700
+Message-ID: <20110411115459.13ac3c73@nehalam>
+References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com>
+	<20110408100535.GB10565@rere.qmqm.pl>
+	<BANLkTik4+P3GU+NzZ6JkKPgXhwip-+PM5w@mail.gmail.com>
+	<20110410101954.GA23753@rere.qmqm.pl>
+	<BANLkTimFzTGKmhfRxzEUt_LwrnhAaetU5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTinVGTOAsxG1CiJO1mSGRxBSNP5P4Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36508 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751370Ab1DKSzC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2011 14:55:02 -0400
+In-Reply-To: <BANLkTimFzTGKmhfRxzEUt_LwrnhAaetU5Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2011 at 08:12:40AM -0700, Linus Torvalds wrote:
-> On Mon, Apr 11, 2011 at 8:02 AM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > It makes sense but this behavior has existed so long in Linux
-> > that some distro might actually be depending on it.
+On Mon, 11 Apr 2011 11:45:05 -0700
+Mahesh Bandewar <maheshb@google.com> wrote:
 
-I checked fairly thoroughly for evidence of userspace relying on
-"(none)", and found no instances of that.  Userspace typically just says
-"I haven't set it yet, so nobody has set it yet", and unconditionally
-sets the hostname.  dhclient doesn't rely on "(none)", distro networking
-scripts don't rely on "(none)", the hostname tool doesn't rely on
-"(none)", and nothing else I've found looks for "(none)".
+> >> That is right! making it an array doesn't really buy us anything
+> >> unless there is a uniform way of managing all the bits spread across
+> >> multiple words inside that array. This was the reason why I have
+> >> changed that array into a bitmap in the patch that I have posted
+> >> earlier. This way the upper limit (currently only 32 bits) will be
+> >> removed and we'll have a long term solution. There will be little bit
+> >> of work involved but 'doing-things-right' has cost associated.  
+> >
+> > I really don't like the bitmap idea. It multiplies the amount of code
+> > needed to manipulate multiple bits at once --- and that's a common
+> > thing for drivers to do. Almost every driver that needs ndo_fix_features
+> > will clear sets --- checkumming set, TSO set, all TX offloads set, ...
+> >  
+> Should the added code be of any concern? If that is happening in the
+> control-path and does not affect the data-path as such; those added
+> instructions is a cost of added flexibility to we got through bitmap.
+> If performance is not at risk then that shouldn't be a problem.
 
-That said, I'll certainly acknowledge that some random userspace bits
-somewhere could have relied on this behavior.  Would a transitional
-period help at all here?  Alternatively, see below.
+Just to be dense... What is wrong with just using u64?
 
-> Yes. Also, quite frankly, I do _not_ think that "localhost" is in any
-> way a more correct hostname.
-> 
-> I'd rather have an obviously invalid hostname for a machine that
-> hasn't been set up correctly than one that might work by random
-> chance.
-
-Choosing "localhost" for systems that don't configure a hostname at
-least makes it fairly likely that you can resolve the system hostname.
-So, "localhost" will have a tendency to Just Work, but seeing a hostname
-of "localhost" will still obviously remind a user that they ought to set
-the hostname to something more sensible on a network-connected box.  On
-a non-networked box, localhost makes perfect sense, and the box need not
-configure anything else.  Similarly, this default would also make sense
-for various types of virtual systems.
-
-Also, "(none)" doesn't necessarily represent an "invalid" hostname.
-In general, tools seem to assume the validity of the system hostname,
-and use it wherever the hostname appears.  (For that matter, as some
-recent security vulnerabilities have demonstrated, "valid hostname"
-doesn't necessarily mean "alphanumeric"; both DNS and DHCP will happily
-hand out a hostname with crazy characters in it, including '(' and ')'.)
-
-I wrote this patch with the same motivation as the option to mount
-devtmpfs on /dev automatically: it makes systems behave more or less
-sanely in the absence of explicit setup, even though more explicit setup
-may produce a more optimal configuration (just as devtmpfs makes all
-devices root:root in the absence of a better configuration).  It would
-often make sense for embedded or virtual systems.
-
-In general, I'd rather see the kernel provide a configuration that will
-work in at least some cases and do no worse in others (requiring
-explicit configuration), rather than a configuration which will not work
-in any cases and *always* requires explicit userspace configuration.
-
-If the above does not provide a sufficiently good argument for changing
-the default (perhaps with a transition period added), would you consider
-accepting a patch which added a CONFIG_DEFAULT_UTS_HOSTNAME, defaulting
-to "(none)"?  Then systems could choose to use that configuration option
-if they know their userspace will work with it.
-
-- Josh Triplett
+-- 
