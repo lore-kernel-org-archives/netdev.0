@@ -1,61 +1,31 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: extending feature word.
-Date: Mon, 11 Apr 2011 21:19:47 +0200
-Message-ID: <20110411191947.GC31338@rere.qmqm.pl>
-References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com> <20110408100535.GB10565@rere.qmqm.pl> <BANLkTik4+P3GU+NzZ6JkKPgXhwip-+PM5w@mail.gmail.com> <20110410101954.GA23753@rere.qmqm.pl> <BANLkTimFzTGKmhfRxzEUt_LwrnhAaetU5Q@mail.gmail.com> <20110411115459.13ac3c73@nehalam>
+From: Oskar Berggren <oskar.berggren@gmail.com>
+Subject: arp_solicit and source ip selection
+Date: Mon, 11 Apr 2011 21:33:46 +0200
+Message-ID: <BANLkTikUGK1U1ow5oC0bwdRaq_r3ksT+4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:51056 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753923Ab1DKTTt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2011 15:19:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20110411115459.13ac3c73@nehalam>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48931 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755467Ab1DKTeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 15:34:07 -0400
+Received: by bwz15 with SMTP id 15so4775689bwz.19
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 12:34:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2011 at 11:54:59AM -0700, Stephen Hemminger wrote:
-> On Mon, 11 Apr 2011 11:45:05 -0700
-> Mahesh Bandewar <maheshb@google.com> wrote:
-> > >> That is right! making it an array doesn't really buy us anything
-> > >> unless there is a uniform way of managing all the bits spread ac=
-ross
-> > >> multiple words inside that array. This was the reason why I have
-> > >> changed that array into a bitmap in the patch that I have posted
-> > >> earlier. This way the upper limit (currently only 32 bits) will =
-be
-> > >> removed and we'll have a long term solution. There will be littl=
-e bit
-> > >> of work involved but 'doing-things-right' has cost associated. =20
-> > > I really don't like the bitmap idea. It multiplies the amount of =
-code
-> > > needed to manipulate multiple bits at once --- and that's a commo=
-n
-> > > thing for drivers to do. Almost every driver that needs ndo_fix_f=
-eatures
-> > > will clear sets --- checkumming set, TSO set, all TX offloads set=
-, ...
-> > Should the added code be of any concern? If that is happening in th=
-e
-> > control-path and does not affect the data-path as such; those added
-> > instructions is a cost of added flexibility to we got through bitma=
-p.
-> > If performance is not at risk then that shouldn't be a problem.
-> Just to be dense... What is wrong with just using u64?
+Hi,
 
-Hmm. Looks like this is so simple that nobody thought of it seriously. =
-;)
+arp_solicit() tries to use the source IP-address of the IP-packet that
+caused an ARP resolution to be necessary, when sending an ARP request.
+If the IP-packet is not generated locally, that its source IP cannot
+be reused in the ARP packet, and instead inet_select_addr() is called
+for the relevant network interface.
 
-This of course needs a bit of glue code in G/SFEATURES handling, but mo=
-st
-of the change would be s/u32/u64/ in apropriate places.
+Any reason why arp_solicit() could not, or should not, use the routing
+subsystem to determine source IP address for the ARP request? That
+would enable it to take account of any "src" directives specified in
+the routing tables.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+/Oskar
