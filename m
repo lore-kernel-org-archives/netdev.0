@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PatchV3 3/3] usb: plusb: Add debug to reset function
-Date: Sun, 10 Apr 2011 18:47:11 -0700 (PDT)
-Message-ID: <20110410.184711.112595958.davem@davemloft.net>
-References: <1301456667-1648-1-git-send-email-simon@mungewell.org>
-	<1302162015-22504-1-git-send-email-simon@mungewell.org>
-	<1302162015-22504-3-git-send-email-simon@mungewell.org>
+Subject: Re: [PATCH] caif: Add CAIF HSI Link Layer
+Date: Sun, 10 Apr 2011 18:49:37 -0700 (PDT)
+Message-ID: <20110410.184937.183052667.davem@davemloft.net>
+References: <1302170262-3926-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, sshtylyov@mvista.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: simon@mungewell.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linus.walleji@stericsson.com,
+	daniel.martensson@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58358
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51656
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752955Ab1DKBrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2011 21:47:47 -0400
-In-Reply-To: <1302162015-22504-3-git-send-email-simon@mungewell.org>
+	by vger.kernel.org with ESMTP id S1752543Ab1DKBuN convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Apr 2011 21:50:13 -0400
+In-Reply-To: <1302170262-3926-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wood <simon@mungewell.org>
-Date: Thu,  7 Apr 2011 00:40:15 -0700
+=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+Date: Thu,  7 Apr 2011 11:57:42 +0200
 
-> From: simon <simon@ubuntu.(none)>
-> 
-> This patch adds some debug to the reset function to print out the
-> reason why it fails.
-> 
-> Signed-off-by: Simon Wood <simon@mungewell.org>
+> +static int cfhsi_tx_frm(struct cfhsi_desc *desc, struct cfhsi *cfhsi=
+)
 
-Applied.
+I do not see what kind of locking prevents multiple threads of control
+from entering this function at the same time, making your skb_peek()
+sequences illegal.
