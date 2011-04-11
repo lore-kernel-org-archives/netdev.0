@@ -1,120 +1,234 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: extending feature word.
-Date: Mon, 11 Apr 2011 11:45:05 -0700
-Message-ID: <BANLkTimFzTGKmhfRxzEUt_LwrnhAaetU5Q@mail.gmail.com>
-References: <BANLkTin52LqjxtVT+_y+gGam-QxeLq_iOA@mail.gmail.com>
-	<20110408100535.GB10565@rere.qmqm.pl>
-	<BANLkTik4+P3GU+NzZ6JkKPgXhwip-+PM5w@mail.gmail.com>
-	<20110410101954.GA23753@rere.qmqm.pl>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] iproute2: Fix meta match u32 with 0xffffffff
+Date: Mon, 11 Apr 2011 11:52:34 -0700
+Message-ID: <20110411115234.74b5936b@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Thomas Graf <tgraf@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:49553 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096Ab1DKSpI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 14:45:08 -0400
-Received: from hpaq6.eem.corp.google.com (hpaq6.eem.corp.google.com [172.25.149.6])
-	by smtp-out.google.com with ESMTP id p3BIj783032367
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 11:45:07 -0700
-Received: from bwz12 (bwz12.prod.google.com [10.188.26.12])
-	by hpaq6.eem.corp.google.com with ESMTP id p3BIirFn001232
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 11:45:06 -0700
-Received: by bwz12 with SMTP id 12so8926433bwz.27
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 11:45:06 -0700 (PDT)
-In-Reply-To: <20110410101954.GA23753@rere.qmqm.pl>
+Received: from mail.vyatta.com ([76.74.103.46]:36312 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751096Ab1DKSwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2011 14:52:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 10, 2011 at 3:19 AM, Micha=C5=82 Miros=C5=82aw
-<mirq-linux@rere.qmqm.pl> wrote:
-> On Fri, Apr 08, 2011 at 11:17:41AM -0700, Mahesh Bandewar wrote:
->> On Fri, Apr 8, 2011 at 3:05 AM, Micha=C5=82 Miros=C5=82aw <mirq-linu=
-x@rere.qmqm.pl> wrote:
->> > On Fri, Apr 01, 2011 at 07:07:05PM -0700, Mahesh Bandewar wrote:
->> >> Thanks for your comments on my loop-back patch. I was looking at =
-the
->> >> code today from the perspective of extending various "features" f=
-or
->> >> word to an array of words and as Michael has pointed out, it's a =
-huge
->> >> change. So I'm thinking on the following lines
->> >> (include/linux/netdevice.h)
->> >>
->> >> +#define DEV_FEATURE_WORDS =C2=A0 =C2=A0 =C2=A02
->> >> +#define LEGACY_FEATURE_WORD =C2=A0 =C2=A00
->> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* currently active device features */
->> >> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 features;
->> >> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 features[DEV_FEATURE_WORDS];
->> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* user-changeable features */
->> >> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 hw_features;
->> >> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 hw_features[DEV_FEATURE_WORDS];
->> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* user-requested features */
->> >> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wanted_features;
->> >> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wanted_features[DEV_FEATURE_WORDS];
->> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* VLAN feature mask */
->> >> - =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 vlan_features;
->> >> + =C2=A0 =C2=A0 =C2=A0 u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 vlan_features[DEV_FEATURE_WORDS];
->> >
->> > Hmm. There might be no point in making features field an array.
->> > This gives us nothing really. Maybe just add features_2 or similar=
-?
->> > If we ever get to the point there need to be more than two words f=
-or
->> > features we can think of some abstraction layer then.
->> >
->> That is right! making it an array doesn't really buy us anything
->> unless there is a uniform way of managing all the bits spread across
->> multiple words inside that array. This was the reason why I have
->> changed that array into a bitmap in the patch that I have posted
->> earlier. This way the upper limit (currently only 32 bits) will be
->> removed and we'll have a long term solution. There will be little bi=
-t
->> of work involved but 'doing-things-right' has cost associated.
->
-> I really don't like the bitmap idea. It multiplies the amount of code
-> needed to manipulate multiple bits at once --- and that's a common
-> thing for drivers to do. Almost every driver that needs ndo_fix_featu=
-res
-> will clear sets --- checkumming set, TSO set, all TX offloads set, ..=
-=2E
->
-Should the added code be of any concern? If that is happening in the
-control-path and does not affect the data-path as such; those added
-instructions is a cost of added flexibility to we got through bitmap.
-If performance is not at risk then that shouldn't be a problem.
+The value 0xffffffff is a valid mask and bstrtoul() would return
+ULONG_MAX which was the error value. Resolve the problem by separating
+return value and error indication.
 
-> As a first step just add another set of words:
->
-> union {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 features;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 features_2=
-;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0} /* anonymous struct */;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 features_array[2];
-> } /* anonymous union */;
->
-> This allows to change drivers after core supporting code gets impleme=
-nted.
->
-I agree that this will be an easier path as far as the extension of
-features is concerned. Though this still does not simplify the
-management of bits that are spanning across multiple words? Also
-atomicity of those operations?
+---
+ tc/em_cmp.c   |   12 ++++--------
+ tc/em_meta.c  |    9 +++------
+ tc/em_nbyte.c |    6 ++----
+ tc/em_u32.c   |   19 +++++++++----------
+ tc/m_ematch.c |   17 +++++++++++------
+ tc/m_ematch.h |    2 +-
+ 6 files changed, 30 insertions(+), 35 deletions(-)
 
-Thanks,
---mahesh..
+diff --git a/tc/em_cmp.c b/tc/em_cmp.c
+index 6addce0..af3e591 100644
+--- a/tc/em_cmp.c
++++ b/tc/em_cmp.c
+@@ -69,8 +69,7 @@ static int cmp_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 				return PARSE_ERR(a, "cmp: missing argument");
+ 			a = bstr_next(a);
+ 
+-			offset = bstrtoul(a);
+-			if (offset == ULONG_MAX)
++			if (bstrtoul(a, &offset) < 0)
+ 				return PARSE_ERR(a, "cmp: invalid offset, " \
+ 				    "must be numeric");
+ 
+@@ -82,8 +81,7 @@ static int cmp_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 
+ 			layer = parse_layer(a);
+ 			if (layer == INT_MAX) {
+-				layer = bstrtoul(a);
+-				if (layer == ULONG_MAX)
++				if (bstrtoul(a, &layer) < 0)
+ 					return PARSE_ERR(a, "cmp: invalid " \
+ 					    "layer");
+ 			}
+@@ -96,8 +94,7 @@ static int cmp_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 				return PARSE_ERR(a, "cmp: missing argument");
+ 			a = bstr_next(a);
+ 
+-			mask = bstrtoul(a);
+-			if (mask == ULONG_MAX)
++			if (bstrtoul(a, &mask) < 0)
+ 				return PARSE_ERR(a, "cmp: invalid mask");
+ 		} else if (!bstrcmp(a, "trans")) {
+ 			cmp.flags |= TCF_EM_CMP_TRANS;
+@@ -115,8 +112,7 @@ static int cmp_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 				return PARSE_ERR(a, "cmp: missing argument");
+ 			a = bstr_next(a);
+ 
+-			value = bstrtoul(a);
+-			if (value == ULONG_MAX)
++			if (bstrtoul(a, &value) < 0)
+ 				return PARSE_ERR(a, "cmp: invalid value");
+ 
+ 			value_present = 1;
+diff --git a/tc/em_meta.c b/tc/em_meta.c
+index 033e29f..276223a 100644
+--- a/tc/em_meta.c
++++ b/tc/em_meta.c
+@@ -260,8 +260,7 @@ parse_object(struct bstr *args, struct bstr *arg, struct tcf_meta_val *obj,
+ 		return bstr_next(arg);
+ 	}
+ 
+-	num = bstrtoul(arg);
+-	if (num != ULONG_MAX) {
++	if (bstrtoul(arg, &num) < 0) {
+ 		obj->kind = TCF_META_TYPE_INT << 12;
+ 		obj->kind |= TCF_META_ID_VALUE;
+ 		*dst = (unsigned long) num;
+@@ -318,8 +317,7 @@ compatible:
+ 			}
+ 			a = bstr_next(a);
+ 
+-			shift = bstrtoul(a);
+-			if (shift == ULONG_MAX) {
++			if (bstrtoul(a, &shift) < 0) {
+ 				PARSE_ERR(a, "meta: invalid shift, must " \
+ 				    "be numeric");
+ 				return PARSE_FAILURE;
+@@ -336,8 +334,7 @@ compatible:
+ 			}
+ 			a = bstr_next(a);
+ 
+-			mask = bstrtoul(a);
+-			if (mask == ULONG_MAX) {
++			if (bstrtoul(a, &mask) < 0) {
+ 				PARSE_ERR(a, "meta: invalid mask, must be " \
+ 				    "numeric");
+ 				return PARSE_FAILURE;
+diff --git a/tc/em_nbyte.c b/tc/em_nbyte.c
+index 87f3e9d..9a52ffc 100644
+--- a/tc/em_nbyte.c
++++ b/tc/em_nbyte.c
+@@ -63,8 +63,7 @@ static int nbyte_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 				return PARSE_ERR(a, "nbyte: missing argument");
+ 			a = bstr_next(a);
+ 
+-			offset = bstrtoul(a);
+-			if (offset == ULONG_MAX)
++			if (bstrtoul(a, &offset) < 0)
+ 				return PARSE_ERR(a, "nbyte: invalid offset, " \
+ 				    "must be numeric");
+ 
+@@ -76,8 +75,7 @@ static int nbyte_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 
+ 			layer = parse_layer(a);
+ 			if (layer == INT_MAX) {
+-				layer = bstrtoul(a);
+-				if (layer == ULONG_MAX)
++				if (bstrtoul(a, &layer) < 0)
+ 					return PARSE_ERR(a, "nbyte: invalid " \
+ 					    "layer");
+ 			}
+diff --git a/tc/em_u32.c b/tc/em_u32.c
+index 21ed70f..88b5fa1 100644
+--- a/tc/em_u32.c
++++ b/tc/em_u32.c
+@@ -33,6 +33,7 @@ static void u32_print_usage(FILE *fd)
+ 	    "Example: u32(u16 0x1122 0xffff at nexthdr+4)\n");
+ }
+ 
++
+ static int u32_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 			  struct bstr *args)
+ {
+@@ -62,16 +63,14 @@ static int u32_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 	if (a == NULL)
+ 		return PARSE_ERR(a, "u32: missing key");
+ 
+-	key = bstrtoul(a);
+-	if (key == ULONG_MAX)
++	if (bstrtoul(a, &key) < 0)
+ 		return PARSE_ERR(a, "u32: invalid key, must be numeric");
+ 
+ 	a = bstr_next(a);
+ 	if (a == NULL)
+ 		return PARSE_ERR(a, "u32: missing mask");
+ 
+-	mask = bstrtoul(a);
+-	if (mask == ULONG_MAX)
++	if (bstrtoul(a, &mask) < 0)
+ 		return PARSE_ERR(a, "u32: invalid mask, must be numeric");
+ 
+ 	a = bstr_next(a);
+@@ -92,12 +91,12 @@ static int u32_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
+ 		a = bstr_next(a);
+ 		if (a == NULL)
+ 			return PARSE_ERR(a, "u32: missing offset");
+-		offset = bstrtoul(a);
+-	} else
+-		offset = bstrtoul(a);
+-
+-	if (offset == ULONG_MAX)
+-		return PARSE_ERR(a, "u32: invalid offset");
++		if (bstrtoul(a, &offset) < 0)
++			return PARSE_ERR(a, "u32: invalid offset");
++	} else {
++		if (bstrtoul(a, &offset) < 0)
++			return PARSE_ERR(a, "u32: invalid offset");
++	}
+ 
+ 	if (a->next)
+ 		return PARSE_ERR(a->next, "u32: unexpected trailer");
+diff --git a/tc/m_ematch.c b/tc/m_ematch.c
+index 4c3acf8..92600ad 100644
+--- a/tc/m_ematch.c
++++ b/tc/m_ematch.c
+@@ -510,20 +510,25 @@ struct bstr * bstr_alloc(const char *text)
+ 	return b;
+ }
+ 
+-unsigned long bstrtoul(const struct bstr *b)
++int bstrtoul(const struct bstr *b, unsigned long *lp)
+ {
+ 	char *inv = NULL;
+-	unsigned long l;
+ 	char buf[b->len+1];
+ 
++	if (b->len == 0)
++		return -EINVAL;
++
+ 	memcpy(buf, b->data, b->len);
+ 	buf[b->len] = '\0';
+ 
+-	l = strtoul(buf, &inv, 0);
+-	if (l == ULONG_MAX || inv == buf)
+-		return ULONG_MAX;
++	*lp = strtoul(buf, &inv, 0);
++	if (inv == buf)
++		return -EINVAL;
++
++	if (*lp == ULONG_MAX || errno == ERANGE)
++		return -ERANGE;
+ 
+-	return l;
++	return 0;
+ }
+ 
+ void bstr_print(FILE *fd, const struct bstr *b, int ascii)
+diff --git a/tc/m_ematch.h b/tc/m_ematch.h
+index 5036e9b..e676290 100644
+--- a/tc/m_ematch.h
++++ b/tc/m_ematch.h
+@@ -49,7 +49,7 @@ static inline struct bstr *bstr_next(struct bstr *b)
+ 	return b->next;
+ }
+ 
+-extern unsigned long bstrtoul(const struct bstr *b);
++extern int bstrtoul(const struct bstr *b, unsigned long *lp);
+ extern void bstr_print(FILE *fd, const struct bstr *b, int ascii);
+ 
+ 
+-- 
+1.7.1
+
