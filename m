@@ -1,42 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] v3 ethtool: add ntuple flow specifier
- data to network flow classifier
-Date: Mon, 11 Apr 2011 13:21:30 -0700 (PDT)
-Message-ID: <20110411.132130.245388032.davem@davemloft.net>
-References: <20110409040159.6064.79138.stgit@gitlad.jf.intel.com>
-	<1302345512.5282.48.camel@localhost>
+Subject: Re: [RFC net-next] qlge: use ethtool set_phys_id
+Date: Mon, 11 Apr 2011 13:22:45 -0700 (PDT)
+Message-ID: <20110411.132245.70184177.davem@davemloft.net>
+References: <20110406164750.11cfeef3@nehalam>
+	<20110411180246.GA8562@linux-ox1b.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com,
+Cc: shemminger@vyatta.com, Linux-Driver@qlogic.com,
 	netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41391
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41397
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754239Ab1DKUWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:22:06 -0400
-In-Reply-To: <1302345512.5282.48.camel@localhost>
+	by vger.kernel.org with ESMTP id S1753756Ab1DKUXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:23:21 -0400
+In-Reply-To: <20110411180246.GA8562@linux-ox1b.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 09 Apr 2011 11:38:32 +0100
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Mon, 11 Apr 2011 11:02:46 -0700
 
-> On Fri, 2011-04-08 at 21:01 -0700, Alexander Duyck wrote:
->> This change is meant to add an ntuple data extensions to the rx network flow
->> classification specifiers.  The idea is to allow ntuple to be displayed via
->> the network flow classification interface.
+> On Wed, Apr 06, 2011 at 04:47:50PM -0700, Stephen Hemminger wrote:
+>> This is a stab at replacing old ethtool phys_id with set_phys_id
+>> on the Qlogic 10Gb driver. Compile tested only.
 >> 
->> The first patch had some left over stuff from the original flow extension
->> flags I had added.  That bit is removed in this patch.
+>> Not sure if set_led_cfg will flash continuously, or needs
+>> to be replaced by ETHTOOL_ID_ON/ETHTOOL_ID_OFF
 >> 
->> The second had some left over comments that stated we ignored bits in the
->> masks when we actually match them.
->> 
->> This work is based on input from Ben Hutchings.
->> 
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+> 
+> Stephen,
+> 
+> This worked fine as is.
+> Thanks,
+> Ron Mercer
+> 
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 
-Applied.
+Applied, thanks everyone.
