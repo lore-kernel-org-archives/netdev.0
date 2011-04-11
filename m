@@ -1,26 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] net: fix tranmitted/tranmitting typo
-Date: Mon, 11 Apr 2011 13:17:45 -0700 (PDT)
-Message-ID: <20110411.131745.102548357.davem@davemloft.net>
-References: <1302516958-9535-1-git-send-email-panweiping3@gmail.com>
+Subject: Re: [net-next-2.6 PATCH 1/2] ethtool: prevent null pointer
+ dereference with NTUPLE set but no set_rx_ntuple
+Date: Mon, 11 Apr 2011 13:21:13 -0700 (PDT)
+Message-ID: <20110411.132113.179926013.davem@davemloft.net>
+References: <20110408220410.25468.49130.stgit@gitlad.jf.intel.com>
+	<20110408220722.25468.98089.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: fubar@us.ibm.com, andy@greyhouse.net,
-	lucas.demarchi@profusion.mobi, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: panweiping3@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51099
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41385
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755476Ab1DKUSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:18:21 -0400
-In-Reply-To: <1302516958-9535-1-git-send-email-panweiping3@gmail.com>
+	by vger.kernel.org with ESMTP id S1754239Ab1DKUVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:21:49 -0400
+In-Reply-To: <20110408220722.25468.98089.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogV2VpcGluZyBQYW4o5r2Y5Y2r5bmzKSA8cGFud2VpcGluZzNAZ21haWwuY29tPg0KRGF0
-ZTogTW9uLCAxMSBBcHIgMjAxMSAxODoxNTo1NyArMDgwMA0KDQo+IHJlcGxhY2UgdHJhbm1pdHRl
-ZCB3aXRoIHRyYW5zbWl0dGVkLg0KPiByZXBsYWNlIHRyYW5taXR0aW5nIHdpdGggdHJhbnNtaXR0
-aW5nLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogV2VpcGluZyBQYW4o5r2Y5Y2r5bmzKSA8cGFud2Vp
-cGluZzNAZ21haWwuY29tPg0KDQpBcHBsaWVkLg0K
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Fri, 08 Apr 2011 15:07:22 -0700
+
+> This change is meant to prevent a possible null pointer dereference if
+> NETIF_F_NTUPLE is defined but the set_rx_ntuple function pointer is not.
+> 
+> The main motivation behind this patch is to eventually replace the ntuple
+> interfaces entirely with the network flow classifier interfaces.  This
+> allows the device drivers to maintain the ntuple check internally while
+> using the network flow classifier interface for setting up and displaying
+> rules.
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+
+Applied.
