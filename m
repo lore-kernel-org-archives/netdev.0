@@ -1,62 +1,51 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: r8169 doesn't report link state correctly.
-Date: Mon, 11 Apr 2011 13:09:19 -0700
-Message-ID: <4DA35FEF.1030009@candelatech.com>
+From: sjur.brandeland@stericsson.com
+Subject: [PATCH 0/2] caif: Bugfixes
+Date: Mon, 11 Apr 2011 22:11:28 +0200
+Message-ID: <1302552691-11874-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sjurbren@gmail.com,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53619 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755927Ab1DKUJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:09:21 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p3BK9JjL008340
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 13:09:20 -0700
+Received: from thalia-smout.broadpark.no ([80.202.8.21]:53720 "EHLO
+	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755846Ab1DKULf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 16:11:35 -0400
+Received: from terra-smin.broadpark.no ([80.202.8.13])
+ by thalia-smout.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
+ with ESMTP id <0LJI0095X83AEF90@thalia-smout.broadpark.no> for
+ netdev@vger.kernel.org; Mon, 11 Apr 2011 22:11:34 +0200 (CEST)
+Received: from localhost.localdomain ([80.203.137.187])
+ by terra-smin.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
+ with ESMTP id <0LJI007NQ83ANZZ0@terra-smin.broadpark.no> for
+ netdev@vger.kernel.org; Mon, 11 Apr 2011 22:11:34 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I notice that in kernel 2.6.38-wl, the realtek 8169 NIC doesn't
-report link down when in fact there is no cable connected.  Instead,
-it shows 10Mbps half-duplex.  I have no idea if this previously worked
-or not.
+=46rom: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
 
-[root@lec2010-ath9k-1 lanforge]# ethtool -i eth1
-driver: r8169
-version: 2.3LK-NAPI
-firmware-version:
-bus-info: 0000:02:00.0
-[root@lec2010-ath9k-1 lanforge]# ethtool eth1
-Settings for eth1:
-	Supported ports: [ TP MII ]
-	Supported link modes:   10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Half 1000baseT/Full
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Half 1000baseT/Full
-	Advertised pause frame use: No
-	Advertised auto-negotiation: Yes
-	Speed: 10Mb/s
-	Duplex: Half
-	Port: MII
-	PHYAD: 0
-	Transceiver: internal
-	Auto-negotiation: on
-	Supports Wake-on: pumbg
-	Wake-on: g
-	Current message level: 0x00000033 (51)
-			       drv probe ifdown ifup
-	Link detected: yes
+Hi Dave,
 
-Thanks,
-Ben
+These two patches applies cleanly to net-2.6 and net-next-2.6.
+Please apply as you see apropriate.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+The first patch fixes a kernel panic.
+The second patch fixes a CAIF protocol bug. This bug caused packet
+prioritization to be disabled on the modem, resulting in bad throughput=
+=2E
+
+Regards,
+Sjur
+
+Sjur Br=C3=A6ndeland (2):
+  caif: Bugfix use for_each_safe when removing list nodes.
+  caif: performance bugfix - allow radio stack to prioritize packets.
+
+ net/caif/cfdgml.c |    6 +++++-
+ net/caif/cfmuxl.c |    4 ++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
