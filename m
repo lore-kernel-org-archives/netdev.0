@@ -1,40 +1,41 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 0/2] bonding:delete two unused variables
-Date: Mon, 11 Apr 2011 12:02:09 -0700
-Message-ID: <30720.1302548529@death>
-References: <cover.1302509480.git.panweiping3@gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v2] net: r8169: convert to hw_features
+Date: Mon, 11 Apr 2011 21:15:13 +0200
+Message-ID: <20110411191513.GB31338@rere.qmqm.pl>
+References: <1302277067.19764.2.camel@obelisk.thedillows.org> <20110408163556.D8D1213909@rere.qmqm.pl> <20110410154508.GA17091@electric-eye.fr.zoreil.com> <20110411133029.GA12119@rere.qmqm.pl> <20110411184739.GA17331@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andy@greyhouse.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: =?UTF-8?q?Weiping=20Pan=28=E6=BD=98=E5=8D=AB=E5=B9=B3=29?=
-	<panweiping3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <cover.1302509480.git.panweiping3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Dillow <dave@thedillows.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: =?iso-8859-2?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:50851 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752461Ab1DKTPO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2011 15:15:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20110411184739.GA17331@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 11, 2011 at 08:47:39PM +0200, Fran=E7ois Romieu wrote:
+> On Mon, Apr 11, 2011 at 03:30:29PM +0200, Micha=B3 Miros=B3aw wrote:
+> > On Sun, Apr 10, 2011 at 05:45:08PM +0200, Fran=E7ois Romieu wrote:
+> [...]
+> > > The description should include :
+> > > - Rx VLAN tag stripping is now enabled by default
+> > Actually, it was enabled by default before. NETIF_F_HW_VLAN_TX_RX w=
+as
+> > #defined to be NETIF_F_HW_VLAN_TX+NETIF_F_HW_VLAN_RX.
+> It was enabled in dev->features but it was necessary to configure at
+> least one VLAN before the hardware CPlusCmd register was instructed
+> to strip Rx vlan tag (let aside 8110SCd or tagged Tx packets which
+> where sent as such).
 
->I found that variable alb_timer and rlb_interval_counter in struct
->alb_bond_info are not used by other codes any more, so delete them.
->
->Weiping Pan(=E6=BD=98=E5=8D=AB=E5=B9=B3) (2):
->  bonding:delete unused alb_timer
->  bonding:delete unused rlb_interval_counter
+Are you sure? rtl8169_vlan_mode() that configured this before was
+called from rtl8169_init_one(). The change is that this logic was
+merged with enabling RX csum offload in rtl8169_set_features().
 
-	For both patches.
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
-> drivers/net/bonding/bond_alb.h |    2 --
-> 1 files changed, 0 insertions(+), 2 deletions(-)
->
->--=20
->1.7.4
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best Regards,
+Micha=B3 Miros=B3aw
