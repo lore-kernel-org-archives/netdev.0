@@ -1,76 +1,91 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured incorrectly
- in fiber mode
-Date: Mon, 11 Apr 2011 14:18:51 -0700
-Message-ID: <4DA3703B.1090802@caviumnetworks.com>
-References: <bug-33042-10286@https.bugzilla.kernel.org/> <20110411140239.646ace73.akpm@linux-foundation.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: nfs client doesn't work [was: mmotm 2011-03-31-14-48 uploaded]
+Date: Mon, 11 Apr 2011 23:19:36 +0200
+Message-ID: <4DA37068.6000905@suse.cz>
+References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org> <4D96E4C5.2080302@suse.cz> <1302122693.16786.0.camel@lade.trondhjem.org> <4D9D5CC9.2040002@suse.cz> <4DA36722.2020402@suse.cz> <4DA36B19.8080200@netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, Alex Dubov <oakad@yahoo.com>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:2267 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753167Ab1DKVSx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 17:18:53 -0400
-In-Reply-To: <20110411140239.646ace73.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Myklebust, Trond" <Trond.Myklebust@netapp.com>,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	mm-commits@vger.kernel.org, ML netdev <netdev@vger.kernel.org>,
+	linux-nfs@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>
+To: Bryan Schumaker <bjschuma@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DA36B19.8080200@netapp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/11/2011 02:02 PM, Andrew Morton wrote:
->
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
->
-> On Mon, 11 Apr 2011 09:28:18 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->
->> https://bugzilla.kernel.org/show_bug.cgi?id=33042
->>
->>             Summary: Marvell 88E1145 phy configured incorrectly in fiber
->>                      mode
->>             Product: Drivers
->>             Version: 2.5
->>      Kernel Version: Linux-2.6.39-rc1-00191
->>            Platform: All
->>          OS/Version: Linux
->>                Tree: Mainline
->>              Status: NEW
->>            Severity: normal
->>            Priority: P1
->>           Component: Network
->>          AssignedTo: drivers_network@kernel-bugs.osdl.org
->>          ReportedBy: oakad@yahoo.com
->>          Regression: No
->>
->>
->> On my board, Marvell 88E1145 phy is attached to Freescale gianfar controller.
->> Backplane connection is detected by u-boot as 1000/Full fiber mode.
->>
->> The network works perfectly in u-boot (dhcp, tftp of large files, ntp). Upon
->> booting, kernel detects the link as 100/Full and no data can be exchanged over
->> the interface.
->>
->> As a quick fix, I tried setting .read_settings method of the 1145 driver to
->> marvell_read_status (instead of genphy_read_status). Now the link is correctly
->> detected as 1000/Full, but the data still can not be exchanged.
->>
->> I assume, there's a configuration bit missing on the kernel side, as there are
->> no such problems in u-boot.
->>
+On 04/11/2011 10:56 PM, Bryan Schumaker wrote:
+> On 04/11/2011 04:40 PM, Jiri Slaby wrote:
+>> On 04/07/2011 08:42 AM, Jiri Slaby wrote:
+>>> On 04/06/2011 10:44 PM, Myklebust, Trond wrote:
+>>>> On Sat, 2011-04-02 at 10:56 +0200, Jiri Slaby wrote:
+>>>>> On 03/31/2011 11:48 PM, akpm@linux-foundation.org wrote:
+>>>>>> The mm-of-the-moment snapshot 2011-03-31-14-48 has been uploaded to
+>>>>>
+>>>>> Hi, nfs client is defunct in this kernel. Tcpdump says:
+>>>>> 10:51:55.489717 IP 10.20.11.33.759945860 > 10.20.3.2.2049: 132 getattr
+>>>>> fh 0,0/24
+>>>>> 10:51:55.515927 IP 10.20.3.2.2049 > 10.20.11.33.759945860: reply ok 44
+>>>>> getattr ERROR: Operation not permitted
+>>>>> 10:51:55.515949 IP 10.20.11.33.921 > 10.20.3.2.2049: Flags [.], ack
+>>>>> 3569361440, win 115, options [nop,nop,TS val 599750 ecr 255058541],
+>>>> length 0
+>>>>> 10:52:04.130310 IP 10.20.11.33.793500292 > 10.20.3.2.2049: 76 getattr fh
+>>>>> 0,0/24
+>>>>> 10:52:04.152178 IP 10.20.3.2.2049 > 10.20.11.33.793500292: reply ok 44
+>>>>> getattr ERROR: Operation not permitted
+>>>>>
+>>>>> If I run the same mount command (mount -oro,intr host:dir mountpoint)
+>>>>> from within a virtual machine with 2.6.38.2 there, everything mounts OK.
+>>>>
+>>>> Does the attached patch help?
+>>>
+>>> No, still the operation not permitted in the tcpdump output and no mount.
+> 
+> Does this patch help?
+> 
+> - Bryan
+> 
+> When attempting an initial mount, we should only attempt other
+> authflavors if AUTH_UNIX receives a NFS4ERR_WRONGSEC error.
+> This allows other errors to be passed back to userspace programs.
+> 
+> Signed-off-by: Bryan Schumaker <bjschuma@netapp.com>
+> ---
+> diff --git a/fs/nfs/nfs4proc.c b/fs/nfs/nfs4proc.c
+> index dfd1e6d..9bf41ea 100644
+> --- a/fs/nfs/nfs4proc.c
+> +++ b/fs/nfs/nfs4proc.c
+> @@ -2204,8 +2204,6 @@ static int nfs4_lookup_root_sec(struct nfs_server *server, struct nfs_fh *fhandl
+>  		goto out;
+>  	}
+>  	ret = nfs4_lookup_root(server, fhandle, info);
+> -	if (ret < 0)
+> -		ret = -EAGAIN;
+>  out:
+>  	return ret;
+>  }
+> @@ -2226,7 +2224,7 @@ static int nfs4_proc_get_root(struct nfs_server *server, struct nfs_fh *fhandle,
+>  
+>  	for (i = 0; i < len; i++) {
 
-How does your u-boot configure the part?  Does it write any of the 
-configuration registers, or is it just the default configuration set via 
-the strapping pins?
+No, the patch fixes a problem I have after I add the following test here:
+                if (flav_array[i] > 100)
+                        continue;
 
-In any event, you will probably have to read the configuration before 
-the drivers/net/phy/marvel.c changes them.  Then compare that to what 
-the driver is trying to set.  Then you will either have to override the 
-configuration with the device tree "marvell,reg-init" property, or if 
-you are not using the device tree, add a 88e1145 specific flag that you 
-set when calling phy_connect().
+Without this test it still loops inside gss auth create function with:
+RPC: AUTH_GSS upcall timed out.
 
-David Daney
+>  		status = nfs4_lookup_root_sec(server, fhandle, info, flav_array[i]);
+> -		if (status == 0)
+> +		if (status != -EPERM)
+>  			break;
+>  	}
+>  	if (status == 0)
+
+thanks,
+-- 
+js
+suse labs
