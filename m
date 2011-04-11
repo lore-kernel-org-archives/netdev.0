@@ -1,14 +1,14 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Subject: [PATCH NET-2.6 1/1] netxen: limit skb frags for non tso packet
-Date: Mon, 11 Apr 2011 11:52:54 -0700
-Message-ID: <1302547974-7310-1-git-send-email-amit.salecha@qlogic.com>
+Date: Mon, 11 Apr 2011 11:50:14 -0700
+Message-ID: <1302547814-4400-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	anirban.chakraborty@qlogic.com, stable@kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:5658 "EHLO
+Received: from mvnat01.qlogic.com ([198.186.3.73]:4560 "EHLO
 	dut4145.unminc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755676Ab1DKWwZ (ORCPT
+	with ESMTP id S1755944Ab1DKWwZ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 18:52:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
