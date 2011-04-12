@@ -1,45 +1,26 @@
-From: Debashis Dutt <debdut@gmail.com>
-Subject: Re: [PATCH] net: bna: convert to hw_features
-Date: Tue, 12 Apr 2011 14:56:05 -0700
-Message-ID: <BANLkTimGACAprJa2miQOiOZqN5kY2HGeJQ@mail.gmail.com>
-References: <20110412193823.177C613A64@rere.qmqm.pl>
-	<20110412.145259.102551828.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net/sis900: store MAC into perm_addr for SiS 900,
+ 630E, 635 and 96x variants
+Date: Tue, 12 Apr 2011 14:56:10 -0700 (PDT)
+Message-ID: <20110412.145610.70196366.davem@davemloft.net>
+References: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=EUC-KR
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org, rmody@brocade.com,
-	ddutt@brocade.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: otavio@ossystems.com.br
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54516 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932227Ab1DLV4H convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 17:56:07 -0400
-Received: by fxm17 with SMTP id 17so65980fxm.19
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 14:56:05 -0700 (PDT)
-In-Reply-To: <20110412.145259.102551828.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39414
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932227Ab1DLV4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 17:56:45 -0400
+In-Reply-To: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/4/12 David Miller <davem@davemloft.net>:
-> From: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-> Date: Tue, 12 Apr 2011 21:38:23 +0200 (CEST)
->
->> Note: looks like bnad->conf_mutex is duplicating rtnl_lock.
->>
->> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
->
-> Applied.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+From: Otavio Salvador <otavio@ossystems.com.br>
+Date: Tue, 12 Apr 2011 12:30:40 -0300
 
-Thanks Michal & David.
+> Signed-off-by: Otavio Salvador <otavio@ossystems.com.br>
 
-Patch looks good. We will still do some unit-testing and let you know,
-in case of any hiccups.
-
-Thanks
---Debashis
+Applied.
