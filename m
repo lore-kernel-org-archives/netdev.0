@@ -1,59 +1,44 @@
-From: Borislav Petkov <bp@amd64.org>
-Subject: [PATCH] r8169: Be verbose when unable to load fw patch
-Date: Tue, 12 Apr 2011 15:32:52 +0200
-Message-ID: <1302615172-1646-1-git-send-email-bp@amd64.org>
-Cc: <linux-kernel@vger.kernel.org>,
-	Borislav Petkov <borislav.petkov@amd.com>,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-From: Borislav Petkov <borislav.petkov@amd.com>
-
-When the driver fails loading the firmware, it doesn't say which patch
-exactly it is missing. We have three different firmware images depending
-on the hw revision, so mention the exact patch name it is unable to load
-in the warning message.
-
+From: Jonathan Thibault <jonathan@navigue.com>
+Subject: Bonding/LACP on RTL8169sc/8110sc (R1869)
+Date: Tue, 12 Apr 2011 09:35:20 -0400
+Message-ID: <4DA45518.60407@navigue.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Borislav Petkov <borislav.petkov@amd.com>
----
- drivers/net/r8169.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.navigue.com ([74.117.40.3]:45409 "EHLO mail.navigue.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754503Ab1DLNni (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 09:43:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 493b0de..b068115 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2248,7 +2248,7 @@ static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x05, 0x001b);
- 	if ((rtl_readphy(tp, 0x06) != 0xbf00) ||
- 	    (rtl_apply_firmware(tp, FIRMWARE_8168D_1) < 0)) {
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-+		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch %s\n", FIRMWARE_8168D_1);
- 	}
- 
- 	rtl_writephy(tp, 0x1f, 0x0000);
-@@ -2353,7 +2353,7 @@ static void rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x05, 0x001b);
- 	if ((rtl_readphy(tp, 0x06) != 0xb300) ||
- 	    (rtl_apply_firmware(tp, FIRMWARE_8168D_2) < 0)) {
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-+		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch %s\n", FIRMWARE_8168D_2);
- 	}
- 
- 	rtl_writephy(tp, 0x1f, 0x0000);
-@@ -2475,7 +2475,7 @@ static void rtl8105e_hw_phy_config(struct rtl8169_private *tp)
- 	msleep(100);
- 
- 	if (rtl_apply_firmware(tp, FIRMWARE_8105E_1) < 0)
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-+		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch %s\n", FIRMWARE_8105E_1);
- 
- 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
- }
--- 
-1.7.4
+Greetings all,
+
+I have a a pair of Jetway motherboards with an add-on 3Gbit LAN modules
+and have been doing some testing for a linux router project.  I found
+that I while I can get LACP working properly using eth0 and eth1, using
+the exact same setup with any of the other three lan fails.  Is this a
+known issue?
+
+This is on Linux 2.6.32.10.  Here is a blurb of dmesg showing the NICs
+detected.
+
+eth0: RTL8168b/8111b at 0xf8adc000, 00:30:18:ac:a6:80, XID 0c200000 IRQ 24
+eth1: RTL8168b/8111b at 0xf8ae0000, 00:30:18:ac:a6:81, XID 0c200000 IRQ 25
+eth2: RTL8169sc/8110sc at 0xf8ae4c00, 00:30:18:ae:34:3a, XID 18000000 IRQ 18
+eth3: RTL8169sc/8110sc at 0xf8ae8800, 00:30:18:ae:34:3b, XID 18000000 IRQ 19
+eth4: RTL8169sc/8110sc at 0xf8aec400, 00:30:18:ae:34:3c, XID 18000000 IRQ 16
+
+I can probably manage this project using only eth0 and eth1 in LACP
+configuration but I figured I'd give a heads up.
+
+The interfaces seem able to detect when the link is up or down, bonding
+removes and adds them to the LACP trunk but I can't get traffic through
+them.
+
+Kind regards,
+
+Jonathan
