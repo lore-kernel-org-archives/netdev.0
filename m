@@ -1,46 +1,84 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: Re: [net-next PATCH 1/3] vxge: always enable hardware time stamp
-Date: Tue, 12 Apr 2011 10:36:06 -0500
-Message-ID: <20110412153604.GA1433@kudzu.us>
-References: <1302297083-22665-1-git-send-email-jdmason@kudzu.us>
- <20110410.185845.70188298.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.39-rc2 boot crash
+Date: Tue, 12 Apr 2011 17:39:51 +0200
+Message-ID: <4DA47247.20700@trash.net>
+References: <20110406184753.GA7691@mgebm.net> <1302115953.8094.217.camel@nimitz> <20110406212041.GA2596@mgebm.net> <20110406.142157.68145422.davem@davemloft.net> <20110406220512.GA2460@mgebm.net> <4D9D9AA4.6060304@trash.net> <20110411210746.GA2453@mgebm.net> <20110411220657.GB5783@ioremap.net> <4DA44A73.3060801@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:37732 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757597Ab1DLPgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 11:36:11 -0400
-Received: by yia27 with SMTP id 27so2590411yia.19
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 08:36:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110410.185845.70188298.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------080107070709040403020402"
+Cc: Eric B Munson <emunson@mgebm.net>,
+	David Miller <davem@davemloft.net>, dave@linux.vnet.ibm.com,
+	linux-kernel@vger.kernel.org, gregkh@suse.de,
+	ksrinivasan@novell.com, NetDev <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DA44A73.3060801@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 10, 2011 at 06:58:45PM -0700, David Miller wrote:
-> From: Jon Mason <jdmason@kudzu.us>
-> Date: Fri,  8 Apr 2011 16:11:21 -0500
-> 
-> > Hardware time stamp calculation can only be enabled by the privileged
-> > function. Enable it always by default and simply use the ethtool
-> > interface to set a flag to indicate whether or not the respective
-> > function driver should indicate the timestamp along with the received
-> > packet.
-> > 
-> > Also, make certain fields in vxge_hw_device_config bit-fields to reduce
-> > the size of the struct.
-> > 
-> > Signed-off-by: Jon Mason <jdmason@kudzu.us>
-> 
-> Doesn't this have some performance or latency impact?
+This is a multi-part message in MIME format.
+--------------080107070709040403020402
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-It is all done in hardware by replacing the CRC with the HWTS value.
-So, no perf or latency issues there.  It still only handles the HWTS
-in receive if it is enabled in software via the ioctl. 
-
+On 12.04.2011 14:49, Patrick McHardy wrote:
+> On 12.04.2011 00:06, Evgeniy Polyakov wrote:
+>> Hi.
+>>
+>> On Mon, Apr 11, 2011 at 05:07:47PM -0400, Eric B Munson (emunson@mgebm.net) wrote:
+>>>> I can't figure this out, the only thing that should have changed is the
+>>>> time the initial PROC_CN_MCAST_LISTEN message is received. Apparently
+>>>> at that point connector is not fully initialized yet. Please post your
+>>>> config and the full boot log. Thanks.
+>>>>
+>>>
+>>> I am still seeing this on Linus' tree, is there anything more I can do to help
+>>> track the problem?
 > 
-> I think it should be stay off by default, people who want this know
-> they want it and can turn it on if they want to.
+> Sorry, I had a hardware failure, I'm back working on this now.
+> 
+>> Patrick, do you need my assist on this bug?
+> 
+> Thanks, but I can meanwhile reproduce the problem, so I think I
+> should have a fix soon.
+
+I think this patch should fix the problem. Eric, could you please
+give it a try?
+
+
+
+
+--------------080107070709040403020402
+Content-Type: text/x-patch;
+ name="cn.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="cn.diff"
+
+commit ad676e0dbbe8658ce46e192f449689bf3011bdf5
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Tue Apr 12 17:37:04 2011 +0200
+
+    connector: fix skb double free in cn_rx_skb()
+    
+    When a skb is delivered to a registered callback, cn_call_callback()
+    incorrectly returns -ENODEV after freeing the skb, causing cn_rx_skb()
+    to free the skb a second time.
+    
+    Reported-by: Eric B Munson <emunson@mgebm.net>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index d770058..219d88a 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -142,6 +142,7 @@ static int cn_call_callback(struct sk_buff *skb)
+ 		cbq->callback(msg, nsp);
+ 		kfree_skb(skb);
+ 		cn_queue_release_callback(cbq);
++		err = 0;
+ 	}
+ 
+ 	return err;
+
+--------------080107070709040403020402--
