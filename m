@@ -1,45 +1,87 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path
- similar to hw-accel
-Date: Tue, 12 Apr 2011 14:16:45 -0700 (PDT)
-Message-ID: <20110412.141645.112604563.davem@davemloft.net>
-References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
+Subject: Re: [PATCH] net: ipv4: add IPPROTO_ICMP socket kind
+Date: Tue, 12 Apr 2011 14:25:34 -0700 (PDT)
+Message-ID: <20110412.142534.183049889.davem@davemloft.net>
+References: <20110409101514.GA4262@albatros>
+	<20110412050659.GA14129@openwall.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net, xiaosuo@gmail.com,
-	jesse@nicira.com, ebiederm@xmission.com
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39075
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932503Ab1DLVRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 17:17:21 -0400
-In-Reply-To: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: segoon@openwall.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, peak@argo.troja.mff.cuni.cz,
+	kees.cook@canonical.com, dan.j.rosenberg@gmail.com,
+	eugene@redhat.com, nelhage@ksplice.com, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: solar@openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110412050659.GA14129@openwall.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Fri,  8 Apr 2011 07:48:33 +0200
+From: Solar Designer <solar@openwall.com>
+Date: Tue, 12 Apr 2011 09:06:59 +0400
 
-> Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
-> enabled, skb is untagged by NIC, vlan_tci is set and the skb gets into
-> vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
+> On Sat, Apr 09, 2011 at 02:15:14PM +0400, Vasiliy Kulikov wrote:
+>> This patch adds IPPROTO_ICMP socket kind.  It makes it possible to send
+>> ICMP_ECHO messages and receive the corresponding ICMP_ECHOREPLY messages
+>> without any special privileges.  In other words, the patch makes it
+>> possible to implement setuid-less and CAP_NET_RAW-less /bin/ping.  In
+>> order not to increase the kernel's attack surface (in case of
+>> vulnerabilities in the newly added code), the new functionality is
+>> disabled by default, but is enabled at bootup by supporting Linux
+>> distributions, optionally with restriction to a group or a group range
+> ...
+>> For Openwall GNU/*/Linux it is the last step on the road to the
+>> setuid-less distro.
 > 
-> For non-rx-vlan-hw-accel however, tagged skb goes thru whole
-> __netif_receive_skb, it's untagged in ptype_base hander and reinjected
+> More correctly, it _was_ the last step - we've already taken it, so a
+> revision of the patch (against OpenVZ/RHEL5 kernels) is currently in use.
 > 
-> This incosistency is fixed by this patch. Vlan untagging happens early in
-> __netif_receive_skb so the rest of code (ptype_all handlers, rx_handlers)
-> see the skb like it was untagged by hw.
+> We would really like this accepted into mainline, which is why Vasiliy
+> spends extra effort to keep the patch updated to current mainline
+> kernels and re-test it.  If there are any comments/concerns/objections,
+> we'd be happy to hear those.
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 > 
-> v1->v2:
-> 	remove "inline" from vlan_core.c functions
+> Acked-by: Solar Designer <solar@openwall.com>
 
-Ok, I've applied this, let's see what happens :-)
+I have no fundamental objections to this change and I'll be happy to
+apply it after we iron out a few details.
 
-Thanks!
+First, please get rid of the debug option, we have pr_debug() which can
+be dynamically turned on and off at run time these days.
+
+Second, if this is a bonafide core facility we'd like everyone to use,
+let's make it so.  I want it so that every ping binary can expect this
+facility to be there if the kernel is new enough.
+
+So let's get rid of the config option.
+
+Third, either we trust this code or we do not.  If we are OK with a
+user application spamming whatever they wish out of a datagram UDP
+socket, they can do no more harm with this thing unless there are
+bugs.
+
+The group range thing I also consider hackish.  In my opinion two
+other approaches seem more reasonable:
+
+1) On/Off sysctl, default to ON.  This is to handle the "oh crap
+   there's a really bad bug discovered in this thing" situations.
+
+2) A single group ID, if zero it means "all groups" else it limits
+   the facility to specific groups.
+
+I would mention capabilities, but probably that's undesirable for
+something like this as it creeps us back to the original problem
+this is trying to resolve.
+
+Finally, longer term, I'd really like to see ipv6 support for this
+feature as well.  I absolutely am not requiring that ipv6 get
+worked on right now just to apply the ipv4 variant.
+
+So let's sort out the ipv4 side issues so I can get this into the
+net-next-2.6 tree and people can start testing it.
+
+Thanks.
