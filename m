@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net/natsami: store MAC into perm_addr
-Date: Tue, 12 Apr 2011 14:56:15 -0700 (PDT)
-Message-ID: <20110412.145615.232749707.davem@davemloft.net>
-References: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
-	<1302622241-11871-2-git-send-email-otavio@ossystems.com.br>
+Subject: Re: [PATCH 1/1] ipv6: RTA_PREFSRC support for ipv6 route source
+ address selection
+Date: Tue, 12 Apr 2011 15:05:11 -0700 (PDT)
+Message-ID: <20110412.150511.35038648.davem@davemloft.net>
+References: <1302505409.8923.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: otavio@ossystems.com.br
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39418
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932227Ab1DLV4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 17:56:51 -0400
-In-Reply-To: <1302622241-11871-2-git-send-email-otavio@ossystems.com.br>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dwalter@barracuda.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1302505409.8923.2.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Otavio Salvador <otavio@ossystems.com.br>
-Date: Tue, 12 Apr 2011 12:30:41 -0300
-
-> Signed-off-by: Otavio Salvador <otavio@ossystems.com.br>
-
-Applied.
+RnJvbTogRGFuaWVsIFdhbHRlciA8ZHdhbHRlckBiYXJyYWN1ZGEuY29tPg0KRGF0ZTogTW9uLCAx
+MSBBcHIgMjAxMSAwOTowMzoyOSArMDIwMA0KDQo+IO+7v1tpcHY2XSBBZGQgc3VwcG9ydCBmb3Ig
+UlRBX1BSRUZTUkMNCj4gDQo+IFRoaXMgcGF0Y2ggYWxsb3dzIGEgdXNlciB0byBzZWxlY3QgdGhl
+IHByZWZlcnJlZCBzb3VyY2UgYWRkcmVzcw0KPiBmb3IgYSBzcGVjaWZpYyBJUHY2LVJvdXRlLiBJ
+dCBjYW4gYmUgc2V0IHZpYSBhIG5ldGxpbmsgbWVzc2FnZQ0KPiBzZXR0aW5nIFJUQV9QUkVGU1JD
+IHRvIGEgdmFsaWQgSVB2NiBhZGRyZXNzIHdoaWNoIG11c3QgYmUNCj4gdXAgb24gdGhlIGRldmlj
+ZSB0aGUgcm91dGUgd2lsbCBiZSBib3VuZCB0by4NCj4gDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBE
+YW5pZWwgV2FsdGVyIDxkd2FsdGVyQGJhcnJhY3VkYS5jb20+DQoNCk9rLCBJIGNhbiBsaXZlIHdp
+dGggdGhpcywgYXBwbGllZCwgdGhhbmtzIQ0K
