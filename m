@@ -1,36 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] ethtool: time to blink provided in
- seconds not jiffies
-Date: Tue, 12 Apr 2011 13:47:51 -0700 (PDT)
-Message-ID: <20110412.134751.226779885.davem@davemloft.net>
-References: <20110411230159.6727.91380.stgit@gitlad.jf.intel.com>
-	<1302566234.5282.581.camel@localhost>
+Subject: Re: [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso packet
+Date: Tue, 12 Apr 2011 13:55:22 -0700 (PDT)
+Message-ID: <20110412.135522.71113479.davem@davemloft.net>
+References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
+	<1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com, stable@kernel.org
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48613
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52163
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932382Ab1DLUs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 16:48:27 -0400
-In-Reply-To: <1302566234.5282.581.camel@localhost>
+	by vger.kernel.org with ESMTP id S932155Ab1DLUz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 16:55:58 -0400
+In-Reply-To: <1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 12 Apr 2011 00:57:14 +0100
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Tue, 12 Apr 2011 00:19:41 -0700
 
-> On Mon, 2011-04-11 at 16:01 -0700, Bruce Allan wrote:
->> When blinking for a duration set by the user, the value specified is in
->> seconds but it is used as the number of jiffies in the timeout after which
->> the Physical ID indicator is deactivated.  Fix by converting the timeout
->> to seconds.
-> 
-> D'oh.
-> 
->> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+> <<< No Message Collected >>>
 
-Applied, thanks.
+Can you PLEASE fix your email.
+
+PLEASE?
+
+Yesterday you spammed us all, and today you've sent three postings
+with this subject line.
+
+1) One with the patch, and the proper set of CC:'s (myself, other
+   qlogic engineers, netdev, and stable)
+
+2) One with the patch, and a too short CC: list (only netdev and
+   stable)
+
+3) And now this email with no actual content and a weird message.
+
+I really can't spend my afternoons sifting through the emails that
+spam from qlogic, trying to figure out which ones I should pay
+attention to for review, and which ones are spam.
+
+Please resend properly any patches you actually want me to pay
+attention to.
+
+If you cannot make sure at this time that the patches will be sent
+without incident, sit on them until you can.
+
+Thank you.
