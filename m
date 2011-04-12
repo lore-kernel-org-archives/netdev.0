@@ -1,66 +1,107 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] iproute2: Fix meta match u32 with 0xffffffff
-Date: Tue, 12 Apr 2011 08:19:07 -0700
-Message-ID: <20110412081907.4f2e21fd@nehalam>
-References: <20110411115234.74b5936b@nehalam>
-	<1302595009.3664.8.camel@lsx>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@redhat.com
+From: Otavio Salvador <otavio@ossystems.com.br>
+Subject: [PATCH 1/2] net/sis900: store MAC into perm_addr for SiS 900, 630E, 635 and 96x variants
+Date: Tue, 12 Apr 2011 12:30:40 -0300
+Message-ID: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
+Cc: Otavio Salvador <otavio@ossystems.com.br>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45663 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755701Ab1DLPTK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 11:19:10 -0400
-In-Reply-To: <1302595009.3664.8.camel@lsx>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:63570 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756321Ab1DLPax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 11:30:53 -0400
+Received: by yxs7 with SMTP id 7so2578650yxs.19
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 08:30:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Apr 2011 09:56:49 +0200
-Thomas Graf <tgraf@redhat.com> wrote:
+Signed-off-by: Otavio Salvador <otavio@ossystems.com.br>
+---
+ drivers/net/sis900.c |   23 +++++++++++++++++++----
+ 1 files changed, 19 insertions(+), 4 deletions(-)
 
-> On Mon, 2011-04-11 at 11:52 -0700, Stephen Hemminger wrote: 
-> > The value 0xffffffff is a valid mask and bstrtoul() would return
-> > ULONG_MAX which was the error value. Resolve the problem by separating
-> > return value and error indication.
-> >  
-> > -unsigned long bstrtoul(const struct bstr *b)
-> > +int bstrtoul(const struct bstr *b, unsigned long *lp)
-> >  {
-> >  	char *inv = NULL;
-> > -	unsigned long l;
-> >  	char buf[b->len+1];
-> >  
-> > +	if (b->len == 0)
-> > +		return -EINVAL;
-> > +
-> >  	memcpy(buf, b->data, b->len);
-> >  	buf[b->len] = '\0';
-> >  
-> > -	l = strtoul(buf, &inv, 0);
-> > -	if (l == ULONG_MAX || inv == buf)
-> > -		return ULONG_MAX;
-> > +	*lp = strtoul(buf, &inv, 0);
-> > +	if (inv == buf)
-> > +		return -EINVAL;
-> > +
-> > +	if (*lp == ULONG_MAX || errno == ERANGE)
-> > +		return -ERANGE;
-> >  
-> > -	return l;
-> > +	return 0;
-> >  }
-> 
-> This is definitely much better but we still can't parse ULONG_MAX
-> as string representative. Checking glibc docs, the only way to do it is
-> to ignore the return value for error checking and look errno.
-> 
-
-I think the error case is ret == ULONG_MAX && errno == ERANGE
-If there is no error, then strtoul doesn't set errno.
-
-
-
+diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
+index cb317cd..484f795 100644
+--- a/drivers/net/sis900.c
++++ b/drivers/net/sis900.c
+@@ -240,7 +240,8 @@ static const struct ethtool_ops sis900_ethtool_ops;
+  *	@net_dev: the net device to get address for
+  *
+  *	Older SiS900 and friends, use EEPROM to store MAC address.
+- *	MAC address is read from read_eeprom() into @net_dev->dev_addr.
++ *	MAC address is read from read_eeprom() into @net_dev->dev_addr and
++ *	@net_dev->perm_addr.
+  */
+ 
+ static int __devinit sis900_get_mac_addr(struct pci_dev * pci_dev, struct net_device *net_dev)
+@@ -261,6 +262,9 @@ static int __devinit sis900_get_mac_addr(struct pci_dev * pci_dev, struct net_de
+ 	for (i = 0; i < 3; i++)
+ 	        ((u16 *)(net_dev->dev_addr))[i] = read_eeprom(ioaddr, i+EEPROMMACAddr);
+ 
++	/* Store MAC Address in perm_addr */
++	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
++
+ 	return 1;
+ }
+ 
+@@ -271,7 +275,8 @@ static int __devinit sis900_get_mac_addr(struct pci_dev * pci_dev, struct net_de
+  *
+  *	SiS630E model, use APC CMOS RAM to store MAC address.
+  *	APC CMOS RAM is accessed through ISA bridge.
+- *	MAC address is read into @net_dev->dev_addr.
++ *	MAC address is read into @net_dev->dev_addr and
++ *	@net_dev->perm_addr.
+  */
+ 
+ static int __devinit sis630e_get_mac_addr(struct pci_dev * pci_dev,
+@@ -296,6 +301,10 @@ static int __devinit sis630e_get_mac_addr(struct pci_dev * pci_dev,
+ 		outb(0x09 + i, 0x70);
+ 		((u8 *)(net_dev->dev_addr))[i] = inb(0x71);
+ 	}
++
++	/* Store MAC Address in perm_addr */
++	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
++
+ 	pci_write_config_byte(isa_bridge, 0x48, reg & ~0x40);
+ 	pci_dev_put(isa_bridge);
+ 
+@@ -310,7 +319,7 @@ static int __devinit sis630e_get_mac_addr(struct pci_dev * pci_dev,
+  *
+  *	SiS635 model, set MAC Reload Bit to load Mac address from APC
+  *	to rfdr. rfdr is accessed through rfcr. MAC address is read into
+- *	@net_dev->dev_addr.
++ *	@net_dev->dev_addr and @net_dev->perm_addr.
+  */
+ 
+ static int __devinit sis635_get_mac_addr(struct pci_dev * pci_dev,
+@@ -334,6 +343,9 @@ static int __devinit sis635_get_mac_addr(struct pci_dev * pci_dev,
+ 		*( ((u16 *)net_dev->dev_addr) + i) = inw(ioaddr + rfdr);
+ 	}
+ 
++	/* Store MAC Address in perm_addr */
++	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
++
+ 	/* enable packet filtering */
+ 	outl(rfcrSave | RFEN, rfcr + ioaddr);
+ 
+@@ -353,7 +365,7 @@ static int __devinit sis635_get_mac_addr(struct pci_dev * pci_dev,
+  *	EEDONE signal to refuse EEPROM access by LAN.
+  *	The EEPROM map of SiS962 or SiS963 is different to SiS900.
+  *	The signature field in SiS962 or SiS963 spec is meaningless.
+- *	MAC address is read into @net_dev->dev_addr.
++ *	MAC address is read into @net_dev->dev_addr and @net_dev->perm_addr.
+  */
+ 
+ static int __devinit sis96x_get_mac_addr(struct pci_dev * pci_dev,
+@@ -372,6 +384,9 @@ static int __devinit sis96x_get_mac_addr(struct pci_dev * pci_dev,
+ 			for (i = 0; i < 3; i++)
+ 			        ((u16 *)(net_dev->dev_addr))[i] = read_eeprom(ioaddr, i+EEPROMMACAddr);
+ 
++			/* Store MAC Address in perm_addr */
++			memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
++
+ 			outl(EEDONE, ee_addr);
+ 			return 1;
+ 		} else {
 -- 
+1.7.4.1
+
