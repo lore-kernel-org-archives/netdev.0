@@ -1,80 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Tue, 12 Apr 2011 06:56:41 +0200
-Message-ID: <1302584201.3603.20.camel@edumazet-laptop>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302167168.3357.12.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
-	 <1302192218.3357.47.camel@edumazet-laptop> <4D9DE465.1080008@intel.com>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA58D@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302253651.4409.2.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302267400.4409.22.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302275223.4409.36.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302330998.2656.113.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
-	 <4DA3151B.4030507@intel.com>
-	 <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302536577.4605.1.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E490995D@ESGSCCMS0001.eapac.ericsson.se>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: Race condition when creating multiple namespaces?
+Date: Tue, 12 Apr 2011 06:56:53 +0200
+Message-ID: <201104120656.54281.hans@schillstrom.com>
+References: <201104112301.46776.hans@schillstrom.com> <m1ei58co08.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Wei Gu <wei.gu@ericsson.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Daniel Lezcano <daniel.lezcano@free.fr>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63677 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783Ab1DLE4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 00:56:47 -0400
-Received: by wya21 with SMTP id 21so5367546wya.19
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 21:56:46 -0700 (PDT)
-In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E490995D@ESGSCCMS0001.eapac.ericsson.se>
+Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:35280 "EHLO
+	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752248Ab1DLE45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 00:56:57 -0400
+In-Reply-To: <m1ei58co08.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 avril 2011 =C3=A0 12:40 +0800, Wei Gu a =C3=A9crit :
-> Hi,
-> I found the problem was introduced by this revert patch "2010-08-13
-> Peter Zijlstra  sched: Revert nohz_ratelimit() for now"
->=20
-> I tried the remove this patch from 2.6.35.2 and then build the
-> application again, then the ixgbe driver looks works fine.
-> I don't know why this time revert the  nohz_ratelimit() will cause th=
-e
-> problem on ixgbe driver, since this  nohz_ratelimit was first
-> introduced "2010-03-11". And before that time with 2.6.32 kernel it
-> also doesn't have this problem with ixgbe driver.
->=20
->=20
-> Some log from git:
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> 2.6.35.2
-> 2010-08-13      Peter Zijlstra  sched: Revert nohz_ratelimit() for no=
-w
-> 2.6.35.1
-> 2010-08-01      Linus Torvalds  Linux 2.6.35 v2.6.35
-> 2010-06-17      Peter Zijlstra  nohz: Fix nohz ratelimit
-> 2.6.35-rc3
-> 2010-03-11      Mike Galbraith  sched: Rate-limit nohz
->=20
-> Thanks
-> WeiGu
->=20
 
-Hmm...
+On Tuesday, April 12, 2011 02:27:35 Eric W. Biederman wrote:
+> Hans Schillstrom <hans@schillstrom.com> writes:
+> 
+> > Hello
+> > I'v been strugling with this for some time now
+> >
+> > When creating multiple namespaces using lxc-start,  un-initialized network namespace parts will be called by the new process in the namespace.
+> > ex. when using conntrack or ipvsadm to quickly,  (a sleep 2 "solves" the problem).
+> > (From what I can see syscall clone() is used in lx-start  i.e. do_fork will be called later on.)
+> > Actually I was debugging ip_vs when closing multiple ns  when I fell into this one.
+> >
+> > I have a loop that create 33 containers whith lxc-start ... -- test.sh
+> > the first thing the new conatiner does in test.sh is
+> > #!/bin/bash
+> > iptables -t mangle -A PREROUTING -m conntrack --ctstate RELATED,ESTABLISHED -j CONNMARK --restore-mark
+> > nc -l -p1234
+> >
+> > This results in NULL ptr in ip_conntrack_net_init(struct *net)
+> 
+> Ouch!
+> 
+> > and in anoither test test.sh looks like this
+> > #!/bin/bash
+> > ipvsadm --start-daemon=master --mcast-interface=lo
+> > nc -l -p1234
+> >
+> > And this results in an uniitialized spinlock in ip_vs_sync
+> >
+> > I put a printk in nsproxy: copy_namespaces() and could see a dozens of them
+> > before anything appears from ipvs or conntrack.
+> >
+> > My feeling is that when you start up user processes in a new name space, 
+> > all kernel related init should have been done (you should not need to add a sleep to get it working)
+> >
+> > All test  made by using todays net-next-2.6 (2.6.39-rc1)
+> >
+> > Note:
+> > That neither conntrack or ip_vs modules where loaded,
+> > if modules where loaded before creating new namespaces it all works...
+> >
+> > Finally the question,
+> > Should it really work to load modules within a namespace , 
+> > that is a part of netns ?
+> 
+> >From an implementation point of view kernel modules are not in a
+> namespace, so there should be no difference between being in a namespace
+> and loading a kernel networking module and not being in a namespace and
+> loading in a kernel module.
+> 
+> It does sound like you have hit a module loading race, and perhaps
+> a race that is confined to network namespaces.
+> 
+> My head is in another problem so I won't be able to look at this for
+> a bit.  But if you are getting into ip_conntrack_net_init with
+> a NULL network namespace something spectacularly bad is happening.
 
-Could you try to add "processor.max_cstate=3D1" to boot parameters ?
+OK I'll continue to dig into this.
 
+> 
+> In particular it looks like you must be hitting a bug in for_each_net.
+> Which would pretty much have to be a race in adding or removing from
+> net_namespace_list.
 
+It was further down in proc_net_fops_create()
 
+> 
+> I took a quick skim through the code and whenever we modify the
+> net_namespace we hold but the net_mutex and inside it the rtnl_lock so I
+> don't immediate see how you could be getting a NULL net into
+> ip_conntrack_net_init.
+
+I do had the same problem in ip_vs  a couple of times, but at that time I thought it was my changes...
+In the ip_vs case it seems to be more like a race or a missing lock one core reach a "not fully" initialized ipvs struct.
+That could be my fault like bad order when calling register_pernet_subsys...
+
+> 
+> Is there a codepath besides register_pernet_subsys that is calling
+> ip_conntrack_net_init?
+
+Not what I can see...
+> 
+> Do you have any local modifications that could be messing up register_pernet_subsys?
+
+Not right now (I took them away, a clean git clone)
+
+> 
+> Eric
+> 
+
+I will continue with this today 
+
+Thanks a lot
+Hans
