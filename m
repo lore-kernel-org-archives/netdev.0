@@ -1,35 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ipv6: RTA_PREFSRC support for ipv6 route source
- address selection
-Date: Tue, 12 Apr 2011 15:16:59 -0700 (PDT)
-Message-ID: <20110412.151659.15244967.davem@davemloft.net>
-References: <1302505409.8923.2.camel@localhost>
-	<20110412.150511.35038648.davem@davemloft.net>
+Subject: Re: fix locking unbalance in irda_sendmsg
+Date: Tue, 12 Apr 2011 15:30:14 -0700 (PDT)
+Message-ID: <20110412.153014.242140030.davem@davemloft.net>
+References: <20110412221254.GA23906@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: dwalter@barracuda.com
+To: davej@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110412.150511.35038648.davem@davemloft.net>
+In-Reply-To: <20110412221254.GA23906@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAxMiBB
-cHIgMjAxMSAxNTowNToxMSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IERhbmllbCBXYWx0ZXIgPGR3
-YWx0ZXJAYmFycmFjdWRhLmNvbT4NCj4gRGF0ZTogTW9uLCAxMSBBcHIgMjAxMSAwOTowMzoyOSAr
-MDIwMA0KPiANCj4+IO+7v1tpcHY2XSBBZGQgc3VwcG9ydCBmb3IgUlRBX1BSRUZTUkMNCj4+IA0K
-Pj4gVGhpcyBwYXRjaCBhbGxvd3MgYSB1c2VyIHRvIHNlbGVjdCB0aGUgcHJlZmVycmVkIHNvdXJj
-ZSBhZGRyZXNzDQo+PiBmb3IgYSBzcGVjaWZpYyBJUHY2LVJvdXRlLiBJdCBjYW4gYmUgc2V0IHZp
-YSBhIG5ldGxpbmsgbWVzc2FnZQ0KPj4gc2V0dGluZyBSVEFfUFJFRlNSQyB0byBhIHZhbGlkIElQ
-djYgYWRkcmVzcyB3aGljaCBtdXN0IGJlDQo+PiB1cCBvbiB0aGUgZGV2aWNlIHRoZSByb3V0ZSB3
-aWxsIGJlIGJvdW5kIHRvLg0KPj4gDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6IERhbmllbCBXYWx0
-ZXIgPGR3YWx0ZXJAYmFycmFjdWRhLmNvbT4NCj4gDQo+IE9rLCBJIGNhbiBsaXZlIHdpdGggdGhp
-cywgYXBwbGllZCwgdGhhbmtzIQ0KDQpTb3JyeSwgSSBoYWQgdG8gcmV2ZXJ0Lg0KDQpQbGVhc2Ug
-Zml4IHRoaXMgd2FybmluZywgdGVzdCB5b3VyIHBhdGNoLCBhbmQgcmVzdWJtaXQgaXQuDQoNCm5l
-dC9pcHY2L2lwNl9vdXRwdXQuYzogSW4gZnVuY3Rpb24g4oCYaXA2X2RzdF9sb29rdXBfdGFpbOKA
-mToNCm5ldC9pcHY2L2lwNl9vdXRwdXQuYzo5MzY6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQg
-MyBvZiDigJhpcDZfcm91dGVfZ2V0X3NhZGRy4oCZIGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIg
-dHlwZQ0KaW5jbHVkZS9uZXQvaXA2X3JvdXRlLmg6ODc6IG5vdGU6IGV4cGVjdGVkIOKAmHN0cnVj
-dCBpbjZfYWRkciAq4oCZIGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIOKAmHN0cnVjdCBkc3RfZW50
-cnkgKirigJkNCg0KVGhhbmtzLg0K
+From: Dave Jones <davej@redhat.com>
+Date: Tue, 12 Apr 2011 18:12:55 -0400
+
+> 5b40964eadea40509d353318d2c82e8b7bf5e8a5 introduced a path where
+> we have a locking unbalance.  If we pass invalid flags, we unlock
+> a socket we never locked, resulting in this...
+ ...
+> Signed-off-by: Dave Jones <davej@redhat.com>
+
+Applied and queued up for -stable, thanks Dave.
