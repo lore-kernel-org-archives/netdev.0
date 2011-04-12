@@ -1,107 +1,40 @@
 From: Otavio Salvador <otavio@ossystems.com.br>
-Subject: [PATCH 1/2] net/sis900: store MAC into perm_addr for SiS 900, 630E, 635 and 96x variants
-Date: Tue, 12 Apr 2011 12:30:40 -0300
-Message-ID: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
+Subject: [PATCH 2/2] net/natsami: store MAC into perm_addr
+Date: Tue, 12 Apr 2011 12:30:41 -0300
+Message-ID: <1302622241-11871-2-git-send-email-otavio@ossystems.com.br>
+References: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
 Cc: Otavio Salvador <otavio@ossystems.com.br>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:63570 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756321Ab1DLPax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 11:30:53 -0400
-Received: by yxs7 with SMTP id 7so2578650yxs.19
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 08:30:53 -0700 (PDT)
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:59170 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756321Ab1DLPaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 11:30:55 -0400
+Received: by gwaa18 with SMTP id a18so2389854gwa.19
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 08:30:55 -0700 (PDT)
+In-Reply-To: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Otavio Salvador <otavio@ossystems.com.br>
 ---
- drivers/net/sis900.c |   23 +++++++++++++++++++----
- 1 files changed, 19 insertions(+), 4 deletions(-)
+ drivers/net/natsemi.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
-index cb317cd..484f795 100644
---- a/drivers/net/sis900.c
-+++ b/drivers/net/sis900.c
-@@ -240,7 +240,8 @@ static const struct ethtool_ops sis900_ethtool_ops;
-  *	@net_dev: the net device to get address for
-  *
-  *	Older SiS900 and friends, use EEPROM to store MAC address.
-- *	MAC address is read from read_eeprom() into @net_dev->dev_addr.
-+ *	MAC address is read from read_eeprom() into @net_dev->dev_addr and
-+ *	@net_dev->perm_addr.
-  */
- 
- static int __devinit sis900_get_mac_addr(struct pci_dev * pci_dev, struct net_device *net_dev)
-@@ -261,6 +262,9 @@ static int __devinit sis900_get_mac_addr(struct pci_dev * pci_dev, struct net_de
- 	for (i = 0; i < 3; i++)
- 	        ((u16 *)(net_dev->dev_addr))[i] = read_eeprom(ioaddr, i+EEPROMMACAddr);
- 
-+	/* Store MAC Address in perm_addr */
-+	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
-+
- 	return 1;
- }
- 
-@@ -271,7 +275,8 @@ static int __devinit sis900_get_mac_addr(struct pci_dev * pci_dev, struct net_de
-  *
-  *	SiS630E model, use APC CMOS RAM to store MAC address.
-  *	APC CMOS RAM is accessed through ISA bridge.
-- *	MAC address is read into @net_dev->dev_addr.
-+ *	MAC address is read into @net_dev->dev_addr and
-+ *	@net_dev->perm_addr.
-  */
- 
- static int __devinit sis630e_get_mac_addr(struct pci_dev * pci_dev,
-@@ -296,6 +301,10 @@ static int __devinit sis630e_get_mac_addr(struct pci_dev * pci_dev,
- 		outb(0x09 + i, 0x70);
- 		((u8 *)(net_dev->dev_addr))[i] = inb(0x71);
- 	}
-+
-+	/* Store MAC Address in perm_addr */
-+	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
-+
- 	pci_write_config_byte(isa_bridge, 0x48, reg & ~0x40);
- 	pci_dev_put(isa_bridge);
- 
-@@ -310,7 +319,7 @@ static int __devinit sis630e_get_mac_addr(struct pci_dev * pci_dev,
-  *
-  *	SiS635 model, set MAC Reload Bit to load Mac address from APC
-  *	to rfdr. rfdr is accessed through rfcr. MAC address is read into
-- *	@net_dev->dev_addr.
-+ *	@net_dev->dev_addr and @net_dev->perm_addr.
-  */
- 
- static int __devinit sis635_get_mac_addr(struct pci_dev * pci_dev,
-@@ -334,6 +343,9 @@ static int __devinit sis635_get_mac_addr(struct pci_dev * pci_dev,
- 		*( ((u16 *)net_dev->dev_addr) + i) = inw(ioaddr + rfdr);
+diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+index aa2813e..1074231 100644
+--- a/drivers/net/natsemi.c
++++ b/drivers/net/natsemi.c
+@@ -860,6 +860,9 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
+ 		prev_eedata = eedata;
  	}
  
 +	/* Store MAC Address in perm_addr */
-+	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
++	memcpy(dev->perm_addr, dev->dev_addr, ETH_ALEN);
 +
- 	/* enable packet filtering */
- 	outl(rfcrSave | RFEN, rfcr + ioaddr);
+ 	dev->base_addr = (unsigned long __force) ioaddr;
+ 	dev->irq = irq;
  
-@@ -353,7 +365,7 @@ static int __devinit sis635_get_mac_addr(struct pci_dev * pci_dev,
-  *	EEDONE signal to refuse EEPROM access by LAN.
-  *	The EEPROM map of SiS962 or SiS963 is different to SiS900.
-  *	The signature field in SiS962 or SiS963 spec is meaningless.
-- *	MAC address is read into @net_dev->dev_addr.
-+ *	MAC address is read into @net_dev->dev_addr and @net_dev->perm_addr.
-  */
- 
- static int __devinit sis96x_get_mac_addr(struct pci_dev * pci_dev,
-@@ -372,6 +384,9 @@ static int __devinit sis96x_get_mac_addr(struct pci_dev * pci_dev,
- 			for (i = 0; i < 3; i++)
- 			        ((u16 *)(net_dev->dev_addr))[i] = read_eeprom(ioaddr, i+EEPROMMACAddr);
- 
-+			/* Store MAC Address in perm_addr */
-+			memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
-+
- 			outl(EEDONE, ee_addr);
- 			return 1;
- 		} else {
 -- 
 1.7.4.1
 
