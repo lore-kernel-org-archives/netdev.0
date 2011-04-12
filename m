@@ -1,73 +1,89 @@
-From: Steve French <smfrench-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 33102] New: File's copied from client->linux
- server only copy 1st 64K data; rest is lost
-Date: Mon, 11 Apr 2011 19:06:55 -0500
-Message-ID: <BANLkTimW4HPquU_2a400ECviSPPcrfxoCA@mail.gmail.com>
-References: <bug-33102-10286@https.bugzilla.kernel.org/>
-	<20110411152431.a5997005.akpm@linux-foundation.org>
-	<4DA3839B.1050102@tlinx.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Race condition when creating multiple namespaces?
+Date: Mon, 11 Apr 2011 17:27:35 -0700
+Message-ID: <m1ei58co08.fsf@fess.ebiederm.org>
+References: <201104112301.46776.hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org
-To: Linda Walsh <lkml-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org>
-Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4DA3839B.1050102-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org>
-Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Daniel Lezcano <daniel.lezcano@free.fr>
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:35284 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756467Ab1DLA1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 20:27:48 -0400
+In-Reply-To: <201104112301.46776.hans@schillstrom.com> (Hans Schillstrom's
+	message of "Mon, 11 Apr 2011 23:01:46 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2011 at 5:41 PM, Linda Walsh <lkml-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org> wrote:
+Hans Schillstrom <hans@schillstrom.com> writes:
+
+> Hello
+> I'v been strugling with this for some time now
 >
-> Andrew Morton wrote:
->>
->> (switched to email. =A0Please respond via emailed reply-to-all, not =
-via the
->> bugzilla web interface).
->>
->> On Mon, 11 Apr 2011 22:12:41 GMT
->> bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org wrote:
->>>
->>> https://bugzilla.kernel.org/show_bug.cgi?id=3D33102
->>>
->>> =A0 =A0 =A0 =A0 =A0 Summary: File's copied from client->linux serve=
-r only copy 1st
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A064K data;rest is lost
->>> =A0 =A0 =A0 =A0 =A0 Product: Networking
->>> =A0 =A0 =A0 =A0 =A0 Version: 2.5
->>> =A0 =A0Kernel Version: 2.6.38.2
->>> =A0 =A0 =A0 =A0 =A0Platform: All
->>> =A0 =A0 =A0 =A0OS/Version: Linux
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0Tree: Mainline
->>> =A0 =A0 =A0 =A0 =A0 =A0Status: NEW
->>> =A0 =A0 =A0 =A0 =A0Severity: blocking
->>> =A0 =A0 =A0 =A0 =A0Priority: P1
->>> =A0 =A0 =A0 =A0 Component: IPV4
->>> =A0 =A0 =A0 =A0AssignedTo: shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
->>> =A0 =A0 =A0 =A0ReportedBy: lkml-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org
->>> =A0 =A0 =A0 =A0Regression: Yes
->>>
->>
->> Seems to be a 2.6.37->2.6.38 regression.
->>
->> ----------
+> When creating multiple namespaces using lxc-start,  un-initialized network namespace parts will be called by the new process in the namespace.
+> ex. when using conntrack or ipvsadm to quickly,  (a sleep 2 "solves" the problem).
+> (From what I can see syscall clone() is used in lx-start  i.e. do_fork will be called later on.)
+> Actually I was debugging ip_vs when closing multiple ns  when I fell into this one.
 >
-> Not exactly -- Please note -- I tried both 2.6.38(.0) and 2.6.38.1.
+> I have a loop that create 33 containers whith lxc-start ... -- test.sh
+> the first thing the new conatiner does in test.sh is
+> #!/bin/bash
+> iptables -t mangle -A PREROUTING -m conntrack --ctstate RELATED,ESTABLISHED -j CONNMARK --restore-mark
+> nc -l -p1234
 >
-> They both work.
+> This results in NULL ptr in ip_conntrack_net_init(struct *net)
 
-Any chance that we could get a wireshark trace of the failure?
+Ouch!
 
-https://wiki.samba.org/index.php/Capture_Packets
+> and in anoither test test.sh looks like this
+> #!/bin/bash
+> ipvsadm --start-daemon=master --mcast-interface=lo
+> nc -l -p1234
+>
+> And this results in an uniitialized spinlock in ip_vs_sync
+>
+> I put a printk in nsproxy: copy_namespaces() and could see a dozens of them
+> before anything appears from ipvs or conntrack.
+>
+> My feeling is that when you start up user processes in a new name space, 
+> all kernel related init should have been done (you should not need to add a sleep to get it working)
+>
+> All test  made by using todays net-next-2.6 (2.6.39-rc1)
+>
+> Note:
+> That neither conntrack or ip_vs modules where loaded,
+> if modules where loaded before creating new namespaces it all works...
+>
+> Finally the question,
+> Should it really work to load modules within a namespace , 
+> that is a part of netns ?
 
-gives instructions.   There may also be useful information on
-network stack failures returned in the samba log
-(often named smbd.log).
+>From an implementation point of view kernel modules are not in a
+namespace, so there should be no difference between being in a namespace
+and loading a kernel networking module and not being in a namespace and
+loading in a kernel module.
 
+It does sound like you have hit a module loading race, and perhaps
+a race that is confined to network namespaces.
 
+My head is in another problem so I won't be able to look at this for
+a bit.  But if you are getting into ip_conntrack_net_init with
+a NULL network namespace something spectacularly bad is happening.
 
---=20
-Thanks,
+In particular it looks like you must be hitting a bug in for_each_net.
+Which would pretty much have to be a race in adding or removing from
+net_namespace_list.
 
-Steve
+I took a quick skim through the code and whenever we modify the
+net_namespace we hold but the net_mutex and inside it the rtnl_lock so I
+don't immediate see how you could be getting a NULL net into
+ip_conntrack_net_init.
+
+Is there a codepath besides register_pernet_subsys that is calling
+ip_conntrack_net_init?
+
+Do you have any local modifications that could be messing up register_pernet_subsys?
+
+Eric
