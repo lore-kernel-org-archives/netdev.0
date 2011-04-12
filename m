@@ -1,73 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
- physical identification
-Date: Tue, 12 Apr 2011 19:23:19 +0100
-Message-ID: <1302632599.2880.26.camel@bwh-desktop>
-References: <20110411231635.9339.36369.stgit@gitlad.jf.intel.com>
-	 <20110411162601.6686f169@nehalam>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A30A9@orsmsx509.amr.corp.intel.com>
-	 <1302566453.5282.585.camel@localhost>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A315B@orsmsx509.amr.corp.intel.com>
-	 <1302625686.2880.24.camel@bwh-desktop>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A3559@orsmsx509.amr.corp.intel.com>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: Re: [PATCH] NFS: Fix infinite loop in gss_create_upcall()
+Date: Tue, 12 Apr 2011 14:31:28 -0400
+Message-ID: <1302633088.4801.48.camel@lade.trondhjem.org>
+References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org>
+	 <4D96E4C5.2080302@suse.cz> <1302122693.16786.0.camel@lade.trondhjem.org>
+	 <4D9D5CC9.2040002@suse.cz> <4DA36722.2020402@suse.cz>
+	 <4DA36758.4070203@suse.cz> <4DA36DB6.8060108@suse.cz>
+	 <4DA48EB0.40600@netapp.com>  <4DA4946D.5020403@suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:43070 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757743Ab1DLSXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 14:23:22 -0400
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A90018A2A3559@orsmsx509.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: Bryan Schumaker <bjschuma@netapp.com>,
+	Jiri Slaby <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, mm-commits@vger.kernel.org,
+	ML netdev <netdev@vger.kernel.org>, linux-nfs@vger.kernel.org
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DA4946D.5020403@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-04-12 at 11:17 -0700, Allan, Bruce W wrote:
-> >-----Original Message-----
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >Sent: Tuesday, April 12, 2011 9:28 AM
-> >To: Allan, Bruce W
-> >Cc: Stephen Hemminger; netdev@vger.kernel.org
-> >Subject: RE: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
-> >physical identification
-> >
-> >I enquired here and found that we do have an OEM specifying 1 Hz.
-> >
-> >> FWIW, without digging too deep into how other drivers identify their
-> >> respective ports through software, it appears it was split:
-> >> * bnx2*, cxgb3, niu, s2io, sfc, sky2, tg3 - once per second
-> >> * e100*, igb, ixgb*, pcnet32, ewrk3, cxgb4 - approx. twice per second
+On Tue, 2011-04-12 at 20:05 +0200, Jiri Slaby wrote:
+> On 04/12/2011 07:41 PM, Bryan Schumaker wrote:
+> > On 04/11/2011 05:08 PM, Jiri Slaby wrote:
 > >>
-> >> AFAIK for parts that can set the physical identification through hardware,
-> >> the Intel drivers set the on/off intervals to approximately twice/second;
-> >> I don't know what other drivers do in that situation.
+> >> Sorry for an extra message. I've just found out that there appears
+> >> messages in dmesg:
+> >> [   58.656048] RPC: AUTH_GSS upcall timed out.
+> >> [   58.656050] Please check user daemon is running.
+> >> [   88.656065] RPC: AUTH_GSS upcall timed out.
+> >> [   88.656068] Please check user daemon is running.
+> >> [  118.656077] RPC: AUTH_GSS upcall timed out.
+> >> [  118.656080] Please check user daemon is running.
+> >> [  148.656049] RPC: AUTH_GSS upcall timed out.
+> >> [  148.656052] Please check user daemon is running.
+> >> [  178.656046] RPC: AUTH_GSS upcall timed out.
+> >> [  178.656049] Please check user daemon is running.
 > >>
-> >> So, I would guess it is not a common requirement to blink at a specific Hz.
-> >> I have no problem with changing the hard-coded blink frequency to what our
-> >> OEMs expect, but that might be an issue for those other vendors; I was just
-> >> trying to make it flexible.
-> >
-> >Sadly it appears this is necessary.
-> >
-> >Let's define the return value for drivers wanting periodic callbacks to
-> >be the blink frequency in Hz (normally 1 or 2), and get rid of the
-> >special case of -EINVAL.  This also removes the rather inelegant
-> >semantic that drivers may need to change their state despite returning
-> >an error code.
-> >
-> >Ben.
+> >>
+> >> I instrumented the code and it's stuck with trying RPC_AUTH_GSS_KRB5.
+> >>
+> >> I don't use GSS at all.
+> >>
+> >> regards,
+> > 
+> > Does this patch help?
+> > 
+> > - Bryan
+> > 
+> > 
+> > 
+> > There can be an infinite loop if gss_create_upcall() is called without
+> > the userspace program running.  To prevent this, we return -EACCES if
+> > we notice that pipe_version hasn't changed (indicating that the pipe
+> > has not been opened).
 > 
-> OK.  Would you like me to send an updated patch?
+> Yes, it fixes the problem. But it waits 15s before it times out. This is
+> inacceptable for automounted NFS dirs.
 
-Please.
+I'm still confused as to why you are hitting it at all. In the normal
+autonegotiation case, the client should be trying to use AUTH_SYS first
+and then trying rpcsec_gss if and only if that fails.
 
-Ben.
+Are you really exporting a filesystem using AUTH_NULL as the only
+supported flavour?
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Trond Myklebust
+Linux NFS client maintainer
 
+NetApp
+Trond.Myklebust@netapp.com
+www.netapp.com
