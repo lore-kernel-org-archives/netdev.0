@@ -1,90 +1,82 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v4] net: bnx2x: convert to hw_features
-Date: Tue, 12 Apr 2011 16:49:40 +0200
-Message-ID: <20110412144940.GA26043@rere.qmqm.pl>
-References: <20110411202630.C079D13909@rere.qmqm.pl> <1302610228.32697.298.camel@lb-tlvb-vladz> <20110412140708.GA21835@rere.qmqm.pl> <1302619012.6750.8.camel@lb-tlvb-vladz>
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Subject: Re: [PATCH] inetpeer: reduce stack usage
+Date: Tue, 12 Apr 2011 23:51:26 +0900
+Message-ID: <20110412235126.63841dfe.shimoda.hiroaki@gmail.com>
+References: <4D9E62D9.5010400@scotdoyle.com>
+	<20110408121700.0aad53fe@nehalam>
+	<4D9FE5BE.6060600@scotdoyle.com>
+	<20110409161908.a2aca120.shimoda.hiroaki@gmail.com>
+	<4DA39330.2030102@scotdoyle.com>
+	<20110411183105.46e86684@nehalam>
+	<4DA3CB4B.9090506@scotdoyle.com>
+	<1302581384.3603.14.camel@edumazet-laptop>
+	<1302582172.3603.18.camel@edumazet-laptop>
+	<4DA3E074.5090603@scotdoyle.com>
+	<1302587490.3603.22.camel@edumazet-laptop>
+	<4DA3F909.5020609@scotdoyle.com>
+	<1302593469.3603.44.camel@edumazet-laptop>
+	<1302597580.3233.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Vladislav Zolotarov <vladz@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Scot Doyle <lkml@scotdoyle.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:33682 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932270Ab1DLOtl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 10:49:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1302619012.6750.8.camel@lb-tlvb-vladz>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:48732 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932198Ab1DLOvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 10:51:42 -0400
+Received: by vxi39 with SMTP id 39so4934913vxi.19
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 07:51:41 -0700 (PDT)
+In-Reply-To: <1302597580.3233.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 12, 2011 at 05:36:52PM +0300, Vladislav Zolotarov wrote:
-> On Tue, 2011-04-12 at 07:07 -0700, Micha=B3 Miros=B3aw wrote:
-> > On Tue, Apr 12, 2011 at 03:10:28PM +0300, Vladislav Zolotarov wrote=
-:
-> > > On Mon, 2011-04-11 at 13:26 -0700, Micha=B3 Miros=B3aw wrote:
-> > > > Since ndo_fix_features callback is postponing features change w=
-hen
-> > > > bp->recovery_state !=3D BNX2X_RECOVERY_DONE, netdev_update_feat=
-ures()
-> > > > has to be called again when this condition changes. Previously,
-> > > > ethtool_ops->set_flags callback returned -EBUSY in that case
-> > > > (it's not possible in the new model).
-> > > ACK (with reservations). ;)
-> > > Could u, pls., just add this comment I've asked for in the previo=
-us
-> > > e-mail?=20
-> > The one about vlan_features?=20
-> Yeah, this one.
-> > I'll just fix the comment in netdevice.h
-> > instead, since it might be not clear enough.
-> Could u still add this comment to bnx2x in your patch as well. It'll
-> just make these code section more clear regardless the netdevice.h
-> contents... ;)
+On Tue, 12 Apr 2011 10:39:40 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-This would be duplicating information easily found elsewhere.
-I don't like it. :)
+> On 64bit arches, we use 752 bytes of stack when cleanup_once() is called
+> from inet_getpeer().
+> 
+> Lets share the avl stack to save ~376 bytes.
+> 
+> Before patch :
+> 
+> # objdump -d net/ipv4/inetpeer.o | scripts/checkstack.pl
+> 
+> 0x000006c3 unlink_from_pool [inetpeer.o]:		376
+> 0x00000721 unlink_from_pool [inetpeer.o]:		376
+> 0x00000cb1 inet_getpeer [inetpeer.o]:			376
+> 0x00000e6d inet_getpeer [inetpeer.o]:			376
+> 0x0004 inet_initpeers [inetpeer.o]:			112
+> # size net/ipv4/inetpeer.o
+>    text	   data	    bss	    dec	    hex	filename
+>    5320	    432	     21	   5773	   168d	net/ipv4/inetpeer.o
+> 
+> After patch :
+> 
+> objdump -d net/ipv4/inetpeer.o | scripts/checkstack.pl 
+> 0x00000c11 inet_getpeer [inetpeer.o]:			376
+> 0x00000dcd inet_getpeer [inetpeer.o]:			376
+> 0x00000ab9 peer_check_expire [inetpeer.o]:		328
+> 0x00000b7f peer_check_expire [inetpeer.o]:		328
+> 0x0004 inet_initpeers [inetpeer.o]:			112
+> # size net/ipv4/inetpeer.o
+>    text	   data	    bss	    dec	    hex	filename
+>    5163	    432	     21	   5616	   15f0	net/ipv4/inetpeer.o
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Scot Doyle <lkml@scotdoyle.com>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 
-> > > The things I first thought to comment on are:
-> > > 	- Removing TPA_ENABLED_FLAG the similar way u've removed the
-> > > bp->rx_csum.
-> > > 	- Merging the code handling 'features' in bnx2x_init_bp() with t=
-he
-> > > similar code in bnx2x_init_dev().
-> > >=20
-> > > However I think it would be right if we clear our mess by ourselv=
-es and
-> > > that u have already done much enough... ;)=20
-> > >=20
-> > > I've run our standard test suite (which in particular heavily tes=
-ts the
-> > > RX_CSUM and LRO flags toggling) on this patch and it passed it.
-> > It might be possible to get rid of ndo_set_features, since it looks=
- like
-> > the reset/recovery handler is doing unload/load itself. This needs =
-more
-> > digging into the driver than this simple conversion.
-> Hmm... I don't get u here. Although the recovery handler does
-> unload/load itself if there has been an attempt to change features
-> during the recovery it won't be able to get applied until the whole
-> recovery process ends. So, this patch added the extra call for
-> netdev_update_features() right after we know that the recovery proces=
-s
-> has successfully ended. So, could u, pls., explain exactly what do u
-> mean here by saying "It might be possible to get rid of
-> ndo_set_features"?
+I couldn't understand that actually cleanup_once() was called
+from inet_getpeer() and then the stack overflow was hit,
+but this patch surely reduces stack usage.
 
-Hmm. I thought one, and wrote another.
+Reviewed-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 
-Since bnx2x_parity_recover() runs with rtnl_lock(), as should
-netdev_update_features(), then in case the recovery is in progress
-it should be enough to not call bnx2x_reload_if_running() then
-and just change the flags --- changes will be picked up on bnx2x_nic_lo=
-ad()
-after recovery is complete. This removes the need for netdev_update_fea=
-tures()
-calls.
-
-Best Regards,
-Micha=B3 Miros=B3aw
+Thanks.
