@@ -1,77 +1,136 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso packet
-Date: Tue, 12 Apr 2011 01:15:51 -0700
-Message-ID: <1302596151-15182-1-git-send-email-amit.salecha@qlogic.com>
-Cc: stable@kernel.org
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] inetpeer: reduce stack usage
+Date: Tue, 12 Apr 2011 10:39:40 +0200
+Message-ID: <1302597580.3233.14.camel@edumazet-laptop>
+References: <4D9E62D9.5010400@scotdoyle.com>
+	 <20110408121700.0aad53fe@nehalam>	<4D9FE5BE.6060600@scotdoyle.com>
+	 <20110409161908.a2aca120.shimoda.hiroaki@gmail.com>
+	 <4DA39330.2030102@scotdoyle.com> <20110411183105.46e86684@nehalam>
+	 <4DA3CB4B.9090506@scotdoyle.com> <1302581384.3603.14.camel@edumazet-laptop>
+	 <1302582172.3603.18.camel@edumazet-laptop> <4DA3E074.5090603@scotdoyle.com>
+	 <1302587490.3603.22.camel@edumazet-laptop> <4DA3F909.5020609@scotdoyle.com>
+	 <1302593469.3603.44.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
+	netdev@vger.kernel.org
+To: Scot Doyle <lkml@scotdoyle.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:10859 "EHLO unm84.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753523Ab1DLIP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 04:15:56 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:46673 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753716Ab1DLIjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 04:39:45 -0400
+Received: by wwa36 with SMTP id 36so7616502wwa.1
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 01:39:44 -0700 (PDT)
+In-Reply-To: <1302593469.3603.44.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Machines are getting deadlock in four node cluster environment.
-All nodes are accessing (find /gfs2 -depth -print|cpio -ocv > /dev/null)
-200 GB storage on a GFS2 filesystem.
-This result in memory fragmentation and driver receives 18 frags for
-1448 byte packets.
-For non tso packet, fw drops the tx request, if it has >14 frags.
+On 64bit arches, we use 752 bytes of stack when cleanup_once() is called
+from inet_getpeer().
 
-Fixing it by pulling extra frags.
+Lets share the avl stack to save ~376 bytes.
 
-Cc: stable@kernel.org
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Before patch :
+
+# objdump -d net/ipv4/inetpeer.o | scripts/checkstack.pl
+
+0x000006c3 unlink_from_pool [inetpeer.o]:		376
+0x00000721 unlink_from_pool [inetpeer.o]:		376
+0x00000cb1 inet_getpeer [inetpeer.o]:			376
+0x00000e6d inet_getpeer [inetpeer.o]:			376
+0x0004 inet_initpeers [inetpeer.o]:			112
+# size net/ipv4/inetpeer.o
+   text	   data	    bss	    dec	    hex	filename
+   5320	    432	     21	   5773	   168d	net/ipv4/inetpeer.o
+
+After patch :
+
+objdump -d net/ipv4/inetpeer.o | scripts/checkstack.pl 
+0x00000c11 inet_getpeer [inetpeer.o]:			376
+0x00000dcd inet_getpeer [inetpeer.o]:			376
+0x00000ab9 peer_check_expire [inetpeer.o]:		328
+0x00000b7f peer_check_expire [inetpeer.o]:		328
+0x0004 inet_initpeers [inetpeer.o]:			112
+# size net/ipv4/inetpeer.o
+   text	   data	    bss	    dec	    hex	filename
+   5163	    432	     21	   5616	   15f0	net/ipv4/inetpeer.o
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Scot Doyle <lkml@scotdoyle.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    1 +
- drivers/net/qlcnic/qlcnic_main.c |   14 ++++++++++++++
- 2 files changed, 15 insertions(+), 0 deletions(-)
+ net/ipv4/inetpeer.c |   13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index dc44564..b0dead0 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -99,6 +99,7 @@
- #define TX_UDPV6_PKT	0x0c
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index dd1b20e..9df4e63 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -354,7 +354,8 @@ static void inetpeer_free_rcu(struct rcu_head *head)
+ }
  
- /* Tx defines */
-+#define QLCNIC_MAX_FRAGS_PER_TX	14
- #define MAX_TSO_HEADER_DESC	2
- #define MGMT_CMD_DESC_RESV	4
- #define TX_STOP_THRESH		((MAX_SKB_FRAGS >> 2) + MAX_TSO_HEADER_DESC \
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index cd88c7e..cb1a1ef 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2099,6 +2099,7 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	struct cmd_desc_type0 *hwdesc, *first_desc;
- 	struct pci_dev *pdev;
- 	struct ethhdr *phdr;
-+	int delta = 0;
- 	int i, k;
+ /* May be called with local BH enabled. */
+-static void unlink_from_pool(struct inet_peer *p, struct inet_peer_base *base)
++static void unlink_from_pool(struct inet_peer *p, struct inet_peer_base *base,
++			     struct inet_peer __rcu **stack[PEER_MAXDEPTH])
+ {
+ 	int do_free;
  
- 	u32 producer;
-@@ -2118,6 +2119,19 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+@@ -368,7 +369,6 @@ static void unlink_from_pool(struct inet_peer *p, struct inet_peer_base *base)
+ 	 * We use refcnt=-1 to alert lockless readers this entry is deleted.
+ 	 */
+ 	if (atomic_cmpxchg(&p->refcnt, 1, -1) == 1) {
+-		struct inet_peer __rcu **stack[PEER_MAXDEPTH];
+ 		struct inet_peer __rcu ***stackptr, ***delp;
+ 		if (lookup(&p->daddr, stack, base) != p)
+ 			BUG();
+@@ -422,7 +422,7 @@ static struct inet_peer_base *peer_to_base(struct inet_peer *p)
+ }
+ 
+ /* May be called with local BH enabled. */
+-static int cleanup_once(unsigned long ttl)
++static int cleanup_once(unsigned long ttl, struct inet_peer __rcu **stack[PEER_MAXDEPTH])
+ {
+ 	struct inet_peer *p = NULL;
+ 
+@@ -454,7 +454,7 @@ static int cleanup_once(unsigned long ttl)
+ 		 * happen because of entry limits in route cache. */
+ 		return -1;
+ 
+-	unlink_from_pool(p, peer_to_base(p));
++	unlink_from_pool(p, peer_to_base(p), stack);
+ 	return 0;
+ }
+ 
+@@ -524,7 +524,7 @@ struct inet_peer *inet_getpeer(struct inetpeer_addr *daddr, int create)
+ 
+ 	if (base->total >= inet_peer_threshold)
+ 		/* Remove one less-recently-used entry. */
+-		cleanup_once(0);
++		cleanup_once(0, stack);
+ 
+ 	return p;
+ }
+@@ -540,6 +540,7 @@ static void peer_check_expire(unsigned long dummy)
+ {
+ 	unsigned long now = jiffies;
+ 	int ttl, total;
++	struct inet_peer __rcu **stack[PEER_MAXDEPTH];
+ 
+ 	total = compute_total();
+ 	if (total >= inet_peer_threshold)
+@@ -548,7 +549,7 @@ static void peer_check_expire(unsigned long dummy)
+ 		ttl = inet_peer_maxttl
+ 				- (inet_peer_maxttl - inet_peer_minttl) / HZ *
+ 					total / inet_peer_threshold * HZ;
+-	while (!cleanup_once(ttl)) {
++	while (!cleanup_once(ttl, stack)) {
+ 		if (jiffies != now)
+ 			break;
  	}
- 
- 	frag_count = skb_shinfo(skb)->nr_frags + 1;
-+	/* 14 frags supported for normal packet and
-+	 * 32 frags supported for TSO packet
-+	 */
-+	if (!skb_is_gso(skb) && frag_count > QLCNIC_MAX_FRAGS_PER_TX) {
-+
-+		for (i = 0; i < (frag_count - QLCNIC_MAX_FRAGS_PER_TX); i++)
-+			delta += skb_shinfo(skb)->frags[i].size;
-+
-+		if (!__pskb_pull_tail(skb, delta))
-+			goto drop_packet;
-+
-+		frag_count = 1 + skb_shinfo(skb)->nr_frags;
-+	}
- 
- 	/* 4 fragments per cmd des */
- 	no_of_desc = (frag_count + 3) >> 2;
--- 
-1.7.3.2
+
 
