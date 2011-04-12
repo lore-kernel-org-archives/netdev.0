@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: Be verbose when unable to load fw patch
-Date: Tue, 12 Apr 2011 16:20:36 -0700 (PDT)
-Message-ID: <20110412.162036.241924043.davem@davemloft.net>
-References: <1302615172-1646-1-git-send-email-bp@amd64.org>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: [PATCH] e1000: Remove blink_led_start declaration
+Date: Tue, 12 Apr 2011 16:28:22 -0700
+Message-ID: <4DA4E016.1050800@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	borislav.petkov@amd.com, netdev@vger.kernel.org
-To: bp@amd64.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1302615172-1646-1-git-send-email-bp@amd64.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, NetDev <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:41250 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756225Ab1DLX2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 19:28:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Borislav Petkov <bp@amd64.org>
-Date: Tue, 12 Apr 2011 15:32:52 +0200
 
-> From: Borislav Petkov <borislav.petkov@amd.com>
-> 
-> When the driver fails loading the firmware, it doesn't say which patch
-> exactly it is missing. We have three different firmware images depending
-> on the hw revision, so mention the exact patch name it is unable to load
-> in the warning message.
-> 
-> Cc: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Borislav Petkov <borislav.petkov@amd.com>
+It is left over code.
 
-Seems reasonable, Francois?
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+
+---
+ drivers/net/e1000/e1000_hw.h |    1 -
+ 1 file changed, 1 deletion(-)
+
+Index: linux-2.6/drivers/net/e1000/e1000_hw.h
+===================================================================
+--- linux-2.6.orig/drivers/net/e1000/e1000_hw.h
++++ linux-2.6/drivers/net/e1000/e1000_hw.h
+@@ -386,7 +386,6 @@ s32 e1000_setup_led(struct e1000_hw *hw)
+ s32 e1000_cleanup_led(struct e1000_hw *hw);
+ s32 e1000_led_on(struct e1000_hw *hw);
+ s32 e1000_led_off(struct e1000_hw *hw);
+-s32 e1000_blink_led_start(struct e1000_hw *hw);
+ 
+ /* Adaptive IFS Functions */
+ 
