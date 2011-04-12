@@ -1,43 +1,65 @@
-From: Dave Jones <davej@redhat.com>
-Subject: pr_debug usage in raw_sendmsg
-Date: Tue, 12 Apr 2011 18:31:37 -0400
-Message-ID: <20110412223137.GA25528@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pr_debug usage in raw_sendmsg
+Date: Tue, 12 Apr 2011 15:33:57 -0700 (PDT)
+Message-ID: <20110412.153357.116378524.davem@davemloft.net>
+References: <20110412223137.GA25528@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36480 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752944Ab1DLWbj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 18:31:39 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p3CMVdqg030222
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 18:31:39 -0400
-Received: from gelk.kernelslacker.org (ovpn-113-86.phx2.redhat.com [10.3.113.86])
-	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id p3CMVc9h010611
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 18:31:39 -0400
-Received: from gelk.kernelslacker.org (gelk [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.4/8.14.4) with ESMTP id p3CMVbet025649
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 18:31:37 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.4/8.14.4/Submit) id p3CMVbjp025647
-	for netdev@vger.kernel.org; Tue, 12 Apr 2011 18:31:37 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47507
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751017Ab1DLWec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 18:34:32 -0400
+In-Reply-To: <20110412223137.GA25528@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While working on my system call fuzzer, I keep getting a lot
-of spew in dmesg from raw_sendmsg. Particularly..
+From: Dave Jones <davej@redhat.com>
+Date: Tue, 12 Apr 2011 18:31:37 -0400
 
-[ 6442.690780] no dev
-[ 6454.257701] msg_flags 0x00000080
-[ 8055.873142] msg->msg_flags = 0xd63f35c1
+> While working on my system call fuzzer, I keep getting a lot
+> of spew in dmesg from raw_sendmsg. Particularly..
+> 
+> [ 6442.690780] no dev
+> [ 6454.257701] msg_flags 0x00000080
+> [ 8055.873142] msg->msg_flags = 0xd63f35c1
+> 
+> Is there a good reason for keeping -DDEBUG in net/ieee802154/Makefile ?
+> 
+> Those messages don't look particularly helpful given there's no other context.
+> (the 'no dev' one in particular looks kinda hopeless)
 
-Is there a good reason for keeping -DDEBUG in net/ieee802154/Makefile ?
+All of those cflags modifications in net/ieee802154/Makefile are bogus,
+I'll commit the following:
 
-Those messages don't look particularly helpful given there's no other context.
-(the 'no dev' one in particular looks kinda hopeless)
+--------------------
+ieee802154: Remove hacked CFLAGS in net/ieee802154/Makefile
 
-	Dave
+It adds -Wall (which the kernel carefully controls already) and of all
+things -DDEBUG (which should be set by other means if desired, please
+we have dynamic-debug these days).
+
+Kill this noise.
+
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ieee802154/Makefile |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
+index ce2d335..5761185 100644
+--- a/net/ieee802154/Makefile
++++ b/net/ieee802154/Makefile
+@@ -1,5 +1,3 @@
+ obj-$(CONFIG_IEEE802154) +=	ieee802154.o af_802154.o
+ ieee802154-y		:= netlink.o nl-mac.o nl-phy.o nl_policy.o wpan-class.o
+ af_802154-y		:= af_ieee802154.o raw.o dgram.o
+-
+-ccflags-y += -Wall -DDEBUG
+-- 
+1.7.4.3
+
