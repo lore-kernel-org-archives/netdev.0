@@ -1,53 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: profile my proto_hook.function
-Date: Tue, 12 Apr 2011 16:03:46 +0200
-Message-ID: <1302617026.3233.49.camel@edumazet-laptop>
-References: <BANLkTi==HczThr66Yr0-Rm-RkEUw44sqrg@mail.gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v4] net: bnx2x: convert to hw_features
+Date: Tue, 12 Apr 2011 16:07:08 +0200
+Message-ID: <20110412140708.GA21835@rere.qmqm.pl>
+References: <20110411202630.C079D13909@rere.qmqm.pl> <1302610228.32697.298.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: zhou rui <zhourui.cn@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:42833 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755258Ab1DLODv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 10:03:51 -0400
-Received: by wya21 with SMTP id 21so5718185wya.19
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 07:03:48 -0700 (PDT)
-In-Reply-To: <BANLkTi==HczThr66Yr0-Rm-RkEUw44sqrg@mail.gmail.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:55580 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755258Ab1DLOHK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 10:07:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1302610228.32697.298.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 avril 2011 =C3=A0 22:00 +0800, zhou rui a =C3=A9crit :
-> hi
-> I used a prot_hook(added via dev_add_pack,protocol=3DETH_P_ALL) to
-> process packets in kernel part.but the performance was bad
+On Tue, Apr 12, 2011 at 03:10:28PM +0300, Vladislav Zolotarov wrote:
+> On Mon, 2011-04-11 at 13:26 -0700, Micha=B3 Miros=B3aw wrote:
+> > Since ndo_fix_features callback is postponing features change when
+> > bp->recovery_state !=3D BNX2X_RECOVERY_DONE, netdev_update_features=
+()
+> > has to be called again when this condition changes. Previously,
+> > ethtool_ops->set_flags callback returned -EBUSY in that case
+> > (it's not possible in the new model).
+> ACK (with reservations). ;)
+> Could u, pls., just add this comment I've asked for in the previous
+> e-mail?=20
+
+The one about vlan_features? I'll just fix the comment in netdevice.h
+instead, since it might be not clear enough.
+
+> The things I first thought to comment on are:
+> 	- Removing TPA_ENABLED_FLAG the similar way u've removed the
+> bp->rx_csum.
+> 	- Merging the code handling 'features' in bnx2x_init_bp() with the
+> similar code in bnx2x_init_dev().
 >=20
-> ksoftirqd used almost 100% cpu on my 1G nic(intel e1000,w/o RSS) XEON
-> 5400 hypertown machine.
+> However I think it would be right if we clear our mess by ourselves a=
+nd
+> that u have already done much enough... ;)=20
 >=20
-> looks my  packet processing is too slow. but how to profile this?
-> i.e. how many CPU resources used in softirq and normal kernel protoco=
-l
-> stack(tcp/ip,etc)
-> and how many used in my packet processing function?
->=20
-> and any idea to improve it?how about moving the processing function t=
-o driver?
+> I've run our standard test suite (which in particular heavily tests t=
+he
+> RX_CSUM and LRO flags toggling) on this patch and it passed it.
 
-You coud use perf tool, included in kernel sources
+It might be possible to get rid of ndo_set_features, since it looks lik=
+e
+the reset/recovery handler is doing unload/load itself. This needs more
+digging into the driver than this simple conversion.
 
-# cd ~your_kernel_sources
-# cd tools/perf
-# make
-
-<run your workload, and record activity :>
-# ./perf record -a -g sleep 10
-
-Then later, you can take a look at results
-
-=2E/perf report
-
-
-
+Best Regards,
+Micha=B3 Miros=B3aw
