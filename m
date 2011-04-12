@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.39-rc2 boot crash
-Date: Tue, 12 Apr 2011 14:39:10 -0700 (PDT)
-Message-ID: <20110412.143910.48510938.davem@davemloft.net>
-References: <20110411220657.GB5783@ioremap.net>
-	<4DA44A73.3060801@trash.net>
-	<4DA47247.20700@trash.net>
+Subject: Re: [PATCH] net: sky2: convert to hw_features
+Date: Tue, 12 Apr 2011 14:51:43 -0700 (PDT)
+Message-ID: <20110412.145143.260086200.davem@davemloft.net>
+References: <20110410131321.8CD9713A64@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, emunson@mgebm.net, dave@linux.vnet.ibm.com,
-	linux-kernel@vger.kernel.org, gregkh@suse.de,
-	ksrinivasan@novell.com, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DA47247.20700@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: mirq-linux@rere.qmqm.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46617
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932397Ab1DLVwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 17:52:19 -0400
+In-Reply-To: <20110410131321.8CD9713A64@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 12 Apr 2011 17:39:51 +0200
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Sun, 10 Apr 2011 15:13:21 +0200 (CEST)
 
-> I think this patch should fix the problem. Eric, could you please
-> give it a try?
+> Caveats:
+>  - driver modifies vlan_features on HW VLAN TX changes
+>  - broken RX checksum will be reenabled on features change
+>=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-Applied, thanks everyone.
+It seems the checksum concern exists both before and after these
+changes, so I'm going to apply this and you guys can send me a
+fixup fir the RX checksum feature validation issue as a follow-on
+patch.
+
+Thanks!
