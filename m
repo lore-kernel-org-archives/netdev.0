@@ -1,129 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Kernel panic when using bridge
-Date: Mon, 11 Apr 2011 18:31:05 -0700
-Message-ID: <20110411183105.46e86684@nehalam>
-References: <4D9E62D9.5010400@scotdoyle.com>
-	<20110408121700.0aad53fe@nehalam>
-	<4D9FE5BE.6060600@scotdoyle.com>
-	<20110409161908.a2aca120.shimoda.hiroaki@gmail.com>
-	<4DA39330.2030102@scotdoyle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 32872] New: LLC PDU is dropped if skb is not
+ linear
+Date: Mon, 11 Apr 2011 18:56:50 -0700 (PDT)
+Message-ID: <20110411.185650.193706505.davem@davemloft.net>
+References: <bug-32872-10286@https.bugzilla.kernel.org/>
+	<20110411164812.8f84f995.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	netdev@vger.kernel.org,
-	Sebastian Nickel <Sebastian.Nickel@hetzner.de>,
-	Pallai Roland <pallair@magex.hu>
-To: Scot Doyle <lkml@scotdoyle.com>
+Cc: vitalyb@telenet.dn.ua, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33060 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752350Ab1DLBbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2011 21:31:08 -0400
-In-Reply-To: <4DA39330.2030102@scotdoyle.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34653
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753756Ab1DLB53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 21:57:29 -0400
+In-Reply-To: <20110411164812.8f84f995.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Apr 2011 18:48:00 -0500
-Scot Doyle <lkml@scotdoyle.com> wrote:
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 11 Apr 2011 16:48:12 -0700
 
-> On 04/09/2011 02:19 AM, Hiroaki SHIMODA wrote:
-> >
-> > It seems that the bug trap is occurred in ip_options_compile() due to
-> > rt is NULL.
-> >
-> > 	8b 96 cc 00 00 00       mov    0xcc(%rsi),%edx
-> > rsi is rt, and 0xcc means rt->rt_spec_dst. So I think below code hit
-> > the bug trap.
-> >
-> > 332	if (skb) {
-> > 333		memcpy(&optptr[optptr[2]-1],&rt->rt_spec_dst, 4);<- here
-> > 334		opt->is_changed = 1;
-> > 335	}
-> >
-> > And call trace seems as follows.
-> >    __netif_receive_skb()
-> >      ->  br_handle_frame()
-> >           ->  NF_HOOK()
-> >                ->  br_nf_pre_routing()
-> >                     ->  br_parse_ip_options()
-> >                          ->  ip_options_compile()
-> >
-> > br_parse_ip_options() was introduced at 462fb2a (bridge : Sanitize
-> > skb before it enters the IP stack) but ip_options_compile() or
-> > ip_options_rcv_srr() seems to be called with no rt info.
+> --- linux-2.6.32.36/net/llc/llc_input.c.orig	2009-12-03 05:51:21.000000000 +0200
+> +++ linux-2.6.32.36/net/llc/llc_input.c	2011-04-08 08:57:29.000000000 +0300
+> @@ -105,6 +105,11 @@
+>  	if (unlikely(!pskb_may_pull(skb, sizeof(*pdu))))
+>  		return 0;
+>  
+> +	if (skb->data_len != 0){
+> +	    if (unlikely(skb_linearize(skb)))
+> +		return 0;
+> +	}
+> +
+>  	pdu = (struct llc_pdu_un *)skb->data;
+>  	if ((pdu->ctrl_1 & LLC_PDU_TYPE_MASK) == LLC_PDU_TYPE_U)
+>  		llc_len = 1;
 > 
-> Thanks to a tip from Sebastian, I can now reproduce this panic by 
-> running "IP Stack Integrity Checker v0.07" from another machine on the 
-> same subnet with command "icmpsic -s x.y.z.a -d x.y.z.b" where "x.y.z.a" 
-> is IP address of the other machine and "x.y.z.b" is the IP address of 
-> the target. When I enable iptables logging on the target machine, no 
-> panic occurs. When I disable iptables logging (but otherwise leave the 
-> same iptables rules) a panic occurs within a few seconds.
 > 
-> Thanks Hiroaki for the analysis of the kernel panic output. I've 
-> confirmed that you are correct by placing a printk just before those two 
-> lines. In every panic, the printk was triggered on line 333 of 
-> net/ipv4/ip_options.c
+> 2.6.32 is a pretty old kernel - we'll need to verify if current kernels
+> have the same problem.
 > 
-> The kernel panic does not occur after applying the following patch.
-> 
-> # diff net/ipv4/ip_options.c.original net/ipv4/ip_options.c.fix
-> 332c332
-> <                 if (skb) {
-> ---
->  >                 if (skb && rt) {
-> 374c374
-> <                     if (skb) {
-> ---
->  >                     if (skb && rt) {
-> 
-> What do you all think? Will it cause other problems?
+> Please don't send patches via bugzilla - it causes lots of problems
+> with our usual patch management and review processes.  It's preferred
+> that patches be sent via email as per Documentation/SubmittingPatches,
+> and that they include a Signed-off-by:, as described in that file.
 
-It would help if you gave a little more context (like diff -up)
-next time.
+The skb_tail_pointer() check in llc_fixup_skb() is beyond wonky and
+honestly the source of the problems here.
 
-I think the correct fix is for the skb handed to ip_compile_options
-to match the layout expected by ip_compile_options.
+I'd suggest instead:
 
-This patch is compile tested only, please validate.
-
-
-Subject: [PATCH] bridge: set pseudo-route table before calling ip_comple_options
-
-For some ip options, ip_compile_options assumes it can find the associated
-route table. The bridge to iptables code doesn't supply the necessary
-reference causing NULL dereference.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
----
-Patch against net-next-2.6, but if validated should go to net-2.6
-and stable.
-
---- a/net/bridge/br_netfilter.c	2011-04-11 18:18:22.534837859 -0700
-+++ b/net/bridge/br_netfilter.c	2011-04-11 18:25:15.427244826 -0700
-@@ -221,6 +221,7 @@ static int br_parse_ip_options(struct sk
- 	struct ip_options *opt;
- 	struct iphdr *iph;
- 	struct net_device *dev = skb->dev;
-+	struct rtable *rt;
- 	u32 len;
+diff --git a/net/llc/llc_input.c b/net/llc/llc_input.c
+index 058f1e9..9032421 100644
+--- a/net/llc/llc_input.c
++++ b/net/llc/llc_input.c
+@@ -121,8 +121,7 @@ static inline int llc_fixup_skb(struct sk_buff *skb)
+ 		s32 data_size = ntohs(pdulen) - llc_len;
  
- 	iph = ip_hdr(skb);
-@@ -255,6 +256,14 @@ static int br_parse_ip_options(struct sk
- 		return 0;
- 	}
- 
-+	/* Associate bogus bridge route table */
-+	rt = bridge_parent_rtable(dev);
-+	if (!rt) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+	skb_dst_set(skb, &rt->dst);
-+
- 	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
- 	if (ip_options_compile(dev_net(dev), opt, skb))
- 		goto inhdr_error;
-
+ 		if (data_size < 0 ||
+-		    ((skb_tail_pointer(skb) -
+-		      (u8 *)pdu) - llc_len) < data_size)
++		    !pskb_may_pull(skb, data_size))
+ 			return 0;
+ 		if (unlikely(pskb_trim_rcsum(skb, data_size)))
+ 			return 0;
