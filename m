@@ -1,116 +1,110 @@
-From: Eric B Munson <emunson@mgebm.net>
-Subject: Re: 2.6.39-rc2 boot crash
-Date: Tue, 12 Apr 2011 11:59:40 -0400
-Message-ID: <20110412155940.GA2598@mgebm.net>
-References: <20110406184753.GA7691@mgebm.net>
- <1302115953.8094.217.camel@nimitz>
- <20110406212041.GA2596@mgebm.net>
- <20110406.142157.68145422.davem@davemloft.net>
- <20110406220512.GA2460@mgebm.net>
- <4D9D9AA4.6060304@trash.net>
- <20110411210746.GA2453@mgebm.net>
- <20110411220657.GB5783@ioremap.net>
- <4DA44A73.3060801@trash.net>
- <4DA47247.20700@trash.net>
+From: Jon Mason <jdmason@kudzu.us>
+Subject: Re: [PATCH] s2io: Fix warnings due to -Wunused-but-set-variable.
+Date: Tue, 12 Apr 2011 11:00:04 -0500
+Message-ID: <20110412160002.GB1433@kudzu.us>
+References: <20110411.160143.258100330.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="oyUTqETQ0mS9luUI"
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	David Miller <davem@davemloft.net>, dave@linux.vnet.ibm.com,
-	linux-kernel@vger.kernel.org, gregkh@suse.de,
-	NetDev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4DA47247.20700@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---oyUTqETQ0mS9luUI
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:38470 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755058Ab1DLQAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 12:00:10 -0400
+Received: by iyb14 with SMTP id 14so6754443iyb.19
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 09:00:09 -0700 (PDT)
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20110411.160143.258100330.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Apr 2011, Patrick McHardy wrote:
-
-> On 12.04.2011 14:49, Patrick McHardy wrote:
-> > On 12.04.2011 00:06, Evgeniy Polyakov wrote:
-> >> Hi.
-> >>
-> >> On Mon, Apr 11, 2011 at 05:07:47PM -0400, Eric B Munson (emunson@mgebm=
-=2Enet) wrote:
-> >>>> I can't figure this out, the only thing that should have changed is =
-the
-> >>>> time the initial PROC_CN_MCAST_LISTEN message is received. Apparently
-> >>>> at that point connector is not fully initialized yet. Please post yo=
-ur
-> >>>> config and the full boot log. Thanks.
-> >>>>
-> >>>
-> >>> I am still seeing this on Linus' tree, is there anything more I can d=
-o to help
-> >>> track the problem?
-> >=20
-> > Sorry, I had a hardware failure, I'm back working on this now.
-> >=20
-> >> Patrick, do you need my assist on this bug?
-> >=20
-> > Thanks, but I can meanwhile reproduce the problem, so I think I
-> > should have a fix soon.
->=20
-> I think this patch should fix the problem. Eric, could you please
-> give it a try?
-
-This has me up and running again, thanks!
-
-Tested-by: Eric B Munson <emunson@mgebm.net>
->=20
->=20
->=20
-
-> commit ad676e0dbbe8658ce46e192f449689bf3011bdf5
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Tue Apr 12 17:37:04 2011 +0200
->=20
->     connector: fix skb double free in cn_rx_skb()
->    =20
->     When a skb is delivered to a registered callback, cn_call_callback()
->     incorrectly returns -ENODEV after freeing the skb, causing cn_rx_skb()
->     to free the skb a second time.
->    =20
->     Reported-by: Eric B Munson <emunson@mgebm.net>
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
->=20
-> diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-> index d770058..219d88a 100644
-> --- a/drivers/connector/connector.c
-> +++ b/drivers/connector/connector.c
-> @@ -142,6 +142,7 @@ static int cn_call_callback(struct sk_buff *skb)
->  		cbq->callback(msg, nsp);
->  		kfree_skb(skb);
->  		cn_queue_release_callback(cbq);
-> +		err =3D 0;
+On Mon, Apr 11, 2011 at 04:01:43PM -0700, David Miller wrote:
+> 
+> Most of these are cases where we are trying to read back a register
+> after a write to ensure completion.
+> 
+> Simply pre-fixing the readl() or readq() with "(void)" is sufficient
+> because these are volatile operations and the compiler cannot eliminate
+> them just because no real assignment takes place.
+> 
+> The case of free_rxd_blk()'s assignments to "struct buffAdd *ba" is a
+> real spurious assignment as this variable is completely otherwise
+> unused.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+Acked-by: Jon Mason <jdmason@kudzu.us>
+> ---
+>  drivers/net/s2io.c |    5 +----
+>  drivers/net/s2io.h |   10 ++++------
+>  2 files changed, 5 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+> index ca8e75e..2d5cc61 100644
+> --- a/drivers/net/s2io.c
+> +++ b/drivers/net/s2io.c
+> @@ -2244,13 +2244,12 @@ static int verify_xena_quiescence(struct s2io_nic *sp)
+>  static void fix_mac_address(struct s2io_nic *sp)
+>  {
+>  	struct XENA_dev_config __iomem *bar0 = sp->bar0;
+> -	u64 val64;
+>  	int i = 0;
+>  
+>  	while (fix_mac[i] != END_SIGN) {
+>  		writeq(fix_mac[i++], &bar0->gpio_control);
+>  		udelay(10);
+> -		val64 = readq(&bar0->gpio_control);
+> +		(void) readq(&bar0->gpio_control);
 >  	}
-> =20
->  	return err;
-
-
---oyUTqETQ0mS9luUI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNpHbsAAoJEH65iIruGRnNlSkH/3ThkQiZk+yG2okW18C89qW7
-0gFnNgqSnwxeYTNi93uz5b4JlYj5Ss6EVlnWSIsHkyi3QFWu5i6EJyHK65Hxb+Ys
-i+ayB4hgEfFw4s+sRMTn8aunE50Dvc7zvJBwP98IFaQR9tOv6tlKl+SADHsagLmr
-WaBsgjIeNBOuhnEvoEc5hIKaxSXOD03FJNIj6O3GpVAz761BrZLnmDOnJK9KYBdY
-gPBQt3zj065pZ7UZ7niC4Wc6G5nzvv8RqwrLiIqsBCjY8cOaSa5/71tTgP6+L7Op
-6UiYBJD+dk0rgOyBHvP6NgWUzK48zSedNWQqYG/T3DfOc2HlMp90coLKzjGtkX0=
-=ux8M
------END PGP SIGNATURE-----
-
---oyUTqETQ0mS9luUI--
+>  }
+>  
+> @@ -2727,7 +2726,6 @@ static void free_rxd_blk(struct s2io_nic *sp, int ring_no, int blk)
+>  	int j;
+>  	struct sk_buff *skb;
+>  	struct RxD_t *rxdp;
+> -	struct buffAdd *ba;
+>  	struct RxD1 *rxdp1;
+>  	struct RxD3 *rxdp3;
+>  	struct mac_info *mac_control = &sp->mac_control;
+> @@ -2751,7 +2749,6 @@ static void free_rxd_blk(struct s2io_nic *sp, int ring_no, int blk)
+>  			memset(rxdp, 0, sizeof(struct RxD1));
+>  		} else if (sp->rxd_mode == RXD_MODE_3B) {
+>  			rxdp3 = (struct RxD3 *)rxdp;
+> -			ba = &mac_control->rings[ring_no].ba[blk][j];
+>  			pci_unmap_single(sp->pdev,
+>  					 (dma_addr_t)rxdp3->Buffer0_ptr,
+>  					 BUF0_LEN,
+> diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
+> index 628fd27..800b3a4 100644
+> --- a/drivers/net/s2io.h
+> +++ b/drivers/net/s2io.h
+> @@ -1002,18 +1002,16 @@ static inline void writeq(u64 val, void __iomem *addr)
+>  #define LF	2
+>  static inline void SPECIAL_REG_WRITE(u64 val, void __iomem *addr, int order)
+>  {
+> -	u32 ret;
+> -
+>  	if (order == LF) {
+>  		writel((u32) (val), addr);
+> -		ret = readl(addr);
+> +		(void) readl(addr);
+>  		writel((u32) (val >> 32), (addr + 4));
+> -		ret = readl(addr + 4);
+> +		(void) readl(addr + 4);
+>  	} else {
+>  		writel((u32) (val >> 32), (addr + 4));
+> -		ret = readl(addr + 4);
+> +		(void) readl(addr + 4);
+>  		writel((u32) (val), addr);
+> -		ret = readl(addr);
+> +		(void) readl(addr);
+>  	}
+>  }
+>  
+> -- 
+> 1.7.4.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
