@@ -1,298 +1,419 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel panic when using bridge
-Date: Tue, 12 Apr 2011 13:49:11 +0200
-Message-ID: <1302608951.3233.33.camel@edumazet-laptop>
-References: <4D9E62D9.5010400@scotdoyle.com>
-	 <20110408121700.0aad53fe@nehalam>	<4D9FE5BE.6060600@scotdoyle.com>
-	 <20110409161908.a2aca120.shimoda.hiroaki@gmail.com>
-	 <4DA39330.2030102@scotdoyle.com> <20110411183105.46e86684@nehalam>
-	 <4DA3CB4B.9090506@scotdoyle.com> <1302581384.3603.14.camel@edumazet-laptop>
-	 <1302582172.3603.18.camel@edumazet-laptop> <4DA3E074.5090603@scotdoyle.com>
-	 <1302587490.3603.22.camel@edumazet-laptop> <4DA3F909.5020609@scotdoyle.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: Re: [PATCH v4] net: bnx2x: convert to hw_features
+Date: Tue, 12 Apr 2011 15:10:28 +0300
+Message-ID: <1302610228.32697.298.camel@lb-tlvb-vladz>
+References: <20110411202630.C079D13909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	netdev@vger.kernel.org, Jan Luebbe <jluebbe@debian.org>
-To: Scot Doyle <lkml@scotdoyle.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62753 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028Ab1DLLxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 07:53:10 -0400
-Received: by wwa36 with SMTP id 36so7795022wwa.1
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 04:53:09 -0700 (PDT)
-In-Reply-To: <4DA3F909.5020609@scotdoyle.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3472 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751014Ab1DLMNI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 08:13:08 -0400
+In-Reply-To: <20110411202630.C079D13909@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 avril 2011 =C3=A0 02:02 -0500, Scot Doyle a =C3=A9crit :
-> On 04/12/2011 12:51 AM, Eric Dumazet wrote:
-> >
-> > Oh well, sorry (not enough time these days to even test patches)
-> >
-> > 	if (!skb_dst(skb)) {
+On Mon, 2011-04-11 at 13:26 -0700, Micha=B3 Miros=B3aw wrote:
+> Since ndo_fix_features callback is postponing features change when
+> bp->recovery_state !=3D BNX2X_RECOVERY_DONE, netdev_update_features()
+> has to be called again when this condition changes. Previously,
+> ethtool_ops->set_flags callback returned -EBUSY in that case
+> (it's not possible in the new model).
+
+ACK (with reservations). ;)
+
+Could u, pls., just add this comment I've asked for in the previous
+e-mail?=20
+
+The things I first thought to comment on are:
+	- Removing TPA_ENABLED_FLAG the similar way u've removed the
+bp->rx_csum.
+	- Merging the code handling 'features' in bnx2x_init_bp() with the
+similar code in bnx2x_init_dev().
+
+However I think it would be right if we clear our mess by ourselves and
+that u have already done much enough... ;)=20
+
+I've run our standard test suite (which in particular heavily tests the
+RX_CSUM and LRO flags toggling) on this patch and it passed it.
+
+Thanks a lot, Michal.
+vlad
+
 >=20
-> --- br_netfilter.c.a    2011-04-01 02:37:53.000000000 -0500
-> +++ br_netfilter.c.b    2011-04-12 00:29:00.000000000 -0500
-> @@ -221,6 +221,7 @@ static int br_parse_ip_options(struct sk
->       struct ip_options *opt;
->       struct iphdr *iph;
->       struct net_device *dev =3D skb->dev;
-> +    struct rtable *rt;
->       u32 len;
+> Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> ---
+> v4: - complete bp->rx_csum -> NETIF_F_RXCSUM conversion
+>     - add check for failed ndo_set_features in ndo_open callback
+> v3: - include NETIF_F_LRO in hw_features
+>     - don't call netdev_update_features() if bnx2x_nic_load() failed
+> v2: - comment in ndo_fix_features callback
+> ---
+>  drivers/net/bnx2x/bnx2x.h         |    1 -
+>  drivers/net/bnx2x/bnx2x_cmn.c     |   54 +++++++++++++++++++--
+>  drivers/net/bnx2x/bnx2x_cmn.h     |    3 +
+>  drivers/net/bnx2x/bnx2x_ethtool.c |   95 ---------------------------=
+----------
+>  drivers/net/bnx2x/bnx2x_main.c    |   41 +++++++++-------
+>  5 files changed, 75 insertions(+), 119 deletions(-)
 >=20
->       iph =3D ip_hdr(skb);
-> @@ -255,6 +256,16 @@ static int br_parse_ip_options(struct sk
->           return 0;
->       }
->=20
-> +    /* Associate bogus bridge route table */
-> +    if (!skb_dst(skb)) {
-> +        rt =3D bridge_parent_rtable(dev);
-> +        if (!rt) {
-> +            kfree_skb(skb);
-> +            return 0;
-> +        }
-> +        skb_dst_set_noref(skb,&rt->dst);
-> +    }
+> diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+> index b7ff87b..fefd1d5 100644
+> --- a/drivers/net/bnx2x/bnx2x.h
+> +++ b/drivers/net/bnx2x/bnx2x.h
+> @@ -918,7 +918,6 @@ struct bnx2x {
+> =20
+>  	int			tx_ring_size;
+> =20
+> -	u32			rx_csum;
+>  /* L2 header size + 2*VLANs (8 bytes) + LLC SNAP (8 bytes) */
+>  #define ETH_OVREHEAD		(ETH_HLEN + 8 + 8)
+>  #define ETH_MIN_PACKET_SIZE		60
+> diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_=
+cmn.c
+> index e83ac6d..7f49cf4 100644
+> --- a/drivers/net/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/bnx2x/bnx2x_cmn.c
+> @@ -640,7 +640,7 @@ reuse_rx:
+> =20
+>  			skb_checksum_none_assert(skb);
+> =20
+> -			if (bp->rx_csum) {
+> +			if (bp->dev->features & NETIF_F_RXCSUM) {
+>  				if (likely(BNX2X_RX_CSUM_OK(cqe)))
+>  					skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+>  				else
+> @@ -2443,11 +2443,21 @@ alloc_err:
+> =20
+>  }
+> =20
+> +static int bnx2x_reload_if_running(struct net_device *dev)
+> +{
+> +	struct bnx2x *bp =3D netdev_priv(dev);
 > +
->       opt->optlen =3D iph->ihl*4 - sizeof(struct iphdr);
->       if (ip_options_compile(dev_net(dev), opt, skb))
->           goto inhdr_error;
->=20
->=20
-> Now we are making progress! With the patch above from Stephen and Eri=
-c,=20
-> I cannot make the kernel panic when sending packets to the IP address=
- of=20
-> the bridge.
->=20
-> However, if a guest virtual machine is sharing the bridge with the ho=
-st=20
-> via a tap device, I can cause a host panic by targeting the IP addres=
-s=20
-> of the guest. Is this an unrelated problem?
->=20
-> Here are two kernel panics. The guest virtual machine was pingable=20
-> before being attacked with IP Stack Checker's tcpsic command. Spannin=
-g=20
-> Tree Protocol was off during the first panic and on during the second=
-=2E
->=20
-> ------------
->=20
-> [  606.921739] br0: port 2(tap0) entering forwarding state
-> [  636.058941] Kernel panic - not syncing: stack-protector: Kernel st=
-ack=20
-> is corrupted in: ffffffff812c2781
-> [  636.058942]
-> [  636.069789] Pid: 2261, comm: kvm Tainted: G        W   2.6.39-rc2+=
- #11
-> [  636.076292] Call Trace:
-> [  636.078725] <IRQ>  [<ffffffff8132ad78>] ? panic+0x92/0x1a1
-> [  636.084287]  [<ffffffff8104abe8>] ? _local_bh_enable_ip.clone.8+0x=
-20/0x8c
-> [  636.091044]  [<ffffffff812c2781>] ? icmp_send+0x337/0x349
-> [  636.096418]  [<ffffffff810454e5>] ? __stack_chk_fail+0x17/0x17
-> [  636.102221]  [<ffffffff812c2781>] ? icmp_send+0x337/0x349
-> [  636.107595]  [<ffffffff81298527>] ? nf_iterate+0x41/0x7e
-> [  636.112883]  [<ffffffff81298527>] ? nf_iterate+0x41/0x7e
-> [  636.118172]  [<ffffffffa017b0d4>] ? br_flood+0xc8/0xc8 [bridge]
-> [  636.124065]  [<ffffffffa017b250>] ? __br_deliver+0xb0/0xb0 [bridge=
-]
-> [  636.130302]  [<ffffffff812985d7>] ? nf_hook_slow+0x73/0x114
-> [  636.135850]  [<ffffffffa017b250>] ? __br_deliver+0xb0/0xb0 [bridge=
-]
-> [  636.142089]  [<ffffffffa017be89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  636.148586]  [<ffffffffa017b250>] ? __br_deliver+0xb0/0xb0 [bridge=
-]
-> [  636.154826]  [<ffffffffa017b186>] ? NF_HOOK.clone.5+0x3c/0x56 [bri=
-dge]
-> [  636.161323]  [<ffffffffa017bfe1>] ?=20
-> br_handle_frame_finish+0x158/0x1c7 [bridge]
-> [  636.168601]  [<ffffffffa0180689>] ?=20
-> br_nf_pre_routing_finish+0x1d4/0x1e1 [bridge]
-> [  636.176052]  [<ffffffffa017fc76>] ? NF_HOOK_THRESH+0x3b/0x55 [brid=
-ge]
-> [  636.182463]  [<ffffffffa0180c84>] ? br_nf_pre_routing+0x3be/0x3cb=20
-> [bridge]
-> [  636.189307]  [<ffffffff812985d7>] ? nf_hook_slow+0x73/0x114
-> [  636.194852]  [<ffffffff81298527>] ? nf_iterate+0x41/0x7e
-> [  636.200139]  [<ffffffffa017be89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  636.206637]  [<ffffffffa017be89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  636.213133]  [<ffffffff812985d7>] ? nf_hook_slow+0x73/0x114
-> [  636.218679]  [<ffffffffa017be89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  636.225177]  [<ffffffffa017bfe1>] ?=20
-> br_handle_frame_finish+0x158/0x1c7 [bridge]
-> [  636.232455]  [<ffffffffa017be89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  636.238954]  [<ffffffffa017be6f>] ? NF_HOOK.clone.4+0x3c/0x56 [bri=
-dge]
-> [  636.245452]  [<ffffffff812a7d8e>] ? tcp_gro_receive+0xa1/0x204
-> [  636.251258]  [<ffffffffa017c1e5>] ? br_handle_frame+0x195/0x1ac [b=
-ridge]
-> [  636.257928]  [<ffffffffa017c050>] ?=20
-> br_handle_frame_finish+0x1c7/0x1c7 [bridge]
-> [  636.265204]  [<ffffffff812764ef>] ? __netif_receive_skb+0x2a7/0x45=
-0
-> [  636.271443]  [<ffffffff81276928>] ? netif_receive_skb+0x52/0x58
-> [  636.277335]  [<ffffffff81276e2a>] ? napi_gro_receive+0x1f/0x2f
-> [  636.283139]  [<ffffffff812769ff>] ? napi_skb_finish+0x1c/0x31
-> [  636.288865]  [<ffffffffa0241fcd>] ? igb_poll+0x6d9/0x9ee [igb]
-> [  636.294673]  [<ffffffffa003bde2>] ? scsi_run_queue+0x2ce/0x30a [sc=
-si_mod]
-> [  636.301431]  [<ffffffffa017be89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  636.307930]  [<ffffffff812764ef>] ? __netif_receive_skb+0x2a7/0x45=
-0
-> [  636.314168]  [<ffffffff81276f55>] ? net_rx_action+0xa4/0x1b1
-> [  636.319800]  [<ffffffff8104ad26>] ? __do_softirq+0xb8/0x176
-> [  636.325346]  [<ffffffff81333c5c>] ? call_softirq+0x1c/0x30
-> [  636.330807]  [<ffffffff8100aa57>] ? do_softirq+0x3f/0x84
-> [  636.336092]  [<ffffffff8104af91>] ? irq_exit+0x3f/0x8f
-> [  636.341204]  [<ffffffff8100a793>] ? do_IRQ+0x85/0x9e
-> [  636.346146]  [<ffffffff8132cbd3>] ? common_interrupt+0x13/0x13
-> [  636.351949] <EOI>  [<ffffffff81271f58>] ? arch_local_irq_save+0x12=
-/0x1b
-> [  636.358629]  [<ffffffff8100a9f2>] ? arch_local_irq_restore+0x2/0x8
-> [  636.364781]  [<ffffffff8127680d>] ? netif_rx_ni+0x1e/0x27
-> [  636.370154]  [<ffffffffa01557d2>] ? tun_get_user+0x3a3/0x3cb [tun]
-> [  636.376305]  [<ffffffffa0155bd8>] ? tun_get_socket+0x3b/0x3b [tun]
-> [  636.382457]  [<ffffffffa0155c36>] ? tun_chr_aio_write+0x5e/0x79 [t=
-un]
-> [  636.388869]  [<ffffffff810f6b07>] ? do_sync_readv_writev+0x9a/0xd5
-> [  636.395021]  [<ffffffff810371f3>] ? need_resched+0x1a/0x23
-> [  636.400481]  [<ffffffff8132b725>] ? _cond_resched+0x9/0x20
-> [  636.405941]  [<ffffffff810f5f77>] ? copy_from_user+0x18/0x30
-> [  636.411573]  [<ffffffff8115fbf6>] ? security_file_permission+0x18/=
-0x33
-> [  636.418068]  [<ffffffff810f6d55>] ? do_readv_writev+0xa4/0x11a
-> [  636.423873]  [<ffffffff810f7913>] ? fput+0x1a/0x1a2
-> [  636.428726]  [<ffffffff810f6f39>] ? sys_writev+0x45/0x90
-> [  636.434012]  [<ffffffff81332a52>] ? system_call_fastpath+0x16/0x1b
->=20
-> ------------
->=20
-> [  110.442839] br0: port 2(tap0) entering forwarding state
-> [  136.948700] Kernel panic - not syncing: stack-protector: Kernel st=
-ack=20
-> is corrupted in: ffffffff812c2781
-> [  136.948702]
-> [  136.959561] Pid: 1093, comm: md123_resync Not tainted 2.6.39-rc2+ =
-#11
-> [  136.965977] Call Trace:
-> [  136.968408] <IRQ>  [<ffffffff8132ad78>] ? panic+0x92/0x1a1
-> [  136.973970]  [<ffffffff8104abe8>] ? _local_bh_enable_ip.clone.8+0x=
-20/0x8c
-> [  136.980727]  [<ffffffff812c2781>] ? icmp_send+0x337/0x349
-> [  136.986102]  [<ffffffff810454e5>] ? __stack_chk_fail+0x17/0x17
-> [  136.991906]  [<ffffffff812c2781>] ? icmp_send+0x337/0x349
-> [  136.997281]  [<ffffffff81298527>] ? nf_iterate+0x41/0x7e
-> [  137.002570]  [<ffffffffa0198fe1>] ?=20
-> br_handle_frame_finish+0x158/0x1c7 [bridge]
-> [  137.009847]  [<ffffffffa019d689>] ?=20
-> br_nf_pre_routing_finish+0x1d4/0x1e1 [bridge]
-> [  137.017297]  [<ffffffffa019cc76>] ? NF_HOOK_THRESH+0x3b/0x55 [brid=
-ge]
-> [  137.023707]  [<ffffffffa019dc84>] ? br_nf_pre_routing+0x3be/0x3cb=20
-> [bridge]
-> [  137.030551]  [<ffffffff81298527>] ? nf_iterate+0x41/0x7e
-> [  137.035837]  [<ffffffff8103704d>] ? test_tsk_need_resched+0xe/0x17
-> [  137.041991]  [<ffffffffa0198e89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  137.048488]  [<ffffffffa0198e89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  137.054984]  [<ffffffff812985d7>] ? nf_hook_slow+0x73/0x114
-> [  137.060531]  [<ffffffffa0198e89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  137.067028]  [<ffffffffa0198e89>] ? NF_HOOK.clone.4+0x56/0x56 [bri=
-dge]
-> [  137.073526]  [<ffffffffa0198e6f>] ? NF_HOOK.clone.4+0x3c/0x56 [bri=
-dge]
-> [  137.080023]  [<ffffffff812a7d8e>] ? tcp_gro_receive+0xa1/0x204
-> [  137.085830]  [<ffffffffa01991e5>] ? br_handle_frame+0x195/0x1ac [b=
-ridge]
-> [  137.092500]  [<ffffffffa0199050>] ?=20
-> br_handle_frame_finish+0x1c7/0x1c7 [bridge]
-> [  137.099776]  [<ffffffff812764ef>] ? __netif_receive_skb+0x2a7/0x45=
-0
-> [  137.106013]  [<ffffffff81276928>] ? netif_receive_skb+0x52/0x58
-> [  137.111906]  [<ffffffff81276e2a>] ? napi_gro_receive+0x1f/0x2f
-> [  137.117713]  [<ffffffff812769ff>] ? napi_skb_finish+0x1c/0x31
-> [  137.123438]  [<ffffffffa0226fcd>] ? igb_poll+0x6d9/0x9ee [igb]
-> [  137.129243]  [<ffffffff8109034f>] ? handle_irq_event+0x40/0x55
-> [  137.135049]  [<ffffffff8132cbd3>] ? common_interrupt+0x13/0x13
-> [  137.140854]  [<ffffffff81276f55>] ? net_rx_action+0xa4/0x1b1
-> [  137.146487]  [<ffffffff8104ad26>] ? __do_softirq+0xb8/0x176
-> [  137.152034]  [<ffffffff81333c5c>] ? call_softirq+0x1c/0x30
-> [  137.157494]  [<ffffffff8100aa57>] ? do_softirq+0x3f/0x84
-> [  137.162779]  [<ffffffff8104af91>] ? irq_exit+0x3f/0x8f
-> [  137.167893]  [<ffffffff8100a793>] ? do_IRQ+0x85/0x9e
-> [  137.172833]  [<ffffffff8132cbd3>] ? common_interrupt+0x13/0x13
-> [  137.178636] <EOI>  [<ffffffff8106fc1a>] ? arch_local_irq_restore+0=
-x2/0x8
-> [  137.185408]  [<ffffffffa0050fca>] ? _scsih_qcmd+0x54f/0x561 [mpt2s=
-as]
-> [  137.191823]  [<ffffffffa01e452f>] ? scsi_dispatch_cmd+0x180/0x219=20
-> [scsi_mod]
-> [  137.198841]  [<ffffffffa01ea385>] ? scsi_request_fn+0x3e6/0x413=20
-> [scsi_mod]
-> [  137.205683]  [<ffffffff81187470>] ? elv_rqhash_add.clone.15+0x26/0=
-x4c
-> [  137.212095]  [<ffffffff8118bde2>] ? __blk_run_queue+0x5e/0x84
-> [  137.217814]  [<ffffffff8118d63c>] ? __make_request+0x273/0x28f
-> [  137.223619]  [<ffffffff8118b569>] ? generic_make_request+0x267/0x2=
-e1
-> [  137.229943]  [<ffffffff8105eb49>] ? remove_wait_queue+0x11/0x4d
-> [  137.235837]  [<ffffffffa0002417>] ? raise_barrier+0x162/0x16f [rai=
-d1]
-> [  137.242246]  [<ffffffff8103eba4>] ? try_to_wake_up+0x17c/0x17c
-> [  137.248052]  [<ffffffffa0002f2f>] ? sync_request+0x567/0x583 [raid=
-1]
-> [  137.254379]  [<ffffffffa00bd834>] ? md_do_sync+0x776/0xb8e [md_mod=
-]
-> [  137.260617]  [<ffffffff8100e537>] ? sched_clock+0x5/0x8
-> [  137.265819]  [<ffffffffa00bde83>] ? md_thread+0xfa/0x118 [md_mod]
-> [  137.271886]  [<ffffffffa00bdd89>] ? md_rdev_init+0x8f/0x8f [md_mod=
-]
-> [  137.278124]  [<ffffffffa00bdd89>] ? md_rdev_init+0x8f/0x8f [md_mod=
-]
-> [  137.284362]  [<ffffffff8105e497>] ? kthread+0x7a/0x82
-> [  137.289390]  [<ffffffff81333b64>] ? kernel_thread_helper+0x4/0x10
-> [  137.295454]  [<ffffffff8105e41d>] ? kthread_worker_fn+0x149/0x149
-> [  137.301519]  [<ffffffff81333b60>] ? gs_change+0x13/0x13
->=20
+> +	if (unlikely(!netif_running(dev)))
+> +		return 0;
+> +
+> +	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
+> +	return bnx2x_nic_load(bp, LOAD_NORMAL);
+> +}
+> +
+>  /* called with rtnl_lock */
+>  int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
+>  {
+>  	struct bnx2x *bp =3D netdev_priv(dev);
+> -	int rc =3D 0;
+> =20
+>  	if (bp->recovery_state !=3D BNX2X_RECOVERY_DONE) {
+>  		printk(KERN_ERR "Handling parity error recovery. Try again later\n=
+");
+> @@ -2464,12 +2474,44 @@ int bnx2x_change_mtu(struct net_device *dev, =
+int new_mtu)
+>  	 */
+>  	dev->mtu =3D new_mtu;
+> =20
+> -	if (netif_running(dev)) {
+> -		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
+> -		rc =3D bnx2x_nic_load(bp, LOAD_NORMAL);
+> +	return bnx2x_reload_if_running(dev);
+> +}
+> +
+> +u32 bnx2x_fix_features(struct net_device *dev, u32 features)
+> +{
+> +	struct bnx2x *bp =3D netdev_priv(dev);
+> +
+> +	if (bp->recovery_state !=3D BNX2X_RECOVERY_DONE) {
+> +		netdev_err(dev, "Handling parity error recovery. Try again later\n=
+");
+> +
+> +		/* Don't allow bnx2x_set_features() to be called now. */
+> +		return dev->features;
+> +	}
+> +
+> +	/* TPA requires Rx CSUM offloading */
+> +	if (!(features & NETIF_F_RXCSUM) || bp->disable_tpa)
+> +		features &=3D ~NETIF_F_LRO;
+> +
+> +	return features;
+> +}
+> +
+> +int bnx2x_set_features(struct net_device *dev, u32 features)
+> +{
+> +	struct bnx2x *bp =3D netdev_priv(dev);
+> +	u32 flags =3D bp->flags;
+> +
+> +	if (features & NETIF_F_LRO)
+> +		flags |=3D TPA_ENABLE_FLAG;
+> +	else
+> +		flags &=3D ~TPA_ENABLE_FLAG;
+> +
+> +	if (flags ^ bp->flags) {
+> +		bp->flags =3D flags;
+> +
+> +		return bnx2x_reload_if_running(dev);
+>  	}
+> =20
+> -	return rc;
+> +	return 0;
+>  }
+> =20
+>  void bnx2x_tx_timeout(struct net_device *dev)
+> diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_=
+cmn.h
+> index 775fef0..1cdab69 100644
+> --- a/drivers/net/bnx2x/bnx2x_cmn.h
+> +++ b/drivers/net/bnx2x/bnx2x_cmn.h
+> @@ -431,6 +431,9 @@ void bnx2x_free_mem_bp(struct bnx2x *bp);
+>   */
+>  int bnx2x_change_mtu(struct net_device *dev, int new_mtu);
+> =20
+> +u32 bnx2x_fix_features(struct net_device *dev, u32 features);
+> +int bnx2x_set_features(struct net_device *dev, u32 features);
+> +
+>  /**
+>   * tx timeout netdev callback
+>   *
+> diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bn=
+x2x_ethtool.c
+> index 1479994..ad7d91e 100644
+> --- a/drivers/net/bnx2x/bnx2x_ethtool.c
+> +++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+> @@ -1299,91 +1299,6 @@ static int bnx2x_set_pauseparam(struct net_dev=
+ice *dev,
+>  	return 0;
+>  }
+> =20
+> -static int bnx2x_set_flags(struct net_device *dev, u32 data)
+> -{
+> -	struct bnx2x *bp =3D netdev_priv(dev);
+> -	int changed =3D 0;
+> -	int rc =3D 0;
+> -
+> -	if (bp->recovery_state !=3D BNX2X_RECOVERY_DONE) {
+> -		printk(KERN_ERR "Handling parity error recovery. Try again later\n=
+");
+> -		return -EAGAIN;
+> -	}
+> -
+> -	if (!(data & ETH_FLAG_RXVLAN))
+> -		return -EINVAL;
+> -
+> -	if ((data & ETH_FLAG_LRO) && bp->rx_csum && bp->disable_tpa)
+> -		return -EINVAL;
+> -
+> -	rc =3D ethtool_op_set_flags(dev, data, ETH_FLAG_LRO | ETH_FLAG_RXVL=
+AN |
+> -					ETH_FLAG_TXVLAN | ETH_FLAG_RXHASH);
+> -	if (rc)
+> -		return rc;
+> -
+> -	/* TPA requires Rx CSUM offloading */
+> -	if ((data & ETH_FLAG_LRO) && bp->rx_csum) {
+> -		if (!(bp->flags & TPA_ENABLE_FLAG)) {
+> -			bp->flags |=3D TPA_ENABLE_FLAG;
+> -			changed =3D 1;
+> -		}
+> -	} else if (bp->flags & TPA_ENABLE_FLAG) {
+> -		dev->features &=3D ~NETIF_F_LRO;
+> -		bp->flags &=3D ~TPA_ENABLE_FLAG;
+> -		changed =3D 1;
+> -	}
+> -
+> -	if (changed && netif_running(dev)) {
+> -		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
+> -		rc =3D bnx2x_nic_load(bp, LOAD_NORMAL);
+> -	}
+> -
+> -	return rc;
+> -}
+> -
+> -static u32 bnx2x_get_rx_csum(struct net_device *dev)
+> -{
+> -	struct bnx2x *bp =3D netdev_priv(dev);
+> -
+> -	return bp->rx_csum;
+> -}
+> -
+> -static int bnx2x_set_rx_csum(struct net_device *dev, u32 data)
+> -{
+> -	struct bnx2x *bp =3D netdev_priv(dev);
+> -	int rc =3D 0;
+> -
+> -	if (bp->recovery_state !=3D BNX2X_RECOVERY_DONE) {
+> -		printk(KERN_ERR "Handling parity error recovery. Try again later\n=
+");
+> -		return -EAGAIN;
+> -	}
+> -
+> -	bp->rx_csum =3D data;
+> -
+> -	/* Disable TPA, when Rx CSUM is disabled. Otherwise all
+> -	   TPA'ed packets will be discarded due to wrong TCP CSUM */
+> -	if (!data) {
+> -		u32 flags =3D ethtool_op_get_flags(dev);
+> -
+> -		rc =3D bnx2x_set_flags(dev, (flags & ~ETH_FLAG_LRO));
+> -	}
+> -
+> -	return rc;
+> -}
+> -
+> -static int bnx2x_set_tso(struct net_device *dev, u32 data)
+> -{
+> -	if (data) {
+> -		dev->features |=3D (NETIF_F_TSO | NETIF_F_TSO_ECN);
+> -		dev->features |=3D NETIF_F_TSO6;
+> -	} else {
+> -		dev->features &=3D ~(NETIF_F_TSO | NETIF_F_TSO_ECN);
+> -		dev->features &=3D ~NETIF_F_TSO6;
+> -	}
+> -
+> -	return 0;
+> -}
+> -
+>  static const struct {
+>  	char string[ETH_GSTRING_LEN];
+>  } bnx2x_tests_str_arr[BNX2X_NUM_TESTS] =3D {
+> @@ -2207,16 +2122,6 @@ static const struct ethtool_ops bnx2x_ethtool_=
+ops =3D {
+>  	.set_ringparam		=3D bnx2x_set_ringparam,
+>  	.get_pauseparam		=3D bnx2x_get_pauseparam,
+>  	.set_pauseparam		=3D bnx2x_set_pauseparam,
+> -	.get_rx_csum		=3D bnx2x_get_rx_csum,
+> -	.set_rx_csum		=3D bnx2x_set_rx_csum,
+> -	.get_tx_csum		=3D ethtool_op_get_tx_csum,
+> -	.set_tx_csum		=3D ethtool_op_set_tx_hw_csum,
+> -	.set_flags		=3D bnx2x_set_flags,
+> -	.get_flags		=3D ethtool_op_get_flags,
+> -	.get_sg			=3D ethtool_op_get_sg,
+> -	.set_sg			=3D ethtool_op_set_sg,
+> -	.get_tso		=3D ethtool_op_get_tso,
+> -	.set_tso		=3D bnx2x_set_tso,
+>  	.self_test		=3D bnx2x_self_test,
+>  	.get_sset_count		=3D bnx2x_get_sset_count,
+>  	.get_strings		=3D bnx2x_get_strings,
+> diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x=
+_main.c
+> index f3cf889..5fd7cbb 100644
+> --- a/drivers/net/bnx2x/bnx2x_main.c
+> +++ b/drivers/net/bnx2x/bnx2x_main.c
+> @@ -7728,6 +7728,7 @@ static void bnx2x_parity_recover(struct bnx2x *=
+bp)
+>  						return;
+>  					}
+> =20
+> +					netdev_update_features(bp->dev);
+>  					return;
+>  				}
+>  			} else { /* non-leader */
+> @@ -7755,10 +7756,12 @@ static void bnx2x_parity_recover(struct bnx2x=
+ *bp)
+>  					  * the "process kill". It's an exit
+>  					  * point for a non-leader.
+>  					  */
+> -					bnx2x_nic_load(bp, LOAD_NORMAL);
+> +					int rc =3D bnx2x_nic_load(bp, LOAD_NORMAL);
+>  					bp->recovery_state =3D
+>  						BNX2X_RECOVERY_DONE;
+>  					smp_wmb();
+> +					if (!rc)
+> +						netdev_update_features(bp->dev);
+>  					return;
+>  				}
+>  			}
+> @@ -8904,8 +8907,6 @@ static int __devinit bnx2x_init_bp(struct bnx2x=
+ *bp)
+>  	bp->multi_mode =3D multi_mode;
+>  	bp->int_mode =3D int_mode;
+> =20
+> -	bp->dev->features |=3D NETIF_F_GRO;
+> -
+>  	/* Set TPA flags */
+>  	if (disable_tpa) {
+>  		bp->flags &=3D ~TPA_ENABLE_FLAG;
+> @@ -8925,8 +8926,6 @@ static int __devinit bnx2x_init_bp(struct bnx2x=
+ *bp)
+> =20
+>  	bp->tx_ring_size =3D MAX_TX_AVAIL;
+> =20
+> -	bp->rx_csum =3D 1;
+> -
+>  	/* make sure that the numbers are in the right granularity */
+>  	bp->tx_ticks =3D (50 / BNX2X_BTR) * BNX2X_BTR;
+>  	bp->rx_ticks =3D (25 / BNX2X_BTR) * BNX2X_BTR;
+> @@ -8954,6 +8953,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x=
+ *bp)
+>  static int bnx2x_open(struct net_device *dev)
+>  {
+>  	struct bnx2x *bp =3D netdev_priv(dev);
+> +	int rc;
+> =20
+>  	netif_carrier_off(dev);
+> =20
+> @@ -8993,7 +8993,14 @@ static int bnx2x_open(struct net_device *dev)
+> =20
+>  	bp->recovery_state =3D BNX2X_RECOVERY_DONE;
+> =20
+> -	return bnx2x_nic_load(bp, LOAD_OPEN);
+> +	rc =3D bnx2x_nic_load(bp, LOAD_OPEN);
+> +	if (!rc) {
+> +		netdev_update_features(bp->dev);
+> +		if (bp->state !=3D BNX2X_STATE_OPEN)
+> +			return -EBUSY;
+> +	}
+> +
+> +	return rc;
+>  }
+> =20
+>  /* called with rtnl_lock */
+> @@ -9304,6 +9311,8 @@ static const struct net_device_ops bnx2x_netdev=
+_ops =3D {
+>  	.ndo_validate_addr	=3D eth_validate_addr,
+>  	.ndo_do_ioctl		=3D bnx2x_ioctl,
+>  	.ndo_change_mtu		=3D bnx2x_change_mtu,
+> +	.ndo_fix_features	=3D bnx2x_fix_features,
+> +	.ndo_set_features	=3D bnx2x_set_features,
+>  	.ndo_tx_timeout		=3D bnx2x_tx_timeout,
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller	=3D poll_bnx2x,
+> @@ -9430,20 +9439,18 @@ static int __devinit bnx2x_init_dev(struct pc=
+i_dev *pdev,
+> =20
+>  	dev->netdev_ops =3D &bnx2x_netdev_ops;
+>  	bnx2x_set_ethtool_ops(dev);
+> -	dev->features |=3D NETIF_F_SG;
+> -	dev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+> +
+>  	if (bp->flags & USING_DAC_FLAG)
+>  		dev->features |=3D NETIF_F_HIGHDMA;
+> -	dev->features |=3D (NETIF_F_TSO | NETIF_F_TSO_ECN);
+> -	dev->features |=3D NETIF_F_TSO6;
+> -	dev->features |=3D (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
+> =20
+> -	dev->vlan_features |=3D NETIF_F_SG;
+> -	dev->vlan_features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+> -	if (bp->flags & USING_DAC_FLAG)
+> -		dev->vlan_features |=3D NETIF_F_HIGHDMA;
+> -	dev->vlan_features |=3D (NETIF_F_TSO | NETIF_F_TSO_ECN);
+> -	dev->vlan_features |=3D NETIF_F_TSO6;
+> +	dev->hw_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CS=
+UM |
+> +		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
+> +		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_HW_VLAN_TX;
+> +
+> +	dev->features |=3D dev->hw_features | NETIF_F_HW_VLAN_RX;
+> +
+> +	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_=
+CSUM |
+> +		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
+> =20
+>  #ifdef BCM_DCBNL
+>  	dev->dcbnl_ops =3D &bnx2x_dcbnl_ops;
 
-Considering recent changes in ip_options_echo() I would suggest to add
-following patch and/or revert commit 8628bd8af7c4c14f40
-(ipv4: Fix IP timestamp option (IPOPT_TS_PRESPEC) handling in
-ip_options_echo())
-
-Thanks
-
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 28a736f..35f2bf9 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -200,6 +200,11 @@ int ip_options_echo(struct ip_options * dopt, stru=
-ct sk_buff * skb)
- 		*dptr++ =3D IPOPT_END;
- 		dopt->optlen++;
- 	}
-+	if (unlikely(dopt->optlen > 40)) {
-+		pr_err("ip_options_echo() fatal error optlen=3D%u > 40\n", dopt->opt=
-len);
-+		print_hex_dump(KERN_ERR, "ip options: ", DUMP_PREFIX_OFFSET,
-+			16, 1, dopt->__data, dopt->optlen, false);
-+	}
- 	return 0;
- }
-=20
 
 
