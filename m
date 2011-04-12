@@ -1,76 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
- physical identification
-Date: Tue, 12 Apr 2011 17:28:06 +0100
-Message-ID: <1302625686.2880.24.camel@bwh-desktop>
-References: <20110411231635.9339.36369.stgit@gitlad.jf.intel.com>
-	 <20110411162601.6686f169@nehalam>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A30A9@orsmsx509.amr.corp.intel.com>
-	 <1302566453.5282.585.camel@localhost>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A315B@orsmsx509.amr.corp.intel.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured incorrectly
+ in fiber mode
+Date: Tue, 12 Apr 2011 09:34:14 -0700
+Message-ID: <4DA47F06.7020803@caviumnetworks.com>
+References: <392488.26736.qm@web37606.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Andy Fleming <afleming@freescale.com>
+To: Alex Dubov <oakad@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:28323 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755947Ab1DLQ2K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 12:28:10 -0400
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A90018A2A315B@orsmsx509.amr.corp.intel.com>
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:17337 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754445Ab1DLQeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 12:34:20 -0400
+In-Reply-To: <392488.26736.qm@web37606.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-04-11 at 18:07 -0700, Allan, Bruce W wrote:
-> >-----Original Message-----
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >Sent: Monday, April 11, 2011 5:01 PM
-> >To: Allan, Bruce W
-> >Cc: Stephen Hemminger; netdev@vger.kernel.org
-> >Subject: RE: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
-> >physical identification
-> >
-> >I noticed that some drivers did this.  Do you know if these OEMs expect
-> >this of all hardware, or do they actually want different vendors'
-> >hardware to blink in different ways?  If it's a common requirement to
-> >blink at 2 Hz then let's use that frequency for all the drivers that
-> >want to be called periodically.
-> >
-> >Ben.
-> 
-> Sorry, I don't know.  I'll ask around, but doubt I will get a definitive
-> answer.
-
-I enquired here and found that we do have an OEM specifying 1 Hz.
-
-> FWIW, without digging too deep into how other drivers identify their
-> respective ports through software, it appears it was split:
-> * bnx2*, cxgb3, niu, s2io, sfc, sky2, tg3 - once per second
-> * e100*, igb, ixgb*, pcnet32, ewrk3, cxgb4 - approx. twice per second
+On 04/11/2011 08:45 PM, Alex Dubov wrote:
+>>
+>> How does your u-boot configure the part?  Does it
+>> write any of the
+>> configuration registers, or is it just the default
+>> configuration set via
+>> the strapping pins?
 >
-> AFAIK for parts that can set the physical identification through hardware,
-> the Intel drivers set the on/off intervals to approximately twice/second;
-> I don't know what other drivers do in that situation.
-> 
-> So, I would guess it is not a common requirement to blink at a specific Hz.
-> I have no problem with changing the hard-coded blink frequency to what our
-> OEMs expect, but that might be an issue for those other vendors; I was just
-> trying to make it flexible.
+> U-boot configures this phy just like any other phy - by running a set of
+> register assignments from phy_info_M88E1145.
+>
+> Unfortunately, I don't have a datasheet for this phy
 
-Sadly it appears this is necessary.
+I would guess that the people who designed your board have it.
 
-Let's define the return value for drivers wanting periodic callbacks to
-be the blink frequency in Hz (normally 1 or 2), and get rid of the
-special case of -EINVAL.  This also removes the rather inelegant
-semantic that drivers may need to change their state despite returning
-an error code.
+You do seem to have the uboot code though, so you know which registers 
+are being set.  Given this, you can fiddle around with the Linux driver 
+until it works.  Then send a patch.
 
-Ben.
+To me it looks like you need to set register 22 (Page Select) to the 
+value of 1 to access the register sets associated with fiber.  I don't 
+have any hardware with this PHY connected to fiber, so I can't really 
+test it.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+David Daney
+
+> and kernel does
+> quite a few things differently, so simply copying stuff from u-boot
+> does not work well (in kernel, phy initialization is broken into 3
+> functions, if I'm not mistaken).
+>
+> Otherwise, my problem seems to be identical to the one reported some
+> time ago against 88E1111 phy (which resulted in the addition of
+> "marvell_read_status" in the first place). The problem was, as it seems
+> to be now, that phy is always configured in "copper" mode, instead of
+> driver checking for the correct "fiber" mode bits.
+>
+>
+>>
+>> In any event, you will probably have to read the
+>> configuration before
+>> the drivers/net/phy/marvel.c changes them.  Then
+>> compare that to what
+>> the driver is trying to set.  Then you will either
+>> have to override the
+>> configuration with the device tree "marvell,reg-init"
+>> property, or if
+>> you are not using the device tree, add a 88e1145 specific
+>> flag that you
+>> set when calling phy_connect().
+>>
+>> David Daney
+>>
 
