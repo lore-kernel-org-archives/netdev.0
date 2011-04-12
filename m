@@ -1,65 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pr_debug usage in raw_sendmsg
-Date: Tue, 12 Apr 2011 15:33:57 -0700 (PDT)
-Message-ID: <20110412.153357.116378524.davem@davemloft.net>
-References: <20110412223137.GA25528@redhat.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH] net: Do not wrap sysctl igmp_max_memberships in IP_MULTICAST
+Date: Wed, 13 Apr 2011 00:41:01 +0200
+Message-ID: <OFC79D071E.07C0B656-ONC1257870.007C4E97-C1257870.007C9B15@transmode.se>
+References: <1302601774-24289-1-git-send-email-Joakim.Tjernlund@transmode.se> <20110412.140016.189701267.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII
 Cc: netdev@vger.kernel.org
-To: davej@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47507
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751017Ab1DLWec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 18:34:32 -0400
-In-Reply-To: <20110412223137.GA25528@redhat.com>
+Received: from gw1.transmode.se ([195.58.98.146]:51789 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750901Ab1DLWlF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 18:41:05 -0400
+In-Reply-To: <20110412.140016.189701267.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
-Date: Tue, 12 Apr 2011 18:31:37 -0400
 
-> While working on my system call fuzzer, I keep getting a lot
-> of spew in dmesg from raw_sendmsg. Particularly..
-> 
-> [ 6442.690780] no dev
-> [ 6454.257701] msg_flags 0x00000080
-> [ 8055.873142] msg->msg_flags = 0xd63f35c1
-> 
-> Is there a good reason for keeping -DDEBUG in net/ieee802154/Makefile ?
-> 
-> Those messages don't look particularly helpful given there's no other context.
-> (the 'no dev' one in particular looks kinda hopeless)
+David Miller <davem@davemloft.net> wrote on 2011/04/12 23:00:16:
+>
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> Date: Tue, 12 Apr 2011 11:49:34 +0200
+>
+> > controlling igmp_max_membership is useful even when IP_MULTICAST
+> > is off.
+> > Quagga(an OSPF deamon) uses multicast addresses for all interfaces
+> > using a single socket and hits igmp_max_membership limit when
+> > there are 20 interfaces or more.
+> > Always export sysctl igmp_max_memberships in proc, just like
+> > igmp_max_msf
+> >
+> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+>
+> I really like your commit message, a full justification and a
+> reference to existing similar behavior.
+>
+> If only every patch submitter did this :-/
 
-All of those cflags modifications in net/ieee802154/Makefile are bogus,
-I'll commit the following:
+Thanks, I really wish all my commit msgs are like the above.
 
---------------------
-ieee802154: Remove hacked CFLAGS in net/ieee802154/Makefile
-
-It adds -Wall (which the kernel carefully controls already) and of all
-things -DDEBUG (which should be set by other means if desired, please
-we have dynamic-debug these days).
-
-Kill this noise.
-
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ieee802154/Makefile |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
-index ce2d335..5761185 100644
---- a/net/ieee802154/Makefile
-+++ b/net/ieee802154/Makefile
-@@ -1,5 +1,3 @@
- obj-$(CONFIG_IEEE802154) +=	ieee802154.o af_802154.o
- ieee802154-y		:= netlink.o nl-mac.o nl-phy.o nl_policy.o wpan-class.o
- af_802154-y		:= af_ieee802154.o raw.o dgram.o
--
--ccflags-y += -Wall -DDEBUG
--- 
-1.7.4.3
+ Jocke
 
