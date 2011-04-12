@@ -1,66 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
- physical identification
-Date: Tue, 12 Apr 2011 01:00:53 +0100
-Message-ID: <1302566453.5282.585.camel@localhost>
-References: <20110411231635.9339.36369.stgit@gitlad.jf.intel.com>
-	 <20110411162601.6686f169@nehalam>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A30A9@orsmsx509.amr.corp.intel.com>
+From: Steve French <smfrench-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Bugme-new] [Bug 33102] New: File's copied from client->linux
+ server only copy 1st 64K data; rest is lost
+Date: Mon, 11 Apr 2011 19:06:55 -0500
+Message-ID: <BANLkTimW4HPquU_2a400ECviSPPcrfxoCA@mail.gmail.com>
+References: <bug-33102-10286@https.bugzilla.kernel.org/>
+	<20110411152431.a5997005.akpm@linux-foundation.org>
+	<4DA3839B.1050102@tlinx.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:18997 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752110Ab1DLAA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2011 20:00:58 -0400
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A90018A2A30A9@orsmsx509.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
+	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org
+To: Linda Walsh <lkml-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org>
+Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4DA3839B.1050102-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org>
+Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-04-11 at 16:30 -0700, Allan, Bruce W wrote:
-> >-----Original Message-----
-> >From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> >Sent: Monday, April 11, 2011 4:26 PM
-> >To: Allan, Bruce W
-> >Cc: netdev@vger.kernel.org
-> >Subject: Re: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
-> >physical identification
-> >
-> >On Mon, 11 Apr 2011 16:16:35 -0700
-> >Bruce Allan <bruce.w.allan@intel.com> wrote:
-> >
-> >> When physical identification of an adapter is done by toggling the
-> >> mechanism on and off through software utilizing the .set_phys_id operation,
-> >> it is done with a fixed duration for both on and off states.  Some drivers
-> >> may want to set a custom duration for the on/off intervals.  This patch
-> >> changes the API so the return code from the driver's entry point can
-> >> specify the interval duration as a positive number; -EINVAL is still
-> >> allowed in order to use the default single on/off interval per second.
-> >>
-> >> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> >
-> >IMHO this is -EOVERKILL.
-> 
-> I realize it does seem like that, but we have OEMs that expect the LEDs to
-> blink a certain way during a physical identification (twice a second vs.
-> once a second per the original .set_phys_id patchset).  There may be other
-> drivers from different hardware vendors that have similar but different
-> requirements.
+On Mon, Apr 11, 2011 at 5:41 PM, Linda Walsh <lkml-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org> wrote:
+>
+> Andrew Morton wrote:
+>>
+>> (switched to email. =A0Please respond via emailed reply-to-all, not =
+via the
+>> bugzilla web interface).
+>>
+>> On Mon, 11 Apr 2011 22:12:41 GMT
+>> bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org wrote:
+>>>
+>>> https://bugzilla.kernel.org/show_bug.cgi?id=3D33102
+>>>
+>>> =A0 =A0 =A0 =A0 =A0 Summary: File's copied from client->linux serve=
+r only copy 1st
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A064K data;rest is lost
+>>> =A0 =A0 =A0 =A0 =A0 Product: Networking
+>>> =A0 =A0 =A0 =A0 =A0 Version: 2.5
+>>> =A0 =A0Kernel Version: 2.6.38.2
+>>> =A0 =A0 =A0 =A0 =A0Platform: All
+>>> =A0 =A0 =A0 =A0OS/Version: Linux
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0Tree: Mainline
+>>> =A0 =A0 =A0 =A0 =A0 =A0Status: NEW
+>>> =A0 =A0 =A0 =A0 =A0Severity: blocking
+>>> =A0 =A0 =A0 =A0 =A0Priority: P1
+>>> =A0 =A0 =A0 =A0 Component: IPV4
+>>> =A0 =A0 =A0 =A0AssignedTo: shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+>>> =A0 =A0 =A0 =A0ReportedBy: lkml-gT3AUAsYRbTYtjvyW6yDsg@public.gmane.org
+>>> =A0 =A0 =A0 =A0Regression: Yes
+>>>
+>>
+>> Seems to be a 2.6.37->2.6.38 regression.
+>>
+>> ----------
+>
+> Not exactly -- Please note -- I tried both 2.6.38(.0) and 2.6.38.1.
+>
+> They both work.
 
-I noticed that some drivers did this.  Do you know if these OEMs expect
-this of all hardware, or do they actually want different vendors'
-hardware to blink in different ways?  If it's a common requirement to
-blink at 2 Hz then let's use that frequency for all the drivers that
-want to be called periodically.
+Any chance that we could get a wireshark trace of the failure?
 
-Ben.
+https://wiki.samba.org/index.php/Capture_Packets
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+gives instructions.   There may also be useful information on
+network stack failures returned in the samba log
+(often named smbd.log).
 
+
+
+--=20
+Thanks,
+
+Steve
