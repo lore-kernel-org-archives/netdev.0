@@ -1,55 +1,40 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
- physical identification
-Date: Tue, 12 Apr 2011 11:17:00 -0700
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A90018A2A3559@orsmsx509.amr.corp.intel.com>
-References: <20110411231635.9339.36369.stgit@gitlad.jf.intel.com>
-	 <20110411162601.6686f169@nehalam>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A30A9@orsmsx509.amr.corp.intel.com>
-	 <1302566453.5282.585.camel@localhost>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A2A315B@orsmsx509.amr.corp.intel.com>
- <1302625686.2880.24.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] s2io: Fix warnings due to -Wunused-but-set-variable.
+Date: Tue, 12 Apr 2011 11:21:14 -0700 (PDT)
+Message-ID: <20110412.112114.104057205.davem@davemloft.net>
+References: <20110411.160143.258100330.davem@davemloft.net>
+	<20110412160002.GB1433@kudzu.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jdmason@kudzu.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27941 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932283Ab1DLSRD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 14:17:03 -0400
-In-Reply-To: <1302625686.2880.24.camel@bwh-desktop>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58709
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932335Ab1DLSVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 14:21:52 -0400
+In-Reply-To: <20110412160002.GB1433@kudzu.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
-OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogVHVlc2RheSwgQXByaWwgMTIsIDIw
-MTEgOToyOCBBTQ0KPlRvOiBBbGxhbiwgQnJ1Y2UgVw0KPkNjOiBTdGVwaGVuIEhlbW1pbmdlcjsg
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPlN1YmplY3Q6IFJFOiBbbmV0LW5leHQtMi42IFJGQyBQ
-QVRDSF0gZXRodG9vbDogYWxsb3cgY3VzdG9tIGludGVydmFsIGZvcg0KPnBoeXNpY2FsIGlkZW50
-aWZpY2F0aW9uDQo+DQo+SSBlbnF1aXJlZCBoZXJlIGFuZCBmb3VuZCB0aGF0IHdlIGRvIGhhdmUg
-YW4gT0VNIHNwZWNpZnlpbmcgMSBIei4NCj4NCj4+IEZXSVcsIHdpdGhvdXQgZGlnZ2luZyB0b28g
-ZGVlcCBpbnRvIGhvdyBvdGhlciBkcml2ZXJzIGlkZW50aWZ5IHRoZWlyDQo+PiByZXNwZWN0aXZl
-IHBvcnRzIHRocm91Z2ggc29mdHdhcmUsIGl0IGFwcGVhcnMgaXQgd2FzIHNwbGl0Og0KPj4gKiBi
-bngyKiwgY3hnYjMsIG5pdSwgczJpbywgc2ZjLCBza3kyLCB0ZzMgLSBvbmNlIHBlciBzZWNvbmQN
-Cj4+ICogZTEwMCosIGlnYiwgaXhnYiosIHBjbmV0MzIsIGV3cmszLCBjeGdiNCAtIGFwcHJveC4g
-dHdpY2UgcGVyIHNlY29uZA0KPj4NCj4+IEFGQUlLIGZvciBwYXJ0cyB0aGF0IGNhbiBzZXQgdGhl
-IHBoeXNpY2FsIGlkZW50aWZpY2F0aW9uIHRocm91Z2ggaGFyZHdhcmUsDQo+PiB0aGUgSW50ZWwg
-ZHJpdmVycyBzZXQgdGhlIG9uL29mZiBpbnRlcnZhbHMgdG8gYXBwcm94aW1hdGVseSB0d2ljZS9z
-ZWNvbmQ7DQo+PiBJIGRvbid0IGtub3cgd2hhdCBvdGhlciBkcml2ZXJzIGRvIGluIHRoYXQgc2l0
-dWF0aW9uLg0KPj4NCj4+IFNvLCBJIHdvdWxkIGd1ZXNzIGl0IGlzIG5vdCBhIGNvbW1vbiByZXF1
-aXJlbWVudCB0byBibGluayBhdCBhIHNwZWNpZmljIEh6Lg0KPj4gSSBoYXZlIG5vIHByb2JsZW0g
-d2l0aCBjaGFuZ2luZyB0aGUgaGFyZC1jb2RlZCBibGluayBmcmVxdWVuY3kgdG8gd2hhdCBvdXIN
-Cj4+IE9FTXMgZXhwZWN0LCBidXQgdGhhdCBtaWdodCBiZSBhbiBpc3N1ZSBmb3IgdGhvc2Ugb3Ro
-ZXIgdmVuZG9yczsgSSB3YXMganVzdA0KPj4gdHJ5aW5nIHRvIG1ha2UgaXQgZmxleGlibGUuDQo+
-DQo+U2FkbHkgaXQgYXBwZWFycyB0aGlzIGlzIG5lY2Vzc2FyeS4NCj4NCj5MZXQncyBkZWZpbmUg
-dGhlIHJldHVybiB2YWx1ZSBmb3IgZHJpdmVycyB3YW50aW5nIHBlcmlvZGljIGNhbGxiYWNrcyB0
-bw0KPmJlIHRoZSBibGluayBmcmVxdWVuY3kgaW4gSHogKG5vcm1hbGx5IDEgb3IgMiksIGFuZCBn
-ZXQgcmlkIG9mIHRoZQ0KPnNwZWNpYWwgY2FzZSBvZiAtRUlOVkFMLiAgVGhpcyBhbHNvIHJlbW92
-ZXMgdGhlIHJhdGhlciBpbmVsZWdhbnQNCj5zZW1hbnRpYyB0aGF0IGRyaXZlcnMgbWF5IG5lZWQg
-dG8gY2hhbmdlIHRoZWlyIHN0YXRlIGRlc3BpdGUgcmV0dXJuaW5nDQo+YW4gZXJyb3IgY29kZS4N
-Cj4NCj5CZW4uDQoNCk9LLiAgV291bGQgeW91IGxpa2UgbWUgdG8gc2VuZCBhbiB1cGRhdGVkIHBh
-dGNoPw0KDQpCcnVjZS4NCg==
+From: Jon Mason <jdmason@kudzu.us>
+Date: Tue, 12 Apr 2011 11:00:04 -0500
+
+> On Mon, Apr 11, 2011 at 04:01:43PM -0700, David Miller wrote:
+>> 
+>> Most of these are cases where we are trying to read back a register
+>> after a write to ensure completion.
+>> 
+>> Simply pre-fixing the readl() or readq() with "(void)" is sufficient
+>> because these are volatile operations and the compiler cannot eliminate
+>> them just because no real assignment takes place.
+>> 
+>> The case of free_rxd_blk()'s assignments to "struct buffAdd *ba" is a
+>> real spurious assignment as this variable is completely otherwise
+>> unused.
+>> 
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Acked-by: Jon Mason <jdmason@kudzu.us>
+
+Thanks for reviewing.
