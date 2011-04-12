@@ -1,86 +1,58 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Bonding/LACP on RTL8169sc/8110sc (R1869)
-Date: Tue, 12 Apr 2011 15:47:45 -0700
-Message-ID: <13118.1302648465@death>
-References: <4DA45518.60407@navigue.com>
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-To: Jonathan Thibault <jonathan@navigue.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] 9p: Kill set but unused variable in
+ 9p_client_{read,write}() and p9_client_readdir()
+Date: Tue, 12 Apr 2011 15:59:10 -0700 (PDT)
+Message-ID: <20110412.155910.258115829.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:42968 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754147Ab1DLWrt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 18:47:49 -0400
-Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
-	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3CMbHCF016805
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 18:37:17 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 0F6CB6E803C
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 18:47:48 -0400 (EDT)
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3CMllO0188920
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 18:47:47 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3CMllEf024696
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 19:47:47 -0300
-In-reply-to: <4DA45518.60407@navigue.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59716
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756134Ab1DLW7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 18:59:45 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 37BC730001
+	for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 15:59:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jonathan Thibault <jonathan@navigue.com> wrote:
->I have a a pair of Jetway motherboards with an add-on 3Gbit LAN modules
->and have been doing some testing for a linux router project.  I found
->that I while I can get LACP working properly using eth0 and eth1, using
->the exact same setup with any of the other three lan fails.  Is this a
->known issue?
-
-	Fails how, exactly?  If eth2/3/4 is part of the bond, then no
-aggregation forms at all, or those devices don't join, or what?
-
->This is on Linux 2.6.32.10.  Here is a blurb of dmesg showing the NICs
->detected.
-
-	That's a fairly old kernel; one relatively recent fix that comes
-to mind is:
-
-commit ab12811c89e88f2e66746790b1fe4469ccb7bdd9
-Author: Andy Gospodarek <andy@greyhouse.net>
-Date:   Fri Sep 10 11:43:20 2010 +0000
-
-    bonding: correctly process non-linear skbs
-    
-    It was recently brought to my attention that 802.3ad mode bonds would no
-    longer form when using some network hardware after a driver update.
-    After snooping around I realized that the particular hardware was using
-    page-based skbs and found that skb->data did not contain a valid LACPDU
-    as it was not stored there.  That explained the inability to form an
-    802.3ad-based bond.  For balance-alb mode bonds this was also an issue
-    as ARPs would not be properly processed.
-
->eth0: RTL8168b/8111b at 0xf8adc000, 00:30:18:ac:a6:80, XID 0c200000 IRQ 24
->eth1: RTL8168b/8111b at 0xf8ae0000, 00:30:18:ac:a6:81, XID 0c200000 IRQ 25
->eth2: RTL8169sc/8110sc at 0xf8ae4c00, 00:30:18:ae:34:3a, XID 18000000 IRQ 18
->eth3: RTL8169sc/8110sc at 0xf8ae8800, 00:30:18:ae:34:3b, XID 18000000 IRQ 19
->eth4: RTL8169sc/8110sc at 0xf8aec400, 00:30:18:ae:34:3c, XID 18000000 IRQ 16
-
-	The fix might apply if your eth2/3/4 hardware uses page based
-skbs as mentioned in this commit.
-
-	Also, what is your network topology?  Are all the devices
-connected to the same switch?
-
->I can probably manage this project using only eth0 and eth1 in LACP
->configuration but I figured I'd give a heads up.
->
->The interfaces seem able to detect when the link is up or down, bonding
->removes and adds them to the LACP trunk but I can't get traffic through
->them.
-
-	If the above commit doesn't resolve the problem, can you post
-some sample output of /proc/net/bonding/bondX (with the appropriate
-value for "X") when you've got the "bad" devices in the bond, along with
-a description of exactly what doesn't work?
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+DQpGaXhlcyB0aGUgZm9sbG93aW5nIHdhcm5pbmdzOg0KDQpuZXQvOXAvY2xpZW50LmM6MTMwNTox
+ODogd2FybmluZzogdmFyaWFibGUgoXRvdGFsoiBzZXQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC1i
+dXQtc2V0LXZhcmlhYmxlXQ0KbmV0LzlwL2NsaWVudC5jOjEzNzA6MTg6IHdhcm5pbmc6IHZhcmlh
+YmxlIKF0b3RhbKIgc2V0IGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtYnV0LXNldC12YXJpYWJsZV0N
+Cm5ldC85cC9jbGllbnQuYzoxNzY5OjE4OiB3YXJuaW5nOiB2YXJpYWJsZSChdG90YWyiIHNldCBi
+dXQgbm90IHVzZWQgWy1XdW51c2VkLWJ1dC1zZXQtdmFyaWFibGVdDQoNClNpZ25lZC1vZmYtYnk6
+IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KIG5ldC85cC9jbGll
+bnQuYyB8ICAgIDkgKysrLS0tLS0tDQogMSBmaWxlcyBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKyks
+IDYgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9uZXQvOXAvY2xpZW50LmMgYi9uZXQvOXAv
+Y2xpZW50LmMNCmluZGV4IDQ4YjhlMDguLjBjZTk1OTIgMTAwNjQ0DQotLS0gYS9uZXQvOXAvY2xp
+ZW50LmMNCisrKyBiL25ldC85cC9jbGllbnQuYw0KQEAgLTEzMDIsNyArMTMwMiw3IEBAIGludA0K
+IHA5X2NsaWVudF9yZWFkKHN0cnVjdCBwOV9maWQgKmZpZCwgY2hhciAqZGF0YSwgY2hhciBfX3Vz
+ZXIgKnVkYXRhLCB1NjQgb2Zmc2V0LA0KIAkJCQkJCQkJdTMyIGNvdW50KQ0KIHsNCi0JaW50IGVy
+ciwgcnNpemUsIHRvdGFsOw0KKwlpbnQgZXJyLCByc2l6ZTsNCiAJc3RydWN0IHA5X2NsaWVudCAq
+Y2xudDsNCiAJc3RydWN0IHA5X3JlcV90ICpyZXE7DQogCWNoYXIgKmRhdGFwdHI7DQpAQCAtMTMx
+MSw3ICsxMzExLDYgQEAgcDlfY2xpZW50X3JlYWQoc3RydWN0IHA5X2ZpZCAqZmlkLCBjaGFyICpk
+YXRhLCBjaGFyIF9fdXNlciAqdWRhdGEsIHU2NCBvZmZzZXQsDQogCQkJCQkobG9uZyBsb25nIHVu
+c2lnbmVkKSBvZmZzZXQsIGNvdW50KTsNCiAJZXJyID0gMDsNCiAJY2xudCA9IGZpZC0+Y2xudDsN
+Ci0JdG90YWwgPSAwOw0KIA0KIAlyc2l6ZSA9IGZpZC0+aW91bml0Ow0KIAlpZiAoIXJzaXplIHx8
+IHJzaXplID4gY2xudC0+bXNpemUtUDlfSU9IRFJTWikNCkBAIC0xMzY3LDcgKzEzNjYsNyBAQCBp
+bnQNCiBwOV9jbGllbnRfd3JpdGUoc3RydWN0IHA5X2ZpZCAqZmlkLCBjaGFyICpkYXRhLCBjb25z
+dCBjaGFyIF9fdXNlciAqdWRhdGEsDQogCQkJCQkJCXU2NCBvZmZzZXQsIHUzMiBjb3VudCkNCiB7
+DQotCWludCBlcnIsIHJzaXplLCB0b3RhbDsNCisJaW50IGVyciwgcnNpemU7DQogCXN0cnVjdCBw
+OV9jbGllbnQgKmNsbnQ7DQogCXN0cnVjdCBwOV9yZXFfdCAqcmVxOw0KIA0KQEAgLTEzNzUsNyAr
+MTM3NCw2IEBAIHA5X2NsaWVudF93cml0ZShzdHJ1Y3QgcDlfZmlkICpmaWQsIGNoYXIgKmRhdGEs
+IGNvbnN0IGNoYXIgX191c2VyICp1ZGF0YSwNCiAJCQkJZmlkLT5maWQsIChsb25nIGxvbmcgdW5z
+aWduZWQpIG9mZnNldCwgY291bnQpOw0KIAllcnIgPSAwOw0KIAljbG50ID0gZmlkLT5jbG50Ow0K
+LQl0b3RhbCA9IDA7DQogDQogCXJzaXplID0gZmlkLT5pb3VuaXQ7DQogCWlmICghcnNpemUgfHwg
+cnNpemUgPiBjbG50LT5tc2l6ZS1QOV9JT0hEUlNaKQ0KQEAgLTE3NjYsNyArMTc2NCw3IEBAIEVY
+UE9SVF9TWU1CT0xfR1BMKHA5X2NsaWVudF94YXR0cmNyZWF0ZSk7DQogDQogaW50IHA5X2NsaWVu
+dF9yZWFkZGlyKHN0cnVjdCBwOV9maWQgKmZpZCwgY2hhciAqZGF0YSwgdTMyIGNvdW50LCB1NjQg
+b2Zmc2V0KQ0KIHsNCi0JaW50IGVyciwgcnNpemUsIHRvdGFsOw0KKwlpbnQgZXJyLCByc2l6ZTsN
+CiAJc3RydWN0IHA5X2NsaWVudCAqY2xudDsNCiAJc3RydWN0IHA5X3JlcV90ICpyZXE7DQogCWNo
+YXIgKmRhdGFwdHI7DQpAQCAtMTc3Niw3ICsxNzc0LDYgQEAgaW50IHA5X2NsaWVudF9yZWFkZGly
+KHN0cnVjdCBwOV9maWQgKmZpZCwgY2hhciAqZGF0YSwgdTMyIGNvdW50LCB1NjQgb2Zmc2V0KQ0K
+IA0KIAllcnIgPSAwOw0KIAljbG50ID0gZmlkLT5jbG50Ow0KLQl0b3RhbCA9IDA7DQogDQogCXJz
+aXplID0gZmlkLT5pb3VuaXQ7DQogCWlmICghcnNpemUgfHwgcnNpemUgPiBjbG50LT5tc2l6ZS1Q
+OV9SRUFERElSSERSU1opDQotLSANCjEuNy40LjMNCg0K
