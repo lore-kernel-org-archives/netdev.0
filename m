@@ -1,64 +1,55 @@
-From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH] NFS: Fix infinite loop in gss_create_upcall()
-Date: Tue, 12 Apr 2011 20:05:33 +0200
-Message-ID: <4DA4946D.5020403@suse.cz>
-References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org> <4D96E4C5.2080302@suse.cz> <1302122693.16786.0.camel@lade.trondhjem.org> <4D9D5CC9.2040002@suse.cz> <4DA36722.2020402@suse.cz> <4DA36758.4070203@suse.cz> <4DA36DB6.8060108@suse.cz> <4DA48EB0.40600@netapp.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [net-next-2.6 RFC PATCH] ethtool: allow custom interval for
+ physical identification
+Date: Tue, 12 Apr 2011 11:17:00 -0700
+Message-ID: <8DD2590731AB5D4C9DBF71A877482A90018A2A3559@orsmsx509.amr.corp.intel.com>
+References: <20110411231635.9339.36369.stgit@gitlad.jf.intel.com>
+	 <20110411162601.6686f169@nehalam>
+	 <8DD2590731AB5D4C9DBF71A877482A90018A2A30A9@orsmsx509.amr.corp.intel.com>
+	 <1302566453.5282.585.camel@localhost>
+	 <8DD2590731AB5D4C9DBF71A877482A90018A2A315B@orsmsx509.amr.corp.intel.com>
+ <1302625686.2880.24.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	mm-commits-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4DA48EB0.40600-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:27941 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932283Ab1DLSRD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 14:17:03 -0400
+In-Reply-To: <1302625686.2880.24.camel@bwh-desktop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/12/2011 07:41 PM, Bryan Schumaker wrote:
-> On 04/11/2011 05:08 PM, Jiri Slaby wrote:
->>
->> Sorry for an extra message. I've just found out that there appears
->> messages in dmesg:
->> [   58.656048] RPC: AUTH_GSS upcall timed out.
->> [   58.656050] Please check user daemon is running.
->> [   88.656065] RPC: AUTH_GSS upcall timed out.
->> [   88.656068] Please check user daemon is running.
->> [  118.656077] RPC: AUTH_GSS upcall timed out.
->> [  118.656080] Please check user daemon is running.
->> [  148.656049] RPC: AUTH_GSS upcall timed out.
->> [  148.656052] Please check user daemon is running.
->> [  178.656046] RPC: AUTH_GSS upcall timed out.
->> [  178.656049] Please check user daemon is running.
->>
->>
->> I instrumented the code and it's stuck with trying RPC_AUTH_GSS_KRB5.
->>
->> I don't use GSS at all.
->>
->> regards,
-> 
-> Does this patch help?
-> 
-> - Bryan
-> 
-> 
-> 
-> There can be an infinite loop if gss_create_upcall() is called without
-> the userspace program running.  To prevent this, we return -EACCES if
-> we notice that pipe_version hasn't changed (indicating that the pipe
-> has not been opened).
-
-Yes, it fixes the problem. But it waits 15s before it times out. This is
-inacceptable for automounted NFS dirs.
-
-thanks,
--- 
-js
-suse labs
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogVHVlc2RheSwgQXByaWwgMTIsIDIw
+MTEgOToyOCBBTQ0KPlRvOiBBbGxhbiwgQnJ1Y2UgVw0KPkNjOiBTdGVwaGVuIEhlbW1pbmdlcjsg
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPlN1YmplY3Q6IFJFOiBbbmV0LW5leHQtMi42IFJGQyBQ
+QVRDSF0gZXRodG9vbDogYWxsb3cgY3VzdG9tIGludGVydmFsIGZvcg0KPnBoeXNpY2FsIGlkZW50
+aWZpY2F0aW9uDQo+DQo+SSBlbnF1aXJlZCBoZXJlIGFuZCBmb3VuZCB0aGF0IHdlIGRvIGhhdmUg
+YW4gT0VNIHNwZWNpZnlpbmcgMSBIei4NCj4NCj4+IEZXSVcsIHdpdGhvdXQgZGlnZ2luZyB0b28g
+ZGVlcCBpbnRvIGhvdyBvdGhlciBkcml2ZXJzIGlkZW50aWZ5IHRoZWlyDQo+PiByZXNwZWN0aXZl
+IHBvcnRzIHRocm91Z2ggc29mdHdhcmUsIGl0IGFwcGVhcnMgaXQgd2FzIHNwbGl0Og0KPj4gKiBi
+bngyKiwgY3hnYjMsIG5pdSwgczJpbywgc2ZjLCBza3kyLCB0ZzMgLSBvbmNlIHBlciBzZWNvbmQN
+Cj4+ICogZTEwMCosIGlnYiwgaXhnYiosIHBjbmV0MzIsIGV3cmszLCBjeGdiNCAtIGFwcHJveC4g
+dHdpY2UgcGVyIHNlY29uZA0KPj4NCj4+IEFGQUlLIGZvciBwYXJ0cyB0aGF0IGNhbiBzZXQgdGhl
+IHBoeXNpY2FsIGlkZW50aWZpY2F0aW9uIHRocm91Z2ggaGFyZHdhcmUsDQo+PiB0aGUgSW50ZWwg
+ZHJpdmVycyBzZXQgdGhlIG9uL29mZiBpbnRlcnZhbHMgdG8gYXBwcm94aW1hdGVseSB0d2ljZS9z
+ZWNvbmQ7DQo+PiBJIGRvbid0IGtub3cgd2hhdCBvdGhlciBkcml2ZXJzIGRvIGluIHRoYXQgc2l0
+dWF0aW9uLg0KPj4NCj4+IFNvLCBJIHdvdWxkIGd1ZXNzIGl0IGlzIG5vdCBhIGNvbW1vbiByZXF1
+aXJlbWVudCB0byBibGluayBhdCBhIHNwZWNpZmljIEh6Lg0KPj4gSSBoYXZlIG5vIHByb2JsZW0g
+d2l0aCBjaGFuZ2luZyB0aGUgaGFyZC1jb2RlZCBibGluayBmcmVxdWVuY3kgdG8gd2hhdCBvdXIN
+Cj4+IE9FTXMgZXhwZWN0LCBidXQgdGhhdCBtaWdodCBiZSBhbiBpc3N1ZSBmb3IgdGhvc2Ugb3Ro
+ZXIgdmVuZG9yczsgSSB3YXMganVzdA0KPj4gdHJ5aW5nIHRvIG1ha2UgaXQgZmxleGlibGUuDQo+
+DQo+U2FkbHkgaXQgYXBwZWFycyB0aGlzIGlzIG5lY2Vzc2FyeS4NCj4NCj5MZXQncyBkZWZpbmUg
+dGhlIHJldHVybiB2YWx1ZSBmb3IgZHJpdmVycyB3YW50aW5nIHBlcmlvZGljIGNhbGxiYWNrcyB0
+bw0KPmJlIHRoZSBibGluayBmcmVxdWVuY3kgaW4gSHogKG5vcm1hbGx5IDEgb3IgMiksIGFuZCBn
+ZXQgcmlkIG9mIHRoZQ0KPnNwZWNpYWwgY2FzZSBvZiAtRUlOVkFMLiAgVGhpcyBhbHNvIHJlbW92
+ZXMgdGhlIHJhdGhlciBpbmVsZWdhbnQNCj5zZW1hbnRpYyB0aGF0IGRyaXZlcnMgbWF5IG5lZWQg
+dG8gY2hhbmdlIHRoZWlyIHN0YXRlIGRlc3BpdGUgcmV0dXJuaW5nDQo+YW4gZXJyb3IgY29kZS4N
+Cj4NCj5CZW4uDQoNCk9LLiAgV291bGQgeW91IGxpa2UgbWUgdG8gc2VuZCBhbiB1cGRhdGVkIHBh
+dGNoPw0KDQpCcnVjZS4NCg==
