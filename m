@@ -1,46 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] vxge: always enable hardware time stamp
-Date: Tue, 12 Apr 2011 11:01:51 -0700 (PDT)
-Message-ID: <20110412.110151.71117421.davem@davemloft.net>
-References: <1302297083-22665-1-git-send-email-jdmason@kudzu.us>
-	<20110410.185845.70188298.davem@davemloft.net>
-	<20110412153604.GA1433@kudzu.us>
+From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH] NFS: Fix infinite loop in gss_create_upcall()
+Date: Tue, 12 Apr 2011 20:05:33 +0200
+Message-ID: <4DA4946D.5020403@suse.cz>
+References: <201103312224.p2VMOA5g000983@imap1.linux-foundation.org> <4D96E4C5.2080302@suse.cz> <1302122693.16786.0.camel@lade.trondhjem.org> <4D9D5CC9.2040002@suse.cz> <4DA36722.2020402@suse.cz> <4DA36758.4070203@suse.cz> <4DA36DB6.8060108@suse.cz> <4DA48EB0.40600@netapp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jdmason@kudzu.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36657
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758080Ab1DLSC1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 14:02:27 -0400
-In-Reply-To: <20110412153604.GA1433@kudzu.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	mm-commits-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4DA48EB0.40600-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Mason <jdmason@kudzu.us>
-Date: Tue, 12 Apr 2011 10:36:06 -0500
-
-> On Sun, Apr 10, 2011 at 06:58:45PM -0700, David Miller wrote:
->> From: Jon Mason <jdmason@kudzu.us>
->> Date: Fri,  8 Apr 2011 16:11:21 -0500
->> 
->> > Hardware time stamp calculation can only be enabled by the privileged
->> > function. Enable it always by default and simply use the ethtool
->> > interface to set a flag to indicate whether or not the respective
->> > function driver should indicate the timestamp along with the received
->> > packet.
->> > 
->> > Also, make certain fields in vxge_hw_device_config bit-fields to reduce
->> > the size of the struct.
->> > 
->> > Signed-off-by: Jon Mason <jdmason@kudzu.us>
->> 
->> Doesn't this have some performance or latency impact?
+On 04/12/2011 07:41 PM, Bryan Schumaker wrote:
+> On 04/11/2011 05:08 PM, Jiri Slaby wrote:
+>>
+>> Sorry for an extra message. I've just found out that there appears
+>> messages in dmesg:
+>> [   58.656048] RPC: AUTH_GSS upcall timed out.
+>> [   58.656050] Please check user daemon is running.
+>> [   88.656065] RPC: AUTH_GSS upcall timed out.
+>> [   88.656068] Please check user daemon is running.
+>> [  118.656077] RPC: AUTH_GSS upcall timed out.
+>> [  118.656080] Please check user daemon is running.
+>> [  148.656049] RPC: AUTH_GSS upcall timed out.
+>> [  148.656052] Please check user daemon is running.
+>> [  178.656046] RPC: AUTH_GSS upcall timed out.
+>> [  178.656049] Please check user daemon is running.
+>>
+>>
+>> I instrumented the code and it's stuck with trying RPC_AUTH_GSS_KRB5.
+>>
+>> I don't use GSS at all.
+>>
+>> regards,
 > 
-> It is all done in hardware by replacing the CRC with the HWTS value.
-> So, no perf or latency issues there.  It still only handles the HWTS
-> in receive if it is enabled in software via the ioctl. 
+> Does this patch help?
+> 
+> - Bryan
+> 
+> 
+> 
+> There can be an infinite loop if gss_create_upcall() is called without
+> the userspace program running.  To prevent this, we return -EACCES if
+> we notice that pipe_version hasn't changed (indicating that the pipe
+> has not been opened).
 
-Ok, thanks for the clarification, I'll apply this patch set.
+Yes, it fixes the problem. But it waits 15s before it times out. This is
+inacceptable for automounted NFS dirs.
+
+thanks,
+-- 
+js
+suse labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
