@@ -1,114 +1,68 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: Race condition when creating multiple namespaces?
-Date: Tue, 12 Apr 2011 06:56:53 +0200
-Message-ID: <201104120656.54281.hans@schillstrom.com>
-References: <201104112301.46776.hans@schillstrom.com> <m1ei58co08.fsf@fess.ebiederm.org>
+From: Solar Designer <solar@openwall.com>
+Subject: Re: [PATCH] net: ipv4: add IPPROTO_ICMP socket kind
+Date: Tue, 12 Apr 2011 09:06:59 +0400
+Message-ID: <20110412050659.GA14129@openwall.com>
+References: <20110409101514.GA4262@albatros>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Lezcano <daniel.lezcano@free.fr>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>,
+	Kees Cook <kees.cook@canonical.com>,
+	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
+	Eugene Teo <eugene@redhat.com>,
+	Nelson Elhage <nelhage@ksplice.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Pekka Savola <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Vasiliy Kulikov <segoon@openwall.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:35280 "EHLO
-	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248Ab1DLE45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 00:56:57 -0400
-In-Reply-To: <m1ei58co08.fsf@fess.ebiederm.org>
+Received: from mother.openwall.net ([195.42.179.200]:53177 "HELO
+	mother.openwall.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750971Ab1DLFOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 01:14:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20110409101514.GA4262@albatros>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Apr 09, 2011 at 02:15:14PM +0400, Vasiliy Kulikov wrote:
+> This patch adds IPPROTO_ICMP socket kind.  It makes it possible to send
+> ICMP_ECHO messages and receive the corresponding ICMP_ECHOREPLY messages
+> without any special privileges.  In other words, the patch makes it
+> possible to implement setuid-less and CAP_NET_RAW-less /bin/ping.  In
+> order not to increase the kernel's attack surface (in case of
+> vulnerabilities in the newly added code), the new functionality is
+> disabled by default, but is enabled at bootup by supporting Linux
+> distributions, optionally with restriction to a group or a group range
+...
+> For Openwall GNU/*/Linux it is the last step on the road to the
+> setuid-less distro.
 
-On Tuesday, April 12, 2011 02:27:35 Eric W. Biederman wrote:
-> Hans Schillstrom <hans@schillstrom.com> writes:
-> 
-> > Hello
-> > I'v been strugling with this for some time now
-> >
-> > When creating multiple namespaces using lxc-start,  un-initialized network namespace parts will be called by the new process in the namespace.
-> > ex. when using conntrack or ipvsadm to quickly,  (a sleep 2 "solves" the problem).
-> > (From what I can see syscall clone() is used in lx-start  i.e. do_fork will be called later on.)
-> > Actually I was debugging ip_vs when closing multiple ns  when I fell into this one.
-> >
-> > I have a loop that create 33 containers whith lxc-start ... -- test.sh
-> > the first thing the new conatiner does in test.sh is
-> > #!/bin/bash
-> > iptables -t mangle -A PREROUTING -m conntrack --ctstate RELATED,ESTABLISHED -j CONNMARK --restore-mark
-> > nc -l -p1234
-> >
-> > This results in NULL ptr in ip_conntrack_net_init(struct *net)
-> 
-> Ouch!
-> 
-> > and in anoither test test.sh looks like this
-> > #!/bin/bash
-> > ipvsadm --start-daemon=master --mcast-interface=lo
-> > nc -l -p1234
-> >
-> > And this results in an uniitialized spinlock in ip_vs_sync
-> >
-> > I put a printk in nsproxy: copy_namespaces() and could see a dozens of them
-> > before anything appears from ipvs or conntrack.
-> >
-> > My feeling is that when you start up user processes in a new name space, 
-> > all kernel related init should have been done (you should not need to add a sleep to get it working)
-> >
-> > All test  made by using todays net-next-2.6 (2.6.39-rc1)
-> >
-> > Note:
-> > That neither conntrack or ip_vs modules where loaded,
-> > if modules where loaded before creating new namespaces it all works...
-> >
-> > Finally the question,
-> > Should it really work to load modules within a namespace , 
-> > that is a part of netns ?
-> 
-> >From an implementation point of view kernel modules are not in a
-> namespace, so there should be no difference between being in a namespace
-> and loading a kernel networking module and not being in a namespace and
-> loading in a kernel module.
-> 
-> It does sound like you have hit a module loading race, and perhaps
-> a race that is confined to network namespaces.
-> 
-> My head is in another problem so I won't be able to look at this for
-> a bit.  But if you are getting into ip_conntrack_net_init with
-> a NULL network namespace something spectacularly bad is happening.
+More correctly, it _was_ the last step - we've already taken it, so a
+revision of the patch (against OpenVZ/RHEL5 kernels) is currently in use.
 
-OK I'll continue to dig into this.
+We would really like this accepted into mainline, which is why Vasiliy
+spends extra effort to keep the patch updated to current mainline
+kernels and re-test it.  If there are any comments/concerns/objections,
+we'd be happy to hear those.
 
-> 
-> In particular it looks like you must be hitting a bug in for_each_net.
-> Which would pretty much have to be a race in adding or removing from
-> net_namespace_list.
+> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 
-It was further down in proc_net_fops_create()
+Acked-by: Solar Designer <solar@openwall.com>
 
-> 
-> I took a quick skim through the code and whenever we modify the
-> net_namespace we hold but the net_mutex and inside it the rtnl_lock so I
-> don't immediate see how you could be getting a NULL net into
-> ip_conntrack_net_init.
+>  include/net/netns/ipv4.h   |    2 +
+>  include/net/ping.h         |   69 ++++
+>  net/ipv4/Kconfig           |   21 +
+>  net/ipv4/Makefile          |    1 +
+>  net/ipv4/af_inet.c         |   36 ++
+>  net/ipv4/icmp.c            |   14 +-
+>  net/ipv4/ping.c            |  933 ++++++++++++++++++++++++++++++++++++++++++++
+>  net/ipv4/sysctl_net_ipv4.c |   90 +++++
+>  8 files changed, 1165 insertions(+), 1 deletions(-)
 
-I do had the same problem in ip_vs  a couple of times, but at that time I thought it was my changes...
-In the ip_vs case it seems to be more like a race or a missing lock one core reach a "not fully" initialized ipvs struct.
-That could be my fault like bad order when calling register_pernet_subsys...
+Thanks,
 
-> 
-> Is there a codepath besides register_pernet_subsys that is calling
-> ip_conntrack_net_init?
-
-Not what I can see...
-> 
-> Do you have any local modifications that could be messing up register_pernet_subsys?
-
-Not right now (I took them away, a clean git clone)
-
-> 
-> Eric
-> 
-
-I will continue with this today 
-
-Thanks a lot
-Hans
+Alexander
