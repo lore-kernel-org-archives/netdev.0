@@ -1,52 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso packet
-Date: Tue, 12 Apr 2011 13:55:22 -0700 (PDT)
-Message-ID: <20110412.135522.71113479.davem@davemloft.net>
-References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
-	<1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH] inetpeer: reduce stack usage
+Date: Tue, 12 Apr 2011 13:58:48 -0700 (PDT)
+Message-ID: <20110412.135848.104047454.davem@davemloft.net>
+References: <1302597580.3233.14.camel@edumazet-laptop>
+	<20110412235126.63841dfe.shimoda.hiroaki@gmail.com>
+	<1302620123.3233.58.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com, stable@kernel.org
-To: amit.salecha@qlogic.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shimoda.hiroaki@gmail.com, lkml@scotdoyle.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52163
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54273
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932155Ab1DLUz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 16:55:58 -0400
-In-Reply-To: <1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S932155Ab1DLU7Y convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 16:59:24 -0400
+In-Reply-To: <1302620123.3233.58.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Tue, 12 Apr 2011 00:19:41 -0700
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 12 Apr 2011 16:55:23 +0200
 
-> <<< No Message Collected >>>
+> Le mardi 12 avril 2011 =E0 23:51 +0900, Hiroaki SHIMODA a =E9crit :
+>=20
+>> I couldn't understand that actually cleanup_once() was called
+>> from inet_getpeer() and then the stack overflow was hit,
+>> but this patch surely reduces stack usage.
+>>=20
+>> Reviewed-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+>>=20
+>=20
+> Well, I dont believe we actually hit a stack overflow in Scot Doyle
+> reported crashes, but it certainly is better to use a bit less stack
+> anyway ;)
+>=20
+> Thanks for reviewing !
 
-Can you PLEASE fix your email.
-
-PLEASE?
-
-Yesterday you spammed us all, and today you've sent three postings
-with this subject line.
-
-1) One with the patch, and the proper set of CC:'s (myself, other
-   qlogic engineers, netdev, and stable)
-
-2) One with the patch, and a too short CC: list (only netdev and
-   stable)
-
-3) And now this email with no actual content and a weird message.
-
-I really can't spend my afternoons sifting through the emails that
-spam from qlogic, trying to figure out which ones I should pay
-attention to for review, and which ones are spam.
-
-Please resend properly any patches you actually want me to pay
-attention to.
-
-If you cannot make sure at this time that the patches will be sent
-without incident, sit on them until you can.
-
-Thank you.
+Applied, thanks everyone.
