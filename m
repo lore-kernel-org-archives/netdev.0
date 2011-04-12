@@ -1,67 +1,77 @@
-From: Thomas Graf <tgraf@redhat.com>
-Subject: Re: [RFC] iproute2: Fix meta match u32 with 0xffffffff
-Date: Tue, 12 Apr 2011 09:56:49 +0200
-Message-ID: <1302595009.3664.8.camel@lsx>
-References: <20110411115234.74b5936b@nehalam>
-Reply-To: tgraf@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso packet
+Date: Tue, 12 Apr 2011 01:15:51 -0700
+Message-ID: <1302596151-15182-1-git-send-email-amit.salecha@qlogic.com>
+Cc: stable@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19543 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752503Ab1DLH4v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 03:56:51 -0400
-In-Reply-To: <20110411115234.74b5936b@nehalam>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:10859 "EHLO unm84.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753523Ab1DLIP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 04:15:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-04-11 at 11:52 -0700, Stephen Hemminger wrote: 
-> The value 0xffffffff is a valid mask and bstrtoul() would return
-> ULONG_MAX which was the error value. Resolve the problem by separating
-> return value and error indication.
->  
-> -unsigned long bstrtoul(const struct bstr *b)
-> +int bstrtoul(const struct bstr *b, unsigned long *lp)
->  {
->  	char *inv = NULL;
-> -	unsigned long l;
->  	char buf[b->len+1];
->  
-> +	if (b->len == 0)
-> +		return -EINVAL;
-> +
->  	memcpy(buf, b->data, b->len);
->  	buf[b->len] = '\0';
->  
-> -	l = strtoul(buf, &inv, 0);
-> -	if (l == ULONG_MAX || inv == buf)
-> -		return ULONG_MAX;
-> +	*lp = strtoul(buf, &inv, 0);
-> +	if (inv == buf)
-> +		return -EINVAL;
-> +
-> +	if (*lp == ULONG_MAX || errno == ERANGE)
-> +		return -ERANGE;
->  
-> -	return l;
-> +	return 0;
->  }
+Machines are getting deadlock in four node cluster environment.
+All nodes are accessing (find /gfs2 -depth -print|cpio -ocv > /dev/null)
+200 GB storage on a GFS2 filesystem.
+This result in memory fragmentation and driver receives 18 frags for
+1448 byte packets.
+For non tso packet, fw drops the tx request, if it has >14 frags.
 
-This is definitely much better but we still can't parse ULONG_MAX
-as string representative. Checking glibc docs, the only way to do it is
-to ignore the return value for error checking and look errno.
+Fixing it by pulling extra frags.
 
-So I guess we should do something like this:
+Cc: stable@kernel.org
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic.h      |    1 +
+ drivers/net/qlcnic/qlcnic_main.c |   14 ++++++++++++++
+ 2 files changed, 15 insertions(+), 0 deletions(-)
 
-errno = 0;
-*lp = strtoul(buf, &inv, 0);
-if (*inv != '\0')
-return -EINVAL;
-else if (errno)
-return errno;
-
-return 0;
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index dc44564..b0dead0 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -99,6 +99,7 @@
+ #define TX_UDPV6_PKT	0x0c
+ 
+ /* Tx defines */
++#define QLCNIC_MAX_FRAGS_PER_TX	14
+ #define MAX_TSO_HEADER_DESC	2
+ #define MGMT_CMD_DESC_RESV	4
+ #define TX_STOP_THRESH		((MAX_SKB_FRAGS >> 2) + MAX_TSO_HEADER_DESC \
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index cd88c7e..cb1a1ef 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -2099,6 +2099,7 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	struct cmd_desc_type0 *hwdesc, *first_desc;
+ 	struct pci_dev *pdev;
+ 	struct ethhdr *phdr;
++	int delta = 0;
+ 	int i, k;
+ 
+ 	u32 producer;
+@@ -2118,6 +2119,19 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	}
+ 
+ 	frag_count = skb_shinfo(skb)->nr_frags + 1;
++	/* 14 frags supported for normal packet and
++	 * 32 frags supported for TSO packet
++	 */
++	if (!skb_is_gso(skb) && frag_count > QLCNIC_MAX_FRAGS_PER_TX) {
++
++		for (i = 0; i < (frag_count - QLCNIC_MAX_FRAGS_PER_TX); i++)
++			delta += skb_shinfo(skb)->frags[i].size;
++
++		if (!__pskb_pull_tail(skb, delta))
++			goto drop_packet;
++
++		frag_count = 1 + skb_shinfo(skb)->nr_frags;
++	}
+ 
+ 	/* 4 fragments per cmd des */
+ 	no_of_desc = (frag_count + 3) >> 2;
+-- 
+1.7.3.2
 
