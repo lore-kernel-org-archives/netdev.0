@@ -1,40 +1,46 @@
-From: Otavio Salvador <otavio@ossystems.com.br>
-Subject: [PATCH 2/2] net/natsami: store MAC into perm_addr
-Date: Tue, 12 Apr 2011 12:30:41 -0300
-Message-ID: <1302622241-11871-2-git-send-email-otavio@ossystems.com.br>
-References: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
-Cc: Otavio Salvador <otavio@ossystems.com.br>
-To: netdev@vger.kernel.org
+From: Jon Mason <jdmason@kudzu.us>
+Subject: Re: [net-next PATCH 1/3] vxge: always enable hardware time stamp
+Date: Tue, 12 Apr 2011 10:36:06 -0500
+Message-ID: <20110412153604.GA1433@kudzu.us>
+References: <1302297083-22665-1-git-send-email-jdmason@kudzu.us>
+ <20110410.185845.70188298.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:59170 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756321Ab1DLPaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 11:30:55 -0400
-Received: by gwaa18 with SMTP id a18so2389854gwa.19
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 08:30:55 -0700 (PDT)
-In-Reply-To: <1302622241-11871-1-git-send-email-otavio@ossystems.com.br>
+Received: from mail-yi0-f46.google.com ([209.85.218.46]:37732 "EHLO
+	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757597Ab1DLPgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 11:36:11 -0400
+Received: by yia27 with SMTP id 27so2590411yia.19
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 08:36:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110410.185845.70188298.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Otavio Salvador <otavio@ossystems.com.br>
----
- drivers/net/natsemi.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+On Sun, Apr 10, 2011 at 06:58:45PM -0700, David Miller wrote:
+> From: Jon Mason <jdmason@kudzu.us>
+> Date: Fri,  8 Apr 2011 16:11:21 -0500
+> 
+> > Hardware time stamp calculation can only be enabled by the privileged
+> > function. Enable it always by default and simply use the ethtool
+> > interface to set a flag to indicate whether or not the respective
+> > function driver should indicate the timestamp along with the received
+> > packet.
+> > 
+> > Also, make certain fields in vxge_hw_device_config bit-fields to reduce
+> > the size of the struct.
+> > 
+> > Signed-off-by: Jon Mason <jdmason@kudzu.us>
+> 
+> Doesn't this have some performance or latency impact?
 
-diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
-index aa2813e..1074231 100644
---- a/drivers/net/natsemi.c
-+++ b/drivers/net/natsemi.c
-@@ -860,6 +860,9 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
- 		prev_eedata = eedata;
- 	}
- 
-+	/* Store MAC Address in perm_addr */
-+	memcpy(dev->perm_addr, dev->dev_addr, ETH_ALEN);
-+
- 	dev->base_addr = (unsigned long __force) ioaddr;
- 	dev->irq = irq;
- 
--- 
-1.7.4.1
+It is all done in hardware by replacing the CRC with the HWTS value.
+So, no perf or latency issues there.  It still only handles the HWTS
+in receive if it is enabled in software via the ioctl. 
 
+> 
+> I think it should be stay off by default, people who want this know
+> they want it and can turn it on if they want to.
