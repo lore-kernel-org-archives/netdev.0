@@ -1,97 +1,125 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel panic when using bridge
-Date: Tue, 12 Apr 2011 06:22:52 +0200
-Message-ID: <1302582172.3603.18.camel@edumazet-laptop>
-References: <4D9E62D9.5010400@scotdoyle.com>
-	 <20110408121700.0aad53fe@nehalam>	<4D9FE5BE.6060600@scotdoyle.com>
-	 <20110409161908.a2aca120.shimoda.hiroaki@gmail.com>
-	 <4DA39330.2030102@scotdoyle.com> <20110411183105.46e86684@nehalam>
-	 <4DA3CB4B.9090506@scotdoyle.com> <1302581384.3603.14.camel@edumazet-laptop>
+From: Wei Gu <wei.gu@ericsson.com>
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+Date: Tue, 12 Apr 2011 12:40:06 +0800
+Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E490995D@ESGSCCMS0001.eapac.ericsson.se>
+References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302167168.3357.12.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
+	 <1302192218.3357.47.camel@edumazet-laptop> <4D9DE465.1080008@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA58D@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302253651.4409.2.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302267400.4409.22.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302275223.4409.36.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302330998.2656.113.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
+	 <4DA3151B.4030507@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
+ <1302536577.4605.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	netdev@vger.kernel.org
-To: Scot Doyle <lkml@scotdoyle.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62676 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078Ab1DLEXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 00:23:23 -0400
-Received: by wya21 with SMTP id 21so5356942wya.19
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2011 21:23:22 -0700 (PDT)
-In-Reply-To: <1302581384.3603.14.camel@edumazet-laptop>
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:43886 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907Ab1DLEk0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 00:40:26 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 12 avril 2011 =C3=A0 06:09 +0200, Eric Dumazet a =C3=A9crit :
-> Le lundi 11 avril 2011 =C3=A0 22:47 -0500, Scot Doyle a =C3=A9crit :
-> > On 04/11/2011 08:31 PM, Stephen Hemminger wrote:
-> > >
-> > > It would help if you gave a little more context (like diff -up)
-> > > next time.
-> > >
-> > > I think the correct fix is for the skb handed to ip_compile_optio=
-ns
-> > > to match the layout expected by ip_compile_options.
-> > >
-> > > This patch is compile tested only, please validate.
-> > >
-> > >
-> > > Subject: [PATCH] bridge: set pseudo-route table before calling ip=
-_comple_options
-> > >
-> > > For some ip options, ip_compile_options assumes it can find the a=
-ssociated
-> > > route table. The bridge to iptables code doesn't supply the neces=
-sary
-> > > reference causing NULL dereference.
-> > >
-> > > Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
-> > >
-> > > ---
-> > > Patch against net-next-2.6, but if validated should go to net-2.6
-> > > and stable.
-> > >
-> > > --- a/net/bridge/br_netfilter.c	2011-04-11 18:18:22.534837859 -07=
-00
-> > > +++ b/net/bridge/br_netfilter.c	2011-04-11 18:25:15.427244826 -07=
-00
-> > > @@ -221,6 +221,7 @@ static int br_parse_ip_options(struct sk
-> > >   	struct ip_options *opt;
-> > >   	struct iphdr *iph;
-> > >   	struct net_device *dev =3D skb->dev;
-> > > +	struct rtable *rt;
-> > >   	u32 len;
-> > >
-> > >   	iph =3D ip_hdr(skb);
-> > > @@ -255,6 +256,14 @@ static int br_parse_ip_options(struct sk
-> > >   		return 0;
-> > >   	}
-> > >
-> > > +	/* Associate bogus bridge route table */
-> > > +	rt =3D bridge_parent_rtable(dev);
-> > > +	if (!rt) {
-> > > +		kfree_skb(skb);
-> > > +		return 0;
-> > > +	}
-> > > +	skb_dst_set(skb,&rt->dst);
->=20
-> Please try skb_dst_set_noref() here instead of skb_dst_set()
->=20
-> Or increment rt refcount.
+Hi,
+I found the problem was introduced by this revert patch "2010-08-13    =
+ Peter Zijlstra  sched: Revert nohz_ratelimit() for now"
 
-Also, I would first check if skb->dst already set to not leak a dst
+I tried the remove this patch from 2.6.35.2 and then build the applicat=
+ion again, then the ixgbe driver looks works fine.
+I don't know why this time revert the  nohz_ratelimit() will cause the =
+problem on ixgbe driver, since this  nohz_ratelimit was first introduce=
+d "2010-03-11". And before that time with 2.6.32 kernel it also doesn't=
+ have this problem with ixgbe driver.
 
-if (!skb->dst) {
-	rt =3D bridge_parent_rtable(dev);
-	if (!rt) {
-		kfree_skb(skb);
-		return 0;
-	}
-	skb_dst_set_noref(skb,&rt->dst);
-}
 
+Some log from git:
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+2.6.35.2
+2010-08-13      Peter Zijlstra  sched: Revert nohz_ratelimit() for now
+2.6.35.1
+2010-08-01      Linus Torvalds  Linux 2.6.35 v2.6.35
+2010-06-17      Peter Zijlstra  nohz: Fix nohz ratelimit
+2.6.35-rc3
+2010-03-11      Mike Galbraith  sched: Rate-limit nohz
+
+Thanks
+WeiGu
+
+-----Original Message-----
+=46rom: Wei Gu
+Sent: Tuesday, April 12, 2011 9:23 AM
+To: 'Eric Dumazet'
+Cc: Alexander Duyck; netdev; Kirsher, Jeffrey T
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+
+I was not stress the NIC/CPU, since I only send 290Kpps 400byte packets=
+ towards eth10. the CPU load almost 100%IDEL.
+
+BTW, there are some problem with perf tool on 2.6.35.2, I will try to g=
+et you the top offenders if possible.
+
+Thanks
+WeiGu
+
+-----Original Message-----
+=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+Sent: Monday, April 11, 2011 11:43 PM
+To: Wei Gu
+Cc: Alexander Duyck; netdev; Kirsher, Jeffrey T
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+
+Le lundi 11 avril 2011 =E0 23:14 +0800, Wei Gu a =E9crit :
+> I tried the ixgbe-3.3.8 (insmod ixgbe.ko RSS=3D8,8,8,8,8,8,8,8 FdirMo=
+de=3D0,0,0,0,0,0,0,0 Node=3D0,0,1,1,2,2,3,3)  from e1000.sf.net both on=
+ 2.6.35.1 and 2.6.35.2, same observation as 3.2.10 ixgbe driver, On 2.6=
+=2E35.2 it have high rx errors:
+> Ethtool -S eth10 |grep error
+>      rx_errors: 0
+>      tx_errors: 0
+>      rx_over_errors: 0
+>      rx_crc_errors: 0
+>      rx_frame_errors: 0
+>      rx_fifo_errors: 0
+>      rx_missed_errors: 2263088
+>      tx_aborted_errors: 0
+>      tx_carrier_errors: 0
+>      tx_fifo_errors: 0
+>      tx_heartbeat_errors: 0
+>      rx_long_length_errors: 0
+>      rx_short_length_errors: 0
+>      rx_csum_offload_errors: 0
+>      fcoe_last_errors: 0
+>
+
+It would be nice you post perf record / perf report results
+
+During your stress , do
+
+perf record -a -g sleep 10
+perf report
+
+And post "top offenders"
+
+Thanks
 
 
