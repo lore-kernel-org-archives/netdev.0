@@ -1,40 +1,39 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso
- packet
-Date: Tue, 12 Apr 2011 20:42:28 -0700
-Message-ID: <20110413034228.GA852@kroah.com>
-References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
- <1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
- <20110412.135522.71113479.davem@davemloft.net>
- <99737F4847ED0A48AECC9F4A1974A4B80FD1383FAC@MNEXMB2.qlogic.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000: Remove blink_led_start declaration
+Date: Tue, 12 Apr 2011 20:53:45 -0700
+Message-ID: <BANLkTinrxcXLOygDahxD=hkXwiYig9UM=g@mail.gmail.com>
+References: <4DA4E016.1050800@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	"stable@kernel.org" <stable@kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>
-To: Amit Salecha <amit.salecha@qlogic.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net, NetDev <netdev@vger.kernel.org>
+To: Yinghai Lu <yinghai@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:58585 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757043Ab1DMDmB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 23:42:01 -0400
-Content-Disposition: inline
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD1383FAC@MNEXMB2.qlogic.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:48882 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756834Ab1DMDxq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 23:53:46 -0400
+Received: by fxm17 with SMTP id 17so192992fxm.19
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2011 20:53:45 -0700 (PDT)
+In-Reply-To: <4DA4E016.1050800@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 12, 2011 at 09:01:13PM -0500, Amit Salecha wrote:
-> 
-> This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+On Tue, Apr 12, 2011 at 16:28, Yinghai Lu <yinghai@kernel.org> wrote:
+>
+> It is left over code.
+>
+> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+>
+> ---
+> =C2=A0drivers/net/e1000/e1000_hw.h | =C2=A0 =C2=A01 -
+> =C2=A01 file changed, 1 deletion(-)
+>
 
-I have received this transmission in error.
+Thanks for the patch, I have added the patch to my queue of e1000
+patches.
 
-Please remove this from your footer, otherwise we can not accept any
-emails sent from you as actually being allowed to contribute to the
-kernel properly :(
-
-thanks,
-
-greg k-h
+--=20
+Cheers,
+Jeff
