@@ -1,50 +1,147 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: Re: [PATCH net-next-2.6 v3 2/3] sctp: Add ASCONF operation on the single-homed host
-Date: Wed, 13 Apr 2011 10:32:27 +0900
-Message-ID: <204CE840-C282-4B12-8015-37AD00386133@sfc.wide.ad.jp>
-References: <02627A77-8793-4EEC-9540-F2DECBB8E23A@sfc.wide.ad.jp> <4DA4F8F9.2030302@cn.fujitsu.com>
-Mime-Version: 1.0 (Apple Message framework v1084)
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/4] [RFC rev2] virtio-net changes
+Date: Wed, 13 Apr 2011 10:58:02 +0930
+Message-ID: <878vvf0wkd.fsf@rustcorp.com.au>
+References: <20110405150826.20501.39679.sendpatchset@krkumar2.in.ibm.com> <20110405150852.20501.10500.sendpatchset@krkumar2.in.ibm.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:60166 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932737Ab1DMBcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 21:32:32 -0400
-In-Reply-To: <4DA4F8F9.2030302@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
+	horms@verge.net.au, avi@redhat.com, anthony@codemonkey.ws,
+	kvm@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+To: Krishna Kumar <krkumar2@in.ibm.com>, davem@davemloft.net,
+	mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110405150852.20501.10500.sendpatchset@krkumar2.in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, 
+On Tue, 05 Apr 2011 20:38:52 +0530, Krishna Kumar <krkumar2@in.ibm.com> wrote:
+> Implement mq virtio-net driver. 
+> 
+> Though struct virtio_net_config changes, it works with the old
+> qemu since the last element is not accessed unless qemu sets
+> VIRTIO_NET_F_MULTIQUEUE.
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 
->> 
->> 
->> 	if (t)
->> 		asoc->peer.retran_path = t;
->> +	else if (unconfirmed)
->> +		asoc->peer.retran_path = t = unconfirmed;
->> 
->> 	SCTP_DEBUG_PRINTK_IPADDR("sctp_assoc_update_retran_path:association"
->> 				 " %p addr: "
-> 
-> since we can not select unconfirmed transports for retransmission,
-> this part is not correct. the specification forbids this due to security
-> issues.
-> Not sure whether you hit this bug: remove transport and left only
-> one unconfirmed transport, it may cause oops while retransmit.
-> I will send other patch to fix it first.
-Yes, I added these 2 lines to avoid panic, I'll remove after your patch.  
+Hi Krishna!
 
-Thanks,
-- Michio
-> 
-> 
-> ...snip...
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    This change looks fairly solid, but I'd prefer it split into a few
+stages for clarity.
 
+The first patch should extract out the struct send_queue and struct
+receive_queue, even though there's still only one.  The second patch
+can then introduce VIRTIO_NET_F_MULTIQUEUE.
+
+You could split into more parts if that makes sense, but I'd prefer to
+see the mechanical changes separate from the feature addition.
+
+> -struct virtnet_info {
+> -	struct virtio_device *vdev;
+> -	struct virtqueue *rvq, *svq, *cvq;
+> -	struct net_device *dev;
+> +/* Internal representation of a send virtqueue */
+> +struct send_queue {
+> +	/* Virtqueue associated with this send _queue */
+> +	struct virtqueue *svq;
+
+You can simply call this vq now it's inside 'send_queue'.
+
+> +
+> +	/* TX: fragments + linear part + virtio header */
+> +	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
+
+Similarly, this can just be sg.
+
+> +static void free_receive_bufs(struct virtnet_info *vi)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < vi->numtxqs; i++) {
+> +		BUG_ON(vi->rq[i] == NULL);
+> +		while (vi->rq[i]->pages)
+> +			__free_pages(get_a_page(vi->rq[i], GFP_KERNEL), 0);
+> +	}
+> +}
+
+You can skip the BUG_ON(), since the next line will have the same effect.
+
+> +/* Free memory allocated for send and receive queues */
+> +static void free_rq_sq(struct virtnet_info *vi)
+> +{
+> +	int i;
+> +
+> +	if (vi->rq) {
+> +		for (i = 0; i < vi->numtxqs; i++)
+> +			kfree(vi->rq[i]);
+> +		kfree(vi->rq);
+> +	}
+> +
+> +	if (vi->sq) {
+> +		for (i = 0; i < vi->numtxqs; i++)
+> +			kfree(vi->sq[i]);
+> +		kfree(vi->sq);
+> +	}
+
+This looks weird, even though it's correct.
+
+I think we need a better name than numtxqs and shorter than
+num_queue_pairs.  Let's just use num_queues; sure, there are both tx and
+rq queues, but I still think it's pretty clear.
+
+> +	for (i = 0; i < vi->numtxqs; i++) {
+> +		struct virtqueue *svq = vi->sq[i]->svq;
+> +
+> +		while (1) {
+> +			buf = virtqueue_detach_unused_buf(svq);
+> +			if (!buf)
+> +				break;
+> +			dev_kfree_skb(buf);
+> +		}
+> +	}
+
+I know this isn't your code, but it's ugly :)
+
+        while ((buf = virtqueue_detach_unused_buf(svq)) != NULL)
+                dev_kfree_skb(buf);
+
+> +	for (i = 0; i < vi->numtxqs; i++) {
+> +		struct virtqueue *rvq = vi->rq[i]->rvq;
+> +
+> +		while (1) {
+> +			buf = virtqueue_detach_unused_buf(rvq);
+> +			if (!buf)
+> +				break;
+
+Here too...
+
+> +#define MAX_DEVICE_NAME		16
+
+This isn't a good idea, see below.
+
+> +static int initialize_vqs(struct virtnet_info *vi, int numtxqs)
+> +{
+> +	vq_callback_t **callbacks;
+> +	struct virtqueue **vqs;
+> +	int i, err = -ENOMEM;
+> +	int totalvqs;
+> +	char **names;
+
+This whole routine is really messy.  How about doing find_vqs first,
+then have routines like setup_rxq(), setup_txq() and setup_controlq()
+would make this neater:
+
+        static int setup_rxq(struct send_queue *sq, char *name);
+
+Also, use kasprintf() instead of kmalloc & sprintf.
+
+> +#if 1
+> +	/* Allocate/initialize parameters for recv/send virtqueues */
+
+Why is this #if 1'd?
+
+I do prefer the #else method of doing two loops, myself (but use
+kasprintf).
+
+Cheers,
+Rusty.
