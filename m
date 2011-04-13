@@ -1,62 +1,53 @@
-From: Amit Virdi <amit.virdi@st.com>
-Subject: Testing IRDA device driver
-Date: Wed, 13 Apr 2011 12:10:20 +0530
-Message-ID: <4DA54554.7020500@st.com>
+From: Cyril =?utf-8?q?Bont=C3=A9?= <cyril.bonte@free.fr>
+Subject: Re: [Bugme-new] [Bug 32832] New: shutdown(2) does not fully shut down socket any more
+Date: Wed, 13 Apr 2011 09:06:19 +0200
+Message-ID: <201104130906.19882.cyril.bonte@free.fr>
+References: <bug-32832-10286@https.bugzilla.kernel.org/> <20110412.161744.27803776.davem@davemloft.net> <1302663327.2811.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, kees@outflux.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:58053 "EHLO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751998Ab1DMGkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 02:40:37 -0400
-Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 23CFEC0
-	for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 06:40:23 +0000 (GMT)
-Received: from Webmail-ap.st.com (eapex1hubcas2.st.com [10.80.176.10])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id C21178F8
-	for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 06:40:23 +0000 (GMT)
+Received: from smtp5-g21.free.fr ([212.27.42.5]:45153 "EHLO smtp5-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756156Ab1DMHGb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 03:06:31 -0400
+In-Reply-To: <1302663327.2811.55.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Le mercredi 13 avril 2011 04:55:27, Eric Dumazet a =C3=A9crit :
+> I worked on it this week end to discover FreeBSD 8.1 would not allow
+> several CLOSE sockets bound to same port even with REUSEADDR.
 
-For the past few days I've been trying to test a driver that I've 
-written for DICE Fast IrDA controller. As per my requirements, I need to 
-use IrCOMM as the upper layer.
+Just to complete the information, yes it does, but only after a shutdow=
+n()=20
+call. And this is the use case of haproxy, amavisd (quoted in the bugzi=
+lla bug=20
+report), and others.
 
-I'm using the same kernel image on the both the boards. When I run 
-irattach on either of the boards I can see discovery protocol being 
-initiated and completing successfully (cat /proc/net/irda/discovery 
-giving output with other ends's device's MAC address as the daddr) but 
-I'm struggling to test the driver further.
+> So haproxy claim is a bit wrong (its trick doesnt work on FreeBSD), a=
+nd
+> used an undocumented linux feature.
 
-I've observed that the discovery request/response sequence goes on for 5 
-minutes. After this, the discovery process stops. On the master side, I 
-could see no IrLAP frame being sent/received and also the output of cat 
-/proc/net/irda/discovery is NULL. However, on the slave side, the cat 
-/proc/net/irda/discovery output shows the master side!!
+Both test cases (the one I provided to explain the haproxy issue and th=
+e one=20
+provided by Kees) are not about binding 2 sockets at the same time but =
+binding=20
+a new socket after the first one has been shutdown.
+Sadly this also looks undocumented on FreeBSD (only saw a reference on =
+it in a=20
+code comment).
 
-If I run irattach on the slave side also, no DISCOVERY message is 
-exchanged and then, the output of slave side also doesn't show anything.
+> Since SO_REUSEPORT is not a 'stable fix', I suggest we revert the pat=
+ch,
+> and eventually work on SO_REUSEPORT on net-next-2.6
+>=20
+> What do you think ?
 
-Sometimes, I start getting log "IrLAP, no activity on link!" and then 
-ircomm_close() API is called from within the stack.
+Agree.
 
-If, I try to run getty on /dev/ircomm0, it does not work!
-
-If I try to transfer data using
-	echo "1234567890" > /dev/ircomm0
-on the master side, and
-	cat /dev/ircomm0
-on the slave side, I can see SNRM command, UA response, RR command, 
-IrLMP connect/disconnect etc. However, the data transfer actually didn't 
-happen. I cannot see the string "1234567890" on the slave side.
-
-Please suggest what I'm missing/doing wrong. I need to transfer data 
-from one device to another to complete the testing. I shall be very much 
-thankful for suggestions/advice.
-
-Thanks n Regards
-Amit Virdi
+Many thanks for the time you already spent on that.
