@@ -1,63 +1,63 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: Remove not used blink_led_start/stop code
-Date: Tue, 12 Apr 2011 17:29:37 -0700
-Message-ID: <1302654577.2950.60.camel@jtkirshe-MOBL1>
-References: <4DA4E016.1050800@kernel.org>  <4DA4E099.2080206@kernel.org>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-2.6 1/2] net: Disable all TSO features when SG is
+ disabled
+Date: Wed, 13 Apr 2011 01:38:37 +0100
+Message-ID: <1302655117.2880.33.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-PnsSFzGbZ2MXXDllRomC"
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	NetDev <netdev@vger.kernel.org>
-To: Yinghai Lu <yinghai@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54058 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751847Ab1DMA3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 20:29:48 -0400
-In-Reply-To: <4DA4E099.2080206@kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:16423 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757475Ab1DMAik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 20:38:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The feature flags NETIF_F_TSO and NETIF_F_TSO6 independently enable
+TSO for IPv4 and IPv6 respectively.  However, the test in
+netdev_fix_features() and its predecessor functions was never updated
+to check for NETIF_F_TSO6, possibly because it was originally proposed
+that TSO for IPv6 would be dependent on both feature flags.
 
---=-PnsSFzGbZ2MXXDllRomC
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Now that these feature flags can be changed independently from
+user-space and we depend on netdev_fix_features() to fix invalid
+feature combinations, it's important to disable them both if
+scatter-gather is disabled.  Also disable NETIF_F_TSO_ECN so
+user-space sees all TSO features as disabled.
 
-On Tue, 2011-04-12 at 16:30 -0700, Yinghai Lu wrote:
-> There is no user for those code.
->=20
-> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
->=20
-> ---
->  drivers/net/ixgbe/ixgbe_82598.c  |    2 -
->  drivers/net/ixgbe/ixgbe_82599.c  |    2 -
->  drivers/net/ixgbe/ixgbe_common.c |   56
-> ---------------------------------------
->  drivers/net/ixgbe/ixgbe_common.h |    2 -
->  drivers/net/ixgbe/ixgbe_type.h   |    2 -
->  drivers/net/ixgbe/ixgbe_x540.c   |    2 -
->  6 files changed, 66 deletions(-)=20
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/core/dev.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Thanks for the patch, I have added the patch to my queue of ixgbe
-patches.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 956d3b0..6401fb5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5203,9 +5203,9 @@ u32 netdev_fix_features(struct net_device *dev, u32 features)
+ 	}
+ 
+ 	/* TSO requires that SG is present as well. */
+-	if ((features & NETIF_F_TSO) && !(features & NETIF_F_SG)) {
+-		netdev_info(dev, "Dropping NETIF_F_TSO since no SG feature.\n");
+-		features &= ~NETIF_F_TSO;
++	if ((features & NETIF_F_ALL_TSO) && !(features & NETIF_F_SG)) {
++		netdev_info(dev, "Dropping TSO features since no SG feature.\n");
++		features &= ~NETIF_F_ALL_TSO;
+ 	}
+ 
+ 	/* Software GSO depends on SG. */
+-- 
+1.7.4
 
---=-PnsSFzGbZ2MXXDllRomC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEcBAABAgAGBQJNpO5xAAoJECTsCADr/EWU1EcH+wQDXX/rWjdV/2ldXG+XhzgJ
-9dDz5CD/mClnC5EfLL0PiqD6AXThCyWN3JUiT7Vt0Zh2Jg57rlTkoacBQFAFNTBc
-7yvA+rqZdy6S7W1UNjtY/k4Gltj+nIj2hb1UrLLcdKdsxp7BYofSi9pEln6eqCcW
-VvilKtsLjHJX5hLDIYrqd6LL6J26NdPntLtwhMAw5v9xTs9Hv7wBDUgSYSXpS/SF
-OpfZy3aW7h6Ft9kxom1m/rMWSGp6e/eKH/+U8ITu1FXG2wj+uAok6kr8Ll/mmByr
-J3Zrgefgc6HpRYLgV0R8bhXBDO7Wc3s4scLqNyWuh6gmjkUEnaDUtOhCj6H516Y=
-=XLWA
------END PGP SIGNATURE-----
-
---=-PnsSFzGbZ2MXXDllRomC--
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
