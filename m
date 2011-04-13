@@ -1,43 +1,53 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: Re: [PATCH v4] net: bnx2x: convert to hw_features
-Date: Wed, 13 Apr 2011 12:36:44 +0300
-Message-ID: <1302687404.6750.129.camel@lb-tlvb-vladz>
-References: <20110411202630.C079D13909@rere.qmqm.pl>
- <1302610228.32697.298.camel@lb-tlvb-vladz>
- <20110412140708.GA21835@rere.qmqm.pl>
- <1302619012.6750.8.camel@lb-tlvb-vladz>
- <20110412144940.GA26043@rere.qmqm.pl>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCHv4 NEXT 1/1] net: ethtool support to configure number of
+ channels
+Date: Wed, 13 Apr 2011 04:45:11 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD1384031@MNEXMB2.qlogic.org>
+References: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3365 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757966Ab1DMJg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 05:36:58 -0400
-In-Reply-To: <20110412144940.GA26043@rere.qmqm.pl>
+Received: from ch1outboundpool.messaging.microsoft.com ([216.32.181.182]:38730
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754573Ab1DMJqZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 05:46:25 -0400
+In-Reply-To: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> Ethtool support to configure RX, TX and other channels. combined field
+> in struct ethtool_channels to reflect set of channel (RX, TX or other).
+> Other channel can be link interrupts, SR-IOV coordination etc.
+>
+> ETHTOOL_GCHANNELS will report max and current number of RX channels,
+> max and current number of TX channels, max and current number of other
+> channel
+> or max and current number of combined channel.
+>
+> Number of channel can be modify upto max number of channel through
+> ETHTOOL_SCHANNELS command.
+>
+> Ben Hutchings:
+> o define 'combined' and 'other' types.  Most multiqueue drivers pair up
+> RX and TX
+>   queues so that most channels combine RX and TX work.
+> o Please could you use a kernel-doc comment to describe the structure.
+>
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-> Hmm. I thought one, and wrote another.
-> 
-> Since bnx2x_parity_recover() runs with rtnl_lock(), as should
-> netdev_update_features(), then in case the recovery is in progress
-> it should be enough to not call bnx2x_reload_if_running() then
-> and just change the flags --- changes will be picked up on bnx2x_nic_load()
-> after recovery is complete. This removes the need for netdev_update_features()
-> calls.
-> 
+Neither I see this patch in http://patchwork.ozlabs.org/project/netdev/list/ nor any comment.
+Just curious, is this patch discarded along with my other garbage patches ?
 
-Ok. I see what u meant in v5... ;) 
-The patch is great. Thanks for your work. There are some enhancements
-following your patch that I have in mind that I'll submit later.
+-Amit
 
-thanks again, Michal.
 
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
