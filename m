@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ipv6: ignore looped-back NA while dad is running
-Date: Wed, 13 Apr 2011 14:30:59 -0700 (PDT)
-Message-ID: <20110413.143059.242138576.davem@davemloft.net>
-References: <1302706963.8923.25.camel@localhost>
+From: ANDY KENNEDY <ANDY.KENNEDY@adtran.com>
+Subject: RE: SMSC 8720a/MDIO/PHY help.
+Date: Wed, 13 Apr 2011 16:38:40 -0500
+Message-ID: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8D4@EXV1.corp.adtran.com>
+References: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E632@EXV1.corp.adtran.com> <1302729564.2742.28.camel@malcolm>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: dwalter@barracuda.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1302706963.8923.25.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <michael@riesch.at>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p02c12o142.mxlogic.net ([208.65.145.75]:36812 "EHLO
+	p02c12o142.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932906Ab1DMVik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 17:38:40 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <1302729564.2742.28.camel@malcolm>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Walter <dwalter@barracuda.com>
-Date: Wed, 13 Apr 2011 17:02:43 +0200
-
-> This message and any attached files are confidential and intended
-> solely for the addressee(s). Any publication, transmission or other
-> use of the information by a person or entity other than the intended
-> addressee is prohibited. If you receive this in error please contact
-> the sender and delete the material. The sender does not accept
-> liability for any errors or omissions as a result of the
-> transmission.
-
-I'm not applying patches that have legal disclaimers like this.
-
-It has no place in a posting made on a public mailing list where open
-and unrestricted discussions are essential.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNaWNoYWVsIFJpZXNjaCBbbWFp
+bHRvOm1pY2hhZWxAcmllc2NoLmF0XQ0KPiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDEzLCAyMDEx
+IDQ6MTkgUE0NCj4gVG86IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IEFORFkgS0VOTkVE
+WQ0KPiBTdWJqZWN0OiBSZTogU01TQyA4NzIwYS9NRElPL1BIWSBoZWxwLg0KPiANCj4gDQo+ID4g
+SWYgeW91IGhhdmUgYW4gaWRlYSBvZiBzb21ldGhpbmcgZm9yIG1lIHRvIHRyeSwgSSdkIGxvdmUg
+dG8NCj4gZW50ZXJ0YWluDQo+ID4gaXQuDQo+IA0KPiBJIGFtIHJhdGhlciBuZXcgdG8gUEhZTElC
+LCBidXQgdGhlc2UgYXJlIG15IGlkZWFzOg0KPiANCj4gIDEpIG1ha2Ugc3VyZSBwaHlfY29ubmVj
+dCBpcyBleGVjdXRlZCAoQUZJQUsgY2FsbGVkIGJ5IE1ESU8gYnVzDQo+IGRyaXZlcikNCg0KR29p
+bmcgdGhyb3VnaCB0aGUgcGh5LnR4dCBkb2MgdW5kZXIgRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5n
+Og0KUEhZIEFic3RyYWN0aW9uIExheWVyDQooVXBkYXRlZCAyMDA4LTA0LTA4KQ0KdGhvdWdoIGl0
+IG1heSBiZSBhIGJpdCBvdXQtb2YtZGF0ZSwgSSBkaWQgc2VlIHdoYXQgeW91IGFyZSB0YWxraW5n
+IGFib3V0LiAgV2hhdCBJJ20gaHVuZyB1cCBvbiBhdCB0aGUgbW9tZW50IGlzIHRoZSBiZWhhdmlv
+ciBvZiBhZGp1c3RfbGluaygpLiAgSXQgYXBwZWFycyB0aGF0IEkgb25seSBuZWVkIHRvIHN0YXJ0
+IHRoZSBxdWV1ZXMsIHRob3VnaCBJIGRvbuKAmXQga25vdy4NCg0KPiANCj4gIDIpIG1heWJlIHlv
+dSBuZWVkIHRvIGNhbGwgcGh5X3N0YXJ0IC8gcGh5X3N0b3AgKEFGQUlLIGZyb20gdGhlIFBIWQ0K
+PiBkcml2ZXIncyBvcGVuIC8gY2xvc2UgZnVuY3Rpb24pDQoNCkN1cnJlbnRseSwgd2hlbiBJIGRv
+IHRoaXMgSSBvbmx5IGdldCB0aGUgY2FsbCB0byBhZGp1c3RfbGluaygpIG92ZXIgYW5kIG92ZXIg
+YWdhaW4uDQoNCj4gDQo+IEhUSCwNCj4gTWljaGFlbA0KDQpUaGFua3MgZm9yIHRoZSBoZWxwIQ0K
+DQpBbmR5DQo=
