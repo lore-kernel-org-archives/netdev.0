@@ -1,49 +1,50 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] sctp: fix oops while removed transport still using as retran
- path
-Date: Wed, 13 Apr 2011 09:22:22 +0800
-Message-ID: <4DA4FACE.5060706@cn.fujitsu.com>
-References: <4DA4FA70.50506@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: Re: [PATCH net-next-2.6 v3 2/3] sctp: Add ASCONF operation on the single-homed host
+Date: Wed, 13 Apr 2011 10:32:27 +0900
+Message-ID: <204CE840-C282-4B12-8015-37AD00386133@sfc.wide.ad.jp>
+References: <02627A77-8793-4EEC-9540-F2DECBB8E23A@sfc.wide.ad.jp> <4DA4F8F9.2030302@cn.fujitsu.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lksctp <linux-sctp@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62954 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932099Ab1DMBWL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2011 21:22:11 -0400
-In-Reply-To: <4DA4FA70.50506@cn.fujitsu.com>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:60166 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932737Ab1DMBcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 21:32:32 -0400
+In-Reply-To: <4DA4F8F9.2030302@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we can not update retran path to unconfirmed transports,
-when we remove a peer, the retran path may not be update if the
-other transports are all unconfirmed, and we will still using
-the removed transport as the retran path. This may cause panic
-if retrasnmit happen.
+Hi, 
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/sctp/associola.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+>> 
+>> 
+>> 	if (t)
+>> 		asoc->peer.retran_path = t;
+>> +	else if (unconfirmed)
+>> +		asoc->peer.retran_path = t = unconfirmed;
+>> 
+>> 	SCTP_DEBUG_PRINTK_IPADDR("sctp_assoc_update_retran_path:association"
+>> 				 " %p addr: "
+> 
+> since we can not select unconfirmed transports for retransmission,
+> this part is not correct. the specification forbids this due to security
+> issues.
+> Not sure whether you hit this bug: remove transport and left only
+> one unconfirmed transport, it may cause oops while retransmit.
+> I will send other patch to fix it first.
+Yes, I added these 2 lines to avoid panic, I'll remove after your patch.  
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 922fdd7..1a21c57 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -569,6 +569,8 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
- 		sctp_assoc_set_primary(asoc, transport);
- 	if (asoc->peer.active_path == peer)
- 		asoc->peer.active_path = transport;
-+	if (asoc->peer.retran_path == peer)
-+		asoc->peer.retran_path = transport;
- 	if (asoc->peer.last_data_from == peer)
- 		asoc->peer.last_data_from = transport;
- 
--- 
-1.6.5.2
-
+Thanks,
+- Michio
+> 
+> 
+> ...snip...
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
