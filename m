@@ -1,51 +1,39 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso
- packet
-Date: Wed, 13 Apr 2011 07:03:07 -0700
-Message-ID: <20110413140307.GA7426@kroah.com>
-References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
- <1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
- <20110412.135522.71113479.davem@davemloft.net>
- <99737F4847ED0A48AECC9F4A1974A4B80FD1383FAC@MNEXMB2.qlogic.org>
- <20110413034228.GA852@kroah.com>
- <99737F4847ED0A48AECC9F4A1974A4B80FD1383FDF@MNEXMB2.qlogic.org>
+From: Jeff Mahoney <jeffm@suse.com>
+Subject: [PATCH] mpc5xxx_can: Fix typo causing build failure (of_dev -> ofdev)
+Date: Wed, 13 Apr 2011 10:57:03 -0400
+Message-ID: <4DA5B9BF.2010809@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	"stable@kernel.org" <stable@kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>
-To: Amit Salecha <amit.salecha@qlogic.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>
+To: Grant Likely <grant.likely@secretlab.ca>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:59647 "EHLO coco.kroah.org"
+Received: from cantor.suse.de ([195.135.220.2]:36058 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755829Ab1DMOIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 10:08:19 -0400
-Content-Disposition: inline
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD1383FDF@MNEXMB2.qlogic.org>
+	id S1757163Ab1DMO5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 10:57:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 13, 2011 at 12:56:56AM -0500, Amit Salecha wrote:
-> > On Tue, Apr 12, 2011 at 09:01:13PM -0500, Amit Salecha wrote:
-> > >
-> > > This message and any attached documents contain information from
-> > QLogic Corporation or its wholly-owned subsidiaries that may be
-> > confidential. If you are not the intended recipient, you may not read,
-> > copy, distribute, or use this information. If you have received this
-> > transmission in error, please notify the sender immediately by reply e-
-> > mail and then delete this message.
-> >
-> > I have received this transmission in error.
-> >
-> > Please remove this from your footer, otherwise we can not accept any
-> > emails sent from you as actually being allowed to contribute to the
-> > kernel properly :(
-> >
-> I have send version two of this patch, that doesn't have this footer.
-> Please discard this one.
-> 
-> This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+ The variable is named ofdev, not of_dev.
 
-Your footer is still present, please fix this.
+Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+---
+ drivers/net/can/mscan/mpc5xxx_can.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/can/mscan/mpc5xxx_can.c
++++ b/drivers/net/can/mscan/mpc5xxx_can.c
+@@ -260,7 +260,7 @@ static int __devinit mpc5xxx_can_probe(s
+ 
+ 	if (!ofdev->dev.of_match)
+ 		return -EINVAL;
+-	data = (struct mpc5xxx_can_data *)of_dev->dev.of_match->data;
++	data = (struct mpc5xxx_can_data *)ofdev->dev.of_match->data;
+ 
+ 	base = of_iomap(np, 0);
+ 	if (!base) {
+-- 
+Jeff Mahoney
+SUSE Labs
