@@ -1,47 +1,40 @@
-From: Bruce Allan <bruce.w.allan@intel.com>
-Subject: [net-next-2.6 RFC PATCH v2 13/13] tg3: set ethtool set_phys_id on/off
-	cycle frequency to 1/sec
-Date: Wed, 13 Apr 2011 12:59:54 -0700
-Message-ID: <20110413195954.25901.31005.stgit@gitlad.jf.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 RFC PATCH v2 00/13] ethtool: allow custom
+ interval for
+Date: Wed, 13 Apr 2011 21:11:04 +0100
+Message-ID: <1302725464.2873.7.camel@bwh-desktop>
 References: <20110413195146.25901.72193.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Bruce Allan <bruce.w.allan@intel.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Bruce Allan <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:18291 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758470Ab1DMUAB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 16:00:01 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:47508 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757443Ab1DMULH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 16:11:07 -0400
 In-Reply-To: <20110413195146.25901.72193.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Physical identification frequency based on how it was done prior to the
-introduction of set_phys_id.  Compile tested only.
+On Wed, 2011-04-13 at 12:58 -0700, Bruce Allan wrote:
+> physical identification
+> 
+> The following series changes the recently added ethtool set_phys_id
+> functions to allow drivers to provide a frequency at which to cycle
+> through an on/off identifier via software if/when the capability is
+> not provided by hardware.
+[...]
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Cc: Matt Carlson <mcarlson@broadcom.com>
-Cc: Michael Chan <mchan@broadcom.com>
----
+The first patch leaves all the drivers broken temporarily.  Since the
+change in each driver is trivial, I think you can squash this all into
+one patch.
 
- drivers/net/tg3.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Ben.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 9d7defc..7c1a9dd 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -10292,7 +10292,7 @@ static int tg3_set_phys_id(struct net_device *dev,
- 
- 	switch (state) {
- 	case ETHTOOL_ID_ACTIVE:
--		return -EINVAL;
-+		return 1;	/* cycle on/off once per second */
- 
- 	case ETHTOOL_ID_ON:
- 		tw32(MAC_LED_CTRL, LED_CTRL_LNKLED_OVERRIDE |
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
