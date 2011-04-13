@@ -1,97 +1,57 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: Re: [PATCH] net: ipv4: add IPPROTO_ICMP socket kind
-Date: Wed, 13 Apr 2011 15:32:04 +0400
-Message-ID: <20110413113204.GB6948@albatros>
-References: <BANLkTi=ogJg_uJqsJFpnwnnr6LS+SFT3Vg@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch] iwlwifi: remove obsoleted module alias and parameters
+Date: Wed, 13 Apr 2011 19:53:47 +0800
+Message-ID: <4DA58ECB.9060602@redhat.com>
+References: <1302083382-6715-1-git-send-email-amwang@redhat.com> <1302084582.3811.9.camel@jlt3.sipsolutions.net> <4D9C43A8.5060500@redhat.com> <20110406125728.GA2197@redhat.com> <20110412204941.GD24309@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>,
-	Solar Designer <solar@openwall.com>,
-	Kees Cook <kees.cook@canonical.com>,
-	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
-	Eugene Teo <eugene@redhat.com>,
-	Nelson Elhage <nelhage@ksplice.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Pekka Savola <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTi=ogJg_uJqsJFpnwnnr6LS+SFT3Vg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Meenakshi Venkataraman <meenakshi.venkataraman@intel.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29804 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750851Ab1DMLyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 07:54:15 -0400
+In-Reply-To: <20110412204941.GD24309@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 13, 2011 at 13:29 +0300, Alexey Dobriyan wrote:
-> On Sat, Apr 9, 2011 at 1:15 PM, Vasiliy Kulikov <segoon@openwall.com>=
- wrote:
-> > This patch adds IPPROTO_ICMP socket kind.
->=20
-> > + =A0 =A0 =A0 seq_printf(f, "%5d: %08X:%04X %08X:%04X"
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 " %02X %08X:%08X %02X:%08lX %08X %5d =
-%8d %lu %d %p %d%n",
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bucket, src, srcp, dest, destp, sp->s=
-k_state,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_wmem_alloc_get(sp),
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_rmem_alloc_get(sp),
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 0, 0L, 0, sock_i_uid(sp), 0, sock_i_i=
-no(sp),
->=20
-> These zeroes can be embedded into format string for slightly faster p=
-rinting.
+=E4=BA=8E 2011=E5=B9=B404=E6=9C=8813=E6=97=A5 04:49, John W. Linville =E5=
+=86=99=E9=81=93:
+> On Wed, Apr 06, 2011 at 02:57:29PM +0200, Stanislaw Gruszka wrote:
+>> On Wed, Apr 06, 2011 at 06:42:48PM +0800, Cong Wang wrote:
+>>> =E4=BA=8E 2011=E5=B9=B404=E6=9C=8806=E6=97=A5 18:09, Johannes Berg =
+=E5=86=99=E9=81=93:
+>>>> On Wed, 2011-04-06 at 17:49 +0800, Amerigo Wang wrote:
+>>>>> As scheduled in Documentation/feature-removal-schedule.txt,
+>>>>> remove "*50", "disable_hw_scan" module parameters and MODULE_ALIA=
+S("iwl4965").
+>>>>
+>>>> Mostly fine, but for iwlegacy Stanislaw we want to keep hw scan (a=
+nd it
+>>>> was actually made default now)
+>>
+>> Indeed, disable_hw_scan should be removed in iwlwifi but leaved in i=
+wlegacy.
+>>
+>>> Ok, I will wait for Stanislaw's response and then send an updated p=
+atch.
+>>
+>> Have it now :-)
+>
+> Ping?
+>
 
-Is it really needed?  I mean, it is not a fast path, so such a small
-overhead is not very bad.  But embedding them into the string makes it =
-a
-bit more difficult to read.
+Huh?
 
-> > +static const struct file_operations ping_seq_fops =3D {
-> > + =A0 =A0 =A0 .owner =A0 =A0 =A0 =A0 =A0=3D THIS_MODULE,
->=20
-> Unnecessary line.
-> ->owner is unused for proc files, this is not documented anywhere, bu=
-t
-> it's unused.
-
-OK.
-
-> > +static const char ping_proc_name[] =3D "icmp";
->=20
-> Ewww :-)
-> Does not compiler create only one string?
-
-I used it for better readability as it is used 2 times.
-
-> > + =A0 =A0 =A0 p =3D proc_create_data(ping_proc_name, S_IRUGO, net->=
-proc_net,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0&ping_seq_=
-fops, NULL);
->=20
-> There is proc_net_fops_create().
-
-OK.
-
-> > +#ifdef CONFIG_IP_PING
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 table[7].data =3D
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 &net->ipv4.sysctl_pin=
-g_group_range;
-> > +#endif
->=20
-> Now I understand it's not related, but next sysctl will have
-> "table[8].data =3D ..." line which is off-by-one if CONFIG_IP_PING=3D=
-n.
-
-Agreed that hardcoded indexes look a bit ugly, especially with
-configurable elements.  But as Dave suggested to completely remove
-CONFIG_IP_PING, it doesn't make sense now.
-
-Thank you,
-
---=20
-Vasiliy Kulikov
-http://www.openwall.com - bringing security into open computing environ=
-ments
+The same patch from Wey-yi was merged as commit#7eaa6a5e964f1ab02d849bd=
+a36950c0d30be8ce2,
+no?
