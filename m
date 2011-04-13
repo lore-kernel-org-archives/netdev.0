@@ -1,34 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6] if_vlan.h: fix compile errors
-Date: Wed, 13 Apr 2011 10:46:28 -0700 (PDT)
-Message-ID: <20110413.104628.104038499.davem@davemloft.net>
-References: <1302690737-14524-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110413105758.GA2910@psychotron.orion>
-	<BANLkTimn2GfWs3tmoh+GRX6vX6tH9FpEyg@mail.gmail.com>
+From: =?utf-8?B?RnJhbsOnb2lz?= Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 doesn't report link state correctly.
+Date: Wed, 13 Apr 2011 19:48:15 +0200
+Message-ID: <20110413174815.GB17579@electric-eye.fr.zoreil.com>
+References: <4DA35FEF.1030009@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55622
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751138Ab1DMRrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 13:47:04 -0400
-In-Reply-To: <BANLkTimn2GfWs3tmoh+GRX6vX6tH9FpEyg@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57174 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754206Ab1DMRzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 13:55:50 -0400
+Content-Disposition: inline
+In-Reply-To: <4DA35FEF.1030009@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 13 Apr 2011 04:03:57 -0700
+On Mon, Apr 11, 2011 at 01:09:19PM -0700, Ben Greear wrote:
+> I notice that in kernel 2.6.38-wl, the realtek 8169 NIC doesn't
+> report link down when in fact there is no cable connected.  Instead,
+> it shows 10Mbps half-duplex.  I have no idea if this previously worked
+> or not.
 
-> On Wed, Apr 13, 2011 at 03:57, Jiri Pirko <jpirko@redhat.com> wrote:
->> Thanks Jeff, this fix was already submitted by DaveM
-> 
-> Ah, ok.  I did not see anything in netdev patchworks and I did a
-> recent pull of Dave's net-next tree so I knew I had the latest.
-> Good to know it was caught, thanks Jiri.
+Thanks for the report. I'll try it tomorrow or friday.
 
-Sorry, forgot to push before going to bed :-/
-
-It's there now.
+-- 
+Ueimor
