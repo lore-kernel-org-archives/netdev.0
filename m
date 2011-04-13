@@ -1,147 +1,68 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/4] [RFC rev2] virtio-net changes
-Date: Wed, 13 Apr 2011 10:58:02 +0930
-Message-ID: <878vvf0wkd.fsf@rustcorp.com.au>
-References: <20110405150826.20501.39679.sendpatchset@krkumar2.in.ibm.com> <20110405150852.20501.10500.sendpatchset@krkumar2.in.ibm.com>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso packet
+Date: Tue, 12 Apr 2011 21:01:13 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD1383FAC@MNEXMB2.qlogic.org>
+References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
+	<1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
+ <20110412.135522.71113479.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
-	horms@verge.net.au, avi@redhat.com, anthony@codemonkey.ws,
-	kvm@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
-To: Krishna Kumar <krkumar2@in.ibm.com>, davem@davemloft.net,
-	mst@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110405150852.20501.10500.sendpatchset@krkumar2.in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	"stable@kernel.org" <stable@kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:58357
+	"EHLO AM1EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932735Ab1DMCBY convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 22:01:24 -0400
+In-Reply-To: <20110412.135522.71113479.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 05 Apr 2011 20:38:52 +0530, Krishna Kumar <krkumar2@in.ibm.com> wrote:
-> Implement mq virtio-net driver. 
-> 
-> Though struct virtio_net_config changes, it works with the old
-> qemu since the last element is not accessed unless qemu sets
-> VIRTIO_NET_F_MULTIQUEUE.
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> Date: Tue, 12 Apr 2011 00:19:41 -0700
+>
+> > <<< No Message Collected >>>
+>
+> Can you PLEASE fix your email.
+>
+> PLEASE?
+>
+> Yesterday you spammed us all, and today you've sent three postings
+> with this subject line.
+>
+> 1) One with the patch, and the proper set of CC:'s (myself, other
+>    qlogic engineers, netdev, and stable)
+>
+> 2) One with the patch, and a too short CC: list (only netdev and
+>    stable)
+>
+> 3) And now this email with no actual content and a weird message.
+>
+> I really can't spend my afternoons sifting through the emails that
+> spam from qlogic, trying to figure out which ones I should pay
+> attention to for review, and which ones are spam.
+>
+> Please resend properly any patches you actually want me to pay
+> attention to.
+>
+> If you cannot make sure at this time that the patches will be sent
+> without incident, sit on them until you can.
+>
+> Thank you.
 
-Hi Krishna!
+Sorry for all this. Yesterday, 1st patch got send to all other than netdev mailing list.
+So I resend that to netdev mailing list. I didn't cc all other, as they will receive duplicate email.
+In all these header patch got corrupted. Our IT is working on it and soon will resolve all these problem.
+I will resend patch with version 2.
 
-    This change looks fairly solid, but I'd prefer it split into a few
-stages for clarity.
+-Amit
 
-The first patch should extract out the struct send_queue and struct
-receive_queue, even though there's still only one.  The second patch
-can then introduce VIRTIO_NET_F_MULTIQUEUE.
 
-You could split into more parts if that makes sense, but I'd prefer to
-see the mechanical changes separate from the feature addition.
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
-> -struct virtnet_info {
-> -	struct virtio_device *vdev;
-> -	struct virtqueue *rvq, *svq, *cvq;
-> -	struct net_device *dev;
-> +/* Internal representation of a send virtqueue */
-> +struct send_queue {
-> +	/* Virtqueue associated with this send _queue */
-> +	struct virtqueue *svq;
-
-You can simply call this vq now it's inside 'send_queue'.
-
-> +
-> +	/* TX: fragments + linear part + virtio header */
-> +	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
-
-Similarly, this can just be sg.
-
-> +static void free_receive_bufs(struct virtnet_info *vi)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < vi->numtxqs; i++) {
-> +		BUG_ON(vi->rq[i] == NULL);
-> +		while (vi->rq[i]->pages)
-> +			__free_pages(get_a_page(vi->rq[i], GFP_KERNEL), 0);
-> +	}
-> +}
-
-You can skip the BUG_ON(), since the next line will have the same effect.
-
-> +/* Free memory allocated for send and receive queues */
-> +static void free_rq_sq(struct virtnet_info *vi)
-> +{
-> +	int i;
-> +
-> +	if (vi->rq) {
-> +		for (i = 0; i < vi->numtxqs; i++)
-> +			kfree(vi->rq[i]);
-> +		kfree(vi->rq);
-> +	}
-> +
-> +	if (vi->sq) {
-> +		for (i = 0; i < vi->numtxqs; i++)
-> +			kfree(vi->sq[i]);
-> +		kfree(vi->sq);
-> +	}
-
-This looks weird, even though it's correct.
-
-I think we need a better name than numtxqs and shorter than
-num_queue_pairs.  Let's just use num_queues; sure, there are both tx and
-rq queues, but I still think it's pretty clear.
-
-> +	for (i = 0; i < vi->numtxqs; i++) {
-> +		struct virtqueue *svq = vi->sq[i]->svq;
-> +
-> +		while (1) {
-> +			buf = virtqueue_detach_unused_buf(svq);
-> +			if (!buf)
-> +				break;
-> +			dev_kfree_skb(buf);
-> +		}
-> +	}
-
-I know this isn't your code, but it's ugly :)
-
-        while ((buf = virtqueue_detach_unused_buf(svq)) != NULL)
-                dev_kfree_skb(buf);
-
-> +	for (i = 0; i < vi->numtxqs; i++) {
-> +		struct virtqueue *rvq = vi->rq[i]->rvq;
-> +
-> +		while (1) {
-> +			buf = virtqueue_detach_unused_buf(rvq);
-> +			if (!buf)
-> +				break;
-
-Here too...
-
-> +#define MAX_DEVICE_NAME		16
-
-This isn't a good idea, see below.
-
-> +static int initialize_vqs(struct virtnet_info *vi, int numtxqs)
-> +{
-> +	vq_callback_t **callbacks;
-> +	struct virtqueue **vqs;
-> +	int i, err = -ENOMEM;
-> +	int totalvqs;
-> +	char **names;
-
-This whole routine is really messy.  How about doing find_vqs first,
-then have routines like setup_rxq(), setup_txq() and setup_controlq()
-would make this neater:
-
-        static int setup_rxq(struct send_queue *sq, char *name);
-
-Also, use kasprintf() instead of kmalloc & sprintf.
-
-> +#if 1
-> +	/* Allocate/initialize parameters for recv/send virtqueues */
-
-Why is this #if 1'd?
-
-I do prefer the #else method of doing two loops, myself (but use
-kasprintf).
-
-Cheers,
-Rusty.
