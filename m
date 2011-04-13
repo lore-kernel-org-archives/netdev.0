@@ -1,47 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 NEXT 1/1] net: ethtool support to configure number of
- channels
-Date: Wed, 13 Apr 2011 11:31:24 -0700 (PDT)
-Message-ID: <20110413.113124.59674252.davem@davemloft.net>
-References: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
-	<1302718921.2873.1.camel@bwh-desktop>
+Subject: Re: [PATCH] net: can: mscan: fix build breakage in mpc5xxx_can
+Date: Wed, 13 Apr 2011 11:33:49 -0700 (PDT)
+Message-ID: <20110413.113349.115927274.davem@davemloft.net>
+References: <1302688168-26862-1-git-send-email-agust@denx.de>
+	<4DA57F55.7080304@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amit.salecha@qlogic.com, netdev@vger.kernel.org,
-	ameen.rahman@qlogic.com, sucheta.chakraborty@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: bhutchings@solarflare.com
+Cc: agust@denx.de, netdev@vger.kernel.org, grant.likely@secretlab.ca
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53943
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55141
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756741Ab1DMScA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 14:32:00 -0400
-In-Reply-To: <1302718921.2873.1.camel@bwh-desktop>
+	by vger.kernel.org with ESMTP id S1756638Ab1DMSeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 14:34:25 -0400
+In-Reply-To: <4DA57F55.7080304@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 13 Apr 2011 19:22:01 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 13 Apr 2011 12:47:49 +0200
 
-> On Thu, 2011-04-07 at 04:58 -0700, Amit Kumar Salecha wrote:
->> Ethtool support to configure RX, TX and other channels. combined field
->> in struct ethtool_channels to reflect set of channel (RX, TX or other).
->> Other channel can be link interrupts, SR-IOV coordination etc.
+> On 04/13/2011 11:49 AM, Anatolij Gustschin wrote:
+>> Commit 74888760d40b3ac9054f9c5fa07b566c0676ba2d
+>> "dt/net: Eliminate users of of_platform_{,un}register_driver"
+>> broke building mscan driver. Fix it.
 >> 
->> ETHTOOL_GCHANNELS will report max and current number of RX channels,
->> max and current number of TX channels, max and current number of other channel
->> or max and current number of combined channel.
->> 
->> Number of channel can be modify upto max number of channel through
->> ETHTOOL_SCHANNELS command.
->> 
->> Ben Hutchings:
->> o define 'combined' and 'other' types.  Most multiqueue drivers pair up RX and TX
->>   queues so that most channels combine RX and TX work.
->> o Please could you use a kernel-doc comment to describe the structure.
->> 
->> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+>> Signed-off-by: Anatolij Gustschin <agust@denx.de>
+>> Cc: Grant Likely <grant.likely@secretlab.ca>
+> 
+> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-Applied, thanks everyone.
+I'll apply this to net-2.6, thanks everyone.
