@@ -1,85 +1,51 @@
-From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured
- incorrectly in fiber mode
-Date: Wed, 13 Apr 2011 13:01:10 -0500
-Message-ID: <BANLkTikH09jMZZk1ZgeQi+HOoeFqgTpdBA@mail.gmail.com>
-References: <4DA3703B.1090802@caviumnetworks.com>
-	<392488.26736.qm@web37606.mail.mud.yahoo.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv4 NEXT 1/1] net: ethtool support to configure number of
+ channels
+Date: Wed, 13 Apr 2011 19:22:01 +0100
+Message-ID: <1302718921.2873.1.camel@bwh-desktop>
+References: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Daney <ddaney@caviumnetworks.com>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Andy Fleming <afleming@freescale.com>
-To: Alex Dubov <oakad@yahoo.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, sucheta.chakraborty@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:52116 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752057Ab1DMSBK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 14:01:10 -0400
-Received: by pzk9 with SMTP id 9so308525pzk.19
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 11:01:10 -0700 (PDT)
-In-Reply-To: <392488.26736.qm@web37606.mail.mud.yahoo.com>
+Received: from mail.solarflare.com ([216.237.3.220]:38672 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755687Ab1DMSWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 14:22:05 -0400
+In-Reply-To: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2011 at 10:45 PM, Alex Dubov <oakad@yahoo.com> wrote:
->>
->> How does your u-boot configure the part?=A0 Does it
->> write any of the
->> configuration registers, or is it just the default
->> configuration set via
->> the strapping pins?
->
-> U-boot configures this phy just like any other phy - by running a set=
- of
-> register assignments from phy_info_M88E1145.
->
-> Unfortunately, I don't have a datasheet for this phy and kernel does
-> quite a few things differently, so simply copying stuff from u-boot
-> does not work well (in kernel, phy initialization is broken into 3
-> functions, if I'm not mistaken).
+On Thu, 2011-04-07 at 04:58 -0700, Amit Kumar Salecha wrote:
+> Ethtool support to configure RX, TX and other channels. combined field
+> in struct ethtool_channels to reflect set of channel (RX, TX or other).
+> Other channel can be link interrupts, SR-IOV coordination etc.
+> 
+> ETHTOOL_GCHANNELS will report max and current number of RX channels,
+> max and current number of TX channels, max and current number of other channel
+> or max and current number of combined channel.
+> 
+> Number of channel can be modify upto max number of channel through
+> ETHTOOL_SCHANNELS command.
+> 
+> Ben Hutchings:
+> o define 'combined' and 'other' types.  Most multiqueue drivers pair up RX and TX
+>   queues so that most channels combine RX and TX work.
+> o Please could you use a kernel-doc comment to describe the structure.
+> 
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-I've just rewritten the U-Boot code for PHY management, so I'd be
-interested in hearing if this breaks your board.  But what's
-interesting to me is that, in order for U-Boot to report that the link
-is a "fiber" link, something had to set the TSEC_FIBER flag, and only
-one PHY in the public source did.  This implies to me that your board
-isn't supported by mainline U-Boot, and suggests that someone may have
-modified the 88e1145 driver. Otherwise, I don't see any fiber-related
-differences between the U-Boot 1145 driver, and the Linux one.
+Sorry for the delay.
 
+Ben.
 
->
->
->>
->> In any event, you will probably have to read the
->> configuration before
->> the drivers/net/phy/marvel.c changes them.=A0 Then
->> compare that to what
->> the driver is trying to set.=A0 Then you will either
->> have to override the
->> configuration with the device tree "marvell,reg-init"
->> property, or if
->> you are not using the device tree, add a 88e1145 specific
->> flag that you
->> set when calling phy_connect().
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-
-Reading the configuration from U-Boot is straightforward.  use the
-"mii" command to read the registers.  But don't forget to set register
-22 (16 - mii command only reads hex) to 1, and read all of the
-registers that way, too.
-
-You will either need to add some code to detect when the PHY is using
-fiber, and change the phydev->port to PORT_FIBRE, or you will need to
-add a board-level "fixup" to change the port to PORT_FIBRE on your
-board.
-
-Then the PHY driver should use that information to do the right configu=
-ration.
-
-Andy
