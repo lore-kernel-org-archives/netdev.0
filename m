@@ -1,54 +1,134 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
-Date: Wed, 13 Apr 2011 06:49:28 +0200
-Message-ID: <20110413044928.GA289@kurt.e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	<20110314135917.GF333@e-circ.dyndns.org>
-	<4D8623BE.2080807@hartkopp.net>
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: [PATCHv2 net-next-2.6] rndis_host: Poll status before control
+ channel where necessary
+Date: Wed, 13 Apr 2011 05:55:23 +0100
+Message-ID: <1302670523.5282.610.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4D8623BE.2080807-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Mark Glassberg <vzeeaxwl-ubggFOsnOr3gwBMGfI3FeA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Oliver et.al.,
+Some RNDIS devices don't respond on the control channel until polled
+on the status channel.  In particular, this was reported to be the
+case for the 2Wire HomePortal 1000SW and for some Windows Mobile
+devices.
 
-On Sun, Mar 20, 2011 at 04:56:46PM +0100, Oliver Hartkopp wrote:
-> On 14.03.2011 14:59, Kurt Van Dijck wrote:
-> 
-> Then you suggest to attach static and/or dynamic addresses to the interface.
-> 
-> > +  Assigning addresses is done via
-> > +  $ ip addr add dev canX j1939 0xXX
-> > +  statically or
-> > +  $ ip addr add dev canX j1939 name 0xXX
-> > +  dynamically. In the latter case, address claiming must take place
-> > +  before other traffic can leave.
-> 
-> like you would have using DHCP/DNS (adapted for j1939) ...
-> 
-I suspect the confustion with DHCP/DNS comes free with the used terminology.
+This is roughly based on a patch by John Carr <john.carr-3P/l8hQepEe9FHfhHBbuYA@public.gmane.org>
+which is currently applied by Mandriva.
 
-Specifications talk about a 64bit NAME, where is actually is a 64bit UUID.
-Calling this number a UUID may clarify things, but leaves the spec in the
-terminology.
+Reported-by: Mark Glassberg <vzeeaxwl-ubggFOsnOr3gwBMGfI3FeA@public.gmane.org>
+Signed-off-by: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+---
+The first version made this behaviour unconditional and had to be
+reverted.  This version adds a quirk flag instead.
 
-one would then do:
-$ ip addr add dev canX j1939 uuid XXXX
+Ben.
 
-Would that be a good way to progress?
+ drivers/net/usb/rndis_host.c   |   39 ++++++++++++++++++++++++++++++++-------
+ include/linux/usb/rndis_host.h |    2 ++
+ 2 files changed, 34 insertions(+), 7 deletions(-)
 
-Kurt
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index 5994a25..6d6c1da 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -104,8 +104,10 @@ static void rndis_msg_indicate(struct usbnet *dev, struct rndis_indicate *msg,
+ int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int buflen)
+ {
+ 	struct cdc_state	*info = (void *) &dev->data;
++	struct usb_cdc_notification notification;
+ 	int			master_ifnum;
+ 	int			retval;
++	int			partial;
+ 	unsigned		count;
+ 	__le32			rsp;
+ 	u32			xid = 0, msg_len, request_id;
+@@ -133,13 +135,20 @@ int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int buflen)
+ 	if (unlikely(retval < 0 || xid == 0))
+ 		return retval;
+ 
+-	// FIXME Seems like some devices discard responses when
+-	// we time out and cancel our "get response" requests...
+-	// so, this is fragile.  Probably need to poll for status.
++	/* Some devices don't respond on the control channel until
++	 * polled on the status channel, so do that first. */
++	if (dev->driver_info->data & RNDIS_DRIVER_DATA_POLL_STATUS) {
++		retval = usb_interrupt_msg(
++			dev->udev,
++			usb_rcvintpipe(dev->udev,
++				       dev->status->desc.bEndpointAddress),
++			&notification, sizeof(notification), &partial,
++			RNDIS_CONTROL_TIMEOUT_MS);
++		if (unlikely(retval < 0))
++			return retval;
++	}
+ 
+-	/* ignore status endpoint, just poll the control channel;
+-	 * the request probably completed immediately
+-	 */
++	/* Poll the control channel; the request probably completed immediately */
+ 	rsp = buf->msg_type | RNDIS_MSG_COMPLETION;
+ 	for (count = 0; count < 10; count++) {
+ 		memset(buf, 0, CONTROL_BUFFER_SIZE);
+@@ -581,17 +590,33 @@ static const struct driver_info	rndis_info = {
+ 	.tx_fixup =	rndis_tx_fixup,
+ };
+ 
++static const struct driver_info	rndis_poll_status_info = {
++	.description =	"RNDIS device (poll status before control)",
++	.flags =	FLAG_ETHER | FLAG_FRAMING_RN | FLAG_NO_SETINT,
++	.data =		RNDIS_DRIVER_DATA_POLL_STATUS,
++	.bind =		rndis_bind,
++	.unbind =	rndis_unbind,
++	.status =	rndis_status,
++	.rx_fixup =	rndis_rx_fixup,
++	.tx_fixup =	rndis_tx_fixup,
++};
++
+ /*-------------------------------------------------------------------------*/
+ 
+ static const struct usb_device_id	products [] = {
+ {
++	/* 2Wire HomePortal 1000SW */
++	USB_DEVICE_AND_INTERFACE_INFO(0x1630, 0x0042,
++				      USB_CLASS_COMM, 2 /* ACM */, 0x0ff),
++	.driver_info = (unsigned long) &rndis_poll_status_info,
++}, {
+ 	/* RNDIS is MSFT's un-official variant of CDC ACM */
+ 	USB_INTERFACE_INFO(USB_CLASS_COMM, 2 /* ACM */, 0x0ff),
+ 	.driver_info = (unsigned long) &rndis_info,
+ }, {
+ 	/* "ActiveSync" is an undocumented variant of RNDIS, used in WM5 */
+ 	USB_INTERFACE_INFO(USB_CLASS_MISC, 1, 1),
+-	.driver_info = (unsigned long) &rndis_info,
++	.driver_info = (unsigned long) &rndis_poll_status_info,
+ }, {
+ 	/* RNDIS for tethering */
+ 	USB_INTERFACE_INFO(USB_CLASS_WIRELESS_CONTROLLER, 1, 3),
+diff --git a/include/linux/usb/rndis_host.h b/include/linux/usb/rndis_host.h
+index 05ef528..88fceb7 100644
+--- a/include/linux/usb/rndis_host.h
++++ b/include/linux/usb/rndis_host.h
+@@ -256,6 +256,8 @@ struct rndis_keepalive_c {	/* IN (optionally OUT) */
+ #define FLAG_RNDIS_PHYM_NOT_WIRELESS	0x0001
+ #define FLAG_RNDIS_PHYM_WIRELESS	0x0002
+ 
++/* Flags for driver_info::data */
++#define RNDIS_DRIVER_DATA_POLL_STATUS	1	/* poll status before control */
+ 
+ extern void rndis_status(struct usbnet *dev, struct urb *urb);
+ extern int
+-- 
+1.7.4.1
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
