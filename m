@@ -1,83 +1,33 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 3/5] tg3: Automatically size stat/test string
- arrays
-Date: Wed, 13 Apr 2011 14:05:06 -0700
-Message-ID: <1302728708-1797-4-git-send-email-mcarlson@broadcom.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [net-next-2.6 RFC PATCH v2 12/13] sky2: set ethtool set_phys_id
+ on/off cycle frequency to 1/sec
+Date: Wed, 13 Apr 2011 14:00:24 -0700
+Message-ID: <20110413140024.4d21950e@nehalam>
+References: <20110413195146.25901.72193.stgit@gitlad.jf.intel.com>
+	<20110413195949.25901.86878.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com,
-	"Benjamin Li" <benli@broadcom.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: Bruce Allan <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1671 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932851Ab1DMU4k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 16:56:40 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:37977 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932296Ab1DMVAq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 17:00:46 -0400
+In-Reply-To: <20110413195949.25901.86878.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reimplements the size preprocessor constants of the stats and
-ethtool test string arrays.  The size is calculated at compile time
-rather than using static constants.
+On Wed, 13 Apr 2011 12:59:49 -0700
+Bruce Allan <bruce.w.allan@intel.com> wrote:
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/tg3.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+> Physical identification frequency based on how it was done prior to the
+> introduction of set_phys_id.  Compile tested only.
+> 
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Cc: Stephen Hemminger <shemminger@linux-foundation.org>
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index b61b52f..9975cdb 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -165,11 +165,6 @@
- 
- #define TG3_RAW_IP_ALIGN 2
- 
--/* number of ETHTOOL_GSTATS u64's */
--#define TG3_NUM_STATS		(sizeof(struct tg3_ethtool_stats)/sizeof(u64))
--
--#define TG3_NUM_TEST		6
--
- #define TG3_FW_UPDATE_TIMEOUT_SEC	5
- 
- #define FIRMWARE_TG3		"tigon/tg3.bin"
-@@ -279,7 +274,7 @@ MODULE_DEVICE_TABLE(pci, tg3_pci_tbl);
- 
- static const struct {
- 	const char string[ETH_GSTRING_LEN];
--} ethtool_stats_keys[TG3_NUM_STATS] = {
-+} ethtool_stats_keys[] = {
- 	{ "rx_octets" },
- 	{ "rx_fragments" },
- 	{ "rx_ucast_packets" },
-@@ -358,9 +353,12 @@ static const struct {
- 	{ "nic_tx_threshold_hit" }
- };
- 
-+#define TG3_NUM_STATS	ARRAY_SIZE(ethtool_stats_keys)
-+
-+
- static const struct {
- 	const char string[ETH_GSTRING_LEN];
--} ethtool_test_keys[TG3_NUM_TEST] = {
-+} ethtool_test_keys[] = {
- 	{ "nvram test     (online) " },
- 	{ "link test      (online) " },
- 	{ "register test  (offline)" },
-@@ -369,6 +367,9 @@ static const struct {
- 	{ "interrupt test (offline)" },
- };
- 
-+#define TG3_NUM_TEST	ARRAY_SIZE(ethtool_test_keys)
-+
-+
- static void tg3_write32(struct tg3 *tp, u32 off, u32 val)
- {
- 	writel(val, tp->regs + off);
--- 
-1.7.3.4
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
+Assume same for skge
