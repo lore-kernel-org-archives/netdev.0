@@ -1,122 +1,202 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 4/5] tg3: Add jumbo frame loopback tests to
- selftest
-Date: Wed, 13 Apr 2011 14:05:07 -0700
-Message-ID: <1302728708-1797-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 5/5] tg3: Add support for extended VPD blocks
+Date: Wed, 13 Apr 2011 14:05:08 -0700
+Message-ID: <1302728708-1797-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3783 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1623 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932820Ab1DMU4i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 16:56:38 -0400
+	id S932835Ab1DMU4k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 16:56:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds jumbo frame loopback test support to the ethtool
-selftest.
+In some devices, the VPD block is relocated to a different area in
+NVRAM.  The original location can still contain old, but still valid VPD
+data.  This patch changes the code to look for an extended VPD block in
+NVRAM.  If one is found, that block is used for all VPD operations
+instead.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   34 +++++++++++++++++++++++++---------
- 1 files changed, 25 insertions(+), 9 deletions(-)
+ drivers/net/tg3.c |  125 ++++++++++++++++++++++++++++++++++-------------------
+ drivers/net/tg3.h |    2 +
+ 2 files changed, 83 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 9975cdb..52dd516 100644
+index 52dd516..10fa476 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -10935,7 +10935,7 @@ static int tg3_test_memory(struct tg3 *tp)
- #define TG3_MAC_LOOPBACK	0
- #define TG3_PHY_LOOPBACK	1
+@@ -10416,6 +10416,81 @@ static void tg3_get_ethtool_stats(struct net_device *dev,
+ 	memcpy(tmp_stats, tg3_get_estats(tp), sizeof(tp->estats));
+ }
  
--static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
-+static int tg3_run_loopback(struct tg3 *tp, u32 pktsz, int loopback_mode)
- {
- 	u32 mac_mode, rx_start_idx, rx_idx, tx_idx, opaque_key;
- 	u32 desc_idx, coal_now;
-@@ -11033,7 +11033,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 
- 	err = -EIO;
- 
--	tx_len = 1514;
-+	tx_len = pktsz;
- 	skb = netdev_alloc_skb(tp->dev, tx_len);
- 	if (!skb)
- 		return -ENOMEM;
-@@ -11042,7 +11042,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 	memcpy(tx_data, tp->dev->dev_addr, 6);
- 	memset(tx_data + 6, 0x0, 8);
- 
--	tw32(MAC_RX_MTU_SIZE, tx_len + 4);
-+	tw32(MAC_RX_MTU_SIZE, tx_len + ETH_FCS_LEN);
- 
- 	for (i = 14; i < tx_len; i++)
- 		tx_data[i] = (u8) (i & 0xff);
-@@ -11098,8 +11098,6 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 	desc = &rnapi->rx_rcb[rx_start_idx];
- 	desc_idx = desc->opaque & RXD_OPAQUE_INDEX_MASK;
- 	opaque_key = desc->opaque & RXD_OPAQUE_RING_MASK;
--	if (opaque_key != RXD_OPAQUE_RING_STD)
--		goto out;
- 
- 	if ((desc->err_vlan & RXD_ERR_MASK) != 0 &&
- 	    (desc->err_vlan != RXD_ERR_ODD_NIBBLE_RCVD_MII))
-@@ -11109,9 +11107,20 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 	if (rx_len != tx_len)
++static __be32 * tg3_vpd_readblock(struct tg3 *tp)
++{
++	int i;
++	__be32 *buf;
++	u32 offset = 0, len = 0;
++	u32 magic, val;
++
++	if ((tp->tg3_flags3 & TG3_FLG3_NO_NVRAM) ||
++	    tg3_nvram_read(tp, 0, &magic))
++		return NULL;
++
++	if (magic == TG3_EEPROM_MAGIC) {
++		for (offset = TG3_NVM_DIR_START;
++		     offset < TG3_NVM_DIR_END;
++		     offset += TG3_NVM_DIRENT_SIZE) {
++			if (tg3_nvram_read(tp, offset, &val))
++				return NULL;
++
++			if ((val >> TG3_NVM_DIRTYPE_SHIFT) ==
++			    TG3_NVM_DIRTYPE_EXTVPD)
++				break;
++		}
++
++		if (offset != TG3_NVM_DIR_END) {
++			len = (val & TG3_NVM_DIRTYPE_LENMSK) * 4;
++			if (tg3_nvram_read(tp, offset + 4, &offset))
++				return NULL;
++
++			offset = tg3_nvram_logical_addr(tp, offset);
++		}
++	}
++
++	if (!offset || !len) {
++		offset = TG3_NVM_VPD_OFF;
++		len = TG3_NVM_VPD_LEN;
++	}
++
++	buf = kmalloc(len, GFP_KERNEL);
++	if (buf == NULL)
++		return NULL;
++
++	if (magic == TG3_EEPROM_MAGIC) {
++		for (i = 0; i < len; i += 4) {
++			/* The data is in little-endian format in NVRAM.
++			 * Use the big-endian read routines to preserve
++			 * the byte order as it exists in NVRAM.
++			 */
++			if (tg3_nvram_read_be32(tp, offset + i, &buf[i/4]))
++				goto error;
++		}
++	} else {
++		u8 *ptr;
++		ssize_t cnt;
++		unsigned int pos = 0;
++
++		ptr = (u8 *)&buf[0];
++		for (i = 0; pos < len && i < 3; i++, pos += cnt, ptr += cnt) {
++			cnt = pci_read_vpd(tp->pdev, pos,
++					   len - pos, ptr);
++			if (cnt == -ETIMEDOUT || cnt == -EINTR)
++				cnt = 0;
++			else if (cnt < 0)
++				goto error;
++		}
++		if (pos != len)
++			goto error;
++	}
++
++	return buf;
++
++error:
++	kfree(buf);
++	return NULL;
++}
++
+ #define NVRAM_TEST_SIZE 0x100
+ #define NVRAM_SELFBOOT_FORMAT1_0_SIZE	0x14
+ #define NVRAM_SELFBOOT_FORMAT1_2_SIZE	0x18
+@@ -10555,14 +10630,11 @@ static int tg3_test_nvram(struct tg3 *tp)
+ 	if (csum != le32_to_cpu(buf[0xfc/4]))
  		goto out;
  
--	rx_skb = tpr->rx_std_buffers[desc_idx].skb;
-+	if (pktsz <= TG3_RX_STD_DMA_SZ - ETH_FCS_LEN) {
-+		if (opaque_key != RXD_OPAQUE_RING_STD)
-+			goto out;
+-	for (i = 0; i < TG3_NVM_VPD_LEN; i += 4) {
+-		/* The data is in little-endian format in NVRAM.
+-		 * Use the big-endian read routines to preserve
+-		 * the byte order as it exists in NVRAM.
+-		 */
+-		if (tg3_nvram_read_be32(tp, TG3_NVM_VPD_OFF + i, &buf[i/4]))
+-			goto out;
+-	}
++	kfree(buf);
 +
-+		rx_skb = tpr->rx_std_buffers[desc_idx].skb;
-+		map = dma_unmap_addr(&tpr->rx_std_buffers[desc_idx], mapping);
-+	} else {
-+		if (opaque_key != RXD_OPAQUE_RING_JUMBO)
-+			goto out;
-+
-+		rx_skb = tpr->rx_jmb_buffers[desc_idx].skb;
-+		map = dma_unmap_addr(&tpr->rx_jmb_buffers[desc_idx], mapping);
-+	}
++	buf = tg3_vpd_readblock(tp);
++	if (!buf)
++		return -ENOMEM;
  
--	map = dma_unmap_addr(&tpr->rx_std_buffers[desc_idx], mapping);
- 	pci_dma_sync_single_for_cpu(tp->pdev, map, rx_len, PCI_DMA_FROMDEVICE);
+ 	i = pci_vpd_find_tag((u8 *)buf, 0, TG3_NVM_VPD_LEN,
+ 			     PCI_VPD_LRDT_RO_DATA);
+@@ -12905,46 +12977,11 @@ static void __devinit tg3_read_vpd(struct tg3 *tp)
+ 	u8 *vpd_data;
+ 	unsigned int block_end, rosize, len;
+ 	int j, i = 0;
+-	u32 magic;
+-
+-	if ((tp->tg3_flags3 & TG3_FLG3_NO_NVRAM) ||
+-	    tg3_nvram_read(tp, 0x0, &magic))
+-		goto out_no_vpd;
  
- 	for (i = 14; i < tx_len; i++) {
-@@ -11177,9 +11186,13 @@ static int tg3_test_loopback(struct tg3 *tp)
- 				  CPMU_CTRL_LINK_AWARE_MODE));
- 	}
+-	vpd_data = kmalloc(TG3_NVM_VPD_LEN, GFP_KERNEL);
++	vpd_data = (u8 *)tg3_vpd_readblock(tp);
+ 	if (!vpd_data)
+ 		goto out_no_vpd;
  
--	if (tg3_run_loopback(tp, TG3_MAC_LOOPBACK))
-+	if (tg3_run_loopback(tp, ETH_FRAME_LEN, TG3_MAC_LOOPBACK))
- 		err |= TG3_MAC_LOOPBACK_FAILED;
- 
-+	if ((tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) &&
-+	    tg3_run_loopback(tp, 9000 + ETH_HLEN, TG3_MAC_LOOPBACK))
-+		err |= (TG3_MAC_LOOPBACK_FAILED << 2);
-+
- 	if (tp->tg3_flags & TG3_FLAG_CPMU_PRESENT) {
- 		tw32(TG3_CPMU_CTRL, cpmuctrl);
- 
-@@ -11189,8 +11202,11 @@ static int tg3_test_loopback(struct tg3 *tp)
- 
- 	if (!(tp->phy_flags & TG3_PHYFLG_PHY_SERDES) &&
- 	    !(tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB)) {
--		if (tg3_run_loopback(tp, TG3_PHY_LOOPBACK))
-+		if (tg3_run_loopback(tp, ETH_FRAME_LEN, TG3_PHY_LOOPBACK))
- 			err |= TG3_PHY_LOOPBACK_FAILED;
-+		if ((tp->tg3_flags & TG3_FLAG_JUMBO_RING_ENABLE) &&
-+		    tg3_run_loopback(tp, 9000 + ETH_HLEN, TG3_PHY_LOOPBACK))
-+			err |= (TG3_PHY_LOOPBACK_FAILED << 2);
- 	}
- 
- 	/* Re-enable gphy autopowerdown. */
+-	if (magic == TG3_EEPROM_MAGIC) {
+-		for (i = 0; i < TG3_NVM_VPD_LEN; i += 4) {
+-			u32 tmp;
+-
+-			/* The data is in little-endian format in NVRAM.
+-			 * Use the big-endian read routines to preserve
+-			 * the byte order as it exists in NVRAM.
+-			 */
+-			if (tg3_nvram_read_be32(tp, TG3_NVM_VPD_OFF + i, &tmp))
+-				goto out_not_found;
+-
+-			memcpy(&vpd_data[i], &tmp, sizeof(tmp));
+-		}
+-	} else {
+-		ssize_t cnt;
+-		unsigned int pos = 0;
+-
+-		for (; pos < TG3_NVM_VPD_LEN && i < 3; i++, pos += cnt) {
+-			cnt = pci_read_vpd(tp->pdev, pos,
+-					   TG3_NVM_VPD_LEN - pos,
+-					   &vpd_data[pos]);
+-			if (cnt == -ETIMEDOUT || cnt == -EINTR)
+-				cnt = 0;
+-			else if (cnt < 0)
+-				goto out_not_found;
+-		}
+-		if (pos != TG3_NVM_VPD_LEN)
+-			goto out_not_found;
+-	}
+-
+ 	i = pci_vpd_find_tag(vpd_data, 0, TG3_NVM_VPD_LEN,
+ 			     PCI_VPD_LRDT_RO_DATA);
+ 	if (i < 0)
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index b3ccfcc..224c3e0 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2009,7 +2009,9 @@
+ #define TG3_NVM_DIR_END			0x78
+ #define TG3_NVM_DIRENT_SIZE		0xc
+ #define TG3_NVM_DIRTYPE_SHIFT		24
++#define TG3_NVM_DIRTYPE_LENMSK		0x003fffff
+ #define TG3_NVM_DIRTYPE_ASFINI		1
++#define TG3_NVM_DIRTYPE_EXTVPD		20
+ #define TG3_NVM_PTREV_BCVER		0x94
+ #define TG3_NVM_BCVER_MAJMSK		0x0000ff00
+ #define TG3_NVM_BCVER_MAJSFT		8
 -- 
 1.7.3.4
 
