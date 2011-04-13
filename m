@@ -1,71 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Subject: RE: [net-next-2.6 RFC PATCH v2 01/13] ethtool: allow custom
  interval for physical identification
-Date: Wed, 13 Apr 2011 23:44:39 +0100
-Message-ID: <1302734679.2873.23.camel@bwh-desktop>
+Date: Wed, 13 Apr 2011 15:55:55 -0700
+Message-ID: <8DD2590731AB5D4C9DBF71A877482A90018A3427D7@orsmsx509.amr.corp.intel.com>
 References: <20110413195146.25901.72193.stgit@gitlad.jf.intel.com>
 	 <20110413195851.25901.8139.stgit@gitlad.jf.intel.com>
 	 <1302726313.2873.18.camel@bwh-desktop>
 	 <8DD2590731AB5D4C9DBF71A877482A90018A3427B6@orsmsx509.amr.corp.intel.com>
+ <1302734679.2873.23.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:1400 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757289Ab1DMWol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 18:44:41 -0400
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A90018A3427B6@orsmsx509.amr.corp.intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:37365 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758403Ab1DMWz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 18:55:57 -0400
+In-Reply-To: <1302734679.2873.23.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-13 at 15:39 -0700, Allan, Bruce W wrote:
-> 
-> >-----Original Message-----
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >Sent: Wednesday, April 13, 2011 1:25 PM
-> >To: Allan, Bruce W
-> >Cc: netdev@vger.kernel.org
-> >Subject: Re: [net-next-2.6 RFC PATCH v2 01/13] ethtool: allow custom interval
-> >for physical identification
-> >
-> >I'm sure there ought to be a clearer way to do this, and to avoid any
-> >weird effects from integer overflow in the multiplication.  How about
-> >using an inner loop for each second:
-> >
-> >		/* Driver expects to be called at twice the frequency in rc */
-> >		int n = rc * 2, i, interval = HZ / n;
-> >
-
-		/* Count down seconds */
-> >		do {
-			/* Count down iterations per second */
-> >			i = n;
-> >			do {
-> >	 			rtnl_lock();
-> > 				rc = dev->ethtool_ops->set_phys_id(
-> >					dev, (i & 1) ? ETHTOOL_ID_OFF : ETHTOOL_ID_ON);
-> >	 			rtnl_unlock();
-> > 				if (rc)
-> > 					break;
-> >				schedule_timeout_interruptible(interval);
-> >			} while (!signal_pending(current) && --i != 0);
-> > 		} while (!signal_pending(current) &&
-> >			 (id.data == 0 || --id.data != 0));
-> >
-> >Ben.
-> 
-> OK, if that is clearer to you...v3 forthcoming.
-
-I guess it wouldn't hurt to add comemnts too.  Would you agree that it's
-clear with the additions above?
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogV2VkbmVzZGF5LCBBcHJpbCAxMywg
+MjAxMSAzOjQ1IFBNDQo+VG86IEFsbGFuLCBCcnVjZSBXDQo+Q2M6IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmcNCj5TdWJqZWN0OiBSRTogW25ldC1uZXh0LTIuNiBSRkMgUEFUQ0ggdjIgMDEvMTNdIGV0
+aHRvb2w6IGFsbG93IGN1c3RvbSBpbnRlcnZhbA0KPmZvciBwaHlzaWNhbCBpZGVudGlmaWNhdGlv
+bg0KPg0KPk9uIFdlZCwgMjAxMS0wNC0xMyBhdCAxNTozOSAtMDcwMCwgQWxsYW4sIEJydWNlIFcg
+d3JvdGU6DQo+Pg0KPj4gPi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+PiA+RnJvbTogQmVu
+IEh1dGNoaW5ncyBbbWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+PiA+U2VudDog
+V2VkbmVzZGF5LCBBcHJpbCAxMywgMjAxMSAxOjI1IFBNDQo+PiA+VG86IEFsbGFuLCBCcnVjZSBX
+DQo+PiA+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4+ID5TdWJqZWN0OiBSZTogW25ldC1u
+ZXh0LTIuNiBSRkMgUEFUQ0ggdjIgMDEvMTNdIGV0aHRvb2w6IGFsbG93IGN1c3RvbSBpbnRlcnZh
+bA0KPj4gPmZvciBwaHlzaWNhbCBpZGVudGlmaWNhdGlvbg0KPj4gPg0KPj4gPkknbSBzdXJlIHRo
+ZXJlIG91Z2h0IHRvIGJlIGEgY2xlYXJlciB3YXkgdG8gZG8gdGhpcywgYW5kIHRvIGF2b2lkIGFu
+eQ0KPj4gPndlaXJkIGVmZmVjdHMgZnJvbSBpbnRlZ2VyIG92ZXJmbG93IGluIHRoZSBtdWx0aXBs
+aWNhdGlvbi4gIEhvdyBhYm91dA0KPj4gPnVzaW5nIGFuIGlubmVyIGxvb3AgZm9yIGVhY2ggc2Vj
+b25kOg0KPj4gPg0KPj4gPgkJLyogRHJpdmVyIGV4cGVjdHMgdG8gYmUgY2FsbGVkIGF0IHR3aWNl
+IHRoZSBmcmVxdWVuY3kgaW4gcmMgKi8NCj4+ID4JCWludCBuID0gcmMgKiAyLCBpLCBpbnRlcnZh
+bCA9IEhaIC8gbjsNCj4+ID4NCj4NCj4JCS8qIENvdW50IGRvd24gc2Vjb25kcyAqLw0KPj4gPgkJ
+ZG8gew0KPgkJCS8qIENvdW50IGRvd24gaXRlcmF0aW9ucyBwZXIgc2Vjb25kICovDQo+PiA+CQkJ
+aSA9IG47DQo+PiA+CQkJZG8gew0KPj4gPgkgCQkJcnRubF9sb2NrKCk7DQo+PiA+IAkJCQlyYyA9
+IGRldi0+ZXRodG9vbF9vcHMtPnNldF9waHlzX2lkKA0KPj4gPgkJCQkJZGV2LCAoaSAmIDEpID8g
+RVRIVE9PTF9JRF9PRkYgOiBFVEhUT09MX0lEX09OKTsNCj4+ID4JIAkJCXJ0bmxfdW5sb2NrKCk7
+DQo+PiA+IAkJCQlpZiAocmMpDQo+PiA+IAkJCQkJYnJlYWs7DQo+PiA+CQkJCXNjaGVkdWxlX3Rp
+bWVvdXRfaW50ZXJydXB0aWJsZShpbnRlcnZhbCk7DQo+PiA+CQkJfSB3aGlsZSAoIXNpZ25hbF9w
+ZW5kaW5nKGN1cnJlbnQpICYmIC0taSAhPSAwKTsNCj4+ID4gCQl9IHdoaWxlICghc2lnbmFsX3Bl
+bmRpbmcoY3VycmVudCkgJiYNCj4+ID4JCQkgKGlkLmRhdGEgPT0gMCB8fCAtLWlkLmRhdGEgIT0g
+MCkpOw0KPj4gPg0KPj4gPkJlbi4NCj4+DQo+PiBPSywgaWYgdGhhdCBpcyBjbGVhcmVyIHRvIHlv
+dS4uLnYzIGZvcnRoY29taW5nLg0KPg0KPkkgZ3Vlc3MgaXQgd291bGRuJ3QgaHVydCB0byBhZGQg
+Y29tZW1udHMgdG9vLiAgV291bGQgeW91IGFncmVlIHRoYXQgaXQncw0KPmNsZWFyIHdpdGggdGhl
+IGFkZGl0aW9ucyBhYm92ZT8NCj4NCj5CZW4uDQoNClN1cmUsIG1ha2VzIHNlbnNlIHRvIG1lLg0K
+DQpUaGFua3MsDQpCcnVjZS4NCg==
