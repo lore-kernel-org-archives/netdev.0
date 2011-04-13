@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 NEXT 1/1] net: ethtool support to configure number of
- channels
-Date: Wed, 13 Apr 2011 10:40:51 -0700 (PDT)
-Message-ID: <20110413.104051.226776944.davem@davemloft.net>
-References: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
-	<99737F4847ED0A48AECC9F4A1974A4B80FD1384031@MNEXMB2.qlogic.org>
-	<1302696197.5282.612.camel@localhost>
+Subject: Re: [Bugme-new] [Bug 32832] New: shutdown(2) does not fully shut
+ down socket any more
+Date: Wed, 13 Apr 2011 10:43:17 -0700 (PDT)
+Message-ID: <20110413.104317.71110417.davem@davemloft.net>
+References: <1302663327.2811.55.camel@edumazet-laptop>
+	<1302663608.2811.62.camel@edumazet-laptop>
+	<BANLkTi=1wmQYRgHmO5SbPBiSwzKwVz4_ag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amit.salecha@qlogic.com, netdev@vger.kernel.org,
-	ameen.rahman@qlogic.com, sucheta.chakraborty@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: bhutchings@solarflare.com
+Cc: eric.dumazet@gmail.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, kees@outflux.net
+To: dbaluta@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42836
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42841
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750868Ab1DMRl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 13:41:26 -0400
-In-Reply-To: <1302696197.5282.612.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751511Ab1DMRnw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 13:43:52 -0400
+In-Reply-To: <BANLkTi=1wmQYRgHmO5SbPBiSwzKwVz4_ag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 13 Apr 2011 13:03:17 +0100
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Date: Wed, 13 Apr 2011 14:57:18 +0300
 
-> It's marked as 'deferred'; not sure what that means:
-> 
-> http://patchwork.ozlabs.org/patch/90166/
+> Cyril's use case looks suspect. I don't think that this is a good
+> reason for reverting this commit.
 
-It means it's out of my TODO list until something happens.
+I complete disagree.
 
-Specifically Ben I'm waiting for you to provide some review and
-feedback on this patch since in the past you were the one saying
-what needed to be changed in this patch.
+Something that worked perfectly fine, probably for years, we broke.
 
-I can't tell if you're requests have been met unless you actually
-provide an ACK, or more feedback.
+We simply cannot do that, especially since we do not have a reasonable
+alternative at this time.
+
+Adding SO_REUSEPORT is a long range option, and not something that
+will provide a fix for users right now.
+
+So please don't even pretend to suggest that we shouldn't fix this
+with a revert unless a simple, obvious, kernel fix presents itself.
