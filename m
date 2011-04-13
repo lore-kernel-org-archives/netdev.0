@@ -1,39 +1,49 @@
-From: Jeff Mahoney <jeffm@suse.com>
-Subject: [PATCH] mpc5xxx_can: Fix typo causing build failure (of_dev -> ofdev)
-Date: Wed, 13 Apr 2011 10:57:03 -0400
-Message-ID: <4DA5B9BF.2010809@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>
-To: Grant Likely <grant.likely@secretlab.ca>,
-	"David S. Miller" <davem@davemloft.net>
+From: Alexander Stein <alexander.stein@systec-electronic.com>
+Subject: [PATCH] macb: Add rx overrun counter
+Date: Wed, 13 Apr 2011 17:03:24 +0200
+Message-ID: <1302707004-15818-1-git-send-email-alexander.stein@systec-electronic.com>
+Cc: netdev@vger.kernel.org,
+	Alexander Stein <alexander.stein@systec-electronic.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:36058 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757163Ab1DMO5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 10:57:06 -0400
+Received: from webbox687.server-home.net ([195.149.74.151]:59186 "EHLO
+	webbox687.server-home.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754173Ab1DMPDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 11:03:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- The variable is named ofdev, not of_dev.
-
-Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+Signed-off-by: Alexander Stein <alexander.stein@systec-electronic.com>
 ---
- drivers/net/can/mscan/mpc5xxx_can.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/macb.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
---- a/drivers/net/can/mscan/mpc5xxx_can.c
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -260,7 +260,7 @@ static int __devinit mpc5xxx_can_probe(s
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 79ccb54..76ce819 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -576,6 +576,11 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 		 * add that if/when we get our hands on a full-blown MII PHY.
+ 		 */
  
- 	if (!ofdev->dev.of_match)
- 		return -EINVAL;
--	data = (struct mpc5xxx_can_data *)of_dev->dev.of_match->data;
-+	data = (struct mpc5xxx_can_data *)ofdev->dev.of_match->data;
- 
- 	base = of_iomap(np, 0);
- 	if (!base) {
++		if (status & MACB_BIT(ISR_ROVR)) {
++			/* We missed at least one packet */
++			bp->hw_stats.rx_overruns++;
++		}
++
+ 		if (status & MACB_BIT(HRESP)) {
+ 			/*
+ 			 * TODO: Reset the hardware, and maybe move the printk
+@@ -1024,7 +1029,8 @@ static struct net_device_stats *macb_get_stats(struct net_device *dev)
+ 				   hwstat->rx_jabbers +
+ 				   hwstat->rx_undersize_pkts +
+ 				   hwstat->rx_length_mismatch);
+-	nstat->rx_over_errors = hwstat->rx_resource_errors;
++	nstat->rx_over_errors = hwstat->rx_resource_errors +
++				   hwstat->rx_overruns;
+ 	nstat->rx_crc_errors = hwstat->rx_fcs_errors;
+ 	nstat->rx_frame_errors = hwstat->rx_align_errors;
+ 	nstat->rx_fifo_errors = hwstat->rx_overruns;
 -- 
-Jeff Mahoney
-SUSE Labs
+1.7.3.4
+
