@@ -1,29 +1,27 @@
 From: =?utf-8?B?RnJhbsOnb2lz?= Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 doesn't report link state correctly.
-Date: Wed, 13 Apr 2011 19:48:15 +0200
-Message-ID: <20110413174815.GB17579@electric-eye.fr.zoreil.com>
-References: <4DA35FEF.1030009@candelatech.com>
+Subject: Re: [PATCH] r8169: Be verbose when unable to load fw patch
+Date: Wed, 13 Apr 2011 19:48:52 +0200
+Message-ID: <20110413174852.GC17579@electric-eye.fr.zoreil.com>
+References: <1302615172-1646-1-git-send-email-bp@amd64.org> <20110412.162036.241924043.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57174 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754206Ab1DMRzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 13:55:50 -0400
+Cc: bp@amd64.org, romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	borislav.petkov@amd.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4DA35FEF.1030009@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20110412.162036.241924043.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2011 at 01:09:19PM -0700, Ben Greear wrote:
-> I notice that in kernel 2.6.38-wl, the realtek 8169 NIC doesn't
-> report link down when in fact there is no cable connected.  Instead,
-> it shows 10Mbps half-duplex.  I have no idea if this previously worked
-> or not.
+On Tue, Apr 12, 2011 at 04:20:36PM -0700, David Miller wrote:
+[...]
+> Seems reasonable, Francois?
 
-Thanks for the report. I'll try it tomorrow or friday.
+Yes, it makes sense.
+
+The patch goes way beyond 80 cols but I'll do a round of
+cleanups later anyway.
 
 -- 
 Ueimor
