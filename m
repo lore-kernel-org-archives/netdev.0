@@ -1,134 +1,50 @@
-From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: [PATCHv2 net-next-2.6] rndis_host: Poll status before control
- channel where necessary
-Date: Wed, 13 Apr 2011 05:55:23 +0100
-Message-ID: <1302670523.5282.610.camel@localhost>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [stable] [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non
+ tso packet
+Date: Wed, 13 Apr 2011 00:56:56 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD1383FDF@MNEXMB2.qlogic.org>
+References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
+ <1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
+ <20110412.135522.71113479.davem@davemloft.net>
+ <99737F4847ED0A48AECC9F4A1974A4B80FD1383FAC@MNEXMB2.qlogic.org>
+ <20110413034228.GA852@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Mark Glassberg <vzeeaxwl-ubggFOsnOr3gwBMGfI3FeA@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	"stable@kernel.org" <stable@kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:23714
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757052Ab1DMF5D convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 01:57:03 -0400
+In-Reply-To: <20110413034228.GA852@kroah.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some RNDIS devices don't respond on the control channel until polled
-on the status channel.  In particular, this was reported to be the
-case for the 2Wire HomePortal 1000SW and for some Windows Mobile
-devices.
+> On Tue, Apr 12, 2011 at 09:01:13PM -0500, Amit Salecha wrote:
+> >
+> > This message and any attached documents contain information from
+> QLogic Corporation or its wholly-owned subsidiaries that may be
+> confidential. If you are not the intended recipient, you may not read,
+> copy, distribute, or use this information. If you have received this
+> transmission in error, please notify the sender immediately by reply e-
+> mail and then delete this message.
+>
+> I have received this transmission in error.
+>
+> Please remove this from your footer, otherwise we can not accept any
+> emails sent from you as actually being allowed to contribute to the
+> kernel properly :(
+>
+I have send version two of this patch, that doesn't have this footer.
+Please discard this one.
 
-This is roughly based on a patch by John Carr <john.carr-3P/l8hQepEe9FHfhHBbuYA@public.gmane.org>
-which is currently applied by Mandriva.
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
-Reported-by: Mark Glassberg <vzeeaxwl-ubggFOsnOr3gwBMGfI3FeA@public.gmane.org>
-Signed-off-by: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
----
-The first version made this behaviour unconditional and had to be
-reverted.  This version adds a quirk flag instead.
-
-Ben.
-
- drivers/net/usb/rndis_host.c   |   39 ++++++++++++++++++++++++++++++++-------
- include/linux/usb/rndis_host.h |    2 ++
- 2 files changed, 34 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index 5994a25..6d6c1da 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -104,8 +104,10 @@ static void rndis_msg_indicate(struct usbnet *dev, struct rndis_indicate *msg,
- int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int buflen)
- {
- 	struct cdc_state	*info = (void *) &dev->data;
-+	struct usb_cdc_notification notification;
- 	int			master_ifnum;
- 	int			retval;
-+	int			partial;
- 	unsigned		count;
- 	__le32			rsp;
- 	u32			xid = 0, msg_len, request_id;
-@@ -133,13 +135,20 @@ int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int buflen)
- 	if (unlikely(retval < 0 || xid == 0))
- 		return retval;
- 
--	// FIXME Seems like some devices discard responses when
--	// we time out and cancel our "get response" requests...
--	// so, this is fragile.  Probably need to poll for status.
-+	/* Some devices don't respond on the control channel until
-+	 * polled on the status channel, so do that first. */
-+	if (dev->driver_info->data & RNDIS_DRIVER_DATA_POLL_STATUS) {
-+		retval = usb_interrupt_msg(
-+			dev->udev,
-+			usb_rcvintpipe(dev->udev,
-+				       dev->status->desc.bEndpointAddress),
-+			&notification, sizeof(notification), &partial,
-+			RNDIS_CONTROL_TIMEOUT_MS);
-+		if (unlikely(retval < 0))
-+			return retval;
-+	}
- 
--	/* ignore status endpoint, just poll the control channel;
--	 * the request probably completed immediately
--	 */
-+	/* Poll the control channel; the request probably completed immediately */
- 	rsp = buf->msg_type | RNDIS_MSG_COMPLETION;
- 	for (count = 0; count < 10; count++) {
- 		memset(buf, 0, CONTROL_BUFFER_SIZE);
-@@ -581,17 +590,33 @@ static const struct driver_info	rndis_info = {
- 	.tx_fixup =	rndis_tx_fixup,
- };
- 
-+static const struct driver_info	rndis_poll_status_info = {
-+	.description =	"RNDIS device (poll status before control)",
-+	.flags =	FLAG_ETHER | FLAG_FRAMING_RN | FLAG_NO_SETINT,
-+	.data =		RNDIS_DRIVER_DATA_POLL_STATUS,
-+	.bind =		rndis_bind,
-+	.unbind =	rndis_unbind,
-+	.status =	rndis_status,
-+	.rx_fixup =	rndis_rx_fixup,
-+	.tx_fixup =	rndis_tx_fixup,
-+};
-+
- /*-------------------------------------------------------------------------*/
- 
- static const struct usb_device_id	products [] = {
- {
-+	/* 2Wire HomePortal 1000SW */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x1630, 0x0042,
-+				      USB_CLASS_COMM, 2 /* ACM */, 0x0ff),
-+	.driver_info = (unsigned long) &rndis_poll_status_info,
-+}, {
- 	/* RNDIS is MSFT's un-official variant of CDC ACM */
- 	USB_INTERFACE_INFO(USB_CLASS_COMM, 2 /* ACM */, 0x0ff),
- 	.driver_info = (unsigned long) &rndis_info,
- }, {
- 	/* "ActiveSync" is an undocumented variant of RNDIS, used in WM5 */
- 	USB_INTERFACE_INFO(USB_CLASS_MISC, 1, 1),
--	.driver_info = (unsigned long) &rndis_info,
-+	.driver_info = (unsigned long) &rndis_poll_status_info,
- }, {
- 	/* RNDIS for tethering */
- 	USB_INTERFACE_INFO(USB_CLASS_WIRELESS_CONTROLLER, 1, 3),
-diff --git a/include/linux/usb/rndis_host.h b/include/linux/usb/rndis_host.h
-index 05ef528..88fceb7 100644
---- a/include/linux/usb/rndis_host.h
-+++ b/include/linux/usb/rndis_host.h
-@@ -256,6 +256,8 @@ struct rndis_keepalive_c {	/* IN (optionally OUT) */
- #define FLAG_RNDIS_PHYM_NOT_WIRELESS	0x0001
- #define FLAG_RNDIS_PHYM_WIRELESS	0x0002
- 
-+/* Flags for driver_info::data */
-+#define RNDIS_DRIVER_DATA_POLL_STATUS	1	/* poll status before control */
- 
- extern void rndis_status(struct usbnet *dev, struct urb *urb);
- extern int
--- 
-1.7.4.1
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
