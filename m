@@ -1,28 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: reset IPCB in br_parse_ip_options
-Date: Wed, 13 Apr 2011 14:48:12 -0700 (PDT)
-Message-ID: <20110413.144812.116375845.davem@davemloft.net>
-References: <4DA522B2.90200@scotdoyle.com>
-	<4DA5BCF7.9020606@scotdoyle.com>
-	<1302708487.3725.0.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv2 net-next-2.6] rndis_host: Poll status before control
+ channel where necessary
+Date: Wed, 13 Apr 2011 14:49:26 -0700 (PDT)
+Message-ID: <20110413.144926.200377904.davem@davemloft.net>
+References: <1302670523.5282.610.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lkml@scotdoyle.com, shemminger@vyatta.com,
-	shimoda.hiroaki@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42387
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932094Ab1DMVsr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 17:48:47 -0400
-In-Reply-To: <1302708487.3725.0.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vzeeaxwl-ubggFOsnOr3gwBMGfI3FeA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1302670523.5282.610.camel@localhost>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 13 Apr 2011 17:28:07 +0200
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Date: Wed, 13 Apr 2011 05:55:23 +0100
 
-> Dont worry, Stephen or me will send it asap.
+> Some RNDIS devices don't respond on the control channel until polled
+> on the status channel.  In particular, this was reported to be the
+> case for the 2Wire HomePortal 1000SW and for some Windows Mobile
+> devices.
+> 
+> This is roughly based on a patch by John Carr <john.carr-3P/l8hQepEe9FHfhHBbuYA@public.gmane.org>
+> which is currently applied by Mandriva.
+> 
+> Reported-by: Mark Glassberg <vzeeaxwl-ubggFOsnOr3gwBMGfI3FeA@public.gmane.org>
+> Signed-off-by: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+> ---
+> The first version made this behaviour unconditional and had to be
+> reverted.  This version adds a quirk flag instead.
 
-I'm looking forward to it :)
+Applied, thanks Ben.
+
+The feedback about whether to use the point-to-point flag or not should
+be addressed, but seperately.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
