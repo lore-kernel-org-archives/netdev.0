@@ -1,67 +1,60 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH 0/4] [RFC rev2] Implement multiqueue (RX & TX) virtio-net
-Date: Wed, 13 Apr 2011 15:00:11 +0300
-Message-ID: <4DA5904B.9090006@redhat.com>
-References: <20110405150826.20501.39679.sendpatchset@krkumar2.in.ibm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [PATCHv4 NEXT 1/1] net: ethtool support to configure number of
+ channels
+Date: Wed, 13 Apr 2011 13:03:17 +0100
+Message-ID: <1302696197.5282.612.camel@localhost>
+References: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
+	 <99737F4847ED0A48AECC9F4A1974A4B80FD1384031@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, davem@davemloft.net, mst@redhat.com,
-	eric.dumazet@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
-	horms@verge.net.au, anthony@codemonkey.ws, kvm@vger.kernel.org
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45694 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751867Ab1DMMAb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 08:00:31 -0400
-In-Reply-To: <20110405150826.20501.39679.sendpatchset@krkumar2.in.ibm.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:55205 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754721Ab1DMMDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 08:03:21 -0400
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD1384031@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/05/2011 06:08 PM, Krishna Kumar wrote:
-> This patchset implements both RX and TX MQ. Patch against virtio-net,
-> vhost and qemu are included.
->
-> Changes from rev1:
-> -------------------
-> 1. vqs are allocated as: rx/tx, rx/tx, rx/tx, etc. Lot of code in
->     guest/host/qemu changes, but code becomes simpler.
-> 2. vhost cache align of vhost_dev correctly.
-> 3. virtio-net: cleanup properly on errors (eg detach buf for vq>0 as
->     pointed out by Micheal).
-> 4. Minor changes:
-> 	- Fixed some typos.
-> 	- Changed vhost_get_thread_index to use MAX_VHOST_THREADS.
-> 	- Removed VIRTIO_MAX_TXQS.
-> 	- Changed capability to VIRTIO_NET_F_MULTIQUEUE.
-> 	- Modified "numtxqs" in virtnet_info to "num_queue_pairs".
-> 	  virtnet_info still has numtxqs as it is more convenient.
-> 	- Moved code for VIRTIO_NET_F_CTRL_VLAN into probe function.
-> 	- Improve check for return value of virtio_config_val().
-> 	- Removed cache align directives in guest as it was redundant.
-> 5. "If we have a wrapper to init all vqs, pls add a wrapper to clean up
->      all vqs as well": I haven't done this as some errors are very
->      specific to the failure location (and what was initialized till
->      then). So only those errors are cleaned up using goto's like the
->      rest of the code. I can change in next version if you feel this is
->      still required.
-> 6.  "I think we should have free_unused_bufs that handles a single queue,
->      and call it in a loop": I haven't done this as I think the caller wants
->      all rx/tx queues to be cleaned up by calling this function.
->
-> TODO's:
-> --------
-> 1. Reduce vectors for find_vqs().
-> 2. Make vhost changes minimal. For now, I have restricted the number of
->     vhost threads to 4. This can be either made unrestricted; or if the
->     userspace vhost works, it can be removed altogether.
->
-> Please review and provide feedback. I am travelling a bit in the next
-> few days but will respond at the earliest.
+On Wed, 2011-04-13 at 04:45 -0500, Amit Salecha wrote:
+> > Ethtool support to configure RX, TX and other channels. combined field
+> > in struct ethtool_channels to reflect set of channel (RX, TX or other).
+> > Other channel can be link interrupts, SR-IOV coordination etc.
+> >
+> > ETHTOOL_GCHANNELS will report max and current number of RX channels,
+> > max and current number of TX channels, max and current number of other
+> > channel
+> > or max and current number of combined channel.
+> >
+> > Number of channel can be modify upto max number of channel through
+> > ETHTOOL_SCHANNELS command.
+> >
+> > Ben Hutchings:
+> > o define 'combined' and 'other' types.  Most multiqueue drivers pair up
+> > RX and TX
+> >   queues so that most channels combine RX and TX work.
+> > o Please could you use a kernel-doc comment to describe the structure.
+> >
+> > Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> 
+> Neither I see this patch in http://patchwork.ozlabs.org/project/netdev/list/ nor any comment.
+> Just curious, is this patch discarded along with my other garbage patches ?
 
-Do you have an update to the virtio-pci spec for this?
+It's marked as 'deferred'; not sure what that means:
+
+http://patchwork.ozlabs.org/patch/90166/
+
+Ben.
 
 -- 
-error compiling committee.c: too many arguments to function
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
