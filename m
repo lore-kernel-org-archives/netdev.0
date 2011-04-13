@@ -1,34 +1,30 @@
-From: Michael Riesch <michael@riesch.at>
-Subject: Re: SMSC 8720a/MDIO/PHY help.
-Date: Wed, 13 Apr 2011 23:19:24 +0200
-Message-ID: <1302729564.2742.28.camel@malcolm>
-References: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E632@EXV1.corp.adtran.com>
-Reply-To: michael@riesch.at
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] ipv6: ignore looped-back NA while dad is running
+Date: Wed, 13 Apr 2011 14:30:59 -0700 (PDT)
+Message-ID: <20110413.143059.242138576.davem@davemloft.net>
+References: <1302706963.8923.25.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ANDY KENNEDY <ANDY.KENNEDY@adtran.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay03.ispgateway.de ([80.67.31.37]:37511 "EHLO
-	smtprelay03.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758336Ab1DMVU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 17:20:28 -0400
-In-Reply-To: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E632@EXV1.corp.adtran.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dwalter@barracuda.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1302706963.8923.25.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Daniel Walter <dwalter@barracuda.com>
+Date: Wed, 13 Apr 2011 17:02:43 +0200
 
-> If you have an idea of something for me to try, I'd love to entertain
-> it.
+> This message and any attached files are confidential and intended
+> solely for the addressee(s). Any publication, transmission or other
+> use of the information by a person or entity other than the intended
+> addressee is prohibited. If you receive this in error please contact
+> the sender and delete the material. The sender does not accept
+> liability for any errors or omissions as a result of the
+> transmission.
 
-I am rather new to PHYLIB, but these are my ideas:
+I'm not applying patches that have legal disclaimers like this.
 
- 1) make sure phy_connect is executed (AFIAK called by MDIO bus driver)
-
- 2) maybe you need to call phy_start / phy_stop (AFAIK from the PHY
-driver's open / close function)
-
-HTH,
-Michael
-
+It has no place in a posting made on a public mailing list where open
+and unrestricted discussions are essential.
