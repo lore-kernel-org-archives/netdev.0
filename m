@@ -1,58 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 2/2] net: Disable NETIF_F_TSO_ECN when TSO is
- disabled
-Date: Wed, 13 Apr 2011 01:47:15 +0100
-Message-ID: <1302655635.2880.35.camel@bwh-desktop>
-References: <1302655117.2880.33.camel@bwh-desktop>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH net-next-2.6 v3 2/3] sctp: Add ASCONF operation on the
+ single-homed host
+Date: Wed, 13 Apr 2011 09:14:33 +0800
+Message-ID: <4DA4F8F9.2030302@cn.fujitsu.com>
+References: <02627A77-8793-4EEC-9540-F2DECBB8E23A@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Michio Honda <micchie@sfc.wide.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:17054 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932693Ab1DMArS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2011 20:47:18 -0400
-In-Reply-To: <1302655117.2880.33.camel@bwh-desktop>
+Received: from cn.fujitsu.com ([222.73.24.84]:61748 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1757447Ab1DMBOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2011 21:14:16 -0400
+In-Reply-To: <02627A77-8793-4EEC-9540-F2DECBB8E23A@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NETIF_F_TSO_ECN has no effect when TSO is disabled; this just means
-that feature state will be accurately reported to user-space.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-This one is silent; I'm not sure that it's worth mentioning as the
-feature flag previously had no effect on its own anyway.
+Hi, Michio Honda
 
-Ben.
+> SCTP can change the IP address on the single-homed host.  
+> In this case, the SCTP association transmits an ASCONF packet including addition of the new IP address and deletion of the old address.  
+> This patch implements this functionality.  
+>
+>
 
- net/core/dev.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+...snip...
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6401fb5..c2ac599 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5208,6 +5208,10 @@ u32 netdev_fix_features(struct net_device *dev, u32 features)
- 		features &= ~NETIF_F_ALL_TSO;
- 	}
- 
-+	/* TSO ECN requires that TSO is present as well. */
-+	if ((features & NETIF_F_ALL_TSO) == NETIF_F_TSO_ECN)
-+		features &= ~NETIF_F_TSO_ECN;
-+
- 	/* Software GSO depends on SG. */
- 	if ((features & NETIF_F_GSO) && !(features & NETIF_F_SG)) {
- 		netdev_info(dev, "Dropping NETIF_F_GSO since no SG feature.\n");
--- 
-1.7.4
+>  
+> @@ -1277,7 +1284,7 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>   */
+>  void sctp_assoc_update_retran_path(struct sctp_association *asoc)
+>  {
+> -	struct sctp_transport *t, *next;
+> +	struct sctp_transport *t, *next, *unconfirmed;
+>  	struct list_head *head = &asoc->peer.transport_addr_list;
+>  	struct list_head *pos;
+>  
+> @@ -1287,7 +1294,7 @@ void sctp_assoc_update_retran_path(struct sctp_association *asoc)
+>  	/* Find the next transport in a round-robin fashion. */
+>  	t = asoc->peer.retran_path;
+>  	pos = &t->transports;
+> -	next = NULL;
+> +	next = unconfirmed = NULL;
+>  
+>  	while (1) {
+>  		/* Skip the head. */
+> @@ -1318,11 +1325,15 @@ void sctp_assoc_update_retran_path(struct sctp_association *asoc)
+>  			 */
+>  			if (t->state != SCTP_UNCONFIRMED && !next)
+>  				next = t;
+> +			else if (t->state == SCTP_UNCONFIRMED)
+> +				unconfirmed = t;
+>  		}
+>  	}
+>  
+>  	if (t)
+>  		asoc->peer.retran_path = t;
+> +	else if (unconfirmed)
+> +		asoc->peer.retran_path = t = unconfirmed;
+>  
+>  	SCTP_DEBUG_PRINTK_IPADDR("sctp_assoc_update_retran_path:association"
+>  				 " %p addr: "
+
+since we can not select unconfirmed transports for retransmission,
+this part is not correct. the specification forbids this due to security
+issues.
+Not sure whether you hit this bug: remove transport and left only
+one unconfirmed transport, it may cause oops while retransmit.
+I will send other patch to fix it first.
 
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+...snip...
 
