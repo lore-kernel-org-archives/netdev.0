@@ -1,60 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCHv4 NEXT 1/1] net: ethtool support to configure number of
- channels
-Date: Wed, 13 Apr 2011 13:03:17 +0100
-Message-ID: <1302696197.5282.612.camel@localhost>
-References: <1302177522-17815-1-git-send-email-amit.salecha@qlogic.com>
-	 <99737F4847ED0A48AECC9F4A1974A4B80FD1384031@MNEXMB2.qlogic.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non tso
+ packet
+Date: Wed, 13 Apr 2011 07:03:07 -0700
+Message-ID: <20110413140307.GA7426@kroah.com>
+References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
+ <1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
+ <20110412.135522.71113479.davem@davemloft.net>
+ <99737F4847ED0A48AECC9F4A1974A4B80FD1383FAC@MNEXMB2.qlogic.org>
+ <20110413034228.GA852@kroah.com>
+ <99737F4847ED0A48AECC9F4A1974A4B80FD1383FDF@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	"stable@kernel.org" <stable@kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
 To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:55205 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754721Ab1DMMDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 08:03:21 -0400
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD1384031@MNEXMB2.qlogic.org>
+Received: from kroah.org ([198.145.64.141]:59647 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755829Ab1DMOIT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 10:08:19 -0400
+Content-Disposition: inline
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FD1383FDF@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-13 at 04:45 -0500, Amit Salecha wrote:
-> > Ethtool support to configure RX, TX and other channels. combined field
-> > in struct ethtool_channels to reflect set of channel (RX, TX or other).
-> > Other channel can be link interrupts, SR-IOV coordination etc.
+On Wed, Apr 13, 2011 at 12:56:56AM -0500, Amit Salecha wrote:
+> > On Tue, Apr 12, 2011 at 09:01:13PM -0500, Amit Salecha wrote:
+> > >
+> > > This message and any attached documents contain information from
+> > QLogic Corporation or its wholly-owned subsidiaries that may be
+> > confidential. If you are not the intended recipient, you may not read,
+> > copy, distribute, or use this information. If you have received this
+> > transmission in error, please notify the sender immediately by reply e-
+> > mail and then delete this message.
 > >
-> > ETHTOOL_GCHANNELS will report max and current number of RX channels,
-> > max and current number of TX channels, max and current number of other
-> > channel
-> > or max and current number of combined channel.
+> > I have received this transmission in error.
 > >
-> > Number of channel can be modify upto max number of channel through
-> > ETHTOOL_SCHANNELS command.
+> > Please remove this from your footer, otherwise we can not accept any
+> > emails sent from you as actually being allowed to contribute to the
+> > kernel properly :(
 > >
-> > Ben Hutchings:
-> > o define 'combined' and 'other' types.  Most multiqueue drivers pair up
-> > RX and TX
-> >   queues so that most channels combine RX and TX work.
-> > o Please could you use a kernel-doc comment to describe the structure.
-> >
-> > Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> I have send version two of this patch, that doesn't have this footer.
+> Please discard this one.
 > 
-> Neither I see this patch in http://patchwork.ozlabs.org/project/netdev/list/ nor any comment.
-> Just curious, is this patch discarded along with my other garbage patches ?
+> This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
-It's marked as 'deferred'; not sure what that means:
-
-http://patchwork.ozlabs.org/patch/90166/
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Your footer is still present, please fix this.
