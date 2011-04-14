@@ -1,80 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] ip: ip_options_compile() resilient to NULL skb route
-Date: Thu, 14 Apr 2011 17:55:37 +0200
-Message-ID: <1302796537.3248.22.camel@edumazet-laptop>
-References: <4DA522B2.90200@scotdoyle.com> <4DA5BCF7.9020606@scotdoyle.com>
-	 <1302708487.3725.0.camel@edumazet-laptop>
-	 <20110413.144812.116375845.davem@davemloft.net>
-	 <1302748276.3549.20.camel@edumazet-laptop> <20110413195424.1d2393c6@s6510>
-	 <1302750214.3549.34.camel@edumazet-laptop>
-	 <20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Network performance with small packets
+Date: Thu, 14 Apr 2011 19:03:59 +0300
+Message-ID: <20110414160359.GA11218@redhat.com>
+References: <20110127.130240.104065182.davem@davemloft.net>
+ <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com>
+ <20110202044222.GC3818@redhat.com>
+ <201102091107.20270.rusty@rustcorp.com.au>
+ <1299621444.25664.77.camel@localhost.localdomain>
+ <1299637278.13202.61.camel@localhost.localdomain>
+ <87fwqv4udl.fsf@rustcorp.com.au>
+ <20110412200112.GA19729@redhat.com>
+ <87bp09ax7a.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, lkml@scotdoyle.com,
-	netdev@vger.kernel.org
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62210 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759196Ab1DNPzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 11:55:41 -0400
-Received: by wya21 with SMTP id 21so1526729wya.19
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 08:55:40 -0700 (PDT)
-In-Reply-To: <20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: habanero@linux.vnet.ibm.com, Shirley Ma <mashirle@us.ibm.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com,
+	Tom Lendacky <tahm@linux.vnet.ibm.com>, borntraeger@de.ibm.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87bp09ax7a.fsf@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Scot Doyle demonstrated ip_options_compile() could be called with an skb
-without an attached route, using a setup involving a bridge, netfilter,
-and forged IP packets.
+On Thu, Apr 14, 2011 at 08:58:41PM +0930, Rusty Russell wrote:
+> On Tue, 12 Apr 2011 23:01:12 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > On Thu, Mar 10, 2011 at 12:19:42PM +1030, Rusty Russell wrote:
+> > > Here's an old patch where I played with implementing this:
+> > 
+> > ...
+> > 
+> > > 
+> > > virtio: put last_used and last_avail index into ring itself.
+> > > 
+> > > Generally, the other end of the virtio ring doesn't need to see where
+> > > you're up to in consuming the ring.  However, to completely understand
+> > > what's going on from the outside, this information must be exposed.
+> > > For example, if you want to save and restore a virtio_ring, but you're
+> > > not the consumer because the kernel is using it directly.
+> > > 
+> > > Fortunately, we have room to expand:
+> > 
+> > This seems to be true for x86 kvm and lguest but is it true
+> > for s390?
+> 
+> Yes, as the ring is page aligned so there's always room.
+> 
+> > Will this last bit work on s390?
+> > If I understand correctly the memory is allocated by host there?
+> 
+> They have to offer the feature, so if the have some way of allocating
+> non-page-aligned amounts of memory, they'll have to add those extra 2
+> bytes.
+> 
+> So I think it's OK...
+> Rusty.
 
-Let's make ip_options_compile() and ip_options_rcv_srr() a bit more
-robust, instead of changing bridge/netfilter code.
+To clarify, my concern is that we always seem to try to map
+these extra 2 bytes, which thinkably might fail?
 
-With help from Hiroaki SHIMODA.
-
-Reported-by: Scot Doyle <lkml@scotdoyle.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
----
-v2: ip_options_rcv_srr() fix as well, from Hiroaki
-
- net/ipv4/ip_options.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 28a736f..2391b24 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -329,7 +329,7 @@ int ip_options_compile(struct net *net,
- 					pp_ptr = optptr + 2;
- 					goto error;
- 				}
--				if (skb) {
-+				if (rt) {
- 					memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
- 					opt->is_changed = 1;
- 				}
-@@ -371,7 +371,7 @@ int ip_options_compile(struct net *net,
- 						goto error;
- 					}
- 					opt->ts = optptr - iph;
--					if (skb) {
-+					if (rt)  {
- 						memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
- 						timeptr = (__be32*)&optptr[optptr[2]+3];
- 					}
-@@ -603,7 +603,7 @@ int ip_options_rcv_srr(struct sk_buff *skb)
- 	unsigned long orefdst;
- 	int err;
- 
--	if (!opt->srr)
-+	if (!opt->srr || !rt)
- 		return 0;
- 
- 	if (skb->pkt_type != PACKET_HOST)
-
-
+-- 
+MST
