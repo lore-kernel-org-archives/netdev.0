@@ -1,54 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: filter: Just In Time compiler
-Date: Thu, 14 Apr 2011 18:05:47 +0200
-Message-ID: <1302797147.3248.32.camel@edumazet-laptop>
-References: <1301783301.2837.77.camel@edumazet-laptop>
-	 <1301784797.3110.4.camel@localhost>
-	 <1301838968.2837.200.camel@edumazet-laptop> <4DA70743.1050106@redhat.com>
-	 <0a7fdea6b816da546ea71f752d36b5c2@localhost> <4DA715BB.6050307@redhat.com>
-	 <1302795951.3248.14.camel@edumazet-laptop> <4DA71876.803@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Avi Kivity <avi@redhat.com>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH v1] ip6_pol_route panic: Do not allow VLAN on loopback
+Date: Thu, 14 Apr 2011 21:37:04 +0530
+Message-ID: <20110414160704.32251.17281.sendpatchset@krkumar2.in.ibm.com>
+Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60491 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758736Ab1DNQFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 12:05:51 -0400
-Received: by wwa36 with SMTP id 36so2195989wwa.1
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 09:05:50 -0700 (PDT)
-In-Reply-To: <4DA71876.803@redhat.com>
+Received: from e23smtp09.au.ibm.com ([202.81.31.142]:49704 "EHLO
+	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758736Ab1DNQHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 12:07:10 -0400
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [202.81.31.247])
+	by e23smtp09.au.ibm.com (8.14.4/8.13.1) with ESMTP id p3EG78N6006486
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 02:07:08 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3EG78Kr1585240
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 02:07:08 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3EG77q1011919
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 02:07:08 +1000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 14 avril 2011 =C3=A0 18:53 +0300, Avi Kivity a =C3=A9crit :
+I have tested two ways of fixing this panic:
+	1. PATCH1: Do not allow vlan on lo.
+	2. PATCH2: Do not propagate LOOPBACK to vlan devices.
 
-> IMO, it will.  I'll try to have gcc optimize your example filter late=
-r.
+Isn't it better to use PATCH1 and disallow vlan on lo?
 
-Sure you can JIT a C program from bpf. It should take maybe 30 minutes.
-It certainly is more easy than JIT an binary/assembly code :)
+The result of this patch is:
 
-Now take a look how I call slowpath, I am not sure gcc will actually
-generate better code because of C conventions.
+# modprobe 8021q
+# vconfig add lo 43
+ERROR: trying to add VLAN #43 to IF -:lo:-  error: Operation not supported
 
-Loading a filter should be fast.
-Invoking a compiler is just too much work for BPF.
-Remember loading a filter is available to any user.
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+ drivers/net/loopback.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This idea would be good for netfilter stuff, because we dont load
-iptables rules that often.
-
-But still, the netfilter mainloop can be converted as a kernel JIT, mos=
-t
-probably. All the complex stuff (matches, targets) must call external
-procedures anyway.
-
-
-
+diff -ruNp org/drivers/net/loopback.c new1/drivers/net/loopback.c
+--- org/drivers/net/loopback.c	2011-04-14 20:45:46.000000000 +0530
++++ new1/drivers/net/loopback.c	2011-04-14 20:47:09.000000000 +0530
+@@ -173,7 +173,8 @@ static void loopback_setup(struct net_de
+ 		| NETIF_F_RXCSUM
+ 		| NETIF_F_HIGHDMA
+ 		| NETIF_F_LLTX
+-		| NETIF_F_NETNS_LOCAL;
++		| NETIF_F_NETNS_LOCAL
++		| NETIF_F_VLAN_CHALLENGED;
+ 	dev->ethtool_ops	= &loopback_ethtool_ops;
+ 	dev->header_ops		= &eth_header_ops;
+ 	dev->netdev_ops		= &loopback_ops;
