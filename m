@@ -1,66 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Network performance with small packets
-Date: Thu, 14 Apr 2011 15:40:51 +0300
-Message-ID: <20110414124051.GA9059@redhat.com>
-References: <20110127.130240.104065182.davem@davemloft.net>
- <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com>
- <20110202044222.GC3818@redhat.com>
- <201102091107.20270.rusty@rustcorp.com.au>
- <1299621444.25664.77.camel@localhost.localdomain>
- <1299637278.13202.61.camel@localhost.localdomain>
- <87fwqv4udl.fsf@rustcorp.com.au>
- <20110412200112.GA19729@redhat.com>
- <87bp09ax7a.fsf@rustcorp.com.au>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-next-2.6] rndis_host: Quirky devices are still
+ 'point-to-point'
+Date: Thu, 14 Apr 2011 13:51:01 +0100
+Message-ID: <1302785461.5282.686.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: habanero@linux.vnet.ibm.com, Shirley Ma <mashirle@us.ibm.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, steved@us.ibm.com,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>, borntraeger@de.ibm.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87bp09ax7a.fsf@rustcorp.com.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34584 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757992Ab1DNMvH convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2011 08:51:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 14, 2011 at 08:58:41PM +0930, Rusty Russell wrote:
-> On Tue, 12 Apr 2011 23:01:12 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > On Thu, Mar 10, 2011 at 12:19:42PM +1030, Rusty Russell wrote:
-> > > Here's an old patch where I played with implementing this:
-> > 
-> > ...
-> > 
-> > > 
-> > > virtio: put last_used and last_avail index into ring itself.
-> > > 
-> > > Generally, the other end of the virtio ring doesn't need to see where
-> > > you're up to in consuming the ring.  However, to completely understand
-> > > what's going on from the outside, this information must be exposed.
-> > > For example, if you want to save and restore a virtio_ring, but you're
-> > > not the consumer because the kernel is using it directly.
-> > > 
-> > > Fortunately, we have room to expand:
-> > 
-> > This seems to be true for x86 kvm and lguest but is it true
-> > for s390?
-> 
-> Yes, as the ring is page aligned so there's always room.
-> 
-> > Will this last bit work on s390?
-> > If I understand correctly the memory is allocated by host there?
-> 
-> They have to offer the feature, so if the have some way of allocating
-> non-page-aligned amounts of memory, they'll have to add those extra 2
-> bytes.
-> 
-> So I think it's OK...
-> Rusty.
+My changes in commit 4d42d417be75d750b82798922b6e775915e11bce were
+written some time before the introduction of FLAG_POINTTOPOINT, so
+didn't include that flag in the new driver_info.  Change the new
+driver_info to be consistent.
 
-Correct. I wonder whether we need to pass the relevant flag
-to vring_size. If we do we'll need to add a new function
-for that though as vring_size is exported to userspace.
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ drivers/net/usb/rndis_host.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index 6d6c1da..255d6a4 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -592,7 +592,7 @@ static const struct driver_info	rndis_info = {
+ 
+ static const struct driver_info	rndis_poll_status_info = {
+ 	.description =	"RNDIS device (poll status before control)",
+-	.flags =	FLAG_ETHER | FLAG_FRAMING_RN | FLAG_NO_SETINT,
++	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT | FLAG_FRAMING_RN | FLAG_NO_SETINT,
+ 	.data =		RNDIS_DRIVER_DATA_POLL_STATUS,
+ 	.bind =		rndis_bind,
+ 	.unbind =	rndis_unbind,
 -- 
-MST
+1.7.4.1
+
+
