@@ -1,60 +1,75 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] net: ipv4: add IPPROTO_ICMP socket kind
-Date: Thu, 14 Apr 2011 12:16:15 +0300
-Message-ID: <BANLkTinh0cmb0hzpVdm5XemT5NeULeAoHQ@mail.gmail.com>
-References: <BANLkTi=ogJg_uJqsJFpnwnnr6LS+SFT3Vg@mail.gmail.com>
-	<20110413113204.GB6948@albatros>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>,
-	Solar Designer <solar@openwall.com>,
-	Kees Cook <kees.cook@canonical.com>,
-	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
-	Eugene Teo <eugene@redhat.com>,
-	Nelson Elhage <nelhage@ksplice.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Pekka Savola <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Vasiliy Kulikov <segoon@openwall.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110413113204.GB6948@albatros>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 01/12] mm: Serialize access to min_free_kbytes
+Date: Thu, 14 Apr 2011 11:41:27 +0100
+Message-ID: <1302777698-28237-2-git-send-email-mgorman@suse.de>
+References: <1302777698-28237-1-git-send-email-mgorman@suse.de>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
+To: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1302777698-28237-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 13, 2011 at 2:32 PM, Vasiliy Kulikov <segoon@openwall.com> =
-wrote:
-> On Wed, Apr 13, 2011 at 13:29 +0300, Alexey Dobriyan wrote:
->> On Sat, Apr 9, 2011 at 1:15 PM, Vasiliy Kulikov <segoon@openwall.com=
-> wrote:
->> > This patch adds IPPROTO_ICMP socket kind.
->>
->> > + =A0 =A0 =A0 seq_printf(f, "%5d: %08X:%04X %08X:%04X"
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 " %02X %08X:%08X %02X:%08lX %08X %5d=
- %8d %lu %d %p %d%n",
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bucket, src, srcp, dest, destp, sp->=
-sk_state,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_wmem_alloc_get(sp),
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_rmem_alloc_get(sp),
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 0, 0L, 0, sock_i_uid(sp), 0, sock_i_=
-ino(sp),
->>
->> These zeroes can be embedded into format string for slightly faster =
-printing.
->
-> Is it really needed? =A0I mean, it is not a fast path, so such a smal=
-l
-> overhead is not very bad. =A0But embedding them into the string makes=
- it a
-> bit more difficult to read.
+There is a race between the min_free_kbytes sysctl, memory hotplug
+and transparent hugepage support enablement.  Memory hotplug uses a
+zonelists_mutex to avoid a race when building zonelists. Reuse it to
+serialise watermark updates.
 
-In fact, if field is always zero, it can be removed altogether.
-Also, there was big discussion re exposing kernel socket pointers,
-which this file continue to do.
+[a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ mm/page_alloc.c |   23 +++++++++++++++--------
+ 1 files changed, 15 insertions(+), 8 deletions(-)
 
-> +               atomic_read(&sp->sk_refcnt), sp,
-> +               atomic_read(&sp->sk_drops), len);
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index cdef1d4..93afea3 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -4928,14 +4928,7 @@ static void setup_per_zone_lowmem_reserve(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
+-/**
+- * setup_per_zone_wmarks - called when min_free_kbytes changes
+- * or when memory is hot-{added|removed}
+- *
+- * Ensures that the watermark[min,low,high] values for each zone are set
+- * correctly with respect to min_free_kbytes.
+- */
+-void setup_per_zone_wmarks(void)
++static void __setup_per_zone_wmarks(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -4990,6 +4983,20 @@ void setup_per_zone_wmarks(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++/**
++ * setup_per_zone_wmarks - called when min_free_kbytes changes
++ * or when memory is hot-{added|removed}
++ *
++ * Ensures that the watermark[min,low,high] values for each zone are set
++ * correctly with respect to min_free_kbytes.
++ */
++void setup_per_zone_wmarks(void)
++{
++	mutex_lock(&zonelists_mutex);
++	__setup_per_zone_wmarks();
++	mutex_unlock(&zonelists_mutex);
++}
++
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+  * do too much work, but large enough that each inactive page has a chance
+-- 
+1.7.3.4
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
