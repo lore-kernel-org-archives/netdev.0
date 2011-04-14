@@ -1,32 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Clean up 'FLAG_POINTTOPOINT' and 'FLAG_MULTI_PACKET'
- overlaps in usbnet.h
-Date: Thu, 14 Apr 2011 00:22:52 -0700 (PDT)
-Message-ID: <20110414.002252.183040988.davem@davemloft.net>
-References: <BANLkTinyWLjVRLKTZB09BZaH2o0gB0p8JA@mail.gmail.com>
+From: Alex Dubov <oakad@yahoo.com>
+Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured incorrectly in fiber mode
+Date: Thu, 14 Apr 2011 00:59:26 -0700 (PDT)
+Message-ID: <903944.53826.qm@web37604.mail.mud.yahoo.com>
+References: <BANLkTikH09jMZZk1ZgeQi+HOoeFqgTpdBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gottfried.haider@gmail.com, netdev@vger.kernel.org
-To: huajun.li.lee@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Daney <ddaney@caviumnetworks.com>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Andy Fleming <afleming@freescale.com>
+To: Andy Fleming <afleming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43118
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753299Ab1DNHX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 03:23:27 -0400
-In-Reply-To: <BANLkTinyWLjVRLKTZB09BZaH2o0gB0p8JA@mail.gmail.com>
+Received: from web37604.mail.mud.yahoo.com ([209.191.87.87]:36751 "HELO
+	web37604.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752378Ab1DNH71 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2011 03:59:27 -0400
+In-Reply-To: <BANLkTikH09jMZZk1ZgeQi+HOoeFqgTpdBA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: huajun li <huajun.li.lee@gmail.com>
-Date: Thu, 14 Apr 2011 09:43:32 +0800
 
-> USB tethering does not work anymore since 2.6.39-rc2, but it's okay in
-> -rc1. The root cause is the new added mask code 'FLAG_POINTTOPOINT'
-> overlaps 'FLAG_MULTI_PACKET'  in  include/linux/usb/usbnet.h, this
-> causes logic issue in  rx_process(). This patch cleans up the overlap.
-> 
-> Reported-and-Tested-by: Gottfried Haider <gottfried.haider@gmail.com>
-> Signed-off-by:  Huajun Li <huajun.li.lee@gmail.com>
 
-Applied, thanks.
+--- On Thu, 14/4/11, Andy Fleming <afleming@gmail.com> wrote:
+
+>=20
+> I've just rewritten the U-Boot code for PHY management, so
+> I'd be
+> interested in hearing if this breaks your board.=A0 But
+> what's
+> interesting to me is that, in order for U-Boot to report
+> that the link
+> is a "fiber" link, something had to set the TSEC_FIBER
+> flag, and only
+> one PHY in the public source did.=A0 This implies to me
+> that your board
+> isn't supported by mainline U-Boot, and suggests that
+> someone may have
+> modified the 88e1145 driver. Otherwise, I don't see any
+> fiber-related
+> differences between the U-Boot 1145 driver, and the Linux
+> one.
+
+I had not seen any difference, that's true. But the problem somehow
+creeps in.
+
+The u-boot is standard stock u-boot pulled from the recent git,
+no special configuration involved.
+
+I actually managed to make kernel transmit stuff by playing with regist=
+er
+values from other marvell phy varieties, but it keeps receiving garbage=
+,
+so the link is still not operational.
+
+I tried to prevent kernel from reconfiguring the phy, but to no avail.
+It seems very weird to me, because I did quite a lot of testing with
+u-boot and network just works on that interface. However, when kernel
+starts booting it suddenly looses the ability to talk to it.
+
+I have a copper link attached to the same transceiver and it works fine
+all along.
+
+>=20
+>=20
+>=20
+> Reading the configuration from U-Boot is
+> straightforward.=A0 use the
+> "mii" command to read the registers.=A0 But don't forget
+> to set register
+> 22 (16 - mii command only reads hex) to 1, and read all of
+> the
+> registers that way, too.
+
+I have no recourse but to keep investigating.
+
+>=20
+> You will either need to add some code to detect when the
+> PHY is using
+> fiber, and change the phydev->port to PORT_FIBRE, or you
+> will need to
+> add a board-level "fixup" to change the port to PORT_FIBRE
+> on your
+> board.
+>=20
+> Then the PHY driver should use that information to do the
+> right configuration.
+>=20
+> Andy
+>=20
