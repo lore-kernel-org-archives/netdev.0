@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Thu, 14 Apr 2011 08:07:31 +0200
-Message-ID: <1302761251.3549.198.camel@edumazet-laptop>
+Date: Thu, 14 Apr 2011 08:33:30 +0200
+Message-ID: <1302762810.3549.233.camel@edumazet-laptop>
 References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
 	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
 	 <1302167168.3357.12.camel@edumazet-laptop>
@@ -21,6 +21,7 @@ References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.erics
 	 <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
 	 <1302536577.4605.1.camel@edumazet-laptop>
 	 <D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302761251.3549.198.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -30,30 +31,36 @@ Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 To: Wei Gu <wei.gu@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:50308 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756410Ab1DNGHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 02:07:36 -0400
-Received: by wwa36 with SMTP id 36so1590433wwa.1
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 23:07:35 -0700 (PDT)
-In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37459 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757126Ab1DNGdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 02:33:36 -0400
+Received: by wya21 with SMTP id 21so1104275wya.19
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 23:33:35 -0700 (PDT)
+In-Reply-To: <1302761251.3549.198.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 14 avril 2011 =C3=A0 13:42 +0800, Wei Gu a =C3=A9crit :
-> Hi guys,
-> Do you think it was a bug in the kernel from 2.6.35.2 with Intel 10GE=
- ixgbe driver?
-> If so shall I issue a Bug on the bugzilla, and which category? Cause =
-I'm not sure it was driver problem Or sched problem.
+Le jeudi 14 avril 2011 =C3=A0 08:07 +0200, Eric Dumazet a =C3=A9crit :
+> Le jeudi 14 avril 2011 =C3=A0 13:42 +0800, Wei Gu a =C3=A9crit :
+> > Hi guys,
+> > Do you think it was a bug in the kernel from 2.6.35.2 with Intel 10=
+GE ixgbe driver?
+> > If so shall I issue a Bug on the bugzilla, and which category? Caus=
+e I'm not sure it was driver problem Or sched problem.
+>=20
+> This makes no sense to me.
+>=20
+> What is the maximum throughput you can get in pps before having packe=
+t
+> drops ?
+>=20
+> Please try with a single flow (to hit one queue, one cpu)
+>=20
+> Thanks
+> =20
 
-This makes no sense to me.
+Also, please try to check if using smaller or bigger packets makes any
+change in this max throughput
 
-What is the maximum throughput you can get in pps before having packet
-drops ?
-
-Please try with a single flow (to hit one queue, one cpu)
-
-Thanks
-=20
 
