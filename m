@@ -1,45 +1,28 @@
-From: Daniel Walter <sahne@0x90.at>
-Subject: [PATCH 1/1] ipv6: ignore looped-back NA while dad is running
-Date: Thu, 14 Apr 2011 09:09:25 +0200
-Message-ID: <20110414070925.GA78446@0x90.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 00/26 v2][pull request] Intel Wired LAN Driver
+ Update
+Date: Thu, 14 Apr 2011 00:18:12 -0700 (PDT)
+Message-ID: <20110414.001812.189710332.davem@davemloft.net>
+References: <1302748718-16927-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37891
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757891Ab1DNHSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 03:18:48 -0400
+In-Reply-To: <1302748718-16927-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[ipv6] Ignore looped-back NAs while in Duplicate Address Detection
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 13 Apr 2011 19:38:38 -0700
 
-If we send an unsolicited NA shortly after bringing up an
-IPv6 address, the duplicate address detection algorithm
-fails and the ip stays in tentative mode forever. 
-This is due a missing check if the NA is looped-back to us.
+> The following series contains updates to e1000e, igb and ixgbe.
+ ...
+> -v2 Drop the e1000 patch to convert to the new set_phys_id interface
 
-Signed-off-by: Daniel Walter <dwalter@barracuda.com>
----
-apply against linux-2.6 HEAD
-
- net/ipv6/ndisc.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
----
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 92f952d..f057ff3 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -945,9 +945,10 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 	}
- 	ifp = ipv6_get_ifaddr(dev_net(dev), &msg->target, dev, 1);
- 	if (ifp) {
--		if (ifp->flags & IFA_F_TENTATIVE) {
--			addrconf_dad_failure(ifp);
--			return;
-+		if (skb->pkt_type != PACKET_LOOPBACK
-+		    && (ifp->flags & IFA_F_TENTATIVE)) {
-+				addrconf_dad_failure(ifp);
-+				return;
- 		}
- 		/* What should we make now? The advertisement
- 		   is invalid, but ndisc specs say nothing
+Pulled, thanks Jeff.
