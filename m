@@ -1,39 +1,68 @@
-From: ANDY KENNEDY <ANDY.KENNEDY@adtran.com>
-Subject: RE: SMSC 8720a/MDIO/PHY help.
-Date: Wed, 13 Apr 2011 23:08:20 -0500
-Message-ID: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8FD@EXV1.corp.adtran.com>
-References: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E632@EXV1.corp.adtran.com> <1302729564.2742.28.camel@malcolm> <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8D4@EXV1.corp.adtran.com>
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Subject: Re: [PATCH] ip: ip_options_compile() resilient to NULL skb route
+Date: Thu, 14 Apr 2011 13:15:52 +0900
+Message-ID: <20110414131552.1822142f.shimoda.hiroaki@gmail.com>
+References: <4DA522B2.90200@scotdoyle.com>
+	<4DA5BCF7.9020606@scotdoyle.com>
+	<1302708487.3725.0.camel@edumazet-laptop>
+	<20110413.144812.116375845.davem@davemloft.net>
+	<1302748276.3549.20.camel@edumazet-laptop>
+	<20110413195424.1d2393c6@s6510>
+	<1302750214.3549.34.camel@edumazet-laptop>
+	<20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
+	<1302752263.3549.41.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, lkml@scotdoyle.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p02c11o145.mxlogic.net ([208.65.144.78]:46346 "EHLO
-	p02c11o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab1DNEIQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 00:08:16 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8D4@EXV1.corp.adtran.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:44633 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751637Ab1DNEP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 00:15:57 -0400
+Received: by gxk21 with SMTP id 21so563511gxk.19
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 21:15:56 -0700 (PDT)
+In-Reply-To: <1302752263.3549.41.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogTWljaGFlbCBSaWVzY2gg
-W21haWx0bzptaWNoYWVsQHJpZXNjaC5hdF0NCj4gPiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDEz
-LCAyMDExIDQ6MTkgUE0NCj4gPiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+IENjOiBB
-TkRZIEtFTk5FRFkNCj4gPiBTdWJqZWN0OiBSZTogU01TQyA4NzIwYS9NRElPL1BIWSBoZWxwLg0K
-PiA+DQo+ID4NCj4gPiA+IElmIHlvdSBoYXZlIGFuIGlkZWEgb2Ygc29tZXRoaW5nIGZvciBtZSB0
-byB0cnksIEknZCBsb3ZlIHRvDQo+ID4gZW50ZXJ0YWluDQo+ID4gPiBpdC4NCj4gPg0KPiA+IEkg
-YW0gcmF0aGVyIG5ldyB0byBQSFlMSUIsIGJ1dCB0aGVzZSBhcmUgbXkgaWRlYXM6DQo+ID4NCj4g
-PiAgMSkgbWFrZSBzdXJlIHBoeV9jb25uZWN0IGlzIGV4ZWN1dGVkIChBRklBSyBjYWxsZWQgYnkg
-TURJTyBidXMNCj4gPiBkcml2ZXIpDQoNCkFsb25nIHRoaXMgbGluZSBvZiB0aG91Z2g6ICBwaHlf
-Y29ubmVjdCByZXF1aXJlcyBzdHJ1Y3QgbmV0X2RldmljZSwgd2hpY2ggaGFzIGEgc3RydWN0IG5l
-dF9kZXZpY2Vfb3BzIHdpdGhpbiBpdC4gIFdoZW4gSSBkbyBhIHBoeV9jb25uZWN0IGFtIEkgc3Vw
-cG9zZWQgdG8gcHJvdmlkZSB0aGUgbWluaW1hbCBmdW5jdGlvbnMgZm9yIG5ldGRldl9vcHMgKGNv
-cnJlY3QgdGhpcyBsaXN0IGlmIEkgYW0gbWlzdGFrZW4pOg0KbmRvX29wZW4NCm5kb19zdG9wDQpu
-ZG9fc3RhcnRfeG1pdA0KbmRvX2dldF9zdGF0cw0KbmRvX3NldF9tdWx0aWNhc3RfbGlzdA0KQXMg
-d2VsbCBhcyBwb3B1bGF0ZSB0aGUgZGV2LT5kZXZfYWRkciB3aXRoaW4gdGhlIHN0cnVjdCBuZXRf
-ZGV2aWNlLg0KDQpUaGUgcGFydCB0aGF0IGNvbmZ1c2VzIG1lIGlzIHRoYXQgdGhlIHNtc2MuYyA/
-P2RyaXZlcj8/IHVuZGVyIGRyaXZlcnMvbmV0L3BoeS9zbXNjLmMgZG9lc27igJl0IGRvIGFueSBv
-ZiB0aGlzLiAgVGhpcyBpcyBhIHBoeSBzdXBwb3J0ZWQgYnkgdGhpcyBmaWxlLCBzbyBzaG91bGQg
-SSBoYXZlIHRvIGRvIGFsbCB0aGlzIHRvIGdldCB0aGUgZGV2aWNlIHVwPw0KDQpTcGlubmluZywN
-CkFuZHkNCg==
+On Thu, 14 Apr 2011 05:37:43 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> Indeed good catch, but should we return 0 or -EINVAL so that caller can
+> drop packet ?
+> 
+> @@ -606,7 +606,7 @@ int ip_options_rcv_srr(struct sk_buff *skb)
+>  	if (!opt->srr)
+>  		return 0;
+>  
+> -	if (skb->pkt_type != PACKET_HOST)
+> +	if (skb->pkt_type != PACKET_HOST || !rt)
+>                 return -EINVAL;
+>  	if (rt->rt_type == RTN_UNICAST) {
+>  		if (!opt->is_strictroute)
+> 
+
+As your patch does we don't treat an skb without rt as error
+on bridge/netfilter context.
+So, I think returning 0 would be better off.
+But thinking of ip_options_rcv_srr() is called from another context again
+adding an extra check in br_parse_ip_options() is safer ?
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index f3bc322..10ac127 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -263,7 +263,7 @@ static int br_parse_ip_options(struct sk_buff *skb)
+ 		if (in_dev && !IN_DEV_SOURCE_ROUTE(in_dev))
+ 			goto drop;
+ 
+-		if (ip_options_rcv_srr(skb))
++		if (skb_rtable(skb) && ip_options_rcv_srr(skb))
+ 			goto drop;
+ 	}
+ 
+Thanks.
