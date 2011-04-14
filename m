@@ -1,94 +1,60 @@
-From: Alex Dubov <oakad@yahoo.com>
-Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured incorrectly in fiber mode
-Date: Thu, 14 Apr 2011 00:59:26 -0700 (PDT)
-Message-ID: <903944.53826.qm@web37604.mail.mud.yahoo.com>
-References: <BANLkTikH09jMZZk1ZgeQi+HOoeFqgTpdBA@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] net: ipv4: add IPPROTO_ICMP socket kind
+Date: Thu, 14 Apr 2011 12:16:15 +0300
+Message-ID: <BANLkTinh0cmb0hzpVdm5XemT5NeULeAoHQ@mail.gmail.com>
+References: <BANLkTi=ogJg_uJqsJFpnwnnr6LS+SFT3Vg@mail.gmail.com>
+	<20110413113204.GB6948@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Daney <ddaney@caviumnetworks.com>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Andy Fleming <afleming@freescale.com>
-To: Andy Fleming <afleming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web37604.mail.mud.yahoo.com ([209.191.87.87]:36751 "HELO
-	web37604.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752378Ab1DNH71 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2011 03:59:27 -0400
-In-Reply-To: <BANLkTikH09jMZZk1ZgeQi+HOoeFqgTpdBA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>,
+	Solar Designer <solar@openwall.com>,
+	Kees Cook <kees.cook@canonical.com>,
+	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
+	Eugene Teo <eugene@redhat.com>,
+	Nelson Elhage <nelhage@ksplice.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Pekka Savola <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Vasiliy Kulikov <segoon@openwall.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110413113204.GB6948@albatros>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 13, 2011 at 2:32 PM, Vasiliy Kulikov <segoon@openwall.com> =
+wrote:
+> On Wed, Apr 13, 2011 at 13:29 +0300, Alexey Dobriyan wrote:
+>> On Sat, Apr 9, 2011 at 1:15 PM, Vasiliy Kulikov <segoon@openwall.com=
+> wrote:
+>> > This patch adds IPPROTO_ICMP socket kind.
+>>
+>> > + =A0 =A0 =A0 seq_printf(f, "%5d: %08X:%04X %08X:%04X"
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 " %02X %08X:%08X %02X:%08lX %08X %5d=
+ %8d %lu %d %p %d%n",
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bucket, src, srcp, dest, destp, sp->=
+sk_state,
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_wmem_alloc_get(sp),
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk_rmem_alloc_get(sp),
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 0, 0L, 0, sock_i_uid(sp), 0, sock_i_=
+ino(sp),
+>>
+>> These zeroes can be embedded into format string for slightly faster =
+printing.
+>
+> Is it really needed? =A0I mean, it is not a fast path, so such a smal=
+l
+> overhead is not very bad. =A0But embedding them into the string makes=
+ it a
+> bit more difficult to read.
 
+In fact, if field is always zero, it can be removed altogether.
+Also, there was big discussion re exposing kernel socket pointers,
+which this file continue to do.
 
---- On Thu, 14/4/11, Andy Fleming <afleming@gmail.com> wrote:
-
->=20
-> I've just rewritten the U-Boot code for PHY management, so
-> I'd be
-> interested in hearing if this breaks your board.=A0 But
-> what's
-> interesting to me is that, in order for U-Boot to report
-> that the link
-> is a "fiber" link, something had to set the TSEC_FIBER
-> flag, and only
-> one PHY in the public source did.=A0 This implies to me
-> that your board
-> isn't supported by mainline U-Boot, and suggests that
-> someone may have
-> modified the 88e1145 driver. Otherwise, I don't see any
-> fiber-related
-> differences between the U-Boot 1145 driver, and the Linux
-> one.
-
-I had not seen any difference, that's true. But the problem somehow
-creeps in.
-
-The u-boot is standard stock u-boot pulled from the recent git,
-no special configuration involved.
-
-I actually managed to make kernel transmit stuff by playing with regist=
-er
-values from other marvell phy varieties, but it keeps receiving garbage=
-,
-so the link is still not operational.
-
-I tried to prevent kernel from reconfiguring the phy, but to no avail.
-It seems very weird to me, because I did quite a lot of testing with
-u-boot and network just works on that interface. However, when kernel
-starts booting it suddenly looses the ability to talk to it.
-
-I have a copper link attached to the same transceiver and it works fine
-all along.
-
->=20
->=20
->=20
-> Reading the configuration from U-Boot is
-> straightforward.=A0 use the
-> "mii" command to read the registers.=A0 But don't forget
-> to set register
-> 22 (16 - mii command only reads hex) to 1, and read all of
-> the
-> registers that way, too.
-
-I have no recourse but to keep investigating.
-
->=20
-> You will either need to add some code to detect when the
-> PHY is using
-> fiber, and change the phydev->port to PORT_FIBRE, or you
-> will need to
-> add a board-level "fixup" to change the port to PORT_FIBRE
-> on your
-> board.
->=20
-> Then the PHY driver should use that information to do the
-> right configuration.
->=20
-> Andy
->=20
+> +               atomic_read(&sp->sk_refcnt), sp,
+> +               atomic_read(&sp->sk_drops), len);
