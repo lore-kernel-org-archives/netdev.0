@@ -1,72 +1,134 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 24/24] ixgbe: DCB, X540 devices do not respond to pause frames
-Date: Wed, 13 Apr 2011 18:02:20 -0700
-Message-ID: <1302742940-22141-25-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 03/24] igb: introduce igb_thermal_sensor_event for sensor checking
+Date: Wed, 13 Apr 2011 18:01:59 -0700
+Message-ID: <1302742940-22141-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1302742940-22141-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:2477 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:52716 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754966Ab1DNBD1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 21:03:27 -0400
+	id S1750892Ab1DNBC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 21:02:28 -0400
 In-Reply-To: <1302742940-22141-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Stefan Assmann <sassmann@kpanic.de>
 
-DCB enabled X540 devices are not responding to pause frames
-due to a missing register set that was added for these
-devices that did not exist in other devices.
+The code for thermal sensor checking should be wrapped into a function.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_dcb_82599.c |    9 +++++++--
- drivers/net/ixgbe/ixgbe_type.h      |    2 ++
- 2 files changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/igb/igb_main.c |   67 ++++++++++++++++++++++---------------------
+ 1 files changed, 34 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ixgbe/ixgbe_dcb_82599.c
-index 865ddd8..d50cf78 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82599.c
-@@ -301,12 +301,17 @@ s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en)
- 		IXGBE_WRITE_REG(hw, IXGBE_FCCFG, reg);
- 		/*
- 		 * Enable Receive PFC
--		 * We will always honor XOFF frames we receive when
--		 * we are in PFC mode.
-+		 * 82599 will always honor XOFF frames we receive when
-+		 * we are in PFC mode however X540 only honors enabled
-+		 * traffic classes.
- 		 */
- 		reg = IXGBE_READ_REG(hw, IXGBE_MFLCN);
- 		reg &= ~IXGBE_MFLCN_RFCE;
- 		reg |= IXGBE_MFLCN_RPFCE | IXGBE_MFLCN_DPF;
-+
-+		if (hw->mac.type == ixgbe_mac_X540)
-+			reg |= pfc_en << IXGBE_MFLCN_RPFCE_SHIFT;
-+
- 		IXGBE_WRITE_REG(hw, IXGBE_MFLCN, reg);
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 0dfd1b9..cdfd572 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -3532,6 +3532,25 @@ bool igb_has_link(struct igb_adapter *adapter)
+ 	return link_active;
+ }
  
- 	} else {
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 7d0b37d..f5bec97 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1728,6 +1728,8 @@
- #define IXGBE_MFLCN_RPFCE       0x00000004 /* Receive Priority FC Enable */
- #define IXGBE_MFLCN_RFCE        0x00000008 /* Receive FC Enable */
- 
-+#define IXGBE_MFLCN_RPFCE_SHIFT		 4
++static bool igb_thermal_sensor_event(struct e1000_hw *hw, u32 event)
++{
++	bool ret = false;
++	u32 ctrl_ext, thstat;
 +
- /* Multiple Receive Queue Control */
- #define IXGBE_MRQC_RSSEN                 0x00000001  /* RSS Enable */
- #define IXGBE_MRQC_MRQE_MASK                    0xF /* Bits 3:0 */
++	/* check for thermal sensor event on i350, copper only */
++	if (hw->mac.type == e1000_i350) {
++		thstat = rd32(E1000_THSTAT);
++		ctrl_ext = rd32(E1000_CTRL_EXT);
++
++		if ((hw->phy.media_type == e1000_media_type_copper) &&
++		    !(ctrl_ext & E1000_CTRL_EXT_LINK_MODE_SGMII)) {
++			ret = !!(thstat & event);
++		}
++	}
++
++	return ret;
++}
++
+ /**
+  * igb_watchdog - Timer Call-back
+  * @data: pointer to adapter cast into an unsigned long
+@@ -3550,7 +3569,7 @@ static void igb_watchdog_task(struct work_struct *work)
+                                                    watchdog_task);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
+-	u32 link, ctrl_ext, thstat;
++	u32 link;
+ 	int i;
+ 
+ 	link = igb_has_link(adapter);
+@@ -3574,25 +3593,14 @@ static void igb_watchdog_task(struct work_struct *work)
+ 			       ((ctrl & E1000_CTRL_RFCE) ?  "RX" :
+ 			       ((ctrl & E1000_CTRL_TFCE) ?  "TX" : "None")));
+ 
+-			/* check for thermal sensor event on i350,
+-			 * copper only */
+-			if (hw->mac.type == e1000_i350) {
+-				thstat = rd32(E1000_THSTAT);
+-				ctrl_ext = rd32(E1000_CTRL_EXT);
+-				if ((hw->phy.media_type ==
+-				     e1000_media_type_copper) && !(ctrl_ext &
+-				     E1000_CTRL_EXT_LINK_MODE_SGMII)) {
+-					if (thstat &
+-					    E1000_THSTAT_LINK_THROTTLE) {
+-						printk(KERN_INFO "igb: %s The "
+-						       "network adapter link "
+-						       "speed was downshifted "
+-						       "because it "
+-						       "overheated.\n",
+-						       netdev->name);
+-					}
+-				}
++			/* check for thermal sensor event */
++			if (igb_thermal_sensor_event(hw, E1000_THSTAT_LINK_THROTTLE)) {
++				printk(KERN_INFO "igb: %s The network adapter "
++						 "link speed was downshifted "
++						 "because it overheated.\n",
++						 netdev->name);
+ 			}
++
+ 			/* adjust timeout factor according to speed/duplex */
+ 			adapter->tx_timeout_factor = 1;
+ 			switch (adapter->link_speed) {
+@@ -3618,22 +3626,15 @@ static void igb_watchdog_task(struct work_struct *work)
+ 		if (netif_carrier_ok(netdev)) {
+ 			adapter->link_speed = 0;
+ 			adapter->link_duplex = 0;
+-			/* check for thermal sensor event on i350
+-			 * copper only*/
+-			if (hw->mac.type == e1000_i350) {
+-				thstat = rd32(E1000_THSTAT);
+-				ctrl_ext = rd32(E1000_CTRL_EXT);
+-				if ((hw->phy.media_type ==
+-				     e1000_media_type_copper) && !(ctrl_ext &
+-				     E1000_CTRL_EXT_LINK_MODE_SGMII)) {
+-					if (thstat & E1000_THSTAT_PWR_DOWN) {
+-						printk(KERN_ERR "igb: %s The "
+-						"network adapter was stopped "
+-						"because it overheated.\n",
++
++			/* check for thermal sensor event */
++			if (igb_thermal_sensor_event(hw, E1000_THSTAT_PWR_DOWN)) {
++				printk(KERN_ERR "igb: %s The network adapter "
++						"was stopped because it "
++						"overheated.\n",
+ 						netdev->name);
+-					}
+-				}
+ 			}
++
+ 			/* Links status message must follow this format */
+ 			printk(KERN_INFO "igb: %s NIC Link is Down\n",
+ 			       netdev->name);
 -- 
 1.7.4.2
 
