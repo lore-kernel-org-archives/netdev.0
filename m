@@ -1,46 +1,40 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next-2.6] rndis_host: Quirky devices are still
- 'point-to-point'
-Date: Thu, 14 Apr 2011 13:51:01 +0100
-Message-ID: <1302785461.5282.686.camel@localhost>
+From: Dmitry Novikov <dimetrios@gmail.com>
+Subject: Re: [Bug 32772] New: PROBLEM: kernel BUG at net/ipv4/inetpeer.c:386
+Date: Thu, 14 Apr 2011 16:02:21 +0300
+Message-ID: <BANLkTi=A59zBTwrf2TsVbSrouxBhLsrH3w@mail.gmail.com>
+References: <BANLkTinhnPR6fHRQD-vvbxX1n+Zxr=HTZw@mail.gmail.com>
+	<20110406.111649.193697123.davem@davemloft.net>
+	<BANLkTi=PTqcYd1wO_QzQTtg_PWEq2fAJMg@mail.gmail.com>
+	<20110413.132403.179942105.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34584 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757992Ab1DNMvH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2011 08:51:07 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45773 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415Ab1DNNCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 09:02:22 -0400
+Received: by wya21 with SMTP id 21so1366683wya.19
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 06:02:21 -0700 (PDT)
+In-Reply-To: <20110413.132403.179942105.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My changes in commit 4d42d417be75d750b82798922b6e775915e11bce were
-written some time before the introduction of FLAG_POINTTOPOINT, so
-didn't include that flag in the new driver_info.  Change the new
-driver_info to be consistent.
+Thanks. Patch applied . Will wait results
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- drivers/net/usb/rndis_host.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index 6d6c1da..255d6a4 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -592,7 +592,7 @@ static const struct driver_info	rndis_info = {
- 
- static const struct driver_info	rndis_poll_status_info = {
- 	.description =	"RNDIS device (poll status before control)",
--	.flags =	FLAG_ETHER | FLAG_FRAMING_RN | FLAG_NO_SETINT,
-+	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT | FLAG_FRAMING_RN | FLAG_NO_SETINT,
- 	.data =		RNDIS_DRIVER_DATA_POLL_STATUS,
- 	.bind =		rndis_bind,
- 	.unbind =	rndis_unbind,
--- 
-1.7.4.1
-
-
+2011/4/13 David Miller <davem@davemloft.net>:
+> From: Dmitry Novikov <dimetrios@gmail.com>
+> Date: Wed, 13 Apr 2011 23:14:03 +0300
+>
+>> Crash again after 7 days of uptime. slub_nomerge is set
+>
+> Looks like too deep stack, try this patch which is in net-2.6:
+>
+> --------------------
+> inetpeer: reduce stack usage
+>
+> On 64bit arches, we use 752 bytes of stack when cleanup_once() is called
+> from inet_getpeer().
+>
