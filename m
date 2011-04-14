@@ -1,33 +1,33 @@
-From: Don Fry <pcnet32@frontier.com>
-Subject: Re: [net-next-2.6 RFC PATCH v2 08/13] pcnet32: set ethtool
- set_phys_id on/off cycle frequency to 2/sec
-Date: Thu, 14 Apr 2011 07:00:55 -0700
-Message-ID: <1302789655.8241.2.camel@Linux>
-References: <20110413195146.25901.72193.stgit@gitlad.jf.intel.com>
-	 <20110413195927.25901.35278.stgit@gitlad.jf.intel.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/1] ipv6: RTA_PREFSRC support for ipv6 route source
+ address selection
+Date: Thu, 14 Apr 2011 23:24:00 +0900
+Message-ID: <1302791040.9279.2.camel@takos>
+References: <20110414071057.GB78446@0x90.at>  <4DA6FE25.70608@earthlink.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Bruce Allan <bruce.w.allan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.dlls.pa.frontiernet.net ([199.224.80.228]:13807 "EHLO
-	out01.dlls.pa.frontiernet.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757612Ab1DNOLF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 10:11:05 -0400
-In-Reply-To: <20110413195927.25901.35278.stgit@gitlad.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Walter <sahne@0x90.at>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org
+To: sclark46@earthlink.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DA6FE25.70608@earthlink.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Date: Wed, 13 Apr 2011 12:59:27 -0700
-> 
-> Physical identification frequency based on how it was done prior to the
-> introduction of set_phys_id.  Compile tested only.
-> 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: Don Fry <pcnet32@frontier.com>
+Stephen Clark wrote:
+> On 04/14/2011 03:10 AM, Daniel Walter wrote:
+> > [ipv6] Add support for RTA_PREFSRC
+> >
+> > This patch allows a user to select the preferred source address
+> > for a specific IPv6-Route. It can be set via a netlink message
+> > setting RTA_PREFSRC to a valid IPv6 address which must be
+> > up on the device the route will be bound to.
 
-Acked-by: Don Fry <pcnet32@frontier.com>
+> What userspace application will be used to set this?
 
+I do expect Daniel will submit appropriate patch for iproute2 package
+shortly :-)
 
-
+--yoshfuji
