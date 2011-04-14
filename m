@@ -1,72 +1,80 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH v2] net: filter: Just In Time compiler
-Date: Thu, 14 Apr 2011 18:53:26 +0300
-Message-ID: <4DA71876.803@redhat.com>
-References: <1301783301.2837.77.camel@edumazet-laptop>	 <1301784797.3110.4.camel@localhost>	 <1301838968.2837.200.camel@edumazet-laptop> <4DA70743.1050106@redhat.com>	 <0a7fdea6b816da546ea71f752d36b5c2@localhost>  <4DA715BB.6050307@redhat.com> <1302795951.3248.14.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2] ip: ip_options_compile() resilient to NULL skb route
+Date: Thu, 14 Apr 2011 17:55:37 +0200
+Message-ID: <1302796537.3248.22.camel@edumazet-laptop>
+References: <4DA522B2.90200@scotdoyle.com> <4DA5BCF7.9020606@scotdoyle.com>
+	 <1302708487.3725.0.camel@edumazet-laptop>
+	 <20110413.144812.116375845.davem@davemloft.net>
+	 <1302748276.3549.20.camel@edumazet-laptop> <20110413195424.1d2393c6@s6510>
+	 <1302750214.3549.34.camel@edumazet-laptop>
+	 <20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, lkml@scotdoyle.com,
+	netdev@vger.kernel.org
+To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29897 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759208Ab1DNPxg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2011 11:53:36 -0400
-In-Reply-To: <1302795951.3248.14.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:62210 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759196Ab1DNPzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 11:55:41 -0400
+Received: by wya21 with SMTP id 21so1526729wya.19
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 08:55:40 -0700 (PDT)
+In-Reply-To: <20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/14/2011 06:45 PM, Eric Dumazet wrote:
-> Le jeudi 14 avril 2011 =C3=A0 18:41 +0300, Avi Kivity a =C3=A9crit :
->
-> >  I'm talking about optimizing the generated code.  For example, bpf=
- has
-> >  just two registers so a complex program generates a lot of loads a=
-nd
-> >  stores.  An optimizing compiler can use extra target registers to =
-avoid
-> >  those spills, and doesn't need to keep A and X in fixed registers.
-> >
->
-> Thats not exactly true.
->
-> A bpf filter also uses up to 16 mem[] 'registers'.
->
+Scot Doyle demonstrated ip_options_compile() could be called with an skb
+without an attached route, using a setup involving a bridge, netfilter,
+and forged IP packets.
 
-That's what I referred as loads and stores.  Since you can't use mem[]=20
-to index into a packet, you have to spill X into mem[], calculate a new=
-=20
-X, use it to access the packet, and reload X.
+Let's make ip_options_compile() and ip_options_rcv_srr() a bit more
+robust, instead of changing bridge/netfilter code.
 
-> A risc cpu (with a lot of registers) could use registers to hold part=
- of
-> the mem[] array.
+With help from Hiroaki SHIMODA.
 
-An optimizing compiler will dynamically assign mem[] into registers,=20
-even on i386.  Liveness analysis means the same machine register can be=
-=20
-used for different mem[] locations.
+Reported-by: Scot Doyle <lkml@scotdoyle.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+---
+v2: ip_options_rcv_srr() fix as well, from Hiroaki
 
-> >  If you translate the bpf program to C and optimize that with gcc y=
-ou'll
-> >  probably get much better machine code that the jit in the patch.
-> >
->
-> Well, gcc wont optimize a lot a bpf program if you ask me.
+ net/ipv4/ip_options.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-IMO, it will.  I'll try to have gcc optimize your example filter later.
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index 28a736f..2391b24 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -329,7 +329,7 @@ int ip_options_compile(struct net *net,
+ 					pp_ptr = optptr + 2;
+ 					goto error;
+ 				}
+-				if (skb) {
++				if (rt) {
+ 					memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
+ 					opt->is_changed = 1;
+ 				}
+@@ -371,7 +371,7 @@ int ip_options_compile(struct net *net,
+ 						goto error;
+ 					}
+ 					opt->ts = optptr - iph;
+-					if (skb) {
++					if (rt)  {
+ 						memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
+ 						timeptr = (__be32*)&optptr[optptr[2]+3];
+ 					}
+@@ -603,7 +603,7 @@ int ip_options_rcv_srr(struct sk_buff *skb)
+ 	unsigned long orefdst;
+ 	int err;
+ 
+-	if (!opt->srr)
++	if (!opt->srr || !rt)
+ 		return 0;
+ 
+ 	if (skb->pkt_type != PACKET_HOST)
 
-> You would better make tcpdump not generate bpf but direct C code.
-
-That involves breaking the interface (plus, we might not trust tcpdump)=
-=2E
-
---=20
-error compiling committee.c: too many arguments to function
 
