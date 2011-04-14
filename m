@@ -1,68 +1,66 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: Re: [PATCH] ip: ip_options_compile() resilient to NULL skb route
-Date: Thu, 14 Apr 2011 13:15:52 +0900
-Message-ID: <20110414131552.1822142f.shimoda.hiroaki@gmail.com>
-References: <4DA522B2.90200@scotdoyle.com>
-	<4DA5BCF7.9020606@scotdoyle.com>
-	<1302708487.3725.0.camel@edumazet-laptop>
-	<20110413.144812.116375845.davem@davemloft.net>
-	<1302748276.3549.20.camel@edumazet-laptop>
-	<20110413195424.1d2393c6@s6510>
-	<1302750214.3549.34.camel@edumazet-laptop>
-	<20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
-	<1302752263.3549.41.camel@edumazet-laptop>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [stable] [PATCH NET-2.6 1/1] qlcnic: limit skb frags for non
+ tso packet
+Date: Thu, 14 Apr 2011 00:22:35 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD13840FE@MNEXMB2.qlogic.org>
+References: <1302592781-13881-1-git-send-email-amit.salecha@qlogic.com>
+ <1302592781-13881-2-git-send-email-amit.salecha@qlogic.com>
+ <20110412.135522.71113479.davem@davemloft.net>
+ <99737F4847ED0A48AECC9F4A1974A4B80FD1383FAC@MNEXMB2.qlogic.org>
+ <20110413034228.GA852@kroah.com>
+ <99737F4847ED0A48AECC9F4A1974A4B80FD1383FDF@MNEXMB2.qlogic.org>
+ <20110413140307.GA7426@kroah.com>
+ <99737F4847ED0A48AECC9F4A1974A4B80FD138407E@MNEXMB2.qlogic.org>
+ <20110413161534.GA20578@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, lkml@scotdoyle.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	stable <stable@kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:44633 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637Ab1DNEP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 00:15:57 -0400
-Received: by gxk21 with SMTP id 21so563511gxk.19
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 21:15:56 -0700 (PDT)
-In-Reply-To: <1302752263.3549.41.camel@edumazet-laptop>
+Received: from am1ehsobe001.messaging.microsoft.com ([213.199.154.204]:19766
+	"EHLO AM1EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752800Ab1DNFhn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2011 01:37:43 -0400
+In-Reply-To: <20110413161534.GA20578@kroah.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Apr 2011 05:37:43 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Footer will present in my reply to this email. But footer should not
+> be there in patches sent by me.
+> > Can you verify patch version 2 again ? Here
+> http://patchwork.ozlabs.org/patch/90938/ I don't see any footer.
+> > If you see footer with patch version 2, please send me that.
+>
+> Your footer was not in your patch, correct.  But it was in this email.
+>
+> And that's the issue, you can't have that footer on emails you send to
+> a
+> public list where you are going to be collaborating on a public
+> project,
+> otherwise no one can use anything you say.
+>
+> Now if you only think that people will just accept your patches,
+> without
+> being able to have you participate in development and maintance of
+> those
+> patches (which is required to be done through email), you are mistaken.
+>
+> So please fix your email issue, otherwise it is not going to work.
+>
+> Note, other people at qualcomm have fixed this, so you are not alone.
+>
+Ok.
 
-> Indeed good catch, but should we return 0 or -EINVAL so that caller can
-> drop packet ?
-> 
-> @@ -606,7 +606,7 @@ int ip_options_rcv_srr(struct sk_buff *skb)
->  	if (!opt->srr)
->  		return 0;
->  
-> -	if (skb->pkt_type != PACKET_HOST)
-> +	if (skb->pkt_type != PACKET_HOST || !rt)
->                 return -EINVAL;
->  	if (rt->rt_type == RTN_UNICAST) {
->  		if (!opt->is_strictroute)
-> 
+Our IT has fixed the footer issue. Sending this email to verify.
 
-As your patch does we don't treat an skb without rt as error
-on bridge/netfilter context.
-So, I think returning 0 would be better off.
-But thinking of ip_options_rcv_srr() is called from another context again
-adding an extra check in br_parse_ip_options() is safer ?
+-Amit
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index f3bc322..10ac127 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -263,7 +263,7 @@ static int br_parse_ip_options(struct sk_buff *skb)
- 		if (in_dev && !IN_DEV_SOURCE_ROUTE(in_dev))
- 			goto drop;
- 
--		if (ip_options_rcv_srr(skb))
-+		if (skb_rtable(skb) && ip_options_rcv_srr(skb))
- 			goto drop;
- 	}
- 
-Thanks.
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+
