@@ -1,33 +1,43 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/1] ipv6: RTA_PREFSRC support for ipv6 route source
- address selection
-Date: Thu, 14 Apr 2011 23:24:00 +0900
-Message-ID: <1302791040.9279.2.camel@takos>
-References: <20110414071057.GB78446@0x90.at>  <4DA6FE25.70608@earthlink.net>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH v2] net: filter: Just In Time compiler
+Date: Thu, 14 Apr 2011 17:40:03 +0300
+Message-ID: <4DA70743.1050106@redhat.com>
+References: <1301783301.2837.77.camel@edumazet-laptop>	 <1301784797.3110.4.camel@localhost> <1301838968.2837.200.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Walter <sahne@0x90.at>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	yoshfuji@linux-ipv6.org
-To: sclark46@earthlink.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DA6FE25.70608@earthlink.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42917 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758813Ab1DNOkY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2011 10:40:24 -0400
+In-Reply-To: <1301838968.2837.200.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Clark wrote:
-> On 04/14/2011 03:10 AM, Daniel Walter wrote:
-> > [ipv6] Add support for RTA_PREFSRC
-> >
-> > This patch allows a user to select the preferred source address
-> > for a specific IPv6-Route. It can be set via a netlink message
-> > setting RTA_PREFSRC to a valid IPv6 address which must be
-> > up on the device the route will be bound to.
+On 04/03/2011 04:56 PM, Eric Dumazet wrote:
+> In order to speedup packet filtering, here is an implementation of a JIT
+> compiler for x86_64
+>
 
-> What userspace application will be used to set this?
+Have you considered putting the compiler in userspace?
 
-I do expect Daniel will submit appropriate patch for iproute2 package
-shortly :-)
+You could have a trusted compile server waiting on a pipe and compiling 
+programs sent to it by the kernel, sending the results back down.  Use 
+the interpreter until the compiler returns; if it doesn't, use the 
+interpreter forever.
 
---yoshfuji
+The upside is that you can use established optimizing compilers like 
+LLVM or GCC, which already support more target architectures.  It may 
+not matter much for something simple like bpf, but other VMs may be a 
+lot more complicated.
+
+-- 
+error compiling committee.c: too many arguments to function
+
