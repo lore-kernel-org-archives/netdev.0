@@ -1,90 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip: ip_options_compile() resilient to NULL skb route
-Date: Thu, 14 Apr 2011 05:37:43 +0200
-Message-ID: <1302752263.3549.41.camel@edumazet-laptop>
-References: <4DA522B2.90200@scotdoyle.com> <4DA5BCF7.9020606@scotdoyle.com>
-	 <1302708487.3725.0.camel@edumazet-laptop>
-	 <20110413.144812.116375845.davem@davemloft.net>
-	 <1302748276.3549.20.camel@edumazet-laptop> <20110413195424.1d2393c6@s6510>
-	 <1302750214.3549.34.camel@edumazet-laptop>
-	 <20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
+From: ANDY KENNEDY <ANDY.KENNEDY@adtran.com>
+Subject: RE: SMSC 8720a/MDIO/PHY help.
+Date: Wed, 13 Apr 2011 23:08:20 -0500
+Message-ID: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8FD@EXV1.corp.adtran.com>
+References: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E632@EXV1.corp.adtran.com> <1302729564.2742.28.camel@malcolm> <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8D4@EXV1.corp.adtran.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, lkml@scotdoyle.com,
-	netdev@vger.kernel.org
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38487 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927Ab1DNDhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2011 23:37:48 -0400
-Received: by wwa36 with SMTP id 36so1490735wwa.1
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 20:37:47 -0700 (PDT)
-In-Reply-To: <20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
+Received: from p02c11o145.mxlogic.net ([208.65.144.78]:46346 "EHLO
+	p02c11o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803Ab1DNEIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 00:08:16 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8D4@EXV1.corp.adtran.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 14 avril 2011 =C3=A0 12:30 +0900, Hiroaki SHIMODA a =C3=A9crit=
- :
-> On Thu, 14 Apr 2011 05:03:34 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > Le mercredi 13 avril 2011 =C3=A0 19:54 -0700, Stephen Hemminger a =C3=
-=A9crit :
-> >=20
-> > > I like this because it lets the bridge be transparent.
-> > > The existing options code adds entry in record route, and which
-> > > is not desirable.
-> >=20
-> > OK then, I realize I should have submitted a full patch, here it is=
-=2E
-> >=20
-> > Thanks !
-> >=20
-> > [PATCH] ip: ip_options_compile() resilient to NULL skb route
-> >=20
-> > Scot Doyle demonstrated ip_options_compile() could be called with a=
-n skb
-> > without an attached route, using a setup involving a bridge, netfil=
-ter,
-> > and forged IP packets.
-> >=20
-> > Let's make ip_options_compile() a bit more robust, instead of chang=
-ing
-> > bridge/netfilter code.
->=20
-> And ip_options_rcv_srr() in br_parse_ip_options() also=20
-> expects an skb with attached route, so below patch is needed ?
->=20
-> diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-> index 28a736f..3af1968 100644
-> --- a/net/ipv4/ip_options.c
-> +++ b/net/ipv4/ip_options.c
-> @@ -603,7 +603,7 @@ int ip_options_rcv_srr(struct sk_buff *skb)
->  	unsigned long orefdst;
->  	int err;
-> =20
-> -	if (!opt->srr)
-> +	if (!opt->srr || !rt)
->  		return 0;
-> =20
->  	if (skb->pkt_type !=3D PACKET_HOST)
->=20
-> Thanks.
-
-Indeed good catch, but should we return 0 or -EINVAL so that caller can
-drop packet ?
-
-@@ -606,7 +606,7 @@ int ip_options_rcv_srr(struct sk_buff *skb)
- 	if (!opt->srr)
- 		return 0;
-=20
--	if (skb->pkt_type !=3D PACKET_HOST)
-+	if (skb->pkt_type !=3D PACKET_HOST || !rt)
-                return -EINVAL;
- 	if (rt->rt_type =3D=3D RTN_UNICAST) {
- 		if (!opt->is_strictroute)
-
-
+PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogTWljaGFlbCBSaWVzY2gg
+W21haWx0bzptaWNoYWVsQHJpZXNjaC5hdF0NCj4gPiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDEz
+LCAyMDExIDQ6MTkgUE0NCj4gPiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+IENjOiBB
+TkRZIEtFTk5FRFkNCj4gPiBTdWJqZWN0OiBSZTogU01TQyA4NzIwYS9NRElPL1BIWSBoZWxwLg0K
+PiA+DQo+ID4NCj4gPiA+IElmIHlvdSBoYXZlIGFuIGlkZWEgb2Ygc29tZXRoaW5nIGZvciBtZSB0
+byB0cnksIEknZCBsb3ZlIHRvDQo+ID4gZW50ZXJ0YWluDQo+ID4gPiBpdC4NCj4gPg0KPiA+IEkg
+YW0gcmF0aGVyIG5ldyB0byBQSFlMSUIsIGJ1dCB0aGVzZSBhcmUgbXkgaWRlYXM6DQo+ID4NCj4g
+PiAgMSkgbWFrZSBzdXJlIHBoeV9jb25uZWN0IGlzIGV4ZWN1dGVkIChBRklBSyBjYWxsZWQgYnkg
+TURJTyBidXMNCj4gPiBkcml2ZXIpDQoNCkFsb25nIHRoaXMgbGluZSBvZiB0aG91Z2g6ICBwaHlf
+Y29ubmVjdCByZXF1aXJlcyBzdHJ1Y3QgbmV0X2RldmljZSwgd2hpY2ggaGFzIGEgc3RydWN0IG5l
+dF9kZXZpY2Vfb3BzIHdpdGhpbiBpdC4gIFdoZW4gSSBkbyBhIHBoeV9jb25uZWN0IGFtIEkgc3Vw
+cG9zZWQgdG8gcHJvdmlkZSB0aGUgbWluaW1hbCBmdW5jdGlvbnMgZm9yIG5ldGRldl9vcHMgKGNv
+cnJlY3QgdGhpcyBsaXN0IGlmIEkgYW0gbWlzdGFrZW4pOg0KbmRvX29wZW4NCm5kb19zdG9wDQpu
+ZG9fc3RhcnRfeG1pdA0KbmRvX2dldF9zdGF0cw0KbmRvX3NldF9tdWx0aWNhc3RfbGlzdA0KQXMg
+d2VsbCBhcyBwb3B1bGF0ZSB0aGUgZGV2LT5kZXZfYWRkciB3aXRoaW4gdGhlIHN0cnVjdCBuZXRf
+ZGV2aWNlLg0KDQpUaGUgcGFydCB0aGF0IGNvbmZ1c2VzIG1lIGlzIHRoYXQgdGhlIHNtc2MuYyA/
+P2RyaXZlcj8/IHVuZGVyIGRyaXZlcnMvbmV0L3BoeS9zbXNjLmMgZG9lc27igJl0IGRvIGFueSBv
+ZiB0aGlzLiAgVGhpcyBpcyBhIHBoeSBzdXBwb3J0ZWQgYnkgdGhpcyBmaWxlLCBzbyBzaG91bGQg
+SSBoYXZlIHRvIGRvIGFsbCB0aGlzIHRvIGdldCB0aGUgZGV2aWNlIHVwPw0KDQpTcGlubmluZywN
+CkFuZHkNCg==
