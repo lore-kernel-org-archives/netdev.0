@@ -1,60 +1,35 @@
-From: David Decotigny <decot@google.com>
-Subject: [PATCH 2/3] net-bonding: Fix minor/cosmetic type inconsistencies
-Date: Wed, 13 Apr 2011 18:22:30 -0700
-Message-ID: <1302744151-12452-2-git-send-email-decot@google.com>
-References: <1302744151-12452-1-git-send-email-decot@google.com>
-Cc: David Decotigny <decot@google.com>
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1302744151-12452-1-git-send-email-decot@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH net-next-2.6 v2 3/3] sctp: Add a valid address list in
+ association local
+Date: Thu, 14 Apr 2011 09:33:36 +0800
+Message-ID: <4DA64EF0.30506@cn.fujitsu.com>
+References: <115A4380-6E63-4014-BD24-04A29472ACCD@sfc.wide.ad.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Michio Honda <micchie@sfc.wide.ad.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:50157 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754310Ab1DNBd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 21:33:28 -0400
+In-Reply-To: <115A4380-6E63-4014-BD24-04A29472ACCD@sfc.wide.ad.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The __get_link_speed() function returns a u16 value which was stored
-in a u32 local variable. This patch uses the return value directly,
-thus fixing that minor type consistency.
 
-The 'duplex' field in struct slave being encoded on 8 bits, to be more
-consistent we use a u8 integer (instead of u16) whenever we copy it to
-local variables.
 
-Signed-off-by: David Decotigny <decot@google.com>
----
- drivers/net/bonding/bond_3ad.c  |    4 +---
- drivers/net/bonding/bond_main.c |    2 +-
- 2 files changed, 2 insertions(+), 4 deletions(-)
+> When the SCTP association transmits an ASCONF with ADD_IP_ADDRESS, that association cannot use the adding address until it receives ASCONF-ACK.  
+> This patch prevents that associations that do not receive ASCONF-ACK use the adding address.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 494bf96..123dd60 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -716,11 +716,9 @@ static void __set_agg_ports_ready(struct aggregator *aggregator, int val)
- static u32 __get_agg_bandwidth(struct aggregator *aggregator)
- {
- 	u32 bandwidth = 0;
--	u32 basic_speed;
- 
- 	if (aggregator->num_of_ports) {
--		basic_speed = __get_link_speed(aggregator->lag_ports);
--		switch (basic_speed) {
-+		switch (__get_link_speed(aggregator->lag_ports)) {
- 		case AD_LINK_SPEED_BITMASK_1MBPS:
- 			bandwidth = aggregator->num_of_ports;
- 			break;
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8264ed7..145f9be 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3340,7 +3340,7 @@ static int bond_slave_netdev_event(unsigned long event,
- 			slave = bond_get_slave_by_dev(bond, slave_dev);
- 			if (slave) {
- 				u16 old_speed = slave->speed;
--				u16 old_duplex = slave->duplex;
-+				u8  old_duplex = slave->duplex;
- 
- 				bond_update_speed_duplex(slave);
- 
--- 
-1.7.3.1
+The new adding address is marked SCTP_ADDR_NEW, and cannot use
+in LKSCTP until received ASCONF-ACK and marked as SCTP_ADDR_SRC.
+So, add this valid address list is unnecessary.
+
+I guess you want to fix the route lookup issue?
+
+If it is, the only thing we need to fix is the lookup of route. If we can not
+found a valid dst for transport, we can try address marked with SCTP_ADDR_NEW.
+
+
