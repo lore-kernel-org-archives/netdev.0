@@ -1,81 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Thu, 14 Apr 2011 18:57:01 +0200
-Message-ID: <1302800221.3248.39.camel@edumazet-laptop>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302253651.4409.2.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302267400.4409.22.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302275223.4409.36.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302330998.2656.113.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
-	 <4DA3151B.4030507@intel.com>
-	 <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302536577.4605.1.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302761251.3549.198.camel@edumazet-laptop>
-	 <1302762810.3549.233.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E49536AF@ESGSCCMS0001.eapac.ericsson.se>
-	 <4DA723F1.7000901@intel.com>  <1302800202.2035.32.camel@laptop>
+From: Kristoff Bonne <kristoff.bonne@skypro.be>
+Subject: ipv6 multicasting: "interface-local" scope
+Date: Thu, 14 Apr 2011 19:23:07 +0200
+Message-ID: <io7ahs$cpt$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Wei Gu <wei.gu@ericsson.com>, netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Mike Galbraith <efault@gmx.de>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62550 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753542Ab1DNQ5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 12:57:06 -0400
-Received: by wya21 with SMTP id 21so1577803wya.19
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 09:57:05 -0700 (PDT)
-In-Reply-To: <1302800202.2035.32.camel@laptop>
+Received: from lo.gmane.org ([80.91.229.12]:46578 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751192Ab1DNRZH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2011 13:25:07 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1QAQHy-000488-8D
+	for netdev@vger.kernel.org; Thu, 14 Apr 2011 19:25:06 +0200
+Received: from 91.181.176.68 ([91.181.176.68])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 19:25:06 +0200
+Received: from kristoff.bonne by 91.181.176.68 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 19:25:06 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 14 avril 2011 =C3=A0 18:56 +0200, Peter Zijlstra a =C3=A9crit =
-:
-> On Thu, 2011-04-14 at 09:42 -0700, Alexander Duyck wrote:
->=20
-> > I'm doing some more digging into this now.  One thought that occurr=
-ed to=20
-> > me is that if the patch you mention is having some sort of effect t=
-his=20
-> > could be a sign of perhaps a kernel timer or scheduling problem.
->=20
-> Right, so the removal of the NO_HZ throttle will allow the CPU to go
-> into C states more often, this could result in longer wake-up times f=
-or
-> IRQs.
->=20
-> We reverted because:
->   - it caused significant battery drain due to not going into C state=
-s
->     often enough, and
->   - its a much better idea to implement these things in the idle
->     governor since it already has the job of guestimating the idle
->     duration.
->=20
-> I really can't remember back far enough to even come up with a theory=
- of
-> why kernels prior to merging the NO_HZ throttle would not exhibit thi=
-s
-> problem.
->=20
->=20
->=20
+Hi,
 
-Normally, Wei Gu already asked to not use C states.
 
-http://h20000.www2.hp.com/bc/docs/support/SupportManual/c01804533/c0180=
-4533.pdf
+(This is a repost of a message I posted yesterday in
+linux.network.general but to which I have not seen any replies).
 
-How can we/he check this ?
 
+If I understand RFC 4291 correctly, the ipv6 multicast ip-addresses
+ffx1:<scope> are "interface local" scope.
+
+In draft-ietf-ipngwg-scoping-arch-02, I read this:
+"The interface-local scope spans a single interface only; a multicast
+address of interface-local scope is useful only for loopback delivery of
+multicasts within a single node, for example, as a form of inter-process
+communication within a computer".
+
+
+This is exactly what I want to do for an application I am working on.
+
+However when I try it and make a small program that sends out UDP
+packats to the ipv6 multicast address ff11::1234, I do see them show up
+on remote machines on my LAN!
+So it looks like these packets do leave my local compute which -I think-
+is the opposite of what RFC4291 tells me should happen.
+
+Am I missing something? or is this a bug?
+
+
+
+The machine on which I have tested this runs ubuntu 10.04.1 LTE with
+kernel 2.6.32-30-generic
+
+
+
+Anybody any ideas?
+
+
+
+links:
+- RFC4291: http://tools.ietf.org/html/rfc4291#section-2.7
+- draft-ietf-ipngwg-scoping-arch-02:
+http://tools.ietf.org/html/draft-ietf-ipngwg-scoping-arch-02)
+
+Cheerio! Kr. Bonne.
 
 
