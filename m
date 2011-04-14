@@ -1,50 +1,72 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] qlge: make nic_operations struct const
-Date: Thu, 14 Apr 2011 08:51:52 -0700
-Message-ID: <20110414085152.042a79e4@nehalam>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH v2] net: filter: Just In Time compiler
+Date: Thu, 14 Apr 2011 18:53:26 +0300
+Message-ID: <4DA71876.803@redhat.com>
+References: <1301783301.2837.77.camel@edumazet-laptop>	 <1301784797.3110.4.camel@localhost>	 <1301838968.2837.200.camel@edumazet-laptop> <4DA70743.1050106@redhat.com>	 <0a7fdea6b816da546ea71f752d36b5c2@localhost>  <4DA715BB.6050307@redhat.com> <1302795951.3248.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-driver@qlogic.com
-To: Ron Mercer <ron.mercer@qlogic.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44860 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29897 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756559Ab1DNPvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2011 11:51:54 -0400
+	id S1759208Ab1DNPxg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2011 11:53:36 -0400
+In-Reply-To: <1302795951.3248.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The struct nic_operations is just function pointers and should be
-declared const for added security.
+On 04/14/2011 06:45 PM, Eric Dumazet wrote:
+> Le jeudi 14 avril 2011 =C3=A0 18:41 +0300, Avi Kivity a =C3=A9crit :
+>
+> >  I'm talking about optimizing the generated code.  For example, bpf=
+ has
+> >  just two registers so a complex program generates a lot of loads a=
+nd
+> >  stores.  An optimizing compiler can use extra target registers to =
+avoid
+> >  those spills, and doesn't need to keep A and X in fixed registers.
+> >
+>
+> Thats not exactly true.
+>
+> A bpf filter also uses up to 16 mem[] 'registers'.
+>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+That's what I referred as loads and stores.  Since you can't use mem[]=20
+to index into a packet, you have to spill X into mem[], calculate a new=
+=20
+X, use it to access the packet, and reload X.
 
---- a/drivers/net/qlge/qlge.h	2011-04-14 08:31:15.863779054 -0700
-+++ b/drivers/net/qlge/qlge.h	2011-04-14 08:31:19.231840948 -0700
-@@ -2134,7 +2134,7 @@ struct ql_adapter {
- 	struct delayed_work mpi_idc_work;
- 	struct delayed_work mpi_core_to_log;
- 	struct completion ide_completion;
--	struct nic_operations *nic_ops;
-+	const struct nic_operations *nic_ops;
- 	u16 device_id;
- 	struct timer_list timer;
- 	atomic_t lb_count;
---- a/drivers/net/qlge/qlge_main.c	2011-04-14 08:30:32.311185557 -0700
-+++ b/drivers/net/qlge/qlge_main.c	2011-04-14 08:31:07.595627135 -0700
-@@ -4412,12 +4412,12 @@ error:
- 	rtnl_unlock();
- }
- 
--static struct nic_operations qla8012_nic_ops = {
-+static const struct nic_operations qla8012_nic_ops = {
- 	.get_flash		= ql_get_8012_flash_params,
- 	.port_initialize	= ql_8012_port_initialize,
- };
- 
--static struct nic_operations qla8000_nic_ops = {
-+static const struct nic_operations qla8000_nic_ops = {
- 	.get_flash		= ql_get_8000_flash_params,
- 	.port_initialize	= ql_8000_port_initialize,
- };
+> A risc cpu (with a lot of registers) could use registers to hold part=
+ of
+> the mem[] array.
+
+An optimizing compiler will dynamically assign mem[] into registers,=20
+even on i386.  Liveness analysis means the same machine register can be=
+=20
+used for different mem[] locations.
+
+> >  If you translate the bpf program to C and optimize that with gcc y=
+ou'll
+> >  probably get much better machine code that the jit in the patch.
+> >
+>
+> Well, gcc wont optimize a lot a bpf program if you ask me.
+
+IMO, it will.  I'll try to have gcc optimize your example filter later.
+
+> You would better make tcpdump not generate bpf but direct C code.
+
+That involves breaking the interface (plus, we might not trust tcpdump)=
+=2E
+
+--=20
+error compiling committee.c: too many arguments to function
+
