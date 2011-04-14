@@ -1,121 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 22/24] ixgbe: make device_caps() generic
-Date: Wed, 13 Apr 2011 18:02:18 -0700
-Message-ID: <1302742940-22141-23-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 02/24] igb: fix typo in igb_validate_nvm_checksum_82580
+Date: Wed, 13 Apr 2011 18:01:58 -0700
+Message-ID: <1302742940-22141-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1302742940-22141-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:19327 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:30345 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754951Ab1DNBD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 21:03:26 -0400
+	id S1757658Ab1DNBC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2011 21:02:27 -0400
 In-Reply-To: <1302742940-22141-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Stefan Assmann <sassmann@kpanic.de>
 
-x540 has the same device capability word in the EEPROM as 82599.
-This patch renames ixgbe_get_device_caps_82599 to
-ixgbe_get_device_caps_generic, moves it to ixgbe_common.h and
-sets up the function pointer for x540.
+Comment spelling fix.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Evan Swanson <evan.swanson@intel.com>
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Tested-by:  Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_82599.c  |   17 +----------------
- drivers/net/ixgbe/ixgbe_common.c |   15 +++++++++++++++
- drivers/net/ixgbe/ixgbe_common.h |    1 +
- drivers/net/ixgbe/ixgbe_x540.c   |    2 +-
- 4 files changed, 18 insertions(+), 17 deletions(-)
+ drivers/net/igb/e1000_82575.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 63b4da6..e432305 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -1973,21 +1973,6 @@ static s32 ixgbe_enable_rx_dma_82599(struct ixgbe_hw *hw, u32 regval)
- }
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 6b256c2..0cd41c4 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -1877,7 +1877,7 @@ static s32 igb_validate_nvm_checksum_82580(struct e1000_hw *hw)
+ 	}
  
+ 	if (nvm_data & NVM_COMPATIBILITY_BIT_MASK) {
+-		/* if chekcsums compatibility bit is set validate checksums
++		/* if checksums compatibility bit is set validate checksums
+ 		 * for all 4 ports. */
+ 		eeprom_regions_count = 4;
+ 	}
+@@ -1988,6 +1988,7 @@ static s32 igb_update_nvm_checksum_i350(struct e1000_hw *hw)
+ out:
+ 	return ret_val;
+ }
++
  /**
-- *  ixgbe_get_device_caps_82599 - Get additional device capabilities
-- *  @hw: pointer to hardware structure
-- *  @device_caps: the EEPROM word with the extra device capabilities
-- *
-- *  This function will read the EEPROM location for the device capabilities,
-- *  and return the word through device_caps.
-- **/
--static s32 ixgbe_get_device_caps_82599(struct ixgbe_hw *hw, u16 *device_caps)
--{
--	hw->eeprom.ops.read(hw, IXGBE_DEVICE_CAPS, device_caps);
--
--	return 0;
--}
--
--/**
-  *  ixgbe_verify_fw_version_82599 - verify fw version for 82599
-  *  @hw: pointer to hardware structure
-  *
-@@ -2087,7 +2072,7 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.enable_rx_dma          = &ixgbe_enable_rx_dma_82599,
- 	.get_mac_addr           = &ixgbe_get_mac_addr_generic,
- 	.get_san_mac_addr       = &ixgbe_get_san_mac_addr_generic,
--	.get_device_caps        = &ixgbe_get_device_caps_82599,
-+	.get_device_caps        = &ixgbe_get_device_caps_generic,
- 	.get_wwn_prefix         = &ixgbe_get_wwn_prefix_generic,
- 	.stop_adapter           = &ixgbe_stop_adapter_generic,
- 	.get_bus_info           = &ixgbe_get_bus_info_generic,
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index fc31e02..cb2e8e1 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -2968,3 +2968,18 @@ void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf)
- 		pfvfspoof &= ~(1 << vf_target_shift);
- 	IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg), pfvfspoof);
- }
-+
-+/**
-+ *  ixgbe_get_device_caps_generic - Get additional device capabilities
-+ *  @hw: pointer to hardware structure
-+ *  @device_caps: the EEPROM word with the extra device capabilities
-+ *
-+ *  This function will read the EEPROM location for the device capabilities,
-+ *  and return the word through device_caps.
-+ **/
-+s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps)
-+{
-+	hw->eeprom.ops.read(hw, IXGBE_DEVICE_CAPS, device_caps);
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index e18dc13..e850adb 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -90,6 +90,7 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index);
- s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index);
- void ixgbe_set_mac_anti_spoofing(struct ixgbe_hw *hw, bool enable, int pf);
- void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
-+s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
- 
- #define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
- 
-diff --git a/drivers/net/ixgbe/ixgbe_x540.c b/drivers/net/ixgbe/ixgbe_x540.c
-index 5433f15..05f8e9c 100644
---- a/drivers/net/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ixgbe/ixgbe_x540.c
-@@ -754,7 +754,7 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.enable_rx_dma          = &ixgbe_enable_rx_dma_generic,
- 	.get_mac_addr           = &ixgbe_get_mac_addr_generic,
- 	.get_san_mac_addr       = &ixgbe_get_san_mac_addr_generic,
--	.get_device_caps        = NULL,
-+	.get_device_caps        = &ixgbe_get_device_caps_generic,
- 	.get_wwn_prefix         = &ixgbe_get_wwn_prefix_generic,
- 	.stop_adapter           = &ixgbe_stop_adapter_generic,
- 	.get_bus_info           = &ixgbe_get_bus_info_generic,
+  *  igb_set_eee_i350 - Enable/disable EEE support
+  *  @hw: pointer to the HW structure
 -- 
 1.7.4.2
 
