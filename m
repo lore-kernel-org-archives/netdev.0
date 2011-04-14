@@ -1,73 +1,43 @@
-From: Kristoff Bonne <kristoff.bonne@skypro.be>
-Subject: ipv6 multicasting: "interface-local" scope
-Date: Thu, 14 Apr 2011 19:23:07 +0200
-Message-ID: <io7ahs$cpt$1@dough.gmane.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH] net: export skb_clone_tx_timestamp
+Date: Thu, 14 Apr 2011 19:35:02 +0200
+Message-ID: <20110414173502.GA15244@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:46578 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751192Ab1DNRZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2011 13:25:07 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QAQHy-000488-8D
-	for netdev@vger.kernel.org; Thu, 14 Apr 2011 19:25:06 +0200
-Received: from 91.181.176.68 ([91.181.176.68])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 19:25:06 +0200
-Received: from kristoff.bonne by 91.181.176.68 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 19:25:06 +0200
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:64675 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755344Ab1DNRfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 13:35:14 -0400
+Received: by fxm17 with SMTP id 17so1331413fxm.19
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2011 10:35:12 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+MAC drivers compiled as modules may well want to call this function via
+the skb_tx_timestamp inline function. This patch exports the function in
+order to let this happen.
 
+Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+---
+ net/core/timestamping.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-(This is a repost of a message I posted yesterday in
-linux.network.general but to which I have not seen any replies).
-
-
-If I understand RFC 4291 correctly, the ipv6 multicast ip-addresses
-ffx1:<scope> are "interface local" scope.
-
-In draft-ietf-ipngwg-scoping-arch-02, I read this:
-"The interface-local scope spans a single interface only; a multicast
-address of interface-local scope is useful only for loopback delivery of
-multicasts within a single node, for example, as a form of inter-process
-communication within a computer".
-
-
-This is exactly what I want to do for an application I am working on.
-
-However when I try it and make a small program that sends out UDP
-packats to the ipv6 multicast address ff11::1234, I do see them show up
-on remote machines on my LAN!
-So it looks like these packets do leave my local compute which -I think-
-is the opposite of what RFC4291 tells me should happen.
-
-Am I missing something? or is this a bug?
-
-
-
-The machine on which I have tested this runs ubuntu 10.04.1 LTE with
-kernel 2.6.32-30-generic
-
-
-
-Anybody any ideas?
-
-
-
-links:
-- RFC4291: http://tools.ietf.org/html/rfc4291#section-2.7
-- draft-ietf-ipngwg-scoping-arch-02:
-http://tools.ietf.org/html/draft-ietf-ipngwg-scoping-arch-02)
-
-Cheerio! Kr. Bonne.
-
+diff --git a/net/core/timestamping.c b/net/core/timestamping.c
+index 7e7ca37..3b00a6b 100644
+--- a/net/core/timestamping.c
++++ b/net/core/timestamping.c
+@@ -68,6 +68,7 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
+ 		break;
+ 	}
+ }
++EXPORT_SYMBOL_GPL(skb_clone_tx_timestamp);
+ 
+ void skb_complete_tx_timestamp(struct sk_buff *skb,
+ 			       struct skb_shared_hwtstamps *hwtstamps)
+-- 
+1.7.0.4
 
