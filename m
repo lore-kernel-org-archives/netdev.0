@@ -1,56 +1,82 @@
 From: Avi Kivity <avi@redhat.com>
 Subject: Re: [PATCH v2] net: filter: Just In Time compiler
-Date: Thu, 14 Apr 2011 18:41:47 +0300
-Message-ID: <4DA715BB.6050307@redhat.com>
-References: <1301783301.2837.77.camel@edumazet-laptop> <1301784797.3110.4.camel@localhost> <1301838968.2837.200.camel@edumazet-laptop> <4DA70743.1050106@redhat.com> <0a7fdea6b816da546ea71f752d36b5c2@localhost>
+Date: Thu, 14 Apr 2011 18:45:20 +0300
+Message-ID: <4DA71690.2020202@redhat.com>
+References: <1301783301.2837.77.camel@edumazet-laptop>	 <1301784797.3110.4.camel@localhost>	 <1301838968.2837.200.camel@edumazet-laptop>  <4DA70743.1050106@redhat.com> <1302795630.3248.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22653 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41452 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757353Ab1DNPmC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2011 11:42:02 -0400
-In-Reply-To: <0a7fdea6b816da546ea71f752d36b5c2@localhost>
+	id S1752126Ab1DNPpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2011 11:45:32 -0400
+In-Reply-To: <1302795630.3248.10.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/14/2011 05:55 PM, Hagen Paul Pfeifer wrote:
-> On Thu, 14 Apr 2011 17:40:03 +0300, Avi Kivity<avi@redhat.com>  wrote:
->
+On 04/14/2011 06:40 PM, Eric Dumazet wrote:
+> Le jeudi 14 avril 2011 =C3=A0 17:40 +0300, Avi Kivity a =C3=A9crit :
+> >  On 04/03/2011 04:56 PM, Eric Dumazet wrote:
+> >  >  In order to speedup packet filtering, here is an implementation=
+ of a JIT
+> >  >  compiler for x86_64
+> >  >
+> >
 > >  Have you considered putting the compiler in userspace?
+> >
 >
-> Kernelspace (modules, threads, etc) can register BPF filters too. It is
-> possible that there is no userspace involved at all.
+> Hmm, to be honest no.
+>
+> >  You could have a trusted compile server waiting on a pipe and comp=
+iling
+> >  programs sent to it by the kernel, sending the results back down. =
+ Use
+> >  the interpreter until the compiler returns; if it doesn't, use the
+> >  interpreter forever.
+>
+> I feel it might be too expensive in some cases, and kind of complex
+> architecture.
 
-A userspace jit would still work just fine, no?  I don't want the user 
-who supplied the program to also supply the jit; rather, when the kernel 
-installs the bpf program, it also asks an independent userspace compiler 
-to translate it.
+It is, but the kernel-side complexity is lower.  And since we have a=20
+fallback, overall reliability is improved rather than reduced.
 
-> >  The upside is that you can use established optimizing compilers like
-> >  LLVM or GCC, which already support more target architectures.  It may
-> >  not matter much for something simple like bpf, but other VMs may be a
+> >
+> >  The upside is that you can use established optimizing compilers li=
+ke
+> >  LLVM or GCC, which already support more target architectures.  It =
+may
+> >  not matter much for something simple like bpf, but other VMs may b=
+e a
 > >  lot more complicated.
+> >
 >
-> BPF is another domain. Standard compiler optimization are not comparable
-> to BPF optimizations so there is no gain there. Maybe writing a gcc front
-> _and_ back-end may gain some valuable advantages.
+> Not only bpf is very simple, but it needs to access skb fields and ot=
+her
+> parts of the kernel, we would need to instruct userland compiler of a=
+ll
+> these details.
 
-I'm talking about optimizing the generated code.  For example, bpf has 
-just two registers so a complex program generates a lot of loads and 
-stores.  An optimizing compiler can use extra target registers to avoid 
-those spills, and doesn't need to keep A and X in fixed registers.
+A simple implementation would be to translate the bpf program into a C=20
+function which receives the same arguments as your bpf runtime, and=20
+optimize that with gcc.
 
-If you translate the bpf program to C and optimize that with gcc you'll 
-probably get much better machine code that the jit in the patch.
+> We would need to load kind of a module (with dynamic loader)
 
--- 
+Well, we have one.
+
+> Of course, making each bpf filter a module of his own has benefit for
+> perf profiling.
+
+And stack unwind info, etc.
+
+--=20
 error compiling committee.c: too many arguments to function
 
