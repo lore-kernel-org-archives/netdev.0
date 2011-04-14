@@ -1,78 +1,59 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [Bugme-new] [Bug 32832] New: shutdown(2) does not fully shut
- down socket any more
-Date: Thu, 14 Apr 2011 10:34:29 +0800
-Message-ID: <20110414023428.GD5167@verge.net.au>
-References: <bug-32832-10286@https.bugzilla.kernel.org/>
- <20110412161556.0641bdae.akpm@linux-foundation.org>
- <20110412.161744.27803776.davem@davemloft.net>
- <1302663327.2811.55.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+Date: Thu, 14 Apr 2011 08:07:31 +0200
+Message-ID: <1302761251.3549.198.camel@edumazet-laptop>
+References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48B9F23@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302167168.3357.12.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA027@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302176811.3357.15.camel@edumazet-laptop>  <4D9DDF43.9080302@intel.com>
+	 <1302192218.3357.47.camel@edumazet-laptop> <4D9DE465.1080008@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA58D@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302253651.4409.2.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302267400.4409.22.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302275223.4409.36.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302330998.2656.113.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
+	 <4DA3151B.4030507@intel.com>
+	 <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
+	 <1302536577.4605.1.camel@edumazet-laptop>
+	 <D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, kees@outflux.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Wei Gu <wei.gu@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:32996 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754854Ab1DNFyo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 01:54:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1302663327.2811.55.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:50308 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756410Ab1DNGHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 02:07:36 -0400
+Received: by wwa36 with SMTP id 36so1590433wwa.1
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2011 23:07:35 -0700 (PDT)
+In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 13, 2011 at 04:55:27AM +0200, Eric Dumazet wrote:
-> Le mardi 12 avril 2011 =C3=A0 16:17 -0700, David Miller a =C3=A9crit =
-:
-> > From: Andrew Morton <akpm@linux-foundation.org>
-> > Date: Tue, 12 Apr 2011 16:15:56 -0700
-> >=20
-> > >=20
-> > > (switched to email.  Please respond via emailed reply-to-all, not=
- via the
-> > > bugzilla web interface).
-> >=20
-> > Stephen Hemminger forwarded this to the list last week, and Eric
-> > Dumazet is actively working on a fix.
->=20
-> I worked on it this week end to discover FreeBSD 8.1 would not allow
-> several CLOSE sockets bound to same port even with REUSEADDR.
->=20
-> So haproxy claim is a bit wrong (its trick doesnt work on FreeBSD), a=
-nd
-> used an undocumented linux feature.
->=20
-> I feel this case is a call for SO_REUSEPORT, eventually.
->=20
-> http://www.unixguide.net/network/socketfaq/4.11.shtml
->=20
->   SO_REUSEADDR allows your server to bind to an address which is in a
->   TIME_WAIT state.  It does not allow more than one server to bind to
->   the same address.  It was mentioned that use of this flag can creat=
-e a
->   security risk because another server can bind to a the same port, b=
-y
->   binding to a specific address as opposed to INADDR_ANY.  The
->   SO_REUSEPORT flag allows multiple processes to bind to the same
->   address provided all of them use the SO_REUSEPORT option.
->=20
->=20
-> Since SO_REUSEPORT is not a 'stable fix', I suggest we revert the pat=
-ch,
-> and eventually work on SO_REUSEPORT on net-next-2.6
->=20
-> What do you think ?
+Le jeudi 14 avril 2011 =C3=A0 13:42 +0800, Wei Gu a =C3=A9crit :
+> Hi guys,
+> Do you think it was a bug in the kernel from 2.6.35.2 with Intel 10GE=
+ ixgbe driver?
+> If so shall I issue a Bug on the bugzilla, and which category? Cause =
+I'm not sure it was driver problem Or sched problem.
 
-Not entirely related, but FWIW I think that SO_REUSEPORT would
-be rather useful for haproxy.
+This makes no sense to me.
 
-I've been working on allowing haproxy to be reconfigured without droppi=
-ng
-or reusing connections. I have done this by re-using open sockets. But =
-it
-would have been rather a lot easier to achieve using SO_REUSEPORT -
-assuming that I understand SO_REUSEPORT correctly.
+What is the maximum throughput you can get in pps before having packet
+drops ?
+
+Please try with a single flow (to hit one queue, one cpu)
+
+Thanks
+=20
 
