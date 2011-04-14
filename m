@@ -1,66 +1,60 @@
 From: David Decotigny <decot@google.com>
-Subject: [PATCH 1/3] net-bonding: Fix minor sparse complaints
-Date: Wed, 13 Apr 2011 18:22:29 -0700
-Message-ID: <1302744151-12452-1-git-send-email-decot@google.com>
+Subject: [PATCH 2/3] net-bonding: Fix minor/cosmetic type inconsistencies
+Date: Wed, 13 Apr 2011 18:22:30 -0700
+Message-ID: <1302744151-12452-2-git-send-email-decot@google.com>
+References: <1302744151-12452-1-git-send-email-decot@google.com>
 Cc: David Decotigny <decot@google.com>
 To: Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1302744151-12452-1-git-send-email-decot@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This gets rid of minor sparse complaints:
-drivers/net/bonding/bond_main.c:4361:4: warning: do-while statement is not a compound statement
-drivers/net/bonding/bond_main.c:243:12: warning: symbol 'bond_mode_name' was not declared. Should it be static?
+The __get_link_speed() function returns a u16 value which was stored
+in a u32 local variable. This patch uses the return value directly,
+thus fixing that minor type consistency.
+
+The 'duplex' field in struct slave being encoded on 8 bits, to be more
+consistent we use a u8 integer (instead of u16) whenever we copy it to
+local variables.
 
 Signed-off-by: David Decotigny <decot@google.com>
 ---
- drivers/net/bonding/bond_main.c   |    4 ++--
- drivers/net/bonding/bond_procfs.c |    2 --
- drivers/net/bonding/bonding.h     |    1 +
- 3 files changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_3ad.c  |    4 +---
+ drivers/net/bonding/bond_main.c |    2 +-
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 494bf96..123dd60 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -716,11 +716,9 @@ static void __set_agg_ports_ready(struct aggregator *aggregator, int val)
+ static u32 __get_agg_bandwidth(struct aggregator *aggregator)
+ {
+ 	u32 bandwidth = 0;
+-	u32 basic_speed;
+ 
+ 	if (aggregator->num_of_ports) {
+-		basic_speed = __get_link_speed(aggregator->lag_ports);
+-		switch (basic_speed) {
++		switch (__get_link_speed(aggregator->lag_ports)) {
+ 		case AD_LINK_SPEED_BITMASK_1MBPS:
+ 			bandwidth = aggregator->num_of_ports;
+ 			break;
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 16d6fe9..8264ed7 100644
+index 8264ed7..145f9be 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -4357,9 +4357,9 @@ static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	u16 txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
+@@ -3340,7 +3340,7 @@ static int bond_slave_netdev_event(unsigned long event,
+ 			slave = bond_get_slave_by_dev(bond, slave_dev);
+ 			if (slave) {
+ 				u16 old_speed = slave->speed;
+-				u16 old_duplex = slave->duplex;
++				u8  old_duplex = slave->duplex;
  
- 	if (unlikely(txq >= dev->real_num_tx_queues)) {
--		do
-+		do {
- 			txq -= dev->real_num_tx_queues;
--		while (txq >= dev->real_num_tx_queues);
-+		} while (txq >= dev->real_num_tx_queues);
- 	}
- 	return txq;
- }
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index c32ff55..c97307d 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -4,8 +4,6 @@
- #include "bonding.h"
+ 				bond_update_speed_duplex(slave);
  
- 
--extern const char *bond_mode_name(int mode);
--
- static void *bond_info_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(RCU)
- 	__acquires(&bond->lock)
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 90736cb..3ca503e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -416,6 +416,7 @@ void bond_destroy_debugfs(void);
- void bond_debug_register(struct bonding *bond);
- void bond_debug_unregister(struct bonding *bond);
- void bond_debug_reregister(struct bonding *bond);
-+const char *bond_mode_name(int mode);
- 
- struct bond_net {
- 	struct net *		net;	/* Associated network namespace */
 -- 
 1.7.3.1
