@@ -1,131 +1,101 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: RE: [net-next-2.6 04/24] e1000: convert to set_phys_id
-Date: Wed, 13 Apr 2011 18:18:22 -0700
-Message-ID: <1302743902.2950.181.camel@jtkirshe-MOBL1>
-References: <1302742940-22141-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1302742940-22141-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <8DD2590731AB5D4C9DBF71A877482A90018A3428DE@orsmsx509.amr.corp.intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-cdDmX8duDk46Y35Ud7Af"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	stephen hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"bphilips@novell.com" <bphilips@novell.com>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40917 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750973Ab1DNBSX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2011 21:18:23 -0400
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A90018A3428DE@orsmsx509.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <decot@google.com>
+Subject: [PATCH 3/3] net-bonding: Adding support for throughputs larger than 65536 Mbps
+Date: Wed, 13 Apr 2011 18:22:31 -0700
+Message-ID: <1302744151-12452-3-git-send-email-decot@google.com>
+References: <1302744151-12452-1-git-send-email-decot@google.com>
+Cc: David Decotigny <decot@google.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1302744151-12452-1-git-send-email-decot@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This updates the bonding driver to support v2.6.27-rc3 enhancements
+(b11f8d8c aka. "ethtool: Expand ethtool_cmd.speed to 32 bits") which
+allow to encode the Mbps link speed on 32-bits (Max 4 Pbps) instead of
+16 (Max 65536 Mbps).
 
---=-cdDmX8duDk46Y35Ud7Af
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This patch also attempts to compact struct slave by reordering its
+fields.
 
-On Wed, 2011-04-13 at 18:12 -0700, Allan, Bruce W wrote:
-> >-----Original Message-----
-> >From:
-> netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> >Behalf Of Jeff Kirsher
-> >Sent: Wednesday, April 13, 2011 6:02 PM
-> >To: davem@davemloft.net
-> >Cc: stephen hemminger; netdev@vger.kernel.org; gospo@redhat.com;
-> >bphilips@novell.com; Kirsher, Jeffrey T
-> >Subject: [net-next-2.6 04/24] e1000: convert to set_phys_id
-> >
-> >From: stephen hemminger <shemminger@vyatta.com>
-> >
-> >Convert to new LED control infrastucture and remove no longer
-> >necessary bits.
-> >
-> >Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> >Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >---
-> > drivers/net/e1000/e1000.h         |    3 --
-> > drivers/net/e1000/e1000_ethtool.c |   50
-> ++++++++++++-------------------------
-> > 2 files changed, 16 insertions(+), 37 deletions(-)
-> >
-> >diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-> >index a881dd0..f96475c 100644
-> >--- a/drivers/net/e1000/e1000.h
-> >+++ b/drivers/net/e1000/e1000.h
-> >@@ -238,9 +238,6 @@ struct e1000_adapter {
-> >       struct work_struct reset_task;
-> >       u8 fc_autoneg;
-> >
-> >-      struct timer_list blink_timer;
-> >-      unsigned long led_status;
-> >-
-> >       /* TX */
-> >       struct e1000_tx_ring *tx_ring;      /* One per active queue */
-> >       unsigned int restart_queue;
-> >diff --git a/drivers/net/e1000/e1000_ethtool.c
-> >b/drivers/net/e1000/e1000_ethtool.c
-> >index dd70738..5c998a9 100644
-> >--- a/drivers/net/e1000/e1000_ethtool.c
-> >+++ b/drivers/net/e1000/e1000_ethtool.c
-> >@@ -1753,46 +1753,28 @@ static int e1000_set_wol(struct net_device
-> *netdev,
-> >struct ethtool_wolinfo *wol)
-> >       return 0;
-> > }
-> >
-> >-/* toggle LED 4 times per second =3D 2 "blinks" per second */
-> >-#define E1000_ID_INTERVAL     (HZ/4)
-> >-
-> >-/* bit defines for adapter->led_status */
-> >-#define E1000_LED_ON          0
-> >-
-> >-static void e1000_led_blink_callback(unsigned long data)
-> >+static int e1000_set_phys_id(struct net_device *netdev,
-> >+                           enum ethtool_phys_id_state state)
-> > {
-> >-      struct e1000_adapter *adapter =3D (struct e1000_adapter *) data;
-> >+      struct e1000_adapter *adapter =3D netdev_priv(netdev);
-> >       struct e1000_hw *hw =3D &adapter->hw;
-> >
-> >-      if (test_and_change_bit(E1000_LED_ON, &adapter->led_status))
-> >-              e1000_led_off(hw);
-> >-      else
-> >-              e1000_led_on(hw);
-> >-
-> >-      mod_timer(&adapter->blink_timer, jiffies + E1000_ID_INTERVAL);
-> >-}
-> >+      switch (state) {
-> >+      case ETHTOOL_ID_ACTIVE:
-> >+              e1000_setup_led(hw);
-> >+              return -EINVAL;
->=20
-> This conflicts with the patch I submitted a few hours ago - with it,
-> this
-> feature is broken for e1000.
+Signed-off-by: David Decotigny <decot@google.com>
+---
+ drivers/net/bonding/bond_main.c |   12 +++++++-----
+ drivers/net/bonding/bonding.h   |    6 +++---
+ 2 files changed, 10 insertions(+), 8 deletions(-)
 
-Dave - I will remove this patch from my tree and send you an updated
-pull request when my tree is updated.
-
---=-cdDmX8duDk46Y35Ud7Af
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJNpkteAAoJECTsCADr/EWUqIgH/0HFo+ryMYwPbzlkMJOPOR/K
-wUftFJm+nZ3qYenvM1Sy3stopnEiFvuiXhooZtgCYQOmz/6Xneo3RZGPmJlJS3NZ
-KnDia3uRFSTXdU7t5vHurUNf7to68ev2yF2AngtH0Vg7CalMsKRktPLGTMwVOzDc
-4zcPQWhBpqu3wY/nfgAXaPTC/KBvyf5AasmlgMffr8g1RK3WIAbXSoA4Fi7i82Ci
-nCw+e0picuas3twqDQekRYwYKHDcWhdq7Rzk6IzRC0Za1Dj6HzUqr33elGGDUZ8u
-3TjOi6ve5WA/gdgGLbC7voEohuUM+1AGd5/LG0zeFZKYhWL2Kpp+o+yf3kJ3hCQ=
-=8MQY
------END PGP SIGNATURE-----
-
---=-cdDmX8duDk46Y35Ud7Af--
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 145f9be..c5d8ac2 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -631,7 +631,8 @@ down:
+ static int bond_update_speed_duplex(struct slave *slave)
+ {
+ 	struct net_device *slave_dev = slave->dev;
+-	struct ethtool_cmd etool;
++	struct ethtool_cmd etool = { .cmd = ETHTOOL_GSET };
++	u32 slave_speed;
+ 	int res;
+ 
+ 	/* Fake speed and duplex */
+@@ -645,7 +646,8 @@ static int bond_update_speed_duplex(struct slave *slave)
+ 	if (res < 0)
+ 		return -1;
+ 
+-	switch (etool.speed) {
++	slave_speed = ethtool_cmd_speed(&etool);
++	switch (slave_speed) {
+ 	case SPEED_10:
+ 	case SPEED_100:
+ 	case SPEED_1000:
+@@ -663,7 +665,7 @@ static int bond_update_speed_duplex(struct slave *slave)
+ 		return -1;
+ 	}
+ 
+-	slave->speed = etool.speed;
++	slave->speed = slave_speed;
+ 	slave->duplex = etool.duplex;
+ 
+ 	return 0;
+@@ -2493,7 +2495,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ 
+ 			bond_update_speed_duplex(slave);
+ 
+-			pr_info("%s: link status definitely up for interface %s, %d Mbps %s duplex.\n",
++			pr_info("%s: link status definitely up for interface %s, %u Mbps %s duplex.\n",
+ 				bond->dev->name, slave->dev->name,
+ 				slave->speed, slave->duplex ? "full" : "half");
+ 
+@@ -3339,7 +3341,7 @@ static int bond_slave_netdev_event(unsigned long event,
+ 
+ 			slave = bond_get_slave_by_dev(bond, slave_dev);
+ 			if (slave) {
+-				u16 old_speed = slave->speed;
++				u32 old_speed = slave->speed;
+ 				u8  old_duplex = slave->duplex;
+ 
+ 				bond_update_speed_duplex(slave);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 3ca503e..553c764 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -196,12 +196,12 @@ struct slave {
+ 	u8     backup:1,   /* indicates backup slave. Value corresponds with
+ 			      BOND_STATE_ACTIVE and BOND_STATE_BACKUP */
+ 	       inactive:1; /* indicates inactive slave */
++	u8     duplex;
+ 	u32    original_mtu;
+ 	u32    link_failure_count;
+-	u8     perm_hwaddr[ETH_ALEN];
+-	u16    speed;
+-	u8     duplex;
++	u32    speed;
+ 	u16    queue_id;
++	u8     perm_hwaddr[ETH_ALEN];
+ 	struct ad_slave_info ad_info; /* HUGE - better to dynamically alloc */
+ 	struct tlb_slave_info tlb_info;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-- 
+1.7.3.1
