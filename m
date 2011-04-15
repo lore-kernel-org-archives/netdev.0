@@ -1,9 +1,9 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 1/3] irq: Add registered affinity guidance infrastructure
-Date: Fri, 15 Apr 2011 16:17:55 -0400
-Message-ID: <1302898677-3833-2-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH 2/3] net: Add net device irq siloing feature
+Date: Fri, 15 Apr 2011 16:17:56 -0400
+Message-ID: <1302898677-3833-3-git-send-email-nhorman@tuxdriver.com>
 References: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
-Cc: davem@davemloft.net, nhorman <nhorman@devel2.think-freely.org>,
+Cc: davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>,
 	Dimitris Michailidis <dm@chelsio.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	David Howells <dhowells@redhat.com>,
@@ -11,21 +11,24 @@ Cc: davem@davemloft.net, nhorman <nhorman@devel2.think-freely.org>,
 	Tom Herbert <therbert@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51323 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51333 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379Ab1DOUTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 16:19:04 -0400
+	with ESMTP id S1753200Ab1DOUTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 16:19:10 -0400
 In-Reply-To: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: nhorman <nhorman@devel2.think-freely.org>
+Using the irq affinity infrastrucuture, we can now allow net devices to call
+request_irq using a new wrapper function (request_net_irq), which will attach a
+common affinty_update handler to each requested irq.  This affinty update
+mechanism correlates each tracked irq to the flow(s) that said irq processes
+most frequently.  The highest traffic flow is noted, marked and exported to user
+space via the affinity_hint proc file for each irq. In this way, utilities like
+irqbalance are able to determine  which cpu is recieving the most data from each
+rx queue on a given NIC, and set irq affinity accordingly.
 
-This patch adds the needed data to the irq_desc struct, as well as the needed
-API calls to allow the requester of an irq to register a handler function to
-determine the affinity_hint of that irq when queried from user space.
-
-Signed-offy-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 CC: Dimitris Michailidis <dm@chelsio.com>
 CC: "David S. Miller" <davem@davemloft.net>
@@ -34,272 +37,244 @@ CC: David Howells <dhowells@redhat.com>
 CC: Eric Dumazet <eric.dumazet@gmail.com>
 CC: Tom Herbert <therbert@google.com>
 ---
- include/linux/interrupt.h |   38 +++++++++++++++++++++++++++++++++++++-
- include/linux/irq.h       |    9 +++++++++
- include/linux/irqdesc.h   |    4 ++++
- kernel/irq/Kconfig        |   12 +++++++++++-
- kernel/irq/manage.c       |   39 +++++++++++++++++++++++++++++++++++++++
- kernel/irq/proc.c         |   35 +++++++++++++++++++++++++++++++++++
- 6 files changed, 135 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h  |   18 +++++++
+ kernel/irq/proc.c          |    2 +-
+ net/Kconfig                |   12 +++++
+ net/core/dev.c             |  107 ++++++++++++++++++++++++++++++++++++++++++++
+ net/core/sysctl_net_core.c |    9 ++++
+ 5 files changed, 147 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 59b72ca..6edb364 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -118,6 +118,17 @@ struct irqaction {
- } ____cacheline_internodealigned_in_smp;
- 
- extern irqreturn_t no_action(int cpl, void *dev_id);
-+#ifdef CONFIG_AFFINITY_UPDATE
-+extern int setup_affinity_data(int irq, irq_affinity_init_t, void *);
-+#else
-+static inline int setup_affinity_data(int irq,
-+				      irq_affinity_init_t init, void *d)
-+{
-+	return 0;
-+}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5eeb2cd..ba6191f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -609,6 +609,9 @@ struct rps_map {
+ struct rps_dev_flow {
+ 	u16 cpu;
+ 	u16 filter;
++#ifdef CONFIG_RFS_SILOING
++	u32 weight;
 +#endif
-+
-+extern void free_irq(unsigned int, void *);
- 
- #ifdef CONFIG_GENERIC_HARDIRQS
- extern int __must_check
-@@ -125,6 +136,32 @@ request_threaded_irq(unsigned int irq, irq_handler_t handler,
- 		     irq_handler_t thread_fn,
- 		     unsigned long flags, const char *name, void *dev);
- 
-+#ifdef CONFIG_AFFINITY_UPDATE
-+static inline int __must_check
-+request_affinity_irq(unsigned int irq, irq_handler_t handler,
-+		     irq_handler_t thread_fn,
-+		     unsigned long flags, const char *name, void *dev,
-+		     irq_affinity_init_t af_init, void *af_priv)
-+{
-+	int rc;
-+
-+	rc = request_threaded_irq(irq, handler, thread_fn, flags, name, dev);
-+	if (rc)
-+		goto out;
-+
-+	if (af_init)
-+		rc = setup_affinity_data(irq, af_init, af_priv);
-+	if (rc)
-+		free_irq(irq, dev);
-+
-+out:
-+	return rc;
-+}
-+#else
-+#define request_affinity_irq(irq, hnd, tfn, flg, nm, dev, init, priv) \
-+	request_threaded_irq(irq, hnd, NULL, flg, nm, dev)
-+#endif
-+
- static inline int __must_check
- request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
- 	    const char *name, void *dev)
-@@ -167,7 +204,6 @@ request_any_context_irq(unsigned int irq, irq_handler_t handler,
- static inline void exit_irq_thread(void) { }
- #endif
- 
--extern void free_irq(unsigned int, void *);
- 
- struct device;
- 
-diff --git a/include/linux/irq.h b/include/linux/irq.h
-index 1d3577f..4bff14f 100644
---- a/include/linux/irq.h
-+++ b/include/linux/irq.h
-@@ -30,6 +30,15 @@
- 
- struct irq_desc;
- struct irq_data;
-+struct affin_data {
-+	void *priv;
-+	char *affinity_alg;
-+	void (*affin_update)(int irq, struct affin_data *ad);
-+	void (*affin_cleanup)(int irq, struct affin_data *ad);
-+};
-+
-+typedef int (*irq_affinity_init_t)(int, struct affin_data*, void *);
-+
- typedef	void (*irq_flow_handler_t)(unsigned int irq,
- 					    struct irq_desc *desc);
- typedef	void (*irq_preflow_handler_t)(struct irq_data *data);
-diff --git a/include/linux/irqdesc.h b/include/linux/irqdesc.h
-index 0021837..14a22fb 100644
---- a/include/linux/irqdesc.h
-+++ b/include/linux/irqdesc.h
-@@ -64,6 +64,10 @@ struct irq_desc {
- 	struct timer_rand_state *timer_rand_state;
- 	unsigned int __percpu	*kstat_irqs;
- 	irq_flow_handler_t	handle_irq;
-+#ifdef CONFIG_AFFINITY_UPDATE
-+	struct affin_data	*af_data;
-+#endif
-+
- #ifdef CONFIG_IRQ_PREFLOW_FASTEOI
- 	irq_preflow_handler_t	preflow_handler;
- #endif
-diff --git a/kernel/irq/Kconfig b/kernel/irq/Kconfig
-index 09bef82..abaf19c 100644
---- a/kernel/irq/Kconfig
-+++ b/kernel/irq/Kconfig
-@@ -51,6 +51,17 @@ config IRQ_PREFLOW_FASTEOI
- config IRQ_FORCED_THREADING
-        bool
- 
-+config AFFINITY_UPDATE
-+	bool "Support irq affinity direction"
-+	depends on GENERIC_HARDIRQS
-+	---help---
-+
-+	Affinity updating adds the ability for requestors of irqs to
-+	register affinity update methods against the irq in question
-+	in so doing the requestor can be informed every time user space
-+	queries an irq for its optimal affinity, giving the requstor the
-+	chance to tell user space where the irq can be optimally handled
-+
- config SPARSE_IRQ
- 	bool "Support sparse irq numbering"
- 	depends on HAVE_SPARSE_IRQ
-@@ -64,6 +75,5 @@ config SPARSE_IRQ
- 	    out the interrupt descriptors in a more NUMA-friendly way. )
- 
- 	  If you don't know what to do here, say N.
--
- endmenu
- endif
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index acd599a..257ea4d 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -1159,6 +1159,17 @@ static struct irqaction *__free_irq(unsigned int irq, void *dev_id)
- 
- 	unregister_handler_proc(irq, action);
- 
-+#ifdef CONFIG_AFFINITY_UPDATE
-+	/*
-+	 * Have to do this after we unregister proc accessors
-+	 */
-+	if (desc->af_data) {
-+		if (desc->af_data->affin_cleanup)
-+			desc->af_data->affin_cleanup(irq, desc->af_data);
-+		kfree(desc->af_data);
-+		desc->af_data = NULL;
-+	}
-+#endif
- 	/* Make sure it's not being used on another CPU: */
- 	synchronize_irq(irq);
- 
-@@ -1345,6 +1356,34 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
+ 	unsigned int last_qtail;
+ };
+ #define RPS_NO_FILTER 0xffff
+@@ -1631,6 +1634,21 @@ static inline void unregister_netdevice(struct net_device *dev)
+ 	unregister_netdevice_queue(dev, NULL);
  }
- EXPORT_SYMBOL(request_threaded_irq);
  
-+#ifdef CONFIG_AFFINITY_UPDATE
-+int setup_affinity_data(int irq, irq_affinity_init_t af_init, void *af_priv)
++#ifdef CONFIG_RFS_SILOING
++extern int netdev_rxq_silo_init(int irq, struct affin_data *afd, void *priv);
++extern int sysctl_irq_siloing_period;
++
++static inline int __must_check
++request_net_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
++		const char *name, void *dev, struct net_device *ndev, int rxq)
 +{
-+	struct affin_data *data;
-+	struct irq_desc *desc;
-+	int rc;
-+
-+	desc = irq_to_desc(irq);
-+	if (!desc)
-+		return -ENOENT;
-+
-+	data = kzalloc(sizeof(struct affin_data), GFP_KERNEL);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	rc = af_init(irq, data, af_priv);
-+	if (rc) {
-+		kfree(data);
-+		return rc;
-+	}
-+
-+	desc->af_data = data;
-+
-+	return 0;
++	return request_affinity_irq(irq, handler, NULL, flags, name, dev,
++				    netdev_rxq_silo_init, &ndev->_rx[rxq]);
 +}
-+EXPORT_SYMBOL(setup_affinity_data);
++#else
++#define request_net_irq(i, h, f, n, d, nd, r) request_irq(i, h, NULL, f, n, d)
 +#endif
 +
- /**
-  *	request_any_context_irq - allocate an interrupt line
-  *	@irq: Interrupt line to allocate
+ extern int 		netdev_refcnt_read(const struct net_device *dev);
+ extern void		free_netdev(struct net_device *dev);
+ extern void		synchronize_net(void);
 diff --git a/kernel/irq/proc.c b/kernel/irq/proc.c
-index 4cc2e5e..8fecb05 100644
+index 8fecb05..d5a7e4d 100644
 --- a/kernel/irq/proc.c
 +++ b/kernel/irq/proc.c
-@@ -42,6 +42,11 @@ static int irq_affinity_hint_proc_show(struct seq_file *m, void *v)
- 	if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
- 		return -ENOMEM;
+@@ -65,7 +65,7 @@ static int irq_affinity_alg_proc_show(struct seq_file *m, void *v)
+ #ifdef CONFIG_AFFINITY_UPDATE
+ 	struct irq_desc *desc = irq_to_desc((long)m->private);
  
-+#ifdef CONFIG_AFFINITY_UPDATE
-+	if (desc->af_data && desc->af_data->affin_update)
-+		desc->af_data->affin_update((long)m->private, desc->af_data);
-+#endif
-+
- 	raw_spin_lock_irqsave(&desc->lock, flags);
- 	if (desc->affinity_hint)
- 		cpumask_copy(mask, desc->affinity_hint);
-@@ -54,6 +59,19 @@ static int irq_affinity_hint_proc_show(struct seq_file *m, void *v)
- 	return 0;
- }
- 
-+static int irq_affinity_alg_proc_show(struct seq_file *m, void *v)
-+{
-+	char *alg = "none";
-+#ifdef CONFIG_AFFINITY_UPDATE
-+	struct irq_desc *desc = irq_to_desc((long)m->private);
-+
-+	if (desc->af_data->affinity_alg)
-+		alg = desc->af_data->affinity_alg;
-+#endif
-+	seq_printf(m, "%s\n", alg);
-+	return 0;
-+}
-+
- #ifndef is_affinity_mask_valid
- #define is_affinity_mask_valid(val) 1
+-	if (desc->af_data->affinity_alg)
++	if (desc->af_data && desc->af_data->affinity_alg)
+ 		alg = desc->af_data->affinity_alg;
  #endif
-@@ -110,6 +128,11 @@ static int irq_affinity_hint_proc_open(struct inode *inode, struct file *file)
- 	return single_open(file, irq_affinity_hint_proc_show, PDE(inode)->data);
+ 	seq_printf(m, "%s\n", alg);
+diff --git a/net/Kconfig b/net/Kconfig
+index 79cabf1..d6ef6f5 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -232,6 +232,18 @@ config XPS
+ 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+ 	default y
+ 
++config RFS_SILOING
++	boolean
++	depends on RFS_ACCEL && AFFINITY_UPDATE
++	default y
++	---help---
++	 This feature allows appropriately enabled network drivers to
++	 export affinity_hint data to user space based on the RFS flow hash
++	 table for the rx queue associated with a given interrupt.  This allows
++	 userspace to optimize irq affinity such that a given rx queue has its
++	 interrupt serviced on the same cpu/l2 cache/numa node running the process
++	 that consumes most of its data.
++
+ menu "Network testing"
+ 
+ config NET_PKTGEN
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0b88eba..4d86137 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -173,6 +173,9 @@
+ #define PTYPE_HASH_SIZE	(16)
+ #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
+ 
++#ifdef CONFIG_RFS_SILOING
++int sysctl_irq_siloing_period;
++#endif
+ static DEFINE_SPINLOCK(ptype_lock);
+ static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+ static struct list_head ptype_all __read_mostly;	/* Taps */
+@@ -2640,6 +2643,9 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 		rflow->filter = rc;
+ 		if (old_rflow->filter == rflow->filter)
+ 			old_rflow->filter = RPS_NO_FILTER;
++#ifdef CONFIG_RFS_SILOING
++		old_rflow->weight = rflow->weight = 0;
++#endif
+ 	out:
+ #endif
+ 		rflow->last_qtail =
+@@ -2723,6 +2729,10 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 		      rflow->last_qtail)) >= 0))
+ 			rflow = set_rps_cpu(dev, skb, rflow, next_cpu);
+ 
++#ifdef CONFIG_RFS_SILOING
++		rflow->weight += skb->len;
++#endif
++
+ 		if (tcpu != RPS_NO_CPU && cpu_online(tcpu)) {
+ 			*rflowp = rflow;
+ 			cpu = tcpu;
+@@ -6224,6 +6234,103 @@ static struct hlist_head *netdev_create_hash(void)
+ 	return hash;
  }
  
-+static int irq_affinity_alg_proc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, irq_affinity_alg_proc_show, PDE(inode)->data);
-+}
-+
- static const struct file_operations irq_affinity_proc_fops = {
- 	.open		= irq_affinity_proc_open,
- 	.read		= seq_read,
-@@ -125,6 +148,13 @@ static const struct file_operations irq_affinity_hint_proc_fops = {
- 	.release	= single_release,
- };
- 
-+static const struct file_operations irq_affinity_alg_proc_fops = {
-+	.open		= irq_affinity_alg_proc_open,
-+	.read           = seq_read,
-+	.llseek         = seq_lseek,
-+	.release        = single_release,
++#ifdef CONFIG_RFS_SILOING
++struct netdev_rxq_affin_data {
++	struct netdev_rx_queue *q;
++	unsigned long last_update;
++	cpumask_var_t affinity_mask;
 +};
 +
- static int default_affinity_show(struct seq_file *m, void *v)
- {
- 	seq_cpumask(m, irq_default_affinity);
-@@ -288,6 +318,11 @@ void register_irq_proc(unsigned int irq, struct irq_desc *desc)
- 	/* create /proc/irq/<irq>/affinity_hint */
- 	proc_create_data("affinity_hint", 0400, desc->dir,
- 			 &irq_affinity_hint_proc_fops, (void *)(long)irq);
-+#ifdef CONFIG_AFFINITY_UPDATE
-+	/* Create /proc/irq/<irq>/affinity_alg */
-+	proc_create_data("affinity_alg", 0400, desc->dir,
-+			&irq_affinity_alg_proc_fops, (void *)(long)irq);
++static void netdev_rxq_silo_affin_update(int irq, struct affin_data *afd)
++{
++	struct netdev_rxq_affin_data *afdp = afd->priv;
++	struct netdev_rx_queue *q = afdp->q;
++	struct rps_dev_flow_table *flow_table;
++	int i;
++	u16 tcpu;
++	u32 mw;
++	unsigned long next_update;
++
++	mw = tcpu = 0;
++
++	next_update = afdp->last_update + (sysctl_irq_siloing_period * HZ);
++
++	if (time_after(next_update, jiffies))
++		return;
++
++	afdp->last_update = jiffies;
++
++	irq_set_affinity_hint(irq, NULL);
++	cpumask_clear(afdp->affinity_mask);
++	rcu_read_lock();
++	flow_table = rcu_dereference(q->rps_flow_table);
++
++	if (!flow_table)
++		goto out;
++
++	for (i = 0; (i & flow_table->mask) == i; i++) {
++		if (mw < flow_table->flows[i].weight) {
++			tcpu = ACCESS_ONCE(flow_table->flows[i].cpu);
++			if (tcpu == RPS_NO_CPU)
++				continue;
++			mw = flow_table->flows[i].weight;
++		}
++	}
++
++
++	if (mw) {
++		cpumask_set_cpu(tcpu, afdp->affinity_mask);
++		irq_set_affinity_hint(irq, afdp->affinity_mask);
++	}
++out:
++	rcu_read_unlock();
++	return;
++}
++
++static void netdev_rxq_silo_cleanup(int irq, struct affin_data *afd)
++{
++	struct netdev_rxq_affin_data *afdp = afd->priv;
++
++	free_cpumask_var(afdp->affinity_mask);
++	kfree(afdp);
++	afd->priv = NULL;
++}
++
++/**
++ *	netdev_rxq_silo_init - setup an irq to be siloed
++ *
++ *	initalizes the irq data required to allow the networking
++ *	subsystem to determine which cpu is best suited to
++ *      service the passed in irq, and then export that data
++ *	via the affinity_hint proc interface
++ */
++int netdev_rxq_silo_init(int irq, struct affin_data *afd, void *priv)
++{
++	struct netdev_rxq_affin_data *afdp;
++
++	afd->priv = afdp = kzalloc(sizeof(struct netdev_rxq_affin_data),
++				   GFP_KERNEL);
++	if (!afdp)
++		return -ENOMEM;
++
++	if (!alloc_cpumask_var(&afdp->affinity_mask, GFP_KERNEL)) {
++		kfree(afdp);
++		return -ENOMEM;
++	}
++
++	cpumask_clear(afdp->affinity_mask);
++
++	afdp->q = priv;
++	afdp->last_update = jiffies;
++	afd->affin_update = netdev_rxq_silo_affin_update;
++	afd->affin_cleanup = netdev_rxq_silo_cleanup;
++	afd->affinity_alg = "net:rfs max weight";
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(netdev_rxq_silo_init);
 +#endif
- 
- 	proc_create_data("node", 0444, desc->dir,
- 			 &irq_node_proc_fops, (void *)(long)irq);
++
+ /* Initialize per network namespace state */
+ static int __net_init netdev_init(struct net *net)
+ {
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 385b609..b5c733e 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -158,6 +158,15 @@ static struct ctl_table net_core_table[] = {
+ 		.proc_handler	= rps_sock_flow_sysctl
+ 	},
+ #endif
++#ifdef CONFIG_RFS_SILOING
++	{
++		.procname	= "irq_siloing_period",
++		.data		= &sysctl_irq_siloing_period,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++#endif
+ #endif /* CONFIG_NET */
+ 	{
+ 		.procname	= "netdev_budget",
 -- 
 1.7.4.2
 
