@@ -1,42 +1,25 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count = 8
-Date: Fri, 15 Apr 2011 00:27:20 -0700
-Message-ID: <m1d3ko9dpj.fsf@fess.ebiederm.org>
-References: <201104150901.47214.hans@schillstrom.com>
+From: Western Union Money Transfer <wudept11@w.cn>
+Subject: Confirmation
+Date: Fri, 15 Apr 2011 03:27:11 -0300
+Message-ID: <01366c51f410e25ee1610a428f0947d9@190.124.202.8>
+Reply-To: Western Union Money Transfer <wudept11@w.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <201104150901.47214.hans@schillstrom.com> (Hans Schillstrom's
-	message of "Fri, 15 Apr 2011 09:01:46 +0200")
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.plapiqui.edu.ar ([190.124.202.2]:45461 "EHLO
+	plapiqui.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750973Ab1DOI3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 04:29:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hans Schillstrom <hans@schillstrom.com> writes:
 
-> Hello Julian
->
-> I'm trying to fix the cleanup process when a namespace get "killed",
-> which is a new feature for ipvs. However an old problem appears again
->
-> When there has been traffic trough ipvs where the destination is unreachable
-> the usage count on loopback dev increases one for every packet....
-> I guess thats because of this rule :
->
-> # ip route list table all
-> ...
-> unreachable default dev lo  table 0  proto kernel  metric 4294967295  error -101 hoplimit 25
-> ...
->
-> I made a test just forwarding packets through the same container (ipvs loaded)
-> to an unreachable destination and that test had a balanced count i.e. it was possible to reboot the container.
->
-> Do you have an idea why  this happens in the ipvs case ?
+You have a money transfer of $85,000. Confirm receipt via e-mail:
+wudept11@w.cn
 
-Hans.  I do know that most outstanding references when you clean up a
-container get moved to the loopback device.  So it may not originally
-be the loopback device itself where the reference counting is wrong.
+________________________________________________________________
+Message sent using Telaen Webmail 1.1.3
 
-Eric
+
