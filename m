@@ -1,100 +1,54 @@
-From: David Decotigny <decot@google.com>
-Subject: [PATCH] bnx2x: cosmetics: Using ethtool_cmd_speed() API
-Date: Thu, 14 Apr 2011 19:11:34 -0700
-Message-ID: <1302833494-22266-1-git-send-email-decot@google.com>
-Cc: David Decotigny <decot@google.com>
-To: Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 RFC PATCH v3] ethtool: allow custom interval for
+ physical identification
+Date: Thu, 14 Apr 2011 21:19:34 -0700 (PDT)
+Message-ID: <20110414.211934.193722116.davem@davemloft.net>
+References: <20110413230910.16317.11372.stgit@gitlad.jf.intel.com>
+	<1302830785.5282.691.camel@localhost>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org,
+	sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, mchan@broadcom.com, eilong@broadcom.com,
+	divy@chelsio.com, pcnet32@frontier.com, jdmason@kudzu.us,
+	linux-net-drivers@solarflare.com, shodgson@solarflare.com,
+	shemminger@linux-foundation.org, mcarlson@broadcom.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56318
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750987Ab1DOEUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 00:20:12 -0400
+In-Reply-To: <1302830785.5282.691.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This updates bnx2x to use the ethtool_cmd_speed() family of functions
-(see b11f8d8c in 2.6.27-rc3 aka. "ethtool: Expand ethtool_cmd.speed to
-32 bits") to get and set the link speed via ethtool. This allows to
-avoid manually accessing ethtool_cmd's speed_hi field.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 15 Apr 2011 02:26:25 +0100
 
-Signed-off-by: David Decotigny <decot@google.com>
----
- drivers/net/bnx2x/bnx2x_ethtool.c |   25 +++++++++++++------------
- 1 files changed, 13 insertions(+), 12 deletions(-)
+> On Wed, 2011-04-13 at 16:09 -0700, Bruce Allan wrote:
+>> When physical identification of an adapter is done by toggling the
+>> mechanism on and off through software utilizing the set_phys_id operation,
+>> it is done with a fixed duration for both on and off states.  Some drivers
+>> may want to set a custom duration for the on/off intervals.  This patch
+>> changes the API so the return code from the driver's entry point when it
+>> is called with ETHTOOL_ID_ACTIVE can specify the frequency at which to
+>> cycle the on/off states, and updates the drivers that have already been
+>> converted to use the new set_phys_id and use the synchronous method for
+>> identifying an adapter.
+>> 
+>> The physical identification frequency set in the updated drivers is based
+>> on how it was done prior to the introduction of set_phys_id.
+>> 
+>> Compile tested only.  Also fixes a compiler warning in sfc.
+>> 
+>> v2: drivers do not return -EINVAL for ETHOOL_ID_ACTIVE
+>> v3: fold patchset into single patch and cleanup per Ben's feedback
+>> 
+>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+>> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> [...]
+> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index f505015..afe9c73 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -167,6 +167,7 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 	int cfg_idx = bnx2x_get_link_cfg_idx(bp);
-+
- 	/* Dual Media boards present all available port types */
- 	cmd->supported = bp->port.supported[cfg_idx] |
- 		(bp->port.supported[cfg_idx ^ 1] &
-@@ -176,16 +177,16 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	if ((bp->state == BNX2X_STATE_OPEN) &&
- 	    !(bp->flags & MF_FUNC_DIS) &&
- 	    (bp->link_vars.link_up)) {
--		cmd->speed = bp->link_vars.line_speed;
-+		ethtool_cmd_speed_set(cmd, bp->link_vars.line_speed);
- 		cmd->duplex = bp->link_vars.duplex;
- 	} else {
--
--		cmd->speed = bp->link_params.req_line_speed[cfg_idx];
-+		ethtool_cmd_speed_set(
-+			cmd, bp->link_params.req_line_speed[cfg_idx]);
- 		cmd->duplex = bp->link_params.req_duplex[cfg_idx];
- 	}
- 
- 	if (IS_MF(bp))
--		cmd->speed = bnx2x_get_mf_speed(bp);
-+		ethtool_cmd_speed_set(cmd, bnx2x_get_mf_speed(bp));
- 
- 	if (bp->port.supported[cfg_idx] & SUPPORTED_TP)
- 		cmd->port = PORT_TP;
-@@ -206,10 +207,11 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	cmd->maxrxpkt = 0;
- 
- 	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
--	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %d\n"
-+	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %u\n"
- 	   DP_LEVEL "  duplex %d  port %d  phy_address %d  transceiver %d\n"
- 	   DP_LEVEL "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
--	   cmd->cmd, cmd->supported, cmd->advertising, cmd->speed,
-+	   cmd->cmd, cmd->supported, cmd->advertising,
-+	   ethtool_cmd_speed(cmd),
- 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
- 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
- 
-@@ -226,16 +228,15 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		return 0;
- 
- 	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
--	   "  supported 0x%x  advertising 0x%x  speed %d speed_hi %d\n"
-+	   "  supported 0x%x  advertising 0x%x  speed %u\n"
- 	   "  duplex %d  port %d  phy_address %d  transceiver %d\n"
- 	   "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
--	   cmd->cmd, cmd->supported, cmd->advertising, cmd->speed,
--	   cmd->speed_hi,
-+	   cmd->cmd, cmd->supported, cmd->advertising,
-+	   ethtool_cmd_speed(cmd),
- 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
- 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
- 
--	speed = cmd->speed;
--	speed |= (cmd->speed_hi << 16);
-+	speed = ethtool_cmd_speed(cmd);
- 
- 	if (IS_MF_SI(bp)) {
- 		u32 part;
-@@ -439,7 +440,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 			break;
- 
- 		default:
--			DP(NETIF_MSG_LINK, "Unsupported speed %d\n", speed);
-+			DP(NETIF_MSG_LINK, "Unsupported speed %u\n", speed);
- 			return -EINVAL;
- 		}
- 
--- 
-1.7.3.1
+Applied, thanks everyone.
