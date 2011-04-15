@@ -1,57 +1,73 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 3/3] net: Adding siloing irqs to cxgb4 driver
-Date: Fri, 15 Apr 2011 16:17:57 -0400
-Message-ID: <1302898677-3833-4-git-send-email-nhorman@tuxdriver.com>
-References: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
-Cc: davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	David Howells <dhowells@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>
-To: netdev@vger.kernel.org
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Feature request: "inverted" ping -a (beep on failure)
+Date: Fri, 15 Apr 2011 23:10:30 +0300
+Message-ID: <1e0eef572c2d10257fe4894f0b3e9c18@visp.net.lb>
+References: <201104152135.33171@tux.boltz.de.vu>
+ <20110415124937.6e746646.rdunlap@xenotime.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Christian Boltz <netdev-vger-kernel.org@cboltz.de>,
+	<netdev@vger.kernel.org>
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51341 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754544Ab1DOUTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 16:19:17 -0400
-In-Reply-To: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:54825 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754920Ab1DOUVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 16:21:07 -0400
+In-Reply-To: <20110415124937.6e746646.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cxgb4 hardware has been tested here and shows correct functionality with
-affinity hinting infrastructure
+ On Fri, 15 Apr 2011 12:49:37 -0700, Randy Dunlap wrote:
+> On Fri, 15 Apr 2011 21:35:32 +0200 Christian Boltz wrote:
+>
+>> Hello,
+>>
+>> ping -a (beep on ping success) is a quite useful command, but it can 
+>> be
+>> annoying.
+>>
+>> I'd like to have the exact opposite of it: beep when pinging fails.
+>>
+>> I understand that this is slightly difficult because "ping success" 
+>> is
+>> easier to detect (incoming package) than "ping failure" (no incoming
+>> package or firewall reject) - my proposal is to have a timeout for 
+>> every
+>> package (if no reply package comes in) and beep if no reply is seen
+>> after the timeout is over.
+>>
+>> For the timeout, the -W option could be used. The default timeout 
+>> seems
+>> to be 10 seconds, which is OK.
+>>
+>> Usecase / why this would be useful for me:
+>> Basically for server monitoring. The exact usecase is that I have 
+>> rented
+>> a "root server" and asked the hoster to exchange a broken harddisk.
+>> With the "inverted" ping -a, it would be easy to notice when they 
+>> switch
+>> off the server to replace the disk.
+>>
+>> Please consider this feature for the next version of ping ;-)
+>>
+>>
+>> (The iputils homepage does not list any bugtracker or similar, 
+>> therefore
+>> I'm asking here.)
+>
+> Couldn't you look for exit code (status) 1 and then do a bell/beep
+> (or play a sound file :)?
+>
+> Or do you want ping to beep and then continue running?
+>
+ I wrote my own tool and call it ping watchdog (i so ideas about ping 
+ watchdog in other projects, just improved it a little) :-)
+ Probably it can be useful here, it can run script if ping fail more 
+ than N packets... it is a bit undocumented and cryptic, but i can 
+ improve it.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-CC: Dimitris Michailidis <dm@chelsio.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Thomas Gleixner <tglx@linutronix.de>
-CC: David Howells <dhowells@redhat.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Tom Herbert <therbert@google.com>
----
- drivers/net/cxgb4/cxgb4_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
-index 5352c8a..11aeef6 100644
---- a/drivers/net/cxgb4/cxgb4_main.c
-+++ b/drivers/net/cxgb4/cxgb4_main.c
-@@ -562,9 +562,11 @@ static int request_msix_queue_irqs(struct adapter *adap)
- 		return err;
- 
- 	for_each_ethrxq(s, ethqidx) {
--		err = request_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
-+		err = request_net_irq(adap->msix_info[msi].vec, t4_sge_intr_msix, 0,
- 				  adap->msix_info[msi].desc,
--				  &s->ethrxq[ethqidx].rspq);
-+				  &s->ethrxq[ethqidx].rspq,
-+				  adap->port[ethqidx/MAX_NPORTS],
-+				  ethqidx % MAX_NPORTS);
- 		if (err)
- 			goto unwind;
- 		msi++;
--- 
-1.7.4.2
+ http://code.google.com/p/sysadmin-tools/source/browse/trunk/pingwdog/pingwdog.c
 
