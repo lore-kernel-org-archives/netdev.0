@@ -1,56 +1,104 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: The bonding driver should notify userspace of MAC address change
-Date: Fri, 15 Apr 2011 12:22:48 -0700
-Message-ID: <11492.1302895368@death>
-References: <20110415184407.550abd88@pomiocik.lan> <4DA89114.9040900@gmail.com> <10227.1302893590@death> <20110415191249.GA6879@linuxace.com>
-Cc: =?us-ascii?Q?=3D=3FUTF-8=3FB=3FTmljb2xhcyBkZSBQZXNsb8O8YW4=3D=3F=3D?=
+Subject: Re: [RFC net-next] bonding: notify when bonding device address changes
+Date: Fri, 15 Apr 2011 12:28:24 -0700
+Message-ID: <11728.1302895704@death>
+References: <20110415184407.550abd88@pomiocik.lan> <4DA89114.9040900@gmail.com> <10227.1302893590@death> <20110415121054.73717900@nehalam>
+Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
 	<nicolas.2p.debian@gmail.com>,
-	=?us-ascii?B?PT9VVEYtOD9CP1RXbGphR0hGZ2lCSHc3Tnlibms9Pz0=?=
-	<mgorny@gentoo.org>, netdev@vger.kernel.org, roy@marples.name,
+	=?UTF-8?B?TWljaGHFgiBHw7Nybnk=?= <mgorny@gentoo.org>,
+	netdev@vger.kernel.org, roy@marples.name,
 	Andy Gospodarek <andy@greyhouse.net>
-To: Phil Oester <kernel@linuxace.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:34061 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756715Ab1DOTWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 15:22:54 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e37.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3FJK7Vk012060
-	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 13:20:07 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p3FJMpsi117720
-	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 13:22:51 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3FJMoIe008693
-	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 13:22:51 -0600
-In-reply-to: <20110415191249.GA6879@linuxace.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:34420 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752924Ab1DOT23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Apr 2011 15:28:29 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3FJ8MwI009288
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 15:08:22 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3FJSRZ5339364
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 15:28:27 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3FJSQFc031849
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 16:28:27 -0300
+In-reply-to: <20110415121054.73717900@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phil Oester <kernel@linuxace.com> wrote:
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
->On Fri, Apr 15, 2011 at 11:53:10AM -0700, Jay Vosburgh wrote:
->> >A bonding device should not report link up to userspace until at least one slave is present and up.
->> >
->> >And possibly, a bonding device should report link down if all slaves are down or all slave were removed.
->> >
->> >Jay, Andy, does this sounds sensible to you?
->> 
->> 	I was just reading their bug and doing an experiment; I don't
->> see that bonding reports carrier up until there's at least one slave
->> (even if it's configured up), e.g.,
->> 
+>When a device changes its hardware address, it needs to call the network
+>device notifiers to inform protocols.
 >
->This was only recently fixed - see e826eafa65c6f1f7c8db5a237556cebac57ebcc5
->(bonding: Call netif_carrier_off after register_netdevice). Perhaps the
->reporter is not using a recent kernel?
+>Compile tested only.
 
-	Yah, I looked that up after I'd sent my prior email.  Since that
-change went in only a month ago, maybe they don't have it.
+	We'll need to test this, I think.  If I'm not mistaken, I
+believe that inetdev_event will issue gratuitous ARPs when it gets the
+NETDEV_CHANGEADDR, and we need to make sure those are correct for all
+cases.
 
-	On the other hand, I did my test on a FC 14 kernel,
-2.6.35.6-45.fc14, which claims to have been built in October 2010, and
-it seemed to behave properly.
+>Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+>--- a/drivers/net/bonding/bond_main.c	2011-04-15 11:21:02.142866195 -0700
+>+++ b/drivers/net/bonding/bond_main.c	2011-04-15 11:28:06.491408825 -0700
+>@@ -967,9 +967,11 @@ static void bond_do_fail_over_mac(struct
+>
+> 	switch (bond->params.fail_over_mac) {
+> 	case BOND_FOM_ACTIVE:
+>-		if (new_active)
+>+		if (new_active) {
+> 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
+> 			       new_active->dev->addr_len);
+>+			call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
+>+		}
+> 		break;
+> 	case BOND_FOM_FOLLOW:
+> 		/*
+>@@ -1386,6 +1388,7 @@ static int bond_sethwaddr(struct net_dev
+> 	pr_debug("slave_dev=%p\n", slave_dev);
+> 	pr_debug("slave_dev->addr_len=%d\n", slave_dev->addr_len);
+> 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len);
+>+	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
+> 	return 0;
+> }
+>
+>@@ -1644,10 +1647,11 @@ int bond_enslave(struct net_device *bond
+>
+> 	/* If this is the first slave, then we need to set the master's hardware
+> 	 * address to be the same as the slave's. */
+>-	if (is_zero_ether_addr(bond->dev->dev_addr))
+>+	if (is_zero_ether_addr(bond->dev->dev_addr)) {
+> 		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
+> 		       slave_dev->addr_len);
+>-
+>+		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
+>+	}
+>
+> 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
+> 	if (!new_slave) {
+>@@ -2067,6 +2071,7 @@ int bond_release(struct net_device *bond
+> 		 * to the mac address of the first slave
+> 		 */
+> 		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+>+		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
+
+	This one in particular I'm not sure about; should the system
+send a gratuitous ARP for a MAC address of all zeroes?
+
+> 		if (!bond->vlgrp) {
+> 			bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
+>@@ -2252,6 +2257,7 @@ static int bond_release_all(struct net_d
+> 	 * first slave
+> 	 */
+> 	memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+>+	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
+
+	Same comment for this one.
+
+> 	if (!bond->vlgrp) {
+> 		bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
 
 	-J
 
