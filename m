@@ -1,84 +1,53 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 1/3] ipv6: Send unsolicited neighbour
- advertismements when notified
-Date: Sat, 16 Apr 2011 00:46:02 +0100
-Message-ID: <1302911162.2845.39.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 2/3] vlan: Propagate NETDEV_NOTIFY_PEERS
+ notifier
+Date: Sat, 16 Apr 2011 00:46:49 +0100
+Message-ID: <1302911209.2845.40.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:6693 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:6752 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751920Ab1DOXqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 19:46:06 -0400
+	with ESMTP id S1752610Ab1DOXqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 19:46:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The NETDEV_NOTIFY_PEERS notifier is a request to send such
-advertisements following migration to a different physical link,
-e.g. virtual machine migration.
+The NETDEV_NOTIFY_PEERS notifier indicates that a device moved to a
+different physical link; this also applies to any VLAN devices on top
+of it.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-This seems to work and should match what the bonding driver was
-previously doing on failover, except that it iterates over all
-addresses.  I don't know whether it's actually right though.
+ net/8021q/vlan.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
-Ben.
-
- net/ipv6/ndisc.c |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 92f952d..a51fa74c 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -611,6 +611,29 @@ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
- 		     inc_opt ? ND_OPT_TARGET_LL_ADDR : 0);
- }
- 
-+static void ndisc_send_unsol_na(struct net_device *dev)
-+{
-+	struct inet6_dev *idev;
-+	struct inet6_ifaddr *ifa;
-+	struct in6_addr mcaddr;
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 14ef5ef..b2ff70f 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -499,6 +499,17 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 	case NETDEV_PRE_TYPE_CHANGE:
+ 		/* Forbid underlaying device to change its type. */
+ 		return NOTIFY_BAD;
 +
-+	idev = in6_dev_get(dev);
-+	if (!idev)
-+		return;
-+
-+	read_lock_bh(&idev->lock);
-+	list_for_each_entry(ifa, &idev->addr_list, if_list) {
-+		addrconf_addr_solict_mult(&ifa->addr, &mcaddr);
-+		ndisc_send_na(dev, NULL, &mcaddr, &ifa->addr,
-+			      /*router=*/ !!idev->cnf.forwarding,
-+			      /*solicited=*/ false, /*override=*/ true,
-+			      /*inc_opt=*/ true);
-+	}
-+	read_unlock_bh(&idev->lock);
-+
-+	in6_dev_put(idev);
-+}
-+
- void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
- 		   const struct in6_addr *solicit,
- 		   const struct in6_addr *daddr, const struct in6_addr *saddr)
-@@ -1722,6 +1745,9 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
- 		neigh_ifdown(&nd_tbl, dev);
- 		fib6_run_gc(~0UL, net);
- 		break;
 +	case NETDEV_NOTIFY_PEERS:
-+		ndisc_send_unsol_na(dev);
++		/* Propagate to vlan devices */
++		for (i = 0; i < VLAN_N_VID; i++) {
++			vlandev = vlan_group_get_device(grp, i);
++			if (!vlandev)
++				continue;
++
++			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, vlandev);
++		}
 +		break;
- 	default:
- 		break;
  	}
+ 
+ out:
 -- 
 1.7.4
 
