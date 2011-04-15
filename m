@@ -1,59 +1,57 @@
-From: Christian Boltz <netdev-vger-kernel.org-/+gSslFCPOGzQB+pC5nmwQ@public.gmane.org>
-Subject: Feature request: "inverted" ping -a (beep on failure)
-Date: Fri, 15 Apr 2011 21:35:32 +0200
-Message-ID: <201104152135.33171@tux.boltz.de.vu>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: Feature request: "inverted" ping -a (beep on failure)
+Date: Fri, 15 Apr 2011 12:49:37 -0700
+Message-ID: <20110415124937.6e746646.rdunlap@xenotime.net>
+References: <201104152135.33171@tux.boltz.de.vu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Christian Boltz <netdev-vger-kernel.org@cboltz.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cpoproxy1-pub.bluehost.com ([69.89.21.11]:52709 "HELO
+	cpoproxy1-pub.bluehost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751276Ab1DOTtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 15:49:40 -0400
+In-Reply-To: <201104152135.33171@tux.boltz.de.vu>
+Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, 15 Apr 2011 21:35:32 +0200 Christian Boltz wrote:
 
-ping -a (beep on ping success) is a quite useful command, but it can be=
-=20
-annoying.
+> Hello,
+> 
+> ping -a (beep on ping success) is a quite useful command, but it can be 
+> annoying.
+> 
+> I'd like to have the exact opposite of it: beep when pinging fails.
+> 
+> I understand that this is slightly difficult because "ping success" is 
+> easier to detect (incoming package) than "ping failure" (no incoming 
+> package or firewall reject) - my proposal is to have a timeout for every 
+> package (if no reply package comes in) and beep if no reply is seen 
+> after the timeout is over.
+> 
+> For the timeout, the -W option could be used. The default timeout seems 
+> to be 10 seconds, which is OK.
+> 
+> Usecase / why this would be useful for me:
+> Basically for server monitoring. The exact usecase is that I have rented 
+> a "root server" and asked the hoster to exchange a broken harddisk.
+> With the "inverted" ping -a, it would be easy to notice when they switch 
+> off the server to replace the disk.
+> 
+> Please consider this feature for the next version of ping ;-)
+> 
+> 
+> (The iputils homepage does not list any bugtracker or similar, therefore 
+> I'm asking here.)
 
-I'd like to have the exact opposite of it: beep when pinging fails.
+Couldn't you look for exit code (status) 1 and then do a bell/beep
+(or play a sound file :)?
 
-I understand that this is slightly difficult because "ping success" is=20
-easier to detect (incoming package) than "ping failure" (no incoming=20
-package or firewall reject) - my proposal is to have a timeout for ever=
-y=20
-package (if no reply package comes in) and beep if no reply is seen=20
-after the timeout is over.
+Or do you want ping to beep and then continue running?
 
-=46or the timeout, the -W option could be used. The default timeout see=
-ms=20
-to be 10 seconds, which is OK.
-
-Usecase / why this would be useful for me:
-Basically for server monitoring. The exact usecase is that I have rente=
-d=20
-a "root server" and asked the hoster to exchange a broken harddisk.
-With the "inverted" ping -a, it would be easy to notice when they switc=
-h=20
-off the server to replace the disk.
-
-Please consider this feature for the next version of ping ;-)
-
-
-(The iputils homepage does not list any bugtracker or similar, therefor=
-e=20
-I'm asking here.)
-
-
-Gru=DF
-
-Christian Boltz
---=20
-"we will support any library from any repo combined with
-any application" is something that NO ONE does.
-Or if they do, they are insane, or lying, or both.
-[Greg KH in opensuse-factory]
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
