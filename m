@@ -1,44 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] possible bug in inet->opt handling
-Date: Fri, 15 Apr 2011 17:39:54 +0200
-Message-ID: <1302881994.3613.34.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [PATCH] proc_sysctl: use rcu_dereference before accessing proc_inode->sysctl->* members
+Date: Fri, 15 Apr 2011 17:52:16 +0200
+Message-ID: <1302882736-30157-1-git-send-email-lucian.grijincu@gmail.com>
+Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Nick Piggin <npiggin@kernel.dk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64099 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754497Ab1DOPj6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 11:39:58 -0400
-Received: by wya21 with SMTP id 21so2349987wya.19
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 08:39:57 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:53729 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289Ab1DOPwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 11:52:33 -0400
+Received: by wwa36 with SMTP id 36so3375890wwa.1
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 08:52:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 903ab86d19 (udp: Add lockless transmit path), we added a
-fastpath to avoid taking socket lock if we dont use corking.
+rcu_dereference/rcu_assign_pointer were added to protect some accesses
+to ->sysctl in:
 
-Prior work were commit 1c32c5ad6fac8c (inet: Add ip_make_skb and
-ip_finish_skb) and commit 1470ddf7f8cecf776921e5 (inet: Remove explicit
-write references to sk/inet in ip_append_data)
+    commit dfef6dcd35cb4a251f6322ca9b2c06f0bb1aa1f4
+    Author: Al Viro <viro@zeniv.linux.org.uk>
+    Date:   Tue Mar 8 01:25:28 2011 -0500
 
-Problem is ip_make_skb() calls ip_setup_cork() and
-ip_setup_cork() possibly makes a copy of ipc->opt (struct ip_options),
-without any protection against another thread manipulating inet->opt.
+      unfuck proc_sysctl ->d_compare()
 
-Another thread can change inet->opt pointer and free old one... kaboom.
+This patch puts rcu_dereference where it's missing.
 
-This was discovered by code analysis (I am trying to remove the zeroing
-of cork variable in ip_make_skb(), since its a bit expensive and
-probably useless)
+I'm not sure that this patch is needed. I may have misunderstood
+Documentation/RCU/checklist.txt
 
-Note : race was there before Herbert patches.
+Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Nick Piggin <npiggin@kernel.dk>
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+---
+ fs/proc/proc_sysctl.c   |    9 +++++----
+ include/linux/proc_fs.h |    2 +-
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-My plan is to add RCU protection on inet->opt, unless someone has better
-idea ?
-
-
+diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+index f50133c..0f5a063 100644
+--- a/fs/proc/proc_sysctl.c
++++ b/fs/proc/proc_sysctl.c
+@@ -70,8 +70,9 @@ static struct ctl_table *find_in_table(struct ctl_table *p, struct qstr *name)
+ 
+ static struct ctl_table_header *grab_header(struct inode *inode)
+ {
+-	if (PROC_I(inode)->sysctl)
+-		return sysctl_head_grab(PROC_I(inode)->sysctl);
++	struct ctl_table_header *head = rcu_dereference(PROC_I(inode)->sysctl);
++	if (head)
++		return sysctl_head_grab(head);
+ 	else
+ 		return sysctl_head_next(NULL);
+ }
+@@ -394,12 +395,12 @@ static int proc_sys_revalidate(struct dentry *dentry, struct nameidata *nd)
+ {
+ 	if (nd->flags & LOOKUP_RCU)
+ 		return -ECHILD;
+-	return !PROC_I(dentry->d_inode)->sysctl->unregistering;
++	return !rcu_dereference(PROC_I(dentry->d_inode)->sysctl)->unregistering;
+ }
+ 
+ static int proc_sys_delete(const struct dentry *dentry)
+ {
+-	return !!PROC_I(dentry->d_inode)->sysctl->unregistering;
++	return !!rcu_dereference(PROC_I(dentry->d_inode)->sysctl)->unregistering;
+ }
+ 
+ static int proc_sys_compare(const struct dentry *parent,
+diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
+index 838c114..a38cb74 100644
+--- a/include/linux/proc_fs.h
++++ b/include/linux/proc_fs.h
+@@ -266,7 +266,7 @@ struct proc_inode {
+ 	int fd;
+ 	union proc_op op;
+ 	struct proc_dir_entry *pde;
+-	struct ctl_table_header *sysctl;
++	struct ctl_table_header *__rcu sysctl;
+ 	struct ctl_table *sysctl_entry;
+ 	struct inode vfs_inode;
+ };
+-- 
+1.7.5.rc0
 
