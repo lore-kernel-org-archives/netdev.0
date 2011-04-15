@@ -1,70 +1,55 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count
- = 8
-Date: Fri, 15 Apr 2011 23:11:32 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1104152229450.1730@ja.ssi.bg>
-References: <201104150901.47214.hans@schillstrom.com>
+From: Christian Boltz <netdev-vger-kernel.org-/+gSslFCPOGzQB+pC5nmwQ@public.gmane.org>
+Subject: Re: Feature request: "inverted" ping -a (beep on failure)
+Date: Fri, 15 Apr 2011 22:11:45 +0200
+Message-ID: <201104152211.46180@tux.boltz.de.vu>
+References: <201104152135.33171@tux.boltz.de.vu> <20110415124937.6e746646.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <201104150901.47214.hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110415124937.6e746646.rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+Sender: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-ID: <netdev.vger.kernel.org>
+
+Hello,
+
+Am Freitag, 15. April 2011 schrieb Randy Dunlap:
+> On Fri, 15 Apr 2011 21:35:32 +0200 Christian Boltz wrote:
+> > I'd like to have the exact opposite of it: beep when pinging fails.
+[...]
+> Couldn't you look for exit code (status) 1 and then do a bell/beep
+> (or play a sound file :)?
+
+That would require that I know in advance when exactly the server is=20
+unreachable - but in this case, I wouldn't need to ping it ;-)
+
+To have this working, ping would need an option "exit on error", which=20
+it doesn't have AFAIK.
+
+A workaround is to run ping -c1 in a loop:
+
+while true ; do
+    ping -c1 $server || beep
+    sleep 1
+done
+
+but I'd prefer to have something like this directly in ping ;-)
+
+> Or do you want ping to beep and then continue running?
+
+Yes, that's exactly what I want.
 
 
-	Hello,
+Gru=DF
 
-On Fri, 15 Apr 2011, Hans Schillstrom wrote:
-
-> Hello Julian
-> 
-> I'm trying to fix the cleanup process when a namespace get "killed",
-> which is a new feature for ipvs. However an old problem appears again
-> 
-> When there has been traffic trough ipvs where the destination is unreachable
-> the usage count on loopback dev increases one for every packet....
-
-	What is the kernel version?
-
-> I guess thats because of this rule :
-> 
-> # ip route list table all
-> ...
-> unreachable default dev lo  table 0  proto kernel  metric 4294967295  error -101 hoplimit 25
-> ...
-> 
-> I made a test just forwarding packets through the same container (ipvs loaded)
-> to an unreachable destination and that test had a balanced count i.e. it was possible to reboot the container.
-
-	Can you explain, what do you mean with unreachable
-destination? Are you adding some rejecting route?
-
-> Do you have an idea why  this happens in the ipvs case ?
-
-	Do you see with debug level 3 the "Removing destination"
-messages. Only real servers can hold dest->dst_cache reference
-for dev which can be a problem because the real servers are not
-deleted immediately - on traffic they are moved to trash
-list. But ip_vs_trash_cleanup() should remove any left
-structures. You should check in debug that all servers are
-deleted. If all real server structures are freed but
-problem remains we should look more deeply in the
-dest->dst_cache usage. DR or NAT is used?
-
-	I assume cleanup really happens in this order:
-
-ip_vs_cleanup():
-	nf_unregister_hooks()
-	...
-	ip_vs_conn_cleanup()
-	...
-	ip_vs_control_cleanup()
-
-Regards
-
+Christian Boltz
+--=20
+> Ich moechte gern einige User die ihre Mails ueber einen Mailserver=20
+> (sendmail bevorzugt, postfix auch moeglich) scannen.
+Daf=FCr reicht ein Kopierer. Hosen runter, User draufsetzen und "Copy"=20
+dr=FCcken!   [> Ralf Thomas und Sandy Drobic in suse-linux]
 --
-Julian Anastasov <ja@ssi.bg>
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
