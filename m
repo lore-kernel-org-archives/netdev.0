@@ -1,37 +1,27 @@
-From: Martin Topholm <mph@hoth.dk>
-Subject: Re: Feature request: "inverted" ping -a (beep on failure)
-Date: Fri, 15 Apr 2011 23:57:01 +0200
-Message-ID: <20110415215700.GA9300@hoth.dk>
-References: <201104152135.33171@tux.boltz.de.vu>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH v5 0/7] rtcache removal respin
+Date: Fri, 15 Apr 2011 15:39:34 -0700 (PDT)
+Message-ID: <20110415.153934.112606188.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Christian Boltz <netdev-vger-kernel.org@cboltz.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from solo.hoth.dk ([88.198.14.10]:29568 "EHLO solo.hoth.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757216Ab1DOWFP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Apr 2011 18:05:15 -0400
-Content-Disposition: inline
-In-Reply-To: <201104152135.33171@tux.boltz.de.vu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38622
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753269Ab1DOWkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 18:40:12 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 16DD724C088
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 15:39:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 15 Apr 2011, Christian Boltz wrote:
-> I'd like to have the exact opposite of it: beep when pinging fails.
 
-I too have missed this feature (from the BSDs ping). Also I needed
-adhoc tracking of multiple hosts. So I experimented with libevent2 and
-some code from the BSD ping...
+This is just a respin of the routing cache removal patches,
+to deal with conflicts that have arisen since v4.
 
-You can see the result here http://hoth.dk/xping/screenshot.jpeg
-or http://hoth.dk/xping/xping-20110415.tar.gz .
+I'm leaving out the netlink patch from now on because that
+change is totally unrelated to this work.
 
-> I understand that this is slightly difficult because "ping success" is 
-> easier to detect (incoming package) than "ping failure" (no incoming 
-> package or firewall reject)
-
-I used the transmit interval for timeout. There's propably a lot of
-corner cases I haven't thought about, but it works fairly well.
-
-Regards, Martin
+No functional changes are present since the last respin.
