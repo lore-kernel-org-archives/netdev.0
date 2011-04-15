@@ -1,63 +1,56 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] minor cleanup to net_namespace.c.
-Date: Fri, 15 Apr 2011 14:37:52 +0200
-Message-ID: <20110415123751.GC2697@psychotron>
-References: <4DA83971.7010903@parallels.com>
+From: Michael Riesch <michael@riesch.at>
+Subject: usbnet with NAPI
+Date: Fri, 15 Apr 2011 15:05:35 +0200
+Message-ID: <20110415150535.15885rkpiuobevks@webmail.df.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: Rob Landley <rlandley@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay02.ispgateway.de ([80.67.31.29]:44571 "EHLO
+	smtprelay02.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753579Ab1DONFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 09:05:40 -0400
 Content-Disposition: inline
-In-Reply-To: <4DA83971.7010903@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, Apr 15, 2011 at 02:26:25PM CEST, rlandley@parallels.com wrote:
->From: Rob Landley <rlandley@parallels.com>
->
->Inline a small static function that's only ever called from one place.
->
->Signed-off-by: Rob Landley <rlandley@parallels.com>
->---
->
-> net/core/net_namespace.c |   12 ++++--------
-> 1 file changed, 4 insertions(+), 8 deletions(-)
->
->diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->index 3f86026..1abb508 100644
->--- a/net/core/net_namespace.c
->+++ b/net/core/net_namespace.c
->@@ -216,11 +216,14 @@ static void net_free(struct net *net)
-> 	kmem_cache_free(net_cachep, net);
-> }
->
->-static struct net *net_create(void)
->+struct net *copy_net_ns(unsigned long flags, struct net *old_net)
-> {
-> 	struct net *net;
-> 	int rv;
->
->+	if (!(flags & CLONE_NEWNET))
->+		return get_net(old_net);
->+
-> 	net = net_alloc();
-> 	if (!net)
-> 		return ERR_PTR(-ENOMEM);
->@@ -239,13 +242,6 @@ static struct net *net_create(void)
-> 	return net;
-> }
->
->-struct net *copy_net_ns(unsigned long flags, struct net *old_net)
->-{
->-	if (!(flags & CLONE_NEWNET))
->-		return get_net(old_net);
->-	return net_create();
->-}
->-
-> static DEFINE_SPINLOCK(cleanup_list_lock);
-> static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
->
+Habidere,
 
-Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+it looks like the usbnet (on which asix.c bases -> I am still working  
+on the driver for the Asix AX88172A[1]) does not use NAPI. It  
+processes the data it receives via netif_rx(). The NAPI way would be  
+netif_receive_skb in a poll function. Now I would like to check  
+whether the incoming packets are PTP status frames. My problem is that  
+skb_defer_rx_timestamp (the PTP check is executed there -  
+net/core/timestamping.c) is called by netif_receive_skb, but it is not  
+called by netif_rx(). So the crude hack would be to call  
+skb_defer_rx_timestamp from the netif_rx() in usbnet.
+
+(It caused the whole system to hang after a few minutes of operation,  
+so I declared it crude. Haven't found the exact reason for this  
+behaviour, though...)
+
+The nicer way would probably be enabling usbnet to use NAPI. Now:
+
+- Is or was there some thinking about usbnet going NAPI? In case of  
+the latter, what was the reason that it was not done? (I could not  
+find any discussion about that topic)
+
+- Do you see problems doing so? I have read some documentation about  
+NAPI [2], the requirements seem to be a DMA ring and the ability to  
+turn off interrupts/events that send packets up the stack.
+
+- Who is going to maintain usbnet in the future?
+
+Looking forward to your comments/ideas,
+Michael
+
+[1] http://marc.info/?l=linux-netdev&m=130167000017199&w=2
+[2] http://www.linuxfoundation.org/collaborate/workgroups/networking/napi
+
+
