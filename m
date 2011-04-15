@@ -1,69 +1,52 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: net: Automatic IRQ siloing for network devices
-Date: Fri, 15 Apr 2011 23:54:29 +0100
-Message-ID: <1302908069.2845.29.camel@bwh-desktop>
-References: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH net-next-2.6 0/3] bonding,ipv4,ipv6,vlan: Use notifiers to
+ trigger advertisements on failover
+Date: Sat, 16 Apr 2011 00:41:01 +0100
+Message-ID: <1302910861.2845.36.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Ian Campbell <Ian.Campbell@citrix.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:3770 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:6485 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051Ab1DOXCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 19:02:36 -0400
-In-Reply-To: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1751344Ab1DOXlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 19:41:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-04-15 at 16:17 -0400, Neil Horman wrote:
-> Automatic IRQ siloing for network devices
-> 
-> At last years netconf:
-> http://vger.kernel.org/netconf2010.html
-> 
-> Tom Herbert gave a talk in which he outlined some of the things we can do to
-> improve scalability and througput in our network stack
-> 
-> One of the big items on the slides was the notion of siloing irqs, which is the
-> practice of setting irq affinity to a cpu or cpu set that was 'close' to the
-> process that would be consuming data.  The idea was to ensure that a hard irq
-> for a nic (and its subsequent softirq) would execute on the same cpu as the
-> process consuming the data, increasing cache hit rates and speeding up overall
-> throughput.
-> 
-> I had taken an idea away from that talk, and have finally gotten around to
-> implementing it.  One of the problems with the above approach is that its all
-> quite manual.  I.e. to properly enact this siloiong, you have to do a few things
-> by hand:
-> 
-> 1) decide which process is the heaviest user of a given rx queue 
-> 2) restrict the cpus which that task will run on
-> 3) identify the irq which the rx queue in (1) maps to
-> 4) manually set the affinity for the irq in (3) to cpus which match the cpus in
-> (2)
-[...]
+It is undesirable for the bonding driver to be poking into higher
+level protocols, and notifiers provide a way to avoid that.
 
-This presumably works well with small numbers of flows and/or large
-numbers of queues.  You could scale it up somewhat by manipulating the
-device's flow hash indirection table, but that usually only has 128
-entries.  (Changing the indirection table is currently quite expensive,
-though that could be changed.)
-
-I see RFS and accelerated RFS as the only reasonable way to scale to
-large numbers of flows.  And as part of accelerated RFS, I already did
-the work for mapping CPUs to IRQs (note, not the other way round).  If
-IRQ affinity keeps changing then it will significantly undermine the
-usefulness of hardware flow steering.
-
-Now I'm not saying that your approach is useless.  There is more
-hardware out there with flow hashing than with flow steering, and there
-are presumably many systems with small numbers of active flows.  But I
-think we need to avoid having two features that conflict and a
-requirement for administrators to make a careful selection between them.
+Ian added NETDEV_NOTIFY_PEERS to trigger gratuitous ARP on VM migration.
+We should extend that to unsolicited NAs and propagate it through VLANs,
+then treat bonding failover in the same way.
 
 Ben.
+
+Ben Hutchings (3):
+  ipv6: Send unsolicited neighbour advertisements when notified
+  vlan: Propagate NETDEV_NOTIFY_PEERS notifier
+  bonding,ipv4,ipv6,vlan: Handle NETDEV_BONDING_FAILOVER like
+    NETDEV_NOTIFY_PEERS
+
+ drivers/net/bonding/Makefile     |    3 -
+ drivers/net/bonding/bond_ipv6.c  |  225 --------------------------------------
+ drivers/net/bonding/bond_main.c  |   96 ----------------
+ drivers/net/bonding/bond_sysfs.c |   80 --------------
+ drivers/net/bonding/bonding.h    |   29 -----
+ net/8021q/vlan.c                 |   12 ++
+ net/ipv4/devinet.c               |    1 +
+ net/ipv6/ndisc.c                 |   27 +++++
+ 8 files changed, 40 insertions(+), 433 deletions(-)
+ delete mode 100644 drivers/net/bonding/bond_ipv6.c
+
+-- 
+1.7.4
+
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare
