@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] iwlegacy: use pci_dev->revision
-Date: Fri, 15 Apr 2011 19:23:11 +0400
-Message-ID: <201104151923.11839.sshtylyov@ru.mvista.com>
+Subject: [PATCH 1/2] iwlegacy: use pci_dev->revision
+Date: Fri, 15 Apr 2011 19:24:05 +0400
+Message-ID: <201104151924.05645.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:60046 "HELO
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:60049 "HELO
 	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752089Ab1DOPY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 11:24:57 -0400
+	with SMTP id S1755432Ab1DOPZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 11:25:50 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,6 +26,7 @@ Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
 ---
 The patch is against the recent Linus' tree.
+Resending with proper patch numbering...
 
  drivers/net/wireless/iwlegacy/iwl4965-base.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
