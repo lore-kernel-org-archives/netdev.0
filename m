@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net-bonding: Adding support for throughputs larger
- than 65536 Mbps
-Date: Thu, 14 Apr 2011 22:04:11 -0700 (PDT)
-Message-ID: <20110414.220411.183045866.davem@davemloft.net>
-References: <1302744151-12452-1-git-send-email-decot@google.com>
-	<1302744151-12452-3-git-send-email-decot@google.com>
+Subject: Re: [PATCH net-next-2.6] rndis_host: Quirky devices are still
+ 'point-to-point'
+Date: Thu, 14 Apr 2011 23:24:00 -0700 (PDT)
+Message-ID: <20110414.232400.193696727.davem@davemloft.net>
+References: <1302785461.5282.686.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: decot@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1302744151-12452-3-git-send-email-decot@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44814
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752769Ab1DOGYg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 02:24:36 -0400
+In-Reply-To: <1302785461.5282.686.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@google.com>
-Date: Wed, 13 Apr 2011 18:22:31 -0700
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Thu, 14 Apr 2011 13:51:01 +0100
 
-> This updates the bonding driver to support v2.6.27-rc3 enhancements
-> (b11f8d8c aka. "ethtool: Expand ethtool_cmd.speed to 32 bits") which
-> allow to encode the Mbps link speed on 32-bits (Max 4 Pbps) instead of
-> 16 (Max 65536 Mbps).
+> My changes in commit 4d42d417be75d750b82798922b6e775915e11bce were
+> written some time before the introduction of FLAG_POINTTOPOINT, so
+> didn't include that flag in the new driver_info.  Change the new
+> driver_info to be consistent.
 > 
-> This patch also attempts to compact struct slave by reordering its
-> fields.
-> 
-> Signed-off-by: David Decotigny <decot@google.com>
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-Applied.
+Applied, thanks Ben.
