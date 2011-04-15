@@ -1,31 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] rndis_host: Quirky devices are still
- 'point-to-point'
-Date: Thu, 14 Apr 2011 23:24:00 -0700 (PDT)
-Message-ID: <20110414.232400.193696727.davem@davemloft.net>
-References: <1302785461.5282.686.camel@localhost>
+Subject: Re: [PATCH v2] ip: ip_options_compile() resilient to NULL skb route
+Date: Thu, 14 Apr 2011 23:26:47 -0700 (PDT)
+Message-ID: <20110414.232647.226789205.davem@davemloft.net>
+References: <20110414123058.d4ffe7fb.shimoda.hiroaki@gmail.com>
+	<1302796537.3248.22.camel@edumazet-laptop>
+	<20110415082022.b5e50f9b.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com, lkml@scotdoyle.com,
+	netdev@vger.kernel.org
+To: shimoda.hiroaki@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44814
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44818
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752769Ab1DOGYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 02:24:36 -0400
-In-Reply-To: <1302785461.5282.686.camel@localhost>
+	by vger.kernel.org with ESMTP id S1752579Ab1DOG1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 02:27:22 -0400
+In-Reply-To: <20110415082022.b5e50f9b.shimoda.hiroaki@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Thu, 14 Apr 2011 13:51:01 +0100
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Date: Fri, 15 Apr 2011 08:20:22 +0900
 
-> My changes in commit 4d42d417be75d750b82798922b6e775915e11bce were
-> written some time before the introduction of FLAG_POINTTOPOINT, so
-> didn't include that flag in the new driver_info.  Change the new
-> driver_info to be consistent.
+> On Thu, 14 Apr 2011 17:55:37 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+>> Scot Doyle demonstrated ip_options_compile() could be called with an skb
+>> without an attached route, using a setup involving a bridge, netfilter,
+>> and forged IP packets.
+>> 
+>> Let's make ip_options_compile() and ip_options_rcv_srr() a bit more
+>> robust, instead of changing bridge/netfilter code.
+>> 
+>> With help from Hiroaki SHIMODA.
+>> 
+>> Reported-by: Scot Doyle <lkml@scotdoyle.com>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Cc: Stephen Hemminger <shemminger@vyatta.com>
+>> Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> Acked-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 
-Applied, thanks Ben.
+Applied, thanks everyone.
