@@ -1,57 +1,70 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: Feature request: "inverted" ping -a (beep on failure)
-Date: Fri, 15 Apr 2011 12:49:37 -0700
-Message-ID: <20110415124937.6e746646.rdunlap@xenotime.net>
-References: <201104152135.33171@tux.boltz.de.vu>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count
+ = 8
+Date: Fri, 15 Apr 2011 23:11:32 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1104152229450.1730@ja.ssi.bg>
+References: <201104150901.47214.hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Christian Boltz <netdev-vger-kernel.org@cboltz.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpoproxy1-pub.bluehost.com ([69.89.21.11]:52709 "HELO
-	cpoproxy1-pub.bluehost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751276Ab1DOTtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 15:49:40 -0400
-In-Reply-To: <201104152135.33171@tux.boltz.de.vu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <201104150901.47214.hans@schillstrom.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Apr 2011 21:35:32 +0200 Christian Boltz wrote:
 
-> Hello,
-> 
-> ping -a (beep on ping success) is a quite useful command, but it can be 
-> annoying.
-> 
-> I'd like to have the exact opposite of it: beep when pinging fails.
-> 
-> I understand that this is slightly difficult because "ping success" is 
-> easier to detect (incoming package) than "ping failure" (no incoming 
-> package or firewall reject) - my proposal is to have a timeout for every 
-> package (if no reply package comes in) and beep if no reply is seen 
-> after the timeout is over.
-> 
-> For the timeout, the -W option could be used. The default timeout seems 
-> to be 10 seconds, which is OK.
-> 
-> Usecase / why this would be useful for me:
-> Basically for server monitoring. The exact usecase is that I have rented 
-> a "root server" and asked the hoster to exchange a broken harddisk.
-> With the "inverted" ping -a, it would be easy to notice when they switch 
-> off the server to replace the disk.
-> 
-> Please consider this feature for the next version of ping ;-)
-> 
-> 
-> (The iputils homepage does not list any bugtracker or similar, therefore 
-> I'm asking here.)
+	Hello,
 
-Couldn't you look for exit code (status) 1 and then do a bell/beep
-(or play a sound file :)?
+On Fri, 15 Apr 2011, Hans Schillstrom wrote:
 
-Or do you want ping to beep and then continue running?
+> Hello Julian
+> 
+> I'm trying to fix the cleanup process when a namespace get "killed",
+> which is a new feature for ipvs. However an old problem appears again
+> 
+> When there has been traffic trough ipvs where the destination is unreachable
+> the usage count on loopback dev increases one for every packet....
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+	What is the kernel version?
+
+> I guess thats because of this rule :
+> 
+> # ip route list table all
+> ...
+> unreachable default dev lo  table 0  proto kernel  metric 4294967295  error -101 hoplimit 25
+> ...
+> 
+> I made a test just forwarding packets through the same container (ipvs loaded)
+> to an unreachable destination and that test had a balanced count i.e. it was possible to reboot the container.
+
+	Can you explain, what do you mean with unreachable
+destination? Are you adding some rejecting route?
+
+> Do you have an idea why  this happens in the ipvs case ?
+
+	Do you see with debug level 3 the "Removing destination"
+messages. Only real servers can hold dest->dst_cache reference
+for dev which can be a problem because the real servers are not
+deleted immediately - on traffic they are moved to trash
+list. But ip_vs_trash_cleanup() should remove any left
+structures. You should check in debug that all servers are
+deleted. If all real server structures are freed but
+problem remains we should look more deeply in the
+dest->dst_cache usage. DR or NAT is used?
+
+	I assume cleanup really happens in this order:
+
+ip_vs_cleanup():
+	nf_unregister_hooks()
+	...
+	ip_vs_conn_cleanup()
+	...
+	ip_vs_control_cleanup()
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
