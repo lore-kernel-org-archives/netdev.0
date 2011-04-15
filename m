@@ -1,181 +1,150 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: myri10ge: convert to hw_features
-Date: Fri, 15 Apr 2011 16:50:50 +0200 (CEST)
-Message-ID: <20110415145050.0D65C13A66@rere.qmqm.pl>
+Subject: [PATCH] net: dm9000: convert to hw_features
+Date: Fri, 15 Apr 2011 16:50:49 +0200 (CEST)
+Message-ID: <20110415145050.0222B13A68@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Gallatin <gallatin@myri.com>, Brice Goglin <brice@myri.com>
+Cc: Ben Dooks <ben-linux@fluff.org>,
+	Henry Nestler <henry.nestler@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:46539 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:46538 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756258Ab1DOOuw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756259Ab1DOOuw (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 15 Apr 2011 10:50:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/myri10ge/myri10ge.c |   66 +++++++------------------------=
+ drivers/net/dm9000.c |   57 +++++++++++-------------------------------=
 -------
- 1 files changed, 12 insertions(+), 54 deletions(-)
+ 1 files changed, 13 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myr=
-i10ge.c
-index 1446de5..a48eb92 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -205,7 +205,6 @@ struct myri10ge_priv {
- 	int tx_boundary;	/* boundary transmits cannot cross */
- 	int num_slices;
- 	int running;		/* running?             */
--	int csum_flag;		/* rx_csums?            */
- 	int small_bytes;
- 	int big_bytes;
- 	int max_intr_slots;
-@@ -1386,7 +1385,7 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss,=
- int len, __wsum csum,
- 	skb->protocol =3D eth_type_trans(skb, dev);
- 	skb_record_rx_queue(skb, ss - &mgp->ss[0]);
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index b7af5ba..f7bdebb 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -131,8 +131,6 @@ typedef struct board_info {
+ 	u32		msg_enable;
+ 	u32		wake_state;
 =20
--	if (mgp->csum_flag) {
-+	if (dev->features & NETIF_F_RXCSUM) {
- 		if ((skb->protocol =3D=3D htons(ETH_P_IP)) ||
- 		    (skb->protocol =3D=3D htons(ETH_P_IPV6))) {
- 			skb->csum =3D csum;
-@@ -1757,43 +1756,6 @@ myri10ge_get_ringparam(struct net_device *netdev=
-,
- 	ring->tx_pending =3D ring->tx_max_pending;
+-	int		rx_csum;
+-	int		can_csum;
+ 	int		ip_summed;
+ } board_info_t;
+=20
+@@ -470,47 +468,20 @@ static int dm9000_nway_reset(struct net_device *d=
+ev)
+ 	return mii_nway_restart(&dm->mii);
  }
 =20
--static u32 myri10ge_get_rx_csum(struct net_device *netdev)
--{
--	struct myri10ge_priv *mgp =3D netdev_priv(netdev);
--
--	if (mgp->csum_flag)
--		return 1;
--	else
--		return 0;
--}
--
--static int myri10ge_set_rx_csum(struct net_device *netdev, u32 csum_en=
-abled)
--{
--	struct myri10ge_priv *mgp =3D netdev_priv(netdev);
--	int err =3D 0;
--
--	if (csum_enabled)
--		mgp->csum_flag =3D MXGEFW_FLAGS_CKSUM;
--	else {
--		netdev->features &=3D ~NETIF_F_LRO;
--		mgp->csum_flag =3D 0;
--
--	}
--	return err;
--}
--
--static int myri10ge_set_tso(struct net_device *netdev, u32 tso_enabled=
-)
--{
--	struct myri10ge_priv *mgp =3D netdev_priv(netdev);
--	u32 flags =3D mgp->features & (NETIF_F_TSO6 | NETIF_F_TSO);
--
--	if (tso_enabled)
--		netdev->features |=3D flags;
--	else
--		netdev->features &=3D ~flags;
--	return 0;
--}
--
- static const char myri10ge_gstrings_main_stats[][ETH_GSTRING_LEN] =3D =
-{
- 	"rx_packets", "tx_packets", "rx_bytes", "tx_bytes", "rx_errors",
- 	"tx_errors", "rx_dropped", "tx_dropped", "multicast", "collisions",
-@@ -1944,11 +1906,6 @@ static u32 myri10ge_get_msglevel(struct net_devi=
-ce *netdev)
- 	return mgp->msg_enable;
- }
-=20
--static int myri10ge_set_flags(struct net_device *netdev, u32 value)
--{
--	return ethtool_op_set_flags(netdev, value, ETH_FLAG_LRO);
--}
--
- static const struct ethtool_ops myri10ge_ethtool_ops =3D {
- 	.get_settings =3D myri10ge_get_settings,
- 	.get_drvinfo =3D myri10ge_get_drvinfo,
-@@ -1957,19 +1914,12 @@ static const struct ethtool_ops myri10ge_ethtoo=
-l_ops =3D {
- 	.get_pauseparam =3D myri10ge_get_pauseparam,
- 	.set_pauseparam =3D myri10ge_set_pauseparam,
- 	.get_ringparam =3D myri10ge_get_ringparam,
--	.get_rx_csum =3D myri10ge_get_rx_csum,
--	.set_rx_csum =3D myri10ge_set_rx_csum,
--	.set_tx_csum =3D ethtool_op_set_tx_hw_csum,
--	.set_sg =3D ethtool_op_set_sg,
--	.set_tso =3D myri10ge_set_tso,
- 	.get_link =3D ethtool_op_get_link,
- 	.get_strings =3D myri10ge_get_strings,
- 	.get_sset_count =3D myri10ge_get_sset_count,
- 	.get_ethtool_stats =3D myri10ge_get_ethtool_stats,
- 	.set_msglevel =3D myri10ge_set_msglevel,
- 	.get_msglevel =3D myri10ge_get_msglevel,
--	.get_flags =3D ethtool_op_get_flags,
--	.set_flags =3D myri10ge_set_flags
- };
-=20
- static int myri10ge_allocate_rings(struct myri10ge_slice_state *ss)
-@@ -3136,6 +3086,14 @@ static int myri10ge_set_mac_address(struct net_d=
-evice *dev, void *addr)
- 	return 0;
- }
-=20
-+static u32 myri10ge_fix_features(struct net_device *dev, u32 features)
-+{
-+	if (!(features & NETIF_F_RXCSUM))
-+		features &=3D ~NETIF_F_LRO;
-+
-+	return features;
-+}
-+
- static int myri10ge_change_mtu(struct net_device *dev, int new_mtu)
+-static uint32_t dm9000_get_rx_csum(struct net_device *dev)
++static int dm9000_set_features(struct net_device *dev, u32 features)
  {
- 	struct myri10ge_priv *mgp =3D netdev_priv(dev);
-@@ -3834,6 +3792,7 @@ static const struct net_device_ops myri10ge_netde=
-v_ops =3D {
- 	.ndo_get_stats		=3D myri10ge_get_stats,
- 	.ndo_validate_addr	=3D eth_validate_addr,
- 	.ndo_change_mtu		=3D myri10ge_change_mtu,
-+	.ndo_fix_features	=3D myri10ge_fix_features,
- 	.ndo_set_multicast_list =3D myri10ge_set_multicast_list,
- 	.ndo_set_mac_address	=3D myri10ge_set_mac_address,
+ 	board_info_t *dm =3D to_dm9000_board(dev);
+-	return dm->rx_csum;
+-}
+-
+-static int dm9000_set_rx_csum_unlocked(struct net_device *dev, uint32_=
+t data)
+-{
+-	board_info_t *dm =3D to_dm9000_board(dev);
+-
+-	if (dm->can_csum) {
+-		dm->rx_csum =3D data;
+-		iow(dm, DM9000_RCSR, dm->rx_csum ? RCSR_CSUM : 0);
++	u32 changed =3D dev->features ^ features;
++	unsigned long flags;
+=20
++	if (!(changed & NETIF_F_RXCSUM))
+ 		return 0;
+-	}
+-
+-	return -EOPNOTSUPP;
+-}
+-
+-static int dm9000_set_rx_csum(struct net_device *dev, uint32_t data)
+-{
+-	board_info_t *dm =3D to_dm9000_board(dev);
+-	unsigned long flags;
+-	int ret;
+=20
+ 	spin_lock_irqsave(&dm->lock, flags);
+-	ret =3D dm9000_set_rx_csum_unlocked(dev, data);
++	iow(dm, DM9000_RCSR, (features & NETIF_F_RXCSUM) ? RCSR_CSUM : 0);
+ 	spin_unlock_irqrestore(&dm->lock, flags);
+=20
+-	return ret;
+-}
+-
+-static int dm9000_set_tx_csum(struct net_device *dev, uint32_t data)
+-{
+-	board_info_t *dm =3D to_dm9000_board(dev);
+-	int ret =3D -EOPNOTSUPP;
+-
+-	if (dm->can_csum)
+-		ret =3D ethtool_op_set_tx_csum(dev, data);
+-	return ret;
++	return 0;
+ }
+=20
+ static u32 dm9000_get_link(struct net_device *dev)
+@@ -643,10 +614,6 @@ static const struct ethtool_ops dm9000_ethtool_ops=
+ =3D {
+  	.get_eeprom_len		=3D dm9000_get_eeprom_len,
+  	.get_eeprom		=3D dm9000_get_eeprom,
+  	.set_eeprom		=3D dm9000_set_eeprom,
+-	.get_rx_csum		=3D dm9000_get_rx_csum,
+-	.set_rx_csum		=3D dm9000_set_rx_csum,
+-	.get_tx_csum		=3D ethtool_op_get_tx_csum,
+-	.set_tx_csum		=3D dm9000_set_tx_csum,
  };
-@@ -3860,7 +3819,6 @@ static int myri10ge_probe(struct pci_dev *pdev, c=
-onst struct pci_device_id *ent)
- 	mgp =3D netdev_priv(netdev);
- 	mgp->dev =3D netdev;
- 	mgp->pdev =3D pdev;
--	mgp->csum_flag =3D MXGEFW_FLAGS_CKSUM;
- 	mgp->pause =3D myri10ge_flow_control;
- 	mgp->intr_coal_delay =3D myri10ge_intr_coal_delay;
- 	mgp->msg_enable =3D netif_msg_init(myri10ge_debug, MYRI10GE_MSG_DEFAU=
-LT);
-@@ -3976,11 +3934,11 @@ static int myri10ge_probe(struct pci_dev *pdev,=
- const struct pci_device_id *ent)
- 	netdev->netdev_ops =3D &myri10ge_netdev_ops;
- 	netdev->mtu =3D myri10ge_initial_mtu;
- 	netdev->base_addr =3D mgp->iomem_base;
--	netdev->features =3D mgp->features;
-+	netdev->hw_features =3D mgp->features | NETIF_F_LRO | NETIF_F_RXCSUM;
-+	netdev->features =3D netdev->hw_features;
 =20
- 	if (dac_enabled)
- 		netdev->features |=3D NETIF_F_HIGHDMA;
--	netdev->features |=3D NETIF_F_LRO;
+ static void dm9000_show_carrier(board_info_t *db,
+@@ -800,7 +767,9 @@ dm9000_init_dm9000(struct net_device *dev)
+ 	db->io_mode =3D ior(db, DM9000_ISR) >> 6;	/* ISR bit7:6 keeps I/O mod=
+e */
 =20
- 	netdev->vlan_features |=3D mgp->features;
- 	if (mgp->fw_ver_tiny < 37)
+ 	/* Checksum mode */
+-	dm9000_set_rx_csum_unlocked(dev, db->rx_csum);
++	if (dev->hw_features & NETIF_F_RXCSUM)
++		iow(dm, DM9000_RCSR,
++			(dev->features & NETIF_F_RXCSUM) ? RCSR_CSUM : 0);
+=20
+ 	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
+=20
+@@ -1049,7 +1018,7 @@ dm9000_rx(struct net_device *dev)
+=20
+ 			/* Pass to upper layer */
+ 			skb->protocol =3D eth_type_trans(skb, dev);
+-			if (db->rx_csum) {
++			if (dev->features & NETIF_F_RXCSUM) {
+ 				if ((((rxbyte & 0x1c) << 3) & rxbyte) =3D=3D 0)
+ 					skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+ 				else
+@@ -1358,6 +1327,7 @@ static const struct net_device_ops dm9000_netdev_=
+ops =3D {
+ 	.ndo_set_multicast_list	=3D dm9000_hash_table,
+ 	.ndo_do_ioctl		=3D dm9000_ioctl,
+ 	.ndo_change_mtu		=3D eth_change_mtu,
++	.ndo_set_features	=3D dm9000_set_features,
+ 	.ndo_validate_addr	=3D eth_validate_addr,
+ 	.ndo_set_mac_address	=3D eth_mac_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -1551,9 +1521,8 @@ dm9000_probe(struct platform_device *pdev)
+=20
+ 	/* dm9000a/b are capable of hardware checksum offload */
+ 	if (db->type =3D=3D TYPE_DM9000A || db->type =3D=3D TYPE_DM9000B) {
+-		db->can_csum =3D 1;
+-		db->rx_csum =3D 1;
+-		ndev->features |=3D NETIF_F_IP_CSUM;
++		ndev->hw_features =3D NETIF_F_RXCSUM | NETIF_F_IP_CSUM;
++		ndev->features |=3D ndev->hw_features;
+ 	}
+=20
+ 	/* from this point we assume that we have found a DM9000 */
 --=20
 1.7.2.5
 
