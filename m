@@ -1,91 +1,54 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Fri, 15 Apr 2011 10:57:37 +0200
-Message-ID: <1302857857.2388.158.camel@twins>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302253651.4409.2.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302267400.4409.22.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302275223.4409.36.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302330998.2656.113.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
-	 <4DA3151B.4030507@intel.com>
-	 <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302536577.4605.1.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302761251.3549.198.camel@edumazet-laptop>
-	 <1302762810.3549.233.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E49536AF@ESGSCCMS0001.eapac.ericsson.se>
-	 <4DA723F1.7000901@intel.com>  <1302800202.2035.32.camel@laptop>
-	 <1302800221.3248.39.camel@edumazet-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFC] ethtool: remove phys_id from ethtool_ops
+Date: Fri, 15 Apr 2011 02:08:38 -0700
+Message-ID: <BANLkTim51Eip4SnsBFZgdOHjUW0M1kzE2w@mail.gmail.com>
+References: <20110408170830.3ab079e8@nehalam>
+	<20110414.234654.71103337.davem@davemloft.net>
+	<20110414.235736.104051922.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Wei Gu <wei.gu@ericsson.com>, netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Mike Galbraith <efault@gmx.de>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: shemminger@vyatta.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59513 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751974Ab1DOI54 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 04:57:56 -0400
-In-Reply-To: <1302800221.3248.39.camel@edumazet-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:48920 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752195Ab1DOJIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 05:08:39 -0400
+Received: by fxm17 with SMTP id 17so1690807fxm.19
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 02:08:38 -0700 (PDT)
+In-Reply-To: <20110414.235736.104051922.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-14 at 18:57 +0200, Eric Dumazet wrote:
-> Le jeudi 14 avril 2011 =C3=A0 18:56 +0200, Peter Zijlstra a =C3=A9cri=
-t :
-> > On Thu, 2011-04-14 at 09:42 -0700, Alexander Duyck wrote:
-> >=20
-> > > I'm doing some more digging into this now.  One thought that occu=
-rred to=20
-> > > me is that if the patch you mention is having some sort of effect=
- this=20
-> > > could be a sign of perhaps a kernel timer or scheduling problem.
-> >=20
-> > Right, so the removal of the NO_HZ throttle will allow the CPU to g=
-o
-> > into C states more often, this could result in longer wake-up times=
- for
-> > IRQs.
-> >=20
-> > We reverted because:
-> >   - it caused significant battery drain due to not going into C sta=
-tes
-> >     often enough, and
-> >   - its a much better idea to implement these things in the idle
-> >     governor since it already has the job of guestimating the idle
-> >     duration.
-> >=20
-> > I really can't remember back far enough to even come up with a theo=
-ry of
-> > why kernels prior to merging the NO_HZ throttle would not exhibit t=
-his
-> > problem.
-> >=20
-> >=20
-> >=20
->=20
-> Normally, Wei Gu already asked to not use C states.
->=20
-> http://h20000.www2.hp.com/bc/docs/support/SupportManual/c01804533/c01=
-804533.pdf
->=20
-> How can we/he check this ?
+On Thu, Apr 14, 2011 at 23:57, David Miller <davem@davemloft.net> wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 14 Apr 2011 23:46:54 -0700 (PDT)
+>
+>> From: Stephen Hemminger <shemminger@vyatta.com>
+>> Date: Fri, 8 Apr 2011 17:08:30 -0700
+>>
+>>> Hold this patch until after the Intel and Qlogic driver
+>>> changes are merged into net-next. Patches have been submitted
+>>> but still waiting for vendor.
+>>>
+>>> After that all the upstream kernel drivers now use phys_id,
+>>> and the old ethtool_ops interface (phys_id) can be removed.
+>>>
+>>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> Since everything is now merged, I've applied this.
+>
+> Actually, it seems we're not ready yet, e1000 still refers
+> to phys_id.
+>
+> Can someone take care of this?
 
-Not quite sure, I think powertop has something that measures C-state
-usage, but if the BIOS is lying to us (pretty good bet since he's using
-HP crap^W) there's nothing much we can do about that.
+I know that most of our drivers still refer to phys_id, with Bruce's
+recent patches to ethtool, we can finish up fixing the patches against
+the Intel drivers.  I will make every effort to have patches to you by
+Monday/Tuesday.
 
-Another thing that could be causing pain in NO_HZ transitions is if
-we're having to switch to timer broadcast mode when we go into NO_HZ,
-I'm not sure if HP systems are affected by this, nor am I exactly sure
-which DL580 he's got.
-
-
+-- 
+Cheers,
+Jeff
