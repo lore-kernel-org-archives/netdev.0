@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: export skb_clone_tx_timestamp
-Date: Fri, 15 Apr 2011 15:46:57 -0700 (PDT)
-Message-ID: <20110415.154657.179935558.davem@davemloft.net>
-References: <20110414173502.GA15244@riccoc20.at.omicron.at>
+Subject: Re: [PATCH] minor cleanup to net_namespace.c.
+Date: Fri, 15 Apr 2011 15:48:06 -0700 (PDT)
+Message-ID: <20110415.154806.245403763.davem@davemloft.net>
+References: <4DA83971.7010903@parallels.com>
+	<20110415123751.GC2697@psychotron>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36295
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751971Ab1DOWrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 18:47:32 -0400
-In-Reply-To: <20110414173502.GA15244@riccoc20.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rlandley@parallels.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: jpirko@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110415123751.GC2697@psychotron>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Thu, 14 Apr 2011 19:35:02 +0200
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 15 Apr 2011 14:37:52 +0200
 
-> MAC drivers compiled as modules may well want to call this function via
-> the skb_tx_timestamp inline function. This patch exports the function in
-> order to let this happen.
-> 
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+> Fri, Apr 15, 2011 at 02:26:25PM CEST, rlandley@parallels.com wrote:
+>>From: Rob Landley <rlandley@parallels.com>
+>>
+>>Inline a small static function that's only ever called from one place.
+>>
+>>Signed-off-by: Rob Landley <rlandley@parallels.com>
+ ...
+> Reviewed-by: Jiri Pirko <jpirko@redhat.com>
 
-You can submit this patch to export this variable when you also submit
-a patch to a upstream driver that makes use of this interface in such
-a way.
-
-But no sooner.
+Applied.
