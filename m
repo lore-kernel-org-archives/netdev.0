@@ -1,97 +1,100 @@
-From: Wei Gu <wei.gu@ericsson.com>
-Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Fri, 15 Apr 2011 10:10:54 +0800
-Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E4953A04@ESGSCCMS0001.eapac.ericsson.se>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302253651.4409.2.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302267400.4409.22.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302275223.4409.36.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302330998.2656.113.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
-	 <4DA3151B.4030507@intel.com>
-	 <D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302536577.4605.1.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
-	 <1302761251.3549.198.camel@edumazet-laptop>
-	 <1302762810.3549.233.camel@edumazet-laptop>
-	 <D12839161ADD3A4B8DA63D1A134D084026E49536AF@ESGSCCMS0001.eapac.ericsson.se>
-	 <4DA723F1.7000901@intel.com>  <1302800202.2035.32.camel@laptop>
- <1302800221.3248.39.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Mike Galbraith <efault@gmx.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:42445 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956Ab1DOCLB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2011 22:11:01 -0400
-In-Reply-To: <1302800221.3248.39.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <decot@google.com>
+Subject: [PATCH] bnx2x: cosmetics: Using ethtool_cmd_speed() API
+Date: Thu, 14 Apr 2011 19:11:34 -0700
+Message-ID: <1302833494-22266-1-git-send-email-decot@google.com>
+Cc: David Decotigny <decot@google.com>
+To: Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
-I tried another parameter intel_idle.max_cstate=3D0 with 2.6.35.3
-Looks like this setting make the a little better, less rx_error and muc=
-h more stable.
-However I haven't found this kernel param in the kernel document, but s=
-upprise it still works somehow:)
+This updates bnx2x to use the ethtool_cmd_speed() family of functions
+(see b11f8d8c in 2.6.27-rc3 aka. "ethtool: Expand ethtool_cmd.speed to
+32 bits") to get and set the link speed via ethtool. This allows to
+avoid manually accessing ethtool_cmd's speed_hi field.
 
-I will check with the HP guys to see if I need to do extra configuratio=
-n in BIOS to disable more ACPI related features on DL580.
+Signed-off-by: David Decotigny <decot@google.com>
+---
+ drivers/net/bnx2x/bnx2x_ethtool.c |   25 +++++++++++++------------
+ 1 files changed, 13 insertions(+), 12 deletions(-)
 
-Thanks
-WeiGu
-
------Original Message-----
-=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-Sent: Friday, April 15, 2011 12:57 AM
-To: Peter Zijlstra
-Cc: Alexander Duyck; Wei Gu; netdev; Kirsher, Jeffrey T; Mike Galbraith
-Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-
-Le jeudi 14 avril 2011 =E0 18:56 +0200, Peter Zijlstra a =E9crit :
-> On Thu, 2011-04-14 at 09:42 -0700, Alexander Duyck wrote:
->
-> > I'm doing some more digging into this now.  One thought that
-> > occurred to me is that if the patch you mention is having some sort
-> > of effect this could be a sign of perhaps a kernel timer or schedul=
-ing problem.
->
-> Right, so the removal of the NO_HZ throttle will allow the CPU to go
-> into C states more often, this could result in longer wake-up times
-> for IRQs.
->
-> We reverted because:
->   - it caused significant battery drain due to not going into C state=
-s
->     often enough, and
->   - its a much better idea to implement these things in the idle
->     governor since it already has the job of guestimating the idle
->     duration.
->
-> I really can't remember back far enough to even come up with a theory
-> of why kernels prior to merging the NO_HZ throttle would not exhibit
-> this problem.
->
->
->
-
-Normally, Wei Gu already asked to not use C states.
-
-http://h20000.www2.hp.com/bc/docs/support/SupportManual/c01804533/c0180=
-4533.pdf
-
-How can we/he check this ?
-
-
-
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
+index f505015..afe9c73 100644
+--- a/drivers/net/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+@@ -167,6 +167,7 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 	int cfg_idx = bnx2x_get_link_cfg_idx(bp);
++
+ 	/* Dual Media boards present all available port types */
+ 	cmd->supported = bp->port.supported[cfg_idx] |
+ 		(bp->port.supported[cfg_idx ^ 1] &
+@@ -176,16 +177,16 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	if ((bp->state == BNX2X_STATE_OPEN) &&
+ 	    !(bp->flags & MF_FUNC_DIS) &&
+ 	    (bp->link_vars.link_up)) {
+-		cmd->speed = bp->link_vars.line_speed;
++		ethtool_cmd_speed_set(cmd, bp->link_vars.line_speed);
+ 		cmd->duplex = bp->link_vars.duplex;
+ 	} else {
+-
+-		cmd->speed = bp->link_params.req_line_speed[cfg_idx];
++		ethtool_cmd_speed_set(
++			cmd, bp->link_params.req_line_speed[cfg_idx]);
+ 		cmd->duplex = bp->link_params.req_duplex[cfg_idx];
+ 	}
+ 
+ 	if (IS_MF(bp))
+-		cmd->speed = bnx2x_get_mf_speed(bp);
++		ethtool_cmd_speed_set(cmd, bnx2x_get_mf_speed(bp));
+ 
+ 	if (bp->port.supported[cfg_idx] & SUPPORTED_TP)
+ 		cmd->port = PORT_TP;
+@@ -206,10 +207,11 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	cmd->maxrxpkt = 0;
+ 
+ 	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
+-	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %d\n"
++	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %u\n"
+ 	   DP_LEVEL "  duplex %d  port %d  phy_address %d  transceiver %d\n"
+ 	   DP_LEVEL "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
+-	   cmd->cmd, cmd->supported, cmd->advertising, cmd->speed,
++	   cmd->cmd, cmd->supported, cmd->advertising,
++	   ethtool_cmd_speed(cmd),
+ 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
+ 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
+ 
+@@ -226,16 +228,15 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		return 0;
+ 
+ 	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
+-	   "  supported 0x%x  advertising 0x%x  speed %d speed_hi %d\n"
++	   "  supported 0x%x  advertising 0x%x  speed %u\n"
+ 	   "  duplex %d  port %d  phy_address %d  transceiver %d\n"
+ 	   "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
+-	   cmd->cmd, cmd->supported, cmd->advertising, cmd->speed,
+-	   cmd->speed_hi,
++	   cmd->cmd, cmd->supported, cmd->advertising,
++	   ethtool_cmd_speed(cmd),
+ 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
+ 	   cmd->autoneg, cmd->maxtxpkt, cmd->maxrxpkt);
+ 
+-	speed = cmd->speed;
+-	speed |= (cmd->speed_hi << 16);
++	speed = ethtool_cmd_speed(cmd);
+ 
+ 	if (IS_MF_SI(bp)) {
+ 		u32 part;
+@@ -439,7 +440,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 			break;
+ 
+ 		default:
+-			DP(NETIF_MSG_LINK, "Unsupported speed %d\n", speed);
++			DP(NETIF_MSG_LINK, "Unsupported speed %u\n", speed);
+ 			return -EINVAL;
+ 		}
+ 
+-- 
+1.7.3.1
