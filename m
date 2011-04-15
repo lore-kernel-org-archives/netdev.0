@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qlge: make nic_operations struct const
-Date: Thu, 14 Apr 2011 21:55:18 -0700 (PDT)
-Message-ID: <20110414.215518.71125166.davem@davemloft.net>
-References: <20110414085152.042a79e4@nehalam>
+Subject: Re: [PATCH net-next] sfc: make function tables const
+Date: Thu, 14 Apr 2011 21:55:24 -0700 (PDT)
+Message-ID: <20110414.215524.104068954.davem@davemloft.net>
+References: <20110414085012.3e45d7b4@nehalam>
+	<1302799038.2853.5.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ron.mercer@qlogic.com, netdev@vger.kernel.org,
-	linux-driver@qlogic.com
-To: shemminger@vyatta.com
+Cc: shemminger@vyatta.com, shodgson@solarflare.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53686
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53691
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751018Ab1DOEzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 00:55:54 -0400
-In-Reply-To: <20110414085152.042a79e4@nehalam>
+	by vger.kernel.org with ESMTP id S1752661Ab1DOEz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 00:55:59 -0400
+In-Reply-To: <1302799038.2853.5.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 14 Apr 2011 08:51:52 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 14 Apr 2011 17:37:18 +0100
 
-> The struct nic_operations is just function pointers and should be
-> declared const for added security.
+> On Thu, 2011-04-14 at 08:50 -0700, Stephen Hemminger wrote:
+>> The phy, mac, and board information structures should be const.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> efx_nic_type actually holds information and function pointers about
+> different generations of the controller, not different boards.
+> 
+>> Since tables contain function pointer this improves security
+>> (at least theoretically).
+>> 
+>> Compile tested only.
+>> 
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
 Applied.
