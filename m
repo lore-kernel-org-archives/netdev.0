@@ -1,87 +1,112 @@
 From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured
- incorrectly in fiber mode
-Date: Fri, 15 Apr 2011 15:57:04 -0500
-Message-ID: <BANLkTikJ60ND7s5-jfGTBDG3BoM-294CSA@mail.gmail.com>
-References: <BANLkTikH09jMZZk1ZgeQi+HOoeFqgTpdBA@mail.gmail.com>
-	<903944.53826.qm@web37604.mail.mud.yahoo.com>
+Subject: Re: SMSC 8720a/MDIO/PHY help.
+Date: Fri, 15 Apr 2011 16:02:21 -0500
+Message-ID: <BANLkTi=rzTCTackMiKRW=vciN=+ThiCGJg@mail.gmail.com>
+References: <9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E632@EXV1.corp.adtran.com>
+	<1302729564.2742.28.camel@malcolm>
+	<9AC3F0E75060224C8BBC5BA2DDC8853A1FA8E8D4@EXV1.corp.adtran.com>
+	<BANLkTik7xeMnx0S2m0easY0hVT_UmomjzA@mail.gmail.com>
+	<9AC3F0E75060224C8BBC5BA2DDC8853A1FB11170@EXV1.corp.adtran.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Daney <ddaney@caviumnetworks.com>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Andy Fleming <afleming@freescale.com>
-To: Alex Dubov <oakad@yahoo.com>
+Cc: michael@riesch.at, netdev@vger.kernel.org
+To: ANDY KENNEDY <ANDY.KENNEDY@adtran.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f179.google.com ([209.85.212.179]:56170 "EHLO
-	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755423Ab1DOU5G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 16:57:06 -0400
-Received: by pxi2 with SMTP id 2so1845155pxi.10
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 13:57:05 -0700 (PDT)
-In-Reply-To: <903944.53826.qm@web37604.mail.mud.yahoo.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:63018 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755881Ab1DOVCV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 17:02:21 -0400
+Received: by pzk9 with SMTP id 9so1141402pzk.19
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 14:02:21 -0700 (PDT)
+In-Reply-To: <9AC3F0E75060224C8BBC5BA2DDC8853A1FB11170@EXV1.corp.adtran.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 14, 2011 at 2:59 AM, Alex Dubov <oakad@yahoo.com> wrote:
->
->
-> --- On Thu, 14/4/11, Andy Fleming <afleming@gmail.com> wrote:
->
+On Fri, Apr 15, 2011 at 3:53 PM, ANDY KENNEDY <ANDY.KENNEDY@adtran.com>=
+ wrote:
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>> owner@vger.kernel.org] On Behalf Of Andy Fleming
+>> Sent: Friday, April 15, 2011 3:30 PM
+>> To: ANDY KENNEDY
+>> Cc: michael@riesch.at; netdev@vger.kernel.org
+>> Subject: Re: SMSC 8720a/MDIO/PHY help.
 >>
->> I've just rewritten the U-Boot code for PHY management, so
->> I'd be
->> interested in hearing if this breaks your board.=A0 But
->> what's
->> interesting to me is that, in order for U-Boot to report
->> that the link
->> is a "fiber" link, something had to set the TSEC_FIBER
->> flag, and only
->> one PHY in the public source did.=A0 This implies to me
->> that your board
->> isn't supported by mainline U-Boot, and suggests that
->> someone may have
->> modified the 88e1145 driver. Otherwise, I don't see any
->> fiber-related
->> differences between the U-Boot 1145 driver, and the Linux
->> one.
+>> On Wed, Apr 13, 2011 at 4:38 PM, ANDY KENNEDY
+>> <ANDY.KENNEDY@adtran.com> wrote:
+>> >> -----Original Message-----
+>> >> From: Michael Riesch [mailto:michael@riesch.at]
+>> >> Sent: Wednesday, April 13, 2011 4:19 PM
+>> >> To: netdev@vger.kernel.org
+>> >> Cc: ANDY KENNEDY
+>> >> Subject: Re: SMSC 8720a/MDIO/PHY help.
+>> >>
+>> >>
+>> >> > If you have an idea of something for me to try, I'd love to
+>> >> entertain
+>> >> > it.
+>> >>
+>> >> I am rather new to PHYLIB, but these are my ideas:
+>> >>
+>> >> =A01) make sure phy_connect is executed (AFIAK called by MDIO bus
+>> >> driver)
+>> >
+>> > Going through the phy.txt doc under Documentation/networking:
+>> > PHY Abstraction Layer
+>> > (Updated 2008-04-08)
+>> > though it may be a bit out-of-date, I did see what you are
+>> talking about. =A0What I'm hung up on at the moment is the behavior
+>> of adjust_link(). =A0It appears that I only need to start the queues=
+,
+>> though I don't know.
+>> >
+>> >>
+>> >> =A02) maybe you need to call phy_start / phy_stop (AFAIK from the
+>> PHY
+>> >> driver's open / close function)
+>> >
+>> > Currently, when I do this I only get the call to adjust_link()
+>> over and over again.
+>>
+>>
+>> ...this means that the state machine is running. =A0The PHY is
+>> polling
+>> every couple seconds to report the current state. It calls
+>> adjust_link() to keep the net_device up-to-date on that state. What
+>> other behavior are you expecting to see?
 >
-> I had not seen any difference, that's true. But the problem somehow
-> creeps in.
+> Well, you see I was expecting it to be up and running at that point (=
+to be able to assign an IP, pass traffic, etc) -- but that is due to ig=
+norance of (1) network device drivers, (2) PHY device drivers, (3) MDIO=
+ bus drivers, (4) General level 2 networking, (5) ;) get the point?
 >
-> The u-boot is standard stock u-boot pulled from the recent git,
-> no special configuration involved.
+> See, I'm totally new to networking (at this level). =A0Device drivers=
+, yes, but not networking.
+>
+> Though, after Michael's e-mails, I have discovered that I have to
+> 1) Make the MDIO bus work
+> 2) Establish communications with the MDIO driver (in this case smsc.c=
+ under net/phy)
+> 3) Make all my NDO required functions for controlling the "real" netw=
+ork device -- I was unaware that the PHY _WASN'T_ the network device.
+> 4) Call phy_connect_direct (so I don't trash the already existent sms=
+c.c as before stated)
+> 5) Finally, after the NDO functions are written, register the NDO wit=
+h the networking layer of the Kernel.
+>
+> One thing I have done wrong (realized AFTER depending upon the work I=
+'ve done) is that I should have split out the MDIO and the network devi=
+ce.
+>
+> Now, where is the document that explains all this. =A0The PHY documen=
+t is very informative, however, if you don't know that a PHY is NOT a n=
+etwork device, you're kinda outta luck. =A0Even Wiki reports a PHY as t=
+he Physical Link layer of the OSI model. =A0Which, again, doesn't tell =
+the ignorant much.
 
 
-Are you seeing this message when you run ethernet in u-boot?
+Take a look at Documentation/networking/netdevices.txt
 
-"Speed: 1000, full duplex, fiber mode"
-
-Because that last part only shows up if someone sets TSEC_FIBER in the
-tsec's "flags" field...
-
-
-
-> I tried to prevent kernel from reconfiguring the phy, but to no avail=
-=2E
-> It seems very weird to me, because I did quite a lot of testing with
-> u-boot and network just works on that interface. However, when kernel
-> starts booting it suddenly looses the ability to talk to it.
-
-
-Believe me, I feel your pain.  These devices are often remarkably
-fickle. The kernel tries to be
-more robust, but sometimes the PHYs just don't like to be touched at al=
-l.
-
-You could probably change to use a fixed link by removing the
-phy-handle property from your ethernet device node, and adding:
-"fixed-link=3D<0 1000 1 0 0>".  If that works, then the issue is that
-Linux is breaking something when it connects. It might be good enough
-for you to use fixed-link, though it would be good to actually find
-out what's going wrong with the PHY driver.
-
-Andy
+Also grep around in drivers/net to see networking drivers that have
+been ported to use phylib (look for phy_connect or phy_attach).
