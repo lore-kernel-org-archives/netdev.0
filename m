@@ -1,73 +1,110 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH] net: forcedeth: convert to hw_features
-Date: Fri, 15 Apr 2011 19:44:32 +0200
-Message-ID: <20110415174432.GA26679@rere.qmqm.pl>
-References: <20110415145049.CC33613A65@rere.qmqm.pl> <1302885588.2845.4.camel@bwh-desktop>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
+Date: Fri, 15 Apr 2011 19:57:25 +0200
+Message-ID: <4DA88705.5040203@hartkopp.net>
+References: <20110314132004.GA333@e-circ.dyndns.org>	<20110314135917.GF333@e-circ.dyndns.org>	<4D8623BE.2080807@hartkopp.net>
+	<20110413044928.GA289@kurt.e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:58992 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753616Ab1DORod (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Apr 2011 13:44:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1302885588.2845.4.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110413044928.GA289-ozGf4kBk5synFtIcQ8t7k3L8HoS0Hn3T@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 15, 2011 at 05:39:48PM +0100, Ben Hutchings wrote:
-> On Fri, 2011-04-15 at 16:50 +0200, Micha=B3 Miros=B3aw wrote:
-> > This also fixes a race around np->txrxctl_bits while changing RXCSU=
-M offload.
-> >=20
-> > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
-> > ---
-> >  drivers/net/forcedeth.c |   78 +++++++++++++++--------------------=
------------
-> >  1 files changed, 26 insertions(+), 52 deletions(-)
-> >=20
-> > diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-> > index d5ab4da..ec9a32d 100644
-> > --- a/drivers/net/forcedeth.c
-> > +++ b/drivers/net/forcedeth.c
-> > @@ -774,7 +774,6 @@ struct fe_priv {
-> >  	u32 driver_data;
-> >  	u32 device_id;
-> >  	u32 register_size;
-> > -	int rx_csum;
-> >  	u32 mac_in_use;
-> >  	int mgmt_version;
-> >  	int mgmt_sema;
-> > @@ -4480,58 +4479,36 @@ static int nv_set_pauseparam(struct net_dev=
-ice *dev, struct ethtool_pauseparam*
-> >  	return 0;
-> >  }
-> > =20
-> > -static u32 nv_get_rx_csum(struct net_device *dev)
-> > +static u32 nv_fix_features(struct net_device *dev, u32 features)
-> >  {
-> > -	struct fe_priv *np =3D netdev_priv(dev);
-> > -	return np->rx_csum !=3D 0;
-> > +	/* vlan is dependent on rx checksum offload */
-> > +	if (features & (NETIF_F_HW_VLAN_TX|NETIF_F_HW_VLAN_RX))
-> > +		features |=3D NETIF_F_RXCSUM;
-> [...]
->=20
-> Shouldn't this be done the other way round:
->=20
-> 	if (!(features & NETIF_F_RXCSUM))
-> 		features &=3D ~(NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
->=20
-> So long as the VLAN feature flags are still set in wanted_features, t=
-hey
-> will be turned back on automatically if RXCSUM is re-enabled.
+On 13.04.2011 06:49, Kurt Van Dijck wrote:
+> Oliver et.al.,
+> 
+> On Sun, Mar 20, 2011 at 04:56:46PM +0100, Oliver Hartkopp wrote:
+>> On 14.03.2011 14:59, Kurt Van Dijck wrote:
+>>
+>> Then you suggest to attach static and/or dynamic addresses to the interface.
+>>
+>>> +  Assigning addresses is done via
+>>> +  $ ip addr add dev canX j1939 0xXX
+>>> +  statically or
+>>> +  $ ip addr add dev canX j1939 name 0xXX
+>>> +  dynamically. In the latter case, address claiming must take place
+>>> +  before other traffic can leave.
+>>
+>> like you would have using DHCP/DNS (adapted for j1939) ...
+>>
+> I suspect the confustion with DHCP/DNS comes free with the used terminology.
+> 
+> Specifications talk about a 64bit NAME, where is actually is a 64bit UUID.
+> Calling this number a UUID may clarify things, but leaves the spec in the
+> terminology.
+> 
+> one would then do:
+> $ ip addr add dev canX j1939 uuid XXXX
+> 
+> Would that be a good way to progress?
 
-Yes, but this way is a direct translation from old ethtool_ops. Changin=
-g
-this needs implementing changing HW_VLAN features in set_features.
+Hello Kurt,
 
-Best Regards,
-Micha=B3 Miros=B3aw
+i don't know if it helps - at least for j1939 users - to rename the NAME for
+j1939 address claiming to UUID which is usually 128 bit long an has a pretty
+different understanding than the J1939 NAME which stands for
+
+   1. Arbitrary address bit
+   2. Industry group, length 3 bits
+   3. Vehicle system instance, length 4 bits
+   4. Vehicle system, length 7 bits
+   5. Reserved bit
+   6. Function, length 8 bits
+   7. Function instance, length 5 bits
+   8. ECU instance, length 3 bits
+   9. Manufacturer code, length 11 bits
+  10. Identity number, length 21 bits
+
+(from http://www.kvaser.com/en/about-can/higher-layer-protocols/36.html)
+
+This is not comparable to the ideas from RFC 4122 ...
+
+Thinking about the approach to implement the j1939 address claiming (AC) in
+userspace, i discovered two ways which could both be hidden inside some
+easy-to-use helper functions:
+
+1. implement a thread (e.g. within a library) which opens a CAN_RAW socket on
+a specific CAN-interface and takes care of the AC procedure and monitors
+ongoing AC procedures on the bus. In this case every j1939 application
+requiring AC internally would monitor all the AC handling on itself (which
+should be no general problem - written only once).
+
+2. create j1939ac daemon(s) using PF_UNIX-sockets to be named e.g.
+j1939ac_can0, j1939ac_can1, etc. - these daemons take care for all AC
+requirements of the host it is running on. The PF_UNIX-sockets are used in
+SOCK_DGRAM mode and only the j1939 processes that need AC can then register
+their NAME by sending a request datagram, and get back the j1939-address once
+it is claimed (and all the updates on changes). As the j1939ac daemons are
+running on the same host as the j1939 application processes, optional the
+process' PID could be provided to the daemon during the registering process,
+so that the daemon can send a signal to a signal handler of the application
+process (if you would like to omit the select() syscall to handle both the
+j1939 and PF_UNIX sockets).
+
+->   <Req><Name="A3B5667799332242" PID="12345">
+<-   <Resp><ACState="claimed" Name="A3B5667799332242" Address="1B">
+(some time)
+<-   <Resp><ACState="changed" Name="A3B5667799332242" Address="1C">
+
+This is a sketch that could be put into simple C-structs that are sent via the
+PF_UNIX DGRAM socket.
+
+In all suggested cases (using a thread, daemon with/without signal) the AC
+procedure can be managed in userspace without real pain. But especially with
+less pain than putting the AC process into kernelspace and provide your
+suggested socket API with bind/connect/... in very different manners.
+
+Regards,
+Oliver
