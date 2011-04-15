@@ -1,53 +1,44 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH 2/2] mlx4: use pci_dev->revision
-Date: Fri, 15 Apr 2011 19:27:22 +0400
-Message-ID: <201104151927.22762.sshtylyov@ru.mvista.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] possible bug in inet->opt handling
+Date: Fri, 15 Apr 2011 17:39:54 +0200
+Message-ID: <1302881994.3613.34.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: yevgenyp@mellanox.co.il
-To: netdev@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:59369 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752911Ab1DOP3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 11:29:07 -0400
-Content-Disposition: inline
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64099 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754497Ab1DOPj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 11:39:58 -0400
+Received: by wya21 with SMTP id 21so2349987wya.19
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2011 08:39:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 725c89997e03d71b09ea3c17c997da0712b9d835 (mlx4_en: Reporting HW revision
-in ethtool -i) added code to read the revision ID from the PCI configuration
-register while it's already stored by PCI subsystem in the 'revision' field of
-'struct pci_dev'...
+In commit 903ab86d19 (udp: Add lockless transmit path), we added a
+fastpath to avoid taking socket lock if we dont use corking.
 
-While at it, move the code being changed a bit in order to not break the
-initialization sequence.
+Prior work were commit 1c32c5ad6fac8c (inet: Add ip_make_skb and
+ip_finish_skb) and commit 1470ddf7f8cecf776921e5 (inet: Remove explicit
+write references to sk/inet in ip_append_data)
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Problem is ip_make_skb() calls ip_setup_cork() and
+ip_setup_cork() possibly makes a copy of ipc->opt (struct ip_options),
+without any protection against another thread manipulating inet->opt.
 
----
-The patch is against the recent Linus' tree.
+Another thread can change inet->opt pointer and free old one... kaboom.
 
- drivers/net/mlx4/main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This was discovered by code analysis (I am trying to remove the zeroing
+of cork variable in ip_make_skb(), since its a bit expensive and
+probably useless)
 
-Index: linux-2.6/drivers/net/mlx4/main.c
-===================================================================
---- linux-2.6.orig/drivers/net/mlx4/main.c
-+++ linux-2.6/drivers/net/mlx4/main.c
-@@ -1230,11 +1230,11 @@ static int __mlx4_init_one(struct pci_de
- 	INIT_LIST_HEAD(&priv->pgdir_list);
- 	mutex_init(&priv->pgdir_mutex);
- 
--	pci_read_config_byte(pdev, PCI_REVISION_ID, &dev->rev_id);
--
- 	INIT_LIST_HEAD(&priv->bf_list);
- 	mutex_init(&priv->bf_mutex);
- 
-+	dev->rev_id = pdev->revision;
-+
- 	/*
- 	 * Now reset the HCA before we touch the PCI capabilities or
- 	 * attempt a firmware command, since a boot ROM may have left
+Note : race was there before Herbert patches.
+
+My plan is to add RCU protection on inet->opt, unless someone has better
+idea ?
+
+
+
