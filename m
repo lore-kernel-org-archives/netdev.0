@@ -1,137 +1,94 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH net-next-2.6 3/3] bonding,ipv4,ipv6,vlan: Handle NETDEV_BONDING_FAILOVER
- like NETDEV_NOTIFY_PEERS
-Date: Fri, 15 Apr 2011 21:51:35 -0400
-Message-ID: <4DA8F627.5090109@hp.com>
-References: <1302911271.2845.41.camel@bwh-desktop> <22334.1302913805@death>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: net: Automatic IRQ siloing for network devices
+Date: Fri, 15 Apr 2011 21:59:38 -0400
+Message-ID: <20110416015938.GB2200@neilslaptop.think-freely.org>
+References: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
+ <1302908069.2845.29.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:15061 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753322Ab1DPBvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 21:51:39 -0400
-In-Reply-To: <22334.1302913805@death>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58855 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753964Ab1DPB7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2011 21:59:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1302908069.2845.29.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/15/2011 08:30 PM, Jay Vosburgh wrote:
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Fri, Apr 15, 2011 at 11:54:29PM +0100, Ben Hutchings wrote:
+> On Fri, 2011-04-15 at 16:17 -0400, Neil Horman wrote:
+> > Automatic IRQ siloing for network devices
+> > 
+> > At last years netconf:
+> > http://vger.kernel.org/netconf2010.html
+> > 
+> > Tom Herbert gave a talk in which he outlined some of the things we can do to
+> > improve scalability and througput in our network stack
+> > 
+> > One of the big items on the slides was the notion of siloing irqs, which is the
+> > practice of setting irq affinity to a cpu or cpu set that was 'close' to the
+> > process that would be consuming data.  The idea was to ensure that a hard irq
+> > for a nic (and its subsequent softirq) would execute on the same cpu as the
+> > process consuming the data, increasing cache hit rates and speeding up overall
+> > throughput.
+> > 
+> > I had taken an idea away from that talk, and have finally gotten around to
+> > implementing it.  One of the problems with the above approach is that its all
+> > quite manual.  I.e. to properly enact this siloiong, you have to do a few things
+> > by hand:
+> > 
+> > 1) decide which process is the heaviest user of a given rx queue 
+> > 2) restrict the cpus which that task will run on
+> > 3) identify the irq which the rx queue in (1) maps to
+> > 4) manually set the affinity for the irq in (3) to cpus which match the cpus in
+> > (2)
+> [...]
 > 
->> It is undesirable for the bonding driver to be poking into higher
->> level protocols, and notifiers provide a way to avoid that.  This does
->> mean removing the ability to configure reptitition of gratuitous ARPs
->> and unsolicited NAs.
+> This presumably works well with small numbers of flows and/or large
+> numbers of queues.  You could scale it up somewhat by manipulating the
+> device's flow hash indirection table, but that usually only has 128
+> entries.  (Changing the indirection table is currently quite expensive,
+> though that could be changed.)
 > 
-> 	In principle I think this is a good thing (getting rid of some
-> of those dependencies, duplicated code, etc).
+> I see RFS and accelerated RFS as the only reasonable way to scale to
+> large numbers of flows.  And as part of accelerated RFS, I already did
+> the work for mapping CPUs to IRQs (note, not the other way round).  If
+> IRQ affinity keeps changing then it will significantly undermine the
+> usefulness of hardware flow steering.
 > 
-> 	However, the removal of the multiple grat ARP and NAs may be an
-> issue for some users.  I don't know that we can just remove this (along
-> with its API) without going through the feature removal process.
-
-Right, I don't know how many people are using these, they might not be
-happy, especially since specifying an unknown parameter will cause a
-module load to fail:
-
---> modprobe bonding foobar=27
-FATAL: Error inserting bonding (/lib/modules/2.6.32-31-generic/kernel/drivers/net/bonding/bonding.ko): Unknown symbol in module, or unknown parameter (see dmesg)
-
-When these params are stuffed in /etc/modprobe.d/options, a reboot to
-a kernel without them will cause some swearing :)
-
-BTW, if this is accepted you need to update the documentation as well.
-
-> 	As I recall, the multiple gratuitous ARP stuff was added for
-> Infiniband, because it is dependent on the grat ARP for a smooth
-> failover.
+> Now I'm not saying that your approach is useless.  There is more
+> hardware out there with flow hashing than with flow steering, and there
+> are presumably many systems with small numbers of active flows.  But I
+> think we need to avoid having two features that conflict and a
+> requirement for administrators to make a careful selection between them.
 > 
-> 	There is also currently logic to check the linkwatch link state
-> to wait for the link to go up prior to sending a grat ARP; this is also
-> for IB.
+> Ben.
 > 
-> 	Brian Haley added the unsolicited NAs; I've added him to the cc
-> so perhaps he (or somebody else) can comment on the necessity of keeping
-> the ability to send multiple NAs.
+I hear what your saying and I agree, theres no point in having features work
+against each other.  That said, I'm not sure I agree that these features have to
+work against one another, nor does a sysadmin need to make a choice between the
+two.  Note the third patch in this series.  Making this work requires that
+network drivers wanting to participate in this affinity algorithm opt in by
+using the request_net_irq macro to attach the interrupt to the rfs affinity code
+that I added.  Theres no reason that a driver which supports hardware that still
+uses flow steering can't opt out of this algorithm, and as a result irqbalance
+will still treat those interrupts as it normally does.  And for those drivers
+which do opt in, irqbalance can take care of affinity assignment, using the
+provided hint.  No need for sysadmin intervention.
 
-I added it because in an IPv6-only environment I was seeing really long
-failover times on bonds.  I believe this was a customer-reported issue, so
-there *might* be someone setting it, but I think my testing always showed
-one was enough to wake-up the switch.
+I'm sure there can be improvements made to this code, but I think theres less
+conflict between the work you've done and this code than there appears to be at
+first blush.
 
-Is it useful to call netdev_bonding_change() multiple times from within
-bond_change_active_slave(), like MAX(arp, na) times?
+Best
+Neil
 
-One comment below...
-
->> -/*
->> - * Kick out a gratuitous ARP for an IP on the bonding master plus one
->> - * for each VLAN above us.
->> - *
->> - * Caller must hold curr_slave_lock for read or better
->> - */
->> -static void bond_send_gratuitous_arp(struct bonding *bond)
->> -{
->> -	struct slave *slave = bond->curr_active_slave;
->> -	struct vlan_entry *vlan;
->> -	struct net_device *vlan_dev;
->> -
->> -	pr_debug("bond_send_grat_arp: bond %s slave %s\n",
->> -		 bond->dev->name, slave ? slave->dev->name : "NULL");
->> -
->> -	if (!slave || !bond->send_grat_arp ||
->> -	    test_bit(__LINK_STATE_LINKWATCH_PENDING, &slave->dev->state))
->> -		return;
->> -
->> -	bond->send_grat_arp--;
->> -
->> -	if (bond->master_ip) {
->> -		bond_arp_send(slave->dev, ARPOP_REPLY, bond->master_ip,
->> -				bond->master_ip, 0);
->> -	}
->> -
->> -	if (!bond->vlgrp)
->> -		return;
->> -
->> -	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
->> -		vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
->> -		if (vlan->vlan_ip) {
->> -			bond_arp_send(slave->dev, ARPOP_REPLY, vlan->vlan_ip,
->> -				      vlan->vlan_ip, vlan->vlan_id);
->> -		}
->> -	}
->> -}
-
-Does your change also cover this case with multiple VLAN IDs?  Is that covered in
-the vlan.c code below?
-
->> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
->> index b2ff70f..969e700 100644
->> --- a/net/8021q/vlan.c
->> +++ b/net/8021q/vlan.c
->> @@ -501,13 +501,14 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
->> 		return NOTIFY_BAD;
->>
->> 	case NETDEV_NOTIFY_PEERS:
->> +	case NETDEV_BONDING_FAILOVER:
->> 		/* Propagate to vlan devices */
->> 		for (i = 0; i < VLAN_N_VID; i++) {
->> 			vlandev = vlan_group_get_device(grp, i);
->> 			if (!vlandev)
->> 				continue;
->>
->> -			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, vlandev);
->> +			call_netdevice_notifiers(event, vlandev);
->> 		}
->> 		break;
->> 	}
-
-Thanks,
-
--Brian
+> -- 
+> Ben Hutchings, Senior Software Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> 
