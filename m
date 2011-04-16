@@ -1,44 +1,57 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH v2] net: cxgb4{,vf}: convert to hw_features
-Date: Sat, 16 Apr 2011 11:23:59 -0700
-Message-ID: <4DA9DEBF.8050300@chelsio.com>
-References: <20110415145050.6A43913A6A@rere.qmqm.pl> <20110416165226.B881F13A65@rere.qmqm.pl>
+From: "Alex G." <mr.nuke.me@gmail.com>
+Subject: [PATCH] via-rhine: do not freak out due to invalid MAC address
+Date: Sun, 17 Apr 2011 01:05:52 +0300
+Message-ID: <4DAA12C0.7030106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Casey Leedom <leedom@chelsio.com>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Roger Luethi <rl@hellgate.ch>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11465 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002Ab1DPSYI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2011 14:24:08 -0400
-In-Reply-To: <20110416165226.B881F13A65@rere.qmqm.pl>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35922 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755936Ab1DPWVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2011 18:21:40 -0400
+Received: by bwz15 with SMTP id 15so2978484bwz.19
+        for <netdev@vger.kernel.org>; Sat, 16 Apr 2011 15:21:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Micha=C5=82 Miros=C5=82aw wrote:
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
-> v2: cxgb4: remove now unneeded variable in t4_ethrx_handler()
->     cxgb4vf: fix hw/vlan_features values
+via-rhine drops out of the init code if the hardware provides an invalid
+MAC address. Roger Luethi has had several reports of Rhine NICs doing just
+that. The hardware still works, though; assigning a random MAC address
+allows the NIC to be used as usual. Tested as a standalone interface,
+as carrier for ppp, and as bonding slave.
 
-Thanks for doing this.  The cxgb4 part looks good.  For cxgb4vf I have =
-a=20
-comment below.
+Signed-off-by: Alexandru Gagniuc <mr.nuke.me@gmail.com>
 
-> @@ -2638,19 +2597,18 @@ static int __devinit cxgb4vf_pci_probe(struct=
- pci_dev *pdev,
-> -		netdev->features =3D (NETIF_F_SG | TSO_FLAGS |
-> -				    NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-> -				    NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX |
-> -				    NETIF_F_GRO);
-> +		netdev->hw_features =3D NETIF_F_SG | TSO_FLAGS | NETIF_F_RXCSUM |
-> +			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-> +		netdev->vlan_features =3D NETIF_F_SG | TSO_FLAGS |
-> +			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-> +			NETIF_F_HW_VLAN_TX | NETIF_F_HIGHDMA;
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 0422a79..e7e0fa9 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -836,13 +836,18 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
+ 
+     for (i = 0; i < 6; i++)
+         dev->dev_addr[i] = ioread8(ioaddr + StationAddr + i);
+-    memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+-    if (!is_valid_ether_addr(dev->perm_addr)) {
+-        rc = -EIO;
+-        printk(KERN_ERR "Invalid MAC address\n");
+-        goto err_out_unmap;
++    if (!is_valid_ether_addr(dev->dev_addr)) {
++        printk(KERN_ERR "via-rhine: Invalid MAC address: %pM. \n",
++                dev->dev_addr);
++        /* The device may still be used normally if a valid MAC is
++         * configured
++         */
++        random_ether_addr(dev->dev_addr);
++        printk(KERN_ERR "via-rhine: Using randomly generated address:"
++                "%pM instead. \n", dev->dev_addr);
+     }
++    memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+     /* For Rhine-I/II, phy_id is loaded from EEPROM */
+     if (!phy_id)
 
-This NETIF_F_HW_VLAN_TX looks misplaced.  Did you mean to add it to=20
-hw_features rather than vlan_features?
