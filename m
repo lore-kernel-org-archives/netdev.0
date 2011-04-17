@@ -1,78 +1,190 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: ibm_newemac: convert to hw_features
-Date: Sun, 17 Apr 2011 12:15:47 +0200 (CEST)
-Message-ID: <20110417101547.C207E13A6C@rere.qmqm.pl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Suspend/resume - slow resume
+Date: Sun, 17 Apr 2011 12:17:31 +0200
+Message-ID: <20110417101731.GA17986@electric-eye.fr.zoreil.com>
+References: <Pine.SOC.4.64.1104150931390.1320@er3.rutgers.edu> <BANLkTinO+HFq+Mgg1aUz9V==zYs7qSBtDw@mail.gmail.com> <Pine.SOC.4.64.1104151122330.1320@er3.rutgers.edu> <BANLkTi=Gq5thZk2f1nWTz3dDA5Non8ANZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ciprian Docan <docan@eden.rutgers.edu>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+	"Rafael, J. Wysocki" <rjw@sisk.pl>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:48112 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756617Ab1DQKPw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Apr 2011 06:15:52 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34483 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752112Ab1DQKZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 06:25:49 -0400
+Content-Disposition: inline
+In-Reply-To: <BANLkTi=Gq5thZk2f1nWTz3dDA5Non8ANZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Side effect: allow toggling of TX offloads.
+Linus Torvalds <torvalds@linux-foundation.org> :
+[...]
+> So Francois, can we please not load the firmware at resume time when
+> it wasn't loaded when suspended!
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+One can try the patch below. It is completely untested yet.
+
+Subject: [PATCH] r8169: don't request firmware when there's no userspace.
+
+The firmware is cached during open() and released during close().
+The driver uses the cached firmware between open() and close().
+
+Don't bother with rtl8169_pcierr_interrupt. It is special anyway.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ibm_newemac/core.c |   17 ++++-------------
- 1 files changed, 4 insertions(+), 13 deletions(-)
+ drivers/net/r8169.c |   76 +++++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 52 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/c=
-ore.c
-index 3bb990b..079450f 100644
---- a/drivers/net/ibm_newemac/core.c
-+++ b/drivers/net/ibm_newemac/core.c
-@@ -2053,13 +2053,6 @@ static void emac_ethtool_get_pauseparam(struct n=
-et_device *ndev,
- 	mutex_unlock(&dev->link_lock);
- }
-=20
--static u32 emac_ethtool_get_rx_csum(struct net_device *ndev)
--{
--	struct emac_instance *dev =3D netdev_priv(ndev);
--
--	return dev->tah_dev !=3D NULL;
--}
--
- static int emac_get_regs_len(struct emac_instance *dev)
- {
- 	if (emac_has_feature(dev, EMAC_FTR_EMAC4))
-@@ -2203,15 +2196,11 @@ static const struct ethtool_ops emac_ethtool_op=
-s =3D {
- 	.get_ringparam =3D emac_ethtool_get_ringparam,
- 	.get_pauseparam =3D emac_ethtool_get_pauseparam,
-=20
--	.get_rx_csum =3D emac_ethtool_get_rx_csum,
--
- 	.get_strings =3D emac_ethtool_get_strings,
- 	.get_sset_count =3D emac_ethtool_get_sset_count,
- 	.get_ethtool_stats =3D emac_ethtool_get_ethtool_stats,
-=20
- 	.get_link =3D ethtool_op_get_link,
--	.get_tx_csum =3D ethtool_op_get_tx_csum,
--	.get_sg =3D ethtool_op_get_sg,
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 493b0de..ccc25cd 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -170,6 +170,16 @@ static const struct {
  };
-=20
- static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int c=
-md)
-@@ -2859,8 +2848,10 @@ static int __devinit emac_probe(struct platform_=
-device *ofdev)
- 	if (err !=3D 0)
- 		goto err_detach_tah;
-=20
--	if (dev->tah_dev)
--		ndev->features |=3D NETIF_F_IP_CSUM | NETIF_F_SG;
-+	if (dev->tah_dev) {
-+		ndev->hw_features =3D NETIF_F_IP_CSUM | NETIF_F_SG;
-+		ndev->features |=3D ndev->hw_features | NETIF_F_RXCSUM;
+ #undef _R
+ 
++static const struct rtl_firmware_info {
++	int mac_version;
++	const char *fw_name;
++} rtl_firmware_infos[] = {
++	{ .mac_version = RTL_GIGA_MAC_VER_25, .fw_name = FIRMWARE_8168D_1 },
++	{ .mac_version = RTL_GIGA_MAC_VER_26, .fw_name = FIRMWARE_8168D_2 },
++	{ .mac_version = RTL_GIGA_MAC_VER_29, .fw_name = FIRMWARE_8105E_1 },
++	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 }
++};
++
+ enum cfg_version {
+ 	RTL_CFG_0 = 0x00,
+ 	RTL_CFG_1,
+@@ -1793,21 +1803,21 @@ static void rtl_release_firmware(struct rtl8169_private *tp)
+ 	tp->fw = NULL;
+ }
+ 
+-static int rtl_apply_firmware(struct rtl8169_private *tp, const char *fw_name)
++static void rtl_apply_firmware(struct rtl8169_private *tp)
+ {
+-	const struct firmware **fw = &tp->fw;
+-	int rc = !*fw;
+-
+-	if (rc) {
+-		rc = request_firmware(fw, fw_name, &tp->pci_dev->dev);
+-		if (rc < 0)
+-			goto out;
+-	}
++	const struct firmware *fw = tp->fw;
+ 
+ 	/* TODO: release firmware once rtl_phy_write_fw signals failures. */
+-	rtl_phy_write_fw(tp, *fw);
+-out:
+-	return rc;
++	if (fw)
++		rtl_phy_write_fw(tp, fw);
++}
++
++static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 reg, u16 val)
++{
++	if (rtl_readphy(tp, reg) != val)
++		netif_warn(tp, hw, tp->dev, "chipset not ready for firmware\n");
++	else
++		rtl_apply_firmware(tp);
+ }
+ 
+ static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)
+@@ -2246,10 +2256,8 @@ static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0005);
+ 	rtl_writephy(tp, 0x05, 0x001b);
+-	if ((rtl_readphy(tp, 0x06) != 0xbf00) ||
+-	    (rtl_apply_firmware(tp, FIRMWARE_8168D_1) < 0)) {
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+-	}
++
++	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xbf00);
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ }
+@@ -2351,10 +2359,8 @@ static void rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0005);
+ 	rtl_writephy(tp, 0x05, 0x001b);
+-	if ((rtl_readphy(tp, 0x06) != 0xb300) ||
+-	    (rtl_apply_firmware(tp, FIRMWARE_8168D_2) < 0)) {
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+-	}
++
++	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xb300);
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ }
+@@ -2474,8 +2480,7 @@ static void rtl8105e_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x18, 0x0310);
+ 	msleep(100);
+ 
+-	if (rtl_apply_firmware(tp, FIRMWARE_8105E_1) < 0)
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
++	rtl_apply_firmware(tp);
+ 
+ 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ }
+@@ -3288,8 +3293,6 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ 
+ 	cancel_delayed_work_sync(&tp->task);
+ 
+-	rtl_release_firmware(tp);
+-
+ 	unregister_netdev(dev);
+ 
+ 	if (pci_dev_run_wake(pdev))
+@@ -3303,6 +3306,27 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ 	pci_set_drvdata(pdev, NULL);
+ }
+ 
++static void rtl_request_firmware(struct rtl8169_private *tp)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(rtl_firmware_infos); i++) {
++		const struct rtl_firmware_info *info = rtl_firmware_infos + i;
++
++		if (info->mac_version == tp->mac_version) {
++			const char *name = info->fw_name;
++			int rc;
++
++			rc = request_firmware(&tp->fw, name, &tp->pci_dev->dev);
++			if (rc < 0) {
++				netif_warn(tp, ifup, tp->dev, "unable to load "
++					"firmware patch %s (%d)\n", name, rc);
++			}
++			break;
++		}
 +	}
- 	ndev->watchdog_timeo =3D 5 * HZ;
- 	if (emac_phy_supports_gige(dev->phy_mode)) {
- 		ndev->netdev_ops =3D &emac_gige_netdev_ops;
---=20
-1.7.2.5
++}
++
+ static int rtl8169_open(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -3334,6 +3358,8 @@ static int rtl8169_open(struct net_device *dev)
+ 
+ 	smp_mb();
+ 
++	rtl_request_firmware(tp);
++
+ 	retval = request_irq(dev->irq, rtl8169_interrupt,
+ 			     (tp->features & RTL_FEATURE_MSI) ? 0 : IRQF_SHARED,
+ 			     dev->name, dev);
+@@ -4891,6 +4917,8 @@ static int rtl8169_close(struct net_device *dev)
+ 
+ 	free_irq(dev->irq, dev);
+ 
++	rtl_release_firmware(tp);
++
+ 	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
+ 			  tp->RxPhyAddr);
+ 	dma_free_coherent(&pdev->dev, R8169_TX_RING_BYTES, tp->TxDescArray,
+-- 
+1.7.4
 
