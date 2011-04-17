@@ -1,39 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-rhine: do not freak out due to invalid MAC address
-Date: Sat, 16 Apr 2011 17:11:16 -0700 (PDT)
-Message-ID: <20110416.171116.226766123.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/2] via-rhine: Logging cleanups and use random MAC address
+Date: Sat, 16 Apr 2011 17:15:24 -0700
+Message-ID: <cover.1302998994.git.joe@perches.com>
 References: <4DAA12C0.7030106@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rl@hellgate.ch
-To: mr.nuke.me@gmail.com
+Cc: Roger Luethi <rl@hellgate.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Alexandru Gagniuc <mr.nuke.me@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42343
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751331Ab1DQALv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2011 20:11:51 -0400
+Received: from mail.perches.com ([173.55.12.10]:4752 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752701Ab1DQAP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Apr 2011 20:15:29 -0400
 In-Reply-To: <4DAA12C0.7030106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Alex G." <mr.nuke.me@gmail.com>
-Date: Sun, 17 Apr 2011 01:05:52 +0300
+Alexandru's patch didn't apply so use the
+current logging standards and fix the whitespace
+in Alexandru's patch.
 
-> via-rhine drops out of the init code if the hardware provides an invalid
-> MAC address. Roger Luethi has had several reports of Rhine NICs doing just
-> that. The hardware still works, though; assigning a random MAC address
-> allows the NIC to be used as usual. Tested as a standalone interface,
-> as carrier for ppp, and as bonding slave.
-> 
-> Signed-off-by: Alexandru Gagniuc <mr.nuke.me@gmail.com>
+Joe Perches (2):
+  via_rhine: Use netdev_<level> and pr_<level>
+  via-rhine: Assign random MAC address if necessary
 
-Your patch is corrupted, your email client turned tab characters
-into spaces, which makes your patch unusable.
+ drivers/net/via-rhine.c |  240 ++++++++++++++++++++++-------------------------
+ 1 files changed, 114 insertions(+), 126 deletions(-)
 
-Please read Documentation/email-clients.txt to learn how to fix
-this, try sending the patch to yourself and testing that you
-can actually apply the patch as you receive it, and then make a
-full, clean, resubmission of the fixed patch.
+-- 
+1.7.4.2.g597a6.dirty
 
-Thanks.
