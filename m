@@ -1,40 +1,62 @@
-From: smae.inc@gncn.net
-Subject: =?UTF-8?Q?O seu mau cr=C3=A9dito?=
-Date: Sun, 17 Apr 2011 08:00:20 +0200
-Message-ID: <400ff906efad64ccb7499a58bf1bc821@darioevittoria.it>
-Reply-To: smae.inc@gncn.net
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Subject: [PATCH net-2.6] bnx2x: Fix port identification problem
+Date: Sun, 17 Apr 2011 09:35:32 +0300
+Message-ID: <1303022132.18593.16.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 138.160.173.62.host.static.ip.kpnqwest.it ([62.173.160.138]:2352
-	"EHLO mail2.monforte.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026Ab1DQGMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 02:12:38 -0400
+Received: from mms3.broadcom.com ([216.31.210.19]:4845 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750997Ab1DQGgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2011 02:36:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-  Please contact us for your secure and unsecured Loan at an interest r=
-ate of 3.75%
-=2E.................
-Ol=C3=A1,
-  Voc=C3=AA est=C3=A1 enfrentando alguma dificuldade financeira em sua =
-vida profissional ou social, ent=C3=A3o voc=C3=AA precisa de ajuda fina=
-nceira.
-  Meu nome =C3=A9 Dr. Alli Sallie Mae. O director da SALLIE MAE INTERNA=
-CIONAL. O nosso seguro de cr=C3=A9dito ir=C3=A1 garantir que voc=C3=AA =
-n=C3=A3o est=C3=A1 perdendo um =C3=BAnico centavo que voc=C3=AA receber=
-=C3=A1. Oferecemos empr=C3=A9stimos seguro com taxa de juros de 3.75%.
-Este =C3=A9 o nosso endere=C3=A7o de contato para os interessados em pa=
-rticipar de uma transa=C3=A7=C3=A3o com a gente:
-smae.inc@gncn.net
+This patch fixes port identification on optic devices when there's no link on the port.
 
-(n =C2=BA de seguran=C3=A7a social e sem verifica=C3=A7=C3=A3o de cr=C3=
-=A9dito, 100% garantido!)
-Espero que possamos atend=C3=AA-lo.
-Novamente, obrigado pela sua aten=C3=A7=C3=A3o.
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_ethtool.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-SALLIE MAE INC
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
+index f505015..89cb977 100644
+--- a/drivers/net/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+@@ -2114,19 +2114,18 @@ static int bnx2x_phys_id(struct net_device *dev, u32 data)
+ 	for (i = 0; i < (data * 2); i++) {
+ 		if ((i % 2) == 0)
+ 			bnx2x_set_led(&bp->link_params, &bp->link_vars,
+-				      LED_MODE_OPER, SPEED_1000);
++				      LED_MODE_ON, SPEED_1000);
+ 		else
+ 			bnx2x_set_led(&bp->link_params, &bp->link_vars,
+-				      LED_MODE_OFF, 0);
++				      LED_MODE_FRONT_PANEL_OFF, 0);
+ 
+ 		msleep_interruptible(500);
+ 		if (signal_pending(current))
+ 			break;
+ 	}
+ 
+-	if (bp->link_vars.link_up)
+-		bnx2x_set_led(&bp->link_params, &bp->link_vars, LED_MODE_OPER,
+-			      bp->link_vars.line_speed);
++	bnx2x_set_led(&bp->link_params, &bp->link_vars,
++		      LED_MODE_OPER, bp->link_vars.line_speed);
+ 
+ 	return 0;
+ }
+-- 
+1.7.1
+
+
+
+
+
 
