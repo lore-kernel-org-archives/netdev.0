@@ -1,90 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: net: Automatic IRQ siloing for network devices
-Date: Sun, 17 Apr 2011 19:38:59 +0100
-Message-ID: <1303065539.5282.938.camel@localhost>
-References: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
-	 <1302908069.2845.29.camel@bwh-desktop>
-	 <20110416015938.GB2200@neilslaptop.think-freely.org>
-	 <20110416091704.4fa62a50@nehalam>
-	 <20110417172010.GA3362@neilslaptop.think-freely.org>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: pull request: batman-adv 2011-04-17
+Date: Sun, 17 Apr 2011 21:30:10 +0200
+Message-ID: <1303068618-27928-1-git-send-email-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Thomas Gleixner <tglx@linutronix.de>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:36993 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753231Ab1DQSjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 14:39:04 -0400
-In-Reply-To: <20110417172010.GA3362@neilslaptop.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-04-17 at 13:20 -0400, Neil Horman wrote:
-> On Sat, Apr 16, 2011 at 09:17:04AM -0700, Stephen Hemminger wrote:
-[...]
-> > My gut feeling is that:
-> >   * kernel should default to a simple static sane irq policy without user
-> >     space.  This is especially true for multi-queue devices where the default
-> >     puts all IRQ's on one cpu.
-> > 
-> Thats not how it currently works, AFAICS.  The default kernel policy is
-> currently that cpu affinity for any newly requested irq is all cpus.  Any
-> restriction beyond that is the purview and doing of userspace (irqbalance or
-> manual affinity setting).
+Hi,
 
-Right.  Though it may be reasonable for the kernel to use the hint as
-the initial affinity for a newly allocated IRQ (not sure quite how we
-determine that).
+I would like to propose following patches for net-next-2.6/2.6.40. Most o=
+f the
+stuff is cleanup work to reduce the locking complexity. The only exceptio=
+n is
+Andrew Lunn's patch, which only adds the initialisation of tx_queue_len.
 
-[...]
-> >   * irqbalance should not do the hacks it does to try and guess at network traffic.
-> > 
-> Well, I can certainly agree with that, but I'm not sure what that looks like.
-> 
-> I could envision something like:
-> 
-> 1) Use irqbalance to do a one time placement of interrupts, keeping a simple
-> (possibly sub-optimal) policy, perhaps something like new irqs get assigned to
-> the least loaded cpu within the numa node of the device the irq is originating
-> from.
-> 
-> 2) Add a udev event on the addition of new interrupts, to rerun irqbalance
+thanks,
+	Sven
 
-Yes, making irqbalance more (or entirely) event-driven seems like a good
-thing.
 
-> 3) Add some exported information to identify processes that are high users of
-> network traffic, and correlate that usage to a rxq/irq that produces that
-> information (possibly some per-task proc file)
-> 
-> 4) Create/expand an additional user space daemon to monitor the highest users of
-> network traffic on various rxq/irqs (as identified in (3)) and restrict those
-> processes execution to those cpus which are on the same L2 cache as the irq
-> itself.  The cpuset cgroup could be usefull in doing this perhaps.
+The following changes since commit 0ce790e7d736cedc563e1fb4e998babf5a4dbc=
+3d:
 
-I just don't see that you're going to get processes associated with
-specific RX queues unless you make use of flow steering.
+  Linux 2.6.39-rc1 (2011-03-29 12:09:47 -0700)
 
-The 128-entry flow hash indirection table is part of Microsoft's
-requirements for RSS so most multiqueue hardware is going to let you do
-limited flow steering that way.
+are available in the git repository at:
+  git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/next
 
-> Actually, as I read back to myself, that acutally sounds kind of good to me.  It
-> keeps all the policy for this in user space, and minimizes what we have to add
-> to the kernel to make it happen (some process information in /proc and another
-> udev event).  I'd like to get some feedback before I start implementing this,
-> but I think this could be done.  What do you think?
+Andrew Lunn (1):
+      batman-adv: Set the txqueuelen to zero when creating soft interface
 
-I don't think it's a good idea to override the scheduler dynamically
-like this.
+Linus L=C3=BCssing (5):
+      batman-adv: Move bonding / iface alternating router search to own f=
+unctions
+      batman-adv: Make gateway_get_selected type safe
+      batman-adv: Simplify gw_check_election(), use gw_get_selected()
+      batman-adv: Make orig_node->router an rcu protected pointer
+      batman-adv: Protect global TQ window with a spinlock
 
-Ben.
+Marek Lindner (1):
+      batman-adv: concentrate all curr_gw related rcu operations in selec=
+t/deselect functions
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Simon Wunderlich (1):
+      batman-adv: protect softif_neigh by rcu
 
+ net/batman-adv/gateway_client.c |  259 ++++++++++++++++-----------
+ net/batman-adv/gateway_client.h |    2 +-
+ net/batman-adv/icmp_socket.c    |   18 +--
+ net/batman-adv/originator.c     |   38 +++-
+ net/batman-adv/originator.h     |    1 +
+ net/batman-adv/routing.c        |  378 +++++++++++++++++++++------------=
+------
+ net/batman-adv/send.c           |   19 ++-
+ net/batman-adv/soft-interface.c |  115 +++++++++---
+ net/batman-adv/types.h          |    7 +-
+ net/batman-adv/unicast.c        |    2 +-
+ net/batman-adv/vis.c            |   91 +++++-----
+ 11 files changed, 537 insertions(+), 393 deletions(-)
