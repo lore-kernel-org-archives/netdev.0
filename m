@@ -1,78 +1,86 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: macvlan: convert to hw_features
+Subject: [PATCH] net: tehuti: convert to hw_features
 Date: Sun, 17 Apr 2011 12:15:46 +0200 (CEST)
-Message-ID: <20110417101546.8337A13A64@rere.qmqm.pl>
+Message-ID: <20110417101546.8F6DD13A65@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Alexander Indenbaum <baum@tehutinetworks.net>,
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:48097 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:48096 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752395Ab1DQKPr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Apr 2011 06:15:47 -0400
+	id S1755381Ab1DQKPs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2011 06:15:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not much of a conversion anyway - macvlan has no way to change the offl=
-oad
-settings independently to its base device.
+As a side effect, make TX offloads changeable.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/macvlan.c |   16 +---------------
- 1 files changed, 1 insertions(+), 15 deletions(-)
+ drivers/net/tehuti.c |   26 +++-----------------------
+ 1 files changed, 3 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 78e34e9..3ad5425 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -415,7 +415,7 @@ static struct lock_class_key macvlan_netdev_addr_lo=
-ck_key;
- #define MACVLAN_FEATURES \
- 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |=
- \
- 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
--	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO)
-+	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO | NETIF_F_RXCSUM)
+diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
+index 8564ec5..8be71de 100644
+--- a/drivers/net/tehuti.c
++++ b/drivers/net/tehuti.c
+@@ -2017,9 +2017,11 @@ bdx_probe(struct pci_dev *pdev, const struct pci=
+_device_id *ent)
+ 		ndev->irq =3D pdev->irq;
+ 		ndev->features =3D NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO
+ 		    | NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX |
+-		    NETIF_F_HW_VLAN_FILTER
++		    NETIF_F_HW_VLAN_FILTER | NETIF_F_RXCSUM
+ 		    /*| NETIF_F_FRAGLIST */
+ 		    ;
++		ndev->hw_features =3D NETIF_F_IP_CSUM | NETIF_F_SG |
++			NETIF_F_TSO | NETIF_F_HW_VLAN_TX;
 =20
- #define MACVLAN_STATE_MASK \
- 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
-@@ -517,12 +517,6 @@ static void macvlan_ethtool_get_drvinfo(struct net=
-_device *dev,
- 	snprintf(drvinfo->version, 32, "0.1");
+ 		if (pci_using_dac)
+ 			ndev->features |=3D NETIF_F_HIGHDMA;
+@@ -2188,24 +2190,6 @@ bdx_get_drvinfo(struct net_device *netdev, struc=
+t ethtool_drvinfo *drvinfo)
  }
 =20
--static u32 macvlan_ethtool_get_rx_csum(struct net_device *dev)
+ /*
+- * bdx_get_rx_csum - report whether receive checksums are turned on or=
+ off
+- * @netdev
+- */
+-static u32 bdx_get_rx_csum(struct net_device *netdev)
 -{
--	const struct macvlan_dev *vlan =3D netdev_priv(dev);
--	return dev_ethtool_get_rx_csum(vlan->lowerdev);
+-	return 1;		/* always on */
 -}
 -
- static int macvlan_ethtool_get_settings(struct net_device *dev,
- 					struct ethtool_cmd *cmd)
- {
-@@ -530,18 +524,10 @@ static int macvlan_ethtool_get_settings(struct ne=
-t_device *dev,
- 	return dev_ethtool_get_settings(vlan->lowerdev, cmd);
- }
-=20
--static u32 macvlan_ethtool_get_flags(struct net_device *dev)
+-/*
+- * bdx_get_tx_csum - report whether transmit checksums are turned on o=
+r off
+- * @netdev
+- */
+-static u32 bdx_get_tx_csum(struct net_device *netdev)
 -{
--	const struct macvlan_dev *vlan =3D netdev_priv(dev);
--	return dev_ethtool_get_flags(vlan->lowerdev);
+-	return (netdev->features & NETIF_F_IP_CSUM) !=3D 0;
 -}
 -
- static const struct ethtool_ops macvlan_ethtool_ops =3D {
- 	.get_link		=3D ethtool_op_get_link,
- 	.get_settings		=3D macvlan_ethtool_get_settings,
--	.get_rx_csum		=3D macvlan_ethtool_get_rx_csum,
- 	.get_drvinfo		=3D macvlan_ethtool_get_drvinfo,
--	.get_flags		=3D macvlan_ethtool_get_flags,
- };
-=20
- static const struct net_device_ops macvlan_netdev_ops =3D {
+-/*
+  * bdx_get_coalesce - get interrupt coalescing parameters
+  * @netdev
+  * @ecoal
+@@ -2424,10 +2408,6 @@ static void bdx_set_ethtool_ops(struct net_devic=
+e *netdev)
+ 		.set_coalesce =3D bdx_set_coalesce,
+ 		.get_ringparam =3D bdx_get_ringparam,
+ 		.set_ringparam =3D bdx_set_ringparam,
+-		.get_rx_csum =3D bdx_get_rx_csum,
+-		.get_tx_csum =3D bdx_get_tx_csum,
+-		.get_sg =3D ethtool_op_get_sg,
+-		.get_tso =3D ethtool_op_get_tso,
+ 		.get_strings =3D bdx_get_strings,
+ 		.get_sset_count =3D bdx_get_sset_count,
+ 		.get_ethtool_stats =3D bdx_get_ethtool_stats,
 --=20
 1.7.2.5
 
