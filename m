@@ -1,55 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/5] ethtool: cosmetics: enforce const-ness in
- ethtool_cmd_speed
-Date: Sun, 17 Apr 2011 03:06:09 +0100
-Message-ID: <1303005969.5282.912.camel@localhost>
-References: <1303001651-4074-1-git-send-email-decot@google.com>
+From: smae.inc@gncn.net
+Subject: =?UTF-8?Q?O seu mau cr=C3=A9dito?=
+Date: Sun, 17 Apr 2011 08:00:20 +0200
+Message-ID: <400ff906efad64ccb7499a58bf1bc821@darioevittoria.it>
+Reply-To: smae.inc@gncn.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	ilon Greenstein <eilong@broadcom.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Decotigny <decot@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1303001651-4074-1-git-send-email-decot@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 138.160.173.62.host.static.ip.kpnqwest.it ([62.173.160.138]:2352
+	"EHLO mail2.monforte.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026Ab1DQGMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 02:12:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-04-16 at 17:54 -0700, David Decotigny wrote:
-> The 'ep' argument of ethtool_cmd_speed is not altered: advertise it in
-> protoype. +Indentation fix. Also add comments to advise using the
-> ethtool_cmd_speed API to get/set the link speed.
-> 
-> Signed-off-by: David Decotigny <decot@google.com>
-> ---
->  include/linux/ethtool.h |   14 ++++++++++----
->  1 files changed, 10 insertions(+), 4 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 9de3127..170439e 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -24,7 +24,10 @@ struct ethtool_cmd {
->  	__u32	cmd;
->  	__u32	supported;	/* Features this interface supports */
->  	__u32	advertising;	/* Features this interface advertises */
-> -	__u16	speed;		/* The forced speed, 10Mb, 100Mb, gigabit */
-> +	__u16	speed;	        /* The forced speed (lower bits): see
-> +				 * SPEED_ macros below. Please use
-> +				 * ethtool_cmd_speed()/_set() to
-> +				 * access it */
-[...]
+Hello,
+  Please contact us for your secure and unsecured Loan at an interest r=
+ate of 3.75%
+=2E.................
+Ol=C3=A1,
+  Voc=C3=AA est=C3=A1 enfrentando alguma dificuldade financeira em sua =
+vida profissional ou social, ent=C3=A3o voc=C3=AA precisa de ajuda fina=
+nceira.
+  Meu nome =C3=A9 Dr. Alli Sallie Mae. O director da SALLIE MAE INTERNA=
+CIONAL. O nosso seguro de cr=C3=A9dito ir=C3=A1 garantir que voc=C3=AA =
+n=C3=A3o est=C3=A1 perdendo um =C3=BAnico centavo que voc=C3=AA receber=
+=C3=A1. Oferecemos empr=C3=A9stimos seguro com taxa de juros de 3.75%.
+Este =C3=A9 o nosso endere=C3=A7o de contato para os interessados em pa=
+rticipar de uma transa=C3=A7=C3=A3o com a gente:
+smae.inc@gncn.net
 
-Don't encourage use of the SPEED_* macros.  The speed is just a value in
-units of Mbit/s.
+(n =C2=BA de seguran=C3=A7a social e sem verifica=C3=A7=C3=A3o de cr=C3=
+=A9dito, 100% garantido!)
+Espero que possamos atend=C3=AA-lo.
+Novamente, obrigado pela sua aten=C3=A7=C3=A3o.
 
-Ben.
+SALLIE MAE INC
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
