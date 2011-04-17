@@ -1,62 +1,78 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-2.6] bnx2x: Fix port identification problem
-Date: Sun, 17 Apr 2011 09:35:32 +0300
-Message-ID: <1303022132.18593.16.camel@lb-tlvb-dmitry>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] net: macvlan: convert to hw_features
+Date: Sun, 17 Apr 2011 12:15:46 +0200 (CEST)
+Message-ID: <20110417101546.8337A13A64@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4845 "EHLO MMS3.broadcom.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:48097 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750997Ab1DQGgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Apr 2011 02:36:38 -0400
+	id S1752395Ab1DQKPr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2011 06:15:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes port identification on optic devices when there's no link on the port.
+Not much of a conversion anyway - macvlan has no way to change the offl=
+oad
+settings independently to its base device.
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/bnx2x/bnx2x_ethtool.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/macvlan.c |   16 +---------------
+ 1 files changed, 1 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index f505015..89cb977 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -2114,19 +2114,18 @@ static int bnx2x_phys_id(struct net_device *dev, u32 data)
- 	for (i = 0; i < (data * 2); i++) {
- 		if ((i % 2) == 0)
- 			bnx2x_set_led(&bp->link_params, &bp->link_vars,
--				      LED_MODE_OPER, SPEED_1000);
-+				      LED_MODE_ON, SPEED_1000);
- 		else
- 			bnx2x_set_led(&bp->link_params, &bp->link_vars,
--				      LED_MODE_OFF, 0);
-+				      LED_MODE_FRONT_PANEL_OFF, 0);
- 
- 		msleep_interruptible(500);
- 		if (signal_pending(current))
- 			break;
- 	}
- 
--	if (bp->link_vars.link_up)
--		bnx2x_set_led(&bp->link_params, &bp->link_vars, LED_MODE_OPER,
--			      bp->link_vars.line_speed);
-+	bnx2x_set_led(&bp->link_params, &bp->link_vars,
-+		      LED_MODE_OPER, bp->link_vars.line_speed);
- 
- 	return 0;
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 78e34e9..3ad5425 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -415,7 +415,7 @@ static struct lock_class_key macvlan_netdev_addr_lo=
+ck_key;
+ #define MACVLAN_FEATURES \
+ 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |=
+ \
+ 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
+-	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO)
++	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO | NETIF_F_RXCSUM)
+=20
+ #define MACVLAN_STATE_MASK \
+ 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
+@@ -517,12 +517,6 @@ static void macvlan_ethtool_get_drvinfo(struct net=
+_device *dev,
+ 	snprintf(drvinfo->version, 32, "0.1");
  }
--- 
-1.7.1
-
-
-
-
-
+=20
+-static u32 macvlan_ethtool_get_rx_csum(struct net_device *dev)
+-{
+-	const struct macvlan_dev *vlan =3D netdev_priv(dev);
+-	return dev_ethtool_get_rx_csum(vlan->lowerdev);
+-}
+-
+ static int macvlan_ethtool_get_settings(struct net_device *dev,
+ 					struct ethtool_cmd *cmd)
+ {
+@@ -530,18 +524,10 @@ static int macvlan_ethtool_get_settings(struct ne=
+t_device *dev,
+ 	return dev_ethtool_get_settings(vlan->lowerdev, cmd);
+ }
+=20
+-static u32 macvlan_ethtool_get_flags(struct net_device *dev)
+-{
+-	const struct macvlan_dev *vlan =3D netdev_priv(dev);
+-	return dev_ethtool_get_flags(vlan->lowerdev);
+-}
+-
+ static const struct ethtool_ops macvlan_ethtool_ops =3D {
+ 	.get_link		=3D ethtool_op_get_link,
+ 	.get_settings		=3D macvlan_ethtool_get_settings,
+-	.get_rx_csum		=3D macvlan_ethtool_get_rx_csum,
+ 	.get_drvinfo		=3D macvlan_ethtool_get_drvinfo,
+-	.get_flags		=3D macvlan_ethtool_get_flags,
+ };
+=20
+ static const struct net_device_ops macvlan_netdev_ops =3D {
+--=20
+1.7.2.5
 
