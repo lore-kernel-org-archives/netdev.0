@@ -1,13 +1,13 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 6/8] batman-adv: concentrate all curr_gw
-	related rcu operations in select/deselect functions
-Date: Sun, 17 Apr 2011 21:30:16 +0200
-Message-ID: <1303068618-27928-7-git-send-email-sven@narfation.org>
+Subject: [PATCH 7/8] batman-adv: protect softif_neigh by rcu
+Date: Sun, 17 Apr 2011 21:30:17 +0200
+Message-ID: <1303068618-27928-8-git-send-email-sven@narfation.org>
 References: <1303068618-27928-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
+	Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 In-Reply-To: <1303068618-27928-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
@@ -22,359 +22,290 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+From: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
 
+Add get/set wrapper functions for softif_neigh and
+use rcu functions to manipulate the pointers.
+
+Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
 Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/gateway_client.c |  176 ++++++++++++++++++++++-----------------
- net/batman-adv/gateway_client.h |    2 +-
- net/batman-adv/unicast.c        |    2 +-
- 3 files changed, 103 insertions(+), 77 deletions(-)
+ net/batman-adv/soft-interface.c |  114 +++++++++++++++++++++++++++++---------
+ net/batman-adv/types.h          |    2 +-
+ 2 files changed, 88 insertions(+), 28 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 42a8a7b..2acd7a6 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -43,61 +43,75 @@ static void gw_node_free_ref(struct gw_node *gw_node)
- 		call_rcu(&gw_node->rcu, gw_node_free_rcu);
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 824e1f6..a60fd48 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -90,10 +90,51 @@ static void softif_neigh_free_ref(struct softif_neigh *softif_neigh)
+ 		call_rcu(&softif_neigh->rcu, softif_neigh_free_rcu);
  }
  
--struct orig_node *gw_get_selected(struct bat_priv *bat_priv)
-+static struct gw_node *gw_get_selected_gw_node(struct bat_priv *bat_priv)
- {
--	struct gw_node *curr_gateway_tmp;
-+	struct gw_node *gw_node;
++static struct softif_neigh *softif_neigh_get_selected(struct bat_priv *bat_priv)
++{
++	struct softif_neigh *neigh;
 +
 +	rcu_read_lock();
-+	gw_node = rcu_dereference(bat_priv->curr_gw);
-+	if (!gw_node)
-+		goto out;
++	neigh = rcu_dereference(bat_priv->softif_neigh);
 +
-+	if (!atomic_inc_not_zero(&gw_node->refcount))
-+		gw_node = NULL;
++	if (neigh && !atomic_inc_not_zero(&neigh->refcount))
++		neigh = NULL;
 +
-+out:
 +	rcu_read_unlock();
-+	return gw_node;
++	return neigh;
 +}
 +
-+struct orig_node *gw_get_selected_orig(struct bat_priv *bat_priv)
++static void softif_neigh_select(struct bat_priv *bat_priv,
++				struct softif_neigh *new_neigh)
 +{
-+	struct gw_node *gw_node;
- 	struct orig_node *orig_node = NULL;
- 
--	rcu_read_lock();
--	curr_gateway_tmp = rcu_dereference(bat_priv->curr_gw);
--	if (!curr_gateway_tmp)
-+	gw_node = gw_get_selected_gw_node(bat_priv);
-+	if (!gw_node)
- 		goto out;
- 
--	orig_node = curr_gateway_tmp->orig_node;
-+	rcu_read_lock();
-+	orig_node = gw_node->orig_node;
- 	if (!orig_node)
--		goto out;
-+		goto unlock;
- 
- 	if (!atomic_inc_not_zero(&orig_node->refcount))
- 		orig_node = NULL;
- 
--out:
-+unlock:
- 	rcu_read_unlock();
--	return orig_node;
--}
--
--void gw_deselect(struct bat_priv *bat_priv)
--{
--	struct gw_node *gw_node;
--
--	spin_lock_bh(&bat_priv->gw_list_lock);
--	gw_node = rcu_dereference(bat_priv->curr_gw);
--	rcu_assign_pointer(bat_priv->curr_gw, NULL);
--	spin_unlock_bh(&bat_priv->gw_list_lock);
--
-+out:
- 	if (gw_node)
- 		gw_node_free_ref(gw_node);
-+	return orig_node;
- }
- 
- static void gw_select(struct bat_priv *bat_priv, struct gw_node *new_gw_node)
- {
- 	struct gw_node *curr_gw_node;
- 
-+	spin_lock_bh(&bat_priv->gw_list_lock);
++	struct softif_neigh *curr_neigh;
 +
- 	if (new_gw_node && !atomic_inc_not_zero(&new_gw_node->refcount))
- 		new_gw_node = NULL;
- 
--	spin_lock_bh(&bat_priv->gw_list_lock);
--	curr_gw_node = rcu_dereference(bat_priv->curr_gw);
-+	curr_gw_node = bat_priv->curr_gw;
- 	rcu_assign_pointer(bat_priv->curr_gw, new_gw_node);
--	spin_unlock_bh(&bat_priv->gw_list_lock);
- 
- 	if (curr_gw_node)
- 		gw_node_free_ref(curr_gw_node);
++	spin_lock_bh(&bat_priv->softif_neigh_lock);
 +
-+	spin_unlock_bh(&bat_priv->gw_list_lock);
++	if (new_neigh && !atomic_inc_not_zero(&new_neigh->refcount))
++		new_neigh = NULL;
++
++	curr_neigh = bat_priv->softif_neigh;
++	rcu_assign_pointer(bat_priv->softif_neigh, new_neigh);
++
++	if (curr_neigh)
++		softif_neigh_free_ref(curr_neigh);
++
++	spin_unlock_bh(&bat_priv->softif_neigh_lock);
 +}
 +
-+void gw_deselect(struct bat_priv *bat_priv)
++static void softif_neigh_deselect(struct bat_priv *bat_priv)
 +{
-+	gw_select(bat_priv, NULL);
- }
- 
- void gw_election(struct bat_priv *bat_priv)
- {
- 	struct hlist_node *node;
--	struct gw_node *gw_node, *curr_gw, *curr_gw_tmp = NULL;
-+	struct gw_node *gw_node, *curr_gw = NULL, *curr_gw_tmp = NULL;
- 	struct neigh_node *router;
- 	uint8_t max_tq = 0;
- 	uint32_t max_gw_factor = 0, tmp_gw_factor = 0;
-@@ -112,25 +126,17 @@ void gw_election(struct bat_priv *bat_priv)
- 	if (atomic_read(&bat_priv->gw_mode) != GW_MODE_CLIENT)
- 		return;
- 
--	rcu_read_lock();
--	curr_gw = rcu_dereference(bat_priv->curr_gw);
--	if (curr_gw) {
--		rcu_read_unlock();
--		return;
--	}
-+	curr_gw = gw_get_selected_gw_node(bat_priv);
-+	if (!curr_gw)
-+		goto out;
- 
-+	rcu_read_lock();
- 	if (hlist_empty(&bat_priv->gw_list)) {
--
--		if (curr_gw) {
--			rcu_read_unlock();
--			bat_dbg(DBG_BATMAN, bat_priv,
--				"Removing selected gateway - "
--				"no gateway in range\n");
--			gw_deselect(bat_priv);
--		} else
--			rcu_read_unlock();
--
--		return;
-+		bat_dbg(DBG_BATMAN, bat_priv,
-+			"Removing selected gateway - "
-+			"no gateway in range\n");
-+		gw_deselect(bat_priv);
-+		goto unlock;
- 	}
- 
- 	hlist_for_each_entry_rcu(gw_node, node, &bat_priv->gw_list, list) {
-@@ -182,7 +188,7 @@ void gw_election(struct bat_priv *bat_priv)
- 	if (curr_gw != curr_gw_tmp) {
- 		router = orig_node_get_router(curr_gw_tmp->orig_node);
- 		if (!router)
--			goto out;
-+			goto unlock;
- 
- 		if ((curr_gw) && (!curr_gw_tmp))
- 			bat_dbg(DBG_BATMAN, bat_priv,
-@@ -207,8 +213,11 @@ void gw_election(struct bat_priv *bat_priv)
- 		gw_select(bat_priv, curr_gw_tmp);
- 	}
- 
--out:
-+unlock:
- 	rcu_read_unlock();
-+out:
-+	if (curr_gw)
-+		gw_node_free_ref(curr_gw);
- }
- 
- void gw_check_election(struct bat_priv *bat_priv, struct orig_node *orig_node)
-@@ -217,7 +226,7 @@ void gw_check_election(struct bat_priv *bat_priv, struct orig_node *orig_node)
- 	struct neigh_node *router_gw = NULL, *router_orig = NULL;
- 	uint8_t gw_tq_avg, orig_tq_avg;
- 
--	curr_gw_orig = gw_get_selected(bat_priv);
-+	curr_gw_orig = gw_get_selected_orig(bat_priv);
- 	if (!curr_gw_orig)
- 		goto deselect;
- 
-@@ -299,7 +308,11 @@ void gw_node_update(struct bat_priv *bat_priv,
- 		    struct orig_node *orig_node, uint8_t new_gwflags)
- {
- 	struct hlist_node *node;
--	struct gw_node *gw_node;
-+	struct gw_node *gw_node, *curr_gw;
++	softif_neigh_select(bat_priv, NULL);
++}
 +
-+	curr_gw = gw_get_selected_gw_node(bat_priv);
-+	if (!curr_gw)
-+		goto out;
- 
- 	rcu_read_lock();
- 	hlist_for_each_entry_rcu(gw_node, node, &bat_priv->gw_list, list) {
-@@ -320,22 +333,26 @@ void gw_node_update(struct bat_priv *bat_priv,
- 				"Gateway %pM removed from gateway list\n",
- 				orig_node->orig);
- 
--			if (gw_node == rcu_dereference(bat_priv->curr_gw)) {
--				rcu_read_unlock();
--				gw_deselect(bat_priv);
--				return;
--			}
-+			if (gw_node == curr_gw)
-+				goto deselect;
- 		}
- 
--		rcu_read_unlock();
--		return;
-+		goto unlock;
- 	}
--	rcu_read_unlock();
- 
- 	if (new_gwflags == 0)
--		return;
-+		goto unlock;
- 
- 	gw_node_add(bat_priv, orig_node, new_gwflags);
-+	goto unlock;
-+
-+deselect:
-+	gw_deselect(bat_priv);
-+unlock:
-+	rcu_read_unlock();
-+out:
-+	if (curr_gw)
-+		gw_node_free_ref(curr_gw);
- }
- 
- void gw_node_delete(struct bat_priv *bat_priv, struct orig_node *orig_node)
-@@ -345,9 +362,12 @@ void gw_node_delete(struct bat_priv *bat_priv, struct orig_node *orig_node)
- 
- void gw_node_purge(struct bat_priv *bat_priv)
+ void softif_neigh_purge(struct bat_priv *bat_priv)
  {
--	struct gw_node *gw_node;
-+	struct gw_node *gw_node, *curr_gw;
+-	struct softif_neigh *softif_neigh, *softif_neigh_tmp;
++	struct softif_neigh *softif_neigh, *curr_softif_neigh;
  	struct hlist_node *node, *node_tmp;
- 	unsigned long timeout = 2 * PURGE_TIMEOUT * HZ;
 +	char do_deselect = 0;
 +
-+	curr_gw = gw_get_selected_gw_node(bat_priv);
++	curr_softif_neigh = softif_neigh_get_selected(bat_priv);
  
- 	spin_lock_bh(&bat_priv->gw_list_lock);
+ 	spin_lock_bh(&bat_priv->softif_neigh_lock);
  
-@@ -358,15 +378,21 @@ void gw_node_purge(struct bat_priv *bat_priv)
- 		    atomic_read(&bat_priv->mesh_state) == MESH_ACTIVE)
+@@ -105,22 +146,26 @@ void softif_neigh_purge(struct bat_priv *bat_priv)
+ 		    (atomic_read(&bat_priv->mesh_state) == MESH_ACTIVE))
  			continue;
  
--		if (rcu_dereference(bat_priv->curr_gw) == gw_node)
--			gw_deselect(bat_priv);
-+		if (curr_gw == gw_node)
+-		hlist_del_rcu(&softif_neigh->list);
+-
+-		if (bat_priv->softif_neigh == softif_neigh) {
++		if (curr_softif_neigh == softif_neigh) {
+ 			bat_dbg(DBG_ROUTES, bat_priv,
+ 				 "Current mesh exit point '%pM' vanished "
+ 				 "(vid: %d).\n",
+ 				 softif_neigh->addr, softif_neigh->vid);
+-			softif_neigh_tmp = bat_priv->softif_neigh;
+-			bat_priv->softif_neigh = NULL;
+-			softif_neigh_free_ref(softif_neigh_tmp);
 +			do_deselect = 1;
+ 		}
  
- 		hlist_del_rcu(&gw_node->list);
- 		gw_node_free_ref(gw_node);
++		hlist_del_rcu(&softif_neigh->list);
+ 		softif_neigh_free_ref(softif_neigh);
  	}
  
--
- 	spin_unlock_bh(&bat_priv->gw_list_lock);
+ 	spin_unlock_bh(&bat_priv->softif_neigh_lock);
 +
-+	/* gw_deselect() needs to acquire the gw_list_lock */
++	/* soft_neigh_deselect() needs to acquire the softif_neigh_lock */
 +	if (do_deselect)
-+		gw_deselect(bat_priv);
++		softif_neigh_deselect(bat_priv);
 +
-+	if (curr_gw)
-+		gw_node_free_ref(curr_gw);
++	if (curr_softif_neigh)
++		softif_neigh_free_ref(curr_softif_neigh);
  }
  
- /**
-@@ -385,22 +411,22 @@ static int _write_buffer_text(struct bat_priv *bat_priv,
- 	if (!router)
+ static struct softif_neigh *softif_neigh_get(struct bat_priv *bat_priv,
+@@ -171,6 +216,7 @@ int softif_neigh_seq_print_text(struct seq_file *seq, void *offset)
+ 	struct bat_priv *bat_priv = netdev_priv(net_dev);
+ 	struct softif_neigh *softif_neigh;
+ 	struct hlist_node *node;
++	struct softif_neigh *curr_softif_neigh;
+ 
+ 	if (!bat_priv->primary_if) {
+ 		return seq_printf(seq, "BATMAN mesh %s disabled - "
+@@ -180,14 +226,17 @@ int softif_neigh_seq_print_text(struct seq_file *seq, void *offset)
+ 
+ 	seq_printf(seq, "Softif neighbor list (%s)\n", net_dev->name);
+ 
++	curr_softif_neigh = softif_neigh_get_selected(bat_priv);
+ 	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(softif_neigh, node,
+ 				 &bat_priv->softif_neigh_list, list)
+ 		seq_printf(seq, "%s %pM (vid: %d)\n",
+-				bat_priv->softif_neigh == softif_neigh
++				curr_softif_neigh == softif_neigh
+ 				? "=>" : "  ", softif_neigh->addr,
+ 				softif_neigh->vid);
+ 	rcu_read_unlock();
++	if (curr_softif_neigh)
++		softif_neigh_free_ref(curr_softif_neigh);
+ 
+ 	return 0;
+ }
+@@ -198,7 +247,8 @@ static void softif_batman_recv(struct sk_buff *skb, struct net_device *dev,
+ 	struct bat_priv *bat_priv = netdev_priv(dev);
+ 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+ 	struct batman_packet *batman_packet;
+-	struct softif_neigh *softif_neigh, *softif_neigh_tmp;
++	struct softif_neigh *softif_neigh;
++	struct softif_neigh *curr_softif_neigh = NULL;
+ 
+ 	if (ntohs(ethhdr->h_proto) == ETH_P_8021Q)
+ 		batman_packet = (struct batman_packet *)
+@@ -223,7 +273,8 @@ static void softif_batman_recv(struct sk_buff *skb, struct net_device *dev,
+ 	if (!softif_neigh)
+ 		goto err;
+ 
+-	if (bat_priv->softif_neigh == softif_neigh)
++	curr_softif_neigh = softif_neigh_get_selected(bat_priv);
++	if (curr_softif_neigh == softif_neigh)
  		goto out;
  
--	rcu_read_lock();
--	curr_gw = rcu_dereference(bat_priv->curr_gw);
-+	curr_gw = gw_get_selected_gw_node(bat_priv);
+ 	/* we got a neighbor but its mac is 'bigger' than ours  */
+@@ -232,38 +283,39 @@ static void softif_batman_recv(struct sk_buff *skb, struct net_device *dev,
+ 		goto out;
  
- 	ret = seq_printf(seq, "%s %pM (%3i) %pM [%10s]: %3i - %i%s/%i%s\n",
--		       (curr_gw == gw_node ? "=>" : "  "),
--		       gw_node->orig_node->orig,
--		       router->tq_avg, router->addr,
--		       router->if_incoming->net_dev->name,
--		       gw_node->orig_node->gw_flags,
--		       (down > 2048 ? down / 1024 : down),
--		       (down > 2048 ? "MBit" : "KBit"),
--		       (up > 2048 ? up / 1024 : up),
--		       (up > 2048 ? "MBit" : "KBit"));
-+			 (curr_gw == gw_node ? "=>" : "  "),
-+			 gw_node->orig_node->orig,
-+			 router->tq_avg, router->addr,
-+			 router->if_incoming->net_dev->name,
-+			 gw_node->orig_node->gw_flags,
-+			 (down > 2048 ? down / 1024 : down),
-+			 (down > 2048 ? "MBit" : "KBit"),
-+			 (up > 2048 ? up / 1024 : up),
-+			 (up > 2048 ? "MBit" : "KBit"));
- 
--	rcu_read_unlock();
- 	neigh_node_free_ref(router);
-+	if (curr_gw)
-+		gw_node_free_ref(curr_gw);
- out:
- 	return ret;
- }
-@@ -459,6 +485,7 @@ int gw_is_target(struct bat_priv *bat_priv, struct sk_buff *skb)
- 	struct iphdr *iphdr;
- 	struct ipv6hdr *ipv6hdr;
- 	struct udphdr *udphdr;
-+	struct gw_node *curr_gw;
- 	unsigned int header_len = 0;
- 
- 	if (atomic_read(&bat_priv->gw_mode) == GW_MODE_OFF)
-@@ -523,12 +550,11 @@ int gw_is_target(struct bat_priv *bat_priv, struct sk_buff *skb)
- 	if (atomic_read(&bat_priv->gw_mode) == GW_MODE_SERVER)
- 		return -1;
- 
--	rcu_read_lock();
--	if (!rcu_dereference(bat_priv->curr_gw)) {
--		rcu_read_unlock();
-+	curr_gw = gw_get_selected_gw_node(bat_priv);
-+	if (!curr_gw)
- 		return 0;
--	}
--	rcu_read_unlock();
- 
-+	if (curr_gw)
-+		gw_node_free_ref(curr_gw);
- 	return 1;
- }
-diff --git a/net/batman-adv/gateway_client.h b/net/batman-adv/gateway_client.h
-index 97c31d1..1ce8c60 100644
---- a/net/batman-adv/gateway_client.h
-+++ b/net/batman-adv/gateway_client.h
-@@ -24,7 +24,7 @@
- 
- void gw_deselect(struct bat_priv *bat_priv);
- void gw_election(struct bat_priv *bat_priv);
--struct orig_node *gw_get_selected(struct bat_priv *bat_priv);
-+struct orig_node *gw_get_selected_orig(struct bat_priv *bat_priv);
- void gw_check_election(struct bat_priv *bat_priv, struct orig_node *orig_node);
- void gw_node_update(struct bat_priv *bat_priv,
- 		    struct orig_node *orig_node, uint8_t new_gwflags);
-diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index 19f84bd..d46acc8 100644
---- a/net/batman-adv/unicast.c
-+++ b/net/batman-adv/unicast.c
-@@ -289,7 +289,7 @@ int unicast_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv)
- 
- 	/* get routing information */
- 	if (is_multicast_ether_addr(ethhdr->h_dest)) {
--		orig_node = (struct orig_node *)gw_get_selected(bat_priv);
-+		orig_node = (struct orig_node *)gw_get_selected_orig(bat_priv);
- 		if (orig_node)
- 			goto find_router;
+ 	/* switch to new 'smallest neighbor' */
+-	if ((bat_priv->softif_neigh) &&
+-	    (memcmp(softif_neigh->addr, bat_priv->softif_neigh->addr,
++	if ((curr_softif_neigh) &&
++	    (memcmp(softif_neigh->addr, curr_softif_neigh->addr,
+ 							ETH_ALEN) < 0)) {
+ 		bat_dbg(DBG_ROUTES, bat_priv,
+ 			"Changing mesh exit point from %pM (vid: %d) "
+ 			"to %pM (vid: %d).\n",
+-			 bat_priv->softif_neigh->addr,
+-			 bat_priv->softif_neigh->vid,
++			 curr_softif_neigh->addr,
++			 curr_softif_neigh->vid,
+ 			 softif_neigh->addr, softif_neigh->vid);
+-		softif_neigh_tmp = bat_priv->softif_neigh;
+-		bat_priv->softif_neigh = softif_neigh;
+-		softif_neigh_free_ref(softif_neigh_tmp);
+-		/* we need to hold the additional reference */
+-		goto err;
++
++		softif_neigh_select(bat_priv, softif_neigh);
++		goto out;
  	}
+ 
+ 	/* close own batX device and use softif_neigh as exit node */
+-	if ((!bat_priv->softif_neigh) &&
++	if ((!curr_softif_neigh) &&
+ 	    (memcmp(softif_neigh->addr,
+ 		    bat_priv->primary_if->net_dev->dev_addr, ETH_ALEN) < 0)) {
+ 		bat_dbg(DBG_ROUTES, bat_priv,
+ 			"Setting mesh exit point to %pM (vid: %d).\n",
+ 			softif_neigh->addr, softif_neigh->vid);
+-		bat_priv->softif_neigh = softif_neigh;
+-		/* we need to hold the additional reference */
+-		goto err;
++
++		softif_neigh_select(bat_priv, softif_neigh);
++		goto out;
+ 	}
+ 
+ out:
+ 	softif_neigh_free_ref(softif_neigh);
+ err:
+ 	kfree_skb(skb);
++	if (curr_softif_neigh)
++		softif_neigh_free_ref(curr_softif_neigh);
++
+ 	return;
+ }
+ 
+@@ -321,6 +373,7 @@ int interface_tx(struct sk_buff *skb, struct net_device *soft_iface)
+ 	struct bat_priv *bat_priv = netdev_priv(soft_iface);
+ 	struct bcast_packet *bcast_packet;
+ 	struct vlan_ethhdr *vhdr;
++	struct softif_neigh *curr_softif_neigh = NULL;
+ 	int data_len = skb->len, ret;
+ 	short vid = -1;
+ 	bool do_bcast = false;
+@@ -348,7 +401,8 @@ int interface_tx(struct sk_buff *skb, struct net_device *soft_iface)
+ 	 * if we have a another chosen mesh exit node in range
+ 	 * it will transport the packets to the mesh
+ 	 */
+-	if ((bat_priv->softif_neigh) && (bat_priv->softif_neigh->vid == vid))
++	curr_softif_neigh = softif_neigh_get_selected(bat_priv);
++	if ((curr_softif_neigh) && (curr_softif_neigh->vid == vid))
+ 		goto dropped;
+ 
+ 	/* TODO: check this for locks */
+@@ -410,6 +464,8 @@ dropped:
+ dropped_freed:
+ 	bat_priv->stats.tx_dropped++;
+ end:
++	if (curr_softif_neigh)
++		softif_neigh_free_ref(curr_softif_neigh);
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -421,6 +477,7 @@ void interface_rx(struct net_device *soft_iface,
+ 	struct unicast_packet *unicast_packet;
+ 	struct ethhdr *ethhdr;
+ 	struct vlan_ethhdr *vhdr;
++	struct softif_neigh *curr_softif_neigh = NULL;
+ 	short vid = -1;
+ 	int ret;
+ 
+@@ -450,7 +507,8 @@ void interface_rx(struct net_device *soft_iface,
+ 	 * if we have a another chosen mesh exit node in range
+ 	 * it will transport the packets to the non-mesh network
+ 	 */
+-	if ((bat_priv->softif_neigh) && (bat_priv->softif_neigh->vid == vid)) {
++	curr_softif_neigh = softif_neigh_get_selected(bat_priv);
++	if (curr_softif_neigh && (curr_softif_neigh->vid == vid)) {
+ 		skb_push(skb, hdr_size);
+ 		unicast_packet = (struct unicast_packet *)skb->data;
+ 
+@@ -461,7 +519,7 @@ void interface_rx(struct net_device *soft_iface,
+ 		skb_reset_mac_header(skb);
+ 
+ 		memcpy(unicast_packet->dest,
+-		       bat_priv->softif_neigh->addr, ETH_ALEN);
++		       curr_softif_neigh->addr, ETH_ALEN);
+ 		ret = route_unicast_packet(skb, recv_if);
+ 		if (ret == NET_RX_DROP)
+ 			goto dropped;
+@@ -486,11 +544,13 @@ void interface_rx(struct net_device *soft_iface,
+ 	soft_iface->last_rx = jiffies;
+ 
+ 	netif_rx(skb);
+-	return;
++	goto out;
+ 
+ dropped:
+ 	kfree_skb(skb);
+ out:
++	if (curr_softif_neigh)
++		softif_neigh_free_ref(curr_softif_neigh);
+ 	return;
+ }
+ 
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 091476d..75123b1 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -147,7 +147,7 @@ struct bat_priv {
+ 	atomic_t batman_queue_left;
+ 	char num_ifaces;
+ 	struct hlist_head softif_neigh_list;
+-	struct softif_neigh *softif_neigh;
++	struct softif_neigh __rcu *softif_neigh;
+ 	struct debug_log *debug_log;
+ 	struct hard_iface *primary_if;
+ 	struct kobject *mesh_obj;
 -- 
 1.7.4.4
