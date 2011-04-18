@@ -1,130 +1,59 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count = 8
-Date: Mon, 18 Apr 2011 12:43:30 +0200
-Message-ID: <201104181243.30613.hans@schillstrom.com>
-References: <201104150901.47214.hans@schillstrom.com> <alpine.LFD.2.00.1104152229450.1730@ja.ssi.bg> <201104180810.27198.hans@schillstrom.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] net: myri10ge: convert to hw_features
+Date: Mon, 18 Apr 2011 13:03:47 +0200
+Message-ID: <20110418110347.GA18324@rere.qmqm.pl>
+References: <20110415145050.0D65C13A66@rere.qmqm.pl> <20110415182922.GA2458@myri.com> <20110417.233053.70188684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jon.mason@myri.com, netdev@vger.kernel.org, gallatin@myri.com,
+	brice@myri.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:41829 "EHLO
-	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754116Ab1DRKnt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 06:43:49 -0400
-In-Reply-To: <201104180810.27198.hans@schillstrom.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:36350 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752159Ab1DRLDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2011 07:03:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20110417.233053.70188684.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
-On Monday, April 18, 2011 08:10:26 Hans Schillstrom wrote:
-> On Friday, April 15, 2011 22:11:32 Julian Anastasov wrote:
-> > 
-> > 	Hello,
-> > 
-> > On Fri, 15 Apr 2011, Hans Schillstrom wrote:
-> > 
-> > > Hello Julian
-> > > 
-> > > I'm trying to fix the cleanup process when a namespace get "killed",
-> > > which is a new feature for ipvs. However an old problem appears again
-> > > 
-> > > When there has been traffic trough ipvs where the destination is unreachable
-> > > the usage count on loopback dev increases one for every packet....
-[snip]
+On Sun, Apr 17, 2011 at 11:30:53PM -0700, David Miller wrote:
+> From: Jon Mason <jon.mason@myri.com>
+> Date: Fri, 15 Apr 2011 13:29:22 -0500
+>=20
+> > On Fri, Apr 15, 2011 at 04:50:50PM +0200, Micha=B3 Miros=B3aw wrote=
+:
+> >> Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> >> ---
+> >>  drivers/net/myri10ge/myri10ge.c |   66 +++++++-------------------=
+------------
+> >>  1 files changed, 12 insertions(+), 54 deletions(-)
+> >>=20
+> >> diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10g=
+e/myri10ge.c
+> >> index 1446de5..a48eb92 100644
+> >> --- a/drivers/net/myri10ge/myri10ge.c
+> >> +++ b/drivers/net/myri10ge/myri10ge.c
+> >> @@ -205,7 +205,6 @@ struct myri10ge_priv {
+> >>  	int tx_boundary;	/* boundary transmits cannot cross */
+> >>  	int num_slices;
+> >>  	int running;		/* running?             */
+> >> -	int csum_flag;		/* rx_csums?            */
+> > Get rid of MXGEFW_FLAGS_CKSUM in drivers/net/myri10ge/myri10ge_mcp.=
+h,
+> > as this was the only thing using it.
+>  ...
+> > ethtool_op_set_tso does not support TSO6.  This would remove the
+> > enable/disable of that feature.
+> Micha=B3 please fix these issues and resubmit this patch, thanks!
 
-> > 
-> > > Do you have an idea why  this happens in the ipvs case ?
-> > 
-> > 	Do you see with debug level 3 the "Removing destination"
-> > messages. Only real servers can hold dest->dst_cache reference
-> > for dev which can be a problem because the real servers are not
-> > deleted immediately - on traffic they are moved to trash
-> > list. 
+There are no issues. MXGEFW_FLAGS_CKSUM is used elsewhere in the driver
+and TSO6 is handled by masking netdev->hw_features at devinit time.
 
-Actually I forgot to tell there is a need for a
-ip_vs_service_cleanup() due to above.
-Do you see any drawbacks with it ?
+BTW, ethtool_op_set_tso() is not used at all in new offload changing sc=
+heme.
 
-/*
- *	Delete service by {netns} in the service table.
- */
-static void ip_vs_service_cleanup(struct net *net)
-{
-	unsigned hash;
-	struct ip_vs_service *svc, *tmp;
-
-	EnterFunction(2);
-	/* Check for "full" addressed entries */
-	for (hash = 0; hash<IP_VS_SVC_TAB_SIZE; hash++) {
-		write_lock_bh(&__ip_vs_svc_lock);
-		list_for_each_entry_safe(svc, tmp, &ip_vs_svc_table[hash],
-					 s_list) {
-			if (net_eq(svc->net, net)) {
-				ip_vs_svc_unhash(svc);
-				__ip_vs_del_service(svc);
-			}
-		}
-		list_for_each_entry_safe(svc, tmp, &ip_vs_svc_fwm_table[hash],
-					 f_list) {
-			if (net_eq(svc->net, net)) {
-				ip_vs_svc_unhash(svc);
-				__ip_vs_del_service(svc);
-			}
-		}
-		write_unlock_bh(&__ip_vs_svc_lock);
-	}
-	LeaveFunction(2);
-}
-
-Called just after the __ip_vs_control_cleanup_sysctl()
-
-static void __net_exit __ip_vs_control_cleanup(struct net *net)
-{
-	struct netns_ipvs *ipvs = net_ipvs(net);
-
-	ip_vs_trash_cleanup(net);
-	ip_vs_stop_estimator(net, &ipvs->tot_stats);
-	__ip_vs_control_cleanup_sysctl(net);
-	ip_vs_service_cleanup(net);
-	proc_net_remove(net, "ip_vs_stats_percpu");
-	proc_net_remove(net, "ip_vs_stats");
-	proc_net_remove(net, "ip_vs");
-	free_percpu(ipvs->tot_stats.cpustats);
-}
-
-
-> > But ip_vs_trash_cleanup() should remove any left
-> > structures. You should check in debug that all servers are
-> > deleted. If all real server structures are freed but
-> > problem remains we should look more deeply in the
-> > dest->dst_cache usage. DR or NAT is used?
-> 
-> I have got some wise words from Eric, 
-> i.e. moved all ipvs register/unregister from subsys to device 
-> that solved plenty of my issues
-> (Thanks Eric)
-> 
-> I'll will post a Patch later on regarding this.
-> 
-> > 
-> > 	I assume cleanup really happens in this order:
-> > 
-> > ip_vs_cleanup():
-> > 	nf_unregister_hooks()
-> 
-> This will not happens in a namespace since nf_unregister_hooks() is not per netns.
-> We might need a flag but I don't think so, further test will show....
-> 
-> > 	...
-> > 	ip_vs_conn_cleanup()
-> > 	...
-> > 	ip_vs_control_cleanup()
-> > 
-> 
-Regards
-Hans
+Best Regards,
+Micha=B3 Miros=B3aw
