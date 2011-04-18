@@ -1,51 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 10/42] bonding: Fix set-but-unused variable.
-Date: Sun, 17 Apr 2011 17:33:01 -0700 (PDT)
-Message-ID: <20110417.173301.48502390.davem@davemloft.net>
+Subject: [PATCH 12/42] atl1e: Fix set-but-unused variable.
+Date: Sun, 17 Apr 2011 17:33:07 -0700 (PDT)
+Message-ID: <20110417.173307.246534707.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40551
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40557
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753511Ab1DRAdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:33:36 -0400
+	by vger.kernel.org with ESMTP id S1753824Ab1DRAdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:33:41 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id EEF6624C089
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:33:01 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 5D03824C08A
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:33:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The variable 'vlan_dev' is set but unused in
-bond_send_gratuitous_arp().  Just kill it off.
+The variable 'tx_ring' is set but unused in
+atl1e_init_ring_resources().  Just kill it off.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/bonding/bond_main.c |    2 --
+ drivers/net/atl1e/atl1e_main.c |    2 --
  1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index ca902ae..fdf9215 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2763,7 +2763,6 @@ static void bond_send_gratuitous_arp(struct bonding *bond)
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 9900ca1..86a9122 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -691,10 +691,8 @@ static void atl1e_cal_ring_size(struct atl1e_adapter *adapter, u32 *ring_size)
+ 
+ static void atl1e_init_ring_resources(struct atl1e_adapter *adapter)
  {
- 	struct slave *slave = bond->curr_active_slave;
- 	struct vlan_entry *vlan;
--	struct net_device *vlan_dev;
+-	struct atl1e_tx_ring *tx_ring = NULL;
+ 	struct atl1e_rx_ring *rx_ring = NULL;
  
- 	pr_debug("bond_send_grat_arp: bond %s slave %s\n",
- 		 bond->dev->name, slave ? slave->dev->name : "NULL");
-@@ -2783,7 +2782,6 @@ static void bond_send_gratuitous_arp(struct bonding *bond)
- 		return;
+-	tx_ring = &adapter->tx_ring;
+ 	rx_ring = &adapter->rx_ring;
  
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
- 		if (vlan->vlan_ip) {
- 			bond_arp_send(slave->dev, ARPOP_REPLY, vlan->vlan_ip,
- 				      vlan->vlan_ip, vlan->vlan_id);
+ 	rx_ring->real_page_size = adapter->rx_ring.page_size
 -- 
 1.7.4.3
 
