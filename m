@@ -1,249 +1,254 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v2] net: chelsio: convert to hw_features
-Date: Tue, 19 Apr 2011 01:31:20 +0200 (CEST)
-Message-ID: <20110418233120.CCB2313909@rere.qmqm.pl>
-References: <20110417101546.EE73713A67@rere.qmqm.pl>
+Subject: [PATCH] net: vmxnet3: convert to hw_features
+Date: Tue, 19 Apr 2011 01:31:21 +0200 (CEST)
+Message-ID: <20110418233121.AEC4913A68@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:46013 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:46027 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751400Ab1DRXbW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 19:31:22 -0400
-In-Reply-To: <20110417101546.EE73713A67@rere.qmqm.pl>
+	id S1753510Ab1DRXbY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2011 19:31:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also remove flags that were not used or are now redundant to hw_feature=
-s bits.
-No device had UDP_CSUM_CAPABLE set.
+This also removes private feature flags that were always set to true.
+
+You may want to move vmxnet3_set_features() to vmxnet3_drv.c as a follo=
+wing
+cleanup.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
-v2: fix usage of uninitialized variable in sge_rx()
-
- drivers/net/chelsio/common.h |    5 ----
- drivers/net/chelsio/cxgb2.c  |   48 ++++++----------------------------=
+ drivers/net/vmxnet3/vmxnet3_drv.c     |   40 +++++++-------------
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |   67 +++++--------------------=
 -------
- drivers/net/chelsio/sge.c    |   13 ++++++-----
- drivers/net/chelsio/tp.c     |    5 ----
- drivers/net/chelsio/tp.h     |    1 -
- 5 files changed, 14 insertions(+), 58 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_int.h     |    7 +--
+ 3 files changed, 28 insertions(+), 86 deletions(-)
 
-diff --git a/drivers/net/chelsio/common.h b/drivers/net/chelsio/common.=
-h
-index 092f31a..c26d863 100644
---- a/drivers/net/chelsio/common.h
-+++ b/drivers/net/chelsio/common.h
-@@ -264,11 +264,6 @@ struct adapter {
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vm=
+xnet3_drv.c
+index 0d47c3a..7a494f7 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1082,7 +1082,7 @@ vmxnet3_rx_csum(struct vmxnet3_adapter *adapter,
+ 		struct sk_buff *skb,
+ 		union Vmxnet3_GenericDesc *gdesc)
+ {
+-	if (!gdesc->rcd.cnc && adapter->rxcsum) {
++	if (!gdesc->rcd.cnc && adapter->netdev->features & NETIF_F_RXCSUM) {
+ 		/* typical case: TCP/UDP over IP and both csums are correct */
+ 		if ((le32_to_cpu(gdesc->dword[3]) & VMXNET3_RCD_CSUM_OK) =3D=3D
+ 							VMXNET3_RCD_CSUM_OK) {
+@@ -2081,10 +2081,10 @@ vmxnet3_setup_driver_shared(struct vmxnet3_adap=
+ter *adapter)
+ 	devRead->misc.ddLen =3D cpu_to_le32(sizeof(struct vmxnet3_adapter));
 =20
- enum {                                           /* adapter flags */
- 	FULL_INIT_DONE        =3D 1 << 0,
--	TSO_CAPABLE           =3D 1 << 2,
--	TCP_CSUM_CAPABLE      =3D 1 << 3,
--	UDP_CSUM_CAPABLE      =3D 1 << 4,
--	VLAN_ACCEL_CAPABLE    =3D 1 << 5,
--	RX_CSUM_ENABLED       =3D 1 << 6,
+ 	/* set up feature flags */
+-	if (adapter->rxcsum)
++	if (adapter->netdev->features & NETIF_F_RXCSUM)
+ 		devRead->misc.uptFeatures |=3D UPT1_F_RXCSUM;
+=20
+-	if (adapter->lro) {
++	if (adapter->netdev->features & NETIF_F_LRO) {
+ 		devRead->misc.uptFeatures |=3D UPT1_F_LRO;
+ 		devRead->misc.maxNumRxSG =3D cpu_to_le16(1 + MAX_SKB_FRAGS);
+ 	}
+@@ -2593,9 +2593,6 @@ vmxnet3_change_mtu(struct net_device *netdev, int=
+ new_mtu)
+ 	if (new_mtu < VMXNET3_MIN_MTU || new_mtu > VMXNET3_MAX_MTU)
+ 		return -EINVAL;
+=20
+-	if (new_mtu > 1500 && !adapter->jumbo_frame)
+-		return -EINVAL;
+-
+ 	netdev->mtu =3D new_mtu;
+=20
+ 	/*
+@@ -2641,28 +2638,18 @@ vmxnet3_declare_features(struct vmxnet3_adapter=
+ *adapter, bool dma64)
+ {
+ 	struct net_device *netdev =3D adapter->netdev;
+=20
+-	netdev->features =3D NETIF_F_SG |
+-		NETIF_F_HW_CSUM |
+-		NETIF_F_HW_VLAN_TX |
+-		NETIF_F_HW_VLAN_RX |
+-		NETIF_F_HW_VLAN_FILTER |
+-		NETIF_F_TSO |
+-		NETIF_F_TSO6 |
+-		NETIF_F_LRO;
+-
+-	printk(KERN_INFO "features: sg csum vlan jf tso tsoIPv6 lro");
+-
+-	adapter->rxcsum =3D true;
+-	adapter->jumbo_frame =3D true;
+-	adapter->lro =3D true;
+-
+-	if (dma64) {
++	netdev->hw_features =3D NETIF_F_SG | NETIF_F_RXCSUM |
++		NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_TX |
++		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_LRO;
++	if (dma64)
+ 		netdev->features |=3D NETIF_F_HIGHDMA;
+-		printk(" highDMA");
+-	}
++	netdev->vlan_features =3D netdev->hw_features & ~NETIF_F_HW_VLAN_TX;
++	netdev->features =3D netdev->hw_features |
++		NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER;
+=20
+-	netdev->vlan_features =3D netdev->features;
+-	printk("\n");
++	netdev_info(adapter->netdev,
++		"features: sg csum vlan jf tso tsoIPv6 lro%s\n",
++		dma64 ? " highDMA" : "");
+ }
+=20
+=20
+@@ -2874,6 +2861,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 		.ndo_start_xmit =3D vmxnet3_xmit_frame,
+ 		.ndo_set_mac_address =3D vmxnet3_set_mac_addr,
+ 		.ndo_change_mtu =3D vmxnet3_change_mtu,
++		.ndo_set_features =3D vmxnet3_set_features,
+ 		.ndo_get_stats =3D vmxnet3_get_stats,
+ 		.ndo_tx_timeout =3D vmxnet3_tx_timeout,
+ 		.ndo_set_multicast_list =3D vmxnet3_set_mc,
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet=
+3/vmxnet3_ethtool.c
+index 51f2ef1..70c1ab9 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -33,40 +33,6 @@ struct vmxnet3_stat_desc {
  };
 =20
- struct mdio_ops;
-diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/chelsio/cxgb2.c
-index 0f71304..5f82c9c 100644
---- a/drivers/net/chelsio/cxgb2.c
-+++ b/drivers/net/chelsio/cxgb2.c
-@@ -192,10 +192,8 @@ static void link_start(struct port_info *p)
 =20
- static void enable_hw_csum(struct adapter *adapter)
- {
--	if (adapter->flags & TSO_CAPABLE)
-+	if (adapter->port[0].dev->hw_features & NETIF_F_TSO)
- 		t1_tp_set_ip_checksum_offload(adapter->tp, 1);	/* for TSO only */
--	if (adapter->flags & UDP_CSUM_CAPABLE)
--		t1_tp_set_udp_checksum_offload(adapter->tp, 1);
- 	t1_tp_set_tcp_checksum_offload(adapter->tp, 1);
- }
-=20
-@@ -705,33 +703,6 @@ static int set_pauseparam(struct net_device *dev,
- 	return 0;
- }
-=20
--static u32 get_rx_csum(struct net_device *dev)
+-static u32
+-vmxnet3_get_rx_csum(struct net_device *netdev)
 -{
--	struct adapter *adapter =3D dev->ml_priv;
--
--	return (adapter->flags & RX_CSUM_ENABLED) !=3D 0;
+-	struct vmxnet3_adapter *adapter =3D netdev_priv(netdev);
+-	return adapter->rxcsum;
 -}
 -
--static int set_rx_csum(struct net_device *dev, u32 data)
--{
--	struct adapter *adapter =3D dev->ml_priv;
 -
--	if (data)
--		adapter->flags |=3D RX_CSUM_ENABLED;
--	else
--		adapter->flags &=3D ~RX_CSUM_ENABLED;
+-static int
+-vmxnet3_set_rx_csum(struct net_device *netdev, u32 val)
+-{
+-	struct vmxnet3_adapter *adapter =3D netdev_priv(netdev);
+-	unsigned long flags;
+-
+-	if (adapter->rxcsum !=3D val) {
+-		adapter->rxcsum =3D val;
+-		if (netif_running(netdev)) {
+-			if (val)
+-				adapter->shared->devRead.misc.uptFeatures |=3D
+-				UPT1_F_RXCSUM;
+-			else
+-				adapter->shared->devRead.misc.uptFeatures &=3D
+-				~UPT1_F_RXCSUM;
+-
+-			spin_lock_irqsave(&adapter->cmd_lock, flags);
+-			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+-					       VMXNET3_CMD_UPDATE_FEATURE);
+-			spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+-		}
+-	}
 -	return 0;
 -}
 -
--static int set_tso(struct net_device *dev, u32 value)
--{
--	struct adapter *adapter =3D dev->ml_priv;
 -
--	if (!(adapter->flags & TSO_CAPABLE))
--		return value ? -EOPNOTSUPP : 0;
--	return ethtool_op_set_tso(dev, value);
--}
--
- static void get_sge_param(struct net_device *dev, struct ethtool_ringp=
-aram *e)
- {
- 	struct adapter *adapter =3D dev->ml_priv;
-@@ -831,17 +802,12 @@ static const struct ethtool_ops t1_ethtool_ops =3D=
- {
- 	.get_eeprom        =3D get_eeprom,
- 	.get_pauseparam    =3D get_pauseparam,
- 	.set_pauseparam    =3D set_pauseparam,
--	.get_rx_csum       =3D get_rx_csum,
--	.set_rx_csum       =3D set_rx_csum,
--	.set_tx_csum       =3D ethtool_op_set_tx_csum,
--	.set_sg            =3D ethtool_op_set_sg,
- 	.get_link          =3D ethtool_op_get_link,
- 	.get_strings       =3D get_strings,
- 	.get_sset_count	   =3D get_sset_count,
- 	.get_ethtool_stats =3D get_stats,
- 	.get_regs_len      =3D get_regs_len,
- 	.get_regs          =3D get_regs,
--	.set_tso           =3D set_tso,
- };
-=20
- static int t1_ioctl(struct net_device *dev, struct ifreq *req, int cmd=
-)
-@@ -1105,28 +1071,28 @@ static int __devinit init_one(struct pci_dev *p=
-dev,
- 		netdev->mem_start =3D mmio_start;
- 		netdev->mem_end =3D mmio_start + mmio_len - 1;
- 		netdev->ml_priv =3D adapter;
--		netdev->features |=3D NETIF_F_SG | NETIF_F_IP_CSUM;
--		netdev->features |=3D NETIF_F_LLTX;
-+		netdev->hw_features |=3D NETIF_F_SG | NETIF_F_IP_CSUM |
-+			NETIF_F_RXCSUM;
-+		netdev->features |=3D NETIF_F_SG | NETIF_F_IP_CSUM |
-+			NETIF_F_RXCSUM | NETIF_F_LLTX;
-=20
--		adapter->flags |=3D RX_CSUM_ENABLED | TCP_CSUM_CAPABLE;
- 		if (pci_using_dac)
- 			netdev->features |=3D NETIF_F_HIGHDMA;
- 		if (vlan_tso_capable(adapter)) {
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
--			adapter->flags |=3D VLAN_ACCEL_CAPABLE;
- 			netdev->features |=3D
- 				NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- #endif
-=20
- 			/* T204: disable TSO */
- 			if (!(is_T2(adapter)) || bi->port_number !=3D 4) {
--				adapter->flags |=3D TSO_CAPABLE;
-+				netdev->hw_features |=3D NETIF_F_TSO;
- 				netdev->features |=3D NETIF_F_TSO;
- 			}
- 		}
-=20
- 		netdev->netdev_ops =3D &cxgb_netdev_ops;
--		netdev->hard_header_len +=3D (adapter->flags & TSO_CAPABLE) ?
-+		netdev->hard_header_len +=3D (netdev->hw_features & NETIF_F_TSO) ?
- 			sizeof(struct cpl_tx_pkt_lso) : sizeof(struct cpl_tx_pkt);
-=20
- 		netif_napi_add(netdev, &adapter->napi, t1_poll, 64);
-diff --git a/drivers/net/chelsio/sge.c b/drivers/net/chelsio/sge.c
-index 8754d44..b948ea7 100644
---- a/drivers/net/chelsio/sge.c
-+++ b/drivers/net/chelsio/sge.c
-@@ -929,7 +929,7 @@ void t1_sge_intr_enable(struct sge *sge)
- 	u32 en =3D SGE_INT_ENABLE;
- 	u32 val =3D readl(sge->adapter->regs + A_PL_ENABLE);
-=20
--	if (sge->adapter->flags & TSO_CAPABLE)
-+	if (sge->adapter->port[0].dev->hw_features & NETIF_F_TSO)
- 		en &=3D ~F_PACKET_TOO_BIG;
- 	writel(en, sge->adapter->regs + A_SG_INT_ENABLE);
- 	writel(val | SGE_PL_INTR_MASK, sge->adapter->regs + A_PL_ENABLE);
-@@ -952,7 +952,7 @@ int t1_sge_intr_error_handler(struct sge *sge)
- 	struct adapter *adapter =3D sge->adapter;
- 	u32 cause =3D readl(adapter->regs + A_SG_INT_CAUSE);
-=20
--	if (adapter->flags & TSO_CAPABLE)
-+	if (adapter->port[0].dev->hw_features & NETIF_F_TSO)
- 		cause &=3D ~F_PACKET_TOO_BIG;
- 	if (cause & F_RESPQ_EXHAUSTED)
- 		sge->stats.respQ_empty++;
-@@ -1369,6 +1369,7 @@ static void sge_rx(struct sge *sge, struct freelQ=
- *fl, unsigned int len)
- 	const struct cpl_rx_pkt *p;
- 	struct adapter *adapter =3D sge->adapter;
- 	struct sge_port_stats *st;
-+	struct net_device *dev;
-=20
- 	skb =3D get_packet(adapter->pdev, fl, len - sge->rx_pkt_pad);
- 	if (unlikely(!skb)) {
-@@ -1384,9 +1385,10 @@ static void sge_rx(struct sge *sge, struct freel=
-Q *fl, unsigned int len)
- 	__skb_pull(skb, sizeof(*p));
-=20
- 	st =3D this_cpu_ptr(sge->port_stats[p->iff]);
-+	dev =3D adapter->port[p->iff].dev;
-=20
--	skb->protocol =3D eth_type_trans(skb, adapter->port[p->iff].dev);
--	if ((adapter->flags & RX_CSUM_ENABLED) && p->csum =3D=3D 0xffff &&
-+	skb->protocol =3D eth_type_trans(skb, dev);
-+	if ((dev->features & NETIF_F_RXCSUM) && p->csum =3D=3D 0xffff &&
- 	    skb->protocol =3D=3D htons(ETH_P_IP) &&
- 	    (skb->data[9] =3D=3D IPPROTO_TCP || skb->data[9] =3D=3D IPPROTO_U=
-DP)) {
- 		++st->rx_cso_good;
-@@ -1838,8 +1840,7 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, st=
-ruct net_device *dev)
- 			return NETDEV_TX_OK;
- 		}
-=20
--		if (!(adapter->flags & UDP_CSUM_CAPABLE) &&
--		    skb->ip_summed =3D=3D CHECKSUM_PARTIAL &&
-+		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL &&
- 		    ip_hdr(skb)->protocol =3D=3D IPPROTO_UDP) {
- 			if (unlikely(skb_checksum_help(skb))) {
- 				pr_debug("%s: unable to do udp checksum\n", dev->name);
-diff --git a/drivers/net/chelsio/tp.c b/drivers/net/chelsio/tp.c
-index 6222d58..8bed4a5 100644
---- a/drivers/net/chelsio/tp.c
-+++ b/drivers/net/chelsio/tp.c
-@@ -152,11 +152,6 @@ void t1_tp_set_ip_checksum_offload(struct petp *tp=
-, int enable)
- 	set_csum_offload(tp, F_IP_CSUM, enable);
+ /* per tq stats maintained by the device */
+ static const struct vmxnet3_stat_desc
+ vmxnet3_tq_dev_stats[] =3D {
+@@ -296,28 +262,27 @@ vmxnet3_get_strings(struct net_device *netdev, u3=
+2 stringset, u8 *buf)
+ 	}
  }
 =20
--void t1_tp_set_udp_checksum_offload(struct petp *tp, int enable)
--{
--	set_csum_offload(tp, F_UDP_CSUM, enable);
--}
--
- void t1_tp_set_tcp_checksum_offload(struct petp *tp, int enable)
+-static int
+-vmxnet3_set_flags(struct net_device *netdev, u32 data)
++int vmxnet3_set_features(struct net_device *netdev, u32 features)
  {
- 	set_csum_offload(tp, F_TCP_CSUM, enable);
-diff --git a/drivers/net/chelsio/tp.h b/drivers/net/chelsio/tp.h
-index 32fc71e..dfd8ce2 100644
---- a/drivers/net/chelsio/tp.h
-+++ b/drivers/net/chelsio/tp.h
-@@ -65,7 +65,6 @@ void t1_tp_intr_clear(struct petp *tp);
- int t1_tp_intr_handler(struct petp *tp);
+ 	struct vmxnet3_adapter *adapter =3D netdev_priv(netdev);
+-	u8 lro_requested =3D (data & ETH_FLAG_LRO) =3D=3D 0 ? 0 : 1;
+-	u8 lro_present =3D (netdev->features & NETIF_F_LRO) =3D=3D 0 ? 0 : 1;
+ 	unsigned long flags;
++	u32 changed =3D features ^ netdev->features;
 =20
- void t1_tp_get_mib_statistics(adapter_t *adap, struct tp_mib_statistic=
-s *tps);
--void t1_tp_set_udp_checksum_offload(struct petp *tp, int enable);
- void t1_tp_set_tcp_checksum_offload(struct petp *tp, int enable);
- void t1_tp_set_ip_checksum_offload(struct petp *tp, int enable);
- int t1_tp_set_coalescing_size(struct petp *tp, unsigned int size);
+-	if (ethtool_invalid_flags(netdev, data, ETH_FLAG_LRO))
+-		return -EINVAL;
++	if (changed & (NETIF_F_RXCSUM|NETIF_F_LRO)) {
++		if (features & NETIF_F_RXCSUM)
++			adapter->shared->devRead.misc.uptFeatures |=3D
++			UPT1_F_RXCSUM;
++		else
++			adapter->shared->devRead.misc.uptFeatures &=3D
++			~UPT1_F_RXCSUM;
+=20
+-	if (lro_requested ^ lro_present) {
+-		/* toggle the LRO feature*/
+-		netdev->features ^=3D NETIF_F_LRO;
+-
+-		/* update harware LRO capability accordingly */
+-		if (lro_requested)
++		if (features & NETIF_F_LRO)
+ 			adapter->shared->devRead.misc.uptFeatures |=3D
+ 							UPT1_F_LRO;
+ 		else
+ 			adapter->shared->devRead.misc.uptFeatures &=3D
+ 							~UPT1_F_LRO;
++
+ 		spin_lock_irqsave(&adapter->cmd_lock, flags);
+ 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 				       VMXNET3_CMD_UPDATE_FEATURE);
+@@ -654,17 +619,7 @@ static struct ethtool_ops vmxnet3_ethtool_ops =3D =
+{
+ 	.get_wol           =3D vmxnet3_get_wol,
+ 	.set_wol           =3D vmxnet3_set_wol,
+ 	.get_link          =3D ethtool_op_get_link,
+-	.get_rx_csum       =3D vmxnet3_get_rx_csum,
+-	.set_rx_csum       =3D vmxnet3_set_rx_csum,
+-	.get_tx_csum       =3D ethtool_op_get_tx_csum,
+-	.set_tx_csum       =3D ethtool_op_set_tx_hw_csum,
+-	.get_sg            =3D ethtool_op_get_sg,
+-	.set_sg            =3D ethtool_op_set_sg,
+-	.get_tso           =3D ethtool_op_get_tso,
+-	.set_tso           =3D ethtool_op_set_tso,
+ 	.get_strings       =3D vmxnet3_get_strings,
+-	.get_flags	   =3D ethtool_op_get_flags,
+-	.set_flags	   =3D vmxnet3_set_flags,
+ 	.get_sset_count	   =3D vmxnet3_get_sset_count,
+ 	.get_ethtool_stats =3D vmxnet3_get_ethtool_stats,
+ 	.get_ringparam     =3D vmxnet3_get_ringparam,
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vm=
+xnet3_int.h
+index fb5d245..8ba7b5f 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -329,10 +329,6 @@ struct vmxnet3_adapter {
+ 	u8			__iomem *hw_addr0; /* for BAR 0 */
+ 	u8			__iomem *hw_addr1; /* for BAR 1 */
+=20
+-	/* feature control */
+-	bool				rxcsum;
+-	bool				lro;
+-	bool				jumbo_frame;
+ #ifdef VMXNET3_RSS
+ 	struct UPT1_RSSConf		*rss_conf;
+ 	bool				rss;
+@@ -404,6 +400,9 @@ void
+ vmxnet3_rq_destroy_all(struct vmxnet3_adapter *adapter);
+=20
+ int
++vmxnet3_set_features(struct net_device *netdev, u32 features);
++
++int
+ vmxnet3_create_queues(struct vmxnet3_adapter *adapter,
+ 		      u32 tx_ring_size, u32 rx_ring_size, u32 rx_ring2_size);
+=20
 --=20
 1.7.2.5
 
