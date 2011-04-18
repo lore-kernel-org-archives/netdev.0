@@ -1,12 +1,12 @@
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
-Subject: Re: [PATCH 02/27] HFI: Add HFI adapter control structure
-Date: Sun, 17 Apr 2011 23:21:11 -0400
-Message-ID: <4DABAE27.1020206@linux.vnet.ibm.com>
-References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com> <1299100213-8770-2-git-send-email-dykmanj@linux.vnet.ibm.com> <20110302142126.193a8817@nehalam> <1299105870.4277.37.camel@localhost>
+Subject: Re: [PATCH 24/27] HFI: hf network driver
+Date: Sun, 17 Apr 2011 23:21:20 -0400
+Message-ID: <4DABAE30.9080308@linux.vnet.ibm.com>
+References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com> <1299100213-8770-24-git-send-email-dykmanj@linux.vnet.ibm.com> <20110302142617.112bd9cb@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
 	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
 	"William S. Cadden" <wscadden@linux.vnet.ibm.com>,
@@ -15,71 +15,56 @@ Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
 	Jian Xiao <jian@linux.vnet.ibm.com>,
 	"Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
 	"Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:57223 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751684Ab1DRDVS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 23:21:18 -0400
+Received: from e32.co.us.ibm.com ([32.97.110.150]:35248 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751833Ab1DRDVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 23:21:24 -0400
 Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e33.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3I3EPcY004200
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 21:14:25 -0600
+	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3I3AM2u028483
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 21:10:22 -0600
 Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p3I3LFb2093720
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 21:21:15 -0600
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p3I3LNQ3114918
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 21:21:24 -0600
 Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3I3LFiB015991
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 21:21:15 -0600
-In-Reply-To: <1299105870.4277.37.camel@localhost>
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3I3LNSI016565
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 21:21:23 -0600
+In-Reply-To: <20110302142617.112bd9cb@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/2/2011 5:44 PM, Ben Hutchings wrote:
-> On Wed, 2011-03-02 at 14:21 -0800, Stephen Hemminger wrote:
->> On Wed,  2 Mar 2011 16:09:48 -0500
->> dykmanj@linux.vnet.ibm.com wrote:
->>
->>> diff --git a/drivers/net/hfi/core/Makefile b/drivers/net/hfi/core/Makefile
->>> index 80790c6..6fe4e60 100644
->>> --- a/drivers/net/hfi/core/Makefile
->>> +++ b/drivers/net/hfi/core/Makefile
->>> @@ -1,5 +1,6 @@
->>>  #
->>>  # Makefile for the HFI device driver for IBM eServer System p
->>>  #
->>> -hfi_core-objs:=	hfidd_init.o
->>> +hfi_core-objs:=	hfidd_adpt.o \
->>> +		hfidd_init.o
->>>  obj-$(CONFIG_HFI) += hfi_core.o
->>> diff --git a/drivers/net/hfi/core/hfidd_adpt.c b/drivers/net/hfi/core/hfidd_adpt.c
->>> new file mode 100644
->>> index 0000000..d64fa38
->>> --- /dev/null
->>> +++ b/drivers/net/hfi/core/hfidd_adpt.c
-> [...]
->>> +void hfidd_free_adapter(struct hfidd_acs *p_acs)
->>> +{
->>> +	kfree(p_acs);
->>> +	p_acs = NULL;
->>> +	return;
->>> +}
->>
->> If these were not in a separate file the could be marked as static.
+On 3/2/2011 5:26 PM, Stephen Hemminger wrote:
+> On Wed,  2 Mar 2011 16:10:10 -0500
+> dykmanj@linux.vnet.ibm.com wrote:
 > 
-> I assume they're intending to add some more interesting code here in the
-> next installment.
+>> +struct hf_if {
+>> +	u32			idx;			/* 0, 1, 2, 3 ...   */
+>> +	u32			ai;			/* 0=hfi0, 1=hfi1   */
+>> +	char			name[HF_MAX_NAME_LEN];
+>> +	u32			isr_id;
+>> +	u32			ip_addr;
+>> +	u32			state;			/* CLOSE, OPEN */
+>> +	spinlock_t		lock;			/* lock for state */
+>> +	u32			sfifo_fv_polarity;
+>> +	u32			sfifo_slots_per_blk;
+>> +	u32			sfifo_packets;
+>> +	void __iomem		*doorbell;		/* mapped mmio_regs */
+>> +	struct hf_fifo		tx_fifo;
+>> +	struct hf_fifo		rx_fifo;
+>> +	struct hfi_client_info	client;
+>> +	struct sk_buff		**tx_skb;		/* array to store tx
+>> +							   2k skb */
+>> +	void			*sfifo_finishvec;
+>> +	struct net_device_stats	net_stats;
+>> +};
 > 
-
-Yes, there is more to come.
-
->> Doing a return; on last line of a void function is considered poor
->> style since it is unnecessary.
+> You don't need net_stats in this structure if you use
+> the standard netdev->stats structure instead.
 > 
-> Assigning to a local variable just before returning is also silly.
+> You won't need hf_get_stats then..
 > 
-> Ben.
-> 
-Both removed in v2. 
+Ok, done in v2
 
 Jim
 
