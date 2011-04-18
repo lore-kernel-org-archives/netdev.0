@@ -1,94 +1,57 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count
- = 8
-Date: Tue, 19 Apr 2011 00:12:27 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1104182316060.1481@ja.ssi.bg>
-References: <201104150901.47214.hans@schillstrom.com> <alpine.LFD.2.00.1104152229450.1730@ja.ssi.bg> <201104180810.27198.hans@schillstrom.com> <201104181243.30613.hans@schillstrom.com>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+Date: Mon, 18 Apr 2011 14:12:27 -0700
+Message-ID: <BANLkTin_OgBo3N8qi5cF5rOd__pRKifwsg@mail.gmail.com>
+References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
+	<1302253651.4409.2.camel@edumazet-laptop>
+	<D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
+	<1302267400.4409.22.camel@edumazet-laptop>
+	<D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
+	<1302275223.4409.36.camel@edumazet-laptop>
+	<D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
+	<1302330998.2656.113.camel@edumazet-laptop>
+	<D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
+	<4DA3151B.4030507@intel.com>
+	<D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
+	<1302536577.4605.1.camel@edumazet-laptop>
+	<D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
+	<1302761251.3549.198.camel@edumazet-laptop>
+	<1302762810.3549.233.camel@edumazet-laptop>
+	<D12839161ADD3A4B8DA63D1A134D084026E49536AF@ESGSCCMS0001.eapac.ericsson.se>
+	<4DA723F1.7000901@intel.com>
+	<1302800202.2035.32.camel@laptop>
+	<1302800221.3248.39.camel@edumazet-laptop>
+	<1302857857.2388.158.camel@twins>
+	<D12839161ADD3A4B8DA63D1A134D084026E4953D6E@ESGSCCMS0001.eapac.ericsson.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <201104181243.30613.hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Mike Galbraith <efault@gmx.de>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Wei Gu <wei.gu@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:44598 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751675Ab1DRVM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 17:12:29 -0400
+Received: by bwz15 with SMTP id 15so4205298bwz.19
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2011 14:12:27 -0700 (PDT)
+In-Reply-To: <D12839161ADD3A4B8DA63D1A134D084026E4953D6E@ESGSCCMS0001.eapac.ericsson.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Apr 15, 2011 at 2:14 AM, Wei Gu <wei.gu@ericsson.com> wrote:
+> Is there something that I can provide in order to identify the problem?
 
-	Hello,
+for power state concerns you may want to try running turbostat
+(available in recent kernels, runs also on older kernels) during the
+workload in question.  Capture the results via something like:
+cd /home/jbrandeb/linux-2.6.38.2/tools/power/x86/turbostat
+make
+for i in `seq 1 10` ; do ./turbostat -v sleep 5 >> turbostat.txt 2>&1 ; done
 
-On Mon, 18 Apr 2011, Hans Schillstrom wrote:
-
-> Actually I forgot to tell there is a need for a
-> ip_vs_service_cleanup() due to above.
-> Do you see any drawbacks with it ?
-
-	May be ip_vs_service_cleanup() should call only
-ip_vs_flush(), under __ip_vs_mutex.
-
-> /*
->  *	Delete service by {netns} in the service table.
->  */
-> static void ip_vs_service_cleanup(struct net *net)
-> {
-> 	unsigned hash;
-> 	struct ip_vs_service *svc, *tmp;
-> 
-> 	EnterFunction(2);
-> 	/* Check for "full" addressed entries */
-> 	for (hash = 0; hash<IP_VS_SVC_TAB_SIZE; hash++) {
-> 		write_lock_bh(&__ip_vs_svc_lock);
-> 		list_for_each_entry_safe(svc, tmp, &ip_vs_svc_table[hash],
-> 					 s_list) {
-> 			if (net_eq(svc->net, net)) {
-> 				ip_vs_svc_unhash(svc);
-> 				__ip_vs_del_service(svc);
-> 			}
-> 		}
-> 		list_for_each_entry_safe(svc, tmp, &ip_vs_svc_fwm_table[hash],
-> 					 f_list) {
-> 			if (net_eq(svc->net, net)) {
-> 				ip_vs_svc_unhash(svc);
-> 				__ip_vs_del_service(svc);
-> 			}
-> 		}
-> 		write_unlock_bh(&__ip_vs_svc_lock);
-> 	}
-> 	LeaveFunction(2);
-> }
-> 
-> Called just after the __ip_vs_control_cleanup_sysctl()
-
-	Hm, no. ip_vs_service_cleanup() should be called
-by ip_vs_cleanup() before or after nf_unregister_hooks().
-The rule is that ip_vs_flush() should be called before
-ip_vs_conn_flush() because after ip_vs_flush() no more
-connections can be created and even if hooks are still
-registered the packets can not create conns in the netns. Then
-ip_vs_conn_flush() will remove all existing connections and
-ip_vs_control_cleanup() can remove all real servers with
-ip_vs_trash_cleanup(). I mean, per-netns calls.
-
-	Also, may be all code that was called in old
-kernels by ip_vs_cleanup() should be now called by
-__ip_vs_cleanup(net), i.e. we can preserve the needed order
-of all functions but now also per-netns. For example, for
-ip_vs_ctl.c ip_vs_control_init() can remain as global but it
-should not register ipvs_control_ops. Then we
-can rename __ip_vs_control_init to ip_vs_control_init_net()
-and to call it from __ip_vs_init(). I.e. all such files
-will have global function and also _init_net and
-_cleanup_net. Now there are many register_pernet_subsys()
-calls and I'm not sure we preserve the needed order for
-cleanup. Are the ->exit methods called in reverse order?
-I don't see it in ops_exit_list() and we can not rely
-on such registration order. I think, ip_vs_init() should
-call global functions as now but __ip_vs_init() and
-__ip_vs_cleanup() should call the _net methods in right
-order.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Jesse
