@@ -1,72 +1,29 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count
- = 8
-Date: Tue, 19 Apr 2011 01:23:17 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1104190112500.1481@ja.ssi.bg>
-References: <201104150901.47214.hans@schillstrom.com> <201104181243.30613.hans@schillstrom.com> <alpine.LFD.2.00.1104182316060.1481@ja.ssi.bg> <201104182348.05228.hans@schillstrom.com>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next 0/5] be2net: allow register dump only for PFs
+Date: Mon, 18 Apr 2011 17:29:41 -0500
+Message-ID: <20110418222941.GA9450@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <201104182348.05228.hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:45942 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752661Ab1DRWaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 18:30:04 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Series of 5 patches against net-next-2.6
+Please apply.
 
-	Hello,
+Thanks
+-Ajit
 
-On Mon, 18 Apr 2011, Hans Schillstrom wrote:
-
-> On Monday, April 18, 2011 23:12:27 Julian Anastasov wrote:
-> > 
-> > 	Hello,
-> > 
-> > On Mon, 18 Apr 2011, Hans Schillstrom wrote:
-> > 
-> > > Actually I forgot to tell there is a need for a
-> > > ip_vs_service_cleanup() due to above.
-> > > Do you see any drawbacks with it ?
-> > 
-> > 	May be ip_vs_service_cleanup() should call only
-> > ip_vs_flush(), under __ip_vs_mutex.
-> 
-> Hmm,  
-> I'm not sure if the IP_VS_WAIT_WHILE() in ip_vs_flush is a good idea in this case...
-> That was why I wrote ip_vs_service_cleanup()
-
-	IP_VS_WAIT_WHILE should be called because some
-schedulers do not use locks for ->schedule, eg. WLC.
-They rely on svc->usecnt reference to hold the virtual
-service. Nothing changes now with netns. It is currently the
-only way to modify or delete virtual service or scheduler.
-Of course, __ip_vs_svc_lock is now global but we do not
-have a choice.
-
-> > _cleanup_net. Now there are many register_pernet_subsys()
-> > calls and I'm not sure we preserve the needed order for
-> > cleanup. Are the ->exit methods called in reverse order?
-> 
-> Yes
-
-	You mean, only in the planned patch, yes?
-
-> > I don't see it in ops_exit_list() and we can not rely
-> > on such registration order. I think, ip_vs_init() should
-> > call global functions as now but __ip_vs_init() and
-> > __ip_vs_cleanup() should call the _net methods in right
-> > order.
-> 
-> Exactly,
-> I have already done that in my next patch,  and some other small changes :-)
-> For the ip_vs.ko there is only one register/unregister now, the schedulers still have their own.
-> Hopefully the patch is ready to morrow
-
-	OK, very good.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+[1/5] allow register dump only for PFs
+[2/5] Add code to display nic speeds other than 1Gbps/10Gbps
+[3/5] fix be_mcc_compl_process to identify eth_get_stat command
+[4/5] pass domain id to be_cmd_link_status_query
+[5/5] add code to display default value of tx rate for VFs
