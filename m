@@ -1,60 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 36/42] netlabel: Fix set-but-unused variables.
-Date: Sun, 17 Apr 2011 17:34:16 -0700 (PDT)
-Message-ID: <20110417.173416.13741109.davem@davemloft.net>
+Subject: [PATCH 35/42] l2tp: Fix set-but-unused variables.
+Date: Sun, 17 Apr 2011 17:34:13 -0700 (PDT)
+Message-ID: <20110417.173413.52195546.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51093
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51090
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754116Ab1DRAev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:34:51 -0400
+	by vger.kernel.org with ESMTP id S1754143Ab1DRAes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:34:48 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id A519524C08B
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:34:16 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id DA14024C087
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:34:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The variable 'type_str' is set but unused in netlbl_cipsov4_add().
+The variable 'ret' is set but unused in l2tp_nl_register_ops().
 
-Just kill it off.
+This was obviously meant to maintain error codes which are
+returned to the caller, make it so.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/netlabel/netlabel_cipso_v4.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ net/l2tp/l2tp_netlink.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index 5f14c84..bae5756 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -422,7 +422,6 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index 4c1e540..93a41a0 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -795,11 +795,12 @@ int l2tp_nl_register_ops(enum l2tp_pwtype pw_type, const struct l2tp_nl_cmd_ops
+ 		goto out;
  
- {
- 	int ret_val = -EINVAL;
--	const char *type_str = "(unknown)";
- 	struct netlbl_audit audit_info;
+ 	l2tp_nl_cmd_ops[pw_type] = ops;
++	ret = 0;
  
- 	if (!info->attrs[NLBL_CIPSOV4_A_DOI] ||
-@@ -432,15 +431,12 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
- 	netlbl_netlink_auditinfo(skb, &audit_info);
- 	switch (nla_get_u32(info->attrs[NLBL_CIPSOV4_A_MTYPE])) {
- 	case CIPSO_V4_MAP_TRANS:
--		type_str = "trans";
- 		ret_val = netlbl_cipsov4_add_std(info, &audit_info);
- 		break;
- 	case CIPSO_V4_MAP_PASS:
--		type_str = "pass";
- 		ret_val = netlbl_cipsov4_add_pass(info, &audit_info);
- 		break;
- 	case CIPSO_V4_MAP_LOCAL:
--		type_str = "local";
- 		ret_val = netlbl_cipsov4_add_local(info, &audit_info);
- 		break;
- 	}
+ out:
+ 	genl_unlock();
+ err:
+-	return 0;
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(l2tp_nl_register_ops);
+ 
 -- 
 1.7.4.3
 
