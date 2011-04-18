@@ -1,36 +1,99 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Driver build-testing (was: [PATCH] net: dm9000: Fix build)
-Date: Mon, 18 Apr 2011 13:12:03 +0200
-Message-ID: <20110418111203.GB18324@rere.qmqm.pl>
-References: <1303124677-6168-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 02/27] HFI: Add HFI adapter control structure
+Date: Mon, 18 Apr 2011 13:19:05 +0100
+Message-ID: <1303129145.5282.1030.camel@localhost>
+References: <1303096919-7367-1-git-send-email-dykmanj@linux.vnet.ibm.com>
+	 <1303096919-7367-3-git-send-email-dykmanj@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
+	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
+	"William S. Cadden" <wscadden@linux.vnet.ibm.com>,
+	"Wen C. Chen" <winstonc@linux.vnet.ibm.com>,
+	Scot Sakolish <sakolish@linux.vnet.ibm.com>,
+	Jian Xiao <jian@linux.vnet.ibm.com>,
+	"Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
+	"Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
+To: dykmanj@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:32897 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750991Ab1DRLME (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 07:12:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1303124677-6168-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:13830 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751869Ab1DRMTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 08:19:13 -0400
+In-Reply-To: <1303096919-7367-3-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2011 at 12:04:37PM +0100, Mark Brown wrote:
-> Commit c88fcb (net: dm9000: convert to hw_features) broke the build o=
-f
-> the dm9000 driver since it merged functions which use different names
-> for the board info structure used for I/O operations without updating
-> all the references to use the same name. Fix that.
+On Sun, 2011-04-17 at 23:21 -0400, dykmanj@linux.vnet.ibm.com wrote:
+> From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+> 
+> Alloc/free of hfidd_acs to track the state of each HFI
+[...]
+> --- /dev/null
+> +++ b/drivers/net/hfi/core/hfidd_adpt.c
+[...]
+> +int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t devno, void *uiop)
+> +{
+> +
+> +	struct hfidd_acs	*p_acs = NULL;
+> +
+> +	p_acs = kzalloc(sizeof(*p_acs), GFP_KERNEL);
+> +	if (p_acs == NULL)
+> +		return -ENOMEM;
+> +
+> +	p_acs->dev_num = devno;
+> +	p_acs->index  = MINOR(devno);
+> +	p_acs->state  = HFI_INVALID;
+> +	snprintf(p_acs->name, HFI_DEVICE_NAME_MAX - 1,
+> +			"%s%d", HFIDD_DEV_NAME, p_acs->index);
+
+snprintf() always null-terminates so the buffer length should be
+specified as HFI_DEVICE_NAME_MAX or sizeof(p_acs->name).
 
 [...]
+> --- a/drivers/net/hfi/core/hfidd_init.c
+> +++ b/drivers/net/hfi/core/hfidd_init.c
+[...]
+>  static int __init hfidd_mod_init(void)
+>  {
+>  	int			rc = 0;
+>  
+> +	hfidd_global.acs_cnt = 0;
+> +
+>  	rc = hfidd_create_class();
+>  	if (rc < 0) {
+>  		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_class failed"
+> @@ -129,12 +172,26 @@ static int __init hfidd_mod_init(void)
+>  		return -1;
+>  	}
+>  
+> +	rc = hfidd_create_devices();
+> +	if (rc < 0) {
+> +		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_devices"
+> +			" failed rc = %d\n", HFIDD_DEV_NAME, rc);
+> +		goto error1;
+> +	}
+> +
+>  	printk(KERN_INFO "IBM hfi device driver loaded sucessfully\n");
+>  	return 0;
+> +
+> +error1:
+> +	hfidd_destroy_class();
+> +
+> +	/* Returning -1 so insmod will fail */
+> +	return -1;
+>  }
+[...]
 
-This brings the issue of build testing effectiveness. In current code
-there is no configuration that makes all drivers build. I would like
-to see something like 'make brokenconfig' that would allow most of
-the code to be built, and not necessarily working. Maybe someone has
-an idea how to implement that?
+Should be 'return rc'.  Never return -1 as a generic failure; it means
+-EPERM.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
