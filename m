@@ -1,71 +1,85 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [PATCH V14 3/4] ptp: Added a clock driver for the IXP46x.
-Date: Mon, 18 Apr 2011 21:53:06 +0100
-Message-ID: <1303159986.2857.56.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH V14 4/4] ptp: Added a clock driver for the National
+ Semiconductor PHYTER.
+Date: Mon, 18 Apr 2011 21:57:25 +0100
+Message-ID: <1303160245.2857.60.camel@bwh-desktop>
 References: <cover.1303107532.git.richard.cochran@omicron.at>
-	 <dbee2487a57fd7f41e4efbbd2ddfb1313b8d71bc.1303107532.git.richard.cochran@omicron.at>
+	 <1728ffb5735c2a04876a69ad55427c4e7b5a1bd7.1303107532.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <dbee2487a57fd7f41e4efbbd2ddfb1313b8d71bc.1303107532.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <john.stultz@linaro.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Russell King <linux@arm.linux.org.uk>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1728ffb5735c2a04876a69ad55427c4e7b5a1bd7.1303107532.git.richard.cochran@omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-04-18 at 08:29 +0200, Richard Cochran wrote:
-> This patch adds a driver for the hardware time stamping unit found on the
-> IXP465. The basic clock operations and an external trigger are implemented.
+On Mon, 2011-04-18 at 08:30 +0200, Richard Cochran wrote:
+> This patch adds support for the PTP clock found on the DP83640.
+> The basic clock operations and one external time stamp have
+> been implemented.
 [...]
-> --- a/drivers/net/arm/ixp4xx_eth.c
-> +++ b/drivers/net/arm/ixp4xx_eth.c
+> --- /dev/null
+> +++ b/drivers/net/phy/dp83640.c
 [...]
-> @@ -246,6 +255,169 @@ static int ports_open;
->  static struct port *npe_port_tab[MAX_NPES];
->  static struct dma_pool *dma_pool;
->  
-> +static struct sock_filter ptp_filter[] = {
-> +	PTP_FILTER
-> +};
-> +
-> +static int ixp_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seq)
+> +static int match(struct sk_buff *skb, unsigned int type, struct rxts *rxts)
 > +{
-> +	unsigned int type;
-> +	u16 *hi, *id;
-> +	u8 *lo, *data = skb->data;
+> +	u16 *seqid;
+
+Should be __be16 *, and similarly for the casts.
+
+> +	u8 *msgtype, *data = skb_mac_header(skb);
 > +
-> +	type = sk_run_filter(skb, ptp_filter);
-> +
-> +	if (PTP_CLASS_V1_IPV4 == type) {
-> +
-> +		id = (u16 *)(data + 42 + 30);
-> +		hi = (u16 *)(data + 42 + 22);
-> +		lo = data + 42 + 24;
+> +	/* check sequenceID, messageType, 12 bit hash of offset 20-29 */
+> +	/* We assume that the IPv4 header has no options. */
+
+Does the hardware definitely not timestamp received packets with IP
+options?
+
+> +	switch (type) {
+> +	case PTP_CLASS_V1_IPV4:
+> +		msgtype = data + 42 + 32;
+> +		seqid = (u16 *)(data + 42 + 30);
+> +		break;
+> +	case PTP_CLASS_V1_IPV6:
+> +		msgtype = data + 62 + 32;
+> +		seqid = (u16 *)(data + 62 + 30);
+> +		break;
+> +	case PTP_CLASS_V2_IPV4:
+> +		msgtype = data + 42 + 0;
+> +		seqid = (u16 *)(data + 42 + 30);
+> +		break;
+> +	case PTP_CLASS_V2_IPV6:
+> +		msgtype = data + 62 + 0;
+> +		seqid = (u16 *)(data + 62 + 30);
+> +		break;
+> +	case PTP_CLASS_V2_L2:
+> +		msgtype = data + 14 + 0;
+> +		seqid = (u16 *)(data + 14 + 30);
+> +		break;
+> +	case PTP_CLASS_V2_VLAN:
+> +		msgtype = data + 18 + 0;
+> +		seqid = (u16 *)(data + 18 + 30);
+> +		break;
 [...]
 
-PTP_FILTER does not verify that the packet length is sufficient to hold
-a complete PTP header, nor does it require that the IPv4 header length
-is 5 (i.e. 20 bytes).  So you have to check those here rather than using
-magic numbers.
-
-I think you also need to use be16_to_cpup() to read 'id' and 'hi', since
-the host byte order may vary.
+Would be better without the magic numbers.
 
 Ben.
 
