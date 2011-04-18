@@ -1,42 +1,57 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Suspend/resume - slow resume
-Date: Mon, 18 Apr 2011 12:51:40 -0700
-Message-ID: <BANLkTi=dke10HougmiQn9hSF15nK0B8mdA@mail.gmail.com>
-References: <Pine.SOC.4.64.1104150931390.1320@er3.rutgers.edu>
- <BANLkTinO+HFq+Mgg1aUz9V==zYs7qSBtDw@mail.gmail.com> <Pine.SOC.4.64.1104151122330.1320@er3.rutgers.edu>
- <BANLkTi=Gq5thZk2f1nWTz3dDA5Non8ANZg@mail.gmail.com> <20110417101731.GA17986@electric-eye.fr.zoreil.com>
- <BANLkTi=tPc6NmUuTYqbVZduNRNbE=-c34Q@mail.gmail.com> <20110418180813.GA18469@electric-eye.fr.zoreil.com>
- <BANLkTim_1OgqjCeD1a4Ay2fWJSmPHa_XTQ@mail.gmail.com> <Pine.SOC.4.64.1104181519490.1320@er3.rutgers.edu>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH 1/2] bna: fix for clean fw re-initialization
+Date: Mon, 18 Apr 2011 12:26:12 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A5D7348A7B@HQ1-EXCH01.corp.brocade.com>
+References: <1302804319-15677-1-git-send-email-rmody@brocade.com>
+ <20110414.133957.226775217.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael, J. Wysocki" <rjw@sisk.pl>, Greg KH <gregkh@suse.de>
-To: Ciprian Docan <docan@eden.rutgers.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.SOC.4.64.1104181519490.1320@er3.rutgers.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Debashis Dutt <ddutt@Brocade.COM>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:50102 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751556Ab1DRUGp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2011 16:06:45 -0400
+In-Reply-To: <20110414.133957.226775217.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2011 at 12:27 PM, Ciprian Docan <docan@eden.rutgers.edu> wrote:
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>On Behalf Of David Miller
+>Sent: Thursday, April 14, 2011 1:40 PM
+>To: Rasesh Mody
+>Cc: netdev@vger.kernel.org; Debashis Dutt
+>Subject: Re: [PATCH 1/2] bna: fix for clean fw re-initialization
 >
-> Linus - I applied your patch and attached the diff between output of dmesg
-> before and after the patch as resume_timing.diff. This patch alone does not
-> seem to fix the issue;
+>From: Rasesh Mody <rmody@brocade.com>
+>Date: Thu, 14 Apr 2011 11:05:18 -0700
+>
+>> During a kernel crash, bna control path state machine and firmware do
+>not
+>> get a notification and hence are not cleanly shutdown. The registers
+>> holding driver/IOC state information are not reset back to valid
+>> disabled/parking values. This causes subsequent driver initialization
+>> to hang during kdump kernel boot. This patch, during the
+>initialization
+>> of first PCI function, resets corresponding register when unclean
+>shutown
+>> is detect by reading chip registers. This will make sure that ioc/fw
+>> gets clean re-initialization.
+>>
+>> Signed-off-by: Debashis Dutt <ddutt@brocade.com>
+>> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+>
+>Applied.
 
-Ok, that just means that the error return from call_usermodehelper()
-gets lost somewhere along the way to kobject_uevent(). Or that I
-misread the whole thing.
+Hello David,
 
->  however, applying Francois's patch in addition to
-> yours make the resume smooth.
+We were not able to see these patches when we did a git-pull of 
+net-next-2.6. We were wondering if the patches are stuck behind
+others and not committed to the tree.
 
-Well, Francois' patch on its own should already have fixed it for you,
-and made the whole issue moot.
-
-Francois' patch is fine and improves on things, I only had a few
-arguments with it. The problems I think it had were really about some
-rather special cases.
-
-                      Linus
+Thanks.
