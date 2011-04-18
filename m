@@ -1,60 +1,46 @@
-From: Alex Dubov <oakad@yahoo.com>
-Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured incorrectly in fiber mode
-Date: Sun, 17 Apr 2011 23:43:10 -0700 (PDT)
-Message-ID: <983551.33255.qm@web37601.mail.mud.yahoo.com>
-References: <BANLkTikJ60ND7s5-jfGTBDG3BoM-294CSA@mail.gmail.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH V14 1/4] ptp: Added a brand new class driver for ptp
+	clocks.
+Date: Mon, 18 Apr 2011 08:54:35 +0200
+Message-ID: <201104180854.35552.arnd@arndb.de>
+References: <cover.1303107532.git.richard.cochran@omicron.at>
+	<7cabcc0bbd14733fa979fe08deccab8939204f24.1303107532.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Daney <ddaney@caviumnetworks.com>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>
-To: Andy Fleming <afleming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web37601.mail.mud.yahoo.com ([209.191.87.84]:21363 "HELO
-	web37601.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752587Ab1DRGnN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 02:43:13 -0400
-In-Reply-To: <BANLkTikJ60ND7s5-jfGTBDG3BoM-294CSA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <7cabcc0bbd14733fa979fe08deccab8939204f24.1303107532.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---- On Sat, 16/4/11, Andy Fleming <afleming@gmail.com> wrote:
+On Monday 18 April 2011, Richard Cochran wrote:
+> This patch adds an infrastructure for hardware clocks that implement
+> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
+> registration method to particular hardware clock drivers. Each clock is
+> presented as a standard POSIX clock.
+> 
+> The ancillary clock features are exposed in two different ways, via
+> the sysfs and by a character device.
+> 
+> Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
 
->=20
-> You could probably change to use a fixed link by removing
-> the
-> phy-handle property from your ethernet device node, and
-> adding:
-> "fixed-link=3D<0 1000 1 0 0>".=A0 If that works,
-> then the issue is that
-> Linux is breaking something when it connects. It might be
-> good enough
-> for you to use fixed-link, though it would be good to
-> actually find
-> out what's going wrong with the PHY driver.
->=20
-
-It seems, I found my problem. On the linux side it purely amount to thi=
-s:
-
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -803,7 +803,7 @@ static struct phy_driver marvell_drivers[] =3D {
-                .flags =3D PHY_HAS_INTERRUPT,
-                .config_init =3D &m88e1145_config_init,
-                .config_aneg =3D &marvell_config_aneg,
--               .read_status =3D &genphy_read_status,
-+               .read_status =3D &marvell_read_status,
-                .ack_interrupt =3D &marvell_ack_interrupt,
-                .config_intr =3D &marvell_config_intr,
-                .driver =3D { .owner =3D THIS_MODULE },
-
-But then I managed to accidentally put an incorrect value of the phy
-interrupt into dts file and it caused all kinds of weird problems.
-
-Shall I send a one-liner patch for the above?
-
+Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
