@@ -1,68 +1,30 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Suspend/resume - slow resume
-Date: Mon, 18 Apr 2011 20:25:36 +0100
-Message-ID: <1303154736.2857.46.camel@bwh-desktop>
-References: <Pine.SOC.4.64.1104150931390.1320@er3.rutgers.edu>
-	 <BANLkTinO+HFq+Mgg1aUz9V==zYs7qSBtDw@mail.gmail.com>
-	 <Pine.SOC.4.64.1104151122330.1320@er3.rutgers.edu>
-	 <BANLkTi=Gq5thZk2f1nWTz3dDA5Non8ANZg@mail.gmail.com>
-	 <20110417101731.GA17986@electric-eye.fr.zoreil.com>
-	 <BANLkTi=tPc6NmUuTYqbVZduNRNbE=-c34Q@mail.gmail.com>
-	 <20110418180813.GA18469@electric-eye.fr.zoreil.com>
-	 <BANLkTim_1OgqjCeD1a4Ay2fWJSmPHa_XTQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] bna: fix for clean fw re-initialization
+Date: Mon, 18 Apr 2011 12:28:17 -0700 (PDT)
+Message-ID: <20110418.122817.15229388.davem@davemloft.net>
+References: <1302804319-15677-1-git-send-email-rmody@brocade.com>
+	<20110414.133957.226775217.davem@davemloft.net>
+	<E5313AF6F2BFD14293E5FD0F94750F86A5D7348A7B@HQ1-EXCH01.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Ciprian Docan <docan@eden.rutgers.edu>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael, J. Wysocki" <rjw@sisk.pl>, Greg KH <gregkh@suse.de>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: netdev@vger.kernel.org, ddutt@Brocade.COM
+To: rmody@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:9321 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756591Ab1DRTZk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 15:25:40 -0400
-In-Reply-To: <BANLkTim_1OgqjCeD1a4Ay2fWJSmPHa_XTQ@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57792
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753153Ab1DRT2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 15:28:51 -0400
+In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86A5D7348A7B@HQ1-EXCH01.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-04-18 at 11:49 -0700, Linus Torvalds wrote:
-> On Mon, Apr 18, 2011 at 11:08 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> > [...]
-> >>  - unload not on close, but on device unregister (iow not when you do
-> >> "ifconfig eth0 down", but when the "eth0" device really goes away)
-> >
-> > Without further action, the firmware(s) will thus be locked in until the
-> > driver is removed.
-> 
-> I do agree. It's a downside. Maybe doing it in "close()" is the right
-> thing, as long as we don't have that crazy "every four timer ticks"
-> situation with rtl8169_reinit_task.
-> 
-> As mentioned, the only real reason for me to be worried about the
-> close thing is that I don't have a good feel for what happens at boot
-> time. Are the setup scripts going to look at the interface lots of
-> times? On my desktop, I couldn't care less, but I try to keep boot
-> time in mind.
->
-> Maybe in practice there's just a single open at boot-time (for dhcp or
-> whatever), and I'm just worried for no good reason.
-[...]
+From: Rasesh Mody <rmody@brocade.com>
+Date: Mon, 18 Apr 2011 12:26:12 -0700
 
-Well, net devices are weird - they don't have file descriptors, they
-just have names and indices which you can specify in an ioctl on any
-socket (or netlink message on an appropriate netlink socket).  Opening
-means starting the device, and I can't think of a configuration tool
-that implicitly opens a net device.  Normally they get opened by ifup or
-network-manager or the local equivalent, and then they stay open until
-an explicit action by the administrator.
+> We were not able to see these patches when we did a git-pull of 
+> net-next-2.6. We were wondering if the patches are stuck behind
+> others and not committed to the tree.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+They went into net-2.6 since they are bug fixes and you didn't specify
+which tree you wanted them to appear in.
