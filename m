@@ -1,10 +1,9 @@
 From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH V14 1/4] ptp: Added a brand new class driver for ptp
-	clocks.
-Date: Mon, 18 Apr 2011 08:54:35 +0200
-Message-ID: <201104180854.35552.arnd@arndb.de>
+Subject: Re: [PATCH V14 3/4] ptp: Added a clock driver for the IXP46x.
+Date: Mon, 18 Apr 2011 08:56:03 +0200
+Message-ID: <201104180856.04186.arnd@arndb.de>
 References: <cover.1303107532.git.richard.cochran@omicron.at>
-	<7cabcc0bbd14733fa979fe08deccab8939204f24.1303107532.git.richard.cochran@omicron.at>
+	<dbee2487a57fd7f41e4efbbd2ddfb1313b8d71bc.1303107532.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,7 +19,7 @@ Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Rodolfo Giom
 	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
 To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <7cabcc0bbd14733fa979fe08deccab8939204f24.1303107532.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+In-Reply-To: <dbee2487a57fd7f41e4efbbd2ddfb1313b8d71bc.1303107532.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
 	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
@@ -33,14 +32,31 @@ Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDA
 List-Id: netdev.vger.kernel.org
 
 On Monday 18 April 2011, Richard Cochran wrote:
-> This patch adds an infrastructure for hardware clocks that implement
-> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
-> registration method to particular hardware clock drivers. Each clock is
-> presented as a standard POSIX clock.
-> 
-> The ancillary clock features are exposed in two different ways, via
-> the sysfs and by a character device.
-> 
-> Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+> +static void ixp_rx_timestamp(struct port *port, struct sk_buff *skb)
+> +{
+> +       struct skb_shared_hwtstamps *shhwtstamps;
+> +       struct ixp46x_ts_regs *regs;
+> +       u64 ns;
+> +       u32 ch, hi, lo, val;
+> +       u16 uid, seq;
+> +
+> +       if (!port->hwts_rx_en)
+> +               return;
+> +
+> +       ch = PORT2CHANNEL(port);
+> +
+> +       regs = (struct ixp46x_ts_regs __iomem *) IXP4XX_TIMESYNC_BASE_VIRT;
+> +
+> +       val = __raw_readl(&regs->channel[ch].ch_event);
+> +
+> +       if (!(val & RX_SNAPSHOT_LOCKED))
+> +               return;
+> +
+> +       lo = __raw_readl(&regs->channel[ch].src_uuid_lo);
+> +       hi = __raw_readl(&regs->channel[ch].src_uuid_hi);
+> +
 
-Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+I guess you should use readl(), not __raw_readl() here. The __raw_* functions
+are not meant for device drivers.
+
+	Arnd
