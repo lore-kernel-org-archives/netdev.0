@@ -1,116 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/42] atm: idt77252: Fix set-but-unused variables.
-Date: Sun, 17 Apr 2011 17:32:40 -0700 (PDT)
-Message-ID: <20110417.173240.104058805.davem@davemloft.net>
+Subject: [PATCH 2/42] atm: he: Fix undefined sequence points.
+Date: Sun, 17 Apr 2011 17:32:38 -0700 (PDT)
+Message-ID: <20110417.173238.71114652.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40530
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40527
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752439Ab1DRAdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:33:15 -0400
+	by vger.kernel.org with ESMTP id S1752429Ab1DRAdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:33:12 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 0A7F624C087
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:32:41 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 8883F24C087
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:32:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Two cases here:
+GCC complains in these queue index operations because we
+perform operations of the form:
 
-1) idt77252_rx_raw() really does not make any use of the
-   extracted PTI field of the atm header.
+	x = some_operation(++x);
 
-2) idt77252_collect_stat() only uses the register values
-   in code which has been compiled out by a "NOTDEF" cpp
-   test for more than 10 years.  Just kill this NOTDEF
-   code entirely, but keep the register reads in case
-   they have side effects.
+which is undefined.  Replace with:
+
+	x = some_operation(x + 1);
+
+which is well defined and provides the intended operation.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/atm/idt77252.c |   52 +++--------------------------------------------
- 1 files changed, 4 insertions(+), 48 deletions(-)
+ drivers/atm/he.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index 048f99f..1f8d724 100644
---- a/drivers/atm/idt77252.c
-+++ b/drivers/atm/idt77252.c
-@@ -1261,14 +1261,13 @@ idt77252_rx_raw(struct idt77252_dev *card)
- 				    PCI_DMA_FROMDEVICE);
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 6cf59bf..9a51df4 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -1801,7 +1801,7 @@ return_host_buffers:
+ next_rbrq_entry:
+ 		he_dev->rbrq_head = (struct he_rbrq *)
+ 				((unsigned long) he_dev->rbrq_base |
+-					RBRQ_MASK(++he_dev->rbrq_head));
++					RBRQ_MASK(he_dev->rbrq_head + 1));
  
- 	while (head != tail) {
--		unsigned int vpi, vci, pti;
-+		unsigned int vpi, vci;
- 		u32 header;
+ 	}
+ 	read_unlock(&vcc_sklist_lock);
+@@ -1884,7 +1884,7 @@ next_tbrq_entry:
+ 			pci_pool_free(he_dev->tpd_pool, tpd, TPD_ADDR(tpd->status));
+ 		he_dev->tbrq_head = (struct he_tbrq *)
+ 				((unsigned long) he_dev->tbrq_base |
+-					TBRQ_MASK(++he_dev->tbrq_head));
++					TBRQ_MASK(he_dev->tbrq_head + 1));
+ 	}
  
- 		header = le32_to_cpu(*(u32 *) &queue->data[0]);
- 
- 		vpi = (header & ATM_HDR_VPI_MASK) >> ATM_HDR_VPI_SHIFT;
- 		vci = (header & ATM_HDR_VCI_MASK) >> ATM_HDR_VCI_SHIFT;
--		pti = (header & ATM_HDR_PTI_MASK) >> ATM_HDR_PTI_SHIFT;
- 
- #ifdef CONFIG_ATM_IDT77252_DEBUG
- 		if (debug & DBG_RAW_CELL) {
-@@ -2709,53 +2708,10 @@ idt77252_proc_read(struct atm_dev *dev, loff_t * pos, char *page)
- static void
- idt77252_collect_stat(struct idt77252_dev *card)
- {
--	u32 cdc, vpec, icc;
-+	(void) readl(SAR_REG_CDC);
-+	(void) readl(SAR_REG_VPEC);
-+	(void) readl(SAR_REG_ICC);
- 
--	cdc = readl(SAR_REG_CDC);
--	vpec = readl(SAR_REG_VPEC);
--	icc = readl(SAR_REG_ICC);
--
--#ifdef	NOTDEF
--	printk("%s:", card->name);
--
--	if (cdc & 0x7f0000) {
--		char *s = "";
--
--		printk(" [");
--		if (cdc & (1 << 22)) {
--			printk("%sRM ID", s);
--			s = " | ";
--		}
--		if (cdc & (1 << 21)) {
--			printk("%sCON TAB", s);
--			s = " | ";
--		}
--		if (cdc & (1 << 20)) {
--			printk("%sNO FB", s);
--			s = " | ";
--		}
--		if (cdc & (1 << 19)) {
--			printk("%sOAM CRC", s);
--			s = " | ";
--		}
--		if (cdc & (1 << 18)) {
--			printk("%sRM CRC", s);
--			s = " | ";
--		}
--		if (cdc & (1 << 17)) {
--			printk("%sRM FIFO", s);
--			s = " | ";
--		}
--		if (cdc & (1 << 16)) {
--			printk("%sRX FIFO", s);
--			s = " | ";
--		}
--		printk("]");
--	}
--
--	printk(" CDC %04x, VPEC %04x, ICC: %04x\n",
--	       cdc & 0xffff, vpec & 0xffff, icc & 0xffff);
--#endif
- }
- 
- static irqreturn_t
+ 	if (updated) {
 -- 
 1.7.4.3
 
