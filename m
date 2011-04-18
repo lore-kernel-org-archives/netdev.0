@@ -1,36 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: DSCP values in TCP handshake
-Date: Mon, 18 Apr 2011 16:05:12 +0200
-Message-ID: <1303135512.3137.335.camel@edumazet-laptop>
-References: <loom.20110418T154445-102@post.gmane.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 12/12] mm: Throttle direct reclaimers if PF_MEMALLOC
+ reserves are low and swap is backed by network storage
+Date: Mon, 18 Apr 2011 15:08:04 +0100
+Message-ID: <20110418140804.GC16908@suse.de>
+References: <1302777698-28237-1-git-send-email-mgorman@suse.de>
+ <1302777698-28237-13-git-send-email-mgorman@suse.de>
+ <20110418223251.7ab148bb@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Joe Buehler <aspam@cox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52053 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754260Ab1DROFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 10:05:16 -0400
-Received: by wwa36 with SMTP id 36so5708177wwa.1
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2011 07:05:15 -0700 (PDT)
-In-Reply-To: <loom.20110418T154445-102@post.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: NeilBrown <neilb@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20110418223251.7ab148bb@notabene.brown>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 18 avril 2011 =C3=A0 13:48 +0000, Joe Buehler a =C3=A9crit :
-> What does the LINUX network code put in the DSCP field of TCP SYN-ACK=
- packets
-> that are replies to a SYN connection request?  I have a customer send=
-ing SYN
-> with 0x2e in the DSCP field but apparently getting DSCP 0x0 in the re=
-ply.
+On Mon, Apr 18, 2011 at 10:32:51PM +1000, NeilBrown wrote:
+> On Thu, 14 Apr 2011 11:41:38 +0100 Mel Gorman <mgorman@suse.de> wrote:
+> 
+> > If swap is backed by network storage such as NBD, there is a risk that a
+> > large number of reclaimers can hang the system by consuming all
+> > PF_MEMALLOC reserves. To avoid these hangs, the administrator must tune
+> > min_free_kbytes in advance. This patch will throttle direct reclaimers
+> > if half the PF_MEMALLOC reserves are in use as the system is at risk of
+> > hanging. A message will be displayed so the administrator knows that
+> > min_free_kbytes should be tuned to a higher value to avoid the
+> > throttling in the future.
+> > 
+> 
+> (I knew there was something else).
+> 
+> I understand that there are suggestions that direct reclaim should always be
+> serialised as this reduces lock contention and improve data patterns (or
+> something like that).
+> 
 
-The other way (server->client) is depending on application and listener
-only.
+AFAIK, this suggestion never got much beyond the "hand-waving" stage
+of development. It tended to trip up on the fact that such a feature
+could also throttle processes on machines with plenty of free clean
+unmapped pagecache which would be undesirable.
 
-If it uses a standard socket, standard bind() + listen(), TOS is 0
+> Would that make this patch redundant? 
 
+Depends on how it was being serialised but ....
 
+> Or does this provide some extra
+> guarantee that the other proposal would not?
+> 
 
+This patch could be extended to serialise direct reclaims in situations
+other than PFMEMALLOC is low if someone demonstrated the benefit.
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
