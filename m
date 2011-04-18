@@ -1,38 +1,27 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: DSCP values in TCP handshake
-Date: Mon, 18 Apr 2011 17:57:05 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1104181750150.14027@uplift.swm.pp.se>
-References: <loom.20110418T154445-102@post.gmane.org> <1303135512.3137.335.camel@edumazet-laptop> <20110418083827.05dd2d43@nehalam>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: Driver build-testing (was: [PATCH] net: dm9000: Fix build)
+Date: Mon, 18 Apr 2011 17:07:33 +0100
+Message-ID: <20110418160732.GE9462@sirena.org.uk>
+References: <1303124677-6168-1-git-send-email-broonie@opensource.wolfsonmicro.com> <20110418111203.GB18324@rere.qmqm.pl> <20110418122522.GC9462@sirena.org.uk> <20110418145102.GA2555@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Joe Buehler <aspam@cox.net>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Micha? Miros?aw <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:51153 "EHLO uplift.swm.pp.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755501Ab1DRQDz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 12:03:55 -0400
-In-Reply-To: <20110418083827.05dd2d43@nehalam>
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:33815 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754586Ab1DRQHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 12:07:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20110418145102.GA2555@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Apr 2011, Stephen Hemminger wrote:
+On Mon, Apr 18, 2011 at 04:51:02PM +0200, Micha? Miros?aw wrote:
 
-> If you want to set DSCP in the response, the application needs to apply
-> set it on the listening socket.
->   dscp = 0x2e;
->   setsockopt(s, IPPROTO_IP, IP_TOS, &dscp, sizeof(dscp));
+> I wonder if allyesconfig/allmodconfig is supposed to include code that's
+> known not to work for a particular architecture.
 
-<http://tools.ietf.org/html/rfc2873> says this is ok, but I would like 
-default to be that if incoming SYN has a certain DSCP value, the SYN+ACK 
-should mirror this value if the application doesn't explicitly set 
-anything else.
-
-I was under the impression that mirroring was done historically, but this 
-has changed? Looking at how my apache server is behaving in 2.6.32, it 
-seems it uses 0x0 for the whole TOS byte by default. I send it 0x20 and it 
-responds with 0x0. SSH does the same thing.
-
--- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
+Well, it's certainly supposed to include things that aren't *useful*
+which is more the point here.  all*config is clearly building a
+configuration which isn't terribly useful for any particular machine.
