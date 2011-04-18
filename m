@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH v2 18/27] HFI: Map window registers into user process
-Date: Sun, 17 Apr 2011 23:21:50 -0400
-Message-ID: <1303096919-7367-19-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH v2 21/27] HFI: Add send and receive interrupts
+Date: Sun, 17 Apr 2011 23:21:53 -0400
+Message-ID: <1303096919-7367-22-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1303096919-7367-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -14,28 +14,27 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:41183 "EHLO e8.ny.us.ibm.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:45162 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752311Ab1DRDWe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752338Ab1DRDWe (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 17 Apr 2011 23:22:34 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3I2v7dP010292
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 22:57:07 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3I2uTnv020209
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 22:56:29 -0400
 Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3I3MX63342530
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3I3MXhM405914
 	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 23:22:33 -0400
 Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3I3MW0d001345
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 23:22:32 -0400
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3I3MWnp001370
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 23:22:33 -0400
 In-Reply-To: <1303096919-7367-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
 
-User-space applications send and receive without kernel involvement, once
-the window is open. A page of hardware registers controlling the appropriate
-window is mapped into the user's address space.
+Each window has its own interrupt for send interrupts and another for receive
+interrupts.
 
 Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
 Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
@@ -48,31 +47,33 @@ Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
  drivers/net/hfi/core/Makefile       |    1 +
- drivers/net/hfi/core/hfidd_map.c    |   99 +++++++++++++++++++++++++++++++++++
- drivers/net/hfi/core/hfidd_proto.h  |    4 ++
- drivers/net/hfi/core/hfidd_window.c |   51 ++++++++++++++++++-
- 4 files changed, 154 insertions(+), 1 deletions(-)
- create mode 100644 drivers/net/hfi/core/hfidd_map.c
+ drivers/net/hfi/core/hfidd_intr.c   |  127 +++++++++++++++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_proto.h  |    3 +
+ drivers/net/hfi/core/hfidd_window.c |   16 ++++-
+ include/linux/hfi/hfidd_client.h    |   17 +++++
+ include/linux/hfi/hfidd_internal.h  |    2 +
+ 6 files changed, 165 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/net/hfi/core/hfidd_intr.c
 
 diff --git a/drivers/net/hfi/core/Makefile b/drivers/net/hfi/core/Makefile
-index 8d5558d..3adf07e 100644
+index 3adf07e..d2ed86f 100644
 --- a/drivers/net/hfi/core/Makefile
 +++ b/drivers/net/hfi/core/Makefile
-@@ -5,5 +5,6 @@ hfi_core-objs:=	hfidd_adpt.o \
- 		hfidd_window.o \
+@@ -6,5 +6,6 @@ hfi_core-objs:=	hfidd_adpt.o \
  		hfidd_init.o \
  		hfidd_xlat.o \
-+		hfidd_map.o \
+ 		hfidd_map.o \
++		hfidd_intr.o \
  		hfidd_hcalls.o
  obj-$(CONFIG_HFI) += hfi_core.o
-diff --git a/drivers/net/hfi/core/hfidd_map.c b/drivers/net/hfi/core/hfidd_map.c
+diff --git a/drivers/net/hfi/core/hfidd_intr.c b/drivers/net/hfi/core/hfidd_intr.c
 new file mode 100644
-index 0000000..816e7ae
+index 0000000..253de27
 --- /dev/null
-+++ b/drivers/net/hfi/core/hfidd_map.c
-@@ -0,0 +1,99 @@
++++ b/drivers/net/hfi/core/hfidd_intr.c
+@@ -0,0 +1,127 @@
 +/*
-+ * hfidd_map.c
++ * hfidd_intr.c
 + *
 + * HFI device driver for IBM System p
 + *
@@ -103,171 +104,204 @@ index 0000000..816e7ae
 + *
 + */
 +
-+#include <linux/io.h>
 +#include <linux/hfi/hfidd_internal.h>
++#include "hfidd_proto.h"
 +
-+int hfidd_mmap(struct hfidd_acs *p_acs, void **eaddr, int size,
-+		unsigned long vm_flag, unsigned long long busaddr,
-+		unsigned long long offset)
++static irqreturn_t send_intr_handler(int irq, void *data)
 +{
-+	struct vm_area_struct	*vma;
-+	unsigned long		vsize;
-+	int			rc;
++	struct hfidd_window *win_p = data;
++	struct hfidd_acs *p_acs;
 +
-+	down_write(&current->mm->mmap_sem);
-+	*eaddr = (void *)do_mmap(NULL, (unsigned long)*eaddr, size, PROT_WRITE,
-+			MAP_SHARED | MAP_ANONYMOUS,
-+			offset);
-+	up_write(&current->mm->mmap_sem);
-+	if (*eaddr) {
-+		vma = find_vma(current->mm, (u64) *eaddr);
-+		if (!vma) {
-+			dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+				"hfidd_mmap: find_vma failed\n");
-+			return -ENOMEM;
-+		}
-+	} else {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_mmap: do_mmap failed\n");
-+		return -ENOMEM;
-+	}
++	p_acs = hfidd_global.p_acs[win_p->ai];
++	if (p_acs == NULL)
++		return IRQ_HANDLED;
 +
-+	vsize = vma->vm_end - vma->vm_start;
-+	if (vsize != size) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_mmap: Wrong sizes: vsize = %ld "
-+			"size = %d\n", vsize, size);
-+		return -EINVAL;
-+	}
-+
-+	if (vm_flag == VM_RESERVED)
-+		vma->vm_page_prot = pgprot_val(vma->vm_page_prot);
-+	else
-+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-+	vma->vm_flags |= vm_flag;
-+
-+	rc = remap_pfn_range(vma, vma->vm_start, busaddr >> PAGE_SHIFT, size,
-+			vma->vm_page_prot);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_mmap: remap_pfn_range failed\n");
-+		return -ENOMEM;
-+	}
-+
-+	return 0;
++	return IRQ_HANDLED;
 +}
 +
-+int hfidd_unmap(void *addr, int size)
++static irqreturn_t recv_intr_handler(int irq, void *data)
 +{
-+	int rc = 0;
-+	struct mm_struct *mm = current->mm;
++	struct hfidd_window *win_p = data;
++	struct hfidd_acs *p_acs;
 +
-+	if (mm && (addr != NULL)) {
-+		down_write(&mm->mmap_sem);
-+		rc = do_munmap(mm, (unsigned long)addr, size);
-+		up_write(&mm->mmap_sem);
++	p_acs = hfidd_global.p_acs[win_p->ai];
++	if (p_acs == NULL)
++		return IRQ_HANDLED;
++
++	return IRQ_HANDLED;
++}
++
++static inline void hfidd_clear_interrupt(unsigned int int_level,
++			struct hfidd_window *win_p)
++{
++	ibmebus_free_irq(int_level, win_p);
++}
++
++static int hfidd_init_interrupt(struct hfidd_acs *p_acs,
++		struct hfidd_window *win_p ,
++		irqreturn_t (*handler)(int, void *),
++		const char *name,
++		unsigned int int_level)
++{
++	int rc;
++
++	rc = ibmebus_request_irq(int_level, handler, IRQF_DISABLED, name,
++			win_p);
++	if (rc != 0) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_init_interrupt: request_irq failed for "
++			"int_level 0x%x rc %d\n", int_level, rc);
++		return rc;
 +	}
-+
 +	return rc;
 +}
-diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
-index c4ed215..1f7fe80 100644
---- a/drivers/net/hfi/core/hfidd_proto.h
-+++ b/drivers/net/hfi/core/hfidd_proto.h
-@@ -57,6 +57,10 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- int hfi_register_rpages(struct hfidd_acs *p_acs, unsigned long long mr_handle,
- 		unsigned int submr, struct hfidd_vlxmem *xtab_p,
- 		unsigned int *mapped_pages);
-+int hfidd_mmap(struct hfidd_acs *p_acs, void **eaddr, int size,
-+		unsigned long vm_flag, unsigned long long busaddr,
-+		unsigned long long offset);
-+int hfidd_unmap(void *addr, int size);
- int hfidd_get_phyp_page(struct hfidd_acs *p_acs, caddr_t *page,
- 	caddr_t *laddr, int size);
- void hfidd_release_phyp_page(caddr_t page, int size);
-diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
-index c20277b..5d319a1 100644
---- a/drivers/net/hfi/core/hfidd_window.c
-+++ b/drivers/net/hfi/core/hfidd_window.c
-@@ -874,6 +874,44 @@ setup_window_parm_err1:
- 	return rc;
- }
- 
-+/* Map the window mmio registers - only user space window */
-+static int hfi_map_mmio_regs(struct hfidd_acs *p_acs,
-+		unsigned int is_userspace,
-+		struct hfidd_window *win_p,
-+		struct hfi_client_info *client_p)
-+{
-+	int			rc = 0;
-+	unsigned long long	offset;
-+	void			*tmp_eaddr;
 +
-+	if (!is_userspace) {
-+		/* No translation, just pass back the logical address */
-+		client_p->mmio_regs.use.kptr = (void *)win_p->mmio_regs;
-+		win_p->client_info.mmio_regs.use.kptr =
-+				(void *)win_p->mmio_regs;
-+	} else {
-+		/*
-+		 * Translate mmio_regs from logical to effective address: 1st
-+		 * page
-+		 */
-+		tmp_eaddr = 0;
-+		offset = (client_p->window) << PAGE_SHIFT_64K;
-+		rc = hfidd_mmap(p_acs, &tmp_eaddr, PAGE_SIZE_64K,
-+				VM_RESERVED | VM_IO,
-+				(long long)win_p->mmio_regs, offset);
-+		if (rc) {
-+			dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+				"hfi_map_mmio_regs: hfidd_mmap mmio_regs "
-+				"failed, rc = 0x%x, mmio_regs = 0x%llx\n",
-+				rc, (unsigned long long)win_p->mmio_regs);
-+			return rc;
-+		}
-+		client_p->mmio_regs.use.kptr = tmp_eaddr;
-+		win_p->client_info.mmio_regs.use.kptr = tmp_eaddr;
++int hfidd_init_win_interrupt(struct hfidd_acs *p_acs,
++		struct hfidd_window *win_p)
++{
++	int rc;
++
++	/* init send interrupt handler */
++	snprintf(win_p->send_name, IRQ_NAME_SIZE - 1, "%s%d-send%d",
++		HFIDD_DEV_NAME, p_acs->index, win_p->index);
++	rc = hfidd_init_interrupt(p_acs, win_p, send_intr_handler,
++		win_p->send_name, win_p->send_intr);
++	if (rc != 0) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_init_win_interrupt: send int failed, "
++			"rc = 0x%x\n", rc);
++		return rc;
++	}
++
++	/* init recv interrupt handler */
++	snprintf(win_p->recv_name, IRQ_NAME_SIZE - 1, "%s%d-recv%d",
++		HFIDD_DEV_NAME, p_acs->index, win_p->index);
++	rc = hfidd_init_interrupt(p_acs, win_p, recv_intr_handler,
++		win_p->recv_name, win_p->recv_intr);
++	if (rc != 0) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_init_win_interrupt: recv int failed, "
++			"rc = 0x%x\n", rc);
++		hfidd_clear_interrupt(win_p->send_intr, win_p);
++		return rc;
 +	}
 +	return 0;
 +}
 +
- /*
-  * Allows an user/kernel window to send/receive network traffic thru HFI
-  * adapter. This function will allocate the system resources needed to open
-@@ -940,6 +978,14 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 		goto hfidd_open_window_func_err4;
- 	}
- 
-+	rc = hfi_map_mmio_regs(p_acs, is_userspace, win_p, local_p);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_open_window_func: hfi_map_mmio_regs "
-+			"failed, rc = 0x%x\n", rc);
-+		goto hfidd_open_window_func_err4;
++void hfidd_clear_win_interrupt(struct hfidd_window *win_p)
++{
++	if (win_p->send_intr != 0) {
++		hfidd_clear_interrupt(win_p->send_intr, win_p);
++		win_p->send_intr = 0;
 +	}
-+
- 	/* tell user the local ISR id */
++	if (win_p->recv_intr != 0) {
++		hfidd_clear_interrupt(win_p->recv_intr, win_p);
++		win_p->recv_intr = 0;
++	}
++}
+diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
+index f531dcd..af88f0b 100644
+--- a/drivers/net/hfi/core/hfidd_proto.h
++++ b/drivers/net/hfi/core/hfidd_proto.h
+@@ -73,6 +73,9 @@ int hfidd_query_interface(struct hfidd_acs *p_acs, unsigned int subtype,
+ int hfidd_start_nmmu(struct hfidd_acs *p_acs);
+ int hfidd_start_interface(struct hfidd_acs *p_acs);
+ int hfidd_stop_interface(struct hfidd_acs *p_acs, unsigned int hfi_id);
++int hfidd_init_win_interrupt(struct hfidd_acs *p_acs,
++		struct hfidd_window *win_p);
++void hfidd_clear_win_interrupt(struct hfidd_window *win_p);
+ long long hfi_start_nmmu(u64 chip_id, void *nmmu_info);
+ long long hfi_stop_nmmu(u64 chip_id);
+ long long hfi_open_window(u64 unit_id, u64 win_id, u64 flag,
+diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
+index fd692eb..6864eae 100644
+--- a/drivers/net/hfi/core/hfidd_window.c
++++ b/drivers/net/hfi/core/hfidd_window.c
+@@ -1049,6 +1049,15 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
  	local_p->local_isrid = p_acs->isr;
  	win_p->client_info.local_isrid = p_acs->isr;
-@@ -951,7 +997,7 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+ 
++	/* Init the send and recv interrupt handlers */
++	rc = hfidd_init_win_interrupt(p_acs, win_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_open_window_func: hfidd_init_win_interrupt "
++			"failed, rc = 0x%x\n", rc);
++		goto hfidd_open_window_func_err6;
++	}
++
+ 	/* Copy out the client info back to user */
+ 	rc = hfi_copy_to_user((void *)out_p, (void *)local_p,
+ 			is_userspace, sizeof(struct hfi_client_info));
+@@ -1056,7 +1065,7 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
  		dev_printk(KERN_ERR, p_acs->hfidd_dev,
  			"hfidd_open_window_func: hfi_copy_to_user "
  			"failed, rc = 0x%x\n", rc);
--		goto hfidd_open_window_func_err4;
-+		goto hfidd_open_window_func_err5;
+-		goto hfidd_open_window_func_err6;
++		goto hfidd_open_window_func_err7;
  	}
  
  	spin_lock(&(win_p->win_lock));
-@@ -963,6 +1009,9 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+@@ -1068,6 +1077,8 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
  	kfree(local_p);
  	return rc;
  
-+hfidd_open_window_func_err5:
-+	if (is_userspace)
-+		hfidd_unmap(local_p->mmio_regs.use.kptr, PAGE_SIZE_64K);
- hfidd_open_window_func_err4:
- 	hfi_destroy_window_parm(p_acs, is_userspace, win_p, local_p);
- hfidd_open_window_func_err3:
++hfidd_open_window_func_err7:
++	hfidd_clear_win_interrupt(win_p);
+ hfidd_open_window_func_err6:
+ 	if (is_userspace)
+ 		hfidd_unmap(local_p->mmio_regs.use.kptr, PAGE_SIZE_64K);
+@@ -1134,6 +1145,9 @@ int hfidd_close_window_internal(struct hfidd_acs *p_acs,
+ 	}
+ 	spin_unlock(&(win_p->win_lock));
+ 
++	/* Clear the send and recv interrupt handlers */
++	hfidd_clear_win_interrupt(win_p);
++
+ 	rc = hfi_unmap_mmio_regs(p_acs, win_p, is_userspace);
+ 	if (rc) {
+ 		dev_printk(KERN_ERR, p_acs->hfidd_dev,
+diff --git a/include/linux/hfi/hfidd_client.h b/include/linux/hfi/hfidd_client.h
+index 11c8973..3b2d032 100644
+--- a/include/linux/hfi/hfidd_client.h
++++ b/include/linux/hfi/hfidd_client.h
+@@ -121,6 +121,23 @@ struct hfi_window_info {
+ 	unsigned int		window;
+ };
+ 
++/* Event Notification */
++enum hfi_event_type {
++	HFIDD_SEND		= 0,
++	HFIDD_RECV		= 1,
++	HFIDD_WIN_ERROR		= 2,
++	HFIDD_HFI_ERROR		= 3,
++	HFIDD_TERMINATE		= 4,
++	HFIDD_RELEASE_WINDOW	= 5,
++	HFIDD_CAU_ERROR		= 6,
++	HFIDD_ICS_ERROR		= 7,
++	HFIDD_HFI_READY_REG	= 8,
++	HFIDD_ROUTE_CHANGE	= 9,
++	HFIDD_IP_TRC_LVL	= 10,	/* IP Window only */
++	HFIDD_POOL_SIZE		= 11,	/* IP Window only */
++	HFIDD_NUM_EVENT_TYPES	= 12
++};
++
+ #define MAX_TORRENTS            1
+ #define MAX_HFI_PER_TORRENT     2
+ #define MAX_HFIS                (MAX_TORRENTS * MAX_HFI_PER_TORRENT)
+diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
+index 0d6b77b..e96142a 100644
+--- a/include/linux/hfi/hfidd_internal.h
++++ b/include/linux/hfi/hfidd_internal.h
+@@ -145,6 +145,8 @@ struct hfidd_global {
+ 	struct hfidd_acs	*p_acs[MAX_HFIS];
+ };
+ 
++extern struct hfidd_global hfidd_global;
++
+ static inline struct hfidd_window *hfi_window(struct hfidd_acs *p,
+ 		unsigned int idx)
+ {
 -- 
 1.7.3.5
 
