@@ -1,42 +1,36 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: [PATCH] net: dm9000: Fix build
-Date: Mon, 18 Apr 2011 12:04:37 +0100
-Message-ID: <1303124677-6168-1-git-send-email-broonie@opensource.wolfsonmicro.com>
-Cc: netdev@vger.kernel.org, patches@opensource.wolfsonmicro.com,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Driver build-testing (was: [PATCH] net: dm9000: Fix build)
+Date: Mon, 18 Apr 2011 13:12:03 +0200
+Message-ID: <20110418111203.GB18324@rere.qmqm.pl>
+References: <1303124677-6168-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from opensource.wolfsonmicro.com ([80.75.67.52]:36520 "EHLO
-	opensource2.wolfsonmicro.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752422Ab1DRLEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 07:04:35 -0400
+Received: from rere.qmqm.pl ([89.167.52.164]:32897 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750991Ab1DRLME (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2011 07:12:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1303124677-6168-1-git-send-email-broonie@opensource.wolfsonmicro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit c88fcb (net: dm9000: convert to hw_features) broke the build of
-the dm9000 driver since it merged functions which use different names
-for the board info structure used for I/O operations without updating
-all the references to use the same name. Fix that.
+On Mon, Apr 18, 2011 at 12:04:37PM +0100, Mark Brown wrote:
+> Commit c88fcb (net: dm9000: convert to hw_features) broke the build o=
+f
+> the dm9000 driver since it merged functions which use different names
+> for the board info structure used for I/O operations without updating
+> all the references to use the same name. Fix that.
 
-Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
----
- drivers/net/dm9000.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+[...]
 
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index f7bdebb..fbaff35 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -768,7 +768,7 @@ dm9000_init_dm9000(struct net_device *dev)
- 
- 	/* Checksum mode */
- 	if (dev->hw_features & NETIF_F_RXCSUM)
--		iow(dm, DM9000_RCSR,
-+		iow(db, DM9000_RCSR,
- 			(dev->features & NETIF_F_RXCSUM) ? RCSR_CSUM : 0);
- 
- 	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
--- 
-1.7.4.1
+This brings the issue of build testing effectiveness. In current code
+there is no configuration that makes all drivers build. I would like
+to see something like 'make brokenconfig' that would allow most of
+the code to be built, and not necessarily working. Maybe someone has
+an idea how to implement that?
 
+Best Regards,
+Micha=B3 Miros=B3aw
