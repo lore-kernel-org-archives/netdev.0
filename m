@@ -1,148 +1,94 @@
-From: Shannon Lavenia <contact@shannonlavenia.com>
-Subject: What if?
-Date: Mon, 18 Apr 2011 11:34:44 -0700
-Message-ID: <Fy1dTeEvyocaD7AXd7CuwmgLqVdz7y3HeVWf06HdROYs@shannonlavenia.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count
+ = 8
+Date: Tue, 19 Apr 2011 00:12:27 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1104182316060.1481@ja.ssi.bg>
+References: <201104150901.47214.hans@schillstrom.com> <alpine.LFD.2.00.1104152229450.1730@ja.ssi.bg> <201104180810.27198.hans@schillstrom.com> <201104181243.30613.hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway13.websitewelcome.com ([67.18.44.4]:42500 "HELO
-	gateway13.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751750Ab1DRVEt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 17:04:49 -0400
-Received: from c-71-226-125-153.hsd1.az.comcast.net ([71.226.125.153]:48266 helo=[10.0.1.2])
-	by savana.websitewelcome.com with esmtpa (Exim 4.69)
-	(envelope-from <contact@shannonlavenia.com>)
-	id 1QBtHY-00081j-DM
-	for netdev@vger.kernel.org; Mon, 18 Apr 2011 13:34:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi,
-
-I hope you had a great weekend. John and I
-spent the time playing with our daughter...
-hard to believe she's 6 months old already.
-
-Watching her grow made me realize that
-time really does go by fast.
-
-It's almost Easter already and a quarter
-of the year has just flown by.
-
-Which made me think: Will 2011 be
-"just another year", or will it be
-EXTRAORDINARY.
-
-This year is turning out fantastic for us and
-I sincerely hope it is for you too. We're taking
-every step possible towards our goal:
-
-"To help 100 people achieve their financial
-and personal goals".
-
-We made a decision a few months ago
-to really focus on helping more people
-achieve success...to help people
-realize the freedom that we enjoy
-working for ourselves.
-
-We're doing it with http://www.UprofitPro.com
-
-I mean, let's face it, with all the
-fear mongering going on in the news
-right now, it's easy for you and I to think
-that it's hopeless.
-
-But, it really isn't. Yes, there is a huge
-transfer of wealth happening right now.
-That doesn't mean you have to lay down
-and be on the wrong side of the transfer.
-
-You CAN win and win BIG right now
-just by knowing a few key steps to take
-that will make a HUGE difference.
-
-We started UprofitPro to give you
-access to:
-
-1. Success coaching from 7 figure
-earners and our exclusive alliance
-of mentors including The Home Business
-Diva Robin Firestone, Michael Hamburger -
-Executive Vice President of Marketing at
-WMI, Neal Peterson - World Renowned
-Motivational Speaker and more.
-
-That means you'll get motivated and
-inspired whether you want to be or not...
-on a daily basis.
-
-Keeping your energy up is key to
-success.
-
-2. A very simple, yet powerful, way to
-generate an on-going residual income
-stream without ever mentioning it to
-your friends, family or neighbors.
-
-We actually do most of the marketing
-for you...it's that simple.
-
-3. And, if you're already building
-a home based business, a way to
-generate the highest quality, highest
-converting leads known to man.
-
-I know that sounds a bit "hypey", but
-it's true. We'll show you how to get the
-same quality of leads that top marketers
-get and how to make money generating
-leads instead of paying for them.
-
-How serious are we about helping people?
-
-John and I usually charge upwards of $500.00
-for a 45 minute session of coaching.
-
-Seriously.
-
-But, we're giving you full access to the
-UprofitPro coaching and wealth building
-system for only $1.00.
-
-You have nothing to lose and everything
-to gain.
-
-If, after a week you say "not for me", we'll
-give you your buck back and wish you all the
-best.
-
-But, we know you won't. Noone has yet. Because
-everything we've got in store for you will simply
-blow you away.
-
-So, give yourself a great boost today
-and a huge step towards running first through
-that ribbon at the finish line by joining us
-at http://www.uprofitpro.com.
-
-You'll be grateful you did.
-
-With you in success!
-Shannon Lavenia
-Co-founder, Uprofitpro.com
-+1(323) 834-9274
-
-PS: If you have any questions, feel free to
-give us ring. You'll get instant access to
-all the member resources, training and coaching
-videos.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <201104181243.30613.hans@schillstrom.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+	Hello,
 
+On Mon, 18 Apr 2011, Hans Schillstrom wrote:
 
+> Actually I forgot to tell there is a need for a
+> ip_vs_service_cleanup() due to above.
+> Do you see any drawbacks with it ?
 
+	May be ip_vs_service_cleanup() should call only
+ip_vs_flush(), under __ip_vs_mutex.
+
+> /*
+>  *	Delete service by {netns} in the service table.
+>  */
+> static void ip_vs_service_cleanup(struct net *net)
+> {
+> 	unsigned hash;
+> 	struct ip_vs_service *svc, *tmp;
+> 
+> 	EnterFunction(2);
+> 	/* Check for "full" addressed entries */
+> 	for (hash = 0; hash<IP_VS_SVC_TAB_SIZE; hash++) {
+> 		write_lock_bh(&__ip_vs_svc_lock);
+> 		list_for_each_entry_safe(svc, tmp, &ip_vs_svc_table[hash],
+> 					 s_list) {
+> 			if (net_eq(svc->net, net)) {
+> 				ip_vs_svc_unhash(svc);
+> 				__ip_vs_del_service(svc);
+> 			}
+> 		}
+> 		list_for_each_entry_safe(svc, tmp, &ip_vs_svc_fwm_table[hash],
+> 					 f_list) {
+> 			if (net_eq(svc->net, net)) {
+> 				ip_vs_svc_unhash(svc);
+> 				__ip_vs_del_service(svc);
+> 			}
+> 		}
+> 		write_unlock_bh(&__ip_vs_svc_lock);
+> 	}
+> 	LeaveFunction(2);
+> }
+> 
+> Called just after the __ip_vs_control_cleanup_sysctl()
+
+	Hm, no. ip_vs_service_cleanup() should be called
+by ip_vs_cleanup() before or after nf_unregister_hooks().
+The rule is that ip_vs_flush() should be called before
+ip_vs_conn_flush() because after ip_vs_flush() no more
+connections can be created and even if hooks are still
+registered the packets can not create conns in the netns. Then
+ip_vs_conn_flush() will remove all existing connections and
+ip_vs_control_cleanup() can remove all real servers with
+ip_vs_trash_cleanup(). I mean, per-netns calls.
+
+	Also, may be all code that was called in old
+kernels by ip_vs_cleanup() should be now called by
+__ip_vs_cleanup(net), i.e. we can preserve the needed order
+of all functions but now also per-netns. For example, for
+ip_vs_ctl.c ip_vs_control_init() can remain as global but it
+should not register ipvs_control_ops. Then we
+can rename __ip_vs_control_init to ip_vs_control_init_net()
+and to call it from __ip_vs_init(). I.e. all such files
+will have global function and also _init_net and
+_cleanup_net. Now there are many register_pernet_subsys()
+calls and I'm not sure we preserve the needed order for
+cleanup. Are the ->exit methods called in reverse order?
+I don't see it in ops_exit_list() and we can not rely
+on such registration order. I think, ip_vs_init() should
+call global functions as now but __ip_vs_init() and
+__ip_vs_cleanup() should call the _net methods in right
+order.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
