@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2011-04-17
-Date: Sun, 17 Apr 2011 17:38:26 -0700 (PDT)
-Message-ID: <20110417.173826.232897573.davem@davemloft.net>
-References: <1303068618-27928-1-git-send-email-sven@narfation.org>
+Subject: Re: [PATCH] net: macvlan: convert to hw_features
+Date: Sun, 17 Apr 2011 17:41:12 -0700 (PDT)
+Message-ID: <20110417.174112.71581911.davem@davemloft.net>
+References: <20110417101546.8337A13A64@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: sven@narfation.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55175
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55178
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752549Ab1DRAjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:39:01 -0400
-In-Reply-To: <1303068618-27928-1-git-send-email-sven@narfation.org>
+	by vger.kernel.org with ESMTP id S1752445Ab1DRAlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:41:46 -0400
+In-Reply-To: <20110417101546.8337A13A64@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
-Date: Sun, 17 Apr 2011 21:30:10 +0200
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Sun, 17 Apr 2011 12:15:46 +0200 (CEST)
 
-> I would like to propose following patches for net-next-2.6/2.6.40. Most of the
-> stuff is cleanup work to reduce the locking complexity. The only exception is
-> Andrew Lunn's patch, which only adds the initialisation of tx_queue_len.
+> Not much of a conversion anyway - macvlan has no way to change the of=
+fload
+> settings independently to its base device.
+>=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-Pulled, thanks.
+Applied.
