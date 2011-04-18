@@ -1,89 +1,83 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH V14 4/4] ptp: Added a clock driver for the National
- Semiconductor PHYTER.
-Date: Mon, 18 Apr 2011 21:57:25 +0100
-Message-ID: <1303160245.2857.60.camel@bwh-desktop>
-References: <cover.1303107532.git.richard.cochran@omicron.at>
-	 <1728ffb5735c2a04876a69ad55427c4e7b5a1bd7.1303107532.git.richard.cochran@omicron.at>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 33332] New: IC Plus Corp IP1000 Family Gigabit
+ Ethernet and OpenSuSE (x86, x86_64)
+Date: Mon, 18 Apr 2011 14:00:50 -0700
+Message-ID: <20110418140050.2c194660.akpm@linux-foundation.org>
+References: <bug-33332-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	John Stultz <john.stultz@linaro.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Russell King <linux@arm.linux.org.uk>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1728ffb5735c2a04876a69ad55427c4e7b5a1bd7.1303107532.git.richard.cochran@omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, gearge@gmail.com,
+	Denis Kirjanov <dkirjanov@kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:56156 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751675Ab1DRVBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 17:01:44 -0400
+In-Reply-To: <bug-33332-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-04-18 at 08:30 +0200, Richard Cochran wrote:
-> This patch adds support for the PTP clock found on the DP83640.
-> The basic clock operations and one external time stamp have
-> been implemented.
-[...]
-> --- /dev/null
-> +++ b/drivers/net/phy/dp83640.c
-[...]
-> +static int match(struct sk_buff *skb, unsigned int type, struct rxts *rxts)
-> +{
-> +	u16 *seqid;
 
-Should be __be16 *, and similarly for the casts.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-> +	u8 *msgtype, *data = skb_mac_header(skb);
-> +
-> +	/* check sequenceID, messageType, 12 bit hash of offset 20-29 */
-> +	/* We assume that the IPv4 header has no options. */
+On Fri, 15 Apr 2011 16:32:20 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Does the hardware definitely not timestamp received packets with IP
-options?
+> https://bugzilla.kernel.org/show_bug.cgi?id=33332
+> 
+>            Summary: IC Plus Corp IP1000 Family Gigabit Ethernet and
+>                     OpenSuSE (x86, x86_64)
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.34.7-0.7-desktop
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: gearge@gmail.com
+>         Regression: No
+> 
+> 
+> I have an odd problem with my NIC; on both x86 and x86_64 OpenSuSE 11.3 I lose
+> network connectivity with my gateway router, if heavy downloading is evolved
+> (e.g. downloading a large file over HTTP or any activity - large or small - on
+> bittorrent). I have no limitations on my ISP side and the router is working
+> fine. I even upgraded to the latest firmware from my wireless router's vendor
+> and installed third party firmware, but the problem remains. While I lose
+> connectivity on the wired network segment (my PC is directly connected to the
+> router), the wireless segment continues to operate. What's even more odd, I
+> have no networking issues while watching streaming media - normal or higher
+> quality.
+> 
+> Information about my network card:
+> 
+> 06:01.0 Ethernet controller [0200]: Sundance Technology Inc / IC Plus Corp
+> IP1000 Family Gigabit Ethernet [13f0:1023] (rev 41)
+> 
+> 1: None 00.0: 10701 Ethernet
+> [Created at net.124]
+> Unique ID: usDW.ndpeucax6V1
+> Parent ID: rBUF.H29BqU8ALB5
+> SysFS ID: /class/net/eth0
+> SysFS Device Link: /devices/pci0000:00/0000:00:1e.0/0000:06:01.0
+> Hardware Class: network interface
+> Model: "Ethernet network interface"
+> Driver: "Sundance Technology IPG Triple-Speed Ethernet"
+> Driver Modules: "ipg"
+> Device File: eth0
+> HW Address:
+> Link detected: yes
+> Config Status: cfg=new, avail=yes, need=no, active=unknown
+> Attached to: #31 (Ethernet controller)
+> 
+> Please assist in resolving this issue.
+> 
 
-> +	switch (type) {
-> +	case PTP_CLASS_V1_IPV4:
-> +		msgtype = data + 42 + 32;
-> +		seqid = (u16 *)(data + 42 + 30);
-> +		break;
-> +	case PTP_CLASS_V1_IPV6:
-> +		msgtype = data + 62 + 32;
-> +		seqid = (u16 *)(data + 62 + 30);
-> +		break;
-> +	case PTP_CLASS_V2_IPV4:
-> +		msgtype = data + 42 + 0;
-> +		seqid = (u16 *)(data + 42 + 30);
-> +		break;
-> +	case PTP_CLASS_V2_IPV6:
-> +		msgtype = data + 62 + 0;
-> +		seqid = (u16 *)(data + 62 + 30);
-> +		break;
-> +	case PTP_CLASS_V2_L2:
-> +		msgtype = data + 14 + 0;
-> +		seqid = (u16 *)(data + 14 + 30);
-> +		break;
-> +	case PTP_CLASS_V2_VLAN:
-> +		msgtype = data + 18 + 0;
-> +		seqid = (u16 *)(data + 18 + 30);
-> +		break;
-[...]
-
-Would be better without the magic numbers.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
