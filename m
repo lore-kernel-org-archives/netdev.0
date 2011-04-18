@@ -1,67 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 7/42] econet: Fix set-but-unused variable.
-Date: Sun, 17 Apr 2011 17:32:54 -0700 (PDT)
-Message-ID: <20110417.173254.39184498.davem@davemloft.net>
+Subject: [PATCH 9/42] atm: lec: Fix set-but-unused variables.
+Date: Sun, 17 Apr 2011 17:32:59 -0700 (PDT)
+Message-ID: <20110417.173259.115936830.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40542
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40548
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752429Ab1DRAd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:33:28 -0400
+	by vger.kernel.org with ESMTP id S1753701Ab1DRAde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 20:33:34 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 3A2A124C087
-	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:32:54 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 73B8524C089
+	for <netdev@vger.kernel.org>; Sun, 17 Apr 2011 17:32:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-#if 0'd out code for IP handling in aun_data_available() has
-been commented out since the beginning, which makes the variable
-"ip" set but not used.
+The variable 'eth' is set but unused in lec_handle_bridge().  Also,
+the variable 'priv' is set but unused in lane_module_cleanup().
 
-Kill it off as well as the stub code.
+Just kill them off.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/econet/af_econet.c |    8 --------
- 1 files changed, 0 insertions(+), 8 deletions(-)
+ net/atm/lec.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
-index 116d3fd..a1d9f37 100644
---- a/net/econet/af_econet.c
-+++ b/net/econet/af_econet.c
-@@ -935,7 +935,6 @@ static void aun_data_available(struct sock *sk, int slen)
- 	struct sk_buff *skb;
- 	unsigned char *data;
- 	struct aunhdr *ah;
--	struct iphdr *ip;
- 	size_t len;
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 38754fd..25073b6 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -129,7 +129,6 @@ static struct net_device *dev_lec[MAX_LEC_ITF];
+ #if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+ static void lec_handle_bridge(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct ethhdr *eth;
+ 	char *buff;
+ 	struct lec_priv *priv;
  
- 	while ((skb = skb_recv_datagram(sk, 0, 1, &err)) == NULL) {
-@@ -949,7 +948,6 @@ static void aun_data_available(struct sock *sk, int slen)
- 	data = skb_transport_header(skb) + sizeof(struct udphdr);
- 	ah = (struct aunhdr *)data;
- 	len = skb->len - sizeof(struct udphdr);
--	ip = ip_hdr(skb);
+@@ -138,7 +137,6 @@ static void lec_handle_bridge(struct sk_buff *skb, struct net_device *dev)
+ 	 * LE_TOPOLOGY_REQUEST with the same value of Topology Change bit
+ 	 * as the Config BPDU has
+ 	 */
+-	eth = (struct ethhdr *)skb->data;
+ 	buff = skb->data + skb->dev->hard_header_len;
+ 	if (*buff++ == 0x42 && *buff++ == 0x42 && *buff++ == 0x03) {
+ 		struct sock *sk;
+@@ -1180,7 +1178,6 @@ static int __init lane_module_init(void)
+ static void __exit lane_module_cleanup(void)
+ {
+ 	int i;
+-	struct lec_priv *priv;
  
- 	switch (ah->code)
- 	{
-@@ -962,12 +960,6 @@ static void aun_data_available(struct sock *sk, int slen)
- 	case 4:
- 		aun_tx_ack(ah->handle, ECTYPE_TRANSMIT_NOT_LISTENING);
- 		break;
--#if 0
--		/* This isn't quite right yet. */
--	case 5:
--		aun_send_response(ip->saddr, ah->handle, 6, ah->cb);
--		break;
--#endif
- 	default:
- 		printk(KERN_DEBUG "unknown AUN packet (type %d)\n", data[0]);
- 	}
+ 	remove_proc_entry("lec", atm_proc_root);
+ 
+@@ -1188,7 +1185,6 @@ static void __exit lane_module_cleanup(void)
+ 
+ 	for (i = 0; i < MAX_LEC_ITF; i++) {
+ 		if (dev_lec[i] != NULL) {
+-			priv = netdev_priv(dev_lec[i]);
+ 			unregister_netdev(dev_lec[i]);
+ 			free_netdev(dev_lec[i]);
+ 			dev_lec[i] = NULL;
 -- 
 1.7.4.3
 
