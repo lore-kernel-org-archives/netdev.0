@@ -1,71 +1,54 @@
-From: Jon Mason <jon.mason@myri.com>
-Subject: Re: [PATCH] net: myri10ge: convert to hw_features
-Date: Mon, 18 Apr 2011 09:24:17 -0500
-Message-ID: <20110418142413.GA1937@myri.com>
-References: <20110415145050.0D65C13A66@rere.qmqm.pl>
- <20110415182922.GA2458@myri.com>
- <20110417.233053.70188684.davem@davemloft.net>
- <20110418110347.GA18324@rere.qmqm.pl>
+From: Micha? Miros?aw <mirq-linux@rere.qmqm.pl>
+Subject: Re: Driver build-testing (was: [PATCH] net: dm9000: Fix build)
+Date: Mon, 18 Apr 2011 16:51:02 +0200
+Message-ID: <20110418145102.GA2555@rere.qmqm.pl>
+References: <1303124677-6168-1-git-send-email-broonie@opensource.wolfsonmicro.com> <20110418111203.GB18324@rere.qmqm.pl> <20110418122522.GC9462@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gallatin@myri.com, brice@myri.com
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Cc: netdev@vger.kernel.org
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1970 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751290Ab1DROZY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 10:25:24 -0400
+Received: from rere.qmqm.pl ([89.167.52.164]:51996 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754338Ab1DROvE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2011 10:51:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20110418110347.GA18324@rere.qmqm.pl>
+In-Reply-To: <20110418122522.GC9462@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2011 at 01:03:47PM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> On Sun, Apr 17, 2011 at 11:30:53PM -0700, David Miller wrote:
-> > From: Jon Mason <jon.mason@myri.com>
-> > Date: Fri, 15 Apr 2011 13:29:22 -0500
-> >=20
-> > > On Fri, Apr 15, 2011 at 04:50:50PM +0200, Micha=C5=82 Miros=C5=82=
-aw wrote:
-> > >> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.p=
-l>
+On Mon, Apr 18, 2011 at 01:25:22PM +0100, Mark Brown wrote:
+> On Mon, Apr 18, 2011 at 01:12:03PM +0200, Micha? Miros?aw wrote:
+> > On Mon, Apr 18, 2011 at 12:04:37PM +0100, Mark Brown wrote:
+> > > Commit c88fcb (net: dm9000: convert to hw_features) broke the bui=
+ld of
+> > > the dm9000 driver since it merged functions which use different n=
+ames
+> > > for the board info structure used for I/O operations without upda=
+ting
+> > > all the references to use the same name. Fix that.
+> > This brings the issue of build testing effectiveness. In current co=
+de
+> > there is no configuration that makes all drivers build. I would lik=
+e
+> > to see something like 'make brokenconfig' that would allow most of
+> > the code to be built, and not necessarily working. Maybe someone ha=
+s
+> > an idea how to implement that?
+> For the drivers that genuinely are rather platform specific this tend=
+s
+> to fail very badly as you need headers that only come along with the
+> architecture.
+>=20
+> In the case of DM9000 if it fails to build on your platform then the
+> driver is just buggy - looking at the Kconfig I rather suspect that t=
+he
+> dependency on architectures should just be removed.
 
-Acked-by: Jon Mason <jon.mason@myri.com>
+I wonder if allyesconfig/allmodconfig is supposed to include code that'=
+s
+known not to work for a particular architecture.
 
-> > >> ---
-> > >>  drivers/net/myri10ge/myri10ge.c |   66 +++++++-----------------=
---------------
-> > >>  1 files changed, 12 insertions(+), 54 deletions(-)
-> > >>=20
-> > >> diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri1=
-0ge/myri10ge.c
-> > >> index 1446de5..a48eb92 100644
-> > >> --- a/drivers/net/myri10ge/myri10ge.c
-> > >> +++ b/drivers/net/myri10ge/myri10ge.c
-> > >> @@ -205,7 +205,6 @@ struct myri10ge_priv {
-> > >>  	int tx_boundary;	/* boundary transmits cannot cross */
-> > >>  	int num_slices;
-> > >>  	int running;		/* running?             */
-> > >> -	int csum_flag;		/* rx_csums?            */
-> > > Get rid of MXGEFW_FLAGS_CKSUM in drivers/net/myri10ge/myri10ge_mc=
-p.h,
-> > > as this was the only thing using it.
-> >  ...
-> > > ethtool_op_set_tso does not support TSO6.  This would remove the
-> > > enable/disable of that feature.
-> > Micha=C5=82 please fix these issues and resubmit this patch, thanks=
-!
->=20
-> There are no issues. MXGEFW_FLAGS_CKSUM is used elsewhere in the driv=
-er
-> and TSO6 is handled by masking netdev->hw_features at devinit time.
->=20
-> BTW, ethtool_op_set_tso() is not used at all in new offload changing =
-scheme.
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
->=20
+Best Regards,
+Micha=B3 Miros=B3aw
