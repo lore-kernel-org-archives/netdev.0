@@ -1,96 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/42] decnet: Fix set-but-unused variable.
-Date: Sun, 17 Apr 2011 20:48:12 -0700 (PDT)
-Message-ID: <20110417.204812.226773735.davem@davemloft.net>
-References: <20110417.173250.183050174.davem@davemloft.net>
-	<1303092729.5282.1005.camel@localhost>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH net-next-2.6 0/3] new SCTP sockets APIs
+Date: Mon, 18 Apr 2011 11:47:07 +0800
+Message-ID: <4DABB43B.9010204@cn.fujitsu.com>
+References: <4DABAEF1.1010506@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lksctp <linux-sctp@vger.kernel.org>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46093
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752016Ab1DRDsr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2011 23:48:47 -0400
-In-Reply-To: <1303092729.5282.1005.camel@localhost>
+Received: from cn.fujitsu.com ([222.73.24.84]:53511 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751923Ab1DRDvB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2011 23:51:01 -0400
+In-Reply-To: <4DABAEF1.1010506@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 18 Apr 2011 03:12:09 +0100
+To David, Vlad:
 
-> On Sun, 2011-04-17 at 17:32 -0700, David Miller wrote:
->> "next" in dn_rebuild_zone() is set but not actually used,
->> kill it off.
->> 
->> Signed-off-by: David S. Miller <davem@davemloft.net>
->> ---
->>  net/decnet/dn_table.c |    3 +--
->>  1 files changed, 1 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
->> index 99d8d3a..d8ea583 100644
->> --- a/net/decnet/dn_table.c
->> +++ b/net/decnet/dn_table.c
->> @@ -124,11 +124,10 @@ static inline void dn_rebuild_zone(struct dn_zone *dz,
->>  				   int old_divisor)
->>  {
->>  	int i;
->> -	struct dn_fib_node *f, **fp, *next;
->> +	struct dn_fib_node *f, **fp;
->>  
->>  	for(i = 0; i < old_divisor; i++) {
->>  		for(f = old_ht[i]; f; f = f->fn_next) {
->> -			next = f->fn_next;
->>  			for(fp = dn_chain_p(f->fn_key, dz);
->>  				*fp && dn_key_leq((*fp)->fn_key, f->fn_key);
->>  				fp = &(*fp)->fn_next)
+   There are many patches in vlad's net-next(1*) tree besides these three ones.
+   Maybe vlad is busy doing other things, Should we need to respin these patches
+   base on latest kernel and submit to you? So we can do further work against latest kernel.   
+
+   1*: vlad's net-next tree:
+      http://git.kernel.org/?p=linux/kernel/git/vxy/lksctp-dev.git;a=shortlog;h=refs/heads/net-next
+
+
+Wei Yongjun wrote, at 04/18/2011 11:24 AM:
+> This patchset implement some new sockets APIs for net-next-2.6.
 > 
-> This function is rebuilding a hash table after the number of buckets is
-> changed.  After moving each element into a new bucket, it needs to carry
-> on iterating over the old bucket.  Therefore the 'next' variable is
-> really needed and the second for-loop should use it: 'f = next', not
-> 'f = f->fn_next'.
+> Wei Yongjun (3):
+>   sctp: implement socket option SCTP_GET_ASSOC_ID_LIST
+>   sctp: change auth event type name to SCTP_AUTHENTICATION_EVENT
+>   sctp: implement event notification SCTP_SENDER_DRY_EVENT
+> 
+>  include/net/sctp/sm.h       |    1 +
+>  include/net/sctp/ulpevent.h |    3 ++
+>  include/net/sctp/user.h     |   33 ++++++++++++++++++++++++++-
+>  net/sctp/sm_statefuns.c     |   24 +++++++++++++++++++
+>  net/sctp/sm_statetable.c    |    2 +-
+>  net/sctp/socket.c           |   52 +++++++++++++++++++++++++++++++++++++++++++
+>  net/sctp/ulpevent.c         |   30 ++++++++++++++++++++++++-
+>  7 files changed, 142 insertions(+), 3 deletions(-)
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Good catch, I committed the following:
 
---------------------
-decnet: Don't leak entries when rebuilding zone.
-
-As noticed by Ben Hutchings, when we move entries from
-one table to another we leak all except the first entry.
-
-Put back the "next" variable removed by commit
-9bf9055eb716f85372c41b3fbc51f90bc7653740 ("decnet: Fix set-but-unused
-variable.") and use it properly.
-
-Reported-by: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/decnet/dn_table.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
-index d8ea583..bd0a52d 100644
---- a/net/decnet/dn_table.c
-+++ b/net/decnet/dn_table.c
-@@ -123,11 +123,12 @@ static inline void dn_rebuild_zone(struct dn_zone *dz,
- 				   struct dn_fib_node **old_ht,
- 				   int old_divisor)
- {
-+	struct dn_fib_node *f, **fp, *next;
- 	int i;
--	struct dn_fib_node *f, **fp;
- 
- 	for(i = 0; i < old_divisor; i++) {
--		for(f = old_ht[i]; f; f = f->fn_next) {
-+		for(f = old_ht[i]; f; f = next) {
-+			next = f->fn_next;
- 			for(fp = dn_chain_p(f->fn_key, dz);
- 				*fp && dn_key_leq((*fp)->fn_key, f->fn_key);
- 				fp = &(*fp)->fn_next)
 -- 
-1.7.4.3
 
+Best Regards
+-----
+Shan Wei
