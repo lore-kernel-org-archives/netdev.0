@@ -1,49 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: DSCP values in TCP handshake
-Date: Mon, 18 Apr 2011 14:49:08 -0700
-Message-ID: <20110418144908.55967b06@nehalam>
-References: <loom.20110418T154445-102@post.gmane.org>
-	<1303135512.3137.335.camel@edumazet-laptop>
-	<20110418083827.05dd2d43@nehalam>
-	<alpine.DEB.2.00.1104181750150.14027@uplift.swm.pp.se>
-	<4DAC8A8A.1010401@cox.net>
-	<alpine.DEB.2.00.1104182115291.14027@uplift.swm.pp.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ip_rt_bug questions.
+Date: Mon, 18 Apr 2011 14:49:09 -0700 (PDT)
+Message-ID: <20110418.144909.52209035.davem@davemloft.net>
+References: <20110418214809.GA17443@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Joe Buehler <aspam@cox.net>, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org
-To: Mikael Abrahamsson <swmike@swm.pp.se>
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41653 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751862Ab1DRVtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 17:49:11 -0400
-In-Reply-To: <alpine.DEB.2.00.1104182115291.14027@uplift.swm.pp.se>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43208
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751494Ab1DRVtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 17:49:43 -0400
+In-Reply-To: <20110418214809.GA17443@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Apr 2011 21:16:35 +0200 (CEST)
-Mikael Abrahamsson <swmike@swm.pp.se> wrote:
+From: Dave Jones <davej@redhat.com>
+Date: Mon, 18 Apr 2011 17:48:10 -0400
 
-> On Mon, 18 Apr 2011, Joe Buehler wrote:
+> I managed to trigger this today..
 > 
-> > The argument I have seen for not making reflection standard behavior is 
-> > that it is not always appropriate for the application.  For example, web 
-> > servers have short requests but large responses so non-identical DSCP 
-> > values might make more sense.
+> ip_rt_bug: 0.0.0.0 -> 255.255.255.255, ?
 > 
-> I'm a router guy. I don't understand this reasoning at all.
+> if this is useful in some way, maybe it should be enhanced
+> to print out something else, like a backtrace ?
 > 
-> Anyone care to elaborate?
+> Also, should it be a printk_ratelimit() ? Or is there
+> ratelimiting done elsewhere in the routing code ?
 > 
-> I'd like reflection be standard and have the application set DSCP if it 
-> needs to.
-> 
+> or should it just be silenced, leaving just the kfree_skb ?
 
-If the DSCP bits are reflected, then it could allow for even better
-SYN flood attack. Attacker could maliciously set DSCP to elevate priority
-processing of his bogus SYN packets and also cause SYN-ACK on reverse path
-to also take priority.
+It's a very serious issue, it means we used an input route for
+packet output.
 
--- 
+Kernel version and what you were doing to trigger this?
