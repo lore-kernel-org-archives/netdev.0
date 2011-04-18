@@ -1,76 +1,96 @@
-From: Alex Dubov <oakad@yahoo.com>
-Subject: Re: [Bugme-new] [Bug 33042] New: Marvell 88E1145 phy configured incorrectly in fiber mode
-Date: Sun, 17 Apr 2011 22:44:31 -0700 (PDT)
-Message-ID: <572662.57492.qm@web37607.mail.mud.yahoo.com>
-References: <BANLkTikJ60ND7s5-jfGTBDG3BoM-294CSA@mail.gmail.com>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: unregister_netdevice: waiting for lo to become free. Usage count = 8
+Date: Mon, 18 Apr 2011 08:10:26 +0200
+Message-ID: <201104180810.27198.hans@schillstrom.com>
+References: <201104150901.47214.hans@schillstrom.com> <alpine.LFD.2.00.1104152229450.1730@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Daney <ddaney@caviumnetworks.com>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>
-To: Andy Fleming <afleming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web37607.mail.mud.yahoo.com ([209.191.87.90]:43439 "HELO
-	web37607.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751355Ab1DRFoc convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2011 01:44:32 -0400
-In-Reply-To: <BANLkTikJ60ND7s5-jfGTBDG3BoM-294CSA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1104152229450.1730@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Friday, April 15, 2011 22:11:32 Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Fri, 15 Apr 2011, Hans Schillstrom wrote:
+> 
+> > Hello Julian
+> > 
+> > I'm trying to fix the cleanup process when a namespace get "killed",
+> > which is a new feature for ipvs. However an old problem appears again
+> > 
+> > When there has been traffic trough ipvs where the destination is unreachable
+> > the usage count on loopback dev increases one for every packet....
+> 
+> 	What is the kernel version?
 
-> > --- On Thu, 14/4/11, Andy Fleming <afleming@gmail.com>
-> wrote:
-> >
-> >>
-> >
-> > The u-boot is standard stock u-boot pulled from the
-> recent git,
-> > no special configuration involved.
->=20
->=20
-> Are you seeing this message when you run ethernet in
-> u-boot?
->=20
-> "Speed: 1000, full duplex, fiber mode"
+net-next-2.6  i.e. 2.6.39-rc2
 
-I have this weird problem whereupon I assume something and then keep
-believing it's true. So not, I'm not seeing this message. :)
+> 
+> > I guess thats because of this rule :
+> > 
+> > # ip route list table all
+> > ...
+> > unreachable default dev lo  table 0  proto kernel  metric 4294967295  error -101 hoplimit 25
+> > ...
+> > 
+> > I made a test just forwarding packets through the same container (ipvs loaded)
+> > to an unreachable destination and that test had a balanced count i.e. it was possible to reboot the container.
+> 
+> 	Can you explain, what do you mean with unreachable
+> destination? Are you adding some rejecting route?
 
-There are two interfaces attached to that phy, one is normal RJ45, the
-other is an uTCA backplane (it has only two pairs, so I assumed it must
-be operating in fiber mode). Uboot works perfectly well with both and
-prints the same messages.
+This comment from Eric, do explain what happens:
 
-That's the example printout from u-boot (eTSEC1 is connected to backpla=
-ne)
+"Hans.  
+I do know that most outstanding references when you clean up a
+container get moved to the loopback device.  So it may not originally
+be the loopback device itself where the reference counting is wrong.
 
-> dhcp
-Speed: 1000, full duplex
-BOOTP broadcast 1
-DHCP client bound to address 192.168.1.202
-Using eTSEC1 device
+Eric"
 
->=20
-> You could probably change to use a fixed link by removing
-> the
-> phy-handle property from your ethernet device node, and
-> adding:
-> "fixed-link=3D<0 1000 1 0 0>".=A0 If that works,
-> then the issue is that
-> Linux is breaking something when it connects. It might be
-> good enough
-> for you to use fixed-link, though it would be good to
-> actually find
-> out what's going wrong with the PHY driver.
->=20
+> 
+> > Do you have an idea why  this happens in the ipvs case ?
+> 
+> 	Do you see with debug level 3 the "Removing destination"
+> messages. Only real servers can hold dest->dst_cache reference
+> for dev which can be a problem because the real servers are not
+> deleted immediately - on traffic they are moved to trash
+> list. But ip_vs_trash_cleanup() should remove any left
+> structures. You should check in debug that all servers are
+> deleted. If all real server structures are freed but
+> problem remains we should look more deeply in the
+> dest->dst_cache usage. DR or NAT is used?
 
-I'll try this out now.
+I have got some wise words from Eric, 
+i.e. moved all ipvs register/unregister from subsys to device 
+that solved plenty of my issues
+(Thanks Eric)
 
-I'm trying to obtain a data sheet for the device, but had not succeeded
-in it just yet.
+I'll will post a Patch later on regarding this.
 
+> 
+> 	I assume cleanup really happens in this order:
+> 
+> ip_vs_cleanup():
+> 	nf_unregister_hooks()
+
+This will not happens in a namespace since nf_unregister_hooks() is not per netns.
+We might need a flag but I don't think so, further test will show....
+
+> 	...
+> 	ip_vs_conn_cleanup()
+> 	...
+> 	ip_vs_control_cleanup()
+> 
+
+Regards
+Hans
