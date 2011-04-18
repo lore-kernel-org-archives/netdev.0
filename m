@@ -1,9 +1,9 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 02/27] HFI: Add HFI adapter control structure
-Date: Mon, 18 Apr 2011 13:19:05 +0100
-Message-ID: <1303129145.5282.1030.camel@localhost>
+Subject: Re: [PATCH v2 01/27] HFI: skeleton driver
+Date: Mon, 18 Apr 2011 13:23:19 +0100
+Message-ID: <1303129399.5282.1033.camel@localhost>
 References: <1303096919-7367-1-git-send-email-dykmanj@linux.vnet.ibm.com>
-	 <1303096919-7367-3-git-send-email-dykmanj@linux.vnet.ibm.com>
+	 <1303096919-7367-2-git-send-email-dykmanj@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -18,77 +18,53 @@ Cc: netdev@vger.kernel.org,
 	"Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 To: dykmanj@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:13830 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:14381 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab1DRMTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 08:19:13 -0400
-In-Reply-To: <1303096919-7367-3-git-send-email-dykmanj@linux.vnet.ibm.com>
+	with ESMTP id S1751822Ab1DRMXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 08:23:23 -0400
+In-Reply-To: <1303096919-7367-2-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Sun, 2011-04-17 at 23:21 -0400, dykmanj@linux.vnet.ibm.com wrote:
 > From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
 > 
-> Alloc/free of hfidd_acs to track the state of each HFI
+> Device driver Makefile & Kconfig plumbing plus simple mod_init and mod_exit
 [...]
 > --- /dev/null
-> +++ b/drivers/net/hfi/core/hfidd_adpt.c
-[...]
-> +int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t devno, void *uiop)
-> +{
-> +
-> +	struct hfidd_acs	*p_acs = NULL;
-> +
-> +	p_acs = kzalloc(sizeof(*p_acs), GFP_KERNEL);
-> +	if (p_acs == NULL)
-> +		return -ENOMEM;
-> +
-> +	p_acs->dev_num = devno;
-> +	p_acs->index  = MINOR(devno);
-> +	p_acs->state  = HFI_INVALID;
-> +	snprintf(p_acs->name, HFI_DEVICE_NAME_MAX - 1,
-> +			"%s%d", HFIDD_DEV_NAME, p_acs->index);
-
-snprintf() always null-terminates so the buffer length should be
-specified as HFI_DEVICE_NAME_MAX or sizeof(p_acs->name).
-
-[...]
-> --- a/drivers/net/hfi/core/hfidd_init.c
 > +++ b/drivers/net/hfi/core/hfidd_init.c
 [...]
->  static int __init hfidd_mod_init(void)
->  {
->  	int			rc = 0;
->  
-> +	hfidd_global.acs_cnt = 0;
+> +#include <linux/version.h>
+
+Never include <linux/version.h> in an in-tree driver.
+
+[...]
+> +static int __init hfidd_mod_init(void)
+> +{
+> +	int			rc = 0;
 > +
->  	rc = hfidd_create_class();
->  	if (rc < 0) {
->  		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_class failed"
-> @@ -129,12 +172,26 @@ static int __init hfidd_mod_init(void)
->  		return -1;
->  	}
->  
-> +	rc = hfidd_create_devices();
+> +	rc = hfidd_create_class();
 > +	if (rc < 0) {
-> +		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_devices"
-> +			" failed rc = %d\n", HFIDD_DEV_NAME, rc);
-> +		goto error1;
-> +	}
+> +		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_class failed"
+> +			" rc=%d\n", HFIDD_DEV_NAME, rc);
+> +		return -1;
+
+Should be 'return rc'.
+
+[...]
+> --- /dev/null
+> +++ b/include/linux/hfi/hfidd_client.h
+[...]
+> +#ifndef _HFIDD_CLIENT_H_
+> +#define _HFIDD_CLIENT_H_
 > +
->  	printk(KERN_INFO "IBM hfi device driver loaded sucessfully\n");
->  	return 0;
-> +
-> +error1:
-> +	hfidd_destroy_class();
-> +
-> +	/* Returning -1 so insmod will fail */
-> +	return -1;
->  }
+> +#define MAX_TORRENTS            1
+> +#define MAX_HFI_PER_TORRENT     2
+> +#define MAX_HFIS                (MAX_TORRENTS * MAX_HFI_PER_TORRENT)
 [...]
 
-Should be 'return rc'.  Never return -1 as a generic failure; it means
--EPERM.
+Are you sure you want to expose these values to userland?  You can never
+change them later.
 
 Ben.
 
