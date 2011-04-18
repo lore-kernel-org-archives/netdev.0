@@ -1,51 +1,70 @@
-From: NeilBrown <neilb@suse.de>
-Subject: Re: [PATCH 12/12] mm: Throttle direct reclaimers if PF_MEMALLOC
- reserves are low and swap is backed by network storage
-Date: Mon, 18 Apr 2011 22:32:51 +1000
-Message-ID: <20110418223251.7ab148bb@notabene.brown>
-References: <1302777698-28237-1-git-send-email-mgorman@suse.de>
-	<1302777698-28237-13-git-send-email-mgorman@suse.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000002c0
+  / IP: [<c04c70f2>] in6_dev_finish_destroy+0x35/0x8c
+Date: Mon, 18 Apr 2011 15:34:39 +0200
+Message-ID: <4DAC3DEF.6070702@trash.net>
+References: <4DA77AE5.9060501@simon.arlott.org.uk>	 <0b5f315dd0f6e8eefabbd8b38b1d43e181fdd728@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>	 <1302872983.3613.10.camel@edumazet-laptop> <1302873876.3613.11.camel@edumazet-laptop> <4DA86FE5.8080507@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1302777698-28237-13-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: multipart/mixed;
+ boundary="------------030102080707030002020304"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Simon Arlott <simon@fire.lp0.eu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4DA86FE5.8080507@simon.arlott.org.uk>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Apr 2011 11:41:38 +0100 Mel Gorman <mgorman@suse.de> wrote:
+This is a multi-part message in MIME format.
+--------------030102080707030002020304
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-> If swap is backed by network storage such as NBD, there is a risk that a
-> large number of reclaimers can hang the system by consuming all
-> PF_MEMALLOC reserves. To avoid these hangs, the administrator must tune
-> min_free_kbytes in advance. This patch will throttle direct reclaimers
-> if half the PF_MEMALLOC reserves are in use as the system is at risk of
-> hanging. A message will be displayed so the administrator knows that
-> min_free_kbytes should be tuned to a higher value to avoid the
-> throttling in the future.
+Am 15.04.2011 18:18, schrieb Simon Arlott:
+> On 15/04/11 14:24, Eric Dumazet wrote:
+>> Hmm.. a more complete patch :
+>>
+>> diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+>> index 0857272..6f0bed0 100644
 > 
+> I applied the patch by recompiling and then reloading the nf_conntrack_ipv6
+> module (temporarily flushing and then restoring all ip6tables rules).
+> Then this happened 10 minutes later:
+> 
+> [33876.950100] BUG: unable to handle kernel NULL pointer dereference at 00000014
+> [33876.951060] IP: [<f9b012bb>] nf_ct_frag6_gather+0x864/0x881 [nf_conntrack_ipv6]
 
-(I knew there was something else).
+nf_ct_frag6_reasm() can return NULL, so we need to check for a non-NULL
+ret_skb before trying to set the device.
 
-I understand that there are suggestions that direct reclaim should always be
-serialised as this reduces lock contention and improve data patterns (or
-something like that).
+Does this patch (based on Eric's second version) help?
 
-Would that make this patch redundant?  Or does this provide some extra
-guarantee that the other proposal would not?
 
-Thanks again,
+--------------030102080707030002020304
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="x"
 
-NeilBrown
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9jb25udHJhY2tfcmVhc20uYyBi
+L25ldC9pcHY2L25ldGZpbHRlci9uZl9jb25udHJhY2tfcmVhc20uYwppbmRleCAwODU3Mjcy
+Li5iN2VjZmNlIDEwMDY0NAotLS0gYS9uZXQvaXB2Ni9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
+X3JlYXNtLmMKKysrIGIvbmV0L2lwdjYvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19yZWFzbS5j
+CkBAIC01NzYsNyArNTc2LDkgQEAgc3RydWN0IHNrX2J1ZmYgKm5mX2N0X2ZyYWc2X2dhdGhl
+cihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCB1MzIgdXNlcikKIAlpZiAoZnEtPnEubGFzdF9pbiA9
+PSAoSU5FVF9GUkFHX0ZJUlNUX0lOIHwgSU5FVF9GUkFHX0xBU1RfSU4pICYmCiAJICAgIGZx
+LT5xLm1lYXQgPT0gZnEtPnEubGVuKSB7CiAJCXJldF9za2IgPSBuZl9jdF9mcmFnNl9yZWFz
+bShmcSwgZGV2KTsKLQkJaWYgKHJldF9za2IgPT0gTlVMTCkKKwkJaWYgKHJldF9za2IgIT0g
+TlVMTCkKKwkJCXJldF9za2ItPmRldiA9IGRldjsKKwkJZWxzZQogCQkJcHJfZGVidWcoIkNh
+bid0IHJlYXNzZW1ibGUgZnJhZ21lbnRlZCBwYWNrZXRzXG4iKTsKIAl9CiAJc3Bpbl91bmxv
+Y2tfYmgoJmZxLT5xLmxvY2spOwpAQCAtNjAyLDcgKzYwNCw3IEBAIHZvaWQgbmZfY3RfZnJh
+ZzZfb3V0cHV0KHVuc2lnbmVkIGludCBob29rbnVtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAog
+CiAJCXMyID0gcy0+bmV4dDsKIAkJcy0+bmV4dCA9IE5VTEw7Ci0KKwkJcy0+ZGV2ID0gaW47
+CiAJCU5GX0hPT0tfVEhSRVNIKE5GUFJPVE9fSVBWNiwgaG9va251bSwgcywgaW4sIG91dCwg
+b2tmbiwKIAkJCSAgICAgICBORl9JUDZfUFJJX0NPTk5UUkFDS19ERUZSQUcgKyAxKTsKIAkJ
+cyA9IHMyOwo=
+--------------030102080707030002020304--
