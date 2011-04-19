@@ -1,138 +1,39 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH net-next-2.6 3/3] bonding,ipv4,ipv6,vlan: Handle NETDEV_BONDING_FAILOVER
- like NETDEV_NOTIFY_PEERS
-Date: Mon, 18 Apr 2011 21:32:40 -0400
-Message-ID: <4DACE638.9060909@hp.com>
-References: <1302911271.2845.41.camel@bwh-desktop>  <22334.1302913805@death> <1303153792.2857.32.camel@bwh-desktop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: Network performance with small packets
+Date: Tue, 19 Apr 2011 10:03:43 +0930
+Message-ID: <87wrir3wrc.fsf@rustcorp.com.au>
+References: <20110127.130240.104065182.davem@davemloft.net> <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com> <20110202044222.GC3818@redhat.com> <201102091107.20270.rusty@rustcorp.com.au> <1299621444.25664.77.camel@localhost.localdomain> <1299637278.13202.61.camel@localhost.localdomain> <87fwqv4udl.fsf@rustcorp.com.au> <20110412200112.GA19729@redhat.com> <87bp09ax7a.fsf@rustcorp.com.au> <20110414160359.GA11218@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: habanero@linux.vnet.ibm.com, Shirley Ma <mashirle@us.ibm.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, steved@us.ibm.com,
+	Tom Lendacky <tahm@linux.vnet.ibm.com>, borntraeger@de.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:35367 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752927Ab1DSBco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 21:32:44 -0400
-In-Reply-To: <1303153792.2857.32.camel@bwh-desktop>
+Received: from ozlabs.org ([203.10.76.45]:48899 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753602Ab1DSBjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2011 21:39:07 -0400
+In-Reply-To: <20110414160359.GA11218@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2011 03:09 PM, Ben Hutchings wrote:
-> How about restoring the parameters like this:
+On Thu, 14 Apr 2011 19:03:59 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> On Thu, Apr 14, 2011 at 08:58:41PM +0930, Rusty Russell wrote:
+> > They have to offer the feature, so if the have some way of allocating
+> > non-page-aligned amounts of memory, they'll have to add those extra 2
+> > bytes.
+> > 
+> > So I think it's OK...
+> > Rusty.
 > 
-> ---
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 18 Apr 2011 19:36:48 +0100
-> Subject: [PATCH net-next-2.6] ipv4,ipv6,bonding: Restore control over number of peer notifications
-> 
-> For backward compatibility, we should retain the module parameters and
-> sysfs attributes to control the number of peer notifications
-> (gratuitous ARPs and unsolicited NAs) sent after bonding failover.
-> Also, it is possible for failover to take place even though the new
-> active slave does not have link up, and in that case the peer
-> notification should be deferred until it does.
-> 
-> Change ipv4 and ipv6 so they do not automatically send peer
-> notifications on bonding failover.  Change the bonding driver to send
-> separate NETDEV_NOTIFY_PEERS notifications when the link is up, as
-> many times as requested.  Since it does not directly control which
-> protocols send notifications, make num_grat_arp and num_unsol_na
-> aliases for a single parameter.
+> To clarify, my concern is that we always seem to try to map
+> these extra 2 bytes, which thinkably might fail?
 
-Hi Ben,
+No, if you look at the layout it's clear that there's always most of a
+page left for this extra room, both in the middle and at the end.
 
-I think this looks good, I'll try and get this tested here when I have
-a chance, but for now I can:
-
-Acked-by: Brian Haley <brian.haley@hp.com>
-
-Should we just go ahead and make a new parameter for peer notification?
-Compiled but untested patch below.
-
-Thanks,
-
--Brian
-
---
-Make a new bonding parameter, called num_peer_notif, to control how
-many peer notifications are sent on fail-over.  Mark the old values,
-num_grat_arp and num_unsol_na, as deprecated in the documentation.
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 511b4e5..8b16beb 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -585,8 +585,15 @@ mode
- 		chosen.
- 
- num_grat_arp
-+
-+	Deprecated.  Use num_peer_notif instead.
-+
- num_unsol_na
- 
-+	Deprecated.  Use num_peer_notif instead.
-+
-+num_peer_notif
-+
- 	Specify the number of peer notifications (gratuitous ARPs and
- 	unsolicited IPv6 Neighbor Advertisements) to be issued after a
- 	failover event.  As soon as the link is up on the new slave
-@@ -595,7 +602,7 @@ num_unsol_na
- 	each link monitor interval (arp_interval or miimon, whichever
- 	is active) if the number is greater than 1.
- 
--	These notifications are now generated by the ipv4 and ipv6 code
-+	These notifications are now generated by the IPv4 and IPv6 code
- 	and the numbers of repetitions cannot be set independently.
- 
- 	The valid range is 0 - 255; the default value is 1.  These options
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 956a6f7..631ca9e 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -116,6 +116,8 @@ module_param_named(num_grat_arp, num_peer_notif, int, 0644);
- MODULE_PARM_DESC(num_grat_arp, "Number of peer notifications to send on failover event");
- module_param_named(num_unsol_na, num_peer_notif, int, 0644);
- MODULE_PARM_DESC(num_unsol_na, "Number of peer notifications to send on failover event");
-+module_param_named(num_peer_notif, num_peer_notif, int, 0644);
-+MODULE_PARM_DESC(num_unsol_na, "Number of peer notifications to send on failover event");
- module_param(miimon, int, 0);
- MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
- module_param(updelay, int, 0);
-@@ -4699,7 +4701,7 @@ static int bond_check_params(struct bond_params *params)
- 	}
- 
- 	if (num_peer_notif < 0 || num_peer_notif > 255) {
--		pr_warning("Warning: num_grat_arp/num_unsol_na (%d) not in range 0-255 so it was reset to 1\n",
-+		pr_warning("Warning: num_peer_notif (%d) not in range 0-255 so it was reset to 1\n",
- 			   num_peer_notif);
- 		num_peer_notif = 1;
- 	}
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 58fb3e9..b03e7be 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -896,6 +896,8 @@ static DEVICE_ATTR(num_grat_arp, S_IRUGO | S_IWUSR,
- 		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
- static DEVICE_ATTR(num_unsol_na, S_IRUGO | S_IWUSR,
- 		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
-+static DEVICE_ATTR(num_peer_notif, S_IRUGO | S_IWUSR,
-+		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
- 
- /*
-  * Show and set the MII monitor interval.  There are two tricky bits
-@@ -1598,6 +1600,7 @@ static struct attribute *per_bond_attrs[] = {
- 	&dev_attr_xmit_hash_policy.attr,
- 	&dev_attr_num_grat_arp.attr,
- 	&dev_attr_num_unsol_na.attr,
-+	&dev_attr_num_peer_notif.attr,
- 	&dev_attr_miimon.attr,
- 	&dev_attr_primary.attr,
- 	&dev_attr_primary_reselect.attr,
+Cheers,
+Rusty.
