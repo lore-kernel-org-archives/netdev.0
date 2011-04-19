@@ -1,38 +1,45 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net: s390: convert to hw_features
-Date: Tue, 19 Apr 2011 16:11:42 +0200
-Message-ID: <20110419141142.GA42906@tuxmaker.boeblingen.de.ibm.com>
-References: <20110419104320.314AB13A66@rere.qmqm.pl>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [PATCH net-next 4/5] be2net: pass domain id to
+ be_cmd_link_status_query
+Date: Tue, 19 Apr 2011 07:23:02 -0700
+Message-ID: <49395329523DD64492581B505F80C86D5A5BCD396B@EXMAIL.ad.emulex.com>
+References: <20110418223033.GA9515@akhaparde-VBox>,<20110418.225659.112612060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:48458 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692Ab1DSOLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 10:11:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20110419104320.314AB13A66@rere.qmqm.pl>
+Received: from exht1.emulex.com ([138.239.113.183]:55567 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752349Ab1DSO1d convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 10:27:33 -0400
+In-Reply-To: <20110418.225659.112612060.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 19, 2011 at 12:43:20PM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> options.large_send was easy to get rid of. options.checksum_type has =
-deeper
-> roots so is left for later cleanup.
->=20
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
+> From: David Miller [davem@davemloft.net]
+> Sent: Tuesday, April 19, 2011 12:56 AM
+> To: Khaparde, Ajit
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next 4/5] be2net: pass domain id to be_cmd_link_status_query
 
-Hi Micha,
+> From: Ajit Khaparde <ajit.khaparde@emulex.com>
+> Date: Mon, 18 Apr 2011 17:30:33 -0500
 
-thx for the patch. There are some small issues I will fix up.
-I will add the patch to my queue. It might be a good time to
-get rid of the large_send and checksum sysfs attribute as well.
-I will work on that too, thx again ...
+>
+> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 
-=46rank
+> That's not all this patch does:
+Oh.. sorry about that. I did not realize this. I had worked on these patches over a couple of days
+and on one of those days, I seem to have mixed the patches. Will respin these again.
 
+
+> It seems to be also converting the driver over to the new VLAN
+> interfaces.
+
+> Please seperate this part into a seperate patch and resubmit your
+> patch series.
+
+> Thanks.
