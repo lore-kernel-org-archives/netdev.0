@@ -1,140 +1,138 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: net: Automatic IRQ siloing for network devices
-Date: Mon, 18 Apr 2011 20:52:37 -0400
-Message-ID: <20110419005237.GA2040@neilslaptop.think-freely.org>
-References: <1302898677-3833-1-git-send-email-nhorman@tuxdriver.com>
- <1302908069.2845.29.camel@bwh-desktop>
- <20110416015938.GB2200@neilslaptop.think-freely.org>
- <20110416091704.4fa62a50@nehalam>
- <20110417172010.GA3362@neilslaptop.think-freely.org>
- <1303065539.5282.938.camel@localhost>
- <20110418010844.GA4376@neilslaptop.think-freely.org>
- <1303163494.2857.98.camel@bwh-desktop>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next-2.6 3/3] bonding,ipv4,ipv6,vlan: Handle NETDEV_BONDING_FAILOVER
+ like NETDEV_NOTIFY_PEERS
+Date: Mon, 18 Apr 2011 21:32:40 -0400
+Message-ID: <4DACE638.9060909@hp.com>
+References: <1302911271.2845.41.camel@bwh-desktop>  <22334.1302913805@death> <1303153792.2857.32.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Thomas Gleixner <tglx@linutronix.de>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39976 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752913Ab1DSAw5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 20:52:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1303163494.2857.98.camel@bwh-desktop>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:35367 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752927Ab1DSBco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2011 21:32:44 -0400
+In-Reply-To: <1303153792.2857.32.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2011 at 10:51:34PM +0100, Ben Hutchings wrote:
-> On Sun, 2011-04-17 at 21:08 -0400, Neil Horman wrote:
-> > On Sun, Apr 17, 2011 at 07:38:59PM +0100, Ben Hutchings wrote:
-> > > On Sun, 2011-04-17 at 13:20 -0400, Neil Horman wrote:
-> > > > On Sat, Apr 16, 2011 at 09:17:04AM -0700, Stephen Hemminger wrote:
-> > > [...]
-> > > > > My gut feeling is that:
-> > > > >   * kernel should default to a simple static sane irq policy without user
-> > > > >     space.  This is especially true for multi-queue devices where the default
-> > > > >     puts all IRQ's on one cpu.
-> > > > > 
-> > > > Thats not how it currently works, AFAICS.  The default kernel policy is
-> > > > currently that cpu affinity for any newly requested irq is all cpus.  Any
-> > > > restriction beyond that is the purview and doing of userspace (irqbalance or
-> > > > manual affinity setting).
-> > > 
-> > > Right.  Though it may be reasonable for the kernel to use the hint as
-> > > the initial affinity for a newly allocated IRQ (not sure quite how we
-> > > determine that).
-> > > 
-> > So I understand what your saying here, but I'm having a hard time reconciling
-> > the two notions.  Currently as it stands, affinity_hint gets set by a single
-> > function call in the kernel (irq_set_affinity_hint), and is called by drivers
-> > wishing to guide irqbalances behavior (currently only ixgbe does this).  The
-> > behavior a driver is capable of guiding however are either overly simple (ixgbe
-> > just tells irqbalance to place each irq on a separate cpu, which irqbalance
-> > would do anyway)
+On 04/18/2011 03:09 PM, Ben Hutchings wrote:
+> How about restoring the parameters like this:
 > 
-> It's a bit more subtle than that.
+> ---
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 18 Apr 2011 19:36:48 +0100
+> Subject: [PATCH net-next-2.6] ipv4,ipv6,bonding: Restore control over number of peer notifications
 > 
-> ixgbe is trying to set up hardware flow steering.  Some versions of the
-> hardware can steer packets to RX queues based on the TX queue that was
-> last used for the same flow.  The TX queue selection based on CPU in
-> ixgbe_select_queue() should be the inverse of the IRQ affinity mapping
-> of RX queues, and the affinity hints are supposed to ensure that this is
-> true.
+> For backward compatibility, we should retain the module parameters and
+> sysfs attributes to control the number of peer notifications
+> (gratuitous ARPs and unsolicited NAs) sent after bonding failover.
+> Also, it is possible for failover to take place even though the new
+> active slave does not have link up, and in that case the peer
+> notification should be deferred until it does.
 > 
-Ah, ok, that makes a bit more sense then.  Thank you for that.
+> Change ipv4 and ipv6 so they do not automatically send peer
+> notifications on bonding failover.  Change the bonding driver to send
+> separate NETDEV_NOTIFY_PEERS notifications when the link is up, as
+> many times as requested.  Since it does not directly control which
+> protocols send notifications, make num_grat_arp and num_unsol_na
+> aliases for a single parameter.
 
-> I think it should be possible to replace those hints with use of
-> irq_cpu_rmap for TX queue selection.
-> 
-> > or overly complex (forcing policy into the kernel, which I
-> > tried to do with this patch series, but based on the responses I've gotten here,
-> > that seems non-desireable).
-> 
-> The trouble is that irqbalance has been so bad for multiqueue net
-> devices in the past that many vendors (including Solarflare) recommended
-> that it be disabled.  I think irqbalance does sensible things now but
-> many systems will be running without it for some time to come.
-> 
-> I was thinking that if the drivers could set sane hints to start with
-> then it would improve matters for those systems without irqbalance.  But
-> maybe it would be better still for some part of the networking core or
-> IRQ core to set up a default spreading of multiqueue IRQs.
->
-But doesn't this force policy for irqbalancing into the kernel, as Thomas and
-Eric alluded to?  It seems to me that, if we can export just a bit more
-information regarding irqs and their associations to devices (which has been a
-major achilles heel of irqblance in the past), then I think we can create a sane
-default balancing policy with some simple udev rules.  I've been messing with
-this a bit today.
+Hi Ben,
+
+I think this looks good, I'll try and get this tested here when I have
+a chance, but for now I can:
+
+Acked-by: Brian Haley <brian.haley@hp.com>
+
+Should we just go ahead and make a new parameter for peer notification?
+Compiled but untested patch below.
+
+Thanks,
+
+-Brian
+
+--
+Make a new bonding parameter, called num_peer_notif, to control how
+many peer notifications are sent on fail-over.  Mark the old values,
+num_grat_arp and num_unsol_na, as deprecated in the documentation.
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 511b4e5..8b16beb 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -585,8 +585,15 @@ mode
+ 		chosen.
  
-> [...]
-> > > > Actually, as I read back to myself, that acutally sounds kind of good to me.  It
-> > > > keeps all the policy for this in user space, and minimizes what we have to add
-> > > > to the kernel to make it happen (some process information in /proc and another
-> > > > udev event).  I'd like to get some feedback before I start implementing this,
-> > > > but I think this could be done.  What do you think?
-> > > 
-> > > I don't think it's a good idea to override the scheduler dynamically
-> > > like this.
-> > > 
-> > Why not?  Not disagreeing here, but I'm curious as to why you think this is bad.
-> > We already have several interfaces for doing this in user space (cgroups and
-> > taskset come to mind).  Nominally they are used directly by sysadmins, and used
-> > sparingly for specific configurations.
-> 
-> Yes, that is why I think this is different.
-> 
-Ok, fair enough.
-
-> > All I'm suggesting is that we create a
-> > daemon to identify processes that would benefit from running closer to the nics
-> > they are getting data from, and restricting them to cpus that fit that benefit.
-> > If a sysadmin doesn't want that behavior, they can stop the daemon, or change
-> > its configuration to avoid including processes they don't want to move/restrict.
-> 
-> I think this could improve latency under low CPU load and throughput
-> under high CPU load for small numbers of relatively long-lived flows.
-> But for large numbers of flows or high turnover of flows the affinity
-> will just be noise.
-> 
-> You're welcome to do your own experiments, obviously!
-> 
-I will, but I'll start with the low hanging fruit.  I'm going to try exporting
-the msi table for a device.  With that I can use the netdev_registration uevent
-to properly identify network based irqs without the need for 1/2 assed regex
-searches and volume counts and do one shot rebalancing of them.
-
-Thanks for your time & thoughts!
-Neil
-
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> 
+ num_grat_arp
++
++	Deprecated.  Use num_peer_notif instead.
++
+ num_unsol_na
+ 
++	Deprecated.  Use num_peer_notif instead.
++
++num_peer_notif
++
+ 	Specify the number of peer notifications (gratuitous ARPs and
+ 	unsolicited IPv6 Neighbor Advertisements) to be issued after a
+ 	failover event.  As soon as the link is up on the new slave
+@@ -595,7 +602,7 @@ num_unsol_na
+ 	each link monitor interval (arp_interval or miimon, whichever
+ 	is active) if the number is greater than 1.
+ 
+-	These notifications are now generated by the ipv4 and ipv6 code
++	These notifications are now generated by the IPv4 and IPv6 code
+ 	and the numbers of repetitions cannot be set independently.
+ 
+ 	The valid range is 0 - 255; the default value is 1.  These options
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 956a6f7..631ca9e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -116,6 +116,8 @@ module_param_named(num_grat_arp, num_peer_notif, int, 0644);
+ MODULE_PARM_DESC(num_grat_arp, "Number of peer notifications to send on failover event");
+ module_param_named(num_unsol_na, num_peer_notif, int, 0644);
+ MODULE_PARM_DESC(num_unsol_na, "Number of peer notifications to send on failover event");
++module_param_named(num_peer_notif, num_peer_notif, int, 0644);
++MODULE_PARM_DESC(num_unsol_na, "Number of peer notifications to send on failover event");
+ module_param(miimon, int, 0);
+ MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
+ module_param(updelay, int, 0);
+@@ -4699,7 +4701,7 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 
+ 	if (num_peer_notif < 0 || num_peer_notif > 255) {
+-		pr_warning("Warning: num_grat_arp/num_unsol_na (%d) not in range 0-255 so it was reset to 1\n",
++		pr_warning("Warning: num_peer_notif (%d) not in range 0-255 so it was reset to 1\n",
+ 			   num_peer_notif);
+ 		num_peer_notif = 1;
+ 	}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 58fb3e9..b03e7be 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -896,6 +896,8 @@ static DEVICE_ATTR(num_grat_arp, S_IRUGO | S_IWUSR,
+ 		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
+ static DEVICE_ATTR(num_unsol_na, S_IRUGO | S_IWUSR,
+ 		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
++static DEVICE_ATTR(num_peer_notif, S_IRUGO | S_IWUSR,
++		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
+ 
+ /*
+  * Show and set the MII monitor interval.  There are two tricky bits
+@@ -1598,6 +1600,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_xmit_hash_policy.attr,
+ 	&dev_attr_num_grat_arp.attr,
+ 	&dev_attr_num_unsol_na.attr,
++	&dev_attr_num_peer_notif.attr,
+ 	&dev_attr_miimon.attr,
+ 	&dev_attr_primary.attr,
+ 	&dev_attr_primary_reselect.attr,
