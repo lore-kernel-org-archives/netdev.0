@@ -1,8 +1,7 @@
 From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH net-next-2.6 6/8] sctp: teach CACC algorithm about removed
- transports
-Date: Tue, 19 Apr 2011 13:13:56 +0800
-Message-ID: <4DAD1A14.9060603@cn.fujitsu.com>
+Subject: [PATCH net-next-2.6 7/8] sctp: Allow bindx_del to accept 0 port
+Date: Tue, 19 Apr 2011 13:14:47 +0800
+Message-ID: <4DAD1A47.5080007@cn.fujitsu.com>
 References: <4DAD18AB.3040401@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
@@ -11,69 +10,48 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	lksctp <linux-sctp@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:57090 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:56708 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752357Ab1DSFNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2011 01:13:51 -0400
+	id S1752357Ab1DSFOl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2011 01:14:41 -0400
 In-Reply-To: <4DAD18AB.3040401@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-When we have have to remove a transport due to ASCONF, we move
-the data to a new active path.  This can trigger CACC algorithm
-to not mark that data as missing when SACKs arrive.  This is
-because the transport passed to the CACC algorithm is the one
-this data is sitting on, not the one it was sent on (that one
-may be gone).  So, by sending the original transport (even if
-it's NULL), we may start marking data as missing.
+We allow 0 port when adding new addresses.  It only
+makes sence to allow 0 port when removing addresses.
+When removing the currently bound port will be used
+when the port in the address is set to 0.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 ---
- net/sctp/outqueue.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
+ net/sctp/socket.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index bf92a5b..7812772 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -131,7 +131,8 @@ static inline int sctp_cacc_skip_3_1_d(struct sctp_transport *primary,
- static inline int sctp_cacc_skip_3_1_f(struct sctp_transport *transport,
- 				       int count_of_newacks)
- {
--	if (count_of_newacks < 2 && !transport->cacc.cacc_saw_newack)
-+	if (count_of_newacks < 2 &&
-+			(transport && !transport->cacc.cacc_saw_newack))
- 		return 1;
- 	return 0;
- }
-@@ -618,9 +619,12 @@ redo:
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 5c9980a..431b890 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -658,11 +658,15 @@ static int sctp_bindx_rem(struct sock *sk, struct sockaddr *addrs, int addrcnt)
+ 			goto err_bindx_rem;
+ 		}
  
- 			/* If we are retransmitting, we should only
- 			 * send a single packet.
-+			 * Otherwise, try appending this chunk again.
- 			 */
- 			if (rtx_timeout || fast_rtx)
- 				done = 1;
-+			else
-+				goto redo;
+-		if (sa_addr->v4.sin_port != htons(bp->port)) {
++		if (sa_addr->v4.sin_port &&
++		    sa_addr->v4.sin_port != htons(bp->port)) {
+ 			retval = -EINVAL;
+ 			goto err_bindx_rem;
+ 		}
  
- 			/* Bundle next chunk in the next round.  */
- 			break;
-@@ -1683,8 +1687,9 @@ static void sctp_mark_missing(struct sctp_outq *q,
- 			/* SFR-CACC may require us to skip marking
- 			 * this chunk as missing.
- 			 */
--			if (!transport || !sctp_cacc_skip(primary, transport,
--					    count_of_newacks, tsn)) {
-+			if (!transport || !sctp_cacc_skip(primary,
-+						chunk->transport,
-+						count_of_newacks, tsn)) {
- 				chunk->tsn_missing_report++;
- 
- 				SCTP_DEBUG_PRINTK(
++		if (!sa_addr->v4.sin_port)
++			sa_addr->v4.sin_port = htons(bp->port);
++
+ 		/* FIXME - There is probably a need to check if sk->sk_saddr and
+ 		 * sk->sk_rcv_addr are currently set to one of the addresses to
+ 		 * be removed. This is something which needs to be looked into
 -- 
 1.6.5.2
 
