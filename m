@@ -1,273 +1,157 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: [PATCH 2/3] IPVS: Change of register_pernet_subsys to register_pernet_device
-Date: Tue, 19 Apr 2011 17:25:04 +0200
-Message-ID: <1303226705-29178-2-git-send-email-hans@schillstrom.com>
-References: <1303226705-29178-1-git-send-email-hans@schillstrom.com>
-Cc: hans.schillstrom@ericsson.com,
-	Hans Schillstrom <hans@schillstrom.com>
-To: horms@verge.net.au, ja@ssi.bg, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1303226705-29178-1-git-send-email-hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "juice" <juice@swagman.org>
+Subject: Re: Hight speed data sending from custom IP out of kernel
+Date: Tue, 19 Apr 2011 19:02:02 +0300
+Message-ID: <45cb2254ff23a4977c95b0f9459e39a6.squirrel@www.liukuma.net>
+References: <53f539ea861e1a24bde4aadceff0b3bb.squirrel@www.liukuma.net>
+    <4DAD76F1.40309@monstr.eu>
+Reply-To: juice@swagman.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: monstr@monstr.eu, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.liukuma.net ([62.220.235.15]:34595 "EHLO www.liukuma.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752996Ab1DSQCO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2011 12:02:14 -0400
+In-Reply-To: <4DAD76F1.40309@monstr.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is part 1 of a makeover of the init and cleanup
-functions in ip_vs using name space.
 
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
----
- net/netfilter/ipvs/ip_vs_app.c   |    4 ++--
- net/netfilter/ipvs/ip_vs_conn.c  |    4 ++--
- net/netfilter/ipvs/ip_vs_core.c  |    6 +++---
- net/netfilter/ipvs/ip_vs_ctl.c   |    6 +++---
- net/netfilter/ipvs/ip_vs_est.c   |    4 ++--
- net/netfilter/ipvs/ip_vs_ftp.c   |    4 ++--
- net/netfilter/ipvs/ip_vs_lblc.c  |    6 +++---
- net/netfilter/ipvs/ip_vs_lblcr.c |    6 +++---
- net/netfilter/ipvs/ip_vs_proto.c |    4 ++--
- net/netfilter/ipvs/ip_vs_sync.c  |    4 ++--
- 10 files changed, 24 insertions(+), 24 deletions(-)
+Hi!
 
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 2dc6de1..7e8e769 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -599,12 +599,12 @@ int __init ip_vs_app_init(void)
- {
- 	int rv;
- 
--	rv = register_pernet_subsys(&ip_vs_app_ops);
-+	rv = register_pernet_device(&ip_vs_app_ops);
- 	return rv;
- }
- 
- 
- void ip_vs_app_cleanup(void)
- {
--	unregister_pernet_subsys(&ip_vs_app_ops);
-+	unregister_pernet_device(&ip_vs_app_ops);
- }
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index c97bd45..36cd5ea 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -1309,7 +1309,7 @@ int __init ip_vs_conn_init(void)
- 		rwlock_init(&__ip_vs_conntbl_lock_array[idx].l);
- 	}
- 
--	retc = register_pernet_subsys(&ipvs_conn_ops);
-+	retc = register_pernet_device(&ipvs_conn_ops);
- 
- 	/* calculate the random value for connection hash */
- 	get_random_bytes(&ip_vs_conn_rnd, sizeof(ip_vs_conn_rnd));
-@@ -1319,7 +1319,7 @@ int __init ip_vs_conn_init(void)
- 
- void ip_vs_conn_cleanup(void)
- {
--	unregister_pernet_subsys(&ipvs_conn_ops);
-+	unregister_pernet_device(&ipvs_conn_ops);
- 	/* Release the empty cache */
- 	kmem_cache_destroy(ip_vs_conn_cachep);
- 	vfree(ip_vs_conn_tab);
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 07accf6..a7bb81d 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1913,7 +1913,7 @@ static int __init ip_vs_init(void)
- {
- 	int ret;
- 
--	ret = register_pernet_subsys(&ipvs_core_ops);	/* Alloc ip_vs struct */
-+	ret = register_pernet_device(&ipvs_core_ops);	/* Alloc ip_vs struct */
- 	if (ret < 0)
- 		return ret;
- 
-@@ -1964,7 +1964,7 @@ cleanup_sync:
- 	ip_vs_control_cleanup();
-   cleanup_estimator:
- 	ip_vs_estimator_cleanup();
--	unregister_pernet_subsys(&ipvs_core_ops);	/* free ip_vs struct */
-+	unregister_pernet_device(&ipvs_core_ops);	/* free ip_vs struct */
- 	return ret;
- }
- 
-@@ -1977,7 +1977,7 @@ static void __exit ip_vs_cleanup(void)
- 	ip_vs_protocol_cleanup();
- 	ip_vs_control_cleanup();
- 	ip_vs_estimator_cleanup();
--	unregister_pernet_subsys(&ipvs_core_ops);	/* free ip_vs struct */
-+	unregister_pernet_device(&ipvs_core_ops);	/* free ip_vs struct */
- 	pr_info("ipvs unloaded.\n");
- }
- 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index ae47090..08715d8 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3657,7 +3657,7 @@ int __init ip_vs_control_init(void)
- 		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
- 	}
- 
--	ret = register_pernet_subsys(&ipvs_control_ops);
-+	ret = register_pernet_device(&ipvs_control_ops);
- 	if (ret) {
- 		pr_err("cannot register namespace.\n");
- 		goto err;
-@@ -3682,7 +3682,7 @@ int __init ip_vs_control_init(void)
- 	return 0;
- 
- err_net:
--	unregister_pernet_subsys(&ipvs_control_ops);
-+	unregister_pernet_device(&ipvs_control_ops);
- err:
- 	return ret;
- }
-@@ -3691,7 +3691,7 @@ err:
- void ip_vs_control_cleanup(void)
- {
- 	EnterFunction(2);
--	unregister_pernet_subsys(&ipvs_control_ops);
-+	unregister_pernet_device(&ipvs_control_ops);
- 	ip_vs_genl_unregister();
- 	nf_unregister_sockopt(&ip_vs_sockopts);
- 	LeaveFunction(2);
-diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
-index 8c8766c..759163e 100644
---- a/net/netfilter/ipvs/ip_vs_est.c
-+++ b/net/netfilter/ipvs/ip_vs_est.c
-@@ -216,11 +216,11 @@ int __init ip_vs_estimator_init(void)
- {
- 	int rv;
- 
--	rv = register_pernet_subsys(&ip_vs_app_ops);
-+	rv = register_pernet_device(&ip_vs_app_ops);
- 	return rv;
- }
- 
- void ip_vs_estimator_cleanup(void)
- {
--	unregister_pernet_subsys(&ip_vs_app_ops);
-+	unregister_pernet_device(&ip_vs_app_ops);
- }
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 6b5dd6d..dfa04d3 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -451,7 +451,7 @@ int __init ip_vs_ftp_init(void)
- {
- 	int rv;
- 
--	rv = register_pernet_subsys(&ip_vs_ftp_ops);
-+	rv = register_pernet_device(&ip_vs_ftp_ops);
- 	return rv;
- }
- 
-@@ -460,7 +460,7 @@ int __init ip_vs_ftp_init(void)
-  */
- static void __exit ip_vs_ftp_exit(void)
- {
--	unregister_pernet_subsys(&ip_vs_ftp_ops);
-+	unregister_pernet_device(&ip_vs_ftp_ops);
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index 87e40ea..96765d0 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -603,20 +603,20 @@ static int __init ip_vs_lblc_init(void)
- {
- 	int ret;
- 
--	ret = register_pernet_subsys(&ip_vs_lblc_ops);
-+	ret = register_pernet_device(&ip_vs_lblc_ops);
- 	if (ret)
- 		return ret;
- 
- 	ret = register_ip_vs_scheduler(&ip_vs_lblc_scheduler);
- 	if (ret)
--		unregister_pernet_subsys(&ip_vs_lblc_ops);
-+		unregister_pernet_device(&ip_vs_lblc_ops);
- 	return ret;
- }
- 
- static void __exit ip_vs_lblc_cleanup(void)
- {
- 	unregister_ip_vs_scheduler(&ip_vs_lblc_scheduler);
--	unregister_pernet_subsys(&ip_vs_lblc_ops);
-+	unregister_pernet_device(&ip_vs_lblc_ops);
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 90f618a..5de425f 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -799,20 +799,20 @@ static int __init ip_vs_lblcr_init(void)
- {
- 	int ret;
- 
--	ret = register_pernet_subsys(&ip_vs_lblcr_ops);
-+	ret = register_pernet_device(&ip_vs_lblcr_ops);
- 	if (ret)
- 		return ret;
- 
- 	ret = register_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
- 	if (ret)
--		unregister_pernet_subsys(&ip_vs_lblcr_ops);
-+		unregister_pernet_device(&ip_vs_lblcr_ops);
- 	return ret;
- }
- 
- static void __exit ip_vs_lblcr_cleanup(void)
- {
- 	unregister_ip_vs_scheduler(&ip_vs_lblcr_scheduler);
--	unregister_pernet_subsys(&ip_vs_lblcr_ops);
-+	unregister_pernet_device(&ip_vs_lblcr_ops);
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 17484a4..f7021fc 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -382,7 +382,7 @@ int __init ip_vs_protocol_init(void)
- 	REGISTER_PROTOCOL(&ip_vs_protocol_esp);
- #endif
- 	pr_info("Registered protocols (%s)\n", &protocols[2]);
--	return register_pernet_subsys(&ipvs_proto_ops);
-+	return register_pernet_device(&ipvs_proto_ops);
- 
- 	return 0;
- }
-@@ -393,7 +393,7 @@ void ip_vs_protocol_cleanup(void)
- 	struct ip_vs_protocol *pp;
- 	int i;
- 
--	unregister_pernet_subsys(&ipvs_proto_ops);
-+	unregister_pernet_device(&ipvs_proto_ops);
- 	/* unregister all the ipvs protocols */
- 	for (i = 0; i < IP_VS_PROTO_TAB_SIZE; i++) {
- 		while ((pp = ip_vs_proto_table[i]) != NULL)
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 3f87555..1aeca1d 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1692,10 +1692,10 @@ static struct pernet_operations ipvs_sync_ops = {
- 
- int __init ip_vs_sync_init(void)
- {
--	return register_pernet_subsys(&ipvs_sync_ops);
-+	return register_pernet_device(&ipvs_sync_ops);
- }
- 
- void ip_vs_sync_cleanup(void)
- {
--	unregister_pernet_subsys(&ipvs_sync_ops);
-+	unregister_pernet_device(&ipvs_sync_ops);
- }
--- 
-1.7.2.3
+I can see you are probably going to run into CPU performance problems, but
+it depends a lot on the type of traffic you are going to send.
+
+My system requires quite fast processor, but even more important is to
+have a network interface card that really supports the full speed of
+gigabit ethernet line. The reason for that is that my test traffic
+includes streams of very small packets that cause a lot of overhead in
+processing.
+
+Most of my test traffic is UDP, but it does not really matter what the
+higher layers of the traffic are, this scheme operates on the ethernet
+layer and does not care about payload structure.
+
+I tried several NIC:s before i settled using Intel 82576 cards with the
+igb driver. If you have less capable interface card, your small packet
+performance is going to be a lot poorer.
+
+Using that card I can get to full speed GE line rate even with 64byte
+packets, but if you want to send larger packets, say close to 1500byte
+then almost any NIC will work OK for you.
+
+You can download the module code and the userland seeding application from
+my svn server at https://toosa.swagman.org/svn/streamgen
+The streamseed userland application requires libpcap-dev to build
+correctly but the streamgen module is self-sufficent.
+
+There is not a lot of documentation, and the module is still "work in
+progress" as I am going to fix it to work with more than one interface at
+the same time when I get to do it. Currently it can only use one interface
+on the sending host machine.
+
+  - Juice -
+
+
+> Hi Juice,
+>
+> juice wrote:
+>> Hi Michal.
+>>
+>> How fast do you need to send the data?
+>
+> It sounds weird but as fast as possible. There is no specific limit
+> because I
+> want to create demo and test it on various hw configuration which I can
+> easily
+> create on FPGA. For now the bottleneck is Microblaze cpu. It can run from
+> 50MHz
+> till 170-180MHz. We also support both endians and have two hw IP
+> cores(10/100/1000) which I can use.
+>
+>> I have an application where I send test stream out to GE line and can
+>> fill
+>> the total capacity of the ethernet regardless of the packet size.
+>
+> What cpu do you use?
+>
+>>
+>> The test stream I am sending is stored in kernel memory, and therefore
+>> is
+>> limited by the amount of free memory. 200M is no problem.
+>
+> Is it UDP or TCP?
+>
+>>
+>> The solution I am using is loosely based on the pktgen module, except
+>> that
+>> my module can load a wireshark capture from userland program and then
+>> send
+>> it from ethernet interface in wire speed.
+>
+> Sound good. Would it be possible to see it and test it?
+>
+> Thanks,
+> Michal
+>
+>
+>>
+>>   - Juice -
+>>
+>>
+>>> Hi,
+>>> I would like to create demo for high speed data sending from custom IP
+>> through
+>>> the ethernet. I think the best description is that there are dmaable
+>>> memory
+>>> mapped registers or just memory which store data I want to send (for
+>> example 200MB).
+>>> Linux should handle all communication between target(probably server)
+>> and
+>>> host
+>>> (client) but data in the packets should go from that custom IP and
+>>> can't go
+>>> through the kernel because of performance issue.
+>>> Ethernet core have own DMA which I could use but the question is if
+>> there
+>>> is any
+>>> option how to convince the kernel that data will go directly from
+>>> memory
+>> mapped
+>>> registers and the kernel/driver/... just setup dma BD for headers and
+>> second for
+>>> data.
+>>> Do you have any experience with any solution with passing data
+>> completely
+>>> out of
+>>> kernel?
+>>> Thanks,
+>>> Michal
+>>> --
+>>> Michal Simek, Ing. (M.Eng)
+>>> w: www.monstr.eu p: +42-0-721842854
+>>> Maintainer of Linux kernel 2.6 Microblaze Linux -
+>>> http://www.monstr.eu/fdt/
+>>> Microblaze U-BOOT custodian
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the
+>> body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>>
+>>
+>>
+>
+>
+> --
+> Michal Simek, Ing. (M.Eng)
+> w: www.monstr.eu p: +42-0-721842854
+> Maintainer of Linux kernel 2.6 Microblaze Linux -
+> http://www.monstr.eu/fdt/
+> Microblaze U-BOOT custodian
+>
+
 
