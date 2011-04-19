@@ -1,41 +1,72 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: Re: [PATCH 17/34] hdlcdrv: Drop __TIME__ usage
-Date: Tue, 19 Apr 2011 12:56:50 +0200
-Message-ID: <4DAD6A72.2050809@suse.cz>
-References: <1302015561-21047-1-git-send-email-mmarek@suse.cz> <1302015561-21047-18-git-send-email-mmarek@suse.cz> <4DAD614D.1060704@bfs.de>
+From: "juice" <juice@swagman.org>
+Subject: Re: Hight speed data sending from custom IP out of kernel
+Date: Tue, 19 Apr 2011 14:34:03 +0300
+Message-ID: <53f539ea861e1a24bde4aadceff0b3bb.squirrel@www.liukuma.net>
+Reply-To: juice@swagman.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kbuild@vger.kernel.org,
-	Thomas Sailer <t.sailer@alumni.ethz.ch>,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org
-To: wharms@bfs.de
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <4DAD614D.1060704@bfs.de>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: monstr@monstr.eu, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.liukuma.net ([62.220.235.15]:19515 "EHLO www.liukuma.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752325Ab1DSLoR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2011 07:44:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19.4.2011 12:17, walter harms wrote:
-> Am 05.04.2011 16:59, schrieb Michal Marek:
->> --- a/drivers/net/hamradio/hdlcdrv.c
->> +++ b/drivers/net/hamradio/hdlcdrv.c
->> @@ -749,7 +749,7 @@ EXPORT_SYMBOL(hdlcdrv_unregister);
->>  static int __init hdlcdrv_init_driver(void)
->>  {
->>  	printk(KERN_INFO "hdlcdrv: (C) 1996-2000 Thomas Sailer HB9JNX/AE4WA\n");
->> -	printk(KERN_INFO "hdlcdrv: version 0.8 compiled " __TIME__ " " __DATE__ "\n");
->> +	printk(KERN_INFO "hdlcdrv: version 0.8\n");
->>  	return 0;
->>  }
->>  
-> 
-> Its a bit late but i am not a big fan of hard coded version id's.
-> Does GIT provide something like that ? If not
-> IMHO the line
->  printk(KERN_INFO "hdlcdrv: version 0.8\n");
-> can be removed.
+Hi Michal.
 
-OK, submit a separate patch then. I personally don't care about version
-id's, as long as they do not embed any timestamp ;-).
+How fast do you need to send the data?
+I have an application where I send test stream out to GE line and can fill
+the total capacity of the ethernet regardless of the packet size.
 
-Michal
+The test stream I am sending is stored in kernel memory, and therefore is
+limited by the amount of free memory. 200M is no problem.
+
+The solution I am using is loosely based on the pktgen module, except that
+my module can load a wireshark capture from userland program and then send
+it from ethernet interface in wire speed.
+
+  - Juice -
+
+
+> Hi,
+> I would like to create demo for high speed data sending from custom IP
+through
+> the ethernet. I think the best description is that there are dmaable memory
+> mapped registers or just memory which store data I want to send (for
+example 200MB).
+> Linux should handle all communication between target(probably server)
+and
+> host
+> (client) but data in the packets should go from that custom IP and can't go
+> through the kernel because of performance issue.
+> Ethernet core have own DMA which I could use but the question is if
+there
+> is any
+> option how to convince the kernel that data will go directly from memory
+mapped
+> registers and the kernel/driver/... just setup dma BD for headers and
+second for
+> data.
+> Do you have any experience with any solution with passing data
+completely
+> out of
+> kernel?
+> Thanks,
+> Michal
+> --
+> Michal Simek, Ing. (M.Eng)
+> w: www.monstr.eu p: +42-0-721842854
+> Maintainer of Linux kernel 2.6 Microblaze Linux -
+> http://www.monstr.eu/fdt/
+> Microblaze U-BOOT custodian
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+
