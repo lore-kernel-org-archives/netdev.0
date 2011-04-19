@@ -1,40 +1,47 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
- memory in __alloc_skb
-Date: Tue, 19 Apr 2011 12:10:40 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1104191210011.17888@router.home>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>  <20110418153852.153d3ed3.akpm@linux-foundation.org>  <1303181466.4152.39.camel@edumazet-laptop>  <1303182557.4152.48.camel@edumazet-laptop> <1303183217.4152.49.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] usbnet: Resubmit interrupt URB more often
+Date: Tue, 19 Apr 2011 18:11:06 +0100
+Message-ID: <1303233066.2988.14.camel@bwh-desktop>
+References: <20110419164703.5A6A82052B@glenhelen.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, casteyde.christian@free.fr,
-	Vegard Nossum <vegardno@ifi.uio.no>,
-	Pekka Enberg <penberg@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Paul Stewart <pstew@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.prem.mail.ac4.yahoo.com ([76.13.13.46]:48646 "HELO
-	smtp107.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753523Ab1DSRKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 13:10:45 -0400
-In-Reply-To: <1303183217.4152.49.camel@edumazet-laptop>
+Received: from mail.solarflare.com ([216.237.3.220]:29574 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753606Ab1DSRLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 13:11:10 -0400
+In-Reply-To: <20110419164703.5A6A82052B@glenhelen.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Apr 2011, Eric Dumazet wrote:
+On Tue, 2011-04-19 at 09:35 -0700, Paul Stewart wrote:
+[...]
+> index 4342bd9..e4dbb29 100644
+> --- a/drivers/usb/core/urb.c
+> +++ b/drivers/usb/core/urb.c
+> @@ -295,7 +295,9 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
+>  	struct usb_host_endpoint	*ep;
+>  	int				is_out;
+>  
+> -	if (!urb || urb->hcpriv || !urb->complete)
+> +	if (urb->hcpriv)
+> +		return -EALREADY;
+> +	if (!urb || !urb->complete)
+>  		return -EINVAL;
+[...]
 
->  	}
->  }
->
-> -#ifdef CONFIG_CMPXCHG_LOCAL
-> +#if defined(CONFIG_CMPXCHG_LOCAL) && \
-> +	!defined(CONFIG_KMEMCHECK) && !defined(DEBUG_PAGEALLOC)
-> +#define SLUB_USE_CMPXCHG_DOUBLE
-> +#endif
-> +
-> +#ifdef SLUB_USE_CMPXCHG_DOUBLE
->  #ifdef CONFIG_PREEMPT
->  /*
+The test for !urb must come before the test on urb->hcpriv.
 
-Ugg.. Isnt there some way to indicate to kmemcheck that a speculative
-access is occurring?
+Also, the kernel coding style does not allow '//' comments.  Please use
+scripts/checkpatch.pl to check for style and other common errors.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
