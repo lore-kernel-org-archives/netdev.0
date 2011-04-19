@@ -1,65 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/5] be2net: pass domain id to
- be_cmd_link_status_query
-Date: Mon, 18 Apr 2011 22:56:59 -0700 (PDT)
-Message-ID: <20110418.225659.112612060.davem@davemloft.net>
-References: <20110418223033.GA9515@akhaparde-VBox>
+Subject: Re: [PATCH] net: fix section mismatches
+Date: Mon, 18 Apr 2011 22:59:16 -0700 (PDT)
+Message-ID: <20110418.225916.183040104.davem@davemloft.net>
+References: <20110418233120.E4B1F138DD@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajit.khaparde@emulex.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de,
+	perex@perex.cz, samuel@sortiz.org, grundler@parisc-linux.org
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43188
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57562
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751650Ab1DSF5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 01:57:34 -0400
-In-Reply-To: <20110418223033.GA9515@akhaparde-VBox>
+	by vger.kernel.org with ESMTP id S1752397Ab1DSF7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 01:59:51 -0400
+In-Reply-To: <20110418233120.E4B1F138DD@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Date: Mon, 18 Apr 2011 17:30:33 -0500
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Tue, 19 Apr 2011 01:31:20 +0200 (CEST)
 
-> 
-> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+> Fix build warnings like the following:
+>=20
+> WARNING: drivers/net/built-in.o(.data+0x12434): Section mismatch in r=
+eference from the variable madgemc_driver to the variable .init.data:ma=
+dgemc_adapter_ids
+>=20
+> And add some consts to EISA device ID tables along the way.
+>=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-That's not all this patch does:
-
-> @@ -293,7 +293,6 @@ struct be_adapter {
->  	u8 eq_next_idx;
->  	struct be_drv_stats drv_stats;
->  
-> -	struct vlan_group *vlan_grp;
->  	u16 vlans_added;
->  	u16 max_vlans;	/* Number of vlans supported */
->  	u8 vlan_tag[VLAN_N_VID];
-...
-> @@ -1012,15 +1004,10 @@ static void be_rx_compl_process(struct be_adapter *adapter,
->  		skb->rxhash = rxcp->rss_hash;
->  
->  
-> -	if (unlikely(rxcp->vlanf)) {
-> -		if (!adapter->vlan_grp || adapter->vlans_added == 0) {
-> -			kfree_skb(skb);
-> -			return;
-> -		}
-> -		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp, rxcp->vid);
-> -	} else {
-> -		netif_receive_skb(skb);
-> -	}
-> +	if (unlikely(rxcp->vlanf))
-> +		__vlan_hwaccel_put_tag(skb, rxcp->vid);
-> +
-> +	netif_receive_skb(skb);
->  }
->  
->  /* Process the RX completion indicated by rxcp when GRO is enabled */
-
-It seems to be also converting the driver over to the new VLAN
-interfaces.
-
-Please seperate this part into a seperate patch and resubmit your
-patch series.
-
-Thanks.
+I've applied this, thanks!
