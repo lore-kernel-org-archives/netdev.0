@@ -1,66 +1,117 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH] net: xen-netback: convert to hw_features
-Date: Tue, 19 Apr 2011 16:15:48 +0100
-Message-ID: <1303226148.5997.233.camel@zakaz.uk.xensource.com>
-References: <20110419115612.C4ACA13909@rere.qmqm.pl>
-	 <1303219073.5997.191.camel@zakaz.uk.xensource.com>
-	 <20110419133019.GA3973@rere.qmqm.pl>
-	 <1303220340.5997.197.camel@zakaz.uk.xensource.com>
-	 <20110419134352.GB4716@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:6438 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752205Ab1DSPPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 11:15:50 -0400
-In-Reply-To: <20110419134352.GB4716@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: [PATCH 1/3] IPVS: Change of socket usage to enable name space exit.
+Date: Tue, 19 Apr 2011 17:25:03 +0200
+Message-ID: <1303226705-29178-1-git-send-email-hans@schillstrom.com>
+Cc: hans.schillstrom@ericsson.com,
+	Hans Schillstrom <hans@schillstrom.com>
+To: horms@verge.net.au, ja@ssi.bg, ebiederm@xmission.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-04-19 at 14:43 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> On Tue, Apr 19, 2011 at 02:39:00PM +0100, Ian Campbell wrote:
-> > On Tue, 2011-04-19 at 14:30 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> > > On Tue, Apr 19, 2011 at 02:17:53PM +0100, Ian Campbell wrote:
-> > > > I fixed it with the following, I also moved the !can_sg MTU cla=
-mping
-> > > > into a set_features hook (like we do with netfront). Am I right=
- that
-> > > > this pattern copes with changes to SG via ethtool etc better? I=
- think
-> > > > it's more future proof in any case.
-> > > This looks wrong. Even if SG is turned on, you might get big skbs=
- which
-> > > are linearized. There is a difference in SG capability and SG off=
-load
-> > > status and as I see it the capability is what you need to test fo=
-r MTU.
-> > So the existing stuff in drivers/net/xen-netfront.c is wrong too?
->=20
-> Looks like it. But I don't really know what are the real constraints =
-for MTU.
-> What I know is that SG even if turned on needs not be used (and curre=
-ntly
-> it's not e.g. if checksum offload is disabled).
+This is the first patch in a series of three.
+The cleanup doesn't work when not exit in a clean way by using ipvsadm.
+Killing of a namespace causes a hanging ipvs, this series will cure that.
 
-The interesting case is the opposite one, isn't it? IOW if NETIF_F_SG i=
-s
-disabled but the frontend/backend agree that they have the capability t=
-o
-handle >PAGE_SIZE skbs
+If the sync daemons run in a namespace while it crashes
+or get killed, there is no way to stop them except for a reboot.
 
-In my experience, the normal reason for disabling the NETIF_F_SG offloa=
-d
-status is that the underlying capability is somehow buggy, otherwise is
-there any reason to turn it off?
+Kernel threads should not increment the use count of a socket.
+By calling sk_change_net() after creating a socket this is avoided.
+sock_release cant be used, instead sk_release_kernel() should be used.
 
-> So MTU setting should not depend on SG offload state but on some capa=
-bility.
+Thanks to Eric W Biederman.
 
-Ian.
+This patch is based on net-next-2.6  ver 2.6.39-rc2
 
+Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+---
+ net/netfilter/ipvs/ip_vs_sync.c |   28 +++++++++++++++++++---------
+ 1 files changed, 19 insertions(+), 9 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 3e7961e..3f87555 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1309,7 +1309,12 @@ static struct socket *make_send_sock(struct net *net)
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
+ 	}
+-
++	/*
++	 * Kernel sockets that are a part of a namespace, should not
++	 * hold a reference to a namespace in order to allow to stop it.
++	 * After sk_change_net should be released using sk_release_kernel.
++	 */
++	sk_change_net(sock->sk, net);
+ 	result = set_mcast_if(sock->sk, ipvs->master_mcast_ifn);
+ 	if (result < 0) {
+ 		pr_err("Error setting outbound mcast interface\n");
+@@ -1334,8 +1339,8 @@ static struct socket *make_send_sock(struct net *net)
+
+ 	return sock;
+
+-  error:
+-	sock_release(sock);
++error:
++	sk_release_kernel(sock->sk);
+ 	return ERR_PTR(result);
+ }
+
+@@ -1355,7 +1360,12 @@ static struct socket *make_receive_sock(struct net *net)
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
+ 	}
+-
++	/*
++	 * Kernel sockets that are a part of a namespace, should not
++	 * hold a reference to a namespace in order to allow to stop it.
++	 * After sk_change_net should be released using sk_release_kernel.
++	 */
++	sk_change_net(sock->sk, net);
+ 	/* it is equivalent to the REUSEADDR option in user-space */
+ 	sock->sk->sk_reuse = 1;
+
+@@ -1377,8 +1387,8 @@ static struct socket *make_receive_sock(struct net *net)
+
+ 	return sock;
+
+-  error:
+-	sock_release(sock);
++error:
++	sk_release_kernel(sock->sk);
+ 	return ERR_PTR(result);
+ }
+
+@@ -1473,7 +1483,7 @@ static int sync_thread_master(void *data)
+ 		ip_vs_sync_buff_release(sb);
+
+ 	/* release the sending multicast socket */
+-	sock_release(tinfo->sock);
++	sk_release_kernel(tinfo->sock->sk);
+ 	kfree(tinfo);
+
+ 	return 0;
+@@ -1513,7 +1523,7 @@ static int sync_thread_backup(void *data)
+ 	}
+
+ 	/* release the sending multicast socket */
+-	sock_release(tinfo->sock);
++	sk_release_kernel(tinfo->sock->sk);
+ 	kfree(tinfo->buf);
+ 	kfree(tinfo);
+
+@@ -1601,7 +1611,7 @@ outtinfo:
+ outbuf:
+ 	kfree(buf);
+ outsocket:
+-	sock_release(sock);
++	sk_release_kernel(sock->sk);
+ out:
+ 	return result;
+ }
+--
+1.7.2.3
 
