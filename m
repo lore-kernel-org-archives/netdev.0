@@ -1,115 +1,69 @@
 From: Paul Stewart <pstew@chromium.org>
-Subject: [PATCHv2] usbnet: Resubmit interrupt URB more often
-Date: Tue, 19 Apr 2011 10:44:12 -0700
-Message-ID: <20110419175037.AADD22052B@glenhelen.mtv.corp.google.com>
-References: <1303233066.2988.14.camel@bwh-desktop>
-Cc: davem@davemloft.net, bhutchings@solarflare.com
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH] usbnet: Resubmit interrupt URB more often
+Date: Tue, 19 Apr 2011 10:51:54 -0700
+Message-ID: <BANLkTinPpmOUABRg0Fx84VGiZhKdw=Ok0Q@mail.gmail.com>
+References: <20110419164703.5A6A82052B@glenhelen.mtv.corp.google.com>
+	<1303233066.2988.14.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:36032 "EHLO
+Received: from smtp-out.google.com ([74.125.121.67]:36428 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752378Ab1DSRut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 13:50:49 -0400
+	with ESMTP id S1753680Ab1DSRv5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 13:51:57 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id p3JHpu9h000481
+	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 10:51:56 -0700
+Received: from iwn9 (iwn9.prod.google.com [10.241.68.73])
+	by wpaz33.hot.corp.google.com with ESMTP id p3JHokwJ015941
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 10:51:54 -0700
+Received: by iwn9 with SMTP id 9so16148107iwn.37
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 10:51:54 -0700 (PDT)
 In-Reply-To: <1303233066.2988.14.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I previously sent a patch to resubmit the interrupt URB when
-coming out of suspend.  I haven't seen much activity on the
-list about it, and thought I'd send a slight variant of this
-change.  This one unconditionally resubmits the interrupt urb
-in usbnet_bh.  The consequences for resubmitting the URB often
-are not large.  In most HCI cases this just means usb_submit_urb
-returns immediately and leaves the previous request outstanding.
+Thanks, Ben. =A0I've made some changes.  usbnet.c is a little bit a of
+mess style-wise, and I let myself get sucked in. :-)
 
-Doing things this way allows us to avoid keeping track of the
-URB transmit status, which may change silently over suspend-
-resume transitions and is not tracked in any way currently by
-usbnet.
+--
+Paul
 
-I've designed this change on two types of systems: the first
-class of system leaves USB devices powered during suspend.
-This might silently cause the interrupt URB to disappear (or at
-least not be resubmitted in intr_complete).  Resubmission after
-system resume will prevent this from causing problems.
-
-The second class of device are those which shut down the device
-during suspend.  During a suspend-resume cycle, the device is
-re-enumerated at system resume, and for whatever reason
-usbnet_resume may be called on the device during the call-tree
-from usbnet_open-> usb_autopm_get_interface, which may cause a
-race where the first change above may cause the bh to submit the
-interrupt urb before usbnet_open() does.  As a result, I've added
-an EALREADY check and a fix to urb.c to send one.
-
-Signed-off-by: Paul Stewart <pstew@chromium.org>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/usb/usbnet.c |   14 +++++++++++++-
- drivers/usb/core/urb.c   |    5 +++--
- 2 files changed, 16 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 02d25c7..1718898 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -636,7 +636,12 @@ static int usbnet_open (struct net_device *net)
- 	/* start any status interrupt transfer */
- 	if (dev->interrupt) {
- 		retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
--		if (retval < 0) {
-+		if (retval == -EALREADY) {
-+			/*
-+			 * It is not an error if interrupt urb is alredy active
-+			 */
-+			retval = 0;
-+		} else if (retval < 0) {
- 			if (netif_msg_ifup (dev))
- 				deverr (dev, "intr submit %d", retval);
- 			goto done;
-@@ -1065,6 +1070,10 @@ static void usbnet_bh (unsigned long param)
- 		if (dev->txq.qlen < TX_QLEN (dev))
- 			netif_wake_queue (dev->net);
- 	}
-+
-+	/* Re-submit interrupt urb (doesn't hurt to retry) */
-+	if (netif_running(dev->net))
-+		usb_submit_urb(dev->interrupt, GFP_KERNEL);
- }
- 
- 
-@@ -1285,6 +1294,9 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
- 		 * wake the device
- 		 */
- 		netif_device_attach (dev->net);
-+		/* Stop interrupt urbs while in suspend */
-+		if (dev->interrupt)
-+			usb_kill_urb(dev->interrupt);
- 	}
- 	return 0;
- }
-diff --git a/drivers/usb/core/urb.c b/drivers/usb/core/urb.c
-index 4342bd9..ff85f50 100644
---- a/drivers/usb/core/urb.c
-+++ b/drivers/usb/core/urb.c
-@@ -295,8 +295,10 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
- 	struct usb_host_endpoint	*ep;
- 	int				is_out;
- 
--	if (!urb || urb->hcpriv || !urb->complete)
-+	if (!urb)
- 		return -EINVAL;
-+	if (!urb->complete || urb->hcpriv)
-+		return -EALREADY;
- 	dev = urb->dev;
- 	if ((!dev) || (dev->state < USB_STATE_DEFAULT))
- 		return -ENODEV;
-@@ -807,4 +809,3 @@ int usb_anchor_empty(struct usb_anchor *anchor)
- }
- 
- EXPORT_SYMBOL_GPL(usb_anchor_empty);
--
--- 
-1.7.3.1
-
+On Tue, Apr 19, 2011 at 10:11 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+>
+> On Tue, 2011-04-19 at 09:35 -0700, Paul Stewart wrote:
+> [...]
+> > index 4342bd9..e4dbb29 100644
+> > --- a/drivers/usb/core/urb.c
+> > +++ b/drivers/usb/core/urb.c
+> > @@ -295,7 +295,9 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_f=
+lags)
+> > =A0 =A0 =A0 struct usb_host_endpoint =A0 =A0 =A0 =A0*ep;
+> > =A0 =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 is_out;
+> >
+> > - =A0 =A0 if (!urb || urb->hcpriv || !urb->complete)
+> > + =A0 =A0 if (urb->hcpriv)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 return -EALREADY;
+> > + =A0 =A0 if (!urb || !urb->complete)
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+> [...]
+>
+> The test for !urb must come before the test on urb->hcpriv.
+>
+> Also, the kernel coding style does not allow '//' comments. =A0Please=
+ use
+> scripts/checkpatch.pl to check for style and other common errors.
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Senior Software Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
