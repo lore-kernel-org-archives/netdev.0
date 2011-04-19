@@ -1,71 +1,33 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: 802.3ad - fix agg_device_up
-Date: Tue, 19 Apr 2011 09:55:03 -0700
-Message-ID: <21326.1303232103@death>
-References: <20110419120955.GA14302@midget.suse.cz>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Jiri Bohac <jbohac@suse.cz>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
+ memory in __alloc_skb
+Date: Tue, 19 Apr 2011 12:09:30 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1104191208010.17888@router.home>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>  <20110418153852.153d3ed3.akpm@linux-foundation.org>  <1303181466.4152.39.camel@edumazet-laptop> <1303182557.4152.48.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, casteyde.christian@free.fr,
+	Vegard Nossum <vegardno@ifi.uio.no>,
+	Pekka Enberg <penberg@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:34188 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752098Ab1DSQzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2011 12:55:08 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3JGTcWP020156
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 12:29:38 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3JGt7o2398596
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 12:55:07 -0400
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3JGt5gr013351
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 10:55:07 -0600
-In-reply-to: <20110419120955.GA14302@midget.suse.cz>
+Received: from smtp102.prem.mail.ac4.yahoo.com ([76.13.13.41]:37398 "HELO
+	smtp102.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752223Ab1DSRJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 13:09:38 -0400
+In-Reply-To: <1303182557.4152.48.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Bohac <jbohac@suse.cz> wrote:
+On Tue, 19 Apr 2011, Eric Dumazet wrote:
 
->The slave member of struct aggregator does not necessarily point
->to a slave which is part of the aggregator. It points to the
->slave structure containing the aggregator structure, while
->completely different slaves (or no slaves at all) may be part of
->the aggregator.
->
->The agg_device_up() function wrongly uses agg->slave to find the state of the
->aggregator.  Use agg->lag_ports->slave instead. The bug has been
->introduced by commit 4cd6fe1c6483cde93e2ec91f58b7af9c9eea51ad.
->
->Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+> get_freepointer(s, object) can access to freed memory and kmemcheck
+> triggers the fault, while this_cpu_cmpxchg_double() would presumably
+> detect a change of tid and would not perform the freelist/tid change.
 
-	One additional note: port->slave can be NULL when the slave is
-transitioning in or out of the bond, but not when the port is part of an
-aggregator, so this usage should be safe.
+Sounds right. The new lockless patchset for slub that uses a locked
+cmpxchg16b will make this behavior even more common since it will do more
+speculative accesses.
 
-	-J
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 494bf96..31912f1 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -1482,8 +1482,11 @@ static struct aggregator *ad_agg_selection_test(struct aggregator *best,
->
-> static int agg_device_up(const struct aggregator *agg)
-> {
->-	return (netif_running(agg->slave->dev) &&
->-		netif_carrier_ok(agg->slave->dev));
->+	struct port *port = agg->lag_ports;
->+	if (!port)
->+		return 0;
->+	return (netif_running(port->slave->dev) &&
->+		netif_carrier_ok(port->slave->dev));
-> }
->
-> /**
->-- 
->Jiri Bohac <jbohac@suse.cz>
->SUSE Labs, SUSE CZ
->
