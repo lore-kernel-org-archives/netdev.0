@@ -1,98 +1,82 @@
 From: kaber@trash.net
-Subject: [PATCH 2/3] netfilter: ipset: set match and SET target fixes
-Date: Tue, 19 Apr 2011 16:51:44 +0200
-Message-ID: <1303224705-17400-3-git-send-email-kaber@trash.net>
+Subject: [PATCH 3/3] netfilter: ipset: Fix the order of listing of sets
+Date: Tue, 19 Apr 2011 16:51:45 +0200
+Message-ID: <1303224705-17400-4-git-send-email-kaber@trash.net>
 References: <1303224705-17400-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:40015 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752911Ab1DSOvt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 10:51:49 -0400
 In-Reply-To: <1303224705-17400-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-The SET target with --del-set did not work due to using wrongly
-the internal dimension of --add-set instead of --del-set.
-Also, the checkentries did not release the set references when
-returned an error. Bugs reported by Lennert Buytenhek.
+A restoreable saving of sets requires that list:set type of sets
+come last and the code part which should have taken into account
+the ordering was broken. The patch fixes the listing order.
 
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/xt_set.c |   18 ++++++++++++++++--
- 1 files changed, 16 insertions(+), 2 deletions(-)
+ net/netfilter/ipset/ip_set_core.c |   18 ++++++++++--------
+ 1 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
-index 061d48c..b3babae 100644
---- a/net/netfilter/xt_set.c
-+++ b/net/netfilter/xt_set.c
-@@ -81,6 +81,7 @@ set_match_v0_checkentry(const struct xt_mtchk_param *par)
- 	if (info->match_set.u.flags[IPSET_DIM_MAX-1] != 0) {
- 		pr_warning("Protocol error: set match dimension "
- 			   "is over the limit!\n");
-+		ip_set_nfnl_put(info->match_set.index);
- 		return -ERANGE;
- 	}
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index e88ac3c..d87e03b 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -1022,8 +1022,9 @@ ip_set_dump_start(struct sk_buff *skb, struct netlink_callback *cb)
+ 	if (cb->args[1] >= ip_set_max)
+ 		goto out;
  
-@@ -135,6 +136,8 @@ set_target_v0_checkentry(const struct xt_tgchk_param *par)
- 		if (index == IPSET_INVALID_ID) {
- 			pr_warning("Cannot find del_set index %u as target\n",
- 				   info->del_set.index);
-+			if (info->add_set.index != IPSET_INVALID_ID)
-+				ip_set_nfnl_put(info->add_set.index);
- 			return -ENOENT;
+-	pr_debug("args[0]: %ld args[1]: %ld\n", cb->args[0], cb->args[1]);
+ 	max = cb->args[0] == DUMP_ONE ? cb->args[1] + 1 : ip_set_max;
++dump_last:
++	pr_debug("args[0]: %ld args[1]: %ld\n", cb->args[0], cb->args[1]);
+ 	for (; cb->args[1] < max; cb->args[1]++) {
+ 		index = (ip_set_id_t) cb->args[1];
+ 		set = ip_set_list[index];
+@@ -1038,8 +1039,8 @@ ip_set_dump_start(struct sk_buff *skb, struct netlink_callback *cb)
+ 		 * so that lists (unions of sets) are dumped last.
+ 		 */
+ 		if (cb->args[0] != DUMP_ONE &&
+-		    !((cb->args[0] == DUMP_ALL) ^
+-		      (set->type->features & IPSET_DUMP_LAST)))
++		    ((cb->args[0] == DUMP_ALL) ==
++		     !!(set->type->features & IPSET_DUMP_LAST)))
+ 			continue;
+ 		pr_debug("List set: %s\n", set->name);
+ 		if (!cb->args[2]) {
+@@ -1083,6 +1084,12 @@ ip_set_dump_start(struct sk_buff *skb, struct netlink_callback *cb)
+ 			goto release_refcount;
  		}
  	}
-@@ -142,6 +145,10 @@ set_target_v0_checkentry(const struct xt_tgchk_param *par)
- 	    info->del_set.u.flags[IPSET_DIM_MAX-1] != 0) {
- 		pr_warning("Protocol error: SET target dimension "
- 			   "is over the limit!\n");
-+		if (info->add_set.index != IPSET_INVALID_ID)
-+			ip_set_nfnl_put(info->add_set.index);
-+		if (info->del_set.index != IPSET_INVALID_ID)
-+			ip_set_nfnl_put(info->del_set.index);
- 		return -ERANGE;
- 	}
++	/* If we dump all sets, continue with dumping last ones */
++	if (cb->args[0] == DUMP_ALL) {
++		cb->args[0] = DUMP_LAST;
++		cb->args[1] = 0;
++		goto dump_last;
++	}
+ 	goto out;
  
-@@ -192,6 +199,7 @@ set_match_checkentry(const struct xt_mtchk_param *par)
- 	if (info->match_set.dim > IPSET_DIM_MAX) {
- 		pr_warning("Protocol error: set match dimension "
- 			   "is over the limit!\n");
-+		ip_set_nfnl_put(info->match_set.index);
- 		return -ERANGE;
+ nla_put_failure:
+@@ -1093,11 +1100,6 @@ release_refcount:
+ 		pr_debug("release set %s\n", ip_set_list[index]->name);
+ 		ip_set_put_byindex(index);
  	}
- 
-@@ -219,7 +227,7 @@ set_target(struct sk_buff *skb, const struct xt_action_param *par)
- 	if (info->del_set.index != IPSET_INVALID_ID)
- 		ip_set_del(info->del_set.index,
- 			   skb, par->family,
--			   info->add_set.dim,
-+			   info->del_set.dim,
- 			   info->del_set.flags);
- 
- 	return XT_CONTINUE;
-@@ -245,13 +253,19 @@ set_target_checkentry(const struct xt_tgchk_param *par)
- 		if (index == IPSET_INVALID_ID) {
- 			pr_warning("Cannot find del_set index %u as target\n",
- 				   info->del_set.index);
-+			if (info->add_set.index != IPSET_INVALID_ID)
-+				ip_set_nfnl_put(info->add_set.index);
- 			return -ENOENT;
- 		}
- 	}
- 	if (info->add_set.dim > IPSET_DIM_MAX ||
--	    info->del_set.flags > IPSET_DIM_MAX) {
-+	    info->del_set.dim > IPSET_DIM_MAX) {
- 		pr_warning("Protocol error: SET target dimension "
- 			   "is over the limit!\n");
-+		if (info->add_set.index != IPSET_INVALID_ID)
-+			ip_set_nfnl_put(info->add_set.index);
-+		if (info->del_set.index != IPSET_INVALID_ID)
-+			ip_set_nfnl_put(info->del_set.index);
- 		return -ERANGE;
- 	}
- 
+-
+-	/* If we dump all sets, continue with dumping last ones */
+-	if (cb->args[0] == DUMP_ALL && cb->args[1] >= max && !cb->args[2])
+-		cb->args[0] = DUMP_LAST;
+-
+ out:
+ 	if (nlh) {
+ 		nlmsg_end(skb, nlh);
 -- 
 1.7.2.3
 
