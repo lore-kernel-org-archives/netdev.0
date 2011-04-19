@@ -1,210 +1,110 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: tun: convert to hw_features
-Date: Tue, 19 Apr 2011 18:13:10 +0200 (CEST)
-Message-ID: <20110419161310.7508513909@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rusty Russell <rusty@rustcorp.com.au>
+From: Paul Stewart <pstew@chromium.org>
+Subject: [PATCH] usbnet: Resubmit interrupt URB more often
+Date: Tue, 19 Apr 2011 09:35:25 -0700
+Message-ID: <20110419164703.5A6A82052B@glenhelen.mtv.corp.google.com>
+Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:60466 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752384Ab1DSQNL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2011 12:13:11 -0400
+Received: from smtp-out.google.com ([216.239.44.51]:52306 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135Ab1DSQrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 12:47:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This changes offload setting behaviour to what I think is correct:
- - offloads set via ethtool mean what admin wants to use (by default
-   he wants 'em all)
- - offloads set via ioctl() mean what userspace is expecting to get
-   (this limits which admin wishes are granted)
- - TUN_NOCHECKSUM is ignored, as it might cause broken packets when
-   forwarded (ip_summed =3D=3D CHECKSUM_UNNECESSARY means that checksum
-   was verified, not that it can be ignored)
+I previously sent a patch to resubmit the interrupt URB when
+coming out of suspend.  I haven't seen much activity on the
+list about it, and thought I'd send a slight variant of this
+change.  This one unconditionally resubmits the interrupt urb
+in usbnet_bh.  The consequences for resubmitting the URB often
+are not large.  In most HCI cases this just means usb_submit_urb
+returns immediately and leaves the previous request outstanding.
 
-If TUN_NOCHECKSUM is implemented, it should set skb->csum_* and
-skb->ip_summed (=3D CHECKSUM_PARTIAL) for known protocols and let other=
-s
-be verified by kernel when necessary.
+Doing things this way allows us to avoid keeping track of the
+URB transmit status, which may change silently over suspend-
+resume transitions and is not tracked in any way currently by
+usbnet.
 
-TUN_NOCHECKSUM handling was introduced by commit
-f43798c27684ab925adde7d8acc34c78c6e50df8:
+I've designed this change on two types of systems: the first
+class of system leaves USB devices powered during suspend.
+This might silently cause the interrupt URB to disappear (or at
+least not be resubmitted in intr_complete).  Resubmission after
+system resume will prevent this from causing problems.
 
-    tun: Allow GSO using virtio_net_hdr
-   =20
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+The second class of device are those which shut down the device
+during suspend.  During a suspend-resume cycle, the device is
+re-enumerated at system resume, and for whatever reason
+usbnet_resume may be called on the device during the call-tree
+from usbnet_open-> usb_autopm_get_interface, which may cause a
+race where the first change above may cause the bh to submit the
+interrupt urb before usbnet_open() does.  As a result, I've added
+an EALREADY check and a fix to urb.c to send one.
+
+Signed-off-by: Paul Stewart <pstew@chromium.org>
+Cc: David S. Miller <davem@davemloft.net>
+
 ---
- drivers/net/tun.c |   63 +++++++++++++++++++++------------------------=
---------
- 1 files changed, 25 insertions(+), 38 deletions(-)
+ drivers/net/usb/usbnet.c |   12 +++++++++++-
+ drivers/usb/core/urb.c   |    5 +++--
+ 2 files changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index f5e9ac0..ade3cf9 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -123,6 +123,9 @@ struct tun_struct {
- 	gid_t			group;
-=20
- 	struct net_device	*dev;
-+	u32			set_features;
-+#define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO=
-| \
-+			  NETIF_F_TSO6|NETIF_F_UFO)
- 	struct fasync_struct	*fasync;
-=20
- 	struct tap_filter       txflt;
-@@ -451,12 +454,20 @@ tun_net_change_mtu(struct net_device *dev, int ne=
-w_mtu)
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 02d25c7..3b3c169 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -636,7 +636,10 @@ static int usbnet_open (struct net_device *net)
+ 	/* start any status interrupt transfer */
+ 	if (dev->interrupt) {
+ 		retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
+-		if (retval < 0) {
++		if (retval == -EALREADY) {
++			// It is not an error if interrupt urb is alredy active
++			retval = 0;
++		} else if (retval < 0) {
+ 			if (netif_msg_ifup (dev))
+ 				deverr (dev, "intr submit %d", retval);
+ 			goto done;
+@@ -1065,6 +1068,10 @@ static void usbnet_bh (unsigned long param)
+ 		if (dev->txq.qlen < TX_QLEN (dev))
+ 			netif_wake_queue (dev->net);
+ 	}
++
++	// Re-submit interrupt urb (doesn't hurt to retry)
++	if (netif_running (dev->net))
++		usb_submit_urb (dev->interrupt, GFP_KERNEL);
+ }
+ 
+ 
+@@ -1285,6 +1292,9 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
+ 		 * wake the device
+ 		 */
+ 		netif_device_attach (dev->net);
++		// Stop interrupt urbs while in suspend
++		if (dev->interrupt)
++			usb_kill_urb(dev->interrupt);
+ 	}
  	return 0;
  }
-=20
-+static u32 tun_net_fix_features(struct net_device *dev, u32 features)
-+{
-+	struct tun_struct *tun =3D netdev_priv(dev);
-+
-+	return (features & tun->set_features) | (features & ~TUN_USER_FEATURE=
-S);
-+}
-+
- static const struct net_device_ops tun_netdev_ops =3D {
- 	.ndo_uninit		=3D tun_net_uninit,
- 	.ndo_open		=3D tun_net_open,
- 	.ndo_stop		=3D tun_net_close,
- 	.ndo_start_xmit		=3D tun_net_xmit,
- 	.ndo_change_mtu		=3D tun_net_change_mtu,
-+	.ndo_fix_features	=3D tun_net_fix_features,
- };
-=20
- static const struct net_device_ops tap_netdev_ops =3D {
-@@ -465,6 +476,7 @@ static const struct net_device_ops tap_netdev_ops =3D=
- {
- 	.ndo_stop		=3D tun_net_close,
- 	.ndo_start_xmit		=3D tun_net_xmit,
- 	.ndo_change_mtu		=3D tun_net_change_mtu,
-+	.ndo_fix_features	=3D tun_net_fix_features,
- 	.ndo_set_multicast_list	=3D tun_net_mclist,
- 	.ndo_set_mac_address	=3D eth_mac_addr,
- 	.ndo_validate_addr	=3D eth_validate_addr,
-@@ -628,8 +640,7 @@ static __inline__ ssize_t tun_get_user(struct tun_s=
-truct *tun,
- 			kfree_skb(skb);
- 			return -EINVAL;
- 		}
--	} else if (tun->flags & TUN_NOCHECKSUM)
--		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
-+	}
-=20
- 	switch (tun->flags & TUN_TYPE_MASK) {
- 	case TUN_TUN_DEV:
-@@ -1094,6 +1105,10 @@ static int tun_set_iff(struct net *net, struct f=
-ile *file, struct ifreq *ifr)
- 				goto err_free_sk;
- 		}
-=20
-+		dev->hw_features =3D NETIF_F_SG | NETIF_F_FRAGLIST |
-+			TUN_USER_FEATURES;
-+		dev->features =3D dev->hw_features;
-+
- 		err =3D register_netdevice(tun->dev);
- 		if (err < 0)
- 			goto err_free_sk;
-@@ -1158,18 +1173,12 @@ static int tun_get_iff(struct net *net, struct =
-tun_struct *tun,
-=20
- /* This is like a cut-down ethtool ops, except done via tun fd so no
-  * privs required. */
--static int set_offload(struct net_device *dev, unsigned long arg)
-+static int set_offload(struct tun_struct *tun, unsigned long arg)
- {
--	u32 old_features, features;
--
--	old_features =3D dev->features;
--	/* Unset features, set them as we chew on the arg. */
--	features =3D (old_features & ~(NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRA=
-GLIST
--				    |NETIF_F_TSO_ECN|NETIF_F_TSO|NETIF_F_TSO6
--				    |NETIF_F_UFO));
-+	u32 features =3D 0;
-=20
- 	if (arg & TUN_F_CSUM) {
--		features |=3D NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
-+		features |=3D NETIF_F_HW_CSUM;
- 		arg &=3D ~TUN_F_CSUM;
-=20
- 		if (arg & (TUN_F_TSO4|TUN_F_TSO6)) {
-@@ -1195,9 +1204,8 @@ static int set_offload(struct net_device *dev, un=
-signed long arg)
- 	if (arg)
+diff --git a/drivers/usb/core/urb.c b/drivers/usb/core/urb.c
+index 4342bd9..e4dbb29 100644
+--- a/drivers/usb/core/urb.c
++++ b/drivers/usb/core/urb.c
+@@ -295,7 +295,9 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
+ 	struct usb_host_endpoint	*ep;
+ 	int				is_out;
+ 
+-	if (!urb || urb->hcpriv || !urb->complete)
++	if (urb->hcpriv)
++		return -EALREADY;
++	if (!urb || !urb->complete)
  		return -EINVAL;
-=20
--	dev->features =3D features;
--	if (old_features !=3D dev->features)
--		netdev_features_change(dev);
-+	tun->set_features =3D features;
-+	netdev_update_features(tun->dev);
-=20
- 	return 0;
+ 	dev = urb->dev;
+ 	if ((!dev) || (dev->state < USB_STATE_DEFAULT))
+@@ -807,4 +809,3 @@ int usb_anchor_empty(struct usb_anchor *anchor)
  }
-@@ -1262,12 +1270,9 @@ static long __tun_chr_ioctl(struct file *file, u=
-nsigned int cmd,
-=20
- 	case TUNSETNOCSUM:
- 		/* Disable/Enable checksum */
--		if (arg)
--			tun->flags |=3D TUN_NOCHECKSUM;
--		else
--			tun->flags &=3D ~TUN_NOCHECKSUM;
-=20
--		tun_debug(KERN_INFO, tun, "checksum %s\n",
-+		/* [unimplemented] */
-+		tun_debug(KERN_INFO, tun, "ignored: set checksum %s\n",
- 			  arg ? "disabled" : "enabled");
- 		break;
-=20
-@@ -1316,7 +1321,7 @@ static long __tun_chr_ioctl(struct file *file, un=
-signed int cmd,
- 		break;
- #endif
- 	case TUNSETOFFLOAD:
--		ret =3D set_offload(tun->dev, arg);
-+		ret =3D set_offload(tun, arg);
- 		break;
-=20
- 	case TUNSETTXFILTER:
-@@ -1595,30 +1600,12 @@ static void tun_set_msglevel(struct net_device =
-*dev, u32 value)
- #endif
- }
-=20
--static u32 tun_get_rx_csum(struct net_device *dev)
--{
--	struct tun_struct *tun =3D netdev_priv(dev);
--	return (tun->flags & TUN_NOCHECKSUM) =3D=3D 0;
--}
+ 
+ EXPORT_SYMBOL_GPL(usb_anchor_empty);
 -
--static int tun_set_rx_csum(struct net_device *dev, u32 data)
--{
--	struct tun_struct *tun =3D netdev_priv(dev);
--	if (data)
--		tun->flags &=3D ~TUN_NOCHECKSUM;
--	else
--		tun->flags |=3D TUN_NOCHECKSUM;
--	return 0;
--}
--
- static const struct ethtool_ops tun_ethtool_ops =3D {
- 	.get_settings	=3D tun_get_settings,
- 	.get_drvinfo	=3D tun_get_drvinfo,
- 	.get_msglevel	=3D tun_get_msglevel,
- 	.set_msglevel	=3D tun_set_msglevel,
- 	.get_link	=3D ethtool_op_get_link,
--	.get_rx_csum	=3D tun_get_rx_csum,
--	.set_rx_csum	=3D tun_set_rx_csum
- };
-=20
-=20
---=20
-1.7.2.5
+-- 
+1.7.3.1
 
