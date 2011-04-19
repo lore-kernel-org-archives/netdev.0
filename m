@@ -1,43 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: r8169: convert to hw_features
-Date: Mon, 18 Apr 2011 22:54:00 -0700 (PDT)
-Message-ID: <20110418.225400.189709717.davem@davemloft.net>
-References: <20110413174758.GA17579@electric-eye.fr.zoreil.com>
-	<1302718764.3167.7.camel@lap75545.ornl.gov>
-	<20110418180857.GB18469@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH net-next 4/5] be2net: pass domain id to
+ be_cmd_link_status_query
+Date: Mon, 18 Apr 2011 22:56:59 -0700 (PDT)
+Message-ID: <20110418.225659.112612060.davem@davemloft.net>
+References: <20110418223033.GA9515@akhaparde-VBox>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dave@thedillows.org, netdev@vger.kernel.org, nic_swsd@realtek.com
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org
+To: ajit.khaparde@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43180
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43188
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751556Ab1DSFyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 01:54:35 -0400
-In-Reply-To: <20110418180857.GB18469@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1751650Ab1DSF5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 01:57:34 -0400
+In-Reply-To: <20110418223033.GA9515@akhaparde-VBox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Mon, 18 Apr 2011 20:08:57 +0200
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Date: Mon, 18 Apr 2011 17:30:33 -0500
 
-> [...]
->> I've attached my ancient patch, if it helps.
 > 
-> Thanks, it works way better now (see below). It is ok for me to use
-> you s-o-b on it ?
-> 
-> I have given it a try on 8169, 8168b, 8168d, 8102e and the load can
-> dramatically fall (more at 1000 Mbps than at 100 Mbps).
-> 
-> David (M.), should it go through net-next or be made ready for net-2.6 ?
-> 
-> Subject: [PATCH] r8169: TSO fixes.
+> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 
-Francois, since TSO is disabled by default I'm applying this to
-net-next-2.6, thanks!
+That's not all this patch does:
 
-Maybe we can progressively start to try and turn these things on
-by default now that we know more about the TX descriptor layout
-differences.
+> @@ -293,7 +293,6 @@ struct be_adapter {
+>  	u8 eq_next_idx;
+>  	struct be_drv_stats drv_stats;
+>  
+> -	struct vlan_group *vlan_grp;
+>  	u16 vlans_added;
+>  	u16 max_vlans;	/* Number of vlans supported */
+>  	u8 vlan_tag[VLAN_N_VID];
+...
+> @@ -1012,15 +1004,10 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+>  		skb->rxhash = rxcp->rss_hash;
+>  
+>  
+> -	if (unlikely(rxcp->vlanf)) {
+> -		if (!adapter->vlan_grp || adapter->vlans_added == 0) {
+> -			kfree_skb(skb);
+> -			return;
+> -		}
+> -		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp, rxcp->vid);
+> -	} else {
+> -		netif_receive_skb(skb);
+> -	}
+> +	if (unlikely(rxcp->vlanf))
+> +		__vlan_hwaccel_put_tag(skb, rxcp->vid);
+> +
+> +	netif_receive_skb(skb);
+>  }
+>  
+>  /* Process the RX completion indicated by rxcp when GRO is enabled */
+
+It seems to be also converting the driver over to the new VLAN
+interfaces.
+
+Please seperate this part into a seperate patch and resubmit your
+patch series.
+
+Thanks.
