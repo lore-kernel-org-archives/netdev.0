@@ -1,107 +1,72 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH] net: xen-netback: convert to hw_features
-Date: Tue, 19 Apr 2011 14:17:53 +0100
-Message-ID: <1303219073.5997.191.camel@zakaz.uk.xensource.com>
-References: <20110419115612.C4ACA13909@rere.qmqm.pl>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: Add NAPI support to ll_temac driver
+Date: Tue, 19 Apr 2011 15:18:06 +0200
+Message-ID: <4DAD8B8E.1010008@monstr.eu>
+References: <4DAD5753.4040108@monstr.eu>	 <1303209787.3480.9.camel@edumazet-laptop>	 <1303215925.3464.54.camel@localhost>  <4DAD84B1.9020405@monstr.eu> <1303218898.3464.59.camel@localhost>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:33679 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755043Ab1DSNRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 09:17:55 -0400
-In-Reply-To: <20110419115612.C4ACA13909@rere.qmqm.pl>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:53143 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755034Ab1DSNSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 09:18:24 -0400
+Received: by bwz15 with SMTP id 15so4516618bwz.19
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 06:18:23 -0700 (PDT)
+In-Reply-To: <1303218898.3464.59.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-04-19 at 12:56 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Ben Hutchings wrote:
+> On Tue, 2011-04-19 at 14:48 +0200, Michal Simek wrote:
+>> Ben Hutchings wrote:
+>>> On Tue, 2011-04-19 at 12:43 +0200, Eric Dumazet wrote:
+>>> [...]
+>>>> One possible way to get better performance is to change driver to
+>>>> allocate skbs only right before calling netif_rx(), so that you dont
+>>>> have to access cold sk_buff data twice (once when allocating skb and put
+>>>> it in ring buffer, a second time when receiving frame)
+>>>>
+>>>> drivers/net/niu.c is a good example for this (NAPI + netdev_alloc_skb()
+>>>> just in time + pull in skbhead only first cache line of packet)
+>>> [...]
+>>>
+>>> If the hardware can do RX checksumming (it's not clear) then the driver
+>>> should pass the paged buffers into GRO and that will take care of skb
+>>> allocation as necessary.
+>> Hardware supports RX and TX partial checksumming. I can enable it. The driver 
+>> has also this option and from my tests there is of course some performance 
+>> improvemetn.
+>>
+>> Just for sure - here are links on documentation.
+>> http://www.xilinx.com/support/documentation/ip_documentation/xps_ll_temac.pdf
+>> or
+>> http://www.xilinx.com/support/documentation/ip_documentation/axi_ethernet/v2_01_a/ds759_axi_ethernet.pdf
+> 
+> I'm not going to read those.  Just providing brief advice.
+> 
+>> About SKB allocation. I fixed our non mainline driver to allocate skb based on 
+>> current mtu size. Mainline driver allocate max mtu (9k). This has also impact on 
+>> performance because Microblaze works with smaller SKBs.
+>>
+>> Can you please be more specific about passing the paged buffers into GRO?
+>> Or point me to any documentation or code which can help me to understand what 
+>> that means.
+> 
+> You would use napi_get_frags() to get a new or recycled skb, fill in
+> skb->frags, then call napi_gro_frags() to pass it into GRO.  The benet,
+> cxgb3 and sfc drivers do this.
 
-Thanks for beating me to this! However the prototype for
-xenvif_fix_features is wrong (needs to take a net_device not a xenvif).
+ok. Will look.
 
-I fixed it with the following, I also moved the !can_sg MTU clamping
-into a set_features hook (like we do with netfront). Am I right that
-this pattern copes with changes to SG via ethtool etc better? I think
-it's more future proof in any case.
+Thanks,
+Michal
 
-NB: I'm having some issues with my test hardware at the moment so this
-is reviewed by eye and compile tested only...
-
-I'm also happy for this to be folded into the original with my
-"Signed-off-/Acked-by Ian Campbell <ian.campbell@citrix.com>" if that i=
-s
-preferable.
-
-Cheers,
-Ian.
-8<-----------------
-
-net: xen-netback: correct prototype of xenvif_fix_features.
-
-Also check MTU vs NETIF_F_SG in ndo_set_features hook to allow for
-dynamic modification.
-
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netb=
-ack/interface.c
-index fe25308..61757bd 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -165,9 +165,9 @@ static int xenvif_change_mtu(struct net_device *dev=
-, int mtu)
- 	return 0;
- }
-=20
--static u32 xenvif_fix_features(struct xenvif *vif, u32 features)
-+static u32 xenvif_fix_features(struct net_device *dev, u32 features)
- {
--	struct net_device *dev =3D vif->dev;
-+	struct xenvif *vif =3D netdev_priv(dev);
-=20
- 	if (!vif->can_sg)
- 		features &=3D ~NETIF_F_SG;
-@@ -179,6 +179,16 @@ static u32 xenvif_fix_features(struct xenvif *vif,=
- u32 features)
- 	return features;
- }
-=20
-+static int xenvif_set_features(struct net_device *dev, u32 features)
-+{
-+	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN) {
-+		netdev_info(dev, "Reducing MTU because no SG offload");
-+		dev->mtu =3D ETH_DATA_LEN;
-+	}
-+
-+	return 0;
-+}
-+
- static const struct xenvif_stat {
- 	char name[ETH_GSTRING_LEN];
- 	u16 offset;
-@@ -237,6 +247,7 @@ static struct net_device_ops xenvif_netdev_ops =3D =
-{
- 	.ndo_stop	=3D xenvif_close,
- 	.ndo_change_mtu	=3D xenvif_change_mtu,
- 	.ndo_fix_features =3D xenvif_fix_features,
-+	.ndo_set_features =3D xenvif_set_features,
- };
-=20
- struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
-@@ -329,8 +340,6 @@ int xenvif_connect(struct xenvif *vif, unsigned lon=
-g tx_ring_ref,
- 	rtnl_lock();
- 	if (netif_running(vif->dev))
- 		xenvif_up(vif);
--	if (!vif->can_sg && vif->dev->mtu > ETH_DATA_LEN)
--		dev_set_mtu(vif->dev, ETH_DATA_LEN);
- 	netdev_update_features(vif->dev);
- 	netif_carrier_on(vif->dev);
- 	rtnl_unlock();
-
-
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
