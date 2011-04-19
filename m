@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: vxge: convert to hw_features
-Date: Mon, 18 Apr 2011 23:05:05 -0700 (PDT)
-Message-ID: <20110418.230505.260100099.davem@davemloft.net>
-References: <20110418233121.5D8BB13A66@rere.qmqm.pl>
+Subject: Re: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Tue, 19 Apr 2011 00:41:08 -0700 (PDT)
+Message-ID: <20110419.004108.246512359.davem@davemloft.net>
+References: <20110419131618.a474326a.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jdmason@kudzu.us
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60228
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752269Ab1DSGFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 02:05:39 -0400
-In-Reply-To: <20110418233121.5D8BB13A66@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yanivr@broadcom.com,
+	shemminger@vyatta.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110419131618.a474326a.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Tue, 19 Apr 2011 01:31:21 +0200 (CEST)
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 19 Apr 2011 13:16:18 +1000
 
-> Side effect: ->gro_enable is removed as napi_gro_receive() does the
-> fallback itself.
->=20
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/net/bnx2x/bnx2x_ethtool.c between commit 70dda99c41fc ("bnx2x:
+> Fix port identification problem") from the net-current tree and commit
+> 32d3613475d8 ("bnx2x: convert to set_phys_id") from the net tree.
+> 
+> I fixed it up (maybe - see below) and can carry the fix as necessary.
 
-Applied.
+Your conflict resolution was pretty much perfect :-)
+
+I've merged net-2.6 into net-next-2.6 to fix this up.
+
+Thanks!
