@@ -1,53 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 2.6.38 dev_watchdog WARNING
-Date: Tue, 19 Apr 2011 11:20:48 -0700
-Message-ID: <4DADD280.70104@candelatech.com>
-References: <4DADC8F2.9050700@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] netfilter: netfilter update
+Date: Tue, 19 Apr 2011 11:28:03 -0700 (PDT)
+Message-ID: <20110419.112803.102559508.davem@davemloft.net>
+References: <1303223492-13549-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: tim.gardner@canonical.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:37190 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753606Ab1DSSUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 14:20:53 -0400
-In-Reply-To: <4DADC8F2.9050700@canonical.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46953
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752663Ab1DSS2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 14:28:37 -0400
+In-Reply-To: <1303223492-13549-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/19/2011 10:40 AM, Tim Gardner wrote:
-> I'm seeing a lot of these kinds of bugs: WARNING: at
-> /build/buildd/linux-2.6.38/net/sched/sch_generic.c:256
-> dev_watchdog+0x213/0x220()
->
-> The kernel is 2.6.38.2 plus Ubuntu cruft.
->
-> A spot check of the 200+ hits on this string indicates they are
-> primarily due to these drivers:
->
-> ipheth
-> atl1c
-> sis900
-> r8169
->
-> As far as I can tell the warning happens when link is down on the media
-> (and has never been link UP) and are sent a transmit packet which never
-> completes. Is there a net/core or net/sched requirement to which these
-> drivers do not conform ? Are they not correctly indicating link status?
+From: kaber@trash.net
+Date: Tue, 19 Apr 2011 16:31:29 +0200
 
-r8169 doesn't report link right for me...
+> following is a small netfilter update for net-next, containing:
+> 
+> - a patch from Eric to remove some atomic ops in the *tables fastpath
+> 
+> - removal of an unnecessary ifdef from IPVS by Simon
+> 
+> - SCTP and UDPLITE support for ipset, from Jozsef
+> 
+> Please pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
-No idea about the rest.
-
-Ben
-
->
-> rtg
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Pulled, thanks!
