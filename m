@@ -1,57 +1,115 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: DSCP values in TCP handshake
-Date: Tue, 19 Apr 2011 19:38:44 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1104191934270.13186@uplift.swm.pp.se>
-References: <loom.20110418T154445-102@post.gmane.org> <1303135512.3137.335.camel@edumazet-laptop> <20110418083827.05dd2d43@nehalam> <alpine.DEB.2.00.1104181750150.14027@uplift.swm.pp.se> <4DAC8A8A.1010401@cox.net> <alpine.DEB.2.00.1104182115291.14027@uplift.swm.pp.se>
- <20110418144908.55967b06@nehalam> <alpine.DEB.2.00.1104190547300.14027@uplift.swm.pp.se> <20110418211637.57f1cfb8@nehalam> <alpine.DEB.2.00.1104190620070.14027@uplift.swm.pp.se> <BANLkTi=fDdoF=kSfY=9ER4iR3M27L=CLXw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Joe Buehler <aspam@cox.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Matt Mathis <mattmathis@google.com>
+From: Paul Stewart <pstew@chromium.org>
+Subject: [PATCHv2] usbnet: Resubmit interrupt URB more often
+Date: Tue, 19 Apr 2011 10:44:12 -0700
+Message-ID: <20110419175037.AADD22052B@glenhelen.mtv.corp.google.com>
+References: <1303233066.2988.14.camel@bwh-desktop>
+Cc: davem@davemloft.net, bhutchings@solarflare.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:35565 "EHLO uplift.swm.pp.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753441Ab1DSRip (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2011 13:38:45 -0400
-In-Reply-To: <BANLkTi=fDdoF=kSfY=9ER4iR3M27L=CLXw@mail.gmail.com>
+Received: from smtp-out.google.com ([74.125.121.67]:36032 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752378Ab1DSRut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 13:50:49 -0400
+In-Reply-To: <1303233066.2988.14.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Apr 2011, Matt Mathis wrote:
+I previously sent a patch to resubmit the interrupt URB when
+coming out of suspend.  I haven't seen much activity on the
+list about it, and thought I'd send a slight variant of this
+change.  This one unconditionally resubmits the interrupt urb
+in usbnet_bh.  The consequences for resubmitting the URB often
+are not large.  In most HCI cases this just means usb_submit_urb
+returns immediately and leaves the previous request outstanding.
 
-> Please do.  This missing spec is one of the things that makes Less than 
-> Best Effort (aka scavenger service) unusable.  Only the client knows if 
-> they are fetching data in the background.  The server doesn't care.
+Doing things this way allows us to avoid keeping track of the
+URB transmit status, which may change silently over suspend-
+resume transitions and is not tracked in any way currently by
+usbnet.
 
-I emailed with Fred Baker and the below text seems to be where it ended 
-regarding reflexive marking of packets. If someone wants this changed, 
-they need to bring it up with the IETF.
+I've designed this change on two types of systems: the first
+class of system leaves USB devices powered during suspend.
+This might silently cause the interrupt URB to disappear (or at
+least not be resubmitted in intr_complete).  Resubmission after
+system resume will prevent this from causing problems.
 
-<http://www.ietf.org/proceedings/54/220.htm>
+The second class of device are those which shut down the device
+during suspend.  During a suspend-resume cycle, the device is
+re-enumerated at system resume, and for whatever reason
+usbnet_resume may be called on the device during the call-tree
+from usbnet_open-> usb_autopm_get_interface, which may cause a
+race where the first change above may cause the bh to submit the
+interrupt urb before usbnet_open() does.  As a result, I've added
+an EALREADY check and a fix to urb.c to send one.
 
-"Fred Baker presented draft-ietf-ieprep-packet-marking-policy-00.txt
+Signed-off-by: Paul Stewart <pstew@chromium.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/usb/usbnet.c |   14 +++++++++++++-
+ drivers/usb/core/urb.c   |    5 +++--
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
-Van Jacobsen presented a concern for Kathy Nichols, Diffserv co-chair. The 
-concern was that the DSCP is intended to identify traffic supported by a 
-service, as opposed to traffic of a certain application type. He also 
-worried that a specific BCP indicating the facilities used to support such 
-services might be misused by regulators to mandate ISP services. 
-Specifically, he wanted a statement between the requirements document and 
-a document suggesting a specific configuration identifying the fact that 
-inter-service-provider signaling as specified in this draft is certainly 
-specified but is not commonly implemented.
-
-Christian Huitema and another speaker also commented that while a cookbook 
-such as this was an interesting useful document, it didn't seem to 
-directly stem from emergency as a context.
-
-Rei Atarashi presented draft-ietf-ieprep-reflexive-dscp-00.txt
-
-Van basically felt that the notion of a default response from the host was 
-inappropriate; this is something every network should provide a policy 
-for. "
-
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 02d25c7..1718898 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -636,7 +636,12 @@ static int usbnet_open (struct net_device *net)
+ 	/* start any status interrupt transfer */
+ 	if (dev->interrupt) {
+ 		retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
+-		if (retval < 0) {
++		if (retval == -EALREADY) {
++			/*
++			 * It is not an error if interrupt urb is alredy active
++			 */
++			retval = 0;
++		} else if (retval < 0) {
+ 			if (netif_msg_ifup (dev))
+ 				deverr (dev, "intr submit %d", retval);
+ 			goto done;
+@@ -1065,6 +1070,10 @@ static void usbnet_bh (unsigned long param)
+ 		if (dev->txq.qlen < TX_QLEN (dev))
+ 			netif_wake_queue (dev->net);
+ 	}
++
++	/* Re-submit interrupt urb (doesn't hurt to retry) */
++	if (netif_running(dev->net))
++		usb_submit_urb(dev->interrupt, GFP_KERNEL);
+ }
+ 
+ 
+@@ -1285,6 +1294,9 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
+ 		 * wake the device
+ 		 */
+ 		netif_device_attach (dev->net);
++		/* Stop interrupt urbs while in suspend */
++		if (dev->interrupt)
++			usb_kill_urb(dev->interrupt);
+ 	}
+ 	return 0;
+ }
+diff --git a/drivers/usb/core/urb.c b/drivers/usb/core/urb.c
+index 4342bd9..ff85f50 100644
+--- a/drivers/usb/core/urb.c
++++ b/drivers/usb/core/urb.c
+@@ -295,8 +295,10 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
+ 	struct usb_host_endpoint	*ep;
+ 	int				is_out;
+ 
+-	if (!urb || urb->hcpriv || !urb->complete)
++	if (!urb)
+ 		return -EINVAL;
++	if (!urb->complete || urb->hcpriv)
++		return -EALREADY;
+ 	dev = urb->dev;
+ 	if ((!dev) || (dev->state < USB_STATE_DEFAULT))
+ 		return -ENODEV;
+@@ -807,4 +809,3 @@ int usb_anchor_empty(struct usb_anchor *anchor)
+ }
+ 
+ EXPORT_SYMBOL_GPL(usb_anchor_empty);
+-
 -- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
+1.7.3.1
+
