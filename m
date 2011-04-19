@@ -1,154 +1,80 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [v2 PATCH 0/6] IPVS: init and cleanup.
-Date: Thu, 21 Apr 2011 00:36:34 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1104210023240.1695@ja.ssi.bg>
-References: <1303324434-14024-1-git-send-email-hans@schillstrom.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1303324434-14024-1-git-send-email-hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
+Date: Tue, 19 Apr 2011 10:44:12 -0700
+Message-ID: <20110420214452.C599321126@glenhelen.mtv.corp.google.com>
+References: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog@mail.gmail.com>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Set a flag if the interrupt URB completes with ENOENT as this
+occurs legitimately during system suspend.  When the
+usbnet_resume is called, test this flag and try once to resubmit
+the interrupt URB.
 
-	Hello,
+This version of the patch moves the urb submit directly into
+usbnet_resume.  Is it okay to submit a GFP_KERNEL urb from
+usbnet_resume()?
 
-On Wed, 20 Apr 2011, Hans Schillstrom wrote:
+Signed-off-by: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+ drivers/net/usb/usbnet.c   |   13 ++++++++++++-
+ include/linux/usb/usbnet.h |    1 +
+ 2 files changed, 13 insertions(+), 1 deletions(-)
 
-> This patch series handles exit from a network name space.
-> 
-> REVISION
-> 
-> This is version 2
-> 
-> OVERVIEW
-> Basically there was three faults in the netns implementation.
-> - Kernel threads hold devices and preventing an exit.
-> - dst cache holds references to devices.
-> - Services was not always released.
-> 
-> Patch 1 & 3 contains the functionality
->       4 renames funcctions
->       5 removes empty functions
->       6 Debuging.
-> 
-> IMPLEMENTATION
-> - Avoid to increment the usage counter for kernel threads.
->   this is done in the first patch.
-> - Patch 3 tries to restore the cleanup order.
->   Add NETDEV_UNREGISTER notification for dst_reset
-> 
-> >From Julian -
-> "For __ip_vs_service_cleanup: it still has to use mutex.
-> Or we can avoid it by introducing ip_vs_unlink_service_nolock:
-> ip_vs_flush will look like your __ip_vs_service_cleanup and
-> will call ip_vs_unlink_service_nolock. ip_vs_unlink_service_nolock
-> will be called by ip_vs_flush and by ip_vs_unlink_service."
-> 
-> I will give above another try later on see if I can get it to work.
-> Right now ip_vs_service_net_cleanup() seems to work.
-> 
-> 
-> An netns exit could look like this
-> IPVS: Enter: __ip_vs_dev_cleanup, net/netfilter/ipvs/ip_vs_core.c
-> IPVS: stopping master sync thread 1286 ...
-> IPVS: stopping backup sync thread 1294 ...
-> IPVS: Leave: __ip_vs_dev_cleanup, net/netfilter/ipvs/ip_vs_core.c
-> IPVS: Enter: ip_vs_dst_event, net/netfilter/ipvs/ip_vs_ctl.c line
-> IPVS: Leave: ip_vs_dst_event, net/netfilter/ipvs/ip_vs_ctl.c line
-> ...
-> IPVS: Enter: ip_vs_dst_event, net/netfilter/ipvs/ip_vs_ctl.c line
-> IPVS: Leave: ip_vs_dst_event, net/netfilter/ipvs/ip_vs_ctl.c line
-> IPVS: Enter: ip_vs_service_net_cleanup, net/netfilter/ipvs/ip_vs_ctl.c
-> IPVS: __ip_vs_del_service: enter
-> IPVS: Moving dest 192.168.1.6:0 into trash, dest->refcnt=43450
-> ...
-> IPVS: Moving dest 192.168.1.3:0 into trash, dest->refcnt=43449
-> IPVS: __ip_vs_del_service: enter
-> IPVS: Removing destination 0/[2003:0000:0000:0000:0000:0002:0000:0006]:80
-> ...
-> IPVS: Removing destination 0/[2003:0000:0000:0000:0000:0002:0000:0003]:80
-> IPVS: Removing service 0/[2003:0000:0000:0000:0000:0002:0004:0100]:80 usecnt=0
-> IPVS: Leave: ip_vs_service_net_cleanup, net/netfilter/ipvs/ip_vs_ctl.c
-> IPVS: Enter: ip_vs_control_net_cleanup, net/netfilter/ipvs/ip_vs_ctl.c
-> IPVS: Removing service 80/0.0.0.0:0 usecnt=0
-> IPVS: Leave: ip_vs_control_net_cleanup, net/netfilter/ipvs/ip_vs_ctl.c
-> IPVS: ipvs netns 8 released
-
-	Notes only about PATCH 3/6:
-
-- I was worried that throttle was used during cleanup
-with the idea to stop traffic. But as now it is only an
-optimization to avoid traffic to spend cycles in IPVS
-code I'll suggest to use it without atomic operations.
-It is not fatal if some packet does not see the disabling
-immediately. So, may be using 'if (net_ipvs(net)->enable)'
-is enough.
-
-As result, there is no need to disable traffic in
-__ip_vs_dev_cleanup, it is going to stop during
-_device cleanup anyways.
-
-- Please move check for 'enable' in ip_vs_in() before
-ip_vs_fill_iphdr, this is the preferred place:
-
-+	net = skb_net(skb);
-+	if (!net_ipvs(net)->enable)
-+		return NF_ACCEPT;
-	ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
-
-Note that only ip_vs_in, ip_vs_out and ip_vs_forward_icmp*
-need check for 'enable'. Then we can remove them from
-ip_vs_in_icmp*
-
-- As device can change its name space it was mandatory we
-to add support for NETDEV_UNREGISTER. As we are using
-_subsys pernet operations I expect we to see NETDEV_UNREGISTER
-while the _device pernet methods are called, so before
-our _subsys cleanup.
-
-We can see in log that ip_vs_dst_event() is called before
-ip_vs_service_net_cleanup, i.e. before our subsys cleanup.
-net/core/dev.c uses register_pernet_device(&default_device_ops)
-to call NETDEV_UNREGISTER* during _device cleanup and
-to move devices to init_net. So, it should be safe
-to rely on NETDEV_UNREGISTER event while we are subsys.
-
-- __ip_vs_service_cleanup needs to call ip_vs_flush after
-converting to ip_vs_unlink_service_nolock.
-
-- For ip_vs_dst_event: I prefer to put everything in this
-function, the ip_vs_svc_reset is not needed (name is not
-good too). For example:
-
-	struct ip_vs_dest *dest;
-	unsigned int hash;
-
-	mutex_lock(&__ip_vs_mutex);
-	/* No need to use rs_lock, the mutex protects the list */
-	for (hash = 0; hash < IP_VS_RTAB_SIZE; hash++) {
-		list_for_each_entry(dest, &ipvs->rs_table[hash], d_list) {
-			__ip_vs_dev_reset(dest, dev);
-		}
-	}
-
-	/* The mutex protects the trash list */
-	list_for_each_entry(dest, &ipvs->dest_trash, n_list) {
-		__ip_vs_dev_reset(dest, dev);
-	}
-
-	mutex_unlock(&__ip_vs_mutex);
-
-	No need to use __ip_vs_svc_lock or rs_lock because we
-do not change the lists, __ip_vs_dev_reset has the needed
-dst_cache locking (dst_lock). I assume we can safely use our
-__ip_vs_mutex from netdevice notifier.
-
-Regards
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 02d25c7..3651a48 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -482,6 +482,7 @@ static void intr_complete (struct urb *urb)
+ 	case -ESHUTDOWN:	/* hardware gone */
+ 		if (netif_msg_ifdown (dev))
+ 			devdbg (dev, "intr shutdown, code %d", status);
++		set_bit(EVENT_INTR_HALT, &dev->flags);
+ 		return;
+ 
+ 	/* NOTE:  not throttling like RX/TX, since this endpoint
+@@ -1294,9 +1295,19 @@ int usbnet_resume (struct usb_interface *intf)
+ {
+ 	struct usbnet		*dev = usb_get_intfdata(intf);
+ 
+-	if (!--dev->suspend_count)
++	if (!--dev->suspend_count) {
+ 		tasklet_schedule (&dev->bh);
+ 
++		/* resubmit interrupt URB if it was halted by suspend */
++		if (dev->interrupt && netif_running(dev->net) &&
++		    netif_device_present(dev->net) &&
++		    test_bit(EVENT_INTR_HALT, &dev->flags)) {
++			clear_bit(EVENT_INTR_HALT, &dev->flags);
++			usb_submit_urb(dev->interrupt, GFP_KERNEL);
++		}
++	}
++}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(usbnet_resume);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index ba09fe8..6c4b5f8 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -64,6 +64,7 @@ struct usbnet {
+ #		define EVENT_RX_MEMORY	2
+ #		define EVENT_STS_SPLIT	3
+ #		define EVENT_LINK_RESET	4
++#		define EVENT_INTR_HALT	5
+ };
+ 
+ static inline struct usb_driver *driver_of(struct usb_interface *intf)
+-- 
+1.7.3.1
 
 --
-Julian Anastasov <ja@ssi.bg>
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
