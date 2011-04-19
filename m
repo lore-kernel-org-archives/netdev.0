@@ -1,69 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next-2.6] bonding: move processing of recv handlers
- into handle_frame()
-Date: Tue, 19 Apr 2011 16:02:32 +0200
-Message-ID: <1303221752.3480.217.camel@edumazet-laptop>
-References: <1303220896-9092-1-git-send-email-jpirko@redhat.com>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: s390: convert to hw_features
+Date: Tue, 19 Apr 2011 16:11:42 +0200
+Message-ID: <20110419141142.GA42906@tuxmaker.boeblingen.de.ibm.com>
+References: <20110419104320.314AB13A66@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46558 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751678Ab1DSOCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 10:02:38 -0400
-Received: by wwa36 with SMTP id 36so6995795wwa.1
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 07:02:37 -0700 (PDT)
-In-Reply-To: <1303220896-9092-1-git-send-email-jpirko@redhat.com>
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:48458 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692Ab1DSOLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 10:11:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20110419104320.314AB13A66@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 19 avril 2011 =C3=A0 15:48 +0200, Jiri Pirko a =C3=A9crit :
-> Since now when bonding uses rx_handler, all traffic going into bond
-> device goes thru bond_handle_frame. So there's no need to go back int=
-o
-> bonding code later via ptype handlers. This patch converts
-> original ptype handlers into "bonding receive probes". These function=
-s
-> are called from bond_handle_frame and they are registered per-mode.
+On Tue, Apr 19, 2011 at 12:43:20PM +0200, Micha=C5=82 Miros=C5=82aw wro=
+te:
+> options.large_send was easy to get rid of. options.checksum_type has =
+deeper
+> roots so is left for later cleanup.
 >=20
-> Note that vlan packets are also handled because they are always untag=
-ged
-> thanks to vlan_untag()
->=20
-> Note that this also allows arpmon for eth-bond-bridge-vlan topology.
->=20
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> ---
 
+Hi Micha,
 
+thx for the patch. There are some small issues I will fix up.
+I will add the patch to my queue. It might be a good time to
+get rid of the large_send and checksum sysfs attribute as well.
+I will work on that too, thx again ...
 
->  			}
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bond=
-ing.h
-> index 6126c6a..85fb822 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -226,6 +226,8 @@ struct bonding {
->  	struct   slave *primary_slave;
->  	bool     force_primary;
->  	s32      slave_cnt; /* never change this value outside the attach/d=
-etach wrappers */
-> +	void     (*recv_probe)(struct sk_buff *, struct bonding *,
-> +			       struct slave *);
->  	rwlock_t lock;
->  	rwlock_t curr_slave_lock;
->  	s8       kill_timers;
-
-
-Any performance numbers ?
-
-I am asking because recv_probe sits in a often dirtied cache line...
-
-It would be nice to separate rx & tx path needs
-
-
+=46rank
 
