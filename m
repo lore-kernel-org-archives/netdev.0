@@ -1,52 +1,57 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 3/5] be2net: fix be_mcc_compl_process to identify
- eth_get_stat command
-Date: Tue, 19 Apr 2011 17:11:02 -0500
-Message-ID: <20110419221102.GA3622@akhaparde-VBox>
+Subject: [PATCH net-next 5/5] be2net: add code to display default value of
+ tx rate for VFs
+Date: Tue, 19 Apr 2011 17:11:55 -0500
+Message-ID: <20110419221155.GA3676@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:3019 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:3025 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754349Ab1DSWNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 18:13:04 -0400
+	with ESMTP id S1756068Ab1DSWNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 18:13:53 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-eth_get_statistics and vlan_config command have same opcode.
-Use opcode subsystem id to differentiate one from other.
+This change will allow the default value of tx rate to be displayed
+when ip link show is called on a PF interface.
 
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/benet/be_cmds.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/benet/be_main.c |   13 +++++++++++++
+ 1 files changed, 13 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 11b774a..a94e980 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -78,7 +78,8 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 77a6e7e..3529400 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -3082,9 +3082,22 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	netif_carrier_off(netdev);
+ 
+ 	if (be_physfn(adapter) && adapter->sriov_enabled) {
++		u8 mac_speed;
++		bool link_up;
++		u16 vf, lnk_speed;
++
+ 		status = be_vf_eth_addr_config(adapter);
+ 		if (status)
+ 			goto unreg_netdev;
++
++		for (vf = 0; vf < num_vfs; vf++) {
++			status = be_cmd_link_status_query(adapter, &link_up,
++					&mac_speed, &lnk_speed, vf + 1);
++			if (!status)
++				adapter->vf_cfg[vf].vf_tx_rate = lnk_speed * 10;
++			else
++				goto unreg_netdev;
++		}
  	}
  
- 	if (compl_status == MCC_STATUS_SUCCESS) {
--		if (compl->tag0 == OPCODE_ETH_GET_STATISTICS) {
-+		if ((compl->tag0 == OPCODE_ETH_GET_STATISTICS) &&
-+			(compl->tag1 == CMD_SUBSYSTEM_ETH)) {
- 			struct be_cmd_resp_get_stats *resp =
- 						adapter->stats_cmd.va;
- 			be_dws_le_to_cpu(&resp->hw_stats,
-@@ -1096,6 +1097,7 @@ int be_cmd_get_stats(struct be_adapter *adapter, struct be_dma_mem *nonemb_cmd)
- 
- 	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH,
- 		OPCODE_ETH_GET_STATISTICS, sizeof(*req));
-+	wrb->tag1 = CMD_SUBSYSTEM_ETH;
- 	sge->pa_hi = cpu_to_le32(upper_32_bits(nonemb_cmd->dma));
- 	sge->pa_lo = cpu_to_le32(nonemb_cmd->dma & 0xFFFFFFFF);
- 	sge->len = cpu_to_le32(nonemb_cmd->size);
+ 	dev_info(&pdev->dev, "%s port %d\n", nic_name(pdev), adapter->port_num);
 -- 
 1.7.1
 
