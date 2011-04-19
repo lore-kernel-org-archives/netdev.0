@@ -1,298 +1,186 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: pch_gbe: convert to hw_features
+Subject: [PATCH] net: xen-netback: convert to hw_features
 Date: Tue, 19 Apr 2011 13:56:12 +0200 (CEST)
-Message-ID: <20110419115612.C83881389B@rere.qmqm.pl>
+Message-ID: <20110419115612.C4ACA13909@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
-	Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	xen-devel@lists.xensource.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:55611 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:55610 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751407Ab1DSL4O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751217Ab1DSL4O (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 19 Apr 2011 07:56:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This also fixes bug in xmit path, where TX checksum offload state was u=
-sed
-instead of skb->ip_summed to decide if the offload was needed.
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/pch_gbe/pch_gbe.h         |    4 --
- drivers/net/pch_gbe/pch_gbe_ethtool.c |   54 -------------------------=
---------
- drivers/net/pch_gbe/pch_gbe_main.c    |   42 +++++++++++++++++++------
- drivers/net/pch_gbe/pch_gbe_param.c   |   16 ++++++----
- 4 files changed, 42 insertions(+), 74 deletions(-)
+ drivers/net/xen-netback/common.h    |    3 -
+ drivers/net/xen-netback/interface.c |   84 ++++++---------------------=
+-------
+ 2 files changed, 15 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/net/pch_gbe/pch_gbe.h b/drivers/net/pch_gbe/pch_gb=
-e.h
-index bf126e7..59fac77 100644
---- a/drivers/net/pch_gbe/pch_gbe.h
-+++ b/drivers/net/pch_gbe/pch_gbe.h
-@@ -597,8 +597,6 @@ struct pch_gbe_hw_stats {
-  * @rx_ring:		Pointer of Rx descriptor ring structure
-  * @rx_buffer_len:	Receive buffer length
-  * @tx_queue_len:	Transmit queue length
-- * @rx_csum:		Receive TCP/IP checksum enable/disable
-- * @tx_csum:		Transmit TCP/IP checksum enable/disable
-  * @have_msi:		PCI MSI mode flag
-  */
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback=
+/common.h
+index 5d7bbf2..8753e6d 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -73,9 +73,6 @@ struct xenvif {
+ 	struct vm_struct *tx_comms_area;
+ 	struct vm_struct *rx_comms_area;
 =20
-@@ -623,8 +621,6 @@ struct pch_gbe_adapter {
- 	struct pch_gbe_rx_ring *rx_ring;
- 	unsigned long rx_buffer_len;
- 	unsigned long tx_queue_len;
--	bool rx_csum;
--	bool tx_csum;
- 	bool have_msi;
- };
-=20
-diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/pch_gb=
-e/pch_gbe_ethtool.c
-index d2174a4..c35d105 100644
---- a/drivers/net/pch_gbe/pch_gbe_ethtool.c
-+++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
-@@ -434,57 +434,6 @@ static int pch_gbe_set_pauseparam(struct net_devic=
-e *netdev,
+-	/* Flags that must not be set in dev->features */
+-	u32 features_disabled;
+-
+ 	/* Frontend feature information. */
+ 	u8 can_sg:1;
+ 	u8 gso:1;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netb=
+ack/interface.c
+index de569cc..fe25308 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -165,69 +165,18 @@ static int xenvif_change_mtu(struct net_device *d=
+ev, int mtu)
+ 	return 0;
  }
 =20
- /**
-- * pch_gbe_get_rx_csum - Report whether receive checksums are turned o=
-n or off
-- * @netdev:  Network interface device structure
-- * Returns
-- *	true(1):  Checksum On
-- *	false(0): Checksum Off
-- */
--static u32 pch_gbe_get_rx_csum(struct net_device *netdev)
--{
--	struct pch_gbe_adapter *adapter =3D netdev_priv(netdev);
+-static void xenvif_set_features(struct xenvif *vif)
++static u32 xenvif_fix_features(struct xenvif *vif, u32 features)
+ {
+ 	struct net_device *dev =3D vif->dev;
+-	u32 features =3D dev->features;
+=20
+-	if (vif->can_sg)
+-		features |=3D NETIF_F_SG;
+-	if (vif->gso || vif->gso_prefix)
+-		features |=3D NETIF_F_TSO;
+-	if (vif->csum)
+-		features |=3D NETIF_F_IP_CSUM;
++	if (!vif->can_sg)
++		features &=3D ~NETIF_F_SG;
++	if (!vif->gso && !vif->gso_prefix)
++		features &=3D ~NETIF_F_TSO;
++	if (!vif->csum)
++		features &=3D ~NETIF_F_IP_CSUM;
+=20
+-	features &=3D ~(vif->features_disabled);
 -
--	return adapter->rx_csum;
+-	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN)
+-		dev->mtu =3D ETH_DATA_LEN;
+-
+-	dev->features =3D features;
 -}
 -
--/**
-- * pch_gbe_set_rx_csum - Turn receive checksum on or off
-- * @netdev:  Network interface device structure
-- * @data:    Checksum On[true] or Off[false]
-- * Returns
-- *	0:			Successful.
-- *	Negative value:		Failed.
-- */
--static int pch_gbe_set_rx_csum(struct net_device *netdev, u32 data)
+-static int xenvif_set_tx_csum(struct net_device *dev, u32 data)
 -{
--	struct pch_gbe_adapter *adapter =3D netdev_priv(netdev);
+-	struct xenvif *vif =3D netdev_priv(dev);
+-	if (data) {
+-		if (!vif->csum)
+-			return -EOPNOTSUPP;
+-		vif->features_disabled &=3D ~NETIF_F_IP_CSUM;
+-	} else {
+-		vif->features_disabled |=3D NETIF_F_IP_CSUM;
+-	}
 -
--	adapter->rx_csum =3D data;
--	if ((netif_running(netdev)))
--		pch_gbe_reinit_locked(adapter);
--	else
--		pch_gbe_reset(adapter);
--
+-	xenvif_set_features(vif);
 -	return 0;
 -}
 -
--/**
-- * pch_gbe_set_tx_csum - Turn transmit checksums on or off
-- * @netdev: Network interface device structure
-- * @data:   Checksum on[true] or off[false]
-- * Returns
-- *	0:			Successful.
-- *	Negative value:		Failed.
-- */
--static int pch_gbe_set_tx_csum(struct net_device *netdev, u32 data)
+-static int xenvif_set_sg(struct net_device *dev, u32 data)
 -{
--	struct pch_gbe_adapter *adapter =3D netdev_priv(netdev);
+-	struct xenvif *vif =3D netdev_priv(dev);
+-	if (data) {
+-		if (!vif->can_sg)
+-			return -EOPNOTSUPP;
+-		vif->features_disabled &=3D ~NETIF_F_SG;
+-	} else {
+-		vif->features_disabled |=3D NETIF_F_SG;
+-	}
 -
--	adapter->tx_csum =3D data;
--	return ethtool_op_set_tx_ipv6_csum(netdev, data);
+-	xenvif_set_features(vif);
+-	return 0;
 -}
 -
--/**
-  * pch_gbe_get_strings - Return a set of strings that describe the req=
-uested
-  *			 objects
-  * @netdev:    Network interface device structure
-@@ -554,9 +503,6 @@ static const struct ethtool_ops pch_gbe_ethtool_ops=
- =3D {
- 	.set_ringparam =3D pch_gbe_set_ringparam,
- 	.get_pauseparam =3D pch_gbe_get_pauseparam,
- 	.set_pauseparam =3D pch_gbe_set_pauseparam,
--	.get_rx_csum =3D pch_gbe_get_rx_csum,
--	.set_rx_csum =3D pch_gbe_set_rx_csum,
--	.set_tx_csum =3D pch_gbe_set_tx_csum,
- 	.get_strings =3D pch_gbe_get_strings,
- 	.get_ethtool_stats =3D pch_gbe_get_ethtool_stats,
- 	.get_sset_count =3D pch_gbe_get_sset_count,
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/p=
-ch_gbe_main.c
-index 2ef2f9c..4cc9872 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -656,6 +656,7 @@ static void pch_gbe_configure_tx(struct pch_gbe_ada=
-pter *adapter)
-  */
- static void pch_gbe_setup_rctl(struct pch_gbe_adapter *adapter)
- {
-+	struct net_device *netdev =3D adapter->netdev;
- 	struct pch_gbe_hw *hw =3D &adapter->hw;
- 	u32 rx_mode, tcpip;
-=20
-@@ -666,7 +667,7 @@ static void pch_gbe_setup_rctl(struct pch_gbe_adapt=
-er *adapter)
-=20
- 	tcpip =3D ioread32(&hw->reg->TCPIP_ACC);
-=20
--	if (adapter->rx_csum) {
-+	if (netdev->features & NETIF_F_RXCSUM) {
- 		tcpip &=3D ~PCH_GBE_RX_TCPIPACC_OFF;
- 		tcpip |=3D PCH_GBE_RX_TCPIPACC_EN;
- 	} else {
-@@ -950,7 +951,7 @@ static void pch_gbe_tx_queue(struct pch_gbe_adapter=
- *adapter,
- 	frame_ctrl =3D 0;
- 	if (unlikely(skb->len < PCH_GBE_SHORT_PKT))
- 		frame_ctrl |=3D PCH_GBE_TXD_CTRL_APAD;
--	if (unlikely(!adapter->tx_csum))
-+	if (skb->ip_summed =3D=3D CHECKSUM_NONE)
- 		frame_ctrl |=3D PCH_GBE_TXD_CTRL_TCPIP_ACC_OFF;
-=20
- 	/* Performs checksum processing */
-@@ -958,7 +959,7 @@ static void pch_gbe_tx_queue(struct pch_gbe_adapter=
- *adapter,
- 	 * It is because the hardware accelerator does not support a checksum=
-,
- 	 * when the received data size is less than 64 bytes.
- 	 */
--	if ((skb->len < PCH_GBE_SHORT_PKT) && (adapter->tx_csum)) {
-+	if (skb->len < PCH_GBE_SHORT_PKT && skb->ip_summed !=3D CHECKSUM_NONE=
-) {
- 		frame_ctrl |=3D PCH_GBE_TXD_CTRL_APAD |
- 			      PCH_GBE_TXD_CTRL_TCPIP_ACC_OFF;
- 		if (skb->protocol =3D=3D htons(ETH_P_IP)) {
-@@ -1426,7 +1427,7 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
- 			length =3D (rx_desc->rx_words_eob) - 3;
-=20
- 			/* Decide the data conversion method */
--			if (!adapter->rx_csum) {
-+			if (!(netdev->features & NETIF_F_RXCSUM)) {
- 				/* [Header:14][payload] */
- 				if (NET_IP_ALIGN) {
- 					/* Because alignment differs,
-@@ -2030,6 +2031,29 @@ static int pch_gbe_change_mtu(struct net_device =
-*netdev, int new_mtu)
+-static int xenvif_set_tso(struct net_device *dev, u32 data)
+-{
+-	struct xenvif *vif =3D netdev_priv(dev);
+-	if (data) {
+-		if (!vif->gso && !vif->gso_prefix)
+-			return -EOPNOTSUPP;
+-		vif->features_disabled &=3D ~NETIF_F_TSO;
+-	} else {
+-		vif->features_disabled |=3D NETIF_F_TSO;
+-	}
+-
+-	xenvif_set_features(vif);
+-	return 0;
++	return features;
  }
 =20
- /**
-+ * pch_gbe_set_features - Reset device after features changed
-+ * @netdev:   Network interface device structure
-+ * @features:  New features
-+ * Returns
-+ *	0:		HW state updated successfully
-+ */
-+static int pch_gbe_set_features(struct net_device *netdev, u32 feature=
-s)
-+{
-+	struct pch_gbe_adapter *adapter =3D netdev_priv(netdev);
-+	u32 changed =3D features ^ netdev->features;
-+
-+	if (!(changed & NETIF_F_RXCSUM))
-+		return 0;
-+
-+	if (netif_running(netdev))
-+		pch_gbe_reinit_locked(adapter);
-+	else
-+		pch_gbe_reset(adapter);
-+
-+	return 0;
-+}
-+
-+/**
-  * pch_gbe_ioctl - Controls register through a MII interface
-  * @netdev:   Network interface device structure
-  * @ifr:      Pointer to ifr structure
-@@ -2129,6 +2153,7 @@ static const struct net_device_ops pch_gbe_netdev=
-_ops =3D {
- 	.ndo_set_mac_address =3D pch_gbe_set_mac,
- 	.ndo_tx_timeout =3D pch_gbe_tx_timeout,
- 	.ndo_change_mtu =3D pch_gbe_change_mtu,
-+	.ndo_set_features =3D pch_gbe_set_features,
- 	.ndo_do_ioctl =3D pch_gbe_ioctl,
- 	.ndo_set_multicast_list =3D &pch_gbe_set_multi,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -2334,7 +2359,9 @@ static int pch_gbe_probe(struct pci_dev *pdev,
- 	netdev->watchdog_timeo =3D PCH_GBE_WATCHDOG_PERIOD;
- 	netif_napi_add(netdev, &adapter->napi,
- 		       pch_gbe_napi_poll, PCH_GBE_RX_WEIGHT);
--	netdev->features =3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_GR=
-O;
-+	netdev->hw_features =3D NETIF_F_RXCSUM |
-+		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-+	netdev->features =3D netdev->hw_features;
- 	pch_gbe_set_ethtool_ops(netdev);
+ static const struct xenvif_stat {
+@@ -274,12 +223,6 @@ static void xenvif_get_strings(struct net_device *=
+dev, u32 stringset, u8 * data)
+ }
 =20
- 	pch_gbe_mac_load_mac_addr(&adapter->hw);
-@@ -2373,11 +2400,6 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ static struct ethtool_ops xenvif_ethtool_ops =3D {
+-	.get_tx_csum	=3D ethtool_op_get_tx_csum,
+-	.set_tx_csum	=3D xenvif_set_tx_csum,
+-	.get_sg		=3D ethtool_op_get_sg,
+-	.set_sg		=3D xenvif_set_sg,
+-	.get_tso	=3D ethtool_op_get_tso,
+-	.set_tso	=3D xenvif_set_tso,
+ 	.get_link	=3D ethtool_op_get_link,
 =20
- 	pch_gbe_check_options(adapter);
+ 	.get_sset_count =3D xenvif_get_sset_count,
+@@ -293,6 +236,7 @@ static struct net_device_ops xenvif_netdev_ops =3D =
+{
+ 	.ndo_open	=3D xenvif_open,
+ 	.ndo_stop	=3D xenvif_close,
+ 	.ndo_change_mtu	=3D xenvif_change_mtu,
++	.ndo_fix_features =3D xenvif_fix_features,
+ };
 =20
--	if (adapter->tx_csum)
--		netdev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
--	else
--		netdev->features &=3D ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+@@ -331,7 +275,8 @@ struct xenvif *xenvif_alloc(struct device *parent, =
+domid_t domid,
+ 	vif->credit_timeout.expires =3D jiffies;
+=20
+ 	dev->netdev_ops	=3D &xenvif_netdev_ops;
+-	xenvif_set_features(vif);
++	dev->hw_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
++	dev->features =3D dev->hw_features;
+ 	SET_ETHTOOL_OPS(dev, &xenvif_ethtool_ops);
+=20
+ 	dev->tx_queue_len =3D XENVIF_QUEUE_LENGTH;
+@@ -367,8 +312,6 @@ int xenvif_connect(struct xenvif *vif, unsigned lon=
+g tx_ring_ref,
+ 	if (vif->irq)
+ 		return 0;
+=20
+-	xenvif_set_features(vif);
 -
- 	/* initialize the wol settings based on the eeprom settings */
- 	adapter->wake_up_evt =3D PCH_GBE_WL_INIT_SETTING;
- 	dev_info(&pdev->dev, "MAC address : %pM\n", netdev->dev_addr);
-diff --git a/drivers/net/pch_gbe/pch_gbe_param.c b/drivers/net/pch_gbe/=
-pch_gbe_param.c
-index ef0996a..5b5d90a 100644
---- a/drivers/net/pch_gbe/pch_gbe_param.c
-+++ b/drivers/net/pch_gbe/pch_gbe_param.c
-@@ -426,6 +426,8 @@ full_duplex_only:
- void pch_gbe_check_options(struct pch_gbe_adapter *adapter)
- {
- 	struct pch_gbe_hw *hw =3D &adapter->hw;
-+	struct net_device *dev =3D adapter->netdev;
-+	int val;
+ 	err =3D xen_netbk_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
+ 	if (err < 0)
+ 		goto err;
+@@ -384,9 +327,12 @@ int xenvif_connect(struct xenvif *vif, unsigned lo=
+ng tx_ring_ref,
+ 	xenvif_get(vif);
 =20
- 	{ /* Transmit Descriptor Count */
- 		static const struct pch_gbe_option opt =3D {
-@@ -466,9 +468,10 @@ void pch_gbe_check_options(struct pch_gbe_adapter =
-*adapter)
- 			.err  =3D "defaulting to Enabled",
- 			.def  =3D PCH_GBE_DEFAULT_RX_CSUM
- 		};
--		adapter->rx_csum =3D XsumRX;
--		pch_gbe_validate_option((int *)(&adapter->rx_csum),
--					&opt, adapter);
-+		val =3D XsumRX;
-+		pch_gbe_validate_option(&val, &opt, adapter);
-+		if (!val)
-+			dev->features &=3D ~NETIF_F_RXCSUM;
- 	}
- 	{ /* Checksum Offload Enable/Disable */
- 		static const struct pch_gbe_option opt =3D {
-@@ -477,9 +480,10 @@ void pch_gbe_check_options(struct pch_gbe_adapter =
-*adapter)
- 			.err  =3D "defaulting to Enabled",
- 			.def  =3D PCH_GBE_DEFAULT_TX_CSUM
- 		};
--		adapter->tx_csum =3D XsumTX;
--		pch_gbe_validate_option((int *)(&adapter->tx_csum),
--						&opt, adapter);
-+		val =3D XsumTX;
-+		pch_gbe_validate_option(&val, &opt, adapter);
-+		if (!val)
-+			dev->features &=3D ~NETIF_F_ALL_CSUM;
- 	}
- 	{ /* Flow Control */
- 		static const struct pch_gbe_option opt =3D {
+ 	rtnl_lock();
+-	netif_carrier_on(vif->dev);
+ 	if (netif_running(vif->dev))
+ 		xenvif_up(vif);
++	if (!vif->can_sg && vif->dev->mtu > ETH_DATA_LEN)
++		dev_set_mtu(vif->dev, ETH_DATA_LEN);
++	netdev_update_features(vif->dev);
++	netif_carrier_on(vif->dev);
+ 	rtnl_unlock();
+=20
+ 	return 0;
 --=20
 1.7.2.5
 
