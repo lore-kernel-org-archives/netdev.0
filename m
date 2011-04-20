@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: xen-netback: convert to hw_features
-Date: Wed, 20 Apr 2011 01:31:04 -0700 (PDT)
-Message-ID: <20110420.013104.189690123.davem@davemloft.net>
-References: <20110419133506.D332413909@rere.qmqm.pl>
-	<20110419133905.GA4716@rere.qmqm.pl>
-	<1303286338.5997.243.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH] net: dsa: remove ethtool_ops->set_sg
+Date: Wed, 20 Apr 2011 01:31:22 -0700 (PDT)
+Message-ID: <20110420.013122.112588360.davem@davemloft.net>
+References: <20110419104320.032B713909@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
-	xen-devel@lists.xensource.com
-To: Ian.Campbell@eu.citrix.com
+Cc: netdev@vger.kernel.org
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55378
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55383
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751340Ab1DTIbi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:31:38 -0400
-In-Reply-To: <1303286338.5997.243.camel@zakaz.uk.xensource.com>
+	by vger.kernel.org with ESMTP id S1750808Ab1DTIb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:31:56 -0400
+In-Reply-To: <20110419104320.032B713909@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Date: Wed, 20 Apr 2011 08:58:58 +0100
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Tue, 19 Apr 2011 12:43:19 +0200 (CEST)
 
-> On Tue, 2011-04-19 at 14:39 +0100, Micha=A9=A9 Miros=A9=A9aw wrote:
->> On Tue, Apr 19, 2011 at 03:35:06PM +0200, Micha=A9=A9 Miros=A9=A9aw =
-wrote:
->> > Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
->> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
->>=20
->> David, I was too quick with this, so please wait with this patch unt=
-il Ian
->> acks it again.
+> Remove set_sg from DSA slave ethtool_ops. Features inheritance looks
+> broken/not fully implemented anyway.
 >=20
-> Thanks Micha=A9=A9.
->=20
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
 Applied.
