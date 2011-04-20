@@ -1,135 +1,118 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/3] IPVS: Change of socket usage to enable name space exit.
-Date: Wed, 20 Apr 2011 02:40:09 -0700
-Message-ID: <m1aafluupy.fsf@fess.ebiederm.org>
-References: <1303226705-29178-1-git-send-email-hans@schillstrom.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [PATCH] bnx2x: dont dereference tcp header on non tcp
+ frames
+Date: Wed, 20 Apr 2011 12:40:10 +0300
+Message-ID: <1303292410.1813.23.camel@lb-tlvb-dmitry>
+References: <1303229503.3480.386.camel@edumazet-laptop>
+ <1303284713.3186.13.camel@edumazet-laptop>
+ <20110420.014657.232735224.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: horms@verge.net.au, ja@ssi.bg, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1303226705-29178-1-git-send-email-hans@schillstrom.com> (Hans
-	Schillstrom's message of "Tue, 19 Apr 2011 17:25:03 +0200")
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:2418 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750792Ab1DTJl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 05:41:26 -0400
+In-Reply-To: <20110420.014657.232735224.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hans Schillstrom <hans@schillstrom.com> writes:
+On Wed, 2011-04-20 at 01:46 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 20 Apr 2011 09:31:53 +0200
+> 
+> > [PATCH] bnx2x: dont dereference tcp header on non tcp frames
+> > 
+> > bnx2x_set_pbd_csum() & bnx2x_set_pbd_csum_e2() use 
+> > tcp_hdrlen(skb) even for non TCP frames
+> > 
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Broadcom folks please review.
+> 
 
-> This is the first patch in a series of three.
-> The cleanup doesn't work when not exit in a clean way by using ipvsadm.
-> Killing of a namespace causes a hanging ipvs, this series will cure that.
->
-> If the sync daemons run in a namespace while it crashes
-> or get killed, there is no way to stop them except for a reboot.
->
-> Kernel threads should not increment the use count of a socket.
-> By calling sk_change_net() after creating a socket this is avoided.
-> sock_release cant be used, instead sk_release_kernel() should be used.
->
-> Thanks to Eric W Biederman.
->
-> This patch is based on net-next-2.6  ver 2.6.39-rc2
+Following patch fixes udp checksum offload flow and also addresses
+issues raised by Eric. We are testing it now.
 
-I am not comfortable with this patch on it's own.  What kills the
-daemons on network namespace exit?
+From: Vladislav Zolotarov <vladz@broadcom.com>
 
-I would be a little happier if the code also used sock_create_kern
-instead of __sock_create. Now that it uses sk_change_net.  Just to make
-the code more idiomatic.
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_cmn.c |   34 ++++++++++++++++++++++++----------
+ 1 files changed, 24 insertions(+), 10 deletions(-)
 
-But not actually guaranteeing that the namespace exit kills the threads
-at this point seems pretty badly broken, as this idiom is not safe
-unless we have a hard guarantee that the threads are dead.
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index e83ac6d..16581df 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -2019,15 +2019,23 @@ static inline void bnx2x_set_pbd_gso(struct sk_buff *skb,
+ static inline  u8 bnx2x_set_pbd_csum_e2(struct bnx2x *bp, struct sk_buff *skb,
+ 	u32 *parsing_data, u32 xmit_type)
+ {
+-	*parsing_data |= ((tcp_hdrlen(skb)/4) <<
+-		ETH_TX_PARSE_BD_E2_TCP_HDR_LENGTH_DW_SHIFT) &
+-		ETH_TX_PARSE_BD_E2_TCP_HDR_LENGTH_DW;
++	*parsing_data |=
++			((((u8 *)skb_transport_header(skb) - skb->data) >> 1) <<
++			ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W_SHIFT) &
++			ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W;
+ 
+-	*parsing_data |= ((((u8 *)tcp_hdr(skb) - skb->data) / 2) <<
+-		ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W_SHIFT) &
+-		ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W;
++	if (xmit_type & XMIT_CSUM_TCP) {
++		*parsing_data |= ((tcp_hdrlen(skb) / 4) <<
++			ETH_TX_PARSE_BD_E2_TCP_HDR_LENGTH_DW_SHIFT) &
++			ETH_TX_PARSE_BD_E2_TCP_HDR_LENGTH_DW;
+ 
+-	return skb_transport_header(skb) + tcp_hdrlen(skb) - skb->data;
++		return skb_transport_header(skb) + tcp_hdrlen(skb) - skb->data;
++	} else
++		/* We support checksum offload for TCP and UDP only.
++		 * No need to pass the UDP header length - it's a constant.
++		 */
++		return skb_transport_header(skb) +
++				sizeof(struct udphdr) - skb->data;
+ }
+ 
+ /**
+@@ -2043,7 +2051,7 @@ static inline u8 bnx2x_set_pbd_csum(struct bnx2x *bp, struct sk_buff *skb,
+ 	struct eth_tx_parse_bd_e1x *pbd,
+ 	u32 xmit_type)
+ {
+-	u8 hlen = (skb_network_header(skb) - skb->data) / 2;
++	u8 hlen = (skb_network_header(skb) - skb->data) >> 1;
+ 
+ 	/* for now NS flag is not used in Linux */
+ 	pbd->global_data =
+@@ -2051,9 +2059,15 @@ static inline u8 bnx2x_set_pbd_csum(struct bnx2x *bp, struct sk_buff *skb,
+ 			 ETH_TX_PARSE_BD_E1X_LLC_SNAP_EN_SHIFT));
+ 
+ 	pbd->ip_hlen_w = (skb_transport_header(skb) -
+-			skb_network_header(skb)) / 2;
++			skb_network_header(skb)) >> 1;
+ 
+-	hlen += pbd->ip_hlen_w + tcp_hdrlen(skb) / 2;
++	hlen += pbd->ip_hlen_w;
++
++	/* We support checksum offload for TCP and UDP only */
++	if (xmit_type & XMIT_CSUM_TCP)
++		hlen += tcp_hdrlen(skb) / 2;
++	else
++		hlen += sizeof(struct udphdr) / 2;
+ 
+ 	pbd->total_hlen_w = cpu_to_le16(hlen);
+ 	hlen = hlen*2;
+-- 
+1.7.2.2
 
-Eric
 
-> Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
-> ---
->  net/netfilter/ipvs/ip_vs_sync.c |   28 +++++++++++++++++++---------
->  1 files changed, 19 insertions(+), 9 deletions(-)
->
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index 3e7961e..3f87555 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -1309,7 +1309,12 @@ static struct socket *make_send_sock(struct net *net)
->  		pr_err("Error during creation of socket; terminating\n");
->  		return ERR_PTR(result);
->  	}
-> -
-> +	/*
-> +	 * Kernel sockets that are a part of a namespace, should not
-> +	 * hold a reference to a namespace in order to allow to stop it.
-> +	 * After sk_change_net should be released using sk_release_kernel.
-> +	 */
-> +	sk_change_net(sock->sk, net);
->  	result = set_mcast_if(sock->sk, ipvs->master_mcast_ifn);
->  	if (result < 0) {
->  		pr_err("Error setting outbound mcast interface\n");
-> @@ -1334,8 +1339,8 @@ static struct socket *make_send_sock(struct net *net)
->
->  	return sock;
->
-> -  error:
-> -	sock_release(sock);
-> +error:
-> +	sk_release_kernel(sock->sk);
->  	return ERR_PTR(result);
->  }
->
-> @@ -1355,7 +1360,12 @@ static struct socket *make_receive_sock(struct net *net)
->  		pr_err("Error during creation of socket; terminating\n");
->  		return ERR_PTR(result);
->  	}
-> -
-> +	/*
-> +	 * Kernel sockets that are a part of a namespace, should not
-> +	 * hold a reference to a namespace in order to allow to stop it.
-> +	 * After sk_change_net should be released using sk_release_kernel.
-> +	 */
-> +	sk_change_net(sock->sk, net);
->  	/* it is equivalent to the REUSEADDR option in user-space */
->  	sock->sk->sk_reuse = 1;
->
-> @@ -1377,8 +1387,8 @@ static struct socket *make_receive_sock(struct net *net)
->
->  	return sock;
->
-> -  error:
-> -	sock_release(sock);
-> +error:
-> +	sk_release_kernel(sock->sk);
->  	return ERR_PTR(result);
->  }
->
-> @@ -1473,7 +1483,7 @@ static int sync_thread_master(void *data)
->  		ip_vs_sync_buff_release(sb);
->
->  	/* release the sending multicast socket */
-> -	sock_release(tinfo->sock);
-> +	sk_release_kernel(tinfo->sock->sk);
->  	kfree(tinfo);
->
->  	return 0;
-> @@ -1513,7 +1523,7 @@ static int sync_thread_backup(void *data)
->  	}
->
->  	/* release the sending multicast socket */
-> -	sock_release(tinfo->sock);
-> +	sk_release_kernel(tinfo->sock->sk);
->  	kfree(tinfo->buf);
->  	kfree(tinfo);
->
-> @@ -1601,7 +1611,7 @@ outtinfo:
->  outbuf:
->  	kfree(buf);
->  outsocket:
-> -	sock_release(sock);
-> +	sk_release_kernel(sock->sk);
->  out:
->  	return result;
->  }
-> --
-> 1.7.2.3
+
+
