@@ -1,48 +1,40 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH v2] net: filter: Just In Time compiler
-Date: Wed, 20 Apr 2011 10:27:18 +0200
-Message-ID: <dfdaf466cb9434e7825c861f78070a4d@localhost>
-References: <1302797147.3248.32.camel@edumazet-laptop>
- <4DAE8E47.7040409@redhat.com> <1303286878.3186.17.camel@edumazet-laptop>
- <20110420.011454.226757908.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: xen-netback: convert to hw_features
+Date: Wed, 20 Apr 2011 01:31:04 -0700 (PDT)
+Message-ID: <20110420.013104.189690123.davem@davemloft.net>
+References: <20110419133506.D332413909@rere.qmqm.pl>
+	<20110419133905.GA4716@rere.qmqm.pl>
+	<1303286338.5997.243.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: <eric.dumazet@gmail.com>, <avi@redhat.com>,
-	<netdev@vger.kernel.org>, <acme@infradead.org>,
-	<bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
+	xen-devel@lists.xensource.com
+To: Ian.Campbell@eu.citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:47526 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750768Ab1DTI1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:27:20 -0400
-In-Reply-To: <20110420.011454.226757908.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55378
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751340Ab1DTIbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:31:38 -0400
+In-Reply-To: <1303286338.5997.243.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Date: Wed, 20 Apr 2011 08:58:58 +0100
 
-On Wed, 20 Apr 2011 01:14:54 -0700 (PDT), David Miller wrote:
+> On Tue, 2011-04-19 at 14:39 +0100, Micha=A9=A9 Miros=A9=A9aw wrote:
+>> On Tue, Apr 19, 2011 at 03:35:06PM +0200, Micha=A9=A9 Miros=A9=A9aw =
+wrote:
+>> > Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+>> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+>>=20
+>> David, I was too quick with this, so please wait with this patch unt=
+il Ian
+>> acks it again.
+>=20
+> Thanks Micha=A9=A9.
+>=20
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-
-
-I am fine with this patch too:
-
-
-
-Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
-
-
-
-Hopefully someone dig into the BPF optimizer in libpcap - cause there lie
-
-the big optimization potential. Trivial filter rules like "host
-
-192.168.1.1" cannot really be optimized - the unavoidable code path is the
-
-"problem".
-
-
-
-Hagen
+Applied.
