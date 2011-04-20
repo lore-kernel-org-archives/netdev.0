@@ -1,75 +1,40 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH v2] net: filter: Just In Time compiler
-Date: Wed, 20 Apr 2011 10:41:59 +0300
-Message-ID: <4DAE8E47.7040409@redhat.com>
-References: <1301783301.2837.77.camel@edumazet-laptop>	 <1301784797.3110.4.camel@localhost>	 <1301838968.2837.200.camel@edumazet-laptop> <4DA70743.1050106@redhat.com>	 <0a7fdea6b816da546ea71f752d36b5c2@localhost> <4DA715BB.6050307@redhat.com>	 <1302795951.3248.14.camel@edumazet-laptop> <4DA71876.803@redhat.com> <1302797147.3248.32.camel@edumazet-laptop>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
+ memory in __alloc_skb
+Date: Wed, 20 Apr 2011 10:49:48 +0300
+Message-ID: <4DAE901C.2090809@cs.helsinki.fi>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>  <20110418153852.153d3ed3.akpm@linux-foundation.org>  <1303181466.4152.39.camel@edumazet-laptop>  <1303182557.4152.48.camel@edumazet-laptop>  <1303183217.4152.49.camel@edumazet-laptop>  <alpine.DEB.2.00.1104191210011.17888@router.home>  <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi> <1303279470.2756.17.camel@edumazet-laptop> <1303285519.4dae8f0fdf9b1@imp.free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christoph Lameter <cl@linux.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: casteyde.christian@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10690 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752670Ab1DTHmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2011 03:42:17 -0400
-In-Reply-To: <1302797147.3248.32.camel@edumazet-laptop>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43723 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753858Ab1DTHtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 03:49:49 -0400
+In-Reply-To: <1303285519.4dae8f0fdf9b1@imp.free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/14/2011 07:05 PM, Eric Dumazet wrote:
-> Le jeudi 14 avril 2011 =C3=A0 18:53 +0300, Avi Kivity a =C3=A9crit :
->
-> >  IMO, it will.  I'll try to have gcc optimize your example filter l=
-ater.
->
-> Sure you can JIT a C program from bpf. It should take maybe 30 minute=
-s.
-> It certainly is more easy than JIT an binary/assembly code :)
->
-> Now take a look how I call slowpath, I am not sure gcc will actually
-> generate better code because of C conventions.
+On 4/20/11 10:45 AM, casteyde.christian@free.fr wrote:
+> Indeed I can reproduce each time I boot, however I didn't managed to apply the
+> patch to test it on -rc3 (neither -rc4), only the first hunk passed.
 
-Some things will be the same (like calling a function outside the jit).=
- =20
-Some things will be faster.
+That's odd. Eric?
 
-> Loading a filter should be fast.
-> Invoking a compiler is just too much work for BPF.
-> Remember loading a filter is available to any user.
+> I simply boot on this laptop with kmemcheck activated to get the warning, with
+> vanilla -rc3. I've also tested -rc4 yersterday (without the patch therefore),
+> the warning was not the same (it's a bit later, I will post the dmesg output on
+> bugzilla tonight).
 
-Like I mentioned before, use the interpreter until the result of the=20
-jitter is available.
+That's expected. You're unlikely to see the problem in the exact same 
+place across different kernel configs and versions.
 
-> This idea would be good for netfilter stuff, because we dont load
-> iptables rules that often.
->
-> But still, the netfilter mainloop can be converted as a kernel JIT, m=
-ost
-> probably. All the complex stuff (matches, targets) must call external
-> procedures anyway.
-
-We could convert some matches to bytecode, probably.
-
-To avoid getting into an infinite loop (btw, does you jit avoid infinit=
-e=20
-loops in the generated code?) I'll restate what I think are an external=
-=20
-jit's advantages and then stop harping on the subject:
-
-- less effort
-- less kernel code
-- better arch support
-- better optimization
-- better profiler/debugger integration
-- multiple optimization levels (can use your jitter in userspace, or=20
-gcc, or llvm)
-
---=20
-error compiling committee.c: too many arguments to function
-
+			Pekka
