@@ -1,35 +1,48 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH net-next-2.6 v5 5/5] sctp: Add ADD/DEL ASCONF handling at the receiver
-Date: Thu, 21 Apr 2011 05:42:22 +0900
-Message-ID: <8F7C47DA-A0A2-48BE-84A7-1D073B5617AE@sfc.wide.ad.jp>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: lksctp-developers@lists.sourceforge.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:42201 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753160Ab1DTUmZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 16:42:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH V3 5/8] Enable cxgb3 to support zerocopy
+Date: Wed, 20 Apr 2011 13:52:45 -0700
+Message-ID: <4DAF479D.7090309@chelsio.com>
+References: <1303328216.19336.18.camel@localhost.localdomain> <1303330438.19336.57.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1303330438.19336.57.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the problem that the original code cannot delete the remote address where the corresponding transport is currently directed, even when the ASCONF is sent from the other address (this situation happens when the single-homed sender transmits  ASCONF with ADD and DEL.)  
+On 04/20/2011 01:13 PM, Shirley Ma wrote:
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> ---
+> 
+>  drivers/net/cxgb3/cxgb3_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+> index 9108931..93a1101 100644
+> --- a/drivers/net/cxgb3/cxgb3_main.c
+> +++ b/drivers/net/cxgb3/cxgb3_main.c
+> @@ -3313,7 +3313,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+>  		netdev->features |= NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+>  		netdev->features |= NETIF_F_GRO;
+>  		if (pci_using_dac)
+> -			netdev->features |= NETIF_F_HIGHDMA;
+> +			netdev->features |= NETIF_F_HIGHDMA | NETIF_F_ZEROCOPY;
+>  
+>  		netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+>  		netdev->netdev_ops = &cxgb_netdev_ops;
 
-Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
----
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index de98665..a9f25d7 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -2990,7 +2990,7 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
- 		 * an Error Cause TLV set to the new error code 'Request to
- 		 * Delete Source IP Address'
- 		 */
--		if (sctp_cmp_addr_exact(sctp_source(asconf), &addr))
-+		if (sctp_cmp_addr_exact(&asconf->source, &addr))
- 			return SCTP_ERROR_DEL_SRC_IP;
- 
- 		/* Section 4.2.2
+The features handling has been reworked in net-next and patches like this 
+won't apply as the code you're patching has changed.  Also core code now 
+does a lot of the related work and you'll need to tell it what to do with 
+any new flags.
 
+What properties does a device or driver need to meet to set this flag?  It 
+seems to be set a bit too unconditionally.  For example, does it work if one 
+disables scatter/gather?
