@@ -1,67 +1,44 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 1/1] powerpc: Fix multicast problem in fs_enet driver
-Date: Wed, 20 Apr 2011 11:23:41 -0500
-Message-ID: <20110420112341.41d57444@schlenkerla.am.freescale.net>
-References: <1303289719-16913-1-git-send-email-gizero@gmail.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] staging: octeon-ethernet: remove .get_sg, etc. ethtool_ops
+Date: Wed, 20 Apr 2011 18:27:09 +0200 (CEST)
+Message-ID: <20110420162709.2FB1713909@rere.qmqm.pl>
+References: <20110420143612.GA22661@suse.de> <20110420142553.D497813909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<linux-kernel@vger.kernel.org>
-To: Andrea Galbusera <gizero@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1303289719-16913-1-git-send-email-gizero@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh@suse.de>, devel@driverdev.osuosl.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:52397 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752821Ab1DTQ1K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 12:27:10 -0400
+In-Reply-To: <20110420143612.GA22661@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Apr 2011 10:55:19 +0200
-Andrea Galbusera <gizero@gmail.com> wrote:
+Driver sets .get_sg and .get_tx_csum ethtool_ops to their default
+values anyway. Those fields are deprecated, starting in 2.6.39.
 
-> mac-fec.c was setting individual UDP address registers instead of multicast
-> group address registers when joining a multicast group.
-> This prevented from correctly receiving UDP multicast packets.
-> According to datasheet, replaced hash_table_high and hash_table_low
-> with grp_hash_table_high and grp_hash_table_low respectively.
-> 
-> Tested on a MPC5121 based board.
-> 
-> Signed-off-by: Andrea Galbusera <gizero@gmail.com>
-> ---
->  drivers/net/fs_enet/mac-fec.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-> index 61035fc..b9fbc83 100644
-> --- a/drivers/net/fs_enet/mac-fec.c
-> +++ b/drivers/net/fs_enet/mac-fec.c
-> @@ -226,8 +226,8 @@ static void set_multicast_finish(struct net_device *dev)
->  	}
->  
->  	FC(fecp, r_cntrl, FEC_RCNTRL_PROM);
-> -	FW(fecp, hash_table_high, fep->fec.hthi);
-> -	FW(fecp, hash_table_low, fep->fec.htlo);
-> +	FW(fecp, grp_hash_table_high, fep->fec.hthi);
-> +	FW(fecp, grp_hash_table_low, fep->fec.htlo);
->  }
->  
->  static void set_multicast_list(struct net_device *dev)
-> @@ -273,8 +273,8 @@ static void restart(struct net_device *dev)
->  	/*
->  	 * Reset all multicast.
->  	 */
-> -	FW(fecp, hash_table_high, fep->fec.hthi);
-> -	FW(fecp, hash_table_low, fep->fec.htlo);
-> +	FW(fecp, grp_hash_table_high, fep->fec.hthi);
-> +	FW(fecp, grp_hash_table_low, fep->fec.htlo);
->  
->  	/*
->  	 * Set maximum receive buffer size.
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ drivers/staging/octeon/ethernet-mdio.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-This will break on 8xx which does not have grp_hash_table_*.  It has only
-one set of hash table registers which are used only for multicast -- so
-8xx should have fec_hash_table_* renamed to fec_grp_hash_table_* in struct
-fec.
+diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/o=
+cteon/ethernet-mdio.c
+index 10a82ef..8a11ffc 100644
+--- a/drivers/staging/octeon/ethernet-mdio.c
++++ b/drivers/staging/octeon/ethernet-mdio.c
+@@ -91,8 +91,6 @@ const struct ethtool_ops cvm_oct_ethtool_ops =3D {
+ 	.set_settings =3D cvm_oct_set_settings,
+ 	.nway_reset =3D cvm_oct_nway_reset,
+ 	.get_link =3D ethtool_op_get_link,
+-	.get_sg =3D ethtool_op_get_sg,
+-	.get_tx_csum =3D ethtool_op_get_tx_csum,
+ };
+=20
+ /**
+--=20
+1.7.2.5
 
--Scott
