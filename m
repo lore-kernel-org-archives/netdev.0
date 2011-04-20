@@ -1,46 +1,75 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH v2] can: add missing socket check in can/raw release
-Date: Wed, 20 Apr 2011 13:57:15 +0200
-Message-ID: <4DAECA1B.5050300@hartkopp.net>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [PATCH 3/3] IPVS: init and cleanup restructuring.
+Date: Wed, 20 Apr 2011 14:00:09 +0200
+Message-ID: <201104201400.10175.hans@schillstrom.com>
+References: <1303226705-29178-1-git-send-email-hans@schillstrom.com> <1303226705-29178-3-git-send-email-hans@schillstrom.com> <20110419231234.GE6418@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>
-To: David Miller <davem@davemloft.net>
+Cc: ja@ssi.bg, ebiederm@xmission.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:64609 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752400Ab1DTL5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 07:57:13 -0400
+Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:46511 "EHLO
+	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752987Ab1DTMAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 08:00:15 -0400
+In-Reply-To: <20110419231234.GE6418@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2: added space after 'if' according code style.
+On Wednesday, April 20, 2011 01:12:34 Simon Horman wrote:
+> On Tue, Apr 19, 2011 at 05:25:05PM +0200, Hans Schillstrom wrote:
+> > This patch tries to restore the initial init and cleanup
+> > sequences that was before name space patch.
+[snip]
+> perhaps enable or active would be names that fits better with the
+> schemantics used.  Using a bool might also make things more obvious.
 
-We can get here with a NULL socket argument passed from userspace,
-so we need to handle it accordingly.
+I'll use enable
+> 
+[snip]
+> 
+> Can we just remove ip_vs_app_init() and ip_vs_app_cleanup() as
+> they no longer do anything? Likewise with other init and cleanup
+> functions below.
 
-Thanks to Dave Jones pointing at this issue in net/can/bcm.c
+I will add a "final" patch that removes empty functions,
+(They are nice to have during the review, to keep track of the order in different contexts)
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> > diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+> > index 36cd5ea..f8d6702 100644
+> > --- a/net/netfilter/ipvs/ip_vs_conn.c
+> > +++ b/net/netfilter/ipvs/ip_vs_conn.c
+> > @@ -1251,30 +1251,30 @@ int __net_init __ip_vs_conn_init(struct net *net)
+> >  {
+> >  	struct netns_ipvs *ipvs = net_ipvs(net);
+> > 
+> > +	EnterFunction(2);
+> >  	atomic_set(&ipvs->conn_count, 0);
+> > 
+> >  	proc_net_fops_create(net, "ip_vs_conn", 0, &ip_vs_conn_fops);
+> >  	proc_net_fops_create(net, "ip_vs_conn_sync", 0, &ip_vs_conn_sync_fops);
+> > +	LeaveFunction(2);
+> >  	return 0;
+> >  }
+> 
+> Does adding these EnterFunction() and LeaveFunction() calls
+> restore some previous behaviour? If not, I think they should at the very
+> least be in a separate patch. Likewise for similar changes below.
+> 
 
----
+I can remove them if you want, (but they are nice for debugging)
 
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 649acfa..8f215e6 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -305,7 +305,12 @@ static int raw_init(struct sock *sk)
- static int raw_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
--	struct raw_sock *ro = raw_sk(sk);
-+	struct raw_sock *ro;
-+
-+	if (!sk)
-+		return 0;
-+
-+	ro = raw_sk(sk);
+[snip]
+> 
+> While I do prefer labels to be in column 0, putting those changes
+> here is rather a lot of noise. Could you put them in a separate patch?
 
- 	unregister_netdevice_notifier(&ro->notifier);
+OK it will be patch no 1 later on
 
+Regards
+Hans
