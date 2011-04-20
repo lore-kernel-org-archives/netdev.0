@@ -1,65 +1,67 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [RFC net-next-2.6] can: replace spinlocks with mutexes
-Date: Wed, 20 Apr 2011 18:18:40 +0200
-Message-ID: <4DAF0760.6000904@hartkopp.net>
-References: <4DAEFC55.2010500@hartkopp.net> <1303313954.3186.117.camel@edumazet-laptop>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 1/1] powerpc: Fix multicast problem in fs_enet driver
+Date: Wed, 20 Apr 2011 11:23:41 -0500
+Message-ID: <20110420112341.41d57444@schlenkerla.am.freescale.net>
+References: <1303289719-16913-1-git-send-email-gizero@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:40967 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753790Ab1DTQSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 12:18:46 -0400
-In-Reply-To: <1303313954.3186.117.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	<linux-kernel@vger.kernel.org>
+To: Andrea Galbusera <gizero@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1303289719-16913-1-git-send-email-gizero@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 20.04.2011 17:39, Eric Dumazet wrote:
-> Le mercredi 20 avril 2011 =C3=A0 17:31 +0200, Oliver Hartkopp a =C3=A9=
-crit :
->> This patch removes spinlocks for the CAN netdevice specific receive =
-lists.
->> The RCU-based receive lists can be modified from process context or =
-from the
->> netdevice notifier call. As both might sleep we can safely replace t=
-he
->> spinlocks with mutexes.
->>
->> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
->>
->> ---
->=20
-> But... why ?
->=20
-> A spinlock is faster/smaller than a mutex.
+On Wed, 20 Apr 2011 10:55:19 +0200
+Andrea Galbusera <gizero@gmail.com> wrote:
 
-Hm, i expected the mutex to have some advantages especially in multicor=
-e
-systems ...
+> mac-fec.c was setting individual UDP address registers instead of multicast
+> group address registers when joining a multicast group.
+> This prevented from correctly receiving UDP multicast packets.
+> According to datasheet, replaced hash_table_high and hash_table_low
+> with grp_hash_table_high and grp_hash_table_low respectively.
+> 
+> Tested on a MPC5121 based board.
+> 
+> Signed-off-by: Andrea Galbusera <gizero@gmail.com>
+> ---
+>  drivers/net/fs_enet/mac-fec.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
+> index 61035fc..b9fbc83 100644
+> --- a/drivers/net/fs_enet/mac-fec.c
+> +++ b/drivers/net/fs_enet/mac-fec.c
+> @@ -226,8 +226,8 @@ static void set_multicast_finish(struct net_device *dev)
+>  	}
+>  
+>  	FC(fecp, r_cntrl, FEC_RCNTRL_PROM);
+> -	FW(fecp, hash_table_high, fep->fec.hthi);
+> -	FW(fecp, hash_table_low, fep->fec.htlo);
+> +	FW(fecp, grp_hash_table_high, fep->fec.hthi);
+> +	FW(fecp, grp_hash_table_low, fep->fec.htlo);
+>  }
+>  
+>  static void set_multicast_list(struct net_device *dev)
+> @@ -273,8 +273,8 @@ static void restart(struct net_device *dev)
+>  	/*
+>  	 * Reset all multicast.
+>  	 */
+> -	FW(fecp, hash_table_high, fep->fec.hthi);
+> -	FW(fecp, hash_table_low, fep->fec.htlo);
+> +	FW(fecp, grp_hash_table_high, fep->fec.hthi);
+> +	FW(fecp, grp_hash_table_low, fep->fec.htlo);
+>  
+>  	/*
+>  	 * Set maximum receive buffer size.
 
-But if it doesn't has any vital advantage, we can leave it as-is.
+This will break on 8xx which does not have grp_hash_table_*.  It has only
+one set of hash table registers which are used only for multicast -- so
+8xx should have fec_hash_table_* renamed to fec_grp_hash_table_* in struct
+fec.
 
-> Maybe you wanted to _remove_ spinlock, since/if writer hold RTNL and
-> doesnt need to exclude another writer(s) ?
-
-That's an interesting idea. The filters are modified at socket
-creation/removal time and can also be modified in between using sockopt=
-s by
-_ordinary_ users. Could that be a problem?
-
-> Note : I did not check the RTNL assertion, you might add appropriate
-> ASSERT_RTNL() calls just to be 100% safe.
-
-I'll investigate some similar places in the networking code and then re=
-place
-the spinlocks with rtnl_locks for some testing.
-
-Thanks for the feedback,
-Oliver
-
+-Scott
