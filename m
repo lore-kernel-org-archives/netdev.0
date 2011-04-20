@@ -1,67 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
- uninitialized memory in __alloc_skb
-Date: Wed, 20 Apr 2011 08:04:30 +0200
-Message-ID: <1303279470.2756.17.camel@edumazet-laptop>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>
-	 <20110418153852.153d3ed3.akpm@linux-foundation.org>
-	 <1303181466.4152.39.camel@edumazet-laptop>
-	 <1303182557.4152.48.camel@edumazet-laptop>
-	 <1303183217.4152.49.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104191210011.17888@router.home>
-	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
+Date: Wed, 20 Apr 2011 09:10:12 +0200
+Message-ID: <20110420071012.GA332@kurt.e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314135917.GF333@e-circ.dyndns.org>
+	<4D8623BE.2080807@hartkopp.net>
+	<20110413044928.GA289@kurt.e-circ.dyndns.org>
+	<4DA88705.5040203@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, casteyde.christian@free.fr,
-	Vegard Nossum <vegardno@ifi.uio.no>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61741 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182Ab1DTGEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 02:04:36 -0400
-Received: by wwa36 with SMTP id 36so477971wwa.1
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 23:04:35 -0700 (PDT)
-In-Reply-To: <4DAE7579.3020400@cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4DA88705.5040203-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 20 avril 2011 =C3=A0 08:56 +0300, Pekka Enberg a =C3=A9crit=
- :
-> On 4/19/11 11:17 PM, Eric Dumazet wrote:
-> > Le mardi 19 avril 2011 =C3=A0 12:10 -0500, Christoph Lameter a =C3=A9=
-crit :
-> >> On Tue, 19 Apr 2011, Eric Dumazet wrote:
+On Fri, Apr 15, 2011 at 07:57:25PM +0200, Oliver Hartkopp wrote:
+> On 13.04.2011 06:49, Kurt Van Dijck wrote:
+> > Oliver et.al.,
+> > 
+> > On Sun, Mar 20, 2011 at 04:56:46PM +0100, Oliver Hartkopp wrote:
+> >> On 14.03.2011 14:59, Kurt Van Dijck wrote:
 > >>
-> >>>   	}
-> >>>   }
-> >>>
-> >>> -#ifdef CONFIG_CMPXCHG_LOCAL
-> >>> +#if defined(CONFIG_CMPXCHG_LOCAL)&&  \
-> >>> +	!defined(CONFIG_KMEMCHECK)&&  !defined(DEBUG_PAGEALLOC)
-> >>> +#define SLUB_USE_CMPXCHG_DOUBLE
-> >>> +#endif
-> >>> +
-> >>> +#ifdef SLUB_USE_CMPXCHG_DOUBLE
-> >>>   #ifdef CONFIG_PREEMPT
-> >>>   /*
-> >> Ugg.. Isnt there some way to indicate to kmemcheck that a speculat=
-ive
-> >> access is occurring?
-> > Yes, here is a totally untested patch (only compiled here), to keep
-> > kmemcheck&  cmpxchg_double together.
->=20
-> Looks good to me! Can we get someone to test it as well?
+> >> Then you suggest to attach static and/or dynamic addresses to the interface.
+> >>
+> >>> +  Assigning addresses is done via
+> >>> +  $ ip addr add dev canX j1939 0xXX
+> >>> +  statically or
+> >>> +  $ ip addr add dev canX j1939 name 0xXX
+> >>> +  dynamically. In the latter case, address claiming must take place
+> >>> +  before other traffic can leave.
+> >>
+> >> like you would have using DHCP/DNS (adapted for j1939) ...
+> >>
+> > I suspect the confustion with DHCP/DNS comes free with the used terminology.
+> > 
+> > Specifications talk about a 64bit NAME, where is actually is a 64bit UUID.
+> > Calling this number a UUID may clarify things, but leaves the spec in the
+> > terminology.
+> > 
+> > one would then do:
+> > $ ip addr add dev canX j1939 uuid XXXX
+> > 
+> > Would that be a good way to progress?
+> 
+> Hello Kurt,
+> 
+> i don't know if it helps - at least for j1939 users - to rename the NAME for
+> j1939 address claiming to UUID which is usually 128 bit long an has a pretty
+> different understanding than the J1939 NAME which stands for
+> 
+>    1. Arbitrary address bit
+>    2. Industry group, length 3 bits
+>    3. Vehicle system instance, length 4 bits
+>    4. Vehicle system, length 7 bits
+>    5. Reserved bit
+>    6. Function, length 8 bits
+>    7. Function instance, length 5 bits
+>    8. ECU instance, length 3 bits
+>    9. Manufacturer code, length 11 bits
+>   10. Identity number, length 21 bits
+> 
+> (from http://www.kvaser.com/en/about-can/higher-layer-protocols/36.html)
+> 
+> This is not comparable to the ideas from RFC 4122 ...
 
-I tested first patch, but was not able to trigger the fault anyway
-without it. I'll try a bit more today if time permits...
+please note that for address claiming, this interpretation should not be used
+as such, and the whole 64bit NAME is regarded as a 'Unique Number' :-)
 
-It would be nice if Christian can reproduce the initial problem easily
-and give us the steps...
+I was not aware of RFC 4122 :-)
 
+Never mind this idea, I'll stick to 'NAME' as that is what j1939 users
+are used to. I wanted to avoid people thinking on DNS, but I should not
+introduce other misunderstandings.
 
-
+Kurt
