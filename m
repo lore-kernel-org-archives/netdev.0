@@ -1,47 +1,67 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH] staging: octeon-ethernet: remove .get_sg, etc.
- ethtool_ops
-Date: Wed, 20 Apr 2011 07:36:12 -0700
-Message-ID: <20110420143612.GA22661@suse.de>
-References: <20110420142553.D497813909@rere.qmqm.pl>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
+ memory in __alloc_skb
+Date: Wed, 20 Apr 2011 09:42:59 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1104200942020.9266@router.home>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>  <20110418153852.153d3ed3.akpm@linux-foundation.org>  <1303181466.4152.39.camel@edumazet-laptop>  <1303182557.4152.48.camel@edumazet-laptop>  <1303183217.4152.49.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1104191210011.17888@router.home>  <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>  <1303279470.2756.17.camel@edumazet-laptop>  <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
+ <1303286998.3186.18.camel@edumazet-laptop>  <1303290464.3186.32.camel@edumazet-laptop>  <1303293765.3186.74.camel@edumazet-laptop>  <alpine.DEB.2.00.1104200904440.8634@router.home> <1303309591.3186.84.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811839-473264312-1303310580=:9266"
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>, casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:34261 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751875Ab1DTOlM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2011 10:41:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20110420142553.D497813909@rere.qmqm.pl>
+Received: from smtp110.prem.mail.ac4.yahoo.com ([76.13.13.93]:34453 "HELO
+	smtp110.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753139Ab1DTOnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 10:43:03 -0400
+In-Reply-To: <1303309591.3186.84.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 20, 2011 at 04:25:53PM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
->  drivers/staging/octeon/ethernet-mdio.c |    2 --
->  1 files changed, 0 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging=
-/octeon/ethernet-mdio.c
-> index 10a82ef..8a11ffc 100644
-> --- a/drivers/staging/octeon/ethernet-mdio.c
-> +++ b/drivers/staging/octeon/ethernet-mdio.c
-> @@ -91,8 +91,6 @@ const struct ethtool_ops cvm_oct_ethtool_ops =3D {
->  	.set_settings =3D cvm_oct_set_settings,
->  	.nway_reset =3D cvm_oct_nway_reset,
->  	.get_link =3D ethtool_op_get_link,
-> -	.get_sg =3D ethtool_op_get_sg,
-> -	.get_tx_csum =3D ethtool_op_get_tx_csum,
->  };
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Why are you doing this?  Please explain it better in the changelog and
-resend this.
+---1463811839-473264312-1303310580=:9266
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-thanks,
+On Wed, 20 Apr 2011, Eric Dumazet wrote:
 
-greg k-h
+> Le mercredi 20 avril 2011 =C3=A0 09:05 -0500, Christoph Lameter a =C3=A9c=
+rit :
+> > On Wed, 20 Apr 2011, Eric Dumazet wrote:
+> >
+> > > > Then, just disable SLUB_CMPXCHG_DOUBLE if KMEMCHECK is defined, as =
+I did in my first patch.
+> >
+> > Ok your first patch seems to be the sanest approach.
+> >
+> > >  {
+> > > @@ -1889,16 +1895,18 @@ static __always_inline void *slab_alloc(struc=
+t kmem_cache *s,
+> > >  =09struct kmem_cache_cpu *c;
+> > >  #ifdef CONFIG_CMPXCHG_LOCAL
+> > >  =09unsigned long tid;
+> > > -#else
+> > > +#endif
+> > > +#ifdef MASK_IRQ_IN_SLAB_ALLOC
+> > >  =09unsigned long flags;
+> > >  #endif
+> > >
+> >
+> > Yea well that does not bring us much.
+>
+> Well, we keep the fast free path ?
+>
+> only slab_alloc() would have to disable irqs for ~20 instructions.
+
+Avoiding the irq handling yields the savings that improve the fastpath. if
+you do both then there is only a regression left. So lets go with
+disabling the CMPXCHG_LOCAL.
+
+---1463811839-473264312-1303310580=:9266--
