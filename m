@@ -1,90 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: filter: Just In Time compiler
-Date: Wed, 20 Apr 2011 10:07:58 +0200
-Message-ID: <1303286878.3186.17.camel@edumazet-laptop>
-References: <1301783301.2837.77.camel@edumazet-laptop>
-	 <1301784797.3110.4.camel@localhost>
-	 <1301838968.2837.200.camel@edumazet-laptop> <4DA70743.1050106@redhat.com>
-	 <0a7fdea6b816da546ea71f752d36b5c2@localhost> <4DA715BB.6050307@redhat.com>
-	 <1302795951.3248.14.camel@edumazet-laptop> <4DA71876.803@redhat.com>
-	 <1302797147.3248.32.camel@edumazet-laptop>  <4DAE8E47.7040409@redhat.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
+ uninitialized memory in __alloc_skb
+Date: Wed, 20 Apr 2011 10:09:58 +0200
+Message-ID: <1303286998.3186.18.camel@edumazet-laptop>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>
+	 <20110418153852.153d3ed3.akpm@linux-foundation.org>
+	 <1303181466.4152.39.camel@edumazet-laptop>
+	 <1303182557.4152.48.camel@edumazet-laptop>
+	 <1303183217.4152.49.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104191210011.17888@router.home>
+	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
+	 <1303279470.2756.17.camel@edumazet-laptop>
+	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Avi Kivity <avi@redhat.com>
+Cc: casteyde.christian@free.fr, Christoph Lameter <cl@linux.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63895 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55543 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808Ab1DTIID (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:08:03 -0400
-Received: by wwa36 with SMTP id 36so578249wwa.1
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 01:08:01 -0700 (PDT)
-In-Reply-To: <4DAE8E47.7040409@redhat.com>
+	with ESMTP id S1751614Ab1DTIKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:10:02 -0400
+Received: by wwa36 with SMTP id 36so579827wwa.1
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 01:10:01 -0700 (PDT)
+In-Reply-To: <4DAE901C.2090809@cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 20 avril 2011 =C3=A0 10:41 +0300, Avi Kivity a =C3=A9crit :
-> On 04/14/2011 07:05 PM, Eric Dumazet wrote:
-> > Le jeudi 14 avril 2011 =C3=A0 18:53 +0300, Avi Kivity a =C3=A9crit =
-:
-> >
-> > >  IMO, it will.  I'll try to have gcc optimize your example filter=
- later.
-> >
-> > Sure you can JIT a C program from bpf. It should take maybe 30 minu=
-tes.
-> > It certainly is more easy than JIT an binary/assembly code :)
-> >
-> > Now take a look how I call slowpath, I am not sure gcc will actuall=
-y
-> > generate better code because of C conventions.
+Le mercredi 20 avril 2011 =C3=A0 10:49 +0300, Pekka Enberg a =C3=A9crit=
+ :
+> On 4/20/11 10:45 AM, casteyde.christian@free.fr wrote:
+> > Indeed I can reproduce each time I boot, however I didn't managed t=
+o apply the
+> > patch to test it on -rc3 (neither -rc4), only the first hunk passed=
+=2E
 >=20
-> Some things will be the same (like calling a function outside the jit=
-). =20
-> Some things will be faster.
->=20
-> > Loading a filter should be fast.
-> > Invoking a compiler is just too much work for BPF.
-> > Remember loading a filter is available to any user.
->=20
-> Like I mentioned before, use the interpreter until the result of the=20
-> jitter is available.
->=20
-> > This idea would be good for netfilter stuff, because we dont load
-> > iptables rules that often.
-> >
-> > But still, the netfilter mainloop can be converted as a kernel JIT,=
- most
-> > probably. All the complex stuff (matches, targets) must call extern=
-al
-> > procedures anyway.
->=20
-> We could convert some matches to bytecode, probably.
->=20
-> To avoid getting into an infinite loop (btw, does you jit avoid infin=
-ite=20
-> loops in the generated code?) I'll restate what I think are an extern=
-al=20
-> jit's advantages and then stop harping on the subject:
->=20
-> - less effort
-> - less kernel code
-> - better arch support
-> - better optimization
-> - better profiler/debugger integration
-> - multiple optimization levels (can use your jitter in userspace, or=20
-> gcc, or llvm)
+> That's odd. Eric?
 >=20
 
-No problem, I'll wait your work on this then.
+I dont know, my patches were linux-2.6 based, and I pull tree very
+often ;)
 
-I disagree having a gcc on production machines, I'm not sure it will
-please admins...
+> > I simply boot on this laptop with kmemcheck activated to get the wa=
+rning, with
+> > vanilla -rc3. I've also tested -rc4 yersterday (without the patch t=
+herefore),
+> > the warning was not the same (it's a bit later, I will post the dme=
+sg output on
+> > bugzilla tonight).
+>=20
+> That's expected. You're unlikely to see the problem in the exact same=
+=20
+> place across different kernel configs and versions.
+>=20
+
+Christian, please send us your .config
 
 Thanks
 
