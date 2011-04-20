@@ -1,74 +1,65 @@
-From: Dave Jones <davej@redhat.com>
-Subject: ipqueue allocation failure.
-Date: Tue, 19 Apr 2011 21:42:22 -0400
-Message-ID: <20110420014221.GC26949@redhat.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH] net: forcedeth: fix compile warning of not used nv_set_tso
+ function
+Date: Wed, 20 Apr 2011 09:42:15 +0800
+Message-ID: <4DAE39F7.1030504@cn.fujitsu.com>
+References: <4DAE3768.9030807@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: mirq-linux@rere.qmqm.pl, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49648 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752690Ab1DTBmY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2011 21:42:24 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p3K1gO4g012883
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 21:42:24 -0400
-Received: from gelk.kernelslacker.org (ovpn-113-123.phx2.redhat.com [10.3.113.123])
-	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id p3K1gN05001976
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 21:42:24 -0400
-Received: from gelk.kernelslacker.org (gelk [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.4/8.14.4) with ESMTP id p3K1gMZd029350
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2011 21:42:22 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.4/8.14.4/Submit) id p3K1gMiA029348
-	for netdev@vger.kernel.org; Tue, 19 Apr 2011 21:42:22 -0400
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:56350 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754493Ab1DTBqG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 21:46:06 -0400
+In-Reply-To: <4DAE3768.9030807@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not catastrophic, but ipqueue seems to be too trusting of what it gets
-passed from userspace, and passes it on down to the page allocator,
-where it will spew warnings if the page order is too high.
+This patch is against net-next.
 
-__ipq_rcv_skb has several checks for lengths too small, but doesn't
-seem to have any for oversized ones.   I'm not sure what the maximum
-we should check for is. I'll code up a diff if anyone has any ideas
-on a sane maximum.
+Shan Wei wrote, at 04/20/2011 09:31 AM:
+> Fix the below compile warning:
+> drivers/net/forcedeth.c:4266: warning: =E2=80=98nv_set_tso=E2=80=99 d=
+efined but not used
+>=20
+> commit 569e146 converts forcedeth driver to use hw_features.
+> So, implement function of .set_tso is abandoned.
+>=20
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> ---
+>  drivers/net/forcedeth.c |   10 ----------
+>  1 files changed, 0 insertions(+), 10 deletions(-)
+>=20
+> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> index ec9a32d..0e1c76a 100644
+> --- a/drivers/net/forcedeth.c
+> +++ b/drivers/net/forcedeth.c
+> @@ -4263,16 +4263,6 @@ static int nv_nway_reset(struct net_device *de=
+v)
+>  	return ret;
+>  }
+> =20
+> -static int nv_set_tso(struct net_device *dev, u32 value)
+> -{
+> -	struct fe_priv *np =3D netdev_priv(dev);
+> -
+> -	if ((np->driver_data & DEV_HAS_CHECKSUM))
+> -		return ethtool_op_set_tso(dev, value);
+> -	else
+> -		return -EOPNOTSUPP;
+> -}
+> -
+>  static void nv_get_ringparam(struct net_device *dev, struct ethtool_=
+ringparam* ring)
+>  {
+>  	struct fe_priv *np =3D netdev_priv(dev);
 
-	Dave
 
-------------[ cut here ]------------
-WARNING: at mm/page_alloc.c:2032 __alloc_pages_nodemask+0x17d/0x7e6()
-Hardware name: GA-MA78GM-S2H
-Modules linked in: rfcomm hidp can_raw can_bcm sctp libcrc32c ip_queue decnet pppoe pppox ppp_generic slhc can ipx p8022 p8023 phonet bluetooth rfkill a]
-Pid: 20393, comm: trinity Not tainted 2.6.39-rc4+ #6
-Call Trace:
- [<ffffffff81056a9c>] warn_slowpath_common+0x83/0x9b
- [<ffffffff81056ace>] warn_slowpath_null+0x1a/0x1c
- [<ffffffff810ed743>] __alloc_pages_nodemask+0x17d/0x7e6
- [<ffffffff811206c9>] ? check_object+0x174/0x1ae
- [<ffffffff81120a43>] ? check_slab+0xc7/0xd5
- [<ffffffff813f42fe>] ? __alloc_skb+0x40/0x133
- [<ffffffff813f42fe>] ? __alloc_skb+0x40/0x133
- [<ffffffff814b7487>] kmalloc_large_node+0x56/0x95
- [<ffffffff811235c1>] __kmalloc_node_track_caller+0x32/0x139
- [<ffffffff81421b68>] ? netlink_ack+0x4a/0xe8
- [<ffffffffa0500475>] ? ipq_rcv_skb+0x27/0x340 [ip_queue]
- [<ffffffff813f4333>] __alloc_skb+0x75/0x133
- [<ffffffff81421b68>] netlink_ack+0x4a/0xe8
- [<ffffffffa050076a>] ipq_rcv_skb+0x31c/0x340 [ip_queue]
- [<ffffffff8142174a>] netlink_unicast+0xec/0x156
- [<ffffffff81421a33>] netlink_sendmsg+0x27f/0x2c0
- [<ffffffff813ed76c>] __sock_sendmsg+0x69/0x75
- [<ffffffff813ed834>] sock_aio_write+0xbc/0xcc
- [<ffffffff8113242b>] do_sync_write+0xbf/0xff
- [<ffffffff81206e18>] ? security_file_permission+0x2e/0x33
- [<ffffffff81132861>] ? rw_verify_area+0xb6/0xd3
- [<ffffffff81132b02>] vfs_write+0xb6/0xf6
- [<ffffffff8113400b>] ? fget_light+0x3a/0xa1
- [<ffffffff81132cf6>] sys_write+0x4d/0x74
- [<ffffffff814c5d82>] system_call_fastpath+0x16/0x1b
----[ end trace cd56dc75cfeab436 ]---
+--=20
 
+Best Regards
+-----
+Shan Wei
