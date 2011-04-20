@@ -1,38 +1,35 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
-Date: Wed, 20 Apr 2011 17:08:35 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1104201658280.1686-100000@iolanthe.rowland.org>
-References: <20110420195015.20A96201B8@glenhelen.mtv.corp.google.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V3 5/8] Enable cxgb3 to support zerocopy
+Date: Wed, 20 Apr 2011 14:15:14 -0700
+Message-ID: <1303334114.19336.72.camel@localhost.localdomain>
+References: <1303328216.19336.18.camel@localhost.localdomain>
+	 <1303330438.19336.57.camel@localhost.localdomain>
+	 <4DAF479D.7090309@chelsio.com>
+	 <1303333134.19336.70.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, <linux-usb@vger.kernel.org>,
-	<davem@davemloft.net>, <greg@kroah.com>
-To: Paul Stewart <pstew@chromium.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:39746 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753492Ab1DTVIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 17:08:35 -0400
-In-Reply-To: <20110420195015.20A96201B8@glenhelen.mtv.corp.google.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:49414 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752565Ab1DTVPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 17:15:24 -0400
+In-Reply-To: <1303333134.19336.70.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Apr 2011, Paul Stewart wrote:
+On Wed, 2011-04-20 at 13:58 -0700, Shirley Ma wrote:
+> This flag can be ON when HIGHDMA and scatter/gather support. I will
+> modify the patch to make it conditionally.
 
-> Set a flag if the interrupt URB completes with ENOENT as this
-> occurs legitimately during system suspend.  When the usbnet_bh
-> is called after resume, test this flag and try once to resubmit
-> the interrupt URB.
+Double checked, it only needs HIGHDMA condition, not scatter/gather.
 
-No doubt there's a good reason for doing things this way, but it isn't
-clear.  Why wait until usbnet_bh() is called after resume?  Why not
-resubmit the interrupt URB _during_ usbnet_resume()?  This would seem
-to be the logical approach, seeing as how usbnet_suspend() kills the
-interrupt URB.
-
-For that matter, where does the interrupt URB get deallocated?  It 
-obviously gets allocated in init_status(), but it doesn't seem to be 
-freed anywhere.
-
-Alan Stern
+thanks
+Shirley
 
