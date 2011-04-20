@@ -1,93 +1,29 @@
-From: timg@tpi.com (Tim Gardner)
-Subject: [PATCH] atl1c: Fix work event interrupt/task races
-Date: Wed, 20 Apr 2011 13:00:49 -0600 (MDT)
-Message-ID: <20110420190049.185C6F88D3@sepang.rtg.net>
-Cc: jie.yang@atheros.com
+From: Michio Honda <micchie@ht.sfc.keio.ac.jp>
+Subject: [PATCH net-next-2.6 v4 0/5] sctp: Patch series
+Date: Thu, 21 Apr 2011 04:24:11 +0900
+Message-ID: <8AD20F69-97E7-4FCD-90A3-20E0E40D555F@ht.sfc.keio.ac.jp>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: lksctp-developers@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpi.com ([70.99.223.143]:4125 "EHLO mail.tpi.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755735Ab1DTTbb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2011 15:31:31 -0400
+Received: from barracuda.ht.sfc.keio.ac.jp ([133.27.170.14]:38841 "EHLO
+	barracuda.ht.sfc.keio.ac.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751984Ab1DTTfe convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 15:35:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit eab846b1823e05a045a28d2c87e219ef1b6e3c49
-Author: Tim Gardner <tim.gardner@canonical.com>
-Date:   Wed Apr 20 11:31:09 2011 -0600
+Series of 5 patches to support auto_asconf and the other related functionalities that auto_asconf relies on. 
 
-    atl1c: Fix work event interrupt/task races
-    
-    The mechanism used to initiate work events from the interrupt
-    handler has a classic read/modify/write race between the interrupt
-    handler that sets the condition, and the worker task that reads and
-    clears the condition. Close these races by using atomic
-    bit fields.
-    
-    Cc: stable@kernel.org
-    Cc: Jie Yang <jie.yang@atheros.com>
-    Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Cheers,
+- Michio
 
-diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
-index 9ab5809..dec8110 100644
---- a/drivers/net/atl1c/atl1c.h
-+++ b/drivers/net/atl1c/atl1c.h
-@@ -566,9 +566,9 @@ struct atl1c_adapter {
- #define __AT_TESTING        0x0001
- #define __AT_RESETTING      0x0002
- #define __AT_DOWN           0x0003
--	u8 work_event;
--#define ATL1C_WORK_EVENT_RESET 		0x01
--#define ATL1C_WORK_EVENT_LINK_CHANGE	0x02
-+	unsigned long work_event;
-+#define	ATL1C_WORK_EVENT_RESET		0
-+#define	ATL1C_WORK_EVENT_LINK_CHANGE	1
- 	u32 msg_enable;
- 
- 	bool have_msi;
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
-index 3824382..dffc7f7 100644
---- a/drivers/net/atl1c/atl1c_main.c
-+++ b/drivers/net/atl1c/atl1c_main.c
-@@ -325,7 +325,7 @@ static void atl1c_link_chg_event(struct atl1c_adapter *adapter)
- 		}
- 	}
- 
--	adapter->work_event |= ATL1C_WORK_EVENT_LINK_CHANGE;
-+	set_bit(ATL1C_WORK_EVENT_LINK_CHANGE, &adapter->work_event);
- 	schedule_work(&adapter->common_task);
- }
- 
-@@ -337,20 +337,16 @@ static void atl1c_common_task(struct work_struct *work)
- 	adapter = container_of(work, struct atl1c_adapter, common_task);
- 	netdev = adapter->netdev;
- 
--	if (adapter->work_event & ATL1C_WORK_EVENT_RESET) {
--		adapter->work_event &= ~ATL1C_WORK_EVENT_RESET;
-+	if (test_and_clear_bit(ATL1C_WORK_EVENT_RESET, &adapter->work_event)) {
- 		netif_device_detach(netdev);
- 		atl1c_down(adapter);
- 		atl1c_up(adapter);
- 		netif_device_attach(netdev);
--		return;
- 	}
- 
--	if (adapter->work_event & ATL1C_WORK_EVENT_LINK_CHANGE) {
--		adapter->work_event &= ~ATL1C_WORK_EVENT_LINK_CHANGE;
-+	if (test_and_clear_bit(ATL1C_WORK_EVENT_LINK_CHANGE,
-+		&adapter->work_event))
- 		atl1c_check_link_status(adapter);
--	}
--	return;
- }
- 
- 
-@@ -369,7 +365,7 @@ static void atl1c_tx_timeout(struct net_device *netdev)
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
- 
- 	/* Do the reset outside of interrupt context */
--	adapter->work_event |= ATL1C_WORK_EVENT_RESET;
-+	set_bit(ATL1C_WORK_EVENT_RESET, &adapter->work_event);
- 	schedule_work(&adapter->common_task);
- }
- 
+[1/5] Add Auto-ASCONF support
+[2/5] Add sysctl support for Auto-ASCONF
+[3/5] Add socket option operation for Auto-ASCONF
+[4/5] Add ASCONF operation on the single-homed host
+[5/5] Add ADD/DEL ASCONF handling at the receiver
+
