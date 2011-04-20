@@ -1,281 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
- uninitialized memory in __alloc_skb
-Date: Wed, 20 Apr 2011 17:01:27 +0200
-Message-ID: <1303311687.3186.100.camel@edumazet-laptop>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>
-	 <20110418153852.153d3ed3.akpm@linux-foundation.org>
-	 <1303181466.4152.39.camel@edumazet-laptop>
-	 <1303182557.4152.48.camel@edumazet-laptop>
-	 <1303183217.4152.49.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104191210011.17888@router.home>
-	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
-	 <1303279470.2756.17.camel@edumazet-laptop>
-	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
-	 <1303286998.3186.18.camel@edumazet-laptop>
-	 <1303290464.3186.32.camel@edumazet-laptop>
-	 <1303293765.3186.74.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104200904440.8634@router.home>
-	 <1303309591.3186.84.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104200942020.9266@router.home>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [PATCH] bnx2x: dont dereference tcp header on non tcp
+ frames
+Date: Wed, 20 Apr 2011 18:08:18 +0300
+Message-ID: <1303312098.1813.29.camel@lb-tlvb-dmitry>
+References: <1303229503.3480.386.camel@edumazet-laptop>
+ <1303284713.3186.13.camel@edumazet-laptop>
+ <20110420.014657.232735224.davem@davemloft.net>
+ <1303292410.1813.23.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>, casteyde.christian@free.fr,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Vegard Nossum <vegardno@ifi.uio.no>
-To: Christoph Lameter <cl@linux.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36921 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755112Ab1DTPBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 11:01:32 -0400
-Received: by wwa36 with SMTP id 36so983511wwa.1
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 08:01:31 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1104200942020.9266@router.home>
+Received: from mms2.broadcom.com ([216.31.210.18]:1854 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752280Ab1DTPJg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 11:09:36 -0400
+In-Reply-To: <1303292410.1813.23.camel@lb-tlvb-dmitry>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 20 avril 2011 =C3=A0 09:42 -0500, Christoph Lameter a =C3=A9=
-crit :
+On Wed, 2011-04-20 at 02:40 -0700, Dmitry Kravkov wrote:
 
-> Avoiding the irq handling yields the savings that improve the fastpat=
-h. if
-> you do both then there is only a regression left. So lets go with
-> disabling the CMPXCHG_LOCAL.
+> Following patch fixes udp checksum offload flow and also addresses
+> issues raised by Eric. We are testing it now.
 
-OK, let's do that then.
+It passed local regression, i was also unable to reproduce kmemcheck
+warning.
 
-Thanks
+I hit this one (on net-2.6 from today) not sure if it's related:
 
-[PATCH v4] slub: dont use cmpxchg_double if KMEMCHECK or DEBUG_PAGEALLO=
-C
 
-Christian Casteyde reported a KMEMCHECK splat in slub code.
+INFO: rcu_sched_state detected stall on CPU 0 (t=60000 jiffies)
+sending NMI to all CPUs:
+NMI backtrace for cpu 0
+CPU 0 
+Modules linked in: bnx2x nfs fscache nfsd nfs_acl auth_rpcgss autofs4
+bluetooth rfkill lockd sunrpc ipv6 loop dm_mirror dm_multipath scsi_dh
+video sbs sbshc power_meter battery acpi_memhotplug ac parport_pc lp
+parport ide_cd_mod cdrom serio_raw option usb_wwan usbserial button b
+nx2 tpm_tis tpm tpm_bios ipmi_si ipmi_msghandler hpilo mdio rtc_cmos
+pcspkr rtc_core i5k_amb hwmon i5000_edac edac_core rtc_lib
+dm_region_hash dm_log dm_mod ata_piix libata shpchp cciss sd_mod
+scsi_mod ext3 jbd uhci_hcd ohci_hcd ehci_hcd [last unloaded: bnx2x]
 
-Problem is now we are lockless and allow IRQ in slab_alloc(), the objec=
-t
-we manipulate from freelist can be allocated and freed right before we
-try to read object->next.
+Pid: 3441, comm: kworker/0:3 Not tainted 2.6.39-rc2test+ #2 HP ProLiant
+DL380 G5
+RIP: 0010:[<ffffffff811cbf65>]  [<ffffffff811cbf65>] delay_tsc+0x15/0x60
+RSP: 0018:ffff88023fc03e78  EFLAGS: 00000803
+RAX: 00000000ddf79987 RBX: 0000000000000001 RCX: ffffffff817894e0
+RDX: 00000000000001aa RSI: 00000000000000ff RDI: 00000000002dc788
+RBP: ffff88023fc03e78 R08: 0000000000000003 R09: 0000000000000000
+R10: 0000000000000000 R11: 000000000000000a R12: ffff88023fc0e5e0
+R13: ffff88023497cf60 R14: ffffffff81729900 R15: ffffffff81729a00
+FS:  0000000000000000(0000) GS:ffff88023fc00000(0000)
+knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 00007f24456760a0 CR3: 0000000001713000 CR4: 00000000000006f0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff4ff0 DR7: 0000000000000400
+Process kworker/0:3 (pid: 3441, threadinfo ffff88021fe74000, task
+ffff88023497cf60)
+Stack:
+ ffff88023fc03e88 ffffffff811cbf1a ffff88023fc03e98 ffffffff811cbf47
+ ffff88023fc03eb8 ffffffff8101d155 0000000000000000 ffffffff81729900
+ ffff88023fc03ef8 ffffffff81092b9c 000000004daf0bb9 0000000000000000
+Call Trace:
+ <IRQ> 
+ [<ffffffff811cbf1a>] __delay+0xa/0x10
+ [<ffffffff811cbf47>] __const_udelay+0x27/0x30
+ [<ffffffff8101d155>] arch_trigger_all_cpu_backtrace+0x75/0xb0
+ [<ffffffff81092b9c>] __rcu_pending+0x9c/0x370
+ [<ffffffff81092efd>] rcu_check_callbacks+0x8d/0xd0
+ [<ffffffff810530c1>] update_process_times+0x41/0x80
+ [<ffffffff81070c07>] tick_periodic+0x27/0x70
+ [<ffffffff81070c71>] tick_handle_periodic+0x21/0x80
+ [<ffffffff8101cbd6>] smp_apic_timer_interrupt+0x66/0xa0
+ [<ffffffff813c1993>] apic_timer_interrupt+0x13/0x20
+ <EOI> 
+ [<ffffffff811b1964>] ? blk_delay_work+0x34/0x40
+ [<ffffffff8105d449>] process_one_work+0xf9/0x390
+ [<ffffffff811b1930>] ? submit_bio+0xd0/0xd0
+ [<ffffffff8105fa45>] worker_thread+0xe5/0x270
+ [<ffffffff8105f960>] ? gcwq_mayday_timeout+0x80/0x80
+ [<ffffffff810638e6>] kthread+0x96/0xa0
+ [<ffffffff813c20d4>] kernel_thread_helper+0x4/0x10
+ [<ffffffff81063850>] ? kthread_stop+0xd0/0xd0
+ [<ffffffff813c20d0>] ? gs_change+0xb/0xb
+Code: 89 e5 f7 e2 48 8d 7a 01 e8 c9 ff ff ff c9 c3 0f 1f 80 00 00 00 00
+55 65 44 8b 0c 25 68 c5 00 00 48 89 e5 66 66 90 0f ae e8 0f 31 
+ 89 c0 44 89 ce eb 11 0f 1f 00 f3 90 65 8b 0c 25 68 c5 00 00 
+Call Trace:
+ <IRQ>  [<ffffffff811cbf1a>] __delay+0xa/0x10
+ [<ffffffff811cbf47>] __const_udelay+0x27/0x30
+ [<ffffffff8101d155>] arch_trigger_all_cpu_backtrace+0x75/0xb0
+ [<ffffffff81092b9c>] __rcu_pending+0x9c/0x370
+ [<ffffffff81092efd>] rcu_check_callbacks+0x8d/0xd0
+ [<ffffffff810530c1>] update_process_times+0x41/0x80
+ [<ffffffff81070c07>] tick_periodic+0x27/0x70
+ [<ffffffff81070c71>] tick_handle_periodic+0x21/0x80
+ [<ffffffff8101cbd6>] smp_apic_timer_interrupt+0x66/0xa0
+ [<ffffffff813c1993>] apic_timer_interrupt+0x13/0x20
+ <EOI>  [<ffffffff811b1964>] ? blk_delay_work+0x34/0x40
+ [<ffffffff8105d449>] process_one_work+0xf9/0x390
+ [<ffffffff811b1930>] ? submit_bio+0xd0/0xd0
+ [<ffffffff8105fa45>] worker_thread+0xe5/0x270
+ [<ffffffff8105f960>] ? gcwq_mayday_timeout+0x80/0x80
+ [<ffffffff810638e6>] kthread+0x96/0xa0
+ [<ffffffff813c20d4>] kernel_thread_helper+0x4/0x10
+ [<ffffffff81063850>] ? kthread_stop+0xd0/0xd0
+ [<ffffffff813c20d0>] ? gs_change+0xb/0xb
 
-Same problem can happen with DEBUG_PAGEALLOC
-
-Just dont use cmpxchg_double() if either CONFIG_KMEMCHECK or
-CONFIG_DEBUG_PAGEALLOC is defined.
-
-Reported-by: Christian Casteyde <casteyde.christian@free.fr>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>
-Cc: Vegard Nossum <vegardno@ifi.uio.no>
-Cc: Christoph Lameter <cl@linux.com>
----
- mm/slub.c |   45 +++++++++++++++++++++++++--------------------
- 1 files changed, 25 insertions(+), 20 deletions(-)
-
-diff --git a/mm/slub.c b/mm/slub.c
-index 94d2a33..f31ab2c 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -1540,7 +1540,12 @@ static void unfreeze_slab(struct kmem_cache *s, =
-struct page *page, int tail)
- 	}
- }
-=20
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#if defined(CONFIG_CMPXCHG_LOCAL) && !defined(CONFIG_KMEMCHECK) && \
-+				     !defined(CONFIG_DEBUG_PAGEALLOC)
-+#define SLUB_USE_CMPXCHG_DOUBLE
-+#endif
-+
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- #ifdef CONFIG_PREEMPT
- /*
-  * Calculate the next globally unique transaction for disambiguiation
-@@ -1604,7 +1609,7 @@ static inline void note_cmpxchg_failure(const cha=
-r *n,
-=20
- void init_kmem_cache_cpus(struct kmem_cache *s)
- {
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	int cpu;
-=20
- 	for_each_possible_cpu(cpu)
-@@ -1643,7 +1648,7 @@ static void deactivate_slab(struct kmem_cache *s,=
- struct kmem_cache_cpu *c)
- 		page->inuse--;
- 	}
- 	c->page =3D NULL;
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	c->tid =3D next_tid(c->tid);
- #endif
- 	unfreeze_slab(s, page, tail);
-@@ -1780,7 +1785,7 @@ static void *__slab_alloc(struct kmem_cache *s, g=
-fp_t gfpflags, int node,
- {
- 	void **object;
- 	struct page *new;
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	unsigned long flags;
-=20
- 	local_irq_save(flags);
-@@ -1819,7 +1824,7 @@ load_freelist:
- 	c->node =3D page_to_nid(c->page);
- unlock_out:
- 	slab_unlock(c->page);
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	c->tid =3D next_tid(c->tid);
- 	local_irq_restore(flags);
- #endif
-@@ -1858,7 +1863,7 @@ new_slab:
- 	}
- 	if (!(gfpflags & __GFP_NOWARN) && printk_ratelimit())
- 		slab_out_of_memory(s, gfpflags, node);
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	local_irq_restore(flags);
- #endif
- 	return NULL;
-@@ -1887,7 +1892,7 @@ static __always_inline void *slab_alloc(struct km=
-em_cache *s,
- {
- 	void **object;
- 	struct kmem_cache_cpu *c;
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	unsigned long tid;
- #else
- 	unsigned long flags;
-@@ -1896,7 +1901,7 @@ static __always_inline void *slab_alloc(struct km=
-em_cache *s,
- 	if (slab_pre_alloc_hook(s, gfpflags))
- 		return NULL;
-=20
--#ifndef CONFIG_CMPXCHG_LOCAL
-+#ifndef SLUB_USE_CMPXCHG_DOUBLE
- 	local_irq_save(flags);
- #else
- redo:
-@@ -1910,7 +1915,7 @@ redo:
- 	 */
- 	c =3D __this_cpu_ptr(s->cpu_slab);
-=20
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	/*
- 	 * The transaction ids are globally unique per cpu and per operation =
-on
- 	 * a per cpu queue. Thus they can be guarantee that the cmpxchg_doubl=
-e
-@@ -1927,7 +1932,7 @@ redo:
- 		object =3D __slab_alloc(s, gfpflags, node, addr, c);
-=20
- 	else {
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 		/*
- 		 * The cmpxchg will only match if there was no additional
- 		 * operation and if we are on the right processor.
-@@ -1954,7 +1959,7 @@ redo:
- 		stat(s, ALLOC_FASTPATH);
- 	}
-=20
--#ifndef CONFIG_CMPXCHG_LOCAL
-+#ifndef SLUB_USE_CMPXCHG_DOUBLE
- 	local_irq_restore(flags);
- #endif
-=20
-@@ -2034,7 +2039,7 @@ static void __slab_free(struct kmem_cache *s, str=
-uct page *page,
- {
- 	void *prior;
- 	void **object =3D (void *)x;
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	unsigned long flags;
-=20
- 	local_irq_save(flags);
-@@ -2070,7 +2075,7 @@ checks_ok:
-=20
- out_unlock:
- 	slab_unlock(page);
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	local_irq_restore(flags);
- #endif
- 	return;
-@@ -2084,7 +2089,7 @@ slab_empty:
- 		stat(s, FREE_REMOVE_PARTIAL);
- 	}
- 	slab_unlock(page);
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	local_irq_restore(flags);
- #endif
- 	stat(s, FREE_SLAB);
-@@ -2113,7 +2118,7 @@ static __always_inline void slab_free(struct kmem=
-_cache *s,
- {
- 	void **object =3D (void *)x;
- 	struct kmem_cache_cpu *c;
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	unsigned long tid;
- #else
- 	unsigned long flags;
-@@ -2121,7 +2126,7 @@ static __always_inline void slab_free(struct kmem=
-_cache *s,
-=20
- 	slab_free_hook(s, x);
-=20
--#ifndef CONFIG_CMPXCHG_LOCAL
-+#ifndef SLUB_USE_CMPXCHG_DOUBLE
- 	local_irq_save(flags);
-=20
- #else
-@@ -2136,7 +2141,7 @@ redo:
- 	 */
- 	c =3D __this_cpu_ptr(s->cpu_slab);
-=20
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	tid =3D c->tid;
- 	barrier();
- #endif
-@@ -2144,7 +2149,7 @@ redo:
- 	if (likely(page =3D=3D c->page && c->node !=3D NUMA_NO_NODE)) {
- 		set_freepointer(s, object, c->freelist);
-=20
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 		if (unlikely(!this_cpu_cmpxchg_double(
- 				s->cpu_slab->freelist, s->cpu_slab->tid,
- 				c->freelist, tid,
-@@ -2160,7 +2165,7 @@ redo:
- 	} else
- 		__slab_free(s, page, x, addr);
-=20
--#ifndef CONFIG_CMPXCHG_LOCAL
-+#ifndef SLUB_USE_CMPXCHG_DOUBLE
- 	local_irq_restore(flags);
- #endif
- }
-@@ -2354,7 +2359,7 @@ static inline int alloc_kmem_cache_cpus(struct km=
-em_cache *s)
- 	BUILD_BUG_ON(PERCPU_DYNAMIC_EARLY_SIZE <
- 			SLUB_PAGE_SHIFT * sizeof(struct kmem_cache_cpu));
-=20
--#ifdef CONFIG_CMPXCHG_LOCAL
-+#ifdef SLUB_USE_CMPXCHG_DOUBLE
- 	/*
- 	 * Must align to double word boundary for the double cmpxchg instruct=
-ions
- 	 * to work.
 
 
