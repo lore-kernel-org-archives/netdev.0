@@ -1,34 +1,135 @@
-From: Alexander Hoogerhuis <alexh@boxed.no>
-Subject: Re: A patch you wrote some time ago (aka: "[patch 41/54] ICMP: Fix
- icmp_errors_use_inbound_ifaddr sysctl")
-Date: Wed, 20 Apr 2011 11:11:59 +0200
-Message-ID: <4DAEA35F.3030908@boxed.no>
-References: <20110419165411.GO9569@sequoia.sous-sol.org> <4DAE9824.10802@trash.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] IPVS: Change of socket usage to enable name space exit.
+Date: Wed, 20 Apr 2011 02:40:09 -0700
+Message-ID: <m1aafluupy.fsf@fess.ebiederm.org>
+References: <1303226705-29178-1-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@sous-sol.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DAE9824.10802@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: horms@verge.net.au, ja@ssi.bg, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1303226705-29178-1-git-send-email-hans@schillstrom.com> (Hans
+	Schillstrom's message of "Tue, 19 Apr 2011 17:25:03 +0200")
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Also, in a quick followup on myself, this is ambiguous, as it does not 
-state that it will select the primary IP. I've
+Hans Schillstrom <hans@schillstrom.com> writes:
 
-The second part is that RFC 5798 (VRRP v3) lists in section 8.1.1:
+> This is the first patch in a series of three.
+> The cleanup doesn't work when not exit in a clean way by using ipvsadm.
+> Killing of a namespace causes a hanging ipvs, this series will cure that.
+>
+> If the sync daemons run in a namespace while it crashes
+> or get killed, there is no way to stop them except for a reboot.
+>
+> Kernel threads should not increment the use count of a socket.
+> By calling sk_change_net() after creating a socket this is avoided.
+> sock_release cant be used, instead sk_release_kernel() should be used.
+>
+> Thanks to Eric W Biederman.
+>
+> This patch is based on net-next-2.6  ver 2.6.39-rc2
 
->    The IPv4 source address of an ICMP redirect should be the address
->    that the end-host used when making its next-hop routing decision.
+I am not comfortable with this patch on it's own.  What kills the
+daemons on network namespace exit?
 
-I.e. the settings in linux, with or without the sysctl flag set, would 
-run against this.
+I would be a little happier if the code also used sock_create_kern
+instead of __sock_create. Now that it uses sk_change_net.  Just to make
+the code more idiomatic.
 
-mvh,
-A
--- 
-Alexander Hoogerhuis | http://no.linkedin.com/in/alexh
-Boxed Solutions AS   | +47 908 21 485 - alexh@boxed.no
-"Given enough eyeballs, all bugs are shallow." -Eric S. Raymond
+But not actually guaranteeing that the namespace exit kills the threads
+at this point seems pretty badly broken, as this idiom is not safe
+unless we have a hard guarantee that the threads are dead.
+
+Eric
+
+> Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+> ---
+>  net/netfilter/ipvs/ip_vs_sync.c |   28 +++++++++++++++++++---------
+>  1 files changed, 19 insertions(+), 9 deletions(-)
+>
+> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> index 3e7961e..3f87555 100644
+> --- a/net/netfilter/ipvs/ip_vs_sync.c
+> +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> @@ -1309,7 +1309,12 @@ static struct socket *make_send_sock(struct net *net)
+>  		pr_err("Error during creation of socket; terminating\n");
+>  		return ERR_PTR(result);
+>  	}
+> -
+> +	/*
+> +	 * Kernel sockets that are a part of a namespace, should not
+> +	 * hold a reference to a namespace in order to allow to stop it.
+> +	 * After sk_change_net should be released using sk_release_kernel.
+> +	 */
+> +	sk_change_net(sock->sk, net);
+>  	result = set_mcast_if(sock->sk, ipvs->master_mcast_ifn);
+>  	if (result < 0) {
+>  		pr_err("Error setting outbound mcast interface\n");
+> @@ -1334,8 +1339,8 @@ static struct socket *make_send_sock(struct net *net)
+>
+>  	return sock;
+>
+> -  error:
+> -	sock_release(sock);
+> +error:
+> +	sk_release_kernel(sock->sk);
+>  	return ERR_PTR(result);
+>  }
+>
+> @@ -1355,7 +1360,12 @@ static struct socket *make_receive_sock(struct net *net)
+>  		pr_err("Error during creation of socket; terminating\n");
+>  		return ERR_PTR(result);
+>  	}
+> -
+> +	/*
+> +	 * Kernel sockets that are a part of a namespace, should not
+> +	 * hold a reference to a namespace in order to allow to stop it.
+> +	 * After sk_change_net should be released using sk_release_kernel.
+> +	 */
+> +	sk_change_net(sock->sk, net);
+>  	/* it is equivalent to the REUSEADDR option in user-space */
+>  	sock->sk->sk_reuse = 1;
+>
+> @@ -1377,8 +1387,8 @@ static struct socket *make_receive_sock(struct net *net)
+>
+>  	return sock;
+>
+> -  error:
+> -	sock_release(sock);
+> +error:
+> +	sk_release_kernel(sock->sk);
+>  	return ERR_PTR(result);
+>  }
+>
+> @@ -1473,7 +1483,7 @@ static int sync_thread_master(void *data)
+>  		ip_vs_sync_buff_release(sb);
+>
+>  	/* release the sending multicast socket */
+> -	sock_release(tinfo->sock);
+> +	sk_release_kernel(tinfo->sock->sk);
+>  	kfree(tinfo);
+>
+>  	return 0;
+> @@ -1513,7 +1523,7 @@ static int sync_thread_backup(void *data)
+>  	}
+>
+>  	/* release the sending multicast socket */
+> -	sock_release(tinfo->sock);
+> +	sk_release_kernel(tinfo->sock->sk);
+>  	kfree(tinfo->buf);
+>  	kfree(tinfo);
+>
+> @@ -1601,7 +1611,7 @@ outtinfo:
+>  outbuf:
+>  	kfree(buf);
+>  outsocket:
+> -	sock_release(sock);
+> +	sk_release_kernel(sock->sk);
+>  out:
+>  	return result;
+>  }
+> --
+> 1.7.2.3
