@@ -1,106 +1,67 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [RFC net-next-2.6] can: replace spinlocks with mutexes
-Date: Wed, 20 Apr 2011 17:31:33 +0200
-Message-ID: <4DAEFC55.2010500@hartkopp.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
+ uninitialized memory in __alloc_skb
+Date: Wed, 20 Apr 2011 17:34:26 +0200
+Message-ID: <1303313666.3186.114.camel@edumazet-laptop>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>
+	 <20110418153852.153d3ed3.akpm@linux-foundation.org>
+	 <1303181466.4152.39.camel@edumazet-laptop>
+	 <1303182557.4152.48.camel@edumazet-laptop>
+	 <1303183217.4152.49.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104191210011.17888@router.home>
+	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
+	 <1303279470.2756.17.camel@edumazet-laptop>
+	 <1303285519.4dae8f0fdf9b1@imp.free.fr> <4DAE901C.2090809@cs.helsinki.fi>
+	 <1303286998.3186.18.camel@edumazet-laptop>
+	 <1303290464.3186.32.camel@edumazet-laptop>
+	 <1303293765.3186.74.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200904440.8634@router.home>
+	 <1303309591.3186.84.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200942020.9266@router.home>
+	 <1303311687.3186.100.camel@edumazet-laptop>
+	 <66e0b8f575075d009bdb3633837951a3@ulrik.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@linux.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: vegardno@ifi.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:31269 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754725Ab1DTPbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 11:31:39 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55162 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753449Ab1DTPeb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 11:34:31 -0400
+Received: by wya21 with SMTP id 21so711523wya.19
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 08:34:30 -0700 (PDT)
+In-Reply-To: <66e0b8f575075d009bdb3633837951a3@ulrik.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes spinlocks for the CAN netdevice specific receive lists.
-The RCU-based receive lists can be modified from process context or from the
-netdevice notifier call. As both might sleep we can safely replace the
-spinlocks with mutexes.
+Le mercredi 20 avril 2011 =C3=A0 17:15 +0200, Vegard Nossum a =C3=A9cri=
+t :
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+>  Thanks, guys. I wonder: Is it possible to make a reproducible test-c=
+ase=20
+>  (e.g. loadable module) for this?
+>=20
 
----
+Not easy to code a specific test-case, but just use regular workload,
+(and network trafic to get interrupts). Use CONFIG_PREEMPT to trigger
+preemptions.
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index a8dcaa4..e52ed358 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -47,7 +47,7 @@
- #include <linux/kmod.h>
- #include <linux/slab.h>
- #include <linux/list.h>
--#include <linux/spinlock.h>
-+#include <linux/mutex.h>
- #include <linux/rcupdate.h>
- #include <linux/uaccess.h>
- #include <linux/net.h>
-@@ -79,7 +79,7 @@ MODULE_PARM_DESC(stats_timer, "enable timer for statistics (default:on)");
- 
- /* receive filters subscribed for 'all' CAN devices */
- struct dev_rcv_lists can_rx_alldev_list;
--static DEFINE_SPINLOCK(can_rcvlists_lock);
-+static DEFINE_MUTEX(can_rcvlists_lock);
- 
- static struct kmem_cache *rcv_cache __read_mostly;
- 
-@@ -435,7 +435,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
- 	if (!r)
- 		return -ENOMEM;
- 
--	spin_lock(&can_rcvlists_lock);
-+	mutex_lock(&can_rcvlists_lock);
- 
- 	d = find_dev_rcv_lists(dev);
- 	if (d) {
-@@ -459,7 +459,7 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
- 		err = -ENODEV;
- 	}
- 
--	spin_unlock(&can_rcvlists_lock);
-+	mutex_unlock(&can_rcvlists_lock);
- 
- 	return err;
- }
-@@ -497,7 +497,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
- 	if (dev && dev->type != ARPHRD_CAN)
- 		return;
- 
--	spin_lock(&can_rcvlists_lock);
-+	mutex_lock(&can_rcvlists_lock);
- 
- 	d = find_dev_rcv_lists(dev);
- 	if (!d) {
-@@ -548,7 +548,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
- 	}
- 
-  out:
--	spin_unlock(&can_rcvlists_lock);
-+	mutex_unlock(&can_rcvlists_lock);
- 
- 	/* schedule the receiver item for deletion */
- 	if (r)
-@@ -775,7 +775,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
- 		break;
- 
- 	case NETDEV_UNREGISTER:
--		spin_lock(&can_rcvlists_lock);
-+		mutex_lock(&can_rcvlists_lock);
- 
- 		d = dev->ml_priv;
- 		if (d) {
-@@ -789,7 +789,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
- 			printk(KERN_ERR "can: notifier: receive list not "
- 			       "found for dev %s\n", dev->name);
- 
--		spin_unlock(&can_rcvlists_lock);
-+		mutex_unlock(&can_rcvlists_lock);
- 
- 		break;
- 	}
+>  Also, pardon my ignorance, but can you explain why this is a bug wit=
+h=20
+>  kmemcheck/page-alloc debug and not without them?
+
+Without them, we can read object->next without trigerring a fault.
+We can read garbage data (if object is in use, it was overwritten with
+user data), but this doesnt matter because cmpxchg_double() wont perfor=
+m
+its work (since tid will have change)
+
+
 
