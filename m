@@ -1,35 +1,66 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V3 5/8] Enable cxgb3 to support zerocopy
-Date: Wed, 20 Apr 2011 14:15:14 -0700
-Message-ID: <1303334114.19336.72.camel@localhost.localdomain>
-References: <1303328216.19336.18.camel@localhost.localdomain>
-	 <1303330438.19336.57.camel@localhost.localdomain>
-	 <4DAF479D.7090309@chelsio.com>
-	 <1303333134.19336.70.camel@localhost.localdomain>
+From: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
+Date: Wed, 20 Apr 2011 14:17:10 -0700
+Message-ID: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog@mail.gmail.com>
+References: <20110420195015.20A96201B8@glenhelen.mtv.corp.google.com>
+	<Pine.LNX.4.44L0.1104201658280.1686-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:49414 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752565Ab1DTVPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 17:15:24 -0400
-In-Reply-To: <1303333134.19336.70.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org
+To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.44L0.1104201658280.1686-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-04-20 at 13:58 -0700, Shirley Ma wrote:
-> This flag can be ON when HIGHDMA and scatter/gather support. I will
-> modify the patch to make it conditionally.
+On Wed, Apr 20, 2011 at 2:08 PM, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>=
+ wrote:
+> On Tue, 19 Apr 2011, Paul Stewart wrote:
+>
+>> Set a flag if the interrupt URB completes with ENOENT as this
+>> occurs legitimately during system suspend. =A0When the usbnet_bh
+>> is called after resume, test this flag and try once to resubmit
+>> the interrupt URB.
+>
+> No doubt there's a good reason for doing things this way, but it isn'=
+t
+> clear. =A0Why wait until usbnet_bh() is called after resume? =A0Why n=
+ot
+> resubmit the interrupt URB _during_ usbnet_resume()?
 
-Double checked, it only needs HIGHDMA condition, not scatter/gather.
+Actually, I was doing this in the bh because of feedback I had gained
+early in this process about not doing submit_urb in the resume().  If
+that issue doesn't exist, that makes my work a lot easier.  In testing
+I found that just setting this to happen in the bh might be problematic
+due to firing too early, so this is good news.
 
-thanks
-Shirley
+>=A0This would seem
+> to be the logical approach, seeing as how usbnet_suspend() kills the
+> interrupt URB.
 
+Aha!  But you'll see from the current version of my patch that we don't
+actually ever kill the interrupt URB.  It gets killed all on its own (b=
+y the
+hcd?) and handed back to us in intr_complete().  This last bit about th=
+e
+complete function being called was lost on me for a while which is why
+in a previous iteration of the patch I was trying to kill the urb in su=
+spend().
+
+> For that matter, where does the interrupt URB get deallocated? =A0It
+> obviously gets allocated in init_status(), but it doesn't seem to be
+> freed anywhere.
+
+That's a very interesting question and one that I noticed as well.
+I was going to tackle that as a separate issue.
+
+>
+> Alan Stern
+>
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
