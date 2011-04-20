@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/9] SCTP updates for net-next-2.6
-Date: Wed, 20 Apr 2011 01:55:49 -0700 (PDT)
-Message-ID: <20110420.015549.229758929.davem@davemloft.net>
-References: <4DAE8A27.3040007@cn.fujitsu.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH BUG-FIX] ipv6: udp: fix the wrong headroom check
+Date: Wed, 20 Apr 2011 16:52:49 +0800
+Message-ID: <4DAE9EE1.1050405@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: yjwei@cn.fujitsu.com
+To: kuznet@ms2.inr.ac.ru, David Miller <davem@davemloft.net>,
+	pekkas@netcore.fi, jmorris@namei.org,
+	"yoshfuji@linux-ipv6.org >> YOSHIFUJI Hideaki"
+	<yoshfuji@linux-ipv6.org>, Patrick McHa
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45529
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752707Ab1DTI4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:56:23 -0400
-In-Reply-To: <4DAE8A27.3040007@cn.fujitsu.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:52093 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752827Ab1DTI4j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 04:56:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Date: Wed, 20 Apr 2011 15:24:23 +0800
+At this point, skb->data points to skb_transport_header.
+So, headroom check is wrong. 
 
-> Here is a set of SCTP patches for net-next-2.6, also from vlad's
-> lksctp-dev tree.  Please apply.
-> 
-> Shan Wei (4):
->       sctp: check parameter value of length in ERROR chunk
->       sctp: check invalid value of length parameter in error cause
->       sctp: remove redundant check when walking through a list of TLV parameters
->       sctp: handle ootb packet in chunk order as defined
-> 
-> Vlad Yasevich (2):
->       sctp: remove completely unsed EMPTY state
->       sctp: bail from sctp_endpoint_lookup_assoc() if not bound.
-> 
-> Wei Yongjun (3):
->       sctp: fix to check the source address of COOKIE-ECHO chunk
->       sctp: make heartbeat information in sctp_make_heartbeat()
->       sctp: move chunk from retransmit queue to abandoned list
+For some case:bridge(UFO is on) + eth device(UFO is off),
+there is no enough headroom for IPv6 frag head.
+But headroom check is always false.
 
-Applied, thanks for doing these backports from Vlad's tree.
+This will bring about data be moved to there prior to skb->head,
+when adding IPv6 frag header to skb.
+
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ net/ipv6/udp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 15c3774..9e305d7 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1335,7 +1335,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb, u32 features)
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	/* Check if there is enough headroom to insert fragment header. */
+-	if ((skb_headroom(skb) < frag_hdr_sz) &&
++	if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
+ 	    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
+ 		goto out;
+ 
+-- 
+1.6.3.3
+ 
