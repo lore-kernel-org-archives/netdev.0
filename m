@@ -1,52 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Add NAPI support to ll_temac driver
-Date: Wed, 20 Apr 2011 13:47:05 +0100
-Message-ID: <1303303625.3464.103.camel@localhost>
-References: <4DAD5753.4040108@monstr.eu>
-	 <1303209787.3480.9.camel@edumazet-laptop>
-	 <1303215925.3464.54.camel@localhost>  <4DAD84B1.9020405@monstr.eu>
-	 <1303218898.3464.59.camel@localhost>  <4DAEBE44.4060801@monstr.eu>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
+ memory in __alloc_skb
+Date: Wed, 20 Apr 2011 09:04:08 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1104200901010.8634@router.home>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>  <20110418153852.153d3ed3.akpm@linux-foundation.org>  <1303181466.4152.39.camel@edumazet-laptop>  <1303182557.4152.48.camel@edumazet-laptop>  <1303183217.4152.49.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1104191210011.17888@router.home>  <1303244270.2756.3.camel@edumazet-laptop>  <alpine.DEB.2.00.1104191617070.23077@router.home> <1303275858.2756.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: monstr@monstr.eu
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811839-68727899-1303308250=:8634"
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, casteyde.christian@free.fr,
+	Vegard Nossum <vegardno@ifi.uio.no>,
+	Pekka Enberg <penberg@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:38289 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752710Ab1DTMrK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 08:47:10 -0400
-In-Reply-To: <4DAEBE44.4060801@monstr.eu>
+Received: from smtp109.prem.mail.ac4.yahoo.com ([76.13.13.92]:26486 "HELO
+	smtp109.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752240Ab1DTOEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 10:04:13 -0400
+In-Reply-To: <1303275858.2756.8.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-20 at 13:06 +0200, Michal Simek wrote:
-[...]
-> I have measured TX path and I have found that driver design is not so good.
-> It is always create one BD for one SKB and it starts DMA to copy packet to 
-> controller and send it.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-You will always get a single packet at a time to push to the hardware.
-The only improvement you can make on this is to implement segmentation
-offload, but if the hardware doesn't do this then... well, it's not
-easy.
+---1463811839-68727899-1303308250=:8634
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-> On 66MHz cpu it takes approximately 800 cpu cycles (not 
-> 800 instructions) for sending (1.5k packet).
-> Current driver also enable irq for TX and when the packet is send interrupt is 
-> generated and skb is freed.
-> I see that it takes more time to handle the IRQ than busy waiting when DMA is 
-> done. I looked at sfc driver and there is any TX queue and any notifier. Hos 
-> does it work? Is it required to have any hw support?
+On Wed, 20 Apr 2011, Eric Dumazet wrote:
 
-The principle of NAPI is that once you receive an IRQ you mask it and
-poll until there are no more completions to handle.  So it greatly
-reduces this IRQ overhead.
+> Le mardi 19 avril 2011 =C3=A0 16:18 -0500, Christoph Lameter a =C3=A9crit=
+ :
+> > On Tue, 19 Apr 2011, Eric Dumazet wrote:
+> >
+> > > > Ugg.. Isnt there some way to indicate to kmemcheck that a speculati=
+ve
+> > > > access is occurring?
+> > >
+> > > Yes, here is a totally untested patch (only compiled here), to keep
+> > > kmemcheck & cmpxchg_double together.
+> >
+> > Ok looks somewhat saner. Why does DEBUG_PAGEALLOC need this? Pages are
+> > never freed as long as a page is frozen and a page needs to be frozen t=
+o
+> > be allocated from. I dont see how we could reference a free page.
+>
+> We run lockless and IRQ enabled, are you sure we cannot at this point :
+>
+> CPU0 - Receive an IRQ
+> CPU0 - Allocate this same object consume the page(s) containing this obje=
+ct
+> CPU0 - Pass this object/memory to another cpu1
+> CPU1 - Free memory and free the page(s)
+> CPU0 - Return from IRQ
+> CPU0 - Access now unreachable memory ?
 
-Ben.
+True this can occur.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+---1463811839-68727899-1303308250=:8634--
