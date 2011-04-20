@@ -1,71 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
- uninitialized memory in __alloc_skb
-Date: Wed, 20 Apr 2011 22:32:27 +0200
-Message-ID: <1303331547.2690.37.camel@edumazet-laptop>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>
-	 <alpine.DEB.2.00.1104200942020.9266@router.home>
-	 <1303311687.3186.100.camel@edumazet-laptop>
-	 <201104202136.52568.casteyde.christian@free.fr>
-	 <1303329300.2690.25.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Vegard Nossum <vegardno@ifi.uio.no>,
-	Changli Gao <xiaosuo@gmail.com>
-To: Christian Casteyde <casteyde.christian@free.fr>
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: [PATCH net-next-2.6 v5 5/5] sctp: Add ADD/DEL ASCONF handling at the receiver
+Date: Thu, 21 Apr 2011 05:42:22 +0900
+Message-ID: <8F7C47DA-A0A2-48BE-84A7-1D073B5617AE@sfc.wide.ad.jp>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: lksctp-developers@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47840 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755651Ab1DTUcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 16:32:32 -0400
-Received: by wya21 with SMTP id 21so922615wya.19
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 13:32:31 -0700 (PDT)
-In-Reply-To: <1303329300.2690.25.camel@edumazet-laptop>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:42201 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753160Ab1DTUmZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 16:42:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 20 avril 2011 =C3=A0 21:55 +0200, Eric Dumazet a =C3=A9crit=
- :
-> Le mercredi 20 avril 2011 =C3=A0 21:36 +0200, Christian Casteyde a =C3=
-=A9crit :
->=20
-> > I'm not sure it's the same problem anyway as I've said previously.
-> > I append my config file used to build this kernel.
->=20
-> This is not the same problem, and is a known false positive from skb
-> reallocation. (skb_reserve() doesnt mark memory as initialized)=20
->=20
->=20
+This patch fixes the problem that the original code cannot delete the remote address where the corresponding transport is currently directed, even when the ASCONF is sent from the other address (this situation happens when the single-homed sender transmits  ASCONF with ADD and DEL.)  
 
-Please try following patch. It's a bit tricky, because network stack ha=
-s
-different functions to fill bytes in skb and change pointers/offsets in
-it.
-
-Alternative would be to change pskb_expand_head() to not copy zone
-between skb->head and skb->data (might contain unitialized data)
-
-Thanks
-
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 79aafbb..3f2cba4 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1252,6 +1252,7 @@ static inline int skb_tailroom(const struct sk_bu=
-ff *skb)
-  */
- static inline void skb_reserve(struct sk_buff *skb, int len)
- {
-+	kmemcheck_mark_initialized(skb->data, len);
- 	skb->data +=3D len;
- 	skb->tail +=3D len;
- }
-
+Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+---
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index de98665..a9f25d7 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -2990,7 +2990,7 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+ 		 * an Error Cause TLV set to the new error code 'Request to
+ 		 * Delete Source IP Address'
+ 		 */
+-		if (sctp_cmp_addr_exact(sctp_source(asconf), &addr))
++		if (sctp_cmp_addr_exact(&asconf->source, &addr))
+ 			return SCTP_ERROR_DEL_SRC_IP;
+ 
+ 		/* Section 4.2.2
 
