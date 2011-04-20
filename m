@@ -1,67 +1,50 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
- uninitialized memory in __alloc_skb
-Date: Wed, 20 Apr 2011 17:34:26 +0200
-Message-ID: <1303313666.3186.114.camel@edumazet-laptop>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>
-	 <20110418153852.153d3ed3.akpm@linux-foundation.org>
-	 <1303181466.4152.39.camel@edumazet-laptop>
-	 <1303182557.4152.48.camel@edumazet-laptop>
-	 <1303183217.4152.49.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104191210011.17888@router.home>
-	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
-	 <1303279470.2756.17.camel@edumazet-laptop>
-	 <1303285519.4dae8f0fdf9b1@imp.free.fr> <4DAE901C.2090809@cs.helsinki.fi>
-	 <1303286998.3186.18.camel@edumazet-laptop>
-	 <1303290464.3186.32.camel@edumazet-laptop>
-	 <1303293765.3186.74.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104200904440.8634@router.home>
-	 <1303309591.3186.84.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104200942020.9266@router.home>
-	 <1303311687.3186.100.camel@edumazet-laptop>
-	 <66e0b8f575075d009bdb3633837951a3@ulrik.uio.no>
+Subject: Re: [RFC net-next-2.6] can: replace spinlocks with mutexes
+Date: Wed, 20 Apr 2011 17:39:14 +0200
+Message-ID: <1303313954.3186.117.camel@edumazet-laptop>
+References: <4DAEFC55.2010500@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	casteyde.christian@free.fr,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: vegardno@ifi.uio.no
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Kurt Van Dijck <kurt.van.dijck@eia.be>,
+	Urs Thuermann <urs@isnogud.escape.de>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:55162 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41053 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753449Ab1DTPeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 11:34:31 -0400
-Received: by wya21 with SMTP id 21so711523wya.19
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 08:34:30 -0700 (PDT)
-In-Reply-To: <66e0b8f575075d009bdb3633837951a3@ulrik.uio.no>
+	with ESMTP id S1753471Ab1DTPjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 11:39:22 -0400
+Received: by wya21 with SMTP id 21so716539wya.19
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 08:39:21 -0700 (PDT)
+In-Reply-To: <4DAEFC55.2010500@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 20 avril 2011 =C3=A0 17:15 +0200, Vegard Nossum a =C3=A9cri=
-t :
-
->  Thanks, guys. I wonder: Is it possible to make a reproducible test-c=
-ase=20
->  (e.g. loadable module) for this?
+Le mercredi 20 avril 2011 =C3=A0 17:31 +0200, Oliver Hartkopp a =C3=A9c=
+rit :
+> This patch removes spinlocks for the CAN netdevice specific receive l=
+ists.
+> The RCU-based receive lists can be modified from process context or f=
+rom the
+> netdevice notifier call. As both might sleep we can safely replace th=
+e
+> spinlocks with mutexes.
 >=20
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+>=20
+> ---
 
-Not easy to code a specific test-case, but just use regular workload,
-(and network trafic to get interrupts). Use CONFIG_PREEMPT to trigger
-preemptions.
+But... why ?
 
->  Also, pardon my ignorance, but can you explain why this is a bug wit=
-h=20
->  kmemcheck/page-alloc debug and not without them?
+A spinlock is faster/smaller than a mutex.
 
-Without them, we can read object->next without trigerring a fault.
-We can read garbage data (if object is in use, it was overwritten with
-user data), but this doesnt matter because cmpxchg_double() wont perfor=
-m
-its work (since tid will have change)
+Maybe you wanted to _remove_ spinlock, since/if writer hold RTNL and
+doesnt need to exclude another writer(s) ?
+
+Note : I did not check the RTNL assertion, you might add appropriate
+ASSERT_RTNL() calls just to be 100% safe.
 
 
 
