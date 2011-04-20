@@ -1,84 +1,74 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: Add NAPI support to ll_temac driver
-Date: Wed, 20 Apr 2011 13:06:44 +0200
-Message-ID: <4DAEBE44.4060801@monstr.eu>
-References: <4DAD5753.4040108@monstr.eu>	 <1303209787.3480.9.camel@edumazet-laptop>	 <1303215925.3464.54.camel@localhost>  <4DAD84B1.9020405@monstr.eu> <1303218898.3464.59.camel@localhost>
-Reply-To: monstr@monstr.eu
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6] bonding: move processing of recv handlers
+ into handle_frame()
+Date: Wed, 20 Apr 2011 13:30:44 +0200
+Message-ID: <20110420113043.GD2998@psychotron.brq.redhat.com>
+References: <1303220896-9092-1-git-send-email-jpirko@redhat.com>
+ <1303221752.3480.217.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:58493 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754203Ab1DTLGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 07:06:49 -0400
-Received: by fxm17 with SMTP id 17so332283fxm.19
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2011 04:06:47 -0700 (PDT)
-In-Reply-To: <1303218898.3464.59.camel@localhost>
+Received: from mx1.redhat.com ([209.132.183.28]:14381 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753620Ab1DTLa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 07:30:57 -0400
+Content-Disposition: inline
+In-Reply-To: <1303221752.3480.217.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Tue, Apr 19, 2011 at 04:02:32PM CEST, eric.dumazet@gmail.com wrote:
+>Le mardi 19 avril 2011 =E0 15:48 +0200, Jiri Pirko a =E9crit :
+>> Since now when bonding uses rx_handler, all traffic going into bond
+>> device goes thru bond_handle_frame. So there's no need to go back in=
+to
+>> bonding code later via ptype handlers. This patch converts
+>> original ptype handlers into "bonding receive probes". These functio=
+ns
+>> are called from bond_handle_frame and they are registered per-mode.
+>>=20
+>> Note that vlan packets are also handled because they are always unta=
+gged
+>> thanks to vlan_untag()
+>>=20
+>> Note that this also allows arpmon for eth-bond-bridge-vlan topology.
+>>=20
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>
+>
+>
+>>  			}
+>> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bon=
+ding.h
+>> index 6126c6a..85fb822 100644
+>> --- a/drivers/net/bonding/bonding.h
+>> +++ b/drivers/net/bonding/bonding.h
+>> @@ -226,6 +226,8 @@ struct bonding {
+>>  	struct   slave *primary_slave;
+>>  	bool     force_primary;
+>>  	s32      slave_cnt; /* never change this value outside the attach/=
+detach wrappers */
+>> +	void     (*recv_probe)(struct sk_buff *, struct bonding *,
+>> +			       struct slave *);
+>>  	rwlock_t lock;
+>>  	rwlock_t curr_slave_lock;
+>>  	s8       kill_timers;
+>
+>
+>Any performance numbers ?
 
-Ben Hutchings wrote:
-> On Tue, 2011-04-19 at 14:48 +0200, Michal Simek wrote:
->> Ben Hutchings wrote:
->>> On Tue, 2011-04-19 at 12:43 +0200, Eric Dumazet wrote:
->>> [...]
->>>> One possible way to get better performance is to change driver to
->>>> allocate skbs only right before calling netif_rx(), so that you dont
->>>> have to access cold sk_buff data twice (once when allocating skb and put
->>>> it in ring buffer, a second time when receiving frame)
->>>>
->>>> drivers/net/niu.c is a good example for this (NAPI + netdev_alloc_skb()
->>>> just in time + pull in skbhead only first cache line of packet)
->>> [...]
->>>
->>> If the hardware can do RX checksumming (it's not clear) then the driver
->>> should pass the paged buffers into GRO and that will take care of skb
->>> allocation as necessary.
->> Hardware supports RX and TX partial checksumming. I can enable it. The driver 
->> has also this option and from my tests there is of course some performance 
->> improvemetn.
->>
->> Just for sure - here are links on documentation.
->> http://www.xilinx.com/support/documentation/ip_documentation/xps_ll_temac.pdf
->> or
->> http://www.xilinx.com/support/documentation/ip_documentation/axi_ethernet/v2_01_a/ds759_axi_ethernet.pdf
-> 
-> I'm not going to read those.  Just providing brief advice.
-> 
->> About SKB allocation. I fixed our non mainline driver to allocate skb based on 
->> current mtu size. Mainline driver allocate max mtu (9k). This has also impact on 
->> performance because Microblaze works with smaller SKBs.
->>
->> Can you please be more specific about passing the paged buffers into GRO?
->> Or point me to any documentation or code which can help me to understand what 
->> that means.
-> 
-> You would use napi_get_frags() to get a new or recycled skb, fill in
-> skb->frags, then call napi_gro_frags() to pass it into GRO.  The benet,
-> cxgb3 and sfc drivers do this.
+Getting these. (Hitting nasty panic on another machine running pktgen @
+vlan dev).
 
-I have measured TX path and I have found that driver design is not so good.
-It is always create one BD for one SKB and it starts DMA to copy packet to 
-controller and send it. On 66MHz cpu it takes approximately 800 cpu cycles (not 
-800 instructions) for sending (1.5k packet).
-Current driver also enable irq for TX and when the packet is send interrupt is 
-generated and skb is freed.
-I see that it takes more time to handle the IRQ than busy waiting when DMA is 
-done. I looked at sfc driver and there is any TX queue and any notifier. Hos 
-does it work? Is it required to have any hw support?
-
-Thanks,
-Michal
-
-
-
--- 
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
-Microblaze U-BOOT custodian
+>
+>I am asking because recv_probe sits in a often dirtied cache line...
+>
+>It would be nice to separate rx & tx path needs
+>
+>
+>
