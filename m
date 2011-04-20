@@ -1,26 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: infiniband/ulp/ipoib: convert to hw_features
-Date: Wed, 20 Apr 2011 01:31:43 -0700 (PDT)
-Message-ID: <20110420.013143.59691277.davem@davemloft.net>
-References: <20110419104320.7D01C13A67@rere.qmqm.pl>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: infiniband/hw/nes: convert to hw_features
+Date: Wed, 20 Apr 2011 01:31:49 -0700 (PDT)
+Message-ID: <20110420.013149.115944372.davem@davemloft.net>
+References: <20110419104320.51E5F13A64@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, roland@kernel.org, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55404
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750808Ab1DTIcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:32:18 -0400
-In-Reply-To: <20110419104320.7D01C13A67@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110419104320.51E5F13A64-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
 Date: Tue, 19 Apr 2011 12:43:20 +0200 (CEST)
 
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
