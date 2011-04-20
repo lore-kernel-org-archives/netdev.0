@@ -1,75 +1,52 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [PATCH 3/3] IPVS: init and cleanup restructuring.
-Date: Wed, 20 Apr 2011 14:00:09 +0200
-Message-ID: <201104201400.10175.hans@schillstrom.com>
-References: <1303226705-29178-1-git-send-email-hans@schillstrom.com> <1303226705-29178-3-git-send-email-hans@schillstrom.com> <20110419231234.GE6418@verge.net.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Add NAPI support to ll_temac driver
+Date: Wed, 20 Apr 2011 13:47:05 +0100
+Message-ID: <1303303625.3464.103.camel@localhost>
+References: <4DAD5753.4040108@monstr.eu>
+	 <1303209787.3480.9.camel@edumazet-laptop>
+	 <1303215925.3464.54.camel@localhost>  <4DAD84B1.9020405@monstr.eu>
+	 <1303218898.3464.59.camel@localhost>  <4DAEBE44.4060801@monstr.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, ebiederm@xmission.com, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Simon Horman <horms@verge.net.au>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: monstr@monstr.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:46511 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752987Ab1DTMAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 08:00:15 -0400
-In-Reply-To: <20110419231234.GE6418@verge.net.au>
+Received: from mail.solarflare.com ([216.237.3.220]:38289 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752710Ab1DTMrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 08:47:10 -0400
+In-Reply-To: <4DAEBE44.4060801@monstr.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, April 20, 2011 01:12:34 Simon Horman wrote:
-> On Tue, Apr 19, 2011 at 05:25:05PM +0200, Hans Schillstrom wrote:
-> > This patch tries to restore the initial init and cleanup
-> > sequences that was before name space patch.
-[snip]
-> perhaps enable or active would be names that fits better with the
-> schemantics used.  Using a bool might also make things more obvious.
+On Wed, 2011-04-20 at 13:06 +0200, Michal Simek wrote:
+[...]
+> I have measured TX path and I have found that driver design is not so good.
+> It is always create one BD for one SKB and it starts DMA to copy packet to 
+> controller and send it.
 
-I'll use enable
-> 
-[snip]
-> 
-> Can we just remove ip_vs_app_init() and ip_vs_app_cleanup() as
-> they no longer do anything? Likewise with other init and cleanup
-> functions below.
+You will always get a single packet at a time to push to the hardware.
+The only improvement you can make on this is to implement segmentation
+offload, but if the hardware doesn't do this then... well, it's not
+easy.
 
-I will add a "final" patch that removes empty functions,
-(They are nice to have during the review, to keep track of the order in different contexts)
+> On 66MHz cpu it takes approximately 800 cpu cycles (not 
+> 800 instructions) for sending (1.5k packet).
+> Current driver also enable irq for TX and when the packet is send interrupt is 
+> generated and skb is freed.
+> I see that it takes more time to handle the IRQ than busy waiting when DMA is 
+> done. I looked at sfc driver and there is any TX queue and any notifier. Hos 
+> does it work? Is it required to have any hw support?
 
-> 
-> > diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-> > index 36cd5ea..f8d6702 100644
-> > --- a/net/netfilter/ipvs/ip_vs_conn.c
-> > +++ b/net/netfilter/ipvs/ip_vs_conn.c
-> > @@ -1251,30 +1251,30 @@ int __net_init __ip_vs_conn_init(struct net *net)
-> >  {
-> >  	struct netns_ipvs *ipvs = net_ipvs(net);
-> > 
-> > +	EnterFunction(2);
-> >  	atomic_set(&ipvs->conn_count, 0);
-> > 
-> >  	proc_net_fops_create(net, "ip_vs_conn", 0, &ip_vs_conn_fops);
-> >  	proc_net_fops_create(net, "ip_vs_conn_sync", 0, &ip_vs_conn_sync_fops);
-> > +	LeaveFunction(2);
-> >  	return 0;
-> >  }
-> 
-> Does adding these EnterFunction() and LeaveFunction() calls
-> restore some previous behaviour? If not, I think they should at the very
-> least be in a separate patch. Likewise for similar changes below.
-> 
+The principle of NAPI is that once you receive an IRQ you mask it and
+poll until there are no more completions to handle.  So it greatly
+reduces this IRQ overhead.
 
-I can remove them if you want, (but they are nice for debugging)
+Ben.
 
-[snip]
-> 
-> While I do prefer labels to be in column 0, putting those changes
-> here is rather a lot of noise. Could you put them in a separate patch?
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-OK it will be patch no 1 later on
-
-Regards
-Hans
