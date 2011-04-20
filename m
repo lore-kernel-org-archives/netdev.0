@@ -1,60 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: r8169 doesn't report link state correctly.
-Date: Wed, 20 Apr 2011 14:56:46 -0700
-Message-ID: <4DAF569E.1040507@candelatech.com>
-References: <4DA35FEF.1030009@candelatech.com> <20110413174815.GB17579@electric-eye.fr.zoreil.com> <20110420191403.GC18805@electric-eye.fr.zoreil.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] net: tun: convert to hw_features
+Date: Wed, 20 Apr 2011 12:52:24 +0930
+Message-ID: <871v0xip3j.fsf@rustcorp.com.au>
+References: <20110419161310.7508513909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: =?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:42125 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752740Ab1DTV4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 17:56:52 -0400
-In-Reply-To: <20110420191403.GC18805@electric-eye.fr.zoreil.com>
+Received: from ozlabs.org ([203.10.76.45]:60408 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751478Ab1DTWce convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 18:32:34 -0400
+In-Reply-To: <20110419161310.7508513909@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/20/2011 12:14 PM, Francois Romieu wrote:
-> Fran=C3=A7ois Romieu<romieu@fr.zoreil.com>  :
->> On Mon, Apr 11, 2011 at 01:09:19PM -0700, Ben Greear wrote:
->>> I notice that in kernel 2.6.38-wl, the realtek 8169 NIC doesn't
->>> report link down when in fact there is no cable connected.  Instead=
-,
-> [...]
->> Thanks for the report. I'll try it tomorrow or friday.
->
-> I have not been able to notice it with a current kernel.
->
-> I'd welcome the XID of the 8169 NIC (see dmesg) and a short explanati=
-on
-> (no cable from boot ? cable removed after ifconfig up ? brand / abili=
-ty
-> of the switch / hub ?).
+On Tue, 19 Apr 2011 18:13:10 +0200 (CEST), Micha=C5=82 Miros=C5=82aw <m=
+irq-linux@rere.qmqm.pl> wrote:
+> This changes offload setting behaviour to what I think is correct:
+>  - offloads set via ethtool mean what admin wants to use (by default
+>    he wants 'em all)
+>  - offloads set via ioctl() mean what userspace is expecting to get
+>    (this limits which admin wishes are granted)
+>  - TUN_NOCHECKSUM is ignored, as it might cause broken packets when
+>    forwarded (ip_summed =3D=3D CHECKSUM_UNNECESSARY means that checks=
+um
+>    was verified, not that it can be ignored)
+>=20
+> If TUN_NOCHECKSUM is implemented, it should set skb->csum_* and
+> skb->ip_summed (=3D CHECKSUM_PARTIAL) for known protocols and let oth=
+ers
+> be verified by kernel when necessary.
+>=20
+> TUN_NOCHECKSUM handling was introduced by commit
+> f43798c27684ab925adde7d8acc34c78c6e50df8:
+>=20
+>     tun: Allow GSO using virtio_net_hdr
 
-Well, as luck would have it, my system will boot today's upstream
-kernel (39-rc4+).  And, I no longer see the problem in that release,
-so it seems it is fixed (or harder to reproduce that I thought).
+Err, not in my git tree!  It predates git in fact.
 
-Basically, I was seeing it claim to have link in 'ethtool' output
-when there was no cable connected.  It did go to 10Mbps/half duplex
-link speed when un-plugged.  It showed full 1Gbps link when plugged
-in.
-
-I'll let you know if I see this again.
+Since tap requires privs, I wouldn't worry about invalid packets too
+much.
 
 Thanks,
-Ben
-
->
-> Thanks.
->
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Rusty.
