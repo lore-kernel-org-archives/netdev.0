@@ -1,106 +1,53 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC PATCH 0/2] Multiqueue support for
-	qemu(virtio-net)
-Date: Wed, 20 Apr 2011 14:22:47 +0530
-Message-ID: <OF7CC46028.9A206852-ON65257878.00307271-65257878.00308D38@in.ibm.com>
-References: <20110420082706.32157.59668.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, qemu-devel@nongnu.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20110420082706.32157.59668.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-List-Unsubscribe: <http://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: </archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <http://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+From: Andrea Galbusera <gizero@gmail.com>
+Subject: [PATCH 1/1] powerpc: Fix multicast problem in fs_enet driver
+Date: Wed, 20 Apr 2011 10:55:19 +0200
+Message-ID: <1303289719-16913-1-git-send-email-gizero@gmail.com>
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Andrea Galbusera <gizero@gmail.com>
+To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks Jason!
+mac-fec.c was setting individual UDP address registers instead of multicast
+group address registers when joining a multicast group.
+This prevented from correctly receiving UDP multicast packets.
+According to datasheet, replaced hash_table_high and hash_table_low
+with grp_hash_table_high and grp_hash_table_low respectively.
 
-So I can use my virtio-net guest driver and test with this patch?
-Please provide the script you use to start MQ guest.
+Tested on a MPC5121 based board.
 
-Regards,
+Signed-off-by: Andrea Galbusera <gizero@gmail.com>
+---
+ drivers/net/fs_enet/mac-fec.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-- KK
-
-Jason Wang <jasowang@redhat.com> wrote on 04/20/2011 02:03:07 PM:
-
-> Jason Wang <jasowang@redhat.com>
-> 04/20/2011 02:03 PM
->
-> To
->
-> Krishna Kumar2/India/IBM@IBMIN, kvm@vger.kernel.org, mst@redhat.com,
-> netdev@vger.kernel.org, rusty@rustcorp.com.au, qemu-
-> devel@nongnu.org, anthony@codemonkey.ws
->
-> cc
->
-> Subject
->
-> [RFC PATCH 0/2] Multiqueue support for qemu(virtio-net)
->
-> Inspired by Krishna's patch
-(http://www.spinics.net/lists/kvm/msg52098.html
-> ) and
-> Michael's suggestions.  The following series adds the multiqueue support
-for
-> qemu and enable it for virtio-net (both userspace and vhost).
->
-> The aim for this series is to simplified the management and achieve the
-same
-> performacne with less codes.
->
-> Follows are the differences between this series and Krishna's:
->
-> - Add the multiqueue support for qemu and also for userspace virtio-net
-> - Instead of hacking the vhost module to manipulate kthreads, this patch
-just
-> implement the userspace based multiqueues and thus can re-use the
-> existed vhost kernel-side codes without any modification.
-> - Use 1:1 mapping between TX/RX pairs and vhost kthread because the
-> implementation is based on usersapce.
-> - The cli is also changed to make the mgmt easier, the -netdev option of
-qdev
-> can now accpet more than one ids. You can start a multiqueue virtio-net
-device
-> through:
-> ./qemu-system-x86_64 -netdev tap,id=hn0,vhost=on,fd=X -netdev
-> tap,id=hn0,vhost=on,fd=Y -device
-virtio-net-pci,netdev=hn0#hn1,queues=2 ...
->
-> The series is very primitive and still need polished.
->
-> Suggestions are welcomed.
-> ---
->
-> Jason Wang (2):
->       net: Add multiqueue support
->       virtio-net: add multiqueue support
->
->
->  hw/qdev-properties.c |   37 ++++-
->  hw/qdev.h            |    3
->  hw/vhost.c           |   26 ++-
->  hw/vhost.h           |    1
->  hw/vhost_net.c       |    7 +
->  hw/vhost_net.h       |    2
->  hw/virtio-net.c      |  409 +++++++++++++++++++++++++++++++
-> +------------------
->  hw/virtio-net.h      |    2
->  hw/virtio-pci.c      |    1
->  hw/virtio.h          |    1
->  net.c                |   34 +++-
->  net.h                |   15 +-
->  12 files changed, 353 insertions(+), 185 deletions(-)
->
-> --
-> Jason Wang
+diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
+index 61035fc..b9fbc83 100644
+--- a/drivers/net/fs_enet/mac-fec.c
++++ b/drivers/net/fs_enet/mac-fec.c
+@@ -226,8 +226,8 @@ static void set_multicast_finish(struct net_device *dev)
+ 	}
+ 
+ 	FC(fecp, r_cntrl, FEC_RCNTRL_PROM);
+-	FW(fecp, hash_table_high, fep->fec.hthi);
+-	FW(fecp, hash_table_low, fep->fec.htlo);
++	FW(fecp, grp_hash_table_high, fep->fec.hthi);
++	FW(fecp, grp_hash_table_low, fep->fec.htlo);
+ }
+ 
+ static void set_multicast_list(struct net_device *dev)
+@@ -273,8 +273,8 @@ static void restart(struct net_device *dev)
+ 	/*
+ 	 * Reset all multicast.
+ 	 */
+-	FW(fecp, hash_table_high, fep->fec.hthi);
+-	FW(fecp, hash_table_low, fep->fec.htlo);
++	FW(fecp, grp_hash_table_high, fep->fec.hthi);
++	FW(fecp, grp_hash_table_low, fep->fec.htlo);
+ 
+ 	/*
+ 	 * Set maximum receive buffer size.
+-- 
+1.7.0.4
