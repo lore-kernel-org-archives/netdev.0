@@ -1,346 +1,332 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: [PATCH 4/6] IPVS: rename of netns init and cleanup functions.
-Date: Wed, 20 Apr 2011 20:33:52 +0200
-Message-ID: <1303324434-14024-5-git-send-email-hans@schillstrom.com>
-References: <1303324434-14024-1-git-send-email-hans@schillstrom.com>
-Cc: hans.schillstrom@ericsson.com,
-	Hans Schillstrom <hans@schillstrom.com>
-To: horms@verge.net.au, ja@ssi.bg, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1303324434-14024-1-git-send-email-hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Ciprian Docan <docan@eden.rutgers.edu>
+Subject: Re: Suspend/resume - slow resume
+Date: Wed, 20 Apr 2011 14:51:56 -0400 (EDT)
+Message-ID: <Pine.SOC.4.64.1104201445420.1320@er3.rutgers.edu>
+References: <Pine.SOC.4.64.1104150931390.1320@er3.rutgers.edu>
+ <BANLkTinO+HFq+Mgg1aUz9V==zYs7qSBtDw@mail.gmail.com>
+ <Pine.SOC.4.64.1104151122330.1320@er3.rutgers.edu>
+ <BANLkTi=Gq5thZk2f1nWTz3dDA5Non8ANZg@mail.gmail.com>
+ <20110417101731.GA17986@electric-eye.fr.zoreil.com>
+ <BANLkTi=tPc6NmUuTYqbVZduNRNbE=-c34Q@mail.gmail.com>
+ <20110418180813.GA18469@electric-eye.fr.zoreil.com>
+ <BANLkTim_1OgqjCeD1a4Ay2fWJSmPHa_XTQ@mail.gmail.com>
+ <Pine.SOC.4.64.1104181519490.1320@er3.rutgers.edu>
+ <BANLkTi=dke10HougmiQn9hSF15nK0B8mdA@mail.gmail.com>
+ <20110420181602.GA18740@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-559023410-1135636377-1303325516=:1320"
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+	"Rafael, J. Wysocki" <rjw@sisk.pl>, Greg KH <gregkh@suse.de>,
+	nic_swsd@realtek.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110420181602.GA18740@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make it more clear what the functions does,
-on request by Julian.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
----
- include/net/ip_vs.h              |   26 +++++++++++++-------------
- net/netfilter/ipvs/ip_vs_app.c   |    4 ++--
- net/netfilter/ipvs/ip_vs_conn.c  |    4 ++--
- net/netfilter/ipvs/ip_vs_core.c  |   36 ++++++++++++++++++------------------
- net/netfilter/ipvs/ip_vs_ctl.c   |   20 ++++++++++----------
- net/netfilter/ipvs/ip_vs_est.c   |    4 ++--
- net/netfilter/ipvs/ip_vs_proto.c |    4 ++--
- net/netfilter/ipvs/ip_vs_sync.c  |    4 ++--
- 8 files changed, 51 insertions(+), 51 deletions(-)
+---559023410-1135636377-1303325516=:1320
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 83fa9e8..f7a0fdb 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1093,19 +1093,19 @@ ip_vs_control_add(struct ip_vs_conn *cp, struct ip_vs_conn *ctl_cp)
- /*
-  * IPVS netns init & cleanup functions
-  */
--extern int __ip_vs_estimator_init(struct net *net);
--extern int __ip_vs_control_init(struct net *net);
--extern int __ip_vs_protocol_init(struct net *net);
--extern int __ip_vs_app_init(struct net *net);
--extern int __ip_vs_conn_init(struct net *net);
--extern int __ip_vs_sync_init(struct net *net);
--extern void __ip_vs_conn_cleanup(struct net *net);
--extern void __ip_vs_app_cleanup(struct net *net);
--extern void __ip_vs_protocol_cleanup(struct net *net);
--extern void __ip_vs_control_cleanup(struct net *net);
--extern void __ip_vs_estimator_cleanup(struct net *net);
--extern void __ip_vs_sync_cleanup(struct net *net);
--extern void __ip_vs_service_cleanup(struct net *net);
-+extern int ip_vs_estimator_net_init(struct net *net);
-+extern int ip_vs_control_net_init(struct net *net);
-+extern int ip_vs_protocol_net_init(struct net *net);
-+extern int ip_vs_app_net_init(struct net *net);
-+extern int ip_vs_conn_net_init(struct net *net);
-+extern int ip_vs_sync_net_init(struct net *net);
-+extern void ip_vs_conn_net_cleanup(struct net *net);
-+extern void ip_vs_app_net_cleanup(struct net *net);
-+extern void ip_vs_protocol_net_cleanup(struct net *net);
-+extern void ip_vs_control_net_cleanup(struct net *net);
-+extern void ip_vs_estimator_net_cleanup(struct net *net);
-+extern void ip_vs_sync_net_cleanup(struct net *net);
-+extern void ip_vs_service_net_cleanup(struct net *net);
 
- /*
-  *      IPVS application functions
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 51f3af7..81b299d 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -576,7 +576,7 @@ static const struct file_operations ip_vs_app_fops = {
- };
- #endif
+Hello Francois,
 
--int __net_init __ip_vs_app_init(struct net *net)
-+int __net_init ip_vs_app_net_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
+I tried your patch and my machine resumes properly.
 
-@@ -585,7 +585,7 @@ int __net_init __ip_vs_app_init(struct net *net)
- 	return 0;
- }
+> The firmware is cached during the first successfull call to open() and
+> released once the network device is unregistered. The driver uses the
+> cached firmware between open() and unregister_netdev().
 
--void __net_exit __ip_vs_app_cleanup(struct net *net)
-+void __net_exit ip_vs_app_net_cleanup(struct net *net)
- {
- 	proc_net_remove(net, "ip_vs_app");
- }
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index d3fd91b..b1e7a0c 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -1247,7 +1247,7 @@ flush_again:
- /*
-  * per netns init and exit
-  */
--int __net_init __ip_vs_conn_init(struct net *net)
-+int __net_init ip_vs_conn_net_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
+Here is what I did to test it: I compiled the patched module, unloaded the 
+previous module, loaded the new one, and then suspend & resume. Output of 
+dmesg attached. Please let me know if you need any other information.
 
-@@ -1258,7 +1258,7 @@ int __net_init __ip_vs_conn_init(struct net *net)
- 	return 0;
- }
-
--void __net_exit __ip_vs_conn_cleanup(struct net *net)
-+void __net_exit ip_vs_conn_net_cleanup(struct net *net)
- {
- 	/* flush all the connection entries first */
- 	ip_vs_conn_flush(net);
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 77377a8..00da1e5 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1897,22 +1897,22 @@ static int __net_init __ip_vs_init(struct net *net)
- 	atomic_inc(&ipvs_netns_cnt);
- 	net->ipvs = ipvs;
-
--	if (__ip_vs_estimator_init(net) < 0)
-+	if (ip_vs_estimator_net_init(net) < 0)
- 		goto estimator_fail;
-
--	if (__ip_vs_control_init(net) < 0)
-+	if (ip_vs_control_net_init(net) < 0)
- 		goto control_fail;
-
--	if (__ip_vs_protocol_init(net) < 0)
-+	if (ip_vs_protocol_net_init(net) < 0)
- 		goto protocol_fail;
-
--	if (__ip_vs_app_init(net) < 0)
-+	if (ip_vs_app_net_init(net) < 0)
- 		goto app_fail;
-
--	if (__ip_vs_conn_init(net) < 0)
-+	if (ip_vs_conn_net_init(net) < 0)
- 		goto conn_fail;
-
--	if (__ip_vs_sync_init(net) < 0)
-+	if (ip_vs_sync_net_init(net) < 0)
- 		goto sync_fail;
-
- 	printk(KERN_INFO "IPVS: Creating netns size=%zu id=%d\n",
-@@ -1923,27 +1923,27 @@ static int __net_init __ip_vs_init(struct net *net)
-  */
-
- sync_fail:
--	__ip_vs_conn_cleanup(net);
-+	ip_vs_conn_net_cleanup(net);
- conn_fail:
--	__ip_vs_app_cleanup(net);
-+	ip_vs_app_net_cleanup(net);
- app_fail:
--	__ip_vs_protocol_cleanup(net);
-+	ip_vs_protocol_net_cleanup(net);
- protocol_fail:
--	__ip_vs_control_cleanup(net);
-+	ip_vs_control_net_cleanup(net);
- control_fail:
--	__ip_vs_estimator_cleanup(net);
-+	ip_vs_estimator_net_cleanup(net);
- estimator_fail:
- 	return -ENOMEM;
- }
-
- static void __net_exit __ip_vs_cleanup(struct net *net)
- {
--	__ip_vs_service_cleanup(net);	/* ip_vs_flush() with locks */
--	__ip_vs_conn_cleanup(net);
--	__ip_vs_app_cleanup(net);
--	__ip_vs_protocol_cleanup(net);
--	__ip_vs_control_cleanup(net);
--	__ip_vs_estimator_cleanup(net);
-+	ip_vs_service_net_cleanup(net);	/* ip_vs_flush() with locks */
-+	ip_vs_conn_net_cleanup(net);
-+	ip_vs_app_net_cleanup(net);
-+	ip_vs_protocol_net_cleanup(net);
-+	ip_vs_control_net_cleanup(net);
-+	ip_vs_estimator_net_cleanup(net);
- 	IP_VS_DBG(2, "ipvs netns %d released\n", net_ipvs(net)->gen);
- }
-
-@@ -1951,7 +1951,7 @@ static void __net_exit __ip_vs_dev_cleanup(struct net *net)
- {
- 	EnterFunction(2);
- 	atomic_set(&net_ipvs(net)->enable, 0); /* Disable packet reception */
--	__ip_vs_sync_cleanup(net);
-+	ip_vs_sync_net_cleanup(net);
- 	LeaveFunction(2);
- }
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 70e7a5e..34f05db 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1486,7 +1486,7 @@ static int ip_vs_flush(struct net *net)
-  *	Delete service by {netns} in the service table.
-  *	Called by __ip_vs_cleanup()
-  */
--void __ip_vs_service_cleanup(struct net *net)
-+void ip_vs_service_net_cleanup(struct net *net)
- {
- 	unsigned hash;
- 	struct ip_vs_service *svc, *tmp;
-@@ -1675,7 +1675,7 @@ proc_do_sync_mode(ctl_table *table, int write,
- /*
-  *	IPVS sysctl table (under the /proc/sys/net/ipv4/vs/)
-  *	Do not change order or insert new entries without
-- *	align with netns init in __ip_vs_control_init()
-+ *	align with netns init in ip_vs_control_net_init()
-  */
-
- static struct ctl_table vs_vars[] = {
-@@ -3611,7 +3611,7 @@ static void ip_vs_genl_unregister(void)
-  * per netns intit/exit func.
-  */
- #ifdef CONFIG_SYSCTL
--int __net_init __ip_vs_control_init_sysctl(struct net *net)
-+int __net_init ip_vs_control_net_init_sysctl(struct net *net)
- {
- 	int idx;
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-@@ -3670,7 +3670,7 @@ int __net_init __ip_vs_control_init_sysctl(struct net *net)
- 	return 0;
- }
-
--void __net_init __ip_vs_control_cleanup_sysctl(struct net *net)
-+void __net_init ip_vs_control_net_cleanup_sysctl(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-
-@@ -3681,8 +3681,8 @@ void __net_init __ip_vs_control_cleanup_sysctl(struct net *net)
-
- #else
-
--int __net_init __ip_vs_control_init_sysctl(struct net *net) { return 0; }
--void __net_init __ip_vs_control_cleanup_sysctl(struct net *net) { }
-+int __net_init ip_vs_control_net_init_sysctl(struct net *net) { return 0; }
-+void __net_init ip_vs_control_net_cleanup_sysctl(struct net *net) { }
-
- #endif
-
-@@ -3690,7 +3690,7 @@ static struct notifier_block ip_vs_dst_notifier = {
- 	.notifier_call = ip_vs_dst_event,
- };
-
--int __net_init __ip_vs_control_init(struct net *net)
-+int __net_init ip_vs_control_net_init(struct net *net)
- {
- 	int idx;
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-@@ -3718,7 +3718,7 @@ int __net_init __ip_vs_control_init(struct net *net)
- 	proc_net_fops_create(net, "ip_vs_stats_percpu", 0,
- 			     &ip_vs_stats_percpu_fops);
-
--	if (__ip_vs_control_init_sysctl(net))
-+	if (ip_vs_control_net_init_sysctl(net))
- 		goto err;
-
- 	return 0;
-@@ -3728,13 +3728,13 @@ err:
- 	return -ENOMEM;
- }
-
--void __net_exit __ip_vs_control_cleanup(struct net *net)
-+void __net_exit ip_vs_control_net_cleanup(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-
- 	ip_vs_trash_cleanup(net);
- 	ip_vs_stop_estimator(net, &ipvs->tot_stats);
--	__ip_vs_control_cleanup_sysctl(net);
-+	ip_vs_control_net_cleanup_sysctl(net);
- 	proc_net_remove(net, "ip_vs_stats_percpu");
- 	proc_net_remove(net, "ip_vs_stats");
- 	proc_net_remove(net, "ip_vs");
-diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
-index 508cce9..f5d2a01 100644
---- a/net/netfilter/ipvs/ip_vs_est.c
-+++ b/net/netfilter/ipvs/ip_vs_est.c
-@@ -192,7 +192,7 @@ void ip_vs_read_estimator(struct ip_vs_stats_user *dst,
- 	dst->outbps = (e->outbps + 0xF) >> 5;
- }
-
--int __net_init __ip_vs_estimator_init(struct net *net)
-+int __net_init ip_vs_estimator_net_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-
-@@ -203,7 +203,7 @@ int __net_init __ip_vs_estimator_init(struct net *net)
- 	return 0;
- }
-
--void __net_exit __ip_vs_estimator_cleanup(struct net *net)
-+void __net_exit ip_vs_estimator_net_cleanup(struct net *net)
- {
- 	del_timer_sync(&net_ipvs(net)->est_timer);
- }
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index eb86028..52d073c 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -316,7 +316,7 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
- /*
-  * per network name-space init
-  */
--int __net_init __ip_vs_protocol_init(struct net *net)
-+int __net_init ip_vs_protocol_net_init(struct net *net)
- {
- #ifdef CONFIG_IP_VS_PROTO_TCP
- 	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
-@@ -336,7 +336,7 @@ int __net_init __ip_vs_protocol_init(struct net *net)
- 	return 0;
- }
-
--void __net_exit __ip_vs_protocol_cleanup(struct net *net)
-+void __net_exit ip_vs_protocol_net_cleanup(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_proto_data *pd;
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index f31ef18..1036b34 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1663,7 +1663,7 @@ int stop_sync_thread(struct net *net, int state)
- /*
-  * Initialize data struct for each netns
-  */
--int __net_init __ip_vs_sync_init(struct net *net)
-+int __net_init ip_vs_sync_net_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-
-@@ -1677,7 +1677,7 @@ int __net_init __ip_vs_sync_init(struct net *net)
- 	return 0;
- }
-
--void __ip_vs_sync_cleanup(struct net *net)
-+void ip_vs_sync_net_cleanup(struct net *net)
- {
- 	int retc;
-
+Regards,
 --
-1.7.2.3
+ 	Ciprian
+---559023410-1135636377-1303325516=:1320
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name=dmesg.txt
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.SOC.4.64.1104201451560.1320@er3.rutgers.edu>
+Content-Description: 
+Content-Disposition: attachment; filename=dmesg.txt
 
+Wzc0MDAxLjY2NDA4OF0gcjgxNjkgMDAwMDowMjowMC4wOiBQQ0kgSU5UIEEg
+ZGlzYWJsZWQNCls3NDAzMy44MjE0NzNdIHI4MTY5IEdpZ2FiaXQgRXRoZXJu
+ZXQgZHJpdmVyIDIuM0xLLU5BUEkgbG9hZGVkDQpbNzQwMzMuODIxNDk3XSBy
+ODE2OSAwMDAwOjAyOjAwLjA6IFBDSSBJTlQgQSAtPiBHU0kgMTYgKGxldmVs
+LCBsb3cpIC0+IElSUSAxNg0KWzc0MDMzLjgyMjMxMF0gcjgxNjkgMDAwMDow
+MjowMC4wOiBzZXR0aW5nIGxhdGVuY3kgdGltZXIgdG8gNjQNCls3NDAzMy44
+MjIzNjRdIHI4MTY5IDAwMDA6MDI6MDAuMDogaXJxIDQ1IGZvciBNU0kvTVNJ
+LVgNCls3NDAzMy44MjI1NzJdIHI4MTY5IDAwMDA6MDI6MDAuMDogZXRoMDog
+UlRMODE2OGQvODExMWQgYXQgMHhmZmZmYzkwMDI3ZTJlMDAwLCA2NDozMTo1
+MDo2OToyYzo2MSwgWElEIDA4MzAwMGMwIElSUSA0NQ0KWzc0MDU4LjQyOTcx
+N10gd2xfb3BzX2Jzc19pbmZvX2NoYW5nZWQ6IHFvcyBlbmFibGVkOiBmYWxz
+ZSAoaW1wbGVtZW50KQ0KWzc0MDU4LjQyOTcyOV0gYnJjbXNtYWM6IHdsX29w
+c19ic3NfaW5mb19jaGFuZ2VkOiBkaXNhc3NvY2lhdGVkDQpbNzQwNTguNDI5
+NzM1XSB3bF9vcHNfYnNzX2luZm9fY2hhbmdlZDogdXNlX2N0c19wcm90OiBm
+YWxzZSAoaW1wbGVtZW50KQ0KWzc0MDU4LjQyOTc0MV0gd2xfb3BzX2Jzc19p
+bmZvX2NoYW5nZWQ6IHNob3J0IHByZWFtYmxlOiBmYWxzZSAoaW1wbGVtZW50
+KQ0KWzc0MDU4LjQyOTc1NF0gd2xfb3BzX2Jzc19pbmZvX2NoYW5nZWQ6IGFy
+cCBmaWx0ZXJpbmc6IGVuYWJsZWQgZmFsc2UsIGNvdW50IDEgKGltcGxlbWVu
+dCkNCls3NDA1OC40Mjk3NjRdIHdsYW4wOiBkZWF1dGhlbnRpY2F0aW5nIGZy
+b20gMDA6MWU6MmE6MDE6M2U6YmIgYnkgbG9jYWwgY2hvaWNlIChyZWFzb249
+MykNCls3NDA1OC40NTUwMjZdIHdsX29wc19ic3NfaW5mb19jaGFuZ2VkOiBC
+U1MgaWRsZTogdHJ1ZSAoaW1wbGVtZW50KQ0KWzc0MDU4LjQ1NTA0Nl0gY2Zn
+ODAyMTE6IEFsbCBkZXZpY2VzIGFyZSBkaXNjb25uZWN0ZWQsIGdvaW5nIHRv
+IHJlc3RvcmUgcmVndWxhdG9yeSBzZXR0aW5ncw0KWzc0MDU4LjQ1NTA1NV0g
+Y2ZnODAyMTE6IFJlc3RvcmluZyByZWd1bGF0b3J5IHNldHRpbmdzDQpbNzQw
+NTguNDU1MDY0XSBjZmc4MDIxMTogQ2FsbGluZyBDUkRBIHRvIHVwZGF0ZSB3
+b3JsZCByZWd1bGF0b3J5IGRvbWFpbg0KWzc0MDU4LjQ1NTA2OV0gd2xfb3Bz
+X2Jzc19pbmZvX2NoYW5nZWQ6IEJTUyBpZGxlOiBmYWxzZSAoaW1wbGVtZW50
+KQ0KWzc0MDU4LjQ2MDI4MV0gY2ZnODAyMTE6IFVwZGF0aW5nIGluZm9ybWF0
+aW9uIG9uIGZyZXF1ZW5jeSAyNDEyIE1IeiBmb3IgYSAyMCBNSHogd2lkdGgg
+Y2hhbm5lbCB3aXRoIHJlZ3VsYXRvcnkgcnVsZToNCls3NDA1OC40NjAyOTFd
+IGNmZzgwMjExOiAyNDAyMDAwIEtIeiAtIDI0NzIwMDAgS0h6IEAgIEtIeiks
+ICgzMDAgbUJpLCAyNzAwIG1CbSkNCls3NDA1OC40NjAyOTddIGNmZzgwMjEx
+OiBVcGRhdGluZyBpbmZvcm1hdGlvbiBvbiBmcmVxdWVuY3kgMjQxNyBNSHog
+Zm9yIGEgMjAgTUh6IHdpZHRoIGNoYW5uZWwgd2l0aCByZWd1bGF0b3J5IHJ1
+bGU6DQpbNzQwNTguNDYwMzA1XSBjZmc4MDIxMTogMjQwMjAwMCBLSHogLSAy
+NDcyMDAwIEtIeiBAICBLSHopLCAoMzAwIG1CaSwgMjcwMCBtQm0pDQpbNzQw
+NTguNDYwMzExXSBjZmc4MDIxMTogVXBkYXRpbmcgaW5mb3JtYXRpb24gb24g
+ZnJlcXVlbmN5IDI0MjIgTUh6IGZvciBhIDIwIE1IeiB3aWR0aCBjaGFubmVs
+IHdpdGggcmVndWxhdG9yeSBydWxlOg0KWzc0MDU4LjQ2MDMxOV0gY2ZnODAy
+MTE6IDI0MDIwMDAgS0h6IC0gMjQ3MjAwMCBLSHogQCAgS0h6KSwgKDMwMCBt
+QmksIDI3MDAgbUJtKQ0KWzc0MDU4LjQ2MDMyNV0gY2ZnODAyMTE6IFVwZGF0
+aW5nIGluZm9ybWF0aW9uIG9uIGZyZXF1ZW5jeSAyNDI3IE1IeiBmb3IgYSAy
+MCBNSHogd2lkdGggY2hhbm5lbCB3aXRoIHJlZ3VsYXRvcnkgcnVsZToNCls3
+NDA1OC40NjAzMzBdIGNmZzgwMjExOiAyNDAyMDAwIEtIeiAtIDI0NzIwMDAg
+S0h6IEAgIEtIeiksICgzMDAgbUJpLCAyNzAwIG1CbSkNCls3NDA1OC40NjAz
+MzRdIGNmZzgwMjExOiBVcGRhdGluZyBpbmZvcm1hdGlvbiBvbiBmcmVxdWVu
+Y3kgMjQzMiBNSHogZm9yIGEgMjAgTUh6IHdpZHRoIGNoYW5uZWwgd2l0aCBy
+ZWd1bGF0b3J5IHJ1bGU6DQpbNzQwNTguNDYwMzM5XSBjZmc4MDIxMTogMjQw
+MjAwMCBLSHogLSAyNDcyMDAwIEtIeiBAICBLSHopLCAoMzAwIG1CaSwgMjcw
+MCBtQm0pDQpbNzQwNTguNDYwMzQ0XSBjZmc4MDIxMTogVXBkYXRpbmcgaW5m
+b3JtYXRpb24gb24gZnJlcXVlbmN5IDI0MzcgTUh6IGZvciBhIDIwIE1IeiB3
+aWR0aCBjaGFubmVsIHdpdGggcmVndWxhdG9yeSBydWxlOg0KWzc0MDU4LjQ2
+MDM0OV0gY2ZnODAyMTE6IDI0MDIwMDAgS0h6IC0gMjQ3MjAwMCBLSHogQCAg
+S0h6KSwgKDMwMCBtQmksIDI3MDAgbUJtKQ0KWzc0MDU4LjQ2MDM1M10gY2Zn
+ODAyMTE6IFVwZGF0aW5nIGluZm9ybWF0aW9uIG9uIGZyZXF1ZW5jeSAyNDQy
+IE1IeiBmb3IgYSAyMCBNSHogd2lkdGggY2hhbm5lbCB3aXRoIHJlZ3VsYXRv
+cnkgcnVsZToNCls3NDA1OC40NjAzNThdIGNmZzgwMjExOiAyNDAyMDAwIEtI
+eiAtIDI0NzIwMDAgS0h6IEAgIEtIeiksICgzMDAgbUJpLCAyNzAwIG1CbSkN
+Cls3NDA1OC40NjAzNjNdIGNmZzgwMjExOiBVcGRhdGluZyBpbmZvcm1hdGlv
+biBvbiBmcmVxdWVuY3kgMjQ0NyBNSHogZm9yIGEgMjAgTUh6IHdpZHRoIGNo
+YW5uZWwgd2l0aCByZWd1bGF0b3J5IHJ1bGU6DQpbNzQwNTguNDYwMzY4XSBj
+Zmc4MDIxMTogMjQwMjAwMCBLSHogLSAyNDcyMDAwIEtIeiBAICBLSHopLCAo
+MzAwIG1CaSwgMjcwMCBtQm0pDQpbNzQwNTguNDYwMzcyXSBjZmc4MDIxMTog
+VXBkYXRpbmcgaW5mb3JtYXRpb24gb24gZnJlcXVlbmN5IDI0NTIgTUh6IGZv
+ciBhIDIwIE1IeiB3aWR0aCBjaGFubmVsIHdpdGggcmVndWxhdG9yeSBydWxl
+Og0KWzc0MDU4LjQ2MDM3N10gY2ZnODAyMTE6IDI0MDIwMDAgS0h6IC0gMjQ3
+MjAwMCBLSHogQCAgS0h6KSwgKDMwMCBtQmksIDI3MDAgbUJtKQ0KWzc0MDU4
+LjQ2MDM4Ml0gY2ZnODAyMTE6IFVwZGF0aW5nIGluZm9ybWF0aW9uIG9uIGZy
+ZXF1ZW5jeSAyNDU3IE1IeiBmb3IgYSAyMCBNSHogd2lkdGggY2hhbm5lbCB3
+aXRoIHJlZ3VsYXRvcnkgcnVsZToNCls3NDA1OC40NjAzODddIGNmZzgwMjEx
+OiAyNDAyMDAwIEtIeiAtIDI0NzIwMDAgS0h6IEAgIEtIeiksICgzMDAgbUJp
+LCAyNzAwIG1CbSkNCls3NDA1OC40NjAzOTFdIGNmZzgwMjExOiBVcGRhdGlu
+ZyBpbmZvcm1hdGlvbiBvbiBmcmVxdWVuY3kgMjQ2MiBNSHogZm9yIGEgMjAg
+TUh6IHdpZHRoIGNoYW5uZWwgd2l0aCByZWd1bGF0b3J5IHJ1bGU6DQpbNzQw
+NTguNDYwMzk2XSBjZmc4MDIxMTogMjQwMjAwMCBLSHogLSAyNDcyMDAwIEtI
+eiBAICBLSHopLCAoMzAwIG1CaSwgMjcwMCBtQm0pDQpbNzQwNTguNDYwNDAw
+XSBjZmc4MDIxMTogRGlzYWJsaW5nIGZyZXEgMjQ2NyBNSHoNCls3NDA1OC40
+NjA0MDNdIGNmZzgwMjExOiBEaXNhYmxpbmcgZnJlcSAyNDcyIE1Ieg0KWzc0
+MDU4LjQ2MDQwNV0gY2ZnODAyMTE6IERpc2FibGluZyBmcmVxIDI0ODQgTUh6
+DQpbNzQwNTguNDYwNDEwXSBjZmc4MDIxMTogV29ybGQgcmVndWxhdG9yeSBk
+b21haW4gdXBkYXRlZDoNCls3NDA1OC40NjA0MTNdIGNmZzgwMjExOiAgICAg
+KHN0YXJ0X2ZyZXEgLSBlbmRfZnJlcSBAIGJhbmR3aWR0aCksIChtYXhfYW50
+ZW5uYV9nYWluLCBtYXhfZWlycCkNCls3NDA1OC40NjA0MThdIGNmZzgwMjEx
+OiAgICAgKDI0MDIwMDAgS0h6IC0gMjQ3MjAwMCBLSHogQCA0MDAwMCBLSHop
+LCAoMzAwIG1CaSwgMjAwMCBtQm0pDQpbNzQwNTguNDYwNDIzXSBjZmc4MDIx
+MTogICAgICgyNDU3MDAwIEtIeiAtIDI0ODIwMDAgS0h6IEAgMjAwMDAgS0h6
+KSwgKDMwMCBtQmksIDIwMDAgbUJtKQ0KWzc0MDU4LjQ2MDQyN10gY2ZnODAy
+MTE6ICAgICAoMjQ3NDAwMCBLSHogLSAyNDk0MDAwIEtIeiBAIDIwMDAwIEtI
+eiksICgzMDAgbUJpLCAyMDAwIG1CbSkNCls3NDA1OC40NjA0MzJdIGNmZzgw
+MjExOiAgICAgKDUxNzAwMDAgS0h6IC0gNTI1MDAwMCBLSHogQCA0MDAwMCBL
+SHopLCAoMzAwIG1CaSwgMjAwMCBtQm0pDQpbNzQwNTguNDYwNDM3XSBjZmc4
+MDIxMTogICAgICg1NzM1MDAwIEtIeiAtIDU4MzUwMDAgS0h6IEAgNDAwMDAg
+S0h6KSwgKDMwMCBtQmksIDIwMDAgbUJtKQ0KWzc0MDU4LjQ2NDkyNl0gd2xf
+b3BzX2Jzc19pbmZvX2NoYW5nZWQ6IEJTUyBpZGxlOiB0cnVlIChpbXBsZW1l
+bnQpDQpbNzQwNTkuODkyMDEwXSBQTTogU3luY2luZyBmaWxlc3lzdGVtcyAu
+Li4gZG9uZS4NCls3NDA1OS45MDk1NDNdIFBNOiBQcmVwYXJpbmcgc3lzdGVt
+IGZvciBtZW0gc2xlZXANCls3NDA2MC4wNzI3NTddIEZyZWV6aW5nIHVzZXIg
+c3BhY2UgcHJvY2Vzc2VzIC4uLiAoZWxhcHNlZCAwLjAxIHNlY29uZHMpIGRv
+bmUuDQpbNzQwNjAuMDg0NjA3XSBGcmVlemluZyByZW1haW5pbmcgZnJlZXph
+YmxlIHRhc2tzIC4uLiAoZWxhcHNlZCAwLjAxIHNlY29uZHMpIGRvbmUuDQpb
+NzQwNjAuMDk1NTQ4XSBQTTogRW50ZXJpbmcgbWVtIHNsZWVwDQpbNzQwNjAu
+MDk1NzEyXSBTdXNwZW5kaW5nIGNvbnNvbGUocykgKHVzZSBub19jb25zb2xl
+X3N1c3BlbmQgdG8gZGVidWcpDQpbNzQwNjAuMTA3OTQzXSBzZCAwOjA6MDow
+OiBbc2RhXSBTeW5jaHJvbml6aW5nIFNDU0kgY2FjaGUNCls3NDA2MC4xMDgw
+MjRdIHNkIDA6MDowOjA6IFtzZGFdIFN0b3BwaW5nIGRpc2sNCls3NDA2MC4x
+NDcwMjhdIEhEQSBJbnRlbCAwMDAwOjAxOjAwLjE6IFBDSSBJTlQgQiBkaXNh
+YmxlZA0KWzc0MDYwLjE0NzAzMV0gYnJjbXNtYWMgMDAwMDowMzowMC4wOiBQ
+Q0kgSU5UIEEgZGlzYWJsZWQNCls3NDA2MC4xNDcwNjRdIEFDUEkgaGFuZGxl
+IGhhcyBubyBjb250ZXh0IQ0KWzc0MDYwLjE1NzQyMV0gZWhjaV9oY2QgMDAw
+MDowMDoxZC4wOiBQQ0kgSU5UIEEgZGlzYWJsZWQNCls3NDA2MC4xNTc0NDRd
+IGVoY2lfaGNkIDAwMDA6MDA6MWEuMDogUENJIElOVCBBIGRpc2FibGVkDQpb
+NzQwNjAuMjQ4ODc4XSBIREEgSW50ZWwgMDAwMDowMDoxYi4wOiBQQ0kgSU5U
+IEEgZGlzYWJsZWQNCls3NDA2Mi42MTI3NDFdIFBNOiBzdXNwZW5kIG9mIGRl
+dmljZXMgY29tcGxldGUgYWZ0ZXIgMjUxMi4wMzcgbXNlY3MNCls3NDA2Mi42
+MTI5NDldIHI4MTY5IDAwMDA6MDI6MDAuMDogUE1FIyBlbmFibGVkDQpbNzQw
+NjIuNjIxNjY2XSByODE2OSAwMDAwOjAyOjAwLjA6IHdha2UtdXAgY2FwYWJp
+bGl0eSBlbmFibGVkIGJ5IEFDUEkNCls3NDA2Mi42NTQ2NThdIFBNOiBsYXRl
+IHN1c3BlbmQgb2YgZGV2aWNlcyBjb21wbGV0ZSBhZnRlciA0Mi4wMDcgbXNl
+Y3MNCls3NDA2Mi42NTQ4MTddIEFDUEk6IFByZXBhcmluZyB0byBlbnRlciBz
+eXN0ZW0gc2xlZXAgc3RhdGUgUzMNCls3NDA2Mi43MDA2MjddIFBNOiBTYXZp
+bmcgcGxhdGZvcm0gTlZTIG1lbW9yeQ0KWzc0MDYyLjcwNDM2N10gRGlzYWJs
+aW5nIG5vbi1ib290IENQVXMgLi4uDQpbNzQwNjIuNzA2ODQ2XSBDUFUgMSBp
+cyBub3cgb2ZmbGluZQ0KWzc0MDYyLjcyNDc3MV0gQ1BVIDIgaXMgbm93IG9m
+ZmxpbmUNCls3NDA2Mi43MzQ2MDNdIENQVSAzIGlzIG5vdyBvZmZsaW5lDQpb
+NzQwNjIuNzM0OTY5XSBFeHRlbmRlZCBDTU9TIHllYXI6IDIwMDANCls3NDA2
+Mi43MzUxNjVdIEFDUEk6IExvdy1sZXZlbCByZXN1bWUgY29tcGxldGUNCls3
+NDA2Mi43MzUyMjBdIFBNOiBSZXN0b3JpbmcgcGxhdGZvcm0gTlZTIG1lbW9y
+eQ0KWzc0MDYyLjczNTc4MF0gRXh0ZW5kZWQgQ01PUyB5ZWFyOiAyMDAwDQpb
+NzQwNjIuNzM1ODAyXSBFbmFibGluZyBub24tYm9vdCBDUFVzIC4uLg0KWzc0
+MDYyLjczNTkyM10gQm9vdGluZyBOb2RlIDAgUHJvY2Vzc29yIDEgQVBJQyAw
+eDENCls3NDA2Mi43MzU5MjRdIHNtcGJvb3QgY3B1IDE6IHN0YXJ0X2lwID0g
+OTgwMDANCls3NDA2Mi44MjY0NzNdIENQVTEgaXMgdXANCls3NDA2Mi44MjY2
+MzddIEJvb3RpbmcgTm9kZSAwIFByb2Nlc3NvciAyIEFQSUMgMHg0DQpbNzQw
+NjIuODI2NjQxXSBzbXBib290IGNwdSAyOiBzdGFydF9pcCA9IDk4MDAwDQpb
+NzQwNjIuODI2ODI2XSBTd2l0Y2hlZCB0byBOT0h6IG1vZGUgb24gQ1BVICMx
+DQpbNzQwNjIuOTE3MjE3XSBDUFUyIGlzIHVwDQpbNzQwNjIuOTE3MzgyXSBC
+b290aW5nIE5vZGUgMCBQcm9jZXNzb3IgMyBBUElDIDB4NQ0KWzc0MDYyLjkx
+NzM4Nl0gc21wYm9vdCBjcHUgMzogc3RhcnRfaXAgPSA5ODAwMA0KWzc0MDYy
+LjkxNzU4MF0gU3dpdGNoZWQgdG8gTk9IeiBtb2RlIG9uIENQVSAjMg0KWzc0
+MDYzLjAwODA5MV0gQ1BVMyBpcyB1cA0KWzc0MDYzLjAwOTMwMl0gU3dpdGNo
+ZWQgdG8gTk9IeiBtb2RlIG9uIENQVSAjMw0KWzc0MDYzLjAwOTY3Ml0gQUNQ
+STogV2FraW5nIHVwIGZyb20gc3lzdGVtIHNsZWVwIHN0YXRlIFMzDQpbNzQw
+NjMuMDkwODk0XSBwY2llcG9ydCAwMDAwOjAwOjAxLjA6IHJlc3RvcmluZyBj
+b25maWcgc3BhY2UgYXQgb2Zmc2V0IDB4MSAod2FzIDB4MTAwMDA3LCB3cml0
+aW5nIDB4MTAwNDA3KQ0KWzc0MDYzLjA5MDkxNV0gaTkxNSAwMDAwOjAwOjAy
+LjA6IHJlc3RvcmluZyBjb25maWcgc3BhY2UgYXQgb2Zmc2V0IDB4MSAod2Fz
+IDB4OTAwMDA3LCB3cml0aW5nIDB4OTAwNDA3KQ0KWzc0MDYzLjA5MDk3NF0g
+ZWhjaV9oY2QgMDAwMDowMDoxYS4wOiByZXN0b3JpbmcgY29uZmlnIHNwYWNl
+IGF0IG9mZnNldCAweDEgKHdhcyAweDI5MDAwMDYsIHdyaXRpbmcgMHgyOTAw
+MDAyKQ0KWzc0MDYzLjA5MTAwOV0gSERBIEludGVsIDAwMDA6MDA6MWIuMDog
+cmVzdG9yaW5nIGNvbmZpZyBzcGFjZSBhdCBvZmZzZXQgMHgxICh3YXMgMHgx
+MDAwMDYsIHdyaXRpbmcgMHgxMDAwMDIpDQpbNzQwNjMuMDkxMTE3XSBlaGNp
+X2hjZCAwMDAwOjAwOjFkLjA6IHJlc3RvcmluZyBjb25maWcgc3BhY2UgYXQg
+b2Zmc2V0IDB4MSAod2FzIDB4MjkwMDAwNiwgd3JpdGluZyAweDI5MDAwMDIp
+DQpbNzQwNjMuMDkxMTQwXSBwY2kgMDAwMDowMDoxZS4wOiByZXN0b3Jpbmcg
+Y29uZmlnIHNwYWNlIGF0IG9mZnNldCAweGEgKHdhcyAweGZmZmZmZmZmLCB3
+cml0aW5nIDB4MCkNCls3NDA2My4wOTEyMTNdIGFoY2kgMDAwMDowMDoxZi4y
+OiByZXN0b3JpbmcgY29uZmlnIHNwYWNlIGF0IG9mZnNldCAweDEgKHdhcyAw
+eDJiMDAwMDcsIHdyaXRpbmcgMHgyYjAwNDA3KQ0KWzc0MDYzLjA5MTMzNl0g
+SERBIEludGVsIDAwMDA6MDE6MDAuMTogcmVzdG9yaW5nIGNvbmZpZyBzcGFj
+ZSBhdCBvZmZzZXQgMHgxICh3YXMgMHgxMDAwMDcsIHdyaXRpbmcgMHgxMDAw
+MDMpDQpbNzQwNjMuMDkxMzg5XSByODE2OSAwMDAwOjAyOjAwLjA6IHJlc3Rv
+cmluZyBjb25maWcgc3BhY2UgYXQgb2Zmc2V0IDB4MSAod2FzIDB4MTAwMDA3
+LCB3cml0aW5nIDB4MTAwNDA3KQ0KWzc0MDYzLjA5MTQ3N10gYnJjbXNtYWMg
+MDAwMDowMzowMC4wOiByZXN0b3JpbmcgY29uZmlnIHNwYWNlIGF0IG9mZnNl
+dCAweGYgKHdhcyAweDEwMCwgd3JpdGluZyAweDEwYSkNCls3NDA2My4wOTE0
+OTZdIGJyY21zbWFjIDAwMDA6MDM6MDAuMDogcmVzdG9yaW5nIGNvbmZpZyBz
+cGFjZSBhdCBvZmZzZXQgMHg0ICh3YXMgMHg0LCB3cml0aW5nIDB4YzI0MDAw
+MDQpDQpbNzQwNjMuMDkxNTAyXSBicmNtc21hYyAwMDAwOjAzOjAwLjA6IHJl
+c3RvcmluZyBjb25maWcgc3BhY2UgYXQgb2Zmc2V0IDB4MyAod2FzIDB4MCwg
+d3JpdGluZyAweDEwKQ0KWzc0MDYzLjA5MTUwOF0gYnJjbXNtYWMgMDAwMDow
+MzowMC4wOiByZXN0b3JpbmcgY29uZmlnIHNwYWNlIGF0IG9mZnNldCAweDEg
+KHdhcyAweDEwMDAwMCwgd3JpdGluZyAweDEwMDAwNikNCls3NDA2My4wOTE2
+NTVdIFBNOiBlYXJseSByZXN1bWUgb2YgZGV2aWNlcyBjb21wbGV0ZSBhZnRl
+ciAwLjgyNiBtc2Vjcw0KWzc0MDYzLjA5MTgwM10gaTkxNSAwMDAwOjAwOjAy
+LjA6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NA0KWzc0MDYzLjA5MTg4
+M10gSERBIEludGVsIDAwMDA6MDE6MDAuMTogUENJIElOVCBCIC0+IEdTSSAx
+NyAobGV2ZWwsIGxvdykgLT4gSVJRIDE3DQpbNzQwNjMuMDkxODg4XSBlaGNp
+X2hjZCAwMDAwOjAwOjFhLjA6IFBDSSBJTlQgQSAtPiBHU0kgMTYgKGxldmVs
+LCBsb3cpIC0+IElSUSAxNg0KWzc0MDYzLjA5MTg5MF0gSERBIEludGVsIDAw
+MDA6MDE6MDAuMTogc2V0dGluZyBsYXRlbmN5IHRpbWVyIHRvIDY0DQpbNzQw
+NjMuMDkxODk1XSBlaGNpX2hjZCAwMDAwOjAwOjFhLjA6IHNldHRpbmcgbGF0
+ZW5jeSB0aW1lciB0byA2NA0KWzc0MDYzLjA5MTkzOF0gSERBIEludGVsIDAw
+MDA6MDE6MDAuMTogaXJxIDQ2IGZvciBNU0kvTVNJLVgNCls3NDA2My4wOTE5
+NDVdIEhEQSBJbnRlbCAwMDAwOjAwOjFiLjA6IFBDSSBJTlQgQSAtPiBHU0kg
+MjIgKGxldmVsLCBsb3cpIC0+IElSUSAyMg0KWzc0MDYzLjA5MTk1M10gSERB
+IEludGVsIDAwMDA6MDA6MWIuMDogc2V0dGluZyBsYXRlbmN5IHRpbWVyIHRv
+IDY0DQpbNzQwNjMuMDkxOTg3XSBIREEgSW50ZWwgMDAwMDowMDoxYi4wOiBp
+cnEgNDcgZm9yIE1TSS9NU0ktWA0KWzc0MDYzLjA5MTk5MF0gZWhjaV9oY2Qg
+MDAwMDowMDoxZC4wOiBQQ0kgSU5UIEEgLT4gR1NJIDIwIChsZXZlbCwgbG93
+KSAtPiBJUlEgMjANCls3NDA2My4wOTE5OTZdIGVoY2lfaGNkIDAwMDA6MDA6
+MWQuMDogc2V0dGluZyBsYXRlbmN5IHRpbWVyIHRvIDY0DQpbNzQwNjMuMDky
+MDIzXSBwY2kgMDAwMDowMDoxZS4wOiBzZXR0aW5nIGxhdGVuY3kgdGltZXIg
+dG8gNjQNCls3NDA2My4wOTIwODhdIGFoY2kgMDAwMDowMDoxZi4yOiBzZXR0
+aW5nIGxhdGVuY3kgdGltZXIgdG8gNjQNCls3NDA2My4wOTIwOTZdIGJyY21z
+bWFjIDAwMDA6MDM6MDAuMDogUENJIElOVCBBIC0+IEdTSSAxNyAobGV2ZWws
+IGxvdykgLT4gSVJRIDE3DQpbNzQwNjMuMDkyMTA3XSBicmNtc21hYyAwMDAw
+OjAzOjAwLjA6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NA0KWzc0MDYz
+LjEwMjE1MF0gc2QgMDowOjA6MDogW3NkYV0gU3RhcnRpbmcgZGlzaw0KWzc0
+MDYzLjEwNTY2OF0gcjgxNjkgMDAwMDowMjowMC4wOiB3YWtlLXVwIGNhcGFi
+aWxpdHkgZGlzYWJsZWQgYnkgQUNQSQ0KWzc0MDYzLjEwNTY3NF0gcjgxNjkg
+MDAwMDowMjowMC4wOiBQTUUjIGRpc2FibGVkDQpbNzQwNjMuMzIyNjkxXSB1
+c2IgMS0xLjQ6IHJlc2V0IGZ1bGwgc3BlZWQgVVNCIGRldmljZSBudW1iZXIg
+MyB1c2luZyBlaGNpX2hjZA0KWzc0MDYzLjQwNjMyMV0gYXRhMjogU0FUQSBs
+aW5rIHVwIDEuNSBHYnBzIChTU3RhdHVzIDExMyBTQ29udHJvbCAzMDApDQpb
+NzQwNjMuNDEwMjk2XSBhdGE1OiBTQVRBIGxpbmsgZG93biAoU1N0YXR1cyAw
+IFNDb250cm9sIDMwMCkNCls3NDA2My40NDAyMjVdIGF0YTIuMDA6IGNvbmZp
+Z3VyZWQgZm9yIFVETUEvMTAwDQpbNzQwNjMuNDgwMjgxXSB1c2IgMi0xLjM6
+IHJlc2V0IGZ1bGwgc3BlZWQgVVNCIGRldmljZSBudW1iZXIgMyB1c2luZyBl
+aGNpX2hjZA0KWzc0MDYzLjU2NjkxNV0gYnR1c2IgMi0xLjM6MS4wOiBubyBy
+ZXNldF9yZXN1bWUgZm9yIGRyaXZlciBidHVzYj8NCls3NDA2My41NjY5MjFd
+IGJ0dXNiIDItMS4zOjEuMTogbm8gcmVzZXRfcmVzdW1lIGZvciBkcml2ZXIg
+YnR1c2I/DQpbNzQwNjMuNjM3ODUzXSB1c2IgMi0xLjY6IHJlc2V0IGhpZ2gg
+c3BlZWQgVVNCIGRldmljZSBudW1iZXIgNSB1c2luZyBlaGNpX2hjZA0KWzc0
+MDY0LjU2NjIxOF0gaGNpX2NtZF90aW1lcjogaGNpMCBjb21tYW5kIHR4IHRp
+bWVvdXQNCls3NDA2NS44NDk3NDddIGF0YTE6IFNBVEEgbGluayB1cCAzLjAg
+R2JwcyAoU1N0YXR1cyAxMjMgU0NvbnRyb2wgMzAwKQ0KWzc0MDY1Ljg2MTY4
+OF0gYXRhMS4wMDogY29uZmlndXJlZCBmb3IgVURNQS8xMzMNCls3NDA2Ni40
+NjY3NzFdIFBNOiByZXN1bWUgb2YgZGV2aWNlcyBjb21wbGV0ZSBhZnRlciAz
+Mzg0LjIwOCBtc2Vjcw0KWzc0MDY2LjQ2NzA2NV0gUE06IEZpbmlzaGluZyB3
+YWtldXAuDQpbNzQwNjYuNDY3MDY3XSBSZXN0YXJ0aW5nIHRhc2tzIC4uLiBk
+b25lLg0KWzc0MDY2LjQ3NTIxMV0gdmlkZW8gTE5YVklERU86MDA6IFJlc3Rv
+cmluZyBiYWNrbGlnaHQgc3RhdGUNCls3NDA2Ni40NzUzMzldIHZpZGVvIExO
+WFZJREVPOjAxOiBSZXN0b3JpbmcgYmFja2xpZ2h0IHN0YXRlDQpbNzQwNjYu
+NzQwMzMwXSB3bF9vcHNfYnNzX2luZm9fY2hhbmdlZDogdXNlX2N0c19wcm90
+OiBmYWxzZSAoaW1wbGVtZW50KQ0KWzc0MDY2Ljc0MDMzNF0gd2xfb3BzX2Jz
+c19pbmZvX2NoYW5nZWQ6IHNob3J0IHByZWFtYmxlOiBmYWxzZSAoaW1wbGVt
+ZW50KQ0KWzc0MDY2Ljc0MDM0OV0gd2xfb3BzX2NvbmZpZzogY2hhbmdlIG1v
+bml0b3IgbW9kZTogZmFsc2UgKGltcGxlbWVudCkNCls3NDA2Ni43NDAzNTBd
+IHdsX29wc19jb25maWc6IGNoYW5nZSBwb3dlci1zYXZlIG1vZGU6IGZhbHNl
+IChpbXBsZW1lbnQpDQpbNzQwNjYuNzQyNTkyXSB3bF9vcHNfYnNzX2luZm9f
+Y2hhbmdlZDogcW9zIGVuYWJsZWQ6IGZhbHNlIChpbXBsZW1lbnQpDQpbNzQw
+NjYuNzQzNDE2XSB3bF9vcHNfYnNzX2luZm9fY2hhbmdlZDogQlNTIGlkbGU6
+IGZhbHNlIChpbXBsZW1lbnQpDQpbNzQwNjYuNzQzNDM1XSBBRERSQ09ORihO
+RVRERVZfVVApOiB3bGFuMDogbGluayBpcyBub3QgcmVhZHkNCls3NDA2Ni44
+MzMwMjVdIHdsX29wc19ic3NfaW5mb19jaGFuZ2VkOiBCU1MgaWRsZTogdHJ1
+ZSAoaW1wbGVtZW50KQ0KWzc0MDY2LjgzMzA0OV0gd2xfb3BzX2Jzc19pbmZv
+X2NoYW5nZWQ6IEJTUyBpZGxlOiBmYWxzZSAoaW1wbGVtZW50KQ0KWzc0MDY2
+LjkyMjczOF0gd2xfb3BzX2Jzc19pbmZvX2NoYW5nZWQ6IEJTUyBpZGxlOiB0
+cnVlIChpbXBsZW1lbnQpDQpbNzQwNjcuNDcwMzA1XSBoY2lfY21kX3RpbWVy
+OiBoY2kwIGNvbW1hbmQgdHggdGltZW91dA0KWzc0MDcxLjkxMzc3M10gd2xf
+b3BzX2Jzc19pbmZvX2NoYW5nZWQ6IEJTUyBpZGxlOiBmYWxzZSAoaW1wbGVt
+ZW50KQ0KWzc0MDcyLjgxMzkwNl0gd2xfb3BzX2Jzc19pbmZvX2NoYW5nZWQ6
+IEJTUyBpZGxlOiB0cnVlIChpbXBsZW1lbnQpDQpbNzQwNzIuODEzOTMwXSB3
+bF9vcHNfYnNzX2luZm9fY2hhbmdlZDogQlNTIGlkbGU6IGZhbHNlIChpbXBs
+ZW1lbnQpDQpbNzQwNzIuODEzOTkwXSB3bGFuMDogZGVhdXRoZW50aWNhdGlu
+ZyBmcm9tIDAwOjFlOjJhOjAwOjJkOmZlIGJ5IGxvY2FsIGNob2ljZSAocmVh
+c29uPTMpDQpbNzQwNzIuOTAzNTkxXSB3bGFuMDogYXV0aGVudGljYXRlIHdp
+dGggMDA6MWU6MmE6MDA6MmQ6ZmUgKHRyeSAxKQ0KWzc0MDcyLjkxMzI1MF0g
+d2xhbjA6IGF1dGhlbnRpY2F0ZWQNCls3NDA3Mi45MTMyNzFdIHdsX29wc19i
+c3NfaW5mb19jaGFuZ2VkOiBCU1MgaWRsZTogdHJ1ZSAoaW1wbGVtZW50KQ0K
+Wzc0MDcyLjkxMzMwNF0gd2xfb3BzX2Jzc19pbmZvX2NoYW5nZWQ6IEJTUyBp
+ZGxlOiBmYWxzZSAoaW1wbGVtZW50KQ0KWzc0MDcyLjkxMzMxMl0gd2xhbjA6
+IGFzc29jaWF0ZSB3aXRoIDAwOjFlOjJhOjAwOjJkOmZlICh0cnkgMSkNCls3
+NDA3Mi45MTYxNDJdIHdsYW4wOiBSWCBBc3NvY1Jlc3AgZnJvbSAwMDoxZToy
+YTowMDoyZDpmZSAoY2FwYWI9MHg0MTEgc3RhdHVzPTAgYWlkPTEpDQpbNzQw
+NzIuOTE2MTQ3XSB3bGFuMDogYXNzb2NpYXRlZA0KWzc0MDcyLjkxNzA5MV0g
+d2xfb3BzX2Jzc19pbmZvX2NoYW5nZWQ6IHFvcyBlbmFibGVkOiB0cnVlIChp
+bXBsZW1lbnQpDQpbNzQwNzIuOTE3MDk2XSBicmNtc21hYzogd2xfb3BzX2Jz
+c19pbmZvX2NoYW5nZWQ6IGFzc29jaWF0ZWQNCls3NDA3Mi45MTcxMDBdIHds
+X29wc19ic3NfaW5mb19jaGFuZ2VkOiB1c2VfY3RzX3Byb3Q6IHRydWUgKGlt
+cGxlbWVudCkNCls3NDA3Mi45MTcxMDNdIHdsX29wc19ic3NfaW5mb19jaGFu
+Z2VkOiBzaG9ydCBwcmVhbWJsZTogdHJ1ZSAoaW1wbGVtZW50KQ0KWzc0MDcy
+LjkxNzExMV0gd2xfb3BzX2Jzc19pbmZvX2NoYW5nZWQ6IE5lZWQgdG8gY2hh
+bmdlIEJhc2ljIFJhdGVzOiAweGYgKGltcGxlbWVudCkNCls3NDA3Mi45MTcx
+MThdIHdsX29wc19ic3NfaW5mb19jaGFuZ2VkOiBhcnAgZmlsdGVyaW5nOiBl
+bmFibGVkIHRydWUsIGNvdW50IDAgKGltcGxlbWVudCkNCls3NDA3Mi45MTg0
+MDNdIEFERFJDT05GKE5FVERFVl9DSEFOR0UpOiB3bGFuMDogbGluayBiZWNv
+bWVzIHJlYWR5DQpbNzQwNzMuODA2MTk2XSB3bF9vcHNfYnNzX2luZm9fY2hh
+bmdlZDogYXJwIGZpbHRlcmluZzogZW5hYmxlZCB0cnVlLCBjb3VudCAxIChp
+bXBsZW1lbnQpDQo=
+
+---559023410-1135636377-1303325516=:1320--
