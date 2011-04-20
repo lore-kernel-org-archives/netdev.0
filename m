@@ -1,55 +1,58 @@
 From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH] net: forcedeth: fix compile warning of not used nv_set_tso
- function
-Date: Wed, 20 Apr 2011 09:31:20 +0800
-Message-ID: <4DAE3768.9030807@cn.fujitsu.com>
+Subject: [PATCH] net:bna: fix compile warning of =?UTF-8?B?4oCYYmZhX2lvY18=?=
+ =?UTF-8?B?c21lbV9wZ29mZuKAmSBkZWZpbmVkIGJ1dCBub3QgdXNlZA==?=
+Date: Wed, 20 Apr 2011 09:38:06 +0800
+Message-ID: <4DAE38FE.1010503@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: mirq-linux@rere.qmqm.pl, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63679 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:53185 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754379Ab1DTBf1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 21:35:27 -0400
+	id S1751340Ab1DTBl6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 21:41:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46ix the below compile warning:
-drivers/net/forcedeth.c:4266: warning: =E2=80=98nv_set_tso=E2=80=99 def=
-ined but not used
 
-commit 569e146 converts forcedeth driver to use hw_features.
-So, implement function of .set_tso is abandoned.
+drivers/net/bna/bfa_ioc.c:1922: warning: =E2=80=98bfa_ioc_smem_pgoff=E2=
+=80=99 defined but not used
+
 
 Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 ---
- drivers/net/forcedeth.c |   10 ----------
- 1 files changed, 0 insertions(+), 10 deletions(-)
+ drivers/net/bna/bfa_ioc.c |    7 -------
+ 1 files changed, 0 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index ec9a32d..0e1c76a 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -4263,16 +4263,6 @@ static int nv_nway_reset(struct net_device *dev)
- 	return ret;
+diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
+index ba2a4e1..fcb9bb3 100644
+--- a/drivers/net/bna/bfa_ioc.c
++++ b/drivers/net/bna/bfa_ioc.c
+@@ -82,7 +82,6 @@ static void bfa_ioc_pf_fwmismatch(struct bfa_ioc *ioc=
+);
+ static void bfa_ioc_boot(struct bfa_ioc *ioc, u32 boot_type,
+ 			 u32 boot_param);
+ static u32 bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr);
+-static u32 bfa_ioc_smem_pgoff(struct bfa_ioc *ioc, u32 fmaddr);
+ static void bfa_ioc_get_adapter_serial_num(struct bfa_ioc *ioc,
+ 						char *serial_num);
+ static void bfa_ioc_get_adapter_fw_ver(struct bfa_ioc *ioc,
+@@ -1923,12 +1922,6 @@ bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmad=
+dr)
+ 	return PSS_SMEM_PGNUM(ioc->ioc_regs.smem_pg0, fmaddr);
  }
 =20
--static int nv_set_tso(struct net_device *dev, u32 value)
+-static u32
+-bfa_ioc_smem_pgoff(struct bfa_ioc *ioc, u32 fmaddr)
 -{
--	struct fe_priv *np =3D netdev_priv(dev);
--
--	if ((np->driver_data & DEV_HAS_CHECKSUM))
--		return ethtool_op_set_tso(dev, value);
--	else
--		return -EOPNOTSUPP;
+-	return PSS_SMEM_PGOFF(fmaddr);
 -}
 -
- static void nv_get_ringparam(struct net_device *dev, struct ethtool_ri=
-ngparam* ring)
- {
- 	struct fe_priv *np =3D netdev_priv(dev);
+ /**
+  * Register mailbox message handler function, to be called by common m=
+odules
+  */
 --=20
 1.6.3.3
-
