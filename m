@@ -1,39 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] can: add missing socket check in can/raw release
-Date: Wed, 20 Apr 2011 12:22:30 -0700 (PDT)
-Message-ID: <20110420.122230.116395476.davem@davemloft.net>
-References: <4DAECA1B.5050300@hartkopp.net>
-	<20110420170333.GD24930@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2] net: r8169: convert to hw_features
+Date: Wed, 20 Apr 2011 21:13:36 +0200
+Message-ID: <20110420191336.GB18805@electric-eye.fr.zoreil.com>
+References: <20110413174758.GA17579@electric-eye.fr.zoreil.com> <1302718764.3167.7.camel@lap75545.ornl.gov> <20110418180857.GB18469@electric-eye.fr.zoreil.com> <20110418.225400.189709717.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: socketcan@hartkopp.net, netdev@vger.kernel.org
-To: davej@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dave@thedillows.org, netdev@vger.kernel.org, nic_swsd@realtek.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47381
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753441Ab1DTTXE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 15:23:04 -0400
-In-Reply-To: <20110420170333.GD24930@redhat.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52426 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755641Ab1DTTXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 15:23:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20110418.225400.189709717.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
-Date: Wed, 20 Apr 2011 13:03:34 -0400
+David Miller <davem@davemloft.net> :
+[...]
+> Francois, since TSO is disabled by default I'm applying this to
+> net-next-2.6, thanks!
 
-> On Wed, Apr 20, 2011 at 01:57:15PM +0200, Oliver Hartkopp wrote:
->  > v2: added space after 'if' according code style.
->  > 
->  > We can get here with a NULL socket argument passed from userspace,
->  > so we need to handle it accordingly.
->  > 
->  > Thanks to Dave Jones pointing at this issue in net/can/bcm.c
->  > 
->  > Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-> 
-> ACK. That was the first thing I hit this morning ;-)
+Fine.
 
-Aha, so this patch fixes the same bug in a different part of CAN,
-I missed that :-)
+> Maybe we can progressively start to try and turn these things on
+> by default now that we know more about the TX descriptor layout
+> differences.
 
-Ok I'll apply this, thanks!
+Sure. I'd welcome a little timeslot to push a few configuration and
+cosmetic things though.
+
+-- 
+Ueimor
