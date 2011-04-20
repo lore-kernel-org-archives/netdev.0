@@ -1,44 +1,39 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
- memory in __alloc_skb
-Date: Wed, 20 Apr 2011 09:05:43 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1104200904440.8634@router.home>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>  <20110418153852.153d3ed3.akpm@linux-foundation.org>  <1303181466.4152.39.camel@edumazet-laptop>  <1303182557.4152.48.camel@edumazet-laptop>  <1303183217.4152.49.camel@edumazet-laptop>
- <alpine.DEB.2.00.1104191210011.17888@router.home>  <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>  <1303279470.2756.17.camel@edumazet-laptop>  <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
- <1303286998.3186.18.camel@edumazet-laptop>  <1303290464.3186.32.camel@edumazet-laptop> <1303293765.3186.74.camel@edumazet-laptop>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] staging: octeon-ethernet: remove .get_sg, etc. ethtool_ops
+Date: Wed, 20 Apr 2011 16:25:53 +0200 (CEST)
+Message-ID: <20110420142553.D497813909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>, casteyde.christian@free.fr,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Vegard Nossum <vegardno@ifi.uio.no>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh@suse.de>, devel@driverdev.osuosl.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp108.prem.mail.ac4.yahoo.com ([76.13.13.47]:22802 "HELO
-	smtp108.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752156Ab1DTOFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 10:05:47 -0400
-In-Reply-To: <1303293765.3186.74.camel@edumazet-laptop>
+Received: from rere.qmqm.pl ([89.167.52.164]:55974 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753110Ab1DTOZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 10:25:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Apr 2011, Eric Dumazet wrote:
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ drivers/staging/octeon/ethernet-mdio.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-> > Then, just disable SLUB_CMPXCHG_DOUBLE if KMEMCHECK is defined, as I did in my first patch.
+diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/o=
+cteon/ethernet-mdio.c
+index 10a82ef..8a11ffc 100644
+--- a/drivers/staging/octeon/ethernet-mdio.c
++++ b/drivers/staging/octeon/ethernet-mdio.c
+@@ -91,8 +91,6 @@ const struct ethtool_ops cvm_oct_ethtool_ops =3D {
+ 	.set_settings =3D cvm_oct_set_settings,
+ 	.nway_reset =3D cvm_oct_nway_reset,
+ 	.get_link =3D ethtool_op_get_link,
+-	.get_sg =3D ethtool_op_get_sg,
+-	.get_tx_csum =3D ethtool_op_get_tx_csum,
+ };
+=20
+ /**
+--=20
+1.7.2.5
 
-Ok your first patch seems to be the sanest approach.
-
->  {
-> @@ -1889,16 +1895,18 @@ static __always_inline void *slab_alloc(struct kmem_cache *s,
->  	struct kmem_cache_cpu *c;
->  #ifdef CONFIG_CMPXCHG_LOCAL
->  	unsigned long tid;
-> -#else
-> +#endif
-> +#ifdef MASK_IRQ_IN_SLAB_ALLOC
->  	unsigned long flags;
->  #endif
->
-
-Yea well that does not bring us much.
