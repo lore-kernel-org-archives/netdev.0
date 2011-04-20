@@ -1,7 +1,7 @@
 From: Shirley Ma <mashirle@us.ibm.com>
 Subject: Re: [PATCH V3 2/8] Add a new zerocopy device flag
-Date: Wed, 20 Apr 2011 13:28:37 -0700
-Message-ID: <1303331317.19336.65.camel@localhost.localdomain>
+Date: Wed, 20 Apr 2011 13:30:30 -0700
+Message-ID: <1303331430.19336.67.camel@localhost.localdomain>
 References: <1303328216.19336.18.camel@localhost.localdomain>
 	 <1303328648.19336.24.camel@localhost.localdomain>
 	 <1303328906.2823.24.camel@bwh-desktop>
@@ -22,10 +22,25 @@ In-Reply-To: <4DAF40EB.20303@chelsio.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-04-20 at 13:24 -0700, Dimitris Michailidis wrote:
-> Bit 30 is also taken in net-next.
+Resubmit it with 31 bit.
 
-How about 31?
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
+---
 
-Thanks
-Shirley
+ include/linux/netdevice.h |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0249fe7..0998d3d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1067,6 +1067,9 @@ struct net_device {
+ #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
+ #define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
+ 
++/* Bit 31 is for device to map userspace buffers -- zerocopy */
++#define NETIF_F_ZEROCOPY	(1 << 31)
++
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+ #define NETIF_F_GSO_MASK	0x00ff0000
