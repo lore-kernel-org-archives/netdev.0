@@ -1,210 +1,174 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 8/9] tg3: Add macro for SMDSP toggling
-Date: Wed, 20 Apr 2011 10:57:42 -0700
-Message-ID: <1303322263-18991-9-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 7/9] tg3: Add write accessor for AUX CTRL phy
+ reg
+Date: Wed, 20 Apr 2011 10:57:41 -0700
+Message-ID: <1303322263-18991-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4142 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4291 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755476Ab1DTRs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2011 13:48:29 -0400
+	id S1755514Ab1DTRsb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 13:48:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A common AUX CTRL operation in the driver is to enable and disable the
-SMDSP.  This patch consolidates the code so that the details of the
-operation are in one place.  This patch also adds code to make sure the
-SMDSP is enabled before executing code that relies on it.
+This patch adds a write accessor for the aux ctrl phy register.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |  102 ++++++++++++++++++++++++-----------------------------
- 1 files changed, 46 insertions(+), 56 deletions(-)
+ drivers/net/tg3.c |   48 +++++++++++++++++++++++++++++++-----------------
+ drivers/net/tg3.h |    4 ++++
+ 2 files changed, 35 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 69cd7cf..9ed6bfb 100644
+index 7be10cf..69cd7cf 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -970,6 +970,15 @@ static int tg3_phy_auxctl_write(struct tg3 *tp, int reg, u32 set)
- 	return tg3_writephy(tp, MII_TG3_AUX_CTRL, set | reg);
+@@ -962,6 +962,14 @@ static int tg3_phy_auxctl_read(struct tg3 *tp, int reg, u32 *val)
+ 	return err;
  }
  
-+#define TG3_PHY_AUXCTL_SMDSP_ENABLE(tp) \
-+	tg3_phy_auxctl_write((tp), MII_TG3_AUXCTL_SHDWSEL_AUXCTL, \
-+			     MII_TG3_AUXCTL_ACTL_SMDSP_ENA | \
-+			     MII_TG3_AUXCTL_ACTL_TX_6DB)
++static int tg3_phy_auxctl_write(struct tg3 *tp, int reg, u32 set)
++{
++	if (reg == MII_TG3_AUXCTL_SHDWSEL_MISC)
++		set |= MII_TG3_AUXCTL_MISC_WREN;
 +
-+#define TG3_PHY_AUXCTL_SMDSP_DISABLE(tp) \
-+	tg3_phy_auxctl_write((tp), MII_TG3_AUXCTL_SHDWSEL_AUXCTL, \
-+			     MII_TG3_AUXCTL_ACTL_TX_6DB);
++	return tg3_writephy(tp, MII_TG3_AUX_CTRL, set | reg);
++}
 +
  static int tg3_bmcr_reset(struct tg3 *tp)
  {
  	u32 phy_control;
-@@ -1738,11 +1747,8 @@ static void tg3_phy_apply_otp(struct tg3 *tp)
+@@ -1701,8 +1709,8 @@ static void tg3_phy_toggle_automdix(struct tg3 *tp, int enable)
+ 				phy |= MII_TG3_AUXCTL_MISC_FORCE_AMDIX;
+ 			else
+ 				phy &= ~MII_TG3_AUXCTL_MISC_FORCE_AMDIX;
+-			phy |= MII_TG3_AUXCTL_MISC_WREN;
+-			tg3_writephy(tp, MII_TG3_AUX_CTRL, phy);
++			tg3_phy_auxctl_write(tp,
++					     MII_TG3_AUXCTL_SHDWSEL_MISC, phy);
+ 		}
+ 	}
+ }
+@@ -1717,8 +1725,8 @@ static void tg3_phy_set_wirespeed(struct tg3 *tp)
  
- 	otp = tp->phy_otp;
- 
--	/* Enable SM_DSP clock and tx 6dB coding. */
--	phy = MII_TG3_AUXCTL_SHDWSEL_AUXCTL |
--	      MII_TG3_AUXCTL_ACTL_SMDSP_ENA |
--	      MII_TG3_AUXCTL_ACTL_TX_6DB;
--	tg3_writephy(tp, MII_TG3_AUX_CTRL, phy);
-+	if (TG3_PHY_AUXCTL_SMDSP_ENABLE(tp))
-+		return;
- 
- 	phy = ((otp & TG3_OTP_AGCTGT_MASK) >> TG3_OTP_AGCTGT_SHIFT);
- 	phy |= MII_TG3_DSP_TAP1_AGCTGT_DFLT;
-@@ -1766,10 +1772,7 @@ static void tg3_phy_apply_otp(struct tg3 *tp)
- 	      ((otp & TG3_OTP_RCOFF_MASK) >> TG3_OTP_RCOFF_SHIFT);
- 	tg3_phydsp_write(tp, MII_TG3_DSP_EXP97, phy);
- 
--	/* Turn off SM_DSP clock. */
--	phy = MII_TG3_AUXCTL_SHDWSEL_AUXCTL |
--	      MII_TG3_AUXCTL_ACTL_TX_6DB;
--	tg3_writephy(tp, MII_TG3_AUX_CTRL, phy);
-+	TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
+ 	ret = tg3_phy_auxctl_read(tp, MII_TG3_AUXCTL_SHDWSEL_MISC, &val);
+ 	if (!ret)
+-		tg3_writephy(tp, MII_TG3_AUX_CTRL,
+-			     (val | (1 << 15) | (1 << 4)));
++		tg3_phy_auxctl_write(tp, MII_TG3_AUXCTL_SHDWSEL_MISC,
++				     val | MII_TG3_AUXCTL_MISC_WIRESPD_EN);
  }
  
- static void tg3_phy_eee_adjust(struct tg3 *tp, u32 current_link_up)
-@@ -1804,18 +1807,11 @@ static void tg3_phy_eee_adjust(struct tg3 *tp, u32 current_link_up)
- 			case ASIC_REV_5717:
- 			case ASIC_REV_5719:
- 			case ASIC_REV_57765:
--				/* Enable SM_DSP clock and tx 6dB coding. */
--				val = MII_TG3_AUXCTL_SHDWSEL_AUXCTL |
--				      MII_TG3_AUXCTL_ACTL_SMDSP_ENA |
--				      MII_TG3_AUXCTL_ACTL_TX_6DB;
--				tg3_writephy(tp, MII_TG3_AUX_CTRL, val);
--
--				tg3_phydsp_write(tp, MII_TG3_DSP_TAP26, 0x0000);
--
--				/* Turn off SM_DSP clock. */
--				val = MII_TG3_AUXCTL_SHDWSEL_AUXCTL |
--				      MII_TG3_AUXCTL_ACTL_TX_6DB;
--				tg3_writephy(tp, MII_TG3_AUX_CTRL, val);
-+				if (!TG3_PHY_AUXCTL_SMDSP_ENABLE(tp)) {
-+					tg3_phydsp_write(tp, MII_TG3_DSP_TAP26,
-+							 0x0000);
-+					TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
-+				}
- 			}
- 			/* Fallthrough */
- 		case TG3_CL45_D7_EEERES_STAT_LP_100TX:
-@@ -1967,8 +1963,9 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
- 			     (MII_TG3_CTRL_AS_MASTER |
- 			      MII_TG3_CTRL_ENABLE_AS_MASTER));
- 
--		/* Enable SM_DSP_CLOCK and 6dB.  */
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0c00);
-+		err = TG3_PHY_AUXCTL_SMDSP_ENABLE(tp);
-+		if (err)
-+			return err;
- 
- 		/* Block the PHY control access.  */
- 		tg3_phydsp_write(tp, 0x8005, 0x0800);
-@@ -1987,13 +1984,7 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
- 	tg3_writephy(tp, MII_TG3_DSP_ADDRESS, 0x8200);
- 	tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0000);
- 
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 ||
--	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
--		/* Set Extended packet length bit for jumbo frames */
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4400);
--	} else {
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0400);
--	}
-+	TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
- 
- 	tg3_writephy(tp, MII_TG3_CTRL, phy9_orig);
- 
-@@ -2081,33 +2072,39 @@ static int tg3_phy_reset(struct tg3 *tp)
- 		tg3_phy_toggle_apd(tp, false);
- 
- out:
--	if (tp->phy_flags & TG3_PHYFLG_ADC_BUG) {
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0c00);
-+	if ((tp->phy_flags & TG3_PHYFLG_ADC_BUG) &&
-+	    !TG3_PHY_AUXCTL_SMDSP_ENABLE(tp)) {
- 		tg3_phydsp_write(tp, 0x201f, 0x2aaa);
- 		tg3_phydsp_write(tp, 0x000a, 0x0323);
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0400);
-+		TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
- 	}
-+
- 	if (tp->phy_flags & TG3_PHYFLG_5704_A0_BUG) {
- 		tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x8d68);
- 		tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x8d68);
- 	}
-+
- 	if (tp->phy_flags & TG3_PHYFLG_BER_BUG) {
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0c00);
--		tg3_phydsp_write(tp, 0x000a, 0x310b);
--		tg3_phydsp_write(tp, 0x201f, 0x9506);
--		tg3_phydsp_write(tp, 0x401f, 0x14e2);
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0400);
-+		if (!TG3_PHY_AUXCTL_SMDSP_ENABLE(tp)) {
-+			tg3_phydsp_write(tp, 0x000a, 0x310b);
-+			tg3_phydsp_write(tp, 0x201f, 0x9506);
-+			tg3_phydsp_write(tp, 0x401f, 0x14e2);
-+			TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
-+		}
- 	} else if (tp->phy_flags & TG3_PHYFLG_JITTER_BUG) {
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0c00);
--		tg3_writephy(tp, MII_TG3_DSP_ADDRESS, 0x000a);
--		if (tp->phy_flags & TG3_PHYFLG_ADJUST_TRIM) {
--			tg3_writephy(tp, MII_TG3_DSP_RW_PORT, 0x110b);
--			tg3_writephy(tp, MII_TG3_TEST1,
--				     MII_TG3_TEST1_TRIM_EN | 0x4);
--		} else
--			tg3_writephy(tp, MII_TG3_DSP_RW_PORT, 0x010b);
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0400);
-+		if (!TG3_PHY_AUXCTL_SMDSP_ENABLE(tp)) {
-+			tg3_writephy(tp, MII_TG3_DSP_ADDRESS, 0x000a);
-+			if (tp->phy_flags & TG3_PHYFLG_ADJUST_TRIM) {
-+				tg3_writephy(tp, MII_TG3_DSP_RW_PORT, 0x110b);
-+				tg3_writephy(tp, MII_TG3_TEST1,
-+					     MII_TG3_TEST1_TRIM_EN | 0x4);
-+			} else
-+				tg3_writephy(tp, MII_TG3_DSP_RW_PORT, 0x010b);
-+
-+			TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
-+		}
- 	}
-+
- 	/* Set Extended packet length bit (bit 14) on all chips that */
+ static void tg3_phy_apply_otp(struct tg3 *tp)
+@@ -2104,13 +2112,14 @@ out:
  	/* support jumbo frames */
  	if ((tp->phy_id & TG3_PHY_ID_MASK) == TG3_PHY_ID_BCM5401) {
-@@ -3011,11 +3008,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
- 		tw32(TG3_CPMU_EEE_MODE,
- 		     tr32(TG3_CPMU_EEE_MODE) & ~TG3_CPMU_EEEMD_LPI_ENABLE);
- 
--		/* Enable SM_DSP clock and tx 6dB coding. */
--		val = MII_TG3_AUXCTL_SHDWSEL_AUXCTL |
--		      MII_TG3_AUXCTL_ACTL_SMDSP_ENA |
--		      MII_TG3_AUXCTL_ACTL_TX_6DB;
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, val);
-+		TG3_PHY_AUXCTL_SMDSP_ENABLE(tp);
- 
- 		switch (GET_ASIC_REV(tp->pci_chip_rev_id)) {
- 		case ASIC_REV_5717:
-@@ -3044,10 +3037,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
- 		}
- 		tg3_phy_cl45_write(tp, MDIO_MMD_AN, MDIO_AN_EEE_ADV, val);
- 
--		/* Turn off SM_DSP clock. */
--		val = MII_TG3_AUXCTL_SHDWSEL_AUXCTL |
--		      MII_TG3_AUXCTL_ACTL_TX_6DB;
--		tg3_writephy(tp, MII_TG3_AUX_CTRL, val);
-+		TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
+ 		/* Cannot do read-modify-write on 5401 */
+-		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4c20);
++		tg3_phy_auxctl_write(tp, MII_TG3_AUXCTL_SHDWSEL_AUXCTL, 0x4c20);
+ 	} else if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
+ 		/* Set bit 14 with read-modify-write to preserve other bits */
+ 		err = tg3_phy_auxctl_read(tp,
+ 					  MII_TG3_AUXCTL_SHDWSEL_AUXCTL, &val);
+ 		if (!err)
+-			tg3_writephy(tp, MII_TG3_AUX_CTRL, val | 0x4000);
++			tg3_phy_auxctl_write(tp, MII_TG3_AUXCTL_SHDWSEL_AUXCTL,
++					   val | MII_TG3_AUXCTL_ACTL_EXTPKTLEN);
  	}
  
- 	if (tp->link_config.autoneg == AUTONEG_DISABLE &&
+ 	/* Set phy register 0x10 bit 0 to high fifo elasticity to support
+@@ -2319,11 +2328,10 @@ static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
+ 		tg3_writephy(tp, MII_TG3_EXT_CTRL,
+ 			     MII_TG3_EXT_CTRL_FORCE_LED_OFF);
+ 
+-		tg3_writephy(tp, MII_TG3_AUX_CTRL,
+-			     MII_TG3_AUXCTL_SHDWSEL_PWRCTL |
+-			     MII_TG3_AUXCTL_PCTL_100TX_LPWR |
+-			     MII_TG3_AUXCTL_PCTL_SPR_ISOLATE |
+-			     MII_TG3_AUXCTL_PCTL_VREG_11V);
++		val = MII_TG3_AUXCTL_PCTL_100TX_LPWR |
++		      MII_TG3_AUXCTL_PCTL_SPR_ISOLATE |
++		      MII_TG3_AUXCTL_PCTL_VREG_11V;
++		tg3_phy_auxctl_write(tp, MII_TG3_AUXCTL_SHDWSEL_PWRCTL, val);
+ 	}
+ 
+ 	/* The PHY should not be powered down on some chips because
+@@ -2717,8 +2725,13 @@ static int tg3_power_down_prepare(struct tg3 *tp)
+ 		u32 mac_mode;
+ 
+ 		if (!(tp->phy_flags & TG3_PHYFLG_PHY_SERDES)) {
+-			if (do_low_power) {
+-				tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x5a);
++			if (do_low_power &&
++			    !(tp->phy_flags & TG3_PHYFLG_IS_FET)) {
++				tg3_phy_auxctl_write(tp,
++					       MII_TG3_AUXCTL_SHDWSEL_PWRCTL,
++					       MII_TG3_AUXCTL_PCTL_WOL_EN |
++					       MII_TG3_AUXCTL_PCTL_100TX_LPWR |
++					       MII_TG3_AUXCTL_PCTL_CL_AB_TXDAC);
+ 				udelay(40);
+ 			}
+ 
+@@ -3092,7 +3105,7 @@ static int tg3_init_5401phy_dsp(struct tg3 *tp)
+ 
+ 	/* Turn off tap power management. */
+ 	/* Set Extended packet length bit */
+-	err  = tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4c20);
++	err = tg3_phy_auxctl_write(tp, MII_TG3_AUXCTL_SHDWSEL_AUXCTL, 0x4c20);
+ 
+ 	err |= tg3_phydsp_write(tp, 0x0012, 0x1804);
+ 	err |= tg3_phydsp_write(tp, 0x0013, 0x1204);
+@@ -3198,7 +3211,7 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 		udelay(80);
+ 	}
+ 
+-	tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x02);
++	tg3_phy_auxctl_write(tp, MII_TG3_AUXCTL_SHDWSEL_PWRCTL, 0);
+ 
+ 	/* Some third-party PHYs need to be reset on link going
+ 	 * down.
+@@ -3283,8 +3296,9 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 					  MII_TG3_AUXCTL_SHDWSEL_MISCTEST,
+ 					  &val);
+ 		if (!err && !(val & (1 << 10))) {
+-			val |= (1 << 10);
+-			tg3_writephy(tp, MII_TG3_AUX_CTRL, val);
++			tg3_phy_auxctl_write(tp,
++					     MII_TG3_AUXCTL_SHDWSEL_MISCTEST,
++					     val | (1 << 10));
+ 			goto relink;
+ 		}
+ 	}
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index b9382f1..eaa7669 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2197,15 +2197,19 @@
+ #define MII_TG3_AUXCTL_SHDWSEL_AUXCTL	0x0000
+ #define MII_TG3_AUXCTL_ACTL_TX_6DB	0x0400
+ #define MII_TG3_AUXCTL_ACTL_SMDSP_ENA	0x0800
++#define MII_TG3_AUXCTL_ACTL_EXTPKTLEN	0x4000
+ 
+ #define MII_TG3_AUXCTL_SHDWSEL_PWRCTL	0x0002
++#define MII_TG3_AUXCTL_PCTL_WOL_EN	0x0008
+ #define MII_TG3_AUXCTL_PCTL_100TX_LPWR	0x0010
+ #define MII_TG3_AUXCTL_PCTL_SPR_ISOLATE	0x0020
++#define MII_TG3_AUXCTL_PCTL_CL_AB_TXDAC	0x0040
+ #define MII_TG3_AUXCTL_PCTL_VREG_11V	0x0180
+ 
+ #define MII_TG3_AUXCTL_SHDWSEL_MISCTEST	0x0004
+ 
+ #define MII_TG3_AUXCTL_SHDWSEL_MISC	0x0007
++#define MII_TG3_AUXCTL_MISC_WIRESPD_EN	0x0010
+ #define MII_TG3_AUXCTL_MISC_FORCE_AMDIX	0x0200
+ #define MII_TG3_AUXCTL_MISC_RDSEL_SHIFT	12
+ #define MII_TG3_AUXCTL_MISC_WREN	0x8000
 -- 
 1.7.3.4
 
