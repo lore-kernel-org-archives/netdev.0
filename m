@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] usbnet: Resubmit interrupt URB more often
-Date: Wed, 20 Apr 2011 01:24:31 -0700 (PDT)
-Message-ID: <20110420.012431.104074243.davem@davemloft.net>
-References: <1303233066.2988.14.camel@bwh-desktop>
-	<20110419175037.AADD22052B@glenhelen.mtv.corp.google.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH v2] net: filter: Just In Time compiler
+Date: Wed, 20 Apr 2011 10:27:18 +0200
+Message-ID: <dfdaf466cb9434e7825c861f78070a4d@localhost>
+References: <1302797147.3248.32.camel@edumazet-laptop>
+ <4DAE8E47.7040409@redhat.com> <1303286878.3186.17.camel@edumazet-laptop>
+ <20110420.011454.226757908.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: pstew@chromium.org
+Cc: <eric.dumazet@gmail.com>, <avi@redhat.com>,
+	<netdev@vger.kernel.org>, <acme@infradead.org>,
+	<bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42669
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750808Ab1DTIZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:25:05 -0400
-In-Reply-To: <20110419175037.AADD22052B@glenhelen.mtv.corp.google.com>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:47526 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750768Ab1DTI1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:27:20 -0400
+In-Reply-To: <20110420.011454.226757908.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Stewart <pstew@chromium.org>
-Date: Tue, 19 Apr 2011 10:44:12 -0700
 
-> The second class of device are those which shut down the device
-> during suspend.  During a suspend-resume cycle, the device is
-> re-enumerated at system resume, and for whatever reason
-> usbnet_resume may be called on the device during the call-tree
-> from usbnet_open-> usb_autopm_get_interface, which may cause a
-> race where the first change above may cause the bh to submit the
-> interrupt urb before usbnet_open() does.  As a result, I've added
-> an EALREADY check and a fix to urb.c to send one.
+On Wed, 20 Apr 2011 01:14:54 -0700 (PDT), David Miller wrote:
 
-You'll need to submit the generic urb submission change via the USB
-maintainers, not networking.
+
+
+I am fine with this patch too:
+
+
+
+Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+
+
+
+Hopefully someone dig into the BPF optimizer in libpcap - cause there lie
+
+the big optimization potential. Trivial filter rules like "host
+
+192.168.1.1" cannot really be optimized - the unavoidable code path is the
+
+"problem".
+
+
+
+Hagen
