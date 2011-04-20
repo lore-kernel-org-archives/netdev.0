@@ -1,61 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 :  always copying the rx buffer to new skb
-Date: Wed, 20 Apr 2011 21:13:16 +0200
-Message-ID: <20110420191316.GA18805@electric-eye.fr.zoreil.com>
-References: <4DAC7001.9060800@hotmail.com> <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Add missing socket check in can/bcm release.
+Date: Wed, 20 Apr 2011 12:21:06 -0700 (PDT)
+Message-ID: <20110420.122106.242114928.davem@davemloft.net>
+References: <20110420033001.GA32635@redhat.com>
+	<20110419.203720.02289813.davem@davemloft.net>
+	<20110420160350.GA24930@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	nic_swsd@realtek.com
-To: John Lumby <johnlumby@hotmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52418 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078Ab1DTTV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 15:21:29 -0400
-Content-Disposition: inline
-In-Reply-To: <4DACAC7E.4070400@hotmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47375
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753417Ab1DTTVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 15:21:42 -0400
+In-Reply-To: <20110420160350.GA24930@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Lumby <johnlumby@hotmail.com> :
-[...]
-> I've  verified that on my 8168c by simulating an allocation failure
-> on 15 out of every 16 rx-Interrupts  (unhooking the current skb and
-> then simply not allocating a new skb and not giving the
-> corresponding descriptor to the asic) and everything works just
-> fine,  with just a slight drop in throughput (down to 987 Mbits/sec,
-> still well ahead of the always-copy).
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 20 Apr 2011 12:03:50 -0400
 
-Did your testing account for some memory pressure ?
-
-> So do we really need to be that concerned about occasional
-> allocation failure?
-
-See $search_engine +r8169 high order memory allocation failure.
-
-> And if someone is that concerned,   then,   with my proposal,  they
-> can leave the rx_copybreak at its default of 16383,   when every
-> packet is copied anyway.     (My patch takes a slightly different
-> approach if the allocation of the new skb fails  -   current 2.6.39
-> drops the packet,   I would propose to unhook and retain the
-> descriptor because I can replenish later  -  but that is also
-> debatable).     Also that's why I favour making the rx ring size
-> configurable.
-
-Why don't you send the patch through the mailing list ?
-
-(hint, hint)
-
-> On 04/18/11 14:21, Francois Romieu wrote:
-> >Short answer: it's mostly related to CVE-2009-4537 (see git log).
+> On Tue, Apr 19, 2011 at 08:37:20PM -0700, David Miller wrote:
+>  > From: Dave Jones <davej@redhat.com>
+>  > Date: Tue, 19 Apr 2011 23:30:01 -0400
+>  > 
+>  > > We can get here with a NULL socket argument passed from userspace,
+>  > > so we need to handle it accordingly.
+>  > > 
+>  > > Signed-off-by: Dave Jones <davej@redhat.com>
+>  > 
+>  > Applied and queued up for -stable, thanks Dave.
 > 
-> I understand the need to make the rx_buf_size 16383 to defeat the
-> DOS attacker,   no suggestion to alter that.     I'm just not sure I
-> see why that has to imply the always_copy.
+> Out of curiousity, while I was asleep it occured to me.. is it ever valid
+> for a ->release to get passed a NULL socket->sk ?
 
-Because of high-order memory allocation failure under memory pressure and
-memory wastage. Btw several 816x have limited jumbo frames abilities.
+Yes, it happens all the time.
 
--- 
-Ueimor
+If accept() fails mid-stream, we'll have an 'sk' that hasn't been
+hooked up to ->socket yet, but we still have to release the 'sk'
+in the error handling.
+
+See also commit c100c8f4c3c6f2a407bdbaaad2c4f1062e6a473a, which
+fixes a bug triggered via the same code path.
