@@ -1,234 +1,233 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Suspend/resume - slow resume
-Date: Wed, 20 Apr 2011 21:53:30 +0200
-Message-ID: <20110420195330.GB18897@electric-eye.fr.zoreil.com>
-References: <Pine.SOC.4.64.1104151122330.1320@er3.rutgers.edu> <BANLkTi=Gq5thZk2f1nWTz3dDA5Non8ANZg@mail.gmail.com> <20110417101731.GA17986@electric-eye.fr.zoreil.com> <BANLkTi=tPc6NmUuTYqbVZduNRNbE=-c34Q@mail.gmail.com> <20110418180813.GA18469@electric-eye.fr.zoreil.com> <BANLkTim_1OgqjCeD1a4Ay2fWJSmPHa_XTQ@mail.gmail.com> <Pine.SOC.4.64.1104181519490.1320@er3.rutgers.edu> <BANLkTi=dke10HougmiQn9hSF15nK0B8mdA@mail.gmail.com> <20110420181602.GA18740@electric-eye.fr.zoreil.com> <Pine.SOC.4.64.1104201507140.1320@er3.rutgers.edu>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [PATCH V3 4/8] vhost TX zero copy support
+Date: Wed, 20 Apr 2011 13:07:37 -0700
+Message-ID: <1303330057.19336.50.camel@localhost.localdomain>
+References: <1303328216.19336.18.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael, J. Wysocki" <rjw@sisk.pl>, Greg KH <gregkh@suse.de>,
-	nic_swsd@realtek.com
-To: Ciprian Docan <docan@eden.rutgers.edu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Avi Kivity <avi@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mst@redhat.com, David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.SOC.4.64.1104201507140.1320@er3.rutgers.edu>
+In-Reply-To: <1303328216.19336.18.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ciprian Docan <docan@eden.rutgers.edu> :
-[...]
-> I tried to unload the module, but it crashed. I re-booted the
-> machine and tried to unload the module again. I got the output from
-> dmesg; please see attached.
+This patch maintains the outstanding userspace buffers in the 
+sequence it is delivered to vhost. The outstanding userspace buffers 
+will be marked as done once the lower device buffers DMA has finished. 
+This is monitored through last reference of kfree_skb callback. Two
+buffer index are used for this purpose.
 
-Hmmm...
+The vhost passes the userspace buffers info to lower device skb 
+through message control. Since there will be some done DMAs when
+entering vhost handle_tx. The worse case is all buffers in the vq are
+in pending/done status, so we need to notify guest to release DMA done 
+buffers first before get any new buffers from the vq.
 
-Subject: [PATCH] r8169: don't request firmware when there's no userspace.
-
-The firmware is cached during the first successfull call to open() and
-released once the network device is unregistered. The driver uses the
-cached firmware between open() and unregister_netdev().
-
-So far the firmware is optional : a failure to load the firmware does
-not prevent open() to success. It is thus necessary to 1) unregister
-all 816x / 810[23] devices and 2) force a driver probe to issue a new
-firmware load.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Shirley <xma@us.ibm.com>
 ---
- drivers/net/r8169.c |   96 ++++++++++++++++++++++++++++++++++++--------------
- 1 files changed, 69 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 493b0de..4b41b80 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -170,6 +170,16 @@ static const struct {
- };
- #undef _R
+ drivers/vhost/net.c   |   30 +++++++++++++++++++++++++++-
+ drivers/vhost/vhost.c |   50 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/vhost/vhost.h |   10 +++++++++
+ 3 files changed, 87 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 2f7c76a..1bc4536 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -32,6 +32,8 @@
+  * Using this limit prevents one virtqueue from starving others. */
+ #define VHOST_NET_WEIGHT 0x80000
  
-+static const struct rtl_firmware_info {
-+	int mac_version;
-+	const char *fw_name;
-+} rtl_firmware_infos[] = {
-+	{ .mac_version = RTL_GIGA_MAC_VER_25, .fw_name = FIRMWARE_8168D_1 },
-+	{ .mac_version = RTL_GIGA_MAC_VER_26, .fw_name = FIRMWARE_8168D_2 },
-+	{ .mac_version = RTL_GIGA_MAC_VER_29, .fw_name = FIRMWARE_8105E_1 },
-+	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 }
-+};
++#define MAX_ZEROCOPY_PEND 64
 +
- enum cfg_version {
- 	RTL_CFG_0 = 0x00,
- 	RTL_CFG_1,
-@@ -565,6 +575,7 @@ struct rtl8169_private {
- 	u32 saved_wolopts;
+ enum {
+ 	VHOST_NET_VQ_RX = 0,
+ 	VHOST_NET_VQ_TX = 1,
+@@ -129,6 +131,7 @@ static void handle_tx(struct vhost_net *net)
+ 	int err, wmem;
+ 	size_t hdr_size;
+ 	struct socket *sock;
++	struct skb_ubuf_info pend;
  
- 	const struct firmware *fw;
-+#define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN);
- };
+ 	/* TODO: check that we are running from vhost_worker? */
+ 	sock = rcu_dereference_check(vq->private_data, 1);
+@@ -151,6 +154,10 @@ static void handle_tx(struct vhost_net *net)
+ 	hdr_size = vq->vhost_hlen;
  
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
-@@ -1790,24 +1801,24 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
- static void rtl_release_firmware(struct rtl8169_private *tp)
- {
- 	release_firmware(tp->fw);
--	tp->fw = NULL;
-+	tp->fw = RTL_FIRMWARE_UNKNOWN;
- }
- 
--static int rtl_apply_firmware(struct rtl8169_private *tp, const char *fw_name)
-+static void rtl_apply_firmware(struct rtl8169_private *tp)
- {
--	const struct firmware **fw = &tp->fw;
--	int rc = !*fw;
--
--	if (rc) {
--		rc = request_firmware(fw, fw_name, &tp->pci_dev->dev);
--		if (rc < 0)
--			goto out;
--	}
-+	const struct firmware *fw = tp->fw;
- 
- 	/* TODO: release firmware once rtl_phy_write_fw signals failures. */
--	rtl_phy_write_fw(tp, *fw);
--out:
--	return rc;
-+	if (!IS_ERR_OR_NULL(fw))
-+		rtl_phy_write_fw(tp, fw);
-+}
+ 	for (;;) {
++		/* Release DMAs done buffers first */
++		if (sock_flag(sock->sk, SOCK_ZEROCOPY))
++			vhost_zerocopy_signal_used(vq);
 +
-+static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 reg, u16 val)
-+{
-+	if (rtl_readphy(tp, reg) != val)
-+		netif_warn(tp, hw, tp->dev, "chipset not ready for firmware\n");
-+	else
-+		rtl_apply_firmware(tp);
- }
- 
- static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)
-@@ -2246,10 +2257,8 @@ static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
- 
- 	rtl_writephy(tp, 0x1f, 0x0005);
- 	rtl_writephy(tp, 0x05, 0x001b);
--	if ((rtl_readphy(tp, 0x06) != 0xbf00) ||
--	    (rtl_apply_firmware(tp, FIRMWARE_8168D_1) < 0)) {
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
--	}
-+
-+	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xbf00);
- 
- 	rtl_writephy(tp, 0x1f, 0x0000);
- }
-@@ -2351,10 +2360,8 @@ static void rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
- 
- 	rtl_writephy(tp, 0x1f, 0x0005);
- 	rtl_writephy(tp, 0x05, 0x001b);
--	if ((rtl_readphy(tp, 0x06) != 0xb300) ||
--	    (rtl_apply_firmware(tp, FIRMWARE_8168D_2) < 0)) {
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
--	}
-+
-+	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xb300);
- 
- 	rtl_writephy(tp, 0x1f, 0x0000);
- }
-@@ -2474,8 +2481,7 @@ static void rtl8105e_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x18, 0x0310);
- 	msleep(100);
- 
--	if (rtl_apply_firmware(tp, FIRMWARE_8105E_1) < 0)
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-+	rtl_apply_firmware(tp);
- 
- 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
- }
-@@ -3237,6 +3243,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp->timer.data = (unsigned long) dev;
- 	tp->timer.function = rtl8169_phy_timer;
- 
-+	tp->fw = RTL_FIRMWARE_UNKNOWN;
-+
- 	rc = register_netdev(dev);
- 	if (rc < 0)
- 		goto err_out_msi_4;
-@@ -3288,10 +3296,10 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
- 
- 	cancel_delayed_work_sync(&tp->task);
- 
--	rtl_release_firmware(tp);
--
- 	unregister_netdev(dev);
- 
-+	rtl_release_firmware(tp);
-+
- 	if (pci_dev_run_wake(pdev))
- 		pm_runtime_get_noresume(&pdev->dev);
- 
-@@ -3303,6 +3311,37 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
- 	pci_set_drvdata(pdev, NULL);
- }
- 
-+static void rtl_request_firmware(struct rtl8169_private *tp)
-+{
-+	int i;
-+
-+	/* Return early if the firmware is already loaded / cached. */
-+	if (!IS_ERR(tp->fw))
-+		goto out;
-+
-+	for (i = 0; i < ARRAY_SIZE(rtl_firmware_infos); i++) {
-+		const struct rtl_firmware_info *info = rtl_firmware_infos + i;
-+
-+		if (info->mac_version == tp->mac_version) {
-+			const char *name = info->fw_name;
-+			int rc;
-+
-+			rc = request_firmware(&tp->fw, name, &tp->pci_dev->dev);
-+			if (rc < 0) {
-+				netif_warn(tp, ifup, tp->dev, "unable to load "
-+					"firmware patch %s (%d)\n", name, rc);
-+				goto out_disable_request_firmware;
+ 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+ 					 &out, &in,
+@@ -166,6 +173,12 @@ static void handle_tx(struct vhost_net *net)
+ 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+ 				break;
+ 			}
++			/* If more outstanding DMAs, queue the work */
++			if (sock_flag(sock->sk, SOCK_ZEROCOPY) &&
++			    (atomic_read(&vq->refcnt) > MAX_ZEROCOPY_PEND)) {
++				vhost_poll_queue(&vq->poll);
++				break;
 +			}
-+			goto out;
+ 			if (unlikely(vhost_enable_notify(vq))) {
+ 				vhost_disable_notify(vq);
+ 				continue;
+@@ -188,17 +201,30 @@ static void handle_tx(struct vhost_net *net)
+ 			       iov_length(vq->hdr, s), hdr_size);
+ 			break;
+ 		}
++		/* use msg_control to pass vhost zerocopy ubuf info to skb */
++		if (sock_flag(sock->sk, SOCK_ZEROCOPY)) {
++			pend.callback = vhost_zerocopy_callback;
++			pend.arg = vq;
++			pend.desc = vq->upend_idx;
++			msg.msg_control = &pend;
++			msg.msg_controllen = sizeof(pend);
++			vq->heads[vq->upend_idx].id = head;
++			vq->upend_idx = (vq->upend_idx + 1) % UIO_MAXIOV;
++			atomic_inc(&vq->refcnt);
 +		}
-+	}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
+-			vhost_discard_vq_desc(vq, 1);
++			if (!sock_flag(sock->sk, SOCK_ZEROCOPY))
++				vhost_discard_vq_desc(vq, 1);
+ 			tx_poll_start(net, sock);
+ 			break;
+ 		}
+ 		if (err != len)
+ 			pr_debug("Truncated TX packet: "
+ 				 " len %d != %zd\n", err, len);
+-		vhost_add_used_and_signal(&net->dev, vq, head, 0);
++		if (!sock_flag(sock->sk, SOCK_ZEROCOPY))
++			vhost_add_used_and_signal(&net->dev, vq, head, 0);
+ 		total_len += len;
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 2ab2912..09bcb1d 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -174,6 +174,9 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->call_ctx = NULL;
+ 	vq->call = NULL;
+ 	vq->log_ctx = NULL;
++	vq->upend_idx = 0;
++	vq->done_idx = 0;
++	atomic_set(&vq->refcnt, 0);
+ }
+ 
+ static int vhost_worker(void *data)
+@@ -230,7 +233,7 @@ static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
+ 					       UIO_MAXIOV, GFP_KERNEL);
+ 		dev->vqs[i].log = kmalloc(sizeof *dev->vqs[i].log * UIO_MAXIOV,
+ 					  GFP_KERNEL);
+-		dev->vqs[i].heads = kmalloc(sizeof *dev->vqs[i].heads *
++		dev->vqs[i].heads = kzalloc(sizeof *dev->vqs[i].heads *
+ 					    UIO_MAXIOV, GFP_KERNEL);
+ 
+ 		if (!dev->vqs[i].indirect || !dev->vqs[i].log ||
+@@ -385,10 +388,41 @@ long vhost_dev_reset_owner(struct vhost_dev *dev)
+ 	return 0;
+ }
+ 
++void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
++{
++	int i, j = 0;
 +
-+out_disable_request_firmware:
-+	tp->fw = NULL;
-+out:
-+	return;
++	i = vq->done_idx;
++	while (i != vq->upend_idx) {
++		/* len = 1 means DMA done */
++		if (vq->heads[i].len == 1) {
++			/* reset len = 0 */
++			vq->heads[i].len = 0;
++			i = (i + 1) % UIO_MAXIOV;
++			++j;
++		} else
++			break;
++	}
++	if (j) {
++		if (i > vq->done_idx)
++			vhost_add_used_n(vq, &vq->heads[vq->done_idx], j);
++		else {
++			vhost_add_used_n(vq, &vq->heads[vq->done_idx],
++					 UIO_MAXIOV - vq->done_idx);
++			vhost_add_used_n(vq, vq->heads, i);
++		}
++		vq->done_idx = i;
++		vhost_signal(vq->dev, vq);
++		atomic_sub(j, &vq->refcnt);
++	}
 +}
 +
- static int rtl8169_open(struct net_device *dev)
+ /* Caller should have device mutex */
+ void vhost_dev_cleanup(struct vhost_dev *dev)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -3334,11 +3373,13 @@ static int rtl8169_open(struct net_device *dev)
- 
- 	smp_mb();
- 
-+	rtl_request_firmware(tp);
+ 	int i;
++	unsigned long begin = jiffies;
 +
- 	retval = request_irq(dev->irq, rtl8169_interrupt,
- 			     (tp->features & RTL_FEATURE_MSI) ? 0 : IRQF_SHARED,
- 			     dev->name, dev);
- 	if (retval < 0)
--		goto err_release_ring_2;
-+		goto err_release_fw_2;
  
- 	napi_enable(&tp->napi);
+ 	for (i = 0; i < dev->nvqs; ++i) {
+ 		if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
+@@ -405,6 +439,11 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+ 			eventfd_ctx_put(dev->vqs[i].call_ctx);
+ 		if (dev->vqs[i].call)
+ 			fput(dev->vqs[i].call);
++		/* wait for all lower device DMAs done, then notify guest */
++		while (atomic_read(&dev->vqs[i].refcnt)) {
++			if (time_after(jiffies, begin + 5 * HZ))
++				vhost_zerocopy_signal_used(&dev->vqs[i]);
++		}
+ 		vhost_vq_reset(dev, dev->vqs + i);
+ 	}
+ 	vhost_dev_free_iovecs(dev);
+@@ -1416,3 +1455,12 @@ void vhost_disable_notify(struct vhost_virtqueue *vq)
+ 		vq_err(vq, "Failed to enable notification at %p: %d\n",
+ 		       &vq->used->flags, r);
+ }
++
++void vhost_zerocopy_callback(struct sk_buff *skb)
++{
++	int idx = skb_shinfo(skb)->ubuf.desc;
++	struct vhost_virtqueue *vq = skb_shinfo(skb)->ubuf.arg;
++
++	/* set len = 1 to mark this desc buffers done DMA */
++	vq->heads[idx].len = 1;
++}
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index b3363ae..cd2febb 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -108,6 +108,14 @@ struct vhost_virtqueue {
+ 	/* Log write descriptors */
+ 	void __user *log_base;
+ 	struct vhost_log *log;
++	/* vhost zerocopy support */
++	atomic_t refcnt; /* num of outstanding zerocopy DMAs */
++	/* index of zerocopy pending DMA buffers */
++	int upend_idx;
++	/* index of zerocopy done DMA buffers, but not notify guest yet */
++	int done_idx;
++	/* notify vhost zerocopy DMA buffers has done in lower device */
++	void (*callback)(struct sk_buff *);
+ };
  
-@@ -3359,7 +3400,8 @@ static int rtl8169_open(struct net_device *dev)
- out:
- 	return retval;
+ struct vhost_dev {
+@@ -154,6 +162,8 @@ bool vhost_enable_notify(struct vhost_virtqueue *);
  
--err_release_ring_2:
-+err_release_fw_2:
-+	rtl_release_firmware(tp);
- 	rtl8169_rx_clear(tp);
- err_free_rx_1:
- 	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
--- 
-1.7.4.2
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
++void vhost_zerocopy_callback(struct sk_buff *skb);
++void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
+ 
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
