@@ -1,47 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: 802.3ad - fix agg_device_up
-Date: Wed, 20 Apr 2011 01:45:36 -0700 (PDT)
-Message-ID: <20110420.014536.70181162.davem@davemloft.net>
-References: <20110419120955.GA14302@midget.suse.cz>
-	<21326.1303232103@death>
+Subject: Re: [PATCH] bnx2x: dont dereference tcp header on non tcp frames
+Date: Wed, 20 Apr 2011 01:46:57 -0700 (PDT)
+Message-ID: <20110420.014657.232735224.davem@davemloft.net>
+References: <1303229503.3480.386.camel@edumazet-laptop>
+	<1303284713.3186.13.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jbohac@suse.cz, netdev@vger.kernel.org, andy@greyhouse.net,
-	shemminger@vyatta.com
-To: fubar@us.ibm.com
+Cc: dmitry@broadcom.com, eilong@broadcom.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54265
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54272
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752257Ab1DTIqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:46:10 -0400
-In-Reply-To: <21326.1303232103@death>
+	by vger.kernel.org with ESMTP id S1752740Ab1DTIrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 04:47:31 -0400
+In-Reply-To: <1303284713.3186.13.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Tue, 19 Apr 2011 09:55:03 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 20 Apr 2011 09:31:53 +0200
 
-> Jiri Bohac <jbohac@suse.cz> wrote:
+> [PATCH] bnx2x: dont dereference tcp header on non tcp frames
 > 
->>The slave member of struct aggregator does not necessarily point
->>to a slave which is part of the aggregator. It points to the
->>slave structure containing the aggregator structure, while
->>completely different slaves (or no slaves at all) may be part of
->>the aggregator.
->>
->>The agg_device_up() function wrongly uses agg->slave to find the state of the
->>aggregator.  Use agg->lag_ports->slave instead. The bug has been
->>introduced by commit 4cd6fe1c6483cde93e2ec91f58b7af9c9eea51ad.
->>
->>Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+> bnx2x_set_pbd_csum() & bnx2x_set_pbd_csum_e2() use 
+> tcp_hdrlen(skb) even for non TCP frames
 > 
-> 	One additional note: port->slave can be NULL when the slave is
-> transitioning in or out of the bond, but not when the port is part of an
-> aggregator, so this usage should be safe.
-> 
-> 	-J
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied and queued up for -stable, thanks.
+Broadcom folks please review.
