@@ -1,88 +1,53 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
-Date: Wed, 20 Apr 2011 09:10:12 +0200
-Message-ID: <20110420071012.GA332@kurt.e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	<20110314135917.GF333@e-circ.dyndns.org>
-	<4D8623BE.2080807@hartkopp.net>
-	<20110413044928.GA289@kurt.e-circ.dyndns.org>
-	<4DA88705.5040203@hartkopp.net>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH net-next-2.6 0/9] SCTP updates for net-next-2.6
+Date: Wed, 20 Apr 2011 15:24:23 +0800
+Message-ID: <4DAE8A27.3040007@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4DA88705.5040203-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lksctp <linux-sctp@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:57023 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752942Ab1DTHYX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2011 03:24:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 15, 2011 at 07:57:25PM +0200, Oliver Hartkopp wrote:
-> On 13.04.2011 06:49, Kurt Van Dijck wrote:
-> > Oliver et.al.,
-> > 
-> > On Sun, Mar 20, 2011 at 04:56:46PM +0100, Oliver Hartkopp wrote:
-> >> On 14.03.2011 14:59, Kurt Van Dijck wrote:
-> >>
-> >> Then you suggest to attach static and/or dynamic addresses to the interface.
-> >>
-> >>> +  Assigning addresses is done via
-> >>> +  $ ip addr add dev canX j1939 0xXX
-> >>> +  statically or
-> >>> +  $ ip addr add dev canX j1939 name 0xXX
-> >>> +  dynamically. In the latter case, address claiming must take place
-> >>> +  before other traffic can leave.
-> >>
-> >> like you would have using DHCP/DNS (adapted for j1939) ...
-> >>
-> > I suspect the confustion with DHCP/DNS comes free with the used terminology.
-> > 
-> > Specifications talk about a 64bit NAME, where is actually is a 64bit UUID.
-> > Calling this number a UUID may clarify things, but leaves the spec in the
-> > terminology.
-> > 
-> > one would then do:
-> > $ ip addr add dev canX j1939 uuid XXXX
-> > 
-> > Would that be a good way to progress?
-> 
-> Hello Kurt,
-> 
-> i don't know if it helps - at least for j1939 users - to rename the NAME for
-> j1939 address claiming to UUID which is usually 128 bit long an has a pretty
-> different understanding than the J1939 NAME which stands for
-> 
->    1. Arbitrary address bit
->    2. Industry group, length 3 bits
->    3. Vehicle system instance, length 4 bits
->    4. Vehicle system, length 7 bits
->    5. Reserved bit
->    6. Function, length 8 bits
->    7. Function instance, length 5 bits
->    8. ECU instance, length 3 bits
->    9. Manufacturer code, length 11 bits
->   10. Identity number, length 21 bits
-> 
-> (from http://www.kvaser.com/en/about-can/higher-layer-protocols/36.html)
-> 
-> This is not comparable to the ideas from RFC 4122 ...
+Hi David
 
-please note that for address claiming, this interpretation should not be used
-as such, and the whole 64bit NAME is regarded as a 'Unique Number' :-)
+Here is a set of SCTP patches for net-next-2.6, also from vlad's
+lksctp-dev tree.  Please apply.
 
-I was not aware of RFC 4122 :-)
+Shan Wei (4):
+      sctp: check parameter value of length in ERROR chunk
+      sctp: check invalid value of length parameter in error cause
+      sctp: remove redundant check when walking through a list of TLV parameters
+      sctp: handle ootb packet in chunk order as defined
 
-Never mind this idea, I'll stick to 'NAME' as that is what j1939 users
-are used to. I wanted to avoid people thinking on DNS, but I should not
-introduce other misunderstandings.
+Vlad Yasevich (2):
+      sctp: remove completely unsed EMPTY state
+      sctp: bail from sctp_endpoint_lookup_assoc() if not bound.
 
-Kurt
+Wei Yongjun (3):
+      sctp: fix to check the source address of COOKIE-ECHO chunk
+      sctp: make heartbeat information in sctp_make_heartbeat()
+      sctp: move chunk from retransmit queue to abandoned list
+
+ include/net/sctp/constants.h |   17 ++++-----
+ include/net/sctp/sctp.h      |    2 -
+ include/net/sctp/sm.h        |    4 +--
+ include/net/sctp/structs.h   |    2 +-
+ net/sctp/debug.c             |    1 -
+ net/sctp/endpointola.c       |   20 ++++++++---
+ net/sctp/input.c             |   15 --------
+ net/sctp/outqueue.c          |    8 ++++-
+ net/sctp/sm_make_chunk.c     |   44 +++++++++++++++++++-----
+ net/sctp/sm_sideeffect.c     |    3 +-
+ net/sctp/sm_statefuns.c      |   60 ++++++++++++++++++++++-----------
+ net/sctp/sm_statetable.c     |   76 ------------------------------------------
+ 12 files changed, 106 insertions(+), 146 deletions(-)
+
+
