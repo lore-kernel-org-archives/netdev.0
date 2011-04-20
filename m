@@ -1,113 +1,55 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 3/3] IPVS: init and cleanup restructuring.
-Date: Wed, 20 Apr 2011 02:19:38 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1104200207340.1724@ja.ssi.bg>
-References: <1303226705-29178-1-git-send-email-hans@schillstrom.com> <1303226705-29178-3-git-send-email-hans@schillstrom.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH] net: forcedeth: fix compile warning of not used nv_set_tso
+ function
+Date: Wed, 20 Apr 2011 09:31:20 +0800
+Message-ID: <4DAE3768.9030807@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1303226705-29178-3-git-send-email-hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: mirq-linux@rere.qmqm.pl, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:63679 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754379Ab1DTBf1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2011 21:35:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=46ix the below compile warning:
+drivers/net/forcedeth.c:4266: warning: =E2=80=98nv_set_tso=E2=80=99 def=
+ined but not used
 
-	Hello,
+commit 569e146 converts forcedeth driver to use hw_features.
+So, implement function of .set_tso is abandoned.
 
-On Tue, 19 Apr 2011, Hans Schillstrom wrote:
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ drivers/net/forcedeth.c |   10 ----------
+ 1 files changed, 0 insertions(+), 10 deletions(-)
 
-> This patch tries to restore the initial init and cleanup
-> sequences that was before name space patch.
-> 
-> The number of calls to register_pernet_device have been
-> reduced to one for the ip_vs.ko
-> Schedulers still have their own calls.
-> 
-> This patch adds a function __ip_vs_service_cleanup()
-> and a throttle or actually on/off switch for
-> the netfilter hooks.
-> 
-> The nf hooks will be enabled when the first service is loaded
-> and disabled when the last service is removed or when a
-> name space exit starts.
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index ec9a32d..0e1c76a 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -4263,16 +4263,6 @@ static int nv_nway_reset(struct net_device *dev)
+ 	return ret;
+ }
+=20
+-static int nv_set_tso(struct net_device *dev, u32 value)
+-{
+-	struct fe_priv *np =3D netdev_priv(dev);
+-
+-	if ((np->driver_data & DEV_HAS_CHECKSUM))
+-		return ethtool_op_set_tso(dev, value);
+-	else
+-		return -EOPNOTSUPP;
+-}
+-
+ static void nv_get_ringparam(struct net_device *dev, struct ethtool_ri=
+ngparam* ring)
+ {
+ 	struct fe_priv *np =3D netdev_priv(dev);
+--=20
+1.6.3.3
 
-	For me using _net suffix is more clear compared
-to __ prefix for the pernet methods.
-
-	For ip_vs_in: may be we can move the check here:
-
-+	net = skb_net(skb);
-+	if (net->ipvs->throttle)
-+		return NF_ACCEPT;
- 	ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
- 
- 	/* Bad... Do not break raw sockets */
-
-	It will save such checks later in ICMP funcs. But this
-throttle idea looks dangerous for cleanup. It does not use RCU.
-The readers can cache the 0 in throttle for long time.
-May be by using register_pernet_device we are in list with other
-devices and it is still possible some device used by
-our dst_cache to be unregistered before IPVS or we to be
-unregistered before such device and some race with throttle
-to happen. throttle is good when enabling traffic with
-the first virtual service, later it can slowly stop the traffic
-but we can not rely on it during netns cleanup.
-
-	So, there are 2 problems with the devices:
-
-- if we use _device pernet registration we can see packets
-in our netns during cleanup. I assume this is possible
-when IPVS is unregistered before such devices.
-
-- dests can cache dst and to hold the device after it is
-unregistered in netns, obviously for very short time until
-IPVS is later unregistered from netns. And for long time
-if device is unregistered but netns remains.
-
-	Also, in most of the cases svc->refcnt is above 0 because
-dests can be in trash list. You should be lucky to delete the
-service without any connections, only then ip_vs_svc_unhash can
-see refcnt == 0.
-
-	So, may be we have to use register_pernet_subsys (not
-_device). We need just to register notifier with
-register_netdevice_notifier and to catch NETDEV_UNREGISTER,
-so that if any dest uses this device we have to release the dst:
-
-	- lock mutex
-	- for every dest (also in trash):
-	spin_lock_bh(&dest->dst_lock);
-	if (dest->dst_cache && dest->dst_cache->dev == unregistered_dev)
-		ip_vs_dst_reset(dest);
-	spin_unlock_bh(&dest->dst_lock);
-
-	There are many examples for this, eg. net/core/fib_rules.c
-Then we are sure on cleanup we can not see traffic for our net
-because all devices are unregistered before us. We don't have
-to rely on throttle to stop the traffic during cleanup. And
-we do not hold devices after NETDEV_UNREGISTER.
-
-	I can prepare such patch but in next days. We need such
-code anyways because the dests can hold such dsts when no
-traffic is present and we can see again this "waiting for %s" ...
-message.
-
-	throttle still can be used but now it can not stop
-the traffic if connections exist.
-
-	For __ip_vs_service_cleanup: it still has to use mutex.
-Or we can avoid it by introducing ip_vs_unlink_service_nolock:
-ip_vs_flush will look like your __ip_vs_service_cleanup and
-will call ip_vs_unlink_service_nolock. ip_vs_unlink_service_nolock
-will be called by ip_vs_flush and by ip_vs_unlink_service.
-You can try such changes, if not, I'll prepare some patches
-after 2-3 days.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
