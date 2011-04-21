@@ -1,66 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v5] net: bnx2x: convert to hw_features
-Date: Thu, 21 Apr 2011 20:19:19 +0100
-Message-ID: <1303413559.3165.55.camel@bwh-desktop>
-References: <20110412144940.GA26043@rere.qmqm.pl>
-	 <20110411202630.C079D13909@rere.qmqm.pl>
-	 <1302610228.32697.298.camel@lb-tlvb-vladz>
-	 <20110412140708.GA21835@rere.qmqm.pl>
-	 <1302619012.6750.8.camel@lb-tlvb-vladz>
-	 <20110412193823.0823213A65@rere.qmqm.pl>
-	 <1303397531.3685.16.camel@edumazet-laptop>
-	 <1303411750.19212.123.camel@lb-tlvb-vladz>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH] bonding: fix bridged bonds in 802.3ad mode
+Date: Thu, 21 Apr 2011 21:27:49 +0200
+Message-ID: <20110421192749.GA8732@midget.suse.cz>
+References: <20110421184748.GD23756@midget.suse.cz>
+ <1303412899.3165.47.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Vladislav Zolotarov <vladz@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Benjamin Poirier <benjamin.poirier@polymtl.ca>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:9122 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753316Ab1DUTTW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 15:19:22 -0400
-In-Reply-To: <1303411750.19212.123.camel@lb-tlvb-vladz>
+Received: from cantor2.suse.de ([195.135.220.15]:52212 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751557Ab1DUT1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 15:27:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1303412899.3165.47.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-21 at 21:49 +0300, Vladislav Zolotarov wrote:
-[...]
-> More than that, in addition it is impossible to disable the LRO with 
-> the current bnx2x upstream driver (ethtool -K ethX lro off) and this is
-> because dev_disable_lro passes to __ethtool_set_flags() flags based on
-> the current value of dev->features while __ethtool_set_flags() expects
-> only the flags set in dev->hw_features. bnx2x has NETIF_F_HW_VLAN_RX
-> that is set in dev->features and not set in dev->hw_features and it's
-> passed down to the __ethtool_set_flags(). 
-[...]
+On Thu, Apr 21, 2011 at 08:08:19PM +0100, Ben Hutchings wrote:
+> It seems to me that 1e253c3b8a1aeed51eef6fc366812f219b97de65 is bogus
+> and should be reverted, rather than worked around by other drivers.  We
+> shouldn't enable non-conformant forwarding behaviour by default just
+> because some people find it useful.  The administrator should have to
+> explicitly enable it.
 
-The problem is here in register_netdevice():
+This is what I thought as well. I find it even more awkward to 
+make this behaviour dependend on the STP setting of the bridge
+(turning on STP works around this bonding problem, btw).
 
-	/* Transfer changeable features to wanted_features and enable
-	 * software offloads (GSO and GRO).
-	 */
-	dev->hw_features |= NETIF_F_SOFT_FEATURES;
-	dev->features |= NETIF_F_SOFT_FEATURES;
-	dev->wanted_features = dev->features & dev->hw_features;
+But even if forwarding of link-local frames is made optional in
+some way, it will still break bonding when turned on. So unless
+this it is completely reverted, we still need some kind of fix
+for bonding.
 
-This doesn't work correctly for features that are always enabled, like
-NETIF_F_HW_VLAN_RX in bnx2x, which are set in dev->features but not in
-dev->hw_features.
-
-The name 'hw_features' really wasn't a good choice - the obvious meaning
-and the meaning assumed by this code is 'hardware-supported features'
-and not 'hardware-supported features that can be toggled'.  And since we
-add NETIF_F_SOFT_FEATURES, it really only means 'features that can be
-toggled'.
-
-Ben.
+Btw, this could also be fixed by checking for 
+skb->protocol == htons(ETH_P_SLOW) directly in the bridging code.
+However, I think the wonderful rx_handler infrastructure makes it
+much cleaner this way...
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
