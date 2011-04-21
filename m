@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/3] new SCTP sockets APIs
-Date: Thu, 21 Apr 2011 10:36:25 -0700 (PDT)
-Message-ID: <20110421.103625.191415503.davem@davemloft.net>
-References: <4DABAEF1.1010506@cn.fujitsu.com>
+Subject: Re: [PATCH BUG-FIX] ipv6: udp: fix the wrong headroom check
+Date: Thu, 21 Apr 2011 10:39:37 -0700 (PDT)
+Message-ID: <20110421.103937.241933113.davem@davemloft.net>
+References: <4DAE9EE1.1050405@cn.fujitsu.com>
+	<20110420105007.GA16248@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: yjwei@cn.fujitsu.com
+Cc: shanwei@cn.fujitsu.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38901
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49496
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751778Ab1DURg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 13:36:59 -0400
-In-Reply-To: <4DABAEF1.1010506@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1751778Ab1DURkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 13:40:11 -0400
+In-Reply-To: <20110420105007.GA16248@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Date: Mon, 18 Apr 2011 11:24:33 +0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 20 Apr 2011 18:50:07 +0800
 
-> This patchset implement some new sockets APIs for net-next-2.6.
+> On Wed, Apr 20, 2011 at 04:52:49PM +0800, Shan Wei wrote:
+>> At this point, skb->data points to skb_transport_header.
+>> So, headroom check is wrong. 
+>> 
+>> For some case:bridge(UFO is on) + eth device(UFO is off),
+>> there is no enough headroom for IPv6 frag head.
+>> But headroom check is always false.
+>> 
+>> This will bring about data be moved to there prior to skb->head,
+>> when adding IPv6 frag header to skb.
+>> 
+>> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 > 
-> Wei Yongjun (3):
->   sctp: implement socket option SCTP_GET_ASSOC_ID_LIST
->   sctp: change auth event type name to SCTP_AUTHENTICATION_EVENT
->   sctp: implement event notification SCTP_SENDER_DRY_EVENT
+> Ouch.
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-All 3 patches applied, thanks.
+Applied, thanks.
