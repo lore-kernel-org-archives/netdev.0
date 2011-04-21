@@ -1,46 +1,62 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] bonding: fix bridged bonds in 802.3ad mode
-Date: Thu, 21 Apr 2011 20:47:48 +0200
-Message-ID: <20110421184748.GD23756@midget.suse.cz>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
+Date: Thu, 21 Apr 2011 14:48:18 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1104211436540.1939-100000@iolanthe.rowland.org>
+References: <BANLkTinhmAfe1V2SvoY+J6Tu_DdnZMoYgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Benjamin Poirier <benjamin.poirier@polymtl.ca>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, USB list <linux-usb@vger.kernel.org>
+To: Paul Stewart <pstew@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:60170 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752779Ab1DUSrx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 14:47:53 -0400
-Content-Disposition: inline
+Received: from iolanthe.rowland.org ([192.131.102.54]:47558 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752542Ab1DUSsT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 14:48:19 -0400
+In-Reply-To: <BANLkTinhmAfe1V2SvoY+J6Tu_DdnZMoYgw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-802.3ad bonding inside a bridge is broken again. Originally fixed by
-43aa1920117801fe9ae3d1fad886b62511e09bee, the bug was re-introduced by
-1e253c3b8a1aeed51eef6fc366812f219b97de65.
+On Thu, 21 Apr 2011, Paul Stewart wrote:
 
-LACP frames must not have their skb->dev changed by the bridging hook.
+> > The driver needs better coordination between open/stop and
+> > resume/suspend. =A0The interrupt and receive URBs are supposed to b=
+e
+> > active whenever the interface is up and not suspended, right? =A0Wh=
+ich
+> > means that usbnet_resume() shouldn't submit anything if the interfa=
+ce
+> > isn't up.
+>=20
+> How do we define "up" here (from a network perspective there are many
+> ways to interpret that)?  How does this concept compare to the user's
+> "ifconfig up/down" state?
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+I don't know the details of how network drivers are supposed to work. =20
+But it doesn't matter -- for your purposes you should define "up" to=20
+mean "whenever the URBs are supposed to be active (unless the interface=
+=20
+is suspended)".
 
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1514,6 +1514,11 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
- 	}
- 
-+	/* prevent bridging code from mangling and forwarding LACP frames */
-+	if (bond->params.mode == BOND_MODE_8023AD &&
-+	    skb->protocol == htons(ETH_P_SLOW))
-+		return RX_HANDLER_PASS;
-+
- 	return RX_HANDLER_ANOTHER;
- }
- 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+>  What call do I use in usbnet_resume() to
+> tell that the interface isn't up?  Currently I'm using netif_running(=
+)
+> which responds true in this condition, which is why I'm resorting to
+> the flag.
+
+Again, I don't know.  However, the URBs get submitted from within
+usbnet_open() and killed within usbnet_stop(), right?  Therefore you
+can use any condition which gets set to True in usbnet_open() and set
+to False in usbnet_stop().  (If nothing else is suitable, use a flag of
+your own.)  And be careful of the edge case: Since usbnet_open() itself
+performs a resume operation, you need to make sure the resume takes
+place before the condition becomes True -- otherwise the URBs will get
+submitted twice.
+
+One more thing to keep in mind: If the kernel is built without PM
+support, the resume and suspend routines will never get called. =20
+Therefore they must not be the only places where URBs are submitted and
+killed.
+
+Alan Stern
 
