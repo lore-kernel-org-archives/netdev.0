@@ -1,60 +1,77 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v5] net: bnx2x: convert to hw_features
-Date: Fri, 22 Apr 2011 00:15:48 +0200
-Message-ID: <20110421221548.GA7888@rere.qmqm.pl>
-References: <20110412144940.GA26043@rere.qmqm.pl> <20110411202630.C079D13909@rere.qmqm.pl> <1302610228.32697.298.camel@lb-tlvb-vladz> <20110412140708.GA21835@rere.qmqm.pl> <1302619012.6750.8.camel@lb-tlvb-vladz> <20110412193823.0823213A65@rere.qmqm.pl> <1303397531.3685.16.camel@edumazet-laptop> <1303411750.19212.123.camel@lb-tlvb-vladz> <1303413559.3165.55.camel@bwh-desktop>
+From: Matteo Fortini <matteo.fortini@gmail.com>
+Subject: [PATCH] iMX: Fix for missed MII interrupts and MDIO timeouts when FEC
+ is in STOP
+Date: Fri, 22 Apr 2011 00:17:12 +0200
+Message-ID: <BANLkTikRknZtjgDhCeNJv1FkhnWySwedUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vladislav Zolotarov <vladz@broadcom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:35103 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752874Ab1DUWPu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 18:15:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1303413559.3165.55.camel@bwh-desktop>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:53763 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752998Ab1DUWRe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 18:17:34 -0400
+Received: by iyb14 with SMTP id 14so124892iyb.19
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 15:17:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 21, 2011 at 08:19:19PM +0100, Ben Hutchings wrote:
-> 	/* Transfer changeable features to wanted_features and enable
-> 	 * software offloads (GSO and GRO).
-> 	 */
-> 	dev->hw_features |=3D NETIF_F_SOFT_FEATURES;
-> 	dev->features |=3D NETIF_F_SOFT_FEATURES;
-> 	dev->wanted_features =3D dev->features & dev->hw_features;
->=20
-> This doesn't work correctly for features that are always enabled, lik=
-e
-> NETIF_F_HW_VLAN_RX in bnx2x, which are set in dev->features but not i=
-n
-> dev->hw_features.
+We are experiencing unrecoverable timeouts if we disconnect a cable fro=
+m the
+=46EC. This patch solves the issue by keeping the Ethernet enabled even=
+ in
+STOP. The RM doesn't state it, but i seems that if disabled, the Ethern=
+et is
+not issuing interrupts to the core.
+(See
+http://forums.freescale.com/t5/i-MX-Microprocessors/iMX28-Network-MDIO-=
+timeout-recovery-and-lost-IRQs/td-p/73309
+)
 
-> The name 'hw_features' really wasn't a good choice - the obvious mean=
-ing
-> and the meaning assumed by this code is 'hardware-supported features'
-> and not 'hardware-supported features that can be toggled'.  And since=
- we
-> add NETIF_F_SOFT_FEATURES, it really only means 'features that can be
-> toggled'.
+The patch is against Freescale iMX tree from opensource.freescale.com/g=
+it
 
-I won't argue about hw_features name - I just couldn't find a better on=
-e.
-Comment in include/linux/netdevice.h clearly explains the purpose of th=
-is
-field.
+---
+=A0drivers/net/fec.c | =A0 =A07 ++++++-
+=A01 files changed, 6 insertions(+), 1 deletions(-)
 
-wanted_features is supposed to be limited by hw_features (so that it's =
-always
-true that (hw_features & wanted_features) =3D=3D wanted_features). If y=
-ou have
-an idea how to make that more clear, I'd be happy to update description=
-s.
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index d0e2e69..26ea72d 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -121,8 +121,10 @@
+=A0#if defined(CONFIG_FEC_1588) && defined(CONFIG_ARCH_MX28)
+=A0#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MI=
+I | \
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 FEC_ENET_TS_AVAIL | FEC_ENET_TS_TIMER)
++#define FEC_STOP_IMASK (FEC_ENET_MII)
+=A0#else
+=A0#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MI=
+I)
++#define FEC_STOP_IMASK (FEC_ENET_MII)
+=A0#endif
 
-Best Regards,
-Micha=B3 Miros=B3aw
+=A0/* The FEC stores dest/src/type, data, and checksum for receive pack=
+ets.
+@@ -1409,6 +1411,9 @@ fec_stop(struct net_device *dev)
+=A0 =A0 writel(1, fep->hwp + FEC_ECNTRL);
+=A0 =A0 udelay(10);
+
++ =A0 =A0/* Reactivate the controller to get the IRQs */
++ =A0 =A0writel(0x00000002, fep->hwp + FEC_ECNTRL);
++
+=A0#ifdef CONFIG_ARCH_MXS
+=A0 =A0 /* Check MII or RMII */
+=A0 =A0 if (fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII)
+@@ -1423,7 +1428,7 @@ fec_stop(struct net_device *dev)
+=A0 =A0 writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+=A0 =A0 if (fep->ptimer_present)
+=A0 =A0 =A0 =A0 fec_ptp_stop(fep->ptp_priv);
+- =A0 =A0writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++ =A0 =A0writel(FEC_STOP_IMASK, fep->hwp + FEC_IMASK);
+
+=A0 =A0 netif_stop_queue(dev);
+=A0 =A0 fep->link =3D 0;
+--
+1.7.4.2
