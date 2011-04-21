@@ -1,42 +1,54 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
-Date: Thu, 21 Apr 2011 17:40:54 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1104211737510.1939-100000@iolanthe.rowland.org>
-References: <201104212200.26551.oliver@neukum.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Fri, 22 Apr 2011 08:10:08 +1000
+Message-ID: <20110422081008.e7ebab59.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201104212200.26551.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?B?Ik1pY2hhxYIgTWlyb3PFgmF3Ig==?= <mirq-linux@rere.qmqm.pl>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Apr 2011, Oliver Neukum wrote:
+--Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Am Donnerstag, 21. April 2011, 16:03:34 schrieb Alan Stern:
-> > On Tue, 19 Apr 2011, Paul Stewart wrote:
-> 
-> > > This version of the patch moves the urb submit directly into
-> > > usbnet_resume.  Is it okay to submit a GFP_KERNEL urb from
-> > > usbnet_resume()?
-> 
-> Suppose a device of two interfaces one of them storage is autosuspended.
-> GFP_KERNEL in the first device to be resumed triggers a pageout to the
-> suspended storage device.
+Hi all,
 
-True enough, I had forgotten about that.  A resume routine should 
-always use GFP_NOIO, not GFP_KERNEL.
+After merging the final tree, today's linux-next build (powerpc chrp32_defc=
+onfig)
+failed like this:
 
-In fact this restriction is true in general, not just for USB devices 
-containing a mass-storage interface.  The backing device for an evicted 
-page might not be resumed until later on in the resume sequence.
+drivers/net/mv643xx_eth.c: In function 'port_start':
+drivers/net/mv643xx_eth.c:2250: error: 'dev' undeclared (first use in this =
+function)
 
-Alan Stern
+Caused by commit aad59c431b77 ("net: mv643xx: convert to hw_features").
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNsKtAAAoJEDMEi1NhKgbsFCUIAJVtutRgtnWi6n8V3d5gcFKY
+DAEX7Ak+0aCEHIa24yhtbOimAK3BoklLGbyo2aZEkNfVi15qlvxeVYa3WnA4vzFh
+ZmDcXVST29DP0b6AKMBQ5N6s7P2srRHSMv2izxnQjBG8u8FfjY44bgF0ih0xU66/
+5wmq4sYc4y3r29XadeLhK/Lbxd5AUfdWPbaj2/KXbCRbN6T8zZb4s0JldV++u9W7
+CxF7OcMFQ8coHayccgOAEen4k1Akm4JPlURDn1I3tKBVwIchtK3W6DwgbA8xCpjt
+5r1PmBZoIqZpcBqortujXG/P5V+DFDiqD+HQ0Z7Kk0amfkfSGwOLYWoWJdnHTDs=
+=xYoE
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD--
