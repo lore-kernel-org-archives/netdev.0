@@ -1,79 +1,193 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: Re: [PATCH V3 0/8] macvtap/vhost TX zero copy support
-Date: Thu, 21 Apr 2011 10:29:04 -0400
-Message-ID: <BANLkTi=ckukmCdOOvQc29vtYgxeiSMGqBw@mail.gmail.com>
-References: <1303328216.19336.18.camel@localhost.localdomain>
+From: zhou rui <zhourui.cn@gmail.com>
+Subject: Re: Hight speed data sending from custom IP out of kernel
+Date: Thu, 21 Apr 2011 22:31:09 +0800
+Message-ID: <BANLkTikF5qz4pBLHsTZS1+oQxYAfQSD+cg@mail.gmail.com>
+References: <53f539ea861e1a24bde4aadceff0b3bb.squirrel@www.liukuma.net>
+	<4DAD76F1.40309@monstr.eu>
+	<45cb2254ff23a4977c95b0f9459e39a6.squirrel@www.liukuma.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1303328216.19336.18.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: monstr@monstr.eu, netdev@vger.kernel.org
+To: juice@swagman.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:44147 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750915Ab1DUObK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 10:31:10 -0400
+Received: by iyb14 with SMTP id 14so1433755iyb.19
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 07:31:09 -0700 (PDT)
+In-Reply-To: <45cb2254ff23a4977c95b0f9459e39a6.squirrel@www.liukuma.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 20, 2011 at 3:36 PM, Shirley Ma <mashirle@us.ibm.com> wrote=
-:
-> This patchset add supports for TX zero-copy between guest and host
-> kernel through vhost. It significantly reduces CPU utilization on the
-> local host on which the guest is located (It reduced 30-50% CPU usage
-> for vhost thread for single stream test). The patchset is based on
-> previous submission and comments from the community regarding when/ho=
-w
-> to handle guest kernel buffers to be released. This is the simplest
-> approach I can think of after comparing with several other solutions.
+On Wed, Apr 20, 2011 at 12:02 AM, juice <juice@swagman.org> wrote:
 >
-> This patchset includes:
+> Hi!
 >
-> 1/8: Add a new sock zero-copy flag, SOCK_ZEROCOPY;
+> I can see you are probably going to run into CPU performance problems=
+, but
+> it depends a lot on the type of traffic you are going to send.
 >
-> 2/8: Add a new device flag, NETIF_F_ZEROCOPY for lower level device
-> support zero-copy;
+> My system requires quite fast processor, but even more important is t=
+o
+> have a network interface card that really supports the full speed of
+> gigabit ethernet line. The reason for that is that my test traffic
+> includes streams of very small packets that cause a lot of overhead i=
+n
+> processing.
 >
-> 3/8: Add a new struct skb_ubuf_info in skb_share_info for userspace
-> buffers release callback when lower device DMA has done for that skb;
+> Most of my test traffic is UDP, but it does not really matter what th=
+e
+> higher layers of the traffic are, this scheme operates on the etherne=
+t
+> layer and does not care about payload structure.
 >
-> 4/8: Add vhost zero-copy callback in vhost when skb last refcnt is go=
-ne;
-> add vhost_zerocopy_add_used_and_signal to notify guest to release TX =
-skb
-> buffers.
+> I tried several NIC:s before i settled using Intel 82576 cards with t=
+he
+> igb driver. If you have less capable interface card, your small packe=
+t
+> performance is going to be a lot poorer.
 >
-> 5/8: Add macvtap zero-copy in lower device when sending packet is
-> greater than 128 bytes.
+> Using that card I can get to full speed GE line rate even with 64byte
+> packets, but if you want to send larger packets, say close to 1500byt=
+e
+> then almost any NIC will work OK for you.
 >
-> 6/8: Add Chelsio 10Gb NIC to zero copy feature flag
+> You can download the module code and the userland seeding application=
+ from
+> my svn server at https://toosa.swagman.org/svn/streamgen
+> The streamseed userland application requires libpcap-dev to build
+> correctly but the streamgen module is self-sufficent.
 >
-> 7/8: Add Intel 10Gb NIC zero copy feature flag
+> There is not a lot of documentation, and the module is still "work in
+> progress" as I am going to fix it to work with more than one interfac=
+e at
+> the same time when I get to do it. Currently it can only use one inte=
+rface
+> on the sending host machine.
 >
-> 8/8: Add Emulex 10Gb NIC zero copy feature flag
+> =A0- Juice -
+>
 
-Why are only these 3 drivers getting support?  As far as I can tell,
-the only requirement is HIGHDMA.  If this is the case, is there really
-a need for an additional flag to support this?  If you can key off of
-HIGHDMA, all devices that support this would get the benefit.
+does it use the same command/config file as pktgen?
+or special command?
 
+=A0rui
 
-
-> The patchset is built against most recent linux 2.6.git. It has passe=
-d
-> netperf/netserver multiple streams stress test on above NICs.
 >
-> The single stream test results from 2.6.37 kernel on Chelsio:
->
-> 64K message size: copy_from_user dropped from 40% to 5%; vhost thread
-> cpu utilization dropped from 76% to 28%
->
-> I am collecting more test results against 2.6.39-rc3 kernel and will
-> provide the test matrix later.
->
-> Thanks
-> Shirley
+>> Hi Juice,
+>>
+>> juice wrote:
+>>> Hi Michal.
+>>>
+>>> How fast do you need to send the data?
+>>
+>> It sounds weird but as fast as possible. There is no specific limit
+>> because I
+>> want to create demo and test it on various hw configuration which I =
+can
+>> easily
+>> create on FPGA. For now the bottleneck is Microblaze cpu. It can run=
+ from
+>> 50MHz
+>> till 170-180MHz. We also support both endians and have two hw IP
+>> cores(10/100/1000) which I can use.
+>>
+>>> I have an application where I send test stream out to GE line and c=
+an
+>>> fill
+>>> the total capacity of the ethernet regardless of the packet size.
+>>
+>> What cpu do you use?
+>>
+>>>
+>>> The test stream I am sending is stored in kernel memory, and theref=
+ore
+>>> is
+>>> limited by the amount of free memory. 200M is no problem.
+>>
+>> Is it UDP or TCP?
+>>
+>>>
+>>> The solution I am using is loosely based on the pktgen module, exce=
+pt
+>>> that
+>>> my module can load a wireshark capture from userland program and th=
+en
+>>> send
+>>> it from ethernet interface in wire speed.
+>>
+>> Sound good. Would it be possible to see it and test it?
+>>
+>> Thanks,
+>> Michal
+>>
+>>
+>>>
+>>> =A0 - Juice -
+>>>
+>>>
+>>>> Hi,
+>>>> I would like to create demo for high speed data sending from custo=
+m IP
+>>> through
+>>>> the ethernet. I think the best description is that there are dmaab=
+le
+>>>> memory
+>>>> mapped registers or just memory which store data I want to send (f=
+or
+>>> example 200MB).
+>>>> Linux should handle all communication between target(probably serv=
+er)
+>>> and
+>>>> host
+>>>> (client) but data in the packets should go from that custom IP and
+>>>> can't go
+>>>> through the kernel because of performance issue.
+>>>> Ethernet core have own DMA which I could use but the question is i=
+f
+>>> there
+>>>> is any
+>>>> option how to convince the kernel that data will go directly from
+>>>> memory
+>>> mapped
+>>>> registers and the kernel/driver/... just setup dma BD for headers =
+and
+>>> second for
+>>>> data.
+>>>> Do you have any experience with any solution with passing data
+>>> completely
+>>>> out of
+>>>> kernel?
+>>>> Thanks,
+>>>> Michal
+>>>> --
+>>>> Michal Simek, Ing. (M.Eng)
+>>>> w: www.monstr.eu p: +42-0-721842854
+>>>> Maintainer of Linux kernel 2.6 Microblaze Linux -
+>>>> http://www.monstr.eu/fdt/
+>>>> Microblaze U-BOOT custodian
+>>>> --
+>>>> To unsubscribe from this list: send the line "unsubscribe netdev" =
+in
+>>>> the
+>>> body of a message to majordomo@vger.kernel.org
+>>>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.ht=
+ml
+>>>
+>>>
+>>>
+>>>
+>>
+>>
+>> --
+>> Michal Simek, Ing. (M.Eng)
+>> w: www.monstr.eu p: +42-0-721842854
+>> Maintainer of Linux kernel 2.6 Microblaze Linux -
+>> http://www.monstr.eu/fdt/
+>> Microblaze U-BOOT custodian
+>>
 >
 >
 > --
