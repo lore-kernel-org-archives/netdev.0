@@ -1,54 +1,77 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH] net: tun: convert to hw_features
-Date: Thu, 21 Apr 2011 01:15:03 +0200
-Message-ID: <20110420231503.GA20775@rere.qmqm.pl>
-References: <20110419161310.7508513909@rere.qmqm.pl> <871v0xip3j.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH net-next] net: Allow ethtool to set interface in loopback mode.
+Date: Wed, 20 Apr 2011 17:57:38 -0700
+Message-ID: <1303347458-14499-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:45581 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752292Ab1DTXPF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2011 19:15:05 -0400
-Content-Disposition: inline
-In-Reply-To: <871v0xip3j.fsf@rustcorp.com.au>
+Received: from smtp-out.google.com ([74.125.121.67]:2034 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926Ab1DUA5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 20:57:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 20, 2011 at 12:52:24PM +0930, Rusty Russell wrote:
-> On Tue, 19 Apr 2011 18:13:10 +0200 (CEST), Micha=B3 Miros=B3aw <mirq-=
-linux@rere.qmqm.pl> wrote:
-> > This changes offload setting behaviour to what I think is correct:
-> >  - offloads set via ethtool mean what admin wants to use (by defaul=
-t
-> >    he wants 'em all)
-> >  - offloads set via ioctl() mean what userspace is expecting to get
-> >    (this limits which admin wishes are granted)
-> >  - TUN_NOCHECKSUM is ignored, as it might cause broken packets when
-> >    forwarded (ip_summed =3D=3D CHECKSUM_UNNECESSARY means that chec=
-ksum
-> >    was verified, not that it can be ignored)
-> >=20
-> > If TUN_NOCHECKSUM is implemented, it should set skb->csum_* and
-> > skb->ip_summed (=3D CHECKSUM_PARTIAL) for known protocols and let o=
-thers
-> > be verified by kernel when necessary.
-> >=20
-> > TUN_NOCHECKSUM handling was introduced by commit
-> > f43798c27684ab925adde7d8acc34c78c6e50df8:
-> >=20
-> >     tun: Allow GSO using virtio_net_hdr
-> Err, not in my git tree!  It predates git in fact.
+This patch enables ethtool to set the loopback mode on a given interface.
+By configuring the interface in loopback mode in conjunction with a policy
+route / rule, a userland application can stress the egress / ingress path
+exposing the flows of the change in progress and potentially help developer(s)
+understand the impact of those changes without even sending a packet out
+on the network.
 
-Ah! Sorry! Your patch just moved the buggy line around.
+Following set of commands illustrates one such example -
+    a) ip -4 addr add 192.168.1.1/24 dev eth1
+    b) ip -4 rule add from all iif eth1 lookup 250
+    c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
+    d) arp -Ds 192.168.1.100 eth1
+    e) arp -Ds 192.168.1.200 eth1
+    f) sysctl -w net.ipv4.ip_nonlocal_bind=1
+    g) sysctl -w net.ipv4.conf.all.accept_local=1
+    # Assuming that the machine has 8 cores
+    h) taskset 000f netserver -L 192.168.1.200
+    i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
 
-> Since tap requires privs, I wouldn't worry about invalid packets too
-> much.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ include/linux/netdevice.h |    3 ++-
+ net/core/ethtool.c        |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-I prefer correctness over uncertainty. ;)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cb8178a..c4d9dd7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1067,6 +1067,7 @@ struct net_device {
+ #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
+ #define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
+ #define NETIF_F_NOCACHE_COPY	(1 << 30) /* Use no-cache copyfromuser */
++#define NETIF_F_LOOPBACK	(1 << 31) /* Enable loopback */
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+@@ -1082,7 +1083,7 @@ struct net_device {
+ 	/* = all defined minus driver/device-class-related */
+ #define NETIF_F_NEVER_CHANGE	(NETIF_F_HIGHDMA | NETIF_F_VLAN_CHALLENGED | \
+ 				  NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
+-#define NETIF_F_ETHTOOL_BITS	(0x7f3fffff & ~NETIF_F_NEVER_CHANGE)
++#define NETIF_F_ETHTOOL_BITS	(0xff3fffff & ~NETIF_F_NEVER_CHANGE)
+ 
+ 	/* List of features with software fallbacks. */
+ #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 13d79f5..d177ce9 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -362,7 +362,7 @@ static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * 32][ETH_GS
+ 	/* NETIF_F_RXHASH */          "rx-hashing",
+ 	/* NETIF_F_RXCSUM */          "rx-checksum",
+ 	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy"
+-	"",
++	/* NETIF_F_LOOPBACK */        "loopback",
+ };
+ 
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+-- 
+1.7.3.1
 
-Best Regards,
-Micha=B3 Miros=B3aw
