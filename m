@@ -1,86 +1,78 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH 1/2] net: Export dev_queue_xmit_nit for use by macvlan driver
-Date: Thu, 21 Apr 2011 09:31:32 -0400
-Message-ID: <1303392693-1350-2-git-send-email-david.ward@ll.mit.edu>
-References: <1303392693-1350-1-git-send-email-david.ward@ll.mit.edu>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
+Date: Thu, 21 Apr 2011 09:43:46 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1104210937360.1939-100000@iolanthe.rowland.org>
+References: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>, <kaber@trash.net>
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, <linux-usb@vger.kernel.org>,
+	<davem@davemloft.net>, <greg@kroah.com>
+To: Paul Stewart <pstew@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:39521 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750981Ab1DUNnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 09:43:16 -0400
-In-Reply-To: <1303392693-1350-1-git-send-email-david.ward@ll.mit.edu>
+Received: from iolanthe.rowland.org ([192.131.102.54]:59362 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751366Ab1DUNnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 09:43:47 -0400
+In-Reply-To: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Export dev_queue_xmit_nit for use by the macvlan virtual network device
-driver. Also, use 'dev' instead of 'skb->dev' in this function.
+On Wed, 20 Apr 2011, Paul Stewart wrote:
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- include/linux/netdevice.h |    2 ++
- net/core/dev.c            |   14 +++++++++-----
- 2 files changed, 11 insertions(+), 5 deletions(-)
+> On Wed, Apr 20, 2011 at 2:08 PM, Alan Stern <stern@rowland.harvard.ed=
+u> wrote:
+> > On Tue, 19 Apr 2011, Paul Stewart wrote:
+> >
+> >> Set a flag if the interrupt URB completes with ENOENT as this
+> >> occurs legitimately during system suspend. =A0When the usbnet_bh
+> >> is called after resume, test this flag and try once to resubmit
+> >> the interrupt URB.
+> >
+> > No doubt there's a good reason for doing things this way, but it is=
+n't
+> > clear. =A0Why wait until usbnet_bh() is called after resume? =A0Why=
+ not
+> > resubmit the interrupt URB _during_ usbnet_resume()?
+>=20
+> Actually, I was doing this in the bh because of feedback I had gained
+> early in this process about not doing submit_urb in the resume().
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cb8178a..b63e517 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2099,6 +2099,8 @@ extern int		dev_hard_start_xmit(struct sk_buff *skb,
- 					    struct netdev_queue *txq);
- extern int		dev_forward_skb(struct net_device *dev,
- 					struct sk_buff *skb);
-+extern void		dev_queue_xmit_nit(struct sk_buff *skb,
-+					   struct net_device *dev);
- 
- extern int		netdev_budget;
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3871bf6..e851227 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1520,11 +1520,13 @@ static inline int deliver_skb(struct sk_buff *skb,
- }
- 
- /*
-- *	Support routine. Sends outgoing frames to any network
-- *	taps currently in use.
-+ * dev_queue_xmit_nit - send outgoing frame to AF_PACKET sockets
-+ *
-+ * @skb: buffer to send
-+ * @dev: network device that AF_PACKET sockets are attached to (if any)
-  */
- 
--static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
-+void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct packet_type *ptype;
- 	struct sk_buff *skb2 = NULL;
-@@ -1539,7 +1541,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 		    (ptype->af_packet_priv == NULL ||
- 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
- 			if (pt_prev) {
--				deliver_skb(skb2, pt_prev, skb->dev);
-+				atomic_inc(&skb2->users);
-+				pt_prev->func(skb2, dev, pt_prev, dev);
- 				pt_prev = ptype;
- 				continue;
- 			}
-@@ -1572,9 +1575,10 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 	if (pt_prev)
--		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
-+		pt_prev->func(skb2, dev, pt_prev, dev);
- 	rcu_read_unlock();
- }
-+EXPORT_SYMBOL(dev_queue_xmit_nit);
- 
- /* netif_setup_tc - Handle tc mappings on real_num_tx_queues change
-  * @dev: Network device
--- 
-1.7.4
+Do you have a URL for that feedback?  In general, there's no reason not=
+=20
+to resubmit URBs during a resume callback; lots of drivers do it.  But=20
+usbnet may have some special requirements of its own that I'm not aware=
+=20
+of.
+
+>  If
+> that issue doesn't exist, that makes my work a lot easier.  In testin=
+g
+> I found that just setting this to happen in the bh might be problemat=
+ic
+> due to firing too early, so this is good news.
+>=20
+> >=A0This would seem
+> > to be the logical approach, seeing as how usbnet_suspend() kills th=
+e
+> > interrupt URB.
+>=20
+> Aha!  But you'll see from the current version of my patch that we don=
+'t
+> actually ever kill the interrupt URB.  It gets killed all on its own =
+(by the
+> hcd?) and handed back to us in intr_complete().  This last bit about =
+the
+> complete function being called was lost on me for a while which is wh=
+y
+> in a previous iteration of the patch I was trying to kill the urb in =
+suspend().
+
+Why not kill the interrupt URB while suspending?  It's the proper thing
+to do.  Otherwise you run the risk that an event might happen at just
+the wrong time, causing the interrupt URB to complete normally, but
+_after_ the driver has finished suspending.  There's a good chance the=20
+driver would not process the event correctly.
+
+Alan Stern
 
