@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH v3 10/27] HFI: HFIDD_REQ_OPEN_WINDOW request
-Date: Thu, 21 Apr 2011 17:38:40 -0400
-Message-ID: <1303421937-2325-11-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH v3 05/27] HFI: The first few HFI-specific hypervisor calls
+Date: Thu, 21 Apr 2011 17:38:35 -0400
+Message-ID: <1303421937-2325-6-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1303421937-2325-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -14,26 +14,31 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:47282 "EHLO e1.ny.us.ibm.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:53481 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755177Ab1DUVjX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 17:39:23 -0400
+	id S1755328Ab1DUVjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 17:39:24 -0400
 Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3LLSfq7026910
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:28:41 -0400
+	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3LLDCQ3007225
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:13:12 -0400
 Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3LLdCbF2076784
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:39:12 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3LLd90A012563
+	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3LLdBv0880764
 	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:39:11 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3LLd9wA012503
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:39:09 -0400
 In-Reply-To: <1303421937-2325-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
 
-Set up protocol access to an HFI window.
+H_HFI_START_INTERFACE Notifies the hypervisor that a new instance of the DD is
+starting, and any leftover state should be considered stale.
+H_HFI_STOP_INTERFACE tells the hypervisor that the DD is unloading, and to
+clean up any activity related to this DD instance.
+H_HFI_QUERY_INTERFACE lets us get info about the HFIs that is not in the
+device tree.
 
 Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
 Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
@@ -45,75 +50,191 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/core/Makefile       |    1 +
- drivers/net/hfi/core/hfidd_init.c   |   14 +++++++
- drivers/net/hfi/core/hfidd_proto.h  |    3 +
- drivers/net/hfi/core/hfidd_window.c |   70 +++++++++++++++++++++++++++++++++++
- include/linux/hfi/hfidd_client.h    |   22 +++++++++++
- include/linux/hfi/hfidd_internal.h  |   26 +++++++++++++
- include/linux/hfi/hfidd_requests.h  |    1 +
- 7 files changed, 137 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/hfi/core/hfidd_window.c
+ drivers/net/hfi/core/Makefile       |    3 +-
+ drivers/net/hfi/core/hfidd_adpt.c   |  139 +++++++++++++++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_hcalls.c |   90 ++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_proto.h  |   12 +++
+ include/linux/hfi/hfidd_client.h    |    8 ++
+ include/linux/hfi/hfidd_hcalls.h    |   58 +++++++++++++++
+ include/linux/hfi/hfidd_internal.h  |    7 ++-
+ 7 files changed, 315 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/hfi/core/hfidd_hcalls.c
+ create mode 100644 include/linux/hfi/hfidd_hcalls.h
 
 diff --git a/drivers/net/hfi/core/Makefile b/drivers/net/hfi/core/Makefile
-index 4e6cbd6..0224a57 100644
+index 6fe4e60..4e6cbd6 100644
 --- a/drivers/net/hfi/core/Makefile
 +++ b/drivers/net/hfi/core/Makefile
-@@ -2,6 +2,7 @@
+@@ -2,5 +2,6 @@
  # Makefile for the HFI device driver for IBM eServer System p
  #
  hfi_core-objs:=	hfidd_adpt.o \
-+		hfidd_window.o \
- 		hfidd_init.o \
- 		hfidd_hcalls.o
+-		hfidd_init.o
++		hfidd_init.o \
++		hfidd_hcalls.o
  obj-$(CONFIG_HFI) += hfi_core.o
-diff --git a/drivers/net/hfi/core/hfidd_init.c b/drivers/net/hfi/core/hfidd_init.c
-index df79ae9..49099ec 100644
---- a/drivers/net/hfi/core/hfidd_init.c
-+++ b/drivers/net/hfi/core/hfidd_init.c
-@@ -129,6 +129,20 @@ static ssize_t hfidd_cmd_write(struct file *filep, const char __user *buf,
- 	}
+diff --git a/drivers/net/hfi/core/hfidd_adpt.c b/drivers/net/hfi/core/hfidd_adpt.c
+index f309a02..fd4a0cb 100644
+--- a/drivers/net/hfi/core/hfidd_adpt.c
++++ b/drivers/net/hfi/core/hfidd_adpt.c
+@@ -33,6 +33,18 @@
+ #include <linux/hfi/hfidd_internal.h>
+ #include "hfidd_proto.h"
  
- 	switch (cmd.req) {
-+	case HFIDD_REQ_OPEN_WINDOW:
-+		if (cmd.req_len != sizeof(struct hfi_client_info)) {
-+			dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+				"hfidd_cmd_write: hdr.reqlen 0x%x expected "
-+				"0x%lx for cmd req 0x%x\n",
-+				cmd.req_len,
-+				sizeof(struct hfi_client_info), cmd.req);
-+			return -EINVAL;
-+		}
-+		rc = hfidd_open_window_func(p_acs, is_userspace,
-+			(struct hfi_client_info *) buf,
-+			(struct hfi_client_info *) cmd.result.use.kptr);
-+		break;
++#define HFIDD_TIME_AGE  (10 * HZ)
 +
- 	case HFIDD_REQ_QUERY_DD_INFO:
- 		if (cmd.req_len != sizeof(struct hfi_query_dd_info)) {
- 			dev_printk(KERN_ERR, p_acs->hfidd_dev,
-diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
-index c61387e..e7f2901 100644
---- a/drivers/net/hfi/core/hfidd_proto.h
-+++ b/drivers/net/hfi/core/hfidd_proto.h
-@@ -39,6 +39,9 @@ int hfidd_alloc_windows(struct hfidd_acs *p_acs);
- void hfidd_free_windows(struct hfidd_acs *p_acs);
- int hfidd_init_adapter(struct hfidd_acs *p_acs, void *uiop);
- int hfidd_age_hcall(u64 time_start);
-+int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
-+		struct hfi_client_info *user_p,
-+		struct hfi_client_info *out_p);
- int hfidd_get_phyp_page(struct hfidd_acs *p_acs, caddr_t *page,
- 	caddr_t *laddr, int size);
- void hfidd_release_phyp_page(caddr_t page, int size);
-diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
++int hfidd_age_hcall(u64 time_start)
++{
++	u64	timestamp = get_jiffies_64();
++
++	if ((timestamp - time_start) > HFIDD_TIME_AGE)
++		return 1;
++	else
++		return 0;
++}
++
+ int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t devno, void *uiop)
+ {
+ 
+@@ -66,3 +78,130 @@ void hfidd_free_adapter(struct hfidd_acs *p_acs)
+ {
+ 	kfree(p_acs);
+ }
++
++/* Allocate the page for the HCALL */
++int hfidd_get_phyp_page(struct hfidd_acs *p_acs, caddr_t *page, caddr_t *laddr,
++	int size)
++{
++	*page = (caddr_t)__get_free_pages(GFP_KERNEL, get_order(size));
++	if (*page == NULL) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_get_phyp_page: __get_free_pages failed\n");
++		return -ENOMEM;
++	}
++
++	/* translate virtual to logical address */
++	*laddr = (caddr_t)__pa((caddr_t) *page);
++	memset(*page, 0, size);
++	return 0;
++}
++
++/* Release the page allocated for the HCALL */
++inline void hfidd_release_phyp_page(caddr_t page, int size)
++{
++	free_pages((unsigned long)page, get_order(size));
++}
++
++int hfidd_query_interface(struct hfidd_acs *p_acs, unsigned int subtype,
++		unsigned int hfi_id, unsigned long long *state)
++{
++	long long		hvrc;
++	int			rc = 0;
++	struct hfi_query_interface *query_p;
++	caddr_t			laddr = NULL;
++
++	if (subtype != COMP_QUERY && subtype != EEH_QUERY) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_query_interface: subtype not supported, %d\n",
++			subtype);
++		return -EINVAL;
++	}
++
++	if (subtype == COMP_QUERY) {
++		/* Allocate the page for the HCALL */
++		rc = hfidd_get_phyp_page(p_acs, (caddr_t *)&query_p, &laddr,
++				PAGE_SIZE_4K);
++		if (rc) {
++			dev_printk(KERN_ERR, p_acs->hfidd_dev,
++				"hfidd_query_interface: hfidd_get_phyp_page "
++				"failed\n");
++			return -ENOMEM;
++		}
++	}
++
++	hvrc = hfi_hquery_interface(hfi_id, subtype,
++		(unsigned long long)laddr, state);
++	if (hvrc != H_SUCCESS) {
++		rc = -EPERM;
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_query_interface: failed, state 0x%llx "
++			"hvrc 0x%llx\n", *state, hvrc);
++		goto query1;
++	}
++
++	if (subtype == COMP_QUERY) {
++		if (*state == ACTIVE) {
++			if (p_acs->state != HFI_AVAIL) {
++				p_acs->isr = query_p->local_node_id;
++				p_acs->state = HFI_AVAIL;
++			}
++		} else {
++			p_acs->state = HFI_UNAVAIL;
++			dev_printk(KERN_ERR, p_acs->hfidd_dev,
++				"hfidd_query_interface: Bad state %lld, "
++				"return ENODEV\n", *state);
++			rc = -EIO;
++		}
++	}
++
++query1:
++	if (subtype == COMP_QUERY)
++		hfidd_release_phyp_page((caddr_t)query_p, PAGE_SIZE_4K);
++	dev_printk(KERN_INFO, p_acs->hfidd_dev,
++		"hfidd_query_interface: return rc %d\n", rc);
++	return rc;
++}
++
++int hfidd_start_interface(struct hfidd_acs *p_acs)
++{
++	long long hvrc = 0;
++	int	rc = 0;
++	u64	start_time = get_jiffies_64();
++
++	while (1) {
++		hvrc = hfi_start_interface(p_acs->dds.hfi_id);
++		if (hvrc != H_BUSY)
++			break;
++		if (hfidd_age_hcall(start_time))
++			break;
++	}
++	if (hvrc != H_SUCCESS) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_start_interface: HFI_START_INTERFACE failed "
++			"hvrc 0x%llx\n", hvrc);
++		rc = -EPERM;
++	}
++	return rc;
++}
++
++int hfidd_stop_interface(struct hfidd_acs *p_acs, unsigned int hfi_id)
++{
++	long long hvrc = 0;
++	int	rc = 0;
++	u64	start_time = get_jiffies_64();
++
++	while (1) {
++		hvrc = hfi_stop_interface(hfi_id);
++		if (hvrc != H_BUSY)
++			break;
++		if (hfidd_age_hcall(start_time))
++			break;
++	}
++	if (hvrc != H_SUCCESS) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_stop_interface: HFI_STOP_INTERFACE failed "
++			"hvrc 0x%llx\n", hvrc);
++		rc = -EPERM;
++	}
++	return rc;
++}
+diff --git a/drivers/net/hfi/core/hfidd_hcalls.c b/drivers/net/hfi/core/hfidd_hcalls.c
 new file mode 100644
-index 0000000..f16caf7
+index 0000000..84467b3
 --- /dev/null
-+++ b/drivers/net/hfi/core/hfidd_window.c
-@@ -0,0 +1,70 @@
++++ b/drivers/net/hfi/core/hfidd_hcalls.c
+@@ -0,0 +1,90 @@
 +/*
-+ * hfidd_window.c
++ * hfidd_hcalls.c
 + *
 + * HFI device driver for IBM System p
 + *
@@ -145,123 +266,194 @@ index 0000000..f16caf7
 + */
 +
 +#include <linux/hfi/hfidd_internal.h>
-+#include <linux/hfi/hfidd_hcalls.h>
 +#include "hfidd_proto.h"
-+#include <linux/hfi/hfidd_requests.h>
 +
-+/*
-+ * Allows an user/kernel window to send/receive network traffic thru HFI
-+ * adapter. This function will allocate the system resources needed to open
-+ * a window. If any problem detected, then the request will fail. This function
-+ * is called directly by kernel users and by a write system call by userspace.
-+ */
-+int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
-+		struct hfi_client_info *user_p,
-+		struct hfi_client_info *out_p)
++static inline long long h_hfi_start_interface(int token,
++		u64 HFI_chip_ID)
 +{
-+	int			rc = 0;
-+	struct hfi_client_info	*local_p = NULL;
++	return plpar_hcall_norets(token, HFI_chip_ID);
++}
 +
-+	/* Allocate local data structure */
-+	local_p = kmalloc(sizeof(struct hfi_client_info), GFP_KERNEL);
-+	if (local_p == NULL) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"open_window_func: kmalloc local_p failed\n");
-+		return -ENOMEM;
-+	}
++static inline long long h_hfi_stop_interface(int token,
++		u64 HFI_chip_ID)
++{
++	return plpar_hcall_norets(token, HFI_chip_ID);
++}
 +
-+	/* Copy into local from user */
-+	rc = hfi_copy_from_user((void *)local_p, (void *)user_p,
-+			is_userspace, sizeof(struct hfi_client_info));
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"open_window_func: hfi_copy_from_user failed\n");
-+	}
++static inline long long h_hfi_query_interface(int token,
++		u64 HFI_chip_ID,
++		u64 type,
++		u64 output_page_ptr,
++		u64 *state)
++{
++	long long rc;
++	u64 hyp_outputs[PLPAR_HCALL_BUFSIZE];
 +
-+	kfree(local_p);
++	rc = plpar_hcall(token, (unsigned long *)hyp_outputs, HFI_chip_ID, type,
++			output_page_ptr);
++	*state = hyp_outputs[0];	/* 1st ret value */
++
 +	return rc;
 +}
-+EXPORT_SYMBOL_GPL(hfidd_open_window_func);
++
++long long hfi_hquery_interface(u64 unit_id, u64 subtype,
++			       u64 query_p, u64 *state)
++{
++	long long	hvrc;
++
++	hvrc = h_hfi_query_interface(H_HFI_QUERY_INTERFACE,
++			unit_id,
++			subtype,
++			query_p,
++			state);
++	return hvrc;
++}
++
++long long hfi_start_interface(u64 unit_id)
++{
++	return h_hfi_start_interface(H_HFI_START_INTERFACE,
++			unit_id);
++}
++
++long long hfi_stop_interface(u64 unit_id)
++{
++	long long	hvrc;
++
++	hvrc = h_hfi_stop_interface(H_HFI_STOP_INTERFACE,
++			unit_id);
++	return hvrc;
++}
+diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
+index e2ed4c9..6ec9245 100644
+--- a/drivers/net/hfi/core/hfidd_proto.h
++++ b/drivers/net/hfi/core/hfidd_proto.h
+@@ -36,5 +36,17 @@
+ int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t, void *uiop);
+ void hfidd_free_adapter(struct hfidd_acs *p_acs);
+ int hfidd_init_adapter(struct hfidd_acs *p_acs, void *uiop);
++int hfidd_age_hcall(u64 time_start);
++int hfidd_get_phyp_page(struct hfidd_acs *p_acs, caddr_t *page,
++	caddr_t *laddr, int size);
++void hfidd_release_phyp_page(caddr_t page, int size);
++int hfidd_query_interface(struct hfidd_acs *p_acs, unsigned int subtype,
++	unsigned int hfi_id, unsigned long long *state);
++int hfidd_start_interface(struct hfidd_acs *p_acs);
++int hfidd_stop_interface(struct hfidd_acs *p_acs, unsigned int hfi_id);
++long long hfi_hquery_interface(u64 unit_id, u64 subtype, u64 query_p,
++		u64 *state);
++long long hfi_start_interface(u64 unit_id);
++long long hfi_stop_interface(u64 unit_id);
+ 
+ #endif
 diff --git a/include/linux/hfi/hfidd_client.h b/include/linux/hfi/hfidd_client.h
-index c3c8fef..7e4c1a7 100644
+index 28f1693..2714a27 100644
 --- a/include/linux/hfi/hfidd_client.h
 +++ b/include/linux/hfi/hfidd_client.h
-@@ -69,6 +69,28 @@ struct fifo_info {
- 	unsigned long long	size;		/* bytes */
- };
+@@ -40,4 +40,12 @@
  
+ #define HFI_DYN_WINS_DEFAULT	32
+ 
++#define PAGE_SIZE_4K		0x1000
++#define PAGE_SIZE_64K		0x10000
++#define PAGE_SIZE_1M		0x100000
++#define PAGE_SIZE_16M		0x1000000
++#define PAGE_SIZE_256M		0x10000000
++#define PAGE_SIZE_4G		0x100000000
++#define PAGE_SIZE_16G		0x400000000
++
+ #endif /* _HFIDD_CLIENT_H_ */
+diff --git a/include/linux/hfi/hfidd_hcalls.h b/include/linux/hfi/hfidd_hcalls.h
+new file mode 100644
+index 0000000..5349e9e
+--- /dev/null
++++ b/include/linux/hfi/hfidd_hcalls.h
+@@ -0,0 +1,58 @@
 +/*
-+ * HFIDD_REQ_OPEN_WINDOW: Window Open
-+ * For reserved windows
-+ *	The job scheduler provides the application with window number and
-+ *	jobid, which need to be passed in/will be checked on the window open.
-+ *	Immediate send slots were also reserved by the job scheduler, and the
-+ *	DD returns the count. The application has the option of setting
-+ *	protection keys by task or by jobid. Protection key is passed in.
-+ * For Dynamic windows
-+ *	The DD will select a free dynamic window and return its window number.
-+ *	The jobid will be assigned by the DD (upper bits set to select a
-+ *	reserved range of jobids, lower bits come from userid).  The
-+ *	protection key flag is always by task. The protection key is passed in.
-+ * For Kernel/IP windows
-+ *	The DD will select a free dynamic window and return its window number.
-+ *	The jobid is passed in. The jobid is used for the protection key.
++ * hfidd_hcalls.h
 + *
-+ * Finished vectors:
-+ *	sfifo_finishvec and imm_finishvec must reside in an extra page (last
-+ *	page) in the sfifo memory range, provided by the user.
++ * HFI device driver for IBM System p
++ *
++ *  Authors:
++ *      Fu-Chung Chang <fcchang@linux.vnet.ibm.com>
++ *      William S. Cadden <wscadden@linux.vnet.ibm.com>
++ *      Wen C. Chen <winstonc@linux.vnet.ibm.com>
++ *      Scot Sakolish <sakolish@linux.vnet.ibm.com>
++ *      Jian Xiao <jian@linux.vnet.ibm.com>
++ *      Carol L. Soto <clsoto@linux.vnet.ibm.com>
++ *      Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
++ *
++ *  (C) Copyright IBM Corp. 2010
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
 + */
 +
- #define HFIDD_IP_WIN		1	/* IP windows get broadcasts forwarded
- 						to them... */
- #define HFIDD_KERNEL_WIN	2	/* ... other kernel windows do not */
++#ifndef _HFIDD_HCALLS_H_
++#define _HFIDD_HCALLS_H_
++
++#include <asm/hvcall.h>
++
++/* Token IDs */
++#define H_HFI_START_INTERFACE		0xF000
++#define H_HFI_QUERY_INTERFACE		0xF004
++#define H_HFI_STOP_INTERFACE		0xF008
++
++#define EEH_QUERY	1
++#define COMP_QUERY	2
++
++/* States of Query interface */
++#define NOT_READY	0
++#define NOT_STARTED	1
++#define ACTIVE		2
++#define CLOSING	3
++#define ERROR		101
++
++struct hfi_query_interface {
++	unsigned long long	hypervisor_capabilities;
++	unsigned int		local_node_id;
++};
++
++#endif /* _HFIDD_HCALLS_H_ */
 diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
-index 420d55a..951314a 100644
+index 78a5763..c7c67ca 100644
 --- a/include/linux/hfi/hfidd_internal.h
 +++ b/include/linux/hfi/hfidd_internal.h
-@@ -142,4 +142,30 @@ struct hfidd_global {
- 	struct hfidd_acs	*p_acs[MAX_HFIS];
+@@ -39,10 +39,12 @@
+ #include <linux/init.h>
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
++#include <linux/jiffies.h>
++#include <linux/device.h>
+ 
+ #include <linux/hfi/hfidd_client.h>
+ #include <linux/hfi/hfidd_adpt.h>
+-
++#include <linux/hfi/hfidd_hcalls.h>
+ #define HFIDD_DEV_NAME		"hfi"
+ #define HFIDD_CLASS_NAME	"hfi"
+ 
+@@ -65,6 +67,9 @@ struct hfidd_acs {
+ 	unsigned int		index;
+ 	unsigned int		acs_cnt;
+ 	unsigned int		state;
++
++	unsigned int		isr;
++
+ 	struct device		*hfidd_dev;
+ 	struct hfidd_dds	dds;
  };
- 
-+static inline int hfi_copy_to_user(void *user_p, void *local_p,
-+		unsigned int is_userspace, unsigned int size)
-+{
-+	int	rc = 0;
-+
-+	if (is_userspace)
-+		rc = copy_to_user(user_p, local_p, size);
-+	else
-+		memcpy(user_p, local_p, size);
-+
-+	return rc;
-+}
-+
-+static inline int hfi_copy_from_user(void *local_p, void *user_p,
-+		unsigned int is_userspace, unsigned int size)
-+{
-+	int	rc = 0;
-+
-+	if (is_userspace)
-+		rc = copy_from_user(local_p, user_p, size);
-+	else
-+		memcpy(local_p, user_p, size);
-+
-+	return rc;
-+}
-+
- #endif
-diff --git a/include/linux/hfi/hfidd_requests.h b/include/linux/hfi/hfidd_requests.h
-index b6e255f..4f1c74d 100644
---- a/include/linux/hfi/hfidd_requests.h
-+++ b/include/linux/hfi/hfidd_requests.h
-@@ -33,6 +33,7 @@
- #ifndef _HFIDD_REQUESTS_H_
- #define _HFIDD_REQUESTS_H_
- 
-+#define HFIDD_REQ_OPEN_WINDOW			0x00000a01
- #define HFIDD_REQ_QUERY_DD_INFO			0x00001004
- 
- #endif /* _HFIDD_REQUESTS_H_ */
 -- 
 1.7.3.5
 
