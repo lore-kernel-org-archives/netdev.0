@@ -1,82 +1,83 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
-Date: Thu, 21 Apr 2011 10:03:34 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1104210958560.1939-100000@iolanthe.rowland.org>
-References: <20110420214452.C599321126@glenhelen.mtv.corp.google.com>
+From: Jon Mason <jdmason@kudzu.us>
+Subject: Re: [PATCH V3 0/8] macvtap/vhost TX zero copy support
+Date: Thu, 21 Apr 2011 10:29:04 -0400
+Message-ID: <BANLkTi=ckukmCdOOvQc29vtYgxeiSMGqBw@mail.gmail.com>
+References: <1303328216.19336.18.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-To: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110420214452.C599321126-6A69KNNYBwgF248FYctl9mCaruZE5nAUZeezCHUQhQ4@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1303328216.19336.18.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Apr 2011, Paul Stewart wrote:
+On Wed, Apr 20, 2011 at 3:36 PM, Shirley Ma <mashirle@us.ibm.com> wrote=
+:
+> This patchset add supports for TX zero-copy between guest and host
+> kernel through vhost. It significantly reduces CPU utilization on the
+> local host on which the guest is located (It reduced 30-50% CPU usage
+> for vhost thread for single stream test). The patchset is based on
+> previous submission and comments from the community regarding when/ho=
+w
+> to handle guest kernel buffers to be released. This is the simplest
+> approach I can think of after comparing with several other solutions.
+>
+> This patchset includes:
+>
+> 1/8: Add a new sock zero-copy flag, SOCK_ZEROCOPY;
+>
+> 2/8: Add a new device flag, NETIF_F_ZEROCOPY for lower level device
+> support zero-copy;
+>
+> 3/8: Add a new struct skb_ubuf_info in skb_share_info for userspace
+> buffers release callback when lower device DMA has done for that skb;
+>
+> 4/8: Add vhost zero-copy callback in vhost when skb last refcnt is go=
+ne;
+> add vhost_zerocopy_add_used_and_signal to notify guest to release TX =
+skb
+> buffers.
+>
+> 5/8: Add macvtap zero-copy in lower device when sending packet is
+> greater than 128 bytes.
+>
+> 6/8: Add Chelsio 10Gb NIC to zero copy feature flag
+>
+> 7/8: Add Intel 10Gb NIC zero copy feature flag
+>
+> 8/8: Add Emulex 10Gb NIC zero copy feature flag
 
-> Set a flag if the interrupt URB completes with ENOENT as this
-> occurs legitimately during system suspend.  When the
-> usbnet_resume is called, test this flag and try once to resubmit
-> the interrupt URB.
+Why are only these 3 drivers getting support?  As far as I can tell,
+the only requirement is HIGHDMA.  If this is the case, is there really
+a need for an additional flag to support this?  If you can key off of
+HIGHDMA, all devices that support this would get the benefit.
 
-I still don't think this is the best way to go.
 
-> This version of the patch moves the urb submit directly into
-> usbnet_resume.  Is it okay to submit a GFP_KERNEL urb from
-> usbnet_resume()?
 
-Yes, it is.
-
-> Signed-off-by: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> ---
->  drivers/net/usb/usbnet.c   |   13 ++++++++++++-
->  include/linux/usb/usbnet.h |    1 +
->  2 files changed, 13 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 02d25c7..3651a48 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -482,6 +482,7 @@ static void intr_complete (struct urb *urb)
->  	case -ESHUTDOWN:	/* hardware gone */
->  		if (netif_msg_ifdown (dev))
->  			devdbg (dev, "intr shutdown, code %d", status);
-> +		set_bit(EVENT_INTR_HALT, &dev->flags);
-
-Is this new flag really needed?
-
->  		return;
->  
->  	/* NOTE:  not throttling like RX/TX, since this endpoint
-> @@ -1294,9 +1295,19 @@ int usbnet_resume (struct usb_interface *intf)
->  {
->  	struct usbnet		*dev = usb_get_intfdata(intf);
->  
-> -	if (!--dev->suspend_count)
-> +	if (!--dev->suspend_count) {
->  		tasklet_schedule (&dev->bh);
->  
-> +		/* resubmit interrupt URB if it was halted by suspend */
-> +		if (dev->interrupt && netif_running(dev->net) &&
-> +		    netif_device_present(dev->net) &&
-> +		    test_bit(EVENT_INTR_HALT, &dev->flags)) {
-
-Why do you need the test_bit()?  If the other conditions are all true,
-don't you want to resubmit the interrupt URB regardless?
-
-> +			clear_bit(EVENT_INTR_HALT, &dev->flags);
-> +			usb_submit_urb(dev->interrupt, GFP_KERNEL);
-> +		}
-> +	}
-> +}
-> +
->  	return 0;
->  }
-
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The patchset is built against most recent linux 2.6.git. It has passe=
+d
+> netperf/netserver multiple streams stress test on above NICs.
+>
+> The single stream test results from 2.6.37 kernel on Chelsio:
+>
+> 64K message size: copy_from_user dropped from 40% to 5%; vhost thread
+> cpu utilization dropped from 76% to 28%
+>
+> I am collecting more test results against 2.6.39-rc3 kernel and will
+> provide the test matrix later.
+>
+> Thanks
+> Shirley
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
