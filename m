@@ -1,112 +1,67 @@
-From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 02/27] HFI: Add HFI adapter control structure
-Date: Thu, 21 Apr 2011 17:38:39 -0400
-Message-ID: <4DB0A3DF.50900@linux.vnet.ibm.com>
-References: <1303096919-7367-1-git-send-email-dykmanj@linux.vnet.ibm.com> <1303096919-7367-3-git-send-email-dykmanj@linux.vnet.ibm.com> <1303129145.5282.1030.camel@localhost>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v5] net: bnx2x: convert to hw_features
+Date: Fri, 22 Apr 2011 00:41:34 +0200
+Message-ID: <20110421224134.GB7888@rere.qmqm.pl>
+References: <20110412144940.GA26043@rere.qmqm.pl> <20110411202630.C079D13909@rere.qmqm.pl> <1302610228.32697.298.camel@lb-tlvb-vladz> <20110412140708.GA21835@rere.qmqm.pl> <1302619012.6750.8.camel@lb-tlvb-vladz> <20110412193823.0823213A65@rere.qmqm.pl> <1303397531.3685.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
-	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
-	"William S. Cadden" <wscadden@linux.vnet.ibm.com>,
-	"Wen C. Chen" <winstonc@linux.vnet.ibm.com>,
-	Scot Sakolish <sakolish@linux.vnet.ibm.com>,
-	Jian Xiao <jian@linux.vnet.ibm.com>,
-	"Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
-	"Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Vladislav Zolotarov <vladz@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:37135 "EHLO e2.ny.us.ibm.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:36121 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753824Ab1DUWVD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 18:21:03 -0400
-Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by e2.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3LM1g3m022760
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 18:01:42 -0400
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3LMJo9B2339068
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 18:20:35 -0400
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3LLhslk009959
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 15:43:55 -0600
-In-Reply-To: <1303129145.5282.1030.camel@localhost>
+	id S1752874Ab1DUWlf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 18:41:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1303397531.3685.16.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/18/2011 8:19 AM, Ben Hutchings wrote:
-> On Sun, 2011-04-17 at 23:21 -0400, dykmanj@linux.vnet.ibm.com wrote:
->> From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
->>
->> Alloc/free of hfidd_acs to track the state of each HFI
-> [...]
->> --- /dev/null
->> +++ b/drivers/net/hfi/core/hfidd_adpt.c
-> [...]
->> +int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t devno, void *uiop)
->> +{
->> +
->> +	struct hfidd_acs	*p_acs = NULL;
->> +
->> +	p_acs = kzalloc(sizeof(*p_acs), GFP_KERNEL);
->> +	if (p_acs == NULL)
->> +		return -ENOMEM;
->> +
->> +	p_acs->dev_num = devno;
->> +	p_acs->index  = MINOR(devno);
->> +	p_acs->state  = HFI_INVALID;
->> +	snprintf(p_acs->name, HFI_DEVICE_NAME_MAX - 1,
->> +			"%s%d", HFIDD_DEV_NAME, p_acs->index);
-> 
-> snprintf() always null-terminates so the buffer length should be
-> specified as HFI_DEVICE_NAME_MAX or sizeof(p_acs->name).
-> 
+On Thu, Apr 21, 2011 at 04:52:11PM +0200, Eric Dumazet wrote:
+> Le mardi 12 avril 2011 =C3=A0 21:38 +0200, Micha=C5=82 Miros=C5=82aw =
+a =C3=A9crit :
+> > Since ndo_fix_features callback is postponing features change when
+> > bp->recovery_state !=3D BNX2X_RECOVERY_DONE, netdev_update_features=
+()
+> > has to be called again when this condition changes. Previously,
+> > ethtool_ops->set_flags callback returned -EBUSY in that case
+> > (it's not possible in the new model).
+> >=20
+> > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> >=20
+> > v5: - don't delay set_features, as it's rtnl_locked - same as recov=
+ery process
+> > v4: - complete bp->rx_csum -> NETIF_F_RXCSUM conversion
+> >     - add check for failed ndo_set_features in ndo_open callback
+> > v3: - include NETIF_F_LRO in hw_features
+> >     - don't call netdev_update_features() if bnx2x_nic_load() faile=
+d
+> > v2: - comment in ndo_fix_features callback
+> > ---
+> I am not sure its related to these changes, but I now have in
+> net-next-2.6 :
 
-Ok.
+> [   23.674263] ------------[ cut here ]------------
+> [   23.674266] WARNING: at net/core/dev.c:1318 dev_disable_lro+0x83/0=
+x90()
+> [   23.674270] Hardware name: ProLiant BL460c G6
+> [   23.674273] Modules linked in: tg3 libphy sg
+> [   23.674280] Pid: 3070, comm: sysctl Tainted: G        W   2.6.39-r=
+c2-01242-g3ef22b9-dirty #669
+> [   23.674282] Call Trace:
+> [   23.674285]  [<ffffffff813b94f3>] ? dev_disable_lro+0x83/0x90
+> [   23.674291]  [<ffffffff81042c9b>] warn_slowpath_common+0x8b/0xc0
+> [   23.674298]  [<ffffffff81042ce5>] warn_slowpath_null+0x15/0x20
+> [   23.674304]  [<ffffffff813b94f3>] dev_disable_lro+0x83/0x90
+> [   23.674309]  [<ffffffff81429789>] devinet_sysctl_forward+0x199/0x2=
+10
+[...]
 
-> [...]
->> --- a/drivers/net/hfi/core/hfidd_init.c
->> +++ b/drivers/net/hfi/core/hfidd_init.c
-> [...]
->>  static int __init hfidd_mod_init(void)
->>  {
->>  	int			rc = 0;
->>  
->> +	hfidd_global.acs_cnt = 0;
->> +
->>  	rc = hfidd_create_class();
->>  	if (rc < 0) {
->>  		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_class failed"
->> @@ -129,12 +172,26 @@ static int __init hfidd_mod_init(void)
->>  		return -1;
->>  	}
->>  
->> +	rc = hfidd_create_devices();
->> +	if (rc < 0) {
->> +		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_devices"
->> +			" failed rc = %d\n", HFIDD_DEV_NAME, rc);
->> +		goto error1;
->> +	}
->> +
->>  	printk(KERN_INFO "IBM hfi device driver loaded sucessfully\n");
->>  	return 0;
->> +
->> +error1:
->> +	hfidd_destroy_class();
->> +
->> +	/* Returning -1 so insmod will fail */
->> +	return -1;
->>  }
-> [...]
-> 
-> Should be 'return rc'.  Never return -1 as a generic failure; it means
-> -EPERM.
-> 
+Hmm. Looks like something is not allowing to disable LRO. Please check =
+with
+following patch so we can be sure which driver causes this.
 
-Ok
-
-> Ben.
-> 
-
-Jim
-
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
