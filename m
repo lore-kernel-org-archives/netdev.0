@@ -1,55 +1,61 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] bonding: fix bridged bonds in 802.3ad mode
-Date: Thu, 21 Apr 2011 20:08:19 +0100
-Message-ID: <1303412899.3165.47.camel@bwh-desktop>
-References: <20110421184748.GD23756@midget.suse.cz>
+Subject: Re: [PATCH v5] net: bnx2x: convert to hw_features
+Date: Thu, 21 Apr 2011 20:19:19 +0100
+Message-ID: <1303413559.3165.55.camel@bwh-desktop>
+References: <20110412144940.GA26043@rere.qmqm.pl>
+	 <20110411202630.C079D13909@rere.qmqm.pl>
+	 <1302610228.32697.298.camel@lb-tlvb-vladz>
+	 <20110412140708.GA21835@rere.qmqm.pl>
+	 <1302619012.6750.8.camel@lb-tlvb-vladz>
+	 <20110412193823.0823213A65@rere.qmqm.pl>
+	 <1303397531.3685.16.camel@edumazet-laptop>
+	 <1303411750.19212.123.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Benjamin Poirier <benjamin.poirier@polymtl.ca>
-To: Jiri Bohac <jbohac@suse.cz>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:7859 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:9122 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752376Ab1DUTIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 15:08:23 -0400
-In-Reply-To: <20110421184748.GD23756@midget.suse.cz>
+	with ESMTP id S1753316Ab1DUTTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 15:19:22 -0400
+In-Reply-To: <1303411750.19212.123.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-21 at 20:47 +0200, Jiri Bohac wrote:
-> 802.3ad bonding inside a bridge is broken again. Originally fixed by
-> 43aa1920117801fe9ae3d1fad886b62511e09bee, the bug was re-introduced by
-> 1e253c3b8a1aeed51eef6fc366812f219b97de65.
-> 
-> LACP frames must not have their skb->dev changed by the bridging hook.
-> 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-> 
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1514,6 +1514,11 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
->  		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
->  	}
->  
-> +	/* prevent bridging code from mangling and forwarding LACP frames */
-> +	if (bond->params.mode == BOND_MODE_8023AD &&
-> +	    skb->protocol == htons(ETH_P_SLOW))
-> +		return RX_HANDLER_PASS;
-> +
->  	return RX_HANDLER_ANOTHER;
->  }
->  
+On Thu, 2011-04-21 at 21:49 +0300, Vladislav Zolotarov wrote:
+[...]
+> More than that, in addition it is impossible to disable the LRO with 
+> the current bnx2x upstream driver (ethtool -K ethX lro off) and this is
+> because dev_disable_lro passes to __ethtool_set_flags() flags based on
+> the current value of dev->features while __ethtool_set_flags() expects
+> only the flags set in dev->hw_features. bnx2x has NETIF_F_HW_VLAN_RX
+> that is set in dev->features and not set in dev->hw_features and it's
+> passed down to the __ethtool_set_flags(). 
+[...]
 
-It seems to me that 1e253c3b8a1aeed51eef6fc366812f219b97de65 is bogus
-and should be reverted, rather than worked around by other drivers.  We
-shouldn't enable non-conformant forwarding behaviour by default just
-because some people find it useful.  The administrator should have to
-explicitly enable it.
+The problem is here in register_netdevice():
+
+	/* Transfer changeable features to wanted_features and enable
+	 * software offloads (GSO and GRO).
+	 */
+	dev->hw_features |= NETIF_F_SOFT_FEATURES;
+	dev->features |= NETIF_F_SOFT_FEATURES;
+	dev->wanted_features = dev->features & dev->hw_features;
+
+This doesn't work correctly for features that are always enabled, like
+NETIF_F_HW_VLAN_RX in bnx2x, which are set in dev->features but not in
+dev->hw_features.
+
+The name 'hw_features' really wasn't a good choice - the obvious meaning
+and the meaning assumed by this code is 'hardware-supported features'
+and not 'hardware-supported features that can be toggled'.  And since we
+add NETIF_F_SOFT_FEATURES, it really only means 'features that can be
+toggled'.
 
 Ben.
 
