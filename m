@@ -1,80 +1,144 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
-Date: Thu, 21 Apr 2011 08:54:45 +0200
-Message-ID: <20110421065445.GA332@kurt.e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	<20110314135917.GF333@e-circ.dyndns.org>
-	<4D8623BE.2080807@hartkopp.net>
-	<20110413044928.GA289@kurt.e-circ.dyndns.org>
-	<4DA88705.5040203@hartkopp.net>
-	<20110420072439.GB332@kurt.e-circ.dyndns.org>
-	<4DAEBC94.5020009@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4DAEBC94.5020009-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: Re: [PATCH net-next-2.6 v4 3/5] sctp: Add socket option operation for Auto-ASCONF
+Date: Thu, 21 Apr 2011 16:11:08 +0900
+Message-ID: <2E471FD6-4AF9-44EB-AC63-C74516B4B5FD@sfc.wide.ad.jp>
+References: <B0DA9A05-D070-4878-968A-33F41E744463@sfc.wide.ad.jp> <4DAFB93F.9060704@cn.fujitsu.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:46323 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753037Ab1DUHLK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 03:11:10 -0400
+In-Reply-To: <4DAFB93F.9060704@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+one question inline 
+>> 
+>> 
+>> +/*
+>> + * 8.1.23 SCTP_AUTO_ASCONF
+>> + *
+>> + * This option will enable or disable the use of the automatic generation of
+>> + * ASCONF chunks to add and delete addresses to an existing association.  Note
+>> + * that this option has two caveats namely: a) it only affects sockets that
+>> + * are bound to all addresses available to the SCTP stack, and b) the system
+>> + * administrator may have an overriding control that turns the ASCONF feature
+>> + * off no matter what setting the socket option may have.
+>> + * This option expects an integer boolean flag, where a non-zero value turns on
+>> + * the option, and a zero value turns off the option.
+>> + * Note. In this implementation, socket operation overrides default parameter
+>> + * being set by sysctl as well as FreeBSD implementation
+>> + */
 > 
-> Kurt, the problem for me is, that you constantly state that your approach is
-> the best. For me it is not.
-no userspace counterpart can handle transient conditions like kernel can...
+> I see:
+> b) the system administrator may have an overriding control
+> that turns the ASCONF feature off no matter what setting the socket
+> option may have.
 > 
-> The major issue in your implementation is the lack of the possibility to
-> simulate several j1939 ECUs on one Linux host talking to each other via
-> virtual CAN busses to create a complete j1939 network. And so far you did not
-> address this request.
-Oliver,
-I tried to explain already several times that this stack _IS_ capable
-of having several j1939 ECU's on one linux host, talking to any CAN bus, virtual
-or physical.
-I agree that if this was not the case, your arguments would have been valid.
-
-The major improvement (IMHO) of my in-kernel j1939 stack is that several
-applications can also contribute to the same ECU, without protocol violations.
-
-side note: this is not even a matter introduced with address claiming :-0
+> You have not add this support?
 > 
+> To support this, we may change the sysctl auto_sctp_asconf's logic.
+> If auto_asconf_enable == 1, we can use auto_asconf, if it is false,
+> turns the ASCONF feature off no matter what setting the socket
+> option may have. Or intrudce other sysctl to do the orig thing which
+> auto_asconf_enable do?
+> 
+If we implement a feature to disable auto_asconf anyway, we would introduce two sysctl parameters: sctp_default_auto_asconf (just works as current sctp_auto_asconf_enable) and sctp_disable_auto_asconf.  
+sctp_disable_auto_asconf should be prioritized from sctp_default_auto_asconf==1.   
+I think we should allow the application to enable auto_asconf individually via setsockopt() when the default_auto_asconf is off, unless the disable_auto_asconf is on by system administrator.  
 
-ever done this?
-$ ip addr add 192.168.0.1/24 dev eth0
-$ ip addr add 192.168.1.1/24 dev eth0
+I personally think just defining auto_asconf_enable is ok, because same behavior as FreeBSD would be acceptable.  
+But for future implementation of sctp_disable_auto_asconf, at least change the param name to default_auto_asconf would be better.  
+Do you think force disabling auto_asconf by sysctl is somehow useful?
+I agree if you think so, and will implement quickly.    
+> 
+>> +static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
+>> +					unsigned int optlen)
+>> +{
+>> +	int val;
+>> +	struct sctp_sock *sp = sctp_sk(sk);
+>> +
+>> +	if (optlen < sizeof(int))
+>> +		return -EINVAL;
+>> +	if (get_user(val, (int __user *)optval))
+>> +		return -EFAULT;
+>> +	if (!sctp_is_ep_boundall(sk) && val)
+>> +		return -EINVAL;
+>> +	if ((val && sp->do_auto_asconf) || (!val && !sp->do_auto_asconf))
+>> +		return 0;
+>> +
+>> +	if (val == 0 && sp->do_auto_asconf) {
+>> +		list_del(&sp->auto_asconf_list);
+>> +		sp->do_auto_asconf = 0;
+>> +	} else if (val && !sp->do_auto_asconf) {
+>> +		list_add_tail(&sp->auto_asconf_list,
+>> +		    &sctp_auto_asconf_splist);
+>> +		sp->do_auto_asconf = 1;
+>> +	}
+>> +	return 0;
+>> +}
+>> +
+>> 
+>> /* API 6.2 setsockopt(), getsockopt()
+>>  *
+>> @@ -3488,6 +3528,9 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk, int level, int optname,
+>> 	case SCTP_AUTH_DELETE_KEY:
+>> 		retval = sctp_setsockopt_del_key(sk, optval, optlen);
+>> 		break;
+>> +	case SCTP_AUTO_ASCONF:
+>> +		retval = sctp_setsockopt_auto_asconf(sk, optval, optlen);
+>> +		break;
+>> 	default:
+>> 		retval = -ENOPROTOOPT;
+>> 		break;
+>> @@ -5283,6 +5326,28 @@ static int sctp_getsockopt_assoc_number(struct sock *sk, int len,
+>> 	return 0;
+>> }
+>> 
+>> +/*
+>> + * 8.1.23 SCTP_AUTO_ASCONF
+>> + * See the corresponding setsockopt entry as description
+>> + */
+>> +static int sctp_getsockopt_auto_asconf(struct sock *sk, int len,
+>> +				   char __user *optval, int __user *optlen)
+>> +{
+>> +	int val = 0;
+>> +
+>> +	if (len < sizeof(int))
+>> +		return -EINVAL;
+>> +
+>> +	len = sizeof(int);
+>> +	if (sctp_sk(sk)->do_auto_asconf && sctp_is_ep_boundall(sk))
+>> +		val = 1;
+>> +	if (put_user(len, optlen))
+>> +		return -EFAULT;
+>> +	if (copy_to_user(optval, &val, len))
+>> +		return -EFAULT;
+>> +	return 0;
+>> +}
+>> +
+>> SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+>> 				char __user *optval, int __user *optlen)
+>> {
+>> @@ -5415,6 +5480,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+>> 	case SCTP_GET_ASSOC_NUMBER:
+>> 		retval = sctp_getsockopt_assoc_number(sk, len, optval, optlen);
+>> 		break;
+>> +	case SCTP_AUTO_ASCONF:
+>> +		retval = sctp_getsockopt_auto_asconf(sk, len, optval, optlen);
+>> +		break;
+>> 	default:
+>> 		retval = -ENOPROTOOPT;
+>> 		break;
+>> 
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
 
-Likewise I do now:
-$ ip addr add j1939 0x20 dev can0
-$ ip addr add j1939 0x21 dev can0
-
-I see no problem there.
-
-With address claiming:
-$ ip addr add j1939 name 0123456789ABCDE0 dev can0
-$ ip addr add j1939 name 0123456789ABCDE1 dev can0
-and my daemon to choose addresses (posted later today on can-utils)
-
-$ jacd --range 0x20-0x30 0123456789ABCDE0 can0
-$ jacd --range 0x20-0x30 0123456789ABCDE1 can0
-
-No, no typos here. both ECU's will resolve conflicts on CAN, on the same host!
-The second will ECU will finally get 0x21, _as should be_ per J1939.
-
-Oliver,
-The way I understand your request, this addressed that. What did I miss up to here?
-
-I skipped a lot of your original email since the issue addressed here seems to
-be source of misunderstanding.
-
-Kind regards,
-Kurt
