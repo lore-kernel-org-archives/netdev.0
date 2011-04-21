@@ -1,55 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RPS will assign different smp_processor_id for the same packet?
-Date: Thu, 21 Apr 2011 18:08:14 +0200
-Message-ID: <1303402094.3685.54.camel@edumazet-laptop>
-References: <BANLkTimvuGKYuiV_ngTo4wtqhNix4iMfmA@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: rfkill-input to be removed
+Date: Thu, 21 Apr 2011 18:22:31 +0200
+Message-ID: <1303402951.3597.27.camel@jlt3.sipsolutions.net>
+References: <4DAFEAA7.5090003@absence.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: zhou rui <zhourui.cn@gmail.com>
+To: Marco Chiappero <marco@absence.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58551 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915Ab1DUQIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 12:08:18 -0400
-Received: by wwa36 with SMTP id 36so2267708wwa.1
-        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 09:08:17 -0700 (PDT)
-In-Reply-To: <BANLkTimvuGKYuiV_ngTo4wtqhNix4iMfmA@mail.gmail.com>
+Received: from he.sipsolutions.net ([78.46.109.217]:41073 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753462Ab1DUQWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 12:22:32 -0400
+In-Reply-To: <4DAFEAA7.5090003@absence.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 21 avril 2011 =C3=A0 23:50 +0800, zhou rui a =C3=A9crit :
-> kernel 2.6.36.4
-> CONFIG_RPS=3Dy but not set the cpu mask
->=20
-> /sys/class/net/eth1/queues/rx-0 # cat rps_cpus
-> 00
->=20
-> register a hook func:
->   prot_hook.func =3D packet_rcv;
->   prot_hook.type =3D htons(ETH_P_ALL);
->   dev_add_pack(&prot_hook);
->=20
->=20
-> replay the same traffic in very slow speed, printk the
-> smp_processor_id in packet_rcv():
-> first time:
-> cpu=3D4
-> cpu=3D3
-> cpu=3D6
-> cpu=3D7
->=20
-> second time:
-> cpu=3D7
-> cpu=3D1
-> cpu=3D5
-> cpu=3D2
->=20
-> is it normal?
+On Thu, 2011-04-21 at 10:28 +0200, Marco Chiappero wrote:
+> While working on the the sony-laptop driver, adding support for 
+> persistent rfkill state storing and adding the SW_RFKILL_ALL switch 
+> event forwarding to the input core to notify userspace, I realized that 
+> rfkill-input interferes with correct behavior of the driver, vanishing 
+> the hardware device state storing. 
 
-Yes it is.
+Yeah we noticed this before with some other drivers. The persistent
+stuff seems to only be suitable for a small number of semantics.
 
-What would you expect ?
+> Then, looking at 
+> Documentation/feature-removal-schedule.txt I realized that rfkill-input 
+> was scheduled to be removed in 2.6.33, but it's still there in 2.6.39. 
+> Please remove that code as soon as possible, rfkill input events should 
+> be handled by user space tools.
 
+Frankly, I don't think we're ready for this yet, most distros don't yet
+ship the rfkill daemon.
+
+johannes
 
