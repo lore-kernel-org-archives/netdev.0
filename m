@@ -1,51 +1,47 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: rfkill-input to be removed
-Date: Thu, 21 Apr 2011 10:51:35 -0500
-Message-ID: <1303401097.16512.17.camel@dcbw.foobar.com>
-References: <4DAFEAA7.5090003@absence.it> <4DB03586.3040702@absence.it>
+From: zhou rui <zhourui.cn@gmail.com>
+Subject: RPS will assign different smp_processor_id for the same packet?
+Date: Thu, 21 Apr 2011 23:50:37 +0800
+Message-ID: <BANLkTimvuGKYuiV_ngTo4wtqhNix4iMfmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes@sipsolutions.net
-To: Marco Chiappero <marco@absence.it>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42264 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753604Ab1DUPuM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 11:50:12 -0400
-In-Reply-To: <4DB03586.3040702@absence.it>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:39850 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754123Ab1DUPuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 11:50:37 -0400
+Received: by iyb14 with SMTP id 14so1494238iyb.19
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 08:50:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-21 at 15:47 +0200, Marco Chiappero wrote:
-> Il 21/04/2011 10:28, Marco Chiappero ha scritto:
-> > Please remove that code as soon as possible, rfkill input events should
-> > be handled by user space tools.
-> 
-> About this topic, I've created a patch right now, you can find it here:
-> http://www.absence.it/vaio-acpi/source/patches/rfkill-input.patch
-> Does it look fine?
+kernel 2.6.36.4
+CONFIG_RPS=y but not set the cpu mask
 
-You'll want to follow the patch submission guidelines:
+/sys/class/net/eth1/queues/rx-0 # cat rps_cpus
+00
 
-http://linux.yyz.us/patch-format.html
-
-before people will look at the patch, because many of the people who
-would look at it are quite busy.  That means:
-
-1) use a subject like "[PATCH] rfkill-input: remove deprecated module"
-2) Add your Signed-off-by: Your Name <your email>
-3) paste your patch *inline*, not as an attachment, and make *sure* to
-use the "preformat" or whatever option when you do, so that your mailer
-doesn't wrap long lines
-
-Dan
-
-> Moreover, using checkpatch.pl I've found 3 coding style errors, I'm 
-> attaching a patch to fix them (apply this one first).
-> 
-> And just one last thing: as there is no configuration option inside the 
-> menu, shouldn't we change the "menuconfig RFKILL" line to "config 
-> RFKILL" inside net/rfkill/Kconfig?
+register a hook func:
+  prot_hook.func = packet_rcv;
+  prot_hook.type = htons(ETH_P_ALL);
+  dev_add_pack(&prot_hook);
 
 
+replay the same traffic in very slow speed, printk the
+smp_processor_id in packet_rcv():
+first time:
+cpu=4
+cpu=3
+cpu=6
+cpu=7
+
+second time:
+cpu=7
+cpu=1
+cpu=5
+cpu=2
+
+is it normal?
+
+thanks
+rui
