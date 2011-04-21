@@ -1,78 +1,78 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
-Date: Thu, 21 Apr 2011 09:43:46 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1104210937360.1939-100000@iolanthe.rowland.org>
-References: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog@mail.gmail.com>
+From: Marco Chiappero <marco@absence.it>
+Subject: Re: rfkill-input to be removed
+Date: Thu, 21 Apr 2011 15:47:50 +0200
+Message-ID: <4DB03586.3040702@absence.it>
+References: <4DAFEAA7.5090003@absence.it>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, <linux-usb@vger.kernel.org>,
-	<davem@davemloft.net>, <greg@kroah.com>
-To: Paul Stewart <pstew@chromium.org>
+Content-Type: multipart/mixed;
+ boundary="------------080006070303090702000809"
+Cc: johannes@sipsolutions.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:59362 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751366Ab1DUNnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 09:43:47 -0400
-In-Reply-To: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog@mail.gmail.com>
+Received: from aa013-1msr.fastwebnet.it ([62.101.93.133]:33995 "EHLO
+	aa013-1msr.fastwebnet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995Ab1DUNrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 09:47:52 -0400
+In-Reply-To: <4DAFEAA7.5090003@absence.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Apr 2011, Paul Stewart wrote:
+This is a multi-part message in MIME format.
+--------------080006070303090702000809
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> On Wed, Apr 20, 2011 at 2:08 PM, Alan Stern <stern@rowland.harvard.ed=
-u> wrote:
-> > On Tue, 19 Apr 2011, Paul Stewart wrote:
-> >
-> >> Set a flag if the interrupt URB completes with ENOENT as this
-> >> occurs legitimately during system suspend. =A0When the usbnet_bh
-> >> is called after resume, test this flag and try once to resubmit
-> >> the interrupt URB.
-> >
-> > No doubt there's a good reason for doing things this way, but it is=
-n't
-> > clear. =A0Why wait until usbnet_bh() is called after resume? =A0Why=
- not
-> > resubmit the interrupt URB _during_ usbnet_resume()?
->=20
-> Actually, I was doing this in the bh because of feedback I had gained
-> early in this process about not doing submit_urb in the resume().
+Il 21/04/2011 10:28, Marco Chiappero ha scritto:
+> Please remove that code as soon as possible, rfkill input events should
+> be handled by user space tools.
 
-Do you have a URL for that feedback?  In general, there's no reason not=
-=20
-to resubmit URBs during a resume callback; lots of drivers do it.  But=20
-usbnet may have some special requirements of its own that I'm not aware=
-=20
-of.
+About this topic, I've created a patch right now, you can find it here:
+http://www.absence.it/vaio-acpi/source/patches/rfkill-input.patch
+Does it look fine?
 
->  If
-> that issue doesn't exist, that makes my work a lot easier.  In testin=
-g
-> I found that just setting this to happen in the bh might be problemat=
-ic
-> due to firing too early, so this is good news.
->=20
-> >=A0This would seem
-> > to be the logical approach, seeing as how usbnet_suspend() kills th=
-e
-> > interrupt URB.
->=20
-> Aha!  But you'll see from the current version of my patch that we don=
-'t
-> actually ever kill the interrupt URB.  It gets killed all on its own =
-(by the
-> hcd?) and handed back to us in intr_complete().  This last bit about =
-the
-> complete function being called was lost on me for a while which is wh=
-y
-> in a previous iteration of the patch I was trying to kill the urb in =
-suspend().
+Moreover, using checkpatch.pl I've found 3 coding style errors, I'm 
+attaching a patch to fix them (apply this one first).
 
-Why not kill the interrupt URB while suspending?  It's the proper thing
-to do.  Otherwise you run the risk that an event might happen at just
-the wrong time, causing the interrupt URB to complete normally, but
-_after_ the driver has finished suspending.  There's a good chance the=20
-driver would not process the event correctly.
+And just one last thing: as there is no configuration option inside the 
+menu, shouldn't we change the "menuconfig RFKILL" line to "config 
+RFKILL" inside net/rfkill/Kconfig?
 
-Alan Stern
+--------------080006070303090702000809
+Content-Type: text/x-patch;
+ name="rfkill-style.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="rfkill-style.patch"
 
+Signed-off-by: Marco Chiappero <marco@absence.it>
+--- a/net/rfkill/core.c	2011-04-19 06:26:00.000000000 +0200
++++ b/net/rfkill/core.c	2011-04-21 15:33:21.970094489 +0200
+@@ -621,7 +621,7 @@ static ssize_t rfkill_hard_show(struct d
+ {
+ 	struct rfkill *rfkill = to_rfkill(dev);
+ 
+-	return sprintf(buf, "%d\n", (rfkill->state & RFKILL_BLOCK_HW) ? 1 : 0 );
++	return sprintf(buf, "%d\n", (rfkill->state & RFKILL_BLOCK_HW) ? 1 : 0);
+ }
+ 
+ static ssize_t rfkill_soft_show(struct device *dev,
+@@ -630,7 +630,7 @@ static ssize_t rfkill_soft_show(struct d
+ {
+ 	struct rfkill *rfkill = to_rfkill(dev);
+ 
+-	return sprintf(buf, "%d\n", (rfkill->state & RFKILL_BLOCK_SW) ? 1 : 0 );
++	return sprintf(buf, "%d\n", (rfkill->state & RFKILL_BLOCK_SW) ? 1 : 0);
+ }
+ 
+ static ssize_t rfkill_soft_store(struct device *dev,
+@@ -648,7 +648,7 @@ static ssize_t rfkill_soft_store(struct 
+ 	if (err)
+ 		return err;
+ 
+-	if (state > 1 )
++	if (state > 1)
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&rfkill_global_mutex);
+
+--------------080006070303090702000809--
