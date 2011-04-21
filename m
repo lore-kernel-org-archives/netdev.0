@@ -1,71 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RPS will assign different smp_processor_id for the same packet?
-Date: Thu, 21 Apr 2011 18:25:12 +0200
-Message-ID: <1303403112.3685.61.camel@edumazet-laptop>
-References: <BANLkTimvuGKYuiV_ngTo4wtqhNix4iMfmA@mail.gmail.com>
-	 <1303402094.3685.54.camel@edumazet-laptop>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
+Date: Thu, 21 Apr 2011 12:27:21 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1104211205090.1939-100000@iolanthe.rowland.org>
+References: <BANLkTik7Da6K4Fn7=dpo8RwwctCp8kV_iw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: zhou rui <zhourui.cn@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, <linux-usb@vger.kernel.org>,
+	<davem@davemloft.net>, <greg@kroah.com>
+To: Paul Stewart <pstew@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54773 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753621Ab1DUQZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 12:25:16 -0400
-Received: by wya21 with SMTP id 21so1560937wya.19
-        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 09:25:15 -0700 (PDT)
-In-Reply-To: <1303402094.3685.54.camel@edumazet-laptop>
+Received: from iolanthe.rowland.org ([192.131.102.54]:39980 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754491Ab1DUQ1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 12:27:22 -0400
+In-Reply-To: <BANLkTik7Da6K4Fn7=dpo8RwwctCp8kV_iw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 21 avril 2011 =C3=A0 18:08 +0200, Eric Dumazet a =C3=A9crit :
-> Le jeudi 21 avril 2011 =C3=A0 23:50 +0800, zhou rui a =C3=A9crit :
-> > kernel 2.6.36.4
-> > CONFIG_RPS=3Dy but not set the cpu mask
-> >=20
-> > /sys/class/net/eth1/queues/rx-0 # cat rps_cpus
-> > 00
-> >=20
-> > register a hook func:
-> >   prot_hook.func =3D packet_rcv;
-> >   prot_hook.type =3D htons(ETH_P_ALL);
-> >   dev_add_pack(&prot_hook);
-> >=20
-> >=20
-> > replay the same traffic in very slow speed, printk the
-> > smp_processor_id in packet_rcv():
-> > first time:
-> > cpu=3D4
-> > cpu=3D3
-> > cpu=3D6
-> > cpu=3D7
-> >=20
-> > second time:
-> > cpu=3D7
-> > cpu=3D1
-> > cpu=3D5
-> > cpu=3D2
-> >=20
-> > is it normal?
->=20
-> Yes it is.
->=20
-> What would you expect ?
->=20
+On Thu, 21 Apr 2011, Paul Stewart wrote:
 
-If rps_cpus contains only '0' bits, it basically means RPS is not activ=
-e
-for this input queue.
+> I'm trying to handle two separate issues, one of which I can't say I
+> fully understand.  The first, which is the most straightforward, is
+> for systems in which USB devices remained powered across
+> suspend-resume.  For this case for sure, we don't need a flag.  The
+> interrupt URBs are halted (either done so by the HCD as I've observed,
+> or the drive can choose to kill them in usbnet_suspend()).  On system
+> resume, we're guaranteed URBs have stopped, and we can just submit
+> one.
 
-CPU is therefore not changed : The cpu handling NAPI on your network
-device directly calls upper linux stack.
+Okay, good.
 
-Seeing your traces, it also means your device spreads its interrupts on
-many different cpus, this might be not optimal.
+> In a second scenario, for other systems USB devices go unpowered
+> during suspend.
 
-Check /proc/irq/{irq_number}/smp_affinity, it probably contains "ff"
+As happens during hibernation, for example.
 
+>  At resume time, there's a quick succession where the
+> device appears to detach and reattach and enumerate.
 
+Right.  It's called reset-resume, and drivers have a special method for 
+it, distinct from regular resume.  In theory it shouldn't make any 
+difference.
+
+>  This is where
+> things get strange.  It appears that since the enumeration happens in
+> the course of system resume, when usbnet_open() gets called, and
+> usb_autopm_get_interface(), there's a call path that leads to
+> usbnet_resume().
+
+Only if the interface was suspended when usbnet_open() was called.  It
+might have gotten suspended automatically following the system resume,
+if it wasn't in use.  But this should work out the same whether or not
+there was a reset-rseume.
+
+>  If there's no flag, then we submit the interrupt urb
+> from usbnet_resume(), so the submit_urb() in usbnet_open() fails in an
+> error.  This makes actions like "ifconfig eth0 up" fail on the
+> interface after resume from suspend.
+
+The driver needs better coordination between open/stop and
+resume/suspend.  The interrupt and receive URBs are supposed to be
+active whenever the interface is up and not suspended, right?  Which
+means that usbnet_resume() shouldn't submit anything if the interface 
+isn't up.
+
+Alan Stern
 
