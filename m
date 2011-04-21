@@ -1,65 +1,54 @@
-From: "juice" <juice@swagman.org>
-Subject: Re: Hight speed data sending from custom IP out of kernel
-Date: Thu, 21 Apr 2011 23:27:30 +0300
-Message-ID: <833c0a3df92bf44c2966fb54bbded876.squirrel@www.liukuma.net>
-References: <53f539ea861e1a24bde4aadceff0b3bb.squirrel@www.liukuma.net>
-    <4DAD76F1.40309@monstr.eu>
-    <45cb2254ff23a4977c95b0f9459e39a6.squirrel@www.liukuma.net>
-    <BANLkTikF5qz4pBLHsTZS1+oQxYAfQSD+cg@mail.gmail.com>
-Reply-To: juice@swagman.org
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [ethtool PATCH 0/6] Network flow classifier
+Date: Thu, 21 Apr 2011 13:40:14 -0700
+Message-ID: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "zhou rui" <zhourui.cn@gmail.com>, monstr@monstr.eu,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:48709 "EHLO www.liukuma.net"
+Received: from mga01.intel.com ([192.55.52.88]:19694 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752533Ab1DUU1h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 16:27:37 -0400
-In-Reply-To: <BANLkTikF5qz4pBLHsTZS1+oQxYAfQSD+cg@mail.gmail.com>
+	id S1752150Ab1DUUkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 16:40:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> There is not a lot of documentation, and the module is still "work in
->> progress" as I am going to fix it to work with more than one interface
->> at
->> the same time when I get to do it. Currently it can only use one
->> interface
->> on the sending host machine.
->>
->
-> does it use the same command/config file as pktgen?
-> or special command?
->
+The following patches are meant to add support for the network flow classifier
+interface built into the ethtool_rxnfc.
 
-The commands are similar type but different than pktgen.
+Once this has been accepted I plan to submit the kernel portion to Jeff
+Kirsher as it is almost all ixgbe code changes with the exception of the
+removal of support for ethtool_get_rx_ntuple from the kernel.
 
-First, when loading the module the intreface to be used must be given as
-parameter, like this: "sudo insmod ./streamgen.ko interface=eth0"
-Optional parameter is the UDP port that the userspace loader program uses
-to communicate with the module. default port is 5555.
+Thanks,
 
-Then, the streamer module creates file "/proc/net/streamgen/control" which
-is used to read status of module and command it:
+Alex
 
-juice@alaspin:~$ sudo cat /proc/net/streamgen/control
-Stream Generator v.0.02
+---
 
-  State:      off
-  Repeat:     1
-  Queue size: 600 packets
+Alexander Duyck (5):
+      Update documentation for -u/-U operations
+      Add support for __be64 and bitops to ethtool
+      ethtool: remove strings based approach for displaying n-tuple
+      Add support for NFC flow classifier extensions
+      Add support for ESP as a separate protocol from AH
 
-juice@alaspin:~$
-
-The commands that can be used are "repeat <num>", "start", "stop",
-"delete" and "clear_counters"
-The repeat command sets how many times the loaded sequence is output, zero
-means forever. Commands run and stop work as expected. Command delete
-clears the sequence from memory and command clear_counters zeroes the
-packet counters.
+Santwona Behera (1):
+      v4 Add RX packet classification interface
 
 
+ Makefile.am      |    3 
+ ethtool-bitops.h |   25 +
+ ethtool-copy.h   |   39 +-
+ ethtool-util.h   |   44 ++
+ ethtool.8.in     |  193 +++++----
+ ethtool.c        |  449 +++++++++++-----------
+ rxclass.c        | 1106 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 1519 insertions(+), 340 deletions(-)
+ create mode 100644 ethtool-bitops.h
+ create mode 100644 rxclass.c
 
-
-
+-- 
