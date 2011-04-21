@@ -1,54 +1,60 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree (net tree
- related)
-Date: Fri, 22 Apr 2011 08:10:08 +1000
-Message-ID: <20110422081008.e7ebab59.sfr@canb.auug.org.au>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v5] net: bnx2x: convert to hw_features
+Date: Fri, 22 Apr 2011 00:15:48 +0200
+Message-ID: <20110421221548.GA7888@rere.qmqm.pl>
+References: <20110412144940.GA26043@rere.qmqm.pl> <20110411202630.C079D13909@rere.qmqm.pl> <1302610228.32697.298.camel@lb-tlvb-vladz> <20110412140708.GA21835@rere.qmqm.pl> <1302619012.6750.8.camel@lb-tlvb-vladz> <20110412193823.0823213A65@rere.qmqm.pl> <1303397531.3685.16.camel@edumazet-laptop> <1303411750.19212.123.camel@lb-tlvb-vladz> <1303413559.3165.55.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	=?UTF-8?B?Ik1pY2hhxYIgTWlyb3PFgmF3Ig==?= <mirq-linux@rere.qmqm.pl>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vladislav Zolotarov <vladz@broadcom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:35103 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752874Ab1DUWPu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 18:15:50 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <1303413559.3165.55.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Thu, Apr 21, 2011 at 08:19:19PM +0100, Ben Hutchings wrote:
+> 	/* Transfer changeable features to wanted_features and enable
+> 	 * software offloads (GSO and GRO).
+> 	 */
+> 	dev->hw_features |=3D NETIF_F_SOFT_FEATURES;
+> 	dev->features |=3D NETIF_F_SOFT_FEATURES;
+> 	dev->wanted_features =3D dev->features & dev->hw_features;
+>=20
+> This doesn't work correctly for features that are always enabled, lik=
+e
+> NETIF_F_HW_VLAN_RX in bnx2x, which are set in dev->features but not i=
+n
+> dev->hw_features.
 
-After merging the final tree, today's linux-next build (powerpc chrp32_defc=
-onfig)
-failed like this:
+> The name 'hw_features' really wasn't a good choice - the obvious mean=
+ing
+> and the meaning assumed by this code is 'hardware-supported features'
+> and not 'hardware-supported features that can be toggled'.  And since=
+ we
+> add NETIF_F_SOFT_FEATURES, it really only means 'features that can be
+> toggled'.
 
-drivers/net/mv643xx_eth.c: In function 'port_start':
-drivers/net/mv643xx_eth.c:2250: error: 'dev' undeclared (first use in this =
-function)
+I won't argue about hw_features name - I just couldn't find a better on=
+e.
+Comment in include/linux/netdevice.h clearly explains the purpose of th=
+is
+field.
 
-Caused by commit aad59c431b77 ("net: mv643xx: convert to hw_features").
+wanted_features is supposed to be limited by hw_features (so that it's =
+always
+true that (hw_features & wanted_features) =3D=3D wanted_features). If y=
+ou have
+an idea how to make that more clear, I'd be happy to update description=
+s.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNsKtAAAoJEDMEi1NhKgbsFCUIAJVtutRgtnWi6n8V3d5gcFKY
-DAEX7Ak+0aCEHIa24yhtbOimAK3BoklLGbyo2aZEkNfVi15qlvxeVYa3WnA4vzFh
-ZmDcXVST29DP0b6AKMBQ5N6s7P2srRHSMv2izxnQjBG8u8FfjY44bgF0ih0xU66/
-5wmq4sYc4y3r29XadeLhK/Lbxd5AUfdWPbaj2/KXbCRbN6T8zZb4s0JldV++u9W7
-CxF7OcMFQ8coHayccgOAEen4k1Akm4JPlURDn1I3tKBVwIchtK3W6DwgbA8xCpjt
-5r1PmBZoIqZpcBqortujXG/P5V+DFDiqD+HQ0Z7Kk0amfkfSGwOLYWoWJdnHTDs=
-=xYoE
------END PGP SIGNATURE-----
-
---Signature=_Fri__22_Apr_2011_08_10_08_+1000_mzJoh0CfRQIyrSfD--
+Best Regards,
+Micha=B3 Miros=B3aw
