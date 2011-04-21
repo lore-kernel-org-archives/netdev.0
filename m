@@ -1,65 +1,34 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: rtnetlink and many VFs
-Date: Thu, 21 Apr 2011 10:50:35 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F07550145FC75D6@orsmsx508.amr.corp.intel.com>
-References: <1303396576.3165.13.camel@bwh-desktop>
-	 <43F901BD926A4E43B106BF17856F07550145FC7526@orsmsx508.amr.corp.intel.com>
- <1303407628.3165.30.camel@bwh-desktop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] tg3: Convert u32 flag,flg2,flg3 uses to bitmap
+Date: Thu, 21 Apr 2011 10:51:14 -0700
+Message-ID: <1303408274.24766.66.camel@Joe-Laptop>
+References: <1303322263-18991-10-git-send-email-mcarlson@broadcom.com>
+	 <02bf2aa5c08514641ecbe7c39ef976918fad036c.1303367730.git.joe@perches.com>
+	 <1303406280.8857.13.camel@HP1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	sf-linux-drivers <linux-net-drivers@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:18929 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750948Ab1DURuh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 13:50:37 -0400
-In-Reply-To: <1303407628.3165.30.camel@bwh-desktop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Matthew Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1303406280.8857.13.camel@HP1>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEFwcmlsIDIx
-LCAyMDExIDEwOjQwIEFNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IERhdmlkIE1pbGxl
-cjsgbmV0ZGV2OyBzZi1saW51eC1kcml2ZXJzDQo+IFN1YmplY3Q6IFJFOiBydG5ldGxpbmsgYW5k
-IG1hbnkgVkZzDQo+IA0KPiBPbiBUaHUsIDIwMTEtMDQtMjEgYXQgMTA6MDIgLTA3MDAsIFJvc2Us
-IEdyZWdvcnkgViB3cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4g
-PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBv
-d25lckB2Z2VyLmtlcm5lbC5vcmddDQo+ID4gPiBPbiBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0K
-PiA+ID4gU2VudDogVGh1cnNkYXksIEFwcmlsIDIxLCAyMDExIDc6MzYgQU0NCj4gPiA+IFRvOiBE
-YXZpZCBNaWxsZXINCj4gPiA+IENjOiBuZXRkZXY7IHNmLWxpbnV4LWRyaXZlcnMNCj4gPiA+IFN1
-YmplY3Q6IHJ0bmV0bGluayBhbmQgbWFueSBWRnMNCj4gPiA+DQo+ID4NCj4gPiBBcyBtb3JlIFZG
-cyBiZWNvbWUgcG9zc2libGUgaXQgcmVhbGx5IG5lZWRzIGEgZml4LiAgSSB3YXMgdGhpbmtpbmcN
-Cj4gPiBhYm91dCBzb21ldGhpbmcgYWxvbmcgdGhlIGxpbmVzIG9mIHRoaXM6DQo+ID4NCj4gPiAj
-IGlwIGxpbmsgc2hvdyBldGgoeCkgdmYgKG4pDQo+ID4NCj4gPiBXaGVyZSBldGgoeCkgaXMgdGhl
-IHBoeXNpY2FsIGZ1bmN0aW9uIHRoYXQgb3ducyB0aGUgVkZzIGFuZCAobikgaXMgdGhlDQo+ID4g
-c3BlY2lmaWMgVkYgeW91IHdhbnQgaW5mb3JtYXRpb24gZm9yLiAgVGhhdCB3YXkgb25lIGNvdWxk
-IGVhc2lseQ0KPiA+IHNjcmlwdCBzb21ldGhpbmcgdGhhdCBsb29wcyB0aHJvdWdoIHRoZSBWRnMg
-YW5kIGdldHMgdGhlIGluZm9ybWF0aW9uDQo+ID4gZm9yIGVhY2guICBUaGlzIHJlYWxseSBiZWNv
-bWVzIG5lY2Vzc2FyeSB3aGVuIHdlIHN0YXJ0IGFkZGluZw0KPiA+IGFkZGl0aW9uYWwgTUFDIGFu
-ZCBWTEFOIGZpbHRlcnMgZm9yIGVhY2ggVkYgdGhhdCBuZWVkIHRvIGJlIGRpc3BsYXllZC4NCj4g
-PiBJbiB0aGF0IGNhc2UgeW91IGNhbiBvbmx5IHNob3cgYSBmZXcgVkZzIGJlZm9yZSB5b3UgcnVu
-IG91dCBvZiBzcGFjZS4NCj4gDQo+IEkgdGhpbmsgdGhhdCB3aGF0ICdpcCBsaW5rIHNob3cnIGlz
-IGRvaW5nIG5vdyBzZWVtcyB0byBiZSBwZXJmZWN0bHkNCj4gdmFsaWQuICBJdCBhbGxvY2F0ZXMg
-YSAxNksgYnVmZmVyIHdoaWNoIHdvdWxkIGJlIGVub3VnaCBpZiBuZXRsaW5rDQo+IGRpZG4ndCBh
-cHBseSB0aGlzIFBBR0VfU0laRSBsaW1pdCB0byBzaW5nbGUgbWVzc2FnZXMuDQoNCkFoLCBJIGhh
-ZG4ndCBzZWVuIHRoYXQgaXQgd2FzIGFsbG9jYXRpbmcgMTZLLCB0aGF0IHdvdWxkIHRoZW4gYmUg
-ZW5vdWdoIGZvciAxMjggVkZzIGJ1dCBpbiB0aGUgZnV0dXJlIHdvdWxkIG5vdCBiZSBlbm91Z2gg
-Zm9yIDQwR2lnIChvciBoaWdoZXIgc3BlZWQpIGRldmljZXMgdGhhdCBtaWdodCBzdXBwb3J0IHR3
-byBvciA0IHRpbWVzIHRoYXQgbWFueSBWRnMuICBJIHN0aWxsIGZlZWwgbGlrZSBldmVudHVhbGx5
-IHRoZSBudW1iZXIgb2YgVkZzIHdpbGwgb3V0Z3JvdyB0aGUgY2FwYWJpbGl0eSBvZiBhIHNpbmds
-ZSBtZXNzYWdlIHRvIGhhbmRsZSwgZXNwZWNpYWxseSB3aGVuIFZGcyB3aWxsIGhhdmUgdGhlIGNh
-cGFiaWxpdHkgb2YgaGF2aW5nIG11bHRpcGxlIE1BQyBhZGRyZXNzIGFuZCBWTEFOIGZpbHRlcnMg
-YXNzaWduZWQgdG8gdGhlbS4gIEFuZCBpdCBzZWVtcyBvcnRob2dvbmFsIHRvIG1lIHRvIG1pcnJv
-ciB0aGUgJ2lwIGxpbmsgc2V0IGV0aCh4KSB2ZiAobiknIHN5bnRheCB3aXRoIGEgJ2lwIGxpbmsg
-c2hvdyBldGgoeCkgdmYgKG4pJyBzeW50YXguDQoNClRoYXQncyBqdXN0IG1lIHRob3VnaC4NCg0K
-PiANCj4gSXQgaXMgY2VydGFpbmx5IGEgYnVnLiAgcnRuZXRsaW5rIGlzIHRoZSBjdXJyZW50bHkg
-ZmF2b3VyZWQgQVBJIGZvcg0KPiBxdWVyeWluZyBhbmQgY29uZmlndXJpbmcgbmV0d29yayBkZXZp
-Y2Ugc2V0dGluZ3MsIGJ1dCB0aGVyZSBhcmUgbm93DQo+IHZhbGlkIGRldmljZSBzZXR0aW5ncyB0
-aGF0IGNhbm5vdCBiZSBxdWVyaWVkLg0KDQpJJ2xsIGxvb2sgaW50byBqdXN0IGZpeGluZyB0aGUg
-YnVnIGZvciBub3cgYW5kIHJlc2VydmUgKGF0IGxlYXN0IHdoYXQgSSBjb25zaWRlciB0byBiZSkg
-ZnV0dXJlIGltcHJvdmVtZW50cyBmb3IgbGF0ZXIuDQoNCi0gR3JlZw0KDQo=
+On Thu, 2011-04-21 at 10:18 -0700, Michael Chan wrote:
+> On Wed, 2011-04-20 at 23:39 -0700, Joe Perches wrote:
+> > @@ -4622,7 +4611,7 @@ static void tg3_tx_recover(struct tg3 *tp)
+> >                     "and include system chipset information.\n");
+> > 
+> >         spin_lock(&tp->lock);
+> > -       tp->tg3_flags |= TG3_FLAG_TX_RECOVERY_PENDING;
+> > +       tg3_flag_set(tp, TX_RECOVERY_PENDING);
+> >         spin_unlock(&tp->lock);
+> >  }
+> By using set_bit() now, we can eliminate the spin_lock() here.  This
+> flag is checked much later when tg3_reset_task() is scheduled to run in
+> workqueue, so no memory barrier is needed either.
+
+Sure, but as a separate patch.
