@@ -1,71 +1,39 @@
-From: Benjamin Poirier <benjamin.poirier@polymtl.ca>
-Subject: Re: [PATCH] bonding: fix bridged bonds in 802.3ad mode
-Date: Thu, 21 Apr 2011 16:43:12 -0400
-Message-ID: <4DB096E0.4010407@polymtl.ca>
-References: <20110421184748.GD23756@midget.suse.cz> <1303412899.3165.47.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool PATCH 0/6] Network flow classifier
+Date: Thu, 21 Apr 2011 21:51:33 +0100
+Message-ID: <1303419093.3165.57.camel@bwh-desktop>
+References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:33828 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752533Ab1DUUnk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 16:43:40 -0400
-Received: by gyd10 with SMTP id 10so30074gyd.19
-        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 13:43:40 -0700 (PDT)
-In-Reply-To: <1303412899.3165.47.camel@bwh-desktop>
+Received: from mail.solarflare.com ([216.237.3.220]:18447 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130Ab1DUUvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 16:51:36 -0400
+In-Reply-To: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/04/11 03:08 PM, Ben Hutchings wrote:
-> On Thu, 2011-04-21 at 20:47 +0200, Jiri Bohac wrote:
->> 802.3ad bonding inside a bridge is broken again. Originally fixed by
->> 43aa1920117801fe9ae3d1fad886b62511e09bee, the bug was re-introduced by
->> 1e253c3b8a1aeed51eef6fc366812f219b97de65.
->>
->> LACP frames must not have their skb->dev changed by the bridging hook.
->>
->> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
->>
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -1514,6 +1514,11 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
->>  		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
->>  	}
->>  
->> +	/* prevent bridging code from mangling and forwarding LACP frames */
->> +	if (bond->params.mode == BOND_MODE_8023AD &&
->> +	    skb->protocol == htons(ETH_P_SLOW))
->> +		return RX_HANDLER_PASS;
->> +
->>  	return RX_HANDLER_ANOTHER;
->>  }
->>  
+On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
+> The following patches are meant to add support for the network flow classifier
+> interface built into the ethtool_rxnfc.
 > 
-> It seems to me that 1e253c3b8a1aeed51eef6fc366812f219b97de65 is bogus
+> Once this has been accepted I plan to submit the kernel portion to Jeff
+> Kirsher as it is almost all ixgbe code changes with the exception of the
+> removal of support for ethtool_get_rx_ntuple from the kernel.
+[...]
 
-You bet, it's rubbish ;)
+This is the start of a 4-way weekend in the UK, so don't be surprised if
+I take a while to review these changes.
 
-Any thoughts on how we could support a transparent bridging
-configuration without repurposing br->stp_enabled or adding another
-option to bridge-utils?
+Ben.
 
-btw, the particular scenario I was trying to address is a virtual
-machine bridged to an ethernet interface connected to a switch port with
-802.1x enabled.
-
--Benjamin
-
-> and should be reverted, rather than worked around by other drivers.  We
-> shouldn't enable non-conformant forwarding behaviour by default just
-> because some people find it useful.  The administrator should have to
-> explicitly enable it.
-> 
-> Ben.
-> 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
