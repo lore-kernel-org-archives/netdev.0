@@ -1,92 +1,84 @@
-From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 01/27] HFI: skeleton driver
-Date: Thu, 21 Apr 2011 17:38:13 -0400
-Message-ID: <4DB0A3C5.3070009@linux.vnet.ibm.com>
-References: <1303096919-7367-1-git-send-email-dykmanj@linux.vnet.ibm.com> <1303096919-7367-2-git-send-email-dykmanj@linux.vnet.ibm.com> <1303129399.5282.1033.camel@localhost>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v5] net: bnx2x: convert to hw_features
+Date: Fri, 22 Apr 2011 01:44:13 +0200
+Message-ID: <20110421234413.GA15591@rere.qmqm.pl>
+References: <20110411202630.C079D13909@rere.qmqm.pl> <1302610228.32697.298.camel@lb-tlvb-vladz> <20110412140708.GA21835@rere.qmqm.pl> <1302619012.6750.8.camel@lb-tlvb-vladz> <20110412193823.0823213A65@rere.qmqm.pl> <1303397531.3685.16.camel@edumazet-laptop> <1303411750.19212.123.camel@lb-tlvb-vladz> <1303413559.3165.55.camel@bwh-desktop> <20110421221548.GA7888@rere.qmqm.pl> <1303426342.3464.184.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
-	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
-	"William S. Cadden" <wscadden@linux.vnet.ibm.com>,
-	"Wen C. Chen" <winstonc@linux.vnet.ibm.com>,
-	Scot Sakolish <sakolish@linux.vnet.ibm.com>,
-	Jian Xiao <jian@linux.vnet.ibm.com>,
-	"Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
-	"Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vladislav Zolotarov <vladz@broadcom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:59433 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755619Ab1DUXhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 19:37:48 -0400
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by e36.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3LNWAeF032164
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:32:10 -0600
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3LNPaUa099284
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:37:41 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3LLhZJo008544
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 15:43:36 -0600
-In-Reply-To: <1303129399.5282.1033.camel@localhost>
+Received: from rere.qmqm.pl ([89.167.52.164]:45483 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753422Ab1DUXoO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 19:44:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1303426342.3464.184.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/18/2011 8:23 AM, Ben Hutchings wrote:
-> On Sun, 2011-04-17 at 23:21 -0400, dykmanj@linux.vnet.ibm.com wrote:
->> From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
->>
->> Device driver Makefile & Kconfig plumbing plus simple mod_init and mod_exit
-> [...]
->> --- /dev/null
->> +++ b/drivers/net/hfi/core/hfidd_init.c
-> [...]
->> +#include <linux/version.h>
-> 
-> Never include <linux/version.h> in an in-tree driver.
-> 
+On Thu, Apr 21, 2011 at 11:52:22PM +0100, Ben Hutchings wrote:
+> On Fri, 2011-04-22 at 00:15 +0200, Micha=B3 Miros=B3aw wrote:
+> > On Thu, Apr 21, 2011 at 08:19:19PM +0100, Ben Hutchings wrote:
+> > > 	/* Transfer changeable features to wanted_features and enable
+> > > 	 * software offloads (GSO and GRO).
+> > > 	 */
+> > > 	dev->hw_features |=3D NETIF_F_SOFT_FEATURES;
+> > > 	dev->features |=3D NETIF_F_SOFT_FEATURES;
+> > > 	dev->wanted_features =3D dev->features & dev->hw_features;
+> > >=20
+> > > This doesn't work correctly for features that are always enabled,=
+ like
+> > > NETIF_F_HW_VLAN_RX in bnx2x, which are set in dev->features but n=
+ot in
+> > > dev->hw_features.
+> >=20
+> > > The name 'hw_features' really wasn't a good choice - the obvious =
+meaning
+> > > and the meaning assumed by this code is 'hardware-supported featu=
+res'
+> > > and not 'hardware-supported features that can be toggled'.  And s=
+ince we
+> > > add NETIF_F_SOFT_FEATURES, it really only means 'features that ca=
+n be
+> > > toggled'.
+> >=20
+> > I won't argue about hw_features name - I just couldn't find a bette=
+r one.
+> > Comment in include/linux/netdevice.h clearly explains the purpose o=
+f this
+> > field.
+> >=20
+> > wanted_features is supposed to be limited by hw_features (so that i=
+t's always
+> > true that (hw_features & wanted_features) =3D=3D wanted_features). =
+If you have
+> > an idea how to make that more clear, I'd be happy to update descrip=
+tions.
+>=20
+> Then the computation of 'changed' in __ethtool_set_flags() is wrong:
+>=20
+> 	/* allow changing only bits set in hw_features */
+> 	changed =3D (data ^ dev->wanted_features) & flags_dup_features;
+> 	if (changed & ~dev->hw_features)
+> 		return (changed & dev->hw_features) ? -EINVAL : -EOPNOTSUPP;
+>=20
+> You need to add something like:
+>=20
+> 	/* Features that are requested to be on, are already on, and cannot
+> 	 * be changed, have not changed.
+> 	 */
+> 	changes &=3D ~(data & dev->features & ~dev->hw_features);
+>=20
+> It seems like there ought to be a way to simplify that, though!
 
-Ok
+I tried couple of variations, but your seems to be the best one. I'll s=
+end
+it as a last try before I fall asleep.
 
-> [...]
->> +static int __init hfidd_mod_init(void)
->> +{
->> +	int			rc = 0;
->> +
->> +	rc = hfidd_create_class();
->> +	if (rc < 0) {
->> +		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_class failed"
->> +			" rc=%d\n", HFIDD_DEV_NAME, rc);
->> +		return -1;
-> 
-> Should be 'return rc'.
-> 
-
-Ok
-
-> [...]
->> --- /dev/null
->> +++ b/include/linux/hfi/hfidd_client.h
-> [...]
->> +#ifndef _HFIDD_CLIENT_H_
->> +#define _HFIDD_CLIENT_H_
->> +
->> +#define MAX_TORRENTS            1
->> +#define MAX_HFI_PER_TORRENT     2
->> +#define MAX_HFIS                (MAX_TORRENTS * MAX_HFI_PER_TORRENT)
-> [...]
-> 
-> Are you sure you want to expose these values to userland?  You can never
-> change them later.
-> 
-
-We really don't expect them to change, so we're comfortable with defines for them.
-
-> Ben.
-> 
-Thanks for the reviews Ben.
-
-Jim
-
+Best Regards,
+Micha=B3 Miros=B3aw
