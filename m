@@ -1,76 +1,130 @@
-From: Andrea Galbusera <gizero@gmail.com>
-Subject: [PATCH v2 1/1] powerpc: Fix multicast problem in fs_enet driver
-Date: Thu, 21 Apr 2011 14:21:21 +0200
-Message-ID: <1303388481-17993-1-git-send-email-gizero@gmail.com>
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrea Galbusera <gizero@gmail.com>
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Scott Wood <scottwood@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net-next-2.6] be2net: Fixed a bug in be_cmd_get_regs().
+Date: Thu, 21 Apr 2011 18:19:18 +0530
+Message-ID: <ae998af2-53d1-4319-b066-d4c2f33cf3d9@exht1.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:26810 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751557Ab1DUMuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 08:50:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-mac-fec.c was setting individual UDP address registers instead of multicast
-group address registers when joining a multicast group.
-This prevented from correctly receiving UDP multicast packets.
-According to datasheet, replaced hash_table_high and hash_table_low
-with grp_hash_table_high and grp_hash_table_low respectively.
-Also renamed hash_table_* with grp_hash_table_* in struct fec declaration
-for 8xx: these registers are used only for multicast there.
 
-Tested on a MPC5121 based board.
-Build tested also against mpc866_ads_defconfig.
-
-Signed-off-by: Andrea Galbusera <gizero@gmail.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
-Changes since v1:
-Applied comments by Scott Wood to fix 8xx broken build with v1
+ drivers/net/benet/be_cmds.c |   53 ++++++++++++++++++++++--------------------
+ 1 files changed, 28 insertions(+), 25 deletions(-)
 
- arch/powerpc/include/asm/8xx_immap.h |    4 ++--
- drivers/net/fs_enet/mac-fec.c        |    8 ++++----
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/arch/powerpc/include/asm/8xx_immap.h b/arch/powerpc/include/asm/8xx_immap.h
-index 6b6dc20..bdf0563 100644
---- a/arch/powerpc/include/asm/8xx_immap.h
-+++ b/arch/powerpc/include/asm/8xx_immap.h
-@@ -393,8 +393,8 @@ typedef struct fec {
- 	uint	fec_addr_low;		/* lower 32 bits of station address	*/
- 	ushort	fec_addr_high;		/* upper 16 bits of station address	*/
- 	ushort	res1;			/* reserved				*/
--	uint	fec_hash_table_high;	/* upper 32-bits of hash table		*/
--	uint	fec_hash_table_low;	/* lower 32-bits of hash table		*/
-+	uint	fec_grp_hash_table_high;	/* upper 32-bits of hash table		*/
-+	uint	fec_grp_hash_table_low;	/* lower 32-bits of hash table		*/
- 	uint	fec_r_des_start;	/* beginning of Rx descriptor ring	*/
- 	uint	fec_x_des_start;	/* beginning of Tx descriptor ring	*/
- 	uint	fec_r_buff_size;	/* Rx buffer size			*/
-diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/fs_enet/mac-fec.c
-index 61035fc..b9fbc83 100644
---- a/drivers/net/fs_enet/mac-fec.c
-+++ b/drivers/net/fs_enet/mac-fec.c
-@@ -226,8 +226,8 @@ static void set_multicast_finish(struct net_device *dev)
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index af8cf3d..0fc06d3 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1214,8 +1214,8 @@ int be_cmd_get_reg_len(struct be_adapter *adapter, u32 *log_size)
+ 	if (!status) {
+ 		struct be_cmd_resp_get_fat *resp = embedded_payload(wrb);
+ 		if (log_size && resp->log_size)
+-			*log_size = le32_to_cpu(resp->log_size -
+-					sizeof(u32));
++			*log_size = le32_to_cpu(resp->log_size) -
++					sizeof(u32);
  	}
+ err:
+ 	spin_unlock_bh(&adapter->mcc_lock);
+@@ -1228,7 +1228,8 @@ void be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf)
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_get_fat *req;
+ 	struct be_sge *sge;
+-	u32 offset = 0, total_size, buf_size, log_offset = sizeof(u32);
++	u32 offset = 0, total_size, buf_size,
++				log_offset = sizeof(u32), payload_len;
+ 	int status;
  
- 	FC(fecp, r_cntrl, FEC_RCNTRL_PROM);
--	FW(fecp, hash_table_high, fep->fec.hthi);
--	FW(fecp, hash_table_low, fep->fec.htlo);
-+	FW(fecp, grp_hash_table_high, fep->fec.hthi);
-+	FW(fecp, grp_hash_table_low, fep->fec.htlo);
+ 	if (buf_len == 0)
+@@ -1236,37 +1237,39 @@ void be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf)
+ 
+ 	total_size = buf_len;
+ 
++	get_fat_cmd.size = sizeof(struct be_cmd_req_get_fat) + 60*1024;
++	get_fat_cmd.va = pci_alloc_consistent(adapter->pdev,
++			get_fat_cmd.size,
++			&get_fat_cmd.dma);
++	if (!get_fat_cmd.va) {
++		status = -ENOMEM;
++		dev_err(&adapter->pdev->dev,
++		"Memory allocation failure while retrieving FAT data\n");
++		return;
++	}
++
+ 	spin_lock_bh(&adapter->mcc_lock);
+ 
+-	wrb = wrb_from_mccq(adapter);
+-	if (!wrb) {
+-		status = -EBUSY;
+-		goto err;
+-	}
+ 	while (total_size) {
+ 		buf_size = min(total_size, (u32)60*1024);
+ 		total_size -= buf_size;
+ 
+-		get_fat_cmd.size = sizeof(struct be_cmd_req_get_fat) + buf_size;
+-		get_fat_cmd.va = pci_alloc_consistent(adapter->pdev,
+-					get_fat_cmd.size,
+-					&get_fat_cmd.dma);
+-		if (!get_fat_cmd.va) {
+-			status = -ENOMEM;
+-			dev_err(&adapter->pdev->dev,
+-					"Memory allocation failure while retrieving FAT data\n");
++		wrb = wrb_from_mccq(adapter);
++		if (!wrb) {
++			status = -EBUSY;
+ 			goto err;
+ 		}
+ 		req = get_fat_cmd.va;
+ 		sge = nonembedded_sgl(wrb);
+ 
+-		be_wrb_hdr_prepare(wrb, get_fat_cmd.size, false, 1,
++		payload_len = sizeof(struct be_cmd_req_get_fat) + buf_size;
++		be_wrb_hdr_prepare(wrb, payload_len, false, 1,
+ 				OPCODE_COMMON_MANAGE_FAT);
+ 
+ 		be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
+-				OPCODE_COMMON_MANAGE_FAT, get_fat_cmd.size);
++				OPCODE_COMMON_MANAGE_FAT, payload_len);
+ 
+-		sge->pa_hi = cpu_to_le32(upper_32_bits(get_fat_cmd.size));
++		sge->pa_hi = cpu_to_le32(upper_32_bits(get_fat_cmd.dma));
+ 		sge->pa_lo = cpu_to_le32(get_fat_cmd.dma & 0xFFFFFFFF);
+ 		sge->len = cpu_to_le32(get_fat_cmd.size);
+ 
+@@ -1281,17 +1284,17 @@ void be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf)
+ 			memcpy(buf + offset,
+ 				resp->data_buffer,
+ 				resp->read_log_length);
+-		}
+-		pci_free_consistent(adapter->pdev, get_fat_cmd.size,
+-				get_fat_cmd.va,
+-				get_fat_cmd.dma);
+-		if (status)
++		} else {
+ 			dev_err(&adapter->pdev->dev, "FAT Table Retrieve error\n");
+-
++			goto err;
++		}
+ 		offset += buf_size;
+ 		log_offset += buf_size;
+ 	}
+ err:
++	pci_free_consistent(adapter->pdev, get_fat_cmd.size,
++			get_fat_cmd.va,
++			get_fat_cmd.dma);
+ 	spin_unlock_bh(&adapter->mcc_lock);
  }
  
- static void set_multicast_list(struct net_device *dev)
-@@ -273,8 +273,8 @@ static void restart(struct net_device *dev)
- 	/*
- 	 * Reset all multicast.
- 	 */
--	FW(fecp, hash_table_high, fep->fec.hthi);
--	FW(fecp, hash_table_low, fep->fec.htlo);
-+	FW(fecp, grp_hash_table_high, fep->fec.hthi);
-+	FW(fecp, grp_hash_table_low, fep->fec.htlo);
- 
- 	/*
- 	 * Set maximum receive buffer size.
 -- 
-1.7.0.4
+1.5.6.1
+
