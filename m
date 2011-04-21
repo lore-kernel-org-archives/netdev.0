@@ -1,40 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] tg3: Convert u32 flag,flg2,flg3 uses to bitmap
-Date: Thu, 21 Apr 2011 09:49:43 -0700
-Message-ID: <1303404583.24766.63.camel@Joe-Laptop>
-References: <1303322263-18991-10-git-send-email-mcarlson@broadcom.com>
-	 <02bf2aa5c08514641ecbe7c39ef976918fad036c.1303367730.git.joe@perches.com>
-	 <1303374696.3685.14.camel@edumazet-laptop>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: rtnetlink and many VFs
+Date: Thu, 21 Apr 2011 10:02:14 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F07550145FC7526@orsmsx508.amr.corp.intel.com>
+References: <1303396576.3165.13.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1303374696.3685.14.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:49268 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754954Ab1DURCi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 13:02:38 -0400
+In-Reply-To: <1303396576.3165.13.camel@bwh-desktop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-21 at 10:31 +0200, Eric Dumazet wrote:
-> Le mercredi 20 avril 2011 =C3=A0 23:39 -0700, Joe Perches a =C3=A9cri=
-t :
-> > Using a bitmap instead of separate u32 flags allows a consistent, s=
-impler
-[]
-> Use an enum ?
-
-No strong preference.
-If it's an enum .c file will change.
-=09
-> Why first value is 1 and not 0 ?
-
-Should be 0.
-
-> > +#define TG3_FLAGS			74	/* Set to number of flags */
-> Also you need to make TG3_FLAGS be (last_flag_value + 1) or you could
-> miss one long in bitmap.
-
-Right.  Thanks for comments Eric.
-I'll wait for Matt to comment before resubmitting.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogVGh1cnNkYXksIEFwcmlsIDIxLCAyMDExIDc6
+MzYgQU0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogbmV0ZGV2OyBzZi1saW51eC1kcml2ZXJz
+DQo+IFN1YmplY3Q6IHJ0bmV0bGluayBhbmQgbWFueSBWRnMNCj4gDQo+IE15IGNvbGxlYWd1ZXMg
+aGF2ZSBiZWVuIHdvcmtpbmcgb24gU1ItSU9WIHN1cHBvcnQgZm9yIHNmYy4gIFRoZSBoYXJkd2Fy
+ZQ0KPiBzdXBwb3J0cyB1cCB0byAxMjcgVkZzIHBlciBwb3J0Lg0KPiANCj4gSWYgd2UgY29uZmln
+dXJlIGFsbCAxMjcgVkZzIHRocm91Z2ggdGhlIG5ldCBkZXZpY2UsIGFuIFJUTV9HRVRMSU5LIGR1
+bXANCj4gd2lsbCBuZWVkIHRvIGluY2x1ZGUgbWVzc2FnZXMgZGVzY3JpYmluZyB0aGVtLCB3aXRo
+IGEgdG90YWwgc2l6ZSBvZjoNCj4gDQo+IDEyNyAqIChzaXplb2Yoc3RydWN0IGlmbGFfdmZfbWFj
+KSArIHNpemVvZihzdHJ1Y3QgaWZsYV92Zl92bGFuKSArDQo+ICAgICAgICBzaXplb2Yoc3RydWN0
+IGlmbGFfdmZfdHhfcmF0ZSkgKyBwcm90b2NvbCBvdmVyaGVhZCkNCj4gPiA3MTEyDQo+IA0KPiBU
+aGVzZSBtZXNzYWdlcyBhcmUgbmVzdGVkIHdpdGhpbiB0aGUgbWVzc2FnZSBkZXNjcmliaW5nIHRo
+ZSBkZXZpY2UgYXMgYQ0KPiB3aG9sZSwgc28gdGhleSBjYW5ub3QgYmUgc3BsaXQuICBUaGUgbWF4
+aW11bSBzaXplIG9mIGFuIG91dGdvaW5nIG5ldGxpbmsNCj4gbWVzc2FnZSwgYmFzZWQgb24gTkxN
+U0dfR09PRFNJWkUsIHNlZW1zIHRvIGJlIG1pbihQQUdFX1NJWkUsIDgxOTIpLiAgU28NCj4gd2hl
+biBQQUdFX1NJWkUgPSA0MDk2IGl0IGlzIHNpbXBseSBpbXBvc3NpYmxlIHRvIGR1bXAgaW5mb3Jt
+YXRpb24gYWJvdXQNCj4gc3VjaCBhIGRldmljZSENCj4gDQo+IEkgdGhpbmsgaXQgbmVlZHMgdG8g
+YmUgbWFkZSBwb3NzaWJsZSB0byBncm93IGEgbmV0bGluayBza2IgZHVyaW5nDQo+IGdlbmVyYXRp
+b24gb2YgdGhlIGZpcnN0IG1lc3NhZ2UuICBVc2Vyc3BhY2UgbWF5IHN0aWxsIGJlIHVuYWJsZSB0
+bw0KPiByZWNlaXZlIHRoZSBsYXJnZSBtZXNzYWdlIGJ1dCBhdCBsZWFzdCBpdCBoYXMgYSBjaGFu
+Y2UuDQoNCkkndmUgYmVlbiBsb29raW5nIGF0IHRoaXMgb25lIHRvby4gIFRoZSBsaW1pdCBzZWVt
+cyB0byBiZSBhYm91dCA0MCBvciBzbyBpbiB0aGUgbW9zdCBjb21tb24gY2FzZS4gIE15IG5ldGxp
+bmsgZnUgaXMgd2VhayBidXQgSSd2ZSBiZWVuIGxvb2tpbmcgYXQgdGhlIGNvZGUgaW4gaXByb3V0
+ZTIvaXAgYW5kIG5ldGxpbmsgdG8gc2VlIHdoYXQgd2UgY2FuIGRvIGFib3V0IGl0Lg0KDQpBcyBt
+b3JlIFZGcyBiZWNvbWUgcG9zc2libGUgaXQgcmVhbGx5IG5lZWRzIGEgZml4LiAgSSB3YXMgdGhp
+bmtpbmcgYWJvdXQgc29tZXRoaW5nIGFsb25nIHRoZSBsaW5lcyBvZiB0aGlzOg0KDQojIGlwIGxp
+bmsgc2hvdyBldGgoeCkgdmYgKG4pDQoNCldoZXJlIGV0aCh4KSBpcyB0aGUgcGh5c2ljYWwgZnVu
+Y3Rpb24gdGhhdCBvd25zIHRoZSBWRnMgYW5kIChuKSBpcyB0aGUgc3BlY2lmaWMgVkYgeW91IHdh
+bnQgaW5mb3JtYXRpb24gZm9yLiAgVGhhdCB3YXkgb25lIGNvdWxkIGVhc2lseSBzY3JpcHQgc29t
+ZXRoaW5nIHRoYXQgbG9vcHMgdGhyb3VnaCB0aGUgVkZzIGFuZCBnZXRzIHRoZSBpbmZvcm1hdGlv
+biBmb3IgZWFjaC4gIFRoaXMgcmVhbGx5IGJlY29tZXMgbmVjZXNzYXJ5IHdoZW4gd2Ugc3RhcnQg
+YWRkaW5nIGFkZGl0aW9uYWwgTUFDIGFuZCBWTEFOIGZpbHRlcnMgZm9yIGVhY2ggVkYgdGhhdCBu
+ZWVkIHRvIGJlIGRpc3BsYXllZC4gIEluIHRoYXQgY2FzZSB5b3UgY2FuIG9ubHkgc2hvdyBhIGZl
+dyBWRnMgYmVmb3JlIHlvdSBydW4gb3V0IG9mIHNwYWNlLg0KDQpJbiBhbnkgY2FzZSBJJ3ZlIGJl
+ZW4gd29ya2luZyBvbiBhbiBSRkMgcGF0Y2ggZm9yIHRoaXMgYW5kIGhvcGUgdG8gaGF2ZSBpdCBz
+b29uLiAgSSBjb25zaWRlciB0aGlzIGEgcHJldHR5IHNlcmlvdXMgbGltaXRhdGlvbiBhbmQgb25l
+IGNvdWxkIGV2ZW4gdmlldyBpdCBhcyBhIGJ1Zy4NCg0KLSBHcmVnDQpHcmVnIFJvc2UNCkxBRCBE
+aXZpc2lvbg0KSW50ZWwgQ29ycC4NCg0K
