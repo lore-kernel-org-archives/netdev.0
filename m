@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH v3 20/27] HFI: Close window hypervisor call
-Date: Thu, 21 Apr 2011 17:38:50 -0400
-Message-ID: <1303421937-2325-21-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH v3 11/27] HFI: Check window number/assign window number
+Date: Thu, 21 Apr 2011 17:38:41 -0400
+Message-ID: <1303421937-2325-12-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1303421937-2325-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -14,24 +14,30 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:38264 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755419Ab1DUVjp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 17:39:45 -0400
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by e31.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3LLNmdV001060
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 15:23:48 -0600
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:33324 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755350Ab1DUVjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 17:39:25 -0400
+Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
+	by e3.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3LLI8In022953
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:18:08 -0400
 Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3LLdCcb085758
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 15:39:13 -0600
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3LLdC8e012761
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3LLdCUq1998894
 	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:39:12 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3LLd9IA012570
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:39:11 -0400
 In-Reply-To: <1303421937-2325-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+
+RESERVED windows are reserved by a job scheduler before the application starts.
+the application is given a list of windows to use, the DD has to check that
+they are opening one of the windows assigned to that jobid.
+DYNAMIC windows are used without a job scheduler; the application calls into
+the DD and asks for any free window.
 
 Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
 Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
@@ -43,157 +49,219 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/core/hfidd_hcalls.c |   22 ++++++++++++++
- drivers/net/hfi/core/hfidd_proto.h  |    1 +
- drivers/net/hfi/core/hfidd_window.c |   53 +++++++++++++++++++++++++++++++++--
- 3 files changed, 73 insertions(+), 3 deletions(-)
+ drivers/net/hfi/core/hfidd_window.c |  161 +++++++++++++++++++++++++++++++++++
+ include/linux/hfi/hfidd_internal.h  |   16 ++++
+ 2 files changed, 177 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/hfi/core/hfidd_hcalls.c b/drivers/net/hfi/core/hfidd_hcalls.c
-index 1915336..4bc6525 100644
---- a/drivers/net/hfi/core/hfidd_hcalls.c
-+++ b/drivers/net/hfi/core/hfidd_hcalls.c
-@@ -153,6 +153,17 @@ static inline long long h_hfi_open_window(int token,
- 	return rc;
- }
- 
-+static inline long long h_hfi_close_window(int token,
-+		u64 HFI_chip_ID,
-+		u64 win_num,
-+		u64 flag)
-+{
-+	return plpar_hcall_norets(token,
-+		HFI_chip_ID,
-+		win_num,
-+		flag);
-+}
-+
- long long hfi_start_nmmu(u64 chip_id, void *nmmu_info)
- {
- 	return h_nmmu_start(H_NMMU_START, chip_id, nmmu_info);
-@@ -249,6 +260,17 @@ long long hfi_modify_mr(u64 chip_id, u64 request, u64 mr_handle,
- 	return hvrc;
- }
- 
-+long long hfi_close_window(u64 unit_id, u64 win_id, u64 flag)
-+{
-+	long long hvrc;
-+
-+	hvrc = h_hfi_close_window(H_HFI_CLOSE_WINDOW,
-+			unit_id,
-+			win_id,
-+			flag);
-+			return hvrc;
-+}
-+
- long long hfi_free_mr(u64 chip_id, u64 res, u64 mr_handle, u64 sub_region_id)
- {
- 	long long	hvrc;
-diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
-index e065d56..f531dcd 100644
---- a/drivers/net/hfi/core/hfidd_proto.h
-+++ b/drivers/net/hfi/core/hfidd_proto.h
-@@ -94,6 +94,7 @@ long long hfi_modify_mr(u64 chip_id, u64 request, u64 mr_handle,
- 		u64 e_addr,
- 		u64 l_addr,
- 		u64 num_pg_sz);
-+long long hfi_close_window(u64 unit_id, u64 win_id, u64 flag);
- long long hfi_free_mr(u64 chip_id, u64 res, u64 mr_handle,
- 		u64 sub_region_id);
- long long hfi_hquery_interface(u64 unit_id, u64 subtype, u64 query_p,
 diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
-index 3cfe5c3..fd692eb 100644
+index f16caf7..cc775e3 100644
 --- a/drivers/net/hfi/core/hfidd_window.c
 +++ b/drivers/net/hfi/core/hfidd_window.c
-@@ -459,6 +459,43 @@ static int hfi_hcall_to_open_window(struct hfidd_acs *p_acs,
- 	return 0;
- }
+@@ -35,6 +35,153 @@
+ #include "hfidd_proto.h"
+ #include <linux/hfi/hfidd_requests.h>
  
-+/* Call to CLOSE WINDOW hcall */
-+static int hfi_hcall_to_close_window(struct hfidd_acs *p_acs,
-+		struct hfidd_window *win_p)
++/* Validate the type, state and job id for RESERVED window */
++static int hfi_validate_reserve_window_id(struct hfidd_acs *p_acs,
++		struct hfi_client_info *client_p)
 +{
-+	int	rc = 0;
-+	long long hvrc = 0;
-+	u64	start_time = get_jiffies_64();
++	struct hfidd_window	*win_p;
 +
-+	hvrc = hfi_close_window(p_acs->dds.hfi_id,
-+			win_p->index,
-+			H_CLOSE);
++	/* Check if win is between min_hfi_windows and max_hfi_windows */
++	if ((client_p->window < min_hfi_windows(p_acs)) ||
++	    (client_p->window >= max_hfi_windows(p_acs))) {
 +
-+	/*
-+	 * Need to call CLOSE WINDOW with flag H_CHECK_CLOSED
-+	 * to check when the window is completely closed
-+	 */
-+	while (hvrc == H_BUSY) {
-+		hvrc = hfi_close_window(p_acs->dds.hfi_id,
-+				win_p->index,
-+				H_CHECK_CLOSED);
-+		if (hvrc != H_BUSY)
-+			break;
-+		if (hfidd_age_hcall(start_time))
-+			break;
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_validate_reserve_window_id: window = 0x%x too big\n",
++			client_p->window);
++		return -EINVAL;
 +	}
 +
-+	if (hvrc != H_SUCCESS) {
-+		win_p->state = WIN_FAIL_CLOSE;
-+		rc = -EIO;
++	/* Check if win_p indexed by window is not NULL */
++	win_p = hfi_window(p_acs, client_p->window);
++	if (win_p == NULL) {
 +		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_hcall_to_close_window: CLOSE WINDOW failed, "
-+			"hvrc=0x%llx\n", hvrc);
++			"hfi_validate_reserve_window_id: win 0x%x win_p is NULL\n",
++			client_p->window);
++		return -EINVAL;
++	}
++
++	spin_lock(&(win_p->win_lock));
++	/*
++	 * Check if win_p->type is HFIDD_RESERVE_WIN
++	 * win_p->state is WIN_RESERVED,
++	 * job id is matched
++	 */
++	if ((win_p->type != HFIDD_RESERVE_WIN) ||
++	    (win_p->state != WIN_RESERVED) ||
++	    (win_p->job_id != client_p->job_id)) {
++		spin_unlock(&(win_p->win_lock));
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_validate_reserve_window_id: win 0x%x type0x%x/"
++			"state0x%x/jid invalid\n",
++			client_p->window, win_p->type, win_p->state);
++		return -EINVAL;
++	}
++	spin_unlock(&(win_p->win_lock));
++	return 0;
++}
++
++/* Find an available dynamic window for open window request */
++static int hfi_validate_dynamic_window_id(struct hfidd_acs *p_acs,
++		struct hfi_client_info *client_p)
++{
++	int			i;
++	struct hfidd_window	*win_p;
++
++	/* Find out next available dynamic window */
++	for (i = min_hfi_windows(p_acs);
++	     i < max_hfi_windows(p_acs); i++) {
++
++		win_p = hfi_window(p_acs, i);
++		if (win_p == NULL)
++			continue;
++
++		/* if the spinlock is busy, the window is in use */
++		if (!spin_trylock(&(win_p->win_lock)))
++			continue;
++
++		if ((win_p->type == HFIDD_DYNAMIC_WIN) &&
++		    (win_p->state == WIN_AVAILABLE)) {
++			/*
++			 * Fill in the window number into
++			 * client info and update state
++			 */
++			client_p->window = win_p->index;
++			win_p->job_id = client_p->job_id;
++			win_p->state = WIN_RESERVED;
++			win_p->type  = client_p->win_type;
++
++			/* Set isIP flag if came from IP */
++			if (win_p->type == HFIDD_IP_WIN)
++				win_p->is_ip = 1;
++			else
++				win_p->is_ip = 0;
++			spin_unlock(&(win_p->win_lock));
++			return 0;
++		}
++		spin_unlock(&(win_p->win_lock));
++	}
++
++	/* We are out of dynamic windows */
++	if  (i == max_hfi_windows(p_acs)) {
++		client_p->window = 0;
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_validate_dynamic_window_id: out of dynamic window\n");
++		return -ENOBUFS;
++	}
++
++	return 0;
++}
++
++/* Validate the window request for RESERVED or DYNAMIC window */
++static inline int hfi_validate_window_id(struct hfidd_acs *p_acs,
++		struct hfi_client_info *client_p, unsigned int is_userspace)
++{
++	int	rc = 0;
++
++	/* Check the type of window request */
++	switch (client_p->win_type) {
++	case HFIDD_RESERVE_WIN:
++		rc = hfi_validate_reserve_window_id(p_acs, client_p);
++		break;
++	case HFIDD_IP_WIN:
++	case HFIDD_KERNEL_WIN:
++		if (is_userspace) {
++			rc = -EINVAL;
++			break;
++		}
++		/* fall thru here....*/
++	case HFIDD_DYNAMIC_WIN:
++		rc = hfi_validate_dynamic_window_id(p_acs, client_p);
++		break;
++	default:
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_validate_window_id: invalid win type 0x%x\n",
++			client_p->win_type);
++		rc = -EINVAL;
++		break;
 +	}
 +
 +	return rc;
 +}
 +
- /*
-  * Map the Effective Address pages for Memory Regions.
-  * If more than one page, need to setup a page containing
-@@ -1005,7 +1042,7 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 		dev_printk(KERN_ERR, p_acs->hfidd_dev,
- 			"hfidd_open_window_func: hfi_map_mmio_regs "
- 			"failed, rc = 0x%x\n", rc);
--		goto hfidd_open_window_func_err4;
-+		goto hfidd_open_window_func_err5;
- 	}
- 
- 	/* tell user the local ISR id */
-@@ -1019,7 +1056,7 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 		dev_printk(KERN_ERR, p_acs->hfidd_dev,
- 			"hfidd_open_window_func: hfi_copy_to_user "
- 			"failed, rc = 0x%x\n", rc);
--		goto hfidd_open_window_func_err5;
-+		goto hfidd_open_window_func_err6;
- 	}
- 
- 	spin_lock(&(win_p->win_lock));
-@@ -1031,9 +1068,11 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 	kfree(local_p);
- 	return rc;
- 
--hfidd_open_window_func_err5:
-+hfidd_open_window_func_err6:
- 	if (is_userspace)
- 		hfidd_unmap(local_p->mmio_regs.use.kptr, PAGE_SIZE_64K);
-+hfidd_open_window_func_err5:
-+	hfi_hcall_to_close_window(p_acs, win_p);
- hfidd_open_window_func_err4:
- 	hfi_destroy_window_parm(p_acs, is_userspace, win_p, local_p);
- hfidd_open_window_func_err3:
-@@ -1103,6 +1142,14 @@ int hfidd_close_window_internal(struct hfidd_acs *p_acs,
- 		goto hfidd_close_window_internal_err0;
- 	}
- 
-+	rc = hfi_hcall_to_close_window(p_acs, win_p);
++/* Validate window number and type for open window request */
++static int hfi_validate_window_parm(struct hfidd_acs *p_acs,
++		unsigned int is_userspace,
++		struct hfi_client_info *client_p)
++{
++	int			rc = 0;
++
++	/* Validate the window number */
++	rc = hfi_validate_window_id(p_acs, client_p, is_userspace);
 +	if (rc) {
 +		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_close_window_internal: hfi_hcall_to_close_window "
++			"hfi_validate_window_parm: hfi_validate_window_id "
 +			"failed, rc = 0x%x\n", rc);
-+		goto hfidd_close_window_internal_err0;
++		return rc;
++	}
++	return 0;
++}
++
+ /*
+  * Allows an user/kernel window to send/receive network traffic thru HFI
+  * adapter. This function will allocate the system resources needed to open
+@@ -62,9 +209,23 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+ 	if (rc) {
+ 		dev_printk(KERN_ERR, p_acs->hfidd_dev,
+ 			"open_window_func: hfi_copy_from_user failed\n");
++		goto hfidd_open_window_func_err1;
 +	}
 +
- 	hfi_destroy_window_info(p_acs, win_p);
++	/* Validate the window parms */
++	rc = hfi_validate_window_parm(p_acs, is_userspace, local_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"open_window_func: hfi_validate_window_parm failed, "
++			"rc = 0x%x\n", rc);
++		goto hfidd_open_window_func_err1;
+ 	}
  
- 	/* Call hcall to unregister MR in the MMU */
+ 	kfree(local_p);
+ 	return rc;
++
++hfidd_open_window_func_err1:
++	kfree(local_p);
++	return rc;
+ }
+ EXPORT_SYMBOL_GPL(hfidd_open_window_func);
+diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
+index 951314a..290e809 100644
+--- a/include/linux/hfi/hfidd_internal.h
++++ b/include/linux/hfi/hfidd_internal.h
+@@ -142,6 +142,22 @@ struct hfidd_global {
+ 	struct hfidd_acs	*p_acs[MAX_HFIS];
+ };
+ 
++static inline struct hfidd_window *hfi_window(struct hfidd_acs *p,
++		unsigned int idx)
++{
++	return p->win[idx - p->dds.window_start];
++}
++
++static inline unsigned int min_hfi_windows(struct hfidd_acs *p)
++{
++	return p->dds.window_start;
++}
++
++static inline unsigned int max_hfi_windows(struct hfidd_acs *p)
++{
++	return p->dds.window_start + p->dds.window_num;
++}
++
+ static inline int hfi_copy_to_user(void *user_p, void *local_p,
+ 		unsigned int is_userspace, unsigned int size)
+ {
 -- 
 1.7.3.5
 
