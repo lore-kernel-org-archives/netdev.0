@@ -1,45 +1,43 @@
 From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH 0/2] Resolve packet capturing on macvlan lowerdev
-Date: Thu, 21 Apr 2011 09:31:31 -0400
-Message-ID: <1303392693-1350-1-git-send-email-david.ward@ll.mit.edu>
+Subject: [PATCH 2/2] macvlan: Send frames to AF_PACKET sockets attached to lowerdev
+Date: Thu, 21 Apr 2011 09:31:33 -0400
+Message-ID: <1303392693-1350-3-git-send-email-david.ward@ll.mit.edu>
+References: <1303392693-1350-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Ward <david.ward@ll.mit.edu>
 To: <netdev@vger.kernel.org>, <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:37566 "EHLO mx2.ll.mit.edu"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:39273 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752969Ab1DUNhd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 09:37:33 -0400
+	id S1750981Ab1DUNmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 09:42:39 -0400
+In-Reply-To: <1303392693-1350-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following two patches address situations where macvlan interfaces on 
-the same lowerdev are created inside separate containers/namespaces, and 
-traffic between these interfaces needs to be captured by monitoring the 
-lowerdev outside the containers/namespaces using tcpdump or Wireshark. 
-The only case where this doesn't work now is for unicast frames when the 
-macvlan interfaces are operating in bridge mode; this fixes that case.
+In bridge mode, unicast frames can be forwarded directly between macvlan
+interfaces attached to the same lowerdev without calling dev_queue_xmit.
+These frames should still be sent to any AF_PACKET sockets (network taps)
+attached to the lowerdev.
 
-Should the dev_queue_xmit_nit function be renamed to something more 
-meaningful, which would indicate its role in sending outgoing frames to 
-AF_PACKET sockets? It is currently a misnomer: this function used to be 
-invoked by dev_queue_xmit, but that is no longer the case.
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+---
+ drivers/net/macvlan.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Thanks,
-
-David
-
-
-David Ward (2):
-  net: Export dev_queue_xmit_nit for use by macvlan driver
-  macvlan: Send frames to AF_PACKET sockets attached to lowerdev
-
- drivers/net/macvlan.c     |    1 +
- include/linux/netdevice.h |    2 ++
- net/core/dev.c            |   14 +++++++++-----
- 3 files changed, 12 insertions(+), 5 deletions(-)
-
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 3ad5425..2b1ee81 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -237,6 +237,7 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		dest = macvlan_hash_lookup(port, eth->h_dest);
+ 		if (dest && dest->mode == MACVLAN_MODE_BRIDGE) {
++			dev_queue_xmit_nit(skb, vlan->lowerdev);
+ 			unsigned int length = skb->len + ETH_HLEN;
+ 			int ret = dest->forward(dest->dev, skb);
+ 			macvlan_count_rx(dest, length,
 -- 
 1.7.4
 
