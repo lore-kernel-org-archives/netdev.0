@@ -1,105 +1,131 @@
-From: Wei Gu <wei.gu@ericsson.com>
-Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-Date: Thu, 21 Apr 2011 11:25:49 +0800
-Message-ID: <D12839161ADD3A4B8DA63D1A134D084026E4999A4A@ESGSCCMS0001.eapac.ericsson.se>
-References: <D12839161ADD3A4B8DA63D1A134D084026E48B9BEB@ESGSCCMS0001.eapac.ericsson.se>
-	<1302253651.4409.2.camel@edumazet-laptop>
-	<D12839161ADD3A4B8DA63D1A134D084026E48BA66B@ESGSCCMS0001.eapac.ericsson.se>
-	<1302267400.4409.22.camel@edumazet-laptop>
-	<D12839161ADD3A4B8DA63D1A134D084026E48BA682@ESGSCCMS0001.eapac.ericsson.se>
-	<1302275223.4409.36.camel@edumazet-laptop>
-	<D12839161ADD3A4B8DA63D1A134D084026E48BA6AE@ESGSCCMS0001.eapac.ericsson.se>
-	<1302330998.2656.113.camel@edumazet-laptop>
-	<D12839161ADD3A4B8DA63D1A134D084026E48BA730@ESGSCCMS0001.eapac.ericsson.se>
-	<4DA3151B.4030507@intel.com>
-	<D12839161ADD3A4B8DA63D1A134D084026E4909714@ESGSCCMS0001.eapac.ericsson.se>
-	<1302536577.4605.1.camel@edumazet-laptop>
-	<D12839161ADD3A4B8DA63D1A134D084026E49535F2@ESGSCCMS0001.eapac.ericsson.se>
-	<1302761251.3549.198.camel@edumazet-laptop>
-	<1302762810.3549.233.camel@edumazet-laptop>
-	<D12839161ADD3A4B8DA63D1A134D084026E49536AF@ESGSCCMS0001.eapac.ericsson.se>
-	<4DA723F1.7000901@intel.com>	<1302800202.2035.32.camel@laptop>
-	<1302800221.3248.39.camel@edumazet-laptop>	<1302857857.2388.158.camel@twins>
-	<D12839161ADD3A4B8DA63D1A134D084026E4953D6E@ESGSCCMS0001.eapac.ericsson.se>
- <BANLkTin_OgBo3N8qi5cF5rOd__pRKifwsg@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH 0/2] Multiqueue support for
+	qemu(virtio-net)
+Date: Thu, 21 Apr 2011 11:33:33 +0800
+Message-ID: <19887.42381.34145.956833@gargle.gargle.HOWL>
+References: <20110420082706.32157.59668.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+	<OF7CC46028.9A206852-ON65257878.00307271-65257878.00308D38@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Mike Galbraith <efault@gmx.de>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:62390 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139Ab1DUD0i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2011 23:26:38 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	Jason Wang <jasowang@redhat.com>, rusty@rustcorp.com.au,
+	qemu-devel@nongnu.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+In-Reply-To: <OF7CC46028.9A206852-ON65257878.00307271-65257878.00308D38@in.ibm.com>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: </archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+List-Id: netdev.vger.kernel.org
 
- Okay, I see the magic in the code:
-static inline void skb_record_rx_queue(struct sk_buff *skb, u16 rx_queue)
-{
-        skb->queue_mapping = rx_queue + 1;
-}
+Krishna Kumar2 writes:
+ > Thanks Jason!
+ > 
+ > So I can use my virtio-net guest driver and test with this patch?
+ > Please provide the script you use to start MQ guest.
+ > 
 
-static inline u16 skb_get_rx_queue(const struct sk_buff *skb)
-{
-        return skb->queue_mapping - 1;
-}
+Yes and thanks. Following is a simple script may help you start macvtap mq
+guest.
 
-static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
-{
-        return (skb->queue_mapping != 0);
-}
+qemu_path=./qemu-system-x86_64
+img_path=/home/kvm_autotest_root/images/mq.qcow2
+vtap_dev=/dev/tap104
+mac=96:88:12:1C:27:83
+smp=2
+mq=4
 
-Anyway it seems strange that we have different meaning of skb->queue_mapping for Tx and Rx. Is it better to using higher 4 bit Or even FFFF to indicate rx_queue not recorded?
+for i in `seq $mq`
+do
+    vtap+=" -netdev tap,id=hn$i,fd=$((i+100)) $((i+100))<>$vtap_dev"
+    netdev+="hn$i#"
+done
 
------Original Message-----
-From: Wei Gu
-Sent: Thursday, April 21, 2011 10:57 AM
-To: 'netdev'
-Cc: 'Peter Zijlstra'; 'Eric Dumazet'; 'Alexander Duyck'; 'Kirsher, Jeffrey T'; 'Mike Galbraith'; 'Thomas Gleixner'; 'Jesse Brandeburg'
-Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
+eval "$qemu_path $img_path $vtap -device virtio-net-pci,queues=$mq,netdev=$netdev,mac=$mac,vectors=32 -enable-kvm -smp $smp"
 
 
-A quick question, regarding the skb->queue_mapping?
-Do you know who will put the queue number for the received skb on the receving path? Cause I found it has a value in the recevied skb, but it seems over the range of rx/tx queues. Like if only have 8 rx and 8 tx queues on this netdev, then I can see the queue_mapping in the receving skb will be in [1-8], which I expect is [0-7].
-
-Thanks
-WeiGu
------Original Message-----
-From: Wei Gu
-Sent: Tuesday, April 19, 2011 12:09 PM
-To: 'Jesse Brandeburg'
-Cc: Peter Zijlstra; Eric Dumazet; Alexander Duyck; netdev; Kirsher, Jeffrey T; Mike Galbraith; Thomas Gleixner
-Subject: RE: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-
-Hi,
-This is the result that I running the turbostat via 2.6.35.3 and perform the same load test on eth10 (8 tx/rx queue binding to core 24-31) according you instruction.
-I was add the processor.max_cstate=1 in the boot params, and also disabled the cstate in the BIOS. But looks like the kernel does take them.
-
-Thanks
-WeiGu
-
------Original Message-----
-From: Jesse Brandeburg [mailto:jesse.brandeburg@gmail.com]
-Sent: Tuesday, April 19, 2011 5:12 AM
-To: Wei Gu
-Cc: Peter Zijlstra; Eric Dumazet; Alexander Duyck; netdev; Kirsher, Jeffrey T; Mike Galbraith; Thomas Gleixner
-Subject: Re: Low performance Intel 10GE NIC (3.2.10) on 2.6.38 Kernel
-
-On Fri, Apr 15, 2011 at 2:14 AM, Wei Gu <wei.gu@ericsson.com> wrote:
-> Is there something that I can provide in order to identify the problem?
-
-for power state concerns you may want to try running turbostat (available in recent kernels, runs also on older kernels) during the workload in question.  Capture the results via something like:
-cd /home/jbrandeb/linux-2.6.38.2/tools/power/x86/turbostat
-make
-for i in `seq 1 10` ; do ./turbostat -v sleep 5 >> turbostat.txt 2>&1 ; done
-
-Jesse
+ > Regards,
+ > 
+ > - KK
+ > 
+ > Jason Wang <jasowang@redhat.com> wrote on 04/20/2011 02:03:07 PM:
+ > 
+ > > Jason Wang <jasowang@redhat.com>
+ > > 04/20/2011 02:03 PM
+ > >
+ > > To
+ > >
+ > > Krishna Kumar2/India/IBM@IBMIN, kvm@vger.kernel.org, mst@redhat.com,
+ > > netdev@vger.kernel.org, rusty@rustcorp.com.au, qemu-
+ > > devel@nongnu.org, anthony@codemonkey.ws
+ > >
+ > > cc
+ > >
+ > > Subject
+ > >
+ > > [RFC PATCH 0/2] Multiqueue support for qemu(virtio-net)
+ > >
+ > > Inspired by Krishna's patch
+ > (http://www.spinics.net/lists/kvm/msg52098.html
+ > > ) and
+ > > Michael's suggestions.  The following series adds the multiqueue support
+ > for
+ > > qemu and enable it for virtio-net (both userspace and vhost).
+ > >
+ > > The aim for this series is to simplified the management and achieve the
+ > same
+ > > performacne with less codes.
+ > >
+ > > Follows are the differences between this series and Krishna's:
+ > >
+ > > - Add the multiqueue support for qemu and also for userspace virtio-net
+ > > - Instead of hacking the vhost module to manipulate kthreads, this patch
+ > just
+ > > implement the userspace based multiqueues and thus can re-use the
+ > > existed vhost kernel-side codes without any modification.
+ > > - Use 1:1 mapping between TX/RX pairs and vhost kthread because the
+ > > implementation is based on usersapce.
+ > > - The cli is also changed to make the mgmt easier, the -netdev option of
+ > qdev
+ > > can now accpet more than one ids. You can start a multiqueue virtio-net
+ > device
+ > > through:
+ > > ./qemu-system-x86_64 -netdev tap,id=hn0,vhost=on,fd=X -netdev
+ > > tap,id=hn0,vhost=on,fd=Y -device
+ > virtio-net-pci,netdev=hn0#hn1,queues=2 ...
+ > >
+ > > The series is very primitive and still need polished.
+ > >
+ > > Suggestions are welcomed.
+ > > ---
+ > >
+ > > Jason Wang (2):
+ > >       net: Add multiqueue support
+ > >       virtio-net: add multiqueue support
+ > >
+ > >
+ > >  hw/qdev-properties.c |   37 ++++-
+ > >  hw/qdev.h            |    3
+ > >  hw/vhost.c           |   26 ++-
+ > >  hw/vhost.h           |    1
+ > >  hw/vhost_net.c       |    7 +
+ > >  hw/vhost_net.h       |    2
+ > >  hw/virtio-net.c      |  409 +++++++++++++++++++++++++++++++
+ > > +------------------
+ > >  hw/virtio-net.h      |    2
+ > >  hw/virtio-pci.c      |    1
+ > >  hw/virtio.h          |    1
+ > >  net.c                |   34 +++-
+ > >  net.h                |   15 +-
+ > >  12 files changed, 353 insertions(+), 185 deletions(-)
+ > >
+ > > --
+ > > Jason Wang
+ > 
