@@ -1,103 +1,182 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH V3 3/8] Add userspace buffers support in skb
-Date: Wed, 20 Apr 2011 12:47:57 -0700
-Message-ID: <1303328877.19336.28.camel@localhost.localdomain>
-References: <1303328216.19336.18.camel@localhost.localdomain>
+From: Ciprian Docan <docan@eden.rutgers.edu>
+Subject: Re: Suspend/resume - slow resume
+Date: Wed, 20 Apr 2011 22:07:14 -0400 (EDT)
+Message-ID: <Pine.SOC.4.64.1104202204090.1320@er3.rutgers.edu>
+References: <Pine.SOC.4.64.1104151122330.1320@er3.rutgers.edu>
+ <BANLkTi=Gq5thZk2f1nWTz3dDA5Non8ANZg@mail.gmail.com>
+ <20110417101731.GA17986@electric-eye.fr.zoreil.com>
+ <BANLkTi=tPc6NmUuTYqbVZduNRNbE=-c34Q@mail.gmail.com>
+ <20110418180813.GA18469@electric-eye.fr.zoreil.com>
+ <BANLkTim_1OgqjCeD1a4Ay2fWJSmPHa_XTQ@mail.gmail.com>
+ <Pine.SOC.4.64.1104181519490.1320@er3.rutgers.edu>
+ <BANLkTi=dke10HougmiQn9hSF15nK0B8mdA@mail.gmail.com>
+ <20110420181602.GA18740@electric-eye.fr.zoreil.com>
+ <Pine.SOC.4.64.1104201507140.1320@er3.rutgers.edu>
+ <20110420195330.GB18897@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-559023410-675537891-1303351634=:1320"
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+	"Rafael, J. Wysocki" <rjw@sisk.pl>, Greg KH <gregkh@suse.de>,
+	nic_swsd@realtek.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1303328216.19336.18.camel@localhost.localdomain>
+In-Reply-To: <20110420195330.GB18897@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds userspace buffers support in skb. A new struct
-skb_ubuf_info is needed to maintain the userspace buffers argument
-and index, a callback is used to notify userspace to release the
-buffers once lower device has done DMA (Last reference to that skb
-has gone).
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
----
+---559023410-675537891-1303351634=:1320
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 
- include/linux/skbuff.h |   14 ++++++++++++++
- net/core/skbuff.c      |   15 ++++++++++++++-
- 2 files changed, 28 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index d0ae90a..47a187b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -189,6 +189,16 @@ enum {
- 	SKBTX_DRV_NEEDS_SK_REF = 1 << 3,
- };
- 
-+/* The callback notifies userspace to release buffers when skb DMA is done in
-+ * lower device, the desc is used to track userspace buffer index.
-+ */
-+struct skb_ubuf_info {
-+	/* support buffers allocation from userspace */
-+	void		(*callback)(struct sk_buff *);
-+	void		*arg;
-+	size_t		desc;
-+};
-+
- /* This data is invariant across clones and lives at
-  * the end of the header data, ie. at skb->end.
-  */
-@@ -211,6 +221,10 @@ struct skb_shared_info {
- 	/* Intermediate layers must ensure that destructor_arg
- 	 * remains valid until skb destructor */
- 	void *		destructor_arg;
-+
-+	/* DMA mapping from/to userspace buffers */
-+	struct skb_ubuf_info ubuf;
-+
- 	/* must be last field, see pskb_expand_head() */
- 	skb_frag_t	frags[MAX_SKB_FRAGS];
- };
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7ebeed0..822c07d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -210,6 +210,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	shinfo = skb_shinfo(skb);
- 	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
- 	atomic_set(&shinfo->dataref, 1);
-+	shinfo->ubuf.callback = NULL;
-+	shinfo->ubuf.arg = NULL;
- 	kmemcheck_annotate_variable(shinfo->destructor_arg);
- 
- 	if (fclone) {
-@@ -327,7 +329,15 @@ static void skb_release_data(struct sk_buff *skb)
- 			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
- 				put_page(skb_shinfo(skb)->frags[i].page);
- 		}
--
-+		/*
-+		 * if skb buf is from userspace, we need to notify the caller
-+		 * the lower device DMA has done;
-+		 */
-+		if (skb_shinfo(skb)->ubuf.callback) {
-+			skb_shinfo(skb)->ubuf.callback(skb);
-+			skb_shinfo(skb)->ubuf.callback = NULL;
-+			skb_shinfo(skb)->ubuf.arg = NULL;
-+		}
- 		if (skb_has_frag_list(skb))
- 			skb_drop_fraglist(skb);
- 
-@@ -480,6 +490,9 @@ bool skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	if (irqs_disabled())
- 		return false;
- 
-+	if (shinfo->ubuf.callback)
-+		return false;
-+
- 	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
- 		return false;
- 
+Hello Francois,
+
+>> I tried to unload the module, but it crashed. I re-booted the
+>> machine and tried to unload the module again. I got the output from
+>> dmesg; please see attached.
+>
+> Hmmm...
+
+I adapted your patch and fixed the module unload problem; please let me 
+know what you think. Thank you.
+
+--
+ 	Ciprian
+---559023410-675537891-1303351634=:1320
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name=r8169-fix-module-unload.diff
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.SOC.4.64.1104202207140.1320@er3.rutgers.edu>
+Content-Description: 
+Content-Disposition: attachment; filename=r8169-fix-module-unload.diff
+
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3I4MTY5LmMgYi9kcml2ZXJzL25l
+dC9yODE2OS5jDQppbmRleCA0OTNiMGRlLi4zOTdjMzY4IDEwMDY0NA0KLS0t
+IGEvZHJpdmVycy9uZXQvcjgxNjkuYw0KKysrIGIvZHJpdmVycy9uZXQvcjgx
+NjkuYw0KQEAgLTE3MCw2ICsxNzAsMTYgQEAgc3RhdGljIGNvbnN0IHN0cnVj
+dCB7DQogfTsNCiAjdW5kZWYgX1INCiANCitzdGF0aWMgY29uc3Qgc3RydWN0
+IHJ0bF9maXJtd2FyZV9pbmZvIHsNCisJaW50IG1hY192ZXJzaW9uOw0KKwlj
+b25zdCBjaGFyICpmd19uYW1lOw0KK30gcnRsX2Zpcm13YXJlX2luZm9zW10g
+PSB7DQorCXsgLm1hY192ZXJzaW9uID0gUlRMX0dJR0FfTUFDX1ZFUl8yNSwg
+LmZ3X25hbWUgPSBGSVJNV0FSRV84MTY4RF8xIH0sDQorCXsgLm1hY192ZXJz
+aW9uID0gUlRMX0dJR0FfTUFDX1ZFUl8yNiwgLmZ3X25hbWUgPSBGSVJNV0FS
+RV84MTY4RF8yIH0sDQorCXsgLm1hY192ZXJzaW9uID0gUlRMX0dJR0FfTUFD
+X1ZFUl8yOSwgLmZ3X25hbWUgPSBGSVJNV0FSRV84MTA1RV8xIH0sDQorCXsg
+Lm1hY192ZXJzaW9uID0gUlRMX0dJR0FfTUFDX1ZFUl8zMCwgLmZ3X25hbWUg
+PSBGSVJNV0FSRV84MTA1RV8xIH0NCit9Ow0KKw0KIGVudW0gY2ZnX3ZlcnNp
+b24gew0KIAlSVExfQ0ZHXzAgPSAweDAwLA0KIAlSVExfQ0ZHXzEsDQpAQCAt
+NTY1LDYgKzU3NSw3IEBAIHN0cnVjdCBydGw4MTY5X3ByaXZhdGUgew0KIAl1
+MzIgc2F2ZWRfd29sb3B0czsNCiANCiAJY29uc3Qgc3RydWN0IGZpcm13YXJl
+ICpmdzsNCisjZGVmaW5lIFJUTF9GSVJNV0FSRV9VTktOT1dOCUVSUl9QVFIo
+LUVBR0FJTik7DQogfTsNCiANCiBNT0RVTEVfQVVUSE9SKCJSZWFsdGVrIGFu
+ZCB0aGUgTGludXggcjgxNjkgY3JldyA8bmV0ZGV2QHZnZXIua2VybmVsLm9y
+Zz4iKTsNCkBAIC0xNzg5LDI1ICsxODAwLDI2IEBAIHJ0bF9waHlfd3JpdGVf
+Zncoc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHAsIGNvbnN0IHN0cnVjdCBm
+aXJtd2FyZSAqZncpDQogDQogc3RhdGljIHZvaWQgcnRsX3JlbGVhc2VfZmly
+bXdhcmUoc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHApDQogew0KLQlyZWxl
+YXNlX2Zpcm13YXJlKHRwLT5mdyk7DQotCXRwLT5mdyA9IE5VTEw7DQorCWlm
+ICghSVNfRVJSX09SX05VTEwodHAtPmZ3KSkNCisJCXJlbGVhc2VfZmlybXdh
+cmUodHAtPmZ3KTsNCisJdHAtPmZ3ID0gUlRMX0ZJUk1XQVJFX1VOS05PV047
+DQogfQ0KIA0KLXN0YXRpYyBpbnQgcnRsX2FwcGx5X2Zpcm13YXJlKHN0cnVj
+dCBydGw4MTY5X3ByaXZhdGUgKnRwLCBjb25zdCBjaGFyICpmd19uYW1lKQ0K
+K3N0YXRpYyB2b2lkIHJ0bF9hcHBseV9maXJtd2FyZShzdHJ1Y3QgcnRsODE2
+OV9wcml2YXRlICp0cCkNCiB7DQotCWNvbnN0IHN0cnVjdCBmaXJtd2FyZSAq
+KmZ3ID0gJnRwLT5mdzsNCi0JaW50IHJjID0gISpmdzsNCi0NCi0JaWYgKHJj
+KSB7DQotCQlyYyA9IHJlcXVlc3RfZmlybXdhcmUoZncsIGZ3X25hbWUsICZ0
+cC0+cGNpX2Rldi0+ZGV2KTsNCi0JCWlmIChyYyA8IDApDQotCQkJZ290byBv
+dXQ7DQotCX0NCisJY29uc3Qgc3RydWN0IGZpcm13YXJlICpmdyA9IHRwLT5m
+dzsNCiANCiAJLyogVE9ETzogcmVsZWFzZSBmaXJtd2FyZSBvbmNlIHJ0bF9w
+aHlfd3JpdGVfZncgc2lnbmFscyBmYWlsdXJlcy4gKi8NCi0JcnRsX3BoeV93
+cml0ZV9mdyh0cCwgKmZ3KTsNCi1vdXQ6DQotCXJldHVybiByYzsNCisJaWYg
+KCFJU19FUlJfT1JfTlVMTChmdykpDQorCQlydGxfcGh5X3dyaXRlX2Z3KHRw
+LCBmdyk7DQorfQ0KKw0KK3N0YXRpYyB2b2lkIHJ0bF9hcHBseV9maXJtd2Fy
+ZV9jb25kKHN0cnVjdCBydGw4MTY5X3ByaXZhdGUgKnRwLCB1OCByZWcsIHUx
+NiB2YWwpDQorew0KKwlpZiAocnRsX3JlYWRwaHkodHAsIHJlZykgIT0gdmFs
+KQ0KKwkJbmV0aWZfd2Fybih0cCwgaHcsIHRwLT5kZXYsICJjaGlwc2V0IG5v
+dCByZWFkeSBmb3IgZmlybXdhcmVcbiIpOw0KKwllbHNlDQorCQlydGxfYXBw
+bHlfZmlybXdhcmUodHApOw0KIH0NCiANCiBzdGF0aWMgdm9pZCBydGw4MTY5
+c19od19waHlfY29uZmlnKHN0cnVjdCBydGw4MTY5X3ByaXZhdGUgKnRwKQ0K
+QEAgLTIyNDYsMTAgKzIyNTgsOCBAQCBzdGF0aWMgdm9pZCBydGw4MTY4ZF8x
+X2h3X3BoeV9jb25maWcoc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHApDQog
+DQogCXJ0bF93cml0ZXBoeSh0cCwgMHgxZiwgMHgwMDA1KTsNCiAJcnRsX3dy
+aXRlcGh5KHRwLCAweDA1LCAweDAwMWIpOw0KLQlpZiAoKHJ0bF9yZWFkcGh5
+KHRwLCAweDA2KSAhPSAweGJmMDApIHx8DQotCSAgICAocnRsX2FwcGx5X2Zp
+cm13YXJlKHRwLCBGSVJNV0FSRV84MTY4RF8xKSA8IDApKSB7DQotCQluZXRp
+Zl93YXJuKHRwLCBwcm9iZSwgdHAtPmRldiwgInVuYWJsZSB0byBhcHBseSBm
+aXJtd2FyZSBwYXRjaFxuIik7DQotCX0NCisNCisJcnRsX2FwcGx5X2Zpcm13
+YXJlX2NvbmQodHAsIE1JSV9FWFBBTlNJT04sIDB4YmYwMCk7DQogDQogCXJ0
+bF93cml0ZXBoeSh0cCwgMHgxZiwgMHgwMDAwKTsNCiB9DQpAQCAtMjM1MSwx
+MCArMjM2MSw4IEBAIHN0YXRpYyB2b2lkIHJ0bDgxNjhkXzJfaHdfcGh5X2Nv
+bmZpZyhzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCkNCiANCiAJcnRsX3dy
+aXRlcGh5KHRwLCAweDFmLCAweDAwMDUpOw0KIAlydGxfd3JpdGVwaHkodHAs
+IDB4MDUsIDB4MDAxYik7DQotCWlmICgocnRsX3JlYWRwaHkodHAsIDB4MDYp
+ICE9IDB4YjMwMCkgfHwNCi0JICAgIChydGxfYXBwbHlfZmlybXdhcmUodHAs
+IEZJUk1XQVJFXzgxNjhEXzIpIDwgMCkpIHsNCi0JCW5ldGlmX3dhcm4odHAs
+IHByb2JlLCB0cC0+ZGV2LCAidW5hYmxlIHRvIGFwcGx5IGZpcm13YXJlIHBh
+dGNoXG4iKTsNCi0JfQ0KKw0KKwlydGxfYXBwbHlfZmlybXdhcmVfY29uZCh0
+cCwgTUlJX0VYUEFOU0lPTiwgMHhiMzAwKTsNCiANCiAJcnRsX3dyaXRlcGh5
+KHRwLCAweDFmLCAweDAwMDApOw0KIH0NCkBAIC0yNDc0LDggKzI0ODIsNyBA
+QCBzdGF0aWMgdm9pZCBydGw4MTA1ZV9od19waHlfY29uZmlnKHN0cnVjdCBy
+dGw4MTY5X3ByaXZhdGUgKnRwKQ0KIAlydGxfd3JpdGVwaHkodHAsIDB4MTgs
+IDB4MDMxMCk7DQogCW1zbGVlcCgxMDApOw0KIA0KLQlpZiAocnRsX2FwcGx5
+X2Zpcm13YXJlKHRwLCBGSVJNV0FSRV84MTA1RV8xKSA8IDApDQotCQluZXRp
+Zl93YXJuKHRwLCBwcm9iZSwgdHAtPmRldiwgInVuYWJsZSB0byBhcHBseSBm
+aXJtd2FyZSBwYXRjaFxuIik7DQorCXJ0bF9hcHBseV9maXJtd2FyZSh0cCk7
+DQogDQogCXJ0bF93cml0ZXBoeV9iYXRjaCh0cCwgcGh5X3JlZ19pbml0LCBB
+UlJBWV9TSVpFKHBoeV9yZWdfaW5pdCkpOw0KIH0NCkBAIC0zMjM3LDYgKzMy
+NDQsOCBAQCBydGw4MTY5X2luaXRfb25lKHN0cnVjdCBwY2lfZGV2ICpwZGV2
+LCBjb25zdCBzdHJ1Y3QgcGNpX2RldmljZV9pZCAqZW50KQ0KIAl0cC0+dGlt
+ZXIuZGF0YSA9ICh1bnNpZ25lZCBsb25nKSBkZXY7DQogCXRwLT50aW1lci5m
+dW5jdGlvbiA9IHJ0bDgxNjlfcGh5X3RpbWVyOw0KIA0KKwl0cC0+ZncgPSBS
+VExfRklSTVdBUkVfVU5LTk9XTjsNCisNCiAJcmMgPSByZWdpc3Rlcl9uZXRk
+ZXYoZGV2KTsNCiAJaWYgKHJjIDwgMCkNCiAJCWdvdG8gZXJyX291dF9tc2lf
+NDsNCkBAIC0zMjg4LDEwICszMjk3LDEwIEBAIHN0YXRpYyB2b2lkIF9fZGV2
+ZXhpdCBydGw4MTY5X3JlbW92ZV9vbmUoc3RydWN0IHBjaV9kZXYgKnBkZXYp
+DQogDQogCWNhbmNlbF9kZWxheWVkX3dvcmtfc3luYygmdHAtPnRhc2spOw0K
+IA0KLQlydGxfcmVsZWFzZV9maXJtd2FyZSh0cCk7DQotDQogCXVucmVnaXN0
+ZXJfbmV0ZGV2KGRldik7DQogDQorCXJ0bF9yZWxlYXNlX2Zpcm13YXJlKHRw
+KTsNCisNCiAJaWYgKHBjaV9kZXZfcnVuX3dha2UocGRldikpDQogCQlwbV9y
+dW50aW1lX2dldF9ub3Jlc3VtZSgmcGRldi0+ZGV2KTsNCiANCkBAIC0zMzAz
+LDYgKzMzMTIsMzcgQEAgc3RhdGljIHZvaWQgX19kZXZleGl0IHJ0bDgxNjlf
+cmVtb3ZlX29uZShzdHJ1Y3QgcGNpX2RldiAqcGRldikNCiAJcGNpX3NldF9k
+cnZkYXRhKHBkZXYsIE5VTEwpOw0KIH0NCiANCitzdGF0aWMgdm9pZCBydGxf
+cmVxdWVzdF9maXJtd2FyZShzdHJ1Y3QgcnRsODE2OV9wcml2YXRlICp0cCkN
+Cit7DQorCWludCBpOw0KKw0KKwkvKiBSZXR1cm4gZWFybHkgaWYgdGhlIGZp
+cm13YXJlIGlzIGFscmVhZHkgbG9hZGVkIC8gY2FjaGVkLiAqLw0KKwlpZiAo
+IUlTX0VSUih0cC0+ZncpKQ0KKwkJZ290byBvdXQ7DQorDQorCWZvciAoaSA9
+IDA7IGkgPCBBUlJBWV9TSVpFKHJ0bF9maXJtd2FyZV9pbmZvcyk7IGkrKykg
+ew0KKwkJY29uc3Qgc3RydWN0IHJ0bF9maXJtd2FyZV9pbmZvICppbmZvID0g
+cnRsX2Zpcm13YXJlX2luZm9zICsgaTsNCisNCisJCWlmIChpbmZvLT5tYWNf
+dmVyc2lvbiA9PSB0cC0+bWFjX3ZlcnNpb24pIHsNCisJCQljb25zdCBjaGFy
+ICpuYW1lID0gaW5mby0+ZndfbmFtZTsNCisJCQlpbnQgcmM7DQorDQorCQkJ
+cmMgPSByZXF1ZXN0X2Zpcm13YXJlKCZ0cC0+ZncsIG5hbWUsICZ0cC0+cGNp
+X2Rldi0+ZGV2KTsNCisJCQlpZiAocmMgPCAwKSB7DQorCQkJCW5ldGlmX3dh
+cm4odHAsIGlmdXAsIHRwLT5kZXYsICJ1bmFibGUgdG8gbG9hZCAiDQorCQkJ
+CQkiZmlybXdhcmUgcGF0Y2ggJXMgKCVkKVxuIiwgbmFtZSwgcmMpOw0KKwkJ
+CQlnb3RvIG91dF9kaXNhYmxlX3JlcXVlc3RfZmlybXdhcmU7DQorCQkJfQ0K
+KwkJCWdvdG8gb3V0Ow0KKwkJfQ0KKwl9DQorDQorb3V0X2Rpc2FibGVfcmVx
+dWVzdF9maXJtd2FyZToNCisJdHAtPmZ3ID0gTlVMTDsNCitvdXQ6DQorCXJl
+dHVybjsNCit9DQorDQogc3RhdGljIGludCBydGw4MTY5X29wZW4oc3RydWN0
+IG5ldF9kZXZpY2UgKmRldikNCiB7DQogCXN0cnVjdCBydGw4MTY5X3ByaXZh
+dGUgKnRwID0gbmV0ZGV2X3ByaXYoZGV2KTsNCkBAIC0zMzM0LDExICszMzc0
+LDEzIEBAIHN0YXRpYyBpbnQgcnRsODE2OV9vcGVuKHN0cnVjdCBuZXRfZGV2
+aWNlICpkZXYpDQogDQogCXNtcF9tYigpOw0KIA0KKwlydGxfcmVxdWVzdF9m
+aXJtd2FyZSh0cCk7DQorDQogCXJldHZhbCA9IHJlcXVlc3RfaXJxKGRldi0+
+aXJxLCBydGw4MTY5X2ludGVycnVwdCwNCiAJCQkgICAgICh0cC0+ZmVhdHVy
+ZXMgJiBSVExfRkVBVFVSRV9NU0kpID8gMCA6IElSUUZfU0hBUkVELA0KIAkJ
+CSAgICAgZGV2LT5uYW1lLCBkZXYpOw0KIAlpZiAocmV0dmFsIDwgMCkNCi0J
+CWdvdG8gZXJyX3JlbGVhc2VfcmluZ18yOw0KKwkJZ290byBlcnJfcmVsZWFz
+ZV9md18yOw0KIA0KIAluYXBpX2VuYWJsZSgmdHAtPm5hcGkpOw0KIA0KQEAg
+LTMzNTksNyArMzQwMSw4IEBAIHN0YXRpYyBpbnQgcnRsODE2OV9vcGVuKHN0
+cnVjdCBuZXRfZGV2aWNlICpkZXYpDQogb3V0Og0KIAlyZXR1cm4gcmV0dmFs
+Ow0KIA0KLWVycl9yZWxlYXNlX3JpbmdfMjoNCitlcnJfcmVsZWFzZV9md18y
+Og0KKwlydGxfcmVsZWFzZV9maXJtd2FyZSh0cCk7DQogCXJ0bDgxNjlfcnhf
+Y2xlYXIodHApOw0KIGVycl9mcmVlX3J4XzE6DQogCWRtYV9mcmVlX2NvaGVy
+ZW50KCZwZGV2LT5kZXYsIFI4MTY5X1JYX1JJTkdfQllURVMsIHRwLT5SeERl
+c2NBcnJheSwNCg==
+
+---559023410-675537891-1303351634=:1320--
