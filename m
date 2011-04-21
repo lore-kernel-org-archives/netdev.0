@@ -1,9 +1,9 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v2] net: fix hw_features ethtool_ops->set_flags compatibility
-Date: Fri, 22 Apr 2011 01:19:07 +0200 (CEST)
-Message-ID: <20110421231907.55FA613909@rere.qmqm.pl>
+Subject: [PATCH v3] net: fix hw_features ethtool_ops->set_flags compatibility
+Date: Fri, 22 Apr 2011 01:21:39 +0200 (CEST)
+Message-ID: <20110421232139.76C9113909@rere.qmqm.pl>
 References: <20110421231232.BF22613909@rere.qmqm.pl>
-	<1303426342.3464.184.camel@localhost>
+        <1303426342.3464.184.camel@localhost>
         <20110421221548.GA7888@rere.qmqm.pl>
         <20110412144940.GA26043@rere.qmqm.pl>
         <20110411202630.C079D13909@rere.qmqm.pl>
@@ -23,10 +23,10 @@ Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	Eilon Greenstein <eilong@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:46254 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:42271 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062Ab1DUXTI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 19:19:08 -0400
+	id S1754062Ab1DUXVk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 19:21:40 -0400
 In-Reply-To: <20110421231232.BF22613909@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -36,6 +36,8 @@ user-toggleable.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
+in v2 I forgot to 'stg refresh' before
+
  net/core/ethtool.c |    5 +++--
  1 files changed, 3 insertions(+), 2 deletions(-)
 
