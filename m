@@ -1,72 +1,92 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v3] net: fix hw_features ethtool_ops->set_flags compatibility
-Date: Fri, 22 Apr 2011 01:21:39 +0200 (CEST)
-Message-ID: <20110421232139.76C9113909@rere.qmqm.pl>
-References: <20110421231232.BF22613909@rere.qmqm.pl>
-        <1303426342.3464.184.camel@localhost>
-        <20110421221548.GA7888@rere.qmqm.pl>
-        <20110412144940.GA26043@rere.qmqm.pl>
-        <20110411202630.C079D13909@rere.qmqm.pl>
-        <1302610228.32697.298.camel@lb-tlvb-vladz>
-        <20110412140708.GA21835@rere.qmqm.pl>
-        <1302619012.6750.8.camel@lb-tlvb-vladz>
-        <20110412193823.0823213A65@rere.qmqm.pl>
-        <1303397531.3685.16.camel@edumazet-laptop>
-        <1303411750.19212.123.camel@lb-tlvb-vladz>
-        <1303413559.3165.55.camel@bwh-desktop> <20110421221548.GA7888@rere.qmqm.pl>
+From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 01/27] HFI: skeleton driver
+Date: Thu, 21 Apr 2011 17:38:13 -0400
+Message-ID: <4DB0A3C5.3070009@linux.vnet.ibm.com>
+References: <1303096919-7367-1-git-send-email-dykmanj@linux.vnet.ibm.com> <1303096919-7367-2-git-send-email-dykmanj@linux.vnet.ibm.com> <1303129399.5282.1033.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
+	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
+	"William S. Cadden" <wscadden@linux.vnet.ibm.com>,
+	"Wen C. Chen" <winstonc@linux.vnet.ibm.com>,
+	Scot Sakolish <sakolish@linux.vnet.ibm.com>,
+	Jian Xiao <jian@linux.vnet.ibm.com>,
+	"Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
+	"Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:42271 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062Ab1DUXVk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 19:21:40 -0400
-In-Reply-To: <20110421231232.BF22613909@rere.qmqm.pl>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:59433 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755619Ab1DUXhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 19:37:48 -0400
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e36.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3LNWAeF032164
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:32:10 -0600
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3LNPaUa099284
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 17:37:41 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3LLhZJo008544
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 15:43:36 -0600
+In-Reply-To: <1303129399.5282.1033.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__ethtool_set_flags() was not taking into account features set but not
-user-toggleable.
+On 4/18/2011 8:23 AM, Ben Hutchings wrote:
+> On Sun, 2011-04-17 at 23:21 -0400, dykmanj@linux.vnet.ibm.com wrote:
+>> From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+>>
+>> Device driver Makefile & Kconfig plumbing plus simple mod_init and mod_exit
+> [...]
+>> --- /dev/null
+>> +++ b/drivers/net/hfi/core/hfidd_init.c
+> [...]
+>> +#include <linux/version.h>
+> 
+> Never include <linux/version.h> in an in-tree driver.
+> 
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
-in v2 I forgot to 'stg refresh' before
+Ok
 
- net/core/ethtool.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+> [...]
+>> +static int __init hfidd_mod_init(void)
+>> +{
+>> +	int			rc = 0;
+>> +
+>> +	rc = hfidd_create_class();
+>> +	if (rc < 0) {
+>> +		printk(KERN_ERR "%s: hfidd_mod_init: hfidd_create_class failed"
+>> +			" rc=%d\n", HFIDD_DEV_NAME, rc);
+>> +		return -1;
+> 
+> Should be 'return rc'.
+> 
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 13d79f5..ecef3d9 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -532,7 +532,7 @@ static int ethtool_set_one_feature(struct net_devic=
-e *dev,
-=20
- int __ethtool_set_flags(struct net_device *dev, u32 data)
- {
--	u32 changed;
-+	u32 changed, forced;
-=20
- 	if (data & ~flags_dup_features)
- 		return -EINVAL;
-@@ -546,7 +546,8 @@ int __ethtool_set_flags(struct net_device *dev, u32=
- data)
- 	}
-=20
- 	/* allow changing only bits set in hw_features */
--	changed =3D (data ^ dev->wanted_features) & flags_dup_features;
-+	forced =3D dev->features & ~dev->hw_features;
-+	changed =3D (data ^ forced ^ dev->wanted_features) & flags_dup_featur=
-es;
- 	if (changed & ~dev->hw_features)
- 		return (changed & dev->hw_features) ? -EINVAL : -EOPNOTSUPP;
-=20
---=20
-1.7.2.5
+Ok
+
+> [...]
+>> --- /dev/null
+>> +++ b/include/linux/hfi/hfidd_client.h
+> [...]
+>> +#ifndef _HFIDD_CLIENT_H_
+>> +#define _HFIDD_CLIENT_H_
+>> +
+>> +#define MAX_TORRENTS            1
+>> +#define MAX_HFI_PER_TORRENT     2
+>> +#define MAX_HFIS                (MAX_TORRENTS * MAX_HFI_PER_TORRENT)
+> [...]
+> 
+> Are you sure you want to expose these values to userland?  You can never
+> change them later.
+> 
+
+We really don't expect them to change, so we're comfortable with defines for them.
+
+> Ben.
+> 
+Thanks for the reviews Ben.
+
+Jim
 
