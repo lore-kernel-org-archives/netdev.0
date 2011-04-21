@@ -1,31 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: ipqueue allocation failure.
-Date: Thu, 21 Apr 2011 17:13:57 +0200
-Message-ID: <4DB049B5.4070705@trash.net>
-References: <20110420014221.GC26949@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: rfkill-input to be removed
+Date: Thu, 21 Apr 2011 10:51:35 -0500
+Message-ID: <1303401097.16512.17.camel@dcbw.foobar.com>
+References: <4DAFEAA7.5090003@absence.it> <4DB03586.3040702@absence.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net
+To: Marco Chiappero <marco@absence.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47775 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754448Ab1DUPOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 11:14:01 -0400
-In-Reply-To: <20110420014221.GC26949@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42264 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753604Ab1DUPuM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2011 11:50:12 -0400
+In-Reply-To: <4DB03586.3040702@absence.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 20.04.2011 03:42, schrieb Dave Jones:
-> Not catastrophic, but ipqueue seems to be too trusting of what it gets
-> passed from userspace, and passes it on down to the page allocator,
-> where it will spew warnings if the page order is too high.
+On Thu, 2011-04-21 at 15:47 +0200, Marco Chiappero wrote:
+> Il 21/04/2011 10:28, Marco Chiappero ha scritto:
+> > Please remove that code as soon as possible, rfkill input events should
+> > be handled by user space tools.
 > 
-> __ipq_rcv_skb has several checks for lengths too small, but doesn't
-> seem to have any for oversized ones.   I'm not sure what the maximum
-> we should check for is. I'll code up a diff if anyone has any ideas
-> on a sane maximum.
+> About this topic, I've created a patch right now, you can find it here:
+> http://www.absence.it/vaio-acpi/source/patches/rfkill-input.patch
+> Does it look fine?
 
-A sane maximum seems to be 2^16 - 1, the maximum size of an IPv4 packet.
-Please also update ip6queue and nfnetlink_queue.
+You'll want to follow the patch submission guidelines:
+
+http://linux.yyz.us/patch-format.html
+
+before people will look at the patch, because many of the people who
+would look at it are quite busy.  That means:
+
+1) use a subject like "[PATCH] rfkill-input: remove deprecated module"
+2) Add your Signed-off-by: Your Name <your email>
+3) paste your patch *inline*, not as an attachment, and make *sure* to
+use the "preformat" or whatever option when you do, so that your mailer
+doesn't wrap long lines
+
+Dan
+
+> Moreover, using checkpatch.pl I've found 3 coding style errors, I'm 
+> attaching a patch to fix them (apply this one first).
+> 
+> And just one last thing: as there is no configuration option inside the 
+> menu, shouldn't we change the "menuconfig RFKILL" line to "config 
+> RFKILL" inside net/rfkill/Kconfig?
+
+
