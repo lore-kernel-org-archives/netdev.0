@@ -1,138 +1,145 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tg3: Convert u32 flag,flg2,flg3 uses to bitmap
-Date: Thu, 21 Apr 2011 10:31:36 +0200
-Message-ID: <1303374696.3685.14.camel@edumazet-laptop>
-References: <1303322263-18991-10-git-send-email-mcarlson@broadcom.com>
-	 <02bf2aa5c08514641ecbe7c39ef976918fad036c.1303367730.git.joe@perches.com>
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: sis900 transmit timeouts
+Date: Thu, 21 Apr 2011 10:34:41 +0200
+Message-ID: <BANLkTikt+JoeZkHaC1G-=T14n_X9zmoFDQ@mail.gmail.com>
+References: <BANLkTinTZoTgkNhjhwv=vHwLVgCKQNvKSQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <02bf2aa5c08514641ecbe7c39ef976918fad036c.1303367730.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: cwillu <cwillu@cwillu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.infomaniak.ch ([84.16.68.89]:50820 "EHLO
+	smtp1.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753471Ab1DUIpm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 04:45:42 -0400
+Received: from mail-bw0-f46.google.com (mail-bw0-f46.google.com [209.85.214.46])
+	(authenticated bits=0)
+	by smtp1.infomaniak.ch (8.14.2/8.14.2) with ESMTP id p3L8Yglb028851
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 10:34:43 +0200
+Received: by bwz15 with SMTP id 15so1236619bwz.19
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 01:34:42 -0700 (PDT)
+In-Reply-To: <BANLkTinTZoTgkNhjhwv=vHwLVgCKQNvKSQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 20 avril 2011 =C3=A0 23:39 -0700, Joe Perches a =C3=A9crit =
-:
-> Using a bitmap instead of separate u32 flags allows a consistent, sim=
-pler
-> and more extensible mechanism to determine capabilities.
->=20
-> Convert bitfields to indexes.
-> Add tg3_flag, tg3_flag_clear and tg3_flag_set
-> Convert the flag & bitmask tests.
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/tg3.c | 1262 ++++++++++++++++++++++++++-----------------=
-----------
->  drivers/net/tg3.h |  164 ++++----
->  2 files changed, 696 insertions(+), 730 deletions(-)
+I do not the sis900 chipset documentation on hand right now, so I
+cannot decode the TX status numbers. I did not receive any more
+reports apart from yours and the original one, so it is either a very
+nasty bug that happens in very particular conditions or an hardware
+problem.
+
+At the time I placed my bets on the 64bit arch because they were rare
+enough to make the bug difficult to reproduce.
+
+I'll let you know if your logs give me some hint.
+
+Thanks,
+Daniele.
+
+2011/4/21 cwillu <cwillu@cwillu.com>:
+> Hi; I'm trying to figure out why the onboard nic on what just became
+> my primary desktop disconnects for a few seconds every hour or so.
+> After some googling, I came across the "Transmit timeouts" section of
+> http://www.brownhat.org/sis900.html, which said to make contact if
+> anyone sees this. =C2=A0Granted that that was some time ago, but here=
+'s
+> hoping somebody still cares :)
+>
+> I'm running a vanilla 2.6.38 kernel, on 32bit (site said 64bit, but
+> given that I see it...).
+>
+>
+> Relevant dmesg:
+>
+> [ =C2=A0 =C2=A02.391521] sata_sis 0000:00:05.0: version 1.0
+> [ =C2=A0 =C2=A02.391543] sata_sis 0000:00:05.0: PCI INT A -> GSI 17 (=
+level, low) -> IRQ 17
+> [ =C2=A0 =C2=A02.391549] sata_sis 0000:00:05.0: Detected SiS 180/181/=
+964 chipset
+> in SATA mode
+> [ =C2=A0 =C2=A02.411447] scsi2 : sata_sis
+> [ =C2=A0 =C2=A02.413472] sis900.c: v1.08.10 Apr. 2 2006
+> [ =C2=A0 =C2=A02.415877] scsi3 : sata_sis
+> [ =C2=A0 =C2=A02.415991] ata3: SATA max UDMA/133 cmd 0xe900 ctl 0xea0=
+0 bmdma 0xed00 irq 17
+> [ =C2=A0 =C2=A02.415997] ata4: SATA max UDMA/133 cmd 0xeb00 ctl 0xec0=
+0 bmdma 0xed08 irq 17
+> [ =C2=A0 =C2=A02.416187] sis900 0000:00:04.0: PCI INT A -> GSI 19 (le=
+vel, low) -> IRQ 19
+> [ =C2=A0 =C2=A02.417375] 0000:00:04.0: Realtek RTL8201 PHY transceive=
+r found at address 1.
+> [ =C2=A0 =C2=A02.427022] 0000:00:04.0: Using transceiver found at add=
+ress 1 as default
+> [ =C2=A0 =C2=A02.438283] eth0: SiS 900 PCI Fast Ethernet at 0xe400, I=
+RQ 19,
+> 00:01:6c:e6:a7:f7
+> [ =C2=A0 =C2=A02.448194] usb 2-2: new low speed USB device using ohci=
+_hcd and address 2
+> <snip>
+> [ 2337.396544] eth2: Corrupted packet received, buffer status =3D 0x9=
+0880313/787.
+> [ 2794.401995] eth2: Transmit error, Tx status 0420004e.
+> [ 2870.495324] eth2: Transmit error, Tx status 04200092.
+> [ 5351.151451] eth2: Transmit error, Tx status 04200042.
+> [ 5591.280818] eth2: Transmit error, Tx status 04200226.
+> [ 5612.560354] eth2: Media Link Off
+> [ 5622.016027] ------------[ cut here ]------------
+> [ 5622.016044] WARNING: at
+> /home/kernel-ppa/COD/linux/net/sched/sch_generic.c:256
+> dev_watchdog+0x257/0x260()
+> [ 5622.016048] Hardware name:
+> [ 5622.016051] NETDEV WATCHDOG: eth2 (sis900): transmit queue 0 timed=
+ out
+> [ 5622.016054] Modules linked in: xt_multiport iptable_filter
+> ip_tables x_tables binfmt_misc nfsd lockd nfs_acl auth_rpcgss sunrpc
+> exportfs ipx p8023 tuner_simple tuner_types wm8775 tda9887 tda8290
+> nouveau tea5767 tuner snd_intel8x0 cx25840 ttm drm_kms_helper ivtv dr=
+m
+> snd_ac97_codec ac97_bus snd_pcm snd_seq_midi cx2341x snd_rawmidi
+> v4l2_common snd_seq_midi_event snd_seq ppdev i2c_algo_bit videodev
+> snd_timer parport_pc video tveeprom psmouse snd_seq_device lp parport
+> snd soundcore shpchp snd_page_alloc k8temp serio_raw usbhid hid
+> sata_sis sis900 floppy raid10 raid1 raid0 multipath linear btrfs
+> zlib_deflate libcrc32c
+> [ 5622.016117] Pid: 6623, comm: queue0:src Not tainted
+> 2.6.38-02063802-generic #201103281246
+> [ 5622.016120] Call Trace:
+> [ 5622.016127] =C2=A0[<c1449357>] ? dev_watchdog+0x257/0x260
+> [ 5622.016134] =C2=A0[<c104fd61>] ? warn_slowpath_common+0x81/0xa0
+> [ 5622.016140] =C2=A0[<c1449357>] ? dev_watchdog+0x257/0x260
+> [ 5622.016145] =C2=A0[<c104fe23>] ? warn_slowpath_fmt+0x33/0x40
+> [ 5622.016150] =C2=A0[<c1449357>] ? dev_watchdog+0x257/0x260
+> [ 5622.016155] =C2=A0[<c1068845>] ? __queue_work+0xd5/0x250
+> [ 5622.016161] =C2=A0[<c150c10d>] ? _raw_spin_lock+0xd/0x10
+> [ 5622.016166] =C2=A0[<c105c904>] ? call_timer_fn+0x34/0xe0
+> [ 5622.016171] =C2=A0[<c10f3461>] ? shmem_i_callback+0x21/0x30
+> [ 5622.016175] =C2=A0[<c10f3461>] ? shmem_i_callback+0x21/0x30
+> [ 5622.016180] =C2=A0[<c1449100>] ? dev_watchdog+0x0/0x260
+> [ 5622.016185] =C2=A0[<c105e13c>] ? run_timer_softirq+0xfc/0x1c0
+> [ 5622.016189] =C2=A0[<c1449100>] ? dev_watchdog+0x0/0x260
+> [ 5622.016195] =C2=A0[<c1055f12>] ? __do_softirq+0x92/0x1a0
+> [ 5622.016200] =C2=A0[<c1055e80>] ? __do_softirq+0x0/0x1a0
+> [ 5622.016202] =C2=A0<IRQ> =C2=A0[<c105608c>] ? irq_exit+0x6c/0x80
+> [ 5622.016211] =C2=A0[<c15134c8>] ? smp_apic_timer_interrupt+0x38/0x4=
+2
+> [ 5622.016216] =C2=A0[<c150cb89>] ? apic_timer_interrupt+0x31/0x38
+> [ 5622.016223] =C2=A0[<c112630d>] ? do_sync_write+0x9d/0xf0
+> [ 5622.016229] =C2=A0[<c11264be>] ? rw_verify_area+0x6e/0x130
+> [ 5622.016233] =C2=A0[<c1081343>] ? do_futex+0x193/0x1c0
+> [ 5622.016238] =C2=A0[<c112682b>] ? vfs_write+0x9b/0x160
+> [ 5622.016243] =C2=A0[<c1126270>] ? do_sync_write+0x0/0xf0
+> [ 5622.016247] =C2=A0[<c1126e62>] ? sys_write+0x42/0x70
+> [ 5622.016253] =C2=A0[<c1002e1f>] ? sysenter_do_call+0x12/0x28
+> [ 5622.016257] ---[ end trace 4f85204a75110ff3 ]---
+> [ 5622.016262] eth2: Transmit timeout, status 00000004 00000000
+> [ 5622.576937] eth2: Media Link On 100mbps full-duplex
+>
 
 
-Use an enum ?
 
-Why first value is 1 and not 0 ?
-
-> +#define TG3_FLAG_TAGGED_STATUS		1
-> +#define TG3_FLAG_TXD_MBOX_HWBUG		2
-> +#define TG3_FLAG_USE_LINKCHG_REG	3
-> +#define TG3_FLAG_ERROR_PROCESSED	4
-> +#define TG3_FLAG_ENABLE_ASF		5
-> +#define TG3_FLAG_ASPM_WORKAROUND	6
-> +#define TG3_FLAG_POLL_SERDES		7
-> +#define TG3_FLAG_MBOX_WRITE_REORDER	8
-> +#define TG3_FLAG_PCIX_TARGET_HWBUG	9
-> +#define TG3_FLAG_WOL_SPEED_100MB	10
-> +#define TG3_FLAG_WOL_ENABLE		11
-> +#define TG3_FLAG_EEPROM_WRITE_PROT	12
-> +#define TG3_FLAG_NVRAM			13
-> +#define TG3_FLAG_NVRAM_BUFFERED		14
-> +#define TG3_FLAG_SUPPORT_MSI		15
-> +#define TG3_FLAG_SUPPORT_MSIX		16
-> +#define TG3_FLAG_PCIX_MODE		17
-> +#define TG3_FLAG_PCI_HIGH_SPEED		18
-> +#define TG3_FLAG_PCI_32BIT		19
-> +#define TG3_FLAG_SRAM_USE_CONFIG	20
-> +#define TG3_FLAG_TX_RECOVERY_PENDING	21
-> +#define TG3_FLAG_WOL_CAP		22
-> +#define TG3_FLAG_JUMBO_RING_ENABLE	23
-> +#define TG3_FLAG_PAUSE_AUTONEG		24
-> +#define TG3_FLAG_CPMU_PRESENT		25
-> +#define TG3_FLAG_40BIT_DMA_BUG		26
-> +#define TG3_FLAG_BROKEN_CHECKSUMS	27
-> +#define TG3_FLAG_JUMBO_CAPABLE		28
-> +#define TG3_FLAG_CHIP_RESETTING		29
-> +#define TG3_FLAG_INIT_COMPLETE		30
-> +#define TG3_FLAG_RESTART_TIMER		31
-> +#define TG3_FLAG_TSO_BUG		32
-> +#define TG3_FLAG_IS_5788		33
-> +#define TG3_FLAG_MAX_RXPEND_64		34
-> +#define TG3_FLAG_TSO_CAPABLE		35
-> +#define TG3_FLAG_PCI_EXPRESS		36
-> +#define TG3_FLAG_ASF_NEW_HANDSHAKE	37
-> +#define TG3_FLAG_HW_AUTONEG		38
-> +#define TG3_FLAG_IS_NIC			39
-> +#define TG3_FLAG_FLASH			40
-> +#define TG3_FLAG_HW_TSO_1		41
-> +#define TG3_FLAG_5705_PLUS		42
-> +#define TG3_FLAG_5750_PLUS		43
-> +#define TG3_FLAG_HW_TSO_3		44
-> +#define TG3_FLAG_USING_MSI		45
-> +#define TG3_FLAG_USING_MSIX		46
-> +#define TG3_FLAG_ICH_WORKAROUND		47
-> +#define TG3_FLAG_5780_CLASS		48
-> +#define TG3_FLAG_HW_TSO_2		49
-> +#define TG3_FLAG_1SHOT_MSI		50
-> +#define TG3_FLAG_NO_FWARE_REPORTED	51
-> +#define TG3_FLAG_NO_NVRAM_ADDR_TRANS	52
-> +#define TG3_FLAG_ENABLE_APE		53
-> +#define TG3_FLAG_PROTECTED_NVRAM	54
-> +#define TG3_FLAG_5701_DMA_BUG		55
-> +#define TG3_FLAG_USE_PHYLIB		56
-> +#define TG3_FLAG_MDIOBUS_INITED		57
-> +#define TG3_FLAG_LRG_PROD_RING_CAP	58
-> +#define TG3_FLAG_RGMII_INBAND_DISABLE	59
-> +#define TG3_FLAG_RGMII_EXT_IBND_RX_EN	60
-> +#define TG3_FLAG_RGMII_EXT_IBND_TX_EN	61
-> +#define TG3_FLAG_CLKREQ_BUG		62
-> +#define TG3_FLAG_5755_PLUS		63
-> +#define TG3_FLAG_NO_NVRAM		64
-> +#define TG3_FLAG_ENABLE_RSS		65
-> +#define TG3_FLAG_ENABLE_TSS		66
-> +#define TG3_FLAG_4G_DMA_BNDRY_BUG	67
-> +#define TG3_FLAG_40BIT_DMA_LIMIT_BUG	68
-> +#define TG3_FLAG_SHORT_DMA_BUG		69
-> +#define TG3_FLAG_USE_JUMBO_BDFLAG	70
-> +#define TG3_FLAG_L1PLLPD_EN		71
-> +#define TG3_FLAG_57765_PLUS		72
-> +#define TG3_FLAG_APE_HAS_NCSI		73
-> +#define TG3_FLAG_5717_PLUS		74
-> +#define TG3_FLAGS			74	/* Set to number of flags */
-> +
->  struct tg3 {
->  	/* begin "general, frequently-used members" cacheline section */
-> =20
-> @@ -2838,7 +2914,7 @@ struct tg3 {
->  	/* SMP locking strategy:
->  	 *
->  	 * lock: Held during reset, PHY access, timer, and when
-> -	 *       updating tg3_flags and tg3_flags2.
-> +	 *       updating tg3_flags.
->  	 *
->  	 * netif_tx_lock: Held during tg3_start_xmit. tg3_tx holds
->  	 *                netif_tx_lock when it needs to call
-> @@ -2895,95 +2971,13 @@ struct tg3 {
->  	struct tg3_ethtool_stats	estats;
->  	struct tg3_ethtool_stats	estats_prev;
-> =20
-> +	DECLARE_BITMAP(tg3_flags, TG3_FLAGS);
-> +
-
-Also you need to make TG3_FLAGS be (last_flag_value + 1) or you could
-miss one long in bitmap. (Not now, but later when new flags are added
-and reach a multiple of BITS_PER_BYTE * sizeof(long)
+--=20
+Daniele Venzano
+venza@brownhat.org
+http://www.brownhat.org
