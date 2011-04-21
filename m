@@ -1,158 +1,112 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH net-next-2.6 v4 3/5] sctp: Add socket option operation
- for Auto-ASCONF
-Date: Thu, 21 Apr 2011 12:57:35 +0800
-Message-ID: <4DAFB93F.9060704@cn.fujitsu.com>
-References: <B0DA9A05-D070-4878-968A-33F41E744463@sfc.wide.ad.jp>
+From: Yogesh Ashok Powar <yogeshp@marvell.com>
+Subject: Query on skb headroom and bridging ethernet and wlan
+Date: Thu, 21 Apr 2011 10:35:41 +0530
+Message-ID: <20110421050539.GA25362@hertz.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Michio Honda <micchie@sfc.wide.ad.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes.berg@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52738 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751042Ab1DUE5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2011 00:57:40 -0400
-In-Reply-To: <B0DA9A05-D070-4878-968A-33F41E744463@sfc.wide.ad.jp>
+Received: from dakia2.marvell.com ([65.219.4.35]:51159 "EHLO
+	dakia2.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341Ab1DUFN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 01:13:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello David/Johannes,
+	We have observed significant throughput drop on TX path on
+embedded system when bridging packets from ethernet to wireless side.
+Our drivers on ethernet and wireless are MV643XX and MWL8K, respectively.
 
-> This patch allows the application to operate Auto-ASCONF on/off behavior via setsockopt() and getsockopt().  
->
-> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
-> ---
-> diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
-> index e73ebda..36bf64b 100644
-> --- a/include/net/sctp/user.h
-> +++ b/include/net/sctp/user.h
-> @@ -91,6 +91,7 @@ typedef __s32 sctp_assoc_t;
->  #define SCTP_PEER_AUTH_CHUNKS	26	/* Read only */
->  #define SCTP_LOCAL_AUTH_CHUNKS	27	/* Read only */
->  #define SCTP_GET_ASSOC_NUMBER	28	/* Read only */
-> +#define SCTP_AUTO_ASCONF       29
->  
->  /* Internal Socket Options. Some of the sctp library functions are
->   * implemented using these socket options.
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 3951a10..c9be08a 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -3341,6 +3341,46 @@ static int sctp_setsockopt_del_key(struct sock *sk,
->  
->  }
->  
-> +/*
-> + * 8.1.23 SCTP_AUTO_ASCONF
-> + *
-> + * This option will enable or disable the use of the automatic generation of
-> + * ASCONF chunks to add and delete addresses to an existing association.  Note
-> + * that this option has two caveats namely: a) it only affects sockets that
-> + * are bound to all addresses available to the SCTP stack, and b) the system
-> + * administrator may have an overriding control that turns the ASCONF feature
-> + * off no matter what setting the socket option may have.
-> + * This option expects an integer boolean flag, where a non-zero value turns on
-> + * the option, and a zero value turns off the option.
-> + * Note. In this implementation, socket operation overrides default parameter
-> + * being set by sysctl as well as FreeBSD implementation
-> + */
+We found that mac80211 end up calling ieee80211_skb_resize (from
+net/mac80211/tx.c) for every data packet as the skb_headroom was few
+bytes short than the actual requirement.
 
-I see:
-b) the system administrator may have an overriding control
-that turns the ASCONF feature off no matter what setting the socket
-option may have.
+We are considering two possible solutions to the problem:
+1. Use the scheme developed by Johannes and David.
+2. Address the issue by tuning the required extra tx headroom in the mwl8k
+wireless driver.
 
-You have not add this support?
+The scheme developed by Johannes and David is discussed at the thread started by
+Johannes on "mac80211: assign needed_headroom/tailroom for netdevs".
 
-To support this, we may change the sysctl auto_sctp_asconf's logic.
-If auto_asconf_enable == 1, we can use auto_asconf, if it is false,
-turns the ASCONF feature off no matter what setting the socket
-option may have. Or intrudce other sysctl to do the orig thing which
-auto_asconf_enable do?
+Can be seen at
+http://kerneltrap.com/mailarchive/linux-netdev/2008/5/4/1719104
 
+In one of the reply, David Miller has proposed a solution for such cases; please
+see http://lists.openwall.net/netdev/2008/05/05/133
 
-> +static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
-> +					unsigned int optlen)
-> +{
-> +	int val;
-> +	struct sctp_sock *sp = sctp_sk(sk);
-> +
-> +	if (optlen < sizeof(int))
-> +		return -EINVAL;
-> +	if (get_user(val, (int __user *)optval))
-> +		return -EFAULT;
-> +	if (!sctp_is_ep_boundall(sk) && val)
-> +		return -EINVAL;
-> +	if ((val && sp->do_auto_asconf) || (!val && !sp->do_auto_asconf))
-> +		return 0;
-> +
-> +	if (val == 0 && sp->do_auto_asconf) {
-> +		list_del(&sp->auto_asconf_list);
-> +		sp->do_auto_asconf = 0;
-> +	} else if (val && !sp->do_auto_asconf) {
-> +		list_add_tail(&sp->auto_asconf_list,
-> +		    &sctp_auto_asconf_splist);
-> +		sp->do_auto_asconf = 1;
-> +	}
-> +	return 0;
-> +}
-> +
->  
->  /* API 6.2 setsockopt(), getsockopt()
->   *
-> @@ -3488,6 +3528,9 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk, int level, int optname,
->  	case SCTP_AUTH_DELETE_KEY:
->  		retval = sctp_setsockopt_del_key(sk, optval, optlen);
->  		break;
-> +	case SCTP_AUTO_ASCONF:
-> +		retval = sctp_setsockopt_auto_asconf(sk, optval, optlen);
-> +		break;
->  	default:
->  		retval = -ENOPROTOOPT;
->  		break;
-> @@ -5283,6 +5326,28 @@ static int sctp_getsockopt_assoc_number(struct sock *sk, int len,
->  	return 0;
->  }
->  
-> +/*
-> + * 8.1.23 SCTP_AUTO_ASCONF
-> + * See the corresponding setsockopt entry as description
-> + */
-> +static int sctp_getsockopt_auto_asconf(struct sock *sk, int len,
-> +				   char __user *optval, int __user *optlen)
-> +{
-> +	int val = 0;
-> +
-> +	if (len < sizeof(int))
-> +		return -EINVAL;
-> +
-> +	len = sizeof(int);
-> +	if (sctp_sk(sk)->do_auto_asconf && sctp_is_ep_boundall(sk))
-> +		val = 1;
-> +	if (put_user(len, optlen))
-> +		return -EFAULT;
-> +	if (copy_to_user(optval, &val, len))
-> +		return -EFAULT;
-> +	return 0;
-> +}
-> +
->  SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
->  				char __user *optval, int __user *optlen)
->  {
-> @@ -5415,6 +5480,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
->  	case SCTP_GET_ASSOC_NUMBER:
->  		retval = sctp_getsockopt_assoc_number(sk, len, optval, optlen);
->  		break;
-> +	case SCTP_AUTO_ASCONF:
-> +		retval = sctp_getsockopt_auto_asconf(sk, len, optval, optlen);
-> +		break;
->  	default:
->  		retval = -ENOPROTOOPT;
->  		break;
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+For completeness I am adding David's patch after few modifications, mainly
+replacing old variables with the updated ones to make compilation error free.
+
+With the patch below and a change in ethernet driver to use netdev_alloc_skb, 
+overhead of ieee80211_skb_resize can be avoided on our setup.
+
+We would like to know, why is this patch (or something similar) not upstream?
+Or, are there issues that are difficult to resolve?
+
+Thanks
+Yogesh Powar
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0249fe7..1827ef0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1193,6 +1193,7 @@ struct net_device {
+ 						 * use it if/when necessary, to
+ 						 * avoid dirtying this cache line.
+ 						 */
++	unsigned int rx_alloc_extra;
+ 
+ 	struct net_device	*master; /* Pointer to master device of a group,
+ 					  * which this device is member of.
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index ee64287..cb2a462 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -46,6 +46,23 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
+ 	    (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))) {
+ 		kfree_skb(skb);
+ 	} else {
++		unsigned int headroom = skb_headroom(skb);
++		unsigned int hh_len = LL_RESERVED_SPACE(skb->dev);
++
++		if (headroom < hh_len) {
++			struct net_device *in_dev;
++			unsigned int extra;
++
++			in_dev = __dev_get_by_index(dev_net(skb->dev), skb->skb_iif);
++
++			BUG_ON(!in_dev);
++
++			extra = hh_len - headroom;
++
++			if (extra > in_dev->rx_alloc_extra)
++				in_dev->rx_alloc_extra = extra;
++		}
++
+ 		skb_push(skb, ETH_HLEN);
+ 		dev_queue_xmit(skb);
+ 	}
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 801dd08..d9cbd4f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -249,10 +249,11 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ 		unsigned int length, gfp_t gfp_mask)
+ {
+ 	struct sk_buff *skb;
++	unsigned int extra = dev->rx_alloc_extra + NET_SKB_PAD;
+ 
+-	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, NUMA_NO_NODE);
++	skb = __alloc_skb(length + extra, gfp_mask, 0, NUMA_NO_NODE);
+ 	if (likely(skb)) {
+-		skb_reserve(skb, NET_SKB_PAD);
++		skb_reserve(skb, extra);
+ 		skb->dev = dev;
+ 	}
+ 	return skb;
+-- 
