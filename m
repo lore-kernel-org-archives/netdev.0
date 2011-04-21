@@ -1,95 +1,77 @@
-From: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
-Date: Thu, 21 Apr 2011 07:44:04 -0700
-Message-ID: <BANLkTikK66s2fWY7LToRmgH_iGfhkFV01A@mail.gmail.com>
-References: <BANLkTi=N3T-V8VNOcbKu6COKvbEHqMoAog@mail.gmail.com>
-	<Pine.LNX.4.44L0.1104210937360.1939-100000@iolanthe.rowland.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v5] net: bnx2x: convert to hw_features
+Date: Thu, 21 Apr 2011 16:52:11 +0200
+Message-ID: <1303397531.3685.16.camel@edumazet-laptop>
+References: <20110412144940.GA26043@rere.qmqm.pl>
+	 <20110411202630.C079D13909@rere.qmqm.pl>
+	 <1302610228.32697.298.camel@lb-tlvb-vladz>
+	 <20110412140708.GA21835@rere.qmqm.pl>
+	 <1302619012.6750.8.camel@lb-tlvb-vladz>
+	 <20110412193823.0823213A65@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org
-To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.44L0.1104210937360.1939-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Vladislav Zolotarov <vladz@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57530 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754219Ab1DUOwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2011 10:52:16 -0400
+Received: by wwa36 with SMTP id 36so2184343wwa.1
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2011 07:52:15 -0700 (PDT)
+In-Reply-To: <20110412193823.0823213A65@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 21, 2011 at 6:43 AM, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>=
- wrote:
-> On Wed, 20 Apr 2011, Paul Stewart wrote:
->
->> On Wed, Apr 20, 2011 at 2:08 PM, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLrNAH6kLmebB@public.gmane.org=
-du> wrote:
->> > On Tue, 19 Apr 2011, Paul Stewart wrote:
->> >
->> >> Set a flag if the interrupt URB completes with ENOENT as this
->> >> occurs legitimately during system suspend. =EF=BF=BDWhen the usbn=
-et_bh
->> >> is called after resume, test this flag and try once to resubmit
->> >> the interrupt URB.
->> >
->> > No doubt there's a good reason for doing things this way, but it i=
-sn't
->> > clear. =EF=BF=BDWhy wait until usbnet_bh() is called after resume?=
- =EF=BF=BDWhy not
->> > resubmit the interrupt URB _during_ usbnet_resume()?
->>
->> Actually, I was doing this in the bh because of feedback I had gaine=
-d
->> early in this process about not doing submit_urb in the resume().
->
-> Do you have a URL for that feedback? =C2=A0In general, there's no rea=
-son not
-> to resubmit URBs during a resume callback; lots of drivers do it. =C2=
-=A0But
-> usbnet may have some special requirements of its own that I'm not awa=
-re
-> of.
->
->> =C2=A0If
->> that issue doesn't exist, that makes my work a lot easier. =C2=A0In =
-testing
->> I found that just setting this to happen in the bh might be problema=
-tic
->> due to firing too early, so this is good news.
->>
->> >=EF=BF=BDThis would seem
->> > to be the logical approach, seeing as how usbnet_suspend() kills t=
-he
->> > interrupt URB.
->>
->> Aha! =C2=A0But you'll see from the current version of my patch that =
-we don't
->> actually ever kill the interrupt URB. =C2=A0It gets killed all on it=
-s own (by the
->> hcd?) and handed back to us in intr_complete(). =C2=A0This last bit =
-about the
->> complete function being called was lost on me for a while which is w=
-hy
->> in a previous iteration of the patch I was trying to kill the urb in=
- suspend().
->
-> Why not kill the interrupt URB while suspending? =C2=A0It's the prope=
-r thing
-> to do. =C2=A0Otherwise you run the risk that an event might happen at=
- just
-> the wrong time, causing the interrupt URB to complete normally, but
-> _after_ the driver has finished suspending. =C2=A0There's a good chan=
-ce the
-> driver would not process the event correctly.
+Le mardi 12 avril 2011 =C3=A0 21:38 +0200, Micha=C5=82 Miros=C5=82aw a =
+=C3=A9crit :
+> Since ndo_fix_features callback is postponing features change when
+> bp->recovery_state !=3D BNX2X_RECOVERY_DONE, netdev_update_features()
+> has to be called again when this condition changes. Previously,
+> ethtool_ops->set_flags callback returned -EBUSY in that case
+> (it's not possible in the new model).
+>=20
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+>=20
+> v5: - don't delay set_features, as it's rtnl_locked - same as recover=
+y process
+> v4: - complete bp->rx_csum -> NETIF_F_RXCSUM conversion
+>     - add check for failed ndo_set_features in ndo_open callback
+> v3: - include NETIF_F_LRO in hw_features
+>     - don't call netdev_update_features() if bnx2x_nic_load() failed
+> v2: - comment in ndo_fix_features callback
+> ---
 
-I don't mind killing the URB. I'd want to set the halt flag as well
-(more on why have a flag in response to your other email).  You're
-right that there may be a race between an interrupt URB arriving and
-the onset of suspend, but I really can't imagine why I can't solve
-that by setting the flag if a submit_urb() fails in intr_complete().
+Hi guys
 
->
-> Alan Stern
->
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I am not sure its related to these changes, but I now have in
+net-next-2.6 :
+
+[   23.674263] ------------[ cut here ]------------
+[   23.674266] WARNING: at net/core/dev.c:1318 dev_disable_lro+0x83/0x9=
+0()
+[   23.674270] Hardware name: ProLiant BL460c G6
+[   23.674273] Modules linked in: tg3 libphy sg
+[   23.674280] Pid: 3070, comm: sysctl Tainted: G        W   2.6.39-rc2=
+-01242-g3ef22b9-dirty #669
+[   23.674282] Call Trace:
+[   23.674285]  [<ffffffff813b94f3>] ? dev_disable_lro+0x83/0x90
+[   23.674291]  [<ffffffff81042c9b>] warn_slowpath_common+0x8b/0xc0
+[   23.674298]  [<ffffffff81042ce5>] warn_slowpath_null+0x15/0x20
+[   23.674304]  [<ffffffff813b94f3>] dev_disable_lro+0x83/0x90
+[   23.674309]  [<ffffffff81429789>] devinet_sysctl_forward+0x199/0x210
+[   23.674313]  [<ffffffff814296e4>] ? devinet_sysctl_forward+0xf4/0x21=
+0
+[   23.674318]  [<ffffffff8104e712>] ? capable+0x12/0x20
+[   23.674324]  [<ffffffff81168f45>] proc_sys_call_handler+0xb5/0xd0
+[   23.674328]  [<ffffffff81168f6f>] proc_sys_write+0xf/0x20
+[   23.674334]  [<ffffffff81105f39>] vfs_write+0xc9/0x170
+[   23.674339]  [<ffffffff81106550>] sys_write+0x50/0x90
+[   23.674345]  [<ffffffff814b95a0>] sysenter_dispatch+0x7/0x33
+[   23.674350] ---[ end trace 051ec497c66b228e ]---
+
+Thanks
+
+
