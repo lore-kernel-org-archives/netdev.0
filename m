@@ -1,40 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2011-04-22
-Date: Fri, 22 Apr 2011 13:21:48 -0700 (PDT)
-Message-ID: <20110422.132148.189688282.davem@davemloft.net>
-References: <20110422201142.GA27119@tuxdriver.com>
+From: Mr Scott Carson <info@bbc.com>
+Subject: Congratulation!!!
+Date: Thu, 21 Apr 2011 09:07:48 -0300
+Message-ID: <1303387668.4db01e142baa4@www.bitsnet.com.br>
+Reply-To: scott__carsondesk12@live.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: recipient list not shown:;
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49588
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756409Ab1DVUWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2011 16:22:22 -0400
-In-Reply-To: <20110422201142.GA27119@tuxdriver.com>
+Received: from mail2.bitsnet.com.br ([200.252.189.137]:54655 "EHLO
+	cacau.bitsnet.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756418Ab1DVUZP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2011 16:25:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 22 Apr 2011 16:11:43 -0400
+=A3500,000GBP has been awarded to you in the BBC Online Promo Held on t=
+he 12 April
+2011, send Name/Tel/Country to our office now.
 
-> Here are some fixes intended for 2.6.39...
-> 
-> This includes a Bluetooth pull, described thusly by Gustavo:
-> 
-> 	Four small fixes for 2.6.39. An incorrect refcnt balance for
-> 	hci connection by Ville Tervo, a warning fix in the command
-> 	timer by Vinicius Gomes, an ERTM fix by Ruiyi Zhang, and SCO
-> 	synchronization fix by Luiz Augusto von Dentz.
-> 
-> On top of those, there are some use-after-free fixes from Stansilaw for
-> iwlegacy and iwlwifi, a mac80211 debugfs locking fix from Johannes, and
-> a small logic fix for the return code of ath9k's ah_stoprecv from Felix,
-> and an iwlwifi fix for frame injection from Daniel Halperin.
-> 
-> Please let me know if there are problems!
 
-Pulled, thanks John.
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
