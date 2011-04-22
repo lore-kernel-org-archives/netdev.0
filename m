@@ -1,39 +1,72 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv6] usbnet: Resubmit interrupt URB if device is open
-Date: Fri, 22 Apr 2011 11:07:25 -0700 (PDT)
-Message-ID: <20110422.110725.226758304.davem@davemloft.net>
-References: <Pine.LNX.4.44L0.1104221129530.1877-100000@iolanthe.rowland.org>
-	<20110422161813.55A0D20334@glenhelen.mtv.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org,
-	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org
-To: pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110422161813.55A0D20334-6A69KNNYBwgF248FYctl9mCaruZE5nAUZeezCHUQhQ4@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] netconsole: fix deadlock when removing net driver that netconsole is using (v2)
+Date: Fri, 22 Apr 2011 14:10:59 -0400
+Message-ID: <1303495859-12279-1-git-send-email-nhorman@tuxdriver.com>
+References: <1303481216-10348-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58644 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250Ab1DVSLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2011 14:11:22 -0400
+In-Reply-To: <1303481216-10348-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+A deadlock was reported to me recently that occured when netconsole was being
+used in a virtual guest.  If the virtio_net driver was removed while netconsole
+was setup to use an interface that was driven by that driver, the guest
+deadlocked.  No backtrace was provided because netconsole was the only console
+configured, but it became clear pretty quickly what the problem was.  In
+netconsole_netdev_event, if we get an unregister event, we call
+__netpoll_cleanup with the target_list_lock held and irqs disabled.
+__netpoll_cleanup can, if pending netpoll packets are waiting call
+cancel_delayed_work_sync, which is a sleeping path.  the might_sleep call in
+that path gets triggered, causing a console warning to be issued.  The
+netconsole write handler of course tries to take the target_list_lock again,
+which we already hold, causing deadlock.
 
-Please fix the date on your email postings.
+The fix is pretty striaghtforward.  Simply drop the target_list_lock and
+re-enable irqs prior to calling __netpoll_cleanup, the re-acquire the lock, and
+restart the loop.  Confirmed by myself to fix the problem reported.
 
-Even in the context of the "date" of your commit, you're making changes
-and updates even right now, so the date should be updating to be more
-in line with "right now"
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/netconsole.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-Yet all of your postings still are dated April 19th.
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index dfb67eb..eb41e44 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -671,6 +671,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
+ 		goto done;
+ 
+ 	spin_lock_irqsave(&target_list_lock, flags);
++restart:
+ 	list_for_each_entry(nt, &target_list, list) {
+ 		netconsole_target_get(nt);
+ 		if (nt->np.dev == dev) {
+@@ -683,9 +684,16 @@ static int netconsole_netdev_event(struct notifier_block *this,
+ 				 * rtnl_lock already held
+ 				 */
+ 				if (nt->np.dev) {
++					spin_unlock_irqrestore(
++							      &target_list_lock,
++							      flags);
+ 					__netpoll_cleanup(&nt->np);
++					spin_lock_irqsave(&target_list_lock,
++							  flags);
+ 					dev_put(nt->np.dev);
+ 					nt->np.dev = NULL;
++					netconsole_target_put(nt);
++					goto restart;
+ 				}
+ 				/* Fall through */
+ 			case NETDEV_GOING_DOWN:
+-- 
+1.7.4.4
 
-This screws up my patch queue at:
-
-http://patchwork.ozlabs.org/project/netdev/list/
-
-because instead of your new patches showing up at the top where they
-belong, they sneak in near the end and that's a real pain.
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
