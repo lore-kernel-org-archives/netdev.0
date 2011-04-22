@@ -1,90 +1,56 @@
-From: Paul Stewart <pstew@chromium.org>
-Subject: Re: [PATCHv4] usbnet: Resubmit interrupt URB once if halted
-Date: Fri, 22 Apr 2011 07:59:18 -0700
-Message-ID: <BANLkTikjRzBjQ7uar+GDSGsPvK8snY84rQ@mail.gmail.com>
-References: <BANLkTinhmAfe1V2SvoY+J6Tu_DdnZMoYgw@mail.gmail.com>
-	<Pine.LNX.4.44L0.1104211436540.1939-100000@iolanthe.rowland.org>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
+Date: Fri, 22 Apr 2011 17:14:14 +0200
+Message-ID: <4DB19B46.4000306@hartkopp.net>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314135917.GF333@e-circ.dyndns.org>
+	<4D8623BE.2080807@hartkopp.net>
+	<20110413044928.GA289@kurt.e-circ.dyndns.org>
+	<4DA88705.5040203@hartkopp.net>
+	<20110420072439.GB332@kurt.e-circ.dyndns.org>
+	<20110422141832.GB334@kurt.e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, USB list <linux-usb@vger.kernel.org>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:25063 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753275Ab1DVO7U convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2011 10:59:20 -0400
-Received: from kpbe12.cbf.corp.google.com (kpbe12.cbf.corp.google.com [172.25.105.76])
-	by smtp-out.google.com with ESMTP id p3MExJKp009506
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2011 07:59:20 -0700
-Received: from gwj21 (gwj21.prod.google.com [10.200.10.21])
-	by kpbe12.cbf.corp.google.com with ESMTP id p3MEwY6v025978
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2011 07:59:18 -0700
-Received: by gwj21 with SMTP id 21so215747gwj.2
-        for <netdev@vger.kernel.org>; Fri, 22 Apr 2011 07:59:18 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.44L0.1104211436540.1939-100000@iolanthe.rowland.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110422141832.GB334-ozGf4kBk5synFtIcQ8t7k3L8HoS0Hn3T@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 21, 2011 at 11:48 AM, Alan Stern <stern@rowland.harvard.edu=
-> wrote:
-> On Thu, 21 Apr 2011, Paul Stewart wrote:
->
->> > The driver needs better coordination between open/stop and
->> > resume/suspend. =EF=BF=BDThe interrupt and receive URBs are suppos=
-ed to be
->> > active whenever the interface is up and not suspended, right? =EF=BF=
-=BDWhich
->> > means that usbnet_resume() shouldn't submit anything if the interf=
-ace
->> > isn't up.
->>
->> How do we define "up" here (from a network perspective there are man=
-y
->> ways to interpret that)? =C2=A0How does this concept compare to the =
-user's
->> "ifconfig up/down" state?
->
-> I don't know the details of how network drivers are supposed to work.
-> But it doesn't matter -- for your purposes you should define "up" to
-> mean "whenever the URBs are supposed to be active (unless the interfa=
-ce
-> is suspended)".
->
->> =C2=A0What call do I use in usbnet_resume() to
->> tell that the interface isn't up? =C2=A0Currently I'm using netif_ru=
-nning()
->> which responds true in this condition, which is why I'm resorting to
->> the flag.
->
-> Again, I don't know. =C2=A0However, the URBs get submitted from withi=
-n
-> usbnet_open() and killed within usbnet_stop(), right? =C2=A0Therefore=
- you
-> can use any condition which gets set to True in usbnet_open() and set
-> to False in usbnet_stop(). =C2=A0(If nothing else is suitable, use a =
-flag of
-> your own.)
+On 22.04.2011 16:18, Kurt Van Dijck wrote:
+> On Wed, Apr 20, 2011 at 09:24:39AM +0200, Kurt Van Dijck wrote:
+>> I need to git pull the latest updates, and I'll send a revised patchset
+>> tomorrow.
+> Oliver,
+> 
+> I did not forget, but something came in between. next week for sure.
 
-This is exactly the situation I'm in.  I couldn't find any other
-driver or network state that cleanly represented the stop/start state
-of the driver.  I'll post a new patch that uses an OPEN flag instead
-of an interrupt halted flag, a GFP_NOIO flag, and kills and frees the
-interrupt URB on usb_disconnect().
+Oh, no problem.
 
-> =C2=A0And be careful of the edge case: Since usbnet_open() itself
-> performs a resume operation, you need to make sure the resume takes
-> place before the condition becomes True -- otherwise the URBs will ge=
-t
-> submitted twice.
->
-> One more thing to keep in mind: If the kernel is built without PM
-> support, the resume and suspend routines will never get called.
-> Therefore they must not be the only places where URBs are submitted a=
-nd
-> killed.
->
-> Alan Stern
->
->
+I'm constantly working on my reply to your latest answer 8-)
+
+BTW: Do you have any sample code that shows, how the sending (and receiving)
+of the same BAM message would look like in the static and in the
+address-claimed case?? I'm not really able to extract this information from
+your posted documentation.
+
+I would like to know
+
+- what has to be configured before (from the user and the admin)
+- how does the application source code look like in the requested four cases
+
+I think we're a bit stuck in the discussion of the 'easy to use' socket API
+without having real-world examples.
+
+Thanks,
+Oliver
