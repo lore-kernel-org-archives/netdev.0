@@ -1,39 +1,35 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 3/3] net: fullly using NETIF_F_ALL_TSO
-Date: Fri, 22 Apr 2011 15:14:22 +0100
-Message-ID: <1303481662.4129.24.camel@localhost>
-References: <4DB16187.2030904@cn.fujitsu.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
+Date: Fri, 22 Apr 2011 16:18:32 +0200
+Message-ID: <20110422141832.GB334@kurt.e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314135917.GF333@e-circ.dyndns.org>
+	<4D8623BE.2080807@hartkopp.net>
+	<20110413044928.GA289@kurt.e-circ.dyndns.org>
+	<4DA88705.5040203@hartkopp.net>
+	<20110420072439.GB332@kurt.e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, dm@chelsio.com, leedom@chelsio.com,
-	benve@cisco.com, vkolluri@cisco.com, roprabhu@cisco.com,
-	dwang2@cisco.com, ron.mercer@qlogic.com, linux-driver@qlogic.com,
-	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	netdev <netdev@vger.kernel.org>
-To: Shan Wei <shanwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:43985 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755876Ab1DVOO3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2011 10:14:29 -0400
-In-Reply-To: <4DB16187.2030904@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110420072439.GB332-ozGf4kBk5synFtIcQ8t7k3L8HoS0Hn3T@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-04-22 at 19:07 +0800, Shan Wei wrote:
-> Fullly using NETIF_F_ALL_TSO.
-> And some code style tuning. Just compile test.
-[...]
+On Wed, Apr 20, 2011 at 09:24:39AM +0200, Kurt Van Dijck wrote:
+> I need to git pull the latest updates, and I'll send a revised patchset
+> tomorrow.
+Oliver,
 
-This is wrong.  What if some other TSO feature is defined and added to
-NETIF_F_ALL_TSO later?  (This is unlikely, but hopefully you see that it
-is conceptually wrong to claim 'all' features.)
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+I did not forget, but something came in between. next week for sure.
