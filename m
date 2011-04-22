@@ -1,40 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter/IPv6:  initialize TOS field in REJECT target
- module
-Date: Fri, 22 Apr 2011 10:37:41 +0200
-Message-ID: <1303461461.3134.15.camel@edumazet-laptop>
-References: <1303455759.2023.39.camel@nausicaa>
-	 <1303456743.2023.55.camel@nausicaa>
-	 <1303457656.3134.12.camel@edumazet-laptop>
-	 <1303458454.9791.13.camel@nausicaa>
-	 <1303459560.3134.14.camel@edumazet-laptop>
-	 <1303459875.9791.19.camel@nausicaa>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V14 4/4] ptp: Added a clock driver for the National
+ Semiconductor PHYTER.
+Date: Fri, 22 Apr 2011 11:21:59 +0200
+Message-ID: <20110422092159.GA18708@riccoc20.at.omicron.at>
+References: <cover.1303107532.git.richard.cochran@omicron.at>
+ <1728ffb5735c2a04876a69ad55427c4e7b5a1bd7.1303107532.git.richard.cochran@omicron.at>
+ <1303160245.2857.60.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, jengelh@medozas.de, davem@davemloft.net
-To: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1303459875.9791.19.camel@nausicaa>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <john.stultz@linaro.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Russell King <linux@arm.linux.org.uk>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1303160245.2857.60.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 22 avril 2011 =C3=A0 17:11 +0900, Fernando Luis Vazquez Cao=
- a
-=C3=A9crit :
+On Mon, Apr 18, 2011 at 09:57:25PM +0100, Ben Hutchings wrote:
+> Would be better without the magic numbers.
 
-> Thank you!
->=20
-> Should we send these two patches to -stable too?
->=20
+Yes, of course, you are right, and also about patch #3.
+Please take a look at v15 and see if it improves things.
 
-David takes care of stable submissions for netdev stuff, thanks.
+Thanks,
 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Richard
