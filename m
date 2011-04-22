@@ -1,38 +1,51 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH] net: allow user to change NETIF_F_HIGHDMA
-Date: Fri, 22 Apr 2011 18:48:03 +0200
-Message-ID: <20110422164803.GA24417@rere.qmqm.pl>
-References: <20110422163116.37DE613909@rere.qmqm.pl> <20110422093850.13df40ce@nehalam>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Re: [v2 PATCH 0/6] IPVS: init and cleanup.
+Date: Fri, 22 Apr 2011 19:49:13 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1104221945340.1550@ja.ssi.bg>
+References: <1pukl91.dee882dc58d0fe53f4e800b09c9f9eab@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:45014 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756256Ab1DVQsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2011 12:48:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20110422093850.13df40ce@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, ebiederm@xmission.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1pukl91.dee882dc58d0fe53f4e800b09c9f9eab@obelix.schillstrom.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 22, 2011 at 09:38:50AM -0700, Stephen Hemminger wrote:
-> On Fri, 22 Apr 2011 18:31:16 +0200 (CEST)
-> Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> wrote:
-> > NETIF_F_HIGHDMA is like any other TX offloads, so allow user to tog=
-gle it.
-> > This is needed later for bridge and bonding convertsion to hw_featu=
-res.
-> This was meant to be a hidden flag that that reflects capability of
-> hardware. Do yo really mean to allow user to disable it via ethtool?
 
-Yes. BTW, you can say the same about e.g. NETIF_F_SG. There's no harm i=
-n
-user being able to disable HIGHDMA (except obvious performance issue wh=
-en
-disabled -- as with other TX offloads).
+	Hello,
 
-Best Regards,
-Micha=B3 Miros=B3aw
+On Fri, 22 Apr 2011, Hans Schillstrom wrote:
+
+> Hello Julian
+> 
+> >From what I can see there is nothing in the rs_table except for NAT:ed dest, or ?
+> so the code fragment below will not work.
+> 
+> I.e. my double list_for_each that goes throug the service table must be there...
+> or do we need both?
+
+	Yes, I now see that dests are added to rs_table only for
+NAT. So, we have no choice, we have to walk svc->destinations.
+To remove usage of dest_trash in ip_vs_dst_event we can move
+the ip_vs_dst_reset call in __ip_vs_del_dest() above the
+atomic_dec_and_test check. But it is not a safe operation.
+While with svc->usecnt we know if packet accesses the svc,
+the same for dest is not possible. Packet can hit existing
+connection (without searching for svc), conn has reference to
+dest, so the packet can refresh dest->dst_cache at any point
+of time, eg. while we move dest to trash. That is why
+__ip_vs_del_dest calls ip_vs_dst_reset only when dest->refcnt
+reaches 0, i.e. when no conn refers to dest. So, even if we
+call ip_vs_dst_reset() before the atomic_dec_and_test check,
+it is still possible some packet to attach new dst_cache
+entry. As result, we can not assume that dests in trash have
+no dst_cache entry. So, ip_vs_dst_event() needs to walk
+both svc->destinations and ipvs->dest_trash under mutex lock.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
