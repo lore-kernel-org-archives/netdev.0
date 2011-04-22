@@ -1,51 +1,32 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Re: [v2 PATCH 0/6] IPVS: init and cleanup.
-Date: Fri, 22 Apr 2011 19:49:13 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1104221945340.1550@ja.ssi.bg>
-References: <1pukl91.dee882dc58d0fe53f4e800b09c9f9eab@obelix.schillstrom.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V3 0/8] macvtap/vhost TX zero copy support
+Date: Fri, 22 Apr 2011 10:31:48 -0700
+Message-ID: <1303493508.10632.2.camel@localhost.localdomain>
+References: <1303328216.19336.18.camel@localhost.localdomain>
+	 <BANLkTi=ckukmCdOOvQc29vtYgxeiSMGqBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1pukl91.dee882dc58d0fe53f4e800b09c9f9eab@obelix.schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jon Mason <jdmason@kudzu.us>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <BANLkTi=ckukmCdOOvQc29vtYgxeiSMGqBw@mail.gmail.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2011-04-21 at 10:29 -0400, Jon Mason wrote:
+> Why are only these 3 drivers getting support?  As far as I can tell,
+> the only requirement is HIGHDMA.  If this is the case, is there really
+> a need for an additional flag to support this?  If you can key off of
+> HIGHDMA, all devices that support this would get the benefit.
 
-	Hello,
+Agreed. So far, I have only verified these three 10Gb NICs we have in
+our lab. We can enable all devices which support HIGHDMA.
 
-On Fri, 22 Apr 2011, Hans Schillstrom wrote:
+Thanks
+Shirley
 
-> Hello Julian
-> 
-> >From what I can see there is nothing in the rs_table except for NAT:ed dest, or ?
-> so the code fragment below will not work.
-> 
-> I.e. my double list_for_each that goes throug the service table must be there...
-> or do we need both?
-
-	Yes, I now see that dests are added to rs_table only for
-NAT. So, we have no choice, we have to walk svc->destinations.
-To remove usage of dest_trash in ip_vs_dst_event we can move
-the ip_vs_dst_reset call in __ip_vs_del_dest() above the
-atomic_dec_and_test check. But it is not a safe operation.
-While with svc->usecnt we know if packet accesses the svc,
-the same for dest is not possible. Packet can hit existing
-connection (without searching for svc), conn has reference to
-dest, so the packet can refresh dest->dst_cache at any point
-of time, eg. while we move dest to trash. That is why
-__ip_vs_del_dest calls ip_vs_dst_reset only when dest->refcnt
-reaches 0, i.e. when no conn refers to dest. So, even if we
-call ip_vs_dst_reset() before the atomic_dec_and_test check,
-it is still possible some packet to attach new dst_cache
-entry. As result, we can not assume that dests in trash have
-no dst_cache entry. So, ip_vs_dst_event() needs to walk
-both svc->destinations and ipvs->dest_trash under mutex lock.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
