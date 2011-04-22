@@ -1,51 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netconsole: fix deadlock when removing net driver that
- netconsole is using (v2)
-Date: Fri, 22 Apr 2011 11:40:33 -0700 (PDT)
-Message-ID: <20110422.114033.104072820.davem@davemloft.net>
-References: <1303481216-10348-1-git-send-email-nhorman@tuxdriver.com>
-	<1303495859-12279-1-git-send-email-nhorman@tuxdriver.com>
+From: "Dr. Clarke Harrison" <al09803345@alumail.uji.es>
+Subject: (unknown)
+Date: Fri, 22 Apr 2011 21:23:15 +0200
+Message-ID: <20110422212315.46795lvf64at0j37__17463.8079865419$1303500965$gmane$org@webmail.uji.es>
+Reply-To: powerball_winonline@hotmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58669
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754858Ab1DVSlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2011 14:41:07 -0400
-In-Reply-To: <1303495859-12279-1-git-send-email-nhorman@tuxdriver.com>
+Received: from marti.uji.es ([150.128.98.10]:11011 "EHLO marti.uji.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752397Ab1DVTfg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2011 15:35:36 -0400
+Subject: 
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 22 Apr 2011 14:10:59 -0400
 
-> @@ -683,9 +684,16 @@ static int netconsole_netdev_event(struct notifier_block *this,
->  				 * rtnl_lock already held
->  				 */
->  				if (nt->np.dev) {
-> +					spin_unlock_irqrestore(
-> +							      &target_list_lock,
-> +							      flags);
->  					__netpoll_cleanup(&nt->np);
-> +					spin_lock_irqsave(&target_list_lock,
-> +							  flags);
->  					dev_put(nt->np.dev);
->  					nt->np.dev = NULL;
-> +					netconsole_target_put(nt);
-> +					goto restart;
 
-If you drop the lock here, another cpu can put the device and set it
-to NULL.
+British National Lottery
+United Kingdom.
+P.O Box 789 Harrogate,HG1 2YR
+International powerball  Online Lotto Program.
+WINNING NUMBER 04-23-39-49-50 (39)
+NOTIFICATION OF WINNING
+Attn:
 
-In which case you'll double release when you regrab the lock here.
+You won the sum of =A32.4 Million pounds! GBP in our monthly sweepstake=
+s,
+just concluded April 21th, you are hereby advice to get back to us, to =
+claimed
+your prize.
 
-Too bad you can't NULL out the device before dropping the lock,
-because that way would be able to ensure you'd be the only releaser.
+Requirements:
+1.First Name
+2 Last Name :
+3.Home Address:
+4.Age:
+5.Sex:
+6.Occupation:
+7.Phone Number:
+8.Country Of Residence.
 
-But that won't work because __netpoll_cleanup() wants the device
-pointer to be set.
+Contact Agent: Dr. Clarke Harrison
+E-mail: powerball_winonline@hotmail.com
+Regards,
+Mrs. Fisher schmitz
+British Powerball Lottery
+United Kingdom
 
-Hmmm...
