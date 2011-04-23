@@ -1,97 +1,65 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 1/1] net: create num frags requested
-Date: Fri, 22 Apr 2011 19:22:20 -0700
-Message-ID: <1303525340-29483-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:43501 "EHLO
-	dut4145.unminc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757118Ab1DWBWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2011 21:22:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
+Date: Sat, 23 Apr 2011 07:51:09 +0200
+Message-ID: <20110423055109.GC330@kurt.e-circ.dyndns.org>
+References: <20110314132004.GA333@e-circ.dyndns.org>
+	<20110314135917.GF333@e-circ.dyndns.org>
+	<4D8623BE.2080807@hartkopp.net>
+	<20110413044928.GA289@kurt.e-circ.dyndns.org>
+	<4DA88705.5040203@hartkopp.net>
+	<20110420072439.GB332@kurt.e-circ.dyndns.org>
+	<20110422141832.GB334@kurt.e-circ.dyndns.org>
+	<4DB19B46.4000306@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4DB19B46.4000306-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Pktgen doesn't generate number of frags requested.
-Divide packet size by number of frags and fill that in every frags.
+On Fri, Apr 22, 2011 at 05:14:14PM +0200, Oliver Hartkopp wrote:
+> On 22.04.2011 16:18, Kurt Van Dijck wrote:
+> > On Wed, Apr 20, 2011 at 09:24:39AM +0200, Kurt Van Dijck wrote:
+> >> I need to git pull the latest updates, and I'll send a revised patchset
+> >> tomorrow.
+> > Oliver,
+> > 
+> > I did not forget, but something came in between. next week for sure.
+> 
+> Oh, no problem.
+> 
+> I'm constantly working on my reply to your latest answer 8-)
+> 
+> BTW: Do you have any sample code that shows, how the sending (and receiving)
+> of the same BAM message would look like in the static and in the
+> address-claimed case?? I'm not really able to extract this information from
+> your posted documentation.
+> 
+> I would like to know
+> 
+> - what has to be configured before (from the user and the admin)
+> - how does the application source code look like in the requested four cases
+> 
+> I think we're a bit stuck in the discussion of the 'easy to use' socket API
+> without having real-world examples.
+ack.
 
-Example:
-With packet size 1470, it generate only 11 frags. Initial frags
-get lenght 706, 353, 177....so on. Last frag get divided by 2.
+Since I think I got the stack stable now (and some LOC dropped), I agree that
+'simple' real-world examples may document a lot.
 
-Now with this fix, each frags will get 78 bytes.
-
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- net/core/pktgen.c |   35 +++++++++--------------------------
- 1 files changed, 9 insertions(+), 26 deletions(-)
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 2fa6fee..ff79d94 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2622,6 +2622,7 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 	} else {
- 		int frags = pkt_dev->nfrags;
- 		int i, len;
-+		int frag_len;
- 
- 
- 		if (frags > MAX_SKB_FRAGS)
-@@ -2633,6 +2634,8 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 		}
- 
- 		i = 0;
-+		frag_len = (datalen/frags) < PAGE_SIZE ?
-+			   (datalen/frags) : PAGE_SIZE;
- 		while (datalen > 0) {
- 			if (unlikely(!pkt_dev->page)) {
- 				int node = numa_node_id();
-@@ -2646,38 +2649,18 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 			skb_shinfo(skb)->frags[i].page = pkt_dev->page;
- 			get_page(pkt_dev->page);
- 			skb_shinfo(skb)->frags[i].page_offset = 0;
--			skb_shinfo(skb)->frags[i].size =
--			    (datalen < PAGE_SIZE ? datalen : PAGE_SIZE);
-+			/*last fragment, fill rest of data*/
-+			if (i == (frags - 1))
-+				skb_shinfo(skb)->frags[i].size =
-+				    (datalen < PAGE_SIZE ? datalen : PAGE_SIZE);
-+			else
-+				skb_shinfo(skb)->frags[i].size = frag_len;
- 			datalen -= skb_shinfo(skb)->frags[i].size;
- 			skb->len += skb_shinfo(skb)->frags[i].size;
- 			skb->data_len += skb_shinfo(skb)->frags[i].size;
- 			i++;
- 			skb_shinfo(skb)->nr_frags = i;
- 		}
--
--		while (i < frags) {
--			int rem;
--
--			if (i == 0)
--				break;
--
--			rem = skb_shinfo(skb)->frags[i - 1].size / 2;
--			if (rem == 0)
--				break;
--
--			skb_shinfo(skb)->frags[i - 1].size -= rem;
--
--			skb_shinfo(skb)->frags[i] =
--			    skb_shinfo(skb)->frags[i - 1];
--			get_page(skb_shinfo(skb)->frags[i].page);
--			skb_shinfo(skb)->frags[i].page =
--			    skb_shinfo(skb)->frags[i - 1].page;
--			skb_shinfo(skb)->frags[i].page_offset +=
--			    skb_shinfo(skb)->frags[i - 1].size;
--			skb_shinfo(skb)->frags[i].size = rem;
--			i++;
--			skb_shinfo(skb)->nr_frags = i;
--		}
- 	}
- 
- 	/* Stamp the time, and sequence number,
--- 
-1.6.3.3
-
+> 
+> Thanks,
+> Oliver
+Kurt
