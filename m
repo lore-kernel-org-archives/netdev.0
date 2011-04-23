@@ -1,65 +1,53 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [RFC v3 5/6] j1939: rename NAME to UUID?
-Date: Sat, 23 Apr 2011 07:51:09 +0200
-Message-ID: <20110423055109.GC330@kurt.e-circ.dyndns.org>
-References: <20110314132004.GA333@e-circ.dyndns.org>
-	<20110314135917.GF333@e-circ.dyndns.org>
-	<4D8623BE.2080807@hartkopp.net>
-	<20110413044928.GA289@kurt.e-circ.dyndns.org>
-	<4DA88705.5040203@hartkopp.net>
-	<20110420072439.GB332@kurt.e-circ.dyndns.org>
-	<20110422141832.GB334@kurt.e-circ.dyndns.org>
-	<4DB19B46.4000306@hartkopp.net>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCHv2 3/9] macb: unify at91 and avr32 platform data
+Date: Sat, 23 Apr 2011 07:48:46 +0200
+Message-ID: <20110423054846.GF23775@game.jcrosoft.org>
+References: <87vczkmy94.fsf@macbook.be.48ers.dk>
+ <AANLkTi=TiRnc0ceosH-P7fN7wKrLZE0MCJHQ30gM_Q9b@mail.gmail.com>
+ <871v26m8tf.fsf@macbook.be.48ers.dk>
+ <20110317085835.GC29758@n2100.arm.linux.org.uk>
+ <87wrjyksnm.fsf@macbook.be.48ers.dk>
+ <20110317093403.GA15396@pulham.picochip.com>
+ <20110317215101.GC2927@pulham.picochip.com>
+ <20110318154118.GQ29758@n2100.arm.linux.org.uk>
+ <20110318154839.GB3393@pulham.picochip.com>
+ <20110318155428.GA22087@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamie Iles <jamie@jamieiles.com>,
+	Peter Korsgaard <jacmet@sunsite.dk>,
+	"avictor.za@gmail.com" <avictor.za@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, nicolas.ferre@atmel.com,
+	netdev@vger.kernel.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 30.mail-out.ovh.net ([213.186.62.213]:35440 "HELO
+	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751538Ab1DWF57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2011 01:57:59 -0400
 Content-Disposition: inline
-In-Reply-To: <4DB19B46.4000306-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110318155428.GA22087@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 22, 2011 at 05:14:14PM +0200, Oliver Hartkopp wrote:
-> On 22.04.2011 16:18, Kurt Van Dijck wrote:
-> > On Wed, Apr 20, 2011 at 09:24:39AM +0200, Kurt Van Dijck wrote:
-> >> I need to git pull the latest updates, and I'll send a revised patchset
-> >> tomorrow.
-> > Oliver,
+> > I happy to split the driver and arch updates, but I'm not sure that it 
+> > can be done in such a way that platforms would build between the arch 
+> > and driver merges.
 > > 
-> > I did not forget, but something came in between. next week for sure.
+> > > I'm also concious that this has become ready for potentially merging
+> > > during the merge window, and therefore hasn't had previous exposure
+> > > in linux-next, and so should wait until the next merge window.  I do
+> > > feel that I'm going to be yelled at for saying that... but I'm sure
+> > > I'll also be yelled at if I did take it.
+> > 
+> > I don't have any problem with waiting until the next merge window, and 
+> > to be honest I'd like see these patches have some time in next as I 
+> > can't test them on devices with a MACB.
 > 
-> Oh, no problem.
-> 
-> I'm constantly working on my reply to your latest answer 8-)
-> 
-> BTW: Do you have any sample code that shows, how the sending (and receiving)
-> of the same BAM message would look like in the static and in the
-> address-claimed case?? I'm not really able to extract this information from
-> your posted documentation.
-> 
-> I would like to know
-> 
-> - what has to be configured before (from the user and the admin)
-> - how does the application source code look like in the requested four cases
-> 
-> I think we're a bit stuck in the discussion of the 'easy to use' socket API
-> without having real-world examples.
-ack.
+> Okay, that sounds like a very good reason to wait until Nicolas can
+> review them and provide an ack.
+David Russell If you don't mind I'll apply it on at91 tree as we prepare other
+huge update on mach-at91
 
-Since I think I got the stack stable now (and some LOC dropped), I agree that
-'simple' real-world examples may document a lot.
-
-> 
-> Thanks,
-> Oliver
-Kurt
+Best Regards,
+J.
