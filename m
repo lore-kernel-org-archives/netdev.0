@@ -1,106 +1,256 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] af_unix: Only allow recv on connected seqpacket sockets.
-Date: Sun, 24 Apr 2011 04:54:57 -0700
-Message-ID: <m1sjt7sw32.fsf_-_@fess.ebiederm.org>
-References: <BANLkTi=zSJAXYa8Vo8rZKgs9C-AfbjjEpA@mail.gmail.com>
-	<m1zkngse02.fsf@fess.ebiederm.org>
-	<BANLkTimrOs2T_bnbSJDgppAAh_MUWt_erg@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-2.6 1/1] r8169 driver updates
+Date: Sun, 24 Apr 2011 18:32:43 +0200
+Message-ID: <20110424163243.GA19376@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	"David S. Miller" <davem@davemloft.net>, Dan Aloni <dan@aloni.org>,
-	stable@kernel.org
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ciprian Docan <docan@eden.rutgers.edu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	nic_swsd@realtek.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:40718 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756598Ab1DXLzD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 07:55:03 -0400
-In-Reply-To: <BANLkTimrOs2T_bnbSJDgppAAh_MUWt_erg@mail.gmail.com> (Dan Aloni's
-	message of "Sun, 24 Apr 2011 09:36:13 +0300")
+Received: from violet.fr.zoreil.com ([92.243.8.30]:45249 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757631Ab1DXQlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 12:41:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Please pull from branch 'davem.r8169' in repository
 
-This fixes the following oops discovered by Dan Aloni:
-> Anyway, the following is the output of the Oops that I got on the
-> Ubuntu kernel on which I first detected the problem
-> (2.6.37-12-generic). The Oops that followed will be more useful, I
-> guess.
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem.r8169
 
->[ 5594.669852] BUG: unable to handle kernel NULL pointer dereference
-> at =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (null)
-> [ 5594.681606] IP: [<ffffffff81550b7b>] unix_dgram_recvmsg+0x1fb/0x42=
-0
-> [ 5594.687576] PGD 2a05d067 PUD 2b951067 PMD 0
-> [ 5594.693720] Oops: 0002 [#1] SMP
-> [ 5594.699888] last sysfs file:
+to get the change below.
 
-The bug was that unix domain sockets use a pseduo packet for
-connecting and accept uses that psudo packet to get the socket.
-In the buggy seqpacket case we were allowing unconnected
-sockets to call recvmsg and try to receive the pseudo packet.
+The firmware is cached during the first successfull call to open() and
+released once the network device is unregistered. The driver uses the
+cached firmware between open() and unregister_netdev().
 
-That is always wrong and as of commit 7361c36c5 the pseudo
-packet had become enough different from a normal packet
-that the kernel started oopsing.
+So far the firmware is optional : a failure to load the firmware does
+not prevent open() to success. It is thus necessary to 1) unregister
+all 816x / 810[23] devices and 2) force a driver probe to issue a new
+firmware load.
 
-Do for seqpacket_recv what was done for seqpacket_send in 2.5
-and only allow it on connected seqpacket sockets.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Fixed-by: Ciprian Docan <docan@eden.rutgers.edu>
 
-Cc: stable@kernel.org
-Tested-by: Dan Aloni <dan@aloni.org>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- net/unix/af_unix.c |   16 +++++++++++++++-
- 1 files changed, 15 insertions(+), 1 deletions(-)
+Please note :
+- it will merge with davem-next like a charm
+- it will be necessary to add entries in rtl_firmware_infos for
+  FIRMWARE_8168E_{1, 2} thereafter and remove messages in
+  rtl8168e_{1, 2}_hw_phy_config. I should take care of it.
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 3a43a83..b1d75be 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -524,6 +524,8 @@ static int unix_dgram_connect(struct socket *, stru=
-ct sockaddr *,
- 			      int, int);
- static int unix_seqpacket_sendmsg(struct kiocb *, struct socket *,
- 				  struct msghdr *, size_t);
-+static int unix_seqpacket_recvmsg(struct kiocb *, struct socket *,
-+				  struct msghdr *, size_t, int);
-=20
- static const struct proto_ops unix_stream_ops =3D {
- 	.family =3D	PF_UNIX,
-@@ -583,7 +585,7 @@ static const struct proto_ops unix_seqpacket_ops =3D=
- {
- 	.setsockopt =3D	sock_no_setsockopt,
- 	.getsockopt =3D	sock_no_getsockopt,
- 	.sendmsg =3D	unix_seqpacket_sendmsg,
--	.recvmsg =3D	unix_dgram_recvmsg,
-+	.recvmsg =3D	unix_seqpacket_recvmsg,
- 	.mmap =3D		sock_no_mmap,
- 	.sendpage =3D	sock_no_sendpage,
+Distance from 'davem.base' (0b0dc0f17f98b59772ca6380c7d5ce4cc593a974)
+---------------------------------------------------------------------
+
+953a12cc2889d1be92e80a2d0bab5ffef4942300
+
+Diffstat
+--------
+
+ drivers/net/r8169.c |   99 +++++++++++++++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 71 insertions(+), 28 deletions(-)
+
+Shortlog
+--------
+
+Francois Romieu (1):
+     r8169: don't request firmware when there's no userspace.
+
+Patch
+-----
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 493b0de..397c368 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -170,6 +170,16 @@ static const struct {
  };
-@@ -1699,6 +1701,18 @@ static int unix_seqpacket_sendmsg(struct kiocb *=
-kiocb, struct socket *sock,
- 	return unix_dgram_sendmsg(kiocb, sock, msg, len);
+ #undef _R
+ 
++static const struct rtl_firmware_info {
++	int mac_version;
++	const char *fw_name;
++} rtl_firmware_infos[] = {
++	{ .mac_version = RTL_GIGA_MAC_VER_25, .fw_name = FIRMWARE_8168D_1 },
++	{ .mac_version = RTL_GIGA_MAC_VER_26, .fw_name = FIRMWARE_8168D_2 },
++	{ .mac_version = RTL_GIGA_MAC_VER_29, .fw_name = FIRMWARE_8105E_1 },
++	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 }
++};
++
+ enum cfg_version {
+ 	RTL_CFG_0 = 0x00,
+ 	RTL_CFG_1,
+@@ -565,6 +575,7 @@ struct rtl8169_private {
+ 	u32 saved_wolopts;
+ 
+ 	const struct firmware *fw;
++#define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN);
+ };
+ 
+ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
+@@ -1789,25 +1800,26 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+ 
+ static void rtl_release_firmware(struct rtl8169_private *tp)
+ {
+-	release_firmware(tp->fw);
+-	tp->fw = NULL;
++	if (!IS_ERR_OR_NULL(tp->fw))
++		release_firmware(tp->fw);
++	tp->fw = RTL_FIRMWARE_UNKNOWN;
  }
-=20
-+static int unix_seqpacket_recvmsg(struct kiocb *iocb, struct socket *s=
-ock,
-+			      struct msghdr *msg, size_t size,
-+			      int flags)
-+{
-+	struct sock *sk =3D sock->sk;
-+
-+	if (sk->sk_state !=3D TCP_ESTABLISHED)
-+		return -ENOTCONN;
-+
-+	return unix_dgram_recvmsg(iocb, sock, msg, size, flags);
+ 
+-static int rtl_apply_firmware(struct rtl8169_private *tp, const char *fw_name)
++static void rtl_apply_firmware(struct rtl8169_private *tp)
+ {
+-	const struct firmware **fw = &tp->fw;
+-	int rc = !*fw;
+-
+-	if (rc) {
+-		rc = request_firmware(fw, fw_name, &tp->pci_dev->dev);
+-		if (rc < 0)
+-			goto out;
+-	}
++	const struct firmware *fw = tp->fw;
+ 
+ 	/* TODO: release firmware once rtl_phy_write_fw signals failures. */
+-	rtl_phy_write_fw(tp, *fw);
+-out:
+-	return rc;
++	if (!IS_ERR_OR_NULL(fw))
++		rtl_phy_write_fw(tp, fw);
 +}
 +
- static void unix_copy_addr(struct msghdr *msg, struct sock *sk)
++static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 reg, u16 val)
++{
++	if (rtl_readphy(tp, reg) != val)
++		netif_warn(tp, hw, tp->dev, "chipset not ready for firmware\n");
++	else
++		rtl_apply_firmware(tp);
+ }
+ 
+ static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)
+@@ -2246,10 +2258,8 @@ static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0005);
+ 	rtl_writephy(tp, 0x05, 0x001b);
+-	if ((rtl_readphy(tp, 0x06) != 0xbf00) ||
+-	    (rtl_apply_firmware(tp, FIRMWARE_8168D_1) < 0)) {
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+-	}
++
++	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xbf00);
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ }
+@@ -2351,10 +2361,8 @@ static void rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0005);
+ 	rtl_writephy(tp, 0x05, 0x001b);
+-	if ((rtl_readphy(tp, 0x06) != 0xb300) ||
+-	    (rtl_apply_firmware(tp, FIRMWARE_8168D_2) < 0)) {
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+-	}
++
++	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xb300);
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ }
+@@ -2474,8 +2482,7 @@ static void rtl8105e_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x18, 0x0310);
+ 	msleep(100);
+ 
+-	if (rtl_apply_firmware(tp, FIRMWARE_8105E_1) < 0)
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
++	rtl_apply_firmware(tp);
+ 
+ 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ }
+@@ -3237,6 +3244,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	tp->timer.data = (unsigned long) dev;
+ 	tp->timer.function = rtl8169_phy_timer;
+ 
++	tp->fw = RTL_FIRMWARE_UNKNOWN;
++
+ 	rc = register_netdev(dev);
+ 	if (rc < 0)
+ 		goto err_out_msi_4;
+@@ -3288,10 +3297,10 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ 
+ 	cancel_delayed_work_sync(&tp->task);
+ 
+-	rtl_release_firmware(tp);
+-
+ 	unregister_netdev(dev);
+ 
++	rtl_release_firmware(tp);
++
+ 	if (pci_dev_run_wake(pdev))
+ 		pm_runtime_get_noresume(&pdev->dev);
+ 
+@@ -3303,6 +3312,37 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ 	pci_set_drvdata(pdev, NULL);
+ }
+ 
++static void rtl_request_firmware(struct rtl8169_private *tp)
++{
++	int i;
++
++	/* Return early if the firmware is already loaded / cached. */
++	if (!IS_ERR(tp->fw))
++		goto out;
++
++	for (i = 0; i < ARRAY_SIZE(rtl_firmware_infos); i++) {
++		const struct rtl_firmware_info *info = rtl_firmware_infos + i;
++
++		if (info->mac_version == tp->mac_version) {
++			const char *name = info->fw_name;
++			int rc;
++
++			rc = request_firmware(&tp->fw, name, &tp->pci_dev->dev);
++			if (rc < 0) {
++				netif_warn(tp, ifup, tp->dev, "unable to load "
++					"firmware patch %s (%d)\n", name, rc);
++				goto out_disable_request_firmware;
++			}
++			goto out;
++		}
++	}
++
++out_disable_request_firmware:
++	tp->fw = NULL;
++out:
++	return;
++}
++
+ static int rtl8169_open(struct net_device *dev)
  {
- 	struct unix_sock *u =3D unix_sk(sk);
---=20
-1.6.5.2.143.g8cc62
-
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -3334,11 +3374,13 @@ static int rtl8169_open(struct net_device *dev)
+ 
+ 	smp_mb();
+ 
++	rtl_request_firmware(tp);
++
+ 	retval = request_irq(dev->irq, rtl8169_interrupt,
+ 			     (tp->features & RTL_FEATURE_MSI) ? 0 : IRQF_SHARED,
+ 			     dev->name, dev);
+ 	if (retval < 0)
+-		goto err_release_ring_2;
++		goto err_release_fw_2;
+ 
+ 	napi_enable(&tp->napi);
+ 
+@@ -3359,7 +3401,8 @@ static int rtl8169_open(struct net_device *dev)
+ out:
+ 	return retval;
+ 
+-err_release_ring_2:
++err_release_fw_2:
++	rtl_release_firmware(tp);
+ 	rtl8169_rx_clear(tp);
+ err_free_rx_1:
+ 	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
+-- 
+Ueimor
