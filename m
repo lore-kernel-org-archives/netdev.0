@@ -1,73 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RPS will assign different smp_processor_id for the same packet?
-Date: Sun, 24 Apr 2011 10:00:33 +0200
-Message-ID: <1303632033.2747.51.camel@edumazet-laptop>
-References: <BANLkTimvuGKYuiV_ngTo4wtqhNix4iMfmA@mail.gmail.com>
-	 <1303402094.3685.54.camel@edumazet-laptop>
-	 <1303403112.3685.61.camel@edumazet-laptop>
-	 <BANLkTi=gTNwKX1Tb3mqgWJekRf7n_MHpJQ@mail.gmail.com>
-	 <BANLkTikY6CAZNkcnU-i7UvPpmSfQuXKtNQ@mail.gmail.com>
-	 <BANLkTimqkq+2X3=RZ1Qb0e5NpO-yRxuCoQ@mail.gmail.com>
-	 <BANLkTikyntWG6YPUdVipHvwJ8yGuU_Vi4w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: zhou rui <zhourui.cn@gmail.com>
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: Re: [PATCH net-next-2.6 v4 4/5] sctp: Add ASCONF operation on the single-homed host
+Date: Sun, 24 Apr 2011 18:24:22 +0900
+Message-ID: <C4F46092-BF76-482D-8FD5-08F1D6A13866@sfc.wide.ad.jp>
+References: <3BDA3586-6A7C-4305-9D41-F146575AC951@sfc.wide.ad.jp> <4DB0FD45.2050709@cn.fujitsu.com> <4DB0FFB1.3010006@cn.fujitsu.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33524 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755186Ab1DXIAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 04:00:54 -0400
-Received: by wya21 with SMTP id 21so1067501wya.19
-        for <netdev@vger.kernel.org>; Sun, 24 Apr 2011 01:00:53 -0700 (PDT)
-In-Reply-To: <BANLkTikyntWG6YPUdVipHvwJ8yGuU_Vi4w@mail.gmail.com>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:55518 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755851Ab1DXJY1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 05:24:27 -0400
+In-Reply-To: <4DB0FFB1.3010006@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 24 avril 2011 =C3=A0 10:00 +0800, zhou rui a =C3=A9crit :
-> On Sun, Apr 24, 2011 at 3:56 AM, Tom Herbert <therbert@google.com> wr=
-ote:
-> > On Sat, Apr 23, 2011 at 8:31 AM, zhou rui <zhourui.cn@gmail.com> wr=
-ote:
-> >> one more question is:
-> >>
-> >> in the function "int netif_receive_skb(struct sk_buff *skb)"
-> >>
-> >> cpu =3D get_rps_cpu(skb->dev, skb, &rflow);
-> >> if (cpu >=3D 0) {
-> >>  ret =3D enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
-> >> ....
-> >>
-> >> probably the cpu is different from the current processor id?(smp_p=
-rocessor_id)
-> >> let's say: get_rps_cpu->cpu 0, smp_processor_id->cpu1
-> >> when this happen, does it mean that cpu1 is handling the softirq b=
-ut
-> >> have to divert the packet to cpu0?(via a new softirq?)
-> >>
-> >> so for one packet it involve 2 softirqs?
-> >>
-> >> possible to get_rps_cpu in interrupt,then let the target cpu do on=
-ly
-> >> one softirq to hanle the packet?
-> >>
-> > Yes, this is what a non-NAPI driver would do.
-> >
-> > Tom
-> >
-> non-NAPI will get_rps_cpu in irq, but why NAPI will get_rps_cpu in
-> softirq?(if I understand correctly netif_receive_skb executed in
-> softirq?)
 
-Thats hard to understand what your problem or question is.
+On Apr 22, 2011, at 13:10 , Wei Yongjun wrote:
 
-All heavy Receive networking stuff is handled in softirq.
+> 
+>> 
+>> Since the sender MUST NOT use the  new IP address as a source for ANY SCTP
+>> packet except on  carrying an ASCONF Chunk. And ASCONF chunk can be bundled.
+>> How about this change. If so, you do not need change to sctp_outq_tail();
+>> 
+>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+>> index 1c88c89..bd6cc9c 100644
+>> --- a/net/sctp/outqueue.c
+>> +++ b/net/sctp/outqueue.c
+>> @@ -754,6 +754,13 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+>> 	 */
+>> 
+>> 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
+>> +		/* RFC 5061, 5.3
+>> +		 * F1) This ...
+>> +		 */
+>> +		if (q->asoc->src_out_of_asoc_ok &&
+>> +		    chunk->chunk_hdr->type != SCTP_CID_ASCONF)
+> 
+> SCTP_CID_ASCONF_ACK should be also allowed, the peer may
+> send ASCONF to do the same thing at the same time.
+Sorry for my bad understanding, 
+Do you mean the situation: "the peer (ASCONF receiver) may send ASCONF-ACK to the unconfirmed destination"?
+Or do you mean following situation?
+1. the pear sends ADD/DEL ASCONF to me, 
+2. I receive it, 
+3. I migrate to the other network and get new address, 
+4. I send ASCONF-ACK to the peer from the new address
 
-NAPI allows to reduce number of hardware IRQS in stress/load situations=
-,
-fetching several frames at once.
-
-
+> 
+>> +			continue;
+>> +
+>> 		list_del_init(&chunk->list);
+>> 
+>> 		/* Pick the right transport to use. */
+>> @@ -881,6 +888,9 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+>> 		}
+>> 	}
+>> 
+>> +	if (q->asoc->src_out_of_asoc_ok)
+>> +		goto sctp_flush_out;
+>> +
+>> 	/* Is it OK to send data chunks?  */
+>> 	switch (asoc->state) {
+>> 	case SCTP_STATE_COOKIE_ECHOED:
+>> 
+>> 
+>> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
