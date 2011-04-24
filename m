@@ -1,65 +1,73 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCHv5] usbnet: Resubmit interrupt URB once if halted
-Date: Sun, 24 Apr 2011 08:36:47 +0200
-Message-ID: <201104240836.47491.oliver@neukum.org>
-References: <20110422152451.3C5A9202ED@glenhelen.mtv.corp.google.com> <Pine.LNX.4.44L0.1104221129530.1877-100000@iolanthe.rowland.org> <BANLkTi=xBJuSFNPO3hkKu+N2tNspw=FZNQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: RPS will assign different smp_processor_id for the same packet?
+Date: Sun, 24 Apr 2011 10:00:33 +0200
+Message-ID: <1303632033.2747.51.camel@edumazet-laptop>
+References: <BANLkTimvuGKYuiV_ngTo4wtqhNix4iMfmA@mail.gmail.com>
+	 <1303402094.3685.54.camel@edumazet-laptop>
+	 <1303403112.3685.61.camel@edumazet-laptop>
+	 <BANLkTi=gTNwKX1Tb3mqgWJekRf7n_MHpJQ@mail.gmail.com>
+	 <BANLkTikY6CAZNkcnU-i7UvPpmSfQuXKtNQ@mail.gmail.com>
+	 <BANLkTimqkq+2X3=RZ1Qb0e5NpO-yRxuCoQ@mail.gmail.com>
+	 <BANLkTikyntWG6YPUdVipHvwJ8yGuU_Vi4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com
-To: Paul Stewart <pstew@chromium.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: zhou rui <zhourui.cn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:60388 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752795Ab1DXGf1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 02:35:27 -0400
-In-Reply-To: <BANLkTi=xBJuSFNPO3hkKu+N2tNspw=FZNQ@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33524 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755186Ab1DXIAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 04:00:54 -0400
+Received: by wya21 with SMTP id 21so1067501wya.19
+        for <netdev@vger.kernel.org>; Sun, 24 Apr 2011 01:00:53 -0700 (PDT)
+In-Reply-To: <BANLkTikyntWG6YPUdVipHvwJ8yGuU_Vi4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 22. April 2011, 17:59:15 schrieb Paul Stewart:
+Le dimanche 24 avril 2011 =C3=A0 10:00 +0800, zhou rui a =C3=A9crit :
+> On Sun, Apr 24, 2011 at 3:56 AM, Tom Herbert <therbert@google.com> wr=
+ote:
+> > On Sat, Apr 23, 2011 at 8:31 AM, zhou rui <zhourui.cn@gmail.com> wr=
+ote:
+> >> one more question is:
+> >>
+> >> in the function "int netif_receive_skb(struct sk_buff *skb)"
+> >>
+> >> cpu =3D get_rps_cpu(skb->dev, skb, &rflow);
+> >> if (cpu >=3D 0) {
+> >>  ret =3D enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
+> >> ....
+> >>
+> >> probably the cpu is different from the current processor id?(smp_p=
+rocessor_id)
+> >> let's say: get_rps_cpu->cpu 0, smp_processor_id->cpu1
+> >> when this happen, does it mean that cpu1 is handling the softirq b=
+ut
+> >> have to divert the packet to cpu0?(via a new softirq?)
+> >>
+> >> so for one packet it involve 2 softirqs?
+> >>
+> >> possible to get_rps_cpu in interrupt,then let the target cpu do on=
+ly
+> >> one softirq to hanle the packet?
+> >>
+> > Yes, this is what a non-NAPI driver would do.
 > >
-> >>       free_netdev(net);
-> >>       usb_put_dev (xdev);
-> >>  }
-> >> @@ -1285,6 +1291,10 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
-> >>                * wake the device
-> >>                */
-> >>               netif_device_attach (dev->net);
-> >> +
-> >> +             /* Stop interrupt URBs */
-> >> +             if (dev->interrupt)
-> >> +                     usb_kill_urb(dev->interrupt);
-> >>       }
-> >>       return 0;
-> >>  }
+> > Tom
 > >
-> > There is a subtle question here: When is the best time to kill the
-> > interrupt URB?  Without knowing any of the details, I'd guess that the
-> > interrupt URB reports asynchronous events and the driver could run into
-> > trouble if one of those events occurred while everything else was
-> > turned off.  This suggests that the interrupt URB should be killed as
-> > soon as possible rather than as late as possible.  But maybe it doesn't
-> > matter; it all depends on the design of the driver.
-> 
-> I'm not sure I can answer this question either.  As it stands, nobody
-> was killing them before.  Just trying to make it better.
+> non-NAPI will get_rps_cpu in irq, but why NAPI will get_rps_cpu in
+> softirq?(if I understand correctly netif_receive_skb executed in
+> softirq?)
 
-Hm. Are we looking at the same code? usbnet_suspend now has:
+Thats hard to understand what your problem or question is.
 
-		/*
-		 * accelerate emptying of the rx and queues, to avoid
-		 * having everything error out.
-		 */
-		netif_device_detach (dev->net);
-		usbnet_terminate_urbs(dev);
-		usb_kill_urb(dev->interrupt);
+All heavy Receive networking stuff is handled in softirq.
 
-This suggests that if you want to resubmit the interrupt URB in resume()
-you do it first. Which drivers use the interrupt URB?
+NAPI allows to reduce number of hardware IRQS in stress/load situations=
+,
+fetching several frames at once.
 
-	Regards
-		Oliver
+
+
