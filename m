@@ -1,106 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/9] net-ethtool: Convert (hw_/vlan_/wanted_)features
- fields from u32 type to u64.
-Date: Sun, 24 Apr 2011 06:30:40 +0100
-Message-ID: <1303623041.3032.97.camel@localhost>
-References: <1303515367-25595-1-git-send-email-maheshb@google.com>
-	 <1303515367-25595-2-git-send-email-maheshb@google.com>
-	 <1303515367-25595-3-git-send-email-maheshb@google.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCHv5] usbnet: Resubmit interrupt URB once if halted
+Date: Sun, 24 Apr 2011 08:36:47 +0200
+Message-ID: <201104240836.47491.oliver@neukum.org>
+References: <20110422152451.3C5A9202ED@glenhelen.mtv.corp.google.com> <Pine.LNX.4.44L0.1104221129530.1877-100000@iolanthe.rowland.org> <BANLkTi=xBJuSFNPO3hkKu+N2tNspw=FZNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com
+To: Paul Stewart <pstew@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:1301 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742Ab1DXFaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 01:30:52 -0400
-In-Reply-To: <1303515367-25595-3-git-send-email-maheshb@google.com>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:60388 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752795Ab1DXGf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 02:35:27 -0400
+In-Reply-To: <BANLkTi=xBJuSFNPO3hkKu+N2tNspw=FZNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-04-22 at 16:36 -0700, Mahesh Bandewar wrote:
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  include/linux/ethtool.h |   26 +++++++------
->  net/core/ethtool.c      |   89 ++++++++++++++++------------------------------
->  2 files changed, 45 insertions(+), 70 deletions(-)
+Am Freitag, 22. April 2011, 17:59:15 schrieb Paul Stewart:
+> >
+> >>       free_netdev(net);
+> >>       usb_put_dev (xdev);
+> >>  }
+> >> @@ -1285,6 +1291,10 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
+> >>                * wake the device
+> >>                */
+> >>               netif_device_attach (dev->net);
+> >> +
+> >> +             /* Stop interrupt URBs */
+> >> +             if (dev->interrupt)
+> >> +                     usb_kill_urb(dev->interrupt);
+> >>       }
+> >>       return 0;
+> >>  }
+> >
+> > There is a subtle question here: When is the best time to kill the
+> > interrupt URB?  Without knowing any of the details, I'd guess that the
+> > interrupt URB reports asynchronous events and the driver could run into
+> > trouble if one of those events occurred while everything else was
+> > turned off.  This suggests that the interrupt URB should be killed as
+> > soon as possible rather than as late as possible.  But maybe it doesn't
+> > matter; it all depends on the design of the driver.
 > 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 9de3127..71e8a02 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -605,10 +605,10 @@ struct ethtool_flash {
->   * @never_changed: mask of features not changeable for any device
->   */
->  struct ethtool_get_features_block {
-> -	__u32	available;
-> -	__u32	requested;
-> -	__u32	active;
-> -	__u32	never_changed;
-> +	__u64	available;
-> +	__u64	requested;
-> +	__u64	active;
-> +	__u64	never_changed;
->  };
->  
->  /**
-> @@ -618,10 +618,11 @@ struct ethtool_get_features_block {
->   *       out: number of elements in features[] needed to hold all features
->   * @features: state of features
->   */
-> +/* TODO Why is this needed XXX */
+> I'm not sure I can answer this question either.  As it stands, nobody
+> was killing them before.  Just trying to make it better.
 
-Precisely to allow for expansion to more than 32 bits.
+Hm. Are we looking at the same code? usbnet_suspend now has:
 
->  struct ethtool_gfeatures {
->  	__u32	cmd;
->  	__u32	size;
-> -	struct ethtool_get_features_block features[0];
-> +	struct ethtool_get_features_block features;
->  };
->  
->  /**
-> @@ -630,8 +631,8 @@ struct ethtool_gfeatures {
->   * @requested: values of features to be changed
->   */
->  struct ethtool_set_features_block {
-> -	__u32	valid;
-> -	__u32	requested;
-> +	__u64	valid;
-> +	__u64	requested;
->  };
->  
->  /**
-> @@ -640,10 +641,11 @@ struct ethtool_set_features_block {
->   * @size: array size of the features[] array
->   * @features: feature change masks
->   */
-> +/* TODO Why is this needed XXX */
->  struct ethtool_sfeatures {
->  	__u32	cmd;
->  	__u32	size;
-> -	struct ethtool_set_features_block features[0];
-> +	struct ethtool_set_features_block features;
->  };
-[...]
+		/*
+		 * accelerate emptying of the rx and queues, to avoid
+		 * having everything error out.
+		 */
+		netif_device_detach (dev->net);
+		usbnet_terminate_urbs(dev);
+		usb_kill_urb(dev->interrupt);
 
-These structures are part of the userland API, but they are new in
-2.6.39.  So they can still be changed up until 2.6.39 is released, but
-not afterwards.
+This suggests that if you want to resubmit the interrupt URB in resume()
+you do it first. Which drivers use the interrupt URB?
 
-If we think 64 bits will be enough for the next 10 years, then let's
-just go with a single 64-bit feature word.  If we're not so sure then
-then the ethtool API should continue to allow for multiple words
-(whether 32-bit or 64-bit).
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+	Regards
+		Oliver
