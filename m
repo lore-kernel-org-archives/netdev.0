@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH v4 21/27] HFI: Add send and receive interrupts
-Date: Mon, 25 Apr 2011 17:24:01 -0400
-Message-ID: <1303766647-30156-22-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH v4 13/27] HFI: Send and receive fifo address translation
+Date: Mon, 25 Apr 2011 17:23:53 -0400
+Message-ID: <1303766647-30156-14-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -14,27 +14,27 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:41804 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755120Ab1DYVYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:24:32 -0400
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by e33.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3PLHaW2005350
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:17:36 -0600
+Received: from e34.co.us.ibm.com ([32.97.110.152]:49610 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755061Ab1DYVY2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:24:28 -0400
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e34.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3PLCBt7001124
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:12:11 -0600
 Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3PLOUgm097188
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:30 -0600
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3PLONRY356476
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:23 -0600
 Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3PLOTMn000426
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:30 -0600
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3PLONou032515
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:23 -0600
 In-Reply-To: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
 
-Each window has its own interrupt for send interrupts and another for receive
-interrupts.
+Prepare for a hypervisor call to set up page tables in the nMMU for the
+send and receive fifo.
 
 Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
 Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
@@ -46,34 +46,487 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/core/Makefile       |    1 +
- drivers/net/hfi/core/hfidd_intr.c   |  127 +++++++++++++++++++++++++++++++++++
- drivers/net/hfi/core/hfidd_proto.h  |    3 +
- drivers/net/hfi/core/hfidd_window.c |   16 ++++-
- include/linux/hfi/hfidd_client.h    |   17 +++++
- include/linux/hfi/hfidd_internal.h  |    2 +
- 6 files changed, 165 insertions(+), 1 deletions(-)
- create mode 100644 drivers/net/hfi/core/hfidd_intr.c
+ drivers/net/hfi/core/hfidd_proto.h  |    9 ++
+ drivers/net/hfi/core/hfidd_window.c |  132 ++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_xlat.c   |  210 +++++++++++++++++++++++++++++++++++
+ include/linux/hfi/hfidd_adpt.h      |   28 +++++
+ include/linux/hfi/hfidd_hcalls.h    |    2 +
+ include/linux/hfi/hfidd_internal.h  |    1 +
+ include/linux/hfi/hfidd_xlat_map.h  |   91 +++++++++++++++
+ 7 files changed, 473 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/hfi/hfidd_xlat_map.h
 
-diff --git a/drivers/net/hfi/core/Makefile b/drivers/net/hfi/core/Makefile
-index 3adf07e..d2ed86f 100644
---- a/drivers/net/hfi/core/Makefile
-+++ b/drivers/net/hfi/core/Makefile
-@@ -6,5 +6,6 @@ hfi_core-objs:=	hfidd_adpt.o \
- 		hfidd_init.o \
- 		hfidd_xlat.o \
- 		hfidd_map.o \
-+		hfidd_intr.o \
- 		hfidd_hcalls.o
- obj-$(CONFIG_HFI) += hfi_core.o
-diff --git a/drivers/net/hfi/core/hfidd_intr.c b/drivers/net/hfi/core/hfidd_intr.c
+diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
+index 66ea5da..001f6d5 100644
+--- a/drivers/net/hfi/core/hfidd_proto.h
++++ b/drivers/net/hfi/core/hfidd_proto.h
+@@ -39,9 +39,18 @@ int hfidd_alloc_windows(struct hfidd_acs *p_acs);
+ void hfidd_free_windows(struct hfidd_acs *p_acs);
+ int hfidd_init_adapter(struct hfidd_acs *p_acs, void *uiop);
+ int hfidd_age_hcall(u64 time_start);
++int hfidd_fifo_xlat(struct hfidd_acs *p_acs, struct fifo_info *fifo_in,
++		int is_userspace, struct hfidd_vlxmem *xlat_p);
++int hfidd_fifo_unxlat(struct hfidd_acs *p_acs, struct fifo_info *fifo_in,
++		int is_userspace, struct hfidd_vlxmem *xlat_p);
++int hfidd_fill_xlat_tab(struct hfidd_acs *p_acs, struct fifo_info *fifo_in,
++		unsigned int is_userspace, struct hfidd_vlxmem *xlat_p);
+ int hfidd_get_page_size(struct hfidd_acs *p_acs, void *addr,
+ 		unsigned int is_userspace, unsigned int length,
+ 		unsigned long long *page_size);
++int hfidd_get_page_num(struct hfidd_acs *p_acs, void *start_addr,
++		unsigned long long len, unsigned long long page_sz,
++		unsigned int *pg_num_p);
+ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+ 		struct hfi_client_info *user_p,
+ 		struct hfi_client_info *out_p);
+diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
+index 5a4f395..de2e56d 100644
+--- a/drivers/net/hfi/core/hfidd_window.c
++++ b/drivers/net/hfi/core/hfidd_window.c
+@@ -359,6 +359,125 @@ static int hfi_validate_window_parm(struct hfidd_acs *p_acs,
+ 	return 0;
+ }
+ 
++static int hfi_xlate_fifos(struct hfidd_acs *p_acs,
++		unsigned int is_userspace,
++		struct hfidd_window *win_p,
++		struct hfi_client_info *client_p)
++{
++	int	rc = 0;
++
++	/*
++	 * add 4K(finish vector) to the sfifo size then call to
++	 * xlate when return, restore the sfifo size back..............
++	 */
++	client_p->sfifo.size += PAGE_SIZE_4K;
++	rc = hfidd_fifo_xlat(p_acs, &(client_p->sfifo), is_userspace,
++			win_p->sfifo_x_tab);
++	client_p->sfifo.size -= PAGE_SIZE_4K;
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_xlate_fifos: hfidd_fifo_xlat failed, "
++			"rc = 0x%x\n", rc);
++		return rc;
++	}
++
++	rc = hfidd_fifo_xlat(p_acs, &(client_p->rfifo), is_userspace,
++			win_p->rfifo_x_tab);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_xlate_fifos: hfidd_fifo_xlat failed, "
++			"rc = 0x%x\n", rc);
++		goto hfi_xlate_fifos_err1;
++	}
++
++hfi_xlate_fifos_err1:
++	client_p->sfifo.size += PAGE_SIZE_4K;
++	hfidd_fifo_unxlat(p_acs, &(client_p->sfifo), is_userspace,
++			win_p->sfifo_x_tab);
++	client_p->sfifo.size -= PAGE_SIZE_4K;
++
++	return rc;
++}
++
++int hfi_unxlate_fifos(struct hfidd_acs *p_acs, unsigned int is_userspace,
++		struct hfidd_window *win_p, struct hfi_client_info *client_p)
++{
++	int	rc = 0;
++
++	hfidd_fifo_unxlat(p_acs, &(client_p->rfifo),
++			is_userspace, win_p->rfifo_x_tab);
++
++	client_p->sfifo.size += PAGE_SIZE_4K;
++	hfidd_fifo_unxlat(p_acs, &(client_p->sfifo),
++			is_userspace, win_p->sfifo_x_tab);
++	client_p->sfifo.size -= PAGE_SIZE_4K;
++
++	return rc;
++}
++
++static inline void hfi_free_xlate_tab(struct hfidd_window *win_p)
++{
++	kfree(win_p->sfifo_x_tab);
++	win_p->sfifo_x_tab	= NULL;
++	kfree(win_p->rfifo_x_tab);
++	win_p->rfifo_x_tab	= NULL;
++}
++
++static int hfi_alloc_xlate_tab(struct hfidd_acs *p_acs,
++		struct hfidd_window *win_p,
++		struct hfi_client_info *client_p)
++{
++	win_p->sfifo_x_tab = kzalloc(sizeof(*(win_p->sfifo_x_tab)),
++			GFP_KERNEL);
++	if (win_p->sfifo_x_tab == NULL) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_alloc_xlate_tab: kzalloc sfifo_x_tab failed\n");
++		return -ENOMEM;
++	}
++
++	win_p->rfifo_x_tab = kzalloc(sizeof(*(win_p->rfifo_x_tab)),
++			GFP_KERNEL);
++	if (win_p->rfifo_x_tab == NULL) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_alloc_xlate_tab: kzalloc rfifo_x_tab failed\n");
++		goto hfi_alloc_xlate_tab_err1;
++	}
++
++	return 0;
++
++hfi_alloc_xlate_tab_err1:
++	kfree(win_p->sfifo_x_tab);
++	win_p->sfifo_x_tab = NULL;
++	return -ENOMEM;
++}
++
++static int hfi_alloc_win_resource(struct hfidd_acs *p_acs,
++		unsigned int is_userspace,
++		struct hfidd_window *win_p,
++		struct hfi_client_info *client_p)
++{
++	int	rc = 0;
++
++	rc = hfi_alloc_xlate_tab(p_acs, win_p, client_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_alloc_win_resource: hfi_alloc_xlate_tab "
++			"failed, rc = 0x%x\n", rc);
++		return rc;
++	}
++
++	rc = hfi_xlate_fifos(p_acs, is_userspace, win_p, client_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_alloc_win_resource: hfi_xlate_fifos "
++			"failed, rc = 0x%x\n", rc);
++		hfi_free_xlate_tab(win_p);
++		return rc;
++	}
++
++	return 0;
++}
++
+ /*
+  * Allows an user/kernel window to send/receive network traffic thru HFI
+  * adapter. This function will allocate the system resources needed to open
+@@ -371,6 +490,7 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+ {
+ 	int			rc = 0;
+ 	struct hfi_client_info	*local_p = NULL;
++	struct hfidd_window	*win_p = NULL;
+ 
+ 	/* Allocate local data structure */
+ 	local_p = kmalloc(sizeof(struct hfi_client_info), GFP_KERNEL);
+@@ -398,9 +518,21 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+ 		goto hfidd_open_window_func_err1;
+ 	}
+ 
++	win_p = hfi_window(p_acs, local_p->window);
++
++	rc = hfi_alloc_win_resource(p_acs, is_userspace, win_p, local_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_open_window_func: hfi_alloc_win_resource "
++			"failed, rc = 0x%x\n", rc);
++		goto hfidd_open_window_func_err2;
++	}
++
+ 	kfree(local_p);
+ 	return rc;
+ 
++hfidd_open_window_func_err2:
++	hfi_restore_window_parm(p_acs, win_p);
+ hfidd_open_window_func_err1:
+ 	kfree(local_p);
+ 	return rc;
+diff --git a/drivers/net/hfi/core/hfidd_xlat.c b/drivers/net/hfi/core/hfidd_xlat.c
+index 23236cc..760d7e6 100644
+--- a/drivers/net/hfi/core/hfidd_xlat.c
++++ b/drivers/net/hfi/core/hfidd_xlat.c
+@@ -129,3 +129,213 @@ out1:
+ 	kfree(page_list);
+ 	return rc;
+ }
++
++int hfidd_get_page_num(struct hfidd_acs *p_acs,
++		void			*start_addr,
++		unsigned long long	len,
++		unsigned long long	page_sz,
++		unsigned int		*pg_num_p)
++{
++	int			rc = 0;
++	int			pg_shift_count;
++	unsigned long long	address_mask;
++	unsigned long long	offset_mask;
++	unsigned long long	offset;
++
++	if (pg_num_p == NULL || len == 0) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_get_page_num: len=%llx pg_num_p=0x%llx\n",
++			len, (unsigned long long)pg_num_p);
++		return -EINVAL;
++	}
++
++	/*
++	 * Pre-Calculate Masks and shift count:
++	 */
++	if (page_sz == PAGE_SIZE_4K) {
++		offset_mask			= PAGE_MASK_4K;
++		pg_shift_count			= PAGE_SHIFT_4K;
++	} else if (page_sz == PAGE_SIZE_64K) {
++		offset_mask			= PAGE_MASK_64K;
++		pg_shift_count			= PAGE_SHIFT_64K;
++	} else if (page_sz == PAGE_SIZE_16M) {
++		offset_mask			= PAGE_MASK_16M;
++		pg_shift_count			= PAGE_SHIFT_16M;
++	} else if (page_sz == PAGE_SIZE_4G) {
++		offset_mask			= PAGE_MASK_4G;
++		pg_shift_count			= PAGE_SHIFT_4G;
++	} else {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_get_page_num: invalid page_sz 0x%llx "
++			"return EINVAL\n", page_sz);
++		return -EINVAL;
++	}
++	address_mask = ~offset_mask;
++
++	/*
++	 * Calculate the buffer offsets into the first page:
++	 */
++	offset = (unsigned long long)start_addr & offset_mask;
++	*pg_num_p  = (len + offset + offset_mask) >> pg_shift_count;
++
++	return rc;
++}
++
++int hfidd_fill_xlat_tab(struct hfidd_acs *p_acs, struct fifo_info *fifo_in,
++	unsigned int is_userspace, struct hfidd_vlxmem *xlat_p)
++{
++	unsigned int		num_pages;
++	unsigned long long	page_size;
++	int			rc = 0;
++
++	rc = hfidd_get_page_size(p_acs, fifo_in->eaddr.use.kptr, is_userspace,
++			fifo_in->size, &page_size);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_fill_xlat_tab: hfidd_get_page_size failed, "
++			" rc=0x%x\n", rc);
++		return rc;
++	}
++
++	/* Get num of pages based in buffer page size */
++	rc = hfidd_get_page_num(p_acs, fifo_in->eaddr.use.kptr,
++			fifo_in->size, page_size, &num_pages);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_fill_xlat_tab:: hfidd_get_page_num return "
++			"rc 0x%x\n", rc);
++		return rc;
++	}
++
++	xlat_p->v_addr = (caddr_t)(fifo_in->eaddr.use.kptr);
++	xlat_p->e_addr = (caddr_t)(fifo_in->eaddr.use.allu & ~(page_size - 1));
++	xlat_p->page_sz = page_size;
++	xlat_p->num_page = num_pages;
++	xlat_p->len = num_pages * page_size;
++	xlat_p->num_kpage = (xlat_p->len) / PAGE_SIZE;
++
++	return 0;
++}
++
++int hfidd_fifo_xlat(struct hfidd_acs *p_acs, struct fifo_info *fifo_in,
++		int is_userspace, struct hfidd_vlxmem *xlat_p)
++{
++	int			rc = 0;
++	int			i;
++	unsigned int		num_pages, pg_code;
++	unsigned long long	page_size;
++	unsigned long long	*l_pages;
++	struct page		**page_list;
++	unsigned int		hw_page = 0;
++
++	if ((fifo_in == NULL) || (xlat_p == NULL)) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_fifo_xlat: Invalid fifo_in 0x%llx\n",
++			(unsigned long long)fifo_in);
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_fifo_xlat: Invalid xlat_p 0x%llx\n",
++			(unsigned long long)xlat_p);
++		return -EINVAL;
++	}
++
++	rc = hfidd_fill_xlat_tab(p_acs, fifo_in, is_userspace, xlat_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_fifo_xlat: hfidd_fill_xlat_tab failed, "
++			"rc = 0x%x\n", rc);
++		return rc;
++	}
++
++	/* num_page is number of pages of page_sz */
++	num_pages = xlat_p->num_page;
++	page_size = xlat_p->page_sz;
++
++	l_pages = vmalloc(num_pages * sizeof(unsigned long long));
++	if (l_pages == NULL) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_fifo_xlat: vmalloc failed for l_pages\n");
++		return -ENOMEM;
++	}
++
++	if (!is_userspace) {
++		void *curr_addr = xlat_p->e_addr;
++
++		for (i = 0; i < num_pages; i++) {
++			l_pages[i] = __pa(curr_addr);
++			curr_addr += page_size;
++		}
++	} else {
++		/* For page_list use number of kernel pages */
++		page_list = kzalloc(xlat_p->num_kpage * sizeof(struct page *),
++			GFP_KERNEL);
++		if (page_list == NULL) {
++			dev_printk(KERN_ERR, p_acs->hfidd_dev,
++				"hfidd_fifo_xlat: kzalloc failed "
++				"for page_list\n");
++			rc = -ENOMEM;
++			goto out_err0;
++		}
++
++		down_read(&current->mm->mmap_sem);
++		rc = get_user_pages(current, current->mm,
++				(unsigned long long)(xlat_p->e_addr),
++				xlat_p->num_kpage, 1, 0, /* write, !force */
++				page_list, NULL);
++		up_read(&current->mm->mmap_sem);
++
++		if (rc < xlat_p->num_kpage) {
++			dev_printk(KERN_ERR, p_acs->hfidd_dev,
++				"hfidd_fifo_xlat: get_user_pages failed, "
++				"rc = 0x%x\n", rc);
++			goto out_err1;
++		}
++
++		for (i = 0; i < num_pages;) {
++			l_pages[hw_page] = page_to_phys(page_list[i]);
++			hw_page++;
++			i += (page_size / PAGE_SIZE);
++		}
++
++		xlat_p->page_list = (void *)page_list;
++	}
++
++	xlat_p->l_pages = (void *)l_pages;
++	xlat_p->map_page_sz = page_size;
++	xlat_p->m_addr = xlat_p->e_addr;
++	xlat_p->num_page_sz.num_code.fields.pg_num = num_pages;
++	encode_pg_sz(page_size, &pg_code);
++	xlat_p->num_page_sz.num_code.fields.pg_code =
++		(pg_code << HFI_PAGE_CODE_SHIFT);
++	return 0;
++
++out_err1:
++	if (rc > 0) {
++		for (i = 0; i < rc; i++)
++			page_cache_release(page_list[i]);
++		rc = -EINVAL;
++	}
++	kfree(page_list);
++out_err0:
++	vfree(l_pages);
++	return rc;
++}
++
++int hfidd_fifo_unxlat(struct hfidd_acs *p_acs, struct fifo_info *fifo_in,
++		int is_userspace, struct hfidd_vlxmem *xlat_p)
++{
++	int		rc = 0;
++	int		i;
++	struct page	**page_list;
++
++	if (!is_userspace)
++		return 0;
++	page_list = (struct page **)xlat_p->page_list;
++	if (page_list != NULL) {
++		/* For page list we used number of kernel pages */
++		for (i = 0; i < xlat_p->num_kpage; i++)
++			page_cache_release(page_list[i]);
++		kfree(page_list);
++		xlat_p->page_list = NULL;
++	}
++	return rc;
++}
+diff --git a/include/linux/hfi/hfidd_adpt.h b/include/linux/hfi/hfidd_adpt.h
+index a41825f..8eab059 100644
+--- a/include/linux/hfi/hfidd_adpt.h
++++ b/include/linux/hfi/hfidd_adpt.h
+@@ -74,4 +74,32 @@
+ #define PAGE_MASK_4G		(PAGE_SIZE_4G - 1)
+ #define PAGE_MASK_16G		(PAGE_SIZE_16G - 1)
+ 
++#define PAGE_CODE_4K	0x00000000
++#define PAGE_CODE_64K	0x00000001
++#define PAGE_CODE_1M	0x00000002
++#define PAGE_CODE_16M	0x00000003
++#define PAGE_CODE_256M	0x00000004
++#define PAGE_CODE_4G	0x00000005
++#define PAGE_CODE_INVAL	0x00000007
++#define PAGE_CODE_MASK	0x00000007
++
++static inline void encode_pg_sz(unsigned long long pg_sz,
++		unsigned int *pg_sz_code)
++{
++	if (pg_sz == PAGE_SIZE_4K)
++		*pg_sz_code = PAGE_CODE_4K;
++	else if (pg_sz == PAGE_SIZE_64K)
++		*pg_sz_code = PAGE_CODE_64K;
++	else if (pg_sz == PAGE_SIZE_1M)
++		*pg_sz_code = PAGE_CODE_1M;
++	else if (pg_sz == PAGE_SIZE_16M)
++		*pg_sz_code = PAGE_CODE_16M;
++	else if (pg_sz == PAGE_SIZE_256M)
++		*pg_sz_code = PAGE_CODE_256M;
++	else if (pg_sz == PAGE_SIZE_4G)
++		*pg_sz_code = PAGE_CODE_4G;
++	else
++		*pg_sz_code = PAGE_CODE_INVAL;
++}
++
+ #endif /* _HFIDD_ADPT_H_ */
+diff --git a/include/linux/hfi/hfidd_hcalls.h b/include/linux/hfi/hfidd_hcalls.h
+index 2a374e6..57140a0 100644
+--- a/include/linux/hfi/hfidd_hcalls.h
++++ b/include/linux/hfi/hfidd_hcalls.h
+@@ -42,6 +42,8 @@
+ #define H_NMMU_START			0xF028
+ #define H_NMMU_STOP			0xF02C
+ 
++#define HFI_PAGE_CODE_SHIFT	28
++
+ #define EEH_QUERY	1
+ #define COMP_QUERY	2
+ 
+diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
+index 69fc7fa..1fbd6a6 100644
+--- a/include/linux/hfi/hfidd_internal.h
++++ b/include/linux/hfi/hfidd_internal.h
+@@ -62,6 +62,7 @@
+ #include <linux/hfi/hfidd_client.h>
+ #include <linux/hfi/hfidd_adpt.h>
+ #include <linux/hfi/hfidd_hcalls.h>
++#include <linux/hfi/hfidd_xlat_map.h>
+ 
+ #define MAX_D_WIN_PER_HFI	(p_acs->dds.num_d_windows)
+ 
+diff --git a/include/linux/hfi/hfidd_xlat_map.h b/include/linux/hfi/hfidd_xlat_map.h
 new file mode 100644
-index 0000000..253de27
+index 0000000..e5d1869
 --- /dev/null
-+++ b/drivers/net/hfi/core/hfidd_intr.c
-@@ -0,0 +1,127 @@
++++ b/include/linux/hfi/hfidd_xlat_map.h
+@@ -0,0 +1,91 @@
 +/*
-+ * hfidd_intr.c
++ * hfidd_xlat_map.h
 + *
 + * HFI device driver for IBM System p
 + *
@@ -104,204 +557,65 @@ index 0000000..253de27
 + *
 + */
 +
-+#include <linux/hfi/hfidd_internal.h>
-+#include "hfidd_proto.h"
++#ifndef _HFIDD_XLAT_MAP_H_
++#define _HFIDD_XLAT_MAP_H_
 +
-+static irqreturn_t send_intr_handler(int irq, void *data)
-+{
-+	struct hfidd_window *win_p = data;
-+	struct hfidd_acs *p_acs;
++#include <linux/hfi/hfidd_client.h>
 +
-+	p_acs = hfidd_global.p_acs[win_p->ai];
-+	if (p_acs == NULL)
-+		return IRQ_HANDLED;
++/*
++ * So we can shift rather than divide!
++ */
++#define PAGE_SHIFT_2K		11
++#define PAGE_SHIFT_4K		12
++#define PAGE_SHIFT_64K		16
++#define PAGE_SHIFT_1M		20
++#define PAGE_SHIFT_16M		24
++#define PAGE_SHIFT_4G		32
 +
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t recv_intr_handler(int irq, void *data)
-+{
-+	struct hfidd_window *win_p = data;
-+	struct hfidd_acs *p_acs;
-+
-+	p_acs = hfidd_global.p_acs[win_p->ai];
-+	if (p_acs == NULL)
-+		return IRQ_HANDLED;
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static inline void hfidd_clear_interrupt(unsigned int int_level,
-+			struct hfidd_window *win_p)
-+{
-+	ibmebus_free_irq(int_level, win_p);
-+}
-+
-+static int hfidd_init_interrupt(struct hfidd_acs *p_acs,
-+		struct hfidd_window *win_p ,
-+		irqreturn_t (*handler)(int, void *),
-+		const char *name,
-+		unsigned int int_level)
-+{
-+	int rc;
-+
-+	rc = ibmebus_request_irq(int_level, handler, IRQF_DISABLED, name,
-+			win_p);
-+	if (rc != 0) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_init_interrupt: request_irq failed for "
-+			"int_level 0x%x rc %d\n", int_level, rc);
-+		return rc;
-+	}
-+	return rc;
-+}
-+
-+int hfidd_init_win_interrupt(struct hfidd_acs *p_acs,
-+		struct hfidd_window *win_p)
-+{
-+	int rc;
-+
-+	/* init send interrupt handler */
-+	snprintf(win_p->send_name, IRQ_NAME_SIZE - 1, "%s%d-send%d",
-+		HFIDD_DEV_NAME, p_acs->index, win_p->index);
-+	rc = hfidd_init_interrupt(p_acs, win_p, send_intr_handler,
-+		win_p->send_name, win_p->send_intr);
-+	if (rc != 0) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_init_win_interrupt: send int failed, "
-+			"rc = 0x%x\n", rc);
-+		return rc;
-+	}
-+
-+	/* init recv interrupt handler */
-+	snprintf(win_p->recv_name, IRQ_NAME_SIZE - 1, "%s%d-recv%d",
-+		HFIDD_DEV_NAME, p_acs->index, win_p->index);
-+	rc = hfidd_init_interrupt(p_acs, win_p, recv_intr_handler,
-+		win_p->recv_name, win_p->recv_intr);
-+	if (rc != 0) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_init_win_interrupt: recv int failed, "
-+			"rc = 0x%x\n", rc);
-+		hfidd_clear_interrupt(win_p->send_intr, win_p);
-+		return rc;
-+	}
-+	return 0;
-+}
-+
-+void hfidd_clear_win_interrupt(struct hfidd_window *win_p)
-+{
-+	if (win_p->send_intr != 0) {
-+		hfidd_clear_interrupt(win_p->send_intr, win_p);
-+		win_p->send_intr = 0;
-+	}
-+	if (win_p->recv_intr != 0) {
-+		hfidd_clear_interrupt(win_p->recv_intr, win_p);
-+		win_p->recv_intr = 0;
-+	}
-+}
-diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
-index f531dcd..af88f0b 100644
---- a/drivers/net/hfi/core/hfidd_proto.h
-+++ b/drivers/net/hfi/core/hfidd_proto.h
-@@ -73,6 +73,9 @@ int hfidd_query_interface(struct hfidd_acs *p_acs, unsigned int subtype,
- int hfidd_start_nmmu(struct hfidd_acs *p_acs);
- int hfidd_start_interface(struct hfidd_acs *p_acs);
- int hfidd_stop_interface(struct hfidd_acs *p_acs, unsigned int hfi_id);
-+int hfidd_init_win_interrupt(struct hfidd_acs *p_acs,
-+		struct hfidd_window *win_p);
-+void hfidd_clear_win_interrupt(struct hfidd_window *win_p);
- long long hfi_start_nmmu(u64 chip_id, void *nmmu_info);
- long long hfi_stop_nmmu(u64 chip_id);
- long long hfi_open_window(u64 unit_id, u64 win_id, u64 flag,
-diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
-index fd692eb..6864eae 100644
---- a/drivers/net/hfi/core/hfidd_window.c
-+++ b/drivers/net/hfi/core/hfidd_window.c
-@@ -1049,6 +1049,15 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 	local_p->local_isrid = p_acs->isr;
- 	win_p->client_info.local_isrid = p_acs->isr;
- 
-+	/* Init the send and recv interrupt handlers */
-+	rc = hfidd_init_win_interrupt(p_acs, win_p);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_open_window_func: hfidd_init_win_interrupt "
-+			"failed, rc = 0x%x\n", rc);
-+		goto hfidd_open_window_func_err6;
-+	}
-+
- 	/* Copy out the client info back to user */
- 	rc = hfi_copy_to_user((void *)out_p, (void *)local_p,
- 			is_userspace, sizeof(struct hfi_client_info));
-@@ -1056,7 +1065,7 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 		dev_printk(KERN_ERR, p_acs->hfidd_dev,
- 			"hfidd_open_window_func: hfi_copy_to_user "
- 			"failed, rc = 0x%x\n", rc);
--		goto hfidd_open_window_func_err6;
-+		goto hfidd_open_window_func_err7;
- 	}
- 
- 	spin_lock(&(win_p->win_lock));
-@@ -1068,6 +1077,8 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 	kfree(local_p);
- 	return rc;
- 
-+hfidd_open_window_func_err7:
-+	hfidd_clear_win_interrupt(win_p);
- hfidd_open_window_func_err6:
- 	if (is_userspace)
- 		hfidd_unmap(local_p->mmio_regs.use.kptr, PAGE_SIZE_64K);
-@@ -1134,6 +1145,9 @@ int hfidd_close_window_internal(struct hfidd_acs *p_acs,
- 	}
- 	spin_unlock(&(win_p->win_lock));
- 
-+	/* Clear the send and recv interrupt handlers */
-+	hfidd_clear_win_interrupt(win_p);
-+
- 	rc = hfi_unmap_mmio_regs(p_acs, win_p, is_userspace);
- 	if (rc) {
- 		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-diff --git a/include/linux/hfi/hfidd_client.h b/include/linux/hfi/hfidd_client.h
-index 11c8973..3b2d032 100644
---- a/include/linux/hfi/hfidd_client.h
-+++ b/include/linux/hfi/hfidd_client.h
-@@ -121,6 +121,23 @@ struct hfi_window_info {
- 	unsigned int		window;
- };
- 
-+/* Event Notification */
-+enum hfi_event_type {
-+	HFIDD_SEND		= 0,
-+	HFIDD_RECV		= 1,
-+	HFIDD_WIN_ERROR		= 2,
-+	HFIDD_HFI_ERROR		= 3,
-+	HFIDD_TERMINATE		= 4,
-+	HFIDD_RELEASE_WINDOW	= 5,
-+	HFIDD_CAU_ERROR		= 6,
-+	HFIDD_ICS_ERROR		= 7,
-+	HFIDD_HFI_READY_REG	= 8,
-+	HFIDD_ROUTE_CHANGE	= 9,
-+	HFIDD_IP_TRC_LVL	= 10,	/* IP Window only */
-+	HFIDD_POOL_SIZE		= 11,	/* IP Window only */
-+	HFIDD_NUM_EVENT_TYPES	= 12
++struct page_num_code {
++	union {
++		unsigned long long	llu_value;
++		struct num_and_code {
++			unsigned int	pg_num;
++			unsigned int	pg_code;
++		} fields;
++	} num_code;
 +};
 +
- #define MAX_TORRENTS            1
- #define MAX_HFI_PER_TORRENT     2
- #define MAX_HFIS                (MAX_TORRENTS * MAX_HFI_PER_TORRENT)
-diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
-index 03cac9a..a3f86b7 100644
---- a/include/linux/hfi/hfidd_internal.h
-+++ b/include/linux/hfi/hfidd_internal.h
-@@ -144,6 +144,8 @@ struct hfidd_global {
- 	struct hfidd_acs	*p_acs[MAX_HFIS];
- };
- 
-+extern struct hfidd_global hfidd_global;
++struct hfidd_vlxmem {
++	unsigned long long	page_sz;	/* actual page size */
++	unsigned int		num_page;	/* calculated using actual
++						   page size */
++	unsigned int		rsvd;
++	struct page_num_code	num_page_sz;	/* page num and size code
++						   mapping */
++	unsigned long long	map_page_sz;	/* page size used for mapping */
++	caddr_t			m_addr;		/* aligned address start for
++						   mapping */
++	caddr_t			v_addr;		/* user given vaddr */
++	caddr_t			e_addr;
 +
- static inline struct hfidd_window *hfi_window(struct hfidd_acs *p,
- 		unsigned int idx)
- {
++	unsigned long long	len;
++	unsigned long long	access_flag;
++	void			*l_pages;
++
++	unsigned long long	mr_handle;
++	unsigned int		l_key;
++
++	struct task		*xd;
++
++	int			num_kpage;	/* num of kernel pages */
++	atomic_t		*share_cnt;	/* # of processes sharing this
++						   submr */
++	unsigned int		num_chunks;	/* number of chunks the mr is
++						   divided */
++	caddr_t			mr_addr;	/* aligned submr starting
++						   address */
++	void			*page_list;	/* struct page_list */
++	unsigned int		liobn;		/* logical I/O bus number */
++};
++
++#endif
 -- 
 1.7.3.5
 
