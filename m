@@ -1,59 +1,51 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
 Subject: Re: pull request: wireless-next-2.6 2011-04-25
-Date: Mon, 25 Apr 2011 13:04:35 -0700 (PDT)
-Message-ID: <20110425.130435.112597353.davem@davemloft.net>
-References: <20110425193017.GC28814@tuxdriver.com>
-	<20110425.125835.189703400.davem@davemloft.net>
+Date: Mon, 25 Apr 2011 15:55:24 -0500
+Message-ID: <4DB5DFBC.3070203@lwfinger.net>
+References: <20110425193017.GC28814@tuxdriver.com>	<20110425.125835.189703400.davem@davemloft.net> <20110425.130435.112597353.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110425.125835.189703400.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-7; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f179.google.com ([209.85.212.179]:57492 "EHLO
+	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757038Ab1DYUzv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 16:55:51 -0400
+In-Reply-To: <20110425.130435.112597353.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAyNSBB
-cHIgMjAxMSAxMjo1ODozNSAtMDcwMCAoUERUKQ0KDQo+IEZyb206ICJKb2huIFcuIExpbnZpbGxl
-IiA8bGludmlsbGVAdHV4ZHJpdmVyLmNvbT4NCj4gRGF0ZTogTW9uLCAyNSBBcHIgMjAxMSAxNToz
-MDoxNyAtMDQwMA0KPiANCj4+IEhlcmUgaXMgYW5vdGhlciBiaWcgYmF0Y2ggb2YgdXBkYXRlcyBp
-bnRlbmRlZCBmb3IgMi42LjQwLi4uDQo+PiANCj4+IFRoZXJlIGlzIHRoZSB1c3VhbCBodWdlIGJh
-dGNoIG9mIGNoYW5nZXMgZm9yIGF0aDlrLCBhbmQgaXdsYWduLCBhIGJ1bmNoDQo+PiBmb3IgYXRo
-OWtfaHRjLCBydDJ4MDAsIGFuZCBhdGg1aywgYSBmZXcgbW9yZSBmb3IgbXdpZmlleCwgYW5kIGEg
-aGFuZGZ1bA0KPj4gb2Ygb3RoZXJzLiAgQWxzbyBpbmNsdWRlZCBpcyBhIGJpZyBiYXRjaCBvZiBC
-bHVldG9vdGggdXBkYXRlcyBhcyB3ZWxsLg0KPj4gDQo+PiBQbGVhc2UgbGV0IG1lIGtub3cgaWYg
-dGhlcmUgYXJlIHByb2JsZW1zIQ0KPiANCj4gUHVsbGVkLCB0aGFua3MgYSBsb3QgSm9obi4NCg0K
-SSBndWVzcyB3YXRjaGluZyB0aGUgYnVpbGQgbG9ncyBmb3IgbmV3IHdhcm5pbmdzIGlzIHRvbyBv
-bGQgZmFzaGlvbmVkDQpmb3IgcGVvcGxlLCBhbmQgYmVzaWRlcyBEYXZlIHdpbGwgZG8gaXQgZm9y
-IGV2ZXJ5b25lIGFueXdheXMgcmlnaHQ/DQoNCkFuZCB0aGlzIG9uZSBpcyBhIHJlYWwgYnVnIHRv
-by4gOi0vDQoNCkknbGwgcHVzaCB0aGlzIG91dCB0byBuZXQtbmV4dC0yLjYgb24gdG9wIG9mIHRo
-ZSB3aXJlbGVzcy1uZXh0IHB1bGwsDQpidXQgcGxlYXNlIGJlIG1vcmUgbWluZGZ1bCBpbiB0aGUg
-ZnV0dXJlLg0KDQotLS0tLS0tLS0tLS0tLS0tLS0tLQ0KRnJvbSBiZjczNDg0MzEyMGI5MDViYWNj
-M2QyNGM4OGQ3NDU1YWU3MGJmNmUxIE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQ0KRnJvbTogRGF2
-aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAyNSBBcHIgMjAx
-MSAxMzowMzowMiAtMDcwMA0KU3ViamVjdDogW1BBVENIXSBibHVldG9vdGg6IEZpeCB1c2UtYmVm
-b3JlLWluaXRpYWlsaXplZCB2YXIuDQpNSU1FLVZlcnNpb246IDEuMA0KQ29udGVudC1UeXBlOiB0
-ZXh0L3BsYWluOyBjaGFyc2V0PVVURi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiA4Yml0
-DQoNCm5ldC9ibHVldG9vdGgvbDJjYXBfY29yZS5jOiBJbiBmdW5jdGlvbiChbDJjYXBfcmVjdl9m
-cmFtZaI6DQpuZXQvYmx1ZXRvb3RoL2wyY2FwX2NvcmUuYzozNjEyOjE1OiB3YXJuaW5nOiChc2ui
-IG1heSBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbg0KbmV0L2JsdWV0b290
-aC9sMmNhcF9jb3JlLmM6MzYxMjoxNTogbm90ZTogoXNroiB3YXMgZGVjbGFyZWQgaGVyZQ0KDQpB
-Y3R1YWxseSB0aGUgcHJvYmxlbSBpcyBpbiB0aGUgaW5saW5lIGZ1bmN0aW9uIGwyY2FwX2RhdGFf
-Y2hhbm5lbCgpLCB3ZQ0KYnJhbmNoIHRvIHRoZSBsYWJlbCAnZG9uZScgd2hpY2ggdGVzdHMgJ3Nr
-JyBiZWZvcmUgd2Ugc2V0IGl0IHRvIGFueXRoaW5nLg0KDQpJbml0aWFsaXplIGl0IHRvIE5VTEwg
-dG8gZml4IHRoaXMuDQoNClNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2
-ZW1sb2Z0Lm5ldD4NCi0tLQ0KIG5ldC9ibHVldG9vdGgvbDJjYXBfY29yZS5jIHwgICAgMiArLQ0K
-IDEgZmlsZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0KDQpkaWZm
-IC0tZ2l0IGEvbmV0L2JsdWV0b290aC9sMmNhcF9jb3JlLmMgYi9uZXQvYmx1ZXRvb3RoL2wyY2Fw
-X2NvcmUuYw0KaW5kZXggZDQ3ZGUyYi4uOGNmYTJhNiAxMDA2NDQNCi0tLSBhL25ldC9ibHVldG9v
-dGgvbDJjYXBfY29yZS5jDQorKysgYi9uZXQvYmx1ZXRvb3RoL2wyY2FwX2NvcmUuYw0KQEAgLTM2
-MDksNyArMzYwOSw3IEBAIGRyb3A6DQogc3RhdGljIGlubGluZSBpbnQgbDJjYXBfZGF0YV9jaGFu
-bmVsKHN0cnVjdCBsMmNhcF9jb25uICpjb25uLCB1MTYgY2lkLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-KQ0KIHsNCiAJc3RydWN0IGwyY2FwX2NoYW4gKmNoYW47DQotCXN0cnVjdCBzb2NrICpzazsNCisJ
-c3RydWN0IHNvY2sgKnNrID0gTlVMTDsNCiAJc3RydWN0IGwyY2FwX3BpbmZvICpwaTsNCiAJdTE2
-IGNvbnRyb2w7DQogCXU4IHR4X3NlcTsNCi0tIA0KMS43LjQuNQ0KDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 04/25/2011 03:04 PM, David Miller wrote:
+> From: David Miller<davem@davemloft.net>
+> Date: Mon, 25 Apr 2011 12:58:35 -0700 (PDT)
+>
+>> From: "John W. Linville"<linville@tuxdriver.com>
+>> Date: Mon, 25 Apr 2011 15:30:17 -0400
+>>
+>>> Here is another big batch of updates intended for 2.6.40...
+>>>
+>>> There is the usual huge batch of changes for ath9k, and iwlagn, a bunch
+>>> for ath9k_htc, rt2x00, and ath5k, a few more for mwifiex, and a handful
+>>> of others.  Also included is a big batch of Bluetooth updates as well.
+>>>
+>>> Please let me know if there are problems!
+>>
+>> Pulled, thanks a lot John.
+>
+> I guess watching the build logs for new warnings is too old fashioned
+> for people, and besides Dave will do it for everyone anyways right?
+>
+> And this one is a real bug too. :-/
+>
+> I'll push this out to net-next-2.6 on top of the wireless-next pull,
+> but please be more mindful in the future.
+
+Unfortunately, the 64-bit variant of gcc v4.5.1 will miss some of these. I find 
+I need to compile code on a 32-bit system and using an older compiler to catch 
+all. Perhaps that explains the error that crept through here.
+
+Larry
+
