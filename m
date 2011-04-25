@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH v4 12/27] HFI: Sanity check send and receive fifo parameters
-Date: Mon, 25 Apr 2011 17:23:52 -0400
-Message-ID: <1303766647-30156-13-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH v4 07/27] HFI: Add nMMU start/stop hypervisor calls
+Date: Mon, 25 Apr 2011 17:23:47 -0400
+Message-ID: <1303766647-30156-8-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -14,24 +14,28 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:32773 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754902Ab1DYVYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:24:23 -0400
+Received: from e32.co.us.ibm.com ([32.97.110.150]:36604 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754744Ab1DYVYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:24:21 -0400
 Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e31.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3PL8TdQ019380
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:08:29 -0600
+	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3PLDCOr003351
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:13:12 -0600
 Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3PLONCC239962
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:23 -0600
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3PLOJ8u331600
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:19 -0600
 Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3PLOMmr032473
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:22 -0600
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3PLOIvW032334
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:19 -0600
 In-Reply-To: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+
+H_NMMU_START resets/inits state for the nMMU in the hypervisor.
+H_NMMU_STOP cleans up hypervisor nMMU state, called on DD unload after HFIs are
+stopped.
 
 Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
 Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
@@ -43,417 +47,215 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/core/Makefile       |    1 +
- drivers/net/hfi/core/hfidd_proto.h  |    3 +
- drivers/net/hfi/core/hfidd_window.c |  177 +++++++++++++++++++++++++++++++++++
- drivers/net/hfi/core/hfidd_xlat.c   |  131 ++++++++++++++++++++++++++
- include/linux/hfi/hfidd_adpt.h      |   17 ++++
- 5 files changed, 329 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/hfi/core/hfidd_xlat.c
+ drivers/net/hfi/core/hfidd_adpt.c   |   36 +++++++++++++++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_hcalls.c |   33 ++++++++++++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_init.c   |   29 +++++++++++++++++++++++++--
+ drivers/net/hfi/core/hfidd_proto.h  |    3 ++
+ include/linux/hfi/hfidd_hcalls.h    |    2 +
+ 5 files changed, 100 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/hfi/core/Makefile b/drivers/net/hfi/core/Makefile
-index 0224a57..8d5558d 100644
---- a/drivers/net/hfi/core/Makefile
-+++ b/drivers/net/hfi/core/Makefile
-@@ -4,5 +4,6 @@
- hfi_core-objs:=	hfidd_adpt.o \
- 		hfidd_window.o \
- 		hfidd_init.o \
-+		hfidd_xlat.o \
- 		hfidd_hcalls.o
- obj-$(CONFIG_HFI) += hfi_core.o
-diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
-index e7f2901..66ea5da 100644
---- a/drivers/net/hfi/core/hfidd_proto.h
-+++ b/drivers/net/hfi/core/hfidd_proto.h
-@@ -39,6 +39,9 @@ int hfidd_alloc_windows(struct hfidd_acs *p_acs);
- void hfidd_free_windows(struct hfidd_acs *p_acs);
- int hfidd_init_adapter(struct hfidd_acs *p_acs, void *uiop);
- int hfidd_age_hcall(u64 time_start);
-+int hfidd_get_page_size(struct hfidd_acs *p_acs, void *addr,
-+		unsigned int is_userspace, unsigned int length,
-+		unsigned long long *page_size);
- int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 		struct hfi_client_info *user_p,
- 		struct hfi_client_info *out_p);
-diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
-index cc775e3..5a4f395 100644
---- a/drivers/net/hfi/core/hfidd_window.c
-+++ b/drivers/net/hfi/core/hfidd_window.c
-@@ -35,6 +35,153 @@
- #include "hfidd_proto.h"
- #include <linux/hfi/hfidd_requests.h>
- 
-+#define FINISH_VECTOR_LENGTH 1
-+/* Validate send fifo parameters needed for open window */
-+static int hfi_check_sfifo_parm(struct hfidd_acs *p_acs,
-+		unsigned int is_userspace,
-+		struct hfidd_window *win_p,
-+		struct hfi_client_info *client_p)
-+{
-+	int			rc = 0;
-+	unsigned long long	page_sz;
-+	unsigned long long	fv_page_sz;
-+
-+	/* Validate the sfifo size */
-+	if ((client_p->sfifo.size < HFI_SFIFO_SIZE_MIN) ||
-+	    (client_p->sfifo.size > HFI_SFIFO_SIZE_MAX)) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: invalid sfifo "
-+			"size = 0x%llx\n",
-+			client_p->sfifo.size);
-+		return -EINVAL;
-+	}
-+
-+	/*
-+	 * Validate the address of sfifo is 4k aligned, and finish vector
-+	 * is cache-line aligned
-+	 */
-+	if ((client_p->sfifo.eaddr.use.allu) & PAGE_MASK_4K) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: not page aligned, "
-+			"sfifo_addr = 0x%llx\n",
-+			client_p->sfifo.eaddr.use.allu);
-+		return -EINVAL;
-+	}
-+
-+	if ((client_p->sfifo_finish_vec.use.allu) & HFI_CACHE_LINE_MASK) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: not cache aligned, "
-+			"sfifo_finishvec = 0x%llx\n",
-+			client_p->sfifo_finish_vec.use.allu);
-+		return -EINVAL;
-+	}
-+	/*
-+	 * Validate the send finish vector are within 4K bytes of end of sfifo
-+	 */
-+	if (((client_p->sfifo_finish_vec.use.kptr -
-+	     (client_p->sfifo.eaddr.use.kptr +
-+	      client_p->sfifo.size)) >= PAGE_SIZE_4K)) {
-+
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: fv too far away, "
-+			"sfifo_addr = 0x%llx\n",
-+			client_p->sfifo.eaddr.use.allu);
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: fv too far away, "
-+			"sfifo_finishvec = 0x%llx\n",
-+			client_p->sfifo_finish_vec.use.allu);
-+		return -EINVAL;
-+	}
-+
-+	/* Validate page size of sFifo */
-+	rc = hfidd_get_page_size(p_acs, client_p->sfifo.eaddr.use.kptr,
-+			is_userspace, client_p->sfifo.size, &page_sz);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: fail in sfifo page size, "
-+			"rc=0x%x\n", rc);
-+		return rc;
-+	}
-+
-+	/* Find out the page size of send finish vector */
-+	rc = hfidd_get_page_size(p_acs, client_p->sfifo_finish_vec.use.kptr,
-+			is_userspace, FINISH_VECTOR_LENGTH, &fv_page_sz);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: fail in fv page size, "
-+			"rc=0x%x\n", rc);
-+		return rc;
-+	}
-+
-+	/* The page size of finish vector must be the same as sfifo */
-+	if (page_sz != fv_page_sz) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_sfifo_parm: diff page sz sf=0x%llx, "
-+			"fv0=0x%llx\n", page_sz, fv_page_sz);
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static int hfi_check_rfifo_parm(struct hfidd_acs *p_acs,
-+		unsigned int is_userspace,
-+		struct hfidd_window *win_p,
-+		struct hfi_client_info *client_p)
-+{
-+	int			rc = 0;
-+	unsigned long long	page_sz;
-+
-+	/* Validate the rfifo size */
-+	if ((client_p->rfifo.size < HFI_RFIFO_SIZE_MIN) ||
-+	    (client_p->rfifo.size > HFI_RFIFO_SIZE_MAX)) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_rfifo_parm: invalid rfifo size = 0x%llx\n",
-+			client_p->rfifo.size);
-+		return -EINVAL;
-+	}
-+
-+	/* Validate the address of rfifo is 4K aligned */
-+	if ((client_p->rfifo.eaddr.use.allu) & PAGE_MASK_4K) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_rfifo_parm: not cache aligned, "
-+			"rfifo_addr = 0x%llx\n",
-+			client_p->rfifo.eaddr.use.allu);
-+		return -EINVAL;
-+	}
-+
-+	/* Validate page size of rFifo */
-+	rc = hfidd_get_page_size(p_acs, client_p->rfifo.eaddr.use.kptr,
-+			is_userspace, client_p->rfifo.size, &page_sz);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_check_rfifo_parm: fail in rfifo page size, "
-+			"rc=0x%x\n", rc);
-+		return rc;
-+	}
-+	return 0;
-+}
-+
-+/* Validate window parameters to setup the fifos and RDMA function */
-+static int hfi_validate_window_request(struct hfidd_acs *p_acs,
-+	unsigned int is_userspace, struct hfi_client_info *client_p)
-+{
-+	int			rc = 0;
-+	struct hfidd_window	*win_p;
-+
-+	/* Check every input parameters..... */
-+	win_p = hfi_window(p_acs, client_p->window);
-+
-+	/* Check the request of sFifo */
-+	rc = hfi_check_sfifo_parm(p_acs, is_userspace, win_p, client_p);
-+	if (rc)
-+		return rc;
-+	/* Check the request of rFifo */
-+	rc = hfi_check_rfifo_parm(p_acs, is_userspace, win_p, client_p);
-+	if (rc)
-+		return rc;
-+	return rc;
-+}
-+
- /* Validate the type, state and job id for RESERVED window */
- static int hfi_validate_reserve_window_id(struct hfidd_acs *p_acs,
- 		struct hfi_client_info *client_p)
-@@ -164,12 +311,29 @@ static inline int hfi_validate_window_id(struct hfidd_acs *p_acs,
+diff --git a/drivers/net/hfi/core/hfidd_adpt.c b/drivers/net/hfi/core/hfidd_adpt.c
+index fd4a0cb..487ef0e 100644
+--- a/drivers/net/hfi/core/hfidd_adpt.c
++++ b/drivers/net/hfi/core/hfidd_adpt.c
+@@ -162,6 +162,42 @@ query1:
  	return rc;
  }
  
-+static inline void hfi_restore_window_parm(struct hfidd_acs *p_acs,
-+		struct hfidd_window *win_p)
++int hfidd_start_nmmu(struct hfidd_acs *p_acs)
 +{
-+	if (win_p->type != HFIDD_RESERVE_WIN) {
-+		win_p->type   = HFIDD_DYNAMIC_WIN;
-+		win_p->job_id = 0;
-+		if (win_p->state != WIN_HERROR)
-+			win_p->state = WIN_AVAILABLE;
-+	} else {
-+		if (win_p->state != WIN_HERROR)
-+			win_p->state = WIN_RESERVED;
-+	}
-+	win_p->pid   = 0;
-+	win_p->is_ip = 0;
-+}
++	long long		hvrc;
++	int			rc = 0;
++	struct nmmu_info	*nmmu_info;
++	caddr_t			laddr = NULL;
++	u64	start_time = get_jiffies_64();
 +
- /* Validate window number and type for open window request */
- static int hfi_validate_window_parm(struct hfidd_acs *p_acs,
- 		unsigned int is_userspace,
- 		struct hfi_client_info *client_p)
- {
- 	int			rc = 0;
-+	struct hfidd_window	*win_p;
- 
- 	/* Validate the window number */
- 	rc = hfi_validate_window_id(p_acs, client_p, is_userspace);
-@@ -179,6 +343,19 @@ static int hfi_validate_window_parm(struct hfidd_acs *p_acs,
- 			"failed, rc = 0x%x\n", rc);
- 		return rc;
- 	}
-+
-+	rc = hfi_validate_window_request(p_acs, is_userspace, client_p);
++	rc = hfidd_get_phyp_page(p_acs, (caddr_t *)&nmmu_info, &laddr,
++			PAGE_SIZE_4K);
 +	if (rc) {
 +		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfi_validate_window_parm: "
-+			"hfi_validate_window_request failed, rc = 0x%x\n", rc);
-+		win_p = hfi_window(p_acs, client_p->window);
-+		spin_lock(&(win_p->win_lock));
-+		hfi_restore_window_parm(p_acs, win_p);
-+		spin_unlock(&(win_p->win_lock));
-+		return rc;
-+	}
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/hfi/core/hfidd_xlat.c b/drivers/net/hfi/core/hfidd_xlat.c
-new file mode 100644
-index 0000000..23236cc
---- /dev/null
-+++ b/drivers/net/hfi/core/hfidd_xlat.c
-@@ -0,0 +1,131 @@
-+/*
-+ * hfidd_xlat.c
-+ *
-+ * HFI device driver for IBM System p
-+ *
-+ *  Authors:
-+ *      Fu-Chung Chang <fcchang@linux.vnet.ibm.com>
-+ *      William S. Cadden <wscadden@linux.vnet.ibm.com>
-+ *      Wen C. Chen <winstonc@linux.vnet.ibm.com>
-+ *      Scot Sakolish <sakolish@linux.vnet.ibm.com>
-+ *      Jian Xiao <jian@linux.vnet.ibm.com>
-+ *      Carol L. Soto <clsoto@linux.vnet.ibm.com>
-+ *      Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
-+ *
-+ *  (C) Copyright IBM Corp. 2010
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/pagemap.h>
-+#include <linux/hugetlb.h>
-+#include <asm/page.h>
-+
-+#include <linux/hfi/hfidd_internal.h>
-+#include "hfidd_proto.h"
-+
-+int hfidd_get_page_size(struct hfidd_acs *p_acs, void *addr,
-+	unsigned int is_userspace,
-+	unsigned int length,
-+	unsigned long long *page_size)
-+{
-+	int			rc = 0;
-+	int			i;
-+	int			num_pages;
-+	struct page		**page_list;
-+	struct vm_area_struct	**vma_list;
-+	unsigned long long	offset;
-+
-+	if (!is_userspace) {
-+		*page_size = PAGE_SIZE;
-+		return 0;
-+	}
-+
-+	offset = (unsigned long long)addr & ~PAGE_MASK;
-+	num_pages = PAGE_ALIGN(length + offset) >> PAGE_SHIFT;
-+
-+	page_list = kzalloc(num_pages * sizeof(struct page *),
-+			GFP_KERNEL);
-+	if (page_list == NULL) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_get_page_size: kzalloc failed for page_list\n");
++			"hfidd_start_nmmu: hfidd_get_phyp_page failed\n");
 +		return -ENOMEM;
 +	}
 +
-+	vma_list = kzalloc(num_pages * sizeof(struct vm_area_struct **),
-+			GFP_KERNEL);
-+	if (vma_list == NULL) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_get_page_size: kzalloc failed for vma_list\n");
-+		rc = -ENOMEM;
-+		goto out1;
-+	}
-+
-+	down_read(&current->mm->mmap_sem);
-+	rc = get_user_pages(current, current->mm,
-+			(unsigned long long)addr,
-+			num_pages, 1, 0,	/* yes write, no force */
-+			page_list, vma_list);
-+	up_read(&current->mm->mmap_sem);
-+
-+	if (rc < num_pages) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_get_page_size: get_user_pages failed rc = %d "
-+			"and numpages %d\n", rc, num_pages);
-+		if (rc < 0)
-+			goto out2;
-+		num_pages = rc;
-+		rc = -ENOMEM;
-+		goto out3;
-+	}
-+
-+	rc = 0;
-+	*page_size = PAGE_SIZE;
-+	for (i = 0; i < num_pages; i++) {
-+		/* check for huge pages */
-+		if (is_vm_hugetlb_page(vma_list[i])) {
-+			/* Find huge page size */
-+			*page_size = huge_page_size(hstate_vma(vma_list[i]));
++	while (1) {
++		hvrc = hfi_start_nmmu(p_acs->dds.torr_id,
++				(struct nmmu_info *) laddr);
++		if (hvrc != H_BUSY)
 +			break;
-+		}
++		if (hfidd_age_hcall(start_time))
++			break;
 +	}
 +
-+	/* If memory has huge page size, check if all pages are huge pages */
-+	if (*page_size != PAGE_SIZE) {
-+		for (i = 0; i < num_pages; i++) {
-+			/* if not huge page, set to PAGE_SIZE */
-+			if (!is_vm_hugetlb_page(vma_list[i])) {
-+				*page_size = PAGE_SIZE;
-+				break;
-+			}
-+		}
-+	}
-+	if (*page_size == PAGE_SIZE_16G) {
++	if (hvrc != H_SUCCESS) {
 +		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_get_page_size: Large page size "
-+			"0x%llx use 4G\n", *page_size);
-+		*page_size = PAGE_SIZE_4G;
++			"hfidd_start_nmmu: HFI_START_NMMU failed "
++			"hvrc 0x%llx\n", hvrc);
++		rc = -EPERM;
 +	}
 +
-+out3:
-+	for (i = 0; i < num_pages; i++)
-+		page_cache_release(page_list[i]);
-+out2:
-+	kfree(vma_list);
-+out1:
-+	kfree(page_list);
++	hfidd_release_phyp_page((caddr_t)nmmu_info, PAGE_SIZE_4K);
 +	return rc;
 +}
-diff --git a/include/linux/hfi/hfidd_adpt.h b/include/linux/hfi/hfidd_adpt.h
-index babdb14..a41825f 100644
---- a/include/linux/hfi/hfidd_adpt.h
-+++ b/include/linux/hfi/hfidd_adpt.h
-@@ -36,6 +36,16 @@
- #include <linux/hfi/hfidd_client.h>
++
+ int hfidd_start_interface(struct hfidd_acs *p_acs)
+ {
+ 	long long hvrc = 0;
+diff --git a/drivers/net/hfi/core/hfidd_hcalls.c b/drivers/net/hfi/core/hfidd_hcalls.c
+index 84467b3..2ca1c8a 100644
+--- a/drivers/net/hfi/core/hfidd_hcalls.c
++++ b/drivers/net/hfi/core/hfidd_hcalls.c
+@@ -33,6 +33,18 @@
+ #include <linux/hfi/hfidd_internal.h>
+ #include "hfidd_proto.h"
  
++static inline long long h_nmmu_start(int token,
++		u64 torrent_chip_ID,
++		void *output_page_ptr)
++{
++	return plpar_hcall_norets(token, torrent_chip_ID, output_page_ptr);
++}
++
++static inline long long h_nmmu_stop(int token, u64 torrent_chip_ID)
++{
++	return plpar_hcall_norets(token, torrent_chip_ID);
++}
++
+ static inline long long h_hfi_start_interface(int token,
+ 		u64 HFI_chip_ID)
+ {
+@@ -61,6 +73,27 @@ static inline long long h_hfi_query_interface(int token,
+ 	return rc;
+ }
  
-+#define HFI_SFIFO_SIZE_MIN	0x10000		/* min =  64K software limit */
-+#define HFI_SFIFO_SIZE_MAX	0x800000	/* max =  8M */
++long long hfi_start_nmmu(u64 chip_id, void *nmmu_info)
++{
++	return h_nmmu_start(H_NMMU_START, chip_id, nmmu_info);
++}
 +
-+#define HFI_RFIFO_SIZE_MIN	0x1000		/* min =  4K */
-+#define HFI_RFIFO_SIZE_MAX	0x8000000	/* max =  128M */
++long long hfi_stop_nmmu(u64 chip_id)
++{
++	long long hvrc;
++	u64 start_time = get_jiffies_64();
 +
-+#define HFI_CACHE_LINE_SIZE	0x80
-+#define HFI_CACHE_LINE_MASK	(HFI_CACHE_LINE_SIZE - 1)
-+#define HFI_CACHE_LINE_SHIFT	7
++	while (1) {
++		hvrc = h_nmmu_stop(H_NMMU_STOP,
++				chip_id);
++		if (hvrc != H_BUSY)
++			break;
++		if (hfidd_age_hcall(start_time))
++			break;
++	}
++	return hvrc;
++}
 +
- #define HFI_WNUM_SHIFT		32
- #define HFI_CAUNUM_SHIFT	32
- #define HFI_SHIFT_OCTANT	3
-@@ -57,4 +67,11 @@
- #define WIN_PENDING		6
- #define WIN_FAIL_CLOSE		7
+ long long hfi_hquery_interface(u64 unit_id, u64 subtype,
+ 			       u64 query_p, u64 *state)
+ {
+diff --git a/drivers/net/hfi/core/hfidd_init.c b/drivers/net/hfi/core/hfidd_init.c
+index bbfc477..3dcaa8f 100644
+--- a/drivers/net/hfi/core/hfidd_init.c
++++ b/drivers/net/hfi/core/hfidd_init.c
+@@ -320,30 +320,43 @@ hfidd_create_devices_error0:
  
-+#define PAGE_MASK_4K		(PAGE_SIZE_4K - 1)
-+#define PAGE_MASK_64K		(PAGE_SIZE_64K - 1)
-+#define PAGE_MASK_1M		(PAGE_SIZE_1M - 1)
-+#define PAGE_MASK_16M		(PAGE_SIZE_16M - 1)
-+#define PAGE_MASK_4G		(PAGE_SIZE_4G - 1)
-+#define PAGE_MASK_16G		(PAGE_SIZE_16G - 1)
+ /*
+  * Disable message passing to each adapter by calling the
+- * Stop Interface hcall.
++ * Stop Interface hcall and free phyp NMMU tables for this
++ * lpar by calling STOP NMMU
+  */
+ static void hfidd_stop_adapter(void)
+ {
+ 	int i;
++	long long hvrc;
+ 
+ 	for (i = 0; i < MAX_HFIS; i++) {
+ 		hfidd_stop_interface(hfidd_global.p_acs[i],
+ 			hfidd_global.p_acs[i]->dds.hfi_id);
+ 	}
++	hvrc = hfi_stop_nmmu(hfidd_global.p_acs[0]->dds.torr_id);
++	if (hvrc != H_SUCCESS)
++		dev_printk(KERN_ERR, hfidd_global.p_acs[0]->hfidd_dev,
++			"%s: hfidd_stop_adapter: HFI_STOP_NMMU failed"
++			" hvrc = 0x%llx\n", HFIDD_DEV_NAME, hvrc);
+ }
+ 
+ /*
+  * Query the interface to check the logical state of HFI.
+- * Enable message passing to each adapter by calling Start
+- * Interface hcall.
++ * Initialize the phyp NMMU tables for this lpar by calling
++ * the START NMMU hcall and enable message passing to each
++ * adapter by calling Start Interface hcall.
+  */
+ static int hfidd_start_adapter(void)
+ {
++	long long hvrc;
+ 	unsigned long long	hfi_state;
+ 	int i, j;
+ 	int rc = 0;
+ 
+ 	for (i = 0; i < MAX_HFIS; i++) {
++		/* query interface before doing START_NMMU.
++		 * If we crashed the LPAR a few minutes ago, we never did the
++		 * stop interface and the stop nmmu.  Do it now.
++		 */
+ 		rc = hfidd_query_interface(hfidd_global.p_acs[i], COMP_QUERY,
+ 			hfidd_global.p_acs[i]->dds.hfi_id, &hfi_state);
+ 		if (hfi_state != NOT_STARTED) {
+@@ -374,6 +387,15 @@ static int hfidd_start_adapter(void)
+ 
+ 	}
+ 
++	hfi_stop_nmmu(hfidd_global.p_acs[0]->dds.torr_id);
++	hvrc = hfidd_start_nmmu(hfidd_global.p_acs[0]);
++	if (hvrc != H_SUCCESS) {
++		dev_printk(KERN_ERR, hfidd_global.p_acs[0]->hfidd_dev,
++			"%s: hfidd_start_adapter: HFI_START_NMMU failed"
++			" hvrc = 0x%llx\n", HFIDD_DEV_NAME, hvrc);
++		return -EIO;
++	}
 +
- #endif /* _HFIDD_ADPT_H_ */
+ 	for (i = 0; i < MAX_HFIS; i++) {
+ 		rc = hfidd_start_interface(hfidd_global.p_acs[i]);
+ 		if (rc) {
+@@ -402,6 +424,7 @@ hfidd_start_adapter_err:
+ 		hfidd_stop_interface(hfidd_global.p_acs[j],
+ 			hfidd_global.p_acs[j]->dds.hfi_id);
+ 	}
++	hfi_stop_nmmu(hfidd_global.p_acs[0]->dds.torr_id);
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
+index 6ec9245..320f41f 100644
+--- a/drivers/net/hfi/core/hfidd_proto.h
++++ b/drivers/net/hfi/core/hfidd_proto.h
+@@ -42,8 +42,11 @@ int hfidd_get_phyp_page(struct hfidd_acs *p_acs, caddr_t *page,
+ void hfidd_release_phyp_page(caddr_t page, int size);
+ int hfidd_query_interface(struct hfidd_acs *p_acs, unsigned int subtype,
+ 	unsigned int hfi_id, unsigned long long *state);
++int hfidd_start_nmmu(struct hfidd_acs *p_acs);
+ int hfidd_start_interface(struct hfidd_acs *p_acs);
+ int hfidd_stop_interface(struct hfidd_acs *p_acs, unsigned int hfi_id);
++long long hfi_start_nmmu(u64 chip_id, void *nmmu_info);
++long long hfi_stop_nmmu(u64 chip_id);
+ long long hfi_hquery_interface(u64 unit_id, u64 subtype, u64 query_p,
+ 		u64 *state);
+ long long hfi_start_interface(u64 unit_id);
+diff --git a/include/linux/hfi/hfidd_hcalls.h b/include/linux/hfi/hfidd_hcalls.h
+index 5349e9e..2a374e6 100644
+--- a/include/linux/hfi/hfidd_hcalls.h
++++ b/include/linux/hfi/hfidd_hcalls.h
+@@ -39,6 +39,8 @@
+ #define H_HFI_START_INTERFACE		0xF000
+ #define H_HFI_QUERY_INTERFACE		0xF004
+ #define H_HFI_STOP_INTERFACE		0xF008
++#define H_NMMU_START			0xF028
++#define H_NMMU_STOP			0xF02C
+ 
+ #define EEH_QUERY	1
+ #define COMP_QUERY	2
 -- 
 1.7.3.5
 
