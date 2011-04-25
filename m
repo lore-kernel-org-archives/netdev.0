@@ -1,58 +1,94 @@
-From: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: LPC2011 Scaling Micro Conf
-Date: Sun, 24 Apr 2011 17:45:04 -0700
-Message-ID: <20110425004504.GA14037@linux.vnet.ibm.com>
-Reply-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH net-next-2.6 v4 4/5] sctp: Add ASCONF operation on the
+ single-homed host
+Date: Mon, 25 Apr 2011 08:57:31 +0800
+Message-ID: <4DB4C6FB.1020803@cn.fujitsu.com>
+References: <3BDA3586-6A7C-4305-9D41-F146575AC951@sfc.wide.ad.jp> <4DB0FD45.2050709@cn.fujitsu.com> <4DB0FFB1.3010006@cn.fujitsu.com> <C4F46092-BF76-482D-8FD5-08F1D6A13866@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rp-hdFA07tZRcq1sMc9nBuxBA@public.gmane.org,
-	linaro-dev-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	ltt-dev-33AaDErTWvBVxDZ2/Zk0YoryAYyacSEB@public.gmane.org
-Return-path: <linaro-dev-bounces-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.linaro.org/mailman/options/linaro-dev>,
-	<mailto:linaro-dev-request-cunTk1MwBs8s++Sfvej+rw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/linaro-dev>
-List-Post: <mailto:linaro-dev-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>
-List-Help: <mailto:linaro-dev-request-cunTk1MwBs8s++Sfvej+rw@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.linaro.org/mailman/listinfo/linaro-dev>,
-	<mailto:linaro-dev-request-cunTk1MwBs8s++Sfvej+rw@public.gmane.org?subject=subscribe>
-Sender: linaro-dev-bounces-cunTk1MwBs8s++Sfvej+rw@public.gmane.org
-Errors-To: linaro-dev-bounces-cunTk1MwBs8s++Sfvej+rw@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+To: Michio Honda <micchie@sfc.wide.ad.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60658 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755605Ab1DYA5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Apr 2011 20:57:42 -0400
+In-Reply-To: <C4F46092-BF76-482D-8FD5-08F1D6A13866@sfc.wide.ad.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
 
-Given the increasing numbers of CPUs on low-cost servers as well as
-the appearance of SMP hand-held battery-powered devices, Linux Plumbers
-2011 will feature a Scaling track, with topics including the following:
+> On Apr 22, 2011, at 13:10 , Wei Yongjun wrote:
+>
+>>> Since the sender MUST NOT use the  new IP address as a source for ANY SCTP
+>>> packet except on  carrying an ASCONF Chunk. And ASCONF chunk can be bundled.
+>>> How about this change. If so, you do not need change to sctp_outq_tail();
+>>>
+>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+>>> index 1c88c89..bd6cc9c 100644
+>>> --- a/net/sctp/outqueue.c
+>>> +++ b/net/sctp/outqueue.c
+>>> @@ -754,6 +754,13 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+>>> 	 */
+>>>
+>>> 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
+>>> +		/* RFC 5061, 5.3
+>>> +		 * F1) This ...
+>>> +		 */
+>>> +		if (q->asoc->src_out_of_asoc_ok &&
+>>> +		    chunk->chunk_hdr->type != SCTP_CID_ASCONF)
+>> SCTP_CID_ASCONF_ACK should be also allowed, the peer may
+>> send ASCONF to do the same thing at the same time.
+> Sorry for my bad understanding, 
+> Do you mean the situation: "the peer (ASCONF receiver) may send ASCONF-ACK to the unconfirmed destination"?
+> Or do you mean following situation?
+> 1. the pear sends ADD/DEL ASCONF to me, 
+> 2. I receive it, 
+> 3. I migrate to the other network and get new address, 
+> 4. I send ASCONF-ACK to the peer from the new address
 
-- What can the kernel do to help applications perform and scale better?
-- What can applications do to help the kernel perform and scale better?
-- Memory footprint:
-  + 100MB here, 100MB there, pretty soon you are talking real memory!
-  + Improving performance by decreasing icache and dcache footprint.
-- Limits to scalability:
-  + Technological limitations, especially hardware.
-  + Complexity/maintainability limitations.
-- Handling of non-CPU computational hardware (GPGPUs, crypto HW, etc.)
-  + Can the kernel make good use of non-CPU computational hardware?
-  + How best to enable user applications to use them?
-- Dealing with the numerous remaining "little kernel locks"
+Yes, If both side send ADD/DEL ASCONF to del the last one
+address at the same time like this:
 
-The intended audience is developers interested in performance and
-scalability throughout the Linux plumbing.
+ASCONF  -----    ------ASCONF
+(ADD/DEL)    \  /     (ADD/DEL)
+              \/        
+              /\
+        <----/  \----->
+ASCONF-ACK---\  /------ASCONF-ACK
+              \/
+              /\
+        <----/  \----->
 
-The deadline is April 30th.  Please submit your proposals, whether to
-Scaling or to other microconferences, at:
+But I do not test for it. Not sure we need to do this, can you
+check this before commit your new patchset?
 
-	http://www.linuxplumbersconf.org/2011/ocw/events/LPC2011MC/proposals
 
-The general track is also open for submissions until April 30th:
-
-	http://www.linuxplumbersconf.org/2011/ocw/events/LPC2011/proposals
-
-Either way, we look forward to seeing your submissions!
-
-							Thanx, Paul
+>>> +			continue;
+>>> +
+>>> 		list_del_init(&chunk->list);
+>>>
+>>> 		/* Pick the right transport to use. */
+>>> @@ -881,6 +888,9 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+>>> 		}
+>>> 	}
+>>>
+>>> +	if (q->asoc->src_out_of_asoc_ok)
+>>> +		goto sctp_flush_out;
+>>> +
+>>> 	/* Is it OK to send data chunks?  */
+>>> 	switch (asoc->state) {
+>>> 	case SCTP_STATE_COOKIE_ECHOED:
+>>>
+>>>
+>>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
