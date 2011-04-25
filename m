@@ -1,84 +1,122 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
-Date: Mon, 25 Apr 2011 17:38:35 +0200
-Message-ID: <1303745915.2747.151.camel@edumazet-laptop>
-References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com>
-	 <1303730701.2747.110.camel@edumazet-laptop>
-	 <BANLkTi=xns1Gdjyt-SX3yDETSQfO23rXXg@mail.gmail.com>
+From: =?koi8-r?B?4c7Uz84=?= <Taoga@yandex.ru>
+Subject: ar9280+802.11na+ath9k+kismet don't capture data packets
+Date: Mon, 25 Apr 2011 21:54:32 +0400
+Message-ID: <98231303754072@web63.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=koi8-r
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Carsten Wolff <carsten@wolffcarsten.de>, netdev@vger.kernel.org
-To: Dominik Kaspar <dokaspar.ietf@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56136 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154Ab1DYPio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 11:38:44 -0400
-Received: by wya21 with SMTP id 21so1611401wya.19
-        for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 08:38:43 -0700 (PDT)
-In-Reply-To: <BANLkTi=xns1Gdjyt-SX3yDETSQfO23rXXg@mail.gmail.com>
+Received: from forward1.mail.yandex.net ([77.88.46.6]:45094 "EHLO
+	forward1.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756078Ab1DYSBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 14:01:21 -0400
+Received: from web63.yandex.ru (web63.yandex.ru [77.88.46.54])
+	by forward1.mail.yandex.net (Yandex) with ESMTP id 2C33B1240F43
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 21:54:34 +0400 (MSD)
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by web63.yandex.ru (Yandex) with ESMTP id 22953B1803A
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 21:54:34 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 25 avril 2011 =C3=A0 16:35 +0200, Dominik Kaspar a =C3=A9crit =
-:
-> Hi Eric and Carsten,
->=20
-> Thanks a lot for your quick replies. I don't have a tcpdump of this
-> experiment, but here is the tcp_probe log that the plot is based on
-> (I'll run a new test using tcpdump if you think that's more useful):
->=20
-> http://home.simula.no/~kaspar/static/mptcp-emu-wlan-hspa-00.log
->=20
-> I have also noticed what Carsten mentions, the tcp_reordering value i=
-s
-> essential for this whole behavior. When I start an experiment and
-> increase sysctl.net.ipv4.tcp_reordering during the running connection=
-,
-> the TCP throughput immediately jumps close to the aggregate of both
-> paths. Without intervention, as in this experiment, tcp_reordering
-> starts out as 3 and then makes small oscillations between 3 and 12 fo=
-r
-> more than 2 minutes. At about second 141, TCP somehow finds a new
-> highest reordering value (23) and at the same time, the throughput
-> jumps up "to the next level". The value of 23 is then used all the wa=
-y
-> until second 603, when the reordering value becomes 32 and the
-> throughput again jumps up a level.
->=20
-> I understand that tp->reordering is increased when reordering is
-> detected, but what causes tp->reordering to sometimes be decreased
-> back to 3? Also, why does a decrease back to 3 not make the whole
-> procedure start all over again? For example, at second 1013.64,
-> tp->reordering falls from 127 down to 3. A second later (1014.93) it
-> then suddenly increases from 3 up to 32 without considering any
-> numbers in between. Why it is now suddenly so fast? At the very
-> beginning, it took 600 seconds to grow from 3 to 32 and afterward it
-> just takes a second...?
->=20
-> For the experiments, all default TCP options were used, meaning that
-> SACK, DSACK, Timestamps, were all enabled. Not sure how to turn on/of=
-f
-> TSO... so that is probably enabled, too. Path emulation is done with
-> tc/netem at the receiver interfaces (eth1, eth2) with this script:
->=20
+Hello!
 
-Since you have at sender a rule to spoof destination address of packets=
-,
-you should make sure you dont send "super packets (up to 64Kbytes)",
-because it would stress the multipath more than you wanted to. This way=
-,
-you send only normal packets (1500 MTU).
+The platform uses D-link DIR-825 Atheros AR7161, with two AR9280(802.11=
+bgn and 802.11an)
+kismet-2010-07-R1 is installed to OpenWrt Backfire Trunk. Used driver a=
+th9k of compat-wireless-2011-04-19.
+=46or tests I use D-Link Dir-825 AP and D-Link DWA-160. Connection spee=
+d is 300 Mbps at 36 channel.
+Kismet captures PHY and Control packets, and don't capture the data pac=
+kets.
 
-ethtool -K eth0 tso off
-ethtool -K eth0 gso off
+/etc/config/wireless
 
-I am pretty sure it should help your (atypic) workload.
+config wifi-device radio0
+option type mac80211
+option channel 11
+option macaddr 00:18:e7:ec:b0:5f
+option hwmode 11ng
+option hwmode_11n g
+option htmode HT40+
+list ht_capab HT40-
+list ht_capab HT40+
+list ht_capab HT20
 
-> http://home.simula.no/~kaspar/static/netem.sh
->=20
-> Greetings,
-> Dominik
+config wifi-iface
+option device radio0
+option mode monitor
 
+config wifi-device radio1
+option type mac80211
+option channel 36
+option macaddr 00:18:e7:ec:b0:60
+option hwmode 11na
+option hwmode_11n a
+option htmode HT40+
+list ht_capab HT40-
+list ht_capab HT40+
+list ht_capab HT20
 
+config wifi-iface
+option device radio1
+option mode monitor
+
+device wlan0 entered promiscuous mode
+device wlan1 entered promiscuous mode
+
+iwconfig
+
+wlan0 IEEE 802.11bgn Mode:Monitor Tx-Power=3D27 dBm
+RTS thr:off Fragment thr:off
+Power Management:on
+
+wlan1 IEEE 802.11an Mode:Monitor Tx-Power=3D17 dBm
+RTS thr:off Fragment thr:off
+Power Management:on
+
+Transferred to file 600 Mb
+After that ifconfig issued:
+ifconfig
+wlan0 Link encap:UNSPEC HWaddr 00-18-E7-EC-B0-5F-00-47-00-00-00-00-00-0=
+0-0
+UP BROADCAST RUNNING PROMISC MULTICAST MTU:1500 Metric:1
+RX packets:9865 errors:0 dropped:0 overruns:0 frame:0
+TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+collisions:0 txqueuelen:1000
+RX bytes:3043414 (2.9 MiB) TX bytes:0 (0.0 B)
+
+wlan1 Link encap:UNSPEC HWaddr 00-18-E7-EC-B0-60-00-47-00-00-00-00-00-0=
+0-0
+UP BROADCAST RUNNING PROMISC MULTICAST MTU:1500 Metric:1
+RX packets:365275 errors:0 dropped:0 overruns:0 frame:0
+TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+collisions:0 txqueuelen:1000
+RX bytes:20117793 (19.1 MiB) TX bytes:0 (0.0 B)
+
+Sniffing result:
+MAC Src =9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9AMAC Dst =9A=9A=
+=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9AChannel Signal Type Crypt =9A=9A=
+=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9APackets SSID
+00:18:E7:FD:8E:D8 =9A=9A00:19:5B:7E:09:CE =9A6 =9A=9A=9A=9A=9A=9A=9A=9A=
+=9A-42 =9A=9A=9A=9A=9AAP =9A=9A=9AWEP =9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=
+=9A=9A=9A=9A=9A=9A=9A=9A7629 =9A=9A=9A=9A=9Aq183
+00:18:E7:FD:8E:DA =9AF0:7D:68:71:40:DC =9A36 =9A=9A=9A=9A=9A=9A=9A=9A-6=
+0 =9A=9A=9A=9A=9AAP =9A=9A=9ATKIP WPA PSK... 1703 =9A=9A=9A=9A=9Aq183-m=
+edia
+1C:65:9D:21:27:8F =9A=9A=9A00:18:E7:FD:8E:D8 =9A=9A6 =9A=9A=9A=9A=9A=9A=
+=9A=9A-65 =9A=9A=9A=9A=9AAP =9A=9A=9A=9AWEP =9A=9A=9A=9A=9A=9A=9A=9A=9A=
+=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A2607 =9A=9A=9A=9A=9Aq183
+00:00:00:00:00:00 =9A=9A=9A=9A00:18:E7:FD:8E:D8 =9A=9A- =9A=9A=9A=9A=9A=
+=9A=9A=9A=9A-65 =9A=9A=9A=9A=9AAP =9A=9A=9A=9A- =9A=9A=9A=9A=9A=9A=9A=9A=
+=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A370415 =9A=9A-
+00:19:5B:7E:09:CE =9A=9A00:18:E7:FD:8E:D8 =9A=9A- =9A=9A=9A=9A=9A=9A=9A=
+=9A=9A-67 =9A=9A=9A=9A=9AProbe WEP =9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=
+=9A=9A=9A=9A=9A=9A=9A124 =9A=9A=9A=9A=9A=9A=9Aq183
+=460:7D:68:71:40:DC =9A=9A00:18:E7:FD:8E:DA =9A=9A- =9A=9A=9A=9A=9A=9A=9A=
+=9A=9A-39 =9A=9A=9A=9AAP =9A=9A=9A=9A=9ATKIP WPA PSK... 41 =9A=9A=9A=9A=
+=9A=9A=9A=9A=9Aq183-media
+
+Captures the driver ath9k data packets in the mode 802.11na? Can be sai=
+d about this with 100% certainty? Checked it?
