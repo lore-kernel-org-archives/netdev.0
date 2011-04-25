@@ -1,129 +1,61 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Mon, 25 Apr 2011 15:01:57 -0700
-Message-ID: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 1/6] tg3: Fix int generation hw bug for 5719 /
+ 5720
+Date: Mon, 25 Apr 2011 15:42:45 -0700
+Message-ID: <1303771370-32579-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:11143 "EHLO mga11.intel.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2534 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756344Ab1DYWB7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Apr 2011 18:01:59 -0400
+	id S1753255Ab1DYWae (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2011 18:30:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The message size allocated for rtnl info dumps was limited to a single page.
-This is not enough for additional interface info available with devices
-that support SR-IOV.  Check that the amount of data allocated is sufficient
-for the amount of data requested.
+On the 5719 and 5720, there is a bug where the hardware will
+misinterpret a status tag update and leave interrupts permanently
+disabled.  This patch enables a hardware fix that works around the
+issue.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
+ drivers/net/tg3.c |    3 +++
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
- include/linux/rtnetlink.h |    1 +
- net/core/rtnetlink.c      |    6 ++++++
- net/netlink/af_netlink.c  |   37 +++++++++++++++++++++++++++++++------
- 3 files changed, 38 insertions(+), 6 deletions(-)
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 693f36e..a72d031 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -8198,6 +8198,9 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		      ~DMA_RWCTRL_DIS_CACHE_ALIGNMENT;
+ 		if (tp->pci_chip_rev_id == CHIPREV_ID_57765_A0)
+ 			val &= ~DMA_RWCTRL_CRDRDR_RDMA_MRRS_MSK;
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_57765 &&
++		    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5717)
++			val |= DMA_RWCTRL_TAGGED_STAT_WA;
+ 		tw32(TG3PCI_DMA_RW_CTRL, val | tp->dma_rwctrl);
+ 	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5784 &&
+ 		   GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5761) {
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index eaa7669..6f37d2a 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -188,6 +188,7 @@
+ #define   METAL_REV_B2			 0x02
+ #define TG3PCI_DMA_RW_CTRL		0x0000006c
+ #define  DMA_RWCTRL_DIS_CACHE_ALIGNMENT  0x00000001
++#define  DMA_RWCTRL_TAGGED_STAT_WA	 0x00000080
+ #define  DMA_RWCTRL_CRDRDR_RDMA_MRRS_MSK 0x00000380
+ #define  DMA_RWCTRL_READ_BNDRY_MASK	 0x00000700
+ #define  DMA_RWCTRL_READ_BNDRY_DISAB	 0x00000000
+-- 
+1.7.3.4
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index bbad657..d1ff937 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -622,6 +622,7 @@ extern int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics);
- extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
- 			      u32 id, u32 ts, u32 tsage, long expires,
- 			      u32 error);
-+extern size_t rtnl_get_nlmsg_size(const struct net_device *dev);
- 
- extern void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data);
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d7c4bb4..001c947 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -764,6 +764,12 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev)
- 	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
- }
- 
-+size_t rtnl_get_nlmsg_size(const struct net_device *dev)
-+{
-+	return if_nlmsg_size(dev);
-+}
-+EXPORT_SYMBOL(rtnl_get_nlmsg_size);
-+
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct nlattr *vf_ports;
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index c8f35b5..5b1106c 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1664,23 +1664,48 @@ static void netlink_destroy_callback(struct netlink_callback *cb)
- static int netlink_dump(struct sock *sk)
- {
- 	struct netlink_sock *nlk = nlk_sk(sk);
-+	struct net *net = sock_net(sk);
- 	struct netlink_callback *cb;
- 	struct sk_buff *skb;
- 	struct nlmsghdr *nlh;
-+	struct net_device *dev;
-+	struct hlist_head *head;
-+	struct hlist_node *node;
- 	int len, err = -ENOBUFS;
--
--	skb = sock_rmalloc(sk, NLMSG_GOODSIZE, 0, GFP_KERNEL);
--	if (!skb)
--		goto errout;
-+	int h, s_h;
-+	int idx = 0, s_idx;
-+	size_t alloc_size = NLMSG_GOODSIZE;
- 
- 	mutex_lock(nlk->cb_mutex);
- 
- 	cb = nlk->cb;
- 	if (cb == NULL) {
- 		err = -EINVAL;
--		goto errout_skb;
-+		goto errout;
- 	}
- 
-+	s_h = cb->args[0];
-+	s_idx = cb->args[1];
-+
-+	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
-+		idx = 0;
-+		head = &net->dev_index_head[h];
-+		hlist_for_each_entry(dev, node, head, index_hlist) {
-+			if (idx < s_idx) {
-+				idx++;
-+				continue;
-+			}
-+			alloc_size = rtnl_get_nlmsg_size(dev);
-+			if (alloc_size < NLMSG_GOODSIZE)
-+				alloc_size = NLMSG_GOODSIZE;
-+			break;
-+		}
-+	}
-+
-+	skb = sock_rmalloc(sk, alloc_size, 0, GFP_KERNEL);
-+	if (!skb)
-+		goto errout;
-+
- 	len = cb->dump(skb, cb);
- 
- 	if (len > 0) {
-@@ -1717,9 +1742,9 @@ static int netlink_dump(struct sock *sk)
- 	return 0;
- 
- errout_skb:
--	mutex_unlock(nlk->cb_mutex);
- 	kfree_skb(skb);
- errout:
-+	mutex_unlock(nlk->cb_mutex);
- 	return err;
- }
- 
 
