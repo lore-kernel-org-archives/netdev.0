@@ -1,52 +1,58 @@
-From: Greg KH <greg@kroah.com>
-Subject: [PATCH] cdc_ncm: fix short packet issue on some devices
-Date: Sun, 24 Apr 2011 16:59:30 -0700
-Message-ID: <20110424235930.GA11109@kroah.com>
+From: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: LPC2011 Scaling Micro Conf
+Date: Sun, 24 Apr 2011 17:45:04 -0700
+Message-ID: <20110425004504.GA14037@linux.vnet.ibm.com>
+Reply-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Neukum <oliver@neukum.name>,
-	Greg Kroah-Hartman <gregkh@suse.de>, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Hans Petter Selasky <hselasky@c2i.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rp-hdFA07tZRcq1sMc9nBuxBA@public.gmane.org,
+	linaro-dev-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	ltt-dev-33AaDErTWvBVxDZ2/Zk0YoryAYyacSEB@public.gmane.org
+Return-path: <linaro-dev-bounces-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.linaro.org/mailman/options/linaro-dev>,
+	<mailto:linaro-dev-request-cunTk1MwBs8s++Sfvej+rw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/linaro-dev>
+List-Post: <mailto:linaro-dev-cunTk1MwBs8s++Sfvej+rw@public.gmane.org>
+List-Help: <mailto:linaro-dev-request-cunTk1MwBs8s++Sfvej+rw@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.linaro.org/mailman/listinfo/linaro-dev>,
+	<mailto:linaro-dev-request-cunTk1MwBs8s++Sfvej+rw@public.gmane.org?subject=subscribe>
+Sender: linaro-dev-bounces-cunTk1MwBs8s++Sfvej+rw@public.gmane.org
+Errors-To: linaro-dev-bounces-cunTk1MwBs8s++Sfvej+rw@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Hans Petter Selasky <hselasky@c2i.net>
+Hello!
 
-The default maximum transmit length for NCM USB frames should be so
-that a short packet happens at the end if the device supports a length
-greater than the defined maximum. This is achieved by adding 4 bytes
-to the maximum length so that the existing logic can fit a short
-packet there.
+Given the increasing numbers of CPUs on low-cost servers as well as
+the appearance of SMP hand-held battery-powered devices, Linux Plumbers
+2011 will feature a Scaling track, with topics including the following:
 
-Signed-off-by: Hans Petter Selasky <hselasky@c2i.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
----
- drivers/net/usb/cdc_ncm.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+- What can the kernel do to help applications perform and scale better?
+- What can applications do to help the kernel perform and scale better?
+- Memory footprint:
+  + 100MB here, 100MB there, pretty soon you are talking real memory!
+  + Improving performance by decreasing icache and dcache footprint.
+- Limits to scalability:
+  + Technological limitations, especially hardware.
+  + Complexity/maintainability limitations.
+- Handling of non-CPU computational hardware (GPGPUs, crypto HW, etc.)
+  + Can the kernel make good use of non-CPU computational hardware?
+  + How best to enable user applications to use them?
+- Dealing with the numerous remaining "little kernel locks"
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 967371f..1033ef6 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -54,13 +54,13 @@
- #include <linux/usb/usbnet.h>
- #include <linux/usb/cdc.h>
- 
--#define	DRIVER_VERSION				"7-Feb-2011"
-+#define	DRIVER_VERSION				"23-Apr-2011"
- 
- /* CDC NCM subclass 3.2.1 */
- #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
- 
- /* Maximum NTB length */
--#define	CDC_NCM_NTB_MAX_SIZE_TX			16384	/* bytes */
-+#define	CDC_NCM_NTB_MAX_SIZE_TX			(16384 + 4) /* bytes, must be short terminated */
- #define	CDC_NCM_NTB_MAX_SIZE_RX			16384	/* bytes */
- 
- /* Minimum value for MaxDatagramSize, ch. 6.2.9 */
--- 
-1.7.1.1
+The intended audience is developers interested in performance and
+scalability throughout the Linux plumbing.
+
+The deadline is April 30th.  Please submit your proposals, whether to
+Scaling or to other microconferences, at:
+
+	http://www.linuxplumbersconf.org/2011/ocw/events/LPC2011MC/proposals
+
+The general track is also open for submissions until April 30th:
+
+	http://www.linuxplumbersconf.org/2011/ocw/events/LPC2011/proposals
+
+Either way, we look forward to seeing your submissions!
+
+							Thanx, Paul
