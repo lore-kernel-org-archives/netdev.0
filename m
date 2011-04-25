@@ -1,67 +1,129 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 33902] New: tcpi_state field in tcp_info
- structure reports TCP_CLOSE instead of TCP_TIME_WAIT state
-Date: Mon, 25 Apr 2011 14:34:21 -0700
-Message-ID: <20110425143421.3267fcc1.akpm@linux-foundation.org>
-References: <bug-33902-10286@https.bugzilla.kernel.org/>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: [RFC PATCH] netlink: Increase netlink dump skb message size
+Date: Mon, 25 Apr 2011 15:01:57 -0700
+Message-ID: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, Dmitry.Izbitsky@oktetlabs.ru
+Cc: bhutchings@solarflare.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53379 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752466Ab1DYVfT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:35:19 -0400
-In-Reply-To: <bug-33902-10286@https.bugzilla.kernel.org/>
+Received: from mga11.intel.com ([192.55.52.93]:11143 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756344Ab1DYWB7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Apr 2011 18:01:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The message size allocated for rtnl info dumps was limited to a single page.
+This is not enough for additional interface info available with devices
+that support SR-IOV.  Check that the amount of data allocated is sufficient
+for the amount of data requested.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+---
 
-On Mon, 25 Apr 2011 08:08:36 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+ include/linux/rtnetlink.h |    1 +
+ net/core/rtnetlink.c      |    6 ++++++
+ net/netlink/af_netlink.c  |   37 +++++++++++++++++++++++++++++++------
+ 3 files changed, 38 insertions(+), 6 deletions(-)
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=33902
-> 
->            Summary: tcpi_state field in tcp_info structure reports
->                     TCP_CLOSE instead of TCP_TIME_WAIT state
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.38
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: Dmitry.Izbitsky@oktetlabs.ru
->         Regression: No
-> 
-> 
-> Setup - TCP connection in ESTABLISHED state. Local socket calls
-> shutdown(SHUT_RDWR). After that peer calls shutdown(SHUT_RDWR).
-> 
-> Local socket should now be in TIME_WAIT state (from specification point 
-> of view). And it's indeed in TIME_WAIT (TCP_TIME_WAIT) state if we look at 
-> /proc/net/tcp (or netstat -t). However, if one tries to get connection state
-> via tcp_info (getsockopt(TCP_INFO)) the reported state is CLOSED (TCP_CLOSE).
-> 
-> Looks like the problem is in tcp_time_wait() function
-> (net/ipv4/tcp_minisocks.c).
-> It's called with state=TCP_TIME_WAIT, and sets inet_timewaitk_sock
-> *tw->tw_state field to TCP_TIME_WAIT. That's why the state is reported
-> correctly when looking into /proc. However, at the end it calls tcp_done(sk),
-> which itself calls tcp_set_state(TCP_CLOSE), so sk->sk_state is set to
-> TCP_CLOSE instead of TCP_TIME_WAIT. And it's reported this way via TCP_INFO
-> socket option.
-> 
-> Problem is reproduced on 2.6.26, 2.6.38 and is probably observed on earlier
-> kernels.
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index bbad657..d1ff937 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -622,6 +622,7 @@ extern int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics);
+ extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
+ 			      u32 id, u32 ts, u32 tsage, long expires,
+ 			      u32 error);
++extern size_t rtnl_get_nlmsg_size(const struct net_device *dev);
+ 
+ extern void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data);
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d7c4bb4..001c947 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -764,6 +764,12 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
+ }
+ 
++size_t rtnl_get_nlmsg_size(const struct net_device *dev)
++{
++	return if_nlmsg_size(dev);
++}
++EXPORT_SYMBOL(rtnl_get_nlmsg_size);
++
+ static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct nlattr *vf_ports;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index c8f35b5..5b1106c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1664,23 +1664,48 @@ static void netlink_destroy_callback(struct netlink_callback *cb)
+ static int netlink_dump(struct sock *sk)
+ {
+ 	struct netlink_sock *nlk = nlk_sk(sk);
++	struct net *net = sock_net(sk);
+ 	struct netlink_callback *cb;
+ 	struct sk_buff *skb;
+ 	struct nlmsghdr *nlh;
++	struct net_device *dev;
++	struct hlist_head *head;
++	struct hlist_node *node;
+ 	int len, err = -ENOBUFS;
+-
+-	skb = sock_rmalloc(sk, NLMSG_GOODSIZE, 0, GFP_KERNEL);
+-	if (!skb)
+-		goto errout;
++	int h, s_h;
++	int idx = 0, s_idx;
++	size_t alloc_size = NLMSG_GOODSIZE;
+ 
+ 	mutex_lock(nlk->cb_mutex);
+ 
+ 	cb = nlk->cb;
+ 	if (cb == NULL) {
+ 		err = -EINVAL;
+-		goto errout_skb;
++		goto errout;
+ 	}
+ 
++	s_h = cb->args[0];
++	s_idx = cb->args[1];
++
++	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
++		idx = 0;
++		head = &net->dev_index_head[h];
++		hlist_for_each_entry(dev, node, head, index_hlist) {
++			if (idx < s_idx) {
++				idx++;
++				continue;
++			}
++			alloc_size = rtnl_get_nlmsg_size(dev);
++			if (alloc_size < NLMSG_GOODSIZE)
++				alloc_size = NLMSG_GOODSIZE;
++			break;
++		}
++	}
++
++	skb = sock_rmalloc(sk, alloc_size, 0, GFP_KERNEL);
++	if (!skb)
++		goto errout;
++
+ 	len = cb->dump(skb, cb);
+ 
+ 	if (len > 0) {
+@@ -1717,9 +1742,9 @@ static int netlink_dump(struct sock *sk)
+ 	return 0;
+ 
+ errout_skb:
+-	mutex_unlock(nlk->cb_mutex);
+ 	kfree_skb(skb);
+ errout:
++	mutex_unlock(nlk->cb_mutex);
+ 	return err;
+ }
+ 
 
