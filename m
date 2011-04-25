@@ -1,76 +1,148 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH v4 00/27] HFI: minimal device driver/ip driver
-Date: Mon, 25 Apr 2011 17:23:40 -0400
-Message-ID: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
-Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH v4 03/27] HFI:  Add device_create/device_destroy calls for HFI devices.
+Date: Mon, 25 Apr 2011 17:23:43 -0400
+Message-ID: <1303766647-30156-4-git-send-email-dykmanj@linux.vnet.ibm.com>
+References: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
+Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
+	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
+	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
+	" William S. Cadden" <wscadden@linux.vnet.ibm.com>,
+	" Wen C. Chen" <winstonc@linux.vnet.ibm.com>,
+	Scot Sakolish <sakolish@linux.vnet.ibm.com>,
+	Jian Xiao <jian@linux.vnet.ibm.com>,
+	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
+	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:60974 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752668Ab1DYVYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:24:16 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3PL8IlI018777
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:08:18 -0600
+Received: from e37.co.us.ibm.com ([32.97.110.158]:49099 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754082Ab1DYVYT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:24:19 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e37.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3PLLTgk010295
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:21:29 -0600
 Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p3PLODuI129696
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:13 -0600
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3PLPGHx114510
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:25:16 -0600
 Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3PLOChD032090
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:12 -0600
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3PLOFng032169
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:15 -0600
+In-Reply-To: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
 
-The HFI ("Host Fabric Interface") network interface is the internal cluster
-fabric of IBM's PERCS supercomputer. The hardware design is under US export
-control, so we cannot release hardware specs. There is a writeup of
-publically available information about the system available here:
-http://sourceforge.net/projects/hfidevicedriver/files/docs/hfi_general_desc_v2.1.txt
+Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
+Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
+Signed-off-by:  Fu-Chung Chang <fcchang@linux.vnet.ibm.com>
+Signed-off-by:  William S. Cadden <wscadden@linux.vnet.ibm.com>
+Signed-off-by:  Wen C. Chen <winstonc@linux.vnet.ibm.com>
+Signed-off-by:  Scot Sakolish <sakolish@linux.vnet.ibm.com>
+Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
+Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
+Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
+---
+ drivers/net/hfi/core/hfidd_init.c  |   52 ++++++++++++++++++++++++++++++++++++
+ include/linux/hfi/hfidd_internal.h |    1 +
+ 2 files changed, 53 insertions(+), 0 deletions(-)
 
-hfi_core contains the resource management to set up communications paths for
-network traffic. Calls are provided for kernel drivers, and also for setting
-up direct user-space access to HFI windows.
-hfi_ip contains the kernel network driver.
-
-The driver has been running in the lab for several months. The full patch is
-around 22000 lines, so we've split out a minimal device/network driver that
-can send and receive through the simplest path.  Once that much gets accepted
-we'll start adding on to it.
-
-Patches are against net-next-2.6.
-
-Jim Dykman
-
-Changelog:
-----------
-v4:     Don't include <linux/vermagic.h>
-v3:     Don't include <linux/version.h>
-        hfidd_mod_init: return -1; --> return rc;
-        hfidd_alloc_adapter: pass snprintf xiHFI_DEVICE_NAME_MAX,
-                not HFI_DEVICE_NAME_MAX -1
-        change HFI_DEVICE_NAME_MAX from 64 to 8
-v2:
-        Remove return; at the end of void funcs
-        hfidd_free_adapter: p_acs = NULL unneccesssary, remove
-        remove net_stats, and use netdev->stats, remove hf_get_stats
-        rename network driver to hfi_ip
-        hf_inet_event: NETDEV_UP needs to check event is for us, check
-                netdev->netdev_ops == ours
-        change printk()s to netdev_err() and friends
-        hf_net_close: remove redundant CLOSE check
-        hf_change_mtu: minimum mtu should be 68
-        remove NETIF_F_SG flag
-        hf_init_netdev: Use ERR_PTR
-        hf_init_module: %ld / formatting
-                        pass up return code from failed call
-        use unsigned int instead of u32 for bit fields <32 bits
-        use struct ethhdr instead of hf_hwhdr
-        hf_get_sset_count: default return -EINVAL not -EOPNOTSUPP
-        Remove "hfidd_callback_event: enter" message that printed on every
-                recv interrupt
-        hfidd_destroy_devices: hfidd_rmdev() after hfidd_free_adapter() so
-                dev_printk doesn't oops on rmmod
-
+diff --git a/drivers/net/hfi/core/hfidd_init.c b/drivers/net/hfi/core/hfidd_init.c
+index 61ed559..40d5aaf 100644
+--- a/drivers/net/hfi/core/hfidd_init.c
++++ b/drivers/net/hfi/core/hfidd_init.c
+@@ -46,6 +46,7 @@ MODULE_LICENSE("GPL v2");
+ struct hfidd_global hfidd_global;
+ EXPORT_SYMBOL_GPL(hfidd_global);
+ 
++struct device  *hfidd_class_dev[MAX_HFIS + 1];
+ static dev_t   hfidd_dev;
+ 
+ #define MAX_HFI_DEVS (MAX_HFIS + 1)
+@@ -70,6 +71,38 @@ static const struct file_operations hfidd_fops = {
+ 	.write		= hfidd_cmd_write,
+ };
+ 
++/* Create the hfi device */
++static int hfidd_mkdev(int ai, struct hfidd_acs *p_acs)
++{
++	char			dname[128];
++	int			rc = 0;
++
++	sprintf(dname, "%s%d", HFIDD_DEV_NAME, ai);
++
++	hfidd_class_dev[ai] = device_create(hfidd_global.class,
++			NULL, MKDEV(MAJOR(hfidd_dev), ai),
++			(void *)p_acs, (char *)dname);
++
++	if (IS_ERR(hfidd_class_dev[ai])) {
++		rc = PTR_ERR(hfidd_class_dev[ai]);
++		printk(KERN_ERR "%s: hfidd_mkdev: device_create for ai=%d fail"
++				" rc = %d\n", dname, ai, rc);
++		return rc;
++	}
++
++	if (ai == MAX_HFIS)
++		return 0;
++
++	p_acs->hfidd_dev = hfidd_class_dev[ai];
++	return rc;
++}
++
++/* delete the hfi device, /dev/hfi* files and sysclass files */
++static void hfidd_rmdev(int ai)
++{
++	device_destroy(hfidd_global.class, MKDEV(MAJOR(hfidd_dev), ai));
++}
++
+ /* Destroy the HFI class */
+ static inline void hfidd_destroy_class(void)
+ {
+@@ -128,6 +161,8 @@ static void hfidd_destroy_devices(void)
+ 		hfidd_global.p_acs[i] = NULL;
+ 		hfidd_global.acs_cnt--;
+ 	}
++	for (i = 0; i <= MAX_HFIS; i++)
++		hfidd_rmdev(i);
+ }
+ 
+ /*
+@@ -155,6 +190,23 @@ static int hfidd_create_devices(void)
+ 		}
+ 		hfidd_global.acs_cnt++;
+ 	}
++
++	for (i = 0; i <= MAX_HFIS; i++) {
++		rc = hfidd_mkdev(i, hfidd_global.p_acs[i]);
++		if (rc) {
++			for (j = 0; j < i; j++)
++				hfidd_rmdev(j);
++			goto hfidd_create_devices_error0;
++		}
++	}
++	return 0;
++
++hfidd_create_devices_error0:
++	for (i = 0; i < MAX_HFIS; i++) {
++		hfidd_free_adapter(hfidd_global.p_acs[i]);
++		hfidd_global.p_acs[i] = NULL;
++		hfidd_global.acs_cnt--;
++	}
+ 	return rc;
+ }
+ 
+diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
+index 66765a5..956e6b2 100644
+--- a/include/linux/hfi/hfidd_internal.h
++++ b/include/linux/hfi/hfidd_internal.h
+@@ -54,6 +54,7 @@ struct hfidd_acs {
+ 	unsigned int		index;
+ 	unsigned int		acs_cnt;
+ 	unsigned int		state;
++	struct device		*hfidd_dev;
+ };
+ 
+ /* DD global */
+-- 
+1.7.3.5
 
