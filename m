@@ -1,122 +1,137 @@
-From: =?koi8-r?B?4c7Uz84=?= <Taoga@yandex.ru>
-Subject: ar9280+802.11na+ath9k+kismet don't capture data packets
-Date: Mon, 25 Apr 2011 21:54:32 +0400
-Message-ID: <98231303754072@web63.yandex.ru>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH 2/9] net-ethtool: Convert (hw_/vlan_/wanted_)features
+ fields from u32 type to u64.
+Date: Mon, 25 Apr 2011 11:14:16 -0700
+Message-ID: <BANLkTinNORHLJ_YqzMmFZo9v7CjS+ZrhWA@mail.gmail.com>
+References: <1303515367-25595-1-git-send-email-maheshb@google.com>
+	<1303515367-25595-2-git-send-email-maheshb@google.com>
+	<1303515367-25595-3-git-send-email-maheshb@google.com>
+	<1303623041.3032.97.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward1.mail.yandex.net ([77.88.46.6]:45094 "EHLO
-	forward1.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756078Ab1DYSBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 14:01:21 -0400
-Received: from web63.yandex.ru (web63.yandex.ru [77.88.46.54])
-	by forward1.mail.yandex.net (Yandex) with ESMTP id 2C33B1240F43
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 21:54:34 +0400 (MSD)
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by web63.yandex.ru (Yandex) with ESMTP id 22953B1803A
-	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 21:54:34 +0400 (MSD)
+Received: from smtp-out.google.com ([74.125.121.67]:9272 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758203Ab1DYSOU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 14:14:20 -0400
+Received: from hpaq12.eem.corp.google.com (hpaq12.eem.corp.google.com [172.25.149.12])
+	by smtp-out.google.com with ESMTP id p3PIEIDh000497
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 11:14:18 -0700
+Received: from bwz14 (bwz14.prod.google.com [10.188.26.14])
+	by hpaq12.eem.corp.google.com with ESMTP id p3PIDd8W013668
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 11:14:17 -0700
+Received: by bwz14 with SMTP id 14so2942842bwz.16
+        for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 11:14:17 -0700 (PDT)
+In-Reply-To: <1303623041.3032.97.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Sat, Apr 23, 2011 at 10:30 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Fri, 2011-04-22 at 16:36 -0700, Mahesh Bandewar wrote:
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> ---
+>> =A0include/linux/ethtool.h | =A0 26 +++++++------
+>> =A0net/core/ethtool.c =A0 =A0 =A0| =A0 89 ++++++++++++++++----------=
+--------------------
+>> =A02 files changed, 45 insertions(+), 70 deletions(-)
+>>
+>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>> index 9de3127..71e8a02 100644
+>> --- a/include/linux/ethtool.h
+>> +++ b/include/linux/ethtool.h
+>> @@ -605,10 +605,10 @@ struct ethtool_flash {
+>> =A0 * @never_changed: mask of features not changeable for any device
+>> =A0 */
+>> =A0struct ethtool_get_features_block {
+>> - =A0 =A0 __u32 =A0 available;
+>> - =A0 =A0 __u32 =A0 requested;
+>> - =A0 =A0 __u32 =A0 active;
+>> - =A0 =A0 __u32 =A0 never_changed;
+>> + =A0 =A0 __u64 =A0 available;
+>> + =A0 =A0 __u64 =A0 requested;
+>> + =A0 =A0 __u64 =A0 active;
+>> + =A0 =A0 __u64 =A0 never_changed;
+>> =A0};
+>>
+>> =A0/**
+>> @@ -618,10 +618,11 @@ struct ethtool_get_features_block {
+>> =A0 * =A0 =A0 =A0 out: number of elements in features[] needed to ho=
+ld all features
+>> =A0 * @features: state of features
+>> =A0 */
+>> +/* TODO Why is this needed XXX */
+>
+> Precisely to allow for expansion to more than 32 bits.
+>
+:) That comment was not supposed to be part of the patch and was just
+to aid my thinking while we were discussing about the approach to
+extend features. (I thought) if we have decided not to use use arrays,
+then why to complicate this interface, so was attempting to simplify
+the interface.
 
-The platform uses D-link DIR-825 Atheros AR7161, with two AR9280(802.11=
-bgn and 802.11an)
-kismet-2010-07-R1 is installed to OpenWrt Backfire Trunk. Used driver a=
-th9k of compat-wireless-2011-04-19.
-=46or tests I use D-Link Dir-825 AP and D-Link DWA-160. Connection spee=
-d is 300 Mbps at 36 channel.
-Kismet captures PHY and Control packets, and don't capture the data pac=
-kets.
+>> =A0struct ethtool_gfeatures {
+>> =A0 =A0 =A0 __u32 =A0 cmd;
+>> =A0 =A0 =A0 __u32 =A0 size;
+>> - =A0 =A0 struct ethtool_get_features_block features[0];
+>> + =A0 =A0 struct ethtool_get_features_block features;
+>> =A0};
+>>
+>> =A0/**
+>> @@ -630,8 +631,8 @@ struct ethtool_gfeatures {
+>> =A0 * @requested: values of features to be changed
+>> =A0 */
+>> =A0struct ethtool_set_features_block {
+>> - =A0 =A0 __u32 =A0 valid;
+>> - =A0 =A0 __u32 =A0 requested;
+>> + =A0 =A0 __u64 =A0 valid;
+>> + =A0 =A0 __u64 =A0 requested;
+>> =A0};
+>>
+>> =A0/**
+>> @@ -640,10 +641,11 @@ struct ethtool_set_features_block {
+>> =A0 * @size: array size of the features[] array
+>> =A0 * @features: feature change masks
+>> =A0 */
+>> +/* TODO Why is this needed XXX */
+>> =A0struct ethtool_sfeatures {
+>> =A0 =A0 =A0 __u32 =A0 cmd;
+>> =A0 =A0 =A0 __u32 =A0 size;
+>> - =A0 =A0 struct ethtool_set_features_block features[0];
+>> + =A0 =A0 struct ethtool_set_features_block features;
+>> =A0};
+> [...]
+>
+> These structures are part of the userland API, but they are new in
+> 2.6.39. =A0So they can still be changed up until 2.6.39 is released, =
+but
+> not afterwards.
+>
+got it!
 
-/etc/config/wireless
+> If we think 64 bits will be enough for the next 10 years, then let's
+> just go with a single 64-bit feature word. =A0If we're not so sure th=
+en
+> then the ethtool API should continue to allow for multiple words
+> (whether 32-bit or 64-bit).
+>
+I think even 64 bits may not be enough, so in the earlier thread I had
+mentioned that, this would (probably) give us next two years! I didn't
+know this constraint though.
 
-config wifi-device radio0
-option type mac80211
-option channel 11
-option macaddr 00:18:e7:ec:b0:5f
-option hwmode 11ng
-option hwmode_11n g
-option htmode HT40+
-list ht_capab HT40-
-list ht_capab HT40+
-list ht_capab HT20
+--mahesh..
 
-config wifi-iface
-option device radio0
-option mode monitor
-
-config wifi-device radio1
-option type mac80211
-option channel 36
-option macaddr 00:18:e7:ec:b0:60
-option hwmode 11na
-option hwmode_11n a
-option htmode HT40+
-list ht_capab HT40-
-list ht_capab HT40+
-list ht_capab HT20
-
-config wifi-iface
-option device radio1
-option mode monitor
-
-device wlan0 entered promiscuous mode
-device wlan1 entered promiscuous mode
-
-iwconfig
-
-wlan0 IEEE 802.11bgn Mode:Monitor Tx-Power=3D27 dBm
-RTS thr:off Fragment thr:off
-Power Management:on
-
-wlan1 IEEE 802.11an Mode:Monitor Tx-Power=3D17 dBm
-RTS thr:off Fragment thr:off
-Power Management:on
-
-Transferred to file 600 Mb
-After that ifconfig issued:
-ifconfig
-wlan0 Link encap:UNSPEC HWaddr 00-18-E7-EC-B0-5F-00-47-00-00-00-00-00-0=
-0-0
-UP BROADCAST RUNNING PROMISC MULTICAST MTU:1500 Metric:1
-RX packets:9865 errors:0 dropped:0 overruns:0 frame:0
-TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-collisions:0 txqueuelen:1000
-RX bytes:3043414 (2.9 MiB) TX bytes:0 (0.0 B)
-
-wlan1 Link encap:UNSPEC HWaddr 00-18-E7-EC-B0-60-00-47-00-00-00-00-00-0=
-0-0
-UP BROADCAST RUNNING PROMISC MULTICAST MTU:1500 Metric:1
-RX packets:365275 errors:0 dropped:0 overruns:0 frame:0
-TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-collisions:0 txqueuelen:1000
-RX bytes:20117793 (19.1 MiB) TX bytes:0 (0.0 B)
-
-Sniffing result:
-MAC Src =9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9AMAC Dst =9A=9A=
-=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9AChannel Signal Type Crypt =9A=9A=
-=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9APackets SSID
-00:18:E7:FD:8E:D8 =9A=9A00:19:5B:7E:09:CE =9A6 =9A=9A=9A=9A=9A=9A=9A=9A=
-=9A-42 =9A=9A=9A=9A=9AAP =9A=9A=9AWEP =9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=
-=9A=9A=9A=9A=9A=9A=9A=9A7629 =9A=9A=9A=9A=9Aq183
-00:18:E7:FD:8E:DA =9AF0:7D:68:71:40:DC =9A36 =9A=9A=9A=9A=9A=9A=9A=9A-6=
-0 =9A=9A=9A=9A=9AAP =9A=9A=9ATKIP WPA PSK... 1703 =9A=9A=9A=9A=9Aq183-m=
-edia
-1C:65:9D:21:27:8F =9A=9A=9A00:18:E7:FD:8E:D8 =9A=9A6 =9A=9A=9A=9A=9A=9A=
-=9A=9A-65 =9A=9A=9A=9A=9AAP =9A=9A=9A=9AWEP =9A=9A=9A=9A=9A=9A=9A=9A=9A=
-=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A2607 =9A=9A=9A=9A=9Aq183
-00:00:00:00:00:00 =9A=9A=9A=9A00:18:E7:FD:8E:D8 =9A=9A- =9A=9A=9A=9A=9A=
-=9A=9A=9A=9A-65 =9A=9A=9A=9A=9AAP =9A=9A=9A=9A- =9A=9A=9A=9A=9A=9A=9A=9A=
-=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A370415 =9A=9A-
-00:19:5B:7E:09:CE =9A=9A00:18:E7:FD:8E:D8 =9A=9A- =9A=9A=9A=9A=9A=9A=9A=
-=9A=9A-67 =9A=9A=9A=9A=9AProbe WEP =9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=
-=9A=9A=9A=9A=9A=9A=9A124 =9A=9A=9A=9A=9A=9A=9Aq183
-=460:7D:68:71:40:DC =9A=9A00:18:E7:FD:8E:DA =9A=9A- =9A=9A=9A=9A=9A=9A=9A=
-=9A=9A-39 =9A=9A=9A=9AAP =9A=9A=9A=9A=9ATKIP WPA PSK... 41 =9A=9A=9A=9A=
-=9A=9A=9A=9A=9Aq183-media
-
-Captures the driver ath9k data packets in the mode 802.11na? Can be sai=
-d about this with 100% certainty? Checked it?
+> Ben.
+>
+> --
+> Ben Hutchings, Senior Software Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
+>
