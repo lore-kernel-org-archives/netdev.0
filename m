@@ -1,105 +1,147 @@
-From: Carsten Wolff <carsten@wolffcarsten.de>
-Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
-Date: Mon, 25 Apr 2011 14:59:12 +0200
-Message-ID: <201104251459.13254.carsten@wolffcarsten.de>
-References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] af_unix: Only allow recv on connected seqpacket sockets.
+Date: Mon, 25 Apr 2011 07:26:27 -0700
+Message-ID: <m1tydmo19o.fsf@fess.ebiederm.org>
+References: <m1zkngse02.fsf@fess.ebiederm.org>
+	<BANLkTimrOs2T_bnbSJDgppAAh_MUWt_erg@mail.gmail.com>
+	<m1sjt7sw32.fsf_-_@fess.ebiederm.org>
+	<20110424.120519.226767465.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Dominik Kaspar <dokaspar.ietf@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, xemul@openvz.org, dan@aloni.org,
+	stable@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1346787.stratoserver.net ([85.214.49.182]:46454 "EHLO
-	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751992Ab1DYNIT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 09:08:19 -0400
-In-Reply-To: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:58599 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758152Ab1DYO0f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 10:26:35 -0400
+In-Reply-To: <20110424.120519.226767465.davem@davemloft.net> (David Miller's
+	message of "Sun, 24 Apr 2011 12:05:19 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dominik,
+David Miller <davem@davemloft.net> writes:
 
-On Monday 25 April 2011, Dominik Kaspar wrote:
-> Hello,
->=20
-> Knowing how critical packet reordering is for standard TCP, I am
-> currently testing how robust Linux TCP is when packets are forwarded
-> over multiple paths (with different bandwidth and RTT). Since Linux
-> TCP adapts its "dupAck threshold" to an estimated level of packet
-> reordering, I expect it to be much more robust than a standard TCP
-> that strictly follows the RFCs. Indeed, as you can see in the
-> following plot, my experiments show a step-wise adaptation of Linux
-> TCP to heavy reordering. After many minutes, Linux TCP finally reache=
-s
-> a data throughput close to the perfect aggregated data rate of two
-> paths (emulated with characteristics similar to IEEE 802.11b (WLAN)
-> and a 3G link (HSPA)):
->=20
-> http://home.simula.no/~kaspar/static/mptcp-emu-wlan-hspa-00.png
->=20
-> Does anyone have clues what's going on here? Why does the aggregated
-> throughput increase in steps? And what could be the reason it takes
-> minutes to adapt to the full capacity, when in other cases, Linux TCP
-> adapts much faster (for example if the bandwidth of both paths are
-> equal). I would highly appreciate some advice from the netdev
-> community.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Sun, 24 Apr 2011 04:54:57 -0700
+>
+>> +static int unix_seqpacket_recvmsg(struct kiocb *iocb, struct socket *sock,
+>> +			      struct msghdr *msg, size_t size,
+>> +			      int flags)
+>> +{
+>> +	struct sock *sk = sock->sk;
+>> +
+>> +	if (sk->sk_state != TCP_ESTABLISHED)
+>> +		return -ENOTCONN;
+>
+> As for unix_seqpacket_sendmsg(), you need to add a check for sock_error()
+> or similar here otherwise -ECONNRESET is not reported correctly.
+>
+> In fact, recvmsg() is even harder than sendmsg() to handle correctly,
+> because we have to also properly report EOF on seqpacket sockets which
+> have RCV_SHUTDOWN set.
+>
+> So a lot more work has to go into this change to make it fix the bug
+> without also breaking existing semantics.
 
-the throughput increase in steps is most likely caused by Linux's reord=
-ering=20
-detection and quantization. The DupThresh (tp->reordering) is only incr=
-eased=20
-when reordering is detected and is then set to a value that depends on =
-current=20
-inflight/pipe. This means, on a path with only reordering and no loss, =
-where a=20
-very large DupThresh is best, you will see those steps in the throughpu=
-t=20
-everytime when Linux detects reordering during a time where cwnd is lar=
-ge.=20
-This on the other hand depends purely on timing/luck.
-Linux is also only able to quantize reordering during disorder state, w=
-hich=20
-leaves out many possible quantization samples, escpecially the larger o=
-nes,=20
-which would increase DupThresh to higher values.
+Really?
 
-Also, reordering detection depends very much on TCP options. Which TCP =
-Options=20
-were enabled in your test? Timestamps? D-SACK?
+When I read through the code I am failing to see the issues you are
+seeing.
 
-Carsten
+When the other socket in an established connection calls unix_shutdown
+or unix_release_sock.  sk->sk_shutdown is changed, but sk_state is
+left at TCP_ESTABLISHED.  Therefore we do not need a special
+case in unix_seqpacket_recvmsg to handle the RCV_SHUTDOWN case
+because in any case where that applies we will be in TCP_ESTABLISHED
+and we will simply call unix_dgram_recvmsg.
 
->=20
-> Implementation details:
-> This multipath TCP experiment ran between a sending machine with a
-> single Ethernet interface (eth0) and a client with two Ethernet
-> interfaces (eth1, eth2). The machines are connected through a switch
-> and tc/netem is used to emulate the bandwidth and RTT of both paths.
-> TCP connections are established using iperf between eth0 and eth1 (th=
-e
-> primary path). At the sender, an iptables' NFQUEUE is used to "spoof"
-> the destination IP address of outgoing packets and force some to
-> travel to eth2 instead of eth1 (the secondary path). This multipath
-> scheduling happens in proportion to the emulated bandwidths, so if th=
-e
-> paths are set to 500 and 1000 KB/s, then packets are distributed in a
-> 1:2 ratio. At the client, iptables' RAWDNAT is used to translate the
-> spoofed IP addresses back to their original, so that all packets end
-> up at eth1, although a portion actually travelled to eth2. ACKs are
-> not scheduled over multiple paths, but always travel back on the
-> primary path. TCP does not notice anything of the multipath
-> forwarding, except the side-effect of packet reordering, which can be
-> huge if the path RTTs are set very differently.
->=20
-> Best regards,
-> Dominik
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+As for ECONNRESET when I look a look at the code it appears to be
+another variant of the other side calling shutdown or close.   So if
+it applies we should remain in TCP_ESTABLISHED, and
+unix_seqpacket_recvmsg should not need to do anything.
+
+So looking at this the only times I can see that sk_state would
+not be TCP_ESTABLISHED in a unix domain seqpacket socket are.
+- On a listening socket, where calling recvmsg is what this
+  patch is meant to address.
+- Before we call connect or listen.
+  Which appears to be equally broken today.  The only errors
+  I can see happening in the case we are not connected today
+  are blocking forever or returning -EINTR if we timeout.
+
+Adding sock_error() handling into the new unix_seqpacket_recvmsg makes a
+fair amount of sense but adding a new call to sock_error in that path
+seems marginally more likely to change error codes and break existing
+apps.  We already have a few other unconditional error codes before
+we check sk_err in unix_dgram_recvmsg. 
 
 
---=20
-           /\-=C2=B4-/\
-          (  @ @  )
-________o0O___^___O0o________
+> Anyways, see:
+>
+> commit 6e14891f4d16f8a9e0bc3a8408f73b3aed93ab0a
+> Author: James Morris <jmorris@redhat.com>
+> Date:   Fri Nov 19 07:02:41 2004 -0800
+>
+>     [AF_UNIX]: Don't lose ECONNRESET in unix_seqpacket_sendmsg()
+>     
+>     The fix for SELinux w/SOCK_SEQPACKET had an error,
+>     noted by Alan Cox.  This fixes it.
+>     
+>     Signed-off-by: James Morris <jmorris@redhat.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Looking into it.  That patch appears to have been unnecessary.
+We never transition out of the state TCP_ESTABLISHED once we get
+there, and we can never get ECONNRESET unless we are connected.
+
+Arguably we could reduce unix_seqpacket_sendmsg to simply 
+
+static int unix_seqpacket_sendmsg(struct kiocb *kiocb, struct socket *sock,
+  				  struct msghdr *msg, size_t len)
+{
+	if (msg->msgnamelen)
+        	msg->msgnamelen = 0;
+        return unix_dgram_sendmsg(kiocb, sock, msg, len);
+}
+
+But I think having the explicit TCP_ESTABLISHED check makes for better
+maintainability, of unix_dgram_sendmesg.
+
+So having gone through all of that it looks like my patch needs a
+comment saying that once we are in TCP_ESTABLISHED we cannot leave,
+and that nothing can happen before we are TCP_ESTABLISHED.
+
+We can use sock_error to check sk_err, as it seems good hygiene
+but it also appears pointless.  Especially for recvmsg where ECONNRESET
+never applies.
+
+Eric
+
+
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 16faa9d..8902c4a 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -1513,13 +1513,18 @@ out_err:
+>  static int unix_seqpacket_sendmsg(struct kiocb *kiocb, struct socket *sock,
+>  				  struct msghdr *msg, size_t len)
+>  {
+> +	int err;
+>  	struct sock *sk = sock->sk;
+>  	
+> +	err = sock_error(sk);
+> +	if (err)
+> +		return err;
+> +
+>  	if (sk->sk_state != TCP_ESTABLISHED)
+>  		return -ENOTCONN;
+>  
+> -	if (msg->msg_name || msg->msg_namelen)
+> -		return -EINVAL;
+> +	if (msg->msg_namelen)
+> +		msg->msg_namelen = 0;
+>  
+>  	return unix_dgram_sendmsg(kiocb, sock, msg, len);
+>  }
