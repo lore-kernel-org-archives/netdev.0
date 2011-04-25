@@ -1,27 +1,41 @@
 From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH net-next-2.6 v5 0/5] sctp: Patch series
-Date: Tue, 26 Apr 2011 00:22:58 +0900
-Message-ID: <AAF0EA66-DF77-42AD-977C-EB9F52C305A1@sfc.wide.ad.jp>
+Subject: [PATCH net-next-2.6 v5 2/5] sctp: Add sysctl support for Auto-ASCONF
+Date: Tue, 26 Apr 2011 00:23:15 +0900
+Message-ID: <A0ABE47F-0888-40EE-9A21-5B010F764FF9@sfc.wide.ad.jp>
 Mime-Version: 1.0 (Apple Message framework v1084)
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
 Cc: lksctp-developers@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:52998 "EHLO
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:53010 "EHLO
 	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754330Ab1DYPXA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 11:23:00 -0400
+	with ESMTP id S1754772Ab1DYPXP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 11:23:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Series of 5 patches to support auto_asconf and the other related functionalities that auto_asconf relies on. 
+This patch allows the system administrator to change default Auto-ASCONF on/off behavior via an sysctl value.  
 
-Cheers,
-- Michio
+Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+---
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 50cb57f..6b39529 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -183,6 +183,13 @@ static ctl_table sctp_table[] = {
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
++		.procname	= "default_auto_asconf",
++		.data		= &sctp_default_auto_asconf,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
+ 		.procname	= "prsctp_enable",
+ 		.data		= &sctp_prsctp_enable,
+ 		.maxlen		= sizeof(int),
 
-[1/5] Add Auto-ASCONF support
-[2/5] Add sysctl support for Auto-ASCONF
-[3/5] Add socket option operation for Auto-ASCONF
-[4/5] Add ADD/DEL ASCONF handling at the receiver
-[5/5] Add ASCONF operation on the single-homed host
+
