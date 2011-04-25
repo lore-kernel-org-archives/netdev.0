@@ -1,51 +1,76 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: pull request: wireless-next-2.6 2011-04-25
-Date: Mon, 25 Apr 2011 15:55:24 -0500
-Message-ID: <4DB5DFBC.3070203@lwfinger.net>
-References: <20110425193017.GC28814@tuxdriver.com>	<20110425.125835.189703400.davem@davemloft.net> <20110425.130435.112597353.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-7; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: dykmanj@linux.vnet.ibm.com
+Subject: [PATCH v4 00/27] HFI: minimal device driver/ip driver
+Date: Mon, 25 Apr 2011 17:23:40 -0400
+Message-ID: <1303766647-30156-1-git-send-email-dykmanj@linux.vnet.ibm.com>
+Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f179.google.com ([209.85.212.179]:57492 "EHLO
-	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757038Ab1DYUzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 16:55:51 -0400
-In-Reply-To: <20110425.130435.112597353.davem@davemloft.net>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:60974 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752668Ab1DYVYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 17:24:16 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e31.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3PL8IlI018777
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:08:18 -0600
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p3PLODuI129696
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:13 -0600
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3PLOChD032090
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 15:24:12 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/25/2011 03:04 PM, David Miller wrote:
-> From: David Miller<davem@davemloft.net>
-> Date: Mon, 25 Apr 2011 12:58:35 -0700 (PDT)
->
->> From: "John W. Linville"<linville@tuxdriver.com>
->> Date: Mon, 25 Apr 2011 15:30:17 -0400
->>
->>> Here is another big batch of updates intended for 2.6.40...
->>>
->>> There is the usual huge batch of changes for ath9k, and iwlagn, a bunch
->>> for ath9k_htc, rt2x00, and ath5k, a few more for mwifiex, and a handful
->>> of others.  Also included is a big batch of Bluetooth updates as well.
->>>
->>> Please let me know if there are problems!
->>
->> Pulled, thanks a lot John.
->
-> I guess watching the build logs for new warnings is too old fashioned
-> for people, and besides Dave will do it for everyone anyways right?
->
-> And this one is a real bug too. :-/
->
-> I'll push this out to net-next-2.6 on top of the wireless-next pull,
-> but please be more mindful in the future.
+From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
 
-Unfortunately, the 64-bit variant of gcc v4.5.1 will miss some of these. I find 
-I need to compile code on a 32-bit system and using an older compiler to catch 
-all. Perhaps that explains the error that crept through here.
+The HFI ("Host Fabric Interface") network interface is the internal cluster
+fabric of IBM's PERCS supercomputer. The hardware design is under US export
+control, so we cannot release hardware specs. There is a writeup of
+publically available information about the system available here:
+http://sourceforge.net/projects/hfidevicedriver/files/docs/hfi_general_desc_v2.1.txt
 
-Larry
+hfi_core contains the resource management to set up communications paths for
+network traffic. Calls are provided for kernel drivers, and also for setting
+up direct user-space access to HFI windows.
+hfi_ip contains the kernel network driver.
+
+The driver has been running in the lab for several months. The full patch is
+around 22000 lines, so we've split out a minimal device/network driver that
+can send and receive through the simplest path.  Once that much gets accepted
+we'll start adding on to it.
+
+Patches are against net-next-2.6.
+
+Jim Dykman
+
+Changelog:
+----------
+v4:     Don't include <linux/vermagic.h>
+v3:     Don't include <linux/version.h>
+        hfidd_mod_init: return -1; --> return rc;
+        hfidd_alloc_adapter: pass snprintf xiHFI_DEVICE_NAME_MAX,
+                not HFI_DEVICE_NAME_MAX -1
+        change HFI_DEVICE_NAME_MAX from 64 to 8
+v2:
+        Remove return; at the end of void funcs
+        hfidd_free_adapter: p_acs = NULL unneccesssary, remove
+        remove net_stats, and use netdev->stats, remove hf_get_stats
+        rename network driver to hfi_ip
+        hf_inet_event: NETDEV_UP needs to check event is for us, check
+                netdev->netdev_ops == ours
+        change printk()s to netdev_err() and friends
+        hf_net_close: remove redundant CLOSE check
+        hf_change_mtu: minimum mtu should be 68
+        remove NETIF_F_SG flag
+        hf_init_netdev: Use ERR_PTR
+        hf_init_module: %ld / formatting
+                        pass up return code from failed call
+        use unsigned int instead of u32 for bit fields <32 bits
+        use struct ethhdr instead of hf_hwhdr
+        hf_get_sset_count: default return -EINVAL not -EOPNOTSUPP
+        Remove "hfidd_callback_event: enter" message that printed on every
+                recv interrupt
+        hfidd_destroy_devices: hfidd_rmdev() after hfidd_free_adapter() so
+                dev_printk doesn't oops on rmmod
+
 
