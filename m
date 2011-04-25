@@ -1,126 +1,60 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH net-next-2.6 v4 4/5] sctp: Add ASCONF operation on the
- single-homed host
-Date: Mon, 25 Apr 2011 10:45:32 +0800
-Message-ID: <4DB4E04C.70609@cn.fujitsu.com>
-References: <3BDA3586-6A7C-4305-9D41-F146575AC951@sfc.wide.ad.jp> <4DB0FD45.2050709@cn.fujitsu.com> <4DB0FFB1.3010006@cn.fujitsu.com> <C4F46092-BF76-482D-8FD5-08F1D6A13866@sfc.wide.ad.jp> <4DB4C6FB.1020803@cn.fujitsu.com> <D440CE7B-D367-4137-AF98-CBEADE775867@sfc.wide.ad.jp> <4DB4D622.9050702@cn.fujitsu.com> <B73D6B9F-3BD0-4563-9921-AC328C686276@sfc.wide.ad.jp>
+From: =?big5?B?UmF0YmVydCBQby1ZdSBDaHVhbmcosviz1aZ0KQ==?=
+	<ratbert@faraday-tech.com>
+Subject: RE: linux-next ftmac100 driver
+Date: Mon, 25 Apr 2011 11:26:13 +0800
+Message-ID: <D557AF68929979498EDCFCBB34FFD4E82C62BC@ftcpcs78.faraday.com.tw>
+References: <BANLkTin24N2D_b_RpPCQdjYn2f=C7NY2JA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Michio Honda <micchie@sfc.wide.ad.jp>
+Content-Type: text/plain; charset="big5"
+Content-Transfer-Encoding: 8BIT
+Cc: <ratbert.chuang@gmail.com>, <netdev@vger.kernel.org>
+To: "Adam Jaremko" <adam.jaremko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60920 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1758035Ab1DYCpx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Apr 2011 22:45:53 -0400
-In-Reply-To: <B73D6B9F-3BD0-4563-9921-AC328C686276@sfc.wide.ad.jp>
+Received: from ftcsun4.faraday-tech.com ([60.248.181.187]:64846 "EHLO
+	ftcsun4.faraday.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758055Ab1DYDqD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Apr 2011 23:46:03 -0400
+Received: from ftcpcs100.faraday.com.tw ([192.168.31.10])
+	by ftcsun4.faraday.com.tw (8.11.7p1+Sun/8.11.6) with ESMTP id p3P3LtU00089
+	for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 11:21:55 +0800 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <BANLkTin24N2D_b_RpPCQdjYn2f=C7NY2JA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Adam,
 
-> Yes, I think the association cannot be kept, if the single-homed ASCONF receiver moves to the new network before sending ASCONF-ACK.  
-> Am I missing?
+CC to the netdev mainling list.
 
-Oh, yeah, you are right.:-)
+From: Adam Jaremko [mailto:adam.jaremko@gmail.com] 
+> Hello,
+> 
+> I want to first thank you for the upstream contributions as they greatly helped me in my porting effort.
+> 
+> I have been testing your ftmac100 driver on a Moxa UC-7112 and have been struggling with a kernel BUG "scheduling while atomic".
+>
+> I narrowed down the bug to the napi polling routine ftmac100_poll(...) when a physical change occurs, ie. RJ-45 cable removed.
+> @ http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=blob;f=drivers/net/ftmac100.c;h=a31661948c420e0d467c7e8b7bb4ecae4c078de0;hb=HEAD#l932
+>
+> the call to mii_check_link(...) calls ftmac100_mdio_read(...) which may incur a call to usleep_range(...) causing the bug.
+> @ http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=blob;f=drivers/net/ftmac100.c;h=a31661948c420e0d467c7e8b7bb4ecae4c078de0;hb=HEAD#l757
+> I haven't got a fix but I wanted to inform as you may have more insight.
 
-> Thanks,
-> - Michio
->
-> On Apr 25, 2011, at 11:02 , Wei Yongjun wrote:
->
->>> Hi, 
->>>
->>> Such operation would not be supported by specification, in Sec.5.3 in RFC 5061:
->>>   F1)  When adding an IP address to an association, the IP address is
->>>        NOT considered fully added to the association until the ASCONF-
->>>        ACK arrives.  This means that until such time as the ASCONF
->>>        containing the add is acknowledged, the sender MUST NOT use the
->>>        new IP address as a source for ANY SCTP packet except on
->>>        carrying an ASCONF Chunk. 
->>>
->>> I think this means we cannot send ASCONF-ACK from the new address even if it bundles ASCONF...
->> If so, both side do not have valid address to send the such
->> ASCONF-ACK, and can not recv ASCONF-ACK.
->>
->>> - Michio
->>>
->>> On Apr 25, 2011, at 9:57 , Wei Yongjun wrote:
->>>
->>>>> On Apr 22, 2011, at 13:10 , Wei Yongjun wrote:
->>>>>
->>>>>>> Since the sender MUST NOT use the  new IP address as a source for ANY SCTP
->>>>>>> packet except on  carrying an ASCONF Chunk. And ASCONF chunk can be bundled.
->>>>>>> How about this change. If so, you do not need change to sctp_outq_tail();
->>>>>>>
->>>>>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
->>>>>>> index 1c88c89..bd6cc9c 100644
->>>>>>> --- a/net/sctp/outqueue.c
->>>>>>> +++ b/net/sctp/outqueue.c
->>>>>>> @@ -754,6 +754,13 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
->>>>>>> 	 */
->>>>>>>
->>>>>>> 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
->>>>>>> +		/* RFC 5061, 5.3
->>>>>>> +		 * F1) This ...
->>>>>>> +		 */
->>>>>>> +		if (q->asoc->src_out_of_asoc_ok &&
->>>>>>> +		    chunk->chunk_hdr->type != SCTP_CID_ASCONF)
->>>>>> SCTP_CID_ASCONF_ACK should be also allowed, the peer may
->>>>>> send ASCONF to do the same thing at the same time.
->>>>> Sorry for my bad understanding, 
->>>>> Do you mean the situation: "the peer (ASCONF receiver) may send ASCONF-ACK to the unconfirmed destination"?
->>>>> Or do you mean following situation?
->>>>> 1. the pear sends ADD/DEL ASCONF to me, 
->>>>> 2. I receive it, 
->>>>> 3. I migrate to the other network and get new address, 
->>>>> 4. I send ASCONF-ACK to the peer from the new address
->>>> Yes, If both side send ADD/DEL ASCONF to del the last one
->>>> address at the same time like this:
->>>>
->>>> ASCONF  -----    ------ASCONF
->>>> (ADD/DEL)    \  /     (ADD/DEL)
->>>>             \/        
->>>>             /\
->>>>       <----/  \----->
->>>> ASCONF-ACK---\  /------ASCONF-ACK
->>>>             \/
->>>>             /\
->>>>       <----/  \----->
->>>>
->>>> But I do not test for it. Not sure we need to do this, can you
->>>> check this before commit your new patchset?
->>>>
->>>>
->>>>>>> +			continue;
->>>>>>> +
->>>>>>> 		list_del_init(&chunk->list);
->>>>>>>
->>>>>>> 		/* Pick the right transport to use. */
->>>>>>> @@ -881,6 +888,9 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
->>>>>>> 		}
->>>>>>> 	}
->>>>>>>
->>>>>>> +	if (q->asoc->src_out_of_asoc_ok)
->>>>>>> +		goto sctp_flush_out;
->>>>>>> +
->>>>>>> 	/* Is it OK to send data chunks?  */
->>>>>>> 	switch (asoc->state) {
->>>>>>> 	case SCTP_STATE_COOKIE_ECHOED:
->>>>>>>
->>>>>>>
->>>>>>>
->>>>>> --
->>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>>>> the body of a message to majordomo@vger.kernel.org
->>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>> --
->>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>>> the body of a message to majordomo@vger.kernel.org
->>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+You can try to use udelay() to replace usleep_range(). I will also check this problem when I am free later.
+If you solved this problem before me, please send a message (and keep the CC list).
+It will be even better if you could submit a patch. :-)
+
+Thanks,
+Po-Yu Chuang
+
+********************* Confidentiality Notice ************************
+This electronic message and any attachments may contain
+confidential and legally privileged information or
+information which is otherwise protected from disclosure.
+If you are not the intended recipient,please do not disclose
+the contents, either in whole or in part, to anyone,and
+immediately delete the message and any attachments from
+your computer system and destroy all hard copies.
+Thank you for your cooperation.
+***********************************************************************
+
