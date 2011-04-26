@@ -1,84 +1,74 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net tree
-Date: Tue, 26 Apr 2011 13:51:46 +1000
-Message-ID: <20110426135146.c01f8395.sfr@canb.auug.org.au>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 33842] New: NULL pointer dereference in
+ ip_fragment
+Date: Mon, 25 Apr 2011 21:29:40 -0700
+Message-ID: <20110425212940.a2e9dad7.akpm@linux-foundation.org>
+References: <bug-33842-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	hayeswang <hayeswang@realtek.com>,
-	=?UTF-8?B?IkZyYW7Dp29pcyBSb21pZXUi?= <romieu@fr.zoreil.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi all,
-
-After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-failed like this:
-
-drivers/net/r8169.c: In function 'rtl8168e_1_hw_phy_config':
-drivers/net/r8169.c:2578: error: too many arguments to function 'rtl_apply_firmware'
-drivers/net/r8169.c:2578: error: void value not ignored as it ought to be
-drivers/net/r8169.c: In function 'rtl8168e_2_hw_phy_config':
-drivers/net/r8169.c:2586: error: too many arguments to function 'rtl_apply_firmware'
-drivers/net/r8169.c:2586: error: void value not ignored as it ought to be
-
-Caused by commit 953a12cc2889 ("r8169: don't request firmware when
-there's no userspace") from the net-current tree interacting with commit
-01dc7fec4025 ("net/r8169: support RTL8168E").
-
-I applied the following fixup patch:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 26 Apr 2011 13:47:51 +1000
-Subject: [PATCH] r8169: fix for rtl_apply_firmware API change
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/r8169.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 3f93fc7..c3e264f 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -190,7 +190,9 @@ static const struct rtl_firmware_info {
- 	{ .mac_version = RTL_GIGA_MAC_VER_25, .fw_name = FIRMWARE_8168D_1 },
- 	{ .mac_version = RTL_GIGA_MAC_VER_26, .fw_name = FIRMWARE_8168D_2 },
- 	{ .mac_version = RTL_GIGA_MAC_VER_29, .fw_name = FIRMWARE_8105E_1 },
--	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 }
-+	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 },
-+	{ .mac_version = RTL_GIGA_MAC_VER_31, .fw_name = FIRMWARE_8168E_1 },
-+	{ .mac_version = RTL_GIGA_MAC_VER_32, .fw_name = FIRMWARE_8168E_2 }
- };
- 
- enum cfg_version {
-@@ -2575,16 +2577,14 @@ static void rtl8168e_hw_phy_config(struct rtl8169_private *tp)
- 
- static void rtl8168e_1_hw_phy_config(struct rtl8169_private *tp)
- {
--	if (rtl_apply_firmware(tp, FIRMWARE_8168E_1) < 0)
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-+	rtl_apply_firmware(tp);
- 
- 	rtl8168e_hw_phy_config(tp);
- }
- 
- static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
- {
--	if (rtl_apply_firmware(tp, FIRMWARE_8168E_2) < 0)
--		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-+	rtl_apply_firmware(tp);
- 
- 	rtl8168e_hw_phy_config(tp);
- }
--- 
-1.7.4.4
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, tom@dbservice.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43520 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750867Ab1DZEZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 00:25:40 -0400
+In-Reply-To: <bug-33842-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Sat, 23 Apr 2011 07:51:56 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=33842
+> 
+>            Summary: NULL pointer dereference in ip_fragment
+
+oops in ip_defragment().  Kernel is 2.6.39-rc4.  There are some
+screenshots attached to the report.
+
+
+>            Product: Networking
+>            Version: 2.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: tom@dbservice.com
+>         Regression: No
+> 
+> 
+> The host is using the ath9k driver. eth0+wlan0 are bridged. Shortly after I
+> start using the wireless network with my macbook, the bug triggers. No idea if
+> it's wireless related, because there's also a rtl8169_rx_interrupt entry in the
+> stacktrace.
+> 
+> This is a transcript, since I don't (have/know of) any way to get the backtrace
+> out of a crashed box.
+> 
+> IP: ip_fragment+0x52/0x840
+> Call Trace:
+>   <IRQ>
+>   br_parse_ip_options
+>   br_flood_deliver
+>   br_parse_ip_options
+>   br_nf_dev_queue_xmit
+>   br_nf_post_routing
+>   nf_iterate
+> 
+> then also:
+>   lots of br_flood_deliver
+>   lots of br_*_finish
+>   one ? rtl8169_interrupt
+>   one ? ath9k_ioread32
+> 
+
