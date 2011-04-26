@@ -1,96 +1,99 @@
-From: NeilBrown <neilb@suse.de>
-Subject: Re: [PATCH 09/13] netvm: Set PF_MEMALLOC as appropriate during SKB
- processing
-Date: Wed, 27 Apr 2011 09:22:03 +1000
-Message-ID: <20110427092203.659fbc25@notabene.brown>
-References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
-	<1303803414-5937-10-git-send-email-mgorman@suse.de>
-	<20110426222157.33a461f8@notabene.brown>
-	<20110426141048.GG4658@suse.de>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: Strange igb bug, out-of-tree driver seems to work fine.
+Date: Tue, 26 Apr 2011 16:23:02 -0700
+Message-ID: <EDC0E76513226749BFBC9C3FB031318F016B41256F@orsmsx508.amr.corp.intel.com>
+References: <4DB0A3FF.8080203@candelatech.com>
+ <EDC0E76513226749BFBC9C3FB031318F01382E2CEF@orsmsx508.amr.corp.intel.com>
+ <4DB0F965.4080605@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110426141048.GG4658@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:34344 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753958Ab1DZXXI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 19:23:08 -0400
+In-Reply-To: <4DB0F965.4080605@candelatech.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Apr 2011 15:10:48 +0100 Mel Gorman <mgorman@suse.de> wrote:
 
-> On Tue, Apr 26, 2011 at 10:21:57PM +1000, NeilBrown wrote:
-> > On Tue, 26 Apr 2011 08:36:50 +0100 Mel Gorman <mgorman@suse.de> wrote:
-> > 
-> > > diff --git a/net/core/dev.c b/net/core/dev.c
-> > > index 3871bf6..2d79a20 100644
-> > > --- a/net/core/dev.c
-> > > +++ b/net/core/dev.c
-> > > @@ -3095,6 +3095,27 @@ static void vlan_on_bond_hook(struct sk_buff *skb)
-> > >  	}
-> > >  }
-> > >  
-> > > +/*
-> > > + * Limit which protocols can use the PFMEMALLOC reserves to those that are
-> > > + * expected to be used for communication with swap.
-> > > + */
-> > > +static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
-> > > +{
-> > > +	if (skb_pfmemalloc(skb))
-> > > +		switch (skb->protocol) {
-> > > +		case __constant_htons(ETH_P_ARP):
-> > > +		case __constant_htons(ETH_P_IP):
-> > > +		case __constant_htons(ETH_P_IPV6):
-> > > +		case __constant_htons(ETH_P_8021Q):
-> > > +			break;
-> > > +
-> > > +		default:
-> > > +			return false;
-> > > +		}
-> > > +
-> > > +	return true;
-> > > +}
-> > 
-> > This sort of thing really bugs me :-)
-> > Neither the comment nor the function name actually describe what the function
-> > is doing.  The function is checking *2* things.
-> >    is_pfmemalloc_skb_or_pfmemalloc_protocol()
-> > might be a more correct name, but is too verbose.
-> > 
-> > I would prefer the skb_pfmemalloc test were removed from here and ....
-> > 
-> > > +	if (!skb_pfmemalloc_protocol(skb))
-> > > +		goto drop;
-> > > +
-> > 
-> > ...added here so this becomes:
-> > 
-> >       if (!skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
-> >                 goto drop;
-> > 
-> > which actually makes sense.
-> > 
-> 
-> Moving the check is neater but that check should be
-> 
-> 	if (skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
-> 
-> ? It's only if the skb was allocated from emergency reserves that we
-> need to consider dropping it to make way for other packets to be
-> received.
-> 
 
-Correct.  I got my Boolean algebra all confused. Sorry 'bout that.
+>-----Original Message-----
+>From: Ben Greear [mailto:greearb@candelatech.com]
+>Sent: Thursday, April 21, 2011 8:44 PM
+>To: Wyborny, Carolyn
+>Cc: netdev
+>Subject: Re: Strange igb bug, out-of-tree driver seems to work fine.
+>
+>On 04/21/2011 05:16 PM, Wyborny, Carolyn wrote:
+>>
+>>
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>owner@vger.kernel.org]
+>>> On Behalf Of Ben Greear
+>>> Sent: Thursday, April 21, 2011 2:39 PM
+>>> To: netdev
+>>> Subject: Strange igb bug, out-of-tree driver seems to work fine.
+>>>
+>>> We have a 4-port NIC using the igb driver in a couple of systems,
+>>> and saw some strange issues (mostly rx CRC errors).  We tried 2.6.34,
+>>> 2.6.36, and 2.6.38 based kernels and all showed issues.  The NICs
+>>> are from two different vendors, though both use the igb driver.
+>>>
+>>> We then tried 2.6.36.3 with the out-of-tree igb-2.4.13.tar.gz
+>>> driver.  And everything seems to run clean.
+>>>
+>>> My kernels are somewhat hacked and tainted, and this testing
+>>> is using my tainting module, but since changing only the driver
+>>> seems to fix things, it's _probably_ not my fault this time!
+>>>
+>>> I am running a small hack to make igb work better with VLANs
+>>> in my 2.6.36 and .38 kernel, though not in the .34.  Here is the .36
+>>> diff:
+>
+>>
+>> Hello,
+>>
+>> There have been recent patches for igb that I submitted that might
+>contain the fix you found in the out-of-tree driver, although I'm not
+>sure which one would affect rx CRC errors.  Were there other symptoms?
+>Any messages in the log?  I'll look through the patches and see if there
+>is anything obvious and get you some commit numbers to try.
+>
+>There was nothing else that I noticed.  If your patches are in 2.6.39-
+>rc4+, I can try
+>them there perhaps?
+>
+>Thanks,
+>Ben
+>
+>
+>--
+>Ben Greear <greearb@candelatech.com>
+>Candela Technologies Inc  http://www.candelatech.com
 
-NeilBrown
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Hello,
+
+I'm sorry for the delay in responding.  I'm really scratching my head on this one as we don't do much in the driver that affects what we get on receive.  I've seen situations where some switches end up transmitting more of these and then we record more of them, but I'm guessing you're testing with the same equipment, just a different driver version.  Let me know if I'm mistaken there.  
+
+So, to answer your question, I believe my patches are there, but I did review them again and I'm not sure they will make any difference.  My latest batch of patches was to add features to the i350 device specifically.
+
+Give it try though and let me know if you see any difference with 2.6.39-rc4+.
+
+Thanks,
+
+Carolyn
+
+Carolyn Wyborny
+Linux Development
+LAN Access Division
+Intel Corporation
+
+
+
