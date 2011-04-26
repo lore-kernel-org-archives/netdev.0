@@ -1,48 +1,106 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 4/4] ipv4: Kill RTO_CONN.
-Date: Tue, 26 Apr 2011 15:12:07 -0700 (PDT)
-Message-ID: <20110426.151207.232736415.davem@davemloft.net>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH 12/13] mm: Throttle direct reclaimers if PF_MEMALLOC
+ reserves are low and swap is backed by network storage
+Date: Wed, 27 Apr 2011 09:18:11 +1000
+Message-ID: <20110427091811.153ca78b@notabene.brown>
+References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+	<1303803414-5937-13-git-send-email-mgorman@suse.de>
+	<20110426223059.10f3edda@notabene.brown>
+	<20110426142624.GH4658@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48352
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758444Ab1DZWMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 18:12:40 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 28EAB24C088
-	for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 15:12:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110426142624.GH4658@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 26 Apr 2011 15:26:24 +0100 Mel Gorman <mgorman@suse.de> wrote:
 
-It's not used by anything in the kernel, and defined in net/route.h so
-never exported to userspace.
+> On Tue, Apr 26, 2011 at 10:30:59PM +1000, NeilBrown wrote:
+> > On Tue, 26 Apr 2011 08:36:53 +0100 Mel Gorman <mgorman@suse.de> wrote:
+> > 
+> > 
+> > > +/*
+> > > + * Throttle direct reclaimers if backing storage is backed by the network
+> > > + * and the PFMEMALLOC reserve for the preferred node is getting dangerously
+> > > + * depleted. kswapd will continue to make progress and wake the processes
+> > > + * when the low watermark is reached
+> > > + */
+> > > +static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
+> > > +					nodemask_t *nodemask)
+> > > +{
+> > > +	struct zone *zone;
+> > > +	int high_zoneidx = gfp_zone(gfp_mask);
+> > > +	DEFINE_WAIT(wait);
+> > > +
+> > > +	/* Check if the pfmemalloc reserves are ok */
+> > > +	first_zones_zonelist(zonelist, high_zoneidx, NULL, &zone);
+> > > +	prepare_to_wait(&zone->zone_pgdat->pfmemalloc_wait, &wait,
+> > > +							TASK_INTERRUPTIBLE);
+> > > +	if (pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx))
+> > > +		goto out;
+> > > +
+> > > +	/* Throttle */
+> > > +	do {
+> > > +		schedule();
+> > > +		finish_wait(&zone->zone_pgdat->pfmemalloc_wait, &wait);
+> > > +		prepare_to_wait(&zone->zone_pgdat->pfmemalloc_wait, &wait,
+> > > +							TASK_INTERRUPTIBLE);
+> > > +	} while (!pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx) &&
+> > > +			!fatal_signal_pending(current));
+> > > +
+> > > +out:
+> > > +	finish_wait(&zone->zone_pgdat->pfmemalloc_wait, &wait);
+> > > +}
+> > 
+> > You are doing an interruptible wait, but only checking for fatal signals.
+> > So if a non-fatal signal arrives, you will busy-wait.
+> > 
+> > So I suspect you want TASK_KILLABLE, so just use:
+> > 
+> >     wait_event_killable(zone->zone_pgdat->pfmemalloc_wait,
+> >                         pgmemalloc_watermark_ok(zone->zone_pgdata,
+> >                                                 high_zoneidx));
+> > 
+> 
+> Well, if a normal signal arrives, we do not necessarily want the
+> process to enter reclaim. For fatal signals, I allow it to continue
+> because it's not likely to be putting the system under more pressure
+> if it's exiting.
 
-Therefore we can safely remove it.
+Yep, I understand that and it doesn't seem unreasonable.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/route.h |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+However I don't think the code implements that correctly.
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 79530da..fdbdb92 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -37,10 +37,6 @@
- 
- #define RTO_ONLINK	0x01
- 
--#define RTO_CONN	0
--/* RTO_CONN is not used (being alias for 0), but preserved not to break
-- * some modules referring to it. */
--
- #define RT_CONN_FLAGS(sk)   (RT_TOS(inet_sk(sk)->tos) | sock_flag(sk, SOCK_LOCALROUTE))
- 
- struct fib_nh;
--- 
-1.7.4.5
+If you get a non-fatal signal, schedule will exit immediately (because of the
+TASK_INTERRUPTIBLE setting) and the 'while' clause will succeed because the
+signal is not fatal, so it will loop around and try to schedule again, which
+will again exit immediately - busy loop.
 
+> 
+> > (You also have an extraneous call to finish_wait)
+> > 
+> 
+> Which one? I'm not seeing a flow where finish_wait gets called twice
+> without a prepare_to_wait in between. 
+> 
+
+You don't need to call finish_wait immediately before prepare_to_wait.
+
+It really is best to just use the appropriate 'wait_event*' macro....
+
+NeilBrown
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
