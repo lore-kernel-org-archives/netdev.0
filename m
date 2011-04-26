@@ -1,112 +1,113 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
-Date: Tue, 26 Apr 2011 16:16:15 -0400
-Message-ID: <BANLkTikoQfbSxnJi_OR+N6sa5iVNcTO6Ug@mail.gmail.com>
-References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com>
-	<1303730701.2747.110.camel@edumazet-laptop>
-	<BANLkTi=xns1Gdjyt-SX3yDETSQfO23rXXg@mail.gmail.com>
-	<1303745915.2747.151.camel@edumazet-laptop>
-	<BANLkTikcn832pXzxPjM032ZuRi8o0SQ++Q@mail.gmail.com>
-	<1303837801.3358.65.camel@edumazet-laptop>
-	<BANLkTikjcd6ZAF5wH_8CKA_OCrfprGokmw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Carsten Wolff <carsten@wolffcarsten.de>, netdev@vger.kernel.org
-To: Dominik Kaspar <dokaspar.ietf@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] bnx2: cancel timer on device removal
+Date: Tue, 26 Apr 2011 16:30:11 -0400
+Message-ID: <1303849811-29025-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Michael Chan <mchan@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:38974 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846Ab1DZUQQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 16:16:16 -0400
-Received: by eyx24 with SMTP id 24so314826eyx.19
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 13:16:15 -0700 (PDT)
-In-Reply-To: <BANLkTikjcd6ZAF5wH_8CKA_OCrfprGokmw@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45915 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753274Ab1DZUab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 16:30:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46irst, TCP is definitely not designed to work under such conditions.
-=46or example, assumptions behind RTO calculation and fast retransmit
-heuristics are violated.  However, in this particular case my first
-guess is that you are being limited by "cwnd moderation," which was
-the topic of recent discussion here.  Under persistent reordering,
-cwnd moderation can inhibit the ability of cwnd to grow.
+This oops was recently reported to me:
 
-Thanks,
-  -John
+invalid opcode: 0000 [#1] SMP
+last sysfs file:
+/sys/devices/pci0000:00/0000:00:01.0/0000:01:0d.0/0000:02:05.0/device
+CPU 1
+Modules linked in: bnx2(+) sunrpc ipv6 dm_mirror dm_region_hash dm_log sg
+microcode serio_raw amd64_edac_mod edac_core edac_mce_amd k8temp i2c_piix4
+shpchp ext4 mbcache jbd2 sd_mod crc_t10dif mptsas mptscsih mptbase
+scsi_transport_sas radeon ttm drm_kms_helper drm hwmon i2c_algo_bit i2c_core
+dm_mod [last unloaded: bnx2]
 
+Modules linked in: bnx2(+) sunrpc ipv6 dm_mirror dm_region_hash dm_log sg
+microcode serio_raw amd64_edac_mod edac_core edac_mce_amd k8temp i2c_piix4
+shpchp ext4 mbcache jbd2 sd_mod crc_t10dif mptsas mptscsih mptbase
+scsi_transport_sas radeon ttm drm_kms_helper drm hwmon i2c_algo_bit i2c_core
+dm_mod [last unloaded: bnx2]
+Pid: 23900, comm: pidof Not tainted 2.6.32-130.el6.x86_64 #1 BladeCenter LS21
+-[797251Z]-
+RIP: 0010:[<ffffffffa058b270>]  [<ffffffffa058b270>] 0xffffffffa058b270
+RSP: 0018:ffff880002083e48  EFLAGS: 00010246
+RAX: ffff880002083e90 RBX: ffff88007ccd4000 RCX: 0000000000000000
+RDX: 0000000000000100 RSI: dead000000200200 RDI: ffff8800007b8700
+RBP: ffff880002083ed0 R08: ffff88000208db40 R09: 0000022d191d27c8
+R10: 0000000000000000 R11: 0000000000000000 R12: ffff8800007b9bc8
+R13: ffff880002083e90 R14: ffff8800007b8700 R15: ffffffffa058b270
+FS:  00007fbb3bcf7700(0000) GS:ffff880002080000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000001664a98 CR3: 0000000060395000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process pidof (pid: 23900, threadinfo ffff8800007e8000, task ffff8800091c0040)
+Stack:
+ ffffffff81079f77 ffffffff8109e010 ffff88007ccd5c20 ffff88007ccd5820
+<0> ffff88007ccd5420 ffff8800007e9fd8 ffff8800007e9fd8 0000010000000000
+<0> ffff88007ccd5020 ffff880002083e90 ffff880002083e90 ffffffff8102a00d
+Call Trace:
+ <IRQ>
+ [<ffffffff81079f77>] ? run_timer_softirq+0x197/0x340
+ [<ffffffff8109e010>] ? tick_sched_timer+0x0/0xc0
+ [<ffffffff8102a00d>] ? lapic_next_event+0x1d/0x30
+ [<ffffffff8106f737>] __do_softirq+0xb7/0x1e0
+ [<ffffffff81092cc0>] ? hrtimer_interrupt+0x140/0x250
+ [<ffffffff81185f90>] ? filldir+0x0/0xe0
+ [<ffffffff8100c2cc>] call_softirq+0x1c/0x30
+ [<ffffffff8100df05>] do_softirq+0x65/0xa0
+ [<ffffffff8106f525>] irq_exit+0x85/0x90
+ [<ffffffff814e3340>] smp_apic_timer_interrupt+0x70/0x9b
+ [<ffffffff8100bc93>] apic_timer_interrupt+0x13/0x20
+ <EOI>
+ [<ffffffff81211ba5>] ? selinux_file_permission+0x45/0x150
+ [<ffffffff81262a75>] ? _atomic_dec_and_lock+0x55/0x80
+ [<ffffffff812050c6>] security_file_permission+0x16/0x20
+ [<ffffffff811861c1>] vfs_readdir+0x71/0xe0
+ [<ffffffff81186399>] sys_getdents+0x89/0xf0
+ [<ffffffff8100b172>] system_call_fastpath+0x16/0x1b
 
-On Tue, Apr 26, 2011 at 2:00 PM, Dominik Kaspar <dokaspar.ietf@gmail.co=
-m> wrote:
-> Hi Eric,
->
-> Here are the tcpdump files for the first TSO-disabled experiment, in =
-a
-> full version and a short version with only the first 10000 packets:
->
-> http://home.simula.no/~kaspar/static/mptcp-emu-wlan-hspa-01-tos0-exp1=
--full.pcap
-> http://home.simula.no/~kaspar/static/mptcp-emu-wlan-hspa-01-tos0-exp1=
--short.pcap
->
-> By the way, the packets are sent from the server (x.x.x.189) to the
-> client interfaces (x.x.x.74) and (x.x.x.216) with the following
-> pattern (which is a non-bursty 128-bit approximation of scheduling
-> with a 600:400 ratio over primary path 0 and secondary path 1):
->
-> 0010010100101001010010100101001010010100101001010010100101001010
-> 0101001010010100101001010010100101001010010100101001010010100101
->
-> Greetings,
-> Dominik
->
-> On Tue, Apr 26, 2011 at 7:10 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
->> Le mardi 26 avril 2011 =E0 18:58 +0200, Dominik Kaspar a =E9crit :
->>> Hi Eric,
->>>
->>> On Mon, Apr 25, 2011 at 5:38 PM, Eric Dumazet <eric.dumazet@gmail.c=
-om> wrote:
->>> >
->>> > Since you have at sender a rule to spoof destination address of p=
-ackets,
->>> > you should make sure you dont send "super packets (up to 64Kbytes=
-)",
->>> > because it would stress the multipath more than you wanted to. Th=
-is way,
->>> > you send only normal packets (1500 MTU).
->>> >
->>> > ethtool -K eth0 tso off
->>> > ethtool -K eth0 gso off
->>> >
->>> > I am pretty sure it should help your (atypic) workload.
->>>
->>> I made new experiments with the exact same multipath setup as befor=
-e,
->>> but disabled TSO and GSO on all involved Ethernet interfaces. Howev=
-er,
->>> this did not seem to change much about TCP's behavior when packets =
-are
->>> striped over heterogeneous paths. You can see the results of four
->>> 20-minute experiments on this plot:
->>>
->>> http://home.simula.no/~kaspar/static/mptcp-emu-wlan-hspa-01-tos0.pn=
-g
->>>
->>> Cheers,
->>> Dominik
->>
->> Hi Dominik
->>
->> Any chance to have a pcap file from sender side, of say first 10.000
->> packets ?
->>
->>
->>
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+It occured during some stress testing, in which the reporter was repeatedly
+removing and modprobing the bnx2 module while doing various other random
+operations on the bnx2 registered net device.  Noting that this error occured on
+a serdes based device, we noted that there were a few ethtool operations (most
+notably self_test and set_phys_id) that have execution paths that lead into
+bnx2_setup_serdes_phy.  This function is notable because it executes a mod_timer
+call, which starts the bp->timer running.  Currently bnx2 is setup to assume
+that this timer only nees to be stopped when bnx2_close or bnx2_suspend is
+called.  Since the above ethtool operations are not gated on the net device
+having been opened however, that assumption is incorrect, and can lead to the
+timer still running after the module has been removed, leading to the oops above
+(as well as other simmilar oopses).
+
+Fix the problem by ensuring that the timer is stopped when pci_device_unregister
+is called.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Hushan Jia <hjia@redhat.com>
+CC: Michael Chan <mchan@broadcom.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/bnx2.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index bf729ee..7f76d4c 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -8358,6 +8358,8 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 
+ 	unregister_netdev(dev);
+ 
++	del_timer_sync(&bp->timer);
++
+ 	if (bp->mips_firmware)
+ 		release_firmware(bp->mips_firmware);
+ 	if (bp->rv2p_firmware)
+-- 
+1.7.4.4
+
