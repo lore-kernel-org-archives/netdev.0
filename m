@@ -1,93 +1,53 @@
-From: NeilBrown <neilb@suse.de>
-Subject: Re: [PATCH 13/13] mm: Account for the number of times direct
- reclaimers get throttled
-Date: Tue, 26 Apr 2011 22:35:10 +1000
-Message-ID: <20110426223510.4c6ab3cc@notabene.brown>
-References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
-	<1303803414-5937-14-git-send-email-mgorman@suse.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: how to set vlan filter for intel 82599
+Date: Tue, 26 Apr 2011 14:31:44 +0100
+Message-ID: <1303824705.3032.359.camel@localhost>
+References: <BANLkTikZcdda5-3NBaXyKmij09f62Da3cQ@mail.gmail.com>
+	 <1303786638.3032.307.camel@localhost>
+	 <BANLkTikav_NimAoFj_2Wo-BMD-3uVjU--w@mail.gmail.com>
+	 <1303789868.3032.347.camel@localhost>
+	 <BANLkTi=eADSYV90EC9uJhtLZfBBJa5O1Bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1303803414-5937-14-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: zhou rui <zhourui.cn@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:15573 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754982Ab1DZNbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 09:31:48 -0400
+In-Reply-To: <BANLkTi=eADSYV90EC9uJhtLZfBBJa5O1Bw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Apr 2011 08:36:54 +0100 Mel Gorman <mgorman@suse.de> wrote:
-
-> Under significant pressure when writing back to network-backed storage,
-> direct reclaimers may get throttled. This is expected to be a
-> short-lived event and the processes get woken up again but processes do
-> get stalled. This patch counts how many times such stalling occurs. It's
-> up to the administrator whether to reduce these stalls by increasing
-> min_free_kbytes.
+On Tue, 2011-04-26 at 12:39 +0800, zhou rui wrote:
+[...]
+> i set the filter like below:
 > 
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
-> ---
->  include/linux/vm_event_item.h |    1 +
->  mm/vmscan.c                   |    1 +
->  mm/vmstat.c                   |    1 +
->  3 files changed, 3 insertions(+), 0 deletions(-)
+> for a vlanid=50, it always match the last rule (action 7)
 > 
-> diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
-> index 03b90cdc..652e5f3 100644
-> --- a/include/linux/vm_event_item.h
-> +++ b/include/linux/vm_event_item.h
-> @@ -29,6 +29,7 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
->  		FOR_ALL_ZONES(PGSTEAL),
->  		FOR_ALL_ZONES(PGSCAN_KSWAPD),
->  		FOR_ALL_ZONES(PGSCAN_DIRECT),
-> +		PGSCAN_DIRECT_THROTTLE,
->  #ifdef CONFIG_NUMA
->  		PGSCAN_ZONE_RECLAIM_FAILED,
->  #endif
-> diff --git a/mm/vmscan.c b/mm/vmscan.c
-> index 8b6da2b..e88138b 100644
-> --- a/mm/vmscan.c
-> +++ b/mm/vmscan.c
-> @@ -2154,6 +2154,7 @@ static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
->  		goto out;
->  
->  	/* Throttle */
-> +	count_vm_event(PGSCAN_DIRECT_THROTTLE);
->  	do {
->  		schedule();
->  		finish_wait(&zone->zone_pgdat->pfmemalloc_wait, &wait);
-> diff --git a/mm/vmstat.c b/mm/vmstat.c
-> index a2b7344..5725387 100644
-> --- a/mm/vmstat.c
-> +++ b/mm/vmstat.c
-> @@ -911,6 +911,7 @@ const char * const vmstat_text[] = {
->  	TEXTS_FOR_ZONES("pgsteal")
->  	TEXTS_FOR_ZONES("pgscan_kswapd")
->  	TEXTS_FOR_ZONES("pgscan_direct")
-> +	"pgscan_direct_throttle",
->  
->  #ifdef CONFIG_NUMA
->  	"zone_reclaim_failed",
+> ./ethtool -K eth5 ntuple off
+> ./ethtool -K eth5 ntuple on
+> ./ethtool -U eth5 flow-type tcp4 vlan 32 vlan-mask 0xF01F action 1
+> ./ethtool -U eth5 flow-type udp4 vlan 32 vlan-mask 0xF01F action 1
+> ./ethtool -U eth5 flow-type udp4 vlan 64 vlan-mask 0xF01F action 7
+> ./ethtool -U eth5 flow-type tcp4 vlan 64 vlan-mask 0xF01F action 7
+> 
+> I tried the latest ixgbe driver 3.3.9, it reports:
+> 
+> Cannot add new RX n-tuple filter: Operation not permitted
+> 
+> ./ethtool -V
+> ethtool version 2.6.36
 
-I like this approach.  Make the information available, but don't make a fuss
-about it.
+Check dmesg; there should be an error message there.  Of course the
+error code should be EINVAL and not EPERM.
 
-Actually, I like the whole series - I'm really having to dig deep to find
-anything to complain about :-)
+Ben.
 
-Feel free to put
-   Reviewed-by: NeilBrown <neilb@suse.de>
-against anything that I haven't commented on.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Thanks,
-NeilBrown
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
