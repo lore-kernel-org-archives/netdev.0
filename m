@@ -1,54 +1,27 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Tue, 26 Apr 2011 09:02:21 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755018DC497AB@orsmsx508.amr.corp.intel.com>
-References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
- <1303799597.2747.214.camel@edumazet-laptop>
+From: Adam Jaremko <adam.jaremko@gmail.com>
+Subject: Re: linux-next ftmac100 driver
+Date: Tue, 26 Apr 2011 12:08:11 -0400
+Message-ID: <BANLkTi=Eud9toM5HtHCSxNkPPrVEVgOCfg@mail.gmail.com>
+References: <BANLkTin24N2D_b_RpPCQdjYn2f=C7NY2JA@mail.gmail.com>
+	<D557AF68929979498EDCFCBB34FFD4E82C62BC@ftcpcs78.faraday.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: ratbert.chuang@gmail.com, netdev@vger.kernel.org
+To: =?UTF-8?B?UmF0YmVydCBQby1ZdSBDaHVhbmco6I6K5Y2a5a6HKQ==?=
+	<ratbert@faraday-tech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:11181 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751798Ab1DZQC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 12:02:28 -0400
-In-Reply-To: <1303799597.2747.214.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:40506 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754553Ab1DZQIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 12:08:13 -0400
+Received: by gxk21 with SMTP id 21so279301gxk.19
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 09:08:11 -0700 (PDT)
+In-Reply-To: <D557AF68929979498EDCFCBB34FFD4E82C62BC@ftcpcs78.faraday.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDI1LCAyMDEx
-IDExOjMzIFBNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4g
-U3ViamVjdDogUmU6IFtSRkMgUEFUQ0hdIG5ldGxpbms6IEluY3JlYXNlIG5ldGxpbmsgZHVtcCBz
-a2IgbWVzc2FnZSBzaXplDQo+IA0KPiBMZSBsdW5kaSAyNSBhdnJpbCAyMDExIMOgIDE1OjAxIC0w
-NzAwLCBHcmVnIFJvc2UgYSDDqWNyaXQgOg0KPiA+IFRoZSBtZXNzYWdlIHNpemUgYWxsb2NhdGVk
-IGZvciBydG5sIGluZm8gZHVtcHMgd2FzIGxpbWl0ZWQgdG8gYSBzaW5nbGUNCj4gcGFnZS4NCj4g
-PiBUaGlzIGlzIG5vdCBlbm91Z2ggZm9yIGFkZGl0aW9uYWwgaW50ZXJmYWNlIGluZm8gYXZhaWxh
-YmxlIHdpdGggZGV2aWNlcw0KPiA+IHRoYXQgc3VwcG9ydCBTUi1JT1YuICBDaGVjayB0aGF0IHRo
-ZSBhbW91bnQgb2YgZGF0YSBhbGxvY2F0ZWQgaXMNCj4gc3VmZmljaWVudA0KPiA+IGZvciB0aGUg
-YW1vdW50IG9mIGRhdGEgcmVxdWVzdGVkLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogR3JlZyBS
-b3NlIDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+DQo+ID4gLS0tDQo+ID4NCj4gPiAgaW5jbHVk
-ZS9saW51eC9ydG5ldGxpbmsuaCB8ICAgIDEgKw0KPiA+ICBuZXQvY29yZS9ydG5ldGxpbmsuYyAg
-ICAgIHwgICAgNiArKysrKysNCj4gPiAgbmV0L25ldGxpbmsvYWZfbmV0bGluay5jICB8ICAgMzcg
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLQ0KPiA+ICAzIGZpbGVzIGNoYW5n
-ZWQsIDM4IGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pDQo+ID4NCj4gDQo+IEhtbSwgdGhh
-dHMgYSBoYWNrLCBiZWNhdXNlIG5ldGxpbmtfZHVtcCgpIGlzIGdlbmVyaWMgYW5kIHlvdSBhZGQN
-Cj4gc29tZXRoaW5nIHZlcnkgc3BlY2lmaWMuDQo+IA0KPiBJIHByZWZlciBzb21ldGhpbmcgdGhh
-dCBhbGxvd3Mgb25lIGR1bXAoKSB0byByZWFsbG9jYXRlIGEgYmlnZ2VyIHNrYg0KPiANCj4gTWF5
-YmUgY2hhbmdpbmctPmR1bXAoKSBwcm90b3R5cGUgdG8gc3RydWN0IHNrX2J1ZmYgKipwc2tiIGlu
-c3RlYWQgb2YNCj4gc3RydWN0IHNrX2J1ZmYgKnNrYi4NCg0KSSdsbCBoYXZlIGEgbG9vayBhdCB0
-aGF0LCBhbHRob3VnaCBEYXZlJ3Mgbm90IHRvbyBoYXBweSB3aXRoIHRoZSB3aG9sZSBsb3Qgb2Yg
-dGhpcyBtZXNzIGFuZCBJIHZlcnkgbXVjaCBhZ3JlZSB3aXRoIGhpbS4NCg0KLSBHcmVnDQo+IA0K
-PiBkaWZmIC0tZ2l0IGEvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jIGIvbmV0L25ldGxpbmsvYWZf
-bmV0bGluay5jDQo+IGluZGV4IGM4ZjM1YjUuLjdmYTY3MzUgMTAwNjQ0DQo+IC0tLSBhL25ldC9u
-ZXRsaW5rL2FmX25ldGxpbmsuYw0KPiArKysgYi9uZXQvbmV0bGluay9hZl9uZXRsaW5rLmMNCj4g
-QEAgLTE2ODEsNyArMTY4MSw3IEBAIHN0YXRpYyBpbnQgbmV0bGlua19kdW1wKHN0cnVjdCBzb2Nr
-ICpzaykNCj4gIAkJZ290byBlcnJvdXRfc2tiOw0KPiAgCX0NCj4gDQo+IC0JbGVuID0gY2ItPmR1
-bXAoc2tiLCBjYik7DQo+ICsJbGVuID0gY2ItPmR1bXAoJnNrYiwgY2IpOw0KPiANCj4gIAlpZiAo
-bGVuID4gMCkgew0KPiAgCQltdXRleF91bmxvY2sobmxrLT5jYl9tdXRleCk7DQo+IA0KDQo=
+> You can try to use udelay() to replace usleep_range(). I will also check this problem when I am free later.
+> If you solved this problem before me, please send a message (and keep the CC list).
+> It will be even better if you could submit a patch. :-)
+
+That is what I ended up doing and am able to continue with my testing.
