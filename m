@@ -1,65 +1,41 @@
-From: Adam Jaremko <adam.jaremko@gmail.com>
-Subject: [PATCH] net: ftmac100: fix scheduling while atomic during PHY link
- status change
-Date: Tue, 26 Apr 2011 12:32:56 -0400
-Message-ID: <BANLkTi=gcFB4mbmWKu4neep77Jp8R4HWGQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/3] bql: Byte queue limits
+Date: Tue, 26 Apr 2011 18:37:35 +0200
+Message-ID: <1303835855.3358.64.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1104252128290.5895@pokey.mtv.corp.google.com>
+	 <20110426091620.7c576a98@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: ratbert.chuang@gmail.com, netdev@vger.kernel.org
-To: =?UTF-8?B?UmF0YmVydCBQby1ZdSBDaHVhbmco6I6K5Y2a5a6HKQ==?=
-	<ratbert@faraday-tech.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:43355 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751328Ab1DZQc5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 12:32:57 -0400
-Received: by gyd10 with SMTP id 10so285024gyd.19
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 09:32:56 -0700 (PDT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35385 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752188Ab1DZQhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 12:37:39 -0400
+Received: by wya21 with SMTP id 21so609550wya.19
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 09:37:38 -0700 (PDT)
+In-Reply-To: <20110426091620.7c576a98@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Adam Jaremko <adam.jaremko@gmail.com>
----
- drivers/net/ftmac100.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Le mardi 26 avril 2011 =C3=A0 09:16 -0700, Stephen Hemminger a =C3=A9cr=
+it :
 
-diff --git a/drivers/net/ftmac100.c b/drivers/net/ftmac100.c
-index a316619..9bd7746 100644
---- a/drivers/net/ftmac100.c
-+++ b/drivers/net/ftmac100.c
-@@ -139,11 +139,11 @@ static int ftmac100_reset(struct ftmac100 *priv)
- 			 * that hardware reset completed (what the f*ck).
- 			 * We still need to wait for a while.
- 			 */
--			usleep_range(500, 1000);
-+			udelay(500);
- 			return 0;
- 		}
+> Although this is implemented as a device attribute, from a layering
+> point of view it feels like a queuing strategy. Having two competing
+> ways to do something is not always a good idea. Why is this not a
+> qdisc parameter or a new qdisc?
+>=20
 
--		usleep_range(1000, 10000);
-+		udelay(1000);
- 	}
+The dequeue thing is performed in TX completion (one call for all
+dequeued skbs to reduce overhead).
 
- 	netdev_err(netdev, "software reset failed\n");
-@@ -772,7 +772,7 @@ static int ftmac100_mdio_read(struct net_device
-*netdev, int phy_id, int reg)
- 		if ((phycr & FTMAC100_PHYCR_MIIRD) == 0)
- 			return phycr & FTMAC100_PHYCR_MIIRDATA;
+But its right the queueing test could be done generically (stop the
+queue if limit reached).
 
--		usleep_range(100, 1000);
-+		udelay(100);
- 	}
+BTW I did not check if both paths were SMP safe if run concurrently...
 
- 	netdev_err(netdev, "mdio read timed out\n");
-@@ -801,7 +801,7 @@ static void ftmac100_mdio_write(struct net_device
-*netdev, int phy_id, int reg,
- 		if ((phycr & FTMAC100_PHYCR_MIIWR) == 0)
- 			return;
 
--		usleep_range(100, 1000);
-+		udelay(100);
- 	}
-
- 	netdev_err(netdev, "mdio write timed out\n");
--- 
-1.7.4.4
