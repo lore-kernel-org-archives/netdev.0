@@ -1,38 +1,34 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 00/13] Swap-over-NBD without deadlocking
-Date: Tue, 26 Apr 2011 16:50:49 +0200
-Message-ID: <1303829449.20212.285.camel@twins>
-References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
-	 <1303827785.20212.266.camel@twins>  <20110426144635.GK4658@suse.de>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] dsa/mv88e6131: fix unknown multicast/broadcast
+ forwarding on mv88e6085
+Date: Tue, 26 Apr 2011 16:57:40 +0200
+Message-ID: <20110426145740.GL1897@wantstofly.org>
+References: <1303818341-13839-1-git-send-email-jacmet@sunsite.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
- Neil Brown <neilb@suse.de>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110426144635.GK4658@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Peter Korsgaard <jacmet@sunsite.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fw.wantstofly.org ([80.101.37.227]:64066 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756671Ab1DZOys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 10:54:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1303818341-13839-1-git-send-email-jacmet@sunsite.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-04-26 at 15:46 +0100, Mel Gorman wrote:
->=20
-> I did find that only a few route-cache entries should be required. In
-> the original patches I worked with, there was a reservation for the
-> maximum possible number of route-cache entries. I thought this was
-> overkill and instead reserved 1-per-active-swapfile-backed-by-NFS.
+On Tue, Apr 26, 2011 at 01:45:41PM +0200, Peter Korsgaard wrote:
 
-Right, so the thing I was worried about was a route-cache poison attack
-where someone would spam the machine such that it would create a lot of
-route cache entries and might flush the one we needed just as we needed
-it.
+> The 88e6085 has a few differences from the other devices in the port
+> control registers, causing unknown multicast/broadcast packets to get
+> dropped when using the standard port setup.
+> 
+> At the same time update kconfig to clarify that the mv88e6085 is now
+> supported.
+> 
+> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 
-Pinning the one entry we need would solve that (if possible).
+Assuming that you've tested this.. :)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
