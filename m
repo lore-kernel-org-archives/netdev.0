@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 3/4] xfrm: Check for the new replay
- implementation if an esn state is inserted
-Date: Tue, 26 Apr 2011 12:47:58 -0700 (PDT)
-Message-ID: <20110426.124758.112584358.davem@davemloft.net>
-References: <20110426053923.GF5495@secunet.com>
-	<20110426054121.GH5495@secunet.com>
-	<20110426054304.GD18896@gondor.apana.org.au>
+Subject: Re: [PATCH] tg3: Convert u32 flag,flg2,flg3 uses to bitmap
+Date: Tue, 26 Apr 2011 12:49:37 -0700 (PDT)
+Message-ID: <20110426.124937.39191750.davem@davemloft.net>
+References: <1303776574.24299.3.camel@Joe-Laptop>
+	<20110426013512.GA2031@mcarlson.broadcom.com>
+	<1303841530.24299.37.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: mcarlson@broadcom.com, mchan@broadcom.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48380
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39447
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756558Ab1DZTsb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 15:48:31 -0400
-In-Reply-To: <20110426054304.GD18896@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1756471Ab1DZTuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 15:50:10 -0400
+In-Reply-To: <1303841530.24299.37.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 26 Apr 2011 15:43:04 +1000
+From: Joe Perches <joe@perches.com>
+Date: Tue, 26 Apr 2011 11:12:10 -0700
 
-> On Tue, Apr 26, 2011 at 07:41:21AM +0200, Steffen Klassert wrote:
->> IPsec extended sequence numbers can be used only with the new
->> anti-replay window implementation. So check if the new implementation
->> is used if an esn state is inserted and return an error if it is not.
->> 
->> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> Using a bitmap instead of separate u32 flags allows a consistent, simpler
+> and more extensible mechanism to determine capabilities.
 > 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Convert bitmasks to enum.
+> Add tg3_flag, tg3_flag_clear and tg3_flag_set.
+> Convert the flag & bitmask tests.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied.
+I like this, Broadcom folks please review.
