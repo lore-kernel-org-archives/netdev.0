@@ -1,109 +1,92 @@
-From: Andy Gospodarek <andy@greyhouse.net>
+From: Stefan Assmann <sassmann@kpanic.de>
 Subject: Re: [PATCH] igb: restore EEPROM 16kB access limit
-Date: Tue, 26 Apr 2011 11:06:59 -0400
-Message-ID: <20110426150659.GA21309@gospo.rdu.redhat.com>
-References: <1302269695-27188-1-git-send-email-sassmann@kpanic.de>
-	<EDC0E76513226749BFBC9C3FB031318F0137E85A8E@orsmsx508.amr.corp.intel.com>
-	<4D9F6A44.7060809@kpanic.de>
-	<EDC0E76513226749BFBC9C3FB031318F0137E85E47@orsmsx508.amr.corp.intel.com>
+Date: Tue, 26 Apr 2011 17:07:07 +0200
+Message-ID: <4DB6DF9B.90706@kpanic.de>
+References: <1302269695-27188-1-git-send-email-sassmann@kpanic.de> <EDC0E76513226749BFBC9C3FB031318F0137E85A8E@orsmsx508.amr.corp.intel.com> <4D9F6A44.7060809@kpanic.de> <EDC0E76513226749BFBC9C3FB031318F0137E85E47@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stefan Assmann <sassmann@kpanic.de>, "Ronciak,
-	John" <john.ronciak@intel.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Andy Gospodarek <gospo@redhat.com>
 To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.xlhost.de ([213.202.242.118]:51917 "EHLO mysql1.xlhost.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756095Ab1DZPHM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2011 11:07:12 -0400
 In-Reply-To: <EDC0E76513226749BFBC9C3FB031318F0137E85E47@orsmsx508.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 08, 2011 at 01:10:30PM -0700, Wyborny, Carolyn wrote:
-[...]
-> 
-> Yes, there's more code changed than just the removal of what you're trying to add back.  The snip is the replacement but those function need to exist as well.  I believe that the commit referenced did not completely apply and you're missing some critical code.  The problem you are seeing should not occur with full patch.
-> 
-> The version of e1000_82575.c in 2.6.39-rc2 has all the changes needed for this to work correctly.
-> 
+New patch against net-next-2.6.
 
-I'm still seeing failures with today's net-next-2.6 ('git describe'
-shows v2.6.39-rc1-1283-g64cad2a), so it would be really nice to get this
-fixed.  I would rather not have to carry a patch like the one Stefan
-posted or one like this crazy one I hacked up to try all sizes until
-valid NVRAM is found.
+  Stefan
 
-It applies cleanly net-next-2.6, net-2.6, and linux-2.6 as all exhibit
-the exact same problem.
+>From 67ce9e09e10f05054a26560306aa484ae3acc03f Mon Sep 17 00:00:00 2001
+From: Stefan Assmann <sassmann@kpanic.de>
+Date: Mon, 18 Apr 2011 15:22:19 +0200
+Subject: [PATCH] igb: default to 32kB for EEPROMs reporting invalid size
+
+The check that gracefully handled invalid EEPROM sizes was removed by
+commit 4322e561a93ec7ee034b603a6c610e7be90d4e8a. Without this check the
+EEPROM validation fails if the size is invalid and the NIC is not usable
+by the OS. Observed with a 8086:10c9 NIC.
+
+igb 0000:03:00.0: 0 vfs allocated
+igb 0000:03:00.0: The NVM Checksum Is Not Valid
+ACPI: PCI interrupt for device 0000:03:00.0 disabled
+igb: probe of 0000:03:00.0 failed with error -5
+
+Re-introducing the check with an additional dev_err() to report the problem.
+
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/igb/e1000_82575.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 0cd41c4..f8677f2 100644
+index 0cd41c4..f3bdf29 100644
 --- a/drivers/net/igb/e1000_82575.c
 +++ b/drivers/net/igb/e1000_82575.c
-@@ -243,7 +243,7 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	 * for setting word_size.
+@@ -31,9 +31,11 @@
+
+ #include <linux/types.h>
+ #include <linux/if_ether.h>
++#include <linux/pci.h>
+
+ #include "e1000_mac.h"
+ #include "e1000_82575.h"
++#include "igb.h"
+
+ static s32  igb_get_invariants_82575(struct e1000_hw *);
+ static s32  igb_acquire_phy_82575(struct e1000_hw *);
+@@ -113,6 +115,7 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	struct e1000_nvm_info *nvm = &hw->nvm;
+ 	struct e1000_mac_info *mac = &hw->mac;
+ 	struct e1000_dev_spec_82575 * dev_spec = &hw->dev_spec._82575;
++	struct igb_adapter *adapter = hw->back;
+ 	u32 eecd;
+ 	s32 ret_val;
+ 	u16 size;
+@@ -244,6 +247,13 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
  	 */
  	size += NVM_WORD_SIZE_BASE_SHIFT;
--
-+err_eeprom:
+
++	/* gracefully handle NICs reporting an invalid EEPROM size */
++	if (size > 15) {
++		dev_err(&adapter->pdev->dev,
++		        "NVM size is not valid, defaulting to 32kB\n");
++		size = 15;
++	}
++
  	nvm->word_size = 1 << size;
  	if (nvm->word_size == (1 << 15))
  		nvm->page_size = 128;
-@@ -271,6 +271,17 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	}
- 	nvm->ops.write = igb_write_nvm_spi;
- 
-+        /* make sure the NVM is good */
-+        if (hw->nvm.ops.validate(hw) < 0) {
-+		if (size > 14)  {
-+			size--;
-+			printk(KERN_ERR "igb: The NVM size is not valid, trying %d\n", 1<<size);
-+			goto err_eeprom;
-+		}
-+		printk(KERN_ERR "The NVM Checksum Is Not Valid\n");
-+		return -E1000_ERR_MAC_INIT;
-+        }
-+
- 	/* if part supports SR-IOV then initialize mailbox parameters */
- 	switch (mac->type) {
- 	case e1000_82576:
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index cdfd572..8e23ca2 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1940,13 +1940,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	 * known good starting state */
- 	hw->mac.ops.reset_hw(hw);
- 
--	/* make sure the NVM is good */
--	if (hw->nvm.ops.validate(hw) < 0) {
--		dev_err(&pdev->dev, "The NVM Checksum Is Not Valid\n");
--		err = -EIO;
--		goto err_eeprom;
--	}
--
- 	/* copy the MAC address out of the NVM */
- 	if (hw->mac.ops.read_mac_addr(hw))
- 		dev_err(&pdev->dev, "NVM Read Error\n");
+-- 
+1.7.4
 
-
-
-------------------------------------------------------------------------------
-WhatsUp Gold - Download Free Network Management Software
-The most intuitive, comprehensive, and cost-effective network 
-management toolset available today.  Delivers lowest initial 
-acquisition cost and overall TCO of any competing solution.
-http://p.sf.net/sfu/whatsupgold-sd
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
