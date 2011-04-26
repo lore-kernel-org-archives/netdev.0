@@ -1,59 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Tue, 26 Apr 2011 20:07:16 +0100
-Message-ID: <1303844836.2850.6.camel@bwh-desktop>
-References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
-	 <1303799597.2747.214.camel@edumazet-laptop>
-	 <20110425.235600.104065244.davem@davemloft.net>
-	 <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com>
-	 <1303834864.3358.58.camel@edumazet-laptop>
-	 <43F901BD926A4E43B106BF17856F0755018DC497F8@orsmsx508.amr.corp.intel.com>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH] dsa/mv88e6131: fix unknown multicast/broadcast forwarding on mv88e6085
+Date: Tue, 26 Apr 2011 21:08:51 +0200
+Message-ID: <87sjt43k58.fsf@macbook.be.48ers.dk>
+References: <1303818341-13839-1-git-send-email-jacmet@sunsite.dk>
+	<20110426145740.GL1897@wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:55348 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752466Ab1DZTHU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 15:07:20 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755018DC497F8@orsmsx508.amr.corp.intel.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:51668 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752466Ab1DZTI4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 15:08:56 -0400
+Received: by eyx24 with SMTP id 24so297227eyx.19
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 12:08:54 -0700 (PDT)
+In-Reply-To: <20110426145740.GL1897@wantstofly.org> (Lennert Buytenhek's
+	message of "Tue, 26 Apr 2011 16:57:40 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-04-26 at 09:24 -0700, Rose, Gregory V wrote:
-> > -----Original Message-----
-> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > Sent: Tuesday, April 26, 2011 9:21 AM
-> > To: Rose, Gregory V
-> > Cc: David Miller; netdev@vger.kernel.org; bhutchings@solarflare.com
-> > Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message=
- size
-> >=20
-> > Le mardi 26 avril 2011 =C3=A0 09:12 -0700, Rose, Gregory V a =C3=A9=
-crit :
-> >=20
-> > > I'm fine with however you folks want to approach this, just give =
-me some
-> > direction.
-> >=20
-> > I would just try following patch :
->=20
-> I'll test it out, it's certainly a lot simpler.  Perhaps I was gettin=
-g a bit too fancy.
->=20
-> Ben would want to make sure it works for 127 VFs, my device does 63.
+>>>>> "Lennert" == Lennert Buytenhek <buytenh@wantstofly.org> writes:
 
-I haven't been working on SR-IOV myself so I'll pass this on to a
-colleague.  Thanks, Eric.
+Hi,
 
-Ben.
+ >> The 88e6085 has a few differences from the other devices in the port
+ >> control registers, causing unknown multicast/broadcast packets to get
+ >> dropped when using the standard port setup.
+ >> 
+ >> At the same time update kconfig to clarify that the mv88e6085 is now
+ >> supported.
+ >> 
+ >> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+ Lennert> Assuming that you've tested this.. :)
 
+Yes, this time with multicast as well *red ears* ;)
+
+Thanks.
+
+-- 
+Bye, Peter Korsgaard
