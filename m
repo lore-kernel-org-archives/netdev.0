@@ -1,96 +1,100 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] dsa/mv88e6131: fix unknown multicast/broadcast forwarding on mv88e6085
-Date: Tue, 26 Apr 2011 13:45:41 +0200
-Message-ID: <1303818341-13839-1-git-send-email-jacmet@sunsite.dk>
-Cc: Peter Korsgaard <jacmet@sunsite.dk>
-To: davem@davemloft.net, buytenh@wantstofly.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:50048 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754564Ab1DZLpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 07:45:51 -0400
-Received: by wya21 with SMTP id 21so369176wya.19
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 04:45:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH 02/13] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Tue, 26 Apr 2011 22:05:40 +1000
+Message-ID: <20110426220540.7c0006e3@notabene.brown>
+References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+	<1303803414-5937-3-git-send-email-mgorman@suse.de>
+	<20110426211500.02d6a5a6@notabene.brown>
+	<1303817628.5593.6.camel@machina.109elm.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1303817628.5593.6.camel@machina.109elm.lan>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The 88e6085 has a few differences from the other devices in the port
-control registers, causing unknown multicast/broadcast packets to get
-dropped when using the standard port setup.
+On Tue, 26 Apr 2011 12:33:48 +0100 Mel Gorman <mgorman@suse.de> wrote:
 
-At the same time update kconfig to clarify that the mv88e6085 is now
-supported.
+> On Tue, 2011-04-26 at 21:15 +1000, NeilBrown wrote:
+> > On Tue, 26 Apr 2011 08:36:43 +0100 Mel Gorman <mgorman@suse.de> wrote:
+> > 
+> > > +bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
+> > > +{
+> > > +	return gfp_to_alloc_flags(gfp_mask) & ALLOC_PFMEMALLOC;
+> > > +}
+> > > +
+> > >  static inline struct page *
+> > >  __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+> > >  	struct zonelist *zonelist, enum zone_type high_zoneidx,
+> > > @@ -2202,8 +2211,16 @@ nopage:
+> > >  got_pg:
+> > >  	if (kmemcheck_enabled)
+> > >  		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
+> > > -	return page;
+> > >  
+> > > +	/*
+> > > +	 * page->pfmemalloc is set when the caller had PFMEMALLOC set or is
+> > > +	 * been OOM killed. The expectation is that the caller is taking
+> > > +	 * steps that will free more memory. The caller should avoid the
+> > > +	 * page being used for !PFMEMALLOC purposes.
+> > > +	 */
+> > > +	page->pfmemalloc = (alloc_flags & ALLOC_PFMEMALLOC);
+> > > +
+> > > +	return page;
+> > 
+> > Linus doesn't seem to be a fan of this construct:
+> >    https://lkml.org/lkml/2011/4/1/255
+> > 
+> 
+> There is confusion around this topic. Andrew prefers bool for true/false
+> values and it's self-documenting. I tend to prefer it myself for
+> readability and there is a slow conversion in the VM from
+> ints-used-as-bools to bools and my understanding of bool is that any
+> non-zero value will be treated as true (just as it is for int).
+> 
+> > pfmemalloc is a bool, and the value on the right is either 0 or 0x1000.
+> > 
+> > If bool happens to be typedefed to 'char' or even 'short', pfmemalloc would
+> > always be set to 0.
+> 
+> It is typedeffed as _Bool though which I thought was able to handle the
+> cast appropriately or is that wrong?
 
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
----
- net/dsa/Kconfig     |    4 ++--
- net/dsa/mv88e6131.c |   26 +++++++++++++++++++++-----
- 2 files changed, 23 insertions(+), 7 deletions(-)
+Yes, I too believe that _Bool does the right thing, so this particular usage
+does happen to be safe in the kernel.  But there is a long tradition of
+'bool' being typedefed to an int type so the usage can look wrong.  So maybe
+it is best avoided.
 
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 87bb5f4..c53ded2 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -41,12 +41,12 @@ config NET_DSA_MV88E6XXX_NEED_PPU
- 	default n
- 
- config NET_DSA_MV88E6131
--	bool "Marvell 88E6095/6095F/6131 ethernet switch chip support"
-+	bool "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
- 	select NET_DSA_MV88E6XXX
- 	select NET_DSA_MV88E6XXX_NEED_PPU
- 	select NET_DSA_TAG_DSA
- 	---help---
--	  This enables support for the Marvell 88E6095/6095F/6131
-+	  This enables support for the Marvell 88E6085/6095/6095F/6131
- 	  ethernet switch chips.
- 
- config NET_DSA_MV88E6123_61_65
-diff --git a/net/dsa/mv88e6131.c b/net/dsa/mv88e6131.c
-index 3da4188..45f7411 100644
---- a/net/dsa/mv88e6131.c
-+++ b/net/dsa/mv88e6131.c
-@@ -207,8 +207,15 @@ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
- 	 * mode, but do not enable forwarding of unknown unicasts.
- 	 */
- 	val = 0x0433;
--	if (p == dsa_upstream_port(ds))
-+	if (p == dsa_upstream_port(ds)) {
- 		val |= 0x0104;
-+		/*
-+		 * On 6085, unknown multicast forward is controlled
-+		 * here rather than in Port Control 2 register.
-+		 */
-+		if (ps->id == ID_6085)
-+			val |= 0x0008;
-+	}
- 	if (ds->dsa_port_mask & (1 << p))
- 		val |= 0x0100;
- 	REG_WRITE(addr, 0x04, val);
-@@ -251,10 +258,19 @@ static int mv88e6131_setup_port(struct dsa_switch *ds, int p)
- 	 * If this is the upstream port for this switch, enable
- 	 * forwarding of unknown multicast addresses.
- 	 */
--	val = 0x0080 | dsa_upstream_port(ds);
--	if (p == dsa_upstream_port(ds))
--		val |= 0x0040;
--	REG_WRITE(addr, 0x08, val);
-+	if (ps->id == ID_6085)
-+		/*
-+		 * on 6085, bits 3:0 are reserved, bit 6 control ARP
-+		 * mirroring, and multicast forward is handled in
-+		 * Port Control register.
-+		 */
-+		REG_WRITE(addr, 0x08, 0x0080);
-+	else {
-+		val = 0x0080 | dsa_upstream_port(ds);
-+		if (p == dsa_upstream_port(ds))
-+			val |= 0x0040;
-+		REG_WRITE(addr, 0x08, val);
-+	}
- 
- 	/*
- 	 * Rate Control: disable ingress rate limiting.
--- 
-1.7.2.3
+I have no strong feeling either way - I just thought I would highlight it.
+In general, I like bool, but I don't like automatic casts (I often use
+  if (pointer != NULL) ...
+because I think it reads better).
 
+Thanks,
+NeilBrown
+
+
+
+> 
+> > Ditto for the gfp_pfmemalloc_allowed function.
+> > 
+> > Prefixing with '!!' would make it safe.
+> > 
+> 
+> Will do that to avoid any oddities. Thanks
+> 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
