@@ -1,13 +1,11 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 03/13] mm: Introduce __GFP_MEMALLOC to allow access to
- emergency reserves
-Date: Tue, 26 Apr 2011 15:00:28 +0100
-Message-ID: <20110426140028.GF4658@suse.de>
+Subject: Re: [PATCH 09/13] netvm: Set PF_MEMALLOC as appropriate during SKB
+ processing
+Date: Tue, 26 Apr 2011 15:10:48 +0100
+Message-ID: <20110426141048.GG4658@suse.de>
 References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
- <1303803414-5937-4-git-send-email-mgorman@suse.de>
- <20110426194947.764e048a@notabene.brown>
- <20110426103646.GD4658@suse.de>
- <20110426205330.539a2766@notabene.brown>
+ <1303803414-5937-10-git-send-email-mgorman@suse.de>
+ <20110426222157.33a461f8@notabene.brown>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
 Cc: Linux-MM <linux-mm@kvack.org>,
@@ -18,43 +16,69 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 To: NeilBrown <neilb@suse.de>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20110426205330.539a2766@notabene.brown>
+In-Reply-To: <20110426222157.33a461f8@notabene.brown>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 26, 2011 at 08:53:30PM +1000, NeilBrown wrote:
-> On Tue, 26 Apr 2011 11:36:46 +0100 Mel Gorman <mgorman@suse.de> wrote:
+On Tue, Apr 26, 2011 at 10:21:57PM +1000, NeilBrown wrote:
+> On Tue, 26 Apr 2011 08:36:50 +0100 Mel Gorman <mgorman@suse.de> wrote:
 > 
-> > On Tue, Apr 26, 2011 at 07:49:47PM +1000, NeilBrown wrote:
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 3871bf6..2d79a20 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -3095,6 +3095,27 @@ static void vlan_on_bond_hook(struct sk_buff *skb)
+> >  	}
+> >  }
+> >  
+> > +/*
+> > + * Limit which protocols can use the PFMEMALLOC reserves to those that are
+> > + * expected to be used for communication with swap.
+> > + */
+> > +static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
+> > +{
+> > +	if (skb_pfmemalloc(skb))
+> > +		switch (skb->protocol) {
+> > +		case __constant_htons(ETH_P_ARP):
+> > +		case __constant_htons(ETH_P_IP):
+> > +		case __constant_htons(ETH_P_IPV6):
+> > +		case __constant_htons(ETH_P_8021Q):
+> > +			break;
+> > +
+> > +		default:
+> > +			return false;
+> > +		}
+> > +
+> > +	return true;
+> > +}
 > 
-> > > Maybe a
-> > >    WARN_ON((gfp_mask & __GFP_MEMALLOC) && (gfp_mask & __GFP_NOMEMALLOC));
-> > > might be wise?
-> > > 
-> > 
-> > Both MEMALLOC and NOMEMALLOC are related to PFMEMALLOC reserves so
-> > it's reasonable for them to have similar names. This warning will
-> > also trigger because it's a combination of flags that does happen.
-> > 
-> > Consider for example
-> > 
-> > any interrupt
-> >   -> __netdev_alloc_skb		(mask == GFP_ATOMIC)
-> >     -> __alloc_skb		(mask == GFP_ATOMIC)
-> >        if (sk_memalloc_socks() && (flags & SKB_ALLOC_RX))
-> >                gfp_mask |= __GFP_MEMALLOC;
-> > 				(mask == GFP_ATOMIC|__GFP_NOMEMALLOC)
-> >       -> __kmalloc_reserve
-> > 		First attempt tries to avoid reserves so adds __GFP_MEMALLOC
-> > 				(mask == GFP_ATOMIC|__GFP_NOMEMALLOC|__GFP_MEMALLOC)
-> > 
+> This sort of thing really bugs me :-)
+> Neither the comment nor the function name actually describe what the function
+> is doing.  The function is checking *2* things.
+>    is_pfmemalloc_skb_or_pfmemalloc_protocol()
+> might be a more correct name, but is too verbose.
 > 
-> You have the "NO"s mixed up a bit which confused me for a while :-)
-> But I see your point - I guess the WARN_ON isn't really needed.
+> I would prefer the skb_pfmemalloc test were removed from here and ....
+> 
+> > +	if (!skb_pfmemalloc_protocol(skb))
+> > +		goto drop;
+> > +
+> 
+> ...added here so this becomes:
+> 
+>       if (!skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
+>                 goto drop;
+> 
+> which actually makes sense.
 > 
 
-Bah, that was unhelpful on my part. I'm glad you saw the point anyway.
-Sorry about that.
+Moving the check is neater but that check should be
+
+	if (skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
+
+? It's only if the skb was allocated from emergency reserves that we
+need to consider dropping it to make way for other packets to be
+received.
 
 -- 
 Mel Gorman
