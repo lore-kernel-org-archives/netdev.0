@@ -1,26 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] tg3: TSO loopback and EEH support
-Date: Tue, 26 Apr 2011 00:25:48 -0700 (PDT)
-Message-ID: <20110426.002548.246535714.davem@davemloft.net>
-References: <1303771370-32579-1-git-send-email-mcarlson@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54669
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757500Ab1DZH0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 03:26:21 -0400
-In-Reply-To: <1303771370-32579-1-git-send-email-mcarlson@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 01/13] mm: Serialize access to min_free_kbytes
+Date: Tue, 26 Apr 2011 08:36:42 +0100
+Message-ID: <1303803414-5937-2-git-send-email-mgorman@suse.de>
+References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
+To: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 25 Apr 2011 15:42:44 -0700
+There is a race between the min_free_kbytes sysctl, memory hotplug
+and transparent hugepage support enablement.  Memory hotplug uses a
+zonelists_mutex to avoid a race when building zonelists. Reuse it to
+serialise watermark updates.
 
-> This patchset implements TSO loopback support into the selftest.  It also
-> adds EEH support.
+[a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ mm/page_alloc.c |   23 +++++++++++++++--------
+ 1 files changed, 15 insertions(+), 8 deletions(-)
 
-Series applied to net-next-2.6, thanks.
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 1d5c189..a93013a 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -4990,14 +4990,7 @@ static void setup_per_zone_lowmem_reserve(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
+-/**
+- * setup_per_zone_wmarks - called when min_free_kbytes changes
+- * or when memory is hot-{added|removed}
+- *
+- * Ensures that the watermark[min,low,high] values for each zone are set
+- * correctly with respect to min_free_kbytes.
+- */
+-void setup_per_zone_wmarks(void)
++static void __setup_per_zone_wmarks(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -5052,6 +5045,20 @@ void setup_per_zone_wmarks(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++/**
++ * setup_per_zone_wmarks - called when min_free_kbytes changes
++ * or when memory is hot-{added|removed}
++ *
++ * Ensures that the watermark[min,low,high] values for each zone are set
++ * correctly with respect to min_free_kbytes.
++ */
++void setup_per_zone_wmarks(void)
++{
++	mutex_lock(&zonelists_mutex);
++	__setup_per_zone_wmarks();
++	mutex_unlock(&zonelists_mutex);
++}
++
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+  * do too much work, but large enough that each inactive page has a chance
+-- 
+1.7.3.4
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
