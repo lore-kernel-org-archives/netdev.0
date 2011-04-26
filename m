@@ -1,31 +1,66 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-2.6 4/4] xfrm: Fix integer underrun on zero sized
- replay windows
-Date: Tue, 26 Apr 2011 12:58:40 +0200
-Message-ID: <20110426105840.GJ5495@secunet.com>
-References: <20110426053923.GF5495@secunet.com>
- <20110426054232.GI5495@secunet.com>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH 02/13] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Tue, 26 Apr 2011 21:15:00 +1000
+Message-ID: <20110426211500.02d6a5a6@notabene.brown>
+References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+	<1303803414-5937-3-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48534 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754433Ab1DZK6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 06:58:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20110426054232.GI5495@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1303803414-5937-3-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 26, 2011 at 07:42:32AM +0200, Steffen Klassert wrote:
-> The check if the replay window is contained within one subspace or
-> spans over two subspaces causes an unwanted integer underrun on
-> zero sized replay windows when we subtract minus one. We fix this by
-> changeing this check to avoid the subtraction.
-> 
+On Tue, 26 Apr 2011 08:36:43 +0100 Mel Gorman <mgorman@suse.de> wrote:
 
-Don't apply this one, it does not fix the issue completely.
-I'll send a better one, sorry.
+> +bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
+> +{
+> +	return gfp_to_alloc_flags(gfp_mask) & ALLOC_PFMEMALLOC;
+> +}
+> +
+>  static inline struct page *
+>  __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+>  	struct zonelist *zonelist, enum zone_type high_zoneidx,
+> @@ -2202,8 +2211,16 @@ nopage:
+>  got_pg:
+>  	if (kmemcheck_enabled)
+>  		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
+> -	return page;
+>  
+> +	/*
+> +	 * page->pfmemalloc is set when the caller had PFMEMALLOC set or is
+> +	 * been OOM killed. The expectation is that the caller is taking
+> +	 * steps that will free more memory. The caller should avoid the
+> +	 * page being used for !PFMEMALLOC purposes.
+> +	 */
+> +	page->pfmemalloc = (alloc_flags & ALLOC_PFMEMALLOC);
+> +
+> +	return page;
+
+Linus doesn't seem to be a fan of this construct:
+   https://lkml.org/lkml/2011/4/1/255
+
+pfmemalloc is a bool, and the value on the right is either 0 or 0x1000.
+
+If bool happens to be typedefed to 'char' or even 'short', pfmemalloc would
+always be set to 0.
+Ditto for the gfp_pfmemalloc_allowed function.
+
+Prefixing with '!!' would make it safe.
+
+NeilBrown
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
