@@ -1,68 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Mon, 25 Apr 2011 23:56:00 -0700 (PDT)
-Message-ID: <20110425.235600.104065244.davem@davemloft.net>
-References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
-	<1303799597.2747.214.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6 4/7] sctp: remove useless arguments from
+ get_saddr() call
+Date: Tue, 26 Apr 2011 00:12:27 -0700 (PDT)
+Message-ID: <20110426.001227.112589346.davem@davemloft.net>
+References: <4DB63F85.2090609@cn.fujitsu.com>
+	<4DB6405B.2060200@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregory.v.rose@intel.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: yjwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47763
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44199
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757059Ab1DZG4e convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 02:56:34 -0400
-In-Reply-To: <1303799597.2747.214.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1757456Ab1DZHNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 03:13:00 -0400
+In-Reply-To: <4DB6405B.2060200@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 26 Apr 2011 08:33:17 +0200
-
-> Le lundi 25 avril 2011 =E0 15:01 -0700, Greg Rose a =E9crit :
->> The message size allocated for rtnl info dumps was limited to a sing=
-le page.
->> This is not enough for additional interface info available with devi=
-ces
->> that support SR-IOV.  Check that the amount of data allocated is suf=
-ficient
->> for the amount of data requested.
->>=20
->> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
->> ---
->>=20
->>  include/linux/rtnetlink.h |    1 +
->>  net/core/rtnetlink.c      |    6 ++++++
->>  net/netlink/af_netlink.c  |   37 +++++++++++++++++++++++++++++++---=
----
->>  3 files changed, 38 insertions(+), 6 deletions(-)
->>=20
->=20
-> Hmm, thats a hack, because netlink_dump() is generic and you add
-> something very specific.
-
-You also can't do this without breaking applications.
-
-We've trained every single netlink library out there about this message=
- size
-formula, so they know that if you allocate at least 8192 bytes for a re=
-cvmsg()
-call they can receive fully any single netlink message.
-
-And they must be able to make assumptions like this, otherwise they
-cannot know how to reliably be able to receive a netlink message in
-it's entirety in a generic fashion.
-
-So one must not attack this problem from this angle.
-
-It is absolutely necessary to find some way to report the VF
-information, out of band, instead of trying to make the message
-larger.
-
-Needing more than 8K to get a dump of a single device over netlink is
-absolutely rediculious, this VF stuff was poorly designed.  If has to
-be fixed and the current stuff marked deprecated.
+RnJvbTogV2VpIFlvbmdqdW4gPHlqd2VpQGNuLmZ1aml0c3UuY29tPg0KRGF0ZTogVHVlLCAyNiBB
+cHIgMjAxMSAxMTo0NzozOSArMDgwMA0KDQo+IEBAIC0zOTIsMTEgKzM5MiwxMSBAQCBzdGF0aWMg
+aW5saW5lIGludCBzY3RwX3Y2X2FkZHJfbWF0Y2hfbGVuKHVuaW9uIHNjdHBfYWRkciAqczEsDQo+
+ICAgKi8NCj4gIHN0YXRpYyB2b2lkIHNjdHBfdjZfZ2V0X3NhZGRyKHN0cnVjdCBzY3RwX3NvY2sg
+KnNrLA0KPiAgCQkJICAgICAgc3RydWN0IHNjdHBfdHJhbnNwb3J0ICp0LA0KPiAtCQkJICAgICAg
+dW5pb24gc2N0cF9hZGRyICpkYWRkciwNCj4gIAkJCSAgICAgIHN0cnVjdCBmbG93aSAqZmwpDQo+
+ICB7DQo+ICAJc3RydWN0IGZsb3dpNiAqZmw2ID0gJmZsLT51LmlwNjsNCj4gIAl1bmlvbiBzY3Rw
+X2FkZHIgKnNhZGRyID0gJnQtPnNhZGRyOw0KPiArCXVuaW9uIHNjdHBfYWRkciAqZGFkZHIgPSAm
+dC0+aXBhZGRyOw0KPiAgDQo+ICAJU0NUUF9ERUJVR19QUklOVEsoIiVzOiBhc29jOiVwIGRzdDol
+cCBkYWRkcjolcEk2ICIsDQo+ICAJCQkgIF9fZnVuY19fLCB0LT5hc29jLCB0LT5kc3QsICZkYWRk
+ci0+djYuc2luNl9hZGRyKTsNCg0KSSByZWFsbHkgZ2V0IGdydW1weSB3aGVuIEkgaGF2ZSB0byBm
+aXggdXAgc3R1ZmYgbGlrZSB0aGlzOg0KDQpuZXQvc2N0cC9pcHY2LmM6IEluIGZ1bmN0aW9uIKFz
+Y3RwX3Y2X2dldF9zYWRkcqI6DQpuZXQvc2N0cC9pcHY2LmM6MzgyOiB3YXJuaW5nOiB1bnVzZWQg
+dmFyaWFibGUgoWRhZGRyog0KDQpZb3UgZ3V5cyBrbm93IEknbSBnb2luZyB0byBpbW1lZGlhdGVs
+eSBydW4gbWFrZSBvbiBhbnkgcGF0Y2ggeW91IHNlbmQNCm1lIGFuZCBsb29rIGZvciBuZXcgd2Fy
+bmluZ3MuDQoNCldoeSB3YXN0ZSBteSB0aW1lIGFuZCBub3QgbG9vayBmb3IgdGhlbSB5b3Vyc2Vs
+dmVzIGJlZm9yZSBwb3N0aW5nIHRoZQ0KcGF0Y2g/DQoNClRoaXMgd2Fzbid0IGV2ZW4gb25lIG9m
+IHRob3NlIGNhc2VzIHdoZXJlIHRoZSB3YXJuaW5nIGdvZXMgYXdheSBhdA0KdGhlIGVuZCBvZiB0
+aGUgcGF0Y2ggc2VyaWVzLCBhbmQgb25seSBleGlzdHMgc29tZXdoZXJlIGluIHRoZSBtaWRkbGUu
+DQoNCg==
