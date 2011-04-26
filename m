@@ -1,66 +1,84 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: how to set vlan filter for intel 82599
-Date: Tue, 26 Apr 2011 04:51:08 +0100
-Message-ID: <1303789868.3032.347.camel@localhost>
-References: <BANLkTikZcdda5-3NBaXyKmij09f62Da3cQ@mail.gmail.com>
-	 <1303786638.3032.307.camel@localhost>
-	 <BANLkTikav_NimAoFj_2Wo-BMD-3uVjU--w@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Tue, 26 Apr 2011 13:51:46 +1000
+Message-ID: <20110426135146.c01f8395.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: zhou rui <zhourui.cn@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:30500 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758026Ab1DZDvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 23:51:11 -0400
-In-Reply-To: <BANLkTikav_NimAoFj_2Wo-BMD-3uVjU--w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	hayeswang <hayeswang@realtek.com>,
+	=?UTF-8?B?IkZyYW7Dp29pcyBSb21pZXUi?= <romieu@fr.zoreil.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-04-26 at 11:39 +0800, zhou rui wrote:
-> On Tue, Apr 26, 2011 at 10:57 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > On Tue, 2011-04-26 at 10:19 +0800, zhou rui wrote:
-> >> hi
-> >> here is the problem troubles me,how to set vlan filter for intel
-> >> 82599? for example
-> >> I want vlan id 0~31 will go to queue 0, vlan id 32-63 will go to queue
-> >> 1...below is my setting,but doesn't work
-> >>
-> >> don't know the exact meanning of the vlan-mask and vlan,how are they calculated?
-> >>
-> >> ./ethtool -K eth5 ntuple on
-> >>
-> >> ./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
-> >> dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
-> >> dst-port-mask 0x0 vlan 0x0000 vlan-mask 0x00E0 user-def 0x0
-> >> user-def-mask 0x0 action 0
-> > [...]
-> >
-> > This specifies a filter for UDP/IPv4 packets, and the masks are wrong.
-> > If you actually wanted to filter only UDP/IPv4 packets for VID 0-31 then
-> > the correct syntax would be:
-> >
-> >    ethtool -U eth5 flow-type udp4 vlan 0 vlan-mask 0xf01f
-> >
-> > If you don't care about the layer 3/4 protocols then you would need to
-> > use 'flow-type ether', but no driver implements that yet.  (Well, sfc
-> > implements the *type*, but not filtering by VID only.)
-[...]
-> hi ben,thanks for your help,would you mind tell me "32~63" VID filter?
-> still can not understand the vlan-mask
+Hi all,
 
-The vlan-mask specifies tag bits to be ignored.  You want to ignore the
-priority, CFI and lower 5 bits of the VID, hence 0xf01f.  For a
-different group of 32 VIDs you would only change the vlan argument, not
-the vlan-mask argument.
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+failed like this:
 
-Ben.
+drivers/net/r8169.c: In function 'rtl8168e_1_hw_phy_config':
+drivers/net/r8169.c:2578: error: too many arguments to function 'rtl_apply_firmware'
+drivers/net/r8169.c:2578: error: void value not ignored as it ought to be
+drivers/net/r8169.c: In function 'rtl8168e_2_hw_phy_config':
+drivers/net/r8169.c:2586: error: too many arguments to function 'rtl_apply_firmware'
+drivers/net/r8169.c:2586: error: void value not ignored as it ought to be
+
+Caused by commit 953a12cc2889 ("r8169: don't request firmware when
+there's no userspace") from the net-current tree interacting with commit
+01dc7fec4025 ("net/r8169: support RTL8168E").
+
+I applied the following fixup patch:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 26 Apr 2011 13:47:51 +1000
+Subject: [PATCH] r8169: fix for rtl_apply_firmware API change
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/r8169.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 3f93fc7..c3e264f 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -190,7 +190,9 @@ static const struct rtl_firmware_info {
+ 	{ .mac_version = RTL_GIGA_MAC_VER_25, .fw_name = FIRMWARE_8168D_1 },
+ 	{ .mac_version = RTL_GIGA_MAC_VER_26, .fw_name = FIRMWARE_8168D_2 },
+ 	{ .mac_version = RTL_GIGA_MAC_VER_29, .fw_name = FIRMWARE_8105E_1 },
+-	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 }
++	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 },
++	{ .mac_version = RTL_GIGA_MAC_VER_31, .fw_name = FIRMWARE_8168E_1 },
++	{ .mac_version = RTL_GIGA_MAC_VER_32, .fw_name = FIRMWARE_8168E_2 }
+ };
+ 
+ enum cfg_version {
+@@ -2575,16 +2577,14 @@ static void rtl8168e_hw_phy_config(struct rtl8169_private *tp)
+ 
+ static void rtl8168e_1_hw_phy_config(struct rtl8169_private *tp)
+ {
+-	if (rtl_apply_firmware(tp, FIRMWARE_8168E_1) < 0)
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
++	rtl_apply_firmware(tp);
+ 
+ 	rtl8168e_hw_phy_config(tp);
+ }
+ 
+ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
+ {
+-	if (rtl_apply_firmware(tp, FIRMWARE_8168E_2) < 0)
+-		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
++	rtl_apply_firmware(tp);
+ 
+ 	rtl8168e_hw_phy_config(tp);
+ }
+-- 
+1.7.4.4
+
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
