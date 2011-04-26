@@ -1,30 +1,47 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH net-next-2.6 v6 5/5] sctp: Add ASCONF operation on the
- single-homed host
-Date: Tue, 26 Apr 2011 13:33:42 +0800
-Message-ID: <4DB65936.9020906@cn.fujitsu.com>
-References: <856CB69B-767A-4F6C-9DBF-26EEAFCC3B56@sfc.wide.ad.jp>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH net-2.6 1/4] xfrm: Fix replay window size calculation on
+ initialization
+Date: Tue, 26 Apr 2011 07:39:24 +0200
+Message-ID: <20110426053923.GF5495@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Michio Honda <micchie@sfc.wide.ad.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61956 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752531Ab1DZFd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 01:33:56 -0400
-In-Reply-To: <856CB69B-767A-4F6C-9DBF-26EEAFCC3B56@sfc.wide.ad.jp>
+Received: from a.mx.secunet.com ([195.81.216.161]:58787 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755104Ab1DZFix (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2011 01:38:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On replay initialization, we compute the size of the replay
+buffer to see if the replay window fits into the buffer.
+This computation lacks a mutliplication by 8 because we need
+the size in bit, not in byte. So we might return an error
+even though the replay window would fit into the buffer.
+This patch fixes this issue.
 
-> SCTP can change the IP address on the single-homed host.  
-> In this case, the SCTP association transmits an ASCONF packet including addition of the new IP address and deletion of the old address.  This patch implements this functionality.  
-> In this case, the ASCONF chunk is added to the beginning of the queue, because the other chunks cannot be transmitted in this state.  
->
-> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
-> ---
->
-Acked-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_replay.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
+index f218385..e8a7814 100644
+--- a/net/xfrm/xfrm_replay.c
++++ b/net/xfrm/xfrm_replay.c
+@@ -532,7 +532,7 @@ int xfrm_init_replay(struct xfrm_state *x)
+ 
+ 	if (replay_esn) {
+ 		if (replay_esn->replay_window >
+-		    replay_esn->bmp_len * sizeof(__u32))
++		    replay_esn->bmp_len * sizeof(__u32) * 8)
+ 			return -EINVAL;
+ 
+ 	if ((x->props.flags & XFRM_STATE_ESN) && x->replay_esn)
+-- 
+1.7.0.4
 
