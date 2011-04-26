@@ -1,59 +1,54 @@
-From: Alexey ORISHKO <alexey.orishko@stericsson.com>
-Subject: Re: CDC NCM missing Zero Length Packets
-Date: Tue, 26 Apr 2011 17:59:25 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E2A4AAFD2@EXDCVYMBSTM006.EQ1STM.local>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
+Date: Tue, 26 Apr 2011 09:02:21 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755018DC497AB@orsmsx508.amr.corp.intel.com>
+References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
+ <1303799597.2747.214.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matthias Benesch <twoofseven@freenet.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:50948 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751493Ab1DZP7a convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 11:59:30 -0400
+Received: from mga11.intel.com ([192.55.52.93]:11181 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751798Ab1DZQC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2011 12:02:28 -0400
+In-Reply-To: <1303799597.2747.214.camel@edumazet-laptop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 22, 2011 at 4:32 PM, Matthias Benesch <twoofseven@freenet.de> wrote:
-> Hello,
->
-> I am testing the USB-CDC NCM host driver. One issue that was found by one
-> USB device stack provider, is that the current implementation is not sending
-> ZLP or short packets if the dwNtbOutMaxSize reported by the device is
-> greater than CDC_NCM_NTB_MAX_SIZE_TX (=16383 bytes).
->
-
-I'd like to point out, that NCM is not a Mass Storage and increasing max
-buffer size in the device will lead to reduced throughput at the end. By 
-increasing max buffer size, you are also increasing overall latency, which
-will hit hard streaming and other services.
-
-NCM specification was written with approach that device is less capable than
-the host. The issue you mentioned, is not addressed properly in the specification,
-but might be fixed in the next version of NCM spec.
-
-16K buffer size in the current driver was chosen as a result of testing and
-as a tradeoff between latency and throughput and should be suitable for LTE
-speeds. Devices using 21 Mbit HSPA radio could function happily with 8K buffers.
-
-By using bigger buffer in the device your USB device stack provider forces
-host driver constantly send short packets, which will significantly reduce
-benefits provided by DMA controller. While having maximum data traffic your
-device interrupt load would be twice as high as the load when device buffer
-size is equal or less than host driver buffer size.
-
-As a conclusion: 
-- yes, current driver version has a bug (no short packet sent) and I will
-submit a patch for it after testing. 
-- Patch provided a few days ago is not a proper solution and can be considered as
-a workaround only.
-- I also suggest you to talk to your usb device stack vendor, because your product
-might work much better if issues mentioned above are taking into consideration.
-
-Regards,
-Alexey
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDI1LCAyMDEx
+IDExOjMzIFBNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4g
+U3ViamVjdDogUmU6IFtSRkMgUEFUQ0hdIG5ldGxpbms6IEluY3JlYXNlIG5ldGxpbmsgZHVtcCBz
+a2IgbWVzc2FnZSBzaXplDQo+IA0KPiBMZSBsdW5kaSAyNSBhdnJpbCAyMDExIMOgIDE1OjAxIC0w
+NzAwLCBHcmVnIFJvc2UgYSDDqWNyaXQgOg0KPiA+IFRoZSBtZXNzYWdlIHNpemUgYWxsb2NhdGVk
+IGZvciBydG5sIGluZm8gZHVtcHMgd2FzIGxpbWl0ZWQgdG8gYSBzaW5nbGUNCj4gcGFnZS4NCj4g
+PiBUaGlzIGlzIG5vdCBlbm91Z2ggZm9yIGFkZGl0aW9uYWwgaW50ZXJmYWNlIGluZm8gYXZhaWxh
+YmxlIHdpdGggZGV2aWNlcw0KPiA+IHRoYXQgc3VwcG9ydCBTUi1JT1YuICBDaGVjayB0aGF0IHRo
+ZSBhbW91bnQgb2YgZGF0YSBhbGxvY2F0ZWQgaXMNCj4gc3VmZmljaWVudA0KPiA+IGZvciB0aGUg
+YW1vdW50IG9mIGRhdGEgcmVxdWVzdGVkLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogR3JlZyBS
+b3NlIDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+DQo+ID4gLS0tDQo+ID4NCj4gPiAgaW5jbHVk
+ZS9saW51eC9ydG5ldGxpbmsuaCB8ICAgIDEgKw0KPiA+ICBuZXQvY29yZS9ydG5ldGxpbmsuYyAg
+ICAgIHwgICAgNiArKysrKysNCj4gPiAgbmV0L25ldGxpbmsvYWZfbmV0bGluay5jICB8ICAgMzcg
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLQ0KPiA+ICAzIGZpbGVzIGNoYW5n
+ZWQsIDM4IGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pDQo+ID4NCj4gDQo+IEhtbSwgdGhh
+dHMgYSBoYWNrLCBiZWNhdXNlIG5ldGxpbmtfZHVtcCgpIGlzIGdlbmVyaWMgYW5kIHlvdSBhZGQN
+Cj4gc29tZXRoaW5nIHZlcnkgc3BlY2lmaWMuDQo+IA0KPiBJIHByZWZlciBzb21ldGhpbmcgdGhh
+dCBhbGxvd3Mgb25lIGR1bXAoKSB0byByZWFsbG9jYXRlIGEgYmlnZ2VyIHNrYg0KPiANCj4gTWF5
+YmUgY2hhbmdpbmctPmR1bXAoKSBwcm90b3R5cGUgdG8gc3RydWN0IHNrX2J1ZmYgKipwc2tiIGlu
+c3RlYWQgb2YNCj4gc3RydWN0IHNrX2J1ZmYgKnNrYi4NCg0KSSdsbCBoYXZlIGEgbG9vayBhdCB0
+aGF0LCBhbHRob3VnaCBEYXZlJ3Mgbm90IHRvbyBoYXBweSB3aXRoIHRoZSB3aG9sZSBsb3Qgb2Yg
+dGhpcyBtZXNzIGFuZCBJIHZlcnkgbXVjaCBhZ3JlZSB3aXRoIGhpbS4NCg0KLSBHcmVnDQo+IA0K
+PiBkaWZmIC0tZ2l0IGEvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jIGIvbmV0L25ldGxpbmsvYWZf
+bmV0bGluay5jDQo+IGluZGV4IGM4ZjM1YjUuLjdmYTY3MzUgMTAwNjQ0DQo+IC0tLSBhL25ldC9u
+ZXRsaW5rL2FmX25ldGxpbmsuYw0KPiArKysgYi9uZXQvbmV0bGluay9hZl9uZXRsaW5rLmMNCj4g
+QEAgLTE2ODEsNyArMTY4MSw3IEBAIHN0YXRpYyBpbnQgbmV0bGlua19kdW1wKHN0cnVjdCBzb2Nr
+ICpzaykNCj4gIAkJZ290byBlcnJvdXRfc2tiOw0KPiAgCX0NCj4gDQo+IC0JbGVuID0gY2ItPmR1
+bXAoc2tiLCBjYik7DQo+ICsJbGVuID0gY2ItPmR1bXAoJnNrYiwgY2IpOw0KPiANCj4gIAlpZiAo
+bGVuID4gMCkgew0KPiAgCQltdXRleF91bmxvY2sobmxrLT5jYl9tdXRleCk7DQo+IA0KDQo=
