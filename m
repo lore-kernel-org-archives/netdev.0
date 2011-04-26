@@ -1,63 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
 Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Tue, 26 Apr 2011 18:21:04 +0200
-Message-ID: <1303834864.3358.58.camel@edumazet-laptop>
+Date: Tue, 26 Apr 2011 09:24:22 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755018DC497F8@orsmsx508.amr.corp.intel.com>
 References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
 	 <1303799597.2747.214.camel@edumazet-laptop>
 	 <20110425.235600.104065244.davem@davemloft.net>
 	 <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com>
+ <1303834864.3358.58.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62090 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021Ab1DZQVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 12:21:09 -0400
-Received: by wya21 with SMTP id 21so595812wya.19
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 09:21:08 -0700 (PDT)
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:56726 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751049Ab1DZQYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2011 12:24:25 -0400
+In-Reply-To: <1303834864.3358.58.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 26 avril 2011 =C3=A0 09:12 -0700, Rose, Gregory V a =C3=A9crit=
- :
-
-> I'm fine with however you folks want to approach this, just give me s=
-ome direction.
-
-I would just try following patch :
-
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 4c4ac3f..22cac81 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -210,6 +210,7 @@ int netlink_sendskb(struct sock *sk, struct sk_buff=
- *skb);
- #else
- #define NLMSG_GOODSIZE	SKB_WITH_OVERHEAD(8192UL)
- #endif
-+#define NLMSG_DUMPSIZE SKB_WITH_OVERHEAD(8192UL)
-=20
- #define NLMSG_DEFAULT_SIZE (NLMSG_GOODSIZE - NLMSG_HDRLEN)
-=20
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index c8f35b5..cb8d6ac 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1669,7 +1669,7 @@ static int netlink_dump(struct sock *sk)
- 	struct nlmsghdr *nlh;
- 	int len, err =3D -ENOBUFS;
-=20
--	skb =3D sock_rmalloc(sk, NLMSG_GOODSIZE, 0, GFP_KERNEL);
-+	skb =3D sock_rmalloc(sk, NLMSG_DUMPSIZE, 0, GFP_KERNEL);
- 	if (!skb)
- 		goto errout;
-=20
-
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJpbCAyNiwgMjAx
+MSA5OjIxIEFNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsgYmh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbQ0KPiBTdWJqZWN0
+OiBSRTogW1JGQyBQQVRDSF0gbmV0bGluazogSW5jcmVhc2UgbmV0bGluayBkdW1wIHNrYiBtZXNz
+YWdlIHNpemUNCj4gDQo+IExlIG1hcmRpIDI2IGF2cmlsIDIwMTEgw6AgMDk6MTIgLTA3MDAsIFJv
+c2UsIEdyZWdvcnkgViBhIMOpY3JpdCA6DQo+IA0KPiA+IEknbSBmaW5lIHdpdGggaG93ZXZlciB5
+b3UgZm9sa3Mgd2FudCB0byBhcHByb2FjaCB0aGlzLCBqdXN0IGdpdmUgbWUgc29tZQ0KPiBkaXJl
+Y3Rpb24uDQo+IA0KPiBJIHdvdWxkIGp1c3QgdHJ5IGZvbGxvd2luZyBwYXRjaCA6DQoNCkknbGwg
+dGVzdCBpdCBvdXQsIGl0J3MgY2VydGFpbmx5IGEgbG90IHNpbXBsZXIuICBQZXJoYXBzIEkgd2Fz
+IGdldHRpbmcgYSBiaXQgdG9vIGZhbmN5Lg0KDQpCZW4gd291bGQgd2FudCB0byBtYWtlIHN1cmUg
+aXQgd29ya3MgZm9yIDEyNyBWRnMsIG15IGRldmljZSBkb2VzIDYzLg0KDQotIEdyZWcNCg0KPiAN
+Cj4gDQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGxpbmsuaCBiL2luY2x1ZGUvbGlu
+dXgvbmV0bGluay5oDQo+IGluZGV4IDRjNGFjM2YuLjIyY2FjODEgMTAwNjQ0DQo+IC0tLSBhL2lu
+Y2x1ZGUvbGludXgvbmV0bGluay5oDQo+ICsrKyBiL2luY2x1ZGUvbGludXgvbmV0bGluay5oDQo+
+IEBAIC0yMTAsNiArMjEwLDcgQEAgaW50IG5ldGxpbmtfc2VuZHNrYihzdHJ1Y3Qgc29jayAqc2ss
+IHN0cnVjdCBza19idWZmDQo+ICpza2IpOw0KPiAgI2Vsc2UNCj4gICNkZWZpbmUgTkxNU0dfR09P
+RFNJWkUJU0tCX1dJVEhfT1ZFUkhFQUQoODE5MlVMKQ0KPiAgI2VuZGlmDQo+ICsjZGVmaW5lIE5M
+TVNHX0RVTVBTSVpFIFNLQl9XSVRIX09WRVJIRUFEKDgxOTJVTCkNCj4gDQo+ICAjZGVmaW5lIE5M
+TVNHX0RFRkFVTFRfU0laRSAoTkxNU0dfR09PRFNJWkUgLSBOTE1TR19IRFJMRU4pDQo+IA0KPiBk
+aWZmIC0tZ2l0IGEvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jIGIvbmV0L25ldGxpbmsvYWZfbmV0
+bGluay5jDQo+IGluZGV4IGM4ZjM1YjUuLmNiOGQ2YWMgMTAwNjQ0DQo+IC0tLSBhL25ldC9uZXRs
+aW5rL2FmX25ldGxpbmsuYw0KPiArKysgYi9uZXQvbmV0bGluay9hZl9uZXRsaW5rLmMNCj4gQEAg
+LTE2NjksNyArMTY2OSw3IEBAIHN0YXRpYyBpbnQgbmV0bGlua19kdW1wKHN0cnVjdCBzb2NrICpz
+aykNCj4gIAlzdHJ1Y3Qgbmxtc2doZHIgKm5saDsNCj4gIAlpbnQgbGVuLCBlcnIgPSAtRU5PQlVG
+UzsNCj4gDQo+IC0Jc2tiID0gc29ja19ybWFsbG9jKHNrLCBOTE1TR19HT09EU0laRSwgMCwgR0ZQ
+X0tFUk5FTCk7DQo+ICsJc2tiID0gc29ja19ybWFsbG9jKHNrLCBOTE1TR19EVU1QU0laRSwgMCwg
+R0ZQX0tFUk5FTCk7DQo+ICAJaWYgKCFza2IpDQo+ICAJCWdvdG8gZXJyb3V0Ow0KPiANCj4gDQoN
+Cg==
