@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 26 Apr 2011 12:43:54 -0700 (PDT)
-Message-ID: <20110426.124354.71125507.davem@davemloft.net>
-References: <20110426135146.c01f8395.sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-2.6 1/4] xfrm: Fix replay window size calculation
+ on initialization
+Date: Tue, 26 Apr 2011 12:47:44 -0700 (PDT)
+Message-ID: <20110426.124744.104072806.davem@davemloft.net>
+References: <20110426053923.GF5495@secunet.com>
+	<20110426054107.GB18896@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hayeswang@realtek.com,
-	romieu@fr.zoreil.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110426135146.c01f8395.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48370
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755474Ab1DZTsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 15:48:18 -0400
+In-Reply-To: <20110426054107.GB18896@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 26 Apr 2011 13:51:46 +1000
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 26 Apr 2011 15:41:07 +1000
 
-> Hi all,
+> On Tue, Apr 26, 2011 at 07:39:24AM +0200, Steffen Klassert wrote:
+>> On replay initialization, we compute the size of the replay
+>> buffer to see if the replay window fits into the buffer.
+>> This computation lacks a mutliplication by 8 because we need
+>> the size in bit, not in byte. So we might return an error
+>> even though the replay window would fit into the buffer.
+>> This patch fixes this issue.
+>> 
+>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 > 
-> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-> failed like this:
-> 
-> drivers/net/r8169.c: In function 'rtl8168e_1_hw_phy_config':
-> drivers/net/r8169.c:2578: error: too many arguments to function 'rtl_apply_firmware'
-> drivers/net/r8169.c:2578: error: void value not ignored as it ought to be
-> drivers/net/r8169.c: In function 'rtl8168e_2_hw_phy_config':
-> drivers/net/r8169.c:2586: error: too many arguments to function 'rtl_apply_firmware'
-> drivers/net/r8169.c:2586: error: void value not ignored as it ought to be
-> 
-> Caused by commit 953a12cc2889 ("r8169: don't request firmware when
-> there's no userspace") from the net-current tree interacting with commit
-> 01dc7fec4025 ("net/r8169: support RTL8168E").
-> 
-> I applied the following fixup patch:
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Stephen, I just merged net-2.6 into net-next-2.6 and added your patch
-to the merge commit to make sure the build is fine.
-
-Thanks a lot!
+Applied.
