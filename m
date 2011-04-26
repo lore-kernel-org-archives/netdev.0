@@ -1,48 +1,62 @@
-From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-Subject: Re: [PATCH] netfilter/IPv6:  initialize TOS field in REJECT target
- module
-Date: Tue, 26 Apr 2011 10:26:20 +0900
-Message-ID: <1303781180.2874.13.camel@nausicaa>
-References: <1303455759.2023.39.camel@nausicaa>
-	 <1303456743.2023.55.camel@nausicaa>
-	 <1303457656.3134.12.camel@edumazet-laptop>
-	 <1303458454.9791.13.camel@nausicaa>
-	 <1303459560.3134.14.camel@edumazet-laptop>
-	 <1303459875.9791.19.camel@nausicaa>
-	 <1303461461.3134.15.camel@edumazet-laptop> <4DB61C2C.7060508@netfilter.org>
+From: zhou rui <zhourui.cn@gmail.com>
+Subject: how to set vlan filter for intel 82599
+Date: Tue, 26 Apr 2011 10:19:23 +0800
+Message-ID: <BANLkTikZcdda5-3NBaXyKmij09f62Da3cQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, jengelh@medozas.de, davem@davemloft.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4DB61C2C.7060508@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:45710 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932826Ab1DZCTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Apr 2011 22:19:23 -0400
+Received: by iwn34 with SMTP id 34so160228iwn.19
+        for <netdev@vger.kernel.org>; Mon, 25 Apr 2011 19:19:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-04-26 at 03:13 +0200, Pablo Neira Ayuso wrote:
-> On 22/04/11 10:37, Eric Dumazet wrote:
-> > Le vendredi 22 avril 2011 =C3=A0 17:11 +0900, Fernando Luis Vazquez=
- Cao a
-> > =C3=A9crit :
-> >=20
-> >> Thank you!
-> >>
-> >> Should we send these two patches to -stable too?
-> >=20
-> > David takes care of stable submissions for netdev stuff, thanks.
->=20
-> If the patch follows the netfilter path, we'll take care of sending
-> stable submissions.
+hi
+here is the problem troubles me,how to set vlan filter for intel
+82599? for example
+I want vlan id 0~31 will go to queue 0, vlan id 32-63 will go to queue
+1...below is my setting,but doesn't work
 
-David, will you take care of these two patches or should they go throug=
-h
-the netfilter tree?
+don't know the exact meanning of the vlan-mask and vlan,how are they calculated?
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+./ethtool -K eth5 ntuple on
+
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x0000 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 0
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x0020 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 1
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x0040 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 2
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x0060 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 3
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x0080 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 4
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x00A0 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 5
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x00C0 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 6
+./ethtool -U eth5 flow-type udp4 src-ip 0x0 src-ip-mask 0x0 dst-ip 0x0
+dst-ip-mask 0x0 src-port 0x0 src-port-mask 0x0 dst-port 0x0
+dst-port-mask 0x0 vlan 0x00E0 vlan-mask 0x00E0 user-def 0x0
+user-def-mask 0x0 action 6
+
+thanks
+rui
