@@ -1,62 +1,86 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH net-next-2.6 v7 1/5] sctp: Add Auto-ASCONF support
-Date: Tue, 26 Apr 2011 16:43:52 +0800
-Message-ID: <4DB685C8.4070507@cn.fujitsu.com>
-References: <2418F0AB-37A2-4B85-8723-32D92A48B7DA@sfc.wide.ad.jp>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH 03/13] mm: Introduce __GFP_MEMALLOC to allow access to
+ emergency reserves
+Date: Tue, 26 Apr 2011 19:49:47 +1000
+Message-ID: <20110426194947.764e048a@notabene.brown>
+References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+	<1303803414-5937-4-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Michio Honda <micchie@sfc.wide.ad.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51596 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751107Ab1DZIoH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 04:44:07 -0400
-In-Reply-To: <2418F0AB-37A2-4B85-8723-32D92A48B7DA@sfc.wide.ad.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1303803414-5937-4-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 26 Apr 2011 08:36:44 +0100 Mel Gorman <mgorman@suse.de> wrote:
 
-> SCTP reconfigure the IP addresses in the association by using ASCONF chunks as mentioned in RFC5061.  
-> For example, we can start to use the newly configured IP address in the existing association.  
-> ASCONF operation is invoked in two ways: 
-> First is done by the application to call sctp_bindx() system call.  
-> Second is automatic operation in the SCTP stack with address events in the host computer (called auto_asconf) .  
-> The former is already implemented, and this patch implement the latter.  
->
-> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+> __GFP_MEMALLOC will allow the allocation to disregard the watermarks,
+> much like PF_MEMALLOC. It allows one to pass along the memalloc state in
+> object related allocation flags as opposed to task related flags, such
+> as sk->sk_allocation. This removes the need for ALLOC_PFMEMALLOC as
+> callers using __GFP_MEMALLOC can get the ALLOC_NO_WATERMARK flag which
+> is now enough to identify allocations related to page reclaim.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
 > ---
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 7e8e34c..872ffa0 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -121,6 +121,8 @@ extern int sctp_copy_local_addr_list(struct sctp_bind_addr *,
->  				     int flags);
->  extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
->  extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
-> +void sctp_addr_wq_mgmt(struct sctp_sockaddr_entry *, int);
-> +void sctp_free_addr_wq(void);
->  
->
+>  include/linux/gfp.h      |    4 +++-
+>  include/linux/mm_types.h |    2 +-
+>  mm/page_alloc.c          |   14 ++++++--------
+>  mm/slab.c                |    2 +-
+>  4 files changed, 11 insertions(+), 11 deletions(-)
+> 
+> diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+> index bfb8f93..4e011e7 100644
+> --- a/include/linux/gfp.h
+> +++ b/include/linux/gfp.h
+> @@ -23,6 +23,7 @@ struct vm_area_struct;
+>  #define ___GFP_REPEAT		0x400u
+>  #define ___GFP_NOFAIL		0x800u
+>  #define ___GFP_NORETRY		0x1000u
+> +#define ___GFP_MEMALLOC		0x2000u
+>  #define ___GFP_COMP		0x4000u
+>  #define ___GFP_ZERO		0x8000u
+>  #define ___GFP_NOMEMALLOC	0x10000u
+> @@ -75,6 +76,7 @@ struct vm_area_struct;
+>  #define __GFP_REPEAT	((__force gfp_t)___GFP_REPEAT)	/* See above */
+>  #define __GFP_NOFAIL	((__force gfp_t)___GFP_NOFAIL)	/* See above */
+>  #define __GFP_NORETRY	((__force gfp_t)___GFP_NORETRY) /* See above */
+> +#define __GFP_MEMALLOC	((__force gfp_t)___GFP_MEMALLOC)/* Allow access to emergency reserves */
+>  #define __GFP_COMP	((__force gfp_t)___GFP_COMP)	/* Add compound page metadata */
+>  #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)	/* Return zeroed page on success */
+>  #define __GFP_NOMEMALLOC ((__force gfp_t)___GFP_NOMEMALLOC) /* Don't use emergency reserves */
 
-...
+Having both "MEMALLOC" and  "NOMEMALLOC" seems ... unfortunate.
 
-> +void sctp_free_addr_wq()
+It appears that NOMEMALLOC over-rides MEMALLOC.  It might be good to document
+this 
 
-static void sctp_free_addr_wq(void)
+> +#define __GFP_MEMALLOC	((__force gfp_t)___GFP_MEMALLOC)/* Allow access to emergency reserves
+                                                                   unless __GFP_NOMEMALLOC is set*/
 
-> +{
-> +	struct sctp_sockaddr_entry *addrw = NULL;
-> +	struct sctp_sockaddr_entry *temp = NULL;
-> +
-> +	spin_lock_bh(&sctp_addr_wq_lock);
-> +	del_timer(&sctp_addr_wq_timer);
-> +	list_for_each_entry_safe(addrw, temp, &sctp_addr_waitq, list) {
-> +		list_del(&addrw->list);
-> +		kfree(addrw);
-> +	}
-> +	spin_unlock_bh(&sctp_addr_wq_lock);
-> +}
-> +
-...
+>  #define __GFP_NOMEMALLOC ((__force gfp_t)___GFP_NOMEMALLOC) /* Don't use emergency reserves
+                                                                  Overrides __GFP_MEMALLOC */
+
+I suspect that it is never valid to set both.  So NOMEMALLOC is really
+NO_PF_MEMALLOC, but making that change is probably just noise.
+
+Maybe a
+   WARN_ON((gfp_mask & __GFP_MEMALLOC) && (gfp_mask & __GFP_NOMEMALLOC));
+might be wise?
+
+NeilBrown.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
