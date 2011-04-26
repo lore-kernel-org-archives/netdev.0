@@ -1,55 +1,65 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Tue, 26 Apr 2011 09:24:22 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755018DC497F8@orsmsx508.amr.corp.intel.com>
-References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
-	 <1303799597.2747.214.camel@edumazet-laptop>
-	 <20110425.235600.104065244.davem@davemloft.net>
-	 <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com>
- <1303834864.3358.58.camel@edumazet-laptop>
+From: Adam Jaremko <adam.jaremko@gmail.com>
+Subject: [PATCH] net: ftmac100: fix scheduling while atomic during PHY link
+ status change
+Date: Tue, 26 Apr 2011 12:32:56 -0400
+Message-ID: <BANLkTi=gcFB4mbmWKu4neep77Jp8R4HWGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: ratbert.chuang@gmail.com, netdev@vger.kernel.org
+To: =?UTF-8?B?UmF0YmVydCBQby1ZdSBDaHVhbmco6I6K5Y2a5a6HKQ==?=
+	<ratbert@faraday-tech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56726 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751049Ab1DZQYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 12:24:25 -0400
-In-Reply-To: <1303834864.3358.58.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:43355 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328Ab1DZQc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 12:32:57 -0400
+Received: by gyd10 with SMTP id 10so285024gyd.19
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 09:32:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJpbCAyNiwgMjAx
-MSA5OjIxIEFNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsgYmh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbQ0KPiBTdWJqZWN0
-OiBSRTogW1JGQyBQQVRDSF0gbmV0bGluazogSW5jcmVhc2UgbmV0bGluayBkdW1wIHNrYiBtZXNz
-YWdlIHNpemUNCj4gDQo+IExlIG1hcmRpIDI2IGF2cmlsIDIwMTEgw6AgMDk6MTIgLTA3MDAsIFJv
-c2UsIEdyZWdvcnkgViBhIMOpY3JpdCA6DQo+IA0KPiA+IEknbSBmaW5lIHdpdGggaG93ZXZlciB5
-b3UgZm9sa3Mgd2FudCB0byBhcHByb2FjaCB0aGlzLCBqdXN0IGdpdmUgbWUgc29tZQ0KPiBkaXJl
-Y3Rpb24uDQo+IA0KPiBJIHdvdWxkIGp1c3QgdHJ5IGZvbGxvd2luZyBwYXRjaCA6DQoNCkknbGwg
-dGVzdCBpdCBvdXQsIGl0J3MgY2VydGFpbmx5IGEgbG90IHNpbXBsZXIuICBQZXJoYXBzIEkgd2Fz
-IGdldHRpbmcgYSBiaXQgdG9vIGZhbmN5Lg0KDQpCZW4gd291bGQgd2FudCB0byBtYWtlIHN1cmUg
-aXQgd29ya3MgZm9yIDEyNyBWRnMsIG15IGRldmljZSBkb2VzIDYzLg0KDQotIEdyZWcNCg0KPiAN
-Cj4gDQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGxpbmsuaCBiL2luY2x1ZGUvbGlu
-dXgvbmV0bGluay5oDQo+IGluZGV4IDRjNGFjM2YuLjIyY2FjODEgMTAwNjQ0DQo+IC0tLSBhL2lu
-Y2x1ZGUvbGludXgvbmV0bGluay5oDQo+ICsrKyBiL2luY2x1ZGUvbGludXgvbmV0bGluay5oDQo+
-IEBAIC0yMTAsNiArMjEwLDcgQEAgaW50IG5ldGxpbmtfc2VuZHNrYihzdHJ1Y3Qgc29jayAqc2ss
-IHN0cnVjdCBza19idWZmDQo+ICpza2IpOw0KPiAgI2Vsc2UNCj4gICNkZWZpbmUgTkxNU0dfR09P
-RFNJWkUJU0tCX1dJVEhfT1ZFUkhFQUQoODE5MlVMKQ0KPiAgI2VuZGlmDQo+ICsjZGVmaW5lIE5M
-TVNHX0RVTVBTSVpFIFNLQl9XSVRIX09WRVJIRUFEKDgxOTJVTCkNCj4gDQo+ICAjZGVmaW5lIE5M
-TVNHX0RFRkFVTFRfU0laRSAoTkxNU0dfR09PRFNJWkUgLSBOTE1TR19IRFJMRU4pDQo+IA0KPiBk
-aWZmIC0tZ2l0IGEvbmV0L25ldGxpbmsvYWZfbmV0bGluay5jIGIvbmV0L25ldGxpbmsvYWZfbmV0
-bGluay5jDQo+IGluZGV4IGM4ZjM1YjUuLmNiOGQ2YWMgMTAwNjQ0DQo+IC0tLSBhL25ldC9uZXRs
-aW5rL2FmX25ldGxpbmsuYw0KPiArKysgYi9uZXQvbmV0bGluay9hZl9uZXRsaW5rLmMNCj4gQEAg
-LTE2NjksNyArMTY2OSw3IEBAIHN0YXRpYyBpbnQgbmV0bGlua19kdW1wKHN0cnVjdCBzb2NrICpz
-aykNCj4gIAlzdHJ1Y3Qgbmxtc2doZHIgKm5saDsNCj4gIAlpbnQgbGVuLCBlcnIgPSAtRU5PQlVG
-UzsNCj4gDQo+IC0Jc2tiID0gc29ja19ybWFsbG9jKHNrLCBOTE1TR19HT09EU0laRSwgMCwgR0ZQ
-X0tFUk5FTCk7DQo+ICsJc2tiID0gc29ja19ybWFsbG9jKHNrLCBOTE1TR19EVU1QU0laRSwgMCwg
-R0ZQX0tFUk5FTCk7DQo+ICAJaWYgKCFza2IpDQo+ICAJCWdvdG8gZXJyb3V0Ow0KPiANCj4gDQoN
-Cg==
+Signed-off-by: Adam Jaremko <adam.jaremko@gmail.com>
+---
+ drivers/net/ftmac100.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ftmac100.c b/drivers/net/ftmac100.c
+index a316619..9bd7746 100644
+--- a/drivers/net/ftmac100.c
++++ b/drivers/net/ftmac100.c
+@@ -139,11 +139,11 @@ static int ftmac100_reset(struct ftmac100 *priv)
+ 			 * that hardware reset completed (what the f*ck).
+ 			 * We still need to wait for a while.
+ 			 */
+-			usleep_range(500, 1000);
++			udelay(500);
+ 			return 0;
+ 		}
+
+-		usleep_range(1000, 10000);
++		udelay(1000);
+ 	}
+
+ 	netdev_err(netdev, "software reset failed\n");
+@@ -772,7 +772,7 @@ static int ftmac100_mdio_read(struct net_device
+*netdev, int phy_id, int reg)
+ 		if ((phycr & FTMAC100_PHYCR_MIIRD) == 0)
+ 			return phycr & FTMAC100_PHYCR_MIIRDATA;
+
+-		usleep_range(100, 1000);
++		udelay(100);
+ 	}
+
+ 	netdev_err(netdev, "mdio read timed out\n");
+@@ -801,7 +801,7 @@ static void ftmac100_mdio_write(struct net_device
+*netdev, int phy_id, int reg,
+ 		if ((phycr & FTMAC100_PHYCR_MIIWR) == 0)
+ 			return;
+
+-		usleep_range(100, 1000);
++		udelay(100);
+ 	}
+
+ 	netdev_err(netdev, "mdio write timed out\n");
+-- 
+1.7.4.4
