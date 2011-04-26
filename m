@@ -1,76 +1,47 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 11/13] nbd: Set SOCK_MEMALLOC for access to PFMEMALLOC reserves
-Date: Tue, 26 Apr 2011 08:36:52 +0100
-Message-ID: <1303803414-5937-12-git-send-email-mgorman@suse.de>
-References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
-To: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1303803414-5937-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH net-next-2.6 4/7] sctp: remove useless arguments from
+ get_saddr() call
+Date: Tue, 26 Apr 2011 16:06:17 +0800
+Message-ID: <4DB67CF9.1050508@cn.fujitsu.com>
+References: <4DB63F85.2090609@cn.fujitsu.com>	<4DB6405B.2060200@cn.fujitsu.com>	<20110426.001227.112589346.davem@davemloft.net> <20110426.002020.48493363.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60456 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750805Ab1DZIGc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 04:06:32 -0400
+In-Reply-To: <20110426.002020.48493363.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Set SOCK_MEMALLOC on the NBD socket to allow access to PFMEMALLOC
-reserves so pages backed by NBD, particularly if swap related,
-can be cleaned to prevent the machine being deadlocked. It is
-still possible that the PFMEMALLOC reserves get depleted resulting
-in deadlock but this can be resolved by the administrator by
-increasing min_free_kbytes.
 
-Signed-off-by: Mel Gorman <mgorman@suse.de>
----
- drivers/block/nbd.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 26 Apr 2011 00:12:27 -0700 (PDT)
+>
+>> I really get grumpy when I have to fix up stuff like this:
+>>
+>> net/sctp/ipv6.c: In function =A1sctp_v6_get_saddr=A2:
+>> net/sctp/ipv6.c:382: warning: unused variable =A1daddr=A2
+> Now I'm even more grumpy, if I only apply the first 3 patches:
+>
+> net/sctp/ipv6.c: In function =A1sctp_v6_dst_lookup=A2:
+> net/sctp/ipv6.c:259: warning: assignment makes integer from pointer w=
+ithout a cast
+>
+> it goes away later but you're not testing the intermediate steps
+> of your SCTP patch backports and as a result you are going to
+> break bisecting.
+>
+> I'm reverting this patch series, fix this up and actually test
+> the intermediate builds and functionality before resubmission.
+Hi David
 
-diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
-index e6fc716..322cef8 100644
---- a/drivers/block/nbd.c
-+++ b/drivers/block/nbd.c
-@@ -156,6 +156,7 @@ static int sock_xmit(struct nbd_device *lo, int send, void *buf, int size,
- 	struct msghdr msg;
- 	struct kvec iov;
- 	sigset_t blocked, oldset;
-+	unsigned long pflags = current->flags;
- 
- 	if (unlikely(!sock)) {
- 		printk(KERN_ERR "%s: Attempted %s on closed socket in sock_xmit\n",
-@@ -168,8 +169,9 @@ static int sock_xmit(struct nbd_device *lo, int send, void *buf, int size,
- 	siginitsetinv(&blocked, sigmask(SIGKILL));
- 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
- 
-+	current->flags |= PF_MEMALLOC;
- 	do {
--		sock->sk->sk_allocation = GFP_NOIO;
-+		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
- 		iov.iov_base = buf;
- 		iov.iov_len = size;
- 		msg.msg_name = NULL;
-@@ -214,6 +216,7 @@ static int sock_xmit(struct nbd_device *lo, int send, void *buf, int size,
- 	} while (size > 0);
- 
- 	sigprocmask(SIG_SETMASK, &oldset, NULL);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- 
- 	return result;
- }
-@@ -404,6 +407,8 @@ static int nbd_do_it(struct nbd_device *lo)
- 
- 	BUG_ON(lo->magic != LO_MAGIC);
- 
-+	sk_set_memalloc(lo->sock->sk);
-+
- 	lo->pid = current->pid;
- 	ret = sysfs_create_file(&disk_to_dev(lo->disk)->kobj, &pid_attr.attr);
- 	if (ret) {
--- 
-1.7.3.4
+ Sorry for sending those garbage and wasted your time so much,
+I will fix those up and do all of the test before resubmit
+those patch to you.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
