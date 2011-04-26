@@ -1,285 +1,158 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 2/3] bql: Byte queue limits
-Date: Mon, 25 Apr 2011 21:38:11 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1104252128290.5895@pokey.mtv.corp.google.com>
+Subject: [PATCH 3/3] forcedeth: Support for byte queue limits
+Date: Mon, 25 Apr 2011 21:38:13 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1104252131300.5997@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:16176 "EHLO
+Received: from smtp-out.google.com ([74.125.121.67]:9285 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873Ab1DZEiO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 00:38:14 -0400
+	with ESMTP id S1751503Ab1DZEiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 00:38:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Networking stack support for byte queue limits, uses dynamic queue
-limits library.  Byte queue limits are maintained per transmit queue,
-and a bql structure has been added to netdev_queue structure for this
-purpose.
-
-Configuration of bql is in the tx-<n> sysfs directory for the queue
-under the byte_queue_limits directory.  Configuration includes:
-limit_min, bql minimum limit
-limit_max, bql maximum limit
-hold_time, bql slack hold time
-
-Also under the directory are:
-limit, current byte limit
-inflight, current number of bytes on the queue
+Changes to forcedeth to use byte queue limits.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/netdevice.h |   46 +++++++++++++++-
- net/core/net-sysfs.c      |  137 +++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 177 insertions(+), 6 deletions(-)
+ drivers/net/forcedeth.c |   38 ++++++++++++++++++++++++++++++++++----
+ 1 files changed, 34 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cb8178a..0a76b88 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -44,6 +44,7 @@
- #include <linux/rculist.h>
- #include <linux/dmaengine.h>
- #include <linux/workqueue.h>
-+#include <linux/dynamic_queue_limits.h>
- 
- #include <linux/ethtool.h>
- #include <net/net_namespace.h>
-@@ -556,8 +557,10 @@ struct netdev_queue {
- 	struct Qdisc		*qdisc;
- 	unsigned long		state;
- 	struct Qdisc		*qdisc_sleeping;
--#ifdef CONFIG_RPS
-+#ifdef CONFIG_XPS
- 	struct kobject		kobj;
-+	bool			do_bql;
-+	struct dql		dql;
- #endif
- #if defined(CONFIG_XPS) && defined(CONFIG_NUMA)
- 	int			numa_node;
-@@ -589,6 +592,47 @@ static inline void netdev_queue_numa_node_write(struct netdev_queue *q, int node
- #endif
- }
- 
-+/*
-+ * Definitions for byte queue limits for TX queue.
-+ */
-+static inline void netdev_queue_bql_init(struct netdev_queue *q)
-+{
-+#ifdef CONFIG_XPS
-+	dql_init(&q->dql, 1000);
-+	q->do_bql = true;
-+#endif
-+}
-+
-+static inline void netdev_queue_bql_reset(struct netdev_queue *q)
-+{
-+#ifdef CONFIG_XPS
-+	dql_reset(&q->dql);
-+#endif
-+}
-+
-+static inline bool netdev_queue_bytes_avail(struct netdev_queue *q)
-+{
-+#ifdef CONFIG_XPS
-+	return dql_avail(&q->dql) >= 0;
-+#endif
-+}
-+
-+static inline void netdev_queue_bytes_sent(struct netdev_queue *q,
-+					   unsigned count)
-+{
-+#ifdef CONFIG_XPS
-+	dql_queued(&q->dql, count);
-+#endif
-+}
-+
-+static inline void netdev_queue_bytes_completed(struct netdev_queue *q,
-+						unsigned count)
-+{
-+#ifdef CONFIG_XPS
-+	dql_completed(&q->dql, count);
-+#endif
-+}
-+
- #ifdef CONFIG_RPS
- /*
-  * This structure holds an RPS map which can be of variable length.  The
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 5ceb257..5f29b8e 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -20,6 +20,7 @@
- #include <linux/rtnetlink.h>
- #include <linux/wireless.h>
- #include <linux/vmalloc.h>
-+#include <linux/jiffies.h>
- #include <net/wext.h>
- 
- #include "net-sysfs.h"
-@@ -852,6 +853,119 @@ static inline unsigned int get_netdev_queue_index(struct netdev_queue *queue)
- 	return i;
- }
- 
-+static ssize_t bql_show(char *buf, unsigned long value)
-+{
-+	int p = 0;
-+
-+	p = sprintf(buf, "%lu\n", value);
-+	return p;
-+}
-+
-+static ssize_t bql_set(const char *buf, const size_t count,
-+		       unsigned long *pvalue)
-+{
-+	unsigned long value;
-+	int err;
-+
-+	if (!strcmp(buf, "max") || !strcmp(buf, "max\n"))
-+		value = DQL_MAX_LIMIT;
-+	else {
-+		err = kstrtoul(buf, 10, &value);
-+		if (err < 0)
-+			return err;
-+		if (value > DQL_MAX_LIMIT)
-+			return -EINVAL;
-+	}
-+
-+	*pvalue = value;
-+
-+	return count;
-+}
-+
-+static ssize_t bql_show_hold_time(struct netdev_queue *queue,
-+				  struct netdev_queue_attribute *attr,
-+				  char *buf)
-+{
-+	struct dql *dql = &queue->dql;
-+	int p = 0;
-+
-+	p = sprintf(buf, "%u\n", jiffies_to_msecs(dql->slack_hold_time));
-+
-+	return p;
-+}
-+
-+static ssize_t bql_set_hold_time(struct netdev_queue *queue,
-+				 struct netdev_queue_attribute *attribute,
-+				 const char *buf, size_t len)
-+{
-+	struct dql *dql = &queue->dql;
-+	unsigned value;
-+	int err;
-+
-+	err = kstrtouint(buf, 10, &value);
-+	if (err < 0)
-+		return err;
-+
-+	dql->slack_hold_time = msecs_to_jiffies(value);
-+
-+	return len;
-+}
-+
-+static struct netdev_queue_attribute bql_hold_time_attribute =
-+	__ATTR(hold_time, S_IRUGO | S_IWUSR, bql_show_hold_time,
-+	    bql_set_hold_time);
-+
-+static ssize_t bql_show_inflight(struct netdev_queue *queue,
-+				 struct netdev_queue_attribute *attr,
-+				 char *buf)
-+{
-+	struct dql *dql = &queue->dql;
-+	int p = 0;
-+
-+	p = sprintf(buf, "%lu\n", dql->num_queued - dql->num_completed);
-+
-+	return p;
-+}
-+
-+static struct netdev_queue_attribute bql_inflight_attribute =
-+	__ATTR(inflight, S_IRUGO | S_IWUSR, bql_show_inflight, NULL);
-+
-+#define BQL_ATTR(NAME, FIELD)						\
-+static ssize_t bql_show_ ## NAME(struct netdev_queue *queue,		\
-+				 struct netdev_queue_attribute *attr,	\
-+				 char *buf)				\
-+{									\
-+	return bql_show(buf, queue->dql.FIELD);				\
-+}									\
-+									\
-+static ssize_t bql_set_ ## NAME(struct netdev_queue *queue,		\
-+				struct netdev_queue_attribute *attr,	\
-+				const char *buf, size_t len)		\
-+{									\
-+	return bql_set(buf, len, &queue->dql.FIELD);			\
-+}									\
-+									\
-+static struct netdev_queue_attribute bql_ ## NAME ## _attribute =	\
-+	__ATTR(NAME, S_IRUGO | S_IWUSR, bql_show_ ## NAME,		\
-+	    bql_set_ ## NAME);
-+
-+BQL_ATTR(limit, limit)
-+BQL_ATTR(limit_max, max_limit)
-+BQL_ATTR(limit_min, min_limit)
-+
-+static struct attribute *dql_attrs[] = {
-+	&bql_limit_attribute.attr,
-+	&bql_limit_max_attribute.attr,
-+	&bql_limit_min_attribute.attr,
-+	&bql_hold_time_attribute.attr,
-+	&bql_inflight_attribute.attr,
-+	NULL
-+};
-+
-+static struct attribute_group dql_group = {
-+	.name  = "byte_queue_limits",
-+	.attrs  = dql_attrs,
-+};
- 
- static ssize_t show_xps_map(struct netdev_queue *queue,
- 			    struct netdev_queue_attribute *attribute, char *buf)
-@@ -1119,14 +1233,22 @@ static int netdev_queue_add_kobject(struct net_device *net, int index)
- 	kobj->kset = net->queues_kset;
- 	error = kobject_init_and_add(kobj, &netdev_queue_ktype, NULL,
- 	    "tx-%u", index);
--	if (error) {
--		kobject_put(kobj);
--		return error;
-+	if (error)
-+		goto exit;
-+
-+	if (queue->do_bql) {
-+		error = sysfs_create_group(kobj, &dql_group);
-+		if (error)
-+			goto kset_exit;
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index 0e1c76a..00f9f99 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -1827,6 +1827,11 @@ static void nv_init_rx(struct net_device *dev)
  	}
- 
- 	kobject_uevent(kobj, KOBJ_ADD);
- 	dev_hold(queue->dev);
- 
-+	return 0;
-+kset_exit:
-+	kobject_put(kobj);
-+exit:
- 	return error;
  }
- #endif /* CONFIG_XPS */
-@@ -1146,8 +1268,13 @@ netdev_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
- 		}
- 	}
  
--	while (--i >= new_num)
--		kobject_put(&net->_tx[i].kobj);
-+	while (--i >= new_num) {
-+		struct netdev_queue *queue = net->_tx + i;
++static struct netdev_queue *nv_netdev_queue(struct fe_priv *np)
++{
++	return netdev_get_tx_queue(np->dev, 0);
++}
 +
-+		if (queue->do_bql)
-+			sysfs_remove_group(&queue->kobj, &dql_group);
-+		kobject_put(&queue->kobj);
-+	}
+ static void nv_init_tx(struct net_device *dev)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+@@ -1843,6 +1848,7 @@ static void nv_init_tx(struct net_device *dev)
+ 	np->tx_pkts_in_progress = 0;
+ 	np->tx_change_owner = NULL;
+ 	np->tx_end_flip = NULL;
++	netdev_queue_bql_reset(nv_netdev_queue(np));
+ 	np->tx_stop = 0;
  
- 	return error;
- #else
+ 	for (i = 0; i < np->tx_ring_size; i++) {
+@@ -2107,7 +2113,8 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	spin_lock_irqsave(&np->lock, flags);
+ 	empty_slots = nv_get_empty_tx_slots(np);
+-	if (unlikely(empty_slots <= entries)) {
++	if (unlikely(empty_slots <= entries ||
++	    !netdev_queue_bytes_avail(nv_netdev_queue(np)))) {
+ 		netif_stop_queue(dev);
+ 		np->tx_stop = 1;
+ 		spin_unlock_irqrestore(&np->lock, flags);
+@@ -2180,6 +2187,9 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* set tx flags */
+ 	start_tx->flaglen |= cpu_to_le32(tx_flags | tx_flags_extra);
++
++	netdev_queue_bytes_sent(nv_netdev_queue(np), skb->len);
++
+ 	np->put_tx.orig = put_tx;
+ 
+ 	spin_unlock_irqrestore(&np->lock, flags);
+@@ -2216,7 +2226,8 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 
+ 	spin_lock_irqsave(&np->lock, flags);
+ 	empty_slots = nv_get_empty_tx_slots(np);
+-	if (unlikely(empty_slots <= entries)) {
++	if (unlikely(empty_slots <= entries ||
++	    !netdev_queue_bytes_avail(nv_netdev_queue(np)))) {
+ 		netif_stop_queue(dev);
+ 		np->tx_stop = 1;
+ 		spin_unlock_irqrestore(&np->lock, flags);
+@@ -2319,6 +2330,9 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 
+ 	/* set tx flags */
+ 	start_tx->flaglen |= cpu_to_le32(tx_flags | tx_flags_extra);
++
++	netdev_queue_bytes_sent(nv_netdev_queue(np), skb->len);
++
+ 	np->put_tx.ex = put_tx;
+ 
+ 	spin_unlock_irqrestore(&np->lock, flags);
+@@ -2356,6 +2370,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
+ 	u32 flags;
+ 	int tx_work = 0;
+ 	struct ring_desc *orig_get_tx = np->get_tx.orig;
++	unsigned long bytes_cleaned = 0;
+ 
+ 	while ((np->get_tx.orig != np->put_tx.orig) &&
+ 	       !((flags = le32_to_cpu(np->get_tx.orig->flaglen)) & NV_TX_VALID) &&
+@@ -2395,6 +2410,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
+ 					dev->stats.tx_packets++;
+ 					dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
+ 				}
++				bytes_cleaned += np->get_tx_ctx->skb->len;
+ 				dev_kfree_skb_any(np->get_tx_ctx->skb);
+ 				np->get_tx_ctx->skb = NULL;
+ 				tx_work++;
+@@ -2405,7 +2421,12 @@ static int nv_tx_done(struct net_device *dev, int limit)
+ 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
+ 			np->get_tx_ctx = np->first_tx_ctx;
+ 	}
+-	if (unlikely((np->tx_stop == 1) && (np->get_tx.orig != orig_get_tx))) {
++
++	if (bytes_cleaned)
++		netdev_queue_bytes_completed(nv_netdev_queue(np),
++		    bytes_cleaned);
++	if (unlikely((np->tx_stop == 1) && (np->get_tx.orig != orig_get_tx) &&
++	    netdev_queue_bytes_avail(nv_netdev_queue(np)))) {
+ 		np->tx_stop = 0;
+ 		netif_wake_queue(dev);
+ 	}
+@@ -2418,6 +2439,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
+ 	u32 flags;
+ 	int tx_work = 0;
+ 	struct ring_desc_ex *orig_get_tx = np->get_tx.ex;
++	unsigned long bytes_cleaned = 0;
+ 
+ 	while ((np->get_tx.ex != np->put_tx.ex) &&
+ 	       !((flags = le32_to_cpu(np->get_tx.ex->flaglen)) & NV_TX2_VALID) &&
+@@ -2437,6 +2459,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
+ 				}
+ 			}
+ 
++			bytes_cleaned += np->get_tx_ctx->skb->len;
+ 			dev_kfree_skb_any(np->get_tx_ctx->skb);
+ 			np->get_tx_ctx->skb = NULL;
+ 			tx_work++;
+@@ -2449,7 +2472,12 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
+ 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
+ 			np->get_tx_ctx = np->first_tx_ctx;
+ 	}
+-	if (unlikely((np->tx_stop == 1) && (np->get_tx.ex != orig_get_tx))) {
++
++	if (bytes_cleaned)
++		netdev_queue_bytes_completed(nv_netdev_queue(np),
++		    bytes_cleaned);
++	if (unlikely((np->tx_stop == 1) && (np->get_tx.ex != orig_get_tx) &&
++	    netdev_queue_bytes_avail(nv_netdev_queue(np)))) {
+ 		np->tx_stop = 0;
+ 		netif_wake_queue(dev);
+ 	}
+@@ -5263,6 +5291,8 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 	np->stats_poll.data = (unsigned long) dev;
+ 	np->stats_poll.function = nv_do_stats_poll;	/* timer handler */
+ 
++	netdev_queue_bql_init(nv_netdev_queue(np));
++
+ 	err = pci_enable_device(pci_dev);
+ 	if (err)
+ 		goto out_free;
 -- 
 1.7.3.1
 
