@@ -1,74 +1,65 @@
-From: zhou rui <zhourui.cn@gmail.com>
-Subject: Re: how to set vlan filter for intel 82599
-Date: Tue, 26 Apr 2011 23:30:54 +0800
-Message-ID: <BANLkTimaCyCW4TYg30=CECe96vHxiStHfQ@mail.gmail.com>
-References: <BANLkTikZcdda5-3NBaXyKmij09f62Da3cQ@mail.gmail.com>
-	<1303786638.3032.307.camel@localhost>
-	<BANLkTikav_NimAoFj_2Wo-BMD-3uVjU--w@mail.gmail.com>
-	<1303789868.3032.347.camel@localhost>
-	<BANLkTi=eADSYV90EC9uJhtLZfBBJa5O1Bw@mail.gmail.com>
-	<1303824705.3032.359.camel@localhost>
-	<4DB6E34F.5000203@intel.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter/IPv6: initialize TOS field in REJECT target
+ module
+Date: Tue, 26 Apr 2011 17:34:31 +0200
+Message-ID: <4DB6E607.6000303@netfilter.org>
+References: <1303461461.3134.15.camel@edumazet-laptop>	 <4DB61C2C.7060508@netfilter.org> <1303781180.2874.13.camel@nausicaa>	 <20110425.221744.226775617.davem@davemloft.net> <1303795522.6010.5.camel@nausicaa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:44601 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756389Ab1DZPaz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 11:30:55 -0400
-Received: by iyb14 with SMTP id 14so597126iyb.19
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 08:30:55 -0700 (PDT)
-In-Reply-To: <4DB6E34F.5000203@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, jengelh@medozas.de,
+	Patrick McHardy <kaber@trash.net>
+To: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1303795522.6010.5.camel@nausicaa>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday, April 26, 2011, Alexander Duyck <alexander.h.duyck@intel.co=
-m> wrote:
-> On 4/26/2011 6:31 AM, Ben Hutchings wrote:
->
-> On Tue, 2011-04-26 at 12:39 +0800, zhou rui wrote:
-> [...]
->
-> i set the filter like below:
->
-> for a vlanid=3D50, it always match the last rule (action 7)
->
-> ./ethtool -K eth5 ntuple off
-> ./ethtool -K eth5 ntuple on
-> ./ethtool -U eth5 flow-type tcp4 vlan 32 vlan-mask 0xF01F action 1
-> ./ethtool -U eth5 flow-type udp4 vlan 32 vlan-mask 0xF01F action 1
-> ./ethtool -U eth5 flow-type udp4 vlan 64 vlan-mask 0xF01F action 7
-> ./ethtool -U eth5 flow-type tcp4 vlan 64 vlan-mask 0xF01F action 7
->
-> I tried the latest ixgbe driver 3.3.9, it reports:
->
-> Cannot add new RX n-tuple filter: Operation not permitted
->
-> ./ethtool -V
-> ethtool version 2.6.36
->
->
-> Check dmesg; there should be an error message there. =A0Of course the
-> error code should be EINVAL and not EPERM.
->
-> Ben.
->
->
->
-> The problem is likely the vlan-mask. =A0The only valid VLAN masks sup=
-ported are 0xFFFF, 0x0FFF, 0xF000, and 0x0000. =A0The hardware cannot p=
-artially mask either the priority nor the VLAN TCI.
->
-> Thanks,
->
-> Alex
->
-Yes i just checked the log, it said partially vlan Id not support,
-that means I can't set this filter?(vlan id 0-31 go to
-Q0,32-63->Q1....?)
+On 26/04/11 07:25, Fernando Luis Vazquez Cao wrote:
+> On Mon, 2011-04-25 at 22:17 -0700, David Miller wrote:
+>> From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+>> Date: Tue, 26 Apr 2011 10:26:20 +0900
+>>
+>>> On Tue, 2011-04-26 at 03:13 +0200, Pablo Neira Ayuso wrote:
+>>>> On 22/04/11 10:37, Eric Dumazet wrote:
+>>>>> Le vendredi 22 avril 2011 =C3=A0 17:11 +0900, Fernando Luis Vazqu=
+ez Cao a
+>>>>> =C3=A9crit :
+>>>>>
+>>>>>> Thank you!
+>>>>>>
+>>>>>> Should we send these two patches to -stable too?
+>>>>>
+>>>>> David takes care of stable submissions for netdev stuff, thanks.
+>>>>
+>>>> If the patch follows the netfilter path, we'll take care of sendin=
+g
+>>>> stable submissions.
+>>>
+>>> David, will you take care of these two patches or should they go th=
+rough
+>>> the netfilter tree?
+>>
+>> Netfilter, as usual.
+>=20
+> Thank you for the clarification. I really appreciate it.
+>=20
+> Pablo, could you pull in the two patches below? They have already bee=
+n
+> acked by Eric. It would be great it we could get them merged for the
+> next -rc and stable releases.
+>=20
+> [PATCH] netfilter/IPv6: fix DSCP mangle code
+> [PATCH] netfilter/IPv6: initialize TOS field in REJECT target module
+
+Patrick is the primary link to take patches, I'm including him in this
+CC. If he experiences any problem, I'll make sure that these hit -rc, s=
+o
+never mind.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
