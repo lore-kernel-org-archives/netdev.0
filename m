@@ -1,53 +1,43 @@
-From: Bandan Das <bandan.das@stratus.com>
-Subject: Re: [Bugme-new] [Bug 33842] New: NULL pointer dereference in
- ip_fragment
-Date: Tue, 26 Apr 2011 16:31:54 -0400
-Message-ID: <20110426203154.GM15903@stratus.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
+Date: Tue, 26 Apr 2011 22:43:42 +0200
+Message-ID: <1303850622.2699.6.camel@edumazet-laptop>
+References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com>
+	 <1303730701.2747.110.camel@edumazet-laptop>
+	 <BANLkTi=xns1Gdjyt-SX3yDETSQfO23rXXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, tom@dbservice.com,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Carsten Wolff <carsten@wolffcarsten.de>, netdev@vger.kernel.org
+To: Dominik Kaspar <dokaspar.ietf@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.stratus.com ([134.111.1.18]:35352 "EHLO
-	mailhub5.stratus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753414Ab1DZUc5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 16:32:57 -0400
-Content-Disposition: inline
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35253 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389Ab1DZUnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 16:43:47 -0400
+Received: by wya21 with SMTP id 21so781290wya.19
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 13:43:46 -0700 (PDT)
+In-Reply-To: <BANLkTi=xns1Gdjyt-SX3yDETSQfO23rXXg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-https://bugzilla.kernel.org/show_bug.cgi?id=33842
+Le lundi 25 avril 2011 =C3=A0 16:35 +0200, Dominik Kaspar a =C3=A9crit =
+:
 
-I believe  Eric's recent change to br_parse_ip_options() 
-didn't make it to 2.6.39-rc4:
+> For the experiments, all default TCP options were used, meaning that
+> SACK, DSACK, Timestamps, were all enabled. Not sure how to turn on/of=
+f
+> TSO... so that is probably enabled, too. Path emulation is done with
+> tc/netem at the receiver interfaces (eth1, eth2) with this script:
+>=20
+> http://home.simula.no/~kaspar/static/netem.sh
+>=20
 
-bridge: reset IPCB in br_parse_ip_options
-commit f8e9881c2aef1e982e5abc25c046820cd0b7cf64
+What are the exact parameters ? (queue size for instance)
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 008ff6c..b353f7c 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -249,11 +249,9 @@  static int br_parse_ip_options(struct sk_buff *skb)
-           goto drop;
-           }
- 
--       /* Zero out the CB buffer if no options present */
--       if (iph->ihl == 5) {
--          memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+          memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+          if (iph->ihl == 5)
-              return 0;
--             }
- 
-        opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
-        if (ip_options_compile(dev_net(dev), opt, skb))
+It would be nice to give detailed stats after one run, on receiver
+(since you have netem on ingress side)
+
+tc -s -d qdisc
 
 
-
-Tomas, could you please try a kernel that has the above 
-mentioned change and see if the crash re-occurs ?
-
-Thanks,
-Bandan
