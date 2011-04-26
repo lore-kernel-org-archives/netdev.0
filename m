@@ -1,43 +1,33 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] dsa/mv88e6131: fix unknown multicast/broadcast forwarding on mv88e6085
-Date: Tue, 26 Apr 2011 21:08:51 +0200
-Message-ID: <87sjt43k58.fsf@macbook.be.48ers.dk>
-References: <1303818341-13839-1-git-send-email-jacmet@sunsite.dk>
-	<20110426145740.GL1897@wantstofly.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2] iproute2: tc add mqprio qdisc support
+Date: Tue, 26 Apr 2011 20:18:12 +0100
+Message-ID: <1303845492.2850.7.camel@bwh-desktop>
+References: <20110426185331.12236.41211.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:51668 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752466Ab1DZTI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 15:08:56 -0400
-Received: by eyx24 with SMTP id 24so297227eyx.19
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 12:08:54 -0700 (PDT)
-In-Reply-To: <20110426145740.GL1897@wantstofly.org> (Lennert Buytenhek's
-	message of "Tue, 26 Apr 2011 16:57:40 +0200")
+Received: from exchange.solarflare.com ([216.237.3.220]:56438 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754308Ab1DZTSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 15:18:15 -0400
+In-Reply-To: <20110426185331.12236.41211.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Lennert" == Lennert Buytenhek <buytenh@wantstofly.org> writes:
+On Tue, 2011-04-26 at 11:53 -0700, John Fastabend wrote:
+> Add mqprio qdisc support. Output matches the following,
+[...]
 
-Hi,
+Stephen already applied the previous version of this, so you'll need to
+provide an incremental patch to change the argument parsing.
 
- >> The 88e6085 has a few differences from the other devices in the port
- >> control registers, causing unknown multicast/broadcast packets to get
- >> dropped when using the standard port setup.
- >> 
- >> At the same time update kconfig to clarify that the mv88e6085 is now
- >> supported.
- >> 
- >> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
-
- Lennert> Assuming that you've tested this.. :)
-
-Yes, this time with multicast as well *red ears* ;)
-
-Thanks.
+Ben.
 
 -- 
-Bye, Peter Korsgaard
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
