@@ -1,70 +1,59 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter/IPv6: initialize TOS field in REJECT target
- module
-Date: Tue, 26 Apr 2011 17:35:35 +0200
-Message-ID: <4DB6E647.5060608@netfilter.org>
-References: <1303461461.3134.15.camel@edumazet-laptop>	 <4DB61C2C.7060508@netfilter.org> <1303781180.2874.13.camel@nausicaa>	 <20110425.221744.226775617.davem@davemloft.net> <1303795522.6010.5.camel@nausicaa> <4DB6E607.6000303@netfilter.org>
+From: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Subject: Re: CDC NCM missing Zero Length Packets
+Date: Tue, 26 Apr 2011 17:59:25 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E2A4AAFD2@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, jengelh@medozas.de,
-	Patrick McHardy <kaber@trash.net>
-To: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matthias Benesch <twoofseven@freenet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:32899 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756907Ab1DZPfj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 11:35:39 -0400
-In-Reply-To: <4DB6E607.6000303@netfilter.org>
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:50948 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751493Ab1DZP7a convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2011 11:59:30 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/04/11 17:34, Pablo Neira Ayuso wrote:
-> On 26/04/11 07:25, Fernando Luis Vazquez Cao wrote:
->> On Mon, 2011-04-25 at 22:17 -0700, David Miller wrote:
->>> From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
->>> Date: Tue, 26 Apr 2011 10:26:20 +0900
->>>
->>>> On Tue, 2011-04-26 at 03:13 +0200, Pablo Neira Ayuso wrote:
->>>>> On 22/04/11 10:37, Eric Dumazet wrote:
->>>>>> Le vendredi 22 avril 2011 =C3=A0 17:11 +0900, Fernando Luis Vazq=
-uez Cao a
->>>>>> =C3=A9crit :
->>>>>>
->>>>>>> Thank you!
->>>>>>>
->>>>>>> Should we send these two patches to -stable too?
->>>>>>
->>>>>> David takes care of stable submissions for netdev stuff, thanks.
->>>>>
->>>>> If the patch follows the netfilter path, we'll take care of sendi=
-ng
->>>>> stable submissions.
->>>>
->>>> David, will you take care of these two patches or should they go t=
-hrough
->>>> the netfilter tree?
->>>
->>> Netfilter, as usual.
->>
->> Thank you for the clarification. I really appreciate it.
->>
->> Pablo, could you pull in the two patches below? They have already be=
-en
->> acked by Eric. It would be great it we could get them merged for the
->> next -rc and stable releases.
->>
->> [PATCH] netfilter/IPv6: fix DSCP mangle code
->> [PATCH] netfilter/IPv6: initialize TOS field in REJECT target module
->=20
-> Patrick is the primary link to take patches, I'm including him in thi=
-s
-> CC. If he experiences any problem, I'll make sure that these hit -rc,=
- so
-> never mind.
-  ^^^^^^^^^^
+On Fri, Apr 22, 2011 at 4:32 PM, Matthias Benesch <twoofseven@freenet.de> wrote:
+> Hello,
+>
+> I am testing the USB-CDC NCM host driver. One issue that was found by one
+> USB device stack provider, is that the current implementation is not sending
+> ZLP or short packets if the dwNtbOutMaxSize reported by the device is
+> greater than CDC_NCM_NTB_MAX_SIZE_TX (=16383 bytes).
+>
 
-Sorry, I meant to say, "don't worry" :-)
+I'd like to point out, that NCM is not a Mass Storage and increasing max
+buffer size in the device will lead to reduced throughput at the end. By 
+increasing max buffer size, you are also increasing overall latency, which
+will hit hard streaming and other services.
+
+NCM specification was written with approach that device is less capable than
+the host. The issue you mentioned, is not addressed properly in the specification,
+but might be fixed in the next version of NCM spec.
+
+16K buffer size in the current driver was chosen as a result of testing and
+as a tradeoff between latency and throughput and should be suitable for LTE
+speeds. Devices using 21 Mbit HSPA radio could function happily with 8K buffers.
+
+By using bigger buffer in the device your USB device stack provider forces
+host driver constantly send short packets, which will significantly reduce
+benefits provided by DMA controller. While having maximum data traffic your
+device interrupt load would be twice as high as the load when device buffer
+size is equal or less than host driver buffer size.
+
+As a conclusion: 
+- yes, current driver version has a bug (no short packet sent) and I will
+submit a patch for it after testing. 
+- Patch provided a few days ago is not a proper solution and can be considered as
+a workaround only.
+- I also suggest you to talk to your usb device stack vendor, because your product
+might work much better if issues mentioned above are taking into consideration.
+
+Regards,
+Alexey
 
