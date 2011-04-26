@@ -1,92 +1,85 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 09/13] netvm: Set PF_MEMALLOC as appropriate during SKB
- processing
-Date: Tue, 26 Apr 2011 15:10:48 +0100
-Message-ID: <20110426141048.GG4658@suse.de>
-References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
- <1303803414-5937-10-git-send-email-mgorman@suse.de>
- <20110426222157.33a461f8@notabene.brown>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/3] bql: Byte queue limits
+Date: Tue, 26 Apr 2011 07:13:38 -0700
+Message-ID: <BANLkTi=xTTjcG7CVfCk8sWojRSZhST+e_Q@mail.gmail.com>
+References: <alpine.DEB.2.00.1104252128290.5895@pokey.mtv.corp.google.com>
+	<1303796313.2747.190.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: NeilBrown <neilb@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20110426222157.33a461f8@notabene.brown>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:59772 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754811Ab1DZONm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 10:13:42 -0400
+Received: from kpbe15.cbf.corp.google.com (kpbe15.cbf.corp.google.com [172.25.105.79])
+	by smtp-out.google.com with ESMTP id p3QEDfnH016763
+	for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 07:13:41 -0700
+Received: from pzk2 (pzk2.prod.google.com [10.243.19.130])
+	by kpbe15.cbf.corp.google.com with ESMTP id p3QEDd1M009519
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 07:13:39 -0700
+Received: by pzk2 with SMTP id 2so306033pzk.9
+        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 07:13:38 -0700 (PDT)
+In-Reply-To: <1303796313.2747.190.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 26, 2011 at 10:21:57PM +1000, NeilBrown wrote:
-> On Tue, 26 Apr 2011 08:36:50 +0100 Mel Gorman <mgorman@suse.de> wrote:
-> 
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 3871bf6..2d79a20 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -3095,6 +3095,27 @@ static void vlan_on_bond_hook(struct sk_buff *skb)
-> >  	}
-> >  }
-> >  
-> > +/*
-> > + * Limit which protocols can use the PFMEMALLOC reserves to those that are
-> > + * expected to be used for communication with swap.
-> > + */
-> > +static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
-> > +{
-> > +	if (skb_pfmemalloc(skb))
-> > +		switch (skb->protocol) {
-> > +		case __constant_htons(ETH_P_ARP):
-> > +		case __constant_htons(ETH_P_IP):
-> > +		case __constant_htons(ETH_P_IPV6):
-> > +		case __constant_htons(ETH_P_8021Q):
-> > +			break;
-> > +
-> > +		default:
-> > +			return false;
-> > +		}
-> > +
-> > +	return true;
-> > +}
-> 
-> This sort of thing really bugs me :-)
-> Neither the comment nor the function name actually describe what the function
-> is doing.  The function is checking *2* things.
->    is_pfmemalloc_skb_or_pfmemalloc_protocol()
-> might be a more correct name, but is too verbose.
-> 
-> I would prefer the skb_pfmemalloc test were removed from here and ....
-> 
-> > +	if (!skb_pfmemalloc_protocol(skb))
-> > +		goto drop;
-> > +
-> 
-> ...added here so this becomes:
-> 
->       if (!skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
->                 goto drop;
-> 
-> which actually makes sense.
-> 
+> Wow... magical values and very limited advices how to tune them.
+>
+The intent is that the algorithm is sufficiently adaptive so that no
+tuning should be required.
 
-Moving the check is neater but that check should be
+> Tom, this reminds me you were supposed to provide Documentation/files=
+ to
+> describe RPS, RFS, XPS ...
+>
+We'll look into that.
 
-	if (skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
+> We receive many questions about these features...
+>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>> ---
+>> =A0include/linux/netdevice.h | =A0 46 +++++++++++++++-
+>> =A0net/core/net-sysfs.c =A0 =A0 =A0| =A0137 ++++++++++++++++++++++++=
++++++++++++++++++++--
+>> =A02 files changed, 177 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index cb8178a..0a76b88 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -44,6 +44,7 @@
+>> =A0#include <linux/rculist.h>
+>> =A0#include <linux/dmaengine.h>
+>> =A0#include <linux/workqueue.h>
+>> +#include <linux/dynamic_queue_limits.h>
+>>
+>> =A0#include <linux/ethtool.h>
+>> =A0#include <net/net_namespace.h>
+>> @@ -556,8 +557,10 @@ struct netdev_queue {
+>> =A0 =A0 =A0 struct Qdisc =A0 =A0 =A0 =A0 =A0 =A0*qdisc;
+>> =A0 =A0 =A0 unsigned long =A0 =A0 =A0 =A0 =A0 state;
+>> =A0 =A0 =A0 struct Qdisc =A0 =A0 =A0 =A0 =A0 =A0*qdisc_sleeping;
+>> -#ifdef CONFIG_RPS
+>> +#ifdef CONFIG_XPS
+>> =A0 =A0 =A0 struct kobject =A0 =A0 =A0 =A0 =A0kobj;
+>> + =A0 =A0 bool =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0do_bql;
+>> + =A0 =A0 struct dql =A0 =A0 =A0 =A0 =A0 =A0 =A0dql;
+>> =A0#endif
+>
+> I have no idea why you use CONFIG_XPS for BQL (how BQL is it related =
+to
 
-? It's only if the skb was allocated from emergency reserves that we
-need to consider dropping it to make way for other packets to be
-received.
+I'll add CONFIG_BQL
 
--- 
-Mel Gorman
-SUSE Labs
+> SMP ???), and why kobj is now guarded by CONFIG_XPS instead of
+> CONFIG_RPS.
+>
+Because that kobj is for transmit side (currently only for xps_cpus)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>
+>
+>
