@@ -1,47 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/4] ipv4: Sanitize and simplify
- ip_route_{connect,newports}()
-Date: Wed, 27 Apr 2011 06:47:57 +0200
-Message-ID: <1303879677.2699.45.camel@edumazet-laptop>
-References: <20110426.151202.245387083.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: ibmveth runtime errors
+Date: Wed, 27 Apr 2011 14:49:01 +1000
+Message-ID: <20110427144901.4c3f79b3.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42986 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750989Ab1D0EsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 00:48:03 -0400
-Received: by wwa36 with SMTP id 36so1460855wwa.1
-        for <netdev@vger.kernel.org>; Tue, 26 Apr 2011 21:48:02 -0700 (PDT)
-In-Reply-To: <20110426.151202.245387083.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__27_Apr_2011_14_49_01_+1000_U8FawZUyRrxwMQdK"
+Cc: =?UTF-8?B?Ik1pY2hhxYIgTWlyb3PFgmF3Ig==?= <mirq-linux@rere.qmqm.pl>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Santiago Leon <santil@linux.vnet.ibm.com>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: ppc-dev <linuxppc-dev@lists.ozlabs.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 26 avril 2011 =C3=A0 15:12 -0700, David Miller a =C3=A9crit :
-> These functions are used together as a unit for route resolution
-> during connect().  They address the chicken-and-egg problem that
-> exists when ports need to be allocated during connect() processing,
-> yet such port allocations require addressing information from the
-> routing code.
->=20
-> It's currently more heavy handed than it needs to be, and in
-> particular we allocate and initialize a flow object twice.
->=20
-> Let the callers provide the on-stack flow object.  That way we only
-> need to initialize it once in the ip_route_connect() call.
->=20
-> Later, if ip_route_newports() needs to do anything, it re-uses that
-> flow object as-is except for the ports which it updates before the
-> route re-lookup.
->=20
-> Also, describe why this set of facilities are needed and how it works
-> in a big comment.
->=20
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+--Signature=_Wed__27_Apr_2011_14_49_01_+1000_U8FawZUyRrxwMQdK
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+Hi all,
 
+For the last couple of days, linux-next booting on a few of our Power
+partitions (but not all) have produced this error (over and over):
 
+ibmveth 3000000b: eth0: tx: h_send_logical_lan failed with rc=3D-4
+
+Linus' tree seems to boot fine on these partitions.  The only commit
+directly affecting ibmveth in linux-next is b9367bf3ee6d ("net: ibmveth:
+convert to hw_features") which first appeared in next-20110421 which is
+also the first one that failed.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__27_Apr_2011_14_49_01_+1000_U8FawZUyRrxwMQdK
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNt6A9AAoJEDMEi1NhKgbsyDoIAJt0BwBVs35qIsH/QAWt9poW
+aOerprGkeHdYzu95nZDvXgwjz05s5hhcvWK/JlAZCvtcXGqbLsE9CU0TQQ17kSW3
+nXTdl15gfzIu3gTg/XfpCy2cmJ7/1v16IDdB8mKhynZDOmlfA/y8wtkRITIM4Ph8
+Ez4vNH7SfeyZCp7wWNndTnK5kWHCAOuP5YsGxt/qFl5folwuMqcyEs3HdfQwRj8h
+396FAGRQg4vRQKKsR6oa1v/FfgCYW1zbsvAAE4vIFKtzj7aire/632v7UKsQHDNu
+emL2dSoH+GMI2j/GUFe64xJb4SZ7d/3vXkJ34p+FgJHox6io1u8qzCl/UtycCDY=
+=2HqB
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__27_Apr_2011_14_49_01_+1000_U8FawZUyRrxwMQdK--
