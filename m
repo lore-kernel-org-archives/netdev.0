@@ -1,197 +1,108 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 6/6] Update documentation for -u/-U operations
-Date: Wed, 27 Apr 2011 19:23:49 +0100
-Message-ID: <1303928629.2875.91.camel@bwh-desktop>
-References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
-	 <20110421204045.23054.12548.stgit@gitlad.jf.intel.com>
+From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
+Date: Wed, 27 Apr 2011 19:53:59 +0200
+Message-ID: <32030A20-D4FE-4D44-9DBF-464E42F11B90@comsys.rwth-aachen.de>
+References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com>
+ <BANLkTikjcd6ZAF5wH_8CKA_OCrfprGokmw@mail.gmail.com>
+ <BANLkTikoQfbSxnJi_OR+N6sa5iVNcTO6Ug@mail.gmail.com>
+ <201104271157.49386.carsten@wolffcarsten.de>
+ <BANLkTimNC9DgWtkTTtjC_v0FsxzvBMsQGw@mail.gmail.com>
+ <BANLkTi=i5ZftuL++ORuy=n_yM_futWYoZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg=pgp-sha1; boundary=Apple-Mail-1--797874513
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Dominik Kaspar <dokaspar.ietf@gmail.com>,
+	Carsten Wolff <carsten@wolffcarsten.de>,
+	John Heffner <johnwheffner@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Lennart Schulte <Lennart.Schulte@comsys.rwth-aachen.de>,
+	Arnd Hannemann <arnd@arndnet.de>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:21425 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753773Ab1D0SXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 14:23:52 -0400
-In-Reply-To: <20110421204045.23054.12548.stgit@gitlad.jf.intel.com>
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:43570 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754260Ab1D0SYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 14:24:04 -0400
+Received: from ironport-out-2.rz.rwth-aachen.de ([134.130.5.41])
+ by mta-1.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0LKB00E9TOE1RAG0@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Wed, 27 Apr 2011 19:54:01 +0200 (CEST)
+Received: from [192.168.4.14] ([unknown] [77.109.115.94])
+ by relay-auth-2.ms.rz.rwth-aachen.de
+ (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
+ with ESMTPA id <0LKB005HMOE0PJ80@relay-auth-2.ms.rz.rwth-aachen.de> for
+ netdev@vger.kernel.org; Wed, 27 Apr 2011 19:54:01 +0200 (CEST)
+In-reply-to: <BANLkTi=i5ZftuL++ORuy=n_yM_futWYoZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
-> This patch updates the documentation for the -u/-U operations to include
-> the recent changes made to support addition/deletion/display of network
-> flow classifier rules.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--Apple-Mail-1--797874513
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
 
-This should be included in the same patch.
+Hi,
 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> 
->  ethtool.8.in |  185 +++++++++++++++++++++++++++++-----------------------------
->  ethtool.c    |   32 ++++++----
->  2 files changed, 111 insertions(+), 106 deletions(-)
-> 
-> diff --git a/ethtool.8.in b/ethtool.8.in
-> index 12a1d1d..8908351 100644
-> --- a/ethtool.8.in
-> +++ b/ethtool.8.in
-> @@ -42,10 +42,20 @@
->  [\\fB\\$1\\fP\ \\fIN\\fP]
->  ..
->  .\"
-> +.\"	.BM - same as above but has a mask field for format "[value N [value-mask N]]"
-> +.\"
-> +.de BM
-> +[\\fB\\$1\\fP\ \\fIN\\fP\ [\\fB\\$1\-mask\\fP\ \\fIN\\fP]]
+Am 27.04.2011 um 19:39 schrieb Yuchung Cheng:
 
-You've changed the code to accept 'm' as an alternative to
-<field> '-mask', so this should be changed accordingly.
+> Hi Dominik,
+>=20
+> On Wed, Apr 27, 2011 at 9:22 AM, Dominik Kaspar =
+<dokaspar.ietf@gmail.com> wrote:
+>>=20
+>> Hi Carsten,
+>>=20
+>> Thanks for your feedback. I made some new tests with the same setup =
+of
+>> packet-based forwarding over two emulated paths (600 KB/s, 10 ms) +
+>> (400 KB/s, 100 ms). In the first experiments, which showed a =
+step-wise
+>> adaptation to reordering, SACK, DSACK, and Timestamps were all
+>> enabled. In the experiments, I individually disabled these three
+>> mechanisms and saw the following:
+>>=20
+>> - Disabling timestamps causes TCP to never adjust to reordering at =
+all.
+>> - Disabling SACK allows TCP to adapt very rapidly ("perfect" =
+aggregation!).
+>=20
+> Did you enable tcp_fack when sack is enabled? this may make a (big)
+> difference. FACK assumes little network reordering and mark packet
+> losses more aggressively.
 
-[...]
-> @@ -236,9 +252,9 @@ ethtool \- query or control network driver and hardware settings
->  .HP
->  .B ethtool \-N
->  .I ethX
-> -.RB [ rx\-flow\-hash \ \*(FL
-> -.RB \ \*(HO]
-> +.RB [ rx-flow-hash \ \*(FL \  \*(HO]
->  .HP
-> +
+It's not necessary to do it manually. Linux will disable FACK as soon as =
+it
+will detected reordering
 
-This looks like an unintentional reversion of part of commit
-db6c0cee6cd956767e1c39109fe81104cc4694cb.
+Alex
 
->  .B ethtool \-x|\-\-show\-rxfh\-indir
->  .I ethX
->  .HP
-> @@ -257,54 +273,28 @@ ethtool \- query or control network driver and hardware settings
->  .HP
->  .B ethtool \-u|\-\-show\-ntuple
->  .I ethX
-> -.TP
-> +.BN class-rule
-> +.HP
-> +
->  .BI ethtool\ \-U|\-\-config\-ntuple \ ethX
-> -.RB {
-> -.A3 flow\-type tcp4 udp4 sctp4
-> -.RB [ src\-ip
-> -.IR addr
-> -.RB [ src\-ip\-mask
-> -.IR mask ]]
-> -.RB [ dst\-ip
-> -.IR addr
-> -.RB [ dst\-ip\-mask
-> -.IR mask ]]
-> -.RB [ src\-port
-> -.IR port
-> -.RB [ src\-port\-mask
-> -.IR mask ]]
-> -.RB [ dst\-port
-> -.IR port
-> -.RB [ dst\-port\-mask
-> -.IR mask ]]
-> -.br
-> -.RB | \ flow\-type\ ether
-> -.RB [ src
-> -.IR mac\-addr
-> -.RB [ src\-mask
-> -.IR mask ]]
-> -.RB [ dst
-> -.IR mac\-addr
-> -.RB [ dst\-mask
-> -.IR mask ]]
-> -.RB [ proto
-> -.IR N
-> -.RB [ proto\-mask
-> -.IR mask ]]\ }
-> -.br
-> -.RB [ vlan
-> -.IR VLAN\-tag
-> -.RB [ vlan\-mask
-> -.IR mask ]]
-> -.RB [ user\-def
-> -.IR data
-> -.RB [ user\-def\-mask
-> -.IR mask ]]
-> -.RI action \ N
-> -.
-> -.\" Adjust lines (i.e. full justification) and hyphenate.
-> -.ad
-> -.hy
+//
+// Dipl.-Inform. Alexander Zimmermann
+// Department of Computer Science, Informatik 4
+// RWTH Aachen University
+// Ahornstr. 55, 52056 Aachen, Germany
+// phone: (49-241) 80-21422, fax: (49-241) 80-22222
+// email: zimmermann@cs.rwth-aachen.de
+// web: http://www.umic-mesh.net
+//
 
-As do the last 3 deleted lines here.
 
-> +.BN class-rule-del
-> +.RB [\  flow-type \ \*(NC
-> +.RB [ src \ \*(MA\ [ src-mask \ \*(MA]]
-> +.RB [ dst \ \*(MA\ [ dst-mask \ \*(MA]]
-> +.BM proto
-> +.RB [ src-ip \ \*(PA\ [ src-ip-mask \ \*(PA]]
-> +.RB [ dst-ip \ \*(PA\ [ dst-ip-mask \ \*(PA]]
-> +.BM tos
-> +.BM l4proto
-> +.BM src-port
-> +.BM dst-port
-> +.BM spi
-> +.BM vlan-etype
-> +.BM vlan
-> +.BM user-def
-> +.BN action
-> +.BN loc
-> +.RB ]
+--Apple-Mail-1--797874513
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: Signierter Teil der Nachricht
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
 
-But these options aren't all applicable to all flow-types.
- 
-[...]
-> diff --git a/ethtool.c b/ethtool.c
-> index 421fe20..e65979d 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -243,20 +243,26 @@ static struct option {
->  		"		equal N | weight W0 W1 ...\n" },
->      { "-U", "--config-ntuple", MODE_SCLSRULE, "Configure Rx ntuple filters "
->  		"and actions",
-> -		"		{ flow-type tcp4|udp4|sctp4\n"
-> -		"		  [ src-ip ADDR [src-ip-mask MASK] ]\n"
-> -		"		  [ dst-ip ADDR [dst-ip-mask MASK] ]\n"
-> -		"		  [ src-port PORT [src-port-mask MASK] ]\n"
-> -		"		  [ dst-port PORT [dst-port-mask MASK] ]\n"
-> -		"		| flow-type ether\n"
-> -		"		  [ src MAC-ADDR [src-mask MASK] ]\n"
-> -		"		  [ dst MAC-ADDR [dst-mask MASK] ]\n"
-> -		"		  [ proto N [proto-mask MASK] ] }\n"
-> -		"		[ vlan VLAN-TAG [vlan-mask MASK] ]\n"
-> -		"		[ user-def DATA [user-def-mask MASK] ]\n"
-> -		"		action N\n" },
-> +		"		[ class-rule-del %d ] |\n"
-> +		"		[ flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4\n"
-> +		"			[ src %x:%x:%x:%x:%x:%x [src-mask %x:%x:%x:%x:%x:%x] ]\n"
-> +		"			[ dst %x:%x:%x:%x:%x:%x [dst-mask %x:%x:%x:%x:%x:%x] ]\n"
-> +		"			[ proto %d [proto-mask MASK] ]\n"
-> +		"			[ src-ip %d.%d.%d.%d [src-ip-mask %d.%d.%d.%d] ]\n"
-> +		"			[ dst-ip %d.%d.%d.%d [dst-ip-mask %d.%d.%d.%d] ]\n"
-> +		"			[ tos %d [tos-mask %x] ]\n"
-> +		"			[ l4proto %d [l4proto-mask MASK] ]\n"
-> +		"			[ src-port %d [src-port-mask %x] ]\n"
-> +		"			[ dst-port %d [dst-port-mask %x] ]\n"
-> +		"			[ spi %d [spi-mask %x] ]\n"
-> +		"			[ vlan-etype %x [vlan-etype-mask %x] ]\n"
-> +		"			[ vlan %x [vlan-mask %x] ]\n"
-> +		"			[ user-def %x [user-def-mask %x] ]\n"
-> +		"			[ action %d ]\n"
-> +		"			[ loc %d]]\n" },
-[...]
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.17 (Darwin)
+Comment: GPGTools - http://gpgtools.org
 
-Again, it's not clear which options apply to which flow-types, and the
-'m' shortcut is not documented.
+iEYEARECAAYFAk24WDgACgkQdyiq39b9uS6VogCggS1Vfw0jT5JAxo90Nxvvl7Xc
+SAkAoIUQSXkFi7xGx20urzmrmZVAKdxY
+=HZk1
+-----END PGP SIGNATURE-----
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--Apple-Mail-1--797874513--
