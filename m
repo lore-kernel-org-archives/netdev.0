@@ -1,129 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: fix netdev_increment_features()
-Date: Wed, 27 Apr 2011 01:26:10 +0100
-Message-ID: <1303863970.2850.31.camel@bwh-desktop>
-References: <20110422163116.3C5C3138DD@rere.qmqm.pl>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH net-next-2.6 0/7] SCTP updates for net-next-2.6
+Date: Wed, 27 Apr 2011 08:59:16 +0800
+Message-ID: <4DB76A64.3020708@cn.fujitsu.com>
+References: <4DB63F85.2090609@cn.fujitsu.com>	<20110426.001238.183056292.davem@davemloft.net> <20110426.145120.28826019.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bridge@lists.linux-foundation.org
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:34085 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755425Ab1D0A0S convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 20:26:18 -0400
-In-Reply-To: <20110422163116.3C5C3138DD@rere.qmqm.pl>
+Received: from cn.fujitsu.com ([222.73.24.84]:51363 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754537Ab1D0A7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Apr 2011 20:59:33 -0400
+In-Reply-To: <20110426.145120.28826019.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-04-22 at 18:31 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> Simplify and fix netdev_increment_features() to conform to what is
-> stated in netdevice.h comments about NETIF_F_ONE_FOR_ALL.
-> Include FCoE segmentation and VLAN-challedged flags in computation.
->=20
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
->=20
-> I noticed this while converting bridge code to hw_features. After
-> adding devices to the bridge all features were always cleared regardl=
-ess
-> of features active in those devices.
->=20
->  include/linux/netdevice.h |    7 ++++++-
->  net/core/dev.c            |   37 ++++++++++++-----------------------=
---
->  2 files changed, 18 insertions(+), 26 deletions(-)
->=20
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 405ce21..86140e4 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1107,7 +1107,12 @@ struct net_device {
->  	 */
->  #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBU=
-ST | \
->  				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
-> -				 NETIF_F_FRAGLIST)
-> +				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
 
-I think we can also add NETIF_F_HW_VLAN_TX, now that
-dev_hard_start_xmit() handles VLAN tag insertion.
+> Wei, while you are re-spinning this patch set I want to bring up
+> something I just noticed in the SCTP code.
+>
+> The ->dst_saddr() method is not used by anything, it appears.
+>
+> The ipv4 variant, sctp_v4_dst_saddr() is called internally by the
+> ipv4 specific code, but that's it.
+>
+> So I think the ->dst_saddr member of sctp_pf can be completely
+> removed, as can sctp_v6_dst_saddr().
+>
+> The sctp_v4_dst_saddr() function, of course, will need to be retained.
 
-> +	/*
-> +	 * If one device doesn't support one of these features, then disabl=
-e it
-> +	 * for all in netdev_increment_features.
-> +	 */
-> +#define NETIF_F_ALL_FOR_ALL	(NETIF_F_NOCACHE_COPY | NETIF_F_FSO)
+David, thanks to noticed this. I will cleanup it.
 
-Shouldn't most RX offloads be included in this?  Though it doesn't
-really matter that much.
-
->  	/* changeable features with no special hardware requirements */
->  #define NETIF_F_SOFT_FEATURES	(NETIF_F_GSO | NETIF_F_GRO)
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 3871bf6..1a2c91c 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6184,33 +6184,20 @@ static int dev_cpu_callback(struct notifier_b=
-lock *nfb,
->   */
->  u32 netdev_increment_features(u32 all, u32 one, u32 mask)
->  {
-> +	if (mask & NETIF_F_GEN_CSUM)
-> +		mask |=3D NETIF_F_ALL_CSUM;
-> +	mask |=3D NETIF_F_VLAN_CHALLENGED;
-> +
-> +	all |=3D one & (NETIF_F_ONE_FOR_ALL|NETIF_F_ALL_CSUM) & mask;
-> +	all &=3D one | ~NETIF_F_ALL_FOR_ALL;
-> +
->  	/* If device needs checksumming, downgrade to it. */
-> -	if (all & NETIF_F_NO_CSUM && !(one & NETIF_F_NO_CSUM))
-> -		all ^=3D NETIF_F_NO_CSUM | (one & NETIF_F_ALL_CSUM);
-> -	else if (mask & NETIF_F_ALL_CSUM) {
-> -		/* If one device supports v4/v6 checksumming, set for all. */
-> -		if (one & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM) &&
-> -		    !(all & NETIF_F_GEN_CSUM)) {
-> -			all &=3D ~NETIF_F_ALL_CSUM;
-> -			all |=3D one & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
-> -		}
-> +	if (all & (NETIF_F_ALL_CSUM & ~NETIF_F_NO_CSUM))
-> +		all &=3D ~NETIF_F_NO_CSUM;
-> =20
-> -		/* If one device supports hw checksumming, set for all. */
-> -		if (one & NETIF_F_GEN_CSUM && !(all & NETIF_F_GEN_CSUM)) {
-> -			all &=3D ~NETIF_F_ALL_CSUM;
-> -			all |=3D NETIF_F_HW_CSUM;
-> -		}
-> -	}
-> -
-> -	/* If device can't no cache copy, don't do for all */
-> -	if (!(one & NETIF_F_NOCACHE_COPY))
-> -		all &=3D ~NETIF_F_NOCACHE_COPY;
-> -
-> -	one |=3D NETIF_F_ALL_CSUM;
-> -
-> -	one |=3D all & NETIF_F_ONE_FOR_ALL;
-> -	all &=3D one | NETIF_F_LLTX | NETIF_F_GSO | NETIF_F_UFO;
-> -	all |=3D one & mask & NETIF_F_ONE_FOR_ALL;
-> +	/* If one device supports hw checksumming, set for all. */
-> +	if (all & NETIF_F_GEN_CSUM)
-> +		all &=3D ~(NETIF_F_ALL_CSUM & ~NETIF_F_GEN_CSUM);
-> =20
->  	return all;
->  }
-
-Well it might be correct, but it's hard to tell.  Can we see your unit
-tests, please?
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+And I have a stupid question about the rule of backport.  Since those
+patchs have existed so long time, when I backport those patchs, I'd better
+fix the bug in the original patch, or create new patch to fix it? Also how
+about some thing need to improvement like the ->dst_saddr() method?
