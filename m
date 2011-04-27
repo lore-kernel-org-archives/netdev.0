@@ -1,47 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Applying inappropriate ioctl operation on socket
- should return ENOTTY
-Date: Wed, 27 Apr 2011 08:57:37 +0200
-Message-ID: <1303887457.2699.60.camel@edumazet-laptop>
-References: <1303882625-28115-1-git-send-email-lifongsun@gmail.com>
-	 <1303883910.2699.53.camel@edumazet-laptop>
-	 <20110427063730.GA20313@md5.ntu.edu.sg>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH net-next-2.6 0/5 v2] SCTP updates for net-next-2.6
+Date: Wed, 27 Apr 2011 15:35:25 +0800
+Message-ID: <4DB7C73D.3000406@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Lifeng Sun <lifongsun@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110427063730.GA20313@md5.ntu.edu.sg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lksctp <linux-sctp@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:55335 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753463Ab1D0Hfp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2011 03:35:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 27 avril 2011 =C3=A0 14:37 +0800, Lifeng Sun a =C3=A9crit :
-> On 07:58 Wed 04/27/11 Apr, Eric Dumazet wrote:
-> > Really ?
-> >=20
-> > EINVAL is ok too : Request or argp is not valid.
->=20
-> I'm afraid not. SUSv4 specifies, say,
->=20
->   int tcsetattr(int fildes, int optional_actions,
->          const struct termios *termios_p);
->=20
->  ERROR:
->   [EINVAL]
->       The optional_actions argument is not a supported value, or an
->       attempt was made to change an attribute represented in the
->       termios structure to an unsupported value.
->=20
->   [ENOTTY]
->       The file associated with fildes is not a terminal.
->=20
-> which means when we apply tcsetattr (implemented by ioctl) to _any_
-> non-terminal file descriptor, it should set errno to ENOTTY rather
-> than EINVAL.
->=20
+Hi David
 
-You quote manpage for a library call, not a system call.
+Here is a set of SCTP patches for net-next-2.6, the last part
+from vlad's lksctp-dev tree, update SCTP IPv6 routing and IPSec
+issues. Please apply.
 
-If you feel your glibc doesnt implement well this, please complain to
-glibc maintainer.
+Changelog:
+  - redo the intermediate builds test and function test.
+  - remove useless ->dst_saddr member of sctp_pf
+  - merge some fix for original patch
+
+Vlad Yasevich (4):
+      sctp: cache the ipv6 source after route lookup
+      sctp: make sctp over IPv6 work with IPsec
+      sctp: remove useless arguments from get_saddr() call
+      sctp: clean up route lookup calls
+
+Weixing Shi (1):
+      sctp: fix sctp to work with ipv6 source address routing
+
+ include/net/sctp/structs.h |   18 ++---
+ net/sctp/ipv6.c            |  183 +++++++++++++++++++++++++------------------
+ net/sctp/protocol.c        |   54 ++++++-------
+ net/sctp/socket.c          |    2 +-
+ net/sctp/transport.c       |   28 ++++---
+ 5 files changed, 153 insertions(+), 132 deletions(-)
+
+
