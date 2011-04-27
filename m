@@ -1,55 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 4/6] Add support for __be64 and bitops to
- ethtool
-Date: Wed, 27 Apr 2011 18:09:45 +0100
-Message-ID: <1303924185.2875.48.camel@bwh-desktop>
-References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
-	 <20110421204035.23054.6918.stgit@gitlad.jf.intel.com>
-	 <1303919692.2875.11.camel@bwh-desktop>  <4DB8484F.8030001@intel.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
+Date: Wed, 27 Apr 2011 10:15:31 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755018DF59D32@orsmsx508.amr.corp.intel.com>
+References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
+	 <1303799597.2747.214.camel@edumazet-laptop>
+	 <20110425.235600.104065244.davem@davemloft.net>
+	 <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com>
+	 <1303834864.3358.58.camel@edumazet-laptop>
+	 <4DB83A60.5040102@solarflare.com> <1303921809.3166.90.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Steve Hodgson <shodgson@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:11769 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756284Ab1D0RJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 13:09:48 -0400
-In-Reply-To: <4DB8484F.8030001@intel.com>
+Received: from mga02.intel.com ([134.134.136.20]:48502 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756236Ab1D0RPd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2011 13:15:33 -0400
+In-Reply-To: <1303921809.3166.90.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-04-27 at 09:46 -0700, Alexander Duyck wrote:
-> On 4/27/2011 8:54 AM, Ben Hutchings wrote:
-> > On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
-> >> This change is meant to add support for __be64 values and bitops to
-> >> ethtool.  These changes will be needed in order to support network flow
-> >> classifier rule configuration.
-[...]
-> > Where is __always_inline supposed to be defined?
-> 
-> Sorry that should have just been inline.  I forgot we have to take tools 
-> other than gcc into account.
-
-Oh, it's a gcc extension?  I read the code before trying to compile it.
-I've never tested with anything other than gcc but I think it's worth
-making a small effort to avoid gcc extensions.
-
-[...]
-> On a side note, is there a git tree somewhere I can re-base off of?  At 
-> this point I know you have pulled in a number of patches and I figure it 
-> would be helpful for me to clean up my tree so I am not guessing what is 
-> there and what isn't.
-
-git://git.kernel.org/pub/scm/network/ethtool/ethtool.git
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIEVyaWMgRHVtYXpldA0KPiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDI3LCAyMDExIDk6
+MzAgQU0NCj4gVG86IFN0ZXZlIEhvZGdzb24NCj4gQ2M6IFJvc2UsIEdyZWdvcnkgVjsgRGF2aWQg
+TWlsbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUu
+Y29tDQo+IFN1YmplY3Q6IFJlOiBbUkZDIFBBVENIXSBuZXRsaW5rOiBJbmNyZWFzZSBuZXRsaW5r
+IGR1bXAgc2tiIG1lc3NhZ2Ugc2l6ZQ0KPiANCj4gTGUgbWVyY3JlZGkgMjcgYXZyaWwgMjAxMSDD
+oCAxNjo0NiArMDEwMCwgU3RldmUgSG9kZ3NvbiBhIMOpY3JpdCA6DQo+ID4gT24gMDQvMjcvMjAx
+MSAwNDoyNCBQTSwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPiA+ID4gTGUgbWFyZGkgMjYgYXZyaWwg
+MjAxMSDDoCAwOToxMiAtMDcwMCwgUm9zZSwgR3JlZ29yeSBWIGEgw6ljcml0IDoNCj4gPiA+DQo+
+ID4gPj4gSSdtIGZpbmUgd2l0aCBob3dldmVyIHlvdSBmb2xrcyB3YW50IHRvIGFwcHJvYWNoIHRo
+aXMsIGp1c3QgZ2l2ZSBtZQ0KPiBzb21lIGRpcmVjdGlvbi4NCj4gPiA+DQo+ID4gPiBJIHdvdWxk
+IGp1c3QgdHJ5IGZvbGxvd2luZyBwYXRjaCA6DQo+ID4gPg0KPiA+DQo+ID4gVGhpcyBhbGxvd3Mg
+dGhlIHNmYyBkcml2ZXIgdG8gdXNlIDEwMiBWRnMsIHVwIGZyb20gdGhlIGN1cnJlbnQgbGltaXQg
+b2YNCj4gPiA0NSBWRnMuDQo+ID4NCj4gPiBJdCdzIHVuZm9ydHVuYXRlIHRoYXQgdGhpcyBwYXRj
+aCBpc24ndCBzdWZmaWNpZW50IHRvIGFsbG93IGFsbCAxMjcgVkZzDQo+ID4gdG8gYmUgdXNlZCwg
+YnV0IHdoaWxzdCB3ZSB3YWl0IGZvciBhIG5ldyBuZXRsaW5rIGFwaSB0aGlzIGlzIGFuDQo+ID4g
+aW1wcm92ZW1lbnQgd29ydGggaGF2aW5nLg0KPiA+DQo+IA0KPiBuZXRsaW5rIHJlY3Ztc2coKSBz
+dXBwb3J0cyBNU0dfUEVFSyBzbyB1c2VyIHdvdWxkIGdldCB0aGUgbmVlZGVkIHNpemUgb2YNCj4g
+aXRzIGJ1ZmZlciBiZWZvcmUgY2FsbGluZyB0aGUgcmVhbCByZWN2bXNnKCkNCj4gDQo+IGJpZyBi
+bG9icyBjb3VsZCBiZSBhdHRhY2hlZCBhcyBza2IgZnJhZ21lbnRzICh1cCB0byA2NEtieXRlcyks
+IGJ1dCBkbyB3ZQ0KPiByZWFsbHkgd2FudCB0aGlzLi4uDQpbR3JlZyBSb3NlXSANCg0KSSdtIGxv
+b2tpbmcgaW50byBhbiBhcHByb2FjaCBpbiB3aGljaCB3ZSBtYWtlIHRoZSBnZXQgaW5mbyBkdW1w
+IGZvciBWRnMgb3J0aG9nb25hbCB0byB0aGUgc2V0IFZGIGluZm8sIGkuZS4gbGlrZSB0aGlzOg0K
+DQpUbyBzZXQgVkYgaW5mbyB3ZSB3b3VsZCBmb2xsb3cgdGhlIGN1cnJlbnQgY29udmVudGlvbjoN
+Cg0KIyBpcCBsaW5rIHNldCBldGgoeCkgdmYgKG4pIG1hYyB4eDp4eDp4eDp4eDp4eDp4eA0KIyBp
+cCBsaW5rIHNldCBldGgoeCkgdmYgKG4pIHZsYW4gKG5ubm4pDQoNClRvIHNlZSBWRiBpbmZvOg0K
+DQojIGlwIGxpbmsgc2hvdyBldGgoeCkgdmYgKG4pDQoNCndvdWxkIHNob3cgdGhhdCBWRidzIG1h
+YyBhbmQgdmxhbiBhbmQgY291bGQgdGhlbiBiZSBleHBhbmRlZCBpbiB0aGUgZnV0dXJlIHRvIGRp
+c3BsYXkgbW9yZSBpbmZvcm1hdGlvbiByZXF1aXJlZCBmb3IgYWRkaXRpb25hbCBmZWF0dXJlcyB0
+aGF0IHVzZXJzIGFyZSBhc2tpbmcgZm9yLg0KDQpUaGUgSUZMQV9WRl9JTkZPIGR1bXAgd291bGQg
+YmUgbW92ZWQgb3V0IG9mIHRoZSBpbmZvIGR1bXAgZm9yIHRoZSBwaHlzaWNhbCBmdW5jdGlvbiBp
+bnRlcmZhY2UgYW5kIHdvdWxkIG5vIGxvbmdlciBiZSBuZXN0ZWQgd2hpY2ggd291bGQgZ2V0IHJp
+ZCBvZiB0aGUgbmVlZCBmb3IgaHVnZSBhbW91bnRzIG9mIGJ1ZmZlciBmb3IgaW5mbyBkdW1wcyBv
+biBWRnMuICBUaGUgaXAgbGluayBzaG93IGNvbW1hbmQgZm9yIHRoZSBQRiB3b3VsZCBuZWVkIHRv
+IHJlcG9ydCB0aGUgbnVtYmVyIG9mIFZGcyBjdXJyZW50bHkgYWxsb2NhdGVkIHRvIHRoZSBQRiBz
+byB0aGF0IGNvdWxkIGZlZCBpbnRvIGEgc2NyaXB0IHRoYXQgbG9vcHMgdG8gc2hvdyBlYWNoIFZG
+cyBpbmZvLg0KDQpJIHRoaW5rIHRoaXMgYXBwcm9hY2ggd291bGQgZml4IHRoZSBwcm9ibGVtcyB3
+ZSdyZSBsb29raW5nIGF0IHJpZ2h0IG5vdy4NCg0KLSBHcmVnDQoNCg==
