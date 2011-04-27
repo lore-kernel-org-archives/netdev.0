@@ -1,76 +1,73 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 11/13] nbd: Set SOCK_MEMALLOC for access to PFMEMALLOC reserves
-Date: Wed, 27 Apr 2011 17:08:09 +0100
-Message-ID: <1303920491-25302-12-git-send-email-mgorman@suse.de>
+Subject: [PATCH 13/13] mm: Account for the number of times direct reclaimers get throttled
+Date: Wed, 27 Apr 2011 17:08:11 +0100
+Message-ID: <1303920491-25302-14-git-send-email-mgorman@suse.de>
 References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
 Cc: LKML <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mel Gorman <mgorman@suse.de>
 To: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:34954 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933156Ab1D0QIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2011 12:08:25 -0400
 In-Reply-To: <1303920491-25302-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Set SOCK_MEMALLOC on the NBD socket to allow access to PFMEMALLOC
-reserves so pages backed by NBD, particularly if swap related,
-can be cleaned to prevent the machine being deadlocked. It is
-still possible that the PFMEMALLOC reserves get depleted resulting
-in deadlock but this can be resolved by the administrator by
-increasing min_free_kbytes.
+Under significant pressure when writing back to network-backed storage,
+direct reclaimers may get throttled. This is expected to be a
+short-lived event and the processes get woken up again but processes do
+get stalled. This patch counts how many times such stalling occurs. It's
+up to the administrator whether to reduce these stalls by increasing
+min_free_kbytes.
 
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- drivers/block/nbd.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ include/linux/vm_event_item.h |    1 +
+ mm/vmscan.c                   |    1 +
+ mm/vmstat.c                   |    1 +
+ 3 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
-index e6fc716..322cef8 100644
---- a/drivers/block/nbd.c
-+++ b/drivers/block/nbd.c
-@@ -156,6 +156,7 @@ static int sock_xmit(struct nbd_device *lo, int send, void *buf, int size,
- 	struct msghdr msg;
- 	struct kvec iov;
- 	sigset_t blocked, oldset;
-+	unsigned long pflags = current->flags;
+diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
+index 03b90cdc..652e5f3 100644
+--- a/include/linux/vm_event_item.h
++++ b/include/linux/vm_event_item.h
+@@ -29,6 +29,7 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
+ 		FOR_ALL_ZONES(PGSTEAL),
+ 		FOR_ALL_ZONES(PGSCAN_KSWAPD),
+ 		FOR_ALL_ZONES(PGSCAN_DIRECT),
++		PGSCAN_DIRECT_THROTTLE,
+ #ifdef CONFIG_NUMA
+ 		PGSCAN_ZONE_RECLAIM_FAILED,
+ #endif
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index 7f1099f..1b042d8 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -2152,6 +2152,7 @@ static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
+ 		return;
  
- 	if (unlikely(!sock)) {
- 		printk(KERN_ERR "%s: Attempted %s on closed socket in sock_xmit\n",
-@@ -168,8 +169,9 @@ static int sock_xmit(struct nbd_device *lo, int send, void *buf, int size,
- 	siginitsetinv(&blocked, sigmask(SIGKILL));
- 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
- 
-+	current->flags |= PF_MEMALLOC;
- 	do {
--		sock->sk->sk_allocation = GFP_NOIO;
-+		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
- 		iov.iov_base = buf;
- 		iov.iov_len = size;
- 		msg.msg_name = NULL;
-@@ -214,6 +216,7 @@ static int sock_xmit(struct nbd_device *lo, int send, void *buf, int size,
- 	} while (size > 0);
- 
- 	sigprocmask(SIG_SETMASK, &oldset, NULL);
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
- 
- 	return result;
+ 	/* Throttle */
++	count_vm_event(PGSCAN_DIRECT_THROTTLE);
+ 	wait_event_interruptible(zone->zone_pgdat->pfmemalloc_wait,
+ 		pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx));
  }
-@@ -404,6 +407,8 @@ static int nbd_do_it(struct nbd_device *lo)
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index a2b7344..5725387 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -911,6 +911,7 @@ const char * const vmstat_text[] = {
+ 	TEXTS_FOR_ZONES("pgsteal")
+ 	TEXTS_FOR_ZONES("pgscan_kswapd")
+ 	TEXTS_FOR_ZONES("pgscan_direct")
++	"pgscan_direct_throttle",
  
- 	BUG_ON(lo->magic != LO_MAGIC);
- 
-+	sk_set_memalloc(lo->sock->sk);
-+
- 	lo->pid = current->pid;
- 	ret = sysfs_create_file(&disk_to_dev(lo->disk)->kobj, &pid_attr.attr);
- 	if (ret) {
+ #ifdef CONFIG_NUMA
+ 	"zone_reclaim_failed",
 -- 
 1.7.3.4
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
