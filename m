@@ -1,138 +1,76 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 4/6] Add support for __be64 and bitops to
- ethtool
-Date: Wed, 27 Apr 2011 16:54:52 +0100
-Message-ID: <1303919692.2875.11.camel@bwh-desktop>
-References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
-	 <20110421204035.23054.6918.stgit@gitlad.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:1122 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755891Ab1D0Pyz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 11:54:55 -0400
-In-Reply-To: <20110421204035.23054.6918.stgit@gitlad.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 01/13] mm: Serialize access to min_free_kbytes
+Date: Wed, 27 Apr 2011 17:07:59 +0100
+Message-ID: <1303920491-25302-2-git-send-email-mgorman@suse.de>
+References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
+To: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1303920491-25302-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
-> This change is meant to add support for __be64 values and bitops to
-> ethtool.  These changes will be needed in order to support network flow
-> classifier rule configuration.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> 
->  ethtool-bitops.h |   25 +++++++++++++++++++++++++
->  ethtool-util.h   |   30 ++++++++++++++++++++++++++----
->  ethtool.c        |    7 -------
->  3 files changed, 51 insertions(+), 11 deletions(-)
->  create mode 100644 ethtool-bitops.h
-> 
-> diff --git a/ethtool-bitops.h b/ethtool-bitops.h
-> new file mode 100644
-> index 0000000..0ff14f1
-> --- /dev/null
-> +++ b/ethtool-bitops.h
-> @@ -0,0 +1,25 @@
-> +#ifndef ETHTOOL_BITOPS_H__
-> +#define ETHTOOL_BITOPS_H__
-> +
-> +#define BITS_PER_BYTE		8
-> +#define BITS_PER_LONG		(BITS_PER_BYTE * sizeof(long))
-> +#define DIV_ROUND_UP(n, d)	(((n) + (d) - 1) / (d))
-> +#define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
-> +
-> +static inline void set_bit(int nr, unsigned long *addr)
-> +{
-> +	addr[nr / BITS_PER_LONG] |= 1UL << (nr % BITS_PER_LONG);
-> +}
-> +
-> +static inline void clear_bit(int nr, unsigned long *addr)
-> +{
-> +	addr[nr / BITS_PER_LONG] &= ~(1UL << (nr % BITS_PER_LONG));
-> +}
-> +
-> +static __always_inline int test_bit(unsigned int nr, const unsigned long *addr)
-> +{
-> +	return !!((1UL << (nr % BITS_PER_LONG)) &
-> +		  (((unsigned long *)addr)[nr / BITS_PER_LONG]));
-> +}
+There is a race between the min_free_kbytes sysctl, memory hotplug
+and transparent hugepage support enablement.  Memory hotplug uses a
+zonelists_mutex to avoid a race when building zonelists. Reuse it to
+serialise watermark updates.
 
-Where is __always_inline supposed to be defined?
+[a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ mm/page_alloc.c |   23 +++++++++++++++--------
+ 1 files changed, 15 insertions(+), 8 deletions(-)
 
-> +#endif
-> diff --git a/ethtool-util.h b/ethtool-util.h
-> index f053028..3d46faf 100644
-> --- a/ethtool-util.h
-> +++ b/ethtool-util.h
-> @@ -5,15 +5,18 @@
->  
->  #include <sys/types.h>
->  #include <endian.h>
-> +#include <sys/ioctl.h>
-> +#include <net/if.h>
-> +#include "ethtool-config.h"
-> +#include "ethtool-copy.h"
->  
->  /* ethtool.h expects these to be defined by <linux/types.h> */
->  #ifndef HAVE_BE_TYPES
->  typedef __uint16_t __be16;
->  typedef __uint32_t __be32;
-> +typedef unsigned long long __be64;
->  #endif
->  
-> -#include "ethtool-copy.h"
-> -
-
-You can't move the inclusion of ethtool-copy.h; that defeats the whole
-purpose of the HAVE_BE_TYPES feature test.
-
-[...]
-> +#ifndef ARRAY_SIZE
-> +#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-> +#endif
-> +
-> +#ifndef SIOCETHTOOL
-> +#define SIOCETHTOOL     0x8946
->  #endif
->  
->  /* National Semiconductor DP83815, DP83816 */
-> diff --git a/ethtool.c b/ethtool.c
-> index 9ad7000..15af86a 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -45,16 +45,9 @@
->  #include <linux/sockios.h>
->  #include "ethtool-util.h"
->  
-> -
-> -#ifndef SIOCETHTOOL
-> -#define SIOCETHTOOL     0x8946
-> -#endif
->  #ifndef MAX_ADDR_LEN
->  #define MAX_ADDR_LEN	32
->  #endif
-> -#ifndef ARRAY_SIZE
-> -#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-> -#endif
->  
->  #ifndef HAVE_NETIF_MSG
->  enum {
-> 
-
-Presumably this is needed by the next patch, but it has nothing to do
-with what the commit message says.
-
-Ben.
-
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 1d5c189..a93013a 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -4990,14 +4990,7 @@ static void setup_per_zone_lowmem_reserve(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
+-/**
+- * setup_per_zone_wmarks - called when min_free_kbytes changes
+- * or when memory is hot-{added|removed}
+- *
+- * Ensures that the watermark[min,low,high] values for each zone are set
+- * correctly with respect to min_free_kbytes.
+- */
+-void setup_per_zone_wmarks(void)
++static void __setup_per_zone_wmarks(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -5052,6 +5045,20 @@ void setup_per_zone_wmarks(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++/**
++ * setup_per_zone_wmarks - called when min_free_kbytes changes
++ * or when memory is hot-{added|removed}
++ *
++ * Ensures that the watermark[min,low,high] values for each zone are set
++ * correctly with respect to min_free_kbytes.
++ */
++void setup_per_zone_wmarks(void)
++{
++	mutex_lock(&zonelists_mutex);
++	__setup_per_zone_wmarks();
++	mutex_unlock(&zonelists_mutex);
++}
++
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+  * do too much work, but large enough that each inactive page has a chance
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.3.4
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
