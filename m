@@ -1,46 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH 1/1] bna: Generic Netlink Interface to collect FW
- trace
-Date: Tue, 26 Apr 2011 18:59:17 -0700
-Message-ID: <20110426185917.3d033636@nehalam>
-References: <1303869117-780-1-git-send-email-rmody@brocade.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next-2.6] ipv4,ipv6,bonding: Restore control over
+ number of peer notifications
+Date: Tue, 26 Apr 2011 22:09:06 -0400
+Message-ID: <4DB77AC2.5070207@hp.com>
+References: <1303867552.2850.39.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<huangj@brocade.com>, <amathur@brocade.com>,
-	Debashis Dutt <ddutt@brocade.com>
-To: Rasesh Mody <rmody@brocade.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41244 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755458Ab1D0B7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 21:59:20 -0400
-In-Reply-To: <1303869117-780-1-git-send-email-rmody@brocade.com>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:19364 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756447Ab1D0CJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 22:09:11 -0400
+In-Reply-To: <1303867552.2850.39.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Apr 2011 18:51:57 -0700
-Rasesh Mody <rmody@brocade.com> wrote:
-
-> This is a RFC patch to Brocade BNA 10G Ethernet driver. It adds the generic
-> netlink communication interface to the BNA driver to collect firmware traces
-> using the in-kernel generic netlink infrastructure. The driver uses the
-> "dumpit" handler provided by the generic netlink layer to accomplish this. The
-> driver can extend this interface later if required. 
+On 04/26/2011 09:25 PM, Ben Hutchings wrote:
+> For backward compatibility, we should retain the module parameters and
+> sysfs attributes to control the number of peer notifications
+> (gratuitous ARPs and unsolicited NAs) sent after bonding failover.
+> Also, it is possible for failover to take place even though the new
+> active slave does not have link up, and in that case the peer
+> notification should be deferred until it does.
 > 
-> As of today, there seems to be no standard mechanism to collect debug
-> information such as firmware trace for a given hardware. Generic Netlinki seems
-> to provide a suitable option to do the same, without any further
-> addition/modification to the existing kernel implementation.
+> Change ipv4 and ipv6 so they do not automatically send peer
+> notifications on bonding failover.
 > 
-> This is a RFC patch inviting suggestions/opinions for improvement/modification
-> and requesting consideration for possible inclusion in net-next tree.
+> Change the bonding driver to send separate NETDEV_NOTIFY_PEERS
+> notifications when the link is up, as many times as requested.  Since
+> it does not directly control which protocols send notifications, make
+> num_grat_arp and num_unsol_na aliases for a single parameter.  Bump
+> the bonding version number and update its documentation.
 > 
-> Signed-off-by: Debashis Dutt <ddutt@brocade.com>
-> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Seems like a lot of work for a debug interface. What about debugfs?
-Or is that out of favor now, I can never keep track...
-
--- 
+Signed-off-by: Brian Haley <brian.haley@hp.com>
