@@ -1,10 +1,10 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 2/6] Add support for NFC flow classifier
- extensions
-Date: Wed, 27 Apr 2011 16:48:38 +0100
-Message-ID: <1303919318.2875.7.camel@bwh-desktop>
+Subject: Re: [ethtool PATCH 4/6] Add support for __be64 and bitops to
+ ethtool
+Date: Wed, 27 Apr 2011 16:54:52 +0100
+Message-ID: <1303919692.2875.11.camel@bwh-desktop>
 References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
-	 <20110421204025.23054.3310.stgit@gitlad.jf.intel.com>
+	 <20110421204035.23054.6918.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,24 +12,122 @@ Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
 	netdev@vger.kernel.org
 To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:59379 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:1122 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756155Ab1D0Psl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 11:48:41 -0400
-In-Reply-To: <20110421204025.23054.3310.stgit@gitlad.jf.intel.com>
+	with ESMTP id S1755891Ab1D0Pyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 11:54:55 -0400
+In-Reply-To: <20110421204035.23054.6918.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
-> This change makes it so that we can add VLAN Ethertype, TCI, and 64bits of
-> driver defined data to a network flow classifier allowing us to handle a
-> n-tuple flow contained within a network flow classifier.
+> This change is meant to add support for __be64 values and bitops to
+> ethtool.  These changes will be needed in order to support network flow
+> classifier rule configuration.
 > 
 > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-[...]
+> ---
+> 
+>  ethtool-bitops.h |   25 +++++++++++++++++++++++++
+>  ethtool-util.h   |   30 ++++++++++++++++++++++++++----
+>  ethtool.c        |    7 -------
+>  3 files changed, 51 insertions(+), 11 deletions(-)
+>  create mode 100644 ethtool-bitops.h
+> 
+> diff --git a/ethtool-bitops.h b/ethtool-bitops.h
+> new file mode 100644
+> index 0000000..0ff14f1
+> --- /dev/null
+> +++ b/ethtool-bitops.h
+> @@ -0,0 +1,25 @@
+> +#ifndef ETHTOOL_BITOPS_H__
+> +#define ETHTOOL_BITOPS_H__
+> +
+> +#define BITS_PER_BYTE		8
+> +#define BITS_PER_LONG		(BITS_PER_BYTE * sizeof(long))
+> +#define DIV_ROUND_UP(n, d)	(((n) + (d) - 1) / (d))
+> +#define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
+> +
+> +static inline void set_bit(int nr, unsigned long *addr)
+> +{
+> +	addr[nr / BITS_PER_LONG] |= 1UL << (nr % BITS_PER_LONG);
+> +}
+> +
+> +static inline void clear_bit(int nr, unsigned long *addr)
+> +{
+> +	addr[nr / BITS_PER_LONG] &= ~(1UL << (nr % BITS_PER_LONG));
+> +}
+> +
+> +static __always_inline int test_bit(unsigned int nr, const unsigned long *addr)
+> +{
+> +	return !!((1UL << (nr % BITS_PER_LONG)) &
+> +		  (((unsigned long *)addr)[nr / BITS_PER_LONG]));
+> +}
 
-This does not correspond to any version of ethtool.h in kernel history.
-I sync'd from current net-next-2.6 instead.
+Where is __always_inline supposed to be defined?
+
+> +#endif
+> diff --git a/ethtool-util.h b/ethtool-util.h
+> index f053028..3d46faf 100644
+> --- a/ethtool-util.h
+> +++ b/ethtool-util.h
+> @@ -5,15 +5,18 @@
+>  
+>  #include <sys/types.h>
+>  #include <endian.h>
+> +#include <sys/ioctl.h>
+> +#include <net/if.h>
+> +#include "ethtool-config.h"
+> +#include "ethtool-copy.h"
+>  
+>  /* ethtool.h expects these to be defined by <linux/types.h> */
+>  #ifndef HAVE_BE_TYPES
+>  typedef __uint16_t __be16;
+>  typedef __uint32_t __be32;
+> +typedef unsigned long long __be64;
+>  #endif
+>  
+> -#include "ethtool-copy.h"
+> -
+
+You can't move the inclusion of ethtool-copy.h; that defeats the whole
+purpose of the HAVE_BE_TYPES feature test.
+
+[...]
+> +#ifndef ARRAY_SIZE
+> +#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+> +#endif
+> +
+> +#ifndef SIOCETHTOOL
+> +#define SIOCETHTOOL     0x8946
+>  #endif
+>  
+>  /* National Semiconductor DP83815, DP83816 */
+> diff --git a/ethtool.c b/ethtool.c
+> index 9ad7000..15af86a 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -45,16 +45,9 @@
+>  #include <linux/sockios.h>
+>  #include "ethtool-util.h"
+>  
+> -
+> -#ifndef SIOCETHTOOL
+> -#define SIOCETHTOOL     0x8946
+> -#endif
+>  #ifndef MAX_ADDR_LEN
+>  #define MAX_ADDR_LEN	32
+>  #endif
+> -#ifndef ARRAY_SIZE
+> -#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+> -#endif
+>  
+>  #ifndef HAVE_NETIF_MSG
+>  enum {
+> 
+
+Presumably this is needed by the next patch, but it has nothing to do
+with what the commit message says.
 
 Ben.
 
