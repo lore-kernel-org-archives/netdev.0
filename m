@@ -1,39 +1,373 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH net-next-2.6 0/7] SCTP updates for net-next-2.6
-Date: Wed, 27 Apr 2011 08:59:16 +0800
-Message-ID: <4DB76A64.3020708@cn.fujitsu.com>
-References: <4DB63F85.2090609@cn.fujitsu.com>	<20110426.001238.183056292.davem@davemloft.net> <20110426.145120.28826019.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6] ipv4,ipv6,bonding: Restore control over
+ number of peer notifications
+Date: Wed, 27 Apr 2011 02:25:52 +0100
+Message-ID: <1303867552.2850.39.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Brian Haley <brian.haley@hp.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51363 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754537Ab1D0A7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Apr 2011 20:59:33 -0400
-In-Reply-To: <20110426.145120.28826019.davem@davemloft.net>
+Received: from mail.solarflare.com ([216.237.3.220]:39879 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752168Ab1D0BZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 21:25:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+For backward compatibility, we should retain the module parameters and
+sysfs attributes to control the number of peer notifications
+(gratuitous ARPs and unsolicited NAs) sent after bonding failover.
+Also, it is possible for failover to take place even though the new
+active slave does not have link up, and in that case the peer
+notification should be deferred until it does.
 
-> Wei, while you are re-spinning this patch set I want to bring up
-> something I just noticed in the SCTP code.
->
-> The ->dst_saddr() method is not used by anything, it appears.
->
-> The ipv4 variant, sctp_v4_dst_saddr() is called internally by the
-> ipv4 specific code, but that's it.
->
-> So I think the ->dst_saddr member of sctp_pf can be completely
-> removed, as can sctp_v6_dst_saddr().
->
-> The sctp_v4_dst_saddr() function, of course, will need to be retained.
+Change ipv4 and ipv6 so they do not automatically send peer
+notifications on bonding failover.
 
-David, thanks to noticed this. I will cleanup it.
+Change the bonding driver to send separate NETDEV_NOTIFY_PEERS
+notifications when the link is up, as many times as requested.  Since
+it does not directly control which protocols send notifications, make
+num_grat_arp and num_unsol_na aliases for a single parameter.  Bump
+the bonding version number and update its documentation.
 
-And I have a stupid question about the rule of backport.  Since those
-patchs have existed so long time, when I backport those patchs, I'd better
-fix the bug in the original patch, or create new patch to fix it? Also how
-about some thing need to improvement like the ->dst_saddr() method?
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ Documentation/networking/bonding.txt |   34 +++++++++----------
+ drivers/net/bonding/bond_main.c      |   59 ++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c     |   26 +++++++++++++++
+ drivers/net/bonding/bonding.h        |    6 ++-
+ net/ipv4/devinet.c                   |    1 -
+ net/ipv6/ndisc.c                     |    1 -
+ 6 files changed, 105 insertions(+), 22 deletions(-)
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index e27202b..1f45bd8 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -1,7 +1,7 @@
+ 
+ 		Linux Ethernet Bonding Driver HOWTO
+ 
+-		Latest update: 23 September 2009
++		Latest update: 27 April 2011
+ 
+ Initial release : Thomas Davis <tadavis at lbl.gov>
+ Corrections, HA extensions : 2000/10/03-15 :
+@@ -585,25 +585,23 @@ mode
+ 		chosen.
+ 
+ num_grat_arp
+-
+-	Specifies the number of gratuitous ARPs to be issued after a
+-	failover event.  One gratuitous ARP is issued immediately after
+-	the failover, subsequent ARPs are sent at a rate of one per link
+-	monitor interval (arp_interval or miimon, whichever is active).
+-
+-	The valid range is 0 - 255; the default value is 1.  This option
+-	affects only the active-backup mode.  This option was added for
+-	bonding version 3.3.0.
+-
+ num_unsol_na
+ 
+-	Specifies the number of unsolicited IPv6 Neighbor Advertisements
+-	to be issued after a failover event.  One unsolicited NA is issued
+-	immediately after the failover.
+-
+-	The valid range is 0 - 255; the default value is 1.  This option
+-	affects only the active-backup mode.  This option was added for
+-	bonding version 3.4.0.
++	Specify the number of peer notifications (gratuitous ARPs and
++	unsolicited IPv6 Neighbor Advertisements) to be issued after a
++	failover event.  As soon as the link is up on the new slave
++	(possibly immediately) a peer notification is sent on the
++	bonding device and each VLAN sub-device.  This is repeated at
++	each link monitor interval (arp_interval or miimon, whichever
++	is active) if the number is greater than 1.
++
++	The valid range is 0 - 255; the default value is 1.  These options
++	affect only the active-backup mode.  These options were added for
++	bonding versions 3.3.0 and 3.4.0 respectively.
++
++	From Linux 2.6.40 and bonding version 3.7.1, these notifications
++	are generated by the ipv4 and ipv6 code and the numbers of
++	repetitions cannot be set independently.
+ 
+ primary
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 66d9dc6..22bd03b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -89,6 +89,7 @@
+ 
+ static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
+ static int tx_queues	= BOND_DEFAULT_TX_QUEUES;
++static int num_peer_notif = 1;
+ static int miimon	= BOND_LINK_MON_INTERV;
+ static int updelay;
+ static int downdelay;
+@@ -111,6 +112,10 @@ module_param(max_bonds, int, 0);
+ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+ module_param(tx_queues, int, 0);
+ MODULE_PARM_DESC(tx_queues, "Max number of transmit queues (default = 16)");
++module_param_named(num_grat_arp, num_peer_notif, int, 0644);
++MODULE_PARM_DESC(num_grat_arp, "Number of peer notifications to send on failover event (alias of num_unsol_na)");
++module_param_named(num_unsol_na, num_peer_notif, int, 0644);
++MODULE_PARM_DESC(num_unsol_na, "Number of peer notifications to send on failover event (alias of num_grat_arp)");
+ module_param(miimon, int, 0);
+ MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
+ module_param(updelay, int, 0);
+@@ -1082,6 +1087,21 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 	return bestslave;
+ }
+ 
++static bool bond_should_notify_peers(struct bonding *bond)
++{
++	struct slave *slave = bond->curr_active_slave;
++
++	pr_debug("bond_should_notify_peers: bond %s slave %s\n",
++		 bond->dev->name, slave ? slave->dev->name : "NULL");
++
++	if (!slave || !bond->send_peer_notif ||
++	    test_bit(__LINK_STATE_LINKWATCH_PENDING, &slave->dev->state))
++		return false;
++
++	bond->send_peer_notif--;
++	return true;
++}
++
+ /**
+  * change_active_interface - change the active slave into the specified one
+  * @bond: our bonding struct
+@@ -1149,16 +1169,28 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			bond_set_slave_inactive_flags(old_active);
+ 
+ 		if (new_active) {
++			bool should_notify_peers = false;
++
+ 			bond_set_slave_active_flags(new_active);
+ 
+ 			if (bond->params.fail_over_mac)
+ 				bond_do_fail_over_mac(bond, new_active,
+ 						      old_active);
+ 
++			if (netif_running(bond->dev)) {
++				bond->send_peer_notif =
++					bond->params.num_peer_notif;
++				should_notify_peers =
++					bond_should_notify_peers(bond);
++			}
++
+ 			write_unlock_bh(&bond->curr_slave_lock);
+ 			read_unlock(&bond->lock);
+ 
+ 			netdev_bonding_change(bond->dev, NETDEV_BONDING_FAILOVER);
++			if (should_notify_peers)
++				netdev_bonding_change(bond->dev,
++						      NETDEV_NOTIFY_PEERS);
+ 
+ 			read_lock(&bond->lock);
+ 			write_lock_bh(&bond->curr_slave_lock);
+@@ -2556,6 +2588,7 @@ void bond_mii_monitor(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    mii_work.work);
++	bool should_notify_peers = false;
+ 
+ 	read_lock(&bond->lock);
+ 	if (bond->kill_timers)
+@@ -2564,6 +2597,8 @@ void bond_mii_monitor(struct work_struct *work)
+ 	if (bond->slave_cnt == 0)
+ 		goto re_arm;
+ 
++	should_notify_peers = bond_should_notify_peers(bond);
++
+ 	if (bond_miimon_inspect(bond)) {
+ 		read_unlock(&bond->lock);
+ 		rtnl_lock();
+@@ -2582,6 +2617,12 @@ re_arm:
+ 				   msecs_to_jiffies(bond->params.miimon));
+ out:
+ 	read_unlock(&bond->lock);
++
++	if (should_notify_peers) {
++		rtnl_lock();
++		netdev_bonding_change(bond->dev, NETDEV_NOTIFY_PEERS);
++		rtnl_unlock();
++	}
+ }
+ 
+ static __be32 bond_glean_dev_ip(struct net_device *dev)
+@@ -3154,6 +3195,7 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    arp_work.work);
++	bool should_notify_peers = false;
+ 	int delta_in_ticks;
+ 
+ 	read_lock(&bond->lock);
+@@ -3166,6 +3208,8 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 	if (bond->slave_cnt == 0)
+ 		goto re_arm;
+ 
++	should_notify_peers = bond_should_notify_peers(bond);
++
+ 	if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
+ 		read_unlock(&bond->lock);
+ 		rtnl_lock();
+@@ -3185,6 +3229,12 @@ re_arm:
+ 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
+ out:
+ 	read_unlock(&bond->lock);
++
++	if (should_notify_peers) {
++		rtnl_lock();
++		netdev_bonding_change(bond->dev, NETDEV_NOTIFY_PEERS);
++		rtnl_unlock();
++	}
+ }
+ 
+ /*-------------------------- netdev event handling --------------------------*/
+@@ -3494,6 +3544,8 @@ static int bond_close(struct net_device *bond_dev)
+ 
+ 	write_lock_bh(&bond->lock);
+ 
++	bond->send_peer_notif = 0;
++
+ 	/* signal timers not to re-arm */
+ 	bond->kill_timers = 1;
+ 
+@@ -4571,6 +4623,12 @@ static int bond_check_params(struct bond_params *params)
+ 		use_carrier = 1;
+ 	}
+ 
++	if (num_peer_notif < 0 || num_peer_notif > 255) {
++		pr_warning("Warning: num_grat_arp/num_unsol_na (%d) not in range 0-255 so it was reset to 1\n",
++			   num_peer_notif);
++		num_peer_notif = 1;
++	}
++
+ 	/* reset values for 802.3ad */
+ 	if (bond_mode == BOND_MODE_8023AD) {
+ 		if (!miimon) {
+@@ -4760,6 +4818,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->mode = bond_mode;
+ 	params->xmit_policy = xmit_hashtype;
+ 	params->miimon = miimon;
++	params->num_peer_notif = num_peer_notif;
+ 	params->arp_interval = arp_interval;
+ 	params->arp_validate = arp_validate_value;
+ 	params->updelay = updelay;
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 935406a..4059bfc 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -869,6 +869,30 @@ static DEVICE_ATTR(ad_select, S_IRUGO | S_IWUSR,
+ 		   bonding_show_ad_select, bonding_store_ad_select);
+ 
+ /*
++ * Show and set the number of peer notifications to send after a failover event.
++ */
++static ssize_t bonding_show_num_peer_notif(struct device *d,
++					   struct device_attribute *attr,
++					   char *buf)
++{
++	struct bonding *bond = to_bond(d);
++	return sprintf(buf, "%d\n", bond->params.num_peer_notif);
++}
++
++static ssize_t bonding_store_num_peer_notif(struct device *d,
++					    struct device_attribute *attr,
++					    const char *buf, size_t count)
++{
++	struct bonding *bond = to_bond(d);
++	int err = kstrtou8(buf, 10, &bond->params.num_peer_notif);
++	return err ? err : count;
++}
++static DEVICE_ATTR(num_grat_arp, S_IRUGO | S_IWUSR,
++		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
++static DEVICE_ATTR(num_unsol_na, S_IRUGO | S_IWUSR,
++		   bonding_show_num_peer_notif, bonding_store_num_peer_notif);
++
++/*
+  * Show and set the MII monitor interval.  There are two tricky bits
+  * here.  First, if MII monitoring is activated, then we must disable
+  * ARP monitoring.  Second, if the timer isn't running, we must
+@@ -1566,6 +1590,8 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_lacp_rate.attr,
+ 	&dev_attr_ad_select.attr,
+ 	&dev_attr_xmit_hash_policy.attr,
++	&dev_attr_num_grat_arp.attr,
++	&dev_attr_num_unsol_na.attr,
+ 	&dev_attr_miimon.attr,
+ 	&dev_attr_primary.attr,
+ 	&dev_attr_primary_reselect.attr,
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 85fb822..d08362e 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -24,8 +24,8 @@
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+ 
+-#define DRV_VERSION	"3.7.0"
+-#define DRV_RELDATE	"June 2, 2010"
++#define DRV_VERSION	"3.7.1"
++#define DRV_RELDATE	"April 27, 2011"
+ #define DRV_NAME	"bonding"
+ #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
+ 
+@@ -149,6 +149,7 @@ struct bond_params {
+ 	int mode;
+ 	int xmit_policy;
+ 	int miimon;
++	u8 num_peer_notif;
+ 	int arp_interval;
+ 	int arp_validate;
+ 	int use_carrier;
+@@ -231,6 +232,7 @@ struct bonding {
+ 	rwlock_t lock;
+ 	rwlock_t curr_slave_lock;
+ 	s8       kill_timers;
++	u8	 send_peer_notif;
+ 	s8	 setup_by_slave;
+ 	s8       igmp_retrans;
+ #ifdef CONFIG_PROC_FS
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index acf553f..5345b0b 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1203,7 +1203,6 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 			break;
+ 		/* fall through */
+ 	case NETDEV_NOTIFY_PEERS:
+-	case NETDEV_BONDING_FAILOVER:
+ 		/* Send gratuitous ARP to notify of link change */
+ 		inetdev_send_gratuitous_arp(dev, in_dev);
+ 		break;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 69aacd1..7596f07 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1747,7 +1747,6 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
+ 		fib6_run_gc(~0UL, net);
+ 		break;
+ 	case NETDEV_NOTIFY_PEERS:
+-	case NETDEV_BONDING_FAILOVER:
+ 		ndisc_send_unsol_na(dev);
+ 		break;
+ 	default:
+-- 
+1.7.4
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
