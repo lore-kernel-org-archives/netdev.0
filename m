@@ -1,97 +1,37 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH net-next-2.6 3/5] sctp: make sctp over IPv6 work with IPsec
-Date: Wed, 27 Apr 2011 15:52:27 +0800
-Message-ID: <4DB7CB3B.6030307@cn.fujitsu.com>
-References: <4DB7C73D.3000406@cn.fujitsu.com>
+From: Tomas Carnecky <tom@dbservice.com>
+Subject: Re: [Bugme-new] [Bug 33842] New: NULL pointer dereference in ip_fragment
+Date: Wed, 27 Apr 2011 09:22:53 +0200
+Message-ID: <4DB7C44D.60306@dbservice.com>
+References: <20110426203154.GM15903@stratus.com>	 <20110426.134637.48491363.davem@davemloft.net>	 <1303851185.2699.7.camel@edumazet-laptop>	 <20110426205901.GN15903@stratus.com>	 <1303851718.2699.8.camel@edumazet-laptop>	 <20110426211946.GO15903@stratus.com> <1303853047.2699.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lksctp <linux-sctp@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bandan Das <bandan.das@stratus.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:57251 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753276Ab1D0Hwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Apr 2011 03:52:45 -0400
-In-Reply-To: <4DB7C73D.3000406@cn.fujitsu.com>
+Received: from office.neopsis.com ([78.46.209.98]:58887 "EHLO
+	office.neopsis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753276Ab1D0HxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 03:53:14 -0400
+In-Reply-To: <1303853047.2699.15.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
+On 4/26/11 11:24 PM, Eric Dumazet wrote:
+> Le mardi 26 avril 2011 =C3=A0 17:19 -0400, Bandan Das a =C3=A9crit :
+>> Yeah, I just rechecked and this is already in Linus' tree. So, Tomas=
+ you can
+>> either try pulling in those changes or you can apply this patch and =
+see
+>> if it makes any difference. Thanks!
+> Better pull Linus tree because there is another patch involved.
+>
+> (commits c65353daf137dd41f3ede3baf62d561fca076228
+> ip: ip_options_compile() resilient to NULL skb route
 
-SCTP never called xfrm_output after it's v6 route lookups so
-that never really worked with ipsec.  Additioanlly, we never
-passed port nubmers and protocol in the flowi, so any port
-based policies were never applied as well.  Now that we can
-fixed ipv6 routing lookup code, using ip6_dst_lookup_flow()
-and pass port numbers.
-
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/sctp/ipv6.c |   16 +++++++++++-----
- 1 files changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 51c048d..593c801 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -262,22 +262,27 @@ static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
- 	__u8 matchlen = 0;
- 	__u8 bmatchlen;
- 	sctp_scope_t scope;
--	int err = 0;
- 
- 	memset(fl6, 0, sizeof(struct flowi6));
- 	ipv6_addr_copy(&fl6->daddr, &daddr->v6.sin6_addr);
-+	fl6->fl6_dport = daddr->v6.sin6_port;
-+	fl6->flowi6_proto = IPPROTO_SCTP;
- 	if (ipv6_addr_type(&daddr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL)
- 		fl6->flowi6_oif = daddr->v6.sin6_scope_id;
- 
- 
- 	SCTP_DEBUG_PRINTK("%s: DST=%pI6 ", __func__, &fl6->daddr);
- 
-+	if (asoc)
-+		fl6->fl6_sport = htons(asoc->base.bind_addr.port);
-+
- 	if (saddr) {
- 		ipv6_addr_copy(&fl6->saddr, &saddr->v6.sin6_addr);
-+		fl6->fl6_sport = saddr->v6.sin6_port;
- 		SCTP_DEBUG_PRINTK("SRC=%pI6 - ", &fl6->saddr);
- 	}
- 
--	err = ip6_dst_lookup(sk, &dst, fl6);
-+	dst = ip6_dst_lookup_flow(sk, fl6, NULL, false);
- 	if (!asoc || saddr)
- 		goto out;
- 
-@@ -286,7 +291,7 @@ static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
- 	/* ip6_dst_lookup has filled in the fl6->saddr for us.  Check
- 	 * to see if we can use it.
- 	 */
--	if (!err) {
-+	if (!IS_ERR(dst)) {
- 		/* Walk through the bind address list and look for a bind
- 		 * address that matches the source address of the returned dst.
- 		 */
-@@ -330,11 +335,12 @@ static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
- 	rcu_read_unlock();
- 	if (baddr) {
- 		ipv6_addr_copy(&fl6->saddr, &baddr->v6.sin6_addr);
--		err = ip6_dst_lookup(sk, &dst, fl6);
-+		fl6->fl6_sport = baddr->v6.sin6_port;
-+		dst = ip6_dst_lookup_flow(sk, fl6, NULL, false);
- 	}
- 
- out:
--	if (!err) {
-+	if (!IS_ERR(dst)) {
- 		struct rt6_info *rt;
- 		rt = (struct rt6_info *)dst;
- 		SCTP_DEBUG_PRINTK("rt6_dst:%pI6 rt6_src:%pI6\n",
--- 
-1.6.5.2
-
+Still getting that error (on rc4-00245-g4175242, which includes that=20
+commit).
 
