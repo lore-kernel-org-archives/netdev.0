@@ -1,10 +1,9 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 3/6] ethtool: remove strings based approach for
- displaying n-tuple
-Date: Wed, 27 Apr 2011 19:12:58 +0100
-Message-ID: <1303927978.2875.83.camel@bwh-desktop>
+Subject: Re: [ethtool PATCH 6/6] Update documentation for -u/-U operations
+Date: Wed, 27 Apr 2011 19:23:49 +0100
+Message-ID: <1303928629.2875.91.camel@bwh-desktop>
 References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
-	 <20110421204030.23054.29242.stgit@gitlad.jf.intel.com>
+	 <20110421204045.23054.12548.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,23 +11,182 @@ Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
 	netdev@vger.kernel.org
 To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:20361 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:21425 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754260Ab1D0SNB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 14:13:01 -0400
-In-Reply-To: <20110421204030.23054.29242.stgit@gitlad.jf.intel.com>
+	with ESMTP id S1753773Ab1D0SXw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 14:23:52 -0400
+In-Reply-To: <20110421204045.23054.12548.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
-> This change is meant to remove the strings based approach for displaying
-> n-tuple filters.  A follow-on patch will replace that functionality with a
-> network flow classification based approach that will get the number of
-> filters, get their locations, and then request and display them
-> individually.
+> This patch updates the documentation for the -u/-U operations to include
+> the recent changes made to support addition/deletion/display of network
+> flow classifier rules.
+
+This should be included in the same patch.
+
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+> 
+>  ethtool.8.in |  185 +++++++++++++++++++++++++++++-----------------------------
+>  ethtool.c    |   32 ++++++----
+>  2 files changed, 111 insertions(+), 106 deletions(-)
+> 
+> diff --git a/ethtool.8.in b/ethtool.8.in
+> index 12a1d1d..8908351 100644
+> --- a/ethtool.8.in
+> +++ b/ethtool.8.in
+> @@ -42,10 +42,20 @@
+>  [\\fB\\$1\\fP\ \\fIN\\fP]
+>  ..
+>  .\"
+> +.\"	.BM - same as above but has a mask field for format "[value N [value-mask N]]"
+> +.\"
+> +.de BM
+> +[\\fB\\$1\\fP\ \\fIN\\fP\ [\\fB\\$1\-mask\\fP\ \\fIN\\fP]]
+
+You've changed the code to accept 'm' as an alternative to
+<field> '-mask', so this should be changed accordingly.
+
+[...]
+> @@ -236,9 +252,9 @@ ethtool \- query or control network driver and hardware settings
+>  .HP
+>  .B ethtool \-N
+>  .I ethX
+> -.RB [ rx\-flow\-hash \ \*(FL
+> -.RB \ \*(HO]
+> +.RB [ rx-flow-hash \ \*(FL \  \*(HO]
+>  .HP
+> +
+
+This looks like an unintentional reversion of part of commit
+db6c0cee6cd956767e1c39109fe81104cc4694cb.
+
+>  .B ethtool \-x|\-\-show\-rxfh\-indir
+>  .I ethX
+>  .HP
+> @@ -257,54 +273,28 @@ ethtool \- query or control network driver and hardware settings
+>  .HP
+>  .B ethtool \-u|\-\-show\-ntuple
+>  .I ethX
+> -.TP
+> +.BN class-rule
+> +.HP
+> +
+>  .BI ethtool\ \-U|\-\-config\-ntuple \ ethX
+> -.RB {
+> -.A3 flow\-type tcp4 udp4 sctp4
+> -.RB [ src\-ip
+> -.IR addr
+> -.RB [ src\-ip\-mask
+> -.IR mask ]]
+> -.RB [ dst\-ip
+> -.IR addr
+> -.RB [ dst\-ip\-mask
+> -.IR mask ]]
+> -.RB [ src\-port
+> -.IR port
+> -.RB [ src\-port\-mask
+> -.IR mask ]]
+> -.RB [ dst\-port
+> -.IR port
+> -.RB [ dst\-port\-mask
+> -.IR mask ]]
+> -.br
+> -.RB | \ flow\-type\ ether
+> -.RB [ src
+> -.IR mac\-addr
+> -.RB [ src\-mask
+> -.IR mask ]]
+> -.RB [ dst
+> -.IR mac\-addr
+> -.RB [ dst\-mask
+> -.IR mask ]]
+> -.RB [ proto
+> -.IR N
+> -.RB [ proto\-mask
+> -.IR mask ]]\ }
+> -.br
+> -.RB [ vlan
+> -.IR VLAN\-tag
+> -.RB [ vlan\-mask
+> -.IR mask ]]
+> -.RB [ user\-def
+> -.IR data
+> -.RB [ user\-def\-mask
+> -.IR mask ]]
+> -.RI action \ N
+> -.
+> -.\" Adjust lines (i.e. full justification) and hyphenate.
+> -.ad
+> -.hy
+
+As do the last 3 deleted lines here.
+
+> +.BN class-rule-del
+> +.RB [\  flow-type \ \*(NC
+> +.RB [ src \ \*(MA\ [ src-mask \ \*(MA]]
+> +.RB [ dst \ \*(MA\ [ dst-mask \ \*(MA]]
+> +.BM proto
+> +.RB [ src-ip \ \*(PA\ [ src-ip-mask \ \*(PA]]
+> +.RB [ dst-ip \ \*(PA\ [ dst-ip-mask \ \*(PA]]
+> +.BM tos
+> +.BM l4proto
+> +.BM src-port
+> +.BM dst-port
+> +.BM spi
+> +.BM vlan-etype
+> +.BM vlan
+> +.BM user-def
+> +.BN action
+> +.BN loc
+> +.RB ]
+
+But these options aren't all applicable to all flow-types.
+ 
+[...]
+> diff --git a/ethtool.c b/ethtool.c
+> index 421fe20..e65979d 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -243,20 +243,26 @@ static struct option {
+>  		"		equal N | weight W0 W1 ...\n" },
+>      { "-U", "--config-ntuple", MODE_SCLSRULE, "Configure Rx ntuple filters "
+>  		"and actions",
+> -		"		{ flow-type tcp4|udp4|sctp4\n"
+> -		"		  [ src-ip ADDR [src-ip-mask MASK] ]\n"
+> -		"		  [ dst-ip ADDR [dst-ip-mask MASK] ]\n"
+> -		"		  [ src-port PORT [src-port-mask MASK] ]\n"
+> -		"		  [ dst-port PORT [dst-port-mask MASK] ]\n"
+> -		"		| flow-type ether\n"
+> -		"		  [ src MAC-ADDR [src-mask MASK] ]\n"
+> -		"		  [ dst MAC-ADDR [dst-mask MASK] ]\n"
+> -		"		  [ proto N [proto-mask MASK] ] }\n"
+> -		"		[ vlan VLAN-TAG [vlan-mask MASK] ]\n"
+> -		"		[ user-def DATA [user-def-mask MASK] ]\n"
+> -		"		action N\n" },
+> +		"		[ class-rule-del %d ] |\n"
+> +		"		[ flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4\n"
+> +		"			[ src %x:%x:%x:%x:%x:%x [src-mask %x:%x:%x:%x:%x:%x] ]\n"
+> +		"			[ dst %x:%x:%x:%x:%x:%x [dst-mask %x:%x:%x:%x:%x:%x] ]\n"
+> +		"			[ proto %d [proto-mask MASK] ]\n"
+> +		"			[ src-ip %d.%d.%d.%d [src-ip-mask %d.%d.%d.%d] ]\n"
+> +		"			[ dst-ip %d.%d.%d.%d [dst-ip-mask %d.%d.%d.%d] ]\n"
+> +		"			[ tos %d [tos-mask %x] ]\n"
+> +		"			[ l4proto %d [l4proto-mask MASK] ]\n"
+> +		"			[ src-port %d [src-port-mask %x] ]\n"
+> +		"			[ dst-port %d [dst-port-mask %x] ]\n"
+> +		"			[ spi %d [spi-mask %x] ]\n"
+> +		"			[ vlan-etype %x [vlan-etype-mask %x] ]\n"
+> +		"			[ vlan %x [vlan-mask %x] ]\n"
+> +		"			[ user-def %x [user-def-mask %x] ]\n"
+> +		"			[ action %d ]\n"
+> +		"			[ loc %d]]\n" },
 [...]
 
-I'm deferring this until the other patches are updated.
+Again, it's not clear which options apply to which flow-types, and the
+'m' shortcut is not documented.
 
 Ben.
 
