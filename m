@@ -1,51 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] ipv4: Respect 'saddr' and 'daddr' args to
- ip_build_and_send_pkt().
-Date: Wed, 27 Apr 2011 14:03:19 -0700 (PDT)
-Message-ID: <20110427.140319.39177501.davem@davemloft.net>
-References: <20110426.151200.179925027.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH rfc 2/5] r8169: rtl8169_set_speed_xmii cleanup.
+Date: Wed, 27 Apr 2011 22:13:37 +0100
+Message-ID: <1303938817.2875.148.camel@bwh-desktop>
+References: <20110427203702.GE19708@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40076
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752919Ab1D0VDw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 17:03:52 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 880E424C087
-	for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 14:03:19 -0700 (PDT)
-In-Reply-To: <20110426.151200.179925027.davem@davemloft.net>
+Received: from exchange.solarflare.com ([216.237.3.220]:36612 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752898Ab1D0VNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 17:13:40 -0400
+In-Reply-To: <20110427203702.GE19708@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 26 Apr 2011 15:12:00 -0700 (PDT)
-
+On Wed, 2011-04-27 at 22:37 +0200, Francois Romieu wrote:
+> - use ADVERTISE_ALL
+> - shorten chipset version test
 > 
-> This function ignores the passed in addresses and forces their
-> settings using rt->rt_dst and rt->rt_src.
+> No functional change.
 > 
-> There is never a reason to do this, because the socket of the
-> callers of this function must know what addresses it is using.
+> Careful readers will notice that the 'supports_gmii' flag is deduced
+> from the device PCI id. Though less specific than the chipset related
+> RTL_GIGA_MAC_VER_XY, it is currently good enough to detect a GMII
+> deprieved 810x.
+> Some features may push for a device specific configuration (improved
+> jumbo frame support for instance). 'supports_gmii' will follow this
+> path if / when the device PCI id stops working.
 > 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+> ---
+>  drivers/net/r8169.c |   14 ++------------
+>  1 files changed, 2 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 0bb0c0d..006f0df 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -1242,8 +1242,7 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+>  		int auto_nego;
+>  
+>  		auto_nego = rtl_readphy(tp, MII_ADVERTISE);
+> -		auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
+> -				ADVERTISE_100HALF | ADVERTISE_100FULL);
+> +		auto_nego &= ADVERTISE_ALL;
+[...]
 
-I did not end up applying this one to net-next-2.6, it's not correct.
-It would break things when the source routing is enabled on the
-socket.
+You mean ~ADVERTISE_ALL.  Though ADVERTISE_ALL is really not a good name
+and I think this is clearer with the individual advertising flags
+spelled out.
 
-When that happens, we look up the route to the SRR options's first
-entry, not the actual final destination.  And that initial SRR option
-address is the destination IP address we need to use in the IP header
-this we need to use rt->rt_{src,dst}.
+Ben.
 
-This could be implemented properly by doing something like:
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-	if (opt && opt->srr)
-		iph->daddr = x;
-	else
-		iph->daddr = daddr;
-
-I'll think about it.
