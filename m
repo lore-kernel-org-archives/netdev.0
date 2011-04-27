@@ -1,126 +1,161 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: Question for canutils
-Date: Wed, 27 Apr 2011 15:50:38 +0200
-Message-ID: <4DB81F2E.4050802@pengutronix.de>
-References: <02D6556ECE7A41859777EB7300D12394@hacdom.okisemi.com>
+From: Lifeng Sun <lifongsun@gmail.com>
+Subject: Re: [PATCH] Applying inappropriate ioctl operation on socket should
+ return ENOTTY
+Date: Wed, 27 Apr 2011 21:54:00 +0800
+Message-ID: <20110427135400.GA2373@localhost>
+References: <1303882625-28115-1-git-send-email-lifongsun@gmail.com>
+ <20110427130904.47331a9f@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3745882904788517768=="
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	toshiharu-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	'Wolfgang Grandegger' <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <02D6556ECE7A41859777EB7300D12394-c0cKtqp5df7I9507bXv2FdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110427130904.47331a9f@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============3745882904788517768==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig2B978E32A41305D15BB0F9E9"
+On 13:09 Wed 04/27/11 Apr, Alan Cox wrote:
+> > diff --git a/drivers/char/applicom.c b/drivers/char/applicom.c
+> > index 25373df..50c09e4 100644
+> > --- a/drivers/char/applicom.c
+> > +++ b/drivers/char/applicom.c
+> > @@ -838,6 +838,6 @@ static long ac_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+> >  	Dummy = readb(apbs[IndexCard].RamIO + VERS);
+> >  	kfree(adgl);
+> >  	mutex_unlock(&ac_mutex);
+> > -	return 0;
+> > +	return ret;
+> >  }
+> 
+> This one in fact is a bug fix where 0 gets returned not an error code it
+> ought to be submitted separately and described as such.
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig2B978E32A41305D15BB0F9E9
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Will do.
 
-On 04/27/2011 10:36 AM, Tomoya MORINAGA wrote:
-> I have 2 questions for canutils.
->=20
-> 1) Build issue
-> I downloaded the latest canutils and libsocketcan.
->    - canutils-4.0.6
->    - libsocketcan-0.0.8
->=20
-> Firstly, I installed libsocketcan-0.0.8
+> 
+> > diff --git a/drivers/char/dtlk.c b/drivers/char/dtlk.c
+> > index 85156dd..2d116d5 100644
+> > --- a/drivers/char/dtlk.c
+> > +++ b/drivers/char/dtlk.c
+> > @@ -289,7 +289,7 @@ static long dtlk_ioctl(struct file *file,
+> >  		return put_user(portval, argp);
+> >  
+> >  	default:
+> > -		return -EINVAL;
+> > +		return -ENOTTY;
+> >  	}
+> >  }
+> 
+> This one looks good (and the driver has another error in the ioctl
+> handler too that wants fixing where it returnds -EINVAL not -EFAULT)
 
-Into which location?
+Will fix.
 
-Please send me the output of:
+> > diff --git a/drivers/char/i8k.c b/drivers/char/i8k.c
+> > index d72433f..4ba9b9f 100644
+> > --- a/drivers/char/i8k.c
+> > +++ b/drivers/char/i8k.c
+> > @@ -370,7 +370,7 @@ i8k_ioctl_unlocked(struct file *fp, unsigned int cmd, unsigned long arg)
+> >  		break;
+> >  
+> >  	default:
+> > -		return -EINVAL;
+> > +		return -ENOTTY;
+> 
+> This one is incomplete - the driver also has a bogus check for arg being
+> non zero. That means ioctl(fd, BOGUS, 0) will return the wrong error code
+> still.
 
-ls -l /usr/local/lib
-ls -l /usr/local/lib/pkgconfig
+Will fix.
 
-> Secondly, I tried to install canutils-4.0.6.
-> But it failed like below.
->=20
-> [root@localhost canutils-4.0.6]# ./configure
-> ...snip...
-> checking whether lstat correctly handles trailing slash... yes
-> checking whether stat accepts an empty string... no
-> checking for socket... yes
-> checking for strchr... yes
-> checking for strtoul... yes
-> checking for pkg-config... /usr/bin/pkg-config
-> checking pkg-config is at least version 0.9.0... yes
-> checking for libsocketcan... no
-> configure: error: *** libsocketcan version above 0.0.8 not found on you=
-r system
-> [root@localhost canutils-4.0.6]#=20
->=20
-> Do you have any information about the fail?
+> > diff --git a/drivers/char/ipmi/ipmi_devintf.c b/drivers/char/ipmi/ipmi_devintf.c
+> > index 2aa3977..bc8af5a 100644
+> > --- a/drivers/char/ipmi/ipmi_devintf.c
+> > +++ b/drivers/char/ipmi/ipmi_devintf.c
+> > @@ -232,7 +232,7 @@ static int ipmi_ioctl(struct file   *file,
+> >  		      unsigned int  cmd,
+> >  		      unsigned long data)
+> >  {
+> > -	int                      rv = -EINVAL;
+> > +	int                      rv = -ENOTTY;
+> >  	struct ipmi_file_private *priv = file->private_data;
+> >  	void __user *arg = (void __user *)data;
+> 
+> No - there are cases that should return -EINVAL that this will break - a
+> default case needs adding
 
-> BTW, Using canutils-3.0.2, I could confirm build becomes success.
+All execution paths overwrite the return value except those should
+return -ENOTTY, but it's more clear to add a default case.
 
-3.x doesn't work with the mainline configuration interface.
+Will do.
 
-> 2) How to use
-> Executing candump like following, I see the following message.(Of cours=
-e, pch_can have already installed)
-> [root@localhost morinaga]# candump can0
-> interface =3D can0, family =3D 29, type =3D 3, proto =3D 1
-> read: Network is down
-> [root@localhost morinaga]#
->=20
-> Would you tell me how to active can0 interface.
+> > diff --git a/drivers/char/viotape.c b/drivers/char/viotape.c
+> > index ad6e64a..a427d40 100644
+> > --- a/drivers/char/viotape.c
+> > +++ b/drivers/char/viotape.c
+> > @@ -529,7 +529,7 @@ static int viotap_ioctl(struct inode *inode, struct file *file,
+> >  
+> >  	down(&reqSem);
+> >  
+> > -	ret = -EINVAL;
+> > +	ret = -ENOTTY;
+> 
+> Again this messes up the returns because code assumes the initial
+> default.
 
-First build the canutils, then configure the bitrate, e.g. 250 kbit/s:
-    $ canconfig can0 bitrate 250000
-    $ ifconfig can0 up
+Likewise, except the unsupported MTIOCPOS command. SuSv4 has two
+appropriate errno's for this unsupported case and the one below
+returns EOPNOTSUPP,
 
-regards, Marc
+ [ENOTSUP]
+     Not supported (may be the same value as [EOPNOTSUPP]).
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+ [EOPNOTSUPP]
+     Operation not supported on socket (may be the same value as
+     [ENOTSUP]).
+
+but the manpage of ioctl disagree. I am wondering how to handle
+unsupported ioctl operations. Maybe following the manpage is a better
+choice though it's not exact.
 
 
---------------enig2B978E32A41305D15BB0F9E9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> The original code also has bugs too (wrong error off copy_*_user()
+> again)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+Will fix.
 
-iEYEARECAAYFAk24HzIACgkQjTAFq1RaXHNjrgCdHOdfKWsLdbJtdm7nmFcOiQiq
-5MYAoIdidwYj1JBB44NmLTYjUtCfs9Yv
-=2jry
------END PGP SIGNATURE-----
+> > diff --git a/fs/pipe.c b/fs/pipe.c
+> > index da42f7d..fe7ffe4 100644
+> > --- a/fs/pipe.c
+> > +++ b/fs/pipe.c
+> > @@ -665,7 +665,7 @@ static long pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+> >  
+> >  			return put_user(count, (int __user *)arg);
+> >  		default:
+> > -			return -EINVAL;
+> > +			return -ENOTTY;
+> >  	}
+> 
+> Looks good - but this one really does want to be a patch on its own as if
+> anything causes compatibility funnies it will be this, and we need to be
+> sure we can bisect nicely to it should this occur.
 
---------------enig2B978E32A41305D15BB0F9E9--
+will submit serparately.
 
---===============3745882904788517768==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+> > @@ -5041,7 +5041,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+> >  		/* Set the per device memory buffer space.
+> >  		 * Not applicable in our case */
+> >  	case SIOCSIFLINK:
+> > -		return -EINVAL;
+> > +		return -EOPNOTSUPP;
+> 
+> This change seems unrelated to anything in your description and outside
+> of anything SuS cares about or demands.
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+As stated above. I would submit separately.
 
---===============3745882904788517768==--
+
+- Lifeng
+
+-- 
