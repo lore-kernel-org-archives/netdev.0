@@ -1,42 +1,42 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: rtl8169 related kernel splat in 2.6.38.4
-Date: Wed, 27 Apr 2011 22:34:55 +0200
-Message-ID: <20110427203455.GA19708@electric-eye.fr.zoreil.com>
-References: <4DB7413A.1020208@candelatech.com>
+Subject: Re: r8169 :  always copying the rx buffer to new skb
+Date: Wed, 27 Apr 2011 22:35:44 +0200
+Message-ID: <20110427203544.GB19708@electric-eye.fr.zoreil.com>
+References: <4DAC7001.9060800@hotmail.com> <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com> <20110420191316.GA18805@electric-eye.fr.zoreil.com> <4DAFA9F9.5080909@hotmail.com> <4DB77D03.9070507@hotmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	nic_swsd@realtek.com
+To: John Lumby <johnlumby@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:59813 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59818 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756789Ab1D0Unf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 16:43:35 -0400
+	with ESMTP id S1759091Ab1D0Uoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 16:44:32 -0400
 Content-Disposition: inline
-In-Reply-To: <4DB7413A.1020208@candelatech.com>
+In-Reply-To: <4DB77D03.9070507@hotmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Greear <greearb@candelatech.com> :
-[...]
-> WARNING: at /home/greearb/git/linux-2.6.dev.38.y/kernel/timer.c:983 del_timer_sync+0x25/0x37()
-[...]
->  [<c043094b>] ? warn_slowpath_common+0x65/0x7a
->  [<c04398a0>] ? del_timer_sync+0x25/0x37
->  [<c043096f>] ? warn_slowpath_null+0xf/0x13
->  [<c04398a0>] ? del_timer_sync+0x25/0x37
->  [<c06e94f3>] ? linkwatch_schedule_work+0x68/0x83
->  [<c06e95b6>] ? linkwatch_fire_event+0xa8/0xad
->  [<c06ef193>] ? netif_carrier_on+0x23/0x34
->  [<f8af1b32>] ? __rtl8169_check_link_status+0x4f/0xaf [r8169]
+John Lumby <johnlumby@hotmail.com> :
+> Anyone have any further thoughts on the proposal to avoid
+> memcpy'ing?  (see earlier post)
 
-linkwatch_schedule_work
--> cancel_delayed_work
-   -> del_timer_sync
-      -> *466bd3030973910118ca601da8072be97a1e2209 was here*
+The patch mixes different changes. Please avoid it.
 
-At first sight it should happen in -git too. I'll search a fix
-back home.
+Your MUA damaged the patch. Documentation/SubmittingPatches
+could help if you have not read it yet.
+
+The patch makes some gratuitous changes which needlessly
+increase the differences (dirty_xy rename for instance).
+
+A set_ringparam() method which does nothing until open()
+is used does not exactly ring like "least surprize behavior"
+to me.
+
+The behavior under memory pressure is still unknown.
+
+I am mildly convinced by the implementation.
 
 -- 
 Ueimor
