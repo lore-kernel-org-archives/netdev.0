@@ -1,42 +1,86 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 :  always copying the rx buffer to new skb
-Date: Wed, 27 Apr 2011 22:35:44 +0200
-Message-ID: <20110427203544.GB19708@electric-eye.fr.zoreil.com>
-References: <4DAC7001.9060800@hotmail.com> <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com> <20110420191316.GA18805@electric-eye.fr.zoreil.com> <4DAFA9F9.5080909@hotmail.com> <4DB77D03.9070507@hotmail.com>
+Subject: [PATCH net-next] r8169: fix merge conflict fix.
+Date: Wed, 27 Apr 2011 22:36:40 +0200
+Message-ID: <20110427203640.GC19708@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	nic_swsd@realtek.com
-To: John Lumby <johnlumby@hotmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:59818 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759091Ab1D0Uoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 16:44:32 -0400
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4DB77D03.9070507@hotmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-John Lumby <johnlumby@hotmail.com> :
-> Anyone have any further thoughts on the proposal to avoid
-> memcpy'ing?  (see earlier post)
+- use adequate MAC_VER id
+  (see 01dc7fec4025f6bb72b6b98ec88b375346b6dbbb)
+- remove duplicate rtl_firmware_info record
+- remove duplicate functions
 
-The patch mixes different changes. Please avoid it.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+---
+ drivers/net/r8169.c |   25 +++++--------------------
+ 1 files changed, 5 insertions(+), 20 deletions(-)
 
-Your MUA damaged the patch. Documentation/SubmittingPatches
-could help if you have not read it yet.
-
-The patch makes some gratuitous changes which needlessly
-increase the differences (dirty_xy rename for instance).
-
-A set_ringparam() method which does nothing until open()
-is used does not exactly ring like "least surprize behavior"
-to me.
-
-The behavior under memory pressure is still unknown.
-
-I am mildly convinced by the implementation.
-
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 025dedd..6364e0b 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -191,9 +191,8 @@ static const struct rtl_firmware_info {
+ 	{ .mac_version = RTL_GIGA_MAC_VER_26, .fw_name = FIRMWARE_8168D_2 },
+ 	{ .mac_version = RTL_GIGA_MAC_VER_29, .fw_name = FIRMWARE_8105E_1 },
+ 	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 },
+-	{ .mac_version = RTL_GIGA_MAC_VER_30, .fw_name = FIRMWARE_8105E_1 },
+-	{ .mac_version = RTL_GIGA_MAC_VER_31, .fw_name = FIRMWARE_8168E_1 },
+-	{ .mac_version = RTL_GIGA_MAC_VER_32, .fw_name = FIRMWARE_8168E_2 }
++	{ .mac_version = RTL_GIGA_MAC_VER_32, .fw_name = FIRMWARE_8168E_1 },
++	{ .mac_version = RTL_GIGA_MAC_VER_33, .fw_name = FIRMWARE_8168E_2 }
+ };
+ 
+ enum cfg_version {
+@@ -2535,6 +2534,8 @@ static void rtl8168e_hw_phy_config(struct rtl8169_private *tp)
+ 		{ 0x1f, 0x0000 }
+ 	};
+ 
++	rtl_apply_firmware(tp);
++
+ 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+ 
+ 	/* DCO enable for 10M IDLE Power */
+@@ -2576,20 +2577,6 @@ static void rtl8168e_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x0d, 0x0000);
+ }
+ 
+-static void rtl8168e_1_hw_phy_config(struct rtl8169_private *tp)
+-{
+-	rtl_apply_firmware(tp);
+-
+-	rtl8168e_hw_phy_config(tp);
+-}
+-
+-static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
+-{
+-	rtl_apply_firmware(tp);
+-
+-	rtl8168e_hw_phy_config(tp);
+-}
+-
+ static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
+ {
+ 	static const struct phy_reg phy_reg_init[] = {
+@@ -2705,10 +2692,8 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 		rtl8105e_hw_phy_config(tp);
+ 		break;
+ 	case RTL_GIGA_MAC_VER_32:
+-		rtl8168e_1_hw_phy_config(tp);
+-		break;
+ 	case RTL_GIGA_MAC_VER_33:
+-		rtl8168e_2_hw_phy_config(tp);
++		rtl8168e_hw_phy_config(tp);
+ 		break;
+ 
+ 	default:
 -- 
-Ueimor
+1.7.4.4
