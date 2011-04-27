@@ -1,19 +1,20 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Wed, 27 Apr 2011 15:21:56 +0200
-Message-ID: <4DB81874.1060904@pengutronix.de>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<1303474267-6344-2-git-send-email-subhasish@mistralsolutions.com>
-	<4DB1A3B7.7060300@pengutronix.de> <4DB5D452.9050500@grandegger.com>
+Date: Wed, 27 Apr 2011 15:25:28 +0200
+Message-ID: <201104271525.28512.arnd@arndb.de>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<4DB5D452.9050500@grandegger.com>
 	<46D523E49EFF489F9B088AE7B9CD7286@subhasishg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0746241567975700610=="
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nsekhar-l0cyMroinI0@public.gmane.org,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
 	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, m-watkins-l0cyMroinI0@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 In-Reply-To: <46D523E49EFF489F9B088AE7B9CD7286@subhasishg>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
@@ -27,109 +28,31 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============0746241567975700610==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig457819A39003E5994EC492FA"
+On Wednesday 27 April 2011, Subhasish Ghosh wrote:
+> >
+> > - Use just one value per sysfs file
+> 
+> SG - I felt adding entry for each mbx_id will clutter the sysfs.
+>         Is it ok to do that.
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig457819A39003E5994EC492FA
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+That is probably not much better either.
 
-On 04/27/2011 03:08 PM, Subhasish Ghosh wrote:
+Note also that every sysfs file needs to come with associated
+documentation in Documentation/ABI/*/ to make sure that users
+will know exactly how the file is meant to work. 
 
->>>> +static u32 pruss_intc_init[19][3] =3D {
->>>> + {PRUSS_INTC_POLARITY0, PRU_INTC_REGMAP_MASK, 0xFFFFFFFF},
->>>> + {PRUSS_INTC_POLARITY1, PRU_INTC_REGMAP_MASK, 0xFFFFFFFF},
->>>> + {PRUSS_INTC_TYPE0, PRU_INTC_REGMAP_MASK, 0x1C000000},
->>>> + {PRUSS_INTC_TYPE1, PRU_INTC_REGMAP_MASK, 0},
->>>> + {PRUSS_INTC_GLBLEN, 0, 1},
->>>> + {PRUSS_INTC_HOSTMAP0, PRU_INTC_REGMAP_MASK, 0x03020100},
->>>> + {PRUSS_INTC_HOSTMAP1, PRU_INTC_REGMAP_MASK, 0x07060504},
->>>> + {PRUSS_INTC_HOSTMAP2, PRU_INTC_REGMAP_MASK, 0x0000908},
->>>> + {PRUSS_INTC_CHANMAP0, PRU_INTC_REGMAP_MASK, 0},
->>>> + {PRUSS_INTC_CHANMAP8, PRU_INTC_REGMAP_MASK, 0x00020200},
->>>> + {PRUSS_INTC_STATIDXCLR, 0, 32},
->>>> + {PRUSS_INTC_STATIDXCLR, 0, 19},
->>>> + {PRUSS_INTC_ENIDXSET, 0, 19},
->>>> + {PRUSS_INTC_STATIDXCLR, 0, 18},
->>>> + {PRUSS_INTC_ENIDXSET, 0, 18},
->>>> + {PRUSS_INTC_STATIDXCLR, 0, 34},
->>>> + {PRUSS_INTC_ENIDXSET, 0, 34},
->>>> + {PRUSS_INTC_ENIDXSET, 0, 32},
->>>> + {PRUSS_INTC_HOSTINTEN, 0, 5}
->>>
->>> please add ","
->>
->> Also a struct to describe each entry would improve readability.
->> Then you could also use ARRAY_SIZE.
->=20
-> SG _ I could not follow this, are you recommending that I create a
-> structure with three variables and then create
->            an array for it.
-> something like:
->=20
-> const static struct [] =3D {
->    {
->    unsigned int reg_base;
->    unsigned int reg_mask;
->    unsigned int reg_val;
->    },
-> ...
-> };
+Why do you need to export these values in the first place? Is
+it just for debugging or do you expect all CAN user space
+to look at this?
 
-I think this isn't valid C. It should look like this:
+If it's for debugging, please don't export the files through sysfs.
+Depending on how useful the data is to regular users, you can
+still export it through a debugfs file in that case, which has
+much less strict rules.
 
-struct pruss_intc_init {
-	unsigned long reg_base;
-	u32 reg_mask;
-	u32 reg+val;
-};
+If the file is instead meant as part of the regular operation of
+the device, it should not be in debugfs but probably be integrated
+into the CAN socket interface, so that users don't need to work
+with two different ways of getting to the device (socket and sysfs).
 
-static const struct pruss_intc_init pruss_initc_init[] =3D {
-	{ .reg_base =3D 0xdeadbeef, .reg_mask =3D 0xaa, .reg_val =3D 0x55 },
-	...
-};
-
-I'm not sure about the datatype of reg_base. I haven't looked at the
-code that uses this array.
-
-cheers, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig457819A39003E5994EC492FA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk24GHcACgkQjTAFq1RaXHNamACeIPjcWMJsbNRFgTpwVzPVrdnW
-OcsAoIrkJR0hCIzse0P53HXDqmq13Ddc
-=gr7V
------END PGP SIGNATURE-----
-
---------------enig457819A39003E5994EC492FA--
-
---===============0746241567975700610==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============0746241567975700610==--
+	Arnd
