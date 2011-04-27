@@ -1,29 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8169: fix merge conflict fix.
-Date: Wed, 27 Apr 2011 13:52:40 -0700 (PDT)
-Message-ID: <20110427.135240.112610984.davem@davemloft.net>
-References: <20110427203640.GC19708@electric-eye.fr.zoreil.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH rfc 1/5] r8169: style cleanups.
+Date: Wed, 27 Apr 2011 13:59:34 -0700
+Message-ID: <1303937974.24299.92.camel@Joe-Laptop>
+References: <20110427203654.GD19708@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nic_swsd@realtek.com
-To: romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110427203640.GC19708@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1055 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751227Ab1D0U7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2011 16:59:35 -0400
+In-Reply-To: <20110427203654.GD19708@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 27 Apr 2011 22:36:40 +0200
-
-> - use adequate MAC_VER id
->   (see 01dc7fec4025f6bb72b6b98ec88b375346b6dbbb)
-> - remove duplicate rtl_firmware_info record
-> - remove duplicate functions
-> 
+On Wed, 2011-04-27 at 22:36 +0200, Francois Romieu wrote:
 > Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+[]
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+[]
+> @@ -3134,8 +3128,8 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
+[]
+> -	if (tp->mac_version == RTL_GIGA_MAC_VER_32 ||
+> -	    tp->mac_version == RTL_GIGA_MAC_VER_33)
+> +	if ((tp->mac_version == RTL_GIGA_MAC_VER_32) ||
+> +	    (tp->mac_version == RTL_GIGA_MAC_VER_33))
 
-Applied, thanks.
+Shrug.  I don't think this is better.
+
+
