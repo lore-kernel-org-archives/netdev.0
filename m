@@ -1,135 +1,117 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Wed, 27 Apr 2011 19:29:38 +0200
-Message-ID: <1303925378.3166.99.camel@edumazet-laptop>
-References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
-	 <1303799597.2747.214.camel@edumazet-laptop>
-	 <20110425.235600.104065244.davem@davemloft.net>
-	 <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com>
-	 <1303834864.3358.58.camel@edumazet-laptop>
-	 <4DB83A60.5040102@solarflare.com>
-	 <1303921809.3166.90.camel@edumazet-laptop>
-	 <43F901BD926A4E43B106BF17856F0755018DF59D32@orsmsx508.amr.corp.intel.com>
+From: "George B." <georgeb@gmail.com>
+Subject: Re: 'tcp: bind() fix when many ports are bound' problem
+Date: Wed, 27 Apr 2011 10:36:45 -0700
+Message-ID: <BANLkTik5-G2E+SKX2anv2t5+gJzd2WEp3Q@mail.gmail.com>
+References: <AANLkTimrpZOWEc5qXPEbrJbt2Nmh2vY69aC1Dwf1cCPH@mail.gmail.com>
+	<AANLkTinNcds1EAnWXOX6wAjg+wv4O=Xd65hHEGWoGos8@mail.gmail.com>
+	<1294140172.3579.81.camel@edumazet-laptop>
+	<AANLkTimuNM7vmeR89WKXtrUbJO1Wt1ivp9y=bQvtWg0j@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steve Hodgson <shodgson@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Gaspar Chilingarov <gasparch@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Baluta <daniel.baluta@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47970 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756236Ab1D0R3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 13:29:42 -0400
-Received: by wya21 with SMTP id 21so1437842wya.19
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 10:29:41 -0700 (PDT)
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755018DF59D32@orsmsx508.amr.corp.intel.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55921 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759707Ab1D0Rgr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 13:36:47 -0400
+Received: by wwa36 with SMTP id 36so2155738wwa.1
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 10:36:45 -0700 (PDT)
+In-Reply-To: <AANLkTimuNM7vmeR89WKXtrUbJO1Wt1ivp9y=bQvtWg0j@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 27 avril 2011 =C3=A0 10:15 -0700, Rose, Gregory V a =C3=A9c=
+On Wed, Jan 5, 2011 at 1:00 AM, Daniel Baluta <daniel.baluta@gmail.com>=
+ wrote:
+>
+> On Tue, Jan 4, 2011 at 1:22 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> > Le mardi 04 janvier 2011 =E0 13:12 +0400, Gaspar Chilingarov a =E9c=
 rit :
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
-=2Eorg]
-> > On Behalf Of Eric Dumazet
-> > Sent: Wednesday, April 27, 2011 9:30 AM
-> > To: Steve Hodgson
-> > Cc: Rose, Gregory V; David Miller; netdev@vger.kernel.org;
-> > bhutchings@solarflare.com
-> > Subject: Re: [RFC PATCH] netlink: Increase netlink dump skb message=
- size
-> >=20
-> > Le mercredi 27 avril 2011 =C3=A0 16:46 +0100, Steve Hodgson a =C3=A9=
-crit :
-> > > On 04/27/2011 04:24 PM, Eric Dumazet wrote:
-> > > > Le mardi 26 avril 2011 =C3=A0 09:12 -0700, Rose, Gregory V a =C3=
-=A9crit :
-> > > >
-> > > >> I'm fine with however you folks want to approach this, just gi=
-ve me
-> > some direction.
-> > > >
-> > > > I would just try following patch :
-> > > >
-> > >
-> > > This allows the sfc driver to use 102 VFs, up from the current li=
-mit of
-> > > 45 VFs.
-> > >
-> > > It's unfortunate that this patch isn't sufficient to allow all 12=
-7 VFs
-> > > to be used, but whilst we wait for a new netlink api this is an
-> > > improvement worth having.
-> > >
-> >=20
-> > netlink recvmsg() supports MSG_PEEK so user would get the needed si=
-ze of
-> > its buffer before calling the real recvmsg()
-> >=20
-> > big blobs could be attached as skb fragments (up to 64Kbytes), but =
-do we
-> > really want this...
-> [Greg Rose]=20
->=20
-> I'm looking into an approach in which we make the get info dump for V=
-=46s orthogonal to the set VF info, i.e. like this:
->=20
-> To set VF info we would follow the current convention:
->=20
-> # ip link set eth(x) vf (n) mac xx:xx:xx:xx:xx:xx
-> # ip link set eth(x) vf (n) vlan (nnnn)
->=20
-> To see VF info:
->=20
-> # ip link show eth(x) vf (n)
->=20
-> would show that VF's mac and vlan and could then be expanded in the f=
-uture to display more information required for additional features that=
- users are asking for.
->=20
-> The IFLA_VF_INFO dump would be moved out of the info dump for the phy=
-sical function interface and would no longer be nested which would get =
-rid of the need for huge amounts of buffer for info dumps on VFs.  The =
-ip link show command for the PF would need to report the number of VFs =
-currently allocated to the PF so that could fed into a script that loop=
-s to show each VFs info.
->=20
-> I think this approach would fix the problems we're looking at right n=
-ow.
->=20
+> >> Hi there!
+> >>
+> >> Well, that looks strange.
+> >>
+> >> On my own side I've just put workaround (manually binding to all p=
+orts
+> >> in sequence :)
+> >> and moved production code to FreeBSD as it has better scalable net=
+work stack.
+> >>
+> >> I can see the potential problem with that bind() problem on highly
+> >> loaded DNS servers/resolvers which establish tons of outgoing UDP
+> >> connections.
+> >>
+> >> In some cases that connections could fail and as not receiving the
+> >> answer it is normal condition for DNS this will go totally unnotic=
+ed.
+> >>
+> >> I don't think anyone will hit this bug in production environment
+> >> except the very high load applications.
+> >
+> > Dont mix TCP and UDP, they are not the same.
+> >
+> > Problem with TCP is you can have TIME_WAIT sockets, disallowing a p=
+ort
+> > to be reused. Not with UDP.
+>
+> Isn't SO_REUSEADDR supposed to fix this problem?
+>
+> Anyhow, inet_csk_get_port the function used by bind(0) performs bad.
+>
+> Short reminder:
+> 100 IP addr =A0- 70K sockets created =3D> 700 sockets per IP.
+> bind(0) for all sockets will results in a large number of
+> (port, addr) duplicates although there are more than 30000 ports avai=
+lable.
+>
+> This wouldn't be so bad if you won't try to connect duplicates to the=
+ same
+> remote (addr, port) which will result in a connect failure.
+>
+> Eric's patch introduced the restriction 'forbid two reuse enabled soc=
+kets
+> to bind on same (addr, port) tuple with a (non ANY addr)'.
+>
+> Well, I think this will break rule #2 from inet_hastable.h:
+> "
+> If all sockets have sk->sk_reuse set, and none of them are in
+> TCP_LISTEN state, the port may be shared.
+> "
+> and also caused problem ([1]), don't really know if they are the same=
+=2E
+>
+> An attempt, to fix this was to "always allow a reuse listen if
+> no other listen is already active on the same IP".
+>
+> The problem with this fix, is that at the moment of bind() we
+> don't know what will be the usage of this socket. It can be,
+> bind -> connect or bind -> listen.
+> >
+> > The connect() [without a previous bind()], or a sendto() [without a
+> > previous bind()] problem is more an API problem.
+>
+> Can you share your thoughts on this?
+>
+> Going back to my first email, are there any follow ups on your
+> "tcp: bind() fix when many ports are bound" patch. I've searched
+> netdev archives but no luck. I might have missed something.
+>
+> I really appreciate your help.
+>
+> thanks,
+> Daniel.
+> --
 
-Hmm, if you look at "ip link ..." you'll see it dumps everything from
-kernel and does the filter inside user command.
+This is also causing a problem for me in a very high load application
+where more than 64K sockets are being sourced from multiple IP
+addresses.
 
-BTW "ip" uses a 16384 bytes buffer, not a 8192 bytes one.
-
-
-$ strace -e trace=3Drecvmsg ip link
-recvmsg(3, {msg_name(12)=3D{sa_family=3DAF_NETLINK, pid=3D0, groups=3D0=
-0000000},
-msg_iov(1)=3D[{"\340\3\0\0\20\0\2\0dR\270M\224s\0\0\0\0\4\3\1\0\0\0I\0\=
-1\0
-\0\0\0\0"..., 16384}], msg_controllen=3D0, msg_flags=3D0}, 0) =3D 3000
-recvmsg(3, {msg_name(12)=3D{sa_family=3DAF_NETLINK, pid=3D0, groups=3D0=
-0000000},
-msg_iov(1)=3D[{"\364\3\0\0\20\0\2\0dR\270M\224s\0\0\0\0\1\0\4\0\0\0C\24=
-\1
-\0\0\0\0\0"..., 16384}], msg_controllen=3D0, msg_flags=3D0}, 0) =3D 302=
-4
-recvmsg(3, {msg_name(12)=3D{sa_family=3DAF_NETLINK, pid=3D0, groups=3D0=
-0000000},
-msg_iov(1)=3D[{"\34\4\0\0\20\0\2\0dR\270M\224s\0\0\0\0\1\0\7\0\0\0C\20\=
-1\0
-\0\0\0\0"..., 16384}], msg_controllen=3D0, msg_flags=3D0}, 0) =3D 2104
-recvmsg(3, {msg_name(12)=3D{sa_family=3DAF_NETLINK, pid=3D0, groups=3D0=
-0000000},
-msg_iov(1)=3D[{"\24\0\0\0\3\0\2\0dR\270M\224s\0\0\0\0\0\0\7\0\0\0C\20\1=
-\0
-\0\0\0\0"..., 16384}], msg_controllen=3D0, msg_flags=3D0}, 0) =3D 20
-
-=2E..
-
-
+I, too, would like to know if this has been followed up on.=A0 The old
+patch that was reverted was actually working well for us, we never
+actually hit the TIME_WAIT problem but we are hitting the problem of
+not being able to source a connection from an IP when the global
+number of connections is >64K or so.
