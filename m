@@ -1,34 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 1/1] bna: Generic Netlink Interface to collect FW
- trace
-Date: Tue, 26 Apr 2011 19:17:07 -0700 (PDT)
-Message-ID: <20110426.191707.71110914.davem@davemloft.net>
-References: <1303869117-780-1-git-send-email-rmody@brocade.com>
-	<20110426185917.3d033636@nehalam>
-	<BANLkTinUsJ2foWKBVb_9nVFA2V_vKb11rA@mail.gmail.com>
+From: John Lumby <johnlumby@hotmail.com>
+Subject: Re: r8169 :  always copying the rx buffer to new skb
+Date: Tue, 26 Apr 2011 22:18:43 -0400
+Message-ID: <4DB77D03.9070507@hotmail.com>
+References: <4DAC7001.9060800@hotmail.com> <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com> <20110420191316.GA18805@electric-eye.fr.zoreil.com> <4DAFA9F9.5080909@hotmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, rmody@brocade.com, netdev@vger.kernel.org,
-	huangj@brocade.com, amathur@brocade.com, ddutt@brocade.com
-To: debdut@gmail.com
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	nic_swsd@realtek.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43762
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756082Ab1D0CRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 22:17:41 -0400
-In-Reply-To: <BANLkTinUsJ2foWKBVb_9nVFA2V_vKb11rA@mail.gmail.com>
+Received: from toip4.srvr.bell.ca ([209.226.175.87]:19188 "EHLO
+	toip4.srvr.bell.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756556Ab1D0CSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Apr 2011 22:18:55 -0400
+In-Reply-To: <4DAFA9F9.5080909@hotmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Debashis Dutt <debdut@gmail.com>
-Date: Tue, 26 Apr 2011 19:16:29 -0700
+Anyone have any further thoughts on the proposal to avoid memcpy'ing?  
+(see earlier post)
 
-> However, since the generic netlink is a more generic interface, we could use
-> this infrastructure in the driver for commands which are not part of
-> other standard tools.
+I also have a question concerning NAPI.     I've found that much of the 
+CPU saved from not memcpy'ing is burned in extra rx_interrupt'ing,  and 
+much of that seems to be wasted (no new packets).    So the actual 
+benefit is rather less than I think should be possible.
 
-You aren't the only device in the world that might want to provide
-a facility to fetch firmware traces.
+I've tried some tinkering with the napi weight but can't find any 
+setting which really improves the ratio of rx packets to hard interrupts 
+significantly.    The problem seems to be that each successive 
+rtl8169_poll() is driven too soon after the last one   (in this 
+particular workload).     The napi weight doesn't directly influence that.
 
-This isn't really a niche thing specific to your device at all.
+So  -  question :
+is there any way,   when returning from rtl8169_poll,  to tell napi 
+something like :
+    "   finish this interrupt context and let something else run on this 
+CPU  (always CPU0 on my machine) BUT reschedule another napi poll on 
+this same device at some time after that "
+the point being that rtl8169_poll will,  for this case,  NOT re-enable 
+the NIC's napi interrupts,  in the hope that maybe some user work can be 
+dispatched,    so something else will have to schedule the next napi 
+poll for it.    Conceptually,    if rtl8169_poll finds no rx work done 
+on this call,   it wants to cause a yield() and then try again.     
+Except it can't from within the interrupt.
+
+I appreciate this could lead to delays in handling new work so might be 
+dangerous,    but it seems to me to be in line with NAPI objectives so I 
+wanted to try it .   But don't know how.     Any hints or thoughts 
+appreciated.
+
+
+John
+
