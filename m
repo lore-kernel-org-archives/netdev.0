@@ -1,76 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCHv2 3/4] ethtool: Use the full 32 bit speed range in
- ethtool's set_settings
-Date: Wed, 27 Apr 2011 15:23:10 -0700
-Message-ID: <20110427152310.248307e2@nehalam>
-References: <1303001651-4074-1-git-send-email-decot@google.com>
-	<1303929290-21037-4-git-send-email-decot@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool PATCH 5/6] v4 Add RX packet classification interface
+Date: Thu, 28 Apr 2011 00:00:44 +0100
+Message-ID: <1303945244.2875.161.camel@bwh-desktop>
+References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
+	 <20110421204040.23054.87188.stgit@gitlad.jf.intel.com>
+	 <1303927934.2875.82.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	mirq-linux@rere.qmqm.pl, Stanislaw Gruszka <sgruszka@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Decotigny <decot@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1303929290-21037-4-git-send-email-decot@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:47109 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757052Ab1D0XAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 19:00:48 -0400
+In-Reply-To: <1303927934.2875.82.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Apr 2011 11:34:48 -0700
-David Decotigny <decot@google.com> wrote:
+On Wed, 2011-04-27 at 19:12 +0100, Ben Hutchings wrote:
+> On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
+[...]
+> > +	fprintf(stdout,
+> > +		"\tVLAN EtherType: 0x%x mask: 0x%x\n"
+> 
+> Lower-case 'ethertype', please.
+[...]
 
-> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-> index 176d784..b0fa999 100644
-> --- a/drivers/net/skge.c
-> +++ b/drivers/net/skge.c
-> @@ -322,7 +322,7 @@ static int skge_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
->  	} else {
->  		u32 setting;
->  
-> -		switch (ecmd->speed) {
-> +		switch (ethtool_cmd_speed(ecmd)) {
->  		case SPEED_1000:
->  			if (ecmd->duplex == DUPLEX_FULL)
->  				setting = SUPPORTED_1000baseT_Full;
-> @@ -355,7 +355,7 @@ static int skge_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
->  		if ((setting & supported) == 0)
->  			return -EINVAL;
->  
-> -		skge->speed = ecmd->speed;
-> +		skge->speed = ethtool_cmd_speed(ecmd);
->  		skge->duplex = ecmd->duplex;
->  	}
->  
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index c8d0451..40afe07 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -3453,7 +3453,7 @@ static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
->  	} else {
->  		u32 setting;
->  
-> -		switch (ecmd->speed) {
-> +		switch (ethtool_cmd_speed(ecmd)) {
->  		case SPEED_1000:
->  			if (ecmd->duplex == DUPLEX_FULL)
->  				setting = SUPPORTED_1000baseT_Full;
-> @@ -3486,7 +3486,7 @@ static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
->  		if ((setting & supported) == 0)
->  			return -EINVAL;
->  
-> -		sky2->speed = ecmd->speed;
-> +		sky2->speed = ethtool_cmd_speed(ecmd);
->  		sky2->duplex = ecmd->duplex;
->  		sky2->flags &= ~SKY2_FLAG_AUTO_SPEED;
->  	}
+Sorry, your capitalisation here is correct and the existing uses in
+lower-case are wrong.
 
-These two are trivial, thanks for doing it.
-
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-
+Ben.
 
 -- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
