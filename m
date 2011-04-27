@@ -1,52 +1,71 @@
-From: Carsten Wolff <carsten@wolffcarsten.de>
-Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
-Date: Wed, 27 Apr 2011 11:57:47 +0200
-Message-ID: <201104271157.49386.carsten@wolffcarsten.de>
-References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com> <BANLkTikjcd6ZAF5wH_8CKA_OCrfprGokmw@mail.gmail.com> <BANLkTikoQfbSxnJi_OR+N6sa5iVNcTO6Ug@mail.gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: linux-next: ibmveth runtime errors
+Date: Wed, 27 Apr 2011 12:36:22 +0200
+Message-ID: <20110427103622.GA22781@rere.qmqm.pl>
+References: <20110427144901.4c3f79b3.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dominik Kaspar <dokaspar.ietf@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Zimmermann Alexander <zimmermann@nets.rwth-aachen.de>,
-	Lennart Schulte <Lennart.Schulte@comsys.rwth-aachen.de>,
-	Arnd Hannemann <arnd@arndnet.de>
-To: John Heffner <johnwheffner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1346787.stratoserver.net ([85.214.49.182]:57794 "EHLO
-	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755610Ab1D0J6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 05:58:00 -0400
-In-Reply-To: <BANLkTikoQfbSxnJi_OR+N6sa5iVNcTO6Ug@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Santiago Leon <santil@linux.vnet.ibm.com>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110427144901.4c3f79b3.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, Apr 27, 2011 at 02:49:01PM +1000, Stephen Rothwell wrote:
+> For the last couple of days, linux-next booting on a few of our Power
+> partitions (but not all) have produced this error (over and over):
+>=20
+> ibmveth 3000000b: eth0: tx: h_send_logical_lan failed with rc=3D-4
+>=20
+> Linus' tree seems to boot fine on these partitions.  The only commit
+> directly affecting ibmveth in linux-next is b9367bf3ee6d ("net: ibmve=
+th:
+> convert to hw_features") which first appeared in next-20110421 which =
+is
+> also the first one that failed.
 
-On Tuesday 26 April 2011, John Heffner wrote:
-> First, TCP is definitely not designed to work under such conditions.
-> For example, assumptions behind RTO calculation and fast retransmit
-> heuristics are violated.  However, in this particular case my first
-> guess is that you are being limited by "cwnd moderation," which was
-> the topic of recent discussion here.  Under persistent reordering,
-> cwnd moderation can inhibit the ability of cwnd to grow.
+Please test the following patch. It's just a blind guess, as this error
+is not descriptive.
 
-it's not just cwnd moderation (of which I'm still in favor, even though I lost 
-the argument by inactivity ;-)).
+Best Regards,
+Micha=B3 Miros=B3aw
 
-Anyway, there are a lot of things in reordering handling that can be improved. 
-Our group (Alexander, Lennart, Arnd, myself and others) has worked on the 
-problem for a long time now. This work resulted in an algorithm that is in 
-large parts TCP-NCR (RFC4653), but also utilizes information gathered by 
-reordering detection for determination of a good DupThresh, fixes a few 
-problems in RFC4653 and improves on the reordering detection in Linux when the 
-connection has no timestamps option. We implemented "pure" TCP-NCR and our own 
-variant in Linux using a modular framework similar to the congestion control 
-modules. A lot of measurements and evaluation have gone into the comparison of 
-the three algorithms. We are now very close(TM) to a final patch, that is more 
-suited for publication on this list and integrates our algorithm into tcp*.
-[hc] without introducing the overhead of that modular framework.
+---
 
-Greetings,
-Carsten
+net: ibmveth: force reconfiguring checksum settings on startup
+
+Commit b9367bf3ee6d ("net: ibmveth: convert to hw_features") accidental=
+ly
+removed call to ibmveth_set_csum_offload() in ibmveth_probe(). Put the
+call back where it was, but with additional error checking provided
+by ibmveth_set_features().
+
+Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+
+---
+ drivers/net/ibmveth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ibmveth.c b/drivers/net/ibmveth.c
+index 4855f1f..0d1fea2 100644
+--- a/drivers/net/ibmveth.c
++++ b/drivers/net/ibmveth.c
+@@ -1397,6 +1397,8 @@ static int __devinit ibmveth_probe(struct vio_dev=
+ *dev,
+=20
+ 	netdev_dbg(netdev, "registering netdev...\n");
+=20
++	ibmveth_set_features(dev, dev->features);
++
+ 	rc =3D register_netdev(netdev);
+=20
+ 	if (rc) {
+--=20
+1.7.2.5
