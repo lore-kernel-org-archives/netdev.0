@@ -1,41 +1,48 @@
-From: Ajit <ajitsa_bes@yahoo.com>
+From: Neil Horman <nhorman@tuxdriver.com>
 Subject: Re: Maximum no of bytes Ethernet can transfer at a time ??
-Date: Wed, 27 Apr 2011 12:27:26 +0000 (UTC)
-Message-ID: <loom.20110427T142551-736@post.gmane.org>
-References: <loom.20110427T140651-957@post.gmane.org> <1303906910.3166.50.camel@edumazet-laptop>
+Date: Wed, 27 Apr 2011 09:01:14 -0400
+Message-ID: <20110427130114.GA1895@hmsreliant.think-freely.org>
+References: <loom.20110427T140651-957@post.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Ajit <ajitsa_bes@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:46458 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757571Ab1D0M1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Apr 2011 08:27:38 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QF3qD-0007Cl-Jj
-	for netdev@vger.kernel.org; Wed, 27 Apr 2011 14:27:37 +0200
-Received: from mumbai-123-5.primenet.in ([203.115.123.5])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 14:27:37 +0200
-Received: from ajitsa_bes by mumbai-123-5.primenet.in with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 14:27:37 +0200
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55259 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757893Ab1D0NB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 09:01:26 -0400
+Content-Disposition: inline
+In-Reply-To: <loom.20110427T140651-957@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet <at> gmail.com> writes:
-
-> Sure, check your syscall returns values, and search for SO_RCVBUF &
-> SO_SNDBUF   (man 7 socket)
+On Wed, Apr 27, 2011 at 12:11:35PM +0000, Ajit wrote:
+> Guys,
 > 
+> I have developed a code which uses raw sockets to transfer files. My code skips
+> all the upper layer protocols,I have designed a small protocol of my own.
+> 
+> Now to problem is, whenever I transfer a large file it creates a problem. If
+> transfer a file of suppose 100kb or more, only 97.9 Kb is received, unlike in
+> the case of files smaller that 97.9.
+> 
+> What can be the problem ?? Does continuously sending and receiving of frames
+> creates a problem ??
+> 
+> If any one is interested I can give you my code..
+> 
+> Thank you. 
+> 
+What transport layer are you using (UDP/TCP/SCTP/etc)?  Does a simmilar transfer
+work if you use an actual TCP/UDP socket, rather than your raw one?  If you're
+consistently getting 97.9k transferred, that almost sounds like some sort of
+firewall type connection limitation.  Take a TCPDump from the peer to get a
+better idea of whats going on when the connection fails
+Neil
+
 > --
-
-okies..I dont know exactly how to use those but I will google and try it..
-will post my result after some time.
-
-Thank you
-
-
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
