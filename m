@@ -1,129 +1,75 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH net-next-2.6 1/5 v2] sctp: fix sctp to work with ipv6 source
- address routing
-Date: Wed, 27 Apr 2011 15:36:32 +0800
-Message-ID: <4DB7C780.8010802@cn.fujitsu.com>
-References: <4DB7C73D.3000406@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 33842] New: NULL pointer dereference in
+ ip_fragment
+Date: Wed, 27 Apr 2011 09:41:07 +0200
+Message-ID: <1303890067.3166.4.camel@edumazet-laptop>
+References: <20110426203154.GM15903@stratus.com>
+	 <20110426.134637.48491363.davem@davemloft.net>
+	 <1303851185.2699.7.camel@edumazet-laptop>
+	 <20110426205901.GN15903@stratus.com>
+	 <1303851718.2699.8.camel@edumazet-laptop>
+	 <20110426211946.GO15903@stratus.com>
+	 <1303853047.2699.15.camel@edumazet-laptop>  <4DB7C44D.60306@dbservice.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lksctp <linux-sctp@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bandan Das <bandan.das@stratus.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Tomas Carnecky <tom@dbservice.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49965 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753463Ab1D0Hgu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Apr 2011 03:36:50 -0400
-In-Reply-To: <4DB7C73D.3000406@cn.fujitsu.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44283 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752936Ab1D0HlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 03:41:14 -0400
+Received: by wya21 with SMTP id 21so1029873wya.19
+        for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 00:41:13 -0700 (PDT)
+In-Reply-To: <4DB7C44D.60306@dbservice.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weixing Shi <Weixing.Shi@windriver.com>
+Le mercredi 27 avril 2011 =C3=A0 09:22 +0200, Tomas Carnecky a =C3=A9cr=
+it :
+> On 4/26/11 11:24 PM, Eric Dumazet wrote:
+> > Le mardi 26 avril 2011 =C3=A0 17:19 -0400, Bandan Das a =C3=A9crit =
+:
+> >> Yeah, I just rechecked and this is already in Linus' tree. So, Tom=
+as you can
+> >> either try pulling in those changes or you can apply this patch an=
+d see
+> >> if it makes any difference. Thanks!
+> > Better pull Linus tree because there is another patch involved.
+> >
+> > (commits c65353daf137dd41f3ede3baf62d561fca076228
+> > ip: ip_options_compile() resilient to NULL skb route
+>=20
+> Still getting that error (on rc4-00245-g4175242, which includes that=20
+> commit).
+>=20
 
-In the below test case, using the source address routing,
-sctp can not work.
-Node-A
-1)ifconfig eth0 inet6 add 2001:1::1/64
-2)ip -6 rule add from 2001:1::1 table 100 pref 100
-3)ip -6 route add 2001:2::1 dev eth0 table 100
-4)sctp_darn -H 2001:1::1 -P 250 -l &
-Node-B
-1)ifconfig eth0 inet6 add 2001:2::1/64
-2)ip -6 rule add from 2001:2::1 table 100 pref 100
-3)ip -6 route add 2001:1::1 dev eth0 table 100
-4)sctp_darn -H 2001:2::1 -P 250 -h 2001:1::1 -p 250 -s
+Could you send us a complete trace ?
 
-root cause:
-Node-A and Node-B use the source address routing, and
-at begining, source address will be NULL,sctp will
-search the  routing table by the destination address,
-because using the source address routing table, and
-the result dst_entry will be NULL.
+One way to get one is to use netconsole (provided you have another
+machine )
 
-solution:
-walk through the bind address list to get the source
-address and then lookup the routing table again to get
-the correct dst_entry.
+grep NETCONSOLE .config
+CONFIG_NETCONSOLE=3Dy
 
-Signed-off-by: Weixing Shi <Weixing.Shi@windriver.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/sctp/ipv6.c |   44 +++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 43 insertions(+), 1 deletions(-)
+Add on your boot command
 
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 321f175..3a571d6 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -80,6 +80,9 @@
- 
- #include <asm/uaccess.h>
- 
-+static inline int sctp_v6_addr_match_len(union sctp_addr *s1,
-+					 union sctp_addr *s2);
-+
- /* Event handler for inet6 address addition/deletion events.
-  * The sctp_local_addr_list needs to be protocted by a spin lock since
-  * multiple notifiers (say IPv4 and IPv6) may be running at the same
-@@ -244,8 +247,14 @@ static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
- 					 union sctp_addr *daddr,
- 					 union sctp_addr *saddr)
- {
--	struct dst_entry *dst;
-+	struct dst_entry *dst = NULL;
- 	struct flowi6 fl6;
-+	struct sctp_bind_addr *bp;
-+	struct sctp_sockaddr_entry *laddr;
-+	union sctp_addr *baddr = NULL;
-+	__u8 matchlen = 0;
-+	__u8 bmatchlen;
-+	sctp_scope_t scope;
- 
- 	memset(&fl6, 0, sizeof(fl6));
- 	ipv6_addr_copy(&fl6.daddr, &daddr->v6.sin6_addr);
-@@ -261,6 +270,39 @@ static struct dst_entry *sctp_v6_get_dst(struct sctp_association *asoc,
- 	}
- 
- 	dst = ip6_route_output(&init_net, NULL, &fl6);
-+	if (!asoc || saddr)
-+		goto out;
-+
-+	if (dst->error) {
-+		dst_release(dst);
-+		dst = NULL;
-+		bp = &asoc->base.bind_addr;
-+		scope = sctp_scope(daddr);
-+		/* Walk through the bind address list and try to get a dst that
-+		 * matches a bind address as the source address.
-+		 */
-+		rcu_read_lock();
-+		list_for_each_entry_rcu(laddr, &bp->address_list, list) {
-+			if (!laddr->valid)
-+				continue;
-+			if ((laddr->state == SCTP_ADDR_SRC) &&
-+			    (laddr->a.sa.sa_family == AF_INET6) &&
-+			    (scope <= sctp_scope(&laddr->a))) {
-+				bmatchlen = sctp_v6_addr_match_len(daddr,
-+								   &laddr->a);
-+				if (!baddr || (matchlen < bmatchlen)) {
-+					baddr = &laddr->a;
-+					matchlen = bmatchlen;
-+				}
-+			}
-+		}
-+		rcu_read_unlock();
-+		if (baddr) {
-+			ipv6_addr_copy(&fl6.saddr, &baddr->v6.sin6_addr);
-+			dst = ip6_route_output(&init_net, NULL, &fl6);
-+		}
-+	}
-+out:
- 	if (!dst->error) {
- 		struct rt6_info *rt;
- 		rt = (struct rt6_info *)dst;
--- 
-1.6.5.2
+netconsole=3D4444@192.168.20.108/eth0,4444@192.168.20.112/00:1e:0b:ec:c=
+3:e4
+
+messages sent to host 192.168.20.112 udp port 4444, mac addr 00:1e:0b:e=
+c:c3:e4, on eth0
+
+then on 192.168.20.112 start a netcat listening on udp port 4444 to get
+a copy of messages.
+
+netcat -l -u -p 4444
+
+Complete doc on Documentation/networking/netconsole.txt
+
+Thanks !
 
 
