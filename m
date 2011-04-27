@@ -1,46 +1,53 @@
-From: Steve Hodgson <shodgson@solarflare.com>
-Subject: Re: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Wed, 27 Apr 2011 16:46:40 +0100
-Message-ID: <4DB83A60.5040102@solarflare.com>
-References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>	 <1303799597.2747.214.camel@edumazet-laptop>	 <20110425.235600.104065244.davem@davemloft.net>	 <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com> <1303834864.3358.58.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool PATCH 1/6] Add support for ESP as a separate protocol
+ from AH
+Date: Wed, 27 Apr 2011 16:47:14 +0100
+Message-ID: <1303919234.2875.5.camel@bwh-desktop>
+References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
+	 <20110421204020.23054.60822.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:59138 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:59215 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759326Ab1D0Pqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 11:46:43 -0400
-In-Reply-To: <1303834864.3358.58.camel@edumazet-laptop>
+	with ESMTP id S1755891Ab1D0PrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 11:47:17 -0400
+In-Reply-To: <20110421204020.23054.60822.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/27/2011 04:24 PM, Eric Dumazet wrote:
-> Le mardi 26 avril 2011 =C3=A0 09:12 -0700, Rose, Gregory V a =C3=A9cr=
-it :
->
->> I'm fine with however you folks want to approach this, just give me =
-some direction.
->
-> I would just try following patch :
->
+On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
+> This change is mostly cosmetic.  NIU had supported AH and ESP seperately.
+> As such it is possible that a return value of ESP or AH may be returned
+> for a has request instead of the AH_ESP combined value.  To resolve that
+> the inputs are combined for AH and ESP into the AH_ESP value and return
+> values for AH and ESP will display the combined string info.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This allows the sfc driver to use 102 VFs, up from the current limit of=
-=20
-45 VFs.
+Applied, but I moved this into a separate commit:
 
-It's unfortunate that this patch isn't sufficient to allow all 127 VFs=20
-to be used, but whilst we wait for a new netlink api this is an=20
-improvement worth having.
+[...]
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -32,7 +32,6 @@
+>  #include <sys/ioctl.h>
+>  #include <sys/stat.h>
+>  #include <stdio.h>
+> -#include <string.h>
+>  #include <errno.h>
+>  #include <net/if.h>
+>  #include <sys/utsname.h>
+[...]
 
-I'd like to see this patch committed.
+Ben.
 
-Thanks Eric,
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-- Steve
