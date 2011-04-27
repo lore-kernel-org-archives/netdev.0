@@ -1,53 +1,54 @@
-From: Lifeng Sun <lifongsun@gmail.com>
-Subject: Re: [PATCH] Applying inappropriate ioctl operation on socket should
- return ENOTTY
-Date: Wed, 27 Apr 2011 16:22:24 +0800
-Message-ID: <20110427082224.GC20313@md5.ntu.edu.sg>
-References: <1303882625-28115-1-git-send-email-lifongsun@gmail.com>
- <1303883910.2699.53.camel@edumazet-laptop>
- <20110427063730.GA20313@md5.ntu.edu.sg>
- <1303887457.2699.60.camel@edumazet-laptop>
-Mime-Version: 1.0
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: [PATCH 0/6] sctp: Auto-ASCONF patch series
+Date: Wed, 27 Apr 2011 17:27:52 +0900
+Message-ID: <AC642DCE-402B-496B-B519-679335A13211@sfc.wide.ad.jp>
+Mime-Version: 1.0 (Apple Message framework v1084)
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1303887457.2699.60.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: Honda Michio <micchie@sfc.wide.ad.jp>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:40051 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752302Ab1D0I1z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 04:27:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08:57 Wed 04/27/11 Apr, Eric Dumazet wrote:
-> You quote manpage for a library call, not a system call.
+>From 9ede9db0ec4b03d3061a5bfed78328cb5528b908 Mon Sep 17 00:00:00 2001
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Date: Wed, 27 Apr 2011 17:16:21 +0900
+Subject: [PATCH 0/6] sctp: Auto-ASCONF patch series
 
-okay, let me quote the one for ioctl system call:
+Series of 6 patches to support auto_asconf and the other related functionalities that auto_asconf relies on. 
 
-man 2 ioctl
+Michio Honda (5):
+  sctp: Add ADD/DEL ASCONF handling at the receiver.
+  sctp: Add Auto-ASCONF support (core).
+  sctp: Add sysctl support for Auto-ASCONF.
+  sctp: Add socket option operation for Auto-ASCONF.
+  sctp: sctp: Add ASCONF operation on the single-homed host
 
-int ioctl(int d, int request, ...);
+YOSHIFUJI Hideaki (1):
+  sctp: Allow regular C expression in 4th argument for
+    SCTP_DEBUG_PRINTK_IPADDR macro.
 
-ERRORS
-   EBADF  d is not a valid descriptor.
-   EFAULT argp references an inaccessible memory area.
-   EINVAL Request or argp is not valid.
-   ENOTTY d is not associated with a character special device.
-   ENOTTY The specified request does not apply to the kind of object
-     that the descriptor d references.
-
-we see ENOTTY and EFAULT refine EVINAL and it should return ENOTTY or
-EFAULT whenever possible rather than EINVAL, otherwise we could always
-return EBADF or EINVAL.
-
-Regarding to isatty, well, it's only a library call, isn't it? :-) If
-you insist on the significance of the manpage of isatty, there are
-also a lot of ioctl operations return ENOTTY, if not less than those
-return EINVAL, for inappropriated command and eventually violate the
-ERRORS section of the manpage. Certainly we could complain to c
-library maintainers.
-
-
-> If you feel your glibc doesnt implement well this, please complain to
-> glibc maintainer.
-
+ include/net/sctp/sctp.h    |   11 ++-
+ include/net/sctp/structs.h |   17 +++++
+ include/net/sctp/user.h    |    1 +
+ net/sctp/associola.c       |    6 ++
+ net/sctp/bind_addr.c       |   15 ++++
+ net/sctp/ipv6.c            |    9 +++
+ net/sctp/outqueue.c        |   13 ++++
+ net/sctp/protocol.c        |  151 ++++++++++++++++++++++++++++++++++++++++++-
+ net/sctp/sm_make_chunk.c   |   40 +++++++++++-
+ net/sctp/socket.c          |  156 +++++++++++++++++++++++++++++++++++++++++---
+ net/sctp/sysctl.c          |    7 ++
+ 11 files changed, 411 insertions(+), 15 deletions(-)
 
 -- 
+1.7.3.2
+
+
