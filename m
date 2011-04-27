@@ -1,67 +1,99 @@
-From: "George B." <georgeb@gmail.com>
-Subject: Re: [PATCH] tcp: disallow bind() to reuse addr/port
-Date: Wed, 27 Apr 2011 10:37:54 -0700
-Message-ID: <BANLkTi=176iFKUHn351OWOZUSaUBkgKf2Q@mail.gmail.com>
-References: <1294140172.3579.81.camel@edumazet-laptop>
-	<AANLkTimuNM7vmeR89WKXtrUbJO1Wt1ivp9y=bQvtWg0j@mail.gmail.com>
-	<1294744462.2927.53.camel@edumazet-laptop>
-	<20110111.140336.128591591.davem@davemloft.net>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
+Date: Wed, 27 Apr 2011 10:39:50 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755018DF59D81@orsmsx508.amr.corp.intel.com>
+References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
+	 <1303799597.2747.214.camel@edumazet-laptop>
+	 <20110425.235600.104065244.davem@davemloft.net>
+	 <43F901BD926A4E43B106BF17856F0755018DC497D4@orsmsx508.amr.corp.intel.com>
+	 <1303834864.3358.58.camel@edumazet-laptop>
+	 <4DB83A60.5040102@solarflare.com>
+	 <1303921809.3166.90.camel@edumazet-laptop>
+	 <43F901BD926A4E43B106BF17856F0755018DF59D32@orsmsx508.amr.corp.intel.com>
+ <1303925378.3166.99.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, daniel.baluta@gmail.com,
-	gasparch@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Steve Hodgson <shodgson@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:55314 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932102Ab1D0Rh4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 13:37:56 -0400
-Received: by wwk4 with SMTP id 4so3542945wwk.1
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 10:37:54 -0700 (PDT)
-In-Reply-To: <20110111.140336.128591591.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:7341 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753280Ab1D0RkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2011 13:40:05 -0400
+In-Reply-To: <1303925378.3166.99.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 11, 2011 at 2:03 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 11 Jan 2011 12:14:22 +0100
->
->> [PATCH] tcp: disallow bind() to reuse addr/port
->>
->> inet_csk_bind_conflict() logic currently disallows a bind() if
->> it finds a friend socket (a socket bound on same address/port)
->> satisfying a set of conditions :
->>
->> 1) Current (to be bound) socket doesnt have sk_reuse set
->> OR
->> 2) other socket doesnt have sk_reuse set
->> OR
->> 3) other socket is in LISTEN state
->>
->> We should add the CLOSE state in the 3) condition, in order to avoid=
- two
->> REUSEADDR sockets in CLOSE state with same local address/port, since
->> this can deny further operations.
->>
->> Note : a prior patch tried to address the problem in a different (an=
-d
->> buggy) way. (commit fda48a0d7a8412ced tcp: bind() fix when many port=
-s
->> are bound).
->>
->> Reported-by: Gaspar Chilingarov <gasparch@gmail.com>
->> Reported-by: Daniel Baluta <daniel.baluta@gmail.com>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->
-> Applied, thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
-
-OK, just saw this, so please disregard my earlier.
-
-George
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDI3LCAy
+MDExIDEwOjMwIEFNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IFN0ZXZlIEhvZGdzb247
+IERhdmlkIE1pbGxlcjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gYmh1dGNoaW5nc0Bzb2xh
+cmZsYXJlLmNvbQ0KPiBTdWJqZWN0OiBSRTogW1JGQyBQQVRDSF0gbmV0bGluazogSW5jcmVhc2Ug
+bmV0bGluayBkdW1wIHNrYiBtZXNzYWdlIHNpemUNCj4gDQo+IExlIG1lcmNyZWRpIDI3IGF2cmls
+IDIwMTEgw6AgMTA6MTUgLTA3MDAsIFJvc2UsIEdyZWdvcnkgViBhIMOpY3JpdCA6DQo+ID4gPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIu
+a2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXQ0KPiA+
+ID4gT24gQmVoYWxmIE9mIEVyaWMgRHVtYXpldA0KPiA+ID4gU2VudDogV2VkbmVzZGF5LCBBcHJp
+bCAyNywgMjAxMSA5OjMwIEFNDQo+ID4gPiBUbzogU3RldmUgSG9kZ3Nvbg0KPiA+ID4gQ2M6IFJv
+c2UsIEdyZWdvcnkgVjsgRGF2aWQgTWlsbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiA+
+ID4gYmh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbQ0KPiA+ID4gU3ViamVjdDogUmU6IFtSRkMgUEFU
+Q0hdIG5ldGxpbms6IEluY3JlYXNlIG5ldGxpbmsgZHVtcCBza2IgbWVzc2FnZQ0KPiBzaXplDQo+
+ID4gPg0KPiA+ID4gTGUgbWVyY3JlZGkgMjcgYXZyaWwgMjAxMSDDoCAxNjo0NiArMDEwMCwgU3Rl
+dmUgSG9kZ3NvbiBhIMOpY3JpdCA6DQo+ID4gPiA+IE9uIDA0LzI3LzIwMTEgMDQ6MjQgUE0sIEVy
+aWMgRHVtYXpldCB3cm90ZToNCj4gPiA+ID4gPiBMZSBtYXJkaSAyNiBhdnJpbCAyMDExIMOgIDA5
+OjEyIC0wNzAwLCBSb3NlLCBHcmVnb3J5IFYgYSDDqWNyaXQgOg0KPiA+ID4gPiA+DQo+ID4gPiA+
+ID4+IEknbSBmaW5lIHdpdGggaG93ZXZlciB5b3UgZm9sa3Mgd2FudCB0byBhcHByb2FjaCB0aGlz
+LCBqdXN0IGdpdmUNCj4gbWUNCj4gPiA+IHNvbWUgZGlyZWN0aW9uLg0KPiA+ID4gPiA+DQo+ID4g
+PiA+ID4gSSB3b3VsZCBqdXN0IHRyeSBmb2xsb3dpbmcgcGF0Y2ggOg0KPiA+ID4gPiA+DQo+ID4g
+PiA+DQo+ID4gPiA+IFRoaXMgYWxsb3dzIHRoZSBzZmMgZHJpdmVyIHRvIHVzZSAxMDIgVkZzLCB1
+cCBmcm9tIHRoZSBjdXJyZW50IGxpbWl0DQo+IG9mDQo+ID4gPiA+IDQ1IFZGcy4NCj4gPiA+ID4N
+Cj4gPiA+ID4gSXQncyB1bmZvcnR1bmF0ZSB0aGF0IHRoaXMgcGF0Y2ggaXNuJ3Qgc3VmZmljaWVu
+dCB0byBhbGxvdyBhbGwgMTI3DQo+IFZGcw0KPiA+ID4gPiB0byBiZSB1c2VkLCBidXQgd2hpbHN0
+IHdlIHdhaXQgZm9yIGEgbmV3IG5ldGxpbmsgYXBpIHRoaXMgaXMgYW4NCj4gPiA+ID4gaW1wcm92
+ZW1lbnQgd29ydGggaGF2aW5nLg0KPiA+ID4gPg0KPiA+ID4NCj4gPiA+IG5ldGxpbmsgcmVjdm1z
+ZygpIHN1cHBvcnRzIE1TR19QRUVLIHNvIHVzZXIgd291bGQgZ2V0IHRoZSBuZWVkZWQgc2l6ZQ0K
+PiBvZg0KPiA+ID4gaXRzIGJ1ZmZlciBiZWZvcmUgY2FsbGluZyB0aGUgcmVhbCByZWN2bXNnKCkN
+Cj4gPiA+DQo+ID4gPiBiaWcgYmxvYnMgY291bGQgYmUgYXR0YWNoZWQgYXMgc2tiIGZyYWdtZW50
+cyAodXAgdG8gNjRLYnl0ZXMpLCBidXQgZG8NCj4gd2UNCj4gPiA+IHJlYWxseSB3YW50IHRoaXMu
+Li4NCj4gPiBbR3JlZyBSb3NlXQ0KPiA+DQo+ID4gSSdtIGxvb2tpbmcgaW50byBhbiBhcHByb2Fj
+aCBpbiB3aGljaCB3ZSBtYWtlIHRoZSBnZXQgaW5mbyBkdW1wIGZvciBWRnMNCj4gb3J0aG9nb25h
+bCB0byB0aGUgc2V0IFZGIGluZm8sIGkuZS4gbGlrZSB0aGlzOg0KPiA+DQo+ID4gVG8gc2V0IFZG
+IGluZm8gd2Ugd291bGQgZm9sbG93IHRoZSBjdXJyZW50IGNvbnZlbnRpb246DQo+ID4NCj4gPiAj
+IGlwIGxpbmsgc2V0IGV0aCh4KSB2ZiAobikgbWFjIHh4Onh4Onh4Onh4Onh4Onh4DQo+ID4gIyBp
+cCBsaW5rIHNldCBldGgoeCkgdmYgKG4pIHZsYW4gKG5ubm4pDQo+ID4NCj4gPiBUbyBzZWUgVkYg
+aW5mbzoNCj4gPg0KPiA+ICMgaXAgbGluayBzaG93IGV0aCh4KSB2ZiAobikNCj4gPg0KPiA+IHdv
+dWxkIHNob3cgdGhhdCBWRidzIG1hYyBhbmQgdmxhbiBhbmQgY291bGQgdGhlbiBiZSBleHBhbmRl
+ZCBpbiB0aGUNCj4gZnV0dXJlIHRvIGRpc3BsYXkgbW9yZSBpbmZvcm1hdGlvbiByZXF1aXJlZCBm
+b3IgYWRkaXRpb25hbCBmZWF0dXJlcyB0aGF0DQo+IHVzZXJzIGFyZSBhc2tpbmcgZm9yLg0KPiA+
+DQo+ID4gVGhlIElGTEFfVkZfSU5GTyBkdW1wIHdvdWxkIGJlIG1vdmVkIG91dCBvZiB0aGUgaW5m
+byBkdW1wIGZvciB0aGUNCj4gcGh5c2ljYWwgZnVuY3Rpb24gaW50ZXJmYWNlIGFuZCB3b3VsZCBu
+byBsb25nZXIgYmUgbmVzdGVkIHdoaWNoIHdvdWxkIGdldA0KPiByaWQgb2YgdGhlIG5lZWQgZm9y
+IGh1Z2UgYW1vdW50cyBvZiBidWZmZXIgZm9yIGluZm8gZHVtcHMgb24gVkZzLiAgVGhlIGlwDQo+
+IGxpbmsgc2hvdyBjb21tYW5kIGZvciB0aGUgUEYgd291bGQgbmVlZCB0byByZXBvcnQgdGhlIG51
+bWJlciBvZiBWRnMNCj4gY3VycmVudGx5IGFsbG9jYXRlZCB0byB0aGUgUEYgc28gdGhhdCBjb3Vs
+ZCBmZWQgaW50byBhIHNjcmlwdCB0aGF0IGxvb3BzDQo+IHRvIHNob3cgZWFjaCBWRnMgaW5mby4N
+Cj4gPg0KPiA+IEkgdGhpbmsgdGhpcyBhcHByb2FjaCB3b3VsZCBmaXggdGhlIHByb2JsZW1zIHdl
+J3JlIGxvb2tpbmcgYXQgcmlnaHQgbm93Lg0KPiA+DQo+IA0KPiBIbW0sIGlmIHlvdSBsb29rIGF0
+ICJpcCBsaW5rIC4uLiIgeW91J2xsIHNlZSBpdCBkdW1wcyBldmVyeXRoaW5nIGZyb20NCj4ga2Vy
+bmVsIGFuZCBkb2VzIHRoZSBmaWx0ZXIgaW5zaWRlIHVzZXIgY29tbWFuZC4NCg0KUmlnaHQsIGJ1
+dCB3aGVuIEkgbG9vayBpbiBydG5ldGxpbmsgSSBzZWUgdGhlIHJvdXRpbmUgdG8gY2FsY3VsYXRl
+IHRoZSBhbW91bnQgb2YgYnVmZmVyIG5lZWRlZCBmb3IgVkYgaW5mbyBkdW1wIGlzIHRoZSBudW1i
+ZXIgb2YgZGV2aWNlIHBhcmVudCAoUEYpIFZGcyAqIHRoZSBzaXplb2YgdmFyaW91cyBJRkxBX1ZG
+X0lORk8gaXRlbXMuICBUaGUgbW9yZSB0aGUgVkZzIHRoZSBiaWdnZXIgdGhpcyBnZXRzLCBlc3Bl
+Y2lhbGx5IGlmIHlvdSB3YW50IHRvIGFkZCBtb3JlIHN0dWZmIHRvIElGTEFfVkZfSU5GTy4gIFNv
+IHdoZW4gdGhlIGtlcm5lbCBkdW1wcyB0aGlzIGFsbCBvdXQgaXQgY2FuIGdldCBiaWdnZXIgdGhh
+biB0aGUgTkxNU0dfR09PRFNJWkUgKG9yIERVTVBTSVpFKSBwcmV0dHkgcXVpY2tseS4NCg0KPiAN
+Cj4gQlRXICJpcCIgdXNlcyBhIDE2Mzg0IGJ5dGVzIGJ1ZmZlciwgbm90IGEgODE5MiBieXRlcyBv
+bmUuDQoNCkkga25vdywgdGhhdCdzIHdoeSBJIHN1ZmZlcmVkIHNvbWUgY29uZnVzaW9uIGFib3V0
+IHdoaWNoIHNpemUgdG8gdXNlLiAgVGhlIGlwIGNvbW1hbmQgdXNlcyAxNksgYnV0IHRoZSBOTE1T
+R19HT09EU0laRSBjYW4gYmUgYXMgc21hbGwgYXMgMzcxMiBieXRlcyAoZGVwZW5kaW5nIG9uIHBh
+Z2Ugc2l6ZSkuICBEZXNwaXRlIHRoZSB1c2VyIGJ1ZmZlciBiZWluZyAxNmsgaWYgdGhlIHNpemUg
+Y2FsY3VsYXRlZCBieSBpZl9ubG1zZ19zaXplKCkgaW4gcnRuZXRsaW5rLmMgaXMgYmlnZ2VyIHRo
+YW4gTkxNU0dfR09PRFNJWkUgdGhlbiB5b3UgZG9uJ3Qgc2VlIHRoZSBpbmZvIGZvciBtb3JlIHRo
+YW4gNDAgb3Igc28gVkZzLiAgTW9yZSBWRnMgdGhhbiB0aGF0IGFuZCBub3RoaW5nIGdldHMgZGlz
+cGxheWVkLg0KDQotIEdyZWcNCg0K
