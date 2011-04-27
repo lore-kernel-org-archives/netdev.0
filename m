@@ -1,7 +1,7 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
 Subject: RE: [RFC PATCH] netlink: Increase netlink dump skb message size
-Date: Wed, 27 Apr 2011 20:05:40 +0200
-Message-ID: <1303927540.3166.129.camel@edumazet-laptop>
+Date: Wed, 27 Apr 2011 11:08:21 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755018DF59DEC@orsmsx508.amr.corp.intel.com>
 References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
 	 <1303799597.2747.214.camel@edumazet-laptop>
 	 <20110425.235600.104065244.davem@davemloft.net>
@@ -12,60 +12,57 @@ References: <20110425220157.2012.96707.stgit@gitlad.jf.intel.com>
 	 <43F901BD926A4E43B106BF17856F0755018DF59D32@orsmsx508.amr.corp.intel.com>
 	 <1303925378.3166.99.camel@edumazet-laptop>
 	 <43F901BD926A4E43B106BF17856F0755018DF59D81@orsmsx508.amr.corp.intel.com>
+ <1303927540.3166.129.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Steve Hodgson <shodgson@solarflare.com>,
 	David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54651 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752427Ab1D0SFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 14:05:45 -0400
-Received: by wya21 with SMTP id 21so1461815wya.19
-        for <netdev@vger.kernel.org>; Wed, 27 Apr 2011 11:05:44 -0700 (PDT)
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755018DF59D81@orsmsx508.amr.corp.intel.com>
+Received: from mga09.intel.com ([134.134.136.24]:26873 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754763Ab1D0SIY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Apr 2011 14:08:24 -0400
+In-Reply-To: <1303927540.3166.129.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 27 avril 2011 =C3=A0 10:39 -0700, Rose, Gregory V a =C3=A9c=
-rit :
-
-> Right, but when I look in rtnetlink I see the routine to calculate th=
-e
-> amount of buffer needed for VF info dump is the number of device
-> parent (PF) VFs * the sizeof various IFLA_VF_INFO items.  The more th=
-e
-> VFs the bigger this gets, especially if you want to add more stuff to
-> IFLA_VF_INFO.  So when the kernel dumps this all out it can get bigge=
-r
-> than the NLMSG_GOODSIZE (or DUMPSIZE) pretty quickly.
->=20
-> >=20
-> > BTW "ip" uses a 16384 bytes buffer, not a 8192 bytes one.
->=20
-> I know, that's why I suffered some confusion about which size to use.
-> The ip command uses 16K but the NLMSG_GOODSIZE can be as small as 371=
-2
-> bytes (depending on page size).  Despite the user buffer being 16k if
-> the size calculated by if_nlmsg_size() in rtnetlink.c is bigger than
-> NLMSG_GOODSIZE then you don't see the info for more than 40 or so VFs=
-=2E
-> More VFs than that and nothing gets displayed.
->=20
-
-One solution is to change rtnl_dump_ifinfo() to call rtnl_fill_ifinfo()
-once time per device (RTM_NEWLINK like now but no more VFINFO inside),
-then call another function to provide vf/vlan informations (RTM_NEWVF),
-using cb->args[2] as an index into VF space, so that we can stop if
-current skb is filled, and next recvmsg() starts at previous saved
-index.
-
-Or implement a new "ip vf ..." dumper and only dumps RTM_NEWVF messages=
-=2E
-
-
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDI3LCAy
+MDExIDExOjA2IEFNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IFN0ZXZlIEhvZGdzb247
+IERhdmlkIE1pbGxlcjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gYmh1dGNoaW5nc0Bzb2xh
+cmZsYXJlLmNvbQ0KPiBTdWJqZWN0OiBSRTogW1JGQyBQQVRDSF0gbmV0bGluazogSW5jcmVhc2Ug
+bmV0bGluayBkdW1wIHNrYiBtZXNzYWdlIHNpemUNCj4gDQo+IExlIG1lcmNyZWRpIDI3IGF2cmls
+IDIwMTEgw6AgMTA6MzkgLTA3MDAsIFJvc2UsIEdyZWdvcnkgViBhIMOpY3JpdCA6DQo+IA0KPiA+
+IFJpZ2h0LCBidXQgd2hlbiBJIGxvb2sgaW4gcnRuZXRsaW5rIEkgc2VlIHRoZSByb3V0aW5lIHRv
+IGNhbGN1bGF0ZSB0aGUNCj4gPiBhbW91bnQgb2YgYnVmZmVyIG5lZWRlZCBmb3IgVkYgaW5mbyBk
+dW1wIGlzIHRoZSBudW1iZXIgb2YgZGV2aWNlDQo+ID4gcGFyZW50IChQRikgVkZzICogdGhlIHNp
+emVvZiB2YXJpb3VzIElGTEFfVkZfSU5GTyBpdGVtcy4gIFRoZSBtb3JlIHRoZQ0KPiA+IFZGcyB0
+aGUgYmlnZ2VyIHRoaXMgZ2V0cywgZXNwZWNpYWxseSBpZiB5b3Ugd2FudCB0byBhZGQgbW9yZSBz
+dHVmZiB0bw0KPiA+IElGTEFfVkZfSU5GTy4gIFNvIHdoZW4gdGhlIGtlcm5lbCBkdW1wcyB0aGlz
+IGFsbCBvdXQgaXQgY2FuIGdldCBiaWdnZXINCj4gPiB0aGFuIHRoZSBOTE1TR19HT09EU0laRSAo
+b3IgRFVNUFNJWkUpIHByZXR0eSBxdWlja2x5Lg0KPiA+DQo+ID4gPg0KPiA+ID4gQlRXICJpcCIg
+dXNlcyBhIDE2Mzg0IGJ5dGVzIGJ1ZmZlciwgbm90IGEgODE5MiBieXRlcyBvbmUuDQo+ID4NCj4g
+PiBJIGtub3csIHRoYXQncyB3aHkgSSBzdWZmZXJlZCBzb21lIGNvbmZ1c2lvbiBhYm91dCB3aGlj
+aCBzaXplIHRvIHVzZS4NCj4gPiBUaGUgaXAgY29tbWFuZCB1c2VzIDE2SyBidXQgdGhlIE5MTVNH
+X0dPT0RTSVpFIGNhbiBiZSBhcyBzbWFsbCBhcyAzNzEyDQo+ID4gYnl0ZXMgKGRlcGVuZGluZyBv
+biBwYWdlIHNpemUpLiAgRGVzcGl0ZSB0aGUgdXNlciBidWZmZXIgYmVpbmcgMTZrIGlmDQo+ID4g
+dGhlIHNpemUgY2FsY3VsYXRlZCBieSBpZl9ubG1zZ19zaXplKCkgaW4gcnRuZXRsaW5rLmMgaXMg
+YmlnZ2VyIHRoYW4NCj4gPiBOTE1TR19HT09EU0laRSB0aGVuIHlvdSBkb24ndCBzZWUgdGhlIGlu
+Zm8gZm9yIG1vcmUgdGhhbiA0MCBvciBzbyBWRnMuDQo+ID4gTW9yZSBWRnMgdGhhbiB0aGF0IGFu
+ZCBub3RoaW5nIGdldHMgZGlzcGxheWVkLg0KPiA+DQo+IA0KPiBPbmUgc29sdXRpb24gaXMgdG8g
+Y2hhbmdlIHJ0bmxfZHVtcF9pZmluZm8oKSB0byBjYWxsIHJ0bmxfZmlsbF9pZmluZm8oKQ0KPiBv
+bmNlIHRpbWUgcGVyIGRldmljZSAoUlRNX05FV0xJTksgbGlrZSBub3cgYnV0IG5vIG1vcmUgVkZJ
+TkZPIGluc2lkZSksDQo+IHRoZW4gY2FsbCBhbm90aGVyIGZ1bmN0aW9uIHRvIHByb3ZpZGUgdmYv
+dmxhbiBpbmZvcm1hdGlvbnMgKFJUTV9ORVdWRiksDQo+IHVzaW5nIGNiLT5hcmdzWzJdIGFzIGFu
+IGluZGV4IGludG8gVkYgc3BhY2UsIHNvIHRoYXQgd2UgY2FuIHN0b3AgaWYNCj4gY3VycmVudCBz
+a2IgaXMgZmlsbGVkLCBhbmQgbmV4dCByZWN2bXNnKCkgc3RhcnRzIGF0IHByZXZpb3VzIHNhdmVk
+DQo+IGluZGV4Lg0KPiANCj4gT3IgaW1wbGVtZW50IGEgbmV3ICJpcCB2ZiAuLi4iIGR1bXBlciBh
+bmQgb25seSBkdW1wcyBSVE1fTkVXVkYgbWVzc2FnZXMuDQoNCkknbSBhIG5ldGxpbmsgbmV3Ymll
+IHNvIG1heWJlIHRoYXQgaXMgYSBtb3JlIG9idmlvdXMgc29sdXRpb24gdGhhdCBJIG1pc3NlZC4g
+IExldCBtZSBoYXZlIGEgbG9vayBhdCB0aGUgY29kZSBhbmQgc2VlLg0KDQpUaGFua3MsDQoNCi0g
+R3JlZw0KDQo=
