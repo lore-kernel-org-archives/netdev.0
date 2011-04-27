@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] Applying inappropriate ioctl operation on socket
  should return ENOTTY
-Date: Wed, 27 Apr 2011 08:55:09 +0200
-Message-ID: <1303887309.2699.58.camel@edumazet-laptop>
+Date: Wed, 27 Apr 2011 08:57:37 +0200
+Message-ID: <1303887457.2699.60.camel@edumazet-laptop>
 References: <1303882625-28115-1-git-send-email-lifongsun@gmail.com>
 	 <1303883910.2699.53.camel@edumazet-laptop>
 	 <20110427063730.GA20313@md5.ntu.edu.sg>
@@ -39,27 +39,9 @@ Le mercredi 27 avril 2011 =C3=A0 14:37 +0800, Lifeng Sun a =C3=A9crit :
 > which means when we apply tcsetattr (implemented by ioctl) to _any_
 > non-terminal file descriptor, it should set errno to ENOTTY rather
 > than EINVAL.
+>=20
 
-Thats not so simple. This is a known and documented artifact.
+You quote manpage for a library call, not a system call.
 
-In old days, ioctl() had a meaning for TTYS (mostly).
-
-
-
-man isatty
-
-ERRORS
-       EBADF  fd is not a valid file descriptor.
-
-       EINVAL fd refers to a file other than a terminal.  POSIX.1-2001 =
-specifies the error ENOTTY for this case.
-
-
-This is not because POSIX changes rules that we must change kernel and =
-break applications.
-
-Conformant applications use isatty(fd) and test result code being 1 or =
-not 1
-
-This way, they work with linux 1.0, 2.0, 2.2, 2.4, .... and other OSes =
-as well.
+If you feel your glibc doesnt implement well this, please complain to
+glibc maintainer.
