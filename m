@@ -1,92 +1,104 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH 2/2] tg3: Add code to allow ethtool to enable/disable loopback.
-Date: Thu, 28 Apr 2011 16:33:19 -0700
-Message-ID: <1304033599-8395-3-git-send-email-maheshb@google.com>
-References: <1304033599-8395-1-git-send-email-maheshb@google.com>
- <1304033599-8395-2-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Mahesh Bandewar <maheshb@google.com>
-To: David Miller <davem@davemloft.net>,
-	Matt Carlson <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:2052 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756863Ab1D1Xdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 19:33:38 -0400
-In-Reply-To: <1304033599-8395-2-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: A race in register_netdevice()
+Date: Thu, 28 Apr 2011 16:52:37 -0700
+Message-ID: <20110428165237.0c1eddbc@nehalam>
+References: <87y62ugg0a.fsf@purkki.adurom.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87y62ugg0a.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
----
- drivers/net/tg3.c |   32 ++++++++++++++++++++++++++++++++
- 1 files changed, 32 insertions(+), 0 deletions(-)
+On Fri, 29 Apr 2011 01:36:37 +0300
+Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org> wrote:
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index fa57e3d..208884d 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -6319,6 +6319,33 @@ static u32 tg3_fix_features(struct net_device *dev, u32 features)
- 	return features;
- }
- 
-+static int tg3_set_features(struct net_device *dev, u32 features)
-+{
-+	struct tg3 *tp = netdev_priv(dev);
-+	u32 cur_mode = 0;
-+	int err = 0;
-+
-+	spin_lock_bh(&tp->lock);
-+	cur_mode = tr32(MAC_MODE);
-+
-+	if (features & NETIF_F_LOOPBACK) {
-+		/* Enable internal MAC loopback mode */
-+		tw32(MAC_MODE, cur_mode | MAC_MODE_PORT_INT_LPBACK);
-+		netif_carrier_on(tp->dev);
-+		netdev_info(dev, "Internal MAC loopback mode enabled.\n");
-+	} else {
-+		/* Disable internal MAC loopback mode */
-+		tw32(MAC_MODE, cur_mode & ~MAC_MODE_PORT_INT_LPBACK);
-+		/* Force link status check */
-+		if (netif_running(dev))
-+			tg3_setup_phy(tp, 1);
-+		netdev_info(dev, "Internal MAC loopback mode disabled.\n");
-+	}
-+	spin_unlock_bh(&tp->lock);
-+
-+	return err;
-+}
-+
- static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
- 			       int new_mtu)
- {
-@@ -15028,6 +15055,7 @@ static const struct net_device_ops tg3_netdev_ops = {
- 	.ndo_tx_timeout		= tg3_tx_timeout,
- 	.ndo_change_mtu		= tg3_change_mtu,
- 	.ndo_fix_features	= tg3_fix_features,
-+	.ndo_set_features	= tg3_set_features,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= tg3_poll_controller,
- #endif
-@@ -15044,6 +15072,7 @@ static const struct net_device_ops tg3_netdev_ops_dma_bug = {
- 	.ndo_do_ioctl		= tg3_ioctl,
- 	.ndo_tx_timeout		= tg3_tx_timeout,
- 	.ndo_change_mtu		= tg3_change_mtu,
-+	.ndo_set_features	= tg3_set_features,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= tg3_poll_controller,
- #endif
-@@ -15241,6 +15270,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	dev->features |= hw_features;
- 	dev->vlan_features |= hw_features;
- 
-+	/* Add the loopback capability */
-+	dev->hw_features |= NETIF_F_LOOPBACK;
-+
- 	if (tp->pci_chip_rev_id == CHIPREV_ID_5705_A1 &&
- 	    !tg3_flag(tp, TSO_CAPABLE) &&
- 	    !(tr32(TG3PCI_PCISTATE) & PCISTATE_BUS_SPEED_HIGH)) {
+> Hi,
+> 
+> there seems to be a race in register_netdevice(), which is reported here:
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=15606
+> 
+> This is visible at least with flimflam and ath6kl. Basically what
+> happens is this:
+> 
+> Apr 29 00:21:35 roska flimflamd[2598]: src/udev.c:add_net_device() 
+> Apr 29 00:21:35 roska flimflamd[2598]: connman_inet_ifname: SIOCGIFNAME(index
+> 4): No such device
+> Apr 29 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message() buf
+> 0xbfefda3c len 1004
+> Apr 29 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message()
+> NEWLINK len 1004 type 16 flags 0x0000 seq 0
+> 
+> (ignore the 10 s delay, I added that to reproduce the issue easily)
+> 
+> There are two ways to fix this, first is to move kobject registration
+> after the call to list_netdevice():
+> 
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5425,11 +5425,6 @@ int register_netdevice(struct net_device *dev)
+>         if (ret)
+>                 goto err_uninit;
+>  
+> -       ret = netdev_register_kobject(dev);
+> -       if (ret)
+> -               goto err_uninit;
+> -       dev->reg_state = NETREG_REGISTERED;
+> -
+>         netdev_update_features(dev);
+>  
+>         /*
+> @@ -5443,6 +5438,11 @@ int register_netdevice(struct net_device *dev)
+>         dev_hold(dev);
+>         list_netdevice(dev);
+>  
+> +       ret = netdev_register_kobject(dev);
+> +       if (ret)
+> +               goto err_uninit;
+> +       dev->reg_state = NETREG_REGISTERED;
+> +
+>         /* Notify protocols, that a new device appeared. */
+>         ret = call_netdevice_notifiers(NETDEV_REGISTER, dev);
+>         ret = notifier_to_errno(ret);
+> 
+> Other option, noticed by Jouni Malinen, is to take rtnl for
+> SIOCGIFNAME. For some reason it's currently unprotected:
+> 
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4917,8 +4917,12 @@ int dev_ioctl(struct net *net, unsigned int
+> cmd, void __user *arg)
+>           rtnl_unlock();
+>                 return ret;
+>                 }
+> -               if (cmd == SIOCGIFNAME)
+> -                  return dev_ifname(net, (struct ifreq __user *)arg);
+> +                  if (cmd == SIOCGIFNAME) {
+> +                     rtnl_lock();
+> +                       ret = dev_ifname(net, (struct ifreq __user
+> -                  *)arg);
+> +                       rtnl_unlock();
+> +                               return ret;
+> +                               }
+>  
+>         if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
+>            return -EFAULT;
+> 
+> I have confirmed that both of these patches fix the issue. Now I'm
+> wondering which one is the best way forward. Or is there a better way
+> to fix this?
+> 
+
+I see no problem with moving this.
+SIOCGIFNAME should not need to hold rtnl.
+
+
 -- 
-1.7.3.1
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
