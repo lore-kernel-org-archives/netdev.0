@@ -1,42 +1,77 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/3] bql: Byte queue limits
-Date: Thu, 28 Apr 2011 05:53:05 -0700
-Message-ID: <BANLkTikeGhmyswra_Z38eXMBuZk2seoPwQ@mail.gmail.com>
-References: <alpine.DEB.2.00.1104252128290.5895@pokey.mtv.corp.google.com>
-	<20110426091620.7c576a98@nehalam>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: =?utf-8?B?562U5aSN?= =?utf-8?Q?=3A?= Is 802.3ad mode in bonding
+ useful ?
+Date: Thu, 28 Apr 2011 09:23:16 -0400
+Message-ID: <20110428132316.GC4165@hmsreliant.think-freely.org>
+References: <4DB9185E.4050103@gmail.com>
+ <20110428122102.GB4165@hmsreliant.think-freely.org>
+ <0FBC7C9C2640634A8B837C2EFFCFF32F0184732D72@SHEXMB-01.global.atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: WeipingPan <panweiping3@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Xiong Huang <Xiong.Huang@Atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:49907 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759375Ab1D1MxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 08:53:08 -0400
-Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
-	by smtp-out.google.com with ESMTP id p3SCr7C8007135
-	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 05:53:07 -0700
-Received: from pzk37 (pzk37.prod.google.com [10.243.19.165])
-	by hpaq13.eem.corp.google.com with ESMTP id p3SCqsom026979
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 05:53:05 -0700
-Received: by pzk37 with SMTP id 37so2880501pzk.1
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 05:53:05 -0700 (PDT)
-In-Reply-To: <20110426091620.7c576a98@nehalam>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43783 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752798Ab1D1NXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 09:23:37 -0400
+Content-Disposition: inline
+In-Reply-To: <0FBC7C9C2640634A8B837C2EFFCFF32F0184732D72@SHEXMB-01.global.atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Although this is implemented as a device attribute, from a layering
-> point of view it feels like a queuing strategy. Having two competing
-> ways to do something is not always a good idea. Why is this not a
-> qdisc parameter or a new qdisc?
->
-It's an interesting idea, but I'm not sure that this would fit into
-the qdisc model without some major re-architecture.  The qdiscs manage
-host side above the device, BQL is another layer that would need to be
-added beyond the that which is logically below the leaf qdiscs.
+On Thu, Apr 28, 2011 at 08:31:33PM +0800, Xiong Huang wrote:
+> Is there any plan to support cisco FEC/GEC protocol in bonding ?
+>=20
+Not explicitly, no, since roundrobin/xor modes should be compatible alr=
+eady,
+and etherchannel can interoperate with 802.3ad bonds if the switches
+etherchannel is configured to be in lacp mode:
 
-Tom
+Neil
 
+
+> -Xiong
+> ________________________________________
+> =E5=8F=91=E4=BB=B6=E4=BA=BA: netdev-owner@vger.kernel.org [netdev-own=
+er@vger.kernel.org] =E4=BB=A3=E8=A1=A8 Neil Horman [nhorman@tuxdriver.c=
+om]
+> =E5=8F=91=E9=80=81=E6=97=B6=E9=97=B4: 2011=E5=B9=B44=E6=9C=8828=E6=97=
+=A5 5:21
+> =E6=94=B6=E4=BB=B6=E4=BA=BA: WeipingPan
+> =E6=8A=84=E9=80=81: netdev@vger.kernel.org
+> =E4=B8=BB=E9=A2=98: Re: Is 802.3ad mode in bonding useful ?
+>=20
+> On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
+> > Hi, all,
+> >
+> > 802.3ad mode in bonding implements 802.3ad standard.
+> >
+> > I am just wondering  802.3ad mode is useful,
+> > since  bonding has many modes like balance-rr, active-backup, etc.
+> >
+> Yes, of course its usefull.  For switches which support 802.3ad, this=
+ mode
+> allows for both peers to understand that the links in the bond are ac=
+ting as an
+> aggregate, which makes it easier to prevent things like inadvertently=
+ looped
+> back frames, for which the other modes have to have all sorts of hack=
+s to
+> prevent.
+> Neil
+>=20
+> > thanks
+> > Weiping Pan
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" i=
+n
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
 > --
->
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
