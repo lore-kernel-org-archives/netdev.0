@@ -1,80 +1,95 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [NEXT PATCH 2/3] qlcnic: support rcv ring configuration
- through ethtool
-Date: Thu, 28 Apr 2011 01:02:42 +0100
-Message-ID: <1303948962.2875.178.camel@bwh-desktop>
-References: <1303951426-4341-1-git-send-email-amit.salecha@qlogic.com>
-	 <1303951426-4341-3-git-send-email-amit.salecha@qlogic.com>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH 12/13] mm: Throttle direct reclaimers if PF_MEMALLOC
+ reserves are low and swap is backed by network storage
+Date: Thu, 28 Apr 2011 10:22:44 +1000
+Message-ID: <20110428102244.6e1113e9@notabene.brown>
+References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
+	<1303920491-25302-13-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-To: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:53405 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754721Ab1D1ACp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 20:02:45 -0400
-In-Reply-To: <1303951426-4341-3-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1303920491-25302-13-git-send-email-mgorman@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-04-27 at 17:43 -0700, Amit Kumar Salecha wrote:
-> From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> 
-> o Support ethtool command ETHTOOL_GCHANNELS and ETHTOOL_SCHANNELS.
-> o Number of rcv rings configuration depend upon number of msix vector.
-[...]
-> --- a/drivers/net/qlcnic/qlcnic_ethtool.c
-> +++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-> @@ -474,6 +474,49 @@ qlcnic_set_ringparam(struct net_device *dev,
->  	return qlcnic_reset_context(adapter);
->  }
->  
-> +static void qlcnic_get_channels(struct net_device *dev,
-> +		struct ethtool_channels *channel)
+On Wed, 27 Apr 2011 17:08:10 +0100 Mel Gorman <mgorman@suse.de> wrote:
+
+
+> +/*
+> + * Throttle direct reclaimers if backing storage is backed by the network
+> + * and the PFMEMALLOC reserve for the preferred node is getting dangerously
+> + * depleted. kswapd will continue to make progress and wake the processes
+> + * when the low watermark is reached
+> + */
+> +static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
+> +					nodemask_t *nodemask)
 > +{
-> +	struct qlcnic_adapter *adapter = netdev_priv(dev);
+> +	struct zone *zone;
+> +	int high_zoneidx = gfp_zone(gfp_mask);
+> +	DEFINE_WAIT(wait);
 > +
-> +	channel->max_rx = rounddown_pow_of_two(min_t(int,
-> +			adapter->max_rx_ques, num_online_cpus()));
-> +	channel->max_tx = adapter->max_tx_ques;
+> +	/* Check if the pfmemalloc reserves are ok */
+> +	first_zones_zonelist(zonelist, high_zoneidx, NULL, &zone);
+> +	if (pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx))
+> +		return;
+
+As the first thing that 'wait_event_interruptible" does is test the condition
+and return if it is true, this "if () return;" is pointless.
+ 
 > +
-> +	channel->rx_count = adapter->max_sds_rings;
-> +	channel->tx_count = QLCNIC_MIN_NUM_TX_DESC_RINGS;
+> +	/* Throttle */
+> +	wait_event_interruptible(zone->zone_pgdat->pfmemalloc_wait,
+> +		pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx));
 > +}
+
+I was surprised that you chose wait_event_interruptible as your previous code
+was almost exactly "wait_event_killable".
+
+Is there some justification for not throttling processes which happen to have
+a (non-fatal) signal pending?
+
+Thanks,
+NeilBrown
+
+
+
 > +
-> +static int qlcnic_set_channels(struct net_device *dev,
-> +		struct ethtool_channels *channel)
-> +{
-> +	struct qlcnic_adapter *adapter = netdev_priv(dev);
-> +	int err;
+>  unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
+>  				gfp_t gfp_mask, nodemask_t *nodemask)
+>  {
+> @@ -2133,6 +2172,15 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
+>  		.nodemask = nodemask,
+>  	};
+>  
+> +	throttle_direct_reclaim(gfp_mask, zonelist, nodemask);
 > +
-> +	if (channel->other_count || channel->combined_count)
-> +		return -EOPNOTSUPP;
-
-Should be -EINVAL.
-
-> +	if (channel->tx_count &&
-> +		(channel->tx_count != QLCNIC_MIN_NUM_TX_DESC_RINGS)) {
-> +		netdev_info(dev, "valid value for tx_count 0x%x\n",
-> +				QLCNIC_MIN_NUM_TX_DESC_RINGS);
-> +		return -EINVAL;
-> +	}
-[...]
-
-If tx_count cannot be changed, why does qlcnic_get_channels() set
-tx_count and max_tx to different values?
-
-Also I don't think you should treat tx_count == 0 as a special case; it
-should be rejected as invalid.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> +	/*
+> +	 * Do not enter reclaim if fatal signal is pending. 1 is returned so
+> +	 * that the page allocator does not consider triggering OOM
+> +	 */
+> +	if (fatal_signal_pending(current))
+> +		return 1;
+> +
+>  	trace_mm_vmscan_direct_reclaim_begin(order,
+>  				sc.may_writepage,
+>  				gfp_mask);
+> @@ -2488,6 +2536,12 @@ loop_again:
+>  			}
+>  
+>  		}
+> +
+> +		/* Wake throttled direct reclaimers if low watermark is met */
+> +		if (waitqueue_active(&pgdat->pfmemalloc_wait) &&
+> +				pfmemalloc_watermark_ok(pgdat, MAX_NR_ZONES - 1))
+> +			wake_up_interruptible(&pgdat->pfmemalloc_wait);
+> +
+>  		if (all_zones_ok || (order && pgdat_balanced(pgdat, balanced, *classzone_idx)))
+>  			break;		/* kswapd: all done */
+>  		/*
