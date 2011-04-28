@@ -1,11 +1,11 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 08/13] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Thu, 28 Apr 2011 11:05:06 +0100
-Message-ID: <20110428100035.GO4658@suse.de>
+Subject: Re: [PATCH 12/13] mm: Throttle direct reclaimers if PF_MEMALLOC
+ reserves are low and swap is backed by network storage
+Date: Thu, 28 Apr 2011 11:14:46 +0100
+Message-ID: <20110428101446.GP4658@suse.de>
 References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
- <1303920491-25302-9-git-send-email-mgorman@suse.de>
- <20110428161933.1f1266e6@notabene.brown>
+ <1303920491-25302-13-git-send-email-mgorman@suse.de>
+ <20110428102244.6e1113e9@notabene.brown>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
 Cc: Linux-MM <linux-mm@kvack.org>,
@@ -16,47 +16,89 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 To: NeilBrown <neilb@suse.de>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20110428161933.1f1266e6@notabene.brown>
+In-Reply-To: <20110428102244.6e1113e9@notabene.brown>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2011 at 04:19:33PM +1000, NeilBrown wrote:
-> On Wed, 27 Apr 2011 17:08:06 +0100 Mel Gorman <mgorman@suse.de> wrote:
+On Thu, Apr 28, 2011 at 10:22:44AM +1000, NeilBrown wrote:
+> On Wed, 27 Apr 2011 17:08:10 +0100 Mel Gorman <mgorman@suse.de> wrote:
 > 
 > 
-> > @@ -1578,7 +1589,7 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
-> >   */
-> >  static inline struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+> > +/*
+> > + * Throttle direct reclaimers if backing storage is backed by the network
+> > + * and the PFMEMALLOC reserve for the preferred node is getting dangerously
+> > + * depleted. kswapd will continue to make progress and wake the processes
+> > + * when the low watermark is reached
+> > + */
+> > +static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
+> > +					nodemask_t *nodemask)
+> > +{
+> > +	struct zone *zone;
+> > +	int high_zoneidx = gfp_zone(gfp_mask);
+> > +	DEFINE_WAIT(wait);
+> > +
+> > +	/* Check if the pfmemalloc reserves are ok */
+> > +	first_zones_zonelist(zonelist, high_zoneidx, NULL, &zone);
+> > +	if (pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx))
+> > +		return;
+> 
+> As the first thing that 'wait_event_interruptible" does is test the condition
+> and return if it is true, this "if () return;" is pointless.
+>  
+
+In patch 13, we count the number of times we got throttled. In this
+patch, the check is pointless but it makes sense in the context of
+the following patch.
+
+> > +
+> > +	/* Throttle */
+> > +	wait_event_interruptible(zone->zone_pgdat->pfmemalloc_wait,
+> > +		pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx));
+> > +}
+> 
+> I was surprised that you chose wait_event_interruptible as your previous code
+> was almost exactly "wait_event_killable".
+> 
+> Is there some justification for not throttling processes which happen to have
+> a (non-fatal) signal pending?
+> 
+
+No justification, wait_event_killable() is indeed a better fit.
+
+> > +
+> >  unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
+> >  				gfp_t gfp_mask, nodemask_t *nodemask)
 > >  {
-> > -	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, 0);
-> > +	return alloc_pages_node(NUMA_NO_NODE, gfp_mask | __GFP_MEMALLOC, 0);
-> >  }
+> > @@ -2133,6 +2172,15 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
+> >  		.nodemask = nodemask,
+> >  	};
 > >  
+> > +	throttle_direct_reclaim(gfp_mask, zonelist, nodemask);
+> > +
+> > +	/*
+> > +	 * Do not enter reclaim if fatal signal is pending. 1 is returned so
+> > +	 * that the page allocator does not consider triggering OOM
+> > +	 */
+> > +	if (fatal_signal_pending(current))
+> > +		return 1;
+> > +
+> >  	trace_mm_vmscan_direct_reclaim_begin(order,
+> >  				sc.may_writepage,
+> >  				gfp_mask);
+> > @@ -2488,6 +2536,12 @@ loop_again:
+> >  			}
+> >  
+> >  		}
+> > +
+> > +		/* Wake throttled direct reclaimers if low watermark is met */
+> > +		if (waitqueue_active(&pgdat->pfmemalloc_wait) &&
+> > +				pfmemalloc_watermark_ok(pgdat, MAX_NR_ZONES - 1))
+> > +			wake_up_interruptible(&pgdat->pfmemalloc_wait);
+> > +
+> >  		if (all_zones_ok || (order && pgdat_balanced(pgdat, balanced, *classzone_idx)))
+> >  			break;		/* kswapd: all done */
+> >  		/*
 > 
-> I'm puzzling a bit over this change.
-> __netdev_alloc_page appears to be used to get pages to put in ring buffer
-> for a network card to DMA received packets into.  So it is OK to use
-> __GFP_MEMALLOC for these allocations providing we mark the resulting skb as
-> 'pfmemalloc' if a reserved page was used.
-> 
-> However I don't see where that marking is done.
-> I think it should be in skb_fill_page_desc, something like:
-> 
->   if (page->pfmemalloc)
-> 	skb->pfmemalloc = true;
-> 
-> Is this covered somewhere else that I am missing?
-> 
-
-You're not missing anything.
-
->From the context of __netdev_alloc_page, we do not know if the skb
-is suitable for marking pfmemalloc or not (we don't have SKB_ALLOC_RX
-flag for example that __alloc_skb has). The reserves are potentially
-being dipped into for an unsuitable packet but it gets dropped in
-__netif_receive_skb() and the memory is returned. If we mark the skb
-pfmemalloc as a result of __netdev_alloc_page using a reserve page, the
-packets would not get dropped as expected.
 
 -- 
 Mel Gorman
