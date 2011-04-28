@@ -1,74 +1,47 @@
-From: Adam Jaremko <adam.jaremko@gmail.com>
-Subject: [PATCH v2] net: ftmac100: fix scheduling while atomic during PHY
- link status change
-Date: Thu, 28 Apr 2011 13:41:18 -0400
-Message-ID: <1304012478.3715.5.camel@localhost.localdomain>
-References: <BANLkTi=gcFB4mbmWKu4neep77Jp8R4HWGQ@mail.gmail.com>
-	 <BANLkTinB1FiHYX1KoO90UepmhQdXZs0eEg@mail.gmail.com>
+From: Debashis Dutt <debdut@gmail.com>
+Subject: Re: [RFC PATCH 1/1] bna: Generic Netlink Interface to collect FW trace
+Date: Thu, 28 Apr 2011 10:51:27 -0700
+Message-ID: <BANLkTimOuF+HtLxsmTGVpC7ahU_NFy_L2g@mail.gmail.com>
+References: <1303869117-780-1-git-send-email-rmody@brocade.com>
+	<20110426185917.3d033636@nehalam>
+	<BANLkTinUsJ2foWKBVb_9nVFA2V_vKb11rA@mail.gmail.com>
+	<20110426.191707.71110914.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ratbert Po-Yu
-	 =?UTF-8?Q?Chuang=28=E8=8E=8A=E5=8D=9A=E5=AE=87=29?=
-	<ratbert@faraday-tech.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: shemminger@vyatta.com, rmody@brocade.com, netdev@vger.kernel.org,
+	huangj@brocade.com, amathur@brocade.com, ddutt@brocade.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:42747 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026Ab1D1Rln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 13:41:43 -0400
-Received: by ywj3 with SMTP id 3so1050321ywj.19
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 10:41:42 -0700 (PDT)
-In-Reply-To: <BANLkTinB1FiHYX1KoO90UepmhQdXZs0eEg@mail.gmail.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:33661 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751318Ab1D1Rv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 13:51:29 -0400
+Received: by fxm17 with SMTP id 17so1979355fxm.19
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 10:51:28 -0700 (PDT)
+In-Reply-To: <20110426.191707.71110914.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think I've sorted my mail client preferences and all should be well now.
+On Tue, Apr 26, 2011 at 7:17 PM, David Miller <davem@davemloft.net> wrote:
+> From: Debashis Dutt <debdut@gmail.com>
+> Date: Tue, 26 Apr 2011 19:16:29 -0700
+>
+>> However, since the generic netlink is a more generic interface, we could use
+>> this infrastructure in the driver for commands which are not part of
+>> other standard tools.
+>
+> You aren't the only device in the world that might want to provide
+> a facility to fetch firmware traces.
+>
+> This isn't really a niche thing specific to your device at all.
+>
 
-Signed-off-by: Adam Jaremko <adam.jaremko@gmail.com>
-Acked-by: Po-Yu Chuang <ratbert@faraday-tech.com>
----
- drivers/net/ftmac100.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+David,
 
-diff --git a/drivers/net/ftmac100.c b/drivers/net/ftmac100.c
-index a316619..9bd7746 100644
---- a/drivers/net/ftmac100.c
-+++ b/drivers/net/ftmac100.c
-@@ -139,11 +139,11 @@ static int ftmac100_reset(struct ftmac100 *priv)
- 			 * that hardware reset completed (what the f*ck).
- 			 * We still need to wait for a while.
- 			 */
--			usleep_range(500, 1000);
-+			udelay(500);
- 			return 0;
- 		}
- 
--		usleep_range(1000, 10000);
-+		udelay(1000);
- 	}
- 
- 	netdev_err(netdev, "software reset failed\n");
-@@ -772,7 +772,7 @@ static int ftmac100_mdio_read(struct net_device *netdev, int phy_id, int reg)
- 		if ((phycr & FTMAC100_PHYCR_MIIRD) == 0)
- 			return phycr & FTMAC100_PHYCR_MIIRDATA;
- 
--		usleep_range(100, 1000);
-+		udelay(100);
- 	}
- 
- 	netdev_err(netdev, "mdio read timed out\n");
-@@ -801,7 +801,7 @@ static void ftmac100_mdio_write(struct net_device *netdev, int phy_id, int reg,
- 		if ((phycr & FTMAC100_PHYCR_MIIWR) == 0)
- 			return;
- 
--		usleep_range(100, 1000);
-+		udelay(100);
- 	}
- 
- 	netdev_err(netdev, "mdio write timed out\n");
--- 
-1.7.4.4
+Agreed.
 
+In that case should we use debugfs for collecting f/w trace,
+but use generic netlink for other h/w specific commands?
+
+ Thanks
+ --Debashis
