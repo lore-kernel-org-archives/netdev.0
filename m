@@ -1,68 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: dont hold rtnl mutex during netlink
- dump callbacks
-Date: Thu, 28 Apr 2011 17:53:50 +0200
-Message-ID: <1304006030.3360.70.camel@edumazet-laptop>
-References: <1303980967.3360.60.camel@edumazet-laptop>
-	 <20110428084337.6b54603e@nehalam>
+From: "Sgt. Joey Jones." <selena@selena.net.ua>
+Subject: RE
+Date: Thu, 28 Apr 2011 18:59:24 +0100
+Message-ID: <20110428161036.M44598__15139.8754133426$1304011062$gmane$org@selena.net.ua>
+Reply-To: sgtjjoey11@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=big5
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43537 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758913Ab1D1Pxz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 11:53:55 -0400
-Received: by wwa36 with SMTP id 36so3280313wwa.1
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 08:53:54 -0700 (PDT)
-In-Reply-To: <20110428084337.6b54603e@nehalam>
+Received: from relay.selena.net.ua ([193.151.240.2]:54366 "EHLO selena.net.ua"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751318Ab1D1RRd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2011 13:17:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 28 avril 2011 =C3=A0 08:43 -0700, Stephen Hemminger a =C3=A9cr=
-it :
-> On Thu, 28 Apr 2011 10:56:07 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > Four years ago, Patrick made a change to hold rtnl mutex during net=
-link
-> > dump callbacks.
-> >=20
-> > I believe it was a wrong move. This slows down concurrent dumps, ma=
-king
-> > good old /proc/net/ files faster than rtnetlink in some situations.
-> >=20
-> > This occurred to me because one "ip link show dev ..." was _very_ s=
-low
-> > on a workload adding/removing network devices in background.
-> >=20
-> > All dump callbacks are able to use RCU locking now, so this patch d=
-oes
-> > roughly a revert of commits :
-> >=20
-> > 1c2d670f366 : [RTNETLINK]: Hold rtnl_mutex during netlink dump call=
-backs
-> > 6313c1e0992 : [RTNETLINK]: Remove unnecessary locking in dump callb=
-acks
-> >=20
-> > This let writers fight for rtnl mutex and readers going full speed.
-> >=20
-> > It also takes care of phonet : phonet_route_get() is now called fro=
-m rcu
-> > read section. I renamed it to phonet_route_get_rcu()
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > Cc: Patrick McHardy <kaber@trash.net>
-> > Cc: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
->=20
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
+Hello Friend,
 
-Thanks for reviewing Stephen=20
+I hope my e-mail met you well.  I need your assistance. My name Is Sgt.Joey Jones, 
+I am an American soldier serving in the  1st Armored Division in Iraq for the United States, 
+we have  $25,000,000.00 USD. that is in our Possession and we are ready to move it out of 
+the country.
 
+The money, which is now in the custody of Security Company, is part of the Money we 
+seized from late Saddam Hussein but we were not declared. Right now I am In the Baghdad 
+trying to sort out things with the Security Company to ensure a smooth and Unhindered transfer 
+of the money to you,therefore be assured that the transfer is safe and risk free.
 
+My colleague and I need a good partner someone, we can trust to actualize this Venture, but 
+we are moving it through diplomatic means to your house directly Or a safe and secured location 
+of your choice using a shipping company, but Can we trust you? Once the funds get to you, you 
+are to take your 40% out and keep our own 60%, if you are interested I will furnish you with 
+more details. Awaiting your response, Contact via this E-mail: sgtjjoey11gmail.com
+
+Yours Buddy And Partner,
+
+Sgt. Joey Jones.
