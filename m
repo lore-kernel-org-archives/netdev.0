@@ -1,110 +1,113 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH 6/6 v8] sctp: Add ASCONF operation on the single-homed
- host
-Date: Thu, 28 Apr 2011 16:59:09 +0800
-Message-ID: <4DB92C5D.6000309@cn.fujitsu.com>
-References: <4947D5B3-9FCA-42AA-81D0-9D55594108F1@sfc.wide.ad.jp> <4DB8F287.2070000@cn.fujitsu.com> <8B2DF56A-11D6-41F6-85E5-01AA47C0F774@sfc.wide.ad.jp> <4DB915EF.8000003@cn.fujitsu.com> <5183C2C0-C377-4FF7-89A1-3F19D53FBBBF@sfc.wide.ad.jp>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH] net: ftmac100: fix scheduling while atomic during PHY
+ link status change
+Date: Thu, 28 Apr 2011 17:11:35 +0800
+Message-ID: <BANLkTinB1FiHYX1KoO90UepmhQdXZs0eEg@mail.gmail.com>
+References: <BANLkTi=gcFB4mbmWKu4neep77Jp8R4HWGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Michio Honda <micchie@sfc.wide.ad.jp>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?UmF0YmVydCBQby1ZdSBDaHVhbmco6I6K5Y2a5a6HKQ==?=
+	<ratbert@faraday-tech.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Adam Jaremko <adam.jaremko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63416 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754697Ab1D1I7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2011 04:59:35 -0400
-In-Reply-To: <5183C2C0-C377-4FF7-89A1-3F19D53FBBBF@sfc.wide.ad.jp>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:56572 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098Ab1D1JL4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 05:11:56 -0400
+Received: by fxm17 with SMTP id 17so1678211fxm.19
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 02:11:55 -0700 (PDT)
+In-Reply-To: <BANLkTi=gcFB4mbmWKu4neep77Jp8R4HWGQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Adam,
 
->>>>> +			/* reuse the parameter length from the same scope one */
->>>>> +			totallen += paramlen;
->>>>> +			totallen += addr_param_len;
->>>>> +			del_pickup = 1;
->>>>> +			asoc->src_out_of_asoc_ok = 1;
->>>> src_out_of_asoc_ok should be marked when the last address is
->>>> assigned to asoc->asconf_addr_del_pending?
->>> I thought marking src_out_of_asoc_ok should be set when the candidate new address appears, rather than when the last address is being deleted.  
->>> Because until such address appears, there is no situation to send any chunk from the address not in the association.  
->> The last address have been marked as DEL, will never using
->> for sending chunks. At this time, there is no valid address in the
->> host, chunk can not be send out by host.
-> I understand that, marking out_of_asoc_ok at the last address being deleted does same thing.  
-> However, out_of_asoc_ok state is not regular, so I think we should shorten that duration as much as possible.  
-> But this is my personal opinion, so if you don't think so, I will mark it when the last address being deleted.  
-
-You can do some test about this(I do not test :-) )
-
-remove all the address while data still be sent, wait
-some time before the new address is added, and see
-whether there is some different between those. Not
-sure which or both is right. If it is the same, remain
-the code not change.
-
->>>>> +			SCTP_DEBUG_PRINTK("mkasconf_update_ip: picked same-scope del_pending addr, totallen for all addresses is %d\n", totallen);
->>>>> +		}
->>>>> 	}
->>>>>
->>>>> 	/* Create an asconf chunk with the required length. */
->>>>> @@ -2802,6 +2819,19 @@ struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *asoc,
->>>>>
->>>>> 		addr_buf += af->sockaddr_len;
->>>>> 	}
->>>>> +	if (flags == SCTP_PARAM_ADD_IP && del_pickup) {
->>>>> +		addr = asoc->asconf_addr_del_pending;
->>>>> +		del_af = sctp_get_af_specific(addr->v4.sin_family);
->>>>> +		del_addr_param_len = del_af->to_addr_param(addr,
->>>>> +		    &del_addr_param);
->>>>> +		del_param.param_hdr.type = SCTP_PARAM_DEL_IP;
->>>>> +		del_param.param_hdr.length = htons(del_paramlen +
->>>>> +		    del_addr_param_len);
->>>>> +		del_param.crr_id = i;
->>>>> +
->>>>> +		sctp_addto_chunk(retval, del_paramlen, &del_param);
->>>>> +		sctp_addto_chunk(retval, del_addr_param_len, &del_addr_param);
->>>>> +	}
->>>>> 	return retval;
->>>>> }
->>>> How about clean up this part as:
->>>>
->>>> +       if (...) {
->>>> +               addr = asoc->asconf_addr_del_pending;
->>>> +               af = sctp_get_af_specific(addr->v4.sin_family);
->>>> +               addr_param_len = af->to_addr_param(addr, &addr_param);
->>>> +               totallen += paramlen;
->>>> +               totallen += addr_param_len;
->>>> +		...
->>>> +       }
->>>> +
->>>>      /* Create an asconf chunk with the required length. */
->>>>      retval = sctp_make_asconf(asoc, laddr, totallen);
->>>>      if (!retval)
->>>> @@ -2802,6 +2812,18 @@ struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *asoc,
->>>>
->>>>              addr_buf += af->sockaddr_len;
->>>>      }
->>>> +
->>>> +       if (...) {
->>>> +               addr = asoc->asconf_addr_del_pending;
->>>> +               af = sctp_get_af_specific(addr->v4.sin_family);
->>>> +               addr_param_len = af->to_addr_param(addr, &addr_param);
->>>> +               param.param_hdr.type = SCTP_PARAM_DEL_IP;
->>>> +               param.param_hdr.length = htons(paramlen + addr_param_len);
->>>> +               param.crr_id = i;
->>>> +
->>>> +               sctp_addto_chunk(retval, paramlen, &param);
->>>> +               sctp_addto_chunk(retval, addr_param_len, &addr_param);
->>>> +       }
->>> agreed with reusing af instead of defining del_af.  
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2011/4/27 Adam Jaremko <adam.jaremko@gmail.com>:
+> Signed-off-by: Adam Jaremko <adam.jaremko@gmail.com>
+> ---
+> =C2=A0drivers/net/ftmac100.c | =C2=A0 =C2=A08 ++++----
+> =C2=A01 files changed, 4 insertions(+), 4 deletions(-)
 >
+> diff --git a/drivers/net/ftmac100.c b/drivers/net/ftmac100.c
+> index a316619..9bd7746 100644
+> --- a/drivers/net/ftmac100.c
+> +++ b/drivers/net/ftmac100.c
+> @@ -139,11 +139,11 @@ static int ftmac100_reset(struct ftmac100 *priv=
+)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 * that hardware reset completed (what the f*ck).
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 * We still need to wait for a while.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 */
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 usleep_range(500, 1000);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 udelay(500);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0return 0;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 usleep_range(1000,=
+ 10000);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 udelay(1000);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_err(netdev, "software reset failed\=
+n");
+> @@ -772,7 +772,7 @@ static int ftmac100_mdio_read(struct net_device
+> *netdev, int phy_id, int reg)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((phycr & F=
+TMAC100_PHYCR_MIIRD) =3D=3D 0)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0return phycr & FTMAC100_PHYCR_MIIRDATA;
+>
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 usleep_range(100, =
+1000);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 udelay(100);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_err(netdev, "mdio read timed out\n"=
+);
+> @@ -801,7 +801,7 @@ static void ftmac100_mdio_write(struct net_device
+> *netdev, int phy_id, int reg,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((phycr & F=
+TMAC100_PHYCR_MIIWR) =3D=3D 0)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0return;
+>
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 usleep_range(100, =
+1000);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 udelay(100);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_err(netdev, "mdio write timed out\n=
+");
+> --
+> 1.7.4.4
+>
+
+Not sure if your patch is indeed corrupt or it's my fault
+while downloading patch from gmail:
+
+ERROR: patch seems to be corrupt (line wrapped?)
+#62: FILE: drivers/net/ftmac100.c:771:
+*netdev, int phy_id, int reg)
+
+total: 1 errors, 0 warnings, 31 lines checked
+
+ftmac100-fix.patch has style problems, please review.  If any of these =
+errors
+are false positives report them to the maintainer, see
+CHECKPATCH in MAINTAINERS.
+
+
+Except that,
+
+Acked-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+
+best regards,
+Po-Yu Chuang
