@@ -1,59 +1,30 @@
-From: Lifeng Sun <lifongsun@gmail.com>
-Subject: [PATCH 1/5] networking: inappropriate ioctl operation should return ENOTTY
-Date: Thu, 28 Apr 2011 16:04:51 +0800
-Message-ID: <1303977891-29280-1-git-send-email-lifongsun@gmail.com>
-References: <20110427130904.47331a9f@lxorguk.ukuu.org.uk>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Lifeng Sun <lifongsun@gmail.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110427130904.47331a9f@lxorguk.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] usbnet: add support for some Huawei modems with cdc-ether ports
+Date: Thu, 28 Apr 2011 10:46:46 +0200
+Message-ID: <201104281046.47224.oneukum@suse.de>
+References: <1303934071.25456.2.camel@dcbw.foobar.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:58775 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754783Ab1D1IpU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2011 04:45:20 -0400
+In-Reply-To: <1303934071.25456.2.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ioctl() calls against a socket with an inappropriate ioctl operation
-are incorrectly returning EINVAL rather than ENOTTY:
+Am Mittwoch, 27. April 2011, 21:54:28 schrieb Dan Williams:
+> Some newer Huawei devices (T-Mobile Rocket, others) have cdc-ether
+> compatible ports, so recognize and expose them.
+> 
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 
-  [ENOTTY]
-      Inappropriate I/O control operation.
+Acked-by: Oliver Neukum <oneukum@suse.de>
 
-BugLink: https://bugzilla.kernel.org/show_bug.cgi?id=33992
-
-Signed-off-by: Lifeng Sun <lifongsun@gmail.com>
----
- net/core/dev.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c2ac599..856b6ee 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4773,7 +4773,7 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm
- 		 * is never reached
- 		 */
- 		WARN_ON(1);
--		err = -EINVAL;
-+		err = -ENOTTY;
- 		break;
- 
- 	}
-@@ -5041,7 +5041,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 		/* Set the per device memory buffer space.
- 		 * Not applicable in our case */
- 	case SIOCSIFLINK:
--		return -EINVAL;
-+		return -ENOTTY;
- 
- 	/*
- 	 *	Unknown or private ioctl.
-@@ -5062,7 +5062,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 		/* Take care of Wireless Extensions */
- 		if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
- 			return wext_handle_ioctl(net, &ifr, cmd, arg);
--		return -EINVAL;
-+		return -ENOTTY;
- 	}
- }
- 
--- 
-1.7.5.rc1
+	Regards
+		Oliver
