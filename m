@@ -1,53 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv3 6/7] tulip/de2104x: don't report
- different speeds depending on port type
-Date: Thu, 28 Apr 2011 03:13:45 +0100
-Message-ID: <1303956825.3032.428.camel@localhost>
-References: <1303954043-17440-1-git-send-email-decot@google.com>
-	<1303954043-17440-7-git-send-email-decot@google.com>
+From: artpol <artpol84@gmail.com>
+Subject: [PATCH 2.6.38.4] mii: add support of pause frames in mii_get_an
+Date: Thu, 28 Apr 2011 09:15:11 +0700
+Message-ID: <1303956911.2205.12.camel@artpol-thinkpad>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	Eilon Greenstein <eilong@broadcom.com>, mirq-linux@rere.qmqm.pl,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: David Decotigny <decot@google.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1303954043-17440-7-git-send-email-decot@google.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-04-27 at 18:27 -0700, David Decotigny wrote:
-> Initial driver reports different speeds depending on the port being
-> used. This patch advertises the speed to be 10Mbps in any case, which
-> is what it actually is on the wire.
-> 
-> Signed-off-by: David Decotigny <decot@google.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Add support of pause frames advertise in mii_get_an. This provides all
+drivers that use mii_ethtool_gset to represent their own and Link
+partner flow control abilities in ethtool.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+ Signed-off-by: Artem Polyakov <artpol84@gmail.com>
 
+---
 
-------------------------------------------------------------------------------
-WhatsUp Gold - Download Free Network Management Software
-The most intuitive, comprehensive, and cost-effective network 
-management toolset available today.  Delivers lowest initial 
-acquisition cost and overall TCO of any competing solution.
-http://p.sf.net/sfu/whatsupgold-sd
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--- linux-2.6.38.4/drivers/net/mii.c.orig	2011-04-28 08:46:13.000000000
++0700
++++ linux-2.6.38.4/drivers/net/mii.c	2011-04-25 23:04:20.694981968 +0700
+@@ -49,6 +49,10 @@ static u32 mii_get_an(struct mii_if_info
+ 		result |= ADVERTISED_100baseT_Half;
+ 	if (advert & ADVERTISE_100FULL)
+ 		result |= ADVERTISED_100baseT_Full;
++	if (advert & ADVERTISE_PAUSE_CAP)
++		result |= ADVERTISED_Pause;
++	if (advert & ADVERTISE_PAUSE_ASYM)
++		result |= ADVERTISED_Asym_Pause;
+ 
+ 	return result;
+ }
