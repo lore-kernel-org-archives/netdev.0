@@ -1,30 +1,40 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] usbnet: add support for some Huawei modems with cdc-ether ports
-Date: Thu, 28 Apr 2011 10:46:46 +0200
-Message-ID: <201104281046.47224.oneukum@suse.de>
-References: <1303934071.25456.2.camel@dcbw.foobar.com>
+From: Lifeng Sun <lifongsun@gmail.com>
+Subject: Re: [PATCH] Applying inappropriate ioctl operation on socket should
+ return ENOTTY
+Date: Thu, 28 Apr 2011 16:49:31 +0800
+Message-ID: <BANLkTikLUssAMHBkPmwKFZja6OMDih_DKQ@mail.gmail.com>
+References: <1303882625-28115-1-git-send-email-lifongsun@gmail.com>
+	<20110427130904.47331a9f@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:58775 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754783Ab1D1IpU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2011 04:45:20 -0400
-In-Reply-To: <1303934071.25456.2.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110427130904.47331a9f@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Mittwoch, 27. April 2011, 21:54:28 schrieb Dan Williams:
-> Some newer Huawei devices (T-Mobile Rocket, others) have cdc-ether
-> compatible ports, so recognize and expose them.
-> 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
+On Wed, Apr 27, 2011 at 8:09 PM, Alan Cox <alan@lxorguk.ukuu.org.uk> wr=
+ote:
+>> diff --git a/drivers/char/viotape.c b/drivers/char/viotape.c
+>> index ad6e64a..a427d40 100644
+>> --- a/drivers/char/viotape.c
+>> +++ b/drivers/char/viotape.c
+>> @@ -529,7 +529,7 @@ static int viotap_ioctl(struct inode *inode, str=
+uct file *file,
+>>
+>> =A0 =A0 =A0 down(&reqSem);
+>>
+>> - =A0 =A0 ret =3D -EINVAL;
+>> + =A0 =A0 ret =3D -ENOTTY;
+>
+> Again this messes up the returns because code assumes the initial
+> default.
 
-Acked-by: Oliver Neukum <oneukum@suse.de>
+> The original code also has bugs too (wrong error off
+> copy_*_user() again)
 
-	Regards
-		Oliver
+It seems alright.
+
+- Lifeng
