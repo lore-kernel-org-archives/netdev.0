@@ -1,69 +1,50 @@
-From: David Decotigny <decot@google.com>
-Subject: [PATCHv4 6/7] tulip/de2104x: don't report different speeds depending on port type
-Date: Wed, 27 Apr 2011 21:32:42 -0700
-Message-ID: <1303965163-8198-7-git-send-email-decot__35553.6910974935$1303965692$gmane$org@google.com>
-References: <1303965163-8198-1-git-send-email-decot@google.com>
-Cc: David Decotigny <decot@google.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	mirq-linux@rere.qmqm.pl, Stanislaw Gruszka <sgruszka@redhat.com>,
-	Alexander Duyck <alexander.h.duyc
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2.6.38.4] mii: add support of pause frames in mii_get_an
+Date: Wed, 27 Apr 2011 21:49:02 -0700
+Message-ID: <20110427214902.0826a4d1@nehalam>
+References: <1303962554.15395.1.camel@artpol-thinkpad>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, netdev@vger.kernel.org
+To: artpol <artpol84@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:45179 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752623Ab1D1ElA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 00:41:00 -0400
-In-Reply-To: <1303965163-8198-1-git-send-email-decot@google.com>
+Received: from mail.vyatta.com ([76.74.103.46]:52343 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752623Ab1D1EtF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2011 00:49:05 -0400
+In-Reply-To: <1303962554.15395.1.camel@artpol-thinkpad>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Initial driver reported different speeds depending on the port being
-used. This advertises the speed to be 10Mbps in any case, which is
-what it actually is on the wire.
+On Thu, 28 Apr 2011 10:49:14 +0700
+artpol <artpol84@gmail.com> wrote:
 
-Signed-off-by: David Decotigny <decot@google.com>
----
- drivers/net/tulip/de2104x.c |   10 +++-------
- 1 files changed, 3 insertions(+), 7 deletions(-)
+> Add support of pause frames advertise in mii_get_an. This provides all drivers 
+> that use mii_ethtool_gset to represent their own and Link partner flow control
+> abilities in ethtool.
+> 
+> Signed-off-by: Artem Polyakov <artpol84@gmail.com>
+> 
+> ---
+> 
+> --- linux-2.6.38.4/drivers/net/mii.c.orig	2011-04-28 08:46:13.000000000 +0700
+> +++ linux-2.6.38.4/drivers/net/mii.c	2011-04-25 23:04:20.694981968 +0700
+> @@ -49,6 +49,10 @@ static u32 mii_get_an(struct mii_if_info
+>  		result |= ADVERTISED_100baseT_Half;
+>  	if (advert & ADVERTISE_100FULL)
+>  		result |= ADVERTISED_100baseT_Full;
+> +	if (advert & ADVERTISE_PAUSE_CAP)
+> +		result |= ADVERTISED_Pause;
+> +	if (advert & ADVERTISE_PAUSE_ASYM)
+> +		result |= ADVERTISED_Asym_Pause;
+>  
+>  	return result;
+>  }
 
-diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
-index ab78e1d..46d5a1b 100644
---- a/drivers/net/tulip/de2104x.c
-+++ b/drivers/net/tulip/de2104x.c
-@@ -1518,18 +1518,17 @@ static int __de_get_settings(struct de_private *de, struct ethtool_cmd *ecmd)
- 	switch (de->media_type) {
- 	case DE_MEDIA_AUI:
- 		ecmd->port = PORT_AUI;
--		ethtool_cmd_speed_set(ecmd, 5);
- 		break;
- 	case DE_MEDIA_BNC:
- 		ecmd->port = PORT_BNC;
--		ethtool_cmd_speed_set(ecmd, 2);
- 		break;
- 	default:
- 		ecmd->port = PORT_TP;
--		ethtool_cmd_speed_set(ecmd, SPEED_10);
- 		break;
- 	}
- 
-+	ethtool_cmd_speed_set(ecmd, 10);
-+
- 	if (dr32(MacMode) & FullDuplex)
- 		ecmd->duplex = DUPLEX_FULL;
- 	else
-@@ -1549,11 +1548,8 @@ static int __de_set_settings(struct de_private *de, struct ethtool_cmd *ecmd)
- {
- 	u32 new_media;
- 	unsigned int media_lock;
--	u32 speed = ethtool_cmd_speed(ecmd);
- 
--	if (speed != SPEED_10 && speed != 5 && speed != 2)
--		return -EINVAL;
--	if (de->de21040 && speed == 2)
-+	if (ethtool_cmd_speed(ecmd) != 10)
- 		return -EINVAL;
- 	if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
- 		return -EINVAL;
--- 
-1.7.3.1
-
+One common driver problem is that auto negotiation of pause
+is really a separate operation from negotiation of speed.
+It should be possible to force no flow-control but still negotiate
+speed and vice-versa.  The ethtool api breaks this into two operations
+but many drivers munge them together.
