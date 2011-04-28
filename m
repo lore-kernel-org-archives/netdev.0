@@ -1,7 +1,7 @@
 From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH 0/6] sctp: Auto-ASCONF patch series
-Date: Thu, 28 Apr 2011 10:07:29 +0900
-Message-ID: <68D71B41-618F-4E35-BE1C-352009444461@sfc.wide.ad.jp>
+Subject: [PATCH 2/6] sctp: Allow regular C expression in 4th argument for SCTP_DEBUG_PRINTK_IPADDR macro.
+Date: Thu, 28 Apr 2011 10:07:47 +0900
+Message-ID: <71A3DE75-E1C4-4CF5-A8FC-D8E3E70A31F5@sfc.wide.ad.jp>
 Mime-Version: 1.0 (Apple Message framework v1084)
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
@@ -10,44 +10,53 @@ Cc: Honda Michio <micchie@sfc.wide.ad.jp>,
 	Wei Yongjun <yjwei@cn.fujitsu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:38715 "EHLO
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:38722 "EHLO
 	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757908Ab1D1BHc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 21:07:32 -0400
+	with ESMTP id S1758592Ab1D1BHs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 21:07:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 17adb7764e65096db6d798fdf8e0d7d5f209d93b Mon Sep 17 00:00:00 2001
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Thu, 28 Apr 2011 09:50:17 +0900
-Subject: [PATCH 0/6] sctp: Auto-ASCONF patch series
+>From e535067d5c26223c7230232ee8e228370db113a6 Mon Sep 17 00:00:00 2001
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Tue, 26 Apr 2011 19:23:24 +0900
+Subject: [PATCH 2/6] sctp: Allow regular C expression in 4th argument for SCTP_DEBUG_PRINTK_IPADDR macro.
 
-Series of 6 patches to support auto_asconf and the other related functionalities that auto_asconf relies on. 
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/net/sctp/sctp.h |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-Michio Honda (5):
-  sctp: Add ADD/DEL ASCONF handling at the receiver.
-  sctp: Add Auto-ASCONF support (core).
-  sctp: Add sysctl support for Auto-ASCONF.
-  sctp: Add socket option operation for Auto-ASCONF.
-  sctp: sctp: Add ASCONF operation on the single-homed host
-
-YOSHIFUJI Hideaki (1):
-  sctp: Allow regular C expression in 4th argument for
-    SCTP_DEBUG_PRINTK_IPADDR macro.
-
- include/net/sctp/sctp.h    |   11 ++-
- include/net/sctp/structs.h |   17 +++++
- include/net/sctp/user.h    |    1 +
- net/sctp/associola.c       |    6 ++
- net/sctp/bind_addr.c       |   15 ++++
- net/sctp/ipv6.c            |    9 +++
- net/sctp/outqueue.c        |   13 ++++
- net/sctp/protocol.c        |  151 ++++++++++++++++++++++++++++++++++++++++-
- net/sctp/sm_make_chunk.c   |   40 +++++++++++-
- net/sctp/socket.c          |  162 +++++++++++++++++++++++++++++++++++++++++---
- net/sctp/sysctl.c          |    7 ++
- 11 files changed, 417 insertions(+), 15 deletions(-)
-
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 7e8e34c..e606f04 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -286,20 +286,21 @@ do {							\
+ 		pr_cont(fmt, ##args);			\
+ } while (0)
+ #define SCTP_DEBUG_PRINTK_IPADDR(fmt_lead, fmt_trail,			\
+-				 args_lead, saddr, args_trail...)	\
++				 args_lead, addr, args_trail...)	\
+ do {									\
++	const union sctp_addr *_addr = (addr);				\
+ 	if (sctp_debug_flag) {						\
+-		if (saddr->sa.sa_family == AF_INET6) {			\
++		if (_addr->sa.sa_family == AF_INET6) {			\
+ 			printk(KERN_DEBUG				\
+ 			       pr_fmt(fmt_lead "%pI6" fmt_trail),	\
+ 			       args_lead,				\
+-			       &saddr->v6.sin6_addr,			\
++			       &_addr->v6.sin6_addr,			\
+ 			       args_trail);				\
+ 		} else {						\
+ 			printk(KERN_DEBUG				\
+ 			       pr_fmt(fmt_lead "%pI4" fmt_trail),	\
+ 			       args_lead,				\
+-			       &saddr->v4.sin_addr.s_addr,		\
++			       &_addr->v4.sin_addr.s_addr,		\
+ 			       args_trail);				\
+ 		}							\
+ 	}								\
 -- 
 1.7.3.2
 
