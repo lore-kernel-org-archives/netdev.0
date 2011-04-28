@@ -1,77 +1,49 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: =?utf-8?B?562U5aSN?= =?utf-8?Q?=3A?= Is 802.3ad mode in bonding
- useful ?
-Date: Thu, 28 Apr 2011 09:23:16 -0400
-Message-ID: <20110428132316.GC4165@hmsreliant.think-freely.org>
-References: <4DB9185E.4050103@gmail.com>
- <20110428122102.GB4165@hmsreliant.think-freely.org>
- <0FBC7C9C2640634A8B837C2EFFCFF32F0184732D72@SHEXMB-01.global.atheros.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 00/13] Swap-over-NBD without deadlocking
+Date: Thu, 28 Apr 2011 15:31:55 +0200
+Message-ID: <20110428133154.GA8572@ucw.cz>
+References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: WeipingPan <panweiping3@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Xiong Huang <Xiong.Huang@Atheros.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43783 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752798Ab1D1NXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 09:23:37 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <0FBC7C9C2640634A8B837C2EFFCFF32F0184732D72@SHEXMB-01.global.atheros.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2011 at 08:31:33PM +0800, Xiong Huang wrote:
-> Is there any plan to support cisco FEC/GEC protocol in bonding ?
->=20
-Not explicitly, no, since roundrobin/xor modes should be compatible alr=
-eady,
-and etherchannel can interoperate with 802.3ad bonds if the switches
-etherchannel is configured to be in lacp mode:
-
-Neil
+Hi!
 
 
-> -Xiong
-> ________________________________________
-> =E5=8F=91=E4=BB=B6=E4=BA=BA: netdev-owner@vger.kernel.org [netdev-own=
-er@vger.kernel.org] =E4=BB=A3=E8=A1=A8 Neil Horman [nhorman@tuxdriver.c=
-om]
-> =E5=8F=91=E9=80=81=E6=97=B6=E9=97=B4: 2011=E5=B9=B44=E6=9C=8828=E6=97=
-=A5 5:21
-> =E6=94=B6=E4=BB=B6=E4=BA=BA: WeipingPan
-> =E6=8A=84=E9=80=81: netdev@vger.kernel.org
-> =E4=B8=BB=E9=A2=98: Re: Is 802.3ad mode in bonding useful ?
->=20
-> On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
-> > Hi, all,
-> >
-> > 802.3ad mode in bonding implements 802.3ad standard.
-> >
-> > I am just wondering  802.3ad mode is useful,
-> > since  bonding has many modes like balance-rr, active-backup, etc.
-> >
-> Yes, of course its usefull.  For switches which support 802.3ad, this=
- mode
-> allows for both peers to understand that the links in the bond are ac=
-ting as an
-> aggregate, which makes it easier to prevent things like inadvertently=
- looped
-> back frames, for which the other modes have to have all sorts of hack=
-s to
-> prevent.
-> Neil
->=20
-> > thanks
-> > Weiping Pan
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" i=
-n
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> For testing swap-over-NBD, a machine was booted with 2G of RAM with a
+> swapfile backed by NBD. 16*NUM_CPU processes were started that create
+> anonymous memory mappings and read them linearly in a loop. The total
+> size of the mappings were 4*PHYSICAL_MEMORY to use swap heavily under
+> memory pressure. Without the patches, the machine locks up within
+> minutes and runs to completion with them applied.
+> 
+> Comments?
+
+Nice!
+
+It  is easy to see why swapping needs these fixes, but... dirty memory
+writeout is used for memory clearing, too. Are same changes neccessary
+to make that safe?
+
+(Perhaps raise 'max dirty %' for testing?)
+								Pavel
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
