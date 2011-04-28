@@ -1,59 +1,46 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH] tg3: Fix failure to enable WoL by default when possible
-Date: Thu, 28 Apr 2011 23:02:15 +0200
-Message-ID: <201104282302.15502.rjw@sisk.pl>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [NEXT PATCH 2/3] qlcnic: support rcv ring configuration through
+ ethtool
+Date: Thu, 28 Apr 2011 16:05:03 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD149F552@MNEXMB2.qlogic.org>
+References: <1303951426-4341-1-git-send-email-amit.salecha@qlogic.com>
+	 <1303951426-4341-3-git-send-email-amit.salecha@qlogic.com>
+ <1303948962.2875.178.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:30196
+	"EHLO AM1EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751934Ab1D1VFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 17:05:16 -0400
+In-Reply-To: <1303948962.2875.178.camel@bwh-desktop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rafael J. Wysocki <rjw@sisk.pl>
+PiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0N
+Cj4gU2VudDogV2VkbmVzZGF5LCBBcHJpbCAyNywgMjAxMSA1OjAzIFBNDQo+IFRvOiBBbWl0IFNh
+bGVjaGENCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0ZGV2OyBBbWVlbiBSYWhtYW47IEFuaXJiYW4g
+Q2hha3JhYm9ydHk7IFN1Y2hldGENCj4gQ2hha3JhYm9ydHkNCj4gU3ViamVjdDogUmU6IFtORVhU
+IFBBVENIIDIvM10gcWxjbmljOiBzdXBwb3J0IHJjdiByaW5nIGNvbmZpZ3VyYXRpb24NCj4gdGhy
+b3VnaCBldGh0b29sDQo+IA0KPiA+ICsJaWYgKGNoYW5uZWwtPm90aGVyX2NvdW50IHx8IGNoYW5u
+ZWwtPmNvbWJpbmVkX2NvdW50KQ0KPiA+ICsJCXJldHVybiAtRU9QTk9UU1VQUDsNCj4gDQo+IFNo
+b3VsZCBiZSAtRUlOVkFMLg0KPiANCj4gPiArCWlmIChjaGFubmVsLT50eF9jb3VudCAmJg0KPiA+
+ICsJCShjaGFubmVsLT50eF9jb3VudCAhPSBRTENOSUNfTUlOX05VTV9UWF9ERVNDX1JJTkdTKSkg
+ew0KPiA+ICsJCW5ldGRldl9pbmZvKGRldiwgInZhbGlkIHZhbHVlIGZvciB0eF9jb3VudCAweCV4
+XG4iLA0KPiA+ICsJCQkJUUxDTklDX01JTl9OVU1fVFhfREVTQ19SSU5HUyk7DQo+ID4gKwkJcmV0
+dXJuIC1FSU5WQUw7DQo+ID4gKwl9DQo+IFsuLi5dDQo+IA0KPiBJZiB0eF9jb3VudCBjYW5ub3Qg
+YmUgY2hhbmdlZCwgd2h5IGRvZXMgcWxjbmljX2dldF9jaGFubmVscygpIHNldA0KPiB0eF9jb3Vu
+dCBhbmQgbWF4X3R4IHRvIGRpZmZlcmVudCB2YWx1ZXM/DQo+DQoNCkludGVybmFsbHkgYm90aCBh
+cmUgc2FtZSB2YWx1ZXMuIEJ1dCBJIHdpbGwgcmVzdWJtaXQgdGhlIHBhdGNoIHRvIHJlZHVjZSB0
+aGlzIGFtYmlndWl0eS4NCiANCj4gQWxzbyBJIGRvbid0IHRoaW5rIHlvdSBzaG91bGQgdHJlYXQg
+dHhfY291bnQgPT0gMCBhcyBhIHNwZWNpYWwgY2FzZTsgaXQNCj4gc2hvdWxkIGJlIHJlamVjdGVk
+IGFzIGludmFsaWQuDQo+IA0KV2lsbCBmaXggdGhpcy4NCg==
 
-tg3 is supposed to enable WoL by default on adapters which support
-that, but it fails to do so unless the adapter's
-/sys/devices/.../power/wakeup file contains 'enabled' during the
-initialization of the adapter.  Fix that by making tg3 use
-device_set_wakeup_enable() to enable wakeup automatically whenever
-WoL should be enabled by default.
-
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
----
- drivers/net/tg3.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-Index: linux-2.6/drivers/net/tg3.c
-===================================================================
---- linux-2.6.orig/drivers/net/tg3.c
-+++ linux-2.6/drivers/net/tg3.c
-@@ -12327,8 +12327,10 @@ static void __devinit tg3_get_eeprom_hw_
- 		if (val & VCPU_CFGSHDW_ASPM_DBNC)
- 			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
- 		if ((val & VCPU_CFGSHDW_WOL_ENABLE) &&
--		    (val & VCPU_CFGSHDW_WOL_MAGPKT))
-+		    (val & VCPU_CFGSHDW_WOL_MAGPKT)) {
- 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
-+			device_set_wakeup_enable(&tp->pdev->dev, true);
-+		}
- 		goto done;
- 	}
- 
-@@ -12461,8 +12463,10 @@ static void __devinit tg3_get_eeprom_hw_
- 			tp->tg3_flags &= ~TG3_FLAG_WOL_CAP;
- 
- 		if ((tp->tg3_flags & TG3_FLAG_WOL_CAP) &&
--		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE))
-+		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE)) {
- 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
-+			device_set_wakeup_enable(&tp->pdev->dev, true);
-+		}
- 
- 		if (cfg2 & (1 << 17))
- 			tp->phy_flags |= TG3_PHYFLG_CAPACITIVE_COUPLING;
