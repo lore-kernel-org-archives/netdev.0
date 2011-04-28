@@ -1,27 +1,55 @@
-From: WeipingPan <panweiping3@gmail.com>
-Subject: Is 802.3ad mode in bonding useful ?
-Date: Thu, 28 Apr 2011 15:33:50 +0800
-Message-ID: <4DB9185E.4050103@gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCHv4 2/7] ethtool: Call ethtool's
+ get/set_settings callbacks with cleaned data
+Date: Thu, 28 Apr 2011 09:34:18 +0200
+Message-ID: <20110428073417.GA2220@redhat.com>
+References: <1303965163-8198-1-git-send-email-decot@google.com>
+	<1303965163-8198-3-git-send-email-decot@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:35863 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754258Ab1D1Hdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 03:33:38 -0400
-Received: by vxi39 with SMTP id 39so1830279vxi.19
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 00:33:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+	Eilon Greenstein <eilong@broadcom.com>, mirq-linux@rere.qmqm.pl,
+	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: David Decotigny <decot@google.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1303965163-8198-3-git-send-email-decot@google.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi, all,
+On Wed, Apr 27, 2011 at 09:32:38PM -0700, David Decotigny wrote:
+> --- a/drivers/net/stmmac/stmmac_ethtool.c
+> +++ b/drivers/net/stmmac/stmmac_ethtool.c
+> @@ -237,13 +237,12 @@ stmmac_set_pauseparam(struct net_device *netdev,
+>  
+>  	if (phy->autoneg) {
+>  		if (netif_running(netdev)) {
+> -			struct ethtool_cmd cmd;
+> +			struct ethtool_cmd cmd = { .cmd = ETHTOOL_SSET };
+>  			/* auto-negotiation automatically restarted */
+> -			cmd.cmd = ETHTOOL_NWAY_RST;
 
-802.3ad mode in bonding implements 802.3ad standard.
+Why did you change ETHTOOL_NWAY_RST to ETHTOOL_SSET ?
 
-I am just wondering  802.3ad mode is useful,
-since  bonding has many modes like balance-rr, active-backup, etc.
 
-thanks
-Weiping Pan
+------------------------------------------------------------------------------
+WhatsUp Gold - Download Free Network Management Software
+The most intuitive, comprehensive, and cost-effective network 
+management toolset available today.  Delivers lowest initial 
+acquisition cost and overall TCO of any competing solution.
+http://p.sf.net/sfu/whatsupgold-sd
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
