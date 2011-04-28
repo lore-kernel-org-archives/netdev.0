@@ -1,95 +1,54 @@
-From: NeilBrown <neilb@suse.de>
-Subject: Re: [PATCH 12/13] mm: Throttle direct reclaimers if PF_MEMALLOC
- reserves are low and swap is backed by network storage
-Date: Thu, 28 Apr 2011 10:22:44 +1000
-Message-ID: <20110428102244.6e1113e9@notabene.brown>
-References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
-	<1303920491-25302-13-git-send-email-mgorman@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1303920491-25302-13-git-send-email-mgorman@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: [PATCH 0/6] sctp: Auto-ASCONF patch series
+Date: Thu, 28 Apr 2011 10:07:29 +0900
+Message-ID: <68D71B41-618F-4E35-BE1C-352009444461@sfc.wide.ad.jp>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Honda Michio <micchie@sfc.wide.ad.jp>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:38715 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757908Ab1D1BHc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 21:07:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Apr 2011 17:08:10 +0100 Mel Gorman <mgorman@suse.de> wrote:
+>From 17adb7764e65096db6d798fdf8e0d7d5f209d93b Mon Sep 17 00:00:00 2001
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Date: Thu, 28 Apr 2011 09:50:17 +0900
+Subject: [PATCH 0/6] sctp: Auto-ASCONF patch series
 
+Series of 6 patches to support auto_asconf and the other related functionalities that auto_asconf relies on. 
 
-> +/*
-> + * Throttle direct reclaimers if backing storage is backed by the network
-> + * and the PFMEMALLOC reserve for the preferred node is getting dangerously
-> + * depleted. kswapd will continue to make progress and wake the processes
-> + * when the low watermark is reached
-> + */
-> +static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
-> +					nodemask_t *nodemask)
-> +{
-> +	struct zone *zone;
-> +	int high_zoneidx = gfp_zone(gfp_mask);
-> +	DEFINE_WAIT(wait);
-> +
-> +	/* Check if the pfmemalloc reserves are ok */
-> +	first_zones_zonelist(zonelist, high_zoneidx, NULL, &zone);
-> +	if (pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx))
-> +		return;
+Michio Honda (5):
+  sctp: Add ADD/DEL ASCONF handling at the receiver.
+  sctp: Add Auto-ASCONF support (core).
+  sctp: Add sysctl support for Auto-ASCONF.
+  sctp: Add socket option operation for Auto-ASCONF.
+  sctp: sctp: Add ASCONF operation on the single-homed host
 
-As the first thing that 'wait_event_interruptible" does is test the condition
-and return if it is true, this "if () return;" is pointless.
- 
-> +
-> +	/* Throttle */
-> +	wait_event_interruptible(zone->zone_pgdat->pfmemalloc_wait,
-> +		pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx));
-> +}
+YOSHIFUJI Hideaki (1):
+  sctp: Allow regular C expression in 4th argument for
+    SCTP_DEBUG_PRINTK_IPADDR macro.
 
-I was surprised that you chose wait_event_interruptible as your previous code
-was almost exactly "wait_event_killable".
+ include/net/sctp/sctp.h    |   11 ++-
+ include/net/sctp/structs.h |   17 +++++
+ include/net/sctp/user.h    |    1 +
+ net/sctp/associola.c       |    6 ++
+ net/sctp/bind_addr.c       |   15 ++++
+ net/sctp/ipv6.c            |    9 +++
+ net/sctp/outqueue.c        |   13 ++++
+ net/sctp/protocol.c        |  151 ++++++++++++++++++++++++++++++++++++++++-
+ net/sctp/sm_make_chunk.c   |   40 +++++++++++-
+ net/sctp/socket.c          |  162 +++++++++++++++++++++++++++++++++++++++++---
+ net/sctp/sysctl.c          |    7 ++
+ 11 files changed, 417 insertions(+), 15 deletions(-)
 
-Is there some justification for not throttling processes which happen to have
-a (non-fatal) signal pending?
-
-Thanks,
-NeilBrown
+-- 
+1.7.3.2
 
 
-
-> +
->  unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
->  				gfp_t gfp_mask, nodemask_t *nodemask)
->  {
-> @@ -2133,6 +2172,15 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
->  		.nodemask = nodemask,
->  	};
->  
-> +	throttle_direct_reclaim(gfp_mask, zonelist, nodemask);
-> +
-> +	/*
-> +	 * Do not enter reclaim if fatal signal is pending. 1 is returned so
-> +	 * that the page allocator does not consider triggering OOM
-> +	 */
-> +	if (fatal_signal_pending(current))
-> +		return 1;
-> +
->  	trace_mm_vmscan_direct_reclaim_begin(order,
->  				sc.may_writepage,
->  				gfp_mask);
-> @@ -2488,6 +2536,12 @@ loop_again:
->  			}
->  
->  		}
-> +
-> +		/* Wake throttled direct reclaimers if low watermark is met */
-> +		if (waitqueue_active(&pgdat->pfmemalloc_wait) &&
-> +				pfmemalloc_watermark_ok(pgdat, MAX_NR_ZONES - 1))
-> +			wake_up_interruptible(&pgdat->pfmemalloc_wait);
-> +
->  		if (all_zones_ok || (order && pgdat_balanced(pgdat, balanced, *classzone_idx)))
->  			break;		/* kswapd: all done */
->  		/*
