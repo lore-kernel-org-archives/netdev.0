@@ -1,38 +1,80 @@
-From: DMITRIY GRUZMAN <xmb836@motorola.com>
-Subject: usbnet: why is by default dev->rx_urb_size equal to dev->hard_mtu?
-Date: Thu, 28 Apr 2011 18:00:12 -0500
-Message-ID: <BANLkTim-h9F93D7xk1sHuEzfrzbgMCgFgQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH 1/2] net: Allow ethtool to set interface in loopback mode.
+Date: Thu, 28 Apr 2011 16:33:18 -0700
+Message-ID: <1304033599-8395-2-git-send-email-maheshb@google.com>
+References: <1304033599-8395-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	Mahesh Bandewar <maheshb@google.com>
+To: David Miller <davem@davemloft.net>,
+	Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og115.obsmtp.com ([64.18.0.246]:55235 "EHLO
-	exprod5og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756539Ab1D1X1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 19:27:34 -0400
-Received: from DE01MGRG01.AM.MOT-MOBILITY.COM ([10.176.129.42])
-	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p3SN0erk016960
-	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 19:00:40 -0400 (EDT)
-Received: from mail-gw0-f42.google.com (mail-gw0-f42.google.com [74.125.83.42])
-	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p3SMx5cu016289
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 19:00:40 -0400 (EDT)
-Received: by mail-gw0-f42.google.com with SMTP id 17so1620814gwb.15
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 16:00:13 -0700 (PDT)
+Received: from smtp-out.google.com ([74.125.121.67]:2050 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756539Ab1D1Xdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 19:33:38 -0400
+In-Reply-To: <1304033599-8395-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This patch enables ethtool to set the loopback mode on a given interface.
+By configuring the interface in loopback mode in conjunction with a policy
+route / rule, a userland application can stress the egress / ingress path
+exposing the flows of the change in progress and potentially help developer(s)
+understand the impact of those changes without even sending a packet out
+on the network.
 
-Currently, usbnet_probe() in drivers/net/usb/usbnet.c driver sets
-dev->rx_urb_size equal to dev->hard_mtu unless the dev->rx_urb size is
-previously set in the bind() call.  I do not think that there is any
-correlation between those values and I think that setting
-dev->rx_urb_size to dev->maxpacket would be more appropriate.
+Following set of commands illustrates one such example -
+    a) ip -4 addr add 192.168.1.1/24 dev eth1
+    b) ip -4 rule add from all iif eth1 lookup 250
+    c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
+    d) arp -Ds 192.168.1.100 eth1
+    e) arp -Ds 192.168.1.200 eth1
+    f) sysctl -w net.ipv4.ip_nonlocal_bind=1
+    g) sysctl -w net.ipv4.conf.all.accept_local=1
+    # Assuming that the machine has 8 cores
+    h) taskset 000f netserver -L 192.168.1.200
+    i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
+---
+ include/linux/netdevice.h |    3 ++-
+ net/core/ethtool.c        |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-Please provide your comments so I know if I should proceed with making
-such a change.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e03af35..0e17c81 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1067,6 +1067,7 @@ struct net_device {
+ #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
+ #define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
+ #define NETIF_F_NOCACHE_COPY	(1 << 30) /* Use no-cache copyfromuser */
++#define NETIF_F_LOOPBACK	(1 << 31) /* Enable loopback */
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+@@ -1082,7 +1083,7 @@ struct net_device {
+ 	/* = all defined minus driver/device-class-related */
+ #define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
+ 				  NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
+-#define NETIF_F_ETHTOOL_BITS	(0x7f3fffff & ~NETIF_F_NEVER_CHANGE)
++#define NETIF_F_ETHTOOL_BITS	(0xff3fffff & ~NETIF_F_NEVER_CHANGE)
+ 
+ 	/* List of features with software fallbacks. */
+ #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index d8b1a8d..f26649d 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -362,7 +362,7 @@ static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * 32][ETH_GS
+ 	/* NETIF_F_RXHASH */          "rx-hashing",
+ 	/* NETIF_F_RXCSUM */          "rx-checksum",
+ 	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy"
+-	"",
++	/* NETIF_F_LOOPBACK */        "loopback",
+ };
+ 
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+-- 
+1.7.3.1
 
-Thanks,
-
-Dmitriy Gruzman
