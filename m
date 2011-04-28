@@ -1,53 +1,77 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6] net: dont hold rtnl mutex during netlink
- dump callbacks
+From: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCHv8] usbnet: Resubmit interrupt URB if device is open
 Date: Thu, 28 Apr 2011 08:43:37 -0700
-Message-ID: <20110428084337.6b54603e@nehalam>
-References: <1303980967.3360.60.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60314 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760149Ab1D1Pnk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2011 11:43:40 -0400
-In-Reply-To: <1303980967.3360.60.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Message-ID: <20110428155227.A7B412031F@glenhelen.mtv.corp.google.com>
+References: <20110427.230011.59678907.davem@davemloft.net>
+Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110427.230011.59678907.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Apr 2011 10:56:07 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Resubmit interrupt URB if device is open.  Use a flag set in
+usbnet_open() to determine this state.  Also kill and free
+interrupt URB in usbnet_disconnect().
 
-> Four years ago, Patrick made a change to hold rtnl mutex during netlink
-> dump callbacks.
-> 
-> I believe it was a wrong move. This slows down concurrent dumps, making
-> good old /proc/net/ files faster than rtnetlink in some situations.
-> 
-> This occurred to me because one "ip link show dev ..." was _very_ slow
-> on a workload adding/removing network devices in background.
-> 
-> All dump callbacks are able to use RCU locking now, so this patch does
-> roughly a revert of commits :
-> 
-> 1c2d670f366 : [RTNETLINK]: Hold rtnl_mutex during netlink dump callbacks
-> 6313c1e0992 : [RTNETLINK]: Remove unnecessary locking in dump callbacks
-> 
-> This let writers fight for rtnl mutex and readers going full speed.
-> 
-> It also takes care of phonet : phonet_route_get() is now called from rcu
-> read section. I renamed it to phonet_route_get_rcu()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+[Rebased off git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git]
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+ drivers/net/usb/usbnet.c   |    8 ++++++++
+ include/linux/usb/usbnet.h |    1 +
+ 2 files changed, 9 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 069c1cf..009bba3 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -736,6 +736,7 @@ int usbnet_open (struct net_device *net)
+ 		}
+ 	}
+ 
++	set_bit(EVENT_DEV_OPEN, &dev->flags);
+ 	netif_start_queue (net);
+ 	netif_info(dev, ifup, dev->net,
+ 		   "open: enable queueing (rx %d, tx %d) mtu %d %s framing\n",
+@@ -1259,6 +1260,9 @@ void usbnet_disconnect (struct usb_interface *intf)
+ 	if (dev->driver_info->unbind)
+ 		dev->driver_info->unbind (dev, intf);
+ 
++	usb_kill_urb(dev->interrupt);
++	usb_free_urb(dev->interrupt);
++
+ 	free_netdev(net);
+ 	usb_put_dev (xdev);
+ }
+@@ -1498,6 +1502,10 @@ int usbnet_resume (struct usb_interface *intf)
+ 	int                     retval;
+ 
+ 	if (!--dev->suspend_count) {
++		/* resume interrupt URBs */
++		if (dev->interrupt && test_bit(EVENT_DEV_OPEN, &dev->flags))
++			usb_submit_urb(dev->interrupt, GFP_NOIO);
++
+ 		spin_lock_irq(&dev->txq.lock);
+ 		while ((res = usb_get_from_anchor(&dev->deferred))) {
+ 
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 0e18550..605b0aa 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -68,6 +68,7 @@ struct usbnet {
+ #		define EVENT_RX_PAUSED	5
+ #		define EVENT_DEV_WAKING 6
+ #		define EVENT_DEV_ASLEEP 7
++#		define EVENT_DEV_OPEN	8
+ };
+ 
+ static inline struct usb_driver *driver_of(struct usb_interface *intf)
 -- 
+1.7.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
