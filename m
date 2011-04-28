@@ -1,41 +1,66 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Is 802.3ad mode in bonding useful ?
-Date: Thu, 28 Apr 2011 08:21:02 -0400
-Message-ID: <20110428122102.GB4165@hmsreliant.think-freely.org>
-References: <4DB9185E.4050103@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2.6.38.4] mii: add support of pause frames in mii_get_an
+Date: Thu, 28 Apr 2011 13:45:38 +0100
+Message-ID: <1303994738.3032.455.camel@localhost>
+References: <1303962554.15395.1.camel@artpol-thinkpad>
+	 <20110427214902.0826a4d1@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: WeipingPan <panweiping3@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51813 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755113Ab1D1MVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 08:21:14 -0400
-Content-Disposition: inline
-In-Reply-To: <4DB9185E.4050103@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: artpol <artpol84@gmail.com>, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110427214902.0826a4d1@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
-> Hi, all,
+On Wed, 2011-04-27 at 21:49 -0700, Stephen Hemminger wrote:
+> On Thu, 28 Apr 2011 10:49:14 +0700
+> artpol <artpol84@gmail.com> wrote:
 > 
-> 802.3ad mode in bonding implements 802.3ad standard.
+> > Add support of pause frames advertise in mii_get_an. This provides all drivers 
+> > that use mii_ethtool_gset to represent their own and Link partner flow control
+> > abilities in ethtool.
+> > 
+> > Signed-off-by: Artem Polyakov <artpol84@gmail.com>
+> > 
+> > ---
+> > 
+> > --- linux-2.6.38.4/drivers/net/mii.c.orig	2011-04-28 08:46:13.000000000 +0700
+> > +++ linux-2.6.38.4/drivers/net/mii.c	2011-04-25 23:04:20.694981968 +0700
+> > @@ -49,6 +49,10 @@ static u32 mii_get_an(struct mii_if_info
+> >  		result |= ADVERTISED_100baseT_Half;
+> >  	if (advert & ADVERTISE_100FULL)
+> >  		result |= ADVERTISED_100baseT_Full;
+> > +	if (advert & ADVERTISE_PAUSE_CAP)
+> > +		result |= ADVERTISED_Pause;
+> > +	if (advert & ADVERTISE_PAUSE_ASYM)
+> > +		result |= ADVERTISED_Asym_Pause;
+> >  
+> >  	return result;
+> >  }
 > 
-> I am just wondering  802.3ad mode is useful,
-> since  bonding has many modes like balance-rr, active-backup, etc.
-> 
-Yes, of course its usefull.  For switches which support 802.3ad, this mode
-allows for both peers to understand that the links in the bond are acting as an
-aggregate, which makes it easier to prevent things like inadvertently looped
-back frames, for which the other modes have to have all sorts of hacks to
-prevent.
-Neil
+> One common driver problem is that auto negotiation of pause
+> is really a separate operation from negotiation of speed.
+> It should be possible to force no flow-control but still negotiate
+> speed and vice-versa.
 
-> thanks
-> Weiping Pan
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+If you want to force flow control then turn off pause autoneg.
+If you want to force speed then turn off advertising of other speeds.
+
+> The ethtool api breaks this into two operations
+> but many drivers munge them together.
+
+There is some interaction between set_pauseparam and set_settings if
+pause autoneg is enabled, which is why we have the
+mii_advertise_flowctrl() function.
+
+Anyway, this patch covers reporting only.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
