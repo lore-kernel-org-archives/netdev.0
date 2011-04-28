@@ -1,113 +1,218 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [PATCH] net: ftmac100: fix scheduling while atomic during PHY
- link status change
-Date: Thu, 28 Apr 2011 17:11:35 +0800
-Message-ID: <BANLkTinB1FiHYX1KoO90UepmhQdXZs0eEg@mail.gmail.com>
-References: <BANLkTi=gcFB4mbmWKu4neep77Jp8R4HWGQ@mail.gmail.com>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 02/13] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Thu, 28 Apr 2011 10:46:13 +0100
+Message-ID: <20110428094613.GN4658@suse.de>
+References: <1303803414-5937-1-git-send-email-mgorman@suse.de>
+ <1303803414-5937-3-git-send-email-mgorman@suse.de>
+ <20110426213758.450f6f49@notabene.brown>
+ <20110426135940.GE4658@suse.de>
+ <20110428092110.608eb354@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?UmF0YmVydCBQby1ZdSBDaHVhbmco6I6K5Y2a5a6HKQ==?=
-	<ratbert@faraday-tech.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Adam Jaremko <adam.jaremko@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:56572 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098Ab1D1JL4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 05:11:56 -0400
-Received: by fxm17 with SMTP id 17so1678211fxm.19
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 02:11:55 -0700 (PDT)
-In-Reply-To: <BANLkTi=gcFB4mbmWKu4neep77Jp8R4HWGQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: NeilBrown <neilb@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20110428092110.608eb354@notabene.brown>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi Adam,
+On Thu, Apr 28, 2011 at 09:21:10AM +1000, NeilBrown wrote:
+> On Tue, 26 Apr 2011 14:59:40 +0100 Mel Gorman <mgorman@suse.de> wrote:
+> 
+> > On Tue, Apr 26, 2011 at 09:37:58PM +1000, NeilBrown wrote:
+> > > On Tue, 26 Apr 2011 08:36:43 +0100 Mel Gorman <mgorman@suse.de> wrote:
+> > > 
+> > > > +		/*
+> > > > +		 * If there are full empty slabs and we were not forced to
+> > > > +		 * allocate a slab, mark this one !pfmemalloc
+> > > > +		 */
+> > > > +		l3 = cachep->nodelists[numa_mem_id()];
+> > > > +		if (!list_empty(&l3->slabs_free) && force_refill) {
+> > > > +			struct slab *slabp = virt_to_slab(objp);
+> > > > +			slabp->pfmemalloc = false;
+> > > > +			clear_obj_pfmemalloc(&objp);
+> > > > +			check_ac_pfmemalloc(cachep, ac);
+> > > > +			return objp;
+> > > > +		}
+> > > 
+> > > The comment doesn't match the code.  I think you need to remove the words
+> > > "full" and "not" assuming the code is correct which it probably is...
+> > > 
+> > 
+> > I'll fix up the comment, you're right, it's confusing.
+> > 
+> > > But the code seems to be much more complex than Peter's original, and I don't
+> > > see the gain.
+> > > 
+> > 
+> > You're right, it is more complex.
+> > 
+> > > Peter's code had only one 'reserved' flag for each kmem_cache. 
+> > 
+> > The reserve was set in a per-cpu structure so there was a "lag" time
+> > before that information was available to other CPUs. Fine on smaller
+> > machines but a bit more of a problem today. 
+> > 
+> > > You seem to
+> > > have one for every slab.  I don't see the point.
+> > > It is true that yours is in some sense more fair - but I'm not sure the
+> > > complexity is worth it.
+> > > 
+> > 
+> > More fairness was one of the objects.
+> > 
+> > > Was there some particular reason you made the change?
+> > > 
+> > 
+> > This version survives under considerably more stress than Peter's
+> > original version did without requiring the additional complexity of
+> > memory reserves.
+> > 
+> 
+> That is certainly a very compelling argument .... but I still don't get why.
+> I'm sorry if I'm being dense, but I still don't see why the complexity buys
+> us better stability and I really would like to understand.
+> 
+> You don't seem to need the same complexity for SLUB with the justification
+> of "SLUB generally maintaining smaller lists than SLAB".
+> 
 
-2011/4/27 Adam Jaremko <adam.jaremko@gmail.com>:
-> Signed-off-by: Adam Jaremko <adam.jaremko@gmail.com>
-> ---
-> =C2=A0drivers/net/ftmac100.c | =C2=A0 =C2=A08 ++++----
-> =C2=A01 files changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ftmac100.c b/drivers/net/ftmac100.c
-> index a316619..9bd7746 100644
-> --- a/drivers/net/ftmac100.c
-> +++ b/drivers/net/ftmac100.c
-> @@ -139,11 +139,11 @@ static int ftmac100_reset(struct ftmac100 *priv=
-)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 * that hardware reset completed (what the f*ck).
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 * We still need to wait for a while.
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 */
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 usleep_range(500, 1000);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 udelay(500);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0return 0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 usleep_range(1000,=
- 10000);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 udelay(1000);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_err(netdev, "software reset failed\=
-n");
-> @@ -772,7 +772,7 @@ static int ftmac100_mdio_read(struct net_device
-> *netdev, int phy_id, int reg)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((phycr & F=
-TMAC100_PHYCR_MIIRD) =3D=3D 0)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0return phycr & FTMAC100_PHYCR_MIIRDATA;
->
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 usleep_range(100, =
-1000);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 udelay(100);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_err(netdev, "mdio read timed out\n"=
-);
-> @@ -801,7 +801,7 @@ static void ftmac100_mdio_write(struct net_device
-> *netdev, int phy_id, int reg,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((phycr & F=
-TMAC100_PHYCR_MIIWR) =3D=3D 0)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0return;
->
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 usleep_range(100, =
-1000);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 udelay(100);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_err(netdev, "mdio write timed out\n=
-");
-> --
-> 1.7.4.4
->
+It is an educated guess that the length of the lists was what was
+relevant. Even without these patches, SLUB is harder to lockup (minutes
+rather than seconds to halt the machine) than SLAB and I assumed it
+was because there were fewer pages pinned on per-CPU lists with SLUB.
 
-Not sure if your patch is indeed corrupt or it's my fault
-while downloading patch from gmail:
+> Presumably these are per-CPU lists of free objects or slabs? 
 
-ERROR: patch seems to be corrupt (line wrapped?)
-#62: FILE: drivers/net/ftmac100.c:771:
-*netdev, int phy_id, int reg)
+The per-cpu lists are of objects (the entry[] array in struct
+array_cache). The slab management structure is looked up much less
+frequently (when a block of objects are being freed for example).
 
-total: 1 errors, 0 warnings, 31 lines checked
+> If the things
+> on those lists could be used by anyone long lists couldn't hurt.
 
-ftmac100-fix.patch has style problems, please review.  If any of these =
-errors
-are false positives report them to the maintainer, see
-CHECKPATCH in MAINTAINERS.
+Long lists can hurt in a few ways but I believe the two relevant reasons
+for this series are;
 
+1. A remote CPU could be holding the object on its free list
+2. Multiple unnecessary caches could be pinning free memory with the
+   shrinkers not triggering because everything is waiting on IO to complete
 
-Except that,
+> So the problem must be that the lists get long while the array_cache is still
+> marked as 'pfmemalloc'
 
-Acked-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+By marking the array_cache pfmemalloc we can have objects on the list
+that are a mix of pfmemalloc and !pfmemalloc objects with very coarse
+control over who is accessing them.
 
-best regards,
-Po-Yu Chuang
+For example. In Peters patches, CPU A could allocate from pfmemalloc
+reserves and mark its array_cache appropriately. CPU B could be freeing
+the objects but not have its array_cache marked. PFMEMALLOC objects
+are now available for !PFMEMALLOC uses on that CPU and we dip further
+into our reserves. This was managed by the memory reservation patches
+which meant that dipping further into the reserves was not that much
+of a problem.
+
+> (or 'reserve' in Peter's patches).
+> 
+> Is that the problem?  That reserve memory gets locked up in SLAB freelists?
+> If so - would that be more easily addressed by effectively reducing the
+> 'batching' when the array_cache had dipped into reserves, so slabs are
+> returned to the VM more promptly?
+> 
+
+Pinning objects on long list is one problem but I don't think it's
+the most important problem. Indications were that the big problem
+was insufficient control over who was accessing objects belonging to
+slab pages allocated from the pfmemalloc reserves.
+
+> Probably related, now that you've fixed the comment here (thanks):
+> 
+> +		/*
+> +		 * If there are empty slabs on the slabs_free list and we are
+> +		 * being forced to refill the cache, mark this one !pfmemalloc.
+> +		 */
+> +		l3 = cachep->nodelists[numa_mem_id()];
+> +		if (!list_empty(&l3->slabs_free) && force_refill) {
+> +			struct slab *slabp = virt_to_slab(objp);
+> +			slabp->pfmemalloc = false;
+> +			clear_obj_pfmemalloc(&objp);
+> +			check_ac_pfmemalloc(cachep, ac);
+> +			return objp;
+> +		}
+> 
+> I'm trying to understand it...
+
+Thanks :)
+
+> The context is that a non-MEMALLOC allocation is happening and everything on
+> the free lists is reserved for MEMALLOC allocations.
+
+Yep.
+
+> So if in that case there is a completely free slab on the free list we decide
+> that it is OK to mark the current slab as non-MEMALLOC.
+
+Yep.
+
+> The logic seems to be that we could just release that free slab to the VM,
+> then an alloc_page would be able to get it back. 
+
+We could, it'd be slower and there would need to be some sort of
+retry path in a hotter code path to catch the situation but we could.
+
+> But if we are still well
+> below the reserve watermark, then there might be some other allocation that
+> is more deserving of the page and we shouldn't just assume we can take
+> it with actually calling in to alloc_pages to check that we are no longer
+> running on reserves..
+> 
+> So this looks like an optimisation that is wrong.
+
+The problem that is being addressed here is that pfmemalloc slabs
+have to made available for general use at some point or slabs can
+be artifically large and waste memory. I didn't do a free and retry
+path because it'd be more expensive and I wanted to avoid hurting
+the common slab paths.
+
+The assumption is that if there are free slab pages while there are
+pfmemalloc slabs in use then we cannot be under that much pressure
+and the free slab page is safe to use. If we go well below the reserve
+watermark as you are concerned about, the throttle logic will trigger
+and we'll at least identify that the situation occured without the
+system crashing.
+
+> BTW, 
+> 
+> 
+> +	/* Record if ALLOC_PFMEMALLOC was set when allocating the slab */
+> +	if (pfmemalloc) {
+> +		struct array_cache *ac = cpu_cache_get(cachep);
+> +		slabp->pfmemalloc = true;
+> +		ac->pfmemalloc = 1;
+> +	}
+> +
+> 
+> I think that "= 1"  should be "= true".  :-)
+> 
+
+/me slaps self
+
+Thanks
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
