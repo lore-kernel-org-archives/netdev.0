@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] net: fullly using NETIF_F_GSO_SOFTWARE
- macros and NETIF_F_SOFT_FEATURES
-Date: Thu, 28 Apr 2011 13:30:07 -0700 (PDT)
-Message-ID: <20110428.133007.246546884.davem@davemloft.net>
-References: <4DB16181.9010306@cn.fujitsu.com>
+Subject: Re: [PATCH] net: allow user to change NETIF_F_HIGHDMA
+Date: Thu, 28 Apr 2011 13:33:24 -0700 (PDT)
+Message-ID: <20110428.133324.28826133.davem@davemloft.net>
+References: <20110422163116.37DE613909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, rusty@rustcorp.com.au,
-	mst@redhat.com, eric.dumazet@gmail.com, krkumar2@in.ibm.com,
-	mirq-linux@rere.qmqm.pl, joe@perches.com
-To: shanwei@cn.fujitsu.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36254
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55209
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933497Ab1D1Ual (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 16:30:41 -0400
-In-Reply-To: <4DB16181.9010306@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1750970Ab1D1Ud5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 16:33:57 -0400
+In-Reply-To: <20110422163116.37DE613909@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Fri, 22 Apr 2011 19:07:45 +0800
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Fri, 22 Apr 2011 18:31:16 +0200 (CEST)
 
-> 
-> Fullly using NETIF_F_GSO_SOFTWARE and NETIF_F_SOFT_FEATURES.
-> And some code style tuning. Just compile test.
-> 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> NETIF_F_HIGHDMA is like any other TX offloads, so allow user to toggl=
+e it.
+> This is needed later for bridge and bonding convertsion to hw_feature=
+s.
+>=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-You've received feedback on this patch and patch #3.  Please
-address it.
+Applied.
