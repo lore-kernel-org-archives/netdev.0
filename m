@@ -1,63 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] inet: add RCU protection to inet->opt
-Date: Thu, 28 Apr 2011 22:55:36 +0200
-Message-ID: <1304024136.2954.9.camel@edumazet-laptop>
-References: <1303415137.2784.23.camel@edumazet-laptop>
-	 <20110428.132032.115947683.davem@davemloft.net>
-	 <1304023759.2954.8.camel@edumazet-laptop>
-	 <20110428.135226.242113407.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: [PATCH] tg3: Fix failure to enable WoL by default when possible
+Date: Thu, 28 Apr 2011 23:02:15 +0200
+Message-ID: <201104282302.15502.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41876 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754789Ab1D1Uzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 16:55:41 -0400
-Received: by wya21 with SMTP id 21so2403797wya.19
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 13:55:39 -0700 (PDT)
-In-Reply-To: <20110428.135226.242113407.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 28 avril 2011 =C3=A0 13:52 -0700, David Miller a =C3=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 28 Apr 2011 22:49:19 +0200
->=20
-> > Are you sure socket is locked at this point ? ( by a priori call to
-> > lock_sock())
->=20
-> Ugh, it's not, I'll commit this fix which is safe because we're only
-> peeking at inet_opt to fetch the faddr value then we never reference
-> it again:
->=20
-> diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-> index 962a607..e13c166 100644
-> --- a/net/l2tp/l2tp_ip.c
-> +++ b/net/l2tp/l2tp_ip.c
-> @@ -472,13 +472,15 @@ static int l2tp_ip_sendmsg(struct kiocb *iocb, =
-struct sock *sk, struct msghdr *m
->  	if (rt =3D=3D NULL) {
->  		struct ip_options_rcu *inet_opt;
-> =20
-> -		inet_opt =3D rcu_dereference_protected(inet->inet_opt,
-> -						     sock_owned_by_user(sk));
-> +		rcu_read_lock();
-> +		inet_opt =3D rcu_dereference(inet->inet_opt);
-> =20
->  		/* Use correct destination address if we have options. */
->  		if (inet_opt && inet_opt->opt.srr)
->  			daddr =3D inet_opt->opt.faddr;
-> =20
-> +		rcu_read_unlock();
-> +
->  		/* If this fails, retransmit mechanism of transport layer will
->  		 * keep trying until route appears or the connection times
->  		 * itself out.
+From: Rafael J. Wysocki <rjw@sisk.pl>
 
+tg3 is supposed to enable WoL by default on adapters which support
+that, but it fails to do so unless the adapter's
+/sys/devices/.../power/wakeup file contains 'enabled' during the
+initialization of the adapter.  Fix that by making tg3 use
+device_set_wakeup_enable() to enable wakeup automatically whenever
+WoL should be enabled by default.
 
-Thats perfect, thanks !
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/tg3.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-
+Index: linux-2.6/drivers/net/tg3.c
+===================================================================
+--- linux-2.6.orig/drivers/net/tg3.c
++++ linux-2.6/drivers/net/tg3.c
+@@ -12327,8 +12327,10 @@ static void __devinit tg3_get_eeprom_hw_
+ 		if (val & VCPU_CFGSHDW_ASPM_DBNC)
+ 			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
+ 		if ((val & VCPU_CFGSHDW_WOL_ENABLE) &&
+-		    (val & VCPU_CFGSHDW_WOL_MAGPKT))
++		    (val & VCPU_CFGSHDW_WOL_MAGPKT)) {
+ 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
++			device_set_wakeup_enable(&tp->pdev->dev, true);
++		}
+ 		goto done;
+ 	}
+ 
+@@ -12461,8 +12463,10 @@ static void __devinit tg3_get_eeprom_hw_
+ 			tp->tg3_flags &= ~TG3_FLAG_WOL_CAP;
+ 
+ 		if ((tp->tg3_flags & TG3_FLAG_WOL_CAP) &&
+-		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE))
++		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE)) {
+ 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
++			device_set_wakeup_enable(&tp->pdev->dev, true);
++		}
+ 
+ 		if (cfg2 & (1 << 17))
+ 			tp->phy_flags |= TG3_PHYFLG_CAPACITIVE_COUPLING;
