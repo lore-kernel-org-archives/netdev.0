@@ -1,7 +1,7 @@
 From: David Decotigny <decot@google.com>
-Subject: [PATCHv3 5/7] acenic: Fix using the specified speed when configuring NIC
-Date: Wed, 27 Apr 2011 18:27:21 -0700
-Message-ID: <1303954043-17440-6-git-send-email-decot__21585.4379152463$1303954087$gmane$org@google.com>
+Subject: [PATCHv3 1/7] ethtool: cosmetics: enforce const-ness in ethtool_cmd_speed
+Date: Wed, 27 Apr 2011 18:27:17 -0700
+Message-ID: <1303954043-17440-2-git-send-email-decot__43293.3420678184$1303954115$gmane$org@google.com>
 References: <1303954043-17440-1-git-send-email-decot@google.com>
 Cc: David Decotigny <decot@google.com>
 To: "David S. Miller" <davem@davemloft.net>,
@@ -9,35 +9,68 @@ To: "David S. Miller" <davem@davemloft.net>,
 	mirq-linux@rere.qmqm.pl, Stanislaw Gruszka <sgruszka@redhat.com>,
 	Alexander Duyck <alexander.h.duyc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:27031 "EHLO
+Received: from smtp-out.google.com ([74.125.121.67]:15474 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752886Ab1D1B1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 21:27:51 -0400
+	with ESMTP id S932416Ab1D1B2B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Apr 2011 21:28:01 -0400
 In-Reply-To: <1303954043-17440-1-git-send-email-decot@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This tells the NIC to take the speed specified by ethtool into account
-when configuring it instead of keeping the previous speed.
+The 'ep' argument of ethtool_cmd_speed is not altered: advertise it in
+protoype. +Indentation fix. Also add comments to advise using the
+ethtool_cmd_speed API to get/set the link speed.
 
 Signed-off-by: David Decotigny <decot@google.com>
 ---
- drivers/net/acenic.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/linux/ethtool.h |   14 ++++++++++----
+ 1 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
-index a579899..82260ca 100644
---- a/drivers/net/acenic.c
-+++ b/drivers/net/acenic.c
-@@ -2720,7 +2720,7 @@ static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- 		link |= LNK_NEGOTIATE;
- 	if (ethtool_cmd_speed(ecmd) != speed) {
- 		link &= ~(LNK_1000MB | LNK_100MB | LNK_10MB);
--		switch (speed) {
-+		switch (ethtool_cmd_speed(ecmd)) {
- 		case SPEED_1000:
- 			link |= LNK_1000MB;
- 			break;
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 9de3127..7e6e0a8 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -24,7 +24,10 @@ struct ethtool_cmd {
+ 	__u32	cmd;
+ 	__u32	supported;	/* Features this interface supports */
+ 	__u32	advertising;	/* Features this interface advertises */
+-	__u16	speed;		/* The forced speed, 10Mb, 100Mb, gigabit */
++	__u16	speed;	        /* The forced speed (lower bits) in
++				 * Mbps. Please use
++				 * ethtool_cmd_speed()/_set() to
++				 * access it */
+ 	__u8	duplex;		/* Duplex, half or full */
+ 	__u8	port;		/* Which connector port */
+ 	__u8	phy_address;
+@@ -33,7 +36,10 @@ struct ethtool_cmd {
+ 	__u8	mdio_support;
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+-	__u16	speed_hi;
++	__u16	speed_hi;       /* The forced speed (upper
++				 * bits) in Mbps. Please use
++				 * ethtool_cmd_speed()/_set() to
++				 * access it */
+ 	__u8	eth_tp_mdix;
+ 	__u8	reserved2;
+ 	__u32	lp_advertising;	/* Features the link partner advertises */
+@@ -41,14 +47,14 @@ struct ethtool_cmd {
+ };
+ 
+ static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+-						__u32 speed)
++					 __u32 speed)
+ {
+ 
+ 	ep->speed = (__u16)speed;
+ 	ep->speed_hi = (__u16)(speed >> 16);
+ }
+ 
+-static inline __u32 ethtool_cmd_speed(struct ethtool_cmd *ep)
++static inline __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
+ {
+ 	return (ep->speed_hi << 16) | ep->speed;
+ }
 -- 
 1.7.3.1
 
