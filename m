@@ -1,48 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv4 2/7] ethtool: Call ethtool's get/set_settings
- callbacks with cleaned data
-Date: Thu, 28 Apr 2011 13:46:39 +0100
-Message-ID: <1303994799.3032.456.camel@localhost>
-References: <1303965163-8198-1-git-send-email-decot@google.com>
-	 <1303965163-8198-3-git-send-email-decot@google.com>
-	 <20110428073417.GA2220@redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/3] bql: Byte queue limits
+Date: Thu, 28 Apr 2011 05:53:05 -0700
+Message-ID: <BANLkTikeGhmyswra_Z38eXMBuZk2seoPwQ@mail.gmail.com>
+References: <alpine.DEB.2.00.1104252128290.5895@pokey.mtv.corp.google.com>
+	<20110426091620.7c576a98@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Decotigny <decot@google.com>,
-	"David S. Miller" <davem@davemloft.net>, mirq-linux@rere.qmqm.pl,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110428073417.GA2220@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:49907 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759375Ab1D1MxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 08:53:08 -0400
+Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
+	by smtp-out.google.com with ESMTP id p3SCr7C8007135
+	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 05:53:07 -0700
+Received: from pzk37 (pzk37.prod.google.com [10.243.19.165])
+	by hpaq13.eem.corp.google.com with ESMTP id p3SCqsom026979
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 05:53:05 -0700
+Received: by pzk37 with SMTP id 37so2880501pzk.1
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 05:53:05 -0700 (PDT)
+In-Reply-To: <20110426091620.7c576a98@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-28 at 09:34 +0200, Stanislaw Gruszka wrote:
-> On Wed, Apr 27, 2011 at 09:32:38PM -0700, David Decotigny wrote:
-> > --- a/drivers/net/stmmac/stmmac_ethtool.c
-> > +++ b/drivers/net/stmmac/stmmac_ethtool.c
-> > @@ -237,13 +237,12 @@ stmmac_set_pauseparam(struct net_device *netdev,
-> >  
-> >  	if (phy->autoneg) {
-> >  		if (netif_running(netdev)) {
-> > -			struct ethtool_cmd cmd;
-> > +			struct ethtool_cmd cmd = { .cmd = ETHTOOL_SSET };
-> >  			/* auto-negotiation automatically restarted */
-> > -			cmd.cmd = ETHTOOL_NWAY_RST;
-> 
-> Why did you change ETHTOOL_NWAY_RST to ETHTOOL_SSET ?
+> Although this is implemented as a device attribute, from a layering
+> point of view it feels like a queuing strategy. Having two competing
+> ways to do something is not always a good idea. Why is this not a
+> qdisc parameter or a new qdisc?
+>
+It's an interesting idea, but I'm not sure that this would fit into
+the qdisc model without some major re-architecture.  The qdiscs manage
+host side above the device, BQL is another layer that would need to be
+added beyond the that which is logically below the leaf qdiscs.
 
-Because the function it's calling is an implementation of ETHTOOL_SSET,
-not ETHTOOL_NWAY_RST.
+Tom
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> --
+>
