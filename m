@@ -1,56 +1,65 @@
-From: NeilBrown <neilb@suse.de>
-Subject: Re: [PATCH 08/13] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Thu, 28 Apr 2011 16:19:33 +1000
-Message-ID: <20110428161933.1f1266e6@notabene.brown>
-References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
-	<1303920491-25302-9-git-send-email-mgorman@suse.de>
+From: Ajit <ajitsa_bes@yahoo.com>
+Subject: Re: Maximum no of bytes Ethernet can transfer at a time ??
+Date: Thu, 28 Apr 2011 06:36:24 +0000 (UTC)
+Message-ID: <loom.20110428T083015-693@post.gmane.org>
+References: <loom.20110427T140651-957@post.gmane.org> <1303906910.3166.50.camel@edumazet-laptop> <loom.20110427T142551-736@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1303920491-25302-9-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:60138 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753975Ab1D1Ggm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2011 02:36:42 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1QFKq7-0003yf-RH
+	for netdev@vger.kernel.org; Thu, 28 Apr 2011 08:36:40 +0200
+Received: from 241.snat-111-91-96.hns.net.in ([111.91.96.241])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 08:36:39 +0200
+Received: from ajitsa_bes by 241.snat-111-91-96.hns.net.in with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 08:36:39 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Apr 2011 17:08:06 +0100 Mel Gorman <mgorman@suse.de> wrote:
+Ajit <ajitsa_bes <at> yahoo.com> writes:
+
+> 
+> Eric Dumazet <eric.dumazet <at> gmail.com> writes:
+> 
+> > Sure, check your syscall returns values, and search for SO_RCVBUF &
+> > SO_SNDBUF   (man 7 socket)
+> > 
+> > --
+> 
+> okies..I dont know exactly how to use those but I will google and try it..
+> will post my result after some time.
+> 
+> Thank you
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo <at> vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
 
 
-> @@ -1578,7 +1589,7 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
->   */
->  static inline struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
->  {
-> -	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, 0);
-> +	return alloc_pages_node(NUMA_NO_NODE, gfp_mask | __GFP_MEMALLOC, 0);
->  }
->  
+hi sir,
+I tried out something as you said.
 
-I'm puzzling a bit over this change.
-__netdev_alloc_page appears to be used to get pages to put in ring buffer
-for a network card to DMA received packets into.  So it is OK to use
-__GFP_MEMALLOC for these allocations providing we mark the resulting skb as
-'pfmemalloc' if a reserved page was used.
+I introduces this lines in my code,
 
-However I don't see where that marking is done.
-I think it should be in skb_fill_page_desc, something like:
+getsockopt(s,SOL_SOCKET,SO_RCVBUF,&optval,&optlen);
+printf("The value of optlen is %d\n",optlen);
 
-  if (page->pfmemalloc)
-	skb->pfmemalloc = true;
+It always displays 4.
 
-Is this covered somewhere else that I am missing?
+I really have no idea about it. Do I need to use setsockopt options in my
+receiver code ??
+If so, what difference will it make ??
 
-Thanks,
-NeilBrown
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
