@@ -1,44 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] bridge: Module use count must be updated as bridges are
- created/destroyed
-Date: Fri, 29 Apr 2011 08:34:18 -0700
-Message-ID: <20110429083418.1ce9415c@nehalam>
-References: <4DBA830A020000780003ED5D@vpn.id2.novell.com>
-	<20110429.002530.112581952.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: same application has different performance with kernel
+ 2.6.32/34/36
+Date: Fri, 29 Apr 2011 08:48:48 -0700
+Message-ID: <20110429084848.64a48efa@nehalam>
+References: <BANLkTinF8Mfs+pqfGV0bLqm_3VyKCMn0LA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: JBeulich@novell.com, bridge@lists.linux-foundation.org,
-	jeffm@suse.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jon.zhou@jdsu.com
+To: zhou rui <zhourui.cn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43545 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754727Ab1D2Pez (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 11:34:55 -0400
-In-Reply-To: <20110429.002530.112581952.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:36168 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751969Ab1D2Psv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Apr 2011 11:48:51 -0400
+In-Reply-To: <BANLkTinF8Mfs+pqfGV0bLqm_3VyKCMn0LA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Apr 2011 00:25:30 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Fri, 29 Apr 2011 22:46:04 +0800
+zhou rui <zhourui.cn@gmail.com> wrote:
 
-> From: "Jan Beulich" <JBeulich@novell.com>
-> Date: Fri, 29 Apr 2011 08:21:14 +0100
+> hi
+> my test application add a packet hook via  dev_add_pack(&prot_hook);
+> then copy the packet to a shared memory between userspace and kernel
 > 
-> > Otherwise 'modprobe -r' on a module having a dependency on bridge will
-> > implicitly unload bridge, bringing down all connectivity that was using
-> > bridges.
-> > 
-> > Signed-off-by: Jan Beulich <jbeulich@novell.com>
-> > Cc: Jeff Mahoney <jeffm@suse.com>
+> tests wereperformed at same machine(DL380 G7, 12cores, intel X520 10G
+> nic),same traffic,same nic driver(ixgbe 3.3.9)
 > 
-> All network device drivers behave exactly the same way, when you rmmod
-> the thing we unconfigure all the routes, addresses, etc. going through
-> that device and let you unload it.
+> kernel 2.6.32.12 (SUSE SLES11,SP1)
+> APPlication cpu usage: 5-6%
 > 
-> And this behavior is very much intentional.
 > 
-> Don't add an exception here.
+> kernel updated to  2.6.34.7
+> APPlication cpu usage: 19-25%
+> 
+> kernel 2.6.36.4 (enable/disable RPS)
+> APPlication cpu usage 35-40%
+> 
+> 
+> before I installing profile tool to find the root cause, any idea about it?
+> 'top' result is not accurate  in older kernel? or any kernel
+> module/feature impact this?
 
-Agreed.
+The report is appreciated, but since your application is not part of the main
+kernel, developers are going to be unable to provide much direct help.
+If it is closed source, go away we won't help with closed kernel components.
+If it is open source, post a link where people can download it.
+
+This is the kind of problem that requires effort and running multiple
+times and using kernel bisection can show which change had the most impact.
+It could be driver, scheduling or the change to packet steering.
+
