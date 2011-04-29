@@ -1,63 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: r8169 :  always copying the rx buffer to new skb
-Date: Fri, 29 Apr 2011 06:54:40 +0200
-Message-ID: <1304052880.2954.18.camel@edumazet-laptop>
-References: <4DAC7001.9060800@hotmail.com>
-	 <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com>
-	 <20110420191316.GA18805@electric-eye.fr.zoreil.com>
-	 <4DAFA9F9.5080909@hotmail.com> <4DB77D03.9070507@hotmail.com>
-	 <20110427203544.GB19708@electric-eye.fr.zoreil.com>
-	 <4DBA1A9A.3000703@hotmail.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH 1/2] net: use NETIF_F_ALL_TSO for vlan features
+Date: Fri, 29 Apr 2011 13:20:52 +0800
+Message-ID: <4DBA4AB4.5000802@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>, nic_swsd@realtek.com
-To: John Lumby <johnlumby@hotmail.com>
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, eilong@broadcom.com,
+	dm@chelsio.com, leedom@chelsio.com, mirqus@gmail.com,
+	bhutchings@solarflare.com, dm@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:47206 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154Ab1D2Eyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 00:54:47 -0400
-Received: by wwa36 with SMTP id 36so3889699wwa.1
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 21:54:46 -0700 (PDT)
-In-Reply-To: <4DBA1A9A.3000703@hotmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:57372 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751842Ab1D2FY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Apr 2011 01:24:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 28 avril 2011 =C3=A0 21:55 -0400, John Lumby a =C3=A9crit :
-> *
->    Conclusions  :
->      . setting copybreak to 16383 seems to be a valid way of avoiding=
-=20
-> alloc failures when under heavy memory pressure,  although the alloc=20
-> failures don't seem to cause much trouble in these runs.
->      .  But I am surprised to see how well the copybreak=3D16383 case=
- runs=20
-> with no memory pressure,   much better than I saw for the unpatched=20
-> 2.6.39rc2 earlier on,  and I need to run some more tests to check=20
-> that.     I will also run same tests on the vanilla 2.6.39.
 
-Doing the copy of data and building an exact size skb has benefit of
-providing 'right' skb->truesize (might reduce RCVBUF contention and
-avoid backlog drops) and already cached data (hot in cpu caches). Next
-'copy' is almost free (L1 cache access)
+As Dimitris Michailidis suggested, use NETIF_F_ALL_TSO for vlan_features,
+which is a mask, but not hw_features. 
 
-It all depends on workload. If you want to receive a huge number of
-small datagrams, [and feed them to several cpus], results might be
-completely different.
+Compile test.
 
 
->     .    for my next patch submission  -   what should I base it on? =
-   =20
-> Is there a git project which has the "latest" version of r8169.c?    =
-I=20
-> think it's not  torvalds/linux-2.6.git as fixes to r8169.c in that=20
-> project go only to 2011-03-21.   Sorry if this is dumb question.
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ drivers/net/bnx2x/bnx2x_main.c     |    2 +-
+ drivers/net/cxgb4/cxgb4_main.c     |    2 +-
+ drivers/net/cxgb4vf/cxgb4vf_main.c |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-This one ?
-
-http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git
-
-
-
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index bfd7ac9..67b1011 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -9429,7 +9429,7 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_HW_VLAN_TX;
+ 
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
++		NETIF_F_ALL_TSO | NETIF_F_HIGHDMA;
+ 
+ 	dev->features |= dev->hw_features | NETIF_F_HW_VLAN_RX;
+ 	if (bp->flags & USING_DAC_FLAG)
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index bdc868c..d6b1a91 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -3526,7 +3526,7 @@ static void free_some_resources(struct adapter *adapter)
+ }
+ 
+ #define TSO_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
+-#define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | TSO_FLAGS | \
++#define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_ALL_TSO | \
+ 		   NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
+ 
+ static int __devinit init_one(struct pci_dev *pdev,
+diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
+index 8cf9890..b735c52 100644
+--- a/drivers/net/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
+@@ -2603,7 +2603,7 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 		netdev->hw_features = NETIF_F_SG | TSO_FLAGS |
+ 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 			NETIF_F_HW_VLAN_TX | NETIF_F_RXCSUM;
+-		netdev->vlan_features = NETIF_F_SG | TSO_FLAGS |
++		netdev->vlan_features = NETIF_F_SG | NETIF_F_ALL_TSO |
+ 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 			NETIF_F_HIGHDMA;
+ 		netdev->features = netdev->hw_features |
+-- 
+1.7.3.1
