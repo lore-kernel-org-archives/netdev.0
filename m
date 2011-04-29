@@ -1,53 +1,39 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re: Re: [v2 PATCH 0/6] IPVS: init and cleanup.
-Date: Fri, 29 Apr 2011 10:17:06 +0200 (CEST)
-Message-ID: <r17gk8q.3093bdc5574395547ee5937d82a3241c@obelix.schillstrom.com>
+From: "Jan Beulich" <JBeulich@novell.com>
+Subject: Re: [PATCH] bridge: Module use count must be updated as
+	 bridges are created/destroyed
+Date: Fri, 29 Apr 2011 09:31:27 +0100
+Message-ID: <4DBA937F020000780003ED96@vpn.id2.novell.com>
+References: <4DBA830A020000780003ED5D@vpn.id2.novell.com>
+ <20110429.002530.112581952.davem@davemloft.net>
+ <4DBA87B6020000780003ED74@vpn.id2.novell.com>
+ <20110429.011051.183061494.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8BIT
-Cc: horms@verge.net.au, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans.schillstrom@ericsson.com
-To: "Julian Anastasov" <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <shemminger@linux-foundation.org>,
+	<bridge@lists.linux-foundation.org>, <jeffm@suse.com>,
+	<netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+In-Reply-To: <20110429.011051.183061494.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello
->
->Hello,
->
->On Fri, 29 Apr 2011, Hans Schillstrom wrote:
->
->> This patch series handles exit from a network name space.
->> 
->> REVISION
->> 
->> This is version 3
->
->	Great! Only one missing lock:
+>>> On 29.04.11 at 10:10, David Miller <davem@davemloft.net> wrote:
+> From: "Jan Beulich" <JBeulich@novell.com>
+> Date: Fri, 29 Apr 2011 08:41:10 +0100
+> 
+>> You talk of rmmod on the very module, but the issue is about
+>> modprobe -r on a dependent module. I cannot believe you consider
+>> it correct that *implicit* unloading of bridge.ko should happen when
+>> bridges are configured.
+> 
+> Which module in particular depends upon bridge and causes the
+> problem?
 
-Ooops..
+The problem was observed (a long time ago) with ebtable_broute,
+and I cannot see how this would have changed meanwhile.
 
->
->Patch 3:
->	Missing write_[un]lock_bh(&__ip_vs_svc_lock) in ip_vs_flush,
->	now we use ip_vs_unlink_service_nolock.
->
->As you are going to create new version you can look also at these:
->
->Patch 5:
->	Can you rename 'goto exit;' to 'goto cleanup;' or
->	'goto out;'
->
->Patch 6:
->	Add at least one comma after 'enabled' here:
->	netns(%d) enabled first service added
->
-I'll send a new set.
-
-Thanks
-Hans
-
+Jan
 
