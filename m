@@ -1,80 +1,137 @@
 From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [RFC PATCH 1/2] net: Add multiqueue support
-Date: Fri, 29 Apr 2011 15:07:59 -0500
-Message-ID: <4DBB1A9F.2050803@codemonkey.ws>
-References: <20110420082706.32157.59668.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-	<20110420083318.32157.63955.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+Subject: Re: [Qemu-devel] [RFC PATCH 0/2] Multiqueue support for qemu(virtio-net)
+Date: Fri, 29 Apr 2011 15:10:13 -0500
+Message-ID: <4DBB1B25.1020300@codemonkey.ws>
+References: <20110420082706.32157.59668.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>	<OF7CC46028.9A206852-ON65257878.00307271-65257878.00308D38@in.ibm.com> <19887.42381.34145.956833@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au, qemu-devel@nongnu.org
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	qemu-devel@nongnu.org
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20110420083318.32157.63955.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: </archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:44599 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751061Ab1D2UKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 16:10:17 -0400
+In-Reply-To: <19887.42381.34145.956833@gargle.gargle.HOWL>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/20/2011 03:33 AM, Jason Wang wrote:
-> This patch adds the multiqueues support for emulated nics. Each VLANClientState
-> pairs are now abstract as a queue instead of a nic, and multiple VLANClientState
-> pointers were stored in the NICState and treated as the multiple queues of a
-> single nic. The netdev options of qdev were now expanded to accept more than one
-> netdev ids. A queue_index were also introduced to let the emulated nics know
-> which queue the packet were came from or sent out. Virtio-net would be the first
-> user.
+On 04/20/2011 10:33 PM, Jason Wang wrote:
+> Krishna Kumar2 writes:
+>   >  Thanks Jason!
+>   >
+>   >  So I can use my virtio-net guest driver and test with this patch?
+>   >  Please provide the script you use to start MQ guest.
+>   >
 >
-> The legacy single queue nics can still run happily without modification as the
-> the compatibility were kept.
+> Yes and thanks. Following is a simple script may help you start macvtap mq
+> guest.
 >
-> Signed-off-by: Jason Wang<jasowang@redhat.com>
-> ---
->   hw/qdev-properties.c |   37 ++++++++++++++++++++++++++++++-------
->   hw/qdev.h            |    3 ++-
->   net.c                |   34 ++++++++++++++++++++++++++--------
->   net.h                |   15 +++++++++++----
->   4 files changed, 69 insertions(+), 20 deletions(-)
+> qemu_path=./qemu-system-x86_64
+> img_path=/home/kvm_autotest_root/images/mq.qcow2
+> vtap_dev=/dev/tap104
+> mac=96:88:12:1C:27:83
+> smp=2
+> mq=4
 >
-> diff --git a/hw/qdev-properties.c b/hw/qdev-properties.c
-> index 1088a26..dd371e1 100644
-> --- a/hw/qdev-properties.c
-> +++ b/hw/qdev-properties.c
-> @@ -384,14 +384,37 @@ PropertyInfo qdev_prop_chr = {
->
->   static int parse_netdev(DeviceState *dev, Property *prop, const char *str)
->   {
-> -    VLANClientState **ptr = qdev_get_prop_ptr(dev, prop);
-> +    VLANClientState ***nc = qdev_get_prop_ptr(dev, prop);
-> +    const char *ptr = str;
-> +    int i = 0;
-> +    size_t len = strlen(str);
-> +    *nc = qemu_malloc(MAX_QUEUE_NUM * sizeof(VLANClientState *));
-> +
-> +    while (i<  MAX_QUEUE_NUM&&  ptr<  str + len) {
-> +        char *name = NULL;
-> +        char *this = strchr(ptr, '#');
+> for i in `seq $mq`
+> do
+>      vtap+=" -netdev tap,id=hn$i,fd=$((i+100)) $((i+100))<>$vtap_dev"
 
-However this is being used is not going to be right.  Is this taking 
-netdev=a#b#c#d?
+So you are basically dup()'ing the tap device.
 
-I sort of agree with Michael about using multiple netdevs for this but I 
-don't yet understand how this gets sets up from userspace.
-
-Can you give an example of usage that involves the full tap device setup?
-
-Ideally, a user/management tool would never need to know about any of this.
-
-In a perfect world, we could just dup() the tap fd a few times to create 
-multiple queues.
+Does this actually improve performance at all?
 
 Regards,
 
 Anthony Liguori
+
+>      netdev+="hn$i#"
+> done
+>
+> eval "$qemu_path $img_path $vtap -device virtio-net-pci,queues=$mq,netdev=$netdev,mac=$mac,vectors=32 -enable-kvm -smp $smp"
+>
+>
+>   >  Regards,
+>   >
+>   >  - KK
+>   >
+>   >  Jason Wang<jasowang@redhat.com>  wrote on 04/20/2011 02:03:07 PM:
+>   >
+>   >  >  Jason Wang<jasowang@redhat.com>
+>   >  >  04/20/2011 02:03 PM
+>   >  >
+>   >  >  To
+>   >  >
+>   >  >  Krishna Kumar2/India/IBM@IBMIN, kvm@vger.kernel.org, mst@redhat.com,
+>   >  >  netdev@vger.kernel.org, rusty@rustcorp.com.au, qemu-
+>   >  >  devel@nongnu.org, anthony@codemonkey.ws
+>   >  >
+>   >  >  cc
+>   >  >
+>   >  >  Subject
+>   >  >
+>   >  >  [RFC PATCH 0/2] Multiqueue support for qemu(virtio-net)
+>   >  >
+>   >  >  Inspired by Krishna's patch
+>   >  (http://www.spinics.net/lists/kvm/msg52098.html
+>   >  >  ) and
+>   >  >  Michael's suggestions.  The following series adds the multiqueue support
+>   >  for
+>   >  >  qemu and enable it for virtio-net (both userspace and vhost).
+>   >  >
+>   >  >  The aim for this series is to simplified the management and achieve the
+>   >  same
+>   >  >  performacne with less codes.
+>   >  >
+>   >  >  Follows are the differences between this series and Krishna's:
+>   >  >
+>   >  >  - Add the multiqueue support for qemu and also for userspace virtio-net
+>   >  >  - Instead of hacking the vhost module to manipulate kthreads, this patch
+>   >  just
+>   >  >  implement the userspace based multiqueues and thus can re-use the
+>   >  >  existed vhost kernel-side codes without any modification.
+>   >  >  - Use 1:1 mapping between TX/RX pairs and vhost kthread because the
+>   >  >  implementation is based on usersapce.
+>   >  >  - The cli is also changed to make the mgmt easier, the -netdev option of
+>   >  qdev
+>   >  >  can now accpet more than one ids. You can start a multiqueue virtio-net
+>   >  device
+>   >  >  through:
+>   >  >  ./qemu-system-x86_64 -netdev tap,id=hn0,vhost=on,fd=X -netdev
+>   >  >  tap,id=hn0,vhost=on,fd=Y -device
+>   >  virtio-net-pci,netdev=hn0#hn1,queues=2 ...
+>   >  >
+>   >  >  The series is very primitive and still need polished.
+>   >  >
+>   >  >  Suggestions are welcomed.
+>   >  >  ---
+>   >  >
+>   >  >  Jason Wang (2):
+>   >  >        net: Add multiqueue support
+>   >  >        virtio-net: add multiqueue support
+>   >  >
+>   >  >
+>   >  >   hw/qdev-properties.c |   37 ++++-
+>   >  >   hw/qdev.h            |    3
+>   >  >   hw/vhost.c           |   26 ++-
+>   >  >   hw/vhost.h           |    1
+>   >  >   hw/vhost_net.c       |    7 +
+>   >  >   hw/vhost_net.h       |    2
+>   >  >   hw/virtio-net.c      |  409 +++++++++++++++++++++++++++++++
+>   >  >  +------------------
+>   >  >   hw/virtio-net.h      |    2
+>   >  >   hw/virtio-pci.c      |    1
+>   >  >   hw/virtio.h          |    1
+>   >  >   net.c                |   34 +++-
+>   >  >   net.h                |   15 +-
+>   >  >   12 files changed, 353 insertions(+), 185 deletions(-)
+>   >  >
+>   >  >  --
+>   >  >  Jason Wang
+>   >
+>
+
