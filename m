@@ -1,49 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/10] ipv4: Fetch route saddr from flow key in
- l2tp_ip_connect().
-Date: Fri, 29 Apr 2011 10:27:16 -0700 (PDT)
-Message-ID: <20110429.102716.183035930.davem@davemloft.net>
+Subject: [PATCH 6/10] ipv4: Get route daddr from flow key in
+ dccp_v4_connect().
+Date: Fri, 29 Apr 2011 10:27:22 -0700 (PDT)
+Message-ID: <20110429.102722.39169184.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52410
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52413
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760459Ab1D2R1t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 13:27:49 -0400
+	by vger.kernel.org with ESMTP id S1760490Ab1D2R1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 13:27:55 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id DAC2C24C087
-	for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 10:27:16 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id A7D0A24C087
+	for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 10:27:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Now that output route lookups update the flow with
-source address selection, we can fetch it from
-fl4->saddr instead of rt->rt_src
+destination address selection, we can fetch it from
+fl4->daddr instead of rt->rt_dst
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/l2tp/l2tp_ip.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/dccp/ipv4.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index e13c166..c100fa9 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -340,9 +340,9 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
- 	l2tp_ip_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index cbbcc6c..f4254bb 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -83,7 +83,7 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	}
  
- 	if (!inet->inet_saddr)
--		inet->inet_saddr = rt->rt_src;
-+		inet->inet_saddr = fl4.saddr;
- 	if (!inet->inet_rcv_saddr)
--		inet->inet_rcv_saddr = rt->rt_src;
-+		inet->inet_rcv_saddr = fl4.saddr;
- 	inet->inet_daddr = rt->rt_dst;
- 	sk->sk_state = TCP_ESTABLISHED;
- 	inet->inet_id = jiffies;
+ 	if (inet_opt == NULL || !inet_opt->opt.srr)
+-		daddr = rt->rt_dst;
++		daddr = fl4.daddr;
+ 
+ 	if (inet->inet_saddr == 0)
+ 		inet->inet_saddr = rt->rt_src;
 -- 
 1.7.4.5
 
