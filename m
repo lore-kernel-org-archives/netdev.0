@@ -1,68 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix incorrect unregistration of sysctl when last
- ip deleted
-Date: Fri, 29 Apr 2011 13:45:24 -0700 (PDT)
-Message-ID: <20110429.134524.116375005.davem@davemloft.net>
-References: <201104272312.p3RNCcl6002068@jgmyers-vm1.eng.proofpoint.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: fix rtnl even race in register_netdevice()
+Date: Fri, 29 Apr 2011 13:53:39 -0700 (PDT)
+Message-ID: <20110429.135339.200375209.davem@davemloft.net>
+References: <20110429172634.27130.25375.stgit@x201>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jgmyers@proofpoint.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201104272312.p3RNCcl6002068@jgmyers-vm1.eng.proofpoint.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110429172634.27130.25375.stgit@x201>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: John Myers <jgmyers@proofpoint.com>
-Date: Wed, 27 Apr 2011 16:12:38 -0700
+From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+Date: Fri, 29 Apr 2011 20:26:34 +0300
 
-> When the last ip address is deleted, the kernel disables IPv6 on the
-> interface. (Not sure why, but that's beside the point.) The call that
-> does this is over-aggressive--it indicates the interface is about to
-> be removed even though that isn't necessarily so.
+> From: Kalle Valo <kalle.valo-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
 > 
-> This causes IPv6 to, among other things, unregister its sysctl
-> parameters for the interface. Thus, the "accept_ra" and "addrconf"
-> settings can't be set on the interface until after the interface has
-> been brought back up, which is too late.
+> There's a race in register_netdevice so that the rtnl event is sent before
+> the device is actually ready. This was visible with flimflam, chrome os
+> connection manager:
 > 
-> Signed-off-by: John Gardiner Myers <jgmyers@proofpoint.com>
-> Cc: stable@kernel.org
+> 00:21:35 roska flimflamd[2598]: src/udev.c:add_net_device()
+> 00:21:35 roska flimflamd[2598]: connman_inet_ifname: SIOCGIFNAME(index
+>    4): No such device
+> 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message() buf
+>    0xbfefda3c len 1004
+> 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message()
+>    NEWLINK len 1004 type 16 flags 0x0000 seq 0
+> 
+> So the kobject is visible in udev before the device is ready.
+> 
+> (ignore the 10 s delay, I added that to reproduce the issue easily)
+> 
+> The issue is reported here:
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=15606
+> 
+> The fix is to call netdev_register_kobject() after the device is added
+> to the list.
+> 
+> Signed-off-by: Kalle Valo <kalle.valo-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
 
-I'm not applying this, at least without some more discussion.
+This is not correct.
 
-I can't see what you gain from this change.
+If you move the kobject registry around, you have to change the
+error handling cleanup to match.
 
-First of all, when the machine boots up, you already have the problem
-that you cannot set the accept_ra and addrconf sysctl settings before
-the first ipv6 address is added to the interface.
+This change will leave the netdevice on all sorts of lists, it will
+also leak a reference to the device.
 
-So by definition you already cannot make the settings before it is
-"too late" and the device is already engaging in ipv6 activity.
+I also think this points a fundamental problem with this change, in
+that you can't register the kobject after the device is added to
+the various lists in list_netdevice().
 
-Giving you the capability to handle this across full ipv6 address
-deletions on the device later on doesn't add anything, and at best it
-gives people a false sense of security about being able to preserve
-these settings across an ipv6 disable on the device.
+Once it's in those lists, any thread of control can find the device
+and those threads of control may try to get at the data backed by
+the kobject and therefore they really expect it to be there by
+then.
 
-If people are going to use this new behavior to do some trick like:
-
-1) Let device come up and assign ipv6 addresses so that sysctls appear
-2) Set ipv6 sysctls how actually desired
-3) Delete all ipv6 addresses
-4) Add them all back
-
-Then I doubly do not want to set a precedent for this kind of usage
-by applying this patch.  Fix the real problem.
-
-This behavior has been here, and intentionally so, since Alexey added
-the "how" parameter to addrconf_ifdown() back in 1997.
-
-Furthermore, there are other side effects to changing the 'how' parameter
-to zero in this case and I haven't seen any analysis that those won't
-cause any other undesirable side effects either.
-
-So again, I'm not applying this patch, sorry.
+What you can do instead is try to delay the NETREG_REGISTERED
+setting, and block the problematic notifications by testing
+reg_state or similar.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
