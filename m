@@ -1,54 +1,63 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: same application has different performance with kernel
- 2.6.32/34/36
-Date: Fri, 29 Apr 2011 08:48:48 -0700
-Message-ID: <20110429084848.64a48efa@nehalam>
-References: <BANLkTinF8Mfs+pqfGV0bLqm_3VyKCMn0LA@mail.gmail.com>
+From: "Jan Beulich" <JBeulich@novell.com>
+Subject: Re: [PATCH] bridge: Module use count must be updated as	
+	 bridges are created/destroyed
+Date: Fri, 29 Apr 2011 17:07:01 +0100
+Message-ID: <4DBAFE45020000780003EEE6@vpn.id2.novell.com>
+References: <4DBA87B6020000780003ED74@vpn.id2.novell.com>
+ <20110429.011051.183061494.davem@davemloft.net>
+ <4DBA937F020000780003ED96@vpn.id2.novell.com>
+ <20110429.014445.39196872.davem@davemloft.net>
+ <4DBA9C71020000780003EDBE@vpn.id2.novell.com> <4DBA9C23.2000408@suse.cz>
+ <1304093116.11627.386.camel@constitution.bos.jonmasters.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jon.zhou@jdsu.com
-To: zhou rui <zhourui.cn@gmail.com>
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>,
+	"Jon Masters" <jcm@jonmasters.org>,
+	<shemminger@linux-foundation.org>,
+	<bridge@lists.linux-foundation.org>, <jeffm@suse.com>,
+	"Michal Marek" <mmarek@suse.cz>, <netdev@vger.kernel.org>
+To: "Jon Masters" <jonathan@jonmasters.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36168 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751969Ab1D2Psv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Apr 2011 11:48:51 -0400
-In-Reply-To: <BANLkTinF8Mfs+pqfGV0bLqm_3VyKCMn0LA@mail.gmail.com>
+In-Reply-To: <1304093116.11627.386.camel@constitution.bos.jonmasters.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Apr 2011 22:46:04 +0800
-zhou rui <zhourui.cn@gmail.com> wrote:
+>>> On 29.04.11 at 18:05, Jon Masters <jonathan@jonmasters.org> wrote:
+> On Fri, 2011-04-29 at 13:08 +0200, Michal Marek wrote:
+>> On 29.4.2011 11:09, Jan Beulich wrote:
+>> >>>> On 29.04.11 at 10:44, David Miller<davem@davemloft.net>  wrote:
+> 
+>> >> Nothing on the system should be hitting modules with unload requests
+>> >> unless the user explicitly asked for that specific module to be
+>> >> unloaded.  At least not by default.
+>> >>
+>> >> So the me the problem is perhaps that "modprobe -r" does this auto
+>> >> dependency unloading thing by default.
+>> >>
+>> >> When we first fixed network device drivers so that they now properly
+>> >> always run with no module refcount at all, people complained because
+>> >> there were some distributions that ran some daemon that periodically
+>> >> looked for "unreferenced" modules and "helped" the user by
+>> >> automatically unloaded them.
+>> >>
+>> >> We killed that foolish daemon, and we can fix "modprobe -r" too.
+>> >
+>> > Michal - aren't you the modutils maintainer?
+>> 
+>> That would be Jon (CC added).
+> 
+> Thanks. So the specific feature you mention was added precisely because
+> some folks wanted to clean up ununsed modules by removing all of their
+> dependencies. Since I've not been on this thread until now, can you let
+> me know what precisely you need, and why? We can make the unloading of
+> unused modules configurable, but it sounds like you're saying even that
+> isn't good enough. What actually happens, what's the bug experience?
 
-> hi
-> my test application add a packet hook via  dev_add_pack(&prot_hook);
-> then copy the packet to a shared memory between userspace and kernel
-> 
-> tests wereperformed at same machine(DL380 G7, 12cores, intel X520 10G
-> nic),same traffic,same nic driver(ixgbe 3.3.9)
-> 
-> kernel 2.6.32.12 (SUSE SLES11,SP1)
-> APPlication cpu usage: 5-6%
-> 
-> 
-> kernel updated to  2.6.34.7
-> APPlication cpu usage: 19-25%
-> 
-> kernel 2.6.36.4 (enable/disable RPS)
-> APPlication cpu usage 35-40%
-> 
-> 
-> before I installing profile tool to find the root cause, any idea about it?
-> 'top' result is not accurate  in older kernel? or any kernel
-> module/feature impact this?
+The problem observed was that unloading (via modprobe -r)
+ebtable_broute.ko, bridge.ko was also unloaded, causing all
+bridged networking to stop functioning on a machine.
 
-The report is appreciated, but since your application is not part of the main
-kernel, developers are going to be unable to provide much direct help.
-If it is closed source, go away we won't help with closed kernel components.
-If it is open source, post a link where people can download it.
-
-This is the kind of problem that requires effort and running multiple
-times and using kernel bisection can show which change had the most impact.
-It could be driver, scheduling or the change to packet steering.
+Jan
 
