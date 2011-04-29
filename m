@@ -1,99 +1,134 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH 2/2] tg3: Add code to allow ethtool to
- enable/disable loopback.
-Date: Thu, 28 Apr 2011 19:46:52 -0700
-Message-ID: <20110429024652.GB20805@mcarlson.broadcom.com>
-References: <1304033599-8395-1-git-send-email-maheshb@google.com>
- <1304033599-8395-2-git-send-email-maheshb@google.com>
- <1304033599-8395-3-git-send-email-maheshb@google.com>
- <20110429002855.GC19665@mcarlson.broadcom.com>
- <BANLkTimA9YGFKjB0_UMsAJeSGEbKGoFJXQ@mail.gmail.com>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH 08/13] netvm: Allow skb allocation to use PFMEMALLOC
+ reserves
+Date: Fri, 29 Apr 2011 12:55:31 +1000
+Message-ID: <20110429125531.22f6e8f1@notabene.brown>
+References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
+	<1303920491-25302-9-git-send-email-mgorman@suse.de>
+	<20110428161933.1f1266e6@notabene.brown>
+	<20110428100035.GO4658@suse.de>
+	<20110428204755.2e07147e@notabene.brown>
+	<20110428111854.GV4658@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Micha? Miros?aw" <mirq-linux@rere.qmqm.pl>
-To: "Mahesh Bandewar" <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3996 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753168Ab1D2Cdh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2011 22:33:37 -0400
-In-Reply-To: <BANLkTimA9YGFKjB0_UMsAJeSGEbKGoFJXQ@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110428111854.GV4658@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2011 at 06:42:02PM -0700, Mahesh Bandewar wrote:
-> >> + ? ? spin_unlock_bh(&tp->lock);
-> >> +
-> >> + ? ? return err;
-> >> +}
-> >> +
-> >> ?static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
-> >> ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?int new_mtu)
-> >> ?{
-> >> @@ -15028,6 +15055,7 @@ static const struct net_device_ops tg3_netdev_ops = {
-> >> ? ? ? .ndo_tx_timeout ? ? ? ? = tg3_tx_timeout,
-> >> ? ? ? .ndo_change_mtu ? ? ? ? = tg3_change_mtu,
-> >> ? ? ? .ndo_fix_features ? ? ? = tg3_fix_features,
-> >> + ? ? .ndo_set_features ? ? ? = tg3_set_features,
-> >> ?#ifdef CONFIG_NET_POLL_CONTROLLER
-> >> ? ? ? .ndo_poll_controller ? ?= tg3_poll_controller,
-> >> ?#endif
-> >> @@ -15044,6 +15072,7 @@ static const struct net_device_ops tg3_netdev_ops_dma_bug = {
-> >> ? ? ? .ndo_do_ioctl ? ? ? ? ? = tg3_ioctl,
-> >> ? ? ? .ndo_tx_timeout ? ? ? ? = tg3_tx_timeout,
-> >> ? ? ? .ndo_change_mtu ? ? ? ? = tg3_change_mtu,
-> >> + ? ? .ndo_set_features ? ? ? = tg3_set_features,
-> >> ?#ifdef CONFIG_NET_POLL_CONTROLLER
-> >> ? ? ? .ndo_poll_controller ? ?= tg3_poll_controller,
-> >> ?#endif
-> >> @@ -15241,6 +15270,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> >> ? ? ? dev->features |= hw_features;
-> >> ? ? ? dev->vlan_features |= hw_features;
-> >>
-> >> + ? ? /* Add the loopback capability */
-> >> + ? ? dev->hw_features |= NETIF_F_LOOPBACK;
-> >
-> > Not all tg3 devices can do MAC loopback. ?I'd suggest qualifying this
-> > with:
-> >
-> > ? ? ? ? ? ? ? ?if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5780 ||
-> > ? ? ? ? ? ? ? ? ? ?(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
-> >
-> > But that will exclude a lot of our newer devices. ?Does it matter what
-> > type of loopback is used? ?Newer devices prefer internal phy loopback
-> > over MAC loopback.
-> >
-> As long as device supports some sort of loopback, we should be setting
-> this capability and move this logic (or similar) to set_features() and
-> choose the method that is supported. Since several devices support
-> loopback at various levels, to keep it consistent, we should be
-> setting the loopback closest to the host. So can I simply set the
-> int-phy loopback in the else part of the above 'provided if' or would
-> need other logic? or in other words -
-> 
->  if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5780 ||
-> (tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
->     supported_mode = MAC;
-> else
->     supported_mode = INTPHY;
-> 
-> if (supported_mode == MAC)
->     cur_mode = tr32(MAC_MODE);
-> else
->     tg3_readphy(tp, MII_BMCR, &cur_mode);
-> 
-> Would something like this work?
+On Thu, 28 Apr 2011 12:18:54 +0100 Mel Gorman <mgorman@suse.de> wrote:
 
-That might be where we want to end up, but it'll be some work to get
-there.  Maybe it makes sense to just keep MAC loopback mode for now and
-only enable it for a subset of devices.  Adding phy loopback mode sounds
-like it will require some surgery.
+> On Thu, Apr 28, 2011 at 08:47:55PM +1000, NeilBrown wrote:
+> > On Thu, 28 Apr 2011 11:05:06 +0100 Mel Gorman <mgorman@suse.de> wrote:
+> > 
+> > > On Thu, Apr 28, 2011 at 04:19:33PM +1000, NeilBrown wrote:
+> > > > On Wed, 27 Apr 2011 17:08:06 +0100 Mel Gorman <mgorman@suse.de> wrote:
+> > > > 
+> > > > 
+> > > > > @@ -1578,7 +1589,7 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
+> > > > >   */
+> > > > >  static inline struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+> > > > >  {
+> > > > > -	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, 0);
+> > > > > +	return alloc_pages_node(NUMA_NO_NODE, gfp_mask | __GFP_MEMALLOC, 0);
+> > > > >  }
+> > > > >  
+> > > > 
+> > > > I'm puzzling a bit over this change.
+> > > > __netdev_alloc_page appears to be used to get pages to put in ring buffer
+> > > > for a network card to DMA received packets into.  So it is OK to use
+> > > > __GFP_MEMALLOC for these allocations providing we mark the resulting skb as
+> > > > 'pfmemalloc' if a reserved page was used.
+> > > > 
+> > > > However I don't see where that marking is done.
+> > > > I think it should be in skb_fill_page_desc, something like:
+> > > > 
+> > > >   if (page->pfmemalloc)
+> > > > 	skb->pfmemalloc = true;
+> > > > 
+> > > > Is this covered somewhere else that I am missing?
+> > > > 
+> > > 
+> > > You're not missing anything.
+> > > 
+> > > >From the context of __netdev_alloc_page, we do not know if the skb
+> > > is suitable for marking pfmemalloc or not (we don't have SKB_ALLOC_RX
+> > > flag for example that __alloc_skb has). The reserves are potentially
+> > > being dipped into for an unsuitable packet but it gets dropped in
+> > > __netif_receive_skb() and the memory is returned. If we mark the skb
+> > > pfmemalloc as a result of __netdev_alloc_page using a reserve page, the
+> > > packets would not get dropped as expected.
+> > > 
+> > 
+> > The only code in __netif_receive_skb that seems to drop packets is
+> > 
+> > +	if (skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
+> > +		goto drop;
+> > +
+> > 
+> > which requires that the skb have pfmemalloc set before it will be dropped.
+> > 
+> 
+> Yes, I only wanted to drop the packet if we were under pressure
+> when skb was allocated. If we hit pressure between when skb was
+> allocated and when __netdev_alloc_page is called, then the PFMEMALLOC
+> reserves may be used for packet receive unnecessarily but the next skb
+> allocation that grows slab will have the flag set appropriately. There
+> is a window during which we use reserves where we did not have to
+> but it's limited. Again, the throttling if pfmemalloc reserves gets too
+> depleted comes into play.
 
+I don't find this very convincing...
+It seems inconsistent that you are doing precise accounting inside slab so
+that you know which object used reserved memory and which did not, yet you
+get sloppy with the accounting of whole pages on network receive.
+
+Is there a clear upper bound on how many reserve pages could slip into
+non-reserve skbs before skbs start getting the pfmalloc flag set?
+
+I just think it is safer to mark an skb as pfmalloc if any part of the memory
+associated with it came from reserves.
+
+Also I find the throttling argument hard to reason about.  Certainly
+some things get throttles, but incoming packets don't...
+
+I'm certainly not saying that the code is clearly wrong, but I'm having
+trouble convincing myself that it is clearly right (or at least 'safe').
+
+> 
+> > Actually ... I'm expecting to find code that says:
+> >    if (skb_pfmalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
+> > 	drop_packet();
+> > 
+> > but I cannot find it.  Where is the code that discard pfmalloc packets for
+> > non-memalloc sockets?
+> > 
+> > I can see similar code in sk_filter but that doesn't drop the packet, it just
+> > avoids filtering it.
+> > 
+> 
+> hmm, if sk_filter is returning -ENOMEM then things like
+> sock_queue_rcv_skb() return error and the skb does not get queued and I
+> expected it to get dropped. What did I miss?
+> 
+
+Just that I was making incorrect assumptions about code that I wasn't
+familiar with.
+Make sense now.
+
+Thanks,
+NeilBrown
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
