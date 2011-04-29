@@ -1,61 +1,49 @@
-From: John Lumby <johnlumby@hotmail.com>
-Subject: Re: Is 802.3ad mode in bonding useful ?
-Date: Fri, 29 Apr 2011 10:04:02 -0400
-Message-ID: <4DBAC552.507@hotmail.com>
-References: <4DB9185E.4050103@gmail.com> <20110428122102.GB4165@hmsreliant.think-freely.org> <4DBA2DDC.80502@gmail.com> <20110429104342.GA22387@hmsreliant.think-freely.org>
+From: Einar EL Lueck <ELELUECK@de.ibm.com>
+Subject: Re: oops during unregister_netdevice interface enslaved to bond -
+	regression
+Date: Fri, 29 Apr 2011 16:45:45 +0200
+Message-ID: <OF46D78C46.5B4BE29C-ONC1257881.0050BB22-C1257881.00511537@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: WeipingPan <panweiping3@gmail.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Frank Blaschka <Frank.Blaschka@de.ibm.com>
+To: opurdila@ixiacom.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from toip4.srvr.bell.ca ([209.226.175.87]:30533 "EHLO
-	toip4.srvr.bell.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757825Ab1D2OET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 10:04:19 -0400
-In-Reply-To: <20110429104342.GA22387@hmsreliant.think-freely.org>
+Received: from mtagate6.uk.ibm.com ([194.196.100.166]:54194 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755602Ab1D2Opp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 10:45:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/11 06:43, Neil Horman wrote:
-> On Fri, Apr 29, 2011 at 11:17:48AM +0800, WeipingPan wrote:
->> On 04/28/2011 08:21 PM, Neil Horman wrote:
->>> On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
->>>> Hi, all,
->>>>
->>>> 802.3ad mode in bonding implements 802.3ad standard.
->>>>
->>>> I am just wondering  802.3ad mode is useful,
->>>> since  bonding has many modes like balance-rr, active-backup, etc.
->>>>
->>> Yes, of course its usefull.  For switches which support 802.3ad, this mode
->>> allows for both peers to understand that the links in the bond are acting as an
->>> aggregate, which makes it easier to prevent things like inadvertently looped
->>> back frames, for which the other modes have to have all sorts of hacks to
->>> prevent.
 
+Hi Octavian,
 
-I believe another use for 802.3ad is to monitor the aggregation 
-"actively"  (by sending special LACP packets) and to detect any kind of 
-failure of the other end of one of the slaves more rapidly (than if 
-relying on something like carrier detect).     This may improve 
-availability,  although that depends on the specific network topology 
-and capabilities in the switch(es).    There is information on this in 
-Documentation/networking/bonding.txt.
-
-
->> What is looped back frames here ?
-> In this case they are frames that get received by the bond, which the bond
-> itself sent.  In modes where more than one slave is active, and in which the
-> switch has no additional knoweldge of the aggregate (e.g. round robin mode), the
-> bond can send a frame on one slave, which the switch may broadcast to all ports,
-
-
-Isn't this (broadcasting or repeating on all ports other than incoming) 
-more associated with simple hubs rather than switches?     I would think 
-any switch with layer 2 capability does not do that (does it?)
-
-> causing the frame just sent by the bond to then get received on another slave.
+On 04/15/2011 10:53 AM, Frank Blaschka wrote:
+> Hi Octavian,
 >
+> your commit 443457242beb6716b43db4d62fe148eab5515505 introduced this
+regression.
+> I have reviewed the net device unregister code but did not understand it
+very well.
+> I have seen the problem only in combination with bonding. Can you give me
+some help
+> how to go on with this problem. I can reproduced it very easy on a single
+CPU
+> machine.
 >
+
+In this case rollback_registered_many iterates over the list of devs that
+initially has just one device in it. In a loop it calls
+call_netdevice_notifiers(NETDEV_UNREGISTER, dev) which triggers the bonding
+driver to call dev_close_many for the same device. That call to
+dev_close_many leads to the addition of the same device to the list over
+which rollback_registered_many is iterating. Consequently,
+netdev_unregister_kobject(dev) is called twice for the same device. Frank
+captured the result in his mail.
+
+Do you agree with my debugging results?
+
+Regards,
+Einar.
 
