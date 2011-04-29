@@ -1,43 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ipv4,ipv6,bonding: Restore control over
- number of peer notifications
-Date: Fri, 29 Apr 2011 12:44:29 -0700 (PDT)
-Message-ID: <20110429.124429.15250719.davem@davemloft.net>
-References: <1303867552.2850.39.camel@bwh-desktop>
+Subject: Re: [PATCHv3 NEXT 0/2]qlcnic: updates
+Date: Fri, 29 Apr 2011 13:00:11 -0700 (PDT)
+Message-ID: <20110429.130011.242152065.davem@davemloft.net>
+References: <1304027299-1960-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, kaber@trash.net,
-	netdev@vger.kernel.org, brian.haley@hp.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37450
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43376
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760869Ab1D2TpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 15:45:02 -0400
-In-Reply-To: <1303867552.2850.39.camel@bwh-desktop>
+	by vger.kernel.org with ESMTP id S1750721Ab1D2UAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 16:00:44 -0400
+In-Reply-To: <1304027299-1960-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 27 Apr 2011 02:25:52 +0100
+From: amit.salecha@qlogic.com
+Date: Thu, 28 Apr 2011 14:48:17 -0700
 
-> For backward compatibility, we should retain the module parameters and
-> sysfs attributes to control the number of peer notifications
-> (gratuitous ARPs and unsolicited NAs) sent after bonding failover.
-> Also, it is possible for failover to take place even though the new
-> active slave does not have link up, and in that case the peer
-> notification should be deferred until it does.
-> 
-> Change ipv4 and ipv6 so they do not automatically send peer
-> notifications on bonding failover.
-> 
-> Change the bonding driver to send separate NETDEV_NOTIFY_PEERS
-> notifications when the link is up, as many times as requested.  Since
-> it does not directly control which protocols send notifications, make
-> num_grat_arp and num_unsol_na aliases for a single parameter.  Bump
-> the bonding version number and update its documentation.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Hi,
+>     Please discard series 2 as sendmail fail to send mail to netdev list.
+>     This is v3 to remove any ambiguity.
 
-Applied, thanks.
+Both applied, thanks.
