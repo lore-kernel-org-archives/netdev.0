@@ -1,58 +1,70 @@
-From: Ajit <ajitsa_bes@yahoo.com>
-Subject: Re: Maximum no of bytes Ethernet can transfer at a time ??
-Date: Fri, 29 Apr 2011 08:39:31 +0000 (UTC)
-Message-ID: <loom.20110429T103558-283@post.gmane.org>
-References: <loom.20110427T140651-957@post.gmane.org> <20110427130114.GA1895@hmsreliant.think-freely.org> <loom.20110428T074300-379@post.gmane.org> <20110428110634.GA4165@hmsreliant.think-freely.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: Module use count must be updated as bridges
+ are created/destroyed
+Date: Fri, 29 Apr 2011 01:44:45 -0700 (PDT)
+Message-ID: <20110429.014445.39196872.davem@davemloft.net>
+References: <4DBA87B6020000780003ED74@vpn.id2.novell.com>
+	<20110429.011051.183061494.davem@davemloft.net>
+	<4DBA937F020000780003ED96@vpn.id2.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	jeffm@suse.com, netdev@vger.kernel.org
+To: JBeulich@novell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:46342 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751510Ab1D2Iju (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Apr 2011 04:39:50 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QFjEn-0007wD-80
-	for netdev@vger.kernel.org; Fri, 29 Apr 2011 10:39:47 +0200
-Received: from mumbai-123-5.primenet.in ([203.115.123.5])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 10:39:45 +0200
-Received: from ajitsa_bes by mumbai-123-5.primenet.in with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 10:39:45 +0200
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36747
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751247Ab1D2IpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 04:45:18 -0400
+In-Reply-To: <4DBA937F020000780003ED96@vpn.id2.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman <nhorman <at> tuxdriver.com> writes:
+From: "Jan Beulich" <JBeulich@novell.com>
+Date: Fri, 29 Apr 2011 09:31:27 +0100
 
-
-> > 
-> Can you just post a link to the code?
-> Neil
+>>>> On 29.04.11 at 10:10, David Miller <davem@davemloft.net> wrote:
+>> From: "Jan Beulich" <JBeulich@novell.com>
+>> Date: Fri, 29 Apr 2011 08:41:10 +0100
+>> 
+>>> You talk of rmmod on the very module, but the issue is about
+>>> modprobe -r on a dependent module. I cannot believe you consider
+>>> it correct that *implicit* unloading of bridge.ko should happen when
+>>> bridges are configured.
+>> 
+>> Which module in particular depends upon bridge and causes the
+>> problem?
 > 
-> > Thank you. 
-> > 
-> > 
+> The problem was observed (a long time ago) with ebtable_broute,
+> and I cannot see how this would have changed meanwhile.
 
-here are the links to the code..
+Well your change makes it so that someone who actually _wants_ to
+unload the bridge module, regardless of configuration, cannot do so.
 
-sender code : http://pastebin.com/se17Xn96
+I think that's a worse problem than this ebtables thing.
 
-The command line arguments are like ./pgm_name eth0 /root/abc
+Nothing on the system should be hitting modules with unload requests
+unless the user explicitly asked for that specific module to be
+unloaded.  At least not by default.
 
-where abc is the file name.
+So the me the problem is perhaps that "modprobe -r" does this auto
+dependency unloading thing by default.
 
-receiver code : http://pastebin.com/AKiUWzwR
+When we first fixed network device drivers so that they now properly
+always run with no module refcount at all, people complained because
+there were some distributions that ran some daemon that periodically
+looked for "unreferenced" modules and "helped" the user by
+automatically unloaded them.
 
-just run it.
+We killed that foolish daemon, and we can fix "modprobe -r" too.
 
-In the receiver code I have assigned offset to buffer[15], it was just for
-debugging purpose. Actually offset must have 16 bits of buffer[15] and
-buffer[16], but for files of around 100kb-200kb it will easily work..no need to
-modify.
+Does "rmmod" have this behavior too?  If not, and it does the right
+thing by only unloaded what the user asked for, then people should
+use that.
 
-Thank you.
+I really don't in any way want to block people from being able to
+cleanly unload the bridge module, regardless of configuration, if
+that's what they want so your patch as written is not going to be
+considered for inclusion.
 
