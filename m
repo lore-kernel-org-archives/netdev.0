@@ -1,55 +1,25 @@
-From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] net: fix rtnl even race in register_netdevice()
-Date: Fri, 29 Apr 2011 20:26:34 +0300
-Message-ID: <20110429172634.27130.25375.stgit@x201>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/10] ipv4: Fetch values from flow key not route.
+Date: Fri, 29 Apr 2011 10:26:47 -0700 (PDT)
+Message-ID: <20110429.102647.226790886.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52395
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757548Ab1D2R1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 13:27:20 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id E313C24C087
+	for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 10:26:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kalle.valo-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
 
-There's a race in register_netdevice so that the rtnl event is sent before
-the device is actually ready. This was visible with flimflam, chrome os
-connection manager:
+Here is the first set of simplifications that are possible now that
+output route lookup will update the flow lookup key the caller passes
+in.
 
-00:21:35 roska flimflamd[2598]: src/udev.c:add_net_device()
-00:21:35 roska flimflamd[2598]: connman_inet_ifname: SIOCGIFNAME(index
-   4): No such device
-00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message() buf
-   0xbfefda3c len 1004
-00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message()
-   NEWLINK len 1004 type 16 flags 0x0000 seq 0
-
-So the kobject is visible in udev before the device is ready.
-
-(ignore the 10 s delay, I added that to reproduce the issue easily)
-
-The issue is reported here:
-
-https://bugzilla.kernel.org/show_bug.cgi?id=15606
-
-The fix is to call netdev_register_kobject() after the device is added
-to the list.
-
-Signed-off-by: Kalle Valo <kalle.valo-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
----
- net/core/dev.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 956d3b0..f2afbe6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5425,11 +5425,6 @@ int register_netdevice(struct net_device *dev)
- 	if (ret)
- 		goto err_uninit;
- 
--	ret = netdev_register_kobject(dev);
--	if (ret)
--		goto err_uninit;
--	dev->reg_state = NETREG_REGISTERED;
+Signed-off-by: David S. Miller <davem@davemloft.net>
