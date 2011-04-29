@@ -1,120 +1,87 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH 2/2] tg3: Add code to allow ethtool to
- enable/disable loopback.
-Date: Thu, 28 Apr 2011 17:28:55 -0700
-Message-ID: <20110429002855.GC19665@mcarlson.broadcom.com>
-References: <1304033599-8395-1-git-send-email-maheshb@google.com>
- <1304033599-8395-2-git-send-email-maheshb@google.com>
- <1304033599-8395-3-git-send-email-maheshb@google.com>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [PATCHv2 1/2] net: Export dev_queue_xmit_nit for use by macvlan driver
+Date: Thu, 28 Apr 2011 20:22:31 -0400
+Message-ID: <1304036552-1589-2-git-send-email-david.ward@ll.mit.edu>
+References: <1304036552-1589-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	netdev <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Micha? Miros?aw" <mirq-linux@rere.qmqm.pl>
-To: "Mahesh Bandewar" <maheshb@google.com>
+Content-Type: text/plain
+Cc: David Ward <david.ward@ll.mit.edu>,
+	Patrick McHardy <kaber@trash.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3333 "EHLO MMS3.broadcom.com"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:40970 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758211Ab1D2APp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Apr 2011 20:15:45 -0400
-In-Reply-To: <1304033599-8395-3-git-send-email-maheshb@google.com>
-Content-Disposition: inline
+	id S1753070Ab1D2Acv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2011 20:32:51 -0400
+In-Reply-To: <1304036552-1589-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2011 at 04:33:19PM -0700, Mahesh Bandewar wrote:
-> ---
->  drivers/net/tg3.c |   32 ++++++++++++++++++++++++++++++++
->  1 files changed, 32 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index fa57e3d..208884d 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -6319,6 +6319,33 @@ static u32 tg3_fix_features(struct net_device *dev, u32 features)
->  	return features;
->  }
->  
-> +static int tg3_set_features(struct net_device *dev, u32 features)
-> +{
-> +	struct tg3 *tp = netdev_priv(dev);
-> +	u32 cur_mode = 0;
-> +	int err = 0;
-> +
-> +	spin_lock_bh(&tp->lock);
-> +	cur_mode = tr32(MAC_MODE);
-> +
-> +	if (features & NETIF_F_LOOPBACK) {
-> +		/* Enable internal MAC loopback mode */
-> +		tw32(MAC_MODE, cur_mode | MAC_MODE_PORT_INT_LPBACK);
-> +		netif_carrier_on(tp->dev);
-> +		netdev_info(dev, "Internal MAC loopback mode enabled.\n");
-> +	} else {
-> +		/* Disable internal MAC loopback mode */
-> +		tw32(MAC_MODE, cur_mode & ~MAC_MODE_PORT_INT_LPBACK);
-> +		/* Force link status check */
-> +		if (netif_running(dev))
-> +			tg3_setup_phy(tp, 1);
-> +		netdev_info(dev, "Internal MAC loopback mode disabled.\n");
-> +	}
+Export dev_queue_xmit_nit for use by the macvlan virtual network device
+driver. Also, use 'dev' instead of 'skb->dev' in this function.
 
-I think we should be checking netif_running() before touching the
-hardware at all.  It might be in a low power state.
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+---
+ include/linux/netdevice.h |    2 ++
+ net/core/dev.c            |   14 +++++++++-----
+ 2 files changed, 11 insertions(+), 5 deletions(-)
 
-Also, wouldn't it be better to verify this particular bit changed before
-doing any of these operations?
-
-> +	spin_unlock_bh(&tp->lock);
-> +
-> +	return err;
-> +}
-> +
->  static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
->  			       int new_mtu)
->  {
-> @@ -15028,6 +15055,7 @@ static const struct net_device_ops tg3_netdev_ops = {
->  	.ndo_tx_timeout		= tg3_tx_timeout,
->  	.ndo_change_mtu		= tg3_change_mtu,
->  	.ndo_fix_features	= tg3_fix_features,
-> +	.ndo_set_features	= tg3_set_features,
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	.ndo_poll_controller	= tg3_poll_controller,
->  #endif
-> @@ -15044,6 +15072,7 @@ static const struct net_device_ops tg3_netdev_ops_dma_bug = {
->  	.ndo_do_ioctl		= tg3_ioctl,
->  	.ndo_tx_timeout		= tg3_tx_timeout,
->  	.ndo_change_mtu		= tg3_change_mtu,
-> +	.ndo_set_features	= tg3_set_features,
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	.ndo_poll_controller	= tg3_poll_controller,
->  #endif
-> @@ -15241,6 +15270,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
->  	dev->features |= hw_features;
->  	dev->vlan_features |= hw_features;
->  
-> +	/* Add the loopback capability */
-> +	dev->hw_features |= NETIF_F_LOOPBACK;
-
-Not all tg3 devices can do MAC loopback.  I'd suggest qualifying this
-with:
-
-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5780 ||
-		    (tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
-
-But that will exclude a lot of our newer devices.  Does it matter what
-type of loopback is used?  Newer devices prefer internal phy loopback
-over MAC loopback.
-
->  	if (tp->pci_chip_rev_id == CHIPREV_ID_5705_A1 &&
->  	    !tg3_flag(tp, TSO_CAPABLE) &&
->  	    !(tr32(TG3PCI_PCISTATE) & PCISTATE_BUS_SPEED_HIGH)) {
-> -- 
-> 1.7.3.1
-> 
-> 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cb8178a..b63e517 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2099,6 +2099,8 @@ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct netdev_queue *txq);
+ extern int		dev_forward_skb(struct net_device *dev,
+ 					struct sk_buff *skb);
++extern void		dev_queue_xmit_nit(struct sk_buff *skb,
++					   struct net_device *dev);
+ 
+ extern int		netdev_budget;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3bbb4c2..b15622e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1521,11 +1521,13 @@ static inline int deliver_skb(struct sk_buff *skb,
+ }
+ 
+ /*
+- *	Support routine. Sends outgoing frames to any network
+- *	taps currently in use.
++ * dev_queue_xmit_nit - send outgoing frame to AF_PACKET sockets
++ *
++ * @skb: buffer to send
++ * @dev: network device that AF_PACKET sockets are attached to (if any)
+  */
+ 
+-static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
++void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct packet_type *ptype;
+ 	struct sk_buff *skb2 = NULL;
+@@ -1540,7 +1542,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 		    (ptype->af_packet_priv == NULL ||
+ 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
+ 			if (pt_prev) {
+-				deliver_skb(skb2, pt_prev, skb->dev);
++				atomic_inc(&skb2->users);
++				pt_prev->func(skb2, dev, pt_prev, dev);
+ 				pt_prev = ptype;
+ 				continue;
+ 			}
+@@ -1573,9 +1576,10 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
+ 	if (pt_prev)
+-		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
++		pt_prev->func(skb2, dev, pt_prev, dev);
+ 	rcu_read_unlock();
+ }
++EXPORT_SYMBOL(dev_queue_xmit_nit);
+ 
+ /* netif_setup_tc - Handle tc mappings on real_num_tx_queues change
+  * @dev: Network device
+-- 
+1.7.4.4
 
