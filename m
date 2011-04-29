@@ -1,95 +1,66 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Is 802.3ad mode in bonding useful ?
-Date: Fri, 29 Apr 2011 10:01:06 -0700
-Message-ID: <11733.1304096466@death>
-References: <4DB9185E.4050103@gmail.com> <20110428122102.GB4165@hmsreliant.think-freely.org> <4DBA2DDC.80502@gmail.com> <20110429104342.GA22387@hmsreliant.think-freely.org>
-Cc: WeipingPan <panweiping3@gmail.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:40472 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838Ab1D2RBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 13:01:40 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p3TGj86v029359
-	for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 10:45:08 -0600
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p3TH2LCX064272
-	for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 11:02:21 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p3TH1ENE025469
-	for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 11:01:17 -0600
-In-reply-to: <20110429104342.GA22387@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-next: Tree for April 29 (bpf_jit)
+Date: Fri, 29 Apr 2011 19:19:18 +0200
+Message-ID: <1304097558.2686.6.camel@edumazet-laptop>
+References: <20110429131940.4f4c938f.sfr@canb.auug.org.au>
+	 <20110429092632.26ff1e53.randy.dunlap@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110429092632.26ff1e53.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman <nhorman@tuxdriver.com> wrote:
+Le vendredi 29 avril 2011 =C3=A0 09:26 -0700, Randy Dunlap a =C3=A9crit=
+ :
+> On Fri, 29 Apr 2011 13:19:40 +1000 Stephen Rothwell wrote:
+>=20
+> > Hi all,
+> >=20
+> > Changes since 20110428:
+>=20
+>=20
+> when CONFIG_MODULES is not enabled:
+>=20
+> bpf_jit_comp.c:(.text+0x43cc2): undefined reference to `module_free'
+> (.text+0x4521a): undefined reference to `module_alloc'
+> (.text+0x453af): undefined reference to `module_free'
+>=20
+>=20
 
->On Fri, Apr 29, 2011 at 11:17:48AM +0800, WeipingPan wrote:
->> On 04/28/2011 08:21 PM, Neil Horman wrote:
->> >On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
->> >>Hi, all,
->> >>
->> >>802.3ad mode in bonding implements 802.3ad standard.
->> >>
->> >>I am just wondering  802.3ad mode is useful,
->> >>since  bonding has many modes like balance-rr, active-backup, etc.
->> >>
->> >Yes, of course its usefull.  For switches which support 802.3ad, this mode
->> >allows for both peers to understand that the links in the bond are acting as an
->> >aggregate, which makes it easier to prevent things like inadvertently looped
->> >back frames, for which the other modes have to have all sorts of hacks to
->> >prevent.
->> What is looped back frames here ?
->In this case they are frames that get received by the bond, which the bond
->itself sent.  In modes where more than one slave is active, and in which the
->switch has no additional knoweldge of the aggregate (e.g. round robin mode), the
->bond can send a frame on one slave, which the switch may broadcast to all ports,
->causing the frame just sent by the bond to then get received on another slave.
+Oh well, I guess we can add one 'depends on MODULES' like we do for
+KPROBES (it also uses module_alloc())
 
-	Actually, the round-robin (balance-rr) and balance-xor modes
-were originally meant to interoperate with a switch configured for
-traditional Etherchannel (old versions of Sun Trunking, etc) the common
-term in use now seems to be "static link aggregation" to distinguish it
-from 802.3ad dynamic link aggregation.  When the switch is set up that
-way, there are no loopback problems, because the switch knows that all
-of the ports are really one big aggregate, and it won't send broadcast
-or multicast packets to more than one port of the aggregation, and knows
-that a bcast/mcast originating from one of those ports should not loop
-back to another port of the aggregation.
+Not sure many people build a !CONFIG_MODULES kernel these days...
 
-	What Neil is talking about is running -rr or -xor against,
-basically, a hub or unmanaged switch, in which the switch (a) doesn't
-have any link aggregation capabilities, and (b) won't complain when it
-sees the same MAC address coming in from multiple ports more or less
-simultaneously.  Managed switches (that have link aggregation
-capabilities) will generally complain about "flapping" if they see the
-same source MAC address arrive on multiple switch ports in a short
-period of time.
+Thanks Randy !
 
-	The special hacks now in bond_handle_frame aren't really about
-preventing loopbacks, but rather to suppress duplicates, particularly
-for the short periods of time that a switch is flooding traffic to all
-ports because its mac table is not up to date.  This is an issue in,
-e.g., active-backup mode, in which the switch has no special
-configuration.  This code has moved around a lot lately, so older
-kernels will have a substantially different layout, although the logic
-is still pretty much the same.
+[PATCH net-next-2.6] bpf: depends on MODULES
 
-	I don't recall that there's anything specifically to suppress
-loopbacks for -rr or -xor mode, although there is transmit logic to keep
-things like IGMP messages on the same slave all the time to keep the
-switches happier.
+module_alloc() and module_free() are available only if CONFIG_MODULES=3D=
+y
 
->> I didn't see any special code to handle looped back frames in other
->> modes in bonding,
->> can you take an example ?
->> 
->See bond_handle_frame.
-
-	The actual testing logic is in bond_should_deliver_exact_match.
-
-	-J
-
+Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ net/Kconfig |    1 +
+ 1 files changed, 1 insertion(+)
+
+diff --git a/net/Kconfig b/net/Kconfig
+index 745fb02..878151c 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -238,6 +238,7 @@ config HAVE_BPF_JIT
+ config BPF_JIT
+ 	bool "enable BPF Just In Time compiler"
+ 	depends on HAVE_BPF_JIT
++	depends on MODULES
+ 	---help---
+ 	  Berkeley Packet Filter filtering capabilities are normally handled
+ 	  by an interpreter. This option allows kernel to generate a native
