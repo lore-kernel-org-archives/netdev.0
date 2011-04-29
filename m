@@ -1,39 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Module use count must be updated as bridges
- are created/destroyed
-Date: Fri, 29 Apr 2011 00:25:30 -0700 (PDT)
-Message-ID: <20110429.002530.112581952.davem@davemloft.net>
-References: <4DBA830A020000780003ED5D@vpn.id2.novell.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [v2 PATCH 0/6] IPVS: init and cleanup.
+Date: Fri, 29 Apr 2011 10:29:30 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1104291024360.1605@ja.ssi.bg>
+References: <1304058334-17594-1-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	jeffm@suse.com, netdev@vger.kernel.org
-To: JBeulich@novell.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34076
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754475Ab1D2H0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 03:26:04 -0400
-In-Reply-To: <4DBA830A020000780003ED5D@vpn.id2.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, ebiederm@xmission.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1304058334-17594-1-git-send-email-hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jan Beulich" <JBeulich@novell.com>
-Date: Fri, 29 Apr 2011 08:21:14 +0100
 
-> Otherwise 'modprobe -r' on a module having a dependency on bridge will
-> implicitly unload bridge, bringing down all connectivity that was using
-> bridges.
+	Hello,
+
+On Fri, 29 Apr 2011, Hans Schillstrom wrote:
+
+> This patch series handles exit from a network name space.
 > 
-> Signed-off-by: Jan Beulich <jbeulich@novell.com>
-> Cc: Jeff Mahoney <jeffm@suse.com>
+> REVISION
+> 
+> This is version 3
 
-All network device drivers behave exactly the same way, when you rmmod
-the thing we unconfigure all the routes, addresses, etc. going through
-that device and let you unload it.
+	Great! Only one missing lock:
 
-And this behavior is very much intentional.
+Patch 3:
+	Missing write_[un]lock_bh(&__ip_vs_svc_lock) in ip_vs_flush,
+	now we use ip_vs_unlink_service_nolock.
 
-Don't add an exception here.
+As you are going to create new version you can look also at these:
 
+Patch 5:
+	Can you rename 'goto exit;' to 'goto cleanup;' or
+	'goto out;'
+
+Patch 6:
+	Add at least one comma after 'enabled' here:
+	netns(%d) enabled first service added
+
+> OVERVIEW
+> Basically there was three faults in the netns implementation.
+> - Kernel threads hold devices and preventing an exit.
+> - dst cache holds references to devices.
+> - Services was not always released.
+> 
+> Patch 1 & 3 contains the functionality
+>       4 renames funcctions
+>       5 removes empty functions
+>       6 Debuging.
+> 
+> IMPLEMENTATION
+> - Avoid to increment the usage counter for kernel threads.
+>   this is done in the first patch.
+> - Patch 3 tries to restore the cleanup order.
+>   Add NETDEV_UNREGISTER notification for dst_reset
+> 
+> Revision 3 
+> Residies in patch 3
+>         Throttle renamed to enable.
+>         Comments from Julian implemented
+>         Check enable in ip_vs_in, ip_vs_out and ip_vs_forward_icmp*
+>         Remove in ip_vs_in_icmp*.
+>         ip_vs_svc_reset() moved into ip_vs_dst_event().
+>         ip_vs_service_cleanup() uses ip_vs_flush and mutex lock.
+>         ip_vs_unlink_service_nolock() added.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
