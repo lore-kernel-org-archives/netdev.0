@@ -1,50 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 0/7] ethtool: generalize use of
-	ethtool_cmd_speed API
-Date: Fri, 29 Apr 2011 14:12:40 -0700 (PDT)
-Message-ID: <20110429.141240.233691679.davem@davemloft.net>
-References: <1303954043-17440-1-git-send-email-decot@google.com>
+From: John Gardiner Myers <jgmyers@proofpoint.com>
+Subject: Re: [PATCH] ipv6: fix incorrect unregistration of sysctl when last
+ ip deleted
+Date: Fri, 29 Apr 2011 14:58:24 -0700
+Message-ID: <4DBB3480.9020708@proofpoint.com>
+References: <201104272312.p3RNCcl6002068@jgmyers-vm1.eng.proofpoint.com> <20110429.134524.116375005.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sgruszka@redhat.com, grundler@parisc-linux.org,
-	e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	eilong@broadcom.com, mirq-linux@rere.qmqm.pl,
-	netdev@vger.kernel.org, bhutchings@solarflare.com
-To: decot@google.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1303954043-17440-1-git-send-email-decot@google.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110429.134524.116375005.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot@google.com>
-Date: Wed, 27 Apr 2011 18:27:16 -0700
+On 4/29/2011 1:45 PM, David Miller wrote:
+> First of all, when the machine boots up, you already have the problem
+> that you cannot set the accept_ra and addrconf sysctl settings before
+> the first ipv6 address is added to the interface.
+What do you mean? I see no problem.
 
-> Third version of the patch series ensuring ethtool_cmd::speed/_hi
-> fields are accessed using ethtool_cmd_speed/_set API. Thanks to Ben
-> and Stephen for their feedbacks that have been integrated here,
-> including some from Ben suggested in PATCHv1 and added here (intel GbE
-> drivers: last patch in the series).
+One does not need to set the accept_ra and addrconf sysctl settings 
+before the first ipv6 address is added to the interface, one needs to 
+set them before the interface is brought up. DAD (and thus router 
+solicitation) does not happen on down interfaces.
 
-Great work David, all applied to net-next-2.6
+When the machine boots up and the interface is discovered, it starts in 
+the down state but with the sysctls registered. There is no problem 
+adjusting the settings before bringing the interface up.
 
-Thanks!
+> So by definition you already cannot make the settings before it is
+> "too late" and the device is already engaging in ipv6 activity.
+>
+> Giving you the capability to handle this across full ipv6 address
+> deletions on the device later on doesn't add anything, and at best it
+> gives people a false sense of security about being able to preserve
+> these settings across an ipv6 disable on the device.
+>
+> If people are going to use this new behavior to do some trick like:
+>
+> 1) Let device come up and assign ipv6 addresses so that sysctls appear
+> 2) Set ipv6 sysctls how actually desired
+> 3) Delete all ipv6 addresses
+> 4) Add them all back
+>
+> Then I doubly do not want to set a precedent for this kind of usage
+> by applying this patch.  Fix the real problem.
+This is all nonsense.
+> This behavior has been here, and intentionally so, since Alexey added
+> the "how" parameter to addrconf_ifdown() back in 1997.
+The "how" parameter indicates the device is being deleted. In this case, 
+the device is not being deleted.
 
-------------------------------------------------------------------------------
-WhatsUp Gold - Download Free Network Management Software
-The most intuitive, comprehensive, and cost-effective network 
-management toolset available today.  Delivers lowest initial 
-acquisition cost and overall TCO of any competing solution.
-http://p.sf.net/sfu/whatsupgold-sd
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+This does bring up the issue that the call to addrconf_ifdown() when the 
+MTU goes below IPV6_MIN_MTU probably also needs to be fixed.
+Furthermore, there are other side effects to changing the 'how' parameter
+> to zero in this case and I haven't seen any analysis that those won't
+> cause any other undesirable side effects either.
+If the device isn't going away, then the ip6_ptr shouldn't be zeroed, 
+the /proc/net/dev_snmp6 entry shouldn't be deregistered, the stateless 
+addrconf flags should be cleared, the regen timer shouldn't be deleted, 
+ipv6 multicast shouldn't mark the device down instead of being 
+destroyed, and the nd_parms shouldn't be freed.
