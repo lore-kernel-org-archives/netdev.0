@@ -1,177 +1,105 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH 2/2] tg3: Add code to allow ethtool to enable/disable loopback.
-Date: Thu, 28 Apr 2011 18:42:02 -0700
-Message-ID: <BANLkTimA9YGFKjB0_UMsAJeSGEbKGoFJXQ@mail.gmail.com>
-References: <1304033599-8395-1-git-send-email-maheshb@google.com>
-	<1304033599-8395-2-git-send-email-maheshb@google.com>
-	<1304033599-8395-3-git-send-email-maheshb@google.com>
-	<20110429002855.GC19665@mcarlson.broadcom.com>
+From: John Lumby <johnlumby@hotmail.com>
+Subject: Re: r8169 :  always copying the rx buffer to new skb
+Date: Thu, 28 Apr 2011 21:55:38 -0400
+Message-ID: <4DBA1A9A.3000703@hotmail.com>
+References: <4DAC7001.9060800@hotmail.com> <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com> <20110420191316.GA18805@electric-eye.fr.zoreil.com> <4DAFA9F9.5080909@hotmail.com> <4DB77D03.9070507@hotmail.com> <20110427203544.GB19708@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"Micha? Miros?aw" <mirq-linux@rere.qmqm.pl>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	nic_swsd@realtek.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:34382 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751992Ab1D2BmG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 21:42:06 -0400
-Received: from hpaq14.eem.corp.google.com (hpaq14.eem.corp.google.com [172.25.149.14])
-	by smtp-out.google.com with ESMTP id p3T1g3Ea014451
-	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 18:42:03 -0700
-Received: from wyb34 (wyb34.prod.google.com [10.241.225.98])
-	by hpaq14.eem.corp.google.com with ESMTP id p3T1g2jd019897
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 18:42:02 -0700
-Received: by wyb34 with SMTP id 34so2851750wyb.29
-        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 18:42:02 -0700 (PDT)
-In-Reply-To: <20110429002855.GC19665@mcarlson.broadcom.com>
+Received: from toip5.srvr.bell.ca ([209.226.175.88]:64179 "EHLO
+	toip5.srvr.bell.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753026Ab1D2Bzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 21:55:55 -0400
+In-Reply-To: <20110427203544.GB19708@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 28, 2011 at 5:28 PM, Matt Carlson <mcarlson@broadcom.com> w=
-rote:
-> On Thu, Apr 28, 2011 at 04:33:19PM -0700, Mahesh Bandewar wrote:
->> ---
->> =A0drivers/net/tg3.c | =A0 32 ++++++++++++++++++++++++++++++++
->> =A01 files changed, 32 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
->> index fa57e3d..208884d 100644
->> --- a/drivers/net/tg3.c
->> +++ b/drivers/net/tg3.c
->> @@ -6319,6 +6319,33 @@ static u32 tg3_fix_features(struct net_device=
- *dev, u32 features)
->> =A0 =A0 =A0 return features;
->> =A0}
->>
->> +static int tg3_set_features(struct net_device *dev, u32 features)
->> +{
->> + =A0 =A0 struct tg3 *tp =3D netdev_priv(dev);
->> + =A0 =A0 u32 cur_mode =3D 0;
->> + =A0 =A0 int err =3D 0;
->> +
->> + =A0 =A0 spin_lock_bh(&tp->lock);
->> + =A0 =A0 cur_mode =3D tr32(MAC_MODE);
->> +
->> + =A0 =A0 if (features & NETIF_F_LOOPBACK) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 /* Enable internal MAC loopback mode */
->> + =A0 =A0 =A0 =A0 =A0 =A0 tw32(MAC_MODE, cur_mode | MAC_MODE_PORT_IN=
-T_LPBACK);
->> + =A0 =A0 =A0 =A0 =A0 =A0 netif_carrier_on(tp->dev);
->> + =A0 =A0 =A0 =A0 =A0 =A0 netdev_info(dev, "Internal MAC loopback mo=
-de enabled.\n");
->> + =A0 =A0 } else {
->> + =A0 =A0 =A0 =A0 =A0 =A0 /* Disable internal MAC loopback mode */
->> + =A0 =A0 =A0 =A0 =A0 =A0 tw32(MAC_MODE, cur_mode & ~MAC_MODE_PORT_I=
-NT_LPBACK);
->> + =A0 =A0 =A0 =A0 =A0 =A0 /* Force link status check */
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (netif_running(dev))
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tg3_setup_phy(tp, 1);
->> + =A0 =A0 =A0 =A0 =A0 =A0 netdev_info(dev, "Internal MAC loopback mo=
-de disabled.\n");
->> + =A0 =A0 }
+On 04/27/11 16:35, Francois Romieu wrote:
 >
-> I think we should be checking netif_running() before touching the
-> hardware at all. =A0It might be in a low power state.
->
-makes sense. I'll change that.
+> The patch mixes different changes. Please avoid it.
 
-> Also, wouldn't it be better to verify this particular bit changed bef=
-ore
-> doing any of these operations?
->
-Right! Since netdev infrastructure initiates ndo_set_features() only
-when the feature-set is changed, and loopback is the only thing that
-is set; I lazily ignored that. But in future additional features could
-be set and it's not going to hurt checking before setting that bit.
+Sorry about that,  I'll rewrite with only the changes absolutely needed 
+for avoiding memcpy (and maybe the setting of num_rx_bufs ring param?)
 
->> + =A0 =A0 spin_unlock_bh(&tp->lock);
->> +
->> + =A0 =A0 return err;
->> +}
->> +
->> =A0static inline void tg3_set_mtu(struct net_device *dev, struct tg3=
- *tp,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int new_m=
-tu)
->> =A0{
->> @@ -15028,6 +15055,7 @@ static const struct net_device_ops tg3_netde=
-v_ops =3D {
->> =A0 =A0 =A0 .ndo_tx_timeout =A0 =A0 =A0 =A0 =3D tg3_tx_timeout,
->> =A0 =A0 =A0 .ndo_change_mtu =A0 =A0 =A0 =A0 =3D tg3_change_mtu,
->> =A0 =A0 =A0 .ndo_fix_features =A0 =A0 =A0 =3D tg3_fix_features,
->> + =A0 =A0 .ndo_set_features =A0 =A0 =A0 =3D tg3_set_features,
->> =A0#ifdef CONFIG_NET_POLL_CONTROLLER
->> =A0 =A0 =A0 .ndo_poll_controller =A0 =A0=3D tg3_poll_controller,
->> =A0#endif
->> @@ -15044,6 +15072,7 @@ static const struct net_device_ops tg3_netde=
-v_ops_dma_bug =3D {
->> =A0 =A0 =A0 .ndo_do_ioctl =A0 =A0 =A0 =A0 =A0 =3D tg3_ioctl,
->> =A0 =A0 =A0 .ndo_tx_timeout =A0 =A0 =A0 =A0 =3D tg3_tx_timeout,
->> =A0 =A0 =A0 .ndo_change_mtu =A0 =A0 =A0 =A0 =3D tg3_change_mtu,
->> + =A0 =A0 .ndo_set_features =A0 =A0 =A0 =3D tg3_set_features,
->> =A0#ifdef CONFIG_NET_POLL_CONTROLLER
->> =A0 =A0 =A0 .ndo_poll_controller =A0 =A0=3D tg3_poll_controller,
->> =A0#endif
->> @@ -15241,6 +15270,9 @@ static int __devinit tg3_init_one(struct pci=
-_dev *pdev,
->> =A0 =A0 =A0 dev->features |=3D hw_features;
->> =A0 =A0 =A0 dev->vlan_features |=3D hw_features;
->>
->> + =A0 =A0 /* Add the loopback capability */
->> + =A0 =A0 dev->hw_features |=3D NETIF_F_LOOPBACK;
->
-> Not all tg3 devices can do MAC loopback. =A0I'd suggest qualifying th=
-is
-> with:
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (GET_ASIC_REV(tp->pci_chip_rev_id) =
-=3D=3D ASIC_REV_5780 ||
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(tp->tg3_flags & TG3_FLAG_CPMU=
-_PRESENT))
->
-> But that will exclude a lot of our newer devices. =A0Does it matter w=
-hat
-> type of loopback is used? =A0Newer devices prefer internal phy loopba=
-ck
-> over MAC loopback.
->
-As long as device supports some sort of loopback, we should be setting
-this capability and move this logic (or similar) to set_features() and
-choose the method that is supported. Since several devices support
-loopback at various levels, to keep it consistent, we should be
-setting the loopback closest to the host. So can I simply set the
-int-phy loopback in the else part of the above 'provided if' or would
-need other logic? or in other words -
+> Your MUA damaged the patch. Documentation/SubmittingPatches
+> could help if you have not read it yet.
 
- if (GET_ASIC_REV(tp->pci_chip_rev_id) =3D=3D ASIC_REV_5780 ||
-(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
-    supported_mode =3D MAC;
-else
-    supported_mode =3D INTPHY;
+I see some truncation happened,  will fix that in next submission
 
-if (supported_mode =3D=3D MAC)
-    cur_mode =3D tr32(MAC_MODE);
-else
-    tg3_readphy(tp, MII_BMCR, &cur_mode);
+> The patch makes some gratuitous changes which needlessly
+> increase the differences (dirty_xy rename for instance).
 
-Would something like this work?
+will revert those
 
-Thanks,
---mahesh..
+> A set_ringparam() method which does nothing until open()
+> is used does not exactly ring like "least surprize behavior"
+> to me.
 
->> =A0 =A0 =A0 if (tp->pci_chip_rev_id =3D=3D CHIPREV_ID_5705_A1 &&
->> =A0 =A0 =A0 =A0 =A0 !tg3_flag(tp, TSO_CAPABLE) &&
->> =A0 =A0 =A0 =A0 =A0 !(tr32(TG3PCI_PCISTATE) & PCISTATE_BUS_SPEED_HIG=
-H)) {
->> --
->> 1.7.3.1
->>
->>
+Please see questions below
+
+> The behavior under memory pressure is still unknown.
+
+I have run some initial tests with memory pressure  -  the pressure 
+provided by running n concurrent memory hogs,  each of which loops 
+endlessly on allocating 1024 blocks of 1MB bytes each,  writing 
+something into all bytes in each block,   then freeing each block,   
+then repeating.  result:
+
+*
+copybreak        numhogs     workload throughput  swapping alloc 
+failures?     dropped packets
+                                    
+Mb/sec                                   or other NIC err reports?
+
+  16383              0              1043            none           
+no                 no
+     64              0              1086              |            
+no                 no
+
+  16383              1               935           moderate        
+no                 no
+     64              1               902              |            
+no                 no
+
+  16383              2               854           heavy           
+no                 no
+     64              2               851              |           yes, 
+many           no
+
+  16383              3               817           very heavy      
+no                 no
+     64              3            did not attempt     |
+*
+   Conclusions  :
+     . setting copybreak to 16383 seems to be a valid way of avoiding 
+alloc failures when under heavy memory pressure,  although the alloc 
+failures don't seem to cause much trouble in these runs.
+     .  But I am surprised to see how well the copybreak=16383 case runs 
+with no memory pressure,   much better than I saw for the unpatched 
+2.6.39rc2 earlier on,  and I need to run some more tests to check 
+that.     I will also run same tests on the vanilla 2.6.39.
+
+> I am mildly convinced by the implementation.
 >
->
+
+Thanks for all comments.
+
+I do have a couple more questions:
+
+    .    for my next patch submission  -   what should I base it on?     
+Is there a git project which has the "latest" version of r8169.c?    I 
+think it's not  torvalds/linux-2.6.git as fixes to r8169.c in that 
+project go only to 2011-03-21.   Sorry if this is dumb question.
+    .     regarding setting the ring param  -  I understand your comment 
+but is it safe to close and open the NIC when called by ethtool 
+ioctl?        Would some locking be needed?
+    .     and again on the ring params  -   what is the minimum and 
+maximum valid value for num rx bufs and separately for num  tx bufs   
+that the r8169 supports?
+
+
+Cheers,   John Lumby
