@@ -1,35 +1,28 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [v2 PATCH 0/6] IPVS: init and cleanup.
-Date: Fri, 29 Apr 2011 15:42:25 +0900
-Message-ID: <20110429064225.GA23958@verge.net.au>
-References: <1304058334-17594-1-git-send-email-hans@schillstrom.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/2] wireless: Make struct ieee80211_channel const
+ where possible
+Date: Fri, 29 Apr 2011 09:11:38 +0200
+Message-ID: <1304061098.3589.0.camel@jlt3.sipsolutions.net>
+References: <cover.1304054543.git.joe@perches.com>
+	 <b953f08a496209fe0fb69166c5175ff270b7efc5.1304054543.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ja@ssi.bg, ebiederm@xmission.com, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1304058334-17594-1-git-send-email-hans@schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b953f08a496209fe0fb69166c5175ff270b7efc5.1304054543.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 29, 2011 at 08:25:28AM +0200, Hans Schillstrom wrote:
-> This patch series handles exit from a network name space.
+On Thu, 2011-04-28 at 22:25 -0700, Joe Perches wrote:
+> Useful for declarations of static const.
 
-Hi Hans,
+I don't mind marking lots of places const, but it isn't actually as
+useful as you think since you can't declare any channels const as they
+are modified at runtime for regulatory enforcement.
 
-thanks for your work on this.
-I've looked over the patches and nothing catches my eye -
-thanks for fixing up the things that I commented on previously.
-
-I think that patches 1 and 2 should be targeted at 2.6.39,
-while the remainder look like 2.6.40 material. Does that
-sound reasonable to you?
-
-Julian and Eric,
-
-can you take a look over these?
-I would appreciate your review.
-
+johannes
