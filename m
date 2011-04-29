@@ -1,39 +1,63 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2011-04-25
-Date: Thu, 28 Apr 2011 20:31:00 -0700 (PDT)
-Message-ID: <20110428.203100.193725173.davem@davemloft.net>
-References: <20110425.130435.112597353.davem@davemloft.net>
-	<4DB5DFBC.3070203@lwfinger.net>
-	<20110429031143.GA2353@joana>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: r8169 :  always copying the rx buffer to new skb
+Date: Fri, 29 Apr 2011 06:54:40 +0200
+Message-ID: <1304052880.2954.18.camel@edumazet-laptop>
+References: <4DAC7001.9060800@hotmail.com>
+	 <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com>
+	 <20110420191316.GA18805@electric-eye.fr.zoreil.com>
+	 <4DAFA9F9.5080909@hotmail.com> <4DB77D03.9070507@hotmail.com>
+	 <20110427203544.GB19708@electric-eye.fr.zoreil.com>
+	 <4DBA1A9A.3000703@hotmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110429031143.GA2353@joana>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>, nic_swsd@realtek.com
+To: John Lumby <johnlumby@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47206 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154Ab1D2Eyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 00:54:47 -0400
+Received: by wwa36 with SMTP id 36so3889699wwa.1
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 21:54:46 -0700 (PDT)
+In-Reply-To: <4DBA1A9A.3000703@hotmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Date: Fri, 29 Apr 2011 00:11:43 -0300
+Le jeudi 28 avril 2011 =C3=A0 21:55 -0400, John Lumby a =C3=A9crit :
+> *
+>    Conclusions  :
+>      . setting copybreak to 16383 seems to be a valid way of avoiding=
+=20
+> alloc failures when under heavy memory pressure,  although the alloc=20
+> failures don't seem to cause much trouble in these runs.
+>      .  But I am surprised to see how well the copybreak=3D16383 case=
+ runs=20
+> with no memory pressure,   much better than I saw for the unpatched=20
+> 2.6.39rc2 earlier on,  and I need to run some more tests to check=20
+> that.     I will also run same tests on the vanilla 2.6.39.
 
-> * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> [2011-04-25 15:55:24 -0500]:
-> 
->> Unfortunately, the 64-bit variant of gcc v4.5.1 will miss some of these. I find 
->> I need to compile code on a 32-bit system and using an older compiler to catch 
->> all. Perhaps that explains the error that crept through here.
-> 
-> That could be a reason, I have gcc 4.5.2 (64-bit). I've built this code many times
-> before send pull request and never saw that warning, and it's clearly a bug,
-> indeed. 
+Doing the copy of data and building an exact size skb has benefit of
+providing 'right' skb->truesize (might reduce RCVBUF contention and
+avoid backlog drops) and already cached data (hot in cpu caches). Next
+'copy' is almost free (L1 cache access)
 
-I would buy this line of reasoning.
+It all depends on workload. If you want to receive a huge number of
+small datagrams, [and feed them to several cpus], results might be
+completely different.
 
-Except that I do all of my test builds with 64-bit gcc's, on sparc64
-and x86-64.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+>     .    for my next patch submission  -   what should I base it on? =
+   =20
+> Is there a git project which has the "latest" version of r8169.c?    =
+I=20
+> think it's not  torvalds/linux-2.6.git as fixes to r8169.c in that=20
+> project go only to 2011-03-21.   Sorry if this is dumb question.
+
+This one ?
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git
+
+
+
