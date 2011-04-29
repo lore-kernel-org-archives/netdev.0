@@ -1,49 +1,39 @@
-From: Einar EL Lueck <ELELUECK@de.ibm.com>
-Subject: Re: oops during unregister_netdevice interface enslaved to bond -
-	regression
-Date: Fri, 29 Apr 2011 16:45:45 +0200
-Message-ID: <OF46D78C46.5B4BE29C-ONC1257881.0050BB22-C1257881.00511537@de.ibm.com>
+From: zhou rui <zhourui.cn@gmail.com>
+Subject: same application has different performance with kernel 2.6.32/34/36
+Date: Fri, 29 Apr 2011 22:46:04 +0800
+Message-ID: <BANLkTinF8Mfs+pqfGV0bLqm_3VyKCMn0LA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Frank Blaschka <Frank.Blaschka@de.ibm.com>
-To: opurdila@ixiacom.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: jon.zhou@jdsu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:54194 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755602Ab1D2Opp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 10:45:45 -0400
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:36453 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755632Ab1D2OqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 10:46:06 -0400
+Received: by iwn34 with SMTP id 34so3124785iwn.19
+        for <netdev@vger.kernel.org>; Fri, 29 Apr 2011 07:46:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+hi
+my test application add a packet hook via  dev_add_pack(&prot_hook);
+then copy the packet to a shared memory between userspace and kernel
 
-Hi Octavian,
+tests wereperformed at same machine(DL380 G7, 12cores, intel X520 10G
+nic),same traffic,same nic driver(ixgbe 3.3.9)
 
-On 04/15/2011 10:53 AM, Frank Blaschka wrote:
-> Hi Octavian,
->
-> your commit 443457242beb6716b43db4d62fe148eab5515505 introduced this
-regression.
-> I have reviewed the net device unregister code but did not understand it
-very well.
-> I have seen the problem only in combination with bonding. Can you give me
-some help
-> how to go on with this problem. I can reproduced it very easy on a single
-CPU
-> machine.
->
+kernel 2.6.32.12 (SUSE SLES11,SP1)
+APPlication cpu usage: 5-6%
 
-In this case rollback_registered_many iterates over the list of devs that
-initially has just one device in it. In a loop it calls
-call_netdevice_notifiers(NETDEV_UNREGISTER, dev) which triggers the bonding
-driver to call dev_close_many for the same device. That call to
-dev_close_many leads to the addition of the same device to the list over
-which rollback_registered_many is iterating. Consequently,
-netdev_unregister_kobject(dev) is called twice for the same device. Frank
-captured the result in his mail.
 
-Do you agree with my debugging results?
+kernel updated to  2.6.34.7
+APPlication cpu usage: 19-25%
 
-Regards,
-Einar.
+kernel 2.6.36.4 (enable/disable RPS)
+APPlication cpu usage 35-40%
 
+
+before I installing profile tool to find the root cause, any idea about it?
+'top' result is not accurate  in older kernel? or any kernel
+module/feature impact this?
