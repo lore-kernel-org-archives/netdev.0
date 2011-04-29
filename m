@@ -1,134 +1,145 @@
-From: NeilBrown <neilb@suse.de>
-Subject: Re: [PATCH 08/13] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Fri, 29 Apr 2011 12:55:31 +1000
-Message-ID: <20110429125531.22f6e8f1@notabene.brown>
-References: <1303920491-25302-1-git-send-email-mgorman@suse.de>
-	<1303920491-25302-9-git-send-email-mgorman@suse.de>
-	<20110428161933.1f1266e6@notabene.brown>
-	<20110428100035.GO4658@suse.de>
-	<20110428204755.2e07147e@notabene.brown>
-	<20110428111854.GV4658@suse.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool PATCH 6/6] Update documentation for -u/-U operations
+Date: Fri, 29 Apr 2011 03:57:42 +0100
+Message-ID: <1304045862.3105.6.camel@localhost>
+References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
+	 <20110421204045.23054.12548.stgit@gitlad.jf.intel.com>
+	 <1303928629.2875.91.camel@bwh-desktop>  <4DB9D0D9.2000401@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110428111854.GV4658@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:13439 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758391Ab1D2C5u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 22:57:50 -0400
+In-Reply-To: <4DB9D0D9.2000401@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Apr 2011 12:18:54 +0100 Mel Gorman <mgorman@suse.de> wrote:
-
-> On Thu, Apr 28, 2011 at 08:47:55PM +1000, NeilBrown wrote:
-> > On Thu, 28 Apr 2011 11:05:06 +0100 Mel Gorman <mgorman@suse.de> wrote:
-> > 
-> > > On Thu, Apr 28, 2011 at 04:19:33PM +1000, NeilBrown wrote:
-> > > > On Wed, 27 Apr 2011 17:08:06 +0100 Mel Gorman <mgorman@suse.de> wrote:
-> > > > 
-> > > > 
-> > > > > @@ -1578,7 +1589,7 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
-> > > > >   */
-> > > > >  static inline struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
-> > > > >  {
-> > > > > -	return alloc_pages_node(NUMA_NO_NODE, gfp_mask, 0);
-> > > > > +	return alloc_pages_node(NUMA_NO_NODE, gfp_mask | __GFP_MEMALLOC, 0);
-> > > > >  }
-> > > > >  
-> > > > 
-> > > > I'm puzzling a bit over this change.
-> > > > __netdev_alloc_page appears to be used to get pages to put in ring buffer
-> > > > for a network card to DMA received packets into.  So it is OK to use
-> > > > __GFP_MEMALLOC for these allocations providing we mark the resulting skb as
-> > > > 'pfmemalloc' if a reserved page was used.
-> > > > 
-> > > > However I don't see where that marking is done.
-> > > > I think it should be in skb_fill_page_desc, something like:
-> > > > 
-> > > >   if (page->pfmemalloc)
-> > > > 	skb->pfmemalloc = true;
-> > > > 
-> > > > Is this covered somewhere else that I am missing?
-> > > > 
-> > > 
-> > > You're not missing anything.
-> > > 
-> > > >From the context of __netdev_alloc_page, we do not know if the skb
-> > > is suitable for marking pfmemalloc or not (we don't have SKB_ALLOC_RX
-> > > flag for example that __alloc_skb has). The reserves are potentially
-> > > being dipped into for an unsuitable packet but it gets dropped in
-> > > __netif_receive_skb() and the memory is returned. If we mark the skb
-> > > pfmemalloc as a result of __netdev_alloc_page using a reserve page, the
-> > > packets would not get dropped as expected.
-> > > 
-> > 
-> > The only code in __netif_receive_skb that seems to drop packets is
-> > 
-> > +	if (skb_pfmemalloc(skb) && !skb_pfmemalloc_protocol(skb))
-> > +		goto drop;
-> > +
-> > 
-> > which requires that the skb have pfmemalloc set before it will be dropped.
-> > 
+On Thu, 2011-04-28 at 13:40 -0700, Alexander Duyck wrote:
+> On 4/27/2011 11:23 AM, Ben Hutchings wrote:
+> > On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
+[...]
+> >> --- a/ethtool.8.in
+> >> +++ b/ethtool.8.in
+> >> @@ -42,10 +42,20 @@
+> >>   [\\fB\\$1\\fP\ \\fIN\\fP]
+> >>   ..
+> >>   .\"
+> >> +.\"	.BM - same as above but has a mask field for format "[value N [value-mask N]]"
+> >> +.\"
+> >> +.de BM
+> >> +[\\fB\\$1\\fP\ \\fIN\\fP\ [\\fB\\$1\-mask\\fP\ \\fIN\\fP]]
+> >
+> > You've changed the code to accept 'm' as an alternative to
+> > <field>  '-mask', so this should be changed accordingly.
 > 
-> Yes, I only wanted to drop the packet if we were under pressure
-> when skb was allocated. If we hit pressure between when skb was
-> allocated and when __netdev_alloc_page is called, then the PFMEMALLOC
-> reserves may be used for packet receive unnecessarily but the next skb
-> allocation that grows slab will have the flag set appropriately. There
-> is a window during which we use reserves where we did not have to
-> but it's limited. Again, the throttling if pfmemalloc reserves gets too
-> depleted comes into play.
+> What would be the preferred way of stating that?  For now I just 
+> replaced the \\$1\-mask with m.  However I am assuming that probably 
+> isn't the best approach either.  Should I state somewhere that m can be 
+> replaced with "field name"-mask?
 
-I don't find this very convincing...
-It seems inconsistent that you are doing precise accounting inside slab so
-that you know which object used reserved memory and which did not, yet you
-get sloppy with the accounting of whole pages on network receive.
+I think that's reasonable.
 
-Is there a clear upper bound on how many reserve pages could slip into
-non-reserve skbs before skbs start getting the pfmalloc flag set?
-
-I just think it is safer to mark an skb as pfmalloc if any part of the memory
-associated with it came from reserves.
-
-Also I find the throttling argument hard to reason about.  Certainly
-some things get throttles, but incoming packets don't...
-
-I'm certainly not saying that the code is clearly wrong, but I'm having
-trouble convincing myself that it is clearly right (or at least 'safe').
-
+[...]
+> >> +.BN class-rule-del
+> >> +.RB [\  flow-type \ \*(NC
+> >> +.RB [ src \ \*(MA\ [ src-mask \ \*(MA]]
+> >> +.RB [ dst \ \*(MA\ [ dst-mask \ \*(MA]]
+> >> +.BM proto
+> >> +.RB [ src-ip \ \*(PA\ [ src-ip-mask \ \*(PA]]
+> >> +.RB [ dst-ip \ \*(PA\ [ dst-ip-mask \ \*(PA]]
+> >> +.BM tos
+> >> +.BM l4proto
+> >> +.BM src-port
+> >> +.BM dst-port
+> >> +.BM spi
+> >> +.BM vlan-etype
+> >> +.BM vlan
+> >> +.BM user-def
+> >> +.BN action
+> >> +.BN loc
+> >> +.RB ]
+> >
+> > But these options aren't all applicable to all flow-types.
 > 
-> > Actually ... I'm expecting to find code that says:
-> >    if (skb_pfmalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
-> > 	drop_packet();
-> > 
-> > but I cannot find it.  Where is the code that discard pfmalloc packets for
-> > non-memalloc sockets?
-> > 
-> > I can see similar code in sk_filter but that doesn't drop the packet, it just
-> > avoids filtering it.
-> > 
+> This is the part that gets messy and I am not sure what the best 
+> approach is.  I have more comments on that below.  For now what I am 
+> planning to implement to address this is that in the "DESCRIPTION" 
+> section below I add a statement to each specifier that has restrictions 
+> by stating "Valid for flow-types X, Y, and Z."
+
+OK.
+
+> > [...]
+> >> diff --git a/ethtool.c b/ethtool.c
+> >> index 421fe20..e65979d 100644
+> >> --- a/ethtool.c
+> >> +++ b/ethtool.c
+> >> @@ -243,20 +243,26 @@ static struct option {
+> >>   		"		equal N | weight W0 W1 ...\n" },
+> >>       { "-U", "--config-ntuple", MODE_SCLSRULE, "Configure Rx ntuple filters "
+> >>   		"and actions",
+> >> -		"		{ flow-type tcp4|udp4|sctp4\n"
+> >> -		"		  [ src-ip ADDR [src-ip-mask MASK] ]\n"
+> >> -		"		  [ dst-ip ADDR [dst-ip-mask MASK] ]\n"
+> >> -		"		  [ src-port PORT [src-port-mask MASK] ]\n"
+> >> -		"		  [ dst-port PORT [dst-port-mask MASK] ]\n"
+> >> -		"		| flow-type ether\n"
+> >> -		"		  [ src MAC-ADDR [src-mask MASK] ]\n"
+> >> -		"		  [ dst MAC-ADDR [dst-mask MASK] ]\n"
+> >> -		"		  [ proto N [proto-mask MASK] ] }\n"
+> >> -		"		[ vlan VLAN-TAG [vlan-mask MASK] ]\n"
+> >> -		"		[ user-def DATA [user-def-mask MASK] ]\n"
+> >> -		"		action N\n" },
+> >> +		"		[ class-rule-del %d ] |\n"
+> >> +		"		[ flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4\n"
+> >> +		"			[ src %x:%x:%x:%x:%x:%x [src-mask %x:%x:%x:%x:%x:%x] ]\n"
+> >> +		"			[ dst %x:%x:%x:%x:%x:%x [dst-mask %x:%x:%x:%x:%x:%x] ]\n"
+> >> +		"			[ proto %d [proto-mask MASK] ]\n"
+> >> +		"			[ src-ip %d.%d.%d.%d [src-ip-mask %d.%d.%d.%d] ]\n"
+> >> +		"			[ dst-ip %d.%d.%d.%d [dst-ip-mask %d.%d.%d.%d] ]\n"
+> >> +		"			[ tos %d [tos-mask %x] ]\n"
+> >> +		"			[ l4proto %d [l4proto-mask MASK] ]\n"
+> >> +		"			[ src-port %d [src-port-mask %x] ]\n"
+> >> +		"			[ dst-port %d [dst-port-mask %x] ]\n"
+> >> +		"			[ spi %d [spi-mask %x] ]\n"
+> >> +		"			[ vlan-etype %x [vlan-etype-mask %x] ]\n"
+> >> +		"			[ vlan %x [vlan-mask %x] ]\n"
+> >> +		"			[ user-def %x [user-def-mask %x] ]\n"
+> >> +		"			[ action %d ]\n"
+> >> +		"			[ loc %d]]\n" },
+> > [...]
+> >
+> > Again, it's not clear which options apply to which flow-types, and the
+> > 'm' shortcut is not documented.
 > 
-> hmm, if sk_filter is returning -ENOMEM then things like
-> sock_queue_rcv_skb() return error and the skb does not get queued and I
-> expected it to get dropped. What did I miss?
-> 
+> The 'm' part I agree with 100%, however the flow types are going to 
+> become kinda hairy using that approach.  You basically end up with 
+> something like this:
+[...]
 
-Just that I was making incorrect assumptions about code that I wasn't
-familiar with.
-Make sense now.
+Yes, I see the problem.
 
-Thanks,
-NeilBrown
+> As you can see it will be a bit oversized to go through and specify 
+> which flow-type options support what fields.  If that is what you want I 
+> can implement it that way but for now I would prefer calling out the 
+> flow-type limitations of the fields in the "DESCRIPTION" portion of the 
+> man page.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+In fact, even with this patch, the help for -U is pretty oversized.  It
+might be better to replace the list of field names with '...' here and
+only list them in full in the man page.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
