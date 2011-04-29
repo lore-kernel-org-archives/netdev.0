@@ -1,104 +1,120 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: A race in register_netdevice()
-Date: Thu, 28 Apr 2011 16:52:37 -0700
-Message-ID: <20110428165237.0c1eddbc@nehalam>
-References: <87y62ugg0a.fsf@purkki.adurom.net>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 2/2] tg3: Add code to allow ethtool to
+ enable/disable loopback.
+Date: Thu, 28 Apr 2011 17:28:55 -0700
+Message-ID: <20110429002855.GC19665@mcarlson.broadcom.com>
+References: <1304033599-8395-1-git-send-email-maheshb@google.com>
+ <1304033599-8395-2-git-send-email-maheshb@google.com>
+ <1304033599-8395-3-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87y62ugg0a.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David Miller" <davem@davemloft.net>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Micha? Miros?aw" <mirq-linux@rere.qmqm.pl>
+To: "Mahesh Bandewar" <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3333 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758211Ab1D2APp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Apr 2011 20:15:45 -0400
+In-Reply-To: <1304033599-8395-3-git-send-email-maheshb@google.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Apr 2011 01:36:37 +0300
-Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org> wrote:
-
-> Hi,
+On Thu, Apr 28, 2011 at 04:33:19PM -0700, Mahesh Bandewar wrote:
+> ---
+>  drivers/net/tg3.c |   32 ++++++++++++++++++++++++++++++++
+>  1 files changed, 32 insertions(+), 0 deletions(-)
 > 
-> there seems to be a race in register_netdevice(), which is reported here:
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=15606
-> 
-> This is visible at least with flimflam and ath6kl. Basically what
-> happens is this:
-> 
-> Apr 29 00:21:35 roska flimflamd[2598]: src/udev.c:add_net_device() 
-> Apr 29 00:21:35 roska flimflamd[2598]: connman_inet_ifname: SIOCGIFNAME(index
-> 4): No such device
-> Apr 29 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message() buf
-> 0xbfefda3c len 1004
-> Apr 29 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message()
-> NEWLINK len 1004 type 16 flags 0x0000 seq 0
-> 
-> (ignore the 10 s delay, I added that to reproduce the issue easily)
-> 
-> There are two ways to fix this, first is to move kobject registration
-> after the call to list_netdevice():
-> 
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5425,11 +5425,6 @@ int register_netdevice(struct net_device *dev)
->         if (ret)
->                 goto err_uninit;
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index fa57e3d..208884d 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -6319,6 +6319,33 @@ static u32 tg3_fix_features(struct net_device *dev, u32 features)
+>  	return features;
+>  }
 >  
-> -       ret = netdev_register_kobject(dev);
-> -       if (ret)
-> -               goto err_uninit;
-> -       dev->reg_state = NETREG_REGISTERED;
-> -
->         netdev_update_features(dev);
->  
->         /*
-> @@ -5443,6 +5438,11 @@ int register_netdevice(struct net_device *dev)
->         dev_hold(dev);
->         list_netdevice(dev);
->  
-> +       ret = netdev_register_kobject(dev);
-> +       if (ret)
-> +               goto err_uninit;
-> +       dev->reg_state = NETREG_REGISTERED;
+> +static int tg3_set_features(struct net_device *dev, u32 features)
+> +{
+> +	struct tg3 *tp = netdev_priv(dev);
+> +	u32 cur_mode = 0;
+> +	int err = 0;
 > +
->         /* Notify protocols, that a new device appeared. */
->         ret = call_netdevice_notifiers(NETDEV_REGISTER, dev);
->         ret = notifier_to_errno(ret);
-> 
-> Other option, noticed by Jouni Malinen, is to take rtnl for
-> SIOCGIFNAME. For some reason it's currently unprotected:
-> 
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4917,8 +4917,12 @@ int dev_ioctl(struct net *net, unsigned int
-> cmd, void __user *arg)
->           rtnl_unlock();
->                 return ret;
->                 }
-> -               if (cmd == SIOCGIFNAME)
-> -                  return dev_ifname(net, (struct ifreq __user *)arg);
-> +                  if (cmd == SIOCGIFNAME) {
-> +                     rtnl_lock();
-> +                       ret = dev_ifname(net, (struct ifreq __user
-> -                  *)arg);
-> +                       rtnl_unlock();
-> +                               return ret;
-> +                               }
+> +	spin_lock_bh(&tp->lock);
+> +	cur_mode = tr32(MAC_MODE);
+> +
+> +	if (features & NETIF_F_LOOPBACK) {
+> +		/* Enable internal MAC loopback mode */
+> +		tw32(MAC_MODE, cur_mode | MAC_MODE_PORT_INT_LPBACK);
+> +		netif_carrier_on(tp->dev);
+> +		netdev_info(dev, "Internal MAC loopback mode enabled.\n");
+> +	} else {
+> +		/* Disable internal MAC loopback mode */
+> +		tw32(MAC_MODE, cur_mode & ~MAC_MODE_PORT_INT_LPBACK);
+> +		/* Force link status check */
+> +		if (netif_running(dev))
+> +			tg3_setup_phy(tp, 1);
+> +		netdev_info(dev, "Internal MAC loopback mode disabled.\n");
+> +	}
+
+I think we should be checking netif_running() before touching the
+hardware at all.  It might be in a low power state.
+
+Also, wouldn't it be better to verify this particular bit changed before
+doing any of these operations?
+
+> +	spin_unlock_bh(&tp->lock);
+> +
+> +	return err;
+> +}
+> +
+>  static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
+>  			       int new_mtu)
+>  {
+> @@ -15028,6 +15055,7 @@ static const struct net_device_ops tg3_netdev_ops = {
+>  	.ndo_tx_timeout		= tg3_tx_timeout,
+>  	.ndo_change_mtu		= tg3_change_mtu,
+>  	.ndo_fix_features	= tg3_fix_features,
+> +	.ndo_set_features	= tg3_set_features,
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller	= tg3_poll_controller,
+>  #endif
+> @@ -15044,6 +15072,7 @@ static const struct net_device_ops tg3_netdev_ops_dma_bug = {
+>  	.ndo_do_ioctl		= tg3_ioctl,
+>  	.ndo_tx_timeout		= tg3_tx_timeout,
+>  	.ndo_change_mtu		= tg3_change_mtu,
+> +	.ndo_set_features	= tg3_set_features,
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller	= tg3_poll_controller,
+>  #endif
+> @@ -15241,6 +15270,9 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+>  	dev->features |= hw_features;
+>  	dev->vlan_features |= hw_features;
 >  
->         if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
->            return -EFAULT;
+> +	/* Add the loopback capability */
+> +	dev->hw_features |= NETIF_F_LOOPBACK;
+
+Not all tg3 devices can do MAC loopback.  I'd suggest qualifying this
+with:
+
+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5780 ||
+		    (tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
+
+But that will exclude a lot of our newer devices.  Does it matter what
+type of loopback is used?  Newer devices prefer internal phy loopback
+over MAC loopback.
+
+>  	if (tp->pci_chip_rev_id == CHIPREV_ID_5705_A1 &&
+>  	    !tg3_flag(tp, TSO_CAPABLE) &&
+>  	    !(tr32(TG3PCI_PCISTATE) & PCISTATE_BUS_SPEED_HIGH)) {
+> -- 
+> 1.7.3.1
 > 
-> I have confirmed that both of these patches fix the issue. Now I'm
-> wondering which one is the best way forward. Or is there a better way
-> to fix this?
 > 
 
-I see no problem with moving this.
-SIOCGIFNAME should not need to hold rtnl.
-
-
--- 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
