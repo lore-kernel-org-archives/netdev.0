@@ -1,32 +1,68 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: linux-next: manual merge of the suspend tree with the net tree
-Date: Fri, 29 Apr 2011 22:36:19 +0200
-Message-ID: <201104292236.19986.rjw@sisk.pl>
-References: <20110429120541.c27998c2.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix incorrect unregistration of sysctl when last
+ ip deleted
+Date: Fri, 29 Apr 2011 13:45:24 -0700 (PDT)
+Message-ID: <20110429.134524.116375005.davem@davemloft.net>
+References: <201104272312.p3RNCcl6002068@jgmyers-vm1.eng.proofpoint.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110429120541.c27998c2.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jgmyers@proofpoint.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201104272312.p3RNCcl6002068@jgmyers-vm1.eng.proofpoint.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, April 29, 2011, Stephen Rothwell wrote:
-> Hi Rafael,
-> 
-> Today's linux-next merge of the suspend tree got a conflict in
-> arch/x86/Kconfig between commit 0a14842f5a3c ("net: filter: Just In Time
-> compiler for x86-64") from the  tree and commit d9f1ce017fcf ("PM: Remove
-> sysdev suspend, resume and shutdown operations") from the suspend tree.
-> 
-> Just context changes.  I fixed it up (see below) and can carry the fix as
-> necessary.
+From: John Myers <jgmyers@proofpoint.com>
+Date: Wed, 27 Apr 2011 16:12:38 -0700
 
-Please do, thanks a lot!
+> When the last ip address is deleted, the kernel disables IPv6 on the
+> interface. (Not sure why, but that's beside the point.) The call that
+> does this is over-aggressive--it indicates the interface is about to
+> be removed even though that isn't necessarily so.
+> 
+> This causes IPv6 to, among other things, unregister its sysctl
+> parameters for the interface. Thus, the "accept_ra" and "addrconf"
+> settings can't be set on the interface until after the interface has
+> been brought back up, which is too late.
+> 
+> Signed-off-by: John Gardiner Myers <jgmyers@proofpoint.com>
+> Cc: stable@kernel.org
 
-Rafael
+I'm not applying this, at least without some more discussion.
+
+I can't see what you gain from this change.
+
+First of all, when the machine boots up, you already have the problem
+that you cannot set the accept_ra and addrconf sysctl settings before
+the first ipv6 address is added to the interface.
+
+So by definition you already cannot make the settings before it is
+"too late" and the device is already engaging in ipv6 activity.
+
+Giving you the capability to handle this across full ipv6 address
+deletions on the device later on doesn't add anything, and at best it
+gives people a false sense of security about being able to preserve
+these settings across an ipv6 disable on the device.
+
+If people are going to use this new behavior to do some trick like:
+
+1) Let device come up and assign ipv6 addresses so that sysctls appear
+2) Set ipv6 sysctls how actually desired
+3) Delete all ipv6 addresses
+4) Add them all back
+
+Then I doubly do not want to set a precedent for this kind of usage
+by applying this patch.  Fix the real problem.
+
+This behavior has been here, and intentionally so, since Alexey added
+the "how" parameter to addrconf_ifdown() back in 1997.
+
+Furthermore, there are other side effects to changing the 'how' parameter
+to zero in this case and I haven't seen any analysis that those won't
+cause any other undesirable side effects either.
+
+So again, I'm not applying this patch, sorry.
