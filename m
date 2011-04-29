@@ -1,145 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 6/6] Update documentation for -u/-U operations
-Date: Fri, 29 Apr 2011 03:57:42 +0100
-Message-ID: <1304045862.3105.6.camel@localhost>
-References: <20110421202857.23054.63316.stgit@gitlad.jf.intel.com>
-	 <20110421204045.23054.12548.stgit@gitlad.jf.intel.com>
-	 <1303928629.2875.91.camel@bwh-desktop>  <4DB9D0D9.2000401@intel.com>
+From: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Subject: Re: pull request: wireless-next-2.6 2011-04-25
+Date: Fri, 29 Apr 2011 00:11:43 -0300
+Message-ID: <20110429031143.GA2353@joana>
+References: <20110425193017.GC28814@tuxdriver.com>
+ <20110425.125835.189703400.davem@davemloft.net>
+ <20110425.130435.112597353.davem@davemloft.net>
+ <4DB5DFBC.3070203@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:13439 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758391Ab1D2C5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 22:57:50 -0400
-In-Reply-To: <4DB9D0D9.2000401@intel.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:45602 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758391Ab1D2DLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 23:11:34 -0400
+Content-Disposition: inline
+In-Reply-To: <4DB5DFBC.3070203@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-28 at 13:40 -0700, Alexander Duyck wrote:
-> On 4/27/2011 11:23 AM, Ben Hutchings wrote:
-> > On Thu, 2011-04-21 at 13:40 -0700, Alexander Duyck wrote:
-[...]
-> >> --- a/ethtool.8.in
-> >> +++ b/ethtool.8.in
-> >> @@ -42,10 +42,20 @@
-> >>   [\\fB\\$1\\fP\ \\fIN\\fP]
-> >>   ..
-> >>   .\"
-> >> +.\"	.BM - same as above but has a mask field for format "[value N [value-mask N]]"
-> >> +.\"
-> >> +.de BM
-> >> +[\\fB\\$1\\fP\ \\fIN\\fP\ [\\fB\\$1\-mask\\fP\ \\fIN\\fP]]
+* Larry Finger <Larry.Finger@lwfinger.net> [2011-04-25 15:55:24 -0500]:
+
+> On 04/25/2011 03:04 PM, David Miller wrote:
+> > From: David Miller<davem@davemloft.net>
+> > Date: Mon, 25 Apr 2011 12:58:35 -0700 (PDT)
 > >
-> > You've changed the code to accept 'm' as an alternative to
-> > <field>  '-mask', so this should be changed accordingly.
-> 
-> What would be the preferred way of stating that?  For now I just 
-> replaced the \\$1\-mask with m.  However I am assuming that probably 
-> isn't the best approach either.  Should I state somewhere that m can be 
-> replaced with "field name"-mask?
-
-I think that's reasonable.
-
-[...]
-> >> +.BN class-rule-del
-> >> +.RB [\  flow-type \ \*(NC
-> >> +.RB [ src \ \*(MA\ [ src-mask \ \*(MA]]
-> >> +.RB [ dst \ \*(MA\ [ dst-mask \ \*(MA]]
-> >> +.BM proto
-> >> +.RB [ src-ip \ \*(PA\ [ src-ip-mask \ \*(PA]]
-> >> +.RB [ dst-ip \ \*(PA\ [ dst-ip-mask \ \*(PA]]
-> >> +.BM tos
-> >> +.BM l4proto
-> >> +.BM src-port
-> >> +.BM dst-port
-> >> +.BM spi
-> >> +.BM vlan-etype
-> >> +.BM vlan
-> >> +.BM user-def
-> >> +.BN action
-> >> +.BN loc
-> >> +.RB ]
+> >> From: "John W. Linville"<linville@tuxdriver.com>
+> >> Date: Mon, 25 Apr 2011 15:30:17 -0400
+> >>
+> >>> Here is another big batch of updates intended for 2.6.40...
+> >>>
+> >>> There is the usual huge batch of changes for ath9k, and iwlagn, a bunch
+> >>> for ath9k_htc, rt2x00, and ath5k, a few more for mwifiex, and a handful
+> >>> of others.  Also included is a big batch of Bluetooth updates as well.
+> >>>
+> >>> Please let me know if there are problems!
+> >>
+> >> Pulled, thanks a lot John.
 > >
-> > But these options aren't all applicable to all flow-types.
-> 
-> This is the part that gets messy and I am not sure what the best 
-> approach is.  I have more comments on that below.  For now what I am 
-> planning to implement to address this is that in the "DESCRIPTION" 
-> section below I add a statement to each specifier that has restrictions 
-> by stating "Valid for flow-types X, Y, and Z."
-
-OK.
-
-> > [...]
-> >> diff --git a/ethtool.c b/ethtool.c
-> >> index 421fe20..e65979d 100644
-> >> --- a/ethtool.c
-> >> +++ b/ethtool.c
-> >> @@ -243,20 +243,26 @@ static struct option {
-> >>   		"		equal N | weight W0 W1 ...\n" },
-> >>       { "-U", "--config-ntuple", MODE_SCLSRULE, "Configure Rx ntuple filters "
-> >>   		"and actions",
-> >> -		"		{ flow-type tcp4|udp4|sctp4\n"
-> >> -		"		  [ src-ip ADDR [src-ip-mask MASK] ]\n"
-> >> -		"		  [ dst-ip ADDR [dst-ip-mask MASK] ]\n"
-> >> -		"		  [ src-port PORT [src-port-mask MASK] ]\n"
-> >> -		"		  [ dst-port PORT [dst-port-mask MASK] ]\n"
-> >> -		"		| flow-type ether\n"
-> >> -		"		  [ src MAC-ADDR [src-mask MASK] ]\n"
-> >> -		"		  [ dst MAC-ADDR [dst-mask MASK] ]\n"
-> >> -		"		  [ proto N [proto-mask MASK] ] }\n"
-> >> -		"		[ vlan VLAN-TAG [vlan-mask MASK] ]\n"
-> >> -		"		[ user-def DATA [user-def-mask MASK] ]\n"
-> >> -		"		action N\n" },
-> >> +		"		[ class-rule-del %d ] |\n"
-> >> +		"		[ flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4\n"
-> >> +		"			[ src %x:%x:%x:%x:%x:%x [src-mask %x:%x:%x:%x:%x:%x] ]\n"
-> >> +		"			[ dst %x:%x:%x:%x:%x:%x [dst-mask %x:%x:%x:%x:%x:%x] ]\n"
-> >> +		"			[ proto %d [proto-mask MASK] ]\n"
-> >> +		"			[ src-ip %d.%d.%d.%d [src-ip-mask %d.%d.%d.%d] ]\n"
-> >> +		"			[ dst-ip %d.%d.%d.%d [dst-ip-mask %d.%d.%d.%d] ]\n"
-> >> +		"			[ tos %d [tos-mask %x] ]\n"
-> >> +		"			[ l4proto %d [l4proto-mask MASK] ]\n"
-> >> +		"			[ src-port %d [src-port-mask %x] ]\n"
-> >> +		"			[ dst-port %d [dst-port-mask %x] ]\n"
-> >> +		"			[ spi %d [spi-mask %x] ]\n"
-> >> +		"			[ vlan-etype %x [vlan-etype-mask %x] ]\n"
-> >> +		"			[ vlan %x [vlan-mask %x] ]\n"
-> >> +		"			[ user-def %x [user-def-mask %x] ]\n"
-> >> +		"			[ action %d ]\n"
-> >> +		"			[ loc %d]]\n" },
-> > [...]
+> > I guess watching the build logs for new warnings is too old fashioned
+> > for people, and besides Dave will do it for everyone anyways right?
 > >
-> > Again, it's not clear which options apply to which flow-types, and the
-> > 'm' shortcut is not documented.
+> > And this one is a real bug too. :-/
+> >
+> > I'll push this out to net-next-2.6 on top of the wireless-next pull,
+> > but please be more mindful in the future.
 > 
-> The 'm' part I agree with 100%, however the flow types are going to 
-> become kinda hairy using that approach.  You basically end up with 
-> something like this:
-[...]
+> Unfortunately, the 64-bit variant of gcc v4.5.1 will miss some of these. I find 
+> I need to compile code on a 32-bit system and using an older compiler to catch 
+> all. Perhaps that explains the error that crept through here.
 
-Yes, I see the problem.
-
-> As you can see it will be a bit oversized to go through and specify 
-> which flow-type options support what fields.  If that is what you want I 
-> can implement it that way but for now I would prefer calling out the 
-> flow-type limitations of the fields in the "DESCRIPTION" portion of the 
-> man page.
-
-In fact, even with this patch, the help for -U is pretty oversized.  It
-might be better to replace the list of field names with '...' here and
-only list them in full in the man page.
-
-Ben.
+That could be a reason, I have gcc 4.5.2 (64-bit). I've built this code many times
+before send pull request and never saw that warning, and it's clearly a bug,
+indeed. 
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Gustavo F. Padovan
+http://profusion.mobi
