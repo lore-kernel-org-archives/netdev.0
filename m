@@ -1,50 +1,58 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH] s390, net: convert into new cpumask api
-Date: Fri, 29 Apr 2011 12:01:06 +0200
-Message-ID: <1304071266.3171.3.camel@braunu-laptop>
-References: <20110429000104.3D5D.A69D9226@jp.fujitsu.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Is 802.3ad mode in bonding useful ?
+Date: Fri, 29 Apr 2011 06:43:42 -0400
+Message-ID: <20110429104342.GA22387@hmsreliant.think-freely.org>
+References: <4DB9185E.4050103@gmail.com>
+ <20110428122102.GB4165@hmsreliant.think-freely.org>
+ <4DBA2DDC.80502@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org
-To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110429000104.3D5D.A69D9226@jp.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: WeipingPan <panweiping3@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50850 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753269Ab1D2Knx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 06:43:53 -0400
+Content-Disposition: inline
+In-Reply-To: <4DBA2DDC.80502@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-04-28 at 23:59 +0900, KOSAKI Motohiro wrote:
-> Adapt new api.
+On Fri, Apr 29, 2011 at 11:17:48AM +0800, WeipingPan wrote:
+> On 04/28/2011 08:21 PM, Neil Horman wrote:
+> >On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
+> >>Hi, all,
+> >>
+> >>802.3ad mode in bonding implements 802.3ad standard.
+> >>
+> >>I am just wondering  802.3ad mode is useful,
+> >>since  bonding has many modes like balance-rr, active-backup, etc.
+> >>
+> >Yes, of course its usefull.  For switches which support 802.3ad, this mode
+> >allows for both peers to understand that the links in the bond are acting as an
+> >aggregate, which makes it easier to prevent things like inadvertently looped
+> >back frames, for which the other modes have to have all sorts of hacks to
+> >prevent.
+> What is looped back frames here ?
+In this case they are frames that get received by the bond, which the bond
+itself sent.  In modes where more than one slave is active, and in which the
+switch has no additional knoweldge of the aggregate (e.g. round robin mode), the
+bond can send a frame on one slave, which the switch may broadcast to all ports,
+causing the frame just sent by the bond to then get received on another slave.
+
+> I didn't see any special code to handle looped back frames in other
+> modes in bonding,
+> can you take an example ?
 > 
-> Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Cc: Ursula Braun <ursula.braun@de.ibm.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux390@de.ibm.com
-> Cc: linux-s390@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> ---
->  net/iucv/iucv.c |   70 +++++++++++++++++++++++++++---------------------------
->  1 files changed, 35 insertions(+), 35 deletions(-)
+See bond_handle_frame.
+
+Neil
+
+> thanks
+> Weiping Pan
 > 
-> diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
-> index 8f156bd..79f2caf 100644
-> --- a/net/iucv/iucv.c
-> +++ b/net/iucv/iucv.c
-> @@ -128,8 +128,8 @@ struct iucv_irq_list {
->  };
+> >Neil
+> >
 > 
->  static struct iucv_irq_data *iucv_irq_data[NR_CPUS];
-> -static cpumask_t iucv_buffer_cpumask = CPU_MASK_NONE;
-> -static cpumask_t iucv_irq_cpumask = CPU_MASK_NONE;
-> +static cpumask_t iucv_buffer_cpumask = { CPU_BITS_NONE };
-> +static cpumask_t iucv_irq_cpumask = { CPU_BITS_NONE };
-...
-Applied and merged to our tree.
-Thanks!
+> 
