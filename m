@@ -1,61 +1,46 @@
-From: "Gustavo F. Padovan" <padovan@profusion.mobi>
-Subject: Re: pull request: wireless-next-2.6 2011-04-25
-Date: Fri, 29 Apr 2011 00:11:43 -0300
-Message-ID: <20110429031143.GA2353@joana>
-References: <20110425193017.GC28814@tuxdriver.com>
- <20110425.125835.189703400.davem@davemloft.net>
- <20110425.130435.112597353.davem@davemloft.net>
- <4DB5DFBC.3070203@lwfinger.net>
+From: WeipingPan <panweiping3@gmail.com>
+Subject: Re: Is 802.3ad mode in bonding useful ?
+Date: Fri, 29 Apr 2011 11:17:48 +0800
+Message-ID: <4DBA2DDC.80502@gmail.com>
+References: <4DB9185E.4050103@gmail.com> <20110428122102.GB4165@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:45602 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758391Ab1D2DLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 23:11:34 -0400
-Content-Disposition: inline
-In-Reply-To: <4DB5DFBC.3070203@lwfinger.net>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:39530 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758158Ab1D2DRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Apr 2011 23:17:34 -0400
+Received: by vws1 with SMTP id 1so2459805vws.19
+        for <netdev@vger.kernel.org>; Thu, 28 Apr 2011 20:17:33 -0700 (PDT)
+In-Reply-To: <20110428122102.GB4165@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Larry Finger <Larry.Finger@lwfinger.net> [2011-04-25 15:55:24 -0500]:
+On 04/28/2011 08:21 PM, Neil Horman wrote:
+> On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
+>> Hi, all,
+>>
+>> 802.3ad mode in bonding implements 802.3ad standard.
+>>
+>> I am just wondering  802.3ad mode is useful,
+>> since  bonding has many modes like balance-rr, active-backup, etc.
+>>
+> Yes, of course its usefull.  For switches which support 802.3ad, this mode
+> allows for both peers to understand that the links in the bond are acting as an
+> aggregate, which makes it easier to prevent things like inadvertently looped
+> back frames, for which the other modes have to have all sorts of hacks to
+> prevent.
+What is looped back frames here ?
+I didn't see any special code to handle looped back frames in other 
+modes in bonding,
+can you take an example ?
 
-> On 04/25/2011 03:04 PM, David Miller wrote:
-> > From: David Miller<davem@davemloft.net>
-> > Date: Mon, 25 Apr 2011 12:58:35 -0700 (PDT)
-> >
-> >> From: "John W. Linville"<linville@tuxdriver.com>
-> >> Date: Mon, 25 Apr 2011 15:30:17 -0400
-> >>
-> >>> Here is another big batch of updates intended for 2.6.40...
-> >>>
-> >>> There is the usual huge batch of changes for ath9k, and iwlagn, a bunch
-> >>> for ath9k_htc, rt2x00, and ath5k, a few more for mwifiex, and a handful
-> >>> of others.  Also included is a big batch of Bluetooth updates as well.
-> >>>
-> >>> Please let me know if there are problems!
-> >>
-> >> Pulled, thanks a lot John.
-> >
-> > I guess watching the build logs for new warnings is too old fashioned
-> > for people, and besides Dave will do it for everyone anyways right?
-> >
-> > And this one is a real bug too. :-/
-> >
-> > I'll push this out to net-next-2.6 on top of the wireless-next pull,
-> > but please be more mindful in the future.
-> 
-> Unfortunately, the 64-bit variant of gcc v4.5.1 will miss some of these. I find 
-> I need to compile code on a 32-bit system and using an older compiler to catch 
-> all. Perhaps that explains the error that crept through here.
+thanks
+Weiping Pan
 
-That could be a reason, I have gcc 4.5.2 (64-bit). I've built this code many times
-before send pull request and never saw that warning, and it's clearly a bug,
-indeed. 
+> Neil
+>
 
--- 
-Gustavo F. Padovan
-http://profusion.mobi
