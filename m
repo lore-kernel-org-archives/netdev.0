@@ -1,58 +1,97 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Is 802.3ad mode in bonding useful ?
-Date: Fri, 29 Apr 2011 06:43:42 -0400
-Message-ID: <20110429104342.GA22387@hmsreliant.think-freely.org>
-References: <4DB9185E.4050103@gmail.com>
- <20110428122102.GB4165@hmsreliant.think-freely.org>
- <4DBA2DDC.80502@gmail.com>
+From: Michal Marek <mmarek@suse.cz>
+Subject: Re: [PATCH] bridge: Module use count must be updated as	 bridges
+ are created/destroyed
+Date: Fri, 29 Apr 2011 13:08:19 +0200
+Message-ID: <4DBA9C23.2000408@suse.cz>
+References: <4DBA87B6020000780003ED74@vpn.id2.novell.com> <20110429.011051.183061494.davem@davemloft.net> <4DBA937F020000780003ED96@vpn.id2.novell.com> <20110429.014445.39196872.davem@davemloft.net> <4DBA9C71020000780003EDBE@vpn.id2.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: WeipingPan <panweiping3@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	jeffm@suse.com, netdev@vger.kernel.org,
+	Jon Masters <jcm@jonmasters.org>
+To: Jan Beulich <JBeulich@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50850 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753269Ab1D2Knx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Apr 2011 06:43:53 -0400
-Content-Disposition: inline
-In-Reply-To: <4DBA2DDC.80502@gmail.com>
+Received: from cantor.suse.de ([195.135.220.2]:37323 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752418Ab1D2LIY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Apr 2011 07:08:24 -0400
+In-Reply-To: <4DBA9C71020000780003EDBE@vpn.id2.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 29, 2011 at 11:17:48AM +0800, WeipingPan wrote:
-> On 04/28/2011 08:21 PM, Neil Horman wrote:
-> >On Thu, Apr 28, 2011 at 03:33:50PM +0800, WeipingPan wrote:
-> >>Hi, all,
-> >>
-> >>802.3ad mode in bonding implements 802.3ad standard.
-> >>
-> >>I am just wondering  802.3ad mode is useful,
-> >>since  bonding has many modes like balance-rr, active-backup, etc.
-> >>
-> >Yes, of course its usefull.  For switches which support 802.3ad, this mode
-> >allows for both peers to understand that the links in the bond are acting as an
-> >aggregate, which makes it easier to prevent things like inadvertently looped
-> >back frames, for which the other modes have to have all sorts of hacks to
-> >prevent.
-> What is looped back frames here ?
-In this case they are frames that get received by the bond, which the bond
-itself sent.  In modes where more than one slave is active, and in which the
-switch has no additional knoweldge of the aggregate (e.g. round robin mode), the
-bond can send a frame on one slave, which the switch may broadcast to all ports,
-causing the frame just sent by the bond to then get received on another slave.
+On 29.4.2011 11:09, Jan Beulich wrote:
+>>>> On 29.04.11 at 10:44, David Miller<davem@davemloft.net>  wrote:
+>> From: "Jan Beulich"<JBeulich@novell.com>
+>> Date: Fri, 29 Apr 2011 09:31:27 +0100
+>>
+>>>>>> On 29.04.11 at 10:10, David Miller<davem@davemloft.net>  wrote:
+>>>> From: "Jan Beulich"<JBeulich@novell.com>
+>>>> Date: Fri, 29 Apr 2011 08:41:10 +0100
+>>>>
+>>>>> You talk of rmmod on the very module, but the issue is about
+>>>>> modprobe -r on a dependent module. I cannot believe you consider
+>>>>> it correct that *implicit* unloading of bridge.ko should happen when
+>>>>> bridges are configured.
+>>>>
+>>>> Which module in particular depends upon bridge and causes the
+>>>> problem?
+>>>
+>>> The problem was observed (a long time ago) with ebtable_broute,
+>>> and I cannot see how this would have changed meanwhile.
+>>
+>> Well your change makes it so that someone who actually _wants_ to
+>> unload the bridge module, regardless of configuration, cannot do so.
+>>
+>> I think that's a worse problem than this ebtables thing.
+>>
+>> Nothing on the system should be hitting modules with unload requests
+>> unless the user explicitly asked for that specific module to be
+>> unloaded.  At least not by default.
+>>
+>> So the me the problem is perhaps that "modprobe -r" does this auto
+>> dependency unloading thing by default.
+>>
+>> When we first fixed network device drivers so that they now properly
+>> always run with no module refcount at all, people complained because
+>> there were some distributions that ran some daemon that periodically
+>> looked for "unreferenced" modules and "helped" the user by
+>> automatically unloaded them.
+>>
+>> We killed that foolish daemon, and we can fix "modprobe -r" too.
+>
+> Michal - aren't you the modutils maintainer?
 
-> I didn't see any special code to handle looped back frames in other
-> modes in bonding,
-> can you take an example ?
-> 
-See bond_handle_frame.
+That would be Jon (CC added).
 
-Neil
+> What are your thoughts
+> here? (The original report we got is
+> https://bugzilla.novell.com/show_bug.cgi?id=267651.)
 
-> thanks
-> Weiping Pan
-> 
-> >Neil
-> >
-> 
-> 
+I think that defaulting to not removing dependencies would be a good 
+idea. But do not expect that it will help with those artificial tests, 
+they will just proceed a few steps further until they hit the module 
+with broken unloading ;-).
+
+Michal
+
+>
+>> Does "rmmod" have this behavior too?  If not, and it does the right
+>> thing by only unloaded what the user asked for, then people should
+>> use that.
+>
+> No, it doesn't. Other than modprobe, rmmod deals only with the
+> module specified.
+>
+>> I really don't in any way want to block people from being able to
+>> cleanly unload the bridge module, regardless of configuration, if
+>> that's what they want so your patch as written is not going to be
+>> considered for inclusion.
+>
+> I understood that meanwhile, yet fail to see an alternative solution
+> (imo this auto-unloading is quite desirable in other cases).
+>
+> Jan
+>
+
