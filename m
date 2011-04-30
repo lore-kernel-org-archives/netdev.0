@@ -1,80 +1,78 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next-2.6] veth: remove unneeded ifname code from
- veth_newlink()
-Date: Sat, 30 Apr 2011 13:28:17 +0200
-Message-ID: <20110430112817.GD2658@psychotron.orion>
-References: <20110124154546.GA2689@psychotron.brq.redhat.com>
- <BANLkTi=x8xi7-g3SZdva7Ndg0a4EY1NK8g@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH 0/2] Multiqueue support for
+	qemu(virtio-net)
+Date: Sat, 30 Apr 2011 22:55:26 +0800
+Message-ID: <19900.8926.555478.30391@gargle.gargle.HOWL>
+References: <20110420082706.32157.59668.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+	<OF7CC46028.9A206852-ON65257878.00307271-65257878.00308D38@in.ibm.com>
+	<19887.42381.34145.956833@gargle.gargle.HOWL>
+	<4DBB1B25.1020300@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, xemul@openvz.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7309 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752639Ab1D3L2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Apr 2011 07:28:22 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTi=x8xi7-g3SZdva7Ndg0a4EY1NK8g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	rusty@rustcorp.com.au, qemu-devel@nongnu.org
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+In-Reply-To: <4DBB1B25.1020300@codemonkey.ws>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: </archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Apr 22, 2011 at 11:43:10AM CEST, mirqus@gmail.com wrote:
->2011/1/24 Jiri Pirko <jpirko@redhat.com>:
->> The code is not needed because tb[IFLA_IFNAME] is already
->> processed in rtnl_newlink(). Remove this redundancy.
->>
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->
->Hi. This patch broke creation of veth devices. Reverting it fixes the issue.
+Anthony Liguori writes:
+ > On 04/20/2011 10:33 PM, Jason Wang wrote:
+ > > Krishna Kumar2 writes:
+ > >   >  Thanks Jason!
+ > >   >
+ > >   >  So I can use my virtio-net guest driver and test with this patch?
+ > >   >  Please provide the script you use to start MQ guest.
+ > >   >
+ > >
+ > > Yes and thanks. Following is a simple script may help you start macvtap mq
+ > > guest.
+ > >
+ > > qemu_path=./qemu-system-x86_64
+ > > img_path=/home/kvm_autotest_root/images/mq.qcow2
+ > > vtap_dev=/dev/tap104
+ > > mac=96:88:12:1C:27:83
+ > > smp=2
+ > > mq=4
+ > >
+ > > for i in `seq $mq`
+ > > do
+ > >      vtap+=" -netdev tap,id=hn$i,fd=$((i+100)) $((i+100))<>$vtap_dev"
+ > 
+ > So you are basically dup()'ing the tap device.
+ > 
+ > Does this actually improve performance at all?
+ > 
 
-Sorry for troubles.
+The script maybe not clear. It works only for macvtap (tap does not have
+multiqueue support and I plan to add it). A macvtap device needs to be created
+first by ip command.
 
-For net-next-2.6 this is fixed by:
-http://patchwork.ozlabs.org/patch/93498/
+The multiqueue was achieved by opening the macvtap device many times. Each time
+ the user open to macvtap device, a new queue (sock) was created. Then macvtap
+ device then can forward the packets to different sock/fd based on their RX
+ queue of physical nics. So the fd could be used to registered as a backend for
+ vhost/qemu.
 
-For net-2.6 I suggest to revert this patch:
+Performance improvement is expected when using smp guest with mq virtio-net and
+mq nic.
 
-Subject: [PATCH net-2.6] Revert: veth: remove unneeded ifname code from veth_newlink()
+ > Regards,
+ > 
+ > Anthony Liguori
+ > 
 
-84c49d8c3e4abefb0a41a77b25aa37ebe8d6b743 caused regression on veth
-creation. This patch reverts the original one.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/veth.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 2de9b90..3b99f64 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -403,6 +403,17 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 	if (tb[IFLA_ADDRESS] == NULL)
- 		random_ether_addr(dev->dev_addr);
- 
-+	if (tb[IFLA_IFNAME])
-+		nla_strlcpy(dev->name, tb[IFLA_IFNAME], IFNAMSIZ);
-+	else
-+		snprintf(dev->name, IFNAMSIZ, DRV_NAME "%%d");
-+
-+	if (strchr(dev->name, '%')) {
-+		err = dev_alloc_name(dev, dev->name);
-+		if (err < 0)
-+			goto err_alloc_name;
-+	}
-+
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		goto err_register_dev;
-@@ -422,6 +433,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 
- err_register_dev:
- 	/* nothing to do */
-+err_alloc_name:
- err_configure_peer:
- 	unregister_netdevice(peer);
- 	return err;
 -- 
-1.7.4.2
-
+Jason Wang
