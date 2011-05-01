@@ -1,8 +1,8 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 2/4] batman-adv: Move definition of
-	atomic_dec_not_zero() into main.h
-Date: Sun,  1 May 2011 23:10:32 +0200
-Message-ID: <1304284234-27338-3-git-send-email-sven@narfation.org>
+Subject: [PATCH 1/4] batman-adv: orig_hash_find() manages
+	rcu_lock/unlock internally
+Date: Sun,  1 May 2011 23:10:31 +0200
+Message-ID: <1304284234-27338-2-git-send-email-sven@narfation.org>
 References: <1304284234-27338-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -23,51 +23,70 @@ List-Id: netdev.vger.kernel.org
 
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 
-atomic_dec_not_zero() is very useful and it is currently defined
-multiple times. So it is possible to move it in main.h
+orig_hash_find() manages rcu_lock/unlock internally and doesn't need to
+be surrounded by rcu_read_lock() / rcu_read_unlock() anymore
 
 Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Acked-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/aggregation.c |    1 -
- net/batman-adv/main.h        |    2 ++
- net/batman-adv/send.c        |    1 -
- 3 files changed, 2 insertions(+), 2 deletions(-)
+ net/batman-adv/routing.c |   16 ++--------------
+ 1 files changed, 2 insertions(+), 14 deletions(-)
 
-diff --git a/net/batman-adv/aggregation.c b/net/batman-adv/aggregation.c
-index af45d6b..c11788c 100644
---- a/net/batman-adv/aggregation.c
-+++ b/net/batman-adv/aggregation.c
-@@ -95,7 +95,6 @@ static bool can_aggregate_with(struct batman_packet *new_batman_packet,
- 	return false;
- }
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index f6c6422..2d77bd3 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -1310,13 +1310,10 @@ int route_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 	}
  
--#define atomic_dec_not_zero(v)          atomic_add_unless((v), -1, 0)
- /* create a new aggregated packet and add this packet to it */
- static void new_aggregated_packet(unsigned char *packet_buff, int packet_len,
- 				  unsigned long send_time, bool direct_link,
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index dc24869..ace7285 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -175,4 +175,6 @@ static inline int compare_eth(void *data1, void *data2)
- 	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
- }
+ 	/* get routing information */
+-	rcu_read_lock();
+ 	orig_node = orig_hash_find(bat_priv, unicast_packet->dest);
  
-+#define atomic_dec_not_zero(v)	atomic_add_unless((v), -1, 0)
-+
- #endif /* _NET_BATMAN_ADV_MAIN_H_ */
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index e78670c..7650e2b 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -393,7 +393,6 @@ static void _add_bcast_packet_to_list(struct bat_priv *bat_priv,
- 			   send_time);
- }
+ 	if (!orig_node)
+-		goto unlock;
+-
+-	rcu_read_unlock();
++		goto out;
  
--#define atomic_dec_not_zero(v)          atomic_add_unless((v), -1, 0)
- /* add a broadcast packet to the queue and setup timers. broadcast packets
-  * are sent multiple times to increase probability for beeing received.
-  *
+ 	/* find_router() increases neigh_nodes refcount if found. */
+ 	neigh_node = find_router(bat_priv, orig_node, recv_if);
+@@ -1362,10 +1359,7 @@ int route_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 	/* route it */
+ 	send_skb_packet(skb, neigh_node->if_incoming, neigh_node->addr);
+ 	ret = NET_RX_SUCCESS;
+-	goto out;
+ 
+-unlock:
+-	rcu_read_unlock();
+ out:
+ 	if (neigh_node)
+ 		neigh_node_free_ref(neigh_node);
+@@ -1464,13 +1458,10 @@ int recv_bcast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 	if (bcast_packet->ttl < 2)
+ 		goto out;
+ 
+-	rcu_read_lock();
+ 	orig_node = orig_hash_find(bat_priv, bcast_packet->orig);
+ 
+ 	if (!orig_node)
+-		goto rcu_unlock;
+-
+-	rcu_read_unlock();
++		goto out;
+ 
+ 	spin_lock_bh(&orig_node->bcast_seqno_lock);
+ 
+@@ -1501,9 +1492,6 @@ int recv_bcast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 	ret = NET_RX_SUCCESS;
+ 	goto out;
+ 
+-rcu_unlock:
+-	rcu_read_unlock();
+-	goto out;
+ spin_unlock:
+ 	spin_unlock_bh(&orig_node->bcast_seqno_lock);
+ out:
 -- 
 1.7.4.4
