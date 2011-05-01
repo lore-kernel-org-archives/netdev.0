@@ -1,54 +1,51 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [PATCH] sysctl: net: call unregister_net_sysctl_table where needed
-Date: Sun,  1 May 2011 13:44:01 +0200
-Message-ID: <1304250241-26138-1-git-send-email-lucian.grijincu@gmail.com>
+Subject: Re: [PATCH] sysctl: net: call unregister_net_sysctl_table where needed
+Date: Sun, 1 May 2011 13:48:04 +0200
+Message-ID: <BANLkTi=0-2aHDBtY2P794upF9brrW48aNA@mail.gmail.com>
+References: <1304250241-26138-1-git-send-email-lucian.grijincu@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59821 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753619Ab1EALoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 07:44:15 -0400
-Received: by wya21 with SMTP id 21so3681742wya.19
-        for <netdev@vger.kernel.org>; Sun, 01 May 2011 04:44:14 -0700 (PDT)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:52375 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754015Ab1EALsZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 07:48:25 -0400
+Received: by fxm17 with SMTP id 17so3255837fxm.19
+        for <netdev@vger.kernel.org>; Sun, 01 May 2011 04:48:24 -0700 (PDT)
+In-Reply-To: <1304250241-26138-1-git-send-email-lucian.grijincu@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ctl_table_headers registered with register_net_sysctl_table should
-have been unregistered with the equivalent unregister_net_sysctl_table
+On Sun, May 1, 2011 at 1:44 PM, Lucian Adrian Grijincu
+<lucian.grijincu@gmail.com> wrote:
+> ctl_table_headers registered with register_net_sysctl_table should
+> have been unregistered with the equivalent unregister_net_sysctl_tabl=
+e
+>
+> Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 
-Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
----
- net/ipv4/devinet.c  |    2 +-
- net/ipv6/addrconf.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 5345b0b..cd9ca08 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1680,7 +1680,7 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
- 		return;
- 
- 	cnf->sysctl = NULL;
--	unregister_sysctl_table(t->sysctl_header);
-+	unregister_net_sysctl_table(t->sysctl_header);
- 	kfree(t->dev_name);
- 	kfree(t);
- }
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 1493534..a7bda07 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4537,7 +4537,7 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
- 
- 	t = p->sysctl;
- 	p->sysctl = NULL;
--	unregister_sysctl_table(t->sysctl_header);
-+	unregister_net_sysctl_table(t->sysctl_header);
- 	kfree(t->dev_name);
- 	kfree(t);
- }
--- 
-1.7.5.134.g1c08b
+David: I sent you this patch a while back but it was mixed with other
+unrelated patches that were mostly ignored.
 
+Again, to clarify: it does not matter at the moment if
+register_net_sysctl_table or unregister_sysctl_table is called because
+both to the same thing:
+
+
+void unregister_net_sysctl_table(struct ctl_table_header *header)
+{
+        unregister_sysctl_table(header);
+}
+EXPORT_SYMBOL_GPL(unregister_net_sysctl_table);
+
+
+We should either get rid of unregister_net_sysctl_table or use it consi=
+stently.
+
+--=20
+=C2=A0.
+=2E.: Lucian
