@@ -1,67 +1,80 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [v2 PATCH 0/6] IPVS: init and cleanup.
-Date: Sun, 1 May 2011 20:48:58 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1105012044161.1430@ja.ssi.bg>
-References: <1304268618-18103-1-git-send-email-hans@schillstrom.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans.schillstrom@ericsson.com
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1304268618-18103-1-git-send-email-hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: [PATCH 3/4] batman-adv: fix gw_node_update() and
+	gw_election()
+Date: Sun,  1 May 2011 23:10:33 +0200
+Message-ID: <1304284234-27338-4-git-send-email-sven@narfation.org>
+References: <1304284234-27338-1-git-send-email-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1304284234-27338-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 
-	Hello,
+This is a regression from c4aac1ab9b973798163b34939b522f01e4d28ac9
 
-On Sun, 1 May 2011, Hans Schillstrom wrote:
+- gw_node_update() doesn't add a new gw_node in case of empty curr_gw.
+This means that at the beginning no gw_node is added, leading to an
+empty gateway list.
 
-> This patch series handles exit from a network name space.
-> 
-> REVISION
-> 
-> This is version 4
-> 
-> OVERVIEW
-> Basically there was three faults in the netns implementation.
-> - Kernel threads hold devices and preventing an exit.
-> - dst cache holds references to devices.
-> - Services was not always released.
-> 
-> Patch 1 & 3 contains the functionality
->       4 renames funcctions
->       5 removes empty functions
->       6 Debuging.
-> 
-> IMPLEMENTATION
-> - Avoid to increment the usage counter for kernel threads.
->   this is done in the first patch.
-> - Patch 3 tries to restore the cleanup order.
->   Add NETDEV_UNREGISTER notification for dst_reset
->   (eleased version could not handle unregistration of netdevices.)
-> 
-> Comments from Eric, Julian and Simon implmented.
-> 
-> Revision 3 
-> Residies in patch 3
->         Throttle renamed to enable.
->         Comments from Julian implemented
->         Check enable in ip_vs_in, ip_vs_out and ip_vs_forward_icmp*
->         Remove in ip_vs_in_icmp*.
->         ip_vs_svc_reset() moved into ip_vs_dst_event().
->         ip_vs_service_cleanup() uses ip_vs_flush and mutex lock.
->         ip_vs_unlink_service_nolock() added.
->  
-> Revision 4
-> 	ip_vs_unlink_service_nolock() removed.
-> 	ip_vs_flush() reverted.
-> 	Return code check changed in stop thread.
+- gw_election() is terminating in case of curr_gw == NULL. It has to
+terminate in case of curr_gw != NULL
 
-	Not sure about patch 1 but patches 2-6 in v4 look
-good to me. Thanks!
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+---
+ net/batman-adv/gateway_client.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 2acd7a6..af128ef 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -127,7 +127,7 @@ void gw_election(struct bat_priv *bat_priv)
+ 		return;
+ 
+ 	curr_gw = gw_get_selected_gw_node(bat_priv);
+-	if (!curr_gw)
++	if (curr_gw)
+ 		goto out;
+ 
+ 	rcu_read_lock();
+@@ -310,9 +310,13 @@ void gw_node_update(struct bat_priv *bat_priv,
+ 	struct hlist_node *node;
+ 	struct gw_node *gw_node, *curr_gw;
+ 
++	/**
++	 * Note: We don't need a NULL check here, since curr_gw never gets
++	 * dereferenced. If curr_gw is NULL we also should not exit as we may
++	 * have this gateway in our list (duplication check!) even though we
++	 * have no currently selected gateway.
++	 */
+ 	curr_gw = gw_get_selected_gw_node(bat_priv);
+-	if (!curr_gw)
+-		goto out;
+ 
+ 	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(gw_node, node, &bat_priv->gw_list, list) {
+@@ -350,7 +354,7 @@ deselect:
+ 	gw_deselect(bat_priv);
+ unlock:
+ 	rcu_read_unlock();
+-out:
++
+ 	if (curr_gw)
+ 		gw_node_free_ref(curr_gw);
+ }
+-- 
+1.7.4.4
