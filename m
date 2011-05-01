@@ -1,192 +1,58 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: [v4 PATCH 5/6] IPVS: remove unused init and cleanup functions.
-Date: Sun,  1 May 2011 18:50:17 +0200
-Message-ID: <1304268618-18103-6-git-send-email-hans@schillstrom.com>
-References: <1304268618-18103-1-git-send-email-hans@schillstrom.com>
-Cc: hans.schillstrom@ericsson.com,
-	Hans Schillstrom <hans@schillstrom.com>
-To: ja@ssi.bg, horms@verge.net.au, ebiederm@xmission.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH v4 2/5] can: add rtnetlink support
+Date: Sun, 01 May 2011 19:16:54 +0200
+Message-ID: <4DBD9586.7080908@hartkopp.net>
+References: <20110427085330.GA757@kurt.e-circ.dyndns.org> <20110427085705.GC757@kurt.e-circ.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:53725 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761047Ab1EAQu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 12:50:29 -0400
-In-Reply-To: <1304268618-18103-1-git-send-email-hans@schillstrom.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:30521 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754776Ab1EARQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 13:16:45 -0400
+In-Reply-To: <20110427085705.GC757@kurt.e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After restructuring, there is some unused or empty functions
-left to be removed.
+On 27.04.2011 10:57, Kurt Van Dijck wrote:
+> This patch adds rtnetlink support for AF_CAN. This support is really
+> a multiplexer towards the different CAN protocols.
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
----
- include/net/ip_vs.h             |    6 ------
- net/netfilter/ipvs/ip_vs_app.c  |   10 ----------
- net/netfilter/ipvs/ip_vs_core.c |   29 ++++-------------------------
- net/netfilter/ipvs/ip_vs_est.c  |    9 ---------
- net/netfilter/ipvs/ip_vs_sync.c |    9 ---------
- 5 files changed, 4 insertions(+), 59 deletions(-)
+Hello Kurt,
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index da2aea9..10417ab 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1123,8 +1123,6 @@ extern void ip_vs_app_inc_put(struct ip_vs_app *inc);
- 
- extern int ip_vs_app_pkt_out(struct ip_vs_conn *, struct sk_buff *skb);
- extern int ip_vs_app_pkt_in(struct ip_vs_conn *, struct sk_buff *skb);
--extern int ip_vs_app_init(void);
--extern void ip_vs_app_cleanup(void);
- 
- void ip_vs_bind_pe(struct ip_vs_service *svc, struct ip_vs_pe *pe);
- void ip_vs_unbind_pe(struct ip_vs_service *svc);
-@@ -1227,15 +1225,11 @@ extern int start_sync_thread(struct net *net, int state, char *mcast_ifn,
- 			     __u8 syncid);
- extern int stop_sync_thread(struct net *net, int state);
- extern void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp);
--extern int ip_vs_sync_init(void);
--extern void ip_vs_sync_cleanup(void);
- 
- 
- /*
-  *      IPVS rate estimator prototypes (from ip_vs_est.c)
-  */
--extern int ip_vs_estimator_init(void);
--extern void ip_vs_estimator_cleanup(void);
- extern void ip_vs_start_estimator(struct net *net, struct ip_vs_stats *stats);
- extern void ip_vs_stop_estimator(struct net *net, struct ip_vs_stats *stats);
- extern void ip_vs_zero_estimator(struct ip_vs_stats *stats);
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 81b299d..5f34cf4 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -589,13 +589,3 @@ void __net_exit ip_vs_app_net_cleanup(struct net *net)
- {
- 	proc_net_remove(net, "ip_vs_app");
- }
--
--int __init ip_vs_app_init(void)
--{
--	return 0;
--}
--
--
--void ip_vs_app_cleanup(void)
--{
--}
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 4582716..91802b1 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1987,36 +1987,23 @@ static int __init ip_vs_init(void)
- {
- 	int ret;
- 
--	ip_vs_estimator_init();
- 	ret = ip_vs_control_init();
- 	if (ret < 0) {
- 		pr_err("can't setup control.\n");
--		goto cleanup_estimator;
-+		goto cleanup_out;
- 	}
- 
- 	ip_vs_protocol_init();
- 
--	ret = ip_vs_app_init();
--	if (ret < 0) {
--		pr_err("can't setup application helper.\n");
--		goto cleanup_protocol;
--	}
--
- 	ret = ip_vs_conn_init();
- 	if (ret < 0) {
- 		pr_err("can't setup connection table.\n");
--		goto cleanup_app;
--	}
--
--	ret = ip_vs_sync_init();
--	if (ret < 0) {
--		pr_err("can't setup sync data.\n");
--		goto cleanup_conn;
-+		goto cleanup_protocol;
- 	}
- 
- 	ret = register_pernet_subsys(&ipvs_core_ops);	/* Alloc ip_vs struct */
- 	if (ret < 0)
--		goto cleanup_sync;
-+		goto cleanup_conn;
- 
- 	ret = register_pernet_device(&ipvs_core_dev_ops);
- 	if (ret < 0)
-@@ -2036,17 +2023,12 @@ cleanup_dev:
- 	unregister_pernet_device(&ipvs_core_dev_ops);
- cleanup_sub:
- 	unregister_pernet_subsys(&ipvs_core_ops);
--cleanup_sync:
--	ip_vs_sync_cleanup();
- cleanup_conn:
- 	ip_vs_conn_cleanup();
--cleanup_app:
--	ip_vs_app_cleanup();
- cleanup_protocol:
- 	ip_vs_protocol_cleanup();
- 	ip_vs_control_cleanup();
--cleanup_estimator:
--	ip_vs_estimator_cleanup();
-+cleanup_out:
- 	return ret;
- }
- 
-@@ -2055,12 +2037,9 @@ static void __exit ip_vs_cleanup(void)
- 	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
- 	unregister_pernet_device(&ipvs_core_dev_ops);
- 	unregister_pernet_subsys(&ipvs_core_ops);	/* free ip_vs struct */
--	ip_vs_sync_cleanup();
- 	ip_vs_conn_cleanup();
--	ip_vs_app_cleanup();
- 	ip_vs_protocol_cleanup();
- 	ip_vs_control_cleanup();
--	ip_vs_estimator_cleanup();
- 	pr_info("ipvs unloaded.\n");
- }
- 
-diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
-index f5d2a01..0fac601 100644
---- a/net/netfilter/ipvs/ip_vs_est.c
-+++ b/net/netfilter/ipvs/ip_vs_est.c
-@@ -207,12 +207,3 @@ void __net_exit ip_vs_estimator_net_cleanup(struct net *net)
- {
- 	del_timer_sync(&net_ipvs(net)->est_timer);
- }
--
--int __init ip_vs_estimator_init(void)
--{
--	return 0;
--}
--
--void ip_vs_estimator_cleanup(void)
--{
--}
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 58bfabb..7ee7215 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1689,12 +1689,3 @@ void ip_vs_sync_net_cleanup(struct net *net)
- 	if (retc && retc != -ESRCH)
- 		pr_err("Failed to stop Backup Daemon\n");
- }
--
--int __init ip_vs_sync_init(void)
--{
--	return 0;
--}
--
--void ip_vs_sync_cleanup(void)
--{
--}
--- 
-1.7.2.3
+i applied all your patches for the can-utils and the network layer stuff to
+the BerliOS SVN in socketcan/branches/j1939 for testing.
 
+Besides some minor adaptions to support the SVN i left out some infrastructure
+changes you made in patch 2/5 to constify this ...
+
+> -static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
+> +static const struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
+
+and this ...
+
+> -static struct can_proto *can_try_module_get(int protocol)
+> +static const struct can_proto *can_try_module_get(int protocol)
+
+(..)
+
+> +static inline void can_put_proto(const struct can_proto *cp)
+> +{
+> +	module_put(cp->prot->owner);
+> +}
+
+These infrastructure changes did not really belong to the rtnetlink support.
+
+The can-j1939.ko builds properly in the SVN against 2.6.39-rc5 and the
+net-next-2.6 tree - and e.g. against a debian wheezy kernel:
+
+make KERNELDIR=/usr/src/linux-headers-2.6.38-2-686-bigmem
+
+As it is pretty easy now to build the kernel modules & your provided can-utils
+we hopefully get some more feedback from j1939 users.
+
+Best regards,
+Oliver
