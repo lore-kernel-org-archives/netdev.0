@@ -1,58 +1,67 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v4 2/5] can: add rtnetlink support
-Date: Sun, 01 May 2011 19:16:54 +0200
-Message-ID: <4DBD9586.7080908@hartkopp.net>
-References: <20110427085330.GA757@kurt.e-circ.dyndns.org> <20110427085705.GC757@kurt.e-circ.dyndns.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 34182] New: Hard hang arising from TCP/IP
+ related bug in 2.6.39-rc4
+Date: Sun, 1 May 2011 10:42:12 -0700
+Message-ID: <20110501104212.273a9726.akpm@linux-foundation.org>
+References: <bug-34182-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, htmldeveloper@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:30521 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754776Ab1EARQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 13:16:45 -0400
-In-Reply-To: <20110427085705.GC757@kurt.e-circ.dyndns.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46324 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753458Ab1EARhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 13:37:17 -0400
+In-Reply-To: <bug-34182-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27.04.2011 10:57, Kurt Van Dijck wrote:
-> This patch adds rtnetlink support for AF_CAN. This support is really
-> a multiplexer towards the different CAN protocols.
 
-Hello Kurt,
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-i applied all your patches for the can-utils and the network layer stuff to
-the BerliOS SVN in socketcan/branches/j1939 for testing.
+On Sun, 1 May 2011 17:32:07 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Besides some minor adaptions to support the SVN i left out some infrastructure
-changes you made in patch 2/5 to constify this ...
+> https://bugzilla.kernel.org/show_bug.cgi?id=34182
+> 
+>            Summary: Hard hang arising from TCP/IP related bug in
+>                     2.6.39-rc4
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.39-rc4
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: blocking
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: htmldeveloper@gmail.com
+>         Regression: No
+> 
+> 
+> Created an attachment (id=56082)
+>  --> (https://bugzilla.kernel.org/attachment.cgi?id=56082)
+> kernel crash log via dmesg
+> 
+> I did a git-update of linus git tree on 27 Apr 2011, built the new kernel
+> image.   Ever since using the new image, I have been *consistently* getting
+> many crashes - especially whenever my google chrome is retoring all its
+> previous session connection.   
+> 
+> Two crashes (entire system freezes) are shown in attachment.   Ever since I
+> have revert to previous version - as booting up twice and consistently twice it
+> will fail within a few minutes after Chrome is used.
+> 
+> v2.6.39-rc4-245-g4175242
+> 
+> Previously working version:   2.6.38-rc2+.   Did not test anything between
+> 2.6.38-rc2+ and 2.6.39-rc3, and 2.6.39-rc3 failed for me in other ways as well.
+> 
+> (http://bugzilla.kernel.org/show_bug.cgi?id=33272)
+> 
 
-> -static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
-> +static const struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
-
-and this ...
-
-> -static struct can_proto *can_try_module_get(int protocol)
-> +static const struct can_proto *can_try_module_get(int protocol)
-
-(..)
-
-> +static inline void can_put_proto(const struct can_proto *cp)
-> +{
-> +	module_put(cp->prot->owner);
-> +}
-
-These infrastructure changes did not really belong to the rtnetlink support.
-
-The can-j1939.ko builds properly in the SVN against 2.6.39-rc5 and the
-net-next-2.6 tree - and e.g. against a debian wheezy kernel:
-
-make KERNELDIR=/usr/src/linux-headers-2.6.38-2-686-bigmem
-
-As it is pretty easy now to build the kernel modules & your provided can-utils
-we hopefully get some more feedback from j1939 users.
-
-Best regards,
-Oliver
