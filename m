@@ -1,86 +1,68 @@
-From: zhou rui <zhourui.cn@gmail.com>
-Subject: ask help for analysising oprofile result (higher mwait_idle_with_hints)
-Date: Sun, 1 May 2011 22:08:23 +0800
-Message-ID: <BANLkTikJfXBYsXpPBJUrOb37aaLCX8PbMw@mail.gmail.com>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH] ipheth.c: Enable IP header alignment
+Date: Sun, 01 May 2011 16:46:39 +0100
+Message-ID: <1304264799.2833.82.camel@localhost>
+References: <1304247656-21086-1-git-send-email-agimenez@sysvalve.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: jon.zhou@jdsu.com
-To: linux-kernel@vger.kernel.org, linux-smp@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:60381 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751293Ab1EAOIY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 10:08:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dgiagio-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dborca-/E1597aS9LQAvxtiuMwx3w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pmcenery-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, david.hill-+VOaU5BgciZBDgjK7y7TUQ@public.gmane.org,
+	"open list:USB SUBSYSTEM" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"open list:NETWORKING DRIVERS" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "L. Alberto" =?ISO-8859-1?Q?Gim=E9nez?= <agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1304247656-21086-1-git-send-email-agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-hi
+On Sun, 2011-05-01 at 13:00 +0200, L. Alberto Gim=C3=A9nez wrote:
+> From: David Hill <david.hill-+VOaU5BgciZBDgjK7y7TUQ@public.gmane.org>
+>=20
+> Since commit ea812ca1b06113597adcd8e70c0f84a413d97544, NET_IP_ALIGN c=
+hanged from
+> 2 to 0. Some people have reported that tethering stopped working and =
+David Hill
+> submited a patch that seems to fix the problem.
+>=20
+> I have no more an iPhone device to test it, so it is only compile-tes=
+ted.
+>=20
+> Signed-off-by: L. Alberto Gim=C3=A9nez <agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>
+> ---
+>  drivers/net/usb/ipheth.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
+> index 7d42f9a..711346b 100644
+> --- a/drivers/net/usb/ipheth.c
+> +++ b/drivers/net/usb/ipheth.c
+> @@ -54,6 +54,9 @@
+>  #include <linux/usb.h>
+>  #include <linux/workqueue.h>
+> =20
+> +#undef  NET_IP_ALIGN
+> +#define NET_IP_ALIGN 2
+> +
+>  #define USB_VENDOR_APPLE        0x05ac
+>  #define USB_PRODUCT_IPHONE      0x1290
+>  #define USB_PRODUCT_IPHONE_3G   0x1292
 
-A network application (with its kernel network driver),
-it uses 5-8% cpu(I have tested it on kernel 2.6.34, seen from 'top'),
-but I got 40% cpu usage on kernel 2.6.36
-so that I tried oprofile to see what happen:
+No, you can't do this.
 
-opcontrol --vmlinux=/home/kho56208/linux-2.6.36.4/vmlinux
-...
+If there is some reason to use a fixed alignment of 2 (which I find har=
+d
+to believe; this is a USB device after all) then that should be
+specified as a private constant.
 
+Ben.
 
-compared with profile result on kernel 2.6.34, the
-"mwait_idle_with_hints" got a higher "CPU_CLK_UNHALTED " event sample,
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-what does it mean? any clue?
-
-CPU: Intel Architectural Perfmon, speed 2666.01 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a
-unit mask of 0x00 (No unit mask) count 100000
-samples  %        symbol name
-115595   17.5906  mwait_idle_with_hints
-27098     4.1236  __alloc_skb
-25992     3.9553  __slab_free
-25707     3.9120  __netif_receive_skb
-18784     2.8584  __kmalloc_node_track_caller
-18223     2.7731  get_partial_node
-17860     2.7178  add_partial
-17662     2.6877  kfree
-17655     2.6866  kmem_cache_alloc_node
-...
-
-(kernel 2.6.34):
-
-CPU: Intel Architectural Perfmon, speed 1600 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a
-unit mask of 0x00 (No unit mask) count 100000
-samples  %        symbol name
-389859    7.9392  mwait_idle_with_hints
-306288    6.2374  kfree
-273832    5.5764  kmem_cache_alloc_node
-268486    5.4675  netif_receive_skb
-219047    4.4607  __alloc_skb
-192371    3.9175  kmem_cache_free
-138046    2.8112  memcpy
-133959    2.7280  dev_gro_receive
-
-
-
-system wide profile (2.6.36)
-
-"MY_APPLICATION" got 40%  cpu usage,why it is  only 0.8799% seen from oprofile?
-(the machine has 12 cores, and the oprofile is to measure all cores
-
-CPU: Intel Architectural Perfmon, speed 2666.01 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a
-unit mask of 0x00 (No unit mask) count 100000
-CPU_CLK_UNHALT...|
-  samples|      %|
-------------------
-   656980 40.1202 vmlinux
-   473114 28.8919 vmlinux
-   298978 18.2579 MY_KERNEL_DRIVER
-   165838 10.1273 ixgbe
-    14408  0.8799 MY_APPLICATION
-    10443  0.6377 libc-2.11.1.so
-     8251  0.5039 processor
-     4658  0.2845 oprofiled
-     3103  0.1895 libpthread-2.11.1.so
-     1209  0.0738 oprofile
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
