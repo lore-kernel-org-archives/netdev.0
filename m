@@ -1,51 +1,42 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: [PATCH] sysctl: net: call unregister_net_sysctl_table where needed
-Date: Sun, 1 May 2011 13:48:04 +0200
-Message-ID: <BANLkTi=0-2aHDBtY2P794upF9brrW48aNA@mail.gmail.com>
-References: <1304250241-26138-1-git-send-email-lucian.grijincu@gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] ipv4: don't spam dmesg with "Using LC-trie" messages
+Date: Sun, 1 May 2011 15:04:11 +0300
+Message-ID: <20110501120411.GA5224@p183>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:52375 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754015Ab1EALsZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 07:48:25 -0400
-Received: by fxm17 with SMTP id 17so3255837fxm.19
-        for <netdev@vger.kernel.org>; Sun, 01 May 2011 04:48:24 -0700 (PDT)
-In-Reply-To: <1304250241-26138-1-git-send-email-lucian.grijincu@gmail.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:36948 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752823Ab1EAMER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 08:04:17 -0400
+Received: by bwz15 with SMTP id 15so4026537bwz.19
+        for <netdev@vger.kernel.org>; Sun, 01 May 2011 05:04:16 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 1, 2011 at 1:44 PM, Lucian Adrian Grijincu
-<lucian.grijincu@gmail.com> wrote:
-> ctl_table_headers registered with register_net_sysctl_table should
-> have been unregistered with the equivalent unregister_net_sysctl_tabl=
-e
->
-> Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+fib_trie_table() is called during netns creation and
+Chromium uses clone(CLONE_NEWNET) to sandbox renderer process.
 
+Don't print anything.
 
-David: I sent you this patch a while back but it was mixed with other
-unrelated patches that were mostly ignored.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Again, to clarify: it does not matter at the moment if
-register_net_sysctl_table or unregister_sysctl_table is called because
-both to the same thing:
+ net/ipv4/fib_trie.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-
-void unregister_net_sysctl_table(struct ctl_table_header *header)
-{
-        unregister_sysctl_table(header);
-}
-EXPORT_SYMBOL_GPL(unregister_net_sysctl_table);
-
-
-We should either get rid of unregister_net_sysctl_table or use it consi=
-stently.
-
---=20
-=C2=A0.
-=2E.: Lucian
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1978,9 +1978,6 @@ struct fib_table *fib_trie_table(u32 id)
+ 	t = (struct trie *) tb->tb_data;
+ 	memset(t, 0, sizeof(*t));
+ 
+-	if (id == RT_TABLE_LOCAL)
+-		pr_info("IPv4 FIB: Using LC-trie version %s\n", VERSION);
+-
+ 	return tb;
+ }
+ 
