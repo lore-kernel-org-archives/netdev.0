@@ -1,75 +1,72 @@
-From: =?iso-8859-1?Q?L=2E_Alberto_Gim=E9nez?= <agimenez@sysvalve.es>
-Subject: Re: [PATCH] ipheth.c: Enable IP header alignment
-Date: Mon, 2 May 2011 23:12:45 +0200
-Message-ID: <20110502211245.GA18334@bart.evergreen.loc>
-References: <1304264799.2833.82.camel@localhost>
- <1304364912-15444-1-git-send-email-agimenez@sysvalve.es>
- <20110502.124622.226785624.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next-2.6] ipv4: Make sure flowi4->{saddr,daddr} are
+ always set.
+Date: Mon, 02 May 2011 14:38:19 -0700 (PDT)
+Message-ID: <20110502.143819.71100912.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, dgiagio@gmail.com, dborca@yahoo.com,
-	pmcenery@gmail.com, david.hill@ubisoft.com,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n023010.sys.capside.net ([81.25.117.138]:56440 "EHLO
-	n023010.sys.capside.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757433Ab1EBVTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 17:19:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20110502.124622.226785624.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39152
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932503Ab1EBViv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 17:38:51 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 42B8624C088
+	for <netdev@vger.kernel.org>; Mon,  2 May 2011 14:38:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 02, 2011 at 12:46:22PM -0700, David Miller wrote:
->=20
-> Why did this break things?
 
-Hi, I don't know. As upstream is unresponsive and is applying patches t=
-o his
-private repo without submitting them to the list (which I can understan=
-d), I
-decided to submit the particular fix so mainline users can get tetherin=
-g working
-again.
+Slow path output route resolution always makes sure that
+->{saddr,daddr} are set, and also if we trigger into IPSEC resolution
+we initialize them as well, because xfrm_lookup() expects them to be
+fully resolved.
 
-I received a forwarded email with the patch (I think that's because I s=
-ubmitted
-the driver to mainline) asking for the mainline driver status and if it=
- was
-being maintained.
+But if we hit the fast path and flowi4->flowi4_proto is zero, we won't
+do this initialization.
 
->=20
-> I'm not applying a fix when nobody can explain the reason why:
->=20
-> 1) Things broke in the first place
-> 2) Forcing reservation of 2 bytes fixes things
+Therefore, move the IPSEC path initialization to the route cache
+lookup fast path to make sure these are always set.
 
-Honestly, I can't answer either of those ones. I just submitted a patch=
- that
-*seemed* to fix the problem (I don't own an iPhone device since long ti=
-me ago),
-after explictly requesting upstream to submit by himself, and getting a
-negative.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 93f71be..64f360d 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2675,6 +2675,10 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *flp4)
+ 			dst_use(&rth->dst, jiffies);
+ 			RT_CACHE_STAT_INC(out_hit);
+ 			rcu_read_unlock_bh();
++			if (!flp4->saddr)
++				flp4->saddr = rth->rt_src;
++			if (!flp4->daddr)
++				flp4->daddr = rth->rt_dst;
+ 			return rth;
+ 		}
+ 		RT_CACHE_STAT_INC(out_hlist_search);
+@@ -2772,15 +2776,10 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
+ 	if (IS_ERR(rt))
+ 		return rt;
+ 
+-	if (flp4->flowi4_proto) {
+-		if (!flp4->saddr)
+-			flp4->saddr = rt->rt_src;
+-		if (!flp4->daddr)
+-			flp4->daddr = rt->rt_dst;
++	if (flp4->flowi4_proto)
+ 		rt = (struct rtable *) xfrm_lookup(net, &rt->dst,
+ 						   flowi4_to_flowi(flp4),
+ 						   sk, 0);
+-	}
+ 
+ 	return rt;
+ }
+-- 
+1.7.4.5
 
-> Where is the built in assumption about "2" and why does it exist?  Wh=
-y
-> can't we fix this code not to have such assumptions in the first
-> place?
-
-Ditto.
-
-At this point, I think that David, Diego or Daniel should step in if th=
-ey want
-to keep on with this discussion. I won't have problems if you want to t=
-ake this
-off-list.
-
-Best regards,
-
---=20
-L. Alberto Gim=E9nez
-JabberID agimenez@jabber.sysvalve.es
-GnuPG key ID 0x3BAABDE1
