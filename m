@@ -1,73 +1,48 @@
-From: =?UTF-8?q?L=2E=20Alberto=20Gim=C3=A9nez?= <agimenez@sysvalve.es>
-Subject: [PATCH] ipheth.c: Enable IP header alignment
-Date: Mon,  2 May 2011 21:35:12 +0200
-Message-ID: <1304364912-15444-1-git-send-email-agimenez@sysvalve.es>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipheth.c: Enable IP header alignment
+Date: Mon, 02 May 2011 12:46:22 -0700 (PDT)
+Message-ID: <20110502.124622.226785624.davem@davemloft.net>
 References: <1304264799.2833.82.camel@localhost>
+	<1304364912-15444-1-git-send-email-agimenez@sysvalve.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dgiagio@gmail.com, dborca@yahoo.com, davem@davemloft.net,
+Cc: linux-kernel@vger.kernel.org, dgiagio@gmail.com, dborca@yahoo.com,
 	pmcenery@gmail.com, david.hill@ubisoft.com,
-	linux-usb@vger.kernel.org (open list:USB SUBSYSTEM),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
-To: linux-kernel@vger.kernel.org
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: agimenez@sysvalve.es
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304264799.2833.82.camel@localhost>
+In-Reply-To: <1304364912-15444-1-git-send-email-agimenez@sysvalve.es>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since commit ea812ca1b06113597adcd8e70c0f84a413d97544 (x86: Align skb w=
-/ start
-of cacheline on newer core 2/Xeon Arch), NET_IP_ALIGN changed from 2 to=
- 0, and
-the constant is used to reserve more room for the socket buffer.
+=46rom: L. Alberto Gim=E9nez <agimenez@sysvalve.es>
+Date: Mon,  2 May 2011 21:35:12 +0200
 
-Some people have reported that tethering stopped working and David Hill
-submited a patch that redefined NET_IP_ALIGN. Pointed by Ben Hutchings,=
- the
-patch has been reworked to use a private constant.
+> Since commit ea812ca1b06113597adcd8e70c0f84a413d97544 (x86: Align skb=
+ w/ start
+> of cacheline on newer core 2/Xeon Arch), NET_IP_ALIGN changed from 2 =
+to 0, and
+> the constant is used to reserve more room for the socket buffer.
+>=20
+> Some people have reported that tethering stopped working and David Hi=
+ll
+> submited a patch that redefined NET_IP_ALIGN. Pointed by Ben Hutching=
+s, the
+> patch has been reworked to use a private constant.
+>=20
+> I have no more an iPhone device to test it, so it is only compile-tes=
+ted.
+>=20
+> Signed-off-by: L. Alberto Gim=E9nez <agimenez@sysvalve.es>
 
-I have no more an iPhone device to test it, so it is only compile-teste=
-d.
+Why did this break things?
 
-Signed-off-by: L. Alberto Gim=C3=A9nez <agimenez@sysvalve.es>
----
- drivers/net/usb/ipheth.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+I'm not applying a fix when nobody can explain the reason why:
 
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 7d42f9a..8f1ffc7 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -80,6 +80,8 @@
- #define IPHETH_CARRIER_CHECK_TIMEOUT round_jiffies_relative(1 * HZ)
- #define IPHETH_CARRIER_ON       0x04
-=20
-+#define IPHETH_IP_ALIGN 2
-+
- static struct usb_device_id ipheth_table[] =3D {
- 	{ USB_DEVICE_AND_INTERFACE_INFO(
- 		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE,
-@@ -205,15 +207,15 @@ static void ipheth_rcvbulk_callback(struct urb *u=
-rb)
- 	len =3D urb->actual_length;
- 	buf =3D urb->transfer_buffer;
-=20
--	skb =3D dev_alloc_skb(NET_IP_ALIGN + len);
-+	skb =3D dev_alloc_skb(IPHETH_IP_ALIGN + len);
- 	if (!skb) {
- 		err("%s: dev_alloc_skb: -ENOMEM", __func__);
- 		dev->net->stats.rx_dropped++;
- 		return;
- 	}
-=20
--	skb_reserve(skb, NET_IP_ALIGN);
--	memcpy(skb_put(skb, len), buf + NET_IP_ALIGN, len - NET_IP_ALIGN);
-+	skb_reserve(skb, IPHETH_IP_ALIGN);
-+	memcpy(skb_put(skb, len), buf + IPHETH_IP_ALIGN, len - IPHETH_IP_ALIG=
-N);
- 	skb->dev =3D dev->net;
- 	skb->protocol =3D eth_type_trans(skb, dev->net);
-=20
---=20
-1.7.5
+1) Things broke in the first place
+2) Forcing reservation of 2 bytes fixes things
+
+Where is the built in assumption about "2" and why does it exist?  Why
+can't we fix this code not to have such assumptions in the first
+place?
