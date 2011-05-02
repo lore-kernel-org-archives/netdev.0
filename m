@@ -1,52 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] veth: remove unneeded ifname code from
- veth_newlink()
-Date: Mon, 02 May 2011 15:55:11 -0700 (PDT)
-Message-ID: <20110502.155511.245414556.davem@davemloft.net>
-References: <20110124154546.GA2689@psychotron.brq.redhat.com>
-	<BANLkTi=x8xi7-g3SZdva7Ndg0a4EY1NK8g@mail.gmail.com>
-	<20110430112817.GD2658@psychotron.orion>
+Subject: Re: [PATCH] sysctl: net: call unregister_net_sysctl_table where
+ needed
+Date: Mon, 02 May 2011 16:12:32 -0700 (PDT)
+Message-ID: <20110502.161232.70214722.davem@davemloft.net>
+References: <1304250241-26138-1-git-send-email-lucian.grijincu@gmail.com>
+	<BANLkTi=0-2aHDBtY2P794upF9brrW48aNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirqus@gmail.com, netdev@vger.kernel.org, xemul@openvz.org
-To: jpirko@redhat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: lucian.grijincu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50567
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54093
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758984Ab1EBWzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 18:55:43 -0400
-In-Reply-To: <20110430112817.GD2658@psychotron.orion>
+	by vger.kernel.org with ESMTP id S1751292Ab1EBXNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 19:13:06 -0400
+In-Reply-To: <BANLkTi=0-2aHDBtY2P794upF9brrW48aNA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jiri Pirko <jpirko@redhat.com>
-Date: Sat, 30 Apr 2011 13:28:17 +0200
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Date: Sun, 1 May 2011 13:48:04 +0200
 
-> Fri, Apr 22, 2011 at 11:43:10AM CEST, mirqus@gmail.com wrote:
->>2011/1/24 Jiri Pirko <jpirko@redhat.com>:
->>> The code is not needed because tb[IFLA_IFNAME] is already
->>> processed in rtnl_newlink(). Remove this redundancy.
->>>
->>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> On Sun, May 1, 2011 at 1:44 PM, Lucian Adrian Grijincu
+> <lucian.grijincu@gmail.com> wrote:
+>> ctl_table_headers registered with register_net_sysctl_table should
+>> have been unregistered with the equivalent unregister_net_sysctl_table
 >>
->>Hi. This patch broke creation of veth devices. Reverting it fixes the=
- issue.
->=20
-> Sorry for troubles.
->=20
-> For net-next-2.6 this is fixed by:
-> http://patchwork.ozlabs.org/patch/93498/
->=20
-> For net-2.6 I suggest to revert this patch:
->=20
-> Subject: [PATCH net-2.6] Revert: veth: remove unneeded ifname code fr=
-om veth_newlink()
->=20
-> 84c49d8c3e4abefb0a41a77b25aa37ebe8d6b743 caused regression on veth
-> creation. This patch reverts the original one.
->=20
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+> 
+> 
+> David: I sent you this patch a while back but it was mixed with other
+> unrelated patches that were mostly ignored.
+> 
+> Again, to clarify: it does not matter at the moment if
+> register_net_sysctl_table or unregister_sysctl_table is called because
+> both to the same thing:
+ ...
+> We should either get rid of unregister_net_sysctl_table or use it consistently.
 
-Applied, with "Reported-by: " added to give credit to Micha=A9=A9 Miros=
-=A9=A9aw.
+Applied to net-2.6, thanks Lucian.
