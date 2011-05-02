@@ -1,35 +1,43 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V3 2/8] Add a new zerocopy device flag
-Date: Mon, 02 May 2011 11:47:08 -0700
-Message-ID: <1304362028.20660.15.camel@localhost.localdomain>
-References: <1303328216.19336.18.camel@localhost.localdomain>
-	 <1303328648.19336.24.camel@localhost.localdomain>
-	 <20110502104257.GA21625@redhat.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: r8169 :  always copying the rx buffer to new skb
+Date: Mon, 02 May 2011 13:04:19 -0600
+Message-ID: <4DBF0033.2070804@genband.com>
+References: <4DAC7001.9060800@hotmail.com> <1303147676.2857.20.camel@bwh-desktop> <4DACAC7E.4070400@hotmail.com> <20110420191316.GA18805@electric-eye.fr.zoreil.com> <4DAFA9F9.5080909@hotmail.com> <4DB77D03.9070507@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110502104257.GA21625@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>, nic_swsd@realtek.com
+To: John Lumby <johnlumby@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og119.obsmtp.com ([64.18.2.16]:41479 "EHLO
+	exprod7og119.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751747Ab1EBTFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 15:05:08 -0400
+In-Reply-To: <4DB77D03.9070507@hotmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-02 at 13:42 +0300, Michael S. Tsirkin wrote:
-> This comment should specify what exactly is the promise the
-> device makes by setting this flag. Specifically, the
-> condition is that no skb fragments are used
-> after the uinfo callback has been called.
-> 
-> The way it's implemented, it probably means the device
-> should not use any of skb_clone, expand head etc.
+On 04/26/2011 08:18 PM, John Lumby wrote:
 
-Agree. Or maybe force a copy when device uses skb_clone, expand
-head ...?
+> So - question :
+> is there any way, when returning from rtl8169_poll, to tell napi
+> something like :
+> " finish this interrupt context and let something else run on this CPU
+> (always CPU0 on my machine) BUT reschedule another napi poll on this
+> same device at some time after that "
 
-Thanks
-Shirley
+Does the hardware support any options for interrupt mitigation?  I've 
+used some devices where you can specify a minimum time between 
+interrupts such that even if NAPI re-enabled interrupts and there were 
+packets waiting the hardware would wait a certain time before raising a 
+new interrupt.
+
+Chris
+
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
