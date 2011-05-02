@@ -1,109 +1,92 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: Frequent spurious tx_timeouts for libertas
-Date: Mon, 02 May 2011 03:24:42 +0100
-Message-ID: <1304303082.2833.159.camel@localhost>
-References: <BANLkTintnaEj0DDjwQJjc4wpuz-c_QOGyg@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/3] net: Byte queue limit patch series
+Date: Sun, 1 May 2011 19:41:34 -0700
+Message-ID: <BANLkTinFmfJbYxvZ+6rrAy+6XsfwF5an5Q@mail.gmail.com>
+References: <alpine.DEB.2.00.1104252128001.5889@pokey.mtv.corp.google.com>
+	<20110429.115443.28811990.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Daniel Drake <dsd-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTintnaEj0DDjwQJjc4wpuz-c_QOGyg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:6064 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754384Ab1EBClj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 May 2011 22:41:39 -0400
+Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
+	by smtp-out.google.com with ESMTP id p422faEV010876
+	for <netdev@vger.kernel.org>; Sun, 1 May 2011 19:41:37 -0700
+Received: from pzk9 (pzk9.prod.google.com [10.243.19.137])
+	by kpbe14.cbf.corp.google.com with ESMTP id p422fYQQ017409
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 1 May 2011 19:41:35 -0700
+Received: by pzk9 with SMTP id 9so4065197pzk.33
+        for <netdev@vger.kernel.org>; Sun, 01 May 2011 19:41:34 -0700 (PDT)
+In-Reply-To: <20110429.115443.28811990.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-05-01 at 22:21 +0100, Daniel Drake wrote:
-[...]
-> Sometimes the TX queue is stopped and started from other places (e.g.
-> while scanning for networks, which NetworkManager triggers every
-> couple of minutes)
-> 
-> Thus the TX queue is stopped and started very often.
-> 
-> The libertas tx_timeout handler is being called quite a lot, and quite
-> soon after boot we get this in the kernel logs (the first time it
-> happens):
-> 
-> [   97.050101] ------------[ cut here ]------------
-> [   97.054866] WARNING: at net/sched/sch_generic.c:258 dev_watchdog+0x102/0x17c
-> [   97.062277] Hardware name: XO
-> [   97.065335] NETDEV WATCHDOG: eth0 (libertas_sdio): transmit queue 0 timed out
-> <snip large trace>
-> 
-> This message seems bogus - all the recent transmissions happened correctly.
-> 
-> What is this watchdog trying to detect exactly? Using what criteria?
+On Fri, Apr 29, 2011 at 11:54 AM, David Miller <davem@davemloft.net> wr=
+ote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Mon, 25 Apr 2011 21:38:06 -0700 (PDT)
+>
+>> This patch series implements byte queue limits (bql) for NIC TX queu=
+es.
+>
+> I like the idea, I don't like how much drivers have to be involved
+> in this.
+>
+> TX queue handling is already too involved for driver writers, so
+> having them need to get all of these new hooks right is a non-starter=
+=2E
+>
+> I don't even think it's necessary to be honest, I think you can hide
+> to bulk of it.
+>
+> alloc_etherdev_mq() can initialize the per-txq bql instances.
+>
+> Add new interface, netdev_free_tx_skb(txq, skb) which can do the
+> completion accounting. =A0Actually the 'txq' argument is probably
+> superfluous as it can be obtained from the skb itself.
+>
+Okay, but I think the call at the end of TX completion processing is
+still probably needed.  The algorithm is trying to determine the
+number of bytes that completed at each interrupt.
 
-I'll repeat my answer from the last time this was asked on netdev:
+> dev_hard_start_xmit() can do the "sent" processing.
+>
+> Then the only thing you're doing is replacing dev_kfree_skb*()
+> in the TX path of the driver with the new netdev_free_tx_skb()
+> thing.
+>
+> Maybe you can add a "netdev_tx_queue_reset()" hook for asynchronous
+> device resets. =A0Otherwise the bql reset can occur in generic code
+> right at ->ndo_open().
+>
+Reset probably isn't necessary anyway if all the skb's are properly
+completed with netdev_free_tx_skb.
 
-The watchdog fires when the software queue has been stopped *and* the
-link has been reported as up for over dev->watchdog_timeo ticks.
+> Finally, you manage the bql limit logic in the existing generic netde=
+v
+> TX start/stop interfaces. =A0If the user asks for "start" but the bql
+> is overlimit, simply ignore the request. =A0The driver will just sign=
+al
+> another "start" when the next TX packet completes.
+>
+> Similarly, when the qdisc is queuing up a packet to
+> dev_hard_start_xmit() you can, for example, preemptively do a "stop"
+> on the queue if you find bql is overlimit.
+>
+Unfortunately, there is still an additional complexity if we don't
+piggy back on the logic in the driver to stop the queue.  I believe
+that either this would require another queue state for queue being
+stopped for bql which looks pretty cumbersome, so that wrapping this
+in a qdisc might be a better possibility.
 
-The software queue should be stopped iff the hardware queue is full or
-nearly full.  If the software queue remains stopped and the link is
-still reported up, then one of these things is happening:
+Tom
 
-1. The link went down but the driver didn't notice
-2. TX completions are not being indicated or handled correctly
-3. The hardware TX path has locked up
-4. The link is stalled by excessive pause frames or collisions
-5. Timeout is too low and/or low watermark is too high
-(there may be other explanations)
-
-I think the watchdog is primarily meant to deal with case 3, though all
-of cases 1-3 may be worked around by resetting the hardware.
-
-And now, for the specific case of libertas:
-
-It appears that libertas reports carrier off (link down) while scanning,
-so that should mean the watchdog does not fire.  However:
-
-1. The watchdog will only check the current link state, which might be
-up again when it runs.
-2. The watchdog assumes that TX queues only fill up in response to
-packets sent by the TX scheduler.
-
-[...]
-> Is libertas doing something wrong, or is this a bug/oddity in the network layer?
-
-Since the TX scheduler doesn't know about the extra packets you are
-injecting to do channel scanning, I think you need to call
-txq_trans_update() when you do that.  And I don't think it's a good idea
-to call netif_carrier_off() there at all.  If it has any effect at all
-(which I don't think it will, as channel scanning is being done under
-RTNL lock and link change notifications also require that lock) it will
-be to confuse userland.
-
-> Also, while looking at this code, I spotted a bug in dev_watchdog():
-> 				/*
-> 				 * old device drivers set dev->trans_start
-> 				 */
-> 				trans_start = txq->trans_start ? : dev->trans_start;
-> 
-> i.e. it is trying to figure out whether to read trans_start from txq
-> or dev. In both cases, trans_start is updated based on the value of
-> jiffies, which will occasionally be 0 (as it wraps around). Therefore
-> this line of code will occasionally make the wrong decision.
-
-No, I don't think so.
-
-If only dev->trans_start is being updated then the watchdog reads that.
-If both txq->trans_start and dev->trans_start are being updated then it
-doesn't matter much which the watchdog reads.
-If only txq->trans_start is being updated then dev->trans_start is
-always set to 0, so when txq->trans_start is 0 the watchdog still gets
-0.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Thanks Tom.
+>
+>
