@@ -1,39 +1,31 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] amd8111e: trivial typo spelling: Negotitate -> Negotiate
-Date: Mon, 02 May 2011 12:59:29 -0700
-Message-ID: <1304366369.7792.45.camel@Joe-Laptop>
+From: Daniel Drake <dsd-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>
+Subject: Re: Frequent spurious tx_timeouts for libertas
+Date: Mon, 2 May 2011 21:01:04 +0100
+Message-ID: <BANLkTikHRAYYPj3y9JWLjpatdOCiRXD5Nw@mail.gmail.com>
+References: <BANLkTintnaEj0DDjwQJjc4wpuz-c_QOGyg@mail.gmail.com>
+	<1304303082.2833.159.camel@localhost>
+	<BANLkTi=FT4v=Jvv5bQpUX15R87kPudKq=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1128 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754166Ab1EBT7a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 May 2011 15:59:30 -0400
-Received: from [192.168.1.162] (unknown [192.168.1.162])
-	by mail.perches.com (Postfix) with ESMTP id 4747524368
-	for <netdev@vger.kernel.org>; Mon,  2 May 2011 12:59:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BANLkTi=FT4v=Jvv5bQpUX15R87kPudKq=Q@mail.gmail.com>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/amd8111e.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On 2 May 2011 20:59, Daniel Drake <dsd-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org> wrote:
+> dev->trans_start is unconditionally initialized by dev_activate() in
+> sch_generic.c:
 
-diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
-index 88495c4..241b185 100644
---- a/drivers/net/amd8111e.c
-+++ b/drivers/net/amd8111e.c
-@@ -106,7 +106,7 @@ MODULE_DESCRIPTION ("AMD8111 based 10/100 Ethernet Controller. Driver Version "M
- MODULE_LICENSE("GPL");
- MODULE_DEVICE_TABLE(pci, amd8111e_pci_tbl);
- module_param_array(speed_duplex, int, NULL, 0);
--MODULE_PARM_DESC(speed_duplex, "Set device speed and duplex modes, 0: Auto Negotitate, 1: 10Mbps Half Duplex, 2: 10Mbps Full Duplex, 3: 100Mbps Half Duplex, 4: 100Mbps Full Duplex");
-+MODULE_PARM_DESC(speed_duplex, "Set device speed and duplex modes, 0: Auto Negotiate, 1: 10Mbps Half Duplex, 2: 10Mbps Full Duplex, 3: 100Mbps Half Duplex, 4: 100Mbps Full Duplex");
- module_param_array(coalesce, bool, NULL, 0);
- MODULE_PARM_DESC(coalesce, "Enable or Disable interrupt coalescing, 1: Enable, 0: Disable");
- module_param_array(dynamic_ipg, bool, NULL, 0);
+Also, many drivers (including libertas) set it in their tx_timeout handlers:
+   dev->trans_start = jiffies; /* prevent tx timeout */
+I don't understand why (the TX timeout has already occurred, it can't
+be prevented at that stage).
 
-
+Daniel
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
