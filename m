@@ -1,117 +1,30 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V3 3/8] Add userspace buffers support in skb
-Date: Mon, 2 May 2011 13:53:48 +0300
-Message-ID: <20110502105348.GA21706@redhat.com>
-References: <1303328216.19336.18.camel@localhost.localdomain>
- <1303328877.19336.28.camel@localhost.localdomain>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [v4 PATCH 1/6] IPVS: Change of socket usage to enable name
+ space exit.
+Date: Mon, 2 May 2011 20:03:15 +0900
+Message-ID: <20110502110315.GB32576@verge.net.au>
+References: <1304268618-18103-1-git-send-email-hans@schillstrom.com>
+ <1304268618-18103-2-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: ja@ssi.bg, ebiederm@xmission.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1303328877.19336.28.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
+In-Reply-To: <1304268618-18103-2-git-send-email-hans@schillstrom.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 20, 2011 at 12:47:57PM -0700, Shirley Ma wrote:
-> This patch adds userspace buffers support in skb. A new struct
-> skb_ubuf_info is needed to maintain the userspace buffers argument
-> and index, a callback is used to notify userspace to release the
-> buffers once lower device has done DMA (Last reference to that skb
-> has gone).
-> 
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> ---
-> 
->  include/linux/skbuff.h |   14 ++++++++++++++
->  net/core/skbuff.c      |   15 ++++++++++++++-
->  2 files changed, 28 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index d0ae90a..47a187b 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -189,6 +189,16 @@ enum {
->  	SKBTX_DRV_NEEDS_SK_REF = 1 << 3,
->  };
->  
-> +/* The callback notifies userspace to release buffers when skb DMA is done in
-> + * lower device, the desc is used to track userspace buffer index.
-> + */
-> +struct skb_ubuf_info {
-> +	/* support buffers allocation from userspace */
-> +	void		(*callback)(struct sk_buff *);
-> +	void		*arg;
-> +	size_t		desc;
-> +};
-> +
->  /* This data is invariant across clones and lives at
->   * the end of the header data, ie. at skb->end.
->   */
-> @@ -211,6 +221,10 @@ struct skb_shared_info {
->  	/* Intermediate layers must ensure that destructor_arg
->  	 * remains valid until skb destructor */
->  	void *		destructor_arg;
-> +
-> +	/* DMA mapping from/to userspace buffers */
-> +	struct skb_ubuf_info ubuf;
-> +
->  	/* must be last field, see pskb_expand_head() */
->  	skb_frag_t	frags[MAX_SKB_FRAGS];
->  };
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 7ebeed0..822c07d 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -210,6 +210,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
->  	shinfo = skb_shinfo(skb);
->  	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
->  	atomic_set(&shinfo->dataref, 1);
-> +	shinfo->ubuf.callback = NULL;
-> +	shinfo->ubuf.arg = NULL;
->  	kmemcheck_annotate_variable(shinfo->destructor_arg);
->  
->  	if (fclone) {
-> @@ -327,7 +329,15 @@ static void skb_release_data(struct sk_buff *skb)
->  			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
->  				put_page(skb_shinfo(skb)->frags[i].page);
->  		}
-> -
-> +		/*
-> +		 * if skb buf is from userspace, we need to notify the caller
-> +		 * the lower device DMA has done;
-> +		 */
-> +		if (skb_shinfo(skb)->ubuf.callback) {
-> +			skb_shinfo(skb)->ubuf.callback(skb);
-> +			skb_shinfo(skb)->ubuf.callback = NULL;
-> +			skb_shinfo(skb)->ubuf.arg = NULL;
-> +		}
->  		if (skb_has_frag_list(skb))
->  			skb_drop_fraglist(skb);
->  
+On Sun, May 01, 2011 at 06:50:13PM +0200, Hans Schillstrom wrote:
+> To work this patch also needs the other patches in this series.
 
-We probably don't need to touch arg if callback is NULL?
+Hi Hans,
 
-> @@ -480,6 +490,9 @@ bool skb_recycle_check(struct sk_buff *skb, int skb_size)
->  	if (irqs_disabled())
->  		return false;
->  
-> +	if (shinfo->ubuf.callback)
-> +		return false;
-> +
->  	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
->  		return false;
+could you explain the implications statement above?
+What kind of behaviour might I expect if only this patch is applied?
 
-This is not the only API unsupported for these skbs, is it?
-Probably need to check and fail there as well.
-
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm planning to push this and 2/6 for 2.6.39, and as we have
+discussed (offline) that combination works. But from a bisection
+point of view, this patch needs to not "blow up" if used by itself.
