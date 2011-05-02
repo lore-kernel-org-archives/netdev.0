@@ -1,64 +1,39 @@
-From: Daniel Drake <dsd-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>
-Subject: Re: Frequent spurious tx_timeouts for libertas
-Date: Mon, 2 May 2011 20:59:04 +0100
-Message-ID: <BANLkTi=FT4v=Jvv5bQpUX15R87kPudKq=Q@mail.gmail.com>
-References: <BANLkTintnaEj0DDjwQJjc4wpuz-c_QOGyg@mail.gmail.com>
-	<1304303082.2833.159.camel@localhost>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] amd8111e: trivial typo spelling: Negotitate -> Negotiate
+Date: Mon, 02 May 2011 12:59:29 -0700
+Message-ID: <1304366369.7792.45.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1304303082.2833.159.camel@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1128 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754166Ab1EBT7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 May 2011 15:59:30 -0400
+Received: from [192.168.1.162] (unknown [192.168.1.162])
+	by mail.perches.com (Postfix) with ESMTP id 4747524368
+	for <netdev@vger.kernel.org>; Mon,  2 May 2011 12:59:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2 May 2011 03:24, Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org> wrote:
->> Also, while looking at this code, I spotted a bug in dev_watchdog():
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* old=
- device drivers set dev->trans_start
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 trans_st=
-art =3D txq->trans_start ? : dev->trans_start;
->>
->> i.e. it is trying to figure out whether to read trans_start from txq
->> or dev. In both cases, trans_start is updated based on the value of
->> jiffies, which will occasionally be 0 (as it wraps around). Therefor=
-e
->> this line of code will occasionally make the wrong decision.
->
-> No, I don't think so.
->
-> If only dev->trans_start is being updated then the watchdog reads tha=
-t.
-> If both txq->trans_start and dev->trans_start are being updated then =
-it
-> doesn't matter much which the watchdog reads.
-> If only txq->trans_start is being updated then dev->trans_start is
-> always set to 0, so when txq->trans_start is 0 the watchdog still get=
-s
-> 0.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/amd8111e.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-dev->trans_start is unconditionally initialized by dev_activate() in
-sch_generic.c:
+diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
+index 88495c4..241b185 100644
+--- a/drivers/net/amd8111e.c
++++ b/drivers/net/amd8111e.c
+@@ -106,7 +106,7 @@ MODULE_DESCRIPTION ("AMD8111 based 10/100 Ethernet Controller. Driver Version "M
+ MODULE_LICENSE("GPL");
+ MODULE_DEVICE_TABLE(pci, amd8111e_pci_tbl);
+ module_param_array(speed_duplex, int, NULL, 0);
+-MODULE_PARM_DESC(speed_duplex, "Set device speed and duplex modes, 0: Auto Negotitate, 1: 10Mbps Half Duplex, 2: 10Mbps Full Duplex, 3: 100Mbps Half Duplex, 4: 100Mbps Full Duplex");
++MODULE_PARM_DESC(speed_duplex, "Set device speed and duplex modes, 0: Auto Negotiate, 1: 10Mbps Half Duplex, 2: 10Mbps Full Duplex, 3: 100Mbps Half Duplex, 4: 100Mbps Full Duplex");
+ module_param_array(coalesce, bool, NULL, 0);
+ MODULE_PARM_DESC(coalesce, "Enable or Disable interrupt coalescing, 1: Enable, 0: Disable");
+ module_param_array(dynamic_ipg, bool, NULL, 0);
 
-	if (need_watchdog) {
-		dev->trans_start =3D jiffies;
-		dev_watchdog_up(dev);
-	}
 
-so it is (usually) not 0.
-
-Thanks for your input on the tx timeout issue, now that I understand
-it better I think the right plan of action is to remove it from
-libertas entirely, I'll CC you on the patch.
-
-Daniel
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
