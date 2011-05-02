@@ -1,48 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipheth.c: Enable IP header alignment
-Date: Mon, 02 May 2011 12:46:22 -0700 (PDT)
-Message-ID: <20110502.124622.226785624.davem@davemloft.net>
-References: <1304264799.2833.82.camel@localhost>
-	<1304364912-15444-1-git-send-email-agimenez@sysvalve.es>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V3 2/8] Add a new zerocopy device flag
+Date: Mon, 2 May 2011 22:53:03 +0300
+Message-ID: <20110502195302.GA25619@redhat.com>
+References: <1303328216.19336.18.camel@localhost.localdomain>
+ <1303328648.19336.24.camel@localhost.localdomain>
+ <20110502104257.GA21625@redhat.com>
+ <1304362028.20660.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, dgiagio@gmail.com, dborca@yahoo.com,
-	pmcenery@gmail.com, david.hill@ubisoft.com,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: agimenez@sysvalve.es
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304364912-15444-1-git-send-email-agimenez@sysvalve.es>
+Content-Disposition: inline
+In-Reply-To: <1304362028.20660.15.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: L. Alberto Gim=E9nez <agimenez@sysvalve.es>
-Date: Mon,  2 May 2011 21:35:12 +0200
+On Mon, May 02, 2011 at 11:47:08AM -0700, Shirley Ma wrote:
+> On Mon, 2011-05-02 at 13:42 +0300, Michael S. Tsirkin wrote:
+> > This comment should specify what exactly is the promise the
+> > device makes by setting this flag. Specifically, the
+> > condition is that no skb fragments are used
+> > after the uinfo callback has been called.
+> > 
+> > The way it's implemented, it probably means the device
+> > should not use any of skb_clone, expand head etc.
+> 
+> Agree. Or maybe force a copy when device uses skb_clone, expand
+> head ...?
+> 
+> Thanks
+> Shirley
 
-> Since commit ea812ca1b06113597adcd8e70c0f84a413d97544 (x86: Align skb=
- w/ start
-> of cacheline on newer core 2/Xeon Arch), NET_IP_ALIGN changed from 2 =
-to 0, and
-> the constant is used to reserve more room for the socket buffer.
->=20
-> Some people have reported that tethering stopped working and David Hi=
-ll
-> submited a patch that redefined NET_IP_ALIGN. Pointed by Ben Hutching=
-s, the
-> patch has been reworked to use a private constant.
->=20
-> I have no more an iPhone device to test it, so it is only compile-tes=
-ted.
->=20
-> Signed-off-by: L. Alberto Gim=E9nez <agimenez@sysvalve.es>
+Copy from userspace upfront without locking is probably cheaper?
 
-Why did this break things?
-
-I'm not applying a fix when nobody can explain the reason why:
-
-1) Things broke in the first place
-2) Forcing reservation of 2 bytes fixes things
-
-Where is the built in assumption about "2" and why does it exist?  Why
-can't we fix this code not to have such assumptions in the first
-place?
+-- 
+MST
