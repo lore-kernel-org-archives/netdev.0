@@ -1,50 +1,45 @@
-From: Viresh Kumar <viresh.kumar@st.com>
-Subject: [PATCH] linux/stmmac.h: include <linux/platform_device.h> to remove compilation warning.
-Date: Mon, 2 May 2011 12:00:37 +0530
-Message-ID: <2239eca1d15014be7b6d94f883f9492dc1fbc60a.1304317552.git.viresh.kumar@st.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [PATCH v4 2/5] can: add rtnetlink support
+Date: Mon, 2 May 2011 09:36:50 +0200
+Message-ID: <20110502073650.GA338@e-circ.dyndns.org>
+References: <20110427085330.GA757@kurt.e-circ.dyndns.org>
+	<20110427085705.GC757@kurt.e-circ.dyndns.org>
+	<4DBD9586.7080908@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <shiraz.hashim@st.com>,
-	<armando.visconti@st.com>, <deepak.sikri@st.com>,
-	<viresh.linux@gmail.com>, Viresh Kumar <viresh.kumar@st.com>
-To: <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:54492 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753667Ab1EBGaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 02:30:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4DBD9586.7080908-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-stmmac.h uses struct platform_device and doesn't include
-<linux/platform_device.h>. And so we get following compilation warning =
-while
-using this file:
-	warning: =E2=80=98struct platform_device=E2=80=99 declared inside para=
-meter list
+On Sun, May 01, 2011 at 07:16:54PM +0200, Oliver Hartkopp wrote:
+> On 27.04.2011 10:57, Kurt Van Dijck wrote:
+> Hello Kurt,
+> 
+> i applied all your patches for the can-utils and the network layer stuff to
+> the BerliOS SVN in socketcan/branches/j1939 for testing.
+A branch looks like a good alternative here.
+Thanks.
+> 
+> 
+[...]
+> As it is pretty easy now to build the kernel modules & your provided can-utils
+> we hopefully get some more feedback from j1939 users.
+Ok. I'm curious...
+> 
+> Best regards,
+> Oliver
 
-This patch includes <linux/platform_device.h> in stmmac.h to remove thi=
-s warning
-
-Signed-off-by: Viresh Kumar <viresh.kumar@st.com>
----
- include/linux/stmmac.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 73d9b4e..d7dfe7d 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -26,6 +26,8 @@
- #ifndef __STMMAC_PLATFORM_DATA
- #define __STMMAC_PLATFORM_DATA
-=20
-+#include <linux/platform_device.h>
-+
- #define STMAC_TYPE_0	0
- #define STMAC_TYPE_1	1
- #define STMAC_TYPE_2	2
---=20
-1.7.2.2
-
+Kurt
