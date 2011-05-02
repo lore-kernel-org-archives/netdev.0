@@ -1,65 +1,53 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] linux/stmmac.h: include <linux/platform_device.h> to
- remove compilation warning.
-Date: Mon, 02 May 2011 14:46:09 +0200
-Message-ID: <4DBEA791.4010900@st.com>
-References: <2239eca1d15014be7b6d94f883f9492dc1fbc60a.1304317552.git.viresh.kumar@st.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-2.6] IPVS
+Date: Mon, 2 May 2011 22:03:14 +0900
+Message-ID: <20110502130310.GA23752@verge.net.au>
+References: <1304340447-21857-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, shiraz.hashim@st.com,
-	armando.visconti@st.com, deepak.sikri@st.com,
-	viresh.linux@gmail.com
-To: Viresh Kumar <viresh.kumar@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:46443 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757912Ab1EBNFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 09:05:46 -0400
-In-Reply-To: <2239eca1d15014be7b6d94f883f9492dc1fbc60a.1304317552.git.viresh.kumar@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1304340447-21857-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/2/2011 8:30 AM, Viresh Kumar wrote:
-> stmmac.h uses struct platform_device and doesn't include
-> <linux/platform_device.h>. And so we get following compilation warnin=
-g while
-> using this file:
-> 	warning: =E2=80=98struct platform_device=E2=80=99 declared inside pa=
-rameter list
->=20
-> This patch includes <linux/platform_device.h> in stmmac.h to remove t=
-his warning
+On Mon, May 02, 2011 at 09:47:25PM +0900, Simon Horman wrote:
+> 
+> Hi Patrick,
+> 
+> please consider pulling
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-2.6.git master
+> to get the following fix from Hans. They resolve some problems related
+> to his netns for IPVS work which was incorporated into 2.6.39-rc1.
 
-Hi Viresh
+Sorry, please ignore this.
+The second patch is one of the non-pressing ones.
+I'll fix things up and repost.
 
-thanks for the patch that looks good for me.
-We could also remove this inclusion (see commit
-1f0f63885658889b3bcb8a08fbcb9532f8e536c9) from
-drivers/net/stmmac/stmmac.h and keep it in linux/stmmac.h as you sugges=
-ted.
-
-What do you think?
-
-Regards
-Peppe
-
-> Signed-off-by: Viresh Kumar <viresh.kumar@st.com>
-> ---
->  include/linux/stmmac.h |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-> index 73d9b4e..d7dfe7d 100644
-> --- a/include/linux/stmmac.h
-> +++ b/include/linux/stmmac.h
-> @@ -26,6 +26,8 @@
->  #ifndef __STMMAC_PLATFORM_DATA
->  #define __STMMAC_PLATFORM_DATA
-> =20
-> +#include <linux/platform_device.h>
-> +
->  #define STMAC_TYPE_0	0
->  #define STMAC_TYPE_1	1
->  #define STMAC_TYPE_2	2
-
+> The pull request is based on nf-2.6/master.
+> 
+> There are other less-pressing changes from Hans which
+> I plan to get you to pull into nf-next-2.6 once these
+> changes make it there (presumably via net-2.6 and then net-next-2.6).
+> 
+> Hans Schillstrom (2):
+>       IPVS: Change of socket usage to enable name space exit.
+>       IPVS: labels at pos 0
+> 
+>  net/netfilter/ipvs/ip_vs_core.c |   12 ++++----
+>  net/netfilter/ipvs/ip_vs_ctl.c  |    8 +++---
+>  net/netfilter/ipvs/ip_vs_sync.c |   58 +++++++++++++++++++++++++--------------
+>  3 files changed, 47 insertions(+), 31 deletions(-)
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
