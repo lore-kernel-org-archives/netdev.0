@@ -1,61 +1,54 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re: [GIT PULL nf-2.6] IPVS (Take II)
-Date: Tue, 3 May 2011 15:33:44 +0200 (CEST)
-Message-ID: <t9h34u8.2f81b788a5829200fb85fb52402dbb66@obelix.schillstrom.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [net-next 2/5] bnx2x: allow WoL on every function in MF modes
+Date: Tue, 3 May 2011 16:27:12 +0300
+Message-ID: <1304429232.19456.3.camel@lb-tlvb-dmitry>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	"Wensong Zhang" <wensong@linux-vs.org>,
-	"Julian Anastasov" <ja@ssi.bg>,
-	"Patrick McHardy" <kaber@trash.net>,
-	"Hans Schillstrom" <hans.schillstrom@ericsson.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: "Simon Horman" <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3807 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752391Ab1ECNky (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2011 09:40:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick & Simon
-Please drop this patch / pull request.
-I need to take a way 2 rows, 
-I.e. the new feature that disables ipvs when last service is removed,
-it doesn't work since it's not the last service.
 
->Sent: Tue, May 3, 2011, 9:06 AM
->Subject: [GIT PULL nf-2.6] IPVS (Take II)
->
->Hi Patrick,
->
->please consider pulling
->git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-2.6.git for-patrick
->to get the following fix from Hans. They resolve some problems related
->to his netns for IPVS work which was incorporated into 2.6.39-rc1.
->
->The pull request is based on nf-2.6/master.
->
->There are other less-pressing changes from Hans which
->I plan to get you to pull into nf-next-2.6 once these
->changes make it there (presumably via net-2.6 and then net-next-2.6).
->
->Hans Schillstrom (2):
->      IPVS: Change of socket usage to enable name space exit.
->      IPVS: init and cleanup restructuring.
->
-> include/net/ip_vs.h              |   17 +++++
-> net/netfilter/ipvs/ip_vs_app.c   |   15 +----
-> net/netfilter/ipvs/ip_vs_conn.c  |   12 +---
-> net/netfilter/ipvs/ip_vs_core.c  |  102 ++++++++++++++++++++++++++++---
-> net/netfilter/ipvs/ip_vs_ctl.c   |  123 ++++++++++++++++++++++++++++++++------
-> net/netfilter/ipvs/ip_vs_est.c   |   14 +----
-> net/netfilter/ipvs/ip_vs_proto.c |   11 +---
-> net/netfilter/ipvs/ip_vs_sync.c  |   65 +++++++++++---------
-> 8 files changed, 260 insertions(+), 99 deletions(-)
->--
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_main.c |   10 +++-------
+ 1 files changed, 3 insertions(+), 7 deletions(-)
 
-Regards
-Hans Schillstrom 
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index bc847b1..259d1d9 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -8063,13 +8063,9 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ 		(val >= REQ_BC_VER_4_VRFY_SPECIFIC_PHY_OPT_MDL) ?
+ 		FEATURE_CONFIG_BC_SUPPORTS_DUAL_PHY_OPT_MDL_VRFY : 0;
+ 
+-	if (BP_E1HVN(bp) == 0) {
+-		pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_PMC, &pmc);
+-		bp->flags |= (pmc & PCI_PM_CAP_PME_D3cold) ? 0 : NO_WOL_FLAG;
+-	} else {
+-		/* no WOL capability for E1HVN != 0 */
+-		bp->flags |= NO_WOL_FLAG;
+-	}
++	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_PMC, &pmc);
++	bp->flags |= (pmc & PCI_PM_CAP_PME_D3cold) ? 0 : NO_WOL_FLAG;
++
+ 	BNX2X_DEV_INFO("%sWoL capable\n",
+ 		       (bp->flags & NO_WOL_FLAG) ? "not " : "");
+ 
+-- 
+1.7.2.2
+
+
 
 
