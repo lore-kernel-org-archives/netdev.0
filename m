@@ -1,81 +1,196 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: ehea: fix wrongly-reported supported modes
-Date: Tue, 03 May 2011 21:16:15 +0100
-Message-ID: <1304453775.2873.17.camel@bwh-desktop>
-References: <1304451745.6899.15.camel@dream>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] pktgen: use %pI6c for printing IPv6 addresses
+Date: Wed, 4 May 2011 00:23:40 +0300
+Message-ID: <20110503212340.GA25293@p183>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:13546 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754668Ab1ECUQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 16:16:18 -0400
-In-Reply-To: <1304451745.6899.15.camel@dream>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:54193 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754030Ab1ECVXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 17:23:45 -0400
+Received: by fxm17 with SMTP id 17so399780fxm.19
+        for <netdev@vger.kernel.org>; Tue, 03 May 2011 14:23:44 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-03 at 16:42 -0300, Kleber Sacilotto de Souza wrote:
-> Currently EHEA reports to ethtool as supporting 10000baseT_Full and
-> FIBRE independent of the hardware configuration. However, these
-> capabilities should be reported only if the physical port and
-> the medium support them, which is the case where the physical port
-> is connected at 10Gb.
->
-> Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-> ---
->  drivers/net/ehea/ehea_ethtool.c |   21 ++++++++++++++-------
->  1 files changed, 14 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
-> index 3e2e734..04716c2 100644
-> --- a/drivers/net/ehea/ehea_ethtool.c
-> +++ b/drivers/net/ehea/ehea_ethtool.c
-> @@ -55,15 +55,22 @@ static int ehea_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->  		cmd->duplex = -1;
->  	}
-> 
-> -	cmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full
-> -		       | SUPPORTED_100baseT_Full |  SUPPORTED_100baseT_Half
-> -		       | SUPPORTED_10baseT_Full | SUPPORTED_10baseT_Half
-> -		       | SUPPORTED_Autoneg | SUPPORTED_FIBRE);
-> +	cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
-> +		       | SUPPORTED_100baseT_Half | SUPPORTED_10baseT_Full
-> +		       | SUPPORTED_10baseT_Half | SUPPORTED_Autoneg);
-> 
-> -	cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_Autoneg
-> -			 | ADVERTISED_FIBRE);
-> +	cmd->advertising = ADVERTISED_Autoneg;
-> +
-> +	if (cmd->speed == SPEED_10000) {
-> +		cmd->supported |= (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
-> +		cmd->advertising |= (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
-> +		cmd->port = PORT_FIBRE;
-> +	} else {
-> +		cmd->supported |= SUPPORTED_TP;
-> +		cmd->advertising |= (ADVERTISED_1000baseT_Full | ADVERTISED_TP);
-> +		cmd->port = PORT_TP;
-> +	}
+I don't know why %pI6 doesn't compress, but the format specifier is
+kernel-standard, so use it.
 
-This doesn't make any sense.  If the current speed is 10G, then the
-driver also claims to support speeds of 10M, 100M, 1G and 10G.  But then
-if the speed actually is <10G, the driver claims to support TP.  What's
-going on here?
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-(Also, claiming to support BASE-T modes on non-TP media is bogus, though
-I understand why people are doing it.)
+ net/core/pktgen.c |  109 ++++++------------------------------------------------
+ 1 file changed, 13 insertions(+), 96 deletions(-)
 
-Ben.
-
-> -	cmd->port = PORT_FIBRE;
->  	cmd->autoneg = port->autoneg == 1 ? AUTONEG_ENABLE : AUTONEG_DISABLE;
-> 
->  	return 0;
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -449,7 +449,6 @@ static void pktgen_stop(struct pktgen_thread *t);
+ static void pktgen_clear_counters(struct pktgen_dev *pkt_dev);
+ 
+ static unsigned int scan_ip6(const char *s, char ip[16]);
+-static unsigned int fmt_ip6(char *s, const char ip[16]);
+ 
+ /* Module parameters, defaults. */
+ static int pg_count_d __read_mostly = 1000;
+@@ -556,21 +555,13 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 			   pkt_dev->skb_priority);
+ 
+ 	if (pkt_dev->flags & F_IPV6) {
+-		char b1[128], b2[128], b3[128];
+-		fmt_ip6(b1, pkt_dev->in6_saddr.s6_addr);
+-		fmt_ip6(b2, pkt_dev->min_in6_saddr.s6_addr);
+-		fmt_ip6(b3, pkt_dev->max_in6_saddr.s6_addr);
+ 		seq_printf(seq,
+-			   "     saddr: %s  min_saddr: %s  max_saddr: %s\n", b1,
+-			   b2, b3);
+-
+-		fmt_ip6(b1, pkt_dev->in6_daddr.s6_addr);
+-		fmt_ip6(b2, pkt_dev->min_in6_daddr.s6_addr);
+-		fmt_ip6(b3, pkt_dev->max_in6_daddr.s6_addr);
+-		seq_printf(seq,
+-			   "     daddr: %s  min_daddr: %s  max_daddr: %s\n", b1,
+-			   b2, b3);
+-
++			   "     saddr: %pI6c  min_saddr: %pI6c  max_saddr: %pI6c\n"
++			   "     daddr: %pI6c  min_daddr: %pI6c  max_daddr: %pI6c\n",
++			   &pkt_dev->in6_saddr,
++			   &pkt_dev->min_in6_saddr, &pkt_dev->max_in6_saddr,
++			   &pkt_dev->in6_daddr,
++			   &pkt_dev->min_in6_daddr, &pkt_dev->max_in6_daddr);
+ 	} else {
+ 		seq_printf(seq,
+ 			   "     dst_min: %s  dst_max: %s\n",
+@@ -706,10 +697,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 		   pkt_dev->cur_src_mac_offset);
+ 
+ 	if (pkt_dev->flags & F_IPV6) {
+-		char b1[128], b2[128];
+-		fmt_ip6(b1, pkt_dev->cur_in6_daddr.s6_addr);
+-		fmt_ip6(b2, pkt_dev->cur_in6_saddr.s6_addr);
+-		seq_printf(seq, "     cur_saddr: %s  cur_daddr: %s\n", b2, b1);
++		seq_printf(seq, "     cur_saddr: %pI6c  cur_daddr: %pI6c\n",
++				&pkt_dev->cur_in6_saddr,
++				&pkt_dev->cur_in6_daddr);
+ 	} else
+ 		seq_printf(seq, "     cur_saddr: 0x%x  cur_daddr: 0x%x\n",
+ 			   pkt_dev->cur_saddr, pkt_dev->cur_daddr);
+@@ -1309,7 +1299,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		buf[len] = 0;
+ 
+ 		scan_ip6(buf, pkt_dev->in6_daddr.s6_addr);
+-		fmt_ip6(buf, pkt_dev->in6_daddr.s6_addr);
++		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->in6_daddr);
+ 
+ 		ipv6_addr_copy(&pkt_dev->cur_in6_daddr, &pkt_dev->in6_daddr);
+ 
+@@ -1332,7 +1322,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		buf[len] = 0;
+ 
+ 		scan_ip6(buf, pkt_dev->min_in6_daddr.s6_addr);
+-		fmt_ip6(buf, pkt_dev->min_in6_daddr.s6_addr);
++		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->min_in6_daddr);
+ 
+ 		ipv6_addr_copy(&pkt_dev->cur_in6_daddr,
+ 			       &pkt_dev->min_in6_daddr);
+@@ -1355,7 +1345,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		buf[len] = 0;
+ 
+ 		scan_ip6(buf, pkt_dev->max_in6_daddr.s6_addr);
+-		fmt_ip6(buf, pkt_dev->max_in6_daddr.s6_addr);
++		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->max_in6_daddr);
+ 
+ 		if (debug)
+ 			printk(KERN_DEBUG "pktgen: dst6_max set to: %s\n", buf);
+@@ -1376,7 +1366,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		buf[len] = 0;
+ 
+ 		scan_ip6(buf, pkt_dev->in6_saddr.s6_addr);
+-		fmt_ip6(buf, pkt_dev->in6_saddr.s6_addr);
++		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->in6_saddr);
+ 
+ 		ipv6_addr_copy(&pkt_dev->cur_in6_saddr, &pkt_dev->in6_saddr);
+ 
+@@ -2898,79 +2888,6 @@ static unsigned int scan_ip6(const char *s, char ip[16])
+ 	return len;
+ }
+ 
+-static char tohex(char hexdigit)
+-{
+-	return hexdigit > 9 ? hexdigit + 'a' - 10 : hexdigit + '0';
+-}
+-
+-static int fmt_xlong(char *s, unsigned int i)
+-{
+-	char *bak = s;
+-	*s = tohex((i >> 12) & 0xf);
+-	if (s != bak || *s != '0')
+-		++s;
+-	*s = tohex((i >> 8) & 0xf);
+-	if (s != bak || *s != '0')
+-		++s;
+-	*s = tohex((i >> 4) & 0xf);
+-	if (s != bak || *s != '0')
+-		++s;
+-	*s = tohex(i & 0xf);
+-	return s - bak + 1;
+-}
+-
+-static unsigned int fmt_ip6(char *s, const char ip[16])
+-{
+-	unsigned int len;
+-	unsigned int i;
+-	unsigned int temp;
+-	unsigned int compressing;
+-	int j;
+-
+-	len = 0;
+-	compressing = 0;
+-	for (j = 0; j < 16; j += 2) {
+-
+-#ifdef V4MAPPEDPREFIX
+-		if (j == 12 && !memcmp(ip, V4mappedprefix, 12)) {
+-			inet_ntoa_r(*(struct in_addr *)(ip + 12), s);
+-			temp = strlen(s);
+-			return len + temp;
+-		}
+-#endif
+-		temp = ((unsigned long)(unsigned char)ip[j] << 8) +
+-		    (unsigned long)(unsigned char)ip[j + 1];
+-		if (temp == 0) {
+-			if (!compressing) {
+-				compressing = 1;
+-				if (j == 0) {
+-					*s++ = ':';
+-					++len;
+-				}
+-			}
+-		} else {
+-			if (compressing) {
+-				compressing = 0;
+-				*s++ = ':';
+-				++len;
+-			}
+-			i = fmt_xlong(s, temp);
+-			len += i;
+-			s += i;
+-			if (j < 14) {
+-				*s++ = ':';
+-				++len;
+-			}
+-		}
+-	}
+-	if (compressing) {
+-		*s++ = ':';
+-		++len;
+-	}
+-	*s = 0;
+-	return len;
+-}
+-
+ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 					struct pktgen_dev *pkt_dev)
+ {
