@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC v3 09/10] snet: introduce snet_utils
-Date: Tue,  3 May 2011 16:24:22 +0200
-Message-ID: <1304432663-1575-10-git-send-email-sam@synack.fr>
+Subject: [RFC v3 10/10] snet: introduce security/snet, Makefile and Kconfig changes
+Date: Tue,  3 May 2011 16:24:23 +0200
+Message-ID: <1304432663-1575-11-git-send-email-sam@synack.fr>
 References: <1304432663-1575-1-git-send-email-sam@synack.fr>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -10,80 +10,117 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304432663-1575-1-git-send-email-sam@synack.fr>
-Sender: linux-security-module-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch provides helper functions for other subsystems
+this patch creates folder security/snet and adds changes for Kconfig and Makefile
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- security/snet/snet_utils.c |   38 ++++++++++++++++++++++++++++++++++++++
- security/snet/snet_utils.h |    9 +++++++++
- 2 files changed, 47 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/snet_utils.c
- create mode 100644 security/snet/snet_utils.h
+ security/Kconfig       |    6 ++++++
+ security/Makefile      |    2 ++
+ security/snet/Kconfig  |   11 +++++++++++
+ security/snet/Makefile |   14 ++++++++++++++
+ 4 files changed, 33 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/Kconfig
+ create mode 100644 security/snet/Makefile
 
-diff --git a/security/snet/snet_utils.c b/security/snet/snet_utils.c
+diff --git a/security/Kconfig b/security/Kconfig
+index 95accd4..7e393c4 100644
+--- a/security/Kconfig
++++ b/security/Kconfig
+@@ -184,6 +184,7 @@ source security/selinux/Kconfig
+ source security/smack/Kconfig
+ source security/tomoyo/Kconfig
+ source security/apparmor/Kconfig
++source security/snet/Kconfig
+ 
+ source security/integrity/ima/Kconfig
+ 
+@@ -193,6 +194,7 @@ choice
+ 	default DEFAULT_SECURITY_SMACK if SECURITY_SMACK
+ 	default DEFAULT_SECURITY_TOMOYO if SECURITY_TOMOYO
+ 	default DEFAULT_SECURITY_APPARMOR if SECURITY_APPARMOR
++	default DEFAULT_SECURITY_SNET if SECURITY_SNET
+ 	default DEFAULT_SECURITY_DAC
+ 
+ 	help
+@@ -211,6 +213,9 @@ choice
+ 	config DEFAULT_SECURITY_APPARMOR
+ 		bool "AppArmor" if SECURITY_APPARMOR=y
+ 
++	config DEFAULT_SECURITY_SNET
++		bool "snet" if SECURITY_SNET=y
++
+ 	config DEFAULT_SECURITY_DAC
+ 		bool "Unix Discretionary Access Controls"
+ 
+@@ -222,6 +227,7 @@ config DEFAULT_SECURITY
+ 	default "smack" if DEFAULT_SECURITY_SMACK
+ 	default "tomoyo" if DEFAULT_SECURITY_TOMOYO
+ 	default "apparmor" if DEFAULT_SECURITY_APPARMOR
++	default "snet" if DEFAULT_SECURITY_SNET
+ 	default "" if DEFAULT_SECURITY_DAC
+ 
+ endmenu
+diff --git a/security/Makefile b/security/Makefile
+index 8bb0fe9..9e769b2 100644
+--- a/security/Makefile
++++ b/security/Makefile
+@@ -7,6 +7,7 @@ subdir-$(CONFIG_SECURITY_SELINUX)	+= selinux
+ subdir-$(CONFIG_SECURITY_SMACK)		+= smack
+ subdir-$(CONFIG_SECURITY_TOMOYO)        += tomoyo
+ subdir-$(CONFIG_SECURITY_APPARMOR)	+= apparmor
++subdir-$(CONFIG_SECURITY_SNET)		+= snet
+ 
+ # always enable default capabilities
+ obj-y					+= commoncap.o
+@@ -21,6 +22,7 @@ obj-$(CONFIG_SECURITY_SMACK)		+= smack/built-in.o
+ obj-$(CONFIG_AUDIT)			+= lsm_audit.o
+ obj-$(CONFIG_SECURITY_TOMOYO)		+= tomoyo/built-in.o
+ obj-$(CONFIG_SECURITY_APPARMOR)		+= apparmor/built-in.o
++obj-$(CONFIG_SECURITY_SNET)		+= snet/built-in.o
+ obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
+ 
+ # Object integrity file lists
+diff --git a/security/snet/Kconfig b/security/snet/Kconfig
 new file mode 100644
-index 0000000..e9178d7
+index 0000000..6dabd7d
 --- /dev/null
-+++ b/security/snet/snet_utils.c
-@@ -0,0 +1,38 @@
-+#include <linux/types.h>
-+#include <linux/snet.h>
++++ b/security/snet/Kconfig
+@@ -0,0 +1,11 @@
++#
++# snet
++#
 +
-+const char *snet_verdict_name(const enum snet_verdict cmd)
-+{
-+	static const char *const verdict_name[] = {
-+		[SNET_VERDICT_GRANT]	= "Grant",
-+		[SNET_VERDICT_DENY]	= "Deny",
-+		[SNET_VERDICT_PENDING]	= "Pending",
-+		[SNET_VERDICT_NONE]	= "None",
-+	};
-+
-+	if (cmd >= SNET_NR_VERDICT_TYPES)
-+		return "INVALID";
-+	else
-+		return verdict_name[cmd];
-+}
-+
-+const char *snet_syscall_name(const enum snet_syscall sys)
-+{
-+	static const char *const syscall_name[] = {
-+		[SNET_SOCKET_CREATE]		= "Create",
-+		[SNET_SOCKET_BIND]		= "Bind",
-+		[SNET_SOCKET_CONNECT]		= "Connect",
-+		[SNET_SOCKET_LISTEN]		= "Listen",
-+		[SNET_SOCKET_ACCEPT]		= "Accept",
-+		[SNET_SOCKET_POST_ACCEPT]	= "Post Accept",
-+		[SNET_SOCKET_SENDMSG]		= "Sendmsg",
-+		[SNET_SOCKET_RECVMSG]		= "Recvmsg",
-+		[SNET_SOCKET_SOCK_RCV_SKB]	= "Sock Rcv Skb",
-+		[SNET_SOCKET_CLOSE]		= "Close",
-+	};
-+
-+	if (sys >= SNET_NR_SOCKET_TYPES)
-+		return "INVALID";
-+	else
-+		return syscall_name[sys];
-+}
-diff --git a/security/snet/snet_utils.h b/security/snet/snet_utils.h
++config SECURITY_SNET
++	bool "snet - Security for NETwork syscalls"
++	depends on SECURITY_NETWORK
++	default n
++	---help---
++	If this option is enabled, the kernel will include support for reporting
++	networking's syscalls to userspace and wait for a verdict
+diff --git a/security/snet/Makefile b/security/snet/Makefile
 new file mode 100644
-index 0000000..01e515f
+index 0000000..e8f52f1
 --- /dev/null
-+++ b/security/snet/snet_utils.h
-@@ -0,0 +1,9 @@
-+#ifndef _SNET_UTILS_H
-+#define _SNET_UTILS_H
++++ b/security/snet/Makefile
+@@ -0,0 +1,14 @@
++#
++# Makefile for building the Security Network Events module.
++#
++obj-$(CONFIG_SECURITY_SNET) :=  snet.o
 +
-+#include <linux/skbuff.h>
-+
-+const char *snet_verdict_name(const enum snet_verdict cmd);
-+const char *snet_syscall_name(const enum snet_syscall sys);
-+
-+#endif	/* _SNET_UTILS_H */
++snet-y := snet_event.o \
++	  snet_netlink_helper.o \
++	  snet_netlink.o \
++	  snet_verdict.o \
++	  snet_ticket_helper.o \
++	  snet_ticket.o \
++	  snet_hooks.o \
++	  snet_core.o \
++	  snet_utils.o
 -- 
 1.7.4.1
-
