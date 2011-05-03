@@ -1,7 +1,8 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC v3 00/10] snet: Security for NETwork syscalls
-Date: Tue,  3 May 2011 16:24:13 +0200
-Message-ID: <1304432663-1575-1-git-send-email-sam@synack.fr>
+Subject: [RFC v3 02/10] Revert "lsm: Remove the socket_post_accept() hook"
+Date: Tue,  3 May 2011 16:24:15 +0200
+Message-ID: <1304432663-1575-3-git-send-email-sam@synack.fr>
+References: <1304432663-1575-1-git-send-email-sam@synack.fr>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
 	Patrick McHardy <kaber@trash.net>,
@@ -9,132 +10,138 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 236.121.91-79.rev.gaoland.net ([79.91.121.236]:46269 "EHLO
+	mx.synack.fr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752886Ab1ECObd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2011 10:31:33 -0400
+In-Reply-To: <1304432663-1575-1-git-send-email-sam@synack.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello lsm and netdev people,
-This set of patches is the version 3 of snet, which I would like to submit as a
-RFC.
+snet needs to reintroduce this hook, as it was designed to be: a hook for
+updating security informations on objects.
 
-snet is a linux security module. It provides a mecanism defering syscall
-security hooks and decision (verdict) to userspace. 
+Originally, This was a direct revert of commit
+8651d5c0b1f874c5b8307ae2b858bc40f9f02482.
 
-snet has some subsystems :
-    - snet_core     : init and exit the system
-    - snet_hooks    : LSM hooks
-    - snet_netlink  : kernel-user communication (genetlink)
-    - snet_event    : manages the list of protected syscalls
-    - snet_verdict  : provides a waitqueue for syscalls and manage verdicts
-    - snet_ticket   : provides a granted-access ticket mecanism
+But from the comment of Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> :
 
-I believe that snet will help to get over the classical configuration
-complexity of others security modules, by providing interactivity to users.
-I also think that monolithic strategy is broken with snet, as we can provide
-security for others syscall's categories:
- - sfs  : security for filesystem,
- - stask: security for task,
- - smem : security for memory
- ..
+> Please move security_socket_post_accept() to before fd_install().
+> Otherwise, other threads which share fd tables can use
+> security-informations-not-yet-updated accept()ed sockets.
 
-In this way, and by putting abstraction on how this subsystems can talk to each
-others, we may use the security combinaison we want: choose to run sfs,
-stask, but not snet nor smem. Better, developpers may investigated how to build
-another security subsystem for tasks, and use others existing (smem, snet..)
-which they don't want to modify
+Signed-off-by: Samir Bellabes <sam@synack.fr>
+Acked-by: Serge Hallyn <serue@us.ibm.com>
 
-I think that interactivity is very usefull for users, as they may be notify when
-something is wrong and take decision, and from userspace, the decision may be
-defered to another box. In this way, snet also have a advantage for mobile
-devices as the policy decision will be push to a distant server, mobile device
-will then wait for verdicts and as policy strategies are centralized.
+snet needs to reintroduce this hook, as it was designed to be: a hook for
+updating security informations on objects.
 
-Interactivity is *not* only clicking a Yes/No question, as said, we
-can centralised previous locals LSM security subsytems, and make the
-network aware of events occuring on it.
+Signed-off-by: Samir Bellabes <sam@synack.fr>
+---
+ include/linux/security.h |   13 +++++++++++++
+ net/socket.c             |    2 ++
+ security/capability.c    |    5 +++++
+ security/security.c      |    5 +++++
+ 4 files changed, 25 insertions(+), 0 deletions(-)
 
-Finally, and a important point: snet integration respects the LSM framework idea
-of using LSM hooks.
-
-New feature from the previous version:
- * Building a ticket mecanism for each task_struct using pointer void *security
-   Use the pointer (void*) security related to task_struct to provides
-   granted-acces tickets: if two identical requests are coming, ask the user
-   for the first one, store the result in a ticket and for the second request,
-   just look in the tickets owned by the task-struct
- * send data buffer of sendmsg to userspace
-   this may provide a way to look inside the data (as a anti-virus do)
-
-roadmap:
- * find a way to send data buffer of sendmsg to userspace (using netfilter)
- * adding other security systems
-   we can think about adding fork(), exec(), open(), close()..
-
-I'm Ccing netfilter-devel, as snet may be seen as a way to do filtering.
-
-Last devel patchs were:
- * using kmem_cache instead of kmalloc
- * remove attend to send buffer socker to userspace
-
-Samir Bellabes (10):
-  lsm: add security_socket_closed()
-  Revert "lsm: Remove the socket_post_accept() hook"
-  snet: introduce snet_core
-  snet: introduce snet_event
-  snet: introduce snet_hooks
-  snet: introduce snet_netlink
-  snet: introduce snet_verdict
-  snet: introduce snet_ticket
-  snet: introduce snet_utils
-  snet: introduce security/snet, Makefile and Kconfig changes
-
- include/linux/security.h            |   23 ++
- include/linux/snet.h                |  117 ++++++
- net/socket.c                        |    3 +
- security/Kconfig                    |    6 +
- security/Makefile                   |    2 +
- security/capability.c               |   10 +
- security/security.c                 |   10 +
- security/snet/Kconfig               |   11 +
- security/snet/Makefile              |   14 +
- security/snet/snet_core.c           |   82 ++++
- security/snet/snet_event.c          |  201 ++++++++++
- security/snet/snet_event.h          |   21 +
- security/snet/snet_hooks.c          |  722 +++++++++++++++++++++++++++++++++++
- security/snet/snet_hooks.h          |   10 +
- security/snet/snet_netlink.c        |  442 +++++++++++++++++++++
- security/snet/snet_netlink.h        |   17 +
- security/snet/snet_netlink_helper.c |  220 +++++++++++
- security/snet/snet_netlink_helper.h |    7 +
- security/snet/snet_ticket.c         |  195 ++++++++++
- security/snet/snet_ticket.h         |   37 ++
- security/snet/snet_ticket_helper.c  |  127 ++++++
- security/snet/snet_ticket_helper.h  |    8 +
- security/snet/snet_utils.c          |   38 ++
- security/snet/snet_utils.h          |    9 +
- security/snet/snet_verdict.c        |  203 ++++++++++
- security/snet/snet_verdict.h        |   23 ++
- 26 files changed, 2558 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/snet.h
- create mode 100644 security/snet/Kconfig
- create mode 100644 security/snet/Makefile
- create mode 100644 security/snet/snet_core.c
- create mode 100644 security/snet/snet_event.c
- create mode 100644 security/snet/snet_event.h
- create mode 100644 security/snet/snet_hooks.c
- create mode 100644 security/snet/snet_hooks.h
- create mode 100644 security/snet/snet_netlink.c
- create mode 100644 security/snet/snet_netlink.h
- create mode 100644 security/snet/snet_netlink_helper.c
- create mode 100644 security/snet/snet_netlink_helper.h
- create mode 100644 security/snet/snet_ticket.c
- create mode 100644 security/snet/snet_ticket.h
- create mode 100644 security/snet/snet_ticket_helper.c
- create mode 100644 security/snet/snet_ticket_helper.h
- create mode 100644 security/snet/snet_utils.c
- create mode 100644 security/snet/snet_utils.h
- create mode 100644 security/snet/snet_verdict.c
- create mode 100644 security/snet/snet_verdict.h
-
+diff --git a/include/linux/security.h b/include/linux/security.h
+index da0d59e..02effe5 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -875,6 +875,11 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+  *	@sock contains the listening socket structure.
+  *	@newsock contains the newly created server socket for connection.
+  *	Return 0 if permission is granted.
++ * @socket_post_accept:
++ *	This hook allows a security module to copy security
++ *	information into the newly created socket's inode.
++ *	@sock contains the listening socket structure.
++ *	@newsock contains the newly created server socket for connection.
+  * @socket_sendmsg:
+  *	Check permission before transmitting a message to another socket.
+  *	@sock contains the socket structure.
+@@ -1587,6 +1592,8 @@ struct security_operations {
+ 			       struct sockaddr *address, int addrlen);
+ 	int (*socket_listen) (struct socket *sock, int backlog);
+ 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
++	void (*socket_post_accept) (struct socket *sock,
++				    struct socket *newsock);
+ 	int (*socket_sendmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size);
+ 	int (*socket_recvmsg) (struct socket *sock,
+@@ -2555,6 +2562,7 @@ int security_socket_bind(struct socket *sock, struct sockaddr *address, int addr
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
+ int security_socket_listen(struct socket *sock, int backlog);
+ int security_socket_accept(struct socket *sock, struct socket *newsock);
++void security_socket_post_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
+@@ -2640,6 +2648,11 @@ static inline int security_socket_accept(struct socket *sock,
+ 	return 0;
+ }
+ 
++static inline void security_socket_post_accept(struct socket *sock,
++					       struct socket *newsock)
++{
++}
++
+ static inline int security_socket_sendmsg(struct socket *sock,
+ 					  struct msghdr *msg, int size)
+ {
+diff --git a/net/socket.c b/net/socket.c
+index d588e9e..7807904 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1535,6 +1535,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 			goto out_fd;
+ 	}
+ 
++	security_socket_post_accept(sock, newsock);
++
+ 	/* File flags are not inherited via accept() unlike another OSes. */
+ 
+ 	fd_install(newfd, newfile);
+diff --git a/security/capability.c b/security/capability.c
+index 1f8bbe2..da68c60 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -593,6 +593,10 @@ static int cap_socket_accept(struct socket *sock, struct socket *newsock)
+ 	return 0;
+ }
+ 
++static void cap_socket_post_accept(struct socket *sock, struct socket *newsock)
++{
++}
++
+ static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+ {
+ 	return 0;
+@@ -1022,6 +1026,7 @@ void __init security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, socket_connect);
+ 	set_to_cap_if_null(ops, socket_listen);
+ 	set_to_cap_if_null(ops, socket_accept);
++	set_to_cap_if_null(ops, socket_post_accept);
+ 	set_to_cap_if_null(ops, socket_sendmsg);
+ 	set_to_cap_if_null(ops, socket_recvmsg);
+ 	set_to_cap_if_null(ops, socket_getsockname);
+diff --git a/security/security.c b/security/security.c
+index 84187d8..eda2b75 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1038,6 +1038,11 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
+ 	return security_ops->socket_accept(sock, newsock);
+ }
+ 
++void security_socket_post_accept(struct socket *sock, struct socket *newsock)
++{
++	security_ops->socket_post_accept(sock, newsock);
++}
++
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+ {
+ 	return security_ops->socket_sendmsg(sock, msg, size);
 -- 
 1.7.4.1
+
