@@ -1,89 +1,83 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] pktgen: use %pI6c for printing IPv6 addresses
-Date: Tue, 03 May 2011 16:25:13 -0700
-Message-ID: <1304465113.1788.48.camel@Joe-Laptop>
-References: <20110503212340.GA25293@p183>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
+Date: Wed, 04 May 2011 00:34:44 +0100
+Message-ID: <1304465684.2873.26.camel@bwh-desktop>
+References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>
+	 <20110503161226.29251.40838.stgit@gitlad.jf.intel.com>
+	 <4DC08E7B.7070906@chelsio.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Robert Olsson <robert.olsson@its.uu.se>
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+To: Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1204 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753946Ab1ECXZO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2011 19:25:14 -0400
-In-Reply-To: <20110503212340.GA25293@p183>
+Received: from exchange.solarflare.com ([216.237.3.220]:39015 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752883Ab1ECXer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 19:34:47 -0400
+In-Reply-To: <4DC08E7B.7070906@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-04 at 00:23 +0300, Alexey Dobriyan wrote:
-> I don't know why %pI6 doesn't compress, but the format specifier is
-> kernel-standard, so use it.
+On Tue, 2011-05-03 at 16:23 -0700, Dimitris Michailidis wrote:
+> On 05/03/2011 09:12 AM, Alexander Duyck wrote:
+[...]
+> > +int rxclass_rule_ins(int fd, struct ifreq *ifr,
+> > +		     struct ethtool_rx_flow_spec *fsp)
+> > +{
+> > +	struct ethtool_rxnfc nfccmd;
+> > +	__u32 loc = fsp->location;
+> > +	int err;
+> > +
+> > +	/*
+> > +	 * if location is unspecified pull rules from device
+> > +	 * and allocate a free rule for our use
+> > +	 */
+> > +	if (loc == RX_CLS_LOC_UNSPEC) {
+> > +		/* init table of available rules */
+> > +		err = rmgr_init(fd, ifr);
+> > +		if (err < 0)
+> > +			return err;
+> > +
+> > +		/* verify rule location */
+> > +		err = rmgr_add(fsp);
+> > +		if (err < 0)
+> > +			return err;
+> > +
+> > +		/* cleanup table and free resources */
+> > +		rmgr_cleanup();
+> > +	}
+> 
+> This logic where ethtool tries to select a filter slot when a user provides 
+> RX_CLS_LOC_UNSPEC does not work in general.  It assumes that all slots are 
+> equal and a new filter can go into any available slot. But a device may have 
+> restrictions on where a filter may go that ethtool doesn't know.
 
-Hi again Alexey.
+I agree.  And if filter lookup is largely hash-based (as it is in
+Solarflare hardware) the user will also find it very difficult to
+specify the right location!
 
-I doubt it matters but the old routine compresses the first
-0 it finds rather than the longest consecutive 0 match so
-the output could be a bit different.
+> I mentioned during a previous review that for cxgb4 some filters require a 
+> slot number that is a multiple of 4.  There are some other constraints as 
+> well depending on the type of filter being added. For such a device ethtool 
+> doesn't know enough to handle RX_CLS_LOC_UNSPEC correctly.
+>
+> I think RX_CLS_LOC_UNSPEC should be passed to the driver, where there is 
+> enough knowledge to pick an appropriate slot.  So I'd remove the
+> 
+>      if (loc == RX_CLS_LOC_UNSPEC)
+> 
+> block above, let the driver pick a slot, and then pass the selected location 
+> back for ethtool to report.
 
-given:	"0:1:0:0:0:0:0:7"
-old:	"::1:0:0:0:0:0:7"
-new:	"0:1::7"
+But first we have to specify this in the ethtool API.  So please propose
+a patch to ethtool.h.
 
-I think the patch is an improvement.
+Ben.
 
-> -static unsigned int fmt_ip6(char *s, const char ip[16])
-> -{
-> -	unsigned int len;
-> -	unsigned int i;
-> -	unsigned int temp;
-> -	unsigned int compressing;
-> -	int j;
-> -
-> -	len = 0;
-> -	compressing = 0;
-> -	for (j = 0; j < 16; j += 2) {
-> -
-> -#ifdef V4MAPPEDPREFIX
-> -		if (j == 12 && !memcmp(ip, V4mappedprefix, 12)) {
-> -			inet_ntoa_r(*(struct in_addr *)(ip + 12), s);
-> -			temp = strlen(s);
-> -			return len + temp;
-> -		}
-> -#endif
-> -		temp = ((unsigned long)(unsigned char)ip[j] << 8) +
-> -		    (unsigned long)(unsigned char)ip[j + 1];
-> -		if (temp == 0) {
-> -			if (!compressing) {
-> -				compressing = 1;
-> -				if (j == 0) {
-> -					*s++ = ':';
-> -					++len;
-> -				}
-> -			}
-> -		} else {
-> -			if (compressing) {
-> -				compressing = 0;
-> -				*s++ = ':';
-> -				++len;
-> -			}
-> -			i = fmt_xlong(s, temp);
-> -			len += i;
-> -			s += i;
-> -			if (j < 14) {
-> -				*s++ = ':';
-> -				++len;
-> -			}
-> -		}
-> -	}
-> -	if (compressing) {
-> -		*s++ = ':';
-> -		++len;
-> -	}
-> -	*s = 0;
-> -	return len;
-> -}
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
