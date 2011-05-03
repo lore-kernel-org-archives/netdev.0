@@ -1,43 +1,81 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V3 2/8] Add a new zerocopy device flag
-Date: Tue, 03 May 2011 13:11:21 -0700
-Message-ID: <1304453481.20660.39.camel@localhost.localdomain>
-References: <1303328216.19336.18.camel@localhost.localdomain>
-	 <1303328648.19336.24.camel@localhost.localdomain>
-	 <20110502104257.GA21625@redhat.com>
-	 <1304362028.20660.15.camel@localhost.localdomain>
-	 <20110502195302.GA25619@redhat.com>
-	 <1304444570.20660.32.camel@localhost.localdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: ehea: fix wrongly-reported supported modes
+Date: Tue, 03 May 2011 21:16:15 +0100
+Message-ID: <1304453775.2873.17.camel@bwh-desktop>
+References: <1304451745.6899.15.camel@dream>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304444570.20660.32.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:13546 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754668Ab1ECUQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 16:16:18 -0400
+In-Reply-To: <1304451745.6899.15.camel@dream>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-03 at 10:42 -0700, Shirley Ma wrote:
-> Better to prevent this kind of skbs to be used in skb_clone, expand
-> head
-> for now.
+On Tue, 2011-05-03 at 16:42 -0300, Kleber Sacilotto de Souza wrote:
+> Currently EHEA reports to ethtool as supporting 10000baseT_Full and
+> FIBRE independent of the hardware configuration. However, these
+> capabilities should be reported only if the physical port and
+> the medium support them, which is the case where the physical port
+> is connected at 10Gb.
+>
+> Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ehea/ehea_ethtool.c |   21 ++++++++++++++-------
+>  1 files changed, 14 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
+> index 3e2e734..04716c2 100644
+> --- a/drivers/net/ehea/ehea_ethtool.c
+> +++ b/drivers/net/ehea/ehea_ethtool.c
+> @@ -55,15 +55,22 @@ static int ehea_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+>  		cmd->duplex = -1;
+>  	}
+> 
+> -	cmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full
+> -		       | SUPPORTED_100baseT_Full |  SUPPORTED_100baseT_Half
+> -		       | SUPPORTED_10baseT_Full | SUPPORTED_10baseT_Half
+> -		       | SUPPORTED_Autoneg | SUPPORTED_FIBRE);
+> +	cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
+> +		       | SUPPORTED_100baseT_Half | SUPPORTED_10baseT_Full
+> +		       | SUPPORTED_10baseT_Half | SUPPORTED_Autoneg);
+> 
+> -	cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_Autoneg
+> -			 | ADVERTISED_FIBRE);
+> +	cmd->advertising = ADVERTISED_Autoneg;
+> +
+> +	if (cmd->speed == SPEED_10000) {
+> +		cmd->supported |= (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+> +		cmd->advertising |= (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
+> +		cmd->port = PORT_FIBRE;
+> +	} else {
+> +		cmd->supported |= SUPPORTED_TP;
+> +		cmd->advertising |= (ADVERTISED_1000baseT_Full | ADVERTISED_TP);
+> +		cmd->port = PORT_TP;
+> +	}
 
-I looked at the code, skb_clone shouldn't have any problem since ubuf
-callback is only called after the lower device DMA has done. I can
-modify the zerocopy len to 256 bytes so expand head should be OK as
-well. So we only need to prevent recycle skb. I also checked the device
-drivers, only a few device do RX buffers recycle. So there shouldn't be
-any problem.
+This doesn't make any sense.  If the current speed is 10G, then the
+driver also claims to support speeds of 10M, 100M, 1G and 10G.  But then
+if the speed actually is <10G, the driver claims to support TP.  What's
+going on here?
 
-I will add more comments here to make sure when ZEROCOPY flag is set,
-the ubuf callback should only be called when last reference to this skb
-is gone.
+(Also, claiming to support BASE-T modes on non-TP media is bogus, though
+I understand why people are doing it.)
 
+Ben.
 
-Thanks
-Shirley
+> -	cmd->port = PORT_FIBRE;
+>  	cmd->autoneg = port->autoneg == 1 ? AUTONEG_ENABLE : AUTONEG_DISABLE;
+> 
+>  	return 0;
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
