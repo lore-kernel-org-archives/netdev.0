@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC v3 01/10] lsm: add security_socket_closed()
-Date: Tue,  3 May 2011 16:24:14 +0200
-Message-ID: <1304432663-1575-2-git-send-email-sam@synack.fr>
+Subject: [RFC v3 08/10] snet: introduce snet_ticket
+Date: Tue,  3 May 2011 16:24:21 +0200
+Message-ID: <1304432663-1575-9-git-send-email-sam@synack.fr>
 References: <1304432663-1575-1-git-send-email-sam@synack.fr>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -15,108 +15,448 @@ In-Reply-To: <1304432663-1575-1-git-send-email-sam@synack.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow a module to update security informations when a socket is closed.
+this patch adds the snet's subsystem managing granted-access tickets
+
+snet is using the term 'ticket' for refering to a structure which keeps
+informations about verdict, coming from userspace.
+
+generic informations:
+  timeout
+  syscall
+  protocol
+  verdict
+
+protocol-dependant informations : (so some infos may not be used)
+  address family
+  socket type
+  source address
+  source port
+  distant address
+  distant port
+
+ticket are attached to the "void *security" pointer of task_struct
+
+there are 3 modes:
+
+0. no ticket - SNET_TICKET_OFF
+   every syscalls has to be verified by userspace.
+
+1. timeout fixed - SNET_TICKET_FIX
+   for each response from the userspace, we are creating a ticket,
+   attached to the task_struct, with the filled informations, and a
+   fixed timeout value (10 secs by default).
+   then before asking userspace, kernel mecanism is checking existing
+   tickets for the task_struct, if there is a granted-access ticket, we
+   are using the verdict value attached.
+   after the timeout value, the ticket is destroyed.
+
+2. timeout with extendable value - SNET_TICKET_EXTEND
+   this is the same mecanism as 1, but every time a ticket is matched
+   and used, the timeout value is reset to the default value, so its
+   life is extended.
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- include/linux/security.h |   10 ++++++++++
- net/socket.c             |    1 +
- security/capability.c    |    5 +++++
- security/security.c      |    5 +++++
- 4 files changed, 21 insertions(+), 0 deletions(-)
+ security/snet/snet_ticket.c        |  195 ++++++++++++++++++++++++++++++++++++
+ security/snet/snet_ticket.h        |   37 +++++++
+ security/snet/snet_ticket_helper.c |  127 +++++++++++++++++++++++
+ security/snet/snet_ticket_helper.h |    8 ++
+ 4 files changed, 367 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/snet_ticket.c
+ create mode 100644 security/snet/snet_ticket.h
+ create mode 100644 security/snet/snet_ticket_helper.c
+ create mode 100644 security/snet/snet_ticket_helper.h
 
-diff --git a/include/linux/security.h b/include/linux/security.h
-index ca02f17..da0d59e 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -918,6 +918,9 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  *	@sock contains the socket structure.
-  *	@how contains the flag indicating how future sends and receives are handled.
-  *	Return 0 if permission is granted.
-+ * @socket_close:
-+ *	Allow a module to update security informations when a socket is closed
-+ *	@sock is closed.
-  * @socket_sock_rcv_skb:
-  *	Check permissions on incoming network packets.  This hook is distinct
-  *	from Netfilter's IP input hooks since it is the first time that the
-@@ -1593,6 +1596,7 @@ struct security_operations {
- 	int (*socket_getsockopt) (struct socket *sock, int level, int optname);
- 	int (*socket_setsockopt) (struct socket *sock, int level, int optname);
- 	int (*socket_shutdown) (struct socket *sock, int how);
-+	void (*socket_close) (struct socket *sock);
- 	int (*socket_sock_rcv_skb) (struct sock *sk, struct sk_buff *skb);
- 	int (*socket_getpeersec_stream) (struct socket *sock, char __user *optval, int __user *optlen, unsigned len);
- 	int (*socket_getpeersec_dgram) (struct socket *sock, struct sk_buff *skb, u32 *secid);
-@@ -2559,6 +2563,7 @@ int security_socket_getpeername(struct socket *sock);
- int security_socket_getsockopt(struct socket *sock, int level, int optname);
- int security_socket_setsockopt(struct socket *sock, int level, int optname);
- int security_socket_shutdown(struct socket *sock, int how);
-+void security_socket_close(struct socket *sock);
- int security_sock_rcv_skb(struct sock *sk, struct sk_buff *skb);
- int security_socket_getpeersec_stream(struct socket *sock, char __user *optval,
- 				      int __user *optlen, unsigned len);
-@@ -2674,6 +2679,11 @@ static inline int security_socket_shutdown(struct socket *sock, int how)
- {
- 	return 0;
- }
+diff --git a/security/snet/snet_ticket.c b/security/snet/snet_ticket.c
+new file mode 100644
+index 0000000..a260412
+--- /dev/null
++++ b/security/snet/snet_ticket.c
+@@ -0,0 +1,195 @@
++#include <linux/slab.h>
++#include <linux/cred.h>
++#include <linux/jhash.h>
++#include <linux/security.h>
++#include <linux/snet.h>
++#include "snet_ticket.h"
++#include "snet_ticket_helper.h"
 +
-+static inline void security_socket_close(struct socket *sock)
++#define HSIZE 16
++
++static struct kmem_cache *snet_ticket_cachep;
++static struct kmem_cache *snet_task_security_cachep;
++
++enum snet_verdict snet_ticket_check(struct snet_info *info)
 +{
++	struct snet_ticket *st = NULL;
++	unsigned int h = 0, verdict = SNET_VERDICT_NONE;
++	struct list_head *l = NULL;
++	struct snet_task_security *tsec = NULL;
++
++	if (snet_ticket_mode == SNET_TICKET_OFF)
++		goto out;
++
++	tsec = (struct snet_task_security*) current_security();
++
++	h = jhash_2words(info->syscall, info->protocol, 0) % HSIZE;
++	l = &tsec->hash[h];
++
++	read_lock_bh(&tsec->lock);
++	list_for_each_entry(st, l, list) {
++		if (__ticket_check(st, info)) {
++			verdict = st->verdict;
++			pr_debug("snet_ticket found: ticket=%p tsec=%p\n",
++				 st, st->tsec);
++			if (snet_ticket_mode == SNET_TICKET_EXTEND) {
++				mod_timer(&st->timeout,
++					  jiffies + snet_ticket_delay * HZ);
++			}
++			break;
++		}
++	}
++	read_unlock_bh(&tsec->lock);
++out:
++	return verdict;
 +}
 +
- static inline int security_sock_rcv_skb(struct sock *sk,
- 					struct sk_buff *skb)
- {
-diff --git a/net/socket.c b/net/socket.c
-index 310d16b..d588e9e 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1093,6 +1093,7 @@ static int sock_close(struct inode *inode, struct file *filp)
- 		printk(KERN_DEBUG "sock_close: NULL inode\n");
- 		return 0;
- 	}
-+	security_socket_close(SOCKET_I(inode));
- 	sock_release(SOCKET_I(inode));
- 	return 0;
- }
-diff --git a/security/capability.c b/security/capability.c
-index 2984ea4..1f8bbe2 100644
---- a/security/capability.c
-+++ b/security/capability.c
-@@ -629,6 +629,10 @@ static int cap_socket_shutdown(struct socket *sock, int how)
- 	return 0;
- }
- 
-+static void cap_socket_close(struct socket *sock)
++static void snet_ticket_timeout(unsigned long arg)
 +{
++	struct snet_ticket *st = (struct snet_ticket*)arg;
++
++	pr_debug("snet_ticket_timeout: ticket=%p tsec=%p\n", st, st->tsec);
++
++	write_lock_bh(&st->tsec->lock);
++	list_del(&st->list);
++	write_unlock_bh(&st->tsec->lock);
++	kmem_cache_free(snet_ticket_cachep, st);
++	return;
 +}
 +
- static int cap_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	return 0;
-@@ -1025,6 +1029,7 @@ void __init security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, socket_setsockopt);
- 	set_to_cap_if_null(ops, socket_getsockopt);
- 	set_to_cap_if_null(ops, socket_shutdown);
-+	set_to_cap_if_null(ops, socket_close);
- 	set_to_cap_if_null(ops, socket_sock_rcv_skb);
- 	set_to_cap_if_null(ops, socket_getpeersec_stream);
- 	set_to_cap_if_null(ops, socket_getpeersec_dgram);
-diff --git a/security/security.c b/security/security.c
-index 1011423..84187d8 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -1074,6 +1074,11 @@ int security_socket_shutdown(struct socket *sock, int how)
- 	return security_ops->socket_shutdown(sock, how);
- }
- 
-+void security_socket_close(struct socket *sock)
++static struct snet_ticket *snet_ticket_alloc(void)
 +{
-+	return security_ops->socket_close(sock);
++	struct snet_ticket *st = NULL;
++
++	st = kmem_cache_zalloc(snet_ticket_cachep, GFP_KERNEL);
++	if (st == NULL)
++		goto out;
++
++	INIT_LIST_HEAD(&st->list);
++	init_timer(&st->timeout);
++	st->timeout.expires = snet_ticket_delay * HZ;
++out:
++	return st;
 +}
 +
- int security_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	return security_ops->socket_sock_rcv_skb(sk, skb);
++static void snet_ticket_insert(struct snet_ticket *st)
++{
++	unsigned int h;
++	struct list_head *l;
++
++	h = jhash_2words(st->syscall, st->protocol, 0) % HSIZE;
++	l = &(st->tsec->hash[h]);
++
++	st->timeout.expires += jiffies;
++	add_timer(&st->timeout);
++
++	write_lock_bh(&(st->tsec->lock));
++	list_add_tail(&st->list, l);
++	write_unlock_bh(&(st->tsec->lock));
++	return;
++}
++
++void snet_ticket_create(struct snet_info *info, enum snet_verdict verdict)
++{
++	struct snet_ticket *st;
++	struct snet_task_security *tsec = NULL;
++
++	if (snet_ticket_mode == SNET_TICKET_OFF)
++		goto out;
++
++	tsec = (struct snet_task_security*) current_security();
++
++	st = snet_ticket_alloc();
++	if (st == NULL)
++		goto out;
++
++	st->tsec = tsec;
++	snet_ticket_fill(st, info, verdict);
++	setup_timer(&st->timeout, snet_ticket_timeout, (unsigned long)st);
++	snet_ticket_insert(st);
++out:
++	return;
++}
++
++int snet_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp)
++{
++	unsigned int index = 0;
++	struct snet_task_security *tsec = NULL;
++
++	tsec = kmem_cache_zalloc(snet_task_security_cachep, gfp);
++	if (tsec == NULL)
++		return -ENOMEM;
++
++	pr_debug("ticket_prepare_creds: pid=%u tsec=%p\n", current->pid, tsec);
++	rwlock_init(&tsec->lock);
++	for (index = 0; index < HSIZE; index++)
++		INIT_LIST_HEAD(&tsec->hash[index]);
++
++	new->security = tsec;
++	return 0;
++}
++
++void snet_cred_free(struct cred *cred)
++{
++	struct snet_task_security *tsec = cred->security;
++	unsigned int index;
++
++	pr_debug("ticket_free_cred: pid=%u tsec=%p\n",  current->pid, tsec);
++
++	write_lock_bh(&tsec->lock);
++	/* destroy all tickets */
++	for (index = 0; index < HSIZE; index++) {
++		struct snet_ticket *st, *tmp;
++		list_for_each_entry_safe(st, tmp, &tsec->hash[index], list) {
++			if (del_timer_sync(&st->timeout)) {
++				pr_debug("ticket_cred_free: [%u] ticket=%p tsec=%p\n",
++					 index, st, st->tsec);
++				list_del(&st->list);
++				kmem_cache_free(snet_ticket_cachep, st);
++			}
++		}
++	}
++	cred->security = NULL;
++	write_unlock_bh(&tsec->lock);
++	kmem_cache_free(snet_task_security_cachep, tsec);
++	return;
++}
++
++int snet_ticket_init(void)
++{
++	unsigned int index = 0;
++	struct cred *cred = (struct cred *) current->real_cred;
++	struct snet_task_security *tsec = NULL;
++
++	if (snet_ticket_mode >= SNET_TICKET_INVALID) {
++		printk(KERN_ERR "snet: bad snet_ticket_mode\n");
++		return -EINVAL;
++	}
++
++	if ((snet_ticket_mode == SNET_TICKET_FIX ||
++	    snet_ticket_mode == SNET_TICKET_EXTEND) &&
++	    (snet_ticket_delay == 0)) {
++		printk(KERN_ERR "snet: bad snet_ticket_delay\n");
++		return -EINVAL;
++	}
++
++	/* snet_ticket_cachep is not destroyed */
++	snet_ticket_cachep = kmem_cache_create("snet_ticket",
++					       sizeof(struct snet_ticket),
++					       0, SLAB_PANIC, NULL);
++	/* snet_task_security_cachep is not destroyed */
++	snet_task_security_cachep = kmem_cache_create("snet_task_security",
++						      sizeof(struct snet_task_security),
++						      0, SLAB_PANIC, NULL);
++
++	tsec = kmem_cache_zalloc(snet_task_security_cachep, GFP_KERNEL);
++	if (tsec == NULL)
++		return -ENOMEM;
++
++	rwlock_init(&tsec->lock);
++	for (index = 0; index < HSIZE; index++)
++		INIT_LIST_HEAD(&tsec->hash[index]);
++
++	cred->security = tsec;
++	return 0;
++}
+diff --git a/security/snet/snet_ticket.h b/security/snet/snet_ticket.h
+new file mode 100644
+index 0000000..b6d1020
+--- /dev/null
++++ b/security/snet/snet_ticket.h
+@@ -0,0 +1,37 @@
++#ifndef _SNET_TICKET_H
++#define _SNET_TICKET_H
++
++#include <linux/timer.h>
++#include <linux/list.h>
++#include <linux/cred.h>
++#include <linux/snet.h>
++
++struct snet_task_security {
++	struct list_head hash[16];
++	rwlock_t lock;
++};
++
++struct snet_ticket {
++	struct list_head list;
++	struct snet_task_security *tsec;
++	struct timer_list timeout;
++
++	enum snet_syscall syscall;
++	u8 protocol;
++	u8 family;
++	int type;
++	struct snet_sock_half src;
++	struct snet_sock_half dst;
++	enum snet_verdict verdict;
++};
++
++extern unsigned int snet_ticket_delay;
++extern unsigned int snet_ticket_mode;
++
++void snet_cred_free(struct cred *cred);
++int snet_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp);
++enum snet_verdict snet_ticket_check(struct snet_info *info);
++void snet_ticket_create(struct snet_info *info, enum snet_verdict verdict);
++int snet_ticket_init(void);
++
++#endif	/* _SNET_TICKET_H */
+diff --git a/security/snet/snet_ticket_helper.c b/security/snet/snet_ticket_helper.c
+new file mode 100644
+index 0000000..2dc9b94
+--- /dev/null
++++ b/security/snet/snet_ticket_helper.c
+@@ -0,0 +1,127 @@
++#include <linux/sched.h>
++#include <linux/socket.h>
++#include <linux/snet.h>
++#include "snet_ticket.h"
++#include "snet_utils.h"
++
++static int check_create(struct snet_ticket *st, struct snet_info *info)
++{
++	return (st->type == info->type);
++}
++
++static int check_src(struct snet_ticket *st, struct snet_info *info)
++{
++	switch (info->family) {
++	case AF_INET:
++		if ((st->src.u3.ip == info->src.u3.ip) &&
++		    (st->src.u.port == info->src.u.port))
++			return 1;
++		break;
++	case AF_INET6:
++		if ((!memcmp(&st->src.u3.ip6, &info->src.u3.ip6,
++			     sizeof(info->src.u3.ip6))) &&
++		    (st->src.u.port == info->src.u.port))
++			return 1;
++		break;
++	default:
++		break;
++	}
++	return 0;
++}
++
++static int check_dst(struct snet_ticket *st, struct snet_info *info)
++{
++	switch (info->family) {
++	case AF_INET:
++		if ((st->dst.u3.ip == info->dst.u3.ip) &&
++		    (st->dst.u.port == info->dst.u.port))
++			return 1;
++		break;
++	case AF_INET6:
++		if ((!memcmp(&st->dst.u3.ip6, &info->dst.u3.ip6,
++			     sizeof(info->dst.u3.ip6))) &&
++		    (st->dst.u.port == info->dst.u.port))
++			return 1;
++		break;
++	default:
++		break;
++	}
++	return 0;
++}
++
++static int check_src_and_dst(struct snet_ticket *st, struct snet_info *info)
++{
++	return (check_src(st, info) && check_dst(st, info));
++}
++
++static int check_none(struct snet_ticket *st, struct snet_info *info)
++{
++	return 0;
++}
++
++int __ticket_check(struct snet_ticket *st, struct snet_info *info)
++{
++	static int (*ticket_df[])(struct snet_ticket *, struct snet_info *) = {
++		[SNET_SOCKET_CREATE]		= &check_create,
++		[SNET_SOCKET_BIND]		= &check_src,
++		[SNET_SOCKET_CONNECT]		= &check_dst,
++		[SNET_SOCKET_LISTEN]		= &check_src,
++		[SNET_SOCKET_ACCEPT]		= &check_src,
++		[SNET_SOCKET_POST_ACCEPT]	= &check_none,
++		[SNET_SOCKET_SENDMSG]		= &check_src_and_dst,
++		[SNET_SOCKET_RECVMSG]		= &check_src_and_dst,
++		[SNET_SOCKET_SOCK_RCV_SKB]	= &check_src_and_dst,
++		[SNET_SOCKET_CLOSE]		= &check_none,
++	};
++
++	if (info->syscall >= SNET_NR_SOCKET_TYPES)
++		return 0;
++	else {
++		if ((st->syscall == info->syscall) &&
++		    (st->protocol == info->protocol) &&
++		    (st->family == info->family) &&
++		    ticket_df[info->syscall](st, info))
++			return 1;
++		else
++			return 0;
++	}
++}
++
++void snet_ticket_fill(struct snet_ticket *st, struct snet_info *info,
++		      enum snet_verdict verdict)
++{
++	st->syscall = info->syscall;
++	st->protocol = info->protocol;
++	st->family = info->family;
++	st->src.u.port = info->src.u.port;
++	st->dst.u.port = info->dst.u.port;
++	st->verdict = verdict;
++
++	switch (info->family) {
++	case AF_INET:
++		st->src.u3.ip = info->src.u3.ip;
++		st->dst.u3.ip = info->dst.u3.ip;
++		pr_debug("ticket=%p [syscall=%s protocol=%u "
++			 "family=%u %pI4:%u->%pI4:%u] verdict=%s | tsec=%p pid=%u\n",
++			 st, snet_syscall_name(st->syscall), st->protocol,
++			 st->family, &st->src.u3.ip, st->src.u.port,
++			 &st->dst.u3.ip, st->dst.u.port,
++			 snet_verdict_name(st->verdict), st->tsec, current->pid);
++		break;
++	case AF_INET6:
++		memcpy(&st->src.u3.ip6, &info->src.u3.ip6,
++		       sizeof(info->src.u3.ip6));
++		memcpy(&st->dst.u3.ip6, &info->dst.u3.ip6,
++		       sizeof(info->dst.u3.ip6));
++		pr_debug("ticket=%p [syscall=%s protocol=%u "
++			 "family=%u %pI6:%u->%pI6:%u] verdict=%s | tsec=%p pid=%u\n",
++			 st, snet_syscall_name(st->syscall), st->protocol,
++			 st->family, &st->src.u3.ip6, st->src.u.port,
++			 &st->dst.u3.ip6, st->dst.u.port,
++			 snet_verdict_name(st->verdict), st->tsec, current->pid);
++		break;
++	default:
++		break;
++	}
++	return;
++}
+diff --git a/security/snet/snet_ticket_helper.h b/security/snet/snet_ticket_helper.h
+new file mode 100644
+index 0000000..177bca5
+--- /dev/null
++++ b/security/snet/snet_ticket_helper.h
+@@ -0,0 +1,8 @@
++#ifndef _SNET_TICKET_HELPER_H
++#define _SNET_TICKET_HELPER_H
++
++void snet_ticket_fill(struct snet_ticket *st, struct snet_info *info,
++		      enum snet_verdict verdict);
++int __ticket_check(struct snet_ticket *st, struct snet_info *info);
++
++#endif	/* _SNET_TICKET_HELPER_H */
 -- 
 1.7.4.1
