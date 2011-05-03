@@ -1,89 +1,68 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the rcu tree with the net tree
-Date: Tue, 3 May 2011 14:24:19 +1000
-Message-ID: <20110503142419.2b7d5e23.sfr@canb.auug.org.au>
+From: Viresh Kumar <viresh.kumar@st.com>
+Subject: [PATCH V2] net/stmmac: Move "#include <linux/platform_device.h>" to linux/stmmac.h
+Date: Tue, 3 May 2011 10:06:45 +0530
+Message-ID: <51e0617ee964ae60313a99804f4842ac6e96c129.1304397312.git.viresh.kumar@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <shiraz.hashim@st.com>,
+	<armando.visconti@st.com>, <deepak.sikri@st.com>,
+	<viresh.linux@gmail.com>, Viresh Kumar <viresh.kumar@st.com>
+To: <peppe.cavallaro@st.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:57540 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750862Ab1ECEhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 00:37:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
+stmmac.h uses struct platform_device and doesn't include
+<linux/platform_device.h>. Whereas drivers/net/stmmac/stmmac.h includes=
+ it, but
+doesn't directly use it. And so we get following compilation warning wh=
+ile using
+this file:
+	warning: =E2=80=98struct platform_device=E2=80=99 declared inside para=
+meter list
 
-Today's linux-next merge of the rcu tree got a conflict in
-net/core/filter.c between commit 0a14842f5a3c ("net: filter: Just In Time
-compiler for x86-64") from the net tree and commit 10cde158c259
-("net,rcu: convert call_rcu(sk_filter_release_rcu) to kfree_rcu") from
-the rcu tree.
+This patch includes <linux/platform_device.h> in linux/stmmac.h and rem=
+oves it
+from drivers/net/stmmac/stmmac.h
 
-The former adds another operation into sk_filter_release_rcu(), so I have
-effectively reverted the rcu tree change for now (by applying the patch
-below as a merge fixup).
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 3 May 2011 14:06:50 +1000
-Subject: [PATCH] Revert "net,rcu: convert call_rcu(sk_filter_release_rcu) to
- kfree_rcu"
-
-This reverts commit 10cde158c2591422a2b32a2f560f406b8e69bee6.
+Signed-off-by: Viresh Kumar <viresh.kumar@st.com>
 ---
- include/net/sock.h |    4 +++-
- net/core/filter.c  |   13 +++++++++++++
- 2 files changed, 16 insertions(+), 1 deletions(-)
+ drivers/net/stmmac/stmmac.h |    1 -
+ include/linux/stmmac.h      |    2 ++
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 1a2f255..f2046e4 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1180,6 +1180,8 @@ extern void sk_common_release(struct sock *sk);
- /* Initialise core socket variables */
- extern void sock_init_data(struct socket *sock, struct sock *sk);
- 
-+extern void sk_filter_release_rcu(struct rcu_head *rcu);
+diff --git a/drivers/net/stmmac/stmmac.h b/drivers/net/stmmac/stmmac.h
+index 5f06c47..2b076b3 100644
+--- a/drivers/net/stmmac/stmmac.h
++++ b/drivers/net/stmmac/stmmac.h
+@@ -21,7 +21,6 @@
+ **********************************************************************=
+*********/
+=20
+ #define DRV_MODULE_VERSION	"Nov_2010"
+-#include <linux/platform_device.h>
+ #include <linux/stmmac.h>
+=20
+ #include "common.h"
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index f29197a..9529e49 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -26,6 +26,8 @@
+ #ifndef __STMMAC_PLATFORM_DATA
+ #define __STMMAC_PLATFORM_DATA
+=20
++#include <linux/platform_device.h>
 +
- /**
-  *	sk_filter_release - release a socket filter
-  *	@fp: filter to remove
-@@ -1190,7 +1192,7 @@ extern void sock_init_data(struct socket *sock, struct sock *sk);
- static inline void sk_filter_release(struct sk_filter *fp)
- {
- 	if (atomic_dec_and_test(&fp->refcnt))
--		kfree_rcu(fp, rcu);
-+		call_rcu(&fp->rcu, sk_filter_release_rcu);
- }
- 
- static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 66d403d..0eb8c44 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -572,6 +572,19 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
- EXPORT_SYMBOL(sk_chk_filter);
- 
- /**
-+ * 	sk_filter_release_rcu - Release a socket filter by rcu_head
-+ *	@rcu: rcu_head that contains the sk_filter to free
-+ */
-+void sk_filter_release_rcu(struct rcu_head *rcu)
-+{
-+	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
-+
-+	bpf_jit_free(fp);
-+	kfree(fp);
-+}
-+EXPORT_SYMBOL(sk_filter_release_rcu);
-+
-+/**
-  *	sk_attach_filter - attach a socket filter
-  *	@fprog: the filter program
-  *	@sk: the socket to use
--- 
-1.7.4.4
+ /* platform data for platform device structure's platform_data field *=
+/
+=20
+ /* Private data for the STM on-board ethernet driver */
+--=20
+1.7.2.2
+
