@@ -1,59 +1,84 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next] ethtool: Add 20G bit definitions
-Date: Tue, 3 May 2011 10:30:08 +0300
-Message-ID: <1304407809.2518.1.camel@lb-tlvb-dmitry>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH] usbnet: runtime pm: fix out of memory
+Date: Tue, 3 May 2011 09:53:44 +0200
+Message-ID: <201105030953.44131.oneukum@suse.de>
+References: <1304066229-30875-1-git-send-email-tom.leiming@gmail.com> <20110502.155214.179953741.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com,
-	bhutchings@solarflare.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4860 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750852Ab1ECHa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2011 03:30:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110502.155214.179953741.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add 20G supported and advertising bit definitions.
-20G will be supported with the 57840 chips.
+Am Dienstag, 3. Mai 2011, 00:52:14 schrieb David Miller:
+> From: tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+> Date: Fri, 29 Apr 2011 16:37:09 +0800
+>=20
+> > From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >=20
+> > This patch makes use of the EVENT_DEV_OPEN flag introduced recently=
+ to
+> > fix one out of memory issue, which can be reproduced on omap3/4 bas=
+ed
+> > pandaboard/beagle XM easily with steps below:
+>  ...
+>=20
+> Oliver please review this patch.  Thanks!
+>=20
+> >       - enable runtime pm
+> >       echo auto > /sys/devices/platform/usbhs-omap.0/ehci-omap.0/us=
+b1/1-1/1-1.1/power/control
+> >=20
+> >       - ifconfig eth0 up
+> >=20
+> >       - then out of memroy happened, see [1] for kernel message.
+> >=20
+> > Follows my analysis:
+> >       - 'ifconfig eth0 up' brings eth0 out of suspend, and usbnet_r=
+esume
+> >       is called to schedule dev->bh, then rx urbs are submited to p=
+repare for
+> >       recieving data;
+> >=20
+> >       - some usbnet devices will produce garbage rx packets flood i=
+f
+> >       info->reset is not called in usbnet_open.
+> >=20
+> >       - so there is no enough chances for usbnet_bh to handle and r=
+elease
+> >       recieved skb buffers since many rx interrupts consumes cpu, s=
+o out of memory
+> >       for atomic allocation in rx_submit happened.
+> >=20
+> > This patch fixes the issue by simply not allowing schedule of usbne=
+t_bh until device
+> > is opened.
 
+Do the devices in question use cdc_ether?
+The problem I see with this patch is that cdc_ether uses .reset_resume =
+=3D usbnet_resume
+Therefore the device will not have been reset from the viewpoint of the=
+ device, yet
+the device may be open, so the bug would strike again.
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-------
- include/linux/ethtool.h |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+It seems to me that this patch is not wrong as such, but incomplete.
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 9de3127..620a96a 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -1024,6 +1024,8 @@ struct ethtool_ops {
- #define SUPPORTED_10000baseKX4_Full	(1 << 18)
- #define SUPPORTED_10000baseKR_Full	(1 << 19)
- #define SUPPORTED_10000baseR_FEC	(1 << 20)
-+#define SUPPORTED_20000baseMLD2_Full	(1 << 21)
-+#define SUPPORTED_20000baseKR2_Full	(1 << 22)
- 
- /* Indicates what features are advertised by the interface. */
- #define ADVERTISED_10baseT_Half		(1 << 0)
-@@ -1047,6 +1049,8 @@ struct ethtool_ops {
- #define ADVERTISED_10000baseKX4_Full	(1 << 18)
- #define ADVERTISED_10000baseKR_Full	(1 << 19)
- #define ADVERTISED_10000baseR_FEC	(1 << 20)
-+#define ADVERTISED_20000baseMLD2_Full	(1 << 21)
-+#define ADVERTISED_20000baseKR2_Full	(1 << 22)
- 
- /* The following are all involved in forcing a particular link
-  * mode for the device for setting things.  When getting the
--- 
-1.7.1
+	Regards
+		Oliver
 
-
-
-
-
-
+--=20
+- - -=20
+SUSE LINUX Products GmbH, GF: Jeff Hawn, Jennifer Guild, Felix Imend=F6=
+rffer, HRB 16746 (AG N=FCrnberg)=20
+Maxfeldstra=DFe 5                        =20
+90409 N=FCrnberg=20
+Germany=20
+- - -=20
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
