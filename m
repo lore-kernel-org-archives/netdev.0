@@ -1,83 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
-Date: Wed, 04 May 2011 00:34:44 +0100
-Message-ID: <1304465684.2873.26.camel@bwh-desktop>
-References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>
-	 <20110503161226.29251.40838.stgit@gitlad.jf.intel.com>
-	 <4DC08E7B.7070906@chelsio.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: A race in register_netdevice()
+Date: Tue, 3 May 2011 16:41:59 -0700
+Message-ID: <20110503164159.6664fa48@nehalam>
+References: <87y62ugg0a.fsf@purkki.adurom.net>
+	<20110428165237.0c1eddbc@nehalam>
+	<878vungyq4.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:39015 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752883Ab1ECXer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 19:34:47 -0400
-In-Reply-To: <4DC08E7B.7070906@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <878vungyq4.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-05-03 at 16:23 -0700, Dimitris Michailidis wrote:
-> On 05/03/2011 09:12 AM, Alexander Duyck wrote:
-[...]
-> > +int rxclass_rule_ins(int fd, struct ifreq *ifr,
-> > +		     struct ethtool_rx_flow_spec *fsp)
-> > +{
-> > +	struct ethtool_rxnfc nfccmd;
-> > +	__u32 loc = fsp->location;
-> > +	int err;
-> > +
-> > +	/*
-> > +	 * if location is unspecified pull rules from device
-> > +	 * and allocate a free rule for our use
-> > +	 */
-> > +	if (loc == RX_CLS_LOC_UNSPEC) {
-> > +		/* init table of available rules */
-> > +		err = rmgr_init(fd, ifr);
-> > +		if (err < 0)
-> > +			return err;
-> > +
-> > +		/* verify rule location */
-> > +		err = rmgr_add(fsp);
-> > +		if (err < 0)
-> > +			return err;
-> > +
-> > +		/* cleanup table and free resources */
-> > +		rmgr_cleanup();
-> > +	}
+On Wed, 04 May 2011 02:18:11 +0300
+Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org> wrote:
+
+> Hi Stephen,
 > 
-> This logic where ethtool tries to select a filter slot when a user provides 
-> RX_CLS_LOC_UNSPEC does not work in general.  It assumes that all slots are 
-> equal and a new filter can go into any available slot. But a device may have 
-> restrictions on where a filter may go that ethtool doesn't know.
-
-I agree.  And if filter lookup is largely hash-based (as it is in
-Solarflare hardware) the user will also find it very difficult to
-specify the right location!
-
-> I mentioned during a previous review that for cxgb4 some filters require a 
-> slot number that is a multiple of 4.  There are some other constraints as 
-> well depending on the type of filter being added. For such a device ethtool 
-> doesn't know enough to handle RX_CLS_LOC_UNSPEC correctly.
->
-> I think RX_CLS_LOC_UNSPEC should be passed to the driver, where there is 
-> enough knowledge to pick an appropriate slot.  So I'd remove the
+> Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org> writes:
 > 
->      if (loc == RX_CLS_LOC_UNSPEC)
+> > On Fri, 29 Apr 2011 01:36:37 +0300
+> > Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org> wrote:
+> >
+> >> there seems to be a race in register_netdevice(), which is reported here:
+> >> 
+> >> https://bugzilla.kernel.org/show_bug.cgi?id=15606
+> >> 
+> >> This is visible at least with flimflam and ath6kl. Basically what
+> >> happens is this:
+> >> 
+> >> Apr 29 00:21:35 roska flimflamd[2598]: src/udev.c:add_net_device() 
+> >> Apr 29 00:21:35 roska flimflamd[2598]: connman_inet_ifname: SIOCGIFNAME(index
+> >> 4): No such device
+> >> Apr 29 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message() buf
+> >> 0xbfefda3c len 1004
+> >> Apr 29 00:21:45 roska flimflamd[2598]: src/rtnl.c:rtnl_message()
+> >> NEWLINK len 1004 type 16 flags 0x0000 seq 0
 > 
-> block above, let the driver pick a slot, and then pass the selected location 
-> back for ethtool to report.
+> [...]
+> 
+> >> I have confirmed that both of these patches fix the issue. Now I'm
+> >> wondering which one is the best way forward. Or is there a better way
+> >> to fix this?
+> >> 
+> >
+> > I see no problem with moving this.
+> > SIOCGIFNAME should not need to hold rtnl.
+> 
+> I'm having difficulties of fixing the race and exploring other
+> options. Is there any particular issue why SIOCGIFNAME should not take
+> rtnl?
 
-But first we have to specify this in the ethtool API.  So please propose
-a patch to ethtool.h.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+None really, but the answer given by SIOCGIFNAME is going to race
+anyway. I.e if ioctl returns a value, by the time user space sees it
+the result may have changed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
