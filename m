@@ -1,87 +1,155 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: ehea: fix wrongly-reported supported modes
-Date: Tue, 03 May 2011 22:34:20 +0100
-Message-ID: <1304458460.2873.18.camel@bwh-desktop>
-References: <1304451745.6899.15.camel@dream>
-	 <1304453775.2873.17.camel@bwh-desktop>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC v3 02/10] Revert "lsm: Remove the socket_post_accept() hook"
+Date: Tue, 3 May 2011 18:02:34 -0400
+Message-ID: <201105031802.34724.paul.moore@hp.com>
+References: <1304432663-1575-1-git-send-email-sam@synack.fr> <1304432663-1575-3-git-send-email-sam@synack.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:20409 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755133Ab1ECVeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 17:34:25 -0400
-In-Reply-To: <1304453775.2873.17.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Patrick McHardy <kaber@trash.net>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Grzegorz Nosek <root@localdomain.pl>
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1304432663-1575-3-git-send-email-sam@synack.fr>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-05-03 at 21:16 +0100, Ben Hutchings wrote:
-> On Tue, 2011-05-03 at 16:42 -0300, Kleber Sacilotto de Souza wrote:
-> > Currently EHEA reports to ethtool as supporting 10000baseT_Full and
-> > FIBRE independent of the hardware configuration. However, these
-> > capabilities should be reported only if the physical port and
-> > the medium support them, which is the case where the physical port
-> > is connected at 10Gb.
-> >
-> > Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-> > ---
-> >  drivers/net/ehea/ehea_ethtool.c |   21 ++++++++++++++-------
-> >  1 files changed, 14 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
-> > index 3e2e734..04716c2 100644
-> > --- a/drivers/net/ehea/ehea_ethtool.c
-> > +++ b/drivers/net/ehea/ehea_ethtool.c
-> > @@ -55,15 +55,22 @@ static int ehea_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-> >  		cmd->duplex = -1;
-> >  	}
-> > 
-> > -	cmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full
-> > -		       | SUPPORTED_100baseT_Full |  SUPPORTED_100baseT_Half
-> > -		       | SUPPORTED_10baseT_Full | SUPPORTED_10baseT_Half
-> > -		       | SUPPORTED_Autoneg | SUPPORTED_FIBRE);
-> > +	cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
-> > +		       | SUPPORTED_100baseT_Half | SUPPORTED_10baseT_Full
-> > +		       | SUPPORTED_10baseT_Half | SUPPORTED_Autoneg);
-> > 
-> > -	cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_Autoneg
-> > -			 | ADVERTISED_FIBRE);
-> > +	cmd->advertising = ADVERTISED_Autoneg;
-> > +
-> > +	if (cmd->speed == SPEED_10000) {
-> > +		cmd->supported |= (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
-> > +		cmd->advertising |= (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
-> > +		cmd->port = PORT_FIBRE;
-> > +	} else {
-> > +		cmd->supported |= SUPPORTED_TP;
-> > +		cmd->advertising |= (ADVERTISED_1000baseT_Full | ADVERTISED_TP);
-> > +		cmd->port = PORT_TP;
-> > +	}
-> 
-> This doesn't make any sense.  If the current speed is 10G, then the
-> driver also claims to support speeds of 10M, 100M, 1G and 10G.  But then
-                                                               ^
-                                                           on fibre
+On Tuesday, May 03, 2011 10:24:15 AM Samir Bellabes wrote:
+> snet needs to reintroduce this hook, as it was designed to be: a hook for
+> updating security informations on objects.
 
-> if the speed actually is <10G, the driver claims to support TP.  What's
-> going on here?
-> 
-> (Also, claiming to support BASE-T modes on non-TP media is bogus, though
-> I understand why people are doing it.)
-> 
-> Ben.
-> 
-> > -	cmd->port = PORT_FIBRE;
-> >  	cmd->autoneg = port->autoneg == 1 ? AUTONEG_ENABLE : AUTONEG_DISABLE;
-> > 
-> >  	return 0;
-> 
+Looking at this and 5/10 again, it seems that you should be able to do what 
+you need with the sock_graft() hook.  Am I missing something?
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+My apologies if we've already discussed this approach previously ...
 
+> Originally, This was a direct revert of commit
+> 8651d5c0b1f874c5b8307ae2b858bc40f9f02482.
+> 
+> But from the comment of Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> :
+> > Please move security_socket_post_accept() to before fd_install().
+> > Otherwise, other threads which share fd tables can use
+> > security-informations-not-yet-updated accept()ed sockets.
+> 
+> Signed-off-by: Samir Bellabes <sam@synack.fr>
+> Acked-by: Serge Hallyn <serue@us.ibm.com>
+> 
+> snet needs to reintroduce this hook, as it was designed to be: a hook for
+> updating security informations on objects.
+> 
+> Signed-off-by: Samir Bellabes <sam@synack.fr>
+> ---
+>  include/linux/security.h |   13 +++++++++++++
+>  net/socket.c             |    2 ++
+>  security/capability.c    |    5 +++++
+>  security/security.c      |    5 +++++
+>  4 files changed, 25 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/security.h b/include/linux/security.h
+> index da0d59e..02effe5 100644
+> --- a/include/linux/security.h
+> +++ b/include/linux/security.h
+> @@ -875,6 +875,11 @@ static inline void security_free_mnt_opts(struct
+> security_mnt_opts *opts) *	@sock contains the listening socket structure.
+>   *	@newsock contains the newly created server socket for connection.
+>   *	Return 0 if permission is granted.
+> + * @socket_post_accept:
+> + *	This hook allows a security module to copy security
+> + *	information into the newly created socket's inode.
+> + *	@sock contains the listening socket structure.
+> + *	@newsock contains the newly created server socket for connection.
+>   * @socket_sendmsg:
+>   *	Check permission before transmitting a message to another socket.
+>   *	@sock contains the socket structure.
+> @@ -1587,6 +1592,8 @@ struct security_operations {
+>  			       struct sockaddr *address, int addrlen);
+>  	int (*socket_listen) (struct socket *sock, int backlog);
+>  	int (*socket_accept) (struct socket *sock, struct socket *newsock);
+> +	void (*socket_post_accept) (struct socket *sock,
+> +				    struct socket *newsock);
+>  	int (*socket_sendmsg) (struct socket *sock,
+>  			       struct msghdr *msg, int size);
+>  	int (*socket_recvmsg) (struct socket *sock,
+> @@ -2555,6 +2562,7 @@ int security_socket_bind(struct socket *sock, struct
+> sockaddr *address, int addr int security_socket_connect(struct socket
+> *sock, struct sockaddr *address, int addrlen); int
+> security_socket_listen(struct socket *sock, int backlog);
+>  int security_socket_accept(struct socket *sock, struct socket *newsock);
+> +void security_socket_post_accept(struct socket *sock, struct socket
+> *newsock); int security_socket_sendmsg(struct socket *sock, struct msghdr
+> *msg, int size); int security_socket_recvmsg(struct socket *sock, struct
+> msghdr *msg, int size, int flags);
+> @@ -2640,6 +2648,11 @@ static inline int security_socket_accept(struct
+> socket *sock, return 0;
+>  }
+> 
+> +static inline void security_socket_post_accept(struct socket *sock,
+> +					       struct socket *newsock)
+> +{
+> +}
+> +
+>  static inline int security_socket_sendmsg(struct socket *sock,
+>  					  struct msghdr *msg, int size)
+>  {
+> diff --git a/net/socket.c b/net/socket.c
+> index d588e9e..7807904 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -1535,6 +1535,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr
+> __user *, upeer_sockaddr, goto out_fd;
+>  	}
+> 
+> +	security_socket_post_accept(sock, newsock);
+> +
+>  	/* File flags are not inherited via accept() unlike another OSes. */
+> 
+>  	fd_install(newfd, newfile);
+> diff --git a/security/capability.c b/security/capability.c
+> index 1f8bbe2..da68c60 100644
+> --- a/security/capability.c
+> +++ b/security/capability.c
+> @@ -593,6 +593,10 @@ static int cap_socket_accept(struct socket *sock,
+> struct socket *newsock) return 0;
+>  }
+> 
+> +static void cap_socket_post_accept(struct socket *sock, struct socket
+> *newsock) +{
+> +}
+> +
+>  static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int
+> size) {
+>  	return 0;
+> @@ -1022,6 +1026,7 @@ void __init security_fixup_ops(struct
+> security_operations *ops) set_to_cap_if_null(ops, socket_connect);
+>  	set_to_cap_if_null(ops, socket_listen);
+>  	set_to_cap_if_null(ops, socket_accept);
+> +	set_to_cap_if_null(ops, socket_post_accept);
+>  	set_to_cap_if_null(ops, socket_sendmsg);
+>  	set_to_cap_if_null(ops, socket_recvmsg);
+>  	set_to_cap_if_null(ops, socket_getsockname);
+> diff --git a/security/security.c b/security/security.c
+> index 84187d8..eda2b75 100644
+> --- a/security/security.c
+> +++ b/security/security.c
+> @@ -1038,6 +1038,11 @@ int security_socket_accept(struct socket *sock,
+> struct socket *newsock) return security_ops->socket_accept(sock, newsock);
+>  }
+> 
+> +void security_socket_post_accept(struct socket *sock, struct socket
+> *newsock) +{
+> +	security_ops->socket_post_accept(sock, newsock);
+> +}
+> +
+>  int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int
+> size) {
+>  	return security_ops->socket_sendmsg(sock, msg, size);
+
+
+--
+paul moore
+linux @ hp
