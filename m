@@ -1,78 +1,43 @@
-From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-Subject: [PATCH] net: ehea: fix wrongly-reported supported modes
-Date: Tue, 03 May 2011 16:42:25 -0300
-Message-ID: <1304451745.6899.15.camel@dream>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V3 2/8] Add a new zerocopy device flag
+Date: Tue, 03 May 2011 13:11:21 -0700
+Message-ID: <1304453481.20660.39.camel@localhost.localdomain>
+References: <1303328216.19336.18.camel@localhost.localdomain>
+	 <1303328648.19336.24.camel@localhost.localdomain>
+	 <20110502104257.GA21625@redhat.com>
+	 <1304362028.20660.15.camel@localhost.localdomain>
+	 <20110502195302.GA25619@redhat.com>
+	 <1304444570.20660.32.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp02.br.ibm.com ([32.104.18.86]:40032 "EHLO
-	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754661Ab1ECTme (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 15:42:34 -0400
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id p43Gfpg0003360
-	for <netdev@vger.kernel.org>; Tue, 3 May 2011 13:41:51 -0300
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p43Jdb1w4911264
-	for <netdev@vger.kernel.org>; Tue, 3 May 2011 16:39:39 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p43JgBIV029923
-	for <netdev@vger.kernel.org>; Tue, 3 May 2011 16:42:11 -0300
-Received: from [9.12.227.105] ([9.12.227.105])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id p43JgAV5029877
-	for <netdev@vger.kernel.org>; Tue, 3 May 2011 16:42:10 -0300
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304444570.20660.32.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently EHEA reports to ethtool as supporting 10000baseT_Full and
-FIBRE independent of the hardware configuration. However, these
-capabilities should be reported only if the physical port and
-the medium support them, which is the case where the physical port
-is connected at 10Gb.
+On Tue, 2011-05-03 at 10:42 -0700, Shirley Ma wrote:
+> Better to prevent this kind of skbs to be used in skb_clone, expand
+> head
+> for now.
 
-Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
----
- drivers/net/ehea/ehea_ethtool.c |   21 ++++++++++++++-------
- 1 files changed, 14 insertions(+), 7 deletions(-)
+I looked at the code, skb_clone shouldn't have any problem since ubuf
+callback is only called after the lower device DMA has done. I can
+modify the zerocopy len to 256 bytes so expand head should be OK as
+well. So we only need to prevent recycle skb. I also checked the device
+drivers, only a few device do RX buffers recycle. So there shouldn't be
+any problem.
 
-diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
-index 3e2e734..04716c2 100644
---- a/drivers/net/ehea/ehea_ethtool.c
-+++ b/drivers/net/ehea/ehea_ethtool.c
-@@ -55,15 +55,22 @@ static int ehea_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		cmd->duplex = -1;
- 	}
-
--	cmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full
--		       | SUPPORTED_100baseT_Full |  SUPPORTED_100baseT_Half
--		       | SUPPORTED_10baseT_Full | SUPPORTED_10baseT_Half
--		       | SUPPORTED_Autoneg | SUPPORTED_FIBRE);
-+	cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
-+		       | SUPPORTED_100baseT_Half | SUPPORTED_10baseT_Full
-+		       | SUPPORTED_10baseT_Half | SUPPORTED_Autoneg);
-
--	cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_Autoneg
--			 | ADVERTISED_FIBRE);
-+	cmd->advertising = ADVERTISED_Autoneg;
-+
-+	if (cmd->speed == SPEED_10000) {
-+		cmd->supported |= (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
-+		cmd->advertising |= (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
-+		cmd->port = PORT_FIBRE;
-+	} else {
-+		cmd->supported |= SUPPORTED_TP;
-+		cmd->advertising |= (ADVERTISED_1000baseT_Full | ADVERTISED_TP);
-+		cmd->port = PORT_TP;
-+	}
-
--	cmd->port = PORT_FIBRE;
- 	cmd->autoneg = port->autoneg == 1 ? AUTONEG_ENABLE : AUTONEG_DISABLE;
-
- 	return 0;
--- 
-1.7.1
+I will add more comments here to make sure when ZEROCOPY flag is set,
+the ubuf callback should only be called when last reference to this skb
+is gone.
 
 
-
+Thanks
+Shirley
