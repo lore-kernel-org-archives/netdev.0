@@ -1,155 +1,28 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC v3 02/10] Revert "lsm: Remove the socket_post_accept() hook"
-Date: Tue, 3 May 2011 18:02:34 -0400
-Message-ID: <201105031802.34724.paul.moore@hp.com>
-References: <1304432663-1575-1-git-send-email-sam@synack.fr> <1304432663-1575-3-git-send-email-sam@synack.fr>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] pktgen: use %pI6c for printing IPv6 addresses
+Date: Tue, 03 May 2011 15:11:54 -0700
+Message-ID: <1304460714.1788.40.camel@Joe-Laptop>
+References: <20110503212340.GA25293@p183>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Patrick McHardy <kaber@trash.net>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Grzegorz Nosek <root@localdomain.pl>
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1304432663-1575-3-git-send-email-sam@synack.fr>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1201 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750888Ab1ECWLz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2011 18:11:55 -0400
+In-Reply-To: <20110503212340.GA25293@p183>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, May 03, 2011 10:24:15 AM Samir Bellabes wrote:
-> snet needs to reintroduce this hook, as it was designed to be: a hook for
-> updating security informations on objects.
+On Wed, 2011-05-04 at 00:23 +0300, Alexey Dobriyan wrote:
+> I don't know why %pI6 doesn't compress, but the format specifier is
+> kernel-standard, so use it.
 
-Looking at this and 5/10 again, it seems that you should be able to do what 
-you need with the sock_graft() hook.  Am I missing something?
-
-My apologies if we've already discussed this approach previously ...
-
-> Originally, This was a direct revert of commit
-> 8651d5c0b1f874c5b8307ae2b858bc40f9f02482.
-> 
-> But from the comment of Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> :
-> > Please move security_socket_post_accept() to before fd_install().
-> > Otherwise, other threads which share fd tables can use
-> > security-informations-not-yet-updated accept()ed sockets.
-> 
-> Signed-off-by: Samir Bellabes <sam@synack.fr>
-> Acked-by: Serge Hallyn <serue@us.ibm.com>
-> 
-> snet needs to reintroduce this hook, as it was designed to be: a hook for
-> updating security informations on objects.
-> 
-> Signed-off-by: Samir Bellabes <sam@synack.fr>
-> ---
->  include/linux/security.h |   13 +++++++++++++
->  net/socket.c             |    2 ++
->  security/capability.c    |    5 +++++
->  security/security.c      |    5 +++++
->  4 files changed, 25 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/security.h b/include/linux/security.h
-> index da0d59e..02effe5 100644
-> --- a/include/linux/security.h
-> +++ b/include/linux/security.h
-> @@ -875,6 +875,11 @@ static inline void security_free_mnt_opts(struct
-> security_mnt_opts *opts) *	@sock contains the listening socket structure.
->   *	@newsock contains the newly created server socket for connection.
->   *	Return 0 if permission is granted.
-> + * @socket_post_accept:
-> + *	This hook allows a security module to copy security
-> + *	information into the newly created socket's inode.
-> + *	@sock contains the listening socket structure.
-> + *	@newsock contains the newly created server socket for connection.
->   * @socket_sendmsg:
->   *	Check permission before transmitting a message to another socket.
->   *	@sock contains the socket structure.
-> @@ -1587,6 +1592,8 @@ struct security_operations {
->  			       struct sockaddr *address, int addrlen);
->  	int (*socket_listen) (struct socket *sock, int backlog);
->  	int (*socket_accept) (struct socket *sock, struct socket *newsock);
-> +	void (*socket_post_accept) (struct socket *sock,
-> +				    struct socket *newsock);
->  	int (*socket_sendmsg) (struct socket *sock,
->  			       struct msghdr *msg, int size);
->  	int (*socket_recvmsg) (struct socket *sock,
-> @@ -2555,6 +2562,7 @@ int security_socket_bind(struct socket *sock, struct
-> sockaddr *address, int addr int security_socket_connect(struct socket
-> *sock, struct sockaddr *address, int addrlen); int
-> security_socket_listen(struct socket *sock, int backlog);
->  int security_socket_accept(struct socket *sock, struct socket *newsock);
-> +void security_socket_post_accept(struct socket *sock, struct socket
-> *newsock); int security_socket_sendmsg(struct socket *sock, struct msghdr
-> *msg, int size); int security_socket_recvmsg(struct socket *sock, struct
-> msghdr *msg, int size, int flags);
-> @@ -2640,6 +2648,11 @@ static inline int security_socket_accept(struct
-> socket *sock, return 0;
->  }
-> 
-> +static inline void security_socket_post_accept(struct socket *sock,
-> +					       struct socket *newsock)
-> +{
-> +}
-> +
->  static inline int security_socket_sendmsg(struct socket *sock,
->  					  struct msghdr *msg, int size)
->  {
-> diff --git a/net/socket.c b/net/socket.c
-> index d588e9e..7807904 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1535,6 +1535,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr
-> __user *, upeer_sockaddr, goto out_fd;
->  	}
-> 
-> +	security_socket_post_accept(sock, newsock);
-> +
->  	/* File flags are not inherited via accept() unlike another OSes. */
-> 
->  	fd_install(newfd, newfile);
-> diff --git a/security/capability.c b/security/capability.c
-> index 1f8bbe2..da68c60 100644
-> --- a/security/capability.c
-> +++ b/security/capability.c
-> @@ -593,6 +593,10 @@ static int cap_socket_accept(struct socket *sock,
-> struct socket *newsock) return 0;
->  }
-> 
-> +static void cap_socket_post_accept(struct socket *sock, struct socket
-> *newsock) +{
-> +}
-> +
->  static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int
-> size) {
->  	return 0;
-> @@ -1022,6 +1026,7 @@ void __init security_fixup_ops(struct
-> security_operations *ops) set_to_cap_if_null(ops, socket_connect);
->  	set_to_cap_if_null(ops, socket_listen);
->  	set_to_cap_if_null(ops, socket_accept);
-> +	set_to_cap_if_null(ops, socket_post_accept);
->  	set_to_cap_if_null(ops, socket_sendmsg);
->  	set_to_cap_if_null(ops, socket_recvmsg);
->  	set_to_cap_if_null(ops, socket_getsockname);
-> diff --git a/security/security.c b/security/security.c
-> index 84187d8..eda2b75 100644
-> --- a/security/security.c
-> +++ b/security/security.c
-> @@ -1038,6 +1038,11 @@ int security_socket_accept(struct socket *sock,
-> struct socket *newsock) return security_ops->socket_accept(sock, newsock);
->  }
-> 
-> +void security_socket_post_accept(struct socket *sock, struct socket
-> *newsock) +{
-> +	security_ops->socket_post_accept(sock, newsock);
-> +}
-> +
->  int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int
-> size) {
->  	return security_ops->socket_sendmsg(sock, msg, size);
+Because seq_printf output using %pI6 has a known
+output style and shouldn't be changed to avoid
+breaking user applications.
 
 
---
-paul moore
-linux @ hp
