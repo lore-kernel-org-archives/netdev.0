@@ -1,7 +1,7 @@
 From: Samir Bellabes <sam@synack.fr>
-Subject: [RFC v3 08/10] snet: introduce snet_ticket
-Date: Tue,  3 May 2011 16:24:21 +0200
-Message-ID: <1304432663-1575-9-git-send-email-sam@synack.fr>
+Subject: [RFC v3 04/10] snet: introduce snet_event
+Date: Tue,  3 May 2011 16:24:17 +0200
+Message-ID: <1304432663-1575-5-git-send-email-sam@synack.fr>
 References: <1304432663-1575-1-git-send-email-sam@synack.fr>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -15,448 +15,257 @@ In-Reply-To: <1304432663-1575-1-git-send-email-sam@synack.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this patch adds the snet's subsystem managing granted-access tickets
+This patch adds the snet's subsystem responsive of managing events
 
-snet is using the term 'ticket' for refering to a structure which keeps
-informations about verdict, coming from userspace.
+snet is using the word 'event' for a couple of values [syscall, protocol].
+For example, [listen, tcp] or [sendmsg, dccp] are events.
 
-generic informations:
-  timeout
-  syscall
-  protocol
-  verdict
-
-protocol-dependant informations : (so some infos may not be used)
-  address family
-  socket type
-  source address
-  source port
-  distant address
-  distant port
-
-ticket are attached to the "void *security" pointer of task_struct
-
-there are 3 modes:
-
-0. no ticket - SNET_TICKET_OFF
-   every syscalls has to be verified by userspace.
-
-1. timeout fixed - SNET_TICKET_FIX
-   for each response from the userspace, we are creating a ticket,
-   attached to the task_struct, with the filled informations, and a
-   fixed timeout value (10 secs by default).
-   then before asking userspace, kernel mecanism is checking existing
-   tickets for the task_struct, if there is a granted-access ticket, we
-   are using the verdict value attached.
-   after the timeout value, the ticket is destroyed.
-
-2. timeout with extendable value - SNET_TICKET_EXTEND
-   this is the same mecanism as 1, but every time a ticket is matched
-   and used, the timeout value is reset to the default value, so its
-   life is extended.
+This patch introduces a hastable 'event_hash' and operations (add/remove/search..)
+in order to manage which events have to be protected.
+With the help of the communication's subsystem, managing orders are coming from
+userspace.
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- security/snet/snet_ticket.c        |  195 ++++++++++++++++++++++++++++++++++++
- security/snet/snet_ticket.h        |   37 +++++++
- security/snet/snet_ticket_helper.c |  127 +++++++++++++++++++++++
- security/snet/snet_ticket_helper.h |    8 ++
- 4 files changed, 367 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/snet_ticket.c
- create mode 100644 security/snet/snet_ticket.h
- create mode 100644 security/snet/snet_ticket_helper.c
- create mode 100644 security/snet/snet_ticket_helper.h
+ security/snet/snet_event.c |  201 ++++++++++++++++++++++++++++++++++++++++++++
+ security/snet/snet_event.h |   21 +++++
+ 2 files changed, 222 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/snet_event.c
+ create mode 100644 security/snet/snet_event.h
 
-diff --git a/security/snet/snet_ticket.c b/security/snet/snet_ticket.c
+diff --git a/security/snet/snet_event.c b/security/snet/snet_event.c
 new file mode 100644
-index 0000000..a260412
+index 0000000..7146d5a
 --- /dev/null
-+++ b/security/snet/snet_ticket.c
-@@ -0,0 +1,195 @@
-+#include <linux/slab.h>
-+#include <linux/cred.h>
-+#include <linux/jhash.h>
-+#include <linux/security.h>
-+#include <linux/snet.h>
-+#include "snet_ticket.h"
-+#include "snet_ticket_helper.h"
-+
-+#define HSIZE 16
-+
-+static struct kmem_cache *snet_ticket_cachep;
-+static struct kmem_cache *snet_task_security_cachep;
-+
-+enum snet_verdict snet_ticket_check(struct snet_info *info)
-+{
-+	struct snet_ticket *st = NULL;
-+	unsigned int h = 0, verdict = SNET_VERDICT_NONE;
-+	struct list_head *l = NULL;
-+	struct snet_task_security *tsec = NULL;
-+
-+	if (snet_ticket_mode == SNET_TICKET_OFF)
-+		goto out;
-+
-+	tsec = (struct snet_task_security*) current_security();
-+
-+	h = jhash_2words(info->syscall, info->protocol, 0) % HSIZE;
-+	l = &tsec->hash[h];
-+
-+	read_lock_bh(&tsec->lock);
-+	list_for_each_entry(st, l, list) {
-+		if (__ticket_check(st, info)) {
-+			verdict = st->verdict;
-+			pr_debug("snet_ticket found: ticket=%p tsec=%p\n",
-+				 st, st->tsec);
-+			if (snet_ticket_mode == SNET_TICKET_EXTEND) {
-+				mod_timer(&st->timeout,
-+					  jiffies + snet_ticket_delay * HZ);
-+			}
-+			break;
-+		}
-+	}
-+	read_unlock_bh(&tsec->lock);
-+out:
-+	return verdict;
-+}
-+
-+static void snet_ticket_timeout(unsigned long arg)
-+{
-+	struct snet_ticket *st = (struct snet_ticket*)arg;
-+
-+	pr_debug("snet_ticket_timeout: ticket=%p tsec=%p\n", st, st->tsec);
-+
-+	write_lock_bh(&st->tsec->lock);
-+	list_del(&st->list);
-+	write_unlock_bh(&st->tsec->lock);
-+	kmem_cache_free(snet_ticket_cachep, st);
-+	return;
-+}
-+
-+static struct snet_ticket *snet_ticket_alloc(void)
-+{
-+	struct snet_ticket *st = NULL;
-+
-+	st = kmem_cache_zalloc(snet_ticket_cachep, GFP_KERNEL);
-+	if (st == NULL)
-+		goto out;
-+
-+	INIT_LIST_HEAD(&st->list);
-+	init_timer(&st->timeout);
-+	st->timeout.expires = snet_ticket_delay * HZ;
-+out:
-+	return st;
-+}
-+
-+static void snet_ticket_insert(struct snet_ticket *st)
-+{
-+	unsigned int h;
-+	struct list_head *l;
-+
-+	h = jhash_2words(st->syscall, st->protocol, 0) % HSIZE;
-+	l = &(st->tsec->hash[h]);
-+
-+	st->timeout.expires += jiffies;
-+	add_timer(&st->timeout);
-+
-+	write_lock_bh(&(st->tsec->lock));
-+	list_add_tail(&st->list, l);
-+	write_unlock_bh(&(st->tsec->lock));
-+	return;
-+}
-+
-+void snet_ticket_create(struct snet_info *info, enum snet_verdict verdict)
-+{
-+	struct snet_ticket *st;
-+	struct snet_task_security *tsec = NULL;
-+
-+	if (snet_ticket_mode == SNET_TICKET_OFF)
-+		goto out;
-+
-+	tsec = (struct snet_task_security*) current_security();
-+
-+	st = snet_ticket_alloc();
-+	if (st == NULL)
-+		goto out;
-+
-+	st->tsec = tsec;
-+	snet_ticket_fill(st, info, verdict);
-+	setup_timer(&st->timeout, snet_ticket_timeout, (unsigned long)st);
-+	snet_ticket_insert(st);
-+out:
-+	return;
-+}
-+
-+int snet_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp)
-+{
-+	unsigned int index = 0;
-+	struct snet_task_security *tsec = NULL;
-+
-+	tsec = kmem_cache_zalloc(snet_task_security_cachep, gfp);
-+	if (tsec == NULL)
-+		return -ENOMEM;
-+
-+	pr_debug("ticket_prepare_creds: pid=%u tsec=%p\n", current->pid, tsec);
-+	rwlock_init(&tsec->lock);
-+	for (index = 0; index < HSIZE; index++)
-+		INIT_LIST_HEAD(&tsec->hash[index]);
-+
-+	new->security = tsec;
-+	return 0;
-+}
-+
-+void snet_cred_free(struct cred *cred)
-+{
-+	struct snet_task_security *tsec = cred->security;
-+	unsigned int index;
-+
-+	pr_debug("ticket_free_cred: pid=%u tsec=%p\n",  current->pid, tsec);
-+
-+	write_lock_bh(&tsec->lock);
-+	/* destroy all tickets */
-+	for (index = 0; index < HSIZE; index++) {
-+		struct snet_ticket *st, *tmp;
-+		list_for_each_entry_safe(st, tmp, &tsec->hash[index], list) {
-+			if (del_timer_sync(&st->timeout)) {
-+				pr_debug("ticket_cred_free: [%u] ticket=%p tsec=%p\n",
-+					 index, st, st->tsec);
-+				list_del(&st->list);
-+				kmem_cache_free(snet_ticket_cachep, st);
-+			}
-+		}
-+	}
-+	cred->security = NULL;
-+	write_unlock_bh(&tsec->lock);
-+	kmem_cache_free(snet_task_security_cachep, tsec);
-+	return;
-+}
-+
-+int snet_ticket_init(void)
-+{
-+	unsigned int index = 0;
-+	struct cred *cred = (struct cred *) current->real_cred;
-+	struct snet_task_security *tsec = NULL;
-+
-+	if (snet_ticket_mode >= SNET_TICKET_INVALID) {
-+		printk(KERN_ERR "snet: bad snet_ticket_mode\n");
-+		return -EINVAL;
-+	}
-+
-+	if ((snet_ticket_mode == SNET_TICKET_FIX ||
-+	    snet_ticket_mode == SNET_TICKET_EXTEND) &&
-+	    (snet_ticket_delay == 0)) {
-+		printk(KERN_ERR "snet: bad snet_ticket_delay\n");
-+		return -EINVAL;
-+	}
-+
-+	/* snet_ticket_cachep is not destroyed */
-+	snet_ticket_cachep = kmem_cache_create("snet_ticket",
-+					       sizeof(struct snet_ticket),
-+					       0, SLAB_PANIC, NULL);
-+	/* snet_task_security_cachep is not destroyed */
-+	snet_task_security_cachep = kmem_cache_create("snet_task_security",
-+						      sizeof(struct snet_task_security),
-+						      0, SLAB_PANIC, NULL);
-+
-+	tsec = kmem_cache_zalloc(snet_task_security_cachep, GFP_KERNEL);
-+	if (tsec == NULL)
-+		return -ENOMEM;
-+
-+	rwlock_init(&tsec->lock);
-+	for (index = 0; index < HSIZE; index++)
-+		INIT_LIST_HEAD(&tsec->hash[index]);
-+
-+	cred->security = tsec;
-+	return 0;
-+}
-diff --git a/security/snet/snet_ticket.h b/security/snet/snet_ticket.h
-new file mode 100644
-index 0000000..b6d1020
---- /dev/null
-+++ b/security/snet/snet_ticket.h
-@@ -0,0 +1,37 @@
-+#ifndef _SNET_TICKET_H
-+#define _SNET_TICKET_H
-+
-+#include <linux/timer.h>
++++ b/security/snet/snet_event.c
+@@ -0,0 +1,201 @@
++#include <linux/spinlock.h>
 +#include <linux/list.h>
-+#include <linux/cred.h>
++#include <linux/jhash.h>
++#include <linux/slab.h>
++#include <linux/netlink.h>
 +#include <linux/snet.h>
-+
-+struct snet_task_security {
-+	struct list_head hash[16];
-+	rwlock_t lock;
-+};
-+
-+struct snet_ticket {
-+	struct list_head list;
-+	struct snet_task_security *tsec;
-+	struct timer_list timeout;
-+
-+	enum snet_syscall syscall;
-+	u8 protocol;
-+	u8 family;
-+	int type;
-+	struct snet_sock_half src;
-+	struct snet_sock_half dst;
-+	enum snet_verdict verdict;
-+};
-+
-+extern unsigned int snet_ticket_delay;
-+extern unsigned int snet_ticket_mode;
-+
-+void snet_cred_free(struct cred *cred);
-+int snet_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp);
-+enum snet_verdict snet_ticket_check(struct snet_info *info);
-+void snet_ticket_create(struct snet_info *info, enum snet_verdict verdict);
-+int snet_ticket_init(void);
-+
-+#endif	/* _SNET_TICKET_H */
-diff --git a/security/snet/snet_ticket_helper.c b/security/snet/snet_ticket_helper.c
-new file mode 100644
-index 0000000..2dc9b94
---- /dev/null
-+++ b/security/snet/snet_ticket_helper.c
-@@ -0,0 +1,127 @@
-+#include <linux/sched.h>
-+#include <linux/socket.h>
-+#include <linux/snet.h>
-+#include "snet_ticket.h"
++#include "snet_event.h"
++#include "snet_netlink.h"
 +#include "snet_utils.h"
 +
-+static int check_create(struct snet_ticket *st, struct snet_info *info)
++static struct list_head *snet_evh;
++static DEFINE_RWLOCK(snet_evh_lock);
++
++struct snet_event_entry {
++	struct list_head list;
++	struct snet_event se;
++};
++
++static struct kmem_cache *snet_event_entry_cachep;
++
++/* lookup for a snet_evh - before using this function, lock snet_evh_lock */
++static struct snet_event_entry *__snet_event_lookup(const enum snet_syscall syscall,
++						    const u8 protocol)
 +{
-+	return (st->type == info->type);
++	unsigned int h = 0;
++	struct list_head *l;
++	struct snet_event_entry *s;
++
++	/* computing its hash value */
++	h = jhash_2words(syscall, protocol, 0) % snet_evh_size;
++	l = &snet_evh[h];
++
++	list_for_each_entry(s, l, list) {
++		if ((s->se.protocol == protocol) &&
++		    (s->se.syscall == syscall)) {
++			return s;
++		}
++	}
++	return NULL;
 +}
 +
-+static int check_src(struct snet_ticket *st, struct snet_info *info)
++int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb)
 +{
-+	switch (info->family) {
-+	case AF_INET:
-+		if ((st->src.u3.ip == info->src.u3.ip) &&
-+		    (st->src.u.port == info->src.u.port))
-+			return 1;
-+		break;
-+	case AF_INET6:
-+		if ((!memcmp(&st->src.u3.ip6, &info->src.u3.ip6,
-+			     sizeof(info->src.u3.ip6))) &&
-+		    (st->src.u.port == info->src.u.port))
-+			return 1;
-+		break;
-+	default:
-+		break;
++	unsigned int i = 0, n = 0;
++	int ret = -1;
++	unsigned hashs_to_skip = cb->args[0];
++	unsigned events_to_skip = cb->args[1];
++	struct list_head *l;
++	struct snet_event_entry *s;
++
++	read_lock_bh(&snet_evh_lock);
++
++	for (i = 0; i < snet_evh_size; i++) {
++		if (i < hashs_to_skip)
++			continue;
++		l = &snet_evh[i];
++		n = 0;
++		list_for_each_entry(s, l, list) {
++			if (++n < events_to_skip)
++				continue;
++			ret = snet_nl_list_fill_info(skb,
++						     NETLINK_CB(cb->skb).pid,
++						     cb->nlh->nlmsg_seq,
++						     NLM_F_MULTI,
++						     s->se.protocol,
++						     s->se.syscall);
++			if (ret < 0)
++				goto errout;
++		}
 +	}
++
++errout:
++	read_unlock_bh(&snet_evh_lock);
++
++	cb->args[0] = i;
++	cb->args[1] = n;
++	return skb->len;
++}
++
++/*
++ * check if a event is registered or not
++ * return 1 if event is registered, 0 if not
++ */
++int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol)
++{
++	int ret = 0;
++
++	read_lock_bh(&snet_evh_lock);
++	if (__snet_event_lookup(syscall, protocol) != NULL)
++		ret = 1;
++	read_unlock_bh(&snet_evh_lock);
++	return ret;
++}
++
++/* adding a event */
++int snet_event_insert(const enum snet_syscall syscall, const u8 protocol)
++{
++	struct snet_event_entry *data = NULL;
++	unsigned int h = 0;
++	int err = 0;
++
++	data = kmem_cache_zalloc(snet_event_entry_cachep, GFP_KERNEL);
++	if (!data) {
++		err = -ENOMEM;
++		goto out;
++	}
++
++	write_lock_bh(&snet_evh_lock);
++	/* check if event is already registered */
++	if (__snet_event_lookup(syscall, protocol) != NULL) {
++		write_unlock_bh(&snet_evh_lock);
++		kmem_cache_free(snet_event_entry_cachep, data);
++		err = -EINVAL;
++		goto out;
++	}
++
++	data->se.syscall = syscall;
++	data->se.protocol = protocol;
++	INIT_LIST_HEAD(&(data->list));
++	h = jhash_2words(data->se.syscall, data->se.protocol, 0) % snet_evh_size;
++	list_add_tail(&data->list, &snet_evh[h]);
++	write_unlock_bh(&snet_evh_lock);
++	pr_debug("[%u]=(syscall=%s, protocol=%u)\n",
++		 h, snet_syscall_name(syscall), protocol);
++out:
++	return err;
++}
++
++/* removing a event */
++int snet_event_remove(const enum snet_syscall syscall, const u8 protocol)
++{
++	struct snet_event_entry *data = NULL;
++
++	write_lock_bh(&snet_evh_lock);
++	data = __snet_event_lookup(syscall, protocol);
++	if (data == NULL) {
++		write_unlock_bh(&snet_evh_lock);
++		return -EINVAL;
++	}
++	pr_debug("(syscall=%s, protocol=%u)\n",
++		 snet_syscall_name(syscall), protocol);
++	list_del(&data->list);
++	write_unlock_bh(&snet_evh_lock);
++	kmem_cache_free(snet_event_entry_cachep, data);
 +	return 0;
 +}
 +
-+static int check_dst(struct snet_ticket *st, struct snet_info *info)
++/* flushing all events */
++void snet_event_flush(void)
 +{
-+	switch (info->family) {
-+	case AF_INET:
-+		if ((st->dst.u3.ip == info->dst.u3.ip) &&
-+		    (st->dst.u.port == info->dst.u.port))
-+			return 1;
-+		break;
-+	case AF_INET6:
-+		if ((!memcmp(&st->dst.u3.ip6, &info->dst.u3.ip6,
-+			     sizeof(info->dst.u3.ip6))) &&
-+		    (st->dst.u.port == info->dst.u.port))
-+			return 1;
-+		break;
-+	default:
-+		break;
++	unsigned int i = 0;
++
++	write_lock_bh(&snet_evh_lock);
++	for (i = 0; i < snet_evh_size; i++) {
++		struct snet_event_entry *data, *tmp;
++		list_for_each_entry_safe(data, tmp, &snet_evh[i], list) {
++			list_del(&data->list);
++			kmem_cache_free(snet_event_entry_cachep, data);
++		}
 +	}
-+	return 0;
-+}
-+
-+static int check_src_and_dst(struct snet_ticket *st, struct snet_info *info)
-+{
-+	return (check_src(st, info) && check_dst(st, info));
-+}
-+
-+static int check_none(struct snet_ticket *st, struct snet_info *info)
-+{
-+	return 0;
-+}
-+
-+int __ticket_check(struct snet_ticket *st, struct snet_info *info)
-+{
-+	static int (*ticket_df[])(struct snet_ticket *, struct snet_info *) = {
-+		[SNET_SOCKET_CREATE]		= &check_create,
-+		[SNET_SOCKET_BIND]		= &check_src,
-+		[SNET_SOCKET_CONNECT]		= &check_dst,
-+		[SNET_SOCKET_LISTEN]		= &check_src,
-+		[SNET_SOCKET_ACCEPT]		= &check_src,
-+		[SNET_SOCKET_POST_ACCEPT]	= &check_none,
-+		[SNET_SOCKET_SENDMSG]		= &check_src_and_dst,
-+		[SNET_SOCKET_RECVMSG]		= &check_src_and_dst,
-+		[SNET_SOCKET_SOCK_RCV_SKB]	= &check_src_and_dst,
-+		[SNET_SOCKET_CLOSE]		= &check_none,
-+	};
-+
-+	if (info->syscall >= SNET_NR_SOCKET_TYPES)
-+		return 0;
-+	else {
-+		if ((st->syscall == info->syscall) &&
-+		    (st->protocol == info->protocol) &&
-+		    (st->family == info->family) &&
-+		    ticket_df[info->syscall](st, info))
-+			return 1;
-+		else
-+			return 0;
-+	}
-+}
-+
-+void snet_ticket_fill(struct snet_ticket *st, struct snet_info *info,
-+		      enum snet_verdict verdict)
-+{
-+	st->syscall = info->syscall;
-+	st->protocol = info->protocol;
-+	st->family = info->family;
-+	st->src.u.port = info->src.u.port;
-+	st->dst.u.port = info->dst.u.port;
-+	st->verdict = verdict;
-+
-+	switch (info->family) {
-+	case AF_INET:
-+		st->src.u3.ip = info->src.u3.ip;
-+		st->dst.u3.ip = info->dst.u3.ip;
-+		pr_debug("ticket=%p [syscall=%s protocol=%u "
-+			 "family=%u %pI4:%u->%pI4:%u] verdict=%s | tsec=%p pid=%u\n",
-+			 st, snet_syscall_name(st->syscall), st->protocol,
-+			 st->family, &st->src.u3.ip, st->src.u.port,
-+			 &st->dst.u3.ip, st->dst.u.port,
-+			 snet_verdict_name(st->verdict), st->tsec, current->pid);
-+		break;
-+	case AF_INET6:
-+		memcpy(&st->src.u3.ip6, &info->src.u3.ip6,
-+		       sizeof(info->src.u3.ip6));
-+		memcpy(&st->dst.u3.ip6, &info->dst.u3.ip6,
-+		       sizeof(info->dst.u3.ip6));
-+		pr_debug("ticket=%p [syscall=%s protocol=%u "
-+			 "family=%u %pI6:%u->%pI6:%u] verdict=%s | tsec=%p pid=%u\n",
-+			 st, snet_syscall_name(st->syscall), st->protocol,
-+			 st->family, &st->src.u3.ip6, st->src.u.port,
-+			 &st->dst.u3.ip6, st->dst.u.port,
-+			 snet_verdict_name(st->verdict), st->tsec, current->pid);
-+		break;
-+	default:
-+		break;
-+	}
++	write_unlock_bh(&snet_evh_lock);
 +	return;
 +}
-diff --git a/security/snet/snet_ticket_helper.h b/security/snet/snet_ticket_helper.h
++
++/* init function */
++int snet_event_init(void)
++{
++	int err = 0, i = 0;
++
++	if (snet_evh_size == 0) {
++		printk(KERN_ERR "snet: bad snet_evh_size value\n");
++		err = -EINVAL;
++		goto out;
++	}
++
++	snet_evh = kzalloc(sizeof(struct list_head) * snet_evh_size,
++			     GFP_KERNEL);
++	if (!snet_evh) {
++		printk(KERN_WARNING
++		       "snet: can't alloc memory for snet_evh\n");
++		err = -ENOMEM;
++		goto out;
++	}
++
++	for (i = 0; i < snet_evh_size; i++)
++		INIT_LIST_HEAD(&snet_evh[i]);
++
++	/* snet_event_entry_cachep is not destroyed */
++	snet_event_entry_cachep = kmem_cache_create("snet_event_entry",
++						    sizeof(struct snet_event_entry),
++						    0, SLAB_PANIC, NULL);
++out:
++	return err;
++}
++
++/* exit function */
++void snet_event_exit(void)
++{
++	kfree(snet_evh);
++	snet_evh = NULL;
++}
+diff --git a/security/snet/snet_event.h b/security/snet/snet_event.h
 new file mode 100644
-index 0000000..177bca5
+index 0000000..fa991c7
 --- /dev/null
-+++ b/security/snet/snet_ticket_helper.h
-@@ -0,0 +1,8 @@
-+#ifndef _SNET_TICKET_HELPER_H
-+#define _SNET_TICKET_HELPER_H
++++ b/security/snet/snet_event.h
+@@ -0,0 +1,21 @@
++#ifndef _SNET_EVENT_H
++#define _SNET_EVENT_H
 +
-+void snet_ticket_fill(struct snet_ticket *st, struct snet_info *info,
-+		      enum snet_verdict verdict);
-+int __ticket_check(struct snet_ticket *st, struct snet_info *info);
++#include <linux/skbuff.h>
 +
-+#endif	/* _SNET_TICKET_HELPER_H */
++extern unsigned int snet_evh_size;
++
++/* manipulate the events hash table */
++int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb);
++int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol);
++int snet_event_insert(const enum snet_syscall syscall, const u8 protocol);
++int snet_event_remove(const enum snet_syscall syscall, const u8 protocol);
++void snet_event_flush(void);
++void snet_event_dumpall(void);
++
++/* init function */
++int snet_event_init(void);
++/* exit funtion */
++void snet_event_exit(void);
++
++#endif /* _SNET_EVENT_H */
 -- 
 1.7.4.1
