@@ -1,239 +1,305 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [net-next 5/5] bnx2x: update year to 2011 and version to
- 1.62.12-0
-Date: Tue, 3 May 2011 16:30:54 +0300
-Message-ID: <1304429454.19456.7.camel@lb-tlvb-dmitry>
+Subject: [net-next 1/5] bnx2x: link report improvements
+Date: Tue, 3 May 2011 16:38:45 +0300
+Message-ID: <1304429925.19456.11.camel@lb-tlvb-dmitry>
 Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3807 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3853 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752655Ab1ECNlO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2011 09:41:14 -0400
+	id S1752722Ab1ECNlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 May 2011 09:41:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+From: Vladislav Zolotarov <vladz@broadcom.com>
 
+To avoid link notification duplications
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x.h             |    6 +++---
- drivers/net/bnx2x/bnx2x_cmn.c         |    2 +-
- drivers/net/bnx2x/bnx2x_cmn.h         |    2 +-
- drivers/net/bnx2x/bnx2x_dcb.c         |    2 +-
- drivers/net/bnx2x/bnx2x_dcb.h         |    2 +-
- drivers/net/bnx2x/bnx2x_ethtool.c     |    2 +-
- drivers/net/bnx2x/bnx2x_fw_defs.h     |    2 +-
- drivers/net/bnx2x/bnx2x_fw_file_hdr.h |    2 +-
- drivers/net/bnx2x/bnx2x_hsi.h         |    2 +-
- drivers/net/bnx2x/bnx2x_init.h        |    2 +-
- drivers/net/bnx2x/bnx2x_init_ops.h    |    2 +-
- drivers/net/bnx2x/bnx2x_main.c        |    2 +-
- drivers/net/bnx2x/bnx2x_reg.h         |    2 +-
- drivers/net/bnx2x/bnx2x_stats.c       |    2 +-
- drivers/net/bnx2x/bnx2x_stats.h       |    2 +-
- 15 files changed, 17 insertions(+), 17 deletions(-)
+ drivers/net/bnx2x/bnx2x.h      |   21 ++++++++
+ drivers/net/bnx2x/bnx2x_cmn.c  |   99 +++++++++++++++++++++++++++++++--------
+ drivers/net/bnx2x/bnx2x_cmn.h  |    2 -
+ drivers/net/bnx2x/bnx2x_main.c |   21 ++++-----
+ 4 files changed, 108 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index 86e23c7..22a2045 100644
+index b7ff87b..6f3d48f 100644
 --- a/drivers/net/bnx2x/bnx2x.h
 +++ b/drivers/net/bnx2x/bnx2x.h
-@@ -1,6 +1,6 @@
- /* bnx2x.h: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -22,8 +22,8 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
+@@ -893,6 +893,22 @@ typedef enum {
+ 	(&bp->def_status_blk->sp_sb.\
+ 	index_values[HC_SP_INDEX_EQ_CONS])
  
--#define DRV_MODULE_VERSION      "1.62.11-0"
--#define DRV_MODULE_RELDATE      "2011/01/31"
-+#define DRV_MODULE_VERSION      "1.62.12-0"
-+#define DRV_MODULE_RELDATE      "2011/03/20"
- #define BNX2X_BC_VER            0x040200
++/* This is a data that will be used to create a link report message.
++ * We will keep the data used for the last link report in order
++ * to prevent reporting the same link parameters twice.
++ */
++struct bnx2x_link_report_data {
++	u16 line_speed;			/* Effective line speed */
++	unsigned long link_report_flags;/* BNX2X_LINK_REPORT_XXX flags */
++};
++
++enum {
++	BNX2X_LINK_REPORT_FD,		/* Full DUPLEX */
++	BNX2X_LINK_REPORT_LINK_DOWN,
++	BNX2X_LINK_REPORT_RX_FC_ON,
++	BNX2X_LINK_REPORT_TX_FC_ON,
++};
++
+ struct bnx2x {
+ 	/* Fields used in the tx and intr/napi performance paths
+ 	 * are grouped together in the beginning of the structure
+@@ -1026,6 +1042,9 @@ struct bnx2x {
  
- #define BNX2X_MULTI_QUEUE
+ 	struct link_params	link_params;
+ 	struct link_vars	link_vars;
++	u32			link_cnt;
++	struct bnx2x_link_report_data last_reported_link;
++
+ 	struct mdio_if_info	mdio;
+ 
+ 	struct bnx2x_common	common;
+@@ -1442,6 +1461,8 @@ struct bnx2x_func_init_params {
+ #define WAIT_RAMROD_POLL	0x01
+ #define WAIT_RAMROD_COMMON	0x02
+ 
++void bnx2x_read_mf_cfg(struct bnx2x *bp);
++
+ /* dmae */
+ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32);
+ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
 diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 9632f85..8c63cb7 100644
+index e83ac6d..267177b 100644
 --- a/drivers/net/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -1,6 +1,6 @@
- /* bnx2x_cmn.c: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
+@@ -758,35 +758,91 @@ u16 bnx2x_get_mf_speed(struct bnx2x *bp)
+ 	return line_speed;
+ }
+ 
++/* Fill Link report data according to the current link
++ * configuration.
++ *
++ * @param bp
++ * @param data
++ */
++static inline void bnx2x_fill_report_data(struct bnx2x *bp,
++					  struct bnx2x_link_report_data *data)
++{
++	u16 line_speed = bnx2x_get_mf_speed(bp);
++
++	memset(data, 0, sizeof(*data));
++
++	/* Fill the report data: efective line speed */
++	data->line_speed = line_speed;
++
++	/* Link is down */
++	if (!bp->link_vars.link_up || (bp->flags & MF_FUNC_DIS))
++		set_bit(BNX2X_LINK_REPORT_LINK_DOWN, &data->link_report_flags);
++
++	/* Full DUPLEX */
++	if (bp->link_vars.duplex == DUPLEX_FULL)
++		set_bit(BNX2X_LINK_REPORT_FD, &data->link_report_flags);
++
++	/* Rx Flow Control is ON */
++	if (bp->link_vars.flow_ctrl & BNX2X_FLOW_CTRL_RX)
++		set_bit(BNX2X_LINK_REPORT_RX_FC_ON, &data->link_report_flags);
++
++	/* Tx Flow Control is ON */
++	if (bp->link_vars.flow_ctrl & BNX2X_FLOW_CTRL_TX)
++		set_bit(BNX2X_LINK_REPORT_TX_FC_ON, &data->link_report_flags);
++}
++
+ void bnx2x_link_report(struct bnx2x *bp)
+ {
+-	if (bp->flags & MF_FUNC_DIS) {
+-		netif_carrier_off(bp->dev);
+-		netdev_err(bp->dev, "NIC Link is Down\n");
+-		return;
+-	}
++	struct bnx2x_link_report_data cur_data;
+ 
+-	if (bp->link_vars.link_up) {
+-		u16 line_speed;
++	/* reread mf_cfg */
++	if (!CHIP_IS_E1(bp))
++		bnx2x_read_mf_cfg(bp);
+ 
+-		if (bp->state == BNX2X_STATE_OPEN)
+-			netif_carrier_on(bp->dev);
+-		netdev_info(bp->dev, "NIC Link is Up, ");
++	/* Read the current link report info */
++	bnx2x_fill_report_data(bp, &cur_data);
++
++	/* Don't report link down or exactly the same link status twice */
++	if (!memcmp(&cur_data, &bp->last_reported_link, sizeof(cur_data)) ||
++	    (test_bit(BNX2X_LINK_REPORT_LINK_DOWN,
++		      &bp->last_reported_link.link_report_flags) &&
++	     test_bit(BNX2X_LINK_REPORT_LINK_DOWN,
++		      &cur_data.link_report_flags)))
++		return;
+ 
+-		line_speed = bnx2x_get_mf_speed(bp);
++	bp->link_cnt++;
+ 
+-		pr_cont("%d Mbps ", line_speed);
++	/* We are going to report a new link parameters now -
++	 * remember the current data for the next time.
++	 */
++	memcpy(&bp->last_reported_link, &cur_data, sizeof(cur_data));
+ 
+-		if (bp->link_vars.duplex == DUPLEX_FULL)
++	if (test_bit(BNX2X_LINK_REPORT_LINK_DOWN,
++		     &cur_data.link_report_flags)) {
++		netif_carrier_off(bp->dev);
++		netdev_err(bp->dev, "NIC Link is Down\n");
++		return;
++	} else {
++		netif_carrier_on(bp->dev);
++		netdev_info(bp->dev, "NIC Link is Up, ");
++		pr_cont("%d Mbps ", cur_data.line_speed);
++
++		if (test_and_clear_bit(BNX2X_LINK_REPORT_FD,
++				       &cur_data.link_report_flags))
+ 			pr_cont("full duplex");
+ 		else
+ 			pr_cont("half duplex");
+ 
+-		if (bp->link_vars.flow_ctrl != BNX2X_FLOW_CTRL_NONE) {
+-			if (bp->link_vars.flow_ctrl & BNX2X_FLOW_CTRL_RX) {
++		/* Handle the FC at the end so that only these flags would be
++		 * possibly set. This way we may easily check if there is no FC
++		 * enabled.
++		 */
++		if (cur_data.link_report_flags) {
++			if (test_bit(BNX2X_LINK_REPORT_RX_FC_ON,
++				     &cur_data.link_report_flags)) {
+ 				pr_cont(", receive ");
+-				if (bp->link_vars.flow_ctrl &
+-				    BNX2X_FLOW_CTRL_TX)
++				if (test_bit(BNX2X_LINK_REPORT_TX_FC_ON,
++				     &cur_data.link_report_flags))
+ 					pr_cont("& transmit ");
+ 			} else {
+ 				pr_cont(", transmit ");
+@@ -794,10 +850,6 @@ void bnx2x_link_report(struct bnx2x *bp)
+ 			pr_cont("flow control ON");
+ 		}
+ 		pr_cont("\n");
+-
+-	} else { /* link_down */
+-		netif_carrier_off(bp->dev);
+-		netdev_err(bp->dev, "NIC Link is Down\n");
+ 	}
+ }
+ 
+@@ -1345,6 +1397,11 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 
+ 	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
+ 
++	/* Set the initial link reported state to link down */
++	memset(&bp->last_reported_link, 0, sizeof(bp->last_reported_link));
++	set_bit(BNX2X_LINK_REPORT_LINK_DOWN,
++		&bp->last_reported_link.link_report_flags);
++
+ 	/* must be called before memory allocation and HW init */
+ 	bnx2x_ilt_set_info(bp);
+ 
 diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
-index b50570c..cdaf64e 100644
+index ef37b98..10cf462 100644
 --- a/drivers/net/bnx2x/bnx2x_cmn.h
 +++ b/drivers/net/bnx2x/bnx2x_cmn.h
-@@ -1,6 +1,6 @@
- /* bnx2x_cmn.h: Broadcom Everest network driver.
+@@ -67,8 +67,6 @@ void bnx2x__link_status_update(struct bnx2x *bp);
+  * Report link status to upper layer
   *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_dcb.c b/drivers/net/bnx2x/bnx2x_dcb.c
-index 9a24d79..919d6fa 100644
---- a/drivers/net/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/bnx2x/bnx2x_dcb.c
-@@ -1,6 +1,6 @@
- /* bnx2x_dcb.c: Broadcom Everest network driver.
-  *
-- * Copyright 2009-2010 Broadcom Corporation
-+ * Copyright 2009-2011 Broadcom Corporation
-  *
-  * Unless you and Broadcom execute a separate written software license
-  * agreement governing use of this software, this software is licensed to you
-diff --git a/drivers/net/bnx2x/bnx2x_dcb.h b/drivers/net/bnx2x/bnx2x_dcb.h
-index 71b8eda..369d592 100644
---- a/drivers/net/bnx2x/bnx2x_dcb.h
-+++ b/drivers/net/bnx2x/bnx2x_dcb.h
-@@ -1,6 +1,6 @@
- /* bnx2x_dcb.h: Broadcom Everest network driver.
-  *
-- * Copyright 2009-2010 Broadcom Corporation
-+ * Copyright 2009-2011 Broadcom Corporation
-  *
-  * Unless you and Broadcom execute a separate written software license
-  * agreement governing use of this software, this software is licensed to you
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 14ed2aa..611a21e 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -1,6 +1,6 @@
- /* bnx2x_ethtool.c: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_fw_defs.h b/drivers/net/bnx2x/bnx2x_fw_defs.h
-index f4e5b1c..9fe3678 100644
---- a/drivers/net/bnx2x/bnx2x_fw_defs.h
-+++ b/drivers/net/bnx2x/bnx2x_fw_defs.h
-@@ -1,6 +1,6 @@
- /* bnx2x_fw_defs.h: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_fw_file_hdr.h b/drivers/net/bnx2x/bnx2x_fw_file_hdr.h
-index f807262..f4a07fb 100644
---- a/drivers/net/bnx2x/bnx2x_fw_file_hdr.h
-+++ b/drivers/net/bnx2x/bnx2x_fw_file_hdr.h
-@@ -1,6 +1,6 @@
- /* bnx2x_fw_file_hdr.h: FW binary file header structure.
-  *
-- * Copyright (c) 2007-2009 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
-index be503cc..6381a54 100644
---- a/drivers/net/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x/bnx2x_hsi.h
-@@ -1,6 +1,6 @@
- /* bnx2x_hsi.h: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_init.h b/drivers/net/bnx2x/bnx2x_init.h
-index fa6dbe3..d539920 100644
---- a/drivers/net/bnx2x/bnx2x_init.h
-+++ b/drivers/net/bnx2x/bnx2x_init.h
-@@ -1,7 +1,7 @@
- /* bnx2x_init.h: Broadcom Everest network driver.
-  *               Structures and macroes needed during the initialization.
-  *
-- * Copyright (c) 2007-2009 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_init_ops.h b/drivers/net/bnx2x/bnx2x_init_ops.h
-index 66df29f..aafd023 100644
---- a/drivers/net/bnx2x/bnx2x_init_ops.h
-+++ b/drivers/net/bnx2x/bnx2x_init_ops.h
-@@ -2,7 +2,7 @@
-  *               Static functions needed during the initialization.
-  *               This file is "included" in bnx2x_main.c.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
+  * @param bp
+- *
+- * @return int
+  */
+ void bnx2x_link_report(struct bnx2x *bp);
+ 
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 3ddc436..c8e5ff0 100644
+index 9d48659..bc847b1 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -1,6 +1,6 @@
- /* bnx2x_main.c: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 1c89f19..eb959be 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -1,6 +1,6 @@
- /* bnx2x_reg.h: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/bnx2x/bnx2x_stats.c
-index 3445ded..e535bfa 100644
---- a/drivers/net/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/bnx2x/bnx2x_stats.c
-@@ -1,6 +1,6 @@
- /* bnx2x_stats.c: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-diff --git a/drivers/net/bnx2x/bnx2x_stats.h b/drivers/net/bnx2x/bnx2x_stats.h
-index 596798c..45d14d8 100644
---- a/drivers/net/bnx2x/bnx2x_stats.h
-+++ b/drivers/net/bnx2x/bnx2x_stats.h
-@@ -1,6 +1,6 @@
- /* bnx2x_stats.h: Broadcom Everest network driver.
-  *
-- * Copyright (c) 2007-2010 Broadcom Corporation
-+ * Copyright (c) 2007-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
+@@ -2043,7 +2043,7 @@ static int bnx2x_get_cmng_fns_mode(struct bnx2x *bp)
+ 	return CMNG_FNS_NONE;
+ }
+ 
+-static void bnx2x_read_mf_cfg(struct bnx2x *bp)
++void bnx2x_read_mf_cfg(struct bnx2x *bp)
+ {
+ 	int vn, n = (CHIP_MODE_IS_4_PORT(bp) ? 2 : 1);
+ 
+@@ -2130,7 +2130,6 @@ static inline void bnx2x_link_sync_notify(struct bnx2x *bp)
+ /* This function is called upon link interrupt */
+ static void bnx2x_link_attn(struct bnx2x *bp)
+ {
+-	u32 prev_link_status = bp->link_vars.link_status;
+ 	/* Make sure that we are synced with the current statistics */
+ 	bnx2x_stats_handle(bp, STATS_EVENT_STOP);
+ 
+@@ -2175,17 +2174,15 @@ static void bnx2x_link_attn(struct bnx2x *bp)
+ 			   "single function mode without fairness\n");
+ 	}
+ 
++	bnx2x_link_report(bp);
++
+ 	if (IS_MF(bp))
+ 		bnx2x_link_sync_notify(bp);
+-
+-	/* indicate link status only if link status actually changed */
+-	if (prev_link_status != bp->link_vars.link_status)
+-		bnx2x_link_report(bp);
+ }
+ 
+ void bnx2x__link_status_update(struct bnx2x *bp)
+ {
+-	if ((bp->state != BNX2X_STATE_OPEN) || (bp->flags & MF_FUNC_DIS))
++	if (bp->state != BNX2X_STATE_OPEN)
+ 		return;
+ 
+ 	bnx2x_link_status_update(&bp->link_params, &bp->link_vars);
+@@ -2195,10 +2192,6 @@ void bnx2x__link_status_update(struct bnx2x *bp)
+ 	else
+ 		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
+ 
+-	/* the link status update could be the result of a DCC event
+-	   hence re-read the shmem mf configuration */
+-	bnx2x_read_mf_cfg(bp);
+-
+ 	/* indicate link status */
+ 	bnx2x_link_report(bp);
+ }
+@@ -3127,10 +3120,14 @@ static inline void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
+ 			if (val & DRV_STATUS_SET_MF_BW)
+ 				bnx2x_set_mf_bw(bp);
+ 
+-			bnx2x__link_status_update(bp);
+ 			if ((bp->port.pmf == 0) && (val & DRV_STATUS_PMF))
+ 				bnx2x_pmf_update(bp);
+ 
++			/* Always call it here: bnx2x_link_report() will
++			 * prevent the link indication duplication.
++			 */
++			bnx2x__link_status_update(bp);
++
+ 			if (bp->port.pmf &&
+ 			    (val & DRV_STATUS_DCBX_NEGOTIATION_RESULTS) &&
+ 				bp->dcbx_enabled > 0)
 -- 
 1.7.2.2
+
 
 
 
