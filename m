@@ -1,839 +1,210 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/2] libertas: Use netdev_<level> or dev_<level> where possible
-Date: Mon,  2 May 2011 16:49:15 -0700
-Message-ID: <b4b100451cb09b60065f2cf87b893b8d42759aaf.1304379925.git.joe@perches.com>
-References: <cover.1304379925.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Mon, 02 May 2011 17:18:12 -0700 (PDT)
+Message-ID: <20110502.171812.232761473.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1148 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758335Ab1EBXth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 May 2011 19:49:37 -0400
-In-Reply-To: <cover.1304379925.git.joe@perches.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42173
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752402Ab1ECASp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 May 2011 20:18:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using the more descriptive logging styles gives a bit
-more information about the device being operated on.
-
-Makes the object trivially smaller too.
-
-$ size drivers/net/wireless/libertas/built-in.o.*
- 187730	   2973	  38488	 229191	  37f47	drivers/net/wireless/libertas/built-in.o.new
- 188195	   2973	  38488	 229656	  38118	drivers/net/wireless/libertas/built-in.o.old
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/libertas/cfg.c     |    9 +++--
- drivers/net/wireless/libertas/cmd.c     |   42 +++++++++++++----------
- drivers/net/wireless/libertas/cmdresp.c |   32 +++++++++---------
- drivers/net/wireless/libertas/debugfs.c |    7 ++--
- drivers/net/wireless/libertas/if_cs.c   |   15 +++++---
- drivers/net/wireless/libertas/if_sdio.c |   19 +++++-----
- drivers/net/wireless/libertas/if_spi.c  |   57 ++++++++++++++++++++-----------
- drivers/net/wireless/libertas/if_usb.c  |   11 ++++--
- drivers/net/wireless/libertas/main.c    |   27 +++++++++------
- drivers/net/wireless/libertas/mesh.c    |    4 +-
- drivers/net/wireless/libertas/rx.c      |    2 +-
- 11 files changed, 131 insertions(+), 94 deletions(-)
-
-diff --git a/drivers/net/wireless/libertas/cfg.c b/drivers/net/wireless/libertas/cfg.c
-index d6e0656..47b7f17 100644
---- a/drivers/net/wireless/libertas/cfg.c
-+++ b/drivers/net/wireless/libertas/cfg.c
-@@ -1316,7 +1316,8 @@ static int lbs_cfg_connect(struct wiphy *wiphy, struct net_device *dev,
- 		sme->ssid, sme->ssid_len,
- 		WLAN_CAPABILITY_ESS, WLAN_CAPABILITY_ESS);
- 	if (!bss) {
--		pr_err("assoc: bss %pM not in scan results\n", sme->bssid);
-+		wiphy_err(wiphy, "assoc: bss %pM not in scan results\n",
-+			  sme->bssid);
- 		ret = -ENOENT;
- 		goto done;
- 	}
-@@ -1373,8 +1374,8 @@ static int lbs_cfg_connect(struct wiphy *wiphy, struct net_device *dev,
- 		lbs_enable_rsn(priv, sme->crypto.cipher_group != 0);
- 		break;
- 	default:
--		pr_err("unsupported cipher group 0x%x\n",
--		       sme->crypto.cipher_group);
-+		wiphy_err(wiphy, "unsupported cipher group 0x%x\n",
-+			  sme->crypto.cipher_group);
- 		ret = -ENOTSUPP;
- 		goto done;
- 	}
-@@ -1492,7 +1493,7 @@ static int lbs_cfg_add_key(struct wiphy *wiphy, struct net_device *netdev,
- 				     params->key, params->key_len);
- 		break;
- 	default:
--		pr_err("unhandled cipher 0x%x\n", params->cipher);
-+		wiphy_err(wiphy, "unhandled cipher 0x%x\n", params->cipher);
- 		ret = -ENOTSUPP;
- 		break;
- 	}
-diff --git a/drivers/net/wireless/libertas/cmd.c b/drivers/net/wireless/libertas/cmd.c
-index 10ca485..f11c656 100644
---- a/drivers/net/wireless/libertas/cmd.c
-+++ b/drivers/net/wireless/libertas/cmd.c
-@@ -3,8 +3,6 @@
-   * It prepares command and sends it to firmware when it is ready.
-   */
- 
--#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
--
- #include <linux/kfifo.h>
- #include <linux/sched.h>
- #include <linux/slab.h>
-@@ -110,7 +108,7 @@ int lbs_update_hw_spec(struct lbs_private *priv)
- 	 * CF card    firmware 5.0.16p0:   cap 0x00000303
- 	 * USB dongle firmware 5.110.17p2: cap 0x00000303
- 	 */
--	pr_info("%pM, fw %u.%u.%up%u, cap 0x%08x\n",
-+	netdev_info(priv->dev, "%pM, fw %u.%u.%up%u, cap 0x%08x\n",
- 		cmd.permanentaddr,
- 		priv->fwrelease >> 24 & 0xff,
- 		priv->fwrelease >> 16 & 0xff,
-@@ -141,7 +139,8 @@ int lbs_update_hw_spec(struct lbs_private *priv)
- 	/* if it's unidentified region code, use the default (USA) */
- 	if (i >= MRVDRV_MAX_REGION_CODE) {
- 		priv->regioncode = 0x10;
--		pr_info("unidentified region code; using the default (USA)\n");
-+		netdev_info(priv->dev,
-+			    "unidentified region code; using the default (USA)\n");
- 	}
- 
- 	if (priv->current_addr[0] == 0xff)
-@@ -211,7 +210,7 @@ int lbs_host_sleep_cfg(struct lbs_private *priv, uint32_t criteria,
- 					(uint8_t *)&cmd_config.wol_conf,
- 					sizeof(struct wol_config));
- 	} else {
--		pr_info("HOST_SLEEP_CFG failed %d\n", ret);
-+		netdev_info(priv->dev, "HOST_SLEEP_CFG failed %d\n", ret);
- 	}
- 
- 	return ret;
-@@ -314,7 +313,7 @@ static int lbs_wait_for_ds_awake(struct lbs_private *priv)
- 	if (priv->is_deep_sleep) {
- 		if (!wait_event_interruptible_timeout(priv->ds_awake_q,
- 					!priv->is_deep_sleep, (10 * HZ))) {
--			pr_err("ds_awake_q: timer expired\n");
-+			netdev_err(priv->dev, "ds_awake_q: timer expired\n");
- 			ret = -1;
- 		}
- 	}
-@@ -339,7 +338,7 @@ int lbs_set_deep_sleep(struct lbs_private *priv, int deep_sleep)
- 				netif_carrier_off(priv->dev);
- 			}
- 		} else {
--			pr_err("deep sleep: already enabled\n");
-+			netdev_err(priv->dev, "deep sleep: already enabled\n");
- 		}
- 	} else {
- 		if (priv->is_deep_sleep) {
-@@ -349,7 +348,8 @@ int lbs_set_deep_sleep(struct lbs_private *priv, int deep_sleep)
- 			if (!ret) {
- 				ret = lbs_wait_for_ds_awake(priv);
- 				if (ret)
--					pr_err("deep sleep: wakeup failed\n");
-+					netdev_err(priv->dev,
-+						   "deep sleep: wakeup failed\n");
- 			}
- 		}
- 	}
-@@ -383,8 +383,9 @@ int lbs_set_host_sleep(struct lbs_private *priv, int host_sleep)
- 			ret = lbs_host_sleep_cfg(priv, priv->wol_criteria,
- 					(struct wol_config *)NULL);
- 			if (ret) {
--				pr_info("Host sleep configuration failed: %d\n",
--					ret);
-+				netdev_info(priv->dev,
-+					    "Host sleep configuration failed: %d\n",
-+					    ret);
- 				return ret;
- 			}
- 			if (priv->psstate == PS_STATE_FULL_POWER) {
-@@ -394,19 +395,21 @@ int lbs_set_host_sleep(struct lbs_private *priv, int host_sleep)
- 						sizeof(cmd),
- 						lbs_ret_host_sleep_activate, 0);
- 				if (ret)
--					pr_info("HOST_SLEEP_ACTIVATE failed: %d\n",
--						ret);
-+					netdev_info(priv->dev,
-+						    "HOST_SLEEP_ACTIVATE failed: %d\n",
-+						    ret);
- 			}
- 
- 			if (!wait_event_interruptible_timeout(
- 						priv->host_sleep_q,
- 						priv->is_host_sleep_activated,
- 						(10 * HZ))) {
--				pr_err("host_sleep_q: timer expired\n");
-+				netdev_err(priv->dev,
-+					   "host_sleep_q: timer expired\n");
- 				ret = -1;
- 			}
- 		} else {
--			pr_err("host sleep: already enabled\n");
-+			netdev_err(priv->dev, "host sleep: already enabled\n");
- 		}
- 	} else {
- 		if (priv->is_host_sleep_activated)
-@@ -1003,7 +1006,8 @@ static void lbs_submit_command(struct lbs_private *priv,
- 	ret = priv->hw_host_to_card(priv, MVMS_CMD, (u8 *) cmd, cmdsize);
- 
- 	if (ret) {
--		pr_info("DNLD_CMD: hw_host_to_card failed: %d\n", ret);
-+		netdev_info(priv->dev, "DNLD_CMD: hw_host_to_card failed: %d\n",
-+			    ret);
- 		/* Let the timer kick in and retry, and potentially reset
- 		   the whole thing if the condition persists */
- 		timeo = HZ/4;
-@@ -1268,7 +1272,8 @@ int lbs_execute_next_command(struct lbs_private *priv)
- 	spin_lock_irqsave(&priv->driver_lock, flags);
- 
- 	if (priv->cur_cmd) {
--		pr_alert( "EXEC_NEXT_CMD: already processing command!\n");
-+		netdev_alert(priv->dev,
-+			     "EXEC_NEXT_CMD: already processing command!\n");
- 		spin_unlock_irqrestore(&priv->driver_lock, flags);
- 		ret = -1;
- 		goto done;
-@@ -1430,7 +1435,7 @@ static void lbs_send_confirmsleep(struct lbs_private *priv)
- 	ret = priv->hw_host_to_card(priv, MVMS_CMD, (u8 *) &confirm_sleep,
- 		sizeof(confirm_sleep));
- 	if (ret) {
--		pr_alert("confirm_sleep failed\n");
-+		netdev_alert(priv->dev, "confirm_sleep failed\n");
- 		goto out;
- 	}
- 
-@@ -1656,7 +1661,8 @@ int __lbs_cmd(struct lbs_private *priv, uint16_t command,
- 	spin_lock_irqsave(&priv->driver_lock, flags);
- 	ret = cmdnode->result;
- 	if (ret)
--		pr_info("PREP_CMD: command 0x%04x failed: %d\n", command, ret);
-+		netdev_info(priv->dev, "PREP_CMD: command 0x%04x failed: %d\n",
-+			    command, ret);
- 
- 	__lbs_cleanup_and_insert_cmd(priv, cmdnode);
- 	spin_unlock_irqrestore(&priv->driver_lock, flags);
-diff --git a/drivers/net/wireless/libertas/cmdresp.c b/drivers/net/wireless/libertas/cmdresp.c
-index 2cb6f5f..4352e92 100644
---- a/drivers/net/wireless/libertas/cmdresp.c
-+++ b/drivers/net/wireless/libertas/cmdresp.c
-@@ -3,8 +3,6 @@
-   * responses as well as events generated by firmware.
-   */
- 
--#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
--
- #include <linux/slab.h>
- #include <linux/delay.h>
- #include <linux/sched.h>
-@@ -87,17 +85,18 @@ int lbs_process_command_response(struct lbs_private *priv, u8 *data, u32 len)
- 	lbs_deb_hex(LBS_DEB_CMD, "CMD_RESP", (void *) resp, len);
- 
- 	if (resp->seqnum != priv->cur_cmd->cmdbuf->seqnum) {
--		pr_info("Received CMD_RESP with invalid sequence %d (expected %d)\n",
--			le16_to_cpu(resp->seqnum),
--			le16_to_cpu(priv->cur_cmd->cmdbuf->seqnum));
-+		netdev_info(priv->dev,
-+			    "Received CMD_RESP with invalid sequence %d (expected %d)\n",
-+			    le16_to_cpu(resp->seqnum),
-+			    le16_to_cpu(priv->cur_cmd->cmdbuf->seqnum));
- 		spin_unlock_irqrestore(&priv->driver_lock, flags);
- 		ret = -1;
- 		goto done;
- 	}
- 	if (respcmd != CMD_RET(curcmd) &&
- 	    respcmd != CMD_RET_802_11_ASSOCIATE && curcmd != CMD_802_11_ASSOCIATE) {
--		pr_info("Invalid CMD_RESP %x to command %x!\n",
--			respcmd, curcmd);
-+		netdev_info(priv->dev, "Invalid CMD_RESP %x to command %x!\n",
-+			    respcmd, curcmd);
- 		spin_unlock_irqrestore(&priv->driver_lock, flags);
- 		ret = -1;
- 		goto done;
-@@ -106,8 +105,9 @@ int lbs_process_command_response(struct lbs_private *priv, u8 *data, u32 len)
- 	if (resp->result == cpu_to_le16(0x0004)) {
- 		/* 0x0004 means -EAGAIN. Drop the response, let it time out
- 		   and be resubmitted */
--		pr_info("Firmware returns DEFER to command %x. Will let it time out...\n",
--			le16_to_cpu(resp->command));
-+		netdev_info(priv->dev,
-+			    "Firmware returns DEFER to command %x. Will let it time out...\n",
-+			    le16_to_cpu(resp->command));
- 		spin_unlock_irqrestore(&priv->driver_lock, flags);
- 		ret = -1;
- 		goto done;
-@@ -318,28 +318,28 @@ int lbs_process_event(struct lbs_private *priv, u32 event)
- 		lbs_deb_cmd("EVENT: ADHOC beacon lost\n");
- 		break;
- 	case MACREG_INT_CODE_RSSI_LOW:
--		pr_alert("EVENT: rssi low\n");
-+		netdev_alert(priv->dev, "EVENT: rssi low\n");
- 		break;
- 	case MACREG_INT_CODE_SNR_LOW:
--		pr_alert("EVENT: snr low\n");
-+		netdev_alert(priv->dev, "EVENT: snr low\n");
- 		break;
- 	case MACREG_INT_CODE_MAX_FAIL:
--		pr_alert("EVENT: max fail\n");
-+		netdev_alert(priv->dev, "EVENT: max fail\n");
- 		break;
- 	case MACREG_INT_CODE_RSSI_HIGH:
--		pr_alert("EVENT: rssi high\n");
-+		netdev_alert(priv->dev, "EVENT: rssi high\n");
- 		break;
- 	case MACREG_INT_CODE_SNR_HIGH:
--		pr_alert("EVENT: snr high\n");
-+		netdev_alert(priv->dev, "EVENT: snr high\n");
- 		break;
- 
- 	case MACREG_INT_CODE_MESH_AUTO_STARTED:
- 		/* Ignore spurious autostart events */
--		pr_info("EVENT: MESH_AUTO_STARTED (ignoring)\n");
-+		netdev_info(priv->dev, "EVENT: MESH_AUTO_STARTED (ignoring)\n");
- 		break;
- 
- 	default:
--		pr_alert("EVENT: unknown event id %d\n", event);
-+		netdev_alert(priv->dev, "EVENT: unknown event id %d\n", event);
- 		break;
- 	}
- 
-diff --git a/drivers/net/wireless/libertas/debugfs.c b/drivers/net/wireless/libertas/debugfs.c
-index c179094..f2f65bc 100644
---- a/drivers/net/wireless/libertas/debugfs.c
-+++ b/drivers/net/wireless/libertas/debugfs.c
-@@ -1,5 +1,3 @@
--#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
--
- #include <linux/dcache.h>
- #include <linux/debugfs.h>
- #include <linux/delay.h>
-@@ -153,13 +151,14 @@ static ssize_t lbs_host_sleep_write(struct file *file,
- 		ret = lbs_set_host_sleep(priv, 0);
- 	else if (host_sleep == 1) {
- 		if (priv->wol_criteria == EHS_REMOVE_WAKEUP) {
--			pr_info("wake parameters not configured\n");
-+			netdev_info(priv->dev,
-+				    "wake parameters not configured\n");
- 			ret = -EINVAL;
- 			goto out_unlock;
- 		}
- 		ret = lbs_set_host_sleep(priv, 1);
- 	} else {
--		pr_err("invalid option\n");
-+		netdev_err(priv->dev, "invalid option\n");
- 		ret = -EINVAL;
- 	}
- 
-diff --git a/drivers/net/wireless/libertas/if_cs.c b/drivers/net/wireless/libertas/if_cs.c
-index eb88d9a..d6f757e 100644
---- a/drivers/net/wireless/libertas/if_cs.c
-+++ b/drivers/net/wireless/libertas/if_cs.c
-@@ -363,7 +363,7 @@ static int if_cs_send_cmd(struct lbs_private *priv, u8 *buf, u16 nb)
- 		if (status & IF_CS_BIT_COMMAND)
- 			break;
- 		if (++loops > 100) {
--			pr_err("card not ready for commands\n");
-+			netdev_err(priv->dev, "card not ready for commands\n");
- 			goto done;
- 		}
- 		mdelay(1);
-@@ -433,14 +433,16 @@ static int if_cs_receive_cmdres(struct lbs_private *priv, u8 *data, u32 *len)
- 	/* is hardware ready? */
- 	status = if_cs_read16(priv->card, IF_CS_CARD_STATUS);
- 	if ((status & IF_CS_BIT_RESP) == 0) {
--		pr_err("no cmd response in card\n");
-+		netdev_err(priv->dev, "no cmd response in card\n");
- 		*len = 0;
- 		goto out;
- 	}
- 
- 	*len = if_cs_read16(priv->card, IF_CS_RESP_LEN);
- 	if ((*len == 0) || (*len > LBS_CMD_BUFFER_SIZE)) {
--		pr_err("card cmd buffer has invalid # of bytes (%d)\n", *len);
-+		netdev_err(priv->dev,
-+			   "card cmd buffer has invalid # of bytes (%d)\n",
-+			   *len);
- 		goto out;
- 	}
- 
-@@ -474,7 +476,9 @@ static struct sk_buff *if_cs_receive_data(struct lbs_private *priv)
- 
- 	len = if_cs_read16(priv->card, IF_CS_READ_LEN);
- 	if (len == 0 || len > MRVDRV_ETH_RX_PACKET_BUFFER_SIZE) {
--		pr_err("card data buffer has invalid # of bytes (%d)\n", len);
-+		netdev_err(priv->dev,
-+			   "card data buffer has invalid # of bytes (%d)\n",
-+			   len);
- 		priv->dev->stats.rx_dropped++;
- 		goto dat_err;
- 	}
-@@ -752,7 +756,8 @@ static int if_cs_host_to_card(struct lbs_private *priv,
- 		ret = if_cs_send_cmd(priv, buf, nb);
- 		break;
- 	default:
--		pr_err("%s: unsupported type %d\n", __func__, type);
-+		netdev_err(priv->dev, "%s: unsupported type %d\n",
-+			   __func__, type);
- 	}
- 
- 	lbs_deb_leave_args(LBS_DEB_CS, "ret %d", ret);
-diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
-index ab86779..a7b5cb0 100644
---- a/drivers/net/wireless/libertas/if_sdio.c
-+++ b/drivers/net/wireless/libertas/if_sdio.c
-@@ -851,7 +851,7 @@ static int if_sdio_enter_deep_sleep(struct lbs_private *priv)
- 	ret = __lbs_cmd(priv, CMD_802_11_DEEP_SLEEP, &cmd, sizeof(cmd),
- 			lbs_cmd_copyback, (unsigned long) &cmd);
- 	if (ret)
--		pr_err("DEEP_SLEEP cmd failed\n");
-+		netdev_err(priv->dev, "DEEP_SLEEP cmd failed\n");
- 
- 	mdelay(200);
- 	return ret;
-@@ -867,7 +867,7 @@ static int if_sdio_exit_deep_sleep(struct lbs_private *priv)
- 
- 	sdio_writeb(card->func, HOST_POWER_UP, CONFIGURATION_REG, &ret);
- 	if (ret)
--		pr_err("sdio_writeb failed!\n");
-+		netdev_err(priv->dev, "sdio_writeb failed!\n");
- 
- 	sdio_release_host(card->func);
- 	lbs_deb_leave_args(LBS_DEB_SDIO, "ret %d", ret);
-@@ -884,7 +884,7 @@ static int if_sdio_reset_deep_sleep_wakeup(struct lbs_private *priv)
- 
- 	sdio_writeb(card->func, 0, CONFIGURATION_REG, &ret);
- 	if (ret)
--		pr_err("sdio_writeb failed!\n");
-+		netdev_err(priv->dev, "sdio_writeb failed!\n");
- 
- 	sdio_release_host(card->func);
- 	lbs_deb_leave_args(LBS_DEB_SDIO, "ret %d", ret);
-@@ -1103,7 +1103,7 @@ static int if_sdio_probe(struct sdio_func *func,
- 		lbs_deb_sdio("send function INIT command\n");
- 		if (__lbs_cmd(priv, CMD_FUNC_INIT, &cmd, sizeof(cmd),
- 				lbs_cmd_copyback, (unsigned long) &cmd))
--			pr_alert("CMD_FUNC_INIT cmd failed\n");
-+			netdev_alert(priv->dev, "CMD_FUNC_INIT cmd failed\n");
- 	}
- 
- 	ret = lbs_start_card(priv);
-@@ -1204,19 +1204,20 @@ static int if_sdio_suspend(struct device *dev)
- 
- 	mmc_pm_flag_t flags = sdio_get_host_pm_caps(func);
- 
--	pr_info("%s: suspend: PM flags = 0x%x\n", sdio_func_id(func), flags);
-+	dev_info(dev, "%s: suspend: PM flags = 0x%x\n",
-+		 sdio_func_id(func), flags);
- 
- 	/* If we aren't being asked to wake on anything, we should bail out
- 	 * and let the SD stack power down the card.
- 	 */
- 	if (card->priv->wol_criteria == EHS_REMOVE_WAKEUP) {
--		pr_info("Suspend without wake params -- powering down card\n");
-+		dev_info(dev, "Suspend without wake params -- powering down card\n");
- 		return -ENOSYS;
- 	}
- 
- 	if (!(flags & MMC_PM_KEEP_POWER)) {
--		pr_err("%s: cannot remain alive while host is suspended\n",
--		       sdio_func_id(func));
-+		dev_err(dev, "%s: cannot remain alive while host is suspended\n",
-+			sdio_func_id(func));
- 		return -ENOSYS;
- 	}
- 
-@@ -1237,7 +1238,7 @@ static int if_sdio_resume(struct device *dev)
- 	struct if_sdio_card *card = sdio_get_drvdata(func);
- 	int ret;
- 
--	pr_info("%s: resume: we're back\n", sdio_func_id(func));
-+	dev_info(dev, "%s: resume: we're back\n", sdio_func_id(func));
- 
- 	ret = lbs_resume(card->priv);
- 
-diff --git a/drivers/net/wireless/libertas/if_spi.c b/drivers/net/wireless/libertas/if_spi.c
-index bebd9f0..30f21b1 100644
---- a/drivers/net/wireless/libertas/if_spi.c
-+++ b/drivers/net/wireless/libertas/if_spi.c
-@@ -559,6 +559,7 @@ static int if_spi_prog_main_firmware_check_len(struct if_spi_card *card,
- static int if_spi_prog_main_firmware(struct if_spi_card *card,
- 					const struct firmware *firmware)
- {
-+	struct lbs_private *priv = card->priv;
- 	int len, prev_len;
- 	int bytes, crc_err = 0, err = 0;
- 	const u8 *fw;
-@@ -572,8 +573,9 @@ static int if_spi_prog_main_firmware(struct if_spi_card *card,
- 
- 	err = spu_wait_for_u16(card, IF_SPI_SCRATCH_1_REG, 0, 0);
- 	if (err) {
--		pr_err("%s: timed out waiting for initial scratch reg = 0\n",
--		       __func__);
-+		netdev_err(priv->dev,
-+			   "%s: timed out waiting for initial scratch reg = 0\n",
-+			   __func__);
- 		goto out;
- 	}
- 
-@@ -589,7 +591,8 @@ static int if_spi_prog_main_firmware(struct if_spi_card *card,
- 		if (bytes < 0) {
- 			/* If there are no more bytes left, we would normally
- 			 * expect to have terminated with len = 0 */
--			pr_err("Firmware load wants more bytes than we have to offer\n");
-+			netdev_err(priv->dev,
-+				   "Firmware load wants more bytes than we have to offer\n");
- 			break;
- 		}
- 		if (crc_err) {
-@@ -674,12 +677,14 @@ static int if_spi_c2h_cmd(struct if_spi_card *card)
- 	if (err)
- 		goto out;
- 	if (!len) {
--		pr_err("%s: error: card has no data for host\n", __func__);
-+		netdev_err(priv->dev, "%s: error: card has no data for host\n",
-+			   __func__);
- 		err = -EINVAL;
- 		goto out;
- 	} else if (len > IF_SPI_CMD_BUF_SIZE) {
--		pr_err("%s: error: response packet too large: %d bytes, but maximum is %d\n",
--		       __func__, len, IF_SPI_CMD_BUF_SIZE);
-+		netdev_err(priv->dev,
-+			   "%s: error: response packet too large: %d bytes, but maximum is %d\n",
-+			   __func__, len, IF_SPI_CMD_BUF_SIZE);
- 		err = -EINVAL;
- 		goto out;
- 	}
-@@ -700,7 +705,7 @@ static int if_spi_c2h_cmd(struct if_spi_card *card)
- 
- out:
- 	if (err)
--		pr_err("%s: err=%d\n", __func__, err);
-+		netdev_err(priv->dev, "%s: err=%d\n", __func__, err);
- 	lbs_deb_leave(LBS_DEB_SPI);
- 	return err;
- }
-@@ -708,6 +713,7 @@ out:
- /* Move data from the card to the host */
- static int if_spi_c2h_data(struct if_spi_card *card)
- {
-+	struct lbs_private *priv = card->priv;
- 	struct sk_buff *skb;
- 	char *data;
- 	u16 len;
-@@ -720,12 +726,14 @@ static int if_spi_c2h_data(struct if_spi_card *card)
- 	if (err)
- 		goto out;
- 	if (!len) {
--		pr_err("%s: error: card has no data for host\n", __func__);
-+		netdev_err(priv->dev, "%s: error: card has no data for host\n",
-+			   __func__);
- 		err = -EINVAL;
- 		goto out;
- 	} else if (len > MRVDRV_ETH_RX_PACKET_BUFFER_SIZE) {
--		pr_err("%s: error: card has %d bytes of data, but our maximum skb size is %zu\n",
--		       __func__, len, MRVDRV_ETH_RX_PACKET_BUFFER_SIZE);
-+		netdev_err(priv->dev,
-+			   "%s: error: card has %d bytes of data, but our maximum skb size is %zu\n",
-+			   __func__, len, MRVDRV_ETH_RX_PACKET_BUFFER_SIZE);
- 		err = -EINVAL;
- 		goto out;
- 	}
-@@ -756,7 +764,7 @@ free_skb:
- 	dev_kfree_skb(skb);
- out:
- 	if (err)
--		pr_err("%s: err=%d\n", __func__, err);
-+		netdev_err(priv->dev, "%s: err=%d\n", __func__, err);
- 	lbs_deb_leave(LBS_DEB_SPI);
- 	return err;
- }
-@@ -765,6 +773,7 @@ out:
- static void if_spi_h2c(struct if_spi_card *card,
- 			struct if_spi_packet *packet, int type)
- {
-+	struct lbs_private *priv = card->priv;
- 	int err = 0;
- 	u16 int_type, port_reg;
- 
-@@ -778,7 +787,8 @@ static void if_spi_h2c(struct if_spi_card *card,
- 		port_reg = IF_SPI_CMD_RDWRPORT_REG;
- 		break;
- 	default:
--		pr_err("can't transfer buffer of type %d\n", type);
-+		netdev_err(priv->dev, "can't transfer buffer of type %d\n",
-+			   type);
- 		err = -EINVAL;
- 		goto out;
- 	}
-@@ -792,7 +802,7 @@ out:
- 	kfree(packet);
- 
- 	if (err)
--		pr_err("%s: error %d\n", __func__, err);
-+		netdev_err(priv->dev, "%s: error %d\n", __func__, err);
- }
- 
- /* Inform the host about a card event */
-@@ -816,7 +826,7 @@ static void if_spi_e2h(struct if_spi_card *card)
- 	lbs_queue_event(priv, cause & 0xff);
- out:
- 	if (err)
--		pr_err("%s: error %d\n", __func__, err);
-+		netdev_err(priv->dev, "%s: error %d\n", __func__, err);
- }
- 
- static void if_spi_host_to_card_worker(struct work_struct *work)
-@@ -826,8 +836,10 @@ static void if_spi_host_to_card_worker(struct work_struct *work)
- 	u16 hiStatus;
- 	unsigned long flags;
- 	struct if_spi_packet *packet;
-+	struct lbs_private *priv;
- 
- 	card = container_of(work, struct if_spi_card, packet_work);
-+	priv = card->priv;
- 
- 	lbs_deb_enter(LBS_DEB_SPI);
- 
-@@ -836,7 +848,7 @@ static void if_spi_host_to_card_worker(struct work_struct *work)
- 	err = spu_read_u16(card, IF_SPI_HOST_INT_STATUS_REG,
- 				&hiStatus);
- 	if (err) {
--		pr_err("I/O error\n");
-+		netdev_err(priv->dev, "I/O error\n");
- 		goto err;
- 	}
- 
-@@ -898,7 +910,7 @@ static void if_spi_host_to_card_worker(struct work_struct *work)
- 
- err:
- 	if (err)
--		pr_err("%s: got error %d\n", __func__, err);
-+		netdev_err(priv->dev, "%s: got error %d\n", __func__, err);
- 
- 	lbs_deb_leave(LBS_DEB_SPI);
- }
-@@ -920,7 +932,8 @@ static int if_spi_host_to_card(struct lbs_private *priv,
- 	lbs_deb_enter_args(LBS_DEB_SPI, "type %d, bytes %d", type, nb);
- 
- 	if (nb == 0) {
--		pr_err("%s: invalid size requested: %d\n", __func__, nb);
-+		netdev_err(priv->dev, "%s: invalid size requested: %d\n",
-+			   __func__, nb);
- 		err = -EINVAL;
- 		goto out;
- 	}
-@@ -948,7 +961,8 @@ static int if_spi_host_to_card(struct lbs_private *priv,
- 		spin_unlock_irqrestore(&card->buffer_lock, flags);
- 		break;
- 	default:
--		pr_err("can't transfer buffer of type %d\n", type);
-+		netdev_err(priv->dev, "can't transfer buffer of type %d\n",
-+			   type);
- 		err = -EINVAL;
- 		break;
- 	}
-@@ -981,6 +995,7 @@ static irqreturn_t if_spi_host_interrupt(int irq, void *dev_id)
- 
- static int if_spi_init_card(struct if_spi_card *card)
- {
-+	struct lbs_private *priv = card->priv;
- 	struct spi_device *spi = card->spi;
- 	int err, i;
- 	u32 scratch;
-@@ -1009,7 +1024,8 @@ static int if_spi_init_card(struct if_spi_card *card)
- 				break;
- 		}
- 		if (i == ARRAY_SIZE(fw_table)) {
--			pr_err("Unsupported chip_id: 0x%02x\n", card->card_id);
-+			netdev_err(priv->dev, "Unsupported chip_id: 0x%02x\n",
-+				   card->card_id);
- 			err = -ENODEV;
- 			goto out;
- 		}
-@@ -1018,7 +1034,8 @@ static int if_spi_init_card(struct if_spi_card *card)
- 					card->card_id, &fw_table[0], &helper,
- 					&mainfw);
- 		if (err) {
--			pr_err("failed to find firmware (%d)\n", err);
-+			netdev_err(priv->dev, "failed to find firmware (%d)\n",
-+				   err);
- 			goto out;
- 		}
- 
-diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
-index 7260791..63e7e2c 100644
---- a/drivers/net/wireless/libertas/if_usb.c
-+++ b/drivers/net/wireless/libertas/if_usb.c
-@@ -198,7 +198,7 @@ static void if_usb_setup_firmware(struct lbs_private *priv)
- 	wake_method.hdr.size = cpu_to_le16(sizeof(wake_method));
- 	wake_method.action = cpu_to_le16(CMD_ACT_GET);
- 	if (lbs_cmd_with_response(priv, CMD_802_11_FW_WAKE_METHOD, &wake_method)) {
--		pr_info("Firmware does not seem to support PS mode\n");
-+		netdev_info(priv->dev, "Firmware does not seem to support PS mode\n");
- 		priv->fwcapinfo &= ~FW_CAPINFO_PS;
- 	} else {
- 		if (le16_to_cpu(wake_method.method) == CMD_WAKE_METHOD_COMMAND_INT) {
-@@ -207,7 +207,8 @@ static void if_usb_setup_firmware(struct lbs_private *priv)
- 			/* The versions which boot up this way don't seem to
- 			   work even if we set it to the command interrupt */
- 			priv->fwcapinfo &= ~FW_CAPINFO_PS;
--			pr_info("Firmware doesn't wake via command interrupt; disabling PS mode\n");
-+			netdev_info(priv->dev,
-+				    "Firmware doesn't wake via command interrupt; disabling PS mode\n");
- 		}
- 	}
- }
-@@ -343,10 +344,12 @@ static int if_usb_probe(struct usb_interface *intf,
- 	usb_set_intfdata(intf, cardp);
- 
- 	if (device_create_file(&priv->dev->dev, &dev_attr_lbs_flash_fw))
--		pr_err("cannot register lbs_flash_fw attribute\n");
-+		netdev_err(priv->dev,
-+			   "cannot register lbs_flash_fw attribute\n");
- 
- 	if (device_create_file(&priv->dev->dev, &dev_attr_lbs_flash_boot2))
--		pr_err("cannot register lbs_flash_boot2 attribute\n");
-+		netdev_err(priv->dev,
-+			   "cannot register lbs_flash_boot2 attribute\n");
- 
- 	/*
- 	 * EHS_REMOVE_WAKEUP is not supported on all versions of the firmware.
-diff --git a/drivers/net/wireless/libertas/main.c b/drivers/net/wireless/libertas/main.c
-index 639461b..84ffafe 100644
---- a/drivers/net/wireless/libertas/main.c
-+++ b/drivers/net/wireless/libertas/main.c
-@@ -155,7 +155,7 @@ static void lbs_tx_timeout(struct net_device *dev)
- 
- 	lbs_deb_enter(LBS_DEB_TX);
- 
--	pr_err("tx watch dog timeout\n");
-+	netdev_err(dev, "tx watch dog timeout\n");
- 
- 	dev->trans_start = jiffies; /* prevent tx timeout */
- 
-@@ -464,8 +464,8 @@ static int lbs_thread(void *data)
- 		if (priv->cmd_timed_out && priv->cur_cmd) {
- 			struct cmd_ctrl_node *cmdnode = priv->cur_cmd;
- 
--			pr_info("Timeout submitting command 0x%04x\n",
--				le16_to_cpu(cmdnode->cmdbuf->command));
-+			netdev_info(dev, "Timeout submitting command 0x%04x\n",
-+				    le16_to_cpu(cmdnode->cmdbuf->command));
- 			lbs_complete_command(priv, cmdnode, -ETIMEDOUT);
- 			if (priv->reset_card)
- 				priv->reset_card(priv);
-@@ -492,7 +492,8 @@ static int lbs_thread(void *data)
- 				 * after firmware fixes it
- 				 */
- 				priv->psstate = PS_STATE_AWAKE;
--				pr_alert("ignore PS_SleepConfirm in non-connected state\n");
-+				netdev_alert(dev,
-+					     "ignore PS_SleepConfirm in non-connected state\n");
- 			}
- 		}
- 
-@@ -586,7 +587,8 @@ int lbs_suspend(struct lbs_private *priv)
- 	if (priv->is_deep_sleep) {
- 		ret = lbs_set_deep_sleep(priv, 0);
- 		if (ret) {
--			pr_err("deep sleep cancellation failed: %d\n", ret);
-+			netdev_err(priv->dev,
-+				   "deep sleep cancellation failed: %d\n", ret);
- 			return ret;
- 		}
- 		priv->deep_sleep_required = 1;
-@@ -619,7 +621,8 @@ int lbs_resume(struct lbs_private *priv)
- 		priv->deep_sleep_required = 0;
- 		ret = lbs_set_deep_sleep(priv, 1);
- 		if (ret)
--			pr_err("deep sleep activation failed: %d\n", ret);
-+			netdev_err(priv->dev,
-+				   "deep sleep activation failed: %d\n", ret);
- 	}
- 
- 	if (priv->setup_fw_on_resume)
-@@ -645,8 +648,8 @@ static void lbs_cmd_timeout_handler(unsigned long data)
- 	if (!priv->cur_cmd)
- 		goto out;
- 
--	pr_info("command 0x%04x timed out\n",
--		le16_to_cpu(priv->cur_cmd->cmdbuf->command));
-+	netdev_info(priv->dev, "command 0x%04x timed out\n",
-+		    le16_to_cpu(priv->cur_cmd->cmdbuf->command));
- 
- 	priv->cmd_timed_out = 1;
- 	wake_up_interruptible(&priv->waitq);
-@@ -961,7 +964,7 @@ int lbs_start_card(struct lbs_private *priv)
- 
- 	lbs_debugfs_init_one(priv, dev);
- 
--	pr_info("%s: Marvell WLAN 802.11 adapter\n", dev->name);
-+	netdev_info(dev, "Marvell WLAN 802.11 adapter\n");
- 
- 	ret = 0;
- 
-@@ -1088,14 +1091,16 @@ int lbs_get_firmware(struct device *dev, const char *user_helper,
- 	if (user_helper) {
- 		ret = request_firmware(helper, user_helper, dev);
- 		if (ret) {
--			pr_err("couldn't find helper firmware %s", user_helper);
-+			dev_err(dev, "couldn't find helper firmware %s\n",
-+				user_helper);
- 			goto fail;
- 		}
- 	}
- 	if (user_mainfw) {
- 		ret = request_firmware(mainfw, user_mainfw, dev);
- 		if (ret) {
--			pr_err("couldn't find main firmware %s", user_mainfw);
-+			dev_err(dev, "couldn't find main firmware %s\n",
-+				user_mainfw);
- 			goto fail;
- 		}
- 	}
-diff --git a/drivers/net/wireless/libertas/mesh.c b/drivers/net/wireless/libertas/mesh.c
-index f7c51cb..f4c4f1c 100644
---- a/drivers/net/wireless/libertas/mesh.c
-+++ b/drivers/net/wireless/libertas/mesh.c
-@@ -248,7 +248,7 @@ int lbs_init_mesh(struct lbs_private *priv)
- 		lbs_add_mesh(priv);
- 
- 		if (device_create_file(&dev->dev, &dev_attr_lbs_mesh))
--			pr_err("cannot register lbs_mesh attribute\n");
-+			netdev_err(dev, "cannot register lbs_mesh attribute\n");
- 
- 		ret = 1;
- 	}
-@@ -928,7 +928,7 @@ static ssize_t mesh_id_get(struct device *dev, struct device_attribute *attr,
- 		return ret;
- 
- 	if (defs.meshie.val.mesh_id_len > IEEE80211_MAX_SSID_LEN) {
--		pr_err("inconsistent mesh ID length\n");
-+		dev_err(dev, "inconsistent mesh ID length\n");
- 		defs.meshie.val.mesh_id_len = IEEE80211_MAX_SSID_LEN;
- 	}
- 
-diff --git a/drivers/net/wireless/libertas/rx.c b/drivers/net/wireless/libertas/rx.c
-index fd045aa..f2ef0ae 100644
---- a/drivers/net/wireless/libertas/rx.c
-+++ b/drivers/net/wireless/libertas/rx.c
-@@ -251,7 +251,7 @@ static int process_rxed_802_11_packet(struct lbs_private *priv,
- 	/* add space for the new radio header */
- 	if ((skb_headroom(skb) < sizeof(struct rx_radiotap_hdr)) &&
- 	    pskb_expand_head(skb, sizeof(struct rx_radiotap_hdr), 0, GFP_ATOMIC)) {
--		pr_alert("%s: couldn't pskb_expand_head\n", __func__);
-+		netdev_alert(dev, "%s: couldn't pskb_expand_head\n", __func__);
- 		ret = -ENOMEM;
- 		kfree_skb(skb);
- 		goto done;
--- 
-1.7.5.rc3.dirty
-
+DQpUaGUgY29tbWl0IGNvdW50IGhlcmUgaXMgbm90IGFzIGxvdyBhcyBJIHdvdWxkIGhhdmUgbGlr
+ZWQsIGJ1dCBpdCBpcyB0aGUNCnVzdWFsIHNtYXR0ZXJpbmcgb2Ygb25lLWxpbmVycyBmaXhpbmcg
+cHJvYmxlbXMgcGVvcGxlIGFyZSBhY3R1YWxseQ0KcnVubmluZyBpbnRvLiAgQ29uc2lkZXJpbmcg
+dGhlIGZhY3QgdGhhdCB0aGUgbGFzdCBuZXR3b3JraW5nIHB1bGwNCnJlcXVlc3Qgd2FzIG5lYXJs
+eSAyIHdlZWtzIGFnbywgdGhlIGhpdCBjb3VudCBpc24ndCB0aGF0IGJhZC4NCg0KQWxvbmcgd2l0
+aCB0aGUgc3RyYWlnaHQtb3V0IGZpeGVzLCB0aGVyZSBhcmUgYSBmZXcgcmV2ZXJ0cyBmb3IgY2hh
+bmdlcw0KdGhhdCBjYXVzZWQgY2xlYXIgcmVncmVzc2lvbnMuDQoNCkFueXdheXM6DQoNCjEpIFJl
+dmVydCB2ZXRoIGNoYW5nZSwgYnJlYWtzIGNvbmZpZ3VyYXRpb24gb2YgdmV0aCBkZXZpY2VzLCBm
+cm9tIEppcmkNCiAgIFBpcmtvLg0KDQoyKSBXb0wgYnkgZGVmYXVsdCBpc24ndCBkb25lIHByb3Bl
+cmx5IGluIHRnMyBkcml2ZXIsIGZyb20gUmFmYWVsDQogICBKLiBXeXNvY2tpLg0KDQozKSBmc19l
+bmV0IGRyaXZlciBkb2Vzbid0IGNvbmZpZ3VyZSBtdWx0aWNhc3QgaW50byB0aGUgY2hpcCBwcm9w
+ZXJseSwNCiAgIGZyb20gQW5kcmVhIEdhbGJ1c2VyYS4NCg0KNCkgRml4IFFvUyBjb25maWcgc2Vu
+ZCBoYWx0aW5nIFRYIGluIGl3bHdpZmksIGZyb20gRGFuaWVsIEhhbHBlcmluLg0KDQo1KSBhdGwx
+YyBtYW5hZ2VzIGFzeW5jIHdvcmsgZXZlbnRzIHVzaW5nIG5vbi1hdG9taWMgYml0IGZpZWxkLCB1
+c2UNCiAgIGF0b21pYyBiaXRvcHMgdG8gZml4IHRoZXNlIHJhY2VzLCBmcm9tIFRpbSBHYXJkbmVy
+Lg0KDQo2KSBSZXZlcnQgYnJpZGdpbmcgY2hhbmdlIHdoaWNoIGJyb2tlIDgwMi4zYWQgYm9uZGlu
+ZyBpbnNpZGUgb2YNCiAgIGJyaWRnZS4NCg0KNykgUmVtb3ZpbmcgYSBuZXQgZHJpdmVyIGNhbiB3
+ZWRnZSBpbiBuZXRjb25zb2xlIGR1ZSB0byByZWN1cnNpdmUNCiAgIGxvY2tpbmcsIGZpeCBmcm9t
+IE5laWwgSG9ybWFuLg0KDQo4KSBibngyeCBibGluZGx5IGRlcmVmZXJlbmNlcyBwYWNrZXRzIGFz
+IGlmIHRoZXkgd2VyZSBhbGwgVENQLA0KICAgZml4IHRvIGNoZWNrIHByb3RvY29sIHR5cGUgcHJv
+cGVybHkgYW5kIGhhbmRsZSBVRFAgY29ycmVjdGx5DQogICBhcyB3ZWxsLiAgRnJvbSBFcmljIER1
+bWF6ZXQgYW5kIFZsYWRpc2xhdiBab2xvdGFyb3YuDQoNCjkpIEZpeCByODE2OSB0byBub3QgcmVx
+dWVzdCBmaXJtd2FyZSBiZWZvcmUgdXNlcnNwYWNlIGlzIGV2ZW4NCiAgIHByZXNlbnQsIGZyb20g
+RnJhbmNvaXMgUm9taWV1Lg0KDQoxMCkgQmxhY2tob2xlIHJvdXRlcyBuZWVkIHRvIHByb3ZpZGUg
+LT5jb3dfbWV0cmljcygpIG9wIG90aGVyd2lzZQ0KICAgIHdlIE9PUFMsIGZyb20gSGVsZCBCZW5o
+YXJkLg0KDQoxMSkgSVBTRUMgcmVwbGF5IHdpbmRvdyBoYW5kbGluZyBmaXhlcyBmcm9tIFN0ZWZm
+ZW4gS2xhc3NlcnQuDQoNCjEyKSB1c2JuZXQgY2FuIHdlZGdlIG9uIHJlc3VtZSBiZWNhdXNlIGEg
+cGVuZGluZyBpbnRlcnJ1cHQgVVJCDQogICAgZ2V0cyBsb3N0LCByZXN1Ym1pdCBpdCBvbiByZXN1
+bWUuICBGcm9tIFBhdWwgU3Rld2FydC4NCg0KMTMpIFBlbmRpbmcgdGltZXIgb24gcmVtb3ZlIHJl
+c3VsdHMgaW4gT09QUyBpbiBibngyIGRyaXZlciwgZml4DQogICAgZnJvbSBOZWlsIEhvcm1hbi4N
+Cg0KMTQpIGZ0bWFjMTAwIGRvZXMgdXNsZWVwX3JhbmdlKCkgaW4gbm9uLXNsZWVwYWJsZSBjb250
+ZXh0cywgZml4DQogICAgdG8gdXNlIHVkZWxheSgpIGZvciBub3cuICBGcm9tIEFkYW0gSmFyZW1r
+by4NCg0KMTUpIEFGX1VOSVggc29ja2V0cyB1c2UgYSBkdW1teSBwYWNrZXQgc2VuZCBpbiBvcmRl
+ciB0byBpbXBsZW1lbnQNCiAgICBjb25uZWN0KCkgYW5kIGFjY2VwdCgpLiAgV2Ugd2FudCB0byBj
+b21wbGV0ZWx5IGlnbm9yZSB0aGVzZQ0KICAgIHBzZXVkby1wYWNrZXRzIGluIHJlY3Ztc2coKSBv
+dGhlcndpc2Ugd2UgY2FuIE9PUFMuICBGaXgNCiAgICBmcm9tIEVyaWMgVy4gQmllZGVybWFuLg0K
+DQoxNikgRXZlcnkgbmV0IG5hbWVzcGFjZSBjcmVhdGlvbiBlbWl0cyBhbiBhbm5veWluZyBsb2cg
+bWVzc2FnZSBmcm9tDQogICAgdGhlIGZpYl90cmllIGNvZGUsIGtpbGwgaXQuICBGcm9tIEFsZXhl
+eSBEb2JyaXlhbi4NCg0KMTcpIEludmFsaWQgaW9jdGwgY29tbWFuZHMgc2hvdWxkIGVtaXQgLUVO
+T1RUWSBub3QgLUVJTlZBTC4gIEZyb20NCiAgICBMaWZlbmcgU3VuLg0KDQoxOCkgc21zYzk1eHgg
+ZHJpdmVyIGNoZWNrcyBCTUNSIHJlZ2lzdGVyIGJpdCBpbXByb3Blcmx5LCBpdCdzDQogICAgYWN0
+dWFsbHkgdXNpbmcgYSByZWdpc3RlciBhZGRyZXNzICh3aGljaCBpcyB6ZXJvIGFuZCB0aHVzDQog
+ICAgdGhlIHRlc3QgbmV2ZXIgcGFzc2VzKSA6LSkgIFNoYXJwIGV5ZWQgZml4IGZyb20gUmFiaW4g
+VmluY2VudC4NCg0KMTkpIENhbGxzIHRvIHJlZ2lzdGVyX25ldF9zeXNjdGxfdGFibGUoKSBzaG91
+bGQgYmUgY29uc2lzdGVudGx5DQogICAgcGFpcmVkIHdpdGggdW5yZWdpc3Rlcl9uZXRfc3lzY3Rs
+X3RhYmxlKCkuICBGaXggYnJva2VuIGNhc2VzLA0KICAgIGZyb20gTHVjaWFuIEFkcmlhbiBHcmlq
+aW5jdS4NCg0KMjApIFJBVyBDQU4gc29ja2V0IHJlbGVhc2UgY2FuIE9PUFMgZHVlIHRvIG1pc3Np
+bmcgJ3NrJyBjaGVjaywgZnJvbQ0KICAgIE9saXZlciBIYXJ0a29wcC4NCg0KICAgIFRoZSBCQ00g
+Q0FOIGNvZGUgaGFzIGFuIGlkZW50aWNhbCBidWcsIGFsc28gZml4ZWQgaGVyZSwgYXMNCiAgICB3
+YXMgb3JpZ2luYWxseSByZXBvcnRlZCBieSBEYXZlIEpvbmVzLg0KDQogICAgVGhlc2UgYnVncyB3
+ZXJlIHVuY292ZXJlZCB0aGFua3MgdG8gRGF2ZSdzIHN5c2NhbGwgc3RyZXNzZXIuDQoNCjIxKSBT
+S0IgdXNlIGFmdGVyIGZyZWUgZml4ZXMgaW4gaXdsd2lmaSBhbmQgaXdsNDk2NSwgZnJvbSBTdGFu
+aXNsYXcNCiAgICBHcnVzemthLg0KDQoyMikgdWRwNl91Zm9fZnJhZ21lbnQoKSBtaXMtY2FsY3Vs
+YXRlcyBTS0IgaGVhZHJvb20sIGZyb20gU2hhbiBXZWkuDQoNCjIzKSBBIGNvbnZlcnNpb24gb2Yg
+aG93IHRoZSBSVEFYX0hPUExJTUlUIG1lcnRyaWMgaXMgaGFuZGxlZCBpbiBpcHY2DQogICAgbWlz
+c2VkIG9uZSBjYXNlLCByZXN1bHRpbmcgaW4gYWRkcmNvbmYgcm91dGVzIGFsd2F5cyB1c2luZw0K
+ICAgICIyNTUiIGFzIHRoZSBob3AgbGltaXQuICBGaXggZnJvbSBUaG9tYXMgRWdlcmVyLg0KDQoy
+NCkgTWlzc2luZyBjb3VudGVyIGJ1bXAgaW4gYmUybmV0IGRyaXZlciByZXN1bHRzIGluIHRlbXBl
+cmF0dXJlDQogICAgc2Vuc2UgaGFwcGVuaW5nIHdheSB0b28gb2Z0ZW4sIGZyb20gSXZhbiBWZWNl
+cmEuDQoNCjI1KSBhZ2dfZGV2aWNlX3VwKCkgaW4gdGhlIGJvbmRpbmcgY29kZSB1c2VzIHRoZSB3
+cm9uZyBtZXRob2QgdG8gZmluZA0KICAgIHRoZSBhZ2dyZWdhdG9yIG9mIHRoZSBib25kLCBpdCBz
+aG91bGQgdXNlIGFnZy0+bGFnX3BvcnRzLT5zbGF2ZQ0KICAgIGluc3RlYWQgb2YgYWdnLT5zbGF2
+ZS4gIEZpeCBmcm9tIEppcmkgQm9oYWMuDQoNCjI2KSBCbHVldG9vdGggSENJIGNvbm5lY3QgY29k
+ZSBkb2VzIG9uZSByZWZjb3VudCBncmFiIHRvbyBtYW55LA0KICAgIGZpeCBmcm9tIFZpbGxlIFRl
+cnZvLg0KDQpQbGVhc2UgcHVsbCwgdGhhbmtzIGEgbG90IQ0KDQpUaGUgZm9sbG93aW5nIGNoYW5n
+ZXMgc2luY2UgY29tbWl0IGFkYWRmZTQ4ZGYzODU4YzNjMWJhNTI5NjM1MDJmMzg4ODVhYjJmM2M6
+DQoNCiAgTWVyZ2UgYnJhbmNoICdmb3ItbGludXMnIG9mIGdpdDovL2dpdC5pbmZyYWRlYWQub3Jn
+L3ViaWZzLTIuNiAoMjAxMS0wNS0wMiAxMjoxNzoyOSAtMDcwMCkNCg0KYXJlIGF2YWlsYWJsZSBp
+biB0aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQoNCiAgbWFzdGVyLmtlcm5lbC5vcmc6L3B1Yi9zY20v
+bGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQtMi42LmdpdCBtYXN0ZXINCg0KQWRhbSBKYXJlbWtv
+ICgxKToNCiAgICAgIG5ldDogZnRtYWMxMDA6IGZpeCBzY2hlZHVsaW5nIHdoaWxlIGF0b21pYyBk
+dXJpbmcgUEhZIGxpbmsgc3RhdHVzIGNoYW5nZQ0KDQpBbGV4ZXkgRG9icml5YW4gKDEpOg0KICAg
+ICAgaXB2NDogZG9uJ3Qgc3BhbSBkbWVzZyB3aXRoICJVc2luZyBMQy10cmllIiBtZXNzYWdlcw0K
+DQpBbmRyZWEgR2FsYnVzZXJhICgxKToNCiAgICAgIHBvd2VycGM6IEZpeCBtdWx0aWNhc3QgcHJv
+YmxlbSBpbiBmc19lbmV0IGRyaXZlcg0KDQpCcmVubyBMZWl0YW8gKDEpOg0KICAgICAgZWhlYTog
+Rml4IGEgRExQQVIgYnVnIG9uIGVoZWFfcmVyZWdfbXJzKCkuDQoNCkRhbiBXaWxsaWFtcyAoMSk6
+DQogICAgICB1c2JuZXQ6IGFkZCBzdXBwb3J0IGZvciBzb21lIEh1YXdlaSBtb2RlbXMgd2l0aCBj
+ZGMtZXRoZXIgcG9ydHMNCg0KRGFuaWVsIEhhbHBlcmluICgxKToNCiAgICAgIGl3bHdpZmk6IGZp
+eCBmcmFtZSBpbmplY3Rpb24gZm9yIEhUIGNoYW5uZWxzDQoNCkRhdmUgSm9uZXMgKDEpOg0KICAg
+ICAgY2FuOiBBZGQgbWlzc2luZyBzb2NrZXQgY2hlY2sgaW4gY2FuL2JjbSByZWxlYXNlLg0KDQpE
+YXZpZCBTLiBNaWxsZXIgKDQpOg0KICAgICAgUmV2ZXJ0ICJicmlkZ2U6IEZvcndhcmQgcmVzZXJ2
+ZWQgZ3JvdXAgYWRkcmVzc2VzIGlmICFTVFAiDQogICAgICBNZXJnZSBicmFuY2ggJ21hc3Rlcicg
+b2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL2xpbnZpbGxlL3dpcmVsZXNzLTIuNg0KICAgICAg
+TWVyZ2UgYnJhbmNoICdkYXZlbS5yODE2OScgb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL3Jv
+bWlldS9uZXRkZXYtMi42DQogICAgICBNZXJnZSBicmFuY2ggJ21hc3Rlcicgb2YgZ2l0Oi8vZ2l0
+Lmtlcm5lbC5vcmcvLi4uL2xpbnZpbGxlL3dpcmVsZXNzLTIuNg0KDQpFcmljIFcuIEJpZWRlcm1h
+biAoMSk6DQogICAgICBhZl91bml4OiBPbmx5IGFsbG93IHJlY3Ygb24gY29ubmVjdGVkIHNlcXBh
+Y2tldCBzb2NrZXRzLg0KDQpGZWxpeCBGaWV0a2F1ICgxKToNCiAgICAgIGF0aDlrOiBmaXggdGhl
+IHJldHVybiB2YWx1ZSBvZiBhdGhfc3RvcHJlY3YNCg0KRnJhbsOnb2lzIFJvbWlldSAoMSk6DQog
+ICAgICByODE2OTogZG9uJ3QgcmVxdWVzdCBmaXJtd2FyZSB3aGVuIHRoZXJlJ3Mgbm8gdXNlcnNw
+YWNlLg0KDQpIYW5zIFBldHRlciBTZWxhc2t5ICgxKToNCiAgICAgIGNkY19uY206IGZpeCBzaG9y
+dCBwYWNrZXQgaXNzdWUgb24gc29tZSBkZXZpY2VzDQoNCkhlbGQgQmVybmhhcmQgKDEpOg0KICAg
+ICAgbmV0OiBwcm92aWRlIGNvd19tZXRyaWNzKCkgbWV0aG9kcyB0byBibGFja2hvbGUgZHN0X29w
+cw0KDQpJdmFuIFZlY2VyYSAoMSk6DQogICAgICBiZTJuZXQ6IGluY3JlbWVudCB3b3JrX2NvdW50
+ZXIgaW4gYmVfd29ya2VyDQoNCkppcmkgQm9oYWMgKDEpOg0KICAgICAgYm9uZGluZzogODAyLjNh
+ZCAtIGZpeCBhZ2dfZGV2aWNlX3VwDQoNCkppcmkgUGlya28gKDEpOg0KICAgICAgUmV2ZXJ0OiB2
+ZXRoOiByZW1vdmUgdW5uZWVkZWQgaWZuYW1lIGNvZGUgZnJvbSB2ZXRoX25ld2xpbmsoKQ0KDQpK
+b2UgUGVyY2hlcyAoMSk6DQogICAgICBhbWQ4MTExZTogdHJpdmlhbCB0eXBvIHNwZWxsaW5nOiBO
+ZWdvdGl0YXRlIC0+IE5lZ290aWF0ZQ0KDQpKb2hhbm5lcyBCZXJnICgxKToNCiAgICAgIG1hYzgw
+MjExOiBmaXggU01QUyBkZWJ1Z2ZzIGxvY2tpbmcNCg0KSm9obiBXLiBMaW52aWxsZSAoMSk6DQog
+ICAgICBNZXJnZSBicmFuY2ggJ21hc3Rlcicgb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL3Bh
+ZG92YW4vYmx1ZXRvb3RoLTIuNg0KDQpMaWZlbmcgU3VuICgxKToNCiAgICAgIG5ldHdvcmtpbmc6
+IGluYXBwcm9wcmlhdGUgaW9jdGwgb3BlcmF0aW9uIHNob3VsZCByZXR1cm4gRU5PVFRZDQoNCkx1
+Y2lhbiBBZHJpYW4gR3JpamluY3UgKDEpOg0KICAgICAgc3lzY3RsOiBuZXQ6IGNhbGwgdW5yZWdp
+c3Rlcl9uZXRfc3lzY3RsX3RhYmxlIHdoZXJlIG5lZWRlZA0KDQpMdWl6IEF1Z3VzdG8gdm9uIERl
+bnR6ICgxKToNCiAgICAgIEJsdWV0b290aDogZml4IHNodXRkb3duIG9uIFNDTyBzb2NrZXRzDQoN
+Ck5laWwgSG9ybWFuICgyKToNCiAgICAgIG5ldGNvbnNvbGU6IGZpeCBkZWFkbG9jayB3aGVuIHJl
+bW92aW5nIG5ldCBkcml2ZXIgdGhhdCBuZXRjb25zb2xlIGlzIHVzaW5nICh2MikNCiAgICAgIGJu
+eDI6IGNhbmNlbCB0aW1lciBvbiBkZXZpY2UgcmVtb3ZhbA0KDQpPbGl2ZXIgSGFydGtvcHAgKDEp
+Og0KICAgICAgY2FuOiBhZGQgbWlzc2luZyBzb2NrZXQgY2hlY2sgaW4gY2FuL3JhdyByZWxlYXNl
+DQoNCk9saXZlciBOZXVrdW0gKDEpOg0KICAgICAgdXNibmV0OiBUcmFuc2ZlciBvZiBtYWludGFp
+bmVyc2hpcA0KDQpQYXVsIFN0ZXdhcnQgKDEpOg0KICAgICAgdXNibmV0OiBSZXN1Ym1pdCBpbnRl
+cnJ1cHQgVVJCIGlmIGRldmljZSBpcyBvcGVuDQoNClBldGVyIEtvcnNnYWFyZCAoMSk6DQogICAg
+ICBkc2EvbXY4OGU2MTMxOiBmaXggdW5rbm93biBtdWx0aWNhc3QvYnJvYWRjYXN0IGZvcndhcmRp
+bmcgb24gbXY4OGU2MDg1DQoNClJhYmluIFZpbmNlbnQgKDEpOg0KICAgICAgc21zYzk1eHg6IGZp
+eCByZXNldCBjaGVjaw0KDQpSYWZhZWwgSi4gV3lzb2NraSAoMSk6DQogICAgICB0ZzM6IEZpeCBm
+YWlsdXJlIHRvIGVuYWJsZSBXb0wgYnkgZGVmYXVsdCB3aGVuIHBvc3NpYmxlDQoNClJhZmHFgiBN
+acWCZWNraSAoMSk6DQogICAgICBiNDM6IHRyaXZpYWw6IHVwZGF0ZSBtb2R1bGUgaW5mbyBhYm91
+dCB1Y29kZTE2X21pbW8gZmlybXdhcmUNCg0KUnVpeWkgWmhhbmcgKDEpOg0KICAgICAgQmx1ZXRv
+b3RoOiBPbmx5IGtlZXBpbmcgU0FSIGJpdHMgd2hlbiByZXRyYW5zbWl0dGluZyBvbmUgZnJhbWUu
+DQoNClNoYW4gV2VpICgxKToNCiAgICAgIGlwdjY6IHVkcDogZml4IHRoZSB3cm9uZyBoZWFkcm9v
+bSBjaGVjaw0KDQpTdGFuaXNsYXcgR3J1c3prYSAoNSk6DQogICAgICBpd2x3aWZpOiBmaXggc2ti
+IHVzYWdlIGFmdGVyIGZyZWUNCiAgICAgIGl3bDQ5NjU6IGZpeCBza2IgdXNhZ2UgYWZ0ZXIgZnJl
+ZQ0KICAgICAgaXdsNDk2NTogZml4ICJUWCBQb3dlciByZXF1ZXN0ZWQgd2hpbGUgc2Nhbm5pbmci
+DQogICAgICBpd2xhZ246IGZpeCAiUmVjZWl2ZWQgQkEgd2hlbiBub3QgZXhwZWN0ZWQiDQogICAg
+ICBpd2w0OTY1OiBmaXggIlJlY2VpdmVkIEJBIHdoZW4gbm90IGV4cGVjdGVkIg0KDQpTdGVmZmVu
+IEtsYXNzZXJ0ICgzKToNCiAgICAgIHhmcm06IEZpeCByZXBsYXkgd2luZG93IHNpemUgY2FsY3Vs
+YXRpb24gb24gaW5pdGlhbGl6YXRpb24NCiAgICAgIGVzcDY6IEZpeCBzY2F0dGVybGlzdCBpbml0
+aWFsaXphdGlvbg0KICAgICAgeGZybTogQ2hlY2sgZm9yIHRoZSBuZXcgcmVwbGF5IGltcGxlbWVu
+dGF0aW9uIGlmIGFuIGVzbiBzdGF0ZSBpcyBpbnNlcnRlZA0KDQpUaG9tYXMgRWdlcmVyICgxKToN
+CiAgICAgIGlwdjY6IFJlbW92ZSBob3BsaW1pdCBpbml0aWFsaXphdGlvbiB0byAtMQ0KDQpUaW0g
+R2FyZG5lciAoMSk6DQogICAgICBhdGwxYzogRml4IHdvcmsgZXZlbnQgaW50ZXJydXB0L3Rhc2sg
+cmFjZXMNCg0KVmlsbGUgVGVydm8gKDEpOg0KICAgICAgQmx1ZXRvb3RoOiBGaXggcmVmY291bnQg
+YmFsYW5jZSBmb3IgaGNpIGNvbm5lY3Rpb24NCg0KVmluaWNpdXMgQ29zdGEgR29tZXMgKDEpOg0K
+ICAgICAgQmx1ZXRvb3RoOiBGaXgga2VlcGluZyB0aGUgY29tbWFuZCB0aW1lciBydW5uaW5nDQoN
+ClZsYWRpc2xhdiBab2xvdGFyb3YgKDEpOg0KICAgICAgYm54Mng6IGZpeCBVRFAgY3N1bSBvZmZs
+b2FkDQoNCldleS1ZaSBHdXkgKDEpOg0KICAgICAgaXdsZWdhY3k6IGxlZCBzdGF5IHNvbGlkIG9u
+IHdoZW4gbm8gdHJhZmZpYw0KDQphcnRwb2wgKDEpOg0KICAgICAgbWlpOiBhZGQgc3VwcG9ydCBv
+ZiBwYXVzZSBmcmFtZXMgaW4gbWlpX2dldF9hbg0KDQogTUFJTlRBSU5FUlMgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstDQogYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNt
+Lzh4eF9pbW1hcC5oICAgICAgICAgfCAgICA0ICstDQogZHJpdmVycy9uZXQvYW1kODExMWUuYyAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstDQogZHJpdmVycy9uZXQvYXRsMWMvYXRsMWMu
+aCAgICAgICAgICAgICAgICAgICAgfCAgICA2ICstDQogZHJpdmVycy9uZXQvYXRsMWMvYXRsMWNf
+bWFpbi5jICAgICAgICAgICAgICAgfCAgIDE0ICsrLS0tDQogZHJpdmVycy9uZXQvYmVuZXQvYmVf
+bWFpbi5jICAgICAgICAgICAgICAgICAgfCAgICAxICsNCiBkcml2ZXJzL25ldC9ibngyLmMgICAg
+ICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDIgKw0KIGRyaXZlcnMvbmV0L2JueDJ4L2JueDJ4
+X2Ntbi5jICAgICAgICAgICAgICAgIHwgICAzNCArKysrKystLS0NCiBkcml2ZXJzL25ldC9ib25k
+aW5nL2JvbmRfM2FkLmMgICAgICAgICAgICAgICB8ICAgIDcgKystDQogZHJpdmVycy9uZXQvZWhl
+YS9laGVhX21haW4uYyAgICAgICAgICAgICAgICAgfCAgICA5ICsrLQ0KIGRyaXZlcnMvbmV0L2Zz
+X2VuZXQvbWFjLWZlYy5jICAgICAgICAgICAgICAgIHwgICAgOCArLQ0KIGRyaXZlcnMvbmV0L2Z0
+bWFjMTAwLmMgICAgICAgICAgICAgICAgICAgICAgIHwgICAgOCArLQ0KIGRyaXZlcnMvbmV0L21p
+aS5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNCArDQogZHJpdmVycy9uZXQvbmV0
+Y29uc29sZS5jICAgICAgICAgICAgICAgICAgICAgfCAgICA4ICsrDQogZHJpdmVycy9uZXQvcjgx
+NjkuYyAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDk5ICsrKysrKysrKysrKysrKysrKy0t
+LS0tLS0NCiBkcml2ZXJzL25ldC90ZzMuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAg
+IDggKystDQogZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jICAgICAgICAgICAgICAgICAgfCAg
+IDE0ICsrKy0NCiBkcml2ZXJzL25ldC91c2IvY2RjX25jbS5jICAgICAgICAgICAgICAgICAgICB8
+ICAgIDQgKy0NCiBkcml2ZXJzL25ldC91c2Ivc21zYzk1eHguYyAgICAgICAgICAgICAgICAgICB8
+ICAgIDIgKy0NCiBkcml2ZXJzL25ldC91c2IvdXNibmV0LmMgICAgICAgICAgICAgICAgICAgICB8
+ICAgIDggKysNCiBkcml2ZXJzL25ldC92ZXRoLmMgICAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAgMTIgKysrDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL3JlY3YuYyAgICAgICAg
+fCAgICAyICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvYjQzL21haW4uYyAgICAgICAgICAgICAg
+fCAgICAxICsNCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2xlZ2FjeS9pd2wtNDk2NS10eC5jICB8
+ICAgMjggKysrKystLS0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2xlZ2FjeS9pd2wtbGVkLmMg
+ICAgICB8ICAgMjAgKysrKystDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsZWdhY3kvaXdsNDk2
+NS1iYXNlLmMgfCAgICA4ICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtYWdu
+LXJ4b24uYyAgfCAgICA3ICstLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvaXdsLWFn
+bi10eC5jICAgIHwgICAyNyArKysrKy0tLQ0KIGluY2x1ZGUvbGludXgvdXNiL3VzYm5ldC5oICAg
+ICAgICAgICAgICAgICAgIHwgICAgMSArDQogbmV0L2JsdWV0b290aC9oY2lfY29yZS5jICAgICAg
+ICAgICAgICAgICAgICAgfCAgICA1ICstDQogbmV0L2JsdWV0b290aC9oY2lfZXZlbnQuYyAgICAg
+ICAgICAgICAgICAgICAgfCAgICAyIC0NCiBuZXQvYmx1ZXRvb3RoL2wyY2FwX2NvcmUuYyAgICAg
+ICAgICAgICAgICAgICB8ICAgIDEgKw0KIG5ldC9ibHVldG9vdGgvc2NvLmMgICAgICAgICAgICAg
+ICAgICAgICAgICAgIHwgICAgOSArKysNCiBuZXQvYnJpZGdlL2JyX2lucHV0LmMgICAgICAgICAg
+ICAgICAgICAgICAgICB8ICAgIDIgKy0NCiBuZXQvY2FuL2JjbS5jICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICB8ICAgIDcgKystDQogbmV0L2Nhbi9yYXcuYyAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgfCAgICA3ICsrLQ0KIG5ldC9jb3JlL2Rldi5jICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIHwgICAgNiArLQ0KIG5ldC9kc2EvS2NvbmZpZyAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIHwgICAgNCArLQ0KIG5ldC9kc2EvbXY4OGU2MTMxLmMgICAgICAgICAg
+ICAgICAgICAgICAgICAgIHwgICAyNiArKysrKystLQ0KIG5ldC9pcHY0L2RldmluZXQuYyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQ0KIG5ldC9pcHY0L2ZpYl90cmllLmMgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHwgICAgMyAtDQogbmV0L2lwdjQvcm91dGUuYyAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgICA3ICsrDQogbmV0L2lwdjYvYWRkcmNvbmYuYyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstDQogbmV0L2lwdjYvZXNwNi5jICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstDQogbmV0L2lwdjYvcm91dGUuYyAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgICA4ICsrLQ0KIG5ldC9pcHY2L3VkcC5jICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQ0KIG5ldC9tYWM4MDIxMS9jZmcuYyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArDQogbmV0L21hYzgwMjExL2RlYnVnZnNfbmV0
+ZGV2LmMgICAgICAgICAgICAgICAgfCAgICA0ICstDQogbmV0L3VuaXgvYWZfdW5peC5jICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgIDE2ICsrKystDQogbmV0L3hmcm0veGZybV9yZXBsYXku
+YyAgICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstDQogbmV0L3hmcm0veGZybV91c2VyLmMg
+ICAgICAgICAgICAgICAgICAgICAgICAgfCAgICAzICsNCiA1MSBmaWxlcyBjaGFuZ2VkLCAzMzgg
+aW5zZXJ0aW9ucygrKSwgMTM0IGRlbGV0aW9ucygtKQ0K
