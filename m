@@ -1,63 +1,89 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Tue, 3 May 2011 14:21:02 +1000
-Message-ID: <20110503142102.c3b83415.sfr@canb.auug.org.au>
-References: <20110503131548.63dd3568.sfr@canb.auug.org.au>
-	<20110502.204238.193708379.davem@davemloft.net>
+Subject: linux-next: manual merge of the rcu tree with the net tree
+Date: Tue, 3 May 2011 14:24:19 +1000
+Message-ID: <20110503142419.2b7d5e23.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__3_May_2011_14_21_02_+1000_Fng75GXNOOzjMH5/"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rjw@sisk.pl, joe@perches.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110502.204238.193708379.davem@davemloft.net>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__3_May_2011_14_21_02_+1000_Fng75GXNOOzjMH5/
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Paul,
 
-Hi Dave,
+Today's linux-next merge of the rcu tree got a conflict in
+net/core/filter.c between commit 0a14842f5a3c ("net: filter: Just In Time
+compiler for x86-64") from the net tree and commit 10cde158c259
+("net,rcu: convert call_rcu(sk_filter_release_rcu) to kfree_rcu") from
+the rcu tree.
 
-On Mon, 02 May 2011 20:42:38 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> Do you automatically generate these emails? :-)
-
-Partly.
-
-> I CC:'d you on an email earlier about this conflict, in an effort to
-> let you know I anticipated it and you therefore didn't need to notify
-> us this time.
-
-I must have missed that (or missed its implications), sorry.
-/me searches his trash ...
-ah, there it is ... I obviously didn't read it well enough or notice the
-cc.
-
---=20
+The former adds another operation into sk_filter_release_rcu(), so I have
+effectively reverted the rcu tree change for now (by applying the patch
+below as a merge fixup).
+-- 
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
 
---Signature=_Tue__3_May_2011_14_21_02_+1000_Fng75GXNOOzjMH5/
-Content-Type: application/pgp-signature
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 3 May 2011 14:06:50 +1000
+Subject: [PATCH] Revert "net,rcu: convert call_rcu(sk_filter_release_rcu) to
+ kfree_rcu"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+This reverts commit 10cde158c2591422a2b32a2f560f406b8e69bee6.
+---
+ include/net/sock.h |    4 +++-
+ net/core/filter.c  |   13 +++++++++++++
+ 2 files changed, 16 insertions(+), 1 deletions(-)
 
-iQEcBAEBAgAGBQJNv4KuAAoJEDMEi1NhKgbsEAMH/jr3NI9SHXCakTCzUH2k/7r7
-dT6g7QcOLgHoGuJlwSxtduuj1i6YPZYEFQlSVoJZoGqCyspt0eTOiaEIikHpfEFw
-ZSF6dyI0bCuX1PY1oU8MdKU02ceSXCRx3gvV4QNHBL4TB99t9dax+cj4x/mGkDBK
-j1pSLKL9L0kj2ezfeiGTTQe8tdglegL1cvd4MtgEF7cxOJ1dqYJ88VTQLyGMTBw9
-3E6UzRG6OcwCchr0r1Ypw6yaGUhCRD58PZSyuPFi27yYynQBpkkI0WONhKIWHRuQ
-iW4vVdo+KT14DZfcjI+gOMi9KxlRxyJp2TEqfti5DfnePZ0ccy0BkdMhKWMU38Q=
-=Dq0C
------END PGP SIGNATURE-----
-
---Signature=_Tue__3_May_2011_14_21_02_+1000_Fng75GXNOOzjMH5/--
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 1a2f255..f2046e4 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1180,6 +1180,8 @@ extern void sk_common_release(struct sock *sk);
+ /* Initialise core socket variables */
+ extern void sock_init_data(struct socket *sock, struct sock *sk);
+ 
++extern void sk_filter_release_rcu(struct rcu_head *rcu);
++
+ /**
+  *	sk_filter_release - release a socket filter
+  *	@fp: filter to remove
+@@ -1190,7 +1192,7 @@ extern void sock_init_data(struct socket *sock, struct sock *sk);
+ static inline void sk_filter_release(struct sk_filter *fp)
+ {
+ 	if (atomic_dec_and_test(&fp->refcnt))
+-		kfree_rcu(fp, rcu);
++		call_rcu(&fp->rcu, sk_filter_release_rcu);
+ }
+ 
+ static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 66d403d..0eb8c44 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -572,6 +572,19 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
+ EXPORT_SYMBOL(sk_chk_filter);
+ 
+ /**
++ * 	sk_filter_release_rcu - Release a socket filter by rcu_head
++ *	@rcu: rcu_head that contains the sk_filter to free
++ */
++void sk_filter_release_rcu(struct rcu_head *rcu)
++{
++	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
++
++	bpf_jit_free(fp);
++	kfree(fp);
++}
++EXPORT_SYMBOL(sk_filter_release_rcu);
++
++/**
+  *	sk_attach_filter - attach a socket filter
+  *	@fprog: the filter program
+  *	@sk: the socket to use
+-- 
+1.7.4.4
