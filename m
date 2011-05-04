@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] x86/net: only select BPF_JIT when NET is enabled
-Date: Wed, 04 May 2011 11:06:21 -0700 (PDT)
-Message-ID: <20110504.110621.115946620.davem@davemloft.net>
-References: <20110504144759.802483cc.sfr@canb.auug.org.au>
-	<20110504095651.60082594.randy.dunlap@oracle.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool PATCH] FW dump support
+Date: Wed, 04 May 2011 19:07:04 +0100
+Message-ID: <1304532424.2926.47.camel@bwh-desktop>
+References: <1304378957-24123-1-git-send-email-anirban.chakraborty@qlogic.com>
+	 <1304530807.2926.28.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: randy.dunlap@oracle.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110504095651.60082594.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, --no-chain-reply-to@mv.qlogic.com,
+	davem@davemloft.net
+To: anirban.chakraborty@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:13088 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755177Ab1EDSHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 14:07:07 -0400
+In-Reply-To: <1304530807.2926.28.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Wed, 4 May 2011 09:56:51 -0700
+One more thing: please can you update the manual page as well as the
+built-in usage information.
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Fix kconfig unmet dependency warning: HAVE_BPF_JIT depends on NET, so
-> make the "select" of it depend on NET also.
-> 
-> warning: (X86) selects HAVE_BPF_JIT which has unmet direct dependencies (NET)
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Ben.
 
-Applied, thanks Randy.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
