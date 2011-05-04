@@ -1,7 +1,9 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [ethtool PATCH 0/4] v6 Add support for network flow classifier
-Date: Wed, 04 May 2011 11:41:30 -0700
-Message-ID: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com>
+Subject: [ethtool PATCH 2/4] Cleanup defines and header includes to address
+	several issues
+Date: Wed, 04 May 2011 11:41:40 -0700
+Message-ID: <20110504184140.26394.50230.stgit@gitlad.jf.intel.com>
+References: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,49 +11,123 @@ Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, jeffrey.t.kirsher@intel.com, dm@chelsio.com,
 	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47845 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:29787 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751051Ab1EDSlc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2011 14:41:32 -0400
+	id S1751158Ab1EDSlm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2011 14:41:42 -0400
+In-Reply-To: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series is nearly identical to the last series with only a few changes in
-the RX packet classification interface patch.  Specifically I have narrowed
-down the rule manager to the point where it is only used to identify a
-location for a rule if the rule location is unspecified.  The display
-functionality for rules now just pulls the rule list in and goes through the
-list from top to bottom displaying the rules instead of initializing the rule
-manager and pulling the rules form there.
+This change is meant to address several issues.  First it moves the check
+for ethtool-config.h into ethtool-util.h the reason for this change is so
+that any references to ethtool-util.h outside of ethtool.c will use the
+correct defines for the endian types.
 
-The main advantage to this approach is that the rule manager could easily be
-replaced by a future ioctl call and on the failure of that ioctl call with a
-return of EOPNOTSUPP it should be easy to fall back and just use the rule
-manager.
+In addition I have pulled several headers that will be common to both
+ethtool.c and rxclass.c into the ethtool-util.h header file.  I am also
+centralizing several macros that will be needed across multiple files when
+I implement the network flow classifier rules.
 
-Thanks,
-
-Alex
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
-Alexander Duyck (3):
-      Add support for __be64 and bitops, centralize several needed macros
-      Cleanup defines and header includes to address several issues
-      ethtool: remove strings based approach for displaying n-tuple
+ ethtool-util.h |   17 +++++++++++++++--
+ ethtool.c      |   17 +----------------
+ 2 files changed, 16 insertions(+), 18 deletions(-)
 
-Santwona Behera (1):
-      v6 Add RX packet classification interface
+diff --git a/ethtool-util.h b/ethtool-util.h
+index f053028..6a4f3f4 100644
+--- a/ethtool-util.h
++++ b/ethtool-util.h
+@@ -3,8 +3,13 @@
+ #ifndef ETHTOOL_UTIL_H__
+ #define ETHTOOL_UTIL_H__
+ 
++#ifdef HAVE_CONFIG_H
++#include "ethtool-config.h"
++#endif
+ #include <sys/types.h>
+ #include <endian.h>
++#include <sys/ioctl.h>
++#include <net/if.h>
+ 
+ /* ethtool.h expects these to be defined by <linux/types.h> */
+ #ifndef HAVE_BE_TYPES
+@@ -12,14 +17,14 @@ typedef __uint16_t __be16;
+ typedef __uint32_t __be32;
+ #endif
+ 
+-#include "ethtool-copy.h"
+-
+ typedef unsigned long long u64;
+ typedef __uint32_t u32;
+ typedef __uint16_t u16;
+ typedef __uint8_t u8;
+ typedef __int32_t s32;
+ 
++#include "ethtool-copy.h"
++
+ #if __BYTE_ORDER == __BIG_ENDIAN
+ static inline u16 cpu_to_be16(u16 value)
+ {
+@@ -40,6 +45,14 @@ static inline u32 cpu_to_be32(u32 value)
+ }
+ #endif
+ 
++#ifndef ARRAY_SIZE
++#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
++#endif
++
++#ifndef SIOCETHTOOL
++#define SIOCETHTOOL     0x8946
++#endif
++
+ /* National Semiconductor DP83815, DP83816 */
+ int natsemi_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ int natsemi_dump_eeprom(struct ethtool_drvinfo *info,
+diff --git a/ethtool.c b/ethtool.c
+index 9ad7000..24d4e4f 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -21,19 +21,12 @@
+  *   * show settings for all devices
+  */
+ 
+-#ifdef HAVE_CONFIG_H
+-#  include "ethtool-config.h"
+-#endif
+-
+-#include <sys/types.h>
++#include "ethtool-util.h"
+ #include <string.h>
+ #include <stdlib.h>
+-#include <sys/types.h>
+-#include <sys/ioctl.h>
+ #include <sys/stat.h>
+ #include <stdio.h>
+ #include <errno.h>
+-#include <net/if.h>
+ #include <sys/utsname.h>
+ #include <limits.h>
+ #include <ctype.h>
+@@ -43,18 +36,10 @@
+ #include <arpa/inet.h>
+ 
+ #include <linux/sockios.h>
+-#include "ethtool-util.h"
+ 
+-
+-#ifndef SIOCETHTOOL
+-#define SIOCETHTOOL     0x8946
+-#endif
+ #ifndef MAX_ADDR_LEN
+ #define MAX_ADDR_LEN	32
+ #endif
+-#ifndef ARRAY_SIZE
+-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+-#endif
+ 
+ #ifndef HAVE_NETIF_MSG
+ enum {
 
-
- Makefile.am      |    3 
- ethtool-bitops.h |   25 +
- ethtool-util.h   |   47 ++
- ethtool.8.in     |  194 +++++-----
- ethtool.c        |  449 +++++++++++------------
- rxclass.c        | 1073 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 1467 insertions(+), 324 deletions(-)
- create mode 100644 ethtool-bitops.h
- create mode 100644 rxclass.c
-
--- 
