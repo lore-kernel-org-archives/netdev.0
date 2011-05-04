@@ -1,67 +1,30 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Wed, 04 May 2011 22:55:25 +0200
-Message-ID: <4DC1BD3D.800@hartkopp.net>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<201104271525.28512.arnd@arndb.de>	<15AD189F851849F69A011B6F4D1DDB6C@subhasishg>	<201105041511.54095.arnd@arndb.de>	<4DC163D7.9010309@grandegger.com>
-	<20110504155750.GC322@e-circ.dyndns.org>
-	<4DC17A31.8070409@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 0/9][pull request] Intel Wired LAN Driver Update
+Date: Wed, 04 May 2011 13:56:21 -0700 (PDT)
+Message-ID: <20110504.135621.232749554.davem@davemloft.net>
+References: <1304537441-2056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4DC17A31.8070409-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40272
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755827Ab1EDU4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 16:56:53 -0400
+In-Reply-To: <1304537441-2056-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04.05.2011 18:09, Wolfgang Grandegger wrote:
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  4 May 2011 12:30:32 -0700
 
-> On 05/04/2011 05:57 PM, Kurt Van Dijck wrote:
-
->> When doing so, I'd vote for an unlimited(by software) list of hardware filters (id/mask).
->> The hardware must abort when no more filters are available.
+> The following series contains updates to e100, igb, igbvf, ixgb and ixgbe.
 > 
-> Sounds good and not even to complicated. For the SJA1000 we would just
-> allow to set the global mask.
+> The following are changes since commit e67f88dd12f610da98ca838822f2c9b4e7c6100e:
+>   net: dont hold rtnl mutex during netlink dump callbacks
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
 
-Yes. "unlimited(by software)" was a bit misleading at first reading, as we
-should not filter IDs by software in the irq handler. But to create a API that
-supports as much HW filters as the hardware provides is a good idea.
-
->> I think that when using hardware filters, knowing the actual device
->> with it's amount of hardware filters is the least of your problems.
->> Userspace applications that suddenly stop working properly due to
->> hw filters (i.e. some traffic not coming in anymore) will be a major
->> source of bugreports.
-> 
-> Well, hardware filtering will be off by default and must explicitly be
-> set by the user, like for the bitrate setting.
-
-To be correct: By the admin.
-
-The setting of CAN HW filters has a system-wide effect to all users on the
-local host. The same effect as we have for the setting of the bitrate. This is
-the major difference to the user-configurable per-socket CAN-ID filters that
-are provided e.g. by the CAN_RAW socket.
-
-As the current netlink configuration interface for CAN interfaces is not
-accessible for standard users also this would be the right place to extend the
-netlink interface.
-
-Regards,
-Oliver
+Pulled, thanks Jeff.
