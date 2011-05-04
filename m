@@ -1,43 +1,67 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCHv3 2/2] tg3: Allow ethtool to enable/disable
- loopback.
-Date: Tue, 3 May 2011 18:52:06 -0700
-Message-ID: <20110504015206.GA28029@mcarlson.broadcom.com>
-References: <1304471935-402-1-git-send-email-maheshb@google.com>
- <1304471935-402-2-git-send-email-maheshb@google.com>
- <1304471935-402-3-git-send-email-maheshb@google.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [RFC v3 02/10] Revert "lsm: Remove the socket_post_accept() hook"
+Date: Wed, 4 May 2011 11:28:24 +0900
+Message-ID: <201105041128.BAB13061.LMHVtOSOQOFFJF@I-love.SAKURA.ne.jp>
+References: <1304432663-1575-1-git-send-email-sam@synack.fr>
+	<1304432663-1575-3-git-send-email-sam@synack.fr>
+	<201105031802.34724.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Micha? Miros?aw" <mirq-linux@rere.qmqm.pl>,
-	"Tom Herbert" <therbert@google.com>
-To: "Mahesh Bandewar" <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3584 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754121Ab1EDBhS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 May 2011 21:37:18 -0400
-In-Reply-To: <1304471935-402-3-git-send-email-maheshb@google.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hadi@cyberus.ca, kaber@trash.net,
+	zbr@ioremap.net, root@localdomain.pl
+To: paul.moore@hp.com, sam@synack.fr
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201105031802.34724.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 03, 2011 at 06:18:55PM -0700, Mahesh Bandewar wrote:
-> +	/*
-> +	 * Add loopback capability only for a subset of devices that support
-> +	 * MAC-LOOPBACK. Eventually this need to be enhanced to allow INT-PHY
-> +	 * loopback for the remaining devices.
-> +	 */
-> +	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5780 ||
-> +	    !tg3_flag(tp, CPMU_PRESENT))
-> +		/* Add the loopback capability */
-> +		dev->hw_features |= NETIF_F_LOOPBACK;
+Paul Moore wrote:
+> On Tuesday, May 03, 2011 10:24:15 AM Samir Bellabes wrote:
+> > snet needs to reintroduce this hook, as it was designed to be: a hook for
+> > updating security informations on objects.
+> 
+> Looking at this and 5/10 again, it seems that you should be able to do what 
+> you need with the sock_graft() hook.  Am I missing something?
+> 
+> My apologies if we've already discussed this approach previously ...
 
-s/||/&&/
+static void snet_socket_post_accept(struct socket *sock, struct socket *newsock)
+{
+	static void snet_do_send_event(struct snet_info *info)
+	{
+		int snet_nl_send_event(struct snet_info *info)
+		{
+			skb_rsp = genlmsg_new(size, GFP_KERNEL);
+			genlmsg_unicast()
+		}
+	}
+}
 
+First problem with using snet_do_send_event() from security_sock_graft() is
+that we have to use GFP_ATOMIC rather than GFP_KERNEL because we are inside
+write_lock_bh()/write_unlock_bh().
+
+static inline int genlmsg_unicast(struct net *net, struct sk_buff *skb, u32 pid)
+{
+	static inline int nlmsg_unicast(struct sock *sk, struct sk_buff *skb, u32 pid)
+	{
+		int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
+			u32 pid, MSG_DONTWAIT)
+		{
+			int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
+				      long *timeo, struct sock *ssk)
+			{
+				if (!*timeo) {
+					return -EAGAIN;
+			}
+		}
+	}
+}
+
+Second problem is that genlmsg_unicast() might return -EAGAIN because we can't
+sleep inside write_lock_bh()/write_unlock_bh().
+
+Third problem (though independent with security_sock_graft()) is that
+snet_do_send_event() ignores snet_nl_send_event() failure.
