@@ -1,55 +1,84 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
-Date: Wed, 04 May 2011 19:40:22 +0530
-Message-ID: <20110504141022.14989.98562.sendpatchset@krkumar2.in.ibm.com>
-Cc: eric.dumazet@gmail.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	Krishna Kumar <krkumar2@in.ibm.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([122.248.162.5]:60149 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753478Ab1EDOK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 10:10:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Wed, 04 May 2011 16:33:59 +0200
+Message-ID: <4DC163D7.9010309@grandegger.com>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<201104271525.28512.arnd@arndb.de>
+	<15AD189F851849F69A011B6F4D1DDB6C@subhasishg>
+	<201105041511.54095.arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <201105041511.54095.arnd-r2nGTMty4D4@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Krishna Kumar2/India/IBM@IBMIN wrote on 05/04/2011 07:32:58 PM:
+Hi Arnd,
 
-> [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
+On 05/04/2011 03:11 PM, Arnd Bergmann wrote:
+> On Wednesday 04 May 2011, Subhasish Ghosh wrote:
+>> CAN requires mail box IDs to be programmed in. But, the socket
+>> CAN subsystem supports only software filtering of the mail box IDs.
+>>
+>> So, the mail box IDs programmed into socket CAN during initialization
+>> does not propagate into the hardware. This is planned to be a future
+>> implementation in Socket CAN.
+>>
+>> In our case, we support hardware filtering, to work around with this,
+>> Wolfgang (Socket CAN owner) suggested that we implement
+>> this using sysfs.
+>>
+>> These setting are not for debugging, but to program the mail box IDs
+>> into the hardware. 
+> 
+> Ok, I see. Can you point me to that discussion?
+> 
+> Wolfgang, I'm a bit worried by the API being split between sockets and sysfs.
+> The problem is that once the sysfs API is established, users will start
+> relying on it, and you can no longer migrate away from it, even when
+> a later version of the Socket CAN also supports setting through a different
+> interface. What is the current interface to set mail box IDs in software?
 
-I found having tabs in the table made the results a little
-difficult to understand. Converting the same to spaces, hope
-it is clear this time.
+Note that this CAN controller is *very* special. It cannot handle all
+CAN id's due to a lack or resources. The PRUSS firmware is able to
+manage just up to 8 different CAN identifiers out of the usual 4096
+(12-bit) or even more for the extended CAN ids using 29 bits. There is
+no other CAN controller with such rather serious limitations and
+therefore there exists also no appropriate interface. I think using
+sysfs is OK for such device-specific parameters, at least for the time
+being.
 
-________________________________________________________
-               I/O Size: 1K
-#     BW1      BW2 (%)            SD1       SD2 (%)
-________________________________________________________
-1     1226     3313 (170.2)       6.6       1.9 (-71.2)
-2     3223     7705 (139.0)       18.0      7.1 (-60.5)
-4     7223     8716 (20.6)        36.5      29.7 (-18.6)
-8     8689     8693 (0)           131.5     123.0 (-6.4)
-16    8059     8285 (2.8)         578.3     506.2 (-12.4)
-32    7758     7955 (2.5)         2281.4    2244.2 (-1.6)
-64    7503     7895 (5.2)         9734.0    9424.4 (-3.1)
-96    7496     7751 (3.4)         21980.9   20169.3 (-8.2)
-128   7389     7741 (4.7)         40467.5   34995.5 (-13.5)
-________________________________________________________
-Summary:     BW: 16.2%     SD: -10.2%
+> How hard would it be to implement that feature in Socket CAN?
 
-________________________________________________________
-               I/O Size: 16K
-#     BW1      BW2 (%)            SD1       SD2 (%)
-________________________________________________________
-1     6684     7019 (5.0)         1.1       1.1 (0)
-2     7674     7196 (-6.2)        5.0       4.8 (-4.0)
-4     7358     8032 (9.1)         21.3      20.4 (-4.2)
-8     7393     8015 (8.4)         82.7      82.0 (-.8)
-16    7958     8366 (5.1)         283.2     310.7 (9.7)
-32    7792     8113 (4.1)         1257.5    1363.0 (8.3)
-64    7673     8040 (4.7)         5723.1    5812.4 (1.5)
-96    7462     7883 (5.6)         12731.8   12119.8 (-4.8)
-128   7338     7800 (6.2)         21331.7   21094.7 (-1.1)
-________________________________________________________
-Summary:     BW: 4.6%     SD: -1.5%
+CAN controllers usually provide some kind of hardware CAN id filtering,
+but in a very hardware dependent way. A generic interface may be able to
+handle the PRUSS restrictions as well. CAN devices are usually
+configured through the netlink interface. e.g.
+
+  $ ip link set can0 up type can bitrate 125000
+
+and such a common interface would be netlink based as well.
+
+> Is that something that Subhasish or someone else could to as a prerequisite
+> to merging the driver?
+
+Any ideas on how to handle hardware filtering in a generic way are
+welcome. I will try to come up with a proposal sooner than later.
+
+Wolfgang.
