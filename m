@@ -1,46 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/4] [RFC] virtio: Introduce new API to get free space
-Date: Wed, 4 May 2011 23:00:23 +0300
-Message-ID: <20110504200023.GA20303@redhat.com>
-References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com>
- <20110504140319.14817.23145.sendpatchset@krkumar2.in.ibm.com>
- <20110504145019.GB15823@redhat.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: Divide error in bictcp_cong_avoid ?
+Date: Wed, 04 May 2011 16:01:10 -0400
+Message-ID: <18029.1304539270@localhost>
+References: <20110504113351.4643a0c9@nehalam> <16668.1304537481@localhost> <20110504123738.7bb4d1ee@nehalam>
+            <20110504.124053.260068550.davem@davemloft.net>
 Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1304539270_7352P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, rdunlap@xenotime.net, lkml@techboom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Wed, 04 May 2011 12:40:53 PDT."
+             <20110504.124053.260068550.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--==_Exmh_1304539270_7352P
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16388 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755606Ab1EDUAt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2011 16:00:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20110504145019.GB15823@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 04, 2011 at 05:50:19PM +0300, Michael S. Tsirkin wrote:
-> > @@ -185,11 +193,6 @@ int virtqueue_add_buf_gfp(struct virtque
-> >  	if (vq->num_free < out + in) {
-> >  		pr_debug("Can't add buf len %i - avail = %i\n",
-> >  			 out + in, vq->num_free);
-> > -		/* FIXME: for historical reasons, we force a notify here if
-> > -		 * there are outgoing parts to the buffer.  Presumably the
-> > -		 * host should service the ring ASAP. */
-> > -		if (out)
-> > -			vq->notify(&vq->vq);
-> >  		END_USE(vq);
-> >  		return -ENOSPC;
-> >  	}
+On Wed, 04 May 2011 12:40:53 PDT, David Miller said:
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 4 May 2011 12:37:38 -0700
 > 
-> This will break qemu versions 0.13 and back.
-> I'm adding some new virtio ring flags, we'll be
-> able to reuse one of these to mean 'no need for
-> work around', I think.
+> > Don't use BIC, it is known to be unfair between flows.
+> 
+> That doesn't fix the user's bug, nothing in the kernel should causes
+> crashes under normal circumstances.
 
-Not really, it wont. We shall almost never get here at all.
-But then, why would this help performance?
+And if it's a "don't use" thing, maybe it's time to deprecate it and/or
+otherwise discourage its use? I know *my* config still has it mostly because it
+*seems* to work, and nothing's suggested I should change it.
 
-> -- 
-> MST
+
+
+--==_Exmh_1304539270_7352P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFNwbCGcC3lWbTT17ARAoNeAJ99X/1K3NKGpSosgJn2P5+uffUwDQCg4Geh
+Ip48yld8OQT4ccNOxFX7FI0=
+=EF5Z
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1304539270_7352P--
