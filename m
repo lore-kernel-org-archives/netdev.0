@@ -1,48 +1,67 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH] tcp_cubic: limit delayed_ack ratio to prevent divide
- error
-Date: Wed, 4 May 2011 13:53:51 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.1105041352020.6048@JBRANDEB-DESK2.amr.corp.intel.com>
-References: <20110504113351.4643a0c9@nehalam> <16668.1304537481@localhost> <20110504123738.7bb4d1ee@nehalam> <20110504.124053.260068550.davem@davemloft.net> <20110504130456.425dee68@nehalam>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Wed, 04 May 2011 22:55:25 +0200
+Message-ID: <4DC1BD3D.800@hartkopp.net>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<201104271525.28512.arnd@arndb.de>	<15AD189F851849F69A011B6F4D1DDB6C@subhasishg>	<201105041511.54095.arnd@arndb.de>	<4DC163D7.9010309@grandegger.com>
+	<20110504155750.GC322@e-circ.dyndns.org>
+	<4DC17A31.8070409@grandegger.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Sangtae Ha <sangtae.ha@gmail.com>,
-	Injong Rhee <injongrhee@gmail.com>,
-	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
-	"rdunlap@xenotime.net" <rdunlap@xenotime.net>,
-	"lkml@techboom.com" <lkml@techboom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45538 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756004Ab1EDUx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2011 16:53:59 -0400
-In-Reply-To: <20110504130456.425dee68@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4DC17A31.8070409-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 04.05.2011 18:09, Wolfgang Grandegger wrote:
 
+> On 05/04/2011 05:57 PM, Kurt Van Dijck wrote:
 
-On Wed, 4 May 2011, Stephen Hemminger wrote:
-
-> TCP Cubic keeps a metric that estimates the amount of delayed
-> acknowledgements to use in adjusting the window. If an abnormally
-> large number of packets are acknowledged at once, then the update
-> could wrap and reach zero. This kind of ACK could only
-> happen when there was a large window and huge number of
-> ACK's were lost.
+>> When doing so, I'd vote for an unlimited(by software) list of hardware filters (id/mask).
+>> The hardware must abort when no more filters are available.
 > 
-> This patch limits the value of delayed ack ratio. The choice of 32
-> is just a conservative value since normally it should be range of 
-> 1 to 4 packets.
+> Sounds good and not even to complicated. For the SJA1000 we would just
+> allow to set the global mask.
+
+Yes. "unlimited(by software)" was a bit misleading at first reading, as we
+should not filter IDs by software in the irq handler. But to create a API that
+supports as much HW filters as the hardware provides is a good idea.
+
+>> I think that when using hardware filters, knowing the actual device
+>> with it's amount of hardware filters is the least of your problems.
+>> Userspace applications that suddenly stop working properly due to
+>> hw filters (i.e. some traffic not coming in anymore) will be a major
+>> source of bugreports.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Well, hardware filtering will be off by default and must explicitly be
+> set by the user, like for the bitrate setting.
 
-patch seems fine, but please credit the reporter (lkml@techboom.com) with 
-reporting the issue with logs, maybe even with Reported-by: and some kind 
-of reference to the panic message or the email thread in the text or 
-header?
+To be correct: By the admin.
 
+The setting of CAN HW filters has a system-wide effect to all users on the
+local host. The same effect as we have for the setting of the bitrate. This is
+the major difference to the user-configurable per-socket CAN-ID filters that
+are provided e.g. by the CAN_RAW socket.
+
+As the current netlink configuration interface for CAN interfaces is not
+accessible for standard users also this would be the right place to extend the
+netlink interface.
+
+Regards,
+Oliver
