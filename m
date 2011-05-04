@@ -1,80 +1,43 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: [net-next-2.6 PATCH] can: rename can_try_module_get to can_get_proto
-Date: Wed, 4 May 2011 06:42:04 +0200
-Message-ID: <20110504044204.GD278@e-circ.dyndns.org>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: [net-next-2.6 PATCH] ethtool: Support to take FW dump
+Date: Tue, 3 May 2011 22:22:47 -0700
+Message-ID: <C683AC52-87BE-41F9-BA3A-58846A640F9D@qlogic.com>
+References: <1304378957-24123-1-git-send-email-anirban.chakraborty@qlogic.com>
+ <1304378957-24123-2-git-send-email-anirban.chakraborty@qlogic.com>
+ <1304466797.2873.38.camel@bwh-desktop>
+ <2941C562-0D47-40DF-B2C0-6292381097AE@qlogic.com>
+ <1304471194.3203.5.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:48702 "EHLO
+	TX2EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755296Ab1EDFYr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 01:24:47 -0400
+In-Reply-To: <1304471194.3203.5.camel@localhost>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-can: rename can_try_module_get to can_get_proto
 
-can_try_module_get does return a struct can_proto.
-The name explains what is done in so much detail that a caller
-may not notice that a struct can_proto is locked/unlocked.
+On May 3, 2011, at 6:06 PM, Ben Hutchings wrote:
 
-Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+> <snip>
+> 
+> I understand that the userland application will need to get the size
+> that way.  I'm saying that this code in the kernel should also get the
+> size from the driver, so that a malicious application cannot make the
+> kernel allocate an excessively large buffer.
+Makes sense. Will do so.
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 5b52762..094fc53 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -115,7 +115,7 @@ static void can_sock_destruct(struct sock *sk)
- 	skb_queue_purge(&sk->sk_receive_queue);
- }
- 
--static const struct can_proto *can_try_module_get(int protocol)
-+static const struct can_proto *can_get_proto(int protocol)
- {
- 	const struct can_proto *cp;
- 
-@@ -128,6 +128,11 @@ static const struct can_proto *can_try_module_get(int protocol)
- 	return cp;
- }
- 
-+static inline void can_put_proto(const struct can_proto *cp)
-+{
-+	module_put(cp->prot->owner);
-+}
-+
- static int can_create(struct net *net, struct socket *sock, int protocol,
- 		      int kern)
- {
-@@ -143,7 +148,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
- 	if (!net_eq(net, &init_net))
- 		return -EAFNOSUPPORT;
- 
--	cp = can_try_module_get(protocol);
-+	cp = can_get_proto(protocol);
- 
- #ifdef CONFIG_MODULES
- 	if (!cp) {
-@@ -160,7 +165,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
- 			printk(KERN_ERR "can: request_module "
- 			       "(can-proto-%d) failed.\n", protocol);
- 
--		cp = can_try_module_get(protocol);
-+		cp = can_get_proto(protocol);
- 	}
- #endif
- 
-@@ -195,7 +200,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
- 	}
- 
-  errout:
--	module_put(cp->prot->owner);
-+	can_put_proto(cp);
- 	return err;
- }
+> 
+> Also, you'll need to submit your implementation along with this, as
+> David won't accept an extension to the API without a driver that
+> implements it.
+I have implemented it in qlcnic driver. Will submit it along with the v2 patches.
+Thanks.
+
+-Anirban
