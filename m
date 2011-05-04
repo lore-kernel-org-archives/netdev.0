@@ -1,59 +1,34 @@
-From: TB <lkml@techboom.com>
-Subject: Re: Divide error in bictcp_cong_avoid ?
-Date: Wed, 04 May 2011 15:03:13 -0400
-Message-ID: <4DC1A2F1.80507@techboom.com>
-References: <4DC178D3.6030308@techboom.com>	<20110504104940.cd0d9e9a.rdunlap@xenotime.net>	<20110504113351.4643a0c9@nehalam> <20110504113521.3c506a54.rdunlap@xenotime.net>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
+Date: Wed, 04 May 2011 12:06:12 -0700
+Message-ID: <4DC1A3A4.20900@chelsio.com>
+References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>	 <20110503161226.29251.40838.stgit@gitlad.jf.intel.com>	 <4DC08E7B.7070906@chelsio.com> <1304465684.2873.26.camel@bwh-desktop>	 <4DC1883F.7050301@chelsio.com> <1304529892.2926.14.camel@bwh-desktop>	 <4DC18DF8.3090707@chelsio.com>  <4DC18FB2.8060604@intel.com> <1304532342.2926.46.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110504113521.3c506a54.rdunlap@xenotime.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:10279 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752327Ab1EDTGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 15:06:21 -0400
+In-Reply-To: <1304532342.2926.46.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-05-04 02:35 PM, Randy Dunlap wrote:
-> On Wed, 4 May 2011 11:33:51 -0700 Stephen Hemminger wrote:
->
->> On Wed, 4 May 2011 10:49:40 -0700
->> Randy Dunlap<rdunlap@xenotime.net>  wrote:
->>
->>> [add cc to netdev]
->>>
->>>
->>> On Wed, 04 May 2011 12:03:31 -0400 TB wrote:
->>>
->>>> We're having this issue sporadically on a few servers and this is the
->>>> backtrace we get from netconsole.
->>>>
->>>>
->>>> [28522.642419] divide error: 0000 [#1] SMP
->>>> [28522.642457] last sysfs file:
->>>> /sys/devices/pci0000:00/0000:00:1f.2/host2/target2:0:0/2:0:0:0/vendor
->>>> [28522.642504] CPU 0
->>>> [28522.642511] Modules linked in:
->>>>    i2c_i801
->>>>    i2c_core
->>>>    evdev
->>>>    button
->>>> [28522.642570]
->>>> [28522.642590] Pid: 0, comm: swapper Not tainted 2.6.38.5 #6<<<<<<<<<<<<<<
->>>>
->>>>    Supermicro X8DTH-i/6/iF/6F
->>>> /
->>>>    X8DTH
->>>>
->>
->> What kernel version? I suspect they are running something really old
->> kernel like RHEL 5 since BIC has not been the default congestion control for
->> several years.
->
-> Please see about 6 lines above.... at the "<<<<<<<<<<<".
+On 05/04/2011 11:05 AM, Ben Hutchings wrote:
+> How about having ETHTOOL_GRXCLSRLCNT set a flag in the 'data' field to
+> indicate that the driver can assign locations?  (We would have to
+> specify that for compatibility with older kernels the application must
+> initialise this filed to 0.)
+> 
+> rmgr_init() would then check for this flag.
 
-/proc/sys/net/ipv4/tcp_available_congestion_control
-cubic reno
-
-cat /proc/sys/net/ipv4/tcp_congestion_control
-cubic
+I think this is a good suggestion if we want to support location selection by 
+either the driver or ethtool.  I also think ethtool's assumption that it is the 
+only allocator and can allocate race-free is fundamentally flawed (take two 
+parallel ethtools).
