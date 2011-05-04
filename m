@@ -1,74 +1,54 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCHv3 2/2] tg3: Allow ethtool to enable/disable loopback.
-Date: Wed, 4 May 2011 08:04:08 -0700
-Message-ID: <20110504080408.0142f701@nehalam>
-References: <1304471935-402-1-git-send-email-maheshb@google.com>
-	<1304471935-402-2-git-send-email-maheshb@google.com>
-	<1304471935-402-3-git-send-email-maheshb@google.com>
-	<20110504111112.GA15486@rere.qmqm.pl>
+Subject: Re: [PATCH] net: add mac_pton() for parsing MAC address
+Date: Wed, 4 May 2011 08:12:25 -0700
+Message-ID: <20110504081225.267a0833@nehalam>
+References: <20110504061551.GA12297@p183>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Tom Herbert <therbert@google.com>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45493 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:50595 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754693Ab1EDPEM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 11:04:12 -0400
-In-Reply-To: <20110504111112.GA15486@rere.qmqm.pl>
+	id S1754424Ab1EDPM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2011 11:12:27 -0400
+In-Reply-To: <20110504061551.GA12297@p183>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 May 2011 13:11:12 +0200
-Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
+On Wed, 4 May 2011 09:15:51 +0300
+Alexey Dobriyan <adobriyan@gmail.com> wrote:
 
-> On Tue, May 03, 2011 at 06:18:55PM -0700, Mahesh Bandewar wrote:
-> > This patch adds tg3_set_features() to handle loopback mode. Current=
-ly the
-> > capability is added for the devices which support internal MAC loop=
-back mode.
-> > So when enabled, it enables internal-MAC loopback.
-> [...]
-> > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> > index 7c7c9a8..46de633 100644
-> > --- a/drivers/net/tg3.c
-> > +++ b/drivers/net/tg3.c
-> > @@ -6319,6 +6319,51 @@ static u32 tg3_fix_features(struct net_devic=
-e *dev, u32 features)
-> >  	return features;
-> >  }
-> > =20
-> > +static int tg3_set_features(struct net_device *dev, u32 features)
-> > +{
-> > +	struct tg3 *tp =3D netdev_priv(dev);
-> > +	u32 cur_mode =3D 0;
-> > +	int err =3D 0;
-> > +
-> > +	if (!netif_running(dev)) {
-> > +		err =3D -EAGAIN;
-> > +		goto sfeatures_out;
-> > +	}
->=20
-> netdev_update_features() is not designed to handle -EAGAIN from
-> ndo_set_features callback. It might be useful to implement this
-> handling, but in this case you should just return 0 and check
-> dev->features in ndo_open callback.
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
+> +int mac_pton(const char *s, u8 *mac)
+> +{
+> +	int i;
+> +
+> +	/* XX:XX:XX:XX:XX:XX */
+> +	if (strlen(s) < 3 * ETH_ALEN - 1)
+> +		return 0;
+> +
+> +	/* Don't half dirty result. */
+Shouldn't this be "Don't allow dirty result."?
 
-EAGAIN is a bad choice of error code anyway. It implies that the
-application should retry, which in this case is not true.
+> +	for (i = 0; i < ETH_ALEN; i++) {
+> +		if (!strchr("0123456789abcdefABCDEF", s[i * 3]))
+> +			return 0;
+> +		if (!strchr("0123456789abcdefABCDEF", s[i * 3 + 1]))
+> +			return 0;
 
-This error code is used for things like flow controlled sockets where
-the application should do a select/poll and the condition will clear
-when other side has read.
+		if (!isxdigit(s[i*3]) || !isxdigit(s[i*3+1]))
+			return 0;
 
-Why not use ENETDOWN instead?
+> +		if (i != ETH_ALEN - 1 && s[i * 3 + 2] != ':')
+> +			return 0;
+> +	}
+> +	for (i = 0; i < ETH_ALEN; i++) {
+> +		mac[i] = (hex_to_bin(s[i * 3]) << 4) | hex_to_bin(s[i * 3 + 1]);
+		hex2bin(&mac[i], &s[i*3], 1);
+> +	}
+> +	return 1;
+> +}
+> +EXPORT_SYMBOL(mac_pton);
+
+Also don't need two loops, okay to parse partial result.
