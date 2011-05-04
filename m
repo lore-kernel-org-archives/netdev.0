@@ -1,68 +1,113 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PDFv2] virtio-spec: 64 bit features, used/avail event
-Date: Thu, 5 May 2011 00:17:49 +0300
-Message-ID: <20110504211749.GA21244@redhat.com>
-References: <20110504203256.GA20819@redhat.com>
+Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
+Date: Thu, 5 May 2011 00:23:59 +0300
+Message-ID: <20110504212359.GA21446@redhat.com>
+References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com>
+ <20110504144622.GA15823@redhat.com>
+ <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Krishna Kumar <krkumar2@in.ibm.com>, Carsten Otte <cotte@de.ibm.com>,
-	lguest@lists.ozlabs.org, Shirley Ma <xma@us.ibm.com>,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
-	habanero@linux.vnet.ibm.com, Rusty Russell <rusty@rustcorp.com.au>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	virtualization@lists.linux-foundation.org, steved@us.ibm.com,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>, linux390@de.ibm.com
-To: linux-kernel@vger.kernel.org, qemu-devel@nongnu.org, kvm@vger.kernel.org
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110504203256.GA20819@redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: </archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+In-Reply-To: <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-People asked for a pdf for a new spec, so here it is:
-http://userweb.kernel.org/~mst/virtio-spec-event-idx-v2.pdf
+On Wed, May 04, 2011 at 08:29:44PM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 05/04/2011 08:16:22 PM:
+> 
+> > > A. virtio:
+> > >    - Provide a API to get available number of slots.
+> > >
+> > > B. virtio-net:
+> > >    - Remove stop/start txq's and associated callback.
+> > >    - Pre-calculate the number of slots needed to transmit
+> > >      the skb in xmit_skb and bail out early if enough space
+> > >      is not available. My testing shows that 2.5-3% of
+> > >      packets are benefited by using this API.
+> > >    - Do not drop skbs but instead return TX_BUSY like other
+> > >      drivers.
+> > >    - When returning EBUSY, set a per-txq variable to indicate
+> > >      to dev_queue_xmit() whether to restart xmits on this txq.
+> > >
+> > > C. net/sched/sch_generic.c:
+> > >    Since virtio-net now returns EBUSY, the skb is requeued to
+> > >    gso_skb. This allows adding the addional check for restart
+> > >    xmits in just the slow-path (the first re-queued packet
+> > >    case of dequeue_skb, where it checks for gso_skb) before
+> > >    deciding whether to call the driver or not.
+> > >
+> > > Patch was also tested between two servers with Emulex OneConnect
+> > > 10G cards to confirm there is no regression. Though the patch is
+> > > an attempt to improve only small packet performance, there was
+> > > improvement for 1K, 2K and also 16K both in BW and SD. Results
+> > > from Guest -> Remote Host (BW in Mbps) for 1K and 16K I/O sizes:
+> > >
+> > > ________________________________________________________
+> > >          I/O Size: 1K
+> > > #   BW1   BW2 (%)      SD1   SD2 (%)
+> > > ________________________________________________________
+> > > 1   1226   3313 (170.2)   6.6   1.9 (-71.2)
+> > > 2   3223   7705 (139.0)   18.0   7.1 (-60.5)
+> > > 4   7223   8716 (20.6)   36.5   29.7 (-18.6)
+> > > 8   8689   8693 (0)   131.5   123.0 (-6.4)
+> > > 16   8059   8285 (2.8)   578.3   506.2 (-12.4)
+> > > 32   7758   7955 (2.5)   2281.4   2244.2 (-1.6)
+> > > 64   7503   7895 (5.2)   9734.0   9424.4 (-3.1)
+> > > 96   7496   7751 (3.4)   21980.9   20169.3 (-8.2)
+> > > 128   7389   7741 (4.7)   40467.5   34995.5 (-13.5)
+> > > ________________________________________________________
+> > > Summary:   BW: 16.2%   SD: -10.2%
+> > >
+> > > ________________________________________________________
+> > >          I/O Size: 16K
+> > > #   BW1   BW2 (%)      SD1   SD2 (%)
+> > > ________________________________________________________
+> > > 1   6684   7019 (5.0)   1.1   1.1 (0)
+> > > 2   7674   7196 (-6.2)   5.0   4.8 (-4.0)
+> > > 4   7358   8032 (9.1)   21.3   20.4 (-4.2)
+> > > 8   7393   8015 (8.4)   82.7   82.0 (-.8)
+> > > 16   7958   8366 (5.1)   283.2   310.7 (9.7)
+> > > 32   7792   8113 (4.1)   1257.5   1363.0 (8.3)
+> > > 64   7673   8040 (4.7)   5723.1   5812.4 (1.5)
+> > > 96   7462   7883 (5.6)   12731.8   12119.8 (-4.8)
+> > > 128   7338   7800 (6.2)   21331.7   21094.7 (-1.1)
+> > > ________________________________________________________
+> > > Summary:   BW: 4.6%   SD: -1.5%
+> > >
+> > > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> > > ---
+> >
+> > So IIUC, we delay transmit by an arbitrary value and hope
+> > that the host is done with the packets by then?
+> 
+> Not "hope" exactly. If the device is not ready, then
+> the packet is requeued. The main idea is to avoid
+> drops/stop/starts, etc.
 
-Guest and host implementation can be found here:
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next-event-idx-v1
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git virtio-net-event-idx-v1
+Yes, I see that, definitely. I guess it's a win if the
+interrupt takes at least a jiffy to arrive anyway,
+and a loss if not. Is there some reason interrupts
+might be delayed until the next jiffy?
 
-Description reposted below:
+> > Interesting.
+> >
+> > I am currently testing an approach where
+> > we tell the host explicitly to interrupt us only after
+> > a large part of the queue is empty.
+> > With 256 entries in a queue, we should get 1 interrupt per
+> > on the order of 100 packets which does not seem like a lot.
+> >
+> > I can post it, mind testing this?
+> 
+> Sure.
+> 
+> - KK
 
-I'm working on a patchset (to follow shortly)
-that modified the notificatin hand-off in virtio to be basically
-like Xen: each side published an index, the other side only triggers
-an event when it crosses that index value
-(Xen event indexes start at 1, ours start at 0 for
-backward-compatiblity, but that's minor).
-
-Especially for testing, it is very convenient to have
-separate feature bits for this change in used and available
-ring; since we've run out of bits in the 32 bit field,
-I added another 32 bit and bit 31 enables that.
-
-I started with using both flags and indexes in parallel,
-but switched to doing either-or: this means we do
-not need to tweak memory access ordering as index access just
-replaces flags access.
-
-A note on naming: the index replacing avail->flags is named
-used_event, the index replacing used->flags is named
-avail_event to stress the fact that these actually
-point into the other side of the ring:
-event is triggered when avail->idx == used->avail_event + 1
-and when used->idx == avail->used_event + 1, respectively.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Just posted. Would appreciate feedback.
 
 -- 
 MST
