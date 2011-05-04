@@ -1,9 +1,9 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V4 4/8]vhost: vhost TX zero-copy support
-Date: Wed, 04 May 2011 08:18:04 -0700
-Message-ID: <1304522284.7076.12.camel@localhost.localdomain>
-References: <1304496684.20660.84.camel@localhost.localdomain>
-	 <20110504095650.GA11592@redhat.com>
+Subject: Re: [PATCH V4 5/8]macvtap: macvtap TX zero-copy support
+Date: Wed, 04 May 2011 08:37:29 -0700
+Message-ID: <1304523449.7076.30.camel@localhost.localdomain>
+References: <1304496893.20660.88.camel@localhost.localdomain>
+	 <20110504145819.GA15648@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,352 +13,288 @@ Cc: David Miller <davem@davemloft.net>,
 	netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:51427 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754265Ab1EDPTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 11:19:37 -0400
-In-Reply-To: <20110504095650.GA11592@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110504145819.GA15648@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-05-04 at 12:56 +0300, Michael S. Tsirkin wrote:
-> On Wed, May 04, 2011 at 01:11:24AM -0700, Shirley Ma wrote:
-> > This patch maintains the outstanding userspace buffers in the 
-> > sequence it is delivered to vhost. The outstanding userspace
-> buffers 
-> > will be marked as done once the lower device buffers DMA has
-> finished. 
-> > This is monitored through last reference of kfree_skb callback. Two
-> > buffer index are used for this purpose.
+On Wed, 2011-05-04 at 17:58 +0300, Michael S. Tsirkin wrote:
+> On Wed, May 04, 2011 at 01:14:53AM -0700, Shirley Ma wrote:
+> > Only when buffer size is greater than GOODCOPY_LEN (256), macvtap
+> > enables zero-copy.
 > > 
-> > The vhost passes the userspace buffers info to lower device skb 
-> > through message control. Since there will be some done DMAs when
-> > entering vhost handle_tx. The worse case is all buffers in the vq
-> are
-> > in pending/done status, so we need to notify guest to release DMA
-> done 
-> > buffers first before get any new buffers from the vq.
-> > 
-> > Signed-off-by: Shirley <xma@us.ibm.com>
+> > Signed-off-by: Shirley Ma <xma@us.ibm.com>
 > 
-> Looks good overall. Some nits to iron out below.
+> 
+> Looks good. Some thoughts below.
 > 
 > > ---
 > > 
-> >  drivers/vhost/net.c   |   30 +++++++++++++++++++++++++++-
-> >  drivers/vhost/vhost.c |   50
-> > ++++++++++++++++++++++++++++++++++++++++++++++++-
-> >  drivers/vhost/vhost.h |   10 +++++++++
-> >  3 files changed, 87 insertions(+), 3 deletions(-)
+> >  drivers/net/macvtap.c |  126
+> ++++++++++++++++++++++++++++++++++++++++++++----
+> >  1 files changed, 115 insertions(+), 11 deletions(-)
 > > 
-> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > index 2f7c76a..c403afb 100644
-> > --- a/drivers/vhost/net.c
-> > +++ b/drivers/vhost/net.c
-> > @@ -32,6 +32,8 @@
-> >   * Using this limit prevents one virtqueue from starving others. */
-> >  #define VHOST_NET_WEIGHT 0x80000
-> >  
-> > +#define MAX_ZEROCOPY_PEND 64
-> > +
+> > diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> > index 6696e56..e8bc5ff 100644
+> > --- a/drivers/net/macvtap.c
+> > +++ b/drivers/net/macvtap.c
+> > @@ -60,6 +60,7 @@ static struct proto macvtap_proto = {
+> >   */
+> >  static dev_t macvtap_major;
+> >  #define MACVTAP_NUM_DEVS 65536
+> > +#define GOODCOPY_LEN 256
 > 
-> Pls document what the above is. Also scope with VHOST_
-
-Will do.
-
-> >  enum {
-> >       VHOST_NET_VQ_RX = 0,
-> >       VHOST_NET_VQ_TX = 1,
-> > @@ -129,6 +131,7 @@ static void handle_tx(struct vhost_net *net)
-> >       int err, wmem;
-> >       size_t hdr_size;
-> >       struct socket *sock;
-> > +     struct skb_ubuf_info pend;
-> >  
-> >       /* TODO: check that we are running from vhost_worker? */
-> >       sock = rcu_dereference_check(vq->private_data, 1);
-> > @@ -151,6 +154,10 @@ static void handle_tx(struct vhost_net *net)
-> >       hdr_size = vq->vhost_hlen;
-> >  
-> >       for (;;) {
-> > +             /* Release DMAs done buffers first */
-> > +             if (sock_flag(sock->sk, SOCK_ZEROCOPY))
-> > +                     vhost_zerocopy_signal_used(vq);
-> > +
-> >               head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> >                                        ARRAY_SIZE(vq->iov),
-> >                                        &out, &in,
-> > @@ -166,6 +173,12 @@ static void handle_tx(struct vhost_net *net)
-> >                               set_bit(SOCK_ASYNC_NOSPACE,
-> &sock->flags);
-> >                               break;
-> >                       }
-> > +                     /* If more outstanding DMAs, queue the work */
-> > +                     if (sock_flag(sock->sk, SOCK_ZEROCOPY) &&
-> > +                         (atomic_read(&vq->refcnt) >
-> MAX_ZEROCOPY_PEND)) {
-> > +                             vhost_poll_queue(&vq->poll);
-> 
-> Well, this just keeps polling, doesn't it?
-> If you want to wait until # of DMAs is below MAX_ZEROCOPY_PEND,
-> you'll need to do the queueing from some callback.
-> 
-> Something like this: when refcnt is above 2 * MAX_ZEROCOPY_PEND,
-> stop submitting and wait until some are freed.
-Will try this today
-
-> BTW, can the socket poll wakeup do the job?
-Not sure, will try this today.
-
-> > +                             break;
-> > +                     }
-> >                       if (unlikely(vhost_enable_notify(vq))) {
-> >                               vhost_disable_notify(vq);
-> >                               continue;
-> > @@ -188,17 +201,30 @@ static void handle_tx(struct vhost_net *net)
-> >                              iov_length(vq->hdr, s), hdr_size);
-> >                       break;
-> >               }
-> > +             /* use msg_control to pass vhost zerocopy ubuf info to
-> skb */
-> > +             if (sock_flag(sock->sk, SOCK_ZEROCOPY)) {
-> > +                     pend.callback = vhost_zerocopy_callback;
-> > +                     pend.arg = vq;
-> > +                     pend.desc = vq->upend_idx;
-> > +                     msg.msg_control = &pend;
-> > +                     msg.msg_controllen = sizeof(pend);
-> > +                     vq->heads[vq->upend_idx].id = head;
-> > +                     vq->upend_idx = (vq->upend_idx + 1) %
-> UIO_MAXIOV;
-> > +                     atomic_inc(&vq->refcnt);
-> > +             }
-> >               /* TODO: Check specific error and bomb out unless
-> ENOBUFS? */
-> >               err = sock->ops->sendmsg(NULL, sock, &msg, len);
-> >               if (unlikely(err < 0)) {
-> > -                     vhost_discard_vq_desc(vq, 1);
-> > +                     if (!sock_flag(sock->sk, SOCK_ZEROCOPY))
-> > +                             vhost_discard_vq_desc(vq, 1);
-> >                       tx_poll_start(net, sock);
-> >                       break;
-> >               }
-> >               if (err != len)
-> >                       pr_debug("Truncated TX packet: "
-> >                                " len %d != %zd\n", err, len);
-> > -             vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> > +             if (!sock_flag(sock->sk, SOCK_ZEROCOPY))
-> > +                     vhost_add_used_and_signal(&net->dev, vq, head,
-> 0);
-> >               total_len += len;
-> >               if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
-> >                       vhost_poll_queue(&vq->poll);
-> > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > index 2ab2912..3048953 100644
-> > --- a/drivers/vhost/vhost.c
-> > +++ b/drivers/vhost/vhost.c
-> > @@ -174,6 +174,9 @@ static void vhost_vq_reset(struct vhost_dev
-> *dev,
-> >       vq->call_ctx = NULL;
-> >       vq->call = NULL;
-> >       vq->log_ctx = NULL;
-> > +     vq->upend_idx = 0;
-> > +     vq->done_idx = 0;
-> > +     atomic_set(&vq->refcnt, 0);
-> >  }
-> >  
-> >  static int vhost_worker(void *data)
-> > @@ -230,7 +233,7 @@ static long vhost_dev_alloc_iovecs(struct
-> vhost_dev
-> > *dev)
-> >                                              UIO_MAXIOV,
-> GFP_KERNEL);
-> >               dev->vqs[i].log = kmalloc(sizeof *dev->vqs[i].log *
-> UIO_MAXIOV,
-> >                                         GFP_KERNEL);
-> > -             dev->vqs[i].heads = kmalloc(sizeof *dev->vqs[i].heads
-> *
-> > +             dev->vqs[i].heads = kzalloc(sizeof *dev->vqs[i].heads
-> *
-> >                                           UIO_MAXIOV, GFP_KERNEL);
-> 
-> Do we really need to zero it all out? We generally tried to only
-> init what is necessary ...
-
-Don't need to.
-
-> >               if (!dev->vqs[i].indirect || !dev->vqs[i].log ||
-> > @@ -385,10 +388,41 @@ long vhost_dev_reset_owner(struct vhost_dev
-> *dev)
-> >       return 0;
-> >  }
-> >  
-> 
-> Pls document what the below does.
-
+> Scope with MACVTAP_ please.
 Ok.
 
-> > +void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
-> > +{
-> > +     int i, j = 0;
-> > +
-> > +     i = vq->done_idx;
-> > +     while (i != vq->upend_idx) {
-> > +             /* len = 1 means DMA done */
-> 
-> Hmm. Guests aren't likely to use len 1 in practice,
-> but I think it's better to support this.
+> For small packets, is it better to copy in vhost
+> and skip all the back and forth with callbacks? If yes, does
+> it make sense to put the constant above in some header
+> shared with vhost-net?
 
-Will check guest.
+skb is created in macvtap, the small packet copy is in skb, so I don't
+think we can do it in vhost here.
 
-> I'd suggest sticking extra stuff in id, IIRC only values
-> < vq size are legal there, anything else we can use.
-> Also, pls add some defines for special values, better than
-> a comment:
->         if (len == VHOST_DMA_DONE_LEN)
-OK.
-
-> > +             if (vq->heads[i].len == 1) {
-> > +                     /* reset len = 0 */
-> > +                     vq->heads[i].len = 0;
-> > +                     i = (i + 1) % UIO_MAXIOV;
-> > +                     ++j;
-> > +             } else
-> > +                     break;
-> > +     }
-> > +     if (j) {
-> 
-> Pls add some comments to explain the logic here.
-OK.
-
-> > +             if (i > vq->done_idx)
-> > +                     vhost_add_used_n(vq, &vq->heads[vq->done_idx],
-> j);
-> > +             else {
-> > +                     vhost_add_used_n(vq, &vq->heads[vq->done_idx],
-> > +                                      UIO_MAXIOV - vq->done_idx);
-> > +                     vhost_add_used_n(vq, vq->heads, i);
-> > +             }
-> > +             vq->done_idx = i;
-> > +             vhost_signal(vq->dev, vq);
-> > +             atomic_sub(j, &vq->refcnt);
-> > +     }
-> > +}
-> > +
-> >  /* Caller should have device mutex */
-> >  void vhost_dev_cleanup(struct vhost_dev *dev)
+> >  static struct class *macvtap_class;
+> >  static struct cdev macvtap_cdev;
+> >  
+> > @@ -340,6 +341,7 @@ static int macvtap_open(struct inode *inode,
+> struct file *file)
 > >  {
-> >       int i;
-> > +     unsigned long begin = jiffies;
-> > +
+> >       struct net *net = current->nsproxy->net_ns;
+> >       struct net_device *dev = dev_get_by_index(net, iminor(inode));
+> > +     struct macvlan_dev *vlan = netdev_priv(dev);
+> >       struct macvtap_queue *q;
+> >       int err;
 > >  
-> >       for (i = 0; i < dev->nvqs; ++i) {
-> >               if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
-> > @@ -405,6 +439,11 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
-> >                       eventfd_ctx_put(dev->vqs[i].call_ctx);
-> >               if (dev->vqs[i].call)
-> >                       fput(dev->vqs[i].call);
-> > +             /* wait for all lower device DMAs done, then notify
-> guest */
-> > +             while (atomic_read(&dev->vqs[i].refcnt)) {
-> > +                     if (time_after(jiffies, begin + 5 * HZ))
-> 
-> Hmm, does this actually busy-wait?  Let's at least sleep here.
-> Or maybe some wakeup scheme can be cooked up.
-> For example, have a kref with release function that signals some
-> completion.
-
-Will do.
-
-> >
-> +                             vhost_zerocopy_signal_used(&dev->vqs[i]);
-> > +             }
-> >               vhost_vq_reset(dev, dev->vqs + i);
-> >       }
-> >       vhost_dev_free_iovecs(dev);
-> > @@ -1416,3 +1455,12 @@ void vhost_disable_notify(struct
-> vhost_virtqueue
-> > *vq)
-> >               vq_err(vq, "Failed to enable notification at %p: %d
-> \n",
-> >                      &vq->used->flags, r);
+> > @@ -369,6 +371,16 @@ static int macvtap_open(struct inode *inode,
+> struct file *file)
+> >       q->flags = IFF_VNET_HDR | IFF_NO_PI | IFF_TAP;
+> >       q->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+> >  
+> > +     /*
+> > +      * so far only VM uses macvtap, enable zero copy between guest
+> > +      * kernel and host kernel when lower device supports high
+> memory
+> > +      * DMA
+> > +      */
+> > +     if (vlan) {
+> > +             if (vlan->lowerdev->features & NETIF_F_ZEROCOPY)
+> > +                     sock_set_flag(&q->sk, SOCK_ZEROCOPY);
+> > +     }
+> > +
+> >       err = macvtap_set_queue(dev, file, q);
+> >       if (err)
+> >               sock_put(&q->sk);
+> > @@ -433,6 +445,80 @@ static inline struct sk_buff
+> *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+> >       return skb;
 > >  }
-> > +
-> > +void vhost_zerocopy_callback(struct sk_buff *skb)
+> >  
+> > +/* set skb frags from iovec, this can move to core network code for
+> reuse */
+> > +static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct
+> iovec *from,
+> > +                               int offset, size_t count)
 > > +{
-> > +     int idx = skb_shinfo(skb)->ubuf.desc;
-> > +     struct vhost_virtqueue *vq = skb_shinfo(skb)->ubuf.arg;
+> > +     int len = iov_length(from, count) - offset;
+> > +     int copy = skb_headlen(skb);
+> > +     int size, offset1 = 0;
+> > +     int i = 0;
+> > +     skb_frag_t *f;
 > > +
-> > +     /* set len = 1 to mark this desc buffers done DMA */
-> > +     vq->heads[idx].len = 1;
+> > +     /* Skip over from offset */
+> > +     while (offset >= from->iov_len) {
+> > +             offset -= from->iov_len;
+> > +             ++from;
+> > +             --count;
+> > +     }
+> > +
+> > +     /* copy up to skb headlen */
+> > +     while (copy > 0) {
+> > +             size = min_t(unsigned int, copy, from->iov_len -
+> offset);
+> > +             if (copy_from_user(skb->data + offset1, from->iov_base
+> + offset,
+> > +                                size))
+> > +                     return -EFAULT;
+> > +             if (copy > size) {
+> > +                     ++from;
+> > +                     --count;
+> > +             }
+> > +             copy -= size;
+> > +             offset1 += size;
+> > +             offset = 0;
+> > +     }
+> > +
+> > +     if (len == offset1)
+> > +             return 0;
+> > +
+> > +     while (count--) {
+> > +             struct page *page[MAX_SKB_FRAGS];
+> > +             int num_pages;
+> > +             unsigned long base;
+> > +
+> > +             len = from->iov_len - offset1;
+> > +             if (!len) {
+> > +                     offset1 = 0;
+> > +                     ++from;
+> > +                     continue;
+> > +             }
+> > +             base = (unsigned long)from->iov_base + offset1;
+> > +             size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >>
+> PAGE_SHIFT;
+> > +             num_pages = get_user_pages_fast(base, size, 0,
+> &page[i]);
+> > +             if ((num_pages != size) ||
+> > +                 (num_pages > MAX_SKB_FRAGS -
+> skb_shinfo(skb)->nr_frags))
+> > +                     /* put_page is in skb free */
+> > +                     return -EFAULT;
+> > +             skb->data_len += len;
+> > +             skb->len += len;
+> > +             skb->truesize += len;
+> > +             while (len) {
+> > +                     f = &skb_shinfo(skb)->frags[i];
+> > +                     f->page = page[i];
+> > +                     f->page_offset = base & ~PAGE_MASK;
+> > +                     f->size = min_t(int, len, PAGE_SIZE -
+> f->page_offset);
+> > +                     skb_shinfo(skb)->nr_frags++;
+> > +                     /* increase sk_wmem_alloc */
+> > +                     atomic_add(f->size, &skb->sk->sk_wmem_alloc);
+> 
+> One thing that gave me pause that we only accound for part of the page
+> here. I think we should count the whole page, no?
+
+The whole page is pinned, but it might not be for this sock only. 
+
+I think I should change to atomic_add to outside the loop to save cost.
+
+> > +                     base += f->size;
+> > +                     len -= f->size;
+> > +                     i++;
+> > +             }
+> > +             offset1 = 0;
+> > +             ++from;
+> > +     }
+> > +     return 0;
 > > +}
-> 
-> So any kind of callback like that, that goes into the skb,
-> will be racy wrt module unloading because module can go away
-> after you mark dma done and before this function returns.
-> Solution is to have a core function that does the
-> final signalling (e.g. sock_wfree is in core).
-> Would be nice to fix, even though this race is
-> completely theoretical, I don't believe it will
-> trigger in practice.
-
-I run lots of stress tests, and never hit this. 
-
-But I can try to fix it.
-
-> 
-> > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> > index b3363ae..ec032a0 100644
-> > --- a/drivers/vhost/vhost.h
-> > +++ b/drivers/vhost/vhost.h
-> > @@ -108,6 +108,14 @@ struct vhost_virtqueue {
-> >       /* Log write descriptors */
-> >       void __user *log_base;
-> >       struct vhost_log *log;
-> > +     /* vhost zerocopy support */
-> > +     atomic_t refcnt; /* num of outstanding zerocopy DMAs */
-> > +     /* index of zerocopy pending DMA buffers */
-> > +     int upend_idx;
-> > +     /* index of zerocopy done DMA buffers, but not notify guest
-> yet */
-> > +     int done_idx;
-> 
-> Pls try to find more descriptive names for the above,
-> and clarify the comments: I could not tell what do the
-> comments mean.
-> 
-> upend_idx seems to be a copy of avail idx?
-> done_idx is ... ?
-
-OK.
-
-> > +     /* notify vhost zerocopy DMA buffers has done in lower device
-> */
-> 
-> Do you mean 'notify vhost that zerocopy DMA is complete'?
-> 
-> > +     void (*callback)(struct sk_buff *);
-> 
-> Is this actually used?
-> If yes rename it zerocopy_dma_done or something like this?
-
-You might be right, I used to use it, but the current code level doesn't
-need it any more.
-
-> >  };
+> > +
+> >  /*
+> >   * macvtap_skb_from_vnet_hdr and macvtap_skb_to_vnet_hdr should
+> >   * be shared with the tun/tap driver.
+> > @@ -515,17 +601,19 @@ static int macvtap_skb_to_vnet_hdr(const
+> struct sk_buff *skb,
 > >  
-> >  struct vhost_dev {
-> > @@ -154,6 +162,8 @@ bool vhost_enable_notify(struct vhost_virtqueue
-> *);
 > >  
-> >  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log
-> *log,
-> >                   unsigned int log_num, u64 len);
-> > +void vhost_zerocopy_callback(struct sk_buff *skb);
-> > +void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
+> >  /* Get packet from user space buffer */
+> > -static ssize_t macvtap_get_user(struct macvtap_queue *q,
+> > -                             const struct iovec *iv, size_t count,
+> > -                             int noblock)
+> > +static ssize_t macvtap_get_user(struct macvtap_queue *q, struct
+> msghdr *m,
+> > +                             const struct iovec *iv, unsigned long
+> total_len,
+> > +                             size_t count, int noblock)
+> >  {
+> >       struct sk_buff *skb;
+> >       struct macvlan_dev *vlan;
+> > -     size_t len = count;
+> > +     unsigned long len = total_len;
+> >       int err;
+> >       struct virtio_net_hdr vnet_hdr = { 0 };
+> >       int vnet_hdr_len = 0;
+> > +     int copylen, zerocopy;
 > >  
-> >  #define vq_err(vq, fmt, ...) do {
-> \
-> >               pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+> > +     zerocopy = sock_flag(&q->sk, SOCK_ZEROCOPY) && (len >
+> GOODCOPY_LEN);
+> >       if (q->flags & IFF_VNET_HDR) {
+> >               vnet_hdr_len = q->vnet_hdr_sz;
+> >  
+> > @@ -552,12 +640,28 @@ static ssize_t macvtap_get_user(struct
+> macvtap_queue *q,
+> >       if (unlikely(len < ETH_HLEN))
+> >               goto err;
+> >  
+> > -     skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, len,
+> vnet_hdr.hdr_len,
+> > -                             noblock, &err);
+> > +     if (zerocopy)
+> > +             /* There are 256 bytes to be copied in skb, so there
+> is enough
+> > +              * room for skb expand head in case it is used.
+> > +              * The rest buffer is mapped from userspace.
+> > +              */
+> > +             copylen = GOODCOPY_LEN;
+> 
+> Just curious: where does the number 256 come from?
+> Also, as long as we are copying, should we care about
+> alignment?
+
+256 makes the size big enough for any skb head expanding.
+
+That's my concern before. But guest should alignment the buffer already,
+after moving the pointer 256 bytes. It should still alignment, right?
+
+> > +     else
+> > +             copylen = len;
+> > +
+> > +     skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
+> > +                             vnet_hdr.hdr_len, noblock, &err);
+> >       if (!skb)
+> >               goto err;
+> >  
+> > -     err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
+> len);
+> > +     if (zerocopy)
+> > +             err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len,
+> count);
+> > +     else
+> > +             err = skb_copy_datagram_from_iovec(skb, 0, iv,
+> vnet_hdr_len,
+> > +                                                len);
+> > +     if (sock_flag(&q->sk, SOCK_ZEROCOPY))
+> > +             memcpy(&skb_shinfo(skb)->ubuf, m->msg_control,
+> > +                     sizeof(struct skb_ubuf_info));
+> >       if (err)
+> >               goto err_kfree;
+> >  
+> > @@ -579,7 +683,7 @@ static ssize_t macvtap_get_user(struct
+> macvtap_queue *q,
+> >               kfree_skb(skb);
+> >       rcu_read_unlock_bh();
+> >  
+> > -     return count;
+> > +     return total_len;
+> >  
+> >  err_kfree:
+> >       kfree_skb(skb);
+> > @@ -601,8 +705,8 @@ static ssize_t macvtap_aio_write(struct kiocb
+> *iocb, const struct iovec *iv,
+> >       ssize_t result = -ENOLINK;
+> >       struct macvtap_queue *q = file->private_data;
+> >  
+> > -     result = macvtap_get_user(q, iv, iov_length(iv, count),
+> > -                           file->f_flags & O_NONBLOCK);
+> > +     result = macvtap_get_user(q, NULL, iv, iov_length(iv, count),
+> count,
+> > +                               file->f_flags & O_NONBLOCK);
+> >       return result;
+> >  }
+> >  
+> > @@ -815,7 +919,7 @@ static int macvtap_sendmsg(struct kiocb *iocb,
+> struct socket *sock,
+> >                          struct msghdr *m, size_t total_len)
+> >  {
+> >       struct macvtap_queue *q = container_of(sock, struct
+> macvtap_queue, sock);
+> > -     return macvtap_get_user(q, m->msg_iov, total_len,
+> > +     return macvtap_get_user(q, m, m->msg_iov, total_len,
+> m->msg_iovlen,
+> >                           m->msg_flags & MSG_DONTWAIT);
+> >  }
+> >  
 > > 
-
+> 
+> 
