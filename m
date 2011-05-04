@@ -1,104 +1,89 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
-Date: Wed, 4 May 2011 17:46:22 +0300
-Message-ID: <20110504144622.GA15823@redhat.com>
-References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Wed, 4 May 2011 16:48:36 +0200
+Message-ID: <201105041648.37199.arnd@arndb.de>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<201105041511.54095.arnd@arndb.de>
+	<4DC163D7.9010309@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4DC163D7.9010309-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 04, 2011 at 07:32:58PM +0530, Krishna Kumar wrote:
-> Earlier approach to improving small packet performance went
-> along the lines of dropping packets when the txq is full to
-> avoid stop/start of the txq. Though performance improved
-> significantly (upto 3x) for a single thread, multiple netperf
-> sessions showed a regression of upto -17% (starting from 4
-> sessions).
-> 
-> This patch proposes a different approach with the following
-> changes:
-> 
-> A. virtio:
-> 	- Provide a API to get available number of slots.
-> 
-> B. virtio-net:
-> 	- Remove stop/start txq's and associated callback.
-> 	- Pre-calculate the number of slots needed to transmit
-> 	  the skb in xmit_skb and bail out early if enough space
-> 	  is not available. My testing shows that 2.5-3% of
-> 	  packets are benefited by using this API.
-> 	- Do not drop skbs but instead return TX_BUSY like other
-> 	  drivers.
-> 	- When returning EBUSY, set a per-txq variable to indicate
-> 	  to dev_queue_xmit() whether to restart xmits on this txq.
-> 
-> C. net/sched/sch_generic.c:
-> 	Since virtio-net now returns EBUSY, the skb is requeued to
-> 	gso_skb. This allows adding the addional check for restart
-> 	xmits in just the slow-path (the first re-queued packet
-> 	case of dequeue_skb, where it checks for gso_skb) before
-> 	deciding whether to call the driver or not.
-> 
-> Patch was also tested between two servers with Emulex OneConnect
-> 10G cards to confirm there is no regression. Though the patch is
-> an attempt to improve only small packet performance, there was
-> improvement for 1K, 2K and also 16K both in BW and SD. Results
-> from Guest -> Remote Host (BW in Mbps) for 1K and 16K I/O sizes:
-> 
-> ________________________________________________________
-> 			I/O Size: 1K
-> #	BW1	BW2 (%)		SD1	SD2 (%)
-> ________________________________________________________
-> 1	1226	3313 (170.2)	6.6	1.9 (-71.2)
-> 2	3223	7705 (139.0)	18.0	7.1 (-60.5)
-> 4	7223	8716 (20.6)	36.5	29.7 (-18.6)
-> 8	8689	8693 (0)	131.5	123.0 (-6.4)
-> 16	8059	8285 (2.8)	578.3	506.2 (-12.4)
-> 32	7758	7955 (2.5)	2281.4	2244.2 (-1.6)
-> 64	7503	7895 (5.2)	9734.0	9424.4 (-3.1)
-> 96	7496	7751 (3.4)	21980.9	20169.3 (-8.2)
-> 128	7389	7741 (4.7)	40467.5	34995.5 (-13.5)
-> ________________________________________________________
-> Summary:	BW: 16.2%	SD: -10.2%
-> 
-> ________________________________________________________
-> 			I/O Size: 16K
-> #	BW1	BW2 (%)		SD1	SD2 (%)
-> ________________________________________________________
-> 1	6684	7019 (5.0)	1.1	1.1 (0)
-> 2	7674	7196 (-6.2)	5.0	4.8 (-4.0)
-> 4	7358	8032 (9.1)	21.3	20.4 (-4.2)
-> 8	7393	8015 (8.4)	82.7	82.0 (-.8)
-> 16	7958	8366 (5.1)	283.2	310.7 (9.7)
-> 32	7792	8113 (4.1)	1257.5	1363.0 (8.3)
-> 64	7673	8040 (4.7)	5723.1	5812.4 (1.5)
-> 96	7462	7883 (5.6)	12731.8	12119.8 (-4.8)
-> 128	7338	7800 (6.2)	21331.7	21094.7 (-1.1)
-> ________________________________________________________
-> Summary:	BW: 4.6%	SD: -1.5%
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> ---
+On Wednesday 04 May 2011, Wolfgang Grandegger wrote:
+> On 05/04/2011 03:11 PM, Arnd Bergmann wrote:
 
-So IIUC, we delay transmit by an arbitrary value and hope
-that the host is done with the packets by then?
+> > Wolfgang, I'm a bit worried by the API being split between sockets and sysfs.
+> > The problem is that once the sysfs API is established, users will start
+> > relying on it, and you can no longer migrate away from it, even when
+> > a later version of the Socket CAN also supports setting through a different
+> > interface. What is the current interface to set mail box IDs in software?
+> 
+> Note that this CAN controller is *very* special. It cannot handle all
+> CAN id's due to a lack or resources. The PRUSS firmware is able to
+> manage just up to 8 different CAN identifiers out of the usual 4096
+> (12-bit) or even more for the extended CAN ids using 29 bits. 
 
-Interesting.
+So for other controllers, they can simply access every ID within
+the range (12 or 29 bits), but there is no need to configure?
 
-I am currently testing an approach where
-we tell the host explicitly to interrupt us only after
-a large part of the queue is empty.
-With 256 entries in a queue, we should get 1 interrupt per
-on the order of 100 packets which does not seem like a lot.
+What are these IDs for? Do they identify a local port, a remote address,
+a connection, or something else?
 
-I can post it, mind testing this?
+> There is
+> no other CAN controller with such rather serious limitations and
+> therefore there exists also no appropriate interface. I think using
+> sysfs is OK for such device-specific parameters, at least for the time
+> being.
 
--- 
-MST
+It sounds like it's not very scalable, especially since the implementation
+is done completely in firmware. Imagine a new firmware version suddenly
+supporting 256 ids instead of 8 -- you'd then have to create 256 sysfs
+files to be compatible if I understand you correctly.
+
+> > How hard would it be to implement that feature in Socket CAN?
+> 
+> CAN controllers usually provide some kind of hardware CAN id filtering,
+> but in a very hardware dependent way. A generic interface may be able to
+> handle the PRUSS restrictions as well. CAN devices are usually
+> configured through the netlink interface. e.g.
+> 
+>   $ ip link set can0 up type can bitrate 125000
+> 
+> and such a common interface would be netlink based as well.
+
+Agreed.
+
+> > Is that something that Subhasish or someone else could to as a prerequisite
+> > to merging the driver?
+> 
+> Any ideas on how to handle hardware filtering in a generic way are
+> welcome. I will try to come up with a proposal sooner than later.
+
+It sounds to me like the best solution would be change the firmware
+to lift that restriction and simply allow all IDs, in case it's not
+actually a hardware limitation (which sounds unlikely).
+
+If that's not possible, maybe it's possible to define a generic
+filtering interface using netlink, and then either do it completely
+in the kernel, or using the hardware support.
+
+	Arnd
