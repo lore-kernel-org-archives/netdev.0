@@ -1,61 +1,33 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
-Date: Wed, 04 May 2011 10:09:19 -0700
-Message-ID: <4DC1883F.7050301@chelsio.com>
-References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>	 <20110503161226.29251.40838.stgit@gitlad.jf.intel.com>	 <4DC08E7B.7070906@chelsio.com> <1304465684.2873.26.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/8] More genericization of struct rtable
+Date: Wed, 04 May 2011 10:14:38 -0700 (PDT)
+Message-ID: <20110504.101438.193716658.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:14627 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968Ab1EDRJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 13:09:25 -0400
-In-Reply-To: <1304465684.2873.26.camel@bwh-desktop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49215
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751916Ab1EDRPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 13:15:11 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 82C5024C088
+	for <netdev@vger.kernel.org>; Wed,  4 May 2011 10:14:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/03/2011 04:34 PM, Ben Hutchings wrote:
-> On Tue, 2011-05-03 at 16:23 -0700, Dimitris Michailidis wrote:
->> I think RX_CLS_LOC_UNSPEC should be passed to the driver, where there is 
->> enough knowledge to pick an appropriate slot.  So I'd remove the
->>
->>      if (loc == RX_CLS_LOC_UNSPEC)
->>
->> block above, let the driver pick a slot, and then pass the selected location 
->> back for ethtool to report.
-> 
-> But first we have to specify this in the ethtool API.  So please propose
-> a patch to ethtool.h.
 
-In the past we discussed that being able to specify the first available slot or 
-the last available would be useful, so something like the below?
+This patch set does more work to minimize or completely eliminate
+various fields of struct rtable, with the goal of making the
+structure as generic and non-specific as possible.
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 4194a20..909ef79 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -442,7 +442,8 @@ struct ethtool_flow_ext {
-   *	includes the %FLOW_EXT flag.
-   * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
-   *	if packets should be discarded
-- * @location: Index of filter in hardware table
-+ * @location: Index of filter in hardware table, or %RX_CLS_FLOW_FIRST_LOC for
-+ *	first available index, or %RX_CLS_FLOW_LAST_LOC for last available
-   */
-  struct ethtool_rx_flow_spec {
-  	__u32		flow_type;
-@@ -1142,6 +1143,10 @@ struct ethtool_ops {
+First we reduce rt->rt_tos such that it is only used as a key
+for routing cache lookups, and rename it rt->rt_key_tos to
+reflect this fact.
 
-  #define	RX_CLS_FLOW_DISC	0xffffffffffffffffULL
+Next some output route lookup interface tweaks leading to the
+removal of several rt->rt_{dst,src} accesses, replacing those
+with flowi4->{daddr,saddr}
 
-+/* special values for ethtool_rx_flow_spec.location */
-+#define RX_CLS_FLOW_FIRST_LOC	0xffffffffU;
-+#define RX_CLS_FLOW_LAST_LOC	0xfffffffeU;
-+
-  /* Reset flags */
-  /* The reset() operation must clear the flags for the components which
-   * were actually reset.  On successful return, the flags indicate the
+More to come.
