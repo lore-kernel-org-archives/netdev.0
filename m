@@ -1,51 +1,30 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: bug fix for out-of-tree igb driver
-Date: Wed, 04 May 2011 11:06:19 -0700
-Message-ID: <4DC1959B.4010609@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] x86/net: only select BPF_JIT when NET is enabled
+Date: Wed, 04 May 2011 11:06:21 -0700 (PDT)
+Message-ID: <20110504.110621.115946620.davem@davemloft.net>
+References: <20110504144759.802483cc.sfr@canb.auug.org.au>
+	<20110504095651.60082594.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:48573 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755170Ab1EDSGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 14:06:20 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p44I6JaY007085
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 4 May 2011 11:06:20 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110504095651.60082594.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just in case someone is using the out-of-tree igb driver, I
-think I found a bug.
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Wed, 4 May 2011 09:56:51 -0700
 
-The tx_queue_mapping method should have r_idx >= adapter->num_tx_queues
-as shown below.  The driver had: r_idx > adapter->num_tx_queues originally.
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> Fix kconfig unmet dependency warning: HAVE_BPF_JIT depends on NET, so
+> make the "select" of it depend on NET also.
+> 
+> warning: (X86) selects HAVE_BPF_JIT which has unmet direct dependencies (NET)
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Its possible my code is buggy for sending queue_mapping of 1
-when num_tx_queues is 1, but either way, the driver
-shouldn't crash.
-
-Upstream igb driver in mainline kernels does not have this problem.
-
-static inline struct igb_ring *igb_tx_queue_mapping(struct igb_adapter *adapter,
-                                                     struct sk_buff *skb)
-{
-	unsigned int r_idx = skb->queue_mapping & (IGB_MAX_TX_QUEUES - 1);
-
-	if (r_idx >= adapter->num_tx_queues)
-		r_idx = r_idx % adapter->num_tx_queues;
-
-	return adapter->tx_ring[r_idx];
-}
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Applied, thanks Randy.
