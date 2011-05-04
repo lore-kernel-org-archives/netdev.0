@@ -1,60 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] mlx4_en: Setting RSS hash result to skb->rxhash field
-Date: Wed, 04 May 2011 18:46:26 +0200
-Message-ID: <1304527586.32152.5.camel@edumazet-laptop>
-References: <4DC156AF.4050807@mellanox.co.il>
-	 <1304520260.3203.34.camel@localhost>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] x86/net: only select BPF_JIT when NET is enabled
+Date: Wed, 4 May 2011 09:56:51 -0700
+Message-ID: <20110504095651.60082594.randy.dunlap@oracle.com>
+References: <20110504144759.802483cc.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63009 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750982Ab1EDQqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 12:46:33 -0400
-Received: by wwa36 with SMTP id 36so1439613wwa.1
-        for <netdev@vger.kernel.org>; Wed, 04 May 2011 09:46:31 -0700 (PDT)
-In-Reply-To: <1304520260.3203.34.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	davem@davemloft.net
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110504144759.802483cc.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 04 mai 2011 =C3=A0 15:44 +0100, Ben Hutchings a =C3=A9crit =
-:
-> On Wed, 2011-05-04 at 16:37 +0300, Yevgeny Petrilin wrote:
-> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> > ---
-> >  drivers/net/mlx4/en_rx.c |    3 +++
-> >  1 files changed, 3 insertions(+), 0 deletions(-)
-> >=20
-> > diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
-> > index 62dd21b..bb4d66a 100644
-> > --- a/drivers/net/mlx4/en_rx.c
-> > +++ b/drivers/net/mlx4/en_rx.c
-> > @@ -610,6 +610,8 @@ int mlx4_en_process_rx_cq(struct net_device *de=
-v, struct mlx4_en_cq *cq, int bud
-> >  					gro_skb->data_len =3D length;
-> >  					gro_skb->truesize +=3D length;
-> >  					gro_skb->ip_summed =3D CHECKSUM_UNNECESSARY;
-> > +					gro_skb->rxhash =3D be32_to_cpu(cqe->immed_rss_invalid) << 24=
-;
-> > +					skb_record_rx_queue(gro_skb, cq->ring);
->=20
-> An 8-bit hash is almost useless.  It's entirely useless if you then
-> shift it into the top bits of rxhash.
->=20
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Agreed. This is very bad.
+Fix kconfig unmet dependency warning: HAVE_BPF_JIT depends on NET, so
+make the "select" of it depend on NET also.
 
-Yevgeny probably did this shift because get_rps_cpu()
-does :
+warning: (X86) selects HAVE_BPF_JIT which has unmet direct dependencies (NET)
 
-tcpu =3D map->cpus[((u64) skb->rxhash * map->len) >> 32];
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ arch/x86/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-(If rxhash is not a pure random u32 distribution, then high order bits
-are more important than low order bits)
-
-
-
+--- linux-next-20110503.orig/arch/x86/Kconfig
++++ linux-next-20110503/arch/x86/Kconfig
+@@ -71,7 +71,7 @@ config X86
+ 	select GENERIC_IRQ_SHOW
+ 	select IRQ_FORCED_THREADING
+ 	select USE_GENERIC_SMP_HELPERS if SMP
+-	select HAVE_BPF_JIT if X86_64
++	select HAVE_BPF_JIT if (X86_64 && NET)
+ 
+ config INSTRUCTION_DECODER
+ 	def_bool (KPROBES || PERF_EVENTS)
