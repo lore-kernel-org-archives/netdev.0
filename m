@@ -1,67 +1,102 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [RFC v3 02/10] Revert "lsm: Remove the socket_post_accept() hook"
-Date: Wed, 4 May 2011 11:28:24 +0900
-Message-ID: <201105041128.BAB13061.LMHVtOSOQOFFJF@I-love.SAKURA.ne.jp>
-References: <1304432663-1575-1-git-send-email-sam@synack.fr>
-	<1304432663-1575-3-git-send-email-sam@synack.fr>
-	<201105031802.34724.paul.moore@hp.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
+Date: Tue, 3 May 2011 20:10:14 -0700
+Message-ID: <BANLkTinkFzF5a42c+_7CvHsBwuyZADQt0A@mail.gmail.com>
+References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>
+	<20110503161226.29251.40838.stgit@gitlad.jf.intel.com>
+	<4DC08E7B.7070906@chelsio.com>
+	<1304465684.2873.26.camel@bwh-desktop>
+	<4DC09DE0.8070102@intel.com>
+	<4DC0AD7B.7070009@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hadi@cyberus.ca, kaber@trash.net,
-	zbr@ioremap.net, root@localdomain.pl
-To: paul.moore@hp.com, sam@synack.fr
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201105031802.34724.paul.moore@hp.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dimitris Michailidis <dm@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f170.google.com ([209.85.212.170]:62080 "EHLO
+	mail-px0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752360Ab1EDDKO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 23:10:14 -0400
+Received: by pxi19 with SMTP id 19so521522pxi.1
+        for <netdev@vger.kernel.org>; Tue, 03 May 2011 20:10:14 -0700 (PDT)
+In-Reply-To: <4DC0AD7B.7070009@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paul Moore wrote:
-> On Tuesday, May 03, 2011 10:24:15 AM Samir Bellabes wrote:
-> > snet needs to reintroduce this hook, as it was designed to be: a hook for
-> > updating security informations on objects.
-> 
-> Looking at this and 5/10 again, it seems that you should be able to do what 
-> you need with the sock_graft() hook.  Am I missing something?
-> 
-> My apologies if we've already discussed this approach previously ...
+On Tue, May 3, 2011 at 6:35 PM, Dimitris Michailidis <dm@chelsio.com> w=
+rote:
+> On 05/03/2011 05:29 PM, Alexander Duyck wrote:
+>> The thing to keep in mind is that the index doesn't have to be a har=
+dware
+>> index. =A0In ixgbe we have a field in the hardware which is meant to=
+ just be a
+>> unique software index and that is what I am using as the location fi=
+eld for
+>> our filters. =A0All the location information in the rules really pro=
+vides is a
+>> logical way of tracking rules. =A0It doesn't necessarily have to rep=
+resent the
+>> physical location of the rule in hardware.
+>
+> I appreciate the intent but there are couple problems.
+> a) ethtool.h documents location as
+>
+> =A0* @location: Index of filter in hardware table
+>
+> i.e., physical location. =A0But we could change that.
 
-static void snet_socket_post_accept(struct socket *sock, struct socket *newsock)
-{
-	static void snet_do_send_event(struct snet_info *info)
-	{
-		int snet_nl_send_event(struct snet_info *info)
-		{
-			skb_rsp = genlmsg_new(size, GFP_KERNEL);
-			genlmsg_unicast()
-		}
-	}
-}
+I will probably want to change that.  The fact is as I recall even niu
+was using a hash in addition to the location index.  As such it isn't
+really the true location in the hardware since there is a second piece
+to determining the actual location in hardware.
 
-First problem with using snet_do_send_event() from security_sock_graft() is
-that we have to use GFP_ATOMIC rather than GFP_KERNEL because we are inside
-write_lock_bh()/write_unlock_bh().
+> b) for TCAMs physical location is important and if ethtool offers to =
+provide
+> only a logical index and massages the original user input to do so wh=
+ere
+> will a driver get the physical location it ultimately needs? =A0For a=
+ device
+> with physical indices a multiple of 4 the logical index ethtool picks=
+ will
+> very frequently be illegal as physical location. =A0E.g., if location=
+ 1 is
+> available ethtool will keep selecting it and the driver will need to =
+deal
+> with these requests without the benefit of knowing what the user real=
+ly
+> asked for.
+>
+> Another problem with ethtool selecting locations is it assumes it's t=
+he sole
+> allocator (I think there's a comment in the code pointing this out). =
+=A0But
+> this isn't a valid assumption, e.g., HW RFS comes to mind as another
+> allocator.
 
-static inline int genlmsg_unicast(struct net *net, struct sk_buff *skb, u32 pid)
-{
-	static inline int nlmsg_unicast(struct sock *sk, struct sk_buff *skb, u32 pid)
-	{
-		int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
-			u32 pid, MSG_DONTWAIT)
-		{
-			int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
-				      long *timeo, struct sock *ssk)
-			{
-				if (!*timeo) {
-					return -EAGAIN;
-			}
-		}
-	}
-}
+The other thing to keep in mind is that this doesn't preclude the
+option of adding an ethtool command at some point in the future for
+handling the determination of filter location.  The fact is all that
+would need to be done is to add an extra ioctl call to determine the
+location based on the filter and if that returns op not supported we
+fall back to the current rule manager.
 
-Second problem is that genlmsg_unicast() might return -EAGAIN because we can't
-sleep inside write_lock_bh()/write_unlock_bh().
+The way I have things setup now provides a good foundation in
+user-space for managing the rules.  I fully admit it doesn't fit all
+solutions, and I welcome follow-on patches to add extra functionality,
+but at this time I really would prefer avoiding adding extra
+functionality for yet to be implemented features in device drivers.
+The ntuple display functionality provides a good example of why I
+would prefer to avoid it.  Everything looked like it should have
+worked when get_rx_ntuple was implemented in the device drivers, but
+as soon as I implemented a get_rx_ntuple for ixgbe I quickly
+discovered it didn't work and as such I am now stuck moving everything
+over to network flow classifier for ixgbe.
 
-Third problem (though independent with security_sock_graft()) is that
-snet_do_send_event() ignores snet_nl_send_event() failure.
+Thanks,
+
+Alex
