@@ -1,101 +1,60 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: linux-next: manual merge of the rcu tree with the net tree
-Date: Tue, 3 May 2011 23:05:33 -0700
-Message-ID: <20110504060533.GD2294@linux.vnet.ibm.com>
-References: <20110503142419.2b7d5e23.sfr@canb.auug.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] mlx4_en: Setting RSS hash result to skb->rxhash field
+Date: Wed, 04 May 2011 18:46:26 +0200
+Message-ID: <1304527586.32152.5.camel@edumazet-laptop>
+References: <4DC156AF.4050807@mellanox.co.il>
+	 <1304520260.3203.34.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110503142419.2b7d5e23.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63009 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750982Ab1EDQqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 12:46:33 -0400
+Received: by wwa36 with SMTP id 36so1439613wwa.1
+        for <netdev@vger.kernel.org>; Wed, 04 May 2011 09:46:31 -0700 (PDT)
+In-Reply-To: <1304520260.3203.34.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 03, 2011 at 02:24:19PM +1000, Stephen Rothwell wrote:
-> Hi Paul,
-> 
-> Today's linux-next merge of the rcu tree got a conflict in
-> net/core/filter.c between commit 0a14842f5a3c ("net: filter: Just In Time
-> compiler for x86-64") from the net tree and commit 10cde158c259
-> ("net,rcu: convert call_rcu(sk_filter_release_rcu) to kfree_rcu") from
-> the rcu tree.
-> 
-> The former adds another operation into sk_filter_release_rcu(), so I have
-> effectively reverted the rcu tree change for now (by applying the patch
-> below as a merge fixup).
+Le mercredi 04 mai 2011 =C3=A0 15:44 +0100, Ben Hutchings a =C3=A9crit =
+:
+> On Wed, 2011-05-04 at 16:37 +0300, Yevgeny Petrilin wrote:
+> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> > ---
+> >  drivers/net/mlx4/en_rx.c |    3 +++
+> >  1 files changed, 3 insertions(+), 0 deletions(-)
+> >=20
+> > diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
+> > index 62dd21b..bb4d66a 100644
+> > --- a/drivers/net/mlx4/en_rx.c
+> > +++ b/drivers/net/mlx4/en_rx.c
+> > @@ -610,6 +610,8 @@ int mlx4_en_process_rx_cq(struct net_device *de=
+v, struct mlx4_en_cq *cq, int bud
+> >  					gro_skb->data_len =3D length;
+> >  					gro_skb->truesize +=3D length;
+> >  					gro_skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+> > +					gro_skb->rxhash =3D be32_to_cpu(cqe->immed_rss_invalid) << 24=
+;
+> > +					skb_record_rx_queue(gro_skb, cq->ring);
+>=20
+> An 8-bit hash is almost useless.  It's entirely useless if you then
+> shift it into the top bits of rxhash.
+>=20
 
-Thank you, Stephen!
+Agreed. This is very bad.
 
-Looks like I need to get my changes forward-ported to the latest -rc...
+Yevgeny probably did this shift because get_rps_cpu()
+does :
 
-						Thanx, Paul
+tcpu =3D map->cpus[((u64) skb->rxhash * map->len) >> 32];
 
-> -- 
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Tue, 3 May 2011 14:06:50 +1000
-> Subject: [PATCH] Revert "net,rcu: convert call_rcu(sk_filter_release_rcu) to
->  kfree_rcu"
-> 
-> This reverts commit 10cde158c2591422a2b32a2f560f406b8e69bee6.
-> ---
->  include/net/sock.h |    4 +++-
->  net/core/filter.c  |   13 +++++++++++++
->  2 files changed, 16 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 1a2f255..f2046e4 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1180,6 +1180,8 @@ extern void sk_common_release(struct sock *sk);
->  /* Initialise core socket variables */
->  extern void sock_init_data(struct socket *sock, struct sock *sk);
-> 
-> +extern void sk_filter_release_rcu(struct rcu_head *rcu);
-> +
->  /**
->   *	sk_filter_release - release a socket filter
->   *	@fp: filter to remove
-> @@ -1190,7 +1192,7 @@ extern void sock_init_data(struct socket *sock, struct sock *sk);
->  static inline void sk_filter_release(struct sk_filter *fp)
->  {
->  	if (atomic_dec_and_test(&fp->refcnt))
-> -		kfree_rcu(fp, rcu);
-> +		call_rcu(&fp->rcu, sk_filter_release_rcu);
->  }
-> 
->  static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 66d403d..0eb8c44 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -572,6 +572,19 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
->  EXPORT_SYMBOL(sk_chk_filter);
-> 
->  /**
-> + * 	sk_filter_release_rcu - Release a socket filter by rcu_head
-> + *	@rcu: rcu_head that contains the sk_filter to free
-> + */
-> +void sk_filter_release_rcu(struct rcu_head *rcu)
-> +{
-> +	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
-> +
-> +	bpf_jit_free(fp);
-> +	kfree(fp);
-> +}
-> +EXPORT_SYMBOL(sk_filter_release_rcu);
-> +
-> +/**
->   *	sk_attach_filter - attach a socket filter
->   *	@fprog: the filter program
->   *	@sk: the socket to use
-> -- 
-> 1.7.4.4
-> 
+(If rxhash is not a pure random u32 distribution, then high order bits
+are more important than low order bits)
+
+
+
