@@ -1,138 +1,104 @@
-From: Tom Lendacky <tahm@linux.vnet.ibm.com>
-Subject: Re: [PATCH 09/18] virtio: use avail_event index
-Date: Wed, 4 May 2011 16:58:18 -0500
-Message-ID: <201105041658.19917.tahm@linux.vnet.ibm.com>
-References: <cover.1304541918.git.mst@redhat.com>  <8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
+From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: ehea: fix wrongly-reported supported modes
+Date: Wed, 04 May 2011 18:59:26 -0300
+Message-ID: <1304546366.28342.14.camel@dream>
+References: <1304451745.6899.15.camel@dream>
+	 <1304453775.2873.17.camel@bwh-desktop>
+	 <1304458460.2873.18.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Carsten Otte <cotte@de.ibm.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	linux390@de.ibm.com, Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Shirley Ma <xma@us.ibm.com>, lguest@lists.ozlabs.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, kvm@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>, steved@us.ibm.com,
-	habanero@linux.vnet.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:48967 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755964Ab1EDV6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 17:58:25 -0400
-In-Reply-To: <8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
+Received: from e24smtp03.br.ibm.com ([32.104.18.24]:48061 "EHLO
+	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756069Ab1EDV7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 17:59:47 -0400
+Received: from /spool/local
+	by e24smtp03.br.ibm.com with XMail ESMTP
+	for <netdev@vger.kernel.org> from <klebers@linux.vnet.ibm.com>;
+	Wed, 4 May 2011 18:59:43 -0300
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p44M0fI83428476
+	for <netdev@vger.kernel.org>; Wed, 4 May 2011 19:00:42 -0300
+Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p44LxVOW027629
+	for <netdev@vger.kernel.org>; Wed, 4 May 2011 18:59:31 -0300
+In-Reply-To: <1304458460.2873.18.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2011-05-03 at 22:34 +0100, Ben Hutchings wrote:
+> On Tue, 2011-05-03 at 21:16 +0100, Ben Hutchings wrote:
+> > On Tue, 2011-05-03 at 16:42 -0300, Kleber Sacilotto de Souza wrote:
+> > > Currently EHEA reports to ethtool as supporting 10000baseT_Full and
+> > > FIBRE independent of the hardware configuration. However, these
+> > > capabilities should be reported only if the physical port and
+> > > the medium support them, which is the case where the physical port
+> > > is connected at 10Gb.
+> > >
+> > > Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+> > > ---
+> > >  drivers/net/ehea/ehea_ethtool.c |   21 ++++++++++++++-------
+> > >  1 files changed, 14 insertions(+), 7 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
+> > > index 3e2e734..04716c2 100644
+> > > --- a/drivers/net/ehea/ehea_ethtool.c
+> > > +++ b/drivers/net/ehea/ehea_ethtool.c
+> > > @@ -55,15 +55,22 @@ static int ehea_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> > >  		cmd->duplex = -1;
+> > >  	}
+> > > 
+> > > -	cmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full
+> > > -		       | SUPPORTED_100baseT_Full |  SUPPORTED_100baseT_Half
+> > > -		       | SUPPORTED_10baseT_Full | SUPPORTED_10baseT_Half
+> > > -		       | SUPPORTED_Autoneg | SUPPORTED_FIBRE);
+> > > +	cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
+> > > +		       | SUPPORTED_100baseT_Half | SUPPORTED_10baseT_Full
+> > > +		       | SUPPORTED_10baseT_Half | SUPPORTED_Autoneg);
+> > > 
+> > > -	cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_Autoneg
+> > > -			 | ADVERTISED_FIBRE);
+> > > +	cmd->advertising = ADVERTISED_Autoneg;
+> > > +
+> > > +	if (cmd->speed == SPEED_10000) {
+> > > +		cmd->supported |= (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+> > > +		cmd->advertising |= (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
+> > > +		cmd->port = PORT_FIBRE;
+> > > +	} else {
+> > > +		cmd->supported |= SUPPORTED_TP;
+> > > +		cmd->advertising |= (ADVERTISED_1000baseT_Full | ADVERTISED_TP);
+> > > +		cmd->port = PORT_TP;
+> > > +	}
+> > 
+> > This doesn't make any sense.  If the current speed is 10G, then the
+> > driver also claims to support speeds of 10M, 100M, 1G and 10G.  But then
+>                                                                ^
+>                                                            on fibre
+> 
+> > if the speed actually is <10G, the driver claims to support TP.  What's
+> > going on here?
 
-On Wednesday, May 04, 2011 03:51:47 PM Michael S. Tsirkin wrote:
-> Use the new avail_event feature to reduce the number
-> of exits from the guest.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/virtio/virtio_ring.c |   39
-> ++++++++++++++++++++++++++++++++++++++- 1 files changed, 38 insertions(+),
-> 1 deletions(-)
-> 
-> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-> index 3a3ed75..262dfe6 100644
-> --- a/drivers/virtio/virtio_ring.c
-> +++ b/drivers/virtio/virtio_ring.c
-> @@ -82,6 +82,15 @@ struct vring_virtqueue
->  	/* Host supports indirect buffers */
->  	bool indirect;
-> 
-> +	/* Host publishes avail event idx */
-> +	bool event;
-> +
-> +	/* Is kicked_avail below valid? */
-> +	bool kicked_avail_valid;
-> +
-> +	/* avail idx value we already kicked. */
-> +	u16 kicked_avail;
-> +
->  	/* Number of free buffers */
->  	unsigned int num_free;
->  	/* Head of free buffer list. */
-> @@ -228,6 +237,12 @@ add_head:
->  	 * new available array entries. */
->  	virtio_wmb();
->  	vq->vring.avail->idx++;
-> +	/* If the driver never bothers to kick in a very long while,
-> +	 * avail index might wrap around. If that happens, invalidate
-> +	 * kicked_avail index we stored. TODO: make sure all drivers
-> +	 * kick at least once in 2^16 and remove this. */
-> +	if (unlikely(vq->vring.avail->idx == vq->kicked_avail))
-> +		vq->kicked_avail_valid = true;
+You are right. This patch was based on very vague hardware specs that
+wasn't making much sense. I have more details about the hardware now, I
+will send another patch soon.
 
-vq->kicked_avail_valid should be set to false here.
+> > 
+> > (Also, claiming to support BASE-T modes on non-TP media is bogus, though
+> > I understand why people are doing it.)
+> > 
+> > Ben.
+> > 
+> > > -	cmd->port = PORT_FIBRE;
+> > >  	cmd->autoneg = port->autoneg == 1 ? AUTONEG_ENABLE : AUTONEG_DISABLE;
+> > > 
+> > >  	return 0;
+> > 
+> 
 
-Tom
+-- 
+Kleber S. Souza
+IBM Linux Technology Center
 
-> 
->  	pr_debug("Added buffer head %i to %p\n", head, vq);
->  	END_USE(vq);
-> @@ -236,6 +251,23 @@ add_head:
->  }
->  EXPORT_SYMBOL_GPL(virtqueue_add_buf_gfp);
-> 
-> +
-> +static bool vring_notify(struct vring_virtqueue *vq)
-> +{
-> +	u16 old, new;
-> +	bool v;
-> +	if (!vq->event)
-> +		return !(vq->vring.used->flags & VRING_USED_F_NO_NOTIFY);
-> +
-> +	v = vq->kicked_avail_valid;
-> +	old = vq->kicked_avail;
-> +	new = vq->kicked_avail = vq->vring.avail->idx;
-> +	vq->kicked_avail_valid = true;
-> +	if (unlikely(!v))
-> +		return true;
-> +	return vring_need_event(vring_avail_event(&vq->vring), new, old);
-> +}
-> +
->  void virtqueue_kick(struct virtqueue *_vq)
->  {
->  	struct vring_virtqueue *vq = to_vvq(_vq);
-> @@ -244,7 +276,7 @@ void virtqueue_kick(struct virtqueue *_vq)
->  	/* Need to update avail index before checking if we should notify */
->  	virtio_mb();
-> 
-> -	if (!(vq->vring.used->flags & VRING_USED_F_NO_NOTIFY))
-> +	if (vring_notify(vq))
->  		/* Prod other side to tell it about changes. */
->  		vq->notify(&vq->vq);
-> 
-> @@ -437,6 +469,8 @@ struct virtqueue *vring_new_virtqueue(unsigned int num,
->  	vq->vq.name = name;
->  	vq->notify = notify;
->  	vq->broken = false;
-> +	vq->kicked_avail_valid = false;
-> +	vq->kicked_avail = 0;
->  	vq->last_used_idx = 0;
->  	list_add_tail(&vq->vq.list, &vdev->vqs);
->  #ifdef DEBUG
-> @@ -444,6 +478,7 @@ struct virtqueue *vring_new_virtqueue(unsigned int num,
->  #endif
-> 
->  	vq->indirect = virtio_has_feature(vdev, VIRTIO_RING_F_INDIRECT_DESC);
-> +	vq->event = virtio_has_feature(vdev, VIRTIO_RING_F_AVAIL_EVENT_IDX);
-> 
->  	/* No callback?  Tell other side not to bother us. */
->  	if (!callback)
-> @@ -482,6 +517,8 @@ void vring_transport_features(struct virtio_device
-> *vdev) break;
->  		case VIRTIO_RING_F_USED_EVENT_IDX:
->  			break;
-> +		case VIRTIO_RING_F_AVAIL_EVENT_IDX:
-> +			break;
->  		default:
->  			/* We don't understand this bit. */
->  			clear_bit(i, vdev->features);
