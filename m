@@ -1,57 +1,91 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Wed, 04 May 2011 18:09:21 +0200
-Message-ID: <4DC17A31.8070409__32.0137748078153$1304525236$gmane$org@grandegger.com>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<201104271525.28512.arnd@arndb.de>	<15AD189F851849F69A011B6F4D1DDB6C@subhasishg>	<201105041511.54095.arnd@arndb.de>	<4DC163D7.9010309@grandegger.com> <20110504155750.GC322@e-circ.dyndns.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv3 2/2] tg3: Allow ethtool to enable/disable loopback.
+Date: Wed, 04 May 2011 17:08:53 +0100
+Message-ID: <1304525333.2926.2.camel@bwh-desktop>
+References: <1304471935-402-1-git-send-email-maheshb@google.com>
+	 <1304471935-402-2-git-send-email-maheshb@google.com>
+	 <1304471935-402-3-git-send-email-maheshb@google.com>
+	 <20110504111112.GA15486@rere.qmqm.pl> <20110504080408.0142f701@nehalam>
+	 <20110504160521.GA2035@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>,
-	Subhasish Ghosh <subhasish@mistralsolutions.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	sachi@mistralsolutions.
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Tom Herbert <therbert@google.com>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <20110504155750.GC322@e-circ.dyndns.org>
+Received: from mail.solarflare.com ([216.237.3.220]:58302 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610Ab1EDQI6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 12:08:58 -0400
+In-Reply-To: <20110504160521.GA2035@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Kurt,
+On Wed, 2011-05-04 at 18:05 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> On Wed, May 04, 2011 at 08:04:08AM -0700, Stephen Hemminger wrote:
+> > On Wed, 4 May 2011 13:11:12 +0200
+> > Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
+> > > On Tue, May 03, 2011 at 06:18:55PM -0700, Mahesh Bandewar wrote:
+> > > > This patch adds tg3_set_features() to handle loopback mode. Cur=
+rently the
+> > > > capability is added for the devices which support internal MAC =
+loopback mode.
+> > > > So when enabled, it enables internal-MAC loopback.
+> > > [...]
+> > > > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> > > > index 7c7c9a8..46de633 100644
+> > > > --- a/drivers/net/tg3.c
+> > > > +++ b/drivers/net/tg3.c
+> > > > @@ -6319,6 +6319,51 @@ static u32 tg3_fix_features(struct net_d=
+evice *dev, u32 features)
+> > > >  	return features;
+> > > >  }
+> > > > =20
+> > > > +static int tg3_set_features(struct net_device *dev, u32 featur=
+es)
+> > > > +{
+> > > > +	struct tg3 *tp =3D netdev_priv(dev);
+> > > > +	u32 cur_mode =3D 0;
+> > > > +	int err =3D 0;
+> > > > +
+> > > > +	if (!netif_running(dev)) {
+> > > > +		err =3D -EAGAIN;
+> > > > +		goto sfeatures_out;
+> > > > +	}
+> > > netdev_update_features() is not designed to handle -EAGAIN from
+> > > ndo_set_features callback. It might be useful to implement this
+> > > handling, but in this case you should just return 0 and check
+> > > dev->features in ndo_open callback.
+> >=20
+> > EAGAIN is a bad choice of error code anyway. It implies that the
+> > application should retry, which in this case is not true.
+> >=20
+> > This error code is used for things like flow controlled sockets whe=
+re
+> > the application should do a select/poll and the condition will clea=
+r
+> > when other side has read.
+> >=20
+> > Why not use ENETDOWN instead?
+>=20
+> The "application" here is netdev_update_features() here. Whatever the
+> error code, it would need to be handled there.
 
-On 05/04/2011 05:57 PM, Kurt Van Dijck wrote:
->>
->>> How hard would it be to implement that feature in Socket CAN?
->>
->> CAN controllers usually provide some kind of hardware CAN id filtering,
->> but in a very hardware dependent way. A generic interface may be able to
->> handle the PRUSS restrictions as well. CAN devices are usually
->> configured through the netlink interface. e.g.
->>
->>   $ ip link set can0 up type can bitrate 125000
->>
->> and such a common interface would be netlink based as well.
-> ack.
->>
->>> Is that something that Subhasish or someone else could to as a prerequisite
->>> to merging the driver?
->>
->> Any ideas on how to handle hardware filtering in a generic way are
->> welcome. I will try to come up with a proposal sooner than later.
-> 
-> When doing so, I'd vote for an unlimited(by software) list of hardware filters (id/mask).
-> The hardware must abort when no more filters are available.
+The important point - which I think you already stated - is that when
+the device is down this function is not expected to apply changes to th=
+e
+hardware and therefore it should return 0.
 
-Sounds good and not even to complicated. For the SJA1000 we would just
-allow to set the global mask.
+Ben.
 
-> I think that when using hardware filters, knowing the actual device
-> with it's amount of hardware filters is the least of your problems.
-> Userspace applications that suddenly stop working properly due to
-> hw filters (i.e. some traffic not coming in anymore) will be a major
-> source of bugreports.
-
-Well, hardware filtering will be off by default and must explicitly be
-set by the user, like for the bitrate setting.
-
-Wolfgang.
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
