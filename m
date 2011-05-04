@@ -1,78 +1,169 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH 1/2] net: Allow ethtool to set interface in loopback
- mode.
-Date: Wed, 4 May 2011 13:15:27 +0200
-Message-ID: <20110504111527.GB15486@rere.qmqm.pl>
-References: <1304471935-402-1-git-send-email-maheshb@google.com>
- <1304471935-402-2-git-send-email-maheshb@google.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: 2.6.38.2, kernel panic, probably related to framentation handling
+Date: Wed, 04 May 2011 14:36:09 +0300
+Message-ID: <f2c5863250c7a5fb11a189759bd736cf@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Tom Herbert <therbert@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:40926 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752777Ab1EDLP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2011 07:15:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1304471935-402-2-git-send-email-maheshb@google.com>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:34858 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751689Ab1EDLgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 07:36:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 03, 2011 at 06:18:54PM -0700, Mahesh Bandewar wrote:
-> This patch enables ethtool to set the loopback mode on a given interf=
-ace.
-> By configuring the interface in loopback mode in conjunction with a p=
-olicy
-> route / rule, a userland application can stress the egress / ingress =
-path
-> exposing the flows of the change in progress and potentially help dev=
-eloper(s)
-> understand the impact of those changes without even sending a packet =
-out
-> on the network.
->=20
-> Following set of commands illustrates one such example -
->     a) ip -4 addr add 192.168.1.1/24 dev eth1
->     b) ip -4 rule add from all iif eth1 lookup 250
->     c) ip -4 route add local 0/0 dev lo proto kernel scope host table=
- 250
->     d) arp -Ds 192.168.1.100 eth1
->     e) arp -Ds 192.168.1.200 eth1
->     f) sysctl -w net.ipv4.ip_nonlocal_bind=3D1
->     g) sysctl -w net.ipv4.conf.all.accept_local=3D1
->     # Assuming that the machine has 8 cores
->     h) taskset 000f netserver -L 192.168.1.200
->     i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.=
-200 -l 30
->=20
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  include/linux/netdevice.h |    3 ++-
->  net/core/ethtool.c        |    2 +-
->  2 files changed, 3 insertions(+), 2 deletions(-)
->=20
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index d5de66a..e7244ed 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1067,6 +1067,7 @@ struct net_device {
->  #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
->  #define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
->  #define NETIF_F_NOCACHE_COPY	(1 << 30) /* Use no-cache copyfromuser =
-*/
-> +#define NETIF_F_LOOPBACK	(1 << 31) /* Enable loopback */
-[...]
+ Seems once more, during trying to bring another type of tunnel (this 
+ time userspace, working over tun device) and switching routes got one 
+ more kernel panic
+ It is vanilla kernel, but many source routing rules, firewall, QoS and 
+ etc, including this tunnel now also. Here is what i got on netconsole:
+ Any other info required?
 
-Just for correctness: you could add this flag to loopback's dev->featur=
-es.
-It's just an aesthetics point, though.
+ netc [1192230.881002]
+ netc [1192230.881002] Pid: 0, comm: kworker/0:1 Not tainted 
+ 2.6.38.2-devel2 #2
+ netc
+ netc Dell Inc. PowerEdge 1950
+ netc /
+ netc 0D8635
+ netc
+ netc [1192230.881002] EIP: 0060:[<c03c0847>] EFLAGS: 00010206 CPU: 3
+ netc [1192230.881002] EIP is at icmp_send+0x39/0x396
+ netc [1192230.881002] EAX: 121a8aca EBX: d1d28600 ECX: 00000001 EDX: 
+ c63b6600
+ netc [1192230.881002] ESI: d1d28600 EDI: c33438a0 EBP: f2a41840 ESP: 
+ f64b5e8c
+ netc [1192230.881002]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+ netc [1192230.881002] Process kworker/0:1 (pid: 0, ti=f64b4000 
+ task=f64a4a80 task.ti=f64b0000)
+ netc [1192230.881002] Stack:
+ netc [1192230.881002]  c0113ea1
+ netc 00000001
+ netc 0000000b
+ netc 00000000
+ netc efed48c7
+ netc 0000114a
+ netc 00000000
+ netc f6b01fa8
+ netc
+ netc [1192230.881002]  e21be5e1
+ netc c0148bf3
+ netc e217d5d0
+ netc 00043c53
+ netc 00000001
+ netc f6b02d14
+ netc e21be5e1
+ netc 00043c53
+ netc
+ netc [1192230.881002]  e21be5e1
+ netc 00043c53
+ netc c0148d2e
+ netc 00000000
+ netc 00000058
+ netc 00000000
+ netc c0140779
+ netc ce9f5aa9
+ netc
+ netc [1192230.881002] Call Trace:
+ netc [1192230.881002]  [<c0113ea1>] ? lapic_next_event+0x13/0x16
+ netc [1192230.881002]  [<c0148bf3>] ? tick_dev_program_event+0x26/0x116
+ netc [1192230.881002]  [<c0148d2e>] ? tick_program_event+0x1b/0x1f
+ netc [1192230.881002]  [<c0140779>] ? hrtimer_interrupt+0x10c/0x1ca
+ netc [1192230.881002]  [<c0140e49>] ? hrtimer_start+0x20/0x25
+ netc [1192230.881002]  [<c012f18e>] ? irq_exit+0x36/0x59
+ netc [1192230.881002]  [<c0114933>] ? 
+ smp_apic_timer_interrupt+0x71/0x7d
+ netc [1192230.881002]  [<c03f2752>] ? apic_timer_interrupt+0x2a/0x30
+ netc [1192230.881002]  [<c039f527>] ? ip_expire+0xf2/0x11b
+ netc [1192230.881002]  [<c039f435>] ? ip_expire+0x0/0x11b
+ netc [1192230.881002]  [<c0133421>] ? run_timer_softirq+0x140/0x1c7
+ netc [1192230.881002]  [<c012f28f>] ? __do_softirq+0x6b/0x104
+ netc [1192230.881002]  [<c012f224>] ? __do_softirq+0x0/0x104
+ netc [1192230.881002]  [<c012f224>] ? __do_softirq+0x0/0x104
+ netc [1192230.881002]  <IRQ>
+ netc
+ netc [1192230.881002]  [<c012f17e>] ? irq_exit+0x26/0x59
+ netc [1192230.881002]  [<c0103b3d>] ? do_IRQ+0x81/0x95
+ netc [1192230.881002]  [<c0114933>] ? 
+ smp_apic_timer_interrupt+0x71/0x7d
+ netc [1192230.881002]  [<c0102ca9>] ? common_interrupt+0x29/0x30
+ netc [1192230.881002]  [<c010807a>] ? mwait_idle+0x51/0x56
+ netc [1192230.881002]  [<c0101a97>] ? cpu_idle+0x41/0x5e
+ netc [1192230.881002] Code:
+ netc 08
+ netc 89
+ netc c6
+ netc 89
+ netc 4c
+ netc 24
+ netc 04
+ netc 8b
+ netc 40
+ netc 48
+ netc 89                                                                 
+                       netc c2
+ netc 83
+ netc e2
+ netc fe
+ netc 0f
+ netc 84
+ netc 66
+ netc 03
+ netc 00
+ netc 00
+ netc 89
+ netc 94
+ netc 24
+ netc c0
+ netc 00
+ netc 00
+ netc 00
+ netc 8b
+ netc 42
+ netc 0c
+ netc 8b
+ netc be
+ netc 94
+ netc 00
+ netc 00
+ netc 00
+ netc 3b
+ netc be
+ netc a4
+ netc 00
+ netc 00
+ netc 00
+ May  4 11:17:12 217.151.224.119 unparseable log message: "<8b> "
+ netc 80
+ netc 80
+ netc 02
+ netc 00
+ netc 00
+ netc 89
+ netc 44
+ netc 24
+ netc 10
+ netc 0f
+ netc 82
+ netc 40
+ netc 03
+ netc 00
+ netc 00
+ netc 8d
+ netc 47
+ netc 14
+ netc 39
+ netc 86
+ netc
+ netc [1192230.881002] EIP: [<c03c0847>]
+ netc icmp_send+0x39/0x396
+ netc SS:ESP 0068:f64b5e8c
+ netc [1192230.881002] CR2: 00000000121a8d4a
+ netc [1192230.910072] ---[ end trace 42aae79d7fb08725 ]---
+ netc [1192230.910354] Kernel panic - not syncing: Fatal exception in 
+ interrupt
+ netc [1192230.911062] Rebooting in 5 seconds..
 
-Best Regards,
-Micha=B3 Miros=B3aw
