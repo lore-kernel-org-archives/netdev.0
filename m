@@ -1,83 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
-Date: Wed, 04 May 2011 22:54:09 +0100
-Message-ID: <1304546049.2926.81.camel@bwh-desktop>
-References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>
-	 <20110503161226.29251.40838.stgit@gitlad.jf.intel.com>
-	 <4DC08E7B.7070906@chelsio.com> <1304465684.2873.26.camel@bwh-desktop>
-	 <4DC1883F.7050301@chelsio.com> <1304529892.2926.14.camel@bwh-desktop>
-	 <4DC18DF8.3090707@chelsio.com>  <4DC18FB2.8060604@intel.com>
-	 <1304532342.2926.46.camel@bwh-desktop>  <4DC19912.3000803@intel.com>
-	 <1304534738.2926.74.camel@bwh-desktop>  <4DC1C018.5090709@intel.com>
+From: Tom Lendacky <tahm@linux.vnet.ibm.com>
+Subject: Re: [PATCH 05/18] virtio: used event index interface
+Date: Wed, 4 May 2011 16:56:09 -0500
+Message-ID: <201105041656.11009.tahm@linux.vnet.ibm.com>
+References: <cover.1304541918.git.mst@redhat.com>  <aacced20b8109a615ee24c1bde6d9f5702850111.1304541919.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Dimitris Michailidis <dm@chelsio.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:35881 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752791Ab1EDVyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 17:54:13 -0400
-In-Reply-To: <4DC1C018.5090709@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Carsten Otte <cotte@de.ibm.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	linux390@de.ibm.com, Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Shirley Ma <xma@us.ibm.com>, lguest@lists.ozlabs.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, kvm@vger.kernel.org,
+	Krishna Kumar <krkumar2@in.ibm.com>, steved@us.ibm.com,
+	habanero@linux.vnet.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <aacced20b8109a615ee24c1bde6d9f5702850111.1304541919.git.mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-05-04 at 14:07 -0700, Alexander Duyck wrote:
-> On 5/4/2011 11:45 AM, Ben Hutchings wrote:
-[...]
-> > Please can you confirm that the location specified for
-> > ETHTOOL_SRXCLSRLINS will indeed be used as a priority in case of
-> > overlapping filters?
-> >
-> > Ben.
-> >
+On Wednesday, May 04, 2011 03:51:09 PM Michael S. Tsirkin wrote:
+> Define a new feature bit for the guest to utilize a used_event index
+> (like Xen) instead if a flag bit to enable/disable interrupts.
 > 
-> The ixgbe approach should be nearly identical in terms of how the 
-> priorities are based on the location of the filters.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  include/linux/virtio_ring.h |    9 +++++++++
+>  1 files changed, 9 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_ring.h
+> index e4d144b..f5c1b75 100644
+> --- a/include/linux/virtio_ring.h
+> +++ b/include/linux/virtio_ring.h
+> @@ -29,6 +29,10 @@
+>  /* We support indirect buffer descriptors */
+>  #define VIRTIO_RING_F_INDIRECT_DESC	28
+> 
+> +/* The Guest publishes the used index for which it expects an interrupt
+> + * at the end of the avail ring. Host should ignore the avail->flags
+> field. */ +#define VIRTIO_RING_F_USED_EVENT_IDX	29
+> +
+>  /* Virtio ring descriptors: 16 bytes.  These can chain together via
+> "next". */ struct vring_desc {
+>  	/* Address (guest-physical). */
+> @@ -83,6 +87,7 @@ struct vring {
+>   *	__u16 avail_flags;
+>   *	__u16 avail_idx;
+>   *	__u16 available[num];
+> + *	__u16 used_event_idx;
+>   *
+>   *	// Padding to the next align boundary.
+>   *	char pad[];
+> @@ -93,6 +98,10 @@ struct vring {
+>   *	struct vring_used_elem used[num];
+>   * };
+>   */
+> +/* We publish the used event index at the end of the available ring.
+> + * It is at the end for backwards compatibility. */
+> +#define vring_used_event(vr) ((vr)->avail->ring[(vr)->num])
+> +
+>  static inline void vring_init(struct vring *vr, unsigned int num, void *p,
+>  			      unsigned long align)
+>  {
 
-OK, good.
+You should update the vring_size procedure to account for the extra field at 
+the end of the available ring by change the "(2 + num)" to "(3 + num)":
+    return ((sizeof(struct vring_desc) * num + sizeof(__u16) * (3 + num)
 
-> The original 
-> version from Santwona had the rule manager breaking the rules up into 7 
-> sections so that rules that specified fewer fields would be near the end 
-> of the list.  I'm pretty sure that was all due to priorities from what I 
-> could see in the niu driver since the filters that covered wider ranges 
-> were being made lower priority to be matched last.
-
-That would make sense.
-
-> In terms of overloading the get count call, that probably would be the 
-> best route in terms of changing rule manager behavior.  The only thing I 
-> am having a hard time seeing is how the rule manager would be able to 
-> distinguish between low priority and high priority filter rules, or is 
-> this something that new keywords would be added to the parser for?
-
-Right, there would have to be keywords to specify that.
-
-> I just put out version 6 of the patches.  Essentially I have reduced the 
-> size of the rule manager to being used only on insertion without any 
-> rule location specified.  The one thing to keep in mind with this rule 
-> manager is that the rule at table size - 1 is always going to be the 
-> lowest priority rule.  So if it was reserved for unspecified rules it 
-> would be easy to use something like that to achieve an "auto-select" 
-> location that the driver could then reassign as rules were added to it.
-
-I don't think any location value within the physical table size should
-select this special behaviour.  The special location values for
-auto-select (with whatever priority) should be distinct from all the
-physical location values.
-
-I still need to review your patches but it sounds like they will be
-ready to apply.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Tom
