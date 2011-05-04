@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [ethtool PATCH 1/4] ethtool: remove strings based approach for
-	displaying n-tuple
-Date: Wed, 04 May 2011 11:41:35 -0700
-Message-ID: <20110504184135.26394.25913.stgit@gitlad.jf.intel.com>
+Subject: [ethtool PATCH 3/4] Add support for __be64 and bitops,
+	centralize several needed macros
+Date: Wed, 04 May 2011 11:41:46 -0700
+Message-ID: <20110504184145.26394.86015.stgit@gitlad.jf.intel.com>
 References: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,77 +13,101 @@ To: davem@davemloft.net, jeffrey.t.kirsher@intel.com, dm@chelsio.com,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:2841 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754345Ab1EDSmB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2011 14:42:01 -0400
+	id S1753994Ab1EDSmC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2011 14:42:02 -0400
 In-Reply-To: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change is meant to remove the strings based approach for displaying
-n-tuple filters.  A follow-on patch will replace that functionality with a
-network flow classification based approach that will get the number of
-filters, get their locations, and then request and display them
-individually.
+This change is meant to add support for __be64 values and bitops to
+ethtool.  In addition the patch pulls the SIOCETHTOOL define and the
+ARRAY_SIZE define into ethtool-util.h for later use by the rxclass files.
+These changes will be needed in order to support network flow
+classifier rule configuration.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
- ethtool.c |   44 --------------------------------------------
- 1 files changed, 0 insertions(+), 44 deletions(-)
+ ethtool-bitops.h |   25 +++++++++++++++++++++++++
+ ethtool-util.h   |   16 ++++++++++++++--
+ 2 files changed, 39 insertions(+), 2 deletions(-)
+ create mode 100644 ethtool-bitops.h
 
-diff --git a/ethtool.c b/ethtool.c
-index cfdac65..9ad7000 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -3194,50 +3194,6 @@ static int do_srxntuple(int fd, struct ifreq *ifr)
+diff --git a/ethtool-bitops.h b/ethtool-bitops.h
+new file mode 100644
+index 0000000..b1eb426
+--- /dev/null
++++ b/ethtool-bitops.h
+@@ -0,0 +1,25 @@
++#ifndef ETHTOOL_BITOPS_H__
++#define ETHTOOL_BITOPS_H__
++
++#define BITS_PER_BYTE		8
++#define BITS_PER_LONG		(BITS_PER_BYTE * sizeof(long))
++#define DIV_ROUND_UP(n, d)	(((n) + (d) - 1) / (d))
++#define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
++
++static inline void set_bit(int nr, unsigned long *addr)
++{
++	addr[nr / BITS_PER_LONG] |= 1UL << (nr % BITS_PER_LONG);
++}
++
++static inline void clear_bit(int nr, unsigned long *addr)
++{
++	addr[nr / BITS_PER_LONG] &= ~(1UL << (nr % BITS_PER_LONG));
++}
++
++static inline int test_bit(unsigned int nr, const unsigned long *addr)
++{
++	return !!((1UL << (nr % BITS_PER_LONG)) &
++		  (((unsigned long *)addr)[nr / BITS_PER_LONG]));
++}
++
++#endif
+diff --git a/ethtool-util.h b/ethtool-util.h
+index 6a4f3f4..d8b621c 100644
+--- a/ethtool-util.h
++++ b/ethtool-util.h
+@@ -15,6 +15,7 @@
+ #ifndef HAVE_BE_TYPES
+ typedef __uint16_t __be16;
+ typedef __uint32_t __be32;
++typedef unsigned long long __be64;
+ #endif
  
- static int do_grxntuple(int fd, struct ifreq *ifr)
+ typedef unsigned long long u64;
+@@ -28,11 +29,15 @@ typedef __int32_t s32;
+ #if __BYTE_ORDER == __BIG_ENDIAN
+ static inline u16 cpu_to_be16(u16 value)
  {
--	struct ethtool_sset_info *sset_info;
--	struct ethtool_gstrings *strings;
--	int sz_str, n_strings, err, i;
--
--	sset_info = malloc(sizeof(struct ethtool_sset_info) + sizeof(u32));
--	sset_info->cmd = ETHTOOL_GSSET_INFO;
--	sset_info->sset_mask = (1ULL << ETH_SS_NTUPLE_FILTERS);
--	ifr->ifr_data = (caddr_t)sset_info;
--	err = send_ioctl(fd, ifr);
--
--	if ((err < 0) ||
--	    (!(sset_info->sset_mask & (1ULL << ETH_SS_NTUPLE_FILTERS)))) {
--		perror("Cannot get driver strings info");
--		return 100;
--	}
--
--	n_strings = sset_info->data[0];
--	free(sset_info);
--	sz_str = n_strings * ETH_GSTRING_LEN;
--
--	strings = calloc(1, sz_str + sizeof(struct ethtool_gstrings));
--	if (!strings) {
--		fprintf(stderr, "no memory available\n");
--		return 95;
--	}
--
--	strings->cmd = ETHTOOL_GRXNTUPLE;
--	strings->string_set = ETH_SS_NTUPLE_FILTERS;
--	strings->len = n_strings;
--	ifr->ifr_data = (caddr_t) strings;
--	err = send_ioctl(fd, ifr);
--	if (err < 0) {
--		perror("Cannot get Rx n-tuple information");
--		free(strings);
--		return 101;
--	}
--
--	n_strings = strings->len;
--	fprintf(stdout, "Rx n-tuple filters:\n");
--	for (i = 0; i < n_strings; i++)
--		fprintf(stdout, "%s", &strings->data[i * ETH_GSTRING_LEN]);
--
--	free(strings);
--
- 	return 0;
+-    return value;
++	return value;
  }
+ static inline u32 cpu_to_be32(u32 value)
+ {
+-    return value;
++	return value;
++}
++static inline u64 cpu_to_be64(u64 value)
++{
++	return value;
+ }
+ #else
+ static inline u16 cpu_to_be16(u16 value)
+@@ -43,8 +48,15 @@ static inline u32 cpu_to_be32(u32 value)
+ {
+ 	return cpu_to_be16(value >> 16) | (cpu_to_be16(value) << 16);
+ }
++static inline u64 cpu_to_be64(u64 value)
++{
++	return cpu_to_be32(value >> 32) | ((u64)cpu_to_be32(value) << 32);
++}
+ #endif
  
++#define ntohll cpu_to_be64
++#define htonll cpu_to_be64
++
+ #ifndef ARRAY_SIZE
+ #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+ #endif
 
