@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 08/18] virtio_ring: support for used_event idx feature
-Date: Wed, 4 May 2011 23:51:38 +0300
-Message-ID: <dd16b9f3bad847b0eadc7f94368e27982c1a7560.1304541919.git.mst@redhat.com>
+Subject: [PATCH 09/18] virtio: use avail_event index
+Date: Wed, 4 May 2011 23:51:47 +0300
+Message-ID: <8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
 References: <cover.1304541918.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -31,51 +31,102 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Add support for the used_event idx feature: when enabling
-interrupts, publish the current avail index value to
-the host so that we get interrupts on the next update.
+Use the new avail_event feature to reduce the number
+of exits from the guest.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/virtio/virtio_ring.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+ drivers/virtio/virtio_ring.c |   39 ++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 38 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index 507d6eb..3a3ed75 100644
+index 3a3ed75..262dfe6 100644
 --- a/drivers/virtio/virtio_ring.c
 +++ b/drivers/virtio/virtio_ring.c
-@@ -320,6 +320,14 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
- 	ret = vq->data[i];
- 	detach_buf(vq, i);
- 	vq->last_used_idx++;
-+	/* If we expect an interrupt for the next entry, tell host
-+	 * by writing event index and flush out the write before
-+	 * the read in the next get_buf call. */
-+	if (!(vq->vring.avail->flags & VRING_AVAIL_F_NO_INTERRUPT)) {
-+		vring_used_event(&vq->vring) = vq->last_used_idx;
-+		virtio_mb();
-+	}
-+
- 	END_USE(vq);
- 	return ret;
- }
-@@ -341,7 +349,11 @@ bool virtqueue_enable_cb(struct virtqueue *_vq)
+@@ -82,6 +82,15 @@ struct vring_virtqueue
+ 	/* Host supports indirect buffers */
+ 	bool indirect;
  
- 	/* We optimistically turn back on interrupts, then check if there was
- 	 * more to do. */
-+	/* Depending on the VIRTIO_RING_F_USED_EVENT_IDX feature, we need to
-+	 * either clear the flags bit or point the event index at the next
-+	 * entry. Always do both to keep code simple. */
- 	vq->vring.avail->flags &= ~VRING_AVAIL_F_NO_INTERRUPT;
-+	vring_used_event(&vq->vring) = vq->last_used_idx;
++	/* Host publishes avail event idx */
++	bool event;
++
++	/* Is kicked_avail below valid? */
++	bool kicked_avail_valid;
++
++	/* avail idx value we already kicked. */
++	u16 kicked_avail;
++
+ 	/* Number of free buffers */
+ 	unsigned int num_free;
+ 	/* Head of free buffer list. */
+@@ -228,6 +237,12 @@ add_head:
+ 	 * new available array entries. */
+ 	virtio_wmb();
+ 	vq->vring.avail->idx++;
++	/* If the driver never bothers to kick in a very long while,
++	 * avail index might wrap around. If that happens, invalidate
++	 * kicked_avail index we stored. TODO: make sure all drivers
++	 * kick at least once in 2^16 and remove this. */
++	if (unlikely(vq->vring.avail->idx == vq->kicked_avail))
++		vq->kicked_avail_valid = true;
+ 
+ 	pr_debug("Added buffer head %i to %p\n", head, vq);
+ 	END_USE(vq);
+@@ -236,6 +251,23 @@ add_head:
+ }
+ EXPORT_SYMBOL_GPL(virtqueue_add_buf_gfp);
+ 
++
++static bool vring_notify(struct vring_virtqueue *vq)
++{
++	u16 old, new;
++	bool v;
++	if (!vq->event)
++		return !(vq->vring.used->flags & VRING_USED_F_NO_NOTIFY);
++
++	v = vq->kicked_avail_valid;
++	old = vq->kicked_avail;
++	new = vq->kicked_avail = vq->vring.avail->idx;
++	vq->kicked_avail_valid = true;
++	if (unlikely(!v))
++		return true;
++	return vring_need_event(vring_avail_event(&vq->vring), new, old);
++}
++
+ void virtqueue_kick(struct virtqueue *_vq)
+ {
+ 	struct vring_virtqueue *vq = to_vvq(_vq);
+@@ -244,7 +276,7 @@ void virtqueue_kick(struct virtqueue *_vq)
+ 	/* Need to update avail index before checking if we should notify */
  	virtio_mb();
- 	if (unlikely(more_used(vq))) {
- 		END_USE(vq);
-@@ -468,6 +480,8 @@ void vring_transport_features(struct virtio_device *vdev)
+ 
+-	if (!(vq->vring.used->flags & VRING_USED_F_NO_NOTIFY))
++	if (vring_notify(vq))
+ 		/* Prod other side to tell it about changes. */
+ 		vq->notify(&vq->vq);
+ 
+@@ -437,6 +469,8 @@ struct virtqueue *vring_new_virtqueue(unsigned int num,
+ 	vq->vq.name = name;
+ 	vq->notify = notify;
+ 	vq->broken = false;
++	vq->kicked_avail_valid = false;
++	vq->kicked_avail = 0;
+ 	vq->last_used_idx = 0;
+ 	list_add_tail(&vq->vq.list, &vdev->vqs);
+ #ifdef DEBUG
+@@ -444,6 +478,7 @@ struct virtqueue *vring_new_virtqueue(unsigned int num,
+ #endif
+ 
+ 	vq->indirect = virtio_has_feature(vdev, VIRTIO_RING_F_INDIRECT_DESC);
++	vq->event = virtio_has_feature(vdev, VIRTIO_RING_F_AVAIL_EVENT_IDX);
+ 
+ 	/* No callback?  Tell other side not to bother us. */
+ 	if (!callback)
+@@ -482,6 +517,8 @@ void vring_transport_features(struct virtio_device *vdev)
  			break;
- 		case VIRTIO_RING_F_INDIRECT_DESC:
+ 		case VIRTIO_RING_F_USED_EVENT_IDX:
  			break;
-+		case VIRTIO_RING_F_USED_EVENT_IDX:
++		case VIRTIO_RING_F_AVAIL_EVENT_IDX:
 +			break;
  		default:
  			/* We don't understand this bit. */
