@@ -1,64 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: bug fix for out-of-tree igb driver
-Date: Wed, 4 May 2011 11:12:56 -0700
-Message-ID: <BANLkTimdJr98ZbgxpfzqAS-w+MiyKSw-UA@mail.gmail.com>
-References: <4DC1959B.4010609@candelatech.com>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [ethtool PATCH] FW dump support
+Date: Wed, 4 May 2011 11:15:59 -0700
+Message-ID: <49395329523DD64492581B505F80C86D5A5BCD3990@EXMAIL.ad.emulex.com>
+References: <1304378957-24123-1-git-send-email-anirban.chakraborty@qlogic.com>,<1304530807.2926.28.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <--no-chain-reply-to@mv.qlogic.com>,
+	<davem@davemloft.net>, <bhutchings@solarflare.com>
+To: <anirban.chakraborty@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:64087 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755112Ab1EDSM5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 14:12:57 -0400
-Received: by fxm17 with SMTP id 17so1020386fxm.19
-        for <netdev@vger.kernel.org>; Wed, 04 May 2011 11:12:56 -0700 (PDT)
-In-Reply-To: <4DC1959B.4010609@candelatech.com>
+Received: from exht2.emulex.com ([138.239.113.184]:3223 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755150Ab1EDSQU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 14:16:20 -0400
+In-Reply-To: <1304530807.2926.28.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 4, 2011 at 11:06, Ben Greear <greearb@candelatech.com> wrot=
-e:
-> Just in case someone is using the out-of-tree igb driver, I
-> think I found a bug.
->
-> The tx_queue_mapping method should have r_idx >=3D adapter->num_tx_qu=
-eues
-> as shown below. =C2=A0The driver had: r_idx > adapter->num_tx_queues =
-originally.
->
-> Its possible my code is buggy for sending queue_mapping of 1
-> when num_tx_queues is 1, but either way, the driver
-> shouldn't crash.
->
-> Upstream igb driver in mainline kernels does not have this problem.
->
-> static inline struct igb_ring *igb_tx_queue_mapping(struct igb_adapte=
-r
-> *adapter,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sk_buff *skb)
-> {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned int r_idx =3D skb->queue_mapping =
-& (IGB_MAX_TX_QUEUES - 1);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (r_idx >=3D adapter->num_tx_queues)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0r_idx =3D r_id=
-x % adapter->num_tx_queues;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0return adapter->tx_ring[r_idx];
-> }
->
-> Thanks,
-> Ben
->
+________________________________________
+From: netdev-owner@vger.kernel.org [netdev-owner@vger.kernel.org] On Behalf Of Ben Hutchings [bhutchings@solarflare.com]
+Sent: Wednesday, May 04, 2011 12:40 PM
+To: anirban.chakraborty@qlogic.com
+Cc: netdev@vger.kernel.org; --no-chain-reply-to@mv.qlogic.com; davem@davemloft.net
+Subject: Re: [ethtool PATCH] FW dump support
 
-Thanks Ben, I have copied Carolyn so that she is aware of it.
+> On Mon, 2011-05-02 at 16:29 -0700, anirban.chakraborty@qlogic.com wrote:
+>> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+>>
+>> Added support to take FW dump via ethtool.
+> [...]
+>> --- a/ethtool.c
+>> +++ b/ethtool.c
+> [...]
+>> @@ -263,6 +270,12 @@ static struct option {
+>>               "Get Rx ntuple filters and actions\n" },
+>>      { "-P", "--show-permaddr", MODE_PERMADDR,
+>>               "Show permanent hardware address" },
+>> +    { "-W", "--get-dump", MODE_GET_DUMP,
+>> +             "Get dump level\n" },
+>> +    { "-Wd", "--get-dump-data", MODE_GET_DUMP_DATA,
+>> +             "Get dump data", "FILENAME " "Name of the dump file\n" },
+>
+> The short options should only include one letter.  Also the general
+> pattern is that 'get' options use lower-case letters and 'set' options
+> use upper-case letters.  No, I'm not sure how best to handle a set of 3
+> options.  Maybe you can combine --get-dump and --get-dump-data, making
+> the filename optional?
 
---=20
-Cheers,
-Jeff
+ethtool already has "-f" option to flash/write the FW image.
+Can you use "-F" to get the FW dump data out?
+And then may be, these options can be extended to get the get/set dump levels?
+
+-Ajit
