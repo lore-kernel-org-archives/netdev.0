@@ -1,109 +1,79 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Wed, 04 May 2011 18:00:49 +0200
-Message-ID: <4DC17831.3070801@grandegger.com>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
-	<201105041511.54095.arnd@arndb.de>
-	<4DC163D7.9010309@grandegger.com>
-	<201105041648.37199.arnd@arndb.de>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCHv3 2/2] tg3: Allow ethtool to enable/disable loopback.
+Date: Wed, 4 May 2011 18:05:21 +0200
+Message-ID: <20110504160521.GA2035@rere.qmqm.pl>
+References: <1304471935-402-1-git-send-email-maheshb@google.com>
+ <1304471935-402-2-git-send-email-maheshb@google.com>
+ <1304471935-402-3-git-send-email-maheshb@google.com>
+ <20110504111112.GA15486@rere.qmqm.pl>
+ <20110504080408.0142f701@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201105041648.37199.arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Tom Herbert <therbert@google.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:52506 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753912Ab1EDQFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2011 12:05:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20110504080408.0142f701@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/04/2011 04:48 PM, Arnd Bergmann wrote:
-> On Wednesday 04 May 2011, Wolfgang Grandegger wrote:
->> On 05/04/2011 03:11 PM, Arnd Bergmann wrote:
-> 
->>> Wolfgang, I'm a bit worried by the API being split between sockets and sysfs.
->>> The problem is that once the sysfs API is established, users will start
->>> relying on it, and you can no longer migrate away from it, even when
->>> a later version of the Socket CAN also supports setting through a different
->>> interface. What is the current interface to set mail box IDs in software?
->>
->> Note that this CAN controller is *very* special. It cannot handle all
->> CAN id's due to a lack or resources. The PRUSS firmware is able to
->> manage just up to 8 different CAN identifiers out of the usual 4096
->> (12-bit) or even more for the extended CAN ids using 29 bits. 
-> 
-> So for other controllers, they can simply access every ID within
-> the range (12 or 29 bits), but there is no need to configure?
+On Wed, May 04, 2011 at 08:04:08AM -0700, Stephen Hemminger wrote:
+> On Wed, 4 May 2011 13:11:12 +0200
+> Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> wrote:
+> > On Tue, May 03, 2011 at 06:18:55PM -0700, Mahesh Bandewar wrote:
+> > > This patch adds tg3_set_features() to handle loopback mode. Curre=
+ntly the
+> > > capability is added for the devices which support internal MAC lo=
+opback mode.
+> > > So when enabled, it enables internal-MAC loopback.
+> > [...]
+> > > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> > > index 7c7c9a8..46de633 100644
+> > > --- a/drivers/net/tg3.c
+> > > +++ b/drivers/net/tg3.c
+> > > @@ -6319,6 +6319,51 @@ static u32 tg3_fix_features(struct net_dev=
+ice *dev, u32 features)
+> > >  	return features;
+> > >  }
+> > > =20
+> > > +static int tg3_set_features(struct net_device *dev, u32 features=
+)
+> > > +{
+> > > +	struct tg3 *tp =3D netdev_priv(dev);
+> > > +	u32 cur_mode =3D 0;
+> > > +	int err =3D 0;
+> > > +
+> > > +	if (!netif_running(dev)) {
+> > > +		err =3D -EAGAIN;
+> > > +		goto sfeatures_out;
+> > > +	}
+> > netdev_update_features() is not designed to handle -EAGAIN from
+> > ndo_set_features callback. It might be useful to implement this
+> > handling, but in this case you should just return 0 and check
+> > dev->features in ndo_open callback.
+>=20
+> EAGAIN is a bad choice of error code anyway. It implies that the
+> application should retry, which in this case is not true.
+>=20
+> This error code is used for things like flow controlled sockets where
+> the application should do a select/poll and the condition will clear
+> when other side has read.
+>=20
+> Why not use ENETDOWN instead?
 
-Yes, 11 or 29 bits, to be correct.
+The "application" here is netdev_update_features() here. Whatever the
+error code, it would need to be handled there.
 
-> What are these IDs for? Do they identify a local port, a remote address,
-> a connection, or something else?
-
-It's a message identifier, which is used for bus arbitration and which
-other CAN nodes can listen to. See also:
-
-http://lxr.linux.no/#linux+v2.6.38/Documentation/networking/can.txt#L146
-http://en.wikipedia.org/wiki/Controller_area_network
-
->> There is
->> no other CAN controller with such rather serious limitations and
->> therefore there exists also no appropriate interface. I think using
->> sysfs is OK for such device-specific parameters, at least for the time
->> being.
-> 
-> It sounds like it's not very scalable, especially since the implementation
-> is done completely in firmware. Imagine a new firmware version suddenly
-> supporting 256 ids instead of 8 -- you'd then have to create 256 sysfs
-> files to be compatible if I understand you correctly.
-
-Well, than an array of CAN identifiers per file would indeed be more
-appropriate.
-
->>> How hard would it be to implement that feature in Socket CAN?
->>
->> CAN controllers usually provide some kind of hardware CAN id filtering,
->> but in a very hardware dependent way. A generic interface may be able to
->> handle the PRUSS restrictions as well. CAN devices are usually
->> configured through the netlink interface. e.g.
->>
->>   $ ip link set can0 up type can bitrate 125000
->>
->> and such a common interface would be netlink based as well.
-> 
-> Agreed.
-> 
->>> Is that something that Subhasish or someone else could to as a prerequisite
->>> to merging the driver?
->>
->> Any ideas on how to handle hardware filtering in a generic way are
->> welcome. I will try to come up with a proposal sooner than later.
-> 
-> It sounds to me like the best solution would be change the firmware
-> to lift that restriction and simply allow all IDs, in case it's not
-> actually a hardware limitation (which sounds unlikely).
-
-Yes, that would be best but they told us, that it's not possible with
-the available hardware resources. Subhasish?
-
-> If that's not possible, maybe it's possible to define a generic
-> filtering interface using netlink, and then either do it completely
-> in the kernel, or using the hardware support.
-
-Well, I hesitate to implement an interface especially for such an exotic
-device. Fine if it could be handled by a generic CAN hardware filter
-interface, which is especially useful for normal CAN controllers.
-
-Wolfgang.
+Best Regards,
+Micha=B3 Miros=B3aw
