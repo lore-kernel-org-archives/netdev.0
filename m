@@ -1,44 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/2] libertas: Convert lbs_pr_<level> to pr_<level>
-Date: Wed, 04 May 2011 14:01:06 -0700
-Message-ID: <1304542866.1788.102.camel@Joe-Laptop>
-References: <cover.1304379925.git.joe@perches.com>
-	 <353dfb1607172b5a3dbaccddbe52c24312d42af4.1304379925.git.joe@perches.com>
-	 <1304537949.1097.8.camel@dcbw.foobar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.38.2, kernel panic, probably related to framentation
+ handling
+Date: Wed, 04 May 2011 14:05:33 -0700 (PDT)
+Message-ID: <20110504.140533.35050081.davem@davemloft.net>
+References: <1304528581.32152.15.camel@edumazet-laptop>
+	<1304532674.32152.16.camel@edumazet-laptop>
+	<1304539346.32152.81.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1246 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755822Ab1EDVBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2011 17:01:08 -0400
-In-Reply-To: <1304537949.1097.8.camel@dcbw.foobar.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56471
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753837Ab1EDVGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 17:06:06 -0400
+In-Reply-To: <1304539346.32152.81.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-04 at 14:39 -0500, Dan Williams wrote:
-> On Mon, 2011-05-02 at 16:49 -0700, Joe Perches wrote:
-> > Use the standard pr_<level> functions eases grep a bit.
-> > Added a few missing terminating newlines to messages.
-> > Coalesced long formats.
-> Is there any reason to not put the pr_fmt() definition into 'defs.h'
-> instead of C&P at the top of every file?  I don't really care either way
-> but that seems cleaner since almost all the libertas files are going to
-> use logging.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 04 May 2011 22:02:26 +0200
 
-It has to be before any #include <linux/kernel.h>
-or any other #include that uses it.
+> [PATCH] net: ip_expire() must revalidate route
+> 
+> Commit 4a94445c9a5c (net: Use ip_route_input_noref() in input path)
+> added a bug in IP defragmentation handling, in case timeout is fired.
+> 
+> When a frame is defragmented, we use last skb dst field when building
+> final skb. Its dst is valid, since we are in rcu read section.
+> 
+> But if a timeout occurs, we take first queued fragment to build one ICMP
+> TIME EXCEEDED message. Problem is all queued skb have weak dst pointers,
+> since we escaped RCU critical section after their queueing. icmp_send()
+> might dereference a now freed (and possibly reused) part of memory.
+> 
+> Calling skb_dst_drop() and ip_route_input_noref() to revalidate route is
+> the only possible choice.
+> 
+> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
 
-At some point, all of the uses of
-
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
-should be removed as I intend to have that
-or an equivalent become the default.
-
-
+Applied to net-2.6 and queued up for -stable, thanks Eric!
