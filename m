@@ -1,43 +1,39 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: Re: [net-next-2.6 PATCH] ethtool: Support to take FW dump
-Date: Tue, 3 May 2011 22:22:47 -0700
-Message-ID: <C683AC52-87BE-41F9-BA3A-58846A640F9D@qlogic.com>
-References: <1304378957-24123-1-git-send-email-anirban.chakraborty@qlogic.com>
- <1304378957-24123-2-git-send-email-anirban.chakraborty@qlogic.com>
- <1304466797.2873.38.camel@bwh-desktop>
- <2941C562-0D47-40DF-B2C0-6292381097AE@qlogic.com>
- <1304471194.3203.5.camel@localhost>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Transfer of maintainership
+Date: Wed, 4 May 2011 07:45:11 +0200
+Message-ID: <20110504054511.GA3362@riccoc20.at.omicron.at>
+References: <201104291419.04498.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:48702 "EHLO
-	TX2EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755296Ab1EDFYr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 01:24:47 -0400
-In-Reply-To: <1304471194.3203.5.camel@localhost>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <201104291419.04498.oneukum-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Apr 29, 2011 at 02:19:04PM +0200, Oliver Neukum wrote:
 
-On May 3, 2011, at 6:06 PM, Ben Hutchings wrote:
+>  USB "USBNET" DRIVER FRAMEWORK
+> -M:	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+> +M:	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
 
-> <snip>
-> 
-> I understand that the userland application will need to get the size
-> that way.  I'm saying that this code in the kernel should also get the
-> size from the driver, so that a malicious application cannot make the
-> kernel allocate an excessively large buffer.
-Makes sense. Will do so.
+Oliver,
 
-> 
-> Also, you'll need to submit your implementation along with this, as
-> David won't accept an extension to the API without a driver that
-> implements it.
-I have implemented it in qlcnic driver. Will submit it along with the v2 patches.
-Thanks.
+We have been looking at usbnet and a have question.
 
--Anirban
+Usbnet doesn't use either phylib or napi, but I think the reason is
+probably purely historical. Is there a technical reason why phylib or
+napi won't work with usbnet devices?
+
+If not, I would like to convert them in the near future.
+
+Thanks,
+
+Richard
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
