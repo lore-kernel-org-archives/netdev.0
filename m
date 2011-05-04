@@ -1,115 +1,92 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCHv1] forcedeth: Allow ethtool to enable/disable loopback.
-Date: Tue,  3 May 2011 18:22:07 -0700
-Message-ID: <1304472127-652-1-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
-	Mahesh Bandewar <maheshb@google.com>
-To: David Miller <davem@davemloft.net>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
+Date: Tue, 03 May 2011 18:35:55 -0700
+Message-ID: <4DC0AD7B.7070009@chelsio.com>
+References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>	 <20110503161226.29251.40838.stgit@gitlad.jf.intel.com>	 <4DC08E7B.7070906@chelsio.com> <1304465684.2873.26.camel@bwh-desktop> <4DC09DE0.8070102@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:29226 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753768Ab1EDBWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 21:22:18 -0400
+Received: from stargate.chelsio.com ([67.207.112.58]:22025 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753955Ab1EDBgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 May 2011 21:36:03 -0400
+In-Reply-To: <4DC09DE0.8070102@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates nv_set_features() to handle loopback mode.
-When enabled; it sets internal-PHY loopback.
+On 05/03/2011 05:29 PM, Alexander Duyck wrote:
+> On 5/3/2011 4:34 PM, Ben Hutchings wrote:
+>> On Tue, 2011-05-03 at 16:23 -0700, Dimitris Michailidis wrote:
+>>> On 05/03/2011 09:12 AM, Alexander Duyck wrote:
+>> [...]
+>>>> +int rxclass_rule_ins(int fd, struct ifreq *ifr,
+>>>> +             struct ethtool_rx_flow_spec *fsp)
+>>>> +{
+>>>> +    struct ethtool_rxnfc nfccmd;
+>>>> +    __u32 loc = fsp->location;
+>>>> +    int err;
+>>>> +
+>>>> +    /*
+>>>> +     * if location is unspecified pull rules from device
+>>>> +     * and allocate a free rule for our use
+>>>> +     */
+>>>> +    if (loc == RX_CLS_LOC_UNSPEC) {
+>>>> +        /* init table of available rules */
+>>>> +        err = rmgr_init(fd, ifr);
+>>>> +        if (err<  0)
+>>>> +            return err;
+>>>> +
+>>>> +        /* verify rule location */
+>>>> +        err = rmgr_add(fsp);
+>>>> +        if (err<  0)
+>>>> +            return err;
+>>>> +
+>>>> +        /* cleanup table and free resources */
+>>>> +        rmgr_cleanup();
+>>>> +    }
+>>>
+>>> This logic where ethtool tries to select a filter slot when a user 
+>>> provides
+>>> RX_CLS_LOC_UNSPEC does not work in general.  It assumes that all 
+>>> slots are
+>>> equal and a new filter can go into any available slot. But a device 
+>>> may have
+>>> restrictions on where a filter may go that ethtool doesn't know.
+>>
+>> I agree.  And if filter lookup is largely hash-based (as it is in
+>> Solarflare hardware) the user will also find it very difficult to
+>> specify the right location!
+> 
+> The thing to keep in mind is that the index doesn't have to be a 
+> hardware index.  In ixgbe we have a field in the hardware which is meant 
+> to just be a unique software index and that is what I am using as the 
+> location field for our filters.  All the location information in the 
+> rules really provides is a logical way of tracking rules.  It doesn't 
+> necessarily have to represent the physical location of the rule in 
+> hardware.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/forcedeth.c |   56 ++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 55 insertions(+), 1 deletions(-)
+I appreciate the intent but there are couple problems.
+a) ethtool.h documents location as
 
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index d09e8b0..10d522e 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -4474,6 +4474,53 @@ static int nv_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam*
- 	return 0;
- }
- 
-+static int nv_set_loopback(struct net_device *dev, u32 features)
-+{
-+	struct fe_priv *np = netdev_priv(dev);
-+	unsigned long flags;
-+	u32 miicontrol;
-+	int err, retval = 0;
-+
-+	spin_lock_irqsave(&np->lock, flags);
-+	miicontrol = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
-+	if (features & NETIF_F_LOOPBACK) {
-+		if (miicontrol & BMCR_LOOPBACK) {
-+			spin_unlock_irqrestore(&np->lock, flags);
-+			return retval;
-+		}
-+		nv_disable_irq(dev);
-+		/* Turn on loopback mode */
-+		miicontrol |= BMCR_LOOPBACK | BMCR_FULLDPLX;
-+		err = mii_rw(dev, np->phyaddr, MII_BMCR, miicontrol);
-+		if (err) {
-+			retval = -EAGAIN;
-+			spin_unlock_irqrestore(&np->lock, flags);
-+			phy_init(dev);
-+		} else {
-+			/* Force link up */
-+			netif_carrier_on(dev);
-+			spin_unlock_irqrestore(&np->lock, flags);
-+			netdev_info(dev, "Internal PHY loopback mode enabled.\n");
-+		}
-+	} else {
-+		if (!(miicontrol & BMCR_LOOPBACK)) {
-+			spin_unlock_irqrestore(&np->lock, flags);
-+			return retval;
-+		}	
-+		nv_disable_irq(dev);
-+		/* Turn off loopback */
-+		spin_unlock_irqrestore(&np->lock, flags);
-+		netdev_info(dev, "Internal PHY loopback mode disabled.\n");
-+		phy_init(dev);
-+	}
-+	msleep(500);
-+	spin_lock_irqsave(&np->lock, flags);
-+	nv_enable_irq(dev);
-+	spin_unlock_irqrestore(&np->lock, flags);
-+
-+	return retval;
-+}
-+
- static u32 nv_fix_features(struct net_device *dev, u32 features)
- {
- 	/* vlan is dependent on rx checksum offload */
-@@ -4488,6 +4535,7 @@ static int nv_set_features(struct net_device *dev, u32 features)
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
- 	u32 changed = dev->features ^ features;
-+	int retval = 0;
- 
- 	if (changed & NETIF_F_RXCSUM) {
- 		spin_lock_irq(&np->lock);
-@@ -4502,8 +4550,11 @@ static int nv_set_features(struct net_device *dev, u32 features)
- 
- 		spin_unlock_irq(&np->lock);
- 	}
-+	if ((changed & NETIF_F_LOOPBACK) && netif_running(dev)) {
-+		retval = nv_set_loopback(dev, features);
-+	}
- 
--	return 0;
-+	return retval;
- }
- 
- static int nv_get_sset_count(struct net_device *dev, int sset)
-@@ -5341,6 +5392,9 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 		dev->features |= dev->hw_features;
- 	}
- 
-+	/* Add loopback capability to the device. */
-+	dev->hw_features |= NETIF_F_LOOPBACK;
-+
- 	np->vlanctl_bits = 0;
- 	if (id->driver_data & DEV_HAS_VLAN) {
- 		np->vlanctl_bits = NVREG_VLANCONTROL_ENABLE;
--- 
-1.7.3.1
+  * @location: Index of filter in hardware table
 
+i.e., physical location.  But we could change that.
+
+b) for TCAMs physical location is important and if ethtool offers to provide 
+only a logical index and massages the original user input to do so where 
+will a driver get the physical location it ultimately needs?  For a device 
+with physical indices a multiple of 4 the logical index ethtool picks will 
+very frequently be illegal as physical location.  E.g., if location 1 is 
+available ethtool will keep selecting it and the driver will need to deal 
+with these requests without the benefit of knowing what the user really 
+asked for.
+
+Another problem with ethtool selecting locations is it assumes it's the sole 
+allocator (I think there's a comment in the code pointing this out).  But 
+this isn't a valid assumption, e.g., HW RFS comes to mind as another allocator.
