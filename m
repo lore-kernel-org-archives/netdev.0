@@ -1,64 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 4/4] v5 Add RX packet classification interface
-Date: Wed, 04 May 2011 18:24:52 +0100
-Message-ID: <1304529892.2926.14.camel@bwh-desktop>
-References: <20110503160547.29251.84333.stgit@gitlad.jf.intel.com>
-	 <20110503161226.29251.40838.stgit@gitlad.jf.intel.com>
-	 <4DC08E7B.7070906@chelsio.com> <1304465684.2873.26.camel@bwh-desktop>
-	 <4DC1883F.7050301@chelsio.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: ath5k regression associating with APs in 2.6.38
+Date: Wed, 4 May 2011 13:27:17 -0400
+Message-ID: <20110504172716.GC18541__18804.7157055282$1304530306$gmane$org@tuxdriver.com>
+References: <20110504153819.GA4551@thinkpad-t410>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
+Content-Type: text/plain; charset=us-ascii
+To: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>,
+	linux-wireless@vger.kernel.o
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8567 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753973Ab1EDRY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 13:24:56 -0400
-In-Reply-To: <4DC1883F.7050301@chelsio.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56549 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754727Ab1EDRbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 13:31:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20110504153819.GA4551@thinkpad-t410>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-04 at 10:09 -0700, Dimitris Michailidis wrote:
-> On 05/03/2011 04:34 PM, Ben Hutchings wrote:
-> > On Tue, 2011-05-03 at 16:23 -0700, Dimitris Michailidis wrote:
-> >> I think RX_CLS_LOC_UNSPEC should be passed to the driver, where there is 
-> >> enough knowledge to pick an appropriate slot.  So I'd remove the
-> >>
-> >>      if (loc == RX_CLS_LOC_UNSPEC)
-> >>
-> >> block above, let the driver pick a slot, and then pass the selected location 
-> >> back for ethtool to report.
-> > 
-> > But first we have to specify this in the ethtool API.  So please propose
-> > a patch to ethtool.h.
+On Wed, May 04, 2011 at 10:38:19AM -0500, Seth Forshee wrote:
+> I've been investigating some reports of a regression in associating with
+> APs with AR2413 in 2.6.38. Association repeatedly fails with some
+> "direct probe to x timed out" messages (see syslog excerpt below),
+> although it will generally associate eventually, after many tries.
 > 
-> In the past we discussed that being able to specify the first available slot or 
-> the last available would be useful, so something like the below?
->
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 4194a20..909ef79 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -442,7 +442,8 @@ struct ethtool_flow_ext {
->    *	includes the %FLOW_EXT flag.
->    * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
->    *	if packets should be discarded
-> - * @location: Index of filter in hardware table
-> + * @location: Index of filter in hardware table, or %RX_CLS_FLOW_FIRST_LOC for
-> + *	first available index, or %RX_CLS_FLOW_LAST_LOC for last available
-[...]
+> Bisection identifies 8aec7af (ath5k: Support synth-only channel change
+> for AR2413/AR5413) as offending commit. Prior to this commit there are
+> no direct probe messages at all in the logs. I've also found that
+> forcing fast to false at the top of ath5k_hw_reset() fixes the issue.
+> I'm not sure what the connection is between this commit and the
+> timeouts. Any suggestions?
 
-I think that's reasonable.  We should also explicitly state that
-location determines priority, i.e. if a packet matches two filters then
-the one with the lower location wins.
+Have you tried reverting that commit on top of 2.6.38?  Can you
+recreate the issue with 2.6.39-rc6 (or later)?
 
-Ben.
-
+John
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
