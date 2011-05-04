@@ -1,55 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next v2 1/6] bnx2x: link report improvements
-Date: Wed, 04 May 2011 23:48:29 +0100
-Message-ID: <1304549309.2926.84.camel@bwh-desktop>
-References: <1304547764.19742.17.camel@lb-tlvb-dmitry>
+From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Subject: [PATCH] ehea: fix wrongly reported speed and port
+Date: Wed, 04 May 2011 20:05:11 -0300
+Message-ID: <1304550311.28342.19.camel@dream>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>
-To: dmitry@broadcom.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Breno Leitao <leitao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:40019 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756145Ab1EDWsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 18:48:32 -0400
-In-Reply-To: <1304547764.19742.17.camel@lb-tlvb-dmitry>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:52951 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756196Ab1EDXFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 19:05:20 -0400
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id p44K4oxX031622
+	for <netdev@vger.kernel.org>; Wed, 4 May 2011 17:04:50 -0300
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p44N2PpQ4530396
+	for <netdev@vger.kernel.org>; Wed, 4 May 2011 20:02:25 -0300
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p44N4xWL005896
+	for <netdev@vger.kernel.org>; Wed, 4 May 2011 20:05:00 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-05-05 at 01:22 +0300, Dmitry Kravkov wrote:
-> From: Vladislav Zolotarov <vladz@broadcom.com>
-> 
-> To avoid link notification duplication
-[...]
-> --- a/drivers/net/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/bnx2x/bnx2x_cmn.c
-> @@ -758,35 +758,120 @@ u16 bnx2x_get_mf_speed(struct bnx2x *bp)
->  	return line_speed;
->  }
->  
-> +/**
-> + * bnx2x_fill_report_data - fill Link report data according to the current link
-> + * configuration.
+Currently EHEA reports to ethtool as supporting 10M, 100M, 1G and
+10G and connected to FIBRE independent of the hardware configuration.
+However, when connected to FIBRE the only supported speed is 10G
+full-duplex, and the other speeds and modes are only supported
+when connected to twisted pair.
 
-The kernel-doc format doesn't allow for continuation lines like this.
-The short description has to fit on one physical line along with the
-function or type name.
+Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+---
+ drivers/net/ehea/ehea_ethtool.c |   21 +++++++++++++--------
+ 1 files changed, 13 insertions(+), 8 deletions(-)
 
-Ben.
+diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
+index 3e2e734..f3bbdce 100644
+--- a/drivers/net/ehea/ehea_ethtool.c
++++ b/drivers/net/ehea/ehea_ethtool.c
+@@ -55,15 +55,20 @@ static int ehea_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		cmd->duplex = -1;
+ 	}
 
-> + * @bp:		driver handle
-> + * @data:	link state to update
-> + *
-> + * It uses a none-atomic bit operations because is called under the mutex.
-> + */
-[...]
+-	cmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_1000baseT_Full
+-		       | SUPPORTED_100baseT_Full |  SUPPORTED_100baseT_Half
+-		       | SUPPORTED_10baseT_Full | SUPPORTED_10baseT_Half
+-		       | SUPPORTED_Autoneg | SUPPORTED_FIBRE);
+-
+-	cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_Autoneg
+-			 | ADVERTISED_FIBRE);
++	if (cmd->speed == SPEED_10000) {
++		cmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
++		cmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
++		cmd->port = PORT_FIBRE;
++	} else {
++		cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
++			       | SUPPORTED_100baseT_Half | SUPPORTED_10baseT_Full
++			       | SUPPORTED_10baseT_Half | SUPPORTED_Autoneg
++			       | SUPPORTED_TP);
++		cmd->advertising = (ADVERTISED_1000baseT_Full | ADVERTISED_Autoneg
++				 | ADVERTISED_TP);
++		cmd->port = PORT_TP;
++	}
 
+-	cmd->port = PORT_FIBRE;
+ 	cmd->autoneg = port->autoneg == 1 ? AUTONEG_ENABLE : AUTONEG_DISABLE;
+
+ 	return 0;
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
+
+
 
