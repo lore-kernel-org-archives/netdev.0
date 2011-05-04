@@ -1,100 +1,48 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 18/18] virtio_net: limit xmit polling
-Date: Wed, 4 May 2011 23:53:13 +0300
-Message-ID: <5964e2f3d6aac5cd48f467848eed6570517470ef.1304541919.git.mst@redhat.com>
-References: <cover.1304541918.git.mst@redhat.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] tcp_cubic: limit delayed_ack ratio to prevent divide
+ error
+Date: Wed, 4 May 2011 13:53:51 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.1105041352020.6048@JBRANDEB-DESK2.amr.corp.intel.com>
+References: <20110504113351.4643a0c9@nehalam> <16668.1304537481@localhost> <20110504123738.7bb4d1ee@nehalam> <20110504.124053.260068550.davem@davemloft.net> <20110504130456.425dee68@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2@in.ibm.com>, Carsten Otte <cotte@de.ibm.com>,
-        lguest@lists.ozlabs.org, Shirley Ma <xma@us.ibm.com>,
-        kvm@vger.kernel.org, linux-s390@vger.kernel.org,
-        netdev@vger.kernel.org, habanero@linux.vnet.ibm.com,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        linux-kernel@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, steved@us.ibm.com,
-        Christian Borntraeger <borntraeger@de.ibm.com>,
-        Tom Lendacky <tahm@linux.vnet.ibm.com>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>, linux390@de.ibm.com
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1304541918.git.mst@redhat.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Sangtae Ha <sangtae.ha@gmail.com>,
+	Injong Rhee <injongrhee@gmail.com>,
+	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
+	"rdunlap@xenotime.net" <rdunlap@xenotime.net>,
+	"lkml@techboom.com" <lkml@techboom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:45538 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756004Ab1EDUx7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 May 2011 16:53:59 -0400
+In-Reply-To: <20110504130456.425dee68@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Current code might introduce a lot of latency variation
-if there are many pending bufs at the time we
-attempt to transmit a new one. This is bad for
-real-time applications and can't be good for TCP either.
 
-Free up just enough to both clean up all buffers
-eventually and to be able to xmit the next packet.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/virtio_net.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+On Wed, 4 May 2011, Stephen Hemminger wrote:
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f33c92b..9982bd7 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -509,17 +509,23 @@ again:
- 	return received;
- }
- 
--static void free_old_xmit_skbs(struct virtnet_info *vi)
-+static bool free_old_xmit_skbs(struct virtnet_info *vi, int capacity)
- {
- 	struct sk_buff *skb;
- 	unsigned int len;
-+	bool c;
-+	/* We try to free up at least 2 skbs per one sent, so that we'll get
-+	 * all of the memory back if they are used fast enough. */
-+	int n = 2;
- 
--	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
-+	while ((c = virtqueue_get_capacity(vi->svq) >= capacity) && --n > 0 &&
-+	       (skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
- 		vi->dev->stats.tx_bytes += skb->len;
- 		vi->dev->stats.tx_packets++;
- 		dev_kfree_skb_any(skb);
- 	}
-+	return c;
- }
- 
- static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
-@@ -574,8 +580,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	int capacity;
- 
--	/* Free up any pending old buffers before queueing new ones. */
--	free_old_xmit_skbs(vi);
-+	/* Free enough pending old buffers to enable queueing new ones. */
-+	free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS);
- 
- 	/* Try to transmit */
- 	capacity = xmit_skb(vi, skb);
-@@ -609,9 +615,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		netif_stop_queue(dev);
- 		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
- 			/* More just got used, free them then recheck. */
--			free_old_xmit_skbs(vi);
--			capacity = virtqueue_get_capacity(vi->svq);
--			if (capacity >= 2+MAX_SKB_FRAGS) {
-+			if (!likely(free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS))) {
- 				netif_start_queue(dev);
- 				virtqueue_disable_cb(vi->svq);
- 			}
--- 
-1.7.5.53.gc233e
+> TCP Cubic keeps a metric that estimates the amount of delayed
+> acknowledgements to use in adjusting the window. If an abnormally
+> large number of packets are acknowledged at once, then the update
+> could wrap and reach zero. This kind of ACK could only
+> happen when there was a large window and huge number of
+> ACK's were lost.
+> 
+> This patch limits the value of delayed ack ratio. The choice of 32
+> is just a conservative value since normally it should be range of 
+> 1 to 4 packets.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+patch seems fine, but please credit the reporter (lkml@techboom.com) with 
+reporting the issue with logs, maybe even with Reported-by: and some kind 
+of reference to the panic message or the email thread in the text or 
+header?
+
