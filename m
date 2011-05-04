@@ -1,300 +1,40 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V4 5/8]macvtap: macvtap TX zero-copy support
-Date: Wed, 04 May 2011 08:37:29 -0700
-Message-ID: <1304523449.7076.30.camel@localhost.localdomain>
-References: <1304496893.20660.88.camel@localhost.localdomain>
-	 <20110504145819.GA15648@redhat.com>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: ath5k regression associating with APs in 2.6.38
+Date: Wed, 4 May 2011 10:38:19 -0500
+Message-ID: <20110504153819.GA4551@thinkpad-t410>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, ath5k-devel@lists.ath5k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110504145819.GA15648@redhat.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-05-04 at 17:58 +0300, Michael S. Tsirkin wrote:
-> On Wed, May 04, 2011 at 01:14:53AM -0700, Shirley Ma wrote:
-> > Only when buffer size is greater than GOODCOPY_LEN (256), macvtap
-> > enables zero-copy.
-> > 
-> > Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> 
-> 
-> Looks good. Some thoughts below.
-> 
-> > ---
-> > 
-> >  drivers/net/macvtap.c |  126
-> ++++++++++++++++++++++++++++++++++++++++++++----
-> >  1 files changed, 115 insertions(+), 11 deletions(-)
-> > 
-> > diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> > index 6696e56..e8bc5ff 100644
-> > --- a/drivers/net/macvtap.c
-> > +++ b/drivers/net/macvtap.c
-> > @@ -60,6 +60,7 @@ static struct proto macvtap_proto = {
-> >   */
-> >  static dev_t macvtap_major;
-> >  #define MACVTAP_NUM_DEVS 65536
-> > +#define GOODCOPY_LEN 256
-> 
-> Scope with MACVTAP_ please.
-Ok.
+I've been investigating some reports of a regression in associating with
+APs with AR2413 in 2.6.38. Association repeatedly fails with some
+"direct probe to x timed out" messages (see syslog excerpt below),
+although it will generally associate eventually, after many tries.
 
-> For small packets, is it better to copy in vhost
-> and skip all the back and forth with callbacks? If yes, does
-> it make sense to put the constant above in some header
-> shared with vhost-net?
+Bisection identifies 8aec7af (ath5k: Support synth-only channel change
+for AR2413/AR5413) as offending commit. Prior to this commit there are
+no direct probe messages at all in the logs. I've also found that
+forcing fast to false at the top of ath5k_hw_reset() fixes the issue.
+I'm not sure what the connection is between this commit and the
+timeouts. Any suggestions?
 
-skb is created in macvtap, the small packet copy is in skb, so I don't
-think we can do it in vhost here.
+Thanks,
+Seth
 
-> >  static struct class *macvtap_class;
-> >  static struct cdev macvtap_cdev;
-> >  
-> > @@ -340,6 +341,7 @@ static int macvtap_open(struct inode *inode,
-> struct file *file)
-> >  {
-> >       struct net *net = current->nsproxy->net_ns;
-> >       struct net_device *dev = dev_get_by_index(net, iminor(inode));
-> > +     struct macvlan_dev *vlan = netdev_priv(dev);
-> >       struct macvtap_queue *q;
-> >       int err;
-> >  
-> > @@ -369,6 +371,16 @@ static int macvtap_open(struct inode *inode,
-> struct file *file)
-> >       q->flags = IFF_VNET_HDR | IFF_NO_PI | IFF_TAP;
-> >       q->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
-> >  
-> > +     /*
-> > +      * so far only VM uses macvtap, enable zero copy between guest
-> > +      * kernel and host kernel when lower device supports high
-> memory
-> > +      * DMA
-> > +      */
-> > +     if (vlan) {
-> > +             if (vlan->lowerdev->features & NETIF_F_ZEROCOPY)
-> > +                     sock_set_flag(&q->sk, SOCK_ZEROCOPY);
-> > +     }
-> > +
-> >       err = macvtap_set_queue(dev, file, q);
-> >       if (err)
-> >               sock_put(&q->sk);
-> > @@ -433,6 +445,80 @@ static inline struct sk_buff
-> *macvtap_alloc_skb(struct sock *sk, size_t prepad,
-> >       return skb;
-> >  }
-> >  
-> > +/* set skb frags from iovec, this can move to core network code for
-> reuse */
-> > +static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct
-> iovec *from,
-> > +                               int offset, size_t count)
-> > +{
-> > +     int len = iov_length(from, count) - offset;
-> > +     int copy = skb_headlen(skb);
-> > +     int size, offset1 = 0;
-> > +     int i = 0;
-> > +     skb_frag_t *f;
-> > +
-> > +     /* Skip over from offset */
-> > +     while (offset >= from->iov_len) {
-> > +             offset -= from->iov_len;
-> > +             ++from;
-> > +             --count;
-> > +     }
-> > +
-> > +     /* copy up to skb headlen */
-> > +     while (copy > 0) {
-> > +             size = min_t(unsigned int, copy, from->iov_len -
-> offset);
-> > +             if (copy_from_user(skb->data + offset1, from->iov_base
-> + offset,
-> > +                                size))
-> > +                     return -EFAULT;
-> > +             if (copy > size) {
-> > +                     ++from;
-> > +                     --count;
-> > +             }
-> > +             copy -= size;
-> > +             offset1 += size;
-> > +             offset = 0;
-> > +     }
-> > +
-> > +     if (len == offset1)
-> > +             return 0;
-> > +
-> > +     while (count--) {
-> > +             struct page *page[MAX_SKB_FRAGS];
-> > +             int num_pages;
-> > +             unsigned long base;
-> > +
-> > +             len = from->iov_len - offset1;
-> > +             if (!len) {
-> > +                     offset1 = 0;
-> > +                     ++from;
-> > +                     continue;
-> > +             }
-> > +             base = (unsigned long)from->iov_base + offset1;
-> > +             size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >>
-> PAGE_SHIFT;
-> > +             num_pages = get_user_pages_fast(base, size, 0,
-> &page[i]);
-> > +             if ((num_pages != size) ||
-> > +                 (num_pages > MAX_SKB_FRAGS -
-> skb_shinfo(skb)->nr_frags))
-> > +                     /* put_page is in skb free */
-> > +                     return -EFAULT;
-> > +             skb->data_len += len;
-> > +             skb->len += len;
-> > +             skb->truesize += len;
-> > +             while (len) {
-> > +                     f = &skb_shinfo(skb)->frags[i];
-> > +                     f->page = page[i];
-> > +                     f->page_offset = base & ~PAGE_MASK;
-> > +                     f->size = min_t(int, len, PAGE_SIZE -
-> f->page_offset);
-> > +                     skb_shinfo(skb)->nr_frags++;
-> > +                     /* increase sk_wmem_alloc */
-> > +                     atomic_add(f->size, &skb->sk->sk_wmem_alloc);
-> 
-> One thing that gave me pause that we only accound for part of the page
-> here. I think we should count the whole page, no?
 
-The whole page is pinned, but it might not be for this sock only. 
-
-I think I should change to atomic_add to outside the loop to save cost.
-
-> > +                     base += f->size;
-> > +                     len -= f->size;
-> > +                     i++;
-> > +             }
-> > +             offset1 = 0;
-> > +             ++from;
-> > +     }
-> > +     return 0;
-> > +}
-> > +
-> >  /*
-> >   * macvtap_skb_from_vnet_hdr and macvtap_skb_to_vnet_hdr should
-> >   * be shared with the tun/tap driver.
-> > @@ -515,17 +601,19 @@ static int macvtap_skb_to_vnet_hdr(const
-> struct sk_buff *skb,
-> >  
-> >  
-> >  /* Get packet from user space buffer */
-> > -static ssize_t macvtap_get_user(struct macvtap_queue *q,
-> > -                             const struct iovec *iv, size_t count,
-> > -                             int noblock)
-> > +static ssize_t macvtap_get_user(struct macvtap_queue *q, struct
-> msghdr *m,
-> > +                             const struct iovec *iv, unsigned long
-> total_len,
-> > +                             size_t count, int noblock)
-> >  {
-> >       struct sk_buff *skb;
-> >       struct macvlan_dev *vlan;
-> > -     size_t len = count;
-> > +     unsigned long len = total_len;
-> >       int err;
-> >       struct virtio_net_hdr vnet_hdr = { 0 };
-> >       int vnet_hdr_len = 0;
-> > +     int copylen, zerocopy;
-> >  
-> > +     zerocopy = sock_flag(&q->sk, SOCK_ZEROCOPY) && (len >
-> GOODCOPY_LEN);
-> >       if (q->flags & IFF_VNET_HDR) {
-> >               vnet_hdr_len = q->vnet_hdr_sz;
-> >  
-> > @@ -552,12 +640,28 @@ static ssize_t macvtap_get_user(struct
-> macvtap_queue *q,
-> >       if (unlikely(len < ETH_HLEN))
-> >               goto err;
-> >  
-> > -     skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, len,
-> vnet_hdr.hdr_len,
-> > -                             noblock, &err);
-> > +     if (zerocopy)
-> > +             /* There are 256 bytes to be copied in skb, so there
-> is enough
-> > +              * room for skb expand head in case it is used.
-> > +              * The rest buffer is mapped from userspace.
-> > +              */
-> > +             copylen = GOODCOPY_LEN;
-> 
-> Just curious: where does the number 256 come from?
-> Also, as long as we are copying, should we care about
-> alignment?
-
-256 makes the size big enough for any skb head expanding.
-
-That's my concern before. But guest should alignment the buffer already,
-after moving the pointer 256 bytes. It should still alignment, right?
-
-> > +     else
-> > +             copylen = len;
-> > +
-> > +     skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
-> > +                             vnet_hdr.hdr_len, noblock, &err);
-> >       if (!skb)
-> >               goto err;
-> >  
-> > -     err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
-> len);
-> > +     if (zerocopy)
-> > +             err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len,
-> count);
-> > +     else
-> > +             err = skb_copy_datagram_from_iovec(skb, 0, iv,
-> vnet_hdr_len,
-> > +                                                len);
-> > +     if (sock_flag(&q->sk, SOCK_ZEROCOPY))
-> > +             memcpy(&skb_shinfo(skb)->ubuf, m->msg_control,
-> > +                     sizeof(struct skb_ubuf_info));
-> >       if (err)
-> >               goto err_kfree;
-> >  
-> > @@ -579,7 +683,7 @@ static ssize_t macvtap_get_user(struct
-> macvtap_queue *q,
-> >               kfree_skb(skb);
-> >       rcu_read_unlock_bh();
-> >  
-> > -     return count;
-> > +     return total_len;
-> >  
-> >  err_kfree:
-> >       kfree_skb(skb);
-> > @@ -601,8 +705,8 @@ static ssize_t macvtap_aio_write(struct kiocb
-> *iocb, const struct iovec *iv,
-> >       ssize_t result = -ENOLINK;
-> >       struct macvtap_queue *q = file->private_data;
-> >  
-> > -     result = macvtap_get_user(q, iv, iov_length(iv, count),
-> > -                           file->f_flags & O_NONBLOCK);
-> > +     result = macvtap_get_user(q, NULL, iv, iov_length(iv, count),
-> count,
-> > +                               file->f_flags & O_NONBLOCK);
-> >       return result;
-> >  }
-> >  
-> > @@ -815,7 +919,7 @@ static int macvtap_sendmsg(struct kiocb *iocb,
-> struct socket *sock,
-> >                          struct msghdr *m, size_t total_len)
-> >  {
-> >       struct macvtap_queue *q = container_of(sock, struct
-> macvtap_queue, sock);
-> > -     return macvtap_get_user(q, m->msg_iov, total_len,
-> > +     return macvtap_get_user(q, m, m->msg_iov, total_len,
-> m->msg_iovlen,
-> >                           m->msg_flags & MSG_DONTWAIT);
-> >  }
-> >  
-> > 
-> 
-> 
+May  4 09:32:15 AcerAspire5100 wpa_supplicant[757]: Trying to associate with c0:3f:0e:b9:f3:b2 (SSID='aureola' freq=2452 MHz)
+May  4 09:32:15 AcerAspire5100 kernel: [  120.063271] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 1/3)
+May  4 09:32:16 AcerAspire5100 kernel: [  120.260074] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 2/3)
+May  4 09:32:16 AcerAspire5100 kernel: [  120.460084] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 3/3)
+May  4 09:32:16 AcerAspire5100 kernel: [  120.660082] wlan0: direct probe to c0:3f:0e:b9:f3:b2 timed out
+May  4 09:32:25 AcerAspire5100 wpa_supplicant[757]: Authentication with c0:3f:0e:b9:f3:b2 timed out.
