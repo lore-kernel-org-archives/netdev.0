@@ -1,7 +1,7 @@
 From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: [net-next-2.6 PATCH] can: make struct can_proto const
-Date: Wed, 4 May 2011 06:40:57 +0200
-Message-ID: <20110504044057.GC278@e-circ.dyndns.org>
+Subject: [net-next-2.6 PATCH] can: rename can_try_module_get to can_get_proto
+Date: Wed, 4 May 2011 06:42:04 +0200
+Message-ID: <20110504044204.GD278@e-circ.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,102 +19,62 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-commit 53914b67993c724cec585863755c9ebc8446e83b had the
-same message. That commit did put everything in place but
-did not make can_proto const itself.
+can: rename can_try_module_get to can_get_proto
+
+can_try_module_get does return a struct can_proto.
+The name explains what is done in so much detail that a caller
+may not notice that a struct can_proto is locked/unlocked.
 
 Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
 
-diff --git a/include/linux/can/core.h b/include/linux/can/core.h
-index 6f70a6d..5ce6b5d 100644
---- a/include/linux/can/core.h
-+++ b/include/linux/can/core.h
-@@ -44,8 +44,8 @@ struct can_proto {
- 
- /* function prototypes for the CAN networklayer core (af_can.c) */
- 
--extern int  can_proto_register(struct can_proto *cp);
--extern void can_proto_unregister(struct can_proto *cp);
-+extern int  can_proto_register(const struct can_proto *cp);
-+extern void can_proto_unregister(const struct can_proto *cp);
- 
- extern int  can_rx_register(struct net_device *dev, canid_t can_id,
- 			    canid_t mask,
 diff --git a/net/can/af_can.c b/net/can/af_can.c
-index a8dcaa4..5b52762 100644
+index 5b52762..094fc53 100644
 --- a/net/can/af_can.c
 +++ b/net/can/af_can.c
-@@ -84,7 +84,7 @@ static DEFINE_SPINLOCK(can_rcvlists_lock);
- static struct kmem_cache *rcv_cache __read_mostly;
- 
- /* table of registered CAN protocols */
--static struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
-+static const struct can_proto *proto_tab[CAN_NPROTO] __read_mostly;
- static DEFINE_MUTEX(proto_tab_lock);
- 
- struct timer_list can_stattimer;   /* timer for statistics update */
-@@ -115,9 +115,9 @@ static void can_sock_destruct(struct sock *sk)
+@@ -115,7 +115,7 @@ static void can_sock_destruct(struct sock *sk)
  	skb_queue_purge(&sk->sk_receive_queue);
  }
  
--static struct can_proto *can_try_module_get(int protocol)
-+static const struct can_proto *can_try_module_get(int protocol)
+-static const struct can_proto *can_try_module_get(int protocol)
++static const struct can_proto *can_get_proto(int protocol)
  {
--	struct can_proto *cp;
-+	const struct can_proto *cp;
+ 	const struct can_proto *cp;
  
- 	rcu_read_lock();
- 	cp = rcu_dereference(proto_tab[protocol]);
-@@ -132,7 +132,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+@@ -128,6 +128,11 @@ static const struct can_proto *can_try_module_get(int protocol)
+ 	return cp;
+ }
+ 
++static inline void can_put_proto(const struct can_proto *cp)
++{
++	module_put(cp->prot->owner);
++}
++
+ static int can_create(struct net *net, struct socket *sock, int protocol,
  		      int kern)
  {
- 	struct sock *sk;
--	struct can_proto *cp;
-+	const struct can_proto *cp;
- 	int err = 0;
+@@ -143,7 +148,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+ 	if (!net_eq(net, &init_net))
+ 		return -EAFNOSUPPORT;
  
- 	sock->state = SS_UNCONNECTED;
-@@ -691,7 +691,7 @@ drop:
-  *  -EBUSY  protocol already in use
-  *  -ENOBUF if proto_register() fails
-  */
--int can_proto_register(struct can_proto *cp)
-+int can_proto_register(const struct can_proto *cp)
- {
- 	int proto = cp->protocol;
- 	int err = 0;
-@@ -728,7 +728,7 @@ EXPORT_SYMBOL(can_proto_register);
-  * can_proto_unregister - unregister CAN transport protocol
-  * @cp: pointer to CAN protocol structure
-  */
--void can_proto_unregister(struct can_proto *cp)
-+void can_proto_unregister(const struct can_proto *cp)
- {
- 	int proto = cp->protocol;
+-	cp = can_try_module_get(protocol);
++	cp = can_get_proto(protocol);
  
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 8a6a05e..cced806 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -1601,7 +1601,7 @@ static struct proto bcm_proto __read_mostly = {
- 	.init       = bcm_init,
- };
+ #ifdef CONFIG_MODULES
+ 	if (!cp) {
+@@ -160,7 +165,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+ 			printk(KERN_ERR "can: request_module "
+ 			       "(can-proto-%d) failed.\n", protocol);
  
--static struct can_proto bcm_can_proto __read_mostly = {
-+static const struct can_proto bcm_can_proto = {
- 	.type       = SOCK_DGRAM,
- 	.protocol   = CAN_BCM,
- 	.ops        = &bcm_ops,
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 0eb39a7..dea99a6 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -774,7 +774,7 @@ static struct proto raw_proto __read_mostly = {
- 	.init       = raw_init,
- };
+-		cp = can_try_module_get(protocol);
++		cp = can_get_proto(protocol);
+ 	}
+ #endif
  
--static struct can_proto raw_can_proto __read_mostly = {
-+static const struct can_proto raw_can_proto = {
- 	.type       = SOCK_RAW,
- 	.protocol   = CAN_RAW,
- 	.ops        = &raw_ops,
+@@ -195,7 +200,7 @@ static int can_create(struct net *net, struct socket *sock, int protocol,
+ 	}
+ 
+  errout:
+-	module_put(cp->prot->owner);
++	can_put_proto(cp);
+ 	return err;
+ }
