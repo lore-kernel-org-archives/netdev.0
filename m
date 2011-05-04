@@ -1,84 +1,57 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Wed, 04 May 2011 16:33:59 +0200
-Message-ID: <4DC163D7.9010309@grandegger.com>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
-	<201104271525.28512.arnd@arndb.de>
-	<15AD189F851849F69A011B6F4D1DDB6C@subhasishg>
-	<201105041511.54095.arnd@arndb.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] mlx4_en: Setting RSS hash result to skb->rxhash field
+Date: Wed, 04 May 2011 15:44:20 +0100
+Message-ID: <1304520260.3203.34.camel@localhost>
+References: <4DC156AF.4050807@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201105041511.54095.arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:48563 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207Ab1EDOoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 10:44:24 -0400
+In-Reply-To: <4DC156AF.4050807@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
-
-On 05/04/2011 03:11 PM, Arnd Bergmann wrote:
-> On Wednesday 04 May 2011, Subhasish Ghosh wrote:
->> CAN requires mail box IDs to be programmed in. But, the socket
->> CAN subsystem supports only software filtering of the mail box IDs.
->>
->> So, the mail box IDs programmed into socket CAN during initialization
->> does not propagate into the hardware. This is planned to be a future
->> implementation in Socket CAN.
->>
->> In our case, we support hardware filtering, to work around with this,
->> Wolfgang (Socket CAN owner) suggested that we implement
->> this using sysfs.
->>
->> These setting are not for debugging, but to program the mail box IDs
->> into the hardware. 
+On Wed, 2011-05-04 at 16:37 +0300, Yevgeny Petrilin wrote:
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> ---
+>  drivers/net/mlx4/en_rx.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
 > 
-> Ok, I see. Can you point me to that discussion?
-> 
-> Wolfgang, I'm a bit worried by the API being split between sockets and sysfs.
-> The problem is that once the sysfs API is established, users will start
-> relying on it, and you can no longer migrate away from it, even when
-> a later version of the Socket CAN also supports setting through a different
-> interface. What is the current interface to set mail box IDs in software?
+> diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
+> index 62dd21b..bb4d66a 100644
+> --- a/drivers/net/mlx4/en_rx.c
+> +++ b/drivers/net/mlx4/en_rx.c
+> @@ -610,6 +610,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>  					gro_skb->data_len = length;
+>  					gro_skb->truesize += length;
+>  					gro_skb->ip_summed = CHECKSUM_UNNECESSARY;
+> +					gro_skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid) << 24;
+> +					skb_record_rx_queue(gro_skb, cq->ring);
 
-Note that this CAN controller is *very* special. It cannot handle all
-CAN id's due to a lack or resources. The PRUSS firmware is able to
-manage just up to 8 different CAN identifiers out of the usual 4096
-(12-bit) or even more for the extended CAN ids using 29 bits. There is
-no other CAN controller with such rather serious limitations and
-therefore there exists also no appropriate interface. I think using
-sysfs is OK for such device-specific parameters, at least for the time
-being.
+An 8-bit hash is almost useless.  It's entirely useless if you then
+shift it into the top bits of rxhash.
 
-> How hard would it be to implement that feature in Socket CAN?
+Ben.
 
-CAN controllers usually provide some kind of hardware CAN id filtering,
-but in a very hardware dependent way. A generic interface may be able to
-handle the PRUSS restrictions as well. CAN devices are usually
-configured through the netlink interface. e.g.
+>  					if (priv->vlgrp && (cqe->vlan_my_qpn &
+>  							    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)))
+> @@ -643,6 +645,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>  			goto next;
+>  		}
+>  
+> +		skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid) << 24;
+>  		skb->ip_summed = ip_summed;
+>  		skb->protocol = eth_type_trans(skb, dev);
+>  		skb_record_rx_queue(skb, cq->ring);
 
-  $ ip link set can0 up type can bitrate 125000
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-and such a common interface would be netlink based as well.
-
-> Is that something that Subhasish or someone else could to as a prerequisite
-> to merging the driver?
-
-Any ideas on how to handle hardware filtering in a generic way are
-welcome. I will try to come up with a proposal sooner than later.
-
-Wolfgang.
