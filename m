@@ -1,40 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add sendmmsg socket system call
-Date: Thu, 05 May 2011 11:06:15 -0700 (PDT)
-Message-ID: <20110505.110615.260077567.davem@davemloft.net>
-References: <20110503162135.5e410fcf@kryten>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 1/2] net: use NETIF_F_ALL_TSO for vlan features
+Date: Thu, 5 May 2011 20:19:05 +0200
+Message-ID: <BANLkTikLq909D9Dy7cfQRmgXoOiH11cQhA@mail.gmail.com>
+References: <4DBA4AB4.5000802@cn.fujitsu.com> <20110505.105350.183065364.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, netdev@vger.kernel.org
-To: anton@samba.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shanwei@cn.fujitsu.com, netdev@vger.kernel.org,
+	eilong@broadcom.com, dm@chelsio.com, leedom@chelsio.com,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54973
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755494Ab1EESGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 14:06:48 -0400
-In-Reply-To: <20110503162135.5e410fcf@kryten>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:48761 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755667Ab1EESTZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 14:19:25 -0400
+Received: by qyk7 with SMTP id 7so3729358qyk.19
+        for <netdev@vger.kernel.org>; Thu, 05 May 2011 11:19:25 -0700 (PDT)
+In-Reply-To: <20110505.105350.183065364.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anton Blanchard <anton@samba.org>
-Date: Tue, 3 May 2011 16:21:35 +1000
+2011/5/5 David Miller <davem@davemloft.net>:
+> From: Shan Wei <shanwei@cn.fujitsu.com>
+> Date: Fri, 29 Apr 2011 13:20:52 +0800
+>> As Dimitris Michailidis suggested, use NETIF_F_ALL_TSO for vlan_feat=
+ures,
+>> which is a mask, but not hw_features.
+> I do not understand why we want to advertise a set of ->vlan_features
+> TSO flags that are different from the flags advertised in ->hw_featur=
+es.
+>
+> Why do we want to do this?
 
-> This patch adds a multiple message send syscall and is the send
-> version of the existing recvmmsg syscall. This is heavily
-> based on the patch by Arnaldo that added recvmmsg.
-> 
-> I wrote a microbenchmark to test the performance gains of using
-> this new syscall:
-> 
-> http://ozlabs.org/~anton/junkcode/sendmmsg_test.c
-> 
-> The test was run on a ppc64 box with a 10 Gbit network card. The
-> benchmark can send both UDP and RAW ethernet packets.
-...
-> We see a 20% improvement in throughput on UDP send and 30%
-> on raw socket send.
-> 
-> Signed-off-by: Anton Blanchard <anton@samba.org>
+I remember some posts about hardware that needs HW tag insertion for
+TSO on VLAN to work or other additional constraints for offloads on
+VLANs. I wonder if vlan_features handling should be converted to
+something like ndo_fix_features.
 
-Great work, applied, thanks!
+Best Regards,
+Micha=B3 Miros=B3aw
