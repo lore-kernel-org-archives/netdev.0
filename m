@@ -1,7 +1,7 @@
 From: y@vger.kernel.org
 Subject: [RFC v4 05/11] snet: introduce snet_hooks
 Date: Thu,  5 May 2011 15:59:15 +0200
-Message-ID: <18202.1511639052$1304604496@news.gmane.org>
+Message-ID: <5566.22626395455$1304604498@news.gmane.org>
 References: <1304603961-2517-1-git-send-email-y>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -9,9 +9,9 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1304603961-2517-1-git-send-email-y>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Samir Bellabes <sam@synack.fr>
@@ -829,3 +829,4 @@ index 0000000..05fe5e8
 +#endif /* _SNET_HOOK_H */
 -- 
 1.7.4.1
+
