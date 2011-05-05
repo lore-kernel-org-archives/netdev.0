@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2011-05-05
-Date: Thu, 05 May 2011 14:12:17 -0700 (PDT)
-Message-ID: <20110505.141217.102539207.davem@davemloft.net>
-References: <20110505191219.GC3005@tuxdriver.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [RFC v3 02/10] Revert "lsm: Remove the socket_post_accept() hook"
+Date: Fri, 6 May 2011 06:43:42 +0900
+Message-ID: <201105060643.JBD90633.MOQJtSFFLFHOOV@I-love.SAKURA.ne.jp>
+References: <1304432663-1575-1-git-send-email-sam@synack.fr>
+	<201105031802.34724.paul.moore@hp.com>
+	<201105041128.BAB13061.LMHVtOSOQOFFJF@I-love.SAKURA.ne.jp>
+	<201105051011.32845.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48058
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751716Ab1EEVMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 17:12:49 -0400
-In-Reply-To: <20110505191219.GC3005@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hadi@cyberus.ca, kaber@trash.net,
+	zbr@ioremap.net, root@localdomain.pl
+To: paul.moore@hp.com, sam@synack.fr
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201105051011.32845.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 5 May 2011 15:12:20 -0400
+Paul Moore wrote:
+> On Tuesday, May 03, 2011 10:28:24 PM Tetsuo Handa wrote:
+> > Paul Moore wrote:
+> > > On Tuesday, May 03, 2011 10:24:15 AM Samir Bellabes wrote:
+> > > > snet needs to reintroduce this hook, as it was designed to be: a hook
+> > > > for updating security informations on objects.
+> > > 
+> > > Looking at this and 5/10 again, it seems that you should be able to do
+> > > what you need with the sock_graft() hook.  Am I missing something?
+> > > 
+> > > My apologies if we've already discussed this approach previously ...
+> > 
+> > Second problem is that genlmsg_unicast() might return -EAGAIN because we
+> > can't sleep inside write_lock_bh()/write_unlock_bh().
+> 
+> Ah yes, the real problem.  I forgot that snet relied on a user space tool.  I 
+> tend to agree with others who have suggested this is not the right approach, 
+> but I understand why you want the post_accept() hook; thanks for reminding me.
+> 
+However, it sounds that Samir says genlmsg_unicast() failure is not fatal.
 
-> Another big Cinco de Mayo batch of stuff intended for 2.6.40...
+Samir Bellabes wrote:
+> using snet_do_send_event() means that system is sending data to
+> userspace. the system is not waiting for a verdict from userspace.
+> 
+> If error occurs, we actually loose the information data.
+> I may be able to write a solution which try to send the data again, but
+> we need a exit solution for this loop (a number of try ?).
 
-Aye caramba! :-)
-
-> Highlights include a number of mwifiex bug fixes, a batch of wl12xx
-> updates (including some new hardware support), a big batch of rtlwifi
-> fixups in preparation for some new hardware drivers, some mwl8k and
-> rt2x00 updates, the usual variety of iwlwifi and ath9k updates, a set
-> of updates to the iwlegacy drivers from Stanislaw, some ssb udpates
-> form Rafa=A9=A9, a bunch of Bluetooth updates from Gustavo and friend=
-s,
-> and a handful of enhancements to other drivers and to mac80211.
->=20
-> Please let me know if there are problems!
-
-Pulled, thanks a lot John!
+If genlmsg_unicast() failure is not fatal, snet doesn't need the
+socket_post_accept hook. Samir, is genlmsg_unicast() failure fatal for snet?
+(Although, I'd like to ask for revival of the hook for TOMOYO anyway.)
