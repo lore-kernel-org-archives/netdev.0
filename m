@@ -1,43 +1,61 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] stmmac: removed not used definitions
-Date: Thu,  5 May 2011 12:10:50 +0200
-Message-ID: <1304590250-9434-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:46733 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753587Ab1EEKcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 06:32:04 -0400
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 4755F13C
-	for <netdev@vger.kernel.org>; Thu,  5 May 2011 10:11:13 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id EE0E72C8E
-	for <netdev@vger.kernel.org>; Thu,  5 May 2011 10:11:12 +0000 (GMT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
+Date: Thu, 5 May 2011 16:27:24 +0530
+Message-ID: <OF5EA83199.F80E6CDA-ON65257887.003927A7-65257887.003BF233@in.ibm.com>
+References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com> <20110504144622.GA15823@redhat.com> <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com> <20110504212359.GA21446@redhat.com> <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com> <20110505090439.GD17647@redhat.com> <OF057406D7.B63B52F4-ON65257887.00344787-65257887.003532EF@in.ibm.com> <20110505101229.GA28690@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110505101229.GA28690@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Reported-by: Karim Hamiti <karim.hamiti@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/stmmac/stmmac_main.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 05/05/2011 03:42:29 PM:
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index cc973fc..4ca9203 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -116,9 +116,6 @@ static int tc = TC_DEFAULT;
- module_param(tc, int, S_IRUGO | S_IWUSR);
- MODULE_PARM_DESC(tc, "DMA threshold control value");
- 
--#define RX_NO_COALESCE	1	/* Always interrupt on completion */
--#define TX_NO_COALESCE	-1	/* No moderation by default */
--
- /* Pay attention to tune this parameter; take care of both
-  * hardware capability and network stabitily/performance impact.
-  * Many tests showed that ~4ms latency seems to be good enough. */
--- 
-1.7.4.4
+> > > > It shows that 2.9% of the time, the 1 jiffy was not enough
+> > > > to free up space in the txq.
+> > >
+> > > How common is it to free up space in *less than* 1 jiffy?
+> >
+> > True,
+>
+> Sorry, which statement do you say is true? That interrupt
+> after less than 1 jiffy is common?
+
+I meant to say that, 97% of the time, space was enough for
+the next xmit to succeed. This is keeping in mind that on
+average 43 slots were freed up, indicating that the guest
+was not waiting around for too long.
+
+Regarding whether interrupts in less than 1 jiffy is
+common, I think most of the time it should. But
+increasing the limit as to when to do the cb would
+increase to a jiffy.
+
+To confirm, I just put some counters in the original
+code and found that interrupts happen in less than a
+jiffy around 96.75% of the time, only 3.25% took 1
+jiffy. But as expected, this is with the host
+interrupting immediately, which leads to many
+stop/start/interrupts due to very little free capacity.
+
+> > but the point is that the space freed is just
+> > enough for 43 entries, keeping it lower means a flood
+> > of (psuedo) stop's and restart's.
+
+> Better yet, here they are in git:
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-
+> net-next-event-idx-v1
+> git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git
+> virtio-net-event-idx-v1
+
+Great, I will pick up from here.
+
+thanks,
+
+- KK
 
