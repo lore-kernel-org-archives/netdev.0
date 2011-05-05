@@ -1,60 +1,117 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH 07/18] virtio ring: inline function to check for events
-Date: Thu, 5 May 2011 09:34:46 +0100
-Message-ID: <BANLkTi=eH-iK7L2LBAm0eqidapqXqhSqxw@mail.gmail.com>
-References: <cover.1304541918.git.mst@redhat.com>
-	<cc4596a5ecdbf8dd37b5567a36667e3841f18ca3.1304541919.git.mst@redhat.com>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH] be2net: Fixed bugs related to PVID.
+Date: Thu, 5 May 2011 14:10:46 +0530
+Message-ID: <fe5f0791-266c-4fd7-9bfb-302b144c8a66@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>,
-	Carsten Otte <cotte@de.ibm.com>, lguest@lists.ozlabs.org,
-	Shirley Ma <xma@us.ibm.com>, kvm@vger.kernel.org,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
-	habanero@linux.vnet.ibm.com,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	virtualization@lists.linux-foundation.org, steved@us.ibm.com,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	linux390@de.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cc4596a5ecdbf8dd37b5567a36667e3841f18ca3.1304541919.git.mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:46909 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753193Ab1EEIhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 04:37:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 4, 2011 at 9:51 PM, Michael S. Tsirkin <mst@redhat.com> wro=
-te:
-> With the new used_event and avail_event and features, both
-> host and guest need similar logic to check whether events are
-> enabled, so it helps to put the common code in the header.
->
-> Note that Xen has similar logic for notification hold-off
-> in include/xen/interface/io/ring.h with req_event and req_prod
-> corresponding to event_idx + 1 and new_idx respectively.
-> +1 comes from the fact that req_event and req_prod in Xen start at 1,
-> while event index in virtio starts at 0.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
-> =A0include/linux/virtio_ring.h | =A0 14 ++++++++++++++
-> =A01 files changed, 14 insertions(+), 0 deletions(-)
->
-> diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_ring.=
-h
-> index f791772..2a3b0ea 100644
-> --- a/include/linux/virtio_ring.h
-> +++ b/include/linux/virtio_ring.h
-> @@ -124,6 +124,20 @@ static inline unsigned vring_size(unsigned int n=
-um, unsigned long align)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0+ sizeof(__u16) * 3 + sizeof(struct vr=
-ing_used_elem) * num;
-> =A0}
->
-> +/* The following is used with USED_EVENT_IDX and AVAIL_EVENT_IDX */
-> +/* Assuming a given event_idx value from the other size, if
+Fixed bug to make sure 'pvid' retrieval will work on big endian hosts.
+Fixed incorrect comparison between the Rx Completion's 16-bit VLAN TCI
+and the PVID. Now comparing only the relevant 12 bits corresponding to
+the VID.
+Renamed 'vid' field under Rx Completion to 'vlan_tag' to reflect
+accurate description.
 
-s/other size/other side/ ?
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+---
+ drivers/net/benet/be.h      |    2 +-
+ drivers/net/benet/be_cmds.c |    2 +-
+ drivers/net/benet/be_main.c |   18 ++++++++++++------
+ 3 files changed, 14 insertions(+), 8 deletions(-)
 
-Stefan
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 66823ed..2353eca 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -213,7 +213,7 @@ struct be_rx_stats {
+ 
+ struct be_rx_compl_info {
+ 	u32 rss_hash;
+-	u16 vid;
++	u16 vlan_tag;
+ 	u16 pkt_size;
+ 	u16 rxq_idx;
+ 	u16 mac_id;
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 1e2d825..9dc9394 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -132,7 +132,7 @@ static void be_async_grp5_pvid_state_process(struct be_adapter *adapter,
+ 		struct be_async_event_grp5_pvid_state *evt)
+ {
+ 	if (evt->enabled)
+-		adapter->pvid = evt->tag;
++		adapter->pvid = le16_to_cpu(evt->tag);
+ 	else
+ 		adapter->pvid = 0;
+ }
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 02a0443..9187fb4 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1018,7 +1018,8 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 			kfree_skb(skb);
+ 			return;
+ 		}
+-		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp, rxcp->vid);
++		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
++					rxcp->vlan_tag);
+ 	} else {
+ 		netif_receive_skb(skb);
+ 	}
+@@ -1076,7 +1077,8 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 	if (likely(!rxcp->vlanf))
+ 		napi_gro_frags(&eq_obj->napi);
+ 	else
+-		vlan_gro_frags(&eq_obj->napi, adapter->vlan_grp, rxcp->vid);
++		vlan_gro_frags(&eq_obj->napi, adapter->vlan_grp,
++				rxcp->vlan_tag);
+ }
+ 
+ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
+@@ -1102,7 +1104,8 @@ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
+ 	rxcp->pkt_type =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, cast_enc, compl);
+ 	rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtm, compl);
+-	rxcp->vid = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag, compl);
++	rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
++					compl);
+ }
+ 
+ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
+@@ -1128,7 +1131,8 @@ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
+ 	rxcp->pkt_type =
+ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, cast_enc, compl);
+ 	rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtm, compl);
+-	rxcp->vid = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag, compl);
++	rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
++					compl);
+ }
+ 
+ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+@@ -1155,9 +1159,11 @@ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+ 		rxcp->vlanf = 0;
+ 
+ 	if (!lancer_chip(adapter))
+-		rxcp->vid = swab16(rxcp->vid);
++		rxcp->vlan_tag = swab16(rxcp->vlan_tag);
+ 
+-	if ((adapter->pvid == rxcp->vid) && !adapter->vlan_tag[rxcp->vid])
++	if (((adapter->pvid & VLAN_VID_MASK) ==
++		(rxcp->vlan_tag & VLAN_VID_MASK)) &&
++		!adapter->vlan_tag[rxcp->vlan_tag])
+ 		rxcp->vlanf = 0;
+ 
+ 	/* As the compl has been parsed, reset it; we wont touch it again */
+-- 
+1.5.6.1
+
