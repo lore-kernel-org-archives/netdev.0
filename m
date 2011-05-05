@@ -1,41 +1,28 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: Re: [PATCH V2 2/3] MIPS: lantiq: add ethernet driver
-Date: Fri, 06 May 2011 00:16:39 +0200
-Message-ID: <4DC321C7.8060600@openwrt.org>
-References: <1304633402-24161-1-git-send-email-blogic@openwrt.org>	<1304633402-24161-3-git-send-email-blogic@openwrt.org> <20110505.151049.35056363.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/2] wireless: Make and use const struct
+ ieee80211_channel
+Date: Thu, 05 May 2011 15:21:47 -0700
+Message-ID: <1304634107.1788.171.camel@Joe-Laptop>
+References: <cover.1304054543.git.joe@perches.com>
+	 <20110505184934.GB3005@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, ralph.hempel@lantiq.com,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:36905 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752756Ab1EEWPE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2011 18:15:04 -0400
-In-Reply-To: <20110505.151049.35056363.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	orinoco-users@lists.sourceforge.net,
+	orinoco-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110505184934.GB3005@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/05/11 00:10, David Miller wrote:
-> From: John Crispin <blogic@openwrt.org>
-> Date: Fri,  6 May 2011 00:10:01 +0200
->
->   
->> This patch adds the driver for the ETOP Packet Processing Engine (PPE32) found
->> inside the XWAY family of Lantiq MIPS SoCs. This driver makes 100MBit ethernet
->> work. Support for all 8 dma channels, gbit and the embedded switch found on
->> the ar9/vr9 still needs to be implemented.
->>
->> Signed-off-by: John Crispin <blogic@openwrt.org>
->> Signed-off-by: Ralph Hempel <ralph.hempel@lantiq.com>
->>     
-> No objections from me and this can go via the MIPS tree:
->
-> Acked-by: David S. Miller <davem@davemloft.net>
->
->   
-Thank you !
+On Thu, 2011-05-05 at 14:49 -0400, John W. Linville wrote:
+> These patches generated a lot of warnings in net/mac80211.  Did you
+> actually build them?
 
+Yes.
 
+Did you apply patch 1/2 first?
+It's a dependent patch.
