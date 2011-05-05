@@ -1,7 +1,7 @@
 From: y@vger.kernel.org
-Subject: [RFC v4 02/11] lsm: reintroduce security_socket_post_accept()
-Date: Thu,  5 May 2011 15:59:12 +0200
-Message-ID: <8348.72660129822$1304604585@news.gmane.org>
+Subject: [RFC v4 10/11] snet: introduce snet_stats
+Date: Thu,  5 May 2011 15:59:20 +0200
+Message-ID: <23139.2700378366$1304604591@news.gmane.org>
 References: <1304603961-2517-1-git-send-email-y>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -9,130 +9,158 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 In-Reply-To: <1304603961-2517-1-git-send-email-y>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Samir Bellabes <sam@synack.fr>
 
-snet needs to reintroduce this hook, as it was designed to be: a hook for
-updating security informations on objects.
+this patch adds a /proc/snet/snet_stats entry to show statistics about
+snet. this patch adds also the functions to manage the statistics.
 
-Originally, This was a direct revert of commit
-8651d5c0b1f874c5b8307ae2b858bc40f9f02482.
-
-But from the comment of Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> :
-
-> Please move security_socket_post_accept() to before fd_install().
-> Otherwise, other threads which share fd tables can use
-> security-informations-not-yet-updated accept()ed sockets.
-
-Signed-off-by: Samir Bellabes <sam@synack.fr>
-Acked-by: Serge Hallyn <serue@us.ibm.com>
+ Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- include/linux/security.h |   13 +++++++++++++
- net/socket.c             |    2 ++
- security/capability.c    |    5 +++++
- security/security.c      |    5 +++++
- 4 files changed, 25 insertions(+), 0 deletions(-)
+ security/snet/snet_stats.c |   65 ++++++++++++++++++++++++++++++++++++++++++++
+ security/snet/snet_stats.h |   57 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 122 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/snet_stats.c
+ create mode 100644 security/snet/snet_stats.h
 
-diff --git a/include/linux/security.h b/include/linux/security.h
-index da0d59e..02effe5 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -875,6 +875,11 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  *	@sock contains the listening socket structure.
-  *	@newsock contains the newly created server socket for connection.
-  *	Return 0 if permission is granted.
-+ * @socket_post_accept:
-+ *	This hook allows a security module to copy security
-+ *	information into the newly created socket's inode.
-+ *	@sock contains the listening socket structure.
-+ *	@newsock contains the newly created server socket for connection.
-  * @socket_sendmsg:
-  *	Check permission before transmitting a message to another socket.
-  *	@sock contains the socket structure.
-@@ -1587,6 +1592,8 @@ struct security_operations {
- 			       struct sockaddr *address, int addrlen);
- 	int (*socket_listen) (struct socket *sock, int backlog);
- 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
-+	void (*socket_post_accept) (struct socket *sock,
-+				    struct socket *newsock);
- 	int (*socket_sendmsg) (struct socket *sock,
- 			       struct msghdr *msg, int size);
- 	int (*socket_recvmsg) (struct socket *sock,
-@@ -2555,6 +2562,7 @@ int security_socket_bind(struct socket *sock, struct sockaddr *address, int addr
- int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
- int security_socket_listen(struct socket *sock, int backlog);
- int security_socket_accept(struct socket *sock, struct socket *newsock);
-+void security_socket_post_accept(struct socket *sock, struct socket *newsock);
- int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
- int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
- 			    int size, int flags);
-@@ -2640,6 +2648,11 @@ static inline int security_socket_accept(struct socket *sock,
- 	return 0;
- }
- 
-+static inline void security_socket_post_accept(struct socket *sock,
-+					       struct socket *newsock)
+diff --git a/security/snet/snet_stats.c b/security/snet/snet_stats.c
+new file mode 100644
+index 0000000..b946dda
+--- /dev/null
++++ b/security/snet/snet_stats.c
+@@ -0,0 +1,65 @@
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
++#include <net/net_namespace.h>
++#include "snet_stats.h"
++#include "snet_utils.h"
++
++extern struct net init_net;
++
++#define SNET_STATS_PROC_DIR	"snet"
++#define SNET_STATS_PROC_INFO	"snet_stats"
++
++static struct proc_dir_entry *snet_stats_dir;
++static struct proc_dir_entry *snet_stats_pde;
++struct snet_statistics snet_stats;
++
++static int snet_stats_show(struct seq_file *m, void *v)
 +{
++	unsigned int sys = 0;
++	seq_printf(m, "snet statistics\n");
++
++	for (sys = SNET_SOCKET_CREATE; sys < SNET_NR_SOCKET_TYPES; sys++) {
++		unsigned int v = 0;
++		seq_printf(m, "%s {", snet_syscall_name(sys));
++
++		seq_printf(m, " Exec: %u ", SNET_STATS_GET(SNET_STATS_EXEC, sys));
++		seq_printf(m, " Unreg: %u ", SNET_STATS_GET(SNET_STATS_UNREG, sys));
++		for (v = SNET_VERDICT_GRANT; v < SNET_NR_VERDICT_TYPES; v++) {
++			seq_printf(m, " %s: %u ", snet_verdict_name(v),
++				   SNET_STATS_GET(v, sys));
++		}
++		seq_printf(m, " Reg Error: %u ", SNET_STATS_GET(SNET_STATS_REG_ERROR, sys));
++		seq_printf(m, "}\n");
++	}
++	return 0;
 +}
 +
- static inline int security_socket_sendmsg(struct socket *sock,
- 					  struct msghdr *msg, int size)
- {
-diff --git a/net/socket.c b/net/socket.c
-index d588e9e..7807904 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1535,6 +1535,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 			goto out_fd;
- 	}
- 
-+	security_socket_post_accept(sock, newsock);
-+
- 	/* File flags are not inherited via accept() unlike another OSes. */
- 
- 	fd_install(newfd, newfile);
-diff --git a/security/capability.c b/security/capability.c
-index 1f8bbe2..da68c60 100644
---- a/security/capability.c
-+++ b/security/capability.c
-@@ -593,6 +593,10 @@ static int cap_socket_accept(struct socket *sock, struct socket *newsock)
- 	return 0;
- }
- 
-+static void cap_socket_post_accept(struct socket *sock, struct socket *newsock)
++static int snet_stats_proc_open(struct inode *inode, struct file *file)
 +{
++	return single_open(file, snet_stats_show, NULL);
 +}
 +
- static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
- {
- 	return 0;
-@@ -1022,6 +1026,7 @@ void __init security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, socket_connect);
- 	set_to_cap_if_null(ops, socket_listen);
- 	set_to_cap_if_null(ops, socket_accept);
-+	set_to_cap_if_null(ops, socket_post_accept);
- 	set_to_cap_if_null(ops, socket_sendmsg);
- 	set_to_cap_if_null(ops, socket_recvmsg);
- 	set_to_cap_if_null(ops, socket_getsockname);
-diff --git a/security/security.c b/security/security.c
-index 84187d8..eda2b75 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -1038,6 +1038,11 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
- 	return security_ops->socket_accept(sock, newsock);
- }
- 
-+void security_socket_post_accept(struct socket *sock, struct socket *newsock)
-+{
-+	security_ops->socket_post_accept(sock, newsock);
-+}
++static const struct file_operations snet_stats_proc_fops = {
++	.owner		= THIS_MODULE,
++	.open		= snet_stats_proc_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
 +
- int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
- {
- 	return security_ops->socket_sendmsg(sock, msg, size);
++void snet_stats_init(void)
++{
++	snet_stats_dir = proc_mkdir(SNET_STATS_PROC_DIR, init_net.proc_net);
++	if (snet_stats_dir == NULL) {
++		printk(KERN_ERR "snet: can't create /proc/%s\n",
++		       SNET_STATS_PROC_DIR);
++		goto out;
++	}
++
++	snet_stats_pde = proc_create(SNET_STATS_PROC_INFO, 0644, snet_stats_dir,
++				     &snet_stats_proc_fops);
++out:
++	return;
++}
+diff --git a/security/snet/snet_stats.h b/security/snet/snet_stats.h
+new file mode 100644
+index 0000000..05ab06d
+--- /dev/null
++++ b/security/snet/snet_stats.h
+@@ -0,0 +1,57 @@
++#ifndef _SNET_STATS_H
++#define _SNET_STATS_H
++
++#include <linux/snet.h>
++
++enum {
++	SNET_STATS_REG_GRANT = 0,
++	SNET_STATS_REG_DENY,
++	SNET_STATS_REG_PENDING,
++	SNET_STATS_REG_NONE,
++	SNET_STATS_REG_INVALID,
++	SNET_STATS_REG_ERROR,
++	SNET_STATS_UNREG,
++	SNET_STATS_EXEC,
++	__SNET_STATS_MAX
++};
++
++#define SNET_STATS_MAX __SNET_STATS_MAX
++
++struct snet_statistics {
++	atomic_t	mibs[SNET_NR_SOCKET_TYPES+1][SNET_STATS_MAX];
++};
++
++extern struct snet_statistics snet_stats;
++#define SNET_STATS_INC(field, syscall)	(atomic_inc(&snet_stats.mibs[syscall][field]))
++#define SNET_STATS_DEC(field, syscall)	(atomic_dec(&snet_stats.mibs[syscall][field]))
++#define SNET_STATS_GET(field, syscall)	(atomic_read(&snet_stats.mibs[syscall][field]))
++
++void snet_stats_init(void);
++
++static inline void snet_stats_inc_reg(const enum snet_verdict verdict,
++				      const enum snet_syscall syscall)
++{
++	switch (verdict) {
++	case SNET_VERDICT_GRANT:
++		SNET_STATS_INC(SNET_STATS_REG_GRANT, syscall);
++		break;
++	case SNET_VERDICT_DENY:
++		SNET_STATS_INC(SNET_STATS_REG_DENY, syscall);
++		break;
++	case SNET_VERDICT_PENDING:
++		SNET_STATS_INC(SNET_STATS_REG_PENDING, syscall);
++		break;
++	case SNET_VERDICT_NONE:
++		SNET_STATS_INC(SNET_STATS_REG_NONE, syscall);
++		break;
++	case SNET_VERDICT_INVALID:
++		SNET_STATS_INC(SNET_STATS_REG_INVALID, syscall);
++		break;
++	default:
++		SNET_STATS_INC(SNET_STATS_REG_ERROR, syscall);
++		break;
++	}
++	return;
++};
++
++#endif
 -- 
 1.7.4.1
+
