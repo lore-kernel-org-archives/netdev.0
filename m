@@ -1,7 +1,7 @@
 From: y@vger.kernel.org
-Subject: [RFC v4 09/11] snet: introduce snet_utils
-Date: Thu,  5 May 2011 15:59:19 +0200
-Message-ID: <20153.1349950985$1304604585@news.gmane.org>
+Subject: [RFC v4 02/11] lsm: reintroduce security_socket_post_accept()
+Date: Thu,  5 May 2011 15:59:12 +0200
+Message-ID: <8348.72660129822$1304604585@news.gmane.org>
 References: <1304603961-2517-1-git-send-email-y>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -9,87 +9,130 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 236.121.91-79.rev.gaoland.net ([79.91.121.236]:43805 "EHLO
-	mx.synack.fr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754695Ab1EEOHA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2011 10:07:00 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304603961-2517-1-git-send-email-y>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Samir Bellabes <sam@synack.fr>
 
-This patch provides helper functions for other subsystems
+snet needs to reintroduce this hook, as it was designed to be: a hook for
+updating security informations on objects.
+
+Originally, This was a direct revert of commit
+8651d5c0b1f874c5b8307ae2b858bc40f9f02482.
+
+But from the comment of Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> :
+
+> Please move security_socket_post_accept() to before fd_install().
+> Otherwise, other threads which share fd tables can use
+> security-informations-not-yet-updated accept()ed sockets.
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
+Acked-by: Serge Hallyn <serue@us.ibm.com>
 ---
- security/snet/snet_utils.c |   39 +++++++++++++++++++++++++++++++++++++++
- security/snet/snet_utils.h |    9 +++++++++
- 2 files changed, 48 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/snet_utils.c
- create mode 100644 security/snet/snet_utils.h
+ include/linux/security.h |   13 +++++++++++++
+ net/socket.c             |    2 ++
+ security/capability.c    |    5 +++++
+ security/security.c      |    5 +++++
+ 4 files changed, 25 insertions(+), 0 deletions(-)
 
-diff --git a/security/snet/snet_utils.c b/security/snet/snet_utils.c
-new file mode 100644
-index 0000000..4e80263
---- /dev/null
-+++ b/security/snet/snet_utils.c
-@@ -0,0 +1,39 @@
-+#include <linux/types.h>
-+#include <linux/snet.h>
-+
-+const char *snet_verdict_name(const enum snet_verdict cmd)
+diff --git a/include/linux/security.h b/include/linux/security.h
+index da0d59e..02effe5 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -875,6 +875,11 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+  *	@sock contains the listening socket structure.
+  *	@newsock contains the newly created server socket for connection.
+  *	Return 0 if permission is granted.
++ * @socket_post_accept:
++ *	This hook allows a security module to copy security
++ *	information into the newly created socket's inode.
++ *	@sock contains the listening socket structure.
++ *	@newsock contains the newly created server socket for connection.
+  * @socket_sendmsg:
+  *	Check permission before transmitting a message to another socket.
+  *	@sock contains the socket structure.
+@@ -1587,6 +1592,8 @@ struct security_operations {
+ 			       struct sockaddr *address, int addrlen);
+ 	int (*socket_listen) (struct socket *sock, int backlog);
+ 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
++	void (*socket_post_accept) (struct socket *sock,
++				    struct socket *newsock);
+ 	int (*socket_sendmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size);
+ 	int (*socket_recvmsg) (struct socket *sock,
+@@ -2555,6 +2562,7 @@ int security_socket_bind(struct socket *sock, struct sockaddr *address, int addr
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
+ int security_socket_listen(struct socket *sock, int backlog);
+ int security_socket_accept(struct socket *sock, struct socket *newsock);
++void security_socket_post_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
+@@ -2640,6 +2648,11 @@ static inline int security_socket_accept(struct socket *sock,
+ 	return 0;
+ }
+ 
++static inline void security_socket_post_accept(struct socket *sock,
++					       struct socket *newsock)
 +{
-+	static const char *const verdict_name[] = {
-+		[SNET_VERDICT_GRANT]	= "Grant",
-+		[SNET_VERDICT_DENY]	= "Deny",
-+		[SNET_VERDICT_PENDING]	= "Pending",
-+		[SNET_VERDICT_NONE]	= "None",
-+		[SNET_VERDICT_INVALID]	= "Invalid",
-+	};
-+
-+	if (cmd >= SNET_NR_VERDICT_TYPES)
-+		return "ERROR";
-+	else
-+		return verdict_name[cmd];
 +}
 +
-+const char *snet_syscall_name(const enum snet_syscall sys)
+ static inline int security_socket_sendmsg(struct socket *sock,
+ 					  struct msghdr *msg, int size)
+ {
+diff --git a/net/socket.c b/net/socket.c
+index d588e9e..7807904 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1535,6 +1535,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 			goto out_fd;
+ 	}
+ 
++	security_socket_post_accept(sock, newsock);
++
+ 	/* File flags are not inherited via accept() unlike another OSes. */
+ 
+ 	fd_install(newfd, newfile);
+diff --git a/security/capability.c b/security/capability.c
+index 1f8bbe2..da68c60 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -593,6 +593,10 @@ static int cap_socket_accept(struct socket *sock, struct socket *newsock)
+ 	return 0;
+ }
+ 
++static void cap_socket_post_accept(struct socket *sock, struct socket *newsock)
 +{
-+	static const char *const syscall_name[] = {
-+		[SNET_SOCKET_CREATE]		= "Create",
-+		[SNET_SOCKET_BIND]		= "Bind",
-+		[SNET_SOCKET_CONNECT]		= "Connect",
-+		[SNET_SOCKET_LISTEN]		= "Listen",
-+		[SNET_SOCKET_ACCEPT]		= "Accept",
-+		[SNET_SOCKET_POST_ACCEPT]	= "Post Accept",
-+		[SNET_SOCKET_SENDMSG]		= "Sendmsg",
-+		[SNET_SOCKET_RECVMSG]		= "Recvmsg",
-+		[SNET_SOCKET_SOCK_RCV_SKB]	= "Sock Rcv Skb",
-+		[SNET_SOCKET_CLOSE]		= "Close",
-+	};
-+
-+	if (sys >= SNET_NR_SOCKET_TYPES)
-+		return "ERROR";
-+	else
-+		return syscall_name[sys];
 +}
-diff --git a/security/snet/snet_utils.h b/security/snet/snet_utils.h
-new file mode 100644
-index 0000000..01e515f
---- /dev/null
-+++ b/security/snet/snet_utils.h
-@@ -0,0 +1,9 @@
-+#ifndef _SNET_UTILS_H
-+#define _SNET_UTILS_H
 +
-+#include <linux/skbuff.h>
+ static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+ {
+ 	return 0;
+@@ -1022,6 +1026,7 @@ void __init security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, socket_connect);
+ 	set_to_cap_if_null(ops, socket_listen);
+ 	set_to_cap_if_null(ops, socket_accept);
++	set_to_cap_if_null(ops, socket_post_accept);
+ 	set_to_cap_if_null(ops, socket_sendmsg);
+ 	set_to_cap_if_null(ops, socket_recvmsg);
+ 	set_to_cap_if_null(ops, socket_getsockname);
+diff --git a/security/security.c b/security/security.c
+index 84187d8..eda2b75 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1038,6 +1038,11 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
+ 	return security_ops->socket_accept(sock, newsock);
+ }
+ 
++void security_socket_post_accept(struct socket *sock, struct socket *newsock)
++{
++	security_ops->socket_post_accept(sock, newsock);
++}
 +
-+const char *snet_verdict_name(const enum snet_verdict cmd);
-+const char *snet_syscall_name(const enum snet_syscall sys);
-+
-+#endif	/* _SNET_UTILS_H */
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+ {
+ 	return security_ops->socket_sendmsg(sock, msg, size);
 -- 
 1.7.4.1
-
