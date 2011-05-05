@@ -1,83 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 05/18] virtio: used event index interface
-Date: Thu, 5 May 2011 12:38:17 +0300
-Message-ID: <20110505093816.GE28378@redhat.com>
-References: <cover.1304541918.git.mst@redhat.com>
- <aacced20b8109a615ee24c1bde6d9f5702850111.1304541919.git.mst@redhat.com>
- <201105041656.11009.tahm@linux.vnet.ibm.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
+Date: Thu, 5 May 2011 15:13:43 +0530
+Message-ID: <OF057406D7.B63B52F4-ON65257887.00344787-65257887.003532EF@in.ibm.com>
+References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com> <20110504144622.GA15823@redhat.com> <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com> <20110504212359.GA21446@redhat.com> <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com> <20110505090439.GD17647@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Carsten Otte <cotte@de.ibm.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	linux390@de.ibm.com, Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Shirley Ma <xma@us.ibm.com>, lguest@lists.ozlabs.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, kvm@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>, steved@us.ibm.com,
-	habanero@linux.vnet.ibm.com
-To: Tom Lendacky <tahm@linux.vnet.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201105041656.11009.tahm@linux.vnet.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp05.in.ibm.com ([122.248.162.5]:52952 "EHLO
+	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545Ab1EEJmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 05:42:35 -0400
+In-Reply-To: <20110505090439.GD17647@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 04, 2011 at 04:56:09PM -0500, Tom Lendacky wrote:
-> On Wednesday, May 04, 2011 03:51:09 PM Michael S. Tsirkin wrote:
-> > Define a new feature bit for the guest to utilize a used_event index
-> > (like Xen) instead if a flag bit to enable/disable interrupts.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> >  include/linux/virtio_ring.h |    9 +++++++++
-> >  1 files changed, 9 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_ring.h
-> > index e4d144b..f5c1b75 100644
-> > --- a/include/linux/virtio_ring.h
-> > +++ b/include/linux/virtio_ring.h
-> > @@ -29,6 +29,10 @@
-> >  /* We support indirect buffer descriptors */
-> >  #define VIRTIO_RING_F_INDIRECT_DESC	28
-> > 
-> > +/* The Guest publishes the used index for which it expects an interrupt
-> > + * at the end of the avail ring. Host should ignore the avail->flags
-> > field. */ +#define VIRTIO_RING_F_USED_EVENT_IDX	29
-> > +
-> >  /* Virtio ring descriptors: 16 bytes.  These can chain together via
-> > "next". */ struct vring_desc {
-> >  	/* Address (guest-physical). */
-> > @@ -83,6 +87,7 @@ struct vring {
-> >   *	__u16 avail_flags;
-> >   *	__u16 avail_idx;
-> >   *	__u16 available[num];
-> > + *	__u16 used_event_idx;
-> >   *
-> >   *	// Padding to the next align boundary.
-> >   *	char pad[];
-> > @@ -93,6 +98,10 @@ struct vring {
-> >   *	struct vring_used_elem used[num];
-> >   * };
-> >   */
-> > +/* We publish the used event index at the end of the available ring.
-> > + * It is at the end for backwards compatibility. */
-> > +#define vring_used_event(vr) ((vr)->avail->ring[(vr)->num])
-> > +
-> >  static inline void vring_init(struct vring *vr, unsigned int num, void *p,
-> >  			      unsigned long align)
-> >  {
-> 
-> You should update the vring_size procedure to account for the extra field at 
-> the end of the available ring by change the "(2 + num)" to "(3 + num)":
->     return ((sizeof(struct vring_desc) * num + sizeof(__u16) * (3 + num)
-> 
-> Tom
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 05/05/2011 02:34:39 PM:
 
-In practice it gives the same result because of the alignment, but sure.
-Thanks!
+> > It shows that 2.9% of the time, the 1 jiffy was not enough
+> > to free up space in the txq.
+>
+> How common is it to free up space in *less than* 1 jiffy?
 
--- 
-MST
+True, but the point is that the space freed is just
+enough for 43 entries, keeping it lower means a flood
+of (psuedo) stop's and restart's.
+
+> > That could also mean that we
+> > had set xmit_restart just before jiffies changed. But the
+> > average free capacity when we *resumed* xmits is:
+> > Sum of slots / (Good + Bad) = 43.
+> >
+> > So the delay of 1 jiffy helped the host clean up, on average,
+> > just 43 entries, which is 16% of total entries. This is
+> > intended to show that the guest is not sitting idle waiting
+> > for the jiffy to expire.
+>
+> OK, nice, this is exactly what my patchset is trying
+> to do, without playing with timers: tell the host
+> to interrupt us after 3/4 of the ring is free.
+> Why 3/4 and not all of the ring? My hope is we can
+> get some parallelism with the host this way.
+> Why 3/4 and not 7/8? No idea :)
+>
+> > > > > I can post it, mind testing this?
+> > > >
+> > > > Sure.
+> > >
+> > > Just posted. Would appreciate feedback.
+> >
+> > Do I need to apply all the patches and simply test?
+> >
+> > Thanks,
+> >
+> > - KK
+>
+> Exactly. You can also try to tune the threshold
+> for interrupts as well.
+
+Could you send me (privately) the entire virtio-net/vhost
+patch in a single file? It will help me quite a bit :)
+Either attachment or inline is fine.
+
+thanks,
+
+- KK
+
