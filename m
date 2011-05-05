@@ -1,50 +1,98 @@
-From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH] [RFC] vlan: fix updating wanted_features for vlan device
-Date: Wed, 04 May 2011 17:48:42 -0700
-Message-ID: <20110505004841.26691.74872.stgit@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: mirq-linux@rere.qmqm.pl, jeffrey.t.kirsher@intel.com,
-	devel@open-fcoe.org
-To: netdev@vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCHv2 1/2] net: Allow ethtool to set interface in loopback mode.
+Date: Wed,  4 May 2011 18:26:40 -0700
+Message-ID: <1304558800-15877-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	Tom Herbert <therbert@google.com>,
+	Mahesh Bandewar <maheshb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:23741 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752596Ab1EEAd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 May 2011 20:33:56 -0400
+Received: from smtp-out.google.com ([74.125.121.67]:8423 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751065Ab1EEB0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 21:26:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 8a0427b "vlan: convert VLAN devices to use ndo_fix_features()" converts the
-vlan to support ndo_fix_features. However, the wanted_features is not updated
-for the vlan device, causing real_dev->features not be populated to the vlan
-device when real_dev->features are changed by the driver through FEAT_CHANGE.
-This is breaking FCoE related netdev feature flags on vlan devices. Add updating
-wanted_features to vlan_transfer_features() so netdev_get_wanted_features() will
-can get the updated wanted feature flags for vlan device properly.
+This patch enables ethtool to set the loopback mode on a given interface.
+By configuring the interface in loopback mode in conjunction with a policy
+route / rule, a userland application can stress the egress / ingress path
+exposing the flows of the change in progress and potentially help developer(s)
+understand the impact of those changes without even sending a packet out
+on the network.
 
-I am sending as RFC in case the usage of wanted_features on vlan device is not
-right, since the features chanaged are not directly from user doing ethtool, but
-it is from user action of starting to run FCoE on a netdev instance. Anyway, let
-let me know if there is a preferred alternative fix.
+Following set of commands illustrates one such example -
+    a) ip -4 addr add 192.168.1.1/24 dev eth1
+    b) ip -4 rule add from all iif eth1 lookup 250
+    c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
+    d) arp -Ds 192.168.1.100 eth1
+    e) arp -Ds 192.168.1.200 eth1
+    f) sysctl -w net.ipv4.ip_nonlocal_bind=1
+    g) sysctl -w net.ipv4.conf.all.accept_local=1
+    # Assuming that the machine has 8 cores
+    h) taskset 000f netserver -L 192.168.1.200
+    i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
+Changes since v1
+ Added NETIF_F_LOOPBACK in loopback device's feature-set.
 
- net/8021q/vlan.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/loopback.c    |    3 ++-
+ include/linux/netdevice.h |    3 ++-
+ net/core/ethtool.c        |    2 +-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 969e700..f2ee00b 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -332,6 +332,7 @@ static void vlan_transfer_features(struct net_device *dev,
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	vlandev->fcoe_ddp_xid = dev->fcoe_ddp_xid;
- #endif
-+	vlandev->wanted_features |= dev->features & dev->vlan_features;
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index d70fb76..4ce9e5f 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -174,7 +174,8 @@ static void loopback_setup(struct net_device *dev)
+ 		| NETIF_F_HIGHDMA
+ 		| NETIF_F_LLTX
+ 		| NETIF_F_NETNS_LOCAL
+-		| NETIF_F_VLAN_CHALLENGED;
++		| NETIF_F_VLAN_CHALLENGED
++		| NETIF_F_LOOPBACK;
+ 	dev->ethtool_ops	= &loopback_ethtool_ops;
+ 	dev->header_ops		= &eth_header_ops;
+ 	dev->netdev_ops		= &loopback_ops;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d5de66a..e7244ed 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1067,6 +1067,7 @@ struct net_device {
+ #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
+ #define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
+ #define NETIF_F_NOCACHE_COPY	(1 << 30) /* Use no-cache copyfromuser */
++#define NETIF_F_LOOPBACK	(1 << 31) /* Enable loopback */
  
- 	netdev_update_features(vlandev);
- }
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+@@ -1082,7 +1083,7 @@ struct net_device {
+ 	/* = all defined minus driver/device-class-related */
+ #define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
+ 				  NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
+-#define NETIF_F_ETHTOOL_BITS	(0x7f3fffff & ~NETIF_F_NEVER_CHANGE)
++#define NETIF_F_ETHTOOL_BITS	(0xff3fffff & ~NETIF_F_NEVER_CHANGE)
+ 
+ 	/* List of features with software fallbacks. */
+ #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index d8b1a8d..f26649d 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -362,7 +362,7 @@ static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * 32][ETH_GS
+ 	/* NETIF_F_RXHASH */          "rx-hashing",
+ 	/* NETIF_F_RXCSUM */          "rx-checksum",
+ 	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy"
+-	"",
++	/* NETIF_F_LOOPBACK */        "loopback",
+ };
+ 
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+-- 
+1.7.3.1
 
