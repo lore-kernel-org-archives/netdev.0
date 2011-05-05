@@ -1,95 +1,81 @@
-From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [PATCH] [RFC] vlan: fix updating wanted_features for vlan device
-Date: Thu, 5 May 2011 00:49:11 -0700
-Message-ID: <7C88852EF6F99F4EB538472FCFEBE222018E6B2599@orsmsx509.amr.corp.intel.com>
-References: <20110505004841.26691.74872.stgit@localhost6.localdomain6>
- <20110505065153.GA3288@rere.qmqm.pl>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
+Date: Thu, 5 May 2011 13:33:14 +0530
+Message-ID: <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com>
+References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com> <20110504144622.GA15823@redhat.com> <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com> <20110504212359.GA21446@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>
-To: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26849 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752633Ab1EEHtM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 03:49:12 -0400
-In-Reply-To: <20110505065153.GA3288@rere.qmqm.pl>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110504212359.GA21446@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->=20
-> On Wed, May 04, 2011 at 05:48:42PM -0700, Yi Zou wrote:
-> > commit 8a0427b "vlan: convert VLAN devices to use ndo_fix_features(=
-)"
-> converts the
-> > vlan to support ndo_fix_features. However, the wanted_features is n=
-ot
-> updated
-> > for the vlan device, causing real_dev->features not be populated to=
- the
-> vlan
-> > device when real_dev->features are changed by the driver through
-> FEAT_CHANGE.
-> > This is breaking FCoE related netdev feature flags on vlan devices.=
- Add
-> updating
-> > wanted_features to vlan_transfer_features() so
-> netdev_get_wanted_features() will
-> > can get the updated wanted feature flags for vlan device properly.
->=20
-> Can you describe the situation further? There might be problems if de=
-vice
-> changes its vlan_features after creation of VLAN devices on top
-> (bonding?).
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 05/05/2011 02:53:59 AM:
 
-Not sure for bonding, I noticed this when creating FCoE instance on a v=
-lan
-Device on top of an Intel 82599 device. The real_dev is created with=20
-vlan_features set of related FCoE flags, e.g., NETIF_F_FCOE_MTU, NETIF_=
-=46_FCOE_CRC,
-etc. However, the real_dev's features are not set w/ these FCoE flags t=
-ill=20
-the FCoE protocol stack starts using FCoE when ndo_fcoe_enable() is cal=
-led,=20
-where in the case of 82599's case, these flags are toggled on in netdev=
-'s=20
-features, and netdev_features_change() is called to populate to the upp=
-er=20
-vlan device since previously we do:
+> > Not "hope" exactly. If the device is not ready, then
+> > the packet is requeued. The main idea is to avoid
+> > drops/stop/starts, etc.
+>
+> Yes, I see that, definitely. I guess it's a win if the
+> interrupt takes at least a jiffy to arrive anyway,
+> and a loss if not. Is there some reason interrupts
+> might be delayed until the next jiffy?
 
-       vlandev->features &=3D ~dev->vlan_features;
-       vlandev->features |=3D dev->features & dev->vlan_features;=20
+I can explain this a bit as I have three debug counters
+in start_xmit() just for this:
 
-in vlan_transfer_features(). FCoE only checks the corresponding netdev =
-features
-(vlan or real_dev) passed in from user space as a interface name e.g., =
-eth2.100,
-to tell if, for example, FCOE_MTU is supported. Particularly for this c=
-ase, there
-is no change on vlan_features.=20
+1. Whether the current xmit call was good, i.e. we had
+   returned BUSY last time and this xmit was successful.
+2. Whether the current xmit call was bad, i.e. we had
+   returned BUSY last time and this xmit still failed.
+3. The free capacity when we *resumed* xmits. This is
+   after calling free_old_xmit_skbs where this function
+   is not throttled, in effect it processes *all* the
+   completed skbs. This counter is a sum:
 
->=20
-> dev->wanted_features is only what user wants to get and should not be
-> changed
-> by anything else.
-Hmm...so my usage for that seems to be wrong if that's what wanted_feat=
-ures is
-meant to be. Well, wanted_features in vlan is features & hw_features, i=
-f it stays,
-then, it seems to me will never get changes from real_dev's features si=
-nce=20
-netdev_get_wanted_features() won't get it to begin w/.
+   if (If_I_had_returned_EBUSY_last_iteration)
+       free_slots += virtqueue_get_capacity();
 
-Also, note my RFC isn't complete either, as it only sets not clears pre=
-viously
-flags in wanted_features.
+The counters after a 30 min run of 1K,2K,16K netperf
+sessions are:
+
+Good:          1059172
+Bad:           31226
+Sum of slots:  47551557
+
+(Total of Good+Bad tallies with the total number of requeues
+as shown by tc:
+
+qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1
+1 1 1 1
+ Sent 1560854473453 bytes 1075873684 pkt (dropped 718379, overlimits 0
+requeues 1090398)
+ backlog 0b 0p requeues 1090398
+)
+
+It shows that 2.9% of the time, the 1 jiffy was not enough
+to free up space in the txq. That could also mean that we
+had set xmit_restart just before jiffies changed. But the
+average free capacity when we *resumed* xmits is:
+Sum of slots / (Good + Bad) = 43.
+
+So the delay of 1 jiffy helped the host clean up, on average,
+just 43 entries, which is 16% of total entries. This is
+intended to show that the guest is not sitting idle waiting
+for the jiffy to expire.
+
+> > > I can post it, mind testing this?
+> >
+> > Sure.
+>
+> Just posted. Would appreciate feedback.
+
+Do I need to apply all the patches and simply test?
 
 Thanks,
-yi
->=20
-> Best Regards,
-> Micha=B3 Miros=B3aw
+
+- KK
+
