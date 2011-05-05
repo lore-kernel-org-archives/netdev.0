@@ -1,7 +1,7 @@
 From: y@vger.kernel.org
-Subject: [RFC v4 04/11] snet: introduce snet_event
-Date: Thu,  5 May 2011 15:59:14 +0200
-Message-ID: <37812.7552140088$1304604543@news.gmane.org>
+Subject: [RFC v4 07/11] snet: introduce snet_verdict
+Date: Thu,  5 May 2011 15:59:17 +0200
+Message-ID: <13842.0987096199$1304604544@news.gmane.org>
 References: <1304603961-2517-1-git-send-email-y>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -9,264 +9,274 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 236.121.91-79.rev.gaoland.net ([79.91.121.236]:43800 "EHLO
+	mx.synack.fr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754671Ab1EEOHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2011 10:07:00 -0400
 In-Reply-To: <1304603961-2517-1-git-send-email-y>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Samir Bellabes <sam@synack.fr>
 
-This patch adds the snet's subsystem responsive of managing events
+This patch adds the snet's subsystem responsive of managing verdicts
 
-snet is using the word 'event' for a couple of values [syscall, protocol].
-For example, [listen, tcp] or [sendmsg, dccp] are events.
+snet is using the word 'verdict' for the returning value of LSM hooks.
+Different states exist (grant/deny/pending/none).
 
-This patch introduces a hastable 'event_hash' and operations (add/remove/search..)
-in order to manage which events have to be protected.
-With the help of the communication's subsystem, managing orders are coming from
-userspace.
+This patch introduces a hashtable 'verdict_hash' and operations (set/get/search..)
+in order to manage verdicts. Syscalls are waiting, inside a classical waitqueue,
+for theirs verdicts or for a timeout. Timeout value and the default verdict
+policy are configurable at boot or by the snet_netlink subsystem.
+With the help of the communication's subsystem, verdicts are coming from userspace
 
 Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- security/snet/snet_event.c |  201 ++++++++++++++++++++++++++++++++++++++++++++
- security/snet/snet_event.h |   21 +++++
- 2 files changed, 222 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/snet_event.c
- create mode 100644 security/snet/snet_event.h
+ security/snet/snet_verdict.c |  203 ++++++++++++++++++++++++++++++++++++++++++
+ security/snet/snet_verdict.h |   23 +++++
+ 2 files changed, 226 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/snet_verdict.c
+ create mode 100644 security/snet/snet_verdict.h
 
-diff --git a/security/snet/snet_event.c b/security/snet/snet_event.c
+diff --git a/security/snet/snet_verdict.c b/security/snet/snet_verdict.c
 new file mode 100644
-index 0000000..7146d5a
+index 0000000..b0811ac
 --- /dev/null
-+++ b/security/snet/snet_event.c
-@@ -0,0 +1,201 @@
++++ b/security/snet/snet_verdict.c
+@@ -0,0 +1,203 @@
++#include <linux/sched.h>
 +#include <linux/spinlock.h>
-+#include <linux/list.h>
-+#include <linux/jhash.h>
-+#include <linux/slab.h>
-+#include <linux/netlink.h>
++#include <linux/random.h>
++#include <linux/wait.h>
++#include <asm/atomic.h>
 +#include <linux/snet.h>
-+#include "snet_event.h"
-+#include "snet_netlink.h"
-+#include "snet_utils.h"
++#include <linux/slab.h>
++#include "snet_verdict.h"
 +
-+static struct list_head *snet_evh;
-+static DEFINE_RWLOCK(snet_evh_lock);
++static struct list_head *snet_vdh;
++static rwlock_t snet_vdh_lock = __RW_LOCK_UNLOCKED();
 +
-+struct snet_event_entry {
++struct snet_verdict_entry {
 +	struct list_head list;
-+	struct snet_event se;
++	u32 verdict_id;
++	enum snet_verdict verdict;
 +};
 +
-+static struct kmem_cache *snet_event_entry_cachep;
++static atomic_t value = ATOMIC_INIT(1);
 +
-+/* lookup for a snet_evh - before using this function, lock snet_evh_lock */
-+static struct snet_event_entry *__snet_event_lookup(const enum snet_syscall syscall,
-+						    const u8 protocol)
++/* when waiting for a verdict, process is added to this queue */
++static DECLARE_WAIT_QUEUE_HEAD(snet_wq);
++
++static struct kmem_cache *snet_verdict_entry_cachep;
++
++/* lookup for a verdict - before using this function, lock snet_vdh_lock */
++static struct snet_verdict_entry *__snet_verdict_lookup(const u32 verdict_id)
 +{
 +	unsigned int h = 0;
-+	struct list_head *l;
-+	struct snet_event_entry *s;
++	struct list_head *l = NULL;
++	struct snet_verdict_entry *s = NULL;
 +
-+	/* computing its hash value */
-+	h = jhash_2words(syscall, protocol, 0) % snet_evh_size;
-+	l = &snet_evh[h];
++	h = verdict_id % snet_vdh_size;
++	l = &snet_vdh[h];
 +
 +	list_for_each_entry(s, l, list) {
-+		if ((s->se.protocol == protocol) &&
-+		    (s->se.syscall == syscall)) {
++		if (s->verdict_id == verdict_id) {
 +			return s;
 +		}
 +	}
 +	return NULL;
 +}
 +
-+int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb)
++const enum snet_verdict snet_verdict_wait(const u32 verdict_id)
 +{
-+	unsigned int i = 0, n = 0;
-+	int ret = -1;
-+	unsigned hashs_to_skip = cb->args[0];
-+	unsigned events_to_skip = cb->args[1];
-+	struct list_head *l;
-+	struct snet_event_entry *s;
++	enum snet_verdict verdict = SNET_VERDICT_NONE;
++	long ret = 0;
 +
-+	read_lock_bh(&snet_evh_lock);
-+
-+	for (i = 0; i < snet_evh_size; i++) {
-+		if (i < hashs_to_skip)
-+			continue;
-+		l = &snet_evh[i];
-+		n = 0;
-+		list_for_each_entry(s, l, list) {
-+			if (++n < events_to_skip)
-+				continue;
-+			ret = snet_nl_list_fill_info(skb,
-+						     NETLINK_CB(cb->skb).pid,
-+						     cb->nlh->nlmsg_seq,
-+						     NLM_F_MULTI,
-+						     s->se.protocol,
-+						     s->se.syscall);
-+			if (ret < 0)
-+				goto errout;
-+		}
-+	}
-+
-+errout:
-+	read_unlock_bh(&snet_evh_lock);
-+
-+	cb->args[0] = i;
-+	cb->args[1] = n;
-+	return skb->len;
++	ret = wait_event_timeout(snet_wq,
++				 (verdict = snet_verdict_get(verdict_id))
++				 != SNET_VERDICT_PENDING,
++				 snet_verdict_delay * HZ);
++	if (ret)
++		return snet_verdict_get(verdict_id);
++	else
++		return SNET_VERDICT_NONE;
 +}
 +
-+/*
-+ * check if a event is registered or not
-+ * return 1 if event is registered, 0 if not
-+ */
-+int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol)
++const enum snet_verdict snet_verdict_get(const u32 verdict_id)
 +{
-+	int ret = 0;
++	enum snet_verdict v = SNET_VERDICT_NONE;
++	struct snet_verdict_entry *data = NULL;
 +
-+	read_lock_bh(&snet_evh_lock);
-+	if (__snet_event_lookup(syscall, protocol) != NULL)
-+		ret = 1;
-+	read_unlock_bh(&snet_evh_lock);
++	read_lock_bh(&snet_vdh_lock);
++	data = __snet_verdict_lookup(verdict_id);
++	if (data != NULL)
++		v = data->verdict;
++
++	read_unlock_bh(&snet_vdh_lock);
++	return v;
++}
++
++int snet_verdict_set(const u32 verdict_id, const enum snet_verdict verdict)
++{
++	struct snet_verdict_entry *data = NULL;
++	int ret = -EINVAL;
++
++	if (verdict >= SNET_NR_VERDICT_TYPES)
++		goto out;
++
++	write_lock_bh(&snet_vdh_lock);
++	data = __snet_verdict_lookup(verdict_id);
++	if (data != NULL) {
++		/* if verdict is already set because of
++		   timeout, we won't modify it */
++		if (data->verdict == SNET_VERDICT_PENDING) {
++			data->verdict = verdict;
++			ret = 0;
++		}
++	}
++	write_unlock_bh(&snet_vdh_lock);
++	wake_up(&snet_wq);
++out:
 +	return ret;
 +}
 +
-+/* adding a event */
-+int snet_event_insert(const enum snet_syscall syscall, const u8 protocol)
++int snet_verdict_remove(const u32 verdict_id)
 +{
-+	struct snet_event_entry *data = NULL;
-+	unsigned int h = 0;
-+	int err = 0;
++	struct snet_verdict_entry *data = NULL;
 +
-+	data = kmem_cache_zalloc(snet_event_entry_cachep, GFP_KERNEL);
-+	if (!data) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	write_lock_bh(&snet_evh_lock);
-+	/* check if event is already registered */
-+	if (__snet_event_lookup(syscall, protocol) != NULL) {
-+		write_unlock_bh(&snet_evh_lock);
-+		kmem_cache_free(snet_event_entry_cachep, data);
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	data->se.syscall = syscall;
-+	data->se.protocol = protocol;
-+	INIT_LIST_HEAD(&(data->list));
-+	h = jhash_2words(data->se.syscall, data->se.protocol, 0) % snet_evh_size;
-+	list_add_tail(&data->list, &snet_evh[h]);
-+	write_unlock_bh(&snet_evh_lock);
-+	pr_debug("[%u]=(syscall=%s, protocol=%u)\n",
-+		 h, snet_syscall_name(syscall), protocol);
-+out:
-+	return err;
-+}
-+
-+/* removing a event */
-+int snet_event_remove(const enum snet_syscall syscall, const u8 protocol)
-+{
-+	struct snet_event_entry *data = NULL;
-+
-+	write_lock_bh(&snet_evh_lock);
-+	data = __snet_event_lookup(syscall, protocol);
++	write_lock_bh(&snet_vdh_lock);
++	data = __snet_verdict_lookup(verdict_id);
 +	if (data == NULL) {
-+		write_unlock_bh(&snet_evh_lock);
++		write_unlock_bh(&snet_vdh_lock);
 +		return -EINVAL;
 +	}
-+	pr_debug("(syscall=%s, protocol=%u)\n",
-+		 snet_syscall_name(syscall), protocol);
++	pr_debug("(verdict_id=%u)\n", data->verdict_id);
 +	list_del(&data->list);
-+	write_unlock_bh(&snet_evh_lock);
-+	kmem_cache_free(snet_event_entry_cachep, data);
++	write_unlock_bh(&snet_vdh_lock);
++	kmem_cache_free(snet_verdict_entry_cachep, data);
 +	return 0;
 +}
 +
-+/* flushing all events */
-+void snet_event_flush(void)
++int snet_verdict_insert(void)
++{
++	struct snet_verdict_entry *data = NULL;
++	unsigned int h = 0;
++	u32 verdict_id = 0;
++
++	data = kmem_cache_zalloc(snet_verdict_entry_cachep, GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	do {
++		verdict_id = atomic_inc_return(&value);
++	} while (verdict_id == 0);
++
++	data->verdict_id = verdict_id;
++	data->verdict = SNET_VERDICT_PENDING;
++	INIT_LIST_HEAD(&(data->list));
++	h = data->verdict_id % snet_vdh_size;
++
++	write_lock_bh(&snet_vdh_lock);
++	list_add_tail(&data->list, &snet_vdh[h]);
++	pr_debug("[%u]=(verdict_id=%u)\n", h, data->verdict_id);
++	write_unlock_bh(&snet_vdh_lock);
++
++	return verdict_id;
++}
++
++void snet_verdict_flush(void)
 +{
 +	unsigned int i = 0;
 +
-+	write_lock_bh(&snet_evh_lock);
-+	for (i = 0; i < snet_evh_size; i++) {
-+		struct snet_event_entry *data, *tmp;
-+		list_for_each_entry_safe(data, tmp, &snet_evh[i], list) {
++	write_lock_bh(&snet_vdh_lock);
++	for (i = 0; i < snet_vdh_size; i++) {
++		struct snet_verdict_entry *data, *tmp;
++		list_for_each_entry_safe(data, tmp, &snet_vdh[i], list) {
 +			list_del(&data->list);
-+			kmem_cache_free(snet_event_entry_cachep, data);
++			kmem_cache_free(snet_verdict_entry_cachep, data);
 +		}
 +	}
-+	write_unlock_bh(&snet_evh_lock);
++	write_unlock_bh(&snet_vdh_lock);
 +	return;
 +}
 +
 +/* init function */
-+int snet_event_init(void)
++int snet_verdict_init(void)
 +{
 +	int err = 0, i = 0;
 +
-+	if (snet_evh_size == 0) {
-+		printk(KERN_ERR "snet: bad snet_evh_size value\n");
++	if (snet_vdh_size == 0) {
++		printk(KERN_ERR "snet: bad snet_vdh_size value\n");
 +		err = -EINVAL;
 +		goto out;
 +	}
 +
-+	snet_evh = kzalloc(sizeof(struct list_head) * snet_evh_size,
-+			     GFP_KERNEL);
-+	if (!snet_evh) {
++	if (snet_verdict_delay == 0) {
++		printk(KERN_ERR "snet: bad snet_verdict_delay value\n");
++		err = -EINVAL;
++		goto out;
++	}
++
++	snet_vdh = kzalloc(sizeof(struct list_head) * snet_vdh_size,
++			  GFP_KERNEL);
++	if (!snet_vdh) {
 +		printk(KERN_WARNING
-+		       "snet: can't alloc memory for snet_evh\n");
++		       "snet: can't alloc memory for verdict\n");
 +		err = -ENOMEM;
 +		goto out;
 +	}
 +
-+	for (i = 0; i < snet_evh_size; i++)
-+		INIT_LIST_HEAD(&snet_evh[i]);
++	for (i = 0; i < snet_vdh_size; i++)
++		INIT_LIST_HEAD(&snet_vdh[i]);
 +
-+	/* snet_event_entry_cachep is not destroyed */
-+	snet_event_entry_cachep = kmem_cache_create("snet_event_entry",
-+						    sizeof(struct snet_event_entry),
-+						    0, SLAB_PANIC, NULL);
++	/* snet_verdict_entry_cachep is not destroyed */
++	snet_verdict_entry_cachep = kmem_cache_create("snet_verdict_entry",
++						      sizeof(struct snet_verdict_entry),
++						      0, SLAB_PANIC, NULL);
 +out:
 +	return err;
 +}
 +
 +/* exit function */
-+void snet_event_exit(void)
++void snet_verdict_exit(void)
 +{
-+	kfree(snet_evh);
-+	snet_evh = NULL;
++	if (snet_vdh) {
++		kfree(snet_vdh);
++		snet_vdh = NULL;
++	}
++
++	return;
 +}
-diff --git a/security/snet/snet_event.h b/security/snet/snet_event.h
+diff --git a/security/snet/snet_verdict.h b/security/snet/snet_verdict.h
 new file mode 100644
-index 0000000..fa991c7
+index 0000000..07e8638
 --- /dev/null
-+++ b/security/snet/snet_event.h
-@@ -0,0 +1,21 @@
-+#ifndef _SNET_EVENT_H
-+#define _SNET_EVENT_H
++++ b/security/snet/snet_verdict.h
+@@ -0,0 +1,23 @@
++#ifndef _SNET_VERDICT_H
++#define _SNET_VERDICT_H
 +
-+#include <linux/skbuff.h>
++extern unsigned int snet_vdh_size;
++extern unsigned int snet_verdict_delay;
 +
-+extern unsigned int snet_evh_size;
++/* helper functions */
++const enum snet_verdict snet_verdict_wait(const u32 verdict_id);
 +
-+/* manipulate the events hash table */
-+int snet_event_fill_info(struct sk_buff *skb, struct netlink_callback *cb);
-+int snet_event_is_registered(const enum snet_syscall syscall, const u8 protocol);
-+int snet_event_insert(const enum snet_syscall syscall, const u8 protocol);
-+int snet_event_remove(const enum snet_syscall syscall, const u8 protocol);
-+void snet_event_flush(void);
-+void snet_event_dumpall(void);
++/* manipulate the verdicts hash table */
++const enum snet_verdict snet_verdict_get(const u32 verdict_id);
++int snet_verdict_set(const u32 verdict_id, const enum snet_verdict verdict);
++int snet_verdict_insert(void);
++int snet_verdict_remove(const u32 verdict_id);
++int snet_verdict_insert(void);
++void snet_verdict_flush(void);
 +
 +/* init function */
-+int snet_event_init(void);
-+/* exit funtion */
-+void snet_event_exit(void);
++int snet_verdict_init(void);
++/* exit function */
++void snet_verdict_exit(void);
 +
-+#endif /* _SNET_EVENT_H */
++#endif /* _SNET_VERDICT_H */
 -- 
 1.7.4.1
+
