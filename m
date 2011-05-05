@@ -1,117 +1,111 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH] be2net: Fixed bugs related to PVID.
-Date: Thu, 5 May 2011 14:10:46 +0530
-Message-ID: <fe5f0791-266c-4fd7-9bfb-302b144c8a66@exht1.ad.emulex.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
+Date: Thu, 5 May 2011 11:44:28 +0300
+Message-ID: <20110505084428.GB17647@redhat.com>
+References: <20110504181813.GA17547@redhat.com>
+ <20110504223415.GA14819@gondor.apana.org.au>
+ <20110504232854.GA11687@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:46909 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753193Ab1EEIhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 04:37:23 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:1751 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752925Ab1EEIou (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2011 04:44:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20110504232854.GA11687@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixed bug to make sure 'pvid' retrieval will work on big endian hosts.
-Fixed incorrect comparison between the Rx Completion's 16-bit VLAN TCI
-and the PVID. Now comparing only the relevant 12 bits corresponding to
-the VID.
-Renamed 'vid' field under Rx Completion to 'vlan_tag' to reflect
-accurate description.
+On Thu, May 05, 2011 at 01:28:54AM +0200, Micha=C5=82 Miros=C5=82aw wro=
+te:
+> On Thu, May 05, 2011 at 08:34:15AM +1000, Herbert Xu wrote:
+> > On Wed, May 04, 2011 at 09:18:14PM +0300, Michael S. Tsirkin wrote:
+> > > BTW, I just noticed that net-next spits out
+> > > many of the following when I run any VMs:
+> > >=20
+> > > tap0: Dropping NETIF_F_SG since no checksum feature.
+> > > tap0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Features changed: 0x401b4849 -> 0x40004040
+> > > device msttap0 entered promiscuous mode
+> > > br0: Dropping NETIF_F_GSO since no SG feature.
+> > > br0: port 1(msttap0) entering forwarding state
+> > > br0: port 1(msttap0) entering forwarding state
+> > > tap0: Features changed: 0x40004040 -> 0x40024849
+> > > tap0: Dropping NETIF_F_SG since no checksum feature.
+> > > tap0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Features changed: 0x40024849 -> 0x40004040
+> > > br0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Dropping NETIF_F_SG since no checksum feature.
+> > > tap0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Dropping NETIF_F_SG since no checksum feature.
+> > > tap0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Dropping NETIF_F_SG since no checksum feature.
+> > > tap0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Dropping NETIF_F_SG since no checksum feature.
+> > > tap0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Features changed: 0x40004040 -> 0x401b4849
+> > > tap0: Dropping NETIF_F_SG since no checksum feature.
+> > > tap0: Dropping NETIF_F_GSO since no SG feature.
+> > > tap0: Features changed: 0x401b4849 -> 0x40004040
+> > > br0: Dropping NETIF_F_GSO since no SG feature.
+> > >=20
+> > > My problem is not primarily with warnings:
+> > >=20
+> > > will that linearize all packets and disable GSO
+> > > for tap and bridge? If yes it can't be good
+> > > for performance...
+> > I think so.  So the question is why is checksum off?
+>=20
+> Whatever application is creating the tap0 device is not calling
+> ioctl(TUNSETOFFLOAD) with TUN_F_CSUM set. This is userspace bug/featu=
+re
+> exposed by recent changes to netdev features handling.
+>=20
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/benet/be.h      |    2 +-
- drivers/net/benet/be_cmds.c |    2 +-
- drivers/net/benet/be_main.c |   18 ++++++++++++------
- 3 files changed, 14 insertions(+), 8 deletions(-)
+No, I think it's not a bug in userspace. Here is what it does:
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 66823ed..2353eca 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -213,7 +213,7 @@ struct be_rx_stats {
- 
- struct be_rx_compl_info {
- 	u32 rss_hash;
--	u16 vid;
-+	u16 vlan_tag;
- 	u16 pkt_size;
- 	u16 rxq_idx;
- 	u16 mac_id;
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 1e2d825..9dc9394 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -132,7 +132,7 @@ static void be_async_grp5_pvid_state_process(struct be_adapter *adapter,
- 		struct be_async_event_grp5_pvid_state *evt)
- {
- 	if (evt->enabled)
--		adapter->pvid = evt->tag;
-+		adapter->pvid = le16_to_cpu(evt->tag);
- 	else
- 		adapter->pvid = 0;
- }
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 02a0443..9187fb4 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -1018,7 +1018,8 @@ static void be_rx_compl_process(struct be_adapter *adapter,
- 			kfree_skb(skb);
- 			return;
- 		}
--		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp, rxcp->vid);
-+		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
-+					rxcp->vlan_tag);
- 	} else {
- 		netif_receive_skb(skb);
- 	}
-@@ -1076,7 +1077,8 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
- 	if (likely(!rxcp->vlanf))
- 		napi_gro_frags(&eq_obj->napi);
- 	else
--		vlan_gro_frags(&eq_obj->napi, adapter->vlan_grp, rxcp->vid);
-+		vlan_gro_frags(&eq_obj->napi, adapter->vlan_grp,
-+				rxcp->vlan_tag);
- }
- 
- static void be_parse_rx_compl_v1(struct be_adapter *adapter,
-@@ -1102,7 +1104,8 @@ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
- 	rxcp->pkt_type =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, cast_enc, compl);
- 	rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtm, compl);
--	rxcp->vid = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag, compl);
-+	rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
-+					compl);
- }
- 
- static void be_parse_rx_compl_v0(struct be_adapter *adapter,
-@@ -1128,7 +1131,8 @@ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
- 	rxcp->pkt_type =
- 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, cast_enc, compl);
- 	rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtm, compl);
--	rxcp->vid = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag, compl);
-+	rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
-+					compl);
- }
- 
- static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
-@@ -1155,9 +1159,11 @@ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
- 		rxcp->vlanf = 0;
- 
- 	if (!lancer_chip(adapter))
--		rxcp->vid = swab16(rxcp->vid);
-+		rxcp->vlan_tag = swab16(rxcp->vlan_tag);
- 
--	if ((adapter->pvid == rxcp->vid) && !adapter->vlan_tag[rxcp->vid])
-+	if (((adapter->pvid & VLAN_VID_MASK) ==
-+		(rxcp->vlan_tag & VLAN_VID_MASK)) &&
-+		!adapter->vlan_tag[rxcp->vlan_tag])
- 		rxcp->vlanf = 0;
- 
- 	/* As the compl has been parsed, reset it; we wont touch it again */
--- 
-1.5.6.1
+    /* Check if our kernel supports TUNSETOFFLOAD */
+    if (ioctl(fd, TUNSETOFFLOAD, 0) !=3D 0 && errno =3D=3D EINVAL) {
+        return;
+    }
 
+    if (csum) {
+        offload |=3D TUN_F_CSUM;
+        if (tso4)
+            offload |=3D TUN_F_TSO4;
+        if (tso6)
+            offload |=3D TUN_F_TSO6;
+        if ((tso4 || tso6) && ecn)
+            offload |=3D TUN_F_TSO_ECN;
+        if (ufo)
+            offload |=3D TUN_F_UFO;
+    }
+
+    if (ioctl(fd, TUNSETOFFLOAD, offload) !=3D 0) {
+        offload &=3D ~TUN_F_UFO;
+        if (ioctl(fd, TUNSETOFFLOAD, offload) !=3D 0) {
+            fprintf(stderr, "TUNSETOFFLOAD ioctl() failed: %s\n",
+                    strerror(errno));
+        }
+    }
+
+The first call is just to check that ioctl works.
+When checking for ioctl in this way, userspace clears checksum.
+This will clear SG and thus GSO; later userspace enables checksum.
+checksum is on but SG is by now disabled so GSO gets cleared again too.
+
+
+It's also likely a problem that
+userspace can trigger warnings in log for what used to be
+a legal way to check for ioctl and/or disable checksum offloading,
+but that is more minor.
+
+--=20
+MST
