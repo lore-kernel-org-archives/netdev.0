@@ -1,7 +1,8 @@
 From: Mahesh Bandewar <maheshb@google.com>
 Subject: [PATCHv2 1/2] net: Allow ethtool to set interface in loopback mode.
-Date: Wed,  4 May 2011 18:26:40 -0700
-Message-ID: <1304558800-15877-1-git-send-email-maheshb@google.com>
+Date: Wed,  4 May 2011 18:30:11 -0700
+Message-ID: <1304559011-15983-1-git-send-email-maheshb@google.com>
+References: <1304471935-402-2-git-send-email-maheshb@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
@@ -9,10 +10,11 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Mahesh Bandewar <maheshb@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:8423 "EHLO
+Received: from smtp-out.google.com ([216.239.44.51]:1477 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065Ab1EEB0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 21:26:54 -0400
+	with ESMTP id S1751706Ab1EEBaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 May 2011 21:30:21 -0400
+In-Reply-To: <1304471935-402-2-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
