@@ -1,74 +1,107 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 07/18] virtio ring: inline function to check for events
-Date: Thu, 5 May 2011 11:56:56 +0300
-Message-ID: <20110505085656.GC17647@redhat.com>
-References: <cover.1304541918.git.mst@redhat.com>
- <cc4596a5ecdbf8dd37b5567a36667e3841f18ca3.1304541919.git.mst@redhat.com>
- <BANLkTi=eH-iK7L2LBAm0eqidapqXqhSqxw@mail.gmail.com>
+Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
+Date: Thu, 5 May 2011 12:04:39 +0300
+Message-ID: <20110505090439.GD17647@redhat.com>
+References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com>
+ <20110504144622.GA15823@redhat.com>
+ <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com>
+ <20110504212359.GA21446@redhat.com>
+ <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>,
-	Carsten Otte <cotte@de.ibm.com>, lguest@lists.ozlabs.org,
-	Shirley Ma <xma@us.ibm.com>, kvm@vger.kernel.org,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
-	habanero@linux.vnet.ibm.com,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	virtualization@lists.linux-foundation.org, steved@us.ibm.com,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	linux390@de.ibm.com
-To: Stefan Hajnoczi <stefanha@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63345 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63500 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751744Ab1EEI5f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2011 04:57:35 -0400
+	id S1751744Ab1EEJE6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2011 05:04:58 -0400
 Content-Disposition: inline
-In-Reply-To: <BANLkTi=eH-iK7L2LBAm0eqidapqXqhSqxw@mail.gmail.com>
+In-Reply-To: <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 05, 2011 at 09:34:46AM +0100, Stefan Hajnoczi wrote:
-> On Wed, May 4, 2011 at 9:51 PM, Michael S. Tsirkin <mst@redhat.com> w=
-rote:
-> > With the new used_event and avail_event and features, both
-> > host and guest need similar logic to check whether events are
-> > enabled, so it helps to put the common code in the header.
+On Thu, May 05, 2011 at 01:33:14PM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 05/05/2011 02:53:59 AM:
+> 
+> > > Not "hope" exactly. If the device is not ready, then
+> > > the packet is requeued. The main idea is to avoid
+> > > drops/stop/starts, etc.
 > >
-> > Note that Xen has similar logic for notification hold-off
-> > in include/xen/interface/io/ring.h with req_event and req_prod
-> > corresponding to event_idx + 1 and new_idx respectively.
-> > +1 comes from the fact that req_event and req_prod in Xen start at =
-1,
-> > while event index in virtio starts at 0.
-> >
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> > =A0include/linux/virtio_ring.h | =A0 14 ++++++++++++++
-> > =A01 files changed, 14 insertions(+), 0 deletions(-)
-> >
-> > diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_rin=
-g.h
-> > index f791772..2a3b0ea 100644
-> > --- a/include/linux/virtio_ring.h
-> > +++ b/include/linux/virtio_ring.h
-> > @@ -124,6 +124,20 @@ static inline unsigned vring_size(unsigned int=
- num, unsigned long align)
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0+ sizeof(__u16) * 3 + sizeof(struct =
-vring_used_elem) * num;
-> > =A0}
-> >
-> > +/* The following is used with USED_EVENT_IDX and AVAIL_EVENT_IDX *=
-/
-> > +/* Assuming a given event_idx value from the other size, if
->=20
-> s/other size/other side/ ?
->=20
-> Stefan
+> > Yes, I see that, definitely. I guess it's a win if the
+> > interrupt takes at least a jiffy to arrive anyway,
+> > and a loss if not. Is there some reason interrupts
+> > might be delayed until the next jiffy?
+> 
+> I can explain this a bit as I have three debug counters
+> in start_xmit() just for this:
+> 
+> 1. Whether the current xmit call was good, i.e. we had
+>    returned BUSY last time and this xmit was successful.
+> 2. Whether the current xmit call was bad, i.e. we had
+>    returned BUSY last time and this xmit still failed.
+> 3. The free capacity when we *resumed* xmits. This is
+>    after calling free_old_xmit_skbs where this function
+>    is not throttled, in effect it processes *all* the
+>    completed skbs. This counter is a sum:
+> 
+>    if (If_I_had_returned_EBUSY_last_iteration)
+>        free_slots += virtqueue_get_capacity();
+> 
+> The counters after a 30 min run of 1K,2K,16K netperf
+> sessions are:
+> 
+> Good:          1059172
+> Bad:           31226
+> Sum of slots:  47551557
+> 
+> (Total of Good+Bad tallies with the total number of requeues
+> as shown by tc:
+> 
+> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1
+> 1 1 1 1
+>  Sent 1560854473453 bytes 1075873684 pkt (dropped 718379, overlimits 0
+> requeues 1090398)
+>  backlog 0b 0p requeues 1090398
+> )
+> 
+> It shows that 2.9% of the time, the 1 jiffy was not enough
+> to free up space in the txq.
 
-Exactly. Good catch, thanks.
+How common is it to free up space in *less than* 1 jiffy?
 
---=20
+> That could also mean that we
+> had set xmit_restart just before jiffies changed. But the
+> average free capacity when we *resumed* xmits is:
+> Sum of slots / (Good + Bad) = 43.
+> 
+> So the delay of 1 jiffy helped the host clean up, on average,
+> just 43 entries, which is 16% of total entries. This is
+> intended to show that the guest is not sitting idle waiting
+> for the jiffy to expire.
+
+OK, nice, this is exactly what my patchset is trying
+to do, without playing with timers: tell the host
+to interrupt us after 3/4 of the ring is free.
+Why 3/4 and not all of the ring? My hope is we can
+get some parallelism with the host this way.
+Why 3/4 and not 7/8? No idea :)
+
+> > > > I can post it, mind testing this?
+> > >
+> > > Sure.
+> >
+> > Just posted. Would appreciate feedback.
+> 
+> Do I need to apply all the patches and simply test?
+> 
+> Thanks,
+> 
+> - KK
+
+Exactly. You can also try to tune the threshold
+for interrupts as well.
+
+-- 
 MST
