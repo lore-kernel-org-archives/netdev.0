@@ -1,116 +1,267 @@
-From: Seth Forshee <seth.forshee@canonical.com>
-Subject: Re: ath5k regression associating with APs in 2.6.38
-Date: Thu, 5 May 2011 09:54:30 -0500
-Message-ID: <20110505145430.GB13727@thinkpad-t410>
-References: <20110504153819.GA4551@thinkpad-t410>
- <20110504172716.GC18541@tuxdriver.com>
- <20110504192639.GB4551@thinkpad-t410>
- <BANLkTimEmBRyxbZgffJMrH4TTc4f6peuTg@mail.gmail.com>
- <20110505135207.GA13727@thinkpad-t410>
- <BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ARM, AF_PACKET: caching problems on Marvell Kirkwood
+Date: Thu, 05 May 2011 16:56:02 +0200
+Message-ID: <1304607362.3032.84.camel@edumazet-laptop>
+References: <20110408130643.GA8730@orbit.nwl.cc>
+	 <20110505141107.GC30443@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nick Kossifidis <mickflemm@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	ne@erfurth.eu, Johann Baudy <johann.baudy@gnu-log.net>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Nicolas Pitre <nico@fluxnic.net>
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56403 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753160Ab1EEO4G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 10:56:06 -0400
+Received: by wya21 with SMTP id 21so1679216wya.19
+        for <netdev@vger.kernel.org>; Thu, 05 May 2011 07:56:05 -0700 (PDT)
+In-Reply-To: <20110505141107.GC30443@orbit.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 05, 2011 at 05:30:42PM +0300, Nick Kossifidis wrote:
-> Hmm I don't see any errors from reset/phy code, can you disable
-> Network Manager/wpa-supplicant and test connection on an open network
-> using iw ? It 'll give us a better picture...
-> 
-> If iw doesn't return any scan results we are probably hitting a PHY/RF
-> error specific to your device (not all vendors follow the reference
-> design). Maybe we should follow a blacklist/whitelist approach for
-> this feature.
+Le jeudi 05 mai 2011 =C3=A0 16:11 +0200, Phil Sutter a =C3=A9crit :
+> Hi,
+>=20
+> Hasn't anyone experienced this bug but me? Can anyone reproduce the
+> described behaviour on his Kirkwood-based (or even generic ARM) machi=
+ne?
+> I am still not sure if this is a problem of just my CPU or common
+> amongst Kirkwood/VIPT/ARM machines.
+>=20
+> My workaround looks like this:
+> | diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> | index b5362e9..0672f50 100644
+> | --- a/net/packet/af_packet.c
+> | +++ b/net/packet/af_packet.c
+> | @@ -1298,10 +1298,13 @@ static int packet_sendmsg(struct kiocb *ioc=
+b, struct socket *sock,
+> |  {
+> |         struct sock *sk =3D sock->sk;
+> |         struct packet_sock *po =3D pkt_sk(sk);
+> | -       if (po->tx_ring.pg_vec)
+> | -               return tpacket_snd(po, msg);
+> | -       else
+> | -               return packet_snd(sock, msg, len);
+> | +       int rc;
+> | +
+> | +       flush_cache_all();
+> | +       rc =3D po->tx_ring.pg_vec ? tpacket_snd(po, msg) :
+> | +                       packet_snd(sock, msg, len);
+> | +       flush_cache_all();
+> | +       return rc;
+> |  }
+> | =20
+> |  /*
+>=20
+> Greetings, Phil
+>=20
+> (Full-quoting here because I've added the TX ring author and the Kirk=
+wood
+> maintainers to Cc.)
+>=20
+> On Fri, Apr 08, 2011 at 03:06:43PM +0200, Phil Sutter wrote:
+> > Dear lists,
+> >=20
+> > I am experiencing severe caching issues using the TX_RING feature o=
+f
+> > AF_PACKET on a Kirkwood-based system (i.e., OpenRD). This may likel=
+y be
+> > a bug of the CPU/SoC itself, at least it reacts a bit picky when us=
+ing
+> > the preload data instruction (pld) in rather useless cases (but tha=
+t's a
+> > different story).
+> >=20
+> > There is simple testing code at the end of this email, effectively =
+just
+> > preparing a packet in the TX_RING and triggering it's delivery once=
+ per
+> > second. The experienced symptom is that sporadically nothing goes o=
+ut in
+> > one iteration, and two packets in the following one.
+> >=20
+> > It looks like the kernel doesn't get the changed value of tp_status=
+ in
+> > time, although userspace sees the correct value. Note that moving t=
+he
+> > sleep(1) from the end of the loop to just before calling sendto() f=
+ixes
+> > the problem.
+> >=20
+> > Another (more useful) workaround is to call flush_cache_all() at th=
+e
+> > beginning of packet_sendmsg() in net/packet/af_packet.c. I was not =
+able
+> > to fix this with some more specific flushing at that place. Anyway,=
+ the
+> > call to flush_dcache_page() from __packet_get_status() in the same
+> > source file is meant to do the trick I guess. But somehow doesn't.
+> >=20
+> > Feedback regardles of which kind is highly appreciated, of course!
+> >=20
+> > Greetings, Phil
+> >=20
+> > ------------------[start of packet_mmap_test.c]--------------------
+> > #include <stdint.h>
+> > #include <stdio.h>
+> > #include <stdlib.h>
+> > #include <string.h>
+> > #include <linux/if_ether.h>
+> > #include <linux/if_packet.h>
+> > #include <net/if.h>
+> > #include <sys/ioctl.h>
+> > #include <sys/mman.h>
+> > #include <sys/socket.h>
+> > #include <sys/types.h>
+> >=20
+> > #define PERROR_EXIT(rc, mesg) { \
+> > 	perror(mesg); \
+> > 	return rc; \
+> > }
+> >=20
+> > int main(void)
+> > {
+> > 	uint32_t size;
+> > 	struct sockaddr_ll sa;
+> > 	struct ifreq ifr;
+> > 	int index;
+> > 	int tmp;
+> > 	int fd;
+> > 	struct tpacket_req packet_req;
+> > 	struct tpacket2_hdr * ps_header_start, *ps_header;
+> >=20
+> > 	if ((fd =3D socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL))) < 0)
+> > 		PERROR_EXIT(EXIT_FAILURE, "socket");
+> >=20
+> > 	/* retrieve eth0's interface index number */
+> > 	strncpy (ifr.ifr_name, "eth0", sizeof(ifr.ifr_name));
+> > 	if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0)
+> > 		PERROR_EXIT(EXIT_FAILURE, "ioctl(SIOCGIFINDEX)");
+> >=20
+> > 	/* set sockaddr info */
+> > 	memset(&sa, 0, sizeof(sa));
+> > 	sa.sll_family =3D AF_PACKET;
+> > 	sa.sll_protocol =3D ETH_P_ALL;
+> > 	sa.sll_ifindex =3D ifr.ifr_ifindex;
+> >=20
+> > 	/* bind port */
+> > 	if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0)
+> > 		PERROR_EXIT(EXIT_FAILURE, "bind()");
+> >=20
+> > 	tmp =3D TPACKET_V2;
+> > 	if (setsockopt(fd, SOL_PACKET, PACKET_VERSION, &tmp, sizeof(tmp)) =
+< 0)
+> > 		PERROR_EXIT(EXIT_FAILURE, "setsockopt(PACKET_VERSION)");
+> >=20
+> > 	/* set packet loss option */
+> > 	tmp =3D 1;
+> > 	if (setsockopt(fd, SOL_PACKET, PACKET_LOSS, &tmp, sizeof(tmp)) < 0=
+)
+> > 		PERROR_EXIT(EXIT_FAILURE, "setsockopt(PACKET_LOSS)");
+> >=20
+> > 	/* prepare Tx ring request */
+> > 	packet_req.tp_block_size =3D 1024 * 8;
+> > 	packet_req.tp_frame_size =3D 1024 * 8;
+> > 	packet_req.tp_block_nr =3D 1024;
+> > 	packet_req.tp_frame_nr =3D 1024;
+> >=20
+> > 	/* send TX ring request */
+> > 	if (setsockopt(fd, SOL_PACKET, PACKET_TX_RING,
+> > 	               &packet_req, sizeof(packet_req)) < 0)
+> > 		PERROR_EXIT(EXIT_FAILURE, "setsockopt: PACKET_TX_RING");
+> >=20
+> > 	/* calculate memory to mmap in the kernel */
+> > 	size =3D packet_req.tp_block_size * packet_req.tp_block_nr;
+> >=20
+> > 	/* mmap Tx ring buffers memory */
+> > 	ps_header_start =3D mmap(0, size,
+> > 			PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+> > 	if (ps_header_start < 0)
+> > 		PERROR_EXIT(EXIT_FAILURE, "mmap");
+> >=20
+> > 	/* fill peer sockaddr for SOCK_DGRAM */
+> > 	sa.sll_family =3D AF_PACKET;
+> > 	sa.sll_protocol =3D htons(ETH_P_IP);
+> > 	sa.sll_ifindex =3D ifr.ifr_ifindex;
+> > 	sa.sll_halen =3D ETH_ALEN;
+> > 	memset(&sa.sll_addr, 0xff, ETH_ALEN);
+> >=20
+> > 	ps_header =3D ps_header_start;
+> > 	while (1) {
+> > 		int sendlen, j;
+> >=20
+> > 		char *data =3D (void*)ps_header + TPACKET_HDRLEN
+> > 		              - sizeof(struct sockaddr_ll);
+> >=20
+> > 		switch((volatile uint32_t)ps_header->tp_status)
+> > 		{
+> > 		case TP_STATUS_AVAILABLE:
+> > 			memset(data, 0x23, 150);
+> > 			break;
+> >=20
+> > 		case TP_STATUS_WRONG_FORMAT:
+> > 			printf("An error has occured during transfer\n");
+> > 			exit(EXIT_FAILURE);
+> > 			break;
+> >=20
+> > 		default:
+> > 			printf("Buffer is not available, aborting\n");
+> > 			exit(1);
+> > 			break;
+> > 		}
+> > 		ps_header->tp_len =3D 150;
+> > 		ps_header->tp_status =3D TP_STATUS_SEND_REQUEST;
+> >=20
+> > 		sendlen =3D sendto(fd, NULL, 0, 0,
+> > 				(struct sockaddr *)&sa, sizeof(sa));
+> > 		if (sendlen < 0)
+> > 			perror("sendto");
+> > 		else if (sendlen =3D=3D 0)
+> > 			printf("sendto(): nothing sent!\n");
+> > 		else
+> > 			printf("sendto(): sent %d bytes out\n", sendlen);
+> >=20
+> > #define ST_IS(x) ((volatile uint32_t)ps_header->tp_status =3D=3D x)
+> > 		printf("tp_status after sending: %s\n",
+> > 				ST_IS(TP_STATUS_AVAILABLE) ? "AVAILABLE" :
+> > 				ST_IS(TP_STATUS_SEND_REQUEST) ? "SEND_REQUEST" :
+> > 				ST_IS(TP_STATUS_WRONG_FORMAT) ? "WRONG_FORMAT" :
+> > 				"unknown");
+> > #undef ST_IS
+> >=20
+> > 		ps_header =3D (void *)ps_header + packet_req.tp_frame_size;
+> > 		if (ps_header >=3D ps_header_start + size)
+> > 			ps_header =3D ps_header_start;
+> >=20
+> > 		sleep(1);
+> > 	}
+> > 	return 0;
+> > }
+> > --------------------[end of packet_mmap_test.c]--------------------
 
-Will do. I just got another log from my tester, which is more typical of
-what he's been getting. I've pasted a portion of it below. The full log
-can be viewed at
+Hi Phil
 
-https://launchpadlibrarian.net/71137619/20110504_020639rc6%23201105050227_boot4_syslog
+I assume you use latest linux-2.6 or net-next-2.6 ?
 
-Thanks,
-Seth
+Could you try to force vmalloc() use ?
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index b5362e9..0b5a89c 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2383,7 +2383,7 @@ static inline char *alloc_one_pg_vec_page(unsigne=
+d long order)
+ 	gfp_t gfp_flags =3D GFP_KERNEL | __GFP_COMP |
+ 			  __GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY;
+=20
+-	buffer =3D (char *) __get_free_pages(gfp_flags, order);
++	buffer =3D NULL;
+=20
+ 	if (buffer)
+ 		return buffer;
 
 
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): new 802.11 WiFi device (driver: 'ath5k' ifindex: 3)
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): exported as /org/freedesktop/NetworkManager/Devices/1
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): now managed
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): device state change: 1 -> 2 (reason 2)
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): bringing up device.
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): preparing device.
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): deactivating device (reason: 2).
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: supplicant_interface_acquire: assertion `mgr_state == NM_SUPPLICANT_MANAGER_STATE_IDLE' failed
-May  5 08:57:16 AcerAspire5100 kernel: [   25.844302] ADDRCONF(NETDEV_UP): wlan0: link is not ready
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> modem-manager is now available
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <warn> bluez error getting default adapter: The name org.bluez was not provided by any .service files
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> Trying to start the supplicant...
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant manager state:  down -> idle
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): device state change: 2 -> 3 (reason 0)
-May  5 08:57:16 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant interface state:  starting -> ready
-...
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) starting connection 'Auto aureola'
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> (wlan0): device state change: 3 -> 4 (reason 0)
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 1 of 5 (Device Prepare) scheduled...
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 1 of 5 (Device Prepare) started...
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 2 of 5 (Device Configure) scheduled...
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 1 of 5 (Device Prepare) complete.
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 2 of 5 (Device Configure) starting...
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> (wlan0): device state change: 4 -> 5 (reason 0)
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0/wireless): access point 'Auto aureola' has security, but secrets are required.
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> (wlan0): device state change: 5 -> 6 (reason 0)
-May  5 08:57:38 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 2 of 5 (Device Configure) complete.
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 1 of 5 (Device Prepare) scheduled...
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 1 of 5 (Device Prepare) started...
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> (wlan0): device state change: 6 -> 4 (reason 0)
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 2 of 5 (Device Configure) scheduled...
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 1 of 5 (Device Prepare) complete.
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 2 of 5 (Device Configure) starting...
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> (wlan0): device state change: 4 -> 5 (reason 0)
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0/wireless): connection 'Auto aureola' has security, and secrets exist.  No new secrets needed.
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Config: added 'ssid' value 'aureola'
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Config: added 'scan_ssid' value '1'
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Config: added 'key_mgmt' value 'WPA-PSK'
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Config: added 'psk' value '<omitted>'
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: nm_setting_802_1x_get_pkcs11_engine_path: assertion `NM_IS_SETTING_802_1X (setting)' failed
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: nm_setting_802_1x_get_pkcs11_module_path: assertion `NM_IS_SETTING_802_1X (setting)' failed
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Activation (wlan0) Stage 2 of 5 (Device Configure) complete.
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> Config: set interface ap_scan to 1
-May  5 08:57:39 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant connection state:  inactive -> scanning
-May  5 08:57:41 AcerAspire5100 wpa_supplicant[734]: Trying to associate with c0:3f:0e:b9:f3:b2 (SSID='aureola' freq=2452 MHz)
-May  5 08:57:41 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant connection state:  scanning -> associating
-May  5 08:57:41 AcerAspire5100 kernel: [   51.261113] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 1/3)
-May  5 08:57:41 AcerAspire5100 kernel: [   51.460049] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 2/3)
-May  5 08:57:41 AcerAspire5100 kernel: [   51.660091] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 3/3)
-May  5 08:57:42 AcerAspire5100 kernel: [   51.860048] wlan0: direct probe to c0:3f:0e:b9:f3:b2 timed out
-May  5 08:57:51 AcerAspire5100 wpa_supplicant[734]: Authentication with c0:3f:0e:b9:f3:b2 timed out.
-May  5 08:57:51 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant connection state:  associating -> disconnected
-May  5 08:57:51 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant connection state:  disconnected -> scanning
-May  5 08:57:51 AcerAspire5100 kernel: [   61.396045] ath5k phy0: (ath5k_chan_set:434): channel set, resetting (2452 -> 2412 MHz)
-May  5 08:57:51 AcerAspire5100 kernel: [   61.396051] ath5k phy0: (ath5k_reset:2648): resetting
-May  5 08:57:51 AcerAspire5100 kernel: [   61.397135] ath5k phy0: (ath5k_rx_start:1099): cachelsz 32 rx_bufsize 2368
-May  5 08:57:51 AcerAspire5100 kernel: [   61.452053] ath5k phy0: (ath5k_chan_set:434): channel set, resetting (2412 -> 2417 MHz)
-May  5 08:57:51 AcerAspire5100 kernel: [   61.452059] ath5k phy0: (ath5k_reset:2648): resetting
-May  5 08:57:51 AcerAspire5100 kernel: [   61.453143] ath5k phy0: (ath5k_rx_start:1099): cachelsz 32 rx_bufsize 2368
-May  5 08:57:51 AcerAspire5100 kernel: [   61.508053] ath5k phy0: (ath5k_chan_set:434): channel set, resetting (2417 -> 2422 MHz)
-May  5 08:57:51 AcerAspire5100 kernel: [   61.508059] ath5k phy0: (ath5k_reset:2648): resetting
-May  5 08:57:51 AcerAspire5100 kernel: [   61.509143] ath5k phy0: (ath5k_rx_start:1099): cachelsz 32 rx_bufsize 2368
-May  5 08:57:51 AcerAspire5100 kernel: [   61.564045] ath5k phy0: (ath5k_chan_set:434): channel set, resetting (2422 -> 2427 MHz)
-May  5 08:57:52 AcerAspire5100 wpa_supplicant[734]: Trying to associate with c0:3f:0e:b9:f3:b2 (SSID='aureola' freq=2452 MHz)
-May  5 08:57:52 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant connection state:  scanning -> associating
-May  5 08:57:52 AcerAspire5100 kernel: [   62.364741] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 1/3)
-May  5 08:57:52 AcerAspire5100 kernel: [   62.564061] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 2/3)
-May  5 08:57:53 AcerAspire5100 kernel: [   62.764058] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 3/3)
-May  5 08:57:53 AcerAspire5100 kernel: [   62.964061] wlan0: direct probe to c0:3f:0e:b9:f3:b2 timed out
-May  5 08:58:02 AcerAspire5100 wpa_supplicant[734]: Authentication with c0:3f:0e:b9:f3:b2 timed out.
-May  5 08:58:02 AcerAspire5100 NetworkManager[703]: <info> (wlan0): supplicant connection state:  associating -> disconnected
