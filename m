@@ -1,91 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
-Date: Thu, 5 May 2011 13:12:29 +0300
-Message-ID: <20110505101229.GA28690@redhat.com>
-References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com>
- <20110504144622.GA15823@redhat.com>
- <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com>
- <20110504212359.GA21446@redhat.com>
- <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com>
- <20110505090439.GD17647@redhat.com>
- <OF057406D7.B63B52F4-ON65257887.00344787-65257887.003532EF@in.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH] stmmac: removed not used definitions
+Date: Thu,  5 May 2011 12:10:50 +0200
+Message-ID: <1304590250-9434-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64444 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753510Ab1EEKMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2011 06:12:49 -0400
-Content-Disposition: inline
-In-Reply-To: <OF057406D7.B63B52F4-ON65257887.00344787-65257887.003532EF@in.ibm.com>
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:46733 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753587Ab1EEKcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 06:32:04 -0400
+Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 4755F13C
+	for <netdev@vger.kernel.org>; Thu,  5 May 2011 10:11:13 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id EE0E72C8E
+	for <netdev@vger.kernel.org>; Thu,  5 May 2011 10:11:12 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 05, 2011 at 03:13:43PM +0530, Krishna Kumar2 wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 05/05/2011 02:34:39 PM:
-> 
-> > > It shows that 2.9% of the time, the 1 jiffy was not enough
-> > > to free up space in the txq.
-> >
-> > How common is it to free up space in *less than* 1 jiffy?
-> 
-> True,
+Reported-by: Karim Hamiti <karim.hamiti@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/stmmac/stmmac_main.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-Sorry, which statement do you say is true? That interrupt
-after less than 1 jiffy is common?
-
-> but the point is that the space freed is just
-> enough for 43 entries, keeping it lower means a flood
-> of (psuedo) stop's and restart's.
-> 
-> > > That could also mean that we
-> > > had set xmit_restart just before jiffies changed. But the
-> > > average free capacity when we *resumed* xmits is:
-> > > Sum of slots / (Good + Bad) = 43.
-> > >
-> > > So the delay of 1 jiffy helped the host clean up, on average,
-> > > just 43 entries, which is 16% of total entries. This is
-> > > intended to show that the guest is not sitting idle waiting
-> > > for the jiffy to expire.
-> >
-> > OK, nice, this is exactly what my patchset is trying
-> > to do, without playing with timers: tell the host
-> > to interrupt us after 3/4 of the ring is free.
-> > Why 3/4 and not all of the ring? My hope is we can
-> > get some parallelism with the host this way.
-> > Why 3/4 and not 7/8? No idea :)
-> >
-> > > > > > I can post it, mind testing this?
-> > > > >
-> > > > > Sure.
-> > > >
-> > > > Just posted. Would appreciate feedback.
-> > >
-> > > Do I need to apply all the patches and simply test?
-> > >
-> > > Thanks,
-> > >
-> > > - KK
-> >
-> > Exactly. You can also try to tune the threshold
-> > for interrupts as well.
-> 
-> Could you send me (privately) the entire virtio-net/vhost
-> patch in a single file? It will help me quite a bit :)
-> Either attachment or inline is fine.
-> 
-> thanks,
-> 
-> - KK
-
-Better yet, here they are in git:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next-event-idx-v1
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git virtio-net-event-idx-v1
-
-
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index cc973fc..4ca9203 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -116,9 +116,6 @@ static int tc = TC_DEFAULT;
+ module_param(tc, int, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(tc, "DMA threshold control value");
+ 
+-#define RX_NO_COALESCE	1	/* Always interrupt on completion */
+-#define TX_NO_COALESCE	-1	/* No moderation by default */
+-
+ /* Pay attention to tune this parameter; take care of both
+  * hardware capability and network stabitily/performance impact.
+  * Many tests showed that ~4ms latency seems to be good enough. */
 -- 
-MST
+1.7.4.4
+
