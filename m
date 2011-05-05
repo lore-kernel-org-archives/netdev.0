@@ -1,7 +1,7 @@
 From: y@vger.kernel.org
 Subject: [RFC v4 01/11] lsm: add security_socket_closed()
 Date: Thu,  5 May 2011 15:59:11 +0200
-Message-ID: <8097.28833050958$1304604429@news.gmane.org>
+Message-ID: <20999.8822575018$1304604446@news.gmane.org>
 References: <1304603961-2517-1-git-send-email-y>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -9,14 +9,10 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 236.121.91-79.rev.gaoland.net ([79.91.121.236]:43792 "EHLO
-	mx.synack.fr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754575Ab1EEOGz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2011 10:06:55 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304603961-2517-1-git-send-email-y>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Samir Bellabes <sam@synack.fr>
 
@@ -125,4 +121,3 @@ index 1011423..84187d8 100644
  	return security_ops->socket_sock_rcv_skb(sk, skb);
 -- 
 1.7.4.1
-
