@@ -1,111 +1,99 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Thu, 5 May 2011 11:44:28 +0300
-Message-ID: <20110505084428.GB17647@redhat.com>
-References: <20110504181813.GA17547@redhat.com>
- <20110504223415.GA14819@gondor.apana.org.au>
- <20110504232854.GA11687@rere.qmqm.pl>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH 2/2 net-next] net: drivers: set TSO/UFO offload option
+ explicitly
+Date: Thu, 05 May 2011 16:51:59 +0800
+Message-ID: <4DC2652F.9080709@cn.fujitsu.com>
+References: <4DBA4DF5.5020101@cn.fujitsu.com> <BANLkTikckKWTBY0udurXi09UhdqOUExk6A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, rusty@rustcorp.com.au,
+	mst@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	mirq-linux@rere.qmqm.pl, bhutchings@solarflare.com, dm@chelsio.com
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1751 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752925Ab1EEIou (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2011 04:44:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20110504232854.GA11687@rere.qmqm.pl>
+Received: from cn.fujitsu.com ([222.73.24.84]:59146 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753155Ab1EEIzv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 04:55:51 -0400
+In-Reply-To: <BANLkTikckKWTBY0udurXi09UhdqOUExk6A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 05, 2011 at 01:28:54AM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> On Thu, May 05, 2011 at 08:34:15AM +1000, Herbert Xu wrote:
-> > On Wed, May 04, 2011 at 09:18:14PM +0300, Michael S. Tsirkin wrote:
-> > > BTW, I just noticed that net-next spits out
-> > > many of the following when I run any VMs:
-> > >=20
-> > > tap0: Dropping NETIF_F_SG since no checksum feature.
-> > > tap0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Features changed: 0x401b4849 -> 0x40004040
-> > > device msttap0 entered promiscuous mode
-> > > br0: Dropping NETIF_F_GSO since no SG feature.
-> > > br0: port 1(msttap0) entering forwarding state
-> > > br0: port 1(msttap0) entering forwarding state
-> > > tap0: Features changed: 0x40004040 -> 0x40024849
-> > > tap0: Dropping NETIF_F_SG since no checksum feature.
-> > > tap0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Features changed: 0x40024849 -> 0x40004040
-> > > br0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Dropping NETIF_F_SG since no checksum feature.
-> > > tap0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Dropping NETIF_F_SG since no checksum feature.
-> > > tap0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Dropping NETIF_F_SG since no checksum feature.
-> > > tap0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Dropping NETIF_F_SG since no checksum feature.
-> > > tap0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Features changed: 0x40004040 -> 0x401b4849
-> > > tap0: Dropping NETIF_F_SG since no checksum feature.
-> > > tap0: Dropping NETIF_F_GSO since no SG feature.
-> > > tap0: Features changed: 0x401b4849 -> 0x40004040
-> > > br0: Dropping NETIF_F_GSO since no SG feature.
-> > >=20
-> > > My problem is not primarily with warnings:
-> > >=20
-> > > will that linearize all packets and disable GSO
-> > > for tap and bridge? If yes it can't be good
-> > > for performance...
-> > I think so.  So the question is why is checksum off?
+Micha=C5=82 Miros=C5=82aw wrote, at 05/04/2011 08:36 PM:
+> 2011/4/29 Shan Wei <shanwei@cn.fujitsu.com>:
+>> The device drivers should not use NETIF_F_ALL_TSO mask to set hw_fea=
+tures(or features),
+>> but have to explicitly set offload option. Because, This would make =
+drivers automatically
+>> clain to support any new TSO feature an the moment of NETIF_F_ALL_TS=
+O is expanded.
+>>
+>> Some code style tuning. Just compile test.
+>>
+>> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+>> ---
+>>  drivers/net/loopback.c   |   18 ++++++++----------
+>>  drivers/net/virtio_net.c |    9 ++++++---
+>>  2 files changed, 14 insertions(+), 13 deletions(-)
+>>
+>> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+>> index d70fb76..bfb6a4a 100644
+>> --- a/drivers/net/loopback.c
+>> +++ b/drivers/net/loopback.c
+>> @@ -152,6 +152,9 @@ static const struct net_device_ops loopback_ops =
+=3D {
+>>        .ndo_get_stats64 =3D loopback_get_stats64,
+>>  };
+>>
+>> +#define LOOPBACK_USER_FEATURES (NETIF_F_TSO | NETIF_F_TSO_ECN | \
+>> +                               NETIF_F_TSO6 | NETIF_F_UFO)
+>> +
+>>  /*
+>>  * The loopback device is special. There is only one instance
+>>  * per network namespace.
+>> @@ -165,16 +168,11 @@ static void loopback_setup(struct net_device *=
+dev)
+>>        dev->type               =3D ARPHRD_LOOPBACK;      /* 0x0001*/
+>>        dev->flags              =3D IFF_LOOPBACK;
+>>        dev->priv_flags        &=3D ~IFF_XMIT_DST_RELEASE;
+>> -       dev->hw_features        =3D NETIF_F_ALL_TSO | NETIF_F_UFO;
+>> -       dev->features           =3D NETIF_F_SG | NETIF_F_FRAGLIST
+>> -               | NETIF_F_ALL_TSO
+>> -               | NETIF_F_UFO
+>> -               | NETIF_F_NO_CSUM
+>> -               | NETIF_F_RXCSUM
+>> -               | NETIF_F_HIGHDMA
+>> -               | NETIF_F_LLTX
+>> -               | NETIF_F_NETNS_LOCAL
+>> -               | NETIF_F_VLAN_CHALLENGED;
+>> +       dev->hw_features        =3D LOOPBACK_USER_FEATURES;
+>> +       dev->features           =3D NETIF_F_SG | NETIF_F_FRAGLIST
+>> +               | LOOPBACK_USER_FEATURES | NETIF_F_NO_CSUM | NETIF_F=
+_RXCSUM
+>> +               | NETIF_F_HIGHDMA | NETIF_F_LLTX
+>> +               | NETIF_F_NETNS_LOCAL | NETIF_F_VLAN_CHALLENGED;
+>>        dev->ethtool_ops        =3D &loopback_ethtool_ops;
+>>        dev->header_ops         =3D &eth_header_ops;
+>>        dev->netdev_ops         =3D &loopback_ops;
 >=20
-> Whatever application is creating the tap0 device is not calling
-> ioctl(TUNSETOFFLOAD) with TUN_F_CSUM set. This is userspace bug/featu=
-re
-> exposed by recent changes to netdev features handling.
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
+> You can add NETIF_F_HIGHDMA and NETIF_F_NO_CSUM to
+> LOOPBACK_USER_FEATURES in one go. NETIF_F_RXCSUM could match
+> NETIF_F_NO_CSUM state (this needs ndo_fix_features callback), but thi=
+s
+> won't have much real functional impact.
 
-No, I think it's not a bug in userspace. Here is what it does:
+Do you mean that defining LOOPBACK_USER_FEATURES as:
+#define LOOPBACK_USER_FEATURES (NETIF_F_TSO | NETIF_F_TSO_ECN | \
+                               NETIF_F_TSO6 | NETIF_F_UFO | NETIF_F_HIG=
+HDMA | NETIF_F_NO_CSUM)
 
-    /* Check if our kernel supports TUNSETOFFLOAD */
-    if (ioctl(fd, TUNSETOFFLOAD, 0) !=3D 0 && errno =3D=3D EINVAL) {
-        return;
-    }
-
-    if (csum) {
-        offload |=3D TUN_F_CSUM;
-        if (tso4)
-            offload |=3D TUN_F_TSO4;
-        if (tso6)
-            offload |=3D TUN_F_TSO6;
-        if ((tso4 || tso6) && ecn)
-            offload |=3D TUN_F_TSO_ECN;
-        if (ufo)
-            offload |=3D TUN_F_UFO;
-    }
-
-    if (ioctl(fd, TUNSETOFFLOAD, offload) !=3D 0) {
-        offload &=3D ~TUN_F_UFO;
-        if (ioctl(fd, TUNSETOFFLOAD, offload) !=3D 0) {
-            fprintf(stderr, "TUNSETOFFLOAD ioctl() failed: %s\n",
-                    strerror(errno));
-        }
-    }
-
-The first call is just to check that ioctl works.
-When checking for ioctl in this way, userspace clears checksum.
-This will clear SG and thus GSO; later userspace enables checksum.
-checksum is on but SG is by now disabled so GSO gets cleared again too.
-
-
-It's also likely a problem that
-userspace can trigger warnings in log for what used to be
-a legal way to check for ioctl and/or disable checksum offloading,
-but that is more minor.
+Is it necessary to add NETIF_F_NO_CSUM to hw_features?
+After that, user can change TX hw csum offload(NETIF_F_NO_CSUM is disab=
+led). But, this is not surportted before.
 
 --=20
-MST
+Best Regards
+-----
+Shan Wei
