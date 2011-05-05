@@ -1,7 +1,7 @@
 From: y@vger.kernel.org
-Subject: [RFC v4 07/11] snet: introduce snet_verdict
-Date: Thu,  5 May 2011 15:59:17 +0200
-Message-ID: <13842.0987096199$1304604544@news.gmane.org>
+Subject: [RFC v4 10/11] snet: introduce snet_stats
+Date: Thu,  5 May 2011 15:59:20 +0200
+Message-ID: <44680.7074397386$1304604544@news.gmane.org>
 References: <1304603961-2517-1-git-send-email-y>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -10,273 +10,161 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 236.121.91-79.rev.gaoland.net ([79.91.121.236]:43800 "EHLO
+Received: from 236.121.91-79.rev.gaoland.net ([79.91.121.236]:43801 "EHLO
 	mx.synack.fr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754671Ab1EEOHA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 May 2011 10:07:00 -0400
+	id S1754673Ab1EEOG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2011 10:06:59 -0400
 In-Reply-To: <1304603961-2517-1-git-send-email-y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Samir Bellabes <sam@synack.fr>
 
-This patch adds the snet's subsystem responsive of managing verdicts
+this patch adds a /proc/snet/snet_stats entry to show statistics about
+snet. this patch adds also the functions to manage the statistics.
 
-snet is using the word 'verdict' for the returning value of LSM hooks.
-Different states exist (grant/deny/pending/none).
-
-This patch introduces a hashtable 'verdict_hash' and operations (set/get/search..)
-in order to manage verdicts. Syscalls are waiting, inside a classical waitqueue,
-for theirs verdicts or for a timeout. Timeout value and the default verdict
-policy are configurable at boot or by the snet_netlink subsystem.
-With the help of the communication's subsystem, verdicts are coming from userspace
-
-Signed-off-by: Samir Bellabes <sam@synack.fr>
+ Signed-off-by: Samir Bellabes <sam@synack.fr>
 ---
- security/snet/snet_verdict.c |  203 ++++++++++++++++++++++++++++++++++++++++++
- security/snet/snet_verdict.h |   23 +++++
- 2 files changed, 226 insertions(+), 0 deletions(-)
- create mode 100644 security/snet/snet_verdict.c
- create mode 100644 security/snet/snet_verdict.h
+ security/snet/snet_stats.c |   65 ++++++++++++++++++++++++++++++++++++++++++++
+ security/snet/snet_stats.h |   57 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 122 insertions(+), 0 deletions(-)
+ create mode 100644 security/snet/snet_stats.c
+ create mode 100644 security/snet/snet_stats.h
 
-diff --git a/security/snet/snet_verdict.c b/security/snet/snet_verdict.c
+diff --git a/security/snet/snet_stats.c b/security/snet/snet_stats.c
 new file mode 100644
-index 0000000..b0811ac
+index 0000000..b946dda
 --- /dev/null
-+++ b/security/snet/snet_verdict.c
-@@ -0,0 +1,203 @@
-+#include <linux/sched.h>
-+#include <linux/spinlock.h>
-+#include <linux/random.h>
-+#include <linux/wait.h>
-+#include <asm/atomic.h>
-+#include <linux/snet.h>
-+#include <linux/slab.h>
-+#include "snet_verdict.h"
++++ b/security/snet/snet_stats.c
+@@ -0,0 +1,65 @@
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
++#include <net/net_namespace.h>
++#include "snet_stats.h"
++#include "snet_utils.h"
 +
-+static struct list_head *snet_vdh;
-+static rwlock_t snet_vdh_lock = __RW_LOCK_UNLOCKED();
++extern struct net init_net;
 +
-+struct snet_verdict_entry {
-+	struct list_head list;
-+	u32 verdict_id;
-+	enum snet_verdict verdict;
-+};
++#define SNET_STATS_PROC_DIR	"snet"
++#define SNET_STATS_PROC_INFO	"snet_stats"
 +
-+static atomic_t value = ATOMIC_INIT(1);
++static struct proc_dir_entry *snet_stats_dir;
++static struct proc_dir_entry *snet_stats_pde;
++struct snet_statistics snet_stats;
 +
-+/* when waiting for a verdict, process is added to this queue */
-+static DECLARE_WAIT_QUEUE_HEAD(snet_wq);
-+
-+static struct kmem_cache *snet_verdict_entry_cachep;
-+
-+/* lookup for a verdict - before using this function, lock snet_vdh_lock */
-+static struct snet_verdict_entry *__snet_verdict_lookup(const u32 verdict_id)
++static int snet_stats_show(struct seq_file *m, void *v)
 +{
-+	unsigned int h = 0;
-+	struct list_head *l = NULL;
-+	struct snet_verdict_entry *s = NULL;
++	unsigned int sys = 0;
++	seq_printf(m, "snet statistics\n");
 +
-+	h = verdict_id % snet_vdh_size;
-+	l = &snet_vdh[h];
++	for (sys = SNET_SOCKET_CREATE; sys < SNET_NR_SOCKET_TYPES; sys++) {
++		unsigned int v = 0;
++		seq_printf(m, "%s {", snet_syscall_name(sys));
 +
-+	list_for_each_entry(s, l, list) {
-+		if (s->verdict_id == verdict_id) {
-+			return s;
++		seq_printf(m, " Exec: %u ", SNET_STATS_GET(SNET_STATS_EXEC, sys));
++		seq_printf(m, " Unreg: %u ", SNET_STATS_GET(SNET_STATS_UNREG, sys));
++		for (v = SNET_VERDICT_GRANT; v < SNET_NR_VERDICT_TYPES; v++) {
++			seq_printf(m, " %s: %u ", snet_verdict_name(v),
++				   SNET_STATS_GET(v, sys));
 +		}
++		seq_printf(m, " Reg Error: %u ", SNET_STATS_GET(SNET_STATS_REG_ERROR, sys));
++		seq_printf(m, "}\n");
 +	}
-+	return NULL;
-+}
-+
-+const enum snet_verdict snet_verdict_wait(const u32 verdict_id)
-+{
-+	enum snet_verdict verdict = SNET_VERDICT_NONE;
-+	long ret = 0;
-+
-+	ret = wait_event_timeout(snet_wq,
-+				 (verdict = snet_verdict_get(verdict_id))
-+				 != SNET_VERDICT_PENDING,
-+				 snet_verdict_delay * HZ);
-+	if (ret)
-+		return snet_verdict_get(verdict_id);
-+	else
-+		return SNET_VERDICT_NONE;
-+}
-+
-+const enum snet_verdict snet_verdict_get(const u32 verdict_id)
-+{
-+	enum snet_verdict v = SNET_VERDICT_NONE;
-+	struct snet_verdict_entry *data = NULL;
-+
-+	read_lock_bh(&snet_vdh_lock);
-+	data = __snet_verdict_lookup(verdict_id);
-+	if (data != NULL)
-+		v = data->verdict;
-+
-+	read_unlock_bh(&snet_vdh_lock);
-+	return v;
-+}
-+
-+int snet_verdict_set(const u32 verdict_id, const enum snet_verdict verdict)
-+{
-+	struct snet_verdict_entry *data = NULL;
-+	int ret = -EINVAL;
-+
-+	if (verdict >= SNET_NR_VERDICT_TYPES)
-+		goto out;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	data = __snet_verdict_lookup(verdict_id);
-+	if (data != NULL) {
-+		/* if verdict is already set because of
-+		   timeout, we won't modify it */
-+		if (data->verdict == SNET_VERDICT_PENDING) {
-+			data->verdict = verdict;
-+			ret = 0;
-+		}
-+	}
-+	write_unlock_bh(&snet_vdh_lock);
-+	wake_up(&snet_wq);
-+out:
-+	return ret;
-+}
-+
-+int snet_verdict_remove(const u32 verdict_id)
-+{
-+	struct snet_verdict_entry *data = NULL;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	data = __snet_verdict_lookup(verdict_id);
-+	if (data == NULL) {
-+		write_unlock_bh(&snet_vdh_lock);
-+		return -EINVAL;
-+	}
-+	pr_debug("(verdict_id=%u)\n", data->verdict_id);
-+	list_del(&data->list);
-+	write_unlock_bh(&snet_vdh_lock);
-+	kmem_cache_free(snet_verdict_entry_cachep, data);
 +	return 0;
 +}
 +
-+int snet_verdict_insert(void)
++static int snet_stats_proc_open(struct inode *inode, struct file *file)
 +{
-+	struct snet_verdict_entry *data = NULL;
-+	unsigned int h = 0;
-+	u32 verdict_id = 0;
-+
-+	data = kmem_cache_zalloc(snet_verdict_entry_cachep, GFP_KERNEL);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	do {
-+		verdict_id = atomic_inc_return(&value);
-+	} while (verdict_id == 0);
-+
-+	data->verdict_id = verdict_id;
-+	data->verdict = SNET_VERDICT_PENDING;
-+	INIT_LIST_HEAD(&(data->list));
-+	h = data->verdict_id % snet_vdh_size;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	list_add_tail(&data->list, &snet_vdh[h]);
-+	pr_debug("[%u]=(verdict_id=%u)\n", h, data->verdict_id);
-+	write_unlock_bh(&snet_vdh_lock);
-+
-+	return verdict_id;
++	return single_open(file, snet_stats_show, NULL);
 +}
 +
-+void snet_verdict_flush(void)
++static const struct file_operations snet_stats_proc_fops = {
++	.owner		= THIS_MODULE,
++	.open		= snet_stats_proc_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
++
++void snet_stats_init(void)
 +{
-+	unsigned int i = 0;
-+
-+	write_lock_bh(&snet_vdh_lock);
-+	for (i = 0; i < snet_vdh_size; i++) {
-+		struct snet_verdict_entry *data, *tmp;
-+		list_for_each_entry_safe(data, tmp, &snet_vdh[i], list) {
-+			list_del(&data->list);
-+			kmem_cache_free(snet_verdict_entry_cachep, data);
-+		}
-+	}
-+	write_unlock_bh(&snet_vdh_lock);
-+	return;
-+}
-+
-+/* init function */
-+int snet_verdict_init(void)
-+{
-+	int err = 0, i = 0;
-+
-+	if (snet_vdh_size == 0) {
-+		printk(KERN_ERR "snet: bad snet_vdh_size value\n");
-+		err = -EINVAL;
++	snet_stats_dir = proc_mkdir(SNET_STATS_PROC_DIR, init_net.proc_net);
++	if (snet_stats_dir == NULL) {
++		printk(KERN_ERR "snet: can't create /proc/%s\n",
++		       SNET_STATS_PROC_DIR);
 +		goto out;
 +	}
 +
-+	if (snet_verdict_delay == 0) {
-+		printk(KERN_ERR "snet: bad snet_verdict_delay value\n");
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	snet_vdh = kzalloc(sizeof(struct list_head) * snet_vdh_size,
-+			  GFP_KERNEL);
-+	if (!snet_vdh) {
-+		printk(KERN_WARNING
-+		       "snet: can't alloc memory for verdict\n");
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	for (i = 0; i < snet_vdh_size; i++)
-+		INIT_LIST_HEAD(&snet_vdh[i]);
-+
-+	/* snet_verdict_entry_cachep is not destroyed */
-+	snet_verdict_entry_cachep = kmem_cache_create("snet_verdict_entry",
-+						      sizeof(struct snet_verdict_entry),
-+						      0, SLAB_PANIC, NULL);
++	snet_stats_pde = proc_create(SNET_STATS_PROC_INFO, 0644, snet_stats_dir,
++				     &snet_stats_proc_fops);
 +out:
-+	return err;
-+}
-+
-+/* exit function */
-+void snet_verdict_exit(void)
-+{
-+	if (snet_vdh) {
-+		kfree(snet_vdh);
-+		snet_vdh = NULL;
-+	}
-+
 +	return;
 +}
-diff --git a/security/snet/snet_verdict.h b/security/snet/snet_verdict.h
+diff --git a/security/snet/snet_stats.h b/security/snet/snet_stats.h
 new file mode 100644
-index 0000000..07e8638
+index 0000000..05ab06d
 --- /dev/null
-+++ b/security/snet/snet_verdict.h
-@@ -0,0 +1,23 @@
-+#ifndef _SNET_VERDICT_H
-+#define _SNET_VERDICT_H
++++ b/security/snet/snet_stats.h
+@@ -0,0 +1,57 @@
++#ifndef _SNET_STATS_H
++#define _SNET_STATS_H
 +
-+extern unsigned int snet_vdh_size;
-+extern unsigned int snet_verdict_delay;
++#include <linux/snet.h>
 +
-+/* helper functions */
-+const enum snet_verdict snet_verdict_wait(const u32 verdict_id);
++enum {
++	SNET_STATS_REG_GRANT = 0,
++	SNET_STATS_REG_DENY,
++	SNET_STATS_REG_PENDING,
++	SNET_STATS_REG_NONE,
++	SNET_STATS_REG_INVALID,
++	SNET_STATS_REG_ERROR,
++	SNET_STATS_UNREG,
++	SNET_STATS_EXEC,
++	__SNET_STATS_MAX
++};
 +
-+/* manipulate the verdicts hash table */
-+const enum snet_verdict snet_verdict_get(const u32 verdict_id);
-+int snet_verdict_set(const u32 verdict_id, const enum snet_verdict verdict);
-+int snet_verdict_insert(void);
-+int snet_verdict_remove(const u32 verdict_id);
-+int snet_verdict_insert(void);
-+void snet_verdict_flush(void);
++#define SNET_STATS_MAX __SNET_STATS_MAX
 +
-+/* init function */
-+int snet_verdict_init(void);
-+/* exit function */
-+void snet_verdict_exit(void);
++struct snet_statistics {
++	atomic_t	mibs[SNET_NR_SOCKET_TYPES+1][SNET_STATS_MAX];
++};
 +
-+#endif /* _SNET_VERDICT_H */
++extern struct snet_statistics snet_stats;
++#define SNET_STATS_INC(field, syscall)	(atomic_inc(&snet_stats.mibs[syscall][field]))
++#define SNET_STATS_DEC(field, syscall)	(atomic_dec(&snet_stats.mibs[syscall][field]))
++#define SNET_STATS_GET(field, syscall)	(atomic_read(&snet_stats.mibs[syscall][field]))
++
++void snet_stats_init(void);
++
++static inline void snet_stats_inc_reg(const enum snet_verdict verdict,
++				      const enum snet_syscall syscall)
++{
++	switch (verdict) {
++	case SNET_VERDICT_GRANT:
++		SNET_STATS_INC(SNET_STATS_REG_GRANT, syscall);
++		break;
++	case SNET_VERDICT_DENY:
++		SNET_STATS_INC(SNET_STATS_REG_DENY, syscall);
++		break;
++	case SNET_VERDICT_PENDING:
++		SNET_STATS_INC(SNET_STATS_REG_PENDING, syscall);
++		break;
++	case SNET_VERDICT_NONE:
++		SNET_STATS_INC(SNET_STATS_REG_NONE, syscall);
++		break;
++	case SNET_VERDICT_INVALID:
++		SNET_STATS_INC(SNET_STATS_REG_INVALID, syscall);
++		break;
++	default:
++		SNET_STATS_INC(SNET_STATS_REG_ERROR, syscall);
++		break;
++	}
++	return;
++};
++
++#endif
 -- 
 1.7.4.1
 
