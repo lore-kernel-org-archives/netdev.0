@@ -1,59 +1,38 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V4 2/8] netdevice.h: Add a new zerocopy device flag
-Date: Thu, 05 May 2011 14:02:17 -0700
-Message-ID: <1304629337.7076.62.camel@localhost.localdomain>
-References: <1304495717.20660.67.camel@localhost.localdomain>
-	 <4DC1DD9D.6070708@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next-2.6 2011-05-05
+Date: Thu, 05 May 2011 14:12:17 -0700 (PDT)
+Message-ID: <20110505.141217.102539207.davem@davemloft.net>
+References: <20110505191219.GC3005@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DC1DD9D.6070708@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48058
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751716Ab1EEVMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 17:12:49 -0400
+In-Reply-To: <20110505191219.GC3005@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-04 at 16:13 -0700, Sridhar Samudrala wrote:
-> On Wed, 2011-05-04 at 00:55 -0700, Shirley Ma wrote: 
-> > Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> > ---
-> > 
-> >  include/linux/netdevice.h |   10 ++++++++++
-> >  1 files changed, 10 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index 0249fe7..0808f1e 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -1067,6 +1067,16 @@ struct net_device {
-> >  #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
-> >  #define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
-> > 
-> > +/*
-> > + * Bit 31 is for device to map userspace buffers -- zerocopy
-> > + * Device can set this flag when it supports HIGHDMA.
-> > + * Device can't recycle this kind of skb buffers.
-> > + * There are 256 bytes copied, the rest of buffers are mapped.
-> > + * The userspace callback should only be called when last reference to this skb
-> > + * is gone.
-> > + */
-> > +#define NETIF_F_ZEROCOPY	(1 << 31)
-> > +
-> Should we make this TX_ZEROCOPY as we may need a seperate flag for
-> RX_ZEROCOPY in future?
-> 
-> Same with socket flag.
+=46rom: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 5 May 2011 15:12:20 -0400
 
-We might be able to use the same flag for both TX and RX. If RX
-zero-copy requires only HIGHDMA feature only. If not, then we might need
-different feature bit. Same for sock flag.
+> Another big Cinco de Mayo batch of stuff intended for 2.6.40...
 
-> Thanks
-> Sridhar
-> 
-> 
+Aye caramba! :-)
+
+> Highlights include a number of mwifiex bug fixes, a batch of wl12xx
+> updates (including some new hardware support), a big batch of rtlwifi
+> fixups in preparation for some new hardware drivers, some mwl8k and
+> rt2x00 updates, the usual variety of iwlwifi and ath9k updates, a set
+> of updates to the iwlegacy drivers from Stanislaw, some ssb udpates
+> form Rafa=A9=A9, a bunch of Bluetooth updates from Gustavo and friend=
+s,
+> and a handful of enhancements to other drivers and to mac80211.
+>=20
+> Please let me know if there are problems!
+
+Pulled, thanks a lot John!
