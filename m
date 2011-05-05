@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: removed not used definitions
-Date: Thu, 05 May 2011 10:43:35 -0700 (PDT)
-Message-ID: <20110505.104335.104074159.davem@davemloft.net>
-References: <1304590250-9434-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [net-next v3 0/6] bnx2x enhancements and date update
+Date: Thu, 05 May 2011 10:45:29 -0700 (PDT)
+Message-ID: <20110505.104529.189688213.davem@davemloft.net>
+References: <1304589516.17528.11.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com,
+	bhutchings@solarflare.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45888
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45894
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755150Ab1EERoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 13:44:07 -0400
-In-Reply-To: <1304590250-9434-1-git-send-email-peppe.cavallaro@st.com>
+	by vger.kernel.org with ESMTP id S1754451Ab1EERqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 May 2011 13:46:02 -0400
+In-Reply-To: <1304589516.17528.11.camel@lb-tlvb-dmitry>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu,  5 May 2011 12:10:50 +0200
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Thu, 5 May 2011 12:58:36 +0300
 
-> Reported-by: Karim Hamiti <karim.hamiti@st.com>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Another re-spin with format fixes as reported by Ben Hutchings
+> <bhutchings@solarflare.com>
 
-Applied to net-next-2.6, thanks.
+All applied, thanks for fixing things up.
