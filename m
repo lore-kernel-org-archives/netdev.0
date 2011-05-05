@@ -1,7 +1,7 @@
 From: y@vger.kernel.org
 Subject: [RFC v4 09/11] snet: introduce snet_utils
 Date: Thu,  5 May 2011 15:59:19 +0200
-Message-ID: <18884.6271172681$1304604583@news.gmane.org>
+Message-ID: <20153.1349950985$1304604585@news.gmane.org>
 References: <1304603961-2517-1-git-send-email-y>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, jamal <hadi@cyberus.ca>,
@@ -9,10 +9,14 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Grzegorz Nosek <root@localdomain.pl>,
 	Samir Bellabes <sam@synack.fr>
 To: linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 236.121.91-79.rev.gaoland.net ([79.91.121.236]:43805 "EHLO
+	mx.synack.fr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754695Ab1EEOHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 May 2011 10:07:00 -0400
 In-Reply-To: <1304603961-2517-1-git-send-email-y>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Samir Bellabes <sam@synack.fr>
 
