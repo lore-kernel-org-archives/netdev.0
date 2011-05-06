@@ -1,35 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/2] wireless: Make and use const struct
- ieee80211_channel
-Date: Fri, 06 May 2011 09:10:21 -0700
-Message-ID: <1304698221.11874.6.camel@Joe-Laptop>
-References: <cover.1304054543.git.joe@perches.com>
-	 <20110505184934.GB3005@tuxdriver.com>
-	 <1304634107.1788.171.camel@Joe-Laptop>
-	 <20110506131922.GA2252@tuxdriver.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: ARM, AF_PACKET: caching problems on Marvell Kirkwood
+Date: Fri, 6 May 2011 18:12:09 +0200
+Message-ID: <20110506161209.GB20777@orbit.nwl.cc>
+References: <20110408130643.GA8730@orbit.nwl.cc>
+ <20110505141107.GC30443@orbit.nwl.cc>
+ <1304607362.3032.84.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	orinoco-users@lists.sourceforge.net,
-	orinoco-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110506131922.GA2252@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	ne@erfurth.eu, Johann Baudy <johann.baudy@gnu-log.net>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Nicolas Pitre <nico@fluxnic.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([91.121.141.167]:43012 "EHLO orbit.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751615Ab1EFQML (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 May 2011 12:12:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1304607362.3032.84.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-05-06 at 09:19 -0400, John W. Linville wrote:
-> On Thu, May 05, 2011 at 03:21:47PM -0700, Joe Perches wrote:
-> > On Thu, 2011-05-05 at 14:49 -0400, John W. Linville wrote:
-> > > These patches generated a lot of warnings in net/mac80211.  Did you
-> > > actually build them?
-> > Yes.
-> > Did you apply patch 1/2 first?
-> > It's a dependent patch.
-> That's the one that cause most of the warnings...
+Hi,
 
-Consider the 2 patches as a single patch.
-Do you have new build warnings after applying both
-patches 1 and 2?
+On Thu, May 05, 2011 at 04:56:02PM +0200, Eric Dumazet wrote:
+> I assume you use latest linux-2.6 or net-next-2.6 ?
+
+Well, initially we noticed the problem on 2.6.34.7, but I verified it
+against both 2.6.37 and linux-2.6 from three days ago.
+
+> Could you try to force vmalloc() use ?
+> 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index b5362e9..0b5a89c 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2383,7 +2383,7 @@ static inline char *alloc_one_pg_vec_page(unsigned long order)
+>  	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP |
+>  			  __GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY;
+>  
+> -	buffer = (char *) __get_free_pages(gfp_flags, order);
+> +	buffer = NULL;
+>  
+>  	if (buffer)
+>  		return buffer;
+
+Thanks for the hint. I tried that, but the problem persists.
+
+Greetings, Phil
