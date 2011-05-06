@@ -1,62 +1,57 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: [RFC v3 01/10] lsm: add security_socket_closed()
-Date: Fri, 06 May 2011 15:45:27 +0200
-Message-ID: <87oc3glz7s.fsf@synack.fr>
-References: <1304432663-1575-1-git-send-email-sam@synack.fr>
-	<1304432663-1575-2-git-send-email-sam@synack.fr>
-	<201105040029.IGA98088.SHOVQFLOMJtOFF@I-love.SAKURA.ne.jp>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH] dccp: handle invalid feature options length
+Date: Fri, 6 May 2011 15:53:45 +0200
+Message-ID: <20110506135345.GA3434@gerrit.erg.abdn.ac.uk>
+References: <1304688438.29544.16.camel@dan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201105040029.IGA98088.SHOVQFLOMJtOFF@I-love.SAKURA.ne.jp>
-	(Tetsuo Handa's message of "Wed, 4 May 2011 00:29:29 +0900")
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, security@kernel.org
+To: Dan Rosenberg <drosenberg@vsecurity.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1304688438.29544.16.camel@dan>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> writes:
+Quoting Dan Rosenberg:
+| A length of zero (after subtracting two for the type and len fields) for
+| the DCCPO_{CHANGE,CONFIRM}_{L,R} options will cause an underflow due to
+| the subtraction.  The subsequent code may read past the end of the
+| options value buffer when parsing.  I'm unsure of what the consequences
+| of this might be, but it's probably not good.
+| 
+Can you please check again: did you experience this condition, to me it 
+seems the patch is based on reading this code.
 
-> Samir Bellabes wrote:
->> Allow a module to update security informations when a socket is closed.
-> Is security_inode_free() too late for doing it?
->
-> static void ccs_inode_free_security(struct inode *inode)
-> {
->         if (inode->i_sb && inode->i_sb->s_magic == SOCKFS_MAGIC)
->                 ccs_update_socket_tag(inode, 0);
-> }
+In this case, please consider the condition before the switch statement:
 
-this point won't be possible.
-security_inode_free() is occuring too late :
+                /* Check if this isn't a single byte option */
+                if (opt > DCCPO_MAX_RESERVED) {
+                        if (opt_ptr == opt_end)
+                                goto out_nonsensical_length;
 
-static int sock_close(struct inode *inode, struct file *filp)
-{
-        security_socket_close(SOCKET_I(inode)); 
-           ... ->  acces sock->sk infos in this hook
+                        len = *opt_ptr++;
+                        if (len < 2)
+                                goto out_nonsensical_length;
+                         
+The described range (DCCPO_CHANGE_L = 32 ... DCCPO_CONFIRM_R = 35) is after DCCPO_MAX_RESERVED = 31,
+so that the above test applies.
 
-        sock_release(SOCKET_I(inode));
-        {
-                sock->ops->release(sock);
-                {
-                        int inet_release(struct socket *sock)
-                        {
-                                struct sock *sk = sock->sk;
+Hence for these option types the len is always at least 1, so that (len - 1) >= 0.
 
-                                if (sk) {
-                                sock_rps_reset_flow(sk);
-                                sock->sk = NULL;
-                                sk->sk_prot->close(sk, timeout);
-                                 --> here sk infos are now removed
-                        }
-                }
-                if (!sock->file) {
-                   iput(SOCK_INODE(sock));
-                --> here we are removing the inode, so
-                    security_inode_free is called now, but too late.
-                }
-        }
-}
+| --- a/net/dccp/options.c
+| +++ b/net/dccp/options.c
+| @@ -123,6 +123,8 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+|  		case DCCPO_CHANGE_L ... DCCPO_CONFIRM_R:
+|  			if (pkt_type == DCCP_PKT_DATA)      /* RFC 4340, 6 */
+|  				break;
+| +			if (len == 0)
+| +				goto out_invalid_option;
+|  			rc = dccp_feat_parse_options(sk, dreq, mandatory, opt,
+|  						    *value, value + 1, len - 1);
+|  			if (rc)
+| 
+| 
 
-        return 0;
-}
+-- 
