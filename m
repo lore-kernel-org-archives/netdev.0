@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dccp: handle invalid feature options length
-Date: Fri, 06 May 2011 13:04:47 -0700 (PDT)
-Message-ID: <20110506.130447.183054252.davem@davemloft.net>
-References: <1304688438.29544.16.camel@dan>
-	<20110506195733.GA3527@gerrit.erg.abdn.ac.uk>
+From: Scott Goldman <scottjg@vmware.com>
+Subject: RE: [Pv-drivers] [PATCH] vmxnet3: Consistently disable irqs when
+ taking adapter->cmd_lock
+Date: Fri, 6 May 2011 13:10:29 -0700
+Message-ID: <F78BCF638F95D74A99D036114107EDB5028EFAA0F8@EXCH-MBX-3.vmware.com>
+References: <1304706773-21348-1-git-send-email-roland@kernel.org>
+ <alpine.LRH.2.00.1105061206500.26660@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: drosenberg@vsecurity.com, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	security@kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110506195733.GA3527@gerrit.erg.abdn.ac.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	Roland Dreier <roland@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:44152 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753185Ab1EFUKa convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 May 2011 16:10:30 -0400
+In-Reply-To: <alpine.LRH.2.00.1105061206500.26660@sbhatewara-dev1.eng.vmware.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Fri, 6 May 2011 21:57:33 +0200
-
-> Quoting Dan Rosenberg:
-> | A length of zero (after subtracting two for the type and len fields) for
-> | the DCCPO_{CHANGE,CONFIRM}_{L,R} options will cause an underflow due to
-> | the subtraction.  The subsequent code may read past the end of the
-> | options value buffer when parsing.  I'm unsure of what the consequences
-> | of this might be, but it's probably not good.
-> | 
-> Please disregard my earlier message, I erred.
-> Dan is right, his patch is correct and definitively valid.
-> A length of 0 would be cast to 0xff and then cause buffer overrun.
 > 
-> | Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-> | Cc: stable@kernel.org
-> Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> On Fri, 6 May 2011, Roland Dreier wrote:
+> 
+> > From: Roland Dreier <roland@purestorage.com>
+> >
+> > Using the vmxnet3 driver produces a lockdep warning because
+> 
+> > Signed-off-by: Roland Dreier <roland@purestorage.com>
+> 
+> 
+> Roland, thanks for the analysis and the patch.
+> 
+> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
 
-Great, I'll apply this, thanks!
+Likewise, seems pretty sane to me. The command register operations are only control-path operations and disabling interrupts for the duration is probably not a big deal. Touching the cmd reg will result a VMEXIT, where the guest won't be processing interrupts anyway. 
+
+Signed-off-by: Scott J. Goldman <scottjg@vmware.com>
+
