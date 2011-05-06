@@ -1,38 +1,61 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC v3 02/10] Revert "lsm: Remove the socket_post_accept() hook"
-Date: Fri, 6 May 2011 13:27:15 -0400
-Message-ID: <201105061327.15339.paul.moore@hp.com>
-References: <1304432663-1575-1-git-send-email-sam@synack.fr> <201105060643.JBD90633.MOQJtSFFLFHOOV@I-love.SAKURA.ne.jp> <87iptop4di.fsf@synack.fr>
+From: TB <lkml@techboom.com>
+Subject: Re: [PATCH] tcp_cubic: limit delayed_ack ratio to prevent divide
+ error
+Date: Fri, 06 May 2011 13:39:53 -0400
+Message-ID: <4DC43269.9040503@techboom.com>
+References: <20110504113351.4643a0c9@nehalam>	<16668.1304537481@localhost>	<20110504123738.7bb4d1ee@nehalam>	<20110504.124053.260068550.davem@davemloft.net>	<20110504130456.425dee68@nehalam>	<alpine.WNT.2.00.1105041352020.6048@JBRANDEB-DESK2.amr.corp.intel.com>	<4DC41EB2.6070404@techboom.com> <20110506095359.57c4fb38@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	linux-security-module@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hadi@cyberus.ca, kaber@trash.net,
-	zbr@ioremap.net, root@localdomain.pl
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <87iptop4di.fsf@synack.fr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Sangtae Ha <sangtae.ha@gmail.com>,
+	Injong Rhee <injongrhee@gmail.com>,
+	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
+	"rdunlap@xenotime.net" <rdunlap@xenotime.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110506095359.57c4fb38@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, May 06, 2011 5:25:45 AM Samir Bellabes wrote:
-> the main argument for socket_post_accept is to known informations of the
-> remote inet.
+On 11-05-06 12:53 PM, Stephen Hemminger wrote:
+> On Fri, 06 May 2011 12:15:46 -0400
+> TB <lkml@techboom.com> wrote:
 > 
-> from socket_accept(), we have no clue of who (inet->daddr and inet->saddr)
-> is connecting to the local service. with socket_post_accept(), inet->daddr
-> and inet->saddr are filled with the true distant informations.
+>> -----BEGIN PGP SIGNED MESSAGE-----
+>> Hash: SHA1
+>>
+>> On 11-05-04 04:53 PM, Brandeburg, Jesse wrote:
+>>>
+>>>
+>>> On Wed, 4 May 2011, Stephen Hemminger wrote:
+>>>
+>>>> TCP Cubic keeps a metric that estimates the amount of delayed
+>>>> acknowledgements to use in adjusting the window. If an abnormally
+>>>> large number of packets are acknowledged at once, then the update
+>>>> could wrap and reach zero. This kind of ACK could only
+>>>> happen when there was a large window and huge number of
+>>>> ACK's were lost.
+>>>>
+>>>> This patch limits the value of delayed ack ratio. The choice of 32
+>>>> is just a conservative value since normally it should be range of 
+>>>> 1 to 4 packets.
+>>>>
+>>>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>>
+>>> patch seems fine, but please credit the reporter (lkml@techboom.com) with 
+>>> reporting the issue with logs, maybe even with Reported-by: and some kind 
+>>> of reference to the panic message or the email thread in the text or 
+>>> header?
+>>
+>> We're currently testing the patch on 6 production servers
 > 
-> This informations is interesting for next security operations on the
-> socket. (we known with who we are talking to).
+> Thank you, is there some regularity to the failures previously?
 
-Looking at the snet_socket_post_accept() hook, I believe all of the 
-information you are looking for should be available to you in the sock_graft() 
-hook.
+Not really, there was more chance of it happening after a reboot and
+during the night (when there is less traffic) for some weird reason.
 
---
-paul moore
-linux @ hp
+As a workaround we switched most of the servers to reno
