@@ -1,61 +1,37 @@
-From: TB <lkml@techboom.com>
-Subject: Re: [PATCH] tcp_cubic: limit delayed_ack ratio to prevent divide
- error
-Date: Fri, 06 May 2011 13:39:53 -0400
-Message-ID: <4DC43269.9040503@techboom.com>
-References: <20110504113351.4643a0c9@nehalam>	<16668.1304537481@localhost>	<20110504123738.7bb4d1ee@nehalam>	<20110504.124053.260068550.davem@davemloft.net>	<20110504130456.425dee68@nehalam>	<alpine.WNT.2.00.1105041352020.6048@JBRANDEB-DESK2.amr.corp.intel.com>	<4DC41EB2.6070404@techboom.com> <20110506095359.57c4fb38@nehalam>
+From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Subject: Re: [Bugme-new] [Bug 34322] New: No ECN marking in IPv6
+Date: Fri, 6 May 2011 19:12:49 +0200
+Message-ID: <20110506171249.GA29942@uio.no>
+References: <bug-34322-10286@https.bugzilla.kernel.org/>
+ <20110505144146.4bc1e744.akpm@linux-foundation.org>
+ <1304694292.3066.29.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Sangtae Ha <sangtae.ha@gmail.com>,
-	Injong Rhee <injongrhee@gmail.com>,
-	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
-	"rdunlap@xenotime.net" <rdunlap@xenotime.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110506095359.57c4fb38@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cassarossa.samfundet.no ([129.241.93.19]:53881 "EHLO
+	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756553Ab1EFRnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2011 13:43:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1304694292.3066.29.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-05-06 12:53 PM, Stephen Hemminger wrote:
-> On Fri, 06 May 2011 12:15:46 -0400
-> TB <lkml@techboom.com> wrote:
+On Fri, May 06, 2011 at 05:04:52PM +0200, Eric Dumazet wrote:
+> Analysis seems fine, but you also need to change INET_ECN_dontxmit() for
+> retransmitted packets.
 > 
->> -----BEGIN PGP SIGNED MESSAGE-----
->> Hash: SHA1
->>
->> On 11-05-04 04:53 PM, Brandeburg, Jesse wrote:
->>>
->>>
->>> On Wed, 4 May 2011, Stephen Hemminger wrote:
->>>
->>>> TCP Cubic keeps a metric that estimates the amount of delayed
->>>> acknowledgements to use in adjusting the window. If an abnormally
->>>> large number of packets are acknowledged at once, then the update
->>>> could wrap and reach zero. This kind of ACK could only
->>>> happen when there was a large window and huge number of
->>>> ACK's were lost.
->>>>
->>>> This patch limits the value of delayed ack ratio. The choice of 32
->>>> is just a conservative value since normally it should be range of 
->>>> 1 to 4 packets.
->>>>
->>>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>>
->>> patch seems fine, but please credit the reporter (lkml@techboom.com) with 
->>> reporting the issue with logs, maybe even with Reported-by: and some kind 
->>> of reference to the panic message or the email thread in the text or 
->>> header?
->>
->> We're currently testing the patch on 6 production servers
-> 
-> Thank you, is there some regularity to the failures previously?
+> Any chance you can refine your patch ?
 
-Not really, there was more chance of it happening after a reboot and
-during the night (when there is less traffic) for some weird reason.
+Sure, but is really checking against NULL the right way of checking for IPv6
+sockets? I'd imagined I should have checked address family or something
+instead...
 
-As a workaround we switched most of the servers to reno
+/* Steinar */
+-- 
+Homepage: http://www.sesse.net/
