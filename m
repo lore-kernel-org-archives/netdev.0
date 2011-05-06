@@ -1,72 +1,50 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH] dccp: handle invalid feature options length
-Date: Fri, 06 May 2011 10:43:52 -0400
-Message-ID: <1304693032.1849.2.camel@dan>
-References: <1304688438.29544.16.camel@dan>
-	 <20110506135345.GA3434@gerrit.erg.abdn.ac.uk>
+From: Rafael Aquini <aquini@linux.com>
+Subject: Re: [PATCH] net/bonding: adjust codingstyle for bond_3ad files.
+Date: Fri, 6 May 2011 11:56:04 -0300
+Message-ID: <20110506145602.GA5591@x61.tchesoft.com>
+References: <20110506115037.GA3299@x61.tchesoft.com>
+ <20110506150114.25513c92@absol.kitzblitz>
+Reply-To: aquini@linux.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, security@kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110506135345.GA3434@gerrit.erg.abdn.ac.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Joe Perches <joe@perches.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Nicolas Kaiser <nikai@nikai.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:41506 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753705Ab1EFO7l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2011 10:59:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20110506150114.25513c92@absol.kitzblitz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Howdy Nicolas,
 
-> Can you please check again: did you experience this condition, to me it 
-> seems the patch is based on reading this code.
+On Fri, May 06, 2011 at 03:01:14PM +0200, Nicolas Kaiser wrote:
+> The indentation of parentheses looks correct to me in the original version.
+> However, this expression can also be simplified like
 > 
-
-I saw this while reading the code.
-
-> In this case, please consider the condition before the switch statement:
+>                 if (active && active->lag_ports &&
+>                     active->lag_ports->is_enabled &&
+> -                   (__agg_has_partner(active) ||
+> -                    (!__agg_has_partner(active) && !__agg_has_partner(best)))) {
+> +                   (__agg_has_partner(active) || !__agg_has_partner(best))) {
+>                         if (!(!active->actor_oper_aggregator_key &&
+>                               best->actor_oper_aggregator_key)) {
+>                                 best = NULL;
 > 
->                 /* Check if this isn't a single byte option */
->                 if (opt > DCCPO_MAX_RESERVED) {
->                         if (opt_ptr == opt_end)
->                                 goto out_nonsensical_length;
-> 
->                         len = *opt_ptr++;
->                         if (len < 2)
->                                 goto out_nonsensical_length;
->                          
-> The described range (DCCPO_CHANGE_L = 32 ... DCCPO_CONFIRM_R = 35) is after DCCPO_MAX_RESERVED = 31,
-> so that the above test applies.
-> 
-> Hence for these option types the len is always at least 1, so that (len - 1) >= 0.
-> 
+> Last October I submitted such a patch which also simplified the
+> double negation in the subsequent expression.
 
-You just missed the important part:
+Thanks for the feedback!
 
-                        if (len < 2)
-                                goto out_nonsensical_length;
-                        /*
-                         * Remove the type and len fields, leaving
-                         * just the value size
-                         */
-                        len     -= 2;
+Send me this patch of yours, I'll try to merge our paths and resubmit adding
+you as a signer as well 
 
-If the len is 2, this check will pass, and the resulting len will be 0,
-causing the underflow.
-
-Regards,
-Dan
-
-> | --- a/net/dccp/options.c
-> | +++ b/net/dccp/options.c
-> | @@ -123,6 +123,8 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
-> |  		case DCCPO_CHANGE_L ... DCCPO_CONFIRM_R:
-> |  			if (pkt_type == DCCP_PKT_DATA)      /* RFC 4340, 6 */
-> |  				break;
-> | +			if (len == 0)
-> | +				goto out_invalid_option;
-> |  			rc = dccp_feat_parse_options(sk, dreq, mandatory, opt,
-> |  						    *value, value + 1, len - 1);
-> |  			if (rc)
-> | 
-> | 
-> 
-> -- 
+Cheers!
+-- 
+Rafael Aquini <aquini@linux.com>
