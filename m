@@ -1,46 +1,31 @@
-From: Joe Perches <joe@perches.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2/2] ipv4: Initialize on-stack cork more efficiently.
-Date: Fri, 06 May 2011 15:44:54 -0700
-Message-ID: <1304721894.11874.28.camel@Joe-Laptop>
+Date: Fri, 06 May 2011 15:59:01 -0700 (PDT)
+Message-ID: <20110506.155901.35049431.davem@davemloft.net>
 References: <20110506.152623.232747437.davem@davemloft.net>
+	<1304721894.11874.28.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
 	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1299 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751034Ab1EFWoz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 May 2011 18:44:55 -0400
-In-Reply-To: <20110506.152623.232747437.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57364
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752361Ab1EFW7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2011 18:59:34 -0400
+In-Reply-To: <1304721894.11874.28.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-05-06 at 15:26 -0700, David Miller wrote:
-> ip_setup_cork() explicitly initializes every member of
-> inet_cork except flags, addr, and opt.  So we can simply
-> set those three members to zero instead of using a
-> memset() via an empty struct assignment.
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-[]
-> @@ -1417,6 +1417,9 @@ struct sk_buff *ip_make_skb(struct sock *sk,
->  
->  	__skb_queue_head_init(&queue);
->  
-> +	cork.flags = 0;
-> +	cork.addr = 0;
-> +	cork.opt = 0;
+From: Joe Perches <joe@perches.com>
+Date: Fri, 06 May 2011 15:44:54 -0700
 
-	cork.opt = NULL;
+> Perhaps it'd be better to move the initialization
+> of all cork fields to ip_setup_cork.
 
->  	err = ip_setup_cork(sk, &cork, ipc, rtp);
->  	if (err)
->  		return ERR_PTR(err);
+We can't, the flags and other fields can be setup way up high in the
+call chain when the inet->cork instance is used.
 
-Perhaps it'd be better to move the initialization
-of all cork fields to ip_setup_cork.
-
-
+I'll fix the NULL assignment, thanks.
