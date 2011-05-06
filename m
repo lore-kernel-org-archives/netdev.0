@@ -1,408 +1,161 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: [PATCH] vmxnet3: Consistently disable irqs when taking adapter->cmd_lock
-Date: Fri,  6 May 2011 11:32:53 -0700
-Message-ID: <1304706773-21348-1-git-send-email-roland@kernel.org>
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org
-To: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] hamachi: Delete TX checksumming code commented out since
+ 1999
+Date: Fri, 06 May 2011 11:59:45 -0700 (PDT)
+Message-ID: <20110506.115945.104066424.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog103.obsmtp.com ([74.125.245.74]:48489 "HELO
-	na3sys010aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932494Ab1EFSir (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2011 14:38:47 -0400
-Received: by mail-pz0-f51.google.com with SMTP id 26so1546834pzk.10
-        for <netdev@vger.kernel.org>; Fri, 06 May 2011 11:38:46 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37183
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753883Ab1EFTAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2011 15:00:18 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id D843024C088
+	for <netdev@vger.kernel.org>; Fri,  6 May 2011 11:59:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <roland@purestorage.com>
 
-Using the vmxnet3 driver produces a lockdep warning because
-vmxnet3_set_mc(), which is called with mc->mca_lock held, takes
-adapter->cmd_lock.  However, there are a couple of places where
-adapter->cmd_lock is taken with softirqs enabled, lockdep warns that a
-softirq that tries to take mc->mca_lock could happen while
-adapter->cmd_lock is held, leading to an AB-BA deadlock.
+TX checksumming support has been ifdef commented out of this driver
+for more than 10 years, and it makes references to aspects of the IPv4
+stack from back then as well.
 
-I'm not sure if this is a real potential deadlock or not, but the
-simplest and best fix seems to be simply to make sure we take cmd_lock
-with spin_lock_irqsave() everywhere -- the places with plain spin_lock
-just look like oversights.
+If someone has one of these rare cards and wants to properly resurrect
+TX checksumming support, they can still get at this code in the
+version control history.
 
-The full enormous lockdep warning is:
-
- =========================================================
- [ INFO: possible irq lock inversion dependency detected ]
- 2.6.39-rc6+ #1
- ---------------------------------------------------------
- ifconfig/567 just changed the state of lock:
-  (&(&mc->mca_lock)->rlock){+.-...}, at: [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
- but this lock took another, SOFTIRQ-unsafe lock in the past:
-  (&(&adapter->cmd_lock)->rlock){+.+...}
- 
- and interrupts could create inverse lock ordering between them.
- 
- 
- other info that might help us debug this:
- 4 locks held by ifconfig/567:
-  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8147d547>] rtnl_lock+0x17/0x20
-  #1:  ((inetaddr_chain).rwsem){.+.+.+}, at: [<ffffffff810896cf>] __blocking_notifier_call_chain+0x5f/0xb0
-  #2:  (&idev->mc_ifc_timer){+.-...}, at: [<ffffffff8106f21b>] run_timer_softirq+0xeb/0x3f0
-  #3:  (&ndev->lock){++.-..}, at: [<ffffffff81531dd2>] mld_ifc_timer_expire+0x32/0x280
- 
- the shortest dependencies between 2nd lock and 1st lock:
-   -> (&(&adapter->cmd_lock)->rlock){+.+...} ops: 11 {
-      HARDIRQ-ON-W at:
-                                            [<ffffffff8109ad86>] __lock_acquire+0x7f6/0x1e10
-                                            [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                            [<ffffffff81571156>] _raw_spin_lock+0x36/0x70
-                                            [<ffffffffa000d212>] vmxnet3_alloc_intr_resources+0x22/0x230 [vmxnet3]
-                                            [<ffffffffa0014031>] vmxnet3_probe_device+0x5f6/0x15c5 [vmxnet3]
-                                            [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
-                                            [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
-                                            [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
-                                            [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
-                                            [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
-                                            [<ffffffff81373a2e>] driver_attach+0x1e/0x20
-                                            [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
-                                            [<ffffffff813745b6>] driver_register+0x76/0x140
-                                            [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
-                                            [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
-                                            [<ffffffff81002165>] do_one_initcall+0x45/0x190
-                                            [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
-                                            [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
-      SOFTIRQ-ON-W at:
-                                            [<ffffffff8109adb7>] __lock_acquire+0x827/0x1e10
-                                            [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                            [<ffffffff81571156>] _raw_spin_lock+0x36/0x70
-                                            [<ffffffffa000d212>] vmxnet3_alloc_intr_resources+0x22/0x230 [vmxnet3]
-                                            [<ffffffffa0014031>] vmxnet3_probe_device+0x5f6/0x15c5 [vmxnet3]
-                                            [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
-                                            [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
-                                            [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
-                                            [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
-                                            [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
-                                            [<ffffffff81373a2e>] driver_attach+0x1e/0x20
-                                            [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
-                                            [<ffffffff813745b6>] driver_register+0x76/0x140
-                                            [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
-                                            [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
-                                            [<ffffffff81002165>] do_one_initcall+0x45/0x190
-                                            [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
-                                            [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
-      INITIAL USE at:
-                                           [<ffffffff8109a9e9>] __lock_acquire+0x459/0x1e10
-                                           [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                           [<ffffffff81571156>] _raw_spin_lock+0x36/0x70
-                                           [<ffffffffa000d212>] vmxnet3_alloc_intr_resources+0x22/0x230 [vmxnet3]
-                                           [<ffffffffa0014031>] vmxnet3_probe_device+0x5f6/0x15c5 [vmxnet3]
-                                           [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
-                                           [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
-                                           [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
-                                           [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
-                                           [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
-                                           [<ffffffff81373a2e>] driver_attach+0x1e/0x20
-                                           [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
-                                           [<ffffffff813745b6>] driver_register+0x76/0x140
-                                           [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
-                                           [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
-                                           [<ffffffff81002165>] do_one_initcall+0x45/0x190
-                                           [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
-                                           [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
-    }
-    ... key      at: [<ffffffffa0017590>] __key.42516+0x0/0xffffffffffffda70 [vmxnet3]
-    ... acquired at:
-    [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-    [<ffffffff81571bb5>] _raw_spin_lock_irqsave+0x55/0xa0
-    [<ffffffffa000de27>] vmxnet3_set_mc+0x97/0x1a0 [vmxnet3]
-    [<ffffffff8146ffa0>] __dev_set_rx_mode+0x40/0xb0
-    [<ffffffff81470040>] dev_set_rx_mode+0x30/0x50
-    [<ffffffff81470127>] __dev_open+0xc7/0x100
-    [<ffffffff814703c1>] __dev_change_flags+0xa1/0x180
-    [<ffffffff81470568>] dev_change_flags+0x28/0x70
-    [<ffffffff814da960>] devinet_ioctl+0x730/0x800
-    [<ffffffff814db508>] inet_ioctl+0x88/0xa0
-    [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
-    [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
-    [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
-    [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
-    [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
- 
-  -> (_xmit_ETHER){+.....} ops: 6 {
-     HARDIRQ-ON-W at:
-                                          [<ffffffff8109ad86>] __lock_acquire+0x7f6/0x1e10
-                                          [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                          [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-                                          [<ffffffff81475618>] __dev_mc_add+0x38/0x90
-                                          [<ffffffff814756a0>] dev_mc_add+0x10/0x20
-                                          [<ffffffff81532c9e>] igmp6_group_added+0x10e/0x1b0
-                                          [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
-                                          [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
-                                          [<ffffffff81519f27>] addrconf_notify+0x2f7/0xb10
-                                          [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
-                                          [<ffffffff81089586>] raw_notifier_call_chain+0x16/0x20
-                                          [<ffffffff814689b7>] call_netdevice_notifiers+0x37/0x70
-                                          [<ffffffff8146a944>] register_netdevice+0x244/0x2d0
-                                          [<ffffffff8146aa0f>] register_netdev+0x3f/0x60
-                                          [<ffffffffa001419b>] vmxnet3_probe_device+0x760/0x15c5 [vmxnet3]
-                                          [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
-                                          [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
-                                          [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
-                                          [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
-                                          [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
-                                          [<ffffffff81373a2e>] driver_attach+0x1e/0x20
-                                          [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
-                                          [<ffffffff813745b6>] driver_register+0x76/0x140
-                                          [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
-                                          [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
-                                          [<ffffffff81002165>] do_one_initcall+0x45/0x190
-                                          [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
-                                          [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
-     INITIAL USE at:
-                                         [<ffffffff8109a9e9>] __lock_acquire+0x459/0x1e10
-                                         [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                         [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-                                         [<ffffffff81475618>] __dev_mc_add+0x38/0x90
-                                         [<ffffffff814756a0>] dev_mc_add+0x10/0x20
-                                         [<ffffffff81532c9e>] igmp6_group_added+0x10e/0x1b0
-                                         [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
-                                         [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
-                                         [<ffffffff81519f27>] addrconf_notify+0x2f7/0xb10
-                                         [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
-                                         [<ffffffff81089586>] raw_notifier_call_chain+0x16/0x20
-                                         [<ffffffff814689b7>] call_netdevice_notifiers+0x37/0x70
-                                         [<ffffffff8146a944>] register_netdevice+0x244/0x2d0
-                                         [<ffffffff8146aa0f>] register_netdev+0x3f/0x60
-                                         [<ffffffffa001419b>] vmxnet3_probe_device+0x760/0x15c5 [vmxnet3]
-                                         [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
-                                         [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
-                                         [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
-                                         [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
-                                         [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
-                                         [<ffffffff81373a2e>] driver_attach+0x1e/0x20
-                                         [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
-                                         [<ffffffff813745b6>] driver_register+0x76/0x140
-                                         [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
-                                         [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
-                                         [<ffffffff81002165>] do_one_initcall+0x45/0x190
-                                         [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
-                                         [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
-   }
-   ... key      at: [<ffffffff827fd868>] netdev_addr_lock_key+0x8/0x1e0
-   ... acquired at:
-    [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-    [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-    [<ffffffff81475618>] __dev_mc_add+0x38/0x90
-    [<ffffffff814756a0>] dev_mc_add+0x10/0x20
-    [<ffffffff81532c9e>] igmp6_group_added+0x10e/0x1b0
-    [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
-    [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
-    [<ffffffff81519f27>] addrconf_notify+0x2f7/0xb10
-    [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
-    [<ffffffff81089586>] raw_notifier_call_chain+0x16/0x20
-    [<ffffffff814689b7>] call_netdevice_notifiers+0x37/0x70
-    [<ffffffff8146a944>] register_netdevice+0x244/0x2d0
-    [<ffffffff8146aa0f>] register_netdev+0x3f/0x60
-    [<ffffffffa001419b>] vmxnet3_probe_device+0x760/0x15c5 [vmxnet3]
-    [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
-    [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
-    [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
-    [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
-    [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
-    [<ffffffff81373a2e>] driver_attach+0x1e/0x20
-    [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
-    [<ffffffff813745b6>] driver_register+0x76/0x140
-    [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
-    [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
-    [<ffffffff81002165>] do_one_initcall+0x45/0x190
-    [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
-    [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
- 
- -> (&(&mc->mca_lock)->rlock){+.-...} ops: 6 {
-    HARDIRQ-ON-W at:
-                                        [<ffffffff8109ad86>] __lock_acquire+0x7f6/0x1e10
-                                        [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                        [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-                                        [<ffffffff81532bd5>] igmp6_group_added+0x45/0x1b0
-                                        [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
-                                        [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
-                                        [<ffffffff81ce0d16>] addrconf_init+0x4e/0x183
-                                        [<ffffffff81ce0ba1>] inet6_init+0x191/0x2a6
-                                        [<ffffffff81002165>] do_one_initcall+0x45/0x190
-                                        [<ffffffff81ca4d3f>] kernel_init+0xe3/0x168
-                                        [<ffffffff8157b2e4>] kernel_thread_helper+0x4/0x10
-    IN-SOFTIRQ-W at:
-                                        [<ffffffff8109ad5e>] __lock_acquire+0x7ce/0x1e10
-                                        [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                        [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-                                        [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
-                                        [<ffffffff8106f2a9>] run_timer_softirq+0x179/0x3f0
-                                        [<ffffffff810666d0>] __do_softirq+0xc0/0x210
-                                        [<ffffffff8157b3dc>] call_softirq+0x1c/0x30
-                                        [<ffffffff8100d42d>] do_softirq+0xad/0xe0
-                                        [<ffffffff81066afe>] irq_exit+0x9e/0xb0
-                                        [<ffffffff8157bd40>] smp_apic_timer_interrupt+0x70/0x9b
-                                        [<ffffffff8157ab93>] apic_timer_interrupt+0x13/0x20
-                                        [<ffffffff8149d857>] rt_do_flush+0x87/0x2a0
-                                        [<ffffffff814a16b6>] rt_cache_flush+0x46/0x60
-                                        [<ffffffff814e36e0>] fib_disable_ip+0x40/0x60
-                                        [<ffffffff814e5447>] fib_inetaddr_event+0xd7/0xe0
-                                        [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
-                                        [<ffffffff810896e8>] __blocking_notifier_call_chain+0x78/0xb0
-                                        [<ffffffff81089736>] blocking_notifier_call_chain+0x16/0x20
-                                        [<ffffffff814d8021>] __inet_del_ifa+0xf1/0x2e0
-                                        [<ffffffff814d8223>] inet_del_ifa+0x13/0x20
-                                        [<ffffffff814da731>] devinet_ioctl+0x501/0x800
-                                        [<ffffffff814db508>] inet_ioctl+0x88/0xa0
-                                        [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
-                                        [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
-                                        [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
-                                        [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
-                                        [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
-    INITIAL USE at:
-                                       [<ffffffff8109a9e9>] __lock_acquire+0x459/0x1e10
-                                       [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-                                       [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-                                       [<ffffffff81532bd5>] igmp6_group_added+0x45/0x1b0
-                                       [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
-                                       [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
-                                       [<ffffffff81ce0d16>] addrconf_init+0x4e/0x183
-                                       [<ffffffff81ce0ba1>] inet6_init+0x191/0x2a6
-                                       [<ffffffff81002165>] do_one_initcall+0x45/0x190
-                                       [<ffffffff81ca4d3f>] kernel_init+0xe3/0x168
-                                       [<ffffffff8157b2e4>] kernel_thread_helper+0x4/0x10
-  }
-  ... key      at: [<ffffffff82801be2>] __key.40877+0x0/0x8
-  ... acquired at:
-    [<ffffffff810997bc>] check_usage_forwards+0x9c/0x110
-    [<ffffffff8109a32c>] mark_lock+0x19c/0x400
-    [<ffffffff8109ad5e>] __lock_acquire+0x7ce/0x1e10
-    [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-    [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-    [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
-    [<ffffffff8106f2a9>] run_timer_softirq+0x179/0x3f0
-    [<ffffffff810666d0>] __do_softirq+0xc0/0x210
-    [<ffffffff8157b3dc>] call_softirq+0x1c/0x30
-    [<ffffffff8100d42d>] do_softirq+0xad/0xe0
-    [<ffffffff81066afe>] irq_exit+0x9e/0xb0
-    [<ffffffff8157bd40>] smp_apic_timer_interrupt+0x70/0x9b
-    [<ffffffff8157ab93>] apic_timer_interrupt+0x13/0x20
-    [<ffffffff8149d857>] rt_do_flush+0x87/0x2a0
-    [<ffffffff814a16b6>] rt_cache_flush+0x46/0x60
-    [<ffffffff814e36e0>] fib_disable_ip+0x40/0x60
-    [<ffffffff814e5447>] fib_inetaddr_event+0xd7/0xe0
-    [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
-    [<ffffffff810896e8>] __blocking_notifier_call_chain+0x78/0xb0
-    [<ffffffff81089736>] blocking_notifier_call_chain+0x16/0x20
-    [<ffffffff814d8021>] __inet_del_ifa+0xf1/0x2e0
-    [<ffffffff814d8223>] inet_del_ifa+0x13/0x20
-    [<ffffffff814da731>] devinet_ioctl+0x501/0x800
-    [<ffffffff814db508>] inet_ioctl+0x88/0xa0
-    [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
-    [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
-    [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
-    [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
-    [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
- 
- 
- stack backtrace:
- Pid: 567, comm: ifconfig Not tainted 2.6.39-rc6+ #1
- Call Trace:
-  <IRQ>  [<ffffffff810996f6>] print_irq_inversion_bug+0x146/0x170
-  [<ffffffff81099720>] ? print_irq_inversion_bug+0x170/0x170
-  [<ffffffff810997bc>] check_usage_forwards+0x9c/0x110
-  [<ffffffff8109a32c>] mark_lock+0x19c/0x400
-  [<ffffffff8109ad5e>] __lock_acquire+0x7ce/0x1e10
-  [<ffffffff8109a383>] ? mark_lock+0x1f3/0x400
-  [<ffffffff8109b497>] ? __lock_acquire+0xf07/0x1e10
-  [<ffffffff81012255>] ? native_sched_clock+0x15/0x70
-  [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
-  [<ffffffff81531e9f>] ? mld_ifc_timer_expire+0xff/0x280
-  [<ffffffff8109759d>] ? lock_release_holdtime+0x3d/0x1a0
-  [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
-  [<ffffffff81531e9f>] ? mld_ifc_timer_expire+0xff/0x280
-  [<ffffffff8157170b>] ? _raw_spin_unlock+0x2b/0x40
-  [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
-  [<ffffffff8106f2a9>] run_timer_softirq+0x179/0x3f0
-  [<ffffffff8106f21b>] ? run_timer_softirq+0xeb/0x3f0
-  [<ffffffff810122b9>] ? sched_clock+0x9/0x10
-  [<ffffffff81531da0>] ? mld_gq_timer_expire+0x30/0x30
-  [<ffffffff810666d0>] __do_softirq+0xc0/0x210
-  [<ffffffff8109455f>] ? tick_program_event+0x1f/0x30
-  [<ffffffff8157b3dc>] call_softirq+0x1c/0x30
-  [<ffffffff8100d42d>] do_softirq+0xad/0xe0
-  [<ffffffff81066afe>] irq_exit+0x9e/0xb0
-  [<ffffffff8157bd40>] smp_apic_timer_interrupt+0x70/0x9b
-  [<ffffffff8157ab93>] apic_timer_interrupt+0x13/0x20
-  <EOI>  [<ffffffff81571f14>] ? retint_restore_args+0x13/0x13
-  [<ffffffff810974a7>] ? lock_is_held+0x17/0xd0
-  [<ffffffff8149d857>] rt_do_flush+0x87/0x2a0
-  [<ffffffff814a16b6>] rt_cache_flush+0x46/0x60
-  [<ffffffff814e36e0>] fib_disable_ip+0x40/0x60
-  [<ffffffff814e5447>] fib_inetaddr_event+0xd7/0xe0
-  [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
-  [<ffffffff810896e8>] __blocking_notifier_call_chain+0x78/0xb0
-  [<ffffffff81089736>] blocking_notifier_call_chain+0x16/0x20
-  [<ffffffff814d8021>] __inet_del_ifa+0xf1/0x2e0
-  [<ffffffff814d8223>] inet_del_ifa+0x13/0x20
-  [<ffffffff814da731>] devinet_ioctl+0x501/0x800
-  [<ffffffff8108a3af>] ? local_clock+0x6f/0x80
-  [<ffffffff81575898>] ? do_page_fault+0x268/0x560
-  [<ffffffff814db508>] inet_ioctl+0x88/0xa0
-  [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
-  [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
-  [<ffffffff810dfe87>] ? __call_rcu+0xa7/0x190
-  [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
-  [<ffffffff8117737e>] ? fget_light+0x33e/0x430
-  [<ffffffff81571ef9>] ? retint_swapgs+0x13/0x1b
-  [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
-  [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
-
-
-Signed-off-by: Roland Dreier <roland@purestorage.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 0d47c3a..c16ed96 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -178,6 +178,7 @@ static void
- vmxnet3_process_events(struct vmxnet3_adapter *adapter)
+I stumbled over this cruft while auditing ip_queue_xmit() users.
+
+ drivers/net/hamachi.c |   79 -------------------------------------------------
+ 1 files changed, 0 insertions(+), 79 deletions(-)
+
+diff --git a/drivers/net/hamachi.c b/drivers/net/hamachi.c
+index 80d25ed..f5fba73 100644
+--- a/drivers/net/hamachi.c
++++ b/drivers/net/hamachi.c
+@@ -132,14 +132,8 @@ static int tx_params[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+ /*
+  * RX_CHECKSUM turns on card-generated receive checksum generation for
+  *   TCP and UDP packets.  Otherwise the upper layers do the calculation.
+- * TX_CHECKSUM won't do anything too useful, even if it works.  There's no
+- *   easy mechanism by which to tell the TCP/UDP stack that it need not
+- *   generate checksums for this device.  But if somebody can find a way
+- *   to get that to work, most of the card work is in here already.
+  * 3/10/1999 Pete Wyckoff <wyckoff@ca.sandia.gov>
+  */
+-#undef  TX_CHECKSUM
+-#define RX_CHECKSUM
+ 
+ /* Operational parameters that usually are not changed. */
+ /* Time in jiffies before concluding the transmitter is hung. */
+@@ -630,11 +624,6 @@ static int __devinit hamachi_init_one (struct pci_dev *pdev,
+ 
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+-#ifdef TX_CHECKSUM
+-	printk("check that skbcopy in ip_queue_xmit isn't happening\n");
+-	dev->hard_header_len += 8;  /* for cksum tag */
+-#endif
+-
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = 1 ? read_eeprom(ioaddr, 4 + i)
+ 			: readb(ioaddr + StationAddr + i);
+@@ -937,11 +926,7 @@ static int hamachi_open(struct net_device *dev)
+ 
+ 	/* always 1, takes no more time to do it */
+ 	writew(0x0001, ioaddr + RxChecksum);
+-#ifdef TX_CHECKSUM
+-	writew(0x0001, ioaddr + TxChecksum);
+-#else
+ 	writew(0x0000, ioaddr + TxChecksum);
+-#endif
+ 	writew(0x8000, ioaddr + MACCnfg); /* Soft reset the MAC */
+ 	writew(0x215F, ioaddr + MACCnfg);
+ 	writew(0x000C, ioaddr + FrameGap0);
+@@ -1226,40 +1211,6 @@ static void hamachi_init_ring(struct net_device *dev)
+ }
+ 
+ 
+-#ifdef TX_CHECKSUM
+-#define csum_add(it, val) \
+-do { \
+-    it += (u16) (val); \
+-    if (it & 0xffff0000) { \
+-	it &= 0xffff; \
+-	++it; \
+-    } \
+-} while (0)
+-    /* printk("add %04x --> %04x\n", val, it); \ */
+-
+-/* uh->len already network format, do not swap */
+-#define pseudo_csum_udp(sum,ih,uh) do { \
+-    sum = 0; \
+-    csum_add(sum, (ih)->saddr >> 16); \
+-    csum_add(sum, (ih)->saddr & 0xffff); \
+-    csum_add(sum, (ih)->daddr >> 16); \
+-    csum_add(sum, (ih)->daddr & 0xffff); \
+-    csum_add(sum, cpu_to_be16(IPPROTO_UDP)); \
+-    csum_add(sum, (uh)->len); \
+-} while (0)
+-
+-/* swap len */
+-#define pseudo_csum_tcp(sum,ih,len) do { \
+-    sum = 0; \
+-    csum_add(sum, (ih)->saddr >> 16); \
+-    csum_add(sum, (ih)->saddr & 0xffff); \
+-    csum_add(sum, (ih)->daddr >> 16); \
+-    csum_add(sum, (ih)->daddr & 0xffff); \
+-    csum_add(sum, cpu_to_be16(IPPROTO_TCP)); \
+-    csum_add(sum, htons(len)); \
+-} while (0)
+-#endif
+-
+ static netdev_tx_t hamachi_start_xmit(struct sk_buff *skb,
+ 				      struct net_device *dev)
  {
- 	int i;
-+	unsigned long flags;
- 	u32 events = le32_to_cpu(adapter->shared->ecr);
- 	if (!events)
- 		return;
-@@ -190,10 +191,10 @@ vmxnet3_process_events(struct vmxnet3_adapter *adapter)
+@@ -1292,36 +1243,6 @@ static netdev_tx_t hamachi_start_xmit(struct sk_buff *skb,
  
- 	/* Check if there is an error on xmit/recv queues */
- 	if (events & (VMXNET3_ECR_TQERR | VMXNET3_ECR_RQERR)) {
--		spin_lock(&adapter->cmd_lock);
-+		spin_lock_irqsave(&adapter->cmd_lock, flags);
- 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 				       VMXNET3_CMD_GET_QUEUE_STATUS);
--		spin_unlock(&adapter->cmd_lock);
-+		spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+ 	hmp->tx_skbuff[entry] = skb;
  
- 		for (i = 0; i < adapter->num_tx_queues; i++)
- 			if (adapter->tqd_start[i].status.stopped)
-@@ -2733,13 +2734,14 @@ static void
- vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
- {
- 	u32 cfg;
-+	unsigned long flags;
+-#ifdef TX_CHECKSUM
+-	{
+-	    /* tack on checksum tag */
+-	    u32 tagval = 0;
+-	    struct ethhdr *eh = (struct ethhdr *)skb->data;
+-	    if (eh->h_proto == cpu_to_be16(ETH_P_IP)) {
+-		struct iphdr *ih = (struct iphdr *)((char *)eh + ETH_HLEN);
+-		if (ih->protocol == IPPROTO_UDP) {
+-		    struct udphdr *uh
+-		      = (struct udphdr *)((char *)ih + ih->ihl*4);
+-		    u32 offset = ((unsigned char *)uh + 6) - skb->data;
+-		    u32 pseudo;
+-		    pseudo_csum_udp(pseudo, ih, uh);
+-		    pseudo = htons(pseudo);
+-		    printk("udp cksum was %04x, sending pseudo %04x\n",
+-		      uh->check, pseudo);
+-		    uh->check = 0;  /* zero out uh->check before card calc */
+-		    /*
+-		     * start at 14 (skip ethhdr), store at offset (uh->check),
+-		     * use pseudo value given.
+-		     */
+-		    tagval = (14 << 24) | (offset << 16) | pseudo;
+-		} else if (ih->protocol == IPPROTO_TCP) {
+-		    printk("tcp, no auto cksum\n");
+-		}
+-	    }
+-	    *(u32 *)skb_push(skb, 8) = tagval;
+-	}
+-#endif
+-
+         hmp->tx_ring[entry].addr = cpu_to_leXX(pci_map_single(hmp->pci_dev,
+ 		skb->data, skb->len, PCI_DMA_TODEVICE));
  
- 	/* intr settings */
--	spin_lock(&adapter->cmd_lock);
-+	spin_lock_irqsave(&adapter->cmd_lock, flags);
- 	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 			       VMXNET3_CMD_GET_CONF_INTR);
- 	cfg = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_CMD);
--	spin_unlock(&adapter->cmd_lock);
-+	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
- 	adapter->intr.type = cfg & 0x3;
- 	adapter->intr.mask_mode = (cfg >> 2) & 0x3;
- 
+-- 
+1.7.5.1
+
