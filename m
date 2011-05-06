@@ -1,333 +1,408 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: convert to ndo_fix_features
-Date: Fri, 06 May 2011 11:18:04 -0700
-Message-ID: <5525.1304705884@death>
-References: <20110506175629.BC59D1389B@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+From: Roland Dreier <roland@kernel.org>
+Subject: [PATCH] vmxnet3: Consistently disable irqs when taking adapter->cmd_lock
+Date: Fri,  6 May 2011 11:32:53 -0700
+Message-ID: <1304706773-21348-1-git-send-email-roland@kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org
+To: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:56985 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751131Ab1EFSSK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2011 14:18:10 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p46HtMA1032383
-	for <netdev@vger.kernel.org>; Fri, 6 May 2011 13:55:22 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p46II8MA091116
-	for <netdev@vger.kernel.org>; Fri, 6 May 2011 14:18:08 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p46EHuDW025119
-	for <netdev@vger.kernel.org>; Fri, 6 May 2011 11:17:57 -0300
-In-reply-to: <20110506175629.BC59D1389B@rere.qmqm.pl>
+Received: from na3sys010aog103.obsmtp.com ([74.125.245.74]:48489 "HELO
+	na3sys010aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932494Ab1EFSir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 May 2011 14:38:47 -0400
+Received: by mail-pz0-f51.google.com with SMTP id 26so1546834pzk.10
+        for <netdev@vger.kernel.org>; Fri, 06 May 2011 11:38:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
+From: Roland Dreier <roland@purestorage.com>
 
->This should also fix updating of vlan_features and propagating changes=
- to
->VLAN devices on the bond.
->
->Side effect: it allows user to force-disable some offloads on the bond
->interface.
->
->Note: NETIF_F_VLAN_CHALLENGED is managed by bond_fix_features() now.
->
->BTW, What are the problems in creating VLAN devices on an empty bond
->(as stated in one of bond_setup() comments)?
+Using the vmxnet3 driver produces a lockdep warning because
+vmxnet3_set_mc(), which is called with mc->mca_lock held, takes
+adapter->cmd_lock.  However, there are a couple of places where
+adapter->cmd_lock is taken with softirqs enabled, lockdep warns that a
+softirq that tries to take mc->mca_lock could happen while
+adapter->cmd_lock is held, leading to an AB-BA deadlock.
 
-	If there are no slaves, then the bond does not have a MAC
-address assigned (because it gets its initial MAC from the first slave)=
-=2E
-It's therefore impossible to pass a MAC address up to the VLAN
-interface.
+I'm not sure if this is a real potential deadlock or not, but the
+simplest and best fix seems to be simply to make sure we take cmd_lock
+with spin_lock_irqsave() everywhere -- the places with plain spin_lock
+just look like oversights.
 
-	So the limitation is that the bond must have at least one slave
-before a VLAN may be configured above it.
+The full enormous lockdep warning is:
 
-	-J
+ =========================================================
+ [ INFO: possible irq lock inversion dependency detected ]
+ 2.6.39-rc6+ #1
+ ---------------------------------------------------------
+ ifconfig/567 just changed the state of lock:
+  (&(&mc->mca_lock)->rlock){+.-...}, at: [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
+ but this lock took another, SOFTIRQ-unsafe lock in the past:
+  (&(&adapter->cmd_lock)->rlock){+.+...}
+ 
+ and interrupts could create inverse lock ordering between them.
+ 
+ 
+ other info that might help us debug this:
+ 4 locks held by ifconfig/567:
+  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8147d547>] rtnl_lock+0x17/0x20
+  #1:  ((inetaddr_chain).rwsem){.+.+.+}, at: [<ffffffff810896cf>] __blocking_notifier_call_chain+0x5f/0xb0
+  #2:  (&idev->mc_ifc_timer){+.-...}, at: [<ffffffff8106f21b>] run_timer_softirq+0xeb/0x3f0
+  #3:  (&ndev->lock){++.-..}, at: [<ffffffff81531dd2>] mld_ifc_timer_expire+0x32/0x280
+ 
+ the shortest dependencies between 2nd lock and 1st lock:
+   -> (&(&adapter->cmd_lock)->rlock){+.+...} ops: 11 {
+      HARDIRQ-ON-W at:
+                                            [<ffffffff8109ad86>] __lock_acquire+0x7f6/0x1e10
+                                            [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                            [<ffffffff81571156>] _raw_spin_lock+0x36/0x70
+                                            [<ffffffffa000d212>] vmxnet3_alloc_intr_resources+0x22/0x230 [vmxnet3]
+                                            [<ffffffffa0014031>] vmxnet3_probe_device+0x5f6/0x15c5 [vmxnet3]
+                                            [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
+                                            [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
+                                            [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
+                                            [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
+                                            [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
+                                            [<ffffffff81373a2e>] driver_attach+0x1e/0x20
+                                            [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
+                                            [<ffffffff813745b6>] driver_register+0x76/0x140
+                                            [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
+                                            [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
+                                            [<ffffffff81002165>] do_one_initcall+0x45/0x190
+                                            [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
+                                            [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+      SOFTIRQ-ON-W at:
+                                            [<ffffffff8109adb7>] __lock_acquire+0x827/0x1e10
+                                            [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                            [<ffffffff81571156>] _raw_spin_lock+0x36/0x70
+                                            [<ffffffffa000d212>] vmxnet3_alloc_intr_resources+0x22/0x230 [vmxnet3]
+                                            [<ffffffffa0014031>] vmxnet3_probe_device+0x5f6/0x15c5 [vmxnet3]
+                                            [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
+                                            [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
+                                            [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
+                                            [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
+                                            [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
+                                            [<ffffffff81373a2e>] driver_attach+0x1e/0x20
+                                            [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
+                                            [<ffffffff813745b6>] driver_register+0x76/0x140
+                                            [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
+                                            [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
+                                            [<ffffffff81002165>] do_one_initcall+0x45/0x190
+                                            [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
+                                            [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+      INITIAL USE at:
+                                           [<ffffffff8109a9e9>] __lock_acquire+0x459/0x1e10
+                                           [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                           [<ffffffff81571156>] _raw_spin_lock+0x36/0x70
+                                           [<ffffffffa000d212>] vmxnet3_alloc_intr_resources+0x22/0x230 [vmxnet3]
+                                           [<ffffffffa0014031>] vmxnet3_probe_device+0x5f6/0x15c5 [vmxnet3]
+                                           [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
+                                           [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
+                                           [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
+                                           [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
+                                           [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
+                                           [<ffffffff81373a2e>] driver_attach+0x1e/0x20
+                                           [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
+                                           [<ffffffff813745b6>] driver_register+0x76/0x140
+                                           [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
+                                           [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
+                                           [<ffffffff81002165>] do_one_initcall+0x45/0x190
+                                           [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
+                                           [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+    }
+    ... key      at: [<ffffffffa0017590>] __key.42516+0x0/0xffffffffffffda70 [vmxnet3]
+    ... acquired at:
+    [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+    [<ffffffff81571bb5>] _raw_spin_lock_irqsave+0x55/0xa0
+    [<ffffffffa000de27>] vmxnet3_set_mc+0x97/0x1a0 [vmxnet3]
+    [<ffffffff8146ffa0>] __dev_set_rx_mode+0x40/0xb0
+    [<ffffffff81470040>] dev_set_rx_mode+0x30/0x50
+    [<ffffffff81470127>] __dev_open+0xc7/0x100
+    [<ffffffff814703c1>] __dev_change_flags+0xa1/0x180
+    [<ffffffff81470568>] dev_change_flags+0x28/0x70
+    [<ffffffff814da960>] devinet_ioctl+0x730/0x800
+    [<ffffffff814db508>] inet_ioctl+0x88/0xa0
+    [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
+    [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
+    [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
+    [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
+    [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+ 
+  -> (_xmit_ETHER){+.....} ops: 6 {
+     HARDIRQ-ON-W at:
+                                          [<ffffffff8109ad86>] __lock_acquire+0x7f6/0x1e10
+                                          [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                          [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+                                          [<ffffffff81475618>] __dev_mc_add+0x38/0x90
+                                          [<ffffffff814756a0>] dev_mc_add+0x10/0x20
+                                          [<ffffffff81532c9e>] igmp6_group_added+0x10e/0x1b0
+                                          [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
+                                          [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
+                                          [<ffffffff81519f27>] addrconf_notify+0x2f7/0xb10
+                                          [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
+                                          [<ffffffff81089586>] raw_notifier_call_chain+0x16/0x20
+                                          [<ffffffff814689b7>] call_netdevice_notifiers+0x37/0x70
+                                          [<ffffffff8146a944>] register_netdevice+0x244/0x2d0
+                                          [<ffffffff8146aa0f>] register_netdev+0x3f/0x60
+                                          [<ffffffffa001419b>] vmxnet3_probe_device+0x760/0x15c5 [vmxnet3]
+                                          [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
+                                          [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
+                                          [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
+                                          [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
+                                          [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
+                                          [<ffffffff81373a2e>] driver_attach+0x1e/0x20
+                                          [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
+                                          [<ffffffff813745b6>] driver_register+0x76/0x140
+                                          [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
+                                          [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
+                                          [<ffffffff81002165>] do_one_initcall+0x45/0x190
+                                          [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
+                                          [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+     INITIAL USE at:
+                                         [<ffffffff8109a9e9>] __lock_acquire+0x459/0x1e10
+                                         [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                         [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+                                         [<ffffffff81475618>] __dev_mc_add+0x38/0x90
+                                         [<ffffffff814756a0>] dev_mc_add+0x10/0x20
+                                         [<ffffffff81532c9e>] igmp6_group_added+0x10e/0x1b0
+                                         [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
+                                         [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
+                                         [<ffffffff81519f27>] addrconf_notify+0x2f7/0xb10
+                                         [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
+                                         [<ffffffff81089586>] raw_notifier_call_chain+0x16/0x20
+                                         [<ffffffff814689b7>] call_netdevice_notifiers+0x37/0x70
+                                         [<ffffffff8146a944>] register_netdevice+0x244/0x2d0
+                                         [<ffffffff8146aa0f>] register_netdev+0x3f/0x60
+                                         [<ffffffffa001419b>] vmxnet3_probe_device+0x760/0x15c5 [vmxnet3]
+                                         [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
+                                         [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
+                                         [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
+                                         [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
+                                         [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
+                                         [<ffffffff81373a2e>] driver_attach+0x1e/0x20
+                                         [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
+                                         [<ffffffff813745b6>] driver_register+0x76/0x140
+                                         [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
+                                         [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
+                                         [<ffffffff81002165>] do_one_initcall+0x45/0x190
+                                         [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
+                                         [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+   }
+   ... key      at: [<ffffffff827fd868>] netdev_addr_lock_key+0x8/0x1e0
+   ... acquired at:
+    [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+    [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+    [<ffffffff81475618>] __dev_mc_add+0x38/0x90
+    [<ffffffff814756a0>] dev_mc_add+0x10/0x20
+    [<ffffffff81532c9e>] igmp6_group_added+0x10e/0x1b0
+    [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
+    [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
+    [<ffffffff81519f27>] addrconf_notify+0x2f7/0xb10
+    [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
+    [<ffffffff81089586>] raw_notifier_call_chain+0x16/0x20
+    [<ffffffff814689b7>] call_netdevice_notifiers+0x37/0x70
+    [<ffffffff8146a944>] register_netdevice+0x244/0x2d0
+    [<ffffffff8146aa0f>] register_netdev+0x3f/0x60
+    [<ffffffffa001419b>] vmxnet3_probe_device+0x760/0x15c5 [vmxnet3]
+    [<ffffffff812df67f>] local_pci_probe+0x5f/0xd0
+    [<ffffffff812dfde9>] pci_device_probe+0x119/0x120
+    [<ffffffff81373df6>] driver_probe_device+0x96/0x1c0
+    [<ffffffff81373fcb>] __driver_attach+0xab/0xb0
+    [<ffffffff81372a1e>] bus_for_each_dev+0x5e/0x90
+    [<ffffffff81373a2e>] driver_attach+0x1e/0x20
+    [<ffffffff813735b8>] bus_add_driver+0xc8/0x290
+    [<ffffffff813745b6>] driver_register+0x76/0x140
+    [<ffffffff812e0046>] __pci_register_driver+0x66/0xe0
+    [<ffffffffa001b03a>] serio_raw_poll+0x3a/0x60 [serio_raw]
+    [<ffffffff81002165>] do_one_initcall+0x45/0x190
+    [<ffffffff810aa76b>] sys_init_module+0xfb/0x250
+    [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+ 
+ -> (&(&mc->mca_lock)->rlock){+.-...} ops: 6 {
+    HARDIRQ-ON-W at:
+                                        [<ffffffff8109ad86>] __lock_acquire+0x7f6/0x1e10
+                                        [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                        [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+                                        [<ffffffff81532bd5>] igmp6_group_added+0x45/0x1b0
+                                        [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
+                                        [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
+                                        [<ffffffff81ce0d16>] addrconf_init+0x4e/0x183
+                                        [<ffffffff81ce0ba1>] inet6_init+0x191/0x2a6
+                                        [<ffffffff81002165>] do_one_initcall+0x45/0x190
+                                        [<ffffffff81ca4d3f>] kernel_init+0xe3/0x168
+                                        [<ffffffff8157b2e4>] kernel_thread_helper+0x4/0x10
+    IN-SOFTIRQ-W at:
+                                        [<ffffffff8109ad5e>] __lock_acquire+0x7ce/0x1e10
+                                        [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                        [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+                                        [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
+                                        [<ffffffff8106f2a9>] run_timer_softirq+0x179/0x3f0
+                                        [<ffffffff810666d0>] __do_softirq+0xc0/0x210
+                                        [<ffffffff8157b3dc>] call_softirq+0x1c/0x30
+                                        [<ffffffff8100d42d>] do_softirq+0xad/0xe0
+                                        [<ffffffff81066afe>] irq_exit+0x9e/0xb0
+                                        [<ffffffff8157bd40>] smp_apic_timer_interrupt+0x70/0x9b
+                                        [<ffffffff8157ab93>] apic_timer_interrupt+0x13/0x20
+                                        [<ffffffff8149d857>] rt_do_flush+0x87/0x2a0
+                                        [<ffffffff814a16b6>] rt_cache_flush+0x46/0x60
+                                        [<ffffffff814e36e0>] fib_disable_ip+0x40/0x60
+                                        [<ffffffff814e5447>] fib_inetaddr_event+0xd7/0xe0
+                                        [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
+                                        [<ffffffff810896e8>] __blocking_notifier_call_chain+0x78/0xb0
+                                        [<ffffffff81089736>] blocking_notifier_call_chain+0x16/0x20
+                                        [<ffffffff814d8021>] __inet_del_ifa+0xf1/0x2e0
+                                        [<ffffffff814d8223>] inet_del_ifa+0x13/0x20
+                                        [<ffffffff814da731>] devinet_ioctl+0x501/0x800
+                                        [<ffffffff814db508>] inet_ioctl+0x88/0xa0
+                                        [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
+                                        [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
+                                        [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
+                                        [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
+                                        [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+    INITIAL USE at:
+                                       [<ffffffff8109a9e9>] __lock_acquire+0x459/0x1e10
+                                       [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+                                       [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+                                       [<ffffffff81532bd5>] igmp6_group_added+0x45/0x1b0
+                                       [<ffffffff81533f2d>] ipv6_dev_mc_inc+0x2cd/0x430
+                                       [<ffffffff81515e17>] ipv6_add_dev+0x357/0x450
+                                       [<ffffffff81ce0d16>] addrconf_init+0x4e/0x183
+                                       [<ffffffff81ce0ba1>] inet6_init+0x191/0x2a6
+                                       [<ffffffff81002165>] do_one_initcall+0x45/0x190
+                                       [<ffffffff81ca4d3f>] kernel_init+0xe3/0x168
+                                       [<ffffffff8157b2e4>] kernel_thread_helper+0x4/0x10
+  }
+  ... key      at: [<ffffffff82801be2>] __key.40877+0x0/0x8
+  ... acquired at:
+    [<ffffffff810997bc>] check_usage_forwards+0x9c/0x110
+    [<ffffffff8109a32c>] mark_lock+0x19c/0x400
+    [<ffffffff8109ad5e>] __lock_acquire+0x7ce/0x1e10
+    [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+    [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+    [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
+    [<ffffffff8106f2a9>] run_timer_softirq+0x179/0x3f0
+    [<ffffffff810666d0>] __do_softirq+0xc0/0x210
+    [<ffffffff8157b3dc>] call_softirq+0x1c/0x30
+    [<ffffffff8100d42d>] do_softirq+0xad/0xe0
+    [<ffffffff81066afe>] irq_exit+0x9e/0xb0
+    [<ffffffff8157bd40>] smp_apic_timer_interrupt+0x70/0x9b
+    [<ffffffff8157ab93>] apic_timer_interrupt+0x13/0x20
+    [<ffffffff8149d857>] rt_do_flush+0x87/0x2a0
+    [<ffffffff814a16b6>] rt_cache_flush+0x46/0x60
+    [<ffffffff814e36e0>] fib_disable_ip+0x40/0x60
+    [<ffffffff814e5447>] fib_inetaddr_event+0xd7/0xe0
+    [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
+    [<ffffffff810896e8>] __blocking_notifier_call_chain+0x78/0xb0
+    [<ffffffff81089736>] blocking_notifier_call_chain+0x16/0x20
+    [<ffffffff814d8021>] __inet_del_ifa+0xf1/0x2e0
+    [<ffffffff814d8223>] inet_del_ifa+0x13/0x20
+    [<ffffffff814da731>] devinet_ioctl+0x501/0x800
+    [<ffffffff814db508>] inet_ioctl+0x88/0xa0
+    [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
+    [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
+    [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
+    [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
+    [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
+ 
+ 
+ stack backtrace:
+ Pid: 567, comm: ifconfig Not tainted 2.6.39-rc6+ #1
+ Call Trace:
+  <IRQ>  [<ffffffff810996f6>] print_irq_inversion_bug+0x146/0x170
+  [<ffffffff81099720>] ? print_irq_inversion_bug+0x170/0x170
+  [<ffffffff810997bc>] check_usage_forwards+0x9c/0x110
+  [<ffffffff8109a32c>] mark_lock+0x19c/0x400
+  [<ffffffff8109ad5e>] __lock_acquire+0x7ce/0x1e10
+  [<ffffffff8109a383>] ? mark_lock+0x1f3/0x400
+  [<ffffffff8109b497>] ? __lock_acquire+0xf07/0x1e10
+  [<ffffffff81012255>] ? native_sched_clock+0x15/0x70
+  [<ffffffff8109ca4d>] lock_acquire+0x9d/0x130
+  [<ffffffff81531e9f>] ? mld_ifc_timer_expire+0xff/0x280
+  [<ffffffff8109759d>] ? lock_release_holdtime+0x3d/0x1a0
+  [<ffffffff8157124b>] _raw_spin_lock_bh+0x3b/0x70
+  [<ffffffff81531e9f>] ? mld_ifc_timer_expire+0xff/0x280
+  [<ffffffff8157170b>] ? _raw_spin_unlock+0x2b/0x40
+  [<ffffffff81531e9f>] mld_ifc_timer_expire+0xff/0x280
+  [<ffffffff8106f2a9>] run_timer_softirq+0x179/0x3f0
+  [<ffffffff8106f21b>] ? run_timer_softirq+0xeb/0x3f0
+  [<ffffffff810122b9>] ? sched_clock+0x9/0x10
+  [<ffffffff81531da0>] ? mld_gq_timer_expire+0x30/0x30
+  [<ffffffff810666d0>] __do_softirq+0xc0/0x210
+  [<ffffffff8109455f>] ? tick_program_event+0x1f/0x30
+  [<ffffffff8157b3dc>] call_softirq+0x1c/0x30
+  [<ffffffff8100d42d>] do_softirq+0xad/0xe0
+  [<ffffffff81066afe>] irq_exit+0x9e/0xb0
+  [<ffffffff8157bd40>] smp_apic_timer_interrupt+0x70/0x9b
+  [<ffffffff8157ab93>] apic_timer_interrupt+0x13/0x20
+  <EOI>  [<ffffffff81571f14>] ? retint_restore_args+0x13/0x13
+  [<ffffffff810974a7>] ? lock_is_held+0x17/0xd0
+  [<ffffffff8149d857>] rt_do_flush+0x87/0x2a0
+  [<ffffffff814a16b6>] rt_cache_flush+0x46/0x60
+  [<ffffffff814e36e0>] fib_disable_ip+0x40/0x60
+  [<ffffffff814e5447>] fib_inetaddr_event+0xd7/0xe0
+  [<ffffffff81575c1c>] notifier_call_chain+0x8c/0xc0
+  [<ffffffff810896e8>] __blocking_notifier_call_chain+0x78/0xb0
+  [<ffffffff81089736>] blocking_notifier_call_chain+0x16/0x20
+  [<ffffffff814d8021>] __inet_del_ifa+0xf1/0x2e0
+  [<ffffffff814d8223>] inet_del_ifa+0x13/0x20
+  [<ffffffff814da731>] devinet_ioctl+0x501/0x800
+  [<ffffffff8108a3af>] ? local_clock+0x6f/0x80
+  [<ffffffff81575898>] ? do_page_fault+0x268/0x560
+  [<ffffffff814db508>] inet_ioctl+0x88/0xa0
+  [<ffffffff814541f0>] sock_do_ioctl+0x30/0x70
+  [<ffffffff814542a9>] sock_ioctl+0x79/0x2f0
+  [<ffffffff810dfe87>] ? __call_rcu+0xa7/0x190
+  [<ffffffff81188798>] do_vfs_ioctl+0x98/0x570
+  [<ffffffff8117737e>] ? fget_light+0x33e/0x430
+  [<ffffffff81571ef9>] ? retint_swapgs+0x13/0x1b
+  [<ffffffff81188d01>] sys_ioctl+0x91/0xa0
+  [<ffffffff8157a142>] system_call_fastpath+0x16/0x1b
 
 
->Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
->---
->
->Note: This is only compile tested, yet.
->
-> drivers/net/bonding/bond_main.c |  133 +++++++++++++++---------------=
----------
-> 1 files changed, 50 insertions(+), 83 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bon=
-d_main.c
->index 9a5feaf..04a2205 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -344,32 +344,6 @@ out:
-> }
->
-> /**
->- * bond_has_challenged_slaves
->- * @bond: the bond we're working on
->- *
->- * Searches the slave list. Returns 1 if a vlan challenged slave
->- * was found, 0 otherwise.
->- *
->- * Assumes bond->lock is held.
->- */
->-static int bond_has_challenged_slaves(struct bonding *bond)
->-{
->-	struct slave *slave;
->-	int i;
->-
->-	bond_for_each_slave(bond, slave, i) {
->-		if (slave->dev->features & NETIF_F_VLAN_CHALLENGED) {
->-			pr_debug("found VLAN challenged slave - %s\n",
->-				 slave->dev->name);
->-			return 1;
->-		}
->-	}
->-
->-	pr_debug("no VLAN challenged slaves found\n");
->-	return 0;
->-}
->-
->-/**
->  * bond_next_vlan - safely skip to the next item in the vlans list.
->  * @bond: the bond we're working on
->  * @curr: item we're advancing from
->@@ -1406,52 +1380,61 @@ static int bond_sethwaddr(struct net_device *b=
-ond_dev,
-> 	return 0;
-> }
->
->-#define BOND_VLAN_FEATURES \
->-	(NETIF_F_VLAN_CHALLENGED | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |=
- \
->-	 NETIF_F_HW_VLAN_FILTER)
->-
->-/*
->- * Compute the common dev->feature set available to all slaves.  Some
->- * feature bits are managed elsewhere, so preserve those feature bits
->- * on the master device.
->- */
->-static int bond_compute_features(struct bonding *bond)
->+static u32 bond_fix_features(struct net_device *dev, u32 features)
-> {
-> 	struct slave *slave;
->-	struct net_device *bond_dev =3D bond->dev;
->-	u32 features =3D bond_dev->features;
->-	u32 vlan_features =3D 0;
->-	unsigned short max_hard_header_len =3D max((u16)ETH_HLEN,
->-						bond_dev->hard_header_len);
->+	struct bonding *bond =3D netdev_priv(dev);
->+	u32 mask;
-> 	int i;
->
->-	features &=3D ~(NETIF_F_ALL_CSUM | BOND_VLAN_FEATURES);
->-	features |=3D  NETIF_F_GSO_MASK | NETIF_F_NO_CSUM | NETIF_F_NOCACHE_=
-COPY;
->-
-> 	if (!bond->first_slave)
->-		goto done;
->+		/* Disable adding VLANs to empty bond. But why? --mq */
->+		return features | NETIF_F_VLAN_CHALLENGED;
->
->+	mask =3D features;
-> 	features &=3D ~NETIF_F_ONE_FOR_ALL;
->+	features |=3D NETIF_F_ALL_FOR_ALL;
->
->-	vlan_features =3D bond->first_slave->dev->vlan_features;
-> 	bond_for_each_slave(bond, slave, i) {
-> 		features =3D netdev_increment_features(features,
-> 						     slave->dev->features,
->-						     NETIF_F_ONE_FOR_ALL);
->+						     mask);
->+	}
->+
->+	return features;
->+}
->+
->+#define BOND_VLAN_FEATURES	(NETIF_F_ALL_TX_OFFLOADS | \
->+				 NETIF_F_SOFT_FEATURES | \
->+				 NETIF_F_LRO)
->+
->+static void bond_compute_features(struct bonding *bond)
->+{
->+	struct slave *slave;
->+	struct net_device *bond_dev =3D bond->dev;
->+	u32 old_features, vlan_features =3D BOND_VLAN_FEATURES;
->+	unsigned short max_hard_header_len =3D ETH_HLEN;
->+	int i;
->+
->+	if (!bond->first_slave)
->+		goto done;
->+
->+	bond_for_each_slave(bond, slave, i) {
-> 		vlan_features =3D netdev_increment_features(vlan_features,
->-							slave->dev->vlan_features,
->-							NETIF_F_ONE_FOR_ALL);
->+			slave->dev->vlan_features, BOND_VLAN_FEATURES);
->+
-> 		if (slave->dev->hard_header_len > max_hard_header_len)
-> 			max_hard_header_len =3D slave->dev->hard_header_len;
-> 	}
->
-> done:
->-	features |=3D (bond_dev->features & BOND_VLAN_FEATURES);
->-	bond_dev->features =3D netdev_fix_features(bond_dev, features);
->-	bond_dev->vlan_features =3D netdev_fix_features(bond_dev, vlan_featu=
-res);
->+	bond_dev->vlan_features =3D vlan_features;
-> 	bond_dev->hard_header_len =3D max_hard_header_len;
->
->-	return 0;
->+	old_features =3D bond_dev->features;
->+	netdev_update_features(bond_dev);
->+	if (old_features =3D=3D bond_dev->features)
->+		netdev_features_change(bond_dev);
-> }
->
-> static void bond_setup_by_slave(struct net_device *bond_dev,
->@@ -1544,7 +1527,6 @@ int bond_enslave(struct net_device *bond_dev, st=
-ruct net_device *slave_dev)
-> 	struct netdev_hw_addr *ha;
-> 	struct sockaddr addr;
-> 	int link_reporting;
->-	int old_features =3D bond_dev->features;
-> 	int res =3D 0;
->
-> 	if (!bond->params.use_carrier && slave_dev->ethtool_ops =3D=3D NULL =
-&&
->@@ -1577,16 +1559,9 @@ int bond_enslave(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
-> 			pr_warning("%s: Warning: enslaved VLAN challenged slave %s. Adding=
- VLANs will be blocked as long as %s is part of bond %s\n",
-> 				   bond_dev->name, slave_dev->name,
-> 				   slave_dev->name, bond_dev->name);
->-			bond_dev->features |=3D NETIF_F_VLAN_CHALLENGED;
-> 		}
-> 	} else {
-> 		pr_debug("%s: ! NETIF_F_VLAN_CHALLENGED\n", slave_dev->name);
->-		if (bond->slave_cnt =3D=3D 0) {
->-			/* First slave, and it is not VLAN challenged,
->-			 * so remove the block of adding VLANs over the bond.
->-			 */
->-			bond_dev->features &=3D ~NETIF_F_VLAN_CHALLENGED;
->-		}
-> 	}
->
-> 	/*
->@@ -1958,7 +1933,7 @@ err_free:
-> 	kfree(new_slave);
->
-> err_undo_flags:
->-	bond_dev->features =3D old_features;
->+	bond_compute_features(bond);
->
-> 	return res;
-> }
->@@ -1979,6 +1954,7 @@ int bond_release(struct net_device *bond_dev, st=
-ruct net_device *slave_dev)
-> 	struct bonding *bond =3D netdev_priv(bond_dev);
-> 	struct slave *slave, *oldcurrent;
-> 	struct sockaddr addr;
->+	u32 old_features =3D bond_dev->features;
->
-> 	/* slave is not a slave or master is not master of this slave */
-> 	if (!(slave_dev->flags & IFF_SLAVE) ||
->@@ -2084,19 +2060,16 @@ int bond_release(struct net_device *bond_dev, =
-struct net_device *slave_dev)
-> 		 */
-> 		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
->
->-		if (!bond->vlgrp) {
->-			bond_dev->features |=3D NETIF_F_VLAN_CHALLENGED;
->-		} else {
->+		if (bond->vlgrp) {
-> 			pr_warning("%s: Warning: clearing HW address of %s while it still =
-has VLANs.\n",
-> 				   bond_dev->name, bond_dev->name);
-> 			pr_warning("%s: When re-adding slaves, make sure the bond's HW add=
-ress matches its VLANs'.\n",
-> 				   bond_dev->name);
-> 		}
->-	} else if ((bond_dev->features & NETIF_F_VLAN_CHALLENGED) &&
->-		   !bond_has_challenged_slaves(bond)) {
->+	} else if (!(bond_dev->features & NETIF_F_VLAN_CHALLENGED) &&
->+		   old_features & NETIF_F_VLAN_CHALLENGED) {
-> 		pr_info("%s: last VLAN challenged slave %s left bond %s. VLAN block=
-ing is removed\n",
-> 			bond_dev->name, slave_dev->name, bond_dev->name);
->-		bond_dev->features &=3D ~NETIF_F_VLAN_CHALLENGED;
-> 	}
->
-> 	write_unlock_bh(&bond->lock);
->@@ -2269,9 +2242,7 @@ static int bond_release_all(struct net_device *b=
-ond_dev)
-> 	 */
-> 	memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
->
->-	if (!bond->vlgrp) {
->-		bond_dev->features |=3D NETIF_F_VLAN_CHALLENGED;
->-	} else {
->+	if (bond->vlgrp) {
-> 		pr_warning("%s: Warning: clearing HW address of %s while it still h=
-as VLANs.\n",
-> 			   bond_dev->name, bond_dev->name);
-> 		pr_warning("%s: When re-adding slaves, make sure the bond's HW addr=
-ess matches its VLANs'.\n",
->@@ -4347,11 +4318,6 @@ static void bond_ethtool_get_drvinfo(struct net=
-_device *bond_dev,
-> static const struct ethtool_ops bond_ethtool_ops =3D {
-> 	.get_drvinfo		=3D bond_ethtool_get_drvinfo,
-> 	.get_link		=3D ethtool_op_get_link,
->-	.get_tx_csum		=3D ethtool_op_get_tx_csum,
->-	.get_sg			=3D ethtool_op_get_sg,
->-	.get_tso		=3D ethtool_op_get_tso,
->-	.get_ufo		=3D ethtool_op_get_ufo,
->-	.get_flags		=3D ethtool_op_get_flags,
-> };
->
-> static const struct net_device_ops bond_netdev_ops =3D {
->@@ -4377,6 +4343,7 @@ static const struct net_device_ops bond_netdev_o=
-ps =3D {
-> #endif
-> 	.ndo_add_slave		=3D bond_enslave,
-> 	.ndo_del_slave		=3D bond_release,
->+	.ndo_fix_features	=3D bond_fix_features,
-> };
->
-> static void bond_destructor(struct net_device *bond_dev)
->@@ -4432,14 +4399,14 @@ static void bond_setup(struct net_device *bond=
-_dev)
-> 	 * when there are slaves that are not hw accel
-> 	 * capable
-> 	 */
->-	bond_dev->features |=3D (NETIF_F_HW_VLAN_TX |
->-			       NETIF_F_HW_VLAN_RX |
->-			       NETIF_F_HW_VLAN_FILTER);
->
->-	/* By default, we enable GRO on bonding devices.
->-	 * Actual support requires lowlevel drivers are GRO ready.
->-	 */
->-	bond_dev->features |=3D NETIF_F_GRO;
->+	bond_dev->hw_features =3D BOND_VLAN_FEATURES |
->+				NETIF_F_HW_VLAN_TX |
->+				NETIF_F_HW_VLAN_RX |
->+				NETIF_F_HW_VLAN_FILTER;
->+
->+	bond_dev->hw_features &=3D ~(NETIF_F_ALL_CSUM & ~NETIF_F_NO_CSUM);
->+	bond_dev->features |=3D bond_dev->hw_features;
-> }
->
-> static void bond_work_cancel_all(struct bonding *bond)
->--=20
->1.7.2.5
->
-
+Signed-off-by: Roland Dreier <roland@purestorage.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/vmxnet3/vmxnet3_drv.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 0d47c3a..c16ed96 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -178,6 +178,7 @@ static void
+ vmxnet3_process_events(struct vmxnet3_adapter *adapter)
+ {
+ 	int i;
++	unsigned long flags;
+ 	u32 events = le32_to_cpu(adapter->shared->ecr);
+ 	if (!events)
+ 		return;
+@@ -190,10 +191,10 @@ vmxnet3_process_events(struct vmxnet3_adapter *adapter)
+ 
+ 	/* Check if there is an error on xmit/recv queues */
+ 	if (events & (VMXNET3_ECR_TQERR | VMXNET3_ECR_RQERR)) {
+-		spin_lock(&adapter->cmd_lock);
++		spin_lock_irqsave(&adapter->cmd_lock, flags);
+ 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 				       VMXNET3_CMD_GET_QUEUE_STATUS);
+-		spin_unlock(&adapter->cmd_lock);
++		spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+ 
+ 		for (i = 0; i < adapter->num_tx_queues; i++)
+ 			if (adapter->tqd_start[i].status.stopped)
+@@ -2733,13 +2734,14 @@ static void
+ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ {
+ 	u32 cfg;
++	unsigned long flags;
+ 
+ 	/* intr settings */
+-	spin_lock(&adapter->cmd_lock);
++	spin_lock_irqsave(&adapter->cmd_lock, flags);
+ 	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+ 			       VMXNET3_CMD_GET_CONF_INTR);
+ 	cfg = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_CMD);
+-	spin_unlock(&adapter->cmd_lock);
++	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+ 	adapter->intr.type = cfg & 0x3;
+ 	adapter->intr.mask_mode = (cfg >> 2) & 0x3;
+ 
