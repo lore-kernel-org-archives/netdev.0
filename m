@@ -1,154 +1,196 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Scalability of interface creation and deletion
-Date: Sat, 07 May 2011 14:22:06 +0200
-Message-ID: <1304770926.2821.1157.camel@edumazet-laptop>
-References: <891B02256A0667292521A4BF@Ximines.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Alex Bligh <alex@alex.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55753 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754361Ab1EGMWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 08:22:10 -0400
-Received: by wwa36 with SMTP id 36so4334003wwa.1
-        for <netdev@vger.kernel.org>; Sat, 07 May 2011 05:22:09 -0700 (PDT)
-In-Reply-To: <891B02256A0667292521A4BF@Ximines.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH 1/5] ssb: Change fallback sprom to callback mechanism.
+Date: Sat,  7 May 2011 14:27:39 +0200
+Message-ID: <1304771263-10937-2-git-send-email-hauke@hauke-m.de>
+References: <1304771263-10937-1-git-send-email-hauke@hauke-m.de>
+Cc: linux-mips@linux-mips.org, Hauke Mehrtens <hauke@hauke-m.de>,
+        Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+        Florian Fainelli <florian@openwrt.org>
+To: ralf@linux-mips.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1304771263-10937-1-git-send-email-hauke@hauke-m.de>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 07 mai 2011 =C3=A0 12:08 +0100, Alex Bligh a =C3=A9crit :
-> I am trying to track down why interface creation slows down badly wit=
-h
-> large numbers of interfaces (~1,000 interfaces) and why deletion is s=
-o
-> slow. Use case: restarting routers needs to be fast; some failover me=
-thods
-> require interface up/down; some routers need lots of interfaces.
->=20
-> I have written a small shell script to create and delete a number of
-> interfaces supplied on the command line (script appended below). It
-> is important to run this with udev, udev-bridge etc. disabled. In
-> my environment
-> (Ubuntu 2.6.32-28-generic, Lucid). I did this by
->  * service upstart-udev-bridge stop
->  * service udev stop
->  * unshare -n bash
-> If you don't do this, you are simply timing your distro's interface
-> scripts.
->=20
-> Note the "-n" parameter creates the supplied number of veth pair
-> interfaces. As these are pairs, there are twice as many interfaces ac=
-tually
-> created.
->=20
-> So, the results which are pretty repeatable are as follows:
->=20
->                             100 pairs      500 pairs
-> Interface creation               14ms          110ms
-> Interface deletion              160ms          148ms
->=20
-> Now I don't think interface deletion has in fact got faster: simply
-> the overhead of loading the script is spread over more processes.
-> But there are two obvious conclusions:
->=20
-> 1. Interface creation slows down hugely with more interfaces
+Some embedded devices like the Netgear WNDR3300 have two SSB based
+cards without an own sprom on the pci bus. We have to provide two
+different fallback sproms for these and this was not possible with the
+old solution. In the bcm47xx architecture the sprom data is stored in
+the nvram in the main flash storage. The architecture code will be able
+to fill the sprom with the stored data based on the bus where the
+device was found.
 
-sysfs is the problem, a very well known one.
-(sysfs_refresh_inode(),=20
+The bcm63xx code should to the same thing as before, just using the new
+API.
 
-try :
+CC: Michael Buesch <mb@bu3sch.de>
+CC: netdev@vger.kernel.org
+CC: Florian Fainelli <florian@openwrt.org>
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ arch/mips/bcm63xx/boards/board_bcm963xx.c |   16 ++++++++++++++--
+ drivers/ssb/pci.c                         |   16 +++++++++++-----
+ drivers/ssb/sprom.c                       |   26 +++++++++++++++-----------
+ drivers/ssb/ssb_private.h                 |    2 +-
+ include/linux/ssb/ssb.h                   |    4 +++-
+ 5 files changed, 44 insertions(+), 20 deletions(-)
 
-$ time ls /sys/class/net >/dev/null
-
-real	0m0.002s
-user	0m0.000s
-sys	0m0.001s
-$ modprobe dummy numdummies=3D1000
-$ time ls /sys/class/net >/dev/null
-
-real	0m0.041s
-user	0m0.003s
-sys	0m0.002s
-
-
-> 2. Interface deletion is normally much slower than interface creation
->=20
-> strace -T -ttt on the "ip" command used to do this does not show the =
-delay
-> where I thought it would be - cataloguing the existing interfaces. In=
-stead,
-> it's the final send() to the netlink socket which does the relevant a=
-ction
-> which appears to be slow, for both addition and detion. Adding the la=
-st
-> interface takes 200ms in that syscall, the first is quick (symptomati=
-c of a
-> slowdown); for deletion the last send syscall is quick.
->=20
-> Poking about in net/core/dev.c, I see that interface names are hashed=
- using
-> a hash with a maximum of 256 entries. However, these seem to be hash
-> buckets supporting multiple entries so I can't imagine a chain of 4 e=
-ntries
-> is problematic.
-
-Its not.
-
->=20
-> I am having difficulty seeing what might be the issue in interface
-> creation. Any ideas?
->=20
-
-Actually a lot, just make
-
-git log net/core/dev.c
-
-and you'll see many commits to make this faster.
-
-> In interface deletion, my attention is drawn to netdev_wait_allrefs,
-> which does this:
->         refcnt =3D netdev_refcnt_read(dev);
->=20
-
-Here refcnt is 0, or there is a bug somewhere.
-(It happens, we fix bugs once in a while)
-
->         while (refcnt !=3D 0) {
->                 ...
->                 msleep(250);
->=20
->                 refcnt =3D netdev_refcnt_read(dev);
-> 		....
->         }
->=20
-> I am guessing that this is going to do the msleep 50% of the time,
-> explaining 125ms of the observed time. How would people react to
-> exponential backoff instead (untested):
->=20
-> 	int backoff =3D 10;
->         refcnt =3D netdev_refcnt_read(dev);
->=20
->         while (refcnt !=3D 0) {
->                 ...
->                 msleep(backoff);
->                 if ((backoff *=3D 2) > 250)
->                   backoff =3D 250;
-> 	=09
->                 refcnt =3D netdev_refcnt_read(dev);
-> 		....
->         }
->=20
->=20
-
-Welcome to the club. This is what is discussed on netdev since many
-years. Lot of work had been done to make it better.
-
-Interface deletion needs several rcu synch calls, they are very
-expensive. This is the price to pay to have lockless network stack in
-fast paths.
-
-
-
+diff --git a/arch/mips/bcm63xx/boards/board_bcm963xx.c b/arch/mips/bcm63xx/boards/board_bcm963xx.c
+index 8dba8cf..40b223b 100644
+--- a/arch/mips/bcm63xx/boards/board_bcm963xx.c
++++ b/arch/mips/bcm63xx/boards/board_bcm963xx.c
+@@ -643,6 +643,17 @@ static struct ssb_sprom bcm63xx_sprom = {
+ 	.boardflags_lo		= 0x2848,
+ 	.boardflags_hi		= 0x0000,
+ };
++
++int bcm63xx_get_fallback_sprom(struct ssb_bus *bus, struct ssb_sprom *out)
++{
++	if (bus->bustype == SSB_BUSTYPE_PCI) {
++		memcpy(out, &bcm63xx_sprom, sizeof(struct ssb_sprom));
++		return 0;
++	} else {
++		printk(KERN_ERR PFX "unable to fill SPROM for given bustype.\n");
++		return -EINVAL;
++	}
++}
+ #endif
+ 
+ /*
+@@ -793,8 +804,9 @@ void __init board_prom_init(void)
+ 	if (!board_get_mac_address(bcm63xx_sprom.il0mac)) {
+ 		memcpy(bcm63xx_sprom.et0mac, bcm63xx_sprom.il0mac, ETH_ALEN);
+ 		memcpy(bcm63xx_sprom.et1mac, bcm63xx_sprom.il0mac, ETH_ALEN);
+-		if (ssb_arch_set_fallback_sprom(&bcm63xx_sprom) < 0)
+-			printk(KERN_ERR "failed to register fallback SPROM\n");
++		if (ssb_arch_register_fallback_sprom(
++				&bcm63xx_get_fallback_sprom) < 0)
++			printk(KERN_ERR PFX "failed to register fallback SPROM\n");
+ 	}
+ #endif
+ }
+diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
+index 6f34963..34955d1 100644
+--- a/drivers/ssb/pci.c
++++ b/drivers/ssb/pci.c
+@@ -662,7 +662,6 @@ static int sprom_extract(struct ssb_bus *bus, struct ssb_sprom *out,
+ static int ssb_pci_sprom_get(struct ssb_bus *bus,
+ 			     struct ssb_sprom *sprom)
+ {
+-	const struct ssb_sprom *fallback;
+ 	int err;
+ 	u16 *buf;
+ 
+@@ -707,10 +706,17 @@ static int ssb_pci_sprom_get(struct ssb_bus *bus,
+ 		if (err) {
+ 			/* All CRC attempts failed.
+ 			 * Maybe there is no SPROM on the device?
+-			 * If we have a fallback, use that. */
+-			fallback = ssb_get_fallback_sprom();
+-			if (fallback) {
+-				memcpy(sprom, fallback, sizeof(*sprom));
++			 * Now we ask the arch code if there is some sprom
++			 * avaliable for this device in some other storage */
++			err = ssb_fill_sprom_with_fallback(bus, sprom);
++			if (err) {
++				ssb_printk(KERN_WARNING PFX "WARNING: Using"
++					   " fallback SPROM failed (err %d)\n",
++					   err);
++			} else {
++				ssb_dprintk(KERN_DEBUG PFX "Using SPROM"
++					    " revision %d provided by"
++					    " platform.\n", sprom->revision);
+ 				err = 0;
+ 				goto out_free;
+ 			}
+diff --git a/drivers/ssb/sprom.c b/drivers/ssb/sprom.c
+index 5f34d7a..20cd139 100644
+--- a/drivers/ssb/sprom.c
++++ b/drivers/ssb/sprom.c
+@@ -17,7 +17,7 @@
+ #include <linux/slab.h>
+ 
+ 
+-static const struct ssb_sprom *fallback_sprom;
++static int(*get_fallback_sprom)(struct ssb_bus *dev, struct ssb_sprom *out);
+ 
+ 
+ static int sprom2hex(const u16 *sprom, char *buf, size_t buf_len,
+@@ -145,13 +145,14 @@ out:
+ }
+ 
+ /**
+- * ssb_arch_set_fallback_sprom - Set a fallback SPROM for use if no SPROM is found.
++ * ssb_arch_register_fallback_sprom - Registers a method providing a fallback
++ * SPROM if no SPROM is found.
+  *
+- * @sprom: The SPROM data structure to register.
++ * @sprom_callback: The callbcak function.
+  *
+- * With this function the architecture implementation may register a fallback
+- * SPROM data structure. The fallback is only used for PCI based SSB devices,
+- * where no valid SPROM can be found in the shadow registers.
++ * With this function the architecture implementation may register a callback
++ * handler which wills the SPROM data structure. The fallback is only used for
++ * PCI based SSB devices, where no valid SPROM can be found in the shadow registers.
+  *
+  * This function is useful for weird architectures that have a half-assed SSB device
+  * hardwired to their PCI bus.
+@@ -163,18 +164,21 @@ out:
+  *
+  * This function is available for architecture code, only. So it is not exported.
+  */
+-int ssb_arch_set_fallback_sprom(const struct ssb_sprom *sprom)
++int ssb_arch_register_fallback_sprom(int (*sprom_callback)(struct ssb_bus *bus, struct ssb_sprom *out))
+ {
+-	if (fallback_sprom)
++	if (get_fallback_sprom)
+ 		return -EEXIST;
+-	fallback_sprom = sprom;
++	get_fallback_sprom = sprom_callback;
+ 
+ 	return 0;
+ }
+ 
+-const struct ssb_sprom *ssb_get_fallback_sprom(void)
++int ssb_fill_sprom_with_fallback(struct ssb_bus *bus, struct ssb_sprom *out)
+ {
+-	return fallback_sprom;
++	if (!get_fallback_sprom)
++		return -ENOENT;
++
++	return get_fallback_sprom(bus, out);
+ }
+ 
+ /* http://bcm-v4.sipsolutions.net/802.11/IsSpromAvailable */
+diff --git a/drivers/ssb/ssb_private.h b/drivers/ssb/ssb_private.h
+index 0331139..1a32f58 100644
+--- a/drivers/ssb/ssb_private.h
++++ b/drivers/ssb/ssb_private.h
+@@ -171,7 +171,7 @@ ssize_t ssb_attr_sprom_store(struct ssb_bus *bus,
+ 			     const char *buf, size_t count,
+ 			     int (*sprom_check_crc)(const u16 *sprom, size_t size),
+ 			     int (*sprom_write)(struct ssb_bus *bus, const u16 *sprom));
+-extern const struct ssb_sprom *ssb_get_fallback_sprom(void);
++extern int ssb_fill_sprom_with_fallback(struct ssb_bus *bus, struct ssb_sprom *out);
+ 
+ 
+ /* core.c */
+diff --git a/include/linux/ssb/ssb.h b/include/linux/ssb/ssb.h
+index 9659eff..045f72a 100644
+--- a/include/linux/ssb/ssb.h
++++ b/include/linux/ssb/ssb.h
+@@ -404,7 +404,9 @@ extern bool ssb_is_sprom_available(struct ssb_bus *bus);
+ 
+ /* Set a fallback SPROM.
+  * See kdoc at the function definition for complete documentation. */
+-extern int ssb_arch_set_fallback_sprom(const struct ssb_sprom *sprom);
++extern int ssb_arch_register_fallback_sprom(
++		int (*sprom_callback)(struct ssb_bus *bus,
++		struct ssb_sprom *out));
+ 
+ /* Suspend a SSB bus.
+  * Call this from the parent bus suspend routine. */
+-- 
+1.7.4.1
