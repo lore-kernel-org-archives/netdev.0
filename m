@@ -1,46 +1,56 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Scalability of interface creation and deletion
-Date: Sat, 07 May 2011 20:42:29 +0200
-Message-ID: <1304793749.3207.26.camel@edumazet-laptop>
+Date: Sat, 07 May 2011 20:44:50 +0200
+Message-ID: <1304793890.3207.28.camel@edumazet-laptop>
 References: <891B02256A0667292521A4BF@Ximines.local>
 	 <1304770926.2821.1157.camel@edumazet-laptop>
 	 <0F4A638C2A523577CDBC295E@Ximines.local>
 	 <1304785589.3207.5.camel@edumazet-laptop>
-	 <178E8895FB84C07251538EF7@Ximines.local>
-	 <1304793174.3207.22.camel@edumazet-laptop>
+	 <472A3314CA89E2E5270E320A@Ximines.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: Alex Bligh <alex@alex.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39789 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35574 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755901Ab1EGSmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 14:42:33 -0400
-Received: by wya21 with SMTP id 21so3071268wya.19
-        for <netdev@vger.kernel.org>; Sat, 07 May 2011 11:42:32 -0700 (PDT)
-In-Reply-To: <1304793174.3207.22.camel@edumazet-laptop>
+	with ESMTP id S1755418Ab1EGSox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 14:44:53 -0400
+Received: by wya21 with SMTP id 21so3071950wya.19
+        for <netdev@vger.kernel.org>; Sat, 07 May 2011 11:44:52 -0700 (PDT)
+In-Reply-To: <472A3314CA89E2E5270E320A@Ximines.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le samedi 07 mai 2011 =C3=A0 19:38 +0100, Alex Bligh a =C3=A9crit :
+>=20
+> --On 7 May 2011 18:26:29 +0200 Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+>=20
+> ># time rmmod dummy
+> >
+> > real	0m0.111s
+> > user	0m0.000s
+> > sys	0m0.000s
+> >
+> >
+> > This removed my two dummy0/dummy1 devices.
+>=20
+> rmmod dummy even with numdummies=3D100 does only one synchronize_net(=
+) and
+> is quick (0.8ms).
+>=20
 
-Here is my trace here for one device deletion on one 8 core machine
+Yes, thanks to batching we added some time ago to speedup module unload=
+=2E
 
-[  800.447012] synchronize_rcu() in 15787 us
-[  800.455013] synchronize_rcu() in 7682 us
-[  800.464019] rcu_barrier() in 8487 us
+And because you didnt setup IP addresses on them ;)
 
-Not that bad.
+for i in `seq 0 99`
+do
+ifconfig dummy$i 192.168.$i.1 up
+done
 
-$ grep RCU .config
-# RCU Subsystem
-CONFIG_TREE_RCU=y
-# CONFIG_PREEMPT_RCU is not set
-CONFIG_RCU_TRACE=y
-CONFIG_RCU_FANOUT=32
-# CONFIG_RCU_FANOUT_EXACT is not set
-# CONFIG_RCU_FAST_NO_HZ is not set
-CONFIG_TREE_RCU_TRACE=y
 
 
