@@ -1,39 +1,26 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [PATCH 7/7] ns: Wire up the setns system call
-Date: Sat, 07 May 2011 15:06:15 -0500
-Message-ID: <1304798775.6123.18.camel@mulgrave.site>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-	 <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
-	 <1304735101-1824-7-git-send-email-ebiederm@xmission.com>
+From: julie Sullivan <kernelmail.jms@gmail.com>
+Subject: Re: [PATCH] [RESEND] iwl4965: drop a lone pr_err()
+Date: Sat, 7 May 2011 21:14:52 +0100
+Message-ID: <BANLkTinE4zDXE6VDS=yc1SmCCEbAn70Rcw@mail.gmail.com>
+References: <1304771519.2227.6.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304735101-1824-7-git-send-email-ebiederm@xmission.com>
+In-Reply-To: <1304771519.2227.6.camel@x61.thuisdomein>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-05-06 at 19:25 -0700, Eric W. Biederman wrote:
-> v2: Most of the architecture support added by Daniel Lezcano <dlezcano@fr.ibm.com>
-> v3: ported to v2.6.36-rc4 by: Eric W. Biederman <ebiederm@xmission.com>
-> v4: Moved wiring up of the system call to another patch
-> v5: ported to v2.6.39-rc6
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> iwl4965_rate_control_register() prints a message at KERN_ERR level.
 
-We already have several syscalls queued up for parisc:
+> - =A0 =A0 =A0 pr_err("Registering 4965 rate control operations\n");
 
-http://git.kernel.org/?p=linux/kernel/git/jejb/parisc-2.6.git;a=shortlog;h=refs/heads/misc
+Yes, I noticed this message on boot too and found it a tad confusing...
+('Rate control operations'?? 4,965 of them?)
+:-)  At least I know what it is now. Thanks, Paul.
 
-So if you could make this patch over them (or over linux-next), that
-would help the merge process.
-
-Thanks,
-
-James
+Julie
