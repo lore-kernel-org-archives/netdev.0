@@ -1,38 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fwd: PROBLEM: IPv6 Duplicate Address Detection with non
- RFC-conform ICMPv6 packets
-Date: Sat, 07 May 2011 16:06:22 +0200
-Message-ID: <1304777182.2821.1262.camel@edumazet-laptop>
-References: <4DC54157.9010306@computer.org>
-	 <1304773802.2821.1214.camel@edumazet-laptop>
-	 <dc9a790de083b31ff85c0b9578c980e7@mail.insa-lyon.fr>
-	 <1304774758.2821.1237.camel@edumazet-laptop>
-	 <842648e0f4a8c6f7cd8a47cd6916a939@mail.insa-lyon.fr>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 7/7] ns: Wire up the setns system call
+Date: Sat, 07 May 2011 07:09:34 -0700
+Message-ID: <m14o56pppd.fsf@fess.ebiederm.org>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+	<1304735101-1824-7-git-send-email-ebiederm@xmission.com>
+	<BANLkTi=G-uViB6=8bQ0dRGbw3Gg8V10CRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Ceuleers <jan.ceuleers@computer.org>, netdev@vger.kernel.org
-To: Gervais Arthur <arthur.gervais@insa-lyon.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60142 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955Ab1EGOG0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 10:06:26 -0400
-Received: by wya21 with SMTP id 21so2985034wya.19
-        for <netdev@vger.kernel.org>; Sat, 07 May 2011 07:06:25 -0700 (PDT)
-In-Reply-To: <842648e0f4a8c6f7cd8a47cd6916a939@mail.insa-lyon.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linux Containers <containers@lists.osdl.org>,
+	Renato Westphal <renatowestphal@gmail.com>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <BANLkTi=G-uViB6=8bQ0dRGbw3Gg8V10CRw@mail.gmail.com> (Geert
+	Uytterhoeven's message of "Sat, 7 May 2011 10:27:17 +0200")
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 07 mai 2011 =C3=A0 15:54 +0200, Gervais Arthur a =C3=A9crit :
+Geert Uytterhoeven <geert@linux-m68k.org> writes:
 
-> Why would the victim itself claim already having the IPv6 address?
->=20
+> On Sat, May 7, 2011 at 04:25, Eric W. Biederman <ebiederm@xmission.co=
+m> wrote:
+>> =C2=A0arch/m68k/include/asm/unistd.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=
+=A0 =C2=A03 ++-
+>> =C2=A0arch/m68k/kernel/syscalltable.S =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=
+=A0 =C2=A01 +
+>
+> As the unified syscalltable for m68k/m68knommu is not yet in mainline
+> (planned for
+> 2.6.40), you should also add it to arch/m68k/kernel/entry_mm.S.
+>
+> Gr{oetje,eeting}s,
 
-Why should it care ? Please point me the RFC saying its illegal to send
-or receive a frame with SRC_MAC =3D=3D DST_MAC
+Like so?
 
+=46rom c06a03281d944ed36e2da02f5374ec6c650e4988 Mon Sep 17 00:00:00 200=
+1
+=46rom: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Sat, 7 May 2011 07:00:24 -0700
+Subject: [PATCH] m68knommu: Wire up the setns system call
 
+It seems I overlooked m68knommu where I wired up this syscall.
 
+Reported-by:  Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ arch/m68k/kernel/entry_mm.S |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
+diff --git a/arch/m68k/kernel/entry_mm.S b/arch/m68k/kernel/entry_mm.S
+index 1359ee6..e048015 100644
+--- a/arch/m68k/kernel/entry_mm.S
++++ b/arch/m68k/kernel/entry_mm.S
+@@ -754,4 +754,5 @@ sys_call_table:
+ 	.long sys_open_by_handle_at
+ 	.long sys_clock_adjtime
+ 	.long sys_syncfs
++	.long sys_setns
+=20
+--=20
+1.7.5.1.217.g4e3aa
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
