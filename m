@@ -1,48 +1,47 @@
-From: Rafael Aquini <aquini@linux.com>
-Subject: Re: [PATCH] net/bonding: adjust codingstyle for bond_3ad files
-Date: Sat, 7 May 2011 18:37:16 -0300
-Message-ID: <20110507213714.GA2507@x61.tchesoft.com>
-References: <20110507012717.GA15854@x61.tchesoft.com>
- <1304733100.11874.33.camel@Joe-Laptop>
- <20110507173141.GA4204@x61.tchesoft.com>
- <1304791360.1738.6.camel@Joe-Laptop>
- <23896.1304803541@death>
-Reply-To: aquini@linux.com
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH 1/7] ns: proc files for namespace naming policy.
+Date: Sun, 08 May 2011 00:37:41 +0200
+Message-ID: <4DC5C9B5.8050805@free.fr>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org> <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, kernel-janitors@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org, Nicolas Kaiser <nikai@nikai.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:62226 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755019Ab1EGVkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 17:40:53 -0400
-Content-Disposition: inline
-In-Reply-To: <23896.1304803541@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	jamal <hadi@cyberus.ca>,
+	Linux Containers <containers@lists.osdl.org>,
+	Renato Westphal <renatowestphal@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Howdy Jay,
-On Sat, May 07, 2011 at 02:25:41PM -0700, Jay Vosburgh wrote:
-> 	My preference would be to only remove the "silence compiler"
-> comments if the possibility of silent misbehavior is also eliminated.
-> For __ad_timer_to_ticks, that would mean either a default: case in the
-> current arrangement, or something like what Joe suggests above.
-> 
-> 	If this is beyond the scope of what you, Rafeal, want to do,
-> that's fine, but in that case leave the "silence" notes in place.
-
-Yeah, re-factor that sort of code was beyond my intentions when I first
-submit the patch. However, it is certainly feasible to be done, and as I wrote
-before, I'm more than willing to help where is needed to help.
-I'll review the places where "silence" notes are placed, and try to figure out a
-proper way to get rid of them.
-
-Thank you, folks, for keep hitting me with valuable feedback.
-
-Cheers!
--- 
-Rafael Aquini <aquini@linux.com>
+On 05/07/2011 04:24 AM, Eric W. Biederman wrote:
+> Create files under /proc/<pid>/ns/ to allow controlling the
+> namespaces of a process.
+>
+> This addresses three specific problems that can make namespaces hard to
+> work with.
+> - Namespaces require a dedicated process to pin them in memory.
+> - It is not possible to use a namespace unless you are the child
+>    of the original creator.
+> - Namespaces don't have names that userspace can use to talk about
+>    them.
+>
+> The namespace files under /proc/<pid>/ns/ can be opened and the
+> file descriptor can be used to talk about a specific namespace, and
+> to keep the specified namespace alive.
+>
+> A namespace can be kept alive by either holding the file descriptor
+> open or bind mounting the file someplace else.  aka:
+> mount --bind /proc/self/ns/net /some/filesystem/path
+> mount --bind /proc/self/fd/<N>  /some/filesystem/path
+>
+> This allows namespaces to be named with userspace policy.
+>
+> It requires additional support to make use of these filedescriptors
+> and that will be comming in the following patches.
+>
+> Signed-off-by: Eric W. Biederman<ebiederm@xmission.com>
+Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
