@@ -1,179 +1,301 @@
-From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
-Subject: Re: [PATCHv2 1/2] net: Export dev_queue_xmit_nit for use by macvlan
- driver
-Date: Sat, 7 May 2011 12:47:06 -0400
-Message-ID: <4DC5778A.6000307@ll.mit.edu>
-References: <1304036552-1589-1-git-send-email-david.ward@ll.mit.edu>
-	<1304036552-1589-2-git-send-email-david.ward@ll.mit.edu>
- <20110505.105019.112577258.davem@davemloft.net>
+From: Jonas Gorski <jonas.gorski@gmail.com>
+Subject: Re: [PATCH 1/5] ssb: Change fallback sprom to callback mechanism.
+Date: Sat, 7 May 2011 19:24:18 +0200
+Message-ID: <BANLkTinV+cuTr2cPvR2pBDE_C-2J4KwWcA@mail.gmail.com>
+References: <1304771263-10937-1-git-send-email-hauke@hauke-m.de> <1304771263-10937-2-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms070201040707000402050408"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Florian Fainelli <florian@openwrt.org>
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:35595 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752298Ab1EGRTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 May 2011 13:19:37 -0400
-In-Reply-To: <20110505.105019.112577258.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:43402 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752772Ab1EGRYj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 13:24:39 -0400
+Received: by qyg14 with SMTP id 14so3246961qyg.19
+        for <netdev@vger.kernel.org>; Sat, 07 May 2011 10:24:38 -0700 (PDT)
+In-Reply-To: <1304771263-10937-2-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms070201040707000402050408
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-On 05/05/2011 01:50 PM, David Miller wrote:
-> From: David Ward<david.ward@ll.mit.edu>
-> Date: Thu, 28 Apr 2011 20:22:31 -0400
+just some small small spelling nit-picks:
+
+On 7 May 2011 14:27, Hauke Mehrtens <hauke@hauke-m.de> wrote:
+> Some embedded devices like the Netgear WNDR3300 have two SSB based
+> cards without an own sprom on the pci bus. We have to provide two
+> different fallback sproms for these and this was not possible with th=
+e
+> old solution. In the bcm47xx architecture the sprom data is stored in
+> the nvram in the main flash storage. The architecture code will be ab=
+le
+> to fill the sprom with the stored data based on the bus where the
+> device was found.
 >
->> @@ -1521,11 +1521,13 @@ static inline int deliver_skb(struct sk_buff *=
-skb,
->>   }
->>
->>   /*
->> - *	Support routine. Sends outgoing frames to any network
->> - *	taps currently in use.
->> + * dev_queue_xmit_nit - send outgoing frame to AF_PACKET sockets
->> + *
->> + * @skb: buffer to send
->> + * @dev: network device that AF_PACKET sockets are attached to (if an=
-y)
->>    */
-> I really don't like exposing these kinds of internals for what is
-> largely a macvlan internal issue.  Please find a less intrustive way
-> to solve this problem.
+> The bcm63xx code should to the same thing as before, just using the n=
+ew
+
+to -> do
+
+> API.
 >
-> Thanks.
+> CC: Michael Buesch <mb@bu3sch.de>
+> CC: netdev@vger.kernel.org
+> CC: Florian Fainelli <florian@openwrt.org>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+> =C2=A0arch/mips/bcm63xx/boards/board_bcm963xx.c | =C2=A0 16 +++++++++=
++++++--
+> =C2=A0drivers/ssb/pci.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 16 +++++++++++-----
+> =C2=A0drivers/ssb/sprom.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 26 +++++++++++++++-----------
+> =C2=A0drivers/ssb/ssb_private.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A02 +-
+> =C2=A0include/linux/ssb/ssb.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A04 +++-
+> =C2=A05 files changed, 44 insertions(+), 20 deletions(-)
+>
+> diff --git a/arch/mips/bcm63xx/boards/board_bcm963xx.c b/arch/mips/bc=
+m63xx/boards/board_bcm963xx.c
+> index 8dba8cf..40b223b 100644
+> --- a/arch/mips/bcm63xx/boards/board_bcm963xx.c
+> +++ b/arch/mips/bcm63xx/boards/board_bcm963xx.c
+> @@ -643,6 +643,17 @@ static struct ssb_sprom bcm63xx_sprom =3D {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0.boardflags_lo =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0=3D 0x2848,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0.boardflags_hi =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0=3D 0x0000,
+> =C2=A0};
+> +
+> +int bcm63xx_get_fallback_sprom(struct ssb_bus *bus, struct ssb_sprom=
+ *out)
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 if (bus->bustype =3D=3D SSB_BUSTYPE_PCI) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 memcpy(out, &bcm63=
+xx_sprom, sizeof(struct ssb_sprom));
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return 0;
+> + =C2=A0 =C2=A0 =C2=A0 } else {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 printk(KERN_ERR PF=
+X "unable to fill SPROM for given bustype.\n");
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -EINVAL;
+> + =C2=A0 =C2=A0 =C2=A0 }
+> +}
+> =C2=A0#endif
+>
+> =C2=A0/*
+> @@ -793,8 +804,9 @@ void __init board_prom_init(void)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!board_get_mac_address(bcm63xx_sprom.i=
+l0mac)) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0memcpy(bcm63xx=
+_sprom.et0mac, bcm63xx_sprom.il0mac, ETH_ALEN);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0memcpy(bcm63xx=
+_sprom.et1mac, bcm63xx_sprom.il0mac, ETH_ALEN);
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (ssb_arch_set_f=
+allback_sprom(&bcm63xx_sprom) < 0)
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 printk(KERN_ERR "failed to register fallback SPROM\n");
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (ssb_arch_regis=
+ter_fallback_sprom(
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 &bcm63xx_get_fallback_sprom) < 0)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 printk(KERN_ERR PFX "failed to register fallback SPROM\n");
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0#endif
+> =C2=A0}
+> diff --git a/drivers/ssb/pci.c b/drivers/ssb/pci.c
+> index 6f34963..34955d1 100644
+> --- a/drivers/ssb/pci.c
+> +++ b/drivers/ssb/pci.c
+> @@ -662,7 +662,6 @@ static int sprom_extract(struct ssb_bus *bus, str=
+uct ssb_sprom *out,
+> =C2=A0static int ssb_pci_sprom_get(struct ssb_bus *bus,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ssb_sprom *sprom)
+> =C2=A0{
+> - =C2=A0 =C2=A0 =C2=A0 const struct ssb_sprom *fallback;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int err;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0u16 *buf;
+>
+> @@ -707,10 +706,17 @@ static int ssb_pci_sprom_get(struct ssb_bus *bu=
+s,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0/* All CRC attempts failed.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 * Maybe there is no SPROM on the device?
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0* If we have a fallback, use that. */
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 fallback =3D ssb_get_fallback_sprom();
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 if (fallback) {
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 memcpy(sprom, fallback, sizeof(*spr=
+om));
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0* Now we ask the arch code if there is some sprom
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0* avaliable for this device in some other storage */
 
-What do you think about creating __dev_forward_skb, which takes as an=20
-additional parameter a device (or maybe a list of devices) whose taps=20
-should see this packet as it is forwarded, such as a macvlan lowerdev? =20
-This function would be able to call dev_queue_xmit_nit for (each of)=20
-these devices.
+avaliable -> available
 
-Since the list of current network taps (ptype_all) is static inside=20
-net/core/dev.c, some type of change has to be made to net/core/dev.c to=20
-fix this.
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 err =3D ssb_fill_sprom_with_fallback(bus, sprom);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 if (err) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ssb_printk(KERN_WARNING PFX "WARNIN=
+G: Using"
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0" fallback SPROM failed (err %d)\n",
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0err);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 } else {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ssb_dprintk(KERN_DEBUG PFX "Using S=
+PROM"
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 " revision %d provided by"
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 " platform.\n", sprom->revision);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0err =3D 0;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out_free;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0}
+> diff --git a/drivers/ssb/sprom.c b/drivers/ssb/sprom.c
+> index 5f34d7a..20cd139 100644
+> --- a/drivers/ssb/sprom.c
+> +++ b/drivers/ssb/sprom.c
+> @@ -17,7 +17,7 @@
+> =C2=A0#include <linux/slab.h>
+>
+>
+> -static const struct ssb_sprom *fallback_sprom;
+> +static int(*get_fallback_sprom)(struct ssb_bus *dev, struct ssb_spro=
+m *out);
+>
+>
+> =C2=A0static int sprom2hex(const u16 *sprom, char *buf, size_t buf_le=
+n,
+> @@ -145,13 +145,14 @@ out:
+> =C2=A0}
+>
+> =C2=A0/**
+> - * ssb_arch_set_fallback_sprom - Set a fallback SPROM for use if no =
+SPROM is found.
+> + * ssb_arch_register_fallback_sprom - Registers a method providing a=
+ fallback
+> + * SPROM if no SPROM is found.
+> =C2=A0*
+> - * @sprom: The SPROM data structure to register.
+> + * @sprom_callback: The callbcak function.
 
-Thanks,
+callbcak -> callback
 
-David
+> =C2=A0*
+> - * With this function the architecture implementation may register a=
+ fallback
+> - * SPROM data structure. The fallback is only used for PCI based SSB=
+ devices,
+> - * where no valid SPROM can be found in the shadow registers.
+> + * With this function the architecture implementation may register a=
+ callback
+> + * handler which wills the SPROM data structure. The fallback is onl=
+y used for
 
+wills -> fills
 
-
---------------ms070201040707000402050408
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-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
-b3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0yMB4XDTEwMDgxMjEz
-NTY0OVoXDTExMDgxMjEzNTY0OVowXzELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5j
-b2xuIExhYm9yYXRvcnkxDzANBgNVBAsTBlBlb3BsZTEeMBwGA1UEAxMVV2FyZC5EYXZpZC5Q
-LjUwMDExNDU5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzbK0X5evOHRZ6R2s
-EKR1FoTN5BXfLREbFBdxumzb5Ap1mOOj6lev5pAyZ6DgWm6O1jcr7jaWSIluqhCOjEYxT03e
-Uyf2APQva7Wp52J48FE1MDBMTx5LalMZ6QuycgtiZOJKCuC82SEIYjVzi+rolEpiQ94Y0GF9
-8GEKXu3RuYI0PIOfPOdqizdoiEKRhTuKpK2acWB0lRwm7/QwJ1VwwsYT/t8a8u/mZ283Hv8V
-XlFmY8sJZs1MWJ2si5TXVX78pf/hj2dh8j/6plEGyKuywVftDr9hvvLvWOstNY3a/V/nzLod
-LGxEGHwDTAPwcvnM9bCw/KH8SizA3nPiYK3BtQIDAQABo4IBnTCCAZkwHQYDVR0OBBYEFE+y
-gGACWUAyu4BrKBDod2IzlaKaMA4GA1UdDwEB/wQEAwIFIDAfBgNVHSMEGDAWgBSOSn2JoWMX
-HIGINFc3JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUv
-Z2V0Y3JsL0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5s
-bC5taXQuZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQu
-ZWR1LzAMBgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdm
-hq2HFYPq8EWFtqEfHYXr0HCD6+0gAgFkAgEEMCUGA1UdJQQeMBwGBFUdJQAGCCsGAQUFBwME
-BgorBgEEAYI3CgMEMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwIAYDVR0RBBkwF4EVZGF2
-aWQud2FyZEBsbC5taXQuZWR1MA0GCSqGSIb3DQEBCwUAA4IBAQBsXUgqbV1vQBnwZ4MEa3zu
-q89rtpFzR0G+6Q44ZyQsuh4AAjQCfYJQr6HK0o82sjRANYlteAfCDdJRRAEOpyZxgrxdf3RC
-vrgsZFdSKNeW0/WT5lZyDfb675S2njMsFbCa1njgenWhhPyXsCv1Gtv7lkjpfuziXjQNuM/R
-F2hjU+Zg6sIsT16fBLHw4J8XOWqikwxHVr2yLVGnUT8bSYGS4pkktfk2R/Aq+KJ/w135r63G
-XRrAmqt3kp7qWmDUgrTYk43nLqCW5E1ilg9tjT+YvYbAdKhg7wN7SpJoG0aC8AJR7C7AT4XV
-dn6vuedgAx1E5//GYK5tpoBfPJ8H2yANMYIDKjCCAyYCAQEwXzBRMQswCQYDVQQGEwJVUzEf
-MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQD
-EwpNSVRMTCBDQS0yAgoUALAlAAAAAAvsMAkGBSsOAwIaBQCgggGgMBgGCSqGSIb3DQEJAzEL
-BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTExMDUwNzE2NDcwNlowIwYJKoZIhvcNAQkE
-MRYEFOMaMFybJVh+yQOj2SuiTOK6N48SMF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAEC
-MAoGCCqGSIb3DQMHMA4GCCqGSIb3DQMCAgIAgDANBggqhkiG9w0DAgIBQDAHBgUrDgMCBzAN
-BggqhkiG9w0DAgIBKDBuBgkrBgEEAYI3EAQxYTBfMFExCzAJBgNVBAYTAlVTMR8wHQYDVQQK
-ExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMTCk1JVExM
-IENBLTICCnCu9NkAAAAAALQwcAYLKoZIhvcNAQkQAgsxYaBfMFExCzAJBgNVBAYTAlVTMR8w
-HQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMT
-Ck1JVExMIENBLTICCnCu9NkAAAAAALQwDQYJKoZIhvcNAQEBBQAEggEAtHRCaUWhiCxCFTo2
-pfbypLIp73rrZHqELPJtQL/HH8a6G7YIrjs33Nwdpz3+jGXMuUm18fc4aK7uYvsgdalXrJj2
-z5epHLNCbXezO8Y5xQmq9F9PObahA13ZcJmluD7jqzLiMLKxQaBa8UkBCfUhEv9pEmQNjNUZ
-hcBVjU+262UFY0iNWrCw+RK/AlT7LVRo0CBD+cqa8AVollt5rHjPLJjquVq68zSksiaPcTcC
-IgGILIfRbr49ZSv3rhj+2WwGlfktRBj/n3tKFxrYd26hQgN2obAPZTDEZeb6HnXRwYrLc0kc
-qHNdEtzM0ioBMA2qCSqxvH4rqaTxTe4VE1r4egAAAAAAAA==
---------------ms070201040707000402050408--
+> + * PCI based SSB devices, where no valid SPROM can be found in the s=
+hadow registers.
+> =C2=A0*
+> =C2=A0* This function is useful for weird architectures that have a h=
+alf-assed SSB device
+> =C2=A0* hardwired to their PCI bus.
+> @@ -163,18 +164,21 @@ out:
+> =C2=A0*
+> =C2=A0* This function is available for architecture code, only. So it=
+ is not exported.
+> =C2=A0*/
+> -int ssb_arch_set_fallback_sprom(const struct ssb_sprom *sprom)
+> +int ssb_arch_register_fallback_sprom(int (*sprom_callback)(struct ss=
+b_bus *bus, struct ssb_sprom *out))
+> =C2=A0{
+> - =C2=A0 =C2=A0 =C2=A0 if (fallback_sprom)
+> + =C2=A0 =C2=A0 =C2=A0 if (get_fallback_sprom)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return -EEXIST=
+;
+> - =C2=A0 =C2=A0 =C2=A0 fallback_sprom =3D sprom;
+> + =C2=A0 =C2=A0 =C2=A0 get_fallback_sprom =3D sprom_callback;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
+> =C2=A0}
+>
+> -const struct ssb_sprom *ssb_get_fallback_sprom(void)
+> +int ssb_fill_sprom_with_fallback(struct ssb_bus *bus, struct ssb_spr=
+om *out)
+> =C2=A0{
+> - =C2=A0 =C2=A0 =C2=A0 return fallback_sprom;
+> + =C2=A0 =C2=A0 =C2=A0 if (!get_fallback_sprom)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -ENOENT;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 return get_fallback_sprom(bus, out);
+> =C2=A0}
+>
+> =C2=A0/* http://bcm-v4.sipsolutions.net/802.11/IsSpromAvailable */
+> diff --git a/drivers/ssb/ssb_private.h b/drivers/ssb/ssb_private.h
+> index 0331139..1a32f58 100644
+> --- a/drivers/ssb/ssb_private.h
+> +++ b/drivers/ssb/ssb_private.h
+> @@ -171,7 +171,7 @@ ssize_t ssb_attr_sprom_store(struct ssb_bus *bus,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 const char *buf, size_t count,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 int (*sprom_check_crc)(const u16 *sprom, s=
+ize_t size),
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 int (*sprom_write)(struct ssb_bus *bus, co=
+nst u16 *sprom));
+> -extern const struct ssb_sprom *ssb_get_fallback_sprom(void);
+> +extern int ssb_fill_sprom_with_fallback(struct ssb_bus *bus, struct =
+ssb_sprom *out);
+>
+>
+> =C2=A0/* core.c */
+> diff --git a/include/linux/ssb/ssb.h b/include/linux/ssb/ssb.h
+> index 9659eff..045f72a 100644
+> --- a/include/linux/ssb/ssb.h
+> +++ b/include/linux/ssb/ssb.h
+> @@ -404,7 +404,9 @@ extern bool ssb_is_sprom_available(struct ssb_bus=
+ *bus);
+>
+> =C2=A0/* Set a fallback SPROM.
+> =C2=A0* See kdoc at the function definition for complete documentatio=
+n. */
+> -extern int ssb_arch_set_fallback_sprom(const struct ssb_sprom *sprom=
+);
+> +extern int ssb_arch_register_fallback_sprom(
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 int (*sprom_callba=
+ck)(struct ssb_bus *bus,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ssb_sprom *=
+out));
+>
+> =C2=A0/* Suspend a SSB bus.
+> =C2=A0* Call this from the parent bus suspend routine. */
+> --
+> 1.7.4.1
+>
+>
+>
