@@ -1,40 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: For the netdev list
-Date: Sat, 7 May 2011 20:26:32 +0200
-Message-ID: <20110507182632.GA20492@electric-eye.fr.zoreil.com>
-References: <14130884-5927-4B8D-A52E-56C245D8225B@virtualcomputer.com>
+From: Alex Bligh <alex@alex.org.uk>
+Subject: Re: Scalability of interface creation and deletion
+Date: Sat, 07 May 2011 19:38:41 +0100
+Message-ID: <472A3314CA89E2E5270E320A@Ximines.local>
+References: <891B02256A0667292521A4BF@Ximines.local>	
+ <1304770926.2821.1157.camel@edumazet-laptop>	
+ <0F4A638C2A523577CDBC295E@Ximines.local>
+ <1304785589.3207.5.camel@edumazet-laptop>
+Reply-To: Alex Bligh <alex@alex.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tom Goetz <tom.goetz@virtualcomputer.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Alex Bligh <alex@alex.org.uk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:33241 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755901Ab1EGSfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 14:35:55 -0400
+Received: from mail.avalus.com ([89.16.176.221]:52126 "EHLO mail.avalus.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755919Ab1EGSio (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 May 2011 14:38:44 -0400
+In-Reply-To: <1304785589.3207.5.camel@edumazet-laptop>
 Content-Disposition: inline
-In-Reply-To: <14130884-5927-4B8D-A52E-56C245D8225B@virtualcomputer.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Goetz <tom.goetz@virtualcomputer.com> :
-> We recently obtained a new a Lenovo Edge 0578-CTO. The r8169 driver causes
-> instability in the system on this machine. The problem is that in
-> rtl8169_rx_interrupt (status & 0x00001FFF) returns values less than four
 
-This is unexpected. :o(
 
-[...]
-> For a work around we've added a patch to drop packets when we see this
-> condition. I have attached lspci -vvv for this device and a patch for the
-> work around we're using.
+--On 7 May 2011 18:26:29 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Thank you for debugging.
+># time rmmod dummy
+>
+> real	0m0.111s
+> user	0m0.000s
+> sys	0m0.000s
+>
+>
+> This removed my two dummy0/dummy1 devices.
 
-Can you grep for the XID of the device in the kernel's dmesg and specify
-a bit of context for the problem (MTU ? features enabled through ethtool ?
-kernel version ?) ?
+rmmod dummy even with numdummies=100 does only one synchronize_net() and
+is quick (0.8ms).
 
 -- 
-Ueimor
-
+Alex Bligh
