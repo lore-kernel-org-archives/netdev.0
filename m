@@ -1,151 +1,154 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bug in select(2) regarding non-blocking connect(2) completion?
-Date: Sat, 07 May 2011 14:12:38 +0200
-Message-ID: <1304770358.2821.1139.camel@edumazet-laptop>
-References: <20110507105152.GA13459@jensen.inet.no>
+Subject: Re: Scalability of interface creation and deletion
+Date: Sat, 07 May 2011 14:22:06 +0200
+Message-ID: <1304770926.2821.1157.camel@edumazet-laptop>
+References: <891B02256A0667292521A4BF@Ximines.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, karls@inet.no,
-	netdev <netdev@vger.kernel.org>
-To: Michael Shuldman <michaels@inet.no>
+Cc: netdev@vger.kernel.org
+To: Alex Bligh <alex@alex.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60647 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55753 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753204Ab1EGMMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 08:12:43 -0400
-In-Reply-To: <20110507105152.GA13459@jensen.inet.no>
+	with ESMTP id S1754361Ab1EGMWK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 08:22:10 -0400
+Received: by wwa36 with SMTP id 36so4334003wwa.1
+        for <netdev@vger.kernel.org>; Sat, 07 May 2011 05:22:09 -0700 (PDT)
+In-Reply-To: <891B02256A0667292521A4BF@Ximines.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 07 mai 2011 =C3=A0 12:51 +0200, Michael Shuldman a =C3=A9crit=
- :
-> Hello, I am occasionally encountering what I belive is a bug in the
-> kernel.
+Le samedi 07 mai 2011 =C3=A0 12:08 +0100, Alex Bligh a =C3=A9crit :
+> I am trying to track down why interface creation slows down badly wit=
+h
+> large numbers of interfaces (~1,000 interfaces) and why deletion is s=
+o
+> slow. Use case: restarting routers needs to be fast; some failover me=
+thods
+> require interface up/down; some routers need lots of interfaces.
 >=20
-> Below is a strace that I believe shows how the bug manifests itself,
-> with my comments.
+> I have written a small shell script to create and delete a number of
+> interfaces supplied on the command line (script appended below). It
+> is important to run this with udev, udev-bridge etc. disabled. In
+> my environment
+> (Ubuntu 2.6.32-28-generic, Lucid). I did this by
+>  * service upstart-udev-bridge stop
+>  * service udev stop
+>  * unshare -n bash
+> If you don't do this, you are simply timing your distro's interface
+> scripts.
 >=20
+> Note the "-n" parameter creates the supplied number of veth pair
+> interfaces. As these are pairs, there are twice as many interfaces ac=
+tually
+> created.
 >=20
-> # first select.  All fd's in the write set ([15 17 ... 51 55]) are=20
-> # non-blocking sockets that have had a connect(2) previously issued o=
-n
-> # them, and which have yet to finish connecting as far as we know
-> # at the time we call select(2).
+> So, the results which are pretty repeatable are as follows:
+>=20
+>                             100 pairs      500 pairs
+> Interface creation               14ms          110ms
+> Interface deletion              160ms          148ms
+>=20
+> Now I don't think interface deletion has in fact got faster: simply
+> the overhead of loading the script is spread over more processes.
+> But there are two obvious conclusions:
+>=20
+> 1. Interface creation slows down hugely with more interfaces
 
-We dont see the return from connect() : maybe the error was already
-returned there.
+sysfs is the problem, a very well known one.
+(sysfs_refresh_inode(),=20
 
-Only EINPROGRESS is valid here (or fd should be closed right now)
+try :
 
-> 03:55:31.808548 select(58, [4 8 11 12 13 14 16 18 19 20 21 22 23 24 2=
-6 27 30 31
-> 32 33 34 35 36 37 39 40 41 43 44 46 48 49 50 52 53 54 57], [15 17 25 =
-29 45 47 51
->  55], [11 12 13 14 16 18 19 20 21 22 23 24 26 27 30 31 32 33 34 35 36=
- 37 39 40 4
-> 1 43 44 46 48 49 50 52 53 54 57], {1, 0}) =3D 3 (in [16 26], out [51]=
-, left {1, 0}
-> )
->=20
-> # As indicated by the results returned by the above select(2), fd 51 =
-should
-> # have finished the connect attempt, but when we try to find out whet=
-her=20
-> # the connect(2) succeeded or failed, the results are conflicting.
->=20
+$ time ls /sys/class/net >/dev/null
 
-If connect() attempt is rejected by remote peer, then select() says you=
-r
-fd is 'writeable', in the sense you have the definitive answer to your
-non blocking connect().
+real	0m0.002s
+user	0m0.000s
+sys	0m0.001s
+$ modprobe dummy numdummies=3D1000
+$ time ls /sys/class/net >/dev/null
 
-> 03:55:31.808622 getpeername(51, 0x7fff5d2eaa8c, [0]) =3D -1 ENOTCONN =
-(Transport en
-> dpoint is not connected)
-
-This means end point is non connected : other peer sent RST or no answe=
-r
-to SYN packets.
+real	0m0.041s
+user	0m0.003s
+sys	0m0.002s
 
 
-> 03:55:31.808900 getsockopt(51, SOL_SOCKET, SO_ERROR, [0], [4]) =3D 0
+> 2. Interface deletion is normally much slower than interface creation
 >=20
+> strace -T -ttt on the "ip" command used to do this does not show the =
+delay
+> where I thought it would be - cataloguing the existing interfaces. In=
+stead,
+> it's the final send() to the netlink socket which does the relevant a=
+ction
+> which appears to be slow, for both addition and detion. Adding the la=
+st
+> interface takes 200ms in that syscall, the first is quick (symptomati=
+c of a
+> slowdown); for deletion the last send syscall is quick.
+>=20
+> Poking about in net/core/dev.c, I see that interface names are hashed=
+ using
+> a hash with a maximum of 256 entries. However, these seem to be hash
+> buckets supporting multiple entries so I can't imagine a chain of 4 e=
+ntries
+> is problematic.
 
-Hmm, interesting... Are you sure a previous call was not already done
-(since this clears the error) ?
+Its not.
 
-> # getpeername(2) failing on a socket that has finished connecting sho=
-uld=20
-> # indicate that the connect(2) failed.  Yet when we try to fetch the
-> # SO_ERROR of the socket, it says no error is currently set.
-> # We then loop around with select(2) again, and again the same thing
-> # happens:
 >=20
-> 03:55:31.809259 select(58, [4 8 11 12 13 14 16 18 19 20 21 22 23 24 2=
-6 27 30 31
-> 32 33 34 35 36 37 39 40 41 43 44 46 48 49 50 52 53 54 57], [15 17 25 =
-29 45 47 51
->  55], [11 12 13 14 16 18 19 20 21 22 23 24 26 27 30 31 32 33 34 35 36=
- 37 39 40 4
-> 1 43 44 46 48 49 50 52 53 54 57], {1, 0}) =3D 3 (in [16 26], out [51]=
-, left {1, 0}
-> )
-> 03:55:31.809329 getpeername(51, 0x7fff5d2eaa8c, [0]) =3D -1 ENOTCONN =
-(Transport en
-> dpoint is not connected)
-> 03:55:31.809640 getsockopt(51, SOL_SOCKET, SO_ERROR, [0], [4]) =3D 0
->=20
-
-Well, if you missed the original error report, all next getpeername()
-and SO_ERROR will do the same, and select() says fd is ready for 'write=
-'
-
-> ...
->=20
-> # finally, getsockopt(2) returns that the connect(2) failed.
-> 03:55:32.521146 getpeername(51, 0x7fff5d2eaa8c, [0]) =3D -1 ENOTCONN =
-(Transport en
-> dpoint is not connected)
-> 03:55:32.521614 getsockopt(51, SOL_SOCKET, SO_ERROR, [101], [4]) =3D =
-0
->=20
-> In other words, select(2) says the socket has finished connecting,
-> getpeername(2) neither confirms nor denies this (it can only confirm
-> if the connect finished successfully).  getsockopt(2) and SO_ERROR
-> however says there is no error on the socket, which coupled
-> with getpeername(2) failing, indicates that the connect(2) has
-> not yet finished
->=20
->=20
->=20
-> This does not happen all the time.  E.g., I watched the system for
-> an hour yesterday, as things were staring up and the number of
-> concurrent tcp clients gradually increased from zero to around 700,
-> with no observable problems.  However after a while, the problem
-> starts occurring, related to an increasing number of clients or
-> something else, I do not know.
->=20
-> Currently the system has a little over 3,000 clients and the problem
-> occurs now and then, sometimes several times a minute, while sometime=
-s
-> it can take dozens of minutes between each time.  At the moment,
-> the last time the problem was detected was 40 minutes ago.
->=20
-> The software the above strace is related to is a proxy server, and
-> if there are 3000 clients (incoming TCP sessions), there would
-> normally be 3000 outgoing TCP sessions also. =20
->=20
-> uname -a on the system in question reports=20
-> 2.6.18-238.9.1.el5 #1 SMP Tue Apr 12 18:10:13 EDT 2011 x86_64 x86_64
-> x86_64 GNU/Linux
->=20
-> Thankful for any hints or pointers related to this problem.
-> With kind regards,
+> I am having difficulty seeing what might be the issue in interface
+> creation. Any ideas?
 >=20
 
-Make sure you dont miss an error in connect() system call.
+Actually a lot, just make
+
+git log net/core/dev.c
+
+and you'll see many commits to make this faster.
+
+> In interface deletion, my attention is drawn to netdev_wait_allrefs,
+> which does this:
+>         refcnt =3D netdev_refcnt_read(dev);
+>=20
+
+Here refcnt is 0, or there is a bug somewhere.
+(It happens, we fix bugs once in a while)
+
+>         while (refcnt !=3D 0) {
+>                 ...
+>                 msleep(250);
+>=20
+>                 refcnt =3D netdev_refcnt_read(dev);
+> 		....
+>         }
+>=20
+> I am guessing that this is going to do the msleep 50% of the time,
+> explaining 125ms of the observed time. How would people react to
+> exponential backoff instead (untested):
+>=20
+> 	int backoff =3D 10;
+>         refcnt =3D netdev_refcnt_read(dev);
+>=20
+>         while (refcnt !=3D 0) {
+>                 ...
+>                 msleep(backoff);
+>                 if ((backoff *=3D 2) > 250)
+>                   backoff =3D 250;
+> 	=09
+>                 refcnt =3D netdev_refcnt_read(dev);
+> 		....
+>         }
+>=20
+>=20
+
+Welcome to the club. This is what is discussed on netdev since many
+years. Lot of work had been done to make it better.
+
+Interface deletion needs several rcu synch calls, they are very
+expensive. This is the price to pay to have lockless network stack in
+fast paths.
 
 
 
