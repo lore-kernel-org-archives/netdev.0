@@ -1,79 +1,87 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net/bonding: adjust codingstyle for bond_3ad files
-Date: Sat, 07 May 2011 11:02:40 -0700
-Message-ID: <1304791360.1738.6.camel@Joe-Laptop>
-References: <20110507012717.GA15854@x61.tchesoft.com>
-	 <1304733100.11874.33.camel@Joe-Laptop>
-	 <20110507173141.GA4204@x61.tchesoft.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 7/7] ns: Wire up the setns system call
+Date: Sat, 7 May 2011 20:22:19 +0200
+Message-ID: <BANLkTimkqOVi0+_azj4UyrQkE8sZL1yCyQ@mail.gmail.com>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+	<1304735101-1824-7-git-send-email-ebiederm@xmission.com>
+	<BANLkTi=G-uViB6=8bQ0dRGbw3Gg8V10CRw@mail.gmail.com>
+	<m14o56pppd.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org, Nicolas Kaiser <nikai@nikai.net>
-To: aquini@linux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1337 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754332Ab1EGSCm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 May 2011 14:02:42 -0400
-In-Reply-To: <20110507173141.GA4204@x61.tchesoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linux Containers <containers@lists.osdl.org>,
+	Renato Westphal <renatowestphal@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m14o56pppd.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2011-05-07 at 14:31 -0300, Rafael Aquini wrote:
-> To exemplify my point, I'll taking that very  __ad_timer_to_ticks() as an example:
-> static u16 __ad_timer_to_ticks(u16 timer_type, u16 par)
-> {
->         u16 retval = 0;
-> 
->         switch (timer_type) {
->         case AD_CURRENT_WHILE_TIMER:    /* for rx machine usage */
->                 if (par)
->                         retval = (AD_SHORT_TIMEOUT_TIME*ad_ticks_per_sec);
->                 else
->                         retval = (AD_LONG_TIMEOUT_TIME*ad_ticks_per_sec);
->                 break;
->         case AD_ACTOR_CHURN_TIMER:      /* for local churn machine */
->                 retval = (AD_CHURN_DETECTION_TIME*ad_ticks_per_sec);
->                 break;
->         case AD_PERIODIC_TIMER:         /* for periodic machine */
->                 retval = (par*ad_ticks_per_sec);
->                 break;
->         case AD_PARTNER_CHURN_TIMER:    /* for remote churn machine */
->                 retval = (AD_CHURN_DETECTION_TIME*ad_ticks_per_sec);
->                 break;
->         case AD_WAIT_WHILE_TIMER:       /* for selection machine */
->                 retval = (AD_AGGREGATE_WAIT_TIME*ad_ticks_per_sec);
->                 break;
->         }
->         return retval;
-> }
-> 
-> If, for some unknown reason timer_type receives an 'alien' value, and
-> we were
-> using retval uninitialized, this function, as it is, would return an
-> unpredictable value to its caller. Unless we have the switch block
-> re-factored, we cannot leave retval uninitialized. So, it's not just a
-> matter of leaving the variable uninitialized, or initialize it just to
-> get rid of a compiler warning. That's why those comments are not
-> helpful anyway.
+On Sat, May 7, 2011 at 16:09, Eric W. Biederman <ebiederm@xmission.com>=
+ wrote:
+> Geert Uytterhoeven <geert@linux-m68k.org> writes:
+>
+>> On Sat, May 7, 2011 at 04:25, Eric W. Biederman <ebiederm@xmission.c=
+om> wrote:
+>>> =C2=A0arch/m68k/include/asm/unistd.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =
+=C2=A0 =C2=A03 ++-
+>>> =C2=A0arch/m68k/kernel/syscalltable.S =C2=A0 =C2=A0 =C2=A0 =C2=A0| =
+=C2=A0 =C2=A01 +
+>>
+>> As the unified syscalltable for m68k/m68knommu is not yet in mainlin=
+e
+>> (planned for
+>> 2.6.40), you should also add it to arch/m68k/kernel/entry_mm.S.
+>>
+>> Gr{oetje,eeting}s,
+>
+> Like so?
+>
+> From c06a03281d944ed36e2da02f5374ec6c650e4988 Mon Sep 17 00:00:00 200=
+1
+> From: "Eric W. Biederman" <ebiederm@xmission.com>
+> Date: Sat, 7 May 2011 07:00:24 -0700
+> Subject: [PATCH] m68knommu: Wire up the setns system call
+>
+> It seems I overlooked m68knommu where I wired up this syscall.
 
-I'd write this not using a retval variable at all as:
+You overlooked m68k with MMU. syscalltable.s is used by m68knommu.
 
-	switch (timer_type) {
-	case AD_CURRENT_WHILE_TIMER:	/* for rx machine usage */
-		if (par)
-			return AD_SHORT_TIMEOUT_TIME * ad_ticks_per_sec;
-		return AD_LONG_TIMEOUT_TIME * ad_ticks_per_sec;
-	case AD_ACTOR_CHURN_TIMER:	/* for local churn machine */
-		return AD_CHURN_DETECTION_TIME * ad_ticks_per_sec;
-	...
-	}
-	WARN(1, "Invalid timer type: %u\n", timer_type)
-	return 0;
-}
+> Reported-by: =C2=A0Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+> =C2=A0arch/m68k/kernel/entry_mm.S | =C2=A0 =C2=A01 +
+> =C2=A01 files changed, 1 insertions(+), 0 deletions(-)
+>
+> diff --git a/arch/m68k/kernel/entry_mm.S b/arch/m68k/kernel/entry_mm.=
+S
+> index 1359ee6..e048015 100644
+> --- a/arch/m68k/kernel/entry_mm.S
+> +++ b/arch/m68k/kernel/entry_mm.S
+> @@ -754,4 +754,5 @@ sys_call_table:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0.long sys_open_by_handle_at
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0.long sys_clock_adjtime
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0.long sys_syncfs
+> + =C2=A0 =C2=A0 =C2=A0 .long sys_setns
 
+Yep.
 
+Gr{oetje,eeting}s,
+
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
