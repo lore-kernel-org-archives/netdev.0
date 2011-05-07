@@ -1,67 +1,179 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Scalability of interface creation and deletion
-Date: Sat, 07 May 2011 18:51:05 +0200
-Message-ID: <1304787065.3207.17.camel@edumazet-laptop>
-References: <891B02256A0667292521A4BF@Ximines.local>
-	 <1304770926.2821.1157.camel@edumazet-laptop>
-	 <0F4A638C2A523577CDBC295E@Ximines.local>
-	 <1304783684.9216.2.camel@edumazet-laptop>
-	 <4DC571F1.2020108@candelatech.com>
-	 <1304786277.3207.12.camel@edumazet-laptop>
-	 <4DC57702.4090606@candelatech.com>
+From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
+Subject: Re: [PATCHv2 1/2] net: Export dev_queue_xmit_nit for use by macvlan
+ driver
+Date: Sat, 7 May 2011 12:47:06 -0400
+Message-ID: <4DC5778A.6000307@ll.mit.edu>
+References: <1304036552-1589-1-git-send-email-david.ward@ll.mit.edu>
+	<1304036552-1589-2-git-send-email-david.ward@ll.mit.edu>
+ <20110505.105019.112577258.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alex Bligh <alex@alex.org.uk>, netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: multipart/signed; protocol="application/pkcs7-signature";
+	micalg=sha1; boundary="------------ms070201040707000402050408"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46542 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752352Ab1EGQvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 12:51:09 -0400
-Received: by wya21 with SMTP id 21so3037988wya.19
-        for <netdev@vger.kernel.org>; Sat, 07 May 2011 09:51:08 -0700 (PDT)
-In-Reply-To: <4DC57702.4090606@candelatech.com>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:35595 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752298Ab1EGRTh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 May 2011 13:19:37 -0400
+In-Reply-To: <20110505.105019.112577258.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 07 mai 2011 =C3=A0 09:44 -0700, Ben Greear a =C3=A9crit :
-> On 05/07/2011 09:37 AM, Eric Dumazet wrote:
-> > Le samedi 07 mai 2011 =C3=A0 09:23 -0700, Ben Greear a =C3=A9crit :
-> >
-> >> I wonder if it would be worth having a 'delete me soon'
-> >> method to delete interfaces that would not block on the
-> >> RCU code.
-> >>
-> >> The controlling programs could use netlink messages to
-> >> know exactly when an interface was truly gone.
-> >>
-> >> That should allow some batching in the sync-net logic
-> >> too, if user-space code deletes 1000 interfaces very
-> >> quickly, for instance...
-> >>
-> >
-> > I suggested in the past to have an extension of batch capabilities,=
- so
-> > that one kthread could have 3 separate lists of devices being destr=
-oyed
-> > in //,
-> >
-> > This daemon would basically loop on one call to synchronize_rcu(), =
-and
-> > transfert list3 to deletion, list2 to list3, list1 to list2, loop,
-> > eventually releasing RTNL while blocked in synchronize_rcu()
-> >
-> > This would need to allow as you suggest an asynchronous deletion me=
-thod,
-> > or use a callback to wake the process blocked on device delete.
->=20
-> I'd want to at least have the option to not block the calling
-> process...otherwise, it would be a lot more difficult to
-> quickly delete 1000 interfaces.  You'd need 1000 threads, or
-> sockets, or something to parallelize it otherwise, eh?
+--------------ms070201040707000402050408
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-Yes, if you can afford not receive a final notification of device being
-fully freed, it should be possible.
+On 05/05/2011 01:50 PM, David Miller wrote:
+> From: David Ward<david.ward@ll.mit.edu>
+> Date: Thu, 28 Apr 2011 20:22:31 -0400
+>
+>> @@ -1521,11 +1521,13 @@ static inline int deliver_skb(struct sk_buff *=
+skb,
+>>   }
+>>
+>>   /*
+>> - *	Support routine. Sends outgoing frames to any network
+>> - *	taps currently in use.
+>> + * dev_queue_xmit_nit - send outgoing frame to AF_PACKET sockets
+>> + *
+>> + * @skb: buffer to send
+>> + * @dev: network device that AF_PACKET sockets are attached to (if an=
+y)
+>>    */
+> I really don't like exposing these kinds of internals for what is
+> largely a macvlan internal issue.  Please find a less intrustive way
+> to solve this problem.
+>
+> Thanks.
+
+What do you think about creating __dev_forward_skb, which takes as an=20
+additional parameter a device (or maybe a list of devices) whose taps=20
+should see this packet as it is forwarded, such as a macvlan lowerdev? =20
+This function would be able to call dev_queue_xmit_nit for (each of)=20
+these devices.
+
+Since the list of current network taps (ptype_all) is static inside=20
+net/core/dev.c, some type of change has to be made to net/core/dev.c to=20
+fix this.
+
+Thanks,
+
+David
 
 
+
+--------------ms070201040707000402050408
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+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
+b3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0yMB4XDTEwMDgxMjEz
+NTY0OVoXDTExMDgxMjEzNTY0OVowXzELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5j
+b2xuIExhYm9yYXRvcnkxDzANBgNVBAsTBlBlb3BsZTEeMBwGA1UEAxMVV2FyZC5EYXZpZC5Q
+LjUwMDExNDU5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzbK0X5evOHRZ6R2s
+EKR1FoTN5BXfLREbFBdxumzb5Ap1mOOj6lev5pAyZ6DgWm6O1jcr7jaWSIluqhCOjEYxT03e
+Uyf2APQva7Wp52J48FE1MDBMTx5LalMZ6QuycgtiZOJKCuC82SEIYjVzi+rolEpiQ94Y0GF9
+8GEKXu3RuYI0PIOfPOdqizdoiEKRhTuKpK2acWB0lRwm7/QwJ1VwwsYT/t8a8u/mZ283Hv8V
+XlFmY8sJZs1MWJ2si5TXVX78pf/hj2dh8j/6plEGyKuywVftDr9hvvLvWOstNY3a/V/nzLod
+LGxEGHwDTAPwcvnM9bCw/KH8SizA3nPiYK3BtQIDAQABo4IBnTCCAZkwHQYDVR0OBBYEFE+y
+gGACWUAyu4BrKBDod2IzlaKaMA4GA1UdDwEB/wQEAwIFIDAfBgNVHSMEGDAWgBSOSn2JoWMX
+HIGINFc3JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUv
+Z2V0Y3JsL0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5s
+bC5taXQuZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQu
+ZWR1LzAMBgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdm
+hq2HFYPq8EWFtqEfHYXr0HCD6+0gAgFkAgEEMCUGA1UdJQQeMBwGBFUdJQAGCCsGAQUFBwME
+BgorBgEEAYI3CgMEMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwIAYDVR0RBBkwF4EVZGF2
+aWQud2FyZEBsbC5taXQuZWR1MA0GCSqGSIb3DQEBCwUAA4IBAQBsXUgqbV1vQBnwZ4MEa3zu
+q89rtpFzR0G+6Q44ZyQsuh4AAjQCfYJQr6HK0o82sjRANYlteAfCDdJRRAEOpyZxgrxdf3RC
+vrgsZFdSKNeW0/WT5lZyDfb675S2njMsFbCa1njgenWhhPyXsCv1Gtv7lkjpfuziXjQNuM/R
+F2hjU+Zg6sIsT16fBLHw4J8XOWqikwxHVr2yLVGnUT8bSYGS4pkktfk2R/Aq+KJ/w135r63G
+XRrAmqt3kp7qWmDUgrTYk43nLqCW5E1ilg9tjT+YvYbAdKhg7wN7SpJoG0aC8AJR7C7AT4XV
+dn6vuedgAx1E5//GYK5tpoBfPJ8H2yANMYIDKjCCAyYCAQEwXzBRMQswCQYDVQQGEwJVUzEf
+MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQD
+EwpNSVRMTCBDQS0yAgoUALAlAAAAAAvsMAkGBSsOAwIaBQCgggGgMBgGCSqGSIb3DQEJAzEL
+BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTExMDUwNzE2NDcwNlowIwYJKoZIhvcNAQkE
+MRYEFOMaMFybJVh+yQOj2SuiTOK6N48SMF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAEC
+MAoGCCqGSIb3DQMHMA4GCCqGSIb3DQMCAgIAgDANBggqhkiG9w0DAgIBQDAHBgUrDgMCBzAN
+BggqhkiG9w0DAgIBKDBuBgkrBgEEAYI3EAQxYTBfMFExCzAJBgNVBAYTAlVTMR8wHQYDVQQK
+ExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMTCk1JVExM
+IENBLTICCnCu9NkAAAAAALQwcAYLKoZIhvcNAQkQAgsxYaBfMFExCzAJBgNVBAYTAlVTMR8w
+HQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMT
+Ck1JVExMIENBLTICCnCu9NkAAAAAALQwDQYJKoZIhvcNAQEBBQAEggEAtHRCaUWhiCxCFTo2
+pfbypLIp73rrZHqELPJtQL/HH8a6G7YIrjs33Nwdpz3+jGXMuUm18fc4aK7uYvsgdalXrJj2
+z5epHLNCbXezO8Y5xQmq9F9PObahA13ZcJmluD7jqzLiMLKxQaBa8UkBCfUhEv9pEmQNjNUZ
+hcBVjU+262UFY0iNWrCw+RK/AlT7LVRo0CBD+cqa8AVollt5rHjPLJjquVq68zSksiaPcTcC
+IgGILIfRbr49ZSv3rhj+2WwGlfktRBj/n3tKFxrYd26hQgN2obAPZTDEZeb6HnXRwYrLc0kc
+qHNdEtzM0ioBMA2qCSqxvH4rqaTxTe4VE1r4egAAAAAAAA==
+--------------ms070201040707000402050408--
