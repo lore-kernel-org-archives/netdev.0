@@ -1,35 +1,38 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [PATCH 7/7] ns: Wire up the setns system call
-Date: Sat, 7 May 2011 09:59:12 -0400
-Message-ID: <BANLkTikmvyBZn7iOiSpX3vf7v11nP7N19g@mail.gmail.com>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org> <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
- <1304735101-1824-7-git-send-email-ebiederm@xmission.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fwd: PROBLEM: IPv6 Duplicate Address Detection with non
+ RFC-conform ICMPv6 packets
+Date: Sat, 07 May 2011 16:06:22 +0200
+Message-ID: <1304777182.2821.1262.camel@edumazet-laptop>
+References: <4DC54157.9010306@computer.org>
+	 <1304773802.2821.1214.camel@edumazet-laptop>
+	 <dc9a790de083b31ff85c0b9578c980e7@mail.insa-lyon.fr>
+	 <1304774758.2821.1237.camel@edumazet-laptop>
+	 <842648e0f4a8c6f7cd8a47cd6916a939@mail.insa-lyon.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1304735101-1824-7-git-send-email-ebiederm@xmission.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jan Ceuleers <jan.ceuleers@computer.org>, netdev@vger.kernel.org
+To: Gervais Arthur <arthur.gervais@insa-lyon.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:60142 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754955Ab1EGOG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 10:06:26 -0400
+Received: by wya21 with SMTP id 21so2985034wya.19
+        for <netdev@vger.kernel.org>; Sat, 07 May 2011 07:06:25 -0700 (PDT)
+In-Reply-To: <842648e0f4a8c6f7cd8a47cd6916a939@mail.insa-lyon.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 6, 2011 at 22:25, Eric W. Biederman wrote:
-> v2: Most of the architecture support added by Daniel Lezcano <dlezcan=
-o@fr.ibm.com>
-> v3: ported to v2.6.36-rc4 by: Eric W. Biederman <ebiederm@xmission.co=
-m>
-> v4: Moved wiring up of the system call to another patch
-> v5: ported to v2.6.39-rc6
->
-> =C2=A0arch/blackfin/include/asm/unistd.h =C2=A0 =C2=A0 | =C2=A0 =C2=A0=
-3 ++-
-> =C2=A0arch/blackfin/mach-common/entry.S =C2=A0 =C2=A0 =C2=A0| =C2=A0 =
-=C2=A01 +
+Le samedi 07 mai 2011 =C3=A0 15:54 +0200, Gervais Arthur a =C3=A9crit :
 
-Acked-by: Mike Frysinger <vapier@gentoo.org>
--mike
+> Why would the victim itself claim already having the IPv6 address?
+>=20
+
+Why should it care ? Please point me the RFC saying its illegal to send
+or receive a frame with SRC_MAC =3D=3D DST_MAC
+
+
+
+
+
