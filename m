@@ -1,64 +1,51 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
-Date: Sat, 7 May 2011 12:45:38 +0530
-Message-ID: <OF26D73AD1.13DE7593-ON65257889.0022A7DB-65257889.0027A459@in.ibm.com>
-References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com> <20110504144622.GA15823@redhat.com> <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com> <20110504212359.GA21446@redhat.com> <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com> <20110505090439.GD17647@redhat.com> <OFB1ACC9EB.4567C1B1-ON65257887.0050044B-65257887.0054A5CE@in.ibm.com> <20110505153413.GC1915@redhat.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] bonding: convert to ndo_fix_features
+Date: Sat, 7 May 2011 09:37:27 +0200
+Message-ID: <20110507073727.GA4522@rere.qmqm.pl>
+References: <20110506175629.BC59D1389B@rere.qmqm.pl>
+ <5525.1304705884@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110505153413.GC1915@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:60531 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752028Ab1EGHh3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 May 2011 03:37:29 -0400
+Content-Disposition: inline
+In-Reply-To: <5525.1304705884@death>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 05/05/2011 09:04:13 PM:
+On Fri, May 06, 2011 at 11:18:04AM -0700, Jay Vosburgh wrote:
+> Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> wrote:
+> >This should also fix updating of vlan_features and propagating chang=
+es to
+> >VLAN devices on the bond.
+> >
+> >Side effect: it allows user to force-disable some offloads on the bo=
+nd
+> >interface.
+> >
+> >Note: NETIF_F_VLAN_CHALLENGED is managed by bond_fix_features() now.
+> >
+> >BTW, What are the problems in creating VLAN devices on an empty bond
+> >(as stated in one of bond_setup() comments)?
+> 	If there are no slaves, then the bond does not have a MAC
+> address assigned (because it gets its initial MAC from the first slav=
+e).
+> It's therefore impossible to pass a MAC address up to the VLAN
+> interface.
+>=20
+> 	So the limitation is that the bond must have at least one slave
+> before a VLAN may be configured above it.
 
-> > I haven't tuned the threshhold, it is left it at 3/4. I ran
-> > the new qemu/vhost/guest, and the results for 1K, 2K and 16K
-> > are below. Note this is a different kernel version from my
-> > earlier test results. So, f.e., BW1 represents 2.6.39-rc2,
-> > the original kernel; while BW2 represents 2.6.37-rc5 (MST's
-> > kernel).
->
-> Weird. My kernel is actually 2.6.39-rc2. So which is which?
+Hmm. That might be worked aroud by generating random MAC then. This wou=
+ld
+allow the user to first set a new MAC, create VLANs and then add slaves
+when they show up.
 
-I cloned git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git
-
-# git branch -a
-  vhost
-* vhost-net-next-event-idx-v1
-  remotes/origin/HEAD -> origin/vhost
-  remotes/origin/for-linus
-  remotes/origin/master
-  remotes/origin/net-2.6
-  remotes/origin/vhost
-  remotes/origin/vhost-broken
-  remotes/origin/vhost-devel
-  remotes/origin/vhost-mrg-rxbuf
-  remotes/origin/vhost-net
-  remotes/origin/vhost-net-next
-  remotes/origin/vhost-net-next-event-idx-v1
-  remotes/origin/vhost-net-next-rebased
-  remotes/origin/virtio-layout-aligned
-  remotes/origin/virtio-layout-minimal
-  remotes/origin/virtio-layout-original
-  remotes/origin/virtio-layout-padded
-  remotes/origin/virtio-publish-used
-
-# git checkout vhost-net-next-event-idx-v1
-Already on 'vhost-net-next-event-idx-v1'
-
-# head -4 Makefile
-VERSION = 2
-PATCHLEVEL = 6
-SUBLEVEL = 37
-EXTRAVERSION = -rc5
-
-I am not sure what I am missing.
-
-thanks,
-
-- KK
-
+Best Regards,
+Micha=B3 Miros=B3aw
