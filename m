@@ -1,105 +1,127 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 5/7] ns proc: Add support for the ipc namespace
-Date: Fri,  6 May 2011 19:24:59 -0700
-Message-ID: <1304735101-1824-5-git-send-email-ebiederm@xmission.com>
+From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH 2/7] ns: Introduce the setns syscall
+Date: Fri,  6 May 2011 19:24:56 -0700
+Message-ID: <1304735101-1824-2-git-send-email-ebiederm@xmission.com>
 References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
- <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-fsdevel@vger.kernel.org>, jamal <hadi@cyberus.ca>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: <linux-arch@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: <linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1304735101-1824-1-git-send-email-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- fs/proc/namespaces.c    |    3 +++
- include/linux/proc_fs.h |    1 +
- ipc/namespace.c         |   37 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 41 insertions(+), 0 deletions(-)
+With the networking stack today there is demand to handle
+multiple network stacks at a time.  Not in the context
+of containers but in the context of people doing interesting
+things with routing.
 
-diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
-index b017181..f18d6d5 100644
---- a/fs/proc/namespaces.c
-+++ b/fs/proc/namespaces.c
-@@ -22,6 +22,9 @@ static const struct proc_ns_operations *ns_entries[] = {
- #ifdef CONFIG_UTS_NS
- 	&utsns_operations,
- #endif
-+#ifdef CONFIG_IPC_NS
-+	&ipcns_operations,
-+#endif
- };
- 
- static const struct file_operations ns_file_operations = {
-diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
-index 52aa89d..a23f0b7 100644
---- a/include/linux/proc_fs.h
-+++ b/include/linux/proc_fs.h
-@@ -267,6 +267,7 @@ struct proc_ns_operations {
- };
- extern const struct proc_ns_operations netns_operations;
- extern const struct proc_ns_operations utsns_operations;
-+extern const struct proc_ns_operations ipcns_operations;
- 
- union proc_op {
- 	int (*proc_get_link)(struct inode *, struct path *);
-diff --git a/ipc/namespace.c b/ipc/namespace.c
-index 8054c8e..ce0a647 100644
---- a/ipc/namespace.c
-+++ b/ipc/namespace.c
-@@ -12,6 +12,7 @@
- #include <linux/fs.h>
- #include <linux/mount.h>
- #include <linux/user_namespace.h>
+There is also demand in the context of containers to have
+an efficient way to execute some code in the container itself.
+If nothing else it is very useful ad a debugging technique.
+
+Both problems can be solved by starting some form of login
+daemon in the namespaces people want access to, or you
+can play games by ptracing a process and getting the
+traced process to do things you want it to do. However
+it turns out that a login daemon or a ptrace puppet
+controller are more code, they are more prone to
+failure, and generally they are less efficient than
+simply changing the namespace of a process to a
+specified one.
+
+Pieces of this puzzle can also be solved by instead of
+coming up with a general purpose system call coming up
+with targed system calls perhaps socketat that solve
+a subset of the larger problem.  Overall that appears
+to be more work for less reward.
+
+int setns(int fd, int nstype);
+
+The fd argument is a file descriptor referring to a proc
+file of the namespace you want to switch the process to.
+
+In the setns system call the nstype is 0 or specifies
+an clone flag of the namespace you intend to change
+to prevent changing a namespace unintentionally.
+
+v2: Most of the architecture support added by Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
+v3: ported to v2.6.36-rc4 by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+v4: Moved wiring up of the system call to another patch
+
+Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+---
+ kernel/nsproxy.c |   37 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 37 insertions(+), 0 deletions(-)
+
+diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+index a05d191..96059d8 100644
+--- a/kernel/nsproxy.c
++++ b/kernel/nsproxy.c
+@@ -22,6 +22,9 @@
+ #include <linux/pid_namespace.h>
+ #include <net/net_namespace.h>
+ #include <linux/ipc_namespace.h>
 +#include <linux/proc_fs.h>
++#include <linux/file.h>
++#include <linux/syscalls.h>
  
- #include "util.h"
+ static struct kmem_cache *nsproxy_cachep;
  
-@@ -140,3 +141,39 @@ void put_ipc_ns(struct ipc_namespace *ns)
- 		free_ipc_ns(ns);
- 	}
+@@ -233,6 +236,40 @@ void exit_task_namespaces(struct task_struct *p)
+ 	switch_task_namespaces(p, NULL);
  }
-+
-+static void *ipcns_get(struct task_struct *task)
+ 
++SYSCALL_DEFINE2(setns, int, fd, int, nstype)
 +{
-+	struct ipc_namespace *ns = NULL;
-+	struct nsproxy *nsproxy;
++	const struct proc_ns_operations *ops;
++	struct task_struct *tsk = current;
++	struct nsproxy *new_nsproxy;
++	struct proc_inode *ei;
++	struct file *file;
++	int err;
 +
-+	rcu_read_lock();
-+	nsproxy = task_nsproxy(task);
-+	if (nsproxy)
-+		ns = get_ipc_ns(nsproxy->ipc_ns);
-+	rcu_read_unlock();
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
 +
-+	return ns;
++	file = proc_ns_fget(fd);
++	if (IS_ERR(file))
++		return PTR_ERR(file);
++
++	err = -EINVAL;
++	ei = PROC_I(file->f_dentry->d_inode);
++	ops = ei->ns_ops;
++	if (nstype && (ops->type != nstype))
++		goto out;
++
++	new_nsproxy = create_new_namespaces(0, tsk, tsk->fs);
++	err = ops->install(new_nsproxy, ei->ns);
++	if (err) {
++		free_nsproxy(new_nsproxy);
++		goto out;
++	}
++	switch_task_namespaces(tsk, new_nsproxy);
++out:
++	fput(file);
++	return err;
 +}
 +
-+static void ipcns_put(void *ns)
-+{
-+	return put_ipc_ns(ns);
-+}
-+
-+static int ipcns_install(struct nsproxy *nsproxy, void *ns)
-+{
-+	/* Ditch state from the old ipc namespace */
-+	exit_sem(current);
-+	put_ipc_ns(nsproxy->ipc_ns);
-+	nsproxy->ipc_ns = get_ipc_ns(ns);
-+	return 0;
-+}
-+
-+const struct proc_ns_operations ipcns_operations = {
-+	.name		= "ipc",
-+	.type		= CLONE_NEWIPC,
-+	.get		= ipcns_get,
-+	.put		= ipcns_put,
-+	.install	= ipcns_install,
-+};
+ static int __init nsproxy_cache_init(void)
+ {
+ 	nsproxy_cachep = KMEM_CACHE(nsproxy, SLAB_PANIC);
 -- 
 1.6.5.2.143.g8cc62
