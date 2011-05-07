@@ -1,36 +1,47 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: Re: [Bugme-new] [Bug 34322] New: No ECN marking in IPv6
-Date: Sat, 7 May 2011 11:59:10 +0200
-Message-ID: <20110507095910.GC30492@uio.no>
-References: <bug-34322-10286@https.bugzilla.kernel.org/>
- <20110505144146.4bc1e744.akpm@linux-foundation.org>
- <1304694292.3066.29.camel@edumazet-laptop>
- <20110506171249.GA29942@uio.no>
- <1304761486.2821.945.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 0/5][pull request] Intel Wired LAN Driver Update
+Date: Sat,  7 May 2011 03:25:18 -0700
+Message-ID: <1304763923-6839-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([129.241.93.19]:45741 "EHLO
-	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753948Ab1EGJ7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 05:59:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1304761486.2821.945.camel@edumazet-laptop>
+Received: from mga01.intel.com ([192.55.52.88]:43819 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754415Ab1EGKZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 May 2011 06:25:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 07, 2011 at 11:44:46AM +0200, Eric Dumazet wrote:
-> I cooked for you the official patch and made sure it worked with a RED
-> ECN setup, and one ipv6 tcp xmit.
+The following series contains updates to e100, e1000, igb and ixgbe.
 
-Great, thanks :-) This looks good to me.
+Sorry for the delay on the e100/e1000/igb convert to set_phys_id patches,
+it was due to me falling ill and not completing the patches in a timely
+manner.
 
-/* Steinar */
+The following are changes since commit 706527280ec38fcdcd0466f10b607105fd23801b:
+  ipv4: Initialize cork->opt using NULL not 0
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+
+Emil Tantilov (2):
+  ixgbe: add rxhash support
+  ixgbe: add ethtool counters for OS2BMC
+
+Jeff Kirsher (3):
+  e100: implemenet set_phys_id
+  e1000: convert to set_phys_id
+  igb: convert to ethtool set_phys_id
+
+ drivers/net/e100.c                |   66 +++++++++++++++---------------------
+ drivers/net/e1000/e1000.h         |    3 --
+ drivers/net/e1000/e1000_ethtool.c |   50 +++++++++-------------------
+ drivers/net/igb/igb_ethtool.c     |   37 ++++++++++----------
+ drivers/net/ixgbe/ixgbe_ethtool.c |   11 +++++-
+ drivers/net/ixgbe/ixgbe_main.c    |   21 ++++++++++-
+ drivers/net/ixgbe/ixgbe_type.h    |    8 ++++
+ 7 files changed, 100 insertions(+), 96 deletions(-)
+
 -- 
-Homepage: http://www.sesse.net/
+1.7.4.4
+
