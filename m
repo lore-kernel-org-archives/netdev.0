@@ -1,99 +1,89 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 4/5] ixgbe: add rxhash support
-Date: Sat,  7 May 2011 03:25:22 -0700
-Message-ID: <1304763923-6839-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 3/5] igb: convert to ethtool set_phys_id
+Date: Sat,  7 May 2011 03:25:21 -0700
+Message-ID: <1304763923-6839-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1304763923-6839-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	Stephen Hemminger <shemminger@vyatta.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3197 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:43819 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754486Ab1EGKZa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 May 2011 06:25:30 -0400
+	id S1754415Ab1EGKZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 May 2011 06:25:29 -0400
 In-Reply-To: <1304763923-6839-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+Based on patch from Stephen Hemminger.
+Convert igb driver to use new set_phys_id ethtool interface.
 
-feed RSS hash into skb->rxhash
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Evan Swanson <evan.swanson@intel.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |    7 ++++++-
- drivers/net/ixgbe/ixgbe_main.c    |   14 +++++++++++++-
- 2 files changed, 19 insertions(+), 2 deletions(-)
+ drivers/net/igb/igb_ethtool.c |   37 +++++++++++++++++++------------------
+ 1 files changed, 19 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index f2efa32..545b231 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2253,8 +2253,13 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
- 	need_reset = (data & ETH_FLAG_RXVLAN) !=
- 		     (netdev->features & NETIF_F_HW_VLAN_RX);
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index 6e29634..fdc895e 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -1964,27 +1964,28 @@ static int igb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ /* bit defines for adapter->led_status */
+ #define IGB_LED_ON		0
  
-+	if ((data & ETH_FLAG_RXHASH) &&
-+	    !(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
-+		return -EOPNOTSUPP;
-+
- 	rc = ethtool_op_set_flags(netdev, data, ETH_FLAG_LRO | ETH_FLAG_NTUPLE |
--					ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN);
-+				  ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN |
-+				  ETH_FLAG_RXHASH);
- 	if (rc)
- 		return rc;
+-static int igb_phys_id(struct net_device *netdev, u32 data)
++static int igb_set_phys_id(struct net_device *netdev,
++			   enum ethtool_phys_id_state state)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+-	unsigned long timeout;
  
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index eebb192..56cc9a1 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1063,8 +1063,14 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
+-	timeout = data * 1000;
+-
+-	/*
+-	 *  msleep_interruptable only accepts unsigned int so we are limited
+-	 * in how long a duration we can wait
+-	 */
+-	if (!timeout || timeout > UINT_MAX)
+-		timeout = UINT_MAX;
+-
+-	igb_blink_led(hw);
+-	msleep_interruptible(timeout);
+-
+-	igb_led_off(hw);
+-	clear_bit(IGB_LED_ON, &adapter->led_status);
+-	igb_cleanup_led(hw);
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		igb_blink_led(hw);
++		return 2;
++	case ETHTOOL_ID_ON:
++		igb_blink_led(hw);
++		break;
++	case ETHTOOL_ID_OFF:
++		igb_led_off(hw);
++		break;
++	case ETHTOOL_ID_INACTIVE:
++		igb_led_off(hw);
++		clear_bit(IGB_LED_ON, &adapter->led_status);
++		igb_cleanup_led(hw);
++		break;
++	}
  
  	return 0;
  }
--
- #endif /* CONFIG_IXGBE_DCA */
-+
-+static inline void ixgbe_rx_hash(union ixgbe_adv_rx_desc *rx_desc,
-+				 struct sk_buff *skb)
-+{
-+	skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
-+}
-+
- /**
-  * ixgbe_receive_skb - Send a completed packet up the stack
-  * @adapter: board private structure
-@@ -1456,6 +1462,8 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 		}
- 
- 		ixgbe_rx_checksum(adapter, rx_desc, skb);
-+		if (adapter->netdev->features & NETIF_F_RXHASH)
-+			ixgbe_rx_hash(rx_desc, skb);
- 
- 		/* probably a little skewed due to removing CRC */
- 		total_rx_bytes += skb->len;
-@@ -7361,6 +7369,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	netdev->features |= NETIF_F_TSO;
- 	netdev->features |= NETIF_F_TSO6;
- 	netdev->features |= NETIF_F_GRO;
-+	netdev->features |= NETIF_F_RXHASH;
- 
- 	switch (adapter->hw.mac.type) {
- 	case ixgbe_mac_82599EB:
-@@ -7441,6 +7450,9 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
- 
-+	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
-+		netdev->features &= ~NETIF_F_RXHASH;
-+
- 	switch (pdev->device) {
- 	case IXGBE_DEV_ID_82599_SFP:
- 		/* Only this subdevice supports WOL */
+@@ -2216,7 +2217,7 @@ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.set_tso                = igb_set_tso,
+ 	.self_test              = igb_diag_test,
+ 	.get_strings            = igb_get_strings,
+-	.phys_id                = igb_phys_id,
++	.set_phys_id            = igb_set_phys_id,
+ 	.get_sset_count         = igb_get_sset_count,
+ 	.get_ethtool_stats      = igb_get_ethtool_stats,
+ 	.get_coalesce           = igb_get_coalesce,
 -- 
 1.7.4.4
 
