@@ -1,68 +1,64 @@
-From: Alex Bligh <alex-rWA27mgs/Jz10XsdtD+oqA@public.gmane.org>
-Subject: Re: [PATCH 0/7] Network namespace manipulation with file descriptors
-Date: Sat, 07 May 2011 07:58:28 +0100
-Message-ID: <3A54AB469A0294933EAC2257@nimrod.local>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-Reply-To: Alex Bligh <alex-rWA27mgs/Jz10XsdtD+oqA@public.gmane.org>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 0/4] [RFC] virtio-net: Improve small packet performance
+Date: Sat, 7 May 2011 12:45:38 +0530
+Message-ID: <OF26D73AD1.13DE7593-ON65257889.0022A7DB-65257889.0027A459@in.ibm.com>
+References: <20110504140258.14817.66596.sendpatchset@krkumar2.in.ibm.com> <20110504144622.GA15823@redhat.com> <OFAEA8C363.C13C507B-ON65257886.0051F71F-65257886.0052217F@in.ibm.com> <20110504212359.GA21446@redhat.com> <OF2E0182A1.3818A07E-ON65257887.00225EE8-65257887.002C000C@in.ibm.com> <20110505090439.GD17647@redhat.com> <OFB1ACC9EB.4567C1B1-ON65257887.0050044B-65257887.0054A5CE@in.ibm.com> <20110505153413.GC1915@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <m1tyd7p7tq.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110505153413.GC1915@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 05/05/2011 09:04:13 PM:
 
+> > I haven't tuned the threshhold, it is left it at 3/4. I ran
+> > the new qemu/vhost/guest, and the results for 1K, 2K and 16K
+> > are below. Note this is a different kernel version from my
+> > earlier test results. So, f.e., BW1 represents 2.6.39-rc2,
+> > the original kernel; while BW2 represents 2.6.37-rc5 (MST's
+> > kernel).
+>
+> Weird. My kernel is actually 2.6.39-rc2. So which is which?
 
---On 6 May 2011 19:23:29 -0700 "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> 
-wrote:
+I cloned git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git
 
-> This patchset addresses the user interface limitations by introducing
-> proc files you can open to get file descriptors that keep alive and
-> refer to your a tasks namespaces.  Those file descriptors can be passed
-> to the new setns system call or the NET_NS_FD argument in netlink
-> messages.
+# git branch -a
+  vhost
+* vhost-net-next-event-idx-v1
+  remotes/origin/HEAD -> origin/vhost
+  remotes/origin/for-linus
+  remotes/origin/master
+  remotes/origin/net-2.6
+  remotes/origin/vhost
+  remotes/origin/vhost-broken
+  remotes/origin/vhost-devel
+  remotes/origin/vhost-mrg-rxbuf
+  remotes/origin/vhost-net
+  remotes/origin/vhost-net-next
+  remotes/origin/vhost-net-next-event-idx-v1
+  remotes/origin/vhost-net-next-rebased
+  remotes/origin/virtio-layout-aligned
+  remotes/origin/virtio-layout-minimal
+  remotes/origin/virtio-layout-original
+  remotes/origin/virtio-layout-padded
+  remotes/origin/virtio-publish-used
 
-This is conceptually very interesting. I am one of those people you
-describe with a routing daemon (or more accurately a wrapper around
-existing daemons) that does the unshare() and keeps the network
-alive. It also has a control socket etc.
+# git checkout vhost-net-next-event-idx-v1
+Already on 'vhost-net-next-event-idx-v1'
 
-You say:
-> This addresses three specific problems that can make namespaces hard to
-> work with.
-> - Namespaces require a dedicated process to pin them in memory.
-> - It is not possible to use a namespace unless you are the child
->   of the original creator.
-> - Namespaces don't have names that userspace can use to talk about
->   them.
+# head -4 Makefile
+VERSION = 2
+PATCHLEVEL = 6
+SUBLEVEL = 37
+EXTRAVERSION = -rc5
 
-At least for me, the best way to solve the second blob would be to
-be able to unshare to an existing namespace. That way I would be able
-to run a daemon (without modification) in a pre-existing namespace.
-The user interface here would just be an option to 'unshare'. I
-don't think your patch allows this, does it? Right now I'm effectively
-doing that by causing the pid concerned to fork() and do my bidding,
-but that is far from perfect.
+I am not sure what I am missing.
 
-As a secondary issue, ever without your patch, it would be really
-useful to be able to read from userspace the current network namespace.
-(i.e. the pid concerned, or 1 if not unshared). I would like to
-simply modify a routing daemon's init script so it doesn't start
-if in the host, e.g. at the top:
-  [ `cat /proc/.../networknamespace` eq 1 ] && exit 0
+thanks,
 
--- 
-Alex Bligh
+- KK
+
