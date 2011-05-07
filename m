@@ -1,28 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hamachi: Delete TX checksumming code commented out
- since 1999
-Date: Sat, 07 May 2011 01:02:29 -0700 (PDT)
-Message-ID: <20110507.010229.71120168.davem@davemloft.net>
-References: <20110506.115945.104066424.davem@davemloft.net>
-	<BANLkTi=ZeY6X1XOdK2UXsODNBqzbbG+4KQ@mail.gmail.com>
+From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont" <remi-AzDNUFsAnHasTnJN9+BGXg@public.gmane.org>
+Subject: Re: [PATCH 2/7] ns: Introduce the setns syscall
+Date: Sat, 7 May 2011 11:01:08 +0300
+Message-ID: <201105071101.10950.remi@remlab.net>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+	<1304735101-1824-2-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: mirqus@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46151
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752013Ab1EGIDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 May 2011 04:03:01 -0400
-In-Reply-To: <BANLkTi=ZeY6X1XOdK2UXsODNBqzbbG+4KQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
+        linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1304735101-1824-2-git-send-email-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirqus@gmail.com>
-Date: Sat, 7 May 2011 09:59:28 +0200
+Le samedi 7 mai 2011 05:24:56 Eric W. Biederman, vous avez =E9crit :
+> Pieces of this puzzle can also be solved by instead of
+> coming up with a general purpose system call coming up
+> with targed system calls perhaps socketat that solve
+> a subset of the larger problem.  Overall that appears
+> to be more work for less reward.
 
-> This also disables RX checksumming. You wanted to leave '#define
-> RX_CHECKSUM' in place?
+socketat() is still required for multithreaded namespace-aware userspace, I =
 
-Oops, I'll fix that, thanks.
+believe.
+
+-- =
+
+R=E9mi Denis-Courmont
+http://www.remlab.info/
+http://fi.linkedin.com/in/remidenis
