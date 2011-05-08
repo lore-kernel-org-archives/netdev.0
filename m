@@ -1,61 +1,65 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 007/115] sysctl: remove .child from abi/vsyscall32 (x86)
-Date: Mon,  9 May 2011 00:38:19 +0200
-Message-ID: <1304894407-32201-8-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 006/115] sysctl: remove .child from kernel/vsyscall64 (x86)
+Date: Mon,  9 May 2011 00:38:18 +0200
+Message-ID: <1304894407-32201-7-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47346 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755943Ab1EHWkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:40:37 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- arch/x86/vdso/vdso32-setup.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+ arch/x86/kernel/vsyscall_64.c |   25 ++++++++++++++-----------
+ 1 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/arch/x86/vdso/vdso32-setup.c b/arch/x86/vdso/vdso32-setup.c
-index 468d591..e6ef3b4 100644
---- a/arch/x86/vdso/vdso32-setup.c
-+++ b/arch/x86/vdso/vdso32-setup.c
-@@ -380,7 +380,7 @@ subsys_initcall(sysenter_setup);
- /* Register vsyscall32 into the ABI table */
- #include <linux/sysctl.h>
+diff --git a/arch/x86/kernel/vsyscall_64.c b/arch/x86/kernel/vsyscall_64.c
+index dcbb28c..7d8b83d 100644
+--- a/arch/x86/kernel/vsyscall_64.c
++++ b/arch/x86/kernel/vsyscall_64.c
+@@ -234,18 +234,21 @@ static long __vsyscall(3) venosys_1(void)
+ }
  
--static ctl_table abi_table2[] = {
-+static ctl_table abi_table[] = {
- 	{
- 		.procname	= "vsyscall32",
- 		.data		= &sysctl_vsyscall32,
-@@ -391,18 +391,14 @@ static ctl_table abi_table2[] = {
- 	{}
- };
- 
--static ctl_table abi_root_table2[] = {
--	{
--		.procname = "abi",
--		.mode = 0555,
--		.child = abi_table2
--	},
+ #ifdef CONFIG_SYSCTL
+-static ctl_table kernel_table2[] = {
+-	{ .procname = "vsyscall64",
+-	  .data = &vsyscall_gtod_data.sysctl_enabled, .maxlen = sizeof(int),
+-	  .mode = 0644,
+-	  .proc_handler = proc_dointvec },
 -	{}
-+static const struct ctl_path abi_root_path[] = {
-+	{ .procname = "abi" },
++static ctl_table vsyscall64_table[] = {
++	{
++		.procname = "vsyscall64",
++		.data     = &vsyscall_gtod_data.sysctl_enabled,
++		.maxlen   = sizeof(int),
++		.mode     = 0644,
++		.proc_handler = proc_dointvec,
++	},
 +	{ }
  };
  
- static __init int ia32_binfmt_init(void)
- {
--	register_sysctl_table(abi_root_table2);
-+	register_sysctl_paths(abi_root_path, abi_table);
- 	return 0;
- }
- __initcall(ia32_binfmt_init);
+-static ctl_table kernel_root_table2[] = {
+-	{ .procname = "kernel", .mode = 0555,
+-	  .child = kernel_table2 },
+-	{}
++
++static struct ctl_path kernel_root_path[] = {
++	{ .procname = "kernel" },
++	{ }
+ };
+ #endif
+ 
+@@ -303,7 +306,7 @@ static int __init vsyscall_init(void)
+ 	BUG_ON((VSYSCALL_ADDR(0) != __fix_to_virt(VSYSCALL_FIRST_PAGE)));
+ 	BUG_ON((unsigned long) &vgetcpu != VSYSCALL_ADDR(__NR_vgetcpu));
+ #ifdef CONFIG_SYSCTL
+-	register_sysctl_table(kernel_root_table2);
++	register_sysctl_paths(kernel_root_path, vsyscall64_table);
+ #endif
+ 	on_each_cpu(cpu_vsyscall_init, NULL, 1);
+ 	/* notifier priority > KVM */
 -- 
 1.7.5.134.g1c08b
-
