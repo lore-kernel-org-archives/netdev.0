@@ -1,83 +1,76 @@
 From: Alex Bligh <alex@alex.org.uk>
 Subject: Re: Scalability of interface creation and deletion
-Date: Sun, 08 May 2011 11:09:35 +0100
-Message-ID: <443ACEB21CD1E406E4AE377F@nimrod.local>
+Date: Sun, 08 May 2011 13:18:55 +0100
+Message-ID: <7B76F9D75FD26D716624004B@nimrod.local>
 References: <891B02256A0667292521A4BF@Ximines.local>	
  <1304770926.2821.1157.camel@edumazet-laptop>	
  <0F4A638C2A523577CDBC295E@Ximines.local>	
  <1304785589.3207.5.camel@edumazet-laptop>	
  <178E8895FB84C07251538EF7@Ximines.local>	
- <1304793174.3207.22.camel@edumazet-laptop>
- <1304793553.3207.24.camel@edumazet-laptop>
+ <1304793174.3207.22.camel@edumazet-laptop>	
+ <1304793749.3207.26.camel@edumazet-laptop>
+ <1304838742.3207.45.camel@edumazet-laptop>
+ <F57561A93EFF5E88729A8D53@nimrod.local>
 Reply-To: Alex Bligh <alex@alex.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Alex Bligh <alex@alex.org.uk>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Alex Bligh <alex@alex.org.uk>
+To: Alex Bligh <alex@alex.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.avalus.com ([89.16.176.221]:45040 "EHLO mail.avalus.com"
+Received: from mail.avalus.com ([89.16.176.221]:32790 "EHLO mail.avalus.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752014Ab1EHKJm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 06:09:42 -0400
-In-Reply-To: <1304793553.3207.24.camel@edumazet-laptop>
+	id S1752559Ab1EHMTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 May 2011 08:19:01 -0400
+In-Reply-To: <F57561A93EFF5E88729A8D53@nimrod.local>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
---On 7 May 2011 20:39:13 +0200 Eric Dumazet <eric.dumazet@gmail.com> wr=
-ote:
+--On 8 May 2011 10:35:02 +0100 Alex Bligh <alex@alex.org.uk> wrote:
 
-> Le samedi 07 mai 2011 =C3=A0 20:32 +0200, Eric Dumazet a =C3=A9crit :
->
-> Also you could patch synchronize_sched() itself instead of
-> synchronize_net()
+> I suspect this may just mean an rcu reader holds the rcu_read_lock
+> for a jiffies related time. Though I'm having difficulty seeing
+> what that might be on a system where the net is in essence idle.
 
-OK, I did this, plus instrumented the call to rcu_barrier()
-you mentioned:
+Having read the RCU docs, this can't be right, because blocking
+is not legal when in the rcu_read_lock critical section.
 
-Looking at the synchronize_net() and rcu_barrier() calls:
- Total 8.43935 Usage 399 Average 0.02115 elsewhere
- Total 10.65050 Usage 200 Average 0.05325 rcu_barrier
- Total 9.28948 Usage 200 Average 0.04645 synchronize_net
+The system concerned is an 8 cpu system but I get comparable
+results on a 2 cpu system.
 
-it's spending about 1/3 of its time in that rcu_barrier, 1/3
-in synchronize_sched() and 1/3 elsewere.
+I am guessing that when the synchronize_sched() happens, all cores
+but the cpu on which that is executing are idle (at least on
+the vast majority of calls) as the machine itself is idle.
+As I understand, RCU synchronization (in the absence of lots
+of callbacks etc.) is meant to wait until it knows all RCU
+read critical sections which are running on entry have
+been left. It exploits the fact that RCU read critical sections
+cannot block by waiting for a context switch on each cpu, OR
+for that cpu to be in the idle state or running user code (also
+incompatible with a read critical section).
 
-Turning now to the synchronize_sched() (per your patch), I see
+The fact that increasing HZ masks the problem seems to imply that
+sychronize_sched() is waiting when it shouldn't be, as it suggests
+it's waiting for a context switch. But surely it shouldn't be
+waiting for context switch if all other cpu cores are idle?
+It knows that it (the caller) doesn't hold an rcu_read_lock,
+and presumably can see the other cpus are in the idle state,
+in which case surely it should return immediately? Distribution
+of latency in synchronize_sched() looks like this:
 
-  Total 16.36852 Usage 400 Average 0.04092 synchronize_sched()
+ 20-49 us 110 instances (27.500%)
+ 50-99 us 45 instances (11.250%)
+ 5000-9999 us 5 instances (1.250%)
+ 10000-19999 us 33 instances (8.250%)
+ 20000-49999 us 4 instances (1.000%)
+ 50000-99999 us 191 instances (47.750%)
+ 100000-199999 us 12 instances (3.000%)
 
-Note "Usage 400". That's because precisely half the calls to
-synchronize_sched() occur outside of synchronize_net(), and
-half occur within synchronize_net() (per logs)
-
-A typical interface being removed looks like this:
-May  8 09:47:31 nattytest kernel: [  177.030197] synchronize_sched() in=
-=20
-66921 us
-May  8 09:47:31 nattytest kernel: [  177.030957] begin synchronize_net(=
-)
-May  8 09:47:31 nattytest kernel: [  177.120085] synchronize_sched() in=
-=20
-89080 us
-May  8 09:47:31 nattytest kernel: [  177.120819] end synchronize_net()
-May  8 09:47:31 nattytest kernel: [  177.121698] begin rcu_barrier()
-May  8 09:47:31 nattytest kernel: [  177.190152] end rcu_barrier()
-
-
-So for every interface being destroyed (I'm doing 200 as veths
-are pairs), we do 2 synchronize_sched() calls and 1 rcu_barrier.
-Each of these takes roughly 42ms with CONFIG_HZ set to 100,
-leading to 125ms per interface destroy, and 250ms per veth
-pair destroy.
-
-It may be a naive question but why would we need to do
-2 synchronize_sched() and 1 rcu_barrier() to remove an
-interface?
-
---=20
+-- 
 Alex Bligh
