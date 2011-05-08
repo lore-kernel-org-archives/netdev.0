@@ -1,39 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] forcedeth: Allow ethtool to enable/disable loopback.
-Date: Sun, 08 May 2011 15:57:59 -0700 (PDT)
-Message-ID: <20110508.155759.200382648.davem@davemloft.net>
-References: <1304472127-652-1-git-send-email-maheshb@google.com>
-	<1304559400-16257-1-git-send-email-maheshb@google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: maheshb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49735
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932374Ab1EHW6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:58:31 -0400
-In-Reply-To: <1304559400-16257-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [v2 036/115] sysctl: remove .child from sunrpc/ (xprtsock)
+Date: Mon,  9 May 2011 00:38:48 +0200
+Message-ID: <1304894407-32201-37-git-send-email-lucian.grijincu@gmail.com>
+References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <maheshb@google.com>
-Date: Wed,  4 May 2011 18:36:40 -0700
 
-> @@ -4502,6 +4549,9 @@ static int nv_set_features(struct net_device *dev, u32 features)
->  
->  		spin_unlock_irq(&np->lock);
->  	}
-> +	if ((changed & NETIF_F_LOOPBACK) && netif_running(dev)) {
-> +		nv_set_loopback(dev, features);
-> +	}
->  
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+---
+ net/sunrpc/xprtsock.c |   16 ++++++----------
+ 1 files changed, 6 insertions(+), 10 deletions(-)
 
-Please do not create a braced basic block just for a single
-line of code.  Simply:
-
-> +	if ((changed & NETIF_F_LOOPBACK) && netif_running(dev))
-> +		nv_set_loopback(dev, features);
-
-is sufficient.
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index bf005d3..610a2fe 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -59,7 +59,7 @@ static unsigned int xs_tcp_fin_timeout __read_mostly = XS_TCP_LINGER_TO;
+ 
+ /*
+  * We can register our own files under /proc/sys/sunrpc by
+- * calling register_sysctl_table() again.  The files in that
++ * calling register_sysctl_paths() again.  The files in that
+  * directory become the union of all files registered there.
+  *
+  * We simply need to make sure that we don't collide with
+@@ -79,7 +79,7 @@ static struct ctl_table_header *sunrpc_table_header;
+  * FIXME: changing the UDP slot table size should also resize the UDP
+  *        socket buffers for existing UDP transports
+  */
+-static ctl_table xs_tunables_table[] = {
++static ctl_table xprtsock_table[] = {
+ 	{
+ 		.procname	= "udp_slot_table_entries",
+ 		.data		= &xprt_udp_slot_table_entries,
+@@ -126,13 +126,9 @@ static ctl_table xs_tunables_table[] = {
+ 	{ },
+ };
+ 
+-static ctl_table sunrpc_table[] = {
+-	{
+-		.procname	= "sunrpc",
+-		.mode		= 0555,
+-		.child		= xs_tunables_table
+-	},
+-	{ },
++static const struct ctl_path sunrpc_path[] = {
++	{ .procname = "sunrpc" },
++	{ }
+ };
+ 
+ #endif
+@@ -2470,7 +2466,7 @@ int init_socket_xprt(void)
+ {
+ #ifdef RPC_DEBUG
+ 	if (!sunrpc_table_header)
+-		sunrpc_table_header = register_sysctl_table(sunrpc_table);
++		sunrpc_table_header = register_sysctl_paths(sunrpc_path, xprtsock_table);
+ #endif
+ 
+ 	xprt_register_transport(&xs_udp_transport);
+-- 
+1.7.5.134.g1c08b
