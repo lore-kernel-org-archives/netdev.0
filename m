@@ -1,64 +1,37 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 002/115] sysctl: parport: reorder .child assignments to simplify review
-Date: Mon,  9 May 2011 00:38:14 +0200
-Message-ID: <1304894407-32201-3-git-send-email-lucian.grijincu@gmail.com>
-References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?B?SMOla29uIEzDuHZkYWw=?= <hlovdal@gmail.com>
+Subject: Re: [PATCH] net/bonding: adjust codingstyle for bond_3ad files
+Date: Mon, 9 May 2011 01:08:44 +0200
+Message-ID: <BANLkTik_gMCHYp4sOnzzR1Gs=bn2pkpjfQ@mail.gmail.com>
+References: <20110507012717.GA15854@x61.tchesoft.com>
+	<1304733100.11874.33.camel@Joe-Laptop>
+	<20110507173141.GA4204@x61.tchesoft.com>
+	<1304791360.1738.6.camel@Joe-Laptop>
+	<BANLkTimKs39m_htMFEygR+3Bfu7Butc-zQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>, aquini@linux.com,
+	kernel-janitors@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org, Nicolas Kaiser <nikai@nikai.net>
+To: matt mooney <mfmooney@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:52095 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753886Ab1EHXIp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 19:08:45 -0400
+In-Reply-To: <BANLkTimKs39m_htMFEygR+3Bfu7Butc-zQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
----
- drivers/parport/procfs.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+On 7 May 2011 21:35, matt mooney <mfmooney@gmail.com> wrote:
+> But isn't the preferred style to have a single exit point?
 
-diff --git a/drivers/parport/procfs.c b/drivers/parport/procfs.c
-index 89b8b71..edeb012 100644
---- a/drivers/parport/procfs.c
-+++ b/drivers/parport/procfs.c
-@@ -437,16 +437,17 @@ int parport_proc_register(struct parport *port)
- 		t->vars[i].extra1 = port;
- 
- 	t->vars[0].data = &port->spintime;
--	t->vars[5].child = t->device_dir;
- 	
- 	for (i = 0; i < 5; i++)
- 		t->vars[6 + i].extra2 = &port->probe_info[i];
- 
- 	t->port_dir[0].procname = port->name;
- 
--	t->port_dir[0].child = t->vars;
--	t->parport_dir[0].child = t->port_dir;
- 	t->dev_dir[0].child = t->parport_dir;
-+	t->parport_dir[0].child = t->port_dir;
-+	t->port_dir[0].child = t->vars;
-+	t->vars[5].child = t->device_dir;
-+	/* vars[5] = PARPORT_DEVICES_ROOT_DIR => .procname = 'devices' */
- 
- 	t->sysctl_header = register_sysctl_table(t->dev_dir);
- 	if (t->sysctl_header == NULL) {
-@@ -478,14 +479,15 @@ int parport_device_proc_register(struct pardevice *device)
- 		return -ENOMEM;
- 	memcpy(t, &parport_device_sysctl_template, sizeof(*t));
- 
-+	t->port_dir[0].procname = port->name;
-+	t->device_dir[0].procname = device->name;
-+
- 	t->dev_dir[0].child = t->parport_dir;
- 	t->parport_dir[0].child = t->port_dir;
--	t->port_dir[0].procname = port->name;
- 	t->port_dir[0].child = t->devices_root_dir;
- 	t->devices_root_dir[0].child = t->device_dir;
--
--	t->device_dir[0].procname = device->name;
- 	t->device_dir[0].child = t->vars;
-+
- 	t->vars[0].data = &device->timeslice;
- 
- 	t->sysctl_header = register_sysctl_table(t->dev_dir);
--- 
-1.7.5.134.g1c08b
+This is generally considered to be a bad advice, see
+http://stackoverflow.com/questions/1701686/why-should-methods-have-a-si=
+ngle-entry-and-exit-points/1701721#1701721
+for instance.
+
+BR H=C3=A5kon L=C3=B8vdal
