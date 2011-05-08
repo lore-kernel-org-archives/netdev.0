@@ -1,42 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bonding: adjust codingstyle for bond_3ad files
-Date: Sun, 08 May 2011 16:10:12 -0700 (PDT)
-Message-ID: <20110508.161012.258121848.davem@davemloft.net>
-References: <1304791360.1738.6.camel@Joe-Laptop>
-	<BANLkTimKs39m_htMFEygR+3Bfu7Butc-zQ@mail.gmail.com>
-	<BANLkTik_gMCHYp4sOnzzR1Gs=bn2pkpjfQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mfmooney@gmail.com, joe@perches.com, aquini@linux.com,
-	kernel-janitors@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net, shemminger@vyatta.com, netdev@vger.kernel.org,
-	nikai@nikai.net
-To: hlovdal@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34596
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754550Ab1EHXKo convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 May 2011 19:10:44 -0400
-In-Reply-To: <BANLkTik_gMCHYp4sOnzzR1Gs=bn2pkpjfQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-2.6] IPVS (take III)
+Date: Mon,  9 May 2011 08:17:49 +0900
+Message-ID: <1304896671-29384-1-git-send-email-horms@verge.net.au>
+Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: H=E5kon L=F8vdal <hlovdal@gmail.com>
-Date: Mon, 9 May 2011 01:08:44 +0200
+please consider pulling
 
-> On 7 May 2011 21:35, matt mooney <mfmooney@gmail.com> wrote:
->> But isn't the preferred style to have a single exit point?
->=20
-> This is generally considered to be a bad advice, see
-> http://stackoverflow.com/questions/1701686/why-should-methods-have-a-=
-single-entry-and-exit-points/1701721#1701721
-> for instance.
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-2.6.git for-nf-2.6
 
-That article totally ignores the issue of locking and how hard it is
-to get right without single exit points, and how unlocking in
-multiple spots bloats up the code.
+to get the following fix from Hans. They resolve some problems related
+to his netns for IPVS work which was incorporated into 2.6.39-rc1.
 
-Definitely don't take that article's advice when working on the
-kernel.
+The pull request is based on nf-2.6/master.
+
+There are other less-pressing changes from Hans which
+I plan to get you to pull into nf-next-2.6 once these
+changes make it there (presumably via net-2.6 and then net-next-2.6).
+
+There are minor changes since take II.
+
+Hans Schillstrom (2):
+      IPVS: Change of socket usage to enable name space exit.
+      IPVS: init and cleanup restructuring
+
+ include/net/ip_vs.h              |   17 +++++
+ net/netfilter/ipvs/ip_vs_app.c   |   15 +----
+ net/netfilter/ipvs/ip_vs_conn.c  |   12 +---
+ net/netfilter/ipvs/ip_vs_core.c  |  103 +++++++++++++++++++++++++++++---
+ net/netfilter/ipvs/ip_vs_ctl.c   |  120 ++++++++++++++++++++++++++++++++------
+ net/netfilter/ipvs/ip_vs_est.c   |   14 +----
+ net/netfilter/ipvs/ip_vs_proto.c |   11 +---
+ net/netfilter/ipvs/ip_vs_sync.c  |   65 ++++++++++++---------
+ 8 files changed, 258 insertions(+), 99 deletions(-)
