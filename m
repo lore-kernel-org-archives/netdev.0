@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 048/115] sysctl: remove .child from sh64/unaligned_fixup/
-Date: Mon,  9 May 2011 00:39:00 +0200
-Message-ID: <1304894407-32201-49-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 047/115] sysctl: remove .child from frv/
+Date: Mon,  9 May 2011 00:38:59 +0200
+Message-ID: <1304894407-32201-48-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
@@ -13,43 +13,37 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- arch/sh/kernel/traps_64.c |   21 +++++----------------
- 1 files changed, 5 insertions(+), 16 deletions(-)
+ arch/frv/kernel/sysctl.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/arch/sh/kernel/traps_64.c b/arch/sh/kernel/traps_64.c
-index 6713ca9..8b355b4 100644
---- a/arch/sh/kernel/traps_64.c
-+++ b/arch/sh/kernel/traps_64.c
-@@ -908,27 +908,16 @@ static ctl_table unaligned_table[] = {
- 	{}
- };
- 
--static ctl_table unaligned_root[] = {
+diff --git a/arch/frv/kernel/sysctl.c b/arch/frv/kernel/sysctl.c
+index 6c155d6..e5c20a2 100644
+--- a/arch/frv/kernel/sysctl.c
++++ b/arch/frv/kernel/sysctl.c
+@@ -199,14 +199,10 @@ static struct ctl_table frv_table[] =
+  * Use a temporary sysctl number. Horrid, but will be cleaned up in 2.6
+  * when all the PM interfaces exist nicely.
+  */
+-static struct ctl_table frv_dir_table[] =
++static const __initdata struct ctl_path frv_path[] =
+ {
 -	{
--		.procname	= "unaligned_fixup",
--		.mode		= 0555,
--		.child		= unaligned_table
+-		.procname	= "frv",
+-		.mode 		= 0555,
+-		.child		= frv_table
 -	},
 -	{}
-+static const __initdata struct ctl_table unaligned_path[] = {
-+	{ .procname = "sh64" },
-+	{ .procname = "unaligned_fixup" },
++	{ .procname = "frv" },
 +	{ }
  };
  
--static ctl_table sh64_root[] = {
--	{
--		.procname	= "sh64",
--		.mode		= 0555,
--		.child		= unaligned_root
--	},
--	{}
--};
- static struct ctl_table_header *sysctl_header;
- static int __init init_sysctl(void)
+ /*
+@@ -214,7 +210,7 @@ static struct ctl_table frv_dir_table[] =
+  */
+ static int __init frv_sysctl_init(void)
  {
--	sysctl_header = register_sysctl_table(sh64_root);
-+	sysctl_header = register_sysctl_paths(unaligned_path, unaligned_table);
+-	register_sysctl_table(frv_dir_table);
++	register_sysctl_paths(frv_path, frv_table);
  	return 0;
  }
  
