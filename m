@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 066/115] sysctl: rename ->used to ->ctl_use_refs
-Date: Mon,  9 May 2011 00:39:18 +0200
-Message-ID: <1304894407-32201-67-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 072/115] sysctl: simplify ->permissions hook
+Date: Mon,  9 May 2011 00:39:24 +0200
+Message-ID: <1304894407-32201-73-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
@@ -11,76 +11,73 @@ In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In a later patch I will split the 'count' counter. We need to have a
-clear distinction between the three counters to be able to understand
-the code.
+The @root parameter was not used at all.
 
-This counts the number of references to this object from places that
-can tinker with it's internals (e.g. ctl_table, ctl_entry,
-attached_to, attached_by, etc.).
+The @namespaces parameter was used to transmit current->nsproxy. We
+can access current->nsproxy directly in the ->permissions function, no
+need to send it.
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- include/linux/sysctl.h |    4 +++-
- kernel/sysctl.c        |    9 ++++-----
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ include/linux/sysctl.h |    3 +--
+ kernel/sysctl.c        |    2 +-
+ net/sysctl_net.c       |    9 +++------
+ 3 files changed, 5 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index 1c41dbd..fe13067 100644
+index e265880..1af4ed5 100644
 --- a/include/linux/sysctl.h
 +++ b/include/linux/sysctl.h
-@@ -1043,7 +1043,9 @@ struct ctl_table_header
- 		struct {
- 			struct ctl_table *ctl_table;
- 			struct list_head ctl_entry;
--			int used;
-+			/* references to this header from contexts that
-+			 * can access fields of this header */
-+			int ctl_use_refs;
- 			int count;
- 		};
- 		struct rcu_head rcu;
+@@ -1034,8 +1034,7 @@ struct ctl_table_root {
+ 	struct ctl_table_set default_set;
+ 	struct ctl_table_set *(*lookup)(struct ctl_table_root *root,
+ 					   struct nsproxy *namespaces);
+-	int (*permissions)(struct ctl_table_root *root,
+-			struct nsproxy *namespaces, struct ctl_table *table);
++	int (*permissions)(struct ctl_table *table);
+ };
+ 
+ /* struct ctl_table_header is used to maintain dynamic lists of
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 8b56695..ab242b4 100644
+index 1281827..6e4e32b 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
-@@ -1494,14 +1494,14 @@ static int use_table(struct ctl_table_header *p)
- {
- 	if (unlikely(p->unregistering))
- 		return 0;
--	p->used++;
-+	p->ctl_use_refs++;
- 	return 1;
+@@ -1664,7 +1664,7 @@ int sysctl_perm(struct ctl_table_root *root, struct ctl_table *table, int op)
+ 	int mode;
+ 
+ 	if (root->permissions)
+-		mode = root->permissions(root, current->nsproxy, table);
++		mode = root->permissions(table);
+ 	else
+ 		mode = table->mode;
+ 
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index 1197d9c..1c0cb57 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -41,9 +41,7 @@ static int is_seen(struct ctl_table_set *set)
  }
  
- /* called under sysctl_lock */
- static void unuse_table(struct ctl_table_header *p)
+ /* Return standard mode bits for table entry. */
+-static int net_ctl_permissions(struct ctl_table_root *root,
+-			       struct nsproxy *nsproxy,
+-			       struct ctl_table *table)
++static int net_ctl_permissions(struct ctl_table *table)
  {
--	if (!--p->used)
-+	if (!--p->ctl_use_refs)
- 		if (unlikely(p->unregistering))
- 			complete(p->unregistering);
- }
-@@ -1510,10 +1510,10 @@ static void unuse_table(struct ctl_table_header *p)
- static void start_unregistering(struct ctl_table_header *p)
- {
- 	/*
--	 * if p->used is 0, nobody will ever touch that entry again;
-+	 * if p->ctl_use_refs is 0, nobody will ever touch that entry again;
- 	 * we'll eliminate all paths to it before dropping sysctl_lock
- 	 */
--	if (unlikely(p->used)) {
-+	if (unlikely(p->ctl_use_refs)) {
- 		struct completion wait;
- 		init_completion(&wait);
- 		p->unregistering = &wait;
-@@ -1875,7 +1875,6 @@ struct ctl_table_header *__register_sysctl_paths(
- 	header->ctl_table_arg = table;
+ 	/* Allow network administrator to have same access as root. */
+ 	if (capable(CAP_NET_ADMIN)) {
+@@ -58,10 +56,9 @@ static struct ctl_table_root net_sysctl_root = {
+ 	.permissions = net_ctl_permissions,
+ };
  
- 	INIT_LIST_HEAD(&header->ctl_entry);
--	header->used = 0;
- 	header->unregistering = NULL;
- 	header->root = root;
- 	header->count = 1;
+-static int net_ctl_ro_header_perms(struct ctl_table_root *root,
+-		struct nsproxy *namespaces, struct ctl_table *table)
++static int net_ctl_ro_header_perms(ctl_table *table)
+ {
+-	if (net_eq(namespaces->net_ns, &init_net))
++	if (net_eq(current->nsproxy->net_ns, &init_net))
+ 		return table->mode;
+ 	else
+ 		return table->mode & ~0222;
 -- 
 1.7.5.134.g1c08b
