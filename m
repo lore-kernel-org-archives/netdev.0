@@ -1,105 +1,113 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 070/115] sysctl: rename sysctl_head_get/put to sysctl_proc_inode_get/put
-Date: Mon,  9 May 2011 00:39:22 +0200
-Message-ID: <1304894407-32201-71-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 069/115] sysctl: split ->count into ctl_procfs_refs and ctl_header_refs
+Date: Mon,  9 May 2011 00:39:21 +0200
+Message-ID: <1304894407-32201-70-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47346 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932503Ab1EHWlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:41:50 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Clarify the purpose of those references. No functional changes.
+This is not necessary at this point, but will be later when we replace
+the sysctl implementation with one that uses ctl_table_header objects
+as directories.
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- fs/proc/inode.c        |    2 +-
- fs/proc/proc_sysctl.c  |    2 +-
- include/linux/sysctl.h |    7 +++++--
- kernel/sysctl.c        |    6 +++---
- 4 files changed, 10 insertions(+), 7 deletions(-)
+ include/linux/sysctl.h |    8 +++++++-
+ kernel/sysctl.c        |   21 ++++++++++++---------
+ 2 files changed, 19 insertions(+), 10 deletions(-)
 
-diff --git a/fs/proc/inode.c b/fs/proc/inode.c
-index d15aa1b..08166df 100644
---- a/fs/proc/inode.c
-+++ b/fs/proc/inode.c
-@@ -42,7 +42,7 @@ static void proc_evict_inode(struct inode *inode)
- 	head = PROC_I(inode)->sysctl;
- 	if (head) {
- 		rcu_assign_pointer(PROC_I(inode)->sysctl, NULL);
--		sysctl_head_put(head);
-+		sysctl_proc_inode_put(head);
- 	}
- }
- 
-diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 068d39c..125b679 100644
---- a/fs/proc/proc_sysctl.c
-+++ b/fs/proc/proc_sysctl.c
-@@ -26,7 +26,7 @@ static struct inode *proc_sys_make_inode(struct super_block *sb,
- 
- 	inode->i_ino = get_next_ino();
- 
--	sysctl_head_get(head);
-+	sysctl_proc_inode_get(head);
- 	ei = PROC_I(inode);
- 	ei->sysctl = head;
- 	ei->sysctl_entry = table;
 diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index 0f41beb..e265880 100644
+index 4ed5235..0f41beb 100644
 --- a/include/linux/sysctl.h
 +++ b/include/linux/sysctl.h
-@@ -951,8 +951,11 @@ extern void setup_sysctl_set(struct ctl_table_set *p,
- 
- struct ctl_table_header;
- 
--extern void sysctl_head_get(struct ctl_table_header *);
--extern void sysctl_head_put(struct ctl_table_header *);
-+/* get/put a reference to this header that
-+ * will be/was embedded in a procfs proc_inode */
-+extern void sysctl_proc_inode_get(struct ctl_table_header *);
-+extern void sysctl_proc_inode_put(struct ctl_table_header *);
-+
- extern int sysctl_is_seen(struct ctl_table_header *);
- extern struct ctl_table_header *sysctl_use_header(struct ctl_table_header *);
- extern struct ctl_table_header *sysctl_use_next_header(struct ctl_table_header *prev);
+@@ -1046,7 +1046,13 @@ struct ctl_table_header
+ 			/* references to this header from contexts that
+ 			 * can access fields of this header */
+ 			int ctl_use_refs;
+-			int count;
++			/* references to this header from procfs inodes.
++			 * procfs embeds a pointer to the header in proc_inode */
++			int ctl_procfs_refs;
++			/* counts references to this header from other
++			 * headers (through ->parent) plus the reference
++			 * returned by __register_sysctl_paths */
++			int ctl_header_refs;
+ 		};
+ 		struct rcu_head rcu;
+ 	};
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 48a1ffd..caafbb8 100644
+index e4ec23e..48a1ffd 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
-@@ -1551,7 +1551,7 @@ static void start_unregistering(struct ctl_table_header *p)
- 	list_del_init(&p->ctl_entry);
- }
- 
--void sysctl_head_get(struct ctl_table_header *head)
-+void sysctl_proc_inode_get(struct ctl_table_header *head)
+@@ -200,7 +200,7 @@ static int sysrq_sysctl_handler(ctl_table *table, int write,
+ static struct ctl_table root_table[];
+ static struct ctl_table_root sysctl_table_root;
+ static struct ctl_table_header root_table_header = {
+-	{{.count = 1,
++	{{.ctl_header_refs = 1,
+ 	.ctl_table = root_table,
+ 	.ctl_entry = LIST_HEAD_INIT(sysctl_table_root.default_set.list),}},
+ 	.root = &sysctl_table_root,
+@@ -1554,7 +1554,7 @@ static void start_unregistering(struct ctl_table_header *p)
+ void sysctl_head_get(struct ctl_table_header *head)
  {
  	spin_lock(&sysctl_lock);
- 	head->ctl_procfs_refs++;
-@@ -1563,7 +1563,7 @@ static void free_head(struct rcu_head *rcu)
- 	kfree(container_of(rcu, struct ctl_table_header, rcu));
+-	head->count++;
++	head->ctl_procfs_refs++;
+ 	spin_unlock(&sysctl_lock);
  }
  
--void sysctl_head_put(struct ctl_table_header *head)
-+void sysctl_proc_inode_put(struct ctl_table_header *head)
+@@ -1566,7 +1566,8 @@ static void free_head(struct rcu_head *rcu)
+ void sysctl_head_put(struct ctl_table_header *head)
  {
  	spin_lock(&sysctl_lock);
- 	head->ctl_procfs_refs--;
-@@ -1990,7 +1990,7 @@ void setup_sysctl_set(struct ctl_table_set *p,
- {
+-	if (!--head->count)
++	head->ctl_procfs_refs--;
++	if ((head->ctl_procfs_refs == 0) && (head->ctl_header_refs == 0))
+ 		call_rcu(&head->rcu, free_head);
+ 	spin_unlock(&sysctl_lock);
  }
+@@ -1877,7 +1878,7 @@ struct ctl_table_header *__register_sysctl_paths(
+ 	INIT_LIST_HEAD(&header->ctl_entry);
+ 	header->unregistering = NULL;
+ 	header->root = root;
+-	header->count = 1;
++	header->ctl_header_refs = 1;
+ #ifdef CONFIG_SYSCTL_SYSCALL_CHECK
+ 	if (sysctl_check_table(namespaces, header->ctl_table)) {
+ 		kfree(header);
+@@ -1897,7 +1898,7 @@ struct ctl_table_header *__register_sysctl_paths(
+ 			try_attach(p, header);
+ 		}
+ 	}
+-	header->parent->count++;
++	header->parent->ctl_header_refs++;
+ 	list_add_tail(&header->ctl_entry, &header->set->list);
+ 	spin_unlock(&sysctl_lock);
  
--void sysctl_head_put(struct ctl_table_header *head)
-+void sysctl_proc_inode_put(struct ctl_table_header *head)
- {
+@@ -1937,12 +1938,14 @@ void unregister_sysctl_table(struct ctl_table_header * header)
+ 
+ 	spin_lock(&sysctl_lock);
+ 	start_unregistering(header);
+-	if (!--header->parent->count) {
++	if (!--header->parent->ctl_header_refs) {
+ 		WARN_ON(1);
+-		call_rcu(&header->parent->rcu, free_head);
++		if (!header->parent->ctl_procfs_refs)
++			call_rcu(&header->parent->rcu, free_head);
+ 	}
+-	if (!--header->count)
+-		call_rcu(&header->rcu, free_head);
++	if (!--header->ctl_header_refs)
++		if (!header->ctl_procfs_refs)
++			call_rcu(&header->rcu, free_head);
+ 	spin_unlock(&sysctl_lock);
  }
  
 -- 
 1.7.5.134.g1c08b
-
