@@ -1,54 +1,55 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 045/115] sysctl: remove .child from kernel/powersave-nap (powerpc)
-Date: Mon,  9 May 2011 00:38:57 +0200
-Message-ID: <1304894407-32201-46-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 044/115] sysctl: remove .child from kernel/ (ia64/kdump)
+Date: Mon,  9 May 2011 00:38:56 +0200
+Message-ID: <1304894407-32201-45-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45747 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932415Ab1EHWlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:41:19 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- arch/powerpc/kernel/idle.c |   13 +++++--------
+ arch/ia64/kernel/crash.c |   13 +++++--------
  1 files changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/arch/powerpc/kernel/idle.c b/arch/powerpc/kernel/idle.c
-index 39a2baa..88d03c5 100644
---- a/arch/powerpc/kernel/idle.c
-+++ b/arch/powerpc/kernel/idle.c
-@@ -118,19 +118,16 @@ static ctl_table powersave_nap_ctl_table[]={
- 	},
- 	{}
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index b942f40..e54aea5 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -255,17 +255,14 @@ static ctl_table kdump_ctl_table[] = {
+ 	{ }
  };
--static ctl_table powersave_nap_sysctl_root[] = {
+ 
+-static ctl_table sys_table[] = {
 -	{
--		.procname	= "kernel",
--		.mode		= 0555,
--		.child		= powersave_nap_ctl_table,
+-	  .procname = "kernel",
+-	  .mode = 0555,
+-	  .child = kdump_ctl_table,
 -	},
--	{}
-+
-+static const __initdata struct ctl_path powersave_nap_path[] = {
++static const __initdata struct ctl_path kdump_path[] = {
 +	{ .procname = "kernel" },
-+	{ }
+ 	{ }
  };
++
+ #endif
  
- static int __init
- register_powersave_nap_sysctl(void)
+-static int
++static __init int
+ machine_crash_setup(void)
  {
--	register_sysctl_table(powersave_nap_sysctl_root);
-+	register_sysctl_paths(powersave_nap_path, powersave_nap_ctl_table);
- 
+ 	/* be notified before default_monarch_init_process */
+@@ -277,7 +274,7 @@ machine_crash_setup(void)
+ 	if((ret = register_die_notifier(&kdump_init_notifier_nb)) != 0)
+ 		return ret;
+ #ifdef CONFIG_SYSCTL
+-	register_sysctl_table(sys_table);
++	register_sysctl_paths(kdump_path, kdump_ctl_table);
+ #endif
  	return 0;
  }
 -- 
 1.7.5.134.g1c08b
-
