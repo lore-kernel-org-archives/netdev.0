@@ -1,79 +1,106 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 025/115] sysctl: remove .child from fs/ocfs2/nm/
-Date: Mon,  9 May 2011 00:38:37 +0200
-Message-ID: <1304894407-32201-26-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 005/115] sysctl: remove .child from dev/parport/PORT/devices/
+Date: Mon,  9 May 2011 00:38:17 +0200
+Message-ID: <1304894407-32201-6-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45747 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932269Ab1EHWk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:40:57 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- fs/ocfs2/stackglue.c |   36 +++++-------------------------------
- 1 files changed, 5 insertions(+), 31 deletions(-)
+ drivers/parport/procfs.c |   42 ++++++++++++++++++++++++++++--------------
+ 1 files changed, 28 insertions(+), 14 deletions(-)
 
-diff --git a/fs/ocfs2/stackglue.c b/fs/ocfs2/stackglue.c
-index 39abf89..3cb738a 100644
---- a/fs/ocfs2/stackglue.c
-+++ b/fs/ocfs2/stackglue.c
-@@ -654,36 +654,10 @@ static ctl_table ocfs2_nm_table[] = {
- 	{ }
+diff --git a/drivers/parport/procfs.c b/drivers/parport/procfs.c
+index e55b9b6..3bb5bed 100644
+--- a/drivers/parport/procfs.c
++++ b/drivers/parport/procfs.c
+@@ -248,6 +248,7 @@ PARPORT_MAX_SPINTIME_VALUE;
+ 
+ struct parport_sysctl_table {
+ 	struct ctl_table_header *sysctl_header;
++	struct ctl_table_header *devices_sysctl_header;
+ 	ctl_table vars[12];
+ 	ctl_table device_dir[2];
  };
+@@ -291,11 +292,6 @@ static const struct parport_sysctl_table parport_sysctl_template = {
+ 			.mode		= 0444,
+ 			.proc_handler	= do_hardware_modes
+ 		},
+-		{
+-			.procname = "devices",
+-			.mode = 0555,
+-			.child = NULL, /* child will point to .device_dir */
+-		},
+ #ifdef CONFIG_PARPORT_1284
+ 		{
+ 			.procname	= "autoprobe",
+@@ -378,6 +374,14 @@ int parport_proc_register(struct parport *port)
+ 		{ .procname = port->name },
+ 		{  },
+ 	};
++	struct ctl_path parport_port_devices_path[] = {
++		{ .procname = "dev" },
++		{ .procname = "parport" },
++		{ .procname = port->name },
++		{ .procname = "devices" },
++		{  },
++	};
++
+ 	struct parport_sysctl_table *t;
+ 	int i;
  
--static ctl_table ocfs2_mod_table[] = {
--	{
--		.procname	= "nm",
--		.data		= NULL,
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= ocfs2_nm_table
--	},
--	{ }
--};
--
--static ctl_table ocfs2_kern_table[] = {
--	{
--		.procname	= "ocfs2",
--		.data		= NULL,
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= ocfs2_mod_table
--	},
--	{ }
--};
--
--static ctl_table ocfs2_root_table[] = {
--	{
--		.procname	= "fs",
--		.data		= NULL,
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= ocfs2_kern_table
--	},
-+static const __initdata struct ctl_path ocfs2_nm_path[] = {
-+	{ .procname = "fs" },
-+	{ .procname = "ocfs2" },
-+	{ .procname = "nm" },
- 	{ }
- };
+@@ -392,20 +396,29 @@ int parport_proc_register(struct parport *port)
+ 		t->vars[i].extra1 = port;
  
-@@ -698,7 +672,7 @@ static int __init ocfs2_stack_glue_init(void)
- {
- 	strcpy(cluster_stack_name, OCFS2_STACK_PLUGIN_O2CB);
+ 	t->vars[0].data = &port->spintime;
+-	
+-	for (i = 0; i < 5; i++)
+-		t->vars[6 + i].extra2 = &port->probe_info[i];
  
--	ocfs2_table_header = register_sysctl_table(ocfs2_root_table);
-+	ocfs2_table_header = register_sysctl_paths(ocfs2_nm_path, ocfs2_nm_table);
- 	if (!ocfs2_table_header) {
- 		printk(KERN_ERR
- 		       "ocfs2 stack glue: unable to register sysctl\n");
+-	t->vars[5].child = t->device_dir;
+-	/* vars[5].procname is the 'devices' dir entry */
++#ifdef CONFIG_PARPORT_1284
++	for (i = 0; i < 5; i++)
++		t->vars[5 + i].extra2 = &port->probe_info[i];
++#endif /* CONFIG_PARPORT_1284 */
+ 
+ 	t->sysctl_header = register_sysctl_paths(parport_port_path, t->vars);
+-	if (t->sysctl_header == NULL) {
+-		kfree(t);
+-		t = NULL;
+-	}
++	if (t->sysctl_header == NULL)
++		goto fail_register_port;
++
++	t->devices_sysctl_header = register_sysctl_paths(parport_port_devices_path,
++							 t->device_dir);
++	if (t->devices_sysctl_header == NULL)
++		goto fail_register_devices;
+ 	port->sysctl_table = t;
+ 	return 0;
++
++fail_register_devices:
++	unregister_sysctl_table(t->sysctl_header);
++fail_register_port:
++	kfree(t);
++
++	return -ENOMEM;
+ }
+ 
+ int parport_proc_unregister(struct parport *port)
+@@ -413,6 +426,7 @@ int parport_proc_unregister(struct parport *port)
+ 	if (port->sysctl_table) {
+ 		struct parport_sysctl_table *t = port->sysctl_table;
+ 		port->sysctl_table = NULL;
++		unregister_sysctl_table(t->devices_sysctl_header);
+ 		unregister_sysctl_table(t->sysctl_header);
+ 		kfree(t);
+ 	}
 -- 
 1.7.5.134.g1c08b
-
