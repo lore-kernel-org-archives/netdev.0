@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 040/115] sysctl: remove .child from appldata/ (s390)
-Date: Mon,  9 May 2011 00:38:52 +0200
-Message-ID: <1304894407-32201-41-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 037/115] sysctl: remove .child from bus/isa/ (arm)
+Date: Mon,  9 May 2011 00:38:49 +0200
+Message-ID: <1304894407-32201-38-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
@@ -13,97 +13,75 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- arch/s390/appldata/appldata_base.c |   42 ++++++++++++++++++------------------
- 1 files changed, 21 insertions(+), 21 deletions(-)
+ arch/arm/kernel/isa.c |   31 ++++++++++++-------------------
+ 1 files changed, 12 insertions(+), 19 deletions(-)
 
-diff --git a/arch/s390/appldata/appldata_base.c b/arch/s390/appldata/appldata_base.c
-index 5c91995..0f336a8 100644
---- a/arch/s390/appldata/appldata_base.c
-+++ b/arch/s390/appldata/appldata_base.c
-@@ -49,7 +49,6 @@ static struct platform_device *appldata_pdev;
- /*
-  * /proc entries (sysctl)
-  */
--static const char appldata_proc_name[APPLDATA_PROC_NAME_LENGTH] = "appldata";
- static int appldata_timer_handler(ctl_table *ctl, int write,
- 				  void __user *buffer, size_t *lenp, loff_t *ppos);
- static int appldata_interval_handler(ctl_table *ctl, int write,
-@@ -71,14 +70,9 @@ static struct ctl_table appldata_table[] = {
- 	{ },
- };
+diff --git a/arch/arm/kernel/isa.c b/arch/arm/kernel/isa.c
+index 3464859..0236609 100644
+--- a/arch/arm/kernel/isa.c
++++ b/arch/arm/kernel/isa.c
+@@ -20,44 +20,37 @@
  
--static struct ctl_table appldata_dir_table[] = {
--	{
--		.procname	= appldata_proc_name,
--		.maxlen		= 0,
--		.mode		= S_IRUGO | S_IXUGO,
--		.child		= appldata_table,
--	},
--	{ },
-+static const struct ctl_path appldata_path[] = {
-+	{ .procname = "appldata" },
-+	{ }
- };
+ static unsigned int isa_membase, isa_portbase, isa_portshift;
  
- /*
-@@ -424,6 +418,18 @@ out:
- 
- 
- /************************* module-ops management *****************************/
-+
-+static const struct ctl_table appldata_ops_template[2] = {
+-static ctl_table ctl_isa_vars[4] = {
++static ctl_table isa_table[] = {
+ 	{
+ 		.procname	= "membase",
+ 		.data		= &isa_membase, 
+ 		.maxlen		= sizeof(isa_membase),
+ 		.mode		= 0444,
+ 		.proc_handler	= proc_dointvec,
+-	}, {
++	},
 +	{
-+		.procname = NULL, /* ops->name */
-+		.data     = NULL, /* ops */
-+		.maxlen   = 0,
-+		.mode     = S_IRUGO | S_IWUSR,
-+		.proc_handler = appldata_generic_handler,
+ 		.procname	= "portbase",
+ 		.data		= &isa_portbase, 
+ 		.maxlen		= sizeof(isa_portbase),
+ 		.mode		= 0444,
+ 		.proc_handler	= proc_dointvec,
+-	}, {
++	},
++	{
+ 		.procname	= "portshift",
+ 		.data		= &isa_portshift, 
+ 		.maxlen		= sizeof(isa_portshift),
+ 		.mode		= 0444,
+ 		.proc_handler	= proc_dointvec,
+-	}, {}
 +	},
 +	{ }
-+};
-+
- /*
-  * appldata_register_ops()
-  *
-@@ -434,7 +440,8 @@ int appldata_register_ops(struct appldata_ops *ops)
- 	if (ops->size > APPLDATA_MAX_REC_SIZE)
- 		return -EINVAL;
+ };
  
--	ops->ctl_table = kzalloc(4 * sizeof(struct ctl_table), GFP_KERNEL);
-+	ops->ctl_table = kmemdup(&appldata_ops_template,
-+				 sizeof(appldata_ops_template), GFP_KERNEL);
- 	if (!ops->ctl_table)
- 		return -ENOMEM;
+ static struct ctl_table_header *isa_sysctl_header;
  
-@@ -442,17 +449,10 @@ int appldata_register_ops(struct appldata_ops *ops)
- 	list_add(&ops->list, &appldata_ops_list);
- 	mutex_unlock(&appldata_ops_mutex);
- 
--	ops->ctl_table[0].procname = appldata_proc_name;
--	ops->ctl_table[0].maxlen   = 0;
--	ops->ctl_table[0].mode     = S_IRUGO | S_IXUGO;
--	ops->ctl_table[0].child    = &ops->ctl_table[2];
+-static ctl_table ctl_isa[2] = {
+-	{
+-		.procname	= "isa",
+-		.mode		= 0555,
+-		.child		= ctl_isa_vars,
+-	}, {}
+-};
 -
--	ops->ctl_table[2].procname = ops->name;
--	ops->ctl_table[2].mode     = S_IRUGO | S_IWUSR;
--	ops->ctl_table[2].proc_handler = appldata_generic_handler;
--	ops->ctl_table[2].data = ops;
-+	ops->ctl_table[0].procname = ops->name;
-+	ops->ctl_table[0].data = ops;
+-static ctl_table ctl_bus[2] = {
+-	{
+-		.procname	= "bus",
+-		.mode		= 0555,
+-		.child		= ctl_isa,
+-	}, {}
++static const __initdata struct ctl_path isa_path[] = {
++	{ .procname = "bus" },
++	{ .procname = "isa" },
++	{  }
+ };
  
--	ops->sysctl_header = register_sysctl_table(ops->ctl_table);
-+	ops->sysctl_header = register_sysctl_paths(appldata_path, ops->ctl_table);
- 	if (!ops->sysctl_header)
- 		goto out;
- 	return 0;
-@@ -649,7 +649,7 @@ static int __init appldata_init(void)
- 	/* Register cpu hotplug notifier */
- 	register_hotcpu_notifier(&appldata_nb);
- 
--	appldata_sysctl_header = register_sysctl_table(appldata_dir_table);
-+	appldata_sysctl_header = register_sysctl_paths(appldata_path, appldata_table);
- 	return 0;
- 
- out_device:
+ void __init
+@@ -66,5 +59,5 @@ register_isa_ports(unsigned int membase, unsigned int portbase, unsigned int por
+ 	isa_membase = membase;
+ 	isa_portbase = portbase;
+ 	isa_portshift = portshift;
+-	isa_sysctl_header = register_sysctl_table(ctl_bus);
++	isa_sysctl_header = register_sysctl_paths(isa_path, isa_table);
+ }
 -- 
 1.7.5.134.g1c08b
