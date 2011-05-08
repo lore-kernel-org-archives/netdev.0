@@ -1,59 +1,54 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 035/115] sysctl: remove .child from sunrpc/ (xprtrdma)
-Date: Mon,  9 May 2011 00:38:47 +0200
-Message-ID: <1304894407-32201-36-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 046/115] sysctl: remove .child from pm/ (frv)
+Date: Mon,  9 May 2011 00:38:58 +0200
+Message-ID: <1304894407-32201-47-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49055 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932427Ab1EHWlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:41:20 -0400
 In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- net/sunrpc/xprtrdma/transport.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+ arch/frv/kernel/pm.c |   10 +++-------
+ 1 files changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/net/sunrpc/xprtrdma/transport.c b/net/sunrpc/xprtrdma/transport.c
-index 0867070..9736c93 100644
---- a/net/sunrpc/xprtrdma/transport.c
-+++ b/net/sunrpc/xprtrdma/transport.c
-@@ -85,7 +85,7 @@ static unsigned int max_memreg = RPCRDMA_LAST - 1;
- 
- static struct ctl_table_header *sunrpc_table_header;
- 
--static ctl_table xr_tunables_table[] = {
-+static ctl_table rdma_table[] = {
- 	{
- 		.procname	= "rdma_slot_table_entries",
- 		.data		= &xprt_rdma_slot_table_entries,
-@@ -137,13 +137,9 @@ static ctl_table xr_tunables_table[] = {
- 	{ },
+diff --git a/arch/frv/kernel/pm.c b/arch/frv/kernel/pm.c
+index 5fa3889..bcef945 100644
+--- a/arch/frv/kernel/pm.c
++++ b/arch/frv/kernel/pm.c
+@@ -329,13 +329,9 @@ static struct ctl_table pm_table[] =
+ 	{ }
  };
  
--static ctl_table sunrpc_table[] = {
+-static struct ctl_table pm_dir_table[] =
++static const __initdata struct ctl_path pm_path[] =
+ {
 -	{
--		.procname	= "sunrpc",
+-		.procname	= "pm",
 -		.mode		= 0555,
--		.child		= xr_tunables_table
+-		.child		= pm_table,
 -	},
--	{ },
-+static const struct ctl_path sunrpc_path[] = {
-+	{ .procname = "sunrpc" },
-+	{ }
++	{ .procname = "pm" },
+ 	{ }
  };
  
- #endif
-@@ -771,7 +767,7 @@ static int __init xprt_rdma_init(void)
- 
- #ifdef RPC_DEBUG
- 	if (!sunrpc_table_header)
--		sunrpc_table_header = register_sysctl_table(sunrpc_table);
-+		sunrpc_table_header = register_sysctl_paths(sunrpc_path, rdma_table);
- #endif
+@@ -344,7 +340,7 @@ static struct ctl_table pm_dir_table[] =
+  */
+ static int __init pm_init(void)
+ {
+-	register_sysctl_table(pm_dir_table);
++	register_sysctl_paths(pm_path, pm_table);
  	return 0;
  }
+ 
 -- 
 1.7.5.134.g1c08b
+
