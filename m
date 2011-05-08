@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: Scalability of interface creation and deletion
-Date: Sun, 8 May 2011 05:32:42 -0700
-Message-ID: <20110508123242.GI2641@linux.vnet.ibm.com>
+Date: Sun, 8 May 2011 05:44:28 -0700
+Message-ID: <20110508124428.GJ2641@linux.vnet.ibm.com>
 References: <891B02256A0667292521A4BF@Ximines.local>
  <1304770926.2821.1157.camel@edumazet-laptop>
  <0F4A638C2A523577CDBC295E@Ximines.local>
@@ -10,91 +10,68 @@ References: <891B02256A0667292521A4BF@Ximines.local>
  <1304793174.3207.22.camel@edumazet-laptop>
  <1304793749.3207.26.camel@edumazet-laptop>
  <1304838742.3207.45.camel@edumazet-laptop>
+ <F57561A93EFF5E88729A8D53@nimrod.local>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alex Bligh <alex@alex.org.uk>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Alex Bligh <alex@alex.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:57602 "EHLO e6.ny.us.ibm.com"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:45923 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751325Ab1EHMjN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 May 2011 08:39:13 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p48CF0hS028141
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 08:15:00 -0400
+	id S1751277Ab1EHMoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 May 2011 08:44:34 -0400
+Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
+	by e3.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p48CMr3l023087
+	for <netdev@vger.kernel.org>; Sun, 8 May 2011 08:22:53 -0400
 Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p48CdBGr482776
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 08:39:12 -0400
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p48CiUdH942162
+	for <netdev@vger.kernel.org>; Sun, 8 May 2011 08:44:30 -0400
 Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p48CdBfH028251
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 08:39:11 -0400
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p48CiTfs009472
+	for <netdev@vger.kernel.org>; Sun, 8 May 2011 08:44:30 -0400
 Content-Disposition: inline
-In-Reply-To: <1304838742.3207.45.camel@edumazet-laptop>
+In-Reply-To: <F57561A93EFF5E88729A8D53@nimrod.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 08, 2011 at 09:12:22AM +0200, Eric Dumazet wrote:
-> Le samedi 07 mai 2011 =E0 20:42 +0200, Eric Dumazet a =E9crit :
-> > Here is my trace here for one device deletion on one 8 core machine
-> >=20
-> > [  800.447012] synchronize_rcu() in 15787 us
-> > [  800.455013] synchronize_rcu() in 7682 us
-> > [  800.464019] rcu_barrier() in 8487 us
-> >=20
-> > Not that bad.
+On Sun, May 08, 2011 at 10:35:02AM +0100, Alex Bligh wrote:
+> Eric,
+> 
+> --On 8 May 2011 09:12:22 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> >By the way, if I change HZ from 1000 to 100 I now have ten times slower
+> >result :
+> 
+> I repeated that test here. With HZ set to 1000 I got a total time of
+> 4.022 seconds to remove 100 interfaces, of which:
+> 
+> Total 3.03808 Usage 199 Average 0.01527 elsewhere
+> Total 0.93992 Usage 200 Average 0.00470 synchronizing
+> 
+> as opposed to a total of 27.917 seconds with HZ set to 100, of which
+> 
+> Total 18.98515 Usage 199 Average 0.09540 elsewhere
+> Total 8.77581 Usage 200 Average 0.04388 synchronizing
+> 
+> Not quite a factor of 10 improvement, but nearly.
+> 
+> I have CONFIG_RCU_FAST_NO_HZ=y
+> 
+> I suspect this may just mean an rcu reader holds the rcu_read_lock
+> for a jiffies related time. Though I'm having difficulty seeing
+> what that might be on a system where the net is in essence idle.
 
-There is always synchronize_rcu_expedited() if you need lower latency
-and can tolerate a bit higher CPU overhead.
+OK, let's break it out...
+
+4.022 seconds for 100 interfaces means about 40 milliseconds per interface.
+
+My guess is that you have CONFIG_NO_HZ=y, which means that RCU needs to
+figure out that various CPUs are in dyntick-idle state, which is a minimum
+of 6 jiffies.  It could be longer if a given CPU happens to be in IRQ
+when RCU checks, so call it 9 jiffies.  If you are doing the interfaces
+synchronously, you will likely have to wait for a prior grace period (due
+to background activity).  So I can easily imagine 18 milliseconds for
+HZ=1000.  40 milliseconds sounds a bit high, but perhaps not impossible.
 
 							Thanx, Paul
-
-> > $ grep RCU .config
-> > # RCU Subsystem
-> > CONFIG_TREE_RCU=3Dy
-> > # CONFIG_PREEMPT_RCU is not set
-> > CONFIG_RCU_TRACE=3Dy
-> > CONFIG_RCU_FANOUT=3D32
-> > # CONFIG_RCU_FANOUT_EXACT is not set
-> > # CONFIG_RCU_FAST_NO_HZ is not set
-> > CONFIG_TREE_RCU_TRACE=3Dy
-> >=20
->=20
-> By the way, if I change HZ from 1000 to 100 I now have ten times slow=
-er
-> result :
->=20
-> # ip link add link eth0 eth0.103 type vlan id 103
-> # time ip link del eth0.103
->=20
-> real	0m0.430s
-> user	0m0.000s
-> sys	0m0.000s
->=20
-> So all this is related to your HZ value, even in a CONFIG_NO_HZ=3Dy
-> kernel. Alex, I guess you have HZ=3D250 ?
->=20
-> # uname -a
-> Linux svivoipvnx021 2.6.39-rc6-00214-g5511a34-dirty #574 SMP Sun May =
-8
-> 08:44:14 CEST 2011 x86_64 x86_64 x86_64 GNU/Linux
-> # cat /proc/cmdline
->=20
-> I enabled CONFIG_RCU_FAST_NO_HZ and got worse results (but not
-> alsways... its very variable)
->=20
-> # time ip link del eth0.103
->=20
-> real	0m0.544s
-> user	0m0.000s
-> sys	0m0.000s
->=20
->=20
-> # time ip link del eth0.103
->=20
-> real	0m0.414s
-> user	0m0.000s
-> sys	0m0.000s
->=20
->=20
