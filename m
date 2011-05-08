@@ -1,246 +1,58 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH v2] net: add mac_pton() for parsing MAC address
-Date: Sun, 8 May 2011 12:00:07 +0300
-Message-ID: <20110508090007.GA5094@p183>
+From: Alex Bligh <alex@alex.org.uk>
+Subject: Re: Scalability of interface creation and deletion
+Date: Sun, 08 May 2011 10:35:02 +0100
+Message-ID: <F57561A93EFF5E88729A8D53@nimrod.local>
+References: <891B02256A0667292521A4BF@Ximines.local>	
+ <1304770926.2821.1157.camel@edumazet-laptop>	
+ <0F4A638C2A523577CDBC295E@Ximines.local>	
+ <1304785589.3207.5.camel@edumazet-laptop>	
+ <178E8895FB84C07251538EF7@Ximines.local>	
+ <1304793174.3207.22.camel@edumazet-laptop>	
+ <1304793749.3207.26.camel@edumazet-laptop>
+ <1304838742.3207.45.camel@edumazet-laptop>
+Reply-To: Alex Bligh <alex@alex.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Alex Bligh <alex@alex.org.uk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:41645 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360Ab1EHJAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 05:00:12 -0400
-Received: by eyx24 with SMTP id 24so1308160eyx.19
-        for <netdev@vger.kernel.org>; Sun, 08 May 2011 02:00:11 -0700 (PDT)
+Received: from mail.avalus.com ([89.16.176.221]:33839 "EHLO mail.avalus.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752157Ab1EHJfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 May 2011 05:35:06 -0400
+In-Reply-To: <1304838742.3207.45.camel@edumazet-laptop>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mac_pton() parses MAC address in form XX:XX:XX:XX:XX:XX and only in that form.
+Eric,
 
-mac_pton() doesn't dirty result until it's sure string representation is valid.
+--On 8 May 2011 09:12:22 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-mac_pton() doesn't care about characters _after_ last octet,
-it's up to caller to deal with it.
+> By the way, if I change HZ from 1000 to 100 I now have ten times slower
+> result :
 
-mac_pton() diverges from 0/-E return value convention.
-Target usage:
+I repeated that test here. With HZ set to 1000 I got a total time of
+4.022 seconds to remove 100 interfaces, of which:
 
-	if (!mac_pton(str, whatever->mac))
-		return -EINVAL;
-	/* ->mac being u8 [ETH_ALEN] is filled at this point. */
-	/* optionally check str[3 * ETH_ALEN - 1] for termination */
+ Total 3.03808 Usage 199 Average 0.01527 elsewhere
+ Total 0.93992 Usage 200 Average 0.00470 synchronizing
 
-Use mac_pton() in pktgen and netconsole for start.
+as opposed to a total of 27.917 seconds with HZ set to 100, of which
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+ Total 18.98515 Usage 199 Average 0.09540 elsewhere
+ Total 8.77581 Usage 200 Average 0.04388 synchronizing
 
- drivers/net/netconsole.c |   20 +++--------------
- include/linux/if_ether.h |    1 
- net/core/netpoll.c       |   26 -----------------------
- net/core/pktgen.c        |   53 +++++++----------------------------------------
- net/core/utils.c         |   24 +++++++++++++++++++++
- 5 files changed, 38 insertions(+), 86 deletions(-)
+Not quite a factor of 10 improvement, but nearly.
 
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -429,8 +429,6 @@ static ssize_t store_remote_mac(struct netconsole_target *nt,
- 				size_t count)
- {
- 	u8 remote_mac[ETH_ALEN];
--	char *p = (char *) buf;
--	int i;
- 
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
-@@ -439,23 +437,13 @@ static ssize_t store_remote_mac(struct netconsole_target *nt,
- 		return -EINVAL;
- 	}
- 
--	for (i = 0; i < ETH_ALEN - 1; i++) {
--		remote_mac[i] = simple_strtoul(p, &p, 16);
--		if (*p != ':')
--			goto invalid;
--		p++;
--	}
--	remote_mac[ETH_ALEN - 1] = simple_strtoul(p, &p, 16);
--	if (*p && (*p != '\n'))
--		goto invalid;
--
-+	if (!mac_pton(buf, remote_mac))
-+		return -EINVAL;
-+	if (buf[3 * ETH_ALEN - 1] && buf[3 * ETH_ALEN - 1] != '\n')
-+		return -EINVAL;
- 	memcpy(nt->np.remote_mac, remote_mac, ETH_ALEN);
- 
- 	return strnlen(buf, count);
--
--invalid:
--	printk(KERN_ERR "netconsole: invalid input\n");
--	return -EINVAL;
- }
- 
- /*
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -136,6 +136,7 @@ int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr);
- extern struct ctl_table ether_table[];
- #endif
- 
-+int mac_pton(const char *s, u8 *mac);
- extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
- 
- #endif
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -698,32 +698,8 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 
- 	if (*cur != 0) {
- 		/* MAC address */
--		if ((delim = strchr(cur, ':')) == NULL)
-+		if (!mac_pton(cur, np->remote_mac))
- 			goto parse_failed;
--		*delim = 0;
--		np->remote_mac[0] = simple_strtol(cur, NULL, 16);
--		cur = delim + 1;
--		if ((delim = strchr(cur, ':')) == NULL)
--			goto parse_failed;
--		*delim = 0;
--		np->remote_mac[1] = simple_strtol(cur, NULL, 16);
--		cur = delim + 1;
--		if ((delim = strchr(cur, ':')) == NULL)
--			goto parse_failed;
--		*delim = 0;
--		np->remote_mac[2] = simple_strtol(cur, NULL, 16);
--		cur = delim + 1;
--		if ((delim = strchr(cur, ':')) == NULL)
--			goto parse_failed;
--		*delim = 0;
--		np->remote_mac[3] = simple_strtol(cur, NULL, 16);
--		cur = delim + 1;
--		if ((delim = strchr(cur, ':')) == NULL)
--			goto parse_failed;
--		*delim = 0;
--		np->remote_mac[4] = simple_strtol(cur, NULL, 16);
--		cur = delim + 1;
--		np->remote_mac[5] = simple_strtol(cur, NULL, 16);
- 	}
- 
- 	netpoll_print_options(np);
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1420,11 +1420,6 @@ static ssize_t pktgen_if_write(struct file *file,
- 		return count;
- 	}
- 	if (!strcmp(name, "dst_mac")) {
--		char *v = valstr;
--		unsigned char old_dmac[ETH_ALEN];
--		unsigned char *m = pkt_dev->dst_mac;
--		memcpy(old_dmac, pkt_dev->dst_mac, ETH_ALEN);
--
- 		len = strn_len(&user_buffer[i], sizeof(valstr) - 1);
- 		if (len < 0)
- 			return len;
-@@ -1432,35 +1427,16 @@ static ssize_t pktgen_if_write(struct file *file,
- 		memset(valstr, 0, sizeof(valstr));
- 		if (copy_from_user(valstr, &user_buffer[i], len))
- 			return -EFAULT;
--		i += len;
--
--		for (*m = 0; *v && m < pkt_dev->dst_mac + 6; v++) {
--			int value;
--
--			value = hex_to_bin(*v);
--			if (value >= 0)
--				*m = *m * 16 + value;
--
--			if (*v == ':') {
--				m++;
--				*m = 0;
--			}
--		}
- 
-+		if (!mac_pton(valstr, pkt_dev->dst_mac))
-+			return -EINVAL;
- 		/* Set up Dest MAC */
--		if (compare_ether_addr(old_dmac, pkt_dev->dst_mac))
--			memcpy(&(pkt_dev->hh[0]), pkt_dev->dst_mac, ETH_ALEN);
-+		memcpy(&pkt_dev->hh[0], pkt_dev->dst_mac, ETH_ALEN);
- 
--		sprintf(pg_result, "OK: dstmac");
-+		sprintf(pg_result, "OK: dstmac %pM", pkt_dev->dst_mac);
- 		return count;
- 	}
- 	if (!strcmp(name, "src_mac")) {
--		char *v = valstr;
--		unsigned char old_smac[ETH_ALEN];
--		unsigned char *m = pkt_dev->src_mac;
--
--		memcpy(old_smac, pkt_dev->src_mac, ETH_ALEN);
--
- 		len = strn_len(&user_buffer[i], sizeof(valstr) - 1);
- 		if (len < 0)
- 			return len;
-@@ -1468,26 +1444,13 @@ static ssize_t pktgen_if_write(struct file *file,
- 		memset(valstr, 0, sizeof(valstr));
- 		if (copy_from_user(valstr, &user_buffer[i], len))
- 			return -EFAULT;
--		i += len;
--
--		for (*m = 0; *v && m < pkt_dev->src_mac + 6; v++) {
--			int value;
--
--			value = hex_to_bin(*v);
--			if (value >= 0)
--				*m = *m * 16 + value;
--
--			if (*v == ':') {
--				m++;
--				*m = 0;
--			}
--		}
- 
-+		if (!mac_pton(valstr, pkt_dev->src_mac))
-+			return -EINVAL;
- 		/* Set up Src MAC */
--		if (compare_ether_addr(old_smac, pkt_dev->src_mac))
--			memcpy(&(pkt_dev->hh[6]), pkt_dev->src_mac, ETH_ALEN);
-+		memcpy(&pkt_dev->hh[6], pkt_dev->src_mac, ETH_ALEN);
- 
--		sprintf(pg_result, "OK: srcmac");
-+		sprintf(pg_result, "OK: srcmac %pM", pkt_dev->src_mac);
- 		return count;
- 	}
- 
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -296,3 +296,27 @@ void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
- 				csum_unfold(*sum)));
- }
- EXPORT_SYMBOL(inet_proto_csum_replace4);
-+
-+int mac_pton(const char *s, u8 *mac)
-+{
-+	int i;
-+
-+	/* XX:XX:XX:XX:XX:XX */
-+	if (strlen(s) < 3 * ETH_ALEN - 1)
-+		return 0;
-+
-+	/* Don't dirty result unless string is valid MAC. */
-+	for (i = 0; i < ETH_ALEN; i++) {
-+		if (!strchr("0123456789abcdefABCDEF", s[i * 3]))
-+			return 0;
-+		if (!strchr("0123456789abcdefABCDEF", s[i * 3 + 1]))
-+			return 0;
-+		if (i != ETH_ALEN - 1 && s[i * 3 + 2] != ':')
-+			return 0;
-+	}
-+	for (i = 0; i < ETH_ALEN; i++) {
-+		mac[i] = (hex_to_bin(s[i * 3]) << 4) | hex_to_bin(s[i * 3 + 1]);
-+	}
-+	return 1;
-+}
-+EXPORT_SYMBOL(mac_pton);
+I have CONFIG_RCU_FAST_NO_HZ=y
+
+I suspect this may just mean an rcu reader holds the rcu_read_lock
+for a jiffies related time. Though I'm having difficulty seeing
+what that might be on a system where the net is in essence idle.
+
+-- 
+Alex Bligh
