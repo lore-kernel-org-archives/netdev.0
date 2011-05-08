@@ -1,88 +1,116 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Scalability of interface creation and deletion
-Date: Sun, 8 May 2011 08:48:54 -0700
-Message-ID: <20110508154854.GT2641@linux.vnet.ibm.com>
-References: <1304793749.3207.26.camel@edumazet-laptop>
- <1304838742.3207.45.camel@edumazet-laptop>
- <F57561A93EFF5E88729A8D53@nimrod.local>
- <7B76F9D75FD26D716624004B@nimrod.local>
- <20110508125028.GK2641@linux.vnet.ibm.com>
- <B2891EFD056565BBD4DBCE16@nimrod.local>
- <20110508134425.GL2641@linux.vnet.ibm.com>
- <C449131127D58077CB25C9D8@Ximines.local>
- <20110508144749.GR2641@linux.vnet.ibm.com>
- <AB9DE9E04289CF29CA79CC67@Ximines.local>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCHv5 2/2] tg3: Allow ethtool to enable/disable loopback.
+Date: Sun, 8 May 2011 09:50:08 -0700
+Message-ID: <BANLkTikPk19z6qfVoU_TQ72YMVZeRn7E+g@mail.gmail.com>
+References: <1304559247-16111-1-git-send-email-maheshb@google.com>
+	<1304749117-1989-1-git-send-email-maheshb@google.com>
+	<20110507074321.GB4522@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Alex Bligh <alex@alex.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Tom Herbert <therbert@google.com>
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:35531 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752790Ab1EHPs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 May 2011 11:48:57 -0400
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e3.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p48FRJCg032425
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 11:27:19 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p48Fmu7A099342
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 11:48:56 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p48FmtdQ032338
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 11:48:56 -0400
-Content-Disposition: inline
-In-Reply-To: <AB9DE9E04289CF29CA79CC67@Ximines.local>
+Received: from smtp-out.google.com ([74.125.121.67]:37035 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751567Ab1EHQuM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 12:50:12 -0400
+Received: from hpaq11.eem.corp.google.com (hpaq11.eem.corp.google.com [172.25.149.11])
+	by smtp-out.google.com with ESMTP id p48GoBAg021373
+	for <netdev@vger.kernel.org>; Sun, 8 May 2011 09:50:11 -0700
+Received: from bwz12 (bwz12.prod.google.com [10.188.26.12])
+	by hpaq11.eem.corp.google.com with ESMTP id p48Go93M026069
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 8 May 2011 09:50:10 -0700
+Received: by bwz12 with SMTP id 12so7509782bwz.27
+        for <netdev@vger.kernel.org>; Sun, 08 May 2011 09:50:09 -0700 (PDT)
+In-Reply-To: <20110507074321.GB4522@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 08, 2011 at 04:17:42PM +0100, Alex Bligh wrote:
-> Paul,
-> 
-> >>No, I waited a few minutes after boot for the system to stabilize, and
-> >>all CPUs were definitely online.
-> >>
-> >>The patch to the kernel I am running is below.
-> >
-> >OK, interesting...
-> >
-> >My guess is that you need to be using ktime_get_ts().  Isn't ktime_get()
-> >subject to various sorts of adjustment?
-> 
-> It's Eric's code, not mine, but:
-> 
-> kernel/time/timekeeping.c suggests they do the same thing
-> (adjust xtime by wall_to_monotonic), just one returns a
-> struct timespec and the other returns a ktime_t.
-> 
-> >>>> There is nothing much going on these systems (idle, no other users,
-> >>>> just normal system daemons).
-> >>>
-> >>> And normal system daemons might cause this, right?
-> >>
-> >>Yes. Everything is normal, except I did
-> >>service udev stop
-> >>unshare -n bash
-> >>which together stop the system running interface scripts when
-> >>interfaces are created (as upstart and upstart-udev-bridge are
-> >>now integrated, you can't kill upstart, so you have to rely on
-> >>unshare -n to stop the events being propagated). That's just
-> >>to avoid measuring the time it takes to execute the scripts.
-> >
-> >OK, so you really could be seeing grace periods started by these system
-> >daemons.
-> 
-> In 50% of 200 calls? That seems pretty unlikely. I think it's more
-> likely to be the 6 jiffies per call to ensure cpus are idle,
-> plus the 3 calls per interface destroy.
-> 
-> If 6 jiffies per call to ensure cpus are idle is a fact of life,
-> then the question goes back to why interface removal is waiting
-> for rcu readers to be released synchronously, as opposed to
-> doing the update bits synchronously, then doing the reclaim
-> element (freeing the memory) afterwards using call_rcu.
+On Sat, May 7, 2011 at 12:43 AM, Micha=C5=82 Miros=C5=82aw
+<mirq-linux@rere.qmqm.pl> wrote:
+> On Fri, May 06, 2011 at 11:18:37PM -0700, Mahesh Bandewar wrote:
+>> This patch adds tg3_set_features() to handle loopback mode. Currentl=
+y the
+>> capability is added for the devices which support internal MAC loopb=
+ack mode.
+>> So when enabled, it enables internal-MAC loopback.
+> [...]
+>> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+>> index 7c7c9a8..b7270c2 100644
+>> --- a/drivers/net/tg3.c
+>> +++ b/drivers/net/tg3.c
+> [...]
+>> @@ -6319,6 +6356,24 @@ static u32 tg3_fix_features(struct net_device=
+ *dev, u32 features)
+>> =C2=A0 =C2=A0 =C2=A0 return features;
+>> =C2=A0}
+>>
+>> +static int tg3_set_features(struct net_device *dev, u32 features)
+>> +{
+>> + =C2=A0 =C2=A0 struct tg3 *tp =3D netdev_priv(dev);
+>> + =C2=A0 =C2=A0 u32 changed =3D dev->features ^ features;
+>> +
+>> + =C2=A0 =C2=A0 if (changed & NETIF_F_LOOPBACK) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (tg3_flag(tp, LOOPBAC=
+K_ENABLED))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 tg3_flag_clear(tp, LOOPBACK_ENABLED);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 else
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 tg3_flag_set(tp, LOOPBACK_ENABLED);
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (netif_running(dev))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 tg3_set_loopback(dev);
+>> + =C2=A0 =C2=A0 }
+>> +
+>> + =C2=A0 =C2=A0 return 0;
+>> +}
+>> +
+>> =C2=A0static inline void tg3_set_mtu(struct net_device *dev, struct =
+tg3 *tp,
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0int new_mtu)
+>> =C2=A0{
+>> @@ -9485,6 +9540,13 @@ static int tg3_open(struct net_device *dev)
+>>
+>> =C2=A0 =C2=A0 =C2=A0 netif_tx_start_all_queues(dev);
+>>
+>> + =C2=A0 =C2=A0 /*
+>> + =C2=A0 =C2=A0 =C2=A0* Reset loopback feature if it was turned on w=
+hile the device was down
+>> + =C2=A0 =C2=A0 =C2=A0* make sure that it's installed properly now.
+>> + =C2=A0 =C2=A0 =C2=A0*/
+>> + =C2=A0 =C2=A0 if (tg3_flag(tp, LOOPBACK_ENABLED))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tg3_set_loopback(dev);
+>> +
+>> =C2=A0 =C2=A0 =C2=A0 return 0;
+>>
+>> =C2=A0err_out3:
+> [...]
+>
+> So, you've just implemented what I said about enabling loopback at th=
+e end
+> of tg3_open(), but you also added (redundant) flag that mirrors
+> dev->features & NETIF_F_LOOPBACK. Why?
+>
+I had tried it before but it failed and I thought the device is not
+ready at the end of ndo_open call back, but in fact my change itself
+was causing the discrepancy in driver's private data structure. This I
+found while debugging the change and corrected by using tp->mac_mode
+for the current state of that reg instead of reading it from the reg
+into a local variable. I agree, as a side effect of this a redundant
+flag got created, which I'll remove. Thanks for pointing it out.
 
-This would speed things up considerably, assuming that there is no
-other reason to block for an RCU grace period.
+Regards,
+--mahesh..
 
-							Thanx, Paul
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
+>
