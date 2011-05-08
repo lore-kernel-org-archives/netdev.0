@@ -1,62 +1,97 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 4/15] l2tp: Fix locking in l2tp_core.c
-Date: Sun, 08 May 2011 15:37:27 -0700 (PDT)
-Message-ID: <20110508.153727.112619158.davem@davemloft.net>
+Subject: [PATCH 3/15] l2tp: Fix locking in l2tp_ip.c
+Date: Sun, 08 May 2011 15:37:25 -0700 (PDT)
+Message-ID: <20110508.153725.189722608.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42638
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42635
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755698Ab1EHWh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:37:59 -0400
+	by vger.kernel.org with ESMTP id S1755647Ab1EHWh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:37:57 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 5977624C087
-	for <netdev@vger.kernel.org>; Sun,  8 May 2011 15:37:27 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 3325324C087
+	for <netdev@vger.kernel.org>; Sun,  8 May 2011 15:37:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-l2tp_xmit_skb() must take the socket lock.  It makes use of ip_queue_xmit()
-which expects to execute in a socket atomic context.
-
-Since we execute this function in software interrupts, we cannot use the
-usual lock_sock()/release_sock() sequence, instead we have to use
-bh_lock_sock() and see if a user has the socket locked, and if so drop
-the packet.
-
+Both l2tp_ip_connect() and l2tp_ip_sendmsg() must take the socket
+lock.  They both modify socket state non-atomically, and in particular
+l2tp_ip_sendmsg() increments socket private counters without using
+atomic operations.
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/l2tp/l2tp_core.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+ net/l2tp/l2tp_ip.c |   19 +++++++++++++++----
+ 1 files changed, 15 insertions(+), 4 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index c64ce0a..7853029 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1060,6 +1060,12 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- 			      IPSKB_REROUTED);
- 	nf_reset(skb);
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 8189960..bd0cc0b 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -311,6 +311,8 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
+ 	if (lsa->l2tp_family != AF_INET)
+ 		goto out;
  
-+	bh_lock_sock(sk);
-+	if (sock_owned_by_user(sk)) {
-+		dev_kfree_skb(skb);
-+		goto out_unlock;
-+	}
++	lock_sock(sk);
 +
- 	/* Get routing info from the tunnel socket */
- 	skb_dst_drop(skb);
- 	skb_dst_set(skb, dst_clone(__sk_dst_get(sk)));
-@@ -1106,6 +1112,8 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- 	l2tp_skb_set_owner_w(skb, sk);
+ 	sk_dst_reset(sk);
  
- 	l2tp_xmit_core(session, skb, data_len);
-+out_unlock:
-+	bh_unlock_sock(sk);
+ 	oif = sk->sk_bound_dev_if;
+@@ -356,6 +358,7 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
  
- abort:
- 	return 0;
+ 	rc = 0;
+ out:
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -420,18 +423,23 @@ static int l2tp_ip_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
+ 	int connected = 0;
+ 	__be32 daddr;
+ 
++	lock_sock(sk);
++
++	rc = -ENOTCONN;
+ 	if (sock_flag(sk, SOCK_DEAD))
+-		return -ENOTCONN;
++		goto out;
+ 
+ 	/* Get and verify the address. */
+ 	if (msg->msg_name) {
+ 		struct sockaddr_l2tpip *lip = (struct sockaddr_l2tpip *) msg->msg_name;
++		rc = -EINVAL;
+ 		if (msg->msg_namelen < sizeof(*lip))
+-			return -EINVAL;
++			goto out;
+ 
+ 		if (lip->l2tp_family != AF_INET) {
++			rc = -EAFNOSUPPORT;
+ 			if (lip->l2tp_family != AF_UNSPEC)
+-				return -EAFNOSUPPORT;
++				goto out;
+ 		}
+ 
+ 		daddr = lip->l2tp_addr.s_addr;
+@@ -510,12 +518,15 @@ error:
+ 		lsa->tx_errors++;
+ 	}
+ 
++out:
++	release_sock(sk);
+ 	return rc;
+ 
+ no_route:
+ 	IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
+ 	kfree_skb(skb);
+-	return -EHOSTUNREACH;
++	rc = -EHOSTUNREACH;
++	goto out;
+ }
+ 
+ static int l2tp_ip_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 -- 
 1.7.5.1
 
