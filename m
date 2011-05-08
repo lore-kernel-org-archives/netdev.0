@@ -1,133 +1,83 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] netconsole: switch to kstrto*() functions
-Date: Sun, 8 May 2011 09:33:13 +0300
-Message-ID: <20110508063313.GA6352@p183>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Scalability of interface creation and deletion
+Date: Sun, 08 May 2011 09:12:22 +0200
+Message-ID: <1304838742.3207.45.camel@edumazet-laptop>
+References: <891B02256A0667292521A4BF@Ximines.local>
+	 <1304770926.2821.1157.camel@edumazet-laptop>
+	 <0F4A638C2A523577CDBC295E@Ximines.local>
+	 <1304785589.3207.5.camel@edumazet-laptop>
+	 <178E8895FB84C07251538EF7@Ximines.local>
+	 <1304793174.3207.22.camel@edumazet-laptop>
+	 <1304793749.3207.26.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Alex Bligh <alex@alex.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:43446 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314Ab1EHGdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 02:33:19 -0400
-Received: by eyx24 with SMTP id 24so1296915eyx.19
-        for <netdev@vger.kernel.org>; Sat, 07 May 2011 23:33:18 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:43918 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361Ab1EHHM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 03:12:27 -0400
+Received: by wwa36 with SMTP id 36so4762536wwa.1
+        for <netdev@vger.kernel.org>; Sun, 08 May 2011 00:12:26 -0700 (PDT)
+In-Reply-To: <1304793749.3207.26.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+Le samedi 07 mai 2011 =C3=A0 20:42 +0200, Eric Dumazet a =C3=A9crit :
+> Here is my trace here for one device deletion on one 8 core machine
+>=20
+> [  800.447012] synchronize_rcu() in 15787 us
+> [  800.455013] synchronize_rcu() in 7682 us
+> [  800.464019] rcu_barrier() in 8487 us
+>=20
+> Not that bad.
+>=20
+> $ grep RCU .config
+> # RCU Subsystem
+> CONFIG_TREE_RCU=3Dy
+> # CONFIG_PREEMPT_RCU is not set
+> CONFIG_RCU_TRACE=3Dy
+> CONFIG_RCU_FANOUT=3D32
+> # CONFIG_RCU_FANOUT_EXACT is not set
+> # CONFIG_RCU_FAST_NO_HZ is not set
+> CONFIG_TREE_RCU_TRACE=3Dy
+>=20
 
- drivers/net/netconsole.c |   62 ++++++++++-------------------------------------
- 1 file changed, 14 insertions(+), 48 deletions(-)
+By the way, if I change HZ from 1000 to 100 I now have ten times slower
+result :
 
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -242,34 +242,6 @@ static struct netconsole_target *to_target(struct config_item *item)
- }
- 
- /*
-- * Wrapper over simple_strtol (base 10) with sanity and range checking.
-- * We return (signed) long only because we may want to return errors.
-- * Do not use this to convert numbers that are allowed to be negative.
-- */
--static long strtol10_check_range(const char *cp, long min, long max)
--{
--	long ret;
--	char *p = (char *) cp;
--
--	WARN_ON(min < 0);
--	WARN_ON(max < min);
--
--	ret = simple_strtol(p, &p, 10);
--
--	if (*p && (*p != '\n')) {
--		printk(KERN_ERR "netconsole: invalid input\n");
--		return -EINVAL;
--	}
--	if ((ret < min) || (ret > max)) {
--		printk(KERN_ERR "netconsole: input %ld must be between "
--				"%ld and %ld\n", ret, min, max);
--		return -EINVAL;
--	}
--
--	return ret;
--}
--
--/*
-  * Attribute operations for netconsole_target.
-  */
- 
-@@ -327,12 +299,14 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 			     const char *buf,
- 			     size_t count)
- {
-+	int enabled;
- 	int err;
--	long enabled;
- 
--	enabled = strtol10_check_range(buf, 0, 1);
--	if (enabled < 0)
--		return enabled;
-+	err = kstrtoint(buf, 10, &enabled);
-+	if (err < 0)
-+		return err;
-+	if (enabled < 0 || enabled > 1)
-+		return -EINVAL;
- 
- 	if (enabled) {	/* 1 */
- 
-@@ -384,8 +358,7 @@ static ssize_t store_local_port(struct netconsole_target *nt,
- 				const char *buf,
- 				size_t count)
- {
--	long local_port;
--#define __U16_MAX	((__u16) ~0U)
-+	int rv;
- 
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
-@@ -394,12 +367,9 @@ static ssize_t store_local_port(struct netconsole_target *nt,
- 		return -EINVAL;
- 	}
- 
--	local_port = strtol10_check_range(buf, 0, __U16_MAX);
--	if (local_port < 0)
--		return local_port;
--
--	nt->np.local_port = local_port;
--
-+	rv = kstrtou16(buf, 10, &nt->np.local_port);
-+	if (rv < 0)
-+		return rv;
- 	return strnlen(buf, count);
- }
- 
-@@ -407,8 +377,7 @@ static ssize_t store_remote_port(struct netconsole_target *nt,
- 				 const char *buf,
- 				 size_t count)
- {
--	long remote_port;
--#define __U16_MAX	((__u16) ~0U)
-+	int rv;
- 
- 	if (nt->enabled) {
- 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
-@@ -417,12 +386,9 @@ static ssize_t store_remote_port(struct netconsole_target *nt,
- 		return -EINVAL;
- 	}
- 
--	remote_port = strtol10_check_range(buf, 0, __U16_MAX);
--	if (remote_port < 0)
--		return remote_port;
--
--	nt->np.remote_port = remote_port;
--
-+	rv = kstrtou16(buf, 10, &nt->np.remote_port);
-+	if (rv < 0)
-+		return rv;
- 	return strnlen(buf, count);
- }
- 
+# ip link add link eth0 eth0.103 type vlan id 103
+# time ip link del eth0.103
+
+real	0m0.430s
+user	0m0.000s
+sys	0m0.000s
+
+So all this is related to your HZ value, even in a CONFIG_NO_HZ=3Dy
+kernel. Alex, I guess you have HZ=3D250 ?
+
+# uname -a
+Linux svivoipvnx021 2.6.39-rc6-00214-g5511a34-dirty #574 SMP Sun May 8
+08:44:14 CEST 2011 x86_64 x86_64 x86_64 GNU/Linux
+# cat /proc/cmdline
+
+I enabled CONFIG_RCU_FAST_NO_HZ and got worse results (but not
+alsways... its very variable)
+
+# time ip link del eth0.103
+
+real	0m0.544s
+user	0m0.000s
+sys	0m0.000s
+
+
+# time ip link del eth0.103
+
+real	0m0.414s
+user	0m0.000s
+sys	0m0.000s
+
+
