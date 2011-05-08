@@ -1,83 +1,155 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 9/15] sctp: Store a flowi in transports to provide
- persistent keying.
-Date: Sun, 08 May 2011 15:37:44 -0700 (PDT)
-Message-ID: <20110508.153744.48524428.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [v2 001/115] sysctl: remove .child from dev/parport/default
+Date: Mon,  9 May 2011 00:38:13 +0200
+Message-ID: <1304894407-32201-2-git-send-email-lucian.grijincu@gmail.com>
+References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42653
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755717Ab1EHWiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:38:16 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 6C58824C087
-	for <netdev@vger.kernel.org>; Sun,  8 May 2011 15:37:44 -0700 (PDT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49055 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755455Ab1EHWk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:40:29 -0400
+In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+First patch in a series that will end with a rewrite of sysctl. The
+new implementation needs to get rid of the .child field of ctl_table.
 
-Several future simplifications are possible now because of this.
+Same functionality, but a little more clarity.
 
-For example, the sctp_addr unions can simply refer directly to
-the flowi information.
+MAINTAINERS says parport is "Orphan" and I don't have a parallel
+port. I minimally tested this patch, but I don't know who to resort to
+for an ACK.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- include/net/sctp/structs.h |    1 +
- net/sctp/transport.c       |    9 +++------
- 2 files changed, 4 insertions(+), 6 deletions(-)
+ drivers/parport/procfs.c |   96 +++++++++++++++++++---------------------------
+ 1 files changed, 40 insertions(+), 56 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index ff3e8cc..795f488 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -894,6 +894,7 @@ struct sctp_transport {
- 		/* Is this structure kfree()able? */
- 		malloced:1;
- 
-+	struct flowi fl;
- 
- 	/* This is the peer's IP address and port. */
- 	union sctp_addr ipaddr;
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index d8595dd..394c57c 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -213,13 +213,11 @@ void sctp_transport_set_owner(struct sctp_transport *transport,
- /* Initialize the pmtu of a transport. */
- void sctp_transport_pmtu(struct sctp_transport *transport, struct sock *sk)
- {
--	struct flowi fl;
--
- 	/* If we don't have a fresh route, look one up */
- 	if (!transport->dst || transport->dst->obsolete > 1) {
- 		dst_release(transport->dst);
- 		transport->af_specific->get_dst(transport, &transport->saddr,
--					      &fl, sk);
-+						&transport->fl, sk);
+diff --git a/drivers/parport/procfs.c b/drivers/parport/procfs.c
+index 3f56bc0..89b8b71 100644
+--- a/drivers/parport/procfs.c
++++ b/drivers/parport/procfs.c
+@@ -419,56 +419,6 @@ parport_device_sysctl_template = {
  	}
+ };
  
- 	if (transport->dst) {
-@@ -274,14 +272,13 @@ void sctp_transport_route(struct sctp_transport *transport,
+-struct parport_default_sysctl_table
+-{
+-	struct ctl_table_header *sysctl_header;
+-	ctl_table vars[3];
+-        ctl_table default_dir[2];
+-	ctl_table parport_dir[2];
+-	ctl_table dev_dir[2];
+-};
+-
+-static struct parport_default_sysctl_table
+-parport_default_sysctl_table = {
+-	.sysctl_header	= NULL,
+-	{
+-		{
+-			.procname	= "timeslice",
+-			.data		= &parport_default_timeslice,
+-			.maxlen		= sizeof(parport_default_timeslice),
+-			.mode		= 0644,
+-			.proc_handler	= proc_doulongvec_ms_jiffies_minmax,
+-			.extra1		= (void*) &parport_min_timeslice_value,
+-			.extra2		= (void*) &parport_max_timeslice_value
+-		},
+-		{
+-			.procname	= "spintime",
+-			.data		= &parport_default_spintime,
+-			.maxlen		= sizeof(parport_default_spintime),
+-			.mode		= 0644,
+-			.proc_handler	= proc_dointvec_minmax,
+-			.extra1		= (void*) &parport_min_spintime_value,
+-			.extra2		= (void*) &parport_max_spintime_value
+-		},
+-		{}
+-	},
+-	{
+-		{
+-			.procname	= "default",
+-			.mode		= 0555,
+-			.child		= parport_default_sysctl_table.vars
+-		},
+-		{}
+-	},
+-	{
+-		PARPORT_PARPORT_DIR(parport_default_sysctl_table.default_dir),
+-		{}
+-	},
+-	{
+-		PARPORT_DEV_DIR(parport_default_sysctl_table.parport_dir),
+-		{}
+-	}
+-};
+ 
+ 
+ int parport_proc_register(struct parport *port)
+@@ -558,19 +508,53 @@ int parport_device_proc_unregister(struct pardevice *device)
+ 	return 0;
+ }
+ 
++
++static struct ctl_table_header *parport_default_sysctl_header;
++
++static struct ctl_table parport_default_sysctl_table[] = {
++	{
++		.procname	= "timeslice",
++		.data		= &parport_default_timeslice,
++		.maxlen		= sizeof(parport_default_timeslice),
++		.mode		= 0644,
++		.proc_handler	= proc_doulongvec_ms_jiffies_minmax,
++		.extra1		= (void*) &parport_min_timeslice_value,
++		.extra2		= (void*) &parport_max_timeslice_value
++	},
++	{
++		.procname	= "spintime",
++		.data		= &parport_default_spintime,
++		.maxlen		= sizeof(parport_default_spintime),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= (void*) &parport_min_spintime_value,
++		.extra2		= (void*) &parport_max_spintime_value
++	},
++	{ },
++};
++
++static const __initdata struct ctl_path parport_default_path[] = {
++	{ .procname = "dev" },
++	{ .procname = "parport" },
++	{ .procname = "default" },
++	{  },
++};
++
+ static int __init parport_default_proc_register(void)
  {
- 	struct sctp_association *asoc = transport->asoc;
- 	struct sctp_af *af = transport->af_specific;
--	struct flowi fl;
+-	parport_default_sysctl_table.sysctl_header =
+-		register_sysctl_table(parport_default_sysctl_table.dev_dir);
++	parport_default_sysctl_header =
++		register_sysctl_paths(parport_default_path,
++				      parport_default_sysctl_table);
++	/* XXX: if this fails then we can't access the sysctl tables for
++	 * /proc/sys/dev/parport/default/. Should the module fail to load? */
+ 	return 0;
+ }
  
--	af->get_dst(transport, saddr, &fl, sctp_opt2sk(opt));
-+	af->get_dst(transport, saddr, &transport->fl, sctp_opt2sk(opt));
+ static void __exit parport_default_proc_unregister(void)
+ {
+-	if (parport_default_sysctl_table.sysctl_header) {
+-		unregister_sysctl_table(parport_default_sysctl_table.
+-					sysctl_header);
+-		parport_default_sysctl_table.sysctl_header = NULL;
++	if (parport_default_sysctl_header) {
++		unregister_sysctl_table(parport_default_sysctl_header);
++		parport_default_sysctl_header = NULL;
+ 	}
+ }
  
- 	if (saddr)
- 		memcpy(&transport->saddr, saddr, sizeof(union sctp_addr));
- 	else
--		af->get_saddr(opt, transport, &fl);
-+		af->get_saddr(opt, transport, &transport->fl);
- 
- 	if ((transport->param_flags & SPP_PMTUD_DISABLE) && transport->pathmtu) {
- 		return;
 -- 
-1.7.5.1
+1.7.5.134.g1c08b
 
