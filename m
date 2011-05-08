@@ -1,135 +1,59 @@
-From: Matt Helsley <matthltc@us.ibm.com>
-Subject: Re: [PATCH 2/7] ns: Introduce the setns syscall
-Date: Sat, 7 May 2011 20:51:09 -0700
-Message-ID: <20110508035109.GG12920@count0.beaverton.ibm.com>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [PATCH 7/7] ns: Wire up the setns system call
+Date: Sat, 07 May 2011 23:02:38 -0500
+Message-ID: <1304827358.6123.45.camel@mulgrave.site>
 References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
- <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
- <1304735101-1824-2-git-send-email-ebiederm@xmission.com>
+	 <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+	 <1304735101-1824-7-git-send-email-ebiederm@xmission.com>
+	 <1304798775.6123.18.camel@mulgrave.site> <m162pm53ye.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
 	Linux Containers <containers@lists.osdl.org>,
-	linux-fsdevel@vger.kernel.org
+	Renato Westphal <renatowestphal@gmail.com>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1304735101-1824-2-git-send-email-ebiederm@xmission.com>
-Sender: linux-arch-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m162pm53ye.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 06, 2011 at 07:24:56PM -0700, Eric W. Biederman wrote:
-> With the networking stack today there is demand to handle
-> multiple network stacks at a time.  Not in the context
-> of containers but in the context of people doing interesting
-> things with routing.
+On Sat, 2011-05-07 at 19:19 -0700, Eric W. Biederman wrote:
+> James Bottomley <James.Bottomley@HansenPartnership.com> writes:
 > 
-> There is also demand in the context of containers to have
-> an efficient way to execute some code in the container itself.
-> If nothing else it is very useful ad a debugging technique.
+> > On Fri, 2011-05-06 at 19:25 -0700, Eric W. Biederman wrote:
+> >> v2: Most of the architecture support added by Daniel Lezcano <dlezcano@fr.ibm.com>
+> >> v3: ported to v2.6.36-rc4 by: Eric W. Biederman <ebiederm@xmission.com>
+> >> v4: Moved wiring up of the system call to another patch
+> >> v5: ported to v2.6.39-rc6
+> >> 
+> >> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> >
+> > We already have several syscalls queued up for parisc:
+> >
+> > http://git.kernel.org/?p=linux/kernel/git/jejb/parisc-2.6.git;a=shortlog;h=refs/heads/misc
+> >
+> > So if you could make this patch over them (or over linux-next), that
+> > would help the merge process.
 > 
-> Both problems can be solved by starting some form of login
-> daemon in the namespaces people want access to, or you
-> can play games by ptracing a process and getting the
-> traced process to do things you want it to do. However
-> it turns out that a login daemon or a ptrace puppet
-> controller are more code, they are more prone to
-> failure, and generally they are less efficient than
-> simply changing the namespace of a process to a
-> specified one.
+> I will take a look. I was rather pleasantly surprised that no other
+> system call conflicts had shown up before now.
 > 
-> Pieces of this puzzle can also be solved by instead of
-> coming up with a general purpose system call coming up
-> with targed system calls perhaps socketat that solve
-> a subset of the larger problem.  Overall that appears
-> to be more work for less reward.
+> This is unfortunately one of those areas where it is almost impossible
+> to avoid conflicts.
 > 
-> int setns(int fd, int nstype);
-> 
-> The fd argument is a file descriptor referring to a proc
-> file of the namespace you want to switch the process to.
-> 
-> In the setns system call the nstype is 0 or specifies
-> an clone flag of the namespace you intend to change
-> to prevent changing a namespace unintentionally.
-> 
-> v2: Most of the architecture support added by Daniel Lezcano <dlezcano@fr.ibm.com>
-> v3: ported to v2.6.36-rc4 by: Eric W. Biederman <ebiederm@xmission.com>
-> v4: Moved wiring up of the system call to another patch
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  kernel/nsproxy.c |   37 +++++++++++++++++++++++++++++++++++++
->  1 files changed, 37 insertions(+), 0 deletions(-)
-> 
-> diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-> index a05d191..96059d8 100644
-> --- a/kernel/nsproxy.c
-> +++ b/kernel/nsproxy.c
-> @@ -22,6 +22,9 @@
->  #include <linux/pid_namespace.h>
->  #include <net/net_namespace.h>
->  #include <linux/ipc_namespace.h>
-> +#include <linux/proc_fs.h>
-> +#include <linux/file.h>
-> +#include <linux/syscalls.h>
-> 
->  static struct kmem_cache *nsproxy_cachep;
-> 
-> @@ -233,6 +236,40 @@ void exit_task_namespaces(struct task_struct *p)
->  	switch_task_namespaces(p, NULL);
->  }
-> 
-> +SYSCALL_DEFINE2(setns, int, fd, int, nstype)
-> +{
-> +	const struct proc_ns_operations *ops;
-> +	struct task_struct *tsk = current;
-> +	struct nsproxy *new_nsproxy;
-> +	struct proc_inode *ei;
-> +	struct file *file;
-> +	int err;
-> +
-> +	if (!capable(CAP_SYS_ADMIN))
-> +		return -EPERM;
-> +
-> +	file = proc_ns_fget(fd);
-> +	if (IS_ERR(file))
-> +		return PTR_ERR(file);
-> +
-> +	err = -EINVAL;
-> +	ei = PROC_I(file->f_dentry->d_inode);
-> +	ops = ei->ns_ops;
-> +	if (nstype && (ops->type != nstype))
-> +		goto out;
-> +
-> +	new_nsproxy = create_new_namespaces(0, tsk, tsk->fs);
+> Do you know if there is any chance that the parisc tree might get
+> rebased or anything horrible like that?
 
-Doesn't this need some error checking like:
+It shouldn't unless one of the wire ups is wrong and I have to replace
+it, but I think the possibility of that will be minute.
 
-	if (IS_ERR(new_nsproxy)) {
-		err = PTR_ERR(new_nsproxy);
-		goto out;
-	}
+> If not I think I will just pull the hunk of the parisc tree with the syscalls
+> e38f5b745075828ac51b12c8c95c85a7be4a3ec7...2e7bad5f34b5beed47542490c760ed26574e38ba
+> into my tree so I don't have to worry about merge order.
 
+Yes, that should work fine.
 
-> +	err = ops->install(new_nsproxy, ei->ns);
-> +	if (err) {
-> +		free_nsproxy(new_nsproxy);
-> +		goto out;
-> +	}
-> +	switch_task_namespaces(tsk, new_nsproxy);
-> +out:
-> +	fput(file);
-> +	return err;
-> +}
-> +
->  static int __init nsproxy_cache_init(void)
->  {
->  	nsproxy_cachep = KMEM_CACHE(nsproxy, SLAB_PANIC);
-> -- 
-> 1.6.5.2.143.g8cc62
-> 
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/containers
+James
