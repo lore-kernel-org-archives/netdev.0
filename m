@@ -1,32 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: use %pI6c for printing IPv6 addresses
-Date: Sun, 08 May 2011 15:50:56 -0700 (PDT)
-Message-ID: <20110508.155056.15256791.davem@davemloft.net>
-References: <20110503212340.GA25293@p183>
-	<1304460714.1788.40.camel@Joe-Laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52512
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753748Ab1EHWv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:51:29 -0400
-In-Reply-To: <1304460714.1788.40.camel@Joe-Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [v2 063/115] sysctl: simplify find_in_table
+Date: Mon,  9 May 2011 00:39:15 +0200
+Message-ID: <1304894407-32201-64-git-send-email-lucian.grijincu@gmail.com>
+References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 03 May 2011 15:11:54 -0700
+The if (!p->procname) check is useless because the loop condition
+prevents it from happening.
 
-> On Wed, 2011-05-04 at 00:23 +0300, Alexey Dobriyan wrote:
->> I don't know why %pI6 doesn't compress, but the format specifier is
->> kernel-standard, so use it.
-> 
-> Because seq_printf output using %pI6 has a known
-> output style and shouldn't be changed to avoid
-> breaking user applications.
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+---
+ fs/proc/proc_sysctl.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
 
-I've applied Alexey's patch to net-next-2.6
+diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+index f50133c..d1640bc 100644
+--- a/fs/proc/proc_sysctl.c
++++ b/fs/proc/proc_sysctl.c
+@@ -52,18 +52,12 @@ static struct ctl_table *find_in_table(struct ctl_table *p, struct qstr *name)
+ 	int len;
+ 	for ( ; p->procname; p++) {
+ 
+-		if (!p->procname)
+-			continue;
+-
+ 		len = strlen(p->procname);
+ 		if (len != name->len)
+ 			continue;
+ 
+-		if (memcmp(p->procname, name->name, len) != 0)
+-			continue;
+-
+-		/* I have a match */
+-		return p;
++		if (memcmp(p->procname, name->name, len) == 0)
++			return p;
+ 	}
+ 	return NULL;
+ }
+-- 
+1.7.5.134.g1c08b
