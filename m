@@ -1,72 +1,71 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 033/115] sysctl: remove .child from sunrpc/
-Date: Mon,  9 May 2011 00:38:45 +0200
-Message-ID: <1304894407-32201-34-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 034/115] sysctl: remove .child from sunrpc/svc_rdma
+Date: Mon,  9 May 2011 00:38:46 +0200
+Message-ID: <1304894407-32201-35-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:51704 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932309Ab1EHWlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:41:06 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- net/sunrpc/sysctl.c |   19 +++++++------------
- 1 files changed, 7 insertions(+), 12 deletions(-)
+ net/sunrpc/xprtrdma/svc_rdma.c |   26 +++++++-------------------
+ 1 files changed, 7 insertions(+), 19 deletions(-)
 
-diff --git a/net/sunrpc/sysctl.c b/net/sunrpc/sysctl.c
-index e65dcc6..7450ab2 100644
---- a/net/sunrpc/sysctl.c
-+++ b/net/sunrpc/sysctl.c
-@@ -38,13 +38,17 @@ EXPORT_SYMBOL_GPL(nlm_debug);
- #ifdef RPC_DEBUG
- 
- static struct ctl_table_header *sunrpc_table_header;
--static ctl_table		sunrpc_table[];
-+static ctl_table sunrpc_table[];
-+static const struct ctl_path sunrpc_path[] = {
-+	{ .procname = "sunrpc" },
-+	{ }
-+};
- 
- void
- rpc_register_sysctl(void)
- {
- 	if (!sunrpc_table_header)
--		sunrpc_table_header = register_sysctl_table(sunrpc_table);
-+		sunrpc_table_header = register_sysctl_paths(sunrpc_path, sunrpc_table);
+diff --git a/net/sunrpc/xprtrdma/svc_rdma.c b/net/sunrpc/xprtrdma/svc_rdma.c
+index 09af4fa..d7c0a70 100644
+--- a/net/sunrpc/xprtrdma/svc_rdma.c
++++ b/net/sunrpc/xprtrdma/svc_rdma.c
+@@ -118,7 +118,7 @@ static int read_reset_stat(ctl_table *table, int write,
  }
  
- void
-@@ -133,7 +137,7 @@ done:
- }
- 
- 
--static ctl_table debug_table[] = {
-+static ctl_table sunrpc_table[] = {
+ static struct ctl_table_header *svcrdma_table_header;
+-static ctl_table svcrdma_parm_table[] = {
++static ctl_table svcrdma_table[] = {
  	{
- 		.procname	= "rpc_debug",
- 		.data		= &rpc_debug,
-@@ -171,13 +175,4 @@ static ctl_table debug_table[] = {
- 	{ }
+ 		.procname	= "max_requests",
+ 		.data		= &svcrdma_max_requests,
+@@ -213,22 +213,10 @@ static ctl_table svcrdma_parm_table[] = {
+ 	{ },
  };
  
--static ctl_table sunrpc_table[] = {
+-static ctl_table svcrdma_table[] = {
+-	{
+-		.procname	= "svc_rdma",
+-		.mode		= 0555,
+-		.child		= svcrdma_parm_table
+-	},
+-	{ },
+-};
+-
+-static ctl_table svcrdma_root_table[] = {
 -	{
 -		.procname	= "sunrpc",
 -		.mode		= 0555,
--		.child		= debug_table
+-		.child		= svcrdma_table
 -	},
--	{ }
--};
--
- #endif
+-	{ },
++static const struct ctl_path svcrdma_path[] = {
++	{ .procname = "sunrpc" },
++	{ .procname = "svc_rdma" },
++	{ }
+ };
+ 
+ void svc_rdma_cleanup(void)
+@@ -258,8 +246,8 @@ int svc_rdma_init(void)
+ 		return -ENOMEM;
+ 
+ 	if (!svcrdma_table_header)
+-		svcrdma_table_header =
+-			register_sysctl_table(svcrdma_root_table);
++		svcrdma_table_header = register_sysctl_paths(
++			svcrdma_path, svcrdma_table);
+ 
+ 	/* Create the temporary map cache */
+ 	svc_rdma_map_cachep = kmem_cache_create("svc_rdma_map_cache",
 -- 
 1.7.5.134.g1c08b
-
