@@ -1,85 +1,138 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/15] tcp: Use cork flow in tcp_v4_connect()
-Date: Sun, 08 May 2011 15:37:22 -0700 (PDT)
-Message-ID: <20110508.153722.104037532.davem@davemloft.net>
+Subject: [PATCH 11/15] ipv4: Use inet_csk_route_child_sock() in DCCP and
+ TCP.
+Date: Sun, 08 May 2011 15:37:49 -0700 (PDT)
+Message-ID: <20110508.153749.246512612.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42632
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42659
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755543Ab1EHWhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:37:55 -0400
+	by vger.kernel.org with ESMTP id S1755807Ab1EHWiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:38:21 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 2DA8724C087
-	for <netdev@vger.kernel.org>; Sun,  8 May 2011 15:37:23 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 9041124C087
+	for <netdev@vger.kernel.org>; Sun,  8 May 2011 15:37:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Since this is invoked from inet_stream_connect() the socket is locked
-and therefore this usage is safe.
+Operation order is now transposed, we first create the child
+socket then we try to hook up the route.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/tcp_ipv4.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+ net/dccp/ipv4.c     |   19 ++++++++++---------
+ net/ipv4/tcp_ipv4.c |   18 ++++++++++--------
+ 2 files changed, 20 insertions(+), 17 deletions(-)
 
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 4ac1a72..46b15e9 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -396,15 +396,10 @@ struct sock *dccp_v4_request_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	if (sk_acceptq_is_full(sk))
+ 		goto exit_overflow;
+ 
+-	if (dst == NULL && (dst = inet_csk_route_req(sk, req)) == NULL)
+-		goto exit;
+-
+ 	newsk = dccp_create_openreq_child(sk, req, skb);
+ 	if (newsk == NULL)
+ 		goto exit_nonewsk;
+ 
+-	sk_setup_caps(newsk, dst);
+-
+ 	newinet		   = inet_sk(newsk);
+ 	ireq		   = inet_rsk(req);
+ 	newinet->inet_daddr	= ireq->rmt_addr;
+@@ -416,12 +411,15 @@ struct sock *dccp_v4_request_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	newinet->mc_ttl	   = ip_hdr(skb)->ttl;
+ 	newinet->inet_id   = jiffies;
+ 
++	if (dst == NULL && (dst = inet_csk_route_child_sock(sk, newsk, req)) == NULL)
++		goto put_and_exit;
++
++	sk_setup_caps(newsk, dst);
++
+ 	dccp_sync_mss(newsk, dst_mtu(dst));
+ 
+-	if (__inet_inherit_port(sk, newsk) < 0) {
+-		sock_put(newsk);
+-		goto exit;
+-	}
++	if (__inet_inherit_port(sk, newsk) < 0)
++		goto put_and_exit;
+ 	__inet_hash_nolisten(newsk, NULL);
+ 
+ 	return newsk;
+@@ -433,6 +431,9 @@ exit_nonewsk:
+ exit:
+ 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
+ 	return NULL;
++put_and_exit:
++	sock_put(newsk);
++	goto exit;
+ }
+ 
+ EXPORT_SYMBOL_GPL(dccp_v4_request_recv_sock);
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index f3d16d8..a712171 100644
+index a712171..374de3c 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -151,7 +151,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	__be16 orig_sport, orig_dport;
- 	__be32 daddr, nexthop;
--	struct flowi4 fl4;
-+	struct flowi4 *fl4;
- 	struct rtable *rt;
- 	int err;
- 	struct ip_options_rcu *inet_opt;
-@@ -173,7 +173,8 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+@@ -1421,15 +1421,11 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	if (sk_acceptq_is_full(sk))
+ 		goto exit_overflow;
  
- 	orig_sport = inet->inet_sport;
- 	orig_dport = usin->sin_port;
--	rt = ip_route_connect(&fl4, nexthop, inet->inet_saddr,
-+	fl4 = &inet->cork.fl.u.ip4;
-+	rt = ip_route_connect(fl4, nexthop, inet->inet_saddr,
- 			      RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
- 			      IPPROTO_TCP,
- 			      orig_sport, orig_dport, sk, true);
-@@ -190,10 +191,10 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+-	if (!dst && (dst = inet_csk_route_req(sk, req)) == NULL)
+-		goto exit;
+-
+ 	newsk = tcp_create_openreq_child(sk, req, skb);
+ 	if (!newsk)
+ 		goto exit_nonewsk;
+ 
+ 	newsk->sk_gso_type = SKB_GSO_TCPV4;
+-	sk_setup_caps(newsk, dst);
+ 
+ 	newtp		      = tcp_sk(newsk);
+ 	newinet		      = inet_sk(newsk);
+@@ -1447,6 +1443,11 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		inet_csk(newsk)->icsk_ext_hdr_len = inet_opt->opt.optlen;
+ 	newinet->inet_id = newtp->write_seq ^ jiffies;
+ 
++	if (!dst && (dst = inet_csk_route_child_sock(sk, newsk, req)) == NULL)
++		goto put_and_exit;
++
++	sk_setup_caps(newsk, dst);
++
+ 	tcp_mtup_init(newsk);
+ 	tcp_sync_mss(newsk, dst_mtu(dst));
+ 	newtp->advmss = dst_metric_advmss(dst);
+@@ -1474,10 +1475,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
  	}
+ #endif
  
- 	if (!inet_opt || !inet_opt->opt.srr)
--		daddr = fl4.daddr;
-+		daddr = fl4->daddr;
+-	if (__inet_inherit_port(sk, newsk) < 0) {
+-		sock_put(newsk);
+-		goto exit;
+-	}
++	if (__inet_inherit_port(sk, newsk) < 0)
++		goto put_and_exit;
+ 	__inet_hash_nolisten(newsk, NULL);
  
- 	if (!inet->inet_saddr)
--		inet->inet_saddr = fl4.saddr;
-+		inet->inet_saddr = fl4->saddr;
- 	inet->inet_rcv_saddr = inet->inet_saddr;
+ 	return newsk;
+@@ -1489,6 +1488,9 @@ exit_nonewsk:
+ exit:
+ 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
+ 	return NULL;
++put_and_exit:
++	sock_put(newsk);
++	goto exit;
+ }
+ EXPORT_SYMBOL(tcp_v4_syn_recv_sock);
  
- 	if (tp->rx_opt.ts_recent_stamp && inet->inet_daddr != daddr) {
-@@ -204,7 +205,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	}
- 
- 	if (tcp_death_row.sysctl_tw_recycle &&
--	    !tp->rx_opt.ts_recent_stamp && fl4.daddr == daddr) {
-+	    !tp->rx_opt.ts_recent_stamp && fl4->daddr == daddr) {
- 		struct inet_peer *peer = rt_get_peer(rt);
- 		/*
- 		 * VJ's idea. We save last timestamp seen from
-@@ -240,7 +241,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (err)
- 		goto failure;
- 
--	rt = ip_route_newports(&fl4, rt, orig_sport, orig_dport,
-+	rt = ip_route_newports(fl4, rt, orig_sport, orig_dport,
- 			       inet->inet_sport, inet->inet_dport, sk);
- 	if (IS_ERR(rt)) {
- 		err = PTR_ERR(rt);
 -- 
 1.7.5.1
 
