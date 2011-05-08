@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 010/115] sysctl: remove .child from dev/hpet/
-Date: Mon,  9 May 2011 00:38:22 +0200
-Message-ID: <1304894407-32201-11-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 008/115] sysctl: remove .child from crypto/fips_enabled
+Date: Mon,  9 May 2011 00:38:20 +0200
+Message-ID: <1304894407-32201-9-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
@@ -13,66 +13,37 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- drivers/char/hpet.c |   38 ++++++++++++--------------------------
- 1 files changed, 12 insertions(+), 26 deletions(-)
+ crypto/proc.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/char/hpet.c b/drivers/char/hpet.c
-index 7066e80..303de7e 100644
---- a/drivers/char/hpet.c
-+++ b/drivers/char/hpet.c
-@@ -721,33 +721,19 @@ static int hpet_is_known(struct hpet_data *hdp)
+diff --git a/crypto/proc.c b/crypto/proc.c
+index 58fef67..2ef248b 100644
+--- a/crypto/proc.c
++++ b/crypto/proc.c
+@@ -34,20 +34,16 @@ static struct ctl_table crypto_sysctl_table[] = {
+ 	{}
+ };
  
- static ctl_table hpet_table[] = {
- 	{
--	 .procname = "max-user-freq",
--	 .data = &hpet_max_freq,
--	 .maxlen = sizeof(int),
--	 .mode = 0644,
--	 .proc_handler = proc_dointvec,
--	 },
+-static struct ctl_table crypto_dir_table[] = {
+-	{
+-		.procname       = "crypto",
+-		.mode           = 0555,
+-		.child          = crypto_sysctl_table
+-	},
 -	{}
-+		.procname = "max-user-freq",
-+		.data     = &hpet_max_freq,
-+		.maxlen   = sizeof(int),
-+		.mode     = 0644,
-+		.proc_handler = proc_dointvec,
-+	},
++static const struct ctl_path crypto_root_path[] = {
++	{ .procname = "crypto" },
 +	{ }
  };
  
--static ctl_table hpet_root[] = {
--	{
--	 .procname = "hpet",
--	 .maxlen = 0,
--	 .mode = 0555,
--	 .child = hpet_table,
--	 },
--	{}
--};
--
--static ctl_table dev_root[] = {
--	{
--	 .procname = "dev",
--	 .maxlen = 0,
--	 .mode = 0555,
--	 .child = hpet_root,
--	 },
--	{}
-+static const struct ctl_path hpet_path[] = {
-+	{ .procname = "dev" },
-+	{ .procname = "hpet" },
-+	{ }
- };
+ static struct ctl_table_header *crypto_sysctls;
  
- static struct ctl_table_header *sysctl_header;
-@@ -1053,7 +1039,7 @@ static int __init hpet_init(void)
- 	if (result < 0)
- 		return -ENODEV;
+ static void crypto_proc_fips_init(void)
+ {
+-	crypto_sysctls = register_sysctl_table(crypto_dir_table);
++	crypto_sysctls = register_sysctl_paths(crypto_root_path, crypto_sysctl_table);
+ }
  
--	sysctl_header = register_sysctl_table(dev_root);
-+	sysctl_header = register_sysctl_paths(hpet_path, hpet_table);
- 
- 	result = acpi_bus_register_driver(&hpet_acpi_driver);
- 	if (result < 0) {
+ static void crypto_proc_fips_exit(void)
 -- 
 1.7.5.134.g1c08b
