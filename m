@@ -1,47 +1,115 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-05-08
-Date: Sun, 08 May 2011 15:40:06 -0700 (PDT)
-Message-ID: <20110508.154006.70211034.davem@davemloft.net>
-References: <1304868284-9364-1-git-send-email-sven@narfation.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1304868284-9364-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [v2 003/115] sysctl: remove .child from dev/parport/PORT/devices/DEVICE
+Date: Mon,  9 May 2011 00:38:15 +0200
+Message-ID: <1304894407-32201-4-git-send-email-lucian.grijincu@gmail.com>
+References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Date: Sun,  8 May 2011 17:24:36 +0200
+MAINTAINERS says parport is "Orphan" and I don't have a parallel
+port => I cannot test that this patch works.
 
-> Hi,
-> 
-> I would like to propose following patches for net-next-2.6/2.6.40. They
-> include minor cleanups of comments, a big rename patch s/hna/tt/, but
-> also a remove some duplicated code. The spinlock which protected the
-> list of possible interfaces for batman-adv was completely replaced by
-> rtnl_lock because we want to be in sync with the rest of the network
-> stack and the extra spinlock made everything more complex without giving
-> any additional feature (and rtnl_lock was already used everywhere).
-> Related to this patch is also a fix which should prevent a deadlock
-> between the sysfs code and the event listener. Also the reference
-> counting in find_router was fixed when an error was detected after the
-> refcounter was already increased. The only feature is the support for
-> multiple vlans in the bridge loop detection code.
-> 
-> I will submit a patch to remove the atomic_dec_not_zero from main.h
-> after Linus accepted the patch you already saw.
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+---
+ drivers/parport/procfs.c |   56 ++++++++++------------------------------------
+ 1 files changed, 12 insertions(+), 44 deletions(-)
 
-Pulled, thanks Sven.
+diff --git a/drivers/parport/procfs.c b/drivers/parport/procfs.c
+index edeb012..350233e 100644
+--- a/drivers/parport/procfs.c
++++ b/drivers/parport/procfs.c
+@@ -370,17 +370,11 @@ struct parport_device_sysctl_table
+ {
+ 	struct ctl_table_header *sysctl_header;
+ 	ctl_table vars[2];
+-	ctl_table device_dir[2];
+-	ctl_table devices_root_dir[2];
+-	ctl_table port_dir[2];
+-	ctl_table parport_dir[2];
+-	ctl_table dev_dir[2];
+ };
+ 
+ static const struct parport_device_sysctl_table
+ parport_device_sysctl_template = {
+-	.sysctl_header = NULL,
+-	{
++	.vars = {
+ 		{
+ 			.procname 	= "timeslice",
+ 			.data		= NULL,
+@@ -391,32 +385,6 @@ parport_device_sysctl_template = {
+ 			.extra2		= (void*) &parport_max_timeslice_value
+ 		},
+ 	},
+-	{
+-		{
+-			.procname	= NULL,
+-			.data		= NULL,
+-			.maxlen		= 0,
+-			.mode		= 0555,
+-			.child		= NULL
+-		},
+-		{}
+-	},
+-	{
+-		PARPORT_DEVICES_ROOT_DIR,
+-		{}
+-	},
+-	{
+-		PARPORT_PORT_DIR(NULL),
+-		{}
+-	},
+-	{
+-		PARPORT_PARPORT_DIR(NULL),
+-		{}
+-	},
+-	{
+-		PARPORT_DEV_DIR(NULL),
+-		{}
+-	}
+ };
+ 
+ 
+@@ -473,24 +441,24 @@ int parport_device_proc_register(struct pardevice *device)
+ {
+ 	struct parport_device_sysctl_table *t;
+ 	struct parport * port = device->port;
+-	
++	struct ctl_path parport_devices_port_path[] = {
++		{ .procname = "dev" },
++		{ .procname = "parport" },
++		{ .procname = port->name },
++		{ .procname = "devices" },
++		{ .procname = device->name },
++		{  },
++	};
++
+ 	t = kmalloc(sizeof(*t), GFP_KERNEL);
+ 	if (t == NULL)
+ 		return -ENOMEM;
+ 	memcpy(t, &parport_device_sysctl_template, sizeof(*t));
+ 
+-	t->port_dir[0].procname = port->name;
+-	t->device_dir[0].procname = device->name;
+-
+-	t->dev_dir[0].child = t->parport_dir;
+-	t->parport_dir[0].child = t->port_dir;
+-	t->port_dir[0].child = t->devices_root_dir;
+-	t->devices_root_dir[0].child = t->device_dir;
+-	t->device_dir[0].child = t->vars;
+-
+ 	t->vars[0].data = &device->timeslice;
+ 
+-	t->sysctl_header = register_sysctl_table(t->dev_dir);
++	t->sysctl_header = register_sysctl_paths(parport_devices_port_path,
++						 t->vars);
+ 	if (t->sysctl_header == NULL) {
+ 		kfree(t);
+ 		t = NULL;
+-- 
+1.7.5.134.g1c08b
