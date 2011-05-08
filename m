@@ -1,46 +1,31 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 095/115] sysctl: net/ipv4/neigh: create empty dir with register_sysctl_dir
-Date: Mon,  9 May 2011 00:39:47 +0200
-Message-ID: <1304894407-32201-96-git-send-email-lucian.grijincu@gmail.com>
-References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-To: linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ethtool: Add 20G bit definitions
+Date: Sun, 08 May 2011 15:43:12 -0700 (PDT)
+Message-ID: <20110508.154312.229736305.davem@davemloft.net>
+References: <1304407809.2518.1.camel@lb-tlvb-dmitry>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com,
+	bhutchings@solarflare.com
+To: yanivr@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47346 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932685Ab1EHWmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:42:20 -0400
-In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37025
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932717Ab1EHWnp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:43:45 -0400
+In-Reply-To: <1304407809.2518.1.camel@lb-tlvb-dmitry>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
----
- net/ipv4/route.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Date: Tue, 3 May 2011 10:30:08 +0300
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 46c7b3d..092f3d1 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -3151,8 +3151,6 @@ static ctl_table ipv4_route_table[] = {
- 	{ }
- };
- 
--static struct ctl_table empty[1];
--
- static __net_initdata struct ctl_path ipv4_neigh_path[] = {
- 	{ .procname = "net", },
- 	{ .procname = "ipv4", },
-@@ -3310,6 +3308,6 @@ int __init ip_rt_init(void)
- void __init ip_static_sysctl_init(void)
- {
- 	register_sysctl_paths(ipv4_route_path, ipv4_route_table);
--	register_sysctl_paths(ipv4_neigh_path, empty);
-+	register_sysctl_dir(ipv4_neigh_path);
- }
- #endif
--- 
-1.7.5.134.g1c08b
+> Add 20G supported and advertising bit definitions.
+> 20G will be supported with the 57840 chips.
+> 
+> 
+> Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
+Applied to net-next-2.6, thanks.
