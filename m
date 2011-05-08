@@ -1,116 +1,177 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCHv5 2/2] tg3: Allow ethtool to enable/disable loopback.
-Date: Sun, 8 May 2011 09:50:08 -0700
-Message-ID: <BANLkTikPk19z6qfVoU_TQ72YMVZeRn7E+g@mail.gmail.com>
-References: <1304559247-16111-1-git-send-email-maheshb@google.com>
-	<1304749117-1989-1-git-send-email-maheshb@google.com>
-	<20110507074321.GB4522@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>,
-	Tom Herbert <therbert@google.com>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCHv6 2/2] tg3: Allow ethtool to enable/disable loopback.
+Date: Sun,  8 May 2011 09:51:48 -0700
+Message-ID: <1304873508-24307-1-git-send-email-maheshb@google.com>
+References: <1304749117-1989-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>,
+	Tom Herbert <therbert@google.com>,
+	Mahesh Bandewar <maheshb@google.com>
+To: Matt Carlson <mcarlson@broadcom.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:37035 "EHLO
+Received: from smtp-out.google.com ([216.239.44.51]:8614 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567Ab1EHQuM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 12:50:12 -0400
-Received: from hpaq11.eem.corp.google.com (hpaq11.eem.corp.google.com [172.25.149.11])
-	by smtp-out.google.com with ESMTP id p48GoBAg021373
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 09:50:11 -0700
-Received: from bwz12 (bwz12.prod.google.com [10.188.26.12])
-	by hpaq11.eem.corp.google.com with ESMTP id p48Go93M026069
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 8 May 2011 09:50:10 -0700
-Received: by bwz12 with SMTP id 12so7509782bwz.27
-        for <netdev@vger.kernel.org>; Sun, 08 May 2011 09:50:09 -0700 (PDT)
-In-Reply-To: <20110507074321.GB4522@rere.qmqm.pl>
+	with ESMTP id S1751567Ab1EHQv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 12:51:56 -0400
+In-Reply-To: <1304749117-1989-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 7, 2011 at 12:43 AM, Micha=C5=82 Miros=C5=82aw
-<mirq-linux@rere.qmqm.pl> wrote:
-> On Fri, May 06, 2011 at 11:18:37PM -0700, Mahesh Bandewar wrote:
->> This patch adds tg3_set_features() to handle loopback mode. Currentl=
-y the
->> capability is added for the devices which support internal MAC loopb=
-ack mode.
->> So when enabled, it enables internal-MAC loopback.
-> [...]
->> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
->> index 7c7c9a8..b7270c2 100644
->> --- a/drivers/net/tg3.c
->> +++ b/drivers/net/tg3.c
-> [...]
->> @@ -6319,6 +6356,24 @@ static u32 tg3_fix_features(struct net_device=
- *dev, u32 features)
->> =C2=A0 =C2=A0 =C2=A0 return features;
->> =C2=A0}
->>
->> +static int tg3_set_features(struct net_device *dev, u32 features)
->> +{
->> + =C2=A0 =C2=A0 struct tg3 *tp =3D netdev_priv(dev);
->> + =C2=A0 =C2=A0 u32 changed =3D dev->features ^ features;
->> +
->> + =C2=A0 =C2=A0 if (changed & NETIF_F_LOOPBACK) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (tg3_flag(tp, LOOPBAC=
-K_ENABLED))
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 tg3_flag_clear(tp, LOOPBACK_ENABLED);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 else
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 tg3_flag_set(tp, LOOPBACK_ENABLED);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (netif_running(dev))
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 tg3_set_loopback(dev);
->> + =C2=A0 =C2=A0 }
->> +
->> + =C2=A0 =C2=A0 return 0;
->> +}
->> +
->> =C2=A0static inline void tg3_set_mtu(struct net_device *dev, struct =
-tg3 *tp,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0int new_mtu)
->> =C2=A0{
->> @@ -9485,6 +9540,13 @@ static int tg3_open(struct net_device *dev)
->>
->> =C2=A0 =C2=A0 =C2=A0 netif_tx_start_all_queues(dev);
->>
->> + =C2=A0 =C2=A0 /*
->> + =C2=A0 =C2=A0 =C2=A0* Reset loopback feature if it was turned on w=
-hile the device was down
->> + =C2=A0 =C2=A0 =C2=A0* make sure that it's installed properly now.
->> + =C2=A0 =C2=A0 =C2=A0*/
->> + =C2=A0 =C2=A0 if (tg3_flag(tp, LOOPBACK_ENABLED))
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tg3_set_loopback(dev);
->> +
->> =C2=A0 =C2=A0 =C2=A0 return 0;
->>
->> =C2=A0err_out3:
-> [...]
->
-> So, you've just implemented what I said about enabling loopback at th=
-e end
-> of tg3_open(), but you also added (redundant) flag that mirrors
-> dev->features & NETIF_F_LOOPBACK. Why?
->
-I had tried it before but it failed and I thought the device is not
-ready at the end of ndo_open call back, but in fact my change itself
-was causing the discrepancy in driver's private data structure. This I
-found while debugging the change and corrected by using tp->mac_mode
-for the current state of that reg instead of reading it from the reg
-into a local variable. I agree, as a side effect of this a redundant
-flag got created, which I'll remove. Thanks for pointing it out.
+This patch adds tg3_set_features() to handle loopback mode. Currently the
+capability is added for the devices which support internal MAC loopback mode.
+So when enabled, it enables internal-MAC loopback.
 
-Regards,
---mahesh..
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+Changes since v5:
+ (a) Removed TG3_FLAG_LOOPBACK_ENABLED flag.
 
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
->
+Changes since v4:
+ (a) Added TG3_FLAG_LOOPBACK_ENABLED flag to keep loopback state in driver's 
+     private data-structure.
+ (b) Corrected the loopback implementation by using tp->mac_mode.
+ (c) Forced Link up when in loopback mode. 
+
+Changes since v3:
+ (a) Corrected the condition (|| => &&) where loopback capability is added.
+ (b) set_features() always returns 0.
+ (c) Clear the loopback bit in ndo_open callback to avoid discrepancy.
+
+Changes since v2:
+ Implemtned Joe Perches's style change.
+
+Changes since v1:
+ Implemented Matt Carlson's suggestions.
+  (a) Enable this capability on the devices which are capable of MAC-loopback
+      mode.
+  (b) check if the device is running before making changes.
+  (c) check bits before making changes.
+
+ drivers/net/tg3.c |   69 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 67 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 7c7c9a8..9f77533 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -3373,8 +3373,8 @@ relink:
+ 		tg3_phy_copper_begin(tp);
+ 
+ 		tg3_readphy(tp, MII_BMSR, &bmsr);
+-		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
+-		    (bmsr & BMSR_LSTATUS))
++		if ((!tg3_readphy(tp, MII_BMSR, &bmsr) && (bmsr & BMSR_LSTATUS)) ||
++		    (tp->mac_mode & MAC_MODE_PORT_INT_LPBACK))
+ 			current_link_up = 1;
+ 	}
+ 
+@@ -6309,6 +6309,42 @@ dma_error:
+ 	return NETDEV_TX_OK;
+ }
+ 
++static void tg3_set_loopback(struct net_device *dev, u32 features)
++{
++	struct tg3 *tp = netdev_priv(dev);
++
++	if (features & NETIF_F_LOOPBACK) {
++		if (tp->mac_mode & MAC_MODE_PORT_INT_LPBACK)
++			return;
++
++		/*
++		 * Clear MAC_MODE_HALF_DUPLEX or you won't get packets back in
++		 * loopback mode if Half-Duplex mode was negotiated earlier.
++		 */
++		tp->mac_mode &= ~MAC_MODE_HALF_DUPLEX;
++
++		/* Enable internal MAC loopback mode */
++		tp->mac_mode |= MAC_MODE_PORT_INT_LPBACK;
++		spin_lock_bh(&tp->lock);
++		tw32(MAC_MODE, tp->mac_mode);
++		netif_carrier_on(tp->dev);
++		spin_unlock_bh(&tp->lock);
++		netdev_info(dev, "Internal MAC loopback mode enabled.\n");
++	} else {
++		if (!(tp->mac_mode & MAC_MODE_PORT_INT_LPBACK))
++			return;
++
++		/* Disable internal MAC loopback mode */
++		tp->mac_mode &= ~MAC_MODE_PORT_INT_LPBACK;
++		spin_lock_bh(&tp->lock);
++		tw32(MAC_MODE, tp->mac_mode);
++		/* Force link status check */
++		tg3_setup_phy(tp, 1);
++		spin_unlock_bh(&tp->lock);
++		netdev_info(dev, "Internal MAC loopback mode disabled.\n");
++	}
++}
++
+ static u32 tg3_fix_features(struct net_device *dev, u32 features)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+@@ -6319,6 +6355,16 @@ static u32 tg3_fix_features(struct net_device *dev, u32 features)
+ 	return features;
+ }
+ 
++static int tg3_set_features(struct net_device *dev, u32 features)
++{
++	u32 changed = dev->features ^ features;
++
++	if ((changed & NETIF_F_LOOPBACK) && netif_running(dev))
++		tg3_set_loopback(dev, features);
++
++	return 0;
++}
++
+ static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
+ 			       int new_mtu)
+ {
+@@ -9485,6 +9531,13 @@ static int tg3_open(struct net_device *dev)
+ 
+ 	netif_tx_start_all_queues(dev);
+ 
++	/*
++	 * Reset loopback feature if it was turned on while the device was down
++	 * make sure that it's installed properly now.
++	 */
++	if (dev->features & NETIF_F_LOOPBACK)
++		tg3_set_loopback(dev, dev->features);
++
+ 	return 0;
+ 
+ err_out3:
+@@ -15029,6 +15082,7 @@ static const struct net_device_ops tg3_netdev_ops = {
+ 	.ndo_tx_timeout		= tg3_tx_timeout,
+ 	.ndo_change_mtu		= tg3_change_mtu,
+ 	.ndo_fix_features	= tg3_fix_features,
++	.ndo_set_features	= tg3_set_features,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= tg3_poll_controller,
+ #endif
+@@ -15045,6 +15099,7 @@ static const struct net_device_ops tg3_netdev_ops_dma_bug = {
+ 	.ndo_do_ioctl		= tg3_ioctl,
+ 	.ndo_tx_timeout		= tg3_tx_timeout,
+ 	.ndo_change_mtu		= tg3_change_mtu,
++	.ndo_set_features	= tg3_set_features,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= tg3_poll_controller,
+ #endif
+@@ -15242,6 +15297,16 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	dev->features |= hw_features;
+ 	dev->vlan_features |= hw_features;
+ 
++	/*
++	 * Add loopback capability only for a subset of devices that support
++	 * MAC-LOOPBACK. Eventually this need to be enhanced to allow INT-PHY
++	 * loopback for the remaining devices.
++	 */
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5780 &&
++	    !tg3_flag(tp, CPMU_PRESENT))
++		/* Add the loopback capability */
++		dev->hw_features |= NETIF_F_LOOPBACK;
++
+ 	if (tp->pci_chip_rev_id == CHIPREV_ID_5705_A1 &&
+ 	    !tg3_flag(tp, TSO_CAPABLE) &&
+ 	    !(tr32(TG3PCI_PCISTATE) & PCISTATE_BUS_SPEED_HIGH)) {
+-- 
+1.7.3.1
+
