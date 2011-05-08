@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 013/115] sysctl: remove .child from dev/mac_hid/
-Date: Mon,  9 May 2011 00:38:25 +0200
-Message-ID: <1304894407-32201-14-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 010/115] sysctl: remove .child from dev/hpet/
+Date: Mon,  9 May 2011 00:38:22 +0200
+Message-ID: <1304894407-32201-11-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
@@ -13,59 +13,66 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- drivers/macintosh/mac_hid.c |   26 +++++---------------------
- 1 files changed, 5 insertions(+), 21 deletions(-)
+ drivers/char/hpet.c |   38 ++++++++++++--------------------------
+ 1 files changed, 12 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/macintosh/mac_hid.c b/drivers/macintosh/mac_hid.c
-index 6a82388..5eec7b7 100644
---- a/drivers/macintosh/mac_hid.c
-+++ b/drivers/macintosh/mac_hid.c
-@@ -214,7 +214,7 @@ static int mac_hid_toggle_emumouse(ctl_table *table, int write,
- }
+diff --git a/drivers/char/hpet.c b/drivers/char/hpet.c
+index 7066e80..303de7e 100644
+--- a/drivers/char/hpet.c
++++ b/drivers/char/hpet.c
+@@ -721,33 +721,19 @@ static int hpet_is_known(struct hpet_data *hdp)
  
- /* file(s) in /proc/sys/dev/mac_hid */
--static ctl_table mac_hid_files[] = {
-+static ctl_table mac_hid_table[] = {
+ static ctl_table hpet_table[] = {
  	{
- 		.procname	= "mouse_button_emulation",
- 		.data		= &mouse_emulate_buttons,
-@@ -239,25 +239,9 @@ static ctl_table mac_hid_files[] = {
- 	{ }
+-	 .procname = "max-user-freq",
+-	 .data = &hpet_max_freq,
+-	 .maxlen = sizeof(int),
+-	 .mode = 0644,
+-	 .proc_handler = proc_dointvec,
+-	 },
+-	{}
++		.procname = "max-user-freq",
++		.data     = &hpet_max_freq,
++		.maxlen   = sizeof(int),
++		.mode     = 0644,
++		.proc_handler = proc_dointvec,
++	},
++	{ }
  };
  
--/* dir in /proc/sys/dev */
--static ctl_table mac_hid_dir[] = {
+-static ctl_table hpet_root[] = {
 -	{
--		.procname	= "mac_hid",
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= mac_hid_files,
--	},
--	{ }
+-	 .procname = "hpet",
+-	 .maxlen = 0,
+-	 .mode = 0555,
+-	 .child = hpet_table,
+-	 },
+-	{}
 -};
 -
--/* /proc/sys/dev itself, in case that is not there yet */
--static ctl_table mac_hid_root_dir[] = {
+-static ctl_table dev_root[] = {
 -	{
--		.procname	= "dev",
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= mac_hid_dir,
--	},
-+static const __initdata struct ctl_path mac_hid_path[] = {
+-	 .procname = "dev",
+-	 .maxlen = 0,
+-	 .mode = 0555,
+-	 .child = hpet_root,
+-	 },
+-	{}
++static const struct ctl_path hpet_path[] = {
 +	{ .procname = "dev" },
-+	{ .procname = "mac_hid" },
- 	{ }
++	{ .procname = "hpet" },
++	{ }
  };
  
-@@ -265,7 +249,7 @@ static struct ctl_table_header *mac_hid_sysctl_header;
+ static struct ctl_table_header *sysctl_header;
+@@ -1053,7 +1039,7 @@ static int __init hpet_init(void)
+ 	if (result < 0)
+ 		return -ENODEV;
  
- static int __init mac_hid_init(void)
- {
--	mac_hid_sysctl_header = register_sysctl_table(mac_hid_root_dir);
-+	mac_hid_sysctl_header = register_sysctl_paths(mac_hid_path, mac_hid_table);
- 	if (!mac_hid_sysctl_header)
- 		return -ENOMEM;
+-	sysctl_header = register_sysctl_table(dev_root);
++	sysctl_header = register_sysctl_paths(hpet_path, hpet_table);
  
+ 	result = acpi_bus_register_driver(&hpet_acpi_driver);
+ 	if (result < 0) {
 -- 
 1.7.5.134.g1c08b
