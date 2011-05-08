@@ -1,55 +1,54 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 044/115] sysctl: remove .child from kernel/ (ia64/kdump)
-Date: Mon,  9 May 2011 00:38:56 +0200
-Message-ID: <1304894407-32201-45-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 042/115] sysctl: remove .child from vm/ (s390)
+Date: Mon,  9 May 2011 00:38:54 +0200
+Message-ID: <1304894407-32201-43-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49055 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932195Ab1EHWlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 18:41:17 -0400
 In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- arch/ia64/kernel/crash.c |   13 +++++--------
- 1 files changed, 5 insertions(+), 8 deletions(-)
+ arch/s390/mm/cmm.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-index b942f40..e54aea5 100644
---- a/arch/ia64/kernel/crash.c
-+++ b/arch/ia64/kernel/crash.c
-@@ -255,17 +255,14 @@ static ctl_table kdump_ctl_table[] = {
+diff --git a/arch/s390/mm/cmm.c b/arch/s390/mm/cmm.c
+index c66ffd8..0ef5bbf 100644
+--- a/arch/s390/mm/cmm.c
++++ b/arch/s390/mm/cmm.c
+@@ -348,13 +348,8 @@ static struct ctl_table cmm_table[] = {
  	{ }
  };
  
--static ctl_table sys_table[] = {
+-static struct ctl_table cmm_dir_table[] = {
 -	{
--	  .procname = "kernel",
--	  .mode = 0555,
--	  .child = kdump_ctl_table,
+-		.procname	= "vm",
+-		.maxlen		= 0,
+-		.mode		= 0555,
+-		.child		= cmm_table,
 -	},
-+static const __initdata struct ctl_path kdump_path[] = {
-+	{ .procname = "kernel" },
++static const __initdata struct ctl_path cmm_path[] = {
++	{ .procname = "vm" },
  	{ }
  };
-+
- #endif
  
--static int
-+static __init int
- machine_crash_setup(void)
+@@ -434,7 +429,7 @@ static int __init cmm_init(void)
  {
- 	/* be notified before default_monarch_init_process */
-@@ -277,7 +274,7 @@ machine_crash_setup(void)
- 	if((ret = register_die_notifier(&kdump_init_notifier_nb)) != 0)
- 		return ret;
- #ifdef CONFIG_SYSCTL
--	register_sysctl_table(sys_table);
-+	register_sysctl_paths(kdump_path, kdump_ctl_table);
- #endif
- 	return 0;
- }
+ 	int rc = -ENOMEM;
+ 
+-	cmm_sysctl_header = register_sysctl_table(cmm_dir_table);
++	cmm_sysctl_header = register_sysctl_paths(cmm_path, cmm_table);
+ 	if (!cmm_sysctl_header)
+ 		goto out_sysctl;
+ #ifdef CONFIG_CMM_IUCV
 -- 
 1.7.5.134.g1c08b
+
