@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 051/115] sysctl: remove .child from net/ipv4/route and net/ipv4/neigh tables
-Date: Mon,  9 May 2011 00:39:03 +0200
-Message-ID: <1304894407-32201-52-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 039/115] sysctl: remove .child from lasat/ (mips)
+Date: Mon,  9 May 2011 00:38:51 +0200
+Message-ID: <1304894407-32201-40-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
@@ -13,42 +13,38 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- net/ipv4/route.c |   15 ++++-----------
- 1 files changed, 4 insertions(+), 11 deletions(-)
+ arch/mips/lasat/sysctl.c |   13 ++++---------
+ 1 files changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 99e6e4b..46c7b3d 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -3153,18 +3153,10 @@ static ctl_table ipv4_route_table[] = {
- 
- static struct ctl_table empty[1];
- 
--static struct ctl_table ipv4_skeleton[] =
--{
--	{ .procname = "route", 
--	  .mode = 0555, .child = ipv4_route_table},
--	{ .procname = "neigh", 
--	  .mode = 0555, .child = empty},
--	{ }
--};
--
--static __net_initdata struct ctl_path ipv4_path[] = {
-+static __net_initdata struct ctl_path ipv4_neigh_path[] = {
- 	{ .procname = "net", },
- 	{ .procname = "ipv4", },
-+	{ .procname = "neigh", },
- 	{ },
+diff --git a/arch/mips/lasat/sysctl.c b/arch/mips/lasat/sysctl.c
+index d87ffd0..a6191f0 100644
+--- a/arch/mips/lasat/sysctl.c
++++ b/arch/mips/lasat/sysctl.c
+@@ -262,21 +262,16 @@ static ctl_table lasat_table[] = {
+ 	{}
  };
  
-@@ -3317,6 +3309,7 @@ int __init ip_rt_init(void)
-  */
- void __init ip_static_sysctl_init(void)
+-static ctl_table lasat_root_table[] = {
+-	{
+-		.procname	= "lasat",
+-		.mode		=  0555,
+-		.child		= lasat_table
+-	},
+-	{}
++static const __initdata struct ctl_path lasat_path[] = {
++	{ .procname = "lasat" },
++	{ }
+ };
+ 
+ static int __init lasat_register_sysctl(void)
  {
--	register_sysctl_paths(ipv4_path, ipv4_skeleton);
-+	register_sysctl_paths(ipv4_route_path, ipv4_route_table);
-+	register_sysctl_paths(ipv4_neigh_path, empty);
- }
- #endif
+ 	struct ctl_table_header *lasat_table_header;
+ 
+-	lasat_table_header =
+-		register_sysctl_table(lasat_root_table);
++	lasat_table_header = register_sysctl_paths(lasat_path, lasat_table);
+ 	if (!lasat_table_header) {
+ 		printk(KERN_ERR "Unable to register LASAT sysctl\n");
+ 		return -ENOMEM;
 -- 
 1.7.5.134.g1c08b
