@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v2 059/115] sysctl: no-child: manually register fs/epoll
-Date: Mon,  9 May 2011 00:39:11 +0200
-Message-ID: <1304894407-32201-60-git-send-email-lucian.grijincu@gmail.com>
+Subject: [v2 058/115] sysctl: no-child: manually register fs/inotify
+Date: Mon,  9 May 2011 00:39:10 +0200
+Message-ID: <1304894407-32201-59-git-send-email-lucian.grijincu@gmail.com>
 References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
@@ -13,106 +13,93 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- fs/eventpoll.c       |   22 +++++++++++++++++++---
- include/linux/poll.h |    2 --
- kernel/sysctl.c      |   10 ----------
- 3 files changed, 19 insertions(+), 15 deletions(-)
+ fs/notify/inotify/inotify_user.c |   22 +++++++++++++++++++---
+ include/linux/inotify.h          |    2 --
+ kernel/sysctl.c                  |    7 -------
+ 3 files changed, 19 insertions(+), 12 deletions(-)
 
-diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-index f9cfd16..2dbcd0c 100644
---- a/fs/eventpoll.c
-+++ b/fs/eventpoll.c
-@@ -246,14 +246,14 @@ static struct kmem_cache *epi_cache __read_mostly;
- /* Slab cache used to allocate "struct eppoll_entry" */
- static struct kmem_cache *pwq_cache __read_mostly;
+diff --git a/fs/notify/inotify/inotify_user.c b/fs/notify/inotify/inotify_user.c
+index 8445fbc..ba618c2 100644
+--- a/fs/notify/inotify/inotify_user.c
++++ b/fs/notify/inotify/inotify_user.c
+@@ -51,13 +51,13 @@ static int inotify_max_user_watches __read_mostly;
+ static struct kmem_cache *inotify_inode_mark_cachep __read_mostly;
+ struct kmem_cache *event_priv_cachep __read_mostly;
  
 -#ifdef CONFIG_SYSCTL
-+#if defined(CONFIG_SYSCTL) && defined (CONFIG_MMU)
++#if defined(CONFIG_SYSCTL) && defined(CONFIG_MMU)
  
  #include <linux/sysctl.h>
  
- static long zero;
- static long long_max = LONG_MAX;
+ static int zero;
  
--ctl_table epoll_table[] = {
-+static struct ctl_table epoll_table[] = {
+-ctl_table inotify_table[] = {
++static struct ctl_table inotify_table[] = {
  	{
- 		.procname	= "max_user_watches",
- 		.data		= &max_user_watches,
-@@ -265,7 +265,22 @@ ctl_table epoll_table[] = {
+ 		.procname	= "max_user_instances",
+ 		.data		= &inotify_max_user_instances,
+@@ -84,7 +84,22 @@ ctl_table inotify_table[] = {
  	},
  	{ }
  };
 -#endif /* CONFIG_SYSCTL */
-+static const __initdata struct ctl_path epoll_path[] = {
++static const __initdata struct ctl_path inotify_path[] = {
 +	{ .procname = "fs" },
-+	{ .procname = "epoll" },
++	{ .procname = "inotify" },
 +	{ }
 +};
-+static struct ctl_table_header *epoll_header;
-+static int __init register_epoll_sysctls(void)
++static struct ctl_table_header *inotify_header;
++static int __init register_inotify_sysctls(void)
 +{
-+	epoll_header = register_sysctl_paths(epoll_path, epoll_table);
-+	if (epoll_header == NULL)
++	inotify_header = register_sysctl_paths(inotify_path, inotify_table);
++	if (inotify_header == NULL)
 +		return -ENOMEM;
 +	return 0;
 +}
-+#else  /* CONFIG_SYSCTL && CONFIG_MMU */
-+static int __init register_epoll_sysctls(void) { return 0; }
++#else /* CONFIG_SYSCTL && CONFIG_MMU */
++static int __init register_inotify_sysctls(void) { return 0; }
 +#endif /* CONFIG_SYSCTL && CONFIG_MMU */
  
+ static inline __u32 inotify_arg_to_mask(u32 arg)
+ {
+@@ -862,6 +877,7 @@ static int __init inotify_user_setup(void)
+ 	inotify_max_user_instances = 128;
+ 	inotify_max_user_watches = 8192;
  
- /* Setup the structure that is used as key for the RB tree */
-@@ -1586,6 +1601,7 @@ static int __init eventpoll_init(void)
- 	pwq_cache = kmem_cache_create("eventpoll_pwq",
- 			sizeof(struct eppoll_entry), 0, SLAB_PANIC, NULL);
- 
-+	register_epoll_sysctls();
++	register_inotify_sysctls();
  	return 0;
  }
- fs_initcall(eventpoll_init);
-diff --git a/include/linux/poll.h b/include/linux/poll.h
-index cf40010..314331c 100644
---- a/include/linux/poll.h
-+++ b/include/linux/poll.h
-@@ -10,10 +10,8 @@
- #include <linux/wait.h>
- #include <linux/string.h>
- #include <linux/fs.h>
--#include <linux/sysctl.h>
- #include <asm/uaccess.h>
+ module_init(inotify_user_setup);
+diff --git a/include/linux/inotify.h b/include/linux/inotify.h
+index d33041e..89b3bfe 100644
+--- a/include/linux/inotify.h
++++ b/include/linux/inotify.h
+@@ -71,8 +71,6 @@ struct inotify_event {
+ #define IN_NONBLOCK O_NONBLOCK
  
--extern struct ctl_table epoll_table[]; /* for sysctl */
- /* ~832 bytes of stack space used max in sys_select/sys_poll before allocating
-    additional memory. */
- #define MAX_STACK_ALLOC 832
+ #ifdef __KERNEL__
+-#include <linux/sysctl.h>
+-extern struct ctl_table inotify_table[]; /* for sysctl */
+ 
+ #define ALL_INOTIFY_BITS (IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
+ 			  IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 9520e2b..1797c01 100644
+index 33d5e2e..9520e2b 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
-@@ -216,9 +216,6 @@ static struct ctl_table vm_table[];
- static struct ctl_table fs_table[];
- static struct ctl_table debug_table[];
- static struct ctl_table dev_table[];
--#ifdef CONFIG_EPOLL
--extern struct ctl_table epoll_table[];
--#endif
- 
- #ifdef HAVE_ARCH_PICK_MMAP_LAYOUT
- int sysctl_legacy_va_layout;
-@@ -1439,13 +1436,6 @@ static struct ctl_table fs_table[] = {
+@@ -1439,13 +1439,6 @@ static struct ctl_table fs_table[] = {
  		.proc_handler	= proc_doulongvec_minmax,
  	},
  #endif /* CONFIG_AIO */
--#ifdef CONFIG_EPOLL
+-#ifdef CONFIG_INOTIFY_USER
 -	{
--		.procname	= "epoll",
+-		.procname	= "inotify",
 -		.mode		= 0555,
--		.child		= epoll_table,
+-		.child		= inotify_table,
 -	},
--#endif
- #endif
+-#endif	
+ #ifdef CONFIG_EPOLL
  	{
- 		.procname	= "suid_dumpable",
+ 		.procname	= "epoll",
 -- 
 1.7.5.134.g1c08b
