@@ -1,62 +1,108 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [PATCH] net: group FCoE related feature flags
-Date: Mon, 09 May 2011 21:17:59 +0100
-Message-ID: <1304972279.2888.106.camel@bwh-desktop>
-References: <20110509192441.4502.77855.stgit@localhost6.localdomain6>
+From: Alex Bligh <alex@alex.org.uk>
+Subject: Re: Testing interface removal speedup patches from Eric Dumazet.
+Date: Mon, 09 May 2011 21:24:18 +0100
+Message-ID: <39CEA2B6BDF36C1FA4B1EF64@nimrod.local>
+References: <4DC83471.7030701@candelatech.com>
+ <06627C760FB049F1A9321BC6@Ximines.local> <4DC83A57.40405@candelatech.com>
+ <D8B72070C6338973B87C9EFA@Ximines.local> <4DC843AF.6050607@candelatech.com>
+Reply-To: Alex Bligh <alex@alex.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org
-To: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <20110509192441.4502.77855.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-List-Unsubscribe: <https://lists.open-fcoe.org/mailman/options/devel>,
-	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.open-fcoe.org/pipermail/devel>
-List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-fcoe.org/mailman/listinfo/devel>,
-	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alex Bligh <alex@alex.org.uk>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.avalus.com ([89.16.176.221]:42750 "EHLO mail.avalus.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754366Ab1EIUYV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2011 16:24:21 -0400
+In-Reply-To: <4DC843AF.6050607@candelatech.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDExLTA1LTA5IGF0IDEyOjI0IC0wNzAwLCBZaSBab3Ugd3JvdGU6Cj4gTWljaGHF
-giBNaXJvc8WCYXcncyBwYXRjaCAoaHR0cDovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzk0
-NDIxLykgZml4ZXMgdGhlCj4gaXNzdWUgKGh0dHA6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wYXRj
-aC85NDE4OC8pIGFib3V0IG5vdCBwb3B1bGF0aW5nIEZDb0UgcmVsYXRlZAo+IGZsYWdzIGNvcnJl
-Y3RseSBvbiB2bGFuIGRldmljZXMuIEhvd2V2ZXIsIG9ubHkgTkVUSUZfRl9GQ09FX0NSQyBpcyBw
-YXJ0IG9mIHRoZQo+IE5FVElGX0ZfQUxMX1RYX09GRkxPQURTIHJpZ2h0IG5vdywgd2hlcmUgd2Vl
-ZCBORVRJRl9GX0ZDT0VfTVRVIGFuZCBORVRJRl9GX0ZTTwo+IGFzIHdlbGwuCj4gCj4gVGhlcmVm
-b3JlLCBhZGQgTkVUSUZfRl9BTExfRkNPRSB0byBpbmRpY2F0ZSBmZWF0dXJlIGZsYWdzIHVzZWQg
-YnkgRkNvRSBUWCBvZmZsb2Fkcy4KPiBUaGVzZSBpbmNsdWRlIE5FVElGX0ZfRkNPRV9DUkMsIE5F
-VElGX0ZfRkNPRV9NVFUsIGFuZCBORVRJRl9GX0ZTTy4gVGhleSBhcmUgbm90IHBhcnQKPiBvZiB0
-aGUgTkVUSUZfRl9BTExfVFhfT0ZGTE9BRFMuIFRoaXMgd291bGQgZXZlbnR1YWxseSBtYWtlIHN1
-cmUgYWxsIEZDb0UgbmVlZGVkCj4gZmxhZ3MgYXJlIHBvcHVsYXRlZCBwcm9wZXJseSB0byB2bGFu
-IGRldmljZXMuCj4gCj4gU2lnbmVkLW9mZi1ieTogWWkgWm91IDx5aS56b3VAaW50ZWwuY29tPgo+
-IC0tLQo+IAo+ICBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgICAgNiArKysrKy0KPiAgMSBm
-aWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25zKC0pCj4gCj4gZGlmZiAt
-LWdpdCBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggYi9pbmNsdWRlL2xpbnV4L25ldGRldmlj
-ZS5oCj4gaW5kZXggZTcyNDRlZC4uNDBiM2RmOCAxMDA2NDQKPiAtLS0gYS9pbmNsdWRlL2xpbnV4
-L25ldGRldmljZS5oCj4gKysrIGIvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaAo+IEBAIC0xMDk3
-LDEwICsxMDk3LDE0IEBAIHN0cnVjdCBuZXRfZGV2aWNlIHsKPiAgCj4gICNkZWZpbmUgTkVUSUZf
-Rl9BTExfVFNPIAkoTkVUSUZfRl9UU08gfCBORVRJRl9GX1RTTzYgfCBORVRJRl9GX1RTT19FQ04p
-Cj4gIAo+ICsjZGVmaW5lIE5FVElGX0ZfQUxMX0ZDT0UJKE5FVElGX0ZfRkNPRV9DUkMgfCBORVRJ
-Rl9GX0ZDT0VfTVRVIHwgXAo+ICsJCQkJIE5FVElGX0ZfVUZPKQoKVUZPPyAgU3VyZWx5IEZTTywg
-bGlrZSB5b3Ugd3JvdGUgaW4gdGhlIGNvbW1pdCBtZXNzYWdlLi4uCgpCZW4uCgo+ICAjZGVmaW5l
-IE5FVElGX0ZfQUxMX1RYX09GRkxPQURTCShORVRJRl9GX0FMTF9DU1VNIHwgTkVUSUZfRl9TRyB8
-IFwKPiAgCQkJCSBORVRJRl9GX0ZSQUdMSVNUIHwgTkVUSUZfRl9BTExfVFNPIHwgXAo+ICAJCQkJ
-IE5FVElGX0ZfSElHSERNQSB8IFwKPiAtCQkJCSBORVRJRl9GX1NDVFBfQ1NVTSB8IE5FVElGX0Zf
-RkNPRV9DUkMpCj4gKwkJCQkgTkVUSUZfRl9TQ1RQX0NTVU0gfCBcCj4gKwkJCQkgTkVUSUZfRl9B
-TExfRkNPRSkKPiAgCj4gIAkvKgo+ICAJICogSWYgb25lIGRldmljZSBzdXBwb3J0cyBvbmUgb2Yg
-dGhlc2UgZmVhdHVyZXMsIHRoZW4gZW5hYmxlIHRoZW0KPiAKPiAtLQo+IFRvIHVuc3Vic2NyaWJl
-IGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluCj4g
-dGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKPiBNb3Jl
-IG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZv
-Lmh0bWwKCi0tIApCZW4gSHV0Y2hpbmdzLCBTZW5pb3IgU29mdHdhcmUgRW5naW5lZXIsIFNvbGFy
-ZmxhcmUKTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcg
-ZGVwYXJ0bWVudCdzIGpvYi4KVGhleSBhc2tlZCB1cyB0byBub3RlIHRoYXQgU29sYXJmbGFyZSBw
-cm9kdWN0IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4KCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcgbGlzdApkZXZlbEBvcGVuLWZjb2Uu
-b3JnCmh0dHBzOi8vbGlzdHMub3Blbi1mY29lLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RldmVsCg==
+Ben,
+
+--On 9 May 2011 12:42:39 -0700 Ben Greear <greearb@candelatech.com> wrote:
+
+> I use HZ of 1000, btw.
+>
+> I killed udev, haldaemon..seemed to be just my stuff running.
+>
+> I don't see any 'ifup' running with these things dead...
+>
+> If you want to post your script, I can run it on my
+> machine...
+
+See below - run (on ubuntu) by
+  service udev stop
+  unshare -n bash
+  ./ifseq -n 500
+
+The unshare seems sufficient to stop any remaining udev listeners getting
+wind of interface creation/deletion.
+
+-- 
+Alex Bligh
+
+
+#!/bin/bash
+
+# Usage:
+#   ifaceseq [options]
+#
+# Options:
+#   -n NUM : use NUM interfaces
+#   -t TYPE : use TYPE of interfaces (supported: veth, vlan)
+
+numifs=10
+itype=veth
+
+while getopts n:t: flag; do
+    case ${flag} in
+	n) numifs=${OPTARG} ;;
+	t) itype=${OPTARG} ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+createifs ()
+{
+    echo `date` creating $numifs interfaces
+    case ${itype} in
+	vlan)
+	    for i in `seq 1 $numifs` ; do
+		ip link add link eth0 name vlan${i} type vlan id ${i}
+	    done
+	    ;;
+	*)
+	    for i in `seq 1 $numifs` ; do
+		ip link add testa${i} type veth peer name testb${i}
+	    done
+    esac
+    echo `date` done
+}
+
+deleteifs ()
+{
+    echo `date` deleting $numifs interfaces
+    case ${itype} in
+	vlan)
+	    for i in `seq 1 $numifs` ; do
+		ip link delete dev vlan${i}
+	    done
+	    ;;
+	*)
+	    for i in `seq 1 $numifs` ; do
+		ip link delete testa${i}
+	    done
+    esac
+    echo `date` done
+}
+
+time createifs;
+time deleteifs;
+
