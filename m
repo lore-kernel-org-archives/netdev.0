@@ -1,218 +1,74 @@
-From: =?UTF-8?B?SMOla29uIEzDuHZkYWw=?= <hlovdal@gmail.com>
-Subject: Re: [PATCH] net/bonding: adjust codingstyle for bond_3ad files
-Date: Mon, 9 May 2011 03:30:10 +0200
-Message-ID: <BANLkTin77k5oHGvn-E-6asQForB62it1Yw@mail.gmail.com>
-References: <BANLkTik_gMCHYp4sOnzzR1Gs=bn2pkpjfQ@mail.gmail.com>
-	<20110508.161012.258121848.davem@davemloft.net>
-	<BANLkTimao-Zyk6ypW3UxzqtsgmQ-6qvYng@mail.gmail.com>
-	<20110508.171204.27789908.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [v2 000/115] faster tree-based sysctl implementation
+Date: Sun, 08 May 2011 20:11:00 -0700
+Message-ID: <m1ei48zhyz.fsf@fess.ebiederm.org>
+References: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mfmooney@gmail.com, joe@perches.com, aquini@linux.com,
-	kernel-janitors@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net, shemminger@vyatta.com, netdev@vger.kernel.org,
-	nikai@nikai.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:45905 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756585Ab1EIBaL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 May 2011 21:30:11 -0400
-In-Reply-To: <20110508.171204.27789908.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Octavian Purdila <tavi@cs.pub.ro>,
+	"David S . Miller" <davem@davemloft.net>
+To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304894407-32201-1-git-send-email-lucian.grijincu@gmail.com>
+	(Lucian Adrian Grijincu's message of "Mon, 9 May 2011 00:38:12 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9 May 2011 02:12, David Miller <davem@davemloft.net> wrote:
-> From: H=C3=A5kon L=C3=B8vdal <hlovdal@gmail.com>
-> Date: Mon, 9 May 2011 02:08:41 +0200
->
->> void bond_3ad_state_machine_handler(struct work_struct *work)
->> {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct bonding *bond =3D container_of(wo=
-rk, struct bonding,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 ad_work.work);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct port *port;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct aggregator *aggregator;
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 read_lock(&bond->lock);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (! bond->kill_timers) {
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 //check if t=
-here are any slaves
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (bond->sl=
-ave_cnt !=3D 0) {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 ...
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 queue_delaye=
-d_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 read_unlock(&bond->lock);
->> }
->>
->>
->> And this was what I trying to reccommend against (and which the
->> stackoverflow question is about).
->
-> I really don't see anything wrong with either approach.
+Lucian Adrian Grijincu <lucian.grijincu@gmail.com> writes:
 
-The example above looks innocent since it is so small. But written
-this way, the all of core of the function ("...") will have two extra,
-unnecessary indentation levels. My rule of thumb is to always test for
-exceptions, not the normal case.
+> Eric also asked for:
+> - replacing the per-header list of subdirs with a rbtree.
+>   -- Again, lack of time, and this can always be added at a later time
+>      to optimize lookup and duplicate checks. At the moment this patch
+>      series does not add a complexity regression over the previous
+>      implementation, au contraire.
+
+Instead you add a dubious mechanisms, to avoid duplicates checks
+because the duplicate checks takes time.
+
+A good internal data structure should have logN duplicate checks
+and that should not be cost prohibitive. For maintainability of
+the users a good internal data structure removes the need for
+special cases, and it actually makes use the sysctl fast.
+Your implementation continues to have a O(N^2) cost to use the
+sysctl files.
+
+Getting a good internal data structure is the most important part
+of a making sysctls fast, and keeping them fast.  Your patchset
+fails in that.
+
+So at that level, a great big NAK on the patchset as it currently
+exists.
 
 
-Expanding the example to cover the full function, it could be like the
-following:
+You have made a key observation that we only need better data
+structures for the directories and can leave off that work
+for the callers.
 
+Thank you for that.
 
-void bond_3ad_state_machine_handler(struct work_struct *work)
-{
-        struct bonding *bond =3D container_of(work, struct bonding,
-                                            ad_work.work);
-        struct port *port;
-        struct aggregator *aggregator;
+Additionally thank you for splitting up your changes to the
+core of sysctl so there is a chance of reviewing those.
 
-        read_lock(&bond->lock);
+With respect to review and merging.  The priorities should be:
+1) Figure out what the users really need to do, before we change
+   everything so we only need one sweeping pass through the users
+   that hopefully simplifies them.
 
-        if (! bond->kill_timers)
-        {
-                //check if there are any slaves
-                if (bond->slave_cnt !=3D 0)
-                {
-                        int uninitialized =3D 0;
-                        // check if agg_select_timer timer after
-initialize is timed out
-                        if (BOND_AD_INFO(bond).agg_select_timer &&
-!(--BOND_AD_INFO(bond).agg_select_timer)) {
-                                // select the active aggregator for the=
- bond
-                                if ((port =3D __get_first_port(bond))) =
-{
-                                        if (port->slave) {
-                                                aggregator =3D
-__get_first_agg(port);
+2) Ensure you have a version of the new interfaces ready at the
+   start of the patchset, so the sweeping changes can be made
+   incrementally.
 
-ad_agg_selection_logic(aggregator);
-                                        } else {
-                                                pr_warning("%s:
-Warning: bond's first port is uninitialized\n",
-                                                           bond->dev->n=
-ame);
-                                                uninitialized =3D 1;
-                                        }
+3) Clean up the users.
 
-                                }
-                                if (! uninitialized)|
-                                        bond_3ad_set_carrier(bond);
-                        }
+4) Make simplifications because you don't have any old users left.
 
-                        if (! uninitialized) {
-                                // for each port run the state machines
-                                for (port =3D __get_first_port(bond);
-port; port =3D __get_next_port(port)) {
-                                        if (port->slave) {
+I very much agree that the data structures that sysctl uses today
+are far from ideal, and that we can make a lot of headway.
 
-                                                /* Lock around state
-machines to protect data accessed
-                                                 * by all (e.g.,
-port->sm_vars).  ad_rx_machine may run
-                                                 * concurrently due to
-incoming LACPDU.
-                                                 */
-                                                __get_state_machine_loc=
-k(port);
+That said I think there is some good work in your patchset and I may
+try and cherry pick out the good bits that we can merge now.
 
-                                                ad_rx_machine(NULL, por=
-t);
-                                                ad_periodic_machine(por=
-t);
-                                                ad_port_selection_logic=
-(port);
-                                                ad_mux_machine(port);
-                                                ad_tx_machine(port);
-
-                                                // turn off the BEGIN
-bit, since we already handled it
-                                                if (port->sm_vars &
-AD_PORT_BEGIN)
-                                                        port->sm_vars
-&=3D ~AD_PORT_BEGIN;
-
-
-__release_state_machine_lock(port);
-                                        } else {
-                                                pr_warning("%s:
-Warning: Found an uninitialized port\n",
-                                                           bond->dev->n=
-ame);
-                                        }
-                                }
-                        }
-
-                }
-                queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_i=
-n_ticks);
-        }
-        read_unlock(&bond->lock);
-}
-
-Notice for instance "aggregator =3D __get_first_agg(port);" now have 5
-levels of indentation in addition to the function body level, compared
-to just 2 in the original.
-
-That extra indentation is one thing, but the most important in my opini=
-on
-is that layout of the code becomes harder to read. This is because the
-error handling code will typically be much more intrusive in the "layou=
-t".
-Good code written like
-
-        if (error_check) {
-                error
-                handling
-                code
-        }
-        normal
-        code
-        here
-
-is possible to quickly scan/read, but if code is written like
-
-        if (some_check) {
-                error
-                handling
-                code
-        } else {
-                normal
-                code
-                here
-        }
-
-or
-
-        if (some_check) {
-                normal
-                code
-                here
-        } else {
-                error
-                handling
-                code
-        }
-
-you have to go into slow gear and read and mentally process (relatively=
-)
-much more of the code to get the same picture. Combine a few such if/el=
-se,
-nested - now everything is tightly intervened and impossible to quickly
-grasp and/or hold in your head.
-
-And the "uninitialized" variable is a crutch.
-
-
-BR H=C3=A5kon L=C3=B8vdal
+Eric
