@@ -1,38 +1,78 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 5/4] tulip: xircom_cb: Remove useless
- func_enter and func_exit
-Date: Mon, 09 May 2011 12:17:03 -0700
-Message-ID: <1304968623.19586.68.camel@Joe-Laptop>
-References: <cover.1304733889.git.joe@perches.com>
-	 <20110509.114706.189685729.davem@davemloft.net>
-	 <1304968081.19586.66.camel@Joe-Laptop>
-	 <20110509.121026.28826727.davem@davemloft.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH V2] rtlwifi: rtl8192cu: Fix memset/memcpy using sizeof(ptr)
+ not sizeof(*ptr)
+Date: Mon, 09 May 2011 14:28:49 -0500
+Message-ID: <4DC84071.4080500@lwfinger.net>
+References: <1304919832.19586.15.camel@Joe-Laptop>	 <4DC81009.5060501@lwfinger.net> <1304960976.19586.51.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110509.121026.28826727.davem@davemloft.net>
+In-Reply-To: <1304960976.19586.51.camel@Joe-Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-05-09 at 12:10 -0700, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Mon, 09 May 2011 12:08:01 -0700
-> > On Mon, 2011-05-09 at 11:47 -0700, David Miller wrote:
-> >> With the advent of the function tracer, those silly function entry/exit
-> >> logging things are entirely superfluous.
-> >> They make the code look ugly too.
-> > I don't much like a lot of debugging messages
-> > throughout drivers/net, but that's a whole 'nother
-> > set of patches.
-> >> Please do that and respin this patch set, thanks Joe!
-> > How 'bout I just add another patch to delete them.
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> How about you just respin the patch set as I asked you to?
-> It makes no sense to "fix" something you're just going to
-> delete in the very next commit.
+On 05/09/2011 12:09 PM, Joe Perches wrote:
+> On Mon, 2011-05-09 at 11:02 -0500, Larry Finger wrote:
+>> On 05/09/2011 12:43 AM, Joe Perches wrote:
+>>> Found via coccinelle script
+>>> @@
+>>> type T;
+>>> T* ptr;
+>>> expression E1;
+>>> @@
+>>> * memset(E1, 0, sizeof(ptr));
+>>> Signed-off-by: Joe Perches<joe@perches.com>
+>>> ---
+>>>    drivers/net/wireless/rtlwifi/rtl8192cu/trx.c |    2 +-
+>>>    1 files changed, 1 insertions(+), 1 deletions(-)
+>>>
+>>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
+>>> @@ -372,7 +372,7 @@ static void _rtl_rx_process(struct ieee80211_hw *hw, struct sk_buff *skb)
+> []
+>>> +	memset(rx_status, 0, sizeof(*rx_status));
+>> ACK.
+>
+> Hey Larry.
+>
+> If this is correct, then probably the memcpy at the
+> end of the routine needs conversion too.
+>
+> ---
+>
+>   drivers/net/wireless/rtlwifi/rtl8192cu/trx.c |    4 ++--
+>   1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
+> index 79c98f6..3a92ba3 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
+> @@ -372,7 +372,7 @@ static void _rtl_rx_process(struct ieee80211_hw *hw, struct sk_buff *skb)
+>   	__le16 fc;
+>   	struct ieee80211_hdr *hdr;
+>
+> -	memset(rx_status, 0, sizeof(rx_status));
+> +	memset(rx_status, 0, sizeof(*rx_status));
+>   	rxdesc	= skb->data;
+>   	skb_len	= skb->len;
+>   	drvinfo_len = (GET_RX_DESC_DRVINFO_SIZE(rxdesc) * RTL_RX_DRV_INFO_UNIT);
+> @@ -434,7 +434,7 @@ static void _rtl_rx_process(struct ieee80211_hw *hw, struct sk_buff *skb)
+>   		 "0x%02X\n", fc, (u32)hdr->addr1[0], (u32)hdr->addr1[1],
+>   		 (u32)hdr->addr1[2], (u32)hdr->addr1[3], (u32)hdr->addr1[4],
+>   		 (u32)hdr->addr1[5]));
+> -	memcpy(IEEE80211_SKB_RXCB(skb),&rx_status, sizeof(rx_status));
+> +	memcpy(IEEE80211_SKB_RXCB(skb), rx_status, sizeof(*rx_status));
+>   	ieee80211_rx_irqsafe(hw, skb);
+>   }
 
-Grumble.
-'Cause it's about 20 minutes work for almost _no_ value.
+Yes it does. After you posted V1 of the patch, I reviewed all the sizeof() calls 
+in the rtlwifi tree and found the second one at line 437.
+
+ACK for V2 once the commit message is fixed.
+
+Larry
