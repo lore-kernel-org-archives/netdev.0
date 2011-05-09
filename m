@@ -1,9 +1,9 @@
 From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: Re: [PATCH 14/18] virtio: add api for delayed callbacks
-Date: Mon, 09 May 2011 15:27:33 +0930
-Message-ID: <871v08h0vm.fsf@rustcorp.com.au>
-References: <cover.1304541918.git.mst@redhat.com>
-	<64d47c628b3fdc0ac156aed4be182933d8bcc0db.1304541919.git.mst@redhat.com>
+Subject: Re: [PATCH 3/3] virtio_ring: need_event api comment fix
+Date: Mon, 09 May 2011 15:29:43 +0930
+Message-ID: <87y62gfm7k.fsf@rustcorp.com.au>
+References: <cover.1304605816.git.mst@redhat.com>
+	<c8b6d8a8df4927826d0024fceeb68726c50d0b1a.1304605817.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,7 +18,7 @@ Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Ot
 	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
 To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <64d47c628b3fdc0ac156aed4be182933d8bcc0db.1304541919.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <c8b6d8a8df4927826d0024fceeb68726c50d0b1a.1304605817.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
 	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
@@ -30,16 +30,15 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 May 2011 23:52:33 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> Add an API that tells the other side that callbacks
-> should be delayed until a lot of work has been done.
-> Implement using the new used_event feature.
+On Thu, 5 May 2011 18:08:17 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> fix typo in a comment: size -> side
+> 
+> Reported-by: Stefan Hajnoczi <stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Since you're going to add a capacity query anyway, why not add the
-threshold argument here?
+I could smerge these together for you, but I *really* want benchmarks in
+these commit messages.
 
-Then the caller can choose how much space it needs.  Maybe net and block
-will want different things...
-
-Cheers,
+Thanks,
 Rusty.
+PS. Was away last week, hence the delay on this...
