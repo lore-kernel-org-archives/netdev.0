@@ -1,110 +1,84 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6] sfc: Implement NETIF_F_LOOPBACK
-Date: Mon, 09 May 2011 14:47:05 +0100
-Message-ID: <1304948825.2888.3.camel@bwh-desktop>
-References: <1304559011-15983-1-git-send-email-maheshb@google.com>
-	 <1304640751.2857.34.camel@bwh-desktop>
-	 <20110509073635.GA16708@rere.qmqm.pl>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: Re: [oss-security] Bluetooth: l2cap and rfcomm: fix 1 byte
+ infoleak to userspace.
+Date: Mon, 9 May 2011 18:31:32 +0400
+Message-ID: <20110509143132.GA11358@albatros>
+References: <BANLkTik7WyQ977-+8XapTgBrVRMyexyHKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com,
-	Mahesh Bandewar <maheshb@google.com>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="h31gzZEtNLTqOjlF"
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, security@kernel.org
+To: Filip Palian <s3810@pjwstk.edu.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:55456 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856Ab1EINrI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 09:47:08 -0400
-In-Reply-To: <20110509073635.GA16708@rere.qmqm.pl>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42495 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753270Ab1EIObh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 10:31:37 -0400
+Content-Disposition: inline
+In-Reply-To: <BANLkTik7WyQ977-+8XapTgBrVRMyexyHKg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-09 at 09:36 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> On Fri, May 06, 2011 at 01:12:31AM +0100, Ben Hutchings wrote:
-> > We already have comprehensive support for loopback testing, so pick
-> > the nearest mode and run with it.
-> >=20
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > ---
-> > David, this depends on Mahesh's patch to define NETIF_F_LOOPBACK
-> > <http://patchwork.ozlabs.org/patch/94190/>.  Although you've marked=
- that
-> > as RFC, I think it is ready to apply.
-> >=20
-> > Ben.
-> >=20
-> >  drivers/net/sfc/efx.c |   24 ++++++++++++++++++++++--
-> >  1 files changed, 22 insertions(+), 2 deletions(-)
-> >=20
-> > diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-> > index 38a55e9..b7bfb49 100644
-> > --- a/drivers/net/sfc/efx.c
-> > +++ b/drivers/net/sfc/efx.c
-> > @@ -1884,6 +1884,25 @@ static int efx_set_features(struct net_devic=
-e *net_dev, u32 data)
-> >  	if (net_dev->features & ~data & NETIF_F_NTUPLE)
-> >  		efx_filter_clear_rx(efx, EFX_FILTER_PRI_MANUAL);
-> > =20
-> > +	/* Toggle loopback if required */
-> > +	if ((net_dev->features ^ data) & NETIF_F_LOOPBACK) {
-> > +		enum efx_loopback_mode old_mode;
-> > +		int rc;
-> > +
-> > +		mutex_lock(&efx->mac_lock);
-> > +		old_mode =3D efx->loopback_mode;
-> > +		if (data & NETIF_F_LOOPBACK)
-> > +			efx->loopback_mode =3D __ffs(efx->loopback_modes);
-> > +		else
-> > +			efx->loopback_mode =3D LOOPBACK_NONE;
-> > +		rc =3D __efx_reconfigure_port(efx);
-> > +		if (rc)
-> > +			efx->loopback_mode =3D old_mode;
-> > +		mutex_unlock(&efx->mac_lock);
-> > +		if (rc)
-> > +			return rc;
-> > +	}
-> > +
-> >  	return 0;
-> >  }
->=20
-> If other features than NETIF_F_LOOPBACK were changed correctly, this =
-should
-> update dev->features of what changed before error return. If not, dev=
-ice's
-> state will diverge to what is in dev->features.
 
-In general __efx_reconfigure_port() might fail because PHYs are tricky
-beasts, but for internal loopback that isn't an issue.  So this is very
-unlikely to fail.  But I suppose I should move it to the top of the
-function.
+--h31gzZEtNLTqOjlF
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> > @@ -2472,8 +2491,9 @@ static int __devinit efx_pci_probe(struct pci=
-_dev *pci_dev,
-> >  	net_dev->vlan_features |=3D (NETIF_F_ALL_CSUM | NETIF_F_SG |
-> >  				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
-> >  				   NETIF_F_RXCSUM);
-> > -	/* All offloads can be toggled */
-> > -	net_dev->hw_features =3D net_dev->features & ~NETIF_F_HIGHDMA;
-> > +	/* All offloads can be toggled, and so can loopback */
-> > +	net_dev->hw_features =3D ((net_dev->features & ~NETIF_F_HIGHDMA) =
-|
-> > +				NETIF_F_LOOPBACK);
-> >  	efx =3D netdev_priv(net_dev);
-> >  	pci_set_drvdata(pci_dev, efx);
-> >  	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
->=20
-> You can remove the '& ~NETIF_F_HIGHDMA' part, as it's now allowed to =
-be
-> changed (commit fa2bd7ff9247f4218dfc907db14d000cd7edd862).
+On Sun, May 08, 2011 at 21:57 +0200, Filip Palian wrote:
+> Structures "l2cap_conninfo" and "rfcomm_conninfo" have one padding
+> byte each. This byte in "cinfo" is copied to userspace uninitialized.
 
-OK.
+Your mail client mangles the patch, it should contain original
+identation tabs, not spaces.  Please see Documentation/email-clients.txt.
 
-Ben.
+> patch no.1:
+
+Don't send 2 patches as one email.  Either send 2 email or merge them
+into one patch (if they are similar changes).  You'll ease maintainers'
+work.
+
+> Found by Marek Kroemeke and Filip Palian.
+
+Please see Documentation/SubmittingPatches, chapter 12 to find out how
+to sign the patch.
+
+And please don't crosspost to oss-security and LKML - send a separate
+email to o-s with a short description of a bug and a link to the LKML
+thread.  LKML thread is a place to argue and discuss the solution, but
+o-s subscribers are probably not interested in such a discussion.
+
+Thanks,
 
 --=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
 
+--h31gzZEtNLTqOjlF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIcBAEBAgAGBQJNx/q+AAoJEBoUx9gkVaZcpjYQAJuzhv569QdU73l6oK4ROIod
+bj4VO0IoKr6KtbLN4sY/+X26zoGClCzKUxy9Rrar3kqBJPvG2W5L8VzghZz1XBDu
+VC8QuO5qRL8CJJc4SiUy/iLTQMcHA7HNZjiBU2EJ84qQGvxvm8TI6BKy1qAKF07T
+k5hlFGz5HBPw1k2yAo6T/FBO8qLzRB8fr3fP3yulhK4qseByMNW0H2jkkWz8eXg7
+dzFbEIF7TbHmBXyjSC87VT6s0XK3RRYce7RlrqTUkKSE9FTGTW1iYfDKKt6PPpPM
+guP/QkU0+BI4CRcdb10Fsp5PUb+kI4VE1mh8ok7uVsbVX3VC6r/FysKvjkO59dLy
+WwlbfF4VyXyVwkX8ONsukrzciTpbH/uWgDcGv91iVg7dr8sgjFSMglDw3j2KIwly
+j2CiBQfc6/tIU6GAzwxyUB2S1nKQGqR6emvq5KoCsG46vPqV4CLpW3ZIY9ifOZbU
+fVwzyFVFLYJvRgxSYiGrYT63YMtXetHp1WtLLl4L5QgWdlcHbMcG3O0dOXjd8Mnl
+9v9r1NNtNl7Fks2/tk/TIyzKo3NnXUW79ZfvL2AscTzPd3I6uR/kXs8dNosZ0vFH
+b/fGVmill8sQAQhcGbSmlbDzPn0wuds8keKoIFmvflhOif/NrpDPjC7dOZnpvSJV
+5hA3C/lpdiMuZJPiKh2f
+=aDZs
+-----END PGP SIGNATURE-----
+
+--h31gzZEtNLTqOjlF--
