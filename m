@@ -1,25 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] tulip: Use pr_<level> where appropriate
-Date: Mon, 09 May 2011 12:52:07 -0700 (PDT)
-Message-ID: <20110509.125207.242129102.davem@davemloft.net>
-References: <cover.1304970062.git.joe@perches.com>
-	<76d02bec193a5a7558aa7d6e97282ae2bec67f0b.1304970062.git.joe@perches.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/7] Network namespace manipulation with file descriptors
+Date: Mon, 09 May 2011 12:59:55 -0700
+Message-ID: <m1oc3btzk4.fsf@fess.ebiederm.org>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<20110509.120408.48494155.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: grundler@parisc-linux.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	hadi@cyberus.ca, daniel.lezcano@free.fr, containers@lists.osdl.org,
+	renatowestphal@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <76d02bec193a5a7558aa7d6e97282ae2bec67f0b.1304970062.git.joe@perches.com>
+In-Reply-To: <20110509.120408.48494155.davem@davemloft.net> (David Miller's
+	message of "Mon, 09 May 2011 12:04:08 -0700 (PDT)")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Mon,  9 May 2011 12:45:23 -0700
+David Miller <davem@davemloft.net> writes:
 
-> Use the current logging styles.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> The networking bits look OK to me:
+>
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-Applied.
+Are you merging sendmmsg through the netdev tree?
+
+The conflicts on syscall syscall numbers are an unfortunate pain.
+
+Eric
