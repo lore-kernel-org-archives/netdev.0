@@ -1,55 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] ethtool: Add 20G bit definitions
-Date: Mon, 09 May 2011 13:50:48 +0100
-Message-ID: <1304945448.4065.25.camel@localhost>
-References: <1304407809.2518.1.camel@lb-tlvb-dmitry>
-	 <20110508.154312.229736305.davem@davemloft.net>
-	 <1304936217.32472.10.camel@lb-tlvb-dmitry>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] garp: remove one synchronize_rcu() call
+Date: Mon, 09 May 2011 15:35:55 +0200
+Message-ID: <1304948155.3342.32.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Yaniv Rosner <yaniv.rosner@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Yaniv Rosner <yanivr@broadcom.com>
+Cc: Ben Greear <greearb@candelatech.com>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:50952 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752882Ab1EIMuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 08:50:54 -0400
-In-Reply-To: <1304936217.32472.10.camel@lb-tlvb-dmitry>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61564 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753310Ab1EINf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 09:35:59 -0400
+Received: by wya21 with SMTP id 21so3872244wya.19
+        for <netdev@vger.kernel.org>; Mon, 09 May 2011 06:35:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-09 at 13:16 +0300, Yaniv Rosner wrote:
-> On Sun, 2011-05-08 at 15:43 -0700, David Miller wrote:
-> > From: "Yaniv Rosner" <yanivr@broadcom.com>
-> > Date: Tue, 3 May 2011 10:30:08 +0300
-> > 
-> > > Add 20G supported and advertising bit definitions.
-> > > 20G will be supported with the 57840 chips.
-> > > 
-> > > 
-> > > Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-> > > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > 
-> > Applied to net-next-2.6, thanks.
-> > 
-> Ben,
-> Please note that I haven't added new definition for 20000 link speed
-> because my understanding is that it no longer required.
-> Let me know if you think it is required, mainly for the speed
-> extension in the ethtool application.
+Speedup vlan dismantling in CONFIG_VLAN_8021Q_GVRP=y cases,
+by using a call_rcu() to free the memory instead of waiting with
+expensive synchronize_rcu() [ while RTNL is held ]
 
-There is no need (yet) for specific support of the speed.  However you
-should provide a patch for ethtool to make it report these flags in the
-advertised/lp_advertised/supported masks.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ben Greear <greearb@candelatech.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+---
+Note: I'll take care of using kfree_rcu() when available in net-next-2.6
 
-Ben.
+ include/net/garp.h |    1 +
+ net/802/garp.c     |    8 ++++++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/include/net/garp.h b/include/net/garp.h
+index f4c2959..8cabbf08 100644
+--- a/include/net/garp.h
++++ b/include/net/garp.h
+@@ -108,6 +108,7 @@ struct garp_applicant {
+ 
+ struct garp_port {
+ 	struct garp_applicant __rcu	*applicants[GARP_APPLICATION_MAX + 1];
++	struct rcu_head			rcu;
+ };
+ 
+ extern int	garp_register_application(struct garp_application *app);
+diff --git a/net/802/garp.c b/net/802/garp.c
+index c1df2da..5dbe896 100644
+--- a/net/802/garp.c
++++ b/net/802/garp.c
+@@ -544,6 +544,11 @@ static int garp_init_port(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void garp_kfree_rcu(struct rcu_head *head)
++{
++	kfree(container_of(head, struct garp_port, rcu));
++}
++
+ static void garp_release_port(struct net_device *dev)
+ {
+ 	struct garp_port *port = rtnl_dereference(dev->garp_port);
+@@ -554,8 +559,7 @@ static void garp_release_port(struct net_device *dev)
+ 			return;
+ 	}
+ 	rcu_assign_pointer(dev->garp_port, NULL);
+-	synchronize_rcu();
+-	kfree(port);
++	call_rcu(&port->rcu, garp_kfree_rcu);
+ }
+ 
+ int garp_init_applicant(struct net_device *dev, struct garp_application *appl)
+
 
