@@ -1,10 +1,9 @@
 From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: Re: [PATCH 08/18] virtio_ring: support for used_event idx
-	feature
-Date: Mon, 09 May 2011 13:47:32 +0930
-Message-ID: <878vugh5ib.fsf@rustcorp.com.au>
+Subject: Re: [PATCH 09/18] virtio: use avail_event index
+Date: Mon, 09 May 2011 14:03:26 +0930
+Message-ID: <874o54h4rt.fsf@rustcorp.com.au>
 References: <cover.1304541918.git.mst@redhat.com>
-	<dd16b9f3bad847b0eadc7f94368e27982c1a7560.1304541919.git.mst@redhat.com>
+	<8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +18,7 @@ Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Ot
 	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
 To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <dd16b9f3bad847b0eadc7f94368e27982c1a7560.1304541919.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
 	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
@@ -31,38 +30,54 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 May 2011 23:51:38 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> Add support for the used_event idx feature: when enabling
-> interrupts, publish the current avail index value to
-> the host so that we get interrupts on the next update.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/virtio/virtio_ring.c |   14 ++++++++++++++
->  1 files changed, 14 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-> index 507d6eb..3a3ed75 100644
-> --- a/drivers/virtio/virtio_ring.c
-> +++ b/drivers/virtio/virtio_ring.c
-> @@ -320,6 +320,14 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
->  	ret = vq->data[i];
->  	detach_buf(vq, i);
->  	vq->last_used_idx++;
-> +	/* If we expect an interrupt for the next entry, tell host
-> +	 * by writing event index and flush out the write before
-> +	 * the read in the next get_buf call. */
-> +	if (!(vq->vring.avail->flags & VRING_AVAIL_F_NO_INTERRUPT)) {
-> +		vring_used_event(&vq->vring) = vq->last_used_idx;
-> +		virtio_mb();
-> +	}
+On Wed, 4 May 2011 23:51:47 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> Use the new avail_event feature to reduce the number
+> of exits from the guest.
+
+Figures here would be nice :)
+
+> @@ -228,6 +237,12 @@ add_head:
+>  	 * new available array entries. */
+>  	virtio_wmb();
+>  	vq->vring.avail->idx++;
+> +	/* If the driver never bothers to kick in a very long while,
+> +	 * avail index might wrap around. If that happens, invalidate
+> +	 * kicked_avail index we stored. TODO: make sure all drivers
+> +	 * kick at least once in 2^16 and remove this. */
+> +	if (unlikely(vq->vring.avail->idx == vq->kicked_avail))
+> +		vq->kicked_avail_valid = true;
+
+If they don't, they're already buggy.  Simply do:
+        WARN_ON(vq->vring.avail->idx == vq->kicked_avail);
+
+> +static bool vring_notify(struct vring_virtqueue *vq)
+> +{
+> +	u16 old, new;
+> +	bool v;
+> +	if (!vq->event)
+> +		return !(vq->vring.used->flags & VRING_USED_F_NO_NOTIFY);
 > +
+> +	v = vq->kicked_avail_valid;
+> +	old = vq->kicked_avail;
+> +	new = vq->kicked_avail = vq->vring.avail->idx;
+> +	vq->kicked_avail_valid = true;
+> +	if (unlikely(!v))
+> +		return true;
 
-Hmm, so you're still using the avail->flags; it's just if thresholding
-is enabled the host will ignore it?
+This is the only place you actually used kicked_avail_valid.  Is it
+possible to initialize it in such a way that you can remove this?
 
-It's a little subtle, but it keeps this patch small.  Perhaps we'll want
-to make it more explicit later.
+> @@ -482,6 +517,8 @@ void vring_transport_features(struct virtio_device *vdev)
+>  			break;
+>  		case VIRTIO_RING_F_USED_EVENT_IDX:
+>  			break;
+> +		case VIRTIO_RING_F_AVAIL_EVENT_IDX:
+> +			break;
+>  		default:
+>  			/* We don't understand this bit. */
+>  			clear_bit(i, vdev->features);
+
+Does this belong in a prior patch?
 
 Thanks,
 Rusty.
