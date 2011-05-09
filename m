@@ -1,48 +1,54 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: future developments of usbnet
-Date: Mon, 9 May 2011 11:26:04 +0800
-Message-ID: <BANLkTimXmHr8aJ7WgRVvZj85t-gw68C_Ww@mail.gmail.com>
-References: <201105062045.37336.oliver@neukum.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the net tree
+Date: Mon, 9 May 2011 13:46:13 +1000
+Message-ID: <20110509134613.bcf0b017.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201105062045.37336.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+--Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-2011/5/7 Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>:
-> Hi,
->
-> I'd like to get a feeling what people are working out there regarding usbnet.
-> So please, if you do something, or think something ought to be done, please
-> speak up now.
->
-> IMHO usbnet needs better support for
->
-> - batching protocols
-> - double buffering on the rx path
->
-> with the latter having higher priority.
->
-> Coments?
+Hi all,
 
-Maybe another thing about rx should be considered too: we should introduce
-one flow control mechanism into rx path so that too much coming packets can
-not consume many of memory and cause out of memory for atomic allocation.
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+produced this warning:
 
-Current implementation has such kind of risk certainly, as i explained in the
-patch with title below:
+net/sctp/protocol.c: In function 'sctp_v4_xmit':
+net/sctp/protocol.c:842: warning: format '%p' expects type 'void *', but ar=
+gument 5 has type '__be32'
+net/sctp/protocol.c:842: warning: format '%p' expects type 'void *', but ar=
+gument 6 has type '__be32'
 
-       usbnet: runtime pm: fix out of memory
+Caused by commit f1c0a276ea17 ("sctp: Don't use rt->rt_{src,dst} in
+sctp_v4_xmit()").
 
-thanks,
--- 
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNx2OFAAoJEDMEi1NhKgbsoasH/AqFBoktKv5Z3KxqplzaJuam
+qizpVU5zAhrHZ+s2P6Id7Cagqs7JY8upZzp+02wmiPJ5IBjN5pTOHnBbUDEahYY7
+ZceV5R5BRJzo6olSVYsU+0wAhZ9faPLs8E9RhPBgRAmwEht9T8XUjNkAQJWnfuTd
+sldDfsx52IMI7EiMZwqUvn+JB73tffU+qynb8oYXZnnEFvdmO6VmDoKE7p0Gz7Aj
+vePb/ssG8CF8nMo62JtvQK3ITsda5ms5KZlHoGqpwG2btxTUqGt6xZIDkXW5UuXI
+Z3n5JbY6ieJTcUWtPykQZj+/VPhoLblocrXPeDyhmRVuvsQxlwR9ylVbr2X/4CE=
+=zscc
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO--
