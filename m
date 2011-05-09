@@ -1,64 +1,122 @@
-From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [PATCH] net: group FCoE related feature flags
-Date: Mon, 9 May 2011 14:15:33 -0700
-Message-ID: <7C88852EF6F99F4EB538472FCFEBE222018E803FB2@orsmsx509.amr.corp.intel.com>
-References: <20110509192441.4502.77855.stgit@localhost6.localdomain6>
- <1304972279.2888.106.camel@bwh-desktop>
+From: "Christian T. Steigies" <cts@debian.org>
+Subject: Re: 8390 drivers (was: Re: Debian kernel 2.6.38-5)
+Date: Mon, 9 May 2011 23:32:13 +0200
+Message-ID: <20110509213213.GA28675@chumley.earth.sol>
+References: <BANLkTimG+3jqLiLaA_NVEpGg3LFtvK4bQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:61637 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752185Ab1EIVPu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2011 17:15:50 -0400
-In-Reply-To: <1304972279.2888.106.camel@bwh-desktop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Finn Thain <fthain@telegraphics.com.au>,
+	Thorsten Glaser <tg@mirbsd.de>, linux-m68k@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <BANLkTimG+3jqLiLaA_NVEpGg3LFtvK4bQQ@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiANCj4gT24gTW9uLCAyMDExLTA1LTA5IGF0IDEyOjI0IC0wNzAwLCBZaSBab3Ugd3JvdGU6DQo+
-ID4gTWljaGHFgiBNaXJvc8WCYXcncyBwYXRjaCAoaHR0cDovL3BhdGNod29yay5vemxhYnMub3Jn
-L3BhdGNoLzk0NDIxLykNCj4gZml4ZXMgdGhlDQo+ID4gaXNzdWUgKGh0dHA6Ly9wYXRjaHdvcmsu
-b3psYWJzLm9yZy9wYXRjaC85NDE4OC8pIGFib3V0IG5vdCBwb3B1bGF0aW5nDQo+IEZDb0UgcmVs
-YXRlZA0KPiA+IGZsYWdzIGNvcnJlY3RseSBvbiB2bGFuIGRldmljZXMuIEhvd2V2ZXIsIG9ubHkg
-TkVUSUZfRl9GQ09FX0NSQyBpcyBwYXJ0DQo+IG9mIHRoZQ0KPiA+IE5FVElGX0ZfQUxMX1RYX09G
-RkxPQURTIHJpZ2h0IG5vdywgd2hlcmUgd2VlZCBORVRJRl9GX0ZDT0VfTVRVIGFuZA0KPiBORVRJ
-Rl9GX0ZTTw0KPiA+IGFzIHdlbGwuDQo+ID4NCj4gPiBUaGVyZWZvcmUsIGFkZCBORVRJRl9GX0FM
-TF9GQ09FIHRvIGluZGljYXRlIGZlYXR1cmUgZmxhZ3MgdXNlZCBieSBGQ29FDQo+IFRYIG9mZmxv
-YWRzLg0KPiA+IFRoZXNlIGluY2x1ZGUgTkVUSUZfRl9GQ09FX0NSQywgTkVUSUZfRl9GQ09FX01U
-VSwgYW5kIE5FVElGX0ZfRlNPLiBUaGV5DQo+IGFyZSBub3QgcGFydA0KPiA+IG9mIHRoZSBORVRJ
-Rl9GX0FMTF9UWF9PRkZMT0FEUy4gVGhpcyB3b3VsZCBldmVudHVhbGx5IG1ha2Ugc3VyZSBhbGwN
-Cj4gRkNvRSBuZWVkZWQNCj4gPiBmbGFncyBhcmUgcG9wdWxhdGVkIHByb3Blcmx5IHRvIHZsYW4g
-ZGV2aWNlcy4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IFlpIFpvdSA8eWkuem91QGludGVsLmNv
-bT4NCj4gPiAtLS0NCj4gPg0KPiA+ICBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgICAgNiAr
-KysrKy0NCj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25z
-KC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCBiL2lu
-Y2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gPiBpbmRleCBlNzI0NGVkLi40MGIzZGY4IDEwMDY0
-NA0KPiA+IC0tLSBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gPiArKysgYi9pbmNsdWRl
-L2xpbnV4L25ldGRldmljZS5oDQo+ID4gQEAgLTEwOTcsMTAgKzEwOTcsMTQgQEAgc3RydWN0IG5l
-dF9kZXZpY2Ugew0KPiA+DQo+ID4gICNkZWZpbmUgTkVUSUZfRl9BTExfVFNPIAkoTkVUSUZfRl9U
-U08gfCBORVRJRl9GX1RTTzYgfA0KPiBORVRJRl9GX1RTT19FQ04pDQo+ID4NCj4gPiArI2RlZmlu
-ZSBORVRJRl9GX0FMTF9GQ09FCShORVRJRl9GX0ZDT0VfQ1JDIHwgTkVUSUZfRl9GQ09FX01UVSB8
-IFwNCj4gPiArCQkJCSBORVRJRl9GX1VGTykNCj4gDQo+IFVGTz8gIFN1cmVseSBGU08sIGxpa2Ug
-eW91IHdyb3RlIGluIHRoZSBjb21taXQgbWVzc2FnZS4uLg0KPiANCj4gQmVuLg0KWWlrZXMuLi5o
-b3cgSSBtaXNzZWQgdGhhdC4uLnRoYW5rcywgd2lsbCByZXNlbmQuDQoNCnlpDQoNCj4gDQo+ID4g
-ICNkZWZpbmUgTkVUSUZfRl9BTExfVFhfT0ZGTE9BRFMJKE5FVElGX0ZfQUxMX0NTVU0gfCBORVRJ
-Rl9GX1NHIHwgXA0KPiA+ICAJCQkJIE5FVElGX0ZfRlJBR0xJU1QgfCBORVRJRl9GX0FMTF9UU08g
-fCBcDQo+ID4gIAkJCQkgTkVUSUZfRl9ISUdIRE1BIHwgXA0KPiA+IC0JCQkJIE5FVElGX0ZfU0NU
-UF9DU1VNIHwgTkVUSUZfRl9GQ09FX0NSQykNCj4gPiArCQkJCSBORVRJRl9GX1NDVFBfQ1NVTSB8
-IFwNCj4gPiArCQkJCSBORVRJRl9GX0FMTF9GQ09FKQ0KPiA+DQo+ID4gIAkvKg0KPiA+ICAJICog
-SWYgb25lIGRldmljZSBzdXBwb3J0cyBvbmUgb2YgdGhlc2UgZmVhdHVyZXMsIHRoZW4gZW5hYmxl
-IHRoZW0NCj4gPg0KPiA+IC0tDQo+ID4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNl
-bmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gPiB0aGUgYm9keSBvZiBhIG1l
-c3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiA+IE1vcmUgbWFqb3Jkb21vIGlu
-Zm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KPiANCj4g
-LS0NCj4gQmVuIEh1dGNoaW5ncywgU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyLCBTb2xhcmZsYXJl
-DQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUgbWFya2V0aW5nIGRl
-cGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUg
-cHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
+On Mon, May 09, 2011 at 10:38:18PM +0200, Geert Uytterhoeven wrote:
+> On Mon, May 9, 2011 at 22:25, Christian T. Steigies <cts@debian.org> =
+wrote:
+> > On Mon, May 09, 2011 at 09:16:16AM +0200, Geert Uytterhoeven wrote:
+> >> On Mon, May 9, 2011 at 01:14, Finn Thain <fthain@telegraphics.com.=
+au> wrote:
+> >> > On Sun, 8 May 2011, Christian T. Steigies wrote:
+> >> >> PS 2.6.28 did not boot: kernel too old. When was TLS introduced=
+? I'll try to
+> >> >> apply the patch you mentioned in your other message.
+> >> >
+> >> > I sometimes test network cards with busybox. It can be built wit=
+hout
+> >> > linking in glibc and doesn't need TLS.
+> >> >
+> >> >
+> >> >> [ =A0130.870000] eth0: trigger_send() called with the transmitt=
+er busy.
+> >> >> [ =A0132.240000] ------------[ cut here ]------------
+> >> >> [ =A0132.240000] WARNING: at net/sched/sch_generic.c:256 dev_wa=
+tchdog+0x1ac/0x1cc()
+> >> >> [ =A0132.250000] NETDEV WATCHDOG: eth0 (): transmit queue 0 tim=
+ed out
+> >> >
+> >> > Looks a lot like this problem:
+> >> >
+> >> > http://patchwork.ozlabs.org/patch/27774/
+> >>
+> >> Yeah, that's a very likely culprit. Thx!
+> >
+> > I applied the following patch and it works! apt-get update that is,=
+ there is
+> > no sshd on this freshly installed system yet...
+> >
+> > I also changed this line to have 4 underscores at the beginning:
+> >
+> > =A0 =A0 =A0 =A0{ 0xec940559, "____alloc_ei_netdev" },
+>=20
+> In which file is that?
+
+zorro8390.mod.c
+=20
+> > it does not show up in git diff, so I am not sure if this is a left=
+over from
+> > a previous checkout, or if it is also needed. And if it is needed, =
+if it
+> > should be two underscores or four or none, and if so why or why not=
+=2E..
+> > Looking at the other drivers, there does not seem to be a lot of co=
+nsistency?
+>=20
+> From this, I guess hydra and ne-h8300 are also affected, as they
+> include lib8390.c
+> theirselves and are linked with 8390.o?
+>=20
+> > diff --git a/drivers/net/zorro8390.c b/drivers/net/zorro8390.c
+> > index b78a38d9..8c7c522 100644
+> > --- a/drivers/net/zorro8390.c
+> > +++ b/drivers/net/zorro8390.c
+> > @@ -126,7 +126,7 @@ static int __devinit zorro8390_init_one(struct =
+zorro_dev *z,
+> >
+> > =A0 =A0 board =3D z->resource.start;
+> > =A0 =A0 ioaddr =3D board+cards[i].offset;
+> > - =A0 =A0dev =3D alloc_ei_netdev();
+> > + =A0 =A0dev =3D ____alloc_ei_netdev(0);
+> > =A0 =A0 if (!dev)
+> > =A0 =A0 =A0 =A0return -ENOMEM;
+> > =A0 =A0 if (!request_mem_region(ioaddr, NE_IO_EXTENT*2, DRV_NAME)) =
+{
+> > @@ -146,15 +146,15 @@ static int __devinit zorro8390_init_one(struc=
+t zorro_dev *z,
+> > =A0static const struct net_device_ops zorro8390_netdev_ops =3D {
+> > =A0 =A0 =A0 =A0.ndo_open =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D zorro8390_=
+open,
+> > =A0 =A0 =A0 =A0.ndo_stop =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D zorro8390_=
+close,
+> > - =A0 =A0 =A0 .ndo_start_xmit =A0 =A0 =A0 =A0 =3D ei_start_xmit,
+> > - =A0 =A0 =A0 .ndo_tx_timeout =A0 =A0 =A0 =A0 =3D ei_tx_timeout,
+> > - =A0 =A0 =A0 .ndo_get_stats =A0 =A0 =A0 =A0 =A0=3D ei_get_stats,
+> > - =A0 =A0 =A0 .ndo_set_multicast_list =3D ei_set_multicast_list,
+> > + =A0 =A0 =A0 .ndo_start_xmit =A0 =A0 =A0 =A0 =3D __ei_start_xmit,
+> > + =A0 =A0 =A0 .ndo_tx_timeout =A0 =A0 =A0 =A0 =3D __ei_tx_timeout,
+> > + =A0 =A0 =A0 .ndo_get_stats =A0 =A0 =A0 =A0 =A0=3D __ei_get_stats,
+> > + =A0 =A0 =A0 .ndo_set_multicast_list =3D __ei_set_multicast_list,
+> > =A0 =A0 =A0 =A0.ndo_validate_addr =A0 =A0 =A0=3D eth_validate_addr,
+> > =A0 =A0 =A0 =A0.ndo_set_mac_address =A0 =A0=3D eth_mac_addr,
+> > =A0 =A0 =A0 =A0.ndo_change_mtu =A0 =A0 =A0 =A0 =3D eth_change_mtu,
+> > =A0#ifdef CONFIG_NET_POLL_CONTROLLER
+> > - =A0 =A0 =A0 .ndo_poll_controller =A0 =A0=3D ei_poll,
+> > + =A0 =A0 =A0 .ndo_poll_controller =A0 =A0=3D __ei_poll,
+> > =A0#endif
+> > =A0};
+>=20
+> And 8390.o can be removed from drivers/net/Makefile?
+
+I did not change that and it still works, modprobe zorro8390 did not lo=
+ad
+8390. The speed is rather slow, though, 10kbit/sec seems to be the max
+speed. I have not been able to log in via ssh yet, maybe after it has
+finished downloading packages.
+
+Christian
