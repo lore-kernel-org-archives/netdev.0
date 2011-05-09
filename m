@@ -1,72 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH V2] rtlwifi: rtl8192cu: Fix memset/memcpy using sizeof(ptr)
- not sizeof(*ptr)
-Date: Mon, 09 May 2011 10:09:36 -0700
-Message-ID: <1304960976.19586.51.camel@Joe-Laptop>
-References: <1304919832.19586.15.camel@Joe-Laptop>
-	 <4DC81009.5060501@lwfinger.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: Scalability of interface creation and deletion
+Date: Mon, 9 May 2011 10:30:08 -0700
+Message-ID: <BANLkTi=BdTaudvQJ=CVkNX1MNmH81ZFk6A@mail.gmail.com>
+References: <1304793749.3207.26.camel@edumazet-laptop> <1304838742.3207.45.camel@edumazet-laptop>
+ <F57561A93EFF5E88729A8D53@nimrod.local> <7B76F9D75FD26D716624004B@nimrod.local>
+ <20110508125028.GK2641@linux.vnet.ibm.com> <B2891EFD056565BBD4DBCE16@nimrod.local>
+ <20110508134425.GL2641@linux.vnet.ibm.com> <C449131127D58077CB25C9D8@Ximines.local>
+ <20110508144749.GR2641@linux.vnet.ibm.com> <AB9DE9E04289CF29CA79CC67@Ximines.local>
+ <20110508154854.GT2641@linux.vnet.ibm.com> <1304888447.3207.66.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DC81009.5060501@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: paulmck@linux.vnet.ibm.com, Alex Bligh <alex@alex.org.uk>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:33978 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753205Ab1EIRa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 13:30:29 -0400
+Received: by qyg14 with SMTP id 14so4144285qyg.19
+        for <netdev@vger.kernel.org>; Mon, 09 May 2011 10:30:29 -0700 (PDT)
+In-Reply-To: <1304888447.3207.66.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-09 at 11:02 -0500, Larry Finger wrote:
-> On 05/09/2011 12:43 AM, Joe Perches wrote:
-> > Found via coccinelle script
-> > @@
-> > type T;
-> > T* ptr;
-> > expression E1;
-> > @@
-> > * memset(E1, 0, sizeof(ptr));
-> > Signed-off-by: Joe Perches<joe@perches.com>
-> > ---
-> >   drivers/net/wireless/rtlwifi/rtl8192cu/trx.c |    2 +-
-> >   1 files changed, 1 insertions(+), 1 deletions(-)
-> >
-> > diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
-> > @@ -372,7 +372,7 @@ static void _rtl_rx_process(struct ieee80211_hw *hw, struct sk_buff *skb)
-[]
-> > +	memset(rx_status, 0, sizeof(*rx_status));
-> ACK.
+On Sun, May 8, 2011 at 2:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> For example, in the VLAN dismantle phase (ip link del eth0.103)
+> we have 3 calls to synchronize_rcu() and one call to rcu_barrier()
+>
+> [ the 'extra' synchronize_rcu() call comes from unregister_vlan_dev() ]
+>
+> Maybe with new VLAN model, we could now remove this synchronize_net()
+> call from vlan code. Jesse what do you think ?
+> Once vlan_group_set_device(grp, vlan_id, NULL) had been called, why
+> should we respect one rcu grace period at all, given dev is queued to
+> unregister_netdevice_queue() [ which has its own couples of
+> synchronize_net() / rcu_barrier() ]
 
-Hey Larry.
-
-If this is correct, then probably the memcpy at the
-end of the routine needs conversion too.
-
----
-
- drivers/net/wireless/rtlwifi/rtl8192cu/trx.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
-index 79c98f6..3a92ba3 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/trx.c
-@@ -372,7 +372,7 @@ static void _rtl_rx_process(struct ieee80211_hw *hw, struct sk_buff *skb)
- 	__le16 fc;
- 	struct ieee80211_hdr *hdr;
- 
--	memset(rx_status, 0, sizeof(rx_status));
-+	memset(rx_status, 0, sizeof(*rx_status));
- 	rxdesc	= skb->data;
- 	skb_len	= skb->len;
- 	drvinfo_len = (GET_RX_DESC_DRVINFO_SIZE(rxdesc) * RTL_RX_DRV_INFO_UNIT);
-@@ -434,7 +434,7 @@ static void _rtl_rx_process(struct ieee80211_hw *hw, struct sk_buff *skb)
- 		 "0x%02X\n", fc, (u32)hdr->addr1[0], (u32)hdr->addr1[1],
- 		 (u32)hdr->addr1[2], (u32)hdr->addr1[3], (u32)hdr->addr1[4],
- 		 (u32)hdr->addr1[5]));
--	memcpy(IEEE80211_SKB_RXCB(skb), &rx_status, sizeof(rx_status));
-+	memcpy(IEEE80211_SKB_RXCB(skb), rx_status, sizeof(*rx_status));
- 	ieee80211_rx_irqsafe(hw, skb);
- }
- 
+Yes, I agree that the extra call to synchronize_net() provides no
+value, though I think that's actually been true for a while.
