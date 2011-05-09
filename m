@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] vlan: remove one synchronize_net() call
-Date: Mon, 09 May 2011 11:42:14 -0700 (PDT)
-Message-ID: <20110509.114214.104063134.davem@davemloft.net>
-References: <1304948155.3342.32.camel@edumazet-laptop>
-	<1304952044.3342.42.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next 0/4] tulip: logging cleanups
+Date: Mon, 09 May 2011 11:47:06 -0700 (PDT)
+Message-ID: <20110509.114706.189685729.davem@davemloft.net>
+References: <cover.1304733889.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, kaber@trash.net, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com, jesse@nicira.com,
-	mirq-linux@rere.qmqm.pl
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54145
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753474Ab1EISmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 14:42:46 -0400
-In-Reply-To: <1304952044.3342.42.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1304733889.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 09 May 2011 16:40:44 +0200
+From: Joe Perches <joe@perches.com>
+Date: Fri,  6 May 2011 19:08:41 -0700
 
-> At VLAN dismantle phase, unregister_vlan_dev() makes one
-> synchronize_net() call after vlan_group_set_device(grp, vlan_id, NULL).
-> 
-> This call can be safely removed because we are calling
-> unregister_netdevice_queue() to queue device for deletion, and this
-> process needs at least one rcu grace period to complete.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Joe Perches (4):
+>   tulip: xircom_cb: Convert #ifdef DEBUG blocks and enter/leave uses
+>   tulip: Convert printks to netdev_<level>
+>   tulip: Convert uses of KERN_DEBUG
+>   tulip: Use pr_<level> where appropriate
 
-Applied.
+With the advent of the function tracer, those silly function entry/exit
+logging things are entirely superfluous.
+
+They make the code look ugly too.
+
+So you have my approval to just kill those things off entirely.
+
+Please do that and respin this patch set, thanks Joe!
