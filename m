@@ -1,44 +1,88 @@
-From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: Re: [PATCH 3/3] virtio_ring: need_event api comment fix
-Date: Mon, 09 May 2011 15:29:43 +0930
-Message-ID: <87y62gfm7k.fsf@rustcorp.com.au>
-References: <cover.1304605816.git.mst@redhat.com>
-	<c8b6d8a8df4927826d0024fceeb68726c50d0b1a.1304605817.git.mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Scalability of interface creation and deletion
+Date: Mon, 09 May 2011 08:37:16 +0200
+Message-ID: <1304923036.3207.105.camel@edumazet-laptop>
+References: <1304793749.3207.26.camel@edumazet-laptop>
+	 <1304838742.3207.45.camel@edumazet-laptop>
+	 <F57561A93EFF5E88729A8D53@nimrod.local>
+	 <7B76F9D75FD26D716624004B@nimrod.local>
+	 <20110508125028.GK2641@linux.vnet.ibm.com>
+	 <B2891EFD056565BBD4DBCE16@nimrod.local>
+	 <20110508134425.GL2641@linux.vnet.ibm.com>
+	 <C449131127D58077CB25C9D8@Ximines.local>
+	 <20110508144749.GR2641@linux.vnet.ibm.com>
+	 <AB9DE9E04289CF29CA79CC67@Ximines.local>
+	 <20110508154854.GT2641@linux.vnet.ibm.com>
+	 <1304888447.3207.66.camel@edumazet-laptop>
+	 <BA03B09F0474B30660A091FD@nimrod.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <c8b6d8a8df4927826d0024fceeb68726c50d0b1a.1304605817.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Ben Greear <greearb@candelatech.com>
+To: Alex Bligh <alex@alex.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56803 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751671Ab1EIGhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 02:37:20 -0400
+Received: by wya21 with SMTP id 21so3625578wya.19
+        for <netdev@vger.kernel.org>; Sun, 08 May 2011 23:37:19 -0700 (PDT)
+In-Reply-To: <BA03B09F0474B30660A091FD@nimrod.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 May 2011 18:08:17 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> fix typo in a comment: size -> side
-> 
-> Reported-by: Stefan Hajnoczi <stefanha-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Le lundi 09 mai 2011 =C3=A0 06:37 +0100, Alex Bligh a =C3=A9crit :
+>=20
+> --On 8 May 2011 23:00:47 +0200 Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+>=20
+> > We can probably speed things, but we should consider the following =
+user
+> > actions :
+>=20
+> How about
+>=20
+> > ip link add link eth0 vlan103 type vlan id 103
+> > ip link del vlan103
+>=20
+> Removes and unlinks structures, including making name available, send=
+ing
+> out netlink messages, but doesn't free things
 
-I could smerge these together for you, but I *really* want benchmarks in
-these commit messages.
+Most of the cleanup work has to be done with RTNL being held, and this
+might because of transaction atomicity requirement.
 
-Thanks,
-Rusty.
-PS. Was away last week, hence the delay on this...
+In your test you dismantle idle devices. Now think a bit when you have
+both trafic in and out, sockets with destinations still pointing to the
+device, in flight arp requests, all this using RCU of course.
+
+When you dismantle one device (or several in case of a module unload),
+this can have implications on other devices (see veth cas for an obviou=
+s
+example : this automatically removes the peer device), but also on
+routes, neighbours, cached routes, various protocol cleanups, ... and s=
+o
+on. Few people even on netdev understand the whole picture.
+
+Given that 99.99% machines setup netdevice at boot time only, and hardl=
+y
+consider dismantles, we netdev guys were pragmatic and safe. Two or
+three synchronize_rcu() were considered as a non issue.
+
+It seems there is interest to improve things now.
+
+One way is to allow more batching and delegation, and I am working on
+that right now, using a kthread, so that we dont block the requester fo=
+r
+the whole device dismantle.
+
+This kthread might use call_rcu() driven state machine, but that is a
+detail of implementation, since only kthread would be impacted.
+
+I am pretty busy at work these days, so dont expect patches before some
+time :)
+
+
+
