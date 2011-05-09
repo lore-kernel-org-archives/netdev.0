@@ -1,64 +1,43 @@
-From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH v2] net: group FCoE related feature flags
-Date: Mon, 09 May 2011 14:53:27 -0700
-Message-ID: <20110509215133.4346.14504.stgit@localhost6.localdomain6>
+From: Octavian Purdila <tavi.purdila@gmail.com>
+Subject: Re: Scalability of interface creation and deletion
+Date: Tue, 10 May 2011 00:46:05 +0300
+Message-ID: <BANLkTi=A=iV8eKOH7uqaL8g7hGpjt7XWVw@mail.gmail.com>
+References: <891B02256A0667292521A4BF@Ximines.local>
+	<1304770926.2821.1157.camel@edumazet-laptop>
+	<0F4A638C2A523577CDBC295E@Ximines.local>
+	<1304783684.9216.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, jeffrey.t.kirsher@intel.com,
-	devel@open-fcoe.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Alex Bligh <alex@alex.org.uk>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35389 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752937Ab1EIVie (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2011 17:38:34 -0400
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:44369 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531Ab1EIVqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 17:46:06 -0400
+Received: by pvg12 with SMTP id 12so2542429pvg.19
+        for <netdev@vger.kernel.org>; Mon, 09 May 2011 14:46:05 -0700 (PDT)
+In-Reply-To: <1304783684.9216.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Micha=C5=82 Miros=C5=82aw's patch (http://patchwork.ozlabs.org/patch/94=
-421/) fixes the
-issue (http://patchwork.ozlabs.org/patch/94188/) about not populating F=
-CoE related
-flags correctly on vlan devices. However, only NETIF_F_FCOE_CRC is part=
- of the
-NETIF_F_ALL_TX_OFFLOADS right now, where weed NETIF_F_FCOE_MTU and NETI=
-=46_F_FSO
-as well.
+On Sat, May 7, 2011 at 6:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Therefore, add NETIF_F_ALL_FCOE to indicate feature flags used by FCoE =
-TX offloads.
-These include NETIF_F_FCOE_CRC, NETIF_F_FCOE_MTU, and NETIF_F_FSO and a=
-dd them to
-be part of NETIF_F_ALL_TX_OFFLOADS. This would eventually make sure all=
- FCoE needed
-flags are populated properly to vlan devices.
+>
+> synchronize_rcu() calls are not consuming cpu, they just _wait_
+> rcu grace period.
+>
+> I suggest you read Documentation/RCU files if you really want to :)
+>
+> If you want to check how expensive it is, its quite easy:
+> add a trace in synchronize_net()
+>
+<snip>
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
----
+I proposed adding a "wait" software counter to perf [1] a while ago,
+which would allow people identify sync_rcu hotspots:
 
- include/linux/netdevice.h |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+http://marc.info/?l=linux-kernel&m=129188584110162
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e7244ed..00d650c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1097,10 +1097,14 @@ struct net_device {
-=20
- #define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN=
-)
-=20
-+#define NETIF_F_ALL_FCOE	(NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
-+				 NETIF_F_FSO)
-+
- #define NETIF_F_ALL_TX_OFFLOADS	(NETIF_F_ALL_CSUM | NETIF_F_SG | \
- 				 NETIF_F_FRAGLIST | NETIF_F_ALL_TSO | \
- 				 NETIF_F_HIGHDMA | \
--				 NETIF_F_SCTP_CSUM | NETIF_F_FCOE_CRC)
-+				 NETIF_F_SCTP_CSUM | \
-+				 NETIF_F_ALL_FCOE)
-=20
- 	/*
- 	 * If one device supports one of these features, then enable them
-
+I don't know how much visibility it got, so given this context, I
+thought of bringing it up again :)
