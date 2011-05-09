@@ -1,88 +1,94 @@
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH] pch_gbe: support ML7223 IOH
-Date: Mon,  9 May 2011 20:19:37 +0900
-Message-ID: <1304939977-11728-1-git-send-email-tomoya-linux__8001.99497393823$1304940043$gmane$org@dsn.okisemi.com>
-Cc: qi.wang@intel.com, yong.y.wang@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com,
-	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jon Mason <jon.mason@exar.com>, netdev@vger.kernel.o
+From: Tom Goetz <tom.goetz@virtualcomputer.com>
+Subject: Re: For the netdev list
+Date: Mon, 9 May 2011 08:36:53 -0400
+Message-ID: <B688A195-1023-45A1-A99C-41F7BFB6380B@virtualcomputer.com>
+References: <14130884-5927-4B8D-A52E-56C245D8225B@virtualcomputer.com> <20110507182632.GA20492@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:11237 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751080Ab1EILUB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 07:20:01 -0400
+Received: from server514d.exghost.com ([72.32.253.69]:1533 "EHLO
+	server514.appriver.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752800Ab1EIMgz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 08:36:55 -0400
+In-Reply-To: <20110507182632.GA20492@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support new device OKI SEMICONDUCTOR ML7223 IOH(Input/Output Hub).
-The ML7223 IOH is for MP(Media Phone) use.
-The ML7223 is companion chip for Intel Atom E6xx series.
-The ML7223 is completely compatible for Intel EG20T PCH.
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
----
- drivers/net/Kconfig                |    8 +++++++-
- drivers/net/pch_gbe/pch_gbe_main.c |   11 +++++++++++
- 2 files changed, 18 insertions(+), 1 deletions(-)
+On May 7, 2011, at 2:26 PM, Francois Romieu wrote:
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index dc280bc..6c884ef 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2536,7 +2536,7 @@ config S6GMAC
- source "drivers/net/stmmac/Kconfig"
- 
- config PCH_GBE
--	tristate "PCH Gigabit Ethernet"
-+	tristate "Intel EG20T PCH / OKI SEMICONDUCTOR ML7223 IOH GbE"
- 	depends on PCI
- 	select MII
- 	---help---
-@@ -2548,6 +2548,12 @@ config PCH_GBE
- 	  to Gigabit Ethernet.
- 	  This driver enables Gigabit Ethernet function.
- 
-+	  This driver also can be used for OKI SEMICONDUCTOR IOH(Input/
-+	  Output Hub), ML7223.
-+	  ML7223 IOH is for MP(Media Phone) use.
-+	  ML7223 is companion chip for Intel Atom E6xx series.
-+	  ML7223 is completely compatible for Intel EG20T PCH.
-+
- endif # NETDEV_1000
- 
- #
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index 2ef2f9c..bd27e1d 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -34,6 +34,10 @@ const char pch_driver_version[] = DRV_VERSION;
- #define PCH_GBE_COPYBREAK_DEFAULT	256
- #define PCH_GBE_PCI_BAR			1
- 
-+/* Macros for ML7223 */
-+#define PCI_VENDOR_ID_ROHM			0x10db
-+#define PCI_DEVICE_ID_ROHM_ML7223_GBE		0x8013
-+
- #define PCH_GBE_TX_WEIGHT         64
- #define PCH_GBE_RX_WEIGHT         64
- #define PCH_GBE_RX_BUFFER_WRITE   16
-@@ -2420,6 +2424,13 @@ static DEFINE_PCI_DEVICE_TABLE(pch_gbe_pcidev_id) = {
- 	 .class = (PCI_CLASS_NETWORK_ETHERNET << 8),
- 	 .class_mask = (0xFFFF00)
- 	 },
-+	{.vendor = PCI_VENDOR_ID_ROHM,
-+	 .device = PCI_DEVICE_ID_ROHM_ML7223_GBE,
-+	 .subvendor = PCI_ANY_ID,
-+	 .subdevice = PCI_ANY_ID,
-+	 .class = (PCI_CLASS_NETWORK_ETHERNET << 8),
-+	 .class_mask = (0xFFFF00)
-+	 },
- 	/* required last entry */
- 	{0}
- };
--- 
-1.7.4
+> Tom Goetz <tom.goetz@virtualcomputer.com> :
+>> We recently obtained a new a Lenovo Edge 0578-CTO. The r8169 driver causes
+>> instability in the system on this machine. The problem is that in
+>> rtl8169_rx_interrupt (status & 0x00001FFF) returns values less than four
+> 
+> This is unexpected. :o(
+> 
+> [...]
+>> For a work around we've added a patch to drop packets when we see this
+>> condition. I have attached lspci -vvv for this device and a patch for the
+>> work around we're using.
+> 
+> Thank you for debugging.
+> 
+> Can you grep for the XID of the device in the kernel's dmesg and specify
+> a bit of context for the problem (MTU ? features enabled through ethtool ?
+> kernel version ?) ?
+
+This is 2.6.38 PVOPs Dom0 on Xen. The distro is Ubuntu 11.04. We have not had issues with this driver in the past. This is a new issue with the Lenovo Edge.
+
+Here's a log fragment with the XID and output from ifconfig and ethtool:
+
+[    3.197341] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    3.197387] xen: registering gsi 17 triggering 0 polarity 1
+[    3.197394] xen_map_pirq_gsi: returning irq 17 for gsi 17
+[    3.197397] xen: --> irq=17
+[    3.197406] Already setup the GSI :17
+[    3.197412] r8169 0000:09:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+[    3.197524] r8169 0000:09:00.0: setting latency timer to 64
+[    3.197990] r8169 0000:09:00.0: eth0: RTL8168d/8111d at 0xffffc9001117c000, e8:9a:8f:0c:6c:62, XID 083000c0 IRQ 299
+
+eth0      Link encap:Ethernet  HWaddr e8:9a:8f:0c:6c:62  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:1138 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:284 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:183700 (183.7 KB)  TX bytes:107686 (107.6 KB)
+          Interrupt:43 Base address:0xc000 
+
+root@edge-11-04:~# ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP MII ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Half 1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Half 1000baseT/Full 
+	Advertised pause frame use: No
+	Advertised auto-negotiation: Yes
+	Link partner advertised link modes:  10baseT/Half 10baseT/Full 
+	                                     100baseT/Half 100baseT/Full 
+	                                     1000baseT/Full 
+	Link partner advertised pause frame use: No
+	Link partner advertised auto-negotiation: Yes
+	Speed: 1000Mb/s
+	Duplex: Full
+	Port: MII
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Supports Wake-on: pumbg
+	Wake-on: g
+	Current message level: 0x00000033 (51)
+			       drv probe ifdown ifup
+	Link detected: yes
+
+-Tom
+
+
 
