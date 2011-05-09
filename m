@@ -1,77 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next-2.6] veth: use batched device unregister
-Date: Mon, 09 May 2011 09:45:48 +0200
-Message-ID: <1304927148.3342.4.camel@edumazet-laptop>
-References: <1304793749.3207.26.camel@edumazet-laptop>
-	 <1304838742.3207.45.camel@edumazet-laptop>
-	 <F57561A93EFF5E88729A8D53@nimrod.local>
-	 <7B76F9D75FD26D716624004B@nimrod.local>
-	 <20110508125028.GK2641@linux.vnet.ibm.com>
-	 <B2891EFD056565BBD4DBCE16@nimrod.local>
-	 <20110508134425.GL2641@linux.vnet.ibm.com>
-	 <C449131127D58077CB25C9D8@Ximines.local>
-	 <20110508144749.GR2641@linux.vnet.ibm.com>
-	 <AB9DE9E04289CF29CA79CC67@Ximines.local>
-	 <20110508154854.GT2641@linux.vnet.ibm.com>
-	 <1304888447.3207.66.camel@edumazet-laptop>
-	 <1304916275.3207.79.camel@edumazet-laptop>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: =?UTF-8?q?=5BPATCH=202/2=5D=20linux-firmware=3A=20add=20new=20firmware=20for=20RTL8168E-VL?=
+Date: Mon, 9 May 2011 16:02:29 +0800
+Message-ID: <1304928149-2201-2-git-send-email-hayeswang@realtek.com>
+References: <1304928149-2201-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alex Bligh <alex@alex.org.uk>, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Ben Greear <greearb@candelatech.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:58923 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753261Ab1EIHpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 03:45:52 -0400
-Received: by wwk4 with SMTP id 4so2088237wwk.1
-        for <netdev@vger.kernel.org>; Mon, 09 May 2011 00:45:51 -0700 (PDT)
-In-Reply-To: <1304916275.3207.79.camel@edumazet-laptop>
+Received: from rtits2.realtek.com ([60.250.210.242]:39852 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753057Ab1EIIDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 04:03:43 -0400
+In-Reply-To: <1304928149-2201-1-git-send-email-hayeswang@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-veth devices dont use the batched device unregisters yet.
+Add firmware: rtl_nic/rtl8168e-3.fw
 
-Since veth are a pair of devices, it makes sense to use a batch of two
-unregisters, this roughly divide dismantle time by two.
-
-Reported-by: Alex Bligh <alex@alex.org.uk>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jesse Gross <jesse@nicira.com>
-Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Cc: Ben Greear <greearb@candelatech.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
-v2: added a list_del(&list) for safety (see commit ceaaec98)
- drivers/net/veth.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
+ WHENCE                |    1 +
+ rtl_nic/rtl8168e-3.fw |  Bin 0 -> 2804 bytes
+ 2 files changed, 1 insertions(+), 0 deletions(-)
+ create mode 100644 rtl_nic/rtl8168e-3.fw
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 3b0151a..b41d6a9 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -416,8 +416,17 @@ static void veth_dellink(struct net_device *dev, struct list_head *head)
- 	priv = netdev_priv(dev);
- 	peer = priv->peer;
- 
--	unregister_netdevice_queue(dev, head);
--	unregister_netdevice_queue(peer, head);
-+	if (head == NULL) {
-+		LIST_HEAD(list);
-+		/* make a batch of two devices to speedup unregister */
-+		unregister_netdevice_queue(dev, &list);
-+		unregister_netdevice_queue(peer, &list);
-+		unregister_netdevice_many(&list);
-+		list_del(&list);
-+	} else {
-+		unregister_netdevice_queue(dev, head);
-+		unregister_netdevice_queue(peer, head);
-+	}
- }
- 
- static const struct nla_policy veth_policy[VETH_INFO_MAX + 1];
+diff --git a/WHENCE b/WHENCE
+index 60c189c..d65a04b 100644
+--- a/WHENCE
++++ b/WHENCE
+@@ -1581,6 +1581,7 @@ File: rtl_nic/rtl8168d-2.fw
+ File: rtl_nic/rtl8105e-1.fw
+ File: rtl_nic/rtl8168e-1.fw
+ File: rtl_nic/rtl8168e-2.fw
++File: rtl_nic/rtl8168e-3.fw
+=20
+ Licence:
+  * Copyright =C2=A9 2011, Realtek Semiconductor Corporation
+diff --git a/rtl_nic/rtl8168e-3.fw b/rtl_nic/rtl8168e-3.fw
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb494071d0273c7b3102b97=
+552f4bc7b756c0e17
+GIT binary patch
+literal 2804
+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
+VdHX+Uxf?6kf6?+D|9>1#e*sYqwB!H)
 
+literal 0
+HcmV?d00001
+
+--=20
+1.7.3.2
 
