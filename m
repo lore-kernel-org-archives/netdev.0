@@ -1,84 +1,89 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: Re: [oss-security] Bluetooth: l2cap and rfcomm: fix 1 byte
- infoleak to userspace.
-Date: Mon, 9 May 2011 18:31:32 +0400
-Message-ID: <20110509143132.GA11358@albatros>
-References: <BANLkTik7WyQ977-+8XapTgBrVRMyexyHKg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] vlan: remove one synchronize_net() call
+Date: Mon, 09 May 2011 16:40:44 +0200
+Message-ID: <1304952044.3342.42.camel@edumazet-laptop>
+References: <1304948155.3342.32.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="h31gzZEtNLTqOjlF"
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, security@kernel.org
-To: Filip Palian <s3810@pjwstk.edu.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Jesse Gross <jesse@nicira.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42495 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753270Ab1EIObh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 10:31:37 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTik7WyQ977-+8XapTgBrVRMyexyHKg@mail.gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:40462 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753780Ab1EIOks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 10:40:48 -0400
+Received: by eyx24 with SMTP id 24so1558538eyx.19
+        for <netdev@vger.kernel.org>; Mon, 09 May 2011 07:40:47 -0700 (PDT)
+In-Reply-To: <1304948155.3342.32.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+At VLAN dismantle phase, unregister_vlan_dev() makes one
+synchronize_net() call after vlan_group_set_device(grp, vlan_id, NULL).
 
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This call can be safely removed because we are calling
+unregister_netdevice_queue() to queue device for deletion, and this
+process needs at least one rcu grace period to complete.
 
-On Sun, May 08, 2011 at 21:57 +0200, Filip Palian wrote:
-> Structures "l2cap_conninfo" and "rfcomm_conninfo" have one padding
-> byte each. This byte in "cinfo" is copied to userspace uninitialized.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ben Greear <greearb@candelatech.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ include/linux/if_vlan.h |    1 -
+ net/8021q/vlan.c        |   10 ++++------
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
-Your mail client mangles the patch, it should contain original
-identation tabs, not spaces.  Please see Documentation/email-clients.txt.
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 546d9d3..290bd8a 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -86,7 +86,6 @@ struct vlan_group {
+ 					    * the vlan is attached to.
+ 					    */
+ 	unsigned int		nr_vlans;
+-	int			killall;
+ 	struct hlist_node	hlist;	/* linked list */
+ 	struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_SPLIT_PARTS]=
+;
+ 	struct rcu_head		rcu;
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 969e700..718d635d 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -120,9 +120,10 @@ void unregister_vlan_dev(struct net_device *dev, s=
+truct list_head *head)
+ 	grp->nr_vlans--;
+=20
+ 	vlan_group_set_device(grp, vlan_id, NULL);
+-	if (!grp->killall)
+-		synchronize_net();
+-
++	/* Because unregister_netdevice_queue() makes sure at least one rcu
++	 * grace period is respected before device freeing,
++	 * we dont need to call synchronize_net() here.
++	 */
+ 	unregister_netdevice_queue(dev, head);
+=20
+ 	/* If the group is now empty, kill off the group. */
+@@ -478,9 +479,6 @@ static int vlan_device_event(struct notifier_block =
+*unused, unsigned long event,
+ 		if (dev->reg_state !=3D NETREG_UNREGISTERING)
+ 			break;
+=20
+-		/* Delete all VLANs for this dev. */
+-		grp->killall =3D 1;
+-
+ 		for (i =3D 0; i < VLAN_N_VID; i++) {
+ 			vlandev =3D vlan_group_get_device(grp, i);
+ 			if (!vlandev)
 
-> patch no.1:
 
-Don't send 2 patches as one email.  Either send 2 email or merge them
-into one patch (if they are similar changes).  You'll ease maintainers'
-work.
-
-> Found by Marek Kroemeke and Filip Palian.
-
-Please see Documentation/SubmittingPatches, chapter 12 to find out how
-to sign the patch.
-
-And please don't crosspost to oss-security and LKML - send a separate
-email to o-s with a short description of a bug and a link to the LKML
-thread.  LKML thread is a place to argue and discuss the solution, but
-o-s subscribers are probably not interested in such a discussion.
-
-Thanks,
-
---=20
-Vasiliy Kulikov
-http://www.openwall.com - bringing security into open computing environments
-
---h31gzZEtNLTqOjlF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIcBAEBAgAGBQJNx/q+AAoJEBoUx9gkVaZcpjYQAJuzhv569QdU73l6oK4ROIod
-bj4VO0IoKr6KtbLN4sY/+X26zoGClCzKUxy9Rrar3kqBJPvG2W5L8VzghZz1XBDu
-VC8QuO5qRL8CJJc4SiUy/iLTQMcHA7HNZjiBU2EJ84qQGvxvm8TI6BKy1qAKF07T
-k5hlFGz5HBPw1k2yAo6T/FBO8qLzRB8fr3fP3yulhK4qseByMNW0H2jkkWz8eXg7
-dzFbEIF7TbHmBXyjSC87VT6s0XK3RRYce7RlrqTUkKSE9FTGTW1iYfDKKt6PPpPM
-guP/QkU0+BI4CRcdb10Fsp5PUb+kI4VE1mh8ok7uVsbVX3VC6r/FysKvjkO59dLy
-WwlbfF4VyXyVwkX8ONsukrzciTpbH/uWgDcGv91iVg7dr8sgjFSMglDw3j2KIwly
-j2CiBQfc6/tIU6GAzwxyUB2S1nKQGqR6emvq5KoCsG46vPqV4CLpW3ZIY9ifOZbU
-fVwzyFVFLYJvRgxSYiGrYT63YMtXetHp1WtLLl4L5QgWdlcHbMcG3O0dOXjd8Mnl
-9v9r1NNtNl7Fks2/tk/TIyzKo3NnXUW79ZfvL2AscTzPd3I6uR/kXs8dNosZ0vFH
-b/fGVmill8sQAQhcGbSmlbDzPn0wuds8keKoIFmvflhOif/NrpDPjC7dOZnpvSJV
-5hA3C/lpdiMuZJPiKh2f
-=aDZs
------END PGP SIGNATURE-----
-
---h31gzZEtNLTqOjlF--
