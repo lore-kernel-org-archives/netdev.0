@@ -1,54 +1,43 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning after merge of the net tree
-Date: Mon, 9 May 2011 13:46:13 +1000
-Message-ID: <20110509134613.bcf0b017.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ipv4: Pass flow keys down into datagram packet
+ building engine.
+Date: Sun, 08 May 2011 21:07:49 -0700 (PDT)
+Message-ID: <20110508.210749.193695681.davem@davemloft.net>
+References: <20110508.180753.241908549.davem@davemloft.net>
+	<Pine.LNX.4.30.1105081811570.26257-100000@mail.perches.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35264
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750743Ab1EIEIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 00:08:22 -0400
+In-Reply-To: <Pine.LNX.4.30.1105081811570.26257-100000@mail.perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Joe Perches <joe@perches.com>
+Date: Sun, 8 May 2011 18:14:46 -0700 (PDT)
 
-Hi all,
+> On Sun, 8 May 2011, David Miller wrote:
+>> +static struct rtable *icmp_route_lookup(struct net *net,
+>> +					struct flowi4 *fl4,
+>> +					struct sk_buff *skb_in,
+>>  					const struct iphdr *iph,
+>>  					__be32 saddr, u8 tos,
+>>  					int type, int code,
+>>  					struct icmp_bxm *param)
+>>  {
+> []
+>> +	memset(&fl4, 0, sizeof(fl4));
+> 
+> 	memset(fl4, 0, sizeof(*fl4));
+> 
+>> +	fl4->daddr = (param->replyopts.opt.opt.srr ?
+>> +		      param->replyopts.opt.opt.faddr : iph->saddr);
+> 
 
-After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-produced this warning:
-
-net/sctp/protocol.c: In function 'sctp_v4_xmit':
-net/sctp/protocol.c:842: warning: format '%p' expects type 'void *', but ar=
-gument 5 has type '__be32'
-net/sctp/protocol.c:842: warning: format '%p' expects type 'void *', but ar=
-gument 6 has type '__be32'
-
-Caused by commit f1c0a276ea17 ("sctp: Don't use rt->rt_{src,dst} in
-sctp_v4_xmit()").
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNx2OFAAoJEDMEi1NhKgbsoasH/AqFBoktKv5Z3KxqplzaJuam
-qizpVU5zAhrHZ+s2P6Id7Cagqs7JY8upZzp+02wmiPJ5IBjN5pTOHnBbUDEahYY7
-ZceV5R5BRJzo6olSVYsU+0wAhZ9faPLs8E9RhPBgRAmwEht9T8XUjNkAQJWnfuTd
-sldDfsx52IMI7EiMZwqUvn+JB73tffU+qynb8oYXZnnEFvdmO6VmDoKE7p0Gz7Aj
-vePb/ssG8CF8nMo62JtvQK3ITsda5ms5KZlHoGqpwG2btxTUqGt6xZIDkXW5UuXI
-Z3n5JbY6ieJTcUWtPykQZj+/VPhoLblocrXPeDyhmRVuvsQxlwR9ylVbr2X/4CE=
-=zscc
------END PGP SIGNATURE-----
-
---Signature=_Mon__9_May_2011_13_46_13_+1000_onZAw9CdIEFa.8vO--
+Thanks Joe :-/  I'll fix that.
