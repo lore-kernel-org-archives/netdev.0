@@ -1,142 +1,100 @@
-From: Seth Forshee <seth.forshee@canonical.com>
-Subject: Re: ath5k regression associating with APs in 2.6.38
-Date: Mon, 9 May 2011 09:02:30 +0200
-Message-ID: <20110509070230.GA20458@thinkpad-t410>
-References: <20110504153819.GA4551@thinkpad-t410>
- <20110504172716.GC18541@tuxdriver.com>
- <20110504192639.GB4551@thinkpad-t410>
- <BANLkTimEmBRyxbZgffJMrH4TTc4f6peuTg@mail.gmail.com>
- <20110505135207.GA13727@thinkpad-t410>
- <BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: Scalability of interface creation and deletion
+Date: Mon, 9 May 2011 00:11:15 -0700
+Message-ID: <20110509071114.GA2608@linux.vnet.ibm.com>
+References: <F57561A93EFF5E88729A8D53@nimrod.local>
+ <7B76F9D75FD26D716624004B@nimrod.local>
+ <20110508125028.GK2641@linux.vnet.ibm.com>
+ <B2891EFD056565BBD4DBCE16@nimrod.local>
+ <20110508134425.GL2641@linux.vnet.ibm.com>
+ <C449131127D58077CB25C9D8@Ximines.local>
+ <20110508144749.GR2641@linux.vnet.ibm.com>
+ <AB9DE9E04289CF29CA79CC67@Ximines.local>
+ <20110508154854.GT2641@linux.vnet.ibm.com>
+ <1304888447.3207.66.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nick Kossifidis <mickflemm@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alex Bligh <alex@alex.org.uk>, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:46457 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752989Ab1EIHLS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2011 03:11:18 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p496mQ19013184
+	for <netdev@vger.kernel.org>; Mon, 9 May 2011 02:48:26 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p497BHB1075392
+	for <netdev@vger.kernel.org>; Mon, 9 May 2011 03:11:17 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p497BGGf026653
+	for <netdev@vger.kernel.org>; Mon, 9 May 2011 03:11:17 -0400
 Content-Disposition: inline
-In-Reply-To: <BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1304888447.3207.66.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 05, 2011 at 05:30:42PM +0300, Nick Kossifidis wrote:
-> Hmm I don't see any errors from reset/phy code, can you disable
-> Network Manager/wpa-supplicant and test connection on an open network
-> using iw ? It 'll give us a better picture...
-> 
-> If iw doesn't return any scan results we are probably hitting a PHY/RF
-> error specific to your device (not all vendors follow the reference
-> design). Maybe we should follow a blacklist/whitelist approach for
-> this feature.
+On Sun, May 08, 2011 at 11:00:47PM +0200, Eric Dumazet wrote:
+> Le dimanche 08 mai 2011 =E0 08:48 -0700, Paul E. McKenney a =E9crit :
+> > On Sun, May 08, 2011 at 04:17:42PM +0100, Alex Bligh wrote:
+> > >=20
+> > > If 6 jiffies per call to ensure cpus are idle is a fact of life,
+> > > then the question goes back to why interface removal is waiting
+> > > for rcu readers to be released synchronously, as opposed to
+> > > doing the update bits synchronously, then doing the reclaim
+> > > element (freeing the memory) afterwards using call_rcu.
+> >=20
+> > This would speed things up considerably, assuming that there is no
+> > other reason to block for an RCU grace period.
+>=20
+> Thats not so simple... Things are modular and better be safe than cra=
+sh,
+> on a very rare event (device dismantles are not the thing we expect t=
+o
+> do very often. Only special needs might need to perform hundred of th=
+em
+> per minute...)
 
-I got the results back from my tester. He was able to get scan results,
-but it took multiple tries and the direct probe failures appear in the
-log. He didn't enable ATH5K_DEBUG_RESET this time; let me know if you
-need that and I'll request he retest with the extra debug logs enabled.
+I was afraid of that, but had to ask...
 
+> For example, in the VLAN dismantle phase (ip link del eth0.103)
+> we have 3 calls to synchronize_rcu() and one call to rcu_barrier()
+>=20
+> [ the 'extra' synchronize_rcu() call comes from unregister_vlan_dev()=
+ ]
+>=20
+> Maybe with new VLAN model, we could now remove this synchronize_net()
+> call from vlan code. Jesse what do you think ?
+> Once vlan_group_set_device(grp, vlan_id, NULL) had been called, why
+> should we respect one rcu grace period at all, given dev is queued to
+> unregister_netdevice_queue() [ which has its own couples of
+> synchronize_net() / rcu_barrier() ]
+>=20
+>=20
+> The real scalability problem of device dismantles comes from the fact
+> that all these waits are done under RTNL mutex. This is the real kill=
+er
+> because you cannot use your eight cpus, even if you are willing to.
+>=20
+> We can probably speed things, but we should consider the following us=
+er
+> actions :
+>=20
+> ip link add link eth0 vlan103 type vlan id 103
+> ip link del vlan103
+> ip link add link eth1 vlan103 type vlan id 103
+>=20
+> The "link del" command should return to user only if the minimum thin=
+gs
+> had been done, to make sure the following "link add" wont fail
+> mysteriously.
 
-[   25.070218] ath5k 0000:06:02.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
-[   25.070290] ath5k 0000:06:02.0: registered as 'phy0'
-[   25.830368] ath: EEPROM regdomain: 0x63
-[   25.830372] ath: EEPROM indicates we should expect a direct regpair map
-[   25.830376] ath: Country alpha2 being used: 00
-[   25.830378] ath: Regpair used: 0x63
-[   25.830382] cfg80211: Updating information on frequency 2412 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830386] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830388] cfg80211: Updating information on frequency 2417 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830392] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830394] cfg80211: Updating information on frequency 2422 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830397] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830400] cfg80211: Updating information on frequency 2427 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830403] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830405] cfg80211: Updating information on frequency 2432 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830409] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830411] cfg80211: Updating information on frequency 2437 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830414] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830417] cfg80211: Updating information on frequency 2442 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830420] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830423] cfg80211: Updating information on frequency 2447 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830426] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830428] cfg80211: Updating information on frequency 2452 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830431] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830434] cfg80211: Updating information on frequency 2457 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830437] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830440] cfg80211: Updating information on frequency 2462 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830443] cfg80211: 2402000 KHz - 2472000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830445] cfg80211: Updating information on frequency 2467 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830449] cfg80211: 2457000 KHz - 2482000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830451] cfg80211: Updating information on frequency 2472 MHz for a 20 MHz width channel with regulatory rule:
-[   25.830454] cfg80211: 2457000 KHz - 2482000 KHz @  KHz), (N/A mBi, 2000 mBm)
-[   25.830457] cfg80211: Disabling freq 2484 MHz as custom regd has no rule that fits a 20 MHz wide channel
-[   25.842012] cfg80211: Ignoring regulatory request Set by core since the driver uses its own custom regulatory domain 
-[   26.048048] ieee80211 phy0: Selected rate control algorithm 'minstrel_ht'
-[   26.051154] ath5k phy0: Atheros AR2413 chip found (MAC: 0x78, PHY: 0x45)
-[  133.492866] ADDRCONF(NETDEV_UP): wlan0: link is not ready
-[  278.050097] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 1/3)
-[  278.248082] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 2/3)
-[  278.448111] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 3/3)
-[  278.648084] wlan0: direct probe to c0:3f:0e:b9:f3:b2 timed out
-[  283.920272] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 1/3)
-[  284.120232] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 2/3)
-[  284.320074] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 3/3)
-[  284.520081] wlan0: direct probe to c2:3f:0e:b9:f3:b3 timed out
-[  295.029501] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 1/3)
-[  295.228085] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 2/3)
-[  295.428086] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 3/3)
-[  295.628099] wlan0: direct probe to c2:3f:0e:b9:f3:b3 timed out
-[  306.137353] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 1/3)
-[  306.336092] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 2/3)
-[  306.536097] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 3/3)
-[  306.736099] wlan0: direct probe to c2:3f:0e:b9:f3:b3 timed out
-[  317.245279] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 1/3)
-[  317.444097] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 2/3)
-[  317.644111] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 3/3)
-[  317.844091] wlan0: direct probe to c2:3f:0e:b9:f3:b3 timed out
-[  328.348112] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 1/3)
-[  328.548171] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 2/3)
-[  328.748109] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 3/3)
-[  328.948095] wlan0: direct probe to c2:3f:0e:b9:f3:b3 timed out
-[  339.453369] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 1/3)
-[  339.652085] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 2/3)
-[  339.852082] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 3/3)
-[  340.052092] wlan0: direct probe to c2:3f:0e:b9:f3:b3 timed out
-[  344.316878] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 1/3)
-[  344.516064] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 2/3)
-[  344.716125] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 3/3)
-[  344.916101] wlan0: direct probe to c0:3f:0e:b9:f3:b2 timed out
-[  355.421554] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 1/3)
-[  355.620092] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 2/3)
-[  355.820642] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 3/3)
-[  356.020054] wlan0: direct probe to c0:3f:0e:b9:f3:b2 timed out
-[  366.521629] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 1/3)
-[  366.720085] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 2/3)
-[  366.920080] wlan0: direct probe to c0:3f:0e:b9:f3:b2 (try 3/3)
-[  367.120367] wlan0: direct probe to c0:3f:0e:b9:f3:b2 timed out
-[  433.347401] ADDRCONF(NETDEV_UP): wlan0: link is not ready
-[  468.143619] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 1/3)
-[  468.340073] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 2/3)
-[  468.540069] wlan0: direct probe to c2:3f:0e:b9:f3:b3 (try 3/3)
-[  468.740069] wlan0: direct probe to c2:3f:0e:b9:f3:b3 timed out
-[  482.093842] wlan0: authenticate with c2:3f:0e:b9:f3:b3 (try 1)
-[  482.095325] wlan0: authenticated
-[  482.095384] wlan0: associate with c2:3f:0e:b9:f3:b3 (try 1)
-[  482.097657] wlan0: RX AssocResp from c2:3f:0e:b9:f3:b3 (capab=0x401 status=0 aid=1)
-[  482.097666] wlan0: associated
-[  482.099748] ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
-[  492.416050] wlan0: no IPv6 routers present
-[  547.281613] wlan0: deauthenticating from c2:3f:0e:b9:f3:b3 by local choice (reason=3)
-[  547.281973] cfg80211: All devices are disconnected, going to restore regulatory settings
-[  547.281984] cfg80211: Restoring regulatory settings
-[  547.283060] cfg80211: Calling CRDA to update world regulatory domain
-[  547.311427] cfg80211: Ignoring regulatory request Set by core since the driver uses its own custom regulatory domain 
-[  547.311446] cfg80211: World regulatory domain updated:
-[  547.311451] cfg80211:     (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp)
-[  547.311461] cfg80211:     (2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
-[  547.311469] cfg80211:     (2457000 KHz - 2482000 KHz @ 20000 KHz), (300 mBi, 2000 mBm)
-[  547.311477] cfg80211:     (2474000 KHz - 2494000 KHz @ 20000 KHz), (300 mBi, 2000 mBm)
-[  547.311484] cfg80211:     (5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
-[  547.311492] cfg80211:     (5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+Hmmm...  One approach would be to use synchronize_rcu_expedited(), thou=
+gh
+that is a bit of a big hammer.
+
+							Thanx, Paul
