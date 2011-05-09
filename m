@@ -1,64 +1,40 @@
-From: Yi Zou <yi.zou@intel.com>
-Subject: [PATCH] net: group FCoE related feature flags
-Date: Mon, 09 May 2011 12:24:41 -0700
-Message-ID: <20110509192441.4502.77855.stgit@localhost6.localdomain6>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 5/4] tulip: xircom_cb: Remove useless
+ func_enter and func_exit
+Date: Mon, 09 May 2011 12:10:26 -0700 (PDT)
+Message-ID: <20110509.121026.28826727.davem@davemloft.net>
+References: <cover.1304733889.git.joe@perches.com>
+	<20110509.114706.189685729.davem@davemloft.net>
+	<1304968081.19586.66.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, jeffrey.t.kirsher@intel.com,
-	devel@open-fcoe.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34910 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751261Ab1EITJs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2011 15:09:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304968081.19586.66.camel@Joe-Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Micha=C5=82 Miros=C5=82aw's patch (http://patchwork.ozlabs.org/patch/94=
-421/) fixes the
-issue (http://patchwork.ozlabs.org/patch/94188/) about not populating F=
-CoE related
-flags correctly on vlan devices. However, only NETIF_F_FCOE_CRC is part=
- of the
-NETIF_F_ALL_TX_OFFLOADS right now, where weed NETIF_F_FCOE_MTU and NETI=
-=46_F_FSO
-as well.
+From: Joe Perches <joe@perches.com>
+Date: Mon, 09 May 2011 12:08:01 -0700
 
-Therefore, add NETIF_F_ALL_FCOE to indicate feature flags used by FCoE =
-TX offloads.
-These include NETIF_F_FCOE_CRC, NETIF_F_FCOE_MTU, and NETIF_F_FSO. They=
- are not part
-of the NETIF_F_ALL_TX_OFFLOADS. This would eventually make sure all FCo=
-E needed
-flags are populated properly to vlan devices.
+> On Mon, 2011-05-09 at 11:47 -0700, David Miller wrote:
+>> With the advent of the function tracer, those silly function entry/exit
+>> logging things are entirely superfluous.
+>> They make the code look ugly too.
+> 
+> I don't much like a lot of debugging messages
+> throughout drivers/net, but that's a whole 'nother
+> set of patches.
+> 
+>> Please do that and respin this patch set, thanks Joe!
+> 
+> How 'bout I just add another patch to delete them.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
----
+How about you just respin the patch set as I asked you to?
 
- include/linux/netdevice.h |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e7244ed..40b3df8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1097,10 +1097,14 @@ struct net_device {
-=20
- #define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN=
-)
-=20
-+#define NETIF_F_ALL_FCOE	(NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
-+				 NETIF_F_UFO)
-+
- #define NETIF_F_ALL_TX_OFFLOADS	(NETIF_F_ALL_CSUM | NETIF_F_SG | \
- 				 NETIF_F_FRAGLIST | NETIF_F_ALL_TSO | \
- 				 NETIF_F_HIGHDMA | \
--				 NETIF_F_SCTP_CSUM | NETIF_F_FCOE_CRC)
-+				 NETIF_F_SCTP_CSUM | \
-+				 NETIF_F_ALL_FCOE)
-=20
- 	/*
- 	 * If one device supports one of these features, then enable them
-
+It makes no sense to "fix" something you're just going to
+delete in the very next commit.
