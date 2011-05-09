@@ -1,94 +1,64 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Testing interface removal speedup patches from Eric Dumazet.
-Date: Mon, 09 May 2011 14:03:46 -0700
-Message-ID: <4DC856B2.6050806@candelatech.com>
-References: <4DC83471.7030701@candelatech.com> <06627C760FB049F1A9321BC6@Ximines.local> <4DC83A57.40405@candelatech.com> <D8B72070C6338973B87C9EFA@Ximines.local> <4DC843AF.6050607@candelatech.com> <39CEA2B6BDF36C1FA4B1EF64@nimrod.local>
+From: "Zou, Yi" <yi.zou@intel.com>
+Subject: RE: [PATCH] net: group FCoE related feature flags
+Date: Mon, 9 May 2011 14:15:33 -0700
+Message-ID: <7C88852EF6F99F4EB538472FCFEBE222018E803FB2@orsmsx509.amr.corp.intel.com>
+References: <20110509192441.4502.77855.stgit@localhost6.localdomain6>
+ <1304972279.2888.106.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Alex Bligh <alex@alex.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"devel@open-fcoe.org" <devel@open-fcoe.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:52301 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753247Ab1EIVD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 17:03:57 -0400
-In-Reply-To: <39CEA2B6BDF36C1FA4B1EF64@nimrod.local>
+Received: from mga09.intel.com ([134.134.136.24]:61637 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752185Ab1EIVPu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2011 17:15:50 -0400
+In-Reply-To: <1304972279.2888.106.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/09/2011 01:24 PM, Alex Bligh wrote:
-> Ben,
->
-> --On 9 May 2011 12:42:39 -0700 Ben Greear <greearb@candelatech.com> wrote:
->
->> I use HZ of 1000, btw.
->>
->> I killed udev, haldaemon..seemed to be just my stuff running.
->>
->> I don't see any 'ifup' running with these things dead...
->>
->> If you want to post your script, I can run it on my
->> machine...
->
-> See below - run (on ubuntu) by
-> service udev stop
-> unshare -n bash
-> ./ifseq -n 500
->
-> The unshare seems sufficient to stop any remaining udev listeners getting
-> wind of interface creation/deletion.
-
-You were not adding the 'up' flag
-on creation...and my script was.  I changed my script to not do
-up and it reports similar numbers to yours...
-
-Also, deleting with IPs added is likely to be a lot more work
-than deleting w/out, as your script does.
-
-Created 500 veth in 12.954143 seconds (0.025908286 per interface).
-Added IP addresses in 28.35679 seconds (0.05671358 per addr).
-Deleted 500 veth in 21.503877 seconds. (0.043007754 per interface)
-
-Created 100 veth in 1.06471 seconds (0.0106471 per interface).
-Added IP addresses in 2.006418 seconds (0.02006418 per addr).
-Deleted 100 veth in 2.983303 seconds. (0.02983303 per interface)
-
-
- From your script:
-
-[root@lec2010-ath9k-1 lanforge]# /mnt/b32/greearb/tmp/testifs.bash -n 500
-Mon May 9 13:53:31 PDT 2011 creating 500 interfaces
-Mon May 9 13:53:44 PDT 2011 done
-
-real	0m12.756s
-user	0m0.732s
-sys	0m11.943s
-Mon May 9 13:53:44 PDT 2011 deleting 500 interfaces
-Mon May 9 13:54:02 PDT 2011 done
-
-real	0m18.071s
-user	0m1.002s
-sys	0m8.376s
-[root@lec2010-ath9k-1 lanforge]# /mnt/b32/greearb/tmp/testifs.bash -n 100
-Mon May 9 13:54:33 PDT 2011 creating 100 interfaces
-Mon May 9 13:54:34 PDT 2011 done
-
-real	0m1.048s
-user	0m0.092s
-sys	0m0.943s
-Mon May 9 13:54:34 PDT 2011 deleting 100 interfaces
-Mon May 9 13:54:36 PDT 2011 done
-
-real	0m2.219s
-user	0m0.134s
-sys	0m0.794s
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+PiANCj4gT24gTW9uLCAyMDExLTA1LTA5IGF0IDEyOjI0IC0wNzAwLCBZaSBab3Ugd3JvdGU6DQo+
+ID4gTWljaGHFgiBNaXJvc8WCYXcncyBwYXRjaCAoaHR0cDovL3BhdGNod29yay5vemxhYnMub3Jn
+L3BhdGNoLzk0NDIxLykNCj4gZml4ZXMgdGhlDQo+ID4gaXNzdWUgKGh0dHA6Ly9wYXRjaHdvcmsu
+b3psYWJzLm9yZy9wYXRjaC85NDE4OC8pIGFib3V0IG5vdCBwb3B1bGF0aW5nDQo+IEZDb0UgcmVs
+YXRlZA0KPiA+IGZsYWdzIGNvcnJlY3RseSBvbiB2bGFuIGRldmljZXMuIEhvd2V2ZXIsIG9ubHkg
+TkVUSUZfRl9GQ09FX0NSQyBpcyBwYXJ0DQo+IG9mIHRoZQ0KPiA+IE5FVElGX0ZfQUxMX1RYX09G
+RkxPQURTIHJpZ2h0IG5vdywgd2hlcmUgd2VlZCBORVRJRl9GX0ZDT0VfTVRVIGFuZA0KPiBORVRJ
+Rl9GX0ZTTw0KPiA+IGFzIHdlbGwuDQo+ID4NCj4gPiBUaGVyZWZvcmUsIGFkZCBORVRJRl9GX0FM
+TF9GQ09FIHRvIGluZGljYXRlIGZlYXR1cmUgZmxhZ3MgdXNlZCBieSBGQ29FDQo+IFRYIG9mZmxv
+YWRzLg0KPiA+IFRoZXNlIGluY2x1ZGUgTkVUSUZfRl9GQ09FX0NSQywgTkVUSUZfRl9GQ09FX01U
+VSwgYW5kIE5FVElGX0ZfRlNPLiBUaGV5DQo+IGFyZSBub3QgcGFydA0KPiA+IG9mIHRoZSBORVRJ
+Rl9GX0FMTF9UWF9PRkZMT0FEUy4gVGhpcyB3b3VsZCBldmVudHVhbGx5IG1ha2Ugc3VyZSBhbGwN
+Cj4gRkNvRSBuZWVkZWQNCj4gPiBmbGFncyBhcmUgcG9wdWxhdGVkIHByb3Blcmx5IHRvIHZsYW4g
+ZGV2aWNlcy4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IFlpIFpvdSA8eWkuem91QGludGVsLmNv
+bT4NCj4gPiAtLS0NCj4gPg0KPiA+ICBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgICAgNiAr
+KysrKy0NCj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25z
+KC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCBiL2lu
+Y2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gPiBpbmRleCBlNzI0NGVkLi40MGIzZGY4IDEwMDY0
+NA0KPiA+IC0tLSBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gPiArKysgYi9pbmNsdWRl
+L2xpbnV4L25ldGRldmljZS5oDQo+ID4gQEAgLTEwOTcsMTAgKzEwOTcsMTQgQEAgc3RydWN0IG5l
+dF9kZXZpY2Ugew0KPiA+DQo+ID4gICNkZWZpbmUgTkVUSUZfRl9BTExfVFNPIAkoTkVUSUZfRl9U
+U08gfCBORVRJRl9GX1RTTzYgfA0KPiBORVRJRl9GX1RTT19FQ04pDQo+ID4NCj4gPiArI2RlZmlu
+ZSBORVRJRl9GX0FMTF9GQ09FCShORVRJRl9GX0ZDT0VfQ1JDIHwgTkVUSUZfRl9GQ09FX01UVSB8
+IFwNCj4gPiArCQkJCSBORVRJRl9GX1VGTykNCj4gDQo+IFVGTz8gIFN1cmVseSBGU08sIGxpa2Ug
+eW91IHdyb3RlIGluIHRoZSBjb21taXQgbWVzc2FnZS4uLg0KPiANCj4gQmVuLg0KWWlrZXMuLi5o
+b3cgSSBtaXNzZWQgdGhhdC4uLnRoYW5rcywgd2lsbCByZXNlbmQuDQoNCnlpDQoNCj4gDQo+ID4g
+ICNkZWZpbmUgTkVUSUZfRl9BTExfVFhfT0ZGTE9BRFMJKE5FVElGX0ZfQUxMX0NTVU0gfCBORVRJ
+Rl9GX1NHIHwgXA0KPiA+ICAJCQkJIE5FVElGX0ZfRlJBR0xJU1QgfCBORVRJRl9GX0FMTF9UU08g
+fCBcDQo+ID4gIAkJCQkgTkVUSUZfRl9ISUdIRE1BIHwgXA0KPiA+IC0JCQkJIE5FVElGX0ZfU0NU
+UF9DU1VNIHwgTkVUSUZfRl9GQ09FX0NSQykNCj4gPiArCQkJCSBORVRJRl9GX1NDVFBfQ1NVTSB8
+IFwNCj4gPiArCQkJCSBORVRJRl9GX0FMTF9GQ09FKQ0KPiA+DQo+ID4gIAkvKg0KPiA+ICAJICog
+SWYgb25lIGRldmljZSBzdXBwb3J0cyBvbmUgb2YgdGhlc2UgZmVhdHVyZXMsIHRoZW4gZW5hYmxl
+IHRoZW0NCj4gPg0KPiA+IC0tDQo+ID4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNl
+bmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gPiB0aGUgYm9keSBvZiBhIG1l
+c3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiA+IE1vcmUgbWFqb3Jkb21vIGlu
+Zm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KPiANCj4g
+LS0NCj4gQmVuIEh1dGNoaW5ncywgU2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyLCBTb2xhcmZsYXJl
+DQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUgbWFya2V0aW5nIGRl
+cGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUg
+cHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
