@@ -1,42 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [GIT PULL nf-2.6] IPVS (take III)
-Date: Mon, 09 May 2011 11:29:57 +0200
-Message-ID: <4DC7B415.1070709@trash.net>
-References: <1304896671-29384-1-git-send-email-horms@verge.net.au>
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Subject: Re: [PATCH net-next] ethtool: Add 20G bit definitions
+Date: Mon, 9 May 2011 13:16:57 +0300
+Message-ID: <1304936217.32472.10.camel@lb-tlvb-dmitry>
+References: <1304407809.2518.1.camel@lb-tlvb-dmitry>
+ <20110508.154312.229736305.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1304896671-29384-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4493 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751114Ab1EIKRO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2011 06:17:14 -0400
+In-Reply-To: <20110508.154312.229736305.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 09.05.2011 01:17, schrieb Simon Horman:
-> please consider pulling
+On Sun, 2011-05-08 at 15:43 -0700, David Miller wrote:
+> From: "Yaniv Rosner" <yanivr@broadcom.com>
+> Date: Tue, 3 May 2011 10:30:08 +0300
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-2.6.git for-nf-2.6
+> > Add 20G supported and advertising bit definitions.
+> > 20G will be supported with the 57840 chips.
+> > 
+> > 
+> > Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 > 
-> to get the following fix from Hans. They resolve some problems related
-> to his netns for IPVS work which was incorporated into 2.6.39-rc1.
+> Applied to net-next-2.6, thanks.
 > 
-> The pull request is based on nf-2.6/master.
-> 
-> There are other less-pressing changes from Hans which
-> I plan to get you to pull into nf-next-2.6 once these
-> changes make it there (presumably via net-2.6 and then net-next-2.6).
-> 
-> There are minor changes since take II.
-> 
-> Hans Schillstrom (2):
->       IPVS: Change of socket usage to enable name space exit.
->       IPVS: init and cleanup restructuring
+Ben,
+Please note that I haven't added new definition for 20000 link speed because my understanding is that it no longer required.
+Let me know if you think it is required, mainly for the speed extension in the ethtool application.
 
-Pulled, thanks Simon.
+Yaniv
+
+
