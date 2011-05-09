@@ -1,44 +1,43 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: Re: [PATCH net-next] ethtool: Add 20G bit definitions
-Date: Mon, 9 May 2011 13:16:57 +0300
-Message-ID: <1304936217.32472.10.camel@lb-tlvb-dmitry>
-References: <1304407809.2518.1.camel@lb-tlvb-dmitry>
- <20110508.154312.229736305.davem@davemloft.net>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH] [RESEND] iwl4965: drop a lone pr_err()
+Date: Mon, 9 May 2011 13:06:22 +0200
+Message-ID: <20110509110621.GA2294@redhat.com>
+References: <1304771519.2227.6.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Yaniv Rosner" <yaniv.rosner@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4493 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751114Ab1EIKRO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2011 06:17:14 -0400
-In-Reply-To: <20110508.154312.229736305.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1304771519.2227.6.camel@x61.thuisdomein>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-05-08 at 15:43 -0700, David Miller wrote:
-> From: "Yaniv Rosner" <yanivr@broadcom.com>
-> Date: Tue, 3 May 2011 10:30:08 +0300
+On Sat, May 07, 2011 at 02:31:59PM +0200, Paul Bolle wrote:
+> iwl4965_rate_control_register() prints a message at KERN_ERR level. It
+> looks like it's just a debugging message, so pr_err() seems to be
+> overdone. But none of the similar functions in drivers/net/wireless
+> print a message, so let's just drop it entirely.
 > 
-> > Add 20G supported and advertising bit definitions.
-> > 20G will be supported with the 57840 chips.
-> > 
-> > 
-> > Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> 
-> Applied to net-next-2.6, thanks.
-> 
-Ben,
-Please note that I haven't added new definition for 20000 link speed because my understanding is that it no longer required.
-Let me know if you think it is required, mainly for the speed extension in the ethtool application.
+> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+> ---
+> Previously sent for (I guess) v2.6.39-rc2. Still present in v2.6.39-rc6.
 
-Yaniv
+This patch is already applied in wireless-next ...
 
+commit a22e93f5d819f11d2a2d6332e20ff5b462e5c208
+Author: Paul Bolle <pebolle@tiscali.nl>
+Date:   Thu Apr 7 20:40:32 2011 +0200
 
+    iwl4965: drop a lone pr_err()
+    
+    iwl4965_rate_control_register() prints a message at KERN_ERR level.
+It
+    looks like it's just a debugging message, so pr_err() seems to be
+    overdone. But none of the similar functions in drivers/net/wireless
+    print a message, so let's just drop it.
+    
+    Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
