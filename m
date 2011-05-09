@@ -1,49 +1,80 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: future developments of usbnet
-Date: Mon, 9 May 2011 10:42:00 +0200
-Message-ID: <201105091042.01014.oliver@neukum.org>
-References: <201105062045.37336.oliver@neukum.org> <BANLkTimXmHr8aJ7WgRVvZj85t-gw68C_Ww@mail.gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: ARM, AF_PACKET: caching problems on Marvell Kirkwood
+Date: Mon, 9 May 2011 10:59:42 +0200
+Message-ID: <20110509085942.GA3439@orbit.nwl.cc>
+References: <20110408130643.GA8730@orbit.nwl.cc>
+ <20110505141107.GC30443@orbit.nwl.cc>
+ <20110505194601.GA10565@lunn.ch>
+ <20110506161753.GC20777@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Ming Lei <tom.leiming@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	ne@erfurth.eu, Johann Baudy <johann.baudy@gnu-log.net>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Nicolas Pitre <nico@fl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:57952 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752717Ab1EIIkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 04:40:21 -0400
-In-Reply-To: <BANLkTimXmHr8aJ7WgRVvZj85t-gw68C_Ww@mail.gmail.com>
+Received: from orbit.nwl.cc ([91.121.141.167]:48408 "EHLO orbit.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752005Ab1EII7o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 May 2011 04:59:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20110506161753.GC20777@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 9. Mai 2011, 05:26:04 schrieb Ming Lei:
-
 Hi,
 
-> 2011/5/7 Oliver Neukum <oliver@neukum.org>:
-> > Hi,
-> >
-> > I'd like to get a feeling what people are working out there regarding usbnet.
-> > So please, if you do something, or think something ought to be done, please
-> > speak up now.
-> >
-> > IMHO usbnet needs better support for
-> >
-> > - batching protocols
-> > - double buffering on the rx path
-> >
-> > with the latter having higher priority.
-> >
-> > Coments?
+On Fri, May 06, 2011 at 06:17:53PM +0200, Phil Sutter wrote:
+> On Thu, May 05, 2011 at 09:46:01PM +0200, Andrew Lunn wrote:
+> > I can reproduce it on a Kirkwood:
+> > 
+> > [    0.000000] CPU: Feroceon 88FR131 [56251311] revision 1 (ARMv5TE), cr=00053977
 > 
-> Maybe another thing about rx should be considered too: we should introduce
-> one flow control mechanism into rx path so that too much coming packets can
-> not consume many of memory and cause out of memory for atomic allocation.
+> Thanks for the information. Seems like we have the same CPU:
+> 
+> | [    0.000000] CPU: Feroceon 88FR131 [56251311] revision 1 (ARMv5TE), cr=00053177
+> | [    0.000000] CPU: VIVT data cache, VIVT instruction cache
+> 
+> and it's actually VIVT, not VIPT as I wrote in an earlier mail.
 
-Do we really need to avoid it, or do we just need to recover?
-If avoidance is needed, should we use NAPI?
+Interesting news, a friend of mine can reproduce the problem on a
+Foxboard (FOXG20):
 
-	Regards
-		Oliver
+| root@localhost:/root # dmesg |head -4
+| [    0.000000] Linux version 2.6.37 (wbx@chrom) (gcc version 4.5.2 (GCC) ) #1 Sat May 7 19:37:30 CEST 2011
+| [    0.000000] CPU: ARM926EJ-S [41069265] revision 5 (ARMv5TEJ), cr=00053177
+| [    0.000000] CPU: VIVT data cache, VIVT instruction cache
+| [    0.000000] Machine: Acme Systems FOXG20
+| root@localhost:/root # uname -a
+| Linux localhost 2.6.37 #1 Sat May 7 19:37:30 CEST 2011 armv5tejl GNU/Linux
+| root@localhost:/root # /mmap
+| sendto(): nothing sent!
+| tp_status after sending: SEND_REQUEST
+| sendto(): nothing sent!
+| tp_status after sending: SEND_REQUEST
+| sendto(): sent 450 bytes out
+| tp_status after sending: AVAILABLE
+| sendto(): sent 150 bytes out
+| tp_status after sending: AVAILABLE
+| sendto(): nothing sent!
+| tp_status after sending: SEND_REQUEST
+| sendto(): nothing sent!
+| tp_status after sending: SEND_REQUEST
+| sendto(): sent 300 bytes out
+| tp_status after sending: SEND_REQUEST
+| sendto(): nothing sent!
+| tp_status after sending: SEND_REQUEST
+| sendto(): sent 300 bytes out
+| tp_status after sending: SEND_REQUEST
+| sendto(): sent 150 bytes out
+| tp_status after sending: SEND_REQUEST
+| sendto(): sent 150 bytes out
+| tp_status after sending: SEND_REQUEST
+| sendto(): sent 300 bytes out
+| tp_status after sending: AVAILABLE
+| sendto(): nothing sent!
+| tp_status after sending: SEND_REQUEST
+| sendto(): sent 150 bytes out
+| tp_status after sending: SEND_REQUEST
+
+Greetings, Phil
