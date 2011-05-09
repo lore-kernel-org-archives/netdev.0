@@ -1,95 +1,77 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-next-2.6] sfc: Implement NETIF_F_LOOPBACK
-Date: Mon, 9 May 2011 09:36:35 +0200
-Message-ID: <20110509073635.GA16708@rere.qmqm.pl>
-References: <1304559011-15983-1-git-send-email-maheshb@google.com>
- <1304640751.2857.34.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next-2.6] veth: use batched device unregister
+Date: Mon, 09 May 2011 09:45:48 +0200
+Message-ID: <1304927148.3342.4.camel@edumazet-laptop>
+References: <1304793749.3207.26.camel@edumazet-laptop>
+	 <1304838742.3207.45.camel@edumazet-laptop>
+	 <F57561A93EFF5E88729A8D53@nimrod.local>
+	 <7B76F9D75FD26D716624004B@nimrod.local>
+	 <20110508125028.GK2641@linux.vnet.ibm.com>
+	 <B2891EFD056565BBD4DBCE16@nimrod.local>
+	 <20110508134425.GL2641@linux.vnet.ibm.com>
+	 <C449131127D58077CB25C9D8@Ximines.local>
+	 <20110508144749.GR2641@linux.vnet.ibm.com>
+	 <AB9DE9E04289CF29CA79CC67@Ximines.local>
+	 <20110508154854.GT2641@linux.vnet.ibm.com>
+	 <1304888447.3207.66.camel@edumazet-laptop>
+	 <1304916275.3207.79.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com,
-	Mahesh Bandewar <maheshb@google.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alex Bligh <alex@alex.org.uk>, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Ben Greear <greearb@candelatech.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:37301 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753037Ab1EIHgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2011 03:36:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1304640751.2857.34.camel@bwh-desktop>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:58923 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753261Ab1EIHpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 03:45:52 -0400
+Received: by wwk4 with SMTP id 4so2088237wwk.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2011 00:45:51 -0700 (PDT)
+In-Reply-To: <1304916275.3207.79.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 06, 2011 at 01:12:31AM +0100, Ben Hutchings wrote:
-> We already have comprehensive support for loopback testing, so pick
-> the nearest mode and run with it.
->=20
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> David, this depends on Mahesh's patch to define NETIF_F_LOOPBACK
-> <http://patchwork.ozlabs.org/patch/94190/>.  Although you've marked t=
-hat
-> as RFC, I think it is ready to apply.
->=20
-> Ben.
->=20
->  drivers/net/sfc/efx.c |   24 ++++++++++++++++++++++--
->  1 files changed, 22 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-> index 38a55e9..b7bfb49 100644
-> --- a/drivers/net/sfc/efx.c
-> +++ b/drivers/net/sfc/efx.c
-> @@ -1884,6 +1884,25 @@ static int efx_set_features(struct net_device =
-*net_dev, u32 data)
->  	if (net_dev->features & ~data & NETIF_F_NTUPLE)
->  		efx_filter_clear_rx(efx, EFX_FILTER_PRI_MANUAL);
-> =20
-> +	/* Toggle loopback if required */
-> +	if ((net_dev->features ^ data) & NETIF_F_LOOPBACK) {
-> +		enum efx_loopback_mode old_mode;
-> +		int rc;
-> +
-> +		mutex_lock(&efx->mac_lock);
-> +		old_mode =3D efx->loopback_mode;
-> +		if (data & NETIF_F_LOOPBACK)
-> +			efx->loopback_mode =3D __ffs(efx->loopback_modes);
-> +		else
-> +			efx->loopback_mode =3D LOOPBACK_NONE;
-> +		rc =3D __efx_reconfigure_port(efx);
-> +		if (rc)
-> +			efx->loopback_mode =3D old_mode;
-> +		mutex_unlock(&efx->mac_lock);
-> +		if (rc)
-> +			return rc;
-> +	}
-> +
->  	return 0;
->  }
+veth devices dont use the batched device unregisters yet.
 
-If other features than NETIF_F_LOOPBACK were changed correctly, this sh=
-ould
-update dev->features of what changed before error return. If not, devic=
-e's
-state will diverge to what is in dev->features.
+Since veth are a pair of devices, it makes sense to use a batch of two
+unregisters, this roughly divide dismantle time by two.
 
-> @@ -2472,8 +2491,9 @@ static int __devinit efx_pci_probe(struct pci_d=
-ev *pci_dev,
->  	net_dev->vlan_features |=3D (NETIF_F_ALL_CSUM | NETIF_F_SG |
->  				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
->  				   NETIF_F_RXCSUM);
-> -	/* All offloads can be toggled */
-> -	net_dev->hw_features =3D net_dev->features & ~NETIF_F_HIGHDMA;
-> +	/* All offloads can be toggled, and so can loopback */
-> +	net_dev->hw_features =3D ((net_dev->features & ~NETIF_F_HIGHDMA) |
-> +				NETIF_F_LOOPBACK);
->  	efx =3D netdev_priv(net_dev);
->  	pci_set_drvdata(pci_dev, efx);
->  	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
+Reported-by: Alex Bligh <alex@alex.org.uk>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Ben Greear <greearb@candelatech.com>
+---
+v2: added a list_del(&list) for safety (see commit ceaaec98)
+ drivers/net/veth.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
 
-You can remove the '& ~NETIF_F_HIGHDMA' part, as it's now allowed to be
-changed (commit fa2bd7ff9247f4218dfc907db14d000cd7edd862).
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 3b0151a..b41d6a9 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -416,8 +416,17 @@ static void veth_dellink(struct net_device *dev, struct list_head *head)
+ 	priv = netdev_priv(dev);
+ 	peer = priv->peer;
+ 
+-	unregister_netdevice_queue(dev, head);
+-	unregister_netdevice_queue(peer, head);
++	if (head == NULL) {
++		LIST_HEAD(list);
++		/* make a batch of two devices to speedup unregister */
++		unregister_netdevice_queue(dev, &list);
++		unregister_netdevice_queue(peer, &list);
++		unregister_netdevice_many(&list);
++		list_del(&list);
++	} else {
++		unregister_netdevice_queue(dev, head);
++		unregister_netdevice_queue(peer, head);
++	}
+ }
+ 
+ static const struct nla_policy veth_policy[VETH_INFO_MAX + 1];
 
-Best Regards,
-Micha=B3 Miros=B3aw
+
