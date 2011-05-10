@@ -1,95 +1,50 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
-Date: Tue, 10 May 2011 16:33:26 +0200
-Message-ID: <BANLkTikSAt0G5gyMDaPrVKr=b4p0DScxoA@mail.gmail.com>
-References: <20110510115013.363974020@de.ibm.com> <20110510115047.113084723@de.ibm.com>
- <BANLkTimUUXp5XiCtVoD+pJyQYcE_r25zyA@mail.gmail.com> <20110510140936.GA39624@tuxmaker.boeblingen.de.ibm.com>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next-2.6 1/5] be2net: Handle error completion in Lancer
+Date: Tue, 10 May 2011 20:42:17 +0530
+Message-ID: <410ae1f9-34cc-4957-8faa-4c3c36f9839f@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:52702 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752379Ab1EJOdr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 10:33:47 -0400
-In-Reply-To: <20110510140936.GA39624@tuxmaker.boeblingen.de.ibm.com>
+Received: from exht1.emulex.com ([138.239.113.183]:11240 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755715Ab1EJPNC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 11:13:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 10 maja 2011 16:09 u=BFytkownik Frank Blaschka
-<blaschka@linux.vnet.ibm.com> napisa=B3:
-> On Tue, May 10, 2011 at 03:19:27PM +0200, Micha=B3 Miros=B3aw wrote:
->> From: Frank Blaschka <frank.blaschka@de.ibm.com>
->> > Set rx csum default to hw checksumming again.
->> > Remove sysfs interface for rx csum (checksumming) and TSO (large_s=
-end).
->> > With the new hw_features it does not work to keep the old sysfs
->> > interface in parallel. Convert options.checksum_type to new hw_fea=
-tures.
->> [...]
->> > @@ -1482,32 +1476,28 @@ static int qeth_l3_start_ipa_checksum(st
->> [...]
->> > - =A0 =A0 =A0 rc =3D qeth_l3_send_checksum_command(card);
->> > - =A0 =A0 =A0 if (!rc)
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev_info(&card->gdev->dev,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 card->dev->hw_featur=
-es &=3D ~IPA_INBOUND_CHECKSUM;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 card->dev->features =
-&=3D ~IPA_INBOUND_CHECKSUM;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-[...]
->> Don't modify hw_features. Limit currently available features in
->> ndo_fix_features callback instead when checksumming is (temporarily)
->> unavailable.
->>
-> We have a recovery operation in our driver. What can we do in case th=
-is
-> recovery detects the checksumming is not available anymore (during ru=
-ntime
-> of the device). ndo_fix_features callback does not come into play at =
-this time.
-> How can we solve this?
+In Lancer if a frame is DMAed partially due to lack of RX buffers,
+an error completion is sent with packet size as zero and num_recvd
+indicating number of used buffers. These buffers need to be freed
+and packet dropped.
 
-Just call netdev_update_features() after recovery.
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+---
+ drivers/net/benet/be_main.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
->> > =A0static int qeth_l3_set_features(struct net_device *dev, u32 fea=
-tures)
->> > =A0{
->> > - =A0 =A0 =A0 enum qeth_checksum_types csum_type;
->> > =A0 =A0 =A0 =A0struct qeth_card *card =3D dev->ml_priv;
->> > =A0 =A0 =A0 =A0u32 changed =3D dev->features ^ features;
->> > + =A0 =A0 =A0 int on;
->> >
->> > =A0 =A0 =A0 =A0if (!(changed & NETIF_F_RXCSUM))
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 0;
->> >
->> > =A0 =A0 =A0 =A0if (features & NETIF_F_RXCSUM)
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 csum_type =3D HW_CHECKSUMMING;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 on =3D 1;
->> > =A0 =A0 =A0 =A0else
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 csum_type =3D SW_CHECKSUMMING;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 on =3D 0;
->> >
->> > =A0 =A0 =A0 =A0dev->features =3D features ^ NETIF_F_RXCSUM;
->> > - =A0 =A0 =A0 return qeth_l3_set_rx_csum(card, csum_type);
->> > + =A0 =A0 =A0 return qeth_l3_set_rx_csum(card, on);
->> > =A0}
->>
->> Since you removed dev->features update from qeth_l3_set_rx_csum(), y=
-ou
->> should also modify this code to match. On exit from ndo_fix_features=
-,
->> dev->features should reflect what is currently set, even if part of
->> the request failed.
-> Do you mean qeth_l3_set_rx_csum should set dev->features dependent of
-> the result of the checksum hardware operation?
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 7b19931..b1beb31 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1754,12 +1754,15 @@ static int be_poll_rx(struct napi_struct *napi, int budget)
+ 			break;
+ 
+ 		/* Ignore flush completions */
+-		if (rxcp->num_rcvd) {
++		if (rxcp->num_rcvd && rxcp->pkt_size) {
+ 			if (do_gro(rxcp))
+ 				be_rx_compl_process_gro(adapter, rxo, rxcp);
+ 			else
+ 				be_rx_compl_process(adapter, rxo, rxcp);
++		} else if (rxcp->pkt_size == 0) {
++			be_rx_compl_discard(adapter, rxo, rxcp);
+ 		}
++
+ 		be_rx_stats_update(rxo, rxcp);
+ 	}
+ 
+-- 
+1.6.0.2
 
-Yes. If it doesn't, then network core might pass packets needing
-hardware checksumming for a device with TX checksumming disabled.
-
-Best Regards,
-Micha=B3 Miros=B3aw
