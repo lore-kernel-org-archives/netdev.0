@@ -1,68 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.39-rc6-mmotm0506 - another lockdep splat (networking this
- time)
-Date: Tue, 10 May 2011 05:47:51 +0200
-Message-ID: <1304999271.3050.41.camel@edumazet-laptop>
-References: <6954.1304989523@localhost>
-	 <1304994188.3050.17.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC V2 PATCH] rtnetlink: Add method to calculate dump info
+ data size
+Date: Mon, 09 May 2011 20:49:59 -0700 (PDT)
+Message-ID: <20110509.204959.71127408.davem@davemloft.net>
+References: <1304995413.3050.19.camel@edumazet-laptop>
+	<20110509201705.409f6d39@nehalam>
+	<1304999127.3050.40.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304994188.3050.17.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, gregory.v.rose@intel.com,
+	netdev@vger.kernel.org, bhutchings@solarflare.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43516
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753455Ab1EJDub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 23:50:31 -0400
+In-Reply-To: <1304999127.3050.40.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 10 mai 2011 =C3=A0 04:23 +0200, Eric Dumazet a =C3=A9crit :
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 10 May 2011 05:45:27 +0200
 
-> Thanks for the report, I am taking a look how to fix this.
->=20
+> We only need to maintain a global variable to hold min_dump_alloc
+> 
+> [ and only increase this variable when necessary, not bother to decrease
+> it when removing a driver ]
 
-OK here is the official patch submission
-
-Thanks Valdis !
-
-[PATCH net-next-2.6] net: fix two lockdep splats
-
-Commit e67f88dd12f6 (net: dont hold rtnl mutex during netlink dump
-callbacks) switched rtnl protection to RCU, but we forgot to adjust two
-rcu_dereference() lockdep annotations :
-
-inet_get_link_af_size() or inet_fill_link_af() might be called with
-rcu_read_lock or rtnl held, so use rcu_dereference_rtnl()
-instead of rtnl_dereference()
-
-Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/devinet.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index cd9ca08..6b1eb92 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1369,7 +1369,7 @@ errout:
-=20
- static size_t inet_get_link_af_size(const struct net_device *dev)
- {
--	struct in_device *in_dev =3D __in_dev_get_rtnl(dev);
-+	struct in_device *in_dev =3D rcu_dereference_rtnl(dev->ip_ptr);
-=20
- 	if (!in_dev)
- 		return 0;
-@@ -1379,7 +1379,7 @@ static size_t inet_get_link_af_size(const struct =
-net_device *dev)
-=20
- static int inet_fill_link_af(struct sk_buff *skb, const struct net_dev=
-ice *dev)
- {
--	struct in_device *in_dev =3D __in_dev_get_rtnl(dev);
-+	struct in_device *in_dev =3D rcu_dereference_rtnl(dev->ip_ptr);
- 	struct nlattr *nla;
- 	int i;
-=20
+Agreed, this is probably the best approach.
