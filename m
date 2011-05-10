@@ -1,119 +1,49 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 08/21] tipc: Fix issues with fragmentation of an existing message buffer
-Date: Tue, 10 May 2011 16:44:24 -0400
-Message-ID: <1305060277-15600-9-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 10/21] tipc: Fix problem with bundled multicast message
+Date: Tue, 10 May 2011 16:44:26 -0400
+Message-ID: <1305060277-15600-11-git-send-email-paul.gortmaker@windriver.com>
 References: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
 	Allan Stephens <allan.stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52365 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:52380 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551Ab1EJUpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:45:02 -0400
+	with ESMTP id S1752388Ab1EJUpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:45:03 -0400
 In-Reply-To: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Modifies the routine that fragments an existing message buffer to
-use similar logic to that used when generating fragments from an iovec.
-The routine now creates a complete chain of fragments and adds them to
-the link transmit queue as a unit, so that the link sends all fragments
-or none; this prevents the incomplete transmission of a fragmented
-message that might otherwise result because of link congestion or
-memory exhaustion. This change also ensures that the counter recording
-the number of fragmented messages sent by the link is now incremented
-only if the message is actually sent.
+Set the destination node and destination port fields of an outgoing
+multicast message header to zero; this is necessary to ensure that
+the receiving node can route the message properly if it was packed
+into a bundle due to link congestion. (Previously, there was a chance
+that the receiving node would send the unbundled message to a random
+node & port, rather than processing the message itself.)
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c |   37 +++++++++++++++++++++++--------------
- 1 files changed, 23 insertions(+), 14 deletions(-)
+ net/tipc/port.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index ad356df..02b083e 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2406,6 +2406,8 @@ void tipc_link_recv_bundle(struct sk_buff *buf)
-  */
- static int link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
- {
-+	struct sk_buff *buf_chain = NULL;
-+	struct sk_buff *buf_chain_tail = (struct sk_buff *)&buf_chain;
- 	struct tipc_msg *inmsg = buf_msg(buf);
- 	struct tipc_msg fragm_hdr;
- 	u32 insize = msg_size(inmsg);
-@@ -2414,7 +2416,7 @@ static int link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
- 	u32 rest = insize;
- 	u32 pack_sz = l_ptr->max_pkt;
- 	u32 fragm_sz = pack_sz - INT_H_SIZE;
--	u32 fragm_no = 1;
-+	u32 fragm_no = 0;
- 	u32 destaddr;
- 
- 	if (msg_short(inmsg))
-@@ -2426,9 +2428,6 @@ static int link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
- 
- 	tipc_msg_init(&fragm_hdr, MSG_FRAGMENTER, FIRST_FRAGMENT,
- 		 INT_H_SIZE, destaddr);
--	msg_set_long_msgno(&fragm_hdr, l_ptr->long_msg_seq_no++);
--	msg_set_fragm_no(&fragm_hdr, fragm_no);
--	l_ptr->stats.sent_fragmented++;
- 
- 	/* Chop up message: */
- 
-@@ -2441,27 +2440,37 @@ static int link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
- 		}
- 		fragm = tipc_buf_acquire(fragm_sz + INT_H_SIZE);
- 		if (fragm == NULL) {
--			warn("Link unable to fragment message\n");
--			dsz = -ENOMEM;
--			goto exit;
-+			buf_discard(buf);
-+			while (buf_chain) {
-+				buf = buf_chain;
-+				buf_chain = buf_chain->next;
-+				buf_discard(buf);
-+			}
-+			return -ENOMEM;
- 		}
- 		msg_set_size(&fragm_hdr, fragm_sz + INT_H_SIZE);
-+		fragm_no++;
-+		msg_set_fragm_no(&fragm_hdr, fragm_no);
- 		skb_copy_to_linear_data(fragm, &fragm_hdr, INT_H_SIZE);
- 		skb_copy_to_linear_data_offset(fragm, INT_H_SIZE, crs,
- 					       fragm_sz);
--		/*  Send queued messages first, if any: */
-+		buf_chain_tail->next = fragm;
-+		buf_chain_tail = fragm;
- 
--		l_ptr->stats.sent_fragments++;
--		tipc_link_send_buf(l_ptr, fragm);
--		if (!tipc_link_is_up(l_ptr))
--			return dsz;
--		msg_set_fragm_no(&fragm_hdr, ++fragm_no);
- 		rest -= fragm_sz;
- 		crs += fragm_sz;
- 		msg_set_type(&fragm_hdr, FRAGMENT);
- 	}
--exit:
- 	buf_discard(buf);
-+
-+	/* Append chain of fragments to send queue & send them */
-+
-+	l_ptr->long_msg_seq_no++;
-+	link_add_chain_to_outqueue(l_ptr, buf_chain, l_ptr->long_msg_seq_no);
-+	l_ptr->stats.sent_fragments += fragm_no;
-+	l_ptr->stats.sent_fragmented++;
-+	tipc_link_push_queue(l_ptr);
-+
- 	return dsz;
- }
- 
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index c2229c4..ac64037 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -92,6 +92,8 @@ int tipc_multicast(u32 ref, struct tipc_name_seq const *seq,
+ 	hdr = &oport->phdr;
+ 	msg_set_type(hdr, TIPC_MCAST_MSG);
+ 	msg_set_lookup_scope(hdr, TIPC_CLUSTER_SCOPE);
++	msg_set_destport(hdr, 0);
++	msg_set_destnode(hdr, 0);
+ 	msg_set_nametype(hdr, seq->type);
+ 	msg_set_namelower(hdr, seq->lower);
+ 	msg_set_nameupper(hdr, seq->upper);
 -- 
 1.7.4.4
 
