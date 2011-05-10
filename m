@@ -1,107 +1,74 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 6/9] [PATCH] ctcm: get rid of compile warning
-Date: Tue, 10 May 2011 13:50:19 +0200
-Message-ID: <20110510115047.654763902@de.ibm.com>
-References: <20110510115013.363974020@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
+ uninitialized memory in __alloc_skb
+Date: Tue, 10 May 2011 13:52:34 +0200
+Message-ID: <1305028354.2614.25.camel@edumazet-laptop>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>
+	 <1303181466.4152.39.camel@edumazet-laptop>
+	 <1303182557.4152.48.camel@edumazet-laptop>
+	 <1303183217.4152.49.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104191210011.17888@router.home>
+	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
+	 <1303279470.2756.17.camel@edumazet-laptop>
+	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
+	 <1303286998.3186.18.camel@edumazet-laptop>
+	 <1303290464.3186.32.camel@edumazet-laptop>
+	 <1303293765.3186.74.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200904440.8634@router.home>
+	 <1303309591.3186.84.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200942020.9266@router.home>
+	 <1303311687.3186.100.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105092241390.6784@tiger>
+	 <alpine.DEB.2.00.1105091502260.26839@router.home>
+	 <1305016988.2614.6.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi>
+	 <1305022632.2614.18.camel@edumazet-laptop>
+	 <4DC91137.4030109@cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@linux.com>, casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:40809 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755457Ab1EJLuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:50:50 -0400
-Content-Disposition: inline; filename=605-ctcm-compile-warning.diff
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:33722 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754434Ab1EJLwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:52:38 -0400
+Received: by wwa36 with SMTP id 36so6781974wwa.1
+        for <netdev@vger.kernel.org>; Tue, 10 May 2011 04:52:37 -0700 (PDT)
+In-Reply-To: <4DC91137.4030109@cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+Le mardi 10 mai 2011 =C3=A0 13:19 +0300, Pekka Enberg a =C3=A9crit :
+> On 5/10/11 1:17 PM, Eric Dumazet wrote:
+> > Le mardi 10 mai 2011 =C3=A0 13:03 +0300, Pekka Enberg a =C3=A9crit =
+:
+> >
+> >> Can't we fix the issue by putting kmemcheck_mark_initialized() to
+> >> set_freepointer()?
+> >
+> > This would solve kmemcheck problem, not DEBUG_PAGEALLOC
+>=20
+> Oh, right. Christoph? We need to support DEBUG_PAGEALLOC with SLUB.
 
--Wunused-but-set-variable generates compile warnings. The affected
-variables are removed.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
+Maybe have a special version of "irqsafe_cpu_cmpxchg_double" and make i=
+t
+use something like :
 
 
- drivers/s390/net/ctcm_main.c |    2 --
- drivers/s390/net/ctcm_mpc.c  |   13 ++++---------
- 2 files changed, 4 insertions(+), 11 deletions(-)
-diff -urpN linux-2.6/drivers/s390/net/ctcm_main.c linux-2.6-patched/drivers/s390/net/ctcm_main.c
---- linux-2.6/drivers/s390/net/ctcm_main.c	2011-05-10 09:14:06.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/net/ctcm_main.c	2011-05-10 09:14:26.000000000 +0200
-@@ -672,7 +672,6 @@ static int ctcmpc_transmit_skb(struct ch
- 	int ccw_idx;
- 	unsigned long hi;
- 	unsigned long saveflags = 0;	/* avoids compiler warning */
--	__u16 block_len;
- 
- 	CTCM_PR_DEBUG("Enter %s: %s, cp=%i ch=0x%p id=%s state=%s\n",
- 			__func__, dev->name, smp_processor_id(), ch,
-@@ -719,7 +718,6 @@ static int ctcmpc_transmit_skb(struct ch
- 	 */
- 	atomic_inc(&skb->users);
- 
--	block_len = skb->len + TH_HEADER_LENGTH + PDU_HEADER_LENGTH;
- 	/*
- 	 * IDAL support in CTCM is broken, so we have to
- 	 * care about skb's above 2G ourselves.
-diff -urpN linux-2.6/drivers/s390/net/ctcm_mpc.c linux-2.6-patched/drivers/s390/net/ctcm_mpc.c
---- linux-2.6/drivers/s390/net/ctcm_mpc.c	2011-03-15 02:20:32.000000000 +0100
-+++ linux-2.6-patched/drivers/s390/net/ctcm_mpc.c	2011-05-10 09:14:26.000000000 +0200
-@@ -653,7 +653,6 @@ static void ctcmpc_send_sweep_resp(struc
- 	struct net_device *dev = rch->netdev;
- 	struct ctcm_priv *priv = dev->ml_priv;
- 	struct mpc_group *grp = priv->mpcg;
--	int rc = 0;
- 	struct th_sweep *header;
- 	struct sk_buff *sweep_skb;
- 	struct channel *ch  = priv->channel[CTCM_WRITE];
-@@ -665,16 +664,14 @@ static void ctcmpc_send_sweep_resp(struc
- 		CTCM_DBF_TEXT_(MPC_ERROR, CTC_DBF_ERROR,
- 			"%s(%s): sweep_skb allocation ERROR\n",
- 			CTCM_FUNTAIL, rch->id);
--		rc = -ENOMEM;
--				goto done;
-+		goto done;
- 	}
- 
- 	header = kmalloc(sizeof(struct th_sweep), gfp_type());
- 
- 	if (!header) {
- 		dev_kfree_skb_any(sweep_skb);
--		rc = -ENOMEM;
--				goto done;
-+		goto done;
- 	}
- 
- 	header->th.th_seg	= 0x00 ;
-@@ -1370,8 +1367,7 @@ static void mpc_action_go_inop(fsm_insta
- 	struct net_device  *dev = arg;
- 	struct ctcm_priv    *priv;
- 	struct mpc_group *grp;
--	int rc = 0;
--	struct channel *wch, *rch;
-+	struct channel *wch;
- 
- 	BUG_ON(dev == NULL);
- 	CTCM_PR_DEBUG("Enter %s: %s\n",	__func__, dev->name);
-@@ -1396,7 +1392,6 @@ static void mpc_action_go_inop(fsm_insta
- 		fsm_deltimer(&priv->restart_timer);
- 
- 	wch = priv->channel[CTCM_WRITE];
--	rch = priv->channel[CTCM_READ];
- 
- 	switch (grp->saved_state) {
- 	case MPCG_STATE_RESET:
-@@ -1435,7 +1430,7 @@ static void mpc_action_go_inop(fsm_insta
- 
- 	if (grp->send_qllc_disc == 1) {
- 		grp->send_qllc_disc = 0;
--		rc = mpc_send_qllc_discontact(dev);
-+		mpc_send_qllc_discontact(dev);
- 	}
- 
- 	/* DO NOT issue DEV_EVENT_STOP directly out of this code */
+local_irq_save(flags);
+if (probe_kernel_address(...)) {
+	res =3D false;
+} else {
+	res =3D unsafe_cpu_cmpxchg_double(...)
+	}
+local_irq_restore(flags);
+
+Just the idea, I dont have time to cook a patch.
+
 
