@@ -1,53 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 4/10] ipvs: Use IP_VS_RT_MODE_* instead of magic
- constants.
-Date: Wed, 11 May 2011 02:24:42 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1105110216200.4738@ja.ssi.bg>
-References: <20110509.223118.260083861.davem@davemloft.net> <alpine.LFD.2.00.1105110123001.4532@ja.ssi.bg> <20110510.153051.71135029.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] linux-firmware: bnx2: Update firmware and version
+Date: Tue, 10 May 2011 16:19:16 -0700
+Message-ID: <1305069556.9029.133.camel@nseg_linux_HP1.broadcom.com>
+References: <1305065779-26976-1-git-send-email-mchan@broadcom.com>
+ <1305069055.30435.99.camel@i7.infradead.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Woodhouse" <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49437 "EHLO ja.ssi.bg"
+Received: from mms3.broadcom.com ([216.31.210.19]:4865 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752217Ab1EJXXv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2011 19:23:51 -0400
-In-Reply-To: <20110510.153051.71135029.davem@davemloft.net>
+	id S1752765Ab1EJXZW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2011 19:25:22 -0400
+In-Reply-To: <1305069055.30435.99.camel@i7.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
-
-On Tue, 10 May 2011, David Miller wrote:
-
-> > 	Fix more IP_VS_RT_MODE_* constants
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > ---
-> > 
-> > 	Following patch can be used after patch 4, eg. as
-> > number 6 because patches 4 and 5 are ok and we are going to replace
-> > patches 6 and 7.
+On Tue, 2011-05-10 at 16:10 -0700, David Woodhouse wrote:
+> On Tue, 2011-05-10 at 15:16 -0700, Michael Chan wrote:
+> > upstream kernel commit dc187cb381f1bceb30498861ece510245c43ed9f
 > 
-> Thanks Julian.
-> 
-> What I'm going to do is hold back the IPVS parts of the patches I
-> posted last night.  In particular, I'll integrate this into the
-> original patch #4.
-> 
-> And then we can work through the reimplementation ideas you posted to
-> me in private email.
-> 
-> If you could post those ideas here on the list I'd appreciate it,
-> so others can follow along and provide feedback.
+> This stuff should no longer get changed in the upstream kernel; what's
+> there is *historical* and due for deletion.
 
-	I think, I included the main things in the comments
-with patch 7. I forgot to tell that I'll do some IPVS-IPv4 tests
-tomorrow. May be Hans will test the patches too.
+OK, no more from now on.
 
-Regards
+> 
+> > Update 5709 mips firmware to 6.2.1a to fix iSCSI performance
+> > regression.  There was an unnecessary context read in the fast path
+> > affecting performance. 
+> 
+> Is this update not ABI compatible? You have changed the soname of the
+> firmware... was that intentional?
+> 
 
---
-Julian Anastasov <ja@ssi.bg>
+The firmware is tightly coupled to the driver.  We only test one
+combination of driver/firmware and don't guarantee compatibility with
+other combinations.
+
+
