@@ -1,78 +1,56 @@
-From: David Decotigny <decot@google.com>
-Subject: [PATCH 2/2] net/dl2k: Don't reconfigure link @100Mbps when disabling autoneg @1Gbps
-Date: Mon,  9 May 2011 17:19:08 -0700
-Message-ID: <1304986748-15809-3-git-send-email-decot@google.com>
-References: <1304986748-15809-1-git-send-email-decot@google.com>
-Cc: David Decotigny <decot@google.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	netdev@vger.kernel.org,
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: [PATCH net-next] vmxnet3: Use single tx queue when CONFIG_PCI_MSI
+ not defined
+Date: Mon, 9 May 2011 17:39:30 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1105091715150.26660@sbhatewara-dev1.eng.vmware.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: pv-drivers@vmware.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304986748-15809-1-git-send-email-decot@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The initial version of the driver used to force the link to 100Mbps
-when auto-negociation was disabled on a 1Gbps link, ignoring the
-requested link speed. Instead, this change refuses to change anything
-when it is asked to configure the link speed at 1Gbps without
-auto-negociation, but acts as requested in all the other cases.
 
-IMPORTANT: Previously, the return value from mii_set_media() was
-           ignored. This patch uses it for its own return value.
+Limit number of Tx queues to 1 if MSI/MSI-X support is not configured in 
+the kernel. This will make number of tx and rx queues equal when MSI/X is 
+not configured thus providing better performance.
 
-Tested: module compiling, NOT tested on real hardware.
-Signed-off-by: David Decotigny <decot@google.com>
+Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+
 ---
- drivers/net/dl2k.c |   19 ++++++-------------
- 1 files changed, 6 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/dl2k.c b/drivers/net/dl2k.c
-index c445457..1a4856b 100644
---- a/drivers/net/dl2k.c
-+++ b/drivers/net/dl2k.c
-@@ -1211,24 +1211,17 @@ static int rio_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	if (cmd->autoneg == AUTONEG_ENABLE) {
- 		if (np->an_enable)
- 			return 0;
--		else {
--			np->an_enable = 1;
--			mii_set_media(dev);
--			return 0;
--		}
-+
-+		np->an_enable = 1;
- 	} else {
--		np->an_enable = 0;
--		if (np->speed == 1000) {
--			ethtool_cmd_speed_set(cmd, SPEED_100);
--			cmd->duplex = DUPLEX_FULL;
--			printk("Warning!! Can't disable Auto negotiation in 1000Mbps, change to Manual 100Mbps, Full duplex.\n");
--		}
- 		switch (ethtool_cmd_speed(cmd)) {
- 		case SPEED_10:
-+			np->an_enable = 0;
- 			np->speed = 10;
- 			np->full_duplex = (cmd->duplex == DUPLEX_FULL);
- 			break;
- 		case SPEED_100:
-+			np->an_enable = 0;
- 			np->speed = 100;
- 			np->full_duplex = (cmd->duplex == DUPLEX_FULL);
- 			break;
-@@ -1236,9 +1229,9 @@ static int rio_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		default:
- 			return -EINVAL;
- 		}
--		mii_set_media(dev);
- 	}
--	return 0;
-+
-+	return mii_set_media(dev);
- }
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 7a494f7..537e387 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2890,10 +2890,12 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ #endif
+ 		num_rx_queues = 1;
  
- static u32 rio_get_link(struct net_device *dev)
--- 
-1.7.3.1
++#ifdef CONFIG_PCI_MSI
+ 	if (enable_mq)
+ 		num_tx_queues = min(VMXNET3_DEVICE_MAX_TX_QUEUES,
+ 				    (int)num_online_cpus());
+ 	else
++#endif
+ 		num_tx_queues = 1;
+ 
+ 	netdev = alloc_etherdev_mq(sizeof(struct vmxnet3_adapter),
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 8ba7b5f..f50d36f 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -68,10 +68,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.0.25.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.1.9.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01001900
++#define VMXNET3_DRIVER_VERSION_NUM      0x01010900
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
