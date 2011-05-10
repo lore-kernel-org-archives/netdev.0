@@ -1,104 +1,172 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCHv2 net-next-2.6 2/2] qlcnic: Take FW dump via ethtool
-Date: Mon,  9 May 2011 18:02:32 -0700
-Message-ID: <1304989352-24810-4-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCHv2 net-next-2.6] ethtool: Added support for FW dump
+Date: Mon,  9 May 2011 18:02:30 -0700
+Message-ID: <1304989352-24810-2-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1304989352-24810-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: bhutchings@solarflare.com, davem@davemloft.net,
 	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:57372 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:57374 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753629Ab1EJBIs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752812Ab1EJBIs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 May 2011 21:08:48 -0400
 In-Reply-To: <1304989352-24810-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Driver checks if the previous dump has been cleared before taking the dump.
-It doesn't take the dump if it is not cleared.
+Added code to take FW dump via ethtool. A pair of set and get functions are
+added to configure dump level and fetch dump data from the driver respectively.
 
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_ethtool.c |   60 +++++++++++++++++++++++++++++++++++
- 1 files changed, 60 insertions(+), 0 deletions(-)
+ include/linux/ethtool.h |   31 +++++++++++++++++++++++
+ net/core/ethtool.c      |   62 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 93 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index c541461..1237449 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -965,6 +965,64 @@ static void qlcnic_set_msglevel(struct net_device *netdev, u32 msglvl)
- 	adapter->msg_enable = msglvl;
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index bd0b50b..f2cd7e1 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -601,6 +601,31 @@ struct ethtool_flash {
+ 	char	data[ETHTOOL_FLASH_MAX_FILENAME];
+ };
+ 
++/**
++ * struct ethtool_dump - used for retrieving, setting device dump
++ * @type: type of operation, get dump settings or data
++ * @version: FW version of the dump
++ * @flag: flag for dump setting
++ * @len: length of dump data
++ * @data: data collected for this command
++ */
++struct ethtool_dump {
++	__u32	cmd;
++	__u32	type;
++	__u32	version;
++	__u32	flag;
++	__u32	len;
++	u8	data[0];
++};
++
++/*
++ * ethtool_dump_op_type - used to determine type of fetch, flag or data
++ */
++enum ethtool_dump_op_type {
++	ETHTOOL_DUMP_FLAG	= 0,
++	ETHTOOL_DUMP_DATA,
++};
++
+ /* for returning and changing feature sets */
+ 
+ /**
+@@ -853,6 +878,8 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
+  * @get_channels: Get number of channels.
+  * @set_channels: Set number of channels.  Returns a negative error code or
+  *	zero.
++ * @get_dump: Get dump flag indicating current dump settings of the device
++ * @set_dump: Set dump specific flags to the device
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -927,6 +954,8 @@ struct ethtool_ops {
+ 				  const struct ethtool_rxfh_indir *);
+ 	void	(*get_channels)(struct net_device *, struct ethtool_channels *);
+ 	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
++	int	(*get_dump)(struct net_device *, struct ethtool_dump *, void *);
++	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+ 
+ };
+ #endif /* __KERNEL__ */
+@@ -998,6 +1027,8 @@ struct ethtool_ops {
+ #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings */
+ #define ETHTOOL_GCHANNELS	0x0000003c /* Get no of channels */
+ #define ETHTOOL_SCHANNELS	0x0000003d /* Set no of channels */
++#define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
++#define ETHTOOL_GET_DUMP	0x0000003f /* Get dump settings */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index b6f4058..3c3af8b 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1823,6 +1823,62 @@ static noinline_for_stack int ethtool_flash_device(struct net_device *dev,
+ 	return dev->ethtool_ops->flash_device(dev, &efl);
  }
  
-+static int
-+qlcnic_get_dump(struct net_device *netdev, struct ethtool_dump *dump,
-+		void *buffer)
++static int ethtool_set_dump(struct net_device *dev,
++			void __user *useraddr)
 +{
-+	int i, copy_sz;
-+	u32 *hdr_ptr, *data;
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
++	struct ethtool_dump dump;
 +
-+	if (dump->type == ETHTOOL_DUMP_FLAG) {
-+		dump->len = fw_dump->tmpl_hdr->size + fw_dump->size;
-+		dump->flag = fw_dump->tmpl_hdr->drv_cap_mask;
++	if (!dev->ethtool_ops->set_dump)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&dump, useraddr, sizeof(dump)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_dump(dev, &dump);
++}
++
++static int ethtool_get_dump(struct net_device *dev,
++				void __user *useraddr)
++{
++	int ret;
++	void *data = NULL;
++	struct ethtool_dump dump;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	enum ethtool_dump_op_type type;
++
++	if (!dev->ethtool_ops->get_dump)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&dump, useraddr, sizeof(dump)))
++		return -EFAULT;
++
++	type = dump.type;
++	dump.type = ETHTOOL_DUMP_FLAG;
++	ret = ops->get_dump(dev, &dump, data);
++	if (ret)
++		return ret;
++	dump.type = type;
++	if (copy_to_user(useraddr, &dump, sizeof(dump)))
++		return -EFAULT;
++	if (type != ETHTOOL_DUMP_DATA)
 +		return 0;
++
++	data = vzalloc(dump.len);
++	if (!data)
++		return -ENOMEM;
++	ret = ops->get_dump(dev, &dump, data);
++	if (ret) {
++		ret = -EFAULT;
++		goto out;
 +	}
-+	if (!fw_dump->clr) {
-+		netdev_info(netdev, "Dump not available\n");
-+		return -EINVAL;
-+	}
-+	copy_sz = fw_dump->tmpl_hdr->size;
-+	/* Copy template header first */
-+	hdr_ptr = (u32 *) fw_dump->tmpl_hdr;
-+	data = (u32 *) buffer;
-+	for (i = 0; i < copy_sz/sizeof(u32); i++)
-+		*data++ = cpu_to_le32(*hdr_ptr++);
-+	/* Copy captured dump data */
-+	memcpy(buffer + copy_sz, fw_dump->data, fw_dump->size);
-+	dump->len = copy_sz + fw_dump->size;
-+	dump->flag = fw_dump->tmpl_hdr->drv_cap_mask;
-+	/* free dump area once the whoel dump data has been captured */
-+	vfree(fw_dump->data);
-+	fw_dump->size = 0;
-+	fw_dump->data = NULL;
-+	fw_dump->clr = 0;
-+	return 0;
++	useraddr += offsetof(struct ethtool_dump, data);
++	if (copy_to_user(useraddr, data, dump.len))
++		ret = -EFAULT;
++out:
++	vfree(data);
++	return ret;
 +}
 +
-+static int
-+qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
-+	if (val->flag == QLCNIC_FORCE_FW_DUMP_KEY) {
-+		netdev_info(netdev, "Forcing a FW dump\n");
-+		qlcnic_dev_request_reset(adapter);
-+	} else {
-+		if (val->flag > QLCNIC_DUMP_MASK_MAX ||
-+			val->flag < QLCNIC_DUMP_MASK_MIN) {
-+				netdev_info(netdev,
-+				"Invalid dump level: 0x%x\n", val->flag);
-+				return -EINVAL;
-+		}
-+		fw_dump->tmpl_hdr->drv_cap_mask = val->flag & 0xff;
-+		netdev_info(netdev, "Driver mask changed to: 0x%x\n",
-+			fw_dump->tmpl_hdr->drv_cap_mask);
-+	}
-+	return 0;
-+}
-+
- const struct ethtool_ops qlcnic_ethtool_ops = {
- 	.get_settings = qlcnic_get_settings,
- 	.set_settings = qlcnic_set_settings,
-@@ -991,4 +1049,6 @@ const struct ethtool_ops qlcnic_ethtool_ops = {
- 	.set_phys_id = qlcnic_set_led,
- 	.set_msglevel = qlcnic_set_msglevel,
- 	.get_msglevel = qlcnic_get_msglevel,
-+	.get_dump = qlcnic_get_dump,
-+	.set_dump = qlcnic_set_dump,
- };
+ /* The main entry point in this file.  Called from net/core/dev.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -2039,6 +2095,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SCHANNELS:
+ 		rc = ethtool_set_channels(dev, useraddr);
+ 		break;
++	case ETHTOOL_SET_DUMP:
++		rc = ethtool_set_dump(dev, useraddr);
++		break;
++	case ETHTOOL_GET_DUMP:
++		rc = ethtool_get_dump(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 1.7.4.1
 
