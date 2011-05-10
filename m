@@ -1,62 +1,81 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Bug#625914: linux-image-2.6.38-2-amd64: bridging is not
- interacting well with multicast in 2.6.38-4
-Date: Mon, 9 May 2011 20:15:28 -0700
-Message-ID: <20110509201528.52d87ec4@nehalam>
-References: <20110506201234.6297.70279.reportbug@ip6-localhost>
-	<1304995124.4065.157.camel@localhost>
+Subject: Re: [RFC V2 PATCH] rtnetlink: Add method to calculate dump info
+ data size
+Date: Mon, 9 May 2011 20:17:05 -0700
+Message-ID: <20110509201705.409f6d39@nehalam>
+References: <20110509222629.8689.77365.stgit@gitlad.jf.intel.com>
+	<1304995413.3050.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Noah Meyerhans <noahm@debian.org>, 625914@bugs.debian.org,
-	netdev <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58508 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:58561 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753243Ab1EJDPa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 May 2011 23:15:30 -0400
-In-Reply-To: <1304995124.4065.157.camel@localhost>
+	id S1753379Ab1EJDRI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 23:17:08 -0400
+In-Reply-To: <1304995413.3050.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 May 2011 03:38:44 +0100
-Ben Hutchings <ben@decadent.org.uk> wrote:
+On Tue, 10 May 2011 04:43:33 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Fri, 2011-05-06 at 13:12 -0700, Noah Meyerhans wrote:
-> > Package: linux-2.6
-> > Version: 2.6.38-3
-> > Severity: normal
-> > 
-> > Hi. I've got a system that hosts several kvm virtual hosts.  The VMs
-> > access the network via tap devices bridged with a physical interface.
-> > After upgrading to linux-image-2.6.38-2-amd64_2.6.38-4, I noticed that
-> > the virtualhosts were not autoconfiguring their IPv6 interfaces.
-> > Debugging revealed that no multicast was passing over the bridge.
-> > 
-> > The bridge configuration is:
-> > bridge name     bridge id               STP enabled     interfaces
-> > br0             8000.0002e3080eb5       no              eth1
-> >                                                         tap0
-> >                                                         tap1
-> >                                                         tap2
-> > 
-> > If I attach tcpdump to br0, I can see multicast (e.g. IPv6 Neighbor
-> > Solicitation) packets.  However, if I attach tcpdump to eth1, I do not
-> > see multicast packets sourced from one of the VMs.
-> > 
-> > Downgrading to 2.6.38-3 solves the problem.
-> 
-> This is pretty weird.  Debian version 2.6.38-3 has a few bridging
-> changes from stable 2.6.38.3 and 2.6.38.4, but they don't look like they
-> would cause this.
-> 
-> Ben.
+> Le lundi 09 mai 2011 =C3=A0 15:26 -0700, Greg Rose a =C3=A9crit :
+> > The message size allocated for rtnl info dumps was limited to a sin=
+gle
+> > page.  This is not enough for additional interface info available w=
+ith
+> > devices that support SR-IOV.  Calculate the amount of data required=
+ so
+> > the dump can allocate enough data to satisfy the request.
+> >=20
+> > V2 of this patch adds a new argument to the rtnl_register service t=
+hat
+> > allows for a new method to calculate the amount of data required to
+> > complete the info dump request.  So far the method is only implemen=
+ted
+> > for the RTM_GETLINK slot.
+> >=20
+> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+>=20
+> > =20
+> > +static u16 rtnl_calcit(struct sk_buff *skb)
+> > +{
+> > +	struct net *net =3D sock_net(skb->sk);
+> > +	int h;
+> > +	int idx =3D 0, s_idx;
+> > +	struct net_device *dev;
+> > +	struct hlist_head *head;
+> > +	struct hlist_node *node;
+> > +	u16 alloc_size =3D 0;
+> > +
+> > +	for (h =3D 0; h < NETDEV_HASHENTRIES; h++, s_idx =3D 0) {
+> > +		idx =3D 0;
+> > +		head =3D &net->dev_index_head[h];
+> > +		hlist_for_each_entry(dev, node, head, index_hlist) {
+> > +			if (idx < s_idx) {
+> > +				idx++;
+> > +				continue;
+> > +			}
+> > +			alloc_size =3D (u16)if_nlmsg_size(dev);
+> > +			break;
+> > +		}
+> > +	}
+> > +
+> > +	return alloc_size;
+> > +}
+> > +
+>=20
+>=20
+> Sorry this wont scale. Some machines have thousand of devices.
+>=20
+> Just make an upper approximation, you dont need an exact one ;)
 
-There are two possible explainations:
-  1. In 2.6.37 and kernels the bridge uses IGMP snooping, there were several
-     fixes to that in the stable kernel; especially related to IPv6.
+The route dump does scale, can't you use a similar logic?
+The result doesn't come back as one huge allocation.
+I regularly test 600K routes on small machines.
 
-  2. There was also a recent change to block link local multicast
-     address. But that should impact what you are doing.
+--=20
