@@ -1,89 +1,104 @@
-From: Einar EL Lueck <ELELUECK@de.ibm.com>
-Subject: Fw: oops during unregister_netdevice interface enslaved to bond -
-	regression
-Date: Tue, 10 May 2011 10:17:09 +0200
-Message-ID: <OF0F4919C3.B9CFCAE8-ONC125788C.002D5EB1-C125788C.002D83B7@de.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
+ uninitialized memory in __alloc_skb
+Date: Tue, 10 May 2011 10:43:08 +0200
+Message-ID: <1305016988.2614.6.camel@edumazet-laptop>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>
+	 <20110418153852.153d3ed3.akpm@linux-foundation.org>
+	 <1303181466.4152.39.camel@edumazet-laptop>
+	 <1303182557.4152.48.camel@edumazet-laptop>
+	 <1303183217.4152.49.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104191210011.17888@router.home>
+	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
+	 <1303279470.2756.17.camel@edumazet-laptop>
+	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
+	 <1303286998.3186.18.camel@edumazet-laptop>
+	 <1303290464.3186.32.camel@edumazet-laptop>
+	 <1303293765.3186.74.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200904440.8634@router.home>
+	 <1303309591.3186.84.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200942020.9266@router.home>
+	 <1303311687.3186.100.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105092241390.6784@tiger>
+	 <alpine.DEB.2.00.1105091502260.26839@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Frank Blaschka <Frank.Blaschka@de.ibm.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pekka Enberg <penberg@kernel.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:41673 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753047Ab1EJIRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 04:17:13 -0400
-Received: from d06nrmr1307.portsmouth.uk.ibm.com (d06nrmr1307.portsmouth.uk.ibm.com [9.149.38.129])
-	by mtagate2.uk.ibm.com (8.13.1/8.13.1) with ESMTP id p4A8HCoE020827
-	for <netdev@vger.kernel.org>; Tue, 10 May 2011 08:17:12 GMT
-Received: from d06av09.portsmouth.uk.ibm.com (d06av09.portsmouth.uk.ibm.com [9.149.37.250])
-	by d06nrmr1307.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p4A8HBEs2428994
-	for <netdev@vger.kernel.org>; Tue, 10 May 2011 09:17:11 +0100
-Received: from d06av09.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av09.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p4A8HAxr010539
-	for <netdev@vger.kernel.org>; Tue, 10 May 2011 02:17:10 -0600
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39861 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753094Ab1EJInP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 04:43:15 -0400
+Received: by wya21 with SMTP id 21so4485315wya.19
+        for <netdev@vger.kernel.org>; Tue, 10 May 2011 01:43:13 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1105091502260.26839@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Hi Dave,
-
-Einar EL Lueck/Germany/IBM wrote on 04/29/2011 04:45:45 PM:
-
-> From:
->
-> Einar EL Lueck/Germany/IBM
->
-> To:
->
-> opurdila@ixiacom.com, netdev@vger.kernel.org, linux-
-> s390@vger.kernel.org, davem@davemloft.net
->
-> Cc:
->
-> Frank Blaschka/Germany/IBM@IBMDE
->
-> Date:
->
-> 04/29/2011 04:45 PM
->
-> Subject:
->
-> Re: oops during unregister_netdevice interface enslaved to bond -
-regression
->
-> Hi Octavian,
->
-> On 04/15/2011 10:53 AM, Frank Blaschka wrote:
-> > Hi Octavian,
+Le lundi 09 mai 2011 =C3=A0 15:04 -0500, Christoph Lameter a =C3=A9crit=
+ :
+> On Mon, 9 May 2011, Pekka Enberg wrote:
+>=20
+> > On Wed, 20 Apr 2011, Eric Dumazet wrote:
+> > > [PATCH v4] slub: dont use cmpxchg_double if KMEMCHECK or DEBUG_PA=
+GEALLOC
+> > >
+> > > Christian Casteyde reported a KMEMCHECK splat in slub code.
+> > >
+> > > Problem is now we are lockless and allow IRQ in slab_alloc(), the=
+ object
+> > > we manipulate from freelist can be allocated and freed right befo=
+re we
+> > > try to read object->next.
+> > >
+> > > Same problem can happen with DEBUG_PAGEALLOC
+> > >
+> > > Just dont use cmpxchg_double() if either CONFIG_KMEMCHECK or
+> > > CONFIG_DEBUG_PAGEALLOC is defined.
 > >
-> > your commit 443457242beb6716b43db4d62fe148eab5515505 introduced
-> this regression.
-> > I have reviewed the net device unregister code but did not
-> understand it very well.
-> > I have seen the problem only in combination with bonding. Can you
-> give me some help
-> > how to go on with this problem. I can reproduced it very easy on
-asingle CPU
-> > machine.
-> >
->
-> In this case rollback_registered_many iterates over the list of devs
-> that initially has just one device in it. In a loop it calls
-> call_netdevice_notifiers(NETDEV_UNREGISTER, dev) which triggers the
-> bonding driver to call dev_close_many for the same device. That call
-> to dev_close_many leads to the addition of the same device to the
-> list over which rollback_registered_many is iterating. Consequently,
-> netdev_unregister_kobject(dev) is called twice for the same device.
-> Frank captured the result in his mail.
->
+> > Christoph, Eric, is this still relevant after commit 1759415 ("slub=
+: Remove
+> > CONFIG_CMPXCHG_LOCAL ifdeffery") in slab/next of slab.git?
+>=20
+> There is still an issue and now you can no longer fix the thing throu=
+gh
+> CONFIG_CMPXCHG_LOCAL.
+>=20
+> It needs to be legal for slub to deref the counter even if the object=
+ has
+> been freed.
+>=20
 
-Calls to the *_many functions introduced by Octavian may never interleave
-because
-the traversed lists modify each other. This was the root cause for the
-symptom that Frank discovered. Octavian is not a valid mail recipient
-anymore and did not react from any new mail address. I suggest to revert
-the commit.
+I am trying to follow things but honestly I am lost.
 
-Regards,
-Einar.
+Isnt commit 1759415e63 planned for 2.6.40 ?
+( ref :
+http://git.kernel.org/?p=3Dlinux/kernel/git/penberg/slab-2.6.git;a=3Dco=
+mmitdiff;h=3D1759415e630e5db0dd2390df9f94892cbfb9a8a2 )
+
+How shall we fix things for 2.6.39 ? I thought my patch was OK for that=
+=2E
+
+
+Its a bit hard to work with you on this stuff, for a report I made ages
+ago, I find it incredible its not yet fixed in linux-2.6.
+
+Christoph, is your plan to make SLUB not compatable with
+CONFIG_DEBUG_PAGEALLOC ? Luckily we still have SLAB ;)
+
+I am a bit surprised of 1759415e63 commit. Its obviously wrong for
+DEBUG_PAGEALLOG. Sure KMEMCHECK could be handled differently (since we
+are !SMP in this case)
+
+???
+
+
 
