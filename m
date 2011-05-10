@@ -1,74 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
- uninitialized memory in __alloc_skb
-Date: Tue, 10 May 2011 13:52:34 +0200
-Message-ID: <1305028354.2614.25.camel@edumazet-laptop>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>
-	 <1303181466.4152.39.camel@edumazet-laptop>
-	 <1303182557.4152.48.camel@edumazet-laptop>
-	 <1303183217.4152.49.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104191210011.17888@router.home>
-	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
-	 <1303279470.2756.17.camel@edumazet-laptop>
-	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
-	 <1303286998.3186.18.camel@edumazet-laptop>
-	 <1303290464.3186.32.camel@edumazet-laptop>
-	 <1303293765.3186.74.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104200904440.8634@router.home>
-	 <1303309591.3186.84.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1104200942020.9266@router.home>
-	 <1303311687.3186.100.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1105092241390.6784@tiger>
-	 <alpine.DEB.2.00.1105091502260.26839@router.home>
-	 <1305016988.2614.6.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi>
-	 <1305022632.2614.18.camel@edumazet-laptop>
-	 <4DC91137.4030109@cs.helsinki.fi>
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Tue, 10 May 2011 04:55:36 -0700
+Message-ID: <8473e76e-64b3-46bb-b4c3-7997f87d53ea@exht1.ad.emulex.com>
+References: <20110510114917.11f8738f.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>, casteyde.christian@free.fr,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Vegard Nossum <vegardno@ifi.uio.no>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33722 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754434Ab1EJLwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:52:38 -0400
-Received: by wwa36 with SMTP id 36so6781974wwa.1
-        for <netdev@vger.kernel.org>; Tue, 10 May 2011 04:52:37 -0700 (PDT)
-In-Reply-To: <4DC91137.4030109@cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<Somnath.Kotur@Emulex.Com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110510114917.11f8738f.sfr@canb.auug.org.au>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 10 mai 2011 =C3=A0 13:19 +0300, Pekka Enberg a =C3=A9crit :
-> On 5/10/11 1:17 PM, Eric Dumazet wrote:
-> > Le mardi 10 mai 2011 =C3=A0 13:03 +0300, Pekka Enberg a =C3=A9crit =
-:
-> >
-> >> Can't we fix the issue by putting kmemcheck_mark_initialized() to
-> >> set_freepointer()?
-> >
-> > This would solve kmemcheck problem, not DEBUG_PAGEALLOC
->=20
-> Oh, right. Christoph? We need to support DEBUG_PAGEALLOC with SLUB.
+Hi Stephen, your conflict fix below looks fine. Thanks.
 
+-Sathya
 
-Maybe have a special version of "irqsafe_cpu_cmpxchg_double" and make i=
-t
-use something like :
+-----Original Message-----
+From: Stephen Rothwell [mailto:sfr@canb.auug.org.au] 
+Sent: Tuesday, May 10, 2011 7:19 AM
+To: David Miller; netdev@vger.kernel.org
+Cc: linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; Kotur, Somnath; Perla, Sathya
+Subject: linux-next: manual merge of the net tree with the net-current tree
 
+Hi all,
 
-local_irq_save(flags);
-if (probe_kernel_address(...)) {
-	res =3D false;
-} else {
-	res =3D unsafe_cpu_cmpxchg_double(...)
-	}
-local_irq_restore(flags);
+Today's linux-next merge of the net tree got a conflict in
+drivers/net/benet/be_main.c between commit 6709d9521df0 ("be2net: Fixed
+bugs related to PVID") from the net-current tree and commit 15d721847f56
+("be2net: parse vid and vtm fields of rx-compl only if vlanf bit is set")
+from the net tree.
 
-Just the idea, I dont have time to cook a patch.
+I fixed it up (I think - see below) and can carry the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-
+diff --cc drivers/net/benet/be_main.c
+index 9187fb4,7b19931..0000000
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@@ -1103,9 -1102,14 +1104,14 @@@ static void be_parse_rx_compl_v1(struc
+  		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, numfrags, compl);
+  	rxcp->pkt_type =
+  		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, cast_enc, compl);
+- 	rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtm, compl);
+- 	rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
+- 					compl);
++ 	rxcp->rss_hash =
++ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, rsshash, rxcp);
++ 	if (rxcp->vlanf) {
++ 		rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vtm,
++ 				compl);
+ -		rxcp->vid = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
+++		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
++ 				compl);
++ 	}
+  }
+  
+  static void be_parse_rx_compl_v0(struct be_adapter *adapter,
+@@@ -1130,9 -1134,14 +1136,14 @@@
+  		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, numfrags, compl);
+  	rxcp->pkt_type =
+  		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, cast_enc, compl);
+- 	rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtm, compl);
+- 	rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
+- 					compl);
++ 	rxcp->rss_hash =
++ 		AMAP_GET_BITS(struct amap_eth_rx_compl_v0, rsshash, rxcp);
++ 	if (rxcp->vlanf) {
++ 		rxcp->vtm = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vtm,
++ 				compl);
+ -		rxcp->vid = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
+++		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
++ 				compl);
++ 	}
+  }
+  
+  static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+@@@ -1154,17 -1163,19 +1165,20 @@@
+  	else
+  		be_parse_rx_compl_v0(adapter, compl, rxcp);
+  
+- 	/* vlanf could be wrongly set in some cards. ignore if vtm is not set */
+- 	if ((adapter->function_mode & 0x400) && !rxcp->vtm)
+- 		rxcp->vlanf = 0;
++ 	if (rxcp->vlanf) {
++ 		/* vlanf could be wrongly set in some cards.
++ 		 * ignore if vtm is not set */
++ 		if ((adapter->function_mode & 0x400) && !rxcp->vtm)
++ 			rxcp->vlanf = 0;
+  
+- 	if (!lancer_chip(adapter))
+- 		rxcp->vlan_tag = swab16(rxcp->vlan_tag);
++ 		if (!lancer_chip(adapter))
+ -			rxcp->vid = swab16(rxcp->vid);
+++			rxcp->vlan_tag = swab16(rxcp->vlan_tag);
+  
+- 	if (((adapter->pvid & VLAN_VID_MASK) ==
+- 		(rxcp->vlan_tag & VLAN_VID_MASK)) &&
+- 		!adapter->vlan_tag[rxcp->vlan_tag])
+- 		rxcp->vlanf = 0;
+ -		if ((adapter->pvid == rxcp->vid) &&
+ -			!adapter->vlan_tag[rxcp->vid])
+++		if (((adapter->pvid & VLAN_VID_MASK) ==
+++			(rxcp->vlan_tag & VLAN_VID_MASK)) &&
+++			!adapter->vlan_tag[rxcp->vlan_tag])
++ 			rxcp->vlanf = 0;
++ 	}
+  
+  	/* As the compl has been parsed, reset it; we wont touch it again */
+  	compl->dw[offsetof(struct amap_eth_rx_compl_v1, valid) / 32] = 0;
