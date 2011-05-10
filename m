@@ -1,93 +1,84 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/10] ipv4: udp: Eliminate remaining uses of rt->rt_src
-Date: Mon, 09 May 2011 22:31:16 -0700 (PDT)
-Message-ID: <20110509.223116.48500459.davem@davemloft.net>
+Subject: [PATCH 4/10] ipvs: Use IP_VS_RT_MODE_* instead of magic constants.
+Date: Mon, 09 May 2011 22:31:18 -0700 (PDT)
+Message-ID: <20110509.223118.260083861.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53401
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53404
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752993Ab1EJFbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 01:31:47 -0400
+	by vger.kernel.org with ESMTP id S1752993Ab1EJFbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 01:31:50 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 3195824C087
-	for <netdev@vger.kernel.org>; Mon,  9 May 2011 22:31:16 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 683A224C087
+	for <netdev@vger.kernel.org>; Mon,  9 May 2011 22:31:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-We already track and pass around the correct flow key,
-so simply use it in udp_send_skb().
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/udp.c |   13 ++++++-------
- 1 files changed, 6 insertions(+), 7 deletions(-)
+ net/netfilter/ipvs/ip_vs_xmit.c |   17 ++++++++++++-----
+ 1 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 66341a3..599374f 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -706,12 +706,11 @@ static void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst)
- 	}
- }
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 6132b21..c4a19f9 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -440,7 +440,8 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
  
--static int udp_send_skb(struct sk_buff *skb, __be32 daddr, __be32 dport)
-+static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4)
- {
- 	struct sock *sk = skb->sk;
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct udphdr *uh;
--	struct rtable *rt = (struct rtable *)skb_dst(skb);
- 	int err = 0;
- 	int is_udplite = IS_UDPLITE(sk);
- 	int offset = skb_transport_offset(skb);
-@@ -723,7 +722,7 @@ static int udp_send_skb(struct sk_buff *skb, __be32 daddr, __be32 dport)
+ 	EnterFunction(10);
+ 
+-	if (!(rt = __ip_vs_get_out_rt_v6(skb, NULL, &iph->daddr, NULL, 0, 2)))
++	if (!(rt = __ip_vs_get_out_rt_v6(skb, NULL, &iph->daddr, NULL, 0,
++					 IP_VS_RT_MODE_NON_LOCAL)))
+ 		goto tx_error_icmp;
+ 
+ 	/* MTU checking */
+@@ -632,7 +633,9 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	}
+ 
+ 	if (!(rt = __ip_vs_get_out_rt_v6(skb, cp->dest, &cp->daddr.in6, NULL,
+-					 0, 1|2|4)))
++					 0, (IP_VS_RT_MODE_LOCAL |
++					     IP_VS_RT_MODE_NON_LOCAL |
++					     IP_VS_RT_MODE_RDR))))
+ 		goto tx_error_icmp;
+ 	local = __ip_vs_is_local_route6(rt);
+ 	/*
+@@ -875,7 +878,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	EnterFunction(10);
+ 
+ 	if (!(rt = __ip_vs_get_out_rt_v6(skb, cp->dest, &cp->daddr.in6,
+-					 &saddr, 1, 1|2)))
++					 &saddr, 1, (IP_VS_RT_MODE_LOCAL |
++						     IP_VS_RT_MODE_NON_LOCAL))))
+ 		goto tx_error_icmp;
+ 	if (__ip_vs_is_local_route6(rt)) {
+ 		dst_release(&rt->dst);
+@@ -1050,7 +1054,8 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	EnterFunction(10);
+ 
+ 	if (!(rt = __ip_vs_get_out_rt_v6(skb, cp->dest, &cp->daddr.in6, NULL,
+-					 0, 1|2)))
++					 0, (IP_VS_RT_MODE_LOCAL |
++					     IP_VS_RT_MODE_NON_LOCAL))))
+ 		goto tx_error_icmp;
+ 	if (__ip_vs_is_local_route6(rt)) {
+ 		dst_release(&rt->dst);
+@@ -1254,7 +1259,9 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
  	 */
- 	uh = udp_hdr(skb);
- 	uh->source = inet->inet_sport;
--	uh->dest = dport;
-+	uh->dest = fl4->fl4_dport;
- 	uh->len = htons(len);
- 	uh->check = 0;
  
-@@ -737,14 +736,14 @@ static int udp_send_skb(struct sk_buff *skb, __be32 daddr, __be32 dport)
+ 	if (!(rt = __ip_vs_get_out_rt_v6(skb, cp->dest, &cp->daddr.in6, NULL,
+-					 0, 1|2|4)))
++					 0, (IP_VS_RT_MODE_LOCAL |
++					     IP_VS_RT_MODE_NON_LOCAL |
++					     IP_VS_RT_MODE_RDR))))
+ 		goto tx_error_icmp;
  
- 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
- 
--		udp4_hwcsum(skb, rt->rt_src, daddr);
-+		udp4_hwcsum(skb, fl4->saddr, fl4->daddr);
- 		goto send;
- 
- 	} else
- 		csum = udp_csum(skb);
- 
- 	/* add protocol-dependent pseudo-header */
--	uh->check = csum_tcpudp_magic(rt->rt_src, daddr, len,
-+	uh->check = csum_tcpudp_magic(fl4->saddr, fl4->daddr, len,
- 				      sk->sk_protocol, csum);
- 	if (uh->check == 0)
- 		uh->check = CSUM_MANGLED_0;
-@@ -778,7 +777,7 @@ static int udp_push_pending_frames(struct sock *sk)
- 	if (!skb)
- 		goto out;
- 
--	err = udp_send_skb(skb, fl4->daddr, fl4->fl4_dport);
-+	err = udp_send_skb(skb, fl4);
- 
- out:
- 	up->len = 0;
-@@ -963,7 +962,7 @@ back_from_confirm:
- 				  msg->msg_flags);
- 		err = PTR_ERR(skb);
- 		if (skb && !IS_ERR(skb))
--			err = udp_send_skb(skb, daddr, dport);
-+			err = udp_send_skb(skb, fl4);
- 		goto out;
- 	}
- 
+ 	local = __ip_vs_is_local_route6(rt);
 -- 
 1.7.5.1
 
