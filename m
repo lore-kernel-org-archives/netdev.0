@@ -1,43 +1,53 @@
-From: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Tue, 10 May 2011 15:41:49 +0530
-Message-ID: <F1859F4DD03040248B42AC947304D39B@subhasishg>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
-	<201105041511.54095.arnd@arndb.de>
-	<4DC163D7.9010309@grandegger.com>
-	<201105041648.37199.arnd@arndb.de>
-	<4DC17831.3070801@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
+ uninitialized memory in __alloc_skb
+Date: Tue, 10 May 2011 12:17:12 +0200
+Message-ID: <1305022632.2614.18.camel@edumazet-laptop>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>
+	 <20110418153852.153d3ed3.akpm@linux-foundation.org>
+	 <1303181466.4152.39.camel@edumazet-laptop>
+	 <1303182557.4152.48.camel@edumazet-laptop>
+	 <1303183217.4152.49.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104191210011.17888@router.home>
+	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
+	 <1303279470.2756.17.camel@edumazet-laptop>
+	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>
+	 <1303286998.3186.18.camel@edumazet-laptop>
+	 <1303290464.3186.32.camel@edumazet-laptop>
+	 <1303293765.3186.74.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200904440.8634@router.home>
+	 <1303309591.3186.84.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104200942020.9266@router.home>
+	 <1303311687.3186.100.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105092241390.6784@tiger>
+	 <alpine.DEB.2.00.1105091502260.26839@router.home>
+	 <1305016988.2614.6.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, m-watkins-l0cyMroinI0@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, "Arnd Bergmann" <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4DC17831.3070801-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@linux.com>, casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63803 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755480Ab1EJKRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 06:17:15 -0400
+Received: by wwa36 with SMTP id 36so6702037wwa.1
+        for <netdev@vger.kernel.org>; Tue, 10 May 2011 03:17:14 -0700 (PDT)
+In-Reply-To: <4DC90D7D.9030808@cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> 
->> It sounds to me like the best solution would be change the firmware
->> to lift that restriction and simply allow all IDs, in case it's not
->> actually a hardware limitation (which sounds unlikely).
-> 
-> Yes, that would be best but they told us, that it's not possible with
-> the available hardware resources. Subhasish?
+Le mardi 10 mai 2011 =C3=A0 13:03 +0300, Pekka Enberg a =C3=A9crit :
 
-Yes, In case if we allow the ALL implementation, it hogs the CPU.
-In that case we do not need the PRU. The whole purpose of the PRU
-is to offload the processor for any such implementations. 
+> Can't we fix the issue by putting kmemcheck_mark_initialized() to=20
+> set_freepointer()?
+
+This would solve kmemcheck problem, not DEBUG_PAGEALLOC
+
+
+
