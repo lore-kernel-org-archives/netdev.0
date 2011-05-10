@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: oops during unregister_netdevice interface enslaved to bond -
- regression
-Date: Tue, 10 May 2011 12:26:17 -0700 (PDT)
-Message-ID: <20110510.122617.59686955.davem@davemloft.net>
-References: <1305017672.2614.9.camel@edumazet-laptop>
-	<20110510131438.GA41522@tuxmaker.boeblingen.de.ibm.com>
-	<1305034619.2614.37.camel@edumazet-laptop>
+Subject: Re: [PATCH] xfrm: Assign the inner mode output function to the dst
+ entry
+Date: Tue, 10 May 2011 12:28:09 -0700 (PDT)
+Message-ID: <20110510.122809.115943941.davem@davemloft.net>
+References: <20110510053638.GB8013@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	ELELUECK@de.ibm.com, opurdila@ixiacom.com
-To: eric.dumazet@gmail.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53083
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53088
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750792Ab1EJT0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 15:26:49 -0400
-In-Reply-To: <1305034619.2614.37.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751567Ab1EJT2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 15:28:41 -0400
+In-Reply-To: <20110510053638.GB8013@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 May 2011 15:36:59 +0200
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 10 May 2011 07:36:38 +0200
 
-> [PATCH net-2.6] net: dev_close() should check IFF_UP
+> As it is, we assign the outer modes output function to the dst entry
+> when we create the xfrm bundle. This leads to two problems on interfamily
+> scenarios. We might insert ipv4 packets into ip6_fragment when called
+> from xfrm6_output. The system crashes if we try to fragment an ipv4
+> packet with ip6_fragment. This issue was introduced with git commit
+> ad0081e4 (ipv6: Fragment locally generated tunnel-mode IPSec6 packets
+> as needed). The second issue is, that we might insert ipv4 packets in
+> netfilter6 and vice versa on interfamily scenarios.
+> 
+> With this patch we assign the inner mode output function to the dst entry
+> when we create the xfrm bundle. So xfrm4_output/xfrm6_output from the inner
+> mode is used and the right fragmentation and netfilter functions are called.
+> We switch then to outer mode with the output_finish functions.
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-Applied, thanks Eric.
+Applied.
