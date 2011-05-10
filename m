@@ -1,52 +1,55 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 01/21] tipc: Drop __TIME__ usage
-Date: Tue, 10 May 2011 16:44:17 -0400
-Message-ID: <1305060277-15600-2-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 06/21] tipc: Don't initialize link selector field in fragmented messages
+Date: Tue, 10 May 2011 16:44:22 -0400
+Message-ID: <1305060277-15600-7-git-send-email-paul.gortmaker@windriver.com>
 References: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
-	Michal Marek <mmarek@suse.cz>,
 	Allan Stephens <allan.stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52300 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:52323 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752522Ab1EJUo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:44:59 -0400
+	with ESMTP id S1752559Ab1EJUpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:45:00 -0400
 In-Reply-To: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Marek <mmarek@suse.cz>
+From: Allan Stephens <allan.stephens@windriver.com>
 
-The kernel already prints its build timestamp during boot, no need to
-repeat it in random drivers and produce different object files each
-time.
+Eliminates code that sets the link selector field in the header of
+fragmented messages, since this information is never referenced.
+(The unnecessary initialization was harmless as it was over-written
+by the fragmented message identifier value before the fragments were
+transmitted.)
 
-Signed-off-by: Michal Marek <mmarek@suse.cz>
-Cc: Jon Maloy <jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org
-Cc: tipc-discussion@lists.sourceforge.net
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/core.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ net/tipc/link.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index c9a73e7..943b6af 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -179,8 +179,7 @@ static int __init tipc_init(void)
- 	if (tipc_log_resize(CONFIG_TIPC_LOG) != 0)
- 		warn("Unable to create log buffer\n");
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index ebf338f..95249ba 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1169,7 +1169,6 @@ again:
  
--	info("Activated (version " TIPC_MOD_VER
--	     " compiled " __DATE__ " " __TIME__ ")\n");
-+	info("Activated (version " TIPC_MOD_VER ")\n");
+ 	tipc_msg_init(&fragm_hdr, MSG_FRAGMENTER, FIRST_FRAGMENT,
+ 		 INT_H_SIZE, msg_destnode(hdr));
+-	msg_set_link_selector(&fragm_hdr, sender->ref);
+ 	msg_set_size(&fragm_hdr, max_pkt);
+ 	msg_set_fragm_no(&fragm_hdr, 1);
  
- 	tipc_own_addr = 0;
- 	tipc_remote_management = 1;
+@@ -2427,7 +2426,6 @@ static int link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
+ 
+ 	tipc_msg_init(&fragm_hdr, MSG_FRAGMENTER, FIRST_FRAGMENT,
+ 		 INT_H_SIZE, destaddr);
+-	msg_set_link_selector(&fragm_hdr, msg_link_selector(inmsg));
+ 	msg_set_long_msgno(&fragm_hdr, mod(l_ptr->long_msg_seq_no++));
+ 	msg_set_fragm_no(&fragm_hdr, fragm_no);
+ 	l_ptr->stats.sent_fragmented++;
 -- 
 1.7.4.4
 
