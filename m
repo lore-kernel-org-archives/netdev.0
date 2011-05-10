@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC V2 PATCH] rtnetlink: Add method to calculate dump info
- data size
-Date: Mon, 09 May 2011 20:58:28 -0700 (PDT)
-Message-ID: <20110509.205828.104070242.davem@davemloft.net>
-References: <20110509201705.409f6d39@nehalam>
-	<1304999127.3050.40.camel@edumazet-laptop>
-	<20110509205626.19dede92@nehalam>
+Subject: Re: 2.6.39-rc6-mmotm0506 - another lockdep splat (networking this
+ time)
+Date: Mon, 09 May 2011 20:58:51 -0700 (PDT)
+Message-ID: <20110509.205851.189693332.davem@davemloft.net>
+References: <6954.1304989523@localhost>
+	<1304994188.3050.17.camel@edumazet-laptop>
+	<1304999271.3050.41.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, gregory.v.rose@intel.com,
-	netdev@vger.kernel.org, bhutchings@solarflare.com
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47410
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755702Ab1EJD7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 May 2011 23:59:00 -0400
-In-Reply-To: <20110509205626.19dede92@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304999271.3050.41.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 9 May 2011 20:56:26 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 10 May 2011 05:47:51 +0200
 
-> I was hoping that the new interface dump would not need a pre-calculated
-> size and could just incrementally add values. I was trying to use an
-> analogy with route dumping. The current route dump does not precalculate
-> size.
+> [PATCH net-next-2.6] net: fix two lockdep splats
+> 
+> Commit e67f88dd12f6 (net: dont hold rtnl mutex during netlink dump
+> callbacks) switched rtnl protection to RCU, but we forgot to adjust two
+> rcu_dereference() lockdep annotations :
+> 
+> inet_get_link_af_size() or inet_fill_link_af() might be called with
+> rcu_read_lock or rtnl held, so use rcu_dereference_rtnl()
+> instead of rtnl_dereference()
+> 
+> Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Stephen the problem here is that one netdevice being dumped is highly
-variable because of the VF netlink attributes.
-
-Routes have a fixed reasonably low upper bound in size, so we always are
-able to fit one route in an SKB.
-
-Netdevices, on the other hand, can have so many VFs that one netdevice
-entry does not fit even in a single 8K allocated SKB.
-
-That's the failure case this code is trying to fix.
+Applied, thanks everyone.
