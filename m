@@ -1,42 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.39-rc6-mmotm0506 - another lockdep splat (networking this
- time)
-Date: Tue, 10 May 2011 23:48:36 +0200
-Message-ID: <1305064116.2437.34.camel@edumazet-laptop>
-References: <6954.1304989523@localhost>
-	 <1304994188.3050.17.camel@edumazet-laptop>
-	 <1304999271.3050.41.camel@edumazet-laptop>
-	 <20110509.205851.189693332.davem@davemloft.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Subject: RE: [PATCH 0/7] Network namespace manipulation with file descriptors
+Date: Tue, 10 May 2011 14:56:25 -0700
+Message-ID: <987664A83D2D224EAE907B061CE93D5301CCC622F4@orsmsx505.amr.corp.intel.com>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<20110509.120408.48494155.davem@davemloft.net>
+	<m1oc3btzk4.fsf@fess.ebiederm.org>
+ <20110509.134007.116389415.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110509.205851.189693332.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
+	"containers@lists.osdl.org" <containers@lists.osdl.org>,
+	"renatowestphal@gmail.com" <renatowestphal@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20110509.134007.116389415.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 09 mai 2011 =C3=A0 20:58 -0700, David Miller a =C3=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 10 May 2011 05:47:51 +0200
->=20
-> > [PATCH net-next-2.6] net: fix two lockdep splats
-> >=20
-> > Commit e67f88dd12f6 (net: dont hold rtnl mutex during netlink dump
-> > callbacks) switched rtnl protection to RCU, but we forgot to adjust=
- two
-> > rcu_dereference() lockdep annotations :
-> >=20
-> > inet_get_link_af_size() or inet_fill_link_af() might be called with
-> > rcu_read_lock or rtnl held, so use rcu_dereference_rtnl()
-> > instead of rtnl_dereference()
-> >=20
-> > Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Applied, thanks everyone.
+>> The conflicts on syscall syscall numbers are an unfortunate pain.
+>
+> The way we've solved this before is the tree that cares pulls in
+> the net-next-2.6 tree to resolve the conflict.
 
-David, I found you applied this patch for net-2.6, but it was
-net-next-2.6 material only ...
+Actually it seems more common that new syscalls are only added to
+x86 (plus one or more other architectures that the author cares
+about). Then arch maintainers throw in a "wire up new syscalls"
+patch during the merge window when they see these new bits show up.
+
+-Tony
+
+Oh - ia64 wiring looks good.
+
+Acked-by: Tony Luck <tony.luck@intel.com>
