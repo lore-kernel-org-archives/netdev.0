@@ -1,70 +1,93 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/10] ipvs: Eliminate rt->rt_dst usage in
- __ip_vs_get_out_rt().
-Date: Mon, 09 May 2011 22:31:20 -0700 (PDT)
-Message-ID: <20110509.223120.246536545.davem@davemloft.net>
+Subject: [PATCH 3/10] ipv4: udp: Eliminate remaining uses of rt->rt_src
+Date: Mon, 09 May 2011 22:31:16 -0700 (PDT)
+Message-ID: <20110509.223116.48500459.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53408
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53401
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753366Ab1EJFbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 01:31:52 -0400
+	by vger.kernel.org with ESMTP id S1752993Ab1EJFbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 01:31:47 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id B970824C087
-	for <netdev@vger.kernel.org>; Mon,  9 May 2011 22:31:20 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 3195824C087
+	for <netdev@vger.kernel.org>; Mon,  9 May 2011 22:31:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-We can simply track what destination address is used based upon which
-code block is taken at the top of the function.
+We already track and pass around the correct flow key,
+so simply use it in udp_send_skb().
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ net/ipv4/udp.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index c4a19f9..e5ef75b 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -110,6 +110,7 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 				  &dest->addr.ip,
- 				  atomic_read(&rt->dst.__refcnt), rtos);
- 		}
-+		daddr = dest->addr.ip;
- 		spin_unlock(&dest->dst_lock);
- 	} else {
- 		rt = ip_route_output(net, daddr, 0, rtos, 0);
-@@ -125,7 +126,7 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 	      rt_mode)) {
- 		IP_VS_DBG_RL("Stopping traffic to %s address, dest: %pI4\n",
- 			     (rt->rt_flags & RTCF_LOCAL) ?
--			     "local":"non-local", &rt->rt_dst);
-+			     "local":"non-local", &daddr);
- 		ip_rt_put(rt);
- 		return NULL;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 66341a3..599374f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -706,12 +706,11 @@ static void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst)
  	}
-@@ -133,14 +134,14 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 	    !((ort = skb_rtable(skb)) && ort->rt_flags & RTCF_LOCAL)) {
- 		IP_VS_DBG_RL("Redirect from non-local address %pI4 to local "
- 			     "requires NAT method, dest: %pI4\n",
--			     &ip_hdr(skb)->daddr, &rt->rt_dst);
-+			     &ip_hdr(skb)->daddr, &daddr);
- 		ip_rt_put(rt);
- 		return NULL;
+ }
+ 
+-static int udp_send_skb(struct sk_buff *skb, __be32 daddr, __be32 dport)
++static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4)
+ {
+ 	struct sock *sk = skb->sk;
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct udphdr *uh;
+-	struct rtable *rt = (struct rtable *)skb_dst(skb);
+ 	int err = 0;
+ 	int is_udplite = IS_UDPLITE(sk);
+ 	int offset = skb_transport_offset(skb);
+@@ -723,7 +722,7 @@ static int udp_send_skb(struct sk_buff *skb, __be32 daddr, __be32 dport)
+ 	 */
+ 	uh = udp_hdr(skb);
+ 	uh->source = inet->inet_sport;
+-	uh->dest = dport;
++	uh->dest = fl4->fl4_dport;
+ 	uh->len = htons(len);
+ 	uh->check = 0;
+ 
+@@ -737,14 +736,14 @@ static int udp_send_skb(struct sk_buff *skb, __be32 daddr, __be32 dport)
+ 
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
+ 
+-		udp4_hwcsum(skb, rt->rt_src, daddr);
++		udp4_hwcsum(skb, fl4->saddr, fl4->daddr);
+ 		goto send;
+ 
+ 	} else
+ 		csum = udp_csum(skb);
+ 
+ 	/* add protocol-dependent pseudo-header */
+-	uh->check = csum_tcpudp_magic(rt->rt_src, daddr, len,
++	uh->check = csum_tcpudp_magic(fl4->saddr, fl4->daddr, len,
+ 				      sk->sk_protocol, csum);
+ 	if (uh->check == 0)
+ 		uh->check = CSUM_MANGLED_0;
+@@ -778,7 +777,7 @@ static int udp_push_pending_frames(struct sock *sk)
+ 	if (!skb)
+ 		goto out;
+ 
+-	err = udp_send_skb(skb, fl4->daddr, fl4->fl4_dport);
++	err = udp_send_skb(skb, fl4);
+ 
+ out:
+ 	up->len = 0;
+@@ -963,7 +962,7 @@ back_from_confirm:
+ 				  msg->msg_flags);
+ 		err = PTR_ERR(skb);
+ 		if (skb && !IS_ERR(skb))
+-			err = udp_send_skb(skb, daddr, dport);
++			err = udp_send_skb(skb, fl4);
+ 		goto out;
  	}
- 	if (unlikely(!local && ipv4_is_loopback(ip_hdr(skb)->saddr))) {
- 		IP_VS_DBG_RL("Stopping traffic from loopback address %pI4 "
- 			     "to non-local address, dest: %pI4\n",
--			     &ip_hdr(skb)->saddr, &rt->rt_dst);
-+			     &ip_hdr(skb)->saddr, &daddr);
- 		ip_rt_put(rt);
- 		return NULL;
- 	}
+ 
 -- 
 1.7.5.1
 
