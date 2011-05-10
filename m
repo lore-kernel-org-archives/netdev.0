@@ -1,43 +1,83 @@
-From: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Tue, 10 May 2011 17:51:12 +0530
-Message-ID: <2BFFDAA0A0DE4820876E5549867938EC@subhasishg>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com><201105041511.54095.arnd@arndb.de><4DC163D7.9010309@grandegger.com><201105041648.37199.arnd@arndb.de><4DC17831.3070801@grandegger.com><F1859F4DD03040248B42AC947304D39B@subhasishg>
-	<20110510112734.54160824@lxorguk.ukuu.org.uk>
+From: Vegard Nossum <vegardno@ifi.uio.no>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
+ uninitialized memory in =?UTF-8?Q?=5F=5Falloc=5Fskb?=
+Date: Tue, 10 May 2011 14:24:40 +0200
+Message-ID: <a49ddd5511b74b8d9b81af8c3ef72d5a@ulrik.uio.no>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>
+ <1303181466.4152.39.camel@edumazet-laptop>
+ <1303182557.4152.48.camel@edumazet-laptop>
+ <1303183217.4152.49.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1104191210011.17888@router.home>
+ <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>
+ <1303279470.2756.17.camel@edumazet-laptop>
+ <1303285519.4dae8f0fdf9b1@imp.free.fr> <4DAE901C.2090809@cs.helsinki.fi>
+ <1303286998.3186.18.camel@edumazet-laptop>
+ <1303290464.3186.32.camel@edumazet-laptop>
+ <1303293765.3186.74.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1104200904440.8634@router.home>
+ <1303309591.3186.84.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1104200942020.9266@router.home>
+ <1303311687.3186.100.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1105092241390.6784@tiger>
+ <alpine.DEB.2.00.1105091502260.26839@router.home>
+ <1305016988.2614.6.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi>
+ <1305022632.2614.18.camel@edumazet-laptop> <4DC91137.4030109@cs.helsinki.fi>
+Reply-To: vegardno@ifi.uio.no
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	nsekhar-l0cyMroinI0@public.gmane.org, open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, m-watkins-l0cyMroinI0@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: "Alan Cox" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110510112734.54160824-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christoph Lameter <cl@linux.com>, <casteyde.christian@free.fr>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	<netdev@vger.kernel.org>, <bugzilla-daemon@bugzilla.kernel.org>,
+	<bugme-daemon@bugzilla.kernel.org>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out1.uio.no ([129.240.10.57]:37336 "EHLO mail-out1.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755980Ab1EJMYw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2011 08:24:52 -0400
+In-Reply-To: <4DC91137.4030109@cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> Yes, In case if we allow the ALL implementation, it hogs the CPU.
->> In that case we do not need the PRU. The whole purpose of the PRU
->> is to offload the processor for any such implementations. 
-> 
-> So the kernel presumably needs to switch between using the PRU and native
-> according to the number of ids being requested at the time ?
+ On Tue, 10 May 2011 13:19:35 +0300, Pekka Enberg=20
+ <penberg@cs.helsinki.fi> wrote:
+> On 5/10/11 1:17 PM, Eric Dumazet wrote:
+>> Le mardi 10 mai 2011 =C3=A0 13:03 +0300, Pekka Enberg a =C3=A9crit :
+>>
+>>> Can't we fix the issue by putting kmemcheck_mark_initialized() to
+>>> set_freepointer()?
+>>
+>> This would solve kmemcheck problem, not DEBUG_PAGEALLOC
+>
+> Oh, right. Christoph? We need to support DEBUG_PAGEALLOC with SLUB.
 
-All the IDs are programmed into the PRU data RAM.
-The Kernel receives interrupts based upon these IDs.
-I could not clearly follow "PRU and native", could you please elaborate.
+ Hi,
 
-> That would be roughly what we do with other things (eg IP multicast) so
-> that apps don't need to know all the innards
+ Disclaimer: I don't know how the algorithm is supposed to work, so=20
+ please excuse me if this makes no sense at all. But here goes:
+
+ Presumably the problem is that the page can get freed, and that with=20
+ DEBUG_PAGEALLOC, the page will therefore not be present and subsequent=
+ly=20
+ trigger a page fault when doing this cmpxchg() on the possibly freed=20
+ object.
+
+ Regardless of DEBUG_PAGEALLOC or kmemcheck, what happens if the page=20
+ gets freed, then allocated again for a completely different purpose in=
+=20
+ another part of the kernel, and new user of the page by chance writes=20
+ the same "tid" number that the cmpxchg() is expecting?
+
+ I guess I'm asking: Are we relying on the fact that this has a=20
+ negligible probability of happening? Or did I just misunderstand what=20
+ the algorithm does, and it is in fact provable (in theory) that nothin=
+g=20
+ wrong can happen?
+
+ Thanks,
+
+
+ Vegard
