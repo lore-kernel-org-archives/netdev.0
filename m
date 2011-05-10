@@ -1,35 +1,54 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
- memory in __alloc_skb
-Date: Tue, 10 May 2011 13:19:35 +0300
-Message-ID: <4DC91137.4030109@cs.helsinki.fi>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>	 <1303181466.4152.39.camel@edumazet-laptop>	 <1303182557.4152.48.camel@edumazet-laptop>	 <1303183217.4152.49.camel@edumazet-laptop>	 <alpine.DEB.2.00.1104191210011.17888@router.home>	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>	 <1303279470.2756.17.camel@edumazet-laptop>	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>	 <1303286998.3186.18.camel@edumazet-laptop>	 <1303290464.3186.32.camel@edumazet-laptop>	 <1303293765.3186.74.camel@edumazet-laptop>	 <alpine.DEB.2.00.1104200904440.8634@router.home>	 <1303309591.3186.84.camel@edumazet-laptop>	 <alpine.DEB.2.00.1104200942020.9266@router.home>	 <1303311687.3186.100.camel@edumazet-laptop>	 <alpine.DEB.2.00.1105092241390.6784@tiger>
- 	 <alpine.DEB.2.00.1105091502260.26839@router.home>	 <1305016988.2614.6.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi> <1305022632.2614.18.camel@edumazet-laptop>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Tue, 10 May 2011 11:27:34 +0100
+Message-ID: <20110510112734.54160824@lxorguk.ukuu.org.uk>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<201105041511.54095.arnd@arndb.de>
+	<4DC163D7.9010309@grandegger.com>
+	<201105041648.37199.arnd@arndb.de>
+	<4DC17831.3070801@grandegger.com>
+	<F1859F4DD03040248B42AC947304D39B@subhasishg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>, casteyde.christian@free.fr,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Vegard Nossum <vegardno@ifi.uio.no>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33380 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755728Ab1EJKTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 06:19:36 -0400
-In-Reply-To: <1305022632.2614.18.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi@mistralsolutions.com, davinci-linux-open-source@linux.davincidsp.com,
+	Arnd Bergmann <arnd@arndb.de>, Netdev@vger.kernel.org,
+	nsekhar@ti.com, open list <linux-kernel@vger.kernel.org>, CAN NETWORK
+	DRIVERS <socketcan-core@lists.berlios.de>, Marc
+	Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>, m-watkins@ti.com,
+	linux-arm-kernel@lists.infradead.org
+To: "Subhasish Ghosh" <subhasish@mistralsolutions.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <F1859F4DD03040248B42AC947304D39B@subhasishg>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 5/10/11 1:17 PM, Eric Dumazet wrote:
-> Le mardi 10 mai 2011 =C3=A0 13:03 +0300, Pekka Enberg a =C3=A9crit :
->
->> Can't we fix the issue by putting kmemcheck_mark_initialized() to
->> set_freepointer()?
->
-> This would solve kmemcheck problem, not DEBUG_PAGEALLOC
+On Tue, 10 May 2011 15:41:49 +0530
+"Subhasish Ghosh" <subhasish@mistralsolutions.com> wrote:
 
-Oh, right. Christoph? We need to support DEBUG_PAGEALLOC with SLUB.
+> >> 
+> >> It sounds to me like the best solution would be change the firmware
+> >> to lift that restriction and simply allow all IDs, in case it's not
+> >> actually a hardware limitation (which sounds unlikely).
+> > 
+> > Yes, that would be best but they told us, that it's not possible with
+> > the available hardware resources. Subhasish?
+> 
+> Yes, In case if we allow the ALL implementation, it hogs the CPU.
+> In that case we do not need the PRU. The whole purpose of the PRU
+> is to offload the processor for any such implementations. 
+
+So the kernel presumably needs to switch between using the PRU and native
+according to the number of ids being requested at the time ?
+
+That would be roughly what we do with other things (eg IP multicast) so
+that apps don't need to know all the innards
