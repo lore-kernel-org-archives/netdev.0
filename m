@@ -1,147 +1,161 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-2.6] vlan: fix GVRP at dismantle time
-Date: Tue, 10 May 2011 08:40:36 +0200
-Message-ID: <1305009636.3050.60.camel@edumazet-laptop>
-References: <BANLkTim2e1Gm_jqfY89is-FfRYTu2=G02w@mail.gmail.com>
-	 <1304929236.3342.8.camel@edumazet-laptop>
-	 <1304932677.3342.17.camel@edumazet-laptop>
-	 <20110509.114200.226765786.davem@davemloft.net>
-	 <1304967935.3050.9.camel@edumazet-laptop>
-	 <1304972251.3050.11.camel@edumazet-laptop>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: 8390 drivers (was: Re: Debian kernel 2.6.38-5)
+Date: Tue, 10 May 2011 08:52:48 +0200
+Message-ID: <BANLkTik27HjWOF0s5HRqgva5zYzQRis27Q@mail.gmail.com>
+References: <BANLkTimG+3jqLiLaA_NVEpGg3LFtvK4bQQ@mail.gmail.com>
+	<20110509213213.GA28675@chumley.earth.sol>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirqus@gmail.com, alex@alex.org.uk, netdev@vger.kernel.org,
-	jesse@nicira.com, greearb@candelatech.com,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Finn Thain <fthain@telegraphics.com.au>,
+	Thorsten Glaser <tg@mirbsd.de>, linux-m68k@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.co
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39100 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754090Ab1EJGkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 02:40:46 -0400
-Received: by wya21 with SMTP id 21so4417389wya.19
-        for <netdev@vger.kernel.org>; Mon, 09 May 2011 23:40:45 -0700 (PDT)
-In-Reply-To: <1304972251.3050.11.camel@edumazet-laptop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:54334 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754144Ab1EJGwv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 02:52:51 -0400
+In-Reply-To: <20110509213213.GA28675@chumley.earth.sol>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 09 mai 2011 =C3=A0 22:17 +0200, Eric Dumazet a =C3=A9crit :
-> Le lundi 09 mai 2011 =C3=A0 21:05 +0200, Eric Dumazet a =C3=A9crit :
->=20
-> > BTW, bug must be present in net-2.6, if we unload vlan module (sinc=
-e in this
-> > case we also had a non NULL head )
->=20
-> Yes, I confirm we have the bug in linux-2.6
->=20
+On Mon, May 9, 2011 at 23:32, Christian T. Steigies <cts@debian.org> wr=
+ote:
+> On Mon, May 09, 2011 at 10:38:18PM +0200, Geert Uytterhoeven wrote:
+>> On Mon, May 9, 2011 at 22:25, Christian T. Steigies <cts@debian.org>=
+ wrote:
+>> > On Mon, May 09, 2011 at 09:16:16AM +0200, Geert Uytterhoeven wrote=
+:
+>> >> On Mon, May 9, 2011 at 01:14, Finn Thain <fthain@telegraphics.com=
+=2Eau> wrote:
+>> >> > On Sun, 8 May 2011, Christian T. Steigies wrote:
+>> >> >> PS 2.6.28 did not boot: kernel too old. When was TLS introduce=
+d? I'll try to
+>> >> >> apply the patch you mentioned in your other message.
+>> >> >
+>> >> > I sometimes test network cards with busybox. It can be built wi=
+thout
+>> >> > linking in glibc and doesn't need TLS.
+>> >> >
+>> >> >
+>> >> >> [ =C2=A0130.870000] eth0: trigger_send() called with the trans=
+mitter busy.
+>> >> >> [ =C2=A0132.240000] ------------[ cut here ]------------
+>> >> >> [ =C2=A0132.240000] WARNING: at net/sched/sch_generic.c:256 de=
+v_watchdog+0x1ac/0x1cc()
+>> >> >> [ =C2=A0132.250000] NETDEV WATCHDOG: eth0 (): transmit queue 0=
+ timed out
+>> >> >
+>> >> > Looks a lot like this problem:
+>> >> >
+>> >> > http://patchwork.ozlabs.org/patch/27774/
+>> >>
+>> >> Yeah, that's a very likely culprit. Thx!
+>> >
+>> > I applied the following patch and it works! apt-get update that is=
+, there is
+>> > no sshd on this freshly installed system yet...
+>> >
+>> > I also changed this line to have 4 underscores at the beginning:
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0{ 0xec940559, "____alloc_ei_netdev" },
+>>
+>> In which file is that?
+>
+> zorro8390.mod.c
 
-Here is a patch to address this problem.
+That's a generated file, so you can ignore it.
 
-Thanks !
+>> > it does not show up in git diff, so I am not sure if this is a lef=
+tover from
+>> > a previous checkout, or if it is also needed. And if it is needed,=
+ if it
+>> > should be two underscores or four or none, and if so why or why no=
+t...
+>> > Looking at the other drivers, there does not seem to be a lot of c=
+onsistency?
+>>
+>> From this, I guess hydra and ne-h8300 are also affected, as they
+>> include lib8390.c
+>> theirselves and are linked with 8390.o?
+>>
+>> > diff --git a/drivers/net/zorro8390.c b/drivers/net/zorro8390.c
+>> > index b78a38d9..8c7c522 100644
+>> > --- a/drivers/net/zorro8390.c
+>> > +++ b/drivers/net/zorro8390.c
+>> > @@ -126,7 +126,7 @@ static int __devinit zorro8390_init_one(struct=
+ zorro_dev *z,
+>> >
+>> > =C2=A0 =C2=A0 board =3D z->resource.start;
+>> > =C2=A0 =C2=A0 ioaddr =3D board+cards[i].offset;
+>> > - =C2=A0 =C2=A0dev =3D alloc_ei_netdev();
+>> > + =C2=A0 =C2=A0dev =3D ____alloc_ei_netdev(0);
+>> > =C2=A0 =C2=A0 if (!dev)
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0return -ENOMEM;
+>> > =C2=A0 =C2=A0 if (!request_mem_region(ioaddr, NE_IO_EXTENT*2, DRV_=
+NAME)) {
+>> > @@ -146,15 +146,15 @@ static int __devinit zorro8390_init_one(stru=
+ct zorro_dev *z,
+>> > =C2=A0static const struct net_device_ops zorro8390_netdev_ops =3D =
+{
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0.ndo_open =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =3D zorro8390_open,
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0.ndo_stop =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =3D zorro8390_close,
+>> > - =C2=A0 =C2=A0 =C2=A0 .ndo_start_xmit =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =3D ei_start_xmit,
+>> > - =C2=A0 =C2=A0 =C2=A0 .ndo_tx_timeout =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =3D ei_tx_timeout,
+>> > - =C2=A0 =C2=A0 =C2=A0 .ndo_get_stats =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0=3D ei_get_stats,
+>> > - =C2=A0 =C2=A0 =C2=A0 .ndo_set_multicast_list =3D ei_set_multicas=
+t_list,
+>> > + =C2=A0 =C2=A0 =C2=A0 .ndo_start_xmit =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =3D __ei_start_xmit,
+>> > + =C2=A0 =C2=A0 =C2=A0 .ndo_tx_timeout =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =3D __ei_tx_timeout,
+>> > + =C2=A0 =C2=A0 =C2=A0 .ndo_get_stats =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0=3D __ei_get_stats,
+>> > + =C2=A0 =C2=A0 =C2=A0 .ndo_set_multicast_list =3D __ei_set_multic=
+ast_list,
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0.ndo_validate_addr =C2=A0 =C2=A0 =C2=A0=
+=3D eth_validate_addr,
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0.ndo_set_mac_address =C2=A0 =C2=A0=3D e=
+th_mac_addr,
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0.ndo_change_mtu =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =3D eth_change_mtu,
+>> > =C2=A0#ifdef CONFIG_NET_POLL_CONTROLLER
+>> > - =C2=A0 =C2=A0 =C2=A0 .ndo_poll_controller =C2=A0 =C2=A0=3D ei_po=
+ll,
+>> > + =C2=A0 =C2=A0 =C2=A0 .ndo_poll_controller =C2=A0 =C2=A0=3D __ei_=
+poll,
+>> > =C2=A0#endif
+>> > =C2=A0};
+>>
+>> And 8390.o can be removed from drivers/net/Makefile?
+>
+> I did not change that and it still works, modprobe zorro8390 did not =
+load
+> 8390. The speed is rather slow, though, 10kbit/sec seems to be the ma=
+x
+> speed. I have not been able to log in via ssh yet, maybe after it has
+> finished downloading packages.
 
-[PATCH net-2.6] vlan: fix GVRP at dismantle time
+Yeah, speed depends on CPU type and motherboard/CPU interface.
 
-ip link add link eth2 eth2.103 type vlan id 103 gvrp on loose_binding o=
-n
-ip link set eth2.103 up
-rmmod tg3    # driver providing eth2
+Gr{oetje,eeting}s,
 
- BUG: unable to handle kernel NULL pointer dereference at           (nu=
-ll)
- IP: [<ffffffffa0030c9e>] garp_request_leave+0x3e/0xc0 [garp]
- PGD 11d251067 PUD 11b9e0067 PMD 0=20
- Oops: 0000 [#1] SMP=20
- last sysfs file: /sys/devices/virtual/net/eth2.104/ifindex
- CPU 0=20
- Modules linked in: tg3(-) 8021q garp nfsd lockd auth_rpcgss sunrpc lib=
-phy sg [last unloaded: x_tables]
-=20
- Pid: 11494, comm: rmmod Tainted: G        W   2.6.39-rc6-00261-gfd7125=
-7-dirty #580 HP ProLiant BL460c G6
- RIP: 0010:[<ffffffffa0030c9e>]  [<ffffffffa0030c9e>] garp_request_leav=
-e+0x3e/0xc0 [garp]
- RSP: 0018:ffff88007a19bae8  EFLAGS: 00010286
- RAX: 0000000000000000 RBX: ffff88011b5e2000 RCX: 0000000000000002
- RDX: 0000000000000000 RSI: 0000000000000175 RDI: ffffffffa0030d5b
- RBP: ffff88007a19bb18 R08: 0000000000000001 R09: ffff88011bd64a00
- R10: ffff88011d34ec00 R11: 0000000000000000 R12: 0000000000000002
- R13: ffff88007a19bc48 R14: ffff88007a19bb88 R15: 0000000000000001
- FS:  0000000000000000(0000) GS:ffff88011fc00000(0063) knlGS:00000000f7=
-7d76c0
- CS:  0010 DS: 002b ES: 002b CR0: 000000008005003b
- CR2: 0000000000000000 CR3: 000000011a675000 CR4: 00000000000006f0
- DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
- DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
- Process rmmod (pid: 11494, threadinfo ffff88007a19a000, task ffff88007=
-98595c0)
- Stack:
-  ffff88007a19bb36 ffff88011c84b800 ffff88011b5e2000 ffff88007a19bc48
-  ffff88007a19bb88 0000000000000006 ffff88007a19bb38 ffffffffa003a5f6
-  ffff88007a19bb38 670088007a19bba8 ffff88007a19bb58 ffffffffa00397e7
- Call Trace:
-  [<ffffffffa003a5f6>] vlan_gvrp_request_leave+0x46/0x50 [8021q]
-  [<ffffffffa00397e7>] vlan_dev_stop+0xb7/0xc0 [8021q]
-  [<ffffffff8137e427>] __dev_close_many+0x87/0xe0
-  [<ffffffff8137e507>] dev_close_many+0x87/0x110
-  [<ffffffff8137e630>] rollback_registered_many+0xa0/0x240
-  [<ffffffff8137e7e9>] unregister_netdevice_many+0x19/0x60
-  [<ffffffffa00389eb>] vlan_device_event+0x53b/0x550 [8021q]
-  [<ffffffff8143f448>] ? ip6mr_device_event+0xa8/0xd0
-  [<ffffffff81479d03>] notifier_call_chain+0x53/0x80
-  [<ffffffff81062539>] __raw_notifier_call_chain+0x9/0x10
-  [<ffffffff81062551>] raw_notifier_call_chain+0x11/0x20
-  [<ffffffff8137df82>] call_netdevice_notifiers+0x32/0x60
-  [<ffffffff8137e69f>] rollback_registered_many+0x10f/0x240
-  [<ffffffff8137e85f>] rollback_registered+0x2f/0x40
-  [<ffffffff8137e8c8>] unregister_netdevice_queue+0x58/0x90
-  [<ffffffff8137e9eb>] unregister_netdev+0x1b/0x30
-  [<ffffffffa005d73f>] tg3_remove_one+0x6f/0x10b [tg3]
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
 
-We should call vlan_gvrp_request_leave() from unregister_vlan_dev(),
-not from vlan_dev_stop(), because vlan_gvrp_uninit_applicant()=20
-is called right after unregister_netdevice_queue(). In batch mode,
-unregister_netdevice_queue() doesn=E2=80=99t immediately call vlan_dev_=
-stop().
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Jesse Gross <jesse@nicira.com>
-Cc: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- net/8021q/vlan.c     |    3 +++
- net/8021q/vlan_dev.c |    3 ---
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 7850412..0eb1a88 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -124,6 +124,9 @@ void unregister_vlan_dev(struct net_device *dev, st=
-ruct list_head *head)
-=20
- 	grp->nr_vlans--;
-=20
-+	if (vlan->flags & VLAN_FLAG_GVRP)
-+		vlan_gvrp_request_leave(dev);
-+
- 	vlan_group_set_device(grp, vlan_id, NULL);
- 	if (!grp->killall)
- 		synchronize_net();
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index e34ea9e..b2ff6c8 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -487,9 +487,6 @@ static int vlan_dev_stop(struct net_device *dev)
- 	struct vlan_dev_info *vlan =3D vlan_dev_info(dev);
- 	struct net_device *real_dev =3D vlan->real_dev;
-=20
--	if (vlan->flags & VLAN_FLAG_GVRP)
--		vlan_gvrp_request_leave(dev);
--
- 	dev_mc_unsync(real_dev, dev);
- 	dev_uc_unsync(real_dev, dev);
- 	if (dev->flags & IFF_ALLMULTI)
-
-
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
