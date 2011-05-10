@@ -1,45 +1,58 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: Re: [PATCHv2 net-next-2.6 2/2] qlcnic: Take FW dump via ethtool
-Date: Tue, 10 May 2011 15:19:19 -0700
-Message-ID: <1C54C9D7-3B1B-47EC-98F5-0A621932D9D4@qlogic.com>
-References: <1304989352-24810-1-git-send-email-anirban.chakraborty@qlogic.com>
- <1304989352-24810-4-git-send-email-anirban.chakraborty@qlogic.com>
- <1305052826.2859.53.camel@bwh-desktop>
- <3D85CC75-765C-4059-BB3F-82CCBF748FBC@qlogic.com>
- <1305064696.2859.90.camel@bwh-desktop>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 4/10] ipvs: Use IP_VS_RT_MODE_* instead of magic
+ constants.
+Date: Wed, 11 May 2011 01:26:09 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1105110123001.4532@ja.ssi.bg>
+References: <20110509.223118.260083861.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:7072
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751090Ab1EJWTX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2011 18:19:23 -0400
-In-Reply-To: <1305064696.2859.90.camel@bwh-desktop>
-Content-Language: en-US
+Received: from ja.ssi.bg ([178.16.129.10]:42578 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751041Ab1EJWYk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2011 18:24:40 -0400
+In-Reply-To: <20110509.223118.260083861.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On May 10, 2011, at 2:58 PM, Ben Hutchings wrote:
+	Fix more IP_VS_RT_MODE_* constants
 
->>>> <snip>
->>> 
->>> This doesn't seem to be serialised with the code that captures firmware
->>> dumps.  They need to use the same lock!
->> When we take the dump, we bring down the interface. So, ethtool will not get a chance to
->> fetch the dump data while the dump operation is in progress.
-> [...]
-> 
-> The ethtool core generally doesn't care whether the interface is
-> running.  Its operations are serialised only by the RTNL lock.  The work
-> item you added to extract a dump from the NIC does not take that lock.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-Oh, ok. Thanks for pointing that out.
+	Following patch can be used after patch 4, eg. as
+number 6 because patches 4 and 5 are ok and we are going to replace
+patches 6 and 7.
 
--Anirban
-
-
+diff -urp net-next-2.6-7ef73bc/linux/net/netfilter/ipvs/ip_vs_xmit.c linux/net/netfilter/ipvs/ip_vs_xmit.c
+--- net-next-2.6-7ef73bc/linux/net/netfilter/ipvs/ip_vs_xmit.c	2011-05-10 23:51:34.831272176 +0300
++++ linux/net/netfilter/ipvs/ip_vs_xmit.c	2011-05-10 23:51:28.900271527 +0300
+@@ -230,8 +230,6 @@ out_err:
+ 
+ /*
+  * Get route to destination or remote server
+- * rt_mode: flags, &1=Allow local dest, &2=Allow non-local dest,
+- *	    &4=Allow redirect from remote daddr to local
+  */
+ static struct rt6_info *
+ __ip_vs_get_out_rt_v6(struct sk_buff *skb, struct ip_vs_dest *dest,
+@@ -275,13 +273,14 @@ __ip_vs_get_out_rt_v6(struct sk_buff *sk
+ 	}
+ 
+ 	local = __ip_vs_is_local_route6(rt);
+-	if (!((local ? 1 : 2) & rt_mode)) {
++	if (!((local ? IP_VS_RT_MODE_LOCAL : IP_VS_RT_MODE_NON_LOCAL) &
++	      rt_mode)) {
+ 		IP_VS_DBG_RL("Stopping traffic to %s address, dest: %pI6\n",
+ 			     local ? "local":"non-local", daddr);
+ 		dst_release(&rt->dst);
+ 		return NULL;
+ 	}
+-	if (local && !(rt_mode & 4) &&
++	if (local && !(rt_mode & IP_VS_RT_MODE_RDR) &&
+ 	    !((ort = (struct rt6_info *) skb_dst(skb)) &&
+ 	      __ip_vs_is_local_route6(ort))) {
+ 		IP_VS_DBG_RL("Redirect from non-local address %pI6 to local "
