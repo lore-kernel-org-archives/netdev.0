@@ -1,98 +1,89 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bridge] Bug#625914: linux-image-2.6.38-2-amd64: bridging is
- not	interacting well with multicast in 2.6.38-4
-Date: Tue, 10 May 2011 15:11:00 -0700
-Message-ID: <20110510151100.52a9f8fa@nehalam>
-References: <20110506201234.6297.70279.reportbug@ip6-localhost>
-	<1304995124.4065.157.camel@localhost>
-	<20110510043833.GG6397@morgul.net>
-	<1305031369.4065.259.camel@localhost>
-	<20110510180540.GI6397@morgul.net>
+From: David Decotigny <decot@google.com>
+Subject: Re: [PATCH 2/2] net/dl2k: Don't reconfigure link @100Mbps when
+ disabling autoneg @1Gbps
+Date: Tue, 10 May 2011 15:14:59 -0700
+Message-ID: <BANLkTik5Uc8yRRHoNMENkQNeAnovLYcZjQ@mail.gmail.com>
+References: <1304986748-15809-1-git-send-email-decot@google.com>
+ <1304986748-15809-3-git-send-email-decot@google.com> <1305053707.2859.57.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <ben@decadent.org.uk>, 625914@bugs.debian.org,
-	bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>
-To: Noah Meyerhans <noahm@debian.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53485 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751381Ab1EJWMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 18:12:07 -0400
-In-Reply-To: <20110510180540.GI6397@morgul.net>
+Received: from smtp-out.google.com ([74.125.121.67]:8160 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163Ab1EJWP2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 18:15:28 -0400
+Received: from hpaq3.eem.corp.google.com (hpaq3.eem.corp.google.com [172.25.149.3])
+	by smtp-out.google.com with ESMTP id p4AMFRqS032024
+	for <netdev@vger.kernel.org>; Tue, 10 May 2011 15:15:27 -0700
+Received: from qwa26 (qwa26.prod.google.com [10.241.193.26])
+	by hpaq3.eem.corp.google.com with ESMTP id p4AMETWE031647
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 10 May 2011 15:15:22 -0700
+Received: by qwa26 with SMTP id 26so5328340qwa.0
+        for <netdev@vger.kernel.org>; Tue, 10 May 2011 15:15:19 -0700 (PDT)
+In-Reply-To: <1305053707.2859.57.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 May 2011 11:05:40 -0700
-Noah Meyerhans <noahm@debian.org> wrote:
+Hi all,
 
-> On Tue, May 10, 2011 at 01:42:49PM +0100, Ben Hutchings wrote:
-> > > > This is pretty weird.  Debian version 2.6.38-3 has a few bridging
-> > > > changes from stable 2.6.38.3 and 2.6.38.4, but they don't look like they
-> > > > would cause this.
-> > > 
-> > > I have apparently filed the bug against the wrong version of Debian's
-> > > kernel.  2.6.38-3 is not affected, and works as expected.  The change
-> > > was introduced in -4.  That may have been clear from the report itself,
-> > > but the report was filed against -3.  I've fixed that in the BTS.
-> > 
-> > I gathered that, and then made the same mistake in writing the above!
-> > The version with the regression, 2.6.38-4, includes the changes from
-> > stable 2.6.38.3 and 2.6.38.4
-> 
-> With a little help from git bisect, I've tracked this regression down to
-> the following commit to the stable-2.6.38.y tree:
-> 
-> commit 5f1c356a3fadc0c19922d660da723b79bcc9aad7
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Fri Mar 18 05:27:28 2011 +0000
-> 
->     bridge: Reset IPCB when entering IP stack on NF_FORWARD
->     
->     [ Upstream commit 6b1e960fdbd75dcd9bcc3ba5ff8898ff1ad30b6e ]
->     
->     Whenever we enter the IP stack proper from bridge netfilter we
->     need to ensure that the skb is in a form the IP stack expects
->     it to be in.
->     
->     The entry point on NF_FORWARD did not meet the requirements of
->     the IP stack, therefore leading to potential crashes/panics.
->     
->     This patch fixes the problem.
->     
->     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->     Acked-by: Stephen Hemminger <shemminger@vyatta.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->     Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-> 
-> The diff is
-> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-> index 4b5b66d..49d50ea 100644
-> --- a/net/bridge/br_netfilter.c
-> +++ b/net/bridge/br_netfilter.c
-> @@ -741,6 +741,9 @@ static unsigned int br_nf_forward_ip(unsigned int
-> hook, struct sk_buff *skb,
->                 nf_bridge->mask |= BRNF_PKT_TYPE;
->         }
->  
-> +       if (br_parse_ip_options(skb))
-> +               return NF_DROP;
-> +
->         /* The physdev module checks on this */
->         nf_bridge->mask |= BRNF_BRIDGED;
->         nf_bridge->physoutdev = skb->dev;
-> 
-> If I revert this change, network connectivity functions as expected for
-> the VMs on this host.
-> 
-> I don't know enough about this change or the problem it was supposed to
-> solve to be able to guess about what's going wrong.
-> 
-> noah
-> 
+Yes, right, I will send the updated patch together with the stmmac
+update (if any).
 
-There were two more follow on commits in stable related to this.
-I recommend merging 2.6.38.6 which includes these.
+I just hope that changing the netdev_private fields without committing
+to hardware and before calling netif_carrier_off() will not create too
+much confusion. I don't think so, but I still wish I could test.
+
+Regards,
+
+--
+David Decotigny
 
 
--- 
+
+On Tue, May 10, 2011 at 11:55 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Mon, 2011-05-09 at 17:19 -0700, David Decotigny wrote:
+>> The initial version of the driver used to force the link to 100Mbps
+>> when auto-negociation was disabled on a 1Gbps link, ignoring the
+>> requested link speed. Instead, this change refuses to change anythin=
+g
+>> when it is asked to configure the link speed at 1Gbps without
+>> auto-negociation, but acts as requested in all the other cases.
+>>
+>> IMPORTANT: Previously, the return value from mii_set_media() was
+>> =A0 =A0 =A0 =A0 =A0 =A0ignored. This patch uses it for its own retur=
+n value.
+>>
+>> Tested: module compiling, NOT tested on real hardware.
+>> Signed-off-by: David Decotigny <decot@google.com>
+> [...]
+>
+> The changes to validation look fine. =A0However, I noticed that there=
+'s a
+> call to netif_carrier_off() at the top of this function. =A0This mean=
+s
+> that in the error and shortcut cases, the interface will be left
+> disabled! =A0It's an existing bug but might be made slightly worse by=
+ this
+> change.
+>
+> Please also move the call to netif_carrier_off() down to the end, jus=
+t
+> before the call to mii_set_media() which actually alters the link.
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Senior Software Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
+>
