@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.39-rc6-mmotm0506 - another lockdep splat (networking this
- time)
-Date: Mon, 09 May 2011 20:58:51 -0700 (PDT)
-Message-ID: <20110509.205851.189693332.davem@davemloft.net>
-References: <6954.1304989523@localhost>
-	<1304994188.3050.17.camel@edumazet-laptop>
-	<1304999271.3050.41.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1304999271.3050.41.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 May 2011 05:47:51 +0200
+Subject: Re: [RFC V2 PATCH] rtnetlink: Add method to calculate dump info
+ data size
+Date: Tue, 10 May 2011 06:03:02 +0200
+Message-ID: <1305000182.3050.50.camel@edumazet-laptop>
+References: <20110509222629.8689.77365.stgit@gitlad.jf.intel.com>
+	 <1304995413.3050.19.camel@edumazet-laptop>
+	 <20110509201705.409f6d39@nehalam>
+	 <1304999127.3050.40.camel@edumazet-laptop>
+	 <20110509205626.19dede92@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:64350 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab1EJEDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 00:03:11 -0400
+Received: by wwa36 with SMTP id 36so6428692wwa.1
+        for <netdev@vger.kernel.org>; Mon, 09 May 2011 21:03:10 -0700 (PDT)
+In-Reply-To: <20110509205626.19dede92@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> [PATCH net-next-2.6] net: fix two lockdep splats
-> 
-> Commit e67f88dd12f6 (net: dont hold rtnl mutex during netlink dump
-> callbacks) switched rtnl protection to RCU, but we forgot to adjust two
-> rcu_dereference() lockdep annotations :
-> 
-> inet_get_link_af_size() or inet_fill_link_af() might be called with
-> rcu_read_lock or rtnl held, so use rcu_dereference_rtnl()
-> instead of rtnl_dereference()
-> 
-> Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Le lundi 09 mai 2011 =C3=A0 20:56 -0700, Stephen Hemminger a =C3=A9crit=
+ :
+> What happens is dump iterates over the table and puts entries into
+> skb. When space is exhausted in skb the iterator stops and records th=
+e
+> key of the where to restart.
 
-Applied, thanks everyone.
+Exactly : We would increase min_dump_alloc at this point, and not fully
+recompute it at each round ;)
+
+Problem is we could return an empty answer if first device ever dumped
+in "ip link" would be a 'large one' and min_dump_alloc not yet
+increased, so "ip link" would consider table is empty ?
+
+Thats why I suggested to increase min_dump_alloc() when bloated^W drive=
+r
+is loaded.
+
+
+
