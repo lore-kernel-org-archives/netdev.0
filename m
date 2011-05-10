@@ -1,68 +1,39 @@
-From: wanq <picktracy@gmail.com>
-Subject: Re: Fwd: PROBLEM: IPv6 Duplicate Address Detection with non
- RFC-conform ICMPv6 packets
-Date: Tue, 10 May 2011 19:14:05 +0800
-Message-ID: <BANLkTinaXTa22Z_gMrqd+oD8cuTpnLN0cw@mail.gmail.com>
-References: <4DC54157.9010306@computer.org>
-	<1304773802.2821.1214.camel@edumazet-laptop>
-	<dc9a790de083b31ff85c0b9578c980e7@mail.insa-lyon.fr>
-	<1304774758.2821.1237.camel@edumazet-laptop>
-	<842648e0f4a8c6f7cd8a47cd6916a939@mail.insa-lyon.fr>
-	<1304777182.2821.1262.camel@edumazet-laptop>
-	<6fc82268416d8f6cfd40ea8b1bc4ebdf@mail.insa-lyon.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jan Ceuleers <jan.ceuleers@computer.org>,
-	netdev@vger.kernel.org
-To: Gervais Arthur <arthur.gervais@insa-lyon.fr>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 3/9] [PATCH] qeth: add owner to ccw driver
+Date: Tue, 10 May 2011 13:50:16 +0200
+Message-ID: <20110510115047.329944182@de.ibm.com>
+References: <20110510115013.363974020@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Sebastian Ott <sebott@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:37066 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185Ab1EJLOG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:14:06 -0400
-Received: by yxs7 with SMTP id 7so2091295yxs.19
-        for <netdev@vger.kernel.org>; Tue, 10 May 2011 04:14:05 -0700 (PDT)
-In-Reply-To: <6fc82268416d8f6cfd40ea8b1bc4ebdf@mail.insa-lyon.fr>
+Received: from mtagate6.uk.ibm.com ([194.196.100.166]:51552 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754434Ab1EJLuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:50:50 -0400
+Content-Disposition: inline; filename=602-qeth-add-ccw-driver-owner.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In fact, I think the implementation of Linux fully meet the RFC specifi=
-cations.
+From: Sebastian Ott <sebott@linux.vnet.ibm.com>
 
-Think about this, two nodes have the same MAC, the DAD of the
-self-generated link-local address on the new one MUST NOT pass. And
-the IPv6 traffic of the interface SHOULD be disabled, because there's
-no better way to recover from MAC conflicts automatically.
+Fill in the owner of qeth's ccw device driver.
 
-2011/5/7 Gervais Arthur <arthur.gervais@insa-lyon.fr>:
-> On 05/07/2011 04:06 PM, Eric Dumazet wrote:
-> =A0> Le samedi 07 mai 2011 =E0 15:54 +0200, Gervais Arthur a =E9crit =
-:
-> =A0>
-> =A0>> Why would the victim itself claim already having the IPv6 addre=
-ss?
-> =A0>>
-> =A0>
-> =A0> Why should it care ? Please point me the RFC saying its illegal =
-to send
-> =A0> or receive a frame with SRC_MAC =3D=3D DST_MAC
-> =A0>
->
-> There is no RFC statement saying that this is illegal. But we are not
-> only talking about the Ethernet layer. There is also the ICMPv6 Layer=
-=2E
->
-> But neither in the IPv6 RFC's I can find something about this.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Signed-off-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
 
+ drivers/s390/net/qeth_core_main.c |    1 +
+ 1 file changed, 1 insertion(+)
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -4041,6 +4041,7 @@ MODULE_DEVICE_TABLE(ccw, qeth_ids);
+ 
+ static struct ccw_driver qeth_ccw_driver = {
+ 	.driver = {
++		.owner = THIS_MODULE,
+ 		.name = "qeth",
+ 	},
+ 	.ids = qeth_ids,
 
---=20
-wanq
