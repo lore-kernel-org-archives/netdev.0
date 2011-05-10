@@ -1,78 +1,55 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 00/21] tipc updates for the next round
-Date: Tue, 10 May 2011 16:44:16 -0400
-Message-ID: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 07/21] tipc: Avoid pointless masking of fragmented message identifier
+Date: Tue, 10 May 2011 16:44:23 -0400
+Message-ID: <1305060277-15600-8-git-send-email-paul.gortmaker@windriver.com>
+References: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
+	Allan Stephens <allan.stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52281 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:52345 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954Ab1EJUoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:44:55 -0400
+	with ESMTP id S1752597Ab1EJUpB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:45:01 -0400
+In-Reply-To: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Another mixed bag of tipc commits.  It leads off with some largely
-cosmetic stuff, but then gets into what should be some more of the
-useful/functional fixes with a bit more complexity.  There really
-isn't any new functionality here -- just fixes or robustness type
-improvements.
+From: Allan Stephens <allan.stephens@windriver.com>
 
-Paul.
+Eliminates code that restricts a link's counter of its fragmented
+messages to a 16-bit value, since the counter value is automatically
+restricted to this range when it is written into the message header.
+
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
+ net/tipc/link.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-The following changes since commit 7ef73bca731fea9d4b706db2acb96b6488aa1b0e:
-
-  sctp: Fix debug message args. (2011-05-08 21:24:07 -0700)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/net-next-2.6.git tipc-May10-2011
-
-Allan Stephens (19):
-  tipc: Update comments in message header include file
-  tipc: Eliminate unused routing message definitions
-  tipc: Cosmetic consolidation of internal message type definitions
-  tipc: Remove code to emulate loss of broadcast messages
-  tipc: Don't initialize link selector field in fragmented messages
-  tipc: Avoid pointless masking of fragmented message identifier
-  tipc: Fix issues with fragmentation of an existing message buffer
-  tipc: Set name lookup scope field properly in all data messages
-  tipc: Fix problem with bundled multicast message
-  tipc: Update destination node field on incoming multicast messages
-  tipc: Fix sk_buff leaks when link congestion is detected
-  tipc: Strengthen checks for neighboring node discovery
-  tipc: Abort excessive send requests as early as possible
-  tipc: Avoid recomputation of outgoing message length
-  tipc: Introduce routine to enqueue a chain of messages on link tx queue
-  tipc: Enhance handling of discovery object creation failures
-  tipc: Enhance sending of discovery object link request messages
-  tipc: Add monitoring of number of nodes discovered by bearer
-  tipc: Revise timings used when sending link request messages
-
-Michal Marek (1):
-  tipc: Drop __TIME__ usage
-
-Paul Gortmaker (1):
-  tipc: make zone/cluster mask constants a define
-
- include/linux/tipc.h |    2 +-
- net/tipc/addr.h      |    7 ++-
- net/tipc/bcast.c     |   22 +-------
- net/tipc/bearer.c    |   45 +++++++++-----
- net/tipc/core.c      |    3 +-
- net/tipc/discover.c  |  150 +++++++++++++++++++++++++++++-----------------
- net/tipc/discover.h  |   11 ++--
- net/tipc/link.c      |  104 +++++++++++++++++++--------------
- net/tipc/link.h      |    1 +
- net/tipc/msg.c       |   25 +-------
- net/tipc/msg.h       |  161 +++++++++++++++++---------------------------------
- net/tipc/port.c      |   55 ++++++++++-------
- net/tipc/port.h      |   14 +++--
- net/tipc/socket.c    |   27 +++++++--
- net/tipc/subscr.c    |    4 +-
- 15 files changed, 321 insertions(+), 310 deletions(-)
-
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 95249ba..ad356df 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1276,7 +1276,7 @@ reject:
+ 	/* Append whole chain to send queue: */
+ 
+ 	buf = buf_chain;
+-	l_ptr->long_msg_seq_no = mod(l_ptr->long_msg_seq_no + 1);
++	l_ptr->long_msg_seq_no++;
+ 	if (!l_ptr->next_out)
+ 		l_ptr->next_out = buf_chain;
+ 	l_ptr->stats.sent_fragmented++;
+@@ -2426,7 +2426,7 @@ static int link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
+ 
+ 	tipc_msg_init(&fragm_hdr, MSG_FRAGMENTER, FIRST_FRAGMENT,
+ 		 INT_H_SIZE, destaddr);
+-	msg_set_long_msgno(&fragm_hdr, mod(l_ptr->long_msg_seq_no++));
++	msg_set_long_msgno(&fragm_hdr, l_ptr->long_msg_seq_no++);
+ 	msg_set_fragm_no(&fragm_hdr, fragm_no);
+ 	l_ptr->stats.sent_fragmented++;
+ 
 -- 
 1.7.4.4
 
