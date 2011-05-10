@@ -1,76 +1,52 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 12/21] tipc: Fix sk_buff leaks when link congestion is detected
-Date: Tue, 10 May 2011 16:44:28 -0400
-Message-ID: <1305060277-15600-13-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 13/21] tipc: make zone/cluster mask constants a define
+Date: Tue, 10 May 2011 16:44:29 -0400
+Message-ID: <1305060277-15600-14-git-send-email-paul.gortmaker@windriver.com>
 References: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
-	Allan Stephens <allan.stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52408 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:52412 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752597Ab1EJUpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:45:05 -0400
+	with ESMTP id S1752678Ab1EJUpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 16:45:06 -0400
 In-Reply-To: <1305060277-15600-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allan Stephens <allan.stephens@windriver.com>
+This allows them to be available for easy re-use in other places
+and avoids trivial mistakes caused by  "count the f's and 0's".
 
-Modifies a TIPC send routine that did not discard the outgoing sk_buff
-if it was not transmitted because of link congestion; this eliminates
-the potential for buffer leakage in the many callers who did not clean up
-the unsent buffer. (The two routines that previously did discard the unsent
-buffer have been updated to eliminate their now-redundant clean up.)
-
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |    4 +---
- net/tipc/link.c  |    7 +++----
- 2 files changed, 4 insertions(+), 7 deletions(-)
+ net/tipc/addr.h |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 08e3216..fa68d1e 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -407,9 +407,7 @@ int tipc_bclink_send_msg(struct sk_buff *buf)
- 	spin_lock_bh(&bc_lock);
+diff --git a/net/tipc/addr.h b/net/tipc/addr.h
+index 8971aba..e4f35af 100644
+--- a/net/tipc/addr.h
++++ b/net/tipc/addr.h
+@@ -37,14 +37,17 @@
+ #ifndef _TIPC_ADDR_H
+ #define _TIPC_ADDR_H
  
- 	res = tipc_link_send_buf(bcl, buf);
--	if (unlikely(res == -ELINKCONG))
--		buf_discard(buf);
--	else
-+	if (likely(res > 0))
- 		bclink_set_last_sent();
++#define TIPC_ZONE_MASK		0xff000000u
++#define TIPC_CLUSTER_MASK	0xfffff000u
++
+ static inline u32 tipc_zone_mask(u32 addr)
+ {
+-	return addr & 0xff000000u;
++	return addr & TIPC_ZONE_MASK;
+ }
  
- 	bcl->stats.queue_sz_counts++;
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 02b083e..2a9f44a 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -864,8 +864,9 @@ int tipc_link_send_buf(struct link *l_ptr, struct sk_buff *buf)
+ static inline u32 tipc_cluster_mask(u32 addr)
+ {
+-	return addr & 0xfffff000u;
++	return addr & TIPC_CLUSTER_MASK;
+ }
  
- 	if (unlikely(queue_size >= queue_limit)) {
- 		if (imp <= TIPC_CRITICAL_IMPORTANCE) {
--			return link_schedule_port(l_ptr, msg_origport(msg),
--						  size);
-+			link_schedule_port(l_ptr, msg_origport(msg), size);
-+			buf_discard(buf);
-+			return -ELINKCONG;
- 		}
- 		buf_discard(buf);
- 		if (imp > CONN_MANAGER) {
-@@ -1069,8 +1070,6 @@ again:
- 			if (likely(buf)) {
- 				res = link_send_buf_fast(l_ptr, buf,
- 							 &sender->max_pkt);
--				if (unlikely(res < 0))
--					buf_discard(buf);
- exit:
- 				tipc_node_unlock(node);
- 				read_unlock_bh(&tipc_net_lock);
+ static inline int in_own_cluster(u32 addr)
 -- 
 1.7.4.4
 
