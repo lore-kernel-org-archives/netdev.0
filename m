@@ -1,49 +1,50 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: RX ntuple feature must check num_rx_queues
-Date: Tue, 10 May 2011 11:52:02 -0700
-Message-ID: <BANLkTinq4u321Cf=JtkKOW=6WMP=y78+SQ@mail.gmail.com>
-References: <OFA595D9DB.234DFCEB-ON8525788C.004ED485-8525788C.004ED485@BeldenCDT.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/2] net/dl2k: Don't reconfigure link @100Mbps when
+ disabling autoneg @1Gbps
+Date: Tue, 10 May 2011 19:55:07 +0100
+Message-ID: <1305053707.2859.57.camel@bwh-desktop>
+References: <1304986748-15809-1-git-send-email-decot@google.com>
+	 <1304986748-15809-3-git-send-email-decot@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Sebastian.Poehn@belden.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:61069 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750704Ab1EJSwE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 14:52:04 -0400
-Received: by fxm17 with SMTP id 17so4514477fxm.19
-        for <netdev@vger.kernel.org>; Tue, 10 May 2011 11:52:03 -0700 (PDT)
-In-Reply-To: <OFA595D9DB.234DFCEB-ON8525788C.004ED485-8525788C.004ED485@BeldenCDT.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Decotigny <decot@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304986748-15809-3-git-send-email-decot@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 10, 2011 at 07:21,  <Sebastian.Poehn@belden.com> wrote:
-> The driver must check how much RX queues there are, not TX queues.
->
-> --- ixgbe_ethtool.c.orig=C2=A0=C2=A0=C2=A0 2011-05-10 16:18:00.313745=
-560 +0200
-> +++ ixgbe_ethtool.c=C2=A0=C2=A0=C2=A0 2011-05-10 16:18:23.285747635 +=
-0200
-> @@ -2349,9 +2349,9 @@ static int ixgbe_set_rx_ntuple(struct ne
->
-> =C2=A0=C2=A0=C2=A0=C2=A0 /*
-> =C2=A0=C2=A0=C2=A0=C2=A0 =C2=A0* Don't allow programming if the actio=
-n is a queue greater than
-> -=C2=A0=C2=A0=C2=A0 =C2=A0* the number of online Tx queues.
-> +=C2=A0=C2=A0=C2=A0 =C2=A0* the number of online Rx queues.
-> =C2=A0=C2=A0=C2=A0=C2=A0 =C2=A0*/
-> -=C2=A0=C2=A0=C2=A0 if ((fs->action >=3D adapter->num_tx_queues) ||
-> +=C2=A0=C2=A0=C2=A0 if ((fs->action >=3D adapter->num_rx_queues) ||
-> =C2=A0=C2=A0=C2=A0=C2=A0 =C2=A0=C2=A0=C2=A0 (fs->action < ETHTOOL_RXN=
-TUPLE_ACTION_DROP))
-> =C2=A0=C2=A0=C2=A0=C2=A0 =C2=A0=C2=A0=C2=A0 return -EINVAL;
->
-> Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+On Mon, 2011-05-09 at 17:19 -0700, David Decotigny wrote:
+> The initial version of the driver used to force the link to 100Mbps
+> when auto-negociation was disabled on a 1Gbps link, ignoring the
+> requested link speed. Instead, this change refuses to change anything
+> when it is asked to configure the link speed at 1Gbps without
+> auto-negociation, but acts as requested in all the other cases.
+> 
+> IMPORTANT: Previously, the return value from mii_set_media() was
+>            ignored. This patch uses it for its own return value.
+> 
+> Tested: module compiling, NOT tested on real hardware.
+> Signed-off-by: David Decotigny <decot@google.com>
+[...]
 
-Thanks Sebastian, I have added the patch to my queue of patches.
+The changes to validation look fine.  However, I noticed that there's a
+call to netif_carrier_off() at the top of this function.  This means
+that in the error and shortcut cases, the interface will be left
+disabled!  It's an existing bug but might be made slightly worse by this
+change.
 
---=20
-Cheers,
-Jeff
+Please also move the call to netif_carrier_off() down to the end, just
+before the call to mii_set_media() which actually alters the link.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
