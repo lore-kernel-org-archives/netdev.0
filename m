@@ -1,50 +1,41 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 7/9] [PATCH] iucv: get rid of compile warning
-Date: Tue, 10 May 2011 13:50:20 +0200
-Message-ID: <20110510115047.762094851@de.ibm.com>
-References: <20110510115013.363974020@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
+Subject: [patch 0/9] s390: network feature patches for net-next
+Date: Tue, 10 May 2011 13:50:13 +0200
+Message-ID: <20110510115013.363974020@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:44819 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755639Ab1EJLuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:50:50 -0400
-Content-Disposition: inline; filename=606-iucv-compile-warning.diff
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:40800 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753869Ab1EJLut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:50:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+Hi Dave,
 
--Wunused-but-set-variable generates a compile warning. The affected
-variable is removed.
+here are a couple s/390 network feature patches for net-next.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
+shortlog:
+Frank Blaschka (2)
+qeth: convert to hw_features part 2
+qeth: add OSA concurrent hardware trap
 
+Sebastian Ott (1)
+qeth: add owner to ccw driver
 
- net/iucv/iucv.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-diff -urpN linux-2.6/net/iucv/iucv.c linux-2.6-patched/net/iucv/iucv.c
---- linux-2.6/net/iucv/iucv.c	2011-05-10 09:14:08.000000000 +0200
-+++ linux-2.6-patched/net/iucv/iucv.c	2011-05-10 09:14:26.000000000 +0200
-@@ -828,14 +828,14 @@ EXPORT_SYMBOL(iucv_unregister);
- static int iucv_reboot_event(struct notifier_block *this,
- 			     unsigned long event, void *ptr)
- {
--	int i, rc;
-+	int i;
- 
- 	get_online_cpus();
- 	on_each_cpu(iucv_block_cpu, NULL, 1);
- 	preempt_disable();
- 	for (i = 0; i < iucv_max_pathid; i++) {
- 		if (iucv_path_table[i])
--			rc = iucv_sever_pathid(i, NULL);
-+			iucv_sever_pathid(i, NULL);
- 	}
- 	preempt_enable();
- 	put_online_cpus();
+Heiko Carstens (2)
+claw: remove unused return code handling
+lcs: get rid of compile warning
+
+Ursula Braun (3)
+ctcm: get rid of compile warning
+iucv: get rid of compile warning
+af_iucv: get rid of compile warning
+
+KOSAKI Motohiro (1)
+convert old cpumask API into new one
+
+Thanks,
+        Frank
 
