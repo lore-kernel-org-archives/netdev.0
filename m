@@ -1,39 +1,47 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: future developments of usbnet
-Date: Tue, 10 May 2011 11:42:15 +0200
-Message-ID: <20110510094214.GA2970@riccoc20.at.omicron.at>
-References: <201105062045.37336.oliver@neukum.org>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
+ memory in __alloc_skb
+Date: Tue, 10 May 2011 12:47:41 +0300
+Message-ID: <4DC909BD.5080903@cs.helsinki.fi>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>	 <20110418153852.153d3ed3.akpm@linux-foundation.org>	 <1303181466.4152.39.camel@edumazet-laptop>	 <1303182557.4152.48.camel@edumazet-laptop>	 <1303183217.4152.49.camel@edumazet-laptop>	 <alpine.DEB.2.00.1104191210011.17888@router.home>	 <1303244270.2756.3.camel@edumazet-laptop> <4DAE7579.3020400@cs.helsinki.fi>	 <1303279470.2756.17.camel@edumazet-laptop>	 <1303285519.4dae8f0fdf9b1@imp.free.fr>  <4DAE901C.2090809@cs.helsinki.fi>	 <1303286998.3186.18.camel@edumazet-laptop>	 <1303290464.3186.32.camel@edumazet-laptop>	 <1303293765.3186.74.camel@edumazet-laptop>	 <alpine.DEB.2.00.1104200904440.8634@router.home>	 <1303309591.3186.84.camel@edumazet-laptop>	 <alpine.DEB.2.00.1104200942020.9266@router.home>	 <1303311687.3186.100.camel@edumaze
+ t-laptop>	 <alpine.DEB.2.00.1105092241390.6784@tiger>	 <alpine.DEB.2.00.1105091502260.26839@router.home> <1305016988.2614.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <201105062045.37336.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <cl@linux.com>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41622 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273Ab1EJJrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 05:47:43 -0400
+In-Reply-To: <1305016988.2614.6.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 06, 2011 at 08:45:37PM +0200, Oliver Neukum wrote:
-> Hi,
-> 
-> I'd like to get a feeling what people are working out there regarding usbnet.
-> So please, if you do something, or think something ought to be done, please
-> speak up now.
-> 
-> IMHO usbnet needs better support for
-> 
-> - batching protocols
-> - double buffering on the rx path
+On 5/10/11 11:43 AM, Eric Dumazet wrote:
+> I am trying to follow things but honestly I am lost.
+> Isnt commit 1759415e63 planned for 2.6.40 ?
+> ( ref :
+> http://git.kernel.org/?p=linux/kernel/git/penberg/slab-2.6.git;a=commitdiff;h=1759415e630e5db0dd2390df9f94892cbfb9a8a2 )
 
-I would like see phylib and (if possible) NAPI, although for different
-reasons than the problems mentioned in this thread. I am willing and
-able to do the work, but I obviously don't have all of the usbnet
-hardware available for testing.
+Yes, it's for 2.6.40.
 
-Thanks,
+> How shall we fix things for 2.6.39 ? I thought my patch was OK for that.
+>
 
-Richard
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It's so late in the release cycle that I think the best option is to fix 
+it in 2.6.40 and backport it to -stable together with the above commit.
+
+> Its a bit hard to work with you on this stuff, for a report I made ages
+> ago, I find it incredible its not yet fixed in linux-2.6.
+
+It's not incredible, I simply managed to miss your patch. Sorry about that.
+
+                     Pekka
