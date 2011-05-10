@@ -1,66 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: oops during unregister_netdevice interface enslaved to
- bond - regression
-Date: Tue, 10 May 2011 15:03:33 +0200
-Message-ID: <1305032613.2614.26.camel@edumazet-laptop>
-References: <OF0F4919C3.B9CFCAE8-ONC125788C.002D5EB1-C125788C.002D83B7@de.ibm.com>
-	 <1305017672.2614.9.camel@edumazet-laptop>
-	 <1305017959.2614.13.camel@edumazet-laptop>
+From: Sebastian.Poehn@Belden.com
+Subject: [PATCH 2/3] RFC gianfar: add rx_ntuple feature
+Date: Tue, 10 May 2011 08:54:28 -0400
+Message-ID: <OF57143EF9.D6B06D40-ON8525788C.0046E788-8525788C.0046E78E@BeldenCDT.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Frank Blaschka <Frank.Blaschka@de.ibm.com>
-To: Einar EL Lueck <ELELUECK@de.ibm.com>
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44456 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751659Ab1EJNDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 09:03:38 -0400
-Received: by wya21 with SMTP id 21so4649343wya.19
-        for <netdev@vger.kernel.org>; Tue, 10 May 2011 06:03:37 -0700 (PDT)
-In-Reply-To: <1305017959.2614.13.camel@edumazet-laptop>
+Received: from mx2.belden.com ([12.161.118.91]:47594 "EHLO mx2.belden.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752169Ab1EJNJg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 09:09:36 -0400
+In-Reply-To: 
+References: 
+MIME-Version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 10 mai 2011 =C3=A0 10:59 +0200, Eric Dumazet a =C3=A9crit :
-> Le mardi 10 mai 2011 =C3=A0 10:54 +0200, Eric Dumazet a =C3=A9crit :
->=20
-> > I am currently working on this stuff [adding even more batching and
-> > probably bugs as well ], so instead of revert I'll try to find a wa=
-y to
-> > fix this.
-> >=20
-> > If you already have a script to reproduce the bug on virtual device=
-s on
-> > x86 (not on s390 machines I dont have ;) ), I'll appreciate having =
-a
-> > copy of it.
-> >=20
-> > Thanks for the reminder.
->=20
-> BTW make sure latest linux-2.6 still exhibits the problem, we fixed s=
-ome
-> things after original Octavian commit
->=20
-> List of commits :
->=20
-> commit ceaaec98ad99859ac90ac6863ad0a6cd075d8e0e
-> net: deinit automatic LIST_HEAD
->=20
-> commit f87e6f47933e3ebeced9bb12615e830a72cedce4=20
-> net: dont leave active on stack LIST_HEAD=20
->=20
->=20
+This part sets the flags for ethtool and does primary hardware checking=
+=2E
 
-OK I trigger the bug on linux-2.6 with :
+--- gianfar.c.orig=A0=A0=A0 2011-05-10 11:08:13.573744000 +0200
++++ gianfar.c=A0=A0=A0 2011-05-10 11:22:07.865744495 +0200
+@@ -751,7 +751,8 @@ static int gfar_of_init(struct platform_
+=A0=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 FSL_GIANFAR_DEV_HAS_VLAN |
+=A0=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 FSL_GIANFAR_DEV_HAS_MAGIC_PACKET |
+=A0=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
+-=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 FSL_GIANFAR_DEV_HAS_TIMER;
++=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 FSL_GIANFAR_DEV_HAS_TIMER |
++=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 FSL_GIANFAR_DEV_HAS_RX_FILER;
+=A0
+=A0=A0=A0=A0 ctype =3D of_get_property(np, "phy-connection-type", NULL)=
+;
+=A0
+@@ -1042,6 +1043,9 @@ static int gfar_probe(struct platform_de
+=A0=A0=A0=A0 if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN)
+=A0=A0=A0=A0 =A0=A0=A0 dev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_=
+HW_VLAN_RX;
+=A0
++=A0=A0=A0 if (priv->device_flags & FSL_GIANFAR_DEV_HAS_RX_FILER)
++=A0=A0=A0 =A0=A0=A0 dev->features |=3D NETIF_F_NTUPLE;
++
+=A0=A0=A0=A0 if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH=
+) {
+=A0=A0=A0=A0 =A0=A0=A0 priv->extended_hash =3D 1;
+=A0=A0=A0=A0 =A0=A0=A0 priv->hash_width =3D 9;
+@@ -1151,9 +1155,8 @@ static int gfar_probe(struct platform_de
+=A0=A0=A0=A0 =A0=A0=A0 priv->rx_queue[i]->rxic =3D DEFAULT_RXIC;
+=A0=A0=A0=A0 }
+=A0
+-=A0=A0=A0 /* enable filer if using multiple RX queues*/
+-=A0=A0=A0 if(priv->num_rx_queues > 1)
+-=A0=A0=A0 =A0=A0=A0 priv->rx_filer_enable =3D 1;
++=A0=A0=A0 /* always enable rx filer*/
++=A0=A0=A0 priv->rx_filer_enable =3D 1;
+=A0=A0=A0=A0 /* Enable most messages by default */
+=A0=A0=A0=A0 priv->msg_enable =3D (NETIF_MSG_IFUP << 1 ) - 1;
+=A0
+Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+DISCLAIMER:
 
-modprobe bonding
-ip link add testa type veth peer name testb
-ifconfig bond0 up
-ifenslave bond0 testa
-ip link del testa
+Privileged and/or Confidential information may be contained in this
+message. If you are not the addressee of this message, you may not
+copy, use or deliver this message to anyone. In such event, you
+should destroy the message and kindly notify the sender by reply
+e-mail. It is understood that opinions or conclusions that do not
+relate to the official business of the company are neither given
+nor endorsed by the company.
 
-I'll cook a patch, stay tuned :)
-
+Thank You.
 
