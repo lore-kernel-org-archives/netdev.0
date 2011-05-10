@@ -1,62 +1,47 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: Re: [PATCH net-next] vmxnet3: Use single tx queue when CONFIG_PCI_MSI
- not defined
-Date: Tue, 10 May 2011 09:13:56 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1105100903110.1095@sbhatewara-dev1.eng.vmware.com>
-References: <alpine.LRH.2.00.1105091715150.26660@sbhatewara-dev1.eng.vmware.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
+ memory in __alloc_skb
+Date: Tue, 10 May 2011 11:33:09 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1105101132230.2611@router.home>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>  <1303181466.4152.39.camel@edumazet-laptop>  <1303182557.4152.48.camel@edumazet-laptop>  <1303183217.4152.49.camel@edumazet-laptop>  <alpine.DEB.2.00.1104191210011.17888@router.home>
+ <1303244270.2756.3.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi> <1305022632.2614.18.camel@edumazet-laptop> <4DC91137.4030109@cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: pv-drivers@vmware.com
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1105091715150.26660@sbhatewara-dev1.eng.vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811839-2087014141-1305045191=:2611"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Vegard Nossum <vegardno@ifi.uio.no>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp108.prem.mail.ac4.yahoo.com ([76.13.13.47]:20291 "HELO
+	smtp108.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752451Ab1EJQdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 12:33:13 -0400
+In-Reply-To: <4DC91137.4030109@cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Resending this patch with few changes.
+---1463811839-2087014141-1305045191=:2611
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
+On Tue, 10 May 2011, Pekka Enberg wrote:
 
-Avoid multiple queues when MSI or MSI-X not available
+> On 5/10/11 1:17 PM, Eric Dumazet wrote:
+> > Le mardi 10 mai 2011 =C3=A0 13:03 +0300, Pekka Enberg a =C3=A9crit :
+> >
+> > > Can't we fix the issue by putting kmemcheck_mark_initialized() to
+> > > set_freepointer()?
+> >
+> > This would solve kmemcheck problem, not DEBUG_PAGEALLOC
+>
+> Oh, right. Christoph? We need to support DEBUG_PAGEALLOC with SLUB.
 
-Limit number of Tx queues to 1 if MSI/MSI-X support is not configured in
-the kernel. This will make number of tx and rx queues equal when MSI/X 
-is not configured thus providing better performance.
+Well back to the #ifdef then? Or has DEBUG_PAGEALLOC some override
+mechanism that we can do a speculative memory access?
 
-Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
-
----
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c 
-b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 7a494f7..ab2e753 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2882,6 +2882,9 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 	int num_tx_queues;
- 	int num_rx_queues;
- 
-+	if (!pci_msi_enabled())
-+		enable_mq = 0;
-+
- #ifdef VMXNET3_RSS
- 	if (enable_mq)
- 		num_rx_queues = min(VMXNET3_DEVICE_MAX_RX_QUEUES,
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 8ba7b5f..f50d36f 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -68,10 +68,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.0.25.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.1.9.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01001900
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01010900
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
+---1463811839-2087014141-1305045191=:2611--
