@@ -1,343 +1,201 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 7/10] ipvs: Remove all remaining references to
- rt->rt_{src,dst}
-Date: Wed, 11 May 2011 01:46:05 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1105110128100.4532@ja.ssi.bg>
-References: <20110509.223127.102546540.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Tue, 10 May 2011 15:46:32 -0700 (PDT)
+Message-ID: <20110510.154632.104076893.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:55808 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751041Ab1EJWof (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2011 18:44:35 -0400
-In-Reply-To: <20110509.223127.102546540.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-	Remove all remaining references to rt->rt_{src,dst}
-by using dest->dst_saddr to cache saddr (used for TUN mode).
-For ICMP in FORWARD hook just restrict the rt_mode for NAT
-to disable LOCALNODE. All other modes do not allow
-IP_VS_RT_MODE_RDR, so we should be safe with the ICMP
-forwarding. Using cp->daddr as replacement for rt_dst
-is safe for all modes except BYPASS, even when cp->dest is
-NULL because it is cp->daddr that is used to assign cp->dest
-for sync-ed connections.
+There's several OOPS'ers and reverts in here.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+I think we now have all of the worst ones fixed from the regression
+list, and I would recommend doing just one more -rc to get this all
+sorted out and tested properly.  But of course that is completely up
+to you.
 
-	I'm proposing this patch as replacement for
-original patches 6 and 7, it can be number 7 again.
-The idea is to avoid storing flowi in cp.
+1) ipheth regressed because it had a hard dependency upon NET_IP_ALIGN
+   being defined always as 2, get rid of that assumption.  From Ben
+   Hutchings.
 
-diff -urp net-next-2.6-7ef73bc/linux/include/net/ip_vs.h linux/include/net/ip_vs.h
---- net-next-2.6-7ef73bc/linux/include/net/ip_vs.h	2011-05-09 07:24:07.000000000 +0300
-+++ linux/include/net/ip_vs.h	2011-05-11 00:46:02.510271856 +0300
-@@ -665,9 +665,7 @@ struct ip_vs_dest {
- 	struct dst_entry	*dst_cache;	/* destination cache entry */
- 	u32			dst_rtos;	/* RT_TOS(tos) for dst */
- 	u32			dst_cookie;
--#ifdef CONFIG_IP_VS_IPV6
--	struct in6_addr		dst_saddr;
--#endif
-+	union nf_inet_addr	dst_saddr;
- 
- 	/* for virtual service */
- 	struct ip_vs_service	*svc;		/* service it belongs to */
-@@ -1236,7 +1234,8 @@ extern int ip_vs_tunnel_xmit
- extern int ip_vs_dr_xmit
- (struct sk_buff *skb, struct ip_vs_conn *cp, struct ip_vs_protocol *pp);
- extern int ip_vs_icmp_xmit
--(struct sk_buff *skb, struct ip_vs_conn *cp, struct ip_vs_protocol *pp, int offset);
-+(struct sk_buff *skb, struct ip_vs_conn *cp, struct ip_vs_protocol *pp,
-+ int offset, unsigned int hooknum);
- extern void ip_vs_dst_reset(struct ip_vs_dest *dest);
- 
- #ifdef CONFIG_IP_VS_IPV6
-@@ -1250,7 +1249,7 @@ extern int ip_vs_dr_xmit_v6
- (struct sk_buff *skb, struct ip_vs_conn *cp, struct ip_vs_protocol *pp);
- extern int ip_vs_icmp_xmit_v6
- (struct sk_buff *skb, struct ip_vs_conn *cp, struct ip_vs_protocol *pp,
-- int offset);
-+ int offset, unsigned int hooknum);
- #endif
- 
- #ifdef CONFIG_SYSCTL
-diff -urp net-next-2.6-7ef73bc/linux/net/netfilter/ipvs/ip_vs_core.c linux/net/netfilter/ipvs/ip_vs_core.c
---- net-next-2.6-7ef73bc/linux/net/netfilter/ipvs/ip_vs_core.c	2011-05-09 07:24:07.000000000 +0300
-+++ linux/net/netfilter/ipvs/ip_vs_core.c	2011-05-11 01:07:29.429270382 +0300
-@@ -1378,15 +1378,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *
- 	ip_vs_in_stats(cp, skb);
- 	if (IPPROTO_TCP == cih->protocol || IPPROTO_UDP == cih->protocol)
- 		offset += 2 * sizeof(__u16);
--	verdict = ip_vs_icmp_xmit(skb, cp, pp, offset);
--	/* LOCALNODE from FORWARD hook is not supported */
--	if (verdict == NF_ACCEPT && hooknum == NF_INET_FORWARD &&
--	    skb_rtable(skb)->rt_flags & RTCF_LOCAL) {
--		IP_VS_DBG(1, "%s(): "
--			  "local delivery to %pI4 but in FORWARD\n",
--			  __func__, &skb_rtable(skb)->rt_dst);
--		verdict = NF_DROP;
--	}
-+	verdict = ip_vs_icmp_xmit(skb, cp, pp, offset, hooknum);
- 
-   out:
- 	__ip_vs_conn_put(cp);
-@@ -1408,7 +1400,6 @@ ip_vs_in_icmp_v6(struct sk_buff *skb, in
- 	struct ip_vs_protocol *pp;
- 	struct ip_vs_proto_data *pd;
- 	unsigned int offset, verdict;
--	struct rt6_info *rt;
- 
- 	*related = 1;
- 
-@@ -1470,23 +1461,12 @@ ip_vs_in_icmp_v6(struct sk_buff *skb, in
- 	if (!cp)
- 		return NF_ACCEPT;
- 
--	verdict = NF_DROP;
--
- 	/* do the statistics and put it back */
- 	ip_vs_in_stats(cp, skb);
- 	if (IPPROTO_TCP == cih->nexthdr || IPPROTO_UDP == cih->nexthdr ||
- 	    IPPROTO_SCTP == cih->nexthdr)
- 		offset += 2 * sizeof(__u16);
--	verdict = ip_vs_icmp_xmit_v6(skb, cp, pp, offset);
--	/* LOCALNODE from FORWARD hook is not supported */
--	if (verdict == NF_ACCEPT && hooknum == NF_INET_FORWARD &&
--	    (rt = (struct rt6_info *) skb_dst(skb)) &&
--	    rt->rt6i_dev && rt->rt6i_dev->flags & IFF_LOOPBACK) {
--		IP_VS_DBG(1, "%s(): "
--			  "local delivery to %pI6 but in FORWARD\n",
--			  __func__, &rt->rt6i_dst);
--		verdict = NF_DROP;
--	}
-+	verdict = ip_vs_icmp_xmit_v6(skb, cp, pp, offset, hooknum);
- 
- 	__ip_vs_conn_put(cp);
- 
-diff -urp net-next-2.6-7ef73bc/linux/net/netfilter/ipvs/ip_vs_xmit.c linux/net/netfilter/ipvs/ip_vs_xmit.c
---- net-next-2.6-7ef73bc/linux/net/netfilter/ipvs/ip_vs_xmit.c	2011-05-10 23:52:06.000000000 +0300
-+++ linux/net/netfilter/ipvs/ip_vs_xmit.c	2011-05-11 01:08:21.837272458 +0300
-@@ -87,7 +87,7 @@ __ip_vs_dst_check(struct ip_vs_dest *des
- /* Get route to destination or remote server */
- static struct rtable *
- __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
--		   __be32 daddr, u32 rtos, int rt_mode)
-+		   __be32 daddr, u32 rtos, int rt_mode, __be32 *ret_saddr)
- {
- 	struct net *net = dev_net(skb_dst(skb)->dev);
- 	struct rtable *rt;			/* Route to the other host */
-@@ -98,7 +98,12 @@ __ip_vs_get_out_rt(struct sk_buff *skb, 
- 		spin_lock(&dest->dst_lock);
- 		if (!(rt = (struct rtable *)
- 		      __ip_vs_dst_check(dest, rtos))) {
--			rt = ip_route_output(net, dest->addr.ip, 0, rtos, 0);
-+			struct flowi4 fl4;
-+
-+			memset(&fl4, 0, sizeof(fl4));
-+			fl4.daddr = dest->addr.ip;
-+			fl4.flowi4_tos = rtos;
-+			rt = ip_route_output_key(net, &fl4);
- 			if (IS_ERR(rt)) {
- 				spin_unlock(&dest->dst_lock);
- 				IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n",
-@@ -106,19 +111,30 @@ __ip_vs_get_out_rt(struct sk_buff *skb, 
- 				return NULL;
- 			}
- 			__ip_vs_dst_set(dest, rtos, dst_clone(&rt->dst), 0);
--			IP_VS_DBG(10, "new dst %pI4, refcnt=%d, rtos=%X\n",
--				  &dest->addr.ip,
-+			dest->dst_saddr.ip = fl4.saddr;
-+			IP_VS_DBG(10, "new dst %pI4, src %pI4, refcnt=%d, "
-+				  "rtos=%X\n",
-+				  &dest->addr.ip, &dest->dst_saddr.ip,
- 				  atomic_read(&rt->dst.__refcnt), rtos);
- 		}
- 		daddr = dest->addr.ip;
-+		if (ret_saddr)
-+			*ret_saddr = dest->dst_saddr.ip;
- 		spin_unlock(&dest->dst_lock);
- 	} else {
--		rt = ip_route_output(net, daddr, 0, rtos, 0);
-+		struct flowi4 fl4;
-+
-+		memset(&fl4, 0, sizeof(fl4));
-+		fl4.daddr = daddr;
-+		fl4.flowi4_tos = rtos;
-+		rt = ip_route_output_key(net, &fl4);
- 		if (IS_ERR(rt)) {
- 			IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n",
- 				     &daddr);
- 			return NULL;
- 		}
-+		if (ret_saddr)
-+			*ret_saddr = fl4.saddr;
- 	}
- 
- 	local = rt->rt_flags & RTCF_LOCAL;
-@@ -249,7 +265,7 @@ __ip_vs_get_out_rt_v6(struct sk_buff *sk
- 			u32 cookie;
- 
- 			dst = __ip_vs_route_output_v6(net, &dest->addr.in6,
--						      &dest->dst_saddr,
-+						      &dest->dst_saddr.in6,
- 						      do_xfrm);
- 			if (!dst) {
- 				spin_unlock(&dest->dst_lock);
-@@ -259,11 +275,11 @@ __ip_vs_get_out_rt_v6(struct sk_buff *sk
- 			cookie = rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
- 			__ip_vs_dst_set(dest, 0, dst_clone(&rt->dst), cookie);
- 			IP_VS_DBG(10, "new dst %pI6, src %pI6, refcnt=%d\n",
--				  &dest->addr.in6, &dest->dst_saddr,
-+				  &dest->addr.in6, &dest->dst_saddr.in6,
- 				  atomic_read(&rt->dst.__refcnt));
- 		}
- 		if (ret_saddr)
--			ipv6_addr_copy(ret_saddr, &dest->dst_saddr);
-+			ipv6_addr_copy(ret_saddr, &dest->dst_saddr.in6);
- 		spin_unlock(&dest->dst_lock);
- 	} else {
- 		dst = __ip_vs_route_output_v6(net, daddr, ret_saddr, do_xfrm);
-@@ -386,7 +402,7 @@ ip_vs_bypass_xmit(struct sk_buff *skb, s
- 	EnterFunction(10);
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, NULL, iph->daddr, RT_TOS(iph->tos),
--				      IP_VS_RT_MODE_NON_LOCAL)))
-+				      IP_VS_RT_MODE_NON_LOCAL, NULL)))
- 		goto tx_error_icmp;
- 
- 	/* MTU checking */
-@@ -518,7 +534,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, stru
- 				      RT_TOS(iph->tos),
- 				      IP_VS_RT_MODE_LOCAL |
- 					IP_VS_RT_MODE_NON_LOCAL |
--					IP_VS_RT_MODE_RDR)))
-+					IP_VS_RT_MODE_RDR, NULL)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
- 	/*
-@@ -540,7 +556,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, stru
- #endif
- 
- 	/* From world but DNAT to loopback address? */
--	if (local && ipv4_is_loopback(rt->rt_dst) &&
-+	if (local && ipv4_is_loopback(cp->daddr.ip) &&
- 	    rt_is_input_route(skb_rtable(skb))) {
- 		IP_VS_DBG_RL_PKT(1, AF_INET, pp, skb, 0, "ip_vs_nat_xmit(): "
- 				 "stopping DNAT to loopback address");
-@@ -751,6 +767,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
- 		  struct ip_vs_protocol *pp)
- {
- 	struct rtable *rt;			/* Route to the other host */
-+	__be32 saddr;				/* Source for tunnel */
- 	struct net_device *tdev;		/* Device to other host */
- 	struct iphdr  *old_iph = ip_hdr(skb);
- 	u8     tos = old_iph->tos;
-@@ -764,7 +781,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
- 				      RT_TOS(tos), IP_VS_RT_MODE_LOCAL |
--						   IP_VS_RT_MODE_NON_LOCAL)))
-+						   IP_VS_RT_MODE_NON_LOCAL,
-+						   &saddr)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
-@@ -832,8 +850,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, s
- 	iph->frag_off		=	df;
- 	iph->protocol		=	IPPROTO_IPIP;
- 	iph->tos		=	tos;
--	iph->daddr		=	rt->rt_dst;
--	iph->saddr		=	rt->rt_src;
-+	iph->daddr		=	cp->daddr.ip;
-+	iph->saddr		=	saddr;
- 	iph->ttl		=	old_iph->ttl;
- 	ip_select_ident(iph, &rt->dst, NULL);
- 
-@@ -996,7 +1014,7 @@ ip_vs_dr_xmit(struct sk_buff *skb, struc
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
- 				      RT_TOS(iph->tos),
- 				      IP_VS_RT_MODE_LOCAL |
--					IP_VS_RT_MODE_NON_LOCAL)))
-+					IP_VS_RT_MODE_NON_LOCAL, NULL)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
-@@ -1114,12 +1132,13 @@ tx_error:
-  */
- int
- ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
--		struct ip_vs_protocol *pp, int offset)
-+		struct ip_vs_protocol *pp, int offset, unsigned int hooknum)
- {
- 	struct rtable	*rt;	/* Route to the other host */
- 	int mtu;
- 	int rc;
- 	int local;
-+	int rt_mode;
- 
- 	EnterFunction(10);
- 
-@@ -1140,11 +1159,13 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
- 	 * mangle and send the packet here (only for VS/NAT)
- 	 */
- 
-+	/* LOCALNODE from FORWARD hook is not supported */
-+	rt_mode = (hooknum != NF_INET_FORWARD) ?
-+		  IP_VS_RT_MODE_LOCAL | IP_VS_RT_MODE_NON_LOCAL |
-+		  IP_VS_RT_MODE_RDR : IP_VS_RT_MODE_NON_LOCAL;
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
- 				      RT_TOS(ip_hdr(skb)->tos),
--				      IP_VS_RT_MODE_LOCAL |
--					IP_VS_RT_MODE_NON_LOCAL |
--					IP_VS_RT_MODE_RDR)))
-+				      rt_mode, NULL)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
- 
-@@ -1167,7 +1188,7 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
- #endif
- 
- 	/* From world but DNAT to loopback address? */
--	if (local && ipv4_is_loopback(rt->rt_dst) &&
-+	if (local && ipv4_is_loopback(cp->daddr.ip) &&
- 	    rt_is_input_route(skb_rtable(skb))) {
- 		IP_VS_DBG(1, "%s(): "
- 			  "stopping DNAT to loopback %pI4\n",
-@@ -1232,12 +1253,13 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
- #ifdef CONFIG_IP_VS_IPV6
- int
- ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
--		struct ip_vs_protocol *pp, int offset)
-+		struct ip_vs_protocol *pp, int offset, unsigned int hooknum)
- {
- 	struct rt6_info	*rt;	/* Route to the other host */
- 	int mtu;
- 	int rc;
- 	int local;
-+	int rt_mode;
- 
- 	EnterFunction(10);
- 
-@@ -1258,10 +1280,12 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, 
- 	 * mangle and send the packet here (only for VS/NAT)
- 	 */
- 
-+	/* LOCALNODE from FORWARD hook is not supported */
-+	rt_mode = (hooknum != NF_INET_FORWARD) ?
-+		  IP_VS_RT_MODE_LOCAL | IP_VS_RT_MODE_NON_LOCAL |
-+		  IP_VS_RT_MODE_RDR : IP_VS_RT_MODE_NON_LOCAL;
- 	if (!(rt = __ip_vs_get_out_rt_v6(skb, cp->dest, &cp->daddr.in6, NULL,
--					 0, (IP_VS_RT_MODE_LOCAL |
--					     IP_VS_RT_MODE_NON_LOCAL |
--					     IP_VS_RT_MODE_RDR))))
-+					 0, rt_mode)))
- 		goto tx_error_icmp;
- 
- 	local = __ip_vs_is_local_route6(rt);
+2) IPV6 REJECT module puts random values in TOS field, fix from
+   Fernando Luis Vazquez Cao.
+
+3) When an ipv4 fragmentation entry expires via a timer, we have to
+   revalidate the route otherwise we can crash.  Fix from Eric
+   Dumazet.
+
+4) In usbnet, usbnet_bh can be scheduled too early during resume
+   resulting in flood of RX frames but no reclaim, and this leads to
+   running out of atomic memory.  Don't allow usbnet_bh to schedule
+   until the device is brought completely up.  Fix from Ming Lei.
+
+5) TCP cubic can divide by zero in some extreme cases, fix from
+   Stephen Hemminger.
+
+6) SLIP and SLCAN devices return incorrect values from their ldisc
+   open method, from Matvejchikov Ilya and Oliver Hartkopp.
+
+7) VLAN GVRP state is undone at the wrong moment, causing crashes during
+   batched device delete.  From Eric Dumazet.
+
+8) dev_close() mistakenly had it's IFF_UP check removed, this has to be
+   put back otherwise we can crash during batched device teardown, in
+   particular with bonding.  Fix from Eric DUmazet.
+
+9) PCH_GBE "checksum correct" logic on RX is reversed (hardware sets
+   the status bit on checksum failure, clears it on success), from
+   Toshiharu Okada.
+
+10) vmxnet3 does not take ->cmd_lock consistently with interrupts disabled,
+    as is warned by lockdep.  Fix from Roland Dreier.
+
+11) DCCP feature options length needs to be validated properly,
+    otherwise we can end up working with negative lengths, fix from
+    Dan Rosenberg.
+
+13) Fix regressions in ebtables compat support, from Eric Dumazet and
+    Florian Westphal.
+
+14) IPVS namespace support can leave objects referenced indefinitely until
+    reboot.  Fixes from Hans Schillstrom.
+
+15) DSCP netfilter code forgets to invert mask, from Fernando Luis
+    Vazquez Cao.
+
+16) Revert a buggy xt_conntrack change that broke handling of locally
+    generated packets.  From Florian Westphal and Jan Engelhardt.
+
+17) Inter-family packet output was busted in IPSEC, we need to split
+    the operation into two parts, ->output() and ->output_finish(), to
+    make sure we work in the context of the correct protocol (ipv4 vs
+    ipv6) at each step.  Fix from Steffen Klassert.
+
+18) We cannot allow ESN handling when anti-reply detection is disabled,
+    also from Steffen Klassert.
+
+Please pull, thanks a lot!
+
+The following changes since commit 54b333529df25b21da462c7dcc16c7dc779d9f26:
+
+  Merge branch 'upstream' of git://git.linux-mips.org/pub/scm/upstream-linus (2011-05-10 12:00:53 -0700)
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Ben Hutchings (1):
+      ipheth: Properly distinguish length and alignment in URBs and skbs
+
+Dan Rosenberg (1):
+      dccp: handle invalid feature options length
+
+Dan Williams (1):
+      net/usb: mark LG VL600 LTE modem ethernet interface as WWAN
+
+David S. Miller (1):
+      Merge branch 'pablo/nf-2.6-updates' of git://1984.lsi.us.es/net-2.6
+
+Eric Dumazet (4):
+      net: ip_expire() must revalidate route
+      netfilter: fix ebtables compat support
+      vlan: fix GVRP at dismantle time
+      net: dev_close() should check IFF_UP
+
+Fernando Luis Vazquez Cao (2):
+      netfilter: IPv6: initialize TOS field in REJECT target module
+      netfilter: IPv6: fix DSCP mangle code
+
+Florian Westphal (1):
+      netfilter: ebtables: only call xt_compat_add_offset once per rule
+
+Hans Schillstrom (2):
+      IPVS: Change of socket usage to enable name space exit.
+      IPVS: init and cleanup restructuring
+
+Kleber Sacilotto de Souza (1):
+      ehea: fix wrongly reported speed and port
+
+Kurt Van Dijck (1):
+      can: fix SJA1000 dlc for RTR packets
+
+Matvejchikov Ilya (1):
+      NET: slip, fix ldisc->open retval
+
+Ming Lei (1):
+      usbnet: runtime pm: fix out of memory
+
+Oliver Hartkopp (1):
+      slcan: fix ldisc->open retval
+
+Pablo Neira Ayuso (2):
+      netfilter: ctnetlink: fix timestamp support for new conntracks
+      netfilter: revert a2361c8735e07322023aedc36e4938b35af31eb0
+
+Roland Dreier (1):
+      vmxnet3: Consistently disable irqs when taking adapter->cmd_lock
+
+Somnath Kotur (1):
+      be2net: Fixed bugs related to PVID.
+
+Steffen Klassert (2):
+      xfrm: Assign the inner mode output function to the dst entry
+      xfrm: Don't allow esn with disabled anti replay detection
+
+Tomoya (1):
+      pch_gbe: support ML7223 IOH
+
+Toshiharu Okada (2):
+      PCH_GbE : Fixed the issue of collision detection
+      PCH_GbE : Fixed the issue of checksum judgment
+
+stephen hemminger (1):
+      tcp_cubic: limit delayed_ack ratio to prevent divide error
+
+ drivers/net/Kconfig                  |    8 ++-
+ drivers/net/benet/be.h               |    2 +-
+ drivers/net/benet/be_cmds.c          |    2 +-
+ drivers/net/benet/be_main.c          |   18 ++++--
+ drivers/net/can/sja1000/sja1000.c    |    2 +-
+ drivers/net/can/slcan.c              |    4 +-
+ drivers/net/ehea/ehea_ethtool.c      |   21 ++++--
+ drivers/net/pch_gbe/pch_gbe_main.c   |   23 +++++--
+ drivers/net/slip.c                   |    4 +-
+ drivers/net/usb/cdc_ether.c          |    2 +-
+ drivers/net/usb/ipheth.c             |   14 +++--
+ drivers/net/usb/usbnet.c             |   10 ++-
+ drivers/net/vmxnet3/vmxnet3_drv.c    |   10 ++-
+ include/net/ip_vs.h                  |   17 +++++
+ include/net/xfrm.h                   |    3 +
+ net/8021q/vlan.c                     |    3 +
+ net/8021q/vlan_dev.c                 |    3 -
+ net/bridge/netfilter/ebtables.c      |   64 +++---------------
+ net/core/dev.c                       |   10 ++-
+ net/dccp/options.c                   |    2 +
+ net/ipv4/ip_fragment.c               |   33 +++++-----
+ net/ipv4/tcp_cubic.c                 |    9 ++-
+ net/ipv4/xfrm4_output.c              |    8 ++-
+ net/ipv4/xfrm4_state.c               |    1 +
+ net/ipv6/netfilter/ip6t_REJECT.c     |    4 +-
+ net/ipv6/xfrm6_output.c              |    6 +-
+ net/ipv6/xfrm6_state.c               |    1 +
+ net/netfilter/ipvs/ip_vs_app.c       |   15 +----
+ net/netfilter/ipvs/ip_vs_conn.c      |   12 +---
+ net/netfilter/ipvs/ip_vs_core.c      |  103 ++++++++++++++++++++++++++---
+ net/netfilter/ipvs/ip_vs_ctl.c       |  120 ++++++++++++++++++++++++++++-----
+ net/netfilter/ipvs/ip_vs_est.c       |   14 +---
+ net/netfilter/ipvs/ip_vs_proto.c     |   11 +---
+ net/netfilter/ipvs/ip_vs_sync.c      |   65 ++++++++++--------
+ net/netfilter/nf_conntrack_netlink.c |    4 +
+ net/netfilter/x_tables.c             |    4 +-
+ net/netfilter/xt_DSCP.c              |    2 +-
+ net/netfilter/xt_conntrack.c         |    5 --
+ net/xfrm/xfrm_policy.c               |   14 ++++-
+ net/xfrm/xfrm_replay.c               |    3 +
+ 40 files changed, 423 insertions(+), 233 deletions(-)
