@@ -1,56 +1,66 @@
-From: Yann Dupont <Yann.Dupont@univ-nantes.fr>
-Subject: Re: Bug#625914: linux-image-2.6.38-2-amd64: bridging is not interacting
- well with multicast in 2.6.38-4
-Date: Tue, 10 May 2011 14:55:49 +0200
-Message-ID: <4DC935D5.4020601@univ-nantes.fr>
-References: <20110506201234.6297.70279.reportbug@ip6-localhost>	 <1304995124.4065.157.camel@localhost>  <20110510043833.GG6397@morgul.net> <1305031369.4065.259.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: oops during unregister_netdevice interface enslaved to
+ bond - regression
+Date: Tue, 10 May 2011 15:03:33 +0200
+Message-ID: <1305032613.2614.26.camel@edumazet-laptop>
+References: <OF0F4919C3.B9CFCAE8-ONC125788C.002D5EB1-C125788C.002D83B7@de.ibm.com>
+	 <1305017672.2614.9.camel@edumazet-laptop>
+	 <1305017959.2614.13.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Frank Blaschka <Frank.Blaschka@de.ibm.com>
+To: Einar EL Lueck <ELELUECK@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-tls2.univ-nantes.fr ([193.52.101.146]:56727 "EHLO
-	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157Ab1EJM5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 08:57:51 -0400
-In-Reply-To: <1305031369.4065.259.camel@localhost>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44456 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751659Ab1EJNDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 09:03:38 -0400
+Received: by wya21 with SMTP id 21so4649343wya.19
+        for <netdev@vger.kernel.org>; Tue, 10 May 2011 06:03:37 -0700 (PDT)
+In-Reply-To: <1305017959.2614.13.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Mon, 2011-05-09 at 21:38 -0700, Noah Meyerhans wrote:
->> On Tue, May 10, 2011 at 03:38:44AM +0100, Ben Hutchings wrote:
->>> This is pretty weird.  Debian version 2.6.38-3 has a few bridging
->>> changes from stable 2.6.38.3 and 2.6.38.4, but they don't look like=
- they
->>> would cause this.
->> I have apparently filed the bug against the wrong version of Debian'=
-s
->> kernel.  2.6.38-3 is not affected, and works as expected.  The chang=
-e
->> was introduced in -4.  That may have been clear from the report itse=
-lf,
->> but the report was filed against -3.  I've fixed that in the BTS.
-> I gathered that, and then made the same mistake in writing the above!
-> The version with the regression, 2.6.38-4, includes the changes from
-> stable 2.6.38.3 and 2.6.38.4
->
-> Ben.
->
->
+Le mardi 10 mai 2011 =C3=A0 10:59 +0200, Eric Dumazet a =C3=A9crit :
+> Le mardi 10 mai 2011 =C3=A0 10:54 +0200, Eric Dumazet a =C3=A9crit :
+>=20
+> > I am currently working on this stuff [adding even more batching and
+> > probably bugs as well ], so instead of revert I'll try to find a wa=
+y to
+> > fix this.
+> >=20
+> > If you already have a script to reproduce the bug on virtual device=
+s on
+> > x86 (not on s390 machines I dont have ;) ), I'll appreciate having =
+a
+> > copy of it.
+> >=20
+> > Thanks for the reminder.
+>=20
+> BTW make sure latest linux-2.6 still exhibits the problem, we fixed s=
+ome
+> things after original Octavian commit
+>=20
+> List of commits :
+>=20
+> commit ceaaec98ad99859ac90ac6863ad0a6cd075d8e0e
+> net: deinit automatic LIST_HEAD
+>=20
+> commit f87e6f47933e3ebeced9bb12615e830a72cedce4=20
+> net: dont leave active on stack LIST_HEAD=20
+>=20
+>=20
 
-We just hitted the very same problem yesterday, with debian too , BUT=20
-with vanilla kernels (hand compiled from GIT, with a specific config).
+OK I trigger the bug on linux-2.6 with :
 
-I can confirm that 2.6.38.5 & 2.6.38.6 have this problem, but 2.6.38.3=20
-works fine.
+modprobe bonding
+ip link add testa type veth peer name testb
+ifconfig bond0 up
+ifenslave bond0 testa
+ip link del testa
 
-So this is not a debian specific bug as far as I can see.
+I'll cook a patch, stay tuned :)
 
-Cheers,
-
---=20
-Yann Dupont - Service IRTS, DSI Universit=C3=A9 de Nantes
-Tel : 02.53.48.49.20 - Mail/Jabber : Yann.Dupont@univ-nantes.fr
 
