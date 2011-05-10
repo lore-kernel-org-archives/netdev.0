@@ -1,524 +1,291 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 2/9] [PATCH] qeth: add OSA concurrent hardware trap
-Date: Tue, 10 May 2011 13:50:15 +0200
-Message-ID: <20110510115047.221293799@de.ibm.com>
+Subject: [patch 9/9] [PATCH] convert old cpumask API into new one
+Date: Tue, 10 May 2011 13:50:22 +0200
+Message-ID: <20110510115047.976954248@de.ibm.com>
 References: <20110510115013.363974020@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([194.196.100.163]:55160 "EHLO
+Received: from mtagate3.uk.ibm.com ([194.196.100.163]:55172 "EHLO
 	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754274Ab1EJLuu (ORCPT
+	with ESMTP id S1755718Ab1EJLuu (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 07:50:50 -0400
-Content-Disposition: inline; filename=601-qeth-hardware-trap.diff
+Content-Disposition: inline; filename=608-cpumask-api.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 
-This patch improves FFDC (first failure data capture) by requesting
-a hardware trace in case the device driver, the hardware or a user
-detects an error.
+Adapt new API.
 
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
 
- drivers/s390/net/qeth_core.h      |   18 ++++
- drivers/s390/net/qeth_core_main.c |  148 ++++++++++++++++++++++++++++++++++++++
- drivers/s390/net/qeth_core_mpc.h  |    9 ++
- drivers/s390/net/qeth_core_sys.c  |   61 +++++++++++++++
- drivers/s390/net/qeth_l2_main.c   |   16 ++++
- drivers/s390/net/qeth_l3_main.c   |   53 ++++---------
- 6 files changed, 268 insertions(+), 37 deletions(-)
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -631,6 +631,8 @@ struct qeth_card_info {
- 	__u32 csum_mask;
- 	__u32 tx_csum_mask;
- 	enum qeth_ipa_promisc_modes promisc_mode;
-+	__u32 diagass_support;
-+	__u32 hwtrap;
+ net/iucv/iucv.c |   73 ++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 37 insertions(+), 36 deletions(-)
+diff -urpN linux-2.6/net/iucv/iucv.c linux-2.6-patched/net/iucv/iucv.c
+--- linux-2.6/net/iucv/iucv.c	2011-05-10 09:14:27.000000000 +0200
++++ linux-2.6-patched/net/iucv/iucv.c	2011-05-10 09:14:27.000000000 +0200
+@@ -128,8 +128,8 @@ struct iucv_irq_list {
  };
  
- struct qeth_card_options {
-@@ -752,6 +754,14 @@ struct qeth_card_list_struct {
- 	rwlock_t rwlock;
- };
+ static struct iucv_irq_data *iucv_irq_data[NR_CPUS];
+-static cpumask_t iucv_buffer_cpumask = CPU_MASK_NONE;
+-static cpumask_t iucv_irq_cpumask = CPU_MASK_NONE;
++static cpumask_t iucv_buffer_cpumask = { CPU_BITS_NONE };
++static cpumask_t iucv_irq_cpumask = { CPU_BITS_NONE };
  
-+struct qeth_trap_id {
-+	__u16 lparnr;
-+	char vmname[8];
-+	__u8 chpid;
-+	__u8 ssid;
-+	__u16 devno;
-+} __packed;
-+
- /*some helper functions*/
- #define QETH_CARD_IFNAME(card) (((card)->dev)? (card)->dev->name : "")
- 
-@@ -786,6 +796,12 @@ static inline void qeth_put_buffer_pool_
- 	list_add_tail(&entry->list, &card->qdio.in_buf_pool.entry_list);
+ /*
+  * Queue of interrupt buffers lock for delivery via the tasklet
+@@ -406,7 +406,7 @@ static void iucv_allow_cpu(void *data)
+ 	parm->set_mask.ipmask = 0xf8;
+ 	iucv_call_b2f0(IUCV_SETCONTROLMASK, parm);
+ 	/* Set indication that iucv interrupts are allowed for this cpu. */
+-	cpu_set(cpu, iucv_irq_cpumask);
++	cpumask_set_cpu(cpu, &iucv_irq_cpumask);
  }
  
-+static inline int qeth_is_diagass_supported(struct qeth_card *card,
-+		enum qeth_diags_cmds cmd)
-+{
-+	return card->info.diagass_support & (__u32)cmd;
-+}
-+
- extern struct ccwgroup_driver qeth_l2_ccwgroup_driver;
- extern struct ccwgroup_driver qeth_l3_ccwgroup_driver;
- const char *qeth_get_cardname_short(struct qeth_card *);
-@@ -871,6 +887,8 @@ void qeth_dbf_longtext(debug_info_t *id,
- int qeth_core_ethtool_get_settings(struct net_device *, struct ethtool_cmd *);
- int qeth_set_access_ctrl_online(struct qeth_card *card);
- int qeth_hdr_chk_and_bounce(struct sk_buff *, int);
-+int qeth_hw_trap(struct qeth_card *, enum qeth_diags_trap_action);
-+int qeth_query_ipassists(struct qeth_card *, enum qeth_prot_versions prot);
+ /**
+@@ -426,7 +426,7 @@ static void iucv_block_cpu(void *data)
+ 	iucv_call_b2f0(IUCV_SETMASK, parm);
  
- /* exports for OSN */
- int qeth_osn_assist(struct net_device *, void *, int);
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -24,6 +24,7 @@
- 
- #include <asm/ebcdic.h>
- #include <asm/io.h>
-+#include <asm/sysinfo.h>
- 
- #include "qeth_core.h"
- 
-@@ -349,6 +350,8 @@ static struct qeth_ipa_cmd *qeth_check_i
- 					   card->info.chpid);
- 				netif_carrier_on(card->dev);
- 				card->lan_online = 1;
-+				if (card->info.hwtrap)
-+					card->info.hwtrap = 2;
- 				qeth_schedule_recovery(card);
- 				return NULL;
- 			case IPA_CMD_MODCCID:
-@@ -2573,6 +2576,142 @@ int qeth_query_setadapterparms(struct qe
+ 	/* Clear indication that iucv interrupts are allowed for this cpu. */
+-	cpu_clear(cpu, iucv_irq_cpumask);
++	cpumask_clear_cpu(cpu, &iucv_irq_cpumask);
  }
- EXPORT_SYMBOL_GPL(qeth_query_setadapterparms);
  
-+static int qeth_query_ipassists_cb(struct qeth_card *card,
-+		struct qeth_reply *reply, unsigned long data)
-+{
-+	struct qeth_ipa_cmd *cmd;
-+
-+	QETH_DBF_TEXT(SETUP, 2, "qipasscb");
-+
-+	cmd = (struct qeth_ipa_cmd *) data;
-+	if (cmd->hdr.prot_version == QETH_PROT_IPV4) {
-+		card->options.ipa4.supported_funcs = cmd->hdr.ipa_supported;
-+		card->options.ipa4.enabled_funcs = cmd->hdr.ipa_enabled;
-+	} else {
-+		card->options.ipa6.supported_funcs = cmd->hdr.ipa_supported;
-+		card->options.ipa6.enabled_funcs = cmd->hdr.ipa_enabled;
-+	}
-+	QETH_DBF_TEXT(SETUP, 2, "suppenbl");
-+	QETH_DBF_TEXT_(SETUP, 2, "%x", cmd->hdr.ipa_supported);
-+	QETH_DBF_TEXT_(SETUP, 2, "%x", cmd->hdr.ipa_enabled);
-+	return 0;
-+}
-+
-+int qeth_query_ipassists(struct qeth_card *card, enum qeth_prot_versions prot)
-+{
-+	int rc;
-+	struct qeth_cmd_buffer *iob;
-+
-+	QETH_DBF_TEXT_(SETUP, 2, "qipassi%i", prot);
-+	iob = qeth_get_ipacmd_buffer(card, IPA_CMD_QIPASSIST, prot);
-+	rc = qeth_send_ipa_cmd(card, iob, qeth_query_ipassists_cb, NULL);
-+	return rc;
-+}
-+EXPORT_SYMBOL_GPL(qeth_query_ipassists);
-+
-+static int qeth_query_setdiagass_cb(struct qeth_card *card,
-+		struct qeth_reply *reply, unsigned long data)
-+{
-+	struct qeth_ipa_cmd *cmd;
-+	__u16 rc;
-+
-+	cmd = (struct qeth_ipa_cmd *)data;
-+	rc = cmd->hdr.return_code;
-+	if (rc)
-+		QETH_CARD_TEXT_(card, 2, "diagq:%x", rc);
-+	else
-+		card->info.diagass_support = cmd->data.diagass.ext;
-+	return 0;
-+}
-+
-+static int qeth_query_setdiagass(struct qeth_card *card)
-+{
-+	struct qeth_cmd_buffer *iob;
-+	struct qeth_ipa_cmd    *cmd;
-+
-+	QETH_DBF_TEXT(SETUP, 2, "qdiagass");
-+	iob = qeth_get_ipacmd_buffer(card, IPA_CMD_SET_DIAG_ASS, 0);
-+	cmd = (struct qeth_ipa_cmd *)(iob->data+IPA_PDU_HEADER_SIZE);
-+	cmd->data.diagass.subcmd_len = 16;
-+	cmd->data.diagass.subcmd = QETH_DIAGS_CMD_QUERY;
-+	return qeth_send_ipa_cmd(card, iob, qeth_query_setdiagass_cb, NULL);
-+}
-+
-+static void qeth_get_trap_id(struct qeth_card *card, struct qeth_trap_id *tid)
-+{
-+	unsigned long info = get_zeroed_page(GFP_KERNEL);
-+	struct sysinfo_2_2_2 *info222 = (struct sysinfo_2_2_2 *)info;
-+	struct sysinfo_3_2_2 *info322 = (struct sysinfo_3_2_2 *)info;
-+	struct ccw_dev_id ccwid;
-+	int level, rc;
-+
-+	tid->chpid = card->info.chpid;
-+	ccw_device_get_id(CARD_RDEV(card), &ccwid);
-+	tid->ssid = ccwid.ssid;
-+	tid->devno = ccwid.devno;
-+	if (!info)
-+		return;
-+
-+	rc = stsi(NULL, 0, 0, 0);
-+	if (rc == -ENOSYS)
-+		level = rc;
-+	else
-+		level = (((unsigned int) rc) >> 28);
-+
-+	if ((level >= 2) && (stsi(info222, 2, 2, 2) != -ENOSYS))
-+		tid->lparnr = info222->lpar_number;
-+
-+	if ((level >= 3) && (stsi(info322, 3, 2, 2) != -ENOSYS)) {
-+		EBCASC(info322->vm[0].name, sizeof(info322->vm[0].name));
-+		memcpy(tid->vmname, info322->vm[0].name, sizeof(tid->vmname));
-+	}
-+	free_page(info);
-+	return;
-+}
-+
-+static int qeth_hw_trap_cb(struct qeth_card *card,
-+		struct qeth_reply *reply, unsigned long data)
-+{
-+	struct qeth_ipa_cmd *cmd;
-+	__u16 rc;
-+
-+	cmd = (struct qeth_ipa_cmd *)data;
-+	rc = cmd->hdr.return_code;
-+	if (rc)
-+		QETH_CARD_TEXT_(card, 2, "trapc:%x", rc);
-+	return 0;
-+}
-+
-+int qeth_hw_trap(struct qeth_card *card, enum qeth_diags_trap_action action)
-+{
-+	struct qeth_cmd_buffer *iob;
-+	struct qeth_ipa_cmd *cmd;
-+
-+	QETH_DBF_TEXT(SETUP, 2, "diagtrap");
-+	iob = qeth_get_ipacmd_buffer(card, IPA_CMD_SET_DIAG_ASS, 0);
-+	cmd = (struct qeth_ipa_cmd *)(iob->data+IPA_PDU_HEADER_SIZE);
-+	cmd->data.diagass.subcmd_len = 80;
-+	cmd->data.diagass.subcmd = QETH_DIAGS_CMD_TRAP;
-+	cmd->data.diagass.type = 1;
-+	cmd->data.diagass.action = action;
-+	switch (action) {
-+	case QETH_DIAGS_TRAP_ARM:
-+		cmd->data.diagass.options = 0x0003;
-+		cmd->data.diagass.ext = 0x00010000 +
-+			sizeof(struct qeth_trap_id);
-+		qeth_get_trap_id(card,
-+			(struct qeth_trap_id *)cmd->data.diagass.cdata);
-+		break;
-+	case QETH_DIAGS_TRAP_DISARM:
-+		cmd->data.diagass.options = 0x0001;
-+		break;
-+	case QETH_DIAGS_TRAP_CAPTURE:
-+		break;
-+	}
-+	return qeth_send_ipa_cmd(card, iob, qeth_hw_trap_cb, NULL);
-+}
-+EXPORT_SYMBOL_GPL(qeth_hw_trap);
-+
- int qeth_check_qdio_errors(struct qeth_card *card, struct qdio_buffer *buf,
- 		unsigned int qdio_error, const char *dbftext)
- {
-@@ -3983,6 +4122,15 @@ retriable:
- 		QETH_DBF_TEXT_(SETUP, 2, "5err%d", rc);
+ /**
+@@ -451,7 +451,7 @@ static void iucv_block_cpu_almost(void *
+ 	iucv_call_b2f0(IUCV_SETCONTROLMASK, parm);
+ 
+ 	/* Clear indication that iucv interrupts are allowed for this cpu. */
+-	cpu_clear(cpu, iucv_irq_cpumask);
++	cpumask_clear_cpu(cpu, &iucv_irq_cpumask);
+ }
+ 
+ /**
+@@ -466,7 +466,7 @@ static void iucv_declare_cpu(void *data)
+ 	union iucv_param *parm;
+ 	int rc;
+ 
+-	if (cpu_isset(cpu, iucv_buffer_cpumask))
++	if (cpumask_test_cpu(cpu, &iucv_buffer_cpumask))
+ 		return;
+ 
+ 	/* Declare interrupt buffer. */
+@@ -499,9 +499,9 @@ static void iucv_declare_cpu(void *data)
+ 	}
+ 
+ 	/* Set indication that an iucv buffer exists for this cpu. */
+-	cpu_set(cpu, iucv_buffer_cpumask);
++	cpumask_set_cpu(cpu, &iucv_buffer_cpumask);
+ 
+-	if (iucv_nonsmp_handler == 0 || cpus_empty(iucv_irq_cpumask))
++	if (iucv_nonsmp_handler == 0 || cpumask_empty(&iucv_irq_cpumask))
+ 		/* Enable iucv interrupts on this cpu. */
+ 		iucv_allow_cpu(NULL);
+ 	else
+@@ -520,7 +520,7 @@ static void iucv_retrieve_cpu(void *data
+ 	int cpu = smp_processor_id();
+ 	union iucv_param *parm;
+ 
+-	if (!cpu_isset(cpu, iucv_buffer_cpumask))
++	if (!cpumask_test_cpu(cpu, &iucv_buffer_cpumask))
+ 		return;
+ 
+ 	/* Block iucv interrupts. */
+@@ -531,7 +531,7 @@ static void iucv_retrieve_cpu(void *data
+ 	iucv_call_b2f0(IUCV_RETRIEVE_BUFFER, parm);
+ 
+ 	/* Clear indication that an iucv buffer exists for this cpu. */
+-	cpu_clear(cpu, iucv_buffer_cpumask);
++	cpumask_clear_cpu(cpu, &iucv_buffer_cpumask);
+ }
+ 
+ /**
+@@ -546,8 +546,8 @@ static void iucv_setmask_mp(void)
+ 	get_online_cpus();
+ 	for_each_online_cpu(cpu)
+ 		/* Enable all cpus with a declared buffer. */
+-		if (cpu_isset(cpu, iucv_buffer_cpumask) &&
+-		    !cpu_isset(cpu, iucv_irq_cpumask))
++		if (cpumask_test_cpu(cpu, &iucv_buffer_cpumask) &&
++		    !cpumask_test_cpu(cpu, &iucv_irq_cpumask))
+ 			smp_call_function_single(cpu, iucv_allow_cpu,
+ 						 NULL, 1);
+ 	put_online_cpus();
+@@ -564,9 +564,9 @@ static void iucv_setmask_up(void)
+ 	int cpu;
+ 
+ 	/* Disable all cpu but the first in cpu_irq_cpumask. */
+-	cpumask = iucv_irq_cpumask;
+-	cpu_clear(first_cpu(iucv_irq_cpumask), cpumask);
+-	for_each_cpu_mask_nr(cpu, cpumask)
++	cpumask_copy(&cpumask, &iucv_irq_cpumask);
++	cpumask_clear_cpu(cpumask_first(&iucv_irq_cpumask), &cpumask);
++	for_each_cpu(cpu, &cpumask)
+ 		smp_call_function_single(cpu, iucv_block_cpu, NULL, 1);
+ }
+ 
+@@ -593,7 +593,7 @@ static int iucv_enable(void)
+ 	rc = -EIO;
+ 	for_each_online_cpu(cpu)
+ 		smp_call_function_single(cpu, iucv_declare_cpu, NULL, 1);
+-	if (cpus_empty(iucv_buffer_cpumask))
++	if (cpumask_empty(&iucv_buffer_cpumask))
+ 		/* No cpu could declare an iucv buffer. */
+ 		goto out;
+ 	put_online_cpus();
+@@ -675,15 +675,16 @@ static int __cpuinit iucv_cpu_notify(str
+ 	case CPU_DOWN_PREPARE_FROZEN:
+ 		if (!iucv_path_table)
+ 			break;
+-		cpumask = iucv_buffer_cpumask;
+-		cpu_clear(cpu, cpumask);
+-		if (cpus_empty(cpumask))
++		cpumask_copy(&cpumask, &iucv_buffer_cpumask);
++		cpumask_clear_cpu(cpu, &cpumask);
++		if (cpumask_empty(&cpumask))
+ 			/* Can't offline last IUCV enabled cpu. */
+ 			return notifier_from_errno(-EINVAL);
+ 		smp_call_function_single(cpu, iucv_retrieve_cpu, NULL, 1);
+-		if (cpus_empty(iucv_irq_cpumask))
+-			smp_call_function_single(first_cpu(iucv_buffer_cpumask),
+-						 iucv_allow_cpu, NULL, 1);
++		if (cpumask_empty(&iucv_irq_cpumask))
++			smp_call_function_single(
++				cpumask_first(&iucv_buffer_cpumask),
++				iucv_allow_cpu, NULL, 1);
+ 		break;
+ 	}
+ 	return NOTIFY_OK;
+@@ -866,7 +867,7 @@ int iucv_path_accept(struct iucv_path *p
+ 	int rc;
+ 
+ 	local_bh_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
  		goto out;
  	}
-+
-+	card->options.ipa4.supported_funcs = 0;
-+	card->options.adp.supported_funcs = 0;
-+	card->info.diagass_support = 0;
-+	qeth_query_ipassists(card, QETH_PROT_IPV4);
-+	if (qeth_is_supported(card, IPA_SETADAPTERPARMS))
-+		qeth_query_setadapterparms(card);
-+	if (qeth_adp_supported(card, IPA_SETADP_SET_DIAG_ASSIST))
-+		qeth_query_setdiagass(card);
- 	return 0;
- out:
- 	dev_warn(&card->gdev->dev, "The qeth device driver failed to recover "
---- a/drivers/s390/net/qeth_core_mpc.h
-+++ b/drivers/s390/net/qeth_core_mpc.h
-@@ -448,6 +448,12 @@ enum qeth_diags_trace_cmds {
- 	QETH_DIAGS_CMD_TRACE_QUERY	= 0x0010,
- };
+@@ -915,7 +916,7 @@ int iucv_path_connect(struct iucv_path *
  
-+enum qeth_diags_trap_action {
-+	QETH_DIAGS_TRAP_ARM	= 0x01,
-+	QETH_DIAGS_TRAP_DISARM	= 0x02,
-+	QETH_DIAGS_TRAP_CAPTURE = 0x04,
-+};
-+
- struct qeth_ipacmd_diagass {
- 	__u32  host_tod2;
- 	__u32:32;
-@@ -457,7 +463,8 @@ struct qeth_ipacmd_diagass {
- 	__u8   type;
- 	__u8   action;
- 	__u16  options;
--	__u32:32;
-+	__u32  ext;
-+	__u8   cdata[64];
- } __attribute__ ((packed));
- 
- /* Header for each IPA command */
---- a/drivers/s390/net/qeth_core_sys.c
-+++ b/drivers/s390/net/qeth_core_sys.c
-@@ -530,6 +530,66 @@ out:
- static DEVICE_ATTR(isolation, 0644, qeth_dev_isolation_show,
- 		   qeth_dev_isolation_store);
- 
-+static ssize_t qeth_hw_trap_show(struct device *dev,
-+				struct device_attribute *attr, char *buf)
-+{
-+	struct qeth_card *card = dev_get_drvdata(dev);
-+
-+	if (!card)
-+		return -EINVAL;
-+	if (card->info.hwtrap)
-+		return snprintf(buf, 5, "arm\n");
-+	else
-+		return snprintf(buf, 8, "disarm\n");
-+}
-+
-+static ssize_t qeth_hw_trap_store(struct device *dev,
-+		struct device_attribute *attr, const char *buf, size_t count)
-+{
-+	struct qeth_card *card = dev_get_drvdata(dev);
-+	int rc = 0;
-+	char *tmp, *curtoken;
-+	int state = 0;
-+	curtoken = (char *)buf;
-+
-+	if (!card)
-+		return -EINVAL;
-+
-+	mutex_lock(&card->conf_mutex);
-+	if (card->state == CARD_STATE_SOFTSETUP || card->state == CARD_STATE_UP)
-+		state = 1;
-+	tmp = strsep(&curtoken, "\n");
-+
-+	if (!strcmp(tmp, "arm") && !card->info.hwtrap) {
-+		if (state) {
-+			if (qeth_is_diagass_supported(card,
-+			    QETH_DIAGS_CMD_TRAP)) {
-+				rc = qeth_hw_trap(card, QETH_DIAGS_TRAP_ARM);
-+				if (!rc)
-+					card->info.hwtrap = 1;
-+			} else
-+				rc = -EINVAL;
-+		} else
-+			card->info.hwtrap = 1;
-+	} else if (!strcmp(tmp, "disarm") && card->info.hwtrap) {
-+		if (state) {
-+			rc = qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
-+			if (!rc)
-+				card->info.hwtrap = 0;
-+		} else
-+			card->info.hwtrap = 0;
-+	} else if (!strcmp(tmp, "trap") && state && card->info.hwtrap)
-+		rc = qeth_hw_trap(card, QETH_DIAGS_TRAP_CAPTURE);
-+	else
-+		rc = -EINVAL;
-+
-+	mutex_unlock(&card->conf_mutex);
-+	return rc ? rc : count;
-+}
-+
-+static DEVICE_ATTR(hw_trap, 0644, qeth_hw_trap_show,
-+		   qeth_hw_trap_store);
-+
- static ssize_t qeth_dev_blkt_show(char *buf, struct qeth_card *card, int value)
- {
- 
-@@ -653,6 +713,7 @@ static struct attribute *qeth_device_att
- 	&dev_attr_performance_stats.attr,
- 	&dev_attr_layer2.attr,
- 	&dev_attr_isolation.attr,
-+	&dev_attr_hw_trap.attr,
- 	NULL,
- };
- 
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -876,6 +876,7 @@ static int qeth_l2_probe_device(struct c
- 	INIT_LIST_HEAD(&card->vid_list);
- 	INIT_LIST_HEAD(&card->mc_list);
- 	card->options.layer2 = 1;
-+	card->info.hwtrap = 0;
- 	card->discipline.start_poll = qeth_qdio_start_poll;
- 	card->discipline.input_handler = (qdio_handler_t *)
- 		qeth_qdio_input_handler;
-@@ -994,6 +995,13 @@ static int __qeth_l2_set_online(struct c
- 	if (card->info.type != QETH_CARD_TYPE_OSN)
- 		qeth_l2_send_setmac(card, &card->dev->dev_addr[0]);
- 
-+	if (qeth_is_diagass_supported(card, QETH_DIAGS_CMD_TRAP)) {
-+		if (card->info.hwtrap &&
-+		    qeth_hw_trap(card, QETH_DIAGS_TRAP_ARM))
-+			card->info.hwtrap = 0;
-+	} else
-+		card->info.hwtrap = 0;
-+
- 	card->state = CARD_STATE_HARDSETUP;
- 	memset(&card->rx, 0, sizeof(struct qeth_rx));
- 	qeth_print_status_message(card);
-@@ -1092,6 +1100,10 @@ static int __qeth_l2_set_offline(struct
- 	if (card->dev && netif_carrier_ok(card->dev))
- 		netif_carrier_off(card->dev);
- 	recover_flag = card->state;
-+	if ((!recovery_mode && card->info.hwtrap) || card->info.hwtrap == 2) {
-+		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
-+		card->info.hwtrap = 1;
-+	}
- 	qeth_l2_stop_card(card, recovery_mode);
- 	rc  = ccw_device_set_offline(CARD_DDEV(card));
- 	rc2 = ccw_device_set_offline(CARD_WDEV(card));
-@@ -1157,6 +1169,8 @@ static void __exit qeth_l2_exit(void)
- static void qeth_l2_shutdown(struct ccwgroup_device *gdev)
- {
- 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
-+	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
-+		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 	qeth_qdio_clear_card(card, 0);
- 	qeth_clear_qdio_buffers(card);
- }
-@@ -1172,6 +1186,8 @@ static int qeth_l2_pm_suspend(struct ccw
- 	if (gdev->state == CCWGROUP_OFFLINE)
- 		return 0;
- 	if (card->state == CARD_STATE_UP) {
-+		if (card->info.hwtrap)
-+			qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 		__qeth_l2_set_offline(card->gdev, 1);
- 	} else
- 		__qeth_l2_set_offline(card->gdev, 0);
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -1277,39 +1277,6 @@ static int qeth_l3_start_ipa_multicast(s
- 	return rc;
- }
- 
--static int qeth_l3_query_ipassists_cb(struct qeth_card *card,
--		struct qeth_reply *reply, unsigned long data)
--{
--	struct qeth_ipa_cmd *cmd;
--
--	QETH_DBF_TEXT(SETUP, 2, "qipasscb");
--
--	cmd = (struct qeth_ipa_cmd *) data;
--	if (cmd->hdr.prot_version == QETH_PROT_IPV4) {
--		card->options.ipa4.supported_funcs = cmd->hdr.ipa_supported;
--		card->options.ipa4.enabled_funcs = cmd->hdr.ipa_enabled;
--	} else {
--		card->options.ipa6.supported_funcs = cmd->hdr.ipa_supported;
--		card->options.ipa6.enabled_funcs = cmd->hdr.ipa_enabled;
--	}
--	QETH_DBF_TEXT(SETUP, 2, "suppenbl");
--	QETH_DBF_TEXT_(SETUP, 2, "%x", cmd->hdr.ipa_supported);
--	QETH_DBF_TEXT_(SETUP, 2, "%x", cmd->hdr.ipa_enabled);
--	return 0;
--}
--
--static int qeth_l3_query_ipassists(struct qeth_card *card,
--				enum qeth_prot_versions prot)
--{
--	int rc;
--	struct qeth_cmd_buffer *iob;
--
--	QETH_DBF_TEXT_(SETUP, 2, "qipassi%i", prot);
--	iob = qeth_get_ipacmd_buffer(card, IPA_CMD_QIPASSIST, prot);
--	rc = qeth_send_ipa_cmd(card, iob, qeth_l3_query_ipassists_cb, NULL);
--	return rc;
--}
--
- #ifdef CONFIG_QETH_IPV6
- static int qeth_l3_softsetup_ipv6(struct qeth_card *card)
- {
-@@ -1320,7 +1287,7 @@ static int qeth_l3_softsetup_ipv6(struct
- 	if (card->info.type == QETH_CARD_TYPE_IQD)
+ 	spin_lock_bh(&iucv_table_lock);
+ 	iucv_cleanup_queue();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
  		goto out;
- 
--	rc = qeth_l3_query_ipassists(card, QETH_PROT_IPV6);
-+	rc = qeth_query_ipassists(card, QETH_PROT_IPV6);
- 	if (rc) {
- 		dev_err(&card->gdev->dev,
- 			"Activating IPv6 support for %s failed\n",
-@@ -3364,6 +3331,7 @@ static int qeth_l3_probe_device(struct c
- 
- 	qeth_l3_create_device_attributes(&gdev->dev);
- 	card->options.layer2 = 0;
-+	card->info.hwtrap = 0;
- 	card->discipline.start_poll = qeth_qdio_start_poll;
- 	card->discipline.input_handler = (qdio_handler_t *)
- 		qeth_qdio_input_handler;
-@@ -3415,13 +3383,18 @@ static int __qeth_l3_set_online(struct c
- 		goto out_remove;
  	}
+@@ -975,7 +976,7 @@ int iucv_path_quiesce(struct iucv_path *
+ 	int rc;
  
--	qeth_l3_query_ipassists(card, QETH_PROT_IPV4);
--
- 	if (!card->dev && qeth_l3_setup_netdev(card)) {
- 		rc = -ENODEV;
- 		goto out_remove;
+ 	local_bh_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
  	}
+@@ -1007,7 +1008,7 @@ int iucv_path_resume(struct iucv_path *p
+ 	int rc;
  
-+	if (qeth_is_diagass_supported(card, QETH_DIAGS_CMD_TRAP)) {
-+		if (card->info.hwtrap &&
-+		    qeth_hw_trap(card, QETH_DIAGS_TRAP_ARM))
-+			card->info.hwtrap = 0;
-+	} else
-+		card->info.hwtrap = 0;
-+
- 	card->state = CARD_STATE_HARDSETUP;
- 	memset(&card->rx, 0, sizeof(struct qeth_rx));
- 	qeth_print_status_message(card);
-@@ -3523,6 +3496,10 @@ static int __qeth_l3_set_offline(struct
- 	if (card->dev && netif_carrier_ok(card->dev))
- 		netif_carrier_off(card->dev);
- 	recover_flag = card->state;
-+	if ((!recovery_mode && card->info.hwtrap) || card->info.hwtrap == 2) {
-+		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
-+		card->info.hwtrap = 1;
-+	}
- 	qeth_l3_stop_card(card, recovery_mode);
- 	rc  = ccw_device_set_offline(CARD_DDEV(card));
- 	rc2 = ccw_device_set_offline(CARD_WDEV(card));
-@@ -3578,6 +3555,8 @@ static int qeth_l3_recover(void *ptr)
- static void qeth_l3_shutdown(struct ccwgroup_device *gdev)
- {
- 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
-+	if ((gdev->state == CCWGROUP_ONLINE) && card->info.hwtrap)
-+		qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 	qeth_qdio_clear_card(card, 0);
- 	qeth_clear_qdio_buffers(card);
- }
-@@ -3593,6 +3572,8 @@ static int qeth_l3_pm_suspend(struct ccw
- 	if (gdev->state == CCWGROUP_OFFLINE)
- 		return 0;
- 	if (card->state == CARD_STATE_UP) {
-+		if (card->info.hwtrap)
-+			qeth_hw_trap(card, QETH_DIAGS_TRAP_DISARM);
- 		__qeth_l3_set_offline(card->gdev, 1);
- 	} else
- 		__qeth_l3_set_offline(card->gdev, 0);
+ 	local_bh_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1036,7 +1037,7 @@ int iucv_path_sever(struct iucv_path *pa
+ 	int rc;
+ 
+ 	preempt_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1070,7 +1071,7 @@ int iucv_message_purge(struct iucv_path
+ 	int rc;
+ 
+ 	local_bh_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1162,7 +1163,7 @@ int __iucv_message_receive(struct iucv_p
+ 	if (msg->flags & IUCV_IPRMDATA)
+ 		return iucv_message_receive_iprmdata(path, msg, flags,
+ 						     buffer, size, residual);
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	 if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1235,7 +1236,7 @@ int iucv_message_reject(struct iucv_path
+ 	int rc;
+ 
+ 	local_bh_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1274,7 +1275,7 @@ int iucv_message_reply(struct iucv_path
+ 	int rc;
+ 
+ 	local_bh_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1324,7 +1325,7 @@ int __iucv_message_send(struct iucv_path
+ 	union iucv_param *parm;
+ 	int rc;
+ 
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1411,7 +1412,7 @@ int iucv_message_send2way(struct iucv_pa
+ 	int rc;
+ 
+ 	local_bh_disable();
+-	if (cpus_empty(iucv_buffer_cpumask)) {
++	if (cpumask_empty(&iucv_buffer_cpumask)) {
+ 		rc = -EIO;
+ 		goto out;
+ 	}
+@@ -1888,7 +1889,7 @@ static int iucv_pm_freeze(struct device
+ 	printk(KERN_WARNING "iucv_pm_freeze\n");
+ #endif
+ 	if (iucv_pm_state != IUCV_PM_FREEZING) {
+-		for_each_cpu_mask_nr(cpu, iucv_irq_cpumask)
++		for_each_cpu(cpu, &iucv_irq_cpumask)
+ 			smp_call_function_single(cpu, iucv_block_cpu_almost,
+ 						 NULL, 1);
+ 		cancel_work_sync(&iucv_work);
+@@ -1928,7 +1929,7 @@ static int iucv_pm_thaw(struct device *d
+ 		if (rc)
+ 			goto out;
+ 	}
+-	if (cpus_empty(iucv_irq_cpumask)) {
++	if (cpumask_empty(&iucv_irq_cpumask)) {
+ 		if (iucv_nonsmp_handler)
+ 			/* enable interrupts on one cpu */
+ 			iucv_allow_cpu(NULL);
+@@ -1961,7 +1962,7 @@ static int iucv_pm_restore(struct device
+ 		pr_warning("Suspending Linux did not completely close all IUCV "
+ 			"connections\n");
+ 	iucv_pm_state = IUCV_PM_RESTORING;
+-	if (cpus_empty(iucv_irq_cpumask)) {
++	if (cpumask_empty(&iucv_irq_cpumask)) {
+ 		rc = iucv_query_maxconn();
+ 		rc = iucv_enable();
+ 		if (rc)
 
