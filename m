@@ -1,128 +1,107 @@
 From: Nathan Lynch <ntl@pobox.com>
-Subject: Re: [PATCH 1/7] ns: proc files for namespace naming policy.
-Date: Wed, 11 May 2011 14:20:48 -0500
-Message-ID: <1305141667.1236.47.camel@orca.stoopid.dyndns.org>
+Subject: Re: [PATCH 2/7] ns: Introduce the setns syscall
+Date: Wed, 11 May 2011 14:21:14 -0500
+Message-ID: <1305141681.1236.48.camel@orca.stoopid.dyndns.org>
 References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
  <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+ <1304735101-1824-2-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
+Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>
+	linux-fsdevel@vger.kernel.org
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1304735101-1824-1-git-send-email-ebiederm@xmission.com>
-Sender: linux-arch-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1304735101-1824-2-git-send-email-ebiederm@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi Eric,
 
-A few comments on your patch set.
-
-
 On Fri, 2011-05-06 at 19:24 -0700, Eric W. Biederman wrote:
-> diff --git a/fs/proc/inode.c b/fs/proc/inode.c
-> index d15aa1b..74b48cf 100644
-> --- a/fs/proc/inode.c
-> +++ b/fs/proc/inode.c
-> @@ -28,6 +28,7 @@ static void proc_evict_inode(struct inode *inode)
->  {
->  	struct proc_dir_entry *de;
->  	struct ctl_table_header *head;
-> +	const struct proc_ns_operations *ns_ops;
->  
->  	truncate_inode_pages(&inode->i_data, 0);
->  	end_writeback(inode);
-> @@ -44,6 +45,10 @@ static void proc_evict_inode(struct inode *inode)
->  		rcu_assign_pointer(PROC_I(inode)->sysctl, NULL);
->  		sysctl_head_put(head);
->  	}
-> +	/* Release any associated namespace */
-> +	ns_ops = PROC_I(inode)->ns_ops;
-> +	if (ns_ops && ns_ops->put)
-> +		ns_ops->put(PROC_I(inode)->ns);
+> With the networking stack today there is demand to handle
+> multiple network stacks at a time.  Not in the context
+> of containers but in the context of people doing interesting
+> things with routing.
+> 
+> There is also demand in the context of containers to have
+> an efficient way to execute some code in the container itself.
+> If nothing else it is very useful ad a debugging technique.
+> 
+> Both problems can be solved by starting some form of login
+> daemon in the namespaces people want access to, or you
+> can play games by ptracing a process and getting the
+> traced process to do things you want it to do. However
+> it turns out that a login daemon or a ptrace puppet
+> controller are more code, they are more prone to
+> failure, and generally they are less efficient than
+> simply changing the namespace of a process to a
+> specified one.
+> 
+> Pieces of this puzzle can also be solved by instead of
+> coming up with a general purpose system call coming up
+> with targed system calls perhaps socketat that solve
+> a subset of the larger problem.  Overall that appears
+> to be more work for less reward.
+> 
+> int setns(int fd, int nstype);
+> 
+> The fd argument is a file descriptor referring to a proc
+> file of the namespace you want to switch the process to.
+> 
+> In the setns system call the nstype is 0 or specifies
+> an clone flag of the namespace you intend to change
+> to prevent changing a namespace unintentionally.
 
-Is it ever valid for ns_ops->put to be null?  If not, I suggest removing
-the check.
+I don't understand exactly what the nstype argument buys us - why would
+correct code ever need to specify a value other than 0?  And reusing the
+CLONE_NEW* values in this interface is kind of ugly when setns is
+precisely _not_ creating new namespaces.
 
+Is there some fundamental reason it couldn't be
 
-> diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
-> new file mode 100644
-> index 0000000..6ae9f07
-> --- /dev/null
-> +++ b/fs/proc/namespaces.c
+int setns(int fd);
 
-...
+or is there a use case I'm missing?
 
-> +static struct dentry *proc_ns_dir_lookup(struct inode *dir,
-> +				struct dentry *dentry, struct nameidata *nd)
+ 
+> +SYSCALL_DEFINE2(setns, int, fd, int, nstype)
 > +{
-> +	struct dentry *error;
-> +	struct task_struct *task = get_proc_task(dir);
-> +	const struct proc_ns_operations **entry, **last;
-> +	unsigned int len = dentry->d_name.len;
+> +	const struct proc_ns_operations *ops;
+> +	struct task_struct *tsk = current;
+> +	struct nsproxy *new_nsproxy;
+> +	struct proc_inode *ei;
+> +	struct file *file;
+> +	int err;
 > +
-> +	error = ERR_PTR(-ENOENT);
+> +	if (!capable(CAP_SYS_ADMIN))
+> +		return -EPERM;
 > +
-> +	if (!task)
-> +		goto out_no_task;
+> +	file = proc_ns_fget(fd);
+> +	if (IS_ERR(file))
+> +		return PTR_ERR(file);
 > +
-> +	error = ERR_PTR(-EPERM);
-> +	if (!ptrace_may_access(task, PTRACE_MODE_READ))
+> +	err = -EINVAL;
+> +	ei = PROC_I(file->f_dentry->d_inode);
+> +	ops = ei->ns_ops;
+> +	if (nstype && (ops->type != nstype))
 > +		goto out;
 > +
-> +	last = &ns_entries[ARRAY_SIZE(ns_entries) - 1];
-> +	for (entry = ns_entries; entry <= last; entry++) {
-> +		if (strlen((*entry)->name) != len)
-> +			continue;
-> +		if (!memcmp(dentry->d_name.name, (*entry)->name, len))
-> +			break;
+> +	new_nsproxy = create_new_namespaces(0, tsk, tsk->fs);
+
+create_new_namespaces() can fail; shouldn't this be checked?
+
+
+> +	err = ops->install(new_nsproxy, ei->ns);
+> +	if (err) {
+> +		free_nsproxy(new_nsproxy);
+> +		goto out;
 > +	}
-> +	if (entry > last)
-> +		goto out;
-
-This returns EPERM when it should return ENOENT?
-
-
-> +
-> +	error = proc_ns_instantiate(dir, dentry, task, *entry);
+> +	switch_task_namespaces(tsk, new_nsproxy);
 > +out:
-> +	put_task_struct(task);
-> +out_no_task:
-> +	return error;
+> +	fput(file);
+> +	return err;
 > +}
-
-...
-
-> --- a/include/linux/proc_fs.h
-> +++ b/include/linux/proc_fs.h
-> @@ -250,6 +257,15 @@ kclist_add(struct kcore_list *new, void *addr, size_t size, int type)
->  extern void kclist_add(struct kcore_list *, void *, size_t, int type);
->  #endif
->  
-> +struct nsproxy;
-> +struct proc_ns_operations {
-> +	const char *name;
-> +	int type;
-> +	void *(*get)(struct task_struct *task);
-> +	void (*put)(void *ns);
-> +	int (*install)(struct nsproxy *nsproxy, void *ns);
-> +};
 > +
->  union proc_op {
->  	int (*proc_get_link)(struct inode *, struct path *);
->  	int (*proc_read)(struct task_struct *task, char *page);
-> @@ -268,6 +284,8 @@ struct proc_inode {
->  	struct proc_dir_entry *pde;
->  	struct ctl_table_header *sysctl;
->  	struct ctl_table *sysctl_entry;
-> +	void *ns;
-> +	const struct proc_ns_operations *ns_ops;
->  	struct inode vfs_inode;
->  };
-
-Not that I have any better ideas, but it seems a bit undesirable to
-increase the size of proc_inode for this one purpose.
