@@ -1,44 +1,50 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCHv3] ethtool: Added FW dump support
-Date: Wed, 11 May 2011 15:54:04 -0700
-Message-ID: <1305154448-9687-1-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCHv3 net-next-2.6] ethtool: Added support for FW dump
+Date: Wed, 11 May 2011 15:54:05 -0700
+Message-ID: <1305154448-9687-2-git-send-email-anirban.chakraborty@qlogic.com>
+References: <1305154448-9687-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>,
 	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:60146 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:60147 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756772Ab1EKXA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756490Ab1EKXA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 11 May 2011 19:00:28 -0400
+In-Reply-To: <1305154448-9687-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added support to take FW dump via ethtool.
+Added code to take FW dump via ethtool. Dump level can be controlled via setting the
+dump flag. A get function is provided to query the current setting of the dump flag.
+Dump data is obtained from the driver via a separate get function.
 
 Changes from v2:
-Folded get dump flag and data into one option
-Added man page support
+Provided separate commands for get flag and data.
+Check for minimum of the two buffer length obtained via ethtool and driver and
+use that for dump buffer
+Pass up the driver return error codes up to the caller.
+Added kernel doc comments.
 
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- ethtool-copy.h |   22 ++++++++++-
- ethtool.8.in   |   23 +++++++++++
- ethtool.c      |  112 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 154 insertions(+), 3 deletions(-)
+ include/linux/ethtool.h |   28 +++++++++++++++
+ net/core/ethtool.c      |   88 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 116 insertions(+), 0 deletions(-)
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 22215e9..3d30b6a 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -76,6 +76,24 @@ struct ethtool_drvinfo {
- 	__u32	regdump_len;	/* Size of data from ETHTOOL_GREGS (bytes) */
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index bd0b50b..5ac7e18 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -601,6 +601,24 @@ struct ethtool_flash {
+ 	char	data[ETHTOOL_FLASH_MAX_FILENAME];
  };
  
 +/**
 + * struct ethtool_dump - used for retrieving, setting device dump
 + * @cmd: Command number - %ETHTOOL_GET_DUMP_FLAG, %ETHTOOL_GET_DUMP_DATA, or
-+ * 	 %ETHTOOL_SET_DUMP
++ * 	%ETHTOOL_SET_DUMP
 + * @version: FW version of the dump, filled in by driver
 + * @flag: driver dependent flag for dump setting, filled in by driver during
 + * 	  get and filled in by ethtool for set operation
@@ -50,21 +56,34 @@ index 22215e9..3d30b6a 100644
 +	__u32	version;
 +	__u32	flag;
 +	__u32	len;
-+	__u8	data[0];
++	u8	data[0];
 +};
 +
- #define SOPASS_MAX	6
- /* wake-on-lan settings */
- struct ethtool_wolinfo {
-@@ -654,7 +672,6 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
- #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
+ /* for returning and changing feature sets */
  
--
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* Get settings. */
- #define ETHTOOL_SSET		0x00000002 /* Set settings. */
-@@ -722,6 +739,9 @@ enum ethtool_sfeatures_retval_bits {
+ /**
+@@ -853,6 +871,9 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
+  * @get_channels: Get number of channels.
+  * @set_channels: Set number of channels.  Returns a negative error code or
+  *	zero.
++ * @get_dump_flag: Get dump flag indicating current dump settings of the device.
++ * @get_dump_data: Get dump data.
++ * @set_dump: Set dump specific flags to the device.
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -927,6 +948,10 @@ struct ethtool_ops {
+ 				  const struct ethtool_rxfh_indir *);
+ 	void	(*get_channels)(struct net_device *, struct ethtool_channels *);
+ 	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
++	int	(*get_dump_flag)(struct net_device *, struct ethtool_dump *);
++	int	(*get_dump_data)(struct net_device *,
++				 struct ethtool_dump *, void *);
++	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+ 
+ };
+ #endif /* __KERNEL__ */
+@@ -998,6 +1023,9 @@ struct ethtool_ops {
  #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings */
  #define ETHTOOL_GCHANNELS	0x0000003c /* Get no of channels */
  #define ETHTOOL_SCHANNELS	0x0000003d /* Set no of channels */
@@ -74,240 +93,112 @@ index 22215e9..3d30b6a 100644
  
  /* compatibility with older code */
  #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 9f484fb..3042e7c 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -301,6 +301,17 @@ ethtool \- query or control network driver and hardware settings
- .RB [ user\-def\-mask
- .IR mask ]]
- .RI action \ N
-+.br
-+.HP
-+.B ethtool \-w|\-\-get\-dump
-+.I ethX
-+.RB [ data
-+.IR filename ]
-+.HP
-+.B ethtool\ \-W|\-\-set\-dump
-+.I ethX
-+.BI \ N
-+.HP
- .
- .\" Adjust lines (i.e. full justification) and hyphenate.
- .ad
-@@ -711,6 +722,18 @@ lB	l.
- -1	Drop the matched flow
- 0 or higher	Rx queue to route the flow
- .TE
-+.TP
-+.B \-w \-\-get\-dump
-+Retrieves and prints firmware dump for the specified network device.
-+By default, it prints out the dump flag, version and length of the dump data.
-+When
-+.I data
-+is indicated, then ethtool fetches the dump data and directs it to a
-+.I file.
-+.TP
-+.B \-W \-\-set\-dump
-+Sets the dump flag for the device.
-+.TP
- .SH BUGS
- Not supported (in part or whole) on all network drivers.
- .SH AUTHOR
-diff --git a/ethtool.c b/ethtool.c
-index cfdac65..bc332c5 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -28,6 +28,7 @@
- #include <sys/types.h>
- #include <string.h>
- #include <stdlib.h>
-+#include <stddef.h>
- #include <sys/types.h>
- #include <sys/ioctl.h>
- #include <sys/stat.h>
-@@ -110,6 +111,8 @@ static int do_srxntuple(int fd, struct ifreq *ifr);
- static int do_grxntuple(int fd, struct ifreq *ifr);
- static int do_flash(int fd, struct ifreq *ifr);
- static int do_permaddr(int fd, struct ifreq *ifr);
-+static int do_getfwdump(int fd, struct ifreq *ifr);
-+static int do_setfwdump(int fd, struct ifreq *ifr);
- 
- static int send_ioctl(int fd, struct ifreq *ifr);
- 
-@@ -142,6 +145,8 @@ static enum {
- 	MODE_GNTUPLE,
- 	MODE_FLASHDEV,
- 	MODE_PERMADDR,
-+	MODE_SET_DUMP,
-+	MODE_GET_DUMP,
- } mode = MODE_GSET;
- 
- static struct option {
-@@ -263,6 +268,12 @@ static struct option {
- 		"Get Rx ntuple filters and actions\n" },
-     { "-P", "--show-permaddr", MODE_PERMADDR,
- 		"Show permanent hardware address" },
-+    { "-w", "--get-dump", MODE_GET_DUMP,
-+		"Get dump flag, data",
-+		"		[ data FILENAME ]\n" },
-+    { "-W", "--set-dump", MODE_SET_DUMP, 
-+		"Set dump flag of the device",
-+		"		N\n"},
-     { "-h", "--help", MODE_HELP, "Show this help" },
-     { NULL, "--version", MODE_VERSION, "Show version number" },
-     {}
-@@ -413,6 +424,8 @@ static int flash_region = -1;
- static int msglvl_changed;
- static u32 msglvl_wanted = 0;
- static u32 msglvl_mask = 0;
-+static u32 dump_flag;
-+static char *dump_file = NULL;
- 
- static enum {
- 	ONLINE=0,
-@@ -852,7 +865,9 @@ static void parse_cmdline(int argc, char **argp)
- 			    (mode == MODE_GNTUPLE) ||
- 			    (mode == MODE_PHYS_ID) ||
- 			    (mode == MODE_FLASHDEV) ||
--			    (mode == MODE_PERMADDR)) {
-+			    (mode == MODE_PERMADDR) ||
-+			    (mode == MODE_SET_DUMP) ||
-+			    (mode == MODE_GET_DUMP)) {
- 				devname = argp[i];
- 				break;
- 			}
-@@ -874,6 +889,9 @@ static void parse_cmdline(int argc, char **argp)
- 				flash_file = argp[i];
- 				flash = 1;
- 				break;
-+			} else if (mode == MODE_SET_DUMP) {
-+				dump_flag = get_u32(argp[i], 0);
-+				break;
- 			}
- 			/* fallthrough */
- 		default:
-@@ -1020,6 +1038,21 @@ static void parse_cmdline(int argc, char **argp)
- 				}
- 				break;
- 			}
-+			if (mode == MODE_GET_DUMP) {
-+				if (argc != i + 2) {
-+					exit_bad_args();
-+					break;
-+				}
-+				if (!strcmp(argp[i++], "data"))
-+					dump_flag = ETHTOOL_GET_DUMP_DATA;
-+				else {
-+					exit_bad_args();
-+					break;
-+				}
-+				dump_file = argp[i];
-+				i = argc;
-+				break;
-+			}
- 			if (mode != MODE_SSET)
- 				exit_bad_args();
- 			if (!strcmp(argp[i], "speed")) {
-@@ -2042,6 +2075,10 @@ static int doit(void)
- 		return do_flash(fd, &ifr);
- 	} else if (mode == MODE_PERMADDR) {
- 		return do_permaddr(fd, &ifr);
-+	} else if (mode == MODE_GET_DUMP) {
-+		return do_getfwdump(fd, &ifr);
-+	} else if (mode == MODE_SET_DUMP) {
-+		return do_setfwdump(fd, &ifr);
- 	}
- 
- 	return 69;
-@@ -2679,7 +2716,6 @@ static int do_gregs(int fd, struct ifreq *ifr)
- 		perror("Cannot get driver information");
- 		return 72;
- 	}
--
- 	regs = calloc(1, sizeof(*regs)+drvinfo.regdump_len);
- 	if (!regs) {
- 		perror("Cannot allocate memory for register dump");
-@@ -3241,6 +3277,78 @@ static int do_grxntuple(int fd, struct ifreq *ifr)
- 	return 0;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index b6f4058..01819d8 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1823,6 +1823,85 @@ static noinline_for_stack int ethtool_flash_device(struct net_device *dev,
+ 	return dev->ethtool_ops->flash_device(dev, &efl);
  }
  
-+static void do_writefwdump(struct ethtool_dump *dump)
++static int ethtool_set_dump(struct net_device *dev,
++			void __user *useraddr)
 +{
-+	FILE *f;
-+	size_t bytes;
-+
-+	f = fopen(dump_file, "wb+");
-+
-+	if (!f) {
-+		fprintf(stderr, "Can't open file %s: %s\n",
-+			dump_file, strerror(errno));
-+		return;
-+	}
-+	bytes = fwrite(dump->data, 1, dump->len, f);
-+	if (fclose(f))
-+		fprintf(stderr, "Can't close file %s: %s\n",
-+			dump_file, strerror(errno));
-+}
-+
-+static int do_getfwdump(int fd, struct ifreq *ifr)
-+{
-+	int err;
-+	struct ethtool_dump edata;
-+	struct ethtool_dump *data;
-+
-+	edata.cmd = ETHTOOL_GET_DUMP_FLAG;
-+
-+	ifr->ifr_data = (caddr_t) &edata;
-+	err = send_ioctl(fd, ifr);
-+	if (err < 0) {
-+		perror("Can not get dump level");
-+		return 74;
-+	}
-+	if (dump_flag != ETHTOOL_GET_DUMP_DATA) {
-+		fprintf(stdout, "flag: %u, version: %u, length: %u\n",
-+			edata.flag, edata.version, edata.len);
-+		return 0;
-+	}
-+	data = calloc(1, offsetof(struct ethtool_dump, data) + edata.len);
-+	if (!data) {
-+		perror("Can not allocate enough memory");
-+		return 0;
-+	}
-+	data->cmd = ETHTOOL_GET_DUMP_DATA;
-+	data->len = edata.len;
-+	ifr->ifr_data = (caddr_t) data;
-+	err = send_ioctl(fd, ifr);
-+	if (err < 0) {
-+		perror("Can not get dump data\n");
-+		goto free;
-+	}
-+	do_writefwdump(data);
-+free:
-+	free(data);
-+	return 0;
-+}
-+
-+static int do_setfwdump(int fd, struct ifreq *ifr)
-+{
-+	int err;
 +	struct ethtool_dump dump;
 +
-+	dump.cmd = ETHTOOL_SET_DUMP;
-+	dump.flag = dump_flag;
-+	ifr->ifr_data = (caddr_t)&dump;
-+	err = send_ioctl(fd, ifr);
-+	if (err < 0) {
-+		perror("Can not set dump level");
-+		return 74;
-+	}
++	if (!dev->ethtool_ops->set_dump)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&dump, useraddr, sizeof(dump)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_dump(dev, &dump);
++}
++
++static int ethtool_get_dump_flag(struct net_device *dev,
++				void __user *useraddr)
++{
++	int ret;
++	struct ethtool_dump dump;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++
++	if (!dev->ethtool_ops->get_dump_flag)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&dump, useraddr, sizeof(dump)))
++		return -EFAULT;
++
++	ret = ops->get_dump_flag(dev, &dump);
++	if (ret)
++		return ret;
++
++	if (copy_to_user(useraddr, &dump, sizeof(dump)))
++		return -EFAULT;
 +	return 0;
 +}
 +
- static int send_ioctl(int fd, struct ifreq *ifr)
- {
- 	return ioctl(fd, SIOCETHTOOL, ifr);
++static int ethtool_get_dump_data(struct net_device *dev,
++				void __user *useraddr)
++{
++	int ret;
++	__u32 len;
++	struct ethtool_dump dump, tmp;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++	void *data = NULL;
++
++	if (!dev->ethtool_ops->get_dump_data ||
++		!dev->ethtool_ops->get_dump_flag)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&dump, useraddr, sizeof(dump)))
++		return -EFAULT;
++
++	memset(&tmp, 0, sizeof(tmp));
++	tmp.cmd = dump.cmd;
++	ret = ops->get_dump_flag(dev, &tmp);
++	if (ret)
++		return ret;
++
++	len = (tmp.len > dump.len) ? dump.len : tmp.len;
++
++	data = vzalloc(len);
++	if (!data)
++		return -ENOMEM;
++	ret = ops->get_dump_data(dev, &dump, data);
++	if (ret)
++		goto out;
++
++	if (copy_to_user(useraddr, &dump, sizeof(dump))) {
++		ret = -EFAULT;
++		goto out;
++	}
++	useraddr += offsetof(struct ethtool_dump, data);
++	if (copy_to_user(useraddr, data, len))
++		ret = -EFAULT;
++out:
++	vfree(data);
++	return ret;
++}
++
+ /* The main entry point in this file.  Called from net/core/dev.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -2039,6 +2118,15 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SCHANNELS:
+ 		rc = ethtool_set_channels(dev, useraddr);
+ 		break;
++	case ETHTOOL_SET_DUMP:
++		rc = ethtool_set_dump(dev, useraddr);
++		break;
++	case ETHTOOL_GET_DUMP_FLAG:
++		rc = ethtool_get_dump_flag(dev, useraddr);
++		break;
++	case ETHTOOL_GET_DUMP_DATA:
++		rc = ethtool_get_dump_data(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 1.7.4.1
 
