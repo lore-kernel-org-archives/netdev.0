@@ -1,74 +1,121 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] Add libertas_disablemesh module parameter to disable
- mesh interface
-Date: Wed, 11 May 2011 10:00:30 -0700
-Message-ID: <20110511100030.cad34893.rdunlap@xenotime.net>
-References: <1305118354-17337-1-git-send-email-silbe@activitycentral.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 0/2] wireless: Make and use const struct ieee80211_channel
+Date: Wed, 11 May 2011 12:57:42 -0400
+Message-ID: <20110511165742.GE2490@tuxdriver.com>
+References: <cover.1304054543.git.joe@perches.com>
+ <20110505184934.GB3005@tuxdriver.com>
+ <1304634107.1788.171.camel@Joe-Laptop>
+ <20110506131922.GA2252@tuxdriver.com>
+ <1304698221.11874.6.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, devel@lists.laptop.org,
-	Dan Williams <dcbw@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	libertas-dev@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sascha Silbe <silbe@activitycentral.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	orinoco-users@lists.sourceforge.net,
+	orinoco-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305118354-17337-1-git-send-email-silbe@activitycentral.com>
+Content-Disposition: inline
+In-Reply-To: <1304698221.11874.6.camel@Joe-Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 May 2011 14:52:34 +0200 Sascha Silbe wrote:
+On Fri, May 06, 2011 at 09:10:21AM -0700, Joe Perches wrote:
+> On Fri, 2011-05-06 at 09:19 -0400, John W. Linville wrote:
+> > On Thu, May 05, 2011 at 03:21:47PM -0700, Joe Perches wrote:
+> > > On Thu, 2011-05-05 at 14:49 -0400, John W. Linville wrote:
+> > > > These patches generated a lot of warnings in net/mac80211.  Did=
+ you
+> > > > actually build them?
+> > > Yes.
+> > > Did you apply patch 1/2 first?
+> > > It's a dependent patch.
+> > That's the one that cause most of the warnings...
+>=20
+> Consider the 2 patches as a single patch.
+> Do you have new build warnings after applying both
+> patches 1 and 2?
 
-> This allows individual users and deployments to disable mesh support at
-> runtime, i.e. without having to build and maintain a custom kernel.
+Yes, of course.
 
-I guess a user could want to do this on a per-driver basis, but ISTM that
-it would be better to be something like a sysctl that applies to all (wireless)
-drivers.
+  CC [M]  net/mac80211/scan.o
+net/mac80211/scan.c: In function =E2=80=98ieee80211_scan_state_decision=
+=E2=80=99:
+net/mac80211/scan.c:509:12: warning: assignment discards qualifiers fro=
+m pointer target type
+net/mac80211/scan.c: In function =E2=80=98ieee80211_scan_state_set_chan=
+nel=E2=80=99:
+net/mac80211/scan.c:610:7: warning: assignment discards qualifiers from=
+ pointer target type
+  CC [M]  net/mac80211/offchannel.o
+  CC [M]  net/mac80211/ht.o
+  CC [M]  net/mac80211/agg-tx.o
+  CC [M]  net/mac80211/agg-rx.o
+  CC [M]  net/mac80211/ibss.o
+net/mac80211/ibss.c: In function =E2=80=98ieee80211_sta_join_ibss=E2=80=
+=99:
+net/mac80211/ibss.c:250:7: warning: passing argument 4 of =E2=80=98__ie=
+ee80211_sta_join_ibss=E2=80=99 discards qualifiers from pointer target =
+type
+net/mac80211/ibss.c:64:13: note: expected =E2=80=98struct ieee80211_cha=
+nnel *=E2=80=99 but argument is of type =E2=80=98const struct ieee80211=
+_channel *=E2=80=99
+net/mac80211/ibss.c: In function =E2=80=98ieee80211_ibss_join=E2=80=99:
+net/mac80211/ibss.c:918:24: warning: assignment discards qualifiers fro=
+m pointer target type
+net/mac80211/ibss.c:923:30: warning: assignment discards qualifiers fro=
+m pointer target type
+  CC [M]  net/mac80211/mlme.o
+net/mac80211/mlme.c: In function =E2=80=98ieee80211_mgd_auth=E2=80=99:
+net/mac80211/mlme.c:2350:11: warning: assignment discards qualifiers fr=
+om pointer target type
+net/mac80211/mlme.c: In function =E2=80=98ieee80211_mgd_assoc=E2=80=99:
+net/mac80211/mlme.c:2500:11: warning: assignment discards qualifiers fr=
+om pointer target type
+  CC [M]  net/mac80211/work.o
+  CC [M]  net/mac80211/iface.o
+  CC [M]  net/mac80211/rate.o
+  CC [M]  net/mac80211/tkip.o
+  CC [M]  net/mac80211/aes_ccm.o
+  CC [M]  net/mac80211/aes_cmac.o
+  CC [M]  net/mac80211/cfg.o
+net/mac80211/cfg.c:2083:2: warning: initialization from incompatible po=
+inter type
+net/mac80211/cfg.c:2101:2: warning: initialization from incompatible po=
+inter type
+net/mac80211/cfg.c:2103:2: warning: initialization from incompatible po=
+inter type
+  CC [M]  net/mac80211/rx.o
 
-Do other wireless drivers have something like this?
+commit 07daa458f14226deff1e464f594a44111168e7ee
+Author: Joe Perches <joe@perches.com>
+Date:   Thu Apr 28 22:25:08 2011 -0700
 
+    wireless: Use const struct ieee80211_channel where possible
+   =20
+    Make some structure uses const.
+   =20
+    Signed-off-by: Joe Perches <joe@perches.com>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-> Based on a patch by Paul Fox <pgf@laptop.org>.
-> Signed-off-by: Sascha Silbe <silbe@activitycentral.com>
-> ---
->  drivers/net/wireless/libertas/main.c |    9 ++++++++-
->  1 files changed, 8 insertions(+), 1 deletions(-)
-> 
-> The patch is based on the OLPC 2.6.35 kernel tree, but applies cleanly to
-> wireless-next.
-> 
-> diff --git a/drivers/net/wireless/libertas/main.c b/drivers/net/wireless/libertas/main.c
-> index 8445473..62069e2 100644
-> --- a/drivers/net/wireless/libertas/main.c
-> +++ b/drivers/net/wireless/libertas/main.c
-> @@ -41,6 +41,10 @@ unsigned int lbs_debug;
->  EXPORT_SYMBOL_GPL(lbs_debug);
->  module_param_named(libertas_debug, lbs_debug, int, 0644);
-> 
-> +unsigned int lbs_disablemesh;
-> +EXPORT_SYMBOL_GPL(lbs_disablemesh);
-> +module_param_named(libertas_disablemesh, lbs_disablemesh, int, 0644);
-> +
-> 
->  /* This global structure is used to send the confirm_sleep command as
->   * fast as possible down to the firmware. */
-> @@ -1086,7 +1090,10 @@ int lbs_start_card(struct lbs_private *priv)
-> 
->  	lbs_update_channel(priv);
-> 
-> -	lbs_init_mesh(priv);
-> +	if (!lbs_disablemesh)
-> +		lbs_init_mesh(priv);
-> +	else
-> +		lbs_pr_info("%s: mesh disabled\n", dev->name);
-> 
->  	/*
->  	 * While rtap isn't related to mesh, only mesh-enabled
-> --
+commit 5c9adfae8855fc744f77b24df322060a7117c521
+Author: Joe Perches <joe@perches.com>
+Date:   Thu Apr 28 22:25:07 2011 -0700
 
+    wireless: Make struct ieee80211_channel const where possible
+   =20
+    Useful for declarations of static const.
+   =20
+    Signed-off-by: Joe Perches <joe@perches.com>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+<commits were temporary, not applied now>
+
+I'm dropping these patches -- feel free to repost if/when the warnings
+disappear.
+
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
