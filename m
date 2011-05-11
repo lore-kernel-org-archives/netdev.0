@@ -1,170 +1,114 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2011-05-11
-Date: Wed, 11 May 2011 15:27:42 -0400
-Message-ID: <20110511192742.GG2490@tuxdriver.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH] pci,
+	e1000e: Add and use __pci_disable_link_state
+Date: Wed, 11 May 2011 13:23:21 -0700
+Message-ID: <4DCAF039.4030207@kernel.org>
+References: <4DC6E6E8.9040306@kernel.org>
+	<20110509143536.08bd0297@jbarnes-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Naga Chumbalkar <nagananda.chumbalkar@hp.com>,
+	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, John Ronciak <john.ronciak@intel.com>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	netdev@vger.kernel.org, Matthew Garrett <mjg@redhat.com>
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20110509143536.08bd0297@jbarnes-desktop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On 05/09/2011 02:35 PM, Jesse Barnes wrote:
+> On Sun, 08 May 2011 11:54:32 -0700
+> Yinghai Lu <yinghai@kernel.org> wrote:
+> 
+>>
+>> Need to use it in _e1000e_disable_aspm.
+>> when aer happens,
+>> pci_walk_bus already have down_read(&pci_bus_sem)...
+>> then report_slot_reset
+>>         ==> e1000_io_slot_reset
+>>                 ==> e1000e_disable_aspm
+>>                         ==> pci_disable_link_state...
+>>
+>> We can not use pci_disable_link_state, and it will try to hold pci_bus_sem again.
+>>
+>> Try to have __pci_disable_link_state that will not need to hold pci_bus_sem.
+> 
+> What about the other callers of e1000e_disable_aspm?  Do they already
+> have the lock held or is it just reset that needs the already locked
+> version?
 
-Here are a few more late-breakers that I would like to see in 2.6.39.
-The one from Luca fixes a problem that can cause devices to be unable
-to (re-)associate after a disconnect.  The ath9k fix from Mohammed
-fixes a WARNING, the one from Paul fixes a locking issue that can
-lead to data corruption, and the one from Stanislaw fixes a crash
-documented in bug 34452.  All are small and all but one are contained
-within their respective drivers.
+yes. 
 
-Please let me know if there are problems!
+there is another version when aspm is not defined. and it does not use any lock. 
 
-John
+#ifdef CONFIG_PCIEASPM
+static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+{
+        pci_disable_link_state(pdev, state);
+}
+#else
+static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+{
+        int pos;
+        u16 reg16;
 
----
+        /*
+         * Both device and parent should have the same ASPM setting.
+         * Disable ASPM in downstream component first and then upstream.
+         */
+        pos = pci_pcie_cap(pdev);
+        pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
+        reg16 &= ~state;
+        pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
 
-The following changes since commit 9bbc052d5e63512b0ce4e201ea97e12fba9fda82:
+        if (!pdev->bus->self)
+                return;
 
-  Merge branch 'pablo/nf-2.6-updates' of git://1984.lsi.us.es/net-2.6 (2011-05-10 15:04:35 -0700)
+        pos = pci_pcie_cap(pdev->bus->self);
+        pci_read_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, &reg16);
+        reg16 &= ~state;
+        pci_write_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, reg16);
+}
+#endif
 
-are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-Luciano Coelho (1):
-      mac80211: don't start the dynamic ps timer if not associated
+> 
+>> +extern void __pci_disable_link_state(struct pci_dev *pdev, int state);
+>>  extern void pcie_clear_aspm(void);
+>>  extern void pcie_no_aspm(void);
+>>  #else
+> 
+> pci_disable_link_state_locked would be more descriptive and would match
+> other usage in the kernel.
 
-Mohammed Shafi Shajakhan (1):
-      ath9k: Fix a warning due to a queued work during S3 state
+ok.
 
-Paul Fox (1):
-      libertas: fix cmdpendingq locking
+Thanks
 
-Stanislaw Gruszka (1):
-      iwlegacy: fix IBSS mode crashes
+Yinghai
 
- drivers/net/wireless/ath/ath9k/main.c    |    8 ++++++++
- drivers/net/wireless/iwlegacy/iwl-core.c |    7 +++++++
- drivers/net/wireless/iwlegacy/iwl-dev.h  |    6 ++++++
- drivers/net/wireless/libertas/cmd.c      |    6 ++++--
- net/mac80211/tx.c                        |    4 ++++
- 5 files changed, 29 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
-index 17d04ff..1482fa6 100644
---- a/drivers/net/wireless/ath/ath9k/main.c
-+++ b/drivers/net/wireless/ath/ath9k/main.c
-@@ -2141,6 +2141,8 @@ static void ath9k_set_coverage_class(struct ieee80211_hw *hw, u8 coverage_class)
- static void ath9k_flush(struct ieee80211_hw *hw, bool drop)
- {
- 	struct ath_softc *sc = hw->priv;
-+	struct ath_hw *ah = sc->sc_ah;
-+	struct ath_common *common = ath9k_hw_common(ah);
- 	int timeout = 200; /* ms */
- 	int i, j;
- 
-@@ -2149,6 +2151,12 @@ static void ath9k_flush(struct ieee80211_hw *hw, bool drop)
- 
- 	cancel_delayed_work_sync(&sc->tx_complete_work);
- 
-+	if (sc->sc_flags & SC_OP_INVALID) {
-+		ath_dbg(common, ATH_DBG_ANY, "Device not present\n");
-+		mutex_unlock(&sc->mutex);
-+		return;
-+	}
-+
- 	if (drop)
- 		timeout = 1;
- 
-diff --git a/drivers/net/wireless/iwlegacy/iwl-core.c b/drivers/net/wireless/iwlegacy/iwl-core.c
-index 2b08efb..dcbb2ef 100644
---- a/drivers/net/wireless/iwlegacy/iwl-core.c
-+++ b/drivers/net/wireless/iwlegacy/iwl-core.c
-@@ -2155,6 +2155,13 @@ int iwl_legacy_mac_config(struct ieee80211_hw *hw, u32 changed)
- 			goto set_ch_out;
- 		}
- 
-+		if (priv->iw_mode == NL80211_IFTYPE_ADHOC &&
-+		    !iwl_legacy_is_channel_ibss(ch_info)) {
-+			IWL_DEBUG_MAC80211(priv, "leave - not IBSS channel\n");
-+			ret = -EINVAL;
-+			goto set_ch_out;
-+		}
-+
- 		spin_lock_irqsave(&priv->lock, flags);
- 
- 		for_each_context(priv, ctx) {
-diff --git a/drivers/net/wireless/iwlegacy/iwl-dev.h b/drivers/net/wireless/iwlegacy/iwl-dev.h
-index 9ee849d..f43ac1e 100644
---- a/drivers/net/wireless/iwlegacy/iwl-dev.h
-+++ b/drivers/net/wireless/iwlegacy/iwl-dev.h
-@@ -1411,6 +1411,12 @@ iwl_legacy_is_channel_passive(const struct iwl_channel_info *ch)
- 	return (!(ch->flags & EEPROM_CHANNEL_ACTIVE)) ? 1 : 0;
- }
- 
-+static inline int
-+iwl_legacy_is_channel_ibss(const struct iwl_channel_info *ch)
-+{
-+	return (ch->flags & EEPROM_CHANNEL_IBSS) ? 1 : 0;
-+}
-+
- static inline void
- __iwl_legacy_free_pages(struct iwl_priv *priv, struct page *page)
- {
-diff --git a/drivers/net/wireless/libertas/cmd.c b/drivers/net/wireless/libertas/cmd.c
-index 7e8a658..f3ac624 100644
---- a/drivers/net/wireless/libertas/cmd.c
-+++ b/drivers/net/wireless/libertas/cmd.c
-@@ -1339,8 +1339,8 @@ int lbs_execute_next_command(struct lbs_private *priv)
- 				    cpu_to_le16(PS_MODE_ACTION_EXIT_PS)) {
- 					lbs_deb_host(
- 					       "EXEC_NEXT_CMD: ignore ENTER_PS cmd\n");
--					list_del(&cmdnode->list);
- 					spin_lock_irqsave(&priv->driver_lock, flags);
-+					list_del(&cmdnode->list);
- 					lbs_complete_command(priv, cmdnode, 0);
- 					spin_unlock_irqrestore(&priv->driver_lock, flags);
- 
-@@ -1352,8 +1352,8 @@ int lbs_execute_next_command(struct lbs_private *priv)
- 				    (priv->psstate == PS_STATE_PRE_SLEEP)) {
- 					lbs_deb_host(
- 					       "EXEC_NEXT_CMD: ignore EXIT_PS cmd in sleep\n");
--					list_del(&cmdnode->list);
- 					spin_lock_irqsave(&priv->driver_lock, flags);
-+					list_del(&cmdnode->list);
- 					lbs_complete_command(priv, cmdnode, 0);
- 					spin_unlock_irqrestore(&priv->driver_lock, flags);
- 					priv->needtowakeup = 1;
-@@ -1366,7 +1366,9 @@ int lbs_execute_next_command(struct lbs_private *priv)
- 				       "EXEC_NEXT_CMD: sending EXIT_PS\n");
- 			}
- 		}
-+		spin_lock_irqsave(&priv->driver_lock, flags);
- 		list_del(&cmdnode->list);
-+		spin_unlock_irqrestore(&priv->driver_lock, flags);
- 		lbs_deb_host("EXEC_NEXT_CMD: sending command 0x%04x\n",
- 			    le16_to_cpu(cmd->command));
- 		lbs_submit_command(priv, cmdnode);
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index ce4596e..bd1224f 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -237,6 +237,10 @@ ieee80211_tx_h_dynamic_ps(struct ieee80211_tx_data *tx)
- 				     &local->dynamic_ps_disable_work);
- 	}
- 
-+	/* Don't restart the timer if we're not disassociated */
-+	if (!ifmgd->associated)
-+		return TX_CONTINUE;
-+
- 	mod_timer(&local->dynamic_ps_timer, jiffies +
- 		  msecs_to_jiffies(local->hw.conf.dynamic_ps_timeout));
- 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+------------------------------------------------------------------------------
+Achieve unprecedented app performance and reliability
+What every C/C++ and Fortran developer should know.
+Learn how Intel has extended the reach of its next-generation tools
+to help boost performance applications - inlcuding clusters.
+http://p.sf.net/sfu/intel-dev2devmay
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
