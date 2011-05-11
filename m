@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/5] be2net: patch series
-Date: Wed, 11 May 2011 16:11:19 -0700 (PDT)
-Message-ID: <20110511.161119.193713040.davem@davemloft.net>
-References: <63728a21-82b6-4233-9051-af735cd6c5c3@exht1.ad.emulex.com>
+Subject: Re: pull request: wireless-2.6 2011-05-11
+Date: Wed, 11 May 2011 19:16:50 -0400 (EDT)
+Message-ID: <20110511.191650.1128601216324052082.davem@davemloft.net>
+References: <20110511192742.GG2490@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: padmanabh.ratnakar@emulex.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49902
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932153Ab1EKXLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2011 19:11:51 -0400
-In-Reply-To: <63728a21-82b6-4233-9051-af735cd6c5c3@exht1.ad.emulex.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36643 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932146Ab1EKXSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2011 19:18:14 -0400
+In-Reply-To: <20110511192742.GG2490@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Date: Tue, 10 May 2011 20:42:00 +0530
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 11 May 2011 15:27:42 -0400
 
-> Please apply.
-> Thanks,
-> Padmanabh
+> Here are a few more late-breakers that I would like to see in 2.6.39.
+> The one from Luca fixes a problem that can cause devices to be unable
+> to (re-)associate after a disconnect.  The ath9k fix from Mohammed
+> fixes a WARNING, the one from Paul fixes a locking issue that can
+> lead to data corruption, and the one from Stanislaw fixes a crash
+> documented in bug 34452.  All are small and all but one are contained
+> within their respective drivers.
 > 
-> Padmanabh Ratnakar (5):
->   be2net: Handle error completion in Lancer
->   be2net: Disable coalesce water mark mode of CQ for Lancer
->   be2net: be2net: In case of UE, do not dump registers for Lancer
->   be2net: Use NTWK_RX_FILTER command for promiscous mode
->   be2net: Fix to prevent flooding of TX queue
+> Please let me know if there are problems!
 
-All applied, thanks.
+Pulled, but I can't guarentee that this will make it to 2.6.39-final
+at this point.
+
+Thanks!
