@@ -1,112 +1,119 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Thu, 12 May 2011 00:39:55 +0200
-Message-ID: <4DCB103B.30801@pengutronix.de>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
-	<2BFFDAA0A0DE4820876E5549867938EC@subhasishg>
-	<201105112331.47954.arnd@arndb.de>
-	<201105112344.44171.arnd@arndb.de>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/7] ns: proc files for namespace naming policy.
+Date: Wed, 11 May 2011 15:52:35 -0700
+Message-ID: <m1oc38luj0.fsf@fess.ebiederm.org>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+	<1305141667.1236.47.camel@orca.stoopid.dyndns.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0910448559493982823=="
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201105112344.44171.arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linux Containers <containers@lists.osdl.org>,
+	Renato Westphal <renatowestphal@gmail.com>
+To: Nathan Lynch <ntl@pobox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305141667.1236.47.camel@orca.stoopid.dyndns.org> (Nathan
+	Lynch's message of "Wed, 11 May 2011 14:20:48 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============0910448559493982823==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig8EC241D29D6BBC8CC02C61B6"
+Nathan Lynch <ntl@pobox.com> writes:
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig8EC241D29D6BBC8CC02C61B6
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+> Hi Eric,
+>
+> A few comments on your patch set.
+>
+>
+> On Fri, 2011-05-06 at 19:24 -0700, Eric W. Biederman wrote:
+>> diff --git a/fs/proc/inode.c b/fs/proc/inode.c
+>> index d15aa1b..74b48cf 100644
+>> --- a/fs/proc/inode.c
+>> +++ b/fs/proc/inode.c
+>> @@ -28,6 +28,7 @@ static void proc_evict_inode(struct inode *inode)
+>>  {
+>>  	struct proc_dir_entry *de;
+>>  	struct ctl_table_header *head;
+>> +	const struct proc_ns_operations *ns_ops;
+>>  
+>>  	truncate_inode_pages(&inode->i_data, 0);
+>>  	end_writeback(inode);
+>> @@ -44,6 +45,10 @@ static void proc_evict_inode(struct inode *inode)
+>>  		rcu_assign_pointer(PROC_I(inode)->sysctl, NULL);
+>>  		sysctl_head_put(head);
+>>  	}
+>> +	/* Release any associated namespace */
+>> +	ns_ops = PROC_I(inode)->ns_ops;
+>> +	if (ns_ops && ns_ops->put)
+>> +		ns_ops->put(PROC_I(inode)->ns);
+>
+> Is it ever valid for ns_ops->put to be null?  If not, I suggest removing
+> the check.
+>
+>
+>> diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
+>> new file mode 100644
+>> index 0000000..6ae9f07
+>> --- /dev/null
+>> +++ b/fs/proc/namespaces.c
+>
+> ...
+>
+>> +static struct dentry *proc_ns_dir_lookup(struct inode *dir,
+>> +				struct dentry *dentry, struct nameidata *nd)
+>> +{
+>> +	struct dentry *error;
+>> +	struct task_struct *task = get_proc_task(dir);
+>> +	const struct proc_ns_operations **entry, **last;
+>> +	unsigned int len = dentry->d_name.len;
+>> +
+>> +	error = ERR_PTR(-ENOENT);
+>> +
+>> +	if (!task)
+>> +		goto out_no_task;
+>> +
+>> +	error = ERR_PTR(-EPERM);
+>> +	if (!ptrace_may_access(task, PTRACE_MODE_READ))
+>> +		goto out;
+>> +
+>> +	last = &ns_entries[ARRAY_SIZE(ns_entries) - 1];
+>> +	for (entry = ns_entries; entry <= last; entry++) {
+>> +		if (strlen((*entry)->name) != len)
+>> +			continue;
+>> +		if (!memcmp(dentry->d_name.name, (*entry)->name, len))
+>> +			break;
+>> +	}
+>> +	if (entry > last)
+>> +		goto out;
+>
+> This returns EPERM when it should return ENOENT?
 
-On 05/11/2011 11:44 PM, Arnd Bergmann wrote:
-> On Wednesday 11 May 2011, Arnd Bergmann wrote:
->> If that interpretation is right, I would seriously recommend rethinkin=
-g
->> the design of the CAN firmware for pruss, so you can start doing somet=
-hing
->> useful with the offload engine that fits into the Socket CAN API, or t=
-hat
->> would be a useful extension to Socket CAN that is also implementable i=
-n
->> the kernel for all other drivers in a meaningful way.
->=20
-> I've looked some more into the CAN socket implementation, and I suppose=
- that
-> the idea of the pruss driver was really to help do the work from the
-> can_rcv_filter function in hardware.
->=20
-> Doing this right would really mean supporting both a mode where any new=
+Good catch.
 
-> filter that gets added to socket can ends up being added to the hardwar=
-e
-> as long as it fits, similar to how we can add additional unicast mac
-> addresses to an ethernet NIC. However, when the filters from all user
-> sockets combined can not be represented in the hardware driver, the har=
-dware
-> needs to be put into a less efficient mode where all packets are return=
-ed
-> to the kernel and processed in software.
+And fixed now.
 
-I'm not sure if reprogramming hardware filters on the fly works on evey
-can core. The more conservative solution would be to configure the
-filter list globally (+when the interface is down) via netlink.
+>>  union proc_op {
+>>  	int (*proc_get_link)(struct inode *, struct path *);
+>>  	int (*proc_read)(struct task_struct *task, char *page);
+>> @@ -268,6 +284,8 @@ struct proc_inode {
+>>  	struct proc_dir_entry *pde;
+>>  	struct ctl_table_header *sysctl;
+>>  	struct ctl_table *sysctl_entry;
+>> +	void *ns;
+>> +	const struct proc_ns_operations *ns_ops;
+>>  	struct inode vfs_inode;
+>>  };
+>
+> Not that I have any better ideas, but it seems a bit undesirable to
+> increase the size of proc_inode for this one purpose.
 
-regards, Marc
+Of the options I could think of this was the cleanest, and proc_inode
+is just a caching data structure which means that the effect should be
+comparatively minimal.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+That said I won't oppose a change at some point to reduce the
+proc_inode, there are a lot of fields that are not used for most proc
+entries.
 
-
---------------enig8EC241D29D6BBC8CC02C61B6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk3LED8ACgkQjTAFq1RaXHNdxACeLwFT0xztVWoeMHIpY40qta9E
-WWAAnRavlolwmhlGdIetboj9G/+BQzB3
-=qo1G
------END PGP SIGNATURE-----
-
---------------enig8EC241D29D6BBC8CC02C61B6--
-
---===============0910448559493982823==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============0910448559493982823==--
+Eric
