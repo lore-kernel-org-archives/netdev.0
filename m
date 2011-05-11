@@ -1,27 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: GIT net-2.6 rolled back 8 commits...
-Date: Wed, 11 May 2011 11:29:09 -0700 (PDT)
-Message-ID: <20110511.112909.226795883.davem@davemloft.net>
+Date: Wed, 11 May 2011 20:31:19 +0200
+Message-ID: <1305138679.4341.8.camel@edumazet-laptop>
 References: <20110510.150814.226778453.davem@davemloft.net>
-	<1305084687.2437.44.camel@edumazet-laptop>
+	 <1305084687.2437.44.camel@edumazet-laptop>
+	 <20110511.112909.226795883.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1305084687.2437.44.camel@edumazet-laptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110511.112909.226795883.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 11 May 2011 05:31:27 +0200
+Le mercredi 11 mai 2011 =C3=A0 11:29 -0700, David Miller a =C3=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 11 May 2011 05:31:27 +0200
+>=20
+> > Would it be possible you sync net-next-2.6 and pull net-2.6 in it ?
+>=20
+> I'm taking care of this right now.
 
-> Would it be possible you sync net-next-2.6 and pull net-2.6 in it ?
+Wow excellent timing (for me at least), thanks !
 
-I'm taking care of this right now.
+
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
