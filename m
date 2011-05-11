@@ -1,38 +1,27 @@
-From: Florian Weimer <fweimer@bfk.de>
-Subject: Re: [PATCH 2/2] net/dl2k: Don't reconfigure link @100Mbps when disabling autoneg @1Gbps
-Date: Wed, 11 May 2011 09:47:16 +0000
-Message-ID: <82y62dk1qz.fsf@mid.bfk.de>
-References: <1304986748-15809-1-git-send-email-decot@google.com>
-	<1304986748-15809-3-git-send-email-decot@google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: GIT net-2.6 rolled back 8 commits...
+Date: Wed, 11 May 2011 11:29:09 -0700 (PDT)
+Message-ID: <20110511.112909.226795883.davem@davemloft.net>
+References: <20110510.150814.226778453.davem@davemloft.net>
+	<1305084687.2437.44.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Decotigny <decot@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.bfk.de ([193.227.124.2]:34809 "EHLO mx01.bfk.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818Ab1EKSYv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2011 14:24:51 -0400
-In-Reply-To: <1304986748-15809-3-git-send-email-decot@google.com> (David
-	Decotigny's message of "Mon, 9 May 2011 17:19:08 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1305084687.2437.44.camel@edumazet-laptop>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-* David Decotigny:
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 11 May 2011 05:31:27 +0200
 
-> Tested: module compiling, NOT tested on real hardware.
+> Would it be possible you sync net-next-2.6 and pull net-2.6 in it ?
 
-To my knowledge, dl2k is broken.  Some sort of synchronization
-primitives are missing.  Under load, the NIC's notion of ring buffer
-status diverges from the host's view. 8-(
-
---=20
-=46lorian Weimer                <fweimer@bfk.de>
-BFK edv-consulting GmbH       http://www.bfk.de/
-Kriegsstra=DFe 100              tel: +49-721-96201-1
-D-76133 Karlsruhe             fax: +49-721-96201-99
+I'm taking care of this right now.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
