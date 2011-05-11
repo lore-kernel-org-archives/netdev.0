@@ -1,78 +1,95 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] ehea: Fix memory hotplug oops
-Date: Wed, 11 May 2011 12:17:10 +1000
-Message-ID: <20110511121710.05ab8c2e@kryten>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from
+ uninitialized memory in __alloc_skb
+Date: Wed, 11 May 2011 05:12:23 +0200
+Message-ID: <1305083543.2437.39.camel@edumazet-laptop>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>
+	 <1303183217.4152.49.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1104191210011.17888@router.home>
+	 <1303244270.2756.3.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi>
+	 <1305022632.2614.18.camel@edumazet-laptop>
+	 <4DC91137.4030109@cs.helsinki.fi>
+	 <a49ddd5511b74b8d9b81af8c3ef72d5a@ulrik.uio.no>
+	 <alpine.DEB.2.00.1105101133440.2611@router.home>
+	 <1305047682.2758.1.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105101226460.2875@router.home>
+	 <alpine.DEB.2.00.1105101242420.2875@router.home>
+	 <1305050754.2758.12.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105101323290.4023@router.home>
+	 <1305055948.2437.13.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105101435480.4023@router.home>
+	 <1305057989.2437.18.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105101531160.4023@router.home>
+	 <1305060353.2437.26.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1105101619430.4023@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leitao@linux.vnet.ibm.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vegard Nossum <vegardno@ifi.uio.no>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:52050 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753548Ab1EKCm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2011 22:42:58 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:60385 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753939Ab1EKDMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 May 2011 23:12:31 -0400
+Received: by wya21 with SMTP id 21so55141wya.19
+        for <netdev@vger.kernel.org>; Tue, 10 May 2011 20:12:29 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1105101619430.4023@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mardi 10 mai 2011 =C3=A0 16:22 -0500, Christoph Lameter a =C3=A9crit=
+ :
+> On Tue, 10 May 2011, Eric Dumazet wrote:
+>=20
+> > > No the other cpu cannot free the page since the page is pinned by
+> > > the current cpu (see PageFrozen()).
+> > >
+> >
+> > What happens then ? Other cpu calls kfree() on last nonfreed object=
+ for
+> > this slab, and yet the page stay frozen ? How this page is going to=
+ be
+> > freed at all ?
+>=20
+> Yes the page stays frozen. The freed objects are used to replenish th=
+e
+> percpu free list when it becomes empty.
+>=20
+> The page is going to be freed when a kmalloc() finds that the per cpu
+> freelist is empty and that the freelist of the page is also empty. Th=
+en
+> interrupts are disabled, the old page is unfrozen and a new
+> page is acquired for allocation.
+>=20
+> > > > Maybe I am just tired tonight, this seems very obvious, I must =
+miss
+> > > > something.
+> > >
+> > > Yeah you are way off thinking about cpu to cpu concurrency issues=
+ that do
+> > > not apply here.
+> >
+> > I fail to understand how current cpu can assert page ownership, if =
+IRQs
+> > are enabled, this seems obvious it cannot.
+>=20
+> The cpu sets a page flag called PageFrozen() and points a per cpu poi=
+nter
+> to the page.
+>=20
+>=20
 
-The ehea driver oopses during memory hotplug if the ports are not
-up. A simple testcase:
+So, if I understand you, there is no problem at all and no patch even
+needed ? I can start a stress test and you guarantee there wont be a
+crash ?
 
-# ifconfig ethX down
-# echo offline > /sys/devices/system/memory/memory32/state
+Sorry, its 5h11 in the morning here ;)
 
-Oops: Kernel access of bad area, sig: 11 [#1]
-last sysfs file: /sys/devices/system/memory/memory32/state
-REGS: c000000709393110 TRAP: 0300   Not tainted  (2.6.39-rc2-01385-g7ef73bc-dirty)
-DAR: 0000000000000000, DSISR: 40000000
-...
-NIP [c000000000067c98] .__wake_up_common+0x48/0xf0
-LR [c00000000006d034] .__wake_up+0x54/0x90
-Call Trace:
-[c00000000006d034] .__wake_up+0x54/0x90
-[d000000006bb6270] .ehea_rereg_mrs+0x140/0x730 [ehea]
-[d000000006bb69c4] .ehea_mem_notifier+0x164/0x170 [ehea]
-[c0000000006fc8a8] .notifier_call_chain+0x78/0xf0
-[c0000000000b3d70] .__blocking_notifier_call_chain+0x70/0xb0
-[c000000000458d78] .memory_notify+0x28/0x40
-[c0000000001871d8] .remove_memory+0x208/0x6d0
-[c000000000458264] .memory_section_action+0x94/0x140
-[c0000000004583ec] .memory_block_change_state+0xdc/0x1d0
-[c0000000004585cc] .store_mem_state+0xec/0x160
-[c00000000044768c] .sysdev_store+0x3c/0x50
-[c00000000020b48c] .sysfs_write_file+0xec/0x1f0
-[c00000000018f86c] .vfs_write+0xec/0x1e0
-[c00000000018fa88] .SyS_write+0x58/0xd0
 
-To fix this, initialise the waitqueues during port probe instead
-of port open.
 
-Signed-off-by: Anton Blanchard <anton@samba.org>
-Cc: stable@kernel.org
----
-
-Index: linux-net/drivers/net/ehea/ehea_main.c
-===================================================================
---- linux-net.orig/drivers/net/ehea/ehea_main.c	2011-05-11 11:54:18.751672569 +1000
-+++ linux-net/drivers/net/ehea/ehea_main.c	2011-05-11 11:56:27.423964456 +1000
-@@ -2688,9 +2688,6 @@ static int ehea_open(struct net_device *
- 		netif_start_queue(dev);
- 	}
- 
--	init_waitqueue_head(&port->swqe_avail_wq);
--	init_waitqueue_head(&port->restart_wq);
--
- 	mutex_unlock(&port->port_lock);
- 
- 	return ret;
-@@ -3278,6 +3275,9 @@ struct ehea_port *ehea_setup_single_port
- 
- 	INIT_WORK(&port->reset_task, ehea_reset_port);
- 
-+	init_waitqueue_head(&port->swqe_avail_wq);
-+	init_waitqueue_head(&port->restart_wq);
-+
- 	ret = register_netdev(dev);
- 	if (ret) {
- 		pr_err("register_netdev failed. ret=%d\n", ret);
