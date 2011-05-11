@@ -1,125 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 2/7] ns: Introduce the setns syscall
-Date: Wed, 11 May 2011 13:33:48 -0700
-Message-ID: <m1fwolnfir.fsf@fess.ebiederm.org>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
-	<1304735101-1824-2-git-send-email-ebiederm@xmission.com>
-	<1305141681.1236.48.camel@orca.stoopid.dyndns.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Wed, 11 May 2011 23:31:47 +0200
+Message-ID: <201105112331.47954.arnd@arndb.de>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<20110510112734.54160824@lxorguk.ukuu.org.uk>
+	<2BFFDAA0A0DE4820876E5549867938EC@subhasishg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	linux-fsdevel@vger.kernel.org
-To: Nathan Lynch <ntl@pobox.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1305141681.1236.48.camel@orca.stoopid.dyndns.org> (Nathan
-	Lynch's message of "Wed, 11 May 2011 14:21:14 -0500")
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	nsekhar-l0cyMroinI0@public.gmane.org, open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, m-watkins-l0cyMroinI0@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <2BFFDAA0A0DE4820876E5549867938EC@subhasishg>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Nathan Lynch <ntl@pobox.com> writes:
+On Tuesday 10 May 2011, Subhasish Ghosh wrote:
+> 
+> >> Yes, In case if we allow the ALL implementation, it hogs the CPU.
+> >> In that case we do not need the PRU. The whole purpose of the PRU
+> >> is to offload the processor for any such implementations. 
+> > 
+> > So the kernel presumably needs to switch between using the PRU and native
+> > according to the number of ids being requested at the time ?
+> 
+> All the IDs are programmed into the PRU data RAM.
+> The Kernel receives interrupts based upon these IDs.
+> I could not clearly follow "PRU and native", could you please elaborate.
 
-> Hi Eric,
->
-> On Fri, 2011-05-06 at 19:24 -0700, Eric W. Biederman wrote:
->> With the networking stack today there is demand to handle
->> multiple network stacks at a time.  Not in the context
->> of containers but in the context of people doing interesting
->> things with routing.
->> 
->> There is also demand in the context of containers to have
->> an efficient way to execute some code in the container itself.
->> If nothing else it is very useful ad a debugging technique.
->> 
->> Both problems can be solved by starting some form of login
->> daemon in the namespaces people want access to, or you
->> can play games by ptracing a process and getting the
->> traced process to do things you want it to do. However
->> it turns out that a login daemon or a ptrace puppet
->> controller are more code, they are more prone to
->> failure, and generally they are less efficient than
->> simply changing the namespace of a process to a
->> specified one.
->> 
->> Pieces of this puzzle can also be solved by instead of
->> coming up with a general purpose system call coming up
->> with targed system calls perhaps socketat that solve
->> a subset of the larger problem.  Overall that appears
->> to be more work for less reward.
->> 
->> int setns(int fd, int nstype);
->> 
->> The fd argument is a file descriptor referring to a proc
->> file of the namespace you want to switch the process to.
->> 
->> In the setns system call the nstype is 0 or specifies
->> an clone flag of the namespace you intend to change
->> to prevent changing a namespace unintentionally.
->
-> I don't understand exactly what the nstype argument buys us - why would
-> correct code ever need to specify a value other than 0?  And reusing the
-> CLONE_NEW* values in this interface is kind of ugly when setns is
-> precisely _not_ creating new namespaces.
+We would really like all CAN drivers to behave the same way. All other
+drivers are able to work without filters, so pruss_can should allow that
+too, even if it becomes a CPU hog at that time.
 
-No but it is setting a new namespace.  I do agree it is a bit ugly.  But
-the worst case at this point is I introduce a new set of beautiful
-defines with the same values.
+It seems to me that the pruss can implementation has one thing backwards:
+it assumes a specific usage model for CAN that it is trying to do offload
+for. However, that usage model is currently not even supported by Socket
+CAN. If I understand Wolfgang correctly, it is in fact considered an
+unwanted limitation of the pruss can driver, instead of a useful feature.
 
-> Is there some fundamental reason it couldn't be
->
-> int setns(int fd);
->
-> or is there a use case I'm missing?
+If that interpretation is right, I would seriously recommend rethinking
+the design of the CAN firmware for pruss, so you can start doing something
+useful with the offload engine that fits into the Socket CAN API, or that
+would be a useful extension to Socket CAN that is also implementable in
+the kernel for all other drivers in a meaningful way.
 
-When someone else opens the file descriptor and passes it to us
-and we don't completely trust them.  Or equally when someone
-else does the bind mount into the filesystem namespace and we
-don't completely trust them.
-
-Plus having a flags field is useful in general.
-
->> +SYSCALL_DEFINE2(setns, int, fd, int, nstype)
->> +{
->> +	const struct proc_ns_operations *ops;
->> +	struct task_struct *tsk = current;
->> +	struct nsproxy *new_nsproxy;
->> +	struct proc_inode *ei;
->> +	struct file *file;
->> +	int err;
->> +
->> +	if (!capable(CAP_SYS_ADMIN))
->> +		return -EPERM;
->> +
->> +	file = proc_ns_fget(fd);
->> +	if (IS_ERR(file))
->> +		return PTR_ERR(file);
->> +
->> +	err = -EINVAL;
->> +	ei = PROC_I(file->f_dentry->d_inode);
->> +	ops = ei->ns_ops;
->> +	if (nstype && (ops->type != nstype))
->> +		goto out;
->> +
->> +	new_nsproxy = create_new_namespaces(0, tsk, tsk->fs);
->
-> create_new_namespaces() can fail; shouldn't this be checked?
-
-Yes.  This was pointed out a little earlier and has been fixed
-in my tree.
-
-
->> +	err = ops->install(new_nsproxy, ei->ns);
->> +	if (err) {
->> +		free_nsproxy(new_nsproxy);
->> +		goto out;
->> +	}
->> +	switch_task_namespaces(tsk, new_nsproxy);
->> +out:
->> +	fput(file);
->> +	return err;
->> +}
->> +
-
-Eric
+	Arnd
