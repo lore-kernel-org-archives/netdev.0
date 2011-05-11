@@ -1,43 +1,55 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: GIT net-2.6 rolled back 8 commits...
-Date: Wed, 11 May 2011 05:31:27 +0200
-Message-ID: <1305084687.2437.44.camel@edumazet-laptop>
-References: <20110510.150814.226778453.davem@davemloft.net>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: AT91: Remove fixed mapping for AT91RM9200 ethernet
+Date: Wed, 11 May 2011 06:02:49 +0200
+Message-ID: <20110511040249.GB22009@game.jcrosoft.org>
+References: <1304884489.6089.13.camel@redbox>
+	<20110511034901.GA22009@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110510.150814.226778453.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Andrew Victor <avictor.za@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20110511034901.GA22009@game.jcrosoft.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 10 mai 2011 =C3=A0 15:08 -0700, David Miller a =C3=A9crit :
-> I made a mistake and applied to net-2.6 a patch from Eric Dumazet tha=
-t
-> only is applicable for net-next-2.6
->=20
-> I really don't want to have to toss Linus that commit and a revert co=
-mmit
-> just to fix it up.
->=20
-> So I rewound the net-2.6 tree by 8 commits.
->=20
-> So if you've pulled in the past 3 hours, please reset your pull and r=
-epull.
->=20
+On 05:49 Wed 11 May     , Jean-Christophe PLAGNIOL-VILLARD wrote:
+> On 21:54 Sun 08 May     , Andrew Victor wrote:
+> > The AT91RM9200 Ethernet controller still has a fixed IO mapping.
+> > So:
+> > * Remove the fixed IO mapping and AT91_VA_BASE_EMAC definition.
+> > * Pass the physical base-address via platform-resources to the driver.
+> > * Convert at91_ether.c driver to perform an ioremap().
+> > * Ethernet PHY detection needs to be performed during the driver
+> > initialization process, it can no longer be done first.
+> we need to pass the irq too as the hw ip does not belong to Atmel
+> so it can be attached to any irq
+> 
+> ca we split is in two file on for -net and the other one for at91 tree
+forget we can not split it
 
-Thanks David
+David don't you mind if we apply it through the at91 tree
 
-Would it be possible you sync net-next-2.6 and pull net-2.6 in it ?
-
-Eric
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best Regards,
+J.
+> 
+> Best Regards,
+> J.
+> 
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
