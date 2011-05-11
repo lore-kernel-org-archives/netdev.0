@@ -1,37 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2011-05-11
-Date: Wed, 11 May 2011 19:16:50 -0400 (EDT)
-Message-ID: <20110511.191650.1128601216324052082.davem@davemloft.net>
-References: <20110511192742.GG2490@tuxdriver.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 4/10] ipvs: Use IP_VS_RT_MODE_* instead of magic
+ constants.
+Date: Thu, 12 May 2011 02:32:09 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1105120212150.2431@ja.ssi.bg>
+References: <20110509.223118.260083861.davem@davemloft.net> <alpine.LFD.2.00.1105110123001.4532@ja.ssi.bg> <20110510.153051.71135029.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36643 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932146Ab1EKXSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2011 19:18:14 -0400
-In-Reply-To: <20110511192742.GG2490@tuxdriver.com>
+Received: from ja.ssi.bg ([178.16.129.10]:45209 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932641Ab1EKXag (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 May 2011 19:30:36 -0400
+In-Reply-To: <20110510.153051.71135029.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 11 May 2011 15:27:42 -0400
 
-> Here are a few more late-breakers that I would like to see in 2.6.39.
-> The one from Luca fixes a problem that can cause devices to be unable
-> to (re-)associate after a disconnect.  The ath9k fix from Mohammed
-> fixes a WARNING, the one from Paul fixes a locking issue that can
-> lead to data corruption, and the one from Stanislaw fixes a crash
-> documented in bug 34452.  All are small and all but one are contained
-> within their respective drivers.
+	Hello,
+
+On Tue, 10 May 2011, David Miller wrote:
+
+> > 	Following patch can be used after patch 4, eg. as
+> > number 6 because patches 4 and 5 are ok and we are going to replace
+> > patches 6 and 7.
 > 
-> Please let me know if there are problems!
+> Thanks Julian.
+> 
+> What I'm going to do is hold back the IPVS parts of the patches I
+> posted last night.  In particular, I'll integrate this into the
+> original patch #4.
+> 
+> And then we can work through the reimplementation ideas you posted to
+> me in private email.
 
-Pulled, but I can't guarentee that this will make it to 2.6.39-final
-at this point.
+	My simple tests do not show any problems with patches
+4, 5 and the new 6 and 7. I tested TUN mode for rt_src/rt_dst
+and DR/NAT for rt_dst replacement, related ICMP is relayed properly.
+So, we should be ok but I'll do more tests in the following
+days because the list with possible combinations for testing
+is too long: different forwarding mode (DR/TUN/NAT),
+local or remote real server, local or remote client,
+In or Out related ICMP, Passive or Active FTP...
 
-Thanks!
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
