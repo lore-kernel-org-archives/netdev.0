@@ -1,119 +1,43 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/7] ns: proc files for namespace naming policy.
-Date: Wed, 11 May 2011 15:52:35 -0700
-Message-ID: <m1oc38luj0.fsf@fess.ebiederm.org>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
-	<1305141667.1236.47.camel@orca.stoopid.dyndns.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Wed, 11 May 2011 23:56:52 +0100
+Message-ID: <20110511235652.7ccddb3b@lxorguk.ukuu.org.uk>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<2BFFDAA0A0DE4820876E5549867938EC@subhasishg>
+	<201105112331.47954.arnd@arndb.de>
+	<201105112344.44171.arnd@arndb.de> <4DCB103B.30801@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>
-To: Nathan Lynch <ntl@pobox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305141667.1236.47.camel@orca.stoopid.dyndns.org> (Nathan
-	Lynch's message of "Wed, 11 May 2011 14:20:48 -0500")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi@mistralsolutions.com, davinci-linux-open-source@linux.davincidsp.com,
+	Arnd Bergmann <arnd@arndb.de>,
+	Subhasish Ghosh <subhasish@mistralsolutions.com>, nsekhar@ti.com,
+	open list <linux-kernel@vger.kernel.org>,
+	CAN NETWORK DRIVERS <socketcan-core@lists.berlios.de>,
+	Wolfgang Grandegger <wg@grandegger.com>, Netdev@vger.kernel.org,
+	m-watkins@ti.com, linux-arm-kernel@lists.infradead.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <4DCB103B.30801@pengutronix.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Nathan Lynch <ntl@pobox.com> writes:
+> I'm not sure if reprogramming hardware filters on the fly works on evey
+> can core. The more conservative solution would be to configure the
+> filter list globally (+when the interface is down) via netlink.
 
-> Hi Eric,
->
-> A few comments on your patch set.
->
->
-> On Fri, 2011-05-06 at 19:24 -0700, Eric W. Biederman wrote:
->> diff --git a/fs/proc/inode.c b/fs/proc/inode.c
->> index d15aa1b..74b48cf 100644
->> --- a/fs/proc/inode.c
->> +++ b/fs/proc/inode.c
->> @@ -28,6 +28,7 @@ static void proc_evict_inode(struct inode *inode)
->>  {
->>  	struct proc_dir_entry *de;
->>  	struct ctl_table_header *head;
->> +	const struct proc_ns_operations *ns_ops;
->>  
->>  	truncate_inode_pages(&inode->i_data, 0);
->>  	end_writeback(inode);
->> @@ -44,6 +45,10 @@ static void proc_evict_inode(struct inode *inode)
->>  		rcu_assign_pointer(PROC_I(inode)->sysctl, NULL);
->>  		sysctl_head_put(head);
->>  	}
->> +	/* Release any associated namespace */
->> +	ns_ops = PROC_I(inode)->ns_ops;
->> +	if (ns_ops && ns_ops->put)
->> +		ns_ops->put(PROC_I(inode)->ns);
->
-> Is it ever valid for ns_ops->put to be null?  If not, I suggest removing
-> the check.
->
->
->> diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
->> new file mode 100644
->> index 0000000..6ae9f07
->> --- /dev/null
->> +++ b/fs/proc/namespaces.c
->
-> ...
->
->> +static struct dentry *proc_ns_dir_lookup(struct inode *dir,
->> +				struct dentry *dentry, struct nameidata *nd)
->> +{
->> +	struct dentry *error;
->> +	struct task_struct *task = get_proc_task(dir);
->> +	const struct proc_ns_operations **entry, **last;
->> +	unsigned int len = dentry->d_name.len;
->> +
->> +	error = ERR_PTR(-ENOENT);
->> +
->> +	if (!task)
->> +		goto out_no_task;
->> +
->> +	error = ERR_PTR(-EPERM);
->> +	if (!ptrace_may_access(task, PTRACE_MODE_READ))
->> +		goto out;
->> +
->> +	last = &ns_entries[ARRAY_SIZE(ns_entries) - 1];
->> +	for (entry = ns_entries; entry <= last; entry++) {
->> +		if (strlen((*entry)->name) != len)
->> +			continue;
->> +		if (!memcmp(dentry->d_name.name, (*entry)->name, len))
->> +			break;
->> +	}
->> +	if (entry > last)
->> +		goto out;
->
-> This returns EPERM when it should return ENOENT?
+For anything that isn't so braindead it ought to be done on the fly and
+behind the users back to avoid having to make app code specially aware.
+If the lists are fixed either in firmware or in software the stack needs
+to error attempts to use anything else - and as you say you need some
+kind of way to configure those global lists, preferably portably.
 
-Good catch.
-
-And fixed now.
-
->>  union proc_op {
->>  	int (*proc_get_link)(struct inode *, struct path *);
->>  	int (*proc_read)(struct task_struct *task, char *page);
->> @@ -268,6 +284,8 @@ struct proc_inode {
->>  	struct proc_dir_entry *pde;
->>  	struct ctl_table_header *sysctl;
->>  	struct ctl_table *sysctl_entry;
->> +	void *ns;
->> +	const struct proc_ns_operations *ns_ops;
->>  	struct inode vfs_inode;
->>  };
->
-> Not that I have any better ideas, but it seems a bit undesirable to
-> increase the size of proc_inode for this one purpose.
-
-Of the options I could think of this was the cleanest, and proc_inode
-is just a caching data structure which means that the effect should be
-comparatively minimal.
-
-That said I won't oppose a change at some point to reduce the
-proc_inode, there are a lot of fields that are not used for most proc
-entries.
-
-Eric
+Alan
