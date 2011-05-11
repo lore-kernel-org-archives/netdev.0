@@ -1,55 +1,78 @@
-From: Noah Meyerhans <noahm@debian.org>
-Subject: Re: [Bridge] Bug#625914: linux-image-2.6.38-2-amd64: bridging is
-	not interacting well with multicast in 2.6.38-4
-Date: Tue, 10 May 2011 16:35:40 -0700
-Message-ID: <20110510233540.GJ6397@morgul.net>
-References: <20110506201234.6297.70279.reportbug@ip6-localhost> <1304995124.4065.157.camel@localhost> <20110510043833.GG6397@morgul.net> <1305031369.4065.259.camel@localhost> <20110510180540.GI6397@morgul.net> <20110510151100.52a9f8fa@nehalam>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] ehea: Fix memory hotplug oops
+Date: Wed, 11 May 2011 12:17:10 +1000
+Message-ID: <20110511121710.05ab8c2e@kryten>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="eG/Mb3lYspOUTzsV"
-Cc: Ben Hutchings <ben@decadent.org.uk>, 625914@bugs.debian.org,
-	bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.morgul.net ([128.31.0.48]:38069 "EHLO minas.morgul.net"
+Received: from ozlabs.org ([203.10.76.45]:52050 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752147Ab1EJXft (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 May 2011 19:35:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20110510151100.52a9f8fa@nehalam>
+	id S1753548Ab1EKCm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 May 2011 22:42:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---eG/Mb3lYspOUTzsV
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The ehea driver oopses during memory hotplug if the ports are not
+up. A simple testcase:
 
-On Tue, May 10, 2011 at 03:11:00PM -0700, Stephen Hemminger wrote:
-> There were two more follow on commits in stable related to this.
-> I recommend merging 2.6.38.6 which includes these.
+# ifconfig ethX down
+# echo offline > /sys/devices/system/memory/memory32/state
 
-The problem still exists in the current 2.6.38.6.  Backing out 5f1c356a
-still solves the problem there.
+Oops: Kernel access of bad area, sig: 11 [#1]
+last sysfs file: /sys/devices/system/memory/memory32/state
+REGS: c000000709393110 TRAP: 0300   Not tainted  (2.6.39-rc2-01385-g7ef73bc-dirty)
+DAR: 0000000000000000, DSISR: 40000000
+...
+NIP [c000000000067c98] .__wake_up_common+0x48/0xf0
+LR [c00000000006d034] .__wake_up+0x54/0x90
+Call Trace:
+[c00000000006d034] .__wake_up+0x54/0x90
+[d000000006bb6270] .ehea_rereg_mrs+0x140/0x730 [ehea]
+[d000000006bb69c4] .ehea_mem_notifier+0x164/0x170 [ehea]
+[c0000000006fc8a8] .notifier_call_chain+0x78/0xf0
+[c0000000000b3d70] .__blocking_notifier_call_chain+0x70/0xb0
+[c000000000458d78] .memory_notify+0x28/0x40
+[c0000000001871d8] .remove_memory+0x208/0x6d0
+[c000000000458264] .memory_section_action+0x94/0x140
+[c0000000004583ec] .memory_block_change_state+0xdc/0x1d0
+[c0000000004585cc] .store_mem_state+0xec/0x160
+[c00000000044768c] .sysdev_store+0x3c/0x50
+[c00000000020b48c] .sysfs_write_file+0xec/0x1f0
+[c00000000018f86c] .vfs_write+0xec/0x1e0
+[c00000000018fa88] .SyS_write+0x58/0xd0
 
-I have not yet tried anything outside the stable-2.6.38.y tree, but it
-seems like these same changes are present there, and it's unlikely that
-other releases will work any better.
+To fix this, initialise the waitqueues during port probe instead
+of port open.
 
-noah
+Signed-off-by: Anton Blanchard <anton@samba.org>
+Cc: stable@kernel.org
+---
 
-
---eG/Mb3lYspOUTzsV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iD8DBQFNycvMYrVLjBFATsMRAtE+AJ4oljwI4R9IjPry0LPRQtwKFzKAAQCfSKHG
-yltJbT+2nnGncOdzlG0carA=
-=9r7t
------END PGP SIGNATURE-----
-
---eG/Mb3lYspOUTzsV--
+Index: linux-net/drivers/net/ehea/ehea_main.c
+===================================================================
+--- linux-net.orig/drivers/net/ehea/ehea_main.c	2011-05-11 11:54:18.751672569 +1000
++++ linux-net/drivers/net/ehea/ehea_main.c	2011-05-11 11:56:27.423964456 +1000
+@@ -2688,9 +2688,6 @@ static int ehea_open(struct net_device *
+ 		netif_start_queue(dev);
+ 	}
+ 
+-	init_waitqueue_head(&port->swqe_avail_wq);
+-	init_waitqueue_head(&port->restart_wq);
+-
+ 	mutex_unlock(&port->port_lock);
+ 
+ 	return ret;
+@@ -3278,6 +3275,9 @@ struct ehea_port *ehea_setup_single_port
+ 
+ 	INIT_WORK(&port->reset_task, ehea_reset_port);
+ 
++	init_waitqueue_head(&port->swqe_avail_wq);
++	init_waitqueue_head(&port->restart_wq);
++
+ 	ret = register_netdev(dev);
+ 	if (ret) {
+ 		pr_err("register_netdev failed. ret=%d\n", ret);
