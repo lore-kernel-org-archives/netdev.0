@@ -1,114 +1,125 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH] pci,
-	e1000e: Add and use __pci_disable_link_state
-Date: Wed, 11 May 2011 13:23:21 -0700
-Message-ID: <4DCAF039.4030207@kernel.org>
-References: <4DC6E6E8.9040306@kernel.org>
-	<20110509143536.08bd0297@jbarnes-desktop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 2/7] ns: Introduce the setns syscall
+Date: Wed, 11 May 2011 13:33:48 -0700
+Message-ID: <m1fwolnfir.fsf@fess.ebiederm.org>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<1304735101-1824-1-git-send-email-ebiederm@xmission.com>
+	<1304735101-1824-2-git-send-email-ebiederm@xmission.com>
+	<1305141681.1236.48.camel@orca.stoopid.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Naga Chumbalkar <nagananda.chumbalkar@hp.com>,
-	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, John Ronciak <john.ronciak@intel.com>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	netdev@vger.kernel.org, Matthew Garrett <mjg@redhat.com>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20110509143536.08bd0297@jbarnes-desktop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	linux-fsdevel@vger.kernel.org
+To: Nathan Lynch <ntl@pobox.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1305141681.1236.48.camel@orca.stoopid.dyndns.org> (Nathan
+	Lynch's message of "Wed, 11 May 2011 14:21:14 -0500")
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/09/2011 02:35 PM, Jesse Barnes wrote:
-> On Sun, 08 May 2011 11:54:32 -0700
-> Yinghai Lu <yinghai@kernel.org> wrote:
-> 
->>
->> Need to use it in _e1000e_disable_aspm.
->> when aer happens,
->> pci_walk_bus already have down_read(&pci_bus_sem)...
->> then report_slot_reset
->>         ==> e1000_io_slot_reset
->>                 ==> e1000e_disable_aspm
->>                         ==> pci_disable_link_state...
->>
->> We can not use pci_disable_link_state, and it will try to hold pci_bus_sem again.
->>
->> Try to have __pci_disable_link_state that will not need to hold pci_bus_sem.
-> 
-> What about the other callers of e1000e_disable_aspm?  Do they already
-> have the lock held or is it just reset that needs the already locked
-> version?
+Nathan Lynch <ntl@pobox.com> writes:
 
-yes. 
+> Hi Eric,
+>
+> On Fri, 2011-05-06 at 19:24 -0700, Eric W. Biederman wrote:
+>> With the networking stack today there is demand to handle
+>> multiple network stacks at a time.  Not in the context
+>> of containers but in the context of people doing interesting
+>> things with routing.
+>> 
+>> There is also demand in the context of containers to have
+>> an efficient way to execute some code in the container itself.
+>> If nothing else it is very useful ad a debugging technique.
+>> 
+>> Both problems can be solved by starting some form of login
+>> daemon in the namespaces people want access to, or you
+>> can play games by ptracing a process and getting the
+>> traced process to do things you want it to do. However
+>> it turns out that a login daemon or a ptrace puppet
+>> controller are more code, they are more prone to
+>> failure, and generally they are less efficient than
+>> simply changing the namespace of a process to a
+>> specified one.
+>> 
+>> Pieces of this puzzle can also be solved by instead of
+>> coming up with a general purpose system call coming up
+>> with targed system calls perhaps socketat that solve
+>> a subset of the larger problem.  Overall that appears
+>> to be more work for less reward.
+>> 
+>> int setns(int fd, int nstype);
+>> 
+>> The fd argument is a file descriptor referring to a proc
+>> file of the namespace you want to switch the process to.
+>> 
+>> In the setns system call the nstype is 0 or specifies
+>> an clone flag of the namespace you intend to change
+>> to prevent changing a namespace unintentionally.
+>
+> I don't understand exactly what the nstype argument buys us - why would
+> correct code ever need to specify a value other than 0?  And reusing the
+> CLONE_NEW* values in this interface is kind of ugly when setns is
+> precisely _not_ creating new namespaces.
 
-there is another version when aspm is not defined. and it does not use any lock. 
+No but it is setting a new namespace.  I do agree it is a bit ugly.  But
+the worst case at this point is I introduce a new set of beautiful
+defines with the same values.
 
-#ifdef CONFIG_PCIEASPM
-static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
-{
-        pci_disable_link_state(pdev, state);
-}
-#else
-static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
-{
-        int pos;
-        u16 reg16;
+> Is there some fundamental reason it couldn't be
+>
+> int setns(int fd);
+>
+> or is there a use case I'm missing?
 
-        /*
-         * Both device and parent should have the same ASPM setting.
-         * Disable ASPM in downstream component first and then upstream.
-         */
-        pos = pci_pcie_cap(pdev);
-        pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
-        reg16 &= ~state;
-        pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
+When someone else opens the file descriptor and passes it to us
+and we don't completely trust them.  Or equally when someone
+else does the bind mount into the filesystem namespace and we
+don't completely trust them.
 
-        if (!pdev->bus->self)
-                return;
+Plus having a flags field is useful in general.
 
-        pos = pci_pcie_cap(pdev->bus->self);
-        pci_read_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, &reg16);
-        reg16 &= ~state;
-        pci_write_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, reg16);
-}
-#endif
+>> +SYSCALL_DEFINE2(setns, int, fd, int, nstype)
+>> +{
+>> +	const struct proc_ns_operations *ops;
+>> +	struct task_struct *tsk = current;
+>> +	struct nsproxy *new_nsproxy;
+>> +	struct proc_inode *ei;
+>> +	struct file *file;
+>> +	int err;
+>> +
+>> +	if (!capable(CAP_SYS_ADMIN))
+>> +		return -EPERM;
+>> +
+>> +	file = proc_ns_fget(fd);
+>> +	if (IS_ERR(file))
+>> +		return PTR_ERR(file);
+>> +
+>> +	err = -EINVAL;
+>> +	ei = PROC_I(file->f_dentry->d_inode);
+>> +	ops = ei->ns_ops;
+>> +	if (nstype && (ops->type != nstype))
+>> +		goto out;
+>> +
+>> +	new_nsproxy = create_new_namespaces(0, tsk, tsk->fs);
+>
+> create_new_namespaces() can fail; shouldn't this be checked?
+
+Yes.  This was pointed out a little earlier and has been fixed
+in my tree.
 
 
+>> +	err = ops->install(new_nsproxy, ei->ns);
+>> +	if (err) {
+>> +		free_nsproxy(new_nsproxy);
+>> +		goto out;
+>> +	}
+>> +	switch_task_namespaces(tsk, new_nsproxy);
+>> +out:
+>> +	fput(file);
+>> +	return err;
+>> +}
+>> +
 
-> 
->> +extern void __pci_disable_link_state(struct pci_dev *pdev, int state);
->>  extern void pcie_clear_aspm(void);
->>  extern void pcie_no_aspm(void);
->>  #else
-> 
-> pci_disable_link_state_locked would be more descriptive and would match
-> other usage in the kernel.
-
-ok.
-
-Thanks
-
-Yinghai
-
-------------------------------------------------------------------------------
-Achieve unprecedented app performance and reliability
-What every C/C++ and Fortran developer should know.
-Learn how Intel has extended the reach of its next-generation tools
-to help boost performance applications - inlcuding clusters.
-http://p.sf.net/sfu/intel-dev2devmay
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Eric
