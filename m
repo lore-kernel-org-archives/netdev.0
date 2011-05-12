@@ -1,26 +1,45 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 0/2] sctp: socket cleanups
-Date: Thu, 12 May 2011 12:19:08 -0700
-Message-ID: <cover.1305227620.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux-sctp@vger.kernel.org
+Subject: [PATCH 2/2] sctp: sctp_sendmsg: Don't test known non-null sinfo
+Date: Thu, 12 May 2011 12:19:10 -0700
+Message-ID: <b6372a0ac574e3fd110de57eb3e41d97c73d5423.1305227621.git.joe@perches.com>
+References: <cover.1305227620.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1305227620.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Size trivially reduced as well.
+It's already known non-null above.
 
-$ size net/sctp/socket.o
-   text	   data	    bss	    dec	    hex	filename
-  55720	    442	  14988	  71150	  115ee	net/sctp/socket.o.new
-  55730	    442	  14996	  71168	  11600	net/sctp/socket.o.old
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/sctp/socket.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
-Joe Perches (2):
-  sctp: sctp_sendmsg: Don't initialize default_sinfo
-  sctp: sctp_sendmsg: Don't test known non-null sinfo
-
- net/sctp/socket.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
-
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index a5d3560..10ebcd7 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1793,12 +1793,10 @@ SCTP_STATIC int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 		goto out_free;
+ 	}
+ 
+-	if (sinfo) {
+-		/* Check for invalid stream. */
+-		if (sinfo->sinfo_stream >= asoc->c.sinit_num_ostreams) {
+-			err = -EINVAL;
+-			goto out_free;
+-		}
++	/* Check for invalid stream. */
++	if (sinfo->sinfo_stream >= asoc->c.sinit_num_ostreams) {
++		err = -EINVAL;
++		goto out_free;
+ 	}
+ 
+ 	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
 -- 
 1.7.5.rc3.dirty
