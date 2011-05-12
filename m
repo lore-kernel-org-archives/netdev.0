@@ -1,40 +1,50 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: future developments of usbnet
-Date: Thu, 12 May 2011 13:46:55 -0400 (EDT)
-Message-ID: <20110512.134655.235895548164532973.davem@davemloft.net>
-References: <201105111937.47448.oliver@neukum.org>
-	<20110511.134727.957370621658043260.davem@davemloft.net>
-	<201105120959.28473.oliver@neukum.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH RESEND net-next] ethtool: bring back missing comma in
+ netdev features strings
+Date: Thu, 12 May 2011 18:58:32 +0100
+Message-ID: <1305223112.5214.39.camel@bwh-desktop>
+References: <20110512164204.EC8391220061@host64.kissl.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
-	tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201105120959.28473.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, maheshb@google.com, mirqus@gmail.com
+To: franco@lastsummer.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:25212 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758224Ab1ELR6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 13:58:36 -0400
+In-Reply-To: <20110512164204.EC8391220061@host64.kissl.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Date: Thu, 12 May 2011 09:59:28 +0200
+On Thu, 2011-05-12 at 18:42 +0200, franco@lastsummer.de wrote:
+> The issue was introduced in commit eed2a12f1ed9aabf.
+> 
+> Signed-off-by: Franco Fichtner <franco@lastsummer.de>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-> Our problem here is that USB doesn't work sanely without
-> interrupts. We can stop IO regarding rx, but we cannot stop
-> interrupts if we want to do rx.
+> ---
+>  net/core/ethtool.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index b6f4058..b8c2b10 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -361,7 +361,7 @@ static const char
+> netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * 32][ETH_GS
+>  	/* NETIF_F_NTUPLE */          "rx-ntuple-filter",
+>  	/* NETIF_F_RXHASH */          "rx-hashing",
+>  	/* NETIF_F_RXCSUM */          "rx-checksum",
+> -	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy"
+> +	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy",
+>  	/* NETIF_F_LOOPBACK */        "loopback",
+>  };
+> 
 
-Understood.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-However, I was wondering if you could do this in software.  When URBs
-trigger, just queue that pending work up in a software queue when NAPI
-is scheduled, then when you exit NAPI polling you check that queue to
-see if there are interrupt events to process.
-
-Similarly to how we handle software interrupts.
-
-Anyways, just an idea.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
