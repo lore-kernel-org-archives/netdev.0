@@ -1,43 +1,70 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next-2.6 2/2] be2net: fix mbox polling for signal reception
-Date: Thu, 12 May 2011 11:41:03 +0530
-Message-ID: <f816628b-a4b6-4a53-867e-12e75bc7b4de@exht1.ad.emulex.com>
-References: <1305180663-12140-1-git-send-email-sathya.perla@emulex.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Thu, 12 May 2011 09:04:40 +0200
+Message-ID: <4DCB8688.7070400@grandegger.com>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<20110510112734.54160824@lxorguk.ukuu.org.uk>	<2BFFDAA0A0DE4820876E5549867938EC@subhasishg>
+	<201105112331.47954.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sathya Perla <sathya.perla@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:37717 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755514Ab1ELGIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 02:08:11 -0400
-In-Reply-To: <1305180663-12140-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <201105112331.47954.arnd-r2nGTMty4D4@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sending mbox cmds require multiple steps of writing to the DB register and polling
-for an ack. Gettting interrupted in the middle by a signal breaks the mbox protocol.
-So, set the task to UNINTERRUPTIBLE for mbox polling.
+On 05/11/2011 11:31 PM, Arnd Bergmann wrote:
+> On Tuesday 10 May 2011, Subhasish Ghosh wrote:
+>>
+>>>> Yes, In case if we allow the ALL implementation, it hogs the CPU.
+>>>> In that case we do not need the PRU. The whole purpose of the PRU
+>>>> is to offload the processor for any such implementations. 
+>>>
+>>> So the kernel presumably needs to switch between using the PRU and native
+>>> according to the number of ids being requested at the time ?
+>>
+>> All the IDs are programmed into the PRU data RAM.
+>> The Kernel receives interrupts based upon these IDs.
+>> I could not clearly follow "PRU and native", could you please elaborate.
+> 
+> We would really like all CAN drivers to behave the same way. All other
+> drivers are able to work without filters, so pruss_can should allow that
+> too, even if it becomes a CPU hog at that time.
+> 
+> It seems to me that the pruss can implementation has one thing backwards:
+> it assumes a specific usage model for CAN that it is trying to do offload
+> for. However, that usage model is currently not even supported by Socket
+> CAN. If I understand Wolfgang correctly, it is in fact considered an
+> unwanted limitation of the pruss can driver, instead of a useful feature.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/benet/be_cmds.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+"Unwanted" is not the right word. I see it as a piece of CAN hardware
+with some serious limitations and I doubt that it will make real CAN
+users happy. But well, I might be wrong.
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index bff41ed..55c8301 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -297,7 +297,7 @@ static int be_mbox_db_ready_wait(struct be_adapter *adapter, void __iomem *db)
- 			return -1;
- 		}
- 
--		set_current_state(TASK_INTERRUPTIBLE);
-+		set_current_state(TASK_UNINTERRUPTIBLE);
- 		schedule_timeout(msecs_to_jiffies(1));
- 		msecs++;
- 	} while (true);
--- 
-1.7.4
+> If that interpretation is right, I would seriously recommend rethinking
+> the design of the CAN firmware for pruss, so you can start doing something
+> useful with the offload engine that fits into the Socket CAN API, or that
+> would be a useful extension to Socket CAN that is also implementable in
+> the kernel for all other drivers in a meaningful way.
 
+It would be really nice if they could provide a better firmware. Anyway,
+the generic CAN hardware filter interface we spoke about in a previous
+mail would fit for the PRUSS CAN hardware as well. It just needs to be
+implemented.
+
+Wolfgang.
