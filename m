@@ -1,54 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 02/15] ehea: Update multiqueue support
-Date: Thu, 12 May 2011 03:57:04 +0100
-Message-ID: <1305169024.4065.384.camel@localhost>
-References: <20110512005213.897432612@samba.org>
-	 <20110512005622.681433781@samba.org>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: can: hardware vs. software filter
+Date: Wed, 11 May 2011 22:03:10 -0500
+Message-ID: <20110512030245.GA253@e-circ.dyndns.org>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<2BFFDAA0A0DE4820876E5549867938EC@subhasishg>
+	<201105112331.47954.arnd@arndb.de>
+	<201105112344.44171.arnd@arndb.de> <4DCB103B.30801@pengutronix.de>
+	<20110511235652.7ccddb3b@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, michael@ellerman.id.au,
-	jesse@kernel.org, netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:12595 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850Ab1ELC5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2011 22:57:08 -0400
-In-Reply-To: <20110512005622.681433781@samba.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110511235652.7ccddb3b-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-05-12 at 10:52 +1000, Anton Blanchard wrote:
-> The ehea driver had some multiqueue support but was missing the last
-> few years of networking stack improvements:
-[...]
-> --- linux-net.orig/drivers/net/ehea/ehea_main.c	2011-05-12 07:47:48.840103988 +1000
-> +++ linux-net/drivers/net/ehea/ehea_main.c	2011-05-12 07:47:49.640116670 +1000
-> @@ -60,7 +60,7 @@ static int rq1_entries = EHEA_DEF_ENTRIE
->  static int rq2_entries = EHEA_DEF_ENTRIES_RQ2;
->  static int rq3_entries = EHEA_DEF_ENTRIES_RQ3;
->  static int sq_entries = EHEA_DEF_ENTRIES_SQ;
-> -static int use_mcs;
-> +static int use_mcs = 1;
->  static int use_lro;
->  static int lro_max_aggr = EHEA_LRO_MAX_AGGR;
->  static int num_tx_qps = EHEA_NUM_TX_QP;
-> @@ -93,7 +93,7 @@ MODULE_PARM_DESC(rq1_entries, "Number of
->  MODULE_PARM_DESC(sq_entries, " Number of entries for the Send Queue  "
->  		 "[2^x - 1], x = [6..14]. Default = "
->  		 __MODULE_STRING(EHEA_DEF_ENTRIES_SQ) ")");
-> -MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 0 ");
-> +MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 1 ");
-[...]
+On Wed, May 11, 2011 at 11:56:52PM +0100, Alan Cox wrote:
+> > I'm not sure if reprogramming hardware filters on the fly works on evey
+> > can core. The more conservative solution would be to configure the
+> > filter list globally (+when the interface is down) via netlink.
+> 
+> For anything that isn't so braindead it ought to be done on the fly and
+> behind the users back to avoid having to make app code specially aware.
 
-You're using NAPI whether or not there are multiple receive queues, so
-this description is wrong.
+> If the lists are fixed either in firmware or in software the stack needs
+> to error attempts to use anything else
 
-Ben.
+That is the best guarantee to let users never use this.
+A tool like 'candump' should not know about any pre-configured
+filter that is in place. It's the responsibility of the root user
+to put proper preconfigured filters.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+A lot of code would be spent to allow an application to request
+software filters that fit in the preconfigured ones.
+IMHO its the root users job to judge about a proper preconfigured
+filter that suits the applications that run. The applications should
+then be able to request any software filter they like, the root user
+decided on limiting traffic.
 
+This poses a problem in that an application may depend on these filters
+for its proper operation. That exactly is the responsibility of the
+root user who restricts the preconfigured filter.
+
+Kurt
