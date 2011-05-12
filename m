@@ -1,40 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 03/15] ehea: Remove force_irq logic in napi poll routine
-Date: Thu, 12 May 2011 03:47:36 +0100
-Message-ID: <1305168456.4065.378.camel@localhost>
-References: <20110512005213.897432612@samba.org>
-	 <20110512005622.766206152@samba.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: leitao@linux.vnet.ibm.com, michael@ellerman.id.au,
-	jesse@kernel.org, netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] iproute2: use IFLA_TXQLEN when it is available
+Date: Thu, 12 May 2011 10:47:31 +0800
+Message-ID: <1305168451-14491-1-git-send-email-xiaosuo@gmail.com>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	Changli Gao <xiaosuo@gmail.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:11866 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148Ab1ELCrl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2011 22:47:41 -0400
-In-Reply-To: <20110512005622.766206152@samba.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:43057 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752627Ab1ELCsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 May 2011 22:48:13 -0400
+Received: by pzk9 with SMTP id 9so519063pzk.19
+        for <netdev@vger.kernel.org>; Wed, 11 May 2011 19:48:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-05-12 at 10:52 +1000, Anton Blanchard wrote:
+Use IFLA_TXQLEN when it is available, to avoid additional system calls.
 
-> commit 18604c548545 (ehea: NAPI multi queue TX/RX path for SMP) added
-> driver specific logic for exiting napi mode. I'm not sure what it was
-> trying to solve and it should be up to the network stack to decide when
-> we are done polling so remove it.
-[...]
-
-I don't know.  But I'd really like to know why you are calling
-napi_reschedule() and napi_complete() in a loop, inside the poll
-function.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ ip/ipaddress.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index a1f78b9..59afafd 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -285,8 +285,16 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (tb[IFLA_OPERSTATE])
+ 		print_operstate(fp, *(__u8 *)RTA_DATA(tb[IFLA_OPERSTATE]));
+ 		
+-	if (filter.showqueue)
+-		print_queuelen(fp, (char*)RTA_DATA(tb[IFLA_IFNAME]));
++	if (filter.showqueue) {
++		if (tb[IFLA_TXQLEN]) {
++			__u32 txqlen = *(__u32 *)RTA_DATA(tb[IFLA_TXQLEN]);
++
++			if (txqlen)
++				fprintf(fp, "qlen %u", txqlen);
++		} else {
++			print_queuelen(fp, (char*)RTA_DATA(tb[IFLA_IFNAME]));
++		}
++	}
+ 
+ 	if (!filter.family || filter.family == AF_PACKET) {
+ 		SPRINT_BUF(b1);
