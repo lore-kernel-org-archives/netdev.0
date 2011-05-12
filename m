@@ -1,48 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/3] ipv4: Elide use of rt->rt_dst in ip_forward()
-Date: Thu, 12 May 2011 19:39:11 -0400 (EDT)
-Message-ID: <20110512.193911.269827437433393327.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bridge] Bug#625914: linux-image-2.6.38-2-amd64: bridging is
+ not interacting well with multicast in 2.6.38-4
+Date: Thu, 12 May 2011 16:43:22 -0700
+Message-ID: <20110512164322.45626683@nehalam>
+References: <20110506201234.6297.70279.reportbug@ip6-localhost>
+	<1304995124.4065.157.camel@localhost>
+	<20110510043833.GG6397@morgul.net>
+	<1305031369.4065.259.camel@localhost>
+	<20110510180540.GI6397@morgul.net>
+	<20110510151100.52a9f8fa@nehalam>
+	<20110510233540.GJ6397@morgul.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Ben Hutchings <ben@decadent.org.uk>, 625914@bugs.debian.org,
+	bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>
+To: Noah Meyerhans <noahm@debian.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38635 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757882Ab1ELXjO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 19:39:14 -0400
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4CNdCju008097
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 12 May 2011 16:39:13 -0700
+Received: from mail.vyatta.com ([76.74.103.46]:39606 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757882Ab1ELXnZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 May 2011 19:43:25 -0400
+In-Reply-To: <20110510233540.GJ6397@morgul.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 10 May 2011 16:35:40 -0700
+Noah Meyerhans <noahm@debian.org> wrote:
 
-No matter what kind of header mangling occurs due to IP options
-processing, rt->rt_dst will always equal iph->daddr in the packet.
+> On Tue, May 10, 2011 at 03:11:00PM -0700, Stephen Hemminger wrote:
+> > There were two more follow on commits in stable related to this.
+> > I recommend merging 2.6.38.6 which includes these.
+> 
+> The problem still exists in the current 2.6.38.6.  Backing out 5f1c356a
+> still solves the problem there.
+> 
+> I have not yet tried anything outside the stable-2.6.38.y tree, but it
+> seems like these same changes are present there, and it's unlikely that
+> other releases will work any better.
 
-So we can safely use iph->daddr instead of rt->rt_dst here.
+Does this fix the problem?  The tap driver allocates an skb and throws
+it into the receive path, but the skb does not have the same padding
+as normal skb's received.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/ip_forward.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 99461f0..fcbc0c8 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -84,7 +84,7 @@ int ip_forward(struct sk_buff *skb)
+--- a/drivers/net/tun.c	2011-05-12 16:36:15.231347935 -0700
++++ b/drivers/net/tun.c	2011-05-12 16:36:38.503464573 -0700
+@@ -614,7 +614,7 @@ static __inline__ ssize_t tun_get_user(s
+ 	}
  
- 	rt = skb_rtable(skb);
- 
--	if (opt->is_strictroute && rt->rt_dst != rt->rt_gateway)
-+	if (opt->is_strictroute && iph->daddr != rt->rt_gateway)
- 		goto sr_failed;
- 
- 	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
+ 	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+-		align = NET_IP_ALIGN;
++		align = NET_IP_ALIGN + NET_SKB_PAD;
+ 		if (unlikely(len < ETH_HLEN ||
+ 			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
+ 			return -EINVAL;
+
 -- 
-1.7.4.4
-
