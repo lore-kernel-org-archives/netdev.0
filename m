@@ -1,45 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netdevice.h: Align struct netdevices members
-Date: Thu, 12 May 2011 15:05:39 -0700 (PDT)
-Message-ID: <20110512.150539.189697453.davem@davemloft.net>
-References: <1304998966.19586.104.camel@Joe-Laptop>
-	<1304999595.3050.45.camel@edumazet-laptop>
-	<1305001325.19586.110.camel@Joe-Laptop>
+Subject: Re: [PATCH 4/10] ipvs: Use IP_VS_RT_MODE_* instead of magic
+ constants.
+Date: Thu, 12 May 2011 18:28:57 -0400 (EDT)
+Message-ID: <20110512.182857.1123203303677885686.davem@davemloft.net>
+References: <alpine.LFD.2.00.1105110123001.4532@ja.ssi.bg>
+	<20110510.153051.71135029.davem@davemloft.net>
+	<alpine.LFD.2.00.1105120212150.2431@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: joe@perches.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37087
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758813Ab1ELWGL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 May 2011 18:06:11 -0400
-In-Reply-To: <1305001325.19586.110.camel@Joe-Laptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36140 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757335Ab1ELW3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 18:29:13 -0400
+In-Reply-To: <alpine.LFD.2.00.1105120212150.2431@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Joe Perches <joe@perches.com>
-Date: Mon, 09 May 2011 21:22:05 -0700
+From: Julian Anastasov <ja@ssi.bg>
+Date: Thu, 12 May 2011 02:32:09 +0300 (EEST)
 
-> On Tue, 2011-05-10 at 05:53 +0200, Eric Dumazet wrote:
->> Le lundi 09 mai 2011 =E0 20:42 -0700, Joe Perches a =E9crit :
->> > Save a bit of space.
->> Hmm... correct alignements are far more important for this structure=
-=2E
->=20
-> I agree.  I aligned these members on "natural" boundaries.
-> 4 consecutive chars rather than 2 chars, unsigned long.
-> =20
->> Did you run benchmarks on 32bit and 64bit platforms ?
->=20
-> Nope.
->=20
->> BTW we have ____cacheline_aligned_in_smp markers, I am not even sure
->> this patch saves space.
->=20
-> That depends on whether or not CONFIG_SMP is defined and
-> all of the changes are before any ____cacheline_aligned markers.
+> 	My simple tests do not show any problems with patches
+> 4, 5 and the new 6 and 7. I tested TUN mode for rt_src/rt_dst
+> and DR/NAT for rt_dst replacement, related ICMP is relayed properly.
+> So, we should be ok but I'll do more tests in the following
+> days because the list with possible combinations for testing
+> is too long: different forwarding mode (DR/TUN/NAT),
+> local or remote real server, local or remote client,
+> In or Out related ICMP, Passive or Active FTP...
 
-I think this is sane, Eric do you still have objections?
+Julian, I integrated your work and pushed 3 patches to net-next-2.6
+
+1) Original patch #4 with your followup integrated
+2) Original patch #5
+3) You're replacement for original patch #6 and #7
+
+Let me know if there are any followup fixes that we need to work
+on.
+
+Thanks!
