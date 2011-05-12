@@ -1,8 +1,8 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH 2/3] hydra: Fix regression caused during
+Subject: [PATCH 3/3] ne-h8300: Fix regression caused during
 	net_device_ops conversion
-Date: Thu, 12 May 2011 19:11:39 +0000
-Message-ID: <1305227500-15595-3-git-send-email-geert@linux-m68k.org>
+Date: Thu, 12 May 2011 19:11:40 +0000
+Message-ID: <1305227500-15595-4-git-send-email-geert@linux-m68k.org>
 References: <1305227500-15595-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,9 +30,9 @@ List-Id: netdev.vger.kernel.org
 
 From: Geert Uytterhoeven <geert@chicken.sonytel.be>
 
-Changeset 5618f0d1193d6b051da9b59b0e32ad24397f06a4 ("hydra: convert to
-net_device_ops") broke hydra by adding 8390.o to the link. That
-meant that lib8390.c was included twice, once in hydra.c and once in
+Changeset dcd39c90290297f6e6ed8a04bb20da7ac2b043c5 ("ne-h8300: convert to
+net_device_ops") broke ne-h8300 by adding 8390.o to the link. That
+meant that lib8390.c was included twice, once in ne-h8300.c and once in
 8390.c, subject to different macros. This patch reverts that by
 avoiding the wrappers in 8390.c.
 
@@ -44,30 +44,39 @@ NET_POLL_CONTROLLER").
 Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Cc: stable@kernel.org
 ---
- drivers/net/Makefile |    2 +-
- drivers/net/hydra.c  |   14 +++++++-------
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/Makefile   |    2 +-
+ drivers/net/ne-h8300.c |   16 ++++++++--------
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index c64675f..4d2f094 100644
+index 4d2f094..e5a7375 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -231,7 +231,7 @@ obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
- obj-$(CONFIG_DECLANCE) += declance.o
- obj-$(CONFIG_ATARILANCE) += atarilance.o
- obj-$(CONFIG_A2065) += a2065.o
--obj-$(CONFIG_HYDRA) += hydra.o 8390.o
-+obj-$(CONFIG_HYDRA) += hydra.o
- obj-$(CONFIG_ARIADNE) += ariadne.o
- obj-$(CONFIG_CS89x0) += cs89x0.o
- obj-$(CONFIG_MACSONIC) += macsonic.o
-diff --git a/drivers/net/hydra.c b/drivers/net/hydra.c
-index c5ef62c..1cd481c 100644
---- a/drivers/net/hydra.c
-+++ b/drivers/net/hydra.c
-@@ -98,15 +98,15 @@ static const struct net_device_ops hydra_netdev_ops = {
- 	.ndo_open		= hydra_open,
- 	.ndo_stop		= hydra_close,
+@@ -144,7 +144,7 @@ obj-$(CONFIG_NE3210) += ne3210.o 8390.o
+ obj-$(CONFIG_SB1250_MAC) += sb1250-mac.o
+ obj-$(CONFIG_B44) += b44.o
+ obj-$(CONFIG_FORCEDETH) += forcedeth.o
+-obj-$(CONFIG_NE_H8300) += ne-h8300.o 8390.o
++obj-$(CONFIG_NE_H8300) += ne-h8300.o
+ obj-$(CONFIG_AX88796) += ax88796.o
+ obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
+ obj-$(CONFIG_FTMAC100) += ftmac100.o
+diff --git a/drivers/net/ne-h8300.c b/drivers/net/ne-h8300.c
+index 30be8c6..7298a34 100644
+--- a/drivers/net/ne-h8300.c
++++ b/drivers/net/ne-h8300.c
+@@ -167,7 +167,7 @@ static void cleanup_card(struct net_device *dev)
+ #ifndef MODULE
+ struct net_device * __init ne_probe(int unit)
+ {
+-	struct net_device *dev = alloc_ei_netdev();
++	struct net_device *dev = ____alloc_ei_netdev(0);
+ 	int err;
+ 
+ 	if (!dev)
+@@ -197,15 +197,15 @@ static const struct net_device_ops ne_netdev_ops = {
+ 	.ndo_open		= ne_open,
+ 	.ndo_stop		= ne_close,
  
 -	.ndo_start_xmit		= ei_start_xmit,
 -	.ndo_tx_timeout		= ei_tx_timeout,
@@ -87,15 +96,15 @@ index c5ef62c..1cd481c 100644
  #endif
  };
  
-@@ -125,7 +125,7 @@ static int __devinit hydra_init(struct zorro_dev *z)
- 	0x10, 0x12, 0x14, 0x16, 0x18, 0x1a, 0x1c, 0x1e,
-     };
+@@ -637,7 +637,7 @@ int init_module(void)
+ 	int err;
  
--    dev = alloc_ei_netdev();
-+    dev = ____alloc_ei_netdev(0);
-     if (!dev)
- 	return -ENOMEM;
- 
+ 	for (this_dev = 0; this_dev < MAX_NE_CARDS; this_dev++) {
+-		struct net_device *dev = alloc_ei_netdev();
++		struct net_device *dev = ____alloc_ei_netdev(0);
+ 		if (!dev)
+ 			break;
+ 		if (io[this_dev]) {
 -- 
 1.7.0.4
 
