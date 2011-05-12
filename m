@@ -1,114 +1,40 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH 3/3] ne-h8300: Fix regression caused during
-	net_device_ops conversion
-Date: Thu, 12 May 2011 19:11:40 +0000
-Message-ID: <1305227500-15595-4-git-send-email-geert@linux-m68k.org>
-References: <1305227500-15595-1-git-send-email-geert@linux-m68k.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-m68k@vger.kernel.org, Russell King <linux@arm.linux.org.uk>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Finn Thain <fthain@telegraphics.com.au>, stable@kernel.org,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Geert Uytterhoeven <geert@chicken.sonytel.be>
+Subject: [PATCH 0/3] Fix 8390 regressions
+Date: Thu, 12 May 2011 19:11:37 +0000
+Message-ID: <1305227500-15595-1-git-send-email-geert@linux-m68k.org>
+Cc: Russell King <linux@arm.linux.org.uk>,
+	Finn Thain <fthain@telegraphics.com.au>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-m68k@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <shemminger@vyatta.com>,
-        Yoshinori Sato <ysato@users.sourceforge.jp>
-Return-path: <stable-bounces@linux.kernel.org>
-In-Reply-To: <1305227500-15595-1-git-send-email-geert@linux-m68k.org>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Yoshinori Sato <ysato@users.sourceforge.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Geert Uytterhoeven <geert@chicken.sonytel.be>
+These patches fix regressions in 3 8390-based network drivers:
+ [1/3] zorro8390: Fix regression caused during net_device_ops conversion
+ [2/3] hydra: Fix regression caused during net_device_ops conversion
+ [3/3] ne-h8300: Fix regression caused during net_device_ops conversion
 
-Changeset dcd39c90290297f6e6ed8a04bb20da7ac2b043c5 ("ne-h8300: convert to
-net_device_ops") broke ne-h8300 by adding 8390.o to the link. That
-meant that lib8390.c was included twice, once in ne-h8300.c and once in
-8390.c, subject to different macros. This patch reverts that by
-avoiding the wrappers in 8390.c.
+The first one, for zorro8390, has been tested.
+The second one, for hydra, has been compile-tested only.
 
-Fix based on commits 217cbfa856dc1cbc2890781626c4032d9e3ec59f ("mac8390:
-fix regression caused during net_device_ops conversion") and
-4e0168fa4842e27795a75b205a510f25b62181d9 ("mac8390: fix build with
-NET_POLL_CONTROLLER").
+Based on commits 8cfd9e923be54ef66ce174a93f4592b444b96407 ("[ARM] RiscPC: Fix
+etherh oops") and 217cbfa856dc1cbc2890781626c4032d9e3ec59f ("mac8390: fix
+regression caused during net_device_ops conversion"), and the patch for
+zorro8390, we have good reasons to believe hydra and ne-h8300 are affected
+as well, as they all include lib8390.c.
+Hence patches for those are also included, although I could not test them.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: stable@kernel.org
----
- drivers/net/Makefile   |    2 +-
- drivers/net/ne-h8300.c |   16 ++++++++--------
- 2 files changed, 9 insertions(+), 9 deletions(-)
+Gr{oetje,eeting}s,
 
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 4d2f094..e5a7375 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -144,7 +144,7 @@ obj-$(CONFIG_NE3210) += ne3210.o 8390.o
- obj-$(CONFIG_SB1250_MAC) += sb1250-mac.o
- obj-$(CONFIG_B44) += b44.o
- obj-$(CONFIG_FORCEDETH) += forcedeth.o
--obj-$(CONFIG_NE_H8300) += ne-h8300.o 8390.o
-+obj-$(CONFIG_NE_H8300) += ne-h8300.o
- obj-$(CONFIG_AX88796) += ax88796.o
- obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
- obj-$(CONFIG_FTMAC100) += ftmac100.o
-diff --git a/drivers/net/ne-h8300.c b/drivers/net/ne-h8300.c
-index 30be8c6..7298a34 100644
---- a/drivers/net/ne-h8300.c
-+++ b/drivers/net/ne-h8300.c
-@@ -167,7 +167,7 @@ static void cleanup_card(struct net_device *dev)
- #ifndef MODULE
- struct net_device * __init ne_probe(int unit)
- {
--	struct net_device *dev = alloc_ei_netdev();
-+	struct net_device *dev = ____alloc_ei_netdev(0);
- 	int err;
- 
- 	if (!dev)
-@@ -197,15 +197,15 @@ static const struct net_device_ops ne_netdev_ops = {
- 	.ndo_open		= ne_open,
- 	.ndo_stop		= ne_close,
- 
--	.ndo_start_xmit		= ei_start_xmit,
--	.ndo_tx_timeout		= ei_tx_timeout,
--	.ndo_get_stats		= ei_get_stats,
--	.ndo_set_multicast_list = ei_set_multicast_list,
-+	.ndo_start_xmit		= __ei_start_xmit,
-+	.ndo_tx_timeout		= __ei_tx_timeout,
-+	.ndo_get_stats		= __ei_get_stats,
-+	.ndo_set_multicast_list = __ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
--	.ndo_poll_controller	= ei_poll,
-+	.ndo_poll_controller	= __ei_poll,
- #endif
- };
- 
-@@ -637,7 +637,7 @@ int init_module(void)
- 	int err;
- 
- 	for (this_dev = 0; this_dev < MAX_NE_CARDS; this_dev++) {
--		struct net_device *dev = alloc_ei_netdev();
-+		struct net_device *dev = ____alloc_ei_netdev(0);
- 		if (!dev)
- 			break;
- 		if (io[this_dev]) {
--- 
-1.7.0.4
+                                                Geert
 
-_______________________________________________
-stable mailing list
-stable@linux.kernel.org
-http://linux.kernel.org/mailman/listinfo/stable
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                                            -- Linus Torvalds
