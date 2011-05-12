@@ -1,33 +1,44 @@
-From: Arnd Hannemann <arnd@arndnet.de>
-Subject: Changing the default for net.ipv6.conf.*.use_tempaddr
-Date: Thu, 12 May 2011 09:57:41 +0200
-Message-ID: <4DCB92F5.3050008@arndnet.de>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: future developments of usbnet
+Date: Thu, 12 May 2011 09:59:28 +0200
+Message-ID: <201105120959.28473.oliver@neukum.org>
+References: <Pine.LNX.4.44L0.1105091130440.2002-100000@iolanthe.rowland.org> <201105111937.47448.oliver@neukum.org> <20110511.134727.957370621658043260.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: shemminger@vyatta.com, stern@rowland.harvard.edu,
+	tom.leiming@gmail.com, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slowhand.arndnet.de ([88.198.19.76]:43845 "EHLO mail.unitix.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751449Ab1ELH5o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 May 2011 03:57:44 -0400
-Received: from [172.26.14.109] (exit.credativ.com [87.139.82.80])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.unitix.de (Postfix) with ESMTP id 6F01113EA5
-	for <netdev@vger.kernel.org>; Thu, 12 May 2011 09:57:42 +0200 (CEST)
+Received: from smtp-out003.kontent.com ([81.88.40.217]:53367 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751449Ab1ELH5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 03:57:45 -0400
+In-Reply-To: <20110511.134727.957370621658043260.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Am Mittwoch, 11. Mai 2011, 19:47:27 schrieb David Miller:
 
-while reading all the pro and cons mentioned in a recent discussion[1]
-on debian-devel I wonder if there was a particular reason why
-Privacy Extensions are disabled by default in linux?
+> Basically once you take you interrupt, and disable device interrupts,
+> the generic net device layer calls your ->poll() routing with a "weight"
+> You should not process more RX packets than this value.
+> 
+> If you have less than "weight" work to do, you should do a napi_complete(),
+> which takes you out of the polling group, and re-enable device interrupts.
+> 
+> So the idea is that you keep getting ->poll()'d until there is no more
+> RX work to do.
+> 
+> The "weight" argument implements fairness amongst competing, actively
+> polling, devices on the same CPU.
+> 
 
-Maybe it is time to reconsider the default?
+Thank you, this is very informative. Our problem here is that USB doesn't work
+sanely without interrupts. We can stop IO regarding rx, but we cannot stop
+interrupts if we want to do rx.
 
-Best regards
-Arnd
-
-[1] http://lists.debian.org/debian-devel/2011/05/msg00462.html
+	Regards
+		Oliver
