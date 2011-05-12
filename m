@@ -1,60 +1,73 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 5/9] [PATCH] lcs: get rid of compile warning
-Date: Thu, 12 May 2011 07:43:23 +0200
-Message-ID: <20110512054415.866413564@de.ibm.com>
-References: <20110512054318.241733700@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Heiko Carstens <heiko.carstens@de.ibm.com>
-To: davem@davemloft.net
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCHv1] e1000e: Allow ethtool to enable/disable loopback.
+Date: Thu, 12 May 2011 07:50:28 +0200
+Message-ID: <BANLkTi=YbTgy0cNJRvcg1QkWCv9sNKkvUQ@mail.gmail.com>
+References: <1305140625-25888-1-git-send-email-maheshb@google.com>
+ <BANLkTikXbL2arWSYW1aPV02C8dDdHTUG6Q@mail.gmail.com> <BANLkTimfF4EJ_B=Y-ssjkzmtG123P+HMTA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:44911 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753705Ab1ELFoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 01:44:18 -0400
-Content-Disposition: inline; filename=604-lcs-compile-warning.diff
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:57890 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930Ab1ELFus convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 01:50:48 -0400
+Received: by qyk7 with SMTP id 7so2723058qyk.19
+        for <netdev@vger.kernel.org>; Wed, 11 May 2011 22:50:48 -0700 (PDT)
+In-Reply-To: <BANLkTimfF4EJ_B=Y-ssjkzmtG123P+HMTA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+W dniu 12 maja 2011 01:11 u=BFytkownik Mahesh Bandewar
+<maheshb@google.com> napisa=B3:
+> On Wed, May 11, 2011 at 12:15 PM, Micha=B3 Miros=B3aw <mirqus@gmail.c=
+om> wrote:
+>> 2011/5/11 Mahesh Bandewar <maheshb@google.com>:
+>>> This patch adds e1000_set_features() to handle loopback mode. When =
+loopback
+>>> is enabled, it enables internal-MAC loopback.
+>> Please wait for this driver's conversion to hw_features. One comment
+>> below, though.
+> This is not intrusive so should not create problems when that happens=
+=2E
 
--Wunused-but-set-variable generates a compile warning for lcs' tasklet
-function. Invoked functions contain already error handling; thus
-additional return code checking is not needed here.
+=46ine by me then.
 
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
+>> [...]
+>>> --- a/drivers/net/e1000e/netdev.c
+>>> +++ b/drivers/net/e1000e/netdev.c
+>> [...]
+>>> +static int e1000_set_features(struct net_device *dev, u32 features=
+)
+>>> +{
+>>> + =A0 =A0 =A0 u32 changed =3D dev->features ^ features;
+>>> +
+>>> + =A0 =A0 =A0 if ((changed & NETIF_F_LOOPBACK) && netif_running(dev=
+))
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 e1000_set_loopback(dev, features);
+>>> +
+>>> + =A0 =A0 =A0 return 0;
+>>> +}
+>> [...]
+>>
+>> If e1000_set_loopback() fails, this should set dev->features to pass=
+ed
+>> features (but keeping NETIF_F_LOOPBACK unchanged in dev->features) t=
+o
+>> keep the state consistent.
+> set_features() can return the return code of set_loopback() instead o=
+f
+> 0; this way the consistency will be maintained.
 
+Only as long as NETIF_F_LOOPBACK is the only bit set in hw_features.
+netdev_update_features() can't really know which features were changed
+and which failed when ndo_set_features callback returns non-zero.
 
- drivers/s390/net/lcs.c |   10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
-diff -urpN linux-2.6/drivers/s390/net/lcs.c linux-2.6-patched/drivers/s390/net/lcs.c
---- linux-2.6/drivers/s390/net/lcs.c	2011-05-10 09:14:06.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/net/lcs.c	2011-05-10 09:14:25.000000000 +0200
-@@ -1483,7 +1483,6 @@ lcs_tasklet(unsigned long data)
- 	struct lcs_channel *channel;
- 	struct lcs_buffer *iob;
- 	int buf_idx;
--	int rc;
- 
- 	channel = (struct lcs_channel *) data;
- 	LCS_DBF_TEXT_(5, trace, "tlet%s", dev_name(&channel->ccwdev->dev));
-@@ -1500,14 +1499,11 @@ lcs_tasklet(unsigned long data)
- 	channel->buf_idx = buf_idx;
- 
- 	if (channel->state == LCS_CH_STATE_STOPPED)
--		// FIXME: what if rc != 0 ??
--		rc = lcs_start_channel(channel);
-+		lcs_start_channel(channel);
- 	spin_lock_irqsave(get_ccwdev_lock(channel->ccwdev), flags);
- 	if (channel->state == LCS_CH_STATE_SUSPENDED &&
--	    channel->iob[channel->io_idx].state == LCS_BUF_STATE_READY) {
--		// FIXME: what if rc != 0 ??
--		rc = __lcs_resume_channel(channel);
--	}
-+	    channel->iob[channel->io_idx].state == LCS_BUF_STATE_READY)
-+		__lcs_resume_channel(channel);
- 	spin_unlock_irqrestore(get_ccwdev_lock(channel->ccwdev), flags);
- 
- 	/* Something happened on the channel. Wake up waiters. */
-
+Best Regards,
+Micha=B3 Miros=B3aw
