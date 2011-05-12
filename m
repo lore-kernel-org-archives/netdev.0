@@ -1,27 +1,119 @@
-From: Chin Shi Hong <cshong87@gmail.com>
-Subject: Get wireless network card or check whether an interface is a wireless card
-Date: Thu, 12 May 2011 21:51:51 +0800
-Message-ID: <BANLkTi=0ewCXnc0bRgCDJ7Gz=DbUeTdcyw@mail.gmail.com>
+From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Subject: [PATCH] bonding,llc: Fix structure sizeof incompatibility for some PDUs
+Date: Thu, 12 May 2011 15:57:06 +0300
+Message-ID: <201105121557.06679.vitas@nppfactor.kiev.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:56426 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755929Ab1ELNvw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 09:51:52 -0400
-Received: by eyx24 with SMTP id 24so429960eyx.19
-        for <netdev@vger.kernel.org>; Thu, 12 May 2011 06:51:51 -0700 (PDT)
+Received: from mx3.cyfra.ua ([62.80.160.182]:37992 "EHLO mx3.cyfra.ua"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757075Ab1ELNwf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 May 2011 09:52:35 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear all,
+With some combinations of arch/compiler the sizeof operator on structure 
+returns value greater than expected. In cases when the structure is used for 
+mapping PDU fields it may lead to unexpected results (e.g. holes and 
+alignment problems in skb data). Attribute "packed" prevents this undesired 
+behavior.
 
-My application must display only wireless (802.11) network interface
-card. Currently, by using some ioctl calls and ifreq structure, my
-application currently can detect any network interface. But, I only
-want my application to detect wireless network interface card.
+Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+---
+ drivers/net/bonding/bond_3ad.h |   10 +++++-----
+ include/net/llc_pdu.h          |    8 ++++----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-What are the ioctl calls or c/c++ codes to do this?
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 291dbd4..6d6327a 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -39,7 +39,7 @@
+ 
+ typedef struct mac_addr {
+ 	u8 mac_addr_value[ETH_ALEN];
+-} mac_addr_t;
++} __attribute__((packed)) mac_addr_t;
+ 
+ enum {
+ 	BOND_AD_STABLE = 0,
+@@ -134,12 +134,12 @@ typedef struct lacpdu {
+ 	u8 tlv_type_terminator;	     // = terminator
+ 	u8 terminator_length;	     // = 0
+ 	u8 reserved_50[50];	     // = 0
+-} lacpdu_t;
++} __attribute__((packed)) lacpdu_t;
+ 
+ typedef struct lacpdu_header {
+ 	struct ethhdr hdr;
+ 	struct lacpdu lacpdu;
+-} lacpdu_header_t;
++} __attribute__((packed)) lacpdu_header_t;
+ 
+ // Marker Protocol Data Unit(PDU) structure(43.5.3.2 in the 802.3ad standard)
+ typedef struct bond_marker {
+@@ -155,12 +155,12 @@ typedef struct bond_marker {
+ 	u8 tlv_type_terminator;	     //  = 0x00
+ 	u8 terminator_length;	     //  = 0x00
+ 	u8 reserved_90[90];	     //  = 0
+-} bond_marker_t;
++} __attribute__((packed)) bond_marker_t;
+ 
+ typedef struct bond_marker_header {
+ 	struct ethhdr hdr;
+ 	struct bond_marker marker;
+-} bond_marker_header_t;
++} __attribute__((packed)) bond_marker_header_t;
+ 
+ #pragma pack()
+ 
+diff --git a/include/net/llc_pdu.h b/include/net/llc_pdu.h
+index 75b8e29..a8eeb3f 100644
+--- a/include/net/llc_pdu.h
++++ b/include/net/llc_pdu.h
+@@ -199,7 +199,7 @@ struct llc_pdu_sn {
+ 	u8 ssap;
+ 	u8 ctrl_1;
+ 	u8 ctrl_2;
+-};
++} __attribute__((packed));
+ 
+ static inline struct llc_pdu_sn *llc_pdu_sn_hdr(struct sk_buff *skb)
+ {
+@@ -211,7 +211,7 @@ struct llc_pdu_un {
+ 	u8 dsap;
+ 	u8 ssap;
+ 	u8 ctrl_1;
+-};
++} __attribute__((packed));
+ 
+ static inline struct llc_pdu_un *llc_pdu_un_hdr(struct sk_buff *skb)
+ {
+@@ -359,7 +359,7 @@ struct llc_xid_info {
+ 	u8 fmt_id;	/* always 0x81 for LLC */
+ 	u8 type;	/* different if NULL/non-NULL LSAP */
+ 	u8 rw;		/* sender receive window */
+-};
++} __attribute__((packed));
+ 
+ /**
+  *	llc_pdu_init_as_xid_cmd - sets bytes 3, 4 & 5 of LLC header as XID
+@@ -415,7 +415,7 @@ struct llc_frmr_info {
+ 	u8  curr_ssv;		/* current send state variable val */
+ 	u8  curr_rsv;		/* current receive state variable */
+ 	u8  ind_bits;		/* indicator bits set with macro */
+-};
++} __attribute__((packed));
+ 
+ extern void llc_pdu_set_cmd_rsp(struct sk_buff *skb, u8 type);
+ extern void llc_pdu_set_pf_bit(struct sk_buff *skb, u8 bit_value);
+-- 
+1.7.3.4
 
-Regards,
