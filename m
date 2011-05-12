@@ -1,57 +1,40 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up hard
- right after logging in)
-Date: Thu, 12 May 2011 10:37:53 -0700
-Message-ID: <BANLkTi=YDZa+BRaG90vJsjrT9VxgySrDRQ@mail.gmail.com>
-References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: future developments of usbnet
+Date: Thu, 12 May 2011 13:46:55 -0400 (EDT)
+Message-ID: <20110512.134655.235895548164532973.davem@davemloft.net>
+References: <201105111937.47448.oliver@neukum.org>
+	<20110511.134727.957370621658043260.davem@davemloft.net>
+	<201105120959.28473.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	git@vger.kernel.org
-To: Andrew Lutomirski <luto@mit.edu>
-Return-path: <git-owner@vger.kernel.org>
-In-Reply-To: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com>
-Sender: git-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
+	tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201105120959.28473.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 12, 2011 at 10:15 AM, Andrew Lutomirski <luto@mit.edu> wrot=
-e:
->
-> OK, this sucks. =A0In the course of bisecting this, I've hit two othe=
-r
-> apparently unrelated bugs that prevent my from testing large numbers
-> of kernels. =A0Do I have two questions:
->
-> 1. Anyone have any ideas from looking at the log?
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Date: Thu, 12 May 2011 09:59:28 +0200
 
-Nope, that doesn't look very helpful.
+> Our problem here is that USB doesn't work sanely without
+> interrupts. We can stop IO regarding rx, but we cannot stop
+> interrupts if we want to do rx.
 
-> 2. =A0The !&$#@ bisection is skipping all over the place. =A0I've see=
-n
-> 2.6.37 versions and all manner of -rc's out of order.
+Understood.
 
-That's the _point_ of bisection. It jumps around. You can start off
-trying to pick points on my development tree, but I only have a
-hundred merges or so. You're going to start delving into the actual
-development versions very quickly. And if you don't do it early,
-bisection is going to be much much slower, because it's not going to
-pick half-way points.
+However, I was wondering if you could do this in software.  When URBs
+trigger, just queue that pending work up in a software queue when NAPI
+is scheduled, then when you exit NAPI polling you check that queue to
+see if there are interrupt events to process.
 
-So bisection works so well exactly because it picks points that are
-far away from each other, and you should just totally ignore the
-version number. It's meaningless. Looking at it just confuses you.
-Don't do it.
+Similarly to how we handle software interrupts.
 
-Now, "pick stable points" would obviously be nice, but that is going
-to have to be manual. You can certainly make some helper scripts, and
-that's where that "--first-parent" thing comes in. So if you want to,
-just use "git bisect reset" to the commit you want to test.
-
-If you think it's networking, for example, and you've bisected into
-there but aren't sure, do "gitk --bisect", find the point where I
-merge, and pick that (and my parent), and "git bisect reset" those
-points. That way you can verify that it's the networking merge (or
-verify that it isn't).
-
-                         Linus
+Anyways, just an idea.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
