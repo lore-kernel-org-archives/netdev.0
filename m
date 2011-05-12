@@ -1,55 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6 2/2] be2net: fix mbox polling for signal
- reception
-Date: Thu, 12 May 2011 13:49:06 +0100
-Message-ID: <1305204546.4065.395.camel@localhost>
-References: <1305180663-12140-1-git-send-email-sathya.perla@emulex.com>
-	 <f816628b-a4b6-4a53-867e-12e75bc7b4de@exht1.ad.emulex.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Thu, 12 May 2011 14:54:47 +0200
+Message-ID: <201105121454.47781.arnd@arndb.de>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<201105112344.44171.arnd@arndb.de>
+	<4DCB88A4.2010901@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sathya Perla <sathya.perla@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:56205 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754610Ab1ELMtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 08:49:10 -0400
-In-Reply-To: <f816628b-a4b6-4a53-867e-12e75bc7b4de@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4DCB88A4.2010901-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-05-12 at 11:41 +0530, Sathya Perla wrote:
-> Sending mbox cmds require multiple steps of writing to the DB register and polling
-> for an ack. Gettting interrupted in the middle by a signal breaks the mbox protocol.
-> So, set the task to UNINTERRUPTIBLE for mbox polling.
+On Thursday 12 May 2011, Wolfgang Grandegger wrote:
+> Well, that seems sophisticated resulting in a complex implementation
+> (may code line) also because hardware filters are very hardware
+> dependent. Usually just one global filter can be defined. I think that's
+> overkill. A simple interface using:
 > 
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> ---
->  drivers/net/benet/be_cmds.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>   ip link set can0 type can filter <id>:<mask> [<id>:<mask> ...]
 > 
-> diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-> index bff41ed..55c8301 100644
-> --- a/drivers/net/benet/be_cmds.c
-> +++ b/drivers/net/benet/be_cmds.c
-> @@ -297,7 +297,7 @@ static int be_mbox_db_ready_wait(struct be_adapter *adapter, void __iomem *db)
->  			return -1;
->  		}
->  
-> -		set_current_state(TASK_INTERRUPTIBLE);
-> +		set_current_state(TASK_UNINTERRUPTIBLE);
->  		schedule_timeout(msecs_to_jiffies(1));
+> would just be fine.
 
-msleep(1) is a lot more readable.
+Ok, fair enough. Still I would suggest you first come up with
+a reasonable user interface (the one you posted may be just right,
+I don't know), and then let someone do the implementation in the
+pruss firmware that is the best match for the user interface, rather
+than the other way around.
 
-Ben.
-
->  		msecs++;
->  	} while (true);
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+	Arnd
