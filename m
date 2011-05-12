@@ -1,58 +1,59 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [Bugme-new] [Bug 33502] New: Caught 64-bit read from uninitialized
- memory in __alloc_skb
-Date: Thu, 12 May 2011 09:36:50 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1105120932260.24560@router.home>
-References: <bug-33502-10286@https.bugzilla.kernel.org/>  <1303183217.4152.49.camel@edumazet-laptop>  <alpine.DEB.2.00.1104191210011.17888@router.home>  <1303244270.2756.3.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi>  <1305022632.2614.18.camel@edumazet-laptop>
-  <4DC91137.4030109@cs.helsinki.fi>  <a49ddd5511b74b8d9b81af8c3ef72d5a@ulrik.uio.no>  <alpine.DEB.2.00.1105101133440.2611@router.home>  <1305047682.2758.1.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101226460.2875@router.home>  <alpine.DEB.2.00.1105101242420.2875@router.home>
-  <1305050754.2758.12.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101323290.4023@router.home>  <1305055948.2437.13.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101435480.4023@router.home>  <1305057989.2437.18.camel@edumazet-laptop>
- <alpine.DEB.2.00.1105101531160.4023@router.home>  <1305060353.2437.26.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101619430.4023@router.home> <1305083543.2437.39.camel@edumazet-laptop>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: future developments of usbnet
+Date: Thu, 12 May 2011 10:37:28 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1105121025360.1917-100000@iolanthe.rowland.org>
+References: <201105120959.28473.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vegard Nossum <vegardno@ifi.uio.no>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	casteyde.christian@free.fr,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp101.prem.mail.ac4.yahoo.com ([76.13.13.40]:23523 "HELO
-	smtp101.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757387Ab1ELOg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 10:36:56 -0400
-In-Reply-To: <1305083543.2437.39.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	<tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201105120959.28473.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 11 May 2011, Eric Dumazet wrote:
+On Thu, 12 May 2011, Oliver Neukum wrote:
 
-> > The cpu sets a page flag called PageFrozen() and points a per cpu pointer
-> > to the page.
-> >
-> >
->
-> So, if I understand you, there is no problem at all and no patch even
-> needed ? I can start a stress test and you guarantee there wont be a
-> crash ?
->
-> Sorry, its 5h11 in the morning here ;)
+> Am Mittwoch, 11. Mai 2011, 19:47:27 schrieb David Miller:
+> 
+> > Basically once you take you interrupt, and disable device interrupts,
+> > the generic net device layer calls your ->poll() routing with a "weight"
+> > You should not process more RX packets than this value.
+> > 
+> > If you have less than "weight" work to do, you should do a napi_complete(),
+> > which takes you out of the polling group, and re-enable device interrupts.
+> > 
+> > So the idea is that you keep getting ->poll()'d until there is no more
+> > RX work to do.
+> > 
+> > The "weight" argument implements fairness amongst competing, actively
+> > polling, devices on the same CPU.
+> > 
+> 
+> Thank you, this is very informative. Our problem here is that USB doesn't work
+> sanely without interrupts. We can stop IO regarding rx, but we cannot stop
+> interrupts if we want to do rx.
 
-There is a problem if an interrupt or a preemption occurs and there is no
-object left on the page. Then the current page will be unfrozen and a new
-page put into place for allocation. The old page may then be freed by some other
-process on another processor before we continue the interrupted
-slab_alloc().
+The idea behind NAPI can be adapted to the usbnet context.  The basic
+idea is that the driver is allowed to accept only a limited number of 
+packets, driven by polling from the NAPI core.
 
-When slab_alloc() resumes in this scenario then it will ultimately see
-that the tid was incremented and so the cmpxchg will fail. But before we
-do the cmpxchgwe determine the pointer to the next object. And for that
-we access the old page. The access must not cause a page fault (which it
-currently does with CONFIG_DEBUG_PAGEALLOC). That is why we need the patch introducing
+Therefore usbnet's poll routine should take the "weight" argument as an
+indication of how many outstanding rx URBs are allowed.  Each time the
+poll routine is called, it should check to see if any rx URBs have
+completed since the previous poll.  If not then there is no network
+traffic, so usbnet can take itself out of the poll loop.  Otherwise,
+the number of outstanding URBs should be adjusted (by unlinking some or
+submitting more -- subject to some fixed maximum limit) to match the
+new "weight".
 
-	get_freepointer_safe()
+Does that make sense?
 
-The result does not matter since we will repeat the cmpxchg loop.
+Alan Stern
 
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
