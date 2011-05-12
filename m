@@ -1,44 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/10] ipvs: Use IP_VS_RT_MODE_* instead of magic
- constants.
-Date: Thu, 12 May 2011 18:28:57 -0400 (EDT)
-Message-ID: <20110512.182857.1123203303677885686.davem@davemloft.net>
-References: <alpine.LFD.2.00.1105110123001.4532@ja.ssi.bg>
-	<20110510.153051.71135029.davem@davemloft.net>
-	<alpine.LFD.2.00.1105120212150.2431@ja.ssi.bg>
+Subject: Re: [PATCH] CDC NCM: Add mising short packet in cdc_ncm driver
+Date: Thu, 12 May 2011 15:30:12 -0700 (PDT)
+Message-ID: <20110512.153012.112604973.davem@davemloft.net>
+References: <y>
+	<1304686890-2543-1-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, gregkh@suse.de,
+	alexey.orishko@stericsson.com
+To: alexey.orishko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36140 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757335Ab1ELW3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 18:29:13 -0400
-In-Reply-To: <alpine.LFD.2.00.1105120212150.2431@ja.ssi.bg>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42032
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756563Ab1ELWao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 18:30:44 -0400
+In-Reply-To: <1304686890-2543-1-git-send-email-alexey.orishko@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Thu, 12 May 2011 02:32:09 +0300 (EEST)
+From: Alexey Orishko <alexey.orishko@gmail.com>
+Date: Fri,  6 May 2011 15:01:30 +0200
 
-> 	My simple tests do not show any problems with patches
-> 4, 5 and the new 6 and 7. I tested TUN mode for rt_src/rt_dst
-> and DR/NAT for rt_dst replacement, related ICMP is relayed properly.
-> So, we should be ok but I'll do more tests in the following
-> days because the list with possible combinations for testing
-> is too long: different forwarding mode (DR/TUN/NAT),
-> local or remote real server, local or remote client,
-> In or Out related ICMP, Passive or Active FTP...
+> Changes:
+> - while making NTB, driver shall check if device dwNtbOutMaxSize is higher than
+>  host value and shall add a short packet if this is the case
+> - previous temporary patch for this issue is replaced by this one
+> 
+> Signed-off-by: Alexey Orishko <alexey.orishko@stericsson.com>
 
-Julian, I integrated your work and pushed 3 patches to net-next-2.6
-
-1) Original patch #4 with your followup integrated
-2) Original patch #5
-3) You're replacement for original patch #6 and #7
-
-Let me know if there are any followup fixes that we need to work
-on.
-
-Thanks!
+Applied to net-next-2.6, thanks.
