@@ -1,63 +1,76 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Thu, 12 May 2011 09:13:40 +0200
-Message-ID: <4DCB88A4.2010901@grandegger.com>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<2BFFDAA0A0DE4820876E5549867938EC@subhasishg>	<201105112331.47954.arnd@arndb.de>
-	<201105112344.44171.arnd@arndb.de>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: Re: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
+Date: Thu, 12 May 2011 09:21:32 +0200
+Message-ID: <20110512072132.GA31817@tuxmaker.boeblingen.de.ibm.com>
+References: <20110512054318.241733700@de.ibm.com> <20110512054415.435611676@de.ibm.com> <BANLkTinO4Hity5++152Ff-RuACFDtoAV2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201105112344.44171.arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.uk.ibm.com ([194.196.100.164]:45074 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147Ab1ELHVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 03:21:35 -0400
+Content-Disposition: inline
+In-Reply-To: <BANLkTinO4Hity5++152Ff-RuACFDtoAV2Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/11/2011 11:44 PM, Arnd Bergmann wrote:
-> On Wednesday 11 May 2011, Arnd Bergmann wrote:
->> If that interpretation is right, I would seriously recommend rethinking
->> the design of the CAN firmware for pruss, so you can start doing something
->> useful with the offload engine that fits into the Socket CAN API, or that
->> would be a useful extension to Socket CAN that is also implementable in
->> the kernel for all other drivers in a meaningful way.
-> 
-> I've looked some more into the CAN socket implementation, and I suppose that
-> the idea of the pruss driver was really to help do the work from the
-> can_rcv_filter function in hardware.
-
-That software filter is per socket while the hardware filter will be per
+On Thu, May 12, 2011 at 07:59:45AM +0200, Micha=C5=82 Miros=C5=82aw wro=
+te:
+> 2011/5/12  <frank.blaschka@de.ibm.com>:
+> > From: Frank Blaschka <frank.blaschka@de.ibm.com>
+> >
+> > Set rx csum default to hw checksumming again.
+> > Remove sysfs interface for rx csum (checksumming) and TSO (large_se=
+nd).
+> > With the new hw_features it does not work to keep the old sysfs
+> > interface in parallel. Convert options.checksum_type to new hw_feat=
+ures.
+> [...]
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* hw may have c=
+hanged during offline or recovery */
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!qeth_is_sup=
+ported(card, IPA_INBOUND_CHECKSUM)) {
+> [...]
+>=20
+> This check should go to ndo_fix_features callback. If it fails then
+> just return features &~NETIF_F_RXCSUM from there ...
+>=20
+> > +update_feature:
+> > + =C2=A0 =C2=A0 =C2=A0 rtnl_lock();
+> > + =C2=A0 =C2=A0 =C2=A0 card->dev->hw_features &=3D ~NETIF_F_RXCSUM;
+> > + =C2=A0 =C2=A0 =C2=A0 card->dev->features &=3D ~NETIF_F_RXCSUM;
+> > + =C2=A0 =C2=A0 =C2=A0 netdev_update_features(card->dev);
+> > + =C2=A0 =C2=A0 =C2=A0 rtnl_unlock();
+>=20
+> ... and then this should be just:
+> rtnl_lock();
+> netdev_update_features(card->dev);
+> rtnl_unlock();
+>
+This code is part of the recovery, assuming the recovery detects the hw
+has lost it's rx csum capability I still don't understand how ndo_fix_f=
+eatures
+come into play?
+=20
+> BTW, How is the recovery process protected from interface removal if
+> it's not run under rtnl_lock?
+>
+The s/390 devices have a two stage device concept. For each netdevice t=
+here is
+a corresponding ccw_group device. Removing the netdevice is controlled =
+by the
+ccw_group device. The recovery process is synchronized with the ccw_gro=
+up
 device.
 
-> Doing this right would really mean supporting both a mode where any new
-> filter that gets added to socket can ends up being added to the hardware
-> as long as it fits, similar to how we can add additional unicast mac
-> addresses to an ethernet NIC. However, when the filters from all user
-> sockets combined can not be represented in the hardware driver, the hardware
-> needs to be put into a less efficient mode where all packets are returned
-> to the kernel and processed in software.
-
-Well, that seems sophisticated resulting in a complex implementation
-(may code line) also because hardware filters are very hardware
-dependent. Usually just one global filter can be defined. I think that's
-overkill. A simple interface using:
-
-  ip link set can0 type can filter <id>:<mask> [<id>:<mask> ...]
-
-would just be fine.
-
-Wolfgang.
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
