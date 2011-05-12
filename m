@@ -1,106 +1,132 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Thu, 12 May 2011 16:41:58 +0200
-Message-ID: <4DCBF1B6.6000104@hartkopp.net>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<2BFFDAA0A0DE4820876E5549867938EC@subhasishg>	<201105112331.47954.arnd@arndb.de>	<201105112344.44171.arnd@arndb.de>
-	<4DCB88A4.2010901@grandegger.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next] net:set valid name before calling ndo_init()
+Date: Thu, 12 May 2011 17:17:38 +0200
+Message-ID: <20110512151737.GF6879@psychotron.brq.redhat.com>
+References: <1300936598-3971-1-git-send-email-panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	nsekhar-l0cyMroinI0@public.gmane.org, open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, m-watkins-l0cyMroinI0@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4DCB88A4.2010901-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, xiaosuo@gmail.com,
+	mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Weiping =?utf-8?B?UGFuKOa9mOWNq+W5syk=?= <panweiping3@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1300936598-3971-1-git-send-email-panweiping3@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12.05.2011 09:13, Wolfgang Grandegger wrote:
-> On 05/11/2011 11:44 PM, Arnd Bergmann wrote:
->> On Wednesday 11 May 2011, Arnd Bergmann wrote:
->>> If that interpretation is right, I would seriously recommend rethinking
->>> the design of the CAN firmware for pruss, so you can start doing something
->>> useful with the offload engine that fits into the Socket CAN API, or that
->>> would be a useful extension to Socket CAN that is also implementable in
->>> the kernel for all other drivers in a meaningful way.
->>
->> I've looked some more into the CAN socket implementation, and I suppose that
->> the idea of the pruss driver was really to help do the work from the
->> can_rcv_filter function in hardware.
+Thu, Mar 24, 2011 at 04:16:38AM CET, panweiping3@gmail.com wrote:
+>From: Pan Weiping <panweiping3@gmail.com>
+>
+>A bug of bonding was invloved by e815d19ffe02bdfda1260949ef2b1806171,
+>see example 1 and 2.
+>
+>In register_netdevice(), the name of net_device is not valid until
+>dev_get_valid_name() is called. But dev->netdev_ops->ndo_init(that is
+>bond_init) is called before dev_get_valid_name(),
+>and it uses the invalid name of net_device.
+>
+>I think register_netdevice() should make sure that the name of net_device is
+>valid before calling ndo_init().
+>
+>example 1:
+>modprobe bonding
+>ls  /proc/net/bonding/bond%d
+>
+>ps -eLf
+>root      3398     2  3398  0    1 21:34 ?        00:00:00 [bond%d]
+>
+>example 2:
+>modprobe bonding max_bonds=3
+>
+>[  170.100292] bonding: Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
+>[  170.101090] bonding: Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.
+>[  170.102469] ------------[ cut here ]------------
+>[  170.103150] WARNING: at /home/pwp/net-next-2.6/fs/proc/generic.c:586 proc_register+0x126/0x157()
+>[  170.104075] Hardware name: VirtualBox
+>[  170.105065] proc_dir_entry 'bonding/bond%d' already registered
+>[  170.105613] Modules linked in: bonding(+) sunrpc ipv6 uinput microcode ppdev parport_pc parport joydev e1000 pcspkr i2c_piix4 i2c_core [last unloaded: bonding]
+>[  170.108397] Pid: 3457, comm: modprobe Not tainted 2.6.39-rc2+ #14
+>[  170.108935] Call Trace:
+>[  170.109382]  [<c0438f3b>] warn_slowpath_common+0x6a/0x7f
+>[  170.109911]  [<c051a42a>] ? proc_register+0x126/0x157
+>[  170.110329]  [<c0438fc3>] warn_slowpath_fmt+0x2b/0x2f
+>[  170.110846]  [<c051a42a>] proc_register+0x126/0x157
+>[  170.111870]  [<c051a4dd>] proc_create_data+0x82/0x98
+>[  170.112335]  [<f94e6af6>] bond_create_proc_entry+0x3f/0x73 [bonding]
+>[  170.112905]  [<f94dd806>] bond_init+0x77/0xa5 [bonding]
+>[  170.113319]  [<c0721ac6>] register_netdevice+0x8c/0x1d3
+>[  170.113848]  [<f94e0e30>] bond_create+0x6c/0x90 [bonding]
+>[  170.114322]  [<f94f4763>] bonding_init+0x763/0x7b1 [bonding]
+>[  170.114879]  [<c0401240>] do_one_initcall+0x76/0x122
+>[  170.115317]  [<f94f4000>] ? 0xf94f3fff
+>[  170.115799]  [<c0463f1e>] sys_init_module+0x1286/0x140d
+>[  170.116879]  [<c07c6d9f>] sysenter_do_call+0x12/0x28
+>[  170.117404] ---[ end trace 64e4fac3ae5fff1a ]---
+>[  170.117924] bond%d: Warning: failed to register to debugfs
+>[  170.128728] ------------[ cut here ]------------
+>[  170.129360] WARNING: at /home/pwp/net-next-2.6/fs/proc/generic.c:586 proc_register+0x126/0x157()
+>[  170.130323] Hardware name: VirtualBox
+>[  170.130797] proc_dir_entry 'bonding/bond%d' already registered
+>[  170.131315] Modules linked in: bonding(+) sunrpc ipv6 uinput microcode ppdev parport_pc parport joydev e1000 pcspkr i2c_piix4 i2c_core [last unloaded: bonding]
+>[  170.133731] Pid: 3457, comm: modprobe Tainted: G        W   2.6.39-rc2+ #14
+>[  170.134308] Call Trace:
+>[  170.134743]  [<c0438f3b>] warn_slowpath_common+0x6a/0x7f
+>[  170.135305]  [<c051a42a>] ? proc_register+0x126/0x157
+>[  170.135820]  [<c0438fc3>] warn_slowpath_fmt+0x2b/0x2f
+>[  170.137168]  [<c051a42a>] proc_register+0x126/0x157
+>[  170.137700]  [<c051a4dd>] proc_create_data+0x82/0x98
+>[  170.138174]  [<f94e6af6>] bond_create_proc_entry+0x3f/0x73 [bonding]
+>[  170.138745]  [<f94dd806>] bond_init+0x77/0xa5 [bonding]
+>[  170.139278]  [<c0721ac6>] register_netdevice+0x8c/0x1d3
+>[  170.139828]  [<f94e0e30>] bond_create+0x6c/0x90 [bonding]
+>[  170.140361]  [<f94f4763>] bonding_init+0x763/0x7b1 [bonding]
+>[  170.140927]  [<c0401240>] do_one_initcall+0x76/0x122
+>[  170.141494]  [<f94f4000>] ? 0xf94f3fff
+>[  170.141975]  [<c0463f1e>] sys_init_module+0x1286/0x140d
+>[  170.142463]  [<c07c6d9f>] sysenter_do_call+0x12/0x28
+>[  170.142974] ---[ end trace 64e4fac3ae5fff1b ]---
+>[  170.144949] bond%d: Warning: failed to register to debugfs
+>
+>Signed-off-by: Pan Weiping <panweiping3@gmail.com>
+>---
+> net/core/dev.c |    8 ++++----
+> 1 files changed, 4 insertions(+), 4 deletions(-)
+>
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 75898a3..f289117 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -5412,6 +5412,10 @@ int register_netdevice(struct net_device *dev)
 > 
-> That software filter is per socket while the hardware filter will be per
-> device.
-
-Hi all,
-
-i took some while to get behind all the arguments for me :-)
-
-Wolfgangs suggestion
-
->  A simple interface using:
+> 	dev->iflink = -1;
 > 
->   ip link set can0 type can filter <id>:<mask> [<id>:<mask> ...]
+>+	ret = dev_get_valid_name(dev, dev->name);
+>+	if (ret < 0)
+>+		goto out;
+>+
+> 	/* Init, if this function is available */
+> 	if (dev->netdev_ops->ndo_init) {
+> 		ret = dev->netdev_ops->ndo_init(dev);
+>@@ -5422,10 +5426,6 @@ int register_netdevice(struct net_device *dev)
+> 		}
+> 	}
 > 
+>-	ret = dev_get_valid_name(dev, dev->name);
+>-	if (ret < 0)
+>-		goto err_uninit;
+>-
+> 	dev->ifindex = dev_new_index(net);
+> 	if (dev->iflink == -1)
+> 		dev->iflink = dev->ifindex;
+>-- 
+>1.7.4
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-indeed would just be fine - but IMHO it doesn't help for the pruss CAN driver.
+This is looking good to me.
 
-The problem is, that you plan to filter on a CAN-identifier base. This is not
-only very application dependent (as Kurt already pointed out) - it also does
-not bring any safety that your system does not explode on heavy CAN load.
-
-E.g. assume you need the CAN-IDs 0x100, 0x200 and 0x300 in your application
-and for that reason you configure these IDs in the pruss CAN driver.
-
-What if someone generates a 100% CAN busload exactly on CAN-ID 0x100 then?
-
-Worst case (1MBit/s, DLC=0) you would need to handle about 21.000 irqs/s for
-the correctly received CAN frames with the filtered CAN-ID 0x100 ...
-
-At the beginnig of the SocketCAN development, we had a PowerPC (E603) @ 133MHz
-that was able to handle 4 (dumb) SJA1000 CAN controllers without problems.
-
-Maybe i should tell a bit more about what's happening at CAN frame receive time:
-
-1. IRQ happens
-2. Read CAN frame from CAN controller registers
-3. Allocate a socketbuffer (skb) and queue it into the netdevice rx queue
-4. Softirq handles the new skb
-5. Check the (specialized/optimized) CAN-ID filters for this CAN device
-6. Enqueue the data to the sockets recv buffer(s) and/or drop the skb.
-
-This all depends heavily on Linux networking (skb handling, caching, etc) and
-is pretty fast and optimized!! That was also the reason why it ran on the old
-PowerPC that smoothly. The mostly seen effect if anything drops is when the
-application (holding the socket) was not fast enough to handle the incoming
-data. NB: For that reason we implemented a CAN content filter (CAN_BCM) that
-is able to do content filtering and timeout monitoring in Kernelspace - all
-performed in the SoftIRQ.
-
-Having 'Mailboxes' bound to CAN-IDs is something that's useful for 8/16 bit
-CPUs where an application is tightly bound to the embedded ECUs functionality.
-
-IMO you should try to implement an 'open' pruss CAN driver without filtering
-as it doesn't really help (see above). The networking stack can cope with the
-load. In all cases (with/without filters) the reduction the irqload could be a
-way to investigate (e.g. think about dropping CAN frames based on the irqload).
-
-But you should try the 'open' way first. And i think with your current driver
-you could just filter for one CAN-ID (e.g. 0x100) and then produce the heavy
-CAN busload with this CAN-ID 0x100 and a second CAN node, right?
-
-Regards,
-Oliver
+Reviewed-by: Jiri Pirko <jpirko@redhat.com>
