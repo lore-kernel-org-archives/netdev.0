@@ -1,213 +1,45 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCHv4 net-next-2.6] ethtool: Added support for FW dump
-Date: Thu, 12 May 2011 15:48:32 -0700
-Message-ID: <1305240515-29237-2-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1305240515-29237-1-git-send-email-anirban.chakraborty@qlogic.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bridge] Bug#625914: linux-image-2.6.38-2-amd64: bridging is
+ not interacting well with multicast in 2.6.38-4
+Date: Thu, 12 May 2011 15:59:16 -0700 (PDT)
+Message-ID: <20110512.155916.115945119.davem@davemloft.net>
+References: <20110510180540.GI6397@morgul.net>
+	<20110510151100.52a9f8fa@nehalam>
+	<20110510233540.GJ6397@morgul.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, ben@decadent.org.uk,
+	625914@bugs.debian.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: noahm@debian.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:58537 "HELO mx.mv.qlogic.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754134Ab1ELWzC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 May 2011 18:55:02 -0400
-In-Reply-To: <1305240515-29237-1-git-send-email-anirban.chakraborty@qlogic.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40334
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756900Ab1ELW7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 18:59:48 -0400
+In-Reply-To: <20110510233540.GJ6397@morgul.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added code to take FW dump via ethtool. Dump level can be controlled via setting the
-dump flag. A get function is provided to query the current setting of the dump flag.
-Dump data is obtained from the driver via a separate get function.
+From: Noah Meyerhans <noahm@debian.org>
+Date: Tue, 10 May 2011 16:35:40 -0700
 
-Changes from v3:
-Fixed buffer length issue in ethtool_get_dump_data function.
-Updated kernel doc for ethtool_dump struct and get_dump_flag function.
+> On Tue, May 10, 2011 at 03:11:00PM -0700, Stephen Hemminger wrote:
+>> There were two more follow on commits in stable related to this.
+>> I recommend merging 2.6.38.6 which includes these.
+> 
+> The problem still exists in the current 2.6.38.6.  Backing out 5f1c356a
+> still solves the problem there.
+> 
+> I have not yet tried anything outside the stable-2.6.38.y tree, but it
+> seems like these same changes are present there, and it's unlikely that
+> other releases will work any better.
 
-Changes from v2:
-Provided separate commands for get flag and data.
-Check for minimum of the two buffer length obtained via ethtool and driver and
-use that for dump buffer
-Pass up the driver return error codes up to the caller.
-Added kernel doc comments.
+So the issue is that if we back out that change, we get crashes.
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- include/linux/ethtool.h |   31 ++++++++++++++++
- net/core/ethtool.c      |   90 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 121 insertions(+), 0 deletions(-)
+Aparently there is a code path where whatever is existing in the
+SKB ip options block matters, and needs to be maintained.
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index bd0b50b..4cbf274 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -601,6 +601,26 @@ struct ethtool_flash {
- 	char	data[ETHTOOL_FLASH_MAX_FILENAME];
- };
- 
-+/**
-+ * struct ethtool_dump - used for retrieving, setting device dump
-+ * @cmd: Command number - %ETHTOOL_GET_DUMP_FLAG, %ETHTOOL_GET_DUMP_DATA, or
-+ * 	%ETHTOOL_SET_DUMP
-+ * @version: FW version of the dump, filled in by driver
-+ * @flag: driver dependent flag for dump setting, filled in by driver during
-+ * 	  get and filled in by ethtool for set operation
-+ * @len: length of dump data, used as the length of the user buffer on entry to
-+ * 	 %ETHTOOL_GET_DUMP_DATA and this is returned as dump length by driver
-+ * 	 for %ETHTOOL_GET_DUMP_FLAG command
-+ * @data: data collected for get dump data operation
-+ */
-+struct ethtool_dump {
-+	__u32	cmd;
-+	__u32	version;
-+	__u32	flag;
-+	__u32	len;
-+	u8	data[0];
-+};
-+
- /* for returning and changing feature sets */
- 
- /**
-@@ -853,6 +873,10 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
-  * @get_channels: Get number of channels.
-  * @set_channels: Set number of channels.  Returns a negative error code or
-  *	zero.
-+ * @get_dump_flag: Get dump flag indicating current dump length, version,
-+ * 		   and flag of the device.
-+ * @get_dump_data: Get dump data.
-+ * @set_dump: Set dump specific flags to the device.
-  *
-  * All operations are optional (i.e. the function pointer may be set
-  * to %NULL) and callers must take this into account.  Callers must
-@@ -927,6 +951,10 @@ struct ethtool_ops {
- 				  const struct ethtool_rxfh_indir *);
- 	void	(*get_channels)(struct net_device *, struct ethtool_channels *);
- 	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
-+	int	(*get_dump_flag)(struct net_device *, struct ethtool_dump *);
-+	int	(*get_dump_data)(struct net_device *,
-+				 struct ethtool_dump *, void *);
-+	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
- 
- };
- #endif /* __KERNEL__ */
-@@ -998,6 +1026,9 @@ struct ethtool_ops {
- #define ETHTOOL_SFEATURES	0x0000003b /* Change device offload settings */
- #define ETHTOOL_GCHANNELS	0x0000003c /* Get no of channels */
- #define ETHTOOL_SCHANNELS	0x0000003d /* Set no of channels */
-+#define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
-+#define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
-+#define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index b6f4058..0b92e2f 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1823,6 +1823,87 @@ static noinline_for_stack int ethtool_flash_device(struct net_device *dev,
- 	return dev->ethtool_ops->flash_device(dev, &efl);
- }
- 
-+static int ethtool_set_dump(struct net_device *dev,
-+			void __user *useraddr)
-+{
-+	struct ethtool_dump dump;
-+
-+	if (!dev->ethtool_ops->set_dump)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&dump, useraddr, sizeof(dump)))
-+		return -EFAULT;
-+
-+	return dev->ethtool_ops->set_dump(dev, &dump);
-+}
-+
-+static int ethtool_get_dump_flag(struct net_device *dev,
-+				void __user *useraddr)
-+{
-+	int ret;
-+	struct ethtool_dump dump;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+
-+	if (!dev->ethtool_ops->get_dump_flag)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&dump, useraddr, sizeof(dump)))
-+		return -EFAULT;
-+
-+	ret = ops->get_dump_flag(dev, &dump);
-+	if (ret)
-+		return ret;
-+
-+	if (copy_to_user(useraddr, &dump, sizeof(dump)))
-+		return -EFAULT;
-+	return 0;
-+}
-+
-+static int ethtool_get_dump_data(struct net_device *dev,
-+				void __user *useraddr)
-+{
-+	int ret;
-+	__u32 len;
-+	struct ethtool_dump dump, tmp;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	void *data = NULL;
-+
-+	if (!dev->ethtool_ops->get_dump_data ||
-+		!dev->ethtool_ops->get_dump_flag)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&dump, useraddr, sizeof(dump)))
-+		return -EFAULT;
-+
-+	memset(&tmp, 0, sizeof(tmp));
-+	tmp.cmd = ETHTOOL_GET_DUMP_FLAG;
-+	ret = ops->get_dump_flag(dev, &tmp);
-+	if (ret)
-+		return ret;
-+
-+	len = (tmp.len > dump.len) ? dump.len : tmp.len;
-+	if (!len)
-+		return -EFAULT;
-+
-+	data = vzalloc(tmp.len);
-+	if (!data)
-+		return -ENOMEM;
-+	ret = ops->get_dump_data(dev, &dump, data);
-+	if (ret)
-+		goto out;
-+
-+	if (copy_to_user(useraddr, &dump, sizeof(dump))) {
-+		ret = -EFAULT;
-+		goto out;
-+	}
-+	useraddr += offsetof(struct ethtool_dump, data);
-+	if (copy_to_user(useraddr, data, len))
-+		ret = -EFAULT;
-+out:
-+	vfree(data);
-+	return ret;
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -2039,6 +2120,15 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SCHANNELS:
- 		rc = ethtool_set_channels(dev, useraddr);
- 		break;
-+	case ETHTOOL_SET_DUMP:
-+		rc = ethtool_set_dump(dev, useraddr);
-+		break;
-+	case ETHTOOL_GET_DUMP_FLAG:
-+		rc = ethtool_get_dump_flag(dev, useraddr);
-+		break;
-+	case ETHTOOL_GET_DUMP_DATA:
-+		rc = ethtool_get_dump_data(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
--- 
-1.7.4.1
-
+Someone needs to audit all of this and figure out how to fix the
+problem properly.
