@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] garp: remove last synchronize_rcu() call
-Date: Thu, 12 May 2011 17:47:12 -0400 (EDT)
-Message-ID: <20110512.174712.228493075378622339.davem@davemloft.net>
-References: <1304948155.3342.32.camel@edumazet-laptop>
-	<4DC831B0.80107@trash.net>
-	<1305206957.3795.21.camel@edumazet-laptop>
+Subject: Re: [PATCH RESEND net-next] ethtool: bring back missing comma in
+ netdev features strings
+Date: Thu, 12 May 2011 17:50:42 -0400 (EDT)
+Message-ID: <20110512.175042.1634107025552580202.davem@davemloft.net>
+References: <20110512164204.EC8391220061@host64.kissl.de>
+	<BANLkTikW=vURi7sAQ9ZJdgy=JDv+JacTQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, greearb@candelatech.com, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: franco@lastsummer.de, netdev@vger.kernel.org, maheshb@google.com
+To: mirqus@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53558 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53622 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757968Ab1ELVta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 17:49:30 -0400
-In-Reply-To: <1305206957.3795.21.camel@edumazet-laptop>
+	with ESMTP id S1758676Ab1ELVut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 17:50:49 -0400
+In-Reply-To: <BANLkTikW=vURi7sAQ9ZJdgy=JDv+JacTQQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 12 May 2011 15:29:17 +0200
-
-> [PATCH net-next-2.6] garp: remove last synchronize_rcu() call
-> 
-> When removing last vlan from a device, garp_uninit_applicant() calls
-> synchronize_rcu() to make sure no user can still manipulate struct
-> garp_applicant before we free it.
-> 
-> Use call_rcu() instead, as a step to further net_device dismantle
-> optimizations.
-> 
-> Add the temporary garp_cleanup_module() function to make sure no pending
-> call_rcu() are left at module unload time [ this will be removed when
-> kfree_rcu() is available ]
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Looks good, applied, thanks Eric.
+RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBUaHUsIDEy
+IE1heSAyMDExIDE4OjQ1OjEyICswMjAwDQoNCj4gMjAxMS81LzEyICA8ZnJhbmNvQGxhc3RzdW1t
+ZXIuZGU+Og0KPj4gVGhlIGlzc3VlIHdhcyBpbnRyb2R1Y2VkIGluIGNvbW1pdCBlZWQyYTEyZjFl
+ZDlhYWJmLg0KPj4NCj4+IFNpZ25lZC1vZmYtYnk6IEZyYW5jbyBGaWNodG5lciA8ZnJhbmNvQGxh
+c3RzdW1tZXIuZGU+DQo+PiAtLS0NCj4+IMKgbmV0L2NvcmUvZXRodG9vbC5jIHwgwqAgwqAyICst
+DQo+PiDCoDEgZmlsZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0K
+Pj4NCj4+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9ldGh0b29sLmMgYi9uZXQvY29yZS9ldGh0b29s
+LmMNCj4+IGluZGV4IGI2ZjQwNTguLmI4YzJiMTAgMTAwNjQ0DQo+PiAtLS0gYS9uZXQvY29yZS9l
+dGh0b29sLmMNCj4+ICsrKyBiL25ldC9jb3JlL2V0aHRvb2wuYw0KPj4gQEAgLTM2MSw3ICszNjEs
+NyBAQCBzdGF0aWMgY29uc3QgY2hhcg0KPj4gbmV0ZGV2X2ZlYXR1cmVzX3N0cmluZ3NbRVRIVE9P
+TF9ERVZfRkVBVFVSRV9XT1JEUyAqIDMyXVtFVEhfR1MNCj4+IMKgIMKgIMKgIMKgLyogTkVUSUZf
+Rl9OVFVQTEUgKi8gwqAgwqAgwqAgwqAgwqAicngtbnR1cGxlLWZpbHRlciIsDQo+PiDCoCDCoCDC
+oCDCoC8qIE5FVElGX0ZfUlhIQVNIICovIMKgIMKgIMKgIMKgIMKgInJ4LWhhc2hpbmciLA0KPj4g
+wqAgwqAgwqAgwqAvKiBORVRJRl9GX1JYQ1NVTSAqLyDCoCDCoCDCoCDCoCDCoCJyeC1jaGVja3N1
+bSIsDQo+PiAtIMKgIMKgIMKgIC8qIE5FVElGX0ZfTk9DQUNIRV9DT1BZICovIMKgIMKgInR4LW5v
+Y2FjaGUtY29weSINCj4+ICsgwqAgwqAgwqAgLyogTkVUSUZfRl9OT0NBQ0hFX0NPUFkgKi8gwqAg
+wqAidHgtbm9jYWNoZS1jb3B5IiwNCj4+IMKgIMKgIMKgIMKgLyogTkVUSUZfRl9MT09QQkFDSyAq
+LyDCoCDCoCDCoCDCoCJsb29wYmFjayIsDQo+PiDCoH07DQo+IA0KPiBBY2tlZC1ieTogTWljaGHF
+giBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBsPg0KDQpBcHBsaWVkLCBidXQgdGhp
+cyBwYXRjaCB3YXMgc2lnbmlmaWNhbnRseSBtYW5nbGVkIGJ5IHlvdXIgZW1haWwNCmNsaWVudC4g
+IFBsZWFzZSBjb3JyZWN0IHRoaXMgcHJvYmxlbSBiZWZvcmUgc3VibWl0dGluZyBmdXR1cmUNCnBh
+dGNoZXMsIGFzIEkgd2lsbCBqdXN0IHB1c2ggdGhlbSBiYWNrIHRvIHlvdSBpZiB0aGlzIGhhcHBl
+bnMNCmFnYWluLg0KDQpUaGFua3MuDQo=
