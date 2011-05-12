@@ -1,44 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: group FCoE related feature flags
-Date: Thu, 12 May 2011 14:55:30 -0700 (PDT)
-Message-ID: <20110512.145530.71112637.davem@davemloft.net>
-References: <20110509215133.4346.14504.stgit@localhost6.localdomain6>
+Subject: Re: [PATCH] net: Fix vlan_features propagation
+Date: Thu, 12 May 2011 14:55:19 -0700 (PDT)
+Message-ID: <20110512.145519.226776509.davem@davemloft.net>
+References: <20110506175629.AF59713A6A@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, mirq-linux@rere.qmqm.pl,
-	jeffrey.t.kirsher@intel.com, devel@open-fcoe.org
-To: yi.zou@intel.com
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47894
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47889
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757985Ab1ELV4C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 17:56:02 -0400
-In-Reply-To: <20110509215133.4346.14504.stgit@localhost6.localdomain6>
+	by vger.kernel.org with ESMTP id S1758797Ab1ELVzv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 17:55:51 -0400
+In-Reply-To: <20110506175629.AF59713A6A@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Yi Zou <yi.zou@intel.com>
-Date: Mon, 09 May 2011 14:53:27 -0700
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Fri,  6 May 2011 19:56:29 +0200 (CEST)
 
-> Micha=A9=A9 Miros=A9=A9aw's patch (http://patchwork.ozlabs.org/patch/=
-94421/) fixes the
-> issue (http://patchwork.ozlabs.org/patch/94188/) about not populating=
- FCoE related
-> flags correctly on vlan devices. However, only NETIF_F_FCOE_CRC is pa=
-rt of the
-> NETIF_F_ALL_TX_OFFLOADS right now, where weed NETIF_F_FCOE_MTU and NE=
-TIF_F_FSO
-> as well.
+> Fix VLAN features propagation for devices which change vlan_features.
+> For this to work, driver needs to make sure netdev_features_changed()
+> gets called after the change (it is e.g. after ndo_set_features()).
 >=20
-> Therefore, add NETIF_F_ALL_FCOE to indicate feature flags used by FCo=
-E TX offloads.
-> These include NETIF_F_FCOE_CRC, NETIF_F_FCOE_MTU, and NETIF_F_FSO and=
- add them to
-> be part of NETIF_F_ALL_TX_OFFLOADS. This would eventually make sure a=
-ll FCoE needed
-> flags are populated properly to vlan devices.
+> Side effect is that a user might request features that will never
+> be enabled on a VLAN device.
 >=20
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
 Applied.
