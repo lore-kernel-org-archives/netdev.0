@@ -1,49 +1,61 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 14/15] ehea: Add GRO support
-Date: Thu, 12 May 2011 08:03:46 +0200
-Message-ID: <BANLkTimUDAGdz2YmZKKvUpYYp+GchTd+8A@mail.gmail.com>
-References: <20110512005213.897432612@samba.org> <20110512005623.766530798@samba.org>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next-2.6 1/2] be2net: handle signal reception while waiting for POST
+Date: Thu, 12 May 2011 11:41:02 +0530
+Message-ID: <dbce599d-9729-4dff-8d60-932efb56400d@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: leitao@linux.vnet.ibm.com, michael@ellerman.id.au,
-	jesse@kernel.org, bhutchings@solarflare.com, netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
+Content-Type: text/plain
+Cc: Sathya Perla <sathya.perla@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:63211 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755149Ab1ELGEG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 02:04:06 -0400
-Received: by qyk7 with SMTP id 7so2726623qyk.19
-        for <netdev@vger.kernel.org>; Wed, 11 May 2011 23:04:06 -0700 (PDT)
-In-Reply-To: <20110512005623.766530798@samba.org>
+Received: from exht1.emulex.com ([138.239.113.183]:37713 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755406Ab1ELGHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 02:07:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/12 Anton Blanchard <anton@samba.org>:
-> Add GRO support to the ehea driver.
-[...]
-> --- linux-net.orig/drivers/net/ehea/ehea_main.c 2011-05-12 07:48:03.8=
-10341336 +1000
-> +++ linux-net/drivers/net/ehea/ehea_main.c =C2=A0 =C2=A0 =C2=A02011-0=
-5-12 07:48:05.100361788 +1000
-[...]
-> @@ -3041,7 +3034,7 @@ struct ehea_port *ehea_setup_single_port
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->netdev_ops =3D &ehea_netdev_ops;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0ehea_set_ethtool_ops(dev);
->
-> - =C2=A0 =C2=A0 =C2=A0 dev->hw_features =3D NETIF_F_SG | NETIF_F_TSO
-> + =C2=A0 =C2=A0 =C2=A0 dev->hw_features =3D NETIF_F_SG | NETIF_F_TSO =
-| NETIF_F_GRO
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0| NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX | NETIF_F_LRO;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->features =3D NETIF_F_SG | NETIF_F_FRA=
-GLIST | NETIF_F_TSO
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0| NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
+If schedule_timeout() returns prematurely (due to a signal), abort polling and return an error.
 
-GRO is now enabled by default, so no need to put it in hw_features or f=
-eatures.
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/benet/be_cmds.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 5fedc27..bff41ed 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -375,23 +375,26 @@ int be_cmd_POST(struct be_adapter *adapter)
+ {
+ 	u16 stage;
+ 	int status, timeout = 0;
++	struct device *dev = &adapter->pdev->dev;
+ 
+ 	do {
+ 		status = be_POST_stage_get(adapter, &stage);
+ 		if (status) {
+-			dev_err(&adapter->pdev->dev, "POST error; stage=0x%x\n",
+-				stage);
++			dev_err(dev, "POST error; stage=0x%x\n", stage);
+ 			return -1;
+ 		} else if (stage != POST_STAGE_ARMFW_RDY) {
+ 			set_current_state(TASK_INTERRUPTIBLE);
+-			schedule_timeout(2 * HZ);
++			if (schedule_timeout(2 * HZ)) {
++				dev_err(dev, "Waiting for POST aborted\n");
++				return -EINTR;
++			}
+ 			timeout += 2;
+ 		} else {
+ 			return 0;
+ 		}
+ 	} while (timeout < 40);
+ 
+-	dev_err(&adapter->pdev->dev, "POST timeout; stage=0x%x\n", stage);
++	dev_err(dev, "POST timeout; stage=0x%x\n", stage);
+ 	return -1;
+ }
+ 
+-- 
+1.7.4
+
