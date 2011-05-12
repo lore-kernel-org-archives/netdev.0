@@ -1,26 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] sctp: sctp_sendmsg: Don't test known non-null sinfo
-Date: Thu, 12 May 2011 17:31:20 -0400 (EDT)
-Message-ID: <20110512.173120.932882171086986589.davem@davemloft.net>
-References: <cover.1305227620.git.joe@perches.com>
-	<b6372a0ac574e3fd110de57eb3e41d97c73d5423.1305227621.git.joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: af_packet: Don't initialize vnet_hdr
+Date: Thu, 12 May 2011 14:33:20 -0700
+Message-ID: <1305236000.6124.67.camel@Joe-Laptop>
+References: <18a010357eb63dfd50751c5eb529f6261cf90ecd.1305232529.git.joe@perches.com>
+	 <20110512.172623.220889608152651989.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b6372a0ac574e3fd110de57eb3e41d97c73d5423.1305227621.git.joe@perches.com>
+In-Reply-To: <20110512.172623.220889608152651989.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 12 May 2011 12:19:10 -0700
-
-> It's already known non-null above.
+On Thu, 2011-05-12 at 17:26 -0400, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Thu, 12 May 2011 13:36:10 -0700
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> > Save a memset, initialize only the portion necessary.
+> > 
+> > packet_snd either gets this structure completely from
+> > memcpy_fromiovec or uses only the hdr_len set to 0,
+> > so don't always initialize the structure to 0.
+> > 
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> 
+> On ARM this won't be tightly packed, therefore you'll leave
+> uninitialized pieces of padding in this structure and this
+> thing is an "on-the-wire" network header.
+> 
+> I'm not applying this.
 
-Applied.
+I believe that it's only sent when po->has_vnet_hdr
+is set.  In that case, it's completely filled from
+memcpy_fromiovec.  In the not set po->has_vnet_hdr case,
+only vnet_hdr.hdr_len is accessed by packet_alloc_skb.
+
+cheers, Joe
