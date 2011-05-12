@@ -1,52 +1,70 @@
 From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: [PATCH 6/9] Bluetooth: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
-Date: Thu, 12 May 2011 16:50:09 -0700
-Message-ID: <1305244212-19183-7-git-send-email-sboyd@codeaurora.org>
-References: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>
-To: linux-bluetooth@vger.kernel.org
+Subject: [PATCH 0/9] strict user copy checks on x86_64
+Date: Thu, 12 May 2011 16:50:03 -0700
+Message-ID: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	linux-scsi@vger.kernel.org, x86@kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enabling DEBUG_STRICT_USER_COPY_CHECKS causes the following
-warning:
+It turns out that strict user copy checks (also known as
+CONFIG_DEBUG_STRICT_USER_COPY_CHECKS) isn't actually implemented
+on x86_64 and thus we aren't catching potential security holes
+at compile time.
 
-In function 'copy_from_user',
-    inlined from 'rfcomm_sock_setsockopt' at
-    net/bluetooth/rfcomm/sock.c:705:
-arch/x86/include/asm/uaccess_64.h:65:
-warning: call to 'copy_from_user_overflow' declared with
-attribute warning: copy_from_user() buffer size is not provably
-correct
+This series adds support for strict user copy checks on x86_64
+and silences all the benign warnings in the x86_64 allyesconfig.
 
-presumably due to buf_size being signed causing GCC to fail to
-see that buf_size can't become negative.
+The final patch consolidates the config option as its duplicated
+across mutliple arches. I don't know what tree this series should
+go through so I tried to send the individual driver patches to the
+respective maintainers.
 
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Cc: Gustavo F. Padovan <padovan@profusion.mobi>
-Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
----
- net/bluetooth/rfcomm/sock.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Stephen Boyd (9):
+  iwlegacy: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
+  iwlwifi: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
+  [SCSI] lpfc: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
+  debugfs: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
+  kprobes: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
+  Bluetooth: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
+  ASoC: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
+  x86: Implement strict user copy checks for x86_64
+  Consolidate CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
 
-diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
-index 66cc1f0..0698b37 100644
---- a/net/bluetooth/rfcomm/sock.c
-+++ b/net/bluetooth/rfcomm/sock.c
-@@ -679,7 +679,8 @@ static int rfcomm_sock_setsockopt(struct socket *sock, int level, int optname, c
- {
- 	struct sock *sk = sock->sk;
- 	struct bt_security sec;
--	int len, err = 0;
-+	int err = 0;
-+	size_t len;
- 	u32 opt;
- 
- 	BT_DBG("sk %p", sk);
+ arch/parisc/Kconfig                         |    1 +
+ arch/parisc/Kconfig.debug                   |   14 --------------
+ arch/s390/Kconfig                           |    1 +
+ arch/s390/Kconfig.debug                     |   14 --------------
+ arch/s390/lib/Makefile                      |    1 -
+ arch/s390/lib/usercopy.c                    |    8 --------
+ arch/sparc/lib/Makefile                     |    1 -
+ arch/sparc/lib/usercopy.c                   |    8 --------
+ arch/tile/Kconfig                           |    8 +-------
+ arch/tile/include/asm/uaccess.h             |    7 ++++++-
+ arch/tile/lib/uaccess.c                     |    8 --------
+ arch/x86/Kconfig                            |    1 +
+ arch/x86/Kconfig.debug                      |   14 --------------
+ arch/x86/include/asm/uaccess_64.h           |   12 +++++++++---
+ arch/x86/lib/usercopy_32.c                  |    6 ------
+ drivers/net/wireless/iwlegacy/iwl-4965-rs.c |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rs.c   |    2 +-
+ drivers/scsi/lpfc/lpfc_debugfs.c            |    3 ++-
+ fs/debugfs/file.c                           |    2 +-
+ kernel/kprobes.c                            |    2 +-
+ lib/Kconfig.debug                           |   18 ++++++++++++++++++
+ lib/Makefile                                |    1 +
+ lib/usercopy.c                              |    8 ++++++++
+ net/bluetooth/rfcomm/sock.c                 |    3 ++-
+ sound/soc/soc-core.c                        |    2 +-
+ 25 files changed, 55 insertions(+), 92 deletions(-)
+ delete mode 100644 arch/s390/lib/usercopy.c
+ delete mode 100644 arch/sparc/lib/usercopy.c
+ create mode 100644 lib/usercopy.c
+
 -- 
 Sent by an employee of the Qualcomm Innovation Center, Inc.
 The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
