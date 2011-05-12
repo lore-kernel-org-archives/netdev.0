@@ -1,58 +1,50 @@
 From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH 15/15] ehea: Remove unused tcp_end field in send WQ
-Date: Thu, 12 May 2011 10:52:28 +1000
-Message-ID: <20110512005623.854973618@samba.org>
+Subject: [PATCH 12/15] ehea: Add 64bit statistics
+Date: Thu, 12 May 2011 10:52:25 +1000
+Message-ID: <20110512005623.591460412@samba.org>
 References: <20110512005213.897432612@samba.org>
 Cc: netdev@vger.kernel.org
 To: leitao@linux.vnet.ibm.com, michael@ellerman.id.au,
 	jesse@kernel.org, bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:37047 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:46578 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755347Ab1ELB17 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 May 2011 21:27:59 -0400
-Content-Disposition: inline; filename=ehea_22.patch
+	id S1755452Ab1ELB2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 May 2011 21:28:00 -0400
+Content-Disposition: inline; filename=ehea_17.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tcp_end field is not actually used by the hardware, so there
-is no need to set it. 
+Switch to using ndo_get_stats64 to get 64bit statistics.
 
 Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
 
 Index: linux-net/drivers/net/ehea/ehea_main.c
 ===================================================================
---- linux-net.orig/drivers/net/ehea/ehea_main.c	2011-05-12 07:48:05.100361788 +1000
-+++ linux-net/drivers/net/ehea/ehea_main.c	2011-05-12 07:48:06.380382084 +1000
-@@ -1995,7 +1995,6 @@ static void xmit_common(struct sk_buff *
- 
- 		swqe->tcp_offset = swqe->ip_end + 1 +
- 				   offsetof(struct udphdr, check);
--		swqe->tcp_end = skb->len - 1;
- 		break;
- 
- 	case IPPROTO_TCP:
-@@ -2004,7 +2003,6 @@ static void xmit_common(struct sk_buff *
- 
- 		swqe->tcp_offset = swqe->ip_end + 1 +
- 				   offsetof(struct tcphdr, check);
--		swqe->tcp_end = skb->len - 1;
- 		break;
- 	}
+--- linux-net.orig/drivers/net/ehea/ehea_main.c	2011-05-12 07:48:00.220284417 +1000
++++ linux-net/drivers/net/ehea/ehea_main.c	2011-05-12 07:48:02.700323737 +1000
+@@ -321,10 +321,10 @@ out:
+ 	spin_unlock_irqrestore(&ehea_bcmc_regs.lock, flags);
  }
-Index: linux-net/drivers/net/ehea/ehea_qmr.h
-===================================================================
---- linux-net.orig/drivers/net/ehea/ehea_qmr.h	2011-05-12 07:47:05.399415238 +1000
-+++ linux-net/drivers/net/ehea/ehea_qmr.h	2011-05-12 07:48:06.380382084 +1000
-@@ -106,7 +106,7 @@ struct ehea_swqe {
- 	u8 immediate_data_length;
- 	u8 tcp_offset;
- 	u8 reserved2;
--	u16 tcp_end;
-+	u16 reserved2b;
- 	u8 wrap_tag;
- 	u8 descriptors;		/* number of valid descriptors in WQE */
- 	u16 reserved3;
+ 
+-static struct net_device_stats *ehea_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64 *ehea_get_stats64(struct net_device *dev,
++					struct rtnl_link_stats64 *stats)
+ {
+ 	struct ehea_port *port = netdev_priv(dev);
+-	struct net_device_stats *stats = &port->stats;
+ 	struct hcp_ehea_port_cb2 *cb2;
+ 	u64 hret, rx_packets, tx_packets, rx_bytes = 0, tx_bytes = 0;
+ 	int i;
+@@ -3034,7 +3034,7 @@ static const struct net_device_ops ehea_
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ehea_netpoll,
+ #endif
+-	.ndo_get_stats		= ehea_get_stats,
++	.ndo_get_stats64	= ehea_get_stats64,
+ 	.ndo_set_mac_address	= ehea_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_multicast_list	= ehea_set_multicast_list,
 
 
