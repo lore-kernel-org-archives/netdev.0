@@ -1,44 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND net-next] ethtool: bring back missing comma in
- netdev features strings
-Date: Thu, 12 May 2011 17:50:42 -0400 (EDT)
-Message-ID: <20110512.175042.1634107025552580202.davem@davemloft.net>
-References: <20110512164204.EC8391220061@host64.kissl.de>
-	<BANLkTikW=vURi7sAQ9ZJdgy=JDv+JacTQQ@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: af_packet: Don't initialize vnet_hdr
+Date: Thu, 12 May 2011 14:55:48 -0700
+Message-ID: <1305237348.6124.72.camel@Joe-Laptop>
+References: <18a010357eb63dfd50751c5eb529f6261cf90ecd.1305232529.git.joe@perches.com>
+	 <20110512.172623.220889608152651989.davem@davemloft.net>
+	 <1305236000.6124.67.camel@Joe-Laptop>
+	 <20110512.173608.1652572492952866283.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: franco@lastsummer.de, netdev@vger.kernel.org, maheshb@google.com
-To: mirqus@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53622 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758676Ab1ELVut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 17:50:49 -0400
-In-Reply-To: <BANLkTikW=vURi7sAQ9ZJdgy=JDv+JacTQQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110512.173608.1652572492952866283.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBUaHUsIDEy
-IE1heSAyMDExIDE4OjQ1OjEyICswMjAwDQoNCj4gMjAxMS81LzEyICA8ZnJhbmNvQGxhc3RzdW1t
-ZXIuZGU+Og0KPj4gVGhlIGlzc3VlIHdhcyBpbnRyb2R1Y2VkIGluIGNvbW1pdCBlZWQyYTEyZjFl
-ZDlhYWJmLg0KPj4NCj4+IFNpZ25lZC1vZmYtYnk6IEZyYW5jbyBGaWNodG5lciA8ZnJhbmNvQGxh
-c3RzdW1tZXIuZGU+DQo+PiAtLS0NCj4+IMKgbmV0L2NvcmUvZXRodG9vbC5jIHwgwqAgwqAyICst
-DQo+PiDCoDEgZmlsZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0K
-Pj4NCj4+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9ldGh0b29sLmMgYi9uZXQvY29yZS9ldGh0b29s
-LmMNCj4+IGluZGV4IGI2ZjQwNTguLmI4YzJiMTAgMTAwNjQ0DQo+PiAtLS0gYS9uZXQvY29yZS9l
-dGh0b29sLmMNCj4+ICsrKyBiL25ldC9jb3JlL2V0aHRvb2wuYw0KPj4gQEAgLTM2MSw3ICszNjEs
-NyBAQCBzdGF0aWMgY29uc3QgY2hhcg0KPj4gbmV0ZGV2X2ZlYXR1cmVzX3N0cmluZ3NbRVRIVE9P
-TF9ERVZfRkVBVFVSRV9XT1JEUyAqIDMyXVtFVEhfR1MNCj4+IMKgIMKgIMKgIMKgLyogTkVUSUZf
-Rl9OVFVQTEUgKi8gwqAgwqAgwqAgwqAgwqAicngtbnR1cGxlLWZpbHRlciIsDQo+PiDCoCDCoCDC
-oCDCoC8qIE5FVElGX0ZfUlhIQVNIICovIMKgIMKgIMKgIMKgIMKgInJ4LWhhc2hpbmciLA0KPj4g
-wqAgwqAgwqAgwqAvKiBORVRJRl9GX1JYQ1NVTSAqLyDCoCDCoCDCoCDCoCDCoCJyeC1jaGVja3N1
-bSIsDQo+PiAtIMKgIMKgIMKgIC8qIE5FVElGX0ZfTk9DQUNIRV9DT1BZICovIMKgIMKgInR4LW5v
-Y2FjaGUtY29weSINCj4+ICsgwqAgwqAgwqAgLyogTkVUSUZfRl9OT0NBQ0hFX0NPUFkgKi8gwqAg
-wqAidHgtbm9jYWNoZS1jb3B5IiwNCj4+IMKgIMKgIMKgIMKgLyogTkVUSUZfRl9MT09QQkFDSyAq
-LyDCoCDCoCDCoCDCoCJsb29wYmFjayIsDQo+PiDCoH07DQo+IA0KPiBBY2tlZC1ieTogTWljaGHF
-giBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBsPg0KDQpBcHBsaWVkLCBidXQgdGhp
-cyBwYXRjaCB3YXMgc2lnbmlmaWNhbnRseSBtYW5nbGVkIGJ5IHlvdXIgZW1haWwNCmNsaWVudC4g
-IFBsZWFzZSBjb3JyZWN0IHRoaXMgcHJvYmxlbSBiZWZvcmUgc3VibWl0dGluZyBmdXR1cmUNCnBh
-dGNoZXMsIGFzIEkgd2lsbCBqdXN0IHB1c2ggdGhlbSBiYWNrIHRvIHlvdSBpZiB0aGlzIGhhcHBl
-bnMNCmFnYWluLg0KDQpUaGFua3MuDQo=
+Save an initialization because when this structure
+is used it's completely filled by memcpy_fromiovec.
+
+Add a new variable used for the 0 sized allocation
+when this structure is not used.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+
+---
+
+On Thu, 2011-05-12 at 17:36 -0400, David Miller wrote:
+> I would rather see the code rearranged such that this sort of
+> hackish scheme isn't necessary.
+
+ net/packet/af_packet.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 549527b..cc1e83d 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1123,9 +1123,10 @@ static int packet_snd(struct socket *sock,
+ 	__be16 proto;
+ 	unsigned char *addr;
+ 	int ifindex, err, reserve = 0;
+-	struct virtio_net_hdr vnet_hdr = { 0 };
++	struct virtio_net_hdr vnet_hdr;
+ 	int offset = 0;
+ 	int vnet_hdr_len;
++	size_t alloc_vnet_hdr_len;
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	unsigned short gso_type = 0;
+ 
+@@ -1206,7 +1207,10 @@ static int packet_snd(struct socket *sock,
+ 				goto out_unlock;
+ 
+ 		}
+-	}
++		alloc_vnet_hdr_len = vnet_hdr.hdr_len;
++	} else
++		alloc_vnet_hdr_len = 0;
++
+ 
+ 	err = -EMSGSIZE;
+ 	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN))
+@@ -1214,7 +1218,7 @@ static int packet_snd(struct socket *sock,
+ 
+ 	err = -ENOBUFS;
+ 	skb = packet_alloc_skb(sk, LL_ALLOCATED_SPACE(dev),
+-			       LL_RESERVED_SPACE(dev), len, vnet_hdr.hdr_len,
++			       LL_RESERVED_SPACE(dev), len, alloc_vnet_hdr_len,
+ 			       msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (skb == NULL)
+ 		goto out_unlock;
