@@ -1,59 +1,105 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bridge] Bug#625914: linux-image-2.6.38-2-amd64: bridging is
- not interacting well with multicast in 2.6.38-4
-Date: Thu, 12 May 2011 16:28:10 -0700
-Message-ID: <20110512162810.34b8d55a@nehalam>
-References: <20110510180540.GI6397@morgul.net>
-	<20110510151100.52a9f8fa@nehalam>
-	<20110510233540.GJ6397@morgul.net>
-	<20110512.155916.115945119.davem@davemloft.net>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH] pci, e1000e: Add and use __pci_disable_link_state
+Date: Thu, 12 May 2011 16:32:10 -0700
+Message-ID: <20110512163210.132a2954@jbarnes-desktop>
+References: <4DC6E6E8.9040306@kernel.org>
+	<20110509143536.08bd0297@jbarnes-desktop>
+	<4DCAF039.4030207@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: noahm@debian.org, ben@decadent.org.uk, 625914@bugs.debian.org,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:46138 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757801Ab1ELX3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 19:29:11 -0400
-In-Reply-To: <20110512.155916.115945119.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
+	Matthew Garrett <mjg@redhat.com>,
+	Naga Chumbalkar <nagananda.chumbalkar@hp.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <4DCAF039.4030207@kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 12 May 2011 15:59:16 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Wed, 11 May 2011 13:23:21 -0700
+Yinghai Lu <yinghai@kernel.org> wrote:
 
-> From: Noah Meyerhans <noahm@debian.org>
-> Date: Tue, 10 May 2011 16:35:40 -0700
-> 
-> > On Tue, May 10, 2011 at 03:11:00PM -0700, Stephen Hemminger wrote:
-> >> There were two more follow on commits in stable related to this.
-> >> I recommend merging 2.6.38.6 which includes these.
+> On 05/09/2011 02:35 PM, Jesse Barnes wrote:
+> > On Sun, 08 May 2011 11:54:32 -0700
+> > Yinghai Lu <yinghai@kernel.org> wrote:
 > > 
-> > The problem still exists in the current 2.6.38.6.  Backing out 5f1c356a
-> > still solves the problem there.
+> >>
+> >> Need to use it in _e1000e_disable_aspm.
+> >> when aer happens,
+> >> pci_walk_bus already have down_read(&pci_bus_sem)...
+> >> then report_slot_reset
+> >>         ==> e1000_io_slot_reset
+> >>                 ==> e1000e_disable_aspm
+> >>                         ==> pci_disable_link_state...
+> >>
+> >> We can not use pci_disable_link_state, and it will try to hold pci_bus_sem again.
+> >>
+> >> Try to have __pci_disable_link_state that will not need to hold pci_bus_sem.
 > > 
-> > I have not yet tried anything outside the stable-2.6.38.y tree, but it
-> > seems like these same changes are present there, and it's unlikely that
-> > other releases will work any better.
+> > What about the other callers of e1000e_disable_aspm?  Do they already
+> > have the lock held or is it just reset that needs the already locked
+> > version?
 > 
-> So the issue is that if we back out that change, we get crashes.
+> yes. 
 > 
-> Aparently there is a code path where whatever is existing in the
-> SKB ip options block matters, and needs to be maintained.
+> there is another version when aspm is not defined. and it does not use any lock. 
 > 
-> Someone needs to audit all of this and figure out how to fix the
-> problem properly.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> #ifdef CONFIG_PCIEASPM
+> static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+> {
+>         pci_disable_link_state(pdev, state);
+> }
+> #else
+> static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+> {
+>         int pos;
+>         u16 reg16;
+> 
+>         /*
+>          * Both device and parent should have the same ASPM setting.
+>          * Disable ASPM in downstream component first and then upstream.
+>          */
+>         pos = pci_pcie_cap(pdev);
+>         pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
+>         reg16 &= ~state;
+>         pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
+> 
+>         if (!pdev->bus->self)
+>                 return;
+> 
+>         pos = pci_pcie_cap(pdev->bus->self);
+>         pci_read_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, &reg16);
+>         reg16 &= ~state;
+>         pci_write_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, reg16);
+> }
+> #endif
 
-I suspect tuntap is part of the problem. The skb may not be
-allocated with enough padding or something like that. No guarantees
-but will do some investigation.
+No, I mean __e1000e_disable_aspm is called from several spots:
 
+*** drivers/net/e1000e/82571.c:
+e1000_get_variants_82571[435]  e1000e_disable_aspm(adapter->pdev, PCIE_LINK_STATE_L0S);
+
+*** drivers/net/e1000e/netdev.c:
+e1000_change_mtu[5027]         e1000e_disable_aspm(adapter->pdev, PCIE_LINK_STATE_L1);
+__e1000_resume[5402]           e1000e_disable_aspm(pdev, PCIE_LINK_STATE_L1);
+e1000_io_slot_reset[5650]      e1000e_disable_aspm(pdev, PCIE_LINK_STATE_L1);
+e1000_probe[5797]              e1000e_disable_aspm(pdev, PCIE_LINK_STATE_L1);
+
+Are all of them safe for the unlocked version of ASPM disable?
 
 -- 
+Jesse Barnes, Intel Open Source Technology Center
