@@ -1,44 +1,45 @@
-From: Franco Fichtner <franco@lastsummer.de>
-Subject: Re: [PATCH net-next] ethtool: bring back missing comma in netdev_features_strings
-Date: Thu, 12 May 2011 11:13:41 +0200
-Message-ID: <4DCBA4C5.5040308@lastsummer.de>
-References: <4DCB94E6.2020407@lastsummer.de> <BANLkTikH2uY_crot1DRBFZv9ifmvPQeRog@mail.gmail.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH net-next 1/2 RESEND v3] net: use NETIF_F_ALL_TSO for vlan
+ features
+Date: Thu, 12 May 2011 17:54:03 +0800
+Message-ID: <4DCBAE3B.3070201@cn.fujitsu.com>
+References: <4DCA2B86.9030205@cn.fujitsu.com> <4DCABABB.9040001@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Franco Fichtner <franco@lastsummer.de>,
-	Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, eilong@broadcom.com,
+	leedom@chelsio.com
+To: Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host64.kissl.de ([213.239.241.64]:36077 "EHLO host64.kissl.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755362Ab1ELJNs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 May 2011 05:13:48 -0400
-In-Reply-To: <BANLkTikH2uY_crot1DRBFZv9ifmvPQeRog@mail.gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:58230 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755580Ab1ELJyI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 05:54:08 -0400
+In-Reply-To: <4DCABABB.9040001@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/11 10:55, Micha=B3 Miros=B3aw wrote:
-> 2011/5/12 Franco Fichtner <franco@lastsummer.de>:
->> I found this while skimming through recent net-next patches.
->> I'm not quite sure if the padding in this struct is correct now.
-> Nice catch. But please send the patch inline instead of as an attachm=
-ent.
+Dimitris Michailidis wrote, at 2011=E5=B9=B405=E6=9C=8812=E6=97=A5 00:3=
+5:
+> On 05/10/2011 11:24 PM, Shan Wei wrote:
+>> As Dimitris Michailidis suggested, use NETIF_F_ALL_TSO for vlan_feat=
+ures,
+>> which is a mask, but not hw_features.
+>>
+>> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+>=20
+> While these changes aren't wrong I don't see a good reason to make th=
+em.  I am also curious why you're changing only these three drivers.
 
-Thanks, but I have a short question. Are the empty strings in
-this struct really needed?
+A personal reason to quickly know what device supports ALL TSO,
+not to search one by one. :;)
 
-        /* NETIF_F_TSO6 */            "tx-tcp6-segmentation",
-        /* NETIF_F_FSO */             "tx-fcoe-segmentation",
-        "",
-        "",
+TSO offloads are assigned directly in these three drivers.
+Other drivers set vlan_features as hw_features, or set TSO offloads aft=
+er doing some check.
 
-        /* NETIF_F_FCOE_CRC */        "tx-checksum-fcoe-crc",
-
-They seem to have caused this mess in the first place and I would
-think they could be removed entirely.
-
-I will resend the patch later today as inline. Sorry about that.
-
-
-=46ranco
+--=20
+Best Regards
+-----
+Shan Wei
