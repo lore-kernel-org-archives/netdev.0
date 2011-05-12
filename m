@@ -1,68 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv3 net-next-2.6 2/3] qlcnic: Take FW dump via ethtool
-Date: Thu, 12 May 2011 18:27:22 +0100
-Message-ID: <1305221242.5214.36.camel@bwh-desktop>
-References: <1305154448-9687-1-git-send-email-anirban.chakraborty@qlogic.com>
-	 <1305154448-9687-4-git-send-email-anirban.chakraborty@qlogic.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up hard
+ right after logging in)
+Date: Thu, 12 May 2011 10:37:53 -0700
+Message-ID: <BANLkTi=YDZa+BRaG90vJsjrT9VxgySrDRQ@mail.gmail.com>
+References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:22083 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758202Ab1ELR1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 13:27:25 -0400
-In-Reply-To: <1305154448-9687-4-git-send-email-anirban.chakraborty@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	git@vger.kernel.org
+To: Andrew Lutomirski <luto@mit.edu>
+Return-path: <git-owner@vger.kernel.org>
+In-Reply-To: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com>
+Sender: git-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-05-11 at 15:54 -0700, Anirban Chakraborty wrote:
-> Driver checks if the previous dump has been cleared before taking the dump.
-> It doesn't take the dump if it is not cleared.
-> 
-> Changes from v2:
-> Added lock to protect dump data structures from being mangled while
-> dumping or setting them via ethtool.
+On Thu, May 12, 2011 at 10:15 AM, Andrew Lutomirski <luto@mit.edu> wrot=
+e:
+>
+> OK, this sucks. =A0In the course of bisecting this, I've hit two othe=
+r
+> apparently unrelated bugs that prevent my from testing large numbers
+> of kernels. =A0Do I have two questions:
+>
+> 1. Anyone have any ideas from looking at the log?
 
-Unfortunately it still seems to be possible for the dump length to
-change between the ethtool core calling qlcnic_get_dump_flag() and
-qlcnic_get_dump_data().
+Nope, that doesn't look very helpful.
 
-So I think qlcnic_get_dump_data() will need to double-check the length
-after taking the internal lock:
+> 2. =A0The !&$#@ bisection is skipping all over the place. =A0I've see=
+n
+> 2.6.37 versions and all manner of -rc's out of order.
 
-[...]
-> +static int
-> +qlcnic_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
-> +                       void *buffer)
-> +{
-> +       int i, copy_sz;
-> +       u32 *hdr_ptr, *data;
-> +       struct qlcnic_adapter *adapter = netdev_priv(netdev);
-> +       struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
-> +
-> +       if (qlcnic_api_lock(adapter))
-> +               return -EIO;
-[...]
+That's the _point_ of bisection. It jumps around. You can start off
+trying to pick points on my development tree, but I only have a
+hundred merges or so. You're going to start delving into the actual
+development versions very quickly. And if you don't do it early,
+bisection is going to be much much slower, because it's not going to
+pick half-way points.
 
-	if (dump->len < fw_dump->tmpl_hdr->size + fw_dump->size) {
-		qlcnic_api_unlock(adapter);
-		return -EINVAL;
-	}
+So bisection works so well exactly because it picks points that are
+far away from each other, and you should just totally ignore the
+version number. It's meaningless. Looking at it just confuses you.
+Don't do it.
 
-I'm not sure about the error code... and I'm really not happy about the
-need to check lengths in both the ethtool core and the driver.
+Now, "pick stable points" would obviously be nice, but that is going
+to have to be manual. You can certainly make some helper scripts, and
+that's where that "--first-parent" thing comes in. So if you want to,
+just use "git bisect reset" to the commit you want to test.
 
-Can't you change the function that actually makes a dump to acquire the
-RTNL lock?  (You'll need to do that *before* acquiring the driver's own
-lock.)
+If you think it's networking, for example, and you've bisected into
+there but aren't sure, do "gitk --bisect", find the point where I
+merge, and pick that (and my parent), and "git bisect reset" those
+points. That way you can verify that it's the networking merge (or
+verify that it isn't).
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+                         Linus
