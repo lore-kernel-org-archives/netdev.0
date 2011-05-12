@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Fix 8390 regressions
-Date: Thu, 12 May 2011 17:02:54 -0400 (EDT)
-Message-ID: <20110512.170254.1553444447781324461.davem@davemloft.net>
-References: <1305227500-15595-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH 1/2] sctp: sctp_sendmsg: Don't initialize default_sinfo
+Date: Thu, 12 May 2011 17:06:03 -0400 (EDT)
+Message-ID: <20110512.170603.549349521517995900.davem@davemloft.net>
+References: <cover.1305227620.git.joe@perches.com>
+	<a4e846ed62d7f9222dc9b09ca00b5356a1eb9b73.1305227620.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, ysato@users.sourceforge.jp,
-	linux@arm.linux.org.uk, fthain@telegraphics.com.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-m68k@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <1305227500-15595-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-m68k-owner@vger.kernel.org
+Cc: vladislav.yasevich@hp.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a4e846ed62d7f9222dc9b09ca00b5356a1eb9b73.1305227620.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Thu, 12 May 2011 19:11:37 +0000
+From: Joe Perches <joe@perches.com>
+Date: Thu, 12 May 2011 12:19:09 -0700
 
-> These patches fix regressions in 3 8390-based network drivers:
->  [1/3] zorro8390: Fix regression caused during net_device_ops conversion
->  [2/3] hydra: Fix regression caused during net_device_ops conversion
->  [3/3] ne-h8300: Fix regression caused during net_device_ops conversion
+> This variable only needs initialization when cmsgs.info
+> is NULL.
 > 
-> The first one, for zorro8390, has been tested.
-> The second one, for hydra, has been compile-tested only.
+> Don't use memset, just initialize every struct member.
 > 
-> Based on commits 8cfd9e923be54ef66ce174a93f4592b444b96407 ("[ARM] RiscPC: Fix
-> etherh oops") and 217cbfa856dc1cbc2890781626c4032d9e3ec59f ("mac8390: fix
-> regression caused during net_device_ops conversion"), and the patch for
-> zorro8390, we have good reasons to believe hydra and ne-h8300 are affected
-> as well, as they all include lib8390.c.
-> Hence patches for those are also included, although I could not test them.
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-All applied, thanks Geert, and I made the "From: " removals you requested.
+I don't think you do this, this structure has padding holes on pretty
+much every architecture.
+
+It starts with 3 u16's, then there is a u32, so there is a 2-byte
+piece of padding after the 3rd u16.
+
+Can you prove that these uninitialized portions never make it to
+userspace?  If you can, that proof belongs in the commit message.
+
+I think it's too risky.
