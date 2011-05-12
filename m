@@ -1,54 +1,39 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [PATCH 4/10] ipvs: Use IP_VS_RT_MODE_* instead of magic constants.
-Date: Thu, 12 May 2011 07:28:19 +0200
-Message-ID: <201105120728.19993.hans.schillstrom@ericsson.com>
-References: <20110509.223118.260083861.davem@davemloft.net> <20110510.153051.71135029.davem@davemloft.net> <alpine.LFD.2.00.1105120212150.2431@ja.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 3/9] [PATCH] qeth: add owner to ccw driver
+Date: Thu, 12 May 2011 07:43:21 +0200
+Message-ID: <20110512054415.651601073@de.ibm.com>
+References: <20110512054318.241733700@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Sebastian Ott <sebott@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:43804 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752806Ab1ELF2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 01:28:24 -0400
-In-Reply-To: <alpine.LFD.2.00.1105120212150.2431@ja.ssi.bg>
-Content-Disposition: inline
+Received: from mtagate5.uk.ibm.com ([194.196.100.165]:39808 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753230Ab1ELFoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 01:44:18 -0400
+Content-Disposition: inline; filename=602-qeth-add-ccw-driver-owner.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 12 May 2011 01:32:09 Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Tue, 10 May 2011, David Miller wrote:
-> 
-> > > 	Following patch can be used after patch 4, eg. as
-> > > number 6 because patches 4 and 5 are ok and we are going to replace
-> > > patches 6 and 7.
-> > 
-> > Thanks Julian.
-> > 
-> > What I'm going to do is hold back the IPVS parts of the patches I
-> > posted last night.  In particular, I'll integrate this into the
-> > original patch #4.
-> > 
-> > And then we can work through the reimplementation ideas you posted to
-> > me in private email.
-> 
-> 	My simple tests do not show any problems with patches
-> 4, 5 and the new 6 and 7. I tested TUN mode for rt_src/rt_dst
-> and DR/NAT for rt_dst replacement, related ICMP is relayed properly.
-> So, we should be ok but I'll do more tests in the following
-> days because the list with possible combinations for testing
-> is too long: different forwarding mode (DR/TUN/NAT),
-> local or remote real server, local or remote client,
-> In or Out related ICMP, Passive or Active FTP...
-> 
-I will try to test the Backup/Failover aspects of above
+From: Sebastian Ott <sebott@linux.vnet.ibm.com>
 
--- 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+Fill in the owner of qeth's ccw device driver.
+
+Signed-off-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+
+
+ drivers/s390/net/qeth_core_main.c |    1 +
+ 1 file changed, 1 insertion(+)
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -4041,6 +4041,7 @@ MODULE_DEVICE_TABLE(ccw, qeth_ids);
+ 
+ static struct ccw_driver qeth_ccw_driver = {
+ 	.driver = {
++		.owner = THIS_MODULE,
+ 		.name = "qeth",
+ 	},
+ 	.ids = qeth_ids,
+
