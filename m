@@ -1,54 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 2/2] be2net: fix mbox polling for signal
- reception
-Date: Thu, 12 May 2011 17:29:05 -0400 (EDT)
-Message-ID: <20110512.172905.2288301818993183911.davem@davemloft.net>
-References: <1305180663-12140-1-git-send-email-sathya.perla@emulex.com>
-	<f816628b-a4b6-4a53-867e-12e75bc7b4de@exht1.ad.emulex.com>
-	<1305204546.4065.395.camel@localhost>
+Subject: Re: [PATCH 1/2 v2] sctp: sctp_sendmsg: Don't initialize
+ default_sinfo
+Date: Thu, 12 May 2011 17:31:12 -0400 (EDT)
+Message-ID: <20110512.173112.1134946518914800656.davem@davemloft.net>
+References: <a4e846ed62d7f9222dc9b09ca00b5356a1eb9b73.1305227620.git.joe@perches.com>
+	<20110512.170603.549349521517995900.davem@davemloft.net>
+	<1305235641.6124.64.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44095 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758663Ab1ELV3P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 17:29:15 -0400
-In-Reply-To: <1305204546.4065.395.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vladislav.yasevich@hp.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305235641.6124.64.camel@Joe-Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 12 May 2011 13:49:06 +0100
+From: Joe Perches <joe@perches.com>
+Date: Thu, 12 May 2011 14:27:20 -0700
 
-> On Thu, 2011-05-12 at 11:41 +0530, Sathya Perla wrote:
->> Sending mbox cmds require multiple steps of writing to the DB register and polling
->> for an ack. Gettting interrupted in the middle by a signal breaks the mbox protocol.
->> So, set the task to UNINTERRUPTIBLE for mbox polling.
->> 
->> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
->> ---
->>  drivers/net/benet/be_cmds.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->> 
->> diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
->> index bff41ed..55c8301 100644
->> --- a/drivers/net/benet/be_cmds.c
->> +++ b/drivers/net/benet/be_cmds.c
->> @@ -297,7 +297,7 @@ static int be_mbox_db_ready_wait(struct be_adapter *adapter, void __iomem *db)
->>  			return -1;
->>  		}
->>  
->> -		set_current_state(TASK_INTERRUPTIBLE);
->> +		set_current_state(TASK_UNINTERRUPTIBLE);
->>  		schedule_timeout(msecs_to_jiffies(1));
+> This variable only needs initialization when cmsgs.info
+> is NULL.
 > 
-> msleep(1) is a lot more readable.
+> Use memset to ensure padding is also zeroed so
+> kernel doesn't leak any data.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Agreed.
-
-Sathya, please make this change and resubmit this patch series.
-
-Thanks.
+This looks a lot better, applied.
