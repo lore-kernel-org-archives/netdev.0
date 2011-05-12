@@ -1,16 +1,17 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH 1/3] zorro8390: Fix regression caused during
+Subject: [PATCH 2/3] hydra: Fix regression caused during
 	net_device_ops conversion
-Date: Thu, 12 May 2011 19:11:38 +0000
-Message-ID: <1305227500-15595-2-git-send-email-geert@linux-m68k.org>
+Date: Thu, 12 May 2011 19:11:39 +0000
+Message-ID: <1305227500-15595-3-git-send-email-geert@linux-m68k.org>
 References: <1305227500-15595-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: linux-m68k@vger.kernel.org, Russell King <linux@arm.linux.org.uk>,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Finn Thain <fthain@telegraphics.com.au>,
-        Geert Uytterhoeven <geert@linux-m68k.org>, stable@kernel.org
+        Finn Thain <fthain@telegraphics.com.au>, stable@kernel.org,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Geert Uytterhoeven <geert@chicken.sonytel.be>
 To: "David S. Miller" <davem@davemloft.net>,
         Stephen Hemminger <shemminger@vyatta.com>,
         Yoshinori Sato <ysato@users.sourceforge.jp>
@@ -27,9 +28,11 @@ Sender: stable-bounces@linux.kernel.org
 Errors-To: stable-bounces@linux.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changeset b6114794a1c394534659f4a17420e48cf23aa922 ("zorro8390: convert to
-net_device_ops") broke zorro8390 by adding 8390.o to the link. That
-meant that lib8390.c was included twice, once in zorro8390.c and once in
+From: Geert Uytterhoeven <geert@chicken.sonytel.be>
+
+Changeset 5618f0d1193d6b051da9b59b0e32ad24397f06a4 ("hydra: convert to
+net_device_ops") broke hydra by adding 8390.o to the link. That
+meant that lib8390.c was included twice, once in hydra.c and once in
 8390.c, subject to different macros. This patch reverts that by
 avoiding the wrappers in 8390.c.
 
@@ -38,46 +41,34 @@ fix regression caused during net_device_ops conversion") and
 4e0168fa4842e27795a75b205a510f25b62181d9 ("mac8390: fix build with
 NET_POLL_CONTROLLER").
 
-Reported-by: Christian T. Steigies <cts@debian.org>
-Suggested-by: Finn Thain <fthain@telegraphics.com.au>
 Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Tested-by: Christian T. Steigies <cts@debian.org>
 Cc: stable@kernel.org
 ---
- drivers/net/Makefile    |    2 +-
- drivers/net/zorro8390.c |   12 ++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/Makefile |    2 +-
+ drivers/net/hydra.c  |   14 +++++++-------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 01b604a..c64675f 100644
+index c64675f..4d2f094 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -219,7 +219,7 @@ obj-$(CONFIG_SC92031) += sc92031.o
- obj-$(CONFIG_LP486E) += lp486e.o
+@@ -231,7 +231,7 @@ obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
+ obj-$(CONFIG_DECLANCE) += declance.o
+ obj-$(CONFIG_ATARILANCE) += atarilance.o
+ obj-$(CONFIG_A2065) += a2065.o
+-obj-$(CONFIG_HYDRA) += hydra.o 8390.o
++obj-$(CONFIG_HYDRA) += hydra.o
+ obj-$(CONFIG_ARIADNE) += ariadne.o
+ obj-$(CONFIG_CS89x0) += cs89x0.o
+ obj-$(CONFIG_MACSONIC) += macsonic.o
+diff --git a/drivers/net/hydra.c b/drivers/net/hydra.c
+index c5ef62c..1cd481c 100644
+--- a/drivers/net/hydra.c
++++ b/drivers/net/hydra.c
+@@ -98,15 +98,15 @@ static const struct net_device_ops hydra_netdev_ops = {
+ 	.ndo_open		= hydra_open,
+ 	.ndo_stop		= hydra_close,
  
- obj-$(CONFIG_ETH16I) += eth16i.o
--obj-$(CONFIG_ZORRO8390) += zorro8390.o 8390.o
-+obj-$(CONFIG_ZORRO8390) += zorro8390.o
- obj-$(CONFIG_HPLANCE) += hplance.o 7990.o
- obj-$(CONFIG_MVME147_NET) += mvme147.o 7990.o
- obj-$(CONFIG_EQUALIZER) += eql.o
-diff --git a/drivers/net/zorro8390.c b/drivers/net/zorro8390.c
-index b78a38d..8c7c522 100644
---- a/drivers/net/zorro8390.c
-+++ b/drivers/net/zorro8390.c
-@@ -126,7 +126,7 @@ static int __devinit zorro8390_init_one(struct zorro_dev *z,
- 
-     board = z->resource.start;
-     ioaddr = board+cards[i].offset;
--    dev = alloc_ei_netdev();
-+    dev = ____alloc_ei_netdev(0);
-     if (!dev)
- 	return -ENOMEM;
-     if (!request_mem_region(ioaddr, NE_IO_EXTENT*2, DRV_NAME)) {
-@@ -146,15 +146,15 @@ static int __devinit zorro8390_init_one(struct zorro_dev *z,
- static const struct net_device_ops zorro8390_netdev_ops = {
- 	.ndo_open		= zorro8390_open,
- 	.ndo_stop		= zorro8390_close,
 -	.ndo_start_xmit		= ei_start_xmit,
 -	.ndo_tx_timeout		= ei_tx_timeout,
 -	.ndo_get_stats		= ei_get_stats,
@@ -87,13 +78,23 @@ index b78a38d..8c7c522 100644
 +	.ndo_get_stats		= __ei_get_stats,
 +	.ndo_set_multicast_list = __ei_set_multicast_list,
  	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address 	= eth_mac_addr,
+-	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_set_mac_address	= eth_mac_addr,
  	.ndo_change_mtu		= eth_change_mtu,
  #ifdef CONFIG_NET_POLL_CONTROLLER
 -	.ndo_poll_controller	= ei_poll,
 +	.ndo_poll_controller	= __ei_poll,
  #endif
  };
+ 
+@@ -125,7 +125,7 @@ static int __devinit hydra_init(struct zorro_dev *z)
+ 	0x10, 0x12, 0x14, 0x16, 0x18, 0x1a, 0x1c, 0x1e,
+     };
+ 
+-    dev = alloc_ei_netdev();
++    dev = ____alloc_ei_netdev(0);
+     if (!dev)
+ 	return -ENOMEM;
  
 -- 
 1.7.0.4
