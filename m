@@ -1,38 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sctp: sctp_sendmsg: Don't initialize default_sinfo
-Date: Thu, 12 May 2011 17:06:03 -0400 (EDT)
-Message-ID: <20110512.170603.549349521517995900.davem@davemloft.net>
-References: <cover.1305227620.git.joe@perches.com>
-	<a4e846ed62d7f9222dc9b09ca00b5356a1eb9b73.1305227620.git.joe@perches.com>
+From: Arun Sharma <asharma@fb.com>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Thu, 12 May 2011 14:10:33 -0700
+Message-ID: <20110512211033.GA3468@dev1756.snc6.facebook.com>
+References: <201104250033.03401.maxi@daemonizer.de>
+ <1303878240.2699.41.camel@edumazet-laptop>
+ <1303878771.2699.44.camel@edumazet-laptop>
+ <201104271352.00601.maxi@daemonizer.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>
+To: Maximilian Engelhardt <maxi@daemonizer.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a4e846ed62d7f9222dc9b09ca00b5356a1eb9b73.1305227620.git.joe@perches.com>
+Content-Disposition: inline
+In-Reply-To: <201104271352.00601.maxi@daemonizer.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 12 May 2011 12:19:09 -0700
-
-> This variable only needs initialization when cmsgs.info
-> is NULL.
+On Wed, Apr 27, 2011 at 01:51:59PM +0200, Maximilian Engelhardt wrote:
 > 
-> Don't use memset, just initialize every struct member.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> thank you for this information. I updated the kernel of the affected server to 
+> version 2.6.38.4 yesterday. I'll report when there are still crashes, but it 
+> might take a while, as in the past they only happened within the interval of 
+> weeks to month.
 
-I don't think you do this, this structure has padding holes on pretty
-much every architecture.
+I've seen this panic on 2.6.38.y as well. It's rare (< 1%), but the
+panic consistently happens at the same place.
 
-It starts with 3 u16's, then there is a u32, so there is a 2-byte
-piece of padding after the 3rd u16.
+Are any of the inetpeer.c commits in the 2.6.39 tree, which are not in -stable yet,
+good candidates to try?
 
-Can you prove that these uninitialized portions never make it to
-userspace?  If you can, that proof belongs in the commit message.
-
-I think it's too risky.
+ -Arun
