@@ -1,44 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel crash after using new Intel NIC (igb)
-Date: Thu, 12 May 2011 23:15:53 +0200
-Message-ID: <1305234953.2831.2.camel@edumazet-laptop>
-References: <201104250033.03401.maxi@daemonizer.de>
-	 <1303878240.2699.41.camel@edumazet-laptop>
-	 <1303878771.2699.44.camel@edumazet-laptop>
-	 <201104271352.00601.maxi@daemonizer.de>
-	 <20110512211033.GA3468@dev1756.snc6.facebook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: af_packet: Don't initialize vnet_hdr
+Date: Thu, 12 May 2011 17:26:23 -0400 (EDT)
+Message-ID: <20110512.172623.220889608152651989.davem@davemloft.net>
+References: <18a010357eb63dfd50751c5eb529f6261cf90ecd.1305232529.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	StuStaNet Vorstand <vorstand@stusta.mhn.de>
-To: Arun Sharma <asharma@fb.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110512211033.GA3468@dev1756.snc6.facebook.com>
+In-Reply-To: <18a010357eb63dfd50751c5eb529f6261cf90ecd.1305232529.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 12 mai 2011 =C3=A0 14:10 -0700, Arun Sharma a =C3=A9crit :
-> On Wed, Apr 27, 2011 at 01:51:59PM +0200, Maximilian Engelhardt wrote=
-:
-> >=20
-> > thank you for this information. I updated the kernel of the affecte=
-d server to=20
-> > version 2.6.38.4 yesterday. I'll report when there are still crashe=
-s, but it=20
-> > might take a while, as in the past they only happened within the in=
-terval of=20
-> > weeks to month.
->=20
-> I've seen this panic on 2.6.38.y as well. It's rare (< 1%), but the
-> panic consistently happens at the same place.
->=20
-> Are any of the inetpeer.c commits in the 2.6.39 tree, which are not i=
-n -stable yet,
-> good candidates to try?
->=20
+From: Joe Perches <joe@perches.com>
+Date: Thu, 12 May 2011 13:36:10 -0700
 
-Probably not.
+> Save a memset, initialize only the portion necessary.
+> 
+> packet_snd either gets this structure completely from
+> memcpy_fromiovec or uses only the hdr_len set to 0,
+> so don't always initialize the structure to 0.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-What gives slub_nomerge=3D1   for you ?
+On ARM this won't be tightly packed, therefore you'll leave
+uninitialized pieces of padding in this structure and this
+thing is an "on-the-wire" network header.
+
+I'm not applying this.
