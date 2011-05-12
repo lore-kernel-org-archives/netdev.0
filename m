@@ -1,56 +1,49 @@
 From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
-Date: Thu, 12 May 2011 07:59:45 +0200
-Message-ID: <BANLkTinO4Hity5++152Ff-RuACFDtoAV2Q@mail.gmail.com>
-References: <20110512054318.241733700@de.ibm.com> <20110512054415.435611676@de.ibm.com>
+Subject: Re: [PATCH 14/15] ehea: Add GRO support
+Date: Thu, 12 May 2011 08:03:46 +0200
+Message-ID: <BANLkTimUDAGdz2YmZKKvUpYYp+GchTd+8A@mail.gmail.com>
+References: <20110512005213.897432612@samba.org> <20110512005623.766530798@samba.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Cc: leitao@linux.vnet.ibm.com, michael@ellerman.id.au,
+	jesse@kernel.org, bhutchings@solarflare.com, netdev@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:57334 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752198Ab1ELGAH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 02:00:07 -0400
-In-Reply-To: <20110512054415.435611676@de.ibm.com>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:63211 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755149Ab1ELGEG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 02:04:06 -0400
+Received: by qyk7 with SMTP id 7so2726623qyk.19
+        for <netdev@vger.kernel.org>; Wed, 11 May 2011 23:04:06 -0700 (PDT)
+In-Reply-To: <20110512005623.766530798@samba.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/12  <frank.blaschka@de.ibm.com>:
-> From: Frank Blaschka <frank.blaschka@de.ibm.com>
+2011/5/12 Anton Blanchard <anton@samba.org>:
+> Add GRO support to the ehea driver.
+[...]
+> --- linux-net.orig/drivers/net/ehea/ehea_main.c 2011-05-12 07:48:03.8=
+10341336 +1000
+> +++ linux-net/drivers/net/ehea/ehea_main.c =C2=A0 =C2=A0 =C2=A02011-0=
+5-12 07:48:05.100361788 +1000
+[...]
+> @@ -3041,7 +3034,7 @@ struct ehea_port *ehea_setup_single_port
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->netdev_ops =3D &ehea_netdev_ops;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0ehea_set_ethtool_ops(dev);
 >
-> Set rx csum default to hw checksumming again.
-> Remove sysfs interface for rx csum (checksumming) and TSO (large_send=
-).
-> With the new hw_features it does not work to keep the old sysfs
-> interface in parallel. Convert options.checksum_type to new hw_featur=
-es.
-[...]
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* hw may have cha=
-nged during offline or recovery */
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!qeth_is_suppo=
-rted(card, IPA_INBOUND_CHECKSUM)) {
-[...]
+> - =C2=A0 =C2=A0 =C2=A0 dev->hw_features =3D NETIF_F_SG | NETIF_F_TSO
+> + =C2=A0 =C2=A0 =C2=A0 dev->hw_features =3D NETIF_F_SG | NETIF_F_TSO =
+| NETIF_F_GRO
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0| NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX | NETIF_F_LRO;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->features =3D NETIF_F_SG | NETIF_F_FRA=
+GLIST | NETIF_F_TSO
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0| NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
 
-This check should go to ndo_fix_features callback. If it fails then
-just return features &~NETIF_F_RXCSUM from there ...
-
-> +update_feature:
-> + =C2=A0 =C2=A0 =C2=A0 rtnl_lock();
-> + =C2=A0 =C2=A0 =C2=A0 card->dev->hw_features &=3D ~NETIF_F_RXCSUM;
-> + =C2=A0 =C2=A0 =C2=A0 card->dev->features &=3D ~NETIF_F_RXCSUM;
-> + =C2=A0 =C2=A0 =C2=A0 netdev_update_features(card->dev);
-> + =C2=A0 =C2=A0 =C2=A0 rtnl_unlock();
-
-=2E.. and then this should be just:
-rtnl_lock();
-netdev_update_features(card->dev);
-rtnl_unlock();
-
-BTW, How is the recovery process protected from interface removal if
-it's not run under rtnl_lock?
+GRO is now enabled by default, so no need to put it in hw_features or f=
+eatures.
 
 Best Regards,
 Micha=C5=82 Miros=C5=82aw
