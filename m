@@ -1,78 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] l2tp: fix potential rcu race
-Date: Thu, 12 May 2011 06:22:36 +0200
-Message-ID: <1305174156.3232.26.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ehea: Fix memory hotplug oops
+Date: Wed, 11 May 2011 21:38:34 -0700 (PDT)
+Message-ID: <20110511.213834.226764645.davem@davemloft.net>
+References: <20110511121710.05ab8c2e@kryten>
+	<4DCA853B.6060904@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	James Chapman <jchapman@katalix.com>
-To: David Miller <davem@davemloft.net>
+Cc: anton@samba.org, netdev@vger.kernel.org
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62545 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118Ab1ELEWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 00:22:41 -0400
-Received: by wwa36 with SMTP id 36so1312965wwa.1
-        for <netdev@vger.kernel.org>; Wed, 11 May 2011 21:22:39 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46119
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752181Ab1ELEjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 00:39:07 -0400
+In-Reply-To: <4DCA853B.6060904@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While trying to remove useless synchronize_rcu() calls, I found l2tp is
-indeed incorrectly using two of such calls, but also bumps tunnel
-refcount after list insertion.
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Date: Wed, 11 May 2011 09:46:51 -0300
 
-tunnel refcount must be incremented before being made publically visible
-by rcu readers.
+> On 05/10/2011 11:17 PM, Anton Blanchard wrote:
+>>
+>>  The ehea driver oopses during memory hotplug if the ports are not
+>>  up. A simple testcase:
+>>
+>>  # ifconfig ethX down
+>>  # echo offline > /sys/devices/system/memory/memory32/state
+>>
+>>  Oops: Kernel access of bad area, sig: 11 [#1]
+>>  last sysfs file: /sys/devices/system/memory/memory32/state
+>>  REGS: c000000709393110 TRAP: 0300 Not tainted 
+> (2.6.39-rc2-01385-g7ef73bc-dirty)
+>>  DAR: 0000000000000000, DSISR: 40000000
+>>  ...
+>>  NIP [c000000000067c98] .__wake_up_common+0x48/0xf0
+>>  LR [c00000000006d034] .__wake_up+0x54/0x90
+>>  Call Trace:
+>>  [c00000000006d034] .__wake_up+0x54/0x90
+>>  [d000000006bb6270] .ehea_rereg_mrs+0x140/0x730 [ehea]
+>>  [d000000006bb69c4] .ehea_mem_notifier+0x164/0x170 [ehea]
+>>  [c0000000006fc8a8] .notifier_call_chain+0x78/0xf0
+>>  [c0000000000b3d70] .__blocking_notifier_call_chain+0x70/0xb0
+>>  [c000000000458d78] .memory_notify+0x28/0x40
+>>  [c0000000001871d8] .remove_memory+0x208/0x6d0
+>>  [c000000000458264] .memory_section_action+0x94/0x140
+>>  [c0000000004583ec] .memory_block_change_state+0xdc/0x1d0
+>>  [c0000000004585cc] .store_mem_state+0xec/0x160
+>>  [c00000000044768c] .sysdev_store+0x3c/0x50
+>>  [c00000000020b48c] .sysfs_write_file+0xec/0x1f0
+>>  [c00000000018f86c] .vfs_write+0xec/0x1e0
+>>  [c00000000018fa88] .SyS_write+0x58/0xd0
+>>
+>>  To fix this, initialise the waitqueues during port probe instead
+>>  of port open.
+>>
+>>  Signed-off-by: Anton Blanchard <anton@samba.org>
+> Acked-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 
-This fix can be applied to 2.6.35+ and might need a backport for older
-kernels, since things were shuffled in commit fd558d186df2c
-(l2tp: Split pppol2tp patch into separate l2tp and ppp parts)
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-CC: James Chapman <jchapman@katalix.com>
----
-
-I based this patch on net-next-2.6 because of recent commits in this
-file and linux-2.6 being on late RC phase. But its a stable candidate.
-
- net/l2tp/l2tp_core.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 9be095e..ed8a233 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1435,16 +1435,15 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 
- 	/* Add tunnel to our list */
- 	INIT_LIST_HEAD(&tunnel->list);
--	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
--	list_add_rcu(&tunnel->list, &pn->l2tp_tunnel_list);
--	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
--	synchronize_rcu();
- 	atomic_inc(&l2tp_tunnel_count);
- 
- 	/* Bump the reference count. The tunnel context is deleted
--	 * only when this drops to zero.
-+	 * only when this drops to zero. Must be done before list insertion
- 	 */
- 	l2tp_tunnel_inc_refcount(tunnel);
-+	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
-+	list_add_rcu(&tunnel->list, &pn->l2tp_tunnel_list);
-+	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
- 
- 	err = 0;
- err:
-@@ -1636,7 +1635,6 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
- 			hlist_add_head_rcu(&session->global_hlist,
- 					   l2tp_session_id_hash_2(pn, session_id));
- 			spin_unlock_bh(&pn->l2tp_session_hlist_lock);
--			synchronize_rcu();
- 		}
- 
- 		/* Ignore management session in session count value */
-
-
+Applied to net-2.6, thanks.
