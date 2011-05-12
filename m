@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vmxnet3: Use single tx queue when
- CONFIG_PCI_MSI not defined
-Date: Thu, 12 May 2011 14:37:30 -0700 (PDT)
-Message-ID: <20110512.143730.193713822.davem@davemloft.net>
-References: <alpine.LRH.2.00.1105091715150.26660@sbhatewara-dev1.eng.vmware.com>
-	<alpine.LRH.2.00.1105100903110.1095@sbhatewara-dev1.eng.vmware.com>
+Subject: Re: [PATCH net-next] net:set valid name before calling ndo_init()
+Date: Thu, 12 May 2011 17:37:20 -0400 (EDT)
+Message-ID: <20110512.173720.2197201133223265905.davem@davemloft.net>
+References: <1305207541-13311-1-git-send-email-panweiping3@gmail.com>
+	<1305214382.3795.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com
-To: sbhatewara@vmware.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: panweiping3@gmail.com, therbert@google.com,
+	mirq-linux@rere.qmqm.pl, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1105100903110.1095@sbhatewara-dev1.eng.vmware.com>
+In-Reply-To: <1305214382.3795.28.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Tue, 10 May 2011 09:13:56 -0700 (PDT)
-
-> 
-> Resending this patch with few changes.
-> 
-> 
-> Avoid multiple queues when MSI or MSI-X not available
-> 
-> Limit number of Tx queues to 1 if MSI/MSI-X support is not configured in
-> the kernel. This will make number of tx and rx queues equal when MSI/X 
-> is not configured thus providing better performance.
-> 
-> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
-
-Applied, thanks.
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVGh1LCAx
+MiBNYXkgMjAxMSAxNzozMzowMiArMDIwMA0KDQo+IExlIGpldWRpIDEyIG1haSAyMDExIMOgIDIx
+OjM5ICswODAwLCBXZWlwaW5nIFBhbijmvZjljavlubMpIGEgw6ljcml0IDoNCj4+IEZyb206IFBh
+biBXZWlwaW5nIDxwYW53ZWlwaW5nM0BnbWFpbC5jb20+DQo+PiANCj4+IEEgYnVnIG9mIGJvbmRp
+bmcgd2FzIGludmxvdmVkIGJ5IGU4MTVkMTlmZmUwMmJkZmRhMTI2MDk0OWVmMmIxODA2MTcxLA0K
+Pj4gc2VlIGV4YW1wbGUgMSBhbmQgMi4NCj4+IA0KPiANCj4gSSBjYW50IGZpbmQgZTgxNWQxOWZm
+ZTAyYmRmZGExMjYwOTQ5ZWYyYjE4MDYxNzEgaW4gbmV0LW5leHQtMi42DQo+IA0KPiBidXQgSSBk
+byBmaW5kIDFjNWNhZTgxNWQxOWZmZTAyYmRmZGExMjYwOTQ5ZWYyYjE4MDYxNzENCj4gDQo+IFBs
+ZWFzZSBhbHdheXMgdXNlIGZvbGxvd2luZyB3aGVuIHJlZmVycmluZyB0byBhIGNvbW1pdCA6DQo+
+IA0KPiAuLi4gaW4gY29tbWl0IDFjNWNhZTgxNWQxOSAobmV0OiBjYWxsIGRldl9hbGxvY19uYW1l
+IGZyb20NCj4gcmVnaXN0ZXJfbmV0ZGV2aWNlKSAuLi4NCj4gDQo+IC0ganVzdCBsaW1pdCB0byBf
+Zmlyc3RfIDEyIGNoYXJzLCBubyBuZWVkIHRvIGhhdmUgZnVsbCBsZW5ndGgNCj4gLSBnaXZlIHRo
+ZSBjb21taXQgdGl0bGUNCg0KUGFuLCBwbGVhc2UgZml4IHRoaXMgY29tbWl0IHJlZmVyZW5jZSB1
+cCBhbmQgcmVzdWJtaXQgeW91ciBwYXRjaC4NCg==
