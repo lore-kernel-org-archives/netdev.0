@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/9] [resend v2] s390: network feature patches for
- net-next
-Date: Fri, 13 May 2011 14:55:57 -0400 (EDT)
-Message-ID: <20110513.145557.2137836747685989897.davem@davemloft.net>
-References: <20110513044500.190198403@de.ibm.com>
+Subject: Re: [PATCH v1] bonding,llc: Fix structure sizeof incompatibility
+ for some PDUs
+Date: Fri, 13 May 2011 15:15:35 -0400 (EDT)
+Message-ID: <20110513.151535.291811874627297723.davem@davemloft.net>
+References: <201105131204.29612.vitas@nppfactor.kiev.ua>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com, joe@perches.com,
+	fubar@us.ibm.com, andy@greyhouse.net, acme@ghostprotocols.net
+To: vitas@nppfactor.kiev.ua
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48470 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47282 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757571Ab1EMS4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 14:56:04 -0400
-In-Reply-To: <20110513044500.190198403@de.ibm.com>
+	with ESMTP id S1751398Ab1EMTQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 15:16:15 -0400
+In-Reply-To: <201105131204.29612.vitas@nppfactor.kiev.ua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: frank.blaschka@de.ibm.com
-Date: Fri, 13 May 2011 06:45:00 +0200
+From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Date: Fri, 13 May 2011 12:04:29 +0300
 
-> after one more iteration the hw_feature patch is complete now.
-> I did some testing and could not find a problem so far. If
-> we find bugs during extensive regession testing I will provide
-> a bug fix so please apply this patch set now so it is available
-> for the next merge window. Thx!
+> With some combinations of arch/compiler (e.g. arm-linux-gcc) the sizeof 
+> operator on structure returns value greater than expected. In cases when the 
+> structure is used for mapping PDU fields it may lead to unexpected results 
+> (such as holes and alignment problems in skb data). __packed prevents this 
+> undesired behavior.
+> 
+> Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
 
-Series applied, please keep up the dialogue about hw_features with
-Micha=A9=A9 Miros=A9=A9aw.
-
-Thanks.
+Applied, thanks.
