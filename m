@@ -1,74 +1,65 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
-Date: Fri, 13 May 2011 10:07:47 +0200
-Message-ID: <BANLkTinRqC7=jg6OV12UFpG0p1TKiD72-g@mail.gmail.com>
-References: <20110513044500.190198403@de.ibm.com> <20110513044547.424857838@de.ibm.com>
+From: rhumana <rhumana@inifta.unlp.edu.ar>
+Subject: Re.funds
+Date: Fri, 13 May 2011 04:36:04 -0300
+Message-ID: <20110513043604.643559e2k3boo7go__41987.7984830693$1305274253$gmane$org@webmail.inifta.unlp.edu.ar>
+Reply-To: money_gramlimited@mspil.edu.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Content-Type: text/plain; charset=US-ASCII;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:57712 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757797Ab1EMIII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 04:08:08 -0400
-In-Reply-To: <20110513044547.424857838@de.ibm.com>
+Received: from stonestorm.inifta.unlp.edu.ar ([163.10.21.140]:57224 "EHLO
+	stonestorm.inifta.unlp.edu.ar" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757797Ab1EMIKU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2011 04:10:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MjAxMS81LzEzICA8ZnJhbmsuYmxhc2Noa2FAZGUuaWJtLmNvbT46Cj4gRnJvbTogRnJhbmsgQmxh
-c2Noa2EgPGZyYW5rLmJsYXNjaGthQGRlLmlibS5jb20+Cj4KPiBTZXQgcnggY3N1bSBkZWZhdWx0
-IHRvIGh3IGNoZWNrc3VtbWluZyBhZ2Fpbi4KPiBSZW1vdmUgc3lzZnMgaW50ZXJmYWNlIGZvciBy
-eCBjc3VtIChjaGVja3N1bW1pbmcpIGFuZCBUU08gKGxhcmdlX3NlbmQpLgo+IFdpdGggdGhlIG5l
-dyBod19mZWF0dXJlcyBpdCBkb2VzIG5vdCB3b3JrIHRvIGtlZXAgdGhlIG9sZCBzeXNmcwo+IGlu
-dGVyZmFjZSBpbiBwYXJhbGxlbC4gQ29udmVydCBvcHRpb25zLmNoZWNrc3VtX3R5cGUgdG8gbmV3
-IGh3X2ZlYXR1cmVzLgpbLi4uXQo+IEBAIC0xNDgyLDMyICsxNDc4LDM0IEBAIHN0YXRpYyBpbnQg
-cWV0aF9sM19zdGFydF9pcGFfY2hlY2tzdW0oc3QKPgo+IMKgIMKgIMKgIMKgUUVUSF9DQVJEX1RF
-WFQoY2FyZCwgMywgInN0cnRjc3VtIik7Cj4KPiAtIMKgIMKgIMKgIGlmIChjYXJkLT5vcHRpb25z
-LmNoZWNrc3VtX3R5cGUgPT0gTk9fQ0hFQ0tTVU1NSU5HKSB7Cj4gLSDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCBkZXZfaW5mbygmY2FyZC0+Z2Rldi0+ZGV2LAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgIlVzaW5nIG5vIGNoZWNrc3VtbWluZyBvbiAlcy5cbiIsCj4gLSDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBRRVRIX0NBUkRfSUZOQU1FKGNhcmQpKTsKPiAtIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIHJldHVybiAwOwo+IC0gwqAgwqAgwqAgfQo+IC0gwqAgwqAgwqAg
-aWYgKGNhcmQtPm9wdGlvbnMuY2hlY2tzdW1fdHlwZSA9PSBTV19DSEVDS1NVTU1JTkcpIHsKPiAt
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIGRldl9pbmZvKCZjYXJkLT5nZGV2LT5kZXYsCj4gLSDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAiVXNpbmcgU1cgY2hlY2tzdW1taW5nIG9uICVz
-LlxuIiwKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIFFFVEhfQ0FSRF9JRk5B
-TUUoY2FyZCkpOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgcmV0dXJuIDA7Cj4gLSDCoCDCoCDC
-oCB9Cj4gLSDCoCDCoCDCoCBpZiAoIXFldGhfaXNfc3VwcG9ydGVkKGNhcmQsIElQQV9JTkJPVU5E
-X0NIRUNLU1VNKSkgewo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgZGV2X2luZm8oJmNhcmQtPmdk
-ZXYtPmRldiwKPiArIMKgIMKgIMKgIGlmIChjYXJkLT5kZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9S
-WENTVU0pIHsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIC8qIGh3IG1heSBoYXZlIGNoYW5nZWQg
-ZHVyaW5nIG9mZmxpbmUgb3IgcmVjb3ZlcnkgKi8KPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlm
-ICghcWV0aF9pc19zdXBwb3J0ZWQoY2FyZCwgSVBBX0lOQk9VTkRfQ0hFQ0tTVU0pKSB7Cj4gKyDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBkZXZfaW5mbygmY2FyZC0+Z2Rldi0+ZGV2
-LAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIkluYm91bmQgSFcgQ2hlY2tz
-dW1taW5nIG5vdCAiCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAic3VwcG9y
-dGVkIG9uICVzLFxuY29udGludWluZyAiCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAidXNpbmcgSW5ib3VuZCBTVyBDaGVja3N1bW1pbmdcbiIsCj4gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqBRRVRIX0NBUkRfSUZOQU1FKGNhcmQpKTsKPiAtIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIGNhcmQtPm9wdGlvbnMuY2hlY2tzdW1fdHlwZSA9IFNXX0NIRUNLU1VNTUlO
-RzsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHJldHVybiAwOwo+IC0gwqAgwqAgwqAgfQo+IC0g
-wqAgwqAgwqAgcmMgPSBxZXRoX2wzX3NlbmRfY2hlY2tzdW1fY29tbWFuZChjYXJkKTsKPiAtIMKg
-IMKgIMKgIGlmICghcmMpCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBkZXZfaW5mbygmY2FyZC0+
-Z2Rldi0+ZGV2LAo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZ290byB1cGRh
-dGVfZmVhdHVyZTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIH0KPiArCj4gKyDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCByYyA9IHFldGhfbDNfc2VuZF9jaGVja3N1bV9jb21tYW5kKGNhcmQpOwo+ICsg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKCFyYykKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIGRldl9pbmZvKCZjYXJkLT5nZGV2LT5kZXYsCj4gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAiSFcgQ2hlY2tzdW1taW5nIChpbmJvdW5kKSBlbmFibGVkXG4iKTsK
-PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGVsc2UKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIGdvdG8gdXBkYXRlX2ZlYXR1cmU7Cj4gKyDCoCDCoCDCoCB9IGVsc2UKPiArIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIGRldl9pbmZvKCZjYXJkLT5nZGV2LT5kZXYsCj4gKyDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAiVXNpbmcgU1cgY2hlY2tzdW1taW5nIG9uICVzLlxu
-IiwKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIFFFVEhfQ0FSRF9JRk5BTUUo
-Y2FyZCkpOwo+ICsgwqAgwqAgwqAgcmV0dXJuIDA7Cj4KPiArdXBkYXRlX2ZlYXR1cmU6Cj4gKyDC
-oCDCoCDCoCBydG5sX2xvY2soKTsKPiArIMKgIMKgIMKgIGNhcmQtPmRldi0+ZmVhdHVyZXMgJj0g
-fk5FVElGX0ZfUlhDU1VNOwo+ICsgwqAgwqAgwqAgbmV0ZGV2X3VwZGF0ZV9mZWF0dXJlcyhjYXJk
-LT5kZXYpOwo+ICsgwqAgwqAgwqAgcnRubF91bmxvY2soKTsKPiDCoCDCoCDCoCDCoHJldHVybiBy
-YzsKPiDCoH0KClRoaXMgd2lsbCByZXRyeSBzdGFydGluZyB0aGUgUlggY2hlY2tzdW1taW5nIHZp
-YSBzZXRfZmVhdHVyZXMoKS4gSXMKdGhhdCB0aGUgaW50ZW50aW9uPyBJZiBub3QsIHRoZW4ganVz
-dCB1c2Ugc29tZXRoaW5nIGxpa2UgbXkgZXhhbXBsZSBpbgpxZXRoX2wzX3N0YXJ0X2lwYV9jaGVj
-a3N1bSgpLgoKQmVzdCBSZWdhcmRzLApNaWNoYcWCIE1pcm9zxYJhdwo=
+My associate has helped me to send your first payment
+of $7,500 USD to you as instructed by the Malaysian
+Government and Mr. David Cameron the United Kingdom
+prime minister after the last G20 meeting that was
+held in Malaysia, making you one of the beneficiaries through
+an email natural simple ballot selection.
+
+He told Allan Davis to keep sending you $5,000 USD via Money Gram
+twice a week until the FULL payment of ($820,000.00 )
+is completed.
+
+MONEY TRANSFER REFERENCE:2116-3297
+
+SENDER'S NAME:Patrick Lee Chun
+AMOUNT: US$5000
+
+To track your funds forward money gram
+Transfer agent Mr Allan Davis
+
+Your Name.____________
+Phone .______________
+
+Contact Allan Davis for the funds clearance
+certificate (FCC) neccessary for the realise of your funds
+
+E-mail:money_gramlimited@mspil.edu.cn
+D/L: Tel:+601-635-44376
+
+You cannot pickup the money until the certificate is
+obtained by you.
+
+Regards
+Mr. Allan Davis.
+Tel: +601-635-44376
+
+Best Regards,
+Mr Allan Davis
+
+
+
+
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
+
