@@ -1,83 +1,50 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 8/9] [PATCH] af_iucv: get rid of compile warning
-Date: Fri, 13 May 2011 06:45:08 +0200
-Message-ID: <20110513044548.183833947@de.ibm.com>
+Subject: [patch 7/9] [PATCH] iucv: get rid of compile warning
+Date: Fri, 13 May 2011 06:45:07 +0200
+Message-ID: <20110513044548.075548840@de.ibm.com>
 References: <20110513044500.190198403@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
 	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:55111 "EHLO
+Received: from mtagate6.uk.ibm.com ([194.196.100.166]:55110 "EHLO
 	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915Ab1EMEpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 00:45:50 -0400
-Content-Disposition: inline; filename=607-af_iucv-compile-warning.diff
+	with ESMTP id S1751562Ab1EMEpv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 00:45:51 -0400
+Content-Disposition: inline; filename=606-iucv-compile-warning.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ursula Braun <ursula.braun@de.ibm.com>
 
--Wunused-but-set-variable generates compile warnings. The affected
-variables are removed.
+-Wunused-but-set-variable generates a compile warning. The affected
+variable is removed.
 
 Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
 
- net/iucv/af_iucv.c |    9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -190,7 +190,6 @@ static int afiucv_pm_freeze(struct devic
-  */
- static int afiucv_pm_restore_thaw(struct device *dev)
+ net/iucv/iucv.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+diff -urpN linux-2.6/net/iucv/iucv.c linux-2.6-patched/net/iucv/iucv.c
+--- linux-2.6/net/iucv/iucv.c	2011-05-10 09:14:08.000000000 +0200
++++ linux-2.6-patched/net/iucv/iucv.c	2011-05-10 09:14:26.000000000 +0200
+@@ -828,14 +828,14 @@ EXPORT_SYMBOL(iucv_unregister);
+ static int iucv_reboot_event(struct notifier_block *this,
+ 			     unsigned long event, void *ptr)
  {
--	struct iucv_sock *iucv;
- 	struct sock *sk;
- 	struct hlist_node *node;
+-	int i, rc;
++	int i;
  
-@@ -199,7 +198,6 @@ static int afiucv_pm_restore_thaw(struct
- #endif
- 	read_lock(&iucv_sk_list.lock);
- 	sk_for_each(sk, node, &iucv_sk_list.head) {
--		iucv = iucv_sk(sk);
- 		switch (sk->sk_state) {
- 		case IUCV_CONNECTED:
- 			sk->sk_err = EPIPE;
-@@ -381,7 +379,6 @@ static void iucv_sock_close(struct sock
- {
- 	unsigned char user_data[16];
- 	struct iucv_sock *iucv = iucv_sk(sk);
--	int err;
- 	unsigned long timeo;
- 
- 	iucv_sock_clear_timer(sk);
-@@ -394,8 +391,6 @@ static void iucv_sock_close(struct sock
- 
- 	case IUCV_CONNECTED:
- 	case IUCV_DISCONN:
--		err = 0;
--
- 		sk->sk_state = IUCV_CLOSING;
- 		sk->sk_state_change(sk);
- 
-@@ -404,7 +399,7 @@ static void iucv_sock_close(struct sock
- 				timeo = sk->sk_lingertime;
- 			else
- 				timeo = IUCV_DISCONN_TIMEOUT;
--			err = iucv_sock_wait(sk,
-+			iucv_sock_wait(sk,
- 					iucv_sock_in_state(sk, IUCV_CLOSED, 0),
- 					timeo);
- 		}
-@@ -417,7 +412,7 @@ static void iucv_sock_close(struct sock
- 			low_nmcpy(user_data, iucv->src_name);
- 			high_nmcpy(user_data, iucv->dst_name);
- 			ASCEBC(user_data, sizeof(user_data));
--			err = iucv_path_sever(iucv->path, user_data);
-+			iucv_path_sever(iucv->path, user_data);
- 			iucv_path_free(iucv->path);
- 			iucv->path = NULL;
- 		}
+ 	get_online_cpus();
+ 	on_each_cpu(iucv_block_cpu, NULL, 1);
+ 	preempt_disable();
+ 	for (i = 0; i < iucv_max_pathid; i++) {
+ 		if (iucv_path_table[i])
+-			rc = iucv_sever_pathid(i, NULL);
++			iucv_sever_pathid(i, NULL);
+ 	}
+ 	preempt_enable();
+ 	put_online_cpus();
 
