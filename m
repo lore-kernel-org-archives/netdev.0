@@ -1,167 +1,108 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [net-next-2.6 04/10] caif: Add ref-count to framing layer
-Date: Fri, 13 May 2011 14:44:02 +0200
-Message-ID: <1305290648-9613-5-git-send-email-sjur.brandeland@stericsson.com>
-References: <1305290648-9613-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Sascha Silbe <sascha-ml-reply-to-2011-2@silbe.org>
+Subject: Re: [PATCH] Add libertas_disablemesh module parameter to disable mesh
+	interface
+Date: Fri, 13 May 2011 15:16:31 +0200
+Message-ID: <1305290935-sup-4547@xo15-sascha.sascha.silbe.org>
+References: <1305118354-17337-1-git-send-email-silbe@activitycentral.com>
+	<1305169898.8054.19.camel@dcbw.foobar.com>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============2970142355494864435=="
+Cc: libertas-dev <libertas-dev@lists.infradead.org>,
+	netdev <netdev@vger.kernel.org>, John@xo15-sascha.sascha.silbe.org,
+	linux-wireless <linux-wireless@vger.kernel.org>, linville@tuxdriver.com,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	W.Linville@xo15-sascha.sascha.silbe.org, devel <devel@lists.laptop.org>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <devel-bounces@lists.laptop.org>
+In-reply-to: <1305169898.8054.19.camel@dcbw.foobar.com>
+List-Unsubscribe: <http://lists.laptop.org/listinfo/devel>,
+	<mailto:devel-request@lists.laptop.org?subject=unsubscribe>
+List-Archive: <http://lists.laptop.org/pipermail/devel>
+List-Post: <mailto:devel@lists.laptop.org>
+List-Help: <mailto:devel-request@lists.laptop.org?subject=help>
+List-Subscribe: <http://lists.laptop.org/listinfo/devel>,
+	<mailto:devel-request@lists.laptop.org?subject=subscribe>
+Mime-version: 1.0
+Sender: devel-bounces@lists.laptop.org
+Errors-To: devel-bounces@lists.laptop.org
+List-Id: netdev.vger.kernel.org
+
+
+--===============2970142355494864435==
+Content-Type: multipart/signed; boundary="=-1305292597-186208-1562-8493-5-="; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+
+
+--=-1305292597-186208-1562-8493-5-=
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sf1.isp.kq.no ([213.172.193.37]:29698 "EHLO
-	slow1.isp.as2116.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758843Ab1EMNQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 09:16:22 -0400
-Received: from pmx.vmail.no (pmx.vmail.no [193.75.16.11])
-	by slow1.isp.as2116.net (Postfix) with ESMTP id 7553B80165
-	for <netdev@vger.kernel.org>; Fri, 13 May 2011 14:45:33 +0200 (CEST)
-In-Reply-To: <1305290648-9613-1-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Introduce Per-cpu reference for lower part of CAIF Stack.
-Before freeing payload is disabled, synchronize_rcu() is called,
-and then ref-count verified to be zero.
+Excerpts from Dan Williams's message of Thu May 12 05:11:36 +0200 2011:
+> On Wed, 2011-05-11 at 14:52 +0200, Sascha Silbe wrote:
+> > This allows individual users and deployments to disable mesh support =
+at
+> > runtime, i.e. without having to build and maintain a custom kernel.
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
----
- include/net/caif/cffrml.h |    5 ++++-
- net/caif/cfcnfg.c         |    9 ++++++++-
- net/caif/cffrml.c         |   31 +++++++++++++++++++++++++++++++
- 3 files changed, 43 insertions(+), 2 deletions(-)
+> Does the mesh interface somehow cause problems, even when nothing is
+> using it?
 
-diff --git a/include/net/caif/cffrml.h b/include/net/caif/cffrml.h
-index 4f126d7..afac1a4 100644
---- a/include/net/caif/cffrml.h
-+++ b/include/net/caif/cffrml.h
-@@ -7,12 +7,15 @@
- #ifndef CFFRML_H_
- #define CFFRML_H_
- #include <net/caif/caif_layer.h>
-+#include <linux/netdevice.h>
-=20
- struct cffrml;
--struct cflayer *cffrml_create(u16 phyid, bool DoFCS);
-+struct cflayer *cffrml_create(u16 phyid, bool use_fcs);
-+void cffrml_free(struct cflayer *layr);
- void cffrml_set_uplayer(struct cflayer *this, struct cflayer *up);
- void cffrml_set_dnlayer(struct cflayer *this, struct cflayer *dn);
- void cffrml_put(struct cflayer *layr);
- void cffrml_hold(struct cflayer *layr);
-+int cffrml_refcnt_read(struct cflayer *layr);
-=20
- #endif /* CFFRML_H_ */
-diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
-index 7892cc0..3f4f31f 100644
---- a/net/caif/cfcnfg.c
-+++ b/net/caif/cfcnfg.c
-@@ -519,6 +519,13 @@ int cfcnfg_del_phy_layer(struct cfcnfg *cnfg, stru=
-ct cflayer *phy_layer)
- 	caif_assert(phy_layer->id =3D=3D phyid);
- 	caif_assert(phyinfo->frm_layer->id =3D=3D phyid);
-=20
-+	/* Fail if reference count is not zero */
-+	if (cffrml_refcnt_read(phyinfo->frm_layer) !=3D 0) {
-+		pr_info("Wait for device inuse\n");
-+		mutex_unlock(&cnfg->lock);
-+		return -EAGAIN;
-+	}
-+
- 	list_del_rcu(&phyinfo->node);
- 	synchronize_rcu();
-=20
-@@ -537,7 +544,7 @@ int cfcnfg_del_phy_layer(struct cfcnfg *cnfg, struc=
-t cflayer *phy_layer)
- 	if (phyinfo->phy_layer !=3D frml_dn)
- 		kfree(frml_dn);
-=20
--	kfree(frml);
-+	cffrml_free(frml);
- 	kfree(phyinfo);
- 	mutex_unlock(&cnfg->lock);
-=20
-diff --git a/net/caif/cffrml.c b/net/caif/cffrml.c
-index f4b8892..4f4f756 100644
---- a/net/caif/cffrml.c
-+++ b/net/caif/cffrml.c
-@@ -12,6 +12,7 @@
- #include <linux/spinlock.h>
- #include <linux/slab.h>
- #include <linux/crc-ccitt.h>
-+#include <linux/netdevice.h>
- #include <net/caif/caif_layer.h>
- #include <net/caif/cfpkt.h>
- #include <net/caif/cffrml.h>
-@@ -21,6 +22,7 @@
- struct cffrml {
- 	struct cflayer layer;
- 	bool dofcs;		/* !< FCS active */
-+	int __percpu		*pcpu_refcnt;
- };
-=20
- static int cffrml_receive(struct cflayer *layr, struct cfpkt *pkt);
-@@ -31,12 +33,19 @@ static void cffrml_ctrlcmd(struct cflayer *layr, en=
-um caif_ctrlcmd ctrl,
- static u32 cffrml_rcv_error;
- static u32 cffrml_rcv_checsum_error;
- struct cflayer *cffrml_create(u16 phyid, bool use_fcs)
-+
- {
- 	struct cffrml *this =3D kmalloc(sizeof(struct cffrml), GFP_ATOMIC);
- 	if (!this) {
- 		pr_warn("Out of memory\n");
- 		return NULL;
- 	}
-+	this->pcpu_refcnt =3D alloc_percpu(int);
-+	if (this->pcpu_refcnt =3D=3D NULL) {
-+		kfree(this);
-+		return NULL;
-+	}
-+
- 	caif_assert(offsetof(struct cffrml, layer) =3D=3D 0);
-=20
- 	memset(this, 0, sizeof(struct cflayer));
-@@ -49,6 +58,13 @@ struct cflayer *cffrml_create(u16 phyid, bool use_fc=
-s)
- 	return (struct cflayer *) this;
- }
-=20
-+void cffrml_free(struct cflayer *layer)
-+{
-+	struct cffrml *this =3D container_obj(layer);
-+	free_percpu(this->pcpu_refcnt);
-+	kfree(layer);
-+}
-+
- void cffrml_set_uplayer(struct cflayer *this, struct cflayer *up)
- {
- 	this->up =3D up;
-@@ -148,8 +164,23 @@ static void cffrml_ctrlcmd(struct cflayer *layr, e=
-num caif_ctrlcmd ctrl,
-=20
- void cffrml_put(struct cflayer *layr)
- {
-+	struct cffrml *this =3D container_obj(layr);
-+	if (layr !=3D NULL && this->pcpu_refcnt !=3D NULL)
-+		irqsafe_cpu_dec(*this->pcpu_refcnt);
- }
-=20
- void cffrml_hold(struct cflayer *layr)
- {
-+	struct cffrml *this =3D container_obj(layr);
-+	if (layr !=3D NULL && this->pcpu_refcnt !=3D NULL)
-+		irqsafe_cpu_inc(*this->pcpu_refcnt);
-+}
-+
-+int cffrml_refcnt_read(struct cflayer *layr)
-+{
-+	int i, refcnt =3D 0;
-+	struct cffrml *this =3D container_obj(layr);
-+	for_each_possible_cpu(i)
-+		refcnt +=3D *per_cpu_ptr(this->pcpu_refcnt, i);
-+	return refcnt;
- }
---=20
-1.7.1
+Some people suspect it does, but there's no hard data showing that. But
+then the problems are often hard to reproduce in the first place, so
+proving a correlation with mesh is even harder.
 
+The hardware based mesh support is based on an outdated draft of
+802.11s and not interoperable with any other device AFAIK. For most
+users Ad-hoc networks are the better option. Disabling mesh support as
+low-level as possible makes it less likely that any remains are causing
+trouble. With at least four layers (firmware, kernel, NM, Sugar)
+involved in managing connectivity and one of the (firmware) being closed
+source, I prefer to simplify things by eliminating three layers for
+functionality we don't intend to use. It makes debugging (and
+blaming ;) ) a lot easier.
+
+In the field, mesh support is currently disabled using
+/sys/class/net/eth0/lbs_mesh. However, it comes back after resume
+(possibly only if powercycled) and needs to be disabled again by
+post-resume hacks. Race conditions with NM are possible.
+
+A user space option would be to teach NM to disable mesh support (at
+runtime - we don't want to ship a custom NM package). I'd expect the
+patch to be much more invasive than the one posted for libertas.
+
+Sascha
+
+-- =
+
+http://sascha.silbe.org/
+http://www.infra-silbe.de/
+
+--=-1305292597-186208-1562-8493-5-=
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.1.0beta1 (GNU/Linux)
+
+iQEcBAEBCgAGBQJNzS8vAAoJELpz82VMF3Da94UH/Rluny57CQsZHDC+3ykgWRnc
++1LkVmBqZBDElLmRCsoPU2qPje2V6Hs+f17/GSHiYS3xVRCG7jgkFv5d27ix2b+L
+s6sSk4up44PZD39uLsquDZjgXlOKLHbISRsClbzh0C8d65o5LweJTot67q1lY3Qu
+Q3jheEgkoFzLwePxiGRqKW0i5o0pGCPlPcS7fzn2kyhPxOD/f6FPncGSv9o9iPdB
+UAoSr+QvbQWtCAuOjOzdJsOPWInNr566jhpchi0i9UUChdTs4MjH9SKSVh15qaOg
+XCYhXngwJqfMXbpr5++SF2SMd32Vk62uLNId9XxTf1GKuTOoebf2a5DzGZ89sqs=
+=C+AO
+-----END PGP SIGNATURE-----
+
+--=-1305292597-186208-1562-8493-5-=--
+
+--===============2970142355494864435==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Devel mailing list
+Devel@lists.laptop.org
+http://lists.laptop.org/listinfo/devel
+
+--===============2970142355494864435==--
