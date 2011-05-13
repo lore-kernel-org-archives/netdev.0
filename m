@@ -1,46 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/3] ipv4: Remove rt->rt_dst reference from
- ip_forward_options().
-Date: Fri, 13 May 2011 17:51:47 -0400 (EDT)
-Message-ID: <20110513.175147.1769699521454286707.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next-2.6] net: ipv4: add ping_group_range documentation
+Date: Sat, 14 May 2011 00:22:13 +0200
+Message-ID: <1305325333.3120.36.camel@edumazet-laptop>
+References: <20110510.121550.112583080.davem@davemloft.net>
+	 <20110513200100.GA3875@albatros>  <m2wrhuxp8c.fsf@firstfloor.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48469 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757238Ab1EMVvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 17:51:50 -0400
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4DLpmEt021461
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 13 May 2011 14:51:48 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, solar-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	peak-8SWXkBwqxoT9tFMPJ9EooEJFmxxWawaa@public.gmane.org, kees.cook-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
+	dan.j.rosenberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, eugene-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nelhage-SEpxePOmGhdBDgjK7y7TUQ@public.gmane.org,
+	kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, pekkas-UjJjq++bwZ7HOG6cAo2yLw@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <m2wrhuxp8c.fsf-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Le vendredi 13 mai 2011 =C3=A0 14:30 -0700, Andi Kleen a =C3=A9crit :
+> Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org> writes:
+>=20
+> > This patch adds IPPROTO_ICMP socket kind.  It makes it possible to =
+send
+> > ICMP_ECHO messages and receive the corresponding ICMP_ECHOREPLY mes=
+sages
+> > without any special privileges.  In other words, the patch makes it
+> > possible to implement setuid-less and CAP_NET_RAW-less /bin/ping.  =
+In
+> > order not to increase the kernel's attack surface, the new function=
+ality
+> > is disabled by default, but is enabled at bootup by supporting Linu=
+x
+> > distributions, optionally with restriction to a group or a group ra=
+nge
+> > (see below).
+>=20
+> You'll need to do a manpage patch too. Otherwise noone will know how =
+to use
+> it.
+
+Yes probably...
+
+It would be nice to copy part of changelog in=20
+Documentation/networking/ip-sysctl.txt
 
 
-At this point iph->daddr equals what rt->rt_dst would hold.
+socket(2) is restricted to the group range specified in
+"/proc/sys/net/ipv4/ping_group_range".  It is "1 0" by default, meaning
+that nobody (not even root) may create ping sockets.  Setting it to "10=
+0
+100" would grant permissions to the single group (to either make
+/sbin/ping g+s and owned by this group or to grant permissions to the
+"netadmins" group), "0 4294967295" would enable it for the world, "100
+4294967295" would enable it for the users, but not daemons.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/ip_options.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 89268ba..c3118e1 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -567,7 +567,7 @@ void ip_forward_options(struct sk_buff *skb)
- 		     ) {
- 			if (srrptr + 3 > srrspace)
- 				break;
--			if (memcmp(&rt->rt_dst, &optptr[srrptr-1], 4) == 0)
-+			if (memcmp(&ip_hdr(skb)->daddr, &optptr[srrptr-1], 4) == 0)
- 				break;
- 		}
- 		if (srrptr + 3 <= srrspace) {
--- 
-1.7.4.4
+Too late here, time for sleep...
 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
