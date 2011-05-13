@@ -1,68 +1,44 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: [RFC 3/3] RDMA/cma: Save PID of ID's owner
-Date: Fri, 13 May 2011 09:18:45 -0700
-Message-ID: <1305303525-11113-4-git-send-email-roland@kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC 1/3] RDMA: Add netlink infrastructure
+Date: Fri, 13 May 2011 09:44:25 -0700
+Message-ID: <1305305065.8178.9.camel@Joe-Laptop>
 References: <1305303525-11113-1-git-send-email-roland@kernel.org>
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog102.obsmtp.com ([74.125.245.72]:43044 "HELO
-	na3sys010aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1759486Ab1EMQS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 12:18:56 -0400
-In-Reply-To: <1305303525-11113-1-git-send-email-roland@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	 <1305303525-11113-2-git-send-email-roland@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Nir Muchtar <nirm-smomgflXvOZWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1305303525-11113-2-git-send-email-roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nir Muchtar <nirm@voltaire.com>
+On Fri, 2011-05-13 at 09:18 -0700, Roland Dreier wrote:
+> From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+> [Dave please do not apply even if this ends up in netdev patchwork!]
 
-[Dave please do not apply even if this ends up in netdev patchwork!]
+Just trivia:
 
-Save the PID associated with an RDMA CM ID for reporting via netlink.
+> diff --git a/drivers/infiniband/core/netlink.c b/drivers/infiniband/core/netlink.c
+[]
+> +#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
-NOT-Signed-off-by: Nir Muchtar <nirm@voltaire.com>
-NOT-Signed-off-by: Roland Dreier <roland@purestorage.com>
----
- drivers/infiniband/core/cma.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+Using #define pr_fmt(fmt) KBUILD_MODNAME ":%s: " fmt, __func__
+generally produces smaller overall object size, especially
+at 64 bit.
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index d4701a8..1e25434 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -133,6 +133,7 @@ struct rdma_id_private {
- 	u32			seq_num;
- 	u32			qkey;
- 	u32			qp_num;
-+	pid_t			owner;
- 	u8			srq;
- 	u8			tos;
- };
-@@ -423,6 +424,7 @@ struct rdma_cm_id *rdma_create_id(rdma_cm_event_handler event_handler,
- 	if (!id_priv)
- 		return ERR_PTR(-ENOMEM);
- 
-+	id_priv->owner = task_pid_nr(current);
- 	id_priv->state = RDMA_CM_IDLE;
- 	id_priv->id.context = context;
- 	id_priv->id.event_handler = event_handler;
-@@ -2678,6 +2680,9 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
- 	int ret;
- 
- 	id_priv = container_of(id, struct rdma_id_private, id);
-+
-+	id_priv->owner = task_pid_nr(current);
-+
- 	if (!cma_comp(id_priv, RDMA_CM_CONNECT))
- 		return -EINVAL;
- 
-@@ -3320,6 +3325,7 @@ static int cma_get_id_stats(struct sk_buff *skb, struct netlink_callback *cb)
- 			id_stats->port_space = id->ps;
- 			id_stats->cm_state = id_priv->state;
- 			id_stats->qp_num = id_priv->qp_num;
-+			id_stats->pid = id_priv->owner;
- 
- 			i_id++;
- 		}
--- 
-1.7.4.1
+For instance, here's the size of netlink.o at 32 bit:
 
+$ size drivers/infiniband/core/netlink.o.*
+   text	   data	    bss	    dec	    hex	filename
+   2663	    153	    736	   3552	    de0	drivers/infiniband/core/netlink.o.old
+   2640	    153	    736	   3529	    dc9	drivers/infiniband/core/netlink.o.new
+
+Also, I rarely find __func__ useful in message output.
+It may be more useful for active development/debugging.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
