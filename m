@@ -1,103 +1,49 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up hard
- right after logging in)
-Date: Fri, 13 May 2011 10:54:41 -0700
-Message-ID: <BANLkTinVT=9+-HhwXcyLBwrnhX9F9Qz3ww@mail.gmail.com>
-References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com>
- <BANLkTikMeyRTOB9q4PEAYWnZRZfk3wg=kQ@mail.gmail.com> <BANLkTi=dL+KyQ3Bm58_Uj4LP9WSpbzAfJA@mail.gmail.com>
- <BANLkTi=NdVUUZ=_bACzyeMGS3JWs0EMbWA@mail.gmail.com> <BANLkTimE2GkkhcFZtNrYZASWp0LDhUx=GQ@mail.gmail.com>
- <BANLkTinyzBnksHk_rt8K2pmg90q5WyZX3w@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bridge] Bug#625914: linux-image-2.6.38-2-amd64: bridging is
+ not interacting well with multicast in 2.6.38-4
+Date: Fri, 13 May 2011 11:03:26 -0700
+Message-ID: <20110513110326.60fa09b4@nehalam>
+References: <20110506201234.6297.70279.reportbug@ip6-localhost>
+	<1304995124.4065.157.camel@localhost>
+	<20110510043833.GG6397@morgul.net>
+	<1305031369.4065.259.camel@localhost>
+	<20110510180540.GI6397@morgul.net>
+	<20110510151100.52a9f8fa@nehalam>
+	<20110510233540.GJ6397@morgul.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christian Couder <christian.couder@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	git@vger.kernel.org, Shuang He <shuang.he@intel.com>
-To: Andrew Lutomirski <luto@mit.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTinyzBnksHk_rt8K2pmg90q5WyZX3w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <ben@decadent.org.uk>, 625914@bugs.debian.org,
+	bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>
+To: Noah Meyerhans <noahm@debian.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:57910 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751910Ab1EMSE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 14:04:26 -0400
+In-Reply-To: <20110510233540.GJ6397@morgul.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 13, 2011 at 10:24 AM, Andrew Lutomirski <luto@mit.edu> wrot=
-e:
-> On Fri, May 13, 2011 at 12:11 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> Ehh. That's the "non-fancy" way of testing, I'm afraid: if you canno=
-t
->> make assumption about the relationship between good and bad commits,
->> then you have to test _every_ commit.
->
-> Actually, I disagree. =A0I suspect, although I haven't convinced myse=
-lf
-> very well yet, that if you assume that the bug was caused one or more
-> times by some commit C that works but where all of C's parents don't
-> work (or vice versa), then there exists an algorithm that, at least
-> for most histories, will find such a commit in polylog tries given a
-> starting commit that works and another one that fails. =A0But I have =
-to
-> do real work before I think too much more about that.
+On Tue, 10 May 2011 16:35:40 -0700
+Noah Meyerhans <noahm@debian.org> wrote:
 
-So I do think we could probably add a few more concepts to git-bisect
-that could be quite useful.
+> On Tue, May 10, 2011 at 03:11:00PM -0700, Stephen Hemminger wrote:
+> > There were two more follow on commits in stable related to this.
+> > I recommend merging 2.6.38.6 which includes these.
+> 
+> The problem still exists in the current 2.6.38.6.  Backing out 5f1c356a
+> still solves the problem there.
+> 
+> I have not yet tried anything outside the stable-2.6.38.y tree, but it
+> seems like these same changes are present there, and it's unlikely that
+> other releases will work any better.
+> 
+> noah
+> 
 
-=46or example, in your case, since you had certain requirements of
-support that simply didn't exist earlier, something like
+Is this unique to the tap interfaces or does bridging multicast
+not work for all devices?
 
-   git bisect requires v2.6.38
 
-would have been really useful - telling git bisect that any commit
-that cannot reach that required commit is not even worth testing.
-
-That would still have been rather dangerous thing to say (it's not
-actually a _true_ requirement: there may well be points in the i915
-development tree that still had all the required sandybridge support,
-but hadn't been merged into 38 yet), but it would have limited your
-bisection space to a degree that would have been useful.
-
-So if that "requirement" wasn't actually true (and the bug was
-introduced by a commit that was based on something before v2.6.38),
-the bisect would have pinpointed the particular merge that brought the
-commit in. So "pinpointed" might in this case mean "thousands of
-commits", but it would still likely be a very useful end result.
-
-And no, git-bisect doesn't have that kind of concept. And it could
-potentially be quite useful.
-
-Another thing that would be useful for git bisect would be the notion
-of "git bisect cherry-pick", which is useful for applying particular
-commits that fix unrelated problems _while_ you bisect the one you're
-interested in. You can currently do it manually, or by playing around
-with 'git bisect run' and making hacky stuff, but it's a pain. You
-didn't hit that case, but it's actually the most common problem there
-is with git bisect - having multiple _different_ bugs, rather than
-having the same bug show up twice.
-
-Yet another issue - related to the "multiple different bugs" thing -
-is exactly the fact that 'git bisect' only has a concept of a "single
-bug". You cannot say "this revision is good, that revision has bug A,
-that revision has bug B", where bug A might hide bug B and vice versa.
-If you have multiple bugs and they change symptoms, it can be _really_
-painful to bisect things, because you have to basically always pick
-one of them, and then re-do the whole thing after you've found the
-first one.
-
-So there's no question that there might not be things we would want to
-do with "git bisect".
-
-Of course, one of the real advantages of "git bisect" is that for many
-cases it's pretty simple. You can (and we absolutely rely on this)
-have normal users that have _no_ idea about kernel development do a
-bisect - the only thing they need to be able to do is to compile and
-install their own kernel, and reliably recognize the problematic
-symptoms.
-
-And that's really the biggest advantage of bisecting - it doesn't
-_always_ work, but it works often enough, and it's totally mindless.
-So clever features and extra complexity and smart things that can be
-done with it is often not all that useful - because a major user base
-is very much the "I don't know kernel development, but I want to help
-and my machine shows badness" kind of situation.
-
-                          Linus
+-- 
