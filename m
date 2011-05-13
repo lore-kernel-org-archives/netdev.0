@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] olympic: convert to seq_file
-Date: Fri, 13 May 2011 16:51:01 -0400 (EDT)
-Message-ID: <20110513.165101.783039351348710195.davem@davemloft.net>
-References: <20110513204203.GB29261@p183>
+Subject: Re: [PATCH net-next] net:set valid name before calling ndo_init()
+Date: Fri, 13 May 2011 16:50:04 -0400 (EDT)
+Message-ID: <20110513.165004.1636748018642899792.davem@davemloft.net>
+References: <1305251217-4254-1-git-send-email-panweiping3@gmail.com>
+	<20110513071508.GC2733@psychotron>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40080 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755403Ab1EMUvE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 16:51:04 -0400
-In-Reply-To: <20110513204203.GB29261@p183>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: panweiping3@gmail.com, eric.dumazet@gmail.com,
+	mirq-linux@rere.qmqm.pl, therbert@google.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jpirko@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110513071508.GC2733@psychotron>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Fri, 13 May 2011 23:42:03 +0300
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 13 May 2011 09:15:09 +0200
 
-> ->read_proc interface is going away, switch to seq_file.
+> Fri, May 13, 2011 at 03:46:56AM CEST, panweiping3@gmail.com wrote:
+>>In commit 1c5cae815d19 (net: call dev_alloc_name from register_netdevice),
+>>a bug of bonding was invloved, see example 1 and 2.
+ ...
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Reviewed-by: Jiri Pirko <jpirko@redhat.com>
 
-Applied to net-next-2.6, thanks Alexey.
+Applied, thanks everyone.
