@@ -1,126 +1,61 @@
-From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-Subject: [PATCH v1] bonding,llc: Fix structure sizeof incompatibility for some PDUs
-Date: Fri, 13 May 2011 12:04:29 +0300
-Message-ID: <201105131204.29612.vitas@nppfactor.kiev.ua>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH 1/9] iwlegacy: Silence DEBUG_STRICT_USER_COPY_CHECKS=y
+ warning
+Date: Fri, 13 May 2011 11:08:26 +0200
+Message-ID: <20110513090825.GB2206@redhat.com>
+References: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
+ <1305244212-19183-2-git-send-email-sboyd@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Joe Perches <joe@perches.com>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.cyfra.ua ([62.80.160.182]:43471 "EHLO mx3.cyfra.ua"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932380Ab1EMJFC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2011 05:05:02 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>
+To: Stephen Boyd <sboyd@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1305244212-19183-2-git-send-email-sboyd@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With some combinations of arch/compiler (e.g. arm-linux-gcc) the sizeof 
-operator on structure returns value greater than expected. In cases when the 
-structure is used for mapping PDU fields it may lead to unexpected results 
-(such as holes and alignment problems in skb data). __packed prevents this 
-undesired behavior.
+On Thu, May 12, 2011 at 04:50:04PM -0700, Stephen Boyd wrote:
+> Enabling DEBUG_STRICT_USER_COPY_CHECKS causes the following
+> warning:
+> 
+> In file included from arch/x86/include/asm/uaccess.h:573,
+>                  from include/net/checksum.h:25,
+>                  from include/linux/skbuff.h:28,
+>                  from drivers/net/wireless/iwlegacy/iwl-4965-rs.c:28:
+> In function 'copy_from_user',
+>     inlined from 'iwl4965_rs_sta_dbgfs_scale_table_write' at
+>     drivers/net/wireless/iwlegacy/iwl-4965-rs.c:2616:
+> arch/x86/include/asm/uaccess_64.h:65:
+> warning: call to 'copy_from_user_overflow' declared with
+> attribute warning: copy_from_user() buffer size is not provably
+> correct
+> 
+> presumably due to buf_size being signed causing GCC to fail to
+> see that buf_size can't become negative.
+> 
+> Cc: Johannes Berg <johannes.berg@intel.com>
+> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+> ---
+>  drivers/net/wireless/iwlegacy/iwl-4965-rs.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/iwlegacy/iwl-4965-rs.c b/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
+> index 31ac672..cc4751c 100644
+> --- a/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
+> +++ b/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
+> @@ -2604,7 +2604,7 @@ static ssize_t iwl4965_rs_sta_dbgfs_scale_table_write(struct file *file,
+>  	struct iwl_lq_sta *lq_sta = file->private_data;
+>  	struct iwl_priv *priv;
+>  	char buf[64];
+> -	int buf_size;
+> +	size_t buf_size;
 
-Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
----
-v1: use __packed macro instead of __attribute__((packed))
+ACK, but we have more of that, perhaps you would like to fix them all.
+If you don't want to, I'll do it. Note this can be easily done by:
 
----
- drivers/net/bonding/bond_3ad.h |   10 +++++-----
- include/net/llc_pdu.h          |    8 ++++----
- 2 files changed, 9 insertions(+), 9 deletions(-)
+sed -i 's/int buf_size;/size_t buf_size;/g' drivers/net/wireless/iwlegacy/*.[ch]
 
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 291dbd4..0ee3f16 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -39,7 +39,7 @@
- 
- typedef struct mac_addr {
- 	u8 mac_addr_value[ETH_ALEN];
--} mac_addr_t;
-+} __packed mac_addr_t;
- 
- enum {
- 	BOND_AD_STABLE = 0,
-@@ -134,12 +134,12 @@ typedef struct lacpdu {
- 	u8 tlv_type_terminator;	     // = terminator
- 	u8 terminator_length;	     // = 0
- 	u8 reserved_50[50];	     // = 0
--} lacpdu_t;
-+} __packed lacpdu_t;
- 
- typedef struct lacpdu_header {
- 	struct ethhdr hdr;
- 	struct lacpdu lacpdu;
--} lacpdu_header_t;
-+} __packed lacpdu_header_t;
- 
- // Marker Protocol Data Unit(PDU) structure(43.5.3.2 in the 802.3ad standard)
- typedef struct bond_marker {
-@@ -155,12 +155,12 @@ typedef struct bond_marker {
- 	u8 tlv_type_terminator;	     //  = 0x00
- 	u8 terminator_length;	     //  = 0x00
- 	u8 reserved_90[90];	     //  = 0
--} bond_marker_t;
-+} __packed bond_marker_t;
- 
- typedef struct bond_marker_header {
- 	struct ethhdr hdr;
- 	struct bond_marker marker;
--} bond_marker_header_t;
-+} __packed bond_marker_header_t;
- 
- #pragma pack()
- 
-diff --git a/include/net/llc_pdu.h b/include/net/llc_pdu.h
-index 75b8e29..f57e7d4 100644
---- a/include/net/llc_pdu.h
-+++ b/include/net/llc_pdu.h
-@@ -199,7 +199,7 @@ struct llc_pdu_sn {
- 	u8 ssap;
- 	u8 ctrl_1;
- 	u8 ctrl_2;
--};
-+} __packed;
- 
- static inline struct llc_pdu_sn *llc_pdu_sn_hdr(struct sk_buff *skb)
- {
-@@ -211,7 +211,7 @@ struct llc_pdu_un {
- 	u8 dsap;
- 	u8 ssap;
- 	u8 ctrl_1;
--};
-+} __packed;
- 
- static inline struct llc_pdu_un *llc_pdu_un_hdr(struct sk_buff *skb)
- {
-@@ -359,7 +359,7 @@ struct llc_xid_info {
- 	u8 fmt_id;	/* always 0x81 for LLC */
- 	u8 type;	/* different if NULL/non-NULL LSAP */
- 	u8 rw;		/* sender receive window */
--};
-+} __packed;
- 
- /**
-  *	llc_pdu_init_as_xid_cmd - sets bytes 3, 4 & 5 of LLC header as XID
-@@ -415,7 +415,7 @@ struct llc_frmr_info {
- 	u8  curr_ssv;		/* current send state variable val */
- 	u8  curr_rsv;		/* current receive state variable */
- 	u8  ind_bits;		/* indicator bits set with macro */
--};
-+} __packed;
- 
- extern void llc_pdu_set_cmd_rsp(struct sk_buff *skb, u8 type);
- extern void llc_pdu_set_pf_bit(struct sk_buff *skb, u8 bit_value);
--- 
-1.7.3.4
-
+Stanislaw
