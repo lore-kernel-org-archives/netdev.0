@@ -1,76 +1,48 @@
-From: Noah Meyerhans <frodo@morgul.net>
-Subject: Re: [PATCH] bridge: fix forwarding of IPv6
-Date: Fri, 13 May 2011 14:00:15 -0700
-Message-ID: <20110513210015.GV6397@morgul.net>
-References: <20110506201234.6297.70279.reportbug@ip6-localhost> <1304995124.4065.157.camel@localhost> <20110510043833.GG6397@morgul.net> <1305031369.4065.259.camel@localhost> <20110510180540.GI6397@morgul.net> <20110510151100.52a9f8fa@nehalam> <20110510233540.GJ6397@morgul.net> <20110513125314.66861b31@nehalam>
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: Re: [PATCH 6/9] Bluetooth: Silence DEBUG_STRICT_USER_COPY_CHECKS=y
+ warning
+Date: Fri, 13 May 2011 18:06:20 -0300
+Message-ID: <20110513210620.GB2187@joana>
+References: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
+ <1305244212-19183-7-git-send-email-sboyd@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2RPSo2VWgDbGU+zh"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.morgul.net ([128.31.0.48]:46841 "EHLO minas.morgul.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756590Ab1EMVAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2011 17:00:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20110513125314.66861b31@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---2RPSo2VWgDbGU+zh
 Content-Type: text/plain; charset=us-ascii
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+To: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <1305244212-19183-7-git-send-email-sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 13, 2011 at 12:53:14PM -0700, Stephen Hemminger wrote:
-> The commit 6b1e960fdbd75dcd9bcc3ba5ff8898ff1ad30b6e
->     bridge: Reset IPCB when entering IP stack on NF_FORWARD
-> broke forwarding of IPV6 packets in bridge because it would
-> call bp_parse_ip_options with an IPV6 packet.
->=20
-> Reported-by: Noah Meyerhans <noahm@debian.org>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
+Hi Stephen,
+
+* Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> [2011-05-12 16:50:09 -0700]:
+
+> Enabling DEBUG_STRICT_USER_COPY_CHECKS causes the following
+> warning:
+> 
+> In function 'copy_from_user',
+>     inlined from 'rfcomm_sock_setsockopt' at
+>     net/bluetooth/rfcomm/sock.c:705:
+> arch/x86/include/asm/uaccess_64.h:65:
+> warning: call to 'copy_from_user_overflow' declared with
+> attribute warning: copy_from_user() buffer size is not provably
+> correct
+> 
+> presumably due to buf_size being signed causing GCC to fail to
+> see that buf_size can't become negative.
+> 
+> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+> Cc: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+> Signed-off-by: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 > ---
-> Patch against net-next-2.6 but must be applied to net-2.6
-> and stable as well
->=20
-> --- a/net/bridge/br_netfilter.c	2011-05-13 12:37:30.289646958 -0700
-> +++ b/net/bridge/br_netfilter.c	2011-05-13 12:38:07.820333938 -0700
-> @@ -737,7 +737,7 @@ static unsigned int br_nf_forward_ip(uns
->  		nf_bridge->mask |=3D BRNF_PKT_TYPE;
->  	}
-> =20
-> -	if (br_parse_ip_options(skb))
-> +	if (pf =3D=3D PF_INET && br_parse_ip_options(skb))
->  		return NF_DROP;
-> =20
->  	/* The physdev module checks on this */
->=20
+>  net/bluetooth/rfcomm/sock.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
 
-I can confirm that this patch fixes the behavior I've been seeing in the
-stable-2.6.38.y tree.  Thank you, Stephen!
+Applied, thanks.
 
-noah
-
-
-
---2RPSo2VWgDbGU+zh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iD8DBQFNzZveYrVLjBFATsMRAqZSAJ9eI6PteR7PUswZzyBjTPPlZwqpVACfZoSE
-YaFcCqSyLZx6AUTTCzGhIU0=
-=2WQK
------END PGP SIGNATURE-----
-
---2RPSo2VWgDbGU+zh--
+-- 
+Gustavo F. Padovan
+http://profusion.mobi
