@@ -1,29 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/2] signal reception fixes
-Date: Fri, 13 May 2011 14:42:10 -0400 (EDT)
-Message-ID: <20110513.144210.1419236978902923318.davem@davemloft.net>
-References: <93676d63-5688-44b4-a0d0-bb06e634cdbd@exht1.ad.emulex.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up hard
+ right after logging in)
+Date: Fri, 13 May 2011 11:41:46 -0700
+Message-ID: <BANLkTi=smoaARKyzWxFjid-E7qehmyAX8w@mail.gmail.com>
+References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com>
+ <BANLkTikMeyRTOB9q4PEAYWnZRZfk3wg=kQ@mail.gmail.com> <BANLkTi=dL+KyQ3Bm58_Uj4LP9WSpbzAfJA@mail.gmail.com>
+ <BANLkTi=NdVUUZ=_bACzyeMGS3JWs0EMbWA@mail.gmail.com> <BANLkTimE2GkkhcFZtNrYZASWp0LDhUx=GQ@mail.gmail.com>
+ <BANLkTinyzBnksHk_rt8K2pmg90q5WyZX3w@mail.gmail.com> <BANLkTinVT=9+-HhwXcyLBwrnhX9F9Qz3ww@mail.gmail.com>
+ <4DCD79A0.7000500@kdbg.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46070 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755403Ab1EMSmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 14:42:14 -0400
-In-Reply-To: <93676d63-5688-44b4-a0d0-bb06e634cdbd@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lutomirski <luto@mit.edu>,
+	Christian Couder <christian.couder@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	git@vger.kernel.org, Shuang He <shuang.he@intel.com>
+To: Johannes Sixt <j6t@kdbg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DCD79A0.7000500@kdbg.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Fri, 13 May 2011 11:02:14 +0530
+On Fri, May 13, 2011 at 11:34 AM, Johannes Sixt <j6t@kdbg.org> wrote:
+> Am 13.05.2011 19:54, schrieb Linus Torvalds:
+>> For example, in your case, since you had certain requirements of
+>> support that simply didn't exist earlier, something like
+>>
+>> =A0 =A0git bisect requires v2.6.38
+>>
+>> would have been really useful - telling git bisect that any commit
+>> that cannot reach that required commit is not even worth testing.
+>
+> You can already have this with
+>
+> =A0 git bisect good v2.6.38
+>
+> It sounds a bit unintuitive, but with a slight mind-twist it can even=
+ be
+> regarded as correct in a mathematical sense: when the precondition is
+> false, the result is true. ;-)
 
-> Incorporated Ben's comment w.r.t replacing schedule_timeout() with msleep()
-> 
-> Sathya Perla (2):
->   be2net: handle signal reception while waiting for POST
->   be2net: fix mbox polling for signal reception
+No. That's not the same thing AT ALL.
 
-Both applied, thanks.
+When you say that v2.6.38 is good, that means that everything that can
+be reached from 2.6.38 is good.
+
+NOT AT ALL the same thing as "git bisect requires v2.6.38" would be.
+
+The "requires v2.6.38" would basically say that anything that doesn't
+contain v2.6.38 is "off-limits". It's fine to call them "good", but
+that's not the same thing as "git bisect good v2.6.38".
+
+Why?
+
+Think about it. It's the "reachable from v2.6.38" vs "cannot reach
+v2.6.38" difference. That's a HUGE difference.
+
+                       Linus
