@@ -1,64 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning after merge of the net tree
-Date: Thu, 12 May 2011 23:04:05 -0400 (EDT)
-Message-ID: <20110512.230405.532264333967231887.davem@davemloft.net>
-References: <20110513114139.b1ed88ae.sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-next 1/2 RESEND v3] net: use NETIF_F_ALL_TSO for
+ vlan features
+Date: Thu, 12 May 2011 23:04:56 -0400 (EDT)
+Message-ID: <20110512.230456.2300204421860335018.davem@davemloft.net>
+References: <4DCBAE3B.3070201@cn.fujitsu.com>
+	<4DCC1372.3040607@chelsio.com>
+	<4DCC930D.80805@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110513114139.b1ed88ae.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dm@chelsio.com, netdev@vger.kernel.org, eilong@broadcom.com,
+	leedom@chelsio.com
+To: shanwei@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59957 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab1EMDFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 23:05:11 -0400
+In-Reply-To: <4DCC930D.80805@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 13 May 2011 11:41:39 +1000
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Fri, 13 May 2011 10:10:21 +0800
 
-> After merging the net tree, today's linux-next build (powerpc
-> ppc64_defconfig) produced this warning:
+> Dimitris Michailidis wrote, at 2011年05月13日 01:05:
+>> But vlan_features doesn't indicate by itself what the device supports, and it is because of this that you can use NETIF_F_ALL_TSO in vlan_features without much future breakage risk.  There's still the potential that in the future some additional TSO variant will be added that some of the drivers you're changing support, but not over VLANs, and then they'll need to undo you change.
+>  
+> For this part.
 > 
-> net/ipv4/ip_forward.c: In function 'ip_forward':
-> net/ipv4/ip_forward.c:87: warning: 'iph' may be used uninitialized in this function
-> 
-> Introduced by commit def57687e957 ("ipv4: Elide use of rt->rt_dst in
-> ip_forward()").  It may be a false positive, but it is not obvious how
-> iph is assigned before being used.
+> David, please discard this patch.
 
-My compiler didn't warn, (and I just double checked this) which is
-weird.  Sigh.
-
-Thanks, here is the fix I'll push:
-
---------------------
-ipv4: Fix 'iph' use before set.
-
-I swear none of my compilers warned about this, yet it is so
-obvious.
-
-> net/ipv4/ip_forward.c: In function 'ip_forward':
-> net/ipv4/ip_forward.c:87: warning: 'iph' may be used uninitialized in this function
-
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/ip_forward.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index fcbc0c8..3b34d1c 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -84,7 +84,7 @@ int ip_forward(struct sk_buff *skb)
- 
- 	rt = skb_rtable(skb);
- 
--	if (opt->is_strictroute && iph->daddr != rt->rt_gateway)
-+	if (opt->is_strictroute && ip_hdr(skb)->daddr != rt->rt_gateway)
- 		goto sr_failed;
- 
- 	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
--- 
-1.7.4.4
+Shan I've discarded all of your patches in this series.
