@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [net-next-2.6 06/10] caif: Protected in-flight packets using dev or sock refcont.
-Date: Fri, 13 May 2011 14:44:04 +0200
-Message-ID: <1305290648-9613-7-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [net-next-2.6 05/10] caif: Move refcount from service layer to sock and dev.
+Date: Fri, 13 May 2011 14:44:03 +0200
+Message-ID: <1305290648-9613-6-git-send-email-sjur.brandeland@stericsson.com>
 References: <1305290648-9613-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,235 +9,196 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sf1.isp.kq.no ([213.172.193.37]:54041 "EHLO
+Received: from sf1.isp.kq.no ([213.172.193.37]:58682 "EHLO
 	slow2.isp.as2116.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758948Ab1EMNCh (ORCPT
+	with ESMTP id S1758918Ab1EMNCh (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 09:02:37 -0400
 Received: from pmx.vmail.no (pmx.vmail.no [193.75.16.11])
-	by slow2.isp.as2116.net (Postfix) with ESMTP id 7E87340B3F
-	for <netdev@vger.kernel.org>; Fri, 13 May 2011 14:45:20 +0200 (CEST)
+	by slow2.isp.as2116.net (Postfix) with ESMTP id BC5CF40B14
+	for <netdev@vger.kernel.org>; Fri, 13 May 2011 14:45:10 +0200 (CEST)
 In-Reply-To: <1305290648-9613-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CAIF Socket Layer and ip-interface registers reference counters
-in CAIF service layer. The functions sock_hold, sock_put and
-dev_hold, dev_put are used by CAIF Stack to protect from freeing
-memory while packets are in-flight.
+Instead of having reference counts in caif service layers,
+we hook into existing refcount handling in socket layer and netdevice.
 
 Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
 ---
- include/net/caif/caif_dev.h |   29 +++++++++++++++++++++++++++++
- net/caif/caif_socket.c      |   19 +++++++++++++++++--
- net/caif/chnl_net.c         |   28 ++++++++++++++++++++++++++--
- 3 files changed, 72 insertions(+), 4 deletions(-)
+ include/net/caif/cfsrvl.h |   29 ++++++++++++++++-------------
+ net/caif/cfrfml.c         |    4 ++--
+ net/caif/cfsrvl.c         |   35 +++++++++++++++++++++++++++++------
+ 3 files changed, 47 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/caif/caif_dev.h b/include/net/caif/caif_dev.h
-index 7e3f7a6..6638435 100644
---- a/include/net/caif/caif_dev.h
-+++ b/include/net/caif/caif_dev.h
-@@ -74,6 +74,23 @@ int caif_connect_client(struct caif_connect_request =
-*conn_req,
- int caif_disconnect_client(struct cflayer *client_layer);
+diff --git a/include/net/caif/cfsrvl.h b/include/net/caif/cfsrvl.h
+index 6c8279c..0f59052 100644
+--- a/include/net/caif/cfsrvl.h
++++ b/include/net/caif/cfsrvl.h
+@@ -10,6 +10,7 @@
+ #include <linux/stddef.h>
+ #include <linux/types.h>
+ #include <linux/kref.h>
++#include <linux/rculist.h>
 =20
- /**
-+ * caif_client_register_refcnt - register ref-count functions provided=
- by client.
-+ *
-+ * @adapt_layer: Client layer using CAIF Stack.
-+ * @hold:	Function provided by client layer increasing ref-count
-+ * @put:	Function provided by client layer decreasing ref-count
-+ *
-+ * Client of the CAIF Stack must register functions for reference coun=
-ting.
-+ * These functions are called by the CAIF Stack for every upstream pac=
-ket,
-+ * and must therefore be implemented efficiently.
-+ *
-+ * Client should call caif_free_client when reference count degrease t=
-o zero.
-+ */
+ struct cfsrvl {
+ 	struct cflayer layer;
+@@ -17,9 +18,11 @@ struct cfsrvl {
+ 	bool phy_flow_on;
+ 	bool modem_flow_on;
+ 	bool supports_flowctrl;
+-	void (*release)(struct kref *);
++	void (*release)(struct cflayer *layer);
+ 	struct dev_info dev_info;
+-	struct kref ref;
++	void (*hold)(struct cflayer *lyr);
++	void (*put)(struct cflayer *lyr);
++	struct rcu_head rcu;
+ };
+=20
+ struct cflayer *cfvei_create(u8 linkid, struct dev_info *dev_info);
+@@ -29,6 +32,10 @@ struct cflayer *cfvidl_create(u8 linkid, struct dev_=
+info *dev_info);
+ struct cflayer *cfrfml_create(u8 linkid, struct dev_info *dev_info,
+ 				int mtu_size);
+ struct cflayer *cfdbgl_create(u8 linkid, struct dev_info *dev_info);
++
++void cfsrvl_ctrlcmd(struct cflayer *layr, enum caif_ctrlcmd ctrl,
++		     int phyid);
++
+ bool cfsrvl_phyid_match(struct cflayer *layer, int phyid);
+=20
+ void cfsrvl_init(struct cfsrvl *service,
+@@ -40,23 +47,19 @@ u8 cfsrvl_getphyid(struct cflayer *layer);
+=20
+ static inline void cfsrvl_get(struct cflayer *layr)
+ {
+-	struct cfsrvl *s;
+-	if (layr =3D=3D NULL)
++	struct cfsrvl *s =3D container_of(layr, struct cfsrvl, layer);
++	if (layr =3D=3D NULL || layr->up =3D=3D NULL || s->hold =3D=3D NULL)
+ 		return;
+-	s =3D container_of(layr, struct cfsrvl, layer);
+-	kref_get(&s->ref);
++
++	s->hold(layr->up);
+ }
+=20
+ static inline void cfsrvl_put(struct cflayer *layr)
+ {
+-	struct cfsrvl *s;
+-	if (layr =3D=3D NULL)
++	struct cfsrvl *s =3D container_of(layr, struct cfsrvl, layer);
++	if (layr =3D=3D NULL || layr->up =3D=3D NULL || s->hold =3D=3D NULL)
+ 		return;
+-	s =3D container_of(layr, struct cfsrvl, layer);
+=20
+-	WARN_ON(!s->release);
+-	if (s->release)
+-		kref_put(&s->ref, s->release);
++	s->put(layr->up);
+ }
+-
+ #endif				/* CFSRVL_H_ */
+diff --git a/net/caif/cfrfml.c b/net/caif/cfrfml.c
+index e2fb5fa..0deabb4 100644
+--- a/net/caif/cfrfml.c
++++ b/net/caif/cfrfml.c
+@@ -31,9 +31,9 @@ struct cfrfml {
+ 	spinlock_t sync;
+ };
+=20
+-static void cfrfml_release(struct kref *kref)
++static void cfrfml_release(struct cflayer *layer)
+ {
+-	struct cfsrvl *srvl =3D container_of(kref, struct cfsrvl, ref);
++	struct cfsrvl *srvl =3D container_of(layer, struct cfsrvl, layer);
+ 	struct cfrfml *rfml =3D container_obj(&srvl->layer);
+=20
+ 	if (rfml->incomplete_frm)
+diff --git a/net/caif/cfsrvl.c b/net/caif/cfsrvl.c
+index 24ba392..535a1e7 100644
+--- a/net/caif/cfsrvl.c
++++ b/net/caif/cfsrvl.c
+@@ -10,6 +10,7 @@
+ #include <linux/types.h>
+ #include <linux/errno.h>
+ #include <linux/slab.h>
++#include <linux/module.h>
+ #include <net/caif/caif_layer.h>
+ #include <net/caif/cfsrvl.h>
+ #include <net/caif/cfpkt.h>
+@@ -27,8 +28,8 @@ static void cfservl_ctrlcmd(struct cflayer *layr, enu=
+m caif_ctrlcmd ctrl,
+ {
+ 	struct cfsrvl *service =3D container_obj(layr);
+=20
+-	caif_assert(layr->up !=3D NULL);
+-	caif_assert(layr->up->ctrlcmd !=3D NULL);
++	if (layr->up =3D=3D NULL || layr->up->ctrlcmd =3D=3D NULL)
++		return;
+=20
+ 	switch (ctrl) {
+ 	case CAIF_CTRLCMD_INIT_RSP:
+@@ -151,9 +152,9 @@ static int cfservl_modemcmd(struct cflayer *layr, e=
+num caif_modemcmd ctrl)
+ 	return -EINVAL;
+ }
+=20
+-static void cfsrvl_release(struct kref *kref)
++static void cfsrvl_release(struct cflayer *layer)
+ {
+-	struct cfsrvl *service =3D container_of(kref, struct cfsrvl, ref);
++	struct cfsrvl *service =3D container_of(layer, struct cfsrvl, layer);
+ 	kfree(service);
+ }
+=20
+@@ -173,10 +174,8 @@ void cfsrvl_init(struct cfsrvl *service,
+ 	service->dev_info =3D *dev_info;
+ 	service->supports_flowctrl =3D supports_flowctrl;
+ 	service->release =3D cfsrvl_release;
+-	kref_init(&service->ref);
+ }
+=20
+-
+ bool cfsrvl_ready(struct cfsrvl *service, int *err)
+ {
+ 	if (service->open && service->modem_flow_on && service->phy_flow_on)
+@@ -189,6 +188,7 @@ bool cfsrvl_ready(struct cfsrvl *service, int *err)
+ 	*err =3D -EAGAIN;
+ 	return false;
+ }
++
+ u8 cfsrvl_getphyid(struct cflayer *layer)
+ {
+ 	struct cfsrvl *servl =3D container_obj(layer);
+@@ -200,3 +200,26 @@ bool cfsrvl_phyid_match(struct cflayer *layer, int=
+ phyid)
+ 	struct cfsrvl *servl =3D container_obj(layer);
+ 	return servl->dev_info.id =3D=3D phyid;
+ }
++
++void caif_free_client(struct cflayer *adap_layer)
++{
++	struct cfsrvl *servl;
++	if (adap_layer =3D=3D NULL || adap_layer->dn =3D=3D NULL)
++		return;
++	servl =3D container_obj(adap_layer->dn);
++	servl->release(&servl->layer);
++}
++EXPORT_SYMBOL(caif_free_client);
 +
 +void caif_client_register_refcnt(struct cflayer *adapt_layer,
 +					void (*hold)(struct cflayer *lyr),
-+					void (*put)(struct cflayer *lyr));
-+/**
-  * caif_connect_req_to_link_param - Translate configuration parameters
-  *				    from socket format to internal format.
-  * @cnfg:	Pointer to configuration handler
-@@ -83,8 +100,20 @@ int caif_disconnect_client(struct cflayer *client_l=
-ayer);
-  *			 setting up channels.
-  *
-  */
-+
- int caif_connect_req_to_link_param(struct cfcnfg *cnfg,
- 				   struct caif_connect_request *con_req,
- 				   struct cfctrl_link_param *setup_param);
-=20
-+/**
-+ * caif_free_client - Free memory used to manage the client in the CAI=
-=46 Stack.
-+ *
-+ * @client_layer: Client layer to be removed.
-+ *
-+ * This function must be called from client layer in order to free mem=
-ory.
-+ * Caller must guarantee that no packets are in flight upstream when c=
-alling
-+ * this function.
-+ */
-+void caif_free_client(struct cflayer *adap_layer);
-+
- #endif /* CAIF_DEV_H_ */
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index 2021242..01f612d 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -209,6 +209,18 @@ static int caif_sktrecv_cb(struct cflayer *layr, s=
-truct cfpkt *pkt)
- 	return 0;
- }
-=20
-+static void cfsk_hold(struct cflayer *layr)
++					void (*put)(struct cflayer *lyr))
 +{
-+	struct caifsock *cf_sk =3D container_of(layr, struct caifsock, layer)=
-;
-+	sock_hold(&cf_sk->sk);
++	struct cfsrvl *service;
++	service =3D container_of(adapt_layer->dn, struct cfsrvl, layer);
++
++	WARN_ON(adapt_layer =3D=3D NULL || adapt_layer->dn =3D=3D NULL);
++	service->hold =3D hold;
++	service->put =3D put;
 +}
-+
-+static void cfsk_put(struct cflayer *layr)
-+{
-+	struct caifsock *cf_sk =3D container_of(layr, struct caifsock, layer)=
-;
-+	sock_put(&cf_sk->sk);
-+}
-+
- /* Packet Control Callback function called from CAIF */
- static void caif_ctrl_cb(struct cflayer *layr,
- 				enum caif_ctrlcmd flow,
-@@ -232,6 +244,8 @@ static void caif_ctrl_cb(struct cflayer *layr,
-=20
- 	case CAIF_CTRLCMD_INIT_RSP:
- 		/* We're now connected */
-+		caif_client_register_refcnt(&cf_sk->layer,
-+						cfsk_hold, cfsk_put);
- 		dbfs_atomic_inc(&cnt.num_connect_resp);
- 		cf_sk->sk.sk_state =3D CAIF_CONNECTED;
- 		set_tx_flow_on(cf_sk);
-@@ -242,7 +256,6 @@ static void caif_ctrl_cb(struct cflayer *layr,
- 		/* We're now disconnected */
- 		cf_sk->sk.sk_state =3D CAIF_DISCONNECTED;
- 		cf_sk->sk.sk_state_change(&cf_sk->sk);
--		cfcnfg_release_adap_layer(&cf_sk->layer);
- 		break;
-=20
- 	case CAIF_CTRLCMD_INIT_FAIL_RSP:
-@@ -837,8 +850,10 @@ static int caif_connect(struct socket *sock, struc=
-t sockaddr *uaddr,
-=20
- 	dbfs_atomic_inc(&cnt.num_connect_req);
- 	cf_sk->layer.receive =3D caif_sktrecv_cb;
-+
- 	err =3D caif_connect_client(&cf_sk->conn_req,
- 				&cf_sk->layer, &ifindex, &headroom, &tailroom);
-+
- 	if (err < 0) {
- 		cf_sk->sk.sk_socket->state =3D SS_UNCONNECTED;
- 		cf_sk->sk.sk_state =3D CAIF_DISCONNECTED;
-@@ -940,7 +955,6 @@ static int caif_release(struct socket *sock)
- 	wake_up_interruptible_poll(sk_sleep(sk), POLLERR|POLLHUP);
-=20
- 	sock_orphan(sk);
--	cf_sk->layer.dn =3D NULL;
- 	sk_stream_kill_queues(&cf_sk->sk);
- 	release_sock(sk);
- 	sock_put(sk);
-@@ -1036,6 +1050,7 @@ static void caif_sock_destructor(struct sock *sk)
- 	}
- 	sk_stream_kill_queues(&cf_sk->sk);
- 	dbfs_atomic_dec(&cnt.caif_nr_socks);
-+	caif_free_client(&cf_sk->layer);
- }
-=20
- static int caif_create(struct net *net, struct socket *sock, int proto=
-col,
-diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
-index 6008d6d..9ef8f16 100644
---- a/net/caif/chnl_net.c
-+++ b/net/caif/chnl_net.c
-@@ -153,6 +153,18 @@ static void close_work(struct work_struct *work)
- }
- static DECLARE_WORK(close_worker, close_work);
-=20
-+static void chnl_hold(struct cflayer *lyr)
-+{
-+	struct chnl_net *priv =3D container_of(lyr, struct chnl_net, chnl);
-+	dev_hold(priv->netdev);
-+}
-+
-+static void chnl_put(struct cflayer *lyr)
-+{
-+	struct chnl_net *priv =3D container_of(lyr, struct chnl_net, chnl);
-+	dev_put(priv->netdev);
-+}
-+
- static void chnl_flowctrl_cb(struct cflayer *layr, enum caif_ctrlcmd f=
-low,
- 				int phyid)
- {
-@@ -190,6 +202,7 @@ static void chnl_flowctrl_cb(struct cflayer *layr, =
-enum caif_ctrlcmd flow,
- 		netif_wake_queue(priv->netdev);
- 		break;
- 	case CAIF_CTRLCMD_INIT_RSP:
-+		caif_client_register_refcnt(&priv->chnl, chnl_hold, chnl_put);
- 		priv->state =3D CAIF_CONNECTED;
- 		priv->flowenabled =3D true;
- 		netif_wake_queue(priv->netdev);
-@@ -373,11 +386,18 @@ static const struct net_device_ops netdev_ops =3D=
- {
- 	.ndo_start_xmit =3D chnl_net_start_xmit,
- };
-=20
-+static void chnl_net_destructor(struct net_device *dev)
-+{
-+	struct chnl_net *priv =3D netdev_priv(dev);
-+	caif_free_client(&priv->chnl);
-+	free_netdev(dev);
-+}
-+
- static void ipcaif_net_setup(struct net_device *dev)
- {
- 	struct chnl_net *priv;
- 	dev->netdev_ops =3D &netdev_ops;
--	dev->destructor =3D free_netdev;
-+	dev->destructor =3D chnl_net_destructor;
- 	dev->flags |=3D IFF_NOARP;
- 	dev->flags |=3D IFF_POINTOPOINT;
- 	dev->mtu =3D GPRS_PDP_MTU;
-@@ -391,7 +411,7 @@ static void ipcaif_net_setup(struct net_device *dev=
-)
- 	priv->conn_req.link_selector =3D CAIF_LINK_HIGH_BANDW;
- 	priv->conn_req.priority =3D CAIF_PRIO_LOW;
- 	/* Insert illegal value */
--	priv->conn_req.sockaddr.u.dgm.connection_id =3D -1;
-+	priv->conn_req.sockaddr.u.dgm.connection_id =3D 0;
- 	priv->flowenabled =3D false;
-=20
- 	init_waitqueue_head(&priv->netmgmt_wq);
-@@ -453,6 +473,10 @@ static int ipcaif_newlink(struct net *src_net, str=
-uct net_device *dev,
- 		pr_warn("device rtml registration failed\n");
- 	else
- 		list_add(&caifdev->list_field, &chnl_net_list);
-+
-+	/* Take ifindex as connection-id if null */
-+	if (caifdev->conn_req.sockaddr.u.dgm.connection_id =3D=3D 0)
-+		caifdev->conn_req.sockaddr.u.dgm.connection_id =3D dev->ifindex;
- 	return ret;
- }
-=20
++EXPORT_SYMBOL(caif_client_register_refcnt);
 --=20
 1.7.1
 
