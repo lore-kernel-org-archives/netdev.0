@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/isdn/hisax: Drop unused list
-Date: Fri, 13 May 2011 16:10:21 -0400 (EDT)
-Message-ID: <20110513.161021.1204095204011657113.davem@davemloft.net>
-References: <1305296139-16773-1-git-send-email-julia@diku.dk>
+Subject: Re: [PATCH v3] net: ipv4: add IPPROTO_ICMP socket kind
+Date: Fri, 13 May 2011 16:08:44 -0400 (EDT)
+Message-ID: <20110513.160844.521810878044428093.davem@davemloft.net>
+References: <20110510.121550.112583080.davem@davemloft.net>
+	<20110513200100.GA3875@albatros>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: julia@diku.dk
+Cc: solar@openwall.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, peak@argo.troja.mff.cuni.cz,
+	kees.cook@canonical.com, dan.j.rosenberg@gmail.com,
+	eugene@redhat.com, nelhage@ksplice.com, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: segoon@openwall.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305296139-16773-1-git-send-email-julia@diku.dk>
+In-Reply-To: <20110513200100.GA3875@albatros>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
-Date: Fri, 13 May 2011 16:15:39 +0200
+From: Vasiliy Kulikov <segoon@openwall.com>
+Date: Sat, 14 May 2011 00:01:00 +0400
 
-> The file st5481_init.c locally defines and initializes the adapter_list
-> variable, but does not use it for anything.  Removing the list makes it
-> possible to remove the list field from the st5481_adapter data structure.
-> In the function probe_st5481, it also makes it possible to free the locally
-> allocated adapter value on an error exit.
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+> This patch adds IPPROTO_ICMP socket kind.
 
-Applied, thanks a lot Julia.
+Applied, thanks for following through on all the review feedback.
