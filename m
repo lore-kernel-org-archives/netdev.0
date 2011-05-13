@@ -1,64 +1,34 @@
-From: Andrew Lutomirski <luto@mit.edu>
-Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up hard
- right after logging in)
-Date: Fri, 13 May 2011 12:13:23 -0400
-Message-ID: <BANLkTikDafbCnsXPoidnMBAE0qtd9aC4oQ@mail.gmail.com>
-References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com>
- <BANLkTikMeyRTOB9q4PEAYWnZRZfk3wg=kQ@mail.gmail.com> <BANLkTi=dL+KyQ3Bm58_Uj4LP9WSpbzAfJA@mail.gmail.com>
- <BANLkTi=NdVUUZ=_bACzyeMGS3JWs0EMbWA@mail.gmail.com> <BANLkTimE2GkkhcFZtNrYZASWp0LDhUx=GQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christian Couder <christian.couder@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	git@vger.kernel.org, Shuang He <shuang.he@intel.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTimE2GkkhcFZtNrYZASWp0LDhUx=GQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [RFC 0/3] RDMA: Add netlink infrastructure
+Date: Fri, 13 May 2011 09:18:42 -0700
+Message-ID: <1305303525-11113-1-git-send-email-roland@kernel.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 13, 2011 at 12:11 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Fri, May 13, 2011 at 7:56 AM, Andrew Lutomirski <luto@mit.edu> wro=
-te:
->>
->> So what I really want is a fancy version of git bisect that makes no
->> assumptions about the relationship of good and bad commits in the
->> graph and just finds me a commit that is bad but for which all paren=
-ts
->> are good or vice versa.
->
-> Ehh. That's the "non-fancy" way of testing, I'm afraid: if you cannot
-> make assumption about the relationship between good and bad commits,
-> then you have to test _every_ commit.
->
-> So yes, bisection has its problems. But they really do come from the
-> fact that it's very efficient. When you have (on average) about ten
-> thousand commits between releases, you have to make assumptions about
-> the relationships. But once you do that, the efficiency also results
-> in a certain fragility.
->
-> Think of it as a compression method: it generates the smallest
-> possible set of test points for you. But it's a "lossy" compression -
-> you don't test everything. And it's extreme: it boils down 10k commit
-> events to about 13 bisection events. If anything goes wrong (like the
-> bug not being entirely repeatable, or the bug comes and goes), it wil=
-l
-> give the wrong answer.
->
-> The good news is that _usually_ it works really well. And when the
-> choice is between "works really well for 10k commits but can have
-> problems" and "you need to test all 10k commits", the "can have
-> problems" part turns out to be a pretty small downside ;)
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
 
-In conclusion, I found the problem.  It's a clusterfuck and I think
-there's no way that any bisection tool under any sane assumptions
-could have found it.  Patch coming in a couple seconds b/c I think it
-needs to go in to 2.6.39.
+Hi,
 
---Andy
+Here are the highlights of a patch series adding support for getting
+information on active RDMA connections via netlink.  I would really
+appreciate it if netlink experts could take a look and make sure we
+are doing this the right way and using a suitably extensible
+structure.
 
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Linus
->
+I'm by no means particularly knowledgeable about netlink, so although
+the RDMA side of things looks OK to me, I hope we can get some level
+of review of the netlink side of things; the changelog for patch 2/3
+tries to explain the messages we're using.
+
+The full series based on 2.6.39-rc7 is also available at:
+
+    git://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git netlink
+
+Thanks!
+  Roland
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
