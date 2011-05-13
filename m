@@ -1,37 +1,47 @@
-From: Johannes Sixt <j6t@kdbg.org>
-Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up
- hard right after logging in)
-Date: Fri, 13 May 2011 20:34:08 +0200
-Message-ID: <4DCD79A0.7000500@kdbg.org>
-References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com> <BANLkTikMeyRTOB9q4PEAYWnZRZfk3wg=kQ@mail.gmail.com> <BANLkTi=dL+KyQ3Bm58_Uj4LP9WSpbzAfJA@mail.gmail.com> <BANLkTi=NdVUUZ=_bACzyeMGS3JWs0EMbWA@mail.gmail.com> <BANLkTimE2GkkhcFZtNrYZASWp0LDhUx=GQ@mail.gmail.com> <BANLkTinyzBnksHk_rt8K2pmg90q5WyZX3w@mail.gmail.com> <BANLkTinVT=9+-HhwXcyLBwrnhX9F9Qz3ww@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv4 net-next-2.6] ethtool: Added support for FW dump
+Date: Fri, 13 May 2011 14:40:01 -0400 (EDT)
+Message-ID: <20110513.144001.1731111272250389970.davem@davemloft.net>
+References: <1305240515-29237-1-git-send-email-anirban.chakraborty@qlogic.com>
+	<1305240515-29237-2-git-send-email-anirban.chakraborty@qlogic.com>
+	<1305241507.14174.3.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lutomirski <luto@mit.edu>,
-	Christian Couder <christian.couder@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	git@vger.kernel.org, Shuang He <shuang.he@intel.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTinVT=9+-HhwXcyLBwrnhX9F9Qz3ww@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: anirban.chakraborty@qlogic.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45976 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219Ab1EMSkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 14:40:07 -0400
+In-Reply-To: <1305241507.14174.3.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 13.05.2011 19:54, schrieb Linus Torvalds:
-> For example, in your case, since you had certain requirements of
-> support that simply didn't exist earlier, something like
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 13 May 2011 00:05:07 +0100
+
+> On Thu, 2011-05-12 at 15:48 -0700, Anirban Chakraborty wrote:
+>> Added code to take FW dump via ethtool. Dump level can be controlled via setting the
+>> dump flag. A get function is provided to query the current setting of the dump flag.
+>> Dump data is obtained from the driver via a separate get function.
+>> 
+>> Changes from v3:
+>> Fixed buffer length issue in ethtool_get_dump_data function.
+>> Updated kernel doc for ethtool_dump struct and get_dump_flag function.
+>> 
+>> Changes from v2:
+>> Provided separate commands for get flag and data.
+>> Check for minimum of the two buffer length obtained via ethtool and driver and
+>> use that for dump buffer
+>> Pass up the driver return error codes up to the caller.
+>> Added kernel doc comments.
+>> 
+>> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 > 
->    git bisect requires v2.6.38
-> 
-> would have been really useful - telling git bisect that any commit
-> that cannot reach that required commit is not even worth testing.
+> There is one tiny error I didn't notice before, which I think David can
+> fix up if and when he applies this:
 
-You can already have this with
-
-   git bisect good v2.6.38
-
-It sounds a bit unintuitive, but with a slight mind-twist it can even be
-regarded as correct in a mathematical sense: when the precondition is
-false, the result is true. ;-)
-
--- Hannes
+Applied with "u8/__u8" fixed up, thanks!
