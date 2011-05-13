@@ -1,53 +1,74 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2/3] net/rfkill/core.c: Avoid leaving freed data in a
- list
-Date: Fri, 13 May 2011 15:55:12 +0200
-Message-ID: <1305294912.3468.0.camel@jlt3.sipsolutions.net>
-References: <1305294731-12127-2-git-send-email-julia@diku.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH] drivers/isdn/hisax: Drop unused list
+Date: Fri, 13 May 2011 16:15:39 +0200
+Message-ID: <1305296139-16773-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305294731-12127-2-git-send-email-julia@diku.dk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-05-13 at 15:52 +0200, Julia Lawall wrote:
-> The list_for_each_entry loop can fail, in which case the list element is
-> not removed from the list rfkill_fds.  Since this list is not accessed by
-> the loop, the addition of &data->list into the list is just moved after the
-> loop.
-> 
-> The sematic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @@
-> expression E,E1,E2;
-> identifier l;
-> @@
-> 
-> *list_add(&E->l,E1);
-> ... when != E1
->     when != list_del(&E->l)
->     when != list_del_init(&E->l)
->     when != E = E2
-> *kfree(E);// </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
-> 
-> ---
-> I have only verified that rfkill_fds is not accessed by the loop by
-> inspecting the code.  If this analysis is not correct, the other solution
-> would be to leave the list_add where it is and delete the element from the
-> list explicitly.
+The file st5481_init.c locally defines and initializes the adapter_list
+variable, but does not use it for anything.  Removing the list makes it
+possible to remove the list field from the st5481_adapter data structure.
+In the function probe_st5481, it also makes it possible to free the locally
+allocated adapter value on an error exit.
 
-Looks right to me, thanks!
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
-johannes
+---
+ drivers/isdn/hisax/st5481.h      |    1 -
+ drivers/isdn/hisax/st5481_init.c |    6 +-----
+ 2 files changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/drivers/isdn/hisax/st5481.h b/drivers/isdn/hisax/st5481.h
+index 64f78a8..b9054cb 100644
+--- a/drivers/isdn/hisax/st5481.h
++++ b/drivers/isdn/hisax/st5481.h
+@@ -377,7 +377,6 @@ struct st5481_bcs {
+ };
+ 
+ struct st5481_adapter {
+-	struct list_head list;
+ 	int number_of_leds;
+ 	struct usb_device *usb_dev;
+ 	struct hisax_d_if hisax_d_if;
+diff --git a/drivers/isdn/hisax/st5481_init.c b/drivers/isdn/hisax/st5481_init.c
+index 1375123..9f7fd18 100644
+--- a/drivers/isdn/hisax/st5481_init.c
++++ b/drivers/isdn/hisax/st5481_init.c
+@@ -46,8 +46,6 @@ module_param(debug, int, 0);
+ #endif
+ int st5481_debug;
+ 
+-static LIST_HEAD(adapter_list);
+-
+ /* ======================================================================
+  * registration/deregistration with the USB layer
+  */
+@@ -86,7 +84,6 @@ static int probe_st5481(struct usb_interface *intf,
+ 		adapter->bcs[i].b_if.ifc.priv = &adapter->bcs[i];
+ 		adapter->bcs[i].b_if.ifc.l2l1 = st5481_b_l2l1;
+ 	}
+-	list_add(&adapter->list, &adapter_list);
+ 
+ 	retval = st5481_setup_usb(adapter);
+ 	if (retval < 0)
+@@ -125,6 +122,7 @@ static int probe_st5481(struct usb_interface *intf,
+  err_usb:
+ 	st5481_release_usb(adapter);
+  err:
++	kfree(adapter);
+ 	return -EIO;
+ }
+ 
+@@ -142,8 +140,6 @@ static void disconnect_st5481(struct usb_interface *intf)
+ 	if (!adapter)
+ 		return;
+ 	
+-	list_del(&adapter->list);
+-
+ 	st5481_stop(adapter);
+ 	st5481_release_b(&adapter->bcs[1]);
+ 	st5481_release_b(&adapter->bcs[0]);
