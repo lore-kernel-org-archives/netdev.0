@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next-2.6] ethtool: Added support for FW dump
-Date: Fri, 13 May 2011 14:40:01 -0400 (EDT)
-Message-ID: <20110513.144001.1731111272250389970.davem@davemloft.net>
-References: <1305240515-29237-1-git-send-email-anirban.chakraborty@qlogic.com>
-	<1305240515-29237-2-git-send-email-anirban.chakraborty@qlogic.com>
-	<1305241507.14174.3.camel@bwh-desktop>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC 1/3] RDMA: Add netlink infrastructure
+Date: Fri, 13 May 2011 11:40:45 -0700
+Message-ID: <1305312045.8178.30.camel@Joe-Laptop>
+References: <1305303525-11113-1-git-send-email-roland@kernel.org>
+	 <1305303525-11113-2-git-send-email-roland@kernel.org>
+	 <1305305065.8178.9.camel@Joe-Laptop>
+	 <BANLkTikpzn6R-QH__dtmwz=fO1QMUN+qag@mail.gmail.com>
+	 <1305308167.8178.20.camel@Joe-Laptop>
+	 <BANLkTi=P7u2XPx+_F9d9waP5xuXqDYb5yQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: anirban.chakraborty@qlogic.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45976 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219Ab1EMSkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 14:40:07 -0400
-In-Reply-To: <1305241507.14174.3.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Nir Muchtar <nirm-smomgflXvOZWk0Htik3J/w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BANLkTi=P7u2XPx+_F9d9waP5xuXqDYb5yQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 13 May 2011 00:05:07 +0100
+On Fri, 2011-05-13 at 20:12 +0200, Bart Van Assche wrote:
+> On Fri, May 13, 2011 at 7:36 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> > On Fri, 2011-05-13 at 19:18 +0200, Bart Van Assche wrote:
+> > One long term goal for me is a generic run-time mechanism
+> > to prefix all pr_<level> uses not just the <foo>_dbg ones
+> > with or without module or function name.
+> > It will also allow the removal of all the uses of
+> > #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> > New #define pr_fmt lines need to be added to the current
+> > files that use pr_<level> without a prefix so it could
+> > take awhile.
+> Something like the +m flag documented in
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=Documentation/dynamic-debug-howto.txt;hb=HEAD
+> ?
 
-> On Thu, 2011-05-12 at 15:48 -0700, Anirban Chakraborty wrote:
->> Added code to take FW dump via ethtool. Dump level can be controlled via setting the
->> dump flag. A get function is provided to query the current setting of the dump flag.
->> Dump data is obtained from the driver via a separate get function.
->> 
->> Changes from v3:
->> Fixed buffer length issue in ethtool_get_dump_data function.
->> Updated kernel doc for ethtool_dump struct and get_dump_flag function.
->> 
->> Changes from v2:
->> Provided separate commands for get flag and data.
->> Check for minimum of the two buffer length obtained via ethtool and driver and
->> use that for dump buffer
->> Pass up the driver return error codes up to the caller.
->> Added kernel doc comments.
->> 
->> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
-> 
-> There is one tiny error I didn't notice before, which I think David can
-> fix up if and when he applies this:
+Yes, akin to that, but using /proc not debugfs.
 
-Applied with "u8/__u8" fixed up, thanks!
+Basically, just per module on/off prefixing of
+module name and optionally function name via a
+CONFIG_PR_LEVEL_STORE_FUNCTION_NAME.
+
+I'd like to remove all current specific uses of
+__func__ in pr_<level> and use per module
+/proc controls to add them back as requested.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
