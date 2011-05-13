@@ -1,26 +1,27 @@
 From: Andrew Lutomirski <luto@mit.edu>
 Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up hard
  right after logging in)
-Date: Fri, 13 May 2011 09:38:18 -0400
-Message-ID: <BANLkTi=dL+KyQ3Bm58_Uj4LP9WSpbzAfJA@mail.gmail.com>
-References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com> <BANLkTikMeyRTOB9q4PEAYWnZRZfk3wg=kQ@mail.gmail.com>
+Date: Fri, 13 May 2011 09:39:14 -0400
+Message-ID: <BANLkTinoGfj1NUzTveSH0vgwZczCaFr8HA@mail.gmail.com>
+References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com> <BANLkTi=YDZa+BRaG90vJsjrT9VxgySrDRQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	git@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Shuang He <shuang.he@intel.com>
-To: Christian Couder <christian.couder@gmail.com>
+	git@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTikMeyRTOB9q4PEAYWnZRZfk3wg=kQ@mail.gmail.com>
+In-Reply-To: <BANLkTi=YDZa+BRaG90vJsjrT9VxgySrDRQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 13, 2011 at 4:20 AM, Christian Couder
-<christian.couder@gmail.com> wrote:
-> On Thu, May 12, 2011 at 7:15 PM, Andrew Lutomirski <luto@mit.edu> wro=
-te:
+[resend because the Android gmail client apparently generates HTML
+emails even for plain text]
+
+On Thu, May 12, 2011 at 1:37 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Thu, May 12, 2011 at 10:15 AM, Andrew Lutomirski <luto@mit.edu> wr=
+ote:
 >>
 >> OK, this sucks. =A0In the course of bisecting this, I've hit two oth=
 er
@@ -28,43 +29,31 @@ er
 >> of kernels. =A0Do I have two questions:
 >>
 >> 1. Anyone have any ideas from looking at the log?
->>
->> It looks like most of what's left is network code, so cc netdev.
->>
+>
+> Nope, that doesn't look very helpful.
+>
 >> 2. =A0The !&$#@ bisection is skipping all over the place. =A0I've se=
 en
->> 2.6.37 versions and all manner of -rc's out of order. =A0Linus, and
->> other people who like pontificating about git bisection: is there an=
-y
->> way to get the bisection to follow Linus' tree? =A0I think that if
->> bisect could be persuaded to consider only changes that are reached =
-by
->> following only the *first* merge parent all the way from the bad
->> revision to the good revision, then the bisection would build versio=
-ns
->> that were at least good enough for Linus to pull and might have fewe=
-r
->> bisection-killing bugs.
->>
->> (This isn't a new idea [1], and git rev-list --bisect --first-parent
->> isn't so bad except that it doesn't bisect.)
+>> 2.6.37 versions and all manner of -rc's out of order.
 >
-> Did you forget to put the reference [1] in your email? Was it this on=
-e
-> you were thinking about:
+> That's the _point_ of bisection. It jumps around. You can start off
+> trying to pick points on my development tree, but I only have a
+> hundred merges or so. You're going to start delving into the actual
+> development versions very quickly. And if you don't do it early,
+> bisection is going to be much much slower, because it's not going to
+> pick half-way points.
 >
-> http://thread.gmane.org/gmane.comp.version-control.git/165433/
+> So bisection works so well exactly because it picks points that are
+> far away from each other, and you should just totally ignore the
+> version number. It's meaningless. Looking at it just confuses you.
+> Don't do it.
+>
 
-No, it was this:
+I actually had better results looking at the version number, saying
+"blech", and running git merge v2.6.38.  (git bisect good gets a
+little confused if I feed it the merge result, but I can just lie.)
 
-http://stackoverflow.com/questions/5638211/how-do-you-get-git-bisect-to=
--ignore-merged-branches
+Anyway, I must have made a mistake somewhere.  The regression is in
+drm (presumably i915) and it has a new thread now.
 
 --Andy
-
->
-> ?
->
-> Thanks,
-> Christian.
->
