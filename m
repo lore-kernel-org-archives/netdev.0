@@ -1,235 +1,68 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [RFC 2/3] RDMA/cma: Add support for netlink statistics export
-Date: Fri, 13 May 2011 09:18:44 -0700
-Message-ID: <1305303525-11113-3-git-send-email-roland@kernel.org>
+From: Roland Dreier <roland@kernel.org>
+Subject: [RFC 3/3] RDMA/cma: Save PID of ID's owner
+Date: Fri, 13 May 2011 09:18:45 -0700
+Message-ID: <1305303525-11113-4-git-send-email-roland@kernel.org>
 References: <1305303525-11113-1-git-send-email-roland@kernel.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1305303525-11113-1-git-send-email-roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys010aog102.obsmtp.com ([74.125.245.72]:43044 "HELO
+	na3sys010aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1759486Ab1EMQS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 12:18:56 -0400
+In-Reply-To: <1305303525-11113-1-git-send-email-roland@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nir Muchtar <nirm-smomgflXvOZWk0Htik3J/w@public.gmane.org>
+From: Nir Muchtar <nirm@voltaire.com>
 
 [Dave please do not apply even if this ends up in netdev patchwork!]
 
-Add callbacks and data types for statistics export of all current
-devices/ids.  The schema for RDMA CM is a series of netlink messages.
-Each one contains an rdma_cm_stat struct.  Additionally, two netlink
-attributes are created for the addresses for each message (if
-applicable).
+Save the PID associated with an RDMA CM ID for reporting via netlink.
 
-Their types used are:
-RDMA_NL_RDMA_CM_ATTR_SRC_ADDR (The source address for this ID)
-RDMA_NL_RDMA_CM_ATTR_DST_ADDR (The destination address for this ID)
-sockaddr_* structs are encapsulated within these attributes.
-
-In other words, every transaction contains a series of messages like:
-
--------message 1-------
-struct rdma_cm_id_stats {
-       __u32 qp_num;
-       __u32 bound_dev_if;
-       __u32 port_space;
-       __s32 pid;
-       __u8 cm_state;
-       __u8 node_type;
-       __u8 port_num;
-       __u8 reserved;
-}
-RDMA_NL_RDMA_CM_ATTR_SRC_ADDR attribute - contains the source address
-RDMA_NL_RDMA_CM_ATTR_DST_ADDR attribute - contains the destination address
--------end 1-------
--------message 2-------
-struct rdma_cm_id_stats
-RDMA_NL_RDMA_CM_ATTR_SRC_ADDR attribute
-RDMA_NL_RDMA_CM_ATTR_DST_ADDR attribute
--------end 2-------
-
-NOT-Signed-off-by: Nir Muchtar <nirm-smomgflXvOZWk0Htik3J/w@public.gmane.org>
-NOT-Signed-off-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+NOT-Signed-off-by: Nir Muchtar <nirm@voltaire.com>
+NOT-Signed-off-by: Roland Dreier <roland@purestorage.com>
 ---
- drivers/infiniband/core/cma.c |   98 +++++++++++++++++++++++++++++++++++++++++
- include/rdma/rdma_netlink.h   |   28 ++++++++++++
- 2 files changed, 126 insertions(+), 0 deletions(-)
+ drivers/infiniband/core/cma.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 05b55e4..d4701a8 100644
+index d4701a8..1e25434 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -47,6 +47,7 @@
+@@ -133,6 +133,7 @@ struct rdma_id_private {
+ 	u32			seq_num;
+ 	u32			qkey;
+ 	u32			qp_num;
++	pid_t			owner;
+ 	u8			srq;
+ 	u8			tos;
+ };
+@@ -423,6 +424,7 @@ struct rdma_cm_id *rdma_create_id(rdma_cm_event_handler event_handler,
+ 	if (!id_priv)
+ 		return ERR_PTR(-ENOMEM);
  
- #include <rdma/rdma_cm.h>
- #include <rdma/rdma_cm_ib.h>
-+#include <rdma/rdma_netlink.h>
- #include <rdma/ib_cache.h>
- #include <rdma/ib_cm.h>
- #include <rdma/ib_sa.h>
-@@ -3247,6 +3248,98 @@ static void cma_remove_one(struct ib_device *device)
- 	kfree(cma_dev);
- }
- 
-+static int cma_get_id_stats(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct nlmsghdr *nlh;
-+	struct rdma_cm_id_stats *id_stats;
-+	struct rdma_id_private *id_priv;
-+	struct rdma_cm_id *id = NULL;
-+	struct cma_device *cma_dev;
-+	int i_dev = 0, i_id = 0;
-+
-+	/*
-+	 * We export all of the IDs as a sequence of messages.  Each
-+	 * ID gets its own netlink message.
-+	 */
-+	mutex_lock(&lock);
-+
-+	list_for_each_entry(cma_dev, &dev_list, list) {
-+		if (i_dev < cb->args[0]) {
-+			i_dev++;
-+			continue;
-+		}
-+
-+		i_id = 0;
-+		list_for_each_entry(id_priv, &cma_dev->id_list, list) {
-+			if (i_id < cb->args[1]) {
-+				i_id++;
-+				continue;
-+			}
-+
-+			id_stats = ibnl_put_msg(skb, &nlh, cb->nlh->nlmsg_seq,
-+						sizeof *id_stats, RDMA_NL_RDMA_CM,
-+						RDMA_NL_RDMA_CM_ID_STATS);
-+			if (!id_stats)
-+				goto out;
-+
-+			memset(id_stats, 0, sizeof *id_stats);
-+			id = &id_priv->id;
-+			id_stats->node_type = id->route.addr.dev_addr.dev_type;
-+			id_stats->port_num = id->port_num;
-+			id_stats->bound_dev_if =
-+				id->route.addr.dev_addr.bound_dev_if;
-+
-+			if (id->route.addr.src_addr.ss_family == AF_INET) {
-+				if (ibnl_put_attr(skb, nlh,
-+						  sizeof(struct sockaddr_in),
-+						  &id->route.addr.src_addr,
-+						  RDMA_NL_RDMA_CM_ATTR_SRC_ADDR)) {
-+					goto out;
-+				}
-+				if (ibnl_put_attr(skb, nlh,
-+						  sizeof(struct sockaddr_in),
-+						  &id->route.addr.dst_addr,
-+						  RDMA_NL_RDMA_CM_ATTR_DST_ADDR)) {
-+					goto out;
-+				}
-+			} else if (id->route.addr.src_addr.ss_family == AF_INET6) {
-+				if (ibnl_put_attr(skb, nlh,
-+						  sizeof(struct sockaddr_in6),
-+						  &id->route.addr.src_addr,
-+						  RDMA_NL_RDMA_CM_ATTR_SRC_ADDR)) {
-+					goto out;
-+				}
-+				if (ibnl_put_attr(skb, nlh,
-+						  sizeof(struct sockaddr_in6),
-+						  &id->route.addr.dst_addr,
-+						  RDMA_NL_RDMA_CM_ATTR_DST_ADDR)) {
-+					goto out;
-+				}
-+			}
-+
-+			id_stats->port_space = id->ps;
-+			id_stats->cm_state = id_priv->state;
-+			id_stats->qp_num = id_priv->qp_num;
-+
-+			i_id++;
-+		}
-+
-+		cb->args[1] = 0;
-+		i_dev++;
-+	}
-+
-+out:
-+	mutex_unlock(&lock);
-+	cb->args[0] = i_dev;
-+	cb->args[1] = i_id;
-+
-+	return skb->len;
-+}
-+
-+static const struct ibnl_client_cbs cma_cb_table[] = {
-+	[RDMA_NL_RDMA_CM_ID_STATS] = { .dump = cma_get_id_stats },
-+};
-+
- static int __init cma_init(void)
- {
++	id_priv->owner = task_pid_nr(current);
+ 	id_priv->state = RDMA_CM_IDLE;
+ 	id_priv->id.context = context;
+ 	id_priv->id.event_handler = event_handler;
+@@ -2678,6 +2680,9 @@ int rdma_accept(struct rdma_cm_id *id, struct rdma_conn_param *conn_param)
  	int ret;
-@@ -3262,6 +3355,10 @@ static int __init cma_init(void)
- 	ret = ib_register_client(&cma_client);
- 	if (ret)
- 		goto err;
-+
-+	if (ibnl_add_client(RDMA_NL_RDMA_CM, RDMA_NL_RDMA_CM_NUM_OPS, cma_cb_table))
-+		printk(KERN_WARNING "RDMA CMA: failed to add netlink callback\n");
-+
- 	return 0;
  
- err:
-@@ -3274,6 +3371,7 @@ err:
+ 	id_priv = container_of(id, struct rdma_id_private, id);
++
++	id_priv->owner = task_pid_nr(current);
++
+ 	if (!cma_comp(id_priv, RDMA_CM_CONNECT))
+ 		return -EINVAL;
  
- static void __exit cma_cleanup(void)
- {
-+	ibnl_remove_client(RDMA_NL_RDMA_CM);
- 	ib_unregister_client(&cma_client);
- 	unregister_netdevice_notifier(&cma_nb);
- 	rdma_addr_unregister_client(&addr_client);
-diff --git a/include/rdma/rdma_netlink.h b/include/rdma/rdma_netlink.h
-index c983a19..fa318af 100644
---- a/include/rdma/rdma_netlink.h
-+++ b/include/rdma/rdma_netlink.h
-@@ -1,10 +1,38 @@
- #ifndef _RDMA_NETLINK_H
- #define _RDMA_NETLINK_H
+@@ -3320,6 +3325,7 @@ static int cma_get_id_stats(struct sk_buff *skb, struct netlink_callback *cb)
+ 			id_stats->port_space = id->ps;
+ 			id_stats->cm_state = id_priv->state;
+ 			id_stats->qp_num = id_priv->qp_num;
++			id_stats->pid = id_priv->owner;
  
-+#include <linux/types.h>
-+
-+enum {
-+	RDMA_NL_RDMA_CM = 1
-+};
-+
- #define RDMA_NL_GET_CLIENT(type) ((type & (((1 << 6) - 1) << 10)) >> 10)
- #define RDMA_NL_GET_OP(type) (type & ((1 << 10) - 1))
- #define RDMA_NL_GET_TYPE(client, op) ((client << 10) + op)
- 
-+enum {
-+	RDMA_NL_RDMA_CM_ID_STATS = 0,
-+	RDMA_NL_RDMA_CM_NUM_OPS
-+};
-+
-+enum {
-+	RDMA_NL_RDMA_CM_ATTR_SRC_ADDR = 1,
-+	RDMA_NL_RDMA_CM_ATTR_DST_ADDR,
-+	RDMA_NL_RDMA_CM_NUM_ATTR,
-+};
-+
-+struct rdma_cm_id_stats {
-+	__u32	qp_num;
-+	__u32	bound_dev_if;
-+	__u32	port_space;
-+	__s32	pid;
-+	__u8	cm_state;
-+	__u8	node_type;
-+	__u8	port_num;
-+	__u8	reserved;
-+};
-+
- #ifdef __KERNEL__
- 
- #include <linux/netlink.h>
+ 			i_id++;
+ 		}
 -- 
 1.7.4.1
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
