@@ -1,75 +1,46 @@
-From: Noah Meyerhans <noahm@debian.org>
-Subject: Re: [Bridge] Bug#625914: linux-image-2.6.38-2-amd64: bridging is
-	not interacting well with multicast in 2.6.38-4
-Date: Thu, 12 May 2011 22:03:02 -0700
-Message-ID: <20110513050302.GR6397@morgul.net>
-References: <20110506201234.6297.70279.reportbug@ip6-localhost> <1304995124.4065.157.camel@localhost> <20110510043833.GG6397@morgul.net> <1305031369.4065.259.camel@localhost> <20110510180540.GI6397@morgul.net> <20110510151100.52a9f8fa@nehalam> <20110510233540.GJ6397@morgul.net> <20110512164322.45626683@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V3] net: af_packet: Untangle packet_snd by
+ adding vpacket_snd
+Date: Fri, 13 May 2011 07:11:02 +0200
+Message-ID: <1305263462.2831.11.camel@edumazet-laptop>
+References: <20110512.175959.1343349350164758016.davem@davemloft.net>
+	 <b174c9df4b7c39b4e951f1f309a4fd9086179c3c.1305242549.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="4VWgGltm/5syTS5r"
-Cc: Ben Hutchings <ben@decadent.org.uk>, 625914@bugs.debian.org,
-	bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minas.morgul.net ([128.31.0.48]:42409 "EHLO minas.morgul.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754082Ab1EMFDK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 May 2011 01:03:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20110512164322.45626683@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b174c9df4b7c39b4e951f1f309a4fd9086179c3c.1305242549.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---4VWgGltm/5syTS5r
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, May 12, 2011 at 04:43:22PM -0700, Stephen Hemminger wrote:
-> > > There were two more follow on commits in stable related to this.
-> > > I recommend merging 2.6.38.6 which includes these.
-> >=20
-> > The problem still exists in the current 2.6.38.6.  Backing out 5f1c356a
-> > still solves the problem there.
-> >=20
-> > I have not yet tried anything outside the stable-2.6.38.y tree, but it
-> > seems like these same changes are present there, and it's unlikely that
-> > other releases will work any better.
+Le jeudi 12 mai 2011 =C3=A0 16:25 -0700, Joe Perches a =C3=A9crit :
+> The current packet_snd handles both vlan and non-vlan frames
+> with initialization of a struct virtio_net_hdr that is unused
+> by non-vlan frames.
 >=20
-> Does this fix the problem?  The tap driver allocates an skb and throws
-> it into the receive path, but the skb does not have the same padding
-> as normal skb's received.
->=20
-> --- a/drivers/net/tun.c	2011-05-12 16:36:15.231347935 -0700
-> +++ b/drivers/net/tun.c	2011-05-12 16:36:38.503464573 -0700
-> @@ -614,7 +614,7 @@ static __inline__ ssize_t tun_get_user(s
->  	}
-> =20
->  	if ((tun->flags & TUN_TYPE_MASK) =3D=3D TUN_TAP_DEV) {
-> -		align =3D NET_IP_ALIGN;
-> +		align =3D NET_IP_ALIGN + NET_SKB_PAD;
->  		if (unlikely(len < ETH_HLEN ||
->  			     (gso.hdr_len && gso.hdr_len < ETH_HLEN)))
->  			return -EINVAL;
+> Create a new vpacket_snd that uses this virtio_net_hdr and
+> remove it and the vlan and gso logic from packet_snd.
 >=20
 
-Sorry, this does not fix the problem.
+1) I find this kind of patches a real pain, frankly.
 
-noah
+When I have to look around code and commits to find bugs and bugs
+origins, I'll have to fully check this kind of patch, and this slow dow=
+n
+the process a _lot_, because I have no idea if "Joe Perches" actually
+tested the patch, or if its yet another "code beautifier" process in th=
+e
+wild.
 
+You should have shooted when/before commit bfd5f4a3 (packet: Add
+GSO/csum offload support) was accepted.
 
---4VWgGltm/5syTS5r
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+2) You did not CCed Sridhar Samudrala <sri@us.ibm.com>, the author of
+above commit. I dont think David will take the time to test your patch.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iD8DBQFNzLuFYrVLjBFATsMRAvl2AJ96D4N7aoFaaK4eWFGK3fZdXanXOwCffa50
-BHxVatL3/uuk8H+dUrbKD7c=
-=9EDh
------END PGP SIGNATURE-----
-
---4VWgGltm/5syTS5r--
+3) You add some non codingstyle artifacts. I am afraid it makes me
+nervous for patches bringing no real values but shuffling the code and
+making maintainers life more difficult.
