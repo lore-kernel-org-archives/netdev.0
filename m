@@ -1,291 +1,421 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 9/9] [PATCH] convert old cpumask API into new one
-Date: Fri, 13 May 2011 06:45:09 +0200
-Message-ID: <20110513044548.293695050@de.ibm.com>
+Subject: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
+Date: Fri, 13 May 2011 06:45:01 +0200
+Message-ID: <20110513044547.424857838@de.ibm.com>
 References: <20110513044500.190198403@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([194.196.100.164]:59369 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754037Ab1EMEpv (ORCPT
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:53548 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751498Ab1EMEpv (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 00:45:51 -0400
-Content-Disposition: inline; filename=608-cpumask-api.diff
+Content-Disposition: inline; filename=qeth_hw_feat2.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Adapt new API.
+Set rx csum default to hw checksumming again.
+Remove sysfs interface for rx csum (checksumming) and TSO (large_send).
+With the new hw_features it does not work to keep the old sysfs
+interface in parallel. Convert options.checksum_type to new hw_features.
 
-Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
+ drivers/s390/net/qeth_core.h      |    1 
+ drivers/s390/net/qeth_core_main.c |    1 
+ drivers/s390/net/qeth_core_mpc.h  |    8 --
+ drivers/s390/net/qeth_l2_main.c   |    5 -
+ drivers/s390/net/qeth_l3.h        |    2 
+ drivers/s390/net/qeth_l3_main.c   |  104 +++++++++++++++++--------------------
+ drivers/s390/net/qeth_l3_sys.c    |  106 --------------------------------------
+ 7 files changed, 49 insertions(+), 178 deletions(-)
 
-
- net/iucv/iucv.c |   73 ++++++++++++++++++++++++++++----------------------------
- 1 file changed, 37 insertions(+), 36 deletions(-)
-diff -urpN linux-2.6/net/iucv/iucv.c linux-2.6-patched/net/iucv/iucv.c
---- linux-2.6/net/iucv/iucv.c	2011-05-10 09:14:27.000000000 +0200
-+++ linux-2.6-patched/net/iucv/iucv.c	2011-05-10 09:14:27.000000000 +0200
-@@ -128,8 +128,8 @@ struct iucv_irq_list {
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -639,7 +639,6 @@ struct qeth_card_options {
+ 	struct qeth_ipa_info adp; /*Adapter parameters*/
+ 	struct qeth_routing_info route6;
+ 	struct qeth_ipa_info ipa6;
+-	enum qeth_checksum_types checksum_type;
+ 	int broadcast_mode;
+ 	int macaddr_mode;
+ 	int fake_broadcast;
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -1039,7 +1039,6 @@ static void qeth_set_intial_options(stru
+ {
+ 	card->options.route4.type = NO_ROUTER;
+ 	card->options.route6.type = NO_ROUTER;
+-	card->options.checksum_type = QETH_CHECKSUM_DEFAULT;
+ 	card->options.broadcast_mode = QETH_TR_BROADCAST_ALLRINGS;
+ 	card->options.macaddr_mode = QETH_TR_MACADDR_NONCANONICAL;
+ 	card->options.fake_broadcast = 0;
+--- a/drivers/s390/net/qeth_core_mpc.h
++++ b/drivers/s390/net/qeth_core_mpc.h
+@@ -80,14 +80,6 @@ enum qeth_tr_broadcast_modes {
+ 	QETH_TR_BROADCAST_LOCAL    = 1,
  };
  
- static struct iucv_irq_data *iucv_irq_data[NR_CPUS];
--static cpumask_t iucv_buffer_cpumask = CPU_MASK_NONE;
--static cpumask_t iucv_irq_cpumask = CPU_MASK_NONE;
-+static cpumask_t iucv_buffer_cpumask = { CPU_BITS_NONE };
-+static cpumask_t iucv_irq_cpumask = { CPU_BITS_NONE };
- 
+-/* these values match CHECKSUM_* in include/linux/skbuff.h */
+-enum qeth_checksum_types {
+-	SW_CHECKSUMMING = 0, /* TODO: set to bit flag used in IPA Command */
+-	HW_CHECKSUMMING = 1,
+-	NO_CHECKSUMMING = 2,
+-};
+-#define QETH_CHECKSUM_DEFAULT SW_CHECKSUMMING
+-
  /*
-  * Queue of interrupt buffers lock for delivery via the tasklet
-@@ -406,7 +406,7 @@ static void iucv_allow_cpu(void *data)
- 	parm->set_mask.ipmask = 0xf8;
- 	iucv_call_b2f0(IUCV_SETCONTROLMASK, parm);
- 	/* Set indication that iucv interrupts are allowed for this cpu. */
--	cpu_set(cpu, iucv_irq_cpumask);
-+	cpumask_set_cpu(cpu, &iucv_irq_cpumask);
+  * Routing stuff
+  */
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -420,10 +420,7 @@ static int qeth_l2_process_inbound_buffe
+ 		case QETH_HEADER_TYPE_LAYER2:
+ 			skb->pkt_type = PACKET_HOST;
+ 			skb->protocol = eth_type_trans(skb, skb->dev);
+-			if (card->options.checksum_type == NO_CHECKSUMMING)
+-				skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			else
+-				skb->ip_summed = CHECKSUM_NONE;
++			skb->ip_summed = CHECKSUM_NONE;
+ 			if (skb->protocol == htons(ETH_P_802_2))
+ 				*((__u32 *)skb->cb) = ++card->seqno.pkt_seqno;
+ 			len = skb->len;
+--- a/drivers/s390/net/qeth_l3.h
++++ b/drivers/s390/net/qeth_l3.h
+@@ -62,8 +62,6 @@ void qeth_l3_del_vipa(struct qeth_card *
+ int qeth_l3_add_rxip(struct qeth_card *, enum qeth_prot_versions, const u8 *);
+ void qeth_l3_del_rxip(struct qeth_card *card, enum qeth_prot_versions,
+ 			const u8 *);
+-int qeth_l3_set_large_send(struct qeth_card *, enum qeth_large_send_types);
+-int qeth_l3_set_rx_csum(struct qeth_card *, enum qeth_checksum_types);
+ int qeth_l3_is_addr_covered_by_ipato(struct qeth_card *, struct qeth_ipaddr *);
+ 
+ #endif /* __QETH_L3_H__ */
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1445,34 +1445,30 @@ static int qeth_l3_send_checksum_command
+ 	return 0;
  }
  
- /**
-@@ -426,7 +426,7 @@ static void iucv_block_cpu(void *data)
- 	iucv_call_b2f0(IUCV_SETMASK, parm);
+-int qeth_l3_set_rx_csum(struct qeth_card *card,
+-	enum qeth_checksum_types csum_type)
++int qeth_l3_set_rx_csum(struct qeth_card *card, int on)
+ {
+ 	int rc = 0;
  
- 	/* Clear indication that iucv interrupts are allowed for this cpu. */
--	cpu_clear(cpu, iucv_irq_cpumask);
-+	cpumask_clear_cpu(cpu, &iucv_irq_cpumask);
+-	if (card->options.checksum_type == HW_CHECKSUMMING) {
+-		if ((csum_type != HW_CHECKSUMMING) &&
+-			(card->state != CARD_STATE_DOWN)) {
+-			rc = qeth_l3_send_simple_setassparms(card,
+-				IPA_INBOUND_CHECKSUM, IPA_CMD_ASS_STOP, 0);
++	if (on) {
++		if (card->state != CARD_STATE_DOWN) {
++			if (!qeth_is_supported(card,
++				    IPA_INBOUND_CHECKSUM))
++					return -EPERM;
++			rc = qeth_l3_send_checksum_command(card);
+ 			if (rc)
+ 				return -EIO;
+ 		}
+ 		card->dev->features |= NETIF_F_RXCSUM;
+ 	} else {
+-		if (csum_type == HW_CHECKSUMMING) {
+-			if (card->state != CARD_STATE_DOWN) {
+-				if (!qeth_is_supported(card,
+-				    IPA_INBOUND_CHECKSUM))
+-					return -EPERM;
+-				rc = qeth_l3_send_checksum_command(card);
+-				if (rc)
+-					return -EIO;
+-			}
++		if (card->state != CARD_STATE_DOWN) {
++			rc = qeth_l3_send_simple_setassparms(card,
++				IPA_INBOUND_CHECKSUM, IPA_CMD_ASS_STOP, 0);
++			if (rc)
++				return -EIO;
+ 		}
+ 		card->dev->features &= ~NETIF_F_RXCSUM;
+ 	}
+-	card->options.checksum_type = csum_type;
++
+ 	return rc;
  }
  
- /**
-@@ -451,7 +451,7 @@ static void iucv_block_cpu_almost(void *
- 	iucv_call_b2f0(IUCV_SETCONTROLMASK, parm);
+@@ -1482,32 +1478,34 @@ static int qeth_l3_start_ipa_checksum(st
  
- 	/* Clear indication that iucv interrupts are allowed for this cpu. */
--	cpu_clear(cpu, iucv_irq_cpumask);
-+	cpumask_clear_cpu(cpu, &iucv_irq_cpumask);
+ 	QETH_CARD_TEXT(card, 3, "strtcsum");
+ 
+-	if (card->options.checksum_type == NO_CHECKSUMMING) {
+-		dev_info(&card->gdev->dev,
+-			"Using no checksumming on %s.\n",
+-			QETH_CARD_IFNAME(card));
+-		return 0;
+-	}
+-	if (card->options.checksum_type == SW_CHECKSUMMING) {
+-		dev_info(&card->gdev->dev,
+-			"Using SW checksumming on %s.\n",
+-			QETH_CARD_IFNAME(card));
+-		return 0;
+-	}
+-	if (!qeth_is_supported(card, IPA_INBOUND_CHECKSUM)) {
+-		dev_info(&card->gdev->dev,
++	if (card->dev->features & NETIF_F_RXCSUM) {
++		/* hw may have changed during offline or recovery */
++		if (!qeth_is_supported(card, IPA_INBOUND_CHECKSUM)) {
++			dev_info(&card->gdev->dev,
+ 			"Inbound HW Checksumming not "
+ 			"supported on %s,\ncontinuing "
+ 			"using Inbound SW Checksumming\n",
+ 			QETH_CARD_IFNAME(card));
+-		card->options.checksum_type = SW_CHECKSUMMING;
+-		return 0;
+-	}
+-	rc = qeth_l3_send_checksum_command(card);
+-	if (!rc)
+-		dev_info(&card->gdev->dev,
++			goto update_feature;
++		}
++
++		rc = qeth_l3_send_checksum_command(card);
++		if (!rc)
++			dev_info(&card->gdev->dev,
+ 			"HW Checksumming (inbound) enabled\n");
++		else
++			goto update_feature;
++	} else
++		dev_info(&card->gdev->dev,
++			"Using SW checksumming on %s.\n",
++			QETH_CARD_IFNAME(card));
++	return 0;
+ 
++update_feature:
++	rtnl_lock();
++	card->dev->features &= ~NETIF_F_RXCSUM;
++	netdev_update_features(card->dev);
++	rtnl_unlock();
+ 	return rc;
  }
  
- /**
-@@ -466,7 +466,7 @@ static void iucv_declare_cpu(void *data)
- 	union iucv_param *parm;
- 	int rc;
- 
--	if (cpu_isset(cpu, iucv_buffer_cpumask))
-+	if (cpumask_test_cpu(cpu, &iucv_buffer_cpumask))
- 		return;
- 
- 	/* Declare interrupt buffer. */
-@@ -499,9 +499,9 @@ static void iucv_declare_cpu(void *data)
+@@ -2037,14 +2035,7 @@ static inline int qeth_l3_rebuild_skb(st
+ 		is_vlan = 1;
  	}
  
- 	/* Set indication that an iucv buffer exists for this cpu. */
--	cpu_set(cpu, iucv_buffer_cpumask);
-+	cpumask_set_cpu(cpu, &iucv_buffer_cpumask);
+-	switch (card->options.checksum_type) {
+-	case SW_CHECKSUMMING:
+-		skb->ip_summed = CHECKSUM_NONE;
+-		break;
+-	case NO_CHECKSUMMING:
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-		break;
+-	case HW_CHECKSUMMING:
++	if (card->dev->features & NETIF_F_RXCSUM) {
+ 		if ((hdr->hdr.l3.ext_flags &
+ 		    (QETH_HDR_EXT_CSUM_HDR_REQ |
+ 		     QETH_HDR_EXT_CSUM_TRANSP_REQ)) ==
+@@ -2053,7 +2044,8 @@ static inline int qeth_l3_rebuild_skb(st
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 		else
+ 			skb->ip_summed = CHECKSUM_NONE;
+-	}
++	} else
++		skb->ip_summed = CHECKSUM_NONE;
  
--	if (iucv_nonsmp_handler == 0 || cpus_empty(iucv_irq_cpumask))
-+	if (iucv_nonsmp_handler == 0 || cpumask_empty(&iucv_irq_cpumask))
- 		/* Enable iucv interrupts on this cpu. */
- 		iucv_allow_cpu(NULL);
+ 	return is_vlan;
+ }
+@@ -3235,20 +3227,19 @@ static u32 qeth_l3_fix_features(struct n
+ 
+ static int qeth_l3_set_features(struct net_device *dev, u32 features)
+ {
+-	enum qeth_checksum_types csum_type;
+ 	struct qeth_card *card = dev->ml_priv;
+ 	u32 changed = dev->features ^ features;
++	int on;
+ 
+ 	if (!(changed & NETIF_F_RXCSUM))
+ 		return 0;
+ 
+ 	if (features & NETIF_F_RXCSUM)
+-		csum_type = HW_CHECKSUMMING;
++		on = 1;
  	else
-@@ -520,7 +520,7 @@ static void iucv_retrieve_cpu(void *data
- 	int cpu = smp_processor_id();
- 	union iucv_param *parm;
+-		csum_type = SW_CHECKSUMMING;
++		on = 0;
  
--	if (!cpu_isset(cpu, iucv_buffer_cpumask))
-+	if (!cpumask_test_cpu(cpu, &iucv_buffer_cpumask))
- 		return;
- 
- 	/* Block iucv interrupts. */
-@@ -531,7 +531,7 @@ static void iucv_retrieve_cpu(void *data
- 	iucv_call_b2f0(IUCV_RETRIEVE_BUFFER, parm);
- 
- 	/* Clear indication that an iucv buffer exists for this cpu. */
--	cpu_clear(cpu, iucv_buffer_cpumask);
-+	cpumask_clear_cpu(cpu, &iucv_buffer_cpumask);
+-	dev->features = features ^ NETIF_F_RXCSUM;
+-	return qeth_l3_set_rx_csum(card, csum_type);
++	return qeth_l3_set_rx_csum(card, on);
  }
  
- /**
-@@ -546,8 +546,8 @@ static void iucv_setmask_mp(void)
- 	get_online_cpus();
- 	for_each_online_cpu(cpu)
- 		/* Enable all cpus with a declared buffer. */
--		if (cpu_isset(cpu, iucv_buffer_cpumask) &&
--		    !cpu_isset(cpu, iucv_irq_cpumask))
-+		if (cpumask_test_cpu(cpu, &iucv_buffer_cpumask) &&
-+		    !cpumask_test_cpu(cpu, &iucv_irq_cpumask))
- 			smp_call_function_single(cpu, iucv_allow_cpu,
- 						 NULL, 1);
- 	put_online_cpus();
-@@ -564,9 +564,9 @@ static void iucv_setmask_up(void)
- 	int cpu;
- 
- 	/* Disable all cpu but the first in cpu_irq_cpumask. */
--	cpumask = iucv_irq_cpumask;
--	cpu_clear(first_cpu(iucv_irq_cpumask), cpumask);
--	for_each_cpu_mask_nr(cpu, cpumask)
-+	cpumask_copy(&cpumask, &iucv_irq_cpumask);
-+	cpumask_clear_cpu(cpumask_first(&iucv_irq_cpumask), &cpumask);
-+	for_each_cpu(cpu, &cpumask)
- 		smp_call_function_single(cpu, iucv_block_cpu, NULL, 1);
+ static const struct ethtool_ops qeth_l3_ethtool_ops = {
+@@ -3342,6 +3333,12 @@ static int qeth_l3_setup_netdev(struct q
+ 			if (!(card->info.unique_id & UNIQUE_ID_NOT_BY_CARD))
+ 				card->dev->dev_id = card->info.unique_id &
+ 							 0xffff;
++			if (!card->info.guestlan) {
++				card->dev->hw_features = NETIF_F_SG |
++					NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
++					NETIF_F_TSO;
++				card->dev->features = NETIF_F_RXCSUM;
++			}
+ 		}
+ 	} else if (card->info.type == QETH_CARD_TYPE_IQD) {
+ 		card->dev = alloc_netdev(0, "hsi%d", ether_setup);
+@@ -3357,8 +3354,6 @@ static int qeth_l3_setup_netdev(struct q
+ 	card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
+ 	card->dev->mtu = card->info.initial_mtu;
+ 	SET_ETHTOOL_OPS(card->dev, &qeth_l3_ethtool_ops);
+-	card->dev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
+-		NETIF_F_IP_CSUM | NETIF_F_TSO;
+ 	card->dev->features |=	NETIF_F_HW_VLAN_TX |
+ 				NETIF_F_HW_VLAN_RX |
+ 				NETIF_F_HW_VLAN_FILTER;
+@@ -3382,9 +3377,6 @@ static int qeth_l3_probe_device(struct c
+ 	card->discipline.output_handler = (qdio_handler_t *)
+ 		qeth_qdio_output_handler;
+ 	card->discipline.recover = qeth_l3_recover;
+-	if ((card->info.type == QETH_CARD_TYPE_OSD) ||
+-	    (card->info.type == QETH_CARD_TYPE_OSX))
+-		card->options.checksum_type = HW_CHECKSUMMING;
+ 	return 0;
  }
  
-@@ -593,7 +593,7 @@ static int iucv_enable(void)
- 	rc = -EIO;
- 	for_each_online_cpu(cpu)
- 		smp_call_function_single(cpu, iucv_declare_cpu, NULL, 1);
--	if (cpus_empty(iucv_buffer_cpumask))
-+	if (cpumask_empty(&iucv_buffer_cpumask))
- 		/* No cpu could declare an iucv buffer. */
- 		goto out;
- 	put_online_cpus();
-@@ -675,15 +675,16 @@ static int __cpuinit iucv_cpu_notify(str
- 	case CPU_DOWN_PREPARE_FROZEN:
- 		if (!iucv_path_table)
- 			break;
--		cpumask = iucv_buffer_cpumask;
--		cpu_clear(cpu, cpumask);
--		if (cpus_empty(cpumask))
-+		cpumask_copy(&cpumask, &iucv_buffer_cpumask);
-+		cpumask_clear_cpu(cpu, &cpumask);
-+		if (cpumask_empty(&cpumask))
- 			/* Can't offline last IUCV enabled cpu. */
- 			return notifier_from_errno(-EINVAL);
- 		smp_call_function_single(cpu, iucv_retrieve_cpu, NULL, 1);
--		if (cpus_empty(iucv_irq_cpumask))
--			smp_call_function_single(first_cpu(iucv_buffer_cpumask),
--						 iucv_allow_cpu, NULL, 1);
-+		if (cpumask_empty(&iucv_irq_cpumask))
-+			smp_call_function_single(
-+				cpumask_first(&iucv_buffer_cpumask),
-+				iucv_allow_cpu, NULL, 1);
- 		break;
- 	}
- 	return NOTIFY_OK;
-@@ -866,7 +867,7 @@ int iucv_path_accept(struct iucv_path *p
- 	int rc;
+--- a/drivers/s390/net/qeth_l3_sys.c
++++ b/drivers/s390/net/qeth_l3_sys.c
+@@ -15,16 +15,6 @@
+ #define QETH_DEVICE_ATTR(_id, _name, _mode, _show, _store) \
+ struct device_attribute dev_attr_##_id = __ATTR(_name, _mode, _show, _store)
  
- 	local_bh_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -915,7 +916,7 @@ int iucv_path_connect(struct iucv_path *
+-static const char *qeth_l3_get_checksum_str(struct qeth_card *card)
+-{
+-	if (card->options.checksum_type == SW_CHECKSUMMING)
+-		return "sw";
+-	else if (card->options.checksum_type == HW_CHECKSUMMING)
+-		return "hw";
+-	else
+-		return "no";
+-}
+-
+ static ssize_t qeth_l3_dev_route_show(struct qeth_card *card,
+ 			struct qeth_routing_info *route, char *buf)
+ {
+@@ -295,51 +285,6 @@ out:
+ static DEVICE_ATTR(canonical_macaddr, 0644, qeth_l3_dev_canonical_macaddr_show,
+ 		   qeth_l3_dev_canonical_macaddr_store);
  
- 	spin_lock_bh(&iucv_table_lock);
- 	iucv_cleanup_queue();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -975,7 +976,7 @@ int iucv_path_quiesce(struct iucv_path *
- 	int rc;
+-static ssize_t qeth_l3_dev_checksum_show(struct device *dev,
+-			struct device_attribute *attr, char *buf)
+-{
+-	struct qeth_card *card = dev_get_drvdata(dev);
+-
+-	if (!card)
+-		return -EINVAL;
+-
+-	return sprintf(buf, "%s checksumming\n",
+-			qeth_l3_get_checksum_str(card));
+-}
+-
+-static ssize_t qeth_l3_dev_checksum_store(struct device *dev,
+-		struct device_attribute *attr, const char *buf, size_t count)
+-{
+-	struct qeth_card *card = dev_get_drvdata(dev);
+-	enum qeth_checksum_types csum_type;
+-	char *tmp;
+-	int rc = 0;
+-
+-	if (!card)
+-		return -EINVAL;
+-
+-	mutex_lock(&card->conf_mutex);
+-	tmp = strsep((char **) &buf, "\n");
+-	if (!strcmp(tmp, "sw_checksumming"))
+-		csum_type = SW_CHECKSUMMING;
+-	else if (!strcmp(tmp, "hw_checksumming"))
+-		csum_type = HW_CHECKSUMMING;
+-	else if (!strcmp(tmp, "no_checksumming"))
+-		csum_type = NO_CHECKSUMMING;
+-	else {
+-		rc = -EINVAL;
+-		goto out;
+-	}
+-
+-	rc = qeth_l3_set_rx_csum(card, csum_type);
+-out:
+-	mutex_unlock(&card->conf_mutex);
+-	return rc ? rc : count;
+-}
+-
+-static DEVICE_ATTR(checksumming, 0644, qeth_l3_dev_checksum_show,
+-		qeth_l3_dev_checksum_store);
+-
+ static ssize_t qeth_l3_dev_sniffer_show(struct device *dev,
+ 		struct device_attribute *attr, char *buf)
+ {
+@@ -402,64 +347,13 @@ out:
+ static DEVICE_ATTR(sniffer, 0644, qeth_l3_dev_sniffer_show,
+ 		qeth_l3_dev_sniffer_store);
  
- 	local_bh_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1007,7 +1008,7 @@ int iucv_path_resume(struct iucv_path *p
- 	int rc;
+-static ssize_t qeth_l3_dev_large_send_show(struct device *dev,
+-				struct device_attribute *attr, char *buf)
+-{
+-	struct qeth_card *card = dev_get_drvdata(dev);
+-
+-	if (!card)
+-		return -EINVAL;
+-
+-	if (!(card->dev->features & NETIF_F_TSO))
+-		return sprintf(buf, "%s\n", "no");
+-	else
+-		return sprintf(buf, "%s\n", "TSO");
+-}
+-
+-static ssize_t qeth_l3_dev_large_send_store(struct device *dev,
+-		struct device_attribute *attr, const char *buf, size_t count)
+-{
+-	struct qeth_card *card;
+-	char *tmp;
+-	int enable;
+-
+-	if (!card)
+-		return -EINVAL;
+-	tmp = strsep((char **) &buf, "\n");
+-	if (!strcmp(tmp, "no"))
+-		enable = 0;
+-	else if (!strcmp(tmp, "TSO"))
+-		enable = 1;
+-	else
+-		return -EINVAL;
+-
+-	rtnl_lock();
+-
+-	card = dev_get_drvdata(dev);
+-
+-	if (enable)
+-		card->dev->wanted_features |= NETIF_F_TSO;
+-	else
+-		card->dev->wanted_features &= ~NETIF_F_TSO;
+-	netdev_update_features(card->dev);
+-
+-	rtnl_unlock();
+-
+-	return count;
+-}
+-
+-static DEVICE_ATTR(large_send, 0644, qeth_l3_dev_large_send_show,
+-		   qeth_l3_dev_large_send_store);
+-
+ static struct attribute *qeth_l3_device_attrs[] = {
+ 	&dev_attr_route4.attr,
+ 	&dev_attr_route6.attr,
+ 	&dev_attr_fake_broadcast.attr,
+ 	&dev_attr_broadcast_mode.attr,
+ 	&dev_attr_canonical_macaddr.attr,
+-	&dev_attr_checksumming.attr,
+ 	&dev_attr_sniffer.attr,
+-	&dev_attr_large_send.attr,
+ 	NULL,
+ };
  
- 	local_bh_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1036,7 +1037,7 @@ int iucv_path_sever(struct iucv_path *pa
- 	int rc;
- 
- 	preempt_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1070,7 +1071,7 @@ int iucv_message_purge(struct iucv_path
- 	int rc;
- 
- 	local_bh_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1162,7 +1163,7 @@ int __iucv_message_receive(struct iucv_p
- 	if (msg->flags & IUCV_IPRMDATA)
- 		return iucv_message_receive_iprmdata(path, msg, flags,
- 						     buffer, size, residual);
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	 if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1235,7 +1236,7 @@ int iucv_message_reject(struct iucv_path
- 	int rc;
- 
- 	local_bh_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1274,7 +1275,7 @@ int iucv_message_reply(struct iucv_path
- 	int rc;
- 
- 	local_bh_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1324,7 +1325,7 @@ int __iucv_message_send(struct iucv_path
- 	union iucv_param *parm;
- 	int rc;
- 
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1411,7 +1412,7 @@ int iucv_message_send2way(struct iucv_pa
- 	int rc;
- 
- 	local_bh_disable();
--	if (cpus_empty(iucv_buffer_cpumask)) {
-+	if (cpumask_empty(&iucv_buffer_cpumask)) {
- 		rc = -EIO;
- 		goto out;
- 	}
-@@ -1888,7 +1889,7 @@ static int iucv_pm_freeze(struct device
- 	printk(KERN_WARNING "iucv_pm_freeze\n");
- #endif
- 	if (iucv_pm_state != IUCV_PM_FREEZING) {
--		for_each_cpu_mask_nr(cpu, iucv_irq_cpumask)
-+		for_each_cpu(cpu, &iucv_irq_cpumask)
- 			smp_call_function_single(cpu, iucv_block_cpu_almost,
- 						 NULL, 1);
- 		cancel_work_sync(&iucv_work);
-@@ -1928,7 +1929,7 @@ static int iucv_pm_thaw(struct device *d
- 		if (rc)
- 			goto out;
- 	}
--	if (cpus_empty(iucv_irq_cpumask)) {
-+	if (cpumask_empty(&iucv_irq_cpumask)) {
- 		if (iucv_nonsmp_handler)
- 			/* enable interrupts on one cpu */
- 			iucv_allow_cpu(NULL);
-@@ -1961,7 +1962,7 @@ static int iucv_pm_restore(struct device
- 		pr_warning("Suspending Linux did not completely close all IUCV "
- 			"connections\n");
- 	iucv_pm_state = IUCV_PM_RESTORING;
--	if (cpus_empty(iucv_irq_cpumask)) {
-+	if (cpumask_empty(&iucv_irq_cpumask)) {
- 		rc = iucv_query_maxconn();
- 		rc = iucv_enable();
- 		if (rc)
 
