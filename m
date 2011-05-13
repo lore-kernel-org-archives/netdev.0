@@ -1,59 +1,71 @@
-From: Andrew Lutomirski <luto@mit.edu>
-Subject: Re: AAARGH bisection is hard (Re: [2.6.39 regression] X locks up hard
- right after logging in)
-Date: Fri, 13 May 2011 09:39:14 -0400
-Message-ID: <BANLkTinoGfj1NUzTveSH0vgwZczCaFr8HA@mail.gmail.com>
-References: <BANLkTi=kb_m-CfrpnD8qQTVYLGaDdgy_tg@mail.gmail.com> <BANLkTi=YDZa+BRaG90vJsjrT9VxgySrDRQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	git@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTi=YDZa+BRaG90vJsjrT9VxgySrDRQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/3] net/rfkill/core.c: Avoid leaving freed data in a list
+Date: Fri, 13 May 2011 15:52:10 +0200
+Message-ID: <1305294731-12127-2-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:38811 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756414Ab1EMNwR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2011 09:52:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[resend because the Android gmail client apparently generates HTML
-emails even for plain text]
+The list_for_each_entry loop can fail, in which case the list element is
+not removed from the list rfkill_fds.  Since this list is not accessed by
+the loop, the addition of &data->list into the list is just moved after the
+loop.
 
-On Thu, May 12, 2011 at 1:37 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Thu, May 12, 2011 at 10:15 AM, Andrew Lutomirski <luto@mit.edu> wr=
-ote:
->>
->> OK, this sucks. =A0In the course of bisecting this, I've hit two oth=
-er
->> apparently unrelated bugs that prevent my from testing large numbers
->> of kernels. =A0Do I have two questions:
->>
->> 1. Anyone have any ideas from looking at the log?
->
-> Nope, that doesn't look very helpful.
->
->> 2. =A0The !&$#@ bisection is skipping all over the place. =A0I've se=
-en
->> 2.6.37 versions and all manner of -rc's out of order.
->
-> That's the _point_ of bisection. It jumps around. You can start off
-> trying to pick points on my development tree, but I only have a
-> hundred merges or so. You're going to start delving into the actual
-> development versions very quickly. And if you don't do it early,
-> bisection is going to be much much slower, because it's not going to
-> pick half-way points.
->
-> So bisection works so well exactly because it picks points that are
-> far away from each other, and you should just totally ignore the
-> version number. It's meaningless. Looking at it just confuses you.
-> Don't do it.
->
+The sematic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-I actually had better results looking at the version number, saying
-"blech", and running git merge v2.6.38.  (git bisect good gets a
-little confused if I feed it the merge result, but I can just lie.)
+// <smpl>
+@@
+expression E,E1,E2;
+identifier l;
+@@
 
-Anyway, I must have made a mistake somewhere.  The regression is in
-drm (presumably i915) and it has a new thread now.
+*list_add(&E->l,E1);
+... when != E1
+    when != list_del(&E->l)
+    when != list_del_init(&E->l)
+    when != E = E2
+*kfree(E);// </smpl>
 
---Andy
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+I have only verified that rfkill_fds is not accessed by the loop by
+inspecting the code.  If this analysis is not correct, the other solution
+would be to leave the list_add where it is and delete the element from the
+list explicitly.
+
+ net/rfkill/core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+index 0198191..be90640 100644
+--- a/net/rfkill/core.c
++++ b/net/rfkill/core.c
+@@ -1024,7 +1024,6 @@ static int rfkill_fop_open(struct inode *inode, struct file *file)
+ 	 * start getting events from elsewhere but hold mtx to get
+ 	 * startup events added first
+ 	 */
+-	list_add(&data->list, &rfkill_fds);
+ 
+ 	list_for_each_entry(rfkill, &rfkill_list, node) {
+ 		ev = kzalloc(sizeof(*ev), GFP_KERNEL);
+@@ -1033,6 +1032,7 @@ static int rfkill_fop_open(struct inode *inode, struct file *file)
+ 		rfkill_fill_event(&ev->ev, rfkill, RFKILL_OP_ADD);
+ 		list_add_tail(&ev->list, &data->events);
+ 	}
++	list_add(&data->list, &rfkill_fds);
+ 	mutex_unlock(&data->mtx);
+ 	mutex_unlock(&rfkill_global_mutex);
+ 
+
