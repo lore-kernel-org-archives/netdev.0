@@ -1,43 +1,74 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
 Subject: Re: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
-Date: Fri, 13 May 2011 09:57:10 +0200
-Message-ID: <20110513075710.GA41213@tuxmaker.boeblingen.de.ibm.com>
-References: <20110513044500.190198403@de.ibm.com> <20110513044547.424857838@de.ibm.com> <20110513073807.GA18312@rere.qmqm.pl>
+Date: Fri, 13 May 2011 10:07:47 +0200
+Message-ID: <BANLkTinRqC7=jg6OV12UFpG0p1TKiD72-g@mail.gmail.com>
+References: <20110513044500.190198403@de.ibm.com> <20110513044547.424857838@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq@rere.qmqm.pl>
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([194.196.100.166]:40380 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757767Ab1EMH5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 03:57:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20110513073807.GA18312@rere.qmqm.pl>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:57712 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757797Ab1EMIII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 04:08:08 -0400
+In-Reply-To: <20110513044547.424857838@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 13, 2011 at 09:38:07AM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> On Fri, May 13, 2011 at 06:45:01AM +0200, frank.blaschka@de.ibm.com w=
-rote:
-> > From: Frank Blaschka <frank.blaschka@de.ibm.com>
-> > Set rx csum default to hw checksumming again.
-> > Remove sysfs interface for rx csum (checksumming) and TSO (large_se=
-nd).
-> > With the new hw_features it does not work to keep the old sysfs
-> > interface in parallel. Convert options.checksum_type to new hw_feat=
-ures.
->=20
-> Please see following patch (replacing qeth_l3_main.c part of your pat=
-ch) for
-> an illustration of my earlier comments.
->
-
-Thx for the illustration. I will review and do some more testing. For n=
-ow
-Dave should apply my latest patch set so we get this stuff into next me=
-rge
-window.=20
+MjAxMS81LzEzICA8ZnJhbmsuYmxhc2Noa2FAZGUuaWJtLmNvbT46Cj4gRnJvbTogRnJhbmsgQmxh
+c2Noa2EgPGZyYW5rLmJsYXNjaGthQGRlLmlibS5jb20+Cj4KPiBTZXQgcnggY3N1bSBkZWZhdWx0
+IHRvIGh3IGNoZWNrc3VtbWluZyBhZ2Fpbi4KPiBSZW1vdmUgc3lzZnMgaW50ZXJmYWNlIGZvciBy
+eCBjc3VtIChjaGVja3N1bW1pbmcpIGFuZCBUU08gKGxhcmdlX3NlbmQpLgo+IFdpdGggdGhlIG5l
+dyBod19mZWF0dXJlcyBpdCBkb2VzIG5vdCB3b3JrIHRvIGtlZXAgdGhlIG9sZCBzeXNmcwo+IGlu
+dGVyZmFjZSBpbiBwYXJhbGxlbC4gQ29udmVydCBvcHRpb25zLmNoZWNrc3VtX3R5cGUgdG8gbmV3
+IGh3X2ZlYXR1cmVzLgpbLi4uXQo+IEBAIC0xNDgyLDMyICsxNDc4LDM0IEBAIHN0YXRpYyBpbnQg
+cWV0aF9sM19zdGFydF9pcGFfY2hlY2tzdW0oc3QKPgo+IMKgIMKgIMKgIMKgUUVUSF9DQVJEX1RF
+WFQoY2FyZCwgMywgInN0cnRjc3VtIik7Cj4KPiAtIMKgIMKgIMKgIGlmIChjYXJkLT5vcHRpb25z
+LmNoZWNrc3VtX3R5cGUgPT0gTk9fQ0hFQ0tTVU1NSU5HKSB7Cj4gLSDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCBkZXZfaW5mbygmY2FyZC0+Z2Rldi0+ZGV2LAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgIlVzaW5nIG5vIGNoZWNrc3VtbWluZyBvbiAlcy5cbiIsCj4gLSDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBRRVRIX0NBUkRfSUZOQU1FKGNhcmQpKTsKPiAtIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIHJldHVybiAwOwo+IC0gwqAgwqAgwqAgfQo+IC0gwqAgwqAgwqAg
+aWYgKGNhcmQtPm9wdGlvbnMuY2hlY2tzdW1fdHlwZSA9PSBTV19DSEVDS1NVTU1JTkcpIHsKPiAt
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIGRldl9pbmZvKCZjYXJkLT5nZGV2LT5kZXYsCj4gLSDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAiVXNpbmcgU1cgY2hlY2tzdW1taW5nIG9uICVz
+LlxuIiwKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIFFFVEhfQ0FSRF9JRk5B
+TUUoY2FyZCkpOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgcmV0dXJuIDA7Cj4gLSDCoCDCoCDC
+oCB9Cj4gLSDCoCDCoCDCoCBpZiAoIXFldGhfaXNfc3VwcG9ydGVkKGNhcmQsIElQQV9JTkJPVU5E
+X0NIRUNLU1VNKSkgewo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgZGV2X2luZm8oJmNhcmQtPmdk
+ZXYtPmRldiwKPiArIMKgIMKgIMKgIGlmIChjYXJkLT5kZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9S
+WENTVU0pIHsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIC8qIGh3IG1heSBoYXZlIGNoYW5nZWQg
+ZHVyaW5nIG9mZmxpbmUgb3IgcmVjb3ZlcnkgKi8KPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlm
+ICghcWV0aF9pc19zdXBwb3J0ZWQoY2FyZCwgSVBBX0lOQk9VTkRfQ0hFQ0tTVU0pKSB7Cj4gKyDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBkZXZfaW5mbygmY2FyZC0+Z2Rldi0+ZGV2
+LAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIkluYm91bmQgSFcgQ2hlY2tz
+dW1taW5nIG5vdCAiCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAic3VwcG9y
+dGVkIG9uICVzLFxuY29udGludWluZyAiCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAidXNpbmcgSW5ib3VuZCBTVyBDaGVja3N1bW1pbmdcbiIsCj4gwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqBRRVRIX0NBUkRfSUZOQU1FKGNhcmQpKTsKPiAtIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIGNhcmQtPm9wdGlvbnMuY2hlY2tzdW1fdHlwZSA9IFNXX0NIRUNLU1VNTUlO
+RzsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHJldHVybiAwOwo+IC0gwqAgwqAgwqAgfQo+IC0g
+wqAgwqAgwqAgcmMgPSBxZXRoX2wzX3NlbmRfY2hlY2tzdW1fY29tbWFuZChjYXJkKTsKPiAtIMKg
+IMKgIMKgIGlmICghcmMpCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBkZXZfaW5mbygmY2FyZC0+
+Z2Rldi0+ZGV2LAo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZ290byB1cGRh
+dGVfZmVhdHVyZTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIH0KPiArCj4gKyDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCByYyA9IHFldGhfbDNfc2VuZF9jaGVja3N1bV9jb21tYW5kKGNhcmQpOwo+ICsg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKCFyYykKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIGRldl9pbmZvKCZjYXJkLT5nZGV2LT5kZXYsCj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAiSFcgQ2hlY2tzdW1taW5nIChpbmJvdW5kKSBlbmFibGVkXG4iKTsK
+PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGVsc2UKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIGdvdG8gdXBkYXRlX2ZlYXR1cmU7Cj4gKyDCoCDCoCDCoCB9IGVsc2UKPiArIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIGRldl9pbmZvKCZjYXJkLT5nZGV2LT5kZXYsCj4gKyDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAiVXNpbmcgU1cgY2hlY2tzdW1taW5nIG9uICVzLlxu
+IiwKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIFFFVEhfQ0FSRF9JRk5BTUUo
+Y2FyZCkpOwo+ICsgwqAgwqAgwqAgcmV0dXJuIDA7Cj4KPiArdXBkYXRlX2ZlYXR1cmU6Cj4gKyDC
+oCDCoCDCoCBydG5sX2xvY2soKTsKPiArIMKgIMKgIMKgIGNhcmQtPmRldi0+ZmVhdHVyZXMgJj0g
+fk5FVElGX0ZfUlhDU1VNOwo+ICsgwqAgwqAgwqAgbmV0ZGV2X3VwZGF0ZV9mZWF0dXJlcyhjYXJk
+LT5kZXYpOwo+ICsgwqAgwqAgwqAgcnRubF91bmxvY2soKTsKPiDCoCDCoCDCoCDCoHJldHVybiBy
+YzsKPiDCoH0KClRoaXMgd2lsbCByZXRyeSBzdGFydGluZyB0aGUgUlggY2hlY2tzdW1taW5nIHZp
+YSBzZXRfZmVhdHVyZXMoKS4gSXMKdGhhdCB0aGUgaW50ZW50aW9uPyBJZiBub3QsIHRoZW4ganVz
+dCB1c2Ugc29tZXRoaW5nIGxpa2UgbXkgZXhhbXBsZSBpbgpxZXRoX2wzX3N0YXJ0X2lwYV9jaGVj
+a3N1bSgpLgoKQmVzdCBSZWdhcmRzLApNaWNoYcWCIE1pcm9zxYJhdwo=
