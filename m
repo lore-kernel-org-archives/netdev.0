@@ -1,133 +1,227 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next] net:set valid name before calling ndo_init()
-Date: Fri, 13 May 2011 09:15:09 +0200
-Message-ID: <20110513071508.GC2733@psychotron>
-References: <1305251217-4254-1-git-send-email-panweiping3@gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq@rere.qmqm.pl>
+Subject: Re: [patch 1/9] [PATCH] qeth: convert to hw_features part 2
+Date: Fri, 13 May 2011 09:38:07 +0200
+Message-ID: <20110513073807.GA18312@rere.qmqm.pl>
+References: <20110513044500.190198403@de.ibm.com>
+ <20110513044547.424857838@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Tom Herbert <therbert@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Weiping Pan <panweiping3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:47636 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757109Ab1EMHiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 May 2011 03:38:09 -0400
 Content-Disposition: inline
-In-Reply-To: <1305251217-4254-1-git-send-email-panweiping3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110513044547.424857838@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, May 13, 2011 at 03:46:56AM CEST, panweiping3@gmail.com wrote:
->In commit 1c5cae815d19 (net: call dev_alloc_name from register_netdevice),
->a bug of bonding was invloved, see example 1 and 2.
->
->In register_netdevice(), the name of net_device is not valid until
->dev_get_valid_name() is called. But dev->netdev_ops->ndo_init(that is
->bond_init) is called before dev_get_valid_name(),
->and it uses the invalid name of net_device.
->
->I think register_netdevice() should make sure that the name of net_device is
->valid before calling ndo_init().
->
->example 1:
->modprobe bonding
->ls  /proc/net/bonding/bond%d
->
->ps -eLf
->root      3398     2  3398  0    1 21:34 ?        00:00:00 [bond%d]
->
->example 2:
->modprobe bonding max_bonds=3
->
->[  170.100292] bonding: Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
->[  170.101090] bonding: Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.
->[  170.102469] ------------[ cut here ]------------
->[  170.103150] WARNING: at /home/pwp/net-next-2.6/fs/proc/generic.c:586 proc_register+0x126/0x157()
->[  170.104075] Hardware name: VirtualBox
->[  170.105065] proc_dir_entry 'bonding/bond%d' already registered
->[  170.105613] Modules linked in: bonding(+) sunrpc ipv6 uinput microcode ppdev parport_pc parport joydev e1000 pcspkr i2c_piix4 i2c_core [last unloaded: bonding]
->[  170.108397] Pid: 3457, comm: modprobe Not tainted 2.6.39-rc2+ #14
->[  170.108935] Call Trace:
->[  170.109382]  [<c0438f3b>] warn_slowpath_common+0x6a/0x7f
->[  170.109911]  [<c051a42a>] ? proc_register+0x126/0x157
->[  170.110329]  [<c0438fc3>] warn_slowpath_fmt+0x2b/0x2f
->[  170.110846]  [<c051a42a>] proc_register+0x126/0x157
->[  170.111870]  [<c051a4dd>] proc_create_data+0x82/0x98
->[  170.112335]  [<f94e6af6>] bond_create_proc_entry+0x3f/0x73 [bonding]
->[  170.112905]  [<f94dd806>] bond_init+0x77/0xa5 [bonding]
->[  170.113319]  [<c0721ac6>] register_netdevice+0x8c/0x1d3
->[  170.113848]  [<f94e0e30>] bond_create+0x6c/0x90 [bonding]
->[  170.114322]  [<f94f4763>] bonding_init+0x763/0x7b1 [bonding]
->[  170.114879]  [<c0401240>] do_one_initcall+0x76/0x122
->[  170.115317]  [<f94f4000>] ? 0xf94f3fff
->[  170.115799]  [<c0463f1e>] sys_init_module+0x1286/0x140d
->[  170.116879]  [<c07c6d9f>] sysenter_do_call+0x12/0x28
->[  170.117404] ---[ end trace 64e4fac3ae5fff1a ]---
->[  170.117924] bond%d: Warning: failed to register to debugfs
->[  170.128728] ------------[ cut here ]------------
->[  170.129360] WARNING: at /home/pwp/net-next-2.6/fs/proc/generic.c:586 proc_register+0x126/0x157()
->[  170.130323] Hardware name: VirtualBox
->[  170.130797] proc_dir_entry 'bonding/bond%d' already registered
->[  170.131315] Modules linked in: bonding(+) sunrpc ipv6 uinput microcode ppdev parport_pc parport joydev e1000 pcspkr i2c_piix4 i2c_core [last unloaded: bonding]
->[  170.133731] Pid: 3457, comm: modprobe Tainted: G        W   2.6.39-rc2+ #14
->[  170.134308] Call Trace:
->[  170.134743]  [<c0438f3b>] warn_slowpath_common+0x6a/0x7f
->[  170.135305]  [<c051a42a>] ? proc_register+0x126/0x157
->[  170.135820]  [<c0438fc3>] warn_slowpath_fmt+0x2b/0x2f
->[  170.137168]  [<c051a42a>] proc_register+0x126/0x157
->[  170.137700]  [<c051a4dd>] proc_create_data+0x82/0x98
->[  170.138174]  [<f94e6af6>] bond_create_proc_entry+0x3f/0x73 [bonding]
->[  170.138745]  [<f94dd806>] bond_init+0x77/0xa5 [bonding]
->[  170.139278]  [<c0721ac6>] register_netdevice+0x8c/0x1d3
->[  170.139828]  [<f94e0e30>] bond_create+0x6c/0x90 [bonding]
->[  170.140361]  [<f94f4763>] bonding_init+0x763/0x7b1 [bonding]
->[  170.140927]  [<c0401240>] do_one_initcall+0x76/0x122
->[  170.141494]  [<f94f4000>] ? 0xf94f3fff
->[  170.141975]  [<c0463f1e>] sys_init_module+0x1286/0x140d
->[  170.142463]  [<c07c6d9f>] sysenter_do_call+0x12/0x28
->[  170.142974] ---[ end trace 64e4fac3ae5fff1b ]---
->[  170.144949] bond%d: Warning: failed to register to debugfs
->
->Signed-off-by: Weiping Pan <panweiping3@gmail.com>
->---
-> net/core/dev.c |    8 ++++----
-> 1 files changed, 4 insertions(+), 4 deletions(-)
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index ea23353..3ed09f8 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -5437,6 +5437,10 @@ int register_netdevice(struct net_device *dev)
-> 
-> 	dev->iflink = -1;
-> 
->+	ret = dev_get_valid_name(dev, dev->name);
->+	if (ret < 0)
->+		goto out;
->+
-> 	/* Init, if this function is available */
-> 	if (dev->netdev_ops->ndo_init) {
-> 		ret = dev->netdev_ops->ndo_init(dev);
->@@ -5447,10 +5451,6 @@ int register_netdevice(struct net_device *dev)
-> 		}
-> 	}
-> 
->-	ret = dev_get_valid_name(dev, dev->name);
->-	if (ret < 0)
->-		goto err_uninit;
->-
-> 	dev->ifindex = dev_new_index(net);
-> 	if (dev->iflink == -1)
-> 		dev->iflink = dev->ifindex;
->-- 
->1.7.4.4
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Fri, May 13, 2011 at 06:45:01AM +0200, frank.blaschka@de.ibm.com wro=
+te:
+> From: Frank Blaschka <frank.blaschka@de.ibm.com>
+> Set rx csum default to hw checksumming again.
+> Remove sysfs interface for rx csum (checksumming) and TSO (large_send=
+).
+> With the new hw_features it does not work to keep the old sysfs
+> interface in parallel. Convert options.checksum_type to new hw_featur=
+es.
 
+Please see following patch (replacing qeth_l3_main.c part of your patch=
+) for
+an illustration of my earlier comments.
 
-Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+Best Regards,
+Micha=B3 Miros=B3aw
+
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3=
+_main.c
+index 1496661..9b8ce44 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1445,70 +1445,37 @@ static int qeth_l3_send_checksum_command(struct=
+ qeth_card *card)
+ 	return 0;
+ }
+=20
+-int qeth_l3_set_rx_csum(struct qeth_card *card,
+-	enum qeth_checksum_types csum_type)
++static int qeth_l3_set_rx_csum(struct qeth_card *card, int on)
+ {
+-	int rc =3D 0;
++	int rc;
+=20
+-	if (card->options.checksum_type =3D=3D HW_CHECKSUMMING) {
+-		if ((csum_type !=3D HW_CHECKSUMMING) &&
+-			(card->state !=3D CARD_STATE_DOWN)) {
+-			rc =3D qeth_l3_send_simple_setassparms(card,
+-				IPA_INBOUND_CHECKSUM, IPA_CMD_ASS_STOP, 0);
+-			if (rc)
+-				return -EIO;
+-		}
+-		card->dev->features |=3D NETIF_F_RXCSUM;
+-	} else {
+-		if (csum_type =3D=3D HW_CHECKSUMMING) {
+-			if (card->state !=3D CARD_STATE_DOWN) {
+-				if (!qeth_is_supported(card,
+-				    IPA_INBOUND_CHECKSUM))
+-					return -EPERM;
+-				rc =3D qeth_l3_send_checksum_command(card);
+-				if (rc)
+-					return -EIO;
+-			}
+-		}
+-		card->dev->features &=3D ~NETIF_F_RXCSUM;
++	if (on) {
++		rc =3D qeth_l3_send_checksum_command(card);
++		if (rc)
++			return -EIO;
++	} else
++		rc =3D qeth_l3_send_simple_setassparms(card,
++			IPA_INBOUND_CHECKSUM, IPA_CMD_ASS_STOP, 0);
++		if (rc)
++			return -EIO;
+ 	}
+-	card->options.checksum_type =3D csum_type;
+-	return rc;
++
++	return 0;
+ }
+=20
+ static int qeth_l3_start_ipa_checksum(struct qeth_card *card)
+ {
+-	int rc =3D 0;
+-
+ 	QETH_CARD_TEXT(card, 3, "strtcsum");
+=20
+-	if (card->options.checksum_type =3D=3D NO_CHECKSUMMING) {
+-		dev_info(&card->gdev->dev,
+-			"Using no checksumming on %s.\n",
+-			QETH_CARD_IFNAME(card));
+-		return 0;
+-	}
+-	if (card->options.checksum_type =3D=3D SW_CHECKSUMMING) {
+-		dev_info(&card->gdev->dev,
+-			"Using SW checksumming on %s.\n",
+-			QETH_CARD_IFNAME(card));
+-		return 0;
+-	}
+-	if (!qeth_is_supported(card, IPA_INBOUND_CHECKSUM)) {
+-		dev_info(&card->gdev->dev,
+-			"Inbound HW Checksumming not "
+-			"supported on %s,\ncontinuing "
+-			"using Inbound SW Checksumming\n",
+-			QETH_CARD_IFNAME(card));
+-		card->options.checksum_type =3D SW_CHECKSUMMING;
+-		return 0;
++	if (card->dev->features & NETIF_F_RXCSUM) {
++		rtnl_lock();
++		/* force set_features call */
++		card->dev->features &=3D ~NETIF_F_RXCSUM;
++		netdev_update_features(card->dev);
++		rtnl_unlock();
+ 	}
+-	rc =3D qeth_l3_send_checksum_command(card);
+-	if (!rc)
+-		dev_info(&card->gdev->dev,
+-			"HW Checksumming (inbound) enabled\n");
+=20
+-	return rc;
++	return 0;
+ }
+=20
+ static int qeth_l3_start_ipa_tx_checksum(struct qeth_card *card)
+@@ -2037,14 +2004,7 @@ static inline int qeth_l3_rebuild_skb(struct qet=
+h_card *card,
+ 		is_vlan =3D 1;
+ 	}
+=20
+-	switch (card->options.checksum_type) {
+-	case SW_CHECKSUMMING:
+-		skb->ip_summed =3D CHECKSUM_NONE;
+-		break;
+-	case NO_CHECKSUMMING:
+-		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+-		break;
+-	case HW_CHECKSUMMING:
++	if (card->dev->features & NETIF_F_RXCSUM) {
+ 		if ((hdr->hdr.l3.ext_flags &
+ 		    (QETH_HDR_EXT_CSUM_HDR_REQ |
+ 		     QETH_HDR_EXT_CSUM_TRANSP_REQ)) =3D=3D
+@@ -2053,7 +2013,8 @@ static inline int qeth_l3_rebuild_skb(struct qeth=
+_card *card,
+ 			skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+ 		else
+ 			skb->ip_summed =3D CHECKSUM_NONE;
+-	}
++	} else
++		skb->ip_summed =3D CHECKSUM_NONE;
+=20
+ 	return is_vlan;
+ }
+@@ -3235,20 +3196,20 @@ static u32 qeth_l3_fix_features(struct net_devi=
+ce *dev, u32 features)
+=20
+ static int qeth_l3_set_features(struct net_device *dev, u32 features)
+ {
+-	enum qeth_checksum_types csum_type;
+ 	struct qeth_card *card =3D dev->ml_priv;
+ 	u32 changed =3D dev->features ^ features;
++	int on;
+=20
+ 	if (!(changed & NETIF_F_RXCSUM))
+ 		return 0;
+=20
+-	if (features & NETIF_F_RXCSUM)
+-		csum_type =3D HW_CHECKSUMMING;
+-	else
+-		csum_type =3D SW_CHECKSUMMING;
++	if (card->state =3D=3D CARD_STATE_DOWN)
++		return 0;
+=20
++	/* commit other changes in case of error */
+ 	dev->features =3D features ^ NETIF_F_RXCSUM;
+-	return qeth_l3_set_rx_csum(card, csum_type);
++
++	return qeth_l3_set_rx_csum(card, features & NETIF_F_RXCSUM);
+ }
+=20
+ static const struct ethtool_ops qeth_l3_ethtool_ops =3D {
+@@ -3342,6 +3303,12 @@ static int qeth_l3_setup_netdev(struct qeth_card=
+ *card)
+ 			if (!(card->info.unique_id & UNIQUE_ID_NOT_BY_CARD))
+ 				card->dev->dev_id =3D card->info.unique_id &
+ 							 0xffff;
++			if (!card->info.guestlan) {
++				card->dev->hw_features =3D NETIF_F_SG |
++					NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
++					NETIF_F_TSO;
++				card->dev->features =3D NETIF_F_RXCSUM;
++			}
+ 		}
+ 	} else if (card->info.type =3D=3D QETH_CARD_TYPE_IQD) {
+ 		card->dev =3D alloc_netdev(0, "hsi%d", ether_setup);
+@@ -3357,8 +3324,6 @@ static int qeth_l3_setup_netdev(struct qeth_card =
+*card)
+ 	card->dev->watchdog_timeo =3D QETH_TX_TIMEOUT;
+ 	card->dev->mtu =3D card->info.initial_mtu;
+ 	SET_ETHTOOL_OPS(card->dev, &qeth_l3_ethtool_ops);
+-	card->dev->hw_features =3D NETIF_F_SG | NETIF_F_RXCSUM |
+-		NETIF_F_IP_CSUM | NETIF_F_TSO;
+ 	card->dev->features |=3D	NETIF_F_HW_VLAN_TX |
+ 				NETIF_F_HW_VLAN_RX |
+ 				NETIF_F_HW_VLAN_FILTER;
+@@ -3382,9 +3347,6 @@ static int qeth_l3_probe_device(struct ccwgroup_d=
+evice *gdev)
+ 	card->discipline.output_handler =3D (qdio_handler_t *)
+ 		qeth_qdio_output_handler;
+ 	card->discipline.recover =3D qeth_l3_recover;
+-	if ((card->info.type =3D=3D QETH_CARD_TYPE_OSD) ||
+-	    (card->info.type =3D=3D QETH_CARD_TYPE_OSX))
+-		card->options.checksum_type =3D HW_CHECKSUMMING;
+ 	return 0;
+ }
+=20
