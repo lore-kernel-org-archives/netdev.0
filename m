@@ -1,54 +1,34 @@
-From: Sebastian.Poehn@Belden.com
-Subject: [PATCH] ethtool: FLOW_EXT may confuse drivers
-Date: Fri, 13 May 2011 10:19:04 -0400
-Message-ID: <OFDA6F039C.B25E3B43-ON8525788F.004EA678-8525788F.004EA67B@BeldenCDT.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: question about UFO behavior for bridge device
+Date: Sat, 14 May 2011 00:36:27 +1000
+Message-ID: <20110513143627.GA29054@gondor.apana.org.au>
+References: <4DCCF803.5020805@cn.fujitsu.com> <1305292012.4065.441.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shan Wei <shanwei@cn.fujitsu.com>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.belden.com ([12.161.118.90]:60581 "EHLO mx1.belden.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755318Ab1EMOTN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 10:19:13 -0400
-In-Reply-To: 
-References: 
-MIME-Version: 1.0
+Received: from helcar.apana.org.au ([209.40.204.226]:57155 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754739Ab1EMOgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 10:36:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1305292012.4065.441.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The FLOW_EXT bit must be masked out. Otherwise if e.g. vlan is set a dr=
-iver receiving the ntuple may not detect the flow_type correctly!
+On Fri, May 13, 2011 at 02:06:52PM +0100, Ben Hutchings wrote:
+>
+> > But, actually, i saw original big skb in eth0's tcpdump file, but not segmented skbs.
+> > The behavior is right or what we want?
+> > Is there anything missed about my analysis?
+> 
+> I assume that packet capturing is handled earlier in the transmit path.
 
-Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+Yes it is.  It's the same with TSO.
 
-diff --git a/ethtool.c b/ethtool.c
-index 34fe107..0b7ec05 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -3134,6 +3134,9 @@ static int flow_spec_to_ntuple(struct ethtool_rx_=
-flow_spec *fsp,
-=A0=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 =A0=A0=A0 (u64)ntohl(~fsp->m_ext.data[=
-1]);
-=A0=A0=A0=A0 =A0=A0=A0 }
-=A0=A0=A0=A0 }
-+=A0=A0=A0=20
-+=A0=A0=A0 /*Mask out the extended bit, because ntuple does not know it=
-!*/
-+=A0=A0=A0 ntuple->flow_type &=3D ~FLOW_EXT;
-=A0
-=A0=A0=A0=A0 return 0;
-=A0}
-
-DISCLAIMER:
-
-Privileged and/or Confidential information may be contained in this
-message. If you are not the addressee of this message, you may not
-copy, use or deliver this message to anyone. In such event, you
-should destroy the message and kindly notify the sender by reply
-e-mail. It is understood that opinions or conclusions that do not
-relate to the official business of the company are neither given
-nor endorsed by the company.
-
-Thank You.
-
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
