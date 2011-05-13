@@ -1,95 +1,36 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH 1/1] IPVS: seq_release_net should be used.
-Date: Fri, 13 May 2011 08:03:20 +0200
-Message-ID: <1305266600-21507-1-git-send-email-hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <horms@verge.net.au>, <ja@ssi.bg>, <lvs-devel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] net: netlink: don't try unicast when dst_pid is zero for NETLINK_USERSOCK
+Date: Fri, 13 May 2011 14:24:54 +0800
+Message-ID: <1305267894-3314-1-git-send-email-xiaosuo@gmail.com>
+Cc: netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:46028 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148Ab1EMGZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 02:25:57 -0400
+Received: by pzk9 with SMTP id 9so1040070pzk.19
+        for <netdev@vger.kernel.org>; Thu, 12 May 2011 23:25:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Without this patch every access to ip_vs in procfs will increase
-the netns count i.e. an unbalanced get_net()/put_net().
-(ipvsadm commands also use procfs.)
-The result is you can't exit a netns if reading ip_vs_* procfs entries.
+For NETLINK_USERSOCK, no one listens on PID 0, so sending a message only to
+to a multicast group should not return -ECONNREFUSED.
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
- net/netfilter/ipvs/ip_vs_app.c  |    2 +-
- net/netfilter/ipvs/ip_vs_conn.c |    4 ++--
- net/netfilter/ipvs/ip_vs_ctl.c  |    6 +++---
- 3 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 51f3af7..059af31 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -572,7 +572,7 @@ static const struct file_operations ip_vs_app_fops = {
- 	.open	 = ip_vs_app_open,
- 	.read	 = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_net,
- };
- #endif
+ net/netlink/af_netlink.c |    2 ++
+ 1 file changed, 2 insertions(+)
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index c8f35b5..ba89304 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1379,6 +1379,8 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (dst_group) {
+ 		atomic_inc(&skb->users);
+ 		netlink_broadcast(sk, skb, dst_pid, dst_group, GFP_KERNEL);
++		if (dst_pid == 0 && sk->sk_protocol == NETLINK_USERSOCK)
++			return len;
+ 	}
+ 	err = netlink_unicast(sk, skb, dst_pid, msg->msg_flags&MSG_DONTWAIT);
  
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index d3fd91b..bf28ac2 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -1046,7 +1046,7 @@ static const struct file_operations ip_vs_conn_fops = {
- 	.open    = ip_vs_conn_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_net,
- };
- 
- static const char *ip_vs_origin_name(unsigned flags)
-@@ -1114,7 +1114,7 @@ static const struct file_operations ip_vs_conn_sync_fops = {
- 	.open    = ip_vs_conn_sync_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_net,
- };
- 
- #endif
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 89842f0..699c79a 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2066,7 +2066,7 @@ static const struct file_operations ip_vs_info_fops = {
- 	.open    = ip_vs_info_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release_net,
- };
- 
- static int ip_vs_stats_show(struct seq_file *seq, void *v)
-@@ -2106,7 +2106,7 @@ static const struct file_operations ip_vs_stats_fops = {
- 	.open = ip_vs_stats_seq_open,
- 	.read = seq_read,
- 	.llseek = seq_lseek,
--	.release = single_release,
-+	.release = single_release_net,
- };
- 
- static int ip_vs_stats_percpu_show(struct seq_file *seq, void *v)
-@@ -2175,7 +2175,7 @@ static const struct file_operations ip_vs_stats_percpu_fops = {
- 	.open = ip_vs_stats_percpu_seq_open,
- 	.read = seq_read,
- 	.llseek = seq_lseek,
--	.release = single_release,
-+	.release = single_release_net,
- };
- #endif
- 
--- 
-1.7.2.3
-
