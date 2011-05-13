@@ -1,109 +1,130 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: [RFC/PATCH 09/13] net: wl12xx: sdio: add a platform_device
-Date: Sat, 14 May 2011 00:26:26 +0300
-Message-ID: <1305321990-22041-10-git-send-email-balbi@ti.com>
+From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Subject: [RFC/PATCH 12/13] net: wireless: wl12xx: mark some symbols static
+Date: Sat, 14 May 2011 00:26:29 +0300
+Message-ID: <1305321990-22041-13-git-send-email-balbi@ti.com>
 References: <1305321990-22041-1-git-send-email-balbi@ti.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Felipe Balbi <balbi@ti.com>
-To: Luciano Coelho <coelho@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305321990-22041-1-git-send-email-balbi@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+To: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1305321990-22041-1-git-send-email-balbi-l0cyMroinI0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-that device will match with a driver to
-be added to the core driver.
+after re-factoring a bunch of symbols are only
+used inside main.c which allows us to mark
+them as static.
 
-Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
 ---
- drivers/net/wireless/wl12xx/sdio.c |   45 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 45 insertions(+), 0 deletions(-)
+ drivers/net/wireless/wl12xx/io.h   |    7 -------
+ drivers/net/wireless/wl12xx/main.c |   18 ++++++------------
+ 2 files changed, 6 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/wireless/wl12xx/sdio.c b/drivers/net/wireless/wl12xx/sdio.c
-index bb7569c..5c5e4f2 100644
---- a/drivers/net/wireless/wl12xx/sdio.c
-+++ b/drivers/net/wireless/wl12xx/sdio.c
-@@ -25,6 +25,7 @@
- #include <linux/module.h>
- #include <linux/crc7.h>
- #include <linux/vmalloc.h>
-+#include <linux/platform_device.h>
- #include <linux/mmc/sdio_func.h>
- #include <linux/mmc/sdio_ids.h>
- #include <linux/mmc/card.h>
-@@ -48,6 +49,7 @@
- struct wl12xx_sdio_glue {
- 	struct device		*dev;
- 	struct wl1271		*wl;
-+	struct platform_device	*core;
- };
+diff --git a/drivers/net/wireless/wl12xx/io.h b/drivers/net/wireless/wl12xx/io.h
+index 2bb2295..34ead79 100644
+--- a/drivers/net/wireless/wl12xx/io.h
++++ b/drivers/net/wireless/wl12xx/io.h
+@@ -157,11 +157,4 @@ int wl1271_set_partition(struct wl1271 *wl,
  
- static const struct sdio_device_id wl1271_devices[] __devinitconst = {
-@@ -210,6 +212,8 @@ static int __devinit wl1271_probe(struct sdio_func *func,
+ /* Functions from wl1271_main.c */
+ 
+-int wl1271_register_hw(struct wl1271 *wl);
+-void wl1271_unregister_hw(struct wl1271 *wl);
+-int wl1271_init_ieee80211(struct wl1271 *wl);
+-struct ieee80211_hw *wl1271_alloc_hw(void);
+-int wl1271_free_hw(struct wl1271 *wl);
+-irqreturn_t wl1271_irq(int irq, void *data);
+-
+ #endif
+diff --git a/drivers/net/wireless/wl12xx/main.c b/drivers/net/wireless/wl12xx/main.c
+index 628f7a3..d3c056d 100644
+--- a/drivers/net/wireless/wl12xx/main.c
++++ b/drivers/net/wireless/wl12xx/main.c
+@@ -661,7 +661,7 @@ static void wl1271_netstack_work(struct work_struct *work)
+ 
+ #define WL1271_IRQ_MAX_LOOPS 256
+ 
+-irqreturn_t wl1271_irq(int irq, void *cookie)
++static irqreturn_t wl1271_irq(int irq, void *cookie)
  {
- 	const struct wl12xx_platform_data *wlan_data;
+ 	int ret;
+ 	u32 intr;
+@@ -776,7 +776,6 @@ out:
  
-+	struct platform_device		*core;
-+	struct resource			res[1];
- 	struct wl12xx_sdio_glue		*glue;
- 	struct ieee80211_hw		*hw;
- 	struct wl1271			*wl;
-@@ -277,8 +281,47 @@ static int __devinit wl1271_probe(struct sdio_func *func,
- 	/* Tell PM core that we don't need the card to be powered now */
- 	pm_runtime_put_noidle(&func->dev);
- 
-+	core = platform_device_alloc("wl12xx-sdio", -1);
-+	if (!core) {
-+		dev_err(&func->dev, "can't allocate platform_device\n");
-+		ret = -ENOMEM;
-+		goto err4;
-+	}
-+
-+	core->dev.parent = &func->dev;
-+
-+	memset(res, 0x00, sizeof(res) * ARRAY_SIZE(res));
-+
-+	res[0].start	= wlan_data->irq;
-+	res[0].flags	= IORESOURCE_IRQ;
-+	res[0].name	= "irq";
-+
-+	ret = platform_device_add_resources(core, res, ARRAY_SIZE(res));
-+	if (ret) {
-+		dev_err(&func->dev, "can't add resources\n");
-+		goto err5;
-+	}
-+
-+	ret = platform_device_add_data(core, wlan_data, sizeof(*wlan_data));
-+	if (ret) {
-+		dev_err(&func->dev, "can't add platform data\n");
-+		goto err5;
-+	}
-+
-+	ret = platform_device_register(core);
-+	if (ret) {
-+		dev_err(&func->dev, "can't register platform device\n");
-+		goto err5;
-+	}
-+
- 	return 0;
- 
-+err5:
-+	platform_device_put(core);
-+
-+err4:
-+	wl1271_unregister_hw(wl);
-+
- err3:
- 	free_irq(wl->irq, wl);
- 
-@@ -303,6 +346,8 @@ static void __devexit wl1271_remove(struct sdio_func *func)
- 	wl1271_unregister_hw(wl);
- 	free_irq(wl->irq, wl);
- 	wl1271_free_hw(wl);
-+	platform_device_del(glue->core);
-+	platform_device_put(glue->core);
- 	kfree(glue);
+ 	return IRQ_HANDLED;
  }
+-EXPORT_SYMBOL_GPL(wl1271_irq);
  
+ static int wl1271_fetch_firmware(struct wl1271 *wl)
+ {
+@@ -3265,7 +3264,7 @@ static ssize_t wl1271_sysfs_show_hw_pg_ver(struct device *dev,
+ static DEVICE_ATTR(hw_pg_ver, S_IRUGO | S_IWUSR,
+ 		   wl1271_sysfs_show_hw_pg_ver, NULL);
+ 
+-int wl1271_register_hw(struct wl1271 *wl)
++static int wl1271_register_hw(struct wl1271 *wl)
+ {
+ 	int ret;
+ 
+@@ -3302,9 +3301,8 @@ int wl1271_register_hw(struct wl1271 *wl)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(wl1271_register_hw);
+ 
+-void wl1271_unregister_hw(struct wl1271 *wl)
++static void wl1271_unregister_hw(struct wl1271 *wl)
+ {
+ 	if (wl->state == WL1271_STATE_PLT)
+ 		__wl1271_plt_stop(wl);
+@@ -3314,9 +3312,8 @@ void wl1271_unregister_hw(struct wl1271 *wl)
+ 	wl->mac80211_registered = false;
+ 
+ }
+-EXPORT_SYMBOL_GPL(wl1271_unregister_hw);
+ 
+-int wl1271_init_ieee80211(struct wl1271 *wl)
++static int wl1271_init_ieee80211(struct wl1271 *wl)
+ {
+ 	static const u32 cipher_suites[] = {
+ 		WLAN_CIPHER_SUITE_WEP40,
+@@ -3386,11 +3383,10 @@ int wl1271_init_ieee80211(struct wl1271 *wl)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(wl1271_init_ieee80211);
+ 
+ #define WL1271_DEFAULT_CHANNEL 0
+ 
+-struct ieee80211_hw *wl1271_alloc_hw(void)
++static struct ieee80211_hw *wl1271_alloc_hw(void)
+ {
+ 	struct ieee80211_hw *hw;
+ 	struct platform_device *plat_dev = NULL;
+@@ -3523,9 +3519,8 @@ err_hw_alloc:
+ 
+ 	return ERR_PTR(ret);
+ }
+-EXPORT_SYMBOL_GPL(wl1271_alloc_hw);
+ 
+-int wl1271_free_hw(struct wl1271 *wl)
++static int wl1271_free_hw(struct wl1271 *wl)
+ {
+ 	platform_device_unregister(wl->plat_dev);
+ 	free_pages((unsigned long)wl->aggr_buf,
+@@ -3546,7 +3541,6 @@ int wl1271_free_hw(struct wl1271 *wl)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(wl1271_free_hw);
+ 
+ static irqreturn_t wl12xx_hardirq(int irq, void *_wl)
+ {
 -- 
 1.7.4.1.343.ga91df
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
