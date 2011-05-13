@@ -1,54 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 0/4] v6 Add support for network flow classifier
-Date: Fri, 13 May 2011 02:14:52 +0100
-Message-ID: <1305249292.14174.13.camel@bwh-desktop>
-References: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com>
+From: WeipingPan <panweiping3@gmail.com>
+Subject: Re: [PATCH net-next] net:set valid name before calling ndo_init()
+Date: Fri, 13 May 2011 09:21:37 +0800
+Message-ID: <4DCC87A1.7050604@gmail.com>
+References: <1305207541-13311-1-git-send-email-panweiping3@gmail.com> <1305214382.3795.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com, dm@chelsio.com,
-	netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:5522 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759055Ab1EMBO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 May 2011 21:14:56 -0400
-In-Reply-To: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305214382.3795.28.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-05-04 at 11:41 -0700, Alexander Duyck wrote:
-> This series is nearly identical to the last series with only a few changes in
-> the RX packet classification interface patch.  Specifically I have narrowed
-> down the rule manager to the point where it is only used to identify a
-> location for a rule if the rule location is unspecified.  The display
-> functionality for rules now just pulls the rule list in and goes through the
-> list from top to bottom displaying the rules instead of initializing the rule
-> manager and pulling the rules form there.
-> 
-> The main advantage to this approach is that the rule manager could easily be
-> replaced by a future ioctl call and on the failure of that ioctl call with a
-> return of EOPNOTSUPP it should be easy to fall back and just use the rule
-> manager.
+On 05/12/2011 11:33 PM, Eric Dumazet wrote:
+> Le jeudi 12 mai 2011 =C3=A0 21:39 +0800, Weiping Pan(=E6=BD=98=E5=8D=AB=
+=E5=B9=B3) a =C3=A9crit :
+>> From: Pan Weiping<panweiping3@gmail.com>
+>>
+>> A bug of bonding was invloved by e815d19ffe02bdfda1260949ef2b1806171=
+,
+>> see example 1 and 2.
+>>
+> I cant find e815d19ffe02bdfda1260949ef2b1806171 in net-next-2.6
+>
+> but I do find 1c5cae815d19ffe02bdfda1260949ef2b1806171
+It's my bad. It should be 1c5cae815d19ffe02bdfda1260949ef2b1806171
+> Please always use following when referring to a commit :
+>
+> ... in commit 1c5cae815d19 (net: call dev_alloc_name from
+> register_netdevice) ...
+>
+> - just limit to _first_ 12 chars, no need to have full length
+> - give the commit title
+>
+>
+Ok, I will change the commit log and resend the patch.
 
-Thanks a lot for persevering with this, Alexander.
-
-I've applied this series with minor changes to the last patch.  I
-abbreviated the version history in the commit message, and I deleted a
-blank line in the manual page additions which made the indentation wrong
-for the -U option.  I also recorded the author as you, since you've
-largely rewritten it!  The commit message credits Santwona Behera.
-
-You managed to uncover a bug in the sfc driver, which is that
-set_rx_ntuple can return a positive value.  Previously ethtool accepted
-any non-negative return value as successful, so I made a separate commit
-to restore that behaviour.  Of course I'll fix the driver too.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+thanks
+Weiping Pan
