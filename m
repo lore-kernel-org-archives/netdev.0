@@ -1,79 +1,61 @@
-From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
-Subject: [RFC/PATCH 10/13] net: wl12xx: main: add platform device
-Date: Sat, 14 May 2011 00:26:27 +0300
-Message-ID: <1305321990-22041-11-git-send-email-balbi@ti.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [RFC/PATCH 06/13] net: wl12xx: remove unnecessary prints
+Date: Sat, 14 May 2011 00:26:23 +0300
+Message-ID: <1305321990-22041-7-git-send-email-balbi@ti.com>
 References: <1305321990-22041-1-git-send-email-balbi@ti.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
-To: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1305321990-22041-1-git-send-email-balbi-l0cyMroinI0@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Felipe Balbi <balbi@ti.com>
+To: Luciano Coelho <coelho@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305321990-22041-1-git-send-email-balbi@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-now that we have a platform_driver on both
-glue layers, add a platform_device to the
-core driver.
+Those have little value. Remove those to
+make the driver less noisy.
 
-It's currently an empty platform_driver but
-more functionality will be added on later
-patches.
-
-Signed-off-by: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
 ---
- drivers/net/wireless/wl12xx/main.c |   35 +++++++++++++++++++++++++++++++++++
- 1 files changed, 35 insertions(+), 0 deletions(-)
+ drivers/net/wireless/wl12xx/spi.c |   15 +--------------
+ 1 files changed, 1 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/wireless/wl12xx/main.c b/drivers/net/wireless/wl12xx/main.c
-index 8b3c8d1..d377e1f 100644
---- a/drivers/net/wireless/wl12xx/main.c
-+++ b/drivers/net/wireless/wl12xx/main.c
-@@ -3547,6 +3547,41 @@ int wl1271_free_hw(struct wl1271 *wl)
- }
- EXPORT_SYMBOL_GPL(wl1271_free_hw);
+diff --git a/drivers/net/wireless/wl12xx/spi.c b/drivers/net/wireless/wl12xx/spi.c
+index ffc745b..382b79d 100644
+--- a/drivers/net/wireless/wl12xx/spi.c
++++ b/drivers/net/wireless/wl12xx/spi.c
+@@ -426,8 +426,6 @@ static int __devinit wl1271_probe(struct spi_device *spi)
+ 	if (ret)
+ 		goto out_irq;
  
-+static int __devinit wl12xx_probe(struct platform_device *pdev)
-+{
-+	return 0;
-+}
-+
-+static int __devexit wl12xx_remove(struct platform_device *pdev)
-+{
-+	return 0;
-+}
-+
-+static const struct platform_device_id wl12xx_id_table[] __devinitconst = {
-+	{ "wl12xx-sdio", 0 },
-+	{ "wl12xx-spi", 0 },
-+	{  }	/* Terminating Entry */
-+};
-+MODULE_DEVICE_TABLE(platform, wl12xx_id_table);
-+
-+static struct platform_driver wl12xx_driver = {
-+	.probe		= wl12xx_probe,
-+	.remove		= __devexit_p(wl12xx_remove),
-+	.id_table	= wl12xx_id_table,
-+};
-+
-+static int __init wl12xx_init(void)
-+{
-+	return platform_driver_register(&wl12xx_driver);
-+}
-+module_init(wl12xx_init);
-+
-+static void __exit wl12xx_exit(void)
-+{
-+	platform_driver_unregister(&wl12xx_driver);
-+}
-+module_exit(wl12xx_exit);
-+
- u32 wl12xx_debug_level = DEBUG_NONE;
- EXPORT_SYMBOL_GPL(wl12xx_debug_level);
- module_param_named(debug_level, wl12xx_debug_level, uint, S_IRUSR | S_IWUSR);
+-	wl1271_notice("initialized");
+-
+ 	return 0;
+ 
+  out_irq:
+@@ -464,23 +462,12 @@ static struct spi_driver wl1271_spi_driver = {
+ 
+ static int __init wl1271_init(void)
+ {
+-	int ret;
+-
+-	ret = spi_register_driver(&wl1271_spi_driver);
+-	if (ret < 0) {
+-		wl1271_error("failed to register spi driver: %d", ret);
+-		goto out;
+-	}
+-
+-out:
+-	return ret;
++	return spi_register_driver(&wl1271_spi_driver);
+ }
+ 
+ static void __exit wl1271_exit(void)
+ {
+ 	spi_unregister_driver(&wl1271_spi_driver);
+-
+-	wl1271_notice("unloaded");
+ }
+ 
+ module_init(wl1271_init);
 -- 
 1.7.4.1.343.ga91df
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
