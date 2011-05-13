@@ -1,122 +1,58 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH] pci,
-	e1000e: Add and use __pci_disable_link_state
-Date: Thu, 12 May 2011 16:58:57 -0700
-Message-ID: <4DCC7441.3070408@kernel.org>
-References: <4DC6E6E8.9040306@kernel.org>	<20110509143536.08bd0297@jbarnes-desktop>	<4DCAF039.4030207@kernel.org>
-	<20110512163210.132a2954@jbarnes-desktop>
+From: wwguy <wey-yi.w.guy@intel.com>
+Subject: Re: [PATCH 1/9] iwlegacy: Silence DEBUG_STRICT_USER_COPY_CHECKS=y
+ warning
+Date: Thu, 12 May 2011 17:01:42 -0700
+Message-ID: <1305244903.3589.0.camel@wwguy-ubuntu>
+References: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
+	 <1305244212-19183-2-git-send-email-sboyd@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Naga Chumbalkar <nagananda.chumbalkar@hp.com>,
-	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, John Ronciak <john.ronciak@intel.com>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	netdev@vger.kernel.org, Matthew Garrett <mjg@redhat.com>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20110512163210.132a2954@jbarnes-desktop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Berg, Johannes" <johannes.berg@intel.com>
+To: Stephen Boyd <sboyd@codeaurora.org>,
+	Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:16377 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759014Ab1EMAFA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 May 2011 20:05:00 -0400
+In-Reply-To: <1305244212-19183-2-git-send-email-sboyd@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2011 04:32 PM, Jesse Barnes wrote:
-> On Wed, 11 May 2011 13:23:21 -0700
-> Yinghai Lu <yinghai@kernel.org> wrote:
+On Thu, 2011-05-12 at 16:50 -0700, Stephen Boyd wrote:
+> Enabling DEBUG_STRICT_USER_COPY_CHECKS causes the following
+> warning:
 > 
->> On 05/09/2011 02:35 PM, Jesse Barnes wrote:
->>> On Sun, 08 May 2011 11:54:32 -0700
->>> Yinghai Lu <yinghai@kernel.org> wrote:
->>>
->>>>
->>>> Need to use it in _e1000e_disable_aspm.
->>>> when aer happens,
->>>> pci_walk_bus already have down_read(&pci_bus_sem)...
->>>> then report_slot_reset
->>>>         ==> e1000_io_slot_reset
->>>>                 ==> e1000e_disable_aspm
->>>>                         ==> pci_disable_link_state...
->>>>
->>>> We can not use pci_disable_link_state, and it will try to hold pci_bus_sem again.
->>>>
->>>> Try to have __pci_disable_link_state that will not need to hold pci_bus_sem.
->>>
->>> What about the other callers of e1000e_disable_aspm?  Do they already
->>> have the lock held or is it just reset that needs the already locked
->>> version?
->>
->> yes. 
->>
->> there is another version when aspm is not defined. and it does not use any lock. 
->>
->> #ifdef CONFIG_PCIEASPM
->> static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
->> {
->>         pci_disable_link_state(pdev, state);
->> }
->> #else
->> static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
->> {
->>         int pos;
->>         u16 reg16;
->>
->>         /*
->>          * Both device and parent should have the same ASPM setting.
->>          * Disable ASPM in downstream component first and then upstream.
->>          */
->>         pos = pci_pcie_cap(pdev);
->>         pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
->>         reg16 &= ~state;
->>         pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
->>
->>         if (!pdev->bus->self)
->>                 return;
->>
->>         pos = pci_pcie_cap(pdev->bus->self);
->>         pci_read_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, &reg16);
->>         reg16 &= ~state;
->>         pci_write_config_word(pdev->bus->self, pos + PCI_EXP_LNKCTL, reg16);
->> }
->> #endif
+> In file included from arch/x86/include/asm/uaccess.h:573,
+>                  from include/net/checksum.h:25,
+>                  from include/linux/skbuff.h:28,
+>                  from drivers/net/wireless/iwlegacy/iwl-4965-rs.c:28:
+> In function 'copy_from_user',
+>     inlined from 'iwl4965_rs_sta_dbgfs_scale_table_write' at
+>     drivers/net/wireless/iwlegacy/iwl-4965-rs.c:2616:
+> arch/x86/include/asm/uaccess_64.h:65:
+> warning: call to 'copy_from_user_overflow' declared with
+> attribute warning: copy_from_user() buffer size is not provably
+> correct
 > 
-> No, I mean __e1000e_disable_aspm is called from several spots:
+> presumably due to buf_size being signed causing GCC to fail to
+> see that buf_size can't become negative.
 > 
-> *** drivers/net/e1000e/82571.c:
-> e1000_get_variants_82571[435]  e1000e_disable_aspm(adapter->pdev, PCIE_LINK_STATE_L0S);
+> Cc: Johannes Berg <johannes.berg@intel.com>
+> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+> ---
+>  drivers/net/wireless/iwlegacy/iwl-4965-rs.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> *** drivers/net/e1000e/netdev.c:
-> e1000_change_mtu[5027]         e1000e_disable_aspm(adapter->pdev, PCIE_LINK_STATE_L1);
-> __e1000_resume[5402]           e1000e_disable_aspm(pdev, PCIE_LINK_STATE_L1);
-> e1000_io_slot_reset[5650]      e1000e_disable_aspm(pdev, PCIE_LINK_STATE_L1);
-> e1000_probe[5797]              e1000e_disable_aspm(pdev, PCIE_LINK_STATE_L1);
-> 
-> Are all of them safe for the unlocked version of ASPM disable?
+Stanislaw Gruszka <sgruszka@redhat.com> is the maintainer for iwlegacy
 
-yes, there are two version __e1000e_disable_aspm(), one is when aspm support is compiled in, and another one is not.
+Thanks
+Wey
 
-the one without aspm compiled does not use pci_bus_sem in it self...
 
-So I assume another path should not use pci_bus_sem in the function itself.
 
-Yinghai
-
-------------------------------------------------------------------------------
-Achieve unprecedented app performance and reliability
-What every C/C++ and Fortran developer should know.
-Learn how Intel has extended the reach of its next-generation tools
-to help boost performance applications - inlcuding clusters.
-http://p.sf.net/sfu/intel-dev2devmay
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
