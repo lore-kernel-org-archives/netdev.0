@@ -1,48 +1,74 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: [PATCH 6/9] Bluetooth: Silence DEBUG_STRICT_USER_COPY_CHECKS=y
- warning
-Date: Fri, 13 May 2011 18:06:20 -0300
-Message-ID: <20110513210620.GB2187@joana>
-References: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
- <1305244212-19183-7-git-send-email-sboyd@codeaurora.org>
+From: Christoph Lameter <cl@linux.com>
+Subject: [PATCH] slub: Make CONFIG_PAGE_ALLOC work with new fastpath
+Date: Fri, 13 May 2011 16:15:41 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1105131614440.913@router.home>
+References: <bug-33502-10286@https.bugzilla.kernel.org/>  <1303183217.4152.49.camel@edumazet-laptop>  <alpine.DEB.2.00.1104191210011.17888@router.home>  <1303244270.2756.3.camel@edumazet-laptop> <4DC90D7D.9030808@cs.helsinki.fi>  <1305022632.2614.18.camel@edumazet-laptop>
+  <4DC91137.4030109@cs.helsinki.fi>  <a49ddd5511b74b8d9b81af8c3ef72d5a@ulrik.uio.no>  <alpine.DEB.2.00.1105101133440.2611@router.home>  <1305047682.2758.1.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101226460.2875@router.home>  <alpine.DEB.2.00.1105101242420.2875@router.home>
+  <1305050754.2758.12.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101323290.4023@router.home>  <1305055948.2437.13.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101435480.4023@router.home>  <1305057989.2437.18.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1105101531160.4023@router.home>  <1305060353.2437.26.camel@edumazet-laptop>  <alpine.DEB.2.00.1105101619430.4023@router.home> <1305083543.2437.39.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-To: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1305244212-19183-7-git-send-email-sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Vegard Nossum <vegardno@ifi.uio.no>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	casteyde.christian@free.fr,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp104.prem.mail.ac4.yahoo.com ([76.13.13.43]:34326 "HELO
+	smtp104.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755483Ab1EMVPp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 17:15:45 -0400
+In-Reply-To: <1305083543.2437.39.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+I ran this with hackbench under KVM with CONFIG_DEBUG_PAGEALLOC and I saw
+no failures.
 
-* Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> [2011-05-12 16:50:09 -0700]:
 
-> Enabling DEBUG_STRICT_USER_COPY_CHECKS causes the following
-> warning:
-> 
-> In function 'copy_from_user',
->     inlined from 'rfcomm_sock_setsockopt' at
->     net/bluetooth/rfcomm/sock.c:705:
-> arch/x86/include/asm/uaccess_64.h:65:
-> warning: call to 'copy_from_user_overflow' declared with
-> attribute warning: copy_from_user() buffer size is not provably
-> correct
-> 
-> presumably due to buf_size being signed causing GCC to fail to
-> see that buf_size can't become negative.
-> 
-> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> Cc: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> Signed-off-by: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> ---
->  net/bluetooth/rfcomm/sock.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
+Subject: slub: Make CONFIG_PAGE_ALLOC work with new fastpath
 
-Applied, thanks.
+Fastpath can do a speculative access to a page that CONFIG_PAGE_ALLOC may have
+marked as invalid to retrieve the pointer to the next free object.
 
--- 
-Gustavo F. Padovan
-http://profusion.mobi
+Use probe_kernel_read in that case in order not to cause a page fault.
+
+Signed-off-by: Christoph Lameter <cl@linux.com>
+---
+ mm/slub.c |   14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+Index: linux-2.6/mm/slub.c
+===================================================================
+--- linux-2.6.orig/mm/slub.c	2011-05-10 14:31:28.000000000 -0500
++++ linux-2.6/mm/slub.c	2011-05-10 14:31:35.000000000 -0500
+@@ -261,6 +261,18 @@ static inline void *get_freepointer(stru
+ 	return *(void **)(object + s->offset);
+ }
+
++static inline void *get_freepointer_safe(struct kmem_cache *s, void *object)
++{
++	void *p;
++
++#ifdef CONFIG_DEBUG_PAGEALLOC
++	probe_kernel_read(&p, (void **)(object + s->offset), sizeof(p));
++#else
++	p = get_freepointer(s, object);
++#endif
++	return p;
++}
++
+ static inline void set_freepointer(struct kmem_cache *s, void *object, void *fp)
+ {
+ 	*(void **)(object + s->offset) = fp;
+@@ -1933,7 +1945,7 @@ redo:
+ 		if (unlikely(!irqsafe_cpu_cmpxchg_double(
+ 				s->cpu_slab->freelist, s->cpu_slab->tid,
+ 				object, tid,
+-				get_freepointer(s, object), next_tid(tid)))) {
++				get_freepointer_safe(s, object), next_tid(tid)))) {
+
+ 			note_cmpxchg_failure("slab_alloc", s, tid);
+ 			goto redo;
