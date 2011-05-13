@@ -1,47 +1,82 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 2/2] stmmac: fix autoneg in set_pauseparam
-Date: Fri, 13 May 2011 08:28:05 +0200
-Message-ID: <1305268085-603-2-git-send-email-peppe.cavallaro@st.com>
-References: <1305268085-603-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:51615 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753013Ab1EMG2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 02:28:45 -0400
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 08717197
-	for <netdev@vger.kernel.org>; Fri, 13 May 2011 06:28:42 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id AEF4615C0
-	for <netdev@vger.kernel.org>; Fri, 13 May 2011 06:28:42 +0000 (GMT)
-In-Reply-To: <1305268085-603-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH 1/2] net/stmmac: don't go through ethtool to start autonegociation
+Date: Fri, 13 May 2011 08:31:01 +0200
+Message-ID: <4DCCD025.4090100@st.com>
+References: <1304986748-15809-1-git-send-email-decot@google.com> <1304986748-15809-2-git-send-email-decot@google.com> <4DC941D4.8030409@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Decotigny <decot@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DC941D4.8030409@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes a bug in the set_pauseparam
-function that didn't well manage the ANE
-field and returned broken values when use
-ethtool -A|-a.
+On 5/10/2011 3:47 PM, Giuseppe CAVALLARO wrote:
+> On 5/10/2011 2:19 AM, David Decotigny wrote:
+>> The driver used to call phy's ethtool configuration routine to start
+>> autonegociation. This change has it call directly phy's routine to
+>> start autonegociation.
+>>
+>> IMPORTANT: initial version was hiding phy_start_aneg() return value,
+>>            this patch returns it (<0 upon error).
+>>
+>> Tested: module compiles, NOT tested on real hardware.
+>> Signed-off-by: David Decotigny <decot@google.com>
+> 
+> Sorry for the delay, I'm doing some tests with the stmmac on a "real"
+> HW. I'll come back asap.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/stmmac/stmmac_ethtool.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/stmmac/stmmac_ethtool.c
-index 9c05cf0..ae5213a 100644
---- a/drivers/net/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/stmmac/stmmac_ethtool.c
-@@ -234,6 +234,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 		new_pause |= FLOW_TX;
- 
- 	priv->flow_ctrl = new_pause;
-+	phy->autoneg = pause->autoneg;
- 
- 	if (phy->autoneg) {
- 		if (netif_running(netdev))
--- 
-1.7.4.4
+Hello.
 
+I've tested the patch and, as discussed with David, I have sent it again
+plus a new fix in the stmmac_set_pauseparam I have done while testing
+ethtool -A|-a on my ST box.
+
+Best Regards,
+Peppe
+
+> 
+> Regards
+> Peppe
+> 
+>> ---
+>>  drivers/net/stmmac/stmmac_ethtool.c |   13 ++-----------
+>>  1 files changed, 2 insertions(+), 11 deletions(-)
+>>
+>> diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/stmmac/stmmac_ethtool.c
+>> index 6f5aaeb..9c05cf0 100644
+>> --- a/drivers/net/stmmac/stmmac_ethtool.c
+>> +++ b/drivers/net/stmmac/stmmac_ethtool.c
+>> @@ -236,17 +236,8 @@ stmmac_set_pauseparam(struct net_device *netdev,
+>>  	priv->flow_ctrl = new_pause;
+>>  
+>>  	if (phy->autoneg) {
+>> -		if (netif_running(netdev)) {
+>> -			struct ethtool_cmd cmd = { .cmd = ETHTOOL_SSET };
+>> -			/* auto-negotiation automatically restarted */
+>> -			cmd.supported = phy->supported;
+>> -			cmd.advertising = phy->advertising;
+>> -			cmd.autoneg = phy->autoneg;
+>> -			ethtool_cmd_speed_set(&cmd, phy->speed);
+>> -			cmd.duplex = phy->duplex;
+>> -			cmd.phy_address = phy->addr;
+>> -			ret = phy_ethtool_sset(phy, &cmd);
+>> -		}
+>> +		if (netif_running(netdev))
+>> +			ret = phy_start_aneg(phy);
+>>  	} else
+>>  		priv->hw->mac->flow_ctrl(priv->ioaddr, phy->duplex,
+>>  					 priv->flow_ctrl, priv->pause);
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
