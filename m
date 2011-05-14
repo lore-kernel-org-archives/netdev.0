@@ -1,71 +1,60 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next] net: drivers: kill two unused macro definitions
-Date: Sat, 14 May 2011 09:53:35 +0200
-Message-ID: <20110514075334.GA2751@psychotron>
-References: <4DCE2A7F.1040000@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: ping: small changes
+Date: Sat, 14 May 2011 10:59:19 +0200
+Message-ID: <1305363559.3120.54.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fubar@us.ibm.com, andy@greyhouse.net,
-	David Miller <davem@davemloft.net>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	ebiederm@aristanetworks.com, netdev <netdev@vger.kernel.org>
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Vasiliy Kulikov <segoon@openwall.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22069 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752190Ab1ENHyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 May 2011 03:54:00 -0400
-Content-Disposition: inline
-In-Reply-To: <4DCE2A7F.1040000@cn.fujitsu.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:62659 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752014Ab1ENI7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 04:59:24 -0400
+Received: by wwa36 with SMTP id 36so3590850wwa.1
+        for <netdev@vger.kernel.org>; Sat, 14 May 2011 01:59:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, May 14, 2011 at 09:08:47AM CEST, shanwei@cn.fujitsu.com wrote:
->
->
->Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
->---
-> drivers/net/bonding/bonding.h |   10 ----------
-> drivers/net/veth.c            |    1 -
-> 2 files changed, 0 insertions(+), 11 deletions(-)
->
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index d08362e..ea1d005 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -39,16 +39,6 @@
-> 	       netif_carrier_ok(dev))
-> 
-> /*
->- * Checks whether bond is ready for transmit.
->- *
->- * Caller must hold bond->lock
->- */
->-#define BOND_IS_OK(bond)			     \
->-		   (((bond)->dev->flags & IFF_UP) && \
->-		    netif_running((bond)->dev)	  && \
->-		    ((bond)->slave_cnt > 0))
->-
->-/*
->  * Checks whether slave is ready for transmit.
->  */
-> #define SLAVE_IS_OK(slave)			        \
->diff --git a/drivers/net/veth.c b/drivers/net/veth.c
->index 3b0151a..8461576 100644
->--- a/drivers/net/veth.c
->+++ b/drivers/net/veth.c
->@@ -22,7 +22,6 @@
-> 
-> #define MIN_MTU 68		/* Min L3 MTU */
-> #define MAX_MTU 65535		/* Max L3 MTU (arbitrary) */
->-#define MTU_PAD (ETH_HLEN + 4)  /* Max difference between L2 and L3 size MTU */
-> 
-> struct veth_net_stats {
-> 	unsigned long	rx_packets;
->-- 
->1.7.4.1
+ping_table is not __read_mostly, since it contains one rwlock,
+and is static to ping.c
 
+ping_port_rover & ping_v4_lookup are static
 
-Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Vasiliy Kulikov <segoon@openwall.com>
+---
+ net/ipv4/ping.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index a77e2d7..7041d09 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -49,9 +49,9 @@
+ #include <net/checksum.h>
+ 
+ 
+-struct ping_table ping_table __read_mostly;
++static struct ping_table ping_table;
+ 
+-u16 ping_port_rover;
++static u16 ping_port_rover;
+ 
+ static inline int ping_hashfn(struct net *net, unsigned num, unsigned mask)
+ {
+@@ -150,8 +150,8 @@ static void ping_v4_unhash(struct sock *sk)
+ 	}
+ }
+ 
+-struct sock *ping_v4_lookup(struct net *net, u32 saddr, u32 daddr,
+-	 u16 ident, int dif)
++static struct sock *ping_v4_lookup(struct net *net, u32 saddr, u32 daddr,
++				   u16 ident, int dif)
+ {
+ 	struct hlist_nulls_head *hslot = ping_hashslot(&ping_table, net, ident);
+ 	struct sock *sk = NULL;
+
 
