@@ -1,60 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: ping: small changes
-Date: Sat, 14 May 2011 10:59:19 +0200
-Message-ID: <1305363559.3120.54.camel@edumazet-laptop>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: question about UFO behavior for bridge device
+Date: Sat, 14 May 2011 17:54:06 +0800
+Message-ID: <4DCE513E.9040002@cn.fujitsu.com>
+References: <4DCCF803.5020805@cn.fujitsu.com> <1305292012.4065.441.camel@localhost> <20110513143627.GA29054@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62659 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752014Ab1ENI7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 04:59:24 -0400
-Received: by wwa36 with SMTP id 36so3590850wwa.1
-        for <netdev@vger.kernel.org>; Sat, 14 May 2011 01:59:23 -0700 (PDT)
+Received: from cn.fujitsu.com ([222.73.24.84]:61498 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751860Ab1ENJyI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 May 2011 05:54:08 -0400
+In-Reply-To: <20110513143627.GA29054@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ping_table is not __read_mostly, since it contains one rwlock,
-and is static to ping.c
+Herbert Xu wrote, at 05/13/2011 10:36 PM:
+> On Fri, May 13, 2011 at 02:06:52PM +0100, Ben Hutchings wrote:
+>>
+>>> But, actually, i saw original big skb in eth0's tcpdump file, but not segmented skbs.
+>>> The behavior is right or what we want?
+>>> Is there anything missed about my analysis?
+>>
+>> I assume that packet capturing is handled earlier in the transmit path.
+> 
+> Yes it is.  It's the same with TSO.
 
-ping_port_rover & ping_v4_lookup are static
+Be cheated by tcpdump. :-(
+dev_queue_xmit_nit(skb, dev) which dumps packet to user is called before handling GSO segments.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Vasiliy Kulikov <segoon@openwall.com>
----
- net/ipv4/ping.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Thanks very much.
 
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index a77e2d7..7041d09 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -49,9 +49,9 @@
- #include <net/checksum.h>
- 
- 
--struct ping_table ping_table __read_mostly;
-+static struct ping_table ping_table;
- 
--u16 ping_port_rover;
-+static u16 ping_port_rover;
- 
- static inline int ping_hashfn(struct net *net, unsigned num, unsigned mask)
- {
-@@ -150,8 +150,8 @@ static void ping_v4_unhash(struct sock *sk)
- 	}
- }
- 
--struct sock *ping_v4_lookup(struct net *net, u32 saddr, u32 daddr,
--	 u16 ident, int dif)
-+static struct sock *ping_v4_lookup(struct net *net, u32 saddr, u32 daddr,
-+				   u16 ident, int dif)
- {
- 	struct hlist_nulls_head *hslot = ping_hashslot(&ping_table, net, ident);
- 	struct sock *sk = NULL;
-
-
+-- 
+Best Regards
+-----
+Shan Wei
