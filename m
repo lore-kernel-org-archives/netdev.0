@@ -1,108 +1,52 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/1] IPVS: seq_release_net should be used.
-Date: Sat, 14 May 2011 09:50:26 +0900
-Message-ID: <20110514005025.GD4862@verge.net.au>
-References: <1305266600-21507-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: netlink: don't try unicast when dst_pid is zero for NETLINK_USERSOCK
+Date: Sat, 14 May 2011 08:50:37 +0800
+Message-ID: <BANLkTimXZ0gU0F0SpmUuUwEsnD3MGSnJcA@mail.gmail.com>
+References: <1305267894-3314-1-git-send-email-xiaosuo@gmail.com> <20110513.164816.691741982303119913.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ja@ssi.bg, lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1305266600-21507-1-git-send-email-hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f173.google.com ([209.85.212.173]:34897 "EHLO
+	mail-px0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759816Ab1ENAu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 20:50:57 -0400
+Received: by pxi16 with SMTP id 16so1989365pxi.4
+        for <netdev@vger.kernel.org>; Fri, 13 May 2011 17:50:57 -0700 (PDT)
+In-Reply-To: <20110513.164816.691741982303119913.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 13, 2011 at 08:03:20AM +0200, Hans Schillstrom wrote:
-> Without this patch every access to ip_vs in procfs will increase
-> the netns count i.e. an unbalanced get_net()/put_net().
-> (ipvsadm commands also use procfs.)
-> The result is you can't exit a netns if reading ip_vs_* procfs entries.
+On Sat, May 14, 2011 at 4:48 AM, David Miller <davem@davemloft.net> wrote:
+> From: Changli Gao <xiaosuo@gmail.com>
+> Date: Fri, 13 May 2011 14:24:54 +0800
+>
+>> For NETLINK_USERSOCK, no one listens on PID 0, so sending a message only to
+>> to a multicast group should not return -ECONNREFUSED.
+>>
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>
+> I don't think this is a great idea, creating different semantics for
+> NETLINK_USERSOCK vs. other types.
+>
+> You have to set the pid to something which will receive the unicast
+> message, and then you can also (on top of that) send it to a multicast
+> group as well.
+>
+> But the base operation is always the unicast send, and that is what
+> determines success/failure of the operation.
+>
 
-Hi Hans,
+Yes, I have seen that the return value of netlink_broadcast() isn't
+returned to the caller, so the caller can't know whether the message
+broadcasted is sent successfully or not. It isn't a big problem, as
+netlink isn't a reliable datagram protocol. Without this patch
+applied, we can also send a message to a multicast group only, but
+ignore the -ECONNREFUSED error.
 
-we should try and get this into 2.6.39, right?
+Thanks.
 
-> 
-> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> ---
->  net/netfilter/ipvs/ip_vs_app.c  |    2 +-
->  net/netfilter/ipvs/ip_vs_conn.c |    4 ++--
->  net/netfilter/ipvs/ip_vs_ctl.c  |    6 +++---
->  3 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-> index 51f3af7..059af31 100644
-> --- a/net/netfilter/ipvs/ip_vs_app.c
-> +++ b/net/netfilter/ipvs/ip_vs_app.c
-> @@ -572,7 +572,7 @@ static const struct file_operations ip_vs_app_fops = {
->  	.open	 = ip_vs_app_open,
->  	.read	 = seq_read,
->  	.llseek  = seq_lseek,
-> -	.release = seq_release,
-> +	.release = seq_release_net,
->  };
->  #endif
->  
-> diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-> index d3fd91b..bf28ac2 100644
-> --- a/net/netfilter/ipvs/ip_vs_conn.c
-> +++ b/net/netfilter/ipvs/ip_vs_conn.c
-> @@ -1046,7 +1046,7 @@ static const struct file_operations ip_vs_conn_fops = {
->  	.open    = ip_vs_conn_open,
->  	.read    = seq_read,
->  	.llseek  = seq_lseek,
-> -	.release = seq_release,
-> +	.release = seq_release_net,
->  };
->  
->  static const char *ip_vs_origin_name(unsigned flags)
-> @@ -1114,7 +1114,7 @@ static const struct file_operations ip_vs_conn_sync_fops = {
->  	.open    = ip_vs_conn_sync_open,
->  	.read    = seq_read,
->  	.llseek  = seq_lseek,
-> -	.release = seq_release,
-> +	.release = seq_release_net,
->  };
->  
->  #endif
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index 89842f0..699c79a 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -2066,7 +2066,7 @@ static const struct file_operations ip_vs_info_fops = {
->  	.open    = ip_vs_info_open,
->  	.read    = seq_read,
->  	.llseek  = seq_lseek,
-> -	.release = seq_release_private,
-> +	.release = seq_release_net,
->  };
->  
->  static int ip_vs_stats_show(struct seq_file *seq, void *v)
-> @@ -2106,7 +2106,7 @@ static const struct file_operations ip_vs_stats_fops = {
->  	.open = ip_vs_stats_seq_open,
->  	.read = seq_read,
->  	.llseek = seq_lseek,
-> -	.release = single_release,
-> +	.release = single_release_net,
->  };
->  
->  static int ip_vs_stats_percpu_show(struct seq_file *seq, void *v)
-> @@ -2175,7 +2175,7 @@ static const struct file_operations ip_vs_stats_percpu_fops = {
->  	.open = ip_vs_stats_percpu_seq_open,
->  	.read = seq_read,
->  	.llseek = seq_lseek,
-> -	.release = single_release,
-> +	.release = single_release_net,
->  };
->  #endif
->  
-> -- 
-> 1.7.2.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
