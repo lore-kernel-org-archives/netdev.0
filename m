@@ -1,107 +1,79 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [PATCH 1/1] IPVS: seq_release_net should be used.
-Date: Sat, 14 May 2011 12:05:41 +0200
-Message-ID: <201105141205.41912.hans@schillstrom.com>
-References: <1305266600-21507-1-git-send-email-hans.schillstrom@ericsson.com> <20110514005025.GD4862@verge.net.au>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] net: fix ETHTOOL_SFEATURES compatibility with old ethtool_ops.set_flags
+Date: Sat, 14 May 2011 12:31:11 +0200 (CEST)
+Message-ID: <20110514103111.3FD5913A6A@rere.qmqm.pl>
+References: <20110514095457.GA31970@rere.qmqm.pl>
+	<1305335142.2851.70.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>, ja@ssi.bg,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20110514005025.GD4862@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:59462 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751075Ab1ENKbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 May 2011 06:31:12 -0400
+In-Reply-To: <20110514095457.GA31970@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday, May 14, 2011 02:50:26 Simon Horman wrote:
-> On Fri, May 13, 2011 at 08:03:20AM +0200, Hans Schillstrom wrote:
-> > Without this patch every access to ip_vs in procfs will increase
-> > the netns count i.e. an unbalanced get_net()/put_net().
-> > (ipvsadm commands also use procfs.)
-> > The result is you can't exit a netns if reading ip_vs_* procfs entries.
-> 
-> Hi Hans,
-> 
-> we should try and get this into 2.6.39, right?
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+Against net-next, but this should also go to net.
 
-Yes, this is a trivial bug fix
+ net/core/ethtool.c |   25 ++++++++++++++++++++++++-
+ 1 files changed, 24 insertions(+), 1 deletions(-)
 
-> 
-> > 
-> > Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> > ---
-> >  net/netfilter/ipvs/ip_vs_app.c  |    2 +-
-> >  net/netfilter/ipvs/ip_vs_conn.c |    4 ++--
-> >  net/netfilter/ipvs/ip_vs_ctl.c  |    6 +++---
-> >  3 files changed, 6 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-> > index 51f3af7..059af31 100644
-> > --- a/net/netfilter/ipvs/ip_vs_app.c
-> > +++ b/net/netfilter/ipvs/ip_vs_app.c
-> > @@ -572,7 +572,7 @@ static const struct file_operations ip_vs_app_fops = {
-> >  	.open	 = ip_vs_app_open,
-> >  	.read	 = seq_read,
-> >  	.llseek  = seq_lseek,
-> > -	.release = seq_release,
-> > +	.release = seq_release_net,
-> >  };
-> >  #endif
-> >  
-> > diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-> > index d3fd91b..bf28ac2 100644
-> > --- a/net/netfilter/ipvs/ip_vs_conn.c
-> > +++ b/net/netfilter/ipvs/ip_vs_conn.c
-> > @@ -1046,7 +1046,7 @@ static const struct file_operations ip_vs_conn_fops = {
-> >  	.open    = ip_vs_conn_open,
-> >  	.read    = seq_read,
-> >  	.llseek  = seq_lseek,
-> > -	.release = seq_release,
-> > +	.release = seq_release_net,
-> >  };
-> >  
-> >  static const char *ip_vs_origin_name(unsigned flags)
-> > @@ -1114,7 +1114,7 @@ static const struct file_operations ip_vs_conn_sync_fops = {
-> >  	.open    = ip_vs_conn_sync_open,
-> >  	.read    = seq_read,
-> >  	.llseek  = seq_lseek,
-> > -	.release = seq_release,
-> > +	.release = seq_release_net,
-> >  };
-> >  
-> >  #endif
-> > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> > index 89842f0..699c79a 100644
-> > --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> > @@ -2066,7 +2066,7 @@ static const struct file_operations ip_vs_info_fops = {
-> >  	.open    = ip_vs_info_open,
-> >  	.read    = seq_read,
-> >  	.llseek  = seq_lseek,
-> > -	.release = seq_release_private,
-> > +	.release = seq_release_net,
-> >  };
-> >  
-> >  static int ip_vs_stats_show(struct seq_file *seq, void *v)
-> > @@ -2106,7 +2106,7 @@ static const struct file_operations ip_vs_stats_fops = {
-> >  	.open = ip_vs_stats_seq_open,
-> >  	.read = seq_read,
-> >  	.llseek = seq_lseek,
-> > -	.release = single_release,
-> > +	.release = single_release_net,
-> >  };
-> >  
-> >  static int ip_vs_stats_percpu_show(struct seq_file *seq, void *v)
-> > @@ -2175,7 +2175,7 @@ static const struct file_operations ip_vs_stats_percpu_fops = {
-> >  	.open = ip_vs_stats_percpu_seq_open,
-> >  	.read = seq_read,
-> >  	.llseek = seq_lseek,
-> > -	.release = single_release,
-> > +	.release = single_release_net,
-> >  };
-> >  #endif
-> >  
-> 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index b8c2bcf..7bb3276 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -233,6 +233,29 @@ static int ethtool_set_feature_compat(struct net_d=
+evice *dev,
+ 	return 1;
+ }
+=20
++static int ethtool_set_flags_compat(struct net_device *dev,
++	int (*legacy_set)(struct net_device *, u32),
++	struct ethtool_set_features_block *features, u32 mask)
++{
++	u32 value;
++
++	if (!legacy_set)
++		return 0;
++
++	if (!(features[0].valid & mask))
++		return 0;
++
++	features[0].valid &=3D ~mask;
++
++	value =3D dev->features & ~features[0].valid;
++	value |=3D features[0].requested;
++
++	if (legacy_set(dev, value & mask) < 0)
++		netdev_info(dev, "Legacy flags change failed\n");
++
++	return 1;
++}
++
+ static int ethtool_set_features_compat(struct net_device *dev,
+ 	struct ethtool_set_features_block *features)
+ {
+@@ -249,7 +272,7 @@ static int ethtool_set_features_compat(struct net_d=
+evice *dev,
+ 		features, NETIF_F_ALL_TSO);
+ 	compat |=3D ethtool_set_feature_compat(dev, dev->ethtool_ops->set_rx_=
+csum,
+ 		features, NETIF_F_RXCSUM);
+-	compat |=3D ethtool_set_feature_compat(dev, dev->ethtool_ops->set_fla=
+gs,
++	compat |=3D ethtool_set_flags_compat(dev, dev->ethtool_ops->set_flags=
+,
+ 		features, flags_dup_features);
+=20
+ 	return compat;
+--=20
+1.7.2.5
+
