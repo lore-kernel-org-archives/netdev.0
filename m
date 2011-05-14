@@ -1,63 +1,68 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [RFC] ethernet: avoid pre-assigned OUI values in
- random_ether_addr
-Date: Sat, 14 May 2011 02:28:25 -0400
-Message-ID: <20110514022825.bcd09e14.billfink@mindspring.com>
-References: <20110513171729.247b126e@nehalam>
-	<1305332905.8149.705.camel@tardy>
-	<20110513173213.491c74a1@nehalam>
-	<1305333898.8149.715.camel@tardy>
-	<1305334848.8149.729.camel@tardy>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
+Date: Sat, 14 May 2011 14:54:16 +0800
+Message-ID: <4DCE2718.1030103@cn.fujitsu.com>
+References: <20110504181813.GA17547@redhat.com> <20110505152644.GA8459@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	herbert@gondor.hengli.com.au
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:45953
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750867Ab1ENG20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 02:28:26 -0400
-In-Reply-To: <1305334848.8149.729.camel@tardy>
+Received: from cn.fujitsu.com ([222.73.24.84]:50482 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752101Ab1ENGyS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 02:54:18 -0400
+In-Reply-To: <20110505152644.GA8459@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 May 2011, Rick Jones wrote:
+Micha=C5=82 Miros=C5=82aw wrote, at 05/05/2011 11:26 PM:
+> On Wed, May 04, 2011 at 09:18:14PM +0300, Michael S. Tsirkin wrote:
+>> BTW, I just noticed that net-next spits out
+>> many of the following when I run any VMs:
+> [...]
+>> tap0: Features changed: 0x40004040 -> 0x401b4849
+>=20
+> Before this message, userspace called ioctl(TIOCSETOFFLOAD)
+> turning offloads on.
+>=20
+>> tap0: Dropping NETIF_F_SG since no checksum feature.
+>> tap0: Dropping NETIF_F_GSO since no SG feature.
+>> tap0: Features changed: 0x401b4849 -> 0x40004040
+>=20
+> And then it probably called ioctl(TIOCSETOFFLOAD) again, disabling th=
+em.
 
-> > Well, then by a quick glance at
-> > http://standards.ieee.org/develop/regauth/oui/oui.txt it looks like
-> > there are more to add... (some overlap with your list, I've not checked
-> > the entire thing, how the name conflicts should be resolved I've no
-> > idea)
-> > 
-> > raj@tardy:~$ grep ^02- oui.txt 
-> > 02-07-01   (hex)		RACAL-DATACOM
-> > 02-1C-7C   (hex)		PERQ SYSTEMS CORPORATION
-> > 02-60-86   (hex)		LOGIC REPLACEMENT TECH. LTD.
-> > 02-60-8C   (hex)		3COM CORPORATION
-> > 02-70-01   (hex)		RACAL-DATACOM
-> > 02-70-B0   (hex)		M/A-COM INC. COMPANIES
-> > 02-70-B3   (hex)		DATA RECALL LTD
-> > 02-9D-8E   (hex)		CARDIAC RECORDERS INC.
-> > 02-AA-3C   (hex)		OLIVETTI TELECOMM SPA (OLTECO)
-> > 02-BB-01   (hex)		OCTOTHORPE CORP.
-> > 02-C0-8C   (hex)		3COM CORPORATION
-> > 02-CF-1C   (hex)		COMMUNICATION MACHINERY CORP.
-> > 02-E6-D3   (hex)		NIXDORF COMPUTER CORPORATION
-> > 
-> > The ieee's list doesn't have any 52's though.
-> 
-> It does have some A's though:
-> ~$ grep ^.[26AE]- oui.txt 
-> [the aforementioned 02's]
-> AA-00-00   (hex)		DIGITAL EQUIPMENT CORPORATION
-> AA-00-01   (hex)		DIGITAL EQUIPMENT CORPORATION
-> AA-00-02   (hex)		DIGITAL EQUIPMENT CORPORATION
-> AA-00-03   (hex)		DIGITAL EQUIPMENT CORPORATION
-> AA-00-04   (hex)		DIGITAL EQUIPMENT CORPORATION
-> 
-> which if I've not botched my bits has the locally administered bit set.
+[263958.167861] tap1: Dropping NETIF_F_SG since no checksum feature.
+[263958.167866] tap1: Dropping NETIF_F_GSO since no SG feature.
+[263958.167871] tap1: Features changed: 0x401b4849 -> 0x40004040
 
-The AA addresses are used by DECNET and related protocols.
+See same warning message using tunctl to create a tap device on net-nex=
+t tree.
+But on RHEL6, no warning message.
 
-					-Bill
+strace shows no TUNSETOFFLOAD to be used.
+Seems that checksum feature is not set when creating tap0 interface.
+
+#strace tunctl -u root -t tap1
+open("/dev/net/tun", O_RDWR)            =3D 3
+ioctl(3, TUNSETIFF, 0x7fff789ada10)     =3D 0
+ioctl(3, TUNSETOWNER, 0)                =3D 0
+ioctl(3, TUNSETPERSIST, 0x1)            =3D 0
+fstat(1, {st_mode=3DS_IFCHR|0620, st_rdev=3Dmakedev(136, 0), ...}) =3D =
+0
+mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0=
+) =3D 0x7f66aeed9000
+write(1, "Set 'tap1' persistent and owned "..., 41Set 'tap1' persistent=
+ and owned by uid 0
+) =3D 41
+exit_group(0)                           =3D ?
+
+
+--=20
+Best Regards
+-----
+Shan Wei
