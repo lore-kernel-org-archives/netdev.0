@@ -1,57 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: ipv6: mcast: Removing invalid check
-Date: Sat, 14 May 2011 16:33:30 +0200
-Message-ID: <1305383610.3120.62.camel@edumazet-laptop>
-References: <20110514134307.GA3603@maxin>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: Re: [PATCH net-next-2.6] net: ping: small changes
+Date: Sat, 14 May 2011 18:34:05 +0400
+Message-ID: <20110514143405.GA7599@albatros>
+References: <1305363559.3120.54.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaber@trash.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	pekkas@netcore.fi, kuznet@ms2.inr.ac.ru, davem@davemloft.net
-To: Maxin B John <maxin.john@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46945 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755813Ab1ENOdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 10:33:38 -0400
-In-Reply-To: <20110514134307.GA3603@maxin>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:40100 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757936Ab1ENOeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 10:34:13 -0400
+Received: by bwz15 with SMTP id 15so2755702bwz.19
+        for <netdev@vger.kernel.org>; Sat, 14 May 2011 07:34:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1305363559.3120.54.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 14 mai 2011 =C3=A0 16:43 +0300, Maxin B John a =C3=A9crit :
-> Since the variable 'first' is assigned to 1, the check
-> "if (truncate && !first)" will always be false.
->=20
-> Thanks to Coverity for spotting this issue.
->=20
-> Signed-off-by: Maxin B. John <maxin.john@gmail.com>
-> ---
-> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> index 76b8937..441c1a4 100644
-> --- a/net/ipv6/mcast.c
-> +++ b/net/ipv6/mcast.c
-> @@ -1536,8 +1536,6 @@ static struct sk_buff *add_grec(struct sk_buff =
-*skb, struct ifmcaddr6 *pmc,
-> =20
->  		if (AVAILABLE(skb) < sizeof(*psrc) +
->  		    first*sizeof(struct mld2_grec)) {
-> -			if (truncate && !first)
-> -				break;	 /* truncate these */
->  			if (pgr)
->  				pgr->grec_nsrcs =3D htons(scount);
->  			if (skb)
+On Sat, May 14, 2011 at 10:59 +0200, Eric Dumazet wrote:
+> ping_table is not __read_mostly, since it contains one rwlock,
+> and is static to ping.c
+> 
+> ping_port_rover & ping_v4_lookup are static
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-At a first glance, I would say Coverity is wrong, unless you can explai=
-n
-why it's right ;)
+Acked-by: Vasiliy Kulikov <segoon@openwall.com>
 
-first can be 0 at this point, we are in a loop.
+Thanks,
 
-BTW "Removing invalid check" is a really wrong patch title.
-
-Once you can prove your point, you should use "Remove useless check"
-
-Thanks
-
-
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
