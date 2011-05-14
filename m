@@ -1,68 +1,62 @@
 From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Sat, 14 May 2011 14:54:16 +0800
-Message-ID: <4DCE2718.1030103@cn.fujitsu.com>
-References: <20110504181813.GA17547@redhat.com> <20110505152644.GA8459@rere.qmqm.pl>
+Subject: [PATCH net-next] net: drivers: kill two unused macro definitions
+Date: Sat, 14 May 2011 15:08:47 +0800
+Message-ID: <4DCE2A7F.1040000@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	herbert@gondor.hengli.com.au
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Transfer-Encoding: 7bit
+To: fubar@us.ibm.com, andy@greyhouse.net,
+	David Miller <davem@davemloft.net>, jpirko@redhat.com,
+	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	Eric Dumazet <eric.dumazet
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50482 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:50292 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752101Ab1ENGyS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 02:54:18 -0400
-In-Reply-To: <20110505152644.GA8459@rere.qmqm.pl>
+	id S1750875Ab1ENHIt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 May 2011 03:08:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Micha=C5=82 Miros=C5=82aw wrote, at 05/05/2011 11:26 PM:
-> On Wed, May 04, 2011 at 09:18:14PM +0300, Michael S. Tsirkin wrote:
->> BTW, I just noticed that net-next spits out
->> many of the following when I run any VMs:
-> [...]
->> tap0: Features changed: 0x40004040 -> 0x401b4849
->=20
-> Before this message, userspace called ioctl(TIOCSETOFFLOAD)
-> turning offloads on.
->=20
->> tap0: Dropping NETIF_F_SG since no checksum feature.
->> tap0: Dropping NETIF_F_GSO since no SG feature.
->> tap0: Features changed: 0x401b4849 -> 0x40004040
->=20
-> And then it probably called ioctl(TIOCSETOFFLOAD) again, disabling th=
-em.
-
-[263958.167861] tap1: Dropping NETIF_F_SG since no checksum feature.
-[263958.167866] tap1: Dropping NETIF_F_GSO since no SG feature.
-[263958.167871] tap1: Features changed: 0x401b4849 -> 0x40004040
-
-See same warning message using tunctl to create a tap device on net-nex=
-t tree.
-But on RHEL6, no warning message.
-
-strace shows no TUNSETOFFLOAD to be used.
-Seems that checksum feature is not set when creating tap0 interface.
-
-#strace tunctl -u root -t tap1
-open("/dev/net/tun", O_RDWR)            =3D 3
-ioctl(3, TUNSETIFF, 0x7fff789ada10)     =3D 0
-ioctl(3, TUNSETOWNER, 0)                =3D 0
-ioctl(3, TUNSETPERSIST, 0x1)            =3D 0
-fstat(1, {st_mode=3DS_IFCHR|0620, st_rdev=3Dmakedev(136, 0), ...}) =3D =
-0
-mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0=
-) =3D 0x7f66aeed9000
-write(1, "Set 'tap1' persistent and owned "..., 41Set 'tap1' persistent=
- and owned by uid 0
-) =3D 41
-exit_group(0)                           =3D ?
 
 
---=20
-Best Regards
------
-Shan Wei
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ drivers/net/bonding/bonding.h |   10 ----------
+ drivers/net/veth.c            |    1 -
+ 2 files changed, 0 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index d08362e..ea1d005 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -39,16 +39,6 @@
+ 	       netif_carrier_ok(dev))
+ 
+ /*
+- * Checks whether bond is ready for transmit.
+- *
+- * Caller must hold bond->lock
+- */
+-#define BOND_IS_OK(bond)			     \
+-		   (((bond)->dev->flags & IFF_UP) && \
+-		    netif_running((bond)->dev)	  && \
+-		    ((bond)->slave_cnt > 0))
+-
+-/*
+  * Checks whether slave is ready for transmit.
+  */
+ #define SLAVE_IS_OK(slave)			        \
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 3b0151a..8461576 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -22,7 +22,6 @@
+ 
+ #define MIN_MTU 68		/* Min L3 MTU */
+ #define MAX_MTU 65535		/* Max L3 MTU (arbitrary) */
+-#define MTU_PAD (ETH_HLEN + 4)  /* Max difference between L2 and L3 size MTU */
+ 
+ struct veth_net_stats {
+ 	unsigned long	rx_packets;
+-- 
+1.7.4.1
