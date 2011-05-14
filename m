@@ -1,26 +1,38 @@
 From: Micha Nelissen <micha@neli.hopto.org>
-Subject: (unknown)
-Date: Sat, 14 May 2011 22:20:48 +0200
-Message-ID: <1305404448-24068-1-git-send-email-micha@neli.hopto.org>
+Subject: [PATCH] ipconfig wait for carrier
+Date: Sat, 14 May 2011 22:36:26 +0200
+Message-ID: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from edu-smtp-01.edutel.nl ([88.159.1.175]:46667 "EHLO
-	edu-smtp-01.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754393Ab1ENUbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 16:31:09 -0400
+Received: from edu-smtp-02.edutel.nl ([88.159.1.172]:40083 "EHLO
+	edu-smtp-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754393Ab1ENUgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 16:36:49 -0400
 Received: from neli.hopto.org (50-231.ftth.onsbrabantnet.nl [88.159.231.50])
-	by edu-smtp-01.edutel.nl (Postfix) with ESMTPSA id 743283841D
-	for <netdev@vger.kernel.org>; Sat, 14 May 2011 22:21:09 +0200 (CEST)
-Received: from conroe.local
-	([90.0.0.126] helo=localhost.localdomain ident=micha)
+	by edu-smtp-02.edutel.nl (Postfix) with ESMTPSA id 800D61084A7
+	for <netdev@vger.kernel.org>; Sat, 14 May 2011 22:36:47 +0200 (CEST)
+Received: from conroe.local ([90.0.0.126] ident=micha)
 	by neli.hopto.org with esmtp (Exim 4.69)
 	(envelope-from <micha@neli.hopto.org>)
-	id 1QLLKn-0004XA-SM
-	for netdev@vger.kernel.org; Sat, 14 May 2011 22:21:09 +0200
-Subject: 
+	id 1QLLZw-0004bM-2m
+	for netdev@vger.kernel.org; Sat, 14 May 2011 22:36:48 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently the ip auto configuration has a hardcoded delay of 1 second.
+When (ethernet) link takes longer to come up (e.g. more than 3 seconds),
+nfs root may not be found.
+
+Remove the hardcoded delay, and wait for carrier on at least one network
+device.
+
+Index: atom-linux/net/ipv4/ipconfig.c
+===================================================================
+--- atom-linux/net/ipv4/ipconfig.c	(revision 1445)
++++ atom-linux/net/ipv4/ipconfig.c	(working copy)
+@@ -86,8 +86,8 @@
+ #endif
+ 
  /* Define the friendly delay before and after opening net devices */
 -#define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
 -#define CONF_POST_OPEN		1	/* After opening: 1 second */
