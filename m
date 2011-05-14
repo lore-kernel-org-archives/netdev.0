@@ -1,67 +1,108 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] ethernet: avoid pre-assigned OUI values in
- random_ether_addr
-Date: Fri, 13 May 2011 17:44:58 -0700
-Message-ID: <1305333898.8149.715.camel@tardy>
-References: <20110513171729.247b126e@nehalam>
-	 <1305332905.8149.705.camel@tardy>  <20110513173213.491c74a1@nehalam>
-Reply-To: rick.jones2@hp.com
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/1] IPVS: seq_release_net should be used.
+Date: Sat, 14 May 2011 09:50:26 +0900
+Message-ID: <20110514005025.GD4862@verge.net.au>
+References: <1305266600-21507-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:8107 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759767Ab1ENAo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 May 2011 20:44:59 -0400
-In-Reply-To: <20110513173213.491c74a1@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ja@ssi.bg, lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hans@schillstrom.com
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1305266600-21507-1-git-send-email-hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-05-13 at 17:32 -0700, Stephen Hemminger wrote:
-> On Fri, 13 May 2011 17:28:25 -0700
-> Rick Jones <rick.jones2@hp.com> wrote:
+On Fri, May 13, 2011 at 08:03:20AM +0200, Hans Schillstrom wrote:
+> Without this patch every access to ip_vs in procfs will increase
+> the netns count i.e. an unbalanced get_net()/put_net().
+> (ipvsadm commands also use procfs.)
+> The result is you can't exit a netns if reading ip_vs_* procfs entries.
+
+Hi Hans,
+
+we should try and get this into 2.6.39, right?
+
 > 
-> > On Fri, 2011-05-13 at 17:17 -0700, Stephen Hemminger wrote:
-> > > There are some addresses in the assigned vendor block that don't obey
-> > > the locally assigned convention. These should be avoided by random_ether_addr
-> > > assignment.
-> > 
-> > How "recent" are these violations?  Is there really a non-trivial chance
-> > of colliding?  Much more than two or more stations in the same broadcast
-> > domain randomly picking the same random MAC anyway?
-> > 
-> > At one level, avoiding using those OUIs seems to be a tacit approval of
-> > the violations.
+> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> ---
+>  net/netfilter/ipvs/ip_vs_app.c  |    2 +-
+>  net/netfilter/ipvs/ip_vs_conn.c |    4 ++--
+>  net/netfilter/ipvs/ip_vs_ctl.c  |    6 +++---
+>  3 files changed, 6 insertions(+), 6 deletions(-)
 > 
-> These were assigned long ago in the early days of Ethernet.
-> It makes sense to me to avoid them as just good policy.
-
-
-Well, then by a quick glance at
-http://standards.ieee.org/develop/regauth/oui/oui.txt it looks like
-there are more to add... (some overlap with your list, I've not checked
-the entire thing, how the name conflicts should be resolved I've no
-idea)
-
-raj@tardy:~$ grep ^02- oui.txt 
-02-07-01   (hex)		RACAL-DATACOM
-02-1C-7C   (hex)		PERQ SYSTEMS CORPORATION
-02-60-86   (hex)		LOGIC REPLACEMENT TECH. LTD.
-02-60-8C   (hex)		3COM CORPORATION
-02-70-01   (hex)		RACAL-DATACOM
-02-70-B0   (hex)		M/A-COM INC. COMPANIES
-02-70-B3   (hex)		DATA RECALL LTD
-02-9D-8E   (hex)		CARDIAC RECORDERS INC.
-02-AA-3C   (hex)		OLIVETTI TELECOMM SPA (OLTECO)
-02-BB-01   (hex)		OCTOTHORPE CORP.
-02-C0-8C   (hex)		3COM CORPORATION
-02-CF-1C   (hex)		COMMUNICATION MACHINERY CORP.
-02-E6-D3   (hex)		NIXDORF COMPUTER CORPORATION
-
-The ieee's list doesn't have any 52's though.
-
-rick
-
+> diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
+> index 51f3af7..059af31 100644
+> --- a/net/netfilter/ipvs/ip_vs_app.c
+> +++ b/net/netfilter/ipvs/ip_vs_app.c
+> @@ -572,7 +572,7 @@ static const struct file_operations ip_vs_app_fops = {
+>  	.open	 = ip_vs_app_open,
+>  	.read	 = seq_read,
+>  	.llseek  = seq_lseek,
+> -	.release = seq_release,
+> +	.release = seq_release_net,
+>  };
+>  #endif
+>  
+> diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+> index d3fd91b..bf28ac2 100644
+> --- a/net/netfilter/ipvs/ip_vs_conn.c
+> +++ b/net/netfilter/ipvs/ip_vs_conn.c
+> @@ -1046,7 +1046,7 @@ static const struct file_operations ip_vs_conn_fops = {
+>  	.open    = ip_vs_conn_open,
+>  	.read    = seq_read,
+>  	.llseek  = seq_lseek,
+> -	.release = seq_release,
+> +	.release = seq_release_net,
+>  };
+>  
+>  static const char *ip_vs_origin_name(unsigned flags)
+> @@ -1114,7 +1114,7 @@ static const struct file_operations ip_vs_conn_sync_fops = {
+>  	.open    = ip_vs_conn_sync_open,
+>  	.read    = seq_read,
+>  	.llseek  = seq_lseek,
+> -	.release = seq_release,
+> +	.release = seq_release_net,
+>  };
+>  
+>  #endif
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 89842f0..699c79a 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -2066,7 +2066,7 @@ static const struct file_operations ip_vs_info_fops = {
+>  	.open    = ip_vs_info_open,
+>  	.read    = seq_read,
+>  	.llseek  = seq_lseek,
+> -	.release = seq_release_private,
+> +	.release = seq_release_net,
+>  };
+>  
+>  static int ip_vs_stats_show(struct seq_file *seq, void *v)
+> @@ -2106,7 +2106,7 @@ static const struct file_operations ip_vs_stats_fops = {
+>  	.open = ip_vs_stats_seq_open,
+>  	.read = seq_read,
+>  	.llseek = seq_lseek,
+> -	.release = single_release,
+> +	.release = single_release_net,
+>  };
+>  
+>  static int ip_vs_stats_percpu_show(struct seq_file *seq, void *v)
+> @@ -2175,7 +2175,7 @@ static const struct file_operations ip_vs_stats_percpu_fops = {
+>  	.open = ip_vs_stats_percpu_seq_open,
+>  	.read = seq_read,
+>  	.llseek = seq_lseek,
+> -	.release = single_release,
+> +	.release = single_release_net,
+>  };
+>  #endif
+>  
+> -- 
+> 1.7.2.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
