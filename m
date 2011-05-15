@@ -1,37 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 00/13][pull request] Intel Wired LAN Driver
- Update
-Date: Sun, 15 May 2011 15:46:26 -0400 (EDT)
-Message-ID: <20110515.154626.1429865447049958422.davem@davemloft.net>
-References: <1305422627-9583-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110515.012108.15947576632987708.davem@davemloft.net>
-	<1305448890.3355.3.camel@jtkirshe-MOBL1>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] ethernet: avoid pre-assigned OUI values in
+ random_ether_addr
+Date: Sun, 15 May 2011 21:46:49 +0200
+Message-ID: <1305488809.3120.162.camel@edumazet-laptop>
+References: <20110513171729.247b126e@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751388Ab1EOTqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 15:46:35 -0400
-In-Reply-To: <1305448890.3355.3.camel@jtkirshe-MOBL1>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:60382 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584Ab1EOTqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 15:46:55 -0400
+Received: by wwk4 with SMTP id 4so2008328wwk.1
+        for <netdev@vger.kernel.org>; Sun, 15 May 2011 12:46:53 -0700 (PDT)
+In-Reply-To: <20110513171729.247b126e@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 15 May 2011 01:41:30 -0700
+Le vendredi 13 mai 2011 =C3=A0 17:17 -0700, Stephen Hemminger a =C3=A9c=
+rit :
+> There are some addresses in the assigned vendor block that don't obey
+> the locally assigned convention. These should be avoided by random_et=
+her_addr
+> assignment.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> On Sat, 2011-05-14 at 22:21 -0700, David Miller wrote:
->> How are the ethtool op conversions coming so I can apply the patch from
->> Marius that deletes the deprecated ones?
-> 
-> We ran into issues with the driver changes, and we are working on a
-> revised patch(s).  I will end up breaking up the patch into several
-> patches because we have the work done for some of the drivers, and are
-> still working on the remaining changes.
-> 
-> I will make sure we get the remaining work done this upcoming week.
 
-Thanks a lot Jeff.
+We call random_ether_addr() for some virtual devices, maybe we can add =
+a
+__random_ether_addr() helper for them and not avoid these OUI ?
+
+
+
