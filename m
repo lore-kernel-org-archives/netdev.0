@@ -1,59 +1,141 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 14/18] virtio: add api for delayed callbacks
-Date: Sun, 15 May 2011 15:48:18 +0300
-Message-ID: <20110515124818.GD24932@redhat.com>
-References: <cover.1304541918.git.mst@redhat.com>
-	<64d47c628b3fdc0ac156aed4be182933d8bcc0db.1304541919.git.mst@redhat.com>
-	<871v08h0vm.fsf@rustcorp.com.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ipv4: more compliant RFC 3168 support
+Date: Sun, 15 May 2011 15:35:42 +0200
+Message-ID: <1305466542.3120.129.camel@edumazet-laptop>
+References: <201105141938.28344.v13@v13.gr>
+	 <1305393402.3120.67.camel@edumazet-laptop>
+	 <1305393711.3120.69.camel@edumazet-laptop>  <201105151337.22831.v13@v13.gr>
+	 <1305461344.3120.112.camel@edumazet-laptop>
+	 <1305464176.3120.113.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <871v08h0vm.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Stefanos Harhalakis <v13@v13.gr>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:52594 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753343Ab1EONfq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 09:35:46 -0400
+Received: by wwa36 with SMTP id 36so4278574wwa.1
+        for <netdev@vger.kernel.org>; Sun, 15 May 2011 06:35:45 -0700 (PDT)
+In-Reply-To: <1305464176.3120.113.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 09, 2011 at 03:27:33PM +0930, Rusty Russell wrote:
-> On Wed, 4 May 2011 23:52:33 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > Add an API that tells the other side that callbacks
-> > should be delayed until a lot of work has been done.
-> > Implement using the new used_event feature.
-> 
-> Since you're going to add a capacity query anyway, why not add the
-> threshold argument here?
+Commit 6623e3b24a5e (ipv4: IP defragmentation must be ECN aware) was an
+attempt to not lose "Congestion Experienced" (CE) indications when
+performing datagram defragmentation.
 
-I thought that if we keep the API kind of generic
-there might be more of a chance that future transports
-will be able to implement it. For example, with an
-old host we can't commit to a specific index.
+Stefanos Harhalakis raised the point that RFC 3168 requirements were not
+completely met by this commit.
 
-> 
-> Then the caller can choose how much space it needs.  Maybe net and block
-> will want different things...
-> 
-> Cheers,
-> Rusty.
+In particular, we MUST detect invalid combinations and eventually drop
+illegal frames.
 
-Hmm, maybe. OK.
+Reported-by: Stefanos Harhalakis <v13@v13.gr>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ip_fragment.c |   66 ++++++++++++++++++++++++++-------------
+ 1 file changed, 44 insertions(+), 22 deletions(-)
 
--- 
-MST
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index b1d282f..1f74089 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -77,20 +77,46 @@ struct ipq {
+ 	struct inet_peer *peer;
+ };
+ 
+-#define IPFRAG_ECN_CLEAR  0x01 /* one frag had INET_ECN_NOT_ECT */
+-#define IPFRAG_ECN_SET_CE 0x04 /* one frag had INET_ECN_CE */
++/* RFC 3168 support :
++ * We want to check ECN values of all fragments, do detect invalid combinations.
++ * In ipq->ecn, we store the OR value of each ip4_frag_ecn() fragment value.
++ */
++enum {
++	IPFRAG_ECN_NOT_ECT	= 0x01, /* one frag had ECN_NOT_ECT */
++	IPFRAG_ECN_ECT_1	= 0x02, /* one frag had ECN_ECT_1 */
++	IPFRAG_ECN_ECT_0	= 0x04, /* one frag had ECN_ECT_0 */
++	IPFRAG_ECN_CE		= 0x08, /* one frag had ECN_CE */
++};
+ 
+ static inline u8 ip4_frag_ecn(u8 tos)
+ {
+-	tos = (tos & INET_ECN_MASK) + 1;
+-	/*
+-	 * After the last operation we have (in binary):
+-	 * INET_ECN_NOT_ECT => 001
+-	 * INET_ECN_ECT_1   => 010
+-	 * INET_ECN_ECT_0   => 011
+-	 * INET_ECN_CE      => 100
+-	 */
+-	return (tos & 2) ? 0 : tos;
++	return 1 << (tos & INET_ECN_MASK);
++}
++
++/* Given the OR values of all fragments, apply RFC 3168 5.3 requirements
++ * Return : -1 if frame should be dropped.
++ *           >= 0 value, to be ORed in to final iph->tos field
++ */
++static inline int ip4_frag_ecn_fold(u8 ecn)
++{
++	switch (ecn) {
++	/* If same ECN combination was observed on all fragments, do nothing */
++	case IPFRAG_ECN_NOT_ECT:
++	case IPFRAG_ECN_ECT_1:
++	case IPFRAG_ECN_ECT_0:
++	case IPFRAG_ECN_CE:
++	/* if a ECT_1 ECT_0 combination was observed, do nothing as well */
++	case IPFRAG_ECN_ECT_0 | IPFRAG_ECN_ECT_1:
++		return 0;
++	/* at least one fragment had CE, and others ECT_0 or ECT_1 */
++	case IPFRAG_ECN_CE | IPFRAG_ECN_ECT_0:
++	case IPFRAG_ECN_CE | IPFRAG_ECN_ECT_1:
++	case IPFRAG_ECN_CE | IPFRAG_ECN_ECT_0 | IPFRAG_ECN_ECT_1:
++		return INET_ECN_CE;
++	/* other combinations are invalid : drop frame */
++	default:
++		return -1;
++	}
+ }
+ 
+ static struct inet_frags ip4_frags;
+@@ -524,9 +550,15 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 	int len;
+ 	int ihlen;
+ 	int err;
++	int ecn;
+ 
+ 	ipq_kill(qp);
+ 
++	ecn = ip4_frag_ecn_fold(qp->ecn);
++	if (unlikely(ecn == -1)) {
++		err = -EINVAL;
++		goto out_fail;
++	}
+ 	/* Make the one we just received the head. */
+ 	if (prev) {
+ 		head = prev->next;
+@@ -605,17 +637,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 	iph = ip_hdr(head);
+ 	iph->frag_off = 0;
+ 	iph->tot_len = htons(len);
+-	/* RFC3168 5.3 Fragmentation support
+-	 * If one fragment had INET_ECN_NOT_ECT,
+-	 *	reassembled frame also has INET_ECN_NOT_ECT
+-	 * Elif one fragment had INET_ECN_CE
+-	 *	reassembled frame also has INET_ECN_CE
+-	 */
+-	if (qp->ecn & IPFRAG_ECN_CLEAR)
+-		iph->tos &= ~INET_ECN_MASK;
+-	else if (qp->ecn & IPFRAG_ECN_SET_CE)
+-		iph->tos |= INET_ECN_CE;
+-
++	iph->tos |= ecn;
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
+ 	qp->q.fragments = NULL;
+ 	qp->q.fragments_tail = NULL;
+
+
