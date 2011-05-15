@@ -1,44 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC] ethernet: avoid pre-assigned OUI values in
- random_ether_addr
-Date: Sun, 15 May 2011 13:20:50 -0700
-Message-ID: <1305490850.8178.57.camel@Joe-Laptop>
-References: <20110513171729.247b126e@nehalam>
-	 <1305488809.3120.162.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Alexey Orishko <alexey.orishko@gmail.com>
+Subject: [PATCH] CDC NCM: release interfaces fix in unbind()
+Date: Sun, 15 May 2011 22:28:27 +0200
+Message-ID: <1305491307-6548-1-git-send-email-alexey.orishko@stericsson.com>
+Cc: linux-usb@vger.kernel.org, davem@davemloft.net, gregkh@suse.de,
+	oliver@neukum.org, Alexey Orishko <alexey.orishko@stericsson.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1638 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751378Ab1EOUUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2011 16:20:51 -0400
-In-Reply-To: <1305488809.3120.162.camel@edumazet-laptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:57358 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751340Ab1EOU2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 16:28:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-05-15 at 21:46 +0200, Eric Dumazet wrote:
-> Le vendredi 13 mai 2011 =C3=A0 17:17 -0700, Stephen Hemminger a =C3=A9=
-crit :
-> > There are some addresses in the assigned vendor block that don't ob=
-ey
-> > the locally assigned convention. These should be avoided by random_=
-ether_addr
-> > assignment.
-> We call random_ether_addr() for some virtual devices, maybe we can ad=
-d a
-> __random_ether_addr() helper for them and not avoid these OUI ?
+Signed-off-by: Alexey Orishko <alexey.orishko@stericsson.com>
+---
+ drivers/net/usb/cdc_ncm.c |   13 +++++--------
+ 1 files changed, 5 insertions(+), 8 deletions(-)
 
-Unless it's speed critical, it's probably not worthwhile.
-
-I think that using get_random_bytes, because it can drain
-the entropy pool, may not be a great thing to do.
-
-There's little value in crypto secure OUI's for random
-ethernet addresses.
-
-I think using get_random_int or random32 is probably good
-enough.
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 4ab557d..500b1a6 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -54,7 +54,7 @@
+ #include <linux/usb/usbnet.h>
+ #include <linux/usb/cdc.h>
+ 
+-#define	DRIVER_VERSION				"06-May-2011"
++#define	DRIVER_VERSION				"15-May-2011"
+ 
+ /* CDC NCM subclass 3.2.1 */
+ #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
+@@ -652,28 +652,25 @@ error:
+ static void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
+-	struct usb_driver *driver;
++	struct usb_driver *driver = driver_of(intf);
+ 
+ 	if (ctx == NULL)
+ 		return;		/* no setup */
+ 
+-	driver = driver_of(intf);
+-
+-	usb_set_intfdata(ctx->data, NULL);
+-	usb_set_intfdata(ctx->control, NULL);
+-	usb_set_intfdata(ctx->intf, NULL);
+-
+ 	/* release interfaces, if any */
+ 	if (ctx->data_claimed) {
++		usb_set_intfdata(ctx->data, NULL);
+ 		usb_driver_release_interface(driver, ctx->data);
+ 		ctx->data_claimed = 0;
+ 	}
+ 
+ 	if (ctx->control_claimed) {
++		usb_set_intfdata(ctx->control, NULL);
+ 		usb_driver_release_interface(driver, ctx->control);
+ 		ctx->control_claimed = 0;
+ 	}
+ 
++	usb_set_intfdata(ctx->intf, NULL);
+ 	cdc_ncm_free(ctx);
+ }
+ 
+-- 
+1.7.4.3
 
