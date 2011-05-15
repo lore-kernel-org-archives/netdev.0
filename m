@@ -1,23 +1,25 @@
-From: "WEB MAIL UPGRADING TEAMS" <info@tvnetwork.hu>
-Subject: MailBox
-Date: Sun, 15 May 2011 02:58:54 +0200 (CEST)
-Message-ID: <1959.82.128.15.177.1305421134.squirrel@www.tvnetwork.hu>
-Reply-To: webmaster-upgrading@hotmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2011-05-14
+Date: Sat, 14 May 2011 22:51:46 -0400 (EDT)
+Message-ID: <20110514.225146.725571367301901111.davem@davemloft.net>
+References: <1305411394-28807-1-git-send-email-sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sven@narfation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tvnetwork.hu ([109.61.0.42]:42000 "EHLO www.tvnetwork.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756022Ab1EOB0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 May 2011 21:26:32 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:36341 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752783Ab1EOCw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 May 2011 22:52:56 -0400
+In-Reply-To: <1305411394-28807-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your MailBox Has Exceeded It Quota/Limit As Set By Your Administrator And
-you May Not Be Able To Receive Or Send New Mails Until You Re-Validate
-Your
-mailbox.ToRe-Validate:http://www.formbuddy.com/cgi-bin/formdisp.pl?u=upgradingteams&f=upgradingteams
+From: Sven Eckelmann <sven@narfation.org>
+Date: Sun, 15 May 2011 00:16:32 +0200
 
+>   git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/next
 
+Pulled, thanks Sven.
