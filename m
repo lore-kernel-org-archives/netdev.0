@@ -1,77 +1,123 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next-2.6 00/13][pull request] Intel Wired LAN Driver
- Update
-Date: Sun, 15 May 2011 01:41:30 -0700
-Message-ID: <1305448890.3355.3.camel@jtkirshe-MOBL1>
-References: <1305422627-9583-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110515.012108.15947576632987708.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Davide Rizzo <elpa.rizzo@gmail.com>
+Subject: [PATCH] ENC28J60 works with half-duplex DMA
+Date: Sun, 15 May 2011 12:03:09 +0200
+Message-ID: <BANLkTi=_W2=MrBu6Xxo5M+eQM0jsJiXrzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-RmTkC97tmEjIyggNLXbe"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"bphilips@novell.com" <bphilips@novell.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary=20cf3036405f600b2c04a34da5ad
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:27765 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755778Ab1EOIl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2011 04:41:29 -0400
-In-Reply-To: <20110515.012108.15947576632987708.davem@davemloft.net>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:57961 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752979Ab1EOKDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 06:03:10 -0400
+Received: by iwn34 with SMTP id 34so3238868iwn.19
+        for <netdev@vger.kernel.org>; Sun, 15 May 2011 03:03:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--20cf3036405f600b2c04a34da5ad
+Content-Type: text/plain; charset=UTF-8
 
---=-RmTkC97tmEjIyggNLXbe
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+---
 
-On Sat, 2011-05-14 at 22:21 -0700, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Sat, 14 May 2011 18:23:34 -0700
->=20
-> > The following series contains updates to e1000e, ixgbevf and ixgbe.
-> >=20
-> > -e1000e: minor comment fix
-> > -ixgbevf: add support for macvlan
-> > -ixgbe: mostly cleanup with the addition of support for a new adapter
-> >=20
-> > The following are changes since commit 7be799a70ba3dd90a59e8d2c72bbe060=
-20005b3f:
-> >   ipv4: Remove rt->rt_dst reference from ip_forward_options()
-> > and are available in the git repository at:
-> >   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 mas=
-ter
->=20
-> Pulled, thanks Jeff.
->=20
-> How are the ethtool op conversions coming so I can apply the patch from
-> Marius that deletes the deprecated ones?
->=20
-> Thanks.
+--20cf3036405f600b2c04a34da5ad
+Content-Type: text/x-patch; charset=US-ASCII; name="enc28j60.c-2.6.38.patch"
+Content-Disposition: attachment; filename="enc28j60.c-2.6.38.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gnptg9cc0
 
-We ran into issues with the driver changes, and we are working on a
-revised patch(s).  I will end up breaking up the patch into several
-patches because we have the work done for some of the drivers, and are
-still working on the remaining changes.
-
-I will make sure we get the remaining work done this upcoming week.
-
---=-RmTkC97tmEjIyggNLXbe
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJNz5GxAAoJECTsCADr/EWUFRQH/1rBOxXsNiAlOUE5Uvo3Tfxl
-DuO4RzDRtqwUHCG/OHG6ylTHjjNd4NEOHBP3LpN/lD8x6OAQpogesnkTaMzXWuvS
-GaWrEvgkOR5zxdH1EdZMhyaZ9vAGDAaQwMRGvsw8PqeiQcue6QjXrqNns0fp+Rje
-Sr0SaOO/Qm95Ltr2puW2BA1/XFO/9u6vJIxoEzZmKUP5vx/3r/WU4DNsjqvZfCVo
-mhibupeAQPigUKqrt7qDLdwRcz+THmtoY7KJfD6Y+7VqZO4FFyIxvWa06SJhg/nZ
-6tYUy5dbHLaLI63/wQI19Kj/Wx1wc1OJPcdwI/gkFJS6UVqQICdJnGo+rt/aQYg=
-=uinL
------END PGP SIGNATURE-----
-
---=-RmTkC97tmEjIyggNLXbe--
-
+VGhpcyBwYXRjaCBtb2RpZmllcyBTUEkgYWNjZXNzIHRvIHRha2UgYWR2YW50YWdlIG9mIERNQSBv
+biBtYWNoaW5lcyBzdXBwb3J0aW5nCiBvbmx5IGhhbGYtZHVwbGV4IFNQSSBETUEgKGxpa2UgU2Ft
+c3VuZyBTM0MyNDEwKQoKU2lnbmVkLW9mZi1ieTogRGF2aWRlIFJpenpvIDxlbHBhLnJpenpvQGdt
+YWlsLmNvbT4KLS0tCmRpZmYgLXVyTnAgbGludXgtMi42LjM4L2RyaXZlcnMvbmV0L2VuYzI4ajYw
+LmMgbGludXgtMi42LjM4LmVscGEvZHJpdmVycy9uZXQvZW5jMjhqNjAuYwotLS0gbGludXgtMi42
+LjM4L2RyaXZlcnMvbmV0L2VuYzI4ajYwLmMJMjAxMS0wMy0xNSAwMjoyMDozMi4wMDAwMDAwMDAg
+KzAxMDAKKysrIGxpbnV4LTIuNi4zOC5lbHBhL2RyaXZlcnMvbmV0L2VuYzI4ajYwLmMJMjAxMS0w
+NS0xNCAwOTo1NjowNS43MDE3OTcyMDggKzAyMDAKQEAgLTM2LDYgKzM2LDggQEAKIAogI2RlZmlu
+ZSBTUElfT1BMRU4JMQogCisjZGVmaW5lIEZDTEtfTUFYCTIwMDAwMDAwCisKICNkZWZpbmUgRU5D
+MjhKNjBfTVNHX0RFRkFVTFQJXAogCShORVRJRl9NU0dfUFJPQkUgfCBORVRJRl9NU0dfSUZVUCB8
+IE5FVElGX01TR19JRkRPV04gfCBORVRJRl9NU0dfTElOSykKIApAQCAtODQsMjkgKzg2LDMzIEBA
+IHN0YXRpYyBzdHJ1Y3QgewogICogU1BJIHJlYWQgYnVmZmVyCiAgKiB3YWl0IGZvciB0aGUgU1BJ
+IHRyYW5zZmVyIGFuZCBjb3B5IHJlY2VpdmVkIGRhdGEgdG8gZGVzdGluYXRpb24KICAqLwotc3Rh
+dGljIGludAotc3BpX3JlYWRfYnVmKHN0cnVjdCBlbmMyOGo2MF9uZXQgKnByaXYsIGludCBsZW4s
+IHU4ICpkYXRhKQorc3RhdGljIGludCBzcGlfcmVhZF9idWYoc3RydWN0IGVuYzI4ajYwX25ldCAq
+cHJpdiwgaW50IGxlbiwgdTggKmRhdGEpCiB7Ci0JdTggKnJ4X2J1ZiA9IHByaXYtPnNwaV90cmFu
+c2Zlcl9idWYgKyA0OwotCXU4ICp0eF9idWYgPSBwcml2LT5zcGlfdHJhbnNmZXJfYnVmOwogCXN0
+cnVjdCBzcGlfdHJhbnNmZXIgdCA9IHsKLQkJLnR4X2J1ZiA9IHR4X2J1ZiwKLQkJLnJ4X2J1ZiA9
+IHJ4X2J1ZiwKLQkJLmxlbiA9IFNQSV9PUExFTiArIGxlbiwKKwkJLnR4X2J1ZiA9IHByaXYtPnNw
+aV90cmFuc2Zlcl9idWYsCisJCS5yeF9idWYgPSBOVUxMLAorCQkubGVuID0gU1BJX09QTEVOLAor
+CQkuY3NfY2hhbmdlID0gMCwKKwkJLnNwZWVkX2h6ID0gRkNMS19NQVgsCisJfTsKKwlzdHJ1Y3Qg
+c3BpX3RyYW5zZmVyIHIgPSB7CisJCS50eF9idWYgPSBOVUxMLAorCQkucnhfYnVmID0gZGF0YSwK
+KwkJLmxlbiA9IGxlbiwKKwkJLmNzX2NoYW5nZSA9IDEsCisJCS5zcGVlZF9oeiA9IEZDTEtfTUFY
+LAogCX07CiAJc3RydWN0IHNwaV9tZXNzYWdlIG1zZzsKIAlpbnQgcmV0OwogCi0JdHhfYnVmWzBd
+ID0gRU5DMjhKNjBfUkVBRF9CVUZfTUVNOwotCXR4X2J1ZlsxXSA9IHR4X2J1ZlsyXSA9IHR4X2J1
+ZlszXSA9IDA7CS8qIGRvbid0IGNhcmUgKi8KKwlwcml2LT5zcGlfdHJhbnNmZXJfYnVmWzBdID0g
+RU5DMjhKNjBfUkVBRF9CVUZfTUVNOwogCiAJc3BpX21lc3NhZ2VfaW5pdCgmbXNnKTsKIAlzcGlf
+bWVzc2FnZV9hZGRfdGFpbCgmdCwgJm1zZyk7CisJc3BpX21lc3NhZ2VfYWRkX3RhaWwoJnIsICZt
+c2cpOwogCXJldCA9IHNwaV9zeW5jKHByaXYtPnNwaSwgJm1zZyk7Ci0JaWYgKHJldCA9PSAwKSB7
+Ci0JCW1lbWNweShkYXRhLCAmcnhfYnVmW1NQSV9PUExFTl0sIGxlbik7CisJaWYgKHJldCA9PSAw
+KQogCQlyZXQgPSBtc2cuc3RhdHVzOwotCX0KIAlpZiAocmV0ICYmIG5ldGlmX21zZ19kcnYocHJp
+dikpCiAJCXByaW50ayhLRVJOX0RFQlVHIERSVl9OQU1FICI6ICVzKCkgZmFpbGVkOiByZXQgPSAl
+ZFxuIiwKIAkJCV9fZnVuY19fLCByZXQpOwpAQCAtMTE0LDIwICsxMjAsMjYgQEAgc3BpX3JlYWRf
+YnVmKHN0cnVjdCBlbmMyOGo2MF9uZXQgKnByaXYsIAogCXJldHVybiByZXQ7CiB9CiAKLS8qCi0g
+KiBTUEkgd3JpdGUgYnVmZmVyCi0gKi8KLXN0YXRpYyBpbnQgc3BpX3dyaXRlX2J1ZihzdHJ1Y3Qg
+ZW5jMjhqNjBfbmV0ICpwcml2LCBpbnQgbGVuLAotCQkJIGNvbnN0IHU4ICpkYXRhKQorc3RhdGlj
+IGludCBzcGlfc2VuZChzdHJ1Y3QgZW5jMjhqNjBfbmV0ICpwcml2LCB1OCBjbWQsIGludCBsZW4s
+IGNvbnN0IHU4ICpkYXRhKQogewogCWludCByZXQ7CisJc3RydWN0IHNwaV9tZXNzYWdlIG1zZzsK
+KwlzdHJ1Y3Qgc3BpX3RyYW5zZmVyIHQgPSB7CisJCS50eF9idWYgPSBwcml2LT5zcGlfdHJhbnNm
+ZXJfYnVmLAorCQkucnhfYnVmID0gTlVMTCwKKwkJLmxlbiA9IGxlbiArIDEsCisJCS5jc19jaGFu
+Z2UgPSAxLAorCQkuc3BlZWRfaHogPSBGQ0xLX01BWCwKKwl9OwogCiAJaWYgKGxlbiA+IFNQSV9U
+UkFOU0ZFUl9CVUZfTEVOIC0gMSB8fCBsZW4gPD0gMCkKIAkJcmV0ID0gLUVJTlZBTDsKIAllbHNl
+IHsKLQkJcHJpdi0+c3BpX3RyYW5zZmVyX2J1ZlswXSA9IEVOQzI4SjYwX1dSSVRFX0JVRl9NRU07
+CisJCXNwaV9tZXNzYWdlX2luaXQoJm1zZyk7CisJCXNwaV9tZXNzYWdlX2FkZF90YWlsKCZ0LCAm
+bXNnKTsKKwkJcHJpdi0+c3BpX3RyYW5zZmVyX2J1ZlswXSA9IGNtZDsKIAkJbWVtY3B5KCZwcml2
+LT5zcGlfdHJhbnNmZXJfYnVmWzFdLCBkYXRhLCBsZW4pOwotCQlyZXQgPSBzcGlfd3JpdGUocHJp
+di0+c3BpLCBwcml2LT5zcGlfdHJhbnNmZXJfYnVmLCBsZW4gKyAxKTsKKwkJcmV0ID0gc3BpX3N5
+bmMocHJpdi0+c3BpLCAmbXNnKTsKIAkJaWYgKHJldCAmJiBuZXRpZl9tc2dfZHJ2KHByaXYpKQog
+CQkJcHJpbnRrKEtFUk5fREVCVUcgRFJWX05BTUUgIjogJXMoKSBmYWlsZWQ6IHJldCA9ICVkXG4i
+LAogCQkJCV9fZnVuY19fLCByZXQpOwpAQCAtMTM2LDI4ICsxNDgsNTYgQEAgc3RhdGljIGludCBz
+cGlfd3JpdGVfYnVmKHN0cnVjdCBlbmMyOGo2MAogfQogCiAvKgorICogU1BJIHdyaXRlIGJ1ZmZl
+cgorICovCitzdGF0aWMgaW50IHNwaV93cml0ZV9idWYoc3RydWN0IGVuYzI4ajYwX25ldCAqcHJp
+diwgaW50IGxlbiwKKwkJCSBjb25zdCB1OCAqZGF0YSkKK3sKKwlyZXR1cm4gc3BpX3NlbmQocHJp
+diwgRU5DMjhKNjBfV1JJVEVfQlVGX01FTSwgbGVuLCBkYXRhKTsKK30KKworLyoKICAqIGJhc2lj
+IFNQSSByZWFkIG9wZXJhdGlvbgogICovCi1zdGF0aWMgdTggc3BpX3JlYWRfb3Aoc3RydWN0IGVu
+YzI4ajYwX25ldCAqcHJpdiwgdTggb3AsCi0JCQkgICB1OCBhZGRyKQorc3RhdGljIHU4IHNwaV9y
+ZWFkX29wKHN0cnVjdCBlbmMyOGo2MF9uZXQgKnByaXYsIHU4IG9wLCB1OCBhZGRyKQogewotCXU4
+IHR4X2J1ZlsyXTsKLQl1OCByeF9idWZbNF07CisJdTggdHhfYnVmOworCXU4IHJ4X2J1ZltTUElf
+T1BMRU4gKyAxXTsKIAl1OCB2YWwgPSAwOworCXN0cnVjdCBzcGlfdHJhbnNmZXIgdCA9IHsKKwkJ
+LnR4X2J1ZiA9ICZ0eF9idWYsCisJCS5yeF9idWYgPSBOVUxMLAorCQkubGVuID0gU1BJX09QTEVO
+LAorCQkuY3NfY2hhbmdlID0gMCwKKwkJLnNwZWVkX2h6ID0gRkNMS19NQVgsCisJfTsKKwlzdHJ1
+Y3Qgc3BpX3RyYW5zZmVyIHIgPSB7CisJCS50eF9idWYgPSBOVUxMLAorCQkucnhfYnVmID0gcnhf
+YnVmLAorCQkubGVuID0gU1BJX09QTEVOLAorCQkuY3NfY2hhbmdlID0gMSwKKwkJLnNwZWVkX2h6
+ID0gRkNMS19NQVgsCisJfTsKKwlzdHJ1Y3Qgc3BpX21lc3NhZ2UgbXNnOwogCWludCByZXQ7Ci0J
+aW50IHNsZW4gPSBTUElfT1BMRU47CiAKIAkvKiBkbyBkdW1teSByZWFkIGlmIG5lZWRlZCAqLwog
+CWlmIChhZGRyICYgU1BSRF9NQVNLKQotCQlzbGVuKys7CisJCXIubGVuKys7CisKKwl0eF9idWYg
+PSBvcCB8IChhZGRyICYgQUREUl9NQVNLKTsKIAotCXR4X2J1ZlswXSA9IG9wIHwgKGFkZHIgJiBB
+RERSX01BU0spOwotCXJldCA9IHNwaV93cml0ZV90aGVuX3JlYWQocHJpdi0+c3BpLCB0eF9idWYs
+IDEsIHJ4X2J1Ziwgc2xlbik7Ci0JaWYgKHJldCkKKwlzcGlfbWVzc2FnZV9pbml0KCZtc2cpOwor
+CXNwaV9tZXNzYWdlX2FkZF90YWlsKCZ0LCAmbXNnKTsKKwlzcGlfbWVzc2FnZV9hZGRfdGFpbCgm
+ciwgJm1zZyk7CisJcmV0ID0gc3BpX3N5bmMocHJpdi0+c3BpLCAmbXNnKTsKKwlpZiAocmV0ID09
+IDApCisJCXJldCA9IG1zZy5zdGF0dXM7CisJaWYgKHJldCAmJiBuZXRpZl9tc2dfZHJ2KHByaXYp
+KQogCQlwcmludGsoS0VSTl9ERUJVRyBEUlZfTkFNRSAiOiAlcygpIGZhaWxlZDogcmV0ID0gJWRc
+biIsCiAJCQlfX2Z1bmNfXywgcmV0KTsKIAllbHNlCi0JCXZhbCA9IHJ4X2J1ZltzbGVuIC0gMV07
+CisJCXZhbCA9IHJ4X2J1ZltyLmxlbiAtIDFdOwogCiAJcmV0dXJuIHZhbDsKIH0KQEAgLTE2NSwx
+OCArMjA1LDkgQEAgc3RhdGljIHU4IHNwaV9yZWFkX29wKHN0cnVjdCBlbmMyOGo2MF9uZQogLyoK
+ICAqIGJhc2ljIFNQSSB3cml0ZSBvcGVyYXRpb24KICAqLwotc3RhdGljIGludCBzcGlfd3JpdGVf
+b3Aoc3RydWN0IGVuYzI4ajYwX25ldCAqcHJpdiwgdTggb3AsCi0JCQl1OCBhZGRyLCB1OCB2YWwp
+CitzdGF0aWMgaW50IHNwaV93cml0ZV9vcChzdHJ1Y3QgZW5jMjhqNjBfbmV0ICpwcml2LCB1OCBv
+cCwgdTggYWRkciwgdTggdmFsKQogewotCWludCByZXQ7Ci0KLQlwcml2LT5zcGlfdHJhbnNmZXJf
+YnVmWzBdID0gb3AgfCAoYWRkciAmIEFERFJfTUFTSyk7Ci0JcHJpdi0+c3BpX3RyYW5zZmVyX2J1
+ZlsxXSA9IHZhbDsKLQlyZXQgPSBzcGlfd3JpdGUocHJpdi0+c3BpLCBwcml2LT5zcGlfdHJhbnNm
+ZXJfYnVmLCAyKTsKLQlpZiAocmV0ICYmIG5ldGlmX21zZ19kcnYocHJpdikpCi0JCXByaW50ayhL
+RVJOX0RFQlVHIERSVl9OQU1FICI6ICVzKCkgZmFpbGVkOiByZXQgPSAlZFxuIiwKLQkJCV9fZnVu
+Y19fLCByZXQpOwotCXJldHVybiByZXQ7CisJcmV0dXJuIHNwaV9zZW5kKHByaXYsIG9wIHwgKGFk
+ZHIgJiBBRERSX01BU0spLCAxLCAmdmFsKTsKIH0KIAogc3RhdGljIHZvaWQgZW5jMjhqNjBfc29m
+dF9yZXNldChzdHJ1Y3QgZW5jMjhqNjBfbmV0ICpwcml2KQpAQCAtMTU3Miw2ICsxNjAzLDEyIEBA
+IHN0YXRpYyBpbnQgX19kZXZpbml0IGVuYzI4ajYwX3Byb2JlKHN0cnUKIAlkZXZfc2V0X2RydmRh
+dGEoJnNwaS0+ZGV2LCBwcml2KTsJLyogc3BpIHRvIHByaXYgcmVmZXJlbmNlICovCiAJU0VUX05F
+VERFVl9ERVYoZGV2LCAmc3BpLT5kZXYpOwogCisJLyogQ29uZmlndXJlIHRoZSBTUEkgYnVzICov
+CisJc3BpLT5tb2RlID0gU1BJX01PREVfMDsKKwlzcGktPmJpdHNfcGVyX3dvcmQgPSA4OworCXNw
+aS0+bWF4X3NwZWVkX2h6ID0gRkNMS19NQVg7CisJc3BpX3NldHVwKHNwaSk7CisKIAlpZiAoIWVu
+YzI4ajYwX2NoaXBzZXRfaW5pdChkZXYpKSB7CiAJCWlmIChuZXRpZl9tc2dfcHJvYmUocHJpdikp
+CiAJCQlkZXZfaW5mbygmc3BpLT5kZXYsIERSVl9OQU1FICIgY2hpcCBub3QgZm91bmRcbiIpOwo=
+--20cf3036405f600b2c04a34da5ad--
