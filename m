@@ -1,115 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: ping: dont call udp_ioctl()
-Date: Sun, 15 May 2011 10:18:40 +0200
-Message-ID: <1305447520.3120.88.camel@edumazet-laptop>
-References: <20110510.121550.112583080.davem@davemloft.net>
-	 <20110513200100.GA3875@albatros>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next-2.6 00/13][pull request] Intel Wired LAN Driver
+ Update
+Date: Sun, 15 May 2011 01:41:30 -0700
+Message-ID: <1305448890.3355.3.camel@jtkirshe-MOBL1>
+References: <1305422627-9583-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20110515.012108.15947576632987708.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, solar@openwall.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	peak@argo.troja.mff.cuni.cz, kees.cook@canonical.com,
-	dan.j.rosenberg@gmail.com, eugene@redhat.com, nelhage@ksplice.com,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Vasiliy Kulikov <segoon@openwall.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110513200100.GA3875@albatros>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-RmTkC97tmEjIyggNLXbe"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:27765 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755778Ab1EOIl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 May 2011 04:41:29 -0400
+In-Reply-To: <20110515.012108.15947576632987708.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 14 mai 2011 =C3=A0 00:01 +0400, Vasiliy Kulikov a =C3=A9crit =
-:
 
-> +/*
-> + *	IOCTL requests applicable to the UDP^H^H^HICMP protocol
-> + */
-> +
-> +int ping_ioctl(struct sock *sk, int cmd, unsigned long arg)
-> +{
-> +	pr_debug("ping_ioctl(sk=3D%p,sk->num=3D%u,cmd=3D%d,arg=3D%lu)\n",
-> +		inet_sk(sk), inet_sk(sk)->inet_num, cmd, arg);
-> +	switch (cmd) {
-> +	case SIOCOUTQ:
-> +	case SIOCINQ:
-> +		return udp_ioctl(sk, cmd, arg);
-> +	default:
-> +		return -ENOIOCTLCMD;
-> +	}
-> +}
+--=-RmTkC97tmEjIyggNLXbe
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Do we really need to support SIOCOUTQ and SIOCINQ ioctls for ping
-sockets ?
+On Sat, 2011-05-14 at 22:21 -0700, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Sat, 14 May 2011 18:23:34 -0700
+>=20
+> > The following series contains updates to e1000e, ixgbevf and ixgbe.
+> >=20
+> > -e1000e: minor comment fix
+> > -ixgbevf: add support for macvlan
+> > -ixgbe: mostly cleanup with the addition of support for a new adapter
+> >=20
+> > The following are changes since commit 7be799a70ba3dd90a59e8d2c72bbe060=
+20005b3f:
+> >   ipv4: Remove rt->rt_dst reference from ip_forward_options()
+> > and are available in the git repository at:
+> >   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 mas=
+ter
+>=20
+> Pulled, thanks Jeff.
+>=20
+> How are the ethtool op conversions coming so I can apply the patch from
+> Marius that deletes the deprecated ones?
+>=20
+> Thanks.
 
-I ask this because udp_ioctl() assumes it handles UDP frames, and can
-change UDP_MIB_INERRORS in case first_packet_length() finds a frame wit=
-h
-bad checksum.
+We ran into issues with the driver changes, and we are working on a
+revised patch(s).  I will end up breaking up the patch into several
+patches because we have the work done for some of the drivers, and are
+still working on the remaining changes.
 
-[ UDP let the checksum be completed and checked when it performs the
-Kernel->User copy ]
+I will make sure we get the remaining work done this upcoming week.
 
-I would just remove this legacy, please shout if you believe we really
-should support ioctl...
+--=-RmTkC97tmEjIyggNLXbe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-[ I actually tested that ping was still working correctly, of course ]
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-BTW, link
-(ftp://mirrors.kernel.org/openwall/Owl/current/sources/Owl/packages/ipu=
-tils/iputils-ss020927.tar.gz ) provided in http://openwall.info/wiki/pe=
-ople/segoon/ping is not working.
+iQEcBAABAgAGBQJNz5GxAAoJECTsCADr/EWUFRQH/1rBOxXsNiAlOUE5Uvo3Tfxl
+DuO4RzDRtqwUHCG/OHG6ylTHjjNd4NEOHBP3LpN/lD8x6OAQpogesnkTaMzXWuvS
+GaWrEvgkOR5zxdH1EdZMhyaZ9vAGDAaQwMRGvsw8PqeiQcue6QjXrqNns0fp+Rje
+Sr0SaOO/Qm95Ltr2puW2BA1/XFO/9u6vJIxoEzZmKUP5vx/3r/WU4DNsjqvZfCVo
+mhibupeAQPigUKqrt7qDLdwRcz+THmtoY7KJfD6Y+7VqZO4FFyIxvWa06SJhg/nZ
+6tYUy5dbHLaLI63/wQI19Kj/Wx1wc1OJPcdwI/gkFJS6UVqQICdJnGo+rt/aQYg=
+=uinL
+-----END PGP SIGNATURE-----
 
-I had to manually patch iputils-s20101006.tar.bz2 instead.
+--=-RmTkC97tmEjIyggNLXbe--
 
-Thanks
-
-[PATCH net-next-2.6] net: ping: dont call udp_ioctl()
-
-udp_ioctl() really handles UDP and UDPLite protocols.
-
-1) It can increment UDP_MIB_INERRORS in case first_packet_length() find=
-s
-a frame with bad checksum.
-
-2) It has a dependency on sizeof(struct udphdr), not applicable to
-ICMP/PING
-
-If ping sockets need to handle SIOCINQ/SIOCOUTQ ioctl, this should be
-done differently.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Vasiliy Kulikov <segoon@openwall.com>
----
- net/ipv4/ping.c |   11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 7041d09..952505a 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -610,20 +610,15 @@ do_confirm:
- }
-=20
- /*
-- *	IOCTL requests applicable to the UDP^H^H^HICMP protocol
-+ *	IOCTL requests applicable to PING sockets
-  */
-=20
- int ping_ioctl(struct sock *sk, int cmd, unsigned long arg)
- {
- 	pr_debug("ping_ioctl(sk=3D%p,sk->num=3D%u,cmd=3D%d,arg=3D%lu)\n",
- 		inet_sk(sk), inet_sk(sk)->inet_num, cmd, arg);
--	switch (cmd) {
--	case SIOCOUTQ:
--	case SIOCINQ:
--		return udp_ioctl(sk, cmd, arg);
--	default:
--		return -ENOIOCTLCMD;
--	}
-+
-+	return -ENOIOCTLCMD;
- }
-=20
- int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m=
-sg,
