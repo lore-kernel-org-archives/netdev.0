@@ -1,23 +1,30 @@
-From: "Mail Administrator" <ian_coles@optusnet.com.au>
-Subject: Email Quota Exceeded
-Date: Sun, 15 May 2011 12:15:47 +0100
-Message-ID: <MAILSVRNfNL5LjFGuaW0001c888@mailsvr.bridgestone.com.sg>
-Reply-To: <mail.a6@gmx.us>
+From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Subject: Re: strange code in cdc-ncm
+Date: Sun, 15 May 2011 13:21:28 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3A93E0B2@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailsvr.bridgestone.com.sg ([203.125.59.150]:21372 "EHLO
-	mailsvr.bridgestone.com.sg" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753056Ab1EOLXM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 May 2011 07:23:12 -0400
-Content-Class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Symantec Mail Security replaced Message Body with this text message.  The original text contained prohibited content and was quarantined.
+>
+> It seems a bit strange to me. If you may or may not have claimed an interface,
+> how can you unconditionally zero out intfdata?
+>
+>        Regards
+>                Oliver
 
-ID:MAILSVR::SYQ398b7068 
+Hi Oliver, thanks for pointing out. I'll make a fix and post a patch.
+
+Best regards,
+Alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
