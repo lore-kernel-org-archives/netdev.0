@@ -1,141 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv4: more compliant RFC 3168 support
-Date: Sun, 15 May 2011 15:35:42 +0200
-Message-ID: <1305466542.3120.129.camel@edumazet-laptop>
-References: <201105141938.28344.v13@v13.gr>
-	 <1305393402.3120.67.camel@edumazet-laptop>
-	 <1305393711.3120.69.camel@edumazet-laptop>  <201105151337.22831.v13@v13.gr>
-	 <1305461344.3120.112.camel@edumazet-laptop>
-	 <1305464176.3120.113.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 09/18] virtio: use avail_event index
+Date: Sun, 15 May 2011 16:55:41 +0300
+Message-ID: <20110515135541.GF24932@redhat.com>
+References: <cover.1304541918.git.mst@redhat.com>
+	<8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
+	<874o54h4rt.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stefanos Harhalakis <v13@v13.gr>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52594 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753343Ab1EONfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 09:35:46 -0400
-Received: by wwa36 with SMTP id 36so4278574wwa.1
-        for <netdev@vger.kernel.org>; Sun, 15 May 2011 06:35:45 -0700 (PDT)
-In-Reply-To: <1305464176.3120.113.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <874o54h4rt.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit 6623e3b24a5e (ipv4: IP defragmentation must be ECN aware) was an
-attempt to not lose "Congestion Experienced" (CE) indications when
-performing datagram defragmentation.
+On Mon, May 09, 2011 at 02:03:26PM +0930, Rusty Russell wrote:
+> On Wed, 4 May 2011 23:51:47 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > Use the new avail_event feature to reduce the number
+> > of exits from the guest.
+> 
+> Figures here would be nice :)
 
-Stefanos Harhalakis raised the point that RFC 3168 requirements were not
-completely met by this commit.
+You mean ASCII art in comments?
 
-In particular, we MUST detect invalid combinations and eventually drop
-illegal frames.
+> > @@ -228,6 +237,12 @@ add_head:
+> >  	 * new available array entries. */
+> >  	virtio_wmb();
+> >  	vq->vring.avail->idx++;
+> > +	/* If the driver never bothers to kick in a very long while,
+> > +	 * avail index might wrap around. If that happens, invalidate
+> > +	 * kicked_avail index we stored. TODO: make sure all drivers
+> > +	 * kick at least once in 2^16 and remove this. */
+> > +	if (unlikely(vq->vring.avail->idx == vq->kicked_avail))
+> > +		vq->kicked_avail_valid = true;
+> 
+> If they don't, they're already buggy.  Simply do:
+>         WARN_ON(vq->vring.avail->idx == vq->kicked_avail);
 
-Reported-by: Stefanos Harhalakis <v13@v13.gr>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/ip_fragment.c |   66 ++++++++++++++++++++++++++-------------
- 1 file changed, 44 insertions(+), 22 deletions(-)
+Hmm, but does it say that somewhere?
+It seems that most drivers use locking to prevent
+posting more buffers while they drain the used ring,
+and also kick at least once in vq->num buffers,
+which I guess in the end would work out fine
+as vq num is never as large as 2^15.
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index b1d282f..1f74089 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -77,20 +77,46 @@ struct ipq {
- 	struct inet_peer *peer;
- };
- 
--#define IPFRAG_ECN_CLEAR  0x01 /* one frag had INET_ECN_NOT_ECT */
--#define IPFRAG_ECN_SET_CE 0x04 /* one frag had INET_ECN_CE */
-+/* RFC 3168 support :
-+ * We want to check ECN values of all fragments, do detect invalid combinations.
-+ * In ipq->ecn, we store the OR value of each ip4_frag_ecn() fragment value.
-+ */
-+enum {
-+	IPFRAG_ECN_NOT_ECT	= 0x01, /* one frag had ECN_NOT_ECT */
-+	IPFRAG_ECN_ECT_1	= 0x02, /* one frag had ECN_ECT_1 */
-+	IPFRAG_ECN_ECT_0	= 0x04, /* one frag had ECN_ECT_0 */
-+	IPFRAG_ECN_CE		= 0x08, /* one frag had ECN_CE */
-+};
- 
- static inline u8 ip4_frag_ecn(u8 tos)
- {
--	tos = (tos & INET_ECN_MASK) + 1;
--	/*
--	 * After the last operation we have (in binary):
--	 * INET_ECN_NOT_ECT => 001
--	 * INET_ECN_ECT_1   => 010
--	 * INET_ECN_ECT_0   => 011
--	 * INET_ECN_CE      => 100
--	 */
--	return (tos & 2) ? 0 : tos;
-+	return 1 << (tos & INET_ECN_MASK);
-+}
-+
-+/* Given the OR values of all fragments, apply RFC 3168 5.3 requirements
-+ * Return : -1 if frame should be dropped.
-+ *           >= 0 value, to be ORed in to final iph->tos field
-+ */
-+static inline int ip4_frag_ecn_fold(u8 ecn)
-+{
-+	switch (ecn) {
-+	/* If same ECN combination was observed on all fragments, do nothing */
-+	case IPFRAG_ECN_NOT_ECT:
-+	case IPFRAG_ECN_ECT_1:
-+	case IPFRAG_ECN_ECT_0:
-+	case IPFRAG_ECN_CE:
-+	/* if a ECT_1 ECT_0 combination was observed, do nothing as well */
-+	case IPFRAG_ECN_ECT_0 | IPFRAG_ECN_ECT_1:
-+		return 0;
-+	/* at least one fragment had CE, and others ECT_0 or ECT_1 */
-+	case IPFRAG_ECN_CE | IPFRAG_ECN_ECT_0:
-+	case IPFRAG_ECN_CE | IPFRAG_ECN_ECT_1:
-+	case IPFRAG_ECN_CE | IPFRAG_ECN_ECT_0 | IPFRAG_ECN_ECT_1:
-+		return INET_ECN_CE;
-+	/* other combinations are invalid : drop frame */
-+	default:
-+		return -1;
-+	}
- }
- 
- static struct inet_frags ip4_frags;
-@@ -524,9 +550,15 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 	int len;
- 	int ihlen;
- 	int err;
-+	int ecn;
- 
- 	ipq_kill(qp);
- 
-+	ecn = ip4_frag_ecn_fold(qp->ecn);
-+	if (unlikely(ecn == -1)) {
-+		err = -EINVAL;
-+		goto out_fail;
-+	}
- 	/* Make the one we just received the head. */
- 	if (prev) {
- 		head = prev->next;
-@@ -605,17 +637,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 	iph = ip_hdr(head);
- 	iph->frag_off = 0;
- 	iph->tot_len = htons(len);
--	/* RFC3168 5.3 Fragmentation support
--	 * If one fragment had INET_ECN_NOT_ECT,
--	 *	reassembled frame also has INET_ECN_NOT_ECT
--	 * Elif one fragment had INET_ECN_CE
--	 *	reassembled frame also has INET_ECN_CE
--	 */
--	if (qp->ecn & IPFRAG_ECN_CLEAR)
--		iph->tos &= ~INET_ECN_MASK;
--	else if (qp->ecn & IPFRAG_ECN_SET_CE)
--		iph->tos |= INET_ECN_CE;
--
-+	iph->tos |= ecn;
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
- 	qp->q.fragments = NULL;
- 	qp->q.fragments_tail = NULL;
+> > +static bool vring_notify(struct vring_virtqueue *vq)
+> > +{
+> > +	u16 old, new;
+> > +	bool v;
+> > +	if (!vq->event)
+> > +		return !(vq->vring.used->flags & VRING_USED_F_NO_NOTIFY);
+> > +
+> > +	v = vq->kicked_avail_valid;
+> > +	old = vq->kicked_avail;
+> > +	new = vq->kicked_avail = vq->vring.avail->idx;
+> > +	vq->kicked_avail_valid = true;
+> > +	if (unlikely(!v))
+> > +		return true;
+> 
+> This is the only place you actually used kicked_avail_valid.  Is it
+> possible to initialize it in such a way that you can remove this?
 
+If we kill the code above as you suggested, likely yes.
+Maybe an explicit flag is more obvious?
 
+> > @@ -482,6 +517,8 @@ void vring_transport_features(struct virtio_device *vdev)
+> >  			break;
+> >  		case VIRTIO_RING_F_USED_EVENT_IDX:
+> >  			break;
+> > +		case VIRTIO_RING_F_AVAIL_EVENT_IDX:
+> > +			break;
+> >  		default:
+> >  			/* We don't understand this bit. */
+> >  			clear_bit(i, vdev->features);
+> 
+> Does this belong in a prior patch?
+> 
+> Thanks,
+> Rusty.
+
+Well if we don't support the feature in the ring we should not
+ack the feature, right?
