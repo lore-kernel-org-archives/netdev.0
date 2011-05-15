@@ -1,67 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] ethernet: avoid pre-assigned OUI values in
- random_ether_addr
-Date: Sun, 15 May 2011 23:10:26 +0200
-Message-ID: <1305493826.3120.174.camel@edumazet-laptop>
-References: <20110513171729.247b126e@nehalam>
-	 <1305488809.3120.162.camel@edumazet-laptop>
-	 <1305490850.8178.57.camel@Joe-Laptop>
+From: Solar Designer <solar@openwall.com>
+Subject: Re: [PATCH net-next-2.6] net: ping: dont call udp_ioctl()
+Date: Mon, 16 May 2011 01:30:18 +0400
+Message-ID: <20110515213018.GA26820@openwall.com>
+References: <20110510.121550.112583080.davem@davemloft.net> <20110513200100.GA3875@albatros> <1305447520.3120.88.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vasiliy Kulikov <segoon@openwall.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	peak@argo.troja.mff.cuni.cz, kees.cook@canonical.com,
+	dan.j.rosenberg@gmail.com, eugene@redhat.com, nelhage@ksplice.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62390 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166Ab1EOVKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 17:10:32 -0400
-Received: by wwa36 with SMTP id 36so4495155wwa.1
-        for <netdev@vger.kernel.org>; Sun, 15 May 2011 14:10:31 -0700 (PDT)
-In-Reply-To: <1305490850.8178.57.camel@Joe-Laptop>
+Received: from mother.openwall.net ([195.42.179.200]:45614 "HELO
+	mother.openwall.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752323Ab1EOVan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 May 2011 17:30:43 -0400
+Content-Disposition: inline
+In-Reply-To: <1305447520.3120.88.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 15 mai 2011 =C3=A0 13:20 -0700, Joe Perches a =C3=A9crit :
-> On Sun, 2011-05-15 at 21:46 +0200, Eric Dumazet wrote:
-> > Le vendredi 13 mai 2011 =C3=A0 17:17 -0700, Stephen Hemminger a =C3=
-=A9crit :
-> > > There are some addresses in the assigned vendor block that don't =
-obey
-> > > the locally assigned convention. These should be avoided by rando=
-m_ether_addr
-> > > assignment.
-> > We call random_ether_addr() for some virtual devices, maybe we can =
-add a
-> > __random_ether_addr() helper for them and not avoid these OUI ?
->=20
-> Unless it's speed critical, it's probably not worthwhile.
->=20
+On Sun, May 15, 2011 at 10:18:40AM +0200, Eric Dumazet wrote:
+> Do we really need to support SIOCOUTQ and SIOCINQ ioctls for ping
+> sockets ?
 
-Speed was not my concern, but getting idea of why avoiding pre-assigned
-OUI was a concern for them, if they dont hit a real Ethernet domain.
+Probably not.
 
-> I think that using get_random_bytes, because it can drain
-> the entropy pool, may not be a great thing to do.
->=20
+> BTW, link
+> (ftp://mirrors.kernel.org/openwall/Owl/current/sources/Owl/packages/iputils/iputils-ss020927.tar.gz ) provided in http://openwall.info/wiki/people/segoon/ping is not working.
+> 
+> I had to manually patch iputils-s20101006.tar.bz2 instead.
 
-This has litle to do with Stephen patch. You could discuss this with
-Matt Mackall.
+Oh, the link broke precisely because we updated to s20101006 since then,
+and the link was to our current branch.  I've just updated the wiki page
+to include links both for iputils-ss020927 and for iputils-s20101006
+(both original tarballs and patches).
 
-By the way, since 2.6.29 every exec() gets 16 bytes from
-get_random_bytes() for PRNG seeding.
+> [PATCH net-next-2.6] net: ping: dont call udp_ioctl()
+> 
+> udp_ioctl() really handles UDP and UDPLite protocols.
+> 
+> 1) It can increment UDP_MIB_INERRORS in case first_packet_length() finds
+> a frame with bad checksum.
+> 
+> 2) It has a dependency on sizeof(struct udphdr), not applicable to
+> ICMP/PING
+> 
+> If ping sockets need to handle SIOCINQ/SIOCOUTQ ioctl, this should be
+> done differently.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Vasiliy Kulikov <segoon@openwall.com>
 
-Typical machine starts far more programs than network interfaces ;)
+Reviewed-by: Solar Designer <solar@openwall.com>
 
+Thanks,
 
-Anyway, it seems to have no impact at all, even gathering 128*6 bytes
-here :=20
-
-# cat /proc/sys/kernel/random/entropy_avail
-142
-# modprobe dummy numdummies=3D128=20
-# cat /proc/sys/kernel/random/entropy_avail
-156
-
-
-
+Alexander
