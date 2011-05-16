@@ -1,54 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Null pointer dereference in icmp_send
-Date: Mon, 16 May 2011 23:27:16 +0200
-Message-ID: <1305581236.9466.4.camel@edumazet-laptop>
-References: <BANLkTi=uBDOQOJJMGn6V0Ne7OjQ7kGc-2w@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
+Date: Tue, 17 May 2011 00:27:54 +0300
+Message-ID: <20110516212754.GG18148@redhat.com>
+References: <1305574484.3456.30.camel@localhost.localdomain>
+ <20110516204540.GD18148@redhat.com>
+ <1305579414.3456.49.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, roberto.paleari@emaze.net
-To: Aristide Fattori <joystick@security.dico.unimi.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:61916 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756409Ab1EPV1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 17:27:21 -0400
-Received: by wwk4 with SMTP id 4so3015354wwk.1
-        for <netdev@vger.kernel.org>; Mon, 16 May 2011 14:27:20 -0700 (PDT)
-In-Reply-To: <BANLkTi=uBDOQOJJMGn6V0Ne7OjQ7kGc-2w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1305579414.3456.49.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 16 mai 2011 =C3=A0 23:06 +0200, Aristide Fattori a =C3=A9crit =
-:
-> Hi everybody,
->=20
-> in function icmp_send() (net/ipv4/icmp.c), the parameter passed to
-> dev_net() function is not properly validated. This can lead to a NULL
-> pointer dereference that crashes the kernel. The bug can be triggered
-> remotely, by flooding the target with fragmented IPv4 packets.
-> Important fields in the IP packet are:
->  * Flags: the MF flag must be set.
->  * Fragment ID: using pseudo-random values for this field quickly
-> fills fragmented queues in the victim's kernel, as it is unable to
-> easily reassemble received packets.
->  * TOS: using pseudo-random values for this field triggers the
-> creation of more than one route cache entry for the same destination
-> address, increasing the chances of incurring in the error condition
-> described before.
-> Other fields of the packet do not really matter, and they can be set
-> to arbitrary values.
->=20
-> If you are interested, we can provide a small and very dirty python
-> script that easily triggers the error condition.
->=20
+On Mon, May 16, 2011 at 01:56:54PM -0700, Shirley Ma wrote:
+> On Mon, 2011-05-16 at 23:45 +0300, Michael S. Tsirkin wrote:
+> > > +/* Since we need to keep the order of used_idx as avail_idx, it's
+> > possible that
+> > > + * DMA done not in order in lower device driver for some reason. To
+> > prevent
+> > > + * used_idx out of order, upend_idx is used to track avail_idx
+> > order, done_idx
+> > > + * is used to track used_idx order. Once lower device DMA done,
+> > then upend_idx
+> > > + * can move to done_idx.
+> > 
+> > Could you clarify this please? virtio explicitly allows out of order
+> > completion of requests. Does it simplify code that we try to keep
+> > used index updates in-order? Because if not, this is not
+> > really a requirement.
+> 
+> Hello Mike,
+> 
+> Based on my testing, vhost_add_used() must be in order from
+> vhost_get_vq_desc(). Otherwise, virtio_net ring seems get double
+> freed. I didn't spend time on debugging this.
+> 
+> in virtqueue_get_buf
+> 
+>         if (unlikely(!vq->data[i])) {
+>                 BAD_RING(vq, "id %u is not a head!\n", i);
+>                 return NULL;
+>         }
+> 
+> That's the reason I created the upend_idx and done_idx.
+> 
+> Thanks
+> Shirley
 
-Hi
+One thing of note: it's possible that this actually works
+better than trying to complete out of order, as the
+ring just keeps going which should be good for cache
+utilization. OTOH, this might explain why
+you are over-running the TX ring much more with this patch.
 
-You forgot to tell us which linux version you used ?
+So I don't say this should block merging the patch,
+but I very much would like to understand the issue,
+and it's interesting to experiment with fixing it
+and seeing what it does to performance and to code size.
 
-We had some fixes lately in this area.
-
-Thanks
-
-
+-- 
+MST
