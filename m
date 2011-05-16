@@ -1,65 +1,98 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next-2.6 v2] ipv4: more compliant RFC 3168 support
-Date: Mon, 16 May 2011 12:17:46 -0700
-Message-ID: <1305573466.2503.12.camel@Joe-Laptop>
-References: <201105141938.28344.v13@v13.gr>
-	 <1305464176.3120.113.camel@edumazet-laptop>
-	 <1305466542.3120.129.camel@edumazet-laptop> <201105151808.39231.v13@v13.gr>
-	 <1305475310.3120.146.camel@edumazet-laptop>
-	 <1305566204.2898.49.camel@edumazet-laptop>
-	 <1305571057.2581.2.camel@edumazet-laptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [PATCH V5 0/6 net-next] macvtap/vhost TX zero-copy support
+Date: Mon, 16 May 2011 12:24:28 -0700
+Message-ID: <1305573868.3456.18.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stefanos Harhalakis <v13@v13.gr>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, mst@redhat.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1646 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754146Ab1EPTRs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 15:17:48 -0400
-In-Reply-To: <1305571057.2581.2.camel@edumazet-laptop>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:60321 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751668Ab1EPTYr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 15:24:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-16 at 20:37 +0200, Eric Dumazet wrote:
-> Commit 6623e3b24a5e (ipv4: IP defragmentation must be ECN aware) was an
-> attempt to not lose "Congestion Experienced" (CE) indications when
-> performing datagram defragmentation.
-> Stefanos Harhalakis raised the point that RFC 3168 requirements were not
-> completely met by this commit.
-> In particular, we MUST detect invalid combinations and eventually drop
-> illegal frames.
-> Reported-by: Stefanos Harhalakis <v13@v13.gr>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> v2 : Use a table instead of a switch()
+This patchset add supports for TX zero-copy between guest and host
+kernel through vhost. It significantly reduces CPU utilization on the
+local host on which the guest is located (It reduced 30-50% CPU usage
+for vhost thread for single stream test). The patchset is based on
+previous submission and comments from the community regarding when/how
+to handle guest kernel buffers to be released. This is the simplest
+approach I can think of after comparing with several other solutions.
 
-Just trivia:
+This patchset has integrated V3 review comments from community: 
 
-bitmasks and hard coded constants can be a bit of a minefield.
+1. Add more comments on how to use device ZEROCOPY flag;
 
-> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-> @@ -77,22 +77,42 @@ struct ipq {
-[]
-> +/* RFC 3168 support :
-> + * We want to check ECN values of all fragments, do detect invalid combinations.
-> + * In ipq->ecn, we store the OR value of each ip4_frag_ecn() fragment value.
-> + */
-> +enum {
-> +	IPFRAG_ECN_NOT_ECT	= 0x01, /* one frag had ECN_NOT_ECT */
-> +	IPFRAG_ECN_ECT_1	= 0x02, /* one frag had ECN_ECT_1 */
-> +	IPFRAG_ECN_ECT_0	= 0x04, /* one frag had ECN_ECT_0 */
-> +	IPFRAG_ECN_CE		= 0x08, /* one frag had ECN_CE */
+2. Change device ZEROCOPY to available bit 31
 
-Might be better to have a IPFRAG_ECN_TABLESIZE or some such.
+3. Fix skb header linear allocation when virtio_net GSO is not enabled
 
-	IPFRAG_ECN_TABLESIZE = 0x10,
+It has integrated V4 review comments from MST and Sridhar:
 
-> +static const u8 ip4_frag_ecn_table[16] = {
+1. In vhost, using socket poll wake up for outstanding DMAs
 
-static const u8 ip4_frag_ecn_table[IPFRAG_ECN_TABLESIZE] = {
+2. Add detailed comments for vhost_zerocopy_signal_used call
 
+3. Add sleep in vhost shutting down instead of busy-wait for outstanding
+   DMAs.
+
+4. Copy small packets, don't do zero-copy callback in mavtap, mark it's
+   DMA done in vhost
+
+5. change zerocopy to bool in macvtap.
+
+One comment doesn't address:
+
+Should we count the whole page in sk_wmem_alloc for zerocopy buffer? If
+so, sock_wfree needs to change too.
+
+
+This patchset includes:
+
+1/6: Add a new sock zero-copy flag, SOCK_ZEROCOPY;
+
+2/6: Add a new device flag, NETIF_F_ZEROCOPY for lower level device
+support zero-copy;
+
+3/6: Add a new struct skb_ubuf_info in skb_share_info for userspace
+buffers release callback when lower device DMA has done for that skb,
+which is the last reference count gone;
+
+4/6: Add vhost zero-copy callback in vhost when skb last refcnt is gone;
+add vhost_zerocopy_signal_used to notify guest to release TX skb
+buffers.
+
+5/6: Add macvtap zero-copy in lower device when sending packet is
+greater than 256 bytes to make sure there is enough room for expanding
+skb head.
+
+6/6: example: enable Intel 10Gb NIC zero-copy feature flag
+
+The patchset is built against most recent net-next linux 2.6.39-rc7. It
+has passed netperf/netserver multiple streams stress test.
+
+Single TCP_STREAM 120 secs test results over ixgbe 10Gb NIC results:
+
+Message BW(Gb/s)qemu-kvm (NumCPU)vhost-net(NumCPU) PerfTop irq/s
+4K      7408.57         92.1%           22.6%           1229
+4K(Orig)4913.17         118.1%          84.1%           2086    
+8K      9129.90         89.3%           23.3%           1141
+8K(Orig)7094.55         115.9%          84.7%           2157
+16K     9178.81         89.1%           23.3%           1139
+16K(Orig)8927.1         118.7%          83.4%           2262
+64K     9171.43         88.4%           24.9%           1253
+64K(Orig)9085.85        115.9%          82.4%           2229
+
+For message size less or equal than 2K, there is a known KVM guest TX
+overrun issue. With this zero-copy patch, the issue becomes more severe,
+guest io_exits has tripled than before, so the performance is not good.
+Once the TX overrun problem has been addressed, I will retest the small
+message size performance.
 
