@@ -1,60 +1,44 @@
-From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: several packets in a single buffer in Rx
-Date: Mon, 16 May 2011 16:36:45 +0300
-Message-ID: <BANLkTin_stn+7Ja3hbuaOgtrEVJEoT9Lhw@mail.gmail.com>
-References: <BANLkTimkgtQL1A2A3iAP-UYK2KdDvPmY3Q@mail.gmail.com>
-	<BANLkTinb3kaK7_b=47AL+Mb6Zmt9twEM9g@mail.gmail.com>
-	<BANLkTi=aBLPX7OMKi=sMhT81x-2f6Ci6sQ@mail.gmail.com>
-	<BANLkTi=xJbL-26Hzg0Pp5zKPUi35bV6VmA@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
+ return
+Date: Mon, 16 May 2011 14:37:46 +0100
+Message-ID: <1305553066.19966.32.camel@localhost>
+References: <20110516121339.GA1094@rere.qmqm.pl>
+	 <1305335142.2851.70.camel@bwh-desktop> <20110514103539.GA5214@rere.qmqm.pl>
+	 <1305513923.19966.20.camel@localhost>
+	 <20110516132807.1A89F13A6A@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTi=xJbL-26Hzg0Pp5zKPUi35bV6VmA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:12318 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755270Ab1EPNhv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 09:37:51 -0400
+In-Reply-To: <20110516132807.1A89F13A6A@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2011/5/16 Micha=B3 Miros=B3aw <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
-> W dniu 16 maja 2011 14:59 u=BFytkownik Emmanuel Grumbach
-> <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> napisa=B3:
->> 2011/5/16 Micha=B3 Miros=B3aw <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
->>> 2011/5/16 Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
->>>> I would like to be able to deliver the same page several times to =
-the
->>>> stack without having the stack consume it before the last time I
->>>> deliver it.
->>>> Of course I would like to avoid cloning it.
->>>
->>> Just do get_page() on the page having another packet in it before
->>> passing skb up.
->>>
->>
->> I can see the path:
->> __kfree_skb -> skb_release_all -> skb_release_data -> put_page
->> put_page will free the page iff the _count variable reaches 0. Of co=
-urse,
->> _count is incremented by get_page.
->>
->> I will give it try.
->>
->> I understand that this will work regardless the order given to
->> alloc_pages right ?
->
-> Yes. Remember that if you put a lot of packets in a big-order page
-> then the memory will be freed only after all packets are freed.
+On Mon, 2011-05-16 at 15:28 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> Remove NETIF_F_COMPAT since it's redundant and will be unused after
+> all drivers are converted to fix/set_features.
+>=20
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> ---
+>=20
+> For net as we don't want to have ETHTOOL_F_COMPAT hit stable release.
+[...]
 
-Sure. Thanks for the help.
+ETHTOOL_F_WISH means that the requested features could not all be
+enabled, *but are remembered*.  ETHTOOL_F_COMPAT means they were not
+remembered.
 
->
-> Best Regards,
-> Micha=B3 Miros=B3aw
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
