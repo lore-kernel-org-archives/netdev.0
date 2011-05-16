@@ -1,40 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipconfig wait for carrier
-Date: Mon, 16 May 2011 14:02:06 -0400 (EDT)
-Message-ID: <20110516.140206.663523943138508667.davem@davemloft.net>
-References: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
+Subject: Re: [PATCH 1/1] igmp: fix ip_mc_clear_src to not reset
+ ip_mc_list->sf{mode,count}
+Date: Mon, 16 May 2011 14:03:59 -0400 (EDT)
+Message-ID: <20110516.140359.111037536766782557.davem@davemloft.net>
+References: <20110515165945.GA20024@darkmag.usersys.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: micha@neli.hopto.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58264 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754020Ab1EPSCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 14:02:09 -0400
-In-Reply-To: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mmarek@suse.cz, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, dlstevens@us.ibm.com
+To: vfalico@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110515165945.GA20024@darkmag.usersys.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Micha Nelissen <micha@neli.hopto.org>
-Date: Sat, 14 May 2011 22:36:26 +0200
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Sun, 15 May 2011 18:59:45 +0200
 
-> Currently the ip auto configuration has a hardcoded delay of 1 second.
-> When (ethernet) link takes longer to come up (e.g. more than 3 seconds),
-> nfs root may not be found.
+> ip_mc_clear_src resets the imc->sfcount and imc->sfmode, without taking into
+> account the current number of sockets listening on that multicast struct, which
+> can lead to bogus routes for local listeners.
 > 
-> Remove the hardcoded delay, and wait for carrier on at least one network
-> device.
-
-Again, you are missing a proper "Signed-off-by: " line, also:
-
+> On NETDEV_DOWN/UP event, if there were 3 multicast listeners for that interface's
+> address, the imc->sfcount[MCAST_EXCLUDE] will be reset to 1. And after that a
+> listener socket destroys, multicast traffic will not be delivered to local
+> listeners because __mkroute_output drops the local flag for the route (by
+> checking ip_check_mc).
 > 
-> Index: atom-linux/net/ipv4/ipconfig.c
-> ===================================================================
-> --- atom-linux/net/ipv4/ipconfig.c	(revision 1445)
-> +++ atom-linux/net/ipv4/ipconfig.c	(working copy)
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-I'm not taking patches which are against some random atom-linux tree,
-you have to make your patches against the current upstream sources
-only.
+David, please take a look at this.  Thanks.
+
+> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+> index 1fd3d9c..b14f371 100644
+> --- a/net/ipv4/igmp.c
+> +++ b/net/ipv4/igmp.c
+> @@ -1775,9 +1775,6 @@ static void ip_mc_clear_src(struct ip_mc_list *pmc)
+>  		kfree(psf);
+>  	}
+>  	pmc->sources = NULL;
+> -	pmc->sfmode = MCAST_EXCLUDE;
+> -	pmc->sfcount[MCAST_INCLUDE] = 0;
+> -	pmc->sfcount[MCAST_EXCLUDE] = 1;
+>  }
+>  
+>  
