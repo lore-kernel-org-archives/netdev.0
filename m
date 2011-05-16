@@ -1,31 +1,62 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [RFC 2/3] RDMA/cma: Add support for netlink statistics export
-Date: Mon, 16 May 2011 15:08:13 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373F654@ORSMSX101.amr.corp.intel.com>
-References: <1305303525-11113-1-git-send-email-roland@kernel.org>
-	<1305303525-11113-3-git-send-email-roland@kernel.org>
- <1828884A29C6694DAF28B7E6B8A82373F428@ORSMSX101.amr.corp.intel.com>
- <4DD0DAB2.1080600@mellanox.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] ethernet: avoid pre-assigned OUI values in
+ random_ether_addr
+Date: Mon, 16 May 2011 08:46:44 -0700
+Message-ID: <20110516084644.483290f6@nehalam>
+References: <20110513171729.247b126e@nehalam>
+	<1305488809.3120.162.camel@edumazet-laptop>
+	<1305490850.8178.57.camel@Joe-Laptop>
+	<1305493826.3120.174.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4DD0DAB2.1080600-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:44519 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756198Ab1EPPqr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 11:46:47 -0400
+In-Reply-To: <1305493826.3120.174.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Isn't the port space enough here? specifically, what qp type buys us
-> over port space?
+On Sun, 15 May 2011 23:10:26 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-That assumes a 1:1 relationship between the port space and QP type, or more specifically, that the IB SID range is divided based on QP type.  This is outside of the architecture.  If we look at UC or XRC, it's not clear what port space those map to, but I believe it's desirable for the rdma_cm to support those.  Note that the AF_IB patch set ended up requiring that the user specify the qp type for these reasons.
+> Le dimanche 15 mai 2011 =C3=A0 13:20 -0700, Joe Perches a =C3=A9crit =
+:
+> > On Sun, 2011-05-15 at 21:46 +0200, Eric Dumazet wrote:
+> > > Le vendredi 13 mai 2011 =C3=A0 17:17 -0700, Stephen Hemminger a =C3=
+=A9crit :
+> > > > There are some addresses in the assigned vendor block that don'=
+t obey
+> > > > the locally assigned convention. These should be avoided by ran=
+dom_ether_addr
+> > > > assignment.
+> > > We call random_ether_addr() for some virtual devices, maybe we ca=
+n add a
+> > > __random_ether_addr() helper for them and not avoid these OUI ?
+> >=20
+> > Unless it's speed critical, it's probably not worthwhile.
+> >=20
+>=20
+> Speed was not my concern, but getting idea of why avoiding pre-assign=
+ed
+> OUI was a concern for them, if they dont hit a real Ethernet domain.
 
-- Sean
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+My concern was that after some discussion with IEEE committee that many
+virtual environments are using locally assigned addresses that get brid=
+ged
+onto real networks.
+
+That started me thinking that the current code should be more careful
+to avoid potential conflicts. My opinion is that this not worth worryin=
+g
+about because the likelihood of conflict with any one of these old
+addresses is as about as the unlikely as two hosts choosing the same
+value. But I wanted to raise the issue for explicit discussion and fram=
+e
+it with what would be required to handle it.
+
+--=20
