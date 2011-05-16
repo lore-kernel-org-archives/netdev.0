@@ -1,39 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2011-05-16
-Date: Mon, 16 May 2011 17:27:26 -0400 (EDT)
-Message-ID: <20110516.172726.649208957302608650.davem@davemloft.net>
-References: <20110516211305.GG6551@tuxdriver.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
+Date: Mon, 16 May 2011 14:30:49 -0700
+Message-ID: <1305581449.3456.54.camel@localhost.localdomain>
+References: <1305574484.3456.30.camel@localhost.localdomain>
+	 <20110516204540.GD18148@redhat.com>
+	 <1305579414.3456.49.camel@localhost.localdomain>
+	 <20110516212401.GF18148@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110516211305.GG6551-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110516212401.GF18148@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 16 May 2011 17:13:06 -0400
+On Tue, 2011-05-17 at 00:24 +0300, Michael S. Tsirkin wrote:
+> Very strange, it sounds like a bug, but I can't tell where: in
+> host or in guest. If it's in the guest, we must fix it.
+> If in host, we should only fix it if it makes life simpler for us.
+> Could you try to nail it down pls?  Another question: will code get
+> simpler or more complex if that restriction's removed? 
 
-> Still another big batch of wireless LAN stuff intended for 2.6.40 -- the
-> wireless folks have really been eating their Wheaties this cycle!
-> 
-> Highlights of this batch include a new driver in the rtlwifi family,
-> some new AMBA-like bus infrastructure that is specific to Broadcom
-> devices, a Bluetooth pull from Gustavo and friends, a wl12xx pull from
-> Luca and friends, some mesh updates from the Cozybit folks, some more
-> fixups from the mwifiex team, a collection of mac80211 improvements from
-> Johannes, the usual flutter of patches around iwlwifi and ath9k, and a
-> spread of other updates.
-> 
-> Please let me know if there are problems!
+It should be similar. We still need to maintain the pending list, and
+mark the DMA done ids.
 
-Wonderful, another strange bus layer :-)
+I can make a try to narrow this issue down.
 
-Pulled, thanks John!
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+Shirley
