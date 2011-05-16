@@ -1,68 +1,34 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-2.6] ethtool: Remove fallback to old ethtool
- operations for ETHTOOL_SFEATURES
-Date: Mon, 16 May 2011 14:13:39 +0200
-Message-ID: <20110516121339.GA1094@rere.qmqm.pl>
-References: <1305335142.2851.70.camel@bwh-desktop>
- <20110514103539.GA5214@rere.qmqm.pl>
- <1305513923.19966.20.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
+Date: Mon, 16 May 2011 22:18:57 +1000
+Message-ID: <20110516121857.GA4495@gondor.apana.org.au>
+References: <20110505084428.GB17647@redhat.com> <4DC26F33.8010700@cn.fujitsu.com> <20110505100506.GA20111@gondor.apana.org.au> <20110516073210.GB6610@redhat.com> <20110516080702.GA1857@gondor.apana.org.au> <20110516081841.GA8073@redhat.com> <20110516093822.GA2779@gondor.apana.org.au> <20110516094821.GA9427@redhat.com> <20110516104309.GA3534@gondor.apana.org.au> <20110516112133.GA11274@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shan Wei <shanwei@cn.fujitsu.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:50247 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751446Ab1EPMNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 08:13:41 -0400
+Received: from helcar.apana.org.au ([209.40.204.226]:34525 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121Ab1EPMTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 08:19:06 -0400
 Content-Disposition: inline
-In-Reply-To: <1305513923.19966.20.camel@localhost>
+In-Reply-To: <20110516112133.GA11274@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2011 at 03:45:23AM +0100, Ben Hutchings wrote:
-> On Sat, 2011-05-14 at 12:35 +0200, Micha=B3 Miros=B3aw wrote:
-> > On Sat, May 14, 2011 at 02:05:42AM +0100, Ben Hutchings wrote:
-> > > ethtool_set_feature_compat() squashes the feature mask into a boo=
-lean,
-> > > which is not correct for ethtool_ops::set_flags.
-> > >=20
-> > > We could fix this, but the fallback code for ETHTOOL_SFEATURES ac=
-tually
-> > > makes things more complicated for the ethtool utility and any oth=
-er
-> > > application using the ethtool API.  They will still need to fall =
-back to
-> > > the old offload control commands in order to support older kernel
-> > > versions.  The fallback code in the kernel adds a third possibili=
-ty for
-> > > them to handle.  So make ETHTOOL_SFEATURES fail when the driver
-> > > implements the old offload control operations, and let userland d=
-o the
-> > > fallback.
-> > BTW, the idea behind the compat code is that if ETHTOOL_[GS]FEATURE=
-S is
-> > available, then there should be no need to fallback to old ops. For
-> > a userspace tool that targets only kernels >=3D 2.6.39 there's no n=
-eed
-> > to care about old ops at all.
-> Well that's not true, because those tools still have to deal with
-> ETHTOOL_F_COMPAT.  And we're supposed to have all drivers converted f=
-or
-> 2.6.40, so the hypothetical new tool only has to wait one more releas=
-e.
+On Mon, May 16, 2011 at 02:21:33PM +0300, Michael S. Tsirkin wrote:
+>
+> Yes, but then we get annoying info messages every time.
+> Change them all to debug or remove completely?
 
-I think that handling ETHTOOL_F_COMPAT is like ETHTOOL_F_WISH - the too=
-l
-needs to reread features and check what was changed. So we can get rid
-of the former by replacing it with the latter.
+If you are getting warning messages then it probably means that
+your driver is doing something wrong.
 
-Changing some feature state may change others that were not requested
-to be changed (not present in .valid). This probably should be signalle=
-d
-as well. Extend ETHTOOL_F_WISH meaning (I prefer this one) or introduce
-new bit?
-
-Best Regards,
-Micha=B3 Miros=B3aw
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
