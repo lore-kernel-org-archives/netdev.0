@@ -1,36 +1,40 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
-Date: Mon, 16 May 2011 14:30:49 -0700
-Message-ID: <1305581449.3456.54.camel@localhost.localdomain>
-References: <1305574484.3456.30.camel@localhost.localdomain>
-	 <20110516204540.GD18148@redhat.com>
-	 <1305579414.3456.49.camel@localhost.localdomain>
-	 <20110516212401.GF18148@redhat.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next-2.6] ipv4: more compliant RFC 3168 support
+Date: Mon, 16 May 2011 23:33:37 +0200
+Message-ID: <20110516213336.GD3290@nuttenaction>
+References: <201105141938.28344.v13@v13.gr>
+ <1305464176.3120.113.camel@edumazet-laptop>
+ <1305466542.3120.129.camel@edumazet-laptop>
+ <201105151808.39231.v13@v13.gr>
+ <1305475310.3120.146.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110516212401.GF18148@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefanos Harhalakis <v13@v13.gr>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:56366 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756301Ab1EPVdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 17:33:38 -0400
+Content-Disposition: inline
+In-Reply-To: <1305475310.3120.146.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-17 at 00:24 +0300, Michael S. Tsirkin wrote:
-> Very strange, it sounds like a bug, but I can't tell where: in
-> host or in guest. If it's in the guest, we must fix it.
-> If in host, we should only fix it if it makes life simpler for us.
-> Could you try to nail it down pls?  Another question: will code get
-> simpler or more complex if that restriction's removed? 
+* Eric Dumazet | 2011-05-15 18:01:50 [+0200]:
 
-It should be similar. We still need to maintain the pending list, and
-mark the DMA done ids.
+>Problem of this version is that common frames in the Internet (NOT_ECT
+>or ECT_X or ECT_X) will take the longest path to come to "return 0;"
+>
+>a switch() version is fast because gcc emits a table based jump
 
-I can make a try to narrow this issue down.
+Sure? Is the table access not an dCache miss? E.g.
 
-Thanks
-Shirley
+4003dc: ff 24 fd 58 06 40 00  jmpq   *0x400658(,%rdi,8)
+
+Not sure if jump table access is superior these days ...
+
+
+Hagen
