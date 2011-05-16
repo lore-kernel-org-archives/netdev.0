@@ -1,49 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Mon, 16 May 2011 19:06:15 -0400 (EDT)
-Message-ID: <20110516.190615.2121423692228640268.davem@davemloft.net>
-References: <20110516121857.GA4495@gondor.apana.org.au>
-	<BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com>
-	<20110516224658.GA11157@gondor.apana.org.au>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Mon, 16 May 2011 16:32:18 -0700
+Message-ID: <1305588738.3456.65.camel@localhost.localdomain>
+References: <1305574128.3456.23.camel@localhost.localdomain>
+	 <1305574518.2885.25.camel@bwh-desktop>
+	 <1305574680.3456.33.camel@localhost.localdomain>
+	 <1305575253.2885.28.camel@bwh-desktop>  <20110516211459.GE18148@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirqus@gmail.com, mst@redhat.com, shanwei@cn.fujitsu.com,
-	mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: herbert@gondor.hengli.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36674 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755766Ab1EPXGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 19:06:46 -0400
-In-Reply-To: <20110516224658.GA11157@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110516211459.GE18148@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Herbert Xu <herbert@gondor.hengli.com.au>
-Date: Tue, 17 May 2011 08:46:58 +1000
+Hello Michael,
 
-> On Mon, May 16, 2011 at 02:24:19PM +0200, Micha=A9=A9 Miros=A9=A9aw w=
-rote:
->>
->> In this case - no. Those messages inform that driver supports more
->> feature combinations than network core and the feature set is reduce=
-d
->> because of that.
->=20
-> The driver should never even claim to support SG/TSO/UFO if it
-> does not support checksum.  That is the point of the warning.
+Looks like to use a new flag requires more time/work. I am thinking
+whether we can just use HIGHDMA flag to enable zero-copy in macvtap to
+avoid the new flag for now since mavctap uses real NICs as lower device?
 
-Well the check has to exist somewhere.
-
-Currently userspace can configure tun/tap into whatever set
-of offloads it likes.
-
-We're warning when the user asks for something that needs to be
-corrected.  So the only thing you can suggest is to duplicate these
-changes in the tun/tap driver.
-
-But if we do that, and error on bad combinations instead of fixing
-them up, we know from this discussion that existing virtualization
-setups and tools are going to stop working.
+Thanks
+Shirley
