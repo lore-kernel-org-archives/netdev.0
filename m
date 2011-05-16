@@ -1,74 +1,60 @@
-From: Kalle Valo <kvalo@adurom.com>
-Subject: [PATCH v3 2/2] net: postpone net device uevent to fix a race
-Date: Mon, 16 May 2011 17:46:47 +0300
-Message-ID: <20110516144647.13838.40897.stgit@localhost6.localdomain6>
-References: <20110516143913.13838.85357.stgit@localhost6.localdomain6>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
+ return
+Date: Mon, 16 May 2011 15:53:17 +0100
+Message-ID: <1305557597.2885.5.camel@bwh-desktop>
+References: <20110516121339.GA1094@rere.qmqm.pl>
+	 <1305335142.2851.70.camel@bwh-desktop> <20110514103539.GA5214@rere.qmqm.pl>
+	 <1305513923.19966.20.camel@localhost>
+	 <20110516132807.1A89F13A6A@rere.qmqm.pl>
+	 <1305553066.19966.32.camel@localhost>  <20110516142340.GA2980@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emh05.mail.saunalahti.fi ([62.142.5.111]:57784 "EHLO
-	emh05.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755870Ab1EPOqw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 10:46:52 -0400
-In-Reply-To: <20110516143913.13838.85357.stgit@localhost6.localdomain6>
+Received: from mail.solarflare.com ([216.237.3.220]:17945 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755619Ab1EPOxU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 10:53:20 -0400
+In-Reply-To: <20110516142340.GA2980@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kalle.valo@atheros.com>
+On Mon, 2011-05-16 at 16:23 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> On Mon, May 16, 2011 at 02:37:46PM +0100, Ben Hutchings wrote:
+> > On Mon, 2011-05-16 at 15:28 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> > > Remove NETIF_F_COMPAT since it's redundant and will be unused aft=
+er
+> > > all drivers are converted to fix/set_features.
+> > >=20
+> > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl=
+>
+> > > ---
+> > >=20
+> > > For net as we don't want to have ETHTOOL_F_COMPAT hit stable rele=
+ase.
+> > [...]
+> > ETHTOOL_F_WISH means that the requested features could not all be
+> > enabled, *but are remembered*.  ETHTOOL_F_COMPAT means they were no=
+t
+> > remembered.
+>=20
+> Hmm. So, lets just revert 39fc0ce5710c53bad14aaba1a789eec810c556f9
+> (net: Implement SFEATURES compatibility for not updated drivers).
 
-There's a race in register_netdevice() so that the udev event is sent before
-the device is actually ready. This was visible with flimflam, chrome os
-connection manager:
+That's also problematic because it means we can't make any use of the
+'available' masks from ETHTOOL_GFEATURES.
 
-00:21:35 roska flimflamd[2598]: src/udev.c:add_net_device()
-00:21:35 roska flimflamd[2598]: connman_inet_ifname: SIOCGIFNAME(index
-   4): No such device
+The patch I sent is actually tested with a modified ethtool.  The
+fallback works.  I don't think you've tested whether any of your
+proposals can actually practically be used by ethtool.
 
-So the kobject is visible in udev before the device is ready.
+Ben.
 
-The issue is reported here:
-
-https://bugzilla.kernel.org/show_bug.cgi?id=15606
-
-Fix this by postponing the uevent with device_add_noevent() and
-calling device_uevent() once the device is really ready.
-
-Thanks to Johannes Berg for the original idea.
-
-Signed-off-by: Kalle Valo <kalle.valo@atheros.com>
----
- net/core/dev.c       |    3 +++
- net/core/net-sysfs.c |    2 +-
- 2 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 856b6ee..80cfa23 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5454,6 +5454,9 @@ int register_netdevice(struct net_device *dev)
- 		rollback_registered(dev);
- 		dev->reg_state = NETREG_UNREGISTERED;
- 	}
-+
-+	device_uevent(&(dev->dev));
-+
- 	/*
- 	 *	Prevent userspace races by waiting until the network
- 	 *	device is fully setup before sending notifications.
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 5ceb257..c10b1d5 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1337,7 +1337,7 @@ int netdev_register_kobject(struct net_device *net)
- #endif
- #endif /* CONFIG_SYSFS */
- 
--	error = device_add(dev);
-+	error = device_add_noevent(dev);
- 	if (error)
- 		return error;
- 
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
