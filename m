@@ -1,34 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Mon, 16 May 2011 19:38:22 +1000
-Message-ID: <20110516093822.GA2779@gondor.apana.org.au>
-References: <20110504181813.GA17547@redhat.com> <20110504223415.GA14819@gondor.apana.org.au> <20110504232854.GA11687@rere.qmqm.pl> <20110505084428.GB17647@redhat.com> <4DC26F33.8010700@cn.fujitsu.com> <20110505100506.GA20111@gondor.apana.org.au> <20110516073210.GB6610@redhat.com> <20110516080702.GA1857@gondor.apana.org.au> <20110516081841.GA8073@redhat.com>
+From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: several packets in a single buffer in Rx
+Date: Mon, 16 May 2011 12:41:07 +0300
+Message-ID: <BANLkTimkgtQL1A2A3iAP-UYK2KdDvPmY3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shan Wei <shanwei@cn.fujitsu.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:45003 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753802Ab1EPJib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 05:38:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20110516081841.GA8073@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, guy.cohen-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2011 at 11:18:41AM +0300, Michael S. Tsirkin wrote:
->
-> There's no interface for userspace to enable it: userspace
-> only has an ioctl to enable/disable checksum offloading.
-> SG is an implementation detail.
+Hi,
 
-Yes there is: ethtool -K
+I am trying to enable a HW feature on a wireless NIC that allows the
+HW to put several packets in the same Rx buffer coming from the NIC.
+This can save interrupts and traffic on the bus.
+Today, the driver allocates pages in which the PCI-e device puts its
+data. Then we create an skb and add a fragment that points to the
+beginning of the page. The offset of the fragment is set to the offset
+of the first byte of the mac header within the buffer. There is only
+one packet per page / buffer.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I would like to be able to deliver the same page several times to the
+stack without having the stack consume it before the last time I
+deliver it.
+Of course I would like to avoid cloning it.
+
+I tried to look at shinfo->nr_frags but this looks more like a sgl
+related variable
+GRO doesn't seem to be related either since as far as I understood, it
+is relevant for packets after 802.11 to 802.3 translation.
+
+
+FWIW: I am talking about Intel's wireless device although I don't
+think this fact matters
+
+Thanks
+
+Emmanuel Grumbach
+egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
