@@ -1,69 +1,39 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
-Date: Tue, 17 May 2011 00:27:54 +0300
-Message-ID: <20110516212754.GG18148@redhat.com>
-References: <1305574484.3456.30.camel@localhost.localdomain>
- <20110516204540.GD18148@redhat.com>
- <1305579414.3456.49.camel@localhost.localdomain>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2011-05-16
+Date: Mon, 16 May 2011 17:27:26 -0400 (EDT)
+Message-ID: <20110516.172726.649208957302608650.davem@davemloft.net>
+References: <20110516211305.GG6551@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1305579414.3456.49.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110516211305.GG6551-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2011 at 01:56:54PM -0700, Shirley Ma wrote:
-> On Mon, 2011-05-16 at 23:45 +0300, Michael S. Tsirkin wrote:
-> > > +/* Since we need to keep the order of used_idx as avail_idx, it's
-> > possible that
-> > > + * DMA done not in order in lower device driver for some reason. To
-> > prevent
-> > > + * used_idx out of order, upend_idx is used to track avail_idx
-> > order, done_idx
-> > > + * is used to track used_idx order. Once lower device DMA done,
-> > then upend_idx
-> > > + * can move to done_idx.
-> > 
-> > Could you clarify this please? virtio explicitly allows out of order
-> > completion of requests. Does it simplify code that we try to keep
-> > used index updates in-order? Because if not, this is not
-> > really a requirement.
-> 
-> Hello Mike,
-> 
-> Based on my testing, vhost_add_used() must be in order from
-> vhost_get_vq_desc(). Otherwise, virtio_net ring seems get double
-> freed. I didn't spend time on debugging this.
-> 
-> in virtqueue_get_buf
-> 
->         if (unlikely(!vq->data[i])) {
->                 BAD_RING(vq, "id %u is not a head!\n", i);
->                 return NULL;
->         }
-> 
-> That's the reason I created the upend_idx and done_idx.
-> 
-> Thanks
-> Shirley
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 16 May 2011 17:13:06 -0400
 
-One thing of note: it's possible that this actually works
-better than trying to complete out of order, as the
-ring just keeps going which should be good for cache
-utilization. OTOH, this might explain why
-you are over-running the TX ring much more with this patch.
+> Still another big batch of wireless LAN stuff intended for 2.6.40 -- the
+> wireless folks have really been eating their Wheaties this cycle!
+> 
+> Highlights of this batch include a new driver in the rtlwifi family,
+> some new AMBA-like bus infrastructure that is specific to Broadcom
+> devices, a Bluetooth pull from Gustavo and friends, a wl12xx pull from
+> Luca and friends, some mesh updates from the Cozybit folks, some more
+> fixups from the mwifiex team, a collection of mac80211 improvements from
+> Johannes, the usual flutter of patches around iwlwifi and ath9k, and a
+> spread of other updates.
+> 
+> Please let me know if there are problems!
 
-So I don't say this should block merging the patch,
-but I very much would like to understand the issue,
-and it's interesting to experiment with fixing it
-and seeing what it does to performance and to code size.
+Wonderful, another strange bus layer :-)
 
--- 
-MST
+Pulled, thanks John!
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
