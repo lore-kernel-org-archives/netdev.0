@@ -1,56 +1,55 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 1/1] netlink: nla_nest_end return "unsigned init"
-Date: Mon, 16 May 2011 13:35:48 -0400
-Message-ID: <20110516173548.GB6551@tuxdriver.com>
-References: <1305555810-17565-1-git-send-email-wey-yi.w.guy@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Trivial rt->rt_src conversions in net/ipv4/route.c
+Date: Mon, 16 May 2011 13:52:09 -0400 (EDT)
+Message-ID: <20110516.135209.1461836387190998351.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1305555810-17565-1-git-send-email-wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38719 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752562Ab1EPRwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 13:52:12 -0400
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4GHqAt1019373
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 16 May 2011 10:52:11 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This should go to netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org instead...
 
-On Mon, May 16, 2011 at 07:23:30AM -0700, Wey-Yi Guy wrote:
-> skb->len has unsigned int, return the correct value from nla_nest_end call.
-> 
-> Signed-off-by: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
->  include/net/netlink.h |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/net/netlink.h b/include/net/netlink.h
-> index 8a3906a..241fc0d 100644
-> --- a/include/net/netlink.h
-> +++ b/include/net/netlink.h
-> @@ -1015,7 +1015,8 @@ static inline struct nlattr *nla_nest_start(struct sk_buff *skb, int attrtype)
->   *
->   * Returns the total data length of the skb.
->   */
-> -static inline int nla_nest_end(struct sk_buff *skb, struct nlattr *start)
-> +static inline unsigned int nla_nest_end(struct sk_buff *skb,
-> +					struct nlattr *start)
->  {
->  	start->nla_len = skb_tail_pointer(skb) - (unsigned char *)start;
->  	return skb->len;
-> -- 
-> 1.7.0.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+At these points we have a fully filled in value via the IP
+header the form of ip_hdr(skb)->saddr
 
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index ad141d8..cb93c32 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1435,7 +1435,7 @@ void ip_rt_send_redirect(struct sk_buff *skb)
+ 		    peer->rate_tokens == ip_rt_redirect_number &&
+ 		    net_ratelimit())
+ 			printk(KERN_WARNING "host %pI4/if%d ignores redirects for %pI4 to %pI4.\n",
+-				&rt->rt_src, rt->rt_iif,
++			       &ip_hdr(skb)->saddr, rt->rt_iif,
+ 				&rt->rt_dst, &rt->rt_gateway);
+ #endif
+ 	}
+@@ -1704,7 +1704,7 @@ void ip_rt_get_source(u8 *addr, struct sk_buff *skb, struct rtable *rt)
+ 	__be32 src;
+ 
+ 	if (rt_is_output_route(rt))
+-		src = rt->rt_src;
++		src = ip_hdr(skb)->saddr;
+ 	else {
+ 		struct fib_result res;
+ 		struct flowi4 fl4;
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.4.4
+
