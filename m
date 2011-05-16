@@ -1,44 +1,60 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [ethtool PATCH 0/4] v6 Add support for network flow classifier
-Date: Mon, 16 May 2011 09:32:02 -0700
-Message-ID: <4DD15182.80607@intel.com>
-References: <20110504183752.26394.29231.stgit@gitlad.jf.intel.com> <1305249292.14174.13.camel@bwh-desktop>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [PATCH] vmxnet3: Fix inconsistent LRO state after initialization
+Date: Mon, 16 May 2011 18:28:15 +0200
+Message-ID: <201105161828.15237.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"dm@chelsio.com" <dm@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:63235 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750848Ab1EPQcD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 12:32:03 -0400
-In-Reply-To: <1305249292.14174.13.camel@bwh-desktop>
+Received: from rs04.intra2net.com ([85.214.66.2]:49714 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752311Ab1EPRDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 13:03:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/12/2011 6:14 PM, Ben Hutchings wrote:
-> Thanks a lot for persevering with this, Alexander.
->
-> I've applied this series with minor changes to the last patch.  I
-> abbreviated the version history in the commit message, and I deleted a
-> blank line in the manual page additions which made the indentation wrong
-> for the -U option.  I also recorded the author as you, since you've
-> largely rewritten it!  The commit message credits Santwona Behera.
->
-> You managed to uncover a bug in the sfc driver, which is that
-> set_rx_ntuple can return a positive value.  Previously ethtool accepted
-> any non-negative return value as successful, so I made a separate commit
-> to restore that behaviour.  Of course I'll fix the driver too.
->
-> Ben.
->
+During initialization of vmxnet3, the state of LRO
+gets out of sync with netdev->features.
 
-Thanks for getting this all applied.  Our validation team is now testing 
-the ixgbe patches with your version of ethtool and if I hear about any 
-other bugs I might have introduced I will let you know.
+This leads to very poor TCP performance in a IP forwarding
+setup and is hitting many VMware users.
 
-Alex
+Simplified call sequence:
+1. vmxnet3_declare_features() initializes "adapter->lro" to true.
+
+2. The kernel automatically disables LRO if IP forwarding is enabled,
+so vmxnet3_set_flags() gets called. This also updates netdev->features.
+
+3. Now vmxnet3_setup_driver_shared() is called. "adapter->lro" is still
+set to true and LRO gets enabled again, even though
+netdev->features shows it's disabled.
+
+Fix it by updating "adapter->lro", too.
+
+
+The private vmxnet3 adapter flags are scheduled for removal
+in net-next, see commit a0d2730c9571aeba793cb5d3009094ee1d8fda35
+"net: vmxnet3: convert to hw_features".
+
+Patch applies to 2.6.37 / 2.6.38 and 2.6.39-rc6.
+
+Please CC: comments.
+
+Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+
+diff -u -r -p linux-2.6.37.i686/drivers/net/vmxnet3/vmxnet3_ethtool.c linux-2.6.37.lro/drivers/net/vmxnet3/vmxnet3_ethtool.c
+--- linux-2.6.37.i686/drivers/net/vmxnet3/vmxnet3_ethtool.c	2011-05-16 17:43:26.652081801 +0200
++++ linux-2.6.37.lro/drivers/net/vmxnet3/vmxnet3_ethtool.c	2011-05-16 17:47:52.784081802 +0200
+@@ -287,6 +287,9 @@ vmxnet3_set_flags(struct net_device *net
+ 		/* toggle the LRO feature*/
+ 		netdev->features ^= NETIF_F_LRO;
+ 
++		/* Update private LRO flag */
++		adapter->lro = lro_requested;
++
+ 		/* update harware LRO capability accordingly */
+ 		if (lro_requested)
+ 			adapter->shared->devRead.misc.uptFeatures |=
