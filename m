@@ -1,71 +1,32 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH 1/1] igmp: fix ip_mc_clear_src to not reset ip_mc_list->sf{mode,count}
-Date: Mon, 16 May 2011 13:42:11 -0700
-Message-ID: <OF948388D5.90B3F5A7-ON88257892.006C3228-88257892.0071B9D5@us.ibm.com>
-References: <20110515165945.GA20024@darkmag.usersys.redhat.com> <20110516.140359.111037536766782557.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
+Date: Mon, 16 May 2011 23:45:40 +0300
+Message-ID: <20110516204540.GD18148@redhat.com>
+References: <1305574484.3456.30.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: jmorris@namei.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mmarek@suse.cz, netdev@vger.kernel.org, pekkas@netcore.fi,
-	vfalico@redhat.com, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <20110516.140359.111037536766782557.davem@davemloft.net>
-Sender: linux-kbuild-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1305574484.3456.30.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Veaceslav Falico <vfalico@redhat.com>
-> Date: Sun, 15 May 2011 18:59:45 +0200
-> 
-> > ip_mc_clear_src resets the imc->sfcount and imc->sfmode, without 
-taking into
-> > account the current number of sockets listening on that multicast 
-> struct, which
-> > can lead to bogus routes for local listeners.
-> > 
-> > On NETDEV_DOWN/UP event, if there were 3 multicast listeners for 
-> that interface's
-> > address, the imc->sfcount[MCAST_EXCLUDE] will be reset to 1. And 
-> after that a
-> > listener socket destroys, multicast traffic will not be delivered to 
-local
-> > listeners because __mkroute_output drops the local flag for the route 
-(by
-> > checking ip_check_mc).
+> +/* Since we need to keep the order of used_idx as avail_idx, it's possible that
+> + * DMA done not in order in lower device driver for some reason. To prevent
+> + * used_idx out of order, upend_idx is used to track avail_idx order, done_idx
+> + * is used to track used_idx order. Once lower device DMA done, then upend_idx
+> + * can move to done_idx.
 
-        On NETDEV_DOWN, all group memberships are dropped. 
-ip_mc_clear_src()
-is simply freeing all the source filters and turning it into an "EXCLUDE 
-nobody"
-membership (ie, the same as an ordinary join without source filtering). 
-This
-ordinarily happens when you are deleting the group entirely (when the 
-reference
-count goes to 0), but is also called on device down.
-        This patch is not appropriate; when the groups are deleted, the 
-source
-filters are deleted, and the filter counts have to reflect the source 
-filters
-in the list. If you had an "INCLUDE A" filter, for example, that would 
-become
-an "INCLUDE nobody" filter and drop all traffic (from A or not). The 
-number
-of source filters is not related to the number of listener sockets, and 
-the
-function of ip_mc_clear_src() is to make it 0 (with the special case of 1 
-for
-EXCLUDE), so setting the counts has to be done for proper functioning.
-        I don't quite understand the problem you're trying to solve here 
---
-when the device comes back up, the group should be re-added with 
-{EXCLUDE,nobody} and
-ip_check_mc() should therefore return 1. Of course, while the interface is
-down, the mc_list is empty and it'd return 0 in that case.
-        Do you have a small test program to demonstrate the problem?
+Could you clarify this please? virtio explicitly allows out of order
+completion of requests. Does it simplify code that we try to keep
+used index updates in-order? Because if not, this is not
+really a requirement.
 
-        For the patch, I have to say NACK.
-
-                                                                +-DLS
-
-
+-- 
+MST
