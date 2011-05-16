@@ -1,73 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] vmxnet3: Fix inconsistent LRO state after
- initialization
-Date: Mon, 16 May 2011 10:14:44 -0700
-Message-ID: <20110516101444.29eec9dc@nehalam>
-References: <201105161828.15237.thomas.jarosch@intra2net.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ipv4: more compliant RFC 3168 support
+Date: Mon, 16 May 2011 19:16:44 +0200
+Message-ID: <1305566204.2898.49.camel@edumazet-laptop>
+References: <201105141938.28344.v13@v13.gr>
+	 <1305464176.3120.113.camel@edumazet-laptop>
+	 <1305466542.3120.129.camel@edumazet-laptop> <201105151808.39231.v13@v13.gr>
+	 <1305475310.3120.146.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shreyas Bhatewara <sbhatewara@vmware.com>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Stefanos Harhalakis <v13@v13.gr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59863 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752988Ab1EPROr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 13:14:47 -0400
-In-Reply-To: <201105161828.15237.thomas.jarosch@intra2net.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63465 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095Ab1EPRQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 13:16:48 -0400
+Received: by wya21 with SMTP id 21so3602432wya.19
+        for <netdev@vger.kernel.org>; Mon, 16 May 2011 10:16:47 -0700 (PDT)
+In-Reply-To: <1305475310.3120.146.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 May 2011 18:28:15 +0200
-Thomas Jarosch <thomas.jarosch@intra2net.com> wrote:
+Le dimanche 15 mai 2011 =C3=A0 18:01 +0200, Eric Dumazet a =C3=A9crit :
 
-> During initialization of vmxnet3, the state of LRO
-> gets out of sync with netdev->features.
-> 
-> This leads to very poor TCP performance in a IP forwarding
-> setup and is hitting many VMware users.
-> 
-> Simplified call sequence:
-> 1. vmxnet3_declare_features() initializes "adapter->lro" to true.
-> 
-> 2. The kernel automatically disables LRO if IP forwarding is enabled,
-> so vmxnet3_set_flags() gets called. This also updates netdev->features.
-> 
-> 3. Now vmxnet3_setup_driver_shared() is called. "adapter->lro" is still
-> set to true and LRO gets enabled again, even though
-> netdev->features shows it's disabled.
-> 
-> Fix it by updating "adapter->lro", too.
-> 
-> 
-> The private vmxnet3 adapter flags are scheduled for removal
-> in net-next, see commit a0d2730c9571aeba793cb5d3009094ee1d8fda35
-> "net: vmxnet3: convert to hw_features".
-> 
-> Patch applies to 2.6.37 / 2.6.38 and 2.6.39-rc6.
-> 
-> Please CC: comments.
-> 
-> Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
-> 
-> diff -u -r -p linux-2.6.37.i686/drivers/net/vmxnet3/vmxnet3_ethtool.c linux-2.6.37.lro/drivers/net/vmxnet3/vmxnet3_ethtool.c
-> --- linux-2.6.37.i686/drivers/net/vmxnet3/vmxnet3_ethtool.c	2011-05-16 17:43:26.652081801 +0200
-> +++ linux-2.6.37.lro/drivers/net/vmxnet3/vmxnet3_ethtool.c	2011-05-16 17:47:52.784081802 +0200
-> @@ -287,6 +287,9 @@ vmxnet3_set_flags(struct net_device *net
->  		/* toggle the LRO feature*/
->  		netdev->features ^= NETIF_F_LRO;
->  
-> +		/* Update private LRO flag */
-> +		adapter->lro = lro_requested;
-> +
->  		/* update harware LRO capability accordingly */
->  		if (lro_requested)
->  			adapter->shared->devRead.misc.uptFeatures |=
+> Problem of this version is that common frames in the Internet (NOT_EC=
+T
+> or ECT_X or ECT_X) will take the longest path to come to "return 0;"
+>=20
+> a switch() version is fast because gcc emits a table based jump
 
-Thanks for finding this. Vyatta ended up changing the default of adapter->lro
-to workaround just this problem
+Oh well, a table lookup is even faster...
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+I'll submit another version
 
 
--- 
