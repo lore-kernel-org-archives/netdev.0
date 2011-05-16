@@ -1,55 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Trivial rt->rt_src conversions in net/ipv4/route.c
-Date: Mon, 16 May 2011 13:52:09 -0400 (EDT)
-Message-ID: <20110516.135209.1461836387190998351.davem@davemloft.net>
+Subject: Re: [PATCH 1/1] netlink: nla_nest_end return "unsigned init"
+Date: Mon, 16 May 2011 13:51:10 -0400 (EDT)
+Message-ID: <20110516.135110.1328027948753436190.davem@davemloft.net>
+References: <1305555810-17565-1-git-send-email-wey-yi.w.guy@intel.com>
+	<20110516173548.GB6551@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: wey-yi.w.guy@intel.com, linux-wireless@vger.kernel.org,
+	ipw3945-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38719 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38725 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562Ab1EPRwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 13:52:12 -0400
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4GHqAt1019373
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 16 May 2011 10:52:11 -0700
+	with ESMTP id S1752740Ab1EPRwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 13:52:31 -0400
+In-Reply-To: <20110516173548.GB6551@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 16 May 2011 13:35:48 -0400
 
-At these points we have a fully filled in value via the IP
-header the form of ip_hdr(skb)->saddr
+> This should go to netdev@vger.kernel.org instead...
+> 
+> On Mon, May 16, 2011 at 07:23:30AM -0700, Wey-Yi Guy wrote:
+>> skb->len has unsigned int, return the correct value from nla_nest_end call.
+>> 
+>> Signed-off-by: Wey-Yi Guy <wey-yi.w.guy@intel.com>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/route.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Plus, the only users of the return value use it to feed "int"
+return values of functions.  F.e. net/core/neighbour.c's use
+in neightbl_fill_parms().
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index ad141d8..cb93c32 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1435,7 +1435,7 @@ void ip_rt_send_redirect(struct sk_buff *skb)
- 		    peer->rate_tokens == ip_rt_redirect_number &&
- 		    net_ratelimit())
- 			printk(KERN_WARNING "host %pI4/if%d ignores redirects for %pI4 to %pI4.\n",
--				&rt->rt_src, rt->rt_iif,
-+			       &ip_hdr(skb)->saddr, rt->rt_iif,
- 				&rt->rt_dst, &rt->rt_gateway);
- #endif
- 	}
-@@ -1704,7 +1704,7 @@ void ip_rt_get_source(u8 *addr, struct sk_buff *skb, struct rtable *rt)
- 	__be32 src;
- 
- 	if (rt_is_output_route(rt))
--		src = rt->rt_src;
-+		src = ip_hdr(skb)->saddr;
- 	else {
- 		struct fib_result res;
- 		struct flowi4 fl4;
--- 
-1.7.4.4
-
+I don't see this as being any better or worse, and we should
+just leave the return value alone.
