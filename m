@@ -1,25 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 2.6.38 ENC28J60 works with half-duplex DMA
-Date: Mon, 16 May 2011 11:48:55 -0400 (EDT)
-Message-ID: <20110516.114855.1523183530208158354.davem@davemloft.net>
-References: <BANLkTinG+nj6CmqRYsUuC7MDWaKVFssNMA@mail.gmail.com>
+Subject: Re: [PATCH net-next-2.6 v2] net: ping: dont call udp_ioctl()
+Date: Mon, 16 May 2011 11:50:32 -0400 (EDT)
+Message-ID: <20110516.115032.697943097693018627.davem@davemloft.net>
+References: <20110515213018.GA26820@openwall.com>
+	<20110515.174430.1379973540554096232.davem@davemloft.net>
+	<1305530791.3120.217.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: elpa.rizzo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38030 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756396Ab1EPPtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 11:49:06 -0400
-In-Reply-To: <BANLkTinG+nj6CmqRYsUuC7MDWaKVFssNMA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: solar@openwall.com, segoon@openwall.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	peak@argo.troja.mff.cuni.cz, kees.cook@canonical.com,
+	dan.j.rosenberg@gmail.com, eugene@redhat.com, nelhage@ksplice.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305530791.3120.217.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 16 May 2011 09:26:31 +0200
 
-You've sent this patch 3 times, we've noticed and seen them all,
-our silence doesn't mean it hasn't been received.
+> Le dimanche 15 mai 2011 =E0 17:44 -0400, David Miller a =E9crit :
+>=20
+>> Just get rid of ping_ioctl() entirely, as that is the effect of
+>> this change since inet_ioctl() returns -ENOIOCTLCMD when
+>> sk_prot->ioctl is NULL.
+>>=20
+>> Also get rid of asm/ioctls.h since that will be no longer needed.
+>=20
+> Sure, here is updated version, thanks.
+>=20
+> [PATCH net-next-2.6 v2] net: ping: dont call udp_ioctl()
+>=20
+> udp_ioctl() really handles UDP and UDPLite protocols.
+>=20
+> 1) It can increment UDP_MIB_INERRORS in case first_packet_length() fi=
+nds
+> a frame with bad checksum.
+>=20
+> 2) It has a dependency on sizeof(struct udphdr), not applicable to
+> ICMP/PING
+>=20
+> If ping sockets need to handle SIOCINQ/SIOCOUTQ ioctl, this should be
+> done differently.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Vasiliy Kulikov <segoon@openwall.com>
 
-What new thing do you hope to accomplish on each subsequent
-submission?
+Applied, thanks.
