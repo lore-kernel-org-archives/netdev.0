@@ -1,58 +1,49 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] net: recvmmsg: Strip MSG_WAITFORONE when calling recvmsg
-Date: Tue, 17 May 2011 08:59:24 +1000
-Message-ID: <20110517085924.3a47b8e2@kryten>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
+Date: Mon, 16 May 2011 19:06:15 -0400 (EDT)
+Message-ID: <20110516.190615.2121423692228640268.davem@davemloft.net>
+References: <20110516121857.GA4495@gondor.apana.org.au>
+	<BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com>
+	<20110516224658.GA11157@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: acme@redhat.com, davem@davemloft.net
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mirqus@gmail.com, mst@redhat.com, shanwei@cn.fujitsu.com,
+	mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: herbert@gondor.hengli.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:59921 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755255Ab1EPW73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 18:59:29 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:36674 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755766Ab1EPXGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 19:06:46 -0400
+In-Reply-To: <20110516224658.GA11157@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Herbert Xu <herbert@gondor.hengli.com.au>
+Date: Tue, 17 May 2011 08:46:58 +1000
 
-recvmmsg fails on a raw socket with EINVAL. The reason for this is
-packet_recvmsg checks the incoming flags:
+> On Mon, May 16, 2011 at 02:24:19PM +0200, Micha=A9=A9 Miros=A9=A9aw w=
+rote:
+>>
+>> In this case - no. Those messages inform that driver supports more
+>> feature combinations than network core and the feature set is reduce=
+d
+>> because of that.
+>=20
+> The driver should never even claim to support SG/TSO/UFO if it
+> does not support checksum.  That is the point of the warning.
 
-        err = -EINVAL;
-        if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT|MSG_ERRQUEUE))
-                goto out;
+Well the check has to exist somewhere.
 
-This patch strips out MSG_WAITFORONE when calling recvmmsg which
-fixes the issue.
+Currently userspace can configure tun/tap into whatever set
+of offloads it likes.
 
-Signed-off-by: Anton Blanchard <anton@samba.org>
-Cc: stable@kernel.org [2.6.34+]
----
+We're warning when the user asks for something that needs to be
+corrected.  So the only thing you can suggest is to duplicate these
+changes in the tun/tap driver.
 
-We could also add MSG_WAITFORONE to the raw socket recvmsg check, or
-just remove the check completely. Thoughts?
-
-Index: linux-net/net/socket.c
-===================================================================
---- linux-net.orig/net/socket.c	2011-05-09 08:59:22.757767314 +1000
-+++ linux-net/net/socket.c	2011-05-16 17:14:52.501268819 +1000
-@@ -2232,14 +2232,16 @@ int __sys_recvmmsg(int fd, struct mmsghd
- 		 */
- 		if (MSG_CMSG_COMPAT & flags) {
- 			err = __sys_recvmsg(sock, (struct msghdr __user *)compat_entry,
--					    &msg_sys, flags, datagrams);
-+					    &msg_sys, flags & ~MSG_WAITFORONE,
-+					    datagrams);
- 			if (err < 0)
- 				break;
- 			err = __put_user(err, &compat_entry->msg_len);
- 			++compat_entry;
- 		} else {
- 			err = __sys_recvmsg(sock, (struct msghdr __user *)entry,
--					    &msg_sys, flags, datagrams);
-+					    &msg_sys, flags & ~MSG_WAITFORONE,
-+					    datagrams);
- 			if (err < 0)
- 				break;
- 			err = put_user(err, &entry->msg_len);
+But if we do that, and error on bad combinations instead of fixing
+them up, we know from this discussion that existing virtualization
+setups and tools are going to stop working.
