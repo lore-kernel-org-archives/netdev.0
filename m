@@ -1,29 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Null pointer dereference in icmp_send
-Date: Mon, 16 May 2011 17:22:58 -0400 (EDT)
-Message-ID: <20110516.172258.454975314148851877.davem@davemloft.net>
-References: <BANLkTi=uBDOQOJJMGn6V0Ne7OjQ7kGc-2w@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
+Date: Tue, 17 May 2011 00:24:01 +0300
+Message-ID: <20110516212401.GF18148@redhat.com>
+References: <1305574484.3456.30.camel@localhost.localdomain>
+ <20110516204540.GD18148@redhat.com>
+ <1305579414.3456.49.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roberto.paleari@emaze.net
-To: joystick@idea.sec.dico.unimi.it
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49236 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756054Ab1EPVXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 17:23:11 -0400
-In-Reply-To: <BANLkTi=uBDOQOJJMGn6V0Ne7OjQ7kGc-2w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1305579414.3456.49.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Aristide Fattori <joystick@idea.sec.dico.unimi.it>
-Date: Mon, 16 May 2011 23:06:32 +0200
+On Mon, May 16, 2011 at 01:56:54PM -0700, Shirley Ma wrote:
+> On Mon, 2011-05-16 at 23:45 +0300, Michael S. Tsirkin wrote:
+> > > +/* Since we need to keep the order of used_idx as avail_idx, it's
+> > possible that
+> > > + * DMA done not in order in lower device driver for some reason. To
+> > prevent
+> > > + * used_idx out of order, upend_idx is used to track avail_idx
+> > order, done_idx
+> > > + * is used to track used_idx order. Once lower device DMA done,
+> > then upend_idx
+> > > + * can move to done_idx.
+> > 
+> > Could you clarify this please? virtio explicitly allows out of order
+> > completion of requests. Does it simplify code that we try to keep
+> > used index updates in-order? Because if not, this is not
+> > really a requirement.
+> 
+> Hello Mike,
+> 
+> Based on my testing, vhost_add_used() must be in order from
+> vhost_get_vq_desc(). Otherwise, virtio_net ring seems get double
+> freed.
 
-> in function icmp_send() (net/ipv4/icmp.c), the parameter passed to
-> dev_net() function is not properly validated.
+Double-freed or you get NULL below?
 
-It doesn't need to be.
+> I didn't spend time on debugging this.
+> 
+> in virtqueue_get_buf
+> 
+>         if (unlikely(!vq->data[i])) {
+>                 BAD_RING(vq, "id %u is not a head!\n", i);
+>                 return NULL;
+>         }
 
-If 'rt' is not NULL, then rt->dst.dev is always not NULL and
-therefore no checks are necessary.
+Yes but i used here is the head that we read from the
+ring, not the ring index itself.
+	i = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].id
+we must complete any id only once, but in any order.
+
+> That's the reason I created the upend_idx and done_idx.
+> 
+> Thanks
+> Shirley
+
+Very strange, it sounds like a bug, but I can't tell where: in
+host or in guest. If it's in the guest, we must fix it.
+If in host, we should only fix it if it makes life simpler for us.
+Could you try to nail it down pls?  Another question: will code get
+simpler or more complex if that restriction's removed?
+
+-- 
+MST
