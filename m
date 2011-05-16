@@ -1,28 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
- return
-Date: Mon, 16 May 2011 14:09:58 -0400 (EDT)
-Message-ID: <20110516.140958.625993829749556424.davem@davemloft.net>
-References: <20110516132807.1A89F13A6A@rere.qmqm.pl>
-	<1305553066.19966.32.camel@localhost>
-	<20110516142340.GA2980@rere.qmqm.pl>
+From: Micha Nelissen <micha@neli.hopto.org>
+Subject: Re: [PATCH] output ipconfig info message as one printk
+Date: Mon, 16 May 2011 20:12:34 +0200
+Message-ID: <4DD16912.7030709@neli.hopto.org>
+References: <1305409519-25404-1-git-send-email-micha@neli.hopto.org> <20110516.140035.72516501072074389.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: mirq-linux@rere.qmqm.pl
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52691 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750787Ab1EPSKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 14:10:05 -0400
-In-Reply-To: <20110516142340.GA2980@rere.qmqm.pl>
+Received: from edu-smtp-02.edutel.nl ([88.159.1.172]:38569 "EHLO
+	edu-smtp-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751201Ab1EPSNC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 14:13:02 -0400
+In-Reply-To: <20110516.140035.72516501072074389.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> Second, you should not do this because now the lines after the
+> first won't have the default loglevel prepended.
+> 
+> I think this should just be left alone, and you should properly
+> mark your netconsole logs so that you can discern which machine
+> the individual messages come from so you can piece them together
+> properly if you need to.
 
-You guys really need to sort this out properly.
+Hmm, perhaps the printks can at least be grouped per line?
 
-Please resubmit whatever final solution is agreed upon.
-
-Thanks.
+Micha
