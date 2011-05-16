@@ -1,53 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Mon, 16 May 2011 14:21:33 +0300
-Message-ID: <20110516112133.GA11274@redhat.com>
-References: <20110504232854.GA11687@rere.qmqm.pl>
- <20110505084428.GB17647@redhat.com>
- <4DC26F33.8010700@cn.fujitsu.com>
- <20110505100506.GA20111@gondor.apana.org.au>
- <20110516073210.GB6610@redhat.com>
- <20110516080702.GA1857@gondor.apana.org.au>
- <20110516081841.GA8073@redhat.com>
- <20110516093822.GA2779@gondor.apana.org.au>
- <20110516094821.GA9427@redhat.com>
- <20110516104309.GA3534@gondor.apana.org.au>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH net-2.6] ethtool: Remove fallback to old ethtool
+ operations for ETHTOOL_SFEATURES
+Date: Mon, 16 May 2011 14:13:39 +0200
+Message-ID: <20110516121339.GA1094@rere.qmqm.pl>
+References: <1305335142.2851.70.camel@bwh-desktop>
+ <20110514103539.GA5214@rere.qmqm.pl>
+ <1305513923.19966.20.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shan Wei <shanwei@cn.fujitsu.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30425 "EHLO mx1.redhat.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:50247 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750984Ab1EPLVj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 07:21:39 -0400
+	id S1751446Ab1EPMNl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2011 08:13:41 -0400
 Content-Disposition: inline
-In-Reply-To: <20110516104309.GA3534@gondor.apana.org.au>
+In-Reply-To: <1305513923.19966.20.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2011 at 08:43:10PM +1000, Herbert Xu wrote:
-> On Mon, May 16, 2011 at 12:48:21PM +0300, Michael S. Tsirkin wrote:
-> >
-> > Both bridge and tun trigger the messages ATM. I note that
-> > dev.c takes pains to avoid these messages:
-> > 	Avoid warning from netdev_fix_features() for GSO without SG
-> > 
-> > Should all drivers do this: clear _SG if they clear checksum?  What about _GSO?
-> > If we start doing this, this spills info about flag dependencies out to drivers.
-> 
-> Drivers don't need to do this at all since the network stack
-> will automatically clear SG and related features if checksum
-> is disabled.
-> 
-> Cheers,
+On Mon, May 16, 2011 at 03:45:23AM +0100, Ben Hutchings wrote:
+> On Sat, 2011-05-14 at 12:35 +0200, Micha=B3 Miros=B3aw wrote:
+> > On Sat, May 14, 2011 at 02:05:42AM +0100, Ben Hutchings wrote:
+> > > ethtool_set_feature_compat() squashes the feature mask into a boo=
+lean,
+> > > which is not correct for ethtool_ops::set_flags.
+> > >=20
+> > > We could fix this, but the fallback code for ETHTOOL_SFEATURES ac=
+tually
+> > > makes things more complicated for the ethtool utility and any oth=
+er
+> > > application using the ethtool API.  They will still need to fall =
+back to
+> > > the old offload control commands in order to support older kernel
+> > > versions.  The fallback code in the kernel adds a third possibili=
+ty for
+> > > them to handle.  So make ETHTOOL_SFEATURES fail when the driver
+> > > implements the old offload control operations, and let userland d=
+o the
+> > > fallback.
+> > BTW, the idea behind the compat code is that if ETHTOOL_[GS]FEATURE=
+S is
+> > available, then there should be no need to fallback to old ops. For
+> > a userspace tool that targets only kernels >=3D 2.6.39 there's no n=
+eed
+> > to care about old ops at all.
+> Well that's not true, because those tools still have to deal with
+> ETHTOOL_F_COMPAT.  And we're supposed to have all drivers converted f=
+or
+> 2.6.40, so the hypothetical new tool only has to wait one more releas=
+e.
 
-Yes, but then we get annoying info messages every time.
-Change them all to debug or remove completely?
+I think that handling ETHTOOL_F_COMPAT is like ETHTOOL_F_WISH - the too=
+l
+needs to reread features and check what was changed. So we can get rid
+of the former by replacing it with the latter.
 
-> -- 
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Changing some feature state may change others that were not requested
+to be changed (not present in .valid). This probably should be signalle=
+d
+as well. Extend ETHTOOL_F_WISH meaning (I prefer this one) or introduce
+new bit?
+
+Best Regards,
+Micha=B3 Miros=B3aw
