@@ -1,115 +1,83 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: Change netdev_fix_features messages loglevel
-Date: Mon, 16 May 2011 15:17:57 +0200 (CEST)
-Message-ID: <20110516131757.ED57E13A6A@rere.qmqm.pl>
+Subject: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT return
+Date: Mon, 16 May 2011 15:28:07 +0200 (CEST)
+Message-ID: <20110516132807.1A89F13A6A@rere.qmqm.pl>
+References: <20110516121339.GA1094@rere.qmqm.pl>
+	<1305335142.2851.70.camel@bwh-desktop>
+	<20110514103539.GA5214@rere.qmqm.pl>
+	<1305513923.19966.20.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Ben Hutchings <bhutchings@solarflare.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:35323 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:40927 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753829Ab1EPNR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 09:17:59 -0400
+	id S1754035Ab1EPN2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2011 09:28:08 -0400
+In-Reply-To: <20110516121339.GA1094@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Those reduced to DEBUG can possibly be triggered by unprivileged proces=
-ses
-and are nothing exceptional. Illegal checksum combinations can only be
-caused by driver bug, so promote those messages to WARN.
-
-Since GSO without SG will now only cause DEBUG message from
-netdev_fix_features(), remove the workaround from register_netdevice().
+Remove NETIF_F_COMPAT since it's redundant and will be unused after
+all drivers are converted to fix/set_features.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
 
-This is for net tree, not net-next.
+=46or net as we don't want to have ETHTOOL_F_COMPAT hit stable release.
 
- net/core/dev.c |   22 ++++++++--------------
- 1 files changed, 8 insertions(+), 14 deletions(-)
+ include/linux/ethtool.h |    5 -----
+ net/core/ethtool.c      |    2 +-
+ 2 files changed, 1 insertions(+), 6 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 9200944..b624fe4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5186,27 +5186,27 @@ u32 netdev_fix_features(struct net_device *dev,=
- u32 features)
- 	/* Fix illegal checksum combinations */
- 	if ((features & NETIF_F_HW_CSUM) &&
- 	    (features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
--		netdev_info(dev, "mixed HW and IP checksum settings.\n");
-+		netdev_warn(dev, "mixed HW and IP checksum settings.\n");
- 		features &=3D ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM);
- 	}
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index dc80d82..5fb916c 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -625,9 +625,6 @@ struct ethtool_sfeatures {
+  *      Probably there are other device-specific constraints on some f=
+eatures
+  *      in the set. When %ETHTOOL_F_UNSUPPORTED is set, .valid is cons=
+idered
+  *      here as though ignored bits were cleared.
+- *   %ETHTOOL_F_COMPAT - some or all changes requested were made by ca=
+lling
+- *      compatibility functions. Requested offload state cannot be pro=
+perly
+- *      managed by kernel.
+  *
+  * Meaning of bits in the masks are obtained by %ETHTOOL_GSSET_INFO (n=
+umber of
+  * bits in the arrays - always multiple of 32) and %ETHTOOL_GSTRINGS c=
+ommands
+@@ -637,12 +634,10 @@ struct ethtool_sfeatures {
+ enum ethtool_sfeatures_retval_bits {
+ 	ETHTOOL_F_UNSUPPORTED__BIT,
+ 	ETHTOOL_F_WISH__BIT,
+-	ETHTOOL_F_COMPAT__BIT,
+ };
 =20
- 	if ((features & NETIF_F_NO_CSUM) &&
- 	    (features & (NETIF_F_HW_CSUM|NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM)))=
- {
--		netdev_info(dev, "mixed no checksumming and other settings.\n");
-+		netdev_warn(dev, "mixed no checksumming and other settings.\n");
- 		features &=3D ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM|NETIF_F_HW_CSUM);
- 	}
+ #define ETHTOOL_F_UNSUPPORTED   (1 << ETHTOOL_F_UNSUPPORTED__BIT)
+ #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
+-#define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
 =20
- 	/* Fix illegal SG+CSUM combinations. */
- 	if ((features & NETIF_F_SG) &&
- 	    !(features & NETIF_F_ALL_CSUM)) {
--		netdev_info(dev,
--			    "Dropping NETIF_F_SG since no checksum feature.\n");
-+		netdev_dbg(dev,
-+			"Dropping NETIF_F_SG since no checksum feature.\n");
- 		features &=3D ~NETIF_F_SG;
- 	}
+ #ifdef __KERNEL__
 =20
- 	/* TSO requires that SG is present as well. */
- 	if ((features & NETIF_F_ALL_TSO) && !(features & NETIF_F_SG)) {
--		netdev_info(dev, "Dropping TSO features since no SG feature.\n");
-+		netdev_dbg(dev, "Dropping TSO features since no SG feature.\n");
- 		features &=3D ~NETIF_F_ALL_TSO;
- 	}
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 74ead9e..dc07569 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -308,7 +308,7 @@ static int ethtool_set_features(struct net_device *=
+dev, void __user *useraddr)
+ 		return -EINVAL;
 =20
-@@ -5216,7 +5216,7 @@ u32 netdev_fix_features(struct net_device *dev, u=
-32 features)
+ 	if (ethtool_set_features_compat(dev, features))
+-		ret |=3D ETHTOOL_F_COMPAT;
++		ret |=3D ETHTOOL_F_WISH;
 =20
- 	/* Software GSO depends on SG. */
- 	if ((features & NETIF_F_GSO) && !(features & NETIF_F_SG)) {
--		netdev_info(dev, "Dropping NETIF_F_GSO since no SG feature.\n");
-+		netdev_dbg(dev, "Dropping NETIF_F_GSO since no SG feature.\n");
- 		features &=3D ~NETIF_F_GSO;
- 	}
-=20
-@@ -5226,13 +5226,13 @@ u32 netdev_fix_features(struct net_device *dev,=
- u32 features)
- 		if (!((features & NETIF_F_GEN_CSUM) ||
- 		    (features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
- 			    =3D=3D (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
--			netdev_info(dev,
-+			netdev_dbg(dev,
- 				"Dropping NETIF_F_UFO since no checksum offload features.\n");
- 			features &=3D ~NETIF_F_UFO;
- 		}
-=20
- 		if (!(features & NETIF_F_SG)) {
--			netdev_info(dev,
-+			netdev_dbg(dev,
- 				"Dropping NETIF_F_UFO since no NETIF_F_SG feature.\n");
- 			features &=3D ~NETIF_F_UFO;
- 		}
-@@ -5414,12 +5414,6 @@ int register_netdevice(struct net_device *dev)
- 	dev->features |=3D NETIF_F_SOFT_FEATURES;
- 	dev->wanted_features =3D dev->features & dev->hw_features;
-=20
--	/* Avoid warning from netdev_fix_features() for GSO without SG */
--	if (!(dev->wanted_features & NETIF_F_SG)) {
--		dev->wanted_features &=3D ~NETIF_F_GSO;
--		dev->features &=3D ~NETIF_F_GSO;
--	}
--
- 	/* Enable GRO and NETIF_F_HIGHDMA for vlans by default,
- 	 * vlan_dev_init() will do the dev->features check, so these features
- 	 * are enabled only if supported by underlying device.
+ 	if (features[0].valid & ~dev->hw_features) {
+ 		features[0].valid &=3D dev->hw_features;
 
