@@ -1,29 +1,33 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
- netdevice
-Date: Mon, 16 May 2011 12:38:00 -0700
-Message-ID: <1305574680.3456.33.camel@localhost.localdomain>
-References: <1305574128.3456.23.camel@localhost.localdomain>
-	 <1305574518.2885.25.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for May 16 (net/ipv4/ping)
+Date: Mon, 16 May 2011 15:38:44 -0400 (EDT)
+Message-ID: <20110516.153844.1072050131335197211.davem@davemloft.net>
+References: <20110516151019.be338f1c.sfr@canb.auug.org.au>
+	<20110516123534.5d3a51b9.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	segoon@openwall.com
+To: randy.dunlap@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305574518.2885.25.camel@bwh-desktop>
+In-Reply-To: <20110516123534.5d3a51b9.randy.dunlap@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-05-16 at 20:35 +0100, Ben Hutchings wrote:
-> Sorry, bit 31 is taken.  You get the job of turning features into a
-> wider bitmap.
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Mon, 16 May 2011 12:35:34 -0700
 
-:) will do it.
+> On Mon, 16 May 2011 15:10:19 +1000 Stephen Rothwell wrote:
+> 
+>> Hi all,
+>> 
+>> Changes since 20110513:
+> 
+> 
+> when CONFIG_PROC_SYSCTL is not enabled:
+> 
+> ping.c:(.text+0x52af3): undefined reference to `inet_get_ping_group_range_net'
 
-Thanks
-Shirley
+Vasiliy, please fix this.
