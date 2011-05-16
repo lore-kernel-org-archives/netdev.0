@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] netlink: nla_nest_end return "unsigned init"
-Date: Mon, 16 May 2011 13:51:10 -0400 (EDT)
-Message-ID: <20110516.135110.1328027948753436190.davem@davemloft.net>
-References: <1305555810-17565-1-git-send-email-wey-yi.w.guy@intel.com>
-	<20110516173548.GB6551@tuxdriver.com>
+Subject: Re: [PATCH] output ipconfig info message as one printk
+Date: Mon, 16 May 2011 14:00:35 -0400 (EDT)
+Message-ID: <20110516.140035.72516501072074389.davem@davemloft.net>
+References: <1305409519-25404-1-git-send-email-micha@neli.hopto.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wey-yi.w.guy@intel.com, linux-wireless@vger.kernel.org,
-	ipw3945-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org
+To: micha@neli.hopto.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38725 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58223 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752740Ab1EPRwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 13:52:31 -0400
-In-Reply-To: <20110516173548.GB6551@tuxdriver.com>
+	with ESMTP id S1751633Ab1EPSAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 14:00:39 -0400
+In-Reply-To: <1305409519-25404-1-git-send-email-micha@neli.hopto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 16 May 2011 13:35:48 -0400
+From: Micha Nelissen <micha@neli.hopto.org>
+Date: Sat, 14 May 2011 23:45:19 +0200
 
-> This should go to netdev@vger.kernel.org instead...
-> 
-> On Mon, May 16, 2011 at 07:23:30AM -0700, Wey-Yi Guy wrote:
->> skb->len has unsigned int, return the correct value from nla_nest_end call.
->> 
->> Signed-off-by: Wey-Yi Guy <wey-yi.w.guy@intel.com>
+> the "ip-config complete" message with ip address etc is output using
+> many printks. When using the netconsole, and multiple agents are booting
+> (and logging their boot) simultaneously, the syslog of the receiving
+> host gets very messy, as the individual printks are interleaved.
+> Combining the many printks into one printk improves syslog readability.
 
-Plus, the only users of the return value use it to feed "int"
-return values of functions.  F.e. net/core/neighbour.c's use
-in neightbl_fill_parms().
+First, you are missing a proper "Signed-off-by: " tag in your
+patch submissions.
 
-I don't see this as being any better or worse, and we should
-just leave the return value alone.
+Second, you should not do this because now the lines after the
+first won't have the default loglevel prepended.
+
+I think this should just be left alone, and you should properly
+mark your netconsole logs so that you can discern which machine
+the individual messages come from so you can piece them together
+properly if you need to.
