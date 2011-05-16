@@ -1,40 +1,29 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: kernel bug relating to networking
-Date: Mon, 16 May 2011 22:20:25 +0100
-Message-ID: <1305580825.2885.49.camel@bwh-desktop>
-References: <4DD14424.8000003@lockie.ca>
-	 <BANLkTikF3ntwWjV3iuwwCnJhZKJMVHHygQ@mail.gmail.com>
-	 <4DD18D52.9070302@lockie.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Null pointer dereference in icmp_send
+Date: Mon, 16 May 2011 17:22:58 -0400 (EDT)
+Message-ID: <20110516.172258.454975314148851877.davem@davemloft.net>
+References: <BANLkTi=uBDOQOJJMGn6V0Ne7OjQ7kGc-2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: James <bjlockie@lockie.ca>, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DD18D52.9070302@lockie.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roberto.paleari@emaze.net
+To: joystick@idea.sec.dico.unimi.it
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49236 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756054Ab1EPVXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 17:23:11 -0400
+In-Reply-To: <BANLkTi=uBDOQOJJMGn6V0Ne7OjQ7kGc-2w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-16 at 16:47 -0400, James wrote:
-> On 05/16/11 11:47, Daniel Baluta wrote:
-> > On Mon, May 16, 2011 at 6:35 PM, James <bjlockie@lockie.ca> wrote:
-> >> I originally posted to linux-net@vger.kernel.org but all that list
-> > This should be netdev@vger.kernel.org.
-> That is confusing since the welcome message said: "welcome message for
-> linux-net@vger.kernel.org".
-> 
-> Both lists are listed at http://vger.kernel.org/vger-lists.html but it
-> doesn't say the difference.
+From: Aristide Fattori <joystick@idea.sec.dico.unimi.it>
+Date: Mon, 16 May 2011 23:06:32 +0200
 
-linux-net: spam and unanswered questions
-netdev: actual discussions
+> in function icmp_send() (net/ipv4/icmp.c), the parameter passed to
+> dev_net() function is not properly validated.
 
-David, is it not time to stop the confusion by shutting down linux-net?
+It doesn't need to be.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+If 'rt' is not NULL, then rt->dst.dev is always not NULL and
+therefore no checks are necessary.
