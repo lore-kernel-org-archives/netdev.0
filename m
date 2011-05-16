@@ -1,41 +1,42 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [RFC 2/3] RDMA/cma: Add support for netlink statistics export
-Date: Mon, 16 May 2011 11:05:06 +0300
-Message-ID: <4DD0DAB2.1080600@mellanox.com>
-References: <1305303525-11113-1-git-send-email-roland@kernel.org>	<1305303525-11113-3-git-send-email-roland@kernel.org> <1828884A29C6694DAF28B7E6B8A82373F428@ORSMSX101.amr.corp.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
+Date: Mon, 16 May 2011 18:07:02 +1000
+Message-ID: <20110516080702.GA1857@gondor.apana.org.au>
+References: <20110504181813.GA17547@redhat.com> <20110504223415.GA14819@gondor.apana.org.au> <20110504232854.GA11687@rere.qmqm.pl> <20110505084428.GB17647@redhat.com> <4DC26F33.8010700@cn.fujitsu.com> <20110505100506.GA20111@gondor.apana.org.au> <20110516073210.GB6610@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373F428-P5GAC/sN6hmkrb+BlOpmy7fspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Shan Wei <shanwei@cn.fujitsu.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:39394 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095Ab1EPIHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 04:07:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20110516073210.GB6610@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hefty, Sean wrote:
->> +struct rdma_cm_id_stats {
->> +	__u32	qp_num;
->> +	__u32	bound_dev_if;
->> +	__u32	port_space;
->> +	__s32	pid;
->> +	__u8	cm_state;
->> +	__u8	node_type;
->> +	__u8	port_num;
->> +	__u8	reserved;
->> +};
-> 
-> We may also want to add qp_type
+On Mon, May 16, 2011 at 10:32:10AM +0300, Michael S. Tsirkin wrote:
+>
+> So how is NETIF_F_SG supposed to be enabled then?
 
-Sean,
+It should either be enabled at device creation time, or whatever
+user-space entity managing the device creation should enable it
+along with checksumming and anything else applicable.
 
-Isn't the port space enough here? specifically, what qp type buys us 
-over port space?
+> In upstream kernels userspace can disable checksum offloading then
+> re-enable and get SG set back.  userspace came to depend on this
+> behaviour so I think changing this is a regression.
 
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Can you point me to the relevant code in the upstream kernel?
+I'm not aware of any automatic SG enabling for network devices
+in general when you enable checksum offloading.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
