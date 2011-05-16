@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Mon, 16 May 2011 11:18:41 +0300
-Message-ID: <20110516081841.GA8073@redhat.com>
+Date: Mon, 16 May 2011 11:28:10 +0300
+Message-ID: <20110516082810.GA8252@redhat.com>
 References: <20110504181813.GA17547@redhat.com>
  <20110504223415.GA14819@gondor.apana.org.au>
  <20110504232854.GA11687@rere.qmqm.pl>
@@ -17,10 +17,10 @@ Cc: Shan Wei <shanwei@cn.fujitsu.com>,
 	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
 To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60145 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31537 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752404Ab1EPISm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 May 2011 04:18:42 -0400
+	id S1751739Ab1EPI2H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2011 04:28:07 -0400
 Content-Disposition: inline
 In-Reply-To: <20110516080702.GA1857@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
@@ -34,11 +34,7 @@ On Mon, May 16, 2011 at 06:07:02PM +1000, Herbert Xu wrote:
 > It should either be enabled at device creation time, or whatever
 > user-space entity managing the device creation should enable it
 > along with checksumming and anything else applicable.
-
-There's no interface for userspace to enable it: userspace
-only has an ioctl to enable/disable checksum offloading.
-SG is an implementation detail.
-
+> 
 > > In upstream kernels userspace can disable checksum offloading then
 > > re-enable and get SG set back.  userspace came to depend on this
 > > behaviour so I think changing this is a regression.
@@ -49,11 +45,11 @@ SG is an implementation detail.
 > 
 > Cheers,
 
-I think what happens _SG is enabled at device creation time and
-then upstream just keeps it on always, even when user clears
-CSUM. With net-next code changed so that _SG gets cleared when CSUM
-'gets cleared. But then it does not get reenabled when CSUM
-gets reenabled.
+By the way with kvm we let an unpriveledged application
+control netdev flags through and ioctl. It's probably
+not a good idea to print out stuff on flag change
+unconditionally as that will let that application
+fill up the system log.
 
 > -- 
 > Email: Herbert Xu <herbert@gondor.apana.org.au>
