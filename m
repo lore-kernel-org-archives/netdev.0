@@ -1,38 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Tue, 17 May 2011 08:46:58 +1000
-Message-ID: <20110516224658.GA11157@gondor.apana.org.au>
-References: <20110505100506.GA20111@gondor.apana.org.au> <20110516073210.GB6610@redhat.com> <20110516080702.GA1857@gondor.apana.org.au> <20110516081841.GA8073@redhat.com> <20110516093822.GA2779@gondor.apana.org.au> <20110516094821.GA9427@redhat.com> <20110516104309.GA3534@gondor.apana.org.au> <20110516112133.GA11274@redhat.com> <20110516121857.GA4495@gondor.apana.org.au> <BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] net: recvmmsg: Strip MSG_WAITFORONE when calling recvmsg
+Date: Tue, 17 May 2011 08:59:24 +1000
+Message-ID: <20110517085924.3a47b8e2@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Shan Wei <shanwei@cn.fujitsu.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: acme@redhat.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:45999 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754465Ab1EPWrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 May 2011 18:47:11 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com>
+Received: from ozlabs.org ([203.10.76.45]:59921 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755255Ab1EPW73 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 May 2011 18:59:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2011 at 02:24:19PM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
->
-> In this case - no. Those messages inform that driver supports more
-> feature combinations than network core and the feature set is reduced
-> because of that.
 
-The driver should never even claim to support SG/TSO/UFO if it
-does not support checksum.  That is the point of the warning.
+recvmmsg fails on a raw socket with EINVAL. The reason for this is
+packet_recvmsg checks the incoming flags:
 
-Cheers,
---=20
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+        err = -EINVAL;
+        if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT|MSG_ERRQUEUE))
+                goto out;
+
+This patch strips out MSG_WAITFORONE when calling recvmmsg which
+fixes the issue.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
+Cc: stable@kernel.org [2.6.34+]
+---
+
+We could also add MSG_WAITFORONE to the raw socket recvmsg check, or
+just remove the check completely. Thoughts?
+
+Index: linux-net/net/socket.c
+===================================================================
+--- linux-net.orig/net/socket.c	2011-05-09 08:59:22.757767314 +1000
++++ linux-net/net/socket.c	2011-05-16 17:14:52.501268819 +1000
+@@ -2232,14 +2232,16 @@ int __sys_recvmmsg(int fd, struct mmsghd
+ 		 */
+ 		if (MSG_CMSG_COMPAT & flags) {
+ 			err = __sys_recvmsg(sock, (struct msghdr __user *)compat_entry,
+-					    &msg_sys, flags, datagrams);
++					    &msg_sys, flags & ~MSG_WAITFORONE,
++					    datagrams);
+ 			if (err < 0)
+ 				break;
+ 			err = __put_user(err, &compat_entry->msg_len);
+ 			++compat_entry;
+ 		} else {
+ 			err = __sys_recvmsg(sock, (struct msghdr __user *)entry,
+-					    &msg_sys, flags, datagrams);
++					    &msg_sys, flags & ~MSG_WAITFORONE,
++					    datagrams);
+ 			if (err < 0)
+ 				break;
+ 			err = put_user(err, &entry->msg_len);
