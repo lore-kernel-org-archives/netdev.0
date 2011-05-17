@@ -1,37 +1,33 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in netdevice
-Date: Tue, 17 May 2011 23:48:21 +0200
-Message-ID: <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
-References: <1305574128.3456.23.camel@localhost.localdomain>
- <1305574518.2885.25.camel@bwh-desktop> <1305574680.3456.33.camel@localhost.localdomain>
- <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com> <1305588738.3456.65.camel@localhost.localdomain>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: small RPS cache for fragments?
+Date: Tue, 17 May 2011 14:48:28 -0700
+Message-ID: <m262p9yp5f.fsf@firstfloor.org>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	<20110517.174431.1004332995189918916.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305588738.3456.65.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:32278 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932496Ab1EQVtA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 17:49:00 -0400
+In-Reply-To: <20110517.174431.1004332995189918916.davem@davemloft.net> (David
+	Miller's message of "Tue, 17 May 2011 17:44:31 -0400 (EDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
-> Hello Michael,
->
-> Looks like to use a new flag requires more time/work. I am thinking
-> whether we can just use HIGHDMA flag to enable zero-copy in macvtap t=
-o
-> avoid the new flag for now since mavctap uses real NICs as lower devi=
-ce?
+David Miller <davem@davemloft.net> writes:
 
-Is there any other restriction besides requiring driver to not recycle
-the skb? Are there any drivers that recycle TX skbs?
+> Guys we can't time out fragments if we are not the final
+> destination.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+If you're not the final destination you should never even
+try to reassemble them?
+
+I'm probably missing something...
+
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only
