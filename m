@@ -1,145 +1,144 @@
-From: Patrick Schaaf <netdev@bof.de>
-Subject: bonding flaps between member interfaces
-Date: Tue, 17 May 2011 15:27:34 +0200
-Message-ID: <1305638854.6044.223.camel@lat1>
+From: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Subject: Re: pull request: wireless-next-2.6 2011-05-16-v2
+Date: Tue, 17 May 2011 11:13:16 -0300
+Message-ID: <20110517141316.GA3138@joana>
+References: <20110516211305.GG6551@tuxdriver.com>
+ <20110517000809.GA2119@tuxdriver.com>
+ <20110516.230835.989629139579226478.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bof-2.saar.de ([192.109.53.146]:41982 "EHLO oknodo.bof.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754567Ab1EQNxe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2011 09:53:34 -0400
-Received: from [192.168.178.21]
-	by oknodo.bof.de with esmtp (Exim 4.69)
-	(envelope-from <netdev@bof.de>)
-	id 1QMKJC-0008Pp-Hw
-	for netdev@vger.kernel.org; Tue, 17 May 2011 15:27:35 +0200
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:40897 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754769Ab1EQOMm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 10:12:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20110516.230835.989629139579226478.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear netdev,
+* David Miller <davem@davemloft.net> [2011-05-16 23:08:35 -0400]:
 
-I'm experiencing a regression with bonding. Bugzilla and cursory
-searching of the list did not immediately show up anything that seems
-related, so here's the report:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Mon, 16 May 2011 20:08:09 -0400
+>=20
+> > I'm sorry, Dave!  In my defense, I am on the verge of sickness and =
+got
+> > very little sleep last night... :-(
+> >=20
+> > I have corrected the problem and was sure to perform the correct bu=
+ild
+> > test this time! :-)
+>=20
+> So these hunks made to net/bluetooth/l2cap_core.c:
+>=20
+> @@ -3745,11 +3758,14 @@ done:
+>  static inline int l2cap_conless_channel(struct l2cap_conn *conn, __l=
+e16 psm, struct sk_buff *skb)
+>  {
+>  	struct sock *sk;
+> +	struct l2cap_chan *chan;
+> =20
+> -	sk =3D l2cap_get_sock_by_psm(0, psm, conn->src);
+> -	if (!sk)
+> +	chan =3D l2cap_global_chan_by_psm(0, psm, conn->src);
+> +	if (!chan)
+>  		goto drop;
+> =20
+> +	sk =3D chan->sk;
+> +
+>  	bh_lock_sock(sk);
+> =20
+>  	BT_DBG("sk %p, len %d", sk, skb->len);
+> @@ -3745,11 +3758,14 @@ done:
+>  static inline int l2cap_conless_channel(struct l2cap_conn *conn, __l=
+e16 psm, struct sk_buff *skb)
+>  {
+>  	struct sock *sk;
+> +	struct l2cap_chan *chan;
+> =20
+> -	sk =3D l2cap_get_sock_by_psm(0, psm, conn->src);
+> -	if (!sk)
+> +	chan =3D l2cap_global_chan_by_psm(0, psm, conn->src);
+> +	if (!chan)
+>  		goto drop;
+> =20
+> +	sk =3D chan->sk;
+> +
+>  	bh_lock_sock(sk);
+> =20
+>  	BT_DBG("sk %p, len %d", sk, skb->len);
+>=20
+> Doesn't generate the following warnings on your compiler?
+>=20
+> net/bluetooth/l2cap_core.c: In function =E2=80=98l2cap_recv_frame=E2=80=
+=99:
+> net/bluetooth/l2cap_core.c:3758:15: warning: =E2=80=98sk=E2=80=99 may=
+ be used uninitialized in this function
+> net/bluetooth/l2cap_core.c:3758:15: note: =E2=80=98sk=E2=80=99 was de=
+clared here
+> net/bluetooth/l2cap_core.c:3791:15: warning: =E2=80=98sk=E2=80=99 may=
+ be used uninitialized in this function
+> net/bluetooth/l2cap_core.c:3791:15: note: =E2=80=98sk=E2=80=99 was de=
+clared here
+>=20
 
-Short summary: bonding flips between members every second
+I keep not seeing these warnings. I'll upgrade to gcc 4.6 and check thi=
+s again.
 
-bonding in active-backup mode with ARP monitoring
-two members in the bond, both being VLAN interfaces on top of two
-separate ethernet interfaces
-bnx2 ethernet driver, but saw the same behaviour with a tigon box
-concrete settings:
-BONDING_MODULE_OPTS="mode=active-backup primary=eth0.24 arp_interval=250
-arp_ip_target=192.168.x.x"
-See below for a /proc/net/bonding/bond24 output reflecing the
-configuration.
+padovan bluetooth-next-2.6 $ rm net/bluetooth/*.o net/bluetooth/*.ko
+padovan bluetooth-next-2.6 $ make
+  CHK     include/linux/version.h
+  CHK     include/generated/utsrelease.h
+  UPD     include/generated/utsrelease.h
+  CALL    scripts/checksyscalls.sh                                     =
+                            =20
+  CHK     include/generated/compile.h                                  =
+                            =20
+  UPD     include/generated/compile.h                                  =
+                            =20
+  CC      init/version.o                                               =
+                            =20
+  CC      kernel/module.o                                              =
+                            =20
+  LD      init/built-in.o                                              =
+                            =20
+  CC      kernel/kexec.o                                               =
+                            =20
+  LD      kernel/built-in.o                                            =
+                            =20
+  LD      net/bluetooth/built-in.o                                     =
+                            =20
+  CC [M]  net/bluetooth/af_bluetooth.o                                 =
+                            =20
+  CC [M]  net/bluetooth/hci_core.o                                     =
+                            =20
+  CC [M]  net/bluetooth/hci_conn.o                                     =
+                            =20
+  CC [M]  net/bluetooth/hci_event.o                                    =
+                            =20
+  CC [M]  net/bluetooth/mgmt.o                                         =
+                            =20
+  CC [M]  net/bluetooth/hci_sock.o                                     =
+                            =20
+  CC [M]  net/bluetooth/hci_sysfs.o                                    =
+                            =20
+  CC [M]  net/bluetooth/lib.o                                          =
+                            =20
+  CC [M]  net/bluetooth/l2cap_core.o                                   =
+                            =20
+  CC [M]  net/bluetooth/l2cap_sock.o                                   =
+                            =20
+  CC [M]  net/bluetooth/sco.o                                          =
+                            =20
+  LD [M]  net/bluetooth/bluetooth.o                                    =
+                            =20
+  LD      vmlinux.o  =20
 
-This setup I have in production on 2.6.36.2, and it works fine.
-It also works fine, tested today, with 2.6.36,4 and 2.6.37.6
-
-Starting with 2.6.38 (2.6.38.6 tested today), and still happening with
-2.6.39-rc7, I experience problems. While I can still work over the
-interface, it is flipping once per second between the two member
-interfaces. There is no indication of the underlying interface going
-up/down, but bonding seems to think so.
-
-See below an excerpt of the kernel log for two back-and-forth flapping
-cycles.
-
-In /proc/net/bonding/bond24, I see the failure counter of the configured
-primary interface counting up with each flap. The counter of the non
-primary interface does not move. When I switch the primary interface by
-echoing to /sys, the behaviour of the counters flips: always the
-configured primary has the counter going up.
- 
-best regards
-  Patrick
-
-Here is /proc/net/bonding/bond24 while running on 2.6.37.6, to show the
-concrete configuration from this POV. Everything looks the same with the
-failing kernels, except for the noted behaviour of the Failure Counts.
-
-Ethernet Channel Bonding Driver: v3.7.0 (June 2, 2010)
-
-Bonding Mode: fault-tolerance (active-backup)
-Primary Slave: eth0.24 (primary_reselect always)
-Currently Active Slave: eth0.24
-MII Status: up
-MII Polling Interval (ms): 0
-Up Delay (ms): 0
-Down Delay (ms): 0
-ARP Polling Interval (ms): 250
-ARP IP target/s (n.n.n.n form): 192.168.x.x
-
-Slave Interface: eth0.24
-MII Status: up
-Speed: 1000 Mbps
-Duplex: full
-Link Failure Count: 0
-Permanent HW addr: d4:85:64:ca:1c:12
-Slave queue ID: 0
-
-Slave Interface: eth1.24
-MII Status: up
-Speed: 1000 Mbps
-Duplex: full
-Link Failure Count: 0
-Permanent HW addr: d4:85:64:ca:1c:14
-Slave queue ID: 0
-
-Here is kernel log output for two flapping cycles (booted kernel was
-2.6.39-rc7):
-
-May 17 14:58:22 myserver kernel: [ 1016.629155] bonding: bond24: link
-status definitely down for interface eth0.24, disabling it
-May 17 14:58:22 myserver kernel: [ 1016.629159] bonding: bond24: making
-interface eth1.24 the new active one.
-May 17 14:58:22 myserver kernel: [ 1016.629162] device eth0.24 left
-promiscuous mode
-May 17 14:58:22 myserver kernel: [ 1016.629164] device eth0 left
-promiscuous mode
-May 17 14:58:22 myserver kernel: [ 1016.629191] device eth1.24 entered
-promiscuous mode
-May 17 14:58:22 myserver kernel: [ 1016.629193] device eth1 entered
-promiscuous mode
-May 17 14:58:22 myserver kernel: [ 1016.878596] bonding: bond24: link
-status definitely up for interface eth0.24.
-May 17 14:58:22 myserver kernel: [ 1016.878600] bonding: bond24: making
-interface eth0.24 the new active one.
-May 17 14:58:22 myserver kernel: [ 1016.878603] device eth1.24 left
-promiscuous mode
-May 17 14:58:22 myserver kernel: [ 1016.878605] device eth1 left
-promiscuous mode
-May 17 14:58:22 myserver kernel: [ 1016.878631] device eth0.24 entered
-promiscuous mode
-May 17 14:58:22 myserver kernel: [ 1016.878633] device eth0 entered
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.626919] bonding: bond24: link
-status definitely down for interface eth0.24, disabling it
-May 17 14:58:23 myserver kernel: [ 1017.626923] bonding: bond24: making
-interface eth1.24 the new active one.
-May 17 14:58:23 myserver kernel: [ 1017.626926] device eth0.24 left
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.626928] device eth0 left
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.626955] device eth1.24 entered
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.626957] device eth1 entered
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.876359] bonding: bond24: link
-status definitely up for interface eth0.24.
-May 17 14:58:23 myserver kernel: [ 1017.876363] bonding: bond24: making
-interface eth0.24 the new active one.
-May 17 14:58:23 myserver kernel: [ 1017.876366] device eth1.24 left
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.876368] device eth1 left
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.876394] device eth0.24 entered
-promiscuous mode
-May 17 14:58:23 myserver kernel: [ 1017.876396] device eth0 entered
-promiscuous mode
-
-
+--=20
+Gustavo F. Padovan
+http://profusion.mobi
