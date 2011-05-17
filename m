@@ -1,38 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: small RPS cache for fragments?
-Date: Tue, 17 May 2011 14:33:42 -0400 (EDT)
-Message-ID: <20110517.143342.1566027350038182221.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6] sfc: Suppress warning about combining enum
+ flags by gcc 4.5
+Date: Tue, 17 May 2011 19:48:41 +0100
+Message-ID: <1305658121.2848.29.camel@bwh-desktop>
+References: <20110517.141446.140687548350861625.davem@davemloft.net>
+	 <1305656319.2848.28.camel@bwh-desktop>
+	 <20110517.142350.81148594119844192.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43366 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756133Ab1EQSdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:33:44 -0400
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4HIXg99004119
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 17 May 2011 11:33:43 -0700
+Received: from mail.solarflare.com ([216.237.3.220]:48678 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756125Ab1EQSso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:48:44 -0400
+In-Reply-To: <20110517.142350.81148594119844192.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+gcc 4.5 warns about switch statements on enumerated types containing
+case values that are a bitwise-or of two enumerators for that type.
+The use of enumerators as flags is common practice, so I think the
+warning is wrong.  Keep the compiler quiet by casting the switch
+value.
 
-It seems to me that we can solve the UDP fragmentation problem for
-flow steering very simply by creating a (saddr/daddr/IPID) entry in a
-table that maps to the corresponding RPS flow entry.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Will this do?
 
-When we see the initial frag with the UDP header, we create the
-saddr/daddr/IPID mapping, and we tear it down when we hit the
-saddr/daddr/IPID mapping and the packet has the IP_MF bit clear.
+Ben.
 
-We only inspect the saddr/daddr/IPID cache when iph->frag_off is
-non-zero.
+ drivers/net/sfc/mcdi_mac.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-It's best effort and should work quite well.
+diff --git a/drivers/net/sfc/mcdi_mac.c b/drivers/net/sfc/mcdi_mac.c
+index 50c2077..316745b 100644
+--- a/drivers/net/sfc/mcdi_mac.c
++++ b/drivers/net/sfc/mcdi_mac.c
+@@ -32,7 +32,7 @@ static int efx_mcdi_set_mac(struct efx_nic *efx)
+ 		(1 << MC_CMD_SET_MAC_IN_REJECT_UNCST_LBN);
+ 	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_REJECT, reject);
+ 
+-	switch (efx->wanted_fc) {
++	switch ((unsigned)efx->wanted_fc) {
+ 	case EFX_FC_RX | EFX_FC_TX:
+ 		fcntl = MC_CMD_FCNTL_BIDIR;
+ 		break;
+-- 
+1.7.4
 
-Even a one-behind cache, per-NAPI instance, would do a lot better than
-what happens at the moment.  Especially since the IP fragments mostly
-arrive as one packet train.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
