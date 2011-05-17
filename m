@@ -1,44 +1,52 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 17:50:44 -0400 (EDT)
-Message-ID: <20110517.175044.2057517197524794568.davem@davemloft.net>
+Date: Tue, 17 May 2011 23:52:20 +0200
+Message-ID: <1305669140.6741.4.camel@edumazet-laptop>
 References: <20110517.143342.1566027350038182221.davem@davemloft.net>
-	<20110517.174431.1004332995189918916.davem@davemloft.net>
-	<m262p9yp5f.fsf@firstfloor.org>
+	 <1305663288.2691.2.camel@edumazet-laptop>  <m2aaelypbp.fsf@firstfloor.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38267 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932439Ab1EQVuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:50:50 -0400
-In-Reply-To: <m262p9yp5f.fsf@firstfloor.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:62733 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751984Ab1EQVwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:52:24 -0400
+Received: by wya21 with SMTP id 21so750515wya.19
+        for <netdev@vger.kernel.org>; Tue, 17 May 2011 14:52:23 -0700 (PDT)
+In-Reply-To: <m2aaelypbp.fsf@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 17 May 2011 14:48:28 -0700
+Le mardi 17 mai 2011 =C3=A0 14:44 -0700, Andi Kleen a =C3=A9crit :
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+> >
+> > OK but do we have workloads actually needing this optimization at a=
+ll ?
+>=20
+> That's a good a question.
+> >
+> > (IP defrag hits a read_lock(&ip4_frags.lock)), so maybe steer all f=
+rags
+> > on a given cpu ?)
+>=20
+> Couldn't the lock just be replaced with a hashed or bitmap lock or=20
+> bit in low bits of pointer lock?
+>=20
+> iirc it just protects the heads of the hash table.
+>=20
+> They're not rwlocks, but especially if the locking was more finegrain=
+ed
+> that's likely not needed anymore.
 
-> David Miller <davem@davemloft.net> writes:
-> 
->> Guys we can't time out fragments if we are not the final
->> destination.
-> 
-> If you're not the final destination you should never even
-> try to reassemble them?
-> 
-> I'm probably missing something...
+Well, there is the rehashing stuff, and this locks the whole table.
 
-We're discussing the idea to do the defragmentation first
-so we can choose the flow properly and steer the packet
-to the correct cpu.
+Not easy to switch to rcu or something like that.
 
-This also would allos each fragmented packet to traverse the
-stack only once (one route lookup etc.) instead of once per
-fragment.
+Anyway I hardly use frags here at work, so never considered it was a
+field to spend time ;)
 
-Please read the rest of this thread, we have discussed this
-and now I'm repeating information solely for your benefit.
+
+
