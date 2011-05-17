@@ -1,44 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] sfc: Suppress warning about combining
- enum flags by gcc 4.5
-Date: Tue, 17 May 2011 15:26:51 -0400 (EDT)
-Message-ID: <20110517.152651.1785846817320651943.davem@davemloft.net>
-References: <1305656319.2848.28.camel@bwh-desktop>
-	<20110517.142350.81148594119844192.davem@davemloft.net>
-	<1305658121.2848.29.camel@bwh-desktop>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] sk-filter: Rate-limit WARNing, print dbg info.
+Date: Tue, 17 May 2011 12:34:01 -0700
+Message-ID: <4DD2CDA9.7000009@candelatech.com>
+References: <1305657014-32736-1-git-send-email-greearb@candelatech.com>	<1305658349.1722.30.camel@Joe-Laptop> <20110517.152357.85105240786269960.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: joe@perches.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43841 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756492Ab1EQT0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 15:26:55 -0400
-In-Reply-To: <1305658121.2848.29.camel@bwh-desktop>
+Received: from mail.candelatech.com ([208.74.158.172]:60517 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932105Ab1EQTeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 15:34:05 -0400
+In-Reply-To: <20110517.152357.85105240786269960.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 17 May 2011 19:48:41 +0100
+On 05/17/2011 12:23 PM, David Miller wrote:
+> From: Joe Perches<joe@perches.com>
+> Date: Tue, 17 May 2011 11:52:29 -0700
+>
+>> On Tue, 2011-05-17 at 11:30 -0700, greearb@candelatech.com wrote:
+>>> From: Ben Greear<greearb@candelatech.com>
+>>> A mis-configured filter can spam the logs with
+>>> lots of stack traces.  Rate-limit the warnings
+>>> and add printout of the bogus filter information.
+>>> -			WARN_ON(1);
+>>> +			if (net_ratelimit()) {
+>>> +				pr_err("filter: Unknown code: %hu jt: %u tf: %u"
+>>> +				       " k: %u\n",
+>>> +				       fentry->code, (unsigned int)(fentry->jt),
+>>> +				       (unsigned int)(fentry->jf), fentry->k);
+>>> +				WARN_ON(1);
+>>> +			}
+>>
+>> Maybe just using WARN is better.
+>
+> Yep, it looks better to me.
 
-> gcc 4.5 warns about switch statements on enumerated types containing
-> case values that are a bitwise-or of two enumerators for that type.
-> The use of enumerators as flags is common practice, so I think the
-> warning is wrong.  Keep the compiler quiet by casting the switch
-> value.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> Will this do?
+You want to just take his, or shall I re-spin it?
 
-What part of "get rid of the enum" is so hard to understand?
+Either is fine with me.
 
-I'll say it again: Please get rid of the enum efx_fc_type
+Thanks,
+Ben
 
-You can define bit positions if you like, because those will
-be used as a proper enum, as unique bit positions within
-a set of bits.  Then you can define macros as (1 << XXX)
+>
+>> I believe the casts aren't necessary.
+>
+> Also correct.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Thanks.
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
