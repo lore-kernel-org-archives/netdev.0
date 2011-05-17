@@ -1,47 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 23:00:50 +0200
-Message-ID: <1305666050.2691.4.camel@edumazet-laptop>
-References: <20110517.143342.1566027350038182221.davem@davemloft.net>
-	 <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
-	 <20110517.164929.1737248436066795381.davem@davemloft.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
+Date: Tue, 17 May 2011 14:01:52 -0700
+Message-ID: <1305666112.10756.37.camel@localhost.localdomain>
+References: <1305574484.3456.30.camel@localhost.localdomain>
+	 <20110516204540.GD18148@redhat.com>
+	 <1305579414.3456.49.camel@localhost.localdomain>
+	 <20110516212401.GF18148@redhat.com>
+	 <1305606683.10756.3.camel@localhost.localdomain>
+	 <20110517055503.GA26989@redhat.com>
+	 <1305645734.10756.14.camel@localhost.localdomain>
+	 <20110517152840.GA2389@redhat.com>
+	 <1305646444.10756.16.camel@localhost.localdomain>
+	 <1305665419.10756.33.camel@localhost.localdomain>
+	 <20110517205827.GB7589@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59127 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932233Ab1EQVAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:00:54 -0400
-Received: by wya21 with SMTP id 21so722191wya.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 14:00:52 -0700 (PDT)
-In-Reply-To: <20110517.164929.1737248436066795381.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110517205827.GB7589@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 17 mai 2011 =C3=A0 16:49 -0400, David Miller a =C3=A9crit :
-> From: Tom Herbert <therbert@google.com>
-> Date: Tue, 17 May 2011 13:02:25 -0700
->=20
-> > I like it!  And this sounds like the sort of algorithm that NICs mi=
-ght
-> > be able to implement to solve the UDP/RSS unpleasantness, so even
-> > better.
->=20
-> Actually, I think it won't work.  Even Linux emits fragments last to
-> first, so we won't see the UDP header until the last packet where it'=
-s
-> no longer useful.
->=20
-> Back to the drawing board. :-/
+On Tue, 2011-05-17 at 23:58 +0300, Michael S. Tsirkin wrote:
+> On Tue, May 17, 2011 at 01:50:19PM -0700, Shirley Ma wrote:
+> > Resubmit the patch with most update. This patch passed some
+> > live-migration test against RHEL6.2. I will run more stress test w/i
+> > live migration.
+> 
+> What changed from the last version?
 
-Well, we could just use the iph->id in the rxhash computation for frags=
-=2E
+Sorry, I forgot to mention: add clean up pending before set_vring.
 
-At least all frags of a given datagram should be reassembled on same
-cpu, so we get RPS (but not RFS)
-
-
-
+Thanks
+Shirley
