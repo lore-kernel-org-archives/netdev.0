@@ -1,77 +1,129 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH 0/7] Network namespace manipulation with file descriptors
-Date: Tue, 17 May 2011 17:35:46 +0200
-Message-ID: <20110517153546.GB3762520@jupiter.n2.diac24.net>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
- <3A54AB469A0294933EAC2257@nimrod.local>
- <m1fwoqoapn.fsf@fess.ebiederm.org>
- <20110517111148.GA3762520@jupiter.n2.diac24.net>
- <m1mxil9z2p.fsf@fess.ebiederm.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] net: ping: fix build failure
+Date: Tue, 17 May 2011 08:41:25 -0700
+Message-ID: <20110517084125.77b543c8.randy.dunlap@oracle.com>
+References: <20110516151019.be338f1c.sfr@canb.auug.org.au>
+	<20110516123534.5d3a51b9.randy.dunlap@oracle.com>
+	<20110516.153844.1072050131335197211.davem@davemloft.net>
+	<20110517101656.GA28685@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>,
-	Alex Bligh <alex@alex.org.uk>, linux-arch@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	linux-fsdevel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m1mxil9z2p.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, randy.dunlap@oracle.com,
+	sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Vasiliy Kulikov <segoon@openwall.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110517101656.GA28685@albatros>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 17, 2011 at 07:33:18AM -0700, Eric W. Biederman wrote:
-> I went the round of keeping a daemon open, saw how much code that
-> takes and how fragile that can be in the corner cases and decided to
-> patch the kernel to make the interfaces better.
+On Tue, 17 May 2011 14:16:56 +0400 Vasiliy Kulikov wrote:
 
-Yes, it is more fragile. I'm currently using it without setns-patched
-kernels though, so it's all I have.
-
-(More or less related, I was able to cause a kernel oops on doing a
-"find /proc" on setns-patched kernels after bind-mounting /proc; I did
-not report it because I'm running grsecurity-patched kernels which tend
-to mess with /proc quite a bit... I'll try to reproduce it with your
-current patches on an otherwise vanilla kernel.)
-
-> > I also have patches for OpenVPN and pptpd floating around that make it
-> > possible to 'cross' namespace boundaries, i.e. the VPN servers listen in
-> > one namespace and have their devices in another.
+> On Mon, May 16, 2011 at 15:38 -0400, David Miller wrote:
+> > From: Randy Dunlap <randy.dunlap@oracle.com>
+> > Date: Mon, 16 May 2011 12:35:34 -0700
+> > 
+> > > On Mon, 16 May 2011 15:10:19 +1000 Stephen Rothwell wrote:
+> > > when CONFIG_PROC_SYSCTL is not enabled:
+> > > 
+> > > ping.c:(.text+0x52af3): undefined reference to `inet_get_ping_group_range_net'
+> > 
+> > Vasiliy, please fix this.
 > 
-> For openvpn I have managed to get away with simply using an up script. 
-> Mostly the script is:
+> I wonder whether there is any way to test such unusual configurations?
+> Only randconfig or are there any (partly-)automated tools for it?
 > 
-> ip netns add $NSNAME || true
-> ip netns exec $NSNAME ip link set lo up
-> ip link set $dev netns $NSNAME
-
-Historic annotation: This line used to kernel panic around a year and a
-half back - nowadays tap devices do get the netns move right...
-
-> ip netns exec $NSNAME ip link set $dev up
-> ip netns exec $NSNAME ifconfig $dev $ifconfig_local netmask $ifconfig_netmask broadcast $ifconfig_broadcast
 > 
-> With a few extra bits for dns options and routes.  If I had an openvpn
-> built with the iproute option I expect I could get away by just wrapping
-> iproute.  Not that I would mind a patched openvpn.
+> [PATCH] net: ping: fix build failure
+> 
+> If CONFIG_PROC_SYSCTL=n the building process fails:
+> 
+>     ping.c:(.text+0x52af3): undefined reference to `inet_get_ping_group_range_net'
+> 
+> Moved inet_get_ping_group_range_net() to ping.c.
+> 
+> Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 
-I didn't even try to make amends for DNS, I just put 127.0.0.1 and have
-caches in each of the namespaces. Wrapping iproute2 would work; one of
-the advantages of patching OpenVPN is that the OpenVPN daemon is in the
-same namespace as the tap devices and can do all the configuration as
-usual.
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-For pptp, er, well, reading up on how ppp devices behave if you splice
-them across namespace boundaries would've taken more time than patching
-up the UDP/GRE sockets.
+Thanks.
 
-> Personally I think using a vpn in a network namespace seems like a
-> killer feature.
+> ---
+>  include/net/ping.h         |    2 --
+>  net/ipv4/ping.c            |   13 +++++++++++++
+>  net/ipv4/sysctl_net_ipv4.c |   12 ------------
+>  3 files changed, 13 insertions(+), 14 deletions(-)
+> 
+> diff --git a/include/net/ping.h b/include/net/ping.h
+> index 23062c3..682b5ae 100644
+> --- a/include/net/ping.h
+> +++ b/include/net/ping.h
+> @@ -44,8 +44,6 @@ extern struct proto ping_prot;
+>  extern void ping_rcv(struct sk_buff *);
+>  extern void ping_err(struct sk_buff *, u32 info);
+>  
+> -extern void inet_get_ping_group_range_net(struct net *net, unsigned int *low, unsigned int *high);
+> -
+>  #ifdef CONFIG_PROC_FS
+>  extern int __init ping_proc_init(void);
+>  extern void ping_proc_exit(void);
+> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+> index 7041d09..3635975 100644
+> --- a/net/ipv4/ping.c
+> +++ b/net/ipv4/ping.c
+> @@ -188,6 +188,19 @@ exit:
+>  	return sk;
+>  }
+>  
+> +static void inet_get_ping_group_range_net(struct net *net, gid_t *low, gid_t *high)
+> +{
+> +	gid_t *data = net->ipv4.sysctl_ping_group_range;
+> +	unsigned seq;
+> +	do {
+> +		seq = read_seqbegin(&sysctl_local_ports.lock);
+> +
+> +		*low = data[0];
+> +		*high = data[1];
+> +	} while (read_seqretry(&sysctl_local_ports.lock, seq));
+> +}
+> +
+> +
+>  static int ping_init_sock(struct sock *sk)
+>  {
+>  	struct net *net = sock_net(sk);
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 28e8273..57d0752 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -73,18 +73,6 @@ static int ipv4_local_port_range(ctl_table *table, int write,
+>  }
+>  
+>  
+> -void inet_get_ping_group_range_net(struct net *net, gid_t *low, gid_t *high)
+> -{
+> -	gid_t *data = net->ipv4.sysctl_ping_group_range;
+> -	unsigned seq;
+> -	do {
+> -		seq = read_seqbegin(&sysctl_local_ports.lock);
+> -
+> -		*low = data[0];
+> -		*high = data[1];
+> -	} while (read_seqretry(&sysctl_local_ports.lock, seq));
+> -}
+> -
+>  void inet_get_ping_group_range_table(struct ctl_table *table, gid_t *low, gid_t *high)
+>  {
+>  	gid_t *data = table->data;
+> -- 
+> 1.7.0.4
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-next" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Yes, it very much is - it provides very nice and clean solutions to
-problems that up to now were usually hacked around with policy routing &
-co.
 
-
--David
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
