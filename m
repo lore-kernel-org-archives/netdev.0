@@ -1,49 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: add rcu protection to netdev->ifalias
-Date: Wed, 18 May 2011 00:39:16 +0200
-Message-ID: <1305671956.6741.25.camel@edumazet-laptop>
-References: <1303980967.3360.60.camel@edumazet-laptop>
-	 <20110428084337.6b54603e@nehalam>
-	 <20110502.152733.48516094.davem@davemloft.net>
-	 <1305670692.6741.14.camel@edumazet-laptop>
-	 <20110517152503.2f7244f3@nehalam>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: small RPS cache for fragments?
+Date: Tue, 17 May 2011 15:42:48 -0700
+Message-ID: <1305672168.8149.966.camel@tardy>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	 <20110517.174431.1004332995189918916.davem@davemloft.net>
+	 <m262p9yp5f.fsf@firstfloor.org>
+	 <20110517.175044.2057517197524794568.davem@davemloft.net>
+Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, remi.denis-courmont@nokia.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56868 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756695Ab1EQWjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:39:20 -0400
-Received: by wya21 with SMTP id 21so771941wya.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 15:39:19 -0700 (PDT)
-In-Reply-To: <20110517152503.2f7244f3@nehalam>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:1609 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932399Ab1EQWmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:42:50 -0400
+In-Reply-To: <20110517.175044.2057517197524794568.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 17 mai 2011 =C3=A0 15:25 -0700, Stephen Hemminger a =C3=A9crit=
- :
+On Tue, 2011-05-17 at 17:50 -0400, David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Tue, 17 May 2011 14:48:28 -0700
+> 
+> > David Miller <davem@davemloft.net> writes:
+> > 
+> >> Guys we can't time out fragments if we are not the final
+> >> destination.
+> > 
+> > If you're not the final destination you should never even
+> > try to reassemble them?
+> > 
+> > I'm probably missing something...
+> 
+> We're discussing the idea to do the defragmentation first
+> so we can choose the flow properly and steer the packet
+> to the correct cpu.
+> 
+> This also would allos each fragmented packet to traverse the
+> stack only once (one route lookup etc.) instead of once per
+> fragment.
+> 
+> Please read the rest of this thread, we have discussed this
+> and now I'm repeating information solely for your benefit.
 
-> I am beginning to think the idea of optimizing case of "ip link show"
-> running in background with adding/removing network devices is silly.=20
-> And switching to RCU leads to all sorts of corner cases where only
-> partial data will be read. Is it really worth it?
->=20
+Well, I should probably be beaten with that stick too because I wasn't
+thinking about forwarding, only being the destination system when I
+broached the suggestion of doing RFS after reassembly.  I can see where
+one *might* be able to do limited RPS when forwarding, but I didn't know
+that RFS had been extended to forwarding.
 
-Just try "modprobe dummy numdummies=3D1000", and watch load average
-raising, because so many processes want to hold RTNL, and the
-rtnl_trylock() crazy thing make them spin (restart syscall, and find
-RTNL locked again... wooo...)
+Now though I see why you were rightfully concerned about timeouts -
+given all the concerns about added latency from bufferbloat, I wouldn't
+think that an additional 10 or perhaps even 1ms timeout on a reassembly
+attempt to get the layer four header when forwarding would sit well with
+folks - they will expect the fragments to flow through without
+additional delay.
 
-Some workloads hit RTNL quite hard, and monitoring tools were sometime
-frozen for unexpected long times. (before the patch, when we used to
-hold RTNL in dump())
-
-I dont know, if it happens to be too hard, we'll just stick again rtnl
-for "ip link show" ;)
-
+rick jones
 
 
