@@ -1,99 +1,55 @@
-From: Tom Lendacky <tahm@linux.vnet.ibm.com>
-Subject: Re: [PATCH 09/18] virtio: use avail_event index
-Date: Tue, 17 May 2011 11:23:32 -0500
-Message-ID: <201105171123.34706.tahm@linux.vnet.ibm.com>
-References: <cover.1304541918.git.mst@redhat.com> <20110515135541.GF24932@redhat.com> <87ei3zdsq2.fsf@rustcorp.com.au>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: Re: ath5k regression associating with APs in 2.6.38
+Date: Tue, 17 May 2011 11:57:20 -0500
+Message-ID: <20110517165720.GB9258@thinkpad-t410>
+References: <20110504153819.GA4551@thinkpad-t410>
+ <20110504172716.GC18541@tuxdriver.com>
+ <20110504192639.GB4551@thinkpad-t410>
+ <BANLkTimEmBRyxbZgffJMrH4TTc4f6peuTg@mail.gmail.com>
+ <20110505135207.GA13727@thinkpad-t410>
+ <BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>
+ <20110509070230.GA20458@thinkpad-t410>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	linux-kernel@vger.kernel.org, Carsten Otte <cotte@de.ibm.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	linux390@de.ibm.com, Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Shirley Ma <xma@us.ibm.com>, lguest@lists.ozlabs.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, kvm@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>, steved@us.ibm.com,
-	habanero@linux.vnet.ibm.com
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>,
+	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Kossifidis <mickflemm@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ei3zdsq2.fsf@rustcorp.com.au>
+Content-Disposition: inline
+In-Reply-To: <20110509070230.GA20458@thinkpad-t410>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Monday, May 16, 2011 02:12:21 AM Rusty Russell wrote:
-> On Sun, 15 May 2011 16:55:41 +0300, "Michael S. Tsirkin" <mst@redhat.com> 
-wrote:
-> > On Mon, May 09, 2011 at 02:03:26PM +0930, Rusty Russell wrote:
-> > > On Wed, 4 May 2011 23:51:47 +0300, "Michael S. Tsirkin" <mst@redhat.com> 
-wrote:
-> > > > Use the new avail_event feature to reduce the number
-> > > > of exits from the guest.
-> > > 
-> > > Figures here would be nice :)
+On Mon, May 09, 2011 at 09:02:30AM +0200, Seth Forshee wrote:
+> On Thu, May 05, 2011 at 05:30:42PM +0300, Nick Kossifidis wrote:
+> > Hmm I don't see any errors from reset/phy code, can you disable
+> > Network Manager/wpa-supplicant and test connection on an open network
+> > using iw ? It 'll give us a better picture...
 > > 
-> > You mean ASCII art in comments?
+> > If iw doesn't return any scan results we are probably hitting a PHY/RF
+> > error specific to your device (not all vendors follow the reference
+> > design). Maybe we should follow a blacklist/whitelist approach for
+> > this feature.
 > 
-> I mean benchmarks of some kind.
+> I got the results back from my tester. He was able to get scan results,
+> but it took multiple tries and the direct probe failures appear in the
+> log. He didn't enable ATH5K_DEBUG_RESET this time; let me know if you
+> need that and I'll request he retest with the extra debug logs enabled.
 
-I'm working on getting some benchmark results for the patches.  I should 
-hopefully have something in the next day or two.
+I got some more feedback. Most of the time iw does not get scan results,
+but even when it does connecting to the AP isn't always successful. The
+tester did note that he doesn't seem to have any trouble if his machine
+is within a few feet of his AP. Let me know if you'd like something else
+tested.
 
-Tom
-> 
-> > > > @@ -228,6 +237,12 @@ add_head:
-> > > >  	 * new available array entries. */
-> > > >  	
-> > > >  	virtio_wmb();
-> > > >  	vq->vring.avail->idx++;
-> > > > 
-> > > > +	/* If the driver never bothers to kick in a very long while,
-> > > > +	 * avail index might wrap around. If that happens, invalidate
-> > > > +	 * kicked_avail index we stored. TODO: make sure all drivers
-> > > > +	 * kick at least once in 2^16 and remove this. */
-> > > > +	if (unlikely(vq->vring.avail->idx == vq->kicked_avail))
-> > > > +		vq->kicked_avail_valid = true;
-> > > 
-> > > If they don't, they're already buggy.  Simply do:
-> > >         WARN_ON(vq->vring.avail->idx == vq->kicked_avail);
-> > 
-> > Hmm, but does it say that somewhere?
-> 
-> AFAICT it's a corollary of:
-> 1) You have a finite ring of size <= 2^16.
-> 2) You need to kick the other side once you've done some work.
-> 
-> > > > @@ -482,6 +517,8 @@ void vring_transport_features(struct
-> > > > virtio_device *vdev)
-> > > > 
-> > > >  			break;
-> > > >  		
-> > > >  		case VIRTIO_RING_F_USED_EVENT_IDX:
-> > > >  			break;
-> > > > 
-> > > > +		case VIRTIO_RING_F_AVAIL_EVENT_IDX:
-> > > > +			break;
-> > > > 
-> > > >  		default:
-> > > >  			/* We don't understand this bit. */
-> > > >  			clear_bit(i, vdev->features);
-> > > 
-> > > Does this belong in a prior patch?
-> > > 
-> > > Thanks,
-> > > Rusty.
-> > 
-> > Well if we don't support the feature in the ring we should not
-> > ack the feature, right?
-> 
-> Ah, you're right.
-> 
-> Thanks,
-> Rusty.
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I noticed that bugzilla #31922 (ath5k: Decreased throughput in IBSS or
+802.11n mode) is also fixed by reverting 8aec7af9. It seems like the
+synth-only channel changes are resulting in poor connection quality.
+Maybe that patch needs to be reverted?
+
+Thanks,
+Seth
