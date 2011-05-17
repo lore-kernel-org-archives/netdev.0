@@ -1,146 +1,234 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonce=20?=  =?UTF-8?Q?/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20nat=20?=  =?UTF-8?Q?=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
-Date: Wed, 18 May 2011 01:16:29 +0300
-Message-ID: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: add rcu protection to netdev->ifalias
+Date: Wed, 18 May 2011 00:18:12 +0200
+Message-ID: <1305670692.6741.14.camel@edumazet-laptop>
+References: <1303980967.3360.60.camel@edumazet-laptop>
+	 <20110428084337.6b54603e@nehalam>
+	 <20110502.152733.48516094.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, kaber@trash.net, netdev@vger.kernel.org,
+	remi.denis-courmont@nokia.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rev-153-13.globalproof.net ([194.146.153.13]:60690 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751984Ab1EQWQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:16:32 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:48840 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756583Ab1EQWSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:18:16 -0400
+Received: by wya21 with SMTP id 21so762658wya.19
+        for <netdev@vger.kernel.org>; Tue, 17 May 2011 15:18:15 -0700 (PDT)
+In-Reply-To: <20110502.152733.48516094.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Just got recently. 32Bit, PPPoE NAS, shapers, firewall, NAT
- Kernel i mention in subject, 2.6.39-rc7-git11
- If required i can give more information
+Le lundi 02 mai 2011 =C3=A0 15:27 -0700, David Miller a =C3=A9crit :
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 28 Apr 2011 08:43:37 -0700
+>=20
+> > On Thu, 28 Apr 2011 10:56:07 +0200
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >=20
+> >> Four years ago, Patrick made a change to hold rtnl mutex during ne=
+tlink
+> >> dump callbacks.
+> >>=20
+> >> I believe it was a wrong move. This slows down concurrent dumps, m=
+aking
+> >> good old /proc/net/ files faster than rtnetlink in some situations=
+=2E
+> >>=20
+> >> This occurred to me because one "ip link show dev ..." was _very_ =
+slow
+> >> on a workload adding/removing network devices in background.
+> >>=20
+> >> All dump callbacks are able to use RCU locking now, so this patch =
+does
+> >> roughly a revert of commits :
+> >>=20
+> >> 1c2d670f366 : [RTNETLINK]: Hold rtnl_mutex during netlink dump cal=
+lbacks
+> >> 6313c1e0992 : [RTNETLINK]: Remove unnecessary locking in dump call=
+backs
+> >>=20
+> >> This let writers fight for rtnl mutex and readers going full speed=
+=2E
+> >>=20
+> >> It also takes care of phonet : phonet_route_get() is now called fr=
+om rcu
+> >> read section. I renamed it to phonet_route_get_rcu()
+> >>=20
+> >> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >> Cc: Patrick McHardy <kaber@trash.net>
+> >> Cc: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+> >=20
+> > Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+> Applied, thanks everyone!
 
- sharanal (sorry for ugly name) is libpcap based traffic analyser, sure 
- userspace
+I think we probably have to make some fixes, because rtnl_fill_ifinfo()
+can access fields that were previously protected with RTNL
 
-  [44528.153869] BUG: unable to handle kernel NULL pointer dereference 
- at 0000001a
-  [44528.153869] IP: [<c02e8614>] cleanup_once+0x49/0x1cf
-  [44528.153869] *pdpt = 0000000034a73001 *pde = 0000000000000000
-  [44528.153869] Oops: 0002 [#1] SMP
-  [44528.153869] last sysfs file: 
- /sys/devices/system/cpu/cpu3/cache/index1/shared_cpu_map
-  [44528.153869] Modules linked in: nf_conntrack_netlink nfnetlink 
- ipt_LOG rtc_cmos rtc_core rtc_lib act_skbedit sch_ingress sch_prio 
- bridge cls_flow cls_u32 em_meta cls_basic xt_dscp ipt_REJECT xt_hl ifb 
- cls_fw sch_tbf sch_htb a
-  [44528.153869]
-  [44528.153869] Pid: 1744, comm: sharanal Not tainted 
- 2.6.39-rc7-git11-build-0058 #6 Intel                                  
- /SE7520BD2S
-  [44528.153869] EIP: 0060:[<c02e8614>] EFLAGS: 00010286 CPU: 1
-  [44528.153869] EIP is at cleanup_once+0x49/0x1cf
-  [44528.153869] EAX: dd378920 EBX: dd378900 ECX: 00000016 EDX: 06000001
-  [44528.153869] ESI: 00000000 EDI: e4b6a59c EBP: f5485b8c ESP: f5485b68
-  [44528.153869]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-  [44528.153869] Process sharanal (pid: 1744, ti=f5484000 task=f4c9b6c0 
- task.ti=f4fa4000)
-  [44528.153869] Stack:
-  [44528.153869]  f5485c6c f5485ba4 f5485ba4 00000013 f5485ba4 f5485b84 
- e4b6a500 f5485c6c
-  [44528.153869]  e4b6a59c f5485c50 c02e8b30 f5485bec f5485c58 00000000 
- c04602d4 c04602d4
-  [44528.153869]  e4252504 f0aecc04 e3ee3200 e8d1b200 efd0ab00 e489dc00 
- e422e900 e9b18100
-  [44528.153869] Call Trace:
-  [44528.153869]  [<c02e8b30>] inet_getpeer+0x2ab/0x2cf
-  [44528.153869]  [<c03080bc>] ? 
- icmp_route_lookup.clone.19.clone.20+0x197/0x1cb
-  [44528.153869]  [<c01320a5>] ? _local_bh_enable_ip.clone.6+0x18/0x71
-  [44528.153869]  [<c0132106>] ? local_bh_enable_ip+0x8/0xa
-  [44528.153869]  [<f88c0929>] ? nf_nat_setup_info+0x3b0/0x3db [nf_nat]
-  [44528.153869]  [<c0318591>] ? ipt_do_table+0x41c/0x437
-  [44528.153869]  [<c02e56a8>] inet_getpeer_v4+0x17/0x19
-  [44528.153869]  [<c02e7a72>] rt_bind_peer+0xe/0x39
-  [44528.153869]  [<c030818d>] icmpv4_xrlim_allow.clone.22+0x4b/0x5f
-  [44528.153869]  [<c03083d4>] icmp_send+0x203/0x282
-  [44528.153869]  [<f88b23aa>] ? ipv4_confirm+0x131/0x13e 
- [nf_conntrack_ipv4]
-  [44528.153869]  [<c030633b>] __udp4_lib_rcv+0x2d7/0x3f9
-  [44528.153869]  [<c02e2d25>] ? nf_iterate+0x52/0x65
-  [44528.153869]  [<c02e8efb>] ? xfrm4_policy_check.clone.10+0x47/0x47
-  [44528.153869]  [<c030646f>] udp_rcv+0x12/0x14
-  [44528.153869]  [<c02e8fc5>] ip_local_deliver_finish+0xca/0x171
-  [44528.153869]  [<c02e8efb>] ? xfrm4_policy_check.clone.10+0x47/0x47
-  [44528.153869]  [<c02e90b2>] NF_HOOK.clone.11+0x46/0x4d
-  [44528.153869]  [<c02e8efb>] ? xfrm4_policy_check.clone.10+0x47/0x47
-  [44528.153869]  [<c02e91b6>] ip_local_deliver+0x41/0x45
-  [44528.153869]  [<c02e8efb>] ? xfrm4_policy_check.clone.10+0x47/0x47
-  [44528.153869]  [<c02e8e92>] ip_rcv_finish+0x2b4/0x2d6
-  [44528.153869]  [<c02e8bde>] ? pskb_may_pull+0x30/0x30
-  [44528.153869]  [<c02e90b2>] NF_HOOK.clone.11+0x46/0x4d
-  [44528.153869]  [<c02e8bde>] ? pskb_may_pull+0x30/0x30
-  [44528.153869]  [<c02e93a0>] ip_rcv+0x1e6/0x21a
-  [44528.153869]  [<c02e8bde>] ? pskb_may_pull+0x30/0x30
-  [44528.153869]  [<c02c929d>] __netif_receive_skb+0x351/0x379
-  [44528.153869]  [<c02c93f5>] netif_receive_skb+0x46/0x4c
-  [44528.153869]  [<c02c9826>] ? __napi_gro_receive+0x9e/0xa6
-  [44528.153869]  [<c02c94b6>] napi_skb_finish+0x1e/0x34
-  [44528.153869]  [<c02c987d>] napi_gro_receive+0x20/0x24
-  [44528.153869]  [<f84e6516>] e1000_receive_skb+0x5a/0x62 [e1000]
-  [44528.153869]  [<f84e8ac9>] e1000_clean_rx_irq+0x28d/0x323 [e1000]
-  [44528.153869]  [<f84e845d>] e1000_clean+0x2cc/0x43e [e1000]
-  [44528.153869]  [<c02db37e>] ? qdisc_watchdog_schedule+0x39/0x3e
-  [44528.153869]  [<f8cd8221>] ? tbf_dequeue+0x1d/0x1b6 [sch_tbf]
-  [44528.153869]  [<c02b0d50>] ? dma_issue_pending_all+0x60/0x6e
-  [44528.153869]  [<c02c9961>] net_rx_action+0x86/0x139
-  [44528.153869]  [<c0132179>] __do_softirq+0x67/0xf3
-  [44528.153869]  [<c0132112>] ? local_bh_enable+0xa/0xa
-  [44528.153869]  <IRQ>
-  [44528.153869]  [<c0132362>] ? irq_exit+0x35/0x70
-  [44528.153869]  [<c0103d13>] ? do_IRQ+0x79/0x8d
-  [44528.153869]  [<c0132379>] ? irq_exit+0x4c/0x70
-  [44528.153869]  [<c011598a>] ? smp_apic_timer_interrupt+0x66/0x73
-  [44528.153869]  [<c0337c29>] ? common_interrupt+0x29/0x30
-  [44528.153869]  [<c033007b>] ? cpu_init+0x65/0x1c5
-  [44528.153869] Code: c8 02 46 c0 74 3a 8d 58 e0 8b 15 40 9a 44 c0 2b 
- 53 28 39 f2 73 0f b8 d0 02 46 c0 e8 6b e7 04 00 e9 81 01 00 00 8b 4b 20 
- 8b 53 24
-  9>[44528.153869]  51 04 89 0a 89 43 20 89 43 24 83 c0 0c e8 cd fd ff 
- ff eb 02
-  [44528.153869] EIP: [<c02e8614>] cleanup_once+0x49/0x1cf SS:ESP 
- 0068:f5485b68
-  [44528.153869] CR2: 000000000000001a
-  [44528.167278] ---[ end trace dd3639ec5ab2f01f ]---
-  [44528.167468] Kernel panic - not syncing: Fatal exception in 
- interrupt
-  [44528.167660] Pid: 1744, comm: sharanal Tainted: G      D     
- 2.6.39-rc7-git11-build-0058 #6
-  [44528.167992] Call Trace:
-  [44528.168190]  [<c0335548>] ? printk+0x18/0x20
-  [44528.168374]  [<c0335435>] panic+0x57/0x152
-  [44528.168567]  [<c0104e7a>] oops_end+0x92/0x9f
-  [44528.168759]  [<c011b95e>] no_context+0x151/0x159
-  [44528.168948]  [<c011ba72>] __bad_area_nosemaphore+0x10c/0x114
-  [44528.169154]  [<c02ca7df>] ? dev_hard_start_xmit+0x338/0x3f8
-  [44528.169353]  [<c011ba8c>] bad_area_nosemaphore+0x12/0x14
-  [44528.169544]  [<c011bd0c>] do_page_fault+0x12e/0x2ee
-  [44528.169737]  [<c021ba8f>] ? memcmp+0xe/0x25
-  [44528.169922]  [<c01320a5>] ? _local_bh_enable_ip.clone.6+0x18/0x71
-  [44528.170125]  [<c0132110>] ? local_bh_enable+0x8/0xa
-  [44528.170326]  [<c02d1a97>] ? neigh_lookup+0x8b/0x95
-  [44528.170517]  [<c011bbde>] ? vmalloc_sync_all+0x5/0x5
-  [44528.170713]  [<c03374da>] error_code+0x5a/0x60
-  [44528.170907]  [<c01300d8>] ? wait_consider_task+0x3f2/0x76f
-  [44528.171111]  [<c011bbde>] ? vmalloc_sync_all+0x5/0x5
-  [44528.171304]  [<c02e8614>] ? cleanup_once+0x49/0x1cf
-  [44528.171484]  [<c02e8b30>] inet_getpeer+0x2ab/0x2cf
-  [44528.171672]  [<c03080bc>] ? 
- icmp_route_lookup.clone.19.clone.20+0x197/0x1cb
-  [44528.171861]  [<c01320a5>] ? _local_bh_enable_ip.clone.6+0x18/0x71
-  [44528.172063]  [<c0132106>] ? local_bh_enable_ip+0x8/0xa
-  [44528.172262]  [<f88c0929>] ? nf_nat_setup_info+0x3b0/0x3db [nf_nat]
-  [44528.172445]  [<c0318591>] ? ipt_do_table+0x41c/0x437
-  [44528.172626]  [<c02e56a8>] inet_getpeer_v4+0x17/0x19
-  [44528.172809]  [<c02e7a72>] rt_bind_peer+0xe/0x39
-  [44528.172990]  [<c030818d>] icmpv4_xrlim_allow.clone.22+0x4b/0x5f
-  [44528.173196]  [<c03083d4>] icmp_send+0x203/0x282+++
+Let's see if it's doable, before considering re-adding rtnl_lock() in
+rtnl_dump_ifinfo() ?
+
+=46irst step : dev->ifalias
+
+Its late here, I'll continue the work tomorrow.
+
+Thanks
+
+[PATCH net-next-2.6] net: add rcu protection to netdev->ifalias
+
+Avoid holding RTNL in show_ifalias() and rtnl_fill_ifinfo() to
+manipulate netdev->ifalias
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/netdevice.h |    7 ++++++-
+ net/core/dev.c            |   28 ++++++++++++++++------------
+ net/core/net-sysfs.c      |   13 +++++++------
+ net/core/rtnetlink.c      |    8 ++++++--
+ 4 files changed, 35 insertions(+), 21 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a134d80..09b3df4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -980,6 +980,11 @@ struct net_device_ops {
+ 						    u32 features);
+ };
+=20
++struct ifalias {
++	struct rcu_head	rcu;
++	char		name[0];
++};
++
+ /*
+  *	The DEVICE structure.
+  *	Actually, this whole structure is a big mistake.  It mixes I/O
+@@ -1004,7 +1009,7 @@ struct net_device {
+ 	/* device name hash chain */
+ 	struct hlist_node	name_hlist;
+ 	/* snmp alias */
+-	char 			*ifalias;
++	struct ifalias __rcu 	*ifalias;
+=20
+ 	/*
+ 	 *	I/O specific fields
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 155de20..01e3be0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1035,6 +1035,12 @@ rollback:
+ 	return err;
+ }
+=20
++
++static void ifalias_kfree_rcu(struct rcu_head *head)
++{
++	kfree(container_of(head, struct ifalias, rcu));
++}
++
+ /**
+  *	dev_set_alias - change ifalias of a device
+  *	@dev: device
+@@ -1045,24 +1051,22 @@ rollback:
+  */
+ int dev_set_alias(struct net_device *dev, const char *alias, size_t le=
+n)
+ {
++	struct ifalias *ifalias, *new =3D NULL;
+ 	ASSERT_RTNL();
+=20
+ 	if (len >=3D IFALIASZ)
+ 		return -EINVAL;
+=20
+-	if (!len) {
+-		if (dev->ifalias) {
+-			kfree(dev->ifalias);
+-			dev->ifalias =3D NULL;
+-		}
+-		return 0;
++	ifalias =3D rtnl_dereference(dev->ifalias);
++	if (len) {
++		new =3D kmalloc(sizeof(*new) + len + 1, GFP_KERNEL);
++		if (!new)
++			return -ENOMEM;
++		strlcpy(new->name, alias, len + 1);
+ 	}
+-
+-	dev->ifalias =3D krealloc(dev->ifalias, len + 1, GFP_KERNEL);
+-	if (!dev->ifalias)
+-		return -ENOMEM;
+-
+-	strlcpy(dev->ifalias, alias, len+1);
++	if (ifalias)
++		call_rcu(&ifalias->rcu, ifalias_kfree_rcu);
++	rcu_assign_pointer(dev->ifalias, new);
+ 	return len;
+ }
+=20
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 1b12217..e2acf15 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -281,13 +281,14 @@ static ssize_t show_ifalias(struct device *dev,
+ 			    struct device_attribute *attr, char *buf)
+ {
+ 	const struct net_device *netdev =3D to_net_dev(dev);
++	struct ifalias *ifalias;
+ 	ssize_t ret =3D 0;
+=20
+-	if (!rtnl_trylock())
+-		return restart_syscall();
+-	if (netdev->ifalias)
+-		ret =3D sprintf(buf, "%s\n", netdev->ifalias);
+-	rtnl_unlock();
++	rcu_read_lock();
++	ifalias =3D rcu_dereference(netdev->ifalias);
++	if (ifalias)
++		ret =3D sprintf(buf, "%s\n", ifalias->name);
++	rcu_read_unlock();
+ 	return ret;
+ }
+=20
+@@ -1265,7 +1266,7 @@ static void netdev_release(struct device *d)
+=20
+ 	BUG_ON(dev->reg_state !=3D NETREG_RELEASED);
+=20
+-	kfree(dev->ifalias);
++	kfree(rcu_dereference_protected(dev->ifalias, 1));
+ 	kfree((char *)dev - dev->padded);
+ }
+=20
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d2ba259..c8f0a11 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -849,6 +849,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, st=
+ruct net_device *dev,
+ 	const struct rtnl_link_stats64 *stats;
+ 	struct nlattr *attr, *af_spec;
+ 	struct rtnl_af_ops *af_ops;
++	struct ifalias *ifalias;
+=20
+ 	nlh =3D nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
+ 	if (nlh =3D=3D NULL)
+@@ -879,8 +880,11 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, s=
+truct net_device *dev,
+ 	if (dev->qdisc)
+ 		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc->ops->id);
+=20
+-	if (dev->ifalias)
+-		NLA_PUT_STRING(skb, IFLA_IFALIAS, dev->ifalias);
++	rcu_read_lock();
++	ifalias =3D rcu_dereference(dev->ifalias);
++	if (ifalias)
++		NLA_PUT_STRING(skb, IFLA_IFALIAS, ifalias->name);
++	rcu_read_unlock();
+=20
+ 	if (1) {
+ 		struct rtnl_link_ifmap map =3D {
+
+
