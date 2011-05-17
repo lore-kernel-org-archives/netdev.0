@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 17:28:55 -0400 (EDT)
-Message-ID: <20110517.172855.2016870292390364232.davem@davemloft.net>
-References: <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
-	<20110517.164929.1737248436066795381.davem@davemloft.net>
-	<BANLkTin3hRwB39LGfOSxet61Cdm3F1MsKg@mail.gmail.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH net-next-2.6] sfc: Replace enum efx_fc_type with a
+ 'bitwise' type
+Date: Tue, 17 May 2011 23:30:25 +0200
+Message-ID: <BANLkTin1BjwyubQzZ9UrzK-fBej3AxZ5Ww@mail.gmail.com>
+References: <1305658121.2848.29.camel@bwh-desktop> <20110517.152651.1785846817320651943.davem@davemloft.net>
+ <1305666379.2848.45.camel@bwh-desktop> <20110517.171412.1017451005914294196.davem@davemloft.net>
+ <1305667378.1722.65.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35561 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932335Ab1EQV26 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:28:58 -0400
-In-Reply-To: <BANLkTin3hRwB39LGfOSxet61Cdm3F1MsKg@mail.gmail.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:65262 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932307Ab1EQVaq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:30:46 -0400
+Received: by qwk3 with SMTP id 3so488003qwk.19
+        for <netdev@vger.kernel.org>; Tue, 17 May 2011 14:30:45 -0700 (PDT)
+In-Reply-To: <1305667378.1722.65.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Tom Herbert <therbert@google.com>
-Date: Tue, 17 May 2011 14:27:10 -0700
+2011/5/17 Joe Perches <joe@perches.com>:
+> On Tue, 2011-05-17 at 17:14 -0400, David Miller wrote:
+>> Accept that the compiler currently doesn't want to allow enums to be
+>> used as bit-masks, don't paper around it.
+> A patch applied yesterday using enums as bitmasks:
+> http://patchwork.ozlabs.org/patch/95802/
 
->> Actually, I think it won't work. =A0Even Linux emits fragments last =
-to
->> first, so we won't see the UDP header until the last packet where it=
-'s
->> no longer useful.
->>
-> I remember observing this a while back, what's the rationale for it?
+The compiler warning is about using enum-masks in switch() statement,
+IIRC. In this case it might be enough to just add the mask to the
+enum.
 
-That's the cheapest way to build the fragments.
-
-Regardless of the reason we have to handle it forever.
+Best Regards,
+Micha=B3 Miros=B3aw
