@@ -1,79 +1,75 @@
-From: David Lamparter <equinox-cEeocvCgqOOsTnJN9+BGXg@public.gmane.org>
-Subject: Re: [PATCH 0/7] Network namespace manipulation with file descriptors
-Date: Tue, 17 May 2011 13:11:48 +0200
-Message-ID: <20110517111148.GA3762520@jupiter.n2.diac24.net>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-	<3A54AB469A0294933EAC2257@nimrod.local>
-	<m1fwoqoapn.fsf@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
+Date: Tue, 17 May 2011 14:20:23 +0200
+Message-ID: <1305634823.2850.90.camel@edumazet-laptop>
+References: <1305618020-72535-1-git-send-email-tsunanet@gmail.com>
+	 <1305618020-72535-2-git-send-email-tsunanet@gmail.com>
+	 <1305619677.2850.11.camel@edumazet-laptop>
+	 <e6b52d895fca947b4cce2896d593619b@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <m1fwoqoapn.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Benoit Sigoure <tsunanet@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e6b52d895fca947b4cce2896d593619b@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 07, 2011 at 07:18:44AM -0700, Eric W. Biederman wrote:
-> You can read the processes network namespace by opening
-> /proc/<pid>/ns/net.  Unfortunately comparing the network
-> namespaces for identity is another matter.  You will probably
-> be better off simply forcing the routing daemon to start
-> in the desired network namespace in it's initscript.
-> 
-> For purposes of clarity please have a look at my work in
-> progress patch for iproute2.  This demonstrates how I expect
-> userspace to work in a multi-network namespace world.
-> 
-[...]
-> Subject: [PATCH] iproute2:  Add processless netnwork namespace support.
-[...]
-> Configuration specific to a network namespace that
-> would ordinarily be stored under /etc/ is stored under
-> /etc/netns/<name>.  For example if the dns server
-> configuration is different for your vpn you would
-> create a file /etc/netns/myvpn/resolv.conf.
-> 
-> File descriptors that can be used to manipulate a
-> network namespace can be created by opening
-> /var/run/netns/<NAME>.
-> 
-> This adds the following commands to iproute.
-> ip netns add NAME
-> ip netns delete NAME
-> ip netns monitor
-> ip netns list
-> ip netns exec NAME cmd ....
-> ip link set DEV netns NAME
+Le mardi 17 mai 2011 =C3=A0 13:02 +0200, Hagen Paul Pfeifer a =C3=A9cri=
+t :
+> On Tue, 17 May 2011 10:07:57 +0200, Eric Dumazet wrote:
+>=20
+> > I wont discuss if introducing a new sysctl is welcomed, only on pat=
+ch
+> > issues. I believe some work in IETF is done to reduce the 3sec valu=
+e to
+> > 1sec anyway.
+>=20
+> Why not?=20
 
-funny, this is almost exactly what my code does - though you're probably
-doing it better and have more features ;)
-http://git.spaceboyz.net/equinox/vrf-tools.git/
-git://spaceboyz.net/equinox/vrf-tools.git
+Just because I let this point to David and others. I personally dont
+care that much.
 
-It currently forks off a daemon to keep the namespace open; attaching is
-not possible yet, but opening a socket in a different namespace is.
+> I though all new knobs in this area should be done on a per route
+> metric so it can be controlled on a per path basis. RTO should be
+> adjustable on a per path basis, because it depends on the path.
+>=20
 
-Most of the actual management (mounting things & co.) I offloaded to
-some shell scripts; I use it together with GNU screen (which makes it
-very nice to grab one of the namespaces and start/stop/manage/...
-things).
+Adding many knobs to each clone had a huge cost on previous kernels.
+(Think some machines have millions entries in IP route cache), this use=
+d
+quite a lot of memory.
 
-I also have patches for OpenVPN and pptpd floating around that make it
-possible to 'cross' namespace boundaries, i.e. the VPN servers listen in
-one namespace and have their devices in another.
+With latest David work, we'll consume less ram, because we can now shar=
+e
+settings, instead of copying them on each dst entry.
 
 
--David
+
+> Some months back [1] I posted a patch to enable/disable TCP quick ack
+> mode, which has nothing to do with network paths, just with a local s=
+erver
+> policy. But David rejected the patch with the argument that I should =
+use a
+> per path knob (this is a little bit inapprehensible for me, but David=
+ has
+> the last word).
+
+Well, if nobody speaks after David, he has the last word indeed.
+
+BTW, I remember Stephen actually asked the per route thing, not David.
+
+http://kerneltrap.org/mailarchive/linux-netdev/2010/8/23/6283641
+
+Then David also stated it :
+
+http://kerneltrap.org/mailarchive/linux-netdev/2010/8/23/6283678
+
+If you really want tcp_quickack thing you really should do it as
+requested by both Stephen & David ;)
+
+Unfortunately, I dont know if its really needed or worthwhile.
