@@ -1,64 +1,57 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 15:42:48 -0700
-Message-ID: <1305672168.8149.966.camel@tardy>
-References: <20110517.143342.1566027350038182221.davem@davemloft.net>
-	 <20110517.174431.1004332995189918916.davem@davemloft.net>
-	 <m262p9yp5f.fsf@firstfloor.org>
-	 <20110517.175044.2057517197524794568.davem@davemloft.net>
-Reply-To: rick.jones2@hp.com
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in netdevice
+Date: Wed, 18 May 2011 00:58:00 +0200
+Message-ID: <BANLkTik6aqP5BVrQNFKrnU3v=KA9ip1RoA@mail.gmail.com>
+References: <1305574128.3456.23.camel@localhost.localdomain>
+ <1305574518.2885.25.camel@bwh-desktop> <1305574680.3456.33.camel@localhost.localdomain>
+ <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com>
+ <1305588738.3456.65.camel@localhost.localdomain> <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
+ <1305671318.10756.49.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:1609 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932399Ab1EQWmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:42:50 -0400
-In-Reply-To: <20110517.175044.2057517197524794568.davem@davemloft.net>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:50371 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932485Ab1EQW6V convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:58:21 -0400
+In-Reply-To: <1305671318.10756.49.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-17 at 17:50 -0400, David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Tue, 17 May 2011 14:48:28 -0700
-> 
-> > David Miller <davem@davemloft.net> writes:
-> > 
-> >> Guys we can't time out fragments if we are not the final
-> >> destination.
-> > 
-> > If you're not the final destination you should never even
-> > try to reassemble them?
-> > 
-> > I'm probably missing something...
-> 
-> We're discussing the idea to do the defragmentation first
-> so we can choose the flow properly and steer the packet
-> to the correct cpu.
-> 
-> This also would allos each fragmented packet to traverse the
-> stack only once (one route lookup etc.) instead of once per
-> fragment.
-> 
-> Please read the rest of this thread, we have discussed this
-> and now I'm repeating information solely for your benefit.
+W dniu 18 maja 2011 00:28 u=BFytkownik Shirley Ma <mashirle@us.ibm.com>=
+ napisa=B3:
+> On Tue, 2011-05-17 at 23:48 +0200, Micha=B3 Miros=B3aw wrote:
+>> 2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
+>> > Looks like to use a new flag requires more time/work. I am thinkin=
+g
+>> > whether we can just use HIGHDMA flag to enable zero-copy in macvta=
+p
+>> to
+>> > avoid the new flag for now since mavctap uses real NICs as lower
+>> device?
+>>
+>> Is there any other restriction besides requiring driver to not recyc=
+le
+>> the skb? Are there any drivers that recycle TX skbs?
+> Not more other restrictions, skb clone is OK. pskb_expand_head() look=
+s
+> OK to me from code review.
 
-Well, I should probably be beaten with that stick too because I wasn't
-thinking about forwarding, only being the destination system when I
-broached the suggestion of doing RFS after reassembly.  I can see where
-one *might* be able to do limited RPS when forwarding, but I didn't know
-that RFS had been extended to forwarding.
+> Currently there is no drivers recycle TX skbs.
 
-Now though I see why you were rightfully concerned about timeouts -
-given all the concerns about added latency from bufferbloat, I wouldn't
-think that an additional 10 or perhaps even 1ms timeout on a reassembly
-attempt to get the layer four header when forwarding would sit well with
-folks - they will expect the fragments to flow through without
-additional delay.
+So why do you require the target device to have some flags at all?
 
-rick jones
+Do I understand correctly, that this zero-copy feature is about
+packets received from VMs?
 
-
+Best Regards,
+Micha=B3 Miros=B3aw
