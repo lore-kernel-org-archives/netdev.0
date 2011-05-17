@@ -1,57 +1,35 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] sk-filter:  Rate-limit WARNing, print dbg info.
-Date: Tue, 17 May 2011 11:52:29 -0700
-Message-ID: <1305658349.1722.30.camel@Joe-Laptop>
-References: <1305657014-32736-1-git-send-email-greearb@candelatech.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: sfc: an enumeration is not a bitmask
+Date: Tue, 17 May 2011 14:57:03 -0400
+Message-ID: <BANLkTi=n_0JiF0Lm=+1OwRzB4XQFBtg8KA@mail.gmail.com>
+References: <20110517.141446.140687548350861625.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Content-Type: text/plain; charset=UTF-8
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1716 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756235Ab1EQSwb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2011 14:52:31 -0400
-In-Reply-To: <1305657014-32736-1-git-send-email-greearb@candelatech.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:34274 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756345Ab1EQS5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:57:04 -0400
+Received: by gxk21 with SMTP id 21so270285gxk.19
+        for <netdev@vger.kernel.org>; Tue, 17 May 2011 11:57:04 -0700 (PDT)
+In-Reply-To: <20110517.141446.140687548350861625.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-17 at 11:30 -0700, greearb@candelatech.com wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> A mis-configured filter can spam the logs with
-> lots of stack traces.  Rate-limit the warnings
-> and add printout of the bogus filter information.
-> -			WARN_ON(1);
-> +			if (net_ratelimit()) {
-> +				pr_err("filter: Unknown code: %hu jt: %u tf: %u"
-> +				       " k: %u\n",
-> +				       fentry->code, (unsigned int)(fentry->jt),
-> +				       (unsigned int)(fentry->jf), fentry->k);
-> +				WARN_ON(1);
-> +			}
+2011/5/17 David Miller <davem@davemloft.net>:
+> An enumeration is not a bitmask, instead it means one out of the set
+> of enumerated values will be used.
 
-Maybe just using WARN is better.
-I believe the casts aren't necessary.
+It's a decade-old kernel practice to use 'enum' to define typed
+constants, preferred over  macros that convey no type information and
+disappear after cpp phase.
 
- net/core/filter.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+So your assertion about enumerations is demonstrably not true, as it
+is often used in the kernel.  Call it enum abuse if you want, but it
+is consistent with code all over the kernel.
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 0eb8c44..5b967d0 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -350,7 +350,10 @@ load_b:
- 			continue;
- 		}
- 		default:
--			WARN_ON(1);
-+			if (net_ratelimit())
-+				WARN(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
-+				     fentry->code, fentry->jt,
-+				     fentry->jf, fentry->k);
- 			return 0;
- 		}
- 	}
+That said, I agree that warnings should of course be addressed in some manner.
 
-
+    Jeff
