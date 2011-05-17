@@ -1,47 +1,37 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
- netdevice
-Date: Tue, 17 May 2011 09:21:11 +0300
-Message-ID: <20110517062111.GD26989@redhat.com>
-References: <1305574128.3456.23.camel@localhost.localdomain>
- <1305574518.2885.25.camel@bwh-desktop>
- <1305574680.3456.33.camel@localhost.localdomain>
- <1305575253.2885.28.camel@bwh-desktop>
- <20110516211459.GE18148@redhat.com>
- <1305588738.3456.65.camel@localhost.localdomain>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH] CDC NCM: release interfaces fix in unbind()
+Date: Tue, 17 May 2011 08:26:42 +0200
+Message-ID: <201105170826.42212.oneukum@suse.de>
+References: <1305491307-6548-1-git-send-email-alexey.orishko@stericsson.com> <20110516.151302.89070822321885499.davem@davemloft.net> <2AC7D4AD8BA1C640B4C60C61C8E520153E3A93E8EE@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16501 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751841Ab1EQGVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2011 02:21:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1305588738.3456.65.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"gregkh-l3A5Bk7waGM@public.gmane.org" <gregkh-l3A5Bk7waGM@public.gmane.org>
+To: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520153E3A93E8EE-8ZTw5gFVCTjVH5byLeRTJxkTb7+GphCuwzqs5ZKRSiY@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2011 at 04:32:18PM -0700, Shirley Ma wrote:
-> Hello Michael,
-> 
-> Looks like to use a new flag requires more time/work.
-> I am thinking
-> whether we can just use HIGHDMA flag to enable zero-copy in macvtap to
-> avoid the new flag for now since mavctap uses real NICs as lower device?
-> 
-> Thanks
-> Shirley
+Am Dienstag, 17. Mai 2011, 02:52:34 schrieb Alexey ORISHKO:
 
-Problem is, in your patch there are a set of restrictions on what the
-device can do with the skb that we need to enforce somehow.
-Also, how do we know it's a 'real NIC' and not a software device?
+> Some confusion was added by other driver code that handles crippled
+> devices, which mix ctrl and data interfaces... Shall not be the case here.
+> I see, that some clean up can be done and "xxx_claimed" fields in context
+> structure can be removed, so will post a new version of patch shortly.
 
--- 
-MST
+This code is a bit tricky in those drivers because you cannot assume a certain
+order of calls to disconnect() w.r.t. the interfaces. If you claim multiple
+interfaces, you need to release all other interfaces, as soon as any interface
+is disconnected.
+
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
