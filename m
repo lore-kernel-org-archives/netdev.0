@@ -1,108 +1,47 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 09/18] virtio: use avail_event index
-Date: Tue, 17 May 2011 09:10:31 +0300
-Message-ID: <20110517061031.GC26989@redhat.com>
-References: <cover.1304541918.git.mst@redhat.com>
-	<8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
-	<874o54h4rt.fsf@rustcorp.com.au>
-	<20110515135541.GF24932@redhat.com>
-	<87ei3zdsq2.fsf@rustcorp.com.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Tue, 17 May 2011 09:21:11 +0300
+Message-ID: <20110517062111.GD26989@redhat.com>
+References: <1305574128.3456.23.camel@localhost.localdomain>
+ <1305574518.2885.25.camel@bwh-desktop>
+ <1305574680.3456.33.camel@localhost.localdomain>
+ <1305575253.2885.28.camel@bwh-desktop>
+ <20110516211459.GE18148@redhat.com>
+ <1305588738.3456.65.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:16501 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751841Ab1EQGVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 02:21:20 -0400
 Content-Disposition: inline
-In-Reply-To: <87ei3zdsq2.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1305588738.3456.65.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2011 at 04:42:21PM +0930, Rusty Russell wrote:
-> On Sun, 15 May 2011 16:55:41 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > On Mon, May 09, 2011 at 02:03:26PM +0930, Rusty Russell wrote:
-> > > On Wed, 4 May 2011 23:51:47 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > > > Use the new avail_event feature to reduce the number
-> > > > of exits from the guest.
-> > > 
-> > > Figures here would be nice :)
-> > 
-> > You mean ASCII art in comments?
+On Mon, May 16, 2011 at 04:32:18PM -0700, Shirley Ma wrote:
+> Hello Michael,
 > 
-> I mean benchmarks of some kind.
-
-:)
-
-> > 
-> > > > @@ -228,6 +237,12 @@ add_head:
-> > > >  	 * new available array entries. */
-> > > >  	virtio_wmb();
-> > > >  	vq->vring.avail->idx++;
-> > > > +	/* If the driver never bothers to kick in a very long while,
-> > > > +	 * avail index might wrap around. If that happens, invalidate
-> > > > +	 * kicked_avail index we stored. TODO: make sure all drivers
-> > > > +	 * kick at least once in 2^16 and remove this. */
-> > > > +	if (unlikely(vq->vring.avail->idx == vq->kicked_avail))
-> > > > +		vq->kicked_avail_valid = true;
-> > > 
-> > > If they don't, they're already buggy.  Simply do:
-> > >         WARN_ON(vq->vring.avail->idx == vq->kicked_avail);
-> > 
-> > Hmm, but does it say that somewhere?
+> Looks like to use a new flag requires more time/work.
+> I am thinking
+> whether we can just use HIGHDMA flag to enable zero-copy in macvtap to
+> avoid the new flag for now since mavctap uses real NICs as lower device?
 > 
-> AFAICT it's a corollary of:
-> 1) You have a finite ring of size <= 2^16.
-> 2) You need to kick the other side once you've done some work.
+> Thanks
+> Shirley
 
-Well one can imagine a driver doing:
+Problem is, in your patch there are a set of restrictions on what the
+device can do with the skb that we need to enforce somehow.
+Also, how do we know it's a 'real NIC' and not a software device?
 
-	while (virtqueue_get_buf()) {
-		virtqueue_add_buf()
-	}
-	virtqueue_kick()
-
-which looks sensible (batch kicks) but might
-process any number of bufs between kicks.
-
-If we look at drivers closely enough, I think none
-of them do the equivalent of the above, but not 100% sure.
-
-
-> > > > @@ -482,6 +517,8 @@ void vring_transport_features(struct virtio_device *vdev)
-> > > >  			break;
-> > > >  		case VIRTIO_RING_F_USED_EVENT_IDX:
-> > > >  			break;
-> > > > +		case VIRTIO_RING_F_AVAIL_EVENT_IDX:
-> > > > +			break;
-> > > >  		default:
-> > > >  			/* We don't understand this bit. */
-> > > >  			clear_bit(i, vdev->features);
-> > > 
-> > > Does this belong in a prior patch?
-> > > 
-> > > Thanks,
-> > > Rusty.
-> > 
-> > Well if we don't support the feature in the ring we should not
-> > ack the feature, right?
-> 
-> Ah, you're right.
-> 
-> Thanks,
-> Rusty.
+-- 
+MST
