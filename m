@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: sfc-next-2.6 2011-05-17
-Date: Tue, 17 May 2011 14:00:37 -0400 (EDT)
-Message-ID: <20110517.140037.1356768720837613445.davem@davemloft.net>
-References: <1305647988.2848.14.camel@bwh-desktop>
+Subject: sfc: an enumeration is not a bitmask
+Date: Tue, 17 May 2011 14:14:46 -0400 (EDT)
+Message-ID: <20110517.141446.140687548350861625.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
 To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45624 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35487 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756130Ab1EQSAl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:00:41 -0400
-In-Reply-To: <1305647988.2848.14.camel@bwh-desktop>
+	with ESMTP id S1755908Ab1EQSOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:14:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 17 May 2011 16:59:48 +0100
-
-> The following changes since commit 7be799a70ba3dd90a59e8d2c72bbe06020005b3f:
-> 
->   ipv4: Remove rt->rt_dst reference from ip_forward_options(). (2011-05-13 17:31:02 -0400)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git master
-> 
-> Miscellaneous bug fixes.
-
-Pulled, thanks Ben.
+DQpCZW4gY2FuIHlvdSBwbGVhc2UgZ2V0IHJpZCBvZiAiZW51bSBlZnhfZmNfdHlwZSI/DQoNCmRy
+aXZlcnMvbmV0L3NmYy9tY2RpX21hYy5jOiBJbiBmdW5jdGlvbiChZWZ4X21jZGlfc2V0X21hY6I6
+DQpkcml2ZXJzL25ldC9zZmMvbWNkaV9tYWMuYzozNjoyOiB3YXJuaW5nOiBjYXNlIHZhbHVlIKEz
+oiBub3QgaW4gZW51bWVyYXRlZCB0eXBlIKFlbnVtIGVmeF9mY190eXBlog0KDQpBbiBlbnVtZXJh
+dGlvbiBpcyBub3QgYSBiaXRtYXNrLCBpbnN0ZWFkIGl0IG1lYW5zIG9uZSBvdXQgb2YgdGhlIHNl
+dA0Kb2YgZW51bWVyYXRlZCB2YWx1ZXMgd2lsbCBiZSB1c2VkLiAgVGhpcyBtZWFucyB0aGF0IHRo
+ZSB3YXJuaW5nDQpoZXJlIGFib3V0Og0KDQoJc3dpdGNoIChlZngtPndhbnRlZF9mYykgew0KCWNh
+c2UgRUZYX0ZDX1JYIHwgRUZYX0ZDX1RYOg0KDQppcyBjb21wbGV0ZWx5IGxlZ2l0aW1hdGUuDQoN
+ClRoYW5rcy4NCg==
