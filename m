@@ -1,74 +1,111 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 22:13:42 +0100
-Message-ID: <1305666822.2848.51.camel@bwh-desktop>
-References: <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
-	 <20110517.164929.1737248436066795381.davem@davemloft.net>
-	 <1305666050.2691.4.camel@edumazet-laptop>
-	 <20110517.171000.1166144155994185790.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: RFC: Add WARN_RATELIMIT to bug.h (was: Re: [PATCH] sk-filter:
+ Rate-limit WARNing, print dbg info.)
+Date: Tue, 17 May 2011 14:13:52 -0700
+Message-ID: <1305666832.1722.62.camel@Joe-Laptop>
+References: <1305657014-32736-1-git-send-email-greearb@candelatech.com>
+	 <1305658349.1722.30.camel@Joe-Laptop>
+	 <20110517.152357.85105240786269960.davem@davemloft.net>
+	 <4DD2CDA9.7000009@candelatech.com> <1305662020.1722.42.camel@Joe-Laptop>
+	 <4DD2DB9D.6050306@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, linux-arch@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>, Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:5627 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932296Ab1EQVNp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:13:45 -0400
-In-Reply-To: <20110517.171000.1166144155994185790.davem@davemloft.net>
+Received: from mail.perches.com ([173.55.12.10]:1724 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932296Ab1EQVNx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 17:13:53 -0400
+In-Reply-To: <4DD2DB9D.6050306@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-17 at 17:10 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 17 May 2011 23:00:50 +0200
->=20
-> > Le mardi 17 mai 2011 =C3=A0 16:49 -0400, David Miller a =C3=A9crit =
-:
-> >> From: Tom Herbert <therbert@google.com>
-> >> Date: Tue, 17 May 2011 13:02:25 -0700
-> >>=20
-> >> > I like it!  And this sounds like the sort of algorithm that NICs=
- might
-> >> > be able to implement to solve the UDP/RSS unpleasantness, so eve=
-n
-> >> > better.
-> >>=20
-> >> Actually, I think it won't work.  Even Linux emits fragments last =
-to
-> >> first, so we won't see the UDP header until the last packet where =
-it's
-> >> no longer useful.
-> >>=20
-> >> Back to the drawing board. :-/
-> >=20
-> > Well, we could just use the iph->id in the rxhash computation for f=
-rags.
-> >=20
-> > At least all frags of a given datagram should be reassembled on sam=
-e
-> > cpu, so we get RPS (but not RFS)
->=20
-> That's true, but one could also argue that in the existing code at le=
-ast
-> one of the packets (the one with the UDP header) would make it to the
-> proper flow cpu.
+On Tue, 2011-05-17 at 13:33 -0700, Ben Greear wrote:
+> On 05/17/2011 12:53 PM, Joe Perches wrote:
+> > Another option is to add a WARN_RATELIMIT
+> > (there is already a WARN_ON_RATELIMIT) to avoid
+> > missing other messages.
+> > Something like:
+> >   include/asm-generic/bug.h |   16 ++++++++++++++++
+> >   net/core/filter.c         |    4 +++-
+> >   2 files changed, 19 insertions(+), 1 deletions(-)
+> > diff --git a/include/asm-generic/bug.h b/include/asm-generic/bug.h
+> > index e5a3f58..12b250c 100644
+> > --- a/include/asm-generic/bug.h
+> > +++ b/include/asm-generic/bug.h
+> > @@ -165,6 +165,22 @@ extern void warn_slowpath_null(const char *file, const int line);
+> >   #define WARN_ON_RATELIMIT(condition, state)			\
+> >   		WARN_ON((condition)&&  __ratelimit(state))
+> >
+> > +#define __WARN_RATELIMIT(condition, state, format...)		\
+> > +({								\
+> > +	int rtn = 0;						\
+> > +	if (unlikely(__ratelimit(state)))			\
+> > +		rtn = WARN(condition, format);			\
+> > +	rtn;							\
+> > +})
+> > +
+> > +#define WARN_RATELIMIT(condition, format...)			\
+> > +({								\
+> > +	static DEFINE_RATELIMIT_STATE(_rs,			\
+> > +				      DEFAULT_RATELIMIT_INTERVAL,	\
+> > +				      DEFAULT_RATELIMIT_BURST);	\
+> > +	__WARN_RATELIMIT(condition,&_rs, format);		\
+> > +})
+> > +
+> >   /*
+> >    * WARN_ON_SMP() is for cases that the warning is either
+> >    * meaningless for !SMP or may even cause failures.
+> > diff --git a/net/core/filter.c b/net/core/filter.c
+> > index 0eb8c44..0e3622f 100644
+> > --- a/net/core/filter.c
+> > +++ b/net/core/filter.c
+> > @@ -350,7 +350,9 @@ load_b:
+> >   			continue;
+> >   		}
+> >   		default:
+> > -			WARN_ON(1);
+> > +			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
+> > +				       fentry->code, fentry->jt,
+> > +				       fentry->jf, fentry->k);
+> >   			return 0;
+> >   		}
+> >   	}
+> >
 
-No, we ignore the layer-4 header when either MF or OFFSET is non-zero.
+> Sounds fine to me.  You want to just send an official
+> patch with all this?
 
-Ben.
+I added a some cc's for wider exposure.
+original post: http://www.spinics.net/lists/netdev/msg164521.html
 
-> That could be as much as half of the packets.
->=20
-> So I don't yet see it as a clear win.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Let's wait to see if David has anything to say.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The biggest negative I see is adding RATELIMIT_STATE
+to asm-generic/bug.h, though it already has a use of
+__ratelimit in WARN_ON_RATELIMIT there.
+
+WARN_ON_RATELIMIT is unused today.
+
+The only user seems to have been RCU_PREEMPT
+which was deleted in:
+
+commit 6b3ef48adf847f7adf11c870e3ffacac150f1564
+Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Date:   Sat Aug 22 13:56:53 2009 -0700
+
+    rcu: Remove CONFIG_PREEMPT_RCU
+
+Maybe the old definition should be removed instead.
+
+If there are no comments after a day or two, I'll
+sign and send this as 2 patches with the filter
+one marked as:
+
+Original-patch-by: Ben Greear <greearb@candelatech.com>
+
+cheers, Joe
 
