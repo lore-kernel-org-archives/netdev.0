@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] netfilter: SIP conntrack fixes
-Date: Tue, 17 May 2011 14:18:30 -0400 (EDT)
-Message-ID: <20110517.141830.2292913195856431580.davem@davemloft.net>
-References: <1305610014-3056-1-git-send-email-kaber@trash.net>
+Subject: Re: sfc: an enumeration is not a bitmask
+Date: Tue, 17 May 2011 14:23:50 -0400 (EDT)
+Message-ID: <20110517.142350.81148594119844192.davem@davemloft.net>
+References: <20110517.141446.140687548350861625.davem@davemloft.net>
+	<1305656319.2848.28.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39570 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38689 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756015Ab1EQSTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:19:36 -0400
-In-Reply-To: <1305610014-3056-1-git-send-email-kaber@trash.net>
+	with ESMTP id S1756065Ab1EQSXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:23:53 -0400
+In-Reply-To: <1305656319.2848.28.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Tue, 17 May 2011 07:26:52 +0200
-
-> following are two fixes for the SIP connection tracking helper:
-> 
-> - missing validation of the Content-Length field, which is used to calculate
->   the end of the SDP body
-> 
-> - incorrect parsing of the SIP message, resulting in a failure to locate
->   the SDP body when the Content-Length field is not the last member of the
->   SIP message
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
-
-Pulled, thanks Patrick.
+RnJvbTogQmVuIEh1dGNoaW5ncyA8Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbT4NCkRhdGU6IFR1
+ZSwgMTcgTWF5IDIwMTEgMTk6MTg6MzkgKzAxMDANCg0KPiBPbiBUdWUsIDIwMTEtMDUtMTcgYXQg
+MTQ6MTQgLTA0MDAsIERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEJlbiBjYW4geW91IHBsZWFzZSBn
+ZXQgcmlkIG9mICJlbnVtIGVmeF9mY190eXBlIj8NCj4+IA0KPj4gZHJpdmVycy9uZXQvc2ZjL21j
+ZGlfbWFjLmM6IEluIGZ1bmN0aW9uIKFlZnhfbWNkaV9zZXRfbWFjojoNCj4+IGRyaXZlcnMvbmV0
+L3NmYy9tY2RpX21hYy5jOjM2OjI6IHdhcm5pbmc6IGNhc2UgdmFsdWUgoTOiIG5vdCBpbiBlbnVt
+ZXJhdGVkIHR5cGUgoWVudW0gZWZ4X2ZjX3R5cGWiDQo+PiANCj4+IEFuIGVudW1lcmF0aW9uIGlz
+IG5vdCBhIGJpdG1hc2ssIGluc3RlYWQgaXQgbWVhbnMgb25lIG91dCBvZiB0aGUgc2V0DQo+PiBv
+ZiBlbnVtZXJhdGVkIHZhbHVlcyB3aWxsIGJlIHVzZWQuICBUaGlzIG1lYW5zIHRoYXQgdGhlIHdh
+cm5pbmcNCj4+IGhlcmUgYWJvdXQ6DQo+PiANCj4+IAlzd2l0Y2ggKGVmeC0+d2FudGVkX2ZjKSB7
+DQo+PiAJY2FzZSBFRlhfRkNfUlggfCBFRlhfRkNfVFg6DQo+PiANCj4+IGlzIGNvbXBsZXRlbHkg
+bGVnaXRpbWF0ZS4NCj4gDQo+IEkgdGhpbmsgdGhpcyBpcyBjb21tb24gcHJhY3RpY2UgaW4gQy4g
+IEkgZmlsZWQgYSBidWcgcmVnYXJkaW5nIHRoZQ0KPiB3YXJuaW5nIGF0IDxodHRwOi8vZ2NjLmdu
+dS5vcmcvYnVnemlsbGEvc2hvd19idWcuY2dpP2lkPTQ2NDU3Piwgd2hpY2gNCj4gaGFzIG5vdCB5
+ZXQgYmVlbiByZXNvbHZlZCBlaXRoZXIgd2F5Lg0KDQpJJ3ZlIGJlZW4gc2VlaW5nIHRoaXMgd2Fy
+bmluZyBmb3IgYXQgbGVhc3QgYSB5ZWFyLCBpdCBjb3VsZCB0YWtlIHlldA0KYW5vdGhlciB5ZWFy
+IGJlZm9yZSBpdCdzICJyZXNvbHZlZCIgaW4gYSB3YXkgdGhhdCBwZW9wbGUgd2lsbCBzZWUgdGhl
+DQp3YXJuaW5nIGdvIGF3YXkgb24gdGhlaXIgY29tcHV0ZXJzLCBtb3JlIGxpa2VseSBsb25nZXIu
+DQoNCkknbSBub3Qgd2FpdGluZyBhIHllYXIsIG9yIG1vcmUsIGZvciBzb21ldGhpbmcgYXMgdHJp
+dmlhbCBhcyB0aGlzDQp3YXJuaW5nIHRvIGdldCBjdXJlZCwgcGxlYXNlIGZpeCB0aGlzIHRoZSB3
+YXkgdGhhdCBJIGFza2VkLg0KDQpUaGFua3MuDQo=
