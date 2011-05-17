@@ -1,114 +1,44 @@
-From: Micha Nelissen <micha@neli.hopto.org>
-Subject: [PATCH v2] ipconfig wait for carrier
-Date: Tue, 17 May 2011 23:48:53 +0200
-Message-ID: <1305668933-6006-1-git-send-email-micha@neli.hopto.org>
-References: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
-Cc: Micha Nelissen <micha@neli.hopto.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: small RPS cache for fragments?
+Date: Tue, 17 May 2011 17:50:44 -0400 (EDT)
+Message-ID: <20110517.175044.2057517197524794568.davem@davemloft.net>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	<20110517.174431.1004332995189918916.davem@davemloft.net>
+	<m262p9yp5f.fsf@firstfloor.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from edu-smtp-01.edutel.nl ([88.159.1.175]:38653 "EHLO
-	edu-smtp-01.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932444Ab1EQVtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:49:55 -0400
-In-Reply-To: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38267 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932439Ab1EQVuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:50:50 -0400
+In-Reply-To: <m262p9yp5f.fsf@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the ip auto configuration has a hardcoded delay of 1 second.
-When (ethernet) link takes longer to come up (e.g. more than 3 seconds),
-nfs root may not be found.
+From: Andi Kleen <andi@firstfloor.org>
+Date: Tue, 17 May 2011 14:48:28 -0700
 
-Remove the hardcoded delay, and wait for carrier on at least one network
-device.
+> David Miller <davem@davemloft.net> writes:
+> 
+>> Guys we can't time out fragments if we are not the final
+>> destination.
+> 
+> If you're not the final destination you should never even
+> try to reassemble them?
+> 
+> I'm probably missing something...
 
-Signed-off-by: Micha Nelissen <micha@neli.hopto.org>
-Cc: David Miller <davem@davemloft.net>
----
- net/ipv4/ipconfig.c |   32 +++++++++++++++++++++-----------
- 1 files changed, 21 insertions(+), 11 deletions(-)
+We're discussing the idea to do the defragmentation first
+so we can choose the flow properly and steer the packet
+to the correct cpu.
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 2b09775..953808f 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -87,8 +87,8 @@
- #endif
- 
- /* Define the friendly delay before and after opening net devices */
--#define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
--#define CONF_POST_OPEN		1	/* After opening: 1 second */
-+#define CONF_POST_OPEN		10	/* After opening: 10 msecs */
-+#define CONF_CARRIER_TIMEOUT	120000	/* Wait for carrier timeout */
- 
- /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
- #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
-@@ -188,14 +188,14 @@ struct ic_device {
- static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
- static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
- 
--static bool __init ic_device_match(struct net_device *dev)
-+static bool __init ic_is_init_dev(struct net_device *dev)
- {
--	if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
-+	if (dev->flags & IFF_LOOPBACK)
-+		return 0;
-+	return user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
- 	    (!(dev->flags & IFF_LOOPBACK) &&
- 	     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
--	     strncmp(dev->name, "dummy", 5)))
--		return true;
--	return false;
-+	     strncmp(dev->name, "dummy", 5));
- }
- 
- static int __init ic_open_devs(void)
-@@ -203,6 +203,7 @@ static int __init ic_open_devs(void)
- 	struct ic_device *d, **last;
- 	struct net_device *dev;
- 	unsigned short oflags;
-+	unsigned long start;
- 
- 	last = &ic_first_dev;
- 	rtnl_lock();
-@@ -216,9 +217,7 @@ static int __init ic_open_devs(void)
- 	}
- 
- 	for_each_netdev(&init_net, dev) {
--		if (dev->flags & IFF_LOOPBACK)
--			continue;
--		if (ic_device_match(dev)) {
-+		if (ic_is_init_dev(dev)) {
- 			int able = 0;
- 			if (dev->mtu >= 364)
- 				able |= IC_BOOTP;
-@@ -252,6 +251,17 @@ static int __init ic_open_devs(void)
- 				dev->name, able, d->xid));
- 		}
- 	}
-+
-+	/* wait for a carrier on at least one device */
-+	start = jiffies;
-+	while (jiffies - start < msecs_to_jiffies(CONF_CARRIER_TIMEOUT)) {
-+		for_each_netdev(&init_net, dev)
-+			if (ic_is_init_dev(dev) && netif_carrier_ok(dev))
-+				goto have_carrier;
-+
-+		msleep(1);
-+	}
-+have_carrier:
- 	rtnl_unlock();
- 
- 	*last = NULL;
-@@ -1378,7 +1388,7 @@ static int __init ip_auto_config(void)
- 		return err;
- 
- 	/* Give drivers a chance to settle */
--	ssleep(CONF_POST_OPEN);
-+	msleep(CONF_POST_OPEN);
- 
- 	/*
- 	 * If the config information is insufficient (e.g., our IP address or
--- 
-1.7.4.4
+This also would allos each fragmented packet to traverse the
+stack only once (one route lookup etc.) instead of once per
+fragment.
 
+Please read the rest of this thread, we have discussed this
+and now I'm repeating information solely for your benefit.
