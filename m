@@ -1,76 +1,98 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v3 1/1] igmp: call ip_mc_clear_src() only when we have no
- users of ip_mc_list
-Date: Tue, 17 May 2011 16:37:56 +0200
-Message-ID: <20110517143756.GE30366@darkmag.usersys.redhat.com>
-References: <20110515165945.GA20024@darkmag.usersys.redhat.com>
- <20110516.140359.111037536766782557.davem@davemloft.net>
- <OF948388D5.90B3F5A7-ON88257892.006C3228-88257892.0071B9D5@us.ibm.com>
- <20110517133801.GC30366@darkmag.usersys.redhat.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] net: tuntap: Fix tun_net_fix_features()
+Date: Tue, 17 May 2011 16:46:35 +0200
+Message-ID: <20110517144635.GA22878@rere.qmqm.pl>
+References: <20110516093822.GA2779@gondor.apana.org.au>
+ <20110516094821.GA9427@redhat.com>
+ <20110516104309.GA3534@gondor.apana.org.au>
+ <20110516112133.GA11274@redhat.com>
+ <20110516121857.GA4495@gondor.apana.org.au>
+ <BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com>
+ <20110516224658.GA11157@gondor.apana.org.au>
+ <BANLkTimeRLQ0FLASsLE+ZxiXOk4gHt5XFQ@mail.gmail.com>
+ <20110517081954.A227013A6A@rere.qmqm.pl>
+ <20110517142943.GA926@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
-	kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mmarek@suse.cz, netdev@vger.kernel.org, pekkas@netcore.fi,
-	yoshfuji@linux-ipv6.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Shan Wei <shanwei@cn.fujitsu.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38727 "EHLO mx1.redhat.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:32882 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755267Ab1EQOjB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2011 10:39:01 -0400
+	id S1755105Ab1EQOqj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 10:46:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20110517133801.GC30366@darkmag.usersys.redhat.com>
+In-Reply-To: <20110517142943.GA926@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In igmp_group_dropped() we call ip_mc_clear_src(), which resets the number
-of source filters per mulitcast. However, igmp_group_dropped() is also
-called on NETDEV_DOWN, NETDEV_PRE_TYPE_CHANGE and NETDEV_UNREGISTER, which
-means that the group might get added back on NETDEV_UP, NETDEV_REGISTER and
-NETDEV_POST_TYPE_CHANGE respectively, leaving us with broken source
-filters.
+On Tue, May 17, 2011 at 05:29:43PM +0300, Michael S. Tsirkin wrote:
+> On Tue, May 17, 2011 at 10:19:54AM +0200, Micha=B3 Miros=B3aw wrote:
+> > tun->set_features are meant to limit not force the features.
+> >=20
+> > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> > ---
+> >  drivers/net/tun.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> >=20
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index 74e9405..f77c6d0 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -458,7 +458,7 @@ static u32 tun_net_fix_features(struct net_devi=
+ce *dev, u32 features)
+> >  {
+> >  	struct tun_struct *tun =3D netdev_priv(dev);
+> > =20
+> > -	return (features & tun->set_features) | (features & ~TUN_USER_FEA=
+TURES);
+> > +	return features & (tun->set_features | ~TUN_USER_FEATURES);
+> >  }
+> > =20
+> >  static const struct net_device_ops tun_netdev_ops =3D {
+> > --=20
+> > 1.7.2.5
+>=20
+> One thing that this will do though: previously, if
+> ethtool disables offloads, then an application enables
+> them, the application will have the last say.
+> With this patch, the most conservative approach wins.
+> Right?
 
-To fix that, we must clear the source filters only when there are no users
-in the ip_mc_list, i.e. in ip_mc_dec_group().
+Exactly.
 
-Correct version of the patch.
+On device creation, wanted_features default to all offloads
+enabled, so unless an admin changes the flags, the application controls
+what is enabled. This matters only when using persistent tun/tap and
+admin and user are two different people. If the admin is using queues
+and doesn't want to handle e.g. TSO packets (I'm not sure if they are
+properly accounted in all queuing disciplines), then the feature should
+not be enabled by user.
 
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 1fd3d9c..142ca0d 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1169,20 +1169,18 @@ static void igmp_group_dropped(struct ip_mc_list *im)
- 
- 	if (!in_dev->dead) {
- 		if (IGMP_V1_SEEN(in_dev))
--			goto done;
-+			return;
- 		if (IGMP_V2_SEEN(in_dev)) {
- 			if (reporter)
- 				igmp_send_report(in_dev, im, IGMP_HOST_LEAVE_MESSAGE);
--			goto done;
-+			return;
- 		}
- 		/* IGMPv3 */
- 		igmpv3_add_delrec(in_dev, im);
- 
- 		igmp_ifc_event(in_dev);
- 	}
--done:
- #endif
--	ip_mc_clear_src(im);
- }
- 
- static void igmp_group_added(struct ip_mc_list *im)
-@@ -1319,6 +1317,7 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
- 				*ip = i->next_rcu;
- 				in_dev->mc_count--;
- 				igmp_group_dropped(i);
-+				ip_mc_clear_src(i);
- 
- 				if (!in_dev->dead)
- 					ip_rt_multicast_event(in_dev);
+> If we want to have the existing behaviour
+> I think the following would do this (untested). What do you think?
+>=20
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 74e9405..1d6c7bc 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1199,6 +1199,8 @@ static int set_offload(struct tun_struct *tun, =
+unsigned long arg)
+>  		return -EINVAL;
+> =20
+>  	tun->set_features =3D features;
+> +	tun->dev->features &=3D TUN_USER_FEATURES;
+> +	tun->dev->features |=3D (features & TUN_USER_FEATURES);
+>  	netdev_update_features(tun->dev);
+
+tun->dev->features will be recalculated by netdev_update_features()
+anyway. For this to work as you described it would need to alter
+wanted_features. I don't like the idea that something other than one
+of ethtool_ops is changing this field, as it then becomes something
+else that what the admin wants (even if that is not what he gets).
+
+Best Regards,
+Micha=B3 Miros=B3aw
