@@ -1,53 +1,86 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Tue, 17 May 2011 08:48:23 +0300
-Message-ID: <20110517054823.GB26414@redhat.com>
-References: <20110516121857.GA4495@gondor.apana.org.au>
- <BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com>
- <20110516224658.GA11157@gondor.apana.org.au>
- <20110516.190615.2121423692228640268.davem@davemloft.net>
- <20110516234538.GA11832@gondor.apana.org.au>
- <20110517051845.GA26414@redhat.com>
- <20110517052401.GA15198@gondor.apana.org.au>
+Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
+Date: Tue, 17 May 2011 08:55:03 +0300
+Message-ID: <20110517055503.GA26989@redhat.com>
+References: <1305574484.3456.30.camel@localhost.localdomain>
+ <20110516204540.GD18148@redhat.com>
+ <1305579414.3456.49.camel@localhost.localdomain>
+ <20110516212401.GF18148@redhat.com>
+ <1305606683.10756.3.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mirqus@gmail.com,
-	shanwei@cn.fujitsu.com, mirq-linux@rere.qmqm.pl,
-	netdev@vger.kernel.org, bhutchings@solarflare.com
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60198 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751625Ab1EQFsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2011 01:48:25 -0400
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110517052401.GA15198@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1305606683.10756.3.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 17, 2011 at 03:24:01PM +1000, Herbert Xu wrote:
-> On Tue, May 17, 2011 at 08:18:45AM +0300, Michael S. Tsirkin wrote:
-> >
-> > Hmm, we get the warnings about bits dropped on each set_offload
-> > call:
-> > 	netdev_update_features is called,
-> > 	that calls netdev_fix_features
+On Mon, May 16, 2011 at 09:31:23PM -0700, Shirley Ma wrote:
+> On Tue, 2011-05-17 at 00:24 +0300, Michael S. Tsirkin wrote:
+> > On Mon, May 16, 2011 at 01:56:54PM -0700, Shirley Ma wrote:
+> > > On Mon, 2011-05-16 at 23:45 +0300, Michael S. Tsirkin wrote:
+> > > > > +/* Since we need to keep the order of used_idx as avail_idx,
+> > it's
+> > > > possible that
+> > > > > + * DMA done not in order in lower device driver for some
+> > reason. To
+> > > > prevent
+> > > > > + * used_idx out of order, upend_idx is used to track avail_idx
+> > > > order, done_idx
+> > > > > + * is used to track used_idx order. Once lower device DMA done,
+> > > > then upend_idx
+> > > > > + * can move to done_idx.
+> > > > 
+> > > > Could you clarify this please? virtio explicitly allows out of
+> > order
+> > > > completion of requests. Does it simplify code that we try to keep
+> > > > used index updates in-order? Because if not, this is not
+> > > > really a requirement.
+> > > 
+> > > Hello Mike,
+> > > 
+> > > Based on my testing, vhost_add_used() must be in order from
+> > > vhost_get_vq_desc(). Otherwise, virtio_net ring seems get double
+> > > freed.
 > > 
-> > No?
+> > Double-freed or you get NULL below?
 > 
-> I presume this has changed recently as the current Linus tree
-> does not contain a call to netdev_update_features, it only calls
-> netdev_features_change.
+> More likely is NULL.
 > 
-> If so then this does ensure that the feature bits will be sane.
+> > > I didn't spend time on debugging this.
+> > > 
+> > > in virtqueue_get_buf
+> > > 
+> > >         if (unlikely(!vq->data[i])) {
+> > >                 BAD_RING(vq, "id %u is not a head!\n", i);
+> > >                 return NULL;
+> > >         }
+> > 
+> > Yes but i used here is the head that we read from the
+> > ring, not the ring index itself.
+> >         i = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].id
+> > we must complete any id only once, but in any order.
 > 
-> I still think the warnings should be retained at their previous
-> level in the call paths other than set_offload.  All we have to
-> do is add a parameter to netdev_update_features and co.
+> It is in any order of ring id, but must be in the order of "head"
+> returns  from  vhost_get_vq_desc(), any clue?
 > 
-> Cheers,
+> 
+> Thanks
+> Shirley
 
-You mean like bool quiet?
+
+Something in your patch that overwrites the id in vhost
+and makes it put the wrong id in the used ring?
+
+By the way, need to keep in mind that a guest can
+give us the same head twice, need to make sure this
+at least does not corrupt host memory.
 
 -- 
 MST
