@@ -1,46 +1,47 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: sfc: an enumeration is not a bitmask
-Date: Tue, 17 May 2011 18:00:12 -0400
-Message-ID: <4DD2EFEC.9040504@pobox.com>
-References: <20110517.141446.140687548350861625.davem@davemloft.net> <BANLkTi=n_0JiF0Lm=+1OwRzB4XQFBtg8KA@mail.gmail.com> <BANLkTinaO0VVGpRRqRauH6FucvwbcXyRUg@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: small RPS cache for fragments?
+Date: Tue, 17 May 2011 15:03:56 -0700
+Message-ID: <m2vcx9x9v7.fsf@firstfloor.org>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	<1305663288.2691.2.camel@edumazet-laptop>
+	<m2aaelypbp.fsf@firstfloor.org>
+	<1305669140.6741.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:46444 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932389Ab1EQWAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:00:17 -0400
-Received: by gwaa18 with SMTP id a18so333819gwa.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 15:00:16 -0700 (PDT)
-In-Reply-To: <BANLkTinaO0VVGpRRqRauH6FucvwbcXyRUg@mail.gmail.com>
+Received: from mga14.intel.com ([143.182.124.37]:29751 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932389Ab1EQWE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 18:04:29 -0400
+In-Reply-To: <1305669140.6741.4.camel@edumazet-laptop> (Eric Dumazet's message
+	of "Tue, 17 May 2011 23:52:20 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/17/2011 03:09 PM, Micha=C5=82 Miros=C5=82aw wrote:
-> 2011/5/17 Jeff Garzik<jgarzik@pobox.com>:
->> 2011/5/17 David Miller<davem@davemloft.net>:
->>> An enumeration is not a bitmask, instead it means one out of the se=
-t
->>> of enumerated values will be used.
->>
->> It's a decade-old kernel practice to use 'enum' to define typed
->> constants, preferred over  macros that convey no type information an=
-d
->> disappear after cpp phase.
->>
->> So your assertion about enumerations is demonstrably not true, as it
->> is often used in the kernel.  Call it enum abuse if you want, but it
->> is consistent with code all over the kernel.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-> Old age of the mistake doesn't make it correct.
+>> They're not rwlocks, but especially if the locking was more finegrained
+>> that's likely not needed anymore.
+>
+> Well, there is the rehashing stuff, and this locks the whole table.
+>
+> Not easy to switch to rcu or something like that.
 
-It is not a mistake, but a useful coding tool.
+No need to switch to RCU, just a more finegrained bucket lock.
 
-	Jeff
+If you move a chain between queues you just lock both for the move.
+It sounds easy enough. I should probably just code it up.
 
+>
+> Anyway I hardly use frags here at work, so never considered it was a
+> field to spend time ;)
 
+Yes that's the problem. On the other hand most scalability problems hurt
+sooner or later, so sometimes it's good to fix them in advance.
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only
