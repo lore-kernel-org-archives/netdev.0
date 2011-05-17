@@ -1,22 +1,21 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 14:13:01 -0700
-Message-ID: <1305666781.8149.953.camel@tardy>
+Date: Tue, 17 May 2011 22:13:42 +0100
+Message-ID: <1305666822.2848.51.camel@bwh-desktop>
 References: <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
 	 <20110517.164929.1737248436066795381.davem@davemloft.net>
 	 <1305666050.2691.4.camel@edumazet-laptop>
 	 <20110517.171000.1166144155994185790.davem@davemloft.net>
-Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:23422 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932319Ab1EQVND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:13:03 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:5627 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932296Ab1EQVNp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:13:45 -0400
 In-Reply-To: <20110517.171000.1166144155994185790.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -55,12 +54,21 @@ e
 ast
 > one of the packets (the one with the UDP header) would make it to the
 > proper flow cpu.
->=20
+
+No, we ignore the layer-4 header when either MF or OFFSET is non-zero.
+
+Ben.
+
 > That could be as much as half of the packets.
 >=20
 > So I don't yet see it as a clear win.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-How heinous would it be to do post-reassembly RFS?
-
-rick=20
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
