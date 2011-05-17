@@ -1,47 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-2.6] net: use hlist_del_rcu() in dev_change_name()
-Date: Tue, 17 May 2011 18:21:00 +0200
-Message-ID: <1305649260.2850.106.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 2.6.38 ENC28J60 works with half-duplex DMA
+Date: Tue, 17 May 2011 12:25:21 -0400 (EDT)
+Message-ID: <20110517.122521.1568838937885784517.davem@davemloft.net>
+References: <BANLkTinG+nj6CmqRYsUuC7MDWaKVFssNMA@mail.gmail.com>
+	<20110516.114855.1523183530208158354.davem@davemloft.net>
+	<BANLkTikye2gir-RJjG1rHSdxDWD3VXBnEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: elpa.rizzo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34274 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755643Ab1EQQVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 12:21:04 -0400
-Received: by wwa36 with SMTP id 36so739162wwa.1
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 09:21:03 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:60879 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755511Ab1EQQZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 12:25:28 -0400
+In-Reply-To: <BANLkTikye2gir-RJjG1rHSdxDWD3VXBnEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using plain hlist_del() in dev_change_name() is wrong since a
-concurrent reader can crash trying to dereference LIST_POISON1.
+From: Davide Rizzo <elpa.rizzo@gmail.com>
+Date: Tue, 17 May 2011 07:15:48 +0200
 
-Bug introduced in commit 72c9528bab94 (net: Introduce
-dev_get_by_name_rcu())
+> Where can I see a message list to have a confirmation that it was received ?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-Stable candidate, for 2.6.33+
+All patches posted to the mailing list get queued up at patchwork:
 
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b624fe4..30a4078 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1007,7 +1007,7 @@ rollback:
- 	}
- 
- 	write_lock_bh(&dev_base_lock);
--	hlist_del(&dev->name_hlist);
-+	hlist_del_rcu(&dev->name_hlist);
- 	write_unlock_bh(&dev_base_lock);
- 
- 	synchronize_rcu();
-
-
+http://patchwork.ozlabs.org/project/netdev/list/
