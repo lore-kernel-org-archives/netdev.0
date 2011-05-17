@@ -1,60 +1,77 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 13:02:25 -0700
-Message-ID: <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
-References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Frequent spurious tx_timeouts for libertas
+Date: Tue, 17 May 2011 13:05:40 -0700 (PDT)
+Message-ID: <20110517.130540.193724442.davem@davemloft.net>
+References: <1304303082.2833.159.camel@localhost>
+	<BANLkTi=FT4v=Jvv5bQpUX15R87kPudKq=Q@mail.gmail.com>
+	<1304369259.2833.180.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dsd@laptop.org, netdev@vger.kernel.org,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:24877 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932200Ab1EQUC2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 16:02:28 -0400
-Received: from kpbe18.cbf.corp.google.com (kpbe18.cbf.corp.google.com [172.25.105.82])
-	by smtp-out.google.com with ESMTP id p4HK2ROe029325
-	for <netdev@vger.kernel.org>; Tue, 17 May 2011 13:02:27 -0700
-Received: from gye5 (gye5.prod.google.com [10.243.50.5])
-	by kpbe18.cbf.corp.google.com with ESMTP id p4HK22an014574
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 17 May 2011 13:02:25 -0700
-Received: by gye5 with SMTP id 5so418854gye.16
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 13:02:25 -0700 (PDT)
-In-Reply-To: <20110517.143342.1566027350038182221.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56442
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932249Ab1EQUGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 16:06:11 -0400
+In-Reply-To: <1304369259.2833.180.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I like it!  And this sounds like the sort of algorithm that NICs might
-be able to implement to solve the UDP/RSS unpleasantness, so even
-better.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 02 May 2011 21:47:39 +0100
 
-Tom
+> On Mon, 2011-05-02 at 20:59 +0100, Daniel Drake wrote:
+>> On 2 May 2011 03:24, Ben Hutchings <bhutchings@solarflare.com> wrote:
+>> >> Also, while looking at this code, I spotted a bug in dev_watchdog():
+>> >>                               /*
+>> >>                                * old device drivers set dev->trans_start
+>> >>                                */
+>> >>                               trans_start = txq->trans_start ? : dev->trans_start;
+>> >>
+>> >> i.e. it is trying to figure out whether to read trans_start from txq
+>> >> or dev. In both cases, trans_start is updated based on the value of
+>> >> jiffies, which will occasionally be 0 (as it wraps around). Therefore
+>> >> this line of code will occasionally make the wrong decision.
+>> >
+>> > No, I don't think so.
+>> >
+>> > If only dev->trans_start is being updated then the watchdog reads that.
+>> > If both txq->trans_start and dev->trans_start are being updated then it
+>> > doesn't matter much which the watchdog reads.
+>> > If only txq->trans_start is being updated then dev->trans_start is
+>> > always set to 0, so when txq->trans_start is 0 the watchdog still gets
+>> > 0.
+>> 
+>> dev->trans_start is unconditionally initialized by dev_activate() in
+>> sch_generic.c:
+>> 
+>> 	if (need_watchdog) {
+>> 		dev->trans_start = jiffies;
+>> 		dev_watchdog_up(dev);
+>> 	}
+>> 
+>> so it is (usually) not 0.
+> [...]
+> 
+> You're right.  Seems like we have an incomplete compatibility hack that
+> can hurt drivers that are doing the right thing.
+> 
+> For those few single-queue drivers that need to update the transmit
+> time, perhaps we could add a dev_trans_update() as a wrapper for
+> txq_trans_update().  Then delete net_device::trans_start and change
+> dev_trans_start() to avoid using it.
 
-On Tue, May 17, 2011 at 11:33 AM, David Miller <davem@davemloft.net> wr=
-ote:
->
-> It seems to me that we can solve the UDP fragmentation problem for
-> flow steering very simply by creating a (saddr/daddr/IPID) entry in a
-> table that maps to the corresponding RPS flow entry.
->
-> When we see the initial frag with the UDP header, we create the
-> saddr/daddr/IPID mapping, and we tear it down when we hit the
-> saddr/daddr/IPID mapping and the packet has the IP_MF bit clear.
->
-> We only inspect the saddr/daddr/IPID cache when iph->frag_off is
-> non-zero.
->
-> It's best effort and should work quite well.
->
-> Even a one-behind cache, per-NAPI instance, would do a lot better tha=
-n
-> what happens at the moment. =A0Especially since the IP fragments most=
-ly
-> arrive as one packet train.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Even though this unconditional assignment exists, it should not cause
+problems.
+
+First, in dev_watchdog(), any non-zero txq->trans_start will be preferred
+over dev->trans_start.
+
+Second, in dev_trans_start(), netdev->trans_start is used as a baseline,
+and any more recent stamp in txq->trans_start will be preferred.
+
+In fact, this makes the assignment of netdev->trans_start to zero in
+transition_one_qdisc() look erroneous.
