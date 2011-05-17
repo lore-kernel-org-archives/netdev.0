@@ -1,100 +1,76 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/7] Network namespace manipulation with file descriptors
-Date: Tue, 17 May 2011 07:33:18 -0700
-Message-ID: <m1mxil9z2p.fsf@fess.ebiederm.org>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-	<3A54AB469A0294933EAC2257@nimrod.local>
-	<m1fwoqoapn.fsf@fess.ebiederm.org>
-	<20110517111148.GA3762520@jupiter.n2.diac24.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v3 1/1] igmp: call ip_mc_clear_src() only when we have no
+ users of ip_mc_list
+Date: Tue, 17 May 2011 16:37:56 +0200
+Message-ID: <20110517143756.GE30366@darkmag.usersys.redhat.com>
+References: <20110515165945.GA20024@darkmag.usersys.redhat.com>
+ <20110516.140359.111037536766782557.davem@davemloft.net>
+ <OF948388D5.90B3F5A7-ON88257892.006C3228-88257892.0071B9D5@us.ibm.com>
+ <20110517133801.GC30366@darkmag.usersys.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alex Bligh <alex@alex.org.uk>, linux-arch@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	linux-fsdevel@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20110517111148.GA3762520@jupiter.n2.diac24.net> (David
-	Lamparter's message of "Tue, 17 May 2011 13:11:48 +0200")
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
+	kaber@trash.net, kuznet@ms2.inr.ac.ru,
+	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mmarek@suse.cz, netdev@vger.kernel.org, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38727 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755267Ab1EQOjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 10:39:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20110517133801.GC30366@darkmag.usersys.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Lamparter <equinox@diac24.net> writes:
+In igmp_group_dropped() we call ip_mc_clear_src(), which resets the number
+of source filters per mulitcast. However, igmp_group_dropped() is also
+called on NETDEV_DOWN, NETDEV_PRE_TYPE_CHANGE and NETDEV_UNREGISTER, which
+means that the group might get added back on NETDEV_UP, NETDEV_REGISTER and
+NETDEV_POST_TYPE_CHANGE respectively, leaving us with broken source
+filters.
 
-> On Sat, May 07, 2011 at 07:18:44AM -0700, Eric W. Biederman wrote:
->> You can read the processes network namespace by opening
->> /proc/<pid>/ns/net.  Unfortunately comparing the network
->> namespaces for identity is another matter.  You will probably
->> be better off simply forcing the routing daemon to start
->> in the desired network namespace in it's initscript.
->> 
->> For purposes of clarity please have a look at my work in
->> progress patch for iproute2.  This demonstrates how I expect
->> userspace to work in a multi-network namespace world.
->> 
-> [...]
->> Subject: [PATCH] iproute2:  Add processless netnwork namespace support.
-> [...]
->> Configuration specific to a network namespace that
->> would ordinarily be stored under /etc/ is stored under
->> /etc/netns/<name>.  For example if the dns server
->> configuration is different for your vpn you would
->> create a file /etc/netns/myvpn/resolv.conf.
->> 
->> File descriptors that can be used to manipulate a
->> network namespace can be created by opening
->> /var/run/netns/<NAME>.
->> 
->> This adds the following commands to iproute.
->> ip netns add NAME
->> ip netns delete NAME
->> ip netns monitor
->> ip netns list
->> ip netns exec NAME cmd ....
->> ip link set DEV netns NAME
->
-> funny, this is almost exactly what my code does - though you're probably
-> doing it better and have more features ;)
+To fix that, we must clear the source filters only when there are no users
+in the ip_mc_list, i.e. in ip_mc_dec_group().
 
-Well if it has more features it is only because I have managed to keep
-everything simple enough that adding features was easy.  I ignored all
-of the hard bits.
+Correct version of the patch.
 
-> http://git.spaceboyz.net/equinox/vrf-tools.git/
-> git://spaceboyz.net/equinox/vrf-tools.git
->
-> It currently forks off a daemon to keep the namespace open; attaching is
-> not possible yet, but opening a socket in a different namespace is.
-
-I went the round of keeping a daemon open, saw how much code that
-takes and how fragile that can be in the corner cases and decided to
-patch the kernel to make the interfaces better.
-
-> Most of the actual management (mounting things & co.) I offloaded to
-> some shell scripts; I use it together with GNU screen (which makes it
-> very nice to grab one of the namespaces and start/stop/manage/...
-> things).
-
-That does sound like a nice way of doing the management.
-
-> I also have patches for OpenVPN and pptpd floating around that make it
-> possible to 'cross' namespace boundaries, i.e. the VPN servers listen in
-> one namespace and have their devices in another.
-
-For openvpn I have managed to get away with simply using an up script. 
-Mostly the script is:
-
-ip netns add $NSNAME || true
-ip netns exec $NSNAME ip link set lo up
-ip link set $dev netns $NSNAME
-ip netns exec $NSNAME ip link set $dev up
-ip netns exec $NSNAME ifconfig $dev $ifconfig_local netmask $ifconfig_netmask broadcast $ifconfig_broadcast
-
-With a few extra bits for dns options and routes.  If I had an openvpn
-built with the iproute option I expect I could get away by just wrapping
-iproute.  Not that I would mind a patched openvpn.
-
-Personally I think using a vpn in a network namespace seems like a
-killer feature.
-
-Eric
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 1fd3d9c..142ca0d 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1169,20 +1169,18 @@ static void igmp_group_dropped(struct ip_mc_list *im)
+ 
+ 	if (!in_dev->dead) {
+ 		if (IGMP_V1_SEEN(in_dev))
+-			goto done;
++			return;
+ 		if (IGMP_V2_SEEN(in_dev)) {
+ 			if (reporter)
+ 				igmp_send_report(in_dev, im, IGMP_HOST_LEAVE_MESSAGE);
+-			goto done;
++			return;
+ 		}
+ 		/* IGMPv3 */
+ 		igmpv3_add_delrec(in_dev, im);
+ 
+ 		igmp_ifc_event(in_dev);
+ 	}
+-done:
+ #endif
+-	ip_mc_clear_src(im);
+ }
+ 
+ static void igmp_group_added(struct ip_mc_list *im)
+@@ -1319,6 +1317,7 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
+ 				*ip = i->next_rcu;
+ 				in_dev->mc_count--;
+ 				igmp_group_dropped(i);
++				ip_mc_clear_src(i);
+ 
+ 				if (!in_dev->dead)
+ 					ip_rt_multicast_event(in_dev);
