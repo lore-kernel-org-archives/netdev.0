@@ -1,51 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: ping: fix build failure
-Date: Tue, 17 May 2011 12:27:04 +0200
-Message-ID: <1305628024.2850.51.camel@edumazet-laptop>
-References: <20110516151019.be338f1c.sfr@canb.auug.org.au>
-	 <20110516123534.5d3a51b9.randy.dunlap@oracle.com>
-	 <20110516.153844.1072050131335197211.davem@davemloft.net>
-	 <20110517101656.GA28685@albatros>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [stable submission] vmxnet3: Fix inconsistent LRO state after initialization
+Date: Tue, 17 May 2011 12:52:30 +0200
+Message-ID: <4DD2536E.1000008@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, randy.dunlap@oracle.com,
-	sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Vasiliy Kulikov <segoon@openwall.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110517101656.GA28685@albatros>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: stable@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rs04.intra2net.com ([85.214.66.2]:35678 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753379Ab1EQKwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 06:52:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 17 mai 2011 =C3=A0 14:16 +0400, Vasiliy Kulikov a =C3=A9crit :
-> On Mon, May 16, 2011 at 15:38 -0400, David Miller wrote:
-> > From: Randy Dunlap <randy.dunlap@oracle.com>
-> > Date: Mon, 16 May 2011 12:35:34 -0700
-> >=20
-> > > On Mon, 16 May 2011 15:10:19 +1000 Stephen Rothwell wrote:
-> > > when CONFIG_PROC_SYSCTL is not enabled:
-> > >=20
-> > > ping.c:(.text+0x52af3): undefined reference to `inet_get_ping_gro=
-up_range_net'
-> >=20
-> > Vasiliy, please fix this.
->=20
-> I wonder whether there is any way to test such unusual configurations=
-?
-> Only randconfig or are there any (partly-)automated tools for it?
->=20
->=20
-> [PATCH] net: ping: fix build failure
->=20
-> If CONFIG_PROC_SYSCTL=3Dn the building process fails:
->=20
->     ping.c:(.text+0x52af3): undefined reference to `inet_get_ping_gro=
-up_range_net'
->=20
-> Moved inet_get_ping_group_range_net() to ping.c.
->=20
-> Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
-> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+Hi greg k-h,
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+please include commit ebde6f8acba92abfc203585198a54f47e83e2cd0
+"vmxnet3: Fix inconsistent LRO state after initialization"
+
+in 2.6.37 / 2.6.38 stable.
+
+
+Kernel 2.6.32 first included the vmxnet3 driver and I've checked
+that the patch applies to 2.6.32.40 and 2.6.35.13, so it might be
+worth to include it in all maintained kernels.
+
+Best regards,
+Thomas Jarosch
