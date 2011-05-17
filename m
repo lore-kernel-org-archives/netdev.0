@@ -1,86 +1,75 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
-Date: Tue, 17 May 2011 08:55:03 +0300
-Message-ID: <20110517055503.GA26989@redhat.com>
-References: <1305574484.3456.30.camel@localhost.localdomain>
- <20110516204540.GD18148@redhat.com>
- <1305579414.3456.49.camel@localhost.localdomain>
- <20110516212401.GF18148@redhat.com>
- <1305606683.10756.3.camel@localhost.localdomain>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 06/18] virtio_ring: avail event index interface
+Date: Tue, 17 May 2011 09:00:52 +0300
+Message-ID: <20110517060052.GB26989@redhat.com>
+References: <cover.1304541918.git.mst@redhat.com>
+	<b00ef5d572ec9bc3b884c496025512abc1f14349.1304541919.git.mst@redhat.com>
+	<87aaewh5pg.fsf@rustcorp.com.au>
+	<20110515124727.GA24932@redhat.com>
+	<87k4drduzs.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1305606683.10756.3.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <87k4drduzs.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2011 at 09:31:23PM -0700, Shirley Ma wrote:
-> On Tue, 2011-05-17 at 00:24 +0300, Michael S. Tsirkin wrote:
-> > On Mon, May 16, 2011 at 01:56:54PM -0700, Shirley Ma wrote:
-> > > On Mon, 2011-05-16 at 23:45 +0300, Michael S. Tsirkin wrote:
-> > > > > +/* Since we need to keep the order of used_idx as avail_idx,
-> > it's
-> > > > possible that
-> > > > > + * DMA done not in order in lower device driver for some
-> > reason. To
-> > > > prevent
-> > > > > + * used_idx out of order, upend_idx is used to track avail_idx
-> > > > order, done_idx
-> > > > > + * is used to track used_idx order. Once lower device DMA done,
-> > > > then upend_idx
-> > > > > + * can move to done_idx.
-> > > > 
-> > > > Could you clarify this please? virtio explicitly allows out of
-> > order
-> > > > completion of requests. Does it simplify code that we try to keep
-> > > > used index updates in-order? Because if not, this is not
-> > > > really a requirement.
+On Mon, May 16, 2011 at 03:53:19PM +0930, Rusty Russell wrote:
+> On Sun, 15 May 2011 15:47:27 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > On Mon, May 09, 2011 at 01:43:15PM +0930, Rusty Russell wrote:
+> > > On Wed, 4 May 2011 23:51:19 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > > >  #define VIRTIO_RING_F_USED_EVENT_IDX	29
+> > > > +/* The Host publishes the avail index for which it expects a kick
+> > > > + * at the end of the used ring. Guest should ignore the used->flags field. */
+> > > > +#define VIRTIO_RING_F_AVAIL_EVENT_IDX	32
 > > > 
-> > > Hello Mike,
+> > > Are you really sure we want to separate the two?  Seems a little simpler
+> > > to have one bit to mean "we're publishing our threshold".  For someone
+> > > implementing this from scratch, it's a little simpler.
 > > > 
-> > > Based on my testing, vhost_add_used() must be in order from
-> > > vhost_get_vq_desc(). Otherwise, virtio_net ring seems get double
-> > > freed.
+> > > Or are there cases where the old style makes more sense?
+> > > 
+> > > Thanks,
+> > > Rusty.
 > > 
-> > Double-freed or you get NULL below?
-> 
-> More likely is NULL.
-> 
-> > > I didn't spend time on debugging this.
-> > > 
-> > > in virtqueue_get_buf
-> > > 
-> > >         if (unlikely(!vq->data[i])) {
-> > >                 BAD_RING(vq, "id %u is not a head!\n", i);
-> > >                 return NULL;
-> > >         }
+> > Hmm, it makes debugging easier as each side can disable
+> > publishing separately - I used it all the time when I saw
+> > e.g. networking stuck to guess whether I need to investigate the
+> > interrupt or the exit handling.
 > > 
-> > Yes but i used here is the head that we read from the
-> > ring, not the ring index itself.
-> >         i = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].id
-> > we must complete any id only once, but in any order.
+> > But I'm not hung up on this.
+> > 
+> > Let me know pls.
 > 
-> It is in any order of ring id, but must be in the order of "head"
-> returns  from  vhost_get_vq_desc(), any clue?
+> If we combine them into one, then these patches no longer depend on
+> the feature bit expansion, which is worthwhile (though I'll take both).
 > 
-> 
-> Thanks
-> Shirley
+> Thanks,
+> Rusty.
 
-
-Something in your patch that overwrites the id in vhost
-and makes it put the wrong id in the used ring?
-
-By the way, need to keep in mind that a guest can
-give us the same head twice, need to make sure this
-at least does not corrupt host memory.
+Yes, I know. But if we do expand feature bits anyway, for debugging
+and profiling if nothing else it's useful to have them separate ...
+If you take both why does the order matter?
 
 -- 
 MST
