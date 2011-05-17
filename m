@@ -1,59 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6] sfc: Suppress warning about combining enum
- flags by gcc 4.5
-Date: Tue, 17 May 2011 19:48:41 +0100
-Message-ID: <1305658121.2848.29.camel@bwh-desktop>
-References: <20110517.141446.140687548350861625.davem@davemloft.net>
-	 <1305656319.2848.28.camel@bwh-desktop>
-	 <20110517.142350.81148594119844192.davem@davemloft.net>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: Re: ath5k regression associating with APs in 2.6.38
+Date: Tue, 17 May 2011 13:50:32 -0500
+Message-ID: <20110517185032.GC9258@thinkpad-t410>
+References: <20110504153819.GA4551@thinkpad-t410>
+ <20110504172716.GC18541@tuxdriver.com>
+ <20110504192639.GB4551@thinkpad-t410>
+ <BANLkTimEmBRyxbZgffJMrH4TTc4f6peuTg@mail.gmail.com>
+ <20110505135207.GA13727@thinkpad-t410>
+ <BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>
+ <20110509070230.GA20458@thinkpad-t410>
+ <20110517165720.GB9258@thinkpad-t410>
+ <BANLkTi=8ZRUVWn3FLAMtPh=4yY1F0k6i9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:48678 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756125Ab1EQSso (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:48:44 -0400
-In-Reply-To: <20110517.142350.81148594119844192.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>,
+	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Kossifidis <mickflemm@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <BANLkTi=8ZRUVWn3FLAMtPh=4yY1F0k6i9w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-gcc 4.5 warns about switch statements on enumerated types containing
-case values that are a bitwise-or of two enumerators for that type.
-The use of enumerators as flags is common practice, so I think the
-warning is wrong.  Keep the compiler quiet by casting the switch
-value.
+On Tue, May 17, 2011 at 08:14:34PM +0300, Nick Kossifidis wrote:
+> 2011/5/17 Seth Forshee <seth.forshee@canonical.com>:
+> > On Mon, May 09, 2011 at 09:02:30AM +0200, Seth Forshee wrote:
+> >> On Thu, May 05, 2011 at 05:30:42PM +0300, Nick Kossifidis wrote:
+> >> > Hmm I don't see any errors from reset/phy code, can you disable
+> >> > Network Manager/wpa-supplicant and test connection on an open network
+> >> > using iw ? It 'll give us a better picture...
+> >> >
+> >> > If iw doesn't return any scan results we are probably hitting a PHY/RF
+> >> > error specific to your device (not all vendors follow the reference
+> >> > design). Maybe we should follow a blacklist/whitelist approach for
+> >> > this feature.
+> >>
+> >> I got the results back from my tester. He was able to get scan results,
+> >> but it took multiple tries and the direct probe failures appear in the
+> >> log. He didn't enable ATH5K_DEBUG_RESET this time; let me know if you
+> >> need that and I'll request he retest with the extra debug logs enabled.
+> >
+> > I got some more feedback. Most of the time iw does not get scan results,
+> > but even when it does connecting to the AP isn't always successful. The
+> > tester did note that he doesn't seem to have any trouble if his machine
+> > is within a few feet of his AP. Let me know if you'd like something else
+> > tested.
+> >
+> > I noticed that bugzilla #31922 (ath5k: Decreased throughput in IBSS or
+> > 802.11n mode) is also fixed by reverting 8aec7af9. It seems like the
+> > synth-only channel changes are resulting in poor connection quality.
+> > Maybe that patch needs to be reverted?
+> >
+> > Thanks,
+> > Seth
+> >
+> >
+> 
+> http://www.kernel.org/pub/linux/kernel/people/mickflemm/01-fast-chan-switch-modparm
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-Will this do?
-
-Ben.
-
- drivers/net/sfc/mcdi_mac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/sfc/mcdi_mac.c b/drivers/net/sfc/mcdi_mac.c
-index 50c2077..316745b 100644
---- a/drivers/net/sfc/mcdi_mac.c
-+++ b/drivers/net/sfc/mcdi_mac.c
-@@ -32,7 +32,7 @@ static int efx_mcdi_set_mac(struct efx_nic *efx)
- 		(1 << MC_CMD_SET_MAC_IN_REJECT_UNCST_LBN);
- 	MCDI_SET_DWORD(cmdbytes, SET_MAC_IN_REJECT, reject);
- 
--	switch (efx->wanted_fc) {
-+	switch ((unsigned)efx->wanted_fc) {
- 	case EFX_FC_RX | EFX_FC_TX:
- 		fcntl = MC_CMD_FCNTL_BIDIR;
- 		break;
--- 
-1.7.4
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+That looks like it should do the trick. I'll request some testing with
+it and let you know how it goes. Thanks!
