@@ -1,47 +1,44 @@
 From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 15:03:56 -0700
-Message-ID: <m2vcx9x9v7.fsf@firstfloor.org>
+Date: Tue, 17 May 2011 15:06:04 -0700
+Message-ID: <m2r57xx9rn.fsf@firstfloor.org>
 References: <20110517.143342.1566027350038182221.davem@davemloft.net>
-	<1305663288.2691.2.camel@edumazet-laptop>
-	<m2aaelypbp.fsf@firstfloor.org>
-	<1305669140.6741.4.camel@edumazet-laptop>
+	<20110517.174431.1004332995189918916.davem@davemloft.net>
+	<m262p9yp5f.fsf@firstfloor.org>
+	<20110517.175044.2057517197524794568.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:29751 "EHLO mga14.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:1887 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932389Ab1EQWE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2011 18:04:29 -0400
-In-Reply-To: <1305669140.6741.4.camel@edumazet-laptop> (Eric Dumazet's message
-	of "Tue, 17 May 2011 23:52:20 +0200")
+	id S932389Ab1EQWGh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 18:06:37 -0400
+In-Reply-To: <20110517.175044.2057517197524794568.davem@davemloft.net> (David
+	Miller's message of "Tue, 17 May 2011 17:50:44 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-
->> They're not rwlocks, but especially if the locking was more finegrained
->> that's likely not needed anymore.
+David Miller <davem@davemloft.net> writes:
 >
-> Well, there is the rehashing stuff, and this locks the whole table.
+> We're discussing the idea to do the defragmentation first
+> so we can choose the flow properly and steer the packet
+> to the correct cpu.
 >
-> Not easy to switch to rcu or something like that.
+> This also would allos each fragmented packet to traverse the
+> stack only once (one route lookup etc.) instead of once per
+> fragment.
 
-No need to switch to RCU, just a more finegrained bucket lock.
+You could always check first in a cheap way (e.g. a small hash table) if
+it's local or not (and bypass the defragmentation if routing is turned
+off or the hash table would have collisions)
 
-If you move a chain between queues you just lock both for the move.
-It sounds easy enough. I should probably just code it up.
-
->
-> Anyway I hardly use frags here at work, so never considered it was a
-> field to spend time ;)
-
-Yes that's the problem. On the other hand most scalability problems hurt
-sooner or later, so sometimes it's good to fix them in advance.
+On the other hand if fragmentation is expensive it's probably
+better to do it later anyways to spread it out better.
 
 -Andi
+
 
 -- 
 ak@linux.intel.com -- Speaking for myself only
