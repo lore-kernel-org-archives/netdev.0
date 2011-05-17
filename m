@@ -1,73 +1,40 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
-Date: Mon, 16 May 2011 21:31:23 -0700
-Message-ID: <1305606683.10756.3.camel@localhost.localdomain>
-References: <1305574484.3456.30.camel@localhost.localdomain>
-	 <20110516204540.GD18148@redhat.com>
-	 <1305579414.3456.49.camel@localhost.localdomain>
-	 <20110516212401.GF18148@redhat.com>
+From: Davide Rizzo <elpa.rizzo@gmail.com>
+Subject: Re: [PATCH] 2.6.38 ENC28J60 works with half-duplex DMA
+Date: Tue, 17 May 2011 07:15:48 +0200
+Message-ID: <BANLkTikye2gir-RJjG1rHSdxDWD3VXBnEw@mail.gmail.com>
+References: <BANLkTinG+nj6CmqRYsUuC7MDWaKVFssNMA@mail.gmail.com>
+	<20110516.114855.1523183530208158354.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110516212401.GF18148@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:52777 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673Ab1EQFPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 01:15:49 -0400
+Received: by iyb14 with SMTP id 14so128383iyb.19
+        for <netdev@vger.kernel.org>; Mon, 16 May 2011 22:15:49 -0700 (PDT)
+In-Reply-To: <20110516.114855.1523183530208158354.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-17 at 00:24 +0300, Michael S. Tsirkin wrote:
-> On Mon, May 16, 2011 at 01:56:54PM -0700, Shirley Ma wrote:
-> > On Mon, 2011-05-16 at 23:45 +0300, Michael S. Tsirkin wrote:
-> > > > +/* Since we need to keep the order of used_idx as avail_idx,
-> it's
-> > > possible that
-> > > > + * DMA done not in order in lower device driver for some
-> reason. To
-> > > prevent
-> > > > + * used_idx out of order, upend_idx is used to track avail_idx
-> > > order, done_idx
-> > > > + * is used to track used_idx order. Once lower device DMA done,
-> > > then upend_idx
-> > > > + * can move to done_idx.
-> > > 
-> > > Could you clarify this please? virtio explicitly allows out of
-> order
-> > > completion of requests. Does it simplify code that we try to keep
-> > > used index updates in-order? Because if not, this is not
-> > > really a requirement.
-> > 
-> > Hello Mike,
-> > 
-> > Based on my testing, vhost_add_used() must be in order from
-> > vhost_get_vq_desc(). Otherwise, virtio_net ring seems get double
-> > freed.
-> 
-> Double-freed or you get NULL below?
+I'm sorry for that, initially It was refused by your system for format
+problems (html?), then I didn't see them in the archives, so I though
+some problem happened and resent it. I didn't receive it back from the
+list.
+Where can I see a message list to have a confirmation that it was received ?
 
-More likely is NULL.
-
-> > I didn't spend time on debugging this.
-> > 
-> > in virtqueue_get_buf
-> > 
-> >         if (unlikely(!vq->data[i])) {
-> >                 BAD_RING(vq, "id %u is not a head!\n", i);
-> >                 return NULL;
-> >         }
-> 
-> Yes but i used here is the head that we read from the
-> ring, not the ring index itself.
->         i = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].id
-> we must complete any id only once, but in any order.
-
-It is in any order of ring id, but must be in the order of "head"
-returns  from  vhost_get_vq_desc(), any clue?
+2011/5/16 David Miller <davem@davemloft.net>:
+>
+> You've sent this patch 3 times, we've noticed and seen them all,
+> our silence doesn't mean it hasn't been received.
+>
+> What new thing do you hope to accomplish on each subsequent
+> submission?
+>
 
 
-Thanks
-Shirley
+
+-- 
+All difficult problems have a simple solution. That is wrong. [A. Einstein]
