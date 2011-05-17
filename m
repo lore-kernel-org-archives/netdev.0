@@ -1,52 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 23:52:20 +0200
-Message-ID: <1305669140.6741.4.camel@edumazet-laptop>
-References: <20110517.143342.1566027350038182221.davem@davemloft.net>
-	 <1305663288.2691.2.camel@edumazet-laptop>  <m2aaelypbp.fsf@firstfloor.org>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] sfc: Don't use enums as a bitmask.
+Date: Tue, 17 May 2011 17:54:35 -0400 (EDT)
+Message-ID: <20110517.175435.424384239652286683.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62733 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984Ab1EQVwY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:52:24 -0400
-Received: by wya21 with SMTP id 21so750515wya.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 14:52:23 -0700 (PDT)
-In-Reply-To: <m2aaelypbp.fsf@firstfloor.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52452 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751984Ab1EQVyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:54:37 -0400
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4HLsZgh024007
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 17 May 2011 14:54:36 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 17 mai 2011 =C3=A0 14:44 -0700, Andi Kleen a =C3=A9crit :
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> >
-> > OK but do we have workloads actually needing this optimization at a=
-ll ?
->=20
-> That's a good a question.
-> >
-> > (IP defrag hits a read_lock(&ip4_frags.lock)), so maybe steer all f=
-rags
-> > on a given cpu ?)
->=20
-> Couldn't the lock just be replaced with a hashed or bitmap lock or=20
-> bit in low bits of pointer lock?
->=20
-> iirc it just protects the heads of the hash table.
->=20
-> They're not rwlocks, but especially if the locking was more finegrain=
-ed
-> that's likely not needed anymore.
-
-Well, there is the rehashing stuff, and this locks the whole table.
-
-Not easy to switch to rcu or something like that.
-
-Anyway I hardly use frags here at work, so never considered it was a
-field to spend time ;)
-
-
-
+DQpUaGlzIGZpeGVzOg0KDQpkcml2ZXJzL25ldC9zZmMvbWNkaV9tYWMuYzogSW4gZnVuY3Rpb24g
+oWVmeF9tY2RpX3NldF9tYWOiOg0KZHJpdmVycy9uZXQvc2ZjL21jZGlfbWFjLmM6MzY6Mjogd2Fy
+bmluZzogY2FzZSB2YWx1ZSChM6Igbm90IGluIGVudW1lcmF0ZWQgdHlwZSChZW51bSBlZnhfZmNf
+dHlwZaINCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQu
+bmV0Pg0KLS0tDQogZHJpdmVycy9uZXQvc2ZjL2VmeC5jICAgICAgICB8ICAgIDIgKy0NCiBkcml2
+ZXJzL25ldC9zZmMvZWZ4LmggICAgICAgIHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0L3NmYy9ldGh0
+b29sLmMgICAgfCAgICAyICstDQogZHJpdmVycy9uZXQvc2ZjL21kaW9fMTBnLmMgICB8ICAgIDIg
+Ky0NCiBkcml2ZXJzL25ldC9zZmMvbWRpb18xMGcuaCAgIHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0
+L3NmYy9uZXRfZHJpdmVyLmggfCAgIDEyICsrKysrLS0tLS0tLQ0KIDYgZmlsZXMgY2hhbmdlZCwg
+MTAgaW5zZXJ0aW9ucygrKSwgMTIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9zZmMvZWZ4LmMgYi9kcml2ZXJzL25ldC9zZmMvZWZ4LmMNCmluZGV4IDA1NTAyYjMuLmM5
+MTQ3MjkgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9zZmMvZWZ4LmMNCisrKyBiL2RyaXZlcnMv
+bmV0L3NmYy9lZnguYw0KQEAgLTgzMyw3ICs4MzMsNyBAQCB2b2lkIGVmeF9saW5rX3NldF9hZHZl
+cnRpc2luZyhzdHJ1Y3QgZWZ4X25pYyAqZWZ4LCB1MzIgYWR2ZXJ0aXNpbmcpDQogCX0NCiB9DQog
+DQotdm9pZCBlZnhfbGlua19zZXRfd2FudGVkX2ZjKHN0cnVjdCBlZnhfbmljICplZngsIGVudW0g
+ZWZ4X2ZjX3R5cGUgd2FudGVkX2ZjKQ0KK3ZvaWQgZWZ4X2xpbmtfc2V0X3dhbnRlZF9mYyhzdHJ1
+Y3QgZWZ4X25pYyAqZWZ4LCB1OCB3YW50ZWRfZmMpDQogew0KIAllZngtPndhbnRlZF9mYyA9IHdh
+bnRlZF9mYzsNCiAJaWYgKGVmeC0+bGlua19hZHZlcnRpc2luZykgew0KZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvbmV0L3NmYy9lZnguaCBiL2RyaXZlcnMvbmV0L3NmYy9lZnguaA0KaW5kZXggM2Q4M2Ex
+Zi4uYjBkMTIwOSAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3NmYy9lZnguaA0KKysrIGIvZHJp
+dmVycy9uZXQvc2ZjL2VmeC5oDQpAQCAtMTQyLDYgKzE0Miw2IEBAIHN0YXRpYyBpbmxpbmUgdm9p
+ZCBlZnhfc2NoZWR1bGVfY2hhbm5lbChzdHJ1Y3QgZWZ4X2NoYW5uZWwgKmNoYW5uZWwpDQogDQog
+ZXh0ZXJuIHZvaWQgZWZ4X2xpbmtfc3RhdHVzX2NoYW5nZWQoc3RydWN0IGVmeF9uaWMgKmVmeCk7
+DQogZXh0ZXJuIHZvaWQgZWZ4X2xpbmtfc2V0X2FkdmVydGlzaW5nKHN0cnVjdCBlZnhfbmljICpl
+ZngsIHUzMik7DQotZXh0ZXJuIHZvaWQgZWZ4X2xpbmtfc2V0X3dhbnRlZF9mYyhzdHJ1Y3QgZWZ4
+X25pYyAqZWZ4LCBlbnVtIGVmeF9mY190eXBlKTsNCitleHRlcm4gdm9pZCBlZnhfbGlua19zZXRf
+d2FudGVkX2ZjKHN0cnVjdCBlZnhfbmljICplZngsIHU4KTsNCiANCiAjZW5kaWYgLyogRUZYX0VG
+WF9IICovDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvc2ZjL2V0aHRvb2wuYyBiL2RyaXZlcnMv
+bmV0L3NmYy9ldGh0b29sLmMNCmluZGV4IDM0ODQzN2EuLmQyMjkwMjcgMTAwNjQ0DQotLS0gYS9k
+cml2ZXJzL25ldC9zZmMvZXRodG9vbC5jDQorKysgYi9kcml2ZXJzL25ldC9zZmMvZXRodG9vbC5j
+DQpAQCAtNjk4LDcgKzY5OCw3IEBAIHN0YXRpYyBpbnQgZWZ4X2V0aHRvb2xfc2V0X3BhdXNlcGFy
+YW0oc3RydWN0IG5ldF9kZXZpY2UgKm5ldF9kZXYsDQogCQkJCSAgICAgIHN0cnVjdCBldGh0b29s
+X3BhdXNlcGFyYW0gKnBhdXNlKQ0KIHsNCiAJc3RydWN0IGVmeF9uaWMgKmVmeCA9IG5ldGRldl9w
+cml2KG5ldF9kZXYpOw0KLQllbnVtIGVmeF9mY190eXBlIHdhbnRlZF9mYywgb2xkX2ZjOw0KKwl1
+OCB3YW50ZWRfZmMsIG9sZF9mYzsNCiAJdTMyIG9sZF9hZHY7DQogCWJvb2wgcmVzZXQ7DQogCWlu
+dCByYyA9IDA7DQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvc2ZjL21kaW9fMTBnLmMgYi9kcml2
+ZXJzL25ldC9zZmMvbWRpb18xMGcuYw0KaW5kZXggNzExNTkxNC4uN2FiMzg1YyAxMDA2NDQNCi0t
+LSBhL2RyaXZlcnMvbmV0L3NmYy9tZGlvXzEwZy5jDQorKysgYi9kcml2ZXJzL25ldC9zZmMvbWRp
+b18xMGcuYw0KQEAgLTI4NCw3ICsyODQsNyBAQCB2b2lkIGVmeF9tZGlvX2FuX3JlY29uZmlndXJl
+KHN0cnVjdCBlZnhfbmljICplZngpDQogCWVmeF9tZGlvX3dyaXRlKGVmeCwgTURJT19NTURfQU4s
+IE1ESU9fQ1RSTDEsIHJlZyk7DQogfQ0KIA0KLWVudW0gZWZ4X2ZjX3R5cGUgZWZ4X21kaW9fZ2V0
+X3BhdXNlKHN0cnVjdCBlZnhfbmljICplZngpDQordTggZWZ4X21kaW9fZ2V0X3BhdXNlKHN0cnVj
+dCBlZnhfbmljICplZngpDQogew0KIAlCVUlMRF9CVUdfT04oRUZYX0ZDX0FVVE8gJiAoRUZYX0ZD
+X1JYIHwgRUZYX0ZDX1RYKSk7DQogDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvc2ZjL21kaW9f
+MTBnLmggYi9kcml2ZXJzL25ldC9zZmMvbWRpb18xMGcuaA0KaW5kZXggZGYwNzAzOS4uYTk3ZGJi
+ZCAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3NmYy9tZGlvXzEwZy5oDQorKysgYi9kcml2ZXJz
+L25ldC9zZmMvbWRpb18xMGcuaA0KQEAgLTkyLDcgKzkyLDcgQEAgZXh0ZXJuIHZvaWQgZWZ4X21k
+aW9fYW5fcmVjb25maWd1cmUoc3RydWN0IGVmeF9uaWMgKmVmeCk7DQogLyogR2V0IHBhdXNlIHBh
+cmFtZXRlcnMgZnJvbSBBTiBpZiBhdmFpbGFibGUgKG90aGVyd2lzZSByZXR1cm4NCiAgKiByZXF1
+ZXN0ZWQgcGF1c2UgcGFyYW1ldGVycykNCiAgKi8NCi1lbnVtIGVmeF9mY190eXBlIGVmeF9tZGlv
+X2dldF9wYXVzZShzdHJ1Y3QgZWZ4X25pYyAqZWZ4KTsNCit1OCBlZnhfbWRpb19nZXRfcGF1c2Uo
+c3RydWN0IGVmeF9uaWMgKmVmeCk7DQogDQogLyogV2FpdCBmb3Igc3BlY2lmaWVkIE1NRHMgdG8g
+ZXhpdCByZXNldCB3aXRoaW4gYSB0aW1lb3V0ICovDQogZXh0ZXJuIGludCBlZnhfbWRpb193YWl0
+X3Jlc2V0X21tZHMoc3RydWN0IGVmeF9uaWMgKmVmeCwNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25l
+dC9zZmMvbmV0X2RyaXZlci5oIGIvZHJpdmVycy9uZXQvc2ZjL25ldF9kcml2ZXIuaA0KaW5kZXgg
+Y2U5Njk3Yi4uZThkNWYwMyAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3NmYy9uZXRfZHJpdmVy
+LmgNCisrKyBiL2RyaXZlcnMvbmV0L3NmYy9uZXRfZHJpdmVyLmgNCkBAIC00NDksMTEgKzQ0OSw5
+IEBAIGVudW0gbmljX3N0YXRlIHsNCiBzdHJ1Y3QgZWZ4X25pYzsNCiANCiAvKiBQc2V1ZG8gYml0
+LW1hc2sgZmxvdyBjb250cm9sIGZpZWxkICovDQotZW51bSBlZnhfZmNfdHlwZSB7DQotCUVGWF9G
+Q19SWCA9IEZMT1dfQ1RSTF9SWCwNCi0JRUZYX0ZDX1RYID0gRkxPV19DVFJMX1RYLA0KLQlFRlhf
+RkNfQVVUTyA9IDQsDQotfTsNCisjZGVmaW5lIEVGWF9GQ19SWAlGTE9XX0NUUkxfUlgNCisjZGVm
+aW5lIEVGWF9GQ19UWAlGTE9XX0NUUkxfVFgNCisjZGVmaW5lIEVGWF9GQ19BVVRPCTQNCiANCiAv
+KioNCiAgKiBzdHJ1Y3QgZWZ4X2xpbmtfc3RhdGUgLSBDdXJyZW50IHN0YXRlIG9mIHRoZSBsaW5r
+DQpAQCAtNDY1LDcgKzQ2Myw3IEBAIGVudW0gZWZ4X2ZjX3R5cGUgew0KIHN0cnVjdCBlZnhfbGlu
+a19zdGF0ZSB7DQogCWJvb2wgdXA7DQogCWJvb2wgZmQ7DQotCWVudW0gZWZ4X2ZjX3R5cGUgZmM7
+DQorCXU4IGZjOw0KIAl1bnNpZ25lZCBpbnQgc3BlZWQ7DQogfTsNCiANCkBAIC03ODQsNyArNzgy
+LDcgQEAgc3RydWN0IGVmeF9uaWMgew0KIA0KIAlib29sIHByb21pc2N1b3VzOw0KIAl1bmlvbiBl
+ZnhfbXVsdGljYXN0X2hhc2ggbXVsdGljYXN0X2hhc2g7DQotCWVudW0gZWZ4X2ZjX3R5cGUgd2Fu
+dGVkX2ZjOw0KKwl1OCB3YW50ZWRfZmM7DQogDQogCWF0b21pY190IHJ4X3Jlc2V0Ow0KIAllbnVt
+IGVmeF9sb29wYmFja19tb2RlIGxvb3BiYWNrX21vZGU7DQotLSANCjEuNy40LjQNCg0K
