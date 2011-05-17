@@ -1,66 +1,57 @@
-From: Seth Forshee <seth.forshee@canonical.com>
-Subject: Re: ath5k regression associating with APs in 2.6.38
-Date: Tue, 17 May 2011 13:50:32 -0500
-Message-ID: <20110517185032.GC9258@thinkpad-t410>
-References: <20110504153819.GA4551@thinkpad-t410>
- <20110504172716.GC18541@tuxdriver.com>
- <20110504192639.GB4551@thinkpad-t410>
- <BANLkTimEmBRyxbZgffJMrH4TTc4f6peuTg@mail.gmail.com>
- <20110505135207.GA13727@thinkpad-t410>
- <BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>
- <20110509070230.GA20458@thinkpad-t410>
- <20110517165720.GB9258@thinkpad-t410>
- <BANLkTi=8ZRUVWn3FLAMtPh=4yY1F0k6i9w@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] sk-filter:  Rate-limit WARNing, print dbg info.
+Date: Tue, 17 May 2011 11:52:29 -0700
+Message-ID: <1305658349.1722.30.camel@Joe-Laptop>
+References: <1305657014-32736-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nick Kossifidis <mickflemm@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTi=8ZRUVWn3FLAMtPh=4yY1F0k6i9w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1716 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756235Ab1EQSwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 14:52:31 -0400
+In-Reply-To: <1305657014-32736-1-git-send-email-greearb@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 17, 2011 at 08:14:34PM +0300, Nick Kossifidis wrote:
-> 2011/5/17 Seth Forshee <seth.forshee@canonical.com>:
-> > On Mon, May 09, 2011 at 09:02:30AM +0200, Seth Forshee wrote:
-> >> On Thu, May 05, 2011 at 05:30:42PM +0300, Nick Kossifidis wrote:
-> >> > Hmm I don't see any errors from reset/phy code, can you disable
-> >> > Network Manager/wpa-supplicant and test connection on an open network
-> >> > using iw ? It 'll give us a better picture...
-> >> >
-> >> > If iw doesn't return any scan results we are probably hitting a PHY/RF
-> >> > error specific to your device (not all vendors follow the reference
-> >> > design). Maybe we should follow a blacklist/whitelist approach for
-> >> > this feature.
-> >>
-> >> I got the results back from my tester. He was able to get scan results,
-> >> but it took multiple tries and the direct probe failures appear in the
-> >> log. He didn't enable ATH5K_DEBUG_RESET this time; let me know if you
-> >> need that and I'll request he retest with the extra debug logs enabled.
-> >
-> > I got some more feedback. Most of the time iw does not get scan results,
-> > but even when it does connecting to the AP isn't always successful. The
-> > tester did note that he doesn't seem to have any trouble if his machine
-> > is within a few feet of his AP. Let me know if you'd like something else
-> > tested.
-> >
-> > I noticed that bugzilla #31922 (ath5k: Decreased throughput in IBSS or
-> > 802.11n mode) is also fixed by reverting 8aec7af9. It seems like the
-> > synth-only channel changes are resulting in poor connection quality.
-> > Maybe that patch needs to be reverted?
-> >
-> > Thanks,
-> > Seth
-> >
-> >
-> 
-> http://www.kernel.org/pub/linux/kernel/people/mickflemm/01-fast-chan-switch-modparm
+On Tue, 2011-05-17 at 11:30 -0700, greearb@candelatech.com wrote:
+> From: Ben Greear <greearb@candelatech.com>
+> A mis-configured filter can spam the logs with
+> lots of stack traces.  Rate-limit the warnings
+> and add printout of the bogus filter information.
+> -			WARN_ON(1);
+> +			if (net_ratelimit()) {
+> +				pr_err("filter: Unknown code: %hu jt: %u tf: %u"
+> +				       " k: %u\n",
+> +				       fentry->code, (unsigned int)(fentry->jt),
+> +				       (unsigned int)(fentry->jf), fentry->k);
+> +				WARN_ON(1);
+> +			}
 
-That looks like it should do the trick. I'll request some testing with
-it and let you know how it goes. Thanks!
+Maybe just using WARN is better.
+I believe the casts aren't necessary.
+
+ net/core/filter.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 0eb8c44..5b967d0 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -350,7 +350,10 @@ load_b:
+ 			continue;
+ 		}
+ 		default:
+-			WARN_ON(1);
++			if (net_ratelimit())
++				WARN(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
++				     fentry->code, fentry->jt,
++				     fentry->jf, fentry->k);
+ 			return 0;
+ 		}
+ 	}
+
+
