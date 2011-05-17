@@ -1,51 +1,73 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2011-05-16-v2
-Date: Mon, 16 May 2011 23:08:35 -0400 (EDT)
-Message-ID: <20110516.230835.989629139579226478.davem@davemloft.net>
-References: <20110516211305.GG6551@tuxdriver.com>
-	<20110517000809.GA2119@tuxdriver.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
+Date: Mon, 16 May 2011 21:31:23 -0700
+Message-ID: <1305606683.10756.3.camel@localhost.localdomain>
+References: <1305574484.3456.30.camel@localhost.localdomain>
+	 <20110516204540.GD18148@redhat.com>
+	 <1305579414.3456.49.camel@localhost.localdomain>
+	 <20110516212401.GF18148@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110517000809.GA2119-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110516212401.GF18148@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogIkpvaG4gVy4gTGludmlsbGUiIDxsaW52aWxsZUB0dXhkcml2ZXIuY29tPg0KRGF0ZTog
-TW9uLCAxNiBNYXkgMjAxMSAyMDowODowOSAtMDQwMA0KDQo+IEknbSBzb3JyeSwgRGF2ZSEgIElu
-IG15IGRlZmVuc2UsIEkgYW0gb24gdGhlIHZlcmdlIG9mIHNpY2tuZXNzIGFuZCBnb3QNCj4gdmVy
-eSBsaXR0bGUgc2xlZXAgbGFzdCBuaWdodC4uLiA6LSgNCj4gDQo+IEkgaGF2ZSBjb3JyZWN0ZWQg
-dGhlIHByb2JsZW0gYW5kIHdhcyBzdXJlIHRvIHBlcmZvcm0gdGhlIGNvcnJlY3QgYnVpbGQNCj4g
-dGVzdCB0aGlzIHRpbWUhIDotKQ0KDQpTbyB0aGVzZSBodW5rcyBtYWRlIHRvIG5ldC9ibHVldG9v
-dGgvbDJjYXBfY29yZS5jOg0KDQpAQCAtMzc0NSwxMSArMzc1OCwxNCBAQCBkb25lOg0KIHN0YXRp
-YyBpbmxpbmUgaW50IGwyY2FwX2Nvbmxlc3NfY2hhbm5lbChzdHJ1Y3QgbDJjYXBfY29ubiAqY29u
-biwgX19sZTE2IHBzbSwgc3RydWN0IHNrX2J1ZmYgKnNrYikNCiB7DQogCXN0cnVjdCBzb2NrICpz
-azsNCisJc3RydWN0IGwyY2FwX2NoYW4gKmNoYW47DQogDQotCXNrID0gbDJjYXBfZ2V0X3NvY2tf
-YnlfcHNtKDAsIHBzbSwgY29ubi0+c3JjKTsNCi0JaWYgKCFzaykNCisJY2hhbiA9IGwyY2FwX2ds
-b2JhbF9jaGFuX2J5X3BzbSgwLCBwc20sIGNvbm4tPnNyYyk7DQorCWlmICghY2hhbikNCiAJCWdv
-dG8gZHJvcDsNCiANCisJc2sgPSBjaGFuLT5zazsNCisNCiAJYmhfbG9ja19zb2NrKHNrKTsNCiAN
-CiAJQlRfREJHKCJzayAlcCwgbGVuICVkIiwgc2ssIHNrYi0+bGVuKTsNCkBAIC0zNzQ1LDExICsz
-NzU4LDE0IEBAIGRvbmU6DQogc3RhdGljIGlubGluZSBpbnQgbDJjYXBfY29ubGVzc19jaGFubmVs
-KHN0cnVjdCBsMmNhcF9jb25uICpjb25uLCBfX2xlMTYgcHNtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-KQ0KIHsNCiAJc3RydWN0IHNvY2sgKnNrOw0KKwlzdHJ1Y3QgbDJjYXBfY2hhbiAqY2hhbjsNCiAN
-Ci0Jc2sgPSBsMmNhcF9nZXRfc29ja19ieV9wc20oMCwgcHNtLCBjb25uLT5zcmMpOw0KLQlpZiAo
-IXNrKQ0KKwljaGFuID0gbDJjYXBfZ2xvYmFsX2NoYW5fYnlfcHNtKDAsIHBzbSwgY29ubi0+c3Jj
-KTsNCisJaWYgKCFjaGFuKQ0KIAkJZ290byBkcm9wOw0KIA0KKwlzayA9IGNoYW4tPnNrOw0KKw0K
-IAliaF9sb2NrX3NvY2soc2spOw0KIA0KIAlCVF9EQkcoInNrICVwLCBsZW4gJWQiLCBzaywgc2ti
-LT5sZW4pOw0KDQpEb2Vzbid0IGdlbmVyYXRlIHRoZSBmb2xsb3dpbmcgd2FybmluZ3Mgb24geW91
-ciBjb21waWxlcj8NCg0KbmV0L2JsdWV0b290aC9sMmNhcF9jb3JlLmM6IEluIGZ1bmN0aW9uIKFs
-MmNhcF9yZWN2X2ZyYW1lojoNCm5ldC9ibHVldG9vdGgvbDJjYXBfY29yZS5jOjM3NTg6MTU6IHdh
-cm5pbmc6IKFza6IgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uDQpu
-ZXQvYmx1ZXRvb3RoL2wyY2FwX2NvcmUuYzozNzU4OjE1OiBub3RlOiChc2uiIHdhcyBkZWNsYXJl
-ZCBoZXJlDQpuZXQvYmx1ZXRvb3RoL2wyY2FwX2NvcmUuYzozNzkxOjE1OiB3YXJuaW5nOiChc2ui
-IG1heSBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbg0KbmV0L2JsdWV0b290
-aC9sMmNhcF9jb3JlLmM6Mzc5MToxNTogbm90ZTogoXNroiB3YXMgZGVjbGFyZWQgaGVyZQ0KDQpJ
-J2xsIGZpeCB0aGVzZSB1cCB3aXRoIHRoZSBvYnZpb3VzIGZpeGVzLCBidXQgcGxlYXNlIGJlIG1v
-cmUgY2FyZWZ1bA0KaW4gdGhlIGZ1dHVyZS4NCg0KVGhhbmtzLg0K
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Tue, 2011-05-17 at 00:24 +0300, Michael S. Tsirkin wrote:
+> On Mon, May 16, 2011 at 01:56:54PM -0700, Shirley Ma wrote:
+> > On Mon, 2011-05-16 at 23:45 +0300, Michael S. Tsirkin wrote:
+> > > > +/* Since we need to keep the order of used_idx as avail_idx,
+> it's
+> > > possible that
+> > > > + * DMA done not in order in lower device driver for some
+> reason. To
+> > > prevent
+> > > > + * used_idx out of order, upend_idx is used to track avail_idx
+> > > order, done_idx
+> > > > + * is used to track used_idx order. Once lower device DMA done,
+> > > then upend_idx
+> > > > + * can move to done_idx.
+> > > 
+> > > Could you clarify this please? virtio explicitly allows out of
+> order
+> > > completion of requests. Does it simplify code that we try to keep
+> > > used index updates in-order? Because if not, this is not
+> > > really a requirement.
+> > 
+> > Hello Mike,
+> > 
+> > Based on my testing, vhost_add_used() must be in order from
+> > vhost_get_vq_desc(). Otherwise, virtio_net ring seems get double
+> > freed.
+> 
+> Double-freed or you get NULL below?
+
+More likely is NULL.
+
+> > I didn't spend time on debugging this.
+> > 
+> > in virtqueue_get_buf
+> > 
+> >         if (unlikely(!vq->data[i])) {
+> >                 BAD_RING(vq, "id %u is not a head!\n", i);
+> >                 return NULL;
+> >         }
+> 
+> Yes but i used here is the head that we read from the
+> ring, not the ring index itself.
+>         i = vq->vring.used->ring[vq->last_used_idx%vq->vring.num].id
+> we must complete any id only once, but in any order.
+
+It is in any order of ring id, but must be in the order of "head"
+returns  from  vhost_get_vq_desc(), any clue?
+
+
+Thanks
+Shirley
