@@ -1,31 +1,61 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: [stable submission] vmxnet3: Fix inconsistent LRO state after initialization
-Date: Tue, 17 May 2011 12:52:30 +0200
-Message-ID: <4DD2536E.1000008@intra2net.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
+Date: Tue, 17 May 2011 13:02:47 +0200
+Message-ID: <e6b52d895fca947b4cce2896d593619b@localhost>
+References: <1305618020-72535-1-git-send-email-tsunanet@gmail.com>
+ <1305618020-72535-2-git-send-email-tsunanet@gmail.com>
+ <1305619677.2850.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stable@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:35678 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753379Ab1EQKwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 06:52:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi greg k-h,
-
-please include commit ebde6f8acba92abfc203585198a54f47e83e2cd0
-"vmxnet3: Fix inconsistent LRO state after initialization"
-
-in 2.6.37 / 2.6.38 stable.
+Cc: Benoit Sigoure <tsunanet@gmail.com>, <davem@davemloft.net>,
+	<kuznet@ms2.inr.ac.ru>, <pekkas@netcore.fi>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305619677.2850.11.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Kernel 2.6.32 first included the vmxnet3 driver and I've checked
-that the patch applies to 2.6.32.40 and 2.6.35.13, so it might be
-worth to include it in all maintained kernels.
+On Tue, 17 May 2011 10:07:57 +0200, Eric Dumazet wrote:
 
-Best regards,
-Thomas Jarosch
+
+
+> I wont discuss if introducing a new sysctl is welcomed, only on patch
+
+> issues. I believe some work in IETF is done to reduce the 3sec value to
+
+> 1sec anyway.
+
+
+
+Why not? I though all new knobs in this area should be done on a per route
+
+metric so it can be controlled on a per path basis. RTO should be
+
+adjustable on a per path basis, because it depends on the path.
+
+
+
+Some months back [1] I posted a patch to enable/disable TCP quick ack
+
+mode, which has nothing to do with network paths, just with a local server
+
+policy. But David rejected the patch with the argument that I should use a
+
+per path knob (this is a little bit inapprehensible for me, but David has
+
+the last word).
+
+
+
+Hagen
+
+
+
+
+
+[1] http://kerneltrap.org/mailarchive/linux-netdev/2010/8/23/6283640
