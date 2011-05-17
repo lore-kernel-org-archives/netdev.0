@@ -1,54 +1,65 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: tuntap: Fix tun_net_fix_features()
-Date: Tue, 17 May 2011 10:19:54 +0200 (CEST)
-Message-ID: <20110517081954.A227013A6A@rere.qmqm.pl>
-References: <BANLkTimeRLQ0FLASsLE+ZxiXOk4gHt5XFQ@mail.gmail.com>
-	<20110505100506.GA20111@gondor.apana.org.au> <20110516073210.GB6610@redhat.com>
-        <20110516080702.GA1857@gondor.apana.org.au> <20110516081841.GA8073@redhat.com>
-        <20110516093822.GA2779@gondor.apana.org.au> <20110516094821.GA9427@redhat.com>
-        <20110516104309.GA3534@gondor.apana.org.au> <20110516112133.GA11274@redhat.com>
-        <20110516121857.GA4495@gondor.apana.org.au> <BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com>
-        <20110516224658.GA11157@gondor.apana.org.au>
-        <BANLkTimeRLQ0FLASsLE+ZxiXOk4gHt5XFQ@mail.gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] net: Change netdev_fix_features messages loglevel
+Date: Tue, 17 May 2011 10:27:00 +0200
+Message-ID: <20110517082700.GA18423@rere.qmqm.pl>
+References: <20110516131757.ED57E13A6A@rere.qmqm.pl>
+ <20110516.151434.829498612745581899.davem@davemloft.net>
+ <20110516234816.GA12024@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Shan Wei <shanwei@cn.fujitsu.com>
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mst@redhat.com, bhutchings@solarflare.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:49833 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:39333 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751188Ab1EQIT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 May 2011 04:19:57 -0400
-In-Reply-To: <BANLkTimeRLQ0FLASsLE+ZxiXOk4gHt5XFQ@mail.gmail.com>
+	id S1752068Ab1EQI1B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 04:27:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20110516234816.GA12024@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tun->set_features are meant to limit not force the features.
+On Tue, May 17, 2011 at 09:48:16AM +1000, Herbert Xu wrote:
+> On Mon, May 16, 2011 at 03:14:34PM -0400, David Miller wrote:
+> > From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> > Date: Mon, 16 May 2011 15:17:57 +0200 (CEST)
+> >=20
+> > > Those reduced to DEBUG can possibly be triggered by unprivileged =
+processes
+> > > and are nothing exceptional. Illegal checksum combinations can on=
+ly be
+> > > caused by driver bug, so promote those messages to WARN.
+> > >=20
+> > > Since GSO without SG will now only cause DEBUG message from
+> > > netdev_fix_features(), remove the workaround from register_netdev=
+ice().
+> > >=20
+> > > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> > Applied, thanks.
+> I think this patch is not a good idea.  The only problem here
+> is the tun driver which should just fix up the feature bits
+> silently (we need to do that anyway as right now it doesn't
+> verify the feature bits at all, those warnings are only trigger
+> on registering the tun device).
+>=20
+> With this patch future buggy drivers will instead trigger hard-
+> to-debug warnings further down the stack in the TSO code path,
+> like they have before (or silent packet drops if those warnings
+> aren't there anymore).
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- drivers/net/tun.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+If core TSO code really depends on checksumming features being turned o=
+n
+then this dependency should be checked in netdev_fix_features. There
+will be no possibility for a driver to cause bugs then.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 74e9405..f77c6d0 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -458,7 +458,7 @@ static u32 tun_net_fix_features(struct net_device *=
-dev, u32 features)
- {
- 	struct tun_struct *tun =3D netdev_priv(dev);
-=20
--	return (features & tun->set_features) | (features & ~TUN_USER_FEATURE=
-S);
-+	return features & (tun->set_features | ~TUN_USER_FEATURES);
- }
-=20
- static const struct net_device_ops tun_netdev_ops =3D {
---=20
-1.7.2.5
+Network core is making up for devices which can't checksum just before
+calling ndo_hard_start_xmit. It's a possibility that packet to be TSOed
+will be unnecessarily checksummed in dev_hard_start_xmit() if HW checks=
+um
+is off while TSO is on (I deduce this based on the code, can't test as
+TSO in my test-box is busted).
 
+Best Regards,
+Micha=B3 Miros=B3aw
