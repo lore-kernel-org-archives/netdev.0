@@ -1,45 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tap/bridge: Dropping NETIF_F_GSO/NETIF_F_SG
-Date: Tue, 17 May 2011 15:24:01 +1000
-Message-ID: <20110517052401.GA15198@gondor.apana.org.au>
-References: <20110516121857.GA4495@gondor.apana.org.au> <BANLkTi=7i=AQfPNBEGcLFieaO9wXgBk6rg@mail.gmail.com> <20110516224658.GA11157@gondor.apana.org.au> <20110516.190615.2121423692228640268.davem@davemloft.net> <20110516234538.GA11832@gondor.apana.org.au> <20110517051845.GA26414@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mirqus@gmail.com,
-	shanwei@cn.fujitsu.com, mirq-linux@rere.qmqm.pl,
-	netdev@vger.kernel.org, bhutchings@solarflare.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:40904 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221Ab1EQFYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 01:24:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20110517051845.GA26414@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kaber@trash.net
+Subject: [PATCH 1/2] netfilter: nf_ct_sip: validate Content-Length in TCP SIP messages
+Date: Tue, 17 May 2011 07:26:53 +0200
+Message-ID: <1305610014-3056-2-git-send-email-kaber@trash.net>
+References: <1305610014-3056-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1305610014-3056-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 17, 2011 at 08:18:45AM +0300, Michael S. Tsirkin wrote:
->
-> Hmm, we get the warnings about bits dropped on each set_offload
-> call:
-> 	netdev_update_features is called,
-> 	that calls netdev_fix_features
-> 
-> No?
+From: Patrick McHardy <kaber@trash.net>
 
-I presume this has changed recently as the current Linus tree
-does not contain a call to netdev_update_features, it only calls
-netdev_features_change.
+Verify that the message length of a single SIP message, which is calculated
+based on the Content-Length field contained in the SIP message, does not
+exceed the packet boundaries.
 
-If so then this does ensure that the feature bits will be sane.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/nf_conntrack_sip.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-I still think the warnings should be retained at their previous
-level in the call paths other than set_offload.  All we have to
-do is add a parameter to netdev_update_features and co.
-
-Cheers,
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index bcf47eb..1f81abd 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1461,6 +1461,8 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
+ 		end += strlen("\r\n\r\n") + clen;
+ 
+ 		msglen = origlen = end - dptr;
++		if (msglen > datalen)
++			return NF_DROP;
+ 
+ 		ret = process_sip_msg(skb, ct, dataoff, &dptr, &msglen);
+ 		if (ret != NF_ACCEPT)
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.2.3
+
