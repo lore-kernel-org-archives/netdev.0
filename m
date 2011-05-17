@@ -1,26 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] sfc: Replace enum efx_fc_type with macros
- and type alias
-Date: Tue, 17 May 2011 17:45:17 -0400 (EDT)
-Message-ID: <20110517.174517.1947013680959781158.davem@davemloft.net>
-References: <1305666379.2848.45.camel@bwh-desktop>
-	<20110517.171412.1017451005914294196.davem@davemloft.net>
-	<1305668611.2848.58.camel@bwh-desktop>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in netdevice
+Date: Tue, 17 May 2011 23:48:21 +0200
+Message-ID: <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
+References: <1305574128.3456.23.camel@localhost.localdomain>
+ <1305574518.2885.25.camel@bwh-desktop> <1305574680.3456.33.camel@localhost.localdomain>
+ <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com> <1305588738.3456.65.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40905 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932426Ab1EQVpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:45:21 -0400
-In-Reply-To: <1305668611.2848.58.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305588738.3456.65.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
+> Hello Michael,
+>
+> Looks like to use a new flag requires more time/work. I am thinking
+> whether we can just use HIGHDMA flag to enable zero-copy in macvtap t=
+o
+> avoid the new flag for now since mavctap uses real NICs as lower devi=
+ce?
 
-Too late Ben, I've already written this patch myself using "u8"
-throughout since that also matches the return type of the mii_*()
-routines that feed this value.
+Is there any other restriction besides requiring driver to not recycle
+the skb? Are there any drivers that recycle TX skbs?
+
+Best Regards,
+Micha=B3 Miros=B3aw
