@@ -1,12 +1,11 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 14:11:37 -0700
-Message-ID: <1305666697.8149.951.camel@tardy>
+Date: Tue, 17 May 2011 22:11:43 +0100
+Message-ID: <1305666703.2848.49.camel@bwh-desktop>
 References: <20110517.143342.1566027350038182221.davem@davemloft.net>
 	 <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
 	 <20110517.164929.1737248436066795381.davem@davemloft.net>
 	 <1305666050.2691.4.camel@edumazet-laptop>
-Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -14,10 +13,10 @@ Cc: David Miller <davem@davemloft.net>, therbert@google.com,
 	netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:48623 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932296Ab1EQVLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:11:40 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:5407 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932318Ab1EQVLr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:11:47 -0400
 In-Reply-To: <1305666050.2691.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -42,16 +41,20 @@ t's
 >=20
 > Well, we could just use the iph->id in the rxhash computation for fra=
 gs.
->=20
+
+But then each datagram lands on a different CPU, and reordering is
+liable to happen far more often than it does now.
+
 > At least all frags of a given datagram should be reassembled on same
 > cpu, so we get RPS (but not RFS)
 
-Won't that just scatter the fragments of a given flow across processors=
-?
-Instead of then going back and forth between two caches - where
-reassembly happens and then where the app is running, it will go back
-and forth between the app's cache and pretty much nearly every other
-cache in the system (or at least configured to take RPS traffic).
+You could still do RPS with just IP addresses (same as RSS using
+Toeplitz hashes).
 
-rick
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
