@@ -1,49 +1,49 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
- netdevice
-Date: Tue, 17 May 2011 15:28:38 -0700
-Message-ID: <1305671318.10756.49.camel@localhost.localdomain>
-References: <1305574128.3456.23.camel@localhost.localdomain>
-	 <1305574518.2885.25.camel@bwh-desktop>
-	 <1305574680.3456.33.camel@localhost.localdomain>
-	 <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com>
-	 <1305588738.3456.65.camel@localhost.localdomain>
-	 <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: add rcu protection to netdev->ifalias
+Date: Wed, 18 May 2011 00:39:16 +0200
+Message-ID: <1305671956.6741.25.camel@edumazet-laptop>
+References: <1303980967.3360.60.camel@edumazet-laptop>
+	 <20110428084337.6b54603e@nehalam>
+	 <20110502.152733.48516094.davem@davemloft.net>
+	 <1305670692.6741.14.camel@edumazet-laptop>
+	 <20110517152503.2f7244f3@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, remi.denis-courmont@nokia.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56868 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756695Ab1EQWjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:39:20 -0400
+Received: by wya21 with SMTP id 21so771941wya.19
+        for <netdev@vger.kernel.org>; Tue, 17 May 2011 15:39:19 -0700 (PDT)
+In-Reply-To: <20110517152503.2f7244f3@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-17 at 23:48 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> 2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
-> > Hello Michael,
-> >
-> > Looks like to use a new flag requires more time/work. I am thinking
-> > whether we can just use HIGHDMA flag to enable zero-copy in macvtap
-> to
-> > avoid the new flag for now since mavctap uses real NICs as lower
-> device?
+Le mardi 17 mai 2011 =C3=A0 15:25 -0700, Stephen Hemminger a =C3=A9crit=
+ :
+
+> I am beginning to think the idea of optimizing case of "ip link show"
+> running in background with adding/removing network devices is silly.=20
+> And switching to RCU leads to all sorts of corner cases where only
+> partial data will be read. Is it really worth it?
 >=20
-> Is there any other restriction besides requiring driver to not recycl=
-e
-> the skb? Are there any drivers that recycle TX skbs?=20
 
-Not more other restrictions, skb clone is OK. pskb_expand_head() looks
-OK to me from code review.
+Just try "modprobe dummy numdummies=3D1000", and watch load average
+raising, because so many processes want to hold RTNL, and the
+rtnl_trylock() crazy thing make them spin (restart syscall, and find
+RTNL locked again... wooo...)
 
-Currently there is no drivers recycle TX skbs.
+Some workloads hit RTNL quite hard, and monitoring tools were sometime
+frozen for unexpected long times. (before the patch, when we used to
+hold RTNL in dump())
 
-Thanks
-Shirley
+I dont know, if it happens to be too hard, we'll just stick again rtnl
+for "ip link show" ;)
+
+
 
