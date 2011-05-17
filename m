@@ -1,57 +1,88 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in netdevice
-Date: Wed, 18 May 2011 00:58:00 +0200
-Message-ID: <BANLkTik6aqP5BVrQNFKrnU3v=KA9ip1RoA@mail.gmail.com>
-References: <1305574128.3456.23.camel@localhost.localdomain>
- <1305574518.2885.25.camel@bwh-desktop> <1305574680.3456.33.camel@localhost.localdomain>
- <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com>
- <1305588738.3456.65.camel@localhost.localdomain> <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
- <1305671318.10756.49.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-2.6] net: add skb_dst_force() in sock_queue_err_skb()
+Date: Wed, 18 May 2011 01:10:46 +0200
+Message-ID: <1305673846.6741.35.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Witold Baryluk <baryluk@smp.if.uj.edu.pl>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:50371 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932485Ab1EQW6V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 18:58:21 -0400
-In-Reply-To: <1305671318.10756.49.camel@localhost.localdomain>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:64474 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932582Ab1EQXKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 19:10:52 -0400
+Received: by wwk4 with SMTP id 4so4097185wwk.1
+        for <netdev@vger.kernel.org>; Tue, 17 May 2011 16:10:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 18 maja 2011 00:28 u=BFytkownik Shirley Ma <mashirle@us.ibm.com>=
- napisa=B3:
-> On Tue, 2011-05-17 at 23:48 +0200, Micha=B3 Miros=B3aw wrote:
->> 2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
->> > Looks like to use a new flag requires more time/work. I am thinkin=
-g
->> > whether we can just use HIGHDMA flag to enable zero-copy in macvta=
-p
->> to
->> > avoid the new flag for now since mavctap uses real NICs as lower
->> device?
->>
->> Is there any other restriction besides requiring driver to not recyc=
-le
->> the skb? Are there any drivers that recycle TX skbs?
-> Not more other restrictions, skb clone is OK. pskb_expand_head() look=
-s
-> OK to me from code review.
+Commit 7fee226ad239 (add a noref bit on skb dst) forgot to use
+skb_dst_force() on packets queued in sk_error_queue
 
-> Currently there is no drivers recycle TX skbs.
+This triggers following warning, for applications using IP_CMSG_PKTINFO
+receiving one error status
 
-So why do you require the target device to have some flags at all?
 
-Do I understand correctly, that this zero-copy feature is about
-packets received from VMs?
+------------[ cut here ]------------
+WARNING: at include/linux/skbuff.h:457 ip_cmsg_recv_pktinfo+0xa6/0xb0()
+Hardware name: 2669UYD
+Modules linked in: isofs vboxnetadp vboxnetflt nfsd ebtable_nat ebtables
+lib80211_crypt_ccmp uinput xcbc hdaps tp_smapi thinkpad_ec radeonfb fb_ddc
+radeon ttm drm_kms_helper drm ipw2200 intel_agp intel_gtt libipw i2c_algo_bit
+i2c_i801 agpgart rng_core cfbfillrect cfbcopyarea cfbimgblt video raid10 raid1
+raid0 linear md_mod vboxdrv
+Pid: 4697, comm: miredo Not tainted 2.6.39-rc6-00569-g5895198-dirty #22
+Call Trace:
+ [<c17746b6>] ? printk+0x1d/0x1f
+ [<c1058302>] warn_slowpath_common+0x72/0xa0
+ [<c15bbca6>] ? ip_cmsg_recv_pktinfo+0xa6/0xb0
+ [<c15bbca6>] ? ip_cmsg_recv_pktinfo+0xa6/0xb0
+ [<c1058350>] warn_slowpath_null+0x20/0x30
+ [<c15bbca6>] ip_cmsg_recv_pktinfo+0xa6/0xb0
+ [<c15bbdd7>] ip_cmsg_recv+0x127/0x260
+ [<c154f82d>] ? skb_dequeue+0x4d/0x70
+ [<c1555523>] ? skb_copy_datagram_iovec+0x53/0x300
+ [<c178e834>] ? sub_preempt_count+0x24/0x50
+ [<c15bdd2d>] ip_recv_error+0x23d/0x270
+ [<c15de554>] udp_recvmsg+0x264/0x2b0
+ [<c15ea659>] inet_recvmsg+0xd9/0x130
+ [<c1547752>] sock_recvmsg+0xf2/0x120
+ [<c11179cb>] ? might_fault+0x4b/0xa0
+ [<c15546bc>] ? verify_iovec+0x4c/0xc0
+ [<c1547660>] ? sock_recvmsg_nosec+0x100/0x100
+ [<c1548294>] __sys_recvmsg+0x114/0x1e0
+ [<c1093895>] ? __lock_acquire+0x365/0x780
+ [<c1148b66>] ? fget_light+0xa6/0x3e0
+ [<c1148b7f>] ? fget_light+0xbf/0x3e0
+ [<c1148aee>] ? fget_light+0x2e/0x3e0
+ [<c1549f29>] sys_recvmsg+0x39/0x60
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Close bug https://bugzilla.kernel.org/show_bug.cgi?id=34622
+
+
+Reported-by: Witold Baryluk <baryluk@smp.if.uj.edu.pl>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+---
+ net/core/skbuff.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7ebeed0..3e934fe 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2993,6 +2993,9 @@ int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
+ 	skb->destructor = sock_rmem_free;
+ 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
+ 
++	/* before exiting rcu section, make sure dst is refcounted */
++	skb_dst_force(skb);
++
+ 	skb_queue_tail(&sk->sk_error_queue, skb);
+ 	if (!sock_flag(sk, SOCK_DEAD))
+ 		sk->sk_data_ready(sk, skb->len);
+
+
