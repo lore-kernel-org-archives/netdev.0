@@ -1,51 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: small RPS cache for fragments?
-Date: Tue, 17 May 2011 22:14:48 +0200
-Message-ID: <1305663288.2691.2.camel@edumazet-laptop>
+Date: Tue, 17 May 2011 13:17:14 -0700
+Message-ID: <1305663434.8149.936.camel@tardy>
 References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	 <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
+Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57449 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932112Ab1EQUOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 16:14:52 -0400
-Received: by wya21 with SMTP id 21so689213wya.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 13:14:51 -0700 (PDT)
-In-Reply-To: <20110517.143342.1566027350038182221.davem@davemloft.net>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:7933 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932112Ab1EQURa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 16:17:30 -0400
+In-Reply-To: <BANLkTikyH=q_6uOvFh3_Z_xwPST3zVijZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 17 mai 2011 =C3=A0 14:33 -0400, David Miller a =C3=A9crit :
-> It seems to me that we can solve the UDP fragmentation problem for
-> flow steering very simply by creating a (saddr/daddr/IPID) entry in a
-> table that maps to the corresponding RPS flow entry.
->=20
-> When we see the initial frag with the UDP header, we create the
-> saddr/daddr/IPID mapping, and we tear it down when we hit the
-> saddr/daddr/IPID mapping and the packet has the IP_MF bit clear.
->=20
+On Tue, 2011-05-17 at 13:02 -0700, Tom Herbert wrote:
+> I like it!  And this sounds like the sort of algorithm that NICs might
+> be able to implement to solve the UDP/RSS unpleasantness, so even
+> better.
 
-> We only inspect the saddr/daddr/IPID cache when iph->frag_off is
-> non-zero.
->=20
+Do (m)any devices take "shortcuts" with UDP datagrams these days?  By
+that I mean that back in the day, the HP-PB and "Slider" FDDI
+cards/drivers did checksum offload for fragmented UDP datagrams by
+sending the first fragment, the one with the UDP header and thus
+checksum, last.  It did that to save space on the card and make use of
+the checksum accumulator.
 
-> It's best effort and should work quite well.
->=20
-> Even a one-behind cache, per-NAPI instance, would do a lot better tha=
-n
-> what happens at the moment.  Especially since the IP fragments mostly
-> arrive as one packet train.
+rick jones
+
+> 
+> Tom
+> 
+> On Tue, May 17, 2011 at 11:33 AM, David Miller <davem@davemloft.net> wrote:
+> >
+> > It seems to me that we can solve the UDP fragmentation problem for
+> > flow steering very simply by creating a (saddr/daddr/IPID) entry in a
+> > table that maps to the corresponding RPS flow entry.
+> >
+> > When we see the initial frag with the UDP header, we create the
+> > saddr/daddr/IPID mapping, and we tear it down when we hit the
+> > saddr/daddr/IPID mapping and the packet has the IP_MF bit clear.
+> >
+> > We only inspect the saddr/daddr/IPID cache when iph->frag_off is
+> > non-zero.
+> >
+> > It's best effort and should work quite well.
+> >
+> > Even a one-behind cache, per-NAPI instance, would do a lot better than
+> > what happens at the moment.  Especially since the IP fragments mostly
+> > arrive as one packet train.
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
 > --
-
-OK but do we have workloads actually needing this optimization at all ?
-
-(IP defrag hits a read_lock(&ip4_frags.lock)), so maybe steer all frags
-on a given cpu ?)
-
-
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
