@@ -1,37 +1,31 @@
-From: David Miller <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH net-next-2.6] sfc: Replace enum efx_fc_type with a
  'bitwise' type
-Date: Tue, 17 May 2011 17:14:12 -0400 (EDT)
-Message-ID: <20110517.171412.1017451005914294196.davem@davemloft.net>
+Date: Tue, 17 May 2011 14:22:58 -0700
+Message-ID: <1305667378.1722.65.camel@Joe-Laptop>
 References: <1305658121.2848.29.camel@bwh-desktop>
-	<20110517.152651.1785846817320651943.davem@davemloft.net>
-	<1305666379.2848.45.camel@bwh-desktop>
+	 <20110517.152651.1785846817320651943.davem@davemloft.net>
+	 <1305666379.2848.45.camel@bwh-desktop>
+	 <20110517.171412.1017451005914294196.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932296Ab1EQVOR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 17:14:17 -0400
-In-Reply-To: <1305666379.2848.45.camel@bwh-desktop>
+Received: from mail.perches.com ([173.55.12.10]:1726 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932075Ab1EQVXA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 May 2011 17:23:00 -0400
+In-Reply-To: <20110517.171412.1017451005914294196.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 17 May 2011 22:06:19 +0100
+On Tue, 2011-05-17 at 17:14 -0400, David Miller wrote:
+> Accept that the compiler currently doesn't want to allow enums to be
+> used as bit-masks, don't paper around it.
 
-> But that seems to result in discarding all type information for the
-> flags. I would prefer to improve type checking.
+A patch applied yesterday using enums as bitmasks:
+http://patchwork.ozlabs.org/patch/95802/
 
-That's why I don't want a solution like your cast patch, as that
-takes the typing information away.
-
-Accept that the compiler currently doesn't want to allow enums to be
-used as bit-masks, don't paper around it.
-
-I'm not applying this patch either, you think all of this "__force"
-casting stuff is better?  No way.
 
