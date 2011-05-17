@@ -1,51 +1,41 @@
-From: Aristide Fattori <joystick@security.dico.unimi.it>
-Subject: Re: Null pointer dereference in icmp_send
-Date: Tue, 17 May 2011 09:31:28 +0200
-Message-ID: <BANLkTinNeK1KVv8L-+ySgG-nfhg1=eiUPg@mail.gmail.com>
-References: <BANLkTi=uBDOQOJJMGn6V0Ne7OjQ7kGc-2w@mail.gmail.com>
- <1305581236.9466.4.camel@edumazet-laptop> <1305581934.9466.11.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	roberto.paleari@emaze.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:60204 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752439Ab1EQHbt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 03:31:49 -0400
-Received: by bwz15 with SMTP id 15so264438bwz.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 00:31:48 -0700 (PDT)
-In-Reply-To: <1305581934.9466.11.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benoit Sigoure <tsunanet@gmail.com>
+Subject: [PATCH] tcp: Expose the initial RTO via a new sysctl.
+Date: Tue, 17 May 2011 00:40:19 -0700
+Message-ID: <1305618020-72535-1-git-send-email-tsunanet@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+Hi,
+it's not easy to change the initial RTO of TCP as right now you need to
+recompile your kernel.  In order to make it easier to tune this setting,
+I was wondering whether you would consider turning it into a sysctl.  I
+attached a first attempt at a patch that does this -- this is my first
+patch to the Linux kernel so although I've read SubmitChecklist and
+SubmittingPatches, and I've run checkpatch.pl, please let me know if I'm
+doing something wrong.
 
-On Mon, May 16, 2011 at 11:38 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le lundi 16 mai 2011 =E0 23:27 +0200, Eric Dumazet a =E9crit :
->> You forgot to tell us which linux version you used ?
+I am doing this because I work in a high-throughput low-latency environment
+(line-rate GbE with submillisecond RTT) and some of our clients are negatively
+affected by the high initial RTO when the servers are unable to accept() new
+connections fast enough.  While we're working on fixing these servers and/or
+giving them larger backlog queues when they listen(), being able to tune
+the initial RTO at runtime would be very useful as quick workaround for the
+server-side issues.
 
-Sorry about that, we verified the bug in versions 2.6.38.3, 2.6.38.4
-and 2.6.38.6, but we didn't check the svn version :-)
+Some large Internet websites are also running with a more aggressive initial
+RTO, for instance Google documented some of what they're doing here:
+  http://www.ietf.org/proceedings/75/slides/tcpm-1.pdf
+While I'm not arguing to change the default value at this time, I believe
+that this patch would also come in handy for those who wish to experiment
+with various values in their environment.
 
-> ...
-> But if a timeout occurs, we take first queued fragment to build one I=
-CMP
-> TIME EXCEEDED message. Problem is all queued skb have weak dst pointe=
-rs,
-> ...
-
-At a first glance, it appears we identified the same bug you already
-fixed. If you want to double check, we can send you the "long version
-report" that we submitted at first to security@kernel.org and
-david@davemloft.net.
-
-> It is scheduled for linux-2.6.38 stable tree as well
-
-Good job! :-)
-
---=20
-GnuPG Key on keyserver.pgp.com ID 0x25578128
-http://security.dico.unimi.it/~joystick/
+If you're willing to consider this patch, bear in mind I only compiled it,
+I didn't test it yet (not knowing whether you'd want something like that or
+not).  I would also appreciate if anyone had any insight on what I did with
+`COUNTER_TRIES' in `syncookies.c' as this magic constant is rather mysterious
+and the comment didn't help me figure out how it had been derived.  I couldn't
+find anything online and git blame didn't help me either (it pre-dates Git).
