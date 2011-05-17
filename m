@@ -1,53 +1,70 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: sfc: an enumeration is not a bitmask
-Date: Wed, 18 May 2011 01:19:01 +0200
-Message-ID: <BANLkTi=C24pTxhMRtaT40Rrj9Z1s+DH=jg@mail.gmail.com>
-References: <20110517.141446.140687548350861625.davem@davemloft.net>
- <BANLkTi=n_0JiF0Lm=+1OwRzB4XQFBtg8KA@mail.gmail.com> <BANLkTinaO0VVGpRRqRauH6FucvwbcXyRUg@mail.gmail.com>
- <4DD2EFEC.9040504@pobox.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Tue, 17 May 2011 16:44:25 -0700
+Message-ID: <1305675865.10756.63.camel@localhost.localdomain>
+References: <1305574128.3456.23.camel@localhost.localdomain>
+	 <1305574518.2885.25.camel@bwh-desktop>
+	 <1305574680.3456.33.camel@localhost.localdomain>
+	 <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com>
+	 <1305588738.3456.65.camel@localhost.localdomain>
+	 <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
+	 <1305671318.10756.49.camel@localhost.localdomain>
+	 <BANLkTik6aqP5BVrQNFKrnU3v=KA9ip1RoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:55367 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984Ab1EQXTW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 19:19:22 -0400
-Received: by qwk3 with SMTP id 3so523590qwk.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 16:19:21 -0700 (PDT)
-In-Reply-To: <4DD2EFEC.9040504@pobox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <BANLkTik6aqP5BVrQNFKrnU3v=KA9ip1RoA@mail.gmail.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 18 maja 2011 00:00 u=BFytkownik Jeff Garzik <jgarzik@pobox.com> =
-napisa=B3:
-> On 05/17/2011 03:09 PM, Micha=B3 Miros=B3aw wrote:
->> 2011/5/17 Jeff Garzik<jgarzik@pobox.com>:
->>> 2011/5/17 David Miller<davem@davemloft.net>:
->>>> An enumeration is not a bitmask, instead it means one out of the s=
-et
->>>> of enumerated values will be used.
->>> It's a decade-old kernel practice to use 'enum' to define typed
->>> constants, preferred over =A0macros that convey no type information=
- and
->>> disappear after cpp phase.
->>>
->>> So your assertion about enumerations is demonstrably not true, as i=
-t
->>> is often used in the kernel. =A0Call it enum abuse if you want, but=
- it
->>> is consistent with code all over the kernel.
->> Old age of the mistake doesn't make it correct.
-> It is not a mistake, but a useful coding tool.
+On Wed, 2011-05-18 at 00:58 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> W dniu 18 maja 2011 00:28 u=C5=BCytkownik Shirley Ma <mashirle@us.ibm=
+=2Ecom>
+> napisa=C5=82:
+> > On Tue, 2011-05-17 at 23:48 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> >> 2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
+> >> > Looks like to use a new flag requires more time/work. I am
+> thinking
+> >> > whether we can just use HIGHDMA flag to enable zero-copy in
+> macvtap
+> >> to
+> >> > avoid the new flag for now since mavctap uses real NICs as lower
+> >> device?
+> >>
+> >> Is there any other restriction besides requiring driver to not
+> recycle
+> >> the skb? Are there any drivers that recycle TX skbs?
+> > Not more other restrictions, skb clone is OK. pskb_expand_head()
+> looks
+> > OK to me from code review.
+>=20
+> > Currently there is no drivers recycle TX skbs.
+>=20
+> So why do you require the target device to have some flags at all?
 
-Being it a mistake does not contradict usefulness. ;-)
+We could use macvtap to check lower device HIGHDMA to enable zero-copy,
+but I am not sure whether it is sufficient. If it's sufficient then we
+don't need to use a new flag here. To be safe, it's better to use a new
+flag to enable each device who can pass zero-copy test.
 
-C has bitfields for the uses where masks and shifts are usually used.
-Unfortunately, those usually require more typing and sometimes compile
-to worse code.
+> Do I understand correctly, that this zero-copy feature is about
+> packets received from VMs?
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Yes, packets sent from VMs, and received in local host for TX zero-copy
+here.
+
+Thanks
+Shirley
+
+
+
