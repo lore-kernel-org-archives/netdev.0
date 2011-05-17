@@ -1,52 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ping: fix build failure
-Date: Tue, 17 May 2011 14:00:04 -0400 (EDT)
-Message-ID: <20110517.140004.2294213911709293397.davem@davemloft.net>
-References: <20110516.153844.1072050131335197211.davem@davemloft.net>
-	<20110517101656.GA28685@albatros>
-	<20110517084125.77b543c8.randy.dunlap@oracle.com>
+Subject: Re: pull request: sfc-next-2.6 2011-05-17
+Date: Tue, 17 May 2011 14:00:37 -0400 (EDT)
+Message-ID: <20110517.140037.1356768720837613445.davem@davemloft.net>
+References: <1305647988.2848.14.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: segoon@openwall.com, sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: randy.dunlap@oracle.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110517084125.77b543c8.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45624 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756130Ab1EQSAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 14:00:41 -0400
+In-Reply-To: <1305647988.2848.14.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Tue, 17 May 2011 08:41:25 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 17 May 2011 16:59:48 +0100
 
-> On Tue, 17 May 2011 14:16:56 +0400 Vasiliy Kulikov wrote:
+> The following changes since commit 7be799a70ba3dd90a59e8d2c72bbe06020005b3f:
 > 
->> On Mon, May 16, 2011 at 15:38 -0400, David Miller wrote:
->> > From: Randy Dunlap <randy.dunlap@oracle.com>
->> > Date: Mon, 16 May 2011 12:35:34 -0700
->> > 
->> > > On Mon, 16 May 2011 15:10:19 +1000 Stephen Rothwell wrote:
->> > > when CONFIG_PROC_SYSCTL is not enabled:
->> > > 
->> > > ping.c:(.text+0x52af3): undefined reference to `inet_get_ping_group_range_net'
->> > 
->> > Vasiliy, please fix this.
->> 
->> I wonder whether there is any way to test such unusual configurations?
->> Only randconfig or are there any (partly-)automated tools for it?
->> 
->> 
->> [PATCH] net: ping: fix build failure
->> 
->> If CONFIG_PROC_SYSCTL=n the building process fails:
->> 
->>     ping.c:(.text+0x52af3): undefined reference to `inet_get_ping_group_range_net'
->> 
->> Moved inet_get_ping_group_range_net() to ping.c.
->> 
->> Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
->> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+>   ipv4: Remove rt->rt_dst reference from ip_forward_options(). (2011-05-13 17:31:02 -0400)
 > 
-> Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git master
+> 
+> Miscellaneous bug fixes.
 
-Applied, thanks everyone.
+Pulled, thanks Ben.
