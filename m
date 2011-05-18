@@ -1,98 +1,58 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Identifying network namespaces (was: Network namespace manipulation
- with file descriptors)
-Date: Wed, 18 May 2011 14:43:07 +0200
-Message-ID: <20110518124307.GD3762520@jupiter.n2.diac24.net>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonc?=  =?UTF-8?Q?e=20/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20na?=  =?UTF-8?Q?t=20=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
+Date: Wed, 18 May 2011 15:46:07 +0300
+Message-ID: <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
+References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
+ <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
+ <1305711471.2983.27.camel@edumazet-laptop>
+ <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
+ <1305713111.2991.1.camel@edumazet-laptop>
+ <1305719047.2991.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:59515 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933074Ab1ERMqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 08:46:09 -0400
+In-Reply-To: <1305719047.2991.4.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 06, 2011 at 07:23:29PM -0700, Eric W. Biederman wrote:
-> Today there are something things you can use namespaces to implement but
-> the userspace code is unnecessarily complex and fragile because of
-> limitations of the kernel interfaces.
+ On Wed, 18 May 2011 13:44:07 +0200, Eric Dumazet wrote:
+> Le mercredi 18 mai 2011 =C3=A0 12:05 +0200, Eric Dumazet a =C3=A9crit=
+ :
+>> Le mercredi 18 mai 2011 =C3=A0 12:53 +0300, Denys Fedoryshchenko a =C3=
+=A9crit=20
+>> :
+>>
+>> >  Yes, i will try. I should enable SLUB debugging only, or also=20
+>> anything
+>> >  else?
+>> >
+>> >  But possible it will take time to reproduce bug, seems it is=20
+>> occuring
+>> >  rare. With 2.6.39 release i will rollout update to few hundreds=20
+>> PPPoE's,
+>> >  maybe it will increase chances to get information.
+>> >
+>>
+>> I would try both : slub_debug=3DZFP slub_nomerge
+>>
+>> or maybe only slub_debug=3DZFPU
+>>
+>> Thanks !
+>>
+>
+> Hmm, do you have both ipv6/ipv4 trafic on your machine by any chance=20
+> ?
+ It is NAS, has ipv6 enabled recently (i am preparing for ipv6), but=20
+ ipv6 is not routed anywhere, maybe just automatically addresses=20
+ appearing on interfaces, including the one looking to customer subnet.=
+=20
+ ppp is ipv4 only.
 
-(I hope I'm not duplicating stuff here, maybe this is already taken care
-of...)
-
-There still is the unresolved issue of identifying and/or equality
-testing network namespaces. The problems I see are the following:
-
-Problems
-========
-
--   there is no simple list of the existing namespaces
- 
-  most importantly, network namespaces can be abused very sneakily to
-  provide trojans or other malicious software with a covert
-  communication channel.
-
-  Just create a macvlan device on the local ethernet, shift it into a
-  new namespace, grab an IP - and the admin of the host will be left
-  dumbfounded with his plain old netstat or ss as to where those weird
-  packets are coming from.
-
-  (Granted, this needs root privileges and you can still see everything
-  in /proc/<pid>/net/{tcp,udp,...})
-
--   processes cannot easily be cross referenced with each other
-
-  in the case of user space stuff running astray - like management
-  software crashing, routing daemons screwing up, etc. - it becomes
-  fairly difficult to shut down a network namespace (or even reaquire
-  physical devices that have been reassigned)
-
--   namespaces cannot adequately be identified to the user
-
-  for debugging, some kernel messages become useless. most prominently,
-  "unregister_netdevice: waiting for lo to become free. Usage count = 123"
-  could certainly use some clarification, *which* lo is meant...
-
-So, considering this set of premises (feedback welcome) I looked for
-some suitable means of identification. I discarded going for any process
-identifiers since Eric's patches allow for network namespaces without
-any process holding a reference, using bind mounts instead.
-
-Solution?
-=========
-
-I do think I found another identifier suitable for both exporting a full 
-list and providing "getid" functionality: the "lo" interface index.
-I am not fully sure on the rules here, but to my understanding the lo
-interface index should be constant for the lifetime of a network
-namespace, and furthermore the interface index namespace is global to
-the kernel.
-
-This can already be used right now:
-- you can identify the init namespace since its lo index is 1
-- you can use netlink (or SIOCGIFINDEX, ew.) to get your own ID
-- as soon as you have the means to attach to a namespace, you
-  automatically also have the means to get its ID
-
-What might need to be added:
-1) a list of lo indices
-2) a way to get a hold of the namespace using its lo index
-3) maybe dmesg output on creation/destruction for the abuse case above
-4) possibly a file in /proc/<pid>/net that just contains the lo index,
-  for ease of use
-
-3) and 4) should be trivial; 1) and 2) could be solved by having a
-directory in /proc (?) that has all the network namespace "files" with
-their lo indices as names.
-
-
-So, ... Opinions?
-
-
--David
