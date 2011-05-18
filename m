@@ -1,51 +1,48 @@
-From: Huzaifa Sidhpurwala <huzaifas@redhat.com>
-Subject: [PATCH] Check the value of doi before referencing it
-Date: Wed, 18 May 2011 09:59:40 +0530
-Message-ID: <1305692980-4730-1-git-send-email-huzaifas@redhat.com>
-Cc: kaber@trash.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	pekkas@netcore.fi, kuznet@ms2.inr.ac.ru, davem@davemloft.net,
-	Huzaifa Sidhpurwala <huzaifas@redhat.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: add rcu protection to netdev->ifalias
+Date: Wed, 18 May 2011 06:35:11 +0200
+Message-ID: <1305693312.6741.58.camel@edumazet-laptop>
+References: <1303980967.3360.60.camel@edumazet-laptop>
+	 <20110428084337.6b54603e@nehalam>
+	 <20110502.152733.48516094.davem@davemloft.net>
+	 <1305670692.6741.14.camel@edumazet-laptop>
+	 <20110517152503.2f7244f3@nehalam>
+	 <1305671956.6741.25.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, remi.denis-courmont@nokia.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39692 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751058Ab1EREag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2011 00:30:36 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:38493 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814Ab1EREfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 00:35:18 -0400
+Received: by wya21 with SMTP id 21so893039wya.19
+        for <netdev@vger.kernel.org>; Tue, 17 May 2011 21:35:17 -0700 (PDT)
+In-Reply-To: <1305671956.6741.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Value of doi is not checked before referencing it.
-Though this does not cause any null pointer dereference since
-all the callers of cipso_v4_doi_add check the value of doi
-before calling the function, but it would be a good programming
-practice to do so anyways :)
+Le mercredi 18 mai 2011 =C3=A0 00:39 +0200, Eric Dumazet a =C3=A9crit :
 
-Signed-off-by: Huzaifa Sidhpurwala <huzaifas@redhat.com>
----
- net/ipv4/cipso_ipv4.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+> I dont know, if it happens to be too hard, we'll just stick again rtn=
+l
+> for "ip link show" ;)
+>=20
+>=20
 
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index a0af7ea..7adc4ea 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -473,10 +473,13 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def,
- 	u32 doi_type;
- 	struct audit_buffer *audit_buf;
- 
--	doi = doi_def->doi;
--	doi_type = doi_def->type;
-+	if (doi_def) {
-+		doi = doi_def->doi;
-+		doi_type = doi_def->type;
-+	} else
-+	goto doi_add_return;
- 
--	if (doi_def == NULL || doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
-+	if (doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
- 		goto doi_add_return;
- 	for (iter = 0; iter < CIPSO_V4_TAG_MAXCNT; iter++) {
- 		switch (doi_def->tags[iter]) {
--- 
-1.7.1
+I believe I'll take this path, its a bit too hard for the moment, and
+need several preliminary steps :
+
+It is making sense trying to get rid of rtnl_trylock() hack with more
+fine grained locks, and thus lower pressure on RTNL.
+
+Some synchronize_rcu() calls are done whith RTNL held : All processes
+hitting rtnl_trylock() have to enter a busy loop, restarting syscall as
+long as the RTNL owner is blocked in synchronize_rcu().
+
+
+
 
