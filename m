@@ -1,64 +1,102 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH net-next] bridge: add notification over netlink when STP
- changes state
-Date: Wed, 18 May 2011 09:18:48 -0700
-Message-ID: <4DD3F168.1060308@candelatech.com>
-References: <20110518081718.0b1fc390@nehalam>	<4DD3E38C.30609@candelatech.com> <20110518083948.261ded68@nehalam>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Wed, 18 May 2011 19:23:12 +0300
+Message-ID: <20110518162311.GA22001@redhat.com>
+References: <20110516211459.GE18148@redhat.com>
+ <1305588738.3456.65.camel@localhost.localdomain>
+ <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
+ <1305671318.10756.49.camel@localhost.localdomain>
+ <20110518103819.GL7589@redhat.com>
+ <BANLkTimc1RbC3uQsra1HUvS_Trg63iMWGA@mail.gmail.com>
+ <20110518111734.GO7589@redhat.com>
+ <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
+ <1305729507.32080.6.camel@localhost.localdomain>
+ <1305734543.32080.50.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, bridge@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:49809 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932462Ab1ERQTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 12:19:18 -0400
-In-Reply-To: <20110518083948.261ded68@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1305734543.32080.50.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/18/2011 08:39 AM, Stephen Hemminger wrote:
-> On Wed, 18 May 2011 08:19:40 -0700
-> Ben Greear<greearb@candelatech.com>  wrote:
->
->> On 05/18/2011 08:17 AM, Stephen Hemminger wrote:
->>> The first netlink code in the bridge module was to notify
->>> user space implementations of Spanning Tree Protocol about
->>> new ports. It did not handle the case of kernel mode STP
->>> changing states which could be useful for monitoring.
->>>
->>> This patch causes RTM_NEWLINK message to occur on kernel
->>> transitions. It does not send message if request was from user
->>> space STP, since that would cause reflection and break existing
->>> API.
->>
->> So one app monitoring the system won't get updates if another
->> app makes changes?
->>
->> Ben
->
-> For now, yes. Just don't want to break any existing users
-> which is more important.
+On Wed, May 18, 2011 at 09:02:23AM -0700, Shirley Ma wrote:
+> On Wed, 2011-05-18 at 07:38 -0700, Shirley Ma wrote:
+> > On Wed, 2011-05-18 at 13:40 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> > > >> >> Not more other restrictions, skb clone is OK.
+> > pskb_expand_head()
+> > > looks
+> > > >> >> OK to me from code review.
+> > > >> > Hmm. pskb_expand_head calls skb_release_data while keeping
+> > > >> > references to pages. How is that ok? What do I miss?
+> > > >> It's making copy of the skb_shinfo earlier, so the pages refco=
+unt
+> > > >> stays the same.
+> > > > Exactly. But the callback is invoked so the guest thinks it's o=
+k
+> > to
+> > > > change this memory. If it does a corrupted packet will be sent
+> > out.
+> > >=20
+> > > Hmm. I tool a quick look at skb_clone(), and it looks like this
+> > > sequence will break this scheme:
+> > >=20
+> > > skb2 =3D skb_clone(skb...);
+> > > kfree_skb(skb) or pskb_expand_head(skb);  /* callback called */
+> > > [use skb2, pages still referenced]
+> > > kfree_skb(skb); /* callback called again */
+> > >=20
+> > > This sequence is common in bridge, might be in other places.
+> > >=20
+> > > Maybe this ubuf thing should just track clones? This will make it
+> > work
+> > > on all devices then.
+> >=20
+> > The callback was only invoked when last reference of skb was gone.
+> > skb_clone does increase skb refcnt. I tested tcpdump on lower devic=
+e,
+> > it
+> > worked.
+> >=20
+> > For the sequence of:
+> >=20
+> > skb_clone  -> last refcnt + 1
+> > kfree_skb() or pskb_expand_head -> callback not called
+> > kfree_skb() -> callback called
+> >=20
+> > I will check page refcount to see whether it's balanced.=20
+>=20
+> The page refcounts are balanced too.=20
+>=20
+> In macvtap/vhost Real NIC zerocopy case, it always goes to fastpath i=
+n
+> pskb_expand_head, so I didn't hit any issue.
+>=20
+> But rethinking about pskb_expand_head(), it calls skb_release_data() =
+to
+> free old skb head when it's not in the fastpath (pskb_expand_head is =
+not
+> the last reference of this skb); And it's impossible to track which s=
+kb
+> head (old one or new one) will be the last one to free. So better to
+> return error for zero-copy skbs when not using fastpath. Does it make
+> sense?=20
 
-You can get RTM_NEWLINK messages for various reasons..it would
-seem a non-buggy program should have no problem dealing with one
-more source.
+I'm not sure it does. Look e.g. at tg3 - if expand_head fails
+packet gets dropped. No crash but unlikely to perform well :).
 
-It seems like this code is going to be inconvenient
-for anyone wanting to monitor bridges using netlink, and
-even if you fix it in the future, there is going to be
-backwards compatible hacks that are likely to be quite
-ugly!
-
-Thanks,
-Ben
-
->
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+> Besides this, any other issue?
+>=20
+>=20
+> Thanks
+> Shirley
