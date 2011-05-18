@@ -1,67 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
- return
-Date: Wed, 18 May 2011 20:02:59 +0100
-Message-ID: <1305745379.2929.9.camel@bwh-desktop>
-References: <20110516121339.GA1094@rere.qmqm.pl>
-	 <1305335142.2851.70.camel@bwh-desktop> <20110514103539.GA5214@rere.qmqm.pl>
-	 <1305513923.19966.20.camel@localhost>
-	 <20110516132807.1A89F13A6A@rere.qmqm.pl>
-	 <1305553066.19966.32.camel@localhost> <20110516142340.GA2980@rere.qmqm.pl>
-	 <1305557597.2885.5.camel@bwh-desktop> <20110516205137.GA7667@rere.qmqm.pl>
-	 <1305580139.2885.47.camel@bwh-desktop> <20110516215034.GA8463@rere.qmqm.pl>
-	 <1305583775.2885.65.camel@bwh-desktop>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: RE: [PATCH v2] CDC NCM: release interfaces fix in unbind()
+Date: Wed, 18 May 2011 15:10:52 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1105181450150.2131-100000@iolanthe.rowland.org>
+References: <2AC7D4AD8BA1C640B4C60C61C8E520153E3ACE0774@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "gregkh@suse.de" <gregkh@suse.de>,
+	"oliver@neukum.org" <oliver@neukum.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Alexey ORISHKO <alexey.orishko@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:59064 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933484Ab1ERTDD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 15:03:03 -0400
-In-Reply-To: <1305583775.2885.65.camel@bwh-desktop>
+Received: from iolanthe.rowland.org ([192.131.102.54]:38197 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S933484Ab1ERTKz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2011 15:10:55 -0400
+In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520153E3ACE0774@EXDCVYMBSTM006.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-16 at 23:09 +0100, Ben Hutchings wrote:
-> On Mon, 2011-05-16 at 23:50 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> > On Mon, May 16, 2011 at 10:08:59PM +0100, Ben Hutchings wrote:
-[...]
-> > > I've explained before that I do not want to add new options to do
-> > > (mostly) the same thing.  Users should have not have to use a dif=
-ferent
-> > > command depending on the kernel version.
-> >=20
-> > We can avoid new option by checking feature-strings for unrecognise=
-d
-> > arguments to -K. This way, we will have the old options which work
-> > regardless of kernel version ('tx', 'rx', 'sg', etc.) and new optio=
-ns
-> > which need recent kernel anyway (separated 'tx-checksum-*', 'loopba=
-ck',
-> > others coming in for 2.6.40).
->=20
-> This is just too subtle a distinction.  It will mostly confuse users.
-[...]
+On Wed, 18 May 2011, Alexey ORISHKO wrote:
 
-Sorry, I think I misunderstood you here.  I agree that new feature name=
-s
-that do not correspond exactly to existing keywords should be supported
-as keywords after the -K option.  I think those that do (e.g.
-"tx-udp-fragmentation" vs "ufo") should not be, as adding a
-kernel-version-dependent *alias* would be confusing.
+> > From: Alan Stern [mailto:stern@rowland.harvard.edu]
+> > Sent: Wednesday, May 18, 2011 4:55 PM
+> > 
+> > Here and later on, the patch seems to have forgotten about the control
+> > interface.  Is this deliberate or an oversight?
+> > 
+> > Alan Stern
+> 
+> Kernel docs says, that usb_driver_claim_interface() is used by usb
+> device drivers that need to claim more than one interface. I assume,
+> it's needed for second interface only. Am I wrong?
 
-I also want users to benefit from your improvements (as I explained
-above) even when they use the old names, if they are using a new kernel
-version.  That is why I want ethtool to try using ETHTOOL_SFEATURES
-first, and why the fallback in the kernel is problematic.
+Well, if a driver wants to claim three interfaces (which is more than 
+one), it would call usb_driver_claim_interface() for both the second 
+and third interfaces, not only the second.
 
-Ben.
+In general, when the driver gets probed for any one of the interfaces,
+it should identify all the interfaces it's interested in and claim
+them.  However, it should skip the interface currently being probed --
+that usb_driver_claim_interface() call would fail anyway since an
+interface can't be claimed while it is being probed.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Similarly, when any of the interfaces is unbound, the driver should 
+release them all.
+
+> NCM driver was partly based on ECM code. I did check existing drivers
+> for CDC ACM and CDC ECM, which also uses 2 interfaces: master (control)
+> and data (bulk), but I was unable to find any code, which claims master
+> interface.
+> 
+> If we need explicitly claim/release master interface (which is *intf
+> parameter in bind() and unbind()), then cdc-acm and usb_ether drivers
+> should be updated as well.
+
+As far as I can tell, those drivers check that they are being probed
+for the control interface, so all they need to claim is the data
+interface.
+
+You could do something similar -- have the bind routine return 
+-ENODEV if it's not being called for the control interface.  But the 
+unbind routine would still have to release both interfaces, since it 
+can't rely on being called for the control interface first.
+
+Alan Stern
 
