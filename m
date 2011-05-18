@@ -1,74 +1,36 @@
-From: "Witold Baryluk" <baryluk@smp.if.uj.edu.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-2.6] net: add skb_dst_force() in
  sock_queue_err_skb()
-Date: Wed, 18 May 2011 16:25:19 +0200
-Message-ID: <20110518142519.GH3539@smp.if.uj.edu.pl>
+Date: Wed, 18 May 2011 16:34:46 +0200
+Message-ID: <1305729286.2991.31.camel@edumazet-laptop>
 References: <1305673846.6741.35.camel@edumazet-laptop>
- <20110518.022151.1670373958008022789.davem@davemloft.net>
+	 <20110518.022151.1670373958008022789.davem@davemloft.net>
+	 <20110518142519.GH3539@smp.if.uj.edu.pl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=_smp.if.uj.edu.pl-27946-1305728721-0001-2"
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+To: Witold Baryluk <baryluk@smp.if.uj.edu.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smp.if.uj.edu.pl ([149.156.82.206]:40236 "EHLO smp.if.uj.edu.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757193Ab1EROa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2011 10:30:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20110518.022151.1670373958008022789.davem@davemloft.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:64920 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757208Ab1EROev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 10:34:51 -0400
+Received: by fxm17 with SMTP id 17so1248300fxm.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 07:34:50 -0700 (PDT)
+In-Reply-To: <20110518142519.GH3539@smp.if.uj.edu.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+Le mercredi 18 mai 2011 =C3=A0 16:25 +0200, Witold Baryluk a =C3=A9crit=
+ :
 
---=_smp.if.uj.edu.pl-27946-1305728721-0001-2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On 05-18 02:21, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 18 May 2011 01:10:46 +0200
+> Patch solves problem for me.
 >=20
-> > Commit 7fee226ad239 (add a noref bit on skb dst) forgot to use
-> > skb_dst_force() on packets queued in sk_error_queue
-> >=20
-> > This triggers following warning, for applications using IP_CMSG_PKTINFO
-> > receiving one error status
->  ...
-> > Close bug https://bugzilla.kernel.org/show_bug.cgi?id=3D34622
-> >=20
-> > Reported-by: Witold Baryluk <baryluk@smp.if.uj.edu.pl>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > CC: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> Applied, thanks.
+> Initial warning was looking harmless anyway to me,
+> but good it is fixed now.
 
-Patch solves problem for me.
+It was a real bug, thanks for reporting it and testing the fix.
 
-Initial warning was looking harmless anyway to me,
-but good it is fixed now.
 
-Thanks.
-Witek
-
---=20
-Witold Baryluk
-
---=_smp.if.uj.edu.pl-27946-1305728721-0001-2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Transfer-Encoding: 7bit
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAk3T1s4ACgkQ7ZLFFOttZ4Jj3QCfW8hjFiajYZZ4OLUkrnSw+3QZ
-Ql4An2JNtXCI+53MjYW9Hzqw9tm6mg39
-=B6XN
------END PGP SIGNATURE-----
-
---=_smp.if.uj.edu.pl-27946-1305728721-0001-2--
