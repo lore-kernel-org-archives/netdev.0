@@ -1,127 +1,51 @@
-From: Prasanna Panchamukhi <ppanchamukhi@riverbed.com>
-Subject: Re: [PATCH] e100: Fix race condition in e100_down()
-	while testing
-Date: Tue, 17 May 2011 20:07:21 -0700
-Message-ID: <4DD337E9.9080907@riverbed.com>
-References: <1305670825-13603-1-git-send-email-prasanna.panchamukhi@riverbed.com>
-Reply-To: prasanna.panchamukhi@riverbed.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1305670825-13603-1-git-send-email-prasanna.panchamukhi@riverbed.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Huzaifa Sidhpurwala <huzaifas@redhat.com>
+Subject: [PATCH] Check the value of doi before referencing it
+Date: Wed, 18 May 2011 09:59:40 +0530
+Message-ID: <1305692980-4730-1-git-send-email-huzaifas@redhat.com>
+Cc: kaber@trash.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
+	pekkas@netcore.fi, kuznet@ms2.inr.ac.ru, davem@davemloft.net,
+	Huzaifa Sidhpurwala <huzaifas@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39692 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751058Ab1EREag (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2011 00:30:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please ignore this, sending and updated one..
+Value of doi is not checked before referencing it.
+Though this does not cause any null pointer dereference since
+all the callers of cipso_v4_doi_add check the value of doi
+before calling the function, but it would be a good programming
+practice to do so anyways :)
 
-On 05/17/2011 03:20 PM, prasanna.panchamukhi@riverbed.com wrote:
-> There is a race condition between e100_down() and e100_diag_test().
-> During device testing e100_diag_test() ends up calling e100_up()/e100_down()
-> even while the driver is already in e100_down().
-> This patch fixes the above race condition by changing
-> e100_up()/e100_down() to dev_open() and dev_close().
-> Also fixes the race between e100_open() and e100_diag_test().
->
-> Signed-off-by: Prasanna S. Panchamukh<prasanna.panchamukhi@riverbed.com>
-> ---
->   drivers/net/e100.c |   21 +++++++++++++++++----
->   1 files changed, 17 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index b0aa9e6..abbf229 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -425,6 +425,10 @@ enum cb_command {
->   	cb_el     = 0x8000,
->   };
->
-> +enum e100_state_t {
-> +	__E100_TESTING
-> +};
-> +
->   struct rfd {
->   	__le16 status;
->   	__le16 command;
-> @@ -623,6 +627,7 @@ struct nic {
->   	__le16 eeprom[256];
->   	spinlock_t mdio_lock;
->   	const struct firmware *fw;
-> +	unsigned long state;
->   };
->
->   static inline void e100_write_flush(struct nic *nic)
-> @@ -2570,8 +2575,10 @@ static void e100_diag_test(struct net_device *netdev,
->   {
->   	struct ethtool_cmd cmd;
->   	struct nic *nic = netdev_priv(netdev);
-> +	int if_running = netif_running(netdev);
->   	int i, err;
->
-> +	set_bit(__E100_TESTING,&nic->state);
->   	memset(data, 0, E100_TEST_LEN * sizeof(u64));
->   	data[0] = !mii_link_ok(&nic->mii);
->   	data[1] = e100_eeprom_load(nic);
-> @@ -2580,8 +2587,9 @@ static void e100_diag_test(struct net_device *netdev,
->   		/* save speed, duplex&  autoneg settings */
->   		err = mii_ethtool_gset(&nic->mii,&cmd);
->
-> -		if (netif_running(netdev))
-> -			e100_down(nic);
-> +		if (if_running)
-> +			/* indicate we're in test mode */
-> +			dev_open(netdev);
->   		data[2] = e100_self_test(nic);
->   		data[3] = e100_loopback_test(nic, lb_mac);
->   		data[4] = e100_loopback_test(nic, lb_phy);
-> @@ -2589,12 +2597,13 @@ static void e100_diag_test(struct net_device *netdev,
->   		/* restore speed, duplex&  autoneg settings */
->   		err = mii_ethtool_sset(&nic->mii,&cmd);
->
-> -		if (netif_running(netdev))
-> -			e100_up(nic);
-> +		if (if_running)
-> +			dev_open(netdev);
->   	}
->   	for (i = 0; i<  E100_TEST_LEN; i++)
->   		test->flags |= data[i] ? ETH_TEST_FL_FAILED : 0;
->
-> +	clear_bit(__E100_TESTING,&nic->state);
->   	msleep_interruptible(4 * 1000);
->   }
->
-> @@ -2724,6 +2733,10 @@ static int e100_open(struct net_device *netdev)
->   	struct nic *nic = netdev_priv(netdev);
->   	int err = 0;
->
-> +	/* disallow open during testing */
-> +	if (test_bit(__E100_TESTING,&nic->state))
-> +		return -EBUSY;
-> +
->   	netif_carrier_off(netdev);
->   	if ((err = e100_up(nic)))
->   		netif_err(nic, ifup, nic->netdev, "Cannot open interface, aborting\n");
+Signed-off-by: Huzaifa Sidhpurwala <huzaifas@redhat.com>
+---
+ net/ipv4/cipso_ipv4.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
+diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+index a0af7ea..7adc4ea 100644
+--- a/net/ipv4/cipso_ipv4.c
++++ b/net/ipv4/cipso_ipv4.c
+@@ -473,10 +473,13 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def,
+ 	u32 doi_type;
+ 	struct audit_buffer *audit_buf;
+ 
+-	doi = doi_def->doi;
+-	doi_type = doi_def->type;
++	if (doi_def) {
++		doi = doi_def->doi;
++		doi_type = doi_def->type;
++	} else
++	goto doi_add_return;
+ 
+-	if (doi_def == NULL || doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
++	if (doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
+ 		goto doi_add_return;
+ 	for (iter = 0; iter < CIPSO_V4_TAG_MAXCNT; iter++) {
+ 		switch (doi_def->tags[iter]) {
+-- 
+1.7.1
 
-------------------------------------------------------------------------------
-What Every C/C++ and Fortran developer Should Know!
-Read this article and learn how Intel has extended the reach of its 
-next-generation tools to help Windows* and Linux* C/C++ and Fortran 
-developers boost performance applications - including clusters. 
-http://p.sf.net/sfu/intel-dev2devmay
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
