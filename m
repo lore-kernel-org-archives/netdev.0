@@ -1,114 +1,73 @@
-From: Jacek Luczak <difrost.kernel@gmail.com>
-Subject: PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
-Date: Wed, 18 May 2011 16:36:32 +0200
-Message-ID: <BANLkTimWpmFj1gx=XvvoXFVxL9q927iWfw@mail.gmail.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Wed, 18 May 2011 07:38:27 -0700
+Message-ID: <1305729507.32080.6.camel@localhost.localdomain>
+References: <1305574128.3456.23.camel@localhost.localdomain>
+	 <1305574518.2885.25.camel@bwh-desktop>
+	 <1305574680.3456.33.camel@localhost.localdomain>
+	 <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com>
+	 <1305588738.3456.65.camel@localhost.localdomain>
+	 <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
+	 <1305671318.10756.49.camel@localhost.localdomain>
+	 <20110518103819.GL7589@redhat.com>
+	 <BANLkTimc1RbC3uQsra1HUvS_Trg63iMWGA@mail.gmail.com>
+	 <20110518111734.GO7589@redhat.com>
+	 <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=bcaec520e99ba004e304a38dd0c2
-Cc: Vladislav Yasevich <vladislav.yasevich@hp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:45039 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757184Ab1EROgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 10:36:33 -0400
-Received: by pwi15 with SMTP id 15so772845pwi.19
-        for <netdev@vger.kernel.org>; Wed, 18 May 2011 07:36:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---bcaec520e99ba004e304a38dd0c2
-Content-Type: text/plain; charset=ISO-8859-1
+On Wed, 2011-05-18 at 13:40 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> >> >> Not more other restrictions, skb clone is OK. pskb_expand_head(=
+)
+> looks
+> >> >> OK to me from code review.
+> >> > Hmm. pskb_expand_head calls skb_release_data while keeping
+> >> > references to pages. How is that ok? What do I miss?
+> >> It's making copy of the skb_shinfo earlier, so the pages refcount
+> >> stays the same.
+> > Exactly. But the callback is invoked so the guest thinks it's ok to
+> > change this memory. If it does a corrupted packet will be sent out.
+>=20
+> Hmm. I tool a quick look at skb_clone(), and it looks like this
+> sequence will break this scheme:
+>=20
+> skb2 =3D skb_clone(skb...);
+> kfree_skb(skb) or pskb_expand_head(skb);  /* callback called */
+> [use skb2, pages still referenced]
+> kfree_skb(skb); /* callback called again */
+>=20
+> This sequence is common in bridge, might be in other places.
+>=20
+> Maybe this ubuf thing should just track clones? This will make it wor=
+k
+> on all devices then.
 
-During the sctp_close() call, we do not use rcu primitives to
-destroy the address list attached to the endpoint.  At the same
-time, we do the removal of addresses from this list before
-attempting to remove the socket from the port hash
+The callback was only invoked when last reference of skb was gone.
+skb_clone does increase skb refcnt. I tested tcpdump on lower device, i=
+t
+worked.
 
-As a result, it is possible for another process to find the socket
-in the port hash that is in the process of being closed.  It then
-proceeds to traverse the address list to find the conflict, only
-to have that address list suddenly disappear without rcu() critical
-section.
+=46or the sequence of:
 
-Fix issue by closing address list removal inside RCU critical
-section.
+skb_clone  -> last refcnt + 1
+kfree_skb() or pskb_expand_head -> callback not called
+kfree_skb() -> callback called
 
-Race can result in a kernel crash with general protection fault or
-kernel NULL pointer dereference:
+I will check page refcount to see whether it's balanced.
 
-kernel: general protection fault: 0000 [#1] SMP
-kernel: RIP: 0010:[<ffffffffa02f3dde>]  [<ffffffffa02f3dde>]
-sctp_bind_addr_conflict+0x64/0x82 [sctp]
-kernel: Call Trace:
-kernel:  [<ffffffffa02f415f>] ? sctp_get_port_local+0x17b/0x2a3 [sctp]
-kernel:  [<ffffffffa02f3d45>] ? sctp_bind_addr_match+0x33/0x68 [sctp]
-kernel:  [<ffffffffa02f4416>] ? sctp_do_bind+0xd3/0x141 [sctp]
-kernel:  [<ffffffffa02f5030>] ? sctp_bindx_add+0x4d/0x8e [sctp]
-kernel:  [<ffffffffa02f5183>] ? sctp_setsockopt_bindx+0x112/0x4a4 [sctp]
-kernel:  [<ffffffff81089e82>] ? generic_file_aio_write+0x7f/0x9b
-kernel:  [<ffffffffa02f763e>] ? sctp_setsockopt+0x14f/0xfee [sctp]
-kernel:  [<ffffffff810c11fb>] ? do_sync_write+0xab/0xeb
-kernel:  [<ffffffff810e82ab>] ? fsnotify+0x239/0x282
-kernel:  [<ffffffff810c2462>] ? alloc_file+0x18/0xb1
-kernel:  [<ffffffff8134a0b1>] ? compat_sys_setsockopt+0x1a5/0x1d9
-kernel:  [<ffffffff8134aaf1>] ? compat_sys_socketcall+0x143/0x1a4
-kernel:  [<ffffffff810467dc>] ? sysenter_dispatch+0x7/0x32
-
-Signed-off-by: Jacek Luczak <luczak.jacek@gmail.com>
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-
----
- net/sctp/bind_addr.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-index faf71d1..6150ac5 100644
---- a/net/sctp/bind_addr.c
-+++ b/net/sctp/bind_addr.c
-@@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr
-*bp, __u16 port)
- /* Dispose of the address list. */
- static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
- {
--       struct sctp_sockaddr_entry *addr;
--       struct list_head *pos, *temp;
-+       struct sctp_sockaddr_entry *addr, *temp;
-
-        /* Empty the bind address list. */
--       list_for_each_safe(pos, temp, &bp->address_list) {
--               addr = list_entry(pos, struct sctp_sockaddr_entry, list);
--               list_del(pos);
--               kfree(addr);
-+       list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
-+               list_del_rcu(&addr->list);
-+               call_rcu(&addr->rcu, sctp_local_addr_free);
-                SCTP_DBG_OBJCNT_DEC(addr);
-        }
- }
-
---bcaec520e99ba004e304a38dd0c2
-Content-Type: application/octet-stream;
-	name="sctp_fix_close_vs_conflict_race_in_bind_addr.patch"
-Content-Disposition: attachment;
-	filename="sctp_fix_close_vs_conflict_race_in_bind_addr.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gnudj3ng0
-
-ZGlmZiAtLWdpdCBhL25ldC9zY3RwL2JpbmRfYWRkci5jIGIvbmV0L3NjdHAvYmluZF9hZGRyLmMK
-aW5kZXggZmFmNzFkMS4uNjE1MGFjNSAxMDA2NDQKLS0tIGEvbmV0L3NjdHAvYmluZF9hZGRyLmMK
-KysrIGIvbmV0L3NjdHAvYmluZF9hZGRyLmMKQEAgLTE0MCwxNCArMTQwLDEyIEBAIHZvaWQgc2N0
-cF9iaW5kX2FkZHJfaW5pdChzdHJ1Y3Qgc2N0cF9iaW5kX2FkZHIgKmJwLCBfX3UxNiBwb3J0KQog
-LyogRGlzcG9zZSBvZiB0aGUgYWRkcmVzcyBsaXN0LiAqLwogc3RhdGljIHZvaWQgc2N0cF9iaW5k
-X2FkZHJfY2xlYW4oc3RydWN0IHNjdHBfYmluZF9hZGRyICpicCkKIHsKLQlzdHJ1Y3Qgc2N0cF9z
-b2NrYWRkcl9lbnRyeSAqYWRkcjsKLQlzdHJ1Y3QgbGlzdF9oZWFkICpwb3MsICp0ZW1wOworCXN0
-cnVjdCBzY3RwX3NvY2thZGRyX2VudHJ5ICphZGRyLCAqdGVtcDsKIAogCS8qIEVtcHR5IHRoZSBi
-aW5kIGFkZHJlc3MgbGlzdC4gKi8KLQlsaXN0X2Zvcl9lYWNoX3NhZmUocG9zLCB0ZW1wLCAmYnAt
-PmFkZHJlc3NfbGlzdCkgewotCQlhZGRyID0gbGlzdF9lbnRyeShwb3MsIHN0cnVjdCBzY3RwX3Nv
-Y2thZGRyX2VudHJ5LCBsaXN0KTsKLQkJbGlzdF9kZWwocG9zKTsKLQkJa2ZyZWUoYWRkcik7CisJ
-bGlzdF9mb3JfZWFjaF9lbnRyeV9zYWZlKGFkZHIsIHRlbXAsICZicC0+YWRkcmVzc19saXN0LCBs
-aXN0KSB7CisJCWxpc3RfZGVsX3JjdSgmYWRkci0+bGlzdCk7CisJCWNhbGxfcmN1KCZhZGRyLT5y
-Y3UsIHNjdHBfbG9jYWxfYWRkcl9mcmVlKTsKIAkJU0NUUF9EQkdfT0JKQ05UX0RFQyhhZGRyKTsK
-IAl9CiB9Cg==
---bcaec520e99ba004e304a38dd0c2--
+Thanks
+shirley
