@@ -1,32 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: net-next-2.6 wireless build failure
-Date: Wed, 18 May 2011 15:55:01 -0400 (EDT)
-Message-ID: <20110518.155501.486816316237445149.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
+Date: Wed, 18 May 2011 15:52:00 -0400 (EDT)
+Message-ID: <20110518.155200.801089483916944725.davem@davemloft.net>
+References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
+	<20110518.152653.1486764697527722925.davem@davemloft.net>
+	<BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tsunanet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36426 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750927Ab1ERTzt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 15:55:49 -0400
+In-Reply-To: <BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQpUaGUgc3VzcGVuZCBvcCBtZW1iZXIgb2YgaWVlZTgwMjExX29wcyBpcyBvbmx5IGF2YWlsYWJs
-ZSB3aGVuDQpDT05GSUdfUE0gaXMgZW5hYmxlZC4NCg0KZHJpdmVycy9uZXQvd2lyZWxlc3Mvd2wx
-Mnh4L21haW4uYzozNjUzOjI6IGVycm9yOiB1bmtub3duIGZpZWxkIKFzdXNwZW5koiBzcGVjaWZp
-ZWQgaW4gaW5pdGlhbGl6ZXINCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3dsMTJ4eC9tYWluLmM6MzY1
-MzoyOiB3YXJuaW5nOiBpbml0aWFsaXphdGlvbiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5
-cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3dsMTJ4eC9tYWlu
-LmM6MzY1MzoyOiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoXdsMTI3MV9vcHMu
-Y29uZmlnoikgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3dsMTJ4
-eC9tYWluLmM6MzY1NDoyOiBlcnJvcjogdW5rbm93biBmaWVsZCChcmVzdW1loiBzcGVjaWZpZWQg
-aW4gaW5pdGlhbGl6ZXINCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3dsMTJ4eC9tYWluLmM6MzY1NDoy
-OiB3YXJuaW5nOiBpbml0aWFsaXphdGlvbiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUg
-W2VuYWJsZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L3dpcmVsZXNzL3dsMTJ4eC9tYWluLmM6
-MzY1NDoyOiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoXdsMTI3MV9vcHMuYnNz
-X2luZm9fY2hhbmdlZKIpIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQoNClNvbWVvbmUgcGxlYXNlIGZp
-eCB0aGlzLg0K
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: tsuna <tsunanet@gmail.com>
+Date: Wed, 18 May 2011 12:40:21 -0700
+
+> I was hoping this knob would be accepted because this is such an
+> important issue that it even warrants an IETF draft to attempt to
+> change the standard.  I'm not sure how long it will take for this
+> draft to be accepted and then implemented, so I thought adding this
+> simple knob today would really help in the future.
+
+I've already changed the initial TCP congestion window in Linux to 10
+without some stupid draft being fully accepted.
+
+I'll just as easily accept right now a patch right now which lowers
+the initial RTO to 1 second and adds the 3 second RTO fallback.
