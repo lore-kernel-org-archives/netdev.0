@@ -1,67 +1,74 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: Identifying network namespaces (was: Network namespace
- manipulation with file descriptors)
-Date: Wed, 18 May 2011 17:13:05 +0300
-Message-ID: <BANLkTinx1i3UJ86xw8KdvF+dQ1-qNZfFtA@mail.gmail.com>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-	<20110518124307.GD3762520@jupiter.n2.diac24.net>
-	<BANLkTikmrC86hk=W84UBwhJLe_uGAN4w9w@mail.gmail.com>
-	<20110518133352.GE3762520@jupiter.n2.diac24.net>
+From: "Witold Baryluk" <baryluk@smp.if.uj.edu.pl>
+Subject: Re: [PATCH net-2.6] net: add skb_dst_force() in
+ sock_queue_err_skb()
+Date: Wed, 18 May 2011 16:25:19 +0200
+Message-ID: <20110518142519.GH3539@smp.if.uj.edu.pl>
+References: <1305673846.6741.35.camel@edumazet-laptop>
+ <20110518.022151.1670373958008022789.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>
-To: David Lamparter <equinox@diac24.net>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20110518133352.GE3762520@jupiter.n2.diac24.net>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=_smp.if.uj.edu.pl-27946-1305728721-0001-2"
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smp.if.uj.edu.pl ([149.156.82.206]:40236 "EHLO smp.if.uj.edu.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757193Ab1EROa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2011 10:30:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20110518.022151.1670373958008022789.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2011 at 4:33 PM, David Lamparter <equinox@diac24.net> w=
-rote:
-> On Wed, May 18, 2011 at 04:03:03PM +0300, Alexey Dobriyan wrote:
->> On Wed, May 18, 2011 at 3:43 PM, David Lamparter <equinox@diac24.net=
-> wrote:
->> > - =A0 processes cannot easily be cross referenced with each other
->> >
->> > =A0in the case of user space stuff running astray - like managemen=
-t
->> > =A0software crashing, routing daemons screwing up, etc. - it becom=
-es
->> > =A0fairly difficult to shut down a network namespace (or even reaq=
-uire
->> > =A0physical devices that have been reassigned)
->>
->> It shutdowns itself when last process using netns disappeares,
->> so if you kill your routing daemons you should be fine.
->> Physical netdevices are moved to init_net.
->
-> Now assume I'm running pptpd, which forks a new pppd for each
-> connection. Even if I kill pptpd, the pppd keeps running... now how d=
-o I
-> find the pppds that belong to that one namespace that I'm trying to
-> get rid of?
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-That's a valid question.
+--=_smp.if.uj.edu.pl-27946-1305728721-0001-2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->> > So, considering this set of premises (feedback welcome) I looked f=
-or
->> > some suitable means of identification. I discarded going for any p=
-rocess
->> > identifiers since Eric's patches allow for network namespaces with=
-out
->> > any process holding a reference, using bind mounts instead.
->>
->> If anything it should be netns->id, /proc/*/netns outputting id
->> where id is not derived from kernel pointer.
+On 05-18 02:21, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 18 May 2011 01:10:46 +0200
+>=20
+> > Commit 7fee226ad239 (add a noref bit on skb dst) forgot to use
+> > skb_dst_force() on packets queued in sk_error_queue
+> >=20
+> > This triggers following warning, for applications using IP_CMSG_PKTINFO
+> > receiving one error status
+>  ...
+> > Close bug https://bugzilla.kernel.org/show_bug.cgi?id=3D34622
+> >=20
+> > Reported-by: Witold Baryluk <baryluk@smp.if.uj.edu.pl>
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > CC: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+> Applied, thanks.
 
-Actually it should be symlink
-/proc/net/netns -> 0         # for init_net
-/proc/net/netns -> u32 (> 0)   # for the rest
-to extract information by 1 syscall, not 3
-where netns id is totally random, so userspace won't make assumptions.
+Patch solves problem for me.
+
+Initial warning was looking harmless anyway to me,
+but good it is fixed now.
+
+Thanks.
+Witek
+
+--=20
+Witold Baryluk
+
+--=_smp.if.uj.edu.pl-27946-1305728721-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAk3T1s4ACgkQ7ZLFFOttZ4Jj3QCfW8hjFiajYZZ4OLUkrnSw+3QZ
+Ql4An2JNtXCI+53MjYW9Hzqw9tm6mg39
+=B6XN
+-----END PGP SIGNATURE-----
+
+--=_smp.if.uj.edu.pl-27946-1305728721-0001-2--
