@@ -1,54 +1,67 @@
-From: Alexey ORISHKO <alexey.orishko@stericsson.com>
-Subject: RE: [PATCH v2] CDC NCM: release interfaces fix in unbind()
-Date: Wed, 18 May 2011 19:11:37 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3ACE0774@EXDCVYMBSTM006.EQ1STM.local>
-References: <1305662344-28355-1-git-send-email-alexey.orishko@stericsson.com>
- <Pine.LNX.4.44L0.1105181053110.2131-100000@iolanthe.rowland.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
+ return
+Date: Wed, 18 May 2011 20:02:59 +0100
+Message-ID: <1305745379.2929.9.camel@bwh-desktop>
+References: <20110516121339.GA1094@rere.qmqm.pl>
+	 <1305335142.2851.70.camel@bwh-desktop> <20110514103539.GA5214@rere.qmqm.pl>
+	 <1305513923.19966.20.camel@localhost>
+	 <20110516132807.1A89F13A6A@rere.qmqm.pl>
+	 <1305553066.19966.32.camel@localhost> <20110516142340.GA2980@rere.qmqm.pl>
+	 <1305557597.2885.5.camel@bwh-desktop> <20110516205137.GA7667@rere.qmqm.pl>
+	 <1305580139.2885.47.camel@bwh-desktop> <20110516215034.GA8463@rere.qmqm.pl>
+	 <1305583775.2885.65.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Alan Stern <stern@rowland.harvard.edu>,
-	"gregkh@suse.de" <gregkh@suse.de>,
-	"oliver@neukum.org" <oliver@neukum.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:34137 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932791Ab1ERRL7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2011 13:11:59 -0400
-In-Reply-To: <Pine.LNX.4.44L0.1105181053110.2131-100000@iolanthe.rowland.org>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:59064 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933484Ab1ERTDD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 15:03:03 -0400
+In-Reply-To: <1305583775.2885.65.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Alan Stern [mailto:stern@rowland.harvard.edu]
-> Sent: Wednesday, May 18, 2011 4:55 PM
-> 
-> Here and later on, the patch seems to have forgotten about the control
-> interface.  Is this deliberate or an oversight?
-> 
-> Alan Stern
+On Mon, 2011-05-16 at 23:09 +0100, Ben Hutchings wrote:
+> On Mon, 2011-05-16 at 23:50 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> > On Mon, May 16, 2011 at 10:08:59PM +0100, Ben Hutchings wrote:
+[...]
+> > > I've explained before that I do not want to add new options to do
+> > > (mostly) the same thing.  Users should have not have to use a dif=
+ferent
+> > > command depending on the kernel version.
+> >=20
+> > We can avoid new option by checking feature-strings for unrecognise=
+d
+> > arguments to -K. This way, we will have the old options which work
+> > regardless of kernel version ('tx', 'rx', 'sg', etc.) and new optio=
+ns
+> > which need recent kernel anyway (separated 'tx-checksum-*', 'loopba=
+ck',
+> > others coming in for 2.6.40).
+>=20
+> This is just too subtle a distinction.  It will mostly confuse users.
+[...]
 
-Kernel docs says, that usb_driver_claim_interface() is used by usb
-device drivers that need to claim more than one interface. I assume,
-it's needed for second interface only. Am I wrong?
+Sorry, I think I misunderstood you here.  I agree that new feature name=
+s
+that do not correspond exactly to existing keywords should be supported
+as keywords after the -K option.  I think those that do (e.g.
+"tx-udp-fragmentation" vs "ufo") should not be, as adding a
+kernel-version-dependent *alias* would be confusing.
 
-NCM driver was partly based on ECM code. I did check existing drivers
-for CDC ACM and CDC ECM, which also uses 2 interfaces: master (control)
-and data (bulk), but I was unable to find any code, which claims master
-interface.
+I also want users to benefit from your improvements (as I explained
+above) even when they use the old names, if they are using a new kernel
+version.  That is why I want ethtool to try using ETHTOOL_SFEATURES
+first, and why the fallback in the kernel is problematic.
 
-If we need explicitly claim/release master interface (which is *intf
-parameter in bind() and unbind()), then cdc-acm and usb_ether drivers
-should be updated as well.
+Ben.
 
-I wonder, if Greg or Oliver could provide any comments why master interface
-is not claimed in modem/ether drivers, since they are working with the
-code for quite a while.
-
-Regards,
-Alexey
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
