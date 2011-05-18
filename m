@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 1/2] bna: Add Debugfs Interface
-Date: Tue, 17 May 2011 21:57:00 -0700
-Message-ID: <1305694621-28023-2-git-send-email-rmody@brocade.com>
+Subject: [PATCH 2/2] bna: Add Generic Netlink Interface
+Date: Tue, 17 May 2011 21:57:01 -0700
+Message-ID: <1305694621-28023-3-git-send-email-rmody@brocade.com>
 References: <1305694621-28023-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,404 +10,182 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Debashis Dutt <ddutt@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36679 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36688 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751226Ab1ERE54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 00:57:56 -0400
+	by vger.kernel.org with ESMTP id S1751907Ab1ERE6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 00:58:05 -0400
 In-Reply-To: <1305694621-28023-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the debugfs interface to BNA driver for collecting both
-live and saved firmware traces (saved, in case of a firmware heart beat
-failure).
+This patch adds the generic netlink communication interface to BNA driver. The
+in-kernel generic netlink infrastructure can be used to collect hardware
+specific control information and control attributes. The driver makes use of
+the "doit" handler provided by the generic netlink layer to accomplish this.
 
 Signed-off-by: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/Makefile       |    3 +-
- drivers/net/bna/bfa_ioc.c      |  105 ++++++++++++++-
- drivers/net/bna/bfa_ioc.h      |    6 +
- drivers/net/bna/bfi.h          |    2 +
- drivers/net/bna/bna_ctrl.c     |    5 +-
- drivers/net/bna/bnad.c         |   37 +++++-
- drivers/net/bna/bnad.h         |   15 ++-
- drivers/net/bna/bnad_debugfs.c |  302 ++++++++++++++++++++++++++++++++++++++++
- 8 files changed, 466 insertions(+), 9 deletions(-)
- create mode 100644 drivers/net/bna/bnad_debugfs.c
+ drivers/net/bna/Makefile    |    2 +-
+ drivers/net/bna/bfa_defs.h  |   18 +++
+ drivers/net/bna/bfa_ioc.c   |    8 +-
+ drivers/net/bna/bfa_ioc.h   |    1 +
+ drivers/net/bna/bnad.c      |   11 ++-
+ drivers/net/bna/bnad.h      |    1 +
+ drivers/net/bna/bnad_genl.c |  345 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/bna/bnad_genl.h |   87 +++++++++++
+ 8 files changed, 466 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/bna/bnad_genl.c
+ create mode 100644 drivers/net/bna/bnad_genl.h
 
 diff --git a/drivers/net/bna/Makefile b/drivers/net/bna/Makefile
-index a5d604d..4bb0d5d 100644
+index 4bb0d5d..f3339dc 100644
 --- a/drivers/net/bna/Makefile
 +++ b/drivers/net/bna/Makefile
-@@ -5,7 +5,8 @@
+@@ -5,7 +5,7 @@
  
  obj-$(CONFIG_BNA) += bna.o
  
--bna-objs := bnad.o bnad_ethtool.o bna_ctrl.o bna_txrx.o
-+bna-objs := bnad.o bnad_debugfs.o bnad_ethtool.o
-+bna-objs += bna_ctrl.o bna_txrx.o
+-bna-objs := bnad.o bnad_debugfs.o bnad_ethtool.o
++bna-objs := bnad.o bnad_debugfs.o bnad_ethtool.o bnad_genl.o
+ bna-objs += bna_ctrl.o bna_txrx.o
  bna-objs += bfa_ioc.o bfa_ioc_ct.o bfa_cee.o cna_fwimg.o
  
- EXTRA_CFLAGS := -Idrivers/net/bna
-diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
-index fcb9bb3..15f9dec 100644
---- a/drivers/net/bna/bfa_ioc.c
-+++ b/drivers/net/bna/bfa_ioc.c
-@@ -1652,6 +1652,7 @@ bfa_ioc_fail_notify(struct bfa_ioc *ioc)
- {
- 	struct list_head		*qe;
- 	struct bfa_ioc_hbfail_notify	*notify;
-+	int				tlen;
- 
- 	/**
- 	 * Notify driver and common modules registered for notification.
-@@ -1661,6 +1662,15 @@ bfa_ioc_fail_notify(struct bfa_ioc *ioc)
- 		notify = (struct bfa_ioc_hbfail_notify *) qe;
- 		notify->cbfn(notify->cbarg);
- 	}
-+
-+	/* Save firmware trace if configured. */
-+	if (ioc->dbg_fwsave_once) {
-+		ioc->dbg_fwsave_once = false;
-+		if (ioc->dbg_fwsave_len) {
-+			tlen = ioc->dbg_fwsave_len;
-+			bfa_nw_ioc_debug_fwtrc(ioc, ioc->dbg_fwsave, &tlen);
-+		}
-+	}
- }
- 
- static void
-@@ -1922,6 +1932,17 @@ bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr)
- 	return PSS_SMEM_PGNUM(ioc->ioc_regs.smem_pg0, fmaddr);
- }
+diff --git a/drivers/net/bna/bfa_defs.h b/drivers/net/bna/bfa_defs.h
+index 2ea0dfe..2dd0898 100644
+--- a/drivers/net/bna/bfa_defs.h
++++ b/drivers/net/bna/bfa_defs.h
+@@ -26,6 +26,24 @@
+ #define BFA_STRING_32	32
+ #define BFA_VERSION_LEN 64
  
 +/*
-+ * Initialize memory for saving firmware trace. Driver must initialize
-+ * trace memory before call bfa_ioc_enable().
++ * Check if the card having old wwn/mac handling
 + */
-+void
-+bfa_nw_ioc_debug_memclaim(struct bfa_ioc *ioc, void *dbg_fwsave)
-+{
-+	ioc->dbg_fwsave     = dbg_fwsave;
-+	ioc->dbg_fwsave_len = (ioc->iocpf.auto_recover) ? BFA_DBG_FWTRC_LEN : 0;
-+}
++#define bfa_mfg_is_old_wwn_mac_model(type) (( \
++	(type) == BFA_MFG_TYPE_CNA10P2 || \
++	(type) == BFA_MFG_TYPE_CNA10P1 || \
++	(type) == BFA_MFG_TYPE_WANCHESE))
++
++#define bfa_mfg_increment_wwn_mac(m, i)                         \
++do {                                                            \
++	u32 t = ((u32)(m)[0] << 16) | ((u32)(m)[1] << 8) | \
++		(u32)(m)[2];  \
++	t += (i);      \
++	(m)[0] = (t >> 16) & 0xFF;                              \
++	(m)[1] = (t >> 8) & 0xFF;                               \
++	(m)[2] = t & 0xFF;                                      \
++} while (0)
 +
  /**
-  * Register mailbox message handler function, to be called by common modules
+  * ---------------------- adapter definitions ------------
   */
-@@ -2209,13 +2230,95 @@ bfa_nw_ioc_get_mac(struct bfa_ioc *ioc)
- 	return ioc->attr->mac;
+diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
+index 15f9dec..eeb7250 100644
+--- a/drivers/net/bna/bfa_ioc.c
++++ b/drivers/net/bna/bfa_ioc.c
+@@ -82,8 +82,6 @@ static void bfa_ioc_pf_fwmismatch(struct bfa_ioc *ioc);
+ static void bfa_ioc_boot(struct bfa_ioc *ioc, u32 boot_type,
+ 			 u32 boot_param);
+ static u32 bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr);
+-static void bfa_ioc_get_adapter_serial_num(struct bfa_ioc *ioc,
+-						char *serial_num);
+ static void bfa_ioc_get_adapter_fw_ver(struct bfa_ioc *ioc,
+ 						char *fw_ver);
+ static void bfa_ioc_get_pci_chip_rev(struct bfa_ioc *ioc,
+@@ -2045,7 +2043,7 @@ bfa_ioc_get_adapter_attr(struct bfa_ioc *ioc,
+ 
+ 	ioc_attr = ioc->attr;
+ 
+-	bfa_ioc_get_adapter_serial_num(ioc, ad_attr->serial_num);
++	bfa_nw_ioc_get_adapter_serial_num(ioc, ad_attr->serial_num);
+ 	bfa_ioc_get_adapter_fw_ver(ioc, ad_attr->fw_ver);
+ 	bfa_ioc_get_adapter_optrom_ver(ioc, ad_attr->optrom_ver);
+ 	bfa_ioc_get_adapter_manufacturer(ioc, ad_attr->manufacturer);
+@@ -2096,8 +2094,8 @@ bfa_ioc_get_type(struct bfa_ioc *ioc)
+ 	}
  }
  
-+static int
-+bfa_ioc_smem_read(struct bfa_ioc *ioc, void *tbuf, u32 soff, u32 sz)
-+{
-+	u32 pgnum, loff;
-+	__be32 r32;
-+	int i, len;
-+	u32 *buf = tbuf;
-+
-+	pgnum = PSS_SMEM_PGNUM(ioc->ioc_regs.smem_pg0, soff);
-+	loff = PSS_SMEM_PGOFF(soff);
-+
-+	/*
-+	 *  Hold semaphore to serialize pll init and fwtrc.
-+	 */
-+	if (!(bfa_nw_ioc_sem_get(ioc->ioc_regs.ioc_init_sem_reg)))
-+		return 1;
-+
-+	writel(pgnum, ioc->ioc_regs.host_page_num_fn);
-+
-+	len = sz/sizeof(u32);
-+	for (i = 0; i < len; i++) {
-+		r32 = swab32(readl(ioc->ioc_regs.smem_page_start + loff));
-+		buf[i] = be32_to_cpu(r32);
-+		loff += sizeof(u32);
-+
-+		/*
-+		 * handle page offset wrap around
-+		 */
-+		loff = PSS_SMEM_PGOFF(loff);
-+		if (loff == 0) {
-+			pgnum++;
-+			writel(pgnum, ioc->ioc_regs.host_page_num_fn);
-+		}
-+	}
-+	writel(PSS_SMEM_PGNUM(ioc->ioc_regs.smem_pg0, 0),
-+			ioc->ioc_regs.host_page_num_fn);
-+	/*
-+	 *  release semaphore.
-+	 */
-+	writel(1, ioc->ioc_regs.ioc_init_sem_reg);
-+
-+	return 0;
-+}
-+
-+int
-+bfa_nw_ioc_debug_fwtrc(struct bfa_ioc *ioc, void *trcdata, int *trclen)
-+{
-+	u32 loff = (BFI_IOC_TRC_OFF + BFA_DBG_FWTRC_LEN * (ioc->port_id));
-+	int tlen, status = 0;
-+
-+	tlen = *trclen;
-+	if (tlen > BFA_DBG_FWTRC_LEN)
-+		tlen = BFA_DBG_FWTRC_LEN;
-+
-+	status = bfa_ioc_smem_read(ioc, trcdata, loff, tlen);
-+	*trclen = tlen;
-+	return status;
-+}
-+
-+/**
-+ * Retrieve saved firmware trace from a prior IOC failure.
-+ */
-+int
-+bfa_nw_ioc_debug_fwsave(struct bfa_ioc *ioc, void *trcdata, int *trclen)
-+{
-+	int	tlen;
-+
-+	if (ioc->iocpf.auto_recover)
-+		ioc->dbg_fwsave_len = BFA_DBG_FWTRC_LEN;
-+	else
-+		return BFA_STATUS_ENOFSAVE;
-+
-+	tlen = *trclen;
-+	if (tlen > ioc->dbg_fwsave_len)
-+		tlen = ioc->dbg_fwsave_len;
-+
-+	memcpy(trcdata, ioc->dbg_fwsave, tlen);
-+	*trclen = tlen;
-+	return BFA_STATUS_OK;
-+}
-+
- /**
-  * Firmware failure detected. Start recovery actions.
-  */
- static void
- bfa_ioc_recover(struct bfa_ioc *ioc)
+-static void
+-bfa_ioc_get_adapter_serial_num(struct bfa_ioc *ioc, char *serial_num)
++void
++bfa_nw_ioc_get_adapter_serial_num(struct bfa_ioc *ioc, char *serial_num)
  {
--	pr_crit("Heart Beat of IOC has failed\n");
-+	pr_crit("bna: Heart Beat of IOC has failed for pci funtion %u\n",
-+		ioc->pcidev.pci_func);
- 	bfa_ioc_stats(ioc, ioc_hbfails);
- 	bfa_fsm_send_event(ioc, IOC_E_HBFAIL);
- }
+ 	memset(serial_num, 0, BFA_ADAPTER_SERIAL_NUM_LEN);
+ 	memcpy(serial_num,
 diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/bna/bfa_ioc.h
-index bd48abe..49739cd 100644
+index 49739cd..1f71865 100644
 --- a/drivers/net/bna/bfa_ioc.h
 +++ b/drivers/net/bna/bfa_ioc.h
-@@ -19,6 +19,9 @@
- #ifndef __BFA_IOC_H__
- #define __BFA_IOC_H__
- 
-+#define BFA_DBG_FWTRC_LEN	(BFI_IOC_TRC_ENTS * BFI_IOC_TRC_ENT_SZ + \
-+				BFI_IOC_TRC_HDR_SZ)
-+
- #include "bfa_sm.h"
- #include "bfi.h"
- #include "cna.h"
-@@ -274,6 +277,9 @@ void bfa_nw_ioc_fwver_get(struct bfa_ioc *ioc,
- bool bfa_nw_ioc_fwver_cmp(struct bfa_ioc *ioc,
- 			struct bfi_ioc_image_hdr *fwhdr);
- mac_t bfa_nw_ioc_get_mac(struct bfa_ioc *ioc);
-+void bfa_nw_ioc_debug_memclaim(struct bfa_ioc *ioc, void *dbg_fwsave);
-+int bfa_nw_ioc_debug_fwtrc(struct bfa_ioc *ioc, void *trcdata, int *trclen);
-+int bfa_nw_ioc_debug_fwsave(struct bfa_ioc *ioc, void *trcdata, int *trclen);
+@@ -280,6 +280,7 @@ mac_t bfa_nw_ioc_get_mac(struct bfa_ioc *ioc);
+ void bfa_nw_ioc_debug_memclaim(struct bfa_ioc *ioc, void *dbg_fwsave);
+ int bfa_nw_ioc_debug_fwtrc(struct bfa_ioc *ioc, void *trcdata, int *trclen);
+ int bfa_nw_ioc_debug_fwsave(struct bfa_ioc *ioc, void *trcdata, int *trclen);
++void bfa_nw_ioc_get_adapter_serial_num(struct bfa_ioc *ioc, char *serial_num);
  
  /*
   * Timeout APIs
-diff --git a/drivers/net/bna/bfi.h b/drivers/net/bna/bfi.h
-index 6050379..ee73b6f 100644
---- a/drivers/net/bna/bfi.h
-+++ b/drivers/net/bna/bfi.h
-@@ -277,6 +277,8 @@ struct bfi_ioc_getattr_reply {
-  */
- #define BFI_IOC_TRC_OFF		(0x4b00)
- #define BFI_IOC_TRC_ENTS	256
-+#define BFI_IOC_TRC_ENT_SZ	16
-+#define BFI_IOC_TRC_HDR_SZ	32
- 
- #define BFI_IOC_FW_SIGNATURE	(0xbfadbfad)
- #define BFI_IOC_MD5SUM_SZ	4
-diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/bna/bna_ctrl.c
-index 53b1416..a4833e3 100644
---- a/drivers/net/bna/bna_ctrl.c
-+++ b/drivers/net/bna/bna_ctrl.c
-@@ -1681,6 +1681,7 @@ bna_adv_device_init(struct bna_device *device, struct bna *bna,
- 	device->bna = bna;
- 
- 	kva = res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.mdl[0].kva;
-+	bfa_nw_ioc_debug_memclaim(&device->ioc, kva);
- 
- 	/**
- 	 * Attach common modules (Diag, SFP, CEE, Port) and claim respective
-@@ -1820,8 +1821,8 @@ bna_adv_res_req(struct bna_res_info *res_info)
- 	/* Virtual memory for retreiving fw_trc */
- 	res_info[BNA_RES_MEM_T_FWTRC].res_type = BNA_RES_T_MEM;
- 	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.mem_type = BNA_MEM_T_KVA;
--	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.num = 0;
--	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.len = 0;
-+	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.len = BFA_DBG_FWTRC_LEN;
- 
- 	/* DMA memory for retreiving stats */
- 	res_info[BNA_RES_MEM_T_STATS].res_type = BNA_RES_T_MEM;
 diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
-index e588511..a997276 100644
+index a997276..09aa132 100644
 --- a/drivers/net/bna/bnad.c
 +++ b/drivers/net/bna/bnad.c
-@@ -44,8 +44,12 @@ MODULE_PARM_DESC(bnad_ioc_auto_recover, "Enable / Disable auto recovery");
- /*
-  * Global variables
-  */
-+u32 bna_id;
- u32 bnad_rxqs_per_cq = 2;
+@@ -25,6 +25,7 @@
+ #include <linux/ip.h>
  
-+struct mutex bnad_list_mutex;
-+LIST_HEAD(bnad_list);
-+
- static const u8 bnad_bcast_addr[] =  {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+ #include "bnad.h"
++#include "bnad_genl.h"
+ #include "bna.h"
+ #include "cna.h"
  
- /*
-@@ -72,6 +76,23 @@ do {								\
+@@ -721,7 +722,7 @@ bnad_disable_mbox_irq(struct bnad *bnad)
+ 	BNAD_UPDATE_CTR(bnad, mbox_intr_disabled);
+ }
  
- #define BNAD_TXRX_SYNC_MDELAY	250	/* 250 msecs */
- 
-+static void
-+bnad_add_to_list(struct bnad *bnad)
-+{
-+	mutex_lock(&bnad_list_mutex);
-+	list_add_tail(&bnad->list_entry, &bnad_list);
-+	bnad->id = bna_id++;
-+	mutex_unlock(&bnad_list_mutex);
-+}
-+
-+static void
-+bnad_remove_from_list(struct bnad *bnad)
-+{
-+	mutex_lock(&bnad_list_mutex);
-+	list_del(&bnad->list_entry);
-+	mutex_unlock(&bnad_list_mutex);
-+}
-+
- /*
-  * Reinitialize completions in CQ, once Rx is taken down
-  */
-@@ -3087,6 +3108,8 @@ bnad_pci_probe(struct pci_dev *pdev,
- 	}
- 	bnad = netdev_priv(netdev);
- 
-+	bnad_add_to_list(bnad);
-+
- 	/*
- 	 * PCI initialization
- 	 * 	Output : using_dac = 1 for 64 bit DMA
-@@ -3129,6 +3152,8 @@ bnad_pci_probe(struct pci_dev *pdev,
- 	pcidev_info.device_id = bnad->pcidev->device;
- 	pcidev_info.pci_bar_kva = bnad->bar0;
- 
-+	bnad_debugfs_init(bnad);
-+
- 	mutex_lock(&bnad->conf_mutex);
- 
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-@@ -3169,7 +3194,7 @@ bnad_pci_probe(struct pci_dev *pdev,
- 	/* Finally, reguister with net_device layer */
- 	err = register_netdev(netdev);
- 	if (err) {
--		pr_err("BNA : Registering with netdev failed\n");
-+		pr_err("bna: Registering with netdev failed\n");
- 		goto disable_device;
- 	}
- 
-@@ -3189,6 +3214,8 @@ disable_device:
- 	bnad_res_free(bnad);
- 	bnad_disable_msix(bnad);
- pci_uninit:
-+	bnad_debugfs_uninit(bnad);
-+	bnad_remove_from_list(bnad);
- 	bnad_pci_uninit(pdev);
- 	bnad_lock_uninit(bnad);
- 	bnad_uninit(bnad);
-@@ -3226,6 +3253,8 @@ bnad_pci_remove(struct pci_dev *pdev)
- 
- 	bnad_res_free(bnad);
- 	bnad_disable_msix(bnad);
-+	bnad_debugfs_uninit(bnad);
-+	bnad_remove_from_list(bnad);
- 	bnad_pci_uninit(pdev);
- 	bnad_lock_uninit(bnad);
- 	bnad_uninit(bnad);
-@@ -3255,13 +3284,14 @@ bnad_module_init(void)
+-static void
++void
+ bnad_set_netdev_perm_addr(struct bnad *bnad)
  {
- 	int err;
- 
--	pr_info("Brocade 10G Ethernet driver\n");
-+	pr_info("Brocade 10G Ethernet driver  - version: %s\n", BNAD_VERSION);
- 
-+	mutex_init(&bnad_list_mutex);
- 	bfa_nw_ioc_auto_recover(bnad_ioc_auto_recover);
- 
- 	err = pci_register_driver(&bnad_pci_driver);
- 	if (err < 0) {
--		pr_err("bna : PCI registration failed in module init "
-+		pr_err("bna: PCI registration failed in module init "
- 		       "(%d)\n", err);
+ 	struct net_device *netdev = bnad->netdev;
+@@ -3296,6 +3297,10 @@ bnad_module_init(void)
  		return err;
  	}
-@@ -3273,6 +3303,7 @@ static void __exit
- bnad_module_exit(void)
- {
- 	pci_unregister_driver(&bnad_pci_driver);
-+	mutex_destroy(&bnad_list_mutex);
  
++	/* Register with generic netlink */
++	if (bnad_genl_init())
++		pr_err("bna: Generic Netlink Register failed\n");
++
+ 	return 0;
+ }
+ 
+@@ -3305,6 +3310,10 @@ bnad_module_exit(void)
+ 	pci_unregister_driver(&bnad_pci_driver);
+ 	mutex_destroy(&bnad_list_mutex);
+ 
++	/* Unegister with generic netlink */
++	if (bnad_genl_uninit())
++		pr_err("bna: Generic Netlink Unregister failed\n");
++
  	if (bfi_fw)
  		release_firmware(bfi_fw);
+ }
 diff --git a/drivers/net/bna/bnad.h b/drivers/net/bna/bnad.h
-index ccdabad..2c1f283 100644
+index 2c1f283..d3cb27b 100644
 --- a/drivers/net/bna/bnad.h
 +++ b/drivers/net/bna/bnad.h
-@@ -279,13 +279,20 @@ struct bnad {
- 	char			adapter_name[BNAD_NAME_LEN];
- 	char 			port_name[BNAD_NAME_LEN];
- 	char			mbox_irq_name[BNAD_NAME_LEN];
-+
-+	int			id;
-+	struct list_head	list_entry;
-+	struct dentry		*port_debugfs_root;
-+	struct dentry		*bnad_dentry_files[2];
- };
+@@ -302,6 +302,7 @@ extern u32 *cna_get_firmware_buf(struct pci_dev *pdev);
+ extern void bnad_set_ethtool_ops(struct net_device *netdev);
  
- /*
-  * EXTERN VARIABLES
-  */
--extern struct firmware *bfi_fw;
--extern u32 		bnad_rxqs_per_cq;
-+extern struct firmware		*bfi_fw;
-+extern struct mutex		bnad_list_mutex;
-+extern struct list_head		bnad_list;
-+extern u32			bnad_rxqs_per_cq;
+ /* Configuration & setup */
++extern void bnad_set_netdev_perm_addr(struct bnad *bnad);
+ extern void bnad_tx_coalescing_timeo_set(struct bnad *bnad);
+ extern void bnad_rx_coalescing_timeo_set(struct bnad *bnad);
  
- /*
-  * EXTERN PROTOTYPES
-@@ -306,6 +313,10 @@ extern void bnad_cleanup_rx(struct bnad *bnad, uint rx_id);
- /* Timer start/stop protos */
- extern void bnad_dim_timer_start(struct bnad *bnad);
- 
-+/* Debugfs */
-+extern void bnad_debugfs_init(struct bnad *bnad);
-+extern void bnad_debugfs_uninit(struct bnad *bnad);
-+
- /* Statistics */
- extern void bnad_netdev_qstats_fill(struct bnad *bnad,
- 		struct rtnl_link_stats64 *stats);
-diff --git a/drivers/net/bna/bnad_debugfs.c b/drivers/net/bna/bnad_debugfs.c
+diff --git a/drivers/net/bna/bnad_genl.c b/drivers/net/bna/bnad_genl.c
 new file mode 100644
-index 0000000..4351ca5
+index 0000000..eec2a56
 --- /dev/null
-+++ b/drivers/net/bna/bnad_debugfs.c
-@@ -0,0 +1,302 @@
++++ b/drivers/net/bna/bnad_genl.c
+@@ -0,0 +1,345 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -425,291 +203,427 @@ index 0000000..4351ca5
 + * All rights reserved
 + * www.brocade.com
 + */
-+
-+/*
-+ * BNAD debufs interface
-+ *
-+ * To access the interface, debugfs file system should be mounted
-+ * if not already mounted using:
-+ *	mount -t debugfs none /sys/kernel/debug
-+ *
-+ * BNAD Hierarchy:
-+ *	- bnad/pci_dev:<pci_name>
-+ *	  where the pci_name corresponds to the one under
-+ *	  /sys/bus/pci/drivers/bnad
-+ *
-+ * Debugging service available per pci_dev:
-+ *	fwtrc:  To collect current firmware trace.
-+ *	fwsave: To collect last saved fw trace as a result of firmware crash.
-+ */
-+#include <linux/debugfs.h>
-+
 +#include "bnad.h"
++#include "bnad_genl.h"
++#include "bna.h"
 +
-+struct bnad_debug_info {
-+	char *debug_buffer;
-+	int buffer_len;
++static struct nla_policy bnad_genl_policy[BNAD_GENL_ATTR_MAX + 1] = {
++	[BNAD_GENL_ATTR_IOC_INFO]
++				= { .len = sizeof(struct bnad_genl_ioc_info) },
++	[BNAD_GENL_ATTR_IOC_ATTR]
++				= { .len = sizeof(struct bnad_genl_ioc_attr) },
 +};
 +
-+struct bnad_debugfs_entry {
-+	const char *name;
-+	mode_t	mode;
-+	const struct file_operations *fops;
++static struct genl_family bnad_genl_family = {
++	.id = GENL_ID_GENERATE,
++	.name = "BNAD_GENL",
++	.version = BNAD_GENL_VERSION,
++	.hdrsize = 0,
++	.maxattr = BNAD_GENL_ATTR_MAX,
 +};
 +
-+static int
-+bnad_debugfs_open_fwtrc(struct inode *inode, struct file *file)
++static struct bnad *
++bnad_get_bnadev(int bna_id)
 +{
-+	struct bnad *bnad = inode->i_private;
-+	struct bnad_debug_info *fw_debug;
-+	unsigned long flags;
-+	int rc;
++	struct bnad *bnad;
 +
-+	fw_debug = kzalloc(sizeof(struct bnad_debug_info), GFP_KERNEL);
-+	if (!fw_debug)
-+		return -ENOMEM;
-+
-+	fw_debug->buffer_len = BFA_DBG_FWTRC_LEN;
-+
-+	fw_debug->debug_buffer = kzalloc(fw_debug->buffer_len, GFP_KERNEL);
-+	if (!fw_debug->debug_buffer) {
-+		kfree(fw_debug);
-+		fw_debug = NULL;
-+		pr_warn("bnad[%d]: Failed to allocate fwtrc buffer\n",
-+			bnad->id);
-+		return -ENOMEM;
-+	}
-+
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	rc = bfa_nw_ioc_debug_fwtrc(&bnad->bna.device.ioc,
-+			fw_debug->debug_buffer,
-+			&fw_debug->buffer_len);
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	if (rc != BFA_STATUS_OK) {
-+		kfree(fw_debug->debug_buffer);
-+		fw_debug->debug_buffer = NULL;
-+		kfree(fw_debug);
-+		fw_debug = NULL;
-+		pr_warn("bnad[%d]: Failed to collect fwtrc\n", bnad->id);
-+		return -ENOMEM;
-+	}
-+
-+	file->private_data = fw_debug;
-+
-+	return 0;
-+}
-+
-+static int
-+bnad_debugfs_open_fwsave(struct inode *inode, struct file *file)
-+{
-+	struct bnad *bnad = inode->i_private;
-+	struct bnad_debug_info *fw_debug;
-+	unsigned long flags;
-+	int rc;
-+
-+	fw_debug = kzalloc(sizeof(struct bnad_debug_info), GFP_KERNEL);
-+	if (!fw_debug)
-+		return -ENOMEM;
-+
-+	fw_debug->buffer_len = BFA_DBG_FWTRC_LEN;
-+
-+	fw_debug->debug_buffer = kzalloc(fw_debug->buffer_len, GFP_KERNEL);
-+	if (!fw_debug->debug_buffer) {
-+		kfree(fw_debug);
-+		fw_debug = NULL;
-+		pr_warn("bnad[%d]: Failed to allocate fwsave buffer\n",
-+			bnad->id);
-+		return -ENOMEM;
-+	}
-+
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	rc = bfa_nw_ioc_debug_fwsave(&bnad->bna.device.ioc,
-+			fw_debug->debug_buffer,
-+			&fw_debug->buffer_len);
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	if (rc != BFA_STATUS_OK && rc != BFA_STATUS_ENOFSAVE) {
-+		kfree(fw_debug->debug_buffer);
-+		fw_debug->debug_buffer = NULL;
-+		kfree(fw_debug);
-+		fw_debug = NULL;
-+		pr_warn("bnad[%d]: Failed to collect fwsave\n", bnad->id);
-+		return -ENOMEM;
-+	}
-+
-+	file->private_data = fw_debug;
-+
-+	return 0;
-+}
-+
-+/* Changes the current file position */
-+static loff_t
-+bnad_debugfs_lseek(struct file *file, loff_t offset, int orig)
-+{
-+	loff_t pos = file->f_pos;
-+	struct bnad_debug_info *debug = file->private_data;
-+
-+	if (!debug)
-+		return -EINVAL;
-+
-+	switch (orig) {
-+	case 0:
-+		file->f_pos = offset;
-+		break;
-+	case 1:
-+		file->f_pos += offset;
-+		break;
-+	case 2:
-+		file->f_pos = debug->buffer_len - offset;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	if (file->f_pos < 0 || file->f_pos > debug->buffer_len) {
-+		file->f_pos = pos;
-+		return -EINVAL;
-+	}
-+
-+	return file->f_pos;
-+}
-+
-+static ssize_t
-+bnad_debugfs_read(struct file *file, char __user *buf,
-+			size_t nbytes, loff_t *pos)
-+{
-+	struct bnad_debug_info *debug = file->private_data;
-+
-+	if (!debug || !debug->debug_buffer)
-+		return 0;
-+
-+	return simple_read_from_buffer(buf, nbytes, pos,
-+				debug->debug_buffer, debug->buffer_len);
-+}
-+
-+static int
-+bnad_debugfs_release_fwtrc(struct inode *inode, struct file *file)
-+{
-+	struct bnad_debug_info *fw_debug = file->private_data;
-+
-+	if (!fw_debug)
-+		return 0;
-+
-+	kfree(fw_debug->debug_buffer);
-+
-+	file->private_data = NULL;
-+	kfree(fw_debug);
-+	fw_debug = NULL;
-+	return 0;
-+}
-+
-+static const struct file_operations bnad_debugfs_op_fwtrc = {
-+	.owner		=	THIS_MODULE,
-+	.open		=	bnad_debugfs_open_fwtrc,
-+	.llseek		=	bnad_debugfs_lseek,
-+	.read		=	bnad_debugfs_read,
-+	.release	=	bnad_debugfs_release_fwtrc,
-+};
-+
-+static const struct file_operations bnad_debugfs_op_fwsave = {
-+	.owner		=	THIS_MODULE,
-+	.open		=	bnad_debugfs_open_fwsave,
-+	.llseek		=	bnad_debugfs_lseek,
-+	.read		=	bnad_debugfs_read,
-+	.release	=	bnad_debugfs_release_fwtrc,
-+};
-+
-+static const struct bnad_debugfs_entry bnad_debugfs_files[] = {
-+	{ "fwtrc",  S_IFREG|S_IRUGO, &bnad_debugfs_op_fwtrc,  },
-+	{ "fwsave", S_IFREG|S_IRUGO, &bnad_debugfs_op_fwsave, },
-+};
-+
-+/* Global varibales */
-+static struct dentry *bnad_debugfs_root;
-+static atomic_t bnad_debugfs_port_count;
-+
-+/* Initialize debugfs interface for BNAD */
-+void
-+bnad_debugfs_init(struct bnad *bnad)
-+{
-+	const struct bnad_debugfs_entry *file;
-+	char name[64];
-+	int i;
-+
-+	/* Setup the BNAD debugfs root directory*/
 +	mutex_lock(&bnad_list_mutex);
-+	if (!bnad_debugfs_root) {
-+		bnad_debugfs_root = debugfs_create_dir("bnad", NULL);
-+		atomic_set(&bnad_debugfs_port_count, 0);
-+		if (!bnad_debugfs_root) {
++	list_for_each_entry(bnad, &bnad_list, list_entry) {
++		if (bnad->id == bna_id) {
 +			mutex_unlock(&bnad_list_mutex);
-+			pr_warn("BNAD debugfs root dir creation failed\n");
-+			return;
++			return bnad;
 +		}
 +	}
 +	mutex_unlock(&bnad_list_mutex);
-+
-+	/* Setup the pci_dev debugfs directory for the port */
-+	snprintf(name, sizeof(name), "pci_dev:%s", pci_name(bnad->pcidev));
-+	if (!bnad->port_debugfs_root) {
-+		bnad->port_debugfs_root =
-+			debugfs_create_dir(name, bnad_debugfs_root);
-+		if (!bnad->port_debugfs_root) {
-+			pr_warn("BNAD pci_dev:%s root dir creation failed\n",
-+			       pci_name(bnad->pcidev));
-+			return;
-+		}
-+
-+		atomic_inc(&bnad_debugfs_port_count);
-+
-+		for (i = 0; i < ARRAY_SIZE(bnad_debugfs_files); i++) {
-+			file = &bnad_debugfs_files[i];
-+			bnad->bnad_dentry_files[i] =
-+					debugfs_create_file(file->name,
-+							file->mode,
-+							bnad->port_debugfs_root,
-+							bnad,
-+							file->fops);
-+			if (!bnad->bnad_dentry_files[i]) {
-+				pr_warn(
-+				       "BNAD pci_dev:%s: create %s entry \
-+failed\n", pci_name(bnad->pcidev), file->name);
-+				return;
-+			}
-+		}
-+	}
-+
-+	pr_info("bnad[%d]: Initialized debugfs interface\n", bnad->id);
++	return NULL;
 +}
 +
-+/* Uninitialize debugfs interface for BNAD */
-+void
-+bnad_debugfs_uninit(struct bnad *bnad)
++static void
++bnad_hwpath_get(struct bnad *bnad, char *hwpath, char *adapter_hwpath)
 +{
 +	int i;
 +
-+	for (i = 0; i < ARRAY_SIZE(bnad_debugfs_files); i++) {
-+		if (bnad->bnad_dentry_files[i]) {
-+			debugfs_remove(bnad->bnad_dentry_files[i]);
-+			bnad->bnad_dentry_files[i] = NULL;
-+		}
-+	}
-+
-+	/* Remove the pci_dev debugfs directory for the port */
-+	if (bnad->port_debugfs_root) {
-+		debugfs_remove(bnad->port_debugfs_root);
-+		bnad->port_debugfs_root = NULL;
-+		atomic_dec(&bnad_debugfs_port_count);
-+	}
-+
-+	/* Remove the BNAD debugfs root directory */
-+	mutex_lock(&bnad_list_mutex);
-+	if (atomic_read(&bnad_debugfs_port_count) == 0) {
-+		debugfs_remove(bnad_debugfs_root);
-+		bnad_debugfs_root = NULL;
-+	}
-+	mutex_unlock(&bnad_list_mutex);
-+	pr_info("bnad[%d]: Uninitialized debugfs interface\n", bnad->id);
++	strcpy(hwpath, pci_name(bnad->pcidev));
++	strcpy(adapter_hwpath, pci_name(bnad->pcidev));
++	i = strlen(adapter_hwpath) - 1;
++	while (i && (adapter_hwpath[i] != '.'))
++		i--;
++	adapter_hwpath[i] = '\0';
 +}
++
++static void
++bnad_get_pci_attr(struct bnad *bnad, struct bfa_ioc_pci_attr *pci_attr)
++{
++	pci_attr->vendor_id = bnad->pcidev->vendor;
++	pci_attr->device_id = bnad->pcidev->device;
++	pci_attr->ssid = bnad->pcidev->subsystem_device;
++	pci_attr->ssvid = bnad->pcidev->subsystem_vendor;
++	pci_attr->pcifn = PCI_FUNC(bnad->pcidev->devfn);
++}
++
++static int
++bnad_genl_ioc_info_rsp(struct genl_info *info,
++	struct bnad_genl_ioc_info *genlcmd, size_t attr_size, u8 cmd)
++{
++	struct sk_buff *rsp_skb = NULL;
++	void *genl_msg_hdr = NULL;
++	size_t msg_size;
++	int err = 0;
++
++	msg_size = nla_total_size(attr_size);
++
++	rsp_skb = genlmsg_new(msg_size, GFP_KERNEL);
++	if (!rsp_skb) {
++		pr_warn("bnad[%d]: Failed to get response skb\n",
++			genlcmd->bnad_num);
++		return -ENOMEM;
++	}
++
++	genl_msg_hdr = genlmsg_put(rsp_skb, info->snd_pid, info->snd_seq,
++		&bnad_genl_family, 0, cmd);
++	if (!genl_msg_hdr) {
++		pr_warn("bnad[%d]: Failed to get the genl_msg_header\n",
++			genlcmd->bnad_num);
++		err = -ENOMEM;
++		goto failure;
++	}
++
++	NLA_PUT(rsp_skb, BNAD_GENL_ATTR_IOC_INFO, attr_size, genlcmd);
++
++	err = genlmsg_end(rsp_skb, genl_msg_hdr);
++	if (err < 0) {
++		pr_warn("bnad[%d]: Failed to do genlmsg_end\n",
++			genlcmd->bnad_num);
++		goto failure;
++	}
++
++	err = genlmsg_reply(rsp_skb, info);
++	if (err)
++		pr_warn("bnad[%d]: Could not do genlmsg_reply (%d)\n",
++			genlcmd->bnad_num, err);
++
++	return err;
++
++nla_put_failure:
++	pr_warn("bnad[%d]: Failed to do NLA_PUT\n", genlcmd->bnad_num);
++	err = -EMSGSIZE;
++failure:
++	genlmsg_cancel(rsp_skb, genl_msg_hdr);
++	kfree_skb(rsp_skb);
++	return err;
++}
++
++static int
++bnad_genl_ioc_attr_rsp(struct genl_info *info,
++	struct bnad_genl_ioc_attr *genlcmd, size_t attr_size, u8 cmd)
++{
++	struct sk_buff *rsp_skb = NULL;
++	void *genl_msg_hdr = NULL;
++	size_t msg_size;
++	int err = 0;
++
++	msg_size = nla_total_size(attr_size);
++
++	rsp_skb = genlmsg_new(msg_size, GFP_KERNEL);
++	if (!rsp_skb) {
++		pr_warn("bnad[%d]: Failed to get response skb\n",
++			genlcmd->bnad_num);
++		return -ENOMEM;
++	}
++
++	genl_msg_hdr = genlmsg_put(rsp_skb, info->snd_pid, info->snd_seq,
++		&bnad_genl_family, 0, cmd);
++	if (!genl_msg_hdr) {
++		pr_warn("bnad[%d]: Failed to get the genl_msg_header\n",
++			genlcmd->bnad_num);
++		err = -ENOMEM;
++		goto failure;
++	}
++
++	NLA_PUT(rsp_skb, BNAD_GENL_ATTR_IOC_ATTR, attr_size, genlcmd);
++
++	err = genlmsg_end(rsp_skb, genl_msg_hdr);
++	if (err < 0) {
++		pr_warn("bnad[%d]: Failed to do genlmsg_end\n",
++			genlcmd->bnad_num);
++		goto failure;
++	}
++
++	err = genlmsg_reply(rsp_skb, info);
++	if (err)
++		pr_warn("bnad[%d]: Could not do genlmsg_reply (%d)\n",
++			genlcmd->bnad_num, err);
++
++	return err;
++
++nla_put_failure:
++	pr_warn("bnad[%d]: Failed to do NLA_PUT\n", genlcmd->bnad_num);
++	err = -EMSGSIZE;
++failure:
++	genlmsg_cancel(rsp_skb, genl_msg_hdr);
++	kfree_skb(rsp_skb);
++	return err;
++}
++
++/* Note: Should be called holding bnad_conf_lock */
++static int
++bnad_genl_ioc_get_info(struct sk_buff *skb, struct genl_info *info)
++{
++	struct bnad *bnad = NULL;
++	struct bnad_genl_ioc_info *genlcmd = NULL;
++	struct bfa_ioc *ioc = NULL;
++	unsigned long flags = 0;
++	int err;
++
++	genlcmd = (struct bnad_genl_ioc_info *)
++		nla_data(info->attrs[BNAD_GENL_ATTR_IOC_INFO]);
++
++	bnad = bnad_get_bnadev(genlcmd->bnad_num);
++	if (!bnad) {
++		pr_warn("bna: Failed to get driver instance\n");
++		return -EINVAL;
++	}
++	ioc = &bnad->bna.device.ioc;
++
++	spin_lock_irqsave(&bnad->bna_lock, flags);
++	bfa_nw_ioc_get_adapter_serial_num(ioc, genlcmd->serialnum);
++	genlcmd->mac = bfa_nw_ioc_get_mac(ioc);
++	/* Get manufacturing MAC */
++	genlcmd->factory_mac = ioc->attr->mfg_mac;
++	if (bfa_mfg_is_old_wwn_mac_model(ioc->attr->card_type))
++		genlcmd->factory_mac.mac[MAC_ADDRLEN - 1] += bfa_ioc_pcifn(ioc);
++	else
++		bfa_mfg_increment_wwn_mac(
++			&(genlcmd->factory_mac.mac[MAC_ADDRLEN-3]),
++			bfa_ioc_pcifn(ioc));
++
++	/* Get stack MAC */
++	if (is_zero_ether_addr(&bnad->perm_addr.mac[0])) {
++		bna_port_mac_get(&bnad->bna.port, &bnad->perm_addr);
++		bnad_set_netdev_perm_addr(bnad);
++	}
++	memcpy(&genlcmd->current_mac, bnad->netdev->dev_addr, sizeof(mac_t));
++
++	genlcmd->bnad_num = bnad->id;
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
++	bnad_hwpath_get(bnad, genlcmd->hwpath, genlcmd->adapter_hwpath);
++	sprintf(genlcmd->eth_name, "%s", bnad->netdev->name);
++	strncpy(genlcmd->name, bnad->adapter_name, sizeof(genlcmd->name) - 1);
++	strncpy(genlcmd->port_name, bnad->port_name,
++		sizeof(genlcmd->port_name) - 1);
++	genlcmd->ioc_type = BFA_IOC_TYPE_LL;
++	genlcmd->status = BFA_STATUS_OK;
++
++	err = bnad_genl_ioc_info_rsp(info, genlcmd,
++		sizeof(struct bnad_genl_ioc_info), BNAD_GENL_CMD_IOC_INFO);
++
++	return err;
++}
++
++/* Note: Should be called holding bnad_conf_lock */
++static int
++bnad_genl_ioc_get_attr(struct sk_buff *skb, struct genl_info *info)
++{
++	struct bnad *bnad = NULL;
++	struct bnad_genl_ioc_attr *genlcmd = NULL;
++	struct bfa_ioc *ioc = NULL;
++	unsigned long flags = 0;
++	int err = 0;
++
++	genlcmd = (struct bnad_genl_ioc_attr *)
++		nla_data(info->attrs[BNAD_GENL_ATTR_IOC_ATTR]);
++
++	bnad = bnad_get_bnadev(genlcmd->bnad_num);
++	if (!bnad) {
++		pr_warn("bna: Failed to get driver instance\n");
++		return -EINVAL;
++	}
++	ioc = &bnad->bna.device.ioc;
++
++	memset(&genlcmd->ioc_attr, 0, sizeof(genlcmd->ioc_attr));
++	spin_lock_irqsave(&bnad->bna_lock, flags);
++	bfa_nw_ioc_get_attr(&bnad->bna.device.ioc, &genlcmd->ioc_attr);
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
++	genlcmd->ioc_attr.ioc_type = BFA_IOC_TYPE_LL;
++	strcpy(genlcmd->ioc_attr.driver_attr.driver, BNAD_NAME);
++	strncpy(genlcmd->ioc_attr.driver_attr.driver_ver,
++		BNAD_VERSION, BFA_VERSION_LEN);
++	strcpy(genlcmd->ioc_attr.driver_attr.fw_ver,
++	       genlcmd->ioc_attr.adapter_attr.fw_ver);
++	strcpy(genlcmd->ioc_attr.driver_attr.bios_ver,
++	       genlcmd->ioc_attr.adapter_attr.optrom_ver);
++	bnad_get_pci_attr(bnad, &genlcmd->ioc_attr.pci_attr);
++	genlcmd->status = BFA_STATUS_OK;
++
++	err = bnad_genl_ioc_attr_rsp(info, genlcmd,
++		sizeof(struct bnad_genl_ioc_attr), BNAD_GENL_CMD_IOC_ATTR);
++
++	return err;
++}
++
++/* BNAD generic netlink ops */
++static struct genl_ops bnad_genl_ops[] = {
++	{
++	.cmd = BNAD_GENL_CMD_IOC_INFO,
++	.flags = 0,
++	.policy = bnad_genl_policy,
++	.doit = bnad_genl_ioc_get_info,
++	.dumpit = NULL,
++	},
++	{
++	.cmd = BNAD_GENL_CMD_IOC_ATTR,
++	.flags = 0,
++	.policy = bnad_genl_policy,
++	.doit = bnad_genl_ioc_get_attr,
++	.dumpit = NULL,
++	},
++};
++
++/* Initialize generic netlink for BNAD */
++int
++bnad_genl_init(void)
++{
++	int i, err = 0;
++
++	/* Register family */
++	err = genl_register_family(&bnad_genl_family);
++	if (err) {
++		pr_warn("bna: failed to register with Netlink\n");
++		return err;
++	}
++	pr_info("bna: registered with Netlink\n");
++
++	/* Register ops */
++	for (i = 0; i < sizeof(bnad_genl_ops) / sizeof(bnad_genl_ops[0]); i++) {
++		err = genl_register_ops(&bnad_genl_family, &bnad_genl_ops[i]);
++		if (err)
++			pr_warn("bna: failed to register netlink op %u\n",
++				bnad_genl_ops[i].cmd);
++		else
++			pr_info("bna: registered netlink op %u\n",
++				bnad_genl_ops[i].cmd);
++	}
++
++	return err;
++}
++
++/* Uninitialize generic netlink for BNAD */
++int
++bnad_genl_uninit(void)
++{
++	int i, err = 0;
++
++	for (i = 0; i < sizeof(bnad_genl_ops) / sizeof(bnad_genl_ops[0]); i++) {
++		err = genl_unregister_ops(&bnad_genl_family, &bnad_genl_ops[i]);
++		if (err)
++			pr_warn("bna: failed to unregister netlink op %u)\n",
++				bnad_genl_ops[i].cmd);
++		else
++			pr_info("bna: unregistered netlink op %u\n",
++				bnad_genl_ops[i].cmd);
++	}
++
++	err = genl_unregister_family(&bnad_genl_family);
++	if (err)
++		pr_warn("bna: failed to unregister with Netlink\n");
++	else
++		pr_info("bna: unregistered with Netlink\n");
++
++	return err;
++}
+diff --git a/drivers/net/bna/bnad_genl.h b/drivers/net/bna/bnad_genl.h
+new file mode 100644
+index 0000000..d469fe5
+--- /dev/null
++++ b/drivers/net/bna/bnad_genl.h
+@@ -0,0 +1,87 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2011 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++#ifndef __BNAD_GENL_H__
++#define __BNAD_GENL_H__
++
++#include <linux/device.h>
++#include <linux/netdevice.h>
++#include <linux/gfp.h>
++#include <linux/skbuff.h>
++#include <linux/ethtool.h>
++#include <linux/rtnetlink.h>
++#include <net/genetlink.h>
++
++#include "cna.h"
++
++/* Attributes */
++enum {
++	BNAD_GENL_ATTR_UNSPEC,
++	BNAD_GENL_ATTR_IOC_INFO,
++	BNAD_GENL_ATTR_IOC_ATTR,
++	__BNAD_GENL_ATTR_MAX
++};
++
++/* Effectively a single attribute */
++#define BNAD_GENL_ATTR_MAX (__BNAD_GENL_ATTR_MAX - 1)
++
++enum {
++	BNAD_GENL_VERSION = 1,
++};
++
++/* Commands/Responses */
++enum {
++	BNAD_GENL_CMD_UNSPEC,
++	BNAD_GENL_CMD_IOC_INFO,
++	BNAD_GENL_CMD_IOC_ATTR,
++	__BNAD_GENL_CMD_MAX,
++};
++
++struct bnad_genl_ioc_info {
++	int		status;
++	u16		bnad_num;
++	u16		rsvd;
++	char		serialnum[64];
++	char		hwpath[BFA_STRING_32];
++	char		adapter_hwpath[BFA_STRING_32];
++	char		guid[BFA_ADAPTER_SYM_NAME_LEN*2];
++	char		name[BFA_ADAPTER_SYM_NAME_LEN];
++	char		port_name[BFA_ADAPTER_SYM_NAME_LEN];
++	char		eth_name[BFA_ADAPTER_SYM_NAME_LEN];
++	u64		rsvd1[4];
++	mac_t		mac;
++	mac_t		factory_mac;	/* Factory mac address */
++	mac_t		current_mac;	/* Currently assigned mac address */
++	enum bfa_ioc_type     ioc_type;
++	u16		pvid;		/* Port vlan id */
++	u16		rsvd2;
++	u32		host;
++	u32		bandwidth;	/* For PF support */
++	u32		rsvd3;
++};
++
++struct bnad_genl_ioc_attr {
++	int		status;
++	u16		bnad_num;
++	u16		rsvd;
++	struct bfa_ioc_attr  ioc_attr;
++};
++
++extern int bnad_genl_init(void);
++extern int bnad_genl_uninit(void);
++
++#endif /* __BNAD_GENL_H__ */
 -- 
 1.7.1
 
