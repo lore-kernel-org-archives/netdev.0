@@ -1,234 +1,112 @@
-From: "Shmulik Ravid" <shmulikr@broadcom.com>
-Subject: [PATCH net-next] bnx2x: add support for retrieving dcb peer
- configuration
-Date: Wed, 18 May 2011 15:55:31 +0300
-Message-ID: <1305723331.14458.13.camel@lb-tlvb-shmulik.il.broadcom.com>
+From: Jacek Luczak <difrost.kernel@gmail.com>
+Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
+Date: Wed, 18 May 2011 13:01:11 +0200
+Message-ID: <BANLkTikVxfxU2uW3AA--q8qt16og=HdDLg@mail.gmail.com>
+References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>
+	<1305704885.2983.4.camel@edumazet-laptop>
+	<BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>
+	<1305707358.2983.14.camel@edumazet-laptop>
+	<4DD38B30.9090601@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3218 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932798Ab1ERLCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 May 2011 07:02:30 -0400
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:53623 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932619Ab1ERLDU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 07:03:20 -0400
+Received: by pwi15 with SMTP id 15so694758pwi.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 04:03:20 -0700 (PDT)
+In-Reply-To: <4DD38B30.9090601@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support to the bnx2x for retrieving dcb peer (remote)
-configuration from the embedded DCBX stack.
+2011/5/18 Wei Yongjun <yjwei@cn.fujitsu.com>:
+>
+>> Le mercredi 18 mai 2011 =E0 10:06 +0200, Jacek Luczak a =E9crit :
+>>> 2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
+>>>> If you're removing items from this list, you must be a writer here=
+, with
+>>>> exclusive access. So rcu_read_lock()/rcu_read_unlock() is not nece=
+ssary.
+>>> I could agree to some extend ... but strict RCU section IMO is need=
+ed here.
+>>> I can check this if the issue exists.
+>>>
+>> I can tell you for sure rcu_read_lock() is not needed here. Its only
+>> showing confusion from code's author.
+>>
+>> Please read Documentation/RCU/listRCU.txt for concise explanations,
+>> line 117.
+>>
+>>
+>>>> Therefore, I guess following code is better :
+>>>>
+>>>> list_for_each_entry(addr, &bp->address_list, list) {
+>>>> =A0 =A0 =A0 =A0list_del_rcu(&addr->list);
+>>>> =A0 =A0 =A0 =A0call_rcu(&addr->rcu, sctp_local_addr_free);
+>>>> =A0 =A0 =A0 =A0SCTP_DBG_OBJCNT_DEC(addr);
+>>>> }
+>>>>
+>>>> Then, why dont you fix sctp_bind_addr_clean() instead ?
+>>>>
+>>>> if 'struct sctp_sockaddr_entry' is recu protected, then all frees =
+should
+>>>> be protected as well.
+>>> The _clean() as claimed by Vlad is called many times from various p=
+laces
+>>> in code and this could give a overhead. I guess Vlad would need to =
+comment.
+>> I guess a full review of this code is needed. You'll have to prove
+>> sctp_bind_addr_clean() is always called after one RCU grace period i=
+f
+>> you want to leave it as is.
+>>
+>> You cant get RCU for free, some rules must be followed or you risk
+>> crashes.
+>>
+>
+> fix the race between sctp_bind_addr_free() and sctp_bind_addr_conflic=
+t(), maybe you just
+> need to remove the socket from the port hash before empty the bind ad=
+dress list.
+> some thing like this, not test.
+>
+> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+> index c8cc24e..924d846 100644
+> --- a/net/sctp/endpointola.c
+> +++ b/net/sctp/endpointola.c
+> @@ -268,12 +268,13 @@ static void sctp_endpoint_destroy(struct sctp_e=
+ndpoint *ep)
+>
+> =A0 =A0 =A0 =A0/* Cleanup. */
+> =A0 =A0 =A0 =A0sctp_inq_free(&ep->base.inqueue);
+> - =A0 =A0 =A0 sctp_bind_addr_free(&ep->base.bind_addr);
+>
+> =A0 =A0 =A0 =A0/* Remove and free the port */
+> =A0 =A0 =A0 =A0if (sctp_sk(ep->base.sk)->bind_hash)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sctp_put_port(ep->base.sk);
+>
+> + =A0 =A0 =A0 sctp_bind_addr_free(&ep->base.bind_addr);
+> +
+> =A0 =A0 =A0 =A0/* Give up our hold on the sock. */
+> =A0 =A0 =A0 =A0if (ep->base.sk)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sock_put(ep->base.sk);
+>
 
-Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x.h     |    4 +
- drivers/net/bnx2x/bnx2x_dcb.c |  152 ++++++++++++++++++++++++++++++++++-------
- 2 files changed, 131 insertions(+), 25 deletions(-)
+Done tests with that one and looks like it survive the flood.
 
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index 16a76f0..668a578 100644
---- a/drivers/net/bnx2x/bnx2x.h
-+++ b/drivers/net/bnx2x/bnx2x.h
-@@ -1242,6 +1242,10 @@ struct bnx2x {
- 	/* DCBX Negotiation results */
- 	struct dcbx_features			dcbx_local_feat;
- 	u32					dcbx_error;
-+#ifdef BCM_DCBNL
-+	struct dcbx_features			dcbx_remote_feat;
-+	u32					dcbx_remote_flags;
-+#endif
- 	u32					pending_max;
- };
- 
-diff --git a/drivers/net/bnx2x/bnx2x_dcb.c b/drivers/net/bnx2x/bnx2x_dcb.c
-index 0f83092..410a49e 100644
---- a/drivers/net/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/bnx2x/bnx2x_dcb.c
-@@ -485,6 +485,36 @@ static void bnx2x_dcbx_update_ets_params(struct bnx2x *bp)
- 	}
- }
- 
-+#ifdef BCM_DCBNL
-+static int bnx2x_dcbx_read_shmem_remote_mib(struct bnx2x *bp)
-+{
-+	struct lldp_remote_mib remote_mib = {0};
-+	u32 dcbx_remote_mib_offset = SHMEM2_RD(bp, dcbx_remote_mib_offset);
-+	int rc;
-+
-+	DP(NETIF_MSG_LINK, "dcbx_remote_mib_offset 0x%x\n",
-+	   dcbx_remote_mib_offset);
-+
-+	if (SHMEM_DCBX_REMOTE_MIB_NONE == dcbx_remote_mib_offset) {
-+		BNX2X_ERR("FW doesn't support dcbx_remote_mib_offset\n");
-+		return -EINVAL;
-+	}
-+
-+	rc = bnx2x_dcbx_read_mib(bp, (u32 *)&remote_mib, dcbx_remote_mib_offset,
-+				 DCBX_READ_REMOTE_MIB);
-+
-+	if (rc) {
-+		BNX2X_ERR("Faild to read remote mib from FW\n");
-+		return rc;
-+	}
-+
-+	/* save features and flags */
-+	bp->dcbx_remote_feat = remote_mib.features;
-+	bp->dcbx_remote_flags = remote_mib.flags;
-+	return 0;
-+}
-+#endif
-+
- static int bnx2x_dcbx_read_shmem_neg_results(struct bnx2x *bp)
- {
- 	struct lldp_local_mib local_mib = {0};
-@@ -601,6 +631,10 @@ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
- 			 * negotiation results
- 			 */
- 			bnx2x_dcbnl_update_applist(bp, true);
-+
-+			/* Read rmeote mib if dcbx is in the FW */
-+			if (bnx2x_dcbx_read_shmem_remote_mib(bp))
-+				return;
- #endif
- 			/* Read neg results if dcbx is in the FW */
- 			if (bnx2x_dcbx_read_shmem_neg_results(bp))
-@@ -2031,7 +2065,6 @@ static u8 bnx2x_dcbnl_set_dcbx(struct net_device *netdev, u8 state)
- 	return 0;
- }
- 
--
- static u8 bnx2x_dcbnl_get_featcfg(struct net_device *netdev, int featid,
- 				  u8 *flags)
- {
-@@ -2111,31 +2144,100 @@ static u8 bnx2x_dcbnl_set_featcfg(struct net_device *netdev, int featid,
- 	return rval;
- }
- 
-+static int bnx2x_peer_appinfo(struct net_device *netdev,
-+			      struct dcb_peer_app_info *info, u16* app_count)
-+{
-+	int i;
-+	struct bnx2x *bp = netdev_priv(netdev);
-+
-+	DP(NETIF_MSG_LINK, "APP-INFO\n");
-+
-+	info->willing = (bp->dcbx_remote_flags & DCBX_APP_REM_WILLING) ?: 0;
-+	info->error = (bp->dcbx_remote_flags & DCBX_APP_RX_ERROR) ?: 0;
-+	*app_count = 0;
-+
-+	for (i = 0; i < DCBX_MAX_APP_PROTOCOL; i++)
-+		if (bp->dcbx_remote_feat.app.app_pri_tbl[i].appBitfield &
-+		    DCBX_APP_ENTRY_VALID)
-+			(*app_count)++;
-+	return 0;
-+}
-+
-+static int bnx2x_peer_apptable(struct net_device *netdev,
-+			       struct dcb_app *table)
-+{
-+	int i, j;
-+	struct bnx2x *bp = netdev_priv(netdev);
-+
-+	DP(NETIF_MSG_LINK, "APP-TABLE\n");
-+
-+	for (i = 0, j = 0; i < DCBX_MAX_APP_PROTOCOL; i++) {
-+		struct dcbx_app_priority_entry *ent =
-+			&bp->dcbx_remote_feat.app.app_pri_tbl[i];
-+
-+		if (ent->appBitfield & DCBX_APP_ENTRY_VALID) {
-+			table[j].selector = bnx2x_dcbx_dcbnl_app_idtype(ent);
-+			table[j].priority = bnx2x_dcbx_dcbnl_app_up(ent);
-+			table[j++].protocol = ent->app_id;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int bnx2x_cee_peer_getpg(struct net_device *netdev, struct cee_pg *pg)
-+{
-+	int i;
-+	struct bnx2x *bp = netdev_priv(netdev);
-+
-+	pg->willing = (bp->dcbx_remote_flags & DCBX_ETS_REM_WILLING) ?: 0;
-+
-+	for (i = 0; i < CEE_DCBX_MAX_PGS; i++) {
-+		pg->pg_bw[i] =
-+			DCBX_PG_BW_GET(bp->dcbx_remote_feat.ets.pg_bw_tbl, i);
-+		pg->prio_pg[i] =
-+			DCBX_PRI_PG_GET(bp->dcbx_remote_feat.ets.pri_pg_tbl, i);
-+	}
-+	return 0;
-+}
-+
-+static int bnx2x_cee_peer_getpfc(struct net_device *netdev,
-+				 struct cee_pfc *pfc)
-+{
-+	struct bnx2x *bp = netdev_priv(netdev);
-+	pfc->tcs_supported = bp->dcbx_remote_feat.pfc.pfc_caps;
-+	pfc->pfc_en = bp->dcbx_remote_feat.pfc.pri_en_bitmap;
-+	return 0;
-+}
-+
- const struct dcbnl_rtnl_ops bnx2x_dcbnl_ops = {
--	.getstate       = bnx2x_dcbnl_get_state,
--	.setstate       = bnx2x_dcbnl_set_state,
--	.getpermhwaddr  = bnx2x_dcbnl_get_perm_hw_addr,
--	.setpgtccfgtx   = bnx2x_dcbnl_set_pg_tccfg_tx,
--	.setpgbwgcfgtx  = bnx2x_dcbnl_set_pg_bwgcfg_tx,
--	.setpgtccfgrx   = bnx2x_dcbnl_set_pg_tccfg_rx,
--	.setpgbwgcfgrx  = bnx2x_dcbnl_set_pg_bwgcfg_rx,
--	.getpgtccfgtx   = bnx2x_dcbnl_get_pg_tccfg_tx,
--	.getpgbwgcfgtx  = bnx2x_dcbnl_get_pg_bwgcfg_tx,
--	.getpgtccfgrx   = bnx2x_dcbnl_get_pg_tccfg_rx,
--	.getpgbwgcfgrx  = bnx2x_dcbnl_get_pg_bwgcfg_rx,
--	.setpfccfg      = bnx2x_dcbnl_set_pfc_cfg,
--	.getpfccfg      = bnx2x_dcbnl_get_pfc_cfg,
--	.setall         = bnx2x_dcbnl_set_all,
--	.getcap         = bnx2x_dcbnl_get_cap,
--	.getnumtcs      = bnx2x_dcbnl_get_numtcs,
--	.setnumtcs      = bnx2x_dcbnl_set_numtcs,
--	.getpfcstate    = bnx2x_dcbnl_get_pfc_state,
--	.setpfcstate    = bnx2x_dcbnl_set_pfc_state,
--	.setapp         = bnx2x_dcbnl_set_app_up,
--	.getdcbx        = bnx2x_dcbnl_get_dcbx,
--	.setdcbx        = bnx2x_dcbnl_set_dcbx,
--	.getfeatcfg     = bnx2x_dcbnl_get_featcfg,
--	.setfeatcfg     = bnx2x_dcbnl_set_featcfg,
-+	.getstate		= bnx2x_dcbnl_get_state,
-+	.setstate		= bnx2x_dcbnl_set_state,
-+	.getpermhwaddr		= bnx2x_dcbnl_get_perm_hw_addr,
-+	.setpgtccfgtx		= bnx2x_dcbnl_set_pg_tccfg_tx,
-+	.setpgbwgcfgtx		= bnx2x_dcbnl_set_pg_bwgcfg_tx,
-+	.setpgtccfgrx		= bnx2x_dcbnl_set_pg_tccfg_rx,
-+	.setpgbwgcfgrx		= bnx2x_dcbnl_set_pg_bwgcfg_rx,
-+	.getpgtccfgtx		= bnx2x_dcbnl_get_pg_tccfg_tx,
-+	.getpgbwgcfgtx		= bnx2x_dcbnl_get_pg_bwgcfg_tx,
-+	.getpgtccfgrx		= bnx2x_dcbnl_get_pg_tccfg_rx,
-+	.getpgbwgcfgrx		= bnx2x_dcbnl_get_pg_bwgcfg_rx,
-+	.setpfccfg		= bnx2x_dcbnl_set_pfc_cfg,
-+	.getpfccfg		= bnx2x_dcbnl_get_pfc_cfg,
-+	.setall			= bnx2x_dcbnl_set_all,
-+	.getcap			= bnx2x_dcbnl_get_cap,
-+	.getnumtcs		= bnx2x_dcbnl_get_numtcs,
-+	.setnumtcs		= bnx2x_dcbnl_set_numtcs,
-+	.getpfcstate		= bnx2x_dcbnl_get_pfc_state,
-+	.setpfcstate		= bnx2x_dcbnl_set_pfc_state,
-+	.setapp			= bnx2x_dcbnl_set_app_up,
-+	.getdcbx		= bnx2x_dcbnl_get_dcbx,
-+	.setdcbx		= bnx2x_dcbnl_set_dcbx,
-+	.getfeatcfg		= bnx2x_dcbnl_get_featcfg,
-+	.setfeatcfg		= bnx2x_dcbnl_set_featcfg,
-+	.peer_getappinfo	= bnx2x_peer_appinfo,
-+	.peer_getapptable	= bnx2x_peer_apptable,
-+	.cee_peer_getpg		= bnx2x_cee_peer_getpg,
-+	.cee_peer_getpfc	= bnx2x_cee_peer_getpfc,
- };
- 
- #endif /* BCM_DCBNL */
--- 
-1.7.3.5
+How then this will be handled is up to you. Both ways fix
+the issue which makes me happy as damn hell.
 
+@Eric, if you will take a look into the code you might notice
+that there are few places where list operations could be
+optimised and the main question here is do we really care
+to have the data ,,safe'' so that things like that won't popup.
+The good example can be the set of _local_ functions.
+Ahhh... and I'm aware of how tricky can be abuse of RCU.
 
-
-
+-Jacek
