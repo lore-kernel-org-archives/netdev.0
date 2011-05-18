@@ -1,96 +1,45 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in netdevice
-Date: Wed, 18 May 2011 13:40:29 +0200
-Message-ID: <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
-References: <1305574128.3456.23.camel@localhost.localdomain>
- <1305574518.2885.25.camel@bwh-desktop> <1305574680.3456.33.camel@localhost.localdomain>
- <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com>
- <1305588738.3456.65.camel@localhost.localdomain> <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
- <1305671318.10756.49.camel@localhost.localdomain> <20110518103819.GL7589@redhat.com>
- <BANLkTimc1RbC3uQsra1HUvS_Trg63iMWGA@mail.gmail.com> <20110518111734.GO7589@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and
+ sctp_bind_addr_conflict()
+Date: Wed, 18 May 2011 13:41:42 +0200
+Message-ID: <1305718902.2991.3.camel@edumazet-laptop>
+References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>
+	 <1305704885.2983.4.camel@edumazet-laptop>
+	 <BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>
+	 <1305707358.2983.14.camel@edumazet-laptop>
+	 <4DD38B30.9090601@cn.fujitsu.com>
+	 <BANLkTikVxfxU2uW3AA--q8qt16og=HdDLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110518111734.GO7589@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: Jacek Luczak <difrost.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:58810 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932815Ab1ERLlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 07:41:45 -0400
+Received: by fxm17 with SMTP id 17so1118088fxm.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 04:41:44 -0700 (PDT)
+In-Reply-To: <BANLkTikVxfxU2uW3AA--q8qt16og=HdDLg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-W dniu 18 maja 2011 13:17 u=BFytkownik Michael S. Tsirkin
-<mst@redhat.com> napisa=B3:
-> On Wed, May 18, 2011 at 01:10:50PM +0200, Micha=B3 Miros=B3aw wrote:
->> 2011/5/18 Michael S. Tsirkin <mst@redhat.com>:
->> > On Tue, May 17, 2011 at 03:28:38PM -0700, Shirley Ma wrote:
->> >> On Tue, 2011-05-17 at 23:48 +0200, Micha=B3 Miros=B3aw wrote:
->> >> > 2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
->> >> > > Hello Michael,
->> >> > >
->> >> > > Looks like to use a new flag requires more time/work. I am th=
-inking
->> >> > > whether we can just use HIGHDMA flag to enable zero-copy in m=
-acvtap
->> >> > to
->> >> > > avoid the new flag for now since mavctap uses real NICs as lo=
-wer
->> >> > device?
->> >> >
->> >> > Is there any other restriction besides requiring driver to not =
-recycle
->> >> > the skb? Are there any drivers that recycle TX skbs?
->> >
->> > Not just recycling skbs, keeping reference to any of the pages in =
-the
->> > skb. Another requirement is to invoke the callback
->> > in a timely fashion. =A0For example virtio-net doesn't limit the t=
-ime until
->> > that happens (skbs are only freed when some other packet is
->> > transmitted), so we need to avoid zcopy for such (nested-virt)
->> > scenarious, right?
->>
->> Hmm. But every hardware driver supporting SG will keep reference to
->> the pages until the packet is sent (or DMA'd to the device). This ca=
-n
->> take a long time if hardware queue happens to stall for some reason.
->
-> That's a fundamental property of zero copy transmit.
-> You can't let the application/guest reuse the memory until
-> no one looks at it anymore.
->
->> Is it that you mean keeping a reference after all skbs pointing to t=
-he
->> pages are released?
-> No one should reference the pages after the callback is invoked, yes.
+Le mercredi 18 mai 2011 =C3=A0 13:01 +0200, Jacek Luczak a =C3=A9crit :
 
->> >> Not more other restrictions, skb clone is OK. pskb_expand_head() =
-looks
->> >> OK to me from code review.
->> > Hmm. pskb_expand_head calls skb_release_data while keeping
->> > references to pages. How is that ok? What do I miss?
->> It's making copy of the skb_shinfo earlier, so the pages refcount
->> stays the same.
-> Exactly. But the callback is invoked so the guest thinks it's ok to
-> change this memory. If it does a corrupted packet will be sent out.
+> @Eric, if you will take a look into the code you might notice
+> that there are few places where list operations could be
+> optimised and the main question here is do we really care
+> to have the data ,,safe'' so that things like that won't popup.
+> The good example can be the set of _local_ functions.
+> Ahhh... and I'm aware of how tricky can be abuse of RCU.
 
-Hmm. I tool a quick look at skb_clone(), and it looks like this
-sequence will break this scheme:
+I took a quick look at existing rcu_read_lock() uses in sctp and did no=
+t
+find other problems [or optimizations if you prefer this point of view]=
+=2E
+Please elaborate.
 
-skb2 =3D skb_clone(skb...);
-kfree_skb(skb) or pskb_expand_head(skb);  /* callback called */
-[use skb2, pages still referenced]
-kfree_skb(skb); /* callback called again */
 
-This sequence is common in bridge, might be in other places.
 
-Maybe this ubuf thing should just track clones? This will make it work
-on all devices then.
-
-Best Regards,
-Micha=B3 Miros=B3aw
