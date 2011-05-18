@@ -1,76 +1,61 @@
-From: prasanna.panchamukhi@riverbed.com
-Subject: [PATCH] e100: Don't enable interrupts while exiting polling
-Date: Tue, 17 May 2011 17:16:21 -0700
-Message-ID: <1305677781-16768-1-git-send-email-prasanna.panchamukhi@riverbed.com>
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	prasanna.panchamukhi@riverbed.com
-To: bruce.w.allan@intel.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eng.riverbed.com ([208.70.196.44]:59425 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756439Ab1ERAQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 20:16:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Subject: Re: [PATCH 09/18] virtio: use avail_event index
+Date: Wed, 18 May 2011 09:49:42 +0930
+Message-ID: <87tycsn9lt.fsf@rustcorp.com.au>
+References: <cover.1304541918.git.mst@redhat.com>
+	<8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
+	<874o54h4rt.fsf@rustcorp.com.au>
+	<20110515135541.GF24932@redhat.com>
+	<87ei3zdsq2.fsf@rustcorp.com.au>
+	<20110517061031.GC26989@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20110517061031.GC26989-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Interrupts remain enabled while exiting the e100_poll(), when the driver is
-down. Anything bad can happen resulting in a crash.
-The solution is not to enable the interrupts while the driver is down.
+On Tue, 17 May 2011 09:10:31 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> Well one can imagine a driver doing:
+> 
+> 	while (virtqueue_get_buf()) {
+> 		virtqueue_add_buf()
+> 	}
+> 	virtqueue_kick()
+> 
+> which looks sensible (batch kicks) but might
+> process any number of bufs between kicks.
 
-Signed-off-by: Prasanna S. Panchamukhi <prasanna.panchamukhi@riverbed.com>
----
- drivers/net/e100.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+No, we currently only expose the buffers in the kick, so it can only
+fill the ring doing that.
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index abbf229..479219f 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -426,6 +426,7 @@ enum cb_command {
- };
- 
- enum e100_state_t {
-+	__E100_DOWN,
- 	__E100_TESTING
- };
- 
-@@ -2177,7 +2178,8 @@ static int e100_poll(struct napi_struct *napi, int budget)
- 	/* If budget not fully consumed, exit the polling mode */
- 	if (work_done < budget) {
- 		napi_complete(napi);
--		e100_enable_irq(nic);
-+		if (!test_bit(__E100_DOWN, &nic->state))
-+			e100_enable_irq(nic);
- 	}
- 
- 	return work_done;
-@@ -2230,6 +2232,7 @@ static int e100_up(struct nic *nic)
- {
- 	int err;
- 
-+	clear_bit(__E100_DOWN, &nic->state);
- 	if ((err = e100_rx_alloc_list(nic)))
- 		return err;
- 	if ((err = e100_alloc_cbs(nic)))
-@@ -2242,6 +2245,7 @@ static int e100_up(struct nic *nic)
- 	if ((err = request_irq(nic->pdev->irq, e100_intr, IRQF_SHARED,
- 		nic->netdev->name, nic->netdev)))
- 		goto err_no_irq;
-+	set_bit(__E100_DOWN, &nic->state);
- 	netif_wake_queue(nic->netdev);
- 	napi_enable(&nic->napi);
- 	/* enable ints _after_ enabling poll, preventing a race between
-@@ -2917,7 +2921,9 @@ err_out_free_dev:
- static void __devexit e100_remove(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct nic *nic = netdev_priv(netdev);
- 
-+	set_bit(__E100_DOWN, &nic->state);
- 	if (netdev) {
- 		struct nic *nic = netdev_priv(netdev);
- 		unregister_netdev(netdev);
--- 
-1.7.0.4
+We could change that (and maybe that's worth looking at)...
 
+> If we look at drivers closely enough, I think none
+> of them do the equivalent of the above, but not 100% sure.
+
+I'm pretty sure we don't have this kind of 'echo' driver yet.  Drivers
+tend to take OS requests and queue them.  The only one which does
+anything even partially sophisticated is the net driver...
+
+Thanks,
+Rusty.
