@@ -1,63 +1,83 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: Identifying network namespaces (was: Network namespace
- manipulation with file descriptors)
-Date: Wed, 18 May 2011 16:03:03 +0300
-Message-ID: <BANLkTikmrC86hk=W84UBwhJLe_uGAN4w9w@mail.gmail.com>
-References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
-	<20110518124307.GD3762520@jupiter.n2.diac24.net>
+From: Jacek Luczak <difrost.kernel@gmail.com>
+Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
+Date: Wed, 18 May 2011 15:11:47 +0200
+Message-ID: <BANLkTi=cDwLFSqaBt5szaFOaWmxYzkya9g@mail.gmail.com>
+References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>
+	<1305704885.2983.4.camel@edumazet-laptop>
+	<BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>
+	<1305707358.2983.14.camel@edumazet-laptop>
+	<4DD38B30.9090601@cn.fujitsu.com>
+	<4DD3BC8F.9050802@hp.com>
+	<BANLkTinQAy+jq_VUwky2rxchomuN3avPQg@mail.gmail.com>
+	<1305723046.2991.19.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linux Containers <containers@lists.osdl.org>,
-	Renato Westphal <renatowestphal@gmail.com>
-To: David Lamparter <equinox@diac24.net>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20110518124307.GD3762520@jupiter.n2.diac24.net>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vladislav Yasevich <vladislav.yasevich@hp.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:34865 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756948Ab1ERNLr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 09:11:47 -0400
+Received: by pvg12 with SMTP id 12so695670pvg.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 06:11:47 -0700 (PDT)
+In-Reply-To: <1305723046.2991.19.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2011 at 3:43 PM, David Lamparter <equinox@diac24.net> w=
-rote:
-> - =A0 processes cannot easily be cross referenced with each other
+2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le mercredi 18 mai 2011 =E0 14:47 +0200, Jacek Luczak a =E9crit :
 >
-> =A0in the case of user space stuff running astray - like management
-> =A0software crashing, routing daemons screwing up, etc. - it becomes
-> =A0fairly difficult to shut down a network namespace (or even reaquir=
-e
-> =A0physical devices that have been reassigned)
-
-It shutdowns itself when last process using netns disappeares,
-so if you kill your routing daemons you should be fine.
-Physical netdevices are moved to init_net.
-
-> - =A0 namespaces cannot adequately be identified to the user
+>> OK then, at the end what Eric suggested is IMO valid:
+>>
+>> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+>> index faf71d1..0025d90 100644
+>> --- a/net/sctp/bind_addr.c
+>> +++ b/net/sctp/bind_addr.c
+>> @@ -144,10 +144,9 @@ static void sctp_bind_addr_clean(struct sctp_bi=
+nd_addr *bp)
+>> =A0 =A0 =A0 =A0 struct list_head *pos, *temp;
+>>
+>> =A0 =A0 =A0 =A0 /* Empty the bind address list. */
+>> - =A0 =A0 =A0 list_for_each_safe(pos, temp, &bp->address_list) {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 addr =3D list_entry(pos, struct sctp_s=
+ockaddr_entry, list);
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 list_del(pos);
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(addr);
+>> + =A0 =A0 =A0 list_for_each_entry(pos, &bp->address_list, list) {
 >
-> =A0for debugging, some kernel messages become useless. most prominent=
-ly,
-> =A0"unregister_netdevice: waiting for lo to become free. Usage count =
-=3D 123"
-> =A0could certainly use some clarification, *which* lo is meant...
+> a 'safe' version is needed here, since we remove items in iterator.
 
-There is no "netns %p" or something, because right now the only unique
-netns identifier is kernel pointer (which better not be exposed to user=
-space).
-Printing such thing would be quite useless since it's not printed
-at netns creation.
+Yep.
 
-> So, considering this set of premises (feedback welcome) I looked for
-> some suitable means of identification. I discarded going for any proc=
-ess
-> identifiers since Eric's patches allow for network namespaces without
-> any process holding a reference, using bind mounts instead.
+diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+index faf71d1..6150ac5 100644
+--- a/net/sctp/bind_addr.c
++++ b/net/sctp/bind_addr.c
+@@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr
+*bp, __u16 port)
+ /* Dispose of the address list. */
+ static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
+ {
+-       struct sctp_sockaddr_entry *addr;
+-       struct list_head *pos, *temp;
++       struct sctp_sockaddr_entry *addr, *temp;
 
-If anything it should be netns->id, /proc/*/netns outputting id
-where id is not derived from kernel pointer.
+        /* Empty the bind address list. */
+-       list_for_each_safe(pos, temp, &bp->address_list) {
+-               addr =3D list_entry(pos, struct sctp_sockaddr_entry, li=
+st);
+-               list_del(pos);
+-               kfree(addr);
++       list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
++               list_del_rcu(&addr->list);
++               call_rcu(&addr->rcu, sctp_local_addr_free);
+                SCTP_DBG_OBJCNT_DEC(addr);
+        }
+ }
 
-> Solution?
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D
+Does it now look good?
 
-What a hack! :-)
+-Jacek
