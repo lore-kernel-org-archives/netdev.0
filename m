@@ -1,77 +1,66 @@
-From: Jacek Luczak <difrost.kernel@gmail.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
 Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
-Date: Wed, 18 May 2011 14:06:33 +0200
-Message-ID: <BANLkTimoOVytWWTS7Uph_J1401Yxrqr5ug@mail.gmail.com>
-References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>
-	<1305704885.2983.4.camel@edumazet-laptop>
-	<BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>
-	<1305707358.2983.14.camel@edumazet-laptop>
+Date: Wed, 18 May 2011 08:33:19 -0400
+Message-ID: <4DD3BC8F.9050802@hp.com>
+References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>	 <1305704885.2983.4.camel@edumazet-laptop>	 <BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com> <1305707358.2983.14.camel@edumazet-laptop> <4DD38B30.9090601@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Vlad Yasevich <vladislav.yasevich@hp.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jacek Luczak <difrost.kernel@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:59295 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932763Ab1ERMGd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 08:06:33 -0400
-Received: by pvg12 with SMTP id 12so672665pvg.19
-        for <netdev@vger.kernel.org>; Wed, 18 May 2011 05:06:33 -0700 (PDT)
-In-Reply-To: <1305707358.2983.14.camel@edumazet-laptop>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:42328 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932738Ab1ERMdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 08:33:24 -0400
+In-Reply-To: <4DD38B30.9090601@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
-> Le mercredi 18 mai 2011 =E0 10:06 +0200, Jacek Luczak a =E9crit :
->> 2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
->
->> > If you're removing items from this list, you must be a writer here=
-, with
->> > exclusive access. So rcu_read_lock()/rcu_read_unlock() is not nece=
-ssary.
->>
->> I could agree to some extend ... but strict RCU section IMO is neede=
-d here.
->> I can check this if the issue exists.
->>
->
-> I can tell you for sure rcu_read_lock() is not needed here. Its only
-> showing confusion from code's author.
->
-> Please read Documentation/RCU/listRCU.txt for concise explanations,
-> line 117.
->
->
->> > Therefore, I guess following code is better :
->> >
->> > list_for_each_entry(addr, &bp->address_list, list) {
->> > =A0 =A0 =A0 =A0list_del_rcu(&addr->list);
->> > =A0 =A0 =A0 =A0call_rcu(&addr->rcu, sctp_local_addr_free);
->> > =A0 =A0 =A0 =A0SCTP_DBG_OBJCNT_DEC(addr);
->> > }
->> >
->> > Then, why dont you fix sctp_bind_addr_clean() instead ?
->> >
->> > if 'struct sctp_sockaddr_entry' is recu protected, then all frees =
-should
->> > be protected as well.
->>
->> The _clean() as claimed by Vlad is called many times from various pl=
-aces
->> in code and this could give a overhead. I guess Vlad would need to c=
-omment.
->
-> I guess a full review of this code is needed. You'll have to prove
-> sctp_bind_addr_clean() is always called after one RCU grace period if
-> you want to leave it as is.
+On 05/18/2011 05:02 AM, Wei Yongjun wrote:
+ 
+> fix the race between sctp_bind_addr_free() and sctp_bind_addr_conflict(), maybe you just
+> need to remove the socket from the port hash before empty the bind address list.
+> some thing like this, not test.
+> 
+> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+> index c8cc24e..924d846 100644
+> --- a/net/sctp/endpointola.c
+> +++ b/net/sctp/endpointola.c
+> @@ -268,12 +268,13 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+>  
+>  	/* Cleanup. */
+>  	sctp_inq_free(&ep->base.inqueue);
+> -	sctp_bind_addr_free(&ep->base.bind_addr);
+>  
+>  	/* Remove and free the port */
+>  	if (sctp_sk(ep->base.sk)->bind_hash)
+>  		sctp_put_port(ep->base.sk);
+>  
+> +	sctp_bind_addr_free(&ep->base.bind_addr);
+> +
+>  	/* Give up our hold on the sock. */
+>  	if (ep->base.sk)
+>  		sock_put(ep->base.sk);
+> 
+> 
 
-Eric this is actually good point which I think did not found at first
-glance. As the original
-issue occurs between _clean() and _conflict() then if the former is
-used here and
-there we can hit the grace period not only in that case. By that then
-_clean() should
-be ,,fixed''. Right?
+I am not sure that this will guarantee avoidance of this crash, even though it is the right
+thing to do in general.
 
--Jacek
+We simply make the race condition much smaller and much harder to hit.  Potentially, one
+cpu may be doing lookup of the socket while the other is doing the destroy.  If the lookup cpu
+finds the socket just as this code removes the socket from the hash, we still have this potential
+race condition.
+
+I agree with Eric, rcu_read_lock() is not strictly necessary, as what we are really after is call_rcu()
+based destruction.  We need to delay memory destruction for the rcu grace period.
+
+Thinking a little more about how bind_addr_clean() is used, it would probably benefit from getting
+converted to call_rcu().  That function is used as local clean-up in case of malloc failure; however,
+that doesn't preclude a potential race.  The fact that we do not have this race simply points out that
+we don't have any kind of parallel lookup that can hit it (and the code confirms it).  This doesn't
+mean that we wouldn't have it in the future.
+
+-vlad
