@@ -1,87 +1,107 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonc?=  =?UTF-8?Q?e=20/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20na?=  =?UTF-8?Q?t=20=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
-Date: Wed, 18 May 2011 12:53:33 +0300
-Message-ID: <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
-References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
- <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
- <1305711471.2983.27.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rev-153-13.globalproof.net ([194.146.153.13]:48257 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752467Ab1ERJxh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 05:53:37 -0400
-In-Reply-To: <1305711471.2983.27.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Patch net-next-2.6] netpoll: disable netpoll when enslave a device
+Date: Wed, 18 May 2011 18:00:35 +0800
+Message-ID: <1305712845-11762-1-git-send-email-amwang@redhat.com>
+Cc: WANG Cong <amwang@redhat.com>, Neil Horman <nhorman@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Ferenc Wagner <wferi@niif.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- On Wed, 18 May 2011 11:37:51 +0200, Eric Dumazet wrote:
-> Le mercredi 18 mai 2011 =C3=A0 12:27 +0300, Denys Fedoryshchenko a =C3=
-=A9crit :
->> On Wed, 18 May 2011 01:16:29 +0300, Denys Fedoryshchenko wrote:
->> > Just got recently. 32Bit, PPPoE NAS, shapers, firewall, NAT
->> > Kernel i mention in subject, 2.6.39-rc7-git11
->> > If required i can give more information
->> >
->> > sharanal (sorry for ugly name) is libpcap based traffic analyser,
->> > sure userspace
->> >
->>  Here is some info, i hope it will be a little useful
->>
->>  (gdb)  l *(cleanup_once + 0x49)
->>  0xc02e85cc is in cleanup_once (include/linux/list.h:88).
->>  83       * This is only for internal list manipulation where we=20
->> know
->>  84       * the prev/next entries already!
->>  85       */
->>  86      static inline void __list_del(struct list_head * prev,=20
->> struct
->>  list_head * next)
->>  87      {
->>  88              next->prev =3D prev;
->>  89              prev->next =3D next;
->>  90      }
->>  91
->>  92      /**
->>
->>  (gdb)  l *(inet_getpeer + 0x2ab)
->>  0xc02e8ae8 is in inet_getpeer (net/ipv4/inetpeer.c:530).
->>  525             if (base->total >=3D inet_peer_threshold)
->>  526                     /* Remove one less-recently-used entry. */
->>  527                     cleanup_once(0, stack);
->>  528
->>  529             return p;
->>  530     }
->>  531
->>  532     static int compute_total(void)
->>  533     {
->>  534             return v4_peers.total + v6_peers.total;
->>
->
-> I really begin to think we have a bug here...
->
-> In previous reports, I suggested to use slub_nomerge because I=20
-> thought
-> one corruption from another kernel layer was going on.
->
-> (inetpeer was using 64 bytes objects). But now that inetpeer objects=20
-> are
-> bigger and sit in another kmemcache, its bad news.
->
-> Could you try this, and eventually add some SLUB debugging stuff as
-> well ?
+Currently we do nothing when we enslave a net device which is running netconsole.
+Neil pointed out that we may get weird results in such case, so let's disable
+netpoll on the device being enslaved. I think it is too harsh to prevent
+the device being ensalved if it is running netconsole.
 
- Yes, i will try. I should enable SLUB debugging only, or also anything=
-=20
- else?
+By the way, this patch also removes the NETDEV_GOING_DOWN from netconsole
+netdev notifier, because netpoll will check if the device is running or not
+and we don't handle NETDEV_PRE_UP neither.
 
- But possible it will take time to reproduce bug, seems it is occuring=20
- rare. With 2.6.39 release i will rollout update to few hundreds PPPoE'=
-s,=20
- maybe it will increase chances to get information.
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Neil Horman <nhorman@redhat.com>
 
+---
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 088fd84..b9c70c5 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1640,6 +1640,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		}
+ 	}
+ 
++	netdev_bonding_change(slave_dev, NETDEV_ENSLAVE);
++
+ 	/* If this is the first slave, then we need to set the master's hardware
+ 	 * address to be the same as the slave's. */
+ 	if (is_zero_ether_addr(bond->dev->dev_addr))
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index a83e101..0c3e8de 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -621,7 +621,8 @@ static int netconsole_netdev_event(struct notifier_block *this,
+ 	bool stopped = false;
+ 
+ 	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER ||
+-	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN))
++	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN ||
++	      event == NETDEV_ENSLAVE))
+ 		goto done;
+ 
+ 	spin_lock_irqsave(&target_list_lock, flags);
+@@ -650,8 +651,8 @@ restart:
+ 					goto restart;
+ 				}
+ 				/* Fall through */
+-			case NETDEV_GOING_DOWN:
+ 			case NETDEV_BONDING_DESLAVE:
++			case NETDEV_ENSLAVE:
+ 				nt->enabled = 0;
+ 				stopped = true;
+ 				break;
+@@ -660,10 +661,21 @@ restart:
+ 		netconsole_target_put(nt);
+ 	}
+ 	spin_unlock_irqrestore(&target_list_lock, flags);
+-	if (stopped && (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE))
++	if (stopped) {
+ 		printk(KERN_INFO "netconsole: network logging stopped on "
+-			"interface %s as it %s\n",  dev->name,
+-			event == NETDEV_UNREGISTER ? "unregistered" : "released slaves");
++		       "interface %s as it ", dev->name);
++		switch (event) {
++		case NETDEV_UNREGISTER:
++			printk(KERN_CONT "unregistered\n");
++			break;
++		case NETDEV_BONDING_DESLAVE:
++			printk(KERN_CONT "released slaves\n");
++			break;
++		case NETDEV_ENSLAVE:
++			printk(KERN_CONT "is enslaved\n");
++			break;
++		}
++	}
+ 
+ done:
+ 	return NOTIFY_DONE;
+diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+index 621dfa1..3d82867 100644
+--- a/include/linux/notifier.h
++++ b/include/linux/notifier.h
+@@ -211,6 +211,7 @@ static inline int notifier_to_errno(int ret)
+ #define NETDEV_UNREGISTER_BATCH 0x0011
+ #define NETDEV_BONDING_DESLAVE  0x0012
+ #define NETDEV_NOTIFY_PEERS	0x0013
++#define NETDEV_ENSLAVE		0x0014
+ 
+ #define SYS_DOWN	0x0001	/* Notify of system down */
+ #define SYS_RESTART	SYS_DOWN
