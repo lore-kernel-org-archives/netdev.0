@@ -1,81 +1,61 @@
-From: David Decotigny <decot@google.com>
-Subject: [PATCH] forcedeth: Fix a race during rmmod of forcedeth
-Date: Wed, 18 May 2011 14:10:49 -0700
-Message-ID: <1305753049-15025-3-git-send-email-decot@google.com>
-References: <1305753049-15025-1-git-send-email-decot@google.com>
-Cc: kernel-net-upstream@google.com, Salman Qazi <sqazi@google.com>,
-	David Decotigny <decot@google.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] vhost: fix enable notify: write out last avail value we
+ saw
+Date: Thu, 19 May 2011 00:13:39 +0300
+Message-ID: <20110518211339.GA26122@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rusty@rustcorp.com.au, habanero@linux.vnet.ibm.com,
+	Shirley Ma <mashirle@us.ibm.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>, kvm@vger.kernel.org,
+	steved@us.ibm.com, Tom Lendacky <tahm@linux.vnet.ibm.com>,
+	borntraeger@de.ibm.com, avi@redhat.com
+To: virtualization@lists.linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305753049-15025-1-git-send-email-decot@google.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Salman Qazi <sqazi@google.com>
+With RX ring and mergeable buffers, vhost-net sometimes
+enables notifications when ring is not empty - just
+doesn't have enough entries for the incoming packet.
 
-The race was between del_timer_sync and nv_do_stats_poll called through
-nv_get_ethtool_stats.  To prevent this, we have to introduce mutual
-exclusion between nv_get_ethtool_stats and del_timer_sync.  Notice
-that we don't put the mutual exclusion in nv_do_stats_poll.  That's
-because doing so would result in a deadlock, since it is a timer
-callback and hence already waited for by timer deletion.
+To get event when entries are added in this case,
+we should always write out the last index value
+we saw into event index field, which is ahead
+of the index we have consumed.
 
+Otherwise we get a kick, see that there are not enough
+entries in the ring, reenable notifications
+but since last used index was not updated
+we don't get any more events.
 
-Signed-off-by: David Decotigny <decot@google.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/forcedeth.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index e5c5849..3163a2b 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -3921,6 +3921,10 @@ static void nv_poll_controller(struct net_device *dev)
- }
- #endif
- 
-+/* No locking is needed as long as this is in the timer
-+ * callback.  However, any other callers must call this
-+ * function with np->lock held.
-+ */
- static void nv_do_stats_poll(unsigned long data)
- {
- 	struct net_device *dev = (struct net_device *) data;
-@@ -4553,12 +4557,17 @@ static int nv_get_sset_count(struct net_device *dev, int sset)
- 
- static void nv_get_ethtool_stats(struct net_device *dev, struct ethtool_stats *estats, u64 *buffer)
- {
-+	unsigned long flags;
- 	struct fe_priv *np = netdev_priv(dev);
- 
-+	spin_lock_irqsave(&np->lock, flags);
-+
- 	/* update stats */
- 	nv_do_stats_poll((unsigned long)dev);
- 
- 	memcpy(buffer, &np->estats, nv_get_sset_count(dev, ETH_SS_STATS)*sizeof(u64));
-+
-+	spin_unlock_irqrestore(&np->lock, flags);
- }
- 
- static int nv_link_test(struct net_device *dev)
-@@ -5176,13 +5185,13 @@ static int nv_close(struct net_device *dev)
- 
- 	spin_lock_irq(&np->lock);
- 	np->in_shutdown = 1;
-+	del_timer_sync(&np->stats_poll);
- 	spin_unlock_irq(&np->lock);
- 	nv_napi_disable(dev);
- 	synchronize_irq(np->pci_dev->irq);
- 
- 	del_timer_sync(&np->oom_kick);
- 	del_timer_sync(&np->nic_poll);
--	del_timer_sync(&np->stats_poll);
- 
- 	netif_stop_queue(dev);
- 	spin_lock_irq(&np->lock);
+This bugfix is on top of my patchset, I'm working on addressing
+Rusty's comments for that now.
+
+Will push to my git tree event idx branch for everyone's testing pleasure
+shortly.
+
+
+ drivers/vhost/vhost.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 2aea4cb..1267a3d 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1438,7 +1438,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 			return false;
+ 		}
+ 	} else {
+-		r = put_user(vq->last_avail_idx, vhost_avail_event(vq));
++		r = put_user(vq->avail_idx, vhost_avail_event(vq));
+ 		if (r) {
+ 			vq_err(vq, "Failed to update avail event index at %p: %d\n",
+ 			       vhost_avail_event(vq), r);
 -- 
-1.7.3.1
+1.7.5.53.gc233e
