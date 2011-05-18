@@ -1,83 +1,75 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
-Date: Wed, 18 May 2011 09:32:07 -0400
-Message-ID: <4DD3CA57.5060709@hp.com>
-References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>	<1305704885.2983.4.camel@edumazet-laptop>	<BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>	<1305707358.2983.14.camel@edumazet-laptop>	<4DD38B30.9090601@cn.fujitsu.com>	<4DD3BC8F.9050802@hp.com>	<BANLkTinQAy+jq_VUwky2rxchomuN3avPQg@mail.gmail.com>	<1305723046.2991.19.camel@edumazet-laptop> <BANLkTi=cDwLFSqaBt5szaFOaWmxYzkya9g@mail.gmail.com>
+From: David Lamparter <equinox-cEeocvCgqOOsTnJN9+BGXg@public.gmane.org>
+Subject: Re: Identifying network namespaces (was: Network namespace
+	manipulation with file descriptors)
+Date: Wed, 18 May 2011 15:33:52 +0200
+Message-ID: <20110518133352.GE3762520@jupiter.n2.diac24.net>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<20110518124307.GD3762520@jupiter.n2.diac24.net>
+	<BANLkTikmrC86hk=W84UBwhJLe_uGAN4w9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org
-To: Jacek Luczak <difrost.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:43574 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932801Ab1ERNoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 09:44:09 -0400
-In-Reply-To: <BANLkTi=cDwLFSqaBt5szaFOaWmxYzkya9g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Lamparter <equinox-cEeocvCgqOOsTnJN9+BGXg@public.gmane.org>
+To: Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <BANLkTikmrC86hk=W84UBwhJLe_uGAN4w9w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 05/18/2011 09:11 AM, Jacek Luczak wrote:
-> 2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
->> Le mercredi 18 mai 2011 =E0 14:47 +0200, Jacek Luczak a =E9crit :
->>
->>> OK then, at the end what Eric suggested is IMO valid:
->>>
->>> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
->>> index faf71d1..0025d90 100644
->>> --- a/net/sctp/bind_addr.c
->>> +++ b/net/sctp/bind_addr.c
->>> @@ -144,10 +144,9 @@ static void sctp_bind_addr_clean(struct sctp_b=
-ind_addr *bp)
->>>         struct list_head *pos, *temp;
->>>
->>>         /* Empty the bind address list. */
->>> -       list_for_each_safe(pos, temp, &bp->address_list) {
->>> -               addr =3D list_entry(pos, struct sctp_sockaddr_entry=
-, list);
->>> -               list_del(pos);
->>> -               kfree(addr);
->>> +       list_for_each_entry(pos, &bp->address_list, list) {
->>
->> a 'safe' version is needed here, since we remove items in iterator.
->=20
-> Yep.
->=20
-> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-> index faf71d1..6150ac5 100644
-> --- a/net/sctp/bind_addr.c
-> +++ b/net/sctp/bind_addr.c
-> @@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr
-> *bp, __u16 port)
->  /* Dispose of the address list. */
->  static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
->  {
-> -       struct sctp_sockaddr_entry *addr;
-> -       struct list_head *pos, *temp;
-> +       struct sctp_sockaddr_entry *addr, *temp;
->=20
->         /* Empty the bind address list. */
-> -       list_for_each_safe(pos, temp, &bp->address_list) {
-> -               addr =3D list_entry(pos, struct sctp_sockaddr_entry, =
-list);
-> -               list_del(pos);
-> -               kfree(addr);
-> +       list_for_each_entry_safe(addr, temp, &bp->address_list, list)=
- {
-> +               list_del_rcu(&addr->list);
-> +               call_rcu(&addr->rcu, sctp_local_addr_free);
->                 SCTP_DBG_OBJCNT_DEC(addr);
->         }
->  }
->=20
-> Does it now look good?
-
-Yes.  It should the fix the race.
-
--vlad
-
->=20
-> -Jacek
->=20
-
+T24gV2VkLCBNYXkgMTgsIDIwMTEgYXQgMDQ6MDM6MDNQTSArMDMwMCwgQWxleGV5IERvYnJpeWFu
+IHdyb3RlOgo+IE9uIFdlZCwgTWF5IDE4LCAyMDExIGF0IDM6NDMgUE0sIERhdmlkIExhbXBhcnRl
+ciA8ZXF1aW5veEBkaWFjMjQubmV0PiB3cm90ZToKPiA+IC0gwqAgcHJvY2Vzc2VzIGNhbm5vdCBl
+YXNpbHkgYmUgY3Jvc3MgcmVmZXJlbmNlZCB3aXRoIGVhY2ggb3RoZXIKPiA+Cj4gPiDCoGluIHRo
+ZSBjYXNlIG9mIHVzZXIgc3BhY2Ugc3R1ZmYgcnVubmluZyBhc3RyYXkgLSBsaWtlIG1hbmFnZW1l
+bnQKPiA+IMKgc29mdHdhcmUgY3Jhc2hpbmcsIHJvdXRpbmcgZGFlbW9ucyBzY3Jld2luZyB1cCwg
+ZXRjLiAtIGl0IGJlY29tZXMKPiA+IMKgZmFpcmx5IGRpZmZpY3VsdCB0byBzaHV0IGRvd24gYSBu
+ZXR3b3JrIG5hbWVzcGFjZSAob3IgZXZlbiByZWFxdWlyZQo+ID4gwqBwaHlzaWNhbCBkZXZpY2Vz
+IHRoYXQgaGF2ZSBiZWVuIHJlYXNzaWduZWQpCj4gCj4gSXQgc2h1dGRvd25zIGl0c2VsZiB3aGVu
+IGxhc3QgcHJvY2VzcyB1c2luZyBuZXRucyBkaXNhcHBlYXJlcywKPiBzbyBpZiB5b3Uga2lsbCB5
+b3VyIHJvdXRpbmcgZGFlbW9ucyB5b3Ugc2hvdWxkIGJlIGZpbmUuCj4gUGh5c2ljYWwgbmV0ZGV2
+aWNlcyBhcmUgbW92ZWQgdG8gaW5pdF9uZXQuCgpOb3cgYXNzdW1lIEknbSBydW5uaW5nIHBwdHBk
+LCB3aGljaCBmb3JrcyBhIG5ldyBwcHBkIGZvciBlYWNoCmNvbm5lY3Rpb24uIEV2ZW4gaWYgSSBr
+aWxsIHBwdHBkLCB0aGUgcHBwZCBrZWVwcyBydW5uaW5nLi4uIG5vdyBob3cgZG8gSQpmaW5kIHRo
+ZSBwcHBkcyB0aGF0IGJlbG9uZyB0byB0aGF0IG9uZSBuYW1lc3BhY2UgdGhhdCBJJ20gdHJ5aW5n
+IHRvCmdldCByaWQgb2Y/Cgo+ID4gLSDCoCBuYW1lc3BhY2VzIGNhbm5vdCBhZGVxdWF0ZWx5IGJl
+IGlkZW50aWZpZWQgdG8gdGhlIHVzZXIKPiA+Cj4gPiDCoGZvciBkZWJ1Z2dpbmcsIHNvbWUga2Vy
+bmVsIG1lc3NhZ2VzIGJlY29tZSB1c2VsZXNzLiBtb3N0IHByb21pbmVudGx5LAo+ID4gwqAidW5y
+ZWdpc3Rlcl9uZXRkZXZpY2U6IHdhaXRpbmcgZm9yIGxvIHRvIGJlY29tZSBmcmVlLiBVc2FnZSBj
+b3VudCA9IDEyMyIKPiA+IMKgY291bGQgY2VydGFpbmx5IHVzZSBzb21lIGNsYXJpZmljYXRpb24s
+ICp3aGljaCogbG8gaXMgbWVhbnQuLi4KPiAKPiBUaGVyZSBpcyBubyAibmV0bnMgJXAiIG9yIHNv
+bWV0aGluZywgYmVjYXVzZSByaWdodCBub3cgdGhlIG9ubHkgdW5pcXVlCj4gbmV0bnMgaWRlbnRp
+ZmllciBpcyBrZXJuZWwgcG9pbnRlciAod2hpY2ggYmV0dGVyIG5vdCBiZSBleHBvc2VkIHRvIHVz
+ZXJzcGFjZSkuCj4gUHJpbnRpbmcgc3VjaCB0aGluZyB3b3VsZCBiZSBxdWl0ZSB1c2VsZXNzIHNp
+bmNlIGl0J3Mgbm90IHByaW50ZWQKPiBhdCBuZXRucyBjcmVhdGlvbi4KCkkgYWdyZWUgcHJpbnRp
+bmcgdGhlIGtlcm5lbCBwb2ludGVyIGlzIHBvaW50LWxlc3MuCgo+ID4gU28sIGNvbnNpZGVyaW5n
+IHRoaXMgc2V0IG9mIHByZW1pc2VzIChmZWVkYmFjayB3ZWxjb21lKSBJIGxvb2tlZCBmb3IKPiA+
+IHNvbWUgc3VpdGFibGUgbWVhbnMgb2YgaWRlbnRpZmljYXRpb24uIEkgZGlzY2FyZGVkIGdvaW5n
+IGZvciBhbnkgcHJvY2Vzcwo+ID4gaWRlbnRpZmllcnMgc2luY2UgRXJpYydzIHBhdGNoZXMgYWxs
+b3cgZm9yIG5ldHdvcmsgbmFtZXNwYWNlcyB3aXRob3V0Cj4gPiBhbnkgcHJvY2VzcyBob2xkaW5n
+IGEgcmVmZXJlbmNlLCB1c2luZyBiaW5kIG1vdW50cyBpbnN0ZWFkLgo+IAo+IElmIGFueXRoaW5n
+IGl0IHNob3VsZCBiZSBuZXRucy0+aWQsIC9wcm9jLyovbmV0bnMgb3V0cHV0dGluZyBpZAo+IHdo
+ZXJlIGlkIGlzIG5vdCBkZXJpdmVkIGZyb20ga2VybmVsIHBvaW50ZXIuCj4gCj4gPiBTb2x1dGlv
+bj8KPiA+IFsgdXNpbmcgbG8gaW50ZXJmYWNlIGluZGV4IF0KPiAKPiBXaGF0IGEgaGFjayEgOi0p
+CgpXZWxsLCB5b3UgY291bGQgY3JlYXRlIGFub3RoZXIgY291bnRlciBhbmQgY291bnQgaXQgdXAg
+b24gbmFtZXNwYWNlCmNyZWF0aW9uLiBCdXQgdGhlIGludGVyZmFjZSBpbmRleCBpcyByZWFkaWx5
+IGF2YWlsYWJsZSB0byB1c2Vyc3BhY2UgYXMKaXMsIGFuZCBpdCB1bmlxdWVseSBpZGVudGlmaWVz
+IHRoZSBuZXR3b3JrIG5hbWVzcGFjZS4KCihTdHVwaWRlc3QgdGhpbmcgeW91IGNhbiBkbyB0byBi
+cmVhayB0aGlzIGlzIHJlbmFtaW5nIHRoZSBsb29wYmFjawpkZXZpY2U7IGJ1dCBldmVuIGlmIHlv
+dSBkbyB0aGF0IHVzZXJzcGFjZSBjYW4gc3RpbGwgbG9vayBhdCB0aGUgTE9PUEJBQ0sKZmxhZy4p
+CgoKLURhdmlkCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRp
+b24ub3JnCmh0dHBzOi8vbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5m
+by9jb250YWluZXJz
