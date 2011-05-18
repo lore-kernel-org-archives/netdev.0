@@ -1,58 +1,60 @@
-From: Dennis Aberilla <dennis.aberilla@mimomax.com>
-Subject: [PATCH] drivers/net: ks8842 Fix crash on received packet when in
-	PIO mode.
-Date: Thu, 19 May 2011 10:59:47 +1200
-Message-ID: <20110518225945.GB6416@dens-work>
+From: David Decotigny <decot@google.com>
+Subject: Re: [PATCH 1/2] forcedeth: make module parameters readable in /sys/module
+Date: Wed, 18 May 2011 16:21:10 -0700
+Message-ID: <BANLkTim1iVEU_+Y2CE90Qd3+LaVch2MVOg@mail.gmail.com>
+References: <1305753000-14933-1-git-send-email-decot@google.com> <20110518150346.508d6406@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: info@mocean-labs.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-net-upstream@google.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:55803 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755350Ab1ERW7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 18:59:54 -0400
-Received: by mail-px0-f172.google.com with SMTP id 6so1567452pxi.3
-        for <netdev@vger.kernel.org>; Wed, 18 May 2011 15:59:53 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.44.51]:20726 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755659Ab1ERXVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 19:21:32 -0400
+Received: from wpaz29.hot.corp.google.com (wpaz29.hot.corp.google.com [172.24.198.93])
+	by smtp-out.google.com with ESMTP id p4INLVGQ015128
+	for <netdev@vger.kernel.org>; Wed, 18 May 2011 16:21:31 -0700
+Received: from qwi2 (qwi2.prod.google.com [10.241.195.2])
+	by wpaz29.hot.corp.google.com with ESMTP id p4INKqb1008500
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 18 May 2011 16:21:30 -0700
+Received: by qwi2 with SMTP id 2so1474062qwi.8
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 16:21:30 -0700 (PDT)
+In-Reply-To: <20110518150346.508d6406@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Stephen,
 
-This patch fixes a kernel crash during packet reception due to not enough allocated bytes for the skb. This applies to the driver when running in PIO mode in an ISA bus setup.
+On Wed, May 18, 2011 at 3:03 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> Although this makes more info for developer, it also means more
+> stuff in sysfs taking more memory and not providing any real value
 
-Signed-off-by: Dennis Aberilla <denzzzhome@yahoo.com>
+Right. I'll drop this patch for now.
 
----
-diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
-index f0d8346..9069aee 100644
---- a/drivers/net/ks8842.c
-+++ b/drivers/net/ks8842.c
-@@ -662,7 +662,7 @@ static void ks8842_rx_frame(struct net_device *netdev,
- 
- 	/* check the status */
- 	if ((status & RXSR_VALID) && !(status & RXSR_ERROR)) {
--		struct sk_buff *skb = netdev_alloc_skb_ip_align(netdev, len);
-+		struct sk_buff *skb = netdev_alloc_skb_ip_align(netdev, len + 2);
- 
- 		if (skb) {
- 
+I do agree that this creates unnecessary pressure on some systems. But
+on other systems, it is useful to know how all the loaded modules were
+actually configured to track down something weird.
 
+Regarding /sys/modules/X/parameters, the only knobs I know of are
+CONFIG_SYSFS and the last argument to module_param(). If this is
+correct, then it seems tricky to accommodate for both use cases above
+without being crude (eg. disable sysfs, edit/sed the sources to change
+last argument of module_param() macro, ...). Please correct me if I am
+wrong. But if I am not, how about having a new knob allowing to
+precisely control the presence/absence of /sys/module (another
+CONFIG_*)? That way, the last argument to module_param() can be
+interpreted as the permission when /sys/module is supported, and would
+be ignored otherwise: module authors could gradually change their
+perm=S_IRUGO and family without caring much about memory footprint.
+And both use cases above could be supported without having to disable
+sysfs altogether or change the sources.
 
---
+I would be happy to work on this if it makes any sense.
 
-Using mutt this time.
-
-|Dennis
-=======================================================================
-This email, including any attachments, is only for the intended
-addressee.  It is subject to copyright, is confidential and may be
-the subject of legal or other privilege, none of which is waived or
-lost by reason of this transmission.
-If the receiver is not the intended addressee, please accept our
-apologies, notify us by return, delete all copies and perform no
-other act on the email.
-Unfortunately, we cannot warrant that the email has not been
-altered or corrupted during transmission.
-=======================================================================
-
+Regards,
