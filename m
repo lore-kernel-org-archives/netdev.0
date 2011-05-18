@@ -1,131 +1,234 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch net-next-2.6] netpoll: disable netpoll when enslave a
- device
-Date: Wed, 18 May 2011 06:56:48 -0400
-Message-ID: <20110518105558.GA3203@hmsreliant.think-freely.org>
-References: <1305712845-11762-1-git-send-email-amwang@redhat.com>
+From: "Shmulik Ravid" <shmulikr@broadcom.com>
+Subject: [PATCH net-next] bnx2x: add support for retrieving dcb peer
+ configuration
+Date: Wed, 18 May 2011 15:55:31 +0300
+Message-ID: <1305723331.14458.13.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Neil Horman <nhorman@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Ferenc Wagner <wferi@niif.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
-To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1305712845-11762-1-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Eilon Greenstein" <eilong@broadcom.com>, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3218 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932798Ab1ERLCa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2011 07:02:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2011 at 06:00:35PM +0800, Amerigo Wang wrote:
-> Currently we do nothing when we enslave a net device which is running netconsole.
-> Neil pointed out that we may get weird results in such case, so let's disable
-> netpoll on the device being enslaved. I think it is too harsh to prevent
-> the device being ensalved if it is running netconsole.
-> 
-> By the way, this patch also removes the NETDEV_GOING_DOWN from netconsole
-> netdev notifier, because netpoll will check if the device is running or not
-> and we don't handle NETDEV_PRE_UP neither.
-> 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: Neil Horman <nhorman@redhat.com>
-> 
-> ---
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 088fd84..b9c70c5 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1640,6 +1640,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  		}
->  	}
->  
-> +	netdev_bonding_change(slave_dev, NETDEV_ENSLAVE);
-> +
->  	/* If this is the first slave, then we need to set the master's hardware
->  	 * address to be the same as the slave's. */
->  	if (is_zero_ether_addr(bond->dev->dev_addr))
-> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-> index a83e101..0c3e8de 100644
-> --- a/drivers/net/netconsole.c
-> +++ b/drivers/net/netconsole.c
-> @@ -621,7 +621,8 @@ static int netconsole_netdev_event(struct notifier_block *this,
->  	bool stopped = false;
->  
->  	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER ||
-> -	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN))
-> +	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN ||
-> +	      event == NETDEV_ENSLAVE))
->  		goto done;
->  
->  	spin_lock_irqsave(&target_list_lock, flags);
-> @@ -650,8 +651,8 @@ restart:
->  					goto restart;
->  				}
->  				/* Fall through */
-> -			case NETDEV_GOING_DOWN:
->  			case NETDEV_BONDING_DESLAVE:
-> +			case NETDEV_ENSLAVE:
->  				nt->enabled = 0;
->  				stopped = true;
->  				break;
-This wasn't introduced by this patch, but looking at it made me realize that
-nt->enabled, if it passes through this code path, doesn't properly track weather
-or not netpoll_setup has been called on this interface.  If you look at
-drop_netconsole_target, you'll see we only call netpoll_cleanup_target if
-nt->enabled is set.  We should probably change the nt->enabled check there, and
-in store_enabled to be if (nt->np.dev), like we do in the NETDEV_UNREGISTER case
-in netconsole_netdev_event.
+This patch adds support to the bnx2x for retrieving dcb peer (remote)
+configuration from the embedded DCBX stack.
 
-> @@ -660,10 +661,21 @@ restart:
->  		netconsole_target_put(nt);
->  	}
->  	spin_unlock_irqrestore(&target_list_lock, flags);
-> -	if (stopped && (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE))
-> +	if (stopped) {
->  		printk(KERN_INFO "netconsole: network logging stopped on "
-> -			"interface %s as it %s\n",  dev->name,
-> -			event == NETDEV_UNREGISTER ? "unregistered" : "released slaves");
-> +		       "interface %s as it ", dev->name);
-> +		switch (event) {
-> +		case NETDEV_UNREGISTER:
-> +			printk(KERN_CONT "unregistered\n");
-> +			break;
-> +		case NETDEV_BONDING_DESLAVE:
-> +			printk(KERN_CONT "released slaves\n");
-> +			break;
-> +		case NETDEV_ENSLAVE:
-> +			printk(KERN_CONT "is enslaved\n");
-> +			break;
-> +		}
-> +	}
->  
->  done:
->  	return NOTIFY_DONE;
-> diff --git a/include/linux/notifier.h b/include/linux/notifier.h
-> index 621dfa1..3d82867 100644
-> --- a/include/linux/notifier.h
-> +++ b/include/linux/notifier.h
-> @@ -211,6 +211,7 @@ static inline int notifier_to_errno(int ret)
->  #define NETDEV_UNREGISTER_BATCH 0x0011
->  #define NETDEV_BONDING_DESLAVE  0x0012
->  #define NETDEV_NOTIFY_PEERS	0x0013
-> +#define NETDEV_ENSLAVE		0x0014
->  
-Nit:
-Shouldn't this be NETDEV_BONDING_ENSLAVE, to keep it in line with
-NETDEV_BONDING_DESLAVE above?
+Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x.h     |    4 +
+ drivers/net/bnx2x/bnx2x_dcb.c |  152 ++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 131 insertions(+), 25 deletions(-)
 
->  #define SYS_DOWN	0x0001	/* Notify of system down */
->  #define SYS_RESTART	SYS_DOWN
-> 
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 16a76f0..668a578 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -1242,6 +1242,10 @@ struct bnx2x {
+ 	/* DCBX Negotiation results */
+ 	struct dcbx_features			dcbx_local_feat;
+ 	u32					dcbx_error;
++#ifdef BCM_DCBNL
++	struct dcbx_features			dcbx_remote_feat;
++	u32					dcbx_remote_flags;
++#endif
+ 	u32					pending_max;
+ };
+ 
+diff --git a/drivers/net/bnx2x/bnx2x_dcb.c b/drivers/net/bnx2x/bnx2x_dcb.c
+index 0f83092..410a49e 100644
+--- a/drivers/net/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/bnx2x/bnx2x_dcb.c
+@@ -485,6 +485,36 @@ static void bnx2x_dcbx_update_ets_params(struct bnx2x *bp)
+ 	}
+ }
+ 
++#ifdef BCM_DCBNL
++static int bnx2x_dcbx_read_shmem_remote_mib(struct bnx2x *bp)
++{
++	struct lldp_remote_mib remote_mib = {0};
++	u32 dcbx_remote_mib_offset = SHMEM2_RD(bp, dcbx_remote_mib_offset);
++	int rc;
++
++	DP(NETIF_MSG_LINK, "dcbx_remote_mib_offset 0x%x\n",
++	   dcbx_remote_mib_offset);
++
++	if (SHMEM_DCBX_REMOTE_MIB_NONE == dcbx_remote_mib_offset) {
++		BNX2X_ERR("FW doesn't support dcbx_remote_mib_offset\n");
++		return -EINVAL;
++	}
++
++	rc = bnx2x_dcbx_read_mib(bp, (u32 *)&remote_mib, dcbx_remote_mib_offset,
++				 DCBX_READ_REMOTE_MIB);
++
++	if (rc) {
++		BNX2X_ERR("Faild to read remote mib from FW\n");
++		return rc;
++	}
++
++	/* save features and flags */
++	bp->dcbx_remote_feat = remote_mib.features;
++	bp->dcbx_remote_flags = remote_mib.flags;
++	return 0;
++}
++#endif
++
+ static int bnx2x_dcbx_read_shmem_neg_results(struct bnx2x *bp)
+ {
+ 	struct lldp_local_mib local_mib = {0};
+@@ -601,6 +631,10 @@ void bnx2x_dcbx_set_params(struct bnx2x *bp, u32 state)
+ 			 * negotiation results
+ 			 */
+ 			bnx2x_dcbnl_update_applist(bp, true);
++
++			/* Read rmeote mib if dcbx is in the FW */
++			if (bnx2x_dcbx_read_shmem_remote_mib(bp))
++				return;
+ #endif
+ 			/* Read neg results if dcbx is in the FW */
+ 			if (bnx2x_dcbx_read_shmem_neg_results(bp))
+@@ -2031,7 +2065,6 @@ static u8 bnx2x_dcbnl_set_dcbx(struct net_device *netdev, u8 state)
+ 	return 0;
+ }
+ 
+-
+ static u8 bnx2x_dcbnl_get_featcfg(struct net_device *netdev, int featid,
+ 				  u8 *flags)
+ {
+@@ -2111,31 +2144,100 @@ static u8 bnx2x_dcbnl_set_featcfg(struct net_device *netdev, int featid,
+ 	return rval;
+ }
+ 
++static int bnx2x_peer_appinfo(struct net_device *netdev,
++			      struct dcb_peer_app_info *info, u16* app_count)
++{
++	int i;
++	struct bnx2x *bp = netdev_priv(netdev);
++
++	DP(NETIF_MSG_LINK, "APP-INFO\n");
++
++	info->willing = (bp->dcbx_remote_flags & DCBX_APP_REM_WILLING) ?: 0;
++	info->error = (bp->dcbx_remote_flags & DCBX_APP_RX_ERROR) ?: 0;
++	*app_count = 0;
++
++	for (i = 0; i < DCBX_MAX_APP_PROTOCOL; i++)
++		if (bp->dcbx_remote_feat.app.app_pri_tbl[i].appBitfield &
++		    DCBX_APP_ENTRY_VALID)
++			(*app_count)++;
++	return 0;
++}
++
++static int bnx2x_peer_apptable(struct net_device *netdev,
++			       struct dcb_app *table)
++{
++	int i, j;
++	struct bnx2x *bp = netdev_priv(netdev);
++
++	DP(NETIF_MSG_LINK, "APP-TABLE\n");
++
++	for (i = 0, j = 0; i < DCBX_MAX_APP_PROTOCOL; i++) {
++		struct dcbx_app_priority_entry *ent =
++			&bp->dcbx_remote_feat.app.app_pri_tbl[i];
++
++		if (ent->appBitfield & DCBX_APP_ENTRY_VALID) {
++			table[j].selector = bnx2x_dcbx_dcbnl_app_idtype(ent);
++			table[j].priority = bnx2x_dcbx_dcbnl_app_up(ent);
++			table[j++].protocol = ent->app_id;
++		}
++	}
++	return 0;
++}
++
++static int bnx2x_cee_peer_getpg(struct net_device *netdev, struct cee_pg *pg)
++{
++	int i;
++	struct bnx2x *bp = netdev_priv(netdev);
++
++	pg->willing = (bp->dcbx_remote_flags & DCBX_ETS_REM_WILLING) ?: 0;
++
++	for (i = 0; i < CEE_DCBX_MAX_PGS; i++) {
++		pg->pg_bw[i] =
++			DCBX_PG_BW_GET(bp->dcbx_remote_feat.ets.pg_bw_tbl, i);
++		pg->prio_pg[i] =
++			DCBX_PRI_PG_GET(bp->dcbx_remote_feat.ets.pri_pg_tbl, i);
++	}
++	return 0;
++}
++
++static int bnx2x_cee_peer_getpfc(struct net_device *netdev,
++				 struct cee_pfc *pfc)
++{
++	struct bnx2x *bp = netdev_priv(netdev);
++	pfc->tcs_supported = bp->dcbx_remote_feat.pfc.pfc_caps;
++	pfc->pfc_en = bp->dcbx_remote_feat.pfc.pri_en_bitmap;
++	return 0;
++}
++
+ const struct dcbnl_rtnl_ops bnx2x_dcbnl_ops = {
+-	.getstate       = bnx2x_dcbnl_get_state,
+-	.setstate       = bnx2x_dcbnl_set_state,
+-	.getpermhwaddr  = bnx2x_dcbnl_get_perm_hw_addr,
+-	.setpgtccfgtx   = bnx2x_dcbnl_set_pg_tccfg_tx,
+-	.setpgbwgcfgtx  = bnx2x_dcbnl_set_pg_bwgcfg_tx,
+-	.setpgtccfgrx   = bnx2x_dcbnl_set_pg_tccfg_rx,
+-	.setpgbwgcfgrx  = bnx2x_dcbnl_set_pg_bwgcfg_rx,
+-	.getpgtccfgtx   = bnx2x_dcbnl_get_pg_tccfg_tx,
+-	.getpgbwgcfgtx  = bnx2x_dcbnl_get_pg_bwgcfg_tx,
+-	.getpgtccfgrx   = bnx2x_dcbnl_get_pg_tccfg_rx,
+-	.getpgbwgcfgrx  = bnx2x_dcbnl_get_pg_bwgcfg_rx,
+-	.setpfccfg      = bnx2x_dcbnl_set_pfc_cfg,
+-	.getpfccfg      = bnx2x_dcbnl_get_pfc_cfg,
+-	.setall         = bnx2x_dcbnl_set_all,
+-	.getcap         = bnx2x_dcbnl_get_cap,
+-	.getnumtcs      = bnx2x_dcbnl_get_numtcs,
+-	.setnumtcs      = bnx2x_dcbnl_set_numtcs,
+-	.getpfcstate    = bnx2x_dcbnl_get_pfc_state,
+-	.setpfcstate    = bnx2x_dcbnl_set_pfc_state,
+-	.setapp         = bnx2x_dcbnl_set_app_up,
+-	.getdcbx        = bnx2x_dcbnl_get_dcbx,
+-	.setdcbx        = bnx2x_dcbnl_set_dcbx,
+-	.getfeatcfg     = bnx2x_dcbnl_get_featcfg,
+-	.setfeatcfg     = bnx2x_dcbnl_set_featcfg,
++	.getstate		= bnx2x_dcbnl_get_state,
++	.setstate		= bnx2x_dcbnl_set_state,
++	.getpermhwaddr		= bnx2x_dcbnl_get_perm_hw_addr,
++	.setpgtccfgtx		= bnx2x_dcbnl_set_pg_tccfg_tx,
++	.setpgbwgcfgtx		= bnx2x_dcbnl_set_pg_bwgcfg_tx,
++	.setpgtccfgrx		= bnx2x_dcbnl_set_pg_tccfg_rx,
++	.setpgbwgcfgrx		= bnx2x_dcbnl_set_pg_bwgcfg_rx,
++	.getpgtccfgtx		= bnx2x_dcbnl_get_pg_tccfg_tx,
++	.getpgbwgcfgtx		= bnx2x_dcbnl_get_pg_bwgcfg_tx,
++	.getpgtccfgrx		= bnx2x_dcbnl_get_pg_tccfg_rx,
++	.getpgbwgcfgrx		= bnx2x_dcbnl_get_pg_bwgcfg_rx,
++	.setpfccfg		= bnx2x_dcbnl_set_pfc_cfg,
++	.getpfccfg		= bnx2x_dcbnl_get_pfc_cfg,
++	.setall			= bnx2x_dcbnl_set_all,
++	.getcap			= bnx2x_dcbnl_get_cap,
++	.getnumtcs		= bnx2x_dcbnl_get_numtcs,
++	.setnumtcs		= bnx2x_dcbnl_set_numtcs,
++	.getpfcstate		= bnx2x_dcbnl_get_pfc_state,
++	.setpfcstate		= bnx2x_dcbnl_set_pfc_state,
++	.setapp			= bnx2x_dcbnl_set_app_up,
++	.getdcbx		= bnx2x_dcbnl_get_dcbx,
++	.setdcbx		= bnx2x_dcbnl_set_dcbx,
++	.getfeatcfg		= bnx2x_dcbnl_get_featcfg,
++	.setfeatcfg		= bnx2x_dcbnl_set_featcfg,
++	.peer_getappinfo	= bnx2x_peer_appinfo,
++	.peer_getapptable	= bnx2x_peer_apptable,
++	.cee_peer_getpg		= bnx2x_cee_peer_getpg,
++	.cee_peer_getpfc	= bnx2x_cee_peer_getpfc,
+ };
+ 
+ #endif /* BCM_DCBNL */
+-- 
+1.7.3.5
 
 
-Other than those two points, this looks good to me
-Thanks!
-Neil
+
+
