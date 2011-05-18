@@ -1,54 +1,64 @@
-From: Jacek Luczak <difrost.kernel@gmail.com>
-Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
-Date: Wed, 18 May 2011 13:58:14 +0200
-Message-ID: <BANLkTi=_ob1iM4yB3m3NoiPccSYd8koABQ@mail.gmail.com>
-References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>
-	<1305704885.2983.4.camel@edumazet-laptop>
-	<BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>
-	<1305707358.2983.14.camel@edumazet-laptop>
-	<4DD38B30.9090601@cn.fujitsu.com>
-	<BANLkTikVxfxU2uW3AA--q8qt16og=HdDLg@mail.gmail.com>
-	<1305718902.2991.3.camel@edumazet-laptop>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 2/2] bna: Add Generic Netlink Interface
+Date: Wed, 18 May 2011 14:00:05 +0200
+Message-ID: <20110518120005.GC3762520@jupiter.n2.diac24.net>
+References: <1305694621-28023-1-git-send-email-rmody@brocade.com>
+ <1305694621-28023-3-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	adapter_linux_open_src_team@brocade.com,
+	Debashis Dutt <ddutt@brocade.com>
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:53785 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932964Ab1ERL6P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 07:58:15 -0400
-Received: by pvg12 with SMTP id 12so669827pvg.19
-        for <netdev@vger.kernel.org>; Wed, 18 May 2011 04:58:14 -0700 (PDT)
-In-Reply-To: <1305718902.2991.3.camel@edumazet-laptop>
+Received: from spaceboyz.net ([87.106.131.203]:57633 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932964Ab1ERMAN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2011 08:00:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1305694621-28023-3-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
-> Le mercredi 18 mai 2011 =E0 13:01 +0200, Jacek Luczak a =E9crit :
->
->> @Eric, if you will take a look into the code you might notice
->> that there are few places where list operations could be
->> optimised and the main question here is do we really care
->> to have the data ,,safe'' so that things like that won't popup.
->> The good example can be the set of _local_ functions.
+On Tue, May 17, 2011 at 09:57:01PM -0700, Rasesh Mody wrote:
+> This patch adds the generic netlink communication interface to BNA driver. The
+> in-kernel generic netlink infrastructure can be used to collect hardware
+> specific control information and control attributes. The driver makes use of
+> the "doit" handler provided by the generic netlink layer to accomplish this.
+[...]
+> +struct bnad_genl_ioc_info {
+> +	int		status;
+> +	u16		bnad_num;
+> +	u16		rsvd;
+> +	char		serialnum[64];
+> +	char		hwpath[BFA_STRING_32];
+> +	char		adapter_hwpath[BFA_STRING_32];
+> +	char		guid[BFA_ADAPTER_SYM_NAME_LEN*2];
+> +	char		name[BFA_ADAPTER_SYM_NAME_LEN];
+> +	char		port_name[BFA_ADAPTER_SYM_NAME_LEN];
+> +	char		eth_name[BFA_ADAPTER_SYM_NAME_LEN];
+> +	u64		rsvd1[4];
+> +	mac_t		mac;
+> +	mac_t		factory_mac;	/* Factory mac address */
+> +	mac_t		current_mac;	/* Currently assigned mac address */
+> +	enum bfa_ioc_type     ioc_type;
+> +	u16		pvid;		/* Port vlan id */
+> +	u16		rsvd2;
+> +	u32		host;
+> +	u32		bandwidth;	/* For PF support */
+> +	u32		rsvd3;
+> +};
+> +
+> +struct bnad_genl_ioc_attr {
+> +	int		status;
+> +	u16		bnad_num;
+> +	u16		rsvd;
+> +	struct bfa_ioc_attr  ioc_attr;
+> +};
 
-There should be a vertical space here ...
+These things all look like they're better put into sysfs. Why would you
+create a genl protocol just to query some presumably static attributes?
 
->> Ahhh... and I'm aware of how tricky can be abuse of RCU.
->
-> I took a quick look at existing rcu_read_lock() uses in sctp and did =
-not
-> find other problems [or optimizations if you prefer this point of vie=
-w].
-> Please elaborate.
 
-=2E.. so that the last line does not have any connection with what I've
-wrote above.
+-David
 
-I get your point Eric so you don't really have to prove it - if you sti=
-ll need.
-
--jacek
