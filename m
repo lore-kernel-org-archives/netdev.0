@@ -1,48 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: add rcu protection to netdev->ifalias
-Date: Wed, 18 May 2011 06:35:11 +0200
-Message-ID: <1305693312.6741.58.camel@edumazet-laptop>
-References: <1303980967.3360.60.camel@edumazet-laptop>
-	 <20110428084337.6b54603e@nehalam>
-	 <20110502.152733.48516094.davem@davemloft.net>
-	 <1305670692.6741.14.camel@edumazet-laptop>
-	 <20110517152503.2f7244f3@nehalam>
-	 <1305671956.6741.25.camel@edumazet-laptop>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 0/2] bna: Add Debugfs & Generic Netlink Interfaces to BNA Driver
+Date: Tue, 17 May 2011 21:56:59 -0700
+Message-ID: <1305694621-28023-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, remi.denis-courmont@nokia.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38493 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751814Ab1EREfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 00:35:18 -0400
-Received: by wya21 with SMTP id 21so893039wya.19
-        for <netdev@vger.kernel.org>; Tue, 17 May 2011 21:35:17 -0700 (PDT)
-In-Reply-To: <1305671956.6741.25.camel@edumazet-laptop>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36676 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751069Ab1ERE5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 00:57:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 mai 2011 =C3=A0 00:39 +0200, Eric Dumazet a =C3=A9crit :
+This patch set adds debugfs and generic netlink interfaces to BNA driver for
+debugging and managing the Brocade adapter.
 
-> I dont know, if it happens to be too hard, we'll just stick again rtn=
-l
-> for "ip link show" ;)
->=20
->=20
+Rasesh Mody (2):
+  bna: Add Debugfs Interface
+  bna: Add Generic Netlink Interface
 
-I believe I'll take this path, its a bit too hard for the moment, and
-need several preliminary steps :
-
-It is making sense trying to get rid of rtnl_trylock() hack with more
-fine grained locks, and thus lower pressure on RTNL.
-
-Some synchronize_rcu() calls are done whith RTNL held : All processes
-hitting rtnl_trylock() have to enter a busy loop, restarting syscall as
-long as the RTNL owner is blocked in synchronize_rcu().
-
-
-
+ drivers/net/bna/Makefile       |    3 +-
+ drivers/net/bna/bfa_defs.h     |   18 ++
+ drivers/net/bna/bfa_ioc.c      |  113 +++++++++++++-
+ drivers/net/bna/bfa_ioc.h      |    7 +
+ drivers/net/bna/bfi.h          |    2 +
+ drivers/net/bna/bna_ctrl.c     |    5 +-
+ drivers/net/bna/bnad.c         |   48 +++++-
+ drivers/net/bna/bnad.h         |   16 ++-
+ drivers/net/bna/bnad_debugfs.c |  302 +++++++++++++++++++++++++++++++++++
+ drivers/net/bna/bnad_genl.c    |  345 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/bna/bnad_genl.h    |   87 ++++++++++
+ 11 files changed, 931 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/bna/bnad_debugfs.c
+ create mode 100644 drivers/net/bna/bnad_genl.c
+ create mode 100644 drivers/net/bna/bnad_genl.h
 
