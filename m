@@ -1,93 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
- netdevice
-Date: Wed, 18 May 2011 18:47:46 +0300
-Message-ID: <20110518154746.GA21378@redhat.com>
-References: <1305575253.2885.28.camel@bwh-desktop>
- <20110516211459.GE18148@redhat.com>
- <1305588738.3456.65.camel@localhost.localdomain>
- <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
- <1305671318.10756.49.camel@localhost.localdomain>
- <20110518103819.GL7589@redhat.com>
- <BANLkTimc1RbC3uQsra1HUvS_Trg63iMWGA@mail.gmail.com>
- <20110518111734.GO7589@redhat.com>
- <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
- <1305729507.32080.6.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug, kernel panic, NULL dereference , cleanup_once /
+ icmp_route_lookup.clone.19.clone / nat , 2.6.39-rc7-git11
+Date: Wed, 18 May 2011 17:52:24 +0200
+Message-ID: <1305733944.2991.45.camel@edumazet-laptop>
+References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
+	 <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
+	 <1305711471.2983.27.camel@edumazet-laptop>
+	 <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
+	 <1305713111.2991.1.camel@edumazet-laptop>
+	 <1305719047.2991.4.camel@edumazet-laptop>
+	 <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1305729507.32080.6.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:50790 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756021Ab1ERPw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 11:52:28 -0400
+Received: by fxm17 with SMTP id 17so1312074fxm.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 08:52:27 -0700 (PDT)
+In-Reply-To: <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2011 at 07:38:27AM -0700, Shirley Ma wrote:
-> On Wed, 2011-05-18 at 13:40 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> > >> >> Not more other restrictions, skb clone is OK. pskb_expand_hea=
-d()
-> > looks
-> > >> >> OK to me from code review.
-> > >> > Hmm. pskb_expand_head calls skb_release_data while keeping
-> > >> > references to pages. How is that ok? What do I miss?
-> > >> It's making copy of the skb_shinfo earlier, so the pages refcoun=
-t
-> > >> stays the same.
-> > > Exactly. But the callback is invoked so the guest thinks it's ok =
-to
-> > > change this memory. If it does a corrupted packet will be sent ou=
-t.
-> >=20
-> > Hmm. I tool a quick look at skb_clone(), and it looks like this
-> > sequence will break this scheme:
-> >=20
-> > skb2 =3D skb_clone(skb...);
-> > kfree_skb(skb) or pskb_expand_head(skb);  /* callback called */
-> > [use skb2, pages still referenced]
-> > kfree_skb(skb); /* callback called again */
-> >=20
-> > This sequence is common in bridge, might be in other places.
-> >=20
-> > Maybe this ubuf thing should just track clones? This will make it w=
-ork
-> > on all devices then.
+Le mercredi 18 mai 2011 =C3=A0 15:46 +0300, Denys Fedoryshchenko a =C3=A9=
+crit :
+
+>  It is NAS, has ipv6 enabled recently (i am preparing for ipv6), but=20
+>  ipv6 is not routed anywhere, maybe just automatically addresses=20
+>  appearing on interfaces, including the one looking to customer subne=
+t.=20
+>  ppp is ipv4 only.
 >=20
-> The callback was only invoked when last reference of skb was gone.
-> skb_clone does increase skb refcnt. I tested tcpdump on lower device,=
- it
-> worked.
 
-Right, it will normally work, but two issues I think you miss:
-1. malicious guest can change the memory between when it is sent out by
-   device and consumed by tcpdump, so you will see different things
-   (not sure how important this is).
-2. if tcpdump stops consuming stuff from the packet socket (it's
-   userspace, can't be trusted) then we won't get a callback for
-   page potentially forever, guest networking will get blocked etc.
+Hmm, it seems we have some inetpeer refcount leak somewhere.
 
-> For the sequence of:
->=20
-> skb_clone  -> last refcnt + 1
-> kfree_skb() or pskb_expand_head -> callback not called
-> kfree_skb() -> callback called
->=20
-> I will check page refcount to see whether it's balanced.
->=20
-> Thanks
-> shirley
+Maybe one (struct rtable)->peer is not released on dst/rtable removal,
+or we also leak dst/rtable (and their ->peer inetpeer)
+
+Watch :
+
+grep peer /proc/slabinfo
+grep dst /proc/slabinfo
 
 
-pskb_expand_head is a problem anyway I think as it
-can hang on to pages after it calls release_data.
-Then guest will modify these pages and you get trash there.
-
---=20
-MST
