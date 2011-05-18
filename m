@@ -1,423 +1,133 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V5 4/6 net-next] vhost: vhost TX zero-copy support
-Date: Tue, 17 May 2011 22:14:34 -0700
-Message-ID: <1305695674.10756.93.camel@localhost.localdomain>
-References: <1305574484.3456.30.camel@localhost.localdomain>
-	 <20110516204540.GD18148@redhat.com>
-	 <1305579414.3456.49.camel@localhost.localdomain>
-	 <20110516212401.GF18148@redhat.com>
-	 <1305606683.10756.3.camel@localhost.localdomain>
-	 <20110517055503.GA26989@redhat.com>
-	 <1305645734.10756.14.camel@localhost.localdomain>
-	 <20110517152840.GA2389@redhat.com>
-	 <1305646444.10756.16.camel@localhost.localdomain>
-	 <1305665419.10756.33.camel@localhost.localdomain>
-	 <20110517212827.GC7589@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110517212827.GC7589@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Micha Nelissen <micha@neli.hopto.org>
+Subject: [PATCH v3] ipconfig wait for carrier
+Date: Wed, 18 May 2011 07:22:41 +0200
+Message-ID: <1305696161-18277-1-git-send-email-micha@neli.hopto.org>
+References: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
+Cc: Micha Nelissen <micha@neli.hopto.org>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from edu-smtp-02.edutel.nl ([88.159.1.172]:30927 "EHLO
+	edu-smtp-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750918Ab1ERFXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 01:23:20 -0400
+In-Reply-To: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-18 at 00:28 +0300, Michael S. Tsirkin wrote:
-> On Tue, May 17, 2011 at 01:50:19PM -0700, Shirley Ma wrote:
-> > Resubmit the patch with most update. This patch passed some
-> > live-migration test against RHEL6.2. I will run more stress test w/i
-> > live migration.
-> > 
-> > Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> 
-> Cool. cleanup path needs a fix - are you use you can
-> not use kobj or some other existing refcounting?
-I will look at this.
+David, forgive my clumsiness, the previous patch did not compile. This
+one applies against 2.6.38 and does compile.
 
-> Is perf regressiion caused by tx ring overrun gone now?
-Nope.
+Currently the ip auto configuration has a hardcoded delay of 1 second.
+When (ethernet) link takes longer to come up (e.g. more than 3 seconds),
+nfs root may not be found.
 
-> I added some comments about how we might be aqble
-> to complete requests out of order but it's not a must.
-Ok.
+Remove the hardcoded delay, and wait for carrier on at least one network
+device.
 
-> > ---
-> > 
-> >  drivers/vhost/net.c   |   37 +++++++++++++++++++++++++++++++-
-> >  drivers/vhost/vhost.c |   55
-> ++++++++++++++++++++++++++++++++++++++++++++++++-
-> >  drivers/vhost/vhost.h |   12 ++++++++++
-> >  3 files changed, 101 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > index 2f7c76a..6bd6e28 100644
-> > --- a/drivers/vhost/net.c
-> > +++ b/drivers/vhost/net.c
-> > @@ -32,6 +32,9 @@
-> >   * Using this limit prevents one virtqueue from starving others. */
-> >  #define VHOST_NET_WEIGHT 0x80000
-> >  
-> > +/* MAX number of TX used buffers for outstanding zerocopy */
-> > +#define VHOST_MAX_ZEROCOPY_PEND 128 
-> > +
-> >  enum {
-> >       VHOST_NET_VQ_RX = 0,
-> >       VHOST_NET_VQ_TX = 1,
-> > @@ -129,6 +132,7 @@ static void handle_tx(struct vhost_net *net)
-> >       int err, wmem;
-> >       size_t hdr_size;
-> >       struct socket *sock;
-> > +     struct skb_ubuf_info pend;
-> >  
-> >       /* TODO: check that we are running from vhost_worker? */
-> >       sock = rcu_dereference_check(vq->private_data, 1);
-> > @@ -151,6 +155,10 @@ static void handle_tx(struct vhost_net *net)
-> >       hdr_size = vq->vhost_hlen;
-> >  
-> >       for (;;) {
-> > +             /* Release DMAs done buffers first */
-> > +             if (atomic_read(&vq->refcnt) >
-> VHOST_MAX_ZEROCOPY_PEND)
-> > +                     vhost_zerocopy_signal_used(vq, false);
-> > +
-> >               head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> >                                        ARRAY_SIZE(vq->iov),
-> >                                        &out, &in,
-> > @@ -166,6 +174,13 @@ static void handle_tx(struct vhost_net *net)
-> >                               set_bit(SOCK_ASYNC_NOSPACE,
-> &sock->flags);
-> >                               break;
-> >                       }
-> > +                     /* If more outstanding DMAs, queue the work */
-> > +                     if (sock_flag(sock->sk, SOCK_ZEROCOPY) &&
-> > +                         (atomic_read(&vq->refcnt) >
-> VHOST_MAX_ZEROCOPY_PEND)) {
-> > +                             tx_poll_start(net, sock);
-> > +                             set_bit(SOCK_ASYNC_NOSPACE,
-> &sock->flags);
-> > +                             break;
-> > +                     }
-> >                       if (unlikely(vhost_enable_notify(vq))) {
-> >                               vhost_disable_notify(vq);
-> >                               continue;
-> > @@ -188,17 +203,35 @@ static void handle_tx(struct vhost_net *net)
-> >                              iov_length(vq->hdr, s), hdr_size);
-> >                       break;
-> >               }
-> > +             /* use msg_control to pass vhost zerocopy ubuf info to
-> skb */
-> > +             if (sock_flag(sock->sk, SOCK_ZEROCOPY)) {
-> > +                     vq->heads[vq->upend_idx].id = head;
-> > +                     if (len <= 128)
-> 
-> I thought we have a constant for that?
+Signed-off-by: Micha Nelissen <micha@neli.hopto.org>
+Cc: David Miller <davem@davemloft.net>
+---
+ net/ipv4/ipconfig.c |   35 ++++++++++++++++++++++-------------
+ 1 files changed, 22 insertions(+), 13 deletions(-)
 
-Yes, fixed it already. I might change it to PAGE_SIZE for now since the
-small message sizes regression issue.
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 2b09775..4225f3f 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -87,8 +87,8 @@
+ #endif
+ 
+ /* Define the friendly delay before and after opening net devices */
+-#define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
+-#define CONF_POST_OPEN		1	/* After opening: 1 second */
++#define CONF_POST_OPEN		10	/* After opening: 10 msecs */
++#define CONF_CARRIER_TIMEOUT	120000	/* Wait for carrier timeout */
+ 
+ /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
+ #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
+@@ -188,14 +188,14 @@ struct ic_device {
+ static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
+ static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
+ 
+-static bool __init ic_device_match(struct net_device *dev)
++static bool __init ic_is_init_dev(struct net_device *dev)
+ {
+-	if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
++	if (dev->flags & IFF_LOOPBACK)
++		return 0;
++	return user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
+ 	    (!(dev->flags & IFF_LOOPBACK) &&
+ 	     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
+-	     strncmp(dev->name, "dummy", 5)))
+-		return true;
+-	return false;
++	     strncmp(dev->name, "dummy", 5));
+ }
+ 
+ static int __init ic_open_devs(void)
+@@ -203,6 +203,7 @@ static int __init ic_open_devs(void)
+ 	struct ic_device *d, **last;
+ 	struct net_device *dev;
+ 	unsigned short oflags;
++	unsigned long start;
+ 
+ 	last = &ic_first_dev;
+ 	rtnl_lock();
+@@ -216,9 +217,7 @@ static int __init ic_open_devs(void)
+ 	}
+ 
+ 	for_each_netdev(&init_net, dev) {
+-		if (dev->flags & IFF_LOOPBACK)
+-			continue;
+-		if (ic_device_match(dev)) {
++		if (ic_is_init_dev(dev)) {
+ 			int able = 0;
+ 			if (dev->mtu >= 364)
+ 				able |= IC_BOOTP;
+@@ -252,6 +251,17 @@ static int __init ic_open_devs(void)
+ 				dev->name, able, d->xid));
+ 		}
+ 	}
++
++	/* wait for a carrier on at least one device */
++	start = jiffies;
++	while (jiffies - start < msecs_to_jiffies(CONF_CARRIER_TIMEOUT)) {
++		for_each_netdev(&init_net, dev)
++			if (ic_is_init_dev(dev) && netif_carrier_ok(dev))
++				goto have_carrier;
++
++		msleep(1);
++	}
++have_carrier:
+ 	rtnl_unlock();
+ 
+ 	*last = NULL;
+@@ -1324,14 +1334,13 @@ static int __init wait_for_devices(void)
+ {
+ 	int i;
+ 
+-	msleep(CONF_PRE_OPEN);
+ 	for (i = 0; i < DEVICE_WAIT_MAX; i++) {
+ 		struct net_device *dev;
+ 		int found = 0;
+ 
+ 		rtnl_lock();
+ 		for_each_netdev(&init_net, dev) {
+-			if (ic_device_match(dev)) {
++			if (ic_is_init_dev(dev)) {
+ 				found = 1;
+ 				break;
+ 			}
+@@ -1378,7 +1387,7 @@ static int __init ip_auto_config(void)
+ 		return err;
+ 
+ 	/* Give drivers a chance to settle */
+-	ssleep(CONF_POST_OPEN);
++	msleep(CONF_POST_OPEN);
+ 
+ 	/*
+ 	 * If the config information is insufficient (e.g., our IP address or
+-- 
+1.7.4.4
 
-> > +                             vq->heads[vq->upend_idx].len =
-> VHOST_DMA_DONE_LEN;
-> > +                     else {
-> > +                             vq->heads[vq->upend_idx].len = len;
-> > +                             pend.callback =
-> vhost_zerocopy_callback;
-> > +                             pend.arg = vq;
-> > +                             pend.desc = vq->upend_idx;
-> > +                             msg.msg_control = &pend;
-> > +                             msg.msg_controllen = sizeof(pend);
-> > +                     }
-> > +                     atomic_inc(&vq->refcnt);
-> > +                     vq->upend_idx = (vq->upend_idx + 1) %
-> UIO_MAXIOV;
-> 
-> Ok, so we deal with a cyclic ring apparently? What guarantees we don't
-> overrun it?
-
-VHOST_MAX_PEND (which is 128) should prevent it from overrun normally.
-In the case of none DMAs can be done, the maximum entries are the ring
-size, which is much smaller or equal to UIO_MAXIOV for current
-implementation. 
-
-Maybe I should add some condition check if it is overrun then exits?
-
-> 
-> > +             }
-> >               /* TODO: Check specific error and bomb out unless
-> ENOBUFS? */
-> >               err = sock->ops->sendmsg(NULL, sock, &msg, len);
-> >               if (unlikely(err < 0)) {
-> > -                     vhost_discard_vq_desc(vq, 1);
-> > +                     if (!sock_flag(sock->sk, SOCK_ZEROCOPY))
-> > +                             vhost_discard_vq_desc(vq, 1);
-> 
-> How are errors handled with zerocopy?
-
-I thought about it before: if error after macvtap skb is allocated, then
-that skb has a callback which will set DMA done for add_used, if the
-error before macvtap skb is allocated, then it can reverse as copy case.
-To avoid the complexity check, I decided to not handle it.
-
-> 
-> >                       tx_poll_start(net, sock);
-> >                       break;
-> >               }
-> >               if (err != len)
-> >                       pr_debug("Truncated TX packet: "
-> >                                " len %d != %zd\n", err, len);
-> > -             vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> > +             if (!sock_flag(sock->sk, SOCK_ZEROCOPY))
-> > +                     vhost_add_used_and_signal(&net->dev, vq, head,
-> 0);
-> >               total_len += len;
-> >               if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
-> >                       vhost_poll_queue(&vq->poll);
-> > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > index 2ab2912..ce799d6 100644
-> > --- a/drivers/vhost/vhost.c
-> > +++ b/drivers/vhost/vhost.c
-> > @@ -174,6 +174,9 @@ static void vhost_vq_reset(struct vhost_dev
-> *dev,
-> >       vq->call_ctx = NULL;
-> >       vq->call = NULL;
-> >       vq->log_ctx = NULL;
-> > +     vq->upend_idx = 0;
-> > +     vq->done_idx = 0;
-> > +     atomic_set(&vq->refcnt, 0);
-> >  }
-> >  
-> >  static int vhost_worker(void *data)
-> > @@ -230,7 +233,7 @@ static long vhost_dev_alloc_iovecs(struct
-> vhost_dev *dev)
-> >                                              UIO_MAXIOV,
-> GFP_KERNEL);
-> >               dev->vqs[i].log = kmalloc(sizeof *dev->vqs[i].log *
-> UIO_MAXIOV,
-> >                                         GFP_KERNEL);
-> > -             dev->vqs[i].heads = kmalloc(sizeof *dev->vqs[i].heads
-> *
-> > +             dev->vqs[i].heads = kzalloc(sizeof *dev->vqs[i].heads
-> *
-> >                                           UIO_MAXIOV, GFP_KERNEL);
-> 
-> Which fields need to be initialized actually?
-
-Nope, already fixed it with kmalloc.
-
-> >  
-> >               if (!dev->vqs[i].indirect || !dev->vqs[i].log ||
-> > @@ -385,6 +388,38 @@ long vhost_dev_reset_owner(struct vhost_dev
-> *dev)
-> >       return 0;
-> >  }
-> >  
-> > +/* 
-> > +     comments
-> > +*/
-> 
-> Hmm.
-
-Fixed it in previous patch already.
-
-> > +void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq, bool
-> shutdown)
-> > +{
-> > +     int i, j = 0;
-> > +
-> > +     i = vq->done_idx;
-> > +     while (i != vq->upend_idx) {
-> 
-> A for loop might be clearer.
-Ok.
-
-> > +             if ((vq->heads[i].len == VHOST_DMA_DONE_LEN) ||
-> shutdown) {
-> 
-> On shutdown, we signal all buffers used to the guest?
-> Why?
-
-We signal all outstand DMAs in the case of driver has some DMA issue to
-prevent us from shutting down. I am afraid vhost cleanup could wait
-forever.
-
-> > +                     /* reset len = 0 */
-> 
-> comment not very helpful.
-> Could you explain what this does instead?
-> Or better use some constant instead of 0 ...
-
-Fixed it already.
-
-> > +                     vq->heads[i].len = 0;
-> > +                     i = (i + 1) % UIO_MAXIOV;
-> > +                     ++j;
-> > +             } else
-> > +                     break;
-> 
-> Hmm so if the 1st entry does not complete, you do not signal anything?
-
-No used buffers to guest, should we signal still?
-
-
-> > +     }
-> 
-> Looking at this loop, done idx is the consumer and used idx
-> is the producer, right?
-
-Yes.
-
-> > +     if (j) {
-> > +             /* comments */
-> 
-> Yes?
-> 
-> > +             if (i > vq->done_idx)
-> > +                     vhost_add_used_n(vq, &vq->heads[vq->done_idx],
-> j);
-> > +             else {
-> > +                     vhost_add_used_n(vq, &vq->heads[vq->done_idx],
-> > +                                      UIO_MAXIOV - vq->done_idx);
-> > +                     vhost_add_used_n(vq, vq->heads, i);
-> > +             }
-> > +             vq->done_idx = i;
-> > +             vhost_signal(vq->dev, vq);
-> > +             atomic_sub(j, &vq->refcnt);
-> 
-> Code will likely be simpler if you call vhost_add_used once for
-> each head in the first loop. Possibly add_used_signal might be
-> a good idea too.
-
-Ok.
-
-> > +     }
-> > +}
-> > +
-> >  /* Caller should have device mutex */
-> >  void vhost_dev_cleanup(struct vhost_dev *dev)
-> >  {
-> > @@ -395,6 +430,11 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
-> >                       vhost_poll_stop(&dev->vqs[i].poll);
-> >                       vhost_poll_flush(&dev->vqs[i].poll);
-> >               }
-> > +             /* wait for all lower device DMAs done, then notify
-> guest */
-> > +             if (atomic_read(&dev->vqs[i].refcnt)) {
-> > +                     msleep(1000);
-> > +                     vhost_zerocopy_signal_used(&dev->vqs[i],
-> true);
-> > +             }
-> 
-> This needs to be fixed somehow. Use a completion object and wait
-> on it?
-
-Worried about what if the driver has some DMAs issue, which would
-prevent vhost from shutting down.
-
-> >               if (dev->vqs[i].error_ctx)
-> >                       eventfd_ctx_put(dev->vqs[i].error_ctx);
-> >               if (dev->vqs[i].error)
-> > @@ -603,6 +643,10 @@ static long vhost_set_vring(struct vhost_dev
-> *d, int ioctl, void __user *argp)
-> >  
-> >       mutex_lock(&vq->mutex);
-> >  
-> > +     /* force all lower device DMAs done */
-> > +     if (atomic_read(&vq->refcnt)) 
-> > +             vhost_zerocopy_signal_used(vq, true);
-> > +
-> >       switch (ioctl) {
-> >       case VHOST_SET_VRING_NUM:
-> >               /* Resizing ring with an active backend?
-> > @@ -1416,3 +1460,12 @@ void vhost_disable_notify(struct
-> vhost_virtqueue *vq)
-> >               vq_err(vq, "Failed to enable notification at %p: %d
-> \n",
-> >                      &vq->used->flags, r);
-> >  }
-> > +
-> > +void vhost_zerocopy_callback(struct sk_buff *skb)
-> > +{
-> > +     int idx = skb_shinfo(skb)->ubuf.desc;
-> > +     struct vhost_virtqueue *vq = skb_shinfo(skb)->ubuf.arg;
-> > +
-> > +     /* set len = 1 to mark this desc buffers done DMA */
-> 
-> this comment can now go.
-
-Yes, it's gone already.
-
-> > +     vq->heads[idx].len = VHOST_DMA_DONE_LEN;
-> > +}
-> > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> > index b3363ae..8e3ecc7 100644
-> > --- a/drivers/vhost/vhost.h
-> > +++ b/drivers/vhost/vhost.h
-> > @@ -13,6 +13,10 @@
-> >  #include <linux/virtio_ring.h>
-> >  #include <asm/atomic.h>
-> >  
-> > +/* This is for zerocopy, used buffer len is set to 1 when lower
-> device DMA
-> > + * done */
-> > +#define VHOST_DMA_DONE_LEN   1
-> > +
-> >  struct vhost_device;
-> >  
-> >  struct vhost_work;
-> > @@ -108,6 +112,12 @@ struct vhost_virtqueue {
-> >       /* Log write descriptors */
-> >       void __user *log_base;
-> >       struct vhost_log *log;
-> > +     /* vhost zerocopy support */
-> > +     atomic_t refcnt; /* num of outstanding zerocopy DMAs */
-> 
-> future enhancement idea: this is used apparently under vq lock
-> so no need for an atomic?
-
-It is also used in skb vhost zerocopy callback.
-
-> > +     /* copy of avail idx to monitor outstanding DMA zerocopy
-> buffers */
-> 
-> looking at code upend_idx seems to be calculated independently
-> of guest avail idx - could you clarify pls?
-
-Yes, you are right. Should change it to: upend_idx is used to track
-vring ids for outstanding zero-copy DMA buffers?
-
-> > +     int upend_idx;
-> > +     /* copy of used idx to monintor DMA done zerocopy buffers */
-> 
-> monitor
-
-Ok.
-
-> > +     int done_idx;
-> 
-> 
-> I think in reality these are just producer and consumer
-> in the head structure which for zero copy is used
-Yes.
-
-> 
-> >  };
-> >  
-> >  struct vhost_dev {
-> > @@ -154,6 +164,8 @@ bool vhost_enable_notify(struct vhost_virtqueue
-> *);
-> >  
-> >  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log
-> *log,
-> >                   unsigned int log_num, u64 len);
-> > +void vhost_zerocopy_callback(struct sk_buff *skb);
-> > +void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq, bool
-> shutdown);
-> >  
-> >  #define vq_err(vq, fmt, ...) do {
-> \
-> >               pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
-> > 
