@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: add notification over netlink when
- STP changes state
-Date: Wed, 18 May 2011 18:10:42 -0400 (EDT)
-Message-ID: <20110518.181042.1332278156476011677.davem@davemloft.net>
-References: <20110518081718.0b1fc390@nehalam>
+Subject: Re: [PATCH v3] ipconfig wait for carrier
+Date: Wed, 18 May 2011 18:14:27 -0400 (EDT)
+Message-ID: <20110518.181427.1228926976939865196.davem@davemloft.net>
+References: <4DD36803.1020001@neli.hopto.org>
+	<20110518.023725.441358922110721042.davem@davemloft.net>
+	<4DD36E54.9040706@neli.hopto.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bridge@linux-foundation.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: micha@neli.hopto.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60451 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49650 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754793Ab1ERWKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 18:10:51 -0400
-In-Reply-To: <20110518081718.0b1fc390@nehalam>
+	with ESMTP id S1751133Ab1ERWOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 18:14:32 -0400
+In-Reply-To: <4DD36E54.9040706@neli.hopto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 18 May 2011 08:17:18 -0700
+From: Micha Nelissen <micha@neli.hopto.org>
+Date: Wed, 18 May 2011 08:59:32 +0200
 
-> The first netlink code in the bridge module was to notify
-> user space implementations of Spanning Tree Protocol about
-> new ports. It did not handle the case of kernel mode STP 
-> changing states which could be useful for monitoring.
+> Op 2011-05-18 8:37, David Miller schreef:
+>> From: Micha Nelissen<micha@neli.hopto.org>
+>> Date: Wed, 18 May 2011 08:32:35 +0200
+>>
+>>> I'm confused. Against which tree/commit do you want it then?
+>>
+>> Linus's current tree would be fine as would:
+>>
+>> 	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
 > 
-> This patch causes RTM_NEWLINK message to occur on kernel
-> transitions. It does not send message if request was from user
-> space STP, since that would cause reflection and break existing
-> API.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Ok I see, thanks. The patch should apply just fine to your tree, there
+> is only a spelling change since 2.6.38 which does not conflict.
 
-I agree with Ben that hiding events in any way is going to
-be a severe limitation, long term.
-
-I do not want to apply this and keep going down this road.
-
-Sorry.
+Please fix ic_is_init_dev() to return a proper boolean "false" instead
+of "0" when IFF_LOOPBACK is set.
