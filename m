@@ -1,105 +1,64 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in netdevice
-Date: Wed, 18 May 2011 14:48:24 +0200
-Message-ID: <BANLkTikOsR9RUJboG1P=oG8ofr5BLbgQ4Q@mail.gmail.com>
-References: <1305574680.3456.33.camel@localhost.localdomain>
- <1305575253.2885.28.camel@bwh-desktop> <20110516211459.GE18148@redhat.com>
- <1305588738.3456.65.camel@localhost.localdomain> <BANLkTimvOK3tyo6+L5AD=so5DjiDPV-AAA@mail.gmail.com>
- <1305671318.10756.49.camel@localhost.localdomain> <20110518103819.GL7589@redhat.com>
- <BANLkTimc1RbC3uQsra1HUvS_Trg63iMWGA@mail.gmail.com> <20110518111734.GO7589@redhat.com>
- <BANLkTim9RQ94MT4L0QHx-yzZT5nXdbi0aQ@mail.gmail.com> <20110518115602.GT7589@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and
+ sctp_bind_addr_conflict()
+Date: Wed, 18 May 2011 14:50:46 +0200
+Message-ID: <1305723046.2991.19.camel@edumazet-laptop>
+References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>
+	 <1305704885.2983.4.camel@edumazet-laptop>
+	 <BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>
+	 <1305707358.2983.14.camel@edumazet-laptop>
+	 <4DD38B30.9090601@cn.fujitsu.com> <4DD3BC8F.9050802@hp.com>
+	 <BANLkTinQAy+jq_VUwky2rxchomuN3avPQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110518115602.GT7589@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vladislav Yasevich <vladislav.yasevich@hp.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org
+To: Jacek Luczak <difrost.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55911 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756850Ab1ERMwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 08:52:21 -0400
+Received: by fxm17 with SMTP id 17so1166030fxm.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 05:52:20 -0700 (PDT)
+In-Reply-To: <BANLkTinQAy+jq_VUwky2rxchomuN3avPQg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-W dniu 18 maja 2011 13:56 u=BFytkownik Michael S. Tsirkin
-<mst@redhat.com> napisa=B3:
-> On Wed, May 18, 2011 at 01:47:33PM +0200, Micha=B3 Miros=B3aw wrote:
->> W dniu 18 maja 2011 13:17 u=BFytkownik Michael S. Tsirkin
->> <mst@redhat.com> napisa=B3:
->> > On Wed, May 18, 2011 at 01:10:50PM +0200, Micha=B3 Miros=B3aw wrot=
-e:
->> >> 2011/5/18 Michael S. Tsirkin <mst@redhat.com>:
->> >> > On Tue, May 17, 2011 at 03:28:38PM -0700, Shirley Ma wrote:
->> >> >> On Tue, 2011-05-17 at 23:48 +0200, Micha=B3 Miros=B3aw wrote:
->> >> >> > 2011/5/17 Shirley Ma <mashirle@us.ibm.com>:
->> >> >> > > Hello Michael,
->> >> >> > >
->> >> >> > > Looks like to use a new flag requires more time/work. I am=
- thinking
->> >> >> > > whether we can just use HIGHDMA flag to enable zero-copy i=
-n macvtap
->> >> >> > to
->> >> >> > > avoid the new flag for now since mavctap uses real NICs as=
- lower
->> >> >> > device?
->> >> >> >
->> >> >> > Is there any other restriction besides requiring driver to n=
-ot recycle
->> >> >> > the skb? Are there any drivers that recycle TX skbs?
->> >> > Not just recycling skbs, keeping reference to any of the pages =
-in the
->> >> > skb. Another requirement is to invoke the callback
->> >> > in a timely fashion. =A0For example virtio-net doesn't limit th=
-e time until
->> >> > that happens (skbs are only freed when some other packet is
->> >> > transmitted), so we need to avoid zcopy for such (nested-virt)
->> >> > scenarious, right?
->> >> Hmm. But every hardware driver supporting SG will keep reference =
-to
->> >> the pages until the packet is sent (or DMA'd to the device). This=
- can
->> >> take a long time if hardware queue happens to stall for some reas=
-on.
->> > That's a fundamental property of zero copy transmit.
->> > You can't let the application/guest reuse the memory until
->> > no one looks at it anymore.
->>
->> One more question: is userspace (or whatever is sending those packet=
-s)
->> denied from modifying passed pages? I assume it is, but just want to
->> be sure.
->>
->> Best Regards,
->> Micha=B3 Miros=B3aw
->
-> Good point.
->
-> It's not denied in the sense that it still can modify them if it's
-> buggy (the pages might not be read-only).
-> But well-behaved userspace won't modify them until the callback
-> is invoked.
->
-> That would be a problem if the underlying device is
-> a bridge where we might try to e.g. filter these packets -
-> data can get modified after the filter. We'd have to copy
-> whatever the filter accesses and use the copy - it's rarely
-> the data itself.
->
-> That's not normally a problem for macvtap connected to a physical NIC=
-,
-> as that already bypasses any and all filtering.
->
-> But that's another limitation we should note in the comment,
-> and another reason to limit to specific devices.
+Le mercredi 18 mai 2011 =C3=A0 14:47 +0200, Jacek Luczak a =C3=A9crit :
 
-It looks like this feature can be used only in very strict circumstance=
-s.
+> OK then, at the end what Eric suggested is IMO valid:
+>=20
+> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+> index faf71d1..0025d90 100644
+> --- a/net/sctp/bind_addr.c
+> +++ b/net/sctp/bind_addr.c
+> @@ -144,10 +144,9 @@ static void sctp_bind_addr_clean(struct sctp_bin=
+d_addr *bp)
+>         struct list_head *pos, *temp;
+>=20
+>         /* Empty the bind address list. */
+> -       list_for_each_safe(pos, temp, &bp->address_list) {
+> -               addr =3D list_entry(pos, struct sctp_sockaddr_entry, =
+list);
+> -               list_del(pos);
+> -               kfree(addr);
+> +       list_for_each_entry(pos, &bp->address_list, list) {
 
-What about tcpdump listening on the device or lowerdev? This path
-might clone the skb for any device.
+a 'safe' version is needed here, since we remove items in iterator.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+> +               list_del_rcu(&pos->list);
+> +               call_rcu(&pos->rcu, sctp_local_addr_free);
+>                 SCTP_DBG_OBJCNT_DEC(addr);
+>         }
+>  }
+>=20
+>=20
+> I will test this. Should be safe, avoid race not only in that case an=
+d
+> it consistent.
+>=20
+> -Jacek
+
+
