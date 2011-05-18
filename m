@@ -1,27 +1,30 @@
-From: "Webmaster Administrator" <jutine.vanderkuijl@xmsnet.nl>
-Subject: Security Warning
-Date: Wed, 18 May 2011 01:28:44 +0200 (CEST)
-Message-ID: <3142.172.187.178.40.1305674924.squirrel__42281.2179000632$1305677232$gmane$org@webmail.xtramediaservices.nl>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: Re: [PATCH] net: cpuvert to new cpumask API
+Date: Wed, 18 May 2011 09:14:51 +0900
+Message-ID: <4DD30F7B.3000206@jp.fujitsu.com>
+References: <20110428235813.3D5A.A69D9226@jp.fujitsu.com> <20110516.115357.193701317.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp20.mail.sp.isp-net.nl ([217.149.192.116]:34706 "EHLO
-	smtp20.mail.sp.isp-net.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932369Ab1ERAGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 May 2011 20:06:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, therbert@google.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110516.115357.193701317.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Your mailbox has exceeded the storage limit which is 20GB as set by your
-administrator,you are currently running on 20.9GB,you may not be able to
-send or receive new mail until you re-validate your mailbox. To
-re-validate your mailbox, please click the link below:
-http://doiop.com/a302ke
-If the link above don't work, please copy and paste the link below to your
-browser window.
-http://doiop.com/a302ke
-Thanks
-System Administrator Team.
+(2011/05/17 3:53), David Miller wrote:
+> From: KOSAKI Motohiro<kosaki.motohiro@jp.fujitsu.com>
+> Date: Thu, 28 Apr 2011 23:56:35 +0900 (JST)
+>
+>> We plan to remove cpu_xx() old api later. Thus this patch
+>> convert it.
+>>
+>> This patch has no functional change.
+>>
+>> Signed-off-by: KOSAKI Motohiro<kosaki.motohiro@jp.fujitsu.com>
+>
+> Applied, thanks.
 
+Great! :)
