@@ -1,58 +1,115 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonc?=  =?UTF-8?Q?e=20/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20na?=  =?UTF-8?Q?t=20=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
-Date: Wed, 18 May 2011 15:46:07 +0300
-Message-ID: <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
-References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
- <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
- <1305711471.2983.27.camel@edumazet-laptop>
- <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
- <1305713111.2991.1.camel@edumazet-laptop>
- <1305719047.2991.4.camel@edumazet-laptop>
+From: Jacek Luczak <difrost.kernel@gmail.com>
+Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
+Date: Wed, 18 May 2011 14:47:15 +0200
+Message-ID: <BANLkTinQAy+jq_VUwky2rxchomuN3avPQg@mail.gmail.com>
+References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>
+	<1305704885.2983.4.camel@edumazet-laptop>
+	<BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>
+	<1305707358.2983.14.camel@edumazet-laptop>
+	<4DD38B30.9090601@cn.fujitsu.com>
+	<4DD3BC8F.9050802@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Vladislav Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rev-153-13.globalproof.net ([194.146.153.13]:59515 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933074Ab1ERMqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 08:46:09 -0400
-In-Reply-To: <1305719047.2991.4.camel@edumazet-laptop>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:62390 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933098Ab1ERMrP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 08:47:15 -0400
+Received: by pvg12 with SMTP id 12so686499pvg.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 05:47:15 -0700 (PDT)
+In-Reply-To: <4DD3BC8F.9050802@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- On Wed, 18 May 2011 13:44:07 +0200, Eric Dumazet wrote:
-> Le mercredi 18 mai 2011 =C3=A0 12:05 +0200, Eric Dumazet a =C3=A9crit=
- :
->> Le mercredi 18 mai 2011 =C3=A0 12:53 +0300, Denys Fedoryshchenko a =C3=
-=A9crit=20
->> :
+2011/5/18 Vladislav Yasevich <vladislav.yasevich@hp.com>:
+> On 05/18/2011 05:02 AM, Wei Yongjun wrote:
+>
+>> fix the race between sctp_bind_addr_free() and sctp_bind_addr_confli=
+ct(), maybe you just
+>> need to remove the socket from the port hash before empty the bind a=
+ddress list.
+>> some thing like this, not test.
 >>
->> >  Yes, i will try. I should enable SLUB debugging only, or also=20
->> anything
->> >  else?
->> >
->> >  But possible it will take time to reproduce bug, seems it is=20
->> occuring
->> >  rare. With 2.6.39 release i will rollout update to few hundreds=20
->> PPPoE's,
->> >  maybe it will increase chances to get information.
->> >
+>> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+>> index c8cc24e..924d846 100644
+>> --- a/net/sctp/endpointola.c
+>> +++ b/net/sctp/endpointola.c
+>> @@ -268,12 +268,13 @@ static void sctp_endpoint_destroy(struct sctp_=
+endpoint *ep)
 >>
->> I would try both : slub_debug=3DZFP slub_nomerge
+>> =A0 =A0 =A0 /* Cleanup. */
+>> =A0 =A0 =A0 sctp_inq_free(&ep->base.inqueue);
+>> - =A0 =A0 sctp_bind_addr_free(&ep->base.bind_addr);
 >>
->> or maybe only slub_debug=3DZFPU
+>> =A0 =A0 =A0 /* Remove and free the port */
+>> =A0 =A0 =A0 if (sctp_sk(ep->base.sk)->bind_hash)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 sctp_put_port(ep->base.sk);
 >>
->> Thanks !
+>> + =A0 =A0 sctp_bind_addr_free(&ep->base.bind_addr);
+>> +
+>> =A0 =A0 =A0 /* Give up our hold on the sock. */
+>> =A0 =A0 =A0 if (ep->base.sk)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 sock_put(ep->base.sk);
+>>
 >>
 >
-> Hmm, do you have both ipv6/ipv4 trafic on your machine by any chance=20
-> ?
- It is NAS, has ipv6 enabled recently (i am preparing for ipv6), but=20
- ipv6 is not routed anywhere, maybe just automatically addresses=20
- appearing on interfaces, including the one looking to customer subnet.=
-=20
- ppp is ipv4 only.
+> I am not sure that this will guarantee avoidance of this crash, even =
+though it is the right
+> thing to do in general.
+>
+> We simply make the race condition much smaller and much harder to hit=
+=2E =A0Potentially, one
+> cpu may be doing lookup of the socket while the other is doing the de=
+stroy. =A0If the lookup cpu
+> finds the socket just as this code removes the socket from the hash, =
+we still have this potential
+> race condition.
+>
+> I agree with Eric, rcu_read_lock() is not strictly necessary, as what=
+ we are really after is call_rcu()
+> based destruction. =A0We need to delay memory destruction for the rcu=
+ grace period.
+>
+> Thinking a little more about how bind_addr_clean() is used, it would =
+probably benefit from getting
+> converted to call_rcu(). =A0That function is used as local clean-up i=
+n case of malloc failure; however,
+> that doesn't preclude a potential race. =A0The fact that we do not ha=
+ve this race simply points out that
+> we don't have any kind of parallel lookup that can hit it (and the co=
+de confirms it). =A0This doesn't
+> mean that we wouldn't have it in the future.
+>
 
+OK then, at the end what Eric suggested is IMO valid:
+
+diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+index faf71d1..0025d90 100644
+--- a/net/sctp/bind_addr.c
++++ b/net/sctp/bind_addr.c
+@@ -144,10 +144,9 @@ static void sctp_bind_addr_clean(struct sctp_bind_=
+addr *bp)
+        struct list_head *pos, *temp;
+
+        /* Empty the bind address list. */
+-       list_for_each_safe(pos, temp, &bp->address_list) {
+-               addr =3D list_entry(pos, struct sctp_sockaddr_entry, li=
+st);
+-               list_del(pos);
+-               kfree(addr);
++       list_for_each_entry(pos, &bp->address_list, list) {
++               list_del_rcu(&pos->list);
++               call_rcu(&pos->rcu, sctp_local_addr_free);
+                SCTP_DBG_OBJCNT_DEC(addr);
+        }
+ }
+
+
+I will test this. Should be safe, avoid race not only in that case and
+it consistent.
+
+-Jacek
