@@ -1,51 +1,54 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
- netdevice
-Date: Wed, 18 May 2011 10:00:28 -0700
-Message-ID: <1305738028.32080.66.camel@localhost.localdomain>
-References: <1305671318.10756.49.camel@localhost.localdomain>
-	 <20110518103819.GL7589@redhat.com>
-	 <BANLkTimc1RbC3uQsra1HUvS_Trg63iMWGA@mail.gmail.com>
-	 <20110518111734.GO7589@redhat.com>
-	 <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
-	 <1305729507.32080.6.camel@localhost.localdomain>
-	 <20110518154746.GA21378@redhat.com>
-	 <1305734857.32080.53.camel@localhost.localdomain>
-	 <20110518163633.GB22001@redhat.com>
-	 <1305737140.32080.59.camel@localhost.localdomain>
-	 <20110518165138.GD22001@redhat.com>
+From: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Subject: RE: [PATCH v2] CDC NCM: release interfaces fix in unbind()
+Date: Wed, 18 May 2011 19:11:37 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3ACE0774@EXDCVYMBSTM006.EQ1STM.local>
+References: <1305662344-28355-1-git-send-email-alexey.orishko@stericsson.com>
+ <Pine.LNX.4.44L0.1105181053110.2131-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110518165138.GD22001@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Alan Stern <stern@rowland.harvard.edu>,
+	"gregkh@suse.de" <gregkh@suse.de>,
+	"oliver@neukum.org" <oliver@neukum.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:34137 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932791Ab1ERRL7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 May 2011 13:11:59 -0400
+In-Reply-To: <Pine.LNX.4.44L0.1105181053110.2131-100000@iolanthe.rowland.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-18 at 19:51 +0300, Michael S. Tsirkin wrote:
-> > > Yes, I agree.  I think for tcpdump, we really need to copy the
-> data
-> > > anyway, to avoid guest changing it in between.  So we do that and
-> then
-> > > use the copy everywhere, release the old one. Hmm? 
-> > 
-> > Yes. Old one use zerocopy, new one use copy data.
-> > 
-> > Thanks
-> > Shirley
+> From: Alan Stern [mailto:stern@rowland.harvard.edu]
+> Sent: Wednesday, May 18, 2011 4:55 PM
 > 
-> No, that's wrong, as they might become different with a
-> malicious guest. As long as we copied already, lets realease
-> the data and have everyone use the copy. 
+> Here and later on, the patch seems to have forgotten about the control
+> interface.  Is this deliberate or an oversight?
+> 
+> Alan Stern
 
-Ok, I will patch pskb_expand_head to test it out.
+Kernel docs says, that usb_driver_claim_interface() is used by usb
+device drivers that need to claim more than one interface. I assume,
+it's needed for second interface only. Am I wrong?
 
-Shirley
+NCM driver was partly based on ECM code. I did check existing drivers
+for CDC ACM and CDC ECM, which also uses 2 interfaces: master (control)
+and data (bulk), but I was unable to find any code, which claims master
+interface.
+
+If we need explicitly claim/release master interface (which is *intf
+parameter in bind() and unbind()), then cdc-acm and usb_ether drivers
+should be updated as well.
+
+I wonder, if Greg or Oliver could provide any comments why master interface
+is not claimed in modem/ether drivers, since they are working with the
+code for quite a while.
+
+Regards,
+Alexey
+
