@@ -1,47 +1,63 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH] Check the value of doi before referencing it
-Date: Wed, 18 May 2011 18:32:17 -0400
-Message-ID: <201105181832.18196.paul.moore@hp.com>
-References: <1305692980-4730-1-git-send-email-huzaifas@redhat.com> <20110518.010453.1295824792800350412.davem@davemloft.net>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC V4 PATCH] rtnetlink: Compute and store minimum ifinfo dump
+ size
+Date: Wed, 18 May 2011 15:35:58 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755018E321C21@orsmsx508.amr.corp.intel.com>
+References: <20110518155410.28491.62723.stgit@gitlad.jf.intel.com>
+ <20110518.180913.273729651812642114.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	pekkas@netcore.fi, kuznet@ms2.inr.ac.ru
-To: huzaifas@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:11069 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753010Ab1ERWcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 18:32:22 -0400
-In-Reply-To: <20110518.010453.1295824792800350412.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:50155 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754365Ab1ERWgA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 18:36:00 -0400
+In-Reply-To: <20110518.180913.273729651812642114.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, May 18, 2011 1:04:53 AM David Miller wrote:
-> From: Huzaifa Sidhpurwala <huzaifas@redhat.com>
-> Date: Wed, 18 May 2011 09:59:40 +0530
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, May 18, 2011 3:09 PM
+> To: Rose, Gregory V
+> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
+> eric.dumazet@gmail.com
+> Subject: Re: [RFC V4 PATCH] rtnetlink: Compute and store minimum ifinfo
+> dump size
 > 
-> > Value of doi is not checked before referencing it.
-> > Though this does not cause any null pointer dereference since
-> > all the callers of cipso_v4_doi_add check the value of doi
-> > before calling the function, but it would be a good programming
-> > practice to do so anyways :)
-> > 
-> > Signed-off-by: Huzaifa Sidhpurwala <huzaifas@redhat.com>
+> From: Greg Rose <gregory.v.rose@intel.com>
+> Date: Wed, 18 May 2011 08:54:11 -0700
 > 
-> I don't think we should fix bugs that do not exist.
+> > The message size allocated for rtnl info dumps was limited to a single
+> > page.  This is not enough for additional interface info available with
+> > devices that support SR-IOV.  Calculate the amount of data required so
+> > the dump can allocate enough data to satisfy the request.
+> >
+> > V2 added the calcit function to the rtnl_register calls so that
+> > dump functions could get the minimum dump allocation size if they
+> > needed to.
+> >
+> > V3 leverages the fact that the netdev register function ends up
+> > calling if_nlmsg_size.  We collect the minimum dump allocation size
+> > there and keep it in a module static variable so that the calcit
+> > function doesn't have to search for the device on every info dump.
+> >
+> > V4 fixes the title.
+> >
+> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> 
+> This only works if someone does a plain GETLINK request on the largest
+> space requiring device before the dump request happens.
 
-I agree with David.
+It looked to me like rtmsg_ifinfo is called when each device is registered through register_netdevice() and rtmsg_ifinfo in turn calls the if_nlmsg_size function returning the ifinfo dump size for each device.  In my testing it looked like the proper maximum size was being set after I loaded the drivers for the SR-IOV capable devices.
 
-If there were a large number of callers or cipso_v4_doi_add() was a more 
-general function there might be some merit in performing more sanity checks on 
-the values passed to the function.  However, as it stands, cipso_v4_doi_add() 
-is a fairly specialized function which is called by a small number of 
-functions all of which are internal to NetLabel.
+Perhaps I missed something?  Is register_netdevice not always called before a device is used?
 
---
-paul moore
-linux @ hp
+- Greg
+
