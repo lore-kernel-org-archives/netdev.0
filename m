@@ -1,92 +1,54 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
-Date: Wed, 18 May 2011 17:02:40 +0800
-Message-ID: <4DD38B30.9090601@cn.fujitsu.com>
-References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>	 <1305704885.2983.4.camel@edumazet-laptop>	 <BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com> <1305707358.2983.14.camel@edumazet-laptop>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: packet received in a wrong rx-queue?
+Date: Wed, 18 May 2011 02:00:50 -0700
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F250D748939@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: Jacek Luczak <difrost.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63020 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755814Ab1ERJDF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 05:03:05 -0400
-In-Reply-To: <1305707358.2983.14.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+There are 2 packets in the traffic
+
+#1 create PDP context request, IPV4--UDP--GTP, src_ip=A and dst_ip=B,src_port=C,dst_port=D
+
+#2 create PDP context response, IPV4--UDP--GTP,src_ip=B, dst_ip=A, src_port=D,dst_port=C
+
+I suppose both of them will be received in same rx-queue but actually it doesn't
+Anything need to check?
+
+ethtool -i eth5
+driver: ixgbe
+version: 3.3.9-NAPI
+firmware-version: 0.9-3
+bus-info: 0000:08:00.1
+
+regards
+jon
 
 
-> Le mercredi 18 mai 2011 =C3=A0 10:06 +0200, Jacek Luczak a =C3=A9crit=
- :
->> 2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
->>> If you're removing items from this list, you must be a writer here,=
- with
->>> exclusive access. So rcu_read_lock()/rcu_read_unlock() is not neces=
-sary.
->> I could agree to some extend ... but strict RCU section IMO is neede=
-d here.
->> I can check this if the issue exists.
->>
-> I can tell you for sure rcu_read_lock() is not needed here. Its only
-> showing confusion from code's author.
->
-> Please read Documentation/RCU/listRCU.txt for concise explanations,
-> line 117.
->
->
->>> Therefore, I guess following code is better :
->>>
->>> list_for_each_entry(addr, &bp->address_list, list) {
->>>        list_del_rcu(&addr->list);
->>>        call_rcu(&addr->rcu, sctp_local_addr_free);
->>>        SCTP_DBG_OBJCNT_DEC(addr);
->>> }
->>>
->>> Then, why dont you fix sctp_bind_addr_clean() instead ?
->>>
->>> if 'struct sctp_sockaddr_entry' is recu protected, then all frees s=
-hould
->>> be protected as well.
->> The _clean() as claimed by Vlad is called many times from various pl=
-aces
->> in code and this could give a overhead. I guess Vlad would need to c=
-omment.
-> I guess a full review of this code is needed. You'll have to prove
-> sctp_bind_addr_clean() is always called after one RCU grace period if
-> you want to leave it as is.
->
-> You cant get RCU for free, some rules must be followed or you risk
-> crashes.
->
-
-fix the race between sctp_bind_addr_free() and sctp_bind_addr_conflict(=
-), maybe you just
-need to remove the socket from the port hash before empty the bind addr=
-ess list.
-some thing like this, not test.
-
-diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-index c8cc24e..924d846 100644
---- a/net/sctp/endpointola.c
-+++ b/net/sctp/endpointola.c
-@@ -268,12 +268,13 @@ static void sctp_endpoint_destroy(struct sctp_end=
-point *ep)
-=20
- 	/* Cleanup. */
- 	sctp_inq_free(&ep->base.inqueue);
--	sctp_bind_addr_free(&ep->base.bind_addr);
-=20
- 	/* Remove and free the port */
- 	if (sctp_sk(ep->base.sk)->bind_hash)
- 		sctp_put_port(ep->base.sk);
-=20
-+	sctp_bind_addr_free(&ep->base.bind_addr);
-+
- 	/* Give up our hold on the sock. */
- 	if (ep->base.sk)
- 		sock_put(ep->base.sk);
 
 
+
+------------------------------------------------------------------------------
+What Every C/C++ and Fortran developer Should Know!
+Read this article and learn how Intel has extended the reach of its 
+next-generation tools to help Windows* and Linux* C/C++ and Fortran 
+developers boost performance applications - including clusters. 
+http://p.sf.net/sfu/intel-dev2devmay
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
