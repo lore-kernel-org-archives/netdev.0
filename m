@@ -1,133 +1,71 @@
-From: Micha Nelissen <micha@neli.hopto.org>
-Subject: [PATCH v3] ipconfig wait for carrier
-Date: Wed, 18 May 2011 07:22:41 +0200
-Message-ID: <1305696161-18277-1-git-send-email-micha@neli.hopto.org>
-References: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
-Cc: Micha Nelissen <micha@neli.hopto.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from edu-smtp-02.edutel.nl ([88.159.1.172]:30927 "EHLO
-	edu-smtp-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918Ab1ERFXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 01:23:20 -0400
-In-Reply-To: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 09/18] virtio: use avail_event index
+Date: Wed, 18 May 2011 08:43:40 +0300
+Message-ID: <20110518054340.GE7589@redhat.com>
+References: <cover.1304541918.git.mst@redhat.com>
+	<8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
+	<874o54h4rt.fsf@rustcorp.com.au>
+	<20110515135541.GF24932@redhat.com>
+	<87ei3zdsq2.fsf@rustcorp.com.au>
+	<20110517061031.GC26989@redhat.com>
+	<87tycsn9lt.fsf@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87tycsn9lt.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David, forgive my clumsiness, the previous patch did not compile. This
-one applies against 2.6.38 and does compile.
+On Wed, May 18, 2011 at 09:49:42AM +0930, Rusty Russell wrote:
+> On Tue, 17 May 2011 09:10:31 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > Well one can imagine a driver doing:
+> > 
+> > 	while (virtqueue_get_buf()) {
+> > 		virtqueue_add_buf()
+> > 	}
+> > 	virtqueue_kick()
+> > 
+> > which looks sensible (batch kicks) but might
+> > process any number of bufs between kicks.
+> 
+> No, we currently only expose the buffers in the kick, so it can only
+> fill the ring doing that.
+> 
+> We could change that (and maybe that's worth looking at)...
 
-Currently the ip auto configuration has a hardcoded delay of 1 second.
-When (ethernet) link takes longer to come up (e.g. more than 3 seconds),
-nfs root may not be found.
+Yes, I think we should - this way host and guest can process
+data in parallel without a kick.
 
-Remove the hardcoded delay, and wait for carrier on at least one network
-device.
+My patchset included that simply because it's one index
+less to be confused about.
 
-Signed-off-by: Micha Nelissen <micha@neli.hopto.org>
-Cc: David Miller <davem@davemloft.net>
----
- net/ipv4/ipconfig.c |   35 ++++++++++++++++++++++-------------
- 1 files changed, 22 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 2b09775..4225f3f 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -87,8 +87,8 @@
- #endif
- 
- /* Define the friendly delay before and after opening net devices */
--#define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
--#define CONF_POST_OPEN		1	/* After opening: 1 second */
-+#define CONF_POST_OPEN		10	/* After opening: 10 msecs */
-+#define CONF_CARRIER_TIMEOUT	120000	/* Wait for carrier timeout */
- 
- /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
- #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
-@@ -188,14 +188,14 @@ struct ic_device {
- static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
- static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
- 
--static bool __init ic_device_match(struct net_device *dev)
-+static bool __init ic_is_init_dev(struct net_device *dev)
- {
--	if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
-+	if (dev->flags & IFF_LOOPBACK)
-+		return 0;
-+	return user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
- 	    (!(dev->flags & IFF_LOOPBACK) &&
- 	     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
--	     strncmp(dev->name, "dummy", 5)))
--		return true;
--	return false;
-+	     strncmp(dev->name, "dummy", 5));
- }
- 
- static int __init ic_open_devs(void)
-@@ -203,6 +203,7 @@ static int __init ic_open_devs(void)
- 	struct ic_device *d, **last;
- 	struct net_device *dev;
- 	unsigned short oflags;
-+	unsigned long start;
- 
- 	last = &ic_first_dev;
- 	rtnl_lock();
-@@ -216,9 +217,7 @@ static int __init ic_open_devs(void)
- 	}
- 
- 	for_each_netdev(&init_net, dev) {
--		if (dev->flags & IFF_LOOPBACK)
--			continue;
--		if (ic_device_match(dev)) {
-+		if (ic_is_init_dev(dev)) {
- 			int able = 0;
- 			if (dev->mtu >= 364)
- 				able |= IC_BOOTP;
-@@ -252,6 +251,17 @@ static int __init ic_open_devs(void)
- 				dev->name, able, d->xid));
- 		}
- 	}
-+
-+	/* wait for a carrier on at least one device */
-+	start = jiffies;
-+	while (jiffies - start < msecs_to_jiffies(CONF_CARRIER_TIMEOUT)) {
-+		for_each_netdev(&init_net, dev)
-+			if (ic_is_init_dev(dev) && netif_carrier_ok(dev))
-+				goto have_carrier;
-+
-+		msleep(1);
-+	}
-+have_carrier:
- 	rtnl_unlock();
- 
- 	*last = NULL;
-@@ -1324,14 +1334,13 @@ static int __init wait_for_devices(void)
- {
- 	int i;
- 
--	msleep(CONF_PRE_OPEN);
- 	for (i = 0; i < DEVICE_WAIT_MAX; i++) {
- 		struct net_device *dev;
- 		int found = 0;
- 
- 		rtnl_lock();
- 		for_each_netdev(&init_net, dev) {
--			if (ic_device_match(dev)) {
-+			if (ic_is_init_dev(dev)) {
- 				found = 1;
- 				break;
- 			}
-@@ -1378,7 +1387,7 @@ static int __init ip_auto_config(void)
- 		return err;
- 
- 	/* Give drivers a chance to settle */
--	ssleep(CONF_POST_OPEN);
-+	msleep(CONF_POST_OPEN);
- 
- 	/*
- 	 * If the config information is insufficient (e.g., our IP address or
--- 
-1.7.4.4
-
+> > If we look at drivers closely enough, I think none
+> > of them do the equivalent of the above, but not 100% sure.
+> 
+> I'm pretty sure we don't have this kind of 'echo' driver yet.  Drivers
+> tend to take OS requests and queue them.  The only one which does
+> anything even partially sophisticated is the net driver...
+> 
+> Thanks,
+> Rusty.
