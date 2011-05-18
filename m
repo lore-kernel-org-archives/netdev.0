@@ -1,43 +1,54 @@
-From: Milton Miller <miltonm@bga.com>
-Subject: Re: How to get backtrace? modprobe -r iwlagn; modprobe iwlagn kills kernel
-Date: Wed, 18 May 2011 10:55:01 -0500
-Message-ID: <1305734101_6569@mail4.comsite.net>
-References: <201105181637.46164.stevie.trujillo@gmail.com>
-Cc: <linux-kernel@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Stevie Trujillo <stevie.trujillo@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201105181637.46164.stevie.trujillo@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: make sure rtnl is held in
+ rtnl_fill_ifinfo()
+Date: Wed, 18 May 2011 18:02:39 +0200
+Message-ID: <1305734559.2991.50.camel@edumazet-laptop>
+References: <1305711303.2983.24.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:58280 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757084Ab1ERQCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 12:02:44 -0400
+Received: by fxm17 with SMTP id 17so1319958fxm.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 09:02:43 -0700 (PDT)
+In-Reply-To: <1305711303.2983.24.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed May 18 2011 about 10:37:54 EST, Stevie Trujillo wrote:
-> I'm having some problem getting a backtrace. When I do "modprobe -r
-> iwlagn; modprobe iwlagn" (2.6.38.6 with Intel-1030N) the kernel crashes
-> (sometimes I need to try 2 or 3 times, and sometimes the modprobe -r
-> is the one that crashes).
-> 
-> This spams my monitor with several oops/panics before it finally
-> dies. I can only see bottom of the last one, which probably isn't
-> very meaningful.  I tried loading netconsole, but I only get one or
-> two lines before it stops sending/printing.
-> 
-> I then tried kexec+crashkernel, but I only managed to get a backtrace
-> for the last panic (which I think is just a result of memory corruption
-> or something).  Finally I tried compiling ramoops into my kernel,
-> but it didn't want to load because of "No such device".
+Le mercredi 18 mai 2011 =C3=A0 11:35 +0200, Eric Dumazet a =C3=A9crit :
+> Commit e67f88dd12f610 (net: dont hold rtnl mutex during netlink dump
+> callbacks) added a problem in rtnl_fill_ifinfo() not being always cal=
+led
+> with RTNL held, which is racy.
+>=20
+> 1) This patch extends rtnl_mutex helper functions so that :
+>=20
+> rtnl_lock() is able to BUG_ON() if recursively called.
+> [This was only provided if LOCKDEP was on]
+>=20
+> rtnl_is_locked() is able to check if current thread owns rtnl_mutex
+> [ASSERT_RTNL() gets this added feature too]
+>=20
+> 2) Add one ASSERT_RTNL() in rtnl_fill_ifinfo()
+>=20
+> 3) Make sure rtnl is held in rtnl_dump_ifinfo()
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> --
 
-For the kexec+crashkernel, try to retrieve the kernel log buffer:
+Hmm, please disregard, there is a lock depency problem here
 
-There are some macros available, but basically log_buf is a pointer
-to a buffer of length log_buf_len initialized to __log_buf (but can
-be expanded via the command line or sysctl, in). log_end is the
-end of the buffer.  If you haven't wrapped then just print log_end
-characters.
+netlink_dump() does a mutex_lock(nlk->cb_mutex)
+So if we try to lock rtnl_mutex later in rtnl_dump_ifinfo(), we can
+deadlock with another task doing the reverse.
 
-Also consider setting /proc/sys/kernel/panic_on_oops to 1 to
-concentrate on the first one.  It won't help getting the oops to your
-syslog but maybe it will keep it on the screen.
+(first lock rtnl_mutex, then nlk->cb_mutex)
 
-Hope this helps,
-milton
+
+
+
