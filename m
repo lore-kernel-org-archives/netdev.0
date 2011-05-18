@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
-Date: Wed, 18 May 2011 15:52:00 -0400 (EDT)
-Message-ID: <20110518.155200.801089483916944725.davem@davemloft.net>
-References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
-	<20110518.152653.1486764697527722925.davem@davemloft.net>
-	<BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+Subject: Re: PATCH] SCTP: fix race between sctp_bind_addr_free() and
+ sctp_bind_addr_conflict()
+Date: Wed, 18 May 2011 15:58:18 -0400 (EDT)
+Message-ID: <20110518.155818.2171224302265138837.davem@davemloft.net>
+References: <BANLkTimWpmFj1gx=XvvoXFVxL9q927iWfw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tsunanet@gmail.com
+Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com,
+	eric.dumazet@gmail.com
+To: difrost.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36426 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36451 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927Ab1ERTzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 15:55:49 -0400
-In-Reply-To: <BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+	with ESMTP id S1751986Ab1ERT6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 15:58:25 -0400
+In-Reply-To: <BANLkTimWpmFj1gx=XvvoXFVxL9q927iWfw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: tsuna <tsunanet@gmail.com>
-Date: Wed, 18 May 2011 12:40:21 -0700
+From: Jacek Luczak <difrost.kernel@gmail.com>
+Date: Wed, 18 May 2011 16:36:32 +0200
 
-> I was hoping this knob would be accepted because this is such an
-> important issue that it even warrants an IETF draft to attempt to
-> change the standard.  I'm not sure how long it will take for this
-> draft to be accepted and then implemented, so I thought adding this
-> simple knob today would really help in the future.
+> @@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr
+> *bp, __u16 port)
 
-I've already changed the initial TCP congestion window in Linux to 10
-without some stupid draft being fully accepted.
+As Eric stated, you need to fix your mailer to not corrupt your patch.
+GMAIL users can, and do, submit patches properly, unmangled.  Heck,
+even Thunderbird users can it.
 
-I'll just as easily accept right now a patch right now which lowers
-the initial RTO to 1 second and adds the 3 second RTO fallback.
+Please follow the directions in Documentation/email-clients.txt to
+get your mailer in a state where it won't mangle your patch postings.
+
+Thanks.
