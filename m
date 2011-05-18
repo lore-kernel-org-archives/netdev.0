@@ -1,32 +1,83 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch 1/1] qeth: use ndo_set_features callback for initial setup
- and recovery
-Date: Wed, 18 May 2011 15:43:11 +0200
-Message-ID: <BANLkTik3A8zdDODnSntYZs8sfBvdtLGrOw@mail.gmail.com>
-References: <20110518132834.728225299@de.ibm.com> <20110518132905.064355130@de.ibm.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
+Date: Wed, 18 May 2011 09:32:07 -0400
+Message-ID: <4DD3CA57.5060709@hp.com>
+References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>	<1305704885.2983.4.camel@edumazet-laptop>	<BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com>	<1305707358.2983.14.camel@edumazet-laptop>	<4DD38B30.9090601@cn.fujitsu.com>	<4DD3BC8F.9050802@hp.com>	<BANLkTinQAy+jq_VUwky2rxchomuN3avPQg@mail.gmail.com>	<1305723046.2991.19.camel@edumazet-laptop> <BANLkTi=cDwLFSqaBt5szaFOaWmxYzkya9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org
+To: Jacek Luczak <difrost.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:52672 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932801Ab1ERNnc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 09:43:32 -0400
-In-Reply-To: <20110518132905.064355130@de.ibm.com>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:43574 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932801Ab1ERNoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 09:44:09 -0400
+In-Reply-To: <BANLkTi=cDwLFSqaBt5szaFOaWmxYzkya9g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/18  <frank.blaschka@de.ibm.com>:
-> From: Frank Blaschka <frank.blaschka@de.ibm.com>
->
-> This patch uses the ndo_set_features callback during normal device
-> startup or recovery to turn on hardware RX checksum. Patch was done
-> with much help from Michal Miroslaw, thx!!!
->
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+On 05/18/2011 09:11 AM, Jacek Luczak wrote:
+> 2011/5/18 Eric Dumazet <eric.dumazet@gmail.com>:
+>> Le mercredi 18 mai 2011 =E0 14:47 +0200, Jacek Luczak a =E9crit :
+>>
+>>> OK then, at the end what Eric suggested is IMO valid:
+>>>
+>>> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+>>> index faf71d1..0025d90 100644
+>>> --- a/net/sctp/bind_addr.c
+>>> +++ b/net/sctp/bind_addr.c
+>>> @@ -144,10 +144,9 @@ static void sctp_bind_addr_clean(struct sctp_b=
+ind_addr *bp)
+>>>         struct list_head *pos, *temp;
+>>>
+>>>         /* Empty the bind address list. */
+>>> -       list_for_each_safe(pos, temp, &bp->address_list) {
+>>> -               addr =3D list_entry(pos, struct sctp_sockaddr_entry=
+, list);
+>>> -               list_del(pos);
+>>> -               kfree(addr);
+>>> +       list_for_each_entry(pos, &bp->address_list, list) {
+>>
+>> a 'safe' version is needed here, since we remove items in iterator.
+>=20
+> Yep.
+>=20
+> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+> index faf71d1..6150ac5 100644
+> --- a/net/sctp/bind_addr.c
+> +++ b/net/sctp/bind_addr.c
+> @@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr
+> *bp, __u16 port)
+>  /* Dispose of the address list. */
+>  static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
+>  {
+> -       struct sctp_sockaddr_entry *addr;
+> -       struct list_head *pos, *temp;
+> +       struct sctp_sockaddr_entry *addr, *temp;
+>=20
+>         /* Empty the bind address list. */
+> -       list_for_each_safe(pos, temp, &bp->address_list) {
+> -               addr =3D list_entry(pos, struct sctp_sockaddr_entry, =
+list);
+> -               list_del(pos);
+> -               kfree(addr);
+> +       list_for_each_entry_safe(addr, temp, &bp->address_list, list)=
+ {
+> +               list_del_rcu(&addr->list);
+> +               call_rcu(&addr->rcu, sctp_local_addr_free);
+>                 SCTP_DBG_OBJCNT_DEC(addr);
+>         }
+>  }
+>=20
+> Does it now look good?
 
-[regarding usage of ndo_set_features and friends]
-Reviewed-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Yes.  It should the fix the race.
+
+-vlad
+
+>=20
+> -Jacek
+>=20
+
