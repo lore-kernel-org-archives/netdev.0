@@ -1,66 +1,98 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
-Date: Wed, 18 May 2011 08:33:19 -0400
-Message-ID: <4DD3BC8F.9050802@hp.com>
-References: <BANLkTikeWzuE-384uT6RhZR6Wn=DBK+CNQ@mail.gmail.com>	 <1305704885.2983.4.camel@edumazet-laptop>	 <BANLkTik75iqfgvWGKLJYu6E7mheOwOZX+A@mail.gmail.com> <1305707358.2983.14.camel@edumazet-laptop> <4DD38B30.9090601@cn.fujitsu.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Identifying network namespaces (was: Network namespace manipulation
+ with file descriptors)
+Date: Wed, 18 May 2011 14:43:07 +0200
+Message-ID: <20110518124307.GD3762520@jupiter.n2.diac24.net>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jacek Luczak <difrost.kernel@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:42328 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932738Ab1ERMdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 08:33:24 -0400
-In-Reply-To: <4DD38B30.9090601@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	jamal <hadi@cyberus.ca>, Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linux Containers <containers@lists.osdl.org>,
+	Renato Westphal <renatowestphal@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/18/2011 05:02 AM, Wei Yongjun wrote:
+On Fri, May 06, 2011 at 07:23:29PM -0700, Eric W. Biederman wrote:
+> Today there are something things you can use namespaces to implement but
+> the userspace code is unnecessarily complex and fragile because of
+> limitations of the kernel interfaces.
+
+(I hope I'm not duplicating stuff here, maybe this is already taken care
+of...)
+
+There still is the unresolved issue of identifying and/or equality
+testing network namespaces. The problems I see are the following:
+
+Problems
+========
+
+-   there is no simple list of the existing namespaces
  
-> fix the race between sctp_bind_addr_free() and sctp_bind_addr_conflict(), maybe you just
-> need to remove the socket from the port hash before empty the bind address list.
-> some thing like this, not test.
-> 
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index c8cc24e..924d846 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -268,12 +268,13 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->  
->  	/* Cleanup. */
->  	sctp_inq_free(&ep->base.inqueue);
-> -	sctp_bind_addr_free(&ep->base.bind_addr);
->  
->  	/* Remove and free the port */
->  	if (sctp_sk(ep->base.sk)->bind_hash)
->  		sctp_put_port(ep->base.sk);
->  
-> +	sctp_bind_addr_free(&ep->base.bind_addr);
-> +
->  	/* Give up our hold on the sock. */
->  	if (ep->base.sk)
->  		sock_put(ep->base.sk);
-> 
-> 
+  most importantly, network namespaces can be abused very sneakily to
+  provide trojans or other malicious software with a covert
+  communication channel.
 
-I am not sure that this will guarantee avoidance of this crash, even though it is the right
-thing to do in general.
+  Just create a macvlan device on the local ethernet, shift it into a
+  new namespace, grab an IP - and the admin of the host will be left
+  dumbfounded with his plain old netstat or ss as to where those weird
+  packets are coming from.
 
-We simply make the race condition much smaller and much harder to hit.  Potentially, one
-cpu may be doing lookup of the socket while the other is doing the destroy.  If the lookup cpu
-finds the socket just as this code removes the socket from the hash, we still have this potential
-race condition.
+  (Granted, this needs root privileges and you can still see everything
+  in /proc/<pid>/net/{tcp,udp,...})
 
-I agree with Eric, rcu_read_lock() is not strictly necessary, as what we are really after is call_rcu()
-based destruction.  We need to delay memory destruction for the rcu grace period.
+-   processes cannot easily be cross referenced with each other
 
-Thinking a little more about how bind_addr_clean() is used, it would probably benefit from getting
-converted to call_rcu().  That function is used as local clean-up in case of malloc failure; however,
-that doesn't preclude a potential race.  The fact that we do not have this race simply points out that
-we don't have any kind of parallel lookup that can hit it (and the code confirms it).  This doesn't
-mean that we wouldn't have it in the future.
+  in the case of user space stuff running astray - like management
+  software crashing, routing daemons screwing up, etc. - it becomes
+  fairly difficult to shut down a network namespace (or even reaquire
+  physical devices that have been reassigned)
 
--vlad
+-   namespaces cannot adequately be identified to the user
+
+  for debugging, some kernel messages become useless. most prominently,
+  "unregister_netdevice: waiting for lo to become free. Usage count = 123"
+  could certainly use some clarification, *which* lo is meant...
+
+So, considering this set of premises (feedback welcome) I looked for
+some suitable means of identification. I discarded going for any process
+identifiers since Eric's patches allow for network namespaces without
+any process holding a reference, using bind mounts instead.
+
+Solution?
+=========
+
+I do think I found another identifier suitable for both exporting a full 
+list and providing "getid" functionality: the "lo" interface index.
+I am not fully sure on the rules here, but to my understanding the lo
+interface index should be constant for the lifetime of a network
+namespace, and furthermore the interface index namespace is global to
+the kernel.
+
+This can already be used right now:
+- you can identify the init namespace since its lo index is 1
+- you can use netlink (or SIOCGIFINDEX, ew.) to get your own ID
+- as soon as you have the means to attach to a namespace, you
+  automatically also have the means to get its ID
+
+What might need to be added:
+1) a list of lo indices
+2) a way to get a hold of the namespace using its lo index
+3) maybe dmesg output on creation/destruction for the abuse case above
+4) possibly a file in /proc/<pid>/net that just contains the lo index,
+  for ease of use
+
+3) and 4) should be trivial; 1) and 2) could be solved by having a
+directory in /proc (?) that has all the network namespace "files" with
+their lo indices as names.
+
+
+So, ... Opinions?
+
+
+-David
