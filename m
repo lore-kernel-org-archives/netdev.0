@@ -1,31 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: packet received in a wrong rx-queue?
-Date: Wed, 18 May 2011 05:13:37 -0400 (EDT)
-Message-ID: <20110518.051337.1758997463750600514.davem@davemloft.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F250D748939@MILEXCH2.ds.jdsu.net>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonc?=  =?UTF-8?Q?e=20/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20na?=  =?UTF-8?Q?t=20=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
+Date: Wed, 18 May 2011 12:27:25 +0300
+Message-ID: <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
+References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jon.Zhou@jdsu.com
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48989 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573Ab1ERJNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 05:13:50 -0400
-In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F250D748939@MILEXCH2.ds.jdsu.net>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:55416 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754865Ab1ERJ12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 05:27:28 -0400
+In-Reply-To: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Date: Wed, 18 May 2011 02:00:50 -0700
+ On Wed, 18 May 2011 01:16:29 +0300, Denys Fedoryshchenko wrote:
+> Just got recently. 32Bit, PPPoE NAS, shapers, firewall, NAT
+> Kernel i mention in subject, 2.6.39-rc7-git11
+> If required i can give more information
+>
+> sharanal (sorry for ugly name) is libpcap based traffic analyser,
+> sure userspace
+>
+ Here is some info, i hope it will be a little useful
 
-> There are 2 packets in the traffic
-> 
-> #1 create PDP context request, IPV4--UDP--GTP, src_ip=A and dst_ip=B,src_port=C,dst_port=D
-> 
-> #2 create PDP context response, IPV4--UDP--GTP,src_ip=B, dst_ip=A, src_port=D,dst_port=C
-> 
-> I suppose both of them will be received in same rx-queue but actually it doesn't
+ (gdb)  l *(cleanup_once + 0x49)
+ 0xc02e85cc is in cleanup_once (include/linux/list.h:88).
+ 83       * This is only for internal list manipulation where we know
+ 84       * the prev/next entries already!
+ 85       */
+ 86      static inline void __list_del(struct list_head * prev, struct 
+ list_head * next)
+ 87      {
+ 88              next->prev = prev;
+ 89              prev->next = next;
+ 90      }
+ 91
+ 92      /**
 
-Well, for hardware flow steering, it's not expected to.
+ (gdb)  l *(inet_getpeer + 0x2ab)
+ 0xc02e8ae8 is in inet_getpeer (net/ipv4/inetpeer.c:530).
+ 525             if (base->total >= inet_peer_threshold)
+ 526                     /* Remove one less-recently-used entry. */
+ 527                     cleanup_once(0, stack);
+ 528
+ 529             return p;
+ 530     }
+ 531
+ 532     static int compute_total(void)
+ 533     {
+ 534             return v4_peers.total + v6_peers.total;
+
+
