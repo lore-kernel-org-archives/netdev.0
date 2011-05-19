@@ -1,135 +1,167 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: ip_vs_ftp causing ip_vs oops on module load.
-Date: Thu, 19 May 2011 11:55:07 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1105191139360.2171@ja.ssi.bg>
-References: <20110518201915.GB20475@redhat.com> <20110519011045.GF16688@verge.net.au> <20110519032611.GG16688@verge.net.au> <201105190952.49006.hans.schillstrom@ericsson.com>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: net: add seq_before/seq_after functions
+Date: Thu, 19 May 2011 10:54:32 +0200
+Message-ID: <201105191054.34912.sven@narfation.org>
+References: <1305722319-8315-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, Dave Jones <davej@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wensong Zhang <wensong@linuxvirtualserver.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:40578 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756848Ab1ESIxY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 04:53:24 -0400
-In-Reply-To: <201105190952.49006.hans.schillstrom@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart1581044.BhJUx0NJpY";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha512
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Paul Mackerras <paulus@samba.org>,
+	linux-ppp@vger.kernel.org
+To: Antonio Quartulli <ordex@autistici.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305722319-8315-1-git-send-email-ordex@autistici.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+--nextPart1581044.BhJUx0NJpY
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-	Hello,
+On Wednesday 18 May 2011 14:38:39 Antonio Quartulli wrote:
+> Introduce two operations to handle comparison between packet sequence
+> numbers taking into account overflow/wraparound. Batman-adv uses
+> these functions already to check for successor packet even in case of
+> overflow.
 
-On Thu, 19 May 2011, Hans Schillstrom wrote:
+Thanks for your efforts to bring that to the kernel. But when you prepare a=
+=20
+patch then you have to add a signoff. And also David S. Miller is the=20
+maintainer for this header - it would be interesting to ask him first when =
+we=20
+want to change that file.
 
-> I can reproduce the source of the problem,
-> use multiple netns and then unload the ftp module...
-> i.e. same list head used in multiple netns
-> 
-> This brings up a question:
-> - How should ftp be handled in a netns ? 
-> You might want to have it in one netns but not in another,
-> this requires changes to ipvsadm
-> 
-> A way of doing it could be a disable switch like --noftp [port,port]
-> i.e. do not break old apps.
-> 
-> Any other ideas ?
-> 
-> This patch solves the root problem, I'm not sure if this is the way to go
-> or if we should split the ip_vs_app struct ?
-
-	This patch is a fast fix but may be it is too late for it,
-after 2.6.39 is out. It seems we overlooked the apps when
-migrating to netns. I think, the apps do not need to be pernet.
-If one day application needs pernet context we can add such
-fields in the ipvs structure.
-
-	While the protocols have controls that manipulate pernet
-timeouts, the apps do not have such controls about app->timeouts.
-May be we can remove app->timeouts to avoid confusion because
-it was never implemented in user space. May be instead of this
-fix we should restore the global ip_vs_app_list and all things in
-ip_vs_app.c and ip_vs_ftp.c as before the netns changes?
-
-> If it's the way to go I can send it as a proper formated patch ...
-> (after some testing)
-> 
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index 4fff432..481f856 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -797,7 +797,8 @@ struct netns_ipvs {
->  	struct list_head	rs_table[IP_VS_RTAB_SIZE];
->  	/* ip_vs_app */
->  	struct list_head	app_list;
-> -
-> +	/* ip_vs_ftp */
-> +	struct ip_vs_app	*ftp_app;
->  	/* ip_vs_proto */
->  	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
->  	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
-> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-> index 6b5dd6d..17afb09 100644
-> --- a/net/netfilter/ipvs/ip_vs_ftp.c
-> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
-> @@ -411,25 +411,36 @@ static struct ip_vs_app ip_vs_ftp = {
->  static int __net_init __ip_vs_ftp_init(struct net *net)
->  {
->  	int i, ret;
-> -	struct ip_vs_app *app = &ip_vs_ftp;
-> +	struct ip_vs_app *app;
-> +	struct netns_ipvs *ipvs = net_ipvs(net);
+> ---
+> I added this two functions in net.h because I didn't really know where
+> best placement is. I saw several modules that redefine their own functions
+> for the same purpose.
+>=20
+>  include/linux/net.h |   17 +++++++++++++++++
+>  1 files changed, 17 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/include/linux/net.h b/include/linux/net.h
+> index 94de83c..c7bc9bf 100644
+> --- a/include/linux/net.h
+> +++ b/include/linux/net.h
+> @@ -295,4 +295,21 @@ extern struct ratelimit_state net_ratelimit_state;
+>  #endif
+>=20
+>  #endif /* __KERNEL__ */
 > +
-> +	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
-> +	if (!app)
-> +		return -ENOMEM;
-> +	INIT_LIST_HEAD(&app->a_list);
-> +	INIT_LIST_HEAD(&app->incs_list);
-> +	INIT_LIST_HEAD(&app->p_list);
-> +	ipvs->ftp_app = app;
->  
->  	ret = register_ip_vs_app(net, app);
->  	if (ret)
-> -		return ret;
-> +		goto err_exit;
->  
->  	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
->  		if (!ports[i])
->  			continue;
->  		ret = register_ip_vs_app_inc(net, app, app->protocol, ports[i]);
->  		if (ret)
-> -			break;
-> +			goto err_unreg;
->  		pr_info("%s: loaded support on port[%d] = %d\n",
->  			app->name, i, ports[i]);
->  	}
-> +	return 0;
->  
-> -	if (ret)
-> -		unregister_ip_vs_app(net, app);
-> -
-> +err_unreg:
-> +	unregister_ip_vs_app(net, app);
-> +err_exit:
-> +	kfree(ipvs->ftp_app);
->  	return ret;
->  }
->  /*
-> @@ -437,9 +448,7 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
->   */
->  static void __ip_vs_ftp_exit(struct net *net)
->  {
-> -	struct ip_vs_app *app = &ip_vs_ftp;
-> -
-> -	unregister_ip_vs_app(net, app);
-> +	unregister_ip_vs_app(net, net_ipvs(net)->ftp_app);
->  }
->  
->  static struct pernet_operations ip_vs_ftp_ops = {
+> +/* Returns the smallest signed integer in two's complement with the size=
+of
+> x */ +#define smallest_signed_int(x) (1u << (7u + 8u * (sizeof(x) - 1u)))
+> +
+> +/* Checks if a sequence number x is a predecessor/successor of y.
+> + * they handle overflows/underflows and can correctly check for a
+> + * predecessor/successor unless the variable sequence number has grown by
+> + * more then 2**(bitwidth(x)-1)-1.
+> + * This means that for a uint8_t with the maximum value 255, it would
+> think: + *  - when adding nothing - it is neither a predecessor nor a
+> successor + *  - before adding more than 127 to the starting value - it is
+> a predecessor, + *  - when adding 128 - it is neither a predecessor nor a
+> successor, + *  - after adding more than 127 to the starting value - it is
+> a successor */ +#define seq_before(x, y) ({typeof(x) _dummy =3D (x - y); \
+> +			_dummy > smallest_signed_int(_dummy); })
+> +#define seq_after(x, y) seq_before(y, x)
+> +
+>  #endif	/* _LINUX_NET_H */
 
-Regards
+I suggested yesterday (probably too late) that it would be good to check the
+type of both parameters (similar to the min and max functions in
+include/linux/kernel.h
 
---
-Julian Anastasov <ja@ssi.bg>
+#define seq_before(x, y) ({typeof(x) _d1 =3D (x); \
+			  typeof(y) _d2 =3D (y); \
+			  (void) (&_d1 =3D=3D &_d2); \
+			  typeof(x) _dummy =3D (_d1 - _d2); \
+			  _dummy > smallest_signed_int(_dummy); })
+
+
+And your seq_before/after conflicts with the one defined in ppp_generic.c
+
+drivers/net/ppp_generic.c:232:0: warning: "seq_before" redefined [enabled b=
+y=20
+default]
+include/linux/net.h:312:0: note: this is the location of the previous=20
+definition
+drivers/net/ppp_generic.c:233:0: warning: "seq_after" redefined [enabled by=
+=20
+default]
+include/linux/net.h:314:0: note: this is the location of the previous=20
+definition
+
+The definition there is only for u32 - thus you would have to remove it and=
+=20
+check that it always gives the same result:
+#define seq_before(a, b)        ((s32)((a) - (b)) < 0)
+#define seq_after(a, b)         ((s32)((a) - (b)) > 0)
+
+But I would say that they have a different definition of seq_before. Changi=
+ng=20
+that behaviour for batman-adv would not be that problematic, but maybe for=
+=20
+ppp.
+
+A defintion which should fulfil the requirements for ppp could be:
+
+#define seq_after(x, y) ({typeof(x) _d1 =3D (x); \
+			  typeof(y) _d2 =3D (y); \
+			  (void) (&_d1 =3D=3D &_d2); \
+			  typeof(x) _dummy =3D (_d2 - _d1); \
+			  _dummy > smallest_signed_int(_dummy); })
+#define seq_before(x, y) ({typeof(x) _d1 =3D (x); \
+			  typeof(y) _d2 =3D (y); \
+			  (void) (&_d1 =3D=3D &_d2); \
+			  typeof(x) _dummy =3D (_d1 - _d2); \
+			  _dummy >=3D smallest_signed_int(_dummy); })
+
+Of course the comment above the seq_before/seq_after would be wrong.
+
+/* Checks if a sequence number x is a predecessor/successor of y.
+ * they handle overflows/underflows and can correctly check for a
+ * predecessor/successor unless the variable sequence number has grown by
+ * more then 2**(bitwidth(x)-1).
+ * This means that for a uint8_t with the maximum value 255, it would think:
+ *  - when adding nothing - it is neither a predecessor nor a successor
+ *  - before adding more than 128 to the starting value - it is a predecess=
+or,
+ *  - after adding more than 127 to the starting value - it is a successor =
+*/
+
+I think there could be more candidates which would like to use this abstrac=
+t=20
+functionality. Maybe some one else on linux-kernel or netdev has a suggesti=
+on.
+
+Kind regards,
+	Sven
+
+--nextPart1581044.BhJUx0NJpY
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJN1NrIAAoJEF2HCgfBJntGjl8P/1RLU/dFt/G933cjo8rlDwuy
+7q0cUAjVneysotz4moe5R514WC1HbDu6iDegncPS+ZpZO5uOw1s0qQehsjxl+XgV
+15w9ELNbryuIAyEMa44EXhLnCY3Ae5upcf5uefMSPxk7pALxVGO1uqOkWPLSJWiD
+br6MaJbJ5moxOVlNDLm9Q5FIJyxRXRcQJOpWVf7/hVsPEMXR9zdpl1WOGellPYGG
+iez1HcqMzLIkSg0HcGDn/dBLbykpDzh5QZi+YquD1YPfrzXt74UAwrHfBzOaS8Vu
+RmCLQzmAjgoeBbQzPptc7eESwLlF7kMWlg2xOz3Z/kkf1AvA0irzVMTHbXU2xkW+
+oO8Vf6TKH/aiznEtwB2ll6HlGU9WXUqUWEVPIt6rLZUaURXyBCbum5AkFA3rMu6d
+tWeSnaOBrEj1nJegYiajaTv5kEsA1bZswc3N+5r84xkJN+8L6X4vkEVyWUH8U9T8
+RtcIaAAN8MlAvGtzj+IA6W1Gx94p39TeVJI4C3V3zca6vjypdM9JicVCbhjHw+BP
+zfEfYT8F3KsgvN3JhM4AWwdWLRnzIXK5tWDGlOvYDa5UWGLGj6B+z8y4n95MvEVO
+MVWINWrhv+kfBVZzps2StxCPG6DRkQl7qD8Ar9gP0LTOLxYpMcldZ1prVuz7Uj+t
+0e8amN2PN0oWCM0rpQEC
+=ztLq
+-----END PGP SIGNATURE-----
+
+--nextPart1581044.BhJUx0NJpY--
