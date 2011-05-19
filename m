@@ -1,50 +1,59 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 1/2] forcedeth: make module parameters readable in
- /sys/module
-Date: Wed, 18 May 2011 23:09:18 -0400
-Message-ID: <20110518230918.5c03ba68.billfink@mindspring.com>
-References: <1305753000-14933-1-git-send-email-decot@google.com>
-	<20110518150346.508d6406@nehalam>
+From: John <linux@8192.net>
+Subject: Re: [PATCH] IPv6 transmit hashing for bonding driver
+Date: Wed, 18 May 2011 20:25:14 -0700
+Message-ID: <4DD48D9A.7050404@8192.net>
+References: <4DD30AF2.1090707@8192.net> <26860.1305680256@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Decotigny <decot@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-net-upstream@google.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110518150346.508d6406@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp121.dfw.emailsrvr.com ([67.192.241.121]:50597 "EHLO
+	smtp121.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756414Ab1ESDZN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 23:25:13 -0400
+In-Reply-To: <26860.1305680256@death>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 May 2011, Stephen Hemminger wrote:
+On 5/17/2011 5:57 PM, Jay Vosburgh wrote:
+> 	It would also be useful to include an update bonding.txt to
+> describe the IPv6 algorithm; I'd word that something like the following
+> (filling in the missing bits) for the layer3+4 section, applying similar
+> changes to the layer2+3 section:
+>
 
-> On Wed, 18 May 2011 14:09:59 -0700
-> David Decotigny <decot@google.com> wrote:
-> 
-> > This change allows to publish the values of the module parameters in
-> > /sys/module.
-> 
-> Although this makes more info for developer, it also means more
-> stuff in sysfs taking more memory and not providing any real value
-> that can't be found by looking at the /etc/modprobe.d for any parameters
-> user might have set.
+Thanks for the feedback. This is a good point, I will take care of this too.
 
-As a user, I find having the module parameter info in
-/sys/module/driver/parameters/* extremely useful at times.
-In tracking down weird problems I can for example do:
+>
+> 	Style nit: I don't believe the outermost parentheses are
+> necessary.  Since you do this twice, perhaps make a small inline
+> function to handle it.
+>
 
-	grep . /sys/module/driver/parameters/*
+The outer parenthesis are definitely not required; I will remove those. 
+I did speak with Andy Gospodarek about breaking out all of the hashing 
+methods into separate functions. I'll give that some more thought.
 
-to get a snapshot of module parameters.  I can then compare
-this with other similar systems to see if there are any
-differences of note that might be significant (anything
-from differences due to kernel versions to just forgetting
-some change I made).
+>
+> 	For fragmented datagrams, the above will keep all fragments
+> together, which is good, but are there other header types that should be
+> skipped over to find the UDP/TCP header for hashing purposes?
+>
 
-I don't see that it's really much extra significant overhead
-on the system either.
+This is a good question, and I'm not too sure how to proceed. There are 
+other headers that can sit between the IPv6 header and the upper 
+protocol payload (hop-by-hop, destination options, routing, fragment, 
+AH, ESP, mobility), and the current implementation would handle any of 
+those being present by ignoring the upper protocol data and only hashing 
+on the source and destination IPv6 addresses.
 
-					-Bill
+I was trying to avoid loops but one would be required to process the 
+headers. Additionally there would need to be code (or a table) that 
+knows how to process each header type, and that may require maintenance 
+any time a new header option become popular.
+
+It's definitely do-able, though. Any thoughts?
+
+John
