@@ -1,132 +1,76 @@
-From: Micha Nelissen <micha@neli.hopto.org>
-Subject: [PATCH v4] ipconfig wait for carrier
-Date: Thu, 19 May 2011 22:14:06 +0200
-Message-ID: <1305836046-21136-1-git-send-email-micha@neli.hopto.org>
-References: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
-Cc: Micha Nelissen <micha@neli.hopto.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/4] rps: Inspect GRE encapsulated packets to get flow
+ hash
+Date: Thu, 19 May 2011 22:17:47 +0200
+Message-ID: <1305836267.3156.15.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1105190827420.12804@pokey.mtv.corp.google.com>
+	 <1305821795.3028.82.camel@edumazet-laptop>
+	 <BANLkTinZOEz7Bhc+UgcWkrGb-rtCJ-kFvg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from edu-smtp-02.edutel.nl ([88.159.1.172]:50595 "EHLO
-	edu-smtp-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933727Ab1ESUPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 16:15:12 -0400
-In-Reply-To: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57030 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934077Ab1ESURv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 16:17:51 -0400
+Received: by wya21 with SMTP id 21so2259726wya.19
+        for <netdev@vger.kernel.org>; Thu, 19 May 2011 13:17:50 -0700 (PDT)
+In-Reply-To: <BANLkTinZOEz7Bhc+UgcWkrGb-rtCJ-kFvg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v3 -> v4: fix return boolean false instead of 0 for ic_is_init_dev
+Le jeudi 19 mai 2011 =C3=A0 12:56 -0700, Tom Herbert a =C3=A9crit :
+> Eric,
+>=20
+> Thanks for comments.
+>=20
+> > For sure it helps if this machine is the final host for these packe=
+ts.
+> >
+> I would hope it helps routers too, assuming RPS already helps non
+> encapsulated traffic in a router.
 
-Currently the ip auto configuration has a hardcoded delay of 1 second.
-When (ethernet) link takes longer to come up (e.g. more than 3 seconds),
-nfs root may not be found.
+If conntracking is active, RPS probably helps. (Not tested yet here)
 
-Remove the hardcoded delay, and wait for carrier on at least one network
-device.
+>=20
+> > If I am a firewall or router [and not looking into GRE packets], ma=
+ybe I
+> > dont want to spread all packets received on a tunnel to several cpu=
+s and
+> > reorder them when forwarded.
+> >
+> Do know a specific use case where this patch would be a bad thing?  I
+> don't believe there's any special ooo constraints on the packets in a
+> tunnel, flow ordering should still be maintained.
+>=20
 
-Signed-off-by: Micha Nelissen <micha@neli.hopto.org>
-Cc: David Miller <davem@davemloft.net>
----
- net/ipv4/ipconfig.c |   35 ++++++++++++++++++++++-------------
- 1 files changed, 22 insertions(+), 13 deletions(-)
+I was referring of reordering packets coming and outgoing, this could
+defeat an AQM (the source carefully ordered packets with SFQ or other
+qdisc, and we send them in different order).
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 2b09775..d2e0bf4 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -87,8 +87,8 @@
- #endif
- 
- /* Define the friendly delay before and after opening net devices */
--#define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
--#define CONF_POST_OPEN		1	/* After opening: 1 second */
-+#define CONF_POST_OPEN		10	/* After opening: 10 msecs */
-+#define CONF_CARRIER_TIMEOUT	120000	/* Wait for carrier timeout */
- 
- /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
- #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
-@@ -188,14 +188,14 @@ struct ic_device {
- static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
- static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
- 
--static bool __init ic_device_match(struct net_device *dev)
-+static bool __init ic_is_init_dev(struct net_device *dev)
- {
--	if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
-+	if (dev->flags & IFF_LOOPBACK)
-+		return false;
-+	return user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
- 	    (!(dev->flags & IFF_LOOPBACK) &&
- 	     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
--	     strncmp(dev->name, "dummy", 5)))
--		return true;
--	return false;
-+	     strncmp(dev->name, "dummy", 5));
- }
- 
- static int __init ic_open_devs(void)
-@@ -203,6 +203,7 @@ static int __init ic_open_devs(void)
- 	struct ic_device *d, **last;
- 	struct net_device *dev;
- 	unsigned short oflags;
-+	unsigned long start;
- 
- 	last = &ic_first_dev;
- 	rtnl_lock();
-@@ -216,9 +217,7 @@ static int __init ic_open_devs(void)
- 	}
- 
- 	for_each_netdev(&init_net, dev) {
--		if (dev->flags & IFF_LOOPBACK)
--			continue;
--		if (ic_device_match(dev)) {
-+		if (ic_is_init_dev(dev)) {
- 			int able = 0;
- 			if (dev->mtu >= 364)
- 				able |= IC_BOOTP;
-@@ -252,6 +251,17 @@ static int __init ic_open_devs(void)
- 				dev->name, able, d->xid));
- 		}
- 	}
-+
-+	/* wait for a carrier on at least one device */
-+	start = jiffies;
-+	while (jiffies - start < msecs_to_jiffies(CONF_CARRIER_TIMEOUT)) {
-+		for_each_netdev(&init_net, dev)
-+			if (ic_is_init_dev(dev) && netif_carrier_ok(dev))
-+				goto have_carrier;
-+
-+		msleep(1);
-+	}
-+have_carrier:
- 	rtnl_unlock();
- 
- 	*last = NULL;
-@@ -1324,14 +1334,13 @@ static int __init wait_for_devices(void)
- {
- 	int i;
- 
--	msleep(CONF_PRE_OPEN);
- 	for (i = 0; i < DEVICE_WAIT_MAX; i++) {
- 		struct net_device *dev;
- 		int found = 0;
- 
- 		rtnl_lock();
- 		for_each_netdev(&init_net, dev) {
--			if (ic_device_match(dev)) {
-+			if (ic_is_init_dev(dev)) {
- 				found = 1;
- 				break;
- 			}
-@@ -1378,7 +1387,7 @@ static int __init ip_auto_config(void)
- 		return err;
- 
- 	/* Give drivers a chance to settle */
--	ssleep(CONF_POST_OPEN);
-+	msleep(CONF_POST_OPEN);
- 
- 	/*
- 	 * If the config information is insufficient (e.g., our IP address or
--- 
-1.7.4.4
+You and David thought I was speaking of possible OOO for packets of a
+given flow. I'm pretty confident you did this right :)
+
+> > 3) table could contains 'pointers' to decoding function, that would
+> > recompute a new rxhash function.
+> >
+> This could be done as a function in the protocol switch table, so tha=
+t
+> all the protocol specific code could be moved out of dev.c.  I though=
+t
+> about that several times but haven't convinced myself it's worth it;
+> even with the code to handle tunneling the get_hash function is still
+> pretty elegant (I believe ipip support is just two more lines by the
+> way).
+
+Yes, anyway this can be done later.
+
+I find a bit annoying that such changes are pushed right before merge
+window when we have litle time, thats all.
+
+Thanks
+
 
