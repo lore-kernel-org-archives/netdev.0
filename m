@@ -1,34 +1,41 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC 2/3] RDMA/cma: Add support for netlink statistics export
-Date: Thu, 19 May 2011 11:49:27 -0700
-Message-ID: <BANLkTimahta6QYrjTE5+DmN6RZXY_c72=Q@mail.gmail.com>
-References: <1305303525-11113-1-git-send-email-roland@kernel.org>
- <1305303525-11113-3-git-send-email-roland@kernel.org> <1828884A29C6694DAF28B7E6B8A82373F428@ORSMSX101.amr.corp.intel.com>
- <BANLkTin1uVyrzdn_030bGmC=QHtfkvOTNA@mail.gmail.com> <1828884A29C6694DAF28B7E6B8A82373FF9E@ORSMSX101.amr.corp.intel.com>
+From: Micha Nelissen <micha@neli.hopto.org>
+Subject: Re: [PATCH v3] ipconfig wait for carrier
+Date: Thu, 19 May 2011 20:52:49 +0200
+Message-ID: <4DD56701.8040007@neli.hopto.org>
+References: <4DD36803.1020001@neli.hopto.org>	 <20110518.023725.441358922110721042.davem@davemloft.net>	 <4DD36E54.9040706@neli.hopto.org>	 <20110518.181427.1228926976939865196.davem@davemloft.net> <1305819120.3271.3.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373FF9E-P5GAC/sN6hmkrb+BlOpmy7fspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from edu-smtp-02.edutel.nl ([88.159.1.172]:20421 "EHLO
+	edu-smtp-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933792Ab1ESSxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 14:53:24 -0400
+In-Reply-To: <1305819120.3271.3.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 19, 2011 at 11:35 AM, Hefty, Sean <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wr=
-ote:
-> One of the patches in the af_ib patch set adds the qp_type to struct =
-rdma_cm_id. =A0I'm guessing that patch will also be needed for xrc.
+Dan Williams wrote:
+> On Wed, 2011-05-18 at 18:14 -0400, David Miller wrote:
+>> Please fix ic_is_init_dev() to return a proper boolean "false" instead
+>> of "0" when IFF_LOOPBACK is set.
 
-Would it make sense to pull that patch at least in?
+Ok. Had an int before, but boolean is better.
 
-Sorry I haven't had time to really think about AF_IB in general but
-maybe I can at least merge the netlink stuff this cycle?
+> Shouldn't the code still wait at *least* one second?  Not all drivers
+> support carrier detect, and those that don't set the carrier always-on.
+> Thus older devices that used to have 1s to get carrier in line (even if
+> they don't report it) now have only 10ms.
+> 
+> I think it should wait at least one second like the code currently does,
+> and then if the carrier still isn't up, wait longer.
 
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What is the 1 second based on?
+
+If a driver does not support carrier detect, then this code will wait
+for the timeout period. Or do those older drivers set carrier detect
+immediately when device is probed?
+
+Micha
