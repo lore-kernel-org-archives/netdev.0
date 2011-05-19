@@ -1,96 +1,60 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonc?=  =?UTF-8?Q?e=20/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20na?=  =?UTF-8?Q?t=20=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
-Date: Thu, 19 May 2011 09:11:00 +0300
-Message-ID: <626ba8ae63cfc8fdb68c7f281463dc27@visp.net.lb>
-References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
- <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
- <1305711471.2983.27.camel@edumazet-laptop>
- <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
- <1305713111.2991.1.camel@edumazet-laptop>
- <1305719047.2991.4.camel@edumazet-laptop>
- <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
- <1305733944.2991.45.camel@edumazet-laptop>
- <1305746989.3019.0.camel@edumazet-laptop>
- <1305782397.3019.5.camel@edumazet-laptop>
+From: tsuna <tsunanet@gmail.com>
+Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC 2988bis-02.
+Date: Wed, 18 May 2011 23:25:58 -0700
+Message-ID: <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com>
+References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
+ <20110518.223622.1525088601595365235.davem@davemloft.net> <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
+ <20110519.001426.2119532755281545481.davem@davemloft.net> <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
+ <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rev-153-13.globalproof.net ([194.146.153.13]:45759 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932267Ab1ESGLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:11:03 -0400
-In-Reply-To: <1305782397.3019.5.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, hagen@jauu.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- On Thu, 19 May 2011 07:19:57 +0200, Eric Dumazet wrote:
-> Le mercredi 18 mai 2011 =C3=A0 21:29 +0200, Eric Dumazet a =C3=A9crit=
- :
->> Le mercredi 18 mai 2011 =C3=A0 17:52 +0200, Eric Dumazet a =C3=A9cri=
-t :
->>
->> > Hmm, it seems we have some inetpeer refcount leak somewhere.
->> >
->> > Maybe one (struct rtable)->peer is not released on dst/rtable=20
->> removal,
->> > or we also leak dst/rtable (and their ->peer inetpeer)
->> >
->> > Watch :
->> >
->> > grep peer /proc/slabinfo
->> > grep dst /proc/slabinfo
->> >
->>
->> FYI, I started a bisection to find the faulty commit.
->>
+On Wed, May 18, 2011 at 11:10 PM, Alexander Zimmermann
+<alexander.zimmermann@comsys.rwth-aachen.de> wrote:
+> Am 19.05.2011 um 06:33 schrieb tsuna:
+>> Presumably if the user decides to tweak these knobs, they'll know
+>> what's appropriate for their environment.
 >
-> Oh well, of course this came to 2c8cec5c10bced240
-> (ipv4: Cache learned PMTU information in inetpeer.)
->
-> So my method to check if we have a leak might be wrong, since the=20
-> above
-> commit let cache full of garbage, and hope that following lookups=20
-> will
-> find and evict obsolete dst.
->
-> Thats getting difficult :(
->
-> Could you please send us
->
-> grep . /proc/sys/net/ipv4/route/*
->
-> Thanks !
- NewNet-PPPoE ~ # grep . /proc/sys/net/ipv4/route/*
- /proc/sys/net/ipv4/route/error_burst:5000
- /proc/sys/net/ipv4/route/error_cost:1000
- grep: /proc/sys/net/ipv4/route/flush: Permission denied
- /proc/sys/net/ipv4/route/gc_elasticity:8
- /proc/sys/net/ipv4/route/gc_interval:60
- /proc/sys/net/ipv4/route/gc_min_interval:0
- /proc/sys/net/ipv4/route/gc_min_interval_ms:500
- /proc/sys/net/ipv4/route/gc_thresh:32768
- /proc/sys/net/ipv4/route/gc_timeout:300
- /proc/sys/net/ipv4/route/max_size:524288
- /proc/sys/net/ipv4/route/min_adv_mss:256
- /proc/sys/net/ipv4/route/min_pmtu:552
- /proc/sys/net/ipv4/route/mtu_expires:600
- /proc/sys/net/ipv4/route/redirect_load:20
- /proc/sys/net/ipv4/route/redirect_number:9
- /proc/sys/net/ipv4/route/redirect_silence:20480
+> Are you sure? I'm not. I fully agree with David that minRTO is
 
- I think it is default one.
+s/minRTO/initRTO/, right?
 
- PMTU is very actual for that, as it is pppoe, and up to 2k interfaces=20
- terminated there.
+> something that a user shout not control at all
 
- I don't know, if it matters, but
- iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS=20
- --clamp-mss-to-pmtu
- also there.
+I personally don't like to hold the hand and spoon feed users too
+much, I want to trust them to be responsible and know what they're
+doing.  Yes, there will always be people who will act stupid and do
+stupid things with whatever knobs you expose.  The web is full of
+people who advise to tune up all the TCP rmem/wmem parameters to crazy
+high level based on the voodoo belief that they're going to improve
+their TCP performance, but then as long as you have knobs in your
+system, these people will misuse them anyway and shoot themselves in
+the foot, what can we do about that.
 
- I can generate and put "ip route ls cache" and any other info.
+There's also a good chunk of people who know what they're doing, and
+for them compile-time constants are annoying because it's inconvenient
+to experiment and iterate quickly when you need to recompile your
+kernel to change a value.  If turning the compile time constant into a
+knob leaves the code reasonably straightforward and doesn't incur too
+much overhead, then why not do it?
 
+Regarding this knob in particular, I can imagine that people who are
+in environment where RTT easily gets around 1s will be upset by the
+change in the default value, and doubly upset that they have to
+recompile their kernel to change the value back to 3s.  I'm in favor
+of the reduction of initRTO, for the same reason Google is, but I can
+also understand that the direction we're taking might not be
+appropriate for everyone.
+
+-- 
+Benoit "tsuna" Sigoure
+Software Engineer @ www.StumbleUpon.com
