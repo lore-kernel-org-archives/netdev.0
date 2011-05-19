@@ -1,74 +1,65 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next-2.6] netpoll: disable netpoll when enslave a
- device
-Date: Thu, 19 May 2011 13:13:29 +0800
-Message-ID: <4DD4A6F9.4010002@redhat.com>
-References: <1305712845-11762-1-git-send-email-amwang@redhat.com> <20110518105558.GA3203@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug, kernel panic, NULL dereference , cleanup_once /
+ icmp_route_lookup.clone.19.clone / nat , 2.6.39-rc7-git11
+Date: Thu, 19 May 2011 07:19:57 +0200
+Message-ID: <1305782397.3019.5.camel@edumazet-laptop>
+References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
+	 <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
+	 <1305711471.2983.27.camel@edumazet-laptop>
+	 <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
+	 <1305713111.2991.1.camel@edumazet-laptop>
+	 <1305719047.2991.4.camel@edumazet-laptop>
+	 <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
+	 <1305733944.2991.45.camel@edumazet-laptop>
+	 <1305746989.3019.0.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Neil Horman <nhorman@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Ferenc Wagner <wferi@niif.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110518105558.GA3203@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58588 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752044Ab1ESFUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 01:20:03 -0400
+Received: by wya21 with SMTP id 21so1692531wya.19
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 22:20:02 -0700 (PDT)
+In-Reply-To: <1305746989.3019.0.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2011=E5=B9=B405=E6=9C=8818=E6=97=A5 18:56, Neil Horman =E5=86=
-=99=E9=81=93:
-> On Wed, May 18, 2011 at 06:00:35PM +0800, Amerigo Wang wrote:
-=2E..
->> -			case NETDEV_GOING_DOWN:
->>   			case NETDEV_BONDING_DESLAVE:
->> +			case NETDEV_ENSLAVE:
->>   				nt->enabled =3D 0;
->>   				stopped =3D true;
->>   				break;
-> This wasn't introduced by this patch, but looking at it made me reali=
-ze that
-> nt->enabled, if it passes through this code path, doesn't properly tr=
-ack weather
-> or not netpoll_setup has been called on this interface.  If you look =
-at
-> drop_netconsole_target, you'll see we only call netpoll_cleanup_targe=
-t if
-> nt->enabled is set.  We should probably change the nt->enabled check =
-there, and
-> in store_enabled to be if (nt->np.dev), like we do in the NETDEV_UNRE=
-GISTER case
-> in netconsole_netdev_event.
+Le mercredi 18 mai 2011 =C3=A0 21:29 +0200, Eric Dumazet a =C3=A9crit :
+> Le mercredi 18 mai 2011 =C3=A0 17:52 +0200, Eric Dumazet a =C3=A9crit=
+ :
+>=20
+> > Hmm, it seems we have some inetpeer refcount leak somewhere.
+> >=20
+> > Maybe one (struct rtable)->peer is not released on dst/rtable remov=
+al,
+> > or we also leak dst/rtable (and their ->peer inetpeer)
+> >=20
+> > Watch :
+> >=20
+> > grep peer /proc/slabinfo
+> > grep dst /proc/slabinfo
+> >=20
+>=20
+> FYI, I started a bisection to find the faulty commit.
+>=20
 
-Yeah, also note that we can change ->enabled via configfs too.
-I guess we probably need to fix this in another patch...
+Oh well, of course this came to 2c8cec5c10bced240
+(ipv4: Cache learned PMTU information in inetpeer.)
+
+So my method to check if we have a leak might be wrong, since the above
+commit let cache full of garbage, and hope that following lookups will
+find and evict obsolete dst.
+
+Thats getting difficult :(
+
+Could you please send us
+
+grep . /proc/sys/net/ipv4/route/*
+
+Thanks !
 
 
->> +#define NETDEV_ENSLAVE		0x0014
->>
-> Nit:
-> Shouldn't this be NETDEV_BONDING_ENSLAVE, to keep it in line with
-> NETDEV_BONDING_DESLAVE above?
-
-Actually that is my first thought, but I plan to use this in bridge
-case too, because using netconsole on a device underlying a bridge
-makes little sense too. Thus, I prefer NETDEV_ENSLAVE to
-NETDEV_BONDING_ENSLAVE.
-
->
->>   #define SYS_DOWN	0x0001	/* Notify of system down */
->>   #define SYS_RESTART	SYS_DOWN
->>
->
->
-> Other than those two points, this looks good to me
-
-Thanks for review.
