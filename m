@@ -1,53 +1,74 @@
-From: tsuna <tsunanet@gmail.com>
-Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC 2988bis-02.
-Date: Wed, 18 May 2011 21:33:21 -0700
-Message-ID: <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
-References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
- <20110518.223622.1525088601595365235.davem@davemloft.net> <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
- <20110519.001426.2119532755281545481.davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next-2.6] netpoll: disable netpoll when enslave a
+ device
+Date: Thu, 19 May 2011 13:13:29 +0800
+Message-ID: <4DD4A6F9.4010002@redhat.com>
+References: <1305712845-11762-1-git-send-email-amwang@redhat.com> <20110518105558.GA3203@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, hagen@jauu.net,
-	eric.dumazet@gmail.com, alexander.zimmermann@comsys.rwth-aachen.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, Neil Horman <nhorman@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Ferenc Wagner <wferi@niif.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110519.001426.2119532755281545481.davem@davemloft.net>
+In-Reply-To: <20110518105558.GA3203@hmsreliant.think-freely.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2011 at 9:14 PM, David Miller <davem@davemloft.net> wrote:
-> The IETF draft has a requirement that we fallback to 3 seconds if the
-> initial RTO is 1 second.
+=E4=BA=8E 2011=E5=B9=B405=E6=9C=8818=E6=97=A5 18:56, Neil Horman =E5=86=
+=99=E9=81=93:
+> On Wed, May 18, 2011 at 06:00:35PM +0800, Amerigo Wang wrote:
+=2E..
+>> -			case NETDEV_GOING_DOWN:
+>>   			case NETDEV_BONDING_DESLAVE:
+>> +			case NETDEV_ENSLAVE:
+>>   				nt->enabled =3D 0;
+>>   				stopped =3D true;
+>>   				break;
+> This wasn't introduced by this patch, but looking at it made me reali=
+ze that
+> nt->enabled, if it passes through this code path, doesn't properly tr=
+ack weather
+> or not netpoll_setup has been called on this interface.  If you look =
+at
+> drop_netconsole_target, you'll see we only call netpoll_cleanup_targe=
+t if
+> nt->enabled is set.  We should probably change the nt->enabled check =
+there, and
+> in store_enabled to be if (nt->np.dev), like we do in the NETDEV_UNRE=
+GISTER case
+> in netconsole_netdev_event.
+
+Yeah, also note that we can change ->enabled via configfs too.
+I guess we probably need to fix this in another patch...
+
+
+>> +#define NETDEV_ENSLAVE		0x0014
+>>
+> Nit:
+> Shouldn't this be NETDEV_BONDING_ENSLAVE, to keep it in line with
+> NETDEV_BONDING_DESLAVE above?
+
+Actually that is my first thought, but I plan to use this in bridge
+case too, because using netconsole on a device underlying a bridge
+makes little sense too. Thus, I prefer NETDEV_ENSLAVE to
+NETDEV_BONDING_ENSLAVE.
+
 >
-> Nothing in your facilities ensure this, or provide a way for the
-> kernel to make sure this is the case.
-
-Not sure to understand what you're saying.  If tcp_initial_rto = 1000
-and tcp_initial_fallback_rto = 3000, then you get exactly the behavior
-the draft describes.  The knobs simply allow you to either revert to
-today's behavior or use other settings that would make more sense in
-your environment (e.g. very high RTT).  Are you concerned about cases
-where, say, tcp_initial_fallback_rto < tcp_initial_rto?
-
-> And for other values of initial RTO, what fallback is appropriate?
-
-Presumably if the user decides to tweak these knobs, they'll know
-what's appropriate for their environment.  Or are you suggesting that
-one value be derived from the other?  (e.g. tcp_initial_fallback_rto =
-3 * tcp_initial_rto)
-
-> As a result of all of this, I do not really think this is something
-> the user should control at all.
+>>   #define SYS_DOWN	0x0001	/* Notify of system down */
+>>   #define SYS_RESTART	SYS_DOWN
+>>
 >
-> I really would rather see the initial RTO be static and be set to 1
-> with fallback RTO of 3.
+>
+> Other than those two points, this looks good to me
 
-I can also provide a simple patch for this if you want to start from
-there.  And then maybe we can discuss having a runtime knob some more
-:-)
-
--- 
-Benoit "tsuna" Sigoure
-Software Engineer @ www.StumbleUpon.com
+Thanks for review.
