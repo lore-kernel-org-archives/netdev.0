@@ -1,93 +1,47 @@
-From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC
- 2988bis-02.
-Date: Thu, 19 May 2011 08:52:10 +0200
-Message-ID: <8C5DF277-320D-4DEB-A133-EEC301DE58DC@comsys.rwth-aachen.de>
-References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
- <20110518.223622.1525088601595365235.davem@davemloft.net>
- <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
- <20110519.001426.2119532755281545481.davem@davemloft.net>
- <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
- <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
- <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com>
- <C70B920C-6176-481B-B6D2-E52769291EBC@comsys.rwth-aachen.de>
- <BANLkTiku9KTHCm59cib5KY8mz0ewSLsHFQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.39-rc7-git11, x86/32, failed on ppp2897'th interface,
+ PERCPU:  allocation failed
+Date: Thu, 19 May 2011 08:55:13 +0200
+Message-ID: <1305788113.3019.19.camel@edumazet-laptop>
+References: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
+	 <1305787158.3019.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg=pgp-sha1; boundary=Apple-Mail-35-1063216526
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, hagen@jauu.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tsuna <tsunanet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <BANLkTiku9KTHCm59cib5KY8mz0ewSLsHFQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57804 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932586Ab1ESGzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:55:18 -0400
+Received: by wwa36 with SMTP id 36so2530519wwa.1
+        for <netdev@vger.kernel.org>; Wed, 18 May 2011 23:55:17 -0700 (PDT)
+In-Reply-To: <1305787158.3019.12.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---Apple-Mail-35-1063216526
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=us-ascii
+Le jeudi 19 mai 2011 =C3=A0 08:39 +0200, Eric Dumazet a =C3=A9crit :
 
+> Its a known problem : When ipv6 is enabled, we allocate percpu memory=
+ to
+> hold per device snmp counters.
+>=20
+> make sure kernel idea of max possible cpus matches real number of cpu=
+s.
+>=20
+> And yes, switching to 64bit kernel helps a lot.
+>=20
+>=20
 
-Am 19.05.2011 um 08:42 schrieb tsuna:
+Looking at snmp6_alloc_dev(), we allocate three mib per device :
 
-> On Wed, May 18, 2011 at 11:36 PM, Alexander Zimmermann
-> <alexander.zimmermann@comsys.rwth-aachen.de> wrote:
->> If you set the initRTO=0.1s, it's good for me but bad for the rest of the
->> world. That's the difference.
->> 
->> Or do you want to implement a lower barrier of 1sec so that you can ensure
->> that nobody set the initRTO lower than 1s?
-> 
-> Oh, I see.  Yes, there is a lower bound (and an upper bound) on what
-> values the kernel will accept as initRTO.  In the patch "Implement a
-> two-level initial RTO as per draft RFC 2988bis-02" above, I re-used
-> TCP_RTO_MIN and TCP_RTO_MAX in net/ipv4/sysctl_net_ipv4.c in order to
-> prevent users from setting a minRTO that's outside this range.  They
-> are defined as follows in tcp.h:
-> 
-> #define TCP_RTO_MAX     ((unsigned)(120*HZ))
-> #define TCP_RTO_MIN     ((unsigned)(HZ/5))
-> 
-> So we're talking about a [200ms ; 120s] range no matter what.
+ipstats_mib  (30 * sizeof(u64) * number_of_possible_cpus)
+icmpv6_mib    (4 * sizeof(long) * number_of_possible_cpus)
+icmpv6msg_mib  (26 * sizeof(long))
 
-Why is 200ms a valid lower bound for initRTO? I'm aware of
-measurements that 1s is save for Internet, but I don't know of any
-studies that 200ms is save... 
-
-> 
-> -- 
-> Benoit "tsuna" Sigoure
-> Software Engineer @ www.StumbleUpon.com
-
-//
-// Dipl.-Inform. Alexander Zimmermann
-// Department of Computer Science, Informatik 4
-// RWTH Aachen University
-// Ahornstr. 55, 52056 Aachen, Germany
-// phone: (49-241) 80-21422, fax: (49-241) 80-22222
-// email: zimmermann@cs.rwth-aachen.de
-// web: http://www.umic-mesh.net
-//
+=46or sure icmp ones dont need percpu counter. Plain atomic_long_t
+(shared) would be enough, since ICMP messages are rare enough.
 
 
---Apple-Mail-35-1063216526
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: Signierter Teil der Nachricht
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.17 (Darwin)
-Comment: GPGTools - http://gpgtools.org
-
-iEYEARECAAYFAk3UvhsACgkQdyiq39b9uS47LQCeOTN8hzVZCY1fUd5Uj6h/PPZJ
-mQcAoOyDKx6mSIrxGO5SZ+z72zAMVPlP
-=G2Qm
------END PGP SIGNATURE-----
-
---Apple-Mail-35-1063216526--
