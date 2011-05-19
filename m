@@ -1,70 +1,98 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: ip_vs_ftp causing ip_vs oops on module load.
-Date: Thu, 19 May 2011 09:33:55 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1105190930480.1993@ja.ssi.bg>
-References: <20110518201915.GB20475@redhat.com> <20110519011045.GF16688@verge.net.au> <20110519032611.GG16688@verge.net.au>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: 2.6.39-rc7-git11, x86/32, failed on ppp2897'th interface, PERCPU:  allocation failed
+Date: Thu, 19 May 2011 09:35:29 +0300
+Message-ID: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	Wensong Zhang <wensong@linuxvirtualserver.org>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:34595 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754708Ab1ESGcV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 02:32:21 -0400
-In-Reply-To: <20110519032611.GG16688@verge.net.au>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:57498 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754708Ab1ESGfc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:35:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ Hi, again
 
-	Hello,
+ Just tried to upgrade large NAS from 2.6.38.6 to 2.6.39-rc7-git11, and 
+ at same time enabling ipv6 on it.
+ Got that, after ppp2897 brought up (sure it means there is other 2896 
+ available, and also few ethernet vlans, around 32).
+ I am not sure it is a bug, but it looks i had free memory(the box had 
+ 8GB free), and lowmem too, also i will try to enable there 64bit kernel 
+ at evening.
 
-On Thu, 19 May 2011, Simon Horman wrote:
-
-> > >  Call Trace:
-> > >   [<ffffffff8107be36>] raw_notifier_chain_register+0xe/0x10
-> > >   [<ffffffff81403058>] register_netdevice_notifier+0x2d/0x1b6
-> > >   [<ffffffffa0432106>] ? ip_vs_conn_init+0x106/0x106 [ip_vs]
-> > >   [<ffffffffa04322c7>] ip_vs_control_init+0xa5/0xce [ip_vs]
-> > >   [<ffffffffa0432106>] ? ip_vs_conn_init+0x106/0x106 [ip_vs]
-> > >   [<ffffffffa0432116>] ip_vs_init+0x10/0x11c [ip_vs]
-> > >   [<ffffffff81002099>] do_one_initcall+0x7f/0x13a
-> > >   [<ffffffff81096524>] sys_init_module+0x132/0x281
-> > >   [<ffffffff814cc702>] system_call_fastpath+0x16/0x1b
-> > >  Code: 07 ff c8 89 43 48 eb 08 48 89 df e8 dc 95 44 00 4c 89 e6 48 89 df e8 a7 a5 44 00 5b 41 5c 5d c3 55 48 89 e5 66 66 66 66 90 eb 0c <8b> 50 10 39 56 10 7f 0c 48 8d 78 08 48 8b 07 48 85 c0 75 ec 48 
-> > >  RIP  [<ffffffff8107bddb>] notifier_chain_register+0xb/0x2a
-> > >   RSP <ffff880114139e68>
-> > >  ---[ end trace e90d7053ad1a7a5b ]---
-> > > 
-> > > 
-> > > This script replicates the bug.
-> > > (it usually oopses after just a few loops)
-> > > 
-> > > #!/bin/sh
-> > > while [ 1 ];
-> > > do
-> > > 	modprobe ip_vs_ftp
-> > > 	modprobe -r ip_vs_ftp
-> > > done
-> > > 
-> > > Looks like something isn't getting cleaned up on module exit
-> > > that we fall over when we encounter it next time it gets loaded ?
-> > 
-> > Thanks Dave, I will look into this.
-> 
-> Hi Dave,
-> 
-> I'm not having much luck reproducing this in KVM.
-> I will try this evening on real hardware.
-> 
-> Just to make sure we are testing the same thing, are you using Linus's tree?
-
-	One unregister_netdevice_notifier(&ip_vs_dst_notifier);
-is missing in ip_vs_control_cleanup for sure.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+ May 17 16:00:42 194.146.155.70 kernel: [14925.897799] PERCPU: 
+ allocation failed, size=2048 align=4, failed to allocate new chunk
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898163] Pid: 24207, comm: 
+ pppd Not tainted 2.6.39-rc7-git11-build-0058 #4
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898164] Call Trace:
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898169]  [<c0335548>] ? 
+ printk+0x18/0x20
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898173]  [<c017ecd0>] 
+ pcpu_alloc+0x616/0x67a
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898176]  [<c0194a80>] ? 
+ __kmalloc_track_caller+0x68/0xc0
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898189]  [<f8ae196c>] ? 
+ kzalloc+0xb/0xd [ipv6]
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898193]  [<c01320a5>] ? 
+ _local_bh_enable_ip.clone.6+0x18/0x71
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898195]  [<c017ed3e>] 
+ __alloc_percpu+0xa/0xc
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898198]  [<c030aa7d>] 
+ snmp_mib_init+0x2f/0x51
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898207]  [<f8ae2ad0>] 
+ ipv6_add_dev+0x133/0x2a3 [ipv6]
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898209]  [<c030e12d>] ? 
+ ip_mc_init_dev+0x75/0x86
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898211]  [<c0309321>] ? 
+ devinet_sysctl_register+0x34/0x38
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898221]  [<f8ae5754>] 
+ addrconf_notify+0x50/0x6a5 [ipv6]
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898224]  [<c0218f52>] ? 
+ add_uevent_var+0xa3/0xa3
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898226]  [<c0309901>] ? 
+ inetdev_event+0x55/0x3c0
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898230]  [<c01446f9>] 
+ notifier_call_chain+0x26/0x48
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898232]  [<c01447a7>] 
+ raw_notifier_call_chain+0x1a/0x1c
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898236]  [<c02c8115>] 
+ call_netdevice_notifiers+0x44/0x4b
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898238]  [<c01320a5>] ? 
+ _local_bh_enable_ip.clone.6+0x18/0x71
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898240]  [<c0132106>] ? 
+ local_bh_enable_ip+0x8/0xa
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898242]  [<c02ca19b>] 
+ register_netdevice+0x1fb/0x255
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898244]  [<c02ca227>] 
+ register_netdev+0x32/0x41
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898247]  [<c021d5cf>] ? 
+ sprintf+0x1c/0x1e
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898249]  [<c029647a>] 
+ ppp_ioctl+0x224/0xaea
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898252]  [<c01a35cc>] ? 
+ do_filp_open+0x26/0x67
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898254]  [<c0296256>] ? 
+ ppp_write+0x98/0x98
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898256]  [<c01a53ce>] 
+ do_vfs_ioctl+0x45e/0x498
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898258]  [<c01a118e>] ? 
+ getname_flags+0x1e/0xad
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898260]  [<c019391b>] ? 
+ kmem_cache_free+0x14/0x83
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898262]  [<c01ab5bb>] ? 
+ alloc_fd+0x4e/0xba
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898265]  [<c0199465>] ? 
+ do_sys_open+0xdb/0xe5
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898266]  [<c019ac7b>] ? 
+ fput+0x13/0x155
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898268]  [<c01a4387>] ? 
+ do_fcntl+0x227/0x3aa
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898270]  [<c01a543b>] 
+ sys_ioctl+0x33/0x4c
+ May 17 16:00:42 194.146.155.70 kernel: [14925.898273]  [<c0336edd>] 
+ syscall_call+0x7/0xb
