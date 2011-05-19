@@ -1,46 +1,35 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH net-next-2.6] macvlan: Forward unicast frames in bridge mode to lowerdev
-Date: Thu, 19 May 2011 08:53:20 -0400
-Message-ID: <1305809600-1371-1-git-send-email-david.ward@ll.mit.edu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Patch] bridge: call NETDEV_ENSLAVE notifiers when adding a
+ slave
+Date: Thu, 19 May 2011 08:12:13 -0700
+Message-ID: <20110519081213.15c05da2@nehalam>
+References: <1305794393-20775-1-git-send-email-amwang@redhat.com>
+	<1305800661-4081-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ward <david.ward@ll.mit.edu>,
-	Patrick McHardy <kaber@trash.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:54978 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757138Ab1ESOnH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 10:43:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	Neil Horman <nhorman@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Amerigo Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305800661-4081-1-git-send-email-amwang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Unicast frames between macvlan interfaces in bridge mode are not otherwise
-sent to network taps on the lowerdev (as all other macvlan frames are), so
-forward the frames to the receive queue of the lowerdev first.
+On Thu, 19 May 2011 18:24:17 +0800
+Amerigo Wang <amwang@redhat.com> wrote:
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- drivers/net/macvlan.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+> In the previous patch I added NETDEV_ENSLAVE, now
+> we can notify netconsole when adding a device to a bridge too.
+> 
+> By the way, s/netdev_bonding_change/call_netdevice_notifiers/ in
+> bond_main.c, since this is not bonding specific.
+> 
+> Signed-off-by: WANG Cong <amwang@redhat.com>
+> Cc: Neil Horman <nhorman@redhat.com>
+> 
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index d7c0bc62..e7de3b3 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -237,10 +237,8 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 		dest = macvlan_hash_lookup(port, eth->h_dest);
- 		if (dest && dest->mode == MACVLAN_MODE_BRIDGE) {
--			unsigned int length = skb->len + ETH_HLEN;
--			int ret = dest->forward(dest->dev, skb);
--			macvlan_count_rx(dest, length,
--					 ret == NET_RX_SUCCESS, 0);
-+			/* send to lowerdev first for its network taps */
-+			vlan->forward(vlan->lowerdev, skb);
- 
- 			return NET_XMIT_SUCCESS;
- 		}
--- 
-1.7.4.4
-
+Is there a usage for this? What listens for this notification?
