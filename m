@@ -1,117 +1,108 @@
-From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC
- 2988bis-02.
-Date: Thu, 19 May 2011 08:36:09 +0200
-Message-ID: <C70B920C-6176-481B-B6D2-E52769291EBC@comsys.rwth-aachen.de>
-References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
- <20110518.223622.1525088601595365235.davem@davemloft.net>
- <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
- <20110519.001426.2119532755281545481.davem@davemloft.net>
- <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
- <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
- <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg=pgp-sha1; boundary=Apple-Mail-34-1062255599
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, hagen@jauu.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tsuna <tsunanet@gmail.com>
+From: Benoit Sigoure <tsunanet@gmail.com>
+Subject: [PATCH] tcp: Lower the initial RTO to 1s as per draft RFC 2988bis-02.
+Date: Wed, 18 May 2011 23:36:16 -0700
+Message-ID: <1305786976-84532-1-git-send-email-tsunanet@gmail.com>
+References: <20110519.014656.1735519603194773578.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Benoit Sigoure <tsuna@stumbleupon.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	hagen@jauu.net, eric.dumazet@gmail.com,
+	alexander.zimmermann
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com>
+In-Reply-To: <20110519.014656.1735519603194773578.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---Apple-Mail-34-1062255599
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=us-ascii
+From: Benoit Sigoure <tsuna@stumbleupon.com>
+
+Draft RFC 2988bis-02 recommends that the initial RTO be lowered
+from 3 seconds down to 1 second, and that in case of a timeout
+during the TCP 3WHS, the RTO should fallback to 3 seconds when
+data transmission begins.
+---
+
+On Wed, May 18, 2011 at 10:46 PM, David Miller <davem@davemloft.net> wrote:
+> From: tsuna <tsunanet@gmail.com>
+> Date: Wed, 18 May 2011 21:33:21 -0700
+>
+>> On Wed, May 18, 2011 at 9:14 PM, David Miller <davem@davemloft.net> wrote:
+>>> I really would rather see the initial RTO be static and be set to 1
+>>> with fallback RTO of 3.
+>>
+>> I can also provide a simple patch for this if you want to start from
+>> there.  And then maybe we can discuss having a runtime knob some more
+>> :-)
+>
+> Yeah why don't we do that :-)
+
+Alright, here we go.
 
 
-Am 19.05.2011 um 08:25 schrieb tsuna:
+ include/net/tcp.h    |    5 ++++-
+ net/ipv4/tcp_input.c |   13 +++++++++----
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
-> On Wed, May 18, 2011 at 11:10 PM, Alexander Zimmermann
-> <alexander.zimmermann@comsys.rwth-aachen.de> wrote:
->> Am 19.05.2011 um 06:33 schrieb tsuna:
->>> Presumably if the user decides to tweak these knobs, they'll know
->>> what's appropriate for their environment.
->> 
->> Are you sure? I'm not. I fully agree with David that minRTO is
-> 
-> s/minRTO/initRTO/, right?
-
-Yes of course :-)
-
-> 
->> something that a user shout not control at all
-> 
-> I personally don't like to hold the hand and spoon feed users too
-> much, I want to trust them to be responsible and know what they're
-> doing.  Yes, there will always be people who will act stupid and do
-> stupid things with whatever knobs you expose.  The web is full of
-> people who advise to tune up all the TCP rmem/wmem parameters to crazy
-> high level based on the voodoo belief that they're going to improve
-> their TCP performance, but then as long as you have knobs in your
-> system, these people will misuse them anyway and shoot themselves in
-> the foot, what can we do about that.
-
-But if you tune rmen/wmen to crazy level, it's only your TCP performance
-that hurts (and maybe the receiver's one).
-
-If you set the initRTO=0.1s, it's good for me but bad for the rest of the
-world. That's the difference.
-
-Or do you want to implement a lower barrier of 1sec so that you can ensure
-that nobody set the initRTO lower than 1s? 
-
-
-> 
-> There's also a good chunk of people who know what they're doing, and
-> for them compile-time constants are annoying because it's inconvenient
-> to experiment and iterate quickly when you need to recompile your
-> kernel to change a value.  If turning the compile time constant into a
-> knob leaves the code reasonably straightforward and doesn't incur too
-> much overhead, then why not do it?
-> 
-> Regarding this knob in particular, I can imagine that people who are
-> in environment where RTT easily gets around 1s will be upset by the
-> change in the default value, and doubly upset that they have to
-> recompile their kernel to change the value back to 3s.  I'm in favor
-> of the reduction of initRTO, for the same reason Google is, but I can
-> also understand that the direction we're taking might not be
-> appropriate for everyone.
-> 
-> -- 
-> Benoit "tsuna" Sigoure
-> Software Engineer @ www.StumbleUpon.com
-
-//
-// Dipl.-Inform. Alexander Zimmermann
-// Department of Computer Science, Informatik 4
-// RWTH Aachen University
-// Ahornstr. 55, 52056 Aachen, Germany
-// phone: (49-241) 80-21422, fax: (49-241) 80-22222
-// email: zimmermann@cs.rwth-aachen.de
-// web: http://www.umic-mesh.net
-//
-
-
---Apple-Mail-34-1062255599
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: Signierter Teil der Nachricht
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.17 (Darwin)
-Comment: GPGTools - http://gpgtools.org
-
-iEYEARECAAYFAk3UuloACgkQdyiq39b9uS4u+QCgkTNKQJta2KV8HJvVM95Q0/vH
-rNAAoIa+QlC5gNgk5T9b1K2VsE5LT12S
-=fMU8
------END PGP SIGNATURE-----
-
---Apple-Mail-34-1062255599--
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index cda30ea..274d761 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -122,7 +122,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #endif
+ #define TCP_RTO_MAX	((unsigned)(120*HZ))
+ #define TCP_RTO_MIN	((unsigned)(HZ/5))
+-#define TCP_TIMEOUT_INIT ((unsigned)(3*HZ))	/* RFC 1122 initial RTO value	*/
++/* The next 2 values come from Draft RFC 2988bis-02. */
++#define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))		/* initial RTO value	*/
++#define TCP_TIMEOUT_INIT_FALLBACK ((unsigned)(3*HZ))	/* initial RTO to fallback to when
++							 * a timeout happens during the 3WHS.	*/
+ 
+ #define TCP_RESOURCE_PROBE_INTERVAL ((unsigned)(HZ/2U)) /* Maximal interval between probes
+ 					                 * for local resources.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bef9f04..a36bc35 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -868,6 +868,11 @@ static void tcp_init_metrics(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct dst_entry *dst = __sk_dst_get(sk);
++	/* If we had to retransmit anything during the 3WHS, use
++	 * the initial fallback RTO as per draft RFC 2988bis-02.
++	 */
++	int init_rto = inet_csk(sk)->icsk_retransmits ?
++		TCP_TIMEOUT_INIT_FALLBACK : TCP_TIMEOUT_INIT;
+ 
+ 	if (dst == NULL)
+ 		goto reset;
+@@ -890,7 +895,7 @@ static void tcp_init_metrics(struct sock *sk)
+ 	if (dst_metric(dst, RTAX_RTT) == 0)
+ 		goto reset;
+ 
+-	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
++	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (init_rto << 3))
+ 		goto reset;
+ 
+ 	/* Initial rtt is determined from SYN,SYN-ACK.
+@@ -916,7 +921,7 @@ static void tcp_init_metrics(struct sock *sk)
+ 		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
+ 	}
+ 	tcp_set_rto(sk);
+-	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_tstamp) {
++	if (inet_csk(sk)->icsk_rto < init_rto && !tp->rx_opt.saw_tstamp) {
+ reset:
+ 		/* Play conservative. If timestamps are not
+ 		 * supported, TCP will fail to recalculate correct
+@@ -924,8 +929,8 @@ reset:
+ 		 */
+ 		if (!tp->rx_opt.saw_tstamp && tp->srtt) {
+ 			tp->srtt = 0;
+-			tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_INIT;
+-			inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
++			tp->mdev = tp->mdev_max = tp->rttvar = init_rto;
++			inet_csk(sk)->icsk_rto = init_rto;
+ 		}
+ 	}
+ 	tp->snd_cwnd = tcp_init_cwnd(tp, dst);
+-- 
+1.7.0.4
