@@ -1,41 +1,33 @@
-From: Micha Nelissen <micha@neli.hopto.org>
-Subject: Re: [PATCH v3] ipconfig wait for carrier
-Date: Thu, 19 May 2011 20:52:49 +0200
-Message-ID: <4DD56701.8040007@neli.hopto.org>
-References: <4DD36803.1020001@neli.hopto.org>	 <20110518.023725.441358922110721042.davem@davemloft.net>	 <4DD36E54.9040706@neli.hopto.org>	 <20110518.181427.1228926976939865196.davem@davemloft.net> <1305819120.3271.3.camel@dcbw.foobar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: add seq_before/seq_after functions
+Date: Thu, 19 May 2011 14:52:26 -0400 (EDT)
+Message-ID: <20110519.145226.81502363776050802.davem@davemloft.net>
+References: <201105191054.34912.sven@narfation.org>
+	<20110519.050824.838971689287732822.davem@davemloft.net>
+	<201105191121.23888.sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from edu-smtp-02.edutel.nl ([88.159.1.172]:20421 "EHLO
-	edu-smtp-02.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933792Ab1ESSxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 14:53:24 -0400
-In-Reply-To: <1305819120.3271.3.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ordex@autistici.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, paulus@samba.org, linux-ppp@vger.kernel.org
+To: sven@narfation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201105191121.23888.sven@narfation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dan Williams wrote:
-> On Wed, 2011-05-18 at 18:14 -0400, David Miller wrote:
->> Please fix ic_is_init_dev() to return a proper boolean "false" instead
->> of "0" when IFF_LOOPBACK is set.
+From: Sven Eckelmann <sven@narfation.org>
+Date: Thu, 19 May 2011 11:21:21 +0200
 
-Ok. Had an int before, but boolean is better.
-
-> Shouldn't the code still wait at *least* one second?  Not all drivers
-> support carrier detect, and those that don't set the carrier always-on.
-> Thus older devices that used to have 1s to get carrier in line (even if
-> they don't report it) now have only 10ms.
+> This is currently used by vis.c in net/batman-adv and could also be used by 
+> ppp-generic.c (with my changes of course). And it is planned to be used by 
+> transtable.c in net/batman-adv. The idea was to propose this to linux-
+> kernel/netdev before we move it to a place were only batman-adv can use it 
+> (the current situation is that vis.c in batman-adv can only use it).
 > 
-> I think it should wait at least one second like the code currently does,
-> and then if the carrier still isn't up, wait longer.
+> It is ok that you say that it should be batman-adv specific - we only wanted 
+> to ask first.
 
-What is the 1 second based on?
-
-If a driver does not support carrier detect, then this code will wait
-for the timeout period. Or do those older drivers set carrier detect
-immediately when device is probed?
-
-Micha
+Well, this is a purely networking change, the header you're touching is
+networking specific, so really in this case linux-kernel didn't need to
+get involved :-)
