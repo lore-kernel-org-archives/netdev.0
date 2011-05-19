@@ -1,33 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 00/14] virtio and vhost-net performance enhancements
-Date: Thu, 19 May 2011 19:20:31 -0400 (EDT)
-Message-ID: <20110519.192031.1228869097990755099.davem@davemloft.net>
-References: <cover.1305846412.git.mst@redhat.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] networking: NET_CLS_ROUTE4 depends on INET
+Date: Thu, 19 May 2011 16:22:18 -0700
+Message-ID: <20110519162218.b0344392.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, rusty@rustcorp.com.au,
-	cotte@de.ibm.com, borntraeger@de.ibm.com, linux390@de.ibm.com,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, xma@us.ibm.com,
-	lguest@lists.ozlabs.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	kvm@vger.kernel.org, krkumar2@in.ibm.com, tahm@linux.vnet.ibm.com,
-	steved@us.ibm.com, habanero@linux.vnet.ibm.com
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1305846412.git.mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, Jamal Hadi Salim <hadi@cyberus.ca>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:32134 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755181Ab1ESXWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 19:22:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Fri, 20 May 2011 02:10:07 +0300
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-> Rusty, I think it will be easier to merge vhost and virtio bits in one
-> go. Can it all go in through your tree (Dave in the past acked
-> sending a very similar patch through you so should not be a problem)?
+IP_ROUTE_CLASSID depends on INET and NET_CLS_ROUTE4 selects
+IP_ROUTE_CLASSID, but when INET is not enabled, this kconfig warning
+is produced, so fix it by making NET_CLS_ROUTE4 depend on INET.
 
-And in case you want an explicit ack for the net bits:
+warning: (NET_CLS_ROUTE4) selects IP_ROUTE_CLASSID which has unmet direct dependencies (NET && INET)
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ net/sched/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-:-)
+--- lnx-2639.orig/net/sched/Kconfig
++++ lnx-2639/net/sched/Kconfig
+@@ -277,6 +277,7 @@ config NET_CLS_TCINDEX
+ 
+ config NET_CLS_ROUTE4
+ 	tristate "Routing decision (ROUTE)"
++	depends on INET
+ 	select IP_ROUTE_CLASSID
+ 	select NET_CLS
+ 	---help---
