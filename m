@@ -1,32 +1,54 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: GRE RPS patch set
-Date: Thu, 19 May 2011 15:50:41 -0700
-Message-ID: <BANLkTin1xx5htFaoa4Nn+sG05pGF_e1n1A@mail.gmail.com>
-References: <20110519.171442.1015392662738718919.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] rxrpc: Fix set but unused variable 'usage' in
+ rxrpc_get_transport()
+Date: Thu, 19 May 2011 18:52:08 -0400 (EDT)
+Message-ID: <20110519.185208.273511674650559833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:17629 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754826Ab1ESWvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 18:51:07 -0400
-Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [172.25.149.7])
-	by smtp-out.google.com with ESMTP id p4JMou6A003334
-	for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:51:06 -0700
-Received: from pxi10 (pxi10.prod.google.com [10.243.27.10])
-	by hpaq7.eem.corp.google.com with ESMTP id p4JMof4D023217
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:50:45 -0700
-Received: by pxi10 with SMTP id 10so2313414pxi.22
-        for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:50:41 -0700 (PDT)
-In-Reply-To: <20110519.171442.1015392662738718919.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50063 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752886Ab1ESWwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 18:52:09 -0400
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4JMq89A029907
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:52:09 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Updating all call sites of a function when you change it's arguments
-> isn't rocket science. :-)
->
 
-So it would seem... thanks for pointing that out.
+This is identical to the case I fixed in rxrpc_get_peer()
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/rxrpc/ar-transport.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/rxrpc/ar-transport.c b/net/rxrpc/ar-transport.c
+index 5e0226f..92df566 100644
+--- a/net/rxrpc/ar-transport.c
++++ b/net/rxrpc/ar-transport.c
+@@ -111,6 +111,7 @@ struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *local,
+ 	/* we can now add the new candidate to the list */
+ 	trans = candidate;
+ 	candidate = NULL;
++	usage = atomic_read(&trans->usage);
+ 
+ 	rxrpc_get_local(trans->local);
+ 	atomic_inc(&trans->peer->usage);
+@@ -125,7 +126,7 @@ success:
+ 	     trans->local->debug_id,
+ 	     trans->peer->debug_id);
+ 
+-	_leave(" = %p {u=%d}", trans, atomic_read(&trans->usage));
++	_leave(" = %p {u=%d}", trans, usage);
+ 	return trans;
+ 
+ 	/* we found the transport in the list immediately */
+-- 
+1.7.4.4
+
