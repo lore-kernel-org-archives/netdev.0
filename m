@@ -1,47 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.39-rc7-git11, x86/32, failed on ppp2897'th interface,
- PERCPU:  allocation failed
-Date: Thu, 19 May 2011 08:55:13 +0200
-Message-ID: <1305788113.3019.19.camel@edumazet-laptop>
-References: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
-	 <1305787158.3019.12.camel@edumazet-laptop>
+From: tsuna <tsunanet@gmail.com>
+Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC 2988bis-02.
+Date: Thu, 19 May 2011 00:07:09 -0700
+Message-ID: <BANLkTimB70u15aGt8BeDNRneZUAMOpfjcQ@mail.gmail.com>
+References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
+ <20110518.223622.1525088601595365235.davem@davemloft.net> <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
+ <20110519.001426.2119532755281545481.davem@davemloft.net> <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
+ <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
+ <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com> <C70B920C-6176-481B-B6D2-E52769291EBC@comsys.rwth-aachen.de>
+ <BANLkTiku9KTHCm59cib5KY8mz0ewSLsHFQ@mail.gmail.com> <8C5DF277-320D-4DEB-A133-EEC301DE58DC@comsys.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57804 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932586Ab1ESGzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:55:18 -0400
-Received: by wwa36 with SMTP id 36so2530519wwa.1
-        for <netdev@vger.kernel.org>; Wed, 18 May 2011 23:55:17 -0700 (PDT)
-In-Reply-To: <1305787158.3019.12.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, hagen@jauu.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8C5DF277-320D-4DEB-A133-EEC301DE58DC@comsys.rwth-aachen.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 19 mai 2011 =C3=A0 08:39 +0200, Eric Dumazet a =C3=A9crit :
+On Wed, May 18, 2011 at 11:52 PM, Alexander Zimmermann
+<alexander.zimmermann@comsys.rwth-aachen.de> wrote:
+>> So we're talking about a [200ms ; 120s] range no matter what.
+>
+> Why is 200ms a valid lower bound for initRTO? I'm aware of
+> measurements that 1s is save for Internet, but I don't know of any
+> studies that 200ms is save...
 
-> Its a known problem : When ipv6 is enabled, we allocate percpu memory=
- to
-> hold per device snmp counters.
->=20
-> make sure kernel idea of max possible cpus matches real number of cpu=
-s.
->=20
-> And yes, switching to 64bit kernel helps a lot.
->=20
->=20
+The constants that are quoted aren't specific to the initRTO.  They're
+used to bound the RTO as it gets adjusted during the TCP session.  See
+`tcp_set_rto' in tcp_input.c for reference.
 
-Looking at snmp6_alloc_dev(), we allocate three mib per device :
-
-ipstats_mib  (30 * sizeof(u64) * number_of_possible_cpus)
-icmpv6_mib    (4 * sizeof(long) * number_of_possible_cpus)
-icmpv6msg_mib  (26 * sizeof(long))
-
-=46or sure icmp ones dont need percpu counter. Plain atomic_long_t
-(shared) would be enough, since ICMP messages are rare enough.
-
-
-
+-- 
+Benoit "tsuna" Sigoure
+Software Engineer @ www.StumbleUpon.com
