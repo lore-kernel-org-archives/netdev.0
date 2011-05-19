@@ -1,51 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] be2net: Kill set but unused variable 'req' in
- lancer_fw_download()
-Date: Thu, 19 May 2011 18:50:16 -0400 (EDT)
-Message-ID: <20110519.185016.1362090415828746216.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: GRE RPS patch set
+Date: Thu, 19 May 2011 15:50:41 -0700
+Message-ID: <BANLkTin1xx5htFaoa4Nn+sG05pGF_e1n1A@mail.gmail.com>
+References: <20110519.171442.1015392662738718919.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50049 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751555Ab1ESWuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 18:50:19 -0400
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4JMoHas029750
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:50:18 -0700
+Received: from smtp-out.google.com ([216.239.44.51]:17629 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754826Ab1ESWvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 18:51:07 -0400
+Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [172.25.149.7])
+	by smtp-out.google.com with ESMTP id p4JMou6A003334
+	for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:51:06 -0700
+Received: from pxi10 (pxi10.prod.google.com [10.243.27.10])
+	by hpaq7.eem.corp.google.com with ESMTP id p4JMof4D023217
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:50:45 -0700
+Received: by pxi10 with SMTP id 10so2313414pxi.22
+        for <netdev@vger.kernel.org>; Thu, 19 May 2011 15:50:41 -0700 (PDT)
+In-Reply-To: <20110519.171442.1015392662738718919.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> Updating all call sites of a function when you change it's arguments
+> isn't rocket science. :-)
+>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/benet/be_main.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index ce6edac..4b5e0ed 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -2736,7 +2736,6 @@ static int lancer_fw_download(struct be_adapter *adapter,
- #define LANCER_FW_DOWNLOAD_CHUNK      (32 * 1024)
- #define LANCER_FW_DOWNLOAD_LOCATION   "/prg"
- 	struct be_dma_mem flash_cmd;
--	struct lancer_cmd_req_write_object *req;
- 	const u8 *data_ptr = NULL;
- 	u8 *dest_image_ptr = NULL;
- 	size_t image_size = 0;
-@@ -2765,7 +2764,6 @@ static int lancer_fw_download(struct be_adapter *adapter,
- 		goto lancer_fw_exit;
- 	}
- 
--	req = flash_cmd.va;
- 	dest_image_ptr = flash_cmd.va +
- 				sizeof(struct lancer_cmd_req_write_object);
- 	image_size = fw->size;
--- 
-1.7.4.4
-
+So it would seem... thanks for pointing that out.
