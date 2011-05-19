@@ -1,42 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: add seq_before/seq_after functions
-Date: Thu, 19 May 2011 05:08:24 -0400 (EDT)
-Message-ID: <20110519.050824.838971689287732822.davem@davemloft.net>
-References: <1305722319-8315-1-git-send-email-ordex@autistici.org>
-	<201105191054.34912.sven@narfation.org>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
+ return
+Date: Thu, 19 May 2011 11:18:33 +0200
+Message-ID: <20110519091833.GA24484@rere.qmqm.pl>
+References: <1305513923.19966.20.camel@localhost>
+ <20110516132807.1A89F13A6A@rere.qmqm.pl>
+ <1305553066.19966.32.camel@localhost>
+ <20110516142340.GA2980@rere.qmqm.pl>
+ <1305557597.2885.5.camel@bwh-desktop>
+ <20110516205137.GA7667@rere.qmqm.pl>
+ <1305580139.2885.47.camel@bwh-desktop>
+ <20110516215034.GA8463@rere.qmqm.pl>
+ <1305583775.2885.65.camel@bwh-desktop>
+ <1305745379.2929.9.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ordex@autistici.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, paulus@samba.org, linux-ppp@vger.kernel.org
-To: sven@narfation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201105191054.34912.sven@narfation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:35721 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932832Ab1ESJSf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 May 2011 05:18:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1305745379.2929.9.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
-Date: Thu, 19 May 2011 10:54:32 +0200
+On Wed, May 18, 2011 at 08:02:59PM +0100, Ben Hutchings wrote:
+> On Mon, 2011-05-16 at 23:09 +0100, Ben Hutchings wrote:
+> > On Mon, 2011-05-16 at 23:50 +0200, Micha=B3 Miros=B3aw wrote:
+> > > On Mon, May 16, 2011 at 10:08:59PM +0100, Ben Hutchings wrote:
+> > > > I've explained before that I do not want to add new options to =
+do
+> > > > (mostly) the same thing.  Users should have not have to use a d=
+ifferent
+> > > > command depending on the kernel version.
+> > > We can avoid new option by checking feature-strings for unrecogni=
+sed
+> > > arguments to -K. This way, we will have the old options which wor=
+k
+> > > regardless of kernel version ('tx', 'rx', 'sg', etc.) and new opt=
+ions
+> > > which need recent kernel anyway (separated 'tx-checksum-*', 'loop=
+back',
+> > > others coming in for 2.6.40).
+> > This is just too subtle a distinction.  It will mostly confuse user=
+s.
+> Sorry, I think I misunderstood you here.  I agree that new feature na=
+mes
+> that do not correspond exactly to existing keywords should be support=
+ed
+> as keywords after the -K option.  I think those that do (e.g.
+> "tx-udp-fragmentation" vs "ufo") should not be, as adding a
+> kernel-version-dependent *alias* would be confusing.
 
-> On Wednesday 18 May 2011 14:38:39 Antonio Quartulli wrote:
->> Introduce two operations to handle comparison between packet sequence
->> numbers taking into account overflow/wraparound. Batman-adv uses
->> these functions already to check for successor packet even in case of
->> overflow.
-> 
-> Thanks for your efforts to bring that to the kernel. But when you prepare a 
-> patch then you have to add a signoff. And also David S. Miller is the 
-> maintainer for this header - it would be interesting to ask him first when we 
-> want to change that file.
+The alias can be marked as such in the documentation. Shouldn't it be
+that hard for a user to read the manpage to know what the new options
+are for when he sees them. I don't like the idea of translating strings=
+,
+either, because if e.g. ufo becomes split in the feature to ufo4+ufo6
+or new checksum offloads are implemented, it will break.
 
-Well it makes no sense to add these interfaces until we see an
-upstream submission of code which will actually use it.
+> I also want users to benefit from your improvements (as I explained
+> above) even when they use the old names, if they are using a new kern=
+el
+> version.  That is why I want ethtool to try using ETHTOOL_SFEATURES
+> first, and why the fallback in the kernel is problematic.
 
-Also I'm skeptical that such generic sounding interfaces make
-sense when it appears to me that these are protocol specific
-sequence number tests so probably belong in whatever protocol
-is upcoming which will use these interfaces.
+Which benefits do you want to have? If checking what other features
+changed with selected one, it's easily done by rereading the state -
+possibly with GFEATURES.
 
-Again, this is why we want to see the code that's going to use
-these new routines before we can seriously consider adding them
-at all.
+I'll cook another PoC patch over those I sent to show the idea.
+
+Best Regards,
+Micha=B3 Miros=B3aw
