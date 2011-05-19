@@ -1,53 +1,46 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: [PATCH net-next-2.6] ipv6: reduce per device ICMP mib sizes
-Date: Thu, 19 May 2011 14:26:45 +0300
-Message-ID: <08d4084d74a9299c4fd4d795394d4776@visp.net.lb>
-References: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
- <1305787158.3019.12.camel@edumazet-laptop>
- <1305788113.3019.19.camel@edumazet-laptop>
- <1305803663.3028.39.camel@edumazet-laptop>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [V2 Patch net-next-2.6] netpoll: disable netpoll when enslave
+	a device
+Date: Thu, 19 May 2011 07:31:27 -0400
+Message-ID: <20110519113127.GE21309@gospo.rdu.redhat.com>
+References: <20110518105558.GA3203@hmsreliant.think-freely.org> <1305794393-20775-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rev-153-13.globalproof.net ([194.146.153.13]:52011 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752505Ab1ESL0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 07:26:49 -0400
-In-Reply-To: <1305803663.3028.39.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	Neil Horman <nhorman@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org
+To: Amerigo Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1305794393-20775-1-git-send-email-amwang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- On Thu, 19 May 2011 13:14:23 +0200, Eric Dumazet wrote:
-> Le jeudi 19 mai 2011 =C3=A0 08:55 +0200, Eric Dumazet a =C3=A9crit :
->
->> Looking at snmp6_alloc_dev(), we allocate three mib per device :
->>
->> ipstats_mib  (30 * sizeof(u64) * number_of_possible_cpus)
->> icmpv6_mib    (4 * sizeof(long) * number_of_possible_cpus)
->> icmpv6msg_mib  (26 * sizeof(long))
->>
->
-> Oops, I forgot that mibs were doubled (one set for USER, one set for=20
-> BH)
->
-> And :
-> #define __ICMP6MSG_MIB_MAX 512
->
-> So icmpv6msg_mib is really 512*sizeof(long)*number_of_possible_cpus*2
->
-> 32 kbytes per device on a 8cpu machine, 32bit kernel.
->
-> Plus all other mibs... yes thats way too big for a seldom used stuff.
->
-> Here is patch I cooked and tested on my machine :
->
-> [PATCH net-next-2.6] ipv6: reduce per device ICMP mib sizes.
+On Thu, May 19, 2011 at 04:39:53PM +0800, Amerigo Wang wrote:
+[...]
+> diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+> index 621dfa1..3d82867 100644
+> --- a/include/linux/notifier.h
+> +++ b/include/linux/notifier.h
+> @@ -211,6 +211,7 @@ static inline int notifier_to_errno(int ret)
+>  #define NETDEV_UNREGISTER_BATCH 0x0011
+>  #define NETDEV_BONDING_DESLAVE  0x0012
+>  #define NETDEV_NOTIFY_PEERS	0x0013
+> +#define NETDEV_ENSLAVE		0x0014
+>  
+>  #define SYS_DOWN	0x0001	/* Notify of system down */
+>  #define SYS_RESTART	SYS_DOWN
 
- I'll test it tonight, thanks a lot :-)
- I guess it will help also for people with lot of interfaces=20
- (virtualisation?), not only ppp.
+Neil just noted the same concern I had -- the asymmetry between
+NETDEV_ENSLAVE and NETDEV_BONDING_DESLAVE bothers me a bit.  I also
+don't really like the followup patch that uses 'ENSLAVE' in the bridging
+code when we typically use that language for bonding only.
 
+What about changing NETDEV_BONDING_DESLAVE to NETDEV_RELEASE and create
+NETDEV_JOIN instead of NETDEV_ENSLAVE?  I would prefer that or something
+else that might use more generic language that could be applied to all
+for stacked interfaces.
