@@ -1,32 +1,59 @@
-From: Micha Nelissen <micha@neli.hopto.org>
-Subject: Re: [PATCH v3] ipconfig wait for carrier
-Date: Thu, 19 May 2011 21:39:25 +0200
-Message-ID: <4DD571ED.8060400@neli.hopto.org>
-References: <20110518.181427.1228926976939865196.davem@davemloft.net>	<1305819120.3271.3.camel@dcbw.foobar.com>	<4DD56E7A.3010901@neli.hopto.org> <20110519.153507.578609630787612821.davem@davemloft.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Thu, 19 May 2011 12:42:49 -0700
+Message-ID: <1305834169.32080.81.camel@localhost.localdomain>
+References: <1305671318.10756.49.camel@localhost.localdomain>
+	 <20110518103819.GL7589@redhat.com>
+	 <BANLkTimc1RbC3uQsra1HUvS_Trg63iMWGA@mail.gmail.com>
+	 <20110518111734.GO7589@redhat.com>
+	 <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
+	 <1305729507.32080.6.camel@localhost.localdomain>
+	 <20110518154746.GA21378@redhat.com>
+	 <1305734857.32080.53.camel@localhost.localdomain>
+	 <20110518163633.GB22001@redhat.com>
+	 <1305737140.32080.59.camel@localhost.localdomain>
+	 <20110518165138.GD22001@redhat.com>
+	 <1305738028.32080.66.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dcbw@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from edu-smtp-01.edutel.nl ([88.159.1.175]:35386 "EHLO
-	edu-smtp-01.edutel.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934417Ab1ESTkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 15:40:00 -0400
-In-Reply-To: <20110519.153507.578609630787612821.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305738028.32080.66.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Micha Nelissen <micha@neli.hopto.org>
-> Date: Thu, 19 May 2011 21:24:42 +0200
+On Wed, 2011-05-18 at 10:00 -0700, Shirley Ma wrote:
+> On Wed, 2011-05-18 at 19:51 +0300, Michael S. Tsirkin wrote:
+> > > > Yes, I agree.  I think for tcpdump, we really need to copy the
+> > data
+> > > > anyway, to avoid guest changing it in between.  So we do that
+> and
+> > then
+> > > > use the copy everywhere, release the old one. Hmm? 
+> > > 
+> > > Yes. Old one use zerocopy, new one use copy data.
+> > > 
+> > > Thanks
+> > > Shirley
+> > 
+> > No, that's wrong, as they might become different with a
+> > malicious guest. As long as we copied already, lets realease
+> > the data and have everyone use the copy. 
 > 
->> Even if link is "fake up" by driver and not actually up after 10 msecs,
->> things will continue to work (eventually), after a second, just like now.
-> 
-> But this eats one of the CONF_SEND_RETRIES attempts, which is only 6.
+> Ok, I will patch pskb_expand_head to test it out. 
 
-Right. So an alternative could be to increase this to 7, or do you
-prefer leaving the 1 sec timeout untouched?
+I am patching skb_copy, skb_clone, pskb_copy, pskb_expand_head to
+convert a zero-copy skb to a copy skb to avoid this kind of issue.
 
-Micha
+This overhead won't impact macvtap/vhost TX zero-copy normally.
+
+Shirley
