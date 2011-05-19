@@ -1,113 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug, kernel panic, NULL dereference , cleanup_once /
- icmp_route_lookup.clone.19.clone / nat , 2.6.39-rc7-git11
-Date: Thu, 19 May 2011 08:30:23 +0200
-Message-ID: <1305786623.3019.10.camel@edumazet-laptop>
-References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
-	 <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
-	 <1305711471.2983.27.camel@edumazet-laptop>
-	 <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
-	 <1305713111.2991.1.camel@edumazet-laptop>
-	 <1305719047.2991.4.camel@edumazet-laptop>
-	 <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
-	 <1305733944.2991.45.camel@edumazet-laptop>
-	 <1305746989.3019.0.camel@edumazet-laptop>
-	 <1305782397.3019.5.camel@edumazet-laptop>
-	 <626ba8ae63cfc8fdb68c7f281463dc27@visp.net.lb>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: ip_vs_ftp causing ip_vs oops on module load.
+Date: Thu, 19 May 2011 09:33:55 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1105190930480.1993@ja.ssi.bg>
+References: <20110518201915.GB20475@redhat.com> <20110519011045.GF16688@verge.net.au> <20110519032611.GG16688@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	Wensong Zhang <wensong@linuxvirtualserver.org>,
+	Hans Schillstrom <hans@schillstrom.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64678 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932499Ab1ESGa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:30:27 -0400
-Received: by wya21 with SMTP id 21so1719199wya.19
-        for <netdev@vger.kernel.org>; Wed, 18 May 2011 23:30:26 -0700 (PDT)
-In-Reply-To: <626ba8ae63cfc8fdb68c7f281463dc27@visp.net.lb>
+Received: from ja.ssi.bg ([178.16.129.10]:34595 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754708Ab1ESGcV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 May 2011 02:32:21 -0400
+In-Reply-To: <20110519032611.GG16688@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 19 mai 2011 =C3=A0 09:11 +0300, Denys Fedoryshchenko a =C3=A9c=
-rit :
-> On Thu, 19 May 2011 07:19:57 +0200, Eric Dumazet wrote:
-> > Le mercredi 18 mai 2011 =C3=A0 21:29 +0200, Eric Dumazet a =C3=A9cr=
-it :
-> >> Le mercredi 18 mai 2011 =C3=A0 17:52 +0200, Eric Dumazet a =C3=A9c=
-rit :
-> >>
-> >> > Hmm, it seems we have some inetpeer refcount leak somewhere.
-> >> >
-> >> > Maybe one (struct rtable)->peer is not released on dst/rtable=20
-> >> removal,
-> >> > or we also leak dst/rtable (and their ->peer inetpeer)
-> >> >
-> >> > Watch :
-> >> >
-> >> > grep peer /proc/slabinfo
-> >> > grep dst /proc/slabinfo
-> >> >
-> >>
-> >> FYI, I started a bisection to find the faulty commit.
-> >>
-> >
-> > Oh well, of course this came to 2c8cec5c10bced240
-> > (ipv4: Cache learned PMTU information in inetpeer.)
-> >
-> > So my method to check if we have a leak might be wrong, since the=20
-> > above
-> > commit let cache full of garbage, and hope that following lookups=20
-> > will
-> > find and evict obsolete dst.
-> >
-> > Thats getting difficult :(
-> >
-> > Could you please send us
-> >
-> > grep . /proc/sys/net/ipv4/route/*
-> >
-> > Thanks !
->  NewNet-PPPoE ~ # grep . /proc/sys/net/ipv4/route/*
->  /proc/sys/net/ipv4/route/error_burst:5000
->  /proc/sys/net/ipv4/route/error_cost:1000
->  grep: /proc/sys/net/ipv4/route/flush: Permission denied
->  /proc/sys/net/ipv4/route/gc_elasticity:8
->  /proc/sys/net/ipv4/route/gc_interval:60
->  /proc/sys/net/ipv4/route/gc_min_interval:0
->  /proc/sys/net/ipv4/route/gc_min_interval_ms:500
->  /proc/sys/net/ipv4/route/gc_thresh:32768
->  /proc/sys/net/ipv4/route/gc_timeout:300
->  /proc/sys/net/ipv4/route/max_size:524288
->  /proc/sys/net/ipv4/route/min_adv_mss:256
->  /proc/sys/net/ipv4/route/min_pmtu:552
->  /proc/sys/net/ipv4/route/mtu_expires:600
->  /proc/sys/net/ipv4/route/redirect_load:20
->  /proc/sys/net/ipv4/route/redirect_number:9
->  /proc/sys/net/ipv4/route/redirect_silence:20480
->=20
->  I think it is default one.
->=20
->  PMTU is very actual for that, as it is pppoe, and up to 2k interface=
-s=20
->  terminated there.
->=20
 
-Yes, and every time an interface is added -> new route added, route
-cache is invalidated (we change rt_genid)
+	Hello,
 
->  I don't know, if it matters, but
->  iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS=20
->  --clamp-mss-to-pmtu
->  also there.
->=20
->  I can generate and put "ip route ls cache" and any other info.
->=20
+On Thu, 19 May 2011, Simon Horman wrote:
 
-Hmm would you please send :
+> > >  Call Trace:
+> > >   [<ffffffff8107be36>] raw_notifier_chain_register+0xe/0x10
+> > >   [<ffffffff81403058>] register_netdevice_notifier+0x2d/0x1b6
+> > >   [<ffffffffa0432106>] ? ip_vs_conn_init+0x106/0x106 [ip_vs]
+> > >   [<ffffffffa04322c7>] ip_vs_control_init+0xa5/0xce [ip_vs]
+> > >   [<ffffffffa0432106>] ? ip_vs_conn_init+0x106/0x106 [ip_vs]
+> > >   [<ffffffffa0432116>] ip_vs_init+0x10/0x11c [ip_vs]
+> > >   [<ffffffff81002099>] do_one_initcall+0x7f/0x13a
+> > >   [<ffffffff81096524>] sys_init_module+0x132/0x281
+> > >   [<ffffffff814cc702>] system_call_fastpath+0x16/0x1b
+> > >  Code: 07 ff c8 89 43 48 eb 08 48 89 df e8 dc 95 44 00 4c 89 e6 48 89 df e8 a7 a5 44 00 5b 41 5c 5d c3 55 48 89 e5 66 66 66 66 90 eb 0c <8b> 50 10 39 56 10 7f 0c 48 8d 78 08 48 8b 07 48 85 c0 75 ec 48 
+> > >  RIP  [<ffffffff8107bddb>] notifier_chain_register+0xb/0x2a
+> > >   RSP <ffff880114139e68>
+> > >  ---[ end trace e90d7053ad1a7a5b ]---
+> > > 
+> > > 
+> > > This script replicates the bug.
+> > > (it usually oopses after just a few loops)
+> > > 
+> > > #!/bin/sh
+> > > while [ 1 ];
+> > > do
+> > > 	modprobe ip_vs_ftp
+> > > 	modprobe -r ip_vs_ftp
+> > > done
+> > > 
+> > > Looks like something isn't getting cleaned up on module exit
+> > > that we fall over when we encounter it next time it gets loaded ?
+> > 
+> > Thanks Dave, I will look into this.
+> 
+> Hi Dave,
+> 
+> I'm not having much luck reproducing this in KVM.
+> I will try this evening on real hardware.
+> 
+> Just to make sure we are testing the same thing, are you using Linus's tree?
 
-rtstat -c10 -i1
+	One unregister_netdevice_notifier(&ip_vs_dst_notifier);
+is missing in ip_vs_control_cleanup for sure.
 
+Regards
 
-
+--
+Julian Anastasov <ja@ssi.bg>
