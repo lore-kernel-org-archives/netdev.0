@@ -1,39 +1,53 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [RFC 2/3] RDMA/cma: Add support for netlink statistics export
-Date: Thu, 19 May 2011 19:03:26 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373010008@ORSMSX101.amr.corp.intel.com>
-References: <1305303525-11113-1-git-send-email-roland@kernel.org>
- <1305303525-11113-3-git-send-email-roland@kernel.org>
- <1828884A29C6694DAF28B7E6B8A82373F428@ORSMSX101.amr.corp.intel.com>
- <BANLkTin1uVyrzdn_030bGmC=QHtfkvOTNA@mail.gmail.com>
- <1828884A29C6694DAF28B7E6B8A82373FF9E@ORSMSX101.amr.corp.intel.com>
- <BANLkTimahta6QYrjTE5+DmN6RZXY_c72=Q@mail.gmail.com>
- <BANLkTimjhAVfpJQX-PshVBgcshzfh-taRw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] ipconfig wait for carrier
+Date: Thu, 19 May 2011 15:19:45 -0400 (EDT)
+Message-ID: <20110519.151945.60111725625001721.davem@davemloft.net>
+References: <4DD36E54.9040706@neli.hopto.org>
+	<20110518.181427.1228926976939865196.davem@davemloft.net>
+	<1305819120.3271.3.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTimjhAVfpJQX-PshVBgcshzfh-taRw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: micha@neli.hopto.org, netdev@vger.kernel.org
+To: dcbw@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56763 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757098Ab1ESTTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 15:19:53 -0400
+In-Reply-To: <1305819120.3271.3.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> And actually looking at https://patchwork.kernel.org/patch/90204/
-> it looks reasonable to merge now... or I could just use
-> cma_is_ud_ps() in the netlink stuff.
+From: Dan Williams <dcbw@redhat.com>
+Date: Thu, 19 May 2011 10:31:58 -0500
+
+> On Wed, 2011-05-18 at 18:14 -0400, David Miller wrote:
+>> From: Micha Nelissen <micha@neli.hopto.org>
+>> Date: Wed, 18 May 2011 08:59:32 +0200
+>> 
+>> > Op 2011-05-18 8:37, David Miller schreef:
+>> >> From: Micha Nelissen<micha@neli.hopto.org>
+>> >> Date: Wed, 18 May 2011 08:32:35 +0200
+>> >>
+>> >>> I'm confused. Against which tree/commit do you want it then?
+>> >>
+>> >> Linus's current tree would be fine as would:
+>> >>
+>> >> 	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+>> > 
+>> > Ok I see, thanks. The patch should apply just fine to your tree, there
+>> > is only a spelling change since 2.6.38 which does not conflict.
+>> 
+>> Please fix ic_is_init_dev() to return a proper boolean "false" instead
+>> of "0" when IFF_LOOPBACK is set.
 > 
-> I'm inclined to just take your patch now if that makes sense to you
-> (it looks pretty independent of everything else)
+> Shouldn't the code still wait at *least* one second?  Not all drivers
+> support carrier detect, and those that don't set the carrier always-on.
+> Thus older devices that used to have 1s to get carrier in line (even if
+> they don't report it) now have only 10ms.
 > 
-> Is that the latest version in patchwork?
+> I think it should wait at least one second like the code currently does,
+> and then if the carrier still isn't up, wait longer.
 
-The only difference that I see between that patch and what's in my tree are the line numbers.  The patch looks safe enough to me to go in separately from anything else.  Thanks
-
-- Sean
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Agreed.
