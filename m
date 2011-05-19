@@ -1,58 +1,68 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 3/4] rps: Infrastructure in __skb_get_rxhash for deep
- inspection
-Date: Thu, 19 May 2011 08:39:21 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1105190828001.12835@pokey.mtv.corp.google.com>
+Subject: [PATCH 4/4] rps: Inspect GRE encapsulated packets to get flow hash
+Date: Thu, 19 May 2011 08:39:30 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1105190827420.12804@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:35910 "EHLO
+Received: from smtp-out.google.com ([216.239.44.51]:5870 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755423Ab1ESPj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 11:39:28 -0400
+	with ESMTP id S932336Ab1ESPje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 11:39:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Basics for looking for ports in encapsulated packets in tunnels.
+Crack open GRE packets in __skb_get_rxhash to compute 4-tuple hash on
+in encapsulated packet.  Note that this is used only when the
+__skb_get_rxhash is taken, in particular only when the device does
+not compute provide the rxhash (ie. feature is disabled).
+
+This was tested by creating a single GRE tunnel between two 16 core
+AMD machines.  200 netperf TCP_RR streams were ran with 1 byte
+request and response size.
+
+Without patch: 157497 tps, 50/90/99% latencies 1250/1292/1364 usecs
+With patch: 325896 tps, 50/90/99% latencies 603/848/1169
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/core/dev.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ net/core/dev.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 37ddece..0c83494 100644
+index 0c83494..7799bbd 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -133,6 +133,7 @@
- #include <linux/pci.h>
- #include <linux/inetdevice.h>
- #include <linux/cpu_rmap.h>
-+#include <linux/if_tunnel.h>
- 
- #include "net-sysfs.h"
- 
-@@ -2521,6 +2522,7 @@ void __skb_get_rxhash(struct sk_buff *skb)
- 	nhoff = skb_network_offset(skb);
- 	proto = skb->protocol;
- 
-+again:
- 	switch (proto) {
- 	case __constant_htons(ETH_P_IP):
- 		if (!pskb_may_pull(skb, sizeof(*ip) + nhoff))
-@@ -2549,6 +2551,11 @@ void __skb_get_rxhash(struct sk_buff *skb)
- 		goto done;
+@@ -2552,6 +2552,28 @@ again:
  	}
  
-+	switch (ip_proto) {
-+	default:
-+		break;
-+	}
+ 	switch (ip_proto) {
++	case IPPROTO_GRE:
++		if (pskb_may_pull(skb, nhoff + 16)) {
++			u8 *h = skb->data + nhoff;
++			__be16 flags = *(__be16 *)h;
 +
- 	ports.v32 = 0;
- 	poff = proto_ports_offset(ip_proto);
- 	if (poff >= 0) {
++			/*
++			 * Only look inside GRE if version zero and no
++			 * routing
++			 */
++			if (!(flags & (GRE_VERSION|GRE_ROUTING))) {
++				proto = *(__be16 *)(h + 2);
++				nhoff += 4;
++				if (flags & GRE_CSUM)
++					nhoff += 4;
++				if (flags & GRE_KEY)
++					nhoff += 4;
++				if (flags & GRE_SEQ)
++					nhoff += 4;
++				goto again;
++			}
++		}
++		break;
+ 	default:
+ 		break;
+ 	}
 -- 
 1.7.3.1
 
