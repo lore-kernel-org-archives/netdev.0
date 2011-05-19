@@ -1,68 +1,45 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 4/4] rps: Inspect GRE encapsulated packets to get flow hash
-Date: Thu, 19 May 2011 08:39:30 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1105190827420.12804@pokey.mtv.corp.google.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bridge] [Patch] bridge: call NETDEV_ENSLAVE notifiers when
+ adding a slave
+Date: Thu, 19 May 2011 09:04:11 -0700
+Message-ID: <20110519090411.1f039a88@nehalam>
+References: <1305794393-20775-1-git-send-email-amwang@redhat.com>
+	<1305800661-4081-1-git-send-email-amwang@redhat.com>
+	<20110519081213.15c05da2@nehalam>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:5870 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932336Ab1ESPje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 11:39:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Amerigo Wang <amwang@redhat.com>, Neil Horman <nhorman@redhat.com>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110519081213.15c05da2@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Crack open GRE packets in __skb_get_rxhash to compute 4-tuple hash on
-in encapsulated packet.  Note that this is used only when the
-__skb_get_rxhash is taken, in particular only when the device does
-not compute provide the rxhash (ie. feature is disabled).
+On Thu, 19 May 2011 08:12:13 -0700
+Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 
-This was tested by creating a single GRE tunnel between two 16 core
-AMD machines.  200 netperf TCP_RR streams were ran with 1 byte
-request and response size.
+> On Thu, 19 May 2011 18:24:17 +0800
+> Amerigo Wang <amwang@redhat.com> wrote:
+> 
+> > In the previous patch I added NETDEV_ENSLAVE, now
+> > we can notify netconsole when adding a device to a bridge too.
+> > 
+> > By the way, s/netdev_bonding_change/call_netdevice_notifiers/ in
+> > bond_main.c, since this is not bonding specific.
+> > 
+> > Signed-off-by: WANG Cong <amwang@redhat.com>
+> > Cc: Neil Horman <nhorman@redhat.com>
+> > 
+> 
+> Is there a usage for this? What listens for this notification?
 
-Without patch: 157497 tps, 50/90/99% latencies 1250/1292/1364 usecs
-With patch: 325896 tps, 50/90/99% latencies 603/848/1169
+Never mind it was in the first patch which you did not send.
+You should always put a number on group of patches and send
+to all parties.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/dev.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0c83494..7799bbd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2552,6 +2552,28 @@ again:
- 	}
- 
- 	switch (ip_proto) {
-+	case IPPROTO_GRE:
-+		if (pskb_may_pull(skb, nhoff + 16)) {
-+			u8 *h = skb->data + nhoff;
-+			__be16 flags = *(__be16 *)h;
-+
-+			/*
-+			 * Only look inside GRE if version zero and no
-+			 * routing
-+			 */
-+			if (!(flags & (GRE_VERSION|GRE_ROUTING))) {
-+				proto = *(__be16 *)(h + 2);
-+				nhoff += 4;
-+				if (flags & GRE_CSUM)
-+					nhoff += 4;
-+				if (flags & GRE_KEY)
-+					nhoff += 4;
-+				if (flags & GRE_SEQ)
-+					nhoff += 4;
-+				goto again;
-+			}
-+		}
-+		break;
- 	default:
- 		break;
- 	}
--- 
-1.7.3.1
-
+Also, sending networking patches to LKML is a waste of bandwidth
+please don't bother.
