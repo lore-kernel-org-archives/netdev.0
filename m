@@ -1,44 +1,56 @@
-From: WESTERN UNION MONEY TRANSFER <winners@westi.org>
-Subject: (unknown)
-Date: Thu, 19 May 2011 13:32:40 +1000
-Message-ID: <201105190332.p4J3WeiI002907__48990.0334775031$1305776396$gmane$org@mail06.syd.optusnet.com.au>
-Reply-To: wu.africadept12@w.cn
+From: tsuna <tsunanet@gmail.com>
+Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC 2988bis-02.
+Date: Wed, 18 May 2011 20:56:33 -0700
+Message-ID: <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
+References: <20110518.155200.801089483916944725.davem@davemloft.net>
+ <1305771744-83951-1-git-send-email-tsunanet@gmail.com> <20110518.223622.1525088601595365235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: binary
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallbackmx10.syd.optusnet.com.au ([211.29.132.251]:55293 "EHLO
-	fallbackmx10.syd.optusnet.com.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932287Ab1ESDjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 23:39:41 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, hagen@jauu.net,
+	eric.dumazet@gmail.com, alexander.zimmermann@comsys.rwth-aachen.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110518.223622.1525088601595365235.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, May 18, 2011 at 7:36 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Benoit Sigoure <tsunanet@gmail.com>
+> Date: Wed, 18 May 2011 19:22:24 -0700
+>
+>> Prior to this patch, Linux would always use 3 seconds (compile-time
+>> constant) as the initial RTO. =A0Draft RFC 2988bis-02 proposes to tu=
+ne
+>> this down to 1 second and, in case of a timeout during the TCP 3WHS,
+>> revert the RTO back up to 3 seconds when data transmission begins.
+>
+> We just had a discussion where it was determined that changes to
+> these settings are "network specific" and therefore that if it
+> is appropriate at all (I'm still not convinced) it is only suitable
+> as a routing metric.
 
+=46air enough.  I'll take another stab at it and see if I can change
+this to be on a per network basis.  Do I need any patch that's not yet
+in Linus' tree?  I'm referring to this:
 
-Dear Western Union Customer,
-You have been awarded with the sum of 
-$50,000 USD by our office, as one of our 
-customers who use Western Union in their daily 
-business transaction.
-This award has been selected through the 
-internet, where your e-mail address was 
-indicated and notified.
-Please provide Mr. Gary Epps with the following 
-detailslisted below so that your fund will be 
-remited to you through Western Union.
-1. Name:______
-2. Address________
-3. Country:_______
-4. Phone Number____
-5. Occupation:________
-6. Sex:_________________
-7. Age___________________
-Mr. Gary Epps
-Tel: +393883557681
-E-mail: wu.africadept12@w.cn
-As soon as these details are received and 
-verified,your fund will be transferred to you. 
-Thank you, for using western union.
+On Tue, May 17, 2011 at 5:20 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Adding many knobs to each clone had a huge cost on previous kernels.
+> (Think some machines have millions entries in IP route cache), this u=
+sed
+> quite a lot of memory.
+>
+> With latest David work, we'll consume less ram, because we can now sh=
+are
+> settings, instead of copying them on each dst entry.
+
+If this has already been merged then it sounds like I should have
+everything I need..?
+
+--=20
+Benoit "tsuna" Sigoure
+Software Engineer @ www.StumbleUpon.com
