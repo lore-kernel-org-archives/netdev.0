@@ -1,8 +1,7 @@
 From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv2 09/14] virtio_net: fix TX capacity checks using
-	new API
-Date: Fri, 20 May 2011 02:11:47 +0300
-Message-ID: <42ca2494c92f572388e3ab4c6f613dd4f038361b.1305846412.git.mst@redhat.com>
+Subject: [PATCHv2 10/14] virtio_net: limit xmit polling
+Date: Fri, 20 May 2011 02:11:56 +0300
+Message-ID: <aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst@redhat.com>
 References: <cover.1305846412.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -31,51 +30,73 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-virtio net uses the number of sg entries to
-check for TX ring capacity freed. But this
-gives incorrect results when indirect buffers
-are used. Use the new capacity API instead.
+Current code might introduce a lot of latency variation
+if there are many pending bufs at the time we
+attempt to transmit a new one. This is bad for
+real-time applications and can't be good for TCP either.
+
+Free up just enough to both clean up all buffers
+eventually and to be able to xmit the next packet.
 
 Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/virtio_net.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/virtio_net.c |   22 ++++++++++++++--------
+ 1 files changed, 14 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f685324..f33c92b 100644
+index f33c92b..42935cb 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -509,19 +509,17 @@ again:
+@@ -509,17 +509,25 @@ again:
  	return received;
  }
  
--static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
-+static void free_old_xmit_skbs(struct virtnet_info *vi)
+-static void free_old_xmit_skbs(struct virtnet_info *vi)
++static bool free_old_xmit_skbs(struct virtnet_info *vi, int capacity)
  {
  	struct sk_buff *skb;
--	unsigned int len, tot_sgs = 0;
-+	unsigned int len;
- 
- 	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
+ 	unsigned int len;
+-
+-	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
++	bool c;
++	int n;
++
++	/* We try to free up at least 2 skbs per one sent, so that we'll get
++	 * all of the memory back if they are used fast enough. */
++	for (n = 0;
++	     ((c = virtqueue_get_capacity(vi->svq) < capacity) || n < 2) &&
++	     ((skb = virtqueue_get_buf(vi->svq, &len)));
++	     ++n) {
  		pr_debug("Sent skb %p\n", skb);
  		vi->dev->stats.tx_bytes += skb->len;
  		vi->dev->stats.tx_packets++;
--		tot_sgs += skb_vnet_hdr(skb)->num_sg;
  		dev_kfree_skb_any(skb);
  	}
--	return tot_sgs;
++	return !c;
  }
  
  static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
-@@ -611,7 +609,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -574,8 +582,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	int capacity;
+ 
+-	/* Free up any pending old buffers before queueing new ones. */
+-	free_old_xmit_skbs(vi);
++	/* Free enough pending old buffers to enable queueing new ones. */
++	free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS);
+ 
+ 	/* Try to transmit */
+ 	capacity = xmit_skb(vi, skb);
+@@ -609,9 +617,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
  		netif_stop_queue(dev);
  		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
  			/* More just got used, free them then recheck. */
--			capacity += free_old_xmit_skbs(vi);
-+			free_old_xmit_skbs(vi);
-+			capacity = virtqueue_get_capacity(vi->svq);
- 			if (capacity >= 2+MAX_SKB_FRAGS) {
+-			free_old_xmit_skbs(vi);
+-			capacity = virtqueue_get_capacity(vi->svq);
+-			if (capacity >= 2+MAX_SKB_FRAGS) {
++			if (!likely(free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS))) {
  				netif_start_queue(dev);
  				virtqueue_disable_cb(vi->svq);
+ 			}
 -- 
 1.7.5.53.gc233e
