@@ -1,12 +1,14 @@
 From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 14/18] virtio: add api for delayed callbacks
-Date: Thu, 19 May 2011 10:24:12 +0300
-Message-ID: <20110519072412.GA31253@redhat.com>
+Subject: Re: [PATCH 09/18] virtio: use avail_event index
+Date: Thu, 19 May 2011 10:27:34 +0300
+Message-ID: <20110519072734.GB31253@redhat.com>
 References: <cover.1304541918.git.mst@redhat.com>
-	<64d47c628b3fdc0ac156aed4be182933d8bcc0db.1304541919.git.mst@redhat.com>
-	<871v08h0vm.fsf@rustcorp.com.au>
-	<20110515124818.GD24932@redhat.com>
-	<87boz3dsoe.fsf@rustcorp.com.au>
+	<8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
+	<874o54h4rt.fsf@rustcorp.com.au>
+	<20110515135541.GF24932@redhat.com>
+	<87ei3zdsq2.fsf@rustcorp.com.au>
+	<20110517061031.GC26989@redhat.com>
+	<87tycsn9lt.fsf@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,7 +24,7 @@ Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Ot
 To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
 Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <87boz3dsoe.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+In-Reply-To: <87tycsn9lt.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
 	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
@@ -34,51 +36,39 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2011 at 04:43:21PM +0930, Rusty Russell wrote:
-> On Sun, 15 May 2011 15:48:18 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > On Mon, May 09, 2011 at 03:27:33PM +0930, Rusty Russell wrote:
-> > > On Wed, 4 May 2011 23:52:33 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > > > Add an API that tells the other side that callbacks
-> > > > should be delayed until a lot of work has been done.
-> > > > Implement using the new used_event feature.
-> > > 
-> > > Since you're going to add a capacity query anyway, why not add the
-> > > threshold argument here?
+On Wed, May 18, 2011 at 09:49:42AM +0930, Rusty Russell wrote:
+> On Tue, 17 May 2011 09:10:31 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > Well one can imagine a driver doing:
 > > 
-> > I thought that if we keep the API kind of generic
-> > there might be more of a chance that future transports
-> > will be able to implement it. For example, with an
-> > old host we can't commit to a specific index.
+> > 	while (virtqueue_get_buf()) {
+> > 		virtqueue_add_buf()
+> > 	}
+> > 	virtqueue_kick()
+> > 
+> > which looks sensible (batch kicks) but might
+> > process any number of bufs between kicks.
 > 
-> No, it's always a hint anyway: you can be notified before the threshold
-> is reached.  But best make it explicit I think.
+> No, we currently only expose the buffers in the kick, so it can only
+> fill the ring doing that.
 > 
-> Cheers,
+> We could change that (and maybe that's worth looking at)...
+
+That's actually what one of the early patches in the series did.
+I guess I can try and reorder the patches, I do believe
+it makes sense to publish immediately as this way
+host can work in parallel with the guest.
+
+> > If we look at drivers closely enough, I think none
+> > of them do the equivalent of the above, but not 100% sure.
+> 
+> I'm pretty sure we don't have this kind of 'echo' driver yet.  Drivers
+> tend to take OS requests and queue them.  The only one which does
+> anything even partially sophisticated is the net driver...
+> 
+> Thanks,
 > Rusty.
 
-
-I tried doing that and remembered the real reason I went for this API:
-
-capacity is limited by descriptor table space, not
-used ring space: each entry in the used ring frees up multiple entries
-in the descriptor ring. Thus the ring can't provide
-callback after capacity is N: capacity is only available
-after we get bufs.
-
-We could try and make the API pass in the number of freed bufs, however:
-- this is not really what virtio-net cares about (it cares about
-  capacity)
-- if the driver passes a number > number of outstanding bufs, it will
-  never get a callback. So to stay correct the driver will need to
-  track number of outstanding requests. The simpler API avoids that. 
-
-
-APIs are easy to change so I'm guessing it's not a major blocker:
-we can change later when e.g. block tries to
-pass in some kind of extra hint: we'll be smarter
-about how this API can change then.
-
-Right?
+I guess I'll just need to do the legwork and check then.
 
 -- 
 MST
