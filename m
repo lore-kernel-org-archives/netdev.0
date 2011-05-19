@@ -1,86 +1,54 @@
-From: Jacek Luczak <difrost.kernel@gmail.com>
-Subject: [PATCH FINAL] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
-Date: Thu, 19 May 2011 21:55:13 +0200
-Message-ID: <4DD575A1.4080405@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 4/4] rps: Inspect GRE encapsulated packets to get flow hash
+Date: Thu, 19 May 2011 12:56:45 -0700
+Message-ID: <BANLkTinZOEz7Bhc+UgcWkrGb-rtCJ-kFvg@mail.gmail.com>
+References: <alpine.DEB.2.00.1105190827420.12804@pokey.mtv.corp.google.com>
+	<1305821795.3028.82.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:49450 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934358Ab1ESTza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 15:55:30 -0400
-Received: by wwa36 with SMTP id 36so3266587wwa.1
-        for <netdev@vger.kernel.org>; Thu, 19 May 2011 12:55:29 -0700 (PDT)
+Received: from smtp-out.google.com ([216.239.44.51]:58183 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934153Ab1EST4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 15:56:48 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id p4JJulsl006154
+	for <netdev@vger.kernel.org>; Thu, 19 May 2011 12:56:48 -0700
+Received: from pvh18 (pvh18.prod.google.com [10.241.210.210])
+	by wpaz33.hot.corp.google.com with ESMTP id p4JJukYh018013
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 19 May 2011 12:56:46 -0700
+Received: by pvh18 with SMTP id 18so1826680pvh.31
+        for <netdev@vger.kernel.org>; Thu, 19 May 2011 12:56:46 -0700 (PDT)
+In-Reply-To: <1305821795.3028.82.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During the sctp_close() call, we do not use rcu primitives to
-destroy the address list attached to the endpoint.  At the same
-time, we do the removal of addresses from this list before
-attempting to remove the socket from the port hash
+Eric,
 
-As a result, it is possible for another process to find the socket
-in the port hash that is in the process of being closed.  It then
-proceeds to traverse the address list to find the conflict, only
-to have that address list suddenly disappear without rcu() critical
-section.
+Thanks for comments.
 
-Fix issue by closing address list removal inside RCU critical
-section.
+> For sure it helps if this machine is the final host for these packets.
+>
+I would hope it helps routers too, assuming RPS already helps non
+encapsulated traffic in a router.
 
-Race can result in a kernel crash with general protection fault or
-kernel NULL pointer dereference:
+> If I am a firewall or router [and not looking into GRE packets], maybe I
+> dont want to spread all packets received on a tunnel to several cpus and
+> reorder them when forwarded.
+>
+Do know a specific use case where this patch would be a bad thing?  I
+don't believe there's any special ooo constraints on the packets in a
+tunnel, flow ordering should still be maintained.
 
-kernel: general protection fault: 0000 [#1] SMP
-kernel: RIP: 0010:[<ffffffffa02f3dde>]  [<ffffffffa02f3dde>] sctp_bind_addr_conflict+0x64/0x82 [sctp]
-kernel: Call Trace:
-kernel:  [<ffffffffa02f415f>] ? sctp_get_port_local+0x17b/0x2a3 [sctp]
-kernel:  [<ffffffffa02f3d45>] ? sctp_bind_addr_match+0x33/0x68 [sctp]
-kernel:  [<ffffffffa02f4416>] ? sctp_do_bind+0xd3/0x141 [sctp]
-kernel:  [<ffffffffa02f5030>] ? sctp_bindx_add+0x4d/0x8e [sctp]
-kernel:  [<ffffffffa02f5183>] ? sctp_setsockopt_bindx+0x112/0x4a4 [sctp]
-kernel:  [<ffffffff81089e82>] ? generic_file_aio_write+0x7f/0x9b
-kernel:  [<ffffffffa02f763e>] ? sctp_setsockopt+0x14f/0xfee [sctp]
-kernel:  [<ffffffff810c11fb>] ? do_sync_write+0xab/0xeb
-kernel:  [<ffffffff810e82ab>] ? fsnotify+0x239/0x282
-kernel:  [<ffffffff810c2462>] ? alloc_file+0x18/0xb1
-kernel:  [<ffffffff8134a0b1>] ? compat_sys_setsockopt+0x1a5/0x1d9
-kernel:  [<ffffffff8134aaf1>] ? compat_sys_socketcall+0x143/0x1a4
-kernel:  [<ffffffff810467dc>] ? sysenter_dispatch+0x7/0x32
-
-Signed-off-by: Jacek Luczak <luczak.jacek@gmail.com>
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-
----
- net/sctp/bind_addr.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-index faf71d1..6150ac5 100644
---- a/net/sctp/bind_addr.c
-+++ b/net/sctp/bind_addr.c
-@@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr *bp, __u16 port)
- /* Dispose of the address list. */
- static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
- {
--	struct sctp_sockaddr_entry *addr;
--	struct list_head *pos, *temp;
-+	struct sctp_sockaddr_entry *addr, *temp;
- 
- 	/* Empty the bind address list. */
--	list_for_each_safe(pos, temp, &bp->address_list) {
--		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
--		list_del(pos);
--		kfree(addr);
-+	list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
-+		list_del_rcu(&addr->list);
-+		call_rcu(&addr->rcu, sctp_local_addr_free);
- 		SCTP_DBG_OBJCNT_DEC(addr);
- 	}
- }
-
+> 3) table could contains 'pointers' to decoding function, that would
+> recompute a new rxhash function.
+>
+This could be done as a function in the protocol switch table, so that
+all the protocol specific code could be moved out of dev.c.  I thought
+about that several times but haven't convinced myself it's worth it;
+even with the code to handle tunneling the get_hash function is still
+pretty elegant (I believe ipip support is just two more lines by the
+way).
