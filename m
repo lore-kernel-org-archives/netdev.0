@@ -1,36 +1,26 @@
-From: tsuna <tsunanet@gmail.com>
-Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC 2988bis-02.
-Date: Thu, 19 May 2011 13:30:15 -0700
-Message-ID: <BANLkTinzTN=w9213+pCvBWuT5af7L7bKfg@mail.gmail.com>
-References: <BANLkTimSZEbnNVzi3UvBFndHp25S0ow7YQ@mail.gmail.com>
- <1456193D-84D1-46E2-B930-8FD0A5B8C409@comsys.rwth-aachen.de>
- <BANLkTikZasOVfr2zTfXVjPqQsnzy9Hk5uA@mail.gmail.com> <20110519.152703.1327182804872376183.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: GRE RPS patch set
+Date: Thu, 19 May 2011 17:14:42 -0400 (EDT)
+Message-ID: <20110519.171442.1015392662738718919.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alexander.zimmermann@comsys.rwth-aachen.de, hagen@jauu.net,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:50678 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933813Ab1ESUaf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 16:30:35 -0400
-In-Reply-To: <20110519.152703.1327182804872376183.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36568 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933164Ab1ESVOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 17:14:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 19, 2011 at 12:27 PM, David Miller <davem@davemloft.net> wr=
-ote:
-> So using SCTP as an example of "see we do this already over here" is =
-a
-> non-starter. =A0Don't do it.
-
-=46air enough.  I hope that the "there's no one-size-fits-all solution"
-argument has more weight than "hey SCTP does it".  :)
-
---=20
-Benoit "tsuna" Sigoure
-Software Engineer @ www.StumbleUpon.com
+DQpJIHJldmVydGVkIGFsbCBvZiBpdCwgYmVzaWRlcyBFcmljJ3MgZmVlZGJhY2ssIEknZCBsaWtl
+IHRvIGtub3cgaWYNCmdyZXAgaXMgbm90IHdvcmtpbmcgb24geW91ciBjb21wdXRlcj8NCg0KbmV0
+L2lwdjYvdWRwLmM6IEluIGZ1bmN0aW9uIKF1ZHB2Nl9xdWV1ZV9yY3Zfc2tiojoNCm5ldC9pcHY2
+L3VkcC5jOjUwOTozOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoXNvY2tfcnBzX3Nh
+dmVfcnhoYXNooiBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0IGEgY2FzdA0KaW5j
+bHVkZS9uZXQvc29jay5oOjY4ODoyMDogbm90ZTogZXhwZWN0ZWQgoXN0cnVjdCBza19idWZmICqi
+IGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIKFfX3UzMqINCg0KVXBkYXRpbmcgYWxsIGNhbGwgc2l0
+ZXMgb2YgYSBmdW5jdGlvbiB3aGVuIHlvdSBjaGFuZ2UgaXQncyBhcmd1bWVudHMNCmlzbid0IHJv
+Y2tldCBzY2llbmNlLiA6LSkNCg==
