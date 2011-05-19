@@ -1,40 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ipconfig wait for carrier
-Date: Thu, 19 May 2011 15:35:07 -0400 (EDT)
-Message-ID: <20110519.153507.578609630787612821.davem@davemloft.net>
-References: <20110518.181427.1228926976939865196.davem@davemloft.net>
-	<1305819120.3271.3.camel@dcbw.foobar.com>
-	<4DD56E7A.3010901@neli.hopto.org>
+Subject: Re: [PATCH 4/4] rps: Inspect GRE encapsulated packets to get flow
+ hash
+Date: Thu, 19 May 2011 15:39:16 -0400 (EDT)
+Message-ID: <20110519.153916.2250094502232694032.davem@davemloft.net>
+References: <alpine.DEB.2.00.1105190827420.12804@pokey.mtv.corp.google.com>
+	<1305821795.3028.82.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dcbw@redhat.com, netdev@vger.kernel.org
-To: micha@neli.hopto.org
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52438 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:44609 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933808Ab1ESTfN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 15:35:13 -0400
-In-Reply-To: <4DD56E7A.3010901@neli.hopto.org>
+	with ESMTP id S934417Ab1ESTjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 15:39:21 -0400
+In-Reply-To: <1305821795.3028.82.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Micha Nelissen <micha@neli.hopto.org>
-Date: Thu, 19 May 2011 21:24:42 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 May 2011 18:16:35 +0200
 
-> Dan Williams wrote:
->> Shouldn't the code still wait at *least* one second?  Not all drivers
->> support carrier detect, and those that don't set the carrier always-on.
->> Thus older devices that used to have 1s to get carrier in line (even if
->> they don't report it) now have only 10ms.
+> For sure it helps if this machine is the final host for these packets.
 > 
-> Btw, it does not matter much, there are 2 cases:
-> 1) DHCP: dhcp will retry every few seconds, so if link is not up, then a
-> later try will succeed
-> 2) Static IP: an ARP request is performed every second, so the second
-> request will be answered instead of the first.
-> 
-> Even if link is "fake up" by driver and not actually up after 10 msecs,
-> things will continue to work (eventually), after a second, just like now.
+> If I am a firewall or router [and not looking into GRE packets], maybe I
+> dont want to spread all packets received on a tunnel to several cpus and
+> reorder them when forwarded.
 
-But this eats one of the CONF_SEND_RETRIES attempts, which is only 6.
+Maybe is the operative word here.
+
+Unless you look inside of the tunnel, you may not have any entropy
+at all for packet steering and that seems to be what Tom is trying
+to attack here.
+
+Also, if we are properly keying the inner-flow, reordering isn't an
+issue.  Actual flows will not be reordered.
+
+> Maybe we need to add a table, so that upper layer (GRE or IPIP tunnels)
+> can instruct __skb_get_rxhash() that we want to deep inspect packets.
+
+Keep in mind that we have essentially already established that the
+goal of this code is to obtain as much hash steering entropy as
+possible without causing the reordering of traffic within a
+TCP/UDP/SCTP/etc. connection.
+
+And Tom's changes are consistent with those goals.
+
+If we want to start having knobs and ways to change this policy that
+is a totally seperate discussion from whether Tom's changes are
+correct and ready to be applied, which I think they essentially are.
