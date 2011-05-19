@@ -1,28 +1,28 @@
-From: Julian Anastasov <ja@ssi.bg>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Subject: Re: ip_vs_ftp causing ip_vs oops on module load.
-Date: Thu, 19 May 2011 11:15:23 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1105191110050.2171@ja.ssi.bg>
-References: <20110518201915.GB20475@redhat.com> <20110519011045.GF16688@verge.net.au> <20110519032611.GG16688@verge.net.au> <alpine.LFD.2.00.1105190930480.1993@ja.ssi.bg> <20110519075557.GB3922@verge.net.au>
+Date: Thu, 19 May 2011 10:14:01 +0200
+Message-ID: <201105191014.02274.hans.schillstrom@ericsson.com>
+References: <20110518201915.GB20475@redhat.com> <alpine.LFD.2.00.1105190930480.1993@ja.ssi.bg> <20110519075557.GB3922@verge.net.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Julian Anastasov <ja@ssi.bg>, Dave Jones <davej@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Wensong Zhang <wensong@linuxvirtualserver.org>,
 	Hans Schillstrom <hans@schillstrom.com>
 To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:34850 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755886Ab1ESINi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 04:13:38 -0400
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:57095 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756378Ab1ESIOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 04:14:10 -0400
 In-Reply-To: <20110519075557.GB3922@verge.net.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Thu, 19 May 2011, Simon Horman wrote:
-
+Hello, Simon
+On Thursday 19 May 2011 09:55:57 Simon Horman wrote:
 > On Thu, May 19, 2011 at 09:33:55AM +0300, Julian Anastasov wrote:
 > > 
 > > 	Hello,
@@ -72,10 +72,11 @@ On Thu, 19 May 2011, Simon Horman wrote:
 > 
 > Like this?
 
-	Yes, I think oops is for 2nd or next module load after
-first unload forgets entry in notifier list.
+Yes,
+we need this patch and the ip_vs_ftp patch in some format.
 
-> >From 840edfcc48e5b98d928ee9d66def761a808945b3 Mon Sep 17 00:00:00 2001
+> 
+> From 840edfcc48e5b98d928ee9d66def761a808945b3 Mon Sep 17 00:00:00 2001
 > From: Simon Horman <horms@verge.net.au>
 > Date: Thu, 19 May 2011 16:54:26 +0900
 > Subject: [PATCH] IPVS: Free resources on module removal
@@ -83,9 +84,7 @@ first unload forgets entry in notifier list.
 > Cc: Julian Anastasov <ja@ssi.bg>
 > Reported-by: Dave Jones <davej@redhat.com>
 > Signed-off-by: Simon Horman <horms@verge.net.au>
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 > ---
 >  net/netfilter/ipvs/ip_vs_ctl.c |    1 +
 >  1 files changed, 1 insertions(+), 0 deletions(-)
@@ -102,5 +101,7 @@ Acked-by: Julian Anastasov <ja@ssi.bg>
 >  	ip_vs_genl_unregister();
 >  	nf_unregister_sockopt(&ip_vs_sockopts);
 >  	LeaveFunction(2);
-> -- 
-> 1.7.4.4
+
+-- 
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
