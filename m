@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] ipconfig wait for carrier
-Date: Thu, 19 May 2011 16:19:50 -0400 (EDT)
-Message-ID: <20110519.161950.242667682596117811.davem@davemloft.net>
-References: <1305405386-25187-1-git-send-email-micha@neli.hopto.org>
-	<1305836046-21136-1-git-send-email-micha@neli.hopto.org>
+Subject: Re: [PATCH] tcp: Lower the initial RTO to 1s as per draft RFC
+ 2988bis-02.
+Date: Thu, 19 May 2011 16:16:13 -0400 (EDT)
+Message-ID: <20110519.161613.660024399062254005.davem@davemloft.net>
+References: <20110519.014656.1735519603194773578.davem@davemloft.net>
+	<1305787669-84634-1-git-send-email-tsunanet@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: micha@neli.hopto.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50767 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933926Ab1ESUT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 16:19:57 -0400
-In-Reply-To: <1305836046-21136-1-git-send-email-micha@neli.hopto.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, hagen@jauu.net,
+	eric.dumazet@gmail.com, alexander.zimmermann@comsys.rwth-aachen.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tsunanet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305787669-84634-1-git-send-email-tsunanet@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Micha Nelissen <micha@neli.hopto.org>
-Date: Thu, 19 May 2011 22:14:06 +0200
+From: Benoit Sigoure <tsunanet@gmail.com>
+Date: Wed, 18 May 2011 23:47:49 -0700
 
-> v3 -> v4: fix return boolean false instead of 0 for ic_is_init_dev
-> 
-> Currently the ip auto configuration has a hardcoded delay of 1 second.
-> When (ethernet) link takes longer to come up (e.g. more than 3 seconds),
-> nfs root may not be found.
-> 
-> Remove the hardcoded delay, and wait for carrier on at least one network
-> device.
-> 
-> Signed-off-by: Micha Nelissen <micha@neli.hopto.org>
-> Cc: David Miller <davem@davemloft.net>
+> @@ -868,6 +868,11 @@ static void tcp_init_metrics(struct sock *sk)
+>  {
+>  	struct tcp_sock *tp = tcp_sk(sk);
+>  	struct dst_entry *dst = __sk_dst_get(sk);
+> +	/* If we had to retransmit anything during the 3WHS, use
+> +	 * the initial fallback RTO as per draft RFC 2988bis-02.
+> +	 */
+> +	int init_rto = inet_csk(sk)->icsk_retransmits ?
+> +		TCP_TIMEOUT_INIT_FALLBACK : TCP_TIMEOUT_INIT;
 
-Ok, I've applied this, let's see what happens.
+Please do not put comments in the middle of a set of function
+local variable declarations.
+
+Also, as mentioned already, icsk_retransmits is not where SYN
+retransmissions are counted.
+
+It is stored in the TCP minisocket ->retrans field.
