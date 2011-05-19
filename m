@@ -1,32 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft
- RFC 2988bis-02.
-Date: Wed, 18 May 2011 22:36:22 -0400 (EDT)
-Message-ID: <20110518.223622.1525088601595365235.davem@davemloft.net>
-References: <20110518.155200.801089483916944725.davem@davemloft.net>
-	<1305771744-83951-1-git-send-email-tsunanet@gmail.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH 1/2] forcedeth: make module parameters readable in
+ /sys/module
+Date: Wed, 18 May 2011 23:09:18 -0400
+Message-ID: <20110518230918.5c03ba68.billfink@mindspring.com>
+References: <1305753000-14933-1-git-send-email-decot@google.com>
+	<20110518150346.508d6406@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, hagen@jauu.net,
-	eric.dumazet@gmail.com, alexander.zimmermann@comsys.rwth-aachen.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tsunanet@gmail.com
+Cc: David Decotigny <decot@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-net-upstream@google.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
+In-Reply-To: <20110518150346.508d6406@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benoit Sigoure <tsunanet@gmail.com>
-Date: Wed, 18 May 2011 19:22:24 -0700
+On Wed, 18 May 2011, Stephen Hemminger wrote:
 
-> Prior to this patch, Linux would always use 3 seconds (compile-time
-> constant) as the initial RTO.  Draft RFC 2988bis-02 proposes to tune
-> this down to 1 second and, in case of a timeout during the TCP 3WHS,
-> revert the RTO back up to 3 seconds when data transmission begins.
+> On Wed, 18 May 2011 14:09:59 -0700
+> David Decotigny <decot@google.com> wrote:
+> 
+> > This change allows to publish the values of the module parameters in
+> > /sys/module.
+> 
+> Although this makes more info for developer, it also means more
+> stuff in sysfs taking more memory and not providing any real value
+> that can't be found by looking at the /etc/modprobe.d for any parameters
+> user might have set.
 
-We just had a discussion where it was determined that changes to
-these settings are "network specific" and therefore that if it
-is appropriate at all (I'm still not convinced) it is only suitable
-as a routing metric.
+As a user, I find having the module parameter info in
+/sys/module/driver/parameters/* extremely useful at times.
+In tracking down weird problems I can for example do:
+
+	grep . /sys/module/driver/parameters/*
+
+to get a snapshot of module parameters.  I can then compare
+this with other similar systems to see if there are any
+differences of note that might be significant (anything
+from differences due to kernel versions to just forgetting
+some change I made).
+
+I don't see that it's really much extra significant overhead
+on the system either.
+
+					-Bill
