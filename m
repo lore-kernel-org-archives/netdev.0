@@ -1,150 +1,81 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH net-next 10/13] tg3: Consolidate all netdev feature
- assignments
-Date: Thu, 19 May 2011 16:51:25 -0700
-Message-ID: <20110519235124.GB774@mcarlson.broadcom.com>
-References: <1305843176-32358-11-git-send-email-mcarlson@broadcom.com>
- <BANLkTim7uERxfwd2isfBUbX7WS8-X-Rj9w@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Fri, 20 May 2011 02:41:54 +0300
+Message-ID: <20110519234154.GA13784@redhat.com>
+References: <20110518111734.GO7589@redhat.com>
+ <BANLkTi=g_PFfS5653K8ZoQ2Jhp8DhCV1hg@mail.gmail.com>
+ <1305729507.32080.6.camel@localhost.localdomain>
+ <20110518154746.GA21378@redhat.com>
+ <1305734857.32080.53.camel@localhost.localdomain>
+ <20110518163633.GB22001@redhat.com>
+ <1305737140.32080.59.camel@localhost.localdomain>
+ <20110518165138.GD22001@redhat.com>
+ <1305738028.32080.66.camel@localhost.localdomain>
+ <1305834169.32080.81.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: "Mahesh Bandewar" <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2288 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933824Ab1ESXbs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 19:31:48 -0400
-In-Reply-To: <BANLkTim7uERxfwd2isfBUbX7WS8-X-Rj9w@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1305834169.32080.81.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 19, 2011 at 04:15:52PM -0700, Mahesh Bandewar wrote:
-> On Thu, May 19, 2011 at 3:12 PM, Matt Carlson <mcarlson@broadcom.com> wrote:
-> > This patch consolidates all the netdev feature bit assignments to one
-> > location.
-> >
-> > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> > Reviewed-by: Michael Chan <mchan@broadcom.com>
-> > ---
-> > ?drivers/net/tg3.c | ? 51 ++++++++++++++++++++++++---------------------------
-> > ?1 files changed, 24 insertions(+), 27 deletions(-)
-> >
-> > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> > index 09fe067..5bf2ce1 100644
-> > --- a/drivers/net/tg3.c
-> > +++ b/drivers/net/tg3.c
-> > @@ -13602,19 +13602,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
-> > ? ? ? ? ? ?tg3_flag(tp, 5750_PLUS))
-> > ? ? ? ? ? ? ? ?tg3_flag_set(tp, 5705_PLUS);
-> >
-> > - ? ? ? /* 5700 B0 chips do not support checksumming correctly due
-> > - ? ? ? ?* to hardware bugs.
-> > - ? ? ? ?*/
-> > - ? ? ? if (tp->pci_chip_rev_id != CHIPREV_ID_5700_B0) {
-> > - ? ? ? ? ? ? ? u32 features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_RXCSUM;
-> > -
-> > - ? ? ? ? ? ? ? if (tg3_flag(tp, 5755_PLUS))
-> > - ? ? ? ? ? ? ? ? ? ? ? features |= NETIF_F_IPV6_CSUM;
-> > - ? ? ? ? ? ? ? tp->dev->features |= features;
-> > - ? ? ? ? ? ? ? tp->dev->hw_features |= features;
-> > - ? ? ? ? ? ? ? tp->dev->vlan_features |= features;
-> > - ? ? ? }
-> > -
-> > ? ? ? ?/* Determine TSO capabilities */
-> > ? ? ? ?if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
-> > ? ? ? ? ? ? ? ?; /* Do nothing. HW bug. */
-> > @@ -14922,7 +14909,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> > ? ? ? ?u32 sndmbx, rcvmbx, intmbx;
-> > ? ? ? ?char str[40];
-> > ? ? ? ?u64 dma_mask, persist_dma_mask;
-> > - ? ? ? u32 hw_features = 0;
-> > + ? ? ? u32 features = 0;
-> >
-> > ? ? ? ?printk_once(KERN_INFO "%s\n", version);
-> >
-> > @@ -14958,8 +14945,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> >
-> > ? ? ? ?SET_NETDEV_DEV(dev, &pdev->dev);
-> >
-> > - ? ? ? dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-> > -
-> > ? ? ? ?tp = netdev_priv(dev);
-> > ? ? ? ?tp->pdev = pdev;
-> > ? ? ? ?tp->dev = dev;
-> > @@ -15039,7 +15024,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> > ? ? ? ?if (dma_mask > DMA_BIT_MASK(32)) {
-> > ? ? ? ? ? ? ? ?err = pci_set_dma_mask(pdev, dma_mask);
-> > ? ? ? ? ? ? ? ?if (!err) {
-> > - ? ? ? ? ? ? ? ? ? ? ? dev->features |= NETIF_F_HIGHDMA;
-> > + ? ? ? ? ? ? ? ? ? ? ? features |= NETIF_F_HIGHDMA;
-> > ? ? ? ? ? ? ? ? ? ? ? ?err = pci_set_consistent_dma_mask(pdev,
-> > ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ?persist_dma_mask);
-> > ? ? ? ? ? ? ? ? ? ? ? ?if (err < 0) {
-> > @@ -15060,6 +15045,18 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> >
-> > ? ? ? ?tg3_init_bufmgr_config(tp);
-> >
-> > + ? ? ? features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-> > +
-> > + ? ? ? /* 5700 B0 chips do not support checksumming correctly due
-> > + ? ? ? ?* to hardware bugs.
-> > + ? ? ? ?*/
-> > + ? ? ? if (tp->pci_chip_rev_id != CHIPREV_ID_5700_B0) {
-> > + ? ? ? ? ? ? ? features |= NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_RXCSUM;
-> > +
-> > + ? ? ? ? ? ? ? if (tg3_flag(tp, 5755_PLUS))
-> > + ? ? ? ? ? ? ? ? ? ? ? features |= NETIF_F_IPV6_CSUM;
-> > + ? ? ? }
-> > +
-> > ? ? ? ?/* TSO is on by default on chips that support hardware TSO.
-> > ? ? ? ? * Firmware TSO on older chips gives lower performance, so it
-> > ? ? ? ? * is off by default, but can be enabled using ethtool.
-> > @@ -15067,24 +15064,20 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> > ? ? ? ?if ((tg3_flag(tp, HW_TSO_1) ||
-> > ? ? ? ? ? ? tg3_flag(tp, HW_TSO_2) ||
-> > ? ? ? ? ? ? tg3_flag(tp, HW_TSO_3)) &&
-> > - ? ? ? ? ? (dev->features & NETIF_F_IP_CSUM))
-> > - ? ? ? ? ? ? ? hw_features |= NETIF_F_TSO;
-> > + ? ? ? ? ? (features & NETIF_F_IP_CSUM))
-> > + ? ? ? ? ? ? ? features |= NETIF_F_TSO;
-> > ? ? ? ?if (tg3_flag(tp, HW_TSO_2) || tg3_flag(tp, HW_TSO_3)) {
-> > - ? ? ? ? ? ? ? if (dev->features & NETIF_F_IPV6_CSUM)
-> > - ? ? ? ? ? ? ? ? ? ? ? hw_features |= NETIF_F_TSO6;
-> > + ? ? ? ? ? ? ? if (features & NETIF_F_IPV6_CSUM)
-> > + ? ? ? ? ? ? ? ? ? ? ? features |= NETIF_F_TSO6;
-> > ? ? ? ? ? ? ? ?if (tg3_flag(tp, HW_TSO_3) ||
-> > ? ? ? ? ? ? ? ? ? ?GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761 ||
-> > ? ? ? ? ? ? ? ? ? ?(GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 &&
-> > ? ? ? ? ? ? ? ? ? ? GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_5784_AX) ||
-> > ? ? ? ? ? ? ? ? ? ?GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785 ||
-> > ? ? ? ? ? ? ? ? ? ?GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
-> > - ? ? ? ? ? ? ? ? ? ? ? hw_features |= NETIF_F_TSO_ECN;
-> > + ? ? ? ? ? ? ? ? ? ? ? features |= NETIF_F_TSO_ECN;
-> > ? ? ? ?}
-> >
-> > - ? ? ? dev->hw_features |= hw_features;
-> > - ? ? ? dev->features |= hw_features;
-> > - ? ? ? dev->vlan_features |= hw_features;
-> > -
-> > ? ? ? ?/*
-> > ? ? ? ? * Add loopback capability only for a subset of devices that support
-> > ? ? ? ? * MAC-LOOPBACK. Eventually this need to be enhanced to allow INT-PHY
-> > @@ -15093,7 +15086,11 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
-> > ? ? ? ?if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5780 &&
-> > ? ? ? ? ? ?!tg3_flag(tp, CPMU_PRESENT))
-> > ? ? ? ? ? ? ? ?/* Add the loopback capability */
-> > - ? ? ? ? ? ? ? dev->hw_features |= NETIF_F_LOOPBACK;
-> > + ? ? ? ? ? ? ? features |= NETIF_F_LOOPBACK;
-> > +
-> > + ? ? ? dev->features |= features;
-> This will set the loopback by default for the described sub-set.
-> > + ? ? ? dev->hw_features |= features;
-> Yes, you just want to add that here only.
+On Thu, May 19, 2011 at 12:42:49PM -0700, Shirley Ma wrote:
+> On Wed, 2011-05-18 at 10:00 -0700, Shirley Ma wrote:
+> > On Wed, 2011-05-18 at 19:51 +0300, Michael S. Tsirkin wrote:
+> > > > > Yes, I agree.  I think for tcpdump, we really need to copy the
+> > > data
+> > > > > anyway, to avoid guest changing it in between.  So we do that
+> > and
+> > > then
+> > > > > use the copy everywhere, release the old one. Hmm? 
+> > > > 
+> > > > Yes. Old one use zerocopy, new one use copy data.
+> > > > 
+> > > > Thanks
+> > > > Shirley
+> > > 
+> > > No, that's wrong, as they might become different with a
+> > > malicious guest. As long as we copied already, lets realease
+> > > the data and have everyone use the copy. 
+> > 
+> > Ok, I will patch pskb_expand_head to test it out. 
+> 
+> I am patching skb_copy, skb_clone, pskb_copy, pskb_expand_head to
+> convert a zero-copy skb to a copy skb to avoid this kind of issue.
+> 
+> This overhead won't impact macvtap/vhost TX zero-copy normally.
+> 
+> Shirley
 
-Yes.  Good catch.  I'll post a follow on patch ASAP.
+OK, that will handle packet socket at least in that it won't crash :)
 
+So the requirements are
+- data must be released in a timely fashion (e.g. unlike virtio-net
+  tun or bridge)
+- no filtering based on data (data is mapped in guest)
+- SG support
+- HIGHDMA support (on arches where this makes sense)
+- on fast path no calls to skb_copy, skb_clone, pskb_copy,
+  pskb_expand_head as these are slow
+
+First 2 requirements are a must, all other requirements
+are just dependencies to make sure zero copy will be faster
+than non zero copy.
+
+Using a new feature bit is probably the simplest approach to
+this. macvtap on top of most physical NICs most likely works
+correctly so it seems a bit more work than it needs to be,
+but it's also the safest one I think ...
+
+-- 
+MST
