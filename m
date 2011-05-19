@@ -1,35 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/4] rps: Infrastructure in __skb_get_rxhash for deep
- inspection
-Date: Thu, 19 May 2011 22:27:37 +0200
-Message-ID: <1305836857.3156.22.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1105190828001.12835@pokey.mtv.corp.google.com>
+From: tsuna <tsunanet@gmail.com>
+Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC 2988bis-02.
+Date: Thu, 19 May 2011 13:30:15 -0700
+Message-ID: <BANLkTinzTN=w9213+pCvBWuT5af7L7bKfg@mail.gmail.com>
+References: <BANLkTimSZEbnNVzi3UvBFndHp25S0ow7YQ@mail.gmail.com>
+ <1456193D-84D1-46E2-B930-8FD0A5B8C409@comsys.rwth-aachen.de>
+ <BANLkTikZasOVfr2zTfXVjPqQsnzy9Hk5uA@mail.gmail.com> <20110519.152703.1327182804872376183.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: alexander.zimmermann@comsys.rwth-aachen.de, hagen@jauu.net,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:47387 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933727Ab1ESU1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 16:27:41 -0400
-Received: by wwa36 with SMTP id 36so3292755wwa.1
-        for <netdev@vger.kernel.org>; Thu, 19 May 2011 13:27:40 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1105190828001.12835@pokey.mtv.corp.google.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:50678 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933813Ab1ESUaf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 16:30:35 -0400
+In-Reply-To: <20110519.152703.1327182804872376183.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 19 mai 2011 =C3=A0 08:39 -0700, Tom Herbert a =C3=A9crit :
-> Basics for looking for ports in encapsulated packets in tunnels.
->=20
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  net/core/dev.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
->=20
+On Thu, May 19, 2011 at 12:27 PM, David Miller <davem@davemloft.net> wr=
+ote:
+> So using SCTP as an example of "see we do this already over here" is =
+a
+> non-starter. =A0Don't do it.
 
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+=46air enough.  I hope that the "there's no one-size-fits-all solution"
+argument has more weight than "hey SCTP does it".  :)
 
-
-
+--=20
+Benoit "tsuna" Sigoure
+Software Engineer @ www.StumbleUpon.com
