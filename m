@@ -1,98 +1,117 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: 2.6.39-rc7-git11, x86/32, failed on ppp2897'th interface, PERCPU:  allocation failed
-Date: Thu, 19 May 2011 09:35:29 +0300
-Message-ID: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
+From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC
+ 2988bis-02.
+Date: Thu, 19 May 2011 08:36:09 +0200
+Message-ID: <C70B920C-6176-481B-B6D2-E52769291EBC@comsys.rwth-aachen.de>
+References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
+ <20110518.223622.1525088601595365235.davem@davemloft.net>
+ <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
+ <20110519.001426.2119532755281545481.davem@davemloft.net>
+ <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
+ <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
+ <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg=pgp-sha1; boundary=Apple-Mail-34-1062255599
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rev-153-13.globalproof.net ([194.146.153.13]:57498 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754708Ab1ESGfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:35:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, hagen@jauu.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tsuna <tsunanet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- Hi, again
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--Apple-Mail-34-1062255599
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 
- Just tried to upgrade large NAS from 2.6.38.6 to 2.6.39-rc7-git11, and 
- at same time enabling ipv6 on it.
- Got that, after ppp2897 brought up (sure it means there is other 2896 
- available, and also few ethernet vlans, around 32).
- I am not sure it is a bug, but it looks i had free memory(the box had 
- 8GB free), and lowmem too, also i will try to enable there 64bit kernel 
- at evening.
 
- May 17 16:00:42 194.146.155.70 kernel: [14925.897799] PERCPU: 
- allocation failed, size=2048 align=4, failed to allocate new chunk
- May 17 16:00:42 194.146.155.70 kernel: [14925.898163] Pid: 24207, comm: 
- pppd Not tainted 2.6.39-rc7-git11-build-0058 #4
- May 17 16:00:42 194.146.155.70 kernel: [14925.898164] Call Trace:
- May 17 16:00:42 194.146.155.70 kernel: [14925.898169]  [<c0335548>] ? 
- printk+0x18/0x20
- May 17 16:00:42 194.146.155.70 kernel: [14925.898173]  [<c017ecd0>] 
- pcpu_alloc+0x616/0x67a
- May 17 16:00:42 194.146.155.70 kernel: [14925.898176]  [<c0194a80>] ? 
- __kmalloc_track_caller+0x68/0xc0
- May 17 16:00:42 194.146.155.70 kernel: [14925.898189]  [<f8ae196c>] ? 
- kzalloc+0xb/0xd [ipv6]
- May 17 16:00:42 194.146.155.70 kernel: [14925.898193]  [<c01320a5>] ? 
- _local_bh_enable_ip.clone.6+0x18/0x71
- May 17 16:00:42 194.146.155.70 kernel: [14925.898195]  [<c017ed3e>] 
- __alloc_percpu+0xa/0xc
- May 17 16:00:42 194.146.155.70 kernel: [14925.898198]  [<c030aa7d>] 
- snmp_mib_init+0x2f/0x51
- May 17 16:00:42 194.146.155.70 kernel: [14925.898207]  [<f8ae2ad0>] 
- ipv6_add_dev+0x133/0x2a3 [ipv6]
- May 17 16:00:42 194.146.155.70 kernel: [14925.898209]  [<c030e12d>] ? 
- ip_mc_init_dev+0x75/0x86
- May 17 16:00:42 194.146.155.70 kernel: [14925.898211]  [<c0309321>] ? 
- devinet_sysctl_register+0x34/0x38
- May 17 16:00:42 194.146.155.70 kernel: [14925.898221]  [<f8ae5754>] 
- addrconf_notify+0x50/0x6a5 [ipv6]
- May 17 16:00:42 194.146.155.70 kernel: [14925.898224]  [<c0218f52>] ? 
- add_uevent_var+0xa3/0xa3
- May 17 16:00:42 194.146.155.70 kernel: [14925.898226]  [<c0309901>] ? 
- inetdev_event+0x55/0x3c0
- May 17 16:00:42 194.146.155.70 kernel: [14925.898230]  [<c01446f9>] 
- notifier_call_chain+0x26/0x48
- May 17 16:00:42 194.146.155.70 kernel: [14925.898232]  [<c01447a7>] 
- raw_notifier_call_chain+0x1a/0x1c
- May 17 16:00:42 194.146.155.70 kernel: [14925.898236]  [<c02c8115>] 
- call_netdevice_notifiers+0x44/0x4b
- May 17 16:00:42 194.146.155.70 kernel: [14925.898238]  [<c01320a5>] ? 
- _local_bh_enable_ip.clone.6+0x18/0x71
- May 17 16:00:42 194.146.155.70 kernel: [14925.898240]  [<c0132106>] ? 
- local_bh_enable_ip+0x8/0xa
- May 17 16:00:42 194.146.155.70 kernel: [14925.898242]  [<c02ca19b>] 
- register_netdevice+0x1fb/0x255
- May 17 16:00:42 194.146.155.70 kernel: [14925.898244]  [<c02ca227>] 
- register_netdev+0x32/0x41
- May 17 16:00:42 194.146.155.70 kernel: [14925.898247]  [<c021d5cf>] ? 
- sprintf+0x1c/0x1e
- May 17 16:00:42 194.146.155.70 kernel: [14925.898249]  [<c029647a>] 
- ppp_ioctl+0x224/0xaea
- May 17 16:00:42 194.146.155.70 kernel: [14925.898252]  [<c01a35cc>] ? 
- do_filp_open+0x26/0x67
- May 17 16:00:42 194.146.155.70 kernel: [14925.898254]  [<c0296256>] ? 
- ppp_write+0x98/0x98
- May 17 16:00:42 194.146.155.70 kernel: [14925.898256]  [<c01a53ce>] 
- do_vfs_ioctl+0x45e/0x498
- May 17 16:00:42 194.146.155.70 kernel: [14925.898258]  [<c01a118e>] ? 
- getname_flags+0x1e/0xad
- May 17 16:00:42 194.146.155.70 kernel: [14925.898260]  [<c019391b>] ? 
- kmem_cache_free+0x14/0x83
- May 17 16:00:42 194.146.155.70 kernel: [14925.898262]  [<c01ab5bb>] ? 
- alloc_fd+0x4e/0xba
- May 17 16:00:42 194.146.155.70 kernel: [14925.898265]  [<c0199465>] ? 
- do_sys_open+0xdb/0xe5
- May 17 16:00:42 194.146.155.70 kernel: [14925.898266]  [<c019ac7b>] ? 
- fput+0x13/0x155
- May 17 16:00:42 194.146.155.70 kernel: [14925.898268]  [<c01a4387>] ? 
- do_fcntl+0x227/0x3aa
- May 17 16:00:42 194.146.155.70 kernel: [14925.898270]  [<c01a543b>] 
- sys_ioctl+0x33/0x4c
- May 17 16:00:42 194.146.155.70 kernel: [14925.898273]  [<c0336edd>] 
- syscall_call+0x7/0xb
+Am 19.05.2011 um 08:25 schrieb tsuna:
+
+> On Wed, May 18, 2011 at 11:10 PM, Alexander Zimmermann
+> <alexander.zimmermann@comsys.rwth-aachen.de> wrote:
+>> Am 19.05.2011 um 06:33 schrieb tsuna:
+>>> Presumably if the user decides to tweak these knobs, they'll know
+>>> what's appropriate for their environment.
+>> 
+>> Are you sure? I'm not. I fully agree with David that minRTO is
+> 
+> s/minRTO/initRTO/, right?
+
+Yes of course :-)
+
+> 
+>> something that a user shout not control at all
+> 
+> I personally don't like to hold the hand and spoon feed users too
+> much, I want to trust them to be responsible and know what they're
+> doing.  Yes, there will always be people who will act stupid and do
+> stupid things with whatever knobs you expose.  The web is full of
+> people who advise to tune up all the TCP rmem/wmem parameters to crazy
+> high level based on the voodoo belief that they're going to improve
+> their TCP performance, but then as long as you have knobs in your
+> system, these people will misuse them anyway and shoot themselves in
+> the foot, what can we do about that.
+
+But if you tune rmen/wmen to crazy level, it's only your TCP performance
+that hurts (and maybe the receiver's one).
+
+If you set the initRTO=0.1s, it's good for me but bad for the rest of the
+world. That's the difference.
+
+Or do you want to implement a lower barrier of 1sec so that you can ensure
+that nobody set the initRTO lower than 1s? 
+
+
+> 
+> There's also a good chunk of people who know what they're doing, and
+> for them compile-time constants are annoying because it's inconvenient
+> to experiment and iterate quickly when you need to recompile your
+> kernel to change a value.  If turning the compile time constant into a
+> knob leaves the code reasonably straightforward and doesn't incur too
+> much overhead, then why not do it?
+> 
+> Regarding this knob in particular, I can imagine that people who are
+> in environment where RTT easily gets around 1s will be upset by the
+> change in the default value, and doubly upset that they have to
+> recompile their kernel to change the value back to 3s.  I'm in favor
+> of the reduction of initRTO, for the same reason Google is, but I can
+> also understand that the direction we're taking might not be
+> appropriate for everyone.
+> 
+> -- 
+> Benoit "tsuna" Sigoure
+> Software Engineer @ www.StumbleUpon.com
+
+//
+// Dipl.-Inform. Alexander Zimmermann
+// Department of Computer Science, Informatik 4
+// RWTH Aachen University
+// Ahornstr. 55, 52056 Aachen, Germany
+// phone: (49-241) 80-21422, fax: (49-241) 80-22222
+// email: zimmermann@cs.rwth-aachen.de
+// web: http://www.umic-mesh.net
+//
+
+
+--Apple-Mail-34-1062255599
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: Signierter Teil der Nachricht
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.17 (Darwin)
+Comment: GPGTools - http://gpgtools.org
+
+iEYEARECAAYFAk3UuloACgkQdyiq39b9uS4u+QCgkTNKQJta2KV8HJvVM95Q0/vH
+rNAAoIa+QlC5gNgk5T9b1K2VsE5LT12S
+=fMU8
+-----END PGP SIGNATURE-----
+
+--Apple-Mail-34-1062255599--
