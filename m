@@ -1,28 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] netfilter: add more values to enum
- ip_conntrack_info
-Date: Thu, 19 May 2011 15:02:05 -0400 (EDT)
-Message-ID: <20110519.150205.2228978750967286986.davem@davemloft.net>
-References: <1305812667.3028.66.camel@edumazet-laptop>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [RFC 2/3] RDMA/cma: Add support for netlink statistics export
+Date: Thu, 19 May 2011 19:03:26 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373010008@ORSMSX101.amr.corp.intel.com>
+References: <1305303525-11113-1-git-send-email-roland@kernel.org>
+ <1305303525-11113-3-git-send-email-roland@kernel.org>
+ <1828884A29C6694DAF28B7E6B8A82373F428@ORSMSX101.amr.corp.intel.com>
+ <BANLkTin1uVyrzdn_030bGmC=QHtfkvOTNA@mail.gmail.com>
+ <1828884A29C6694DAF28B7E6B8A82373FF9E@ORSMSX101.amr.corp.intel.com>
+ <BANLkTimahta6QYrjTE5+DmN6RZXY_c72=Q@mail.gmail.com>
+ <BANLkTimjhAVfpJQX-PshVBgcshzfh-taRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1305812667.3028.66.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BANLkTimjhAVfpJQX-PshVBgcshzfh-taRw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVGh1LCAx
-OSBNYXkgMjAxMSAxNTo0NDoyNyArMDIwMA0KDQo+IEZvbGxvd2luZyBlcnJvciBpcyByYWlzZWQg
-KGFuZCBvdGhlciBzaW1pbGFyIG9uZXMpIDoNCj4gDQo+IG5ldC9pcHY0L25ldGZpbHRlci9uZl9u
-YXRfc3RhbmRhbG9uZS5jOiBJbiBmdW5jdGlvbiChbmZfbmF0X2ZuojoNCj4gbmV0L2lwdjQvbmV0
-ZmlsdGVyL25mX25hdF9zdGFuZGFsb25lLmM6MTE5OjI6IHdhcm5pbmc6IGNhc2UgdmFsdWUgoTSi
-DQo+IG5vdCBpbiBlbnVtZXJhdGVkIHR5cGUgoWVudW0gaXBfY29ubnRyYWNrX2luZm+iDQo+IA0K
-PiBnY2MgYmFyZnMgb24gYWRkaW5nIHR3byBlbnVtIHZhbHVlcyBhbmQgZ2V0dGluZyBhIG5vdCBl
-bnVtZXJhdGVkDQo+IHJlc3VsdCA6DQo+IA0KPiBjYXNlIElQX0NUX1JFTEFURUQrSVBfQ1RfSVNf
-UkVQTFk6DQo+IA0KPiBBZGQgbWlzc2luZyBlbnVtIHZhbHVlcw0KPiANCj4gU2lnbmVkLW9mZi1i
-eTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KDQpBY2tlZC1ieTogRGF2
-aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0K
+> And actually looking at https://patchwork.kernel.org/patch/90204/
+> it looks reasonable to merge now... or I could just use
+> cma_is_ud_ps() in the netlink stuff.
+> 
+> I'm inclined to just take your patch now if that makes sense to you
+> (it looks pretty independent of everything else)
+> 
+> Is that the latest version in patchwork?
+
+The only difference that I see between that patch and what's in my tree are the line numbers.  The patch looks safe enough to me to go in separately from anything else.  Thanks
+
+- Sean
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
