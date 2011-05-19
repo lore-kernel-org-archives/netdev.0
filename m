@@ -1,35 +1,53 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Patch] bridge: call NETDEV_ENSLAVE notifiers when adding a
- slave
-Date: Thu, 19 May 2011 08:12:13 -0700
-Message-ID: <20110519081213.15c05da2@nehalam>
-References: <1305794393-20775-1-git-send-email-amwang@redhat.com>
-	<1305800661-4081-1-git-send-email-amwang@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH v3] ipconfig wait for carrier
+Date: Thu, 19 May 2011 10:31:58 -0500
+Message-ID: <1305819120.3271.3.camel@dcbw.foobar.com>
+References: <4DD36803.1020001@neli.hopto.org>
+	 <20110518.023725.441358922110721042.davem@davemloft.net>
+	 <4DD36E54.9040706@neli.hopto.org>
+	 <20110518.181427.1228926976939865196.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	Neil Horman <nhorman@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305800661-4081-1-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: micha@neli.hopto.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:13285 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752863Ab1ESP3y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 May 2011 11:29:54 -0400
+In-Reply-To: <20110518.181427.1228926976939865196.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 May 2011 18:24:17 +0800
-Amerigo Wang <amwang@redhat.com> wrote:
+On Wed, 2011-05-18 at 18:14 -0400, David Miller wrote:
+> From: Micha Nelissen <micha@neli.hopto.org>
+> Date: Wed, 18 May 2011 08:59:32 +0200
+> 
+> > Op 2011-05-18 8:37, David Miller schreef:
+> >> From: Micha Nelissen<micha@neli.hopto.org>
+> >> Date: Wed, 18 May 2011 08:32:35 +0200
+> >>
+> >>> I'm confused. Against which tree/commit do you want it then?
+> >>
+> >> Linus's current tree would be fine as would:
+> >>
+> >> 	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+> > 
+> > Ok I see, thanks. The patch should apply just fine to your tree, there
+> > is only a spelling change since 2.6.38 which does not conflict.
+> 
+> Please fix ic_is_init_dev() to return a proper boolean "false" instead
+> of "0" when IFF_LOOPBACK is set.
 
-> In the previous patch I added NETDEV_ENSLAVE, now
-> we can notify netconsole when adding a device to a bridge too.
-> 
-> By the way, s/netdev_bonding_change/call_netdevice_notifiers/ in
-> bond_main.c, since this is not bonding specific.
-> 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Cc: Neil Horman <nhorman@redhat.com>
-> 
+Shouldn't the code still wait at *least* one second?  Not all drivers
+support carrier detect, and those that don't set the carrier always-on.
+Thus older devices that used to have 1s to get carrier in line (even if
+they don't report it) now have only 10ms.
 
-Is there a usage for this? What listens for this notification?
+I think it should wait at least one second like the code currently does,
+and then if the carrier still isn't up, wait longer.
+
+Dan
+
+
