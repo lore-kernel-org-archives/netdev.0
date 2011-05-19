@@ -1,9 +1,9 @@
 From: David Decotigny <decot@google.com>
-Subject: [PATCH 2/6] forcedeth: new ethtool stat "tx_timeout" to account for tx_timeouts
-Date: Wed, 18 May 2011 17:14:36 -0700
-Message-ID: <1305764080-24853-2-git-send-email-decot@google.com>
+Subject: [PATCH 5/6] forcedeth: Add messages to indicate using MSI or MSI-X
+Date: Wed, 18 May 2011 17:14:39 -0700
+Message-ID: <1305764080-24853-5-git-send-email-decot@google.com>
 References: <1305764080-24853-1-git-send-email-decot@google.com>
-Cc: kernel-net-upstream@google.com, Sameer Nanda <snanda@google.com>,
+Cc: kernel-net-upstream@google.com, Mike Ditto <mditto@google.com>,
 	David Decotigny <decot@google.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Joe Perches <joe@perches.com>,
@@ -14,45 +14,36 @@ In-Reply-To: <1305764080-24853-1-git-send-email-decot@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sameer Nanda <snanda@google.com>
+From: Mike Ditto <mditto@google.com>
 
-This change publishes a new ethtool stats: tx_timeout that counts the
-number of times the tx_timeout callback was triggered.
+This adds a few debug messages to indicate whether PCIe interrupts are
+signaled with MSI or MSI-X.
 
 
 Signed-off-by: David Decotigny <decot@google.com>
 ---
- drivers/net/forcedeth.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/forcedeth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 895471d..112dc0b 100644
+index 17e79de..2712ddc 100644
 --- a/drivers/net/forcedeth.c
 +++ b/drivers/net/forcedeth.c
-@@ -632,6 +632,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
- 	{ "rx_packets" },
- 	{ "rx_errors_total" },
- 	{ "tx_errors_total" },
-+	{ "tx_timeout" },
- 
- 	/* version 2 stats */
- 	{ "tx_deferral" },
-@@ -672,6 +673,7 @@ struct nv_ethtool_stats {
- 	u64 rx_packets;
- 	u64 rx_errors_total;
- 	u64 tx_errors_total;
-+	u64 tx_timeout;
- 
- 	/* version 2 stats */
- 	u64 tx_deferral;
-@@ -2526,6 +2528,8 @@ static void nv_tx_timeout(struct net_device *dev)
- 
- 	spin_lock_irq(&np->lock);
- 
-+	np->estats.tx_timeout++;
-+
- 	/* 1) stop tx engine */
- 	nv_stop_tx(dev);
- 
+@@ -3745,6 +3745,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				writel(0, base + NvRegMSIXMap0);
+ 				writel(0, base + NvRegMSIXMap1);
+ 			}
++			netdev_info(dev, "forcedeth: MSI-X enabled\n");
+ 		}
+ 	}
+ 	if (ret != 0 && np->msi_flags & NV_MSI_CAPABLE) {
+@@ -3766,6 +3767,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			writel(0, base + NvRegMSIMap1);
+ 			/* enable msi vector 0 */
+ 			writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
++			netdev_info(dev, "forcedeth: MSI enabled\n");
+ 		}
+ 	}
+ 	if (ret != 0) {
 -- 
 1.7.3.1
