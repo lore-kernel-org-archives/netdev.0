@@ -1,17 +1,17 @@
 From: WESTERN UNION MONEY TRANSFER <winners@westi.org>
 Subject: (unknown)
-Date: Thu, 19 May 2011 13:33:22 +1000
-Message-ID: <201105190333.p4J3XMKW012009@mail01.syd.optusnet.com.au>
+Date: Thu, 19 May 2011 13:32:40 +1000
+Message-ID: <201105190332.p4J3WeiI002907__48990.0334775031$1305776396$gmane$org@mail06.syd.optusnet.com.au>
 Reply-To: wu.africadept12@w.cn
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: binary
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallbackmx07.syd.optusnet.com.au ([211.29.132.9]:56956 "EHLO
-	fallbackmx07.syd.optusnet.com.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932287Ab1ESDjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 23:39:15 -0400
+Received: from fallbackmx10.syd.optusnet.com.au ([211.29.132.251]:55293 "EHLO
+	fallbackmx10.syd.optusnet.com.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932287Ab1ESDjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 May 2011 23:39:41 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
