@@ -1,108 +1,160 @@
-From: Benoit Sigoure <tsunanet@gmail.com>
-Subject: [PATCH] tcp: Lower the initial RTO to 1s as per draft RFC 2988bis-02.
-Date: Wed, 18 May 2011 23:36:16 -0700
-Message-ID: <1305786976-84532-1-git-send-email-tsunanet@gmail.com>
-References: <20110519.014656.1735519603194773578.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Benoit Sigoure <tsuna@stumbleupon.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	hagen@jauu.net, eric.dumazet@gmail.com,
-	alexander.zimmermann
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110519.014656.1735519603194773578.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonc?=  =?UTF-8?Q?e=20/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20na?=  =?UTF-8?Q?t=20=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
+Date: Thu, 19 May 2011 09:39:00 +0300
+Message-ID: <d63fd484351a3538453f230bfa5c9dd9@visp.net.lb>
+References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
+ <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
+ <1305711471.2983.27.camel@edumazet-laptop>
+ <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
+ <1305713111.2991.1.camel@edumazet-laptop>
+ <1305719047.2991.4.camel@edumazet-laptop>
+ <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
+ <1305733944.2991.45.camel@edumazet-laptop>
+ <1305746989.3019.0.camel@edumazet-laptop>
+ <1305782397.3019.5.camel@edumazet-laptop>
+ <626ba8ae63cfc8fdb68c7f281463dc27@visp.net.lb>
+ <1305786623.3019.10.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:57598 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755454Ab1ESGjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:39:04 -0400
+In-Reply-To: <1305786623.3019.10.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Benoit Sigoure <tsuna@stumbleupon.com>
-
-Draft RFC 2988bis-02 recommends that the initial RTO be lowered
-from 3 seconds down to 1 second, and that in case of a timeout
-during the TCP 3WHS, the RTO should fallback to 3 seconds when
-data transmission begins.
----
-
-On Wed, May 18, 2011 at 10:46 PM, David Miller <davem@davemloft.net> wrote:
-> From: tsuna <tsunanet@gmail.com>
-> Date: Wed, 18 May 2011 21:33:21 -0700
->
->> On Wed, May 18, 2011 at 9:14 PM, David Miller <davem@davemloft.net> wrote:
->>> I really would rather see the initial RTO be static and be set to 1
->>> with fallback RTO of 3.
+ On Thu, 19 May 2011 08:30:23 +0200, Eric Dumazet wrote:
+> Le jeudi 19 mai 2011 =C3=A0 09:11 +0300, Denys Fedoryshchenko a =C3=A9=
+crit :
+>> On Thu, 19 May 2011 07:19:57 +0200, Eric Dumazet wrote:
+>> > Le mercredi 18 mai 2011 =C3=A0 21:29 +0200, Eric Dumazet a =C3=A9c=
+rit :
+>> >> Le mercredi 18 mai 2011 =C3=A0 17:52 +0200, Eric Dumazet a =C3=A9=
+crit :
+>> >>
+>> >> > Hmm, it seems we have some inetpeer refcount leak somewhere.
+>> >> >
+>> >> > Maybe one (struct rtable)->peer is not released on dst/rtable
+>> >> removal,
+>> >> > or we also leak dst/rtable (and their ->peer inetpeer)
+>> >> >
+>> >> > Watch :
+>> >> >
+>> >> > grep peer /proc/slabinfo
+>> >> > grep dst /proc/slabinfo
+>> >> >
+>> >>
+>> >> FYI, I started a bisection to find the faulty commit.
+>> >>
+>> >
+>> > Oh well, of course this came to 2c8cec5c10bced240
+>> > (ipv4: Cache learned PMTU information in inetpeer.)
+>> >
+>> > So my method to check if we have a leak might be wrong, since the
+>> > above
+>> > commit let cache full of garbage, and hope that following lookups
+>> > will
+>> > find and evict obsolete dst.
+>> >
+>> > Thats getting difficult :(
+>> >
+>> > Could you please send us
+>> >
+>> > grep . /proc/sys/net/ipv4/route/*
+>> >
+>> > Thanks !
+>>  NewNet-PPPoE ~ # grep . /proc/sys/net/ipv4/route/*
+>>  /proc/sys/net/ipv4/route/error_burst:5000
+>>  /proc/sys/net/ipv4/route/error_cost:1000
+>>  grep: /proc/sys/net/ipv4/route/flush: Permission denied
+>>  /proc/sys/net/ipv4/route/gc_elasticity:8
+>>  /proc/sys/net/ipv4/route/gc_interval:60
+>>  /proc/sys/net/ipv4/route/gc_min_interval:0
+>>  /proc/sys/net/ipv4/route/gc_min_interval_ms:500
+>>  /proc/sys/net/ipv4/route/gc_thresh:32768
+>>  /proc/sys/net/ipv4/route/gc_timeout:300
+>>  /proc/sys/net/ipv4/route/max_size:524288
+>>  /proc/sys/net/ipv4/route/min_adv_mss:256
+>>  /proc/sys/net/ipv4/route/min_pmtu:552
+>>  /proc/sys/net/ipv4/route/mtu_expires:600
+>>  /proc/sys/net/ipv4/route/redirect_load:20
+>>  /proc/sys/net/ipv4/route/redirect_number:9
+>>  /proc/sys/net/ipv4/route/redirect_silence:20480
 >>
->> I can also provide a simple patch for this if you want to start from
->> there.  And then maybe we can discuss having a runtime knob some more
->> :-)
+>>  I think it is default one.
+>>
+>>  PMTU is very actual for that, as it is pppoe, and up to 2k=20
+>> interfaces
+>>  terminated there.
+>>
 >
-> Yeah why don't we do that :-)
+> Yes, and every time an interface is added -> new route added, route
+> cache is invalidated (we change rt_genid)
+ If it matters, there is ifb with shaper on it (for shaping from ppp to=
+=20
+ world).
 
-Alright, here we go.
+>
+>>  I don't know, if it matters, but
+>>  iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS
+>>  --clamp-mss-to-pmtu
+>>  also there.
+>>
+>>  I can generate and put "ip route ls cache" and any other info.
+>>
+>
+> Hmm would you please send :
+>
+> rtstat -c10 -i1
+ Note, it is offpeak time now, just 1447 interfaces, peak is after 12=20
+ hours
 
+ NewNet-PPPoE ~ # ./rtstat -c10 -i1
+ rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cach=
+e|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cac=
+he|rt_cache|
+  entries|  in_hit|in_slow_|in_slow_|in_no_ro| =20
+ in_brd|in_marti|in_marti|=20
+ out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist=
+|out_hlis|
+         |        |     tot|      mc|     ute|        |  an_dst| =20
+ an_src|        |    _tot|     _mc|        |      ed|    miss| verflow|=
+=20
+ _search|t_search|
+     2256|355568844|85929285|    1649|       9|   59954|     293|   =20
+ 1460|14423031| 6865540|       0|       0|       0|       0|      =20
+ 0|22719682| 1262044|
+     3408|   14887|    2117|       0|       0|       1|       1|      =20
+ 0|     761|     159|       0|       0|       0|       0|       0|   =20
+ 1209|      46|
+     3189|   17185|    5613|       0|       0|       1|       0|      =20
+ 0|     987|     334|       0|       0|       0|       0|       0|    =20
+ 684|      22|
+     2698|   18312|    3417|       0|       0|       5|       0|      =20
+ 0|     923|     242|       0|       0|       0|       0|       0|    =20
+ 498|      10|
+     4996|   17268|    3604|       0|       0|       1|       0|      =20
+ 0|     847|     240|       0|       0|       0|       0|       0|    =20
+ 830|      23|
+     2457|   16439|    4227|       0|       0|       4|       0|      =20
+ 0|     663|     268|       0|       0|       0|       0|       0|    =20
+ 655|      22|
+     4763|   16895|    3634|       0|       0|       1|       0|      =20
+ 0|     880|     266|       0|       0|       0|       0|       0|    =20
+ 896|      32|
+     6299|   19169|    2220|       0|       0|       2|       0|      =20
+ 0|     898|     206|       0|       0|       0|       0|       0|   =20
+ 1213|      60|
+     7511|   20059|    1597|       0|       0|       2|       1|      =20
+ 0|     855|     197|       0|       0|       0|       0|       0|   =20
+ 1917|      54|
+     9271|   17731|    2919|       0|       0|       0|       0|      =20
+ 0|     855|     223|       0|       0|       0|       0|       0|   =20
+ 1664|     101|
 
- include/net/tcp.h    |    5 ++++-
- net/ipv4/tcp_input.c |   13 +++++++++----
- 2 files changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index cda30ea..274d761 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -122,7 +122,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- #endif
- #define TCP_RTO_MAX	((unsigned)(120*HZ))
- #define TCP_RTO_MIN	((unsigned)(HZ/5))
--#define TCP_TIMEOUT_INIT ((unsigned)(3*HZ))	/* RFC 1122 initial RTO value	*/
-+/* The next 2 values come from Draft RFC 2988bis-02. */
-+#define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))		/* initial RTO value	*/
-+#define TCP_TIMEOUT_INIT_FALLBACK ((unsigned)(3*HZ))	/* initial RTO to fallback to when
-+							 * a timeout happens during the 3WHS.	*/
- 
- #define TCP_RESOURCE_PROBE_INTERVAL ((unsigned)(HZ/2U)) /* Maximal interval between probes
- 					                 * for local resources.
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bef9f04..a36bc35 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -868,6 +868,11 @@ static void tcp_init_metrics(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct dst_entry *dst = __sk_dst_get(sk);
-+	/* If we had to retransmit anything during the 3WHS, use
-+	 * the initial fallback RTO as per draft RFC 2988bis-02.
-+	 */
-+	int init_rto = inet_csk(sk)->icsk_retransmits ?
-+		TCP_TIMEOUT_INIT_FALLBACK : TCP_TIMEOUT_INIT;
- 
- 	if (dst == NULL)
- 		goto reset;
-@@ -890,7 +895,7 @@ static void tcp_init_metrics(struct sock *sk)
- 	if (dst_metric(dst, RTAX_RTT) == 0)
- 		goto reset;
- 
--	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
-+	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (init_rto << 3))
- 		goto reset;
- 
- 	/* Initial rtt is determined from SYN,SYN-ACK.
-@@ -916,7 +921,7 @@ static void tcp_init_metrics(struct sock *sk)
- 		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
- 	}
- 	tcp_set_rto(sk);
--	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_tstamp) {
-+	if (inet_csk(sk)->icsk_rto < init_rto && !tp->rx_opt.saw_tstamp) {
- reset:
- 		/* Play conservative. If timestamps are not
- 		 * supported, TCP will fail to recalculate correct
-@@ -924,8 +929,8 @@ reset:
- 		 */
- 		if (!tp->rx_opt.saw_tstamp && tp->srtt) {
- 			tp->srtt = 0;
--			tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_INIT;
--			inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
-+			tp->mdev = tp->mdev_max = tp->rttvar = init_rto;
-+			inet_csk(sk)->icsk_rto = init_rto;
- 		}
- 	}
- 	tp->snd_cwnd = tcp_init_cwnd(tp, dst);
--- 
-1.7.0.4
