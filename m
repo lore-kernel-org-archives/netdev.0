@@ -1,37 +1,130 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 4/4] rps: Inspect GRE encapsulated packets to get flow hash
-Date: Thu, 19 May 2011 13:06:08 -0700
-Message-ID: <BANLkTi=Q3N+_OEp4sLJu7wz5OW6gOCkciA@mail.gmail.com>
-References: <alpine.DEB.2.00.1105190827420.12804@pokey.mtv.corp.google.com>
-	<1305821795.3028.82.camel@edumazet-laptop>
-	<20110519.153916.2250094502232694032.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: ip_vs_ftp causing ip_vs oops on module load.
+Date: Thu, 19 May 2011 23:13:44 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1105192235300.1589@ja.ssi.bg>
+References: <20110518201915.GB20475@redhat.com> <201105190952.49006.hans.schillstrom@ericsson.com> <alpine.LFD.2.00.1105191139360.2171@ja.ssi.bg> <201105191219.22907.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:27008 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933670Ab1ESUGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 16:06:12 -0400
-Received: from kpbe18.cbf.corp.google.com (kpbe18.cbf.corp.google.com [172.25.105.82])
-	by smtp-out.google.com with ESMTP id p4JK6AkV005021
-	for <netdev@vger.kernel.org>; Thu, 19 May 2011 13:06:10 -0700
-Received: from pxi9 (pxi9.prod.google.com [10.243.27.9])
-	by kpbe18.cbf.corp.google.com with ESMTP id p4JK5XVb012628
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 19 May 2011 13:06:09 -0700
-Received: by pxi9 with SMTP id 9so2099447pxi.0
-        for <netdev@vger.kernel.org>; Thu, 19 May 2011 13:06:08 -0700 (PDT)
-In-Reply-To: <20110519.153916.2250094502232694032.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	Simon Horman <horms@verge.net.au>,
+	Dave Jones <davej@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wensong Zhang <wensong@linuxvirtualserver.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <201105191219.22907.hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Unless you look inside of the tunnel, you may not have any entropy
-> at all for packet steering and that seems to be what Tom is trying
-> to attack here.
->
-Entropy for RPS, but flow identifier for RFS.  Also, this is not just
-a SW problem, RSS doesn't seem to do anything creative with GRE
-packets... I'm hoping we'll be able get support in NICs to do this
-same functionality.
+
+	Hello,
+
+On Thu, 19 May 2011, Hans Schillstrom wrote:
+
+> If we talk about the long term solution,
+> applications that affects other netns should have their own data.
+> ex. like the ftp, ports should be per netns
+>     ipvsadm --appftp [port list]
+
+	Yes, it is possible, if we find solution to
+trigger register_ip_vs_app_inc() calls with such controls...
+May be app have to export some method(s) for this to work.
+
+> > 	While the protocols have controls that manipulate pernet
+> > timeouts, the apps do not have such controls about app->timeouts.
+> > May be we can remove app->timeouts to avoid confusion because
+> > it was never implemented in user space. May be instead of this
+> > fix we should restore the global ip_vs_app_list and all things in
+> > ip_vs_app.c and ip_vs_ftp.c as before the netns changes?
+> 
+> Doesn't matter, just keep the patch as simple as possible
+> while we discuss the long term solution.
+
+	OK, then let's use this solution but with some changes...
+
+> > > --- a/include/net/ip_vs.h
+> > > +++ b/include/net/ip_vs.h
+> > > @@ -797,7 +797,8 @@ struct netns_ipvs {
+> > >  	struct list_head	rs_table[IP_VS_RTAB_SIZE];
+> > >  	/* ip_vs_app */
+> > >  	struct list_head	app_list;
+> > > -
+> > > +	/* ip_vs_ftp */
+> > > +	struct ip_vs_app	*ftp_app;
+> > >  	/* ip_vs_proto */
+> > >  	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
+> > >  	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
+> > > diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+> > > index 6b5dd6d..17afb09 100644
+> > > --- a/net/netfilter/ipvs/ip_vs_ftp.c
+> > > +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+> > > @@ -411,25 +411,36 @@ static struct ip_vs_app ip_vs_ftp = {
+> > >  static int __net_init __ip_vs_ftp_init(struct net *net)
+> > >  {
+> > >  	int i, ret;
+> > > -	struct ip_vs_app *app = &ip_vs_ftp;
+> > > +	struct ip_vs_app *app;
+> > > +	struct netns_ipvs *ipvs = net_ipvs(net);
+> > > +
+> > > +	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
+> > > +	if (!app)
+> > > +		return -ENOMEM;
+> > > +	INIT_LIST_HEAD(&app->a_list);
+> > > +	INIT_LIST_HEAD(&app->incs_list);
+> > > +	INIT_LIST_HEAD(&app->p_list);
+
+	No need to init a_list and p_list here. As for
+INIT_LIST_HEAD(&app->incs_list), may be it is better to
+be moved into register_ip_vs_app() before the mutex_lock
+to avoid further problems.
+
+> > > +	ipvs->ftp_app = app;
+> > >  
+> > >  	ret = register_ip_vs_app(net, app);
+> > >  	if (ret)
+> > > -		return ret;
+> > > +		goto err_exit;
+> > >  
+> > >  	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
+> > >  		if (!ports[i])
+> > >  			continue;
+> > >  		ret = register_ip_vs_app_inc(net, app, app->protocol, ports[i]);
+> > >  		if (ret)
+> > > -			break;
+> > > +			goto err_unreg;
+> > >  		pr_info("%s: loaded support on port[%d] = %d\n",
+> > >  			app->name, i, ports[i]);
+> > >  	}
+> > > +	return 0;
+> > >  
+> > > -	if (ret)
+> > > -		unregister_ip_vs_app(net, app);
+> > > -
+> > > +err_unreg:
+> > > +	unregister_ip_vs_app(net, app);
+> > > +err_exit:
+> > > +	kfree(ipvs->ftp_app);
+> > >  	return ret;
+> > >  }
+> > >  /*
+> > > @@ -437,9 +448,7 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
+> > >   */
+> > >  static void __ip_vs_ftp_exit(struct net *net)
+> > >  {
+> > > -	struct ip_vs_app *app = &ip_vs_ftp;
+> > > -
+> > > -	unregister_ip_vs_app(net, app);
+> > > +	unregister_ip_vs_app(net, net_ipvs(net)->ftp_app);
+
+
+	Add here kfree(ipvs->ftp_app);
+
+
+> > >  }
+> > >  
+> > >  static struct pernet_operations ip_vs_ftp_ops = {
+
+	If you agree with these changes then you have my ack.
+
+Acked-by: Julian Anastasov <ja@ssi.bg>
+
