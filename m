@@ -1,85 +1,96 @@
-From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC
- 2988bis-02.
-Date: Thu, 19 May 2011 08:10:40 +0200
-Message-ID: <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
-References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
- <20110518.223622.1525088601595365235.davem@davemloft.net>
- <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
- <20110519.001426.2119532755281545481.davem@davemloft.net>
- <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Bug, kernel panic, NULL dereference , =?UTF-8?Q?cleanup=5Fonc?=  =?UTF-8?Q?e=20/=20icmp=5Froute=5Flookup=2Eclone=2E=31=39=2Eclone=20/=20na?=  =?UTF-8?Q?t=20=2C=20=32=2E=36=2E=33=39-rc=37-git=31=31?=
+Date: Thu, 19 May 2011 09:11:00 +0300
+Message-ID: <626ba8ae63cfc8fdb68c7f281463dc27@visp.net.lb>
+References: <54ec5cd14e5e5c76aa06c2e6899299ce@visp.net.lb>
+ <41a1892fed59b411bb08d3ecb0d8cda5@visp.net.lb>
+ <1305711471.2983.27.camel@edumazet-laptop>
+ <0a630bbf006d1210220a6ba4d55c5804@visp.net.lb>
+ <1305713111.2991.1.camel@edumazet-laptop>
+ <1305719047.2991.4.camel@edumazet-laptop>
+ <4ae96506c000a4b3c8f78ccef836deaf@visp.net.lb>
+ <1305733944.2991.45.camel@edumazet-laptop>
+ <1305746989.3019.0.camel@edumazet-laptop>
+ <1305782397.3019.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg=pgp-sha1; boundary=Apple-Mail-33-1060726600
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, hagen@jauu.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tsuna <tsunanet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:45759 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932267Ab1ESGLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:11:03 -0400
+In-Reply-To: <1305782397.3019.5.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---Apple-Mail-33-1060726600
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=us-ascii
+ On Thu, 19 May 2011 07:19:57 +0200, Eric Dumazet wrote:
+> Le mercredi 18 mai 2011 =C3=A0 21:29 +0200, Eric Dumazet a =C3=A9crit=
+ :
+>> Le mercredi 18 mai 2011 =C3=A0 17:52 +0200, Eric Dumazet a =C3=A9cri=
+t :
+>>
+>> > Hmm, it seems we have some inetpeer refcount leak somewhere.
+>> >
+>> > Maybe one (struct rtable)->peer is not released on dst/rtable=20
+>> removal,
+>> > or we also leak dst/rtable (and their ->peer inetpeer)
+>> >
+>> > Watch :
+>> >
+>> > grep peer /proc/slabinfo
+>> > grep dst /proc/slabinfo
+>> >
+>>
+>> FYI, I started a bisection to find the faulty commit.
+>>
+>
+> Oh well, of course this came to 2c8cec5c10bced240
+> (ipv4: Cache learned PMTU information in inetpeer.)
+>
+> So my method to check if we have a leak might be wrong, since the=20
+> above
+> commit let cache full of garbage, and hope that following lookups=20
+> will
+> find and evict obsolete dst.
+>
+> Thats getting difficult :(
+>
+> Could you please send us
+>
+> grep . /proc/sys/net/ipv4/route/*
+>
+> Thanks !
+ NewNet-PPPoE ~ # grep . /proc/sys/net/ipv4/route/*
+ /proc/sys/net/ipv4/route/error_burst:5000
+ /proc/sys/net/ipv4/route/error_cost:1000
+ grep: /proc/sys/net/ipv4/route/flush: Permission denied
+ /proc/sys/net/ipv4/route/gc_elasticity:8
+ /proc/sys/net/ipv4/route/gc_interval:60
+ /proc/sys/net/ipv4/route/gc_min_interval:0
+ /proc/sys/net/ipv4/route/gc_min_interval_ms:500
+ /proc/sys/net/ipv4/route/gc_thresh:32768
+ /proc/sys/net/ipv4/route/gc_timeout:300
+ /proc/sys/net/ipv4/route/max_size:524288
+ /proc/sys/net/ipv4/route/min_adv_mss:256
+ /proc/sys/net/ipv4/route/min_pmtu:552
+ /proc/sys/net/ipv4/route/mtu_expires:600
+ /proc/sys/net/ipv4/route/redirect_load:20
+ /proc/sys/net/ipv4/route/redirect_number:9
+ /proc/sys/net/ipv4/route/redirect_silence:20480
 
-Hi,
+ I think it is default one.
 
-Am 19.05.2011 um 06:33 schrieb tsuna:
+ PMTU is very actual for that, as it is pppoe, and up to 2k interfaces=20
+ terminated there.
 
-> Presumably if the user decides to tweak these knobs, they'll know
-> what's appropriate for their environment.
+ I don't know, if it matters, but
+ iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS=20
+ --clamp-mss-to-pmtu
+ also there.
 
-Are you sure? I'm not. I fully agree with David that minRTO is
-something that a user shout not control at all
+ I can generate and put "ip route ls cache" and any other info.
 
-> Or are you suggesting that
-> one value be derived from the other?  (e.g. tcp_initial_fallback_rto =
-> 3 * tcp_initial_rto)
-> 
->> As a result of all of this, I do not really think this is something
->> the user should control at all.
->> 
->> I really would rather see the initial RTO be static and be set to 1
->> with fallback RTO of 3.
-> 
-> I can also provide a simple patch for this if you want to start from
-> there.  And then maybe we can discuss having a runtime knob some more
-> :-)
-> 
-> -- 
-> Benoit "tsuna" Sigoure
-> Software Engineer @ www.StumbleUpon.com
-
-//
-// Dipl.-Inform. Alexander Zimmermann
-// Department of Computer Science, Informatik 4
-// RWTH Aachen University
-// Ahornstr. 55, 52056 Aachen, Germany
-// phone: (49-241) 80-21422, fax: (49-241) 80-22222
-// email: zimmermann@cs.rwth-aachen.de
-// web: http://www.umic-mesh.net
-//
-
-
---Apple-Mail-33-1060726600
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: Signierter Teil der Nachricht
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.17 (Darwin)
-Comment: GPGTools - http://gpgtools.org
-
-iEYEARECAAYFAk3UtGEACgkQdyiq39b9uS5BAQCg8rVcWTflWjYU7QI7/dqL2ceV
-Bm8AoIKqyDcY2osrORNtI3LGQN7D0+zz
-=8ujM
------END PGP SIGNATURE-----
-
---Apple-Mail-33-1060726600--
