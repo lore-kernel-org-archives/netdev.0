@@ -1,74 +1,54 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 09/18] virtio: use avail_event index
-Date: Thu, 19 May 2011 10:27:34 +0300
-Message-ID: <20110519072734.GB31253@redhat.com>
-References: <cover.1304541918.git.mst@redhat.com>
-	<8bba6a0a8eee17e741c5155b04ff1b1c9f34bf94.1304541919.git.mst@redhat.com>
-	<874o54h4rt.fsf@rustcorp.com.au>
-	<20110515135541.GF24932@redhat.com>
-	<87ei3zdsq2.fsf@rustcorp.com.au>
-	<20110517061031.GC26989@redhat.com>
-	<87tycsn9lt.fsf@rustcorp.com.au>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: 2.6.39-rc7-git11, x86/32, failed on ppp2897'th interface,  PERCPU:  allocation failed
+Date: Thu, 19 May 2011 10:28:26 +0300
+Message-ID: <10f61af229a48d77d06d154b4647cdde@visp.net.lb>
+References: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
+ <1305787158.3019.12.camel@edumazet-laptop>
+ <1305788113.3019.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <87tycsn9lt.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:45257 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756054Ab1ESH22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 03:28:28 -0400
+In-Reply-To: <1305788113.3019.19.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2011 at 09:49:42AM +0930, Rusty Russell wrote:
-> On Tue, 17 May 2011 09:10:31 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > Well one can imagine a driver doing:
-> > 
-> > 	while (virtqueue_get_buf()) {
-> > 		virtqueue_add_buf()
-> > 	}
-> > 	virtqueue_kick()
-> > 
-> > which looks sensible (batch kicks) but might
-> > process any number of bufs between kicks.
-> 
-> No, we currently only expose the buffers in the kick, so it can only
-> fill the ring doing that.
-> 
-> We could change that (and maybe that's worth looking at)...
+ On Thu, 19 May 2011 08:55:13 +0200, Eric Dumazet wrote:
+> Le jeudi 19 mai 2011 =C3=A0 08:39 +0200, Eric Dumazet a =C3=A9crit :
+>
+>> Its a known problem : When ipv6 is enabled, we allocate percpu=20
+>> memory to
+>> hold per device snmp counters.
+>>
+>> make sure kernel idea of max possible cpus matches real number of=20
+>> cpus.
+>>
+>> And yes, switching to 64bit kernel helps a lot.
+>>
+>>
+>
+> Looking at snmp6_alloc_dev(), we allocate three mib per device :
+>
+> ipstats_mib  (30 * sizeof(u64) * number_of_possible_cpus)
+> icmpv6_mib    (4 * sizeof(long) * number_of_possible_cpus)
+> icmpv6msg_mib  (26 * sizeof(long))
+ 1920 +
+ 256 +
+ 208 =3D 2386 * 3000ppp's =3D 7152000, i think it is not that much at a=
+ny=20
+ case, if i am not wrong.
 
-That's actually what one of the early patches in the series did.
-I guess I can try and reorder the patches, I do believe
-it makes sense to publish immediately as this way
-host can work in parallel with the guest.
+ But at any case i will try 64bit.
 
-> > If we look at drivers closely enough, I think none
-> > of them do the equivalent of the above, but not 100% sure.
-> 
-> I'm pretty sure we don't have this kind of 'echo' driver yet.  Drivers
-> tend to take OS requests and queue them.  The only one which does
-> anything even partially sophisticated is the net driver...
-> 
-> Thanks,
-> Rusty.
+>
+> For sure icmp ones dont need percpu counter. Plain atomic_long_t
+> (shared) would be enough, since ICMP messages are rare enough.
 
-I guess I'll just need to do the legwork and check then.
 
--- 
-MST
