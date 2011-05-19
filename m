@@ -1,75 +1,95 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: 2.6.39-rc7-git11, x86/32, failed on ppp2897'th interface,  PERCPU:  allocation failed
-Date: Thu, 19 May 2011 09:47:38 +0300
-Message-ID: <a8564a86400b1bd2f604767129df0dc7@visp.net.lb>
-References: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
- <1305787158.3019.12.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rev-153-13.globalproof.net ([194.146.153.13]:33539 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932304Ab1ESGrl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:47:41 -0400
-In-Reply-To: <1305787158.3019.12.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benoit Sigoure <tsunanet@gmail.com>
+Subject: [PATCH] tcp: Lower the initial RTO to 1s as per draft RFC 2988bis-02.
+Date: Wed, 18 May 2011 23:47:49 -0700
+Message-ID: <1305787669-84634-1-git-send-email-tsunanet@gmail.com>
+References: <20110519.014656.1735519603194773578.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Benoit Sigoure <tsunanet@gmail.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	hagen@jauu.net, eric.dumazet@gmail.com,
+	alexander.zimmermann
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110519.014656.1735519603194773578.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- On Thu, 19 May 2011 08:39:18 +0200, Eric Dumazet wrote:
-> Le jeudi 19 mai 2011 =C3=A0 09:35 +0300, Denys Fedoryshchenko a =C3=A9=
-crit :
->> Hi, again
->>
->>  Just tried to upgrade large NAS from 2.6.38.6 to 2.6.39-rc7-git11,=20
->> and
->>  at same time enabling ipv6 on it.
->>  Got that, after ppp2897 brought up (sure it means there is other=20
->> 2896
->>  available, and also few ethernet vlans, around 32).
->>  I am not sure it is a bug, but it looks i had free memory(the box=20
->> had
->>  8GB free), and lowmem too, also i will try to enable there 64bit=20
->> kernel
->>  at evening.
->>
->>  May 17 16:00:42 194.146.155.70 kernel: [14925.897799] PERCPU:
->>  allocation failed, size=3D2048 align=3D4, failed to allocate new ch=
-unk
->>  May 17 16:00:42 194.146.155.70 kernel: [14925.898163] Pid: 24207,=20
->> comm:
->>  pppd Not tainted 2.6.39-rc7-git11-build-0058 #4
->
-> Its a known problem : When ipv6 is enabled, we allocate percpu memory=
-=20
-> to
-> hold per device snmp counters.
->
-> make sure kernel idea of max possible cpus matches real number of=20
-> cpus.
->
-> And yes, switching to 64bit kernel helps a lot.
->
- Yes, it matches, i guess.
- CONFIG_NR_CPUS=3D8
+Draft RFC 2988bis-02 recommends that the initial RTO be lowered
+from 3 seconds down to 1 second, and that in case of a timeout
+during the TCP 3WHS, the RTO should fallback to 3 seconds when
+data transmission begins.
 
- processor       : 7
- vendor_id       : GenuineIntel
- cpu family      : 6
- model           : 26
- model name      : Intel(R) Core(TM) i7 CPU         950  @ 3.07GHz
+Signed-off-by: Benoit Sigoure <tsunanet@gmail.com>
+---
 
- Thanks. Then i will simply switch kernel to 64bit, but for now with=20
- 32bit userspace, since this semi-embedded system
- mass deployed, and i have to maintain it alone (cannot handle both=20
- 32/64 bit userspace), and some pc's don't have
- lm flag in cpuinfo :)
+Apologies for the spam, I sent this patch from the wrong address and without
+sob'ing it.  I build the Linux kernel in a 15G tmpfs (it's faster this way :D)
+and I lost my .git/config after a reboot.
 
- I am hitting a lot lowmem limits lately, but the only application that=
-=20
- was not working right 32bit userspace/64bit kernel - ipvsadm.
- Should i report it as a bug (i will check if it is still an issue)?
+ include/net/tcp.h    |    5 ++++-
+ net/ipv4/tcp_input.c |   13 +++++++++----
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index cda30ea..274d761 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -122,7 +122,10 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #endif
+ #define TCP_RTO_MAX	((unsigned)(120*HZ))
+ #define TCP_RTO_MIN	((unsigned)(HZ/5))
+-#define TCP_TIMEOUT_INIT ((unsigned)(3*HZ))	/* RFC 1122 initial RTO value	*/
++/* The next 2 values come from Draft RFC 2988bis-02. */
++#define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))		/* initial RTO value	*/
++#define TCP_TIMEOUT_INIT_FALLBACK ((unsigned)(3*HZ))	/* initial RTO to fallback to when
++							 * a timeout happens during the 3WHS.	*/
+ 
+ #define TCP_RESOURCE_PROBE_INTERVAL ((unsigned)(HZ/2U)) /* Maximal interval between probes
+ 					                 * for local resources.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bef9f04..a36bc35 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -868,6 +868,11 @@ static void tcp_init_metrics(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct dst_entry *dst = __sk_dst_get(sk);
++	/* If we had to retransmit anything during the 3WHS, use
++	 * the initial fallback RTO as per draft RFC 2988bis-02.
++	 */
++	int init_rto = inet_csk(sk)->icsk_retransmits ?
++		TCP_TIMEOUT_INIT_FALLBACK : TCP_TIMEOUT_INIT;
+ 
+ 	if (dst == NULL)
+ 		goto reset;
+@@ -890,7 +895,7 @@ static void tcp_init_metrics(struct sock *sk)
+ 	if (dst_metric(dst, RTAX_RTT) == 0)
+ 		goto reset;
+ 
+-	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3))
++	if (!tp->srtt && dst_metric_rtt(dst, RTAX_RTT) < (init_rto << 3))
+ 		goto reset;
+ 
+ 	/* Initial rtt is determined from SYN,SYN-ACK.
+@@ -916,7 +921,7 @@ static void tcp_init_metrics(struct sock *sk)
+ 		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
+ 	}
+ 	tcp_set_rto(sk);
+-	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_tstamp) {
++	if (inet_csk(sk)->icsk_rto < init_rto && !tp->rx_opt.saw_tstamp) {
+ reset:
+ 		/* Play conservative. If timestamps are not
+ 		 * supported, TCP will fail to recalculate correct
+@@ -924,8 +929,8 @@ reset:
+ 		 */
+ 		if (!tp->rx_opt.saw_tstamp && tp->srtt) {
+ 			tp->srtt = 0;
+-			tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_INIT;
+-			inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
++			tp->mdev = tp->mdev_max = tp->rttvar = init_rto;
++			inet_csk(sk)->icsk_rto = init_rto;
+ 		}
+ 	}
+ 	tp->snd_cwnd = tcp_init_cwnd(tp, dst);
+-- 
+1.7.0.4
