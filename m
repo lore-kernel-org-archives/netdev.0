@@ -1,64 +1,84 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 2/2] net: ping: fix the coding style
-Date: Thu, 19 May 2011 15:16:01 +0800
-Message-ID: <1305789361-5366-2-git-send-email-xiaosuo@gmail.com>
-References: <1305789361-5366-1-git-send-email-xiaosuo@gmail.com>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:41085 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755454Ab1ESHRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 03:17:11 -0400
-Received: by mail-pz0-f46.google.com with SMTP id 9so1059935pzk.19
-        for <netdev@vger.kernel.org>; Thu, 19 May 2011 00:17:11 -0700 (PDT)
-In-Reply-To: <1305789361-5366-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 14/18] virtio: add api for delayed callbacks
+Date: Thu, 19 May 2011 10:24:12 +0300
+Message-ID: <20110519072412.GA31253@redhat.com>
+References: <cover.1304541918.git.mst@redhat.com>
+	<64d47c628b3fdc0ac156aed4be182933d8bcc0db.1304541919.git.mst@redhat.com>
+	<871v08h0vm.fsf@rustcorp.com.au>
+	<20110515124818.GD24932@redhat.com>
+	<87boz3dsoe.fsf@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87boz3dsoe.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The characters in a line should be no more than 80.
+On Mon, May 16, 2011 at 04:43:21PM +0930, Rusty Russell wrote:
+> On Sun, 15 May 2011 15:48:18 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > On Mon, May 09, 2011 at 03:27:33PM +0930, Rusty Russell wrote:
+> > > On Wed, 4 May 2011 23:52:33 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > > > Add an API that tells the other side that callbacks
+> > > > should be delayed until a lot of work has been done.
+> > > > Implement using the new used_event feature.
+> > > 
+> > > Since you're going to add a capacity query anyway, why not add the
+> > > threshold argument here?
+> > 
+> > I thought that if we keep the API kind of generic
+> > there might be more of a chance that future transports
+> > will be able to implement it. For example, with an
+> > old host we can't commit to a specific index.
+> 
+> No, it's always a hint anyway: you can be notified before the threshold
+> is reached.  But best make it explicit I think.
+> 
+> Cheers,
+> Rusty.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/ipv4/ping.c |   10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 5f9e2d1..1f3bb11 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -187,7 +187,8 @@ exit:
- 	return sk;
- }
- 
--static void inet_get_ping_group_range_net(struct net *net, gid_t *low, gid_t *high)
-+static void inet_get_ping_group_range_net(struct net *net, gid_t *low,
-+					  gid_t *high)
- {
- 	gid_t *data = net->ipv4.sysctl_ping_group_range;
- 	unsigned seq;
-@@ -437,7 +438,8 @@ static int ping_getfrag(void *from, char * to,
- 	return 0;
- }
- 
--static int ping_push_pending_frames(struct sock *sk, struct pingfakehdr *pfh, struct flowi4 *fl4)
-+static int ping_push_pending_frames(struct sock *sk, struct pingfakehdr *pfh,
-+				    struct flowi4 *fl4)
- {
- 	struct sk_buff *skb = skb_peek(&sk->sk_write_queue);
- 
-@@ -754,7 +756,9 @@ static struct sock *ping_get_first(struct seq_file *seq, int start)
- 	for (state->bucket = start; state->bucket < PING_HTABLE_SIZE;
- 	     ++state->bucket) {
- 		struct hlist_nulls_node *node;
--		struct hlist_nulls_head *hslot = &ping_table.hash[state->bucket];
-+		struct hlist_nulls_head *hslot;
-+
-+		hslot = &ping_table.hash[state->bucket];
- 
- 		if (hlist_nulls_empty(hslot))
- 			continue;
+
+I tried doing that and remembered the real reason I went for this API:
+
+capacity is limited by descriptor table space, not
+used ring space: each entry in the used ring frees up multiple entries
+in the descriptor ring. Thus the ring can't provide
+callback after capacity is N: capacity is only available
+after we get bufs.
+
+We could try and make the API pass in the number of freed bufs, however:
+- this is not really what virtio-net cares about (it cares about
+  capacity)
+- if the driver passes a number > number of outstanding bufs, it will
+  never get a callback. So to stay correct the driver will need to
+  track number of outstanding requests. The simpler API avoids that. 
+
+
+APIs are easy to change so I'm guessing it's not a major blocker:
+we can change later when e.g. block tries to
+pass in some kind of extra hint: we'll be smarter
+about how this API can change then.
+
+Right?
+
+-- 
+MST
