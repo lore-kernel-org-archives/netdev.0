@@ -1,26 +1,86 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: net-2.6
-Date: Thu, 19 May 2011 15:55:11 -0400 (EDT)
-Message-ID: <20110519.155511.743822673170293732.davem@davemloft.net>
+From: Jacek Luczak <difrost.kernel@gmail.com>
+Subject: [PATCH FINAL] SCTP: fix race between sctp_bind_addr_free() and sctp_bind_addr_conflict()
+Date: Thu, 19 May 2011 21:55:13 +0200
+Message-ID: <4DD575A1.4080405@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: vladislav.yasevich@hp.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:49450 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934358Ab1ESTza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 15:55:30 -0400
+Received: by wwa36 with SMTP id 36so3266587wwa.1
+        for <netdev@vger.kernel.org>; Thu, 19 May 2011 12:55:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+During the sctp_close() call, we do not use rcu primitives to
+destroy the address list attached to the endpoint.  At the same
+time, we do the removal of addresses from this list before
+attempting to remove the socket from the port hash
 
-Everything in net-2.6 that did not make it into 2.6.39-final will
-be:
+As a result, it is possible for another process to find the socket
+in the port hash that is in the process of being closed.  It then
+proceeds to traverse the address list to find the conflict, only
+to have that address list suddenly disappear without rcu() critical
+section.
 
-1) Queued up for 2.6.39-stable
+Fix issue by closing address list removal inside RCU critical
+section.
 
-2) Pulled into net-next-2.6
+Race can result in a kernel crash with general protection fault or
+kernel NULL pointer dereference:
 
-Just FYI...
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+kernel: general protection fault: 0000 [#1] SMP
+kernel: RIP: 0010:[<ffffffffa02f3dde>]  [<ffffffffa02f3dde>] sctp_bind_addr_conflict+0x64/0x82 [sctp]
+kernel: Call Trace:
+kernel:  [<ffffffffa02f415f>] ? sctp_get_port_local+0x17b/0x2a3 [sctp]
+kernel:  [<ffffffffa02f3d45>] ? sctp_bind_addr_match+0x33/0x68 [sctp]
+kernel:  [<ffffffffa02f4416>] ? sctp_do_bind+0xd3/0x141 [sctp]
+kernel:  [<ffffffffa02f5030>] ? sctp_bindx_add+0x4d/0x8e [sctp]
+kernel:  [<ffffffffa02f5183>] ? sctp_setsockopt_bindx+0x112/0x4a4 [sctp]
+kernel:  [<ffffffff81089e82>] ? generic_file_aio_write+0x7f/0x9b
+kernel:  [<ffffffffa02f763e>] ? sctp_setsockopt+0x14f/0xfee [sctp]
+kernel:  [<ffffffff810c11fb>] ? do_sync_write+0xab/0xeb
+kernel:  [<ffffffff810e82ab>] ? fsnotify+0x239/0x282
+kernel:  [<ffffffff810c2462>] ? alloc_file+0x18/0xb1
+kernel:  [<ffffffff8134a0b1>] ? compat_sys_setsockopt+0x1a5/0x1d9
+kernel:  [<ffffffff8134aaf1>] ? compat_sys_socketcall+0x143/0x1a4
+kernel:  [<ffffffff810467dc>] ? sysenter_dispatch+0x7/0x32
+
+Signed-off-by: Jacek Luczak <luczak.jacek@gmail.com>
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+
+---
+ net/sctp/bind_addr.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+index faf71d1..6150ac5 100644
+--- a/net/sctp/bind_addr.c
++++ b/net/sctp/bind_addr.c
+@@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr *bp, __u16 port)
+ /* Dispose of the address list. */
+ static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
+ {
+-	struct sctp_sockaddr_entry *addr;
+-	struct list_head *pos, *temp;
++	struct sctp_sockaddr_entry *addr, *temp;
+ 
+ 	/* Empty the bind address list. */
+-	list_for_each_safe(pos, temp, &bp->address_list) {
+-		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+-		list_del(pos);
+-		kfree(addr);
++	list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
++		list_del_rcu(&addr->list);
++		call_rcu(&addr->rcu, sctp_local_addr_free);
+ 		SCTP_DBG_OBJCNT_DEC(addr);
+ 	}
+ }
+
