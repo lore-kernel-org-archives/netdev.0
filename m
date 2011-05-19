@@ -1,41 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: packet received in a wrong rx-queue?
-Date: Wed, 18 May 2011 21:32:25 -0400 (EDT)
-Message-ID: <20110518.213225.1546509125052154115.davem@davemloft.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F250D748939@MILEXCH2.ds.jdsu.net>
-	<4A6A2125329CFD4D8CC40C9E8ABCAB9F250D749114@MILEXCH2.ds.jdsu.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 5/6] forcedeth: Add messages to indicate using MSI or
+ MSI-X
+Date: Thu, 19 May 2011 02:34:52 +0100
+Message-ID: <1305768892.19966.176.camel@localhost>
+References: <1305764080-24853-1-git-send-email-decot@google.com>
+	 <1305764080-24853-5-git-send-email-decot@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jon.Zhou@jdsu.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F250D749114@MILEXCH2.ds.jdsu.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-net-upstream@google.com,
+	Mike Ditto <mditto@google.com>
+To: David Decotigny <decot@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305764080-24853-5-git-send-email-decot@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Date: Wed, 18 May 2011 18:26:07 -0700
+On Wed, 2011-05-18 at 17:14 -0700, David Decotigny wrote:
+> From: Mike Ditto <mditto@google.com>
+> 
+> This adds a few debug messages to indicate whether PCIe interrupts are
+> signaled with MSI or MSI-X.
+> 
+> 
+> Signed-off-by: David Decotigny <decot@google.com>
+> ---
+>  drivers/net/forcedeth.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> index 17e79de..2712ddc 100644
+> --- a/drivers/net/forcedeth.c
+> +++ b/drivers/net/forcedeth.c
+> @@ -3745,6 +3745,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+>  				writel(0, base + NvRegMSIXMap0);
+>  				writel(0, base + NvRegMSIXMap1);
+>  			}
+> +			netdev_info(dev, "forcedeth: MSI-X enabled\n");
+[...]
 
-> Anyone can help to check the traffic file?
+netdev_info() and similar logging functions already include the driver
+name.
 
-I told you yesterday that this behavior is expected.
+Ben.
 
-------------------------------------------------------------------------------
-What Every C/C++ and Fortran developer Should Know!
-Read this article and learn how Intel has extended the reach of its 
-next-generation tools to help Windows* and Linux* C/C++ and Fortran 
-developers boost performance applications - including clusters. 
-http://p.sf.net/sfu/intel-dev2devmay
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
