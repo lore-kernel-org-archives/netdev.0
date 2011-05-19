@@ -1,53 +1,70 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH v3] ipconfig wait for carrier
-Date: Thu, 19 May 2011 10:31:58 -0500
-Message-ID: <1305819120.3271.3.camel@dcbw.foobar.com>
-References: <4DD36803.1020001@neli.hopto.org>
-	 <20110518.023725.441358922110721042.davem@davemloft.net>
-	 <4DD36E54.9040706@neli.hopto.org>
-	 <20110518.181427.1228926976939865196.davem@davemloft.net>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC V4 PATCH] rtnetlink: Compute and store minimum ifinfo dump
+ size
+Date: Thu, 19 May 2011 08:35:33 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755018E321EB6@orsmsx508.amr.corp.intel.com>
+References: <20110518155410.28491.62723.stgit@gitlad.jf.intel.com>
+	<20110518.180913.273729651812642114.davem@davemloft.net>
+	<43F901BD926A4E43B106BF17856F0755018E321C21@orsmsx508.amr.corp.intel.com>
+ <20110518.184741.476096648010572360.davem@davemloft.net>
+ <43F901BD926A4E43B106BF17856F0755018E321C4C@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: micha@neli.hopto.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13285 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:22600 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752863Ab1ESP3y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 11:29:54 -0400
-In-Reply-To: <20110518.181427.1228926976939865196.davem@davemloft.net>
+	id S1752505Ab1ESPff convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 11:35:35 -0400
+In-Reply-To: <43F901BD926A4E43B106BF17856F0755018E321C4C@orsmsx508.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-18 at 18:14 -0400, David Miller wrote:
-> From: Micha Nelissen <micha@neli.hopto.org>
-> Date: Wed, 18 May 2011 08:59:32 +0200
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Rose, Gregory V
+> Sent: Wednesday, May 18, 2011 3:49 PM
+> To: David Miller
+> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
+> eric.dumazet@gmail.com
+> Subject: RE: [RFC V4 PATCH] rtnetlink: Compute and store minimum ifinfo
+> dump size
 > 
-> > Op 2011-05-18 8:37, David Miller schreef:
-> >> From: Micha Nelissen<micha@neli.hopto.org>
-> >> Date: Wed, 18 May 2011 08:32:35 +0200
-> >>
-> >>> I'm confused. Against which tree/commit do you want it then?
-> >>
-> >> Linus's current tree would be fine as would:
-> >>
-> >> 	git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-> > 
-> > Ok I see, thanks. The patch should apply just fine to your tree, there
-> > is only a spelling change since 2.6.38 which does not conflict.
+> > -----Original Message-----
+> > From: David Miller [mailto:davem@davemloft.net]
+> > Sent: Wednesday, May 18, 2011 3:48 PM
+> > To: Rose, Gregory V
+> > Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
+> > eric.dumazet@gmail.com
+> > Subject: Re: [RFC V4 PATCH] rtnetlink: Compute and store minimum ifinfo
+> > dump size
+> >
+> > From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+> > Date: Wed, 18 May 2011 15:35:58 -0700
+> >
+> > > It looked to me like rtmsg_ifinfo is called when each device is
+> > > registered through register_netdevice() and rtmsg_ifinfo in turn
+> > > calls the if_nlmsg_size function returning the ifinfo dump size for
+> > > each device.  In my testing it looked like the proper maximum size
+> > > was being set after I loaded the drivers for the SR-IOV capable
+> > > devices.
+> >
+> > Aha, indeed you're right.  I missed this part.  Thanks for explaining.
+> >
+> > So as far as I can tell it should work, I'll let others review it to
+> > see if they are ok with this approach.
 > 
-> Please fix ic_is_init_dev() to return a proper boolean "false" instead
-> of "0" when IFF_LOOPBACK is set.
+> Ok, sure.  We'll see if Eric catches anything, he's got an eagle eye.
 
-Shouldn't the code still wait at *least* one second?  Not all drivers
-support carrier detect, and those that don't set the carrier always-on.
-Thus older devices that used to have 1s to get carrier in line (even if
-they don't report it) now have only 10ms.
+Having seen no further comments on this RFC I am going to clean up the patch and submit it to our internal review list for further testing and validation.  If/when it passes through that process I'll post it back here.
 
-I think it should wait at least one second like the code currently does,
-and then if the carrier still isn't up, wait longer.
+Thanks to all who commented and made suggestions for improvement.
 
-Dan
-
+- Greg
 
