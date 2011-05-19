@@ -1,38 +1,154 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
- return
-Date: Thu, 19 May 2011 12:03:31 +0200
-Message-ID: <20110519100331.GA25103@rere.qmqm.pl>
-References: <20110516132807.1A89F13A6A@rere.qmqm.pl>
- <1305553066.19966.32.camel@localhost>
- <20110516142340.GA2980@rere.qmqm.pl>
- <20110516.140958.625993829749556424.davem@davemloft.net>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: ip_vs_ftp causing ip_vs oops on module load.
+Date: Thu, 19 May 2011 12:19:21 +0200
+Message-ID: <201105191219.22907.hans.schillstrom@ericsson.com>
+References: <20110518201915.GB20475@redhat.com> <201105190952.49006.hans.schillstrom@ericsson.com> <alpine.LFD.2.00.1105191139360.2171@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>, Dave Jones <davej@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wensong Zhang <wensong@linuxvirtualserver.org>
+To: Julian Anastasov <ja@ssi.bg>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:58555 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753174Ab1ESKDd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 06:03:33 -0400
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:60877 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624Ab1ESKT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 06:19:27 -0400
+In-Reply-To: <alpine.LFD.2.00.1105191139360.2171@ja.ssi.bg>
 Content-Disposition: inline
-In-Reply-To: <20110516.140958.625993829749556424.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 16, 2011 at 02:09:58PM -0400, David Miller wrote:
-> You guys really need to sort this out properly.
-> Please resubmit whatever final solution is agreed upon.
+On Thursday 19 May 2011 10:55:07 Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 19 May 2011, Hans Schillstrom wrote:
+> 
+> > I can reproduce the source of the problem,
+> > use multiple netns and then unload the ftp module...
+> > i.e. same list head used in multiple netns
+> > 
+> > This brings up a question:
+> > - How should ftp be handled in a netns ? 
+> > You might want to have it in one netns but not in another,
+> > this requires changes to ipvsadm
+> > 
+> > A way of doing it could be a disable switch like --noftp [port,port]
+> > i.e. do not break old apps.
+> > 
+> > Any other ideas ?
+> > 
+> > This patch solves the root problem, I'm not sure if this is the way to go
+> > or if we should split the ip_vs_app struct ?
+> 
+> 	This patch is a fast fix but may be it is too late for it,
+> after 2.6.39 is out. It seems we overlooked the apps when
+> migrating to netns. I think, the apps do not need to be pernet.
+> If one day application needs pernet context we can add such
+> fields in the ipvs structure.
 
-I noticed that v2.6.39 was tagged today. We should definitely remove
-NETIF_F_COMPAT so it won't bite us in the future. The other patch that
-fixes ethtool_ops->set_flags compatibility is a bugfix, so it should go
-in - if we decide that the SFEATURES compatibility should be removed
-it won't matter.
+If we talk about the long term solution,
+applications that affects other netns should have their own data.
+ex. like the ftp, ports should be per netns
+    ipvsadm --appftp [port list]
 
-Ben, do you agree?
+> 
+> 	While the protocols have controls that manipulate pernet
+> timeouts, the apps do not have such controls about app->timeouts.
+> May be we can remove app->timeouts to avoid confusion because
+> it was never implemented in user space. May be instead of this
+> fix we should restore the global ip_vs_app_list and all things in
+> ip_vs_app.c and ip_vs_ftp.c as before the netns changes?
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Doesn't matter, just keep the patch as simple as possible
+while we discuss the long term solution.
+
+> 
+> > If it's the way to go I can send it as a proper formated patch ...
+> > (after some testing)
+> > 
+> > diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> > index 4fff432..481f856 100644
+> > --- a/include/net/ip_vs.h
+> > +++ b/include/net/ip_vs.h
+> > @@ -797,7 +797,8 @@ struct netns_ipvs {
+> >  	struct list_head	rs_table[IP_VS_RTAB_SIZE];
+> >  	/* ip_vs_app */
+> >  	struct list_head	app_list;
+> > -
+> > +	/* ip_vs_ftp */
+> > +	struct ip_vs_app	*ftp_app;
+> >  	/* ip_vs_proto */
+> >  	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
+> >  	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
+> > diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+> > index 6b5dd6d..17afb09 100644
+> > --- a/net/netfilter/ipvs/ip_vs_ftp.c
+> > +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+> > @@ -411,25 +411,36 @@ static struct ip_vs_app ip_vs_ftp = {
+> >  static int __net_init __ip_vs_ftp_init(struct net *net)
+> >  {
+> >  	int i, ret;
+> > -	struct ip_vs_app *app = &ip_vs_ftp;
+> > +	struct ip_vs_app *app;
+> > +	struct netns_ipvs *ipvs = net_ipvs(net);
+> > +
+> > +	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
+> > +	if (!app)
+> > +		return -ENOMEM;
+> > +	INIT_LIST_HEAD(&app->a_list);
+> > +	INIT_LIST_HEAD(&app->incs_list);
+> > +	INIT_LIST_HEAD(&app->p_list);
+> > +	ipvs->ftp_app = app;
+> >  
+> >  	ret = register_ip_vs_app(net, app);
+> >  	if (ret)
+> > -		return ret;
+> > +		goto err_exit;
+> >  
+> >  	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
+> >  		if (!ports[i])
+> >  			continue;
+> >  		ret = register_ip_vs_app_inc(net, app, app->protocol, ports[i]);
+> >  		if (ret)
+> > -			break;
+> > +			goto err_unreg;
+> >  		pr_info("%s: loaded support on port[%d] = %d\n",
+> >  			app->name, i, ports[i]);
+> >  	}
+> > +	return 0;
+> >  
+> > -	if (ret)
+> > -		unregister_ip_vs_app(net, app);
+> > -
+> > +err_unreg:
+> > +	unregister_ip_vs_app(net, app);
+> > +err_exit:
+> > +	kfree(ipvs->ftp_app);
+> >  	return ret;
+> >  }
+> >  /*
+> > @@ -437,9 +448,7 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
+> >   */
+> >  static void __ip_vs_ftp_exit(struct net *net)
+> >  {
+> > -	struct ip_vs_app *app = &ip_vs_ftp;
+> > -
+> > -	unregister_ip_vs_app(net, app);
+> > +	unregister_ip_vs_app(net, net_ipvs(net)->ftp_app);
+> >  }
+> >  
+> >  static struct pernet_operations ip_vs_ftp_ops = {
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
+
+-- 
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
