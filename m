@@ -1,44 +1,75 @@
-From: tsuna <tsunanet@gmail.com>
-Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft RFC 2988bis-02.
-Date: Wed, 18 May 2011 23:42:30 -0700
-Message-ID: <BANLkTiku9KTHCm59cib5KY8mz0ewSLsHFQ@mail.gmail.com>
-References: <1305771744-83951-1-git-send-email-tsunanet@gmail.com>
- <20110518.223622.1525088601595365235.davem@davemloft.net> <BANLkTinEN_=jSCw4qR1PqtWaQ+07OMq7tg@mail.gmail.com>
- <20110519.001426.2119532755281545481.davem@davemloft.net> <BANLkTikQEq9+YkJHcTe3PWnRvh7AN=VVWA@mail.gmail.com>
- <9DC9A4D5-8E16-4361-B323-C92D563171A1@comsys.rwth-aachen.de>
- <BANLkTimVMYC5rzizaM+3dReG14obxGL=Bw@mail.gmail.com> <C70B920C-6176-481B-B6D2-E52769291EBC@comsys.rwth-aachen.de>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: 2.6.39-rc7-git11, x86/32, failed on ppp2897'th interface,  PERCPU:  allocation failed
+Date: Thu, 19 May 2011 09:47:38 +0300
+Message-ID: <a8564a86400b1bd2f604767129df0dc7@visp.net.lb>
+References: <f9797bb034f650a24e927629d1ab77d8@visp.net.lb>
+ <1305787158.3019.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, hagen@jauu.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C70B920C-6176-481B-B6D2-E52769291EBC@comsys.rwth-aachen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:33539 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932304Ab1ESGrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 May 2011 02:47:41 -0400
+In-Reply-To: <1305787158.3019.12.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 18, 2011 at 11:36 PM, Alexander Zimmermann
-<alexander.zimmermann@comsys.rwth-aachen.de> wrote:
-> If you set the initRTO=0.1s, it's good for me but bad for the rest of the
-> world. That's the difference.
+ On Thu, 19 May 2011 08:39:18 +0200, Eric Dumazet wrote:
+> Le jeudi 19 mai 2011 =C3=A0 09:35 +0300, Denys Fedoryshchenko a =C3=A9=
+crit :
+>> Hi, again
+>>
+>>  Just tried to upgrade large NAS from 2.6.38.6 to 2.6.39-rc7-git11,=20
+>> and
+>>  at same time enabling ipv6 on it.
+>>  Got that, after ppp2897 brought up (sure it means there is other=20
+>> 2896
+>>  available, and also few ethernet vlans, around 32).
+>>  I am not sure it is a bug, but it looks i had free memory(the box=20
+>> had
+>>  8GB free), and lowmem too, also i will try to enable there 64bit=20
+>> kernel
+>>  at evening.
+>>
+>>  May 17 16:00:42 194.146.155.70 kernel: [14925.897799] PERCPU:
+>>  allocation failed, size=3D2048 align=3D4, failed to allocate new ch=
+unk
+>>  May 17 16:00:42 194.146.155.70 kernel: [14925.898163] Pid: 24207,=20
+>> comm:
+>>  pppd Not tainted 2.6.39-rc7-git11-build-0058 #4
 >
-> Or do you want to implement a lower barrier of 1sec so that you can ensure
-> that nobody set the initRTO lower than 1s?
+> Its a known problem : When ipv6 is enabled, we allocate percpu memory=
+=20
+> to
+> hold per device snmp counters.
+>
+> make sure kernel idea of max possible cpus matches real number of=20
+> cpus.
+>
+> And yes, switching to 64bit kernel helps a lot.
+>
+ Yes, it matches, i guess.
+ CONFIG_NR_CPUS=3D8
 
-Oh, I see.  Yes, there is a lower bound (and an upper bound) on what
-values the kernel will accept as initRTO.  In the patch "Implement a
-two-level initial RTO as per draft RFC 2988bis-02" above, I re-used
-TCP_RTO_MIN and TCP_RTO_MAX in net/ipv4/sysctl_net_ipv4.c in order to
-prevent users from setting a minRTO that's outside this range.  They
-are defined as follows in tcp.h:
+ processor       : 7
+ vendor_id       : GenuineIntel
+ cpu family      : 6
+ model           : 26
+ model name      : Intel(R) Core(TM) i7 CPU         950  @ 3.07GHz
 
-#define TCP_RTO_MAX     ((unsigned)(120*HZ))
-#define TCP_RTO_MIN     ((unsigned)(HZ/5))
+ Thanks. Then i will simply switch kernel to 64bit, but for now with=20
+ 32bit userspace, since this semi-embedded system
+ mass deployed, and i have to maintain it alone (cannot handle both=20
+ 32/64 bit userspace), and some pc's don't have
+ lm flag in cpuinfo :)
 
-So we're talking about a [200ms ; 120s] range no matter what.
+ I am hitting a lot lowmem limits lately, but the only application that=
+=20
+ was not working right 32bit userspace/64bit kernel - ipvsadm.
+ Should i report it as a bug (i will check if it is still an issue)?
 
--- 
-Benoit "tsuna" Sigoure
-Software Engineer @ www.StumbleUpon.com
