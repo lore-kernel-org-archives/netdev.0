@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv2 07/14] virtio_net: delay TX callbacks
-Date: Fri, 20 May 2011 02:11:23 +0300
-Message-ID: <f45a523e3950699ea1dcb918b558ad8fc389f3c7.1305846412.git.mst@redhat.com>
+Subject: [PATCHv2 08/14] virtio_ring: Add capacity check API
+Date: Fri, 20 May 2011 02:11:36 +0300
+Message-ID: <aa74c75c16a71a15599dc68597d975caa66fda6f.1305846412.git.mst@redhat.com>
 References: <cover.1305846412.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,26 +30,56 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Ask for delayed callbacks on TX ring full, to give the
-other side more of a chance to make progress.
+>From: Shirley Ma <mashirle-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
 
+Signed-off-by: Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/virtio_net.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/virtio/virtio_ring.c |    8 ++++++++
+ include/linux/virtio.h       |    5 +++++
+ 2 files changed, 13 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 0cb0b06..f685324 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -609,7 +609,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 * before it gets out of hand.  Naturally, this wastes entries. */
- 	if (capacity < 2+MAX_SKB_FRAGS) {
- 		netif_stop_queue(dev);
--		if (unlikely(!virtqueue_enable_cb(vi->svq))) {
-+		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
- 			/* More just got used, free them then recheck. */
- 			capacity += free_old_xmit_skbs(vi);
- 			if (capacity >= 2+MAX_SKB_FRAGS) {
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+index 6578e1a..eed5f29 100644
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -344,6 +344,14 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
+ }
+ EXPORT_SYMBOL_GPL(virtqueue_get_buf);
+ 
++int virtqueue_get_capacity(struct virtqueue *_vq)
++{
++	struct vring_virtqueue *vq = to_vvq(_vq);
++
++	return vq->num_free;
++}
++EXPORT_SYMBOL_GPL(virtqueue_get_capacity);
++
+ void virtqueue_disable_cb(struct virtqueue *_vq)
+ {
+ 	struct vring_virtqueue *vq = to_vvq(_vq);
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 7108857..58c0953 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -42,6 +42,9 @@ struct virtqueue {
+  *	vq: the struct virtqueue we're talking about.
+  *	len: the length written into the buffer
+  *	Returns NULL or the "data" token handed to add_buf.
++ * virtqueue_get_capacity: get the current capacity of the queue
++ *	vq: the struct virtqueue we're talking about.
++ *	Returns remaining capacity of the queue.
+  * virtqueue_disable_cb: disable callbacks
+  *	vq: the struct virtqueue we're talking about.
+  *	Note that this is not necessarily synchronous, hence unreliable and only
+@@ -89,6 +92,8 @@ void virtqueue_kick(struct virtqueue *vq);
+ 
+ void *virtqueue_get_buf(struct virtqueue *vq, unsigned int *len);
+ 
++int virtqueue_get_capacity(struct virtqueue *vq);
++
+ void virtqueue_disable_cb(struct virtqueue *vq);
+ 
+ bool virtqueue_enable_cb(struct virtqueue *vq);
 -- 
 1.7.5.53.gc233e
