@@ -1,72 +1,41 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH v3] ipconfig wait for carrier
-Date: Thu, 19 May 2011 14:32:47 -0500
-Message-ID: <1305833568.3271.27.camel@dcbw.foobar.com>
-References: <4DD36803.1020001@neli.hopto.org>
-		 <20110518.023725.441358922110721042.davem@davemloft.net>
-		 <4DD36E54.9040706@neli.hopto.org>
-		 <20110518.181427.1228926976939865196.davem@davemloft.net>
-	 <1305819120.3271.3.camel@dcbw.foobar.com> <4DD56701.8040007@neli.hopto.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: Implement a two-level initial RTO as per draft
+ RFC 2988bis-02.
+Date: Thu, 19 May 2011 15:27:03 -0400 (EDT)
+Message-ID: <20110519.152703.1327182804872376183.davem@davemloft.net>
+References: <BANLkTimSZEbnNVzi3UvBFndHp25S0ow7YQ@mail.gmail.com>
+	<1456193D-84D1-46E2-B930-8FD0A5B8C409@comsys.rwth-aachen.de>
+	<BANLkTikZasOVfr2zTfXVjPqQsnzy9Hk5uA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Micha Nelissen <micha@neli.hopto.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3384 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934235Ab1ESTan (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 May 2011 15:30:43 -0400
-In-Reply-To: <4DD56701.8040007@neli.hopto.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alexander.zimmermann@comsys.rwth-aachen.de, hagen@jauu.net,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tsunanet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BANLkTikZasOVfr2zTfXVjPqQsnzy9Hk5uA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-05-19 at 20:52 +0200, Micha Nelissen wrote:
-> Dan Williams wrote:
-> > On Wed, 2011-05-18 at 18:14 -0400, David Miller wrote:
-> >> Please fix ic_is_init_dev() to return a proper boolean "false" instead
-> >> of "0" when IFF_LOOPBACK is set.
-> 
-> Ok. Had an int before, but boolean is better.
-> 
-> > Shouldn't the code still wait at *least* one second?  Not all drivers
-> > support carrier detect, and those that don't set the carrier always-on.
-> > Thus older devices that used to have 1s to get carrier in line (even if
-> > they don't report it) now have only 10ms.
-> > 
-> > I think it should wait at least one second like the code currently does,
-> > and then if the carrier still isn't up, wait longer.
-> 
-> What is the 1 second based on?
-> 
-> If a driver does not support carrier detect, then this code will wait
-> for the timeout period. Or do those older drivers set carrier detect
-> immediately when device is probed?
+From: tsuna <tsunanet@gmail.com>
+Date: Thu, 19 May 2011 10:11:50 -0700
 
-Older devices that do not support carrier detect have the carrier always
-on, ie IFF_RUNNING is always set, and netif_carrier_ok() always returns
-1.  There is currently no way to determine whether a device supports
-carrier detection or not, since drivers do not set a flag anywhere to
-that effect (though I'd like it if they did).
+> Looking through the kernel, I see that SCTP already has knobs for
+> this: sctp_rto_initial, sctp_rto_min, sctp_rto_max.  You can even
+> control the constants used to update rttvar and srtt: sctp_rto_alpha,
+> sctp_rto_beta
 
-I think the bit we're talking about is the change to CONF_POST_OPEN and
-the corresponding change from ssleep(1) -> msleep(10).  For drivers that
-don't support carrier detect, the patch would effectively decrease the
-time that these drivers have to establish a carrier (even if they don't
-report it to the kernel!) from 1 second to 10ms.  Then the code in
-ic_open_devs() will immediately fall down to have_carrier because these
-drivers have the carrier always one.
+SCTP is 1) not even a sliver of deployment compared to TCP and 2)
+doesn't get nearly the same scrutiny on patch review that TCP
+changes do.
 
-Net result: previously there was a 1 second window for this older
-hardware to establish a link, now there is a 10ms window.  That's a
-behavior change that could break stuff that used to work.
+I basically let the SCTP folks play in their own sandbox, because
+frankly SCTP doesn't matter.
 
-Dan
+The only time I care about an SCTP change is when it has an impact on
+the rest of the networking code.
 
-> Micha
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+So using SCTP as an example of "see we do this already over here" is a
+non-starter.  Don't do it.
