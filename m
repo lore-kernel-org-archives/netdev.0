@@ -1,10 +1,10 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 5/6] forcedeth: Add messages to indicate using MSI or
- MSI-X
-Date: Thu, 19 May 2011 02:34:52 +0100
-Message-ID: <1305768892.19966.176.camel@localhost>
+Subject: Re: [PATCH 4/6] forcedeth: Acknowledge only interrupts that are
+ being processed
+Date: Thu, 19 May 2011 02:35:39 +0100
+Message-ID: <1305768939.19966.177.camel@localhost>
 References: <1305764080-24853-1-git-send-email-decot@google.com>
-	 <1305764080-24853-5-git-send-email-decot@google.com>
+	 <1305764080-24853-4-git-send-email-decot@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -15,35 +15,38 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Mike Ditto <mditto@google.com>
 To: David Decotigny <decot@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305764080-24853-5-git-send-email-decot@google.com>
+In-Reply-To: <1305764080-24853-4-git-send-email-decot@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, 2011-05-18 at 17:14 -0700, David Decotigny wrote:
 > From: Mike Ditto <mditto@google.com>
 > 
-> This adds a few debug messages to indicate whether PCIe interrupts are
-> signaled with MSI or MSI-X.
+> This is to avoid a race, accidentally acknowledging an interrupt that
+> we didn't notice and won't immediately process.  This is based solely
+> on code inspection; it is not known if there was an actual bug here.
 > 
 > 
 > Signed-off-by: David Decotigny <decot@google.com>
 > ---
->  drivers/net/forcedeth.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
+>  drivers/net/forcedeth.c |   13 ++++++++-----
+>  1 files changed, 8 insertions(+), 5 deletions(-)
 > 
 > diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-> index 17e79de..2712ddc 100644
+> index 7a6aa08..17e79de 100644
 > --- a/drivers/net/forcedeth.c
 > +++ b/drivers/net/forcedeth.c
-> @@ -3745,6 +3745,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
->  				writel(0, base + NvRegMSIXMap0);
->  				writel(0, base + NvRegMSIXMap1);
->  			}
-> +			netdev_info(dev, "forcedeth: MSI-X enabled\n");
+> @@ -3403,7 +3403,8 @@ static irqreturn_t nv_nic_irq_tx(int foo, void *data)
+>  
+>  	for (i = 0;; i++) {
+>  		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_TX_ALL;
+> -		writel(NVREG_IRQ_TX_ALL, base + NvRegMSIXIrqStatus);
+> +		writel(events, base + NvRegMSIXIrqStatus);
+> +		netdev_dbg(dev, "%s: tx irq: %08x\n", dev->name, events);
 [...]
 
-netdev_info() and similar logging functions already include the driver
-name.
+netdev_dbg() and related logging functions already include the device
+name, too. :-)
 
 Ben.
 
