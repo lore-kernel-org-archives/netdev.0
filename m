@@ -1,43 +1,85 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [PATCH 4/3] rtnetlink: ignore NETDEV_RELEASE and NETDEV_JOIN event
-Date: Fri, 20 May 2011 17:06:32 +0800
-Message-ID: <1305882392-21241-1-git-send-email-amwang@redhat.com>
-References: <1305877152-30970-1-git-send-email-amwang@redhat.com>
-Cc: WANG Cong <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: avoid synchronize_rcu() in
+ dev_deactivate_many
+Date: Fri, 20 May 2011 11:42:09 +0200
+Message-ID: <1305884529.3173.11.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9330 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934436Ab1ETJGt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 May 2011 05:06:49 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p4K96n3Z013048
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 20 May 2011 05:06:49 -0400
-In-Reply-To: <1305877152-30970-1-git-send-email-amwang@redhat.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35289 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935479Ab1ETJmN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 05:42:13 -0400
+Received: by wya21 with SMTP id 21so2583374wya.19
+        for <netdev@vger.kernel.org>; Fri, 20 May 2011 02:42:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These two events are not expected to be caught by userspace.
+dev_deactivate_many() issues one synchronize_rcu() call after qdiscs set
+to noop_qdisc.
 
-Signed-off-by: WANG Cong <amwang@redhat.com>
+This call is here to make sure they are no outstanding qdisc-less
+dev_queue_xmit calls before returning to caller.
+
+But in dismantle phase, we dont have to wait, because we wont activate
+again the device, and we are going to wait one rcu grace period later in
+rollback_registered_many().
+
+After this patch, device dismantle uses one synchronize_net() and one
+rcu_barrier() call only, so we have a ~30% speedup and a smaller RTNL
+latency.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>,
+CC: Ben Greear <greearb@candelatech.com>
 ---
- net/core/rtnetlink.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/sched/sch_generic.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d2ba259..d1644e3 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1956,6 +1956,8 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	case NETDEV_GOING_DOWN:
- 	case NETDEV_UNREGISTER:
- 	case NETDEV_UNREGISTER_BATCH:
-+	case NETDEV_RELEASE:
-+	case NETDEV_JOIN:
- 		break;
- 	default:
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0);
--- 
-1.7.1
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index c84b659..b1721d7 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -815,9 +815,17 @@ static bool some_qdisc_is_busy(struct net_device *dev)
+ 	return false;
+ }
+ 
++/**
++ * 	dev_deactivate_many - deactivate transmissions on several devices
++ * 	@head: list of devices to deactivate
++ *
++ *	This function returns only when all outstanding transmissions
++ *	have completed, unless all devices are in dismantle phase.
++ */
+ void dev_deactivate_many(struct list_head *head)
+ {
+ 	struct net_device *dev;
++	bool sync_needed = false;
+ 
+ 	list_for_each_entry(dev, head, unreg_list) {
+ 		netdev_for_each_tx_queue(dev, dev_deactivate_queue,
+@@ -827,10 +835,15 @@ void dev_deactivate_many(struct list_head *head)
+ 					     &noop_qdisc);
+ 
+ 		dev_watchdog_down(dev);
++		sync_needed |= !dev->dismantle;
+ 	}
+ 
+-	/* Wait for outstanding qdisc-less dev_queue_xmit calls. */
+-	synchronize_rcu();
++	/* Wait for outstanding qdisc-less dev_queue_xmit calls.
++	 * This is avoided if all devices are in dismantle phase :
++	 * Caller will call synchronize_net() for us
++	 */
++	if (sync_needed)
++		synchronize_net();
+ 
+ 	/* Wait for outstanding qdisc_run calls. */
+ 	list_for_each_entry(dev, head, unreg_list)
+
 
