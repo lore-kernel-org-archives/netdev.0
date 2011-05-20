@@ -1,66 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fwd: pktgen with vlan packets
-Date: Fri, 20 May 2011 17:20:37 +0200
-Message-ID: <1305904837.3173.20.camel@edumazet-laptop>
-References: <BANLkTinybQHjqXe-0SOU4wHTJg0M=QX=ow@mail.gmail.com>
-	 <BANLkTinBGkApfasGywg888wDXZBYPOpQDQ@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] netdev: stop Features changed message
+Date: Fri, 20 May 2011 09:02:08 -0700
+Message-ID: <20110520090208.7709bec3@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Lynch, Jonathan" <jonathan.lynch@thenowfactory.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57921 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728Ab1ETPUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 11:20:41 -0400
-Received: by wwa36 with SMTP id 36so4134506wwa.1
-        for <netdev@vger.kernel.org>; Fri, 20 May 2011 08:20:40 -0700 (PDT)
-In-Reply-To: <BANLkTinBGkApfasGywg888wDXZBYPOpQDQ@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:52414 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934147Ab1ETQCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 May 2011 12:02:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 20 mai 2011 =C3=A0 16:03 +0100, Lynch, Jonathan a =C3=A9cri=
-t :
-> Hi,
->=20
-> Im running 2.6.35 kernel with an Intel 82599 NIC.
-> I want to send packets using pktgen via a number of vlan interfaces (=
-1
-> physical interface) created via vconfig but I get an OOPs when I try
-> and send via the vlan interface.  See attached log file for the oops.
-> Im not using the pgset "vlan_id 77" params because I want to send
-> packets with more than 1 VLAN tag to one interface. (If it was
-> possible to send packets with different vlan tags over the one
-> interface with pktgen I would use it)
->=20
-> my config is as follows:
->   ifconfig eth4 up
->   modprobe 8021q
->   vconfig add eth4 256
->   ifconfig eth4.256 up
->=20
-> My pktgen config is the exact same as
-> ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/=
-pktgen.conf-1-1
-> except that instead of eth1, I have eth4.256.
->=20
-> Any ideas as to how I can send packets with multiple VLAN tags over
-> the same interface with pktgen?
+The new in 2.6.39 message "Features changed:" occurs a lot
+on many configurations. It provides information to driver developers
+but is not user friendly. Printing out hex values is just confusing.
+Reduce priority so that it doesn't show up unless debugging.
 
-I am afraid you cant yet.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-About the crash, you can either :
-
-1) delete qdisc on eth4
-
-ifconfig eth4 txqueuelen 0
-tc qdisc add dev eth0 root sfq
-tc qdisc del dev eth0 root
-
-2) use clone_skb 0 only
-
-(Or else, same skb can be queued several time on eth4 qdisc) -> crash
-
-
-
+--- a/net/core/dev.c	2011-05-20 08:59:40.248885114 -0700
++++ b/net/core/dev.c	2011-05-20 09:00:32.925437770 -0700
+@@ -5258,7 +5258,7 @@ void netdev_update_features(struct net_d
+ 	if (dev->features == features)
+ 		return;
+ 
+-	netdev_info(dev, "Features changed: 0x%08x -> 0x%08x\n",
++	netdev_dbg(dev, "Features changed: 0x%08x -> 0x%08x\n",
+ 		dev->features, features);
+ 
+ 	if (dev->netdev_ops->ndo_set_features)
