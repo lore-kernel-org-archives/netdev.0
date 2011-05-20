@@ -1,85 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: avoid synchronize_rcu() in
- dev_deactivate_many
-Date: Fri, 20 May 2011 11:42:09 +0200
-Message-ID: <1305884529.3173.11.camel@edumazet-laptop>
+From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
+Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
+Date: Fri, 20 May 2011 03:27:37 -0700
+Message-ID: <BANLkTimtA9BB7g5cOm8c9sGChQjf1P0Q-Q@mail.gmail.com>
+References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
+	<20110518.152653.1486764697527722925.davem@davemloft.net>
+	<BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+	<20110518.155200.801089483916944725.davem@davemloft.net>
+	<20110518202025.GC4175@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35289 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935479Ab1ETJmN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 05:42:13 -0400
-Received: by wya21 with SMTP id 21so2583374wya.19
-        for <netdev@vger.kernel.org>; Fri, 20 May 2011 02:42:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, tsunanet@gmail.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110518202025.GC4175@nuttenaction>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-dev_deactivate_many() issues one synchronize_rcu() call after qdiscs set
-to noop_qdisc.
+On Wed, May 18, 2011 at 1:20 PM, Hagen Paul Pfeifer <hagen@jauu.net> wr=
+ote:
+> * David Miller | 2011-05-18 15:52:00 [-0400]:
+>
+>>I've already changed the initial TCP congestion window in Linux to 10
+>>without some stupid draft being fully accepted.
+>>
+>>I'll just as easily accept right now a patch right now which lowers
+>>the initial RTO to 1 second and adds the 3 second RTO fallback.
+>
+> I like the idea to make the initial RTO a knob because we in a isolat=
+ed MANET
+> environment have a RTT larger then 1 second. Especially the link laye=
+r setup
+> procedure over several hops demand some time-costly setup time. After=
+ that the
+> RTT is <1 second. The current algorithm works great for us. So this R=
+TO change
+> will be counterproductive: it will always trigger a needless timeout.
+>
+> The main problem for us is that Google at all pushing their view of I=
+nternet
+> with a lot of pressure. The same is true for the IETF IW adjustments,=
+ which is
+> unsuitable for networks which operates at a bandwidth characteristic =
+some
+> years ago. The _former_ conservative principle "TCP over everything" =
+is
+> forgotten.
 
-This call is here to make sure they are no outstanding qdisc-less
-dev_queue_xmit calls before returning to caller.
+Not sure how our various parameter tuning proposals deviate from the "T=
+CP over
+everything" principle?
 
-But in dismantle phase, we dont have to wait, because we wont activate
-again the device, and we are going to wait one rcu grace period later in
-rollback_registered_many().
+Note that the design goal of rfc2988bis is to try to benefit 98% of
+traffic while
+keeping any negative impact to the remaining 2% at a minimum. This is w=
+hy we
+limit the use of < 3sec initRTO to at most once. This way the negative =
+impact
+of the 1sec initRTO to a path with RTT > 1sec is limited mostly to one
+additional,
+small, spuriously retransmitted SYN or SYN-ACK pkt, and the unnecessary
+reduction of IW to 1 segment.
 
-After this patch, device dismantle uses one synchronize_net() and one
-rcu_barrier() call only, so we have a ~30% speedup and a smaller RTNL
-latency.
+We actually thought about removing the IW reduction part but unfortunat=
+ely the
+text belongs to a different rfc5681, which is at a higher maturity
+level ("draft-standard")
+than rfc2988 hence can't be done as part of rfc2988bis. Anyway I have
+since added
+the recommendation to the IW10 draft. See draft-ietf-tcpm-initcwnd-01.t=
+xt.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Patrick McHardy <kaber@trash.net>,
-CC: Ben Greear <greearb@candelatech.com>
----
- net/sched/sch_generic.c |   17 +++++++++++++++--
- 1 files changed, 15 insertions(+), 2 deletions(-)
+The bottom line is the damage of rfc2988bis to any network with
+initRTT > 1sec is
+limited to one spurious retransmitted SYN/SYN-ACK. In the current Linux=
+ code,
+the SYN/SYN-ACK retransmit is forgotten on the passive open side by the=
+ time
+3WHS is completed so there is nothing needed to be done. But for the ac=
+tive
+open side SYN retransmit will cause not long IW to be reduced to 1, but=
+ also
+reduction of ssthresh, which is not part of rfc5681 so some more work i=
+s needed.
+I can provide a patch (or work with tsuna) to ensure a correct fix is m=
+ade.
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index c84b659..b1721d7 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -815,9 +815,17 @@ static bool some_qdisc_is_busy(struct net_device *dev)
- 	return false;
- }
- 
-+/**
-+ * 	dev_deactivate_many - deactivate transmissions on several devices
-+ * 	@head: list of devices to deactivate
-+ *
-+ *	This function returns only when all outstanding transmissions
-+ *	have completed, unless all devices are in dismantle phase.
-+ */
- void dev_deactivate_many(struct list_head *head)
- {
- 	struct net_device *dev;
-+	bool sync_needed = false;
- 
- 	list_for_each_entry(dev, head, unreg_list) {
- 		netdev_for_each_tx_queue(dev, dev_deactivate_queue,
-@@ -827,10 +835,15 @@ void dev_deactivate_many(struct list_head *head)
- 					     &noop_qdisc);
- 
- 		dev_watchdog_down(dev);
-+		sync_needed |= !dev->dismantle;
- 	}
- 
--	/* Wait for outstanding qdisc-less dev_queue_xmit calls. */
--	synchronize_rcu();
-+	/* Wait for outstanding qdisc-less dev_queue_xmit calls.
-+	 * This is avoided if all devices are in dismantle phase :
-+	 * Caller will call synchronize_net() for us
-+	 */
-+	if (sync_needed)
-+		synchronize_net();
- 
- 	/* Wait for outstanding qdisc_run calls. */
- 	list_for_each_entry(dev, head, unreg_list)
+Jerry
 
-
+>
+> Hagen
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
