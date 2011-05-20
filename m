@@ -1,74 +1,173 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: remove synchronize_net() from
- netdev_set_master()
-Date: Fri, 20 May 2011 07:37:40 +0200
-Message-ID: <1305869860.3156.49.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree
+Date: Fri, 20 May 2011 16:18:16 +1000
+Message-ID: <20110520161816.dda6f1fd.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39377 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935210Ab1ETFhq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 01:37:46 -0400
-Received: by wya21 with SMTP id 21so2461207wya.19
-        for <netdev@vger.kernel.org>; Thu, 19 May 2011 22:37:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mel Gorman <mel@csn.ul.ie>, linux-mm@kvack.org,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	linux-fsdevel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Linus <torvalds@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In the old days, we used to access dev->master in __netif_receive_skb()
-in a rcu_read_lock section.
+Hi all,
 
-So one synchronize_net() call was needed in netdev_set_master() to make
-sure another cpu could not use old master while/after we release it.
+After merging the final tree, today's linux-next build (sparc32 defconfig)
+failed like this:
 
-We now use netdev_rx_handler infrastructure and added one
-synchronize_net() call in bond_release()/bond_release_all()
+mm/page_alloc.c: In function '__free_pages_bootmem':
+mm/page_alloc.c:704: error: implicit declaration of function 'prefetchw'
+fs/dcache.c: In function '__d_lookup_rcu':
+fs/dcache.c:1810: error: implicit declaration of function 'prefetch'
+fs/inode.c: In function 'new_inode':
+fs/inode.c:894: error: implicit declaration of function 'spin_lock_prefetch'
+net/core/skbuff.c: In function '__alloc_skb':
+net/core/skbuff.c:184: error: implicit declaration of function 'prefetchw'
+In file included from net/ipv4/ip_forward.c:32:
+include/net/udp.h: In function 'udp_csum_outgoing':
+include/net/udp.h:141: error: implicit declaration of function 'prefetch'
+In file included from net/ipv6/af_inet6.c:48:
+include/net/udp.h: In function 'udp_csum_outgoing':
+include/net/udp.h:141: error: implicit declaration of function 'prefetch'
+net/unix/af_unix.c: In function 'unix_ioctl':
+net/unix/af_unix.c:2066: error: implicit declaration of function 'prefetch'
+In file included from net/sunrpc/xprtsock.c:44:
+include/net/udp.h: In function 'udp_csum_outgoing':
+include/net/udp.h:141: error: implicit declaration of function 'prefetch'
+kernel/rcutiny.c: In function 'rcu_process_callbacks':
+kernel/rcutiny.c:180: error: implicit declaration of function 'prefetch'
 
-Remove the obsolete synchronize_net() from netdev_set_master() and add
-one in bridge del_nbp() after its netdev_rx_handler_unregister() call.
+Caused by commit e66eed651fd1 ("list: remove prefetching from regular list
+iterators").
 
-This makes enslave -d a bit faster.
+I added the following patch for today:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Jiri Pirko <jpirko@redhat.com>
-CC: Stephen Hemminger <shemminger@vyatta.com>
+>From 1a101eb2766057372006b1b487d05f40fe899478 Mon Sep 17 00:00:00 2001
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 20 May 2011 16:08:48 +1000
+Subject: [PATCH] include prefetch.h where needed
+
+Commit e66eed651fd1 ("list: remove prefetching from regular list
+iterators") removed the include of prefetch.h from list.h.
+
+fixes these build errors on sparc:
+
+mm/page_alloc.c: In function '__free_pages_bootmem':
+mm/page_alloc.c:704: error: implicit declaration of function 'prefetchw'
+fs/dcache.c: In function '__d_lookup_rcu':
+fs/dcache.c:1810: error: implicit declaration of function 'prefetch'
+fs/inode.c: In function 'new_inode':
+fs/inode.c:894: error: implicit declaration of function 'spin_lock_prefetch'
+net/core/skbuff.c: In function '__alloc_skb':
+net/core/skbuff.c:184: error: implicit declaration of function 'prefetchw'
+In file included from net/ipv4/ip_forward.c:32:
+include/net/udp.h: In function 'udp_csum_outgoing':
+include/net/udp.h:141: error: implicit declaration of function 'prefetch'
+In file included from net/ipv6/af_inet6.c:48:
+include/net/udp.h: In function 'udp_csum_outgoing':
+include/net/udp.h:141: error: implicit declaration of function 'prefetch'
+net/unix/af_unix.c: In function 'unix_ioctl':
+net/unix/af_unix.c:2066: error: implicit declaration of function 'prefetch'
+In file included from net/sunrpc/xprtsock.c:44:
+include/net/udp.h: In function 'udp_csum_outgoing':
+include/net/udp.h:141: error: implicit declaration of function 'prefetch'
+kernel/rcutiny.c: In function 'rcu_process_callbacks':
+kernel/rcutiny.c:180: error: implicit declaration of function 'prefetch'
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- net/bridge/br_if.c |    1 +
- net/core/dev.c     |    4 +---
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ fs/dcache.c            |    1 +
+ fs/inode.c             |    1 +
+ include/linux/skbuff.h |    1 +
+ kernel/rcutiny.c       |    1 +
+ mm/page_alloc.c        |    1 +
+ net/core/skbuff.c      |    1 +
+ 6 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 5dbdfdf..3e18d14 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -147,6 +147,7 @@ static void del_nbp(struct net_bridge_port *p)
- 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+diff --git a/fs/dcache.c b/fs/dcache.c
+index 22a0ef4..18b2a1f 100644
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -35,6 +35,7 @@
+ #include <linux/hardirq.h>
+ #include <linux/bit_spinlock.h>
+ #include <linux/rculist_bl.h>
++#include <linux/prefetch.h>
+ #include "internal.h"
  
- 	netdev_rx_handler_unregister(dev);
-+	synchronize_net();
+ /*
+diff --git a/fs/inode.c b/fs/inode.c
+index 33c963d..c77081f 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -26,6 +26,7 @@
+ #include <linux/posix_acl.h>
+ #include <linux/ima.h>
+ #include <linux/cred.h>
++#include <linux/prefetch.h>
+ #include "internal.h"
  
- 	netdev_set_master(dev, NULL);
+ /*
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 79aafbb..f963b8f 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -29,6 +29,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/dmaengine.h>
+ #include <linux/hrtimer.h>
++#include <linux/prefetch.h>
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 155de20..29b3f7a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4294,10 +4294,8 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ /* Don't change this without changing skb_csum_unnecessary! */
+ #define CHECKSUM_NONE 0
+diff --git a/kernel/rcutiny.c b/kernel/rcutiny.c
+index 421abfd..7bbac7d 100644
+--- a/kernel/rcutiny.c
++++ b/kernel/rcutiny.c
+@@ -35,6 +35,7 @@
+ #include <linux/init.h>
+ #include <linux/time.h>
+ #include <linux/cpu.h>
++#include <linux/prefetch.h>
  
- 	slave->master = master;
+ /* Controls for rcu_kthread() kthread, replacing RCU_SOFTIRQ used previously. */
+ static struct task_struct *rcu_kthread_task;
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 44b3d7b..9d5498e 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -54,6 +54,7 @@
+ #include <trace/events/kmem.h>
+ #include <linux/ftrace_event.h>
+ #include <linux/memcontrol.h>
++#include <linux/prefetch.h>
  
--	if (old) {
--		synchronize_net();
-+	if (old)
- 		dev_put(old);
--	}
- 	return 0;
- }
- EXPORT_SYMBOL(netdev_set_master);
+ #include <asm/tlbflush.h>
+ #include <asm/div64.h>
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3e934fe..46cbd28 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -57,6 +57,7 @@
+ #include <linux/init.h>
+ #include <linux/scatterlist.h>
+ #include <linux/errqueue.h>
++#include <linux/prefetch.h>
+ 
+ #include <net/protocol.h>
+ #include <net/dst.h>
+-- 
+1.7.5.1
 
-
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
