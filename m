@@ -1,43 +1,74 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC] virtio_net: fix patch: virtio_net: limit xmit polling
-Date: Thu, 19 May 2011 17:00:17 +0930
-Message-ID: <8739kb5era.fsf@rustcorp.com.au>
-References: <20110518220125.GA26835@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: remove synchronize_net() from
+ netdev_set_master()
+Date: Fri, 20 May 2011 07:37:40 +0200
+Message-ID: <1305869860.3156.49.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, habanero@linux.vnet.ibm.com,
-	Shirley Ma <mashirle@us.ibm.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>, kvm@vger.kernel.org,
-	steved@us.ibm.com, Tom
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110518220125.GA26835@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39377 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935210Ab1ETFhq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 01:37:46 -0400
+Received: by wya21 with SMTP id 21so2461207wya.19
+        for <netdev@vger.kernel.org>; Thu, 19 May 2011 22:37:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 May 2011 01:01:25 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> The patch  virtio_net: limit xmit polling
-> got the logic reversed: it polled while we had
-> capacity not while ring was empty.
-> 
-> Fix it up and clean up a bit by using a for loop.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
-> 
-> OK, turns out that patch was borken. Here's
-> a fix that survived stress test on my box.
-> Pushed on my branch, I'll send a rebased series
-> with Rusty's comments addressed ASAP.
+In the old days, we used to access dev->master in __netif_receive_skb()
+in a rcu_read_lock section.
 
-Normally you would have missed the merge window by now, but I'd really
-like this stuff in, so I'm holding it open for this.  I want these patches
-in linux-next for at least a few days before I push them.
+So one synchronize_net() call was needed in netdev_set_master() to make
+sure another cpu could not use old master while/after we release it.
 
-If you think we're not close enough, please tell me and I'll push
-the rest of the virtio patches to Linus now.  
+We now use netdev_rx_handler infrastructure and added one
+synchronize_net() call in bond_release()/bond_release_all()
 
-Thanks,
-Rusty.
+Remove the obsolete synchronize_net() from netdev_set_master() and add
+one in bridge del_nbp() after its netdev_rx_handler_unregister() call.
+
+This makes enslave -d a bit faster.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Jiri Pirko <jpirko@redhat.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+---
+ net/bridge/br_if.c |    1 +
+ net/core/dev.c     |    4 +---
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 5dbdfdf..3e18d14 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -147,6 +147,7 @@ static void del_nbp(struct net_bridge_port *p)
+ 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+ 
+ 	netdev_rx_handler_unregister(dev);
++	synchronize_net();
+ 
+ 	netdev_set_master(dev, NULL);
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 155de20..29b3f7a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4294,10 +4294,8 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ 
+ 	slave->master = master;
+ 
+-	if (old) {
+-		synchronize_net();
++	if (old)
+ 		dev_put(old);
+-	}
+ 	return 0;
+ }
+ EXPORT_SYMBOL(netdev_set_master);
+
+
