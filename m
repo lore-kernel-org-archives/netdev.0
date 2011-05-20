@@ -1,65 +1,53 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the tip tree (net tree
- interaction)
-Date: Fri, 20 May 2011 14:14:17 +1000
-Message-ID: <20110520141417.f49bf364.sfr@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] macvlan: remove one synchronize_rcu() call
+Date: Fri, 20 May 2011 06:28:05 +0200
+Message-ID: <1305865685.3156.46.camel@edumazet-laptop>
+References: <1305843856.3156.36.camel@edumazet-laptop>
+	 <4DD5B36C.2020407@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jacek Luczak <difrost.kernel@gmail.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:59594 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752233Ab1ETE2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 00:28:11 -0400
+Received: by wwk4 with SMTP id 4so118184wwk.1
+        for <netdev@vger.kernel.org>; Thu, 19 May 2011 21:28:09 -0700 (PDT)
+In-Reply-To: <4DD5B36C.2020407@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Le jeudi 19 mai 2011 =C3=A0 17:18 -0700, Ben Greear a =C3=A9crit :
 
-After merging the tip tree, today's linux-next build (x86_64 allmodconfig)
-failed like this:
+> I applied this to today's wireless-testing kernel.  There is a consis=
+tent
+> speedup in deleting mac-vlans!  I wouldn't read much into changes in
+> creating macvlans or adding IPs..those numbers just jump around a bit
+> from run to run.
+>=20
+> Before the patch:
+> Deleted 500 macvlan in 25.424282 seconds. (0.050848564 per interface)
+>=20
+>=20
+> After the patch:
+>=20
+> Deleted 500 macvlan in 21.831413 seconds. (0.043662826 per interface)
+>=20
 
-net/sctp/bind_addr.c: In function 'sctp_bind_addr_clean':
-net/sctp/bind_addr.c:148: error: 'sctp_local_addr_free' undeclared (first use in this function)
+Thanks for testing !
 
-Caused by commit 1231f0baa547 ("net,rcu: convert call_rcu
-(sctp_local_addr_free) to kfree_rcu()") interacting with commit
-c182f90bc1f2 ("SCTP: fix race between sctp_bind_addr_free() and
-sctp_bind_addr_conflict()") from the net tree.
+My ultimate goal would be to reduce vlan/macvlan delete latency from 50
+ms to less than 5 ms. Step by step...
 
-I applied the following patch as a merge fix:
+(But this will wait after this merge window, since next changes are a
+bit more complex)
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 20 May 2011 14:11:11 +1000
-Subject: [PATCH] net,rcu: convert another call to call_rcu(sctp_local_addr_free)
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- net/sctp/bind_addr.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-index 6338413..83e3011 100644
---- a/net/sctp/bind_addr.c
-+++ b/net/sctp/bind_addr.c
-@@ -145,7 +145,7 @@ static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
- 	/* Empty the bind address list. */
- 	list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
- 		list_del_rcu(&addr->list);
--		call_rcu(&addr->rcu, sctp_local_addr_free);
-+		kfree_rcu(addr, rcu);
- 		SCTP_DBG_OBJCNT_DEC(addr);
- 	}
- }
--- 
-1.7.5.1
+Stay tuned ;)
 
 
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+
