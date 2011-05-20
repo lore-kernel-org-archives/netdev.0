@@ -1,81 +1,43 @@
-From: Jacek Luczak <difrost.kernel@gmail.com>
-Subject: Re: linux-next: build failure after merge of the tip tree (net tree interaction)
-Date: Fri, 20 May 2011 09:59:20 +0200
-Message-ID: <BANLkTik=bC1beZWx5eLDMmGcOp5UZ29MUQ@mail.gmail.com>
-References: <20110520141417.f49bf364.sfr@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110520141417.f49bf364.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [PATCH 4/3] rtnetlink: ignore NETDEV_RELEASE and NETDEV_JOIN event
+Date: Fri, 20 May 2011 17:06:32 +0800
+Message-ID: <1305882392-21241-1-git-send-email-amwang@redhat.com>
+References: <1305877152-30970-1-git-send-email-amwang@redhat.com>
+Cc: WANG Cong <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9330 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934436Ab1ETJGt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 May 2011 05:06:49 -0400
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p4K96n3Z013048
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 20 May 2011 05:06:49 -0400
+In-Reply-To: <1305877152-30970-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2011/5/20 Stephen Rothwell <sfr@canb.auug.org.au>:
-> Hi all,
->
-> After merging the tip tree, today's linux-next build (x86_64 allmodco=
-nfig)
-> failed like this:
->
-> net/sctp/bind_addr.c: In function 'sctp_bind_addr_clean':
-> net/sctp/bind_addr.c:148: error: 'sctp_local_addr_free' undeclared (f=
-irst use in this function)
->
-> Caused by commit 1231f0baa547 ("net,rcu: convert call_rcu
-> (sctp_local_addr_free) to kfree_rcu()") interacting with commit
-> c182f90bc1f2 ("SCTP: fix race between sctp_bind_addr_free() and
-> sctp_bind_addr_conflict()") from the net tree.
->
-> I applied the following patch as a merge fix:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 20 May 2011 14:11:11 +1000
-> Subject: [PATCH] net,rcu: convert another call to call_rcu(sctp_local=
-_addr_free)
->
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
-> =A0net/sctp/bind_addr.c | =A0 =A02 +-
-> =A01 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-> index 6338413..83e3011 100644
-> --- a/net/sctp/bind_addr.c
-> +++ b/net/sctp/bind_addr.c
-> @@ -145,7 +145,7 @@ static void sctp_bind_addr_clean(struct sctp_bind=
-_addr *bp)
-> =A0 =A0 =A0 =A0/* Empty the bind address list. */
-> =A0 =A0 =A0 =A0list_for_each_entry_safe(addr, temp, &bp->address_list=
-, list) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0list_del_rcu(&addr->list);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 call_rcu(&addr->rcu, sctp_local_addr_fr=
-ee);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_rcu(addr, rcu);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0SCTP_DBG_OBJCNT_DEC(addr);
-> =A0 =A0 =A0 =A0}
-> =A0}
-> --
-> 1.7.5.1
->
+These two events are not expected to be caught by userspace.
 
+Signed-off-by: WANG Cong <amwang@redhat.com>
+---
+ net/core/rtnetlink.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Hi
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d2ba259..d1644e3 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1956,6 +1956,8 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+ 	case NETDEV_GOING_DOWN:
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_UNREGISTER_BATCH:
++	case NETDEV_RELEASE:
++	case NETDEV_JOIN:
+ 		break;
+ 	default:
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0);
+-- 
+1.7.1
 
-as this is planned to be backported down to stable/longterm, kfree_rcu
-was not used here. I guess in meantime the callback has been removed
-while introducing kfree_rcu in sctp  module. I have a patch ready to
-send for net-next-2.6 converting to kfree_rcu in sctp, only I've been
-waiting for it jumping to the tree.
-
-This patch is of course valid.
-
--Jacek
