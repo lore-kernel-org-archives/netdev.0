@@ -1,49 +1,50 @@
-From: Kalle Valo <kvalo@adurom.com>
-Subject: Re: [PATCH v3 0/2] Fix uevent race in register_netdevice()
-Date: Fri, 20 May 2011 15:08:58 +0300
-Message-ID: <87oc2xd15x.fsf@purkki.adurom.net>
-References: <20110516143913.13838.85357.stgit@localhost6.localdomain6>
-	<20110516.141158.1777924960833804150.davem@davemloft.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
+Date: Fri, 20 May 2011 13:37:47 +0100
+Message-ID: <20110520133747.2b8fb2b0@lxorguk.ukuu.org.uk>
+References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
+	<20110518.152653.1486764697527722925.davem@davemloft.net>
+	<BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+	<20110518.155200.801089483916944725.davem@davemloft.net>
+	<20110518202025.GC4175@nuttenaction>
+	<BANLkTimtA9BB7g5cOm8c9sGChQjf1P0Q-Q@mail.gmail.com>
+	<fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>,
+	David Miller <davem@davemloft.net>, <tsunanet@gmail.com>,
+	<kuznet@ms2.inr.ac.ru>, <pekkas@netcore.fi>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110516.141158.1777924960833804150.davem@davemloft.net> (David Miller's message of "Mon\, 16 May 2011 14\:11\:58 -0400 \(EDT\)")
+In-Reply-To: <fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+> For our environment it hurts because we _always_ have an initial RTO >1. I
+> understand and accept that 98% will benefit of this modification, no doubt
+> Jerry! Try to put yourself in our situation: imaging a proposal of an init
+> RTO modification to 0.5 seconds. Maybe because 98% of Internet traffic is
+> now localized and the RTO is average now 0.2 seconds. Anyway, this will
+> penalize your network always and this will be the situation for one of my
+> customer. I can live with that, I see the benefits for the rest of the
+> world. But I am happy to see a knob where I can restore the old behavior.
+> Maybe some other environments will benefit from a even lower or higher
+> initial RTO.
 
-> From: Kalle Valo <kvalo@adurom.com>
-> Date: Mon, 16 May 2011 17:46:30 +0300
->
->> I'm trying to fix a race in register_netdevice(). The problem is that
->> there's a uevent to userspace before the netdevice is ready for use. The
->> problem is described here:
->> 
->> https://bugzilla.kernel.org/show_bug.cgi?id=15606
->> 
->> I have sent few different ways to fix this, but none of them have been
->> really usable. Now I came up with a way which changes the driver core
->> to make it possible send the uevent in a separate call. This is a clean
->> and safe way to fix the race. Downside is that two new functions are
->> added to the driver core interface.
->> 
->> Please comment.
->
-> This doesn't work.
->
-> The sysfs file will still be there before the uevent, so any
-> process can go in there, and see the inconsistent state.
+AX.25 is definitely happier with a multi-second round trip but it's a
+special case. Some X.25 networks are going to have similar behaviour.
 
-I considered that user space would not notice the device until the
-uevent is emitted so that wouldn't matter that much.
+It shouldn't be penalising each connection (and it's worse than that of
+course because each node on a shared media network gets in the way of the
+rest, plus the queueing effect of all the extra blockages) because done
+right multiple connections to the same host can use the previous
+connections as estimates (and indeed for the initial RTO there's a good
+argument for treating estimates as 'host, then x.y.z.* match, then
+average of previous except the x.y.z.* match, then unknown')
 
-But it's back to the drawing board again. I'm running out of options
-how to do this in a not so intrusive way. Do you have any tips how to
-fix the race for good?
+The latter would fix an awful lot of the weird cases pretty effectively.
 
--- 
-Kalle Valo
+Alan
