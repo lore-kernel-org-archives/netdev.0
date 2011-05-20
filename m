@@ -1,103 +1,187 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v3 1/1] igmp: call ip_mc_clear_src() only when we have no
- users of ip_mc_list
-Date: Fri, 20 May 2011 18:27:09 +0200
-Message-ID: <20110520162709.GA3497@darkmag.usersys.redhat.com>
-References: <20110515165945.GA20024@darkmag.usersys.redhat.com>
- <20110516.140359.111037536766782557.davem@davemloft.net>
- <OF948388D5.90B3F5A7-ON88257892.006C3228-88257892.0071B9D5@us.ibm.com>
- <20110517133801.GC30366@darkmag.usersys.redhat.com>
- <20110517143756.GE30366@darkmag.usersys.redhat.com>
- <OF11F57B2A.6B43B7E6-ON88257893.005490B0-88257893.00615176@us.ibm.com>
+From: "Lynch, Jonathan" <jonathan.lynch@thenowfactory.com>
+Subject: Re: Fwd: pktgen with vlan packets
+Date: Fri, 20 May 2011 17:30:11 +0100
+Message-ID: <BANLkTinTEM4BLzoOQiDFyY13Yj=ZqhXu5w@mail.gmail.com>
+References: <BANLkTinybQHjqXe-0SOU4wHTJg0M=QX=ow@mail.gmail.com>
+	<BANLkTinBGkApfasGywg888wDXZBYPOpQDQ@mail.gmail.com>
+	<1305904837.3173.20.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
-	kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	linux-kernel@vger.kernel.org, mmarek@suse.cz,
-	netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OF11F57B2A.6B43B7E6-ON88257893.005490B0-88257893.00615176@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=20cf300512b2bcef2004a3b7a21a
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:60240 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934587Ab1ETQaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 12:30:12 -0400
+Received: by qwk3 with SMTP id 3so1950117qwk.19
+        for <netdev@vger.kernel.org>; Fri, 20 May 2011 09:30:11 -0700 (PDT)
+In-Reply-To: <1305904837.3173.20.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 17, 2011 at 10:42:59AM -0700, David Stevens wrote:
-> Veaceslav,
->         It looks to me like this will leak the source filters if we are 
-> called from ip_mc_destroy_dev(),
-> Even with your previous patch, you're assuming that we don't free the 
-> ip_mc_list and so we have the
-> same one when we up the device, but if there are no timers running, it 
-> looks like refcnt canl go to 0 and free
-> it. If we can ever free the ip_mc_list when users != 0 (or going to 0 
-> immediately after the drop), we
-> have to do the ip_mc_clear_src() or leak the list. I haven't looked at 
-> this code in years, so I'll need
-> to refresh my memory.
->         So, I'll look at that a bit more; at a minimum, I think you need 
-> to do the clear_src
-> also in the destroy case. We could lose the filters and set the exclude 
-> count to users, instead
-> of 1; but I like the idea of keeping the source filters across a down/up, 
-> if we can be sure there
-> are no cases where we free the ip_mc_list without first freeing all the 
-> filters.
-> 
->                                                                 +-DLS
+--20cf300512b2bcef2004a3b7a21a
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Yes, you are completely right, we can leak the sources on
-ip_mc_destroy_dev() when we've ip_ma_put() it inside all the timers. Also,
-I've seen that we called igmp_group_dropped() for every mc in dev->mc_list,
-however we've done it already in ip_mc_down() before, which wouldn't lead
-to anything (cause the device is already ->dead, and all timers are
-stopped), but just would be a waste of time.
+Hi Eric,
 
-So, does this patch seem ok? If yes, I'll send it with the changelog.
+Thanks for your quick response.
 
----
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 1fd3d9c..57ca93a 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1169,20 +1169,18 @@ static void igmp_group_dropped(struct ip_mc_list *im)
- 
- 	if (!in_dev->dead) {
- 		if (IGMP_V1_SEEN(in_dev))
--			goto done;
-+			return;
- 		if (IGMP_V2_SEEN(in_dev)) {
- 			if (reporter)
- 				igmp_send_report(in_dev, im, IGMP_HOST_LEAVE_MESSAGE);
--			goto done;
-+			return;
- 		}
- 		/* IGMPv3 */
- 		igmpv3_add_delrec(in_dev, im);
- 
- 		igmp_ifc_event(in_dev);
- 	}
--done:
- #endif
--	ip_mc_clear_src(im);
- }
- 
- static void igmp_group_added(struct ip_mc_list *im)
-@@ -1319,6 +1317,7 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
- 				*ip = i->next_rcu;
- 				in_dev->mc_count--;
- 				igmp_group_dropped(i);
-+				ip_mc_clear_src(i);
- 
- 				if (!in_dev->dead)
- 					ip_rt_multicast_event(in_dev);
-@@ -1428,7 +1427,8 @@ void ip_mc_destroy_dev(struct in_device *in_dev)
- 		in_dev->mc_list = i->next_rcu;
- 		in_dev->mc_count--;
- 
--		igmp_group_dropped(i);
-+		/* We've dropped the groups in ip_mc_down already */
-+		ip_mc_clear_src(i);
- 		ip_ma_put(i);
- 	}
- }
+I tried your suggestion for number 1 and I got the following oops -
+see log2 attached
+ - i ran  tc qdisc before testing to confirm there is no qdisc for eth4.
+
+Then I tried suggestion 2, it works and sends packets over multiple
+VLAN interfaces using multiple threads.
+ (When I combine suggestion 1 and 2 it crashes when I try sending to
+more than 1 VLAN interface)
+
+thanks again
+Jonathan
+
+On 20 May 2011 16:20, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Le vendredi 20 mai 2011 =E0 16:03 +0100, Lynch, Jonathan a =E9crit :
+>> Hi,
+>>
+>> Im running 2.6.35 kernel with an Intel 82599 NIC.
+>> I want to send packets using pktgen via a number of vlan interfaces (1
+>> physical interface) created via vconfig but I get an OOPs when I try
+>> and send via the vlan interface. =A0See attached log file for the oops.
+>> Im not using the pgset "vlan_id 77" params because I want to send
+>> packets with more than 1 VLAN tag to one interface. (If it was
+>> possible to send packets with different vlan tags over the one
+>> interface with pktgen I would use it)
+>>
+>> my config is as follows:
+>> =A0 ifconfig eth4 up
+>> =A0 modprobe 8021q
+>> =A0 vconfig add eth4 256
+>> =A0 ifconfig eth4.256 up
+>>
+>> My pktgen config is the exact same as
+>> ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/pkt=
+gen.conf-1-1
+>> except that instead of eth1, I have eth4.256.
+>>
+>> Any ideas as to how I can send packets with multiple VLAN tags over
+>> the same interface with pktgen?
+>
+> I am afraid you cant yet.
+>
+> About the crash, you can either :
+>
+> 1) delete qdisc on eth4
+>
+> ifconfig eth4 txqueuelen 0
+> tc qdisc add dev eth0 root sfq
+> tc qdisc del dev eth0 root
+>
+> 2) use clone_skb 0 only
+>
+> (Or else, same skb can be queued several time on eth4 qdisc) -> crash
+>
+>
+>
+>
+
+--20cf300512b2bcef2004a3b7a21a
+Content-Type: text/plain; charset=US-ASCII; name="log2.txt"
+Content-Disposition: attachment; filename="log2.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gnxafh380
+
+WyA0Nzk4LjkyNTAzMF0gVmlydHVhbCBkZXZpY2UgZXRoNCBhc2tzIHRvIHF1ZXVlIHBhY2tldCEN
+ClsgNDc5OC45MzAxMzBdIEJVRzogdW5hYmxlIHRvIGhhbmRsZSBrZXJuZWwgcGFnaW5nIHJlcXVl
+c3QgYXQgMDAwMDAwMDAwMDAzNzRiZQ0KWyA0Nzk4LjkzNzE1MV0gSVA6IFs8ZmZmZmZmZmY4MTQ1
+NWYyZT5dIGRzdF9yZWxlYXNlKzB4ZS8weDMwDQpbIDQ3OTguOTQyNTkzXSBQR0QgMCANClsgNDc5
+OC45NDQ2MzZdIE9vcHM6IDAwMDIgWyMxXSBTTVAgDQpbIDQ3OTguOTQ3OTE4XSBsYXN0IHN5c2Zz
+IGZpbGU6IC9zeXMvZGV2aWNlcy92aXJ0dWFsL25ldC9ldGg0LjI1Ni90eXBlDQpbIDQ3OTguOTU0
+MjAyXSBDUFUgMCANClsgNDc5OC45NTYwNTFdIE1vZHVsZXMgbGlua2VkIGluOiBwa3RnZW4gODAy
+MXEgZ2FycCBzdHAgc2NoX3NmcSBubHNfY3A0MzcgY2lmcyBpcHRfTUFTUVVFUkFERSBpcHRhYmxl
+X25hdCBuZl9uYXQgbmZfY29ubnRyYWNrX2lwdjQgbmZfY29ubnRyYWNrIG5mX2RlZnJhZ19pcHY0
+IGl4Z2JlIGlwdGFibGVfZmlsdGVyIGlwX3RhYmxlcyB4X3RhYmxlcyBpb2F0ZG1hIGRjYSBscCBt
+ZGlvIHBhcnBvcnQgZTEwMDBlDQpbIDQ3OTguOTc3MjE1XSANClsgNDc5OC45Nzg3MTddIFBpZDog
+MTA3NjQsIGNvbW06IGtwa3RnZW5kXzAgTm90IHRhaW50ZWQgMi42LjM1ICMxIEdyZWVuY2l0eS9H
+cmVlbmNpdHkNClsgNDc5OC45ODYzMDddIFJJUDogMDAxMDpbPGZmZmZmZmZmODE0NTVmMmU+XSAg
+WzxmZmZmZmZmZjgxNDU1ZjJlPl0gZHN0X3JlbGVhc2UrMHhlLzB4MzANClsgNDc5OC45OTQxNzld
+IFJTUDogMDAxODpmZmZmODgwMTM3ZjlkYzkwICBFRkxBR1M6IDAwMDEwMjAyDQpbIDQ3OTguOTk5
+NTA4XSBSQVg6IDAwMDAwMDAwZmZmZmZmZmYgUkJYOiBmZmZmODgwMTM3ZWZhOTAwIFJDWDogZmZm
+Zjg4MDEzNGU2MTAwMA0KWyA0Nzk5LjAwNjY3N10gUkRYOiBmZmZmODgwMTM0ZTYxMDAwIFJTSTog
+ZmZmZjg4MDEzMzQzMmU4MCBSREk6IDAwMDAwMDAwMDAwMzczZmUNClsgNDc5OS4wMTM4NDddIFJC
+UDogZmZmZjg4MDEzN2Y5ZGM5MCBSMDg6IDAwMDAwMDAwMDAwMDAwMDAgUjA5OiAwMDAwMDAwMDAw
+MDAwMDAwDQpbIDQ3OTkuMDIxMDE2XSBSMTA6IDAwMDAwMDAwMDAwMDAwNDIgUjExOiAwMDAwMDAw
+MDAwMDAwMDAwIFIxMjogMDAwMDAwMDAwMDAwMDAwMA0KWyA0Nzk5LjAyODE4NV0gUjEzOiBmZmZm
+ODgwMTMyZWNjMDAwIFIxNDogZmZmZjg4MDEzN2VmYWEwMCBSMTU6IGZmZmY4ODAxMzJlY2MwMDAN
+ClsgNDc5OS4wMzUzNTVdIEZTOiAgMDAwMDAwMDAwMDAwMDAwMCgwMDAwKSBHUzpmZmZmODgwMDAx
+ZTAwMDAwKDAwMDApIGtubEdTOjAwMDAwMDAwMDAwMDAwMDANClsgNDc5OS4wNDM0OTVdIENTOiAg
+MDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAwNTAwM2INClsgNDc5OS4wNDky
+NzJdIENSMjogMDAwMDAwMDAwMDAzNzRiZSBDUjM6IDAwMDAwMDAwMDFhMmEwMDAgQ1I0OiAwMDAw
+MDAwMDAwMDAwNmYwDQpbIDQ3OTkuMDU2NDQxXSBEUjA6IDAwMDAwMDAwMDAwMDAwMDAgRFIxOiAw
+MDAwMDAwMDAwMDAwMDAwIERSMjogMDAwMDAwMDAwMDAwMDAwMA0KWyA0Nzk5LjA2MzYxMF0gRFIz
+OiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZmMGZmMCBEUjc6IDAwMDAwMDAwMDAw
+MDA0MDANClsgNDc5OS4wNzA3NzhdIFByb2Nlc3Mga3BrdGdlbmRfMCAocGlkOiAxMDc2NCwgdGhy
+ZWFkaW5mbyBmZmZmODgwMTM3ZjljMDAwLCB0YXNrIGZmZmY4ODAxMzJmMDE2YjApDQpbIDQ3OTku
+MDc5NTI2XSBTdGFjazoNClsgNDc5OS4wODE1NjNdICBmZmZmODgwMTM3ZjlkY2YwIGZmZmZmZmZm
+ODE0NGVhMTcgMDAwMDAwMDAwMDAwMDAxMCBmZmZmODgwMTM3ZjlkZDAwDQpbIDQ3OTkuMDg4ODg0
+XSA8MD4gZmZmZmZmZmZhMDBhY2YyMCBmZmZmODgwMTM0ZTYxMDAwIGZmZmZmZmZmZmZmZmZmNzUg
+ZmZmZjg4MDEzN2VmYWEwMA0KWyA0Nzk5LjA5NjY5MV0gPDA+IDAwMDAwMDAwMDAwMDAwMDAgZmZm
+Zjg4MDEzMmVjYzAwMCBmZmZmODgwMTM0ZTYxMDAwIGZmZmY4ODAyMzU3OGMwNDANClsgNDc5OS4x
+MDQ3MTBdIENhbGwgVHJhY2U6DQpbIDQ3OTkuMTA3MTg3XSAgWzxmZmZmZmZmZjgxNDRlYTE3Pl0g
+ZGV2X2hhcmRfc3RhcnRfeG1pdCsweDE3Ny8weDQ2MA0KWyA0Nzk5LjExMzMxNl0gIFs8ZmZmZmZm
+ZmY4MTQ1MGVjNj5dIGRldl9xdWV1ZV94bWl0KzB4NDc2LzB4NTkwDQpbIDQ3OTkuMTE5MDExXSAg
+WzxmZmZmZmZmZjgxNTRiOGIxPl0gPyBwcmludGsrMHgzYy8weDQzDQpbIDQ3OTkuMTI0MDEwXSAg
+WzxmZmZmZmZmZmEwMGQzNjkwPl0gPyB2bGFuX2Rldl9od2FjY2VsX2hhcmRfc3RhcnRfeG1pdCsw
+eDAvMHhiMCBbODAyMXFdDQpbIDQ3OTkuMTMxODkxXSAgWzxmZmZmZmZmZmEwMGQzNzE0Pl0gdmxh
+bl9kZXZfaHdhY2NlbF9oYXJkX3N0YXJ0X3htaXQrMHg4NC8weGIwIFs4MDIxcV0NClsgNDc5OS4x
+Mzk2ODVdICBbPGZmZmZmZmZmYTAxNGMyYTU+XSBwa3RnZW5feG1pdCsweDgxNS8weDExZjAgW3Br
+dGdlbl0NClsgNDc5OS4xNDU5ODhdICBbPGZmZmZmZmZmODE1NGVhMGU+XSA/IGNvbW1vbl9pbnRl
+cnJ1cHQrMHhlLzB4MTMNClsgNDc5OS4xNTE3NjddICBbPGZmZmZmZmZmYTAxNGNkZjA+XSBwa3Rn
+ZW5fdGhyZWFkX3dvcmtlcisweDE3MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjE1ODc2Nl0gIFs8
+ZmZmZmZmZmY4MTA3NTcwMD5dID8gYXV0b3JlbW92ZV93YWtlX2Z1bmN0aW9uKzB4MC8weDQwDQpb
+IDQ3OTkuMTY1MjQyXSAgWzxmZmZmZmZmZjgxMDc1NzAwPl0gPyBhdXRvcmVtb3ZlX3dha2VfZnVu
+Y3Rpb24rMHgwLzB4NDANClsgNDc5OS4xNzE3MTZdICBbPGZmZmZmZmZmYTAxNGNjODA+XSA/IHBr
+dGdlbl90aHJlYWRfd29ya2VyKzB4MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjE3ODcxM10gIFs8
+ZmZmZmZmZmY4MTA3NTFjZT5dIGt0aHJlYWQrMHg4ZS8weGEwDQpbIDQ3OTkuMTgzNjI0XSAgWzxm
+ZmZmZmZmZjgxMDBhY2U0Pl0ga2VybmVsX3RocmVhZF9oZWxwZXIrMHg0LzB4MTANClsgNDc5OS4x
+ODk1NzddICBbPGZmZmZmZmZmODEwNzUxNDA+XSA/IGt0aHJlYWQrMHgwLzB4YTANClsgNDc5OS4x
+OTQ1NzNdICBbPGZmZmZmZmZmODEwMGFjZTA+XSA/IGtlcm5lbF90aHJlYWRfaGVscGVyKzB4MC8w
+eDEwDQpbIDQ3OTkuMjAwNjk3XSBDb2RlOiA0OCBjNyAwNSBkYSBmNSA2MyAwMCAwMCAwMCAwMCAw
+MCBlOCA4ZCA4NyAwZiAwMCA0OCA4OSAxZCBmNiBjNSA4MiAwMCBlYiA4OCAwZiAxZiA0MCAwMCA1
+NSA0OCA4NSBmZiA0OCA4OSBlNSA3NCAxMiBiOCBmZiBmZiBmZiBmZiA8ZjA+IDBmIGMxIDg3IGMw
+IDAwIDAwIDAwIDgzIGU4IDAxIDc4IDAyIGM5IGMzIGJlIDE0IDAxIDAwIDAwIDQ4IA0KWyA0Nzk5
+LjIyMDk2M10gUklQICBbPGZmZmZmZmZmODE0NTVmMmU+XSBkc3RfcmVsZWFzZSsweGUvMHgzMA0K
+WyA0Nzk5LjIyNjUwMl0gIFJTUCA8ZmZmZjg4MDEzN2Y5ZGM5MD4NClsgNDc5OS4yMzAwMThdIENS
+MjogMDAwMDAwMDAwMDAzNzRiZQ0KWyA0Nzk5LjIzMzcwNF0gLS0tWyBlbmQgdHJhY2UgOTI0M2Yy
+NWU3ZDBjMjA4NCBdLS0tDQpbIDQ3OTkuMjM4MzkxXSBLZXJuZWwgcGFuaWMgLSBub3Qgc3luY2lu
+ZzogRmF0YWwgZXhjZXB0aW9uIGluIGludGVycnVwdA0KWyA0Nzk5LjI0NDgyM10gUGlkOiAxMDc2
+NCwgY29tbToga3BrdGdlbmRfMCBUYWludGVkOiBHICAgICAgRCAgICAgMi42LjM1ICMxDQpbIDQ3
+OTkuMjUxNjAyXSBDYWxsIFRyYWNlOg0KWyA0Nzk5LjI1NDExOV0gIFs8ZmZmZmZmZmY4MTU0Yjdm
+ND5dIHBhbmljKzB4OGIvMHgxMGMNClsgNDc5OS4yNTg5ODBdICBbPGZmZmZmZmZmODE1NGY5Y2E+
+XSBvb3BzX2VuZCsweGVhLzB4ZjANClsgNDc5OS4yNjQwMjNdICBbPGZmZmZmZmZmODEwMzg2OTM+
+XSBub19jb250ZXh0KzB4ZjMvMHgyNjANClsgNDc5OS4yNjkzMjFdICBbPGZmZmZmZmZmODEwMzg5
+MTU+XSBfX2JhZF9hcmVhX25vc2VtYXBob3JlKzB4MTE1LzB4MWQwDQpbIDQ3OTkuMjc1NzU0XSAg
+WzxmZmZmZmZmZjgxMDM4OWRlPl0gYmFkX2FyZWFfbm9zZW1hcGhvcmUrMHhlLzB4MTANClsgNDc5
+OS4yODE3NTJdICBbPGZmZmZmZmZmODE1NTIwZWY+XSBkb19wYWdlX2ZhdWx0KzB4MjZmLzB4MzEw
+DQpbIDQ3OTkuMjg3Mzk3XSAgWzxmZmZmZmZmZjgxNTRlY2Y1Pl0gcGFnZV9mYXVsdCsweDI1LzB4
+MzANClsgNDc5OS4yOTI2MTFdICBbPGZmZmZmZmZmODE0NTVmMmU+XSA/IGRzdF9yZWxlYXNlKzB4
+ZS8weDMwDQpbIDQ3OTkuMjk3OTk1XSAgWzxmZmZmZmZmZjgxNDRlYTE3Pl0gZGV2X2hhcmRfc3Rh
+cnRfeG1pdCsweDE3Ny8weDQ2MA0KWyA0Nzk5LjMwNDE2N10gIFs8ZmZmZmZmZmY4MTQ1MGVjNj5d
+IGRldl9xdWV1ZV94bWl0KzB4NDc2LzB4NTkwDQpbIDQ3OTkuMzA5OTAwXSAgWzxmZmZmZmZmZjgx
+NTRiOGIxPl0gPyBwcmludGsrMHgzYy8weDQzDQpbIDQ3OTkuMzE0OTQzXSAgWzxmZmZmZmZmZmEw
+MGQzNjkwPl0gPyB2bGFuX2Rldl9od2FjY2VsX2hhcmRfc3RhcnRfeG1pdCsweDAvMHhiMCBbODAy
+MXFdDQpbIDQ3OTkuMzIyODgwXSAgWzxmZmZmZmZmZmEwMGQzNzE0Pl0gdmxhbl9kZXZfaHdhY2Nl
+bF9oYXJkX3N0YXJ0X3htaXQrMHg4NC8weGIwIFs4MDIxcV0NClsgNDc5OS4zMzA3MjFdICBbPGZm
+ZmZmZmZmYTAxNGMyYTU+XSBwa3RnZW5feG1pdCsweDgxNS8weDExZjAgW3BrdGdlbl0NClsgNDc5
+OS4zMzcwNjRdICBbPGZmZmZmZmZmODE1NGVhMGU+XSA/IGNvbW1vbl9pbnRlcnJ1cHQrMHhlLzB4
+MTMNClsgNDc5OS4zNDI4ODldICBbPGZmZmZmZmZmYTAxNGNkZjA+XSBwa3RnZW5fdGhyZWFkX3dv
+cmtlcisweDE3MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjM0OTkyN10gIFs8ZmZmZmZmZmY4MTA3
+NTcwMD5dID8gYXV0b3JlbW92ZV93YWtlX2Z1bmN0aW9uKzB4MC8weDQwDQpbIDQ3OTkuMzU2NDQ4
+XSAgWzxmZmZmZmZmZjgxMDc1NzAwPl0gPyBhdXRvcmVtb3ZlX3dha2VfZnVuY3Rpb24rMHgwLzB4
+NDANClsgNDc5OS4zNjI5NzBdICBbPGZmZmZmZmZmYTAxNGNjODA+XSA/IHBrdGdlbl90aHJlYWRf
+d29ya2VyKzB4MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjM3MDAwNl0gIFs8ZmZmZmZmZmY4MTA3
+NTFjZT5dIGt0aHJlYWQrMHg4ZS8weGEwDQpbIDQ3OTkuMzc0OTYwXSAgWzxmZmZmZmZmZjgxMDBh
+Y2U0Pl0ga2VybmVsX3RocmVhZF9oZWxwZXIrMHg0LzB4MTANClsgNDc5OS4zODA5NTldICBbPGZm
+ZmZmZmZmODEwNzUxNDA+XSA/IGt0aHJlYWQrMHgwLzB4YTANClsgNDc5OS4zODU5OTVdICBbPGZm
+ZmZmZmZmODEwMGFjZTA+XSA/IGtlcm5lbF90aHJlYWRfaGVscGVyKzB4MC8weDEw
+--20cf300512b2bcef2004a3b7a21a--
