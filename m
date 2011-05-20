@@ -1,187 +1,53 @@
-From: "Lynch, Jonathan" <jonathan.lynch@thenowfactory.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Fwd: pktgen with vlan packets
-Date: Fri, 20 May 2011 17:30:11 +0100
-Message-ID: <BANLkTinTEM4BLzoOQiDFyY13Yj=ZqhXu5w@mail.gmail.com>
+Date: Fri, 20 May 2011 18:43:17 +0200
+Message-ID: <1305909797.3173.35.camel@edumazet-laptop>
 References: <BANLkTinybQHjqXe-0SOU4wHTJg0M=QX=ow@mail.gmail.com>
-	<BANLkTinBGkApfasGywg888wDXZBYPOpQDQ@mail.gmail.com>
-	<1305904837.3173.20.camel@edumazet-laptop>
+	 <BANLkTinBGkApfasGywg888wDXZBYPOpQDQ@mail.gmail.com>
+	 <1305904837.3173.20.camel@edumazet-laptop>
+	 <BANLkTinTEM4BLzoOQiDFyY13Yj=ZqhXu5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=20cf300512b2bcef2004a3b7a21a
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: "Lynch, Jonathan" <jonathan.lynch@thenowfactory.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:60240 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934587Ab1ETQaM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 12:30:12 -0400
-Received: by qwk3 with SMTP id 3so1950117qwk.19
-        for <netdev@vger.kernel.org>; Fri, 20 May 2011 09:30:11 -0700 (PDT)
-In-Reply-To: <1305904837.3173.20.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:34442 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935006Ab1ETQnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 12:43:21 -0400
+Received: by wwa36 with SMTP id 36so4214082wwa.1
+        for <netdev@vger.kernel.org>; Fri, 20 May 2011 09:43:19 -0700 (PDT)
+In-Reply-To: <BANLkTinTEM4BLzoOQiDFyY13Yj=ZqhXu5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---20cf300512b2bcef2004a3b7a21a
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Le vendredi 20 mai 2011 =C3=A0 17:30 +0100, Lynch, Jonathan a =C3=A9cri=
+t :
+> Hi Eric,
+>=20
+> Thanks for your quick response.
+>=20
+> I tried your suggestion for number 1 and I got the following oops -
+> see log2 attached
+>  - i ran  tc qdisc before testing to confirm there is no qdisc for et=
+h4.
+>=20
+> Then I tried suggestion 2, it works and sends packets over multiple
+> VLAN interfaces using multiple threads.
+>  (When I combine suggestion 1 and 2 it crashes when I try sending to
+> more than 1 VLAN interface)
 
-Hi Eric,
+Well, yes, I guess there is nothing we can do about the crash issue,
+since pktgen is doing some hacks and we are not going to add additional
+tests in xmit fast path.
 
-Thanks for your quick response.
+pktgen should directly work with the lowerdev.
+[ going through vlan stack is an addtional overhead anyway ]
 
-I tried your suggestion for number 1 and I got the following oops -
-see log2 attached
- - i ran  tc qdisc before testing to confirm there is no qdisc for eth4.
+To send packets to several vlans, you would need to add a pktgen patch.
+[to accept a range of vlan_id, or a list of vlan_id]
 
-Then I tried suggestion 2, it works and sends packets over multiple
-VLAN interfaces using multiple threads.
- (When I combine suggestion 1 and 2 it crashes when I try sending to
-more than 1 VLAN interface)
+Or just use "flag VID_RND" ? (It'll chose a random id in [0..4095])
 
-thanks again
-Jonathan
 
-On 20 May 2011 16:20, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Le vendredi 20 mai 2011 =E0 16:03 +0100, Lynch, Jonathan a =E9crit :
->> Hi,
->>
->> Im running 2.6.35 kernel with an Intel 82599 NIC.
->> I want to send packets using pktgen via a number of vlan interfaces (1
->> physical interface) created via vconfig but I get an OOPs when I try
->> and send via the vlan interface. =A0See attached log file for the oops.
->> Im not using the pgset "vlan_id 77" params because I want to send
->> packets with more than 1 VLAN tag to one interface. (If it was
->> possible to send packets with different vlan tags over the one
->> interface with pktgen I would use it)
->>
->> my config is as follows:
->> =A0 ifconfig eth4 up
->> =A0 modprobe 8021q
->> =A0 vconfig add eth4 256
->> =A0 ifconfig eth4.256 up
->>
->> My pktgen config is the exact same as
->> ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/pkt=
-gen.conf-1-1
->> except that instead of eth1, I have eth4.256.
->>
->> Any ideas as to how I can send packets with multiple VLAN tags over
->> the same interface with pktgen?
->
-> I am afraid you cant yet.
->
-> About the crash, you can either :
->
-> 1) delete qdisc on eth4
->
-> ifconfig eth4 txqueuelen 0
-> tc qdisc add dev eth0 root sfq
-> tc qdisc del dev eth0 root
->
-> 2) use clone_skb 0 only
->
-> (Or else, same skb can be queued several time on eth4 qdisc) -> crash
->
->
->
->
-
---20cf300512b2bcef2004a3b7a21a
-Content-Type: text/plain; charset=US-ASCII; name="log2.txt"
-Content-Disposition: attachment; filename="log2.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gnxafh380
-
-WyA0Nzk4LjkyNTAzMF0gVmlydHVhbCBkZXZpY2UgZXRoNCBhc2tzIHRvIHF1ZXVlIHBhY2tldCEN
-ClsgNDc5OC45MzAxMzBdIEJVRzogdW5hYmxlIHRvIGhhbmRsZSBrZXJuZWwgcGFnaW5nIHJlcXVl
-c3QgYXQgMDAwMDAwMDAwMDAzNzRiZQ0KWyA0Nzk4LjkzNzE1MV0gSVA6IFs8ZmZmZmZmZmY4MTQ1
-NWYyZT5dIGRzdF9yZWxlYXNlKzB4ZS8weDMwDQpbIDQ3OTguOTQyNTkzXSBQR0QgMCANClsgNDc5
-OC45NDQ2MzZdIE9vcHM6IDAwMDIgWyMxXSBTTVAgDQpbIDQ3OTguOTQ3OTE4XSBsYXN0IHN5c2Zz
-IGZpbGU6IC9zeXMvZGV2aWNlcy92aXJ0dWFsL25ldC9ldGg0LjI1Ni90eXBlDQpbIDQ3OTguOTU0
-MjAyXSBDUFUgMCANClsgNDc5OC45NTYwNTFdIE1vZHVsZXMgbGlua2VkIGluOiBwa3RnZW4gODAy
-MXEgZ2FycCBzdHAgc2NoX3NmcSBubHNfY3A0MzcgY2lmcyBpcHRfTUFTUVVFUkFERSBpcHRhYmxl
-X25hdCBuZl9uYXQgbmZfY29ubnRyYWNrX2lwdjQgbmZfY29ubnRyYWNrIG5mX2RlZnJhZ19pcHY0
-IGl4Z2JlIGlwdGFibGVfZmlsdGVyIGlwX3RhYmxlcyB4X3RhYmxlcyBpb2F0ZG1hIGRjYSBscCBt
-ZGlvIHBhcnBvcnQgZTEwMDBlDQpbIDQ3OTguOTc3MjE1XSANClsgNDc5OC45Nzg3MTddIFBpZDog
-MTA3NjQsIGNvbW06IGtwa3RnZW5kXzAgTm90IHRhaW50ZWQgMi42LjM1ICMxIEdyZWVuY2l0eS9H
-cmVlbmNpdHkNClsgNDc5OC45ODYzMDddIFJJUDogMDAxMDpbPGZmZmZmZmZmODE0NTVmMmU+XSAg
-WzxmZmZmZmZmZjgxNDU1ZjJlPl0gZHN0X3JlbGVhc2UrMHhlLzB4MzANClsgNDc5OC45OTQxNzld
-IFJTUDogMDAxODpmZmZmODgwMTM3ZjlkYzkwICBFRkxBR1M6IDAwMDEwMjAyDQpbIDQ3OTguOTk5
-NTA4XSBSQVg6IDAwMDAwMDAwZmZmZmZmZmYgUkJYOiBmZmZmODgwMTM3ZWZhOTAwIFJDWDogZmZm
-Zjg4MDEzNGU2MTAwMA0KWyA0Nzk5LjAwNjY3N10gUkRYOiBmZmZmODgwMTM0ZTYxMDAwIFJTSTog
-ZmZmZjg4MDEzMzQzMmU4MCBSREk6IDAwMDAwMDAwMDAwMzczZmUNClsgNDc5OS4wMTM4NDddIFJC
-UDogZmZmZjg4MDEzN2Y5ZGM5MCBSMDg6IDAwMDAwMDAwMDAwMDAwMDAgUjA5OiAwMDAwMDAwMDAw
-MDAwMDAwDQpbIDQ3OTkuMDIxMDE2XSBSMTA6IDAwMDAwMDAwMDAwMDAwNDIgUjExOiAwMDAwMDAw
-MDAwMDAwMDAwIFIxMjogMDAwMDAwMDAwMDAwMDAwMA0KWyA0Nzk5LjAyODE4NV0gUjEzOiBmZmZm
-ODgwMTMyZWNjMDAwIFIxNDogZmZmZjg4MDEzN2VmYWEwMCBSMTU6IGZmZmY4ODAxMzJlY2MwMDAN
-ClsgNDc5OS4wMzUzNTVdIEZTOiAgMDAwMDAwMDAwMDAwMDAwMCgwMDAwKSBHUzpmZmZmODgwMDAx
-ZTAwMDAwKDAwMDApIGtubEdTOjAwMDAwMDAwMDAwMDAwMDANClsgNDc5OS4wNDM0OTVdIENTOiAg
-MDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAwNTAwM2INClsgNDc5OS4wNDky
-NzJdIENSMjogMDAwMDAwMDAwMDAzNzRiZSBDUjM6IDAwMDAwMDAwMDFhMmEwMDAgQ1I0OiAwMDAw
-MDAwMDAwMDAwNmYwDQpbIDQ3OTkuMDU2NDQxXSBEUjA6IDAwMDAwMDAwMDAwMDAwMDAgRFIxOiAw
-MDAwMDAwMDAwMDAwMDAwIERSMjogMDAwMDAwMDAwMDAwMDAwMA0KWyA0Nzk5LjA2MzYxMF0gRFIz
-OiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZmMGZmMCBEUjc6IDAwMDAwMDAwMDAw
-MDA0MDANClsgNDc5OS4wNzA3NzhdIFByb2Nlc3Mga3BrdGdlbmRfMCAocGlkOiAxMDc2NCwgdGhy
-ZWFkaW5mbyBmZmZmODgwMTM3ZjljMDAwLCB0YXNrIGZmZmY4ODAxMzJmMDE2YjApDQpbIDQ3OTku
-MDc5NTI2XSBTdGFjazoNClsgNDc5OS4wODE1NjNdICBmZmZmODgwMTM3ZjlkY2YwIGZmZmZmZmZm
-ODE0NGVhMTcgMDAwMDAwMDAwMDAwMDAxMCBmZmZmODgwMTM3ZjlkZDAwDQpbIDQ3OTkuMDg4ODg0
-XSA8MD4gZmZmZmZmZmZhMDBhY2YyMCBmZmZmODgwMTM0ZTYxMDAwIGZmZmZmZmZmZmZmZmZmNzUg
-ZmZmZjg4MDEzN2VmYWEwMA0KWyA0Nzk5LjA5NjY5MV0gPDA+IDAwMDAwMDAwMDAwMDAwMDAgZmZm
-Zjg4MDEzMmVjYzAwMCBmZmZmODgwMTM0ZTYxMDAwIGZmZmY4ODAyMzU3OGMwNDANClsgNDc5OS4x
-MDQ3MTBdIENhbGwgVHJhY2U6DQpbIDQ3OTkuMTA3MTg3XSAgWzxmZmZmZmZmZjgxNDRlYTE3Pl0g
-ZGV2X2hhcmRfc3RhcnRfeG1pdCsweDE3Ny8weDQ2MA0KWyA0Nzk5LjExMzMxNl0gIFs8ZmZmZmZm
-ZmY4MTQ1MGVjNj5dIGRldl9xdWV1ZV94bWl0KzB4NDc2LzB4NTkwDQpbIDQ3OTkuMTE5MDExXSAg
-WzxmZmZmZmZmZjgxNTRiOGIxPl0gPyBwcmludGsrMHgzYy8weDQzDQpbIDQ3OTkuMTI0MDEwXSAg
-WzxmZmZmZmZmZmEwMGQzNjkwPl0gPyB2bGFuX2Rldl9od2FjY2VsX2hhcmRfc3RhcnRfeG1pdCsw
-eDAvMHhiMCBbODAyMXFdDQpbIDQ3OTkuMTMxODkxXSAgWzxmZmZmZmZmZmEwMGQzNzE0Pl0gdmxh
-bl9kZXZfaHdhY2NlbF9oYXJkX3N0YXJ0X3htaXQrMHg4NC8weGIwIFs4MDIxcV0NClsgNDc5OS4x
-Mzk2ODVdICBbPGZmZmZmZmZmYTAxNGMyYTU+XSBwa3RnZW5feG1pdCsweDgxNS8weDExZjAgW3Br
-dGdlbl0NClsgNDc5OS4xNDU5ODhdICBbPGZmZmZmZmZmODE1NGVhMGU+XSA/IGNvbW1vbl9pbnRl
-cnJ1cHQrMHhlLzB4MTMNClsgNDc5OS4xNTE3NjddICBbPGZmZmZmZmZmYTAxNGNkZjA+XSBwa3Rn
-ZW5fdGhyZWFkX3dvcmtlcisweDE3MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjE1ODc2Nl0gIFs8
-ZmZmZmZmZmY4MTA3NTcwMD5dID8gYXV0b3JlbW92ZV93YWtlX2Z1bmN0aW9uKzB4MC8weDQwDQpb
-IDQ3OTkuMTY1MjQyXSAgWzxmZmZmZmZmZjgxMDc1NzAwPl0gPyBhdXRvcmVtb3ZlX3dha2VfZnVu
-Y3Rpb24rMHgwLzB4NDANClsgNDc5OS4xNzE3MTZdICBbPGZmZmZmZmZmYTAxNGNjODA+XSA/IHBr
-dGdlbl90aHJlYWRfd29ya2VyKzB4MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjE3ODcxM10gIFs8
-ZmZmZmZmZmY4MTA3NTFjZT5dIGt0aHJlYWQrMHg4ZS8weGEwDQpbIDQ3OTkuMTgzNjI0XSAgWzxm
-ZmZmZmZmZjgxMDBhY2U0Pl0ga2VybmVsX3RocmVhZF9oZWxwZXIrMHg0LzB4MTANClsgNDc5OS4x
-ODk1NzddICBbPGZmZmZmZmZmODEwNzUxNDA+XSA/IGt0aHJlYWQrMHgwLzB4YTANClsgNDc5OS4x
-OTQ1NzNdICBbPGZmZmZmZmZmODEwMGFjZTA+XSA/IGtlcm5lbF90aHJlYWRfaGVscGVyKzB4MC8w
-eDEwDQpbIDQ3OTkuMjAwNjk3XSBDb2RlOiA0OCBjNyAwNSBkYSBmNSA2MyAwMCAwMCAwMCAwMCAw
-MCBlOCA4ZCA4NyAwZiAwMCA0OCA4OSAxZCBmNiBjNSA4MiAwMCBlYiA4OCAwZiAxZiA0MCAwMCA1
-NSA0OCA4NSBmZiA0OCA4OSBlNSA3NCAxMiBiOCBmZiBmZiBmZiBmZiA8ZjA+IDBmIGMxIDg3IGMw
-IDAwIDAwIDAwIDgzIGU4IDAxIDc4IDAyIGM5IGMzIGJlIDE0IDAxIDAwIDAwIDQ4IA0KWyA0Nzk5
-LjIyMDk2M10gUklQICBbPGZmZmZmZmZmODE0NTVmMmU+XSBkc3RfcmVsZWFzZSsweGUvMHgzMA0K
-WyA0Nzk5LjIyNjUwMl0gIFJTUCA8ZmZmZjg4MDEzN2Y5ZGM5MD4NClsgNDc5OS4yMzAwMThdIENS
-MjogMDAwMDAwMDAwMDAzNzRiZQ0KWyA0Nzk5LjIzMzcwNF0gLS0tWyBlbmQgdHJhY2UgOTI0M2Yy
-NWU3ZDBjMjA4NCBdLS0tDQpbIDQ3OTkuMjM4MzkxXSBLZXJuZWwgcGFuaWMgLSBub3Qgc3luY2lu
-ZzogRmF0YWwgZXhjZXB0aW9uIGluIGludGVycnVwdA0KWyA0Nzk5LjI0NDgyM10gUGlkOiAxMDc2
-NCwgY29tbToga3BrdGdlbmRfMCBUYWludGVkOiBHICAgICAgRCAgICAgMi42LjM1ICMxDQpbIDQ3
-OTkuMjUxNjAyXSBDYWxsIFRyYWNlOg0KWyA0Nzk5LjI1NDExOV0gIFs8ZmZmZmZmZmY4MTU0Yjdm
-ND5dIHBhbmljKzB4OGIvMHgxMGMNClsgNDc5OS4yNTg5ODBdICBbPGZmZmZmZmZmODE1NGY5Y2E+
-XSBvb3BzX2VuZCsweGVhLzB4ZjANClsgNDc5OS4yNjQwMjNdICBbPGZmZmZmZmZmODEwMzg2OTM+
-XSBub19jb250ZXh0KzB4ZjMvMHgyNjANClsgNDc5OS4yNjkzMjFdICBbPGZmZmZmZmZmODEwMzg5
-MTU+XSBfX2JhZF9hcmVhX25vc2VtYXBob3JlKzB4MTE1LzB4MWQwDQpbIDQ3OTkuMjc1NzU0XSAg
-WzxmZmZmZmZmZjgxMDM4OWRlPl0gYmFkX2FyZWFfbm9zZW1hcGhvcmUrMHhlLzB4MTANClsgNDc5
-OS4yODE3NTJdICBbPGZmZmZmZmZmODE1NTIwZWY+XSBkb19wYWdlX2ZhdWx0KzB4MjZmLzB4MzEw
-DQpbIDQ3OTkuMjg3Mzk3XSAgWzxmZmZmZmZmZjgxNTRlY2Y1Pl0gcGFnZV9mYXVsdCsweDI1LzB4
-MzANClsgNDc5OS4yOTI2MTFdICBbPGZmZmZmZmZmODE0NTVmMmU+XSA/IGRzdF9yZWxlYXNlKzB4
-ZS8weDMwDQpbIDQ3OTkuMjk3OTk1XSAgWzxmZmZmZmZmZjgxNDRlYTE3Pl0gZGV2X2hhcmRfc3Rh
-cnRfeG1pdCsweDE3Ny8weDQ2MA0KWyA0Nzk5LjMwNDE2N10gIFs8ZmZmZmZmZmY4MTQ1MGVjNj5d
-IGRldl9xdWV1ZV94bWl0KzB4NDc2LzB4NTkwDQpbIDQ3OTkuMzA5OTAwXSAgWzxmZmZmZmZmZjgx
-NTRiOGIxPl0gPyBwcmludGsrMHgzYy8weDQzDQpbIDQ3OTkuMzE0OTQzXSAgWzxmZmZmZmZmZmEw
-MGQzNjkwPl0gPyB2bGFuX2Rldl9od2FjY2VsX2hhcmRfc3RhcnRfeG1pdCsweDAvMHhiMCBbODAy
-MXFdDQpbIDQ3OTkuMzIyODgwXSAgWzxmZmZmZmZmZmEwMGQzNzE0Pl0gdmxhbl9kZXZfaHdhY2Nl
-bF9oYXJkX3N0YXJ0X3htaXQrMHg4NC8weGIwIFs4MDIxcV0NClsgNDc5OS4zMzA3MjFdICBbPGZm
-ZmZmZmZmYTAxNGMyYTU+XSBwa3RnZW5feG1pdCsweDgxNS8weDExZjAgW3BrdGdlbl0NClsgNDc5
-OS4zMzcwNjRdICBbPGZmZmZmZmZmODE1NGVhMGU+XSA/IGNvbW1vbl9pbnRlcnJ1cHQrMHhlLzB4
-MTMNClsgNDc5OS4zNDI4ODldICBbPGZmZmZmZmZmYTAxNGNkZjA+XSBwa3RnZW5fdGhyZWFkX3dv
-cmtlcisweDE3MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjM0OTkyN10gIFs8ZmZmZmZmZmY4MTA3
-NTcwMD5dID8gYXV0b3JlbW92ZV93YWtlX2Z1bmN0aW9uKzB4MC8weDQwDQpbIDQ3OTkuMzU2NDQ4
-XSAgWzxmZmZmZmZmZjgxMDc1NzAwPl0gPyBhdXRvcmVtb3ZlX3dha2VfZnVuY3Rpb24rMHgwLzB4
-NDANClsgNDc5OS4zNjI5NzBdICBbPGZmZmZmZmZmYTAxNGNjODA+XSA/IHBrdGdlbl90aHJlYWRf
-d29ya2VyKzB4MC8weDg0MCBbcGt0Z2VuXQ0KWyA0Nzk5LjM3MDAwNl0gIFs8ZmZmZmZmZmY4MTA3
-NTFjZT5dIGt0aHJlYWQrMHg4ZS8weGEwDQpbIDQ3OTkuMzc0OTYwXSAgWzxmZmZmZmZmZjgxMDBh
-Y2U0Pl0ga2VybmVsX3RocmVhZF9oZWxwZXIrMHg0LzB4MTANClsgNDc5OS4zODA5NTldICBbPGZm
-ZmZmZmZmODEwNzUxNDA+XSA/IGt0aHJlYWQrMHgwLzB4YTANClsgNDc5OS4zODU5OTVdICBbPGZm
-ZmZmZmZmODEwMGFjZTA+XSA/IGtlcm5lbF90aHJlYWRfaGVscGVyKzB4MC8weDEw
---20cf300512b2bcef2004a3b7a21a--
