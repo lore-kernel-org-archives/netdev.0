@@ -1,79 +1,55 @@
-From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
-Date: Thu, 19 May 2011 19:01:53 -0700
-Message-ID: <BANLkTinBm0C4ZVE=M98AtsF--y03p4Hafg@mail.gmail.com>
-References: <1305619677.2850.11.camel@edumazet-laptop>
-	<1305715384-81716-1-git-send-email-tsunanet@gmail.com>
-	<20110518.152653.1486764697527722925.davem@davemloft.net>
-	<BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Bridge] [Patch] bridge: call NETDEV_ENSLAVE notifiers when adding
+ a slave
+Date: Fri, 20 May 2011 11:06:28 +0800
+Message-ID: <4DD5DAB4.2070709@redhat.com>
+References: <1305794393-20775-1-git-send-email-amwang@redhat.com>	<1305800661-4081-1-git-send-email-amwang@redhat.com>	<20110519081213.15c05da2@nehalam> <20110519090411.1f039a88@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, hkchu@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tsuna <tsunanet@gmail.com>
+Cc: Neil Horman <nhorman@redhat.com>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, "David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+In-Reply-To: <20110519090411.1f039a88@nehalam>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2011 at 12:40 PM, tsuna <tsunanet@gmail.com> wrote:
-> On Wed, May 18, 2011 at 12:26 PM, David Miller <davem@davemloft.net> =
-wrote:
->> If you read the ietf draft that reduces the initial RTO down to 1
->> second, it states that if we take a timeout during the initial
->> connection handshake then we have to revert the RTO back up to 3
->> seconds.
+=E4=BA=8E 2011=E5=B9=B405=E6=9C=8820=E6=97=A5 00:04, Stephen Hemminger =
+=E5=86=99=E9=81=93:
+> On Thu, 19 May 2011 08:12:13 -0700
+> Stephen Hemminger<shemminger@linux-foundation.org>  wrote:
+>
+>> On Thu, 19 May 2011 18:24:17 +0800
+>> Amerigo Wang<amwang@redhat.com>  wrote:
 >>
->> This fallback logic conflicts with being able to only change the
->> initial RTO via sysctl, I think. =A0Because there are actually two
->> values at stake and they depend upon eachother, the initial RTO and
->> the value we fallback to on initial handshake retransmissions.
+>>> In the previous patch I added NETDEV_ENSLAVE, now
+>>> we can notify netconsole when adding a device to a bridge too.
+>>>
+>>> By the way, s/netdev_bonding_change/call_netdevice_notifiers/ in
+>>> bond_main.c, since this is not bonding specific.
+>>>
+>>> Signed-off-by: WANG Cong<amwang@redhat.com>
+>>> Cc: Neil Horman<nhorman@redhat.com>
+>>>
 >>
->> So I'd rather get a patch that implements the 1 second initial
->> RTO with the 3 second fallback on SYN retransmit, than this patch.
->>
->> We already have too many knobs.
+>> Is there a usage for this? What listens for this notification?
 >
-> I was hoping this knob would be accepted because this is such an
-> important issue that it even warrants an IETF draft to attempt to
-> change the standard. =A0I'm not sure how long it will take for this
-> draft to be accepted and then implemented, so I thought adding this
-> simple knob today would really help in the future.
+> Never mind it was in the first patch which you did not send.
+> You should always put a number on group of patches and send
+> to all parties.
 
-As one of the co-authors of rfc2988bis I was planning to provide a patc=
-h
-as soon as the draft gets approved but it looks like you have beaten
-me to it :)
-
-Personally I'm in favor of a knob too. We at Google has added such a
-knob for years.
-
-Jerry
+Ah, sorry, my script simply run get_maintainers.pl to
+get the Cc list, so bridge list was not in included in
+the first patch.
 
 >
-> Plus, should the draft be accepted, this knob will still be just as
-> useful (e.g. to revert back to today's behavior), and people might
-> want to consider adding another knob for the fallback initRTO (this i=
-s
-> debatable). =A0I don't believe this knob conflicts with the proposed
-> change to the standard, it actually goes along with it pretty well an=
-d
-> helps us prepare better for this upcoming change.
->
-> I agree that there are too many knobs, and I hate feature creep too,
-> but I've found many of these knobs to be really useful, and the degre=
-e
-> to which Linux's TCP stack can be tuned is part of what makes it so
-> versatile.
->
-> --
-> Benoit "tsuna" Sigoure
-> Software Engineer @ www.StumbleUpon.com
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+> Also, sending networking patches to LKML is a waste of bandwidth
+> please don't bother.
+
+Ok, will fix my script.
+
+Thanks.
