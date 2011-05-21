@@ -1,84 +1,36 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] netns: add /proc/*/net/id symlink
-Date: Sat, 21 May 2011 08:39:37 -0700
-Message-ID: <m11uzsxdty.fsf@fess.ebiederm.org>
-References: <20110521093936.GA3015@p183>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: Kernel panic nf_nat_setup_info+0x5b3/0x6e0
+Date: Sat, 21 May 2011 23:42:49 +0800
+Message-ID: <BANLkTikrCBcCm4qksA-8u0n+vTwiuc=WuA@mail.gmail.com>
+References: <118081298480841@web25.yandex.ru> <4D6E2BEB.50805@trash.net>
+ <AANLkTikkz23221ZSiat8N5tnE_bkHN=1EUNQTDdnC30L@mail.gmail.com>
+ <124481299095426@web67.yandex.ru> <AANLkTik87dd0=CqcMOcwKN-Hx7W6KD7A36DUhGAzLddr@mail.gmail.com>
+ <AANLkTi=v_Ckn00N=b2R2pW7jb3BmyyWPSkeCYRxBW0CW@mail.gmail.com>
+ <586191301580222@web107.yandex.ru> <1301582872.3169.44.camel@edumazet-laptop> <4D9B01DF.2050206@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, equinox@diac24.net
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:52416 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755511Ab1EUPjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2011 11:39:44 -0400
-In-Reply-To: <20110521093936.GA3015@p183> (Alexey Dobriyan's message of "Sat,
-	21 May 2011 12:39:36 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Oleg A. Arkhangelsky" <sysoleg@yandex.ru>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Paul E McKenney <paulmck@linux.vnet.ibm.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D9B01DF.2050206@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan <adobriyan@gmail.com> writes:
-
-> David Lamparter pointed some real scenarios where knowing
-> if two processes live in same netns is important,
-> like "how do I kill _all_ processes in netns to shutdown it".
-
-Currently today the way I do this is md5sum /proc/<pid>/mounts.
-
-That works because it is usually necessary to have a separate mount
-namespace with a separate set of mounts to accommodate sysfs.
-
-> Currently only kernel knows if two netns are the same.
-> Userspace maybe can look at different proc files to find a match
-> indirectly sysconf-style but result will be ugly no matter what.
-
-Somewhat. 
-
-Right now today without patches if we limit ourselves to the network
-namespace there is a pretty valid way to do this.
-
-stat /proc/<pid>/net/dev and compare the inode numbers.
-
-Or any other file in /proc/*/net/.  The inode numbers are the
-same if you are in the same network namespace.
-
-> Add /proc/*/net/id symlink which "points" to an integer.
+On Tue, Apr 5, 2011 at 7:49 PM, Patrick McHardy <kaber@trash.net> wrote:
 >
-> 	$ readlink /proc/net/id
-> 	0
+> I think what's happening is that the conntrack entry is destroyed
+> and the NAT ct_extend destructor invoked, which removes the nat
+> extension from the RCU protected bysource hash, after which the
+> entire extension area is freed. Another CPU might still find the
+> old NAT entry with undefined contents in the hash though, so I
+> think using RCU to free the extension area is correct.
 >
-> 	$ readlink /proc/2941/net/id
-> 	1
->
-> "id" is not a file because 1 syscall is faster than 3 syscalls.
->
-> The only rules and expectations for userspace are:
-> [as if they will comply, ha-ha]
->
-> * init_net always has id 0
-> * two netns do not have same id
-> * id is unsigned integer
 
-I don't like this patch because we already have a proc interface
-that already solves this in production kernels today.
+What is the conclusion? Is my patch acceptable? Thanks.
 
-- stat is a single syscall
-- two netns do not have the same id
-- id is an ino_t.
-
-Now it probably needs to be better documented that /proc/*/net/*
-have the same inode number if the network namespace is the
-same, as everyone including myself overlooked this very handy
-existing property.
-
-
-
-
-Writing this it occurs to me there is a misfeature in my pending
-namespace file descriptor code.  Right now /proc/<pid>/ns/net
-has a floating inode number and it would be good if I could make
-that a inode number be the same for every file that refers to
-the same network namespace. Ugh.
-
-Eric
-
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
