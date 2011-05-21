@@ -1,105 +1,67 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH FINAL] SCTP: fix race between sctp_bind_addr_free() and
- sctp_bind_addr_conflict()
-Date: Fri, 20 May 2011 19:27:17 -0400
-Message-ID: <20110520232717.GA5038@redhat.com>
-References: <4DD575A1.4080405@gmail.com>
+From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
+Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
+Date: Fri, 20 May 2011 17:06:01 -0700
+Message-ID: <BANLkTi=p1V1x+y=-cH-Q7bvueu_4_D1ywQ@mail.gmail.com>
+References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
+	<20110518.152653.1486764697527722925.davem@davemloft.net>
+	<BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
+	<20110518.155200.801089483916944725.davem@davemloft.net>
+	<20110518202025.GC4175@nuttenaction>
+	<BANLkTimtA9BB7g5cOm8c9sGChQjf1P0Q-Q@mail.gmail.com>
+	<fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, vladislav.yasevich@hp.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jacek Luczak <difrost.kernel@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, tsunanet@gmail.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51225 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751600Ab1ETX10 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 May 2011 19:27:26 -0400
-Content-Disposition: inline
-In-Reply-To: <4DD575A1.4080405@gmail.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:36768 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755002Ab1EUAGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 20:06:03 -0400
+In-Reply-To: <fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 19, 2011 at 09:55:13PM +0200, Jacek Luczak wrote:
- > During the sctp_close() call, we do not use rcu primitives to
- > destroy the address list attached to the endpoint.  At the same
- > time, we do the removal of addresses from this list before
- > attempting to remove the socket from the port hash
- >=20
- > As a result, it is possible for another process to find the socket
- > in the port hash that is in the process of being closed.  It then
- > proceeds to traverse the address list to find the conflict, only
- > to have that address list suddenly disappear without rcu() critical
- > section.
- >=20
- > Fix issue by closing address list removal inside RCU critical
- > section.
- >=20
- > Race can result in a kernel crash with general protection fault or
- > kernel NULL pointer dereference:
- >=20
- > kernel: general protection fault: 0000 [#1] SMP
- > kernel: RIP: 0010:[<ffffffffa02f3dde>]  [<ffffffffa02f3dde>] sctp_bi=
-nd_addr_conflict+0x64/0x82 [sctp]
- > kernel: Call Trace:
- > kernel:  [<ffffffffa02f415f>] ? sctp_get_port_local+0x17b/0x2a3 [sct=
-p]
- > kernel:  [<ffffffffa02f3d45>] ? sctp_bind_addr_match+0x33/0x68 [sctp=
-]
- > kernel:  [<ffffffffa02f4416>] ? sctp_do_bind+0xd3/0x141 [sctp]
- > kernel:  [<ffffffffa02f5030>] ? sctp_bindx_add+0x4d/0x8e [sctp]
- > kernel:  [<ffffffffa02f5183>] ? sctp_setsockopt_bindx+0x112/0x4a4 [s=
-ctp]
- > kernel:  [<ffffffff81089e82>] ? generic_file_aio_write+0x7f/0x9b
- > kernel:  [<ffffffffa02f763e>] ? sctp_setsockopt+0x14f/0xfee [sctp]
- > kernel:  [<ffffffff810c11fb>] ? do_sync_write+0xab/0xeb
- > kernel:  [<ffffffff810e82ab>] ? fsnotify+0x239/0x282
- > kernel:  [<ffffffff810c2462>] ? alloc_file+0x18/0xb1
- > kernel:  [<ffffffff8134a0b1>] ? compat_sys_setsockopt+0x1a5/0x1d9
- > kernel:  [<ffffffff8134aaf1>] ? compat_sys_socketcall+0x143/0x1a4
- > kernel:  [<ffffffff810467dc>] ? sysenter_dispatch+0x7/0x32
- >=20
- > Signed-off-by: Jacek Luczak <luczak.jacek@gmail.com>
- > Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
- > CC: Eric Dumazet <eric.dumazet@gmail.com>
- >=20
- > ---
- >  net/sctp/bind_addr.c |   10 ++++------
- >  1 files changed, 4 insertions(+), 6 deletions(-)
- >=20
- > diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
- > index faf71d1..6150ac5 100644
- > --- a/net/sctp/bind_addr.c
- > +++ b/net/sctp/bind_addr.c
- > @@ -140,14 +140,12 @@ void sctp_bind_addr_init(struct sctp_bind_addr=
- *bp, __u16 port)
- >  /* Dispose of the address list. */
- >  static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
- >  {
- > -	struct sctp_sockaddr_entry *addr;
- > -	struct list_head *pos, *temp;
- > +	struct sctp_sockaddr_entry *addr, *temp;
- > =20
- >  	/* Empty the bind address list. */
- > -	list_for_each_safe(pos, temp, &bp->address_list) {
- > -		addr =3D list_entry(pos, struct sctp_sockaddr_entry, list);
- > -		list_del(pos);
- > -		kfree(addr);
- > +	list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
- > +		list_del_rcu(&addr->list);
- > +		call_rcu(&addr->rcu, sctp_local_addr_free);
- >  		SCTP_DBG_OBJCNT_DEC(addr);
+Hey Hagen,
 
-Just saw this land in Linus tree, and it broke the build for me..
+On Fri, May 20, 2011 at 4:00 AM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+>
+> On Fri, 20 May 2011 03:27:37 -0700, "H.K. Jerry Chu" wrote:
+>
+> Hi Jerry
+>
+>> Not sure how our various parameter tuning proposals deviate from the
+> "TCP
+>> over everything" principle?
+>
+> For our environment it hurts because we _always_ have an initial RTO >1. I
+> understand and accept that 98% will benefit of this modification, no doubt
+> Jerry! Try to put yourself in our situation: imaging a proposal of an init
 
-net/sctp/bind_addr.c: In function =E2=80=98sctp_bind_addr_clean=E2=80=99=
-:
-net/sctp/bind_addr.c:148:24: error: =E2=80=98sctp_local_addr_free=E2=80=
-=99 undeclared (first use in this function)
-net/sctp/bind_addr.c:148:24: note: each undeclared identifier is report=
-ed only once for each function it appears in
-make[2]: *** [net/sctp/bind_addr.o] Error 1
+Understood but my point was none of the parameter tuning proposals break
+"TCP over everything", although they may not help solving "TCP optimized for
+everything", but we never had the latter anyway.
 
-	Dave
+We've tried hard to keep the penalty to those initRTT > 1sec paths at a minimum,
+i.e., just one extra tinygram. This is important also for us because it may take
+> 1sec for many Android clients to establish connections over a radio channel that
+has been put into power saving mode.
 
-=20
+> RTO modification to 0.5 seconds. Maybe because 98% of Internet traffic is
+> now localized and the RTO is average now 0.2 seconds. Anyway, this will
+> penalize your network always and this will be the situation for one of my
+> customer. I can live with that, I see the benefits for the rest of the
+> world. But I am happy to see a knob where I can restore the old behavior.
+> Maybe some other environments will benefit from a even lower or higher
+> initial RTO.
+
+Yep, that's why we've had a knob for this for years.
+
+Jerry
+
+>
+> Hagen
+>
