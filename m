@@ -1,10 +1,9 @@
 From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: Re: [PATCHv2 09/14] virtio_net: fix TX capacity checks
-	using new API
-Date: Sat, 21 May 2011 11:43:19 +0930
-Message-ID: <878vu0vm0w.fsf@rustcorp.com.au>
+Subject: Re: [PATCHv2 10/14] virtio_net: limit xmit polling
+Date: Sat, 21 May 2011 11:49:59 +0930
+Message-ID: <877h9kvlps.fsf@rustcorp.com.au>
 References: <cover.1305846412.git.mst@redhat.com>
-	<42ca2494c92f572388e3ab4c6f613dd4f038361b.1305846412.git.mst@redhat.com>
+	<aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +18,7 @@ Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Ot
 	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
 To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <42ca2494c92f572388e3ab4c6f613dd4f038361b.1305846412.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
 	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
@@ -31,58 +30,80 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 May 2011 02:11:47 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> virtio net uses the number of sg entries to
-> check for TX ring capacity freed. But this
-> gives incorrect results when indirect buffers
-> are used. Use the new capacity API instead.
+On Fri, 20 May 2011 02:11:56 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> Current code might introduce a lot of latency variation
+> if there are many pending bufs at the time we
+> attempt to transmit a new one. This is bad for
+> real-time applications and can't be good for TCP either.
 
-OK, but this explanation needs enhancement, such as noting the actual
-results of that miscalculation.  Something like:
+Do we have more than speculation to back that up, BTW?
 
- virtio_net uses the number of sg entries in the skb it frees to
- calculate how many descriptors in the ring have just been made
- available.  But this value is an overestimate: with indirect buffers
- each skb only uses one descriptor entry, meaning we may wake the queue
- only to find we still can't transmit anything.
+This patch is pretty sloppy; the previous ones were better polished.
 
- Using the new virtqueue_get_capacity() call, we can exactly determine
- the remaining capacity, so we should use that instead.
+> -static void free_old_xmit_skbs(struct virtnet_info *vi)
+> +static bool free_old_xmit_skbs(struct virtnet_info *vi, int capacity)
+>  {
 
-But, here's the side effect:
+A comment here indicating it returns true if it frees something?
+
+>  	struct sk_buff *skb;
+>  	unsigned int len;
+> -
+> -	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
+> +	bool c;
+> +	int n;
+> +
+> +	/* We try to free up at least 2 skbs per one sent, so that we'll get
+> +	 * all of the memory back if they are used fast enough. */
+> +	for (n = 0;
+> +	     ((c = virtqueue_get_capacity(vi->svq) < capacity) || n < 2) &&
+> +	     ((skb = virtqueue_get_buf(vi->svq, &len)));
+> +	     ++n) {
+>  		pr_debug("Sent skb %p\n", skb);
+>  		vi->dev->stats.tx_bytes += skb->len;
+>  		vi->dev->stats.tx_packets++;
+>  		dev_kfree_skb_any(skb);
+>  	}
+> +	return !c;
+
+This is for() abuse :)
+
+Why is the capacity check in there at all?  Surely it's simpler to try
+to free 2 skbs each time around?
+
+   for (n = 0; n < 2; n++) {
+        skb = virtqueue_get_buf(vi->svq, &len);
+        if (!skb)
+                break;
+	pr_debug("Sent skb %p\n", skb);
+	vi->dev->stats.tx_bytes += skb->len;
+	vi->dev->stats.tx_packets++;
+	dev_kfree_skb_any(skb);
+   }
+
+>  static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+> @@ -574,8 +582,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	int capacity;
+>  
+> -	/* Free up any pending old buffers before queueing new ones. */
+> -	free_old_xmit_skbs(vi);
+> +	/* Free enough pending old buffers to enable queueing new ones. */
+> +	free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS);
+>  
+>  	/* Try to transmit */
+>  	capacity = xmit_skb(vi, skb);
+> @@ -609,9 +617,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		netif_stop_queue(dev);
+>  		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
 >  			/* More just got used, free them then recheck. */
-> -			capacity += free_old_xmit_skbs(vi);
-> +			free_old_xmit_skbs(vi);
-> +			capacity = virtqueue_get_capacity(vi->svq);
->  			if (capacity >= 2+MAX_SKB_FRAGS) {
+> -			free_old_xmit_skbs(vi);
+> -			capacity = virtqueue_get_capacity(vi->svq);
+> -			if (capacity >= 2+MAX_SKB_FRAGS) {
+> +			if (!likely(free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS))) {
 
-That capacity >= 2+MAX_SKB_FRAGS is too much for indirect buffers.  This
-means we waste 20 entries in the ring, but OTOH if we hit OOM we fall
-back to direct buffers and we *will* need this.
-
-Which means this comment in the driver is now wrong:
-
-	/* This can happen with OOM and indirect buffers. */
-	if (unlikely(capacity < 0)) {
-		if (net_ratelimit()) {
-			if (likely(capacity == -ENOMEM)) {
-				dev_warn(&dev->dev,
-					 "TX queue failure: out of memory\n");
-			} else {
-				dev->stats.tx_fifo_errors++;
-				dev_warn(&dev->dev,
-					 "Unexpected TX queue failure: %d\n",
-					 capacity);
-			}
-		}
-		dev->stats.tx_dropped++;
-		kfree_skb(skb);
-		return NETDEV_TX_OK;
-	}
-	virtqueue_kick(vi->svq);
-
-So I'm not applying this patch (nor the virtqueue_get_capacity
-predeccessor) for the moment.
+This extra argument to free_old_xmit_skbs seems odd, unless you have
+future plans?
 
 Thanks,
 Rusty.
