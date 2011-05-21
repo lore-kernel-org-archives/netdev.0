@@ -1,40 +1,42 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [PATCH 0/2] bna: Add Debugfs & Generic Netlink Interfaces to
- BNA Driver
-Date: Sat, 21 May 2011 16:06:27 -0700
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A5D76F7AC6@HQ1-EXCH01.corp.brocade.com>
-References: <1305694621-28023-1-git-send-email-rmody@brocade.com>
+From: "obldtoez" <hendersonpsyglt@yahoo.fr>
+Subject: 7065388
+Date: Sun, 22 May 2011 07:07:38 +0800
+Message-ID: <CCBADB9C1E8D71002DC668A8BCF12084@fhco>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Adapter Linux Open SRC Team
-	<adapter_linux_open_src_team@Brocade.COM>
-To: Rasesh Mody <rmody@brocade.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdctor@nease.net>, <netdev@vger.kernel.org>,
+	<netdolphin@163.com>, <neteasehr.hz@188.com>,
+	<NeteaseSchool@126.com>, <neteasy@world.com>,
+	<netease_guodong@126.com>, <netease100@yaho
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:48158 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753553Ab1EUXGf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 May 2011 19:06:35 -0400
-In-Reply-To: <1305694621-28023-1-git-send-email-rmody@brocade.com>
-Content-Language: en-US
+Received: from nm9-vm1.bullet.mail.ukl.yahoo.com ([217.146.183.241]:23320 "HELO
+	nm9-vm1.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753553Ab1EUXH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2011 19:07:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Rasesh Mody
->Sent: Tuesday, May 17, 2011 9:57 PM
->Subject: [PATCH 0/2] bna: Add Debugfs & Generic Netlink Interfaces to
->BNA Driver
->
->This patch set adds debugfs and generic netlink interfaces to BNA driver
->for
->debugging and managing the Brocade adapter.
+NTcwMA0K6LS15YWs5Y+457uP55CGLOi0n+i0o+S6ujoNCiAgICDmgqjlpb0h5pys5YWs5Y+45Li7
+6KaB57uP6JCl5Luj5byA5Zu944CB5Zyw56iO5Y+R56Wo5Lia5Yqh55qE5q2j6KeE5YWs5Y+477yM
+5oiR5Y+45Y+q6ZyA5pS25Yiw6LS15YWs5Y+455qE5byA56Wo5YaF5a6577yM5L6/5Lya6YCa6L+H
+562b6YCJ5Ye655u45Yy56YWN55qE6KGM5Lia5Y+K6YCC5ZCI55qE5YWs5Y+45byA5YW35Y+R56Wo
+77yM57G75Z6L5aaC5LiL77yaDQogICAg5LiA44CB5aKe5YC856iO77ya5aKe5YC856iO5LiT55So
+5Y+R56Wo44CB5aKe5YC856iO5rW35YWz57y05qy+5Lmm44CB5pmu6YCa5aKe5YC856iO5Y+R56Wo
+77yI5q2k57G75Y+R56Wo5Z2H5Li65q2j6KeE5LyB5Lia5Y+v55So5LqO5oq156iO562J5L+d6K+B
+5pyJ5LiK56iO5Y+R56Wo77yB6K+m5oOF5Y+v5LiO5oiR5Y+46IGU57O75ZWG6LCI77yJDQogICAg
+5LqM44CB5YWs6Lev5YaF5rKz6L+Q6L6T77ya5Y+v56iO5Yqh5oq15omj5q2j6KeE5pyJ5LiK56iO
+6L+Q6L6T5Y+R56WoDQogICAg5LiJ44CB5pmu6YCa5Zu944CB5Zyw56iO77ya5ZWG5ZOB6ZSA5ZSu
+77yM5bel5ZWG5Lia57uf5LiA6ZSA5ZSu77yM6LSn6L+Q77yM5bu6562R5a6J6KOF77yM5pyN5Yqh
+5Lia77yM5bm/5ZGK5Lia77yM6YWS5bqX5L2P5a6/77yM5Lya6K6u6LS577yM5ZKo6K+i6LS577yM
+5a6a6aKd6aSQ6aWu562J77yI5q2k57G75Y+R56Wo6K+m57uG56iO546H5Y+v5qC55o2u5pWw6aKd
+5aSn5bCP5ZWG6LCI77yJDQogICAg5Lul5LiK56Wo5o2u56Gu5L+d5omA5byA5YW35Y+R56Wo5Li6
+56iO5Yqh5py65YWz6aKG5Y+W55qE55yf56Wo77yM5Y+v5p+l6K+B5ZCO5LuY5qy+77yM5a+55LqO
+5Y+M5pa555qE5ZCI5L2c5YWz57O757ud5a+55L+d5a+G77yM6Iul6LS15YWs5Y+45pyJ5LuA5LmI
+6ZyA6KaB5oiW5YW25a6D55qE55aR6JmR6Zeu6aKY77yM5qyi6L+O5p2l55S15ZKo6K+i77yI5pWs
+6K+35L+d55WZ77yM5Lul5aSH5ZCO6ZyA77yM5omT5omw5LmL5aSE6K+36KeB6LCF77yJDQogICAg
+6IGU57O75Lq677ya5byg5YWI55SfICAgIOeUteivne+8mjEzOTI3NDMwMzQ4ICAgUVE6ODM1Mzc4
+ODE3DQo0NTI3MDk5OTMNCg==
 
-Hi David,
 
-Can you please tell what is the state of this patch set? We are wondering if the patches are still under review.
-
-Thanks,
-Rasesh
