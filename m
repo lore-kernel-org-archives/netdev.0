@@ -1,167 +1,86 @@
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3] CDC NCM: release interfaces fix in unbind()
-Date: Sat, 21 May 2011 02:42:16 +0200
-Message-ID: <1305938536-5343-1-git-send-email-alexey.orishko@stericsson.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path
+ similar to hw-accel
+Date: Sat, 21 May 2011 09:11:05 +0800
+Message-ID: <BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>
+References: <1302241713-3637-1-git-send-email-jpirko@redhat.com> <20110412.141645.112604563.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jpirko@redhat.com, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
+	andy@greyhouse.net, jesse@nicira.com, ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:34955 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751600Ab1EUBL1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 21:11:27 -0400
+Received: by bwz15 with SMTP id 15so3372526bwz.19
+        for <netdev@vger.kernel.org>; Fri, 20 May 2011 18:11:26 -0700 (PDT)
+In-Reply-To: <20110412.141645.112604563.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes:
-- claim slave/data interface during bind() and release
- interfaces in unbind() unconditionally
-- in case of error during bind(), release claimed data
- interface in the same function
-- remove obsolited "*_claimed" entries from driver context
+On Wed, Apr 13, 2011 at 5:16 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Jiri Pirko <jpirko@redhat.com>
+> Date: Fri, =A08 Apr 2011 07:48:33 +0200
+>
+>> Now there are 2 paths for rx vlan frames. When rx-vlan-hw-accel is
+>> enabled, skb is untagged by NIC, vlan_tci is set and the skb gets in=
+to
+>> vlan code in __netif_receive_skb - vlan_hwaccel_do_receive.
+>>
+>> For non-rx-vlan-hw-accel however, tagged skb goes thru whole
+>> __netif_receive_skb, it's untagged in ptype_base hander and reinject=
+ed
+>>
+>> This incosistency is fixed by this patch. Vlan untagging happens ear=
+ly in
+>> __netif_receive_skb so the rest of code (ptype_all handlers, rx_hand=
+lers)
+>> see the skb like it was untagged by hw.
+>>
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>
+>> v1->v2:
+>> =A0 =A0 =A0 remove "inline" from vlan_core.c functions
+>
+> Ok, I've applied this, let's see what happens :-)
+>
 
-Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
----
- drivers/net/usb/cdc_ncm.c |   72 +++++++++++++++------------------------------
- 1 files changed, 24 insertions(+), 48 deletions(-)
+I think we should revert it.
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 4ab557d..5ab2634 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -54,7 +54,7 @@
- #include <linux/usb/usbnet.h>
- #include <linux/usb/cdc.h>
- 
--#define	DRIVER_VERSION				"06-May-2011"
-+#define	DRIVER_VERSION				"21-May-2011"
- 
- /* CDC NCM subclass 3.2.1 */
- #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
-@@ -134,8 +134,6 @@ struct cdc_ncm_ctx {
- 	u16 tx_ndp_modulus;
- 	u16 tx_seq;
- 	u16 connected;
--	u8 data_claimed;
--	u8 control_claimed;
- };
- 
- static void cdc_ncm_tx_timeout(unsigned long arg);
-@@ -460,17 +458,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
- 
- 	del_timer_sync(&ctx->tx_timer);
- 
--	if (ctx->data_claimed) {
--		usb_set_intfdata(ctx->data, NULL);
--		usb_driver_release_interface(driver_of(ctx->intf), ctx->data);
--	}
--
--	if (ctx->control_claimed) {
--		usb_set_intfdata(ctx->control, NULL);
--		usb_driver_release_interface(driver_of(ctx->intf),
--								ctx->control);
--	}
--
- 	if (ctx->tx_rem_skb != NULL) {
- 		dev_kfree_skb_any(ctx->tx_rem_skb);
- 		ctx->tx_rem_skb = NULL;
-@@ -495,7 +482,7 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
- 
- 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
- 	if (ctx == NULL)
--		goto error;
-+		return -ENODEV;
- 
- 	memset(ctx, 0, sizeof(*ctx));
- 
-@@ -568,46 +555,36 @@ advance:
- 
- 	/* check if we got everything */
- 	if ((ctx->control == NULL) || (ctx->data == NULL) ||
--	    (ctx->ether_desc == NULL))
-+	    (ctx->ether_desc == NULL) || (ctx->control != intf))
- 		goto error;
- 
- 	/* claim interfaces, if any */
--	if (ctx->data != intf) {
--		temp = usb_driver_claim_interface(driver, ctx->data, dev);
--		if (temp)
--			goto error;
--		ctx->data_claimed = 1;
--	}
--
--	if (ctx->control != intf) {
--		temp = usb_driver_claim_interface(driver, ctx->control, dev);
--		if (temp)
--			goto error;
--		ctx->control_claimed = 1;
--	}
-+	temp = usb_driver_claim_interface(driver, ctx->data, dev);
-+	if (temp)
-+		goto error;
- 
- 	iface_no = ctx->data->cur_altsetting->desc.bInterfaceNumber;
- 
- 	/* reset data interface */
- 	temp = usb_set_interface(dev->udev, iface_no, 0);
- 	if (temp)
--		goto error;
-+		goto error2;
- 
- 	/* initialize data interface */
- 	if (cdc_ncm_setup(ctx))
--		goto error;
-+		goto error2;
- 
- 	/* configure data interface */
- 	temp = usb_set_interface(dev->udev, iface_no, 1);
- 	if (temp)
--		goto error;
-+		goto error2;
- 
- 	cdc_ncm_find_endpoints(ctx, ctx->data);
- 	cdc_ncm_find_endpoints(ctx, ctx->control);
- 
- 	if ((ctx->in_ep == NULL) || (ctx->out_ep == NULL) ||
- 	    (ctx->status_ep == NULL))
--		goto error;
-+		goto error2;
- 
- 	dev->net->ethtool_ops = &cdc_ncm_ethtool_ops;
- 
-@@ -617,7 +594,7 @@ advance:
- 
- 	temp = usbnet_get_ethernet_addr(dev, ctx->ether_desc->iMACAddress);
- 	if (temp)
--		goto error;
-+		goto error2;
- 
- 	dev_info(&dev->udev->dev, "MAC-Address: "
- 				"0x%02x:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x\n",
-@@ -642,36 +619,35 @@ advance:
- 	ctx->tx_speed = ctx->rx_speed = 0;
- 	return 0;
- 
-+error2:
-+	usb_set_intfdata(ctx->control, NULL);
-+	usb_set_intfdata(ctx->data, NULL);
-+	usb_driver_release_interface(driver, ctx->data);
- error:
- 	cdc_ncm_free((struct cdc_ncm_ctx *)dev->data[0]);
- 	dev->data[0] = 0;
--	dev_info(&dev->udev->dev, "Descriptor failure\n");
-+	dev_info(&dev->udev->dev, "bind() failure\n");
- 	return -ENODEV;
- }
- 
- static void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf)
- {
- 	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
--	struct usb_driver *driver;
-+	struct usb_driver *driver = driver_of(intf);
- 
- 	if (ctx == NULL)
- 		return;		/* no setup */
- 
--	driver = driver_of(intf);
--
--	usb_set_intfdata(ctx->data, NULL);
--	usb_set_intfdata(ctx->control, NULL);
--	usb_set_intfdata(ctx->intf, NULL);
+=46ile: net/8021q/vlan_core.c:
+
+161         skb_pull_rcsum(skb, VLAN_HLEN);
+
+skb->data and skb->len are updated, but network_header and
+transport_header are left unchanged. This will break the assumption in
+net_sched.
+
+  for example:
+  file: cls_u32.c
+  104         unsigned int off =3D skb_network_offset(skb);
+  After this patch, skb_network_offset may be negative.
+
+162         vlan_set_encap_proto(skb, vhdr);
+163
+164         skb =3D vlan_check_reorder_header(skb);
+vlan_check_reorder_header assume skb->dev is a vlan_dev. Even though
+the correct dev is assigned temporarily, we should not reorder the
+header here as HW accelerated vlan RX does, as this may breaks the
+bridging comes later.
+
+165         if (unlikely(!skb))
+166                 goto err_free;
+
+The hardware accelerated vlan RX doesn't always do the "right" things
+as it strips the vlan header, so we should not emulate it in software
+all the time.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
