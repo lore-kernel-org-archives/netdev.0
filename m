@@ -1,40 +1,40 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] netns: add /proc/*/net/id symlink
-Date: Sun, 22 May 2011 01:30:54 +0300
-Message-ID: <20110521223054.GA3198@p183>
-References: <20110521093936.GA3015@p183>
- <m11uzsxdty.fsf@fess.ebiederm.org>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH 0/2] bna: Add Debugfs & Generic Netlink Interfaces to
+ BNA Driver
+Date: Sat, 21 May 2011 16:06:27 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A5D76F7AC6@HQ1-EXCH01.corp.brocade.com>
+References: <1305694621-28023-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, equinox@diac24.net
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Adapter Linux Open SRC Team
+	<adapter_linux_open_src_team@Brocade.COM>
+To: Rasesh Mody <rmody@brocade.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:47763 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754357Ab1EUWa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2011 18:30:56 -0400
-Received: by ewy4 with SMTP id 4so1477223ewy.19
-        for <netdev@vger.kernel.org>; Sat, 21 May 2011 15:30:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <m11uzsxdty.fsf@fess.ebiederm.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:48158 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753553Ab1EUXGf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 May 2011 19:06:35 -0400
+In-Reply-To: <1305694621-28023-1-git-send-email-rmody@brocade.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 21, 2011 at 08:39:37AM -0700, Eric W. Biederman wrote:
-> Alexey Dobriyan <adobriyan@gmail.com> writes:
-> > * init_net always has id 0
-> > * two netns do not have same id
-> > * id is unsigned integer
-> 
-> I don't like this patch because we already have a proc interface
-> that already solves this in production kernels today.
-> 
-> - stat is a single syscall
-> - two netns do not have the same id
-> - id is an ino_t.
+>From: Rasesh Mody
+>Sent: Tuesday, May 17, 2011 9:57 PM
+>Subject: [PATCH 0/2] bna: Add Debugfs & Generic Netlink Interfaces to
+>BNA Driver
+>
+>This patch set adds debugfs and generic netlink interfaces to BNA driver
+>for
+>debugging and managing the Brocade adapter.
 
-Yeah, stat /proc/*/net/dev works.
-If you document this, it means we can't change the way ->low_ino is set.
-And we can't do other things inside irregular part of procfs.
+Hi David,
 
-But can we add clean interface once in a while.
+Can you please tell what is the state of this patch set? We are wondering if the patches are still under review.
+
+Thanks,
+Rasesh
