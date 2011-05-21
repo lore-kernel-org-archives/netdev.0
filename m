@@ -1,43 +1,84 @@
-From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: Re: [PATCHv2 04/14] vhost: support event index
-Date: Sat, 21 May 2011 12:01:47 +0930
-Message-ID: <87sjs8u6lo.fsf@rustcorp.com.au>
-References: <cover.1305846412.git.mst@redhat.com>
-	<b227febf884dcf82dee9233e581c6216d0e9daa5.1305846412.git.mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] garp: use kfree_rcu()
+Date: Sat, 21 May 2011 06:31:30 +0200
+Message-ID: <1305952290.2862.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <b227febf884dcf82dee9233e581c6216d0e9daa5.1305846412.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55194 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750894Ab1EUEbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2011 00:31:34 -0400
+Received: by wya21 with SMTP id 21so3125260wya.19
+        for <netdev@vger.kernel.org>; Fri, 20 May 2011 21:31:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 May 2011 02:10:54 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> Support the new event index feature. When acked,
-> utilize it to reduce the # of interrupts sent to the guest.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Use kfree_rcu() instead of call_rcu(), remove garp_cleanup_module()
 
-Applied, even though it'd normally be in your tree, it's easier for me
-to push all together.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/802/garp.c |   20 ++------------------
+ 1 file changed, 2 insertions(+), 18 deletions(-)
 
-Thanks,
-Rusty.
+diff --git a/net/802/garp.c b/net/802/garp.c
+index f8300a8..1610295 100644
+--- a/net/802/garp.c
++++ b/net/802/garp.c
+@@ -544,11 +544,6 @@ static int garp_init_port(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static void garp_kfree_rcu(struct rcu_head *head)
+-{
+-	kfree(container_of(head, struct garp_port, rcu));
+-}
+-
+ static void garp_release_port(struct net_device *dev)
+ {
+ 	struct garp_port *port = rtnl_dereference(dev->garp_port);
+@@ -559,7 +554,7 @@ static void garp_release_port(struct net_device *dev)
+ 			return;
+ 	}
+ 	rcu_assign_pointer(dev->garp_port, NULL);
+-	call_rcu(&port->rcu, garp_kfree_rcu);
++	kfree_rcu(port, rcu);
+ }
+ 
+ int garp_init_applicant(struct net_device *dev, struct garp_application *appl)
+@@ -603,11 +598,6 @@ err1:
+ }
+ EXPORT_SYMBOL_GPL(garp_init_applicant);
+ 
+-static void garp_app_kfree_rcu(struct rcu_head *head)
+-{
+-	kfree(container_of(head, struct garp_applicant, rcu));
+-}
+-
+ void garp_uninit_applicant(struct net_device *dev, struct garp_application *appl)
+ {
+ 	struct garp_port *port = rtnl_dereference(dev->garp_port);
+@@ -625,7 +615,7 @@ void garp_uninit_applicant(struct net_device *dev, struct garp_application *appl
+ 	garp_queue_xmit(app);
+ 
+ 	dev_mc_del(dev, appl->proto.group_address);
+-	call_rcu(&app->rcu, garp_app_kfree_rcu);
++	kfree_rcu(app, rcu);
+ 	garp_release_port(dev);
+ }
+ EXPORT_SYMBOL_GPL(garp_uninit_applicant);
+@@ -643,9 +633,3 @@ void garp_unregister_application(struct garp_application *appl)
+ 	stp_proto_unregister(&appl->proto);
+ }
+ EXPORT_SYMBOL_GPL(garp_unregister_application);
+-
+-static void __exit garp_cleanup_module(void)
+-{
+-	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+-}
+-module_exit(garp_cleanup_module);
+
+
