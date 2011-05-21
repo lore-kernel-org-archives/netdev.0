@@ -1,67 +1,167 @@
-From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
-Date: Fri, 20 May 2011 17:06:01 -0700
-Message-ID: <BANLkTi=p1V1x+y=-cH-Q7bvueu_4_D1ywQ@mail.gmail.com>
-References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
-	<20110518.152653.1486764697527722925.davem@davemloft.net>
-	<BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
-	<20110518.155200.801089483916944725.davem@davemloft.net>
-	<20110518202025.GC4175@nuttenaction>
-	<BANLkTimtA9BB7g5cOm8c9sGChQjf1P0Q-Q@mail.gmail.com>
-	<fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, tsunanet@gmail.com,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:36768 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755002Ab1EUAGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 May 2011 20:06:03 -0400
-In-Reply-To: <fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v3] CDC NCM: release interfaces fix in unbind()
+Date: Sat, 21 May 2011 02:42:16 +0200
+Message-ID: <1305938536-5343-1-git-send-email-alexey.orishko@stericsson.com>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hey Hagen,
+Changes:
+- claim slave/data interface during bind() and release
+ interfaces in unbind() unconditionally
+- in case of error during bind(), release claimed data
+ interface in the same function
+- remove obsolited "*_claimed" entries from driver context
 
-On Fri, May 20, 2011 at 4:00 AM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
->
-> On Fri, 20 May 2011 03:27:37 -0700, "H.K. Jerry Chu" wrote:
->
-> Hi Jerry
->
->> Not sure how our various parameter tuning proposals deviate from the
-> "TCP
->> over everything" principle?
->
-> For our environment it hurts because we _always_ have an initial RTO >1. I
-> understand and accept that 98% will benefit of this modification, no doubt
-> Jerry! Try to put yourself in our situation: imaging a proposal of an init
+Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c |   72 +++++++++++++++------------------------------
+ 1 files changed, 24 insertions(+), 48 deletions(-)
 
-Understood but my point was none of the parameter tuning proposals break
-"TCP over everything", although they may not help solving "TCP optimized for
-everything", but we never had the latter anyway.
-
-We've tried hard to keep the penalty to those initRTT > 1sec paths at a minimum,
-i.e., just one extra tinygram. This is important also for us because it may take
-> 1sec for many Android clients to establish connections over a radio channel that
-has been put into power saving mode.
-
-> RTO modification to 0.5 seconds. Maybe because 98% of Internet traffic is
-> now localized and the RTO is average now 0.2 seconds. Anyway, this will
-> penalize your network always and this will be the situation for one of my
-> customer. I can live with that, I see the benefits for the rest of the
-> world. But I am happy to see a knob where I can restore the old behavior.
-> Maybe some other environments will benefit from a even lower or higher
-> initial RTO.
-
-Yep, that's why we've had a knob for this for years.
-
-Jerry
-
->
-> Hagen
->
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 4ab557d..5ab2634 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -54,7 +54,7 @@
+ #include <linux/usb/usbnet.h>
+ #include <linux/usb/cdc.h>
+ 
+-#define	DRIVER_VERSION				"06-May-2011"
++#define	DRIVER_VERSION				"21-May-2011"
+ 
+ /* CDC NCM subclass 3.2.1 */
+ #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
+@@ -134,8 +134,6 @@ struct cdc_ncm_ctx {
+ 	u16 tx_ndp_modulus;
+ 	u16 tx_seq;
+ 	u16 connected;
+-	u8 data_claimed;
+-	u8 control_claimed;
+ };
+ 
+ static void cdc_ncm_tx_timeout(unsigned long arg);
+@@ -460,17 +458,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
+ 
+ 	del_timer_sync(&ctx->tx_timer);
+ 
+-	if (ctx->data_claimed) {
+-		usb_set_intfdata(ctx->data, NULL);
+-		usb_driver_release_interface(driver_of(ctx->intf), ctx->data);
+-	}
+-
+-	if (ctx->control_claimed) {
+-		usb_set_intfdata(ctx->control, NULL);
+-		usb_driver_release_interface(driver_of(ctx->intf),
+-								ctx->control);
+-	}
+-
+ 	if (ctx->tx_rem_skb != NULL) {
+ 		dev_kfree_skb_any(ctx->tx_rem_skb);
+ 		ctx->tx_rem_skb = NULL;
+@@ -495,7 +482,7 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+ 
+ 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+ 	if (ctx == NULL)
+-		goto error;
++		return -ENODEV;
+ 
+ 	memset(ctx, 0, sizeof(*ctx));
+ 
+@@ -568,46 +555,36 @@ advance:
+ 
+ 	/* check if we got everything */
+ 	if ((ctx->control == NULL) || (ctx->data == NULL) ||
+-	    (ctx->ether_desc == NULL))
++	    (ctx->ether_desc == NULL) || (ctx->control != intf))
+ 		goto error;
+ 
+ 	/* claim interfaces, if any */
+-	if (ctx->data != intf) {
+-		temp = usb_driver_claim_interface(driver, ctx->data, dev);
+-		if (temp)
+-			goto error;
+-		ctx->data_claimed = 1;
+-	}
+-
+-	if (ctx->control != intf) {
+-		temp = usb_driver_claim_interface(driver, ctx->control, dev);
+-		if (temp)
+-			goto error;
+-		ctx->control_claimed = 1;
+-	}
++	temp = usb_driver_claim_interface(driver, ctx->data, dev);
++	if (temp)
++		goto error;
+ 
+ 	iface_no = ctx->data->cur_altsetting->desc.bInterfaceNumber;
+ 
+ 	/* reset data interface */
+ 	temp = usb_set_interface(dev->udev, iface_no, 0);
+ 	if (temp)
+-		goto error;
++		goto error2;
+ 
+ 	/* initialize data interface */
+ 	if (cdc_ncm_setup(ctx))
+-		goto error;
++		goto error2;
+ 
+ 	/* configure data interface */
+ 	temp = usb_set_interface(dev->udev, iface_no, 1);
+ 	if (temp)
+-		goto error;
++		goto error2;
+ 
+ 	cdc_ncm_find_endpoints(ctx, ctx->data);
+ 	cdc_ncm_find_endpoints(ctx, ctx->control);
+ 
+ 	if ((ctx->in_ep == NULL) || (ctx->out_ep == NULL) ||
+ 	    (ctx->status_ep == NULL))
+-		goto error;
++		goto error2;
+ 
+ 	dev->net->ethtool_ops = &cdc_ncm_ethtool_ops;
+ 
+@@ -617,7 +594,7 @@ advance:
+ 
+ 	temp = usbnet_get_ethernet_addr(dev, ctx->ether_desc->iMACAddress);
+ 	if (temp)
+-		goto error;
++		goto error2;
+ 
+ 	dev_info(&dev->udev->dev, "MAC-Address: "
+ 				"0x%02x:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x\n",
+@@ -642,36 +619,35 @@ advance:
+ 	ctx->tx_speed = ctx->rx_speed = 0;
+ 	return 0;
+ 
++error2:
++	usb_set_intfdata(ctx->control, NULL);
++	usb_set_intfdata(ctx->data, NULL);
++	usb_driver_release_interface(driver, ctx->data);
+ error:
+ 	cdc_ncm_free((struct cdc_ncm_ctx *)dev->data[0]);
+ 	dev->data[0] = 0;
+-	dev_info(&dev->udev->dev, "Descriptor failure\n");
++	dev_info(&dev->udev->dev, "bind() failure\n");
+ 	return -ENODEV;
+ }
+ 
+ static void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
+-	struct usb_driver *driver;
++	struct usb_driver *driver = driver_of(intf);
+ 
+ 	if (ctx == NULL)
+ 		return;		/* no setup */
+ 
+-	driver = driver_of(intf);
+-
+-	usb_set_intfdata(ctx->data, NULL);
+-	usb_set_intfdata(ctx->control, NULL);
+-	usb_set_intfdata(ctx->intf, NULL);
