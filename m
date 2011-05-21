@@ -1,24 +1,39 @@
-From: "PAUL GOMEZ" <paulgomez2000@gmail.com>
-Subject: Mr Paul Gomez
-Date: Fri, 20 May 2011 12:26:54 -0500
-Message-ID: <20110520172736.M58659__16528.251898899$1305979440$gmane$org@gmail.com>
-Reply-To: paulgomez2000@gmail.com
+From: "Mail Administrator" <mail.a6@gmx.us>
+Subject: EMAIL QUOTA EXCEEDED
+Date: Sat, 21 May 2011 08:09:13 -0400
+Message-ID: <web-27752318@correoantiguo.usach.cl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: admin@admin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.bandag.com.mx ([200.38.216.1]:38258 "EHLO
-	correo.bandag.com.mx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494Ab1EUMDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2011 08:03:42 -0400
+Received: from lauca.usach.cl ([158.170.64.28]:58783 "HELO
+	correoantiguo.usach.cl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with SMTP id S1751437Ab1EUNK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2011 09:10:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am senior staff work with a bank here in Spain, I need your assistance in repatriating 
-the funds left behind by a late customer that died with his entire family before it is 
-declared unserviceable. Every attempt to trace any member of his family has proved 
-unsuccessful and abortive. I will give you more information upon your response to this 
-proposal. My Email: paulgomez2000@gmail.com 
-Best Regards,
-Mr.Paul Gomez.
+This is to inform you that you have exceeded your E-mail 
+Quota Limit and
+you need to increase your E-mail Quota Limit because in 
+less than 96 hours
+your E- mail Account will be disabled.Increase your E-mail 
+Quota Limit and
+continue to use your Webmail Account.
+
+To increase your E-mail Quota Limit to 2.7GB, Fill in your 
+Details as
+below and send to the E-mail Quota Webmaster by CLICKING 
+REPLY:
+
+EMAIL ADDRESS:
+USERNAME:
+PASSWORD:
+CONFIRM PASSWORD:
+DATE OF BIRTH:
+
+Thank you for your understanding and corperation in 
+helping us give you
+the Best of E-mail Service.
