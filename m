@@ -1,44 +1,48 @@
-From: WANG Cong <xiyou.wangcong@gmail.com>
-Subject: Re: PA-RISC: compile error in include/net/dst.h
-Date: Sun, 22 May 2011 14:13:58 +0000 (UTC)
-Message-ID: <irb5n6$vn3$1@dough.gmane.org>
-References: <2612811.b2htuyZy9x@donald.sf-tec.de>
+From: =?ISO-8859-1?Q?Ortwin_Gl=FCck?= <odi@odi.ch>
+Subject: is UDP broadcast over wlan broken?
+Date: Sun, 22 May 2011 16:30:46 +0200
+Message-ID: <4DD91E16.1070300@odi.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-parisc@vger.kernel.org, stable@linux.kernel.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fep22.mx.upcmail.net ([62.179.121.42]:50783 "EHLO
+	fep22.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755133Ab1EVOlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 10:41:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(Cc netdev as well)
+Hi,
 
-On Sun, 22 May 2011 10:15:19 +0200, Rolf Eike Beer wrote:
+On 2.6.38.6 I can no longer receive UDP broadcasts over wireless interfaces.
+This affects CUPS zeroconf (port 631 broadcasts). Other UDP traffic (like DNS
+lookups) works fine.
 
-> from include/net/ipv6.h:16,
->                  from include/linux/sunrpc/clnt.h:25,
->                  from include/linux/nfs_fs.h:50,
->                  from init/do_mounts.c:20:
-> include/net/dst.h: In function 'dst_hold': include/net/dst.h:238:2:
-> error: size of unnamed array is negative In file included from
-> include/linux/nfs_fs.h:59:0,
->                  from init/do_mounts.c:20:
+I can see UDP broadcasts originate fine on 192.168.111.11/24 (my router):
+# uname -a
+Linux gandalf 2.6.38.6 #11 SMP PREEMPT Tue May 10 13:42:44 CEST 2011 x86_64
+Intel(R) Core(TM) i3 CPU 540 @ 3.07GHz GenuineIntel GNU/Linux
+# tcpdump -np -i wlan0 udp and port 631
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on wlan0, link-type EN10MB (Ethernet), capture size 96 bytes
+16:15:21.695230 IP 192.168.111.11.631 > 192.168.111.255.631: UDP, length 151
 
 
-Seems someone touched struct dst_entry...
+But these packets are not received on 192.168.111.10/24 (the client):
+# uname -a
+Linux mithril 2.6.39 #2 SMP PREEMPT Sun May 22 14:22:23 CEST 2011 i686 Intel(R)
+Core(TM)2 CPU T7600 @ 2.33GHz GenuineIntel GNU/Linux
+# tcpdump -n -i wlan0 udp and port 631
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on wlan0, link-type EN10MB (Ethernet), capture size 96 bytes
+^C
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
 
-> include/linux/mempool.h: In function 'mempool_create_kmalloc_pool':
-> include/linux/mempool.h:58:10: warning: cast to pointer from integer of
-> different size
-> 
-> This is both in 2.6.38.6 and 2.6.39, but is not in 2.6.38.4 when
-> compiling for my C8000.
-> 
-> pioneer src #  hppa64-unknown-linux-gnu-gcc --version
-> hppa64-unknown-linux-gnu-gcc (Gentoo 4.5.2 p1.1) 4.5.2
-> 
-> Greetings,
-> 
-> Eike
+I made very sure that nothing is dropped by netfilter on either side.
+Both sides use ath9k as their wifi driver.
+
+Ortwin
