@@ -1,48 +1,44 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path
- similar to hw-accel
-Date: Sun, 22 May 2011 15:16:31 +0200
-Message-ID: <20110522131630.GA3156@jirka.orion>
-References: <BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>
- <20110521072925.GA2588@jirka.orion>
- <BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>
- <4DD7BB61.9050200@gmail.com>
- <BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>
- <4DD87C25.4030701@gmail.com>
- <20110522062915.GA2611@jirka.orion>
- <BANLkTinEnHLx1CVh8p0ejLkcaqoLHw2nOA@mail.gmail.com>
- <20110522093758.GC2611@jirka.orion>
- <BANLkTin6u7VptTm3se_bLdEeTOz2OVc_Rw@mail.gmail.com>
+From: WANG Cong <xiyou.wangcong@gmail.com>
+Subject: Re: PA-RISC: compile error in include/net/dst.h
+Date: Sun, 22 May 2011 14:13:58 +0000 (UTC)
+Message-ID: <irb5n6$vn3$1@dough.gmane.org>
+References: <2612811.b2htuyZy9x@donald.sf-tec.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>, Jesse Gross <jesse@nicira.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, ebiederm@xmission.com
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45748 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752954Ab1EVNRA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 May 2011 09:17:00 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTin6u7VptTm3se_bLdEeTOz2OVc_Rw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-parisc@vger.kernel.org, stable@linux.kernel.org,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-<snip>
+(Cc netdev as well)
 
->
->I know the current software emulation doesn't strip the vlan headers,
->but I want to know in what way you fix the current misuse of
->vlan_check_reorder_header(). If you emulation what the HW does
->exactly, I am afraid more work are needed. IMHO, this way is more
->dangerous than just a revert for this bugfix cycle.
+On Sun, 22 May 2011 10:15:19 +0200, Rolf Eike Beer wrote:
 
-Looking at this. Will follow-up soon.
+> from include/net/ipv6.h:16,
+>                  from include/linux/sunrpc/clnt.h:25,
+>                  from include/linux/nfs_fs.h:50,
+>                  from init/do_mounts.c:20:
+> include/net/dst.h: In function 'dst_hold': include/net/dst.h:238:2:
+> error: size of unnamed array is negative In file included from
+> include/linux/nfs_fs.h:59:0,
+>                  from init/do_mounts.c:20:
 
->
->-- 
->Regards,
->Changli Gao(xiaosuo@gmail.com)
+
+Seems someone touched struct dst_entry...
+
+> include/linux/mempool.h: In function 'mempool_create_kmalloc_pool':
+> include/linux/mempool.h:58:10: warning: cast to pointer from integer of
+> different size
+> 
+> This is both in 2.6.38.6 and 2.6.39, but is not in 2.6.38.4 when
+> compiling for my C8000.
+> 
+> pioneer src #  hppa64-unknown-linux-gnu-gcc --version
+> hppa64-unknown-linux-gnu-gcc (Gentoo 4.5.2 p1.1) 4.5.2
+> 
+> Greetings,
+> 
+> Eike
