@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 0/11] bnx2x: Few link changes
-Date: Sun, 22 May 2011 14:31:03 +0300
-Message-ID: <1306063863.20872.82.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 01/11] bnx2x: Add new phy BCM8722
+Date: Sun, 22 May 2011 14:31:14 +0300
+Message-ID: <1306063874.20872.83.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -9,30 +9,201 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1488 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2224 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753767Ab1EVLbL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 May 2011 07:31:11 -0400
+	id S1753108Ab1EVLba (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 May 2011 07:31:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-The following patch series describe some link changes.
-Please consider applying it to net-next.
+Add support for new phy BCM8722.
 
-Thanks,
-Yaniv
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_hsi.h  |    2 +
+ drivers/net/bnx2x/bnx2x_link.c |   85 ++++++++++++++++++++++++++++------------
+ 2 files changed, 62 insertions(+), 25 deletions(-)
 
-
-
-
-
-
-
-
-
-
-
+diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
+index cdf19fe..6ee6160 100644
+--- a/drivers/net/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/bnx2x/bnx2x_hsi.h
+@@ -417,6 +417,7 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
+ #define PORT_HW_CFG_XGXS_EXT_PHY2_TYPE_BCM84823     0x00000b00
+ #define PORT_HW_CFG_XGXS_EXT_PHY2_TYPE_BCM54640     0x00000c00
+ #define PORT_HW_CFG_XGXS_EXT_PHY2_TYPE_BCM84833     0x00000d00
++#define PORT_HW_CFG_XGXS_EXT_PHY2_TYPE_BCM8722	    0x00000f00
+ #define PORT_HW_CFG_XGXS_EXT_PHY2_TYPE_FAILURE	    0x0000fd00
+ #define PORT_HW_CFG_XGXS_EXT_PHY2_TYPE_NOT_CONN     0x0000ff00
+ 
+@@ -473,6 +474,7 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
+ #define PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727_NOC   0x00000a00
+ #define PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84823	    0x00000b00
+ #define PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833	    0x00000d00
++#define PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8722	    0x00000f00
+ #define PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE	    0x0000fd00
+ #define PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN	    0x0000ff00
+ 
+diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
+index 076e11f..56b5ed8 100644
+--- a/drivers/net/bnx2x/bnx2x_link.c
++++ b/drivers/net/bnx2x/bnx2x_link.c
+@@ -3146,8 +3146,10 @@ u8 bnx2x_set_led(struct link_params *params,
+ 		if (!vars->link_up)
+ 			break;
+ 	case LED_MODE_ON:
+-		if (params->phy[EXT_PHY1].type ==
+-		    PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727 &&
++		if (((params->phy[EXT_PHY1].type ==
++			  PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727) ||
++			 (params->phy[EXT_PHY1].type ==
++			  PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8722)) &&
+ 		    CHIP_IS_E2(bp) && params->num_phys == 2) {
+ 			/*
+ 			 * This is a work-around for E2+8727 Configurations
+@@ -4657,13 +4659,19 @@ u8 bnx2x_read_sfp_module_eeprom(struct bnx2x_phy *phy,
+ 				struct link_params *params, u16 addr,
+ 				u8 byte_cnt, u8 *o_buf)
+ {
+-	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726)
+-		return bnx2x_8726_read_sfp_module_eeprom(phy, params, addr,
+-							 byte_cnt, o_buf);
+-	else if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727)
+-		return bnx2x_8727_read_sfp_module_eeprom(phy, params, addr,
+-							 byte_cnt, o_buf);
+-	return -EINVAL;
++	u8 rc = -EINVAL;
++	switch (phy->type) {
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726:
++		rc = bnx2x_8726_read_sfp_module_eeprom(phy, params, addr,
++						       byte_cnt, o_buf);
++	break;
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727:
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8722:
++		rc = bnx2x_8727_read_sfp_module_eeprom(phy, params, addr,
++						       byte_cnt, o_buf);
++	break;
++	}
++	return rc;
+ }
+ 
+ static u8 bnx2x_get_edc_mode(struct bnx2x_phy *phy,
+@@ -5021,6 +5029,38 @@ static void bnx2x_set_sfp_module_fault_led(struct link_params *params,
+ 	}
+ }
+ 
++static void bnx2x_power_sfp_module(struct link_params *params,
++				   struct bnx2x_phy *phy,
++				   u8 power)
++{
++	struct bnx2x *bp = params->bp;
++	DP(NETIF_MSG_LINK, "Setting SFP+ power to %x\n", power);
++
++	switch (phy->type) {
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727:
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8722:
++		bnx2x_8727_power_module(params->bp, phy, power);
++		break;
++	default:
++		break;
++	}
++}
++
++static void bnx2x_set_limiting_mode(struct link_params *params,
++				    struct bnx2x_phy *phy,
++				    u16 edc_mode)
++{
++	switch (phy->type) {
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726:
++		bnx2x_8726_set_limiting_mode(params->bp, phy, edc_mode);
++		break;
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727:
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8722:
++		bnx2x_8727_set_limiting_mode(params->bp, phy, edc_mode);
++		break;
++	}
++}
++
+ static u8 bnx2x_sfp_module_detection(struct bnx2x_phy *phy,
+ 				     struct link_params *params)
+ {
+@@ -5034,7 +5074,8 @@ static u8 bnx2x_sfp_module_detection(struct bnx2x_phy *phy,
+ 
+ 	DP(NETIF_MSG_LINK, "SFP+ module plugged in/out detected on port %d\n",
+ 		 params->port);
+-
++	/* Power up module */
++	bnx2x_power_sfp_module(params, phy, 1);
+ 	if (bnx2x_get_edc_mode(phy, params, &edc_mode) != 0) {
+ 		DP(NETIF_MSG_LINK, "Failed to get valid module type\n");
+ 		return -EINVAL;
+@@ -5046,12 +5087,11 @@ static u8 bnx2x_sfp_module_detection(struct bnx2x_phy *phy,
+ 		bnx2x_set_sfp_module_fault_led(params,
+ 					       MISC_REGISTERS_GPIO_HIGH);
+ 
+-		if ((phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727) &&
+-		    ((val & PORT_FEAT_CFG_OPT_MDL_ENFRCMNT_MASK) ==
+-		     PORT_FEAT_CFG_OPT_MDL_ENFRCMNT_POWER_DOWN)) {
+-			/* Shutdown SFP+ module */
++		/* Check if need to power down the SFP+ module */
++		if ((val & PORT_FEAT_CFG_OPT_MDL_ENFRCMNT_MASK) ==
++		     PORT_FEAT_CFG_OPT_MDL_ENFRCMNT_POWER_DOWN) {
+ 			DP(NETIF_MSG_LINK, "Shutdown SFP+ module!!\n");
+-			bnx2x_8727_power_module(bp, phy, 0);
++			bnx2x_power_sfp_module(params, phy, 0);
+ 			return rc;
+ 		}
+ 	} else {
+@@ -5059,18 +5099,12 @@ static u8 bnx2x_sfp_module_detection(struct bnx2x_phy *phy,
+ 		bnx2x_set_sfp_module_fault_led(params, MISC_REGISTERS_GPIO_LOW);
+ 	}
+ 
+-	/* power up the SFP module */
+-	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727)
+-		bnx2x_8727_power_module(bp, phy, 1);
+-
+ 	/*
+ 	 * Check and set limiting mode / LRM mode on 8726. On 8727 it
+ 	 * is done automatically
+ 	 */
+-	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726)
+-		bnx2x_8726_set_limiting_mode(bp, phy, edc_mode);
+-	else
+-		bnx2x_8727_set_limiting_mode(bp, phy, edc_mode);
++	bnx2x_set_limiting_mode(params, phy, edc_mode);
++
+ 	/*
+ 	 * Enable transmit for this module if the module is approved, or
+ 	 * if unapproved modules should also enable the Tx laser
+@@ -5100,7 +5134,7 @@ void bnx2x_handle_module_detect_int(struct link_params *params)
+ 
+ 	/* Call the handling function in case module is detected */
+ 	if (gpio_val == 0) {
+-
++		bnx2x_power_sfp_module(params, phy, 1);
+ 		bnx2x_set_gpio_int(bp, MISC_REGISTERS_GPIO_3,
+ 				   MISC_REGISTERS_GPIO_INT_OUTPUT_CLR,
+ 				   port);
+@@ -7336,6 +7370,7 @@ static u8 bnx2x_populate_ext_phy(struct bnx2x *bp,
+ 		*phy = phy_8727;
+ 		phy->flags |= FLAGS_NOC;
+ 		break;
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8722:
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727:
+ 		mdc_mdio_access = SHARED_HW_CFG_MDC_MDIO_ACCESS1_EMAC1;
+ 		*phy = phy_8727;
+@@ -8135,7 +8170,7 @@ static u8 bnx2x_ext_phy_common_init(struct bnx2x *bp, u32 shmem_base_path[],
+ 						shmem2_base_path,
+ 						phy_index, chip_id);
+ 		break;
+-
++	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8722:
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727:
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727_NOC:
+ 		rc = bnx2x_8727_common_init_phy(bp, shmem_base_path,
+-- 
+1.7.1
 
 
 
