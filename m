@@ -1,46 +1,59 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: More prefetch fall-out
-Date: Sun, 22 May 2011 11:38:44 -0700
-Message-ID: <BANLkTimQAhP17Hg6D84gtCO3nJ_SSsDAeg@mail.gmail.com>
-References: <BANLkTi=YwLaoTVjKguH-uZpZgXduLhiTNg@mail.gmail.com> <1306088626.12435.27.camel@edumazet-laptop>
+Date: Sun, 22 May 2011 20:51:43 +0200
+Message-ID: <1306090303.12435.35.camel@edumazet-laptop>
+References: <BANLkTi=YwLaoTVjKguH-uZpZgXduLhiTNg@mail.gmail.com>
+	 <1306088626.12435.27.camel@edumazet-laptop>
+	 <BANLkTimQAhP17Hg6D84gtCO3nJ_SSsDAeg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	Network Development <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36545 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752141Ab1EVSjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 14:39:13 -0400
-Received: from mail-ey0-f174.google.com (mail-ey0-f174.google.com [209.85.215.174])
-	(authenticated bits=0)
-	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id p4MId7ec007673
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Sun, 22 May 2011 11:39:08 -0700
-Received: by eyx24 with SMTP id 24so1617333eyx.19
-        for <netdev@vger.kernel.org>; Sun, 22 May 2011 11:39:04 -0700 (PDT)
-In-Reply-To: <1306088626.12435.27.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60749 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752141Ab1EVSvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 14:51:48 -0400
+Received: by wwa36 with SMTP id 36so5527566wwa.1
+        for <netdev@vger.kernel.org>; Sun, 22 May 2011 11:51:47 -0700 (PDT)
+In-Reply-To: <BANLkTimQAhP17Hg6D84gtCO3nJ_SSsDAeg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 22, 2011 at 11:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Taking a look at various skb_queue_walk* call sites, I think prefetches
-> are not a clear win, I would just remove them all from skbuff.h
+Le dimanche 22 mai 2011 =C3=A0 11:38 -0700, Linus Torvalds a =C3=A9crit=
+ :
+> On Sun, May 22, 2011 at 11:23 AM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
+> >
+> > Taking a look at various skb_queue_walk* call sites, I think prefet=
+ches
+> > are not a clear win, I would just remove them all from skbuff.h
+>=20
+> Hmm.
+>=20
+> I did that, and it turns out that we also have:
+>=20
+>  - *lots* of network drivers that use "prefetch" (without including p=
+refetch.h)
+>  - net/netlabel/netlabel_addrlist.h doing the same.
+>=20
+> and fixing that up is annoying "grunt work".
+>=20
+> So for now, I think I'll just do the "add the <linux/prefetch.h> to
+> <linux/skbuff.h>" thing, and leave networking alone. That makes
+> everything compile ("allyesconfig") even with my "you *have* to
+> include <linux/prefetch.h>" test-patch.
+>=20
 
-Hmm.
+Or include <linux/prefetch.h> from linux/skbuff.h but remove the
+prefetch() calls...
 
-I did that, and it turns out that we also have:
+BTW this reminds me Andi Kleen prior patch
 
- - *lots* of network drivers that use "prefetch" (without including prefetch.h)
- - net/netlabel/netlabel_addrlist.h doing the same.
+http://linux.derkeiler.com/Mailing-Lists/Kernel/2010-09/msg03096.html
 
-and fixing that up is annoying "grunt work".
 
-So for now, I think I'll just do the "add the <linux/prefetch.h> to
-<linux/skbuff.h>" thing, and leave networking alone. That makes
-everything compile ("allyesconfig") even with my "you *have* to
-include <linux/prefetch.h>" test-patch.
 
-                                 Linus
+
