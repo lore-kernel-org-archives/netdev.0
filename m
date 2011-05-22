@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 10/11] bnx2x: Modify XGXS functions
-Date: Sun, 22 May 2011 14:32:44 +0300
-Message-ID: <1306063964.20872.92.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 11/11] bnx2x: Improve cl45 access methods
+Date: Sun, 22 May 2011 14:32:48 +0300
+Message-ID: <1306063969.20872.93.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -9,224 +9,257 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1752 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2578 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754563Ab1EVLcq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 May 2011 07:32:46 -0400
+	id S1754563Ab1EVLdA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 May 2011 07:33:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Modify XGXS functions to follow rest of PHY scheme.
+Instead of setting CL45 mode for every CL45 access, apply it once during initialization.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_hsi.h  |    1 +
- drivers/net/bnx2x/bnx2x_link.c |   89 ++++++++++++++++------------------------
- 2 files changed, 37 insertions(+), 53 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |  136 +++++++++++++++++++---------------------
+ 1 files changed, 65 insertions(+), 71 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
-index c308a48..b8b4b2f 100644
---- a/drivers/net/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x/bnx2x_hsi.h
-@@ -467,6 +467,7 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
- #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_SHIFT	    24
- #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT	    0x00000000
- #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_BCM5482     0x01000000
-+#define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT_SD   0x02000000
- #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_NOT_CONN    0xff000000
- 
- #define PORT_HW_CFG_SERDES_EXT_PHY_ADDR_MASK	    0x00ff0000
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index 1816b2d..43e3663 100644
+index 43e3663..15b5bc1 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -1530,8 +1530,8 @@ int bnx2x_phy_write(struct link_params *params, u8 phy_addr,
- 	return -EINVAL;
- }
- 
--static void bnx2x_set_aer_mmd_xgxs(struct link_params *params,
--				   struct bnx2x_phy *phy)
-+static void bnx2x_set_aer_mmd(struct link_params *params,
-+			      struct bnx2x_phy *phy)
- {
- 	u32 ser_lane;
- 	u16 offset, aer_val;
-@@ -1540,20 +1540,17 @@ static void bnx2x_set_aer_mmd_xgxs(struct link_params *params,
- 		     PORT_HW_CFG_LANE_SWAP_CFG_MASTER_MASK) >>
- 		     PORT_HW_CFG_LANE_SWAP_CFG_MASTER_SHIFT);
- 
--	offset = phy->addr + ser_lane;
-+	offset = (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) ?
-+		(phy->addr + ser_lane) : 0;
-+
- 	if (CHIP_IS_E2(bp))
- 		aer_val = 0x3800 + offset - 1;
- 	else
- 		aer_val = 0x3800 + offset;
-+	DP(NETIF_MSG_LINK, "Set AER to 0x%x\n", aer_val);
- 	CL22_WR_OVER_CL45(bp, phy, MDIO_REG_BANK_AER_BLOCK,
- 			  MDIO_AER_BLOCK_AER_REG, aer_val);
--}
--static void bnx2x_set_aer_mmd_serdes(struct bnx2x *bp,
--				     struct bnx2x_phy *phy)
--{
--	CL22_WR_OVER_CL45(bp, phy,
--			  MDIO_REG_BANK_AER_BLOCK,
--			  MDIO_AER_BLOCK_AER_REG, 0x3800);
-+
- }
- 
+@@ -464,6 +464,29 @@ void bnx2x_pfc_statistic(struct link_params *params, struct link_vars *vars,
  /******************************************************************/
-@@ -2845,9 +2842,9 @@ static void bnx2x_set_preemphasis(struct bnx2x_phy *phy,
+ /*			MAC/PBF section				  */
+ /******************************************************************/
++static void bnx2x_set_mdio_clk(struct bnx2x *bp, u32 chip_id, u8 port)
++{
++	u32 mode, emac_base;
++	/**
++	 * Set clause 45 mode, slow down the MDIO clock to 2.5MHz
++	 * (a value of 49==0x31) and make sure that the AUTO poll is off
++	 */
++
++	if (CHIP_IS_E2(bp))
++		emac_base = GRCBASE_EMAC0;
++	else
++		emac_base = (port) ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
++	mode = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
++	mode &= ~(EMAC_MDIO_MODE_AUTO_POLL |
++		  EMAC_MDIO_MODE_CLOCK_CNT);
++	mode |= (49L << EMAC_MDIO_MODE_CLOCK_CNT_BITSHIFT);
++
++	mode |= (EMAC_MDIO_MODE_CLAUSE_45);
++	REG_WR(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE, mode);
++
++	udelay(40);
++}
++
+ static void bnx2x_emac_init(struct link_params *params,
+ 			    struct link_vars *vars)
+ {
+@@ -495,7 +518,7 @@ static void bnx2x_emac_init(struct link_params *params,
+ 		}
+ 		timeout--;
+ 	} while (val & EMAC_MODE_RESET);
+-
++	bnx2x_set_mdio_clk(bp, params->chip_id, port);
+ 	/* Set mac address */
+ 	val = ((params->mac_addr[0] << 8) |
+ 		params->mac_addr[1]);
+@@ -1352,144 +1375,113 @@ static u32 bnx2x_get_emac_base(struct bnx2x *bp,
+ /******************************************************************/
+ /*			CL45 access functions			  */
+ /******************************************************************/
+-static int bnx2x_cl45_write(struct bnx2x *bp, struct bnx2x_phy *phy,
+-			    u8 devad, u16 reg, u16 val)
++static int bnx2x_cl45_read(struct bnx2x *bp, struct bnx2x_phy *phy,
++			   u8 devad, u16 reg, u16 *ret_val)
+ {
+-	u32 tmp, saved_mode;
+-	u8 i;
++	u32 val;
++	u16 i;
+ 	int rc = 0;
+-	/*
+-	 * Set clause 45 mode, slow down the MDIO clock to 2.5MHz
+-	 * (a value of 49==0x31) and make sure that the AUTO poll is off
+-	 */
+-
+-	saved_mode = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
+-	tmp = saved_mode & ~(EMAC_MDIO_MODE_AUTO_POLL |
+-			     EMAC_MDIO_MODE_CLOCK_CNT);
+-	tmp |= (EMAC_MDIO_MODE_CLAUSE_45 |
+-		(49 << EMAC_MDIO_MODE_CLOCK_CNT_BITSHIFT));
+-	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, tmp);
+-	REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
+-	udelay(40);
+ 
+ 	/* address */
+-
+-	tmp = ((phy->addr << 21) | (devad << 16) | reg |
++	val = ((phy->addr << 21) | (devad << 16) | reg |
+ 	       EMAC_MDIO_COMM_COMMAND_ADDRESS |
+ 	       EMAC_MDIO_COMM_START_BUSY);
+-	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
++	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
+ 
+ 	for (i = 0; i < 50; i++) {
+ 		udelay(10);
+ 
+-		tmp = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
+-		if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
++		val = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
++		if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
+ 			udelay(5);
+ 			break;
+ 		}
  	}
+-	if (tmp & EMAC_MDIO_COMM_START_BUSY) {
+-		DP(NETIF_MSG_LINK, "write phy register failed\n");
++	if (val & EMAC_MDIO_COMM_START_BUSY) {
++		DP(NETIF_MSG_LINK, "read phy register failed\n");
+ 		netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
++		*ret_val = 0;
+ 		rc = -EFAULT;
+ 	} else {
+ 		/* data */
+-		tmp = ((phy->addr << 21) | (devad << 16) | val |
+-		       EMAC_MDIO_COMM_COMMAND_WRITE_45 |
++		val = ((phy->addr << 21) | (devad << 16) |
++		       EMAC_MDIO_COMM_COMMAND_READ_45 |
+ 		       EMAC_MDIO_COMM_START_BUSY);
+-		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
++		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
+ 
+ 		for (i = 0; i < 50; i++) {
+ 			udelay(10);
+ 
+-			tmp = REG_RD(bp, phy->mdio_ctrl +
++			val = REG_RD(bp, phy->mdio_ctrl +
+ 				     EMAC_REG_EMAC_MDIO_COMM);
+-			if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
+-				udelay(5);
++			if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
++				*ret_val = (u16)(val & EMAC_MDIO_COMM_DATA);
+ 				break;
+ 			}
+ 		}
+-		if (tmp & EMAC_MDIO_COMM_START_BUSY) {
+-			DP(NETIF_MSG_LINK, "write phy register failed\n");
++		if (val & EMAC_MDIO_COMM_START_BUSY) {
++			DP(NETIF_MSG_LINK, "read phy register failed\n");
+ 			netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
++			*ret_val = 0;
+ 			rc = -EFAULT;
+ 		}
+ 	}
+ 
+-	/* Restore the saved mode */
+-	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, saved_mode);
+-
+ 	return rc;
  }
  
--static void bnx2x_init_internal_phy(struct bnx2x_phy *phy,
--				    struct link_params *params,
--				    struct link_vars *vars)
-+static void bnx2x_xgxs_config_init(struct bnx2x_phy *phy,
-+				   struct link_params *params,
-+				   struct link_vars *vars)
+-static int bnx2x_cl45_read(struct bnx2x *bp, struct bnx2x_phy *phy,
+-			   u8 devad, u16 reg, u16 *ret_val)
++static int bnx2x_cl45_write(struct bnx2x *bp, struct bnx2x_phy *phy,
++			    u8 devad, u16 reg, u16 val)
  {
- 	struct bnx2x *bp = params->bp;
- 	u8 enable_cl73 = (SINGLE_MEDIA_DIRECT(params) ||
-@@ -2894,29 +2891,12 @@ static void bnx2x_init_internal_phy(struct bnx2x_phy *phy,
+-	u32 val, saved_mode;
+-	u16 i;
++	u32 tmp;
++	u8 i;
+ 	int rc = 0;
+-	/*
+-	 * Set clause 45 mode, slow down the MDIO clock to 2.5MHz
+-	 * (a value of 49==0x31) and make sure that the AUTO poll is off
+-	 */
+-
+-	saved_mode = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
+-	val = saved_mode & ~((EMAC_MDIO_MODE_AUTO_POLL |
+-			      EMAC_MDIO_MODE_CLOCK_CNT));
+-	val |= (EMAC_MDIO_MODE_CLAUSE_45 |
+-		(49L << EMAC_MDIO_MODE_CLOCK_CNT_BITSHIFT));
+-	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, val);
+-	REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
+-	udelay(40);
+ 
+ 	/* address */
+-	val = ((phy->addr << 21) | (devad << 16) | reg |
++
++	tmp = ((phy->addr << 21) | (devad << 16) | reg |
+ 	       EMAC_MDIO_COMM_COMMAND_ADDRESS |
+ 	       EMAC_MDIO_COMM_START_BUSY);
+-	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
++	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
+ 
+ 	for (i = 0; i < 50; i++) {
+ 		udelay(10);
+ 
+-		val = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
+-		if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
++		tmp = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
++		if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
+ 			udelay(5);
+ 			break;
+ 		}
  	}
- }
+-	if (val & EMAC_MDIO_COMM_START_BUSY) {
+-		DP(NETIF_MSG_LINK, "read phy register failed\n");
++	if (tmp & EMAC_MDIO_COMM_START_BUSY) {
++		DP(NETIF_MSG_LINK, "write phy register failed\n");
+ 		netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
+-		*ret_val = 0;
+ 		rc = -EFAULT;
  
--static int bnx2x_init_serdes(struct bnx2x_phy *phy,
--			     struct link_params *params,
--			     struct link_vars *vars)
--{
--	int rc;
--	vars->phy_flags |= PHY_SGMII_FLAG;
--	bnx2x_calc_ieee_aneg_adv(phy, params, &vars->ieee_fc);
--	bnx2x_set_aer_mmd_serdes(params->bp, phy);
--	rc = bnx2x_reset_unicore(params, phy, 1);
--	/* reset the SerDes and wait for reset bit return low */
--	if (rc != 0)
--		return rc;
--	bnx2x_set_aer_mmd_serdes(params->bp, phy);
--
--	return rc;
--}
--
--static int bnx2x_init_xgxs(struct bnx2x_phy *phy,
--			   struct link_params *params,
--			   struct link_vars *vars)
-+static int bnx2x_prepare_xgxs(struct bnx2x_phy *phy,
-+			  struct link_params *params,
-+			  struct link_vars *vars)
- {
- 	int rc;
--	vars->phy_flags = PHY_XGXS_FLAG;
-+	vars->phy_flags |= PHY_XGXS_FLAG;
- 	if ((phy->req_line_speed &&
- 	     ((phy->req_line_speed == SPEED_100) ||
- 	      (phy->req_line_speed == SPEED_10))) ||
-@@ -2924,26 +2904,28 @@ static int bnx2x_init_xgxs(struct bnx2x_phy *phy,
- 	     (phy->speed_cap_mask >=
- 	      PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_FULL) &&
- 	     (phy->speed_cap_mask <
--	      PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)
--	     ))
-+	      PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)) ||
-+	    (phy->type == PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT_SD))
- 		vars->phy_flags |= PHY_SGMII_FLAG;
- 	else
- 		vars->phy_flags &= ~PHY_SGMII_FLAG;
+ 	} else {
+ 		/* data */
+-		val = ((phy->addr << 21) | (devad << 16) |
+-		       EMAC_MDIO_COMM_COMMAND_READ_45 |
++		tmp = ((phy->addr << 21) | (devad << 16) | val |
++		       EMAC_MDIO_COMM_COMMAND_WRITE_45 |
+ 		       EMAC_MDIO_COMM_START_BUSY);
+-		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
++		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
  
- 	bnx2x_calc_ieee_aneg_adv(phy, params, &vars->ieee_fc);
--	bnx2x_set_aer_mmd_xgxs(params, phy);
--	bnx2x_set_master_ln(params, phy);
-+	bnx2x_set_aer_mmd(params, phy);
-+	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT)
-+		bnx2x_set_master_ln(params, phy);
+ 		for (i = 0; i < 50; i++) {
+ 			udelay(10);
  
- 	rc = bnx2x_reset_unicore(params, phy, 0);
- 	/* reset the SerDes and wait for reset bit return low */
- 	if (rc != 0)
- 		return rc;
+-			val = REG_RD(bp, phy->mdio_ctrl +
++			tmp = REG_RD(bp, phy->mdio_ctrl +
+ 				     EMAC_REG_EMAC_MDIO_COMM);
+-			if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
+-				*ret_val = (u16)(val & EMAC_MDIO_COMM_DATA);
++			if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
++				udelay(5);
+ 				break;
+ 			}
+ 		}
+-		if (val & EMAC_MDIO_COMM_START_BUSY) {
+-			DP(NETIF_MSG_LINK, "read phy register failed\n");
++		if (tmp & EMAC_MDIO_COMM_START_BUSY) {
++			DP(NETIF_MSG_LINK, "write phy register failed\n");
+ 			netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
+-			*ret_val = 0;
+ 			rc = -EFAULT;
+ 		}
+ 	}
  
--	bnx2x_set_aer_mmd_xgxs(params, phy);
--
-+	bnx2x_set_aer_mmd(params, phy);
- 	/* setting the masterLn_def again after the reset */
--	bnx2x_set_master_ln(params, phy);
--	bnx2x_set_swap_lanes(params, phy);
-+	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) {
-+		bnx2x_set_master_ln(params, phy);
-+		bnx2x_set_swap_lanes(params, phy);
-+	}
+-	/* Restore the saved mode */
+-	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, saved_mode);
  
  	return rc;
  }
-@@ -3220,7 +3202,7 @@ static void bnx2x_set_xgxs_loopback(struct bnx2x_phy *phy,
- 				 0x6041);
- 		msleep(200);
- 		/* set aer mmd back */
--		bnx2x_set_aer_mmd_xgxs(params, phy);
-+		bnx2x_set_aer_mmd(params, phy);
+@@ -8425,6 +8417,8 @@ int bnx2x_common_init_phy(struct bnx2x *bp, u32 shmem_base_path[],
+ 	u32 phy_ver;
+ 	u8 phy_index;
+ 	u32 ext_phy_type, ext_phy_config;
++	bnx2x_set_mdio_clk(bp, chip_id, PORT_0);
++	bnx2x_set_mdio_clk(bp, chip_id, PORT_1);
+ 	DP(NETIF_MSG_LINK, "Begin common phy init\n");
  
- 		/* and md_devad */
- 		REG_WR(bp, NIG_REG_XGXS0_CTRL_MD_DEVAD + port*0x18, md_devad);
-@@ -3420,11 +3402,7 @@ static int bnx2x_link_initialize(struct link_params *params,
- 	 * to first.
- 	 */
- 
--	if (params->phy[INT_PHY].config_init)
--		params->phy[INT_PHY].config_init(
--			&params->phy[INT_PHY],
--			params, vars);
--
-+	bnx2x_prepare_xgxs(&params->phy[INT_PHY], params, vars);
- 	/* init ext phy and enable link state int */
- 	non_ext_phy = (SINGLE_MEDIA_DIRECT(params) ||
- 		       (params->loopback_mode == LOOPBACK_XGXS));
-@@ -3435,7 +3413,10 @@ static int bnx2x_link_initialize(struct link_params *params,
- 		struct bnx2x_phy *phy = &params->phy[INT_PHY];
- 		if (vars->line_speed == SPEED_AUTO_NEG)
- 			bnx2x_set_parallel_detection(phy, params);
--		bnx2x_init_internal_phy(phy, params, vars);
-+			if (params->phy[INT_PHY].config_init)
-+				params->phy[INT_PHY].config_init(phy,
-+								 params,
-+								 vars);
- 	}
- 
- 	/* Init external phy*/
-@@ -3827,8 +3808,10 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
- 				vars->phy_flags |= PHY_SGMII_FLAG;
- 			else
- 				vars->phy_flags &= ~PHY_SGMII_FLAG;
--			bnx2x_init_internal_phy(&params->phy[INT_PHY],
--						params,
-+
-+			if (params->phy[INT_PHY].config_init)
-+				params->phy[INT_PHY].config_init(
-+					&params->phy[INT_PHY], params,
- 						vars);
- 		}
- 	}
-@@ -7119,7 +7102,7 @@ static struct bnx2x_phy phy_serdes = {
- 	.speed_cap_mask	= 0,
- 	.req_duplex	= 0,
- 	.rsrv		= 0,
--	.config_init	= (config_init_t)bnx2x_init_serdes,
-+	.config_init	= (config_init_t)bnx2x_xgxs_config_init,
- 	.read_status	= (read_status_t)bnx2x_link_settings_status,
- 	.link_reset	= (link_reset_t)bnx2x_int_link_reset,
- 	.config_loopback = (config_loopback_t)NULL,
-@@ -7155,7 +7138,7 @@ static struct bnx2x_phy phy_xgxs = {
- 	.speed_cap_mask	= 0,
- 	.req_duplex	= 0,
- 	.rsrv		= 0,
--	.config_init	= (config_init_t)bnx2x_init_xgxs,
-+	.config_init	= (config_init_t)bnx2x_xgxs_config_init,
- 	.read_status	= (read_status_t)bnx2x_link_settings_status,
- 	.link_reset	= (link_reset_t)bnx2x_int_link_reset,
- 	.config_loopback = (config_loopback_t)bnx2x_set_xgxs_loopback,
+ 	/* Check if common init was already done */
 -- 
 1.7.1
 
