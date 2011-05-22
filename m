@@ -1,50 +1,45 @@
-From: emmanuel.grumbach@intel.com
-Subject: [PATCH] net: skb_trim explicitely check the linearity instead of data_len
-Date: Sun, 22 May 2011 08:46:09 +0300
-Message-ID: <1306043169-26659-1-git-send-email-emmanuel.grumbach@intel.com>
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path
+ similar to hw-accel
+Date: Sun, 22 May 2011 08:29:16 +0200
+Message-ID: <20110522062915.GA2611@jirka.orion>
+References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
+ <20110412.141645.112604563.davem@davemloft.net>
+ <BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>
+ <20110521072925.GA2588@jirka.orion>
+ <BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>
+ <4DD7BB61.9050200@gmail.com>
+ <BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>
+ <4DD87C25.4030701@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Gross <jesse@nicira.com>, Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, ebiederm@xmission.com
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5037 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52262 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751252Ab1EVFqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 May 2011 01:46:13 -0400
+	id S1751380Ab1EVG3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 May 2011 02:29:38 -0400
+Content-Disposition: inline
+In-Reply-To: <4DD87C25.4030701@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+Sun, May 22, 2011 at 04:59:49AM CEST, nicolas.2p.debian@gmail.com wrote:
 
-The purpose of the check on data_len is to check linearity, so use the inline
-helper for this. No overhead and more explicit.
+<snip>
+>
+>And because some setups may still require the skb not to be untagged,
+>may be we need the ability to re-tag the skb in some situations...
+>When a protocol handler or rx_handler is explicitly registered on a
+>net_device which expect to receive tagged skb, we should deliver
+>tagged skb to it... Arguably, this may sound incredible for the
+>general case, but may be required for not-so-special cases like
+>bridge or protocol analyzer.
 
-Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
----
- include/linux/skbuff.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index bf221d6..a4f680c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1439,7 +1439,7 @@ extern int ___pskb_trim(struct sk_buff *skb, unsigned int len);
- 
- static inline void __skb_trim(struct sk_buff *skb, unsigned int len)
- {
--	if (unlikely(skb->data_len)) {
-+	if (unlikely(skb_is_nonlinear(skb))) {
- 		WARN_ON(1);
- 		return;
- 	}
--- 
-1.7.1
-
----------------------------------------------------------------------
-Intel Israel (74) Limited
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
-
+Wait, what setups/code require the skb not to be untagged? If there's
+such, it should be fixed.
