@@ -1,67 +1,46 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Sun, 22 May 2011 12:30:56 +0200
-Message-ID: <201105221230.56243.arnd@arndb.de>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
-	<4DCB88A4.2010901@grandegger.com> <4DCBF1B6.6000104@hartkopp.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path
+ similar to hw-accel
+Date: Sun, 22 May 2011 18:40:13 +0800
+Message-ID: <BANLkTi=GpfFbV_WnrJcD8XCAtMyfiZwehg@mail.gmail.com>
+References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
+ <20110412.141645.112604563.davem@davemloft.net> <BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>
+ <20110521072925.GA2588@jirka.orion> <BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>
+ <4DD7BB61.9050200@gmail.com> <BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>
+ <4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>
+ <BANLkTinEnHLx1CVh8p0ejLkcaqoLHw2nOA@mail.gmail.com> <20110522093758.GC2611@jirka.orion>
+ <BANLkTin6u7VptTm3se_bLdEeTOz2OVc_Rw@mail.gmail.com> <m1wrhjni9p.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4DCBF1B6.6000104-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	=?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>, Jesse Gross <jesse@nicira.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:36822 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752996Ab1EVKke convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 06:40:34 -0400
+Received: by bwz15 with SMTP id 15so3999146bwz.19
+        for <netdev@vger.kernel.org>; Sun, 22 May 2011 03:40:33 -0700 (PDT)
+In-Reply-To: <m1wrhjni9p.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 12 May 2011 16:41:58 Oliver Hartkopp wrote:
-> E.g. assume you need the CAN-IDs 0x100, 0x200 and 0x300 in your application
-> and for that reason you configure these IDs in the pruss CAN driver.
-> 
-> What if someone generates a 100% CAN busload exactly on CAN-ID 0x100 then?
-> 
-> Worst case (1MBit/s, DLC=0) you would need to handle about 21.000 irqs/s for
-> the correctly received CAN frames with the filtered CAN-ID 0x100 ...
+On Sun, May 22, 2011 at 6:26 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>
+> There is software emulation in dev_hard_start_xmit for the nics
+> that don't support the feature. =A0So we will properly add tags.
+>
 
-Then I guess the main thing that a "smart" CAN implementation like pruss
-should do is interrupt mitigation. When you have a constant flow of
-packets coming in, the hardware should be able to DMA a lot of
-them into kernel memory before the driver is required to pick them up,
-and only get into interrupt driven mode when the kernel has managed
-to process all outstanding packets.
+Thanks. I got it. :)
 
-> This all depends heavily on Linux networking (skb handling, caching, etc) and
-> is pretty fast and optimized!! That was also the reason why it ran on the old
-> PowerPC that smoothly. The mostly seen effect if anything drops is when the
-> application (holding the socket) was not fast enough to handle the incoming
-> data. NB: For that reason we implemented a CAN content filter (CAN_BCM) that
-> is able to do content filtering and timeout monitoring in Kernelspace - all
-> performed in the SoftIRQ.
 
-Right, dropping packets that no process is waiting for should be done as
-early as possible. In pruss-can, the idea was to do it in hardware, which
-doesn't really work all that well for the reasons discussed before.
-Dropping the frames in the NAPI poll function (softirq time) seems like a
-logical choice.
-
-> Having 'Mailboxes' bound to CAN-IDs is something that's useful for 8/16 bit
-> CPUs where an application is tightly bound to the embedded ECUs functionality.
-
-Makes sense.
-
-	Arnd
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
