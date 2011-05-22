@@ -1,8 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 08/11] bnx2x: Adjust BCM8726 module detection
- settings
-Date: Sun, 22 May 2011 14:32:35 +0300
-Message-ID: <1306063955.20872.90.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 10/11] bnx2x: Modify XGXS functions
+Date: Sun, 22 May 2011 14:32:44 +0300
+Message-ID: <1306063964.20872.92.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -10,217 +9,224 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1747 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1752 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754206Ab1EVLcq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754563Ab1EVLcq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 22 May 2011 07:32:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move BCM8726 module detection code into a separate function to be called only once during initialization.
+Modify XGXS functions to follow rest of PHY scheme.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_hsi.h  |    5 ++-
- drivers/net/bnx2x/bnx2x_link.c |  100 ++++++++++++++++++++++++++++-----------
- drivers/net/bnx2x/bnx2x_link.h |    4 ++
- drivers/net/bnx2x/bnx2x_main.c |    4 ++
- drivers/net/bnx2x/bnx2x_reg.h  |    1 +
- 5 files changed, 85 insertions(+), 29 deletions(-)
+ drivers/net/bnx2x/bnx2x_hsi.h  |    1 +
+ drivers/net/bnx2x/bnx2x_link.c |   89 ++++++++++++++++------------------------
+ 2 files changed, 37 insertions(+), 53 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
-index 5bfdbcc..c308a48 100644
+index c308a48..b8b4b2f 100644
 --- a/drivers/net/bnx2x/bnx2x_hsi.h
 +++ b/drivers/net/bnx2x/bnx2x_hsi.h
-@@ -263,7 +263,10 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
- #define PORT_HW_CFG_FAULT_MODULE_LED_GPIO2		      0x00000200
- #define PORT_HW_CFG_FAULT_MODULE_LED_GPIO3		      0x00000300
- #define PORT_HW_CFG_FAULT_MODULE_LED_DISABLED		      0x00000400
--	u32 Reserved01[11];				    /* 0x158 */
-+
-+	u32 Reserved01[10];				    /* 0x158 */
-+
-+	u32 aeu_int_mask;					/* 0x190 */
+@@ -467,6 +467,7 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
+ #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_SHIFT	    24
+ #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT	    0x00000000
+ #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_BCM5482     0x01000000
++#define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT_SD   0x02000000
+ #define PORT_HW_CFG_SERDES_EXT_PHY_TYPE_NOT_CONN    0xff000000
  
- 	u32 media_type;					/* 0x194 */
- #define PORT_HW_CFG_MEDIA_TYPE_PHY0_MASK		      0x000000FF
+ #define PORT_HW_CFG_SERDES_EXT_PHY_ADDR_MASK	    0x00ff0000
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index 81bcd61..e44c19d 100644
+index 1816b2d..43e3663 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -1915,8 +1915,15 @@ void bnx2x_link_status_update(struct link_params *params,
- 		PORT_HW_CFG_MEDIA_TYPE_PHY2_SHIFT;
- 	DP(NETIF_MSG_LINK, "media_types = 0x%x\n", media_types);
- 
--	DP(NETIF_MSG_LINK, "link_status 0x%x  phy_link_up %x\n",
--		 vars->link_status, vars->phy_link_up);
-+	/* Sync AEU offset */
-+	sync_offset = params->shmem_base +
-+			offsetof(struct shmem_region,
-+				 dev_info.port_hw_config[port].aeu_int_mask);
-+
-+	vars->aeu_int_mask = REG_RD(bp, sync_offset);
-+
-+	DP(NETIF_MSG_LINK, "link_status 0x%x  phy_link_up %x int_mask 0x%x\n",
-+		 vars->link_status, vars->phy_link_up, vars->aeu_int_mask);
- 	DP(NETIF_MSG_LINK, "line_speed %x  duplex %x  flow_ctrl 0x%x\n",
- 		 vars->line_speed, vars->duplex, vars->flow_ctrl);
+@@ -1530,8 +1530,8 @@ int bnx2x_phy_write(struct link_params *params, u8 phy_addr,
+ 	return -EINVAL;
  }
-@@ -5522,8 +5529,6 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
- 				  struct link_vars *vars)
+ 
+-static void bnx2x_set_aer_mmd_xgxs(struct link_params *params,
+-				   struct bnx2x_phy *phy)
++static void bnx2x_set_aer_mmd(struct link_params *params,
++			      struct bnx2x_phy *phy)
+ {
+ 	u32 ser_lane;
+ 	u16 offset, aer_val;
+@@ -1540,20 +1540,17 @@ static void bnx2x_set_aer_mmd_xgxs(struct link_params *params,
+ 		     PORT_HW_CFG_LANE_SWAP_CFG_MASTER_MASK) >>
+ 		     PORT_HW_CFG_LANE_SWAP_CFG_MASTER_SHIFT);
+ 
+-	offset = phy->addr + ser_lane;
++	offset = (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) ?
++		(phy->addr + ser_lane) : 0;
++
+ 	if (CHIP_IS_E2(bp))
+ 		aer_val = 0x3800 + offset - 1;
+ 	else
+ 		aer_val = 0x3800 + offset;
++	DP(NETIF_MSG_LINK, "Set AER to 0x%x\n", aer_val);
+ 	CL22_WR_OVER_CL45(bp, phy, MDIO_REG_BANK_AER_BLOCK,
+ 			  MDIO_AER_BLOCK_AER_REG, aer_val);
+-}
+-static void bnx2x_set_aer_mmd_serdes(struct bnx2x *bp,
+-				     struct bnx2x_phy *phy)
+-{
+-	CL22_WR_OVER_CL45(bp, phy,
+-			  MDIO_REG_BANK_AER_BLOCK,
+-			  MDIO_AER_BLOCK_AER_REG, 0x3800);
++
+ }
+ 
+ /******************************************************************/
+@@ -2845,9 +2842,9 @@ static void bnx2x_set_preemphasis(struct bnx2x_phy *phy,
+ 	}
+ }
+ 
+-static void bnx2x_init_internal_phy(struct bnx2x_phy *phy,
+-				    struct link_params *params,
+-				    struct link_vars *vars)
++static void bnx2x_xgxs_config_init(struct bnx2x_phy *phy,
++				   struct link_params *params,
++				   struct link_vars *vars)
  {
  	struct bnx2x *bp = params->bp;
--	u32 val;
--	u32 swap_val, swap_override, aeu_gpio_mask, offset;
- 	DP(NETIF_MSG_LINK, "Initializing BCM8726\n");
+ 	u8 enable_cl73 = (SINGLE_MEDIA_DIRECT(params) ||
+@@ -2894,29 +2891,12 @@ static void bnx2x_init_internal_phy(struct bnx2x_phy *phy,
+ 	}
+ }
  
- 	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, MDIO_PMA_REG_CTRL, 1<<15);
-@@ -5602,30 +5607,6 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
- 				 phy->tx_preemphasis[1]);
+-static int bnx2x_init_serdes(struct bnx2x_phy *phy,
+-			     struct link_params *params,
+-			     struct link_vars *vars)
+-{
+-	int rc;
+-	vars->phy_flags |= PHY_SGMII_FLAG;
+-	bnx2x_calc_ieee_aneg_adv(phy, params, &vars->ieee_fc);
+-	bnx2x_set_aer_mmd_serdes(params->bp, phy);
+-	rc = bnx2x_reset_unicore(params, phy, 1);
+-	/* reset the SerDes and wait for reset bit return low */
+-	if (rc != 0)
+-		return rc;
+-	bnx2x_set_aer_mmd_serdes(params->bp, phy);
+-
+-	return rc;
+-}
+-
+-static int bnx2x_init_xgxs(struct bnx2x_phy *phy,
+-			   struct link_params *params,
+-			   struct link_vars *vars)
++static int bnx2x_prepare_xgxs(struct bnx2x_phy *phy,
++			  struct link_params *params,
++			  struct link_vars *vars)
+ {
+ 	int rc;
+-	vars->phy_flags = PHY_XGXS_FLAG;
++	vars->phy_flags |= PHY_XGXS_FLAG;
+ 	if ((phy->req_line_speed &&
+ 	     ((phy->req_line_speed == SPEED_100) ||
+ 	      (phy->req_line_speed == SPEED_10))) ||
+@@ -2924,26 +2904,28 @@ static int bnx2x_init_xgxs(struct bnx2x_phy *phy,
+ 	     (phy->speed_cap_mask >=
+ 	      PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_FULL) &&
+ 	     (phy->speed_cap_mask <
+-	      PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)
+-	     ))
++	      PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)) ||
++	    (phy->type == PORT_HW_CFG_SERDES_EXT_PHY_TYPE_DIRECT_SD))
+ 		vars->phy_flags |= PHY_SGMII_FLAG;
+ 	else
+ 		vars->phy_flags &= ~PHY_SGMII_FLAG;
+ 
+ 	bnx2x_calc_ieee_aneg_adv(phy, params, &vars->ieee_fc);
+-	bnx2x_set_aer_mmd_xgxs(params, phy);
+-	bnx2x_set_master_ln(params, phy);
++	bnx2x_set_aer_mmd(params, phy);
++	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT)
++		bnx2x_set_master_ln(params, phy);
+ 
+ 	rc = bnx2x_reset_unicore(params, phy, 0);
+ 	/* reset the SerDes and wait for reset bit return low */
+ 	if (rc != 0)
+ 		return rc;
+ 
+-	bnx2x_set_aer_mmd_xgxs(params, phy);
+-
++	bnx2x_set_aer_mmd(params, phy);
+ 	/* setting the masterLn_def again after the reset */
+-	bnx2x_set_master_ln(params, phy);
+-	bnx2x_set_swap_lanes(params, phy);
++	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT) {
++		bnx2x_set_master_ln(params, phy);
++		bnx2x_set_swap_lanes(params, phy);
++	}
+ 
+ 	return rc;
+ }
+@@ -3220,7 +3202,7 @@ static void bnx2x_set_xgxs_loopback(struct bnx2x_phy *phy,
+ 				 0x6041);
+ 		msleep(200);
+ 		/* set aer mmd back */
+-		bnx2x_set_aer_mmd_xgxs(params, phy);
++		bnx2x_set_aer_mmd(params, phy);
+ 
+ 		/* and md_devad */
+ 		REG_WR(bp, NIG_REG_XGXS0_CTRL_MD_DEVAD + port*0x18, md_devad);
+@@ -3420,11 +3402,7 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 	 * to first.
+ 	 */
+ 
+-	if (params->phy[INT_PHY].config_init)
+-		params->phy[INT_PHY].config_init(
+-			&params->phy[INT_PHY],
+-			params, vars);
+-
++	bnx2x_prepare_xgxs(&params->phy[INT_PHY], params, vars);
+ 	/* init ext phy and enable link state int */
+ 	non_ext_phy = (SINGLE_MEDIA_DIRECT(params) ||
+ 		       (params->loopback_mode == LOOPBACK_XGXS));
+@@ -3435,7 +3413,10 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 		struct bnx2x_phy *phy = &params->phy[INT_PHY];
+ 		if (vars->line_speed == SPEED_AUTO_NEG)
+ 			bnx2x_set_parallel_detection(phy, params);
+-		bnx2x_init_internal_phy(phy, params, vars);
++			if (params->phy[INT_PHY].config_init)
++				params->phy[INT_PHY].config_init(phy,
++								 params,
++								 vars);
  	}
  
--	/* Set GPIO3 to trigger SFP+ module insertion/removal */
--	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_3,
--		       MISC_REGISTERS_GPIO_INPUT_HI_Z, params->port);
--
--	/* The GPIO should be swapped if the swap register is set and active */
--	swap_val = REG_RD(bp, NIG_REG_PORT_SWAP);
--	swap_override = REG_RD(bp, NIG_REG_STRAP_OVERRIDE);
--
--	/* Select function upon port-swap configuration */
--	if (params->port == 0) {
--		offset = MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0;
--		aeu_gpio_mask = (swap_val && swap_override) ?
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1 :
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0;
--	} else {
--		offset = MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0;
--		aeu_gpio_mask = (swap_val && swap_override) ?
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0 :
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1;
--	}
--	val = REG_RD(bp, offset);
--	/* add GPIO3 to group */
--	val |= aeu_gpio_mask;
--	REG_WR(bp, offset, val);
- 	return 0;
- 
- }
-@@ -8521,3 +8502,66 @@ void bnx2x_hw_reset_phy(struct link_params *params)
+ 	/* Init external phy*/
+@@ -3827,8 +3808,10 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+ 				vars->phy_flags |= PHY_SGMII_FLAG;
+ 			else
+ 				vars->phy_flags &= ~PHY_SGMII_FLAG;
+-			bnx2x_init_internal_phy(&params->phy[INT_PHY],
+-						params,
++
++			if (params->phy[INT_PHY].config_init)
++				params->phy[INT_PHY].config_init(
++					&params->phy[INT_PHY], params,
+ 						vars);
  		}
  	}
- }
-+
-+void bnx2x_init_mod_abs_int(struct bnx2x *bp, struct link_vars *vars,
-+			    u32 chip_id, u32 shmem_base, u32 shmem2_base,
-+			    u8 port)
-+{
-+	u8 gpio_num = 0xff, gpio_port = 0xff, phy_index;
-+	u32 val;
-+	u32 offset, aeu_mask, swap_val, swap_override, sync_offset;
-+
-+	{
-+		struct bnx2x_phy phy;
-+		for (phy_index = EXT_PHY1; phy_index < MAX_PHYS;
-+		      phy_index++) {
-+			if (bnx2x_populate_phy(bp, phy_index, shmem_base,
-+					       shmem2_base, port, &phy)
-+			    != 0) {
-+				DP(NETIF_MSG_LINK, "populate phy failed\n");
-+				return;
-+			}
-+			if (phy.type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726) {
-+				gpio_num = MISC_REGISTERS_GPIO_3;
-+				gpio_port = port;
-+				break;
-+			}
-+		}
-+	}
-+
-+	if (gpio_num == 0xff)
-+		return;
-+
-+	/* Set GPIO3 to trigger SFP+ module insertion/removal */
-+	bnx2x_set_gpio(bp, gpio_num, MISC_REGISTERS_GPIO_INPUT_HI_Z, gpio_port);
-+
-+	swap_val = REG_RD(bp, NIG_REG_PORT_SWAP);
-+	swap_override = REG_RD(bp, NIG_REG_STRAP_OVERRIDE);
-+	gpio_port ^= (swap_val && swap_override);
-+
-+	vars->aeu_int_mask = AEU_INPUTS_ATTN_BITS_GPIO0_FUNCTION_0 <<
-+		(gpio_num + (gpio_port << 2));
-+
-+	sync_offset = shmem_base +
-+		offsetof(struct shmem_region,
-+			 dev_info.port_hw_config[port].aeu_int_mask);
-+	REG_WR(bp, sync_offset, vars->aeu_int_mask);
-+
-+	DP(NETIF_MSG_LINK, "Setting MOD_ABS (GPIO%d_P%d) AEU to 0x%x\n",
-+		       gpio_num, gpio_port, vars->aeu_int_mask);
-+
-+	if (port == 0)
-+		offset = MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0;
-+	else
-+		offset = MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0;
-+
-+	/* Open appropriate AEU for interrupts */
-+	aeu_mask = REG_RD(bp, offset);
-+	aeu_mask |= vars->aeu_int_mask;
-+	REG_WR(bp, offset, aeu_mask);
-+
-+	/* Enable the GPIO to trigger interrupt */
-+	val = REG_RD(bp, MISC_REG_GPIO_EVENT_EN);
-+	val |= 1 << (gpio_num + (gpio_port << 2));
-+	REG_WR(bp, MISC_REG_GPIO_EVENT_EN, val);
-+}
-diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/bnx2x/bnx2x_link.h
-index 906b511..a106d8c 100644
---- a/drivers/net/bnx2x/bnx2x_link.h
-+++ b/drivers/net/bnx2x/bnx2x_link.h
-@@ -277,6 +277,7 @@ struct link_vars {
- 	u8 fault_detected;
- 	u8 rsrv1;
- 	u16 rsrv2;
-+	u32 aeu_int_mask;
- };
- 
- /***********************************************************/
-@@ -401,4 +402,7 @@ int bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos);
- void bnx2x_pfc_statistic(struct link_params *params, struct link_vars *vars,
- 						 u32 pfc_frames_sent[2],
- 						 u32 pfc_frames_received[2]);
-+void bnx2x_init_mod_abs_int(struct bnx2x *bp, struct link_vars *vars,
-+			    u32 chip_id, u32 shmem_base, u32 shmem2_base,
-+			    u8 port);
- #endif /* BNX2X_LINK_H */
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 08e9549..ee36001 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -4450,6 +4450,10 @@ void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
- 
- #endif
- 
-+	/* Initialize MOD_ABS interrupts */
-+	bnx2x_init_mod_abs_int(bp, &bp->link_vars, bp->common.chip_id,
-+			       bp->common.shmem_base, bp->common.shmem2_base,
-+			       BP_PORT(bp));
- 	/* ensure status block indices were read */
- 	rmb();
- 
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 11d3525..949e8bd 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -5184,6 +5184,7 @@
- #define AEU_INPUTS_ATTN_BITS_DMAE_HW_INTERRUPT		      (1<<11)
- #define AEU_INPUTS_ATTN_BITS_DOORBELLQ_HW_INTERRUPT	      (1<<13)
- #define AEU_INPUTS_ATTN_BITS_DOORBELLQ_PARITY_ERROR	      (1<<12)
-+#define AEU_INPUTS_ATTN_BITS_GPIO0_FUNCTION_0		      (1<<2)
- #define AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0		      (1<<5)
- #define AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1		      (1<<9)
- #define AEU_INPUTS_ATTN_BITS_IGU_PARITY_ERROR		      (1<<12)
+@@ -7119,7 +7102,7 @@ static struct bnx2x_phy phy_serdes = {
+ 	.speed_cap_mask	= 0,
+ 	.req_duplex	= 0,
+ 	.rsrv		= 0,
+-	.config_init	= (config_init_t)bnx2x_init_serdes,
++	.config_init	= (config_init_t)bnx2x_xgxs_config_init,
+ 	.read_status	= (read_status_t)bnx2x_link_settings_status,
+ 	.link_reset	= (link_reset_t)bnx2x_int_link_reset,
+ 	.config_loopback = (config_loopback_t)NULL,
+@@ -7155,7 +7138,7 @@ static struct bnx2x_phy phy_xgxs = {
+ 	.speed_cap_mask	= 0,
+ 	.req_duplex	= 0,
+ 	.rsrv		= 0,
+-	.config_init	= (config_init_t)bnx2x_init_xgxs,
++	.config_init	= (config_init_t)bnx2x_xgxs_config_init,
+ 	.read_status	= (read_status_t)bnx2x_link_settings_status,
+ 	.link_reset	= (link_reset_t)bnx2x_int_link_reset,
+ 	.config_loopback = (config_loopback_t)bnx2x_set_xgxs_loopback,
 -- 
 1.7.1
 
