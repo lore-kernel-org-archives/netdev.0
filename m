@@ -1,45 +1,53 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Block based abstraction in af_packet->Rx::mmap
-Date: Sun, 22 May 2011 13:46:40 -0400
-Message-ID: <BANLkTi=wJ_4kabJjvgbJRAsPnbYEaA-tCw@mail.gmail.com>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: Re: [PATCH] net: ipv4: add IPPROTO_ICMP socket kind
+Date: Sun, 22 May 2011 21:46:32 +0400
+Message-ID: <20110522174632.GA4388@albatros>
+References: <BANLkTinh0cmb0hzpVdm5XemT5NeULeAoHQ@mail.gmail.com>
+ <20110522174412.2F0C.0@paddy.troja.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, loke.chetan@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
+	Solar Designer <solar@openwall.com>
+To: Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f173.google.com ([209.85.212.173]:49536 "EHLO
-	mail-px0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753036Ab1EVRql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 13:46:41 -0400
-Received: by pxi16 with SMTP id 16so3456122pxi.4
-        for <netdev@vger.kernel.org>; Sun, 22 May 2011 10:46:40 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:56399 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756Ab1EVRqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 13:46:40 -0400
+Received: by bwz15 with SMTP id 15so4165400bwz.19
+        for <netdev@vger.kernel.org>; Sun, 22 May 2011 10:46:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110522174412.2F0C.0@paddy.troja.mff.cuni.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Sun, May 22, 2011 at 18:01 +0200, Pavel Kankovsky wrote:
+> On Thu, 14 Apr 2011, Alexey Dobriyan wrote:
+> 
+> > Also, there was big discussion re exposing kernel socket pointers,
+> > which this file continue to do.
+> 
+> One late comment:
+> 
+> The code was intented to immitate /proc/net/udp.
+> 
+> As far as I can tell UDP and TCP (having checked udp.c and tcp_ipv[46].c
+> in the latest net-next-2.6) do not have any qualms about exposing kernel
+> pointers so we are a little bit holier than the pope here. :)
 
-With the current af_packet->rx::mmap based approach, the element size
-in the block needs to be statically configured.
-Nothing wrong with the current config/implementation. But since the
-traffic profile cannot be known in advance, it would be nice if that
-configuration
-wasn't static. Normally, one would configure the element-size
-to be '2048' so that you can atleast capture the entire 'MTU-size'.
-But if the traffic profile varies then we would end up either
-i)wasting memory or ii) end up getting a sliced frame.
+Anyway, ping uses %pK:
 
-In other words the packet density will be much much less in the first case.
+   seq_printf(f, "%5d: %08X:%04X %08X:%04X"
+           " %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK d%n",
+           bucket, src, srcp, dest, destp, sp->sk_state,
+           sk_wmem_alloc_get(sp),
+           sk_rmem_alloc_get(sp),
+           0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+           atomic_read(&sp->sk_refcnt), sp,
+           atomic_read(&sp->sk_drops), len);
 
-Also, today we have to spin-wait/poll if a single packet is ready for
-consumption(is status == TP_STATUS_USER?).
-This does not scale. Rather, poll-waiting on a single block will
-definitely help.
+Thanks,
 
-Q1)Is anyone working on enhancing the current mmap implementation?
-Q2)Do patches exist for such non-static implementation already?
-
-
-PS: Please CC me on the replies as I am not subscribed on the mailing list.
-
-
-Regards
-Chetan
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
