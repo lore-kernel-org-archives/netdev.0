@@ -1,64 +1,142 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Sun, 22 May 2011 14:04:04 -0700
-Message-ID: <4DD97A44.2020708@candelatech.com>
-References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>	<20110412.141645.112604563.davem@davemloft.net>	<BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>	<20110521072925.GA2588@jirka.orion>	<BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>	<4DD7BB61.9050200@gmail.com>	<BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>	<4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>	<m17h9jp7js.fsf@fess.ebiederm.org>	<BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com> <m1ei3qjzix.fsf_-_@fess.ebiederm.org>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH 1/5] caif: Bugfix add check NULL pointer before calling functions.
+Date: Sun, 22 May 2011 23:18:50 +0200
+Message-ID: <1306099134-12989-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jpirko@redhat.com>,
-	=?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, Jesse Gross <jesse@nicira.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44172 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754912Ab1EVVEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 17:04:36 -0400
-In-Reply-To: <m1ei3qjzix.fsf_-_@fess.ebiederm.org>
+Received: from sf1.isp.kq.no ([213.172.193.37]:47120 "EHLO pmx.vmail.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754586Ab1EVVTH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 May 2011 17:19:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2011 12:39 PM, Eric W. Biederman wrote:
->
-> Simplify the vlan handling code by not supporing clearing of
-> VLAN_FLAG_REORDER_HDR.  Which means we always make the vlan handling
-> code strip the vlan header from the packets, and always insert the vlan
-> header when transmitting packets.
->
-> Not stripping the vlan header has alwasy been broken in combination with
-> vlan hardware accelleration.  Now that we are making everything look
-> like accelerated vlan handling not stripping the vlan header is always
-> broken.
->
-> I don't think anyone actually cares so simply stop supporting the broken
-> case.
+Add check on layer->dn !=3D NULL before calling functions in
+layer below.
 
-I've lost track of the VLAN code a bit.  Is there any documentation
-somewhere about what happens in these various cases:
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+ net/caif/cfctrl.c |   35 ++++++++++++++++++++++++++---------
+ 1 files changed, 26 insertions(+), 9 deletions(-)
 
-*  Open a raw packet socket on eth0.
-   *  Do we get tagged VLAN packets?  (I'd expect yes.)
-   *  If we sent a tagged VLAN packet, it's sent without modification?  (I'd expect yes.)
-   **  Without "yes" to the two above, one cannot do user-space bridging properly.
+diff --git a/net/caif/cfctrl.c b/net/caif/cfctrl.c
+index 0c00a60..f8ac313 100644
+--- a/net/caif/cfctrl.c
++++ b/net/caif/cfctrl.c
+@@ -178,20 +178,23 @@ static void init_info(struct caif_payload_info *i=
+nfo, struct cfctrl *cfctrl)
+ void cfctrl_enum_req(struct cflayer *layer, u8 physlinkid)
+ {
+ 	struct cfctrl *cfctrl =3D container_obj(layer);
+-	int ret;
+ 	struct cfpkt *pkt =3D cfpkt_create(CFPKT_CTRL_PKT_LEN);
++	struct cflayer *dn =3D cfctrl->serv.layer.dn;
+ 	if (!pkt) {
+ 		pr_warn("Out of memory\n");
+ 		return;
+ 	}
++	if (!dn) {
++		pr_debug("not able to send enum request\n");
++		return;
++	}
+ 	caif_assert(offsetof(struct cfctrl, serv.layer) =3D=3D 0);
+ 	init_info(cfpkt_info(pkt), cfctrl);
+ 	cfpkt_info(pkt)->dev_info->id =3D physlinkid;
+ 	cfctrl->serv.dev_info.id =3D physlinkid;
+ 	cfpkt_addbdy(pkt, CFCTRL_CMD_ENUM);
+ 	cfpkt_addbdy(pkt, physlinkid);
+-	ret =3D
+-	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
++	dn->transmit(dn, pkt);
+ }
+=20
+ int cfctrl_linkup_request(struct cflayer *layer,
+@@ -206,6 +209,12 @@ int cfctrl_linkup_request(struct cflayer *layer,
+ 	int ret;
+ 	char utility_name[16];
+ 	struct cfpkt *pkt;
++	struct cflayer *dn =3D cfctrl->serv.layer.dn;
++
++	if (!dn) {
++		pr_debug("not able to send linkup request\n");
++		return -ENODEV;
++	}
+=20
+ 	if (cfctrl_cancel_req(layer, user_layer) > 0) {
+ 		/* Slight Paranoia, check if already connecting */
+@@ -282,7 +291,7 @@ int cfctrl_linkup_request(struct cflayer *layer,
+ 	 */
+ 	cfpkt_info(pkt)->dev_info->id =3D param->phyid;
+ 	ret =3D
+-	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
++	    dn->transmit(dn, pkt);
+ 	if (ret < 0) {
+ 		int count;
+=20
+@@ -301,15 +310,23 @@ int cfctrl_linkdown_req(struct cflayer *layer, u8=
+ channelid,
+ 	int ret;
+ 	struct cfctrl *cfctrl =3D container_obj(layer);
+ 	struct cfpkt *pkt =3D cfpkt_create(CFPKT_CTRL_PKT_LEN);
++	struct cflayer *dn =3D cfctrl->serv.layer.dn;
++
+ 	if (!pkt) {
+ 		pr_warn("Out of memory\n");
+ 		return -ENOMEM;
+ 	}
++
++	if (!dn) {
++		pr_debug("not able to send link-down request\n");
++		return -ENODEV;
++	}
++
+ 	cfpkt_addbdy(pkt, CFCTRL_CMD_LINK_DESTROY);
+ 	cfpkt_addbdy(pkt, channelid);
+ 	init_info(cfpkt_info(pkt), cfctrl);
+ 	ret =3D
+-	    cfctrl->serv.layer.dn->transmit(cfctrl->serv.layer.dn, pkt);
++	    dn->transmit(dn, pkt);
+ #ifndef CAIF_NO_LOOP
+ 	cfctrl->loop_linkused[channelid] =3D 0;
+ #endif
+@@ -477,7 +494,7 @@ static int cfctrl_recv(struct cflayer *layer, struc=
+t cfpkt *pkt)
+ 				cfpkt_extr_head(pkt, &param, len);
+ 				break;
+ 			default:
+-				pr_warn("Request setup - invalid link type (%d)\n",
++				pr_warn("Request setup, invalid type (%d)\n",
+ 					serv);
+ 				goto error;
+ 			}
+@@ -489,7 +506,8 @@ static int cfctrl_recv(struct cflayer *layer, struc=
+t cfpkt *pkt)
+=20
+ 			if (CFCTRL_ERR_BIT =3D=3D (CFCTRL_ERR_BIT & cmdrsp) ||
+ 				cfpkt_erroneous(pkt)) {
+-				pr_err("Invalid O/E bit or parse error on CAIF control channel\n")=
+;
++				pr_err("Invalid O/E bit or parse error "
++						"on CAIF control channel\n");
+ 				cfctrl->res.reject_rsp(cfctrl->serv.layer.up,
+ 						       0,
+ 						       req ? req->client_layer
+@@ -550,9 +568,8 @@ static void cfctrl_ctrlcmd(struct cflayer *layr, en=
+um caif_ctrlcmd ctrl,
+ 	case _CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND:
+ 	case CAIF_CTRLCMD_FLOW_OFF_IND:
+ 		spin_lock_bh(&this->info_list_lock);
+-		if (!list_empty(&this->list)) {
++		if (!list_empty(&this->list))
+ 			pr_debug("Received flow off in control layer\n");
+-		}
+ 		spin_unlock_bh(&this->info_list_lock);
+ 		break;
+ 	case _CAIF_CTRLCMD_PHYIF_DOWN_IND: {
+--=20
+1.7.0.4
 
-*  Open a raw packet socket on VLAN eth0.5
-   *  Do we get tagged VLAN packets?  (I'd expect no.)
-   *  If we send an un-tagged packet, I expect it would be tagged?
-   *  What if we sent a tagged packet with same VID?
-   *  With different VID?
-
-Many years ago we supported the REORDER, but we suggested disabling
-it for most users because it was a performance drag.  Funny that now
-it seems to be the opposite!
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
