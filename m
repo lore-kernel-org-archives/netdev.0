@@ -1,61 +1,94 @@
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Subject: Re: [stable] PA-RISC: compile error in include/net/dst.h
-Date: Mon, 23 May 2011 00:29:26 +0200
-Message-ID: <2254093.9oQvKLogfV@donald.sf-tec.de>
-References: <2612811.b2htuyZy9x@donald.sf-tec.de> <20110522143222.GB14556@kroah.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
+Date: Sun, 22 May 2011 15:38:36 -0700
+Message-ID: <m1wrhigy37.fsf@fess.ebiederm.org>
+References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
+	<20110412.141645.112604563.davem@davemloft.net>
+	<BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>
+	<20110521072925.GA2588@jirka.orion>
+	<BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>
+	<4DD7BB61.9050200@gmail.com>
+	<BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>
+	<4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>
+	<m17h9jp7js.fsf@fess.ebiederm.org>
+	<BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com>
+	<m1ei3qjzix.fsf_-_@fess.ebiederm.org>
+	<4DD97A44.2020708@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart1739995.G2MFWqQSJG"; micalg="pgp-sha1"; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7Bit
-Cc: Parisc List <linux-parisc@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>, stable@kernel.org,
-	netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110522143222.GB14556@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jpirko@redhat.com>,
+	Nicolas de =?utf-8?Q?Peslo=C3=BCan?=
+	<nicolas.2p.debian@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, Jesse Gross <jesse@nicira.com>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:51122 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755384Ab1EVWit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 18:38:49 -0400
+In-Reply-To: <4DD97A44.2020708@candelatech.com> (Ben Greear's message of "Sun,
+	22 May 2011 14:04:04 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Ben Greear <greearb@candelatech.com> writes:
 
---nextPart1739995.G2MFWqQSJG
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+> On 05/22/2011 12:39 PM, Eric W. Biederman wrote:
+>>
+>> Simplify the vlan handling code by not supporing clearing of
+>> VLAN_FLAG_REORDER_HDR.  Which means we always make the vlan handling
+>> code strip the vlan header from the packets, and always insert the vlan
+>> header when transmitting packets.
+>>
+>> Not stripping the vlan header has alwasy been broken in combination with
+>> vlan hardware accelleration.  Now that we are making everything look
+>> like accelerated vlan handling not stripping the vlan header is always
+>> broken.
+>>
+>> I don't think anyone actually cares so simply stop supporting the broken
+>> case.
+>
+> I've lost track of the VLAN code a bit.  Is there any documentation
+> somewhere about what happens in these various cases:
 
-Am Sonntag, 22. Mai 2011, 07:32:22 schrieb Greg KH:
-> On Sun, May 22, 2011 at 10:15:19AM +0200, Rolf Eike Beer wrote:
-> >                  from include/net/ipv6.h:16,
-> >                  from include/linux/sunrpc/clnt.h:25,
-> >                  from include/linux/nfs_fs.h:50,
-> > 
-> >                  from init/do_mounts.c:20:
-> > include/net/dst.h: In function 'dst_hold':
-> > include/net/dst.h:238:2: error: size of unnamed array is negative
-> > In file included from include/linux/nfs_fs.h:59:0,
-> > 
-> >                  from init/do_mounts.c:20:
-> > include/linux/mempool.h: In function 'mempool_create_kmalloc_pool':
-> > include/linux/mempool.h:58:10: warning: cast to pointer from integer of
-> > different size
-> > 
-> > This is both in 2.6.38.6 and 2.6.39, but is not in 2.6.38.4 when
-> > compiling for my C8000.
-> 
-> Could you bisect it down to the patch that causes the problem in
-> 2.6.38.6?
+Other than the code I don't know about documentation.
 
-I will try if I find time in the next days. Until now I can only confirm that 
-2.6.38.5 builds fine.
+> *  Open a raw packet socket on eth0.
+I assume you mean a pf_packet socket.
 
-Eike	
---nextPart1739995.G2MFWqQSJG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
+>   *  Do we get tagged VLAN packets?  (I'd expect yes.)
+yes.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.15 (GNU/Linux)
+>   *  If we sent a tagged VLAN packet, it's sent without modification?  (I'd expect yes.)
+>   **  Without "yes" to the two above, one cannot do user-space bridging properly.
 
-iEYEABECAAYFAk3ZjkwACgkQXKSJPmm5/E4SegCgpCW43wAsqm8Yf1A3pOknddrb
-1TgAoJIbSXrBWcDU5eSchkHEmZG6bqkt
-=HtkC
------END PGP SIGNATURE-----
+This is sort of.  If you set the PACKET_AUXDATA option and use recv_cmsg
+you get the priority and the vlan identifier in the auxdata.
 
---nextPart1739995.G2MFWqQSJG--
+I think that is a pretty horrible answer myself but it has been that way
+since sometime mid 2008.  So I'm not immediately prepared to call it
+a regression, or a bug.
+
+> *  Open a raw packet socket on VLAN eth0.5
+>   *  Do we get tagged VLAN packets?  (I'd expect no.)
+No.
+
+>   *  If we send an un-tagged packet, I expect it would be tagged?
+Yes.
+
+>   *  What if we sent a tagged packet with same VID?
+>   *  With different VID?
+The vlan tag is ignored and another vlan tag is added.
+
+> Many years ago we supported the REORDER, but we suggested disabling
+> it for most users because it was a performance drag.  Funny that now
+> it seems to be the opposite!
+
+Yes it is funny.  I looked in history a while back and what I saw was
+that REORDER was always enabled by default and it took some serious
+effort to figure out how to get vconfig to disable REORDER. ip doesn't
+admit that REORDER can be disabled at all.
+
+Eric
