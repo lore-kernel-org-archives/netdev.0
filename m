@@ -1,44 +1,46 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: More prefetch fall-out
-Date: Sun, 22 May 2011 10:49:11 -0700
-Message-ID: <BANLkTi=YwLaoTVjKguH-uZpZgXduLhiTNg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: More prefetch fall-out
+Date: Sun, 22 May 2011 20:23:46 +0200
+Message-ID: <1306088626.12435.27.camel@edumazet-laptop>
+References: <BANLkTi=YwLaoTVjKguH-uZpZgXduLhiTNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51026 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753522Ab1EVRte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 13:49:34 -0400
-Received: from mail-ey0-f174.google.com (mail-ey0-f174.google.com [209.85.215.174])
-	(authenticated bits=0)
-	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id p4MHnVrd005454
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Sun, 22 May 2011 10:49:33 -0700
-Received: by eyx24 with SMTP id 24so1610441eyx.19
-        for <netdev@vger.kernel.org>; Sun, 22 May 2011 10:49:31 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41025 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751768Ab1EVSXw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 14:23:52 -0400
+Received: by wwa36 with SMTP id 36so5515779wwa.1
+        for <netdev@vger.kernel.org>; Sun, 22 May 2011 11:23:51 -0700 (PDT)
+In-Reply-To: <BANLkTi=YwLaoTVjKguH-uZpZgXduLhiTNg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So it turns out that the architectures that don't define their
-prefetch() macros in <asm/processor.h> (and instead depend on
-linux/prefetch.h to give them the default ones) are currently broken.
+Le dimanche 22 mai 2011 =C3=A0 10:49 -0700, Linus Torvalds a =C3=A9crit=
+ :
 
-Fine, that's really trivial to fix. And, in fact, I'm now testing on
-x86 by having x86 put its prefetch infrastructure in <asm/prefetch.h>
-and thus making sure that you *have* to include <linux/prefetch.h> to
-get it (rather than get it accidentally just because everything ends
-up including <asm/processor.h>).
+> However, one of the breakages is <linux/skbuff.h> that does its own
+> list-walking functions ("skb_queue_walk*"), and they do prefetching.
+> So now I have the option to either just add <linux/prefetch.h> to tha=
+t
+> file, or remove the prefetches. And you're the one that said that the
+> prefetches in the networking code were annoying.
+>=20
+> So should the skb queues use prefetching? I have a hard time judging.
+> Are those lists usually long? Is the loop usually large enough that
+> there is any point to prefetching the next entry?
+>=20
 
-However, one of the breakages is <linux/skbuff.h> that does its own
-list-walking functions ("skb_queue_walk*"), and they do prefetching.
-So now I have the option to either just add <linux/prefetch.h> to that
-file, or remove the prefetches. And you're the one that said that the
-prefetches in the networking code were annoying.
+Taking a look at various skb_queue_walk* call sites, I think prefetches
+are not a clear win, I would just remove them all from skbuff.h
 
-So should the skb queues use prefetching? I have a hard time judging.
-Are those lists usually long? Is the loop usually large enough that
-there is any point to prefetching the next entry?
+BTW, the skb_queue_walk_safe(), skb_queue_walk_from_safe(),
+skb_queue_reverse_walk_safe, skb_queue_reverse_walk_from_safe() dont
+have prefetch() calls.
 
-                         Linus
+
+
