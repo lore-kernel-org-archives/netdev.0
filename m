@@ -1,59 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: More prefetch fall-out
-Date: Sun, 22 May 2011 20:51:43 +0200
-Message-ID: <1306090303.12435.35.camel@edumazet-laptop>
-References: <BANLkTi=YwLaoTVjKguH-uZpZgXduLhiTNg@mail.gmail.com>
-	 <1306088626.12435.27.camel@edumazet-laptop>
-	 <BANLkTimQAhP17Hg6D84gtCO3nJ_SSsDAeg@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path similar to hw-accel
+Date: Sun, 22 May 2011 12:33:36 -0700
+Message-ID: <m1r57qjzsf.fsf@fess.ebiederm.org>
+References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
+	<20110412.141645.112604563.davem@davemloft.net>
+	<BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>
+	<20110521072925.GA2588@jirka.orion>
+	<BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>
+	<4DD7BB61.9050200@gmail.com>
+	<BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>
+	<4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>
+	<m17h9jp7js.fsf@fess.ebiederm.org>
+	<BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com>
+	<m1ei3qlhjw.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	Nicolas de =?utf-8?Q?Peslo=C3=BCan?=
+	<nicolas.2p.debian@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60749 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141Ab1EVSvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 14:51:48 -0400
-Received: by wwa36 with SMTP id 36so5527566wwa.1
-        for <netdev@vger.kernel.org>; Sun, 22 May 2011 11:51:47 -0700 (PDT)
-In-Reply-To: <BANLkTimQAhP17Hg6D84gtCO3nJ_SSsDAeg@mail.gmail.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:48667 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752237Ab1EVTdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 15:33:44 -0400
+In-Reply-To: <m1ei3qlhjw.fsf@fess.ebiederm.org> (Eric W. Biederman's message
+	of "Sun, 22 May 2011 11:24:35 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 22 mai 2011 =C3=A0 11:38 -0700, Linus Torvalds a =C3=A9crit=
- :
-> On Sun, May 22, 2011 at 11:23 AM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
-> >
-> > Taking a look at various skb_queue_walk* call sites, I think prefet=
-ches
-> > are not a clear win, I would just remove them all from skbuff.h
->=20
-> Hmm.
->=20
-> I did that, and it turns out that we also have:
->=20
->  - *lots* of network drivers that use "prefetch" (without including p=
-refetch.h)
->  - net/netlabel/netlabel_addrlist.h doing the same.
->=20
-> and fixing that up is annoying "grunt work".
->=20
-> So for now, I think I'll just do the "add the <linux/prefetch.h> to
-> <linux/skbuff.h>" thing, and leave networking alone. That makes
-> everything compile ("allyesconfig") even with my "you *have* to
-> include <linux/prefetch.h>" test-patch.
->=20
+ebiederm@xmission.com (Eric W. Biederman) writes:
 
-Or include <linux/prefetch.h> from linux/skbuff.h but remove the
-prefetch() calls...
+> Jesse Gross <jesse@nicira.com> writes:
+>
+>> On Sat, May 21, 2011 at 11:34 PM, Eric W. Biederman
+>> <ebiederm@xmission.com> wrote:
+>>> Jiri Pirko <jpirko@redhat.com> writes:
+>>>
+>>>> Sun, May 22, 2011 at 04:59:49AM CEST, nicolas.2p.debian@gmail.com wrote:
+>>>>
+>>>> <snip>
+>>>>>
+>>>>>And because some setups may still require the skb not to be untagged,
+>>>>>may be we need the ability to re-tag the skb in some situations...
+>>>>>When a protocol handler or rx_handler is explicitly registered on a
+>>>>>net_device which expect to receive tagged skb, we should deliver
+>>>>>tagged skb to it... Arguably, this may sound incredible for the
+>>>>>general case, but may be required for not-so-special cases like
+>>>>>bridge or protocol analyzer.
+>>>>
+>>>> Wait, what setups/code require the skb not to be untagged? If there's
+>>>> such, it should be fixed.
+>>>
+>>> tcpdump on the non-vlan interface for one.
+>>
+>> There are some drivers still using the old vlan model that will drop
+>> tags or packets when no vlan group is configured but that's a driver
+>> problem, not one with networking core or tcpdump.
+>
+> On receive if we have stripped the vlan header and then we go to deliver
+> the interrupt to a pf_packet socket (on a non-vlan interface) before
+> or as part of the deliver of the packet to user space we need to
+> re-add the vlan header.  Additionally the socket filter on a pf_packet
+> socket needs to behave as though we have a vlan header.
 
-BTW this reminds me Andi Kleen prior patch
+Hmm.  Taking a second look the pf_packet code and with hardware vlan
+header removal isn't completely broken.  It is possible to receive
+packet auxdata and get the information from the vlan header.
 
-http://linux.derkeiler.com/Mailing-Lists/Kernel/2010-09/msg03096.html
+It stills seems like a pretty messed up interface to me.  Especially
+since the socket filter can't get at the information in the stripped
+vlan header, but that is another matter entirely.
 
-
-
-
+Eric
