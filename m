@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch net-next-2.6 v2] net: vlan: make non-hw-accel rx path similar to hw-accel
-Date: Sun, 22 May 2011 12:33:36 -0700
-Message-ID: <m1r57qjzsf.fsf@fess.ebiederm.org>
+Subject: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
+Date: Sun, 22 May 2011 12:39:18 -0700
+Message-ID: <m1ei3qjzix.fsf_-_@fess.ebiederm.org>
 References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
 	<20110412.141645.112604563.davem@davemloft.net>
 	<BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>
@@ -12,67 +12,74 @@ References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>
 	<4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>
 	<m17h9jp7js.fsf@fess.ebiederm.org>
 	<BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com>
-	<m1ei3qlhjw.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jiri Pirko <jpirko@redhat.com>,
 	Nicolas de =?utf-8?Q?Peslo=C3=BCan?=
 	<nicolas.2p.debian@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Jesse Gross <jesse@nicira.com>
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, Jesse Gross <jesse@nicira.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:48667 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752237Ab1EVTdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 15:33:44 -0400
-In-Reply-To: <m1ei3qlhjw.fsf@fess.ebiederm.org> (Eric W. Biederman's message
-	of "Sun, 22 May 2011 11:24:35 -0700")
+Received: from out01.mta.xmission.com ([166.70.13.231]:60195 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752237Ab1EVTj0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 15:39:26 -0400
+In-Reply-To: <BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com> (Jesse
+	Gross's message of "Sun, 22 May 2011 09:11:01 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
 
-> Jesse Gross <jesse@nicira.com> writes:
->
->> On Sat, May 21, 2011 at 11:34 PM, Eric W. Biederman
->> <ebiederm@xmission.com> wrote:
->>> Jiri Pirko <jpirko@redhat.com> writes:
->>>
->>>> Sun, May 22, 2011 at 04:59:49AM CEST, nicolas.2p.debian@gmail.com wrote:
->>>>
->>>> <snip>
->>>>>
->>>>>And because some setups may still require the skb not to be untagged,
->>>>>may be we need the ability to re-tag the skb in some situations...
->>>>>When a protocol handler or rx_handler is explicitly registered on a
->>>>>net_device which expect to receive tagged skb, we should deliver
->>>>>tagged skb to it... Arguably, this may sound incredible for the
->>>>>general case, but may be required for not-so-special cases like
->>>>>bridge or protocol analyzer.
->>>>
->>>> Wait, what setups/code require the skb not to be untagged? If there's
->>>> such, it should be fixed.
->>>
->>> tcpdump on the non-vlan interface for one.
->>
->> There are some drivers still using the old vlan model that will drop
->> tags or packets when no vlan group is configured but that's a driver
->> problem, not one with networking core or tcpdump.
->
-> On receive if we have stripped the vlan header and then we go to deliver
-> the interrupt to a pf_packet socket (on a non-vlan interface) before
-> or as part of the deliver of the packet to user space we need to
-> re-add the vlan header.  Additionally the socket filter on a pf_packet
-> socket needs to behave as though we have a vlan header.
+Simplify the vlan handling code by not supporing clearing of
+VLAN_FLAG_REORDER_HDR.  Which means we always make the vlan handling
+code strip the vlan header from the packets, and always insert the vlan
+header when transmitting packets.
 
-Hmm.  Taking a second look the pf_packet code and with hardware vlan
-header removal isn't completely broken.  It is possible to receive
-packet auxdata and get the information from the vlan header.
+Not stripping the vlan header has alwasy been broken in combination with
+vlan hardware accelleration.  Now that we are making everything look
+like accelerated vlan handling not stripping the vlan header is always
+broken.
 
-It stills seems like a pretty messed up interface to me.  Especially
-since the socket filter can't get at the information in the stripped
-vlan header, but that is another matter entirely.
+I don't think anyone actually cares so simply stop supporting the broken
+case.
 
-Eric
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/8021q/vlan_dev.c     |    3 +--
+ net/8021q/vlan_netlink.c |    4 +---
+ 2 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index f247f5b..20629fe 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -242,8 +242,7 @@ int vlan_dev_change_flags(const struct net_device *dev, u32 flags, u32 mask)
+ 	struct vlan_dev_info *vlan = vlan_dev_info(dev);
+ 	u32 old_flags = vlan->flags;
+ 
+-	if (mask & ~(VLAN_FLAG_REORDER_HDR | VLAN_FLAG_GVRP |
+-		     VLAN_FLAG_LOOSE_BINDING))
++	if (mask & ~(VLAN_FLAG_GVRP | VLAN_FLAG_LOOSE_BINDING))
+ 		return -EINVAL;
+ 
+ 	vlan->flags = (old_flags & ~mask) | (flags & mask);
+diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+index be9a5c1..a638a4c 100644
+--- a/net/8021q/vlan_netlink.c
++++ b/net/8021q/vlan_netlink.c
+@@ -59,9 +59,7 @@ static int vlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	}
+ 	if (data[IFLA_VLAN_FLAGS]) {
+ 		flags = nla_data(data[IFLA_VLAN_FLAGS]);
+-		if ((flags->flags & flags->mask) &
+-		    ~(VLAN_FLAG_REORDER_HDR | VLAN_FLAG_GVRP |
+-		      VLAN_FLAG_LOOSE_BINDING))
++		if (flags->mask & ~(VLAN_FLAG_GVRP | VLAN_FLAG_LOOSE_BINDING))
+ 			return -EINVAL;
+ 	}
+ 
+-- 
+1.7.5.1.217.g4e3aa
+
