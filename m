@@ -1,269 +1,127 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 11/11] bnx2x: Improve cl45 access methods
-Date: Sun, 22 May 2011 14:32:48 +0300
-Message-ID: <1306063969.20872.93.camel@lb-tlvb-dmitry>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCHv2 10/14] virtio_net: limit xmit polling
+Date: Sun, 22 May 2011 15:10:08 +0300
+Message-ID: <20110522121008.GA12155@redhat.com>
+References: <cover.1305846412.git.mst@redhat.com>
+	<aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst@redhat.com>
+	<877h9kvlps.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2578 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754563Ab1EVLdA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 May 2011 07:33:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <877h9kvlps.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Instead of setting CL45 mode for every CL45 access, apply it once during initialization.
+On Sat, May 21, 2011 at 11:49:59AM +0930, Rusty Russell wrote:
+> On Fri, 20 May 2011 02:11:56 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > Current code might introduce a lot of latency variation
+> > if there are many pending bufs at the time we
+> > attempt to transmit a new one. This is bad for
+> > real-time applications and can't be good for TCP either.
+> 
+> Do we have more than speculation to back that up, BTW?
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_link.c |  136 +++++++++++++++++++---------------------
- 1 files changed, 65 insertions(+), 71 deletions(-)
+Need to dig this up: I thought we saw some reports of this on the list?
 
-diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index 43e3663..15b5bc1 100644
---- a/drivers/net/bnx2x/bnx2x_link.c
-+++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -464,6 +464,29 @@ void bnx2x_pfc_statistic(struct link_params *params, struct link_vars *vars,
- /******************************************************************/
- /*			MAC/PBF section				  */
- /******************************************************************/
-+static void bnx2x_set_mdio_clk(struct bnx2x *bp, u32 chip_id, u8 port)
-+{
-+	u32 mode, emac_base;
-+	/**
-+	 * Set clause 45 mode, slow down the MDIO clock to 2.5MHz
-+	 * (a value of 49==0x31) and make sure that the AUTO poll is off
-+	 */
-+
-+	if (CHIP_IS_E2(bp))
-+		emac_base = GRCBASE_EMAC0;
-+	else
-+		emac_base = (port) ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
-+	mode = REG_RD(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE);
-+	mode &= ~(EMAC_MDIO_MODE_AUTO_POLL |
-+		  EMAC_MDIO_MODE_CLOCK_CNT);
-+	mode |= (49L << EMAC_MDIO_MODE_CLOCK_CNT_BITSHIFT);
-+
-+	mode |= (EMAC_MDIO_MODE_CLAUSE_45);
-+	REG_WR(bp, emac_base + EMAC_REG_EMAC_MDIO_MODE, mode);
-+
-+	udelay(40);
-+}
-+
- static void bnx2x_emac_init(struct link_params *params,
- 			    struct link_vars *vars)
- {
-@@ -495,7 +518,7 @@ static void bnx2x_emac_init(struct link_params *params,
- 		}
- 		timeout--;
- 	} while (val & EMAC_MODE_RESET);
--
-+	bnx2x_set_mdio_clk(bp, params->chip_id, port);
- 	/* Set mac address */
- 	val = ((params->mac_addr[0] << 8) |
- 		params->mac_addr[1]);
-@@ -1352,144 +1375,113 @@ static u32 bnx2x_get_emac_base(struct bnx2x *bp,
- /******************************************************************/
- /*			CL45 access functions			  */
- /******************************************************************/
--static int bnx2x_cl45_write(struct bnx2x *bp, struct bnx2x_phy *phy,
--			    u8 devad, u16 reg, u16 val)
-+static int bnx2x_cl45_read(struct bnx2x *bp, struct bnx2x_phy *phy,
-+			   u8 devad, u16 reg, u16 *ret_val)
- {
--	u32 tmp, saved_mode;
--	u8 i;
-+	u32 val;
-+	u16 i;
- 	int rc = 0;
--	/*
--	 * Set clause 45 mode, slow down the MDIO clock to 2.5MHz
--	 * (a value of 49==0x31) and make sure that the AUTO poll is off
--	 */
--
--	saved_mode = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
--	tmp = saved_mode & ~(EMAC_MDIO_MODE_AUTO_POLL |
--			     EMAC_MDIO_MODE_CLOCK_CNT);
--	tmp |= (EMAC_MDIO_MODE_CLAUSE_45 |
--		(49 << EMAC_MDIO_MODE_CLOCK_CNT_BITSHIFT));
--	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, tmp);
--	REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
--	udelay(40);
- 
- 	/* address */
--
--	tmp = ((phy->addr << 21) | (devad << 16) | reg |
-+	val = ((phy->addr << 21) | (devad << 16) | reg |
- 	       EMAC_MDIO_COMM_COMMAND_ADDRESS |
- 	       EMAC_MDIO_COMM_START_BUSY);
--	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
-+	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
- 
- 	for (i = 0; i < 50; i++) {
- 		udelay(10);
- 
--		tmp = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
--		if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
-+		val = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
-+		if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
- 			udelay(5);
- 			break;
- 		}
- 	}
--	if (tmp & EMAC_MDIO_COMM_START_BUSY) {
--		DP(NETIF_MSG_LINK, "write phy register failed\n");
-+	if (val & EMAC_MDIO_COMM_START_BUSY) {
-+		DP(NETIF_MSG_LINK, "read phy register failed\n");
- 		netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
-+		*ret_val = 0;
- 		rc = -EFAULT;
- 	} else {
- 		/* data */
--		tmp = ((phy->addr << 21) | (devad << 16) | val |
--		       EMAC_MDIO_COMM_COMMAND_WRITE_45 |
-+		val = ((phy->addr << 21) | (devad << 16) |
-+		       EMAC_MDIO_COMM_COMMAND_READ_45 |
- 		       EMAC_MDIO_COMM_START_BUSY);
--		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
-+		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
- 
- 		for (i = 0; i < 50; i++) {
- 			udelay(10);
- 
--			tmp = REG_RD(bp, phy->mdio_ctrl +
-+			val = REG_RD(bp, phy->mdio_ctrl +
- 				     EMAC_REG_EMAC_MDIO_COMM);
--			if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
--				udelay(5);
-+			if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
-+				*ret_val = (u16)(val & EMAC_MDIO_COMM_DATA);
- 				break;
- 			}
- 		}
--		if (tmp & EMAC_MDIO_COMM_START_BUSY) {
--			DP(NETIF_MSG_LINK, "write phy register failed\n");
-+		if (val & EMAC_MDIO_COMM_START_BUSY) {
-+			DP(NETIF_MSG_LINK, "read phy register failed\n");
- 			netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
-+			*ret_val = 0;
- 			rc = -EFAULT;
- 		}
- 	}
- 
--	/* Restore the saved mode */
--	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, saved_mode);
--
- 	return rc;
- }
- 
--static int bnx2x_cl45_read(struct bnx2x *bp, struct bnx2x_phy *phy,
--			   u8 devad, u16 reg, u16 *ret_val)
-+static int bnx2x_cl45_write(struct bnx2x *bp, struct bnx2x_phy *phy,
-+			    u8 devad, u16 reg, u16 val)
- {
--	u32 val, saved_mode;
--	u16 i;
-+	u32 tmp;
-+	u8 i;
- 	int rc = 0;
--	/*
--	 * Set clause 45 mode, slow down the MDIO clock to 2.5MHz
--	 * (a value of 49==0x31) and make sure that the AUTO poll is off
--	 */
--
--	saved_mode = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
--	val = saved_mode & ~((EMAC_MDIO_MODE_AUTO_POLL |
--			      EMAC_MDIO_MODE_CLOCK_CNT));
--	val |= (EMAC_MDIO_MODE_CLAUSE_45 |
--		(49L << EMAC_MDIO_MODE_CLOCK_CNT_BITSHIFT));
--	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, val);
--	REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE);
--	udelay(40);
- 
- 	/* address */
--	val = ((phy->addr << 21) | (devad << 16) | reg |
-+
-+	tmp = ((phy->addr << 21) | (devad << 16) | reg |
- 	       EMAC_MDIO_COMM_COMMAND_ADDRESS |
- 	       EMAC_MDIO_COMM_START_BUSY);
--	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
-+	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
- 
- 	for (i = 0; i < 50; i++) {
- 		udelay(10);
- 
--		val = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
--		if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
-+		tmp = REG_RD(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM);
-+		if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
- 			udelay(5);
- 			break;
- 		}
- 	}
--	if (val & EMAC_MDIO_COMM_START_BUSY) {
--		DP(NETIF_MSG_LINK, "read phy register failed\n");
-+	if (tmp & EMAC_MDIO_COMM_START_BUSY) {
-+		DP(NETIF_MSG_LINK, "write phy register failed\n");
- 		netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
--		*ret_val = 0;
- 		rc = -EFAULT;
- 
- 	} else {
- 		/* data */
--		val = ((phy->addr << 21) | (devad << 16) |
--		       EMAC_MDIO_COMM_COMMAND_READ_45 |
-+		tmp = ((phy->addr << 21) | (devad << 16) | val |
-+		       EMAC_MDIO_COMM_COMMAND_WRITE_45 |
- 		       EMAC_MDIO_COMM_START_BUSY);
--		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, val);
-+		REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_COMM, tmp);
- 
- 		for (i = 0; i < 50; i++) {
- 			udelay(10);
- 
--			val = REG_RD(bp, phy->mdio_ctrl +
-+			tmp = REG_RD(bp, phy->mdio_ctrl +
- 				     EMAC_REG_EMAC_MDIO_COMM);
--			if (!(val & EMAC_MDIO_COMM_START_BUSY)) {
--				*ret_val = (u16)(val & EMAC_MDIO_COMM_DATA);
-+			if (!(tmp & EMAC_MDIO_COMM_START_BUSY)) {
-+				udelay(5);
- 				break;
- 			}
- 		}
--		if (val & EMAC_MDIO_COMM_START_BUSY) {
--			DP(NETIF_MSG_LINK, "read phy register failed\n");
-+		if (tmp & EMAC_MDIO_COMM_START_BUSY) {
-+			DP(NETIF_MSG_LINK, "write phy register failed\n");
- 			netdev_err(bp->dev,  "MDC/MDIO access timeout\n");
--			*ret_val = 0;
- 			rc = -EFAULT;
- 		}
- 	}
- 
--	/* Restore the saved mode */
--	REG_WR(bp, phy->mdio_ctrl + EMAC_REG_EMAC_MDIO_MODE, saved_mode);
- 
- 	return rc;
- }
-@@ -8425,6 +8417,8 @@ int bnx2x_common_init_phy(struct bnx2x *bp, u32 shmem_base_path[],
- 	u32 phy_ver;
- 	u8 phy_index;
- 	u32 ext_phy_type, ext_phy_config;
-+	bnx2x_set_mdio_clk(bp, chip_id, PORT_0);
-+	bnx2x_set_mdio_clk(bp, chip_id, PORT_1);
- 	DP(NETIF_MSG_LINK, "Begin common phy init\n");
- 
- 	/* Check if common init was already done */
+> This patch is pretty sloppy; the previous ones were better polished.
+> 
+> > -static void free_old_xmit_skbs(struct virtnet_info *vi)
+> > +static bool free_old_xmit_skbs(struct virtnet_info *vi, int capacity)
+> >  {
+> 
+> A comment here indicating it returns true if it frees something?
+
+Agree.
+
+> >  	struct sk_buff *skb;
+> >  	unsigned int len;
+> > -
+> > -	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
+> > +	bool c;
+> > +	int n;
+> > +
+> > +	/* We try to free up at least 2 skbs per one sent, so that we'll get
+> > +	 * all of the memory back if they are used fast enough. */
+> > +	for (n = 0;
+> > +	     ((c = virtqueue_get_capacity(vi->svq) < capacity) || n < 2) &&
+> > +	     ((skb = virtqueue_get_buf(vi->svq, &len)));
+> > +	     ++n) {
+> >  		pr_debug("Sent skb %p\n", skb);
+> >  		vi->dev->stats.tx_bytes += skb->len;
+> >  		vi->dev->stats.tx_packets++;
+> >  		dev_kfree_skb_any(skb);
+> >  	}
+> > +	return !c;
+> 
+> This is for() abuse :)
+> 
+> Why is the capacity check in there at all?  Surely it's simpler to try
+> to free 2 skbs each time around?
+
+This is in case we can't use indirect: we want to free up
+enough buffers for the following add_buf to succeed.
+
+
+>    for (n = 0; n < 2; n++) {
+>         skb = virtqueue_get_buf(vi->svq, &len);
+>         if (!skb)
+>                 break;
+> 	pr_debug("Sent skb %p\n", skb);
+> 	vi->dev->stats.tx_bytes += skb->len;
+> 	vi->dev->stats.tx_packets++;
+> 	dev_kfree_skb_any(skb);
+>    }
+> 
+> >  static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+> > @@ -574,8 +582,8 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  	struct virtnet_info *vi = netdev_priv(dev);
+> >  	int capacity;
+> >  
+> > -	/* Free up any pending old buffers before queueing new ones. */
+> > -	free_old_xmit_skbs(vi);
+> > +	/* Free enough pending old buffers to enable queueing new ones. */
+> > +	free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS);
+> >  
+> >  	/* Try to transmit */
+> >  	capacity = xmit_skb(vi, skb);
+> > @@ -609,9 +617,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  		netif_stop_queue(dev);
+> >  		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+> >  			/* More just got used, free them then recheck. */
+> > -			free_old_xmit_skbs(vi);
+> > -			capacity = virtqueue_get_capacity(vi->svq);
+> > -			if (capacity >= 2+MAX_SKB_FRAGS) {
+> > +			if (!likely(free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS))) {
+> 
+> This extra argument to free_old_xmit_skbs seems odd, unless you have
+> future plans?
+> 
+> Thanks,
+> Rusty.
+
+I just wanted to localize the 2+MAX_SKB_FRAGS logic that tries to make
+sure we have enough space in the buffer. Another way to do
+that is with a define :).
+
 -- 
-1.7.1
-
-
-
-
-
+MST
