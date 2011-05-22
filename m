@@ -1,37 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] bna: Add Debugfs & Generic Netlink Interfaces to
- BNA Driver
-Date: Sat, 21 May 2011 23:31:17 -0400 (EDT)
-Message-ID: <20110521.233117.1332969294033493540.davem@davemloft.net>
-References: <1305694621-28023-1-git-send-email-rmody@brocade.com>
-	<E5313AF6F2BFD14293E5FD0F94750F86A5D76F7AC6@HQ1-EXCH01.corp.brocade.com>
+From: Renato Westphal <renatowestphal@gmail.com>
+Subject: Re: [PATCH 0/7] Network namespace manipulation with file descriptors
+Date: Sun, 22 May 2011 01:19:07 -0300
+Message-ID: <BANLkTingC=uR2dh=oo4=K7xDj9D7WjF2YA@mail.gmail.com>
+References: <m1tyd7p7tq.fsf@fess.ebiederm.org>
+	<3A54AB469A0294933EAC2257@nimrod.local>
+	<m1fwoqoapn.fsf@fess.ebiederm.org>
+	<20110517111148.GA3762520@jupiter.n2.diac24.net>
+	<m1mxil9z2p.fsf@fess.ebiederm.org>
+	<20110517153546.GB3762520@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: rmody@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752774Ab1EVDcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 May 2011 23:32:22 -0400
-In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86A5D76F7AC6@HQ1-EXCH01.corp.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Alex Bligh <alex@alex.org.uk>, linux-arch@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	linux-fsdevel@vger.kernel.org
+To: David Lamparter <equinox@diac24.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20110517153546.GB3762520@jupiter.n2.diac24.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Sat, 21 May 2011 16:06:27 -0700
+Eric,
 
-> Can you please tell what is the state of this patch set? We are wondering if the patches are still under review.
+I'm happy to see that these patches have been integrated into the
+mainstream kernel, as you know I'm using them for a while and they are
+a essential part of my MPLS/BGP VPN solution, which I will release to
+the open-source community anytime soon.
 
-The review feedback you received was that a whole new genetlink protocol
-was overkill for the facilities you are providiing at the moment, so the
-state of the patch moved to "changed requested"
+It would also be good if the MPLS core get integrated into mainstream,
+but that's another discussion ;)
 
-I saw your response, and I simply disagree with it, so the patches
-are staying in that state.
-
-In any event, you don't need to ask me, check patchwork.  You make
-patchwork absolutely pointless if you ask me what the state of the
-patch is, and this makes a lot of extra unnecessary work for me.
-Don't do it.
+-- 
+Renato Westphal
