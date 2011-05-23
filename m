@@ -1,45 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/5] net: Remove linux/prefetch.h include from
- linux/skbuff.h
-Date: Sun, 22 May 2011 20:58:23 -0400 (EDT)
-Message-ID: <20110522.205823.400172440509453897.davem@davemloft.net>
+Subject: Re: [PATCH net-2.6 0/4] bnx2x fixes
+Date: Sun, 22 May 2011 21:01:43 -0400 (EDT)
+Message-ID: <20110522.210143.391007744717156588.davem@davemloft.net>
+References: <1306095292.9376.10.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, vladz@broadcom.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43400 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:52892 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942Ab1EWA6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 20:58:25 -0400
-Received: from localhost (cpe-66-108-115-211.nyc.res.rr.com [66.108.115.211])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4N0wNZV005609
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sun, 22 May 2011 17:58:24 -0700
+	with ESMTP id S1751106Ab1EWBBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 21:01:47 -0400
+In-Reply-To: <1306095292.9376.10.camel@lb-tlvb-dmitry>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Sun, 22 May 2011 23:14:52 +0300
 
-No longer needed.
+> Please consider applying following fixes to net-2.6.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/linux/skbuff.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 09901fd..8cac356 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -28,7 +28,6 @@
- #include <net/checksum.h>
- #include <linux/rcupdate.h>
- #include <linux/dmaengine.h>
--#include <linux/prefetch.h>
- #include <linux/hrtimer.h>
- 
- /* Don't change this without changing skb_csum_unnecessary! */
--- 
-1.7.4.4
-
+All applied, thanks.
