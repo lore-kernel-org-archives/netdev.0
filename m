@@ -1,25 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ping: cleanups ping_v4_unhash()
-Date: Mon, 23 May 2011 16:29:54 -0400 (EDT)
-Message-ID: <20110523.162954.818069883349610972.davem@davemloft.net>
-References: <1306138981.2869.2.camel@edumazet-laptop>
+Subject: Re: [PATCH] ipv6: xfrm6: fix dubious code
+Date: Mon, 23 May 2011 16:33:02 -0400 (EDT)
+Message-ID: <20110523.163302.1123967560115611293.davem@davemloft.net>
+References: <1306140167.2869.8.camel@edumazet-laptop>
+	<1306164960.3456.42.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, segoon@openwall.com
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47605 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47646 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933534Ab1EWUac (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 16:30:32 -0400
-In-Reply-To: <1306138981.2869.2.camel@edumazet-laptop>
+	with ESMTP id S1751832Ab1EWUdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 16:33:09 -0400
+In-Reply-To: <1306164960.3456.42.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogTW9uLCAy
-MyBNYXkgMjAxMSAxMDoyMzowMCArMDIwMA0KDQo+IG5ldC9pcHY0L3BpbmcuYzogSW4gZnVuY3Rp
-b24goXBpbmdfdjRfdW5oYXNoojoNCj4gbmV0L2lwdjQvcGluZy5jOjE0MDoyODogd2FybmluZzog
-dmFyaWFibGUgoWhzbG90oiBzZXQgYnV0IG5vdCB1c2VkDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBF
-cmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQo+IENDOiBWYXNpbGl5IEt1bGlr
-b3YgPHNlZ29vbkBvcGVud2FsbC5jb20+DQoNCkFwcGxpZWQuDQo=
+RnJvbTogQmVuIEh1dGNoaW5ncyA8Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbT4NCkRhdGU6IE1v
+biwgMjMgTWF5IDIwMTEgMDg6MzY6MDAgLTA3MDANCg0KPiBPbiBNb24sIDIwMTEtMDUtMjMgYXQg
+MTA6NDIgKzAyMDAsIEVyaWMgRHVtYXpldCB3cm90ZToNCj4+IG5ldC9pcHY2L3hmcm02X3R1bm5l
+bC5jOiBJbiBmdW5jdGlvbiCheGZybTZfdHVubmVsX3JjdqI6DQo+PiBuZXQvaXB2Ni94ZnJtNl90
+dW5uZWwuYzoyNDQ6NTM6IHdhcm5pbmc6IHRoZSBvbWl0dGVkIG1pZGRsZSBvcGVyYW5kDQo+PiBp
+biA/OiB3aWxsIGFsd2F5cyBiZSChdHJ1ZaIsIHN1Z2dlc3QgZXhwbGljaXQgbWlkZGxlIG9wZXJh
+bmQNCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21h
+aWwuY29tPg0KPj4gLS0tDQo+PiAgbmV0L2lwdjYveGZybTZfdHVubmVsLmMgfCAgICAyICstDQo+
+PiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+PiANCj4+
+IGRpZmYgLS1naXQgYS9uZXQvaXB2Ni94ZnJtNl90dW5uZWwuYyBiL25ldC9pcHY2L3hmcm02X3R1
+bm5lbC5jDQo+PiBpbmRleCBhNjc3MGEwLi5mYjliMGMzIDEwMDY0NA0KPj4gLS0tIGEvbmV0L2lw
+djYveGZybTZfdHVubmVsLmMNCj4+ICsrKyBiL25ldC9pcHY2L3hmcm02X3R1bm5lbC5jDQo+PiBA
+QCAtMjQxLDcgKzI0MSw3IEBAIHN0YXRpYyBpbnQgeGZybTZfdHVubmVsX3JjdihzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiKQ0KPj4gIAlfX2JlMzIgc3BpOw0KPj4gIA0KPj4gIAlzcGkgPSB4ZnJtNl90dW5u
+ZWxfc3BpX2xvb2t1cChuZXQsIChjb25zdCB4ZnJtX2FkZHJlc3NfdCAqKSZpcGgtPnNhZGRyKTsN
+Cj4+IC0JcmV0dXJuIHhmcm02X3Jjdl9zcGkoc2tiLCBJUFBST1RPX0lQVjYsIHNwaSkgPiAwID8g
+OiAwOw0KPj4gKwlyZXR1cm4geGZybTZfcmN2X3NwaShza2IsIElQUFJPVE9fSVBWNiwgc3BpKSA+
+IDAgPyAxIDogMDsNCj4+ICB9DQo+PiAgDQo+PiAgc3RhdGljIGludCB4ZnJtNl90dW5uZWxfZXJy
+KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBpbmV0Nl9za2JfcGFybSAqb3B0LA0KPiANCj4g
+SSBzdXNwZWN0IHRoYXQgdGhpcyB3YXMgaW50ZW5kZWQgdG8gcmV0dXJuIHRoZSByZXN1bHQgb2Yg
+eGZybTZfcmN2X3NwaSgpDQo+IGlmID4gMC4NCg0KSSBhbHNvIHN1c3BlY3QgdGhpcyB3YXMgdGhl
+IGludGVudCwgYnV0IEknbSBub3Qgc3VyZSB3aHkgaXQgbWF0dGVycw0KYXQgYWxsLg0KDQpUaGUg
+ZXF1aXZhbGVudCBjb2RlIGltcGxlbWVudGluZyB0aGUgc2FtZSBvcGVyYXRpb25zIG9uIHRoZSBp
+cHY0DQpzaWRlIHJldHVybiB4ZnJtNF9yY3Zfc3BpKCkncyByZXR1cm4gdmFsdWUgZGlyZWN0bHku
+DQoNClNvIHdlIG5lZWQgdG8gZWl0aGVyIGRlY2lkZSB0aGF0IHdlIGNhbiBkbyB0aGUgc2FtZSB0
+aGluZyBoZXJlIG9uIHRoZQ0KaXB2NiBzaWRlLCBvciBkb2N1bWVudCBleGFjdGx5IHdoeSB3ZSBj
+YW4ndC4NCg==
