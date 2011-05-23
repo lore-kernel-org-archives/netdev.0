@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: skb_trim explicitely check the linearity instead
- of data_len
-Date: Sun, 22 May 2011 21:02:17 -0400 (EDT)
-Message-ID: <20110522.210217.1746160427607139147.davem@davemloft.net>
-References: <1306043169-26659-1-git-send-email-emmanuel.grumbach@intel.com>
+Subject: Re: [Patch] pktgen: refactor pg_init() code
+Date: Sun, 22 May 2011 21:02:10 -0400 (EDT)
+Message-ID: <20110522.210210.1533356691217219621.davem@davemloft.net>
+References: <BANLkTikd8Ft0N6ovGp8KOVksg2Rj4RxRaA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: emmanuel.grumbach@intel.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52906 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:52902 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753420Ab1EWBCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 21:02:20 -0400
-In-Reply-To: <1306043169-26659-1-git-send-email-emmanuel.grumbach@intel.com>
+	with ESMTP id S1751018Ab1EWBCO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 21:02:14 -0400
+In-Reply-To: <BANLkTikd8Ft0N6ovGp8KOVksg2Rj4RxRaA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: emmanuel.grumbach@intel.com
-Date: Sun, 22 May 2011 08:46:09 +0300
+=46rom: Am=E9rico Wang <xiyou.wangcong@gmail.com>
+Date: Sun, 22 May 2011 18:52:08 +0800
 
-> From: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-> 
-> The purpose of the check on data_len is to check linearity, so use the inline
-> helper for this. No overhead and more explicit.
-> 
-> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+> This also shrinks the object size a little.
+>=20
+>    text	   data	    bss	    dec	    hex	filename
+>   28834	    186	      8	  29028	   7164	net/core/pktgen.o
+>   28816	    186	      8	  29010	   7152	net/core/pktgen.o.AFTER
+>=20
+>=20
+> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
+> Cc: "David Miller" <davem@davemloft.net>,
 
 Applied.
