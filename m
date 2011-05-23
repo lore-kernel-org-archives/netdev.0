@@ -1,88 +1,85 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Sun, 22 May 2011 23:01:01 -0700
-Message-ID: <4DD9F81D.6070806@candelatech.com>
-References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>	<20110412.141645.112604563.davem@davemloft.net>	<BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>	<20110521072925.GA2588@jirka.orion>	<BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>	<4DD7BB61.9050200@gmail.com>	<BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>	<4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>	<m17h9jp7js.fsf@fess.ebiederm.org>	<BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com>	<m1ei3qjzix.fsf_-_@fess.ebiederm.org>	<4DD97A44.2020708@candelatech.com> <m1wrhigy37.fsf@fess.ebiederm.org>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Mon, 23 May 2011 08:21:48 +0200
+Message-ID: <4DD9FCFC.10803@hartkopp.net>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
+	<4DCB88A4.2010901@grandegger.com> <4DCBF1B6.6000104@hartkopp.net>
+	<201105221230.56243.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jpirko@redhat.com>,
-	=?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, Jesse Gross <jesse@nicira.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:39230 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310Ab1EWGBe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 02:01:34 -0400
-In-Reply-To: <m1wrhigy37.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <201105221230.56243.arnd-r2nGTMty4D4@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 05/22/2011 03:38 PM, Eric W. Biederman wrote:
-> Ben Greear<greearb@candelatech.com>  writes:
->
->> On 05/22/2011 12:39 PM, Eric W. Biederman wrote:
->>>
->>> Simplify the vlan handling code by not supporing clearing of
->>> VLAN_FLAG_REORDER_HDR.  Which means we always make the vlan handling
->>> code strip the vlan header from the packets, and always insert the vlan
->>> header when transmitting packets.
->>>
->>> Not stripping the vlan header has alwasy been broken in combination with
->>> vlan hardware accelleration.  Now that we are making everything look
->>> like accelerated vlan handling not stripping the vlan header is always
->>> broken.
->>>
->>> I don't think anyone actually cares so simply stop supporting the broken
->>> case.
+On 22.05.2011 12:30, Arnd Bergmann wrote:
+> On Thursday 12 May 2011 16:41:58 Oliver Hartkopp wrote:
+>> E.g. assume you need the CAN-IDs 0x100, 0x200 and 0x300 in your application
+>> and for that reason you configure these IDs in the pruss CAN driver.
 >>
->> I've lost track of the VLAN code a bit.  Is there any documentation
->> somewhere about what happens in these various cases:
->
-> Other than the code I don't know about documentation.
+>> What if someone generates a 100% CAN busload exactly on CAN-ID 0x100 then?
+>>
+>> Worst case (1MBit/s, DLC=0) you would need to handle about 21.000 irqs/s for
+>> the correctly received CAN frames with the filtered CAN-ID 0x100 ...
+> 
+> Then I guess the main thing that a "smart" CAN implementation like pruss
+> should do is interrupt mitigation. When you have a constant flow of
+> packets coming in, the hardware should be able to DMA a lot of
+> them into kernel memory before the driver is required to pick them up,
+> and only get into interrupt driven mode when the kernel has managed
+> to process all outstanding packets.
+> 
+>> This all depends heavily on Linux networking (skb handling, caching, etc) and
+>> is pretty fast and optimized!! That was also the reason why it ran on the old
+>> PowerPC that smoothly. The mostly seen effect if anything drops is when the
+>> application (holding the socket) was not fast enough to handle the incoming
+>> data. NB: For that reason we implemented a CAN content filter (CAN_BCM) that
+>> is able to do content filtering and timeout monitoring in Kernelspace - all
+>> performed in the SoftIRQ.
+> 
+> Right, dropping packets that no process is waiting for should be done as
+> early as possible. In pruss-can, the idea was to do it in hardware, which
+> doesn't really work all that well for the reasons discussed before.
+> Dropping the frames in the NAPI poll function (softirq time) seems like a
+> logical choice.
 
-These cases are tricky and probably have changed over
-the years.  It would be nice to have it written down
-somewhere, even if just in comments somewhere in the
-VLAN code.
+In 'real world' CAN setups you'll never see 21.000 CAN frames per second (and
+therefore 21.000 irqs/s) - you are usually designing CAN network traffic with
+less than 60% busload. So interrupt rates somewhere below 1000 irqs/s can be
+assumed.
 
->
->> *  Open a raw packet socket on eth0.
-> I assume you mean a pf_packet socket.
+>From what i've seen so far a 3-4 messages rx FIFO and NAPI support just make it.
 
-Yes.
+@Marc/Wolfgang: Would this be also your recommendation for a CAN controller
+design that supports SocketCAN in the best way?
 
->>    *  Do we get tagged VLAN packets?  (I'd expect yes.)
-> yes.
->
->>    *  If we sent a tagged VLAN packet, it's sent without modification?  (I'd expect yes.)
->>    **  Without "yes" to the two above, one cannot do user-space bridging properly.
->
-> This is sort of.  If you set the PACKET_AUXDATA option and use recv_cmsg
-> you get the priority and the vlan identifier in the auxdata.
->
-> I think that is a pretty horrible answer myself but it has been that way
-> since sometime mid 2008.  So I'm not immediately prepared to call it
-> a regression, or a bug.
+As the Linux network stack supports hardware timestamps too, this could be an
+additional (optional!) feature.
 
-I believe we have been getting tagged VLAN packets properly
-in our test cases.  We would not be creating any VLAN devices
-in this case, so perhaps the NIC isn't doing any stripping.
+Regards,
+Oliver
 
-To me, it seems like we should get the fully tagged packet
-without having to go muck with aux-data, though it would
-be fine if it were *also* in aux-data.
-
-I'll try to test this again this coming week to make sure
-it's working like I think it is.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+>> Having 'Mailboxes' bound to CAN-IDs is something that's useful for 8/16 bit
+>> CPUs where an application is tightly bound to the embedded ECUs functionality.
+> 
+> Makes sense.
+> 
+> 	Arnd
