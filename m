@@ -1,47 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: xfrm6: fix dubious code
-Date: Mon, 23 May 2011 16:33:02 -0400 (EDT)
-Message-ID: <20110523.163302.1123967560115611293.davem@davemloft.net>
-References: <1306140167.2869.8.camel@edumazet-laptop>
-	<1306164960.3456.42.camel@localhost>
+Subject: Re: [PATCH] ehea: Fix multicast registration on semi-promiscuous
+ mode
+Date: Mon, 23 May 2011 16:34:23 -0400 (EDT)
+Message-ID: <20110523.163423.238991063346962299.davem@davemloft.net>
+References: <20110520.162801.1310159491178676084.davem@davemloft.net>
+	<1306157795-13377-1-git-send-email-leitao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47646 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46550 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832Ab1EWUdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 16:33:09 -0400
-In-Reply-To: <1306164960.3456.42.camel@localhost>
+	with ESMTP id S1753052Ab1EWUeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 16:34:36 -0400
+In-Reply-To: <1306157795-13377-1-git-send-email-leitao@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmVuIEh1dGNoaW5ncyA8Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbT4NCkRhdGU6IE1v
-biwgMjMgTWF5IDIwMTEgMDg6MzY6MDAgLTA3MDANCg0KPiBPbiBNb24sIDIwMTEtMDUtMjMgYXQg
-MTA6NDIgKzAyMDAsIEVyaWMgRHVtYXpldCB3cm90ZToNCj4+IG5ldC9pcHY2L3hmcm02X3R1bm5l
-bC5jOiBJbiBmdW5jdGlvbiCheGZybTZfdHVubmVsX3JjdqI6DQo+PiBuZXQvaXB2Ni94ZnJtNl90
-dW5uZWwuYzoyNDQ6NTM6IHdhcm5pbmc6IHRoZSBvbWl0dGVkIG1pZGRsZSBvcGVyYW5kDQo+PiBp
-biA/OiB3aWxsIGFsd2F5cyBiZSChdHJ1ZaIsIHN1Z2dlc3QgZXhwbGljaXQgbWlkZGxlIG9wZXJh
-bmQNCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21h
-aWwuY29tPg0KPj4gLS0tDQo+PiAgbmV0L2lwdjYveGZybTZfdHVubmVsLmMgfCAgICAyICstDQo+
-PiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+PiANCj4+
-IGRpZmYgLS1naXQgYS9uZXQvaXB2Ni94ZnJtNl90dW5uZWwuYyBiL25ldC9pcHY2L3hmcm02X3R1
-bm5lbC5jDQo+PiBpbmRleCBhNjc3MGEwLi5mYjliMGMzIDEwMDY0NA0KPj4gLS0tIGEvbmV0L2lw
-djYveGZybTZfdHVubmVsLmMNCj4+ICsrKyBiL25ldC9pcHY2L3hmcm02X3R1bm5lbC5jDQo+PiBA
-QCAtMjQxLDcgKzI0MSw3IEBAIHN0YXRpYyBpbnQgeGZybTZfdHVubmVsX3JjdihzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiKQ0KPj4gIAlfX2JlMzIgc3BpOw0KPj4gIA0KPj4gIAlzcGkgPSB4ZnJtNl90dW5u
-ZWxfc3BpX2xvb2t1cChuZXQsIChjb25zdCB4ZnJtX2FkZHJlc3NfdCAqKSZpcGgtPnNhZGRyKTsN
-Cj4+IC0JcmV0dXJuIHhmcm02X3Jjdl9zcGkoc2tiLCBJUFBST1RPX0lQVjYsIHNwaSkgPiAwID8g
-OiAwOw0KPj4gKwlyZXR1cm4geGZybTZfcmN2X3NwaShza2IsIElQUFJPVE9fSVBWNiwgc3BpKSA+
-IDAgPyAxIDogMDsNCj4+ICB9DQo+PiAgDQo+PiAgc3RhdGljIGludCB4ZnJtNl90dW5uZWxfZXJy
-KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBpbmV0Nl9za2JfcGFybSAqb3B0LA0KPiANCj4g
-SSBzdXNwZWN0IHRoYXQgdGhpcyB3YXMgaW50ZW5kZWQgdG8gcmV0dXJuIHRoZSByZXN1bHQgb2Yg
-eGZybTZfcmN2X3NwaSgpDQo+IGlmID4gMC4NCg0KSSBhbHNvIHN1c3BlY3QgdGhpcyB3YXMgdGhl
-IGludGVudCwgYnV0IEknbSBub3Qgc3VyZSB3aHkgaXQgbWF0dGVycw0KYXQgYWxsLg0KDQpUaGUg
-ZXF1aXZhbGVudCBjb2RlIGltcGxlbWVudGluZyB0aGUgc2FtZSBvcGVyYXRpb25zIG9uIHRoZSBp
-cHY0DQpzaWRlIHJldHVybiB4ZnJtNF9yY3Zfc3BpKCkncyByZXR1cm4gdmFsdWUgZGlyZWN0bHku
-DQoNClNvIHdlIG5lZWQgdG8gZWl0aGVyIGRlY2lkZSB0aGF0IHdlIGNhbiBkbyB0aGUgc2FtZSB0
-aGluZyBoZXJlIG9uIHRoZQ0KaXB2NiBzaWRlLCBvciBkb2N1bWVudCBleGFjdGx5IHdoeSB3ZSBj
-YW4ndC4NCg==
+From: leitao@linux.vnet.ibm.com
+Date: Mon, 23 May 2011 10:36:35 -0300
+
+> Ehea will not register multicast groups in phyp if the physical
+> interface is in promiscuous mode. But it should register if the
+> logical port is in promiscuous mode, but the physical port is not.
+> 
+> Ehea physical promiscuous mode is defined by ehea_port->promisc,
+> while logical port is defined by IFF_PROMISC.
+> 
+> So currently, if the user set the interface in promiscuous mode,
+> IGMP will not be registred in PHYP, and PHYP will never pass
+> the multicast packet to the logical port, which is bad
+> 
+> So, this patch just fixes it, assuring that we register in phyp
+> if the physical port is not on promiscuous mode.
+> 
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+
+Applied, thanks.
