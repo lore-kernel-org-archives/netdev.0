@@ -1,64 +1,74 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH]net:8021q:vlan.c Fix pr_info to read on line in the
- syslog.
-Date: Mon, 23 May 2011 09:23:01 -0700
-Message-ID: <1306167781.8687.20.camel@Joe-Laptop>
-References: <1306166698-2036-1-git-send-email-justinmattock@gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
+Date: Mon, 23 May 2011 09:33:06 -0700
+Message-ID: <4DDA8C42.3090009@candelatech.com>
+References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>	<20110412.141645.112604563.davem@davemloft.net>	<BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>	<20110521072925.GA2588@jirka.orion>	<BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>	<4DD7BB61.9050200@gmail.com>	<BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>	<4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>	<m17h9jp7js.fsf@fess.ebiederm.org>	<BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com>	<m1ei3qjzix.fsf_-_@fess.ebiederm.org>	<4DD97A44.2020708@candelatech.com> <m1wrhigy37.fsf@fess.ebiederm.org>	<4DD9F81D.6070806@candelatech.com> <m1y61x94g1.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: "Justin P. Mattock" <justinmattock@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306166698-2036-1-git-send-email-justinmattock@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jpirko@redhat.com>,
+	=?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, Jesse Gross <jesse@nicira.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:52508 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755225Ab1EWQd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 12:33:27 -0400
+In-Reply-To: <m1y61x94g1.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-23 at 09:04 -0700, Justin P. Mattock wrote:
-> The patch below changes the pr_info so that it reads on one line in the syslog
-> rather than two.
-> 
-> before:
-> 
-> [   30.438203] 802.1Q VLAN Support v1.8 Ben Greear <greearb@candelatech.com>
-> [   30.441542] All bugs added by David S. Miller <davem@redhat.com>
-> 
-> 
-> after:
-> [   29.356282] 802.1Q VLAN Support v1.8 Ben Greear <greearb@candelatech.com> All bugs added by: David S. Miller <davem@redhat.com>
-> 
-> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
-> 
-> ---
->  net/8021q/vlan.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index b2274d1..02f4d8b 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -673,8 +673,8 @@ static int __init vlan_proto_init(void)
->  {
->  	int err;
->  
-> -	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyright);
-> -	pr_info("All bugs added by %s\n", vlan_buggyright);
-> +	pr_info("%s v%s %s All bugs added by: %s\n", vlan_fullname, vlan_version, 
-> +		vlan_copyright, vlan_buggyright);
+On 05/23/2011 02:00 AM, Eric W. Biederman wrote:
+> Ben Greear<greearb@candelatech.com>  writes:
+>
+>> I believe we have been getting tagged VLAN packets properly
+>> in our test cases.  We would not be creating any VLAN devices
+>> in this case, so perhaps the NIC isn't doing any stripping.
+>>
+>> To me, it seems like we should get the fully tagged packet
+>> without having to go muck with aux-data, though it would
+>> be fine if it were *also* in aux-data.
+>
+> Given that pf_packet is a portable interface that works on multiple OS's
+> I tend to agree.  Certainly my users would be happier if they don't
+> have to change their code and not having to change tcpdump would
+> also be nice.
+>
+> I'm not certain exactly where in the code it makes sense to put the
+> vlan header back on for pf_packet sockets.  The simplest thing would
+> be just before we run the socket filter.  If we don't do the simplest
+> thing this raises the question how do we avoid breaking socket filters
+> that look at the packet data and know there is going to be a vlan
+> header there.
 
-Might as well avoid the format string then too.
+That is going to be tricky, since the VLAN header would adjust
+offsets and users could be using some filter that uses offsets
+with no actual mention of VLANs (but expecting it to take
+the VLAN header into account).
 
-	pr_info(vlan_fullname " v" vlan_version " " vlan_copyright
-		" All bugs added by: " vlan_buggyright "\n");
- 
-or just kill the otherwise unused vlan_<foo> variables
+> Still the current situation is better than seeing vlan 0 tagged packets
+> twice.
+>
+> My gut feel says if we can cheaply get the socket filters to act like it
+> sees the vlan tag (where the vlan tag belongs) we should not actually
+> put the vlan tag back on until we copy the packet to userspace.
 
-	pr_info("802.1Q VLAN Support v" vlan_version
-		" Ben Greear <greearb@candelatech.com>"
-		" All bugs added by: David S. Miller <davem@redhat.com>\n");
+Maybe keep a count of how many sockets with filters and/or pf_packet
+sockets are open, and how many things are registered in
+the 'ptype_all' chain, and only re-add (or never remove) the header if that is > 0?
 
-though I think that emitting names on startup isn't necessary and
-this is enough:
+(And, let the bridging and other kernel logic deal with vlans
+via auxillary methods as well as checking in-line headers.)
 
-	pr_info("802.1Q VLAN Support v" vlan_version "\n");
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
