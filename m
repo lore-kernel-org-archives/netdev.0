@@ -1,237 +1,168 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.38.x, 2.6.39 sfq? kernel panic in sfq_enqueue
-Date: Mon, 23 May 2011 14:32:18 +0200
-Message-ID: <1306153938.20687.2.camel@edumazet-laptop>
-References: <598fe111e91c6236b8bfdfca323b9a17@visp.net.lb>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: [RFC Patch] bonding: move to net/ directory
+Date: Mon, 23 May 2011 20:45:14 +0800
+Message-ID: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: multipart/mixed; boundary=20cf303b426dc4797a04a3f0d711
+Cc: David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34888 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752426Ab1EWMcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 08:32:22 -0400
-Received: by wwa36 with SMTP id 36so6145185wwa.1
-        for <netdev@vger.kernel.org>; Mon, 23 May 2011 05:32:21 -0700 (PDT)
-In-Reply-To: <598fe111e91c6236b8bfdfca323b9a17@visp.net.lb>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:47206 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753659Ab1EWMpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 08:45:15 -0400
+Received: by iyb14 with SMTP id 14so4627732iyb.19
+        for <netdev@vger.kernel.org>; Mon, 23 May 2011 05:45:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 23 mai 2011 =C3=A0 13:01 +0300, Denys Fedoryshchenko a =C3=A9c=
-rit :
-> It is not  mine, just helping to forward information to netdev.
->  Arch Linux, x86_64, NAS for PPTP (with PPTP "acceleration" enabled)
->  If any other info required, please let me know.
->=20
->  Here is panic message
->=20
->  [ 4461.966303] BUG: unable to handle kernel NULL pointer dereference=
- at=20
->           (null)
->  [ 4461.969603] IP: [<ffffffffa019fb90>] sfq_enqueue+0xe0/0x630=20
->  [sch_sfq]
->  [ 4461.969603] PGD 1179a0067 PUD 1160fa067 PMD 0
->  [ 4461.969603] Oops: 0002 [#1] PREEMPT SMP
->  [ 4461.969603] last sysfs file: /sys/devices/virtual/net/ppp41/ueven=
-t
->  [ 4461.969603] CPU 0
->  [ 4461.969603] Modules linked in: act_police sch_ingress cls_u32=20
->  sch_sfq sch_htb xt_TCPMSS xt_tcpudp iptable_filter ip_tables x_table=
-s=20
->  igb l2tp_ppp l2tp_netlink l2tp_core pptp pppox ppp_generic slhc gre=20
->  bonding i2c_i801 firewire_ohci psmouse uhci_hcd iTCO_wdt button evde=
-v=20
->  firewire_core processor intel_agp intel_gtt i2c_core asus_atk0110 dc=
-a=20
->  iTCO_vendor_support ehci_hcd pcspkr serio_raw sg usbcore crc_itu_t i=
-pv6=20
->  ext2 mbcache sd_mod ahci libahci pata_jmicron pata_acpi libata scsi_=
-mod
->  [ 4461.969603]
->  [ 4461.969603] Pid: 0, comm: swapper Not tainted 2.6.39-ARCH #1 Syst=
-em=20
->  manufacturer System Product Name/P5QD TURBO
->  [ 4461.969603] RIP: 0010:[<ffffffffa019fb90>]  [<ffffffffa019fb90>]=20
->  sfq_enqueue+0xe0/0x630 [sch_sfq]
->  [ 4461.969603] RSP: 0018:ffff88011fc03940  EFLAGS: 00010206
->  [ 4461.969603] RAX: ffff8801172a7d08 RBX: ffff8801172a7000 RCX:=20
->  ffff8801172a7100
->  [ 4461.969603] RDX: 000000000000007b RSI: 0000000000000000 RDI:=20
->  ffff8801172a7d08
->  [ 4461.969603] RBP: ffff88011fc03980 R08: ffff8801170e8ac0 R09:=20
->  0000000000000007
->  [ 4461.969603] R10: 0000000000000001 R11: ffffc900110a1000 R12:=20
->  ffff8801172a7d08
->  [ 4461.969603] R13: 0000000017cc394b R14: 00000000a54672c3 R15:=20
->  ffff880117f8109c
->  [ 4461.969603] FS:  0000000000000000(0000) GS:ffff88011fc00000(0000)=
-=20
->  knlGS:0000000000000000
->  [ 4461.969603] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
->  [ 4461.969603] CR2: 0000000000000000 CR3: 00000001171b2000 CR4:=20
->  00000000000406f0
->  [ 4461.969603] DR0: 0000000000000000 DR1: 0000000000000000 DR2:=20
->  0000000000000000
->  [ 4461.969603] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:=20
->  0000000000000400
->  [ 4461.969603] Process swapper (pid: 0, threadinfo ffffffff81600000,=
-=20
->  task ffffffff8169b020)
->  [ 4461.969603] Stack:
->  [ 4461.969603]  ffff88011fc039a0 ffff880117787d80 ffff88011fc03980=20
->  ffff880117f81000
->  [ 4461.969603]  ffff880117b0f400 ffff8801172a7d08 ffff8801172a7000=20
->  ffff880117f8109c
->  [ 4461.969603]  ffff88011fc039d0 ffffffffa0165080 ffff880114016f00=20
->  ffff880114016f00
->  [ 4461.969603] Call Trace:
->  [ 4461.969603]  <IRQ>
->  [ 4461.969603]  [<ffffffffa0165080>] htb_enqueue+0xb0/0x3c0 [sch_htb=
-]
->  [ 4461.969603]  [<ffffffff8112f0d3>] ?=20
->  __kmalloc_node_track_caller+0x33/0x240
->  [ 4461.969603]  [<ffffffff813127b3>] dev_queue_xmit+0x1d3/0x680
->  [ 4461.969603]  [<ffffffff81345300>] ? ip_fragment+0x1d0/0x960
->  [ 4461.969603]  [<ffffffff81344252>] ip_finish_output2+0x1e2/0x2c0
->  [ 4461.969603]  [<ffffffff8134534e>] ip_fragment+0x21e/0x960
->  [ 4461.969603]  [<ffffffff81344070>] ? ip_send_check+0x50/0x50
->  [ 4461.969603]  [<ffffffff81345d8f>] ip_finish_output+0x27f/0x360
->  [ 4461.969603]  [<ffffffff81342840>] ? ip_frag_mem+0x10/0x10
->  [ 4461.969603]  [<ffffffff81346928>] ip_output+0xc8/0xe0
->  [ 4461.969603]  [<ffffffff8134287f>] ip_forward_finish+0x3f/0x50
->  [ 4461.969603]  [<ffffffff81342b25>] ip_forward+0x295/0x430
->  [ 4461.969603]  [<ffffffff81340d61>] ip_rcv_finish+0x131/0x370
->  [ 4461.969603]  [<ffffffff81303a1a>] ? __alloc_skb+0x4a/0x230
->  [ 4461.969603]  [<ffffffff8134163e>] ip_rcv+0x21e/0x2f0
->  [ 4461.969603]  [<ffffffff8130f80a>] __netif_receive_skb+0x30a/0x6c0
->  [ 4461.969603]  [<ffffffff81011759>] ? read_tsc+0x9/0x20
->  [ 4461.969603]  [<ffffffff813103bd>] netif_receive_skb+0xad/0xc0
->  [ 4461.969603]  [<ffffffff8121867c>] ? is_swiotlb_buffer+0x3c/0x50
->  [ 4461.969603]  [<ffffffff81310d08>] napi_skb_finish+0x48/0x60
->  [ 4461.969603]  [<ffffffff81310dcd>] napi_gro_receive+0xad/0xc0
->  [ 4461.969603]  [<ffffffffa01b79b7>] igb_poll+0x8c7/0xd60 [igb]
->  [ 4461.969603]  [<ffffffff81310699>] net_rx_action+0x149/0x300
->  [ 4461.969603]  [<ffffffff81011759>] ? read_tsc+0x9/0x20
->  [ 4461.969603]  [<ffffffff8105ea78>] __do_softirq+0xa8/0x280
->  [ 4461.969603]  [<ffffffff81089538>] ?=20
->  tick_dev_program_event+0x48/0x110
->  [ 4461.969603]  [<ffffffff8108961a>] ? tick_program_event+0x1a/0x20
->  [ 4461.969603]  [<ffffffff813cc51c>] call_softirq+0x1c/0x30
->  [ 4461.969603]  [<ffffffff8100caf5>] do_softirq+0x65/0xa0
->  [ 4461.969603]  [<ffffffff8105ef86>] irq_exit+0x96/0xb0
->  [ 4461.969603]  [<ffffffff8102784b>] smp_apic_timer_interrupt+0x6b/0=
-xa0
->  [ 4461.969603]  [<ffffffff813cbcd3>] apic_timer_interrupt+0x13/0x20
->  [ 4461.969603]  <EOI>
->  [ 4461.969603]  [<ffffffff81012beb>] ? mwait_idle+0x9b/0x2d0
->  [ 4461.969603]  [<ffffffff81009226>] cpu_idle+0xb6/0x100
->  [ 4461.969603]  [<ffffffff813a903d>] rest_init+0x91/0xa4
->  [ 4461.969603]  [<ffffffff81722c32>] start_kernel+0x3ed/0x3fa
->  [ 4461.969603]  [<ffffffff81722347>]=20
->  x86_64_start_reservations+0x132/0x136
->  [ 4461.969603]  [<ffffffff81722140>] ? early_idt_handlers+0x140/0x14=
-0
->  [ 4461.969603]  [<ffffffff8172244d>] x86_64_start_kernel+0x102/0x111
->  [ 4461.969603] Code: b6 70 10 3b b3 08 01 00 00 0f 8d df 01 00 00 41=
- 8b=20
->  74 24 28 01 b3 b4 00 00 00 48 8b 70 08 49 89 04 24 49 89 74 24 08 48=
- 8b=20
->  70 08 <4c> 89 26 0f b6 f2 4c 89 60 08 48 8d 3c 76 48 8d bc fb 90 01 =
-00
->  [ 4461.969603] RIP  [<ffffffffa019fb90>] sfq_enqueue+0xe0/0x630=20
->  [sch_sfq]
->  [ 4461.969603]  RSP <ffff88011fc03940>
->  [ 4461.969603] CR2: 0000000000000000
->  [ 4463.351117] ---[ end trace f04e6b6edad2d731 ]---
->  [ 4463.364930] Kernel panic - not syncing: Fatal exception in interr=
-upt
->  [ 4463.383963] Pid: 0, comm: swapper Tainted: G      D     2.6.39-AR=
-CH=20
->  #1
->  [ 4463.403515] Call Trace:
->  [ 4463.410847]  <IRQ>  [<ffffffff813c16b9>] panic+0x9b/0x1a8
->  [ 4463.427073]  [<ffffffff8100e322>] oops_end+0xe2/0xf0
->  [ 4463.441944]  [<ffffffff813c117f>] no_context+0x204/0x213
->  [ 4463.457857]  [<ffffffff81346928>] ? ip_output+0xc8/0xe0
->  [ 4463.473509]  [<ffffffff813c1317>] __bad_area_nosemaphore+0x189/0x=
-1ac
->  [ 4463.492542]  [<ffffffffa01b4c4b>] ?=20
->  igb_xmit_frame_ring_adv+0x1fb/0xc30 [igb]
->  [ 4463.513913]  [<ffffffff813c1348>] bad_area_nosemaphore+0xe/0x10
->  [ 4463.531645]  [<ffffffff81036329>] do_page_fault+0x3c9/0x4b0
->  [ 4463.548337]  [<ffffffff812068e4>] ? timerqueue_add+0x74/0xc0
->  [ 4463.565291]  [<ffffffff8107c4d3>] ? enqueue_hrtimer+0x33/0xe0
->  [ 4463.582503]  [<ffffffff8107d0fe>] ?=20
->  __hrtimer_start_range_ns+0x1be/0x520
->  [ 4463.602576]  [<ffffffff810b95fd>] ? handle_edge_irq+0x7d/0x120
->  [ 4463.620048]  [<ffffffff813cae85>] page_fault+0x25/0x30
->  [ 4463.635438]  [<ffffffffa019fb90>] ? sfq_enqueue+0xe0/0x630 [sch_s=
-fq]
->  [ 4463.654471]  [<ffffffffa0165080>] htb_enqueue+0xb0/0x3c0 [sch_htb=
-]
->  [ 4463.672983]  [<ffffffff8112f0d3>] ?=20
->  __kmalloc_node_track_caller+0x33/0x240
->  [ 4463.693576]  [<ffffffff813127b3>] dev_queue_xmit+0x1d3/0x680
->  [ 4463.710528]  [<ffffffff81345300>] ? ip_fragment+0x1d0/0x960
->  [ 4463.727221]  [<ffffffff81344252>] ip_finish_output2+0x1e2/0x2c0
->  [ 4463.744953]  [<ffffffff8134534e>] ip_fragment+0x21e/0x960
->  [ 4463.761124]  [<ffffffff81344070>] ? ip_send_check+0x50/0x50
->  [ 4463.777817]  [<ffffffff81345d8f>] ip_finish_output+0x27f/0x360
->  [ 4463.795289]  [<ffffffff81342840>] ? ip_frag_mem+0x10/0x10
->  [ 4463.811462]  [<ffffffff81346928>] ip_output+0xc8/0xe0
->  [ 4463.826592]  [<ffffffff8134287f>] ip_forward_finish+0x3f/0x50
->  [ 4463.843806]  [<ffffffff81342b25>] ip_forward+0x295/0x430
->  [ 4463.859719]  [<ffffffff81340d61>] ip_rcv_finish+0x131/0x370
->  [ 4463.876411]  [<ffffffff81303a1a>] ? __alloc_skb+0x4a/0x230
->  [ 4463.892842]  [<ffffffff8134163e>] ip_rcv+0x21e/0x2f0
->  [ 4463.907714]  [<ffffffff8130f80a>] __netif_receive_skb+0x30a/0x6c0
->  [ 4463.925966]  [<ffffffff81011759>] ? read_tsc+0x9/0x20
->  [ 4463.941099]  [<ffffffff813103bd>] netif_receive_skb+0xad/0xc0
->  [ 4463.958310]  [<ffffffff8121867c>] ? is_swiotlb_buffer+0x3c/0x50
->  [ 4463.976044]  [<ffffffff81310d08>] napi_skb_finish+0x48/0x60
->  [ 4463.992735]  [<ffffffff81310dcd>] napi_gro_receive+0xad/0xc0
->  [ 4464.009688]  [<ffffffffa01b79b7>] igb_poll+0x8c7/0xd60 [igb]
->  [ 4464.026639]  [<ffffffff81310699>] net_rx_action+0x149/0x300
->  [ 4464.043333]  [<ffffffff81011759>] ? read_tsc+0x9/0x20
->  [ 4464.058465]  [<ffffffff8105ea78>] __do_softirq+0xa8/0x280
->  [ 4464.074636]  [<ffffffff81089538>] ?=20
->  tick_dev_program_event+0x48/0x110
->  [ 4464.093928]  [<ffffffff8108961a>] ? tick_program_event+0x1a/0x20
->  [ 4464.111920]  [<ffffffff813cc51c>] call_softirq+0x1c/0x30
->  [ 4464.127833]  [<ffffffff8100caf5>] do_softirq+0x65/0xa0
->  [ 4464.143225]  [<ffffffff8105ef86>] irq_exit+0x96/0xb0
->  [ 4464.158098]  [<ffffffff8102784b>] smp_apic_timer_interrupt+0x6b/0=
-xa0
->  [ 4464.177130]  [<ffffffff813cbcd3>] apic_timer_interrupt+0x13/0x20
->  [ 4464.195120]  <EOI>  [<ffffffff81012beb>] ? mwait_idle+0x9b/0x2d0
->  [ 4464.213145]  [<ffffffff81009226>] cpu_idle+0xb6/0x100
->  [ 4464.228274]  [<ffffffff813a903d>] rest_init+0x91/0xa4
->  [ 4464.243404]  [<ffffffff81722c32>] start_kernel+0x3ed/0x3fa
->  [ 4464.259837]  [<ffffffff81722347>]=20
->  x86_64_start_reservations+0x132/0x136
->  [ 4464.279649]  [<ffffffff81722140>] ? early_idt_handlers+0x140/0x14=
-0
->  [ 4464.298161]  [<ffffffff8172244d>] x86_64_start_kernel+0x102/0x111
->=20
-> =20
+--20cf303b426dc4797a04a3f0d711
+Content-Type: text/plain; charset=UTF-8
 
-Ouch, thats an ip_fragment() bug I am afraid... nothing to do with SFQ
+Hello, Jay, Andy,
 
-It calls=20
+Is there any peculiar reason that bonding code has to stay
+in drivers/net/ directory?
 
-err =3D output(skb);
+Since bonding and bridge are somewhat similar, both of
+which are used to "bond" two or more devices into one,
+and bridge code is already in net/bridge/, so I think it also
+makes sense to move bonding code into net/bonding/ too.
 
-and a bit later does :
+This could also help to grep the source more easily. :)
 
-skb =3D frag;
-frag =3D skb->next;   // thats completely illegal here !
-skb->next =3D NULL;
+What do you think about the patch below?
+(Note, this patch is against net-next-2.6.)
 
-I am cooking a patch and send it in a couple of minutes.
+Thanks!
 
-Thanks !
+Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
+Cc:  "David Miller" <davem@davemloft.net>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
 
+---
 
+--20cf303b426dc4797a04a3f0d711
+Content-Type: text/x-patch; charset=US-ASCII; name="net-bonding-movement.diff"
+Content-Disposition: attachment; filename="net-bonding-movement.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_go1eh3kn0
 
+IERvY3VtZW50YXRpb24vbmV0d29ya2luZy9ib25kaW5nLnR4dCAgICAgICAgfCAgICAyICstCiBN
+QUlOVEFJTkVSUyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQogZHJp
+dmVycy9uZXQvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgMTggLS0tLS0tLS0t
+LS0tLS0tLS0tCiBkcml2ZXJzL25ldC9NYWtlZmlsZSAgICAgICAgICAgICAgICAgICAgICAgIHwg
+ICAgMSAtCiBuZXQvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAx
+OSArKysrKysrKysrKysrKysrKysrCiBuZXQvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIHwgICAgMSArCiB7ZHJpdmVycy9uZXQgPT4gbmV0fS9ib25kaW5nL01ha2VmaWxl
+ICAgICAgIHwgICAgMAoge2RyaXZlcnMvbmV0ID0+IG5ldH0vYm9uZGluZy9ib25kXzNhZC5jICAg
+ICB8ICAgIDAKIHtkcml2ZXJzL25ldCA9PiBuZXR9L2JvbmRpbmcvYm9uZF8zYWQuaCAgICAgfCAg
+ICAwCiB7ZHJpdmVycy9uZXQgPT4gbmV0fS9ib25kaW5nL2JvbmRfYWxiLmMgICAgIHwgICAgMAog
+e2RyaXZlcnMvbmV0ID0+IG5ldH0vYm9uZGluZy9ib25kX2FsYi5oICAgICB8ICAgIDAKIHtkcml2
+ZXJzL25ldCA9PiBuZXR9L2JvbmRpbmcvYm9uZF9kZWJ1Z2ZzLmMgfCAgICAwCiB7ZHJpdmVycy9u
+ZXQgPT4gbmV0fS9ib25kaW5nL2JvbmRfaXB2Ni5jICAgIHwgICAgMAoge2RyaXZlcnMvbmV0ID0+
+IG5ldH0vYm9uZGluZy9ib25kX21haW4uYyAgICB8ICAgIDAKIHtkcml2ZXJzL25ldCA9PiBuZXR9
+L2JvbmRpbmcvYm9uZF9wcm9jZnMuYyAgfCAgICAwCiB7ZHJpdmVycy9uZXQgPT4gbmV0fS9ib25k
+aW5nL2JvbmRfc3lzZnMuYyAgIHwgICAgMAoge2RyaXZlcnMvbmV0ID0+IG5ldH0vYm9uZGluZy9i
+b25kaW5nLmggICAgICB8ICAgIDAKIDE3IGZpbGVzIGNoYW5nZWQsIDIyIGluc2VydGlvbnMoKyks
+IDIxIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9i
+b25kaW5nLnR4dCBiL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9ib25kaW5nLnR4dAppbmRleCAx
+ZjQ1YmQ4Li5jMWIzOTI0IDEwMDY0NAotLS0gYS9Eb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvYm9u
+ZGluZy50eHQKKysrIGIvRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2JvbmRpbmcudHh0CkBAIC0x
+MTQsNyArMTE0LDcgQEAgdGhlIGZvbGxvd2luZyBzdGVwczoKIC0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAKIAlUaGUgY3VycmVudCB2ZXJzaW9uIG9mIHRo
+ZSBib25kaW5nIGRyaXZlciBpcyBhdmFpbGFibGUgaW4gdGhlCi1kcml2ZXJzL25ldC9ib25kaW5n
+IHN1YmRpcmVjdG9yeSBvZiB0aGUgbW9zdCByZWNlbnQga2VybmVsIHNvdXJjZQorbmV0L2JvbmRp
+bmcgc3ViZGlyZWN0b3J5IG9mIHRoZSBtb3N0IHJlY2VudCBrZXJuZWwgc291cmNlCiAod2hpY2gg
+aXMgYXZhaWxhYmxlIG9uIGh0dHA6Ly9rZXJuZWwub3JnKS4gIE1vc3QgdXNlcnMgInJvbGxpbmcg
+dGhlaXIKIG93biIgd2lsbCB3YW50IHRvIHVzZSB0aGUgbW9zdCByZWNlbnQga2VybmVsIGZyb20g
+a2VybmVsLm9yZy4KIApkaWZmIC0tZ2l0IGEvTUFJTlRBSU5FUlMgYi9NQUlOVEFJTkVSUwppbmRl
+eCA0OWEwYmYzLi4yZWIyZTc5IDEwMDY0NAotLS0gYS9NQUlOVEFJTkVSUworKysgYi9NQUlOVEFJ
+TkVSUwpAQCAtMTQ5NSw3ICsxNDk1LDcgQEAgTToJQW5keSBHb3Nwb2RhcmVrIDxhbmR5QGdyZXlo
+b3VzZS5uZXQ+CiBMOgluZXRkZXZAdmdlci5rZXJuZWwub3JnCiBXOglodHRwOi8vc291cmNlZm9y
+Z2UubmV0L3Byb2plY3RzL2JvbmRpbmcvCiBTOglTdXBwb3J0ZWQKLUY6CWRyaXZlcnMvbmV0L2Jv
+bmRpbmcvCitGOgluZXQvYm9uZGluZy8KIEY6CWluY2x1ZGUvbGludXgvaWZfYm9uZGluZy5oCiAK
+IEJST0FEQ09NIEI0NCAxMC8xMDAgRVRIRVJORVQgRFJJVkVSCmRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9LY29uZmlnIGIvZHJpdmVycy9uZXQvS2NvbmZpZwppbmRleCAxOWYwNGEzLi5hOGQzOWUz
+IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9LY29uZmlnCisrKyBiL2RyaXZlcnMvbmV0L0tjb25m
+aWcKQEAgLTYwLDI0ICs2MCw2IEBAIGNvbmZpZyBEVU1NWQogCSAgSW5zdGVhZCBvZiAnZHVtbXkn
+LCB0aGUgZGV2aWNlcyB3aWxsIHRoZW4gYmUgY2FsbGVkICdkdW1teTAnLAogCSAgJ2R1bW15MScg
+ZXRjLgogCi1jb25maWcgQk9ORElORwotCXRyaXN0YXRlICJCb25kaW5nIGRyaXZlciBzdXBwb3J0
+IgotCWRlcGVuZHMgb24gSU5FVAotCWRlcGVuZHMgb24gSVBWNiB8fCBJUFY2PW4KLQktLS1oZWxw
+LS0tCi0JICBTYXkgJ1knIG9yICdNJyBpZiB5b3Ugd2lzaCB0byBiZSBhYmxlIHRvICdib25kJyBt
+dWx0aXBsZSBFdGhlcm5ldAotCSAgQ2hhbm5lbHMgdG9nZXRoZXIuIFRoaXMgaXMgY2FsbGVkICdF
+dGhlcmNoYW5uZWwnIGJ5IENpc2NvLAotCSAgJ1RydW5raW5nJyBieSBTdW4sIDgwMi4zYWQgYnkg
+dGhlIElFRUUsIGFuZCAnQm9uZGluZycgaW4gTGludXguCi0KLQkgIFRoZSBkcml2ZXIgc3VwcG9y
+dHMgbXVsdGlwbGUgYm9uZGluZyBtb2RlcyB0byBhbGxvdyBmb3IgYm90aCBoaWdoCi0JICBwZXJm
+b3JtYW5jZSBhbmQgaGlnaCBhdmFpbGFiaWxpdHkgb3BlcmF0aW9uLgotCi0JICBSZWZlciB0byA8
+ZmlsZTpEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvYm9uZGluZy50eHQ+IGZvciBtb3JlCi0JICBp
+bmZvcm1hdGlvbi4KLQotCSAgVG8gY29tcGlsZSB0aGlzIGRyaXZlciBhcyBhIG1vZHVsZSwgY2hv
+b3NlIE0gaGVyZTogdGhlIG1vZHVsZQotCSAgd2lsbCBiZSBjYWxsZWQgYm9uZGluZy4KLQogY29u
+ZmlnIE1BQ1ZMQU4KIAl0cmlzdGF0ZSAiTUFDLVZMQU4gc3VwcG9ydCAoRVhQRVJJTUVOVEFMKSIK
+IAlkZXBlbmRzIG9uIEVYUEVSSU1FTlRBTApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvTWFrZWZp
+bGUgYi9kcml2ZXJzL25ldC9NYWtlZmlsZQppbmRleCAyMDlmYmI3Li42ZjFhM2NhIDEwMDY0NAot
+LS0gYS9kcml2ZXJzL25ldC9NYWtlZmlsZQorKysgYi9kcml2ZXJzL25ldC9NYWtlZmlsZQpAQCAt
+MjUsNyArMjUsNiBAQCBvYmotJChDT05GSUdfQ0hFTFNJT19UNCkgKz0gY3hnYjQvCiBvYmotJChD
+T05GSUdfQ0hFTFNJT19UNFZGKSArPSBjeGdiNHZmLwogb2JqLSQoQ09ORklHX0VIRUEpICs9IGVo
+ZWEvCiBvYmotJChDT05GSUdfQ0FOKSArPSBjYW4vCi1vYmotJChDT05GSUdfQk9ORElORykgKz0g
+Ym9uZGluZy8KIG9iai0kKENPTkZJR19BVEwxKSArPSBhdGx4Lwogb2JqLSQoQ09ORklHX0FUTDIp
+ICs9IGF0bHgvCiBvYmotJChDT05GSUdfQVRMMUUpICs9IGF0bDFlLwpkaWZmIC0tZ2l0IGEvbmV0
+L0tjb25maWcgYi9uZXQvS2NvbmZpZwppbmRleCA4NzgxNTFjLi5lOTYzY2RlIDEwMDY0NAotLS0g
+YS9uZXQvS2NvbmZpZworKysgYi9uZXQvS2NvbmZpZwpAQCAtMTkxLDYgKzE5MSwyNSBAQCBzb3Vy
+Y2UgIm5ldC9icmlkZ2UvbmV0ZmlsdGVyL0tjb25maWciCiAKIGVuZGlmCiAKK2NvbmZpZyBCT05E
+SU5HCisJdHJpc3RhdGUgIkJvbmRpbmcgZHJpdmVyIHN1cHBvcnQiCisJZGVwZW5kcyBvbiBJTkVU
+CisJZGVwZW5kcyBvbiBJUFY2IHx8IElQVjY9bgorCS0tLWhlbHAtLS0KKwkgIFNheSAnWScgb3Ig
+J00nIGlmIHlvdSB3aXNoIHRvIGJlIGFibGUgdG8gJ2JvbmQnIG11bHRpcGxlIEV0aGVybmV0CisJ
+ICBDaGFubmVscyB0b2dldGhlci4gVGhpcyBpcyBjYWxsZWQgJ0V0aGVyY2hhbm5lbCcgYnkgQ2lz
+Y28sCisJICAnVHJ1bmtpbmcnIGJ5IFN1biwgODAyLjNhZCBieSB0aGUgSUVFRSwgYW5kICdCb25k
+aW5nJyBpbiBMaW51eC4KKworCSAgVGhlIGRyaXZlciBzdXBwb3J0cyBtdWx0aXBsZSBib25kaW5n
+IG1vZGVzIHRvIGFsbG93IGZvciBib3RoIGhpZ2gKKwkgIHBlcmZvcm1hbmNlIGFuZCBoaWdoIGF2
+YWlsYWJpbGl0eSBvcGVyYXRpb24uCisKKwkgIFJlZmVyIHRvIDxmaWxlOkRvY3VtZW50YXRpb24v
+bmV0d29ya2luZy9ib25kaW5nLnR4dD4gZm9yIG1vcmUKKwkgIGluZm9ybWF0aW9uLgorCisJICBU
+byBjb21waWxlIHRoaXMgZHJpdmVyIGFzIGEgbW9kdWxlLCBjaG9vc2UgTSBoZXJlOiB0aGUgbW9k
+dWxlCisJICB3aWxsIGJlIGNhbGxlZCBib25kaW5nLgorCisKIHNvdXJjZSAibmV0L2RjY3AvS2Nv
+bmZpZyIKIHNvdXJjZSAibmV0L3NjdHAvS2NvbmZpZyIKIHNvdXJjZSAibmV0L3Jkcy9LY29uZmln
+IgpkaWZmIC0tZ2l0IGEvbmV0L01ha2VmaWxlIGIvbmV0L01ha2VmaWxlCmluZGV4IGE1MWQ5NDYu
+LjFlNzQwMzAgMTAwNjQ0Ci0tLSBhL25ldC9NYWtlZmlsZQorKysgYi9uZXQvTWFrZWZpbGUKQEAg
+LTIzLDYgKzIzLDcgQEAgb2JqLSQoQ09ORklHX05FVCkJCSs9IGlwdjYvCiBvYmotJChDT05GSUdf
+UEFDS0VUKQkJKz0gcGFja2V0Lwogb2JqLSQoQ09ORklHX05FVF9LRVkpCQkrPSBrZXkvCiBvYmot
+JChDT05GSUdfQlJJREdFKQkJKz0gYnJpZGdlLworb2JqLSQoQ09ORklHX0JPTkRJTkcpCQkrPSBi
+b25kaW5nLwogb2JqLSQoQ09ORklHX05FVF9EU0EpCQkrPSBkc2EvCiBvYmotJChDT05GSUdfSVBY
+KQkJKz0gaXB4Lwogb2JqLSQoQ09ORklHX0FUQUxLKQkJKz0gYXBwbGV0YWxrLwpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvYm9uZGluZy9NYWtlZmlsZSBiL25ldC9ib25kaW5nL01ha2VmaWxlCnNp
+bWlsYXJpdHkgaW5kZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL01ha2Vm
+aWxlCnJlbmFtZSB0byBuZXQvYm9uZGluZy9NYWtlZmlsZQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
+ZXQvYm9uZGluZy9ib25kXzNhZC5jIGIvbmV0L2JvbmRpbmcvYm9uZF8zYWQuYwpzaW1pbGFyaXR5
+IGluZGV4IDEwMCUKcmVuYW1lIGZyb20gZHJpdmVycy9uZXQvYm9uZGluZy9ib25kXzNhZC5jCnJl
+bmFtZSB0byBuZXQvYm9uZGluZy9ib25kXzNhZC5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
+b25kaW5nL2JvbmRfM2FkLmggYi9uZXQvYm9uZGluZy9ib25kXzNhZC5oCnNpbWlsYXJpdHkgaW5k
+ZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfM2FkLmgKcmVuYW1l
+IHRvIG5ldC9ib25kaW5nL2JvbmRfM2FkLmgKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JvbmRp
+bmcvYm9uZF9hbGIuYyBiL25ldC9ib25kaW5nL2JvbmRfYWxiLmMKc2ltaWxhcml0eSBpbmRleCAx
+MDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9hbGIuYwpyZW5hbWUgdG8g
+bmV0L2JvbmRpbmcvYm9uZF9hbGIuYwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvYm9uZGluZy9i
+b25kX2FsYi5oIGIvbmV0L2JvbmRpbmcvYm9uZF9hbGIuaApzaW1pbGFyaXR5IGluZGV4IDEwMCUK
+cmVuYW1lIGZyb20gZHJpdmVycy9uZXQvYm9uZGluZy9ib25kX2FsYi5oCnJlbmFtZSB0byBuZXQv
+Ym9uZGluZy9ib25kX2FsYi5oCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ib25kaW5nL2JvbmRf
+ZGVidWdmcy5jIGIvbmV0L2JvbmRpbmcvYm9uZF9kZWJ1Z2ZzLmMKc2ltaWxhcml0eSBpbmRleCAx
+MDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9kZWJ1Z2ZzLmMKcmVuYW1l
+IHRvIG5ldC9ib25kaW5nL2JvbmRfZGVidWdmcy5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
+b25kaW5nL2JvbmRfaXB2Ni5jIGIvbmV0L2JvbmRpbmcvYm9uZF9pcHY2LmMKc2ltaWxhcml0eSBp
+bmRleCAxMDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9pcHY2LmMKcmVu
+YW1lIHRvIG5ldC9ib25kaW5nL2JvbmRfaXB2Ni5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
+b25kaW5nL2JvbmRfbWFpbi5jIGIvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMKc2ltaWxhcml0eSBp
+bmRleCAxMDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMKcmVu
+YW1lIHRvIG5ldC9ib25kaW5nL2JvbmRfbWFpbi5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
+b25kaW5nL2JvbmRfcHJvY2ZzLmMgYi9uZXQvYm9uZGluZy9ib25kX3Byb2Nmcy5jCnNpbWlsYXJp
+dHkgaW5kZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfcHJvY2Zz
+LmMKcmVuYW1lIHRvIG5ldC9ib25kaW5nL2JvbmRfcHJvY2ZzLmMKZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L2JvbmRpbmcvYm9uZF9zeXNmcy5jIGIvbmV0L2JvbmRpbmcvYm9uZF9zeXNmcy5jCnNp
+bWlsYXJpdHkgaW5kZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRf
+c3lzZnMuYwpyZW5hbWUgdG8gbmV0L2JvbmRpbmcvYm9uZF9zeXNmcy5jCmRpZmYgLS1naXQgYS9k
+cml2ZXJzL25ldC9ib25kaW5nL2JvbmRpbmcuaCBiL25ldC9ib25kaW5nL2JvbmRpbmcuaApzaW1p
+bGFyaXR5IGluZGV4IDEwMCUKcmVuYW1lIGZyb20gZHJpdmVycy9uZXQvYm9uZGluZy9ib25kaW5n
+LmgKcmVuYW1lIHRvIG5ldC9ib25kaW5nL2JvbmRpbmcuaAo=
+--20cf303b426dc4797a04a3f0d711--
