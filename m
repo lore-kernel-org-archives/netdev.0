@@ -1,149 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Mon, 23 May 2011 02:54:27 -0400 (EDT)
-Message-ID: <20110523.025427.137762332894556125.davem@davemloft.net>
+From: Simon Kagstrom <simon.kagstrom@netinsight.net>
+Subject: [PATCH] e100: Correct firmware memory leak
+Date: Mon, 23 May 2011 09:07:00 +0200
+Message-ID: <20110523090700.68cdf15a@marrow.netinsight.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ernst.netinsight.se ([194.16.221.21]:63215 "HELO
+	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752473Ab1EWHRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 03:17:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+kmemcheck reports
 
-Ok, this gets rid of the need to include linux/prefetch.h in
-linux/skbuff.h, thanks largely to Part Gortmaker.
+unreferenced object 0xcfaf4f00 (size 32):
+  comm "ifconfig", pid 682, jiffies 87369
+  backtrace:
+    [<c00252b4>] save_stack_trace+0x20/0x24
+    [<c00a5f98>] create_object+0x118/0x20c
+    [<c00a61a8>] kmemleak_alloc+0x40/0x84
+    [<c00a2de4>] kmem_cache_alloc+0x114/0x1a4
+    [<c016ce50>] _request_firmware+0x3c/0x540
+    [<c016d3f8>] request_firmware+0x14/0x18
+    [<c0170774>] e100_hw_init+0xf0/0x3d8
+    [<c0171340>] e100_up+0x38/0x16c
+    [<c0171494>] e100_open+0x20/0x54
+    [<c019779c>] dev_open+0xcc/0x134
+    [<c0196cf0>] dev_change_flags+0xb0/0x190
+    [<c01e0998>] devinet_ioctl+0x2f0/0x6fc
+    [<c01e1dc4>] inet_ioctl+0xcc/0x104
+    [<c01861d8>] sock_ioctl+0x200/0x25c
+    [<c00b4cbc>] vfs_ioctl+0x34/0x78
+    [<c00b5400>] do_vfs_ioctl+0x4e4/0x53c
 
-1) bnx2x bug sifxes from Vladislav Zolotarov and Dmitry Kravkov.
+when the interface is taken up because the firmware is loaded with
+request_firmware, but never released in the callback where it's used,
+so fix that.
 
-2) Unicast frame handling fix in macvlan from David Ward.
+Problem introduced in
 
-3) Dave Jones was hitting ip_rt_bug(), add a backtrace so we
-   can diagnose it further.
+  9ac32e1bc0518b01b47dd34a733dce8634a38ed3
 
-4) Remove some spurious synchronize_{net,rcu}() calls during device
-   teardown, from Eric Dumazet.
+as far as I can tell.
 
-5) netpoll fixes wrt. bridging from Amerigo Wang.
+Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
+---
+ drivers/net/e100.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-6) CAIF bug fixes from Sjur Brandeland.
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index b0aa9e6..f2b44ef 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -1320,6 +1320,8 @@ static void e100_setup_ucode(struct nic *nic, struct cb *cb,
+ 	cb->u.ucode[min_size] |= cpu_to_le32((BUNDLESMALL) ? 0xFFFF : 0xFF80);
+ 
+ 	cb->command = cpu_to_le16(cb_ucode | cb_el);
++
++	release_firmware(fw);
+ }
+ 
+ static inline int e100_load_ucode_wait(struct nic *nic)
+-- 
+1.7.0.4
 
-Please pull, thanks a lot!
-
-The following changes since commit 71a8638480eb8fb6cfabe2ee9ca3fbc6e3453a14:
-
-  Merge branch 'viafb-next' of git://github.com/schandinat/linux-2.6 (2011-05-22 12:39:58 -0700)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Amerigo Wang (4):
-      netpoll: disable netpoll when enslave a device
-      bridge: call NETDEV_JOIN notifiers when add a slave
-      net: rename NETDEV_BONDING_DESLAVE to NETDEV_RELEASE
-      rtnetlink: ignore NETDEV_RELEASE and NETDEV_JOIN event
-
-Dave Jones (1):
-      ipv4: Give backtrace in ip_rt_bug().
-
-David S. Miller (5):
-      net: Remove prefetches from SKB list handlers.
-      rionet: Remove pointless printk of skb pointer.
-      netlabel: Remove prefetches from list handlers.
-      ipv4: Include linux/prefetch.h in fib_trie.c
-      net: Remove linux/prefetch.h include from linux/skbuff.h
-
-David Ward (1):
-      macvlan: Forward unicast frames in bridge mode to lowerdev
-
-Dmitry Kravkov (2):
-      bnx2x: fix DMAE timeout according to hw specifications
-      bnx2x: allow device properly initialize after hotplug
-
-Emmanuel Grumbach (1):
-      net: skb_trim explicitely check the linearity instead of data_len
-
-Eric Dumazet (2):
-      net: remove synchronize_net() from netdev_set_master()
-      net: avoid synchronize_rcu() in dev_deactivate_many
-
-Heiko Carstens (1):
-      net: filter: move forward declarations to avoid compile warnings
-
-Paul Gortmaker (1):
-      drivers/net: add prefetch header for prefetch users
-
-Vladislav Zolotarov (2):
-      bnx2x: call dev_kfree_skb_any instead of dev_kfree_skb
-      bnx2x: properly handle CFC DEL in cnic flow
-
-WANG Cong (2):
-      pktgen: use vzalloc_node() instead of vmalloc_node() + memset()
-      pktgen: refactor pg_init() code
-
-sjur.brandeland@stericsson.com (5):
-      caif: Bugfix add check NULL pointer before calling functions.
-      caif: Fixes freeze on Link layer removal.
-      caif: Fix freezes when running CAIF loopback device
-      caif: Update documentation of CAIF transmit and receive functions.
-      caif: Plug memory leak for checksum error
-
- drivers/net/benet/be_main.c        |    1 +
- drivers/net/bna/bnad.c             |    1 +
- drivers/net/bnx2x/bnx2x_cmn.c      |    5 +-
- drivers/net/bnx2x/bnx2x_cmn.h      |    2 +-
- drivers/net/bnx2x/bnx2x_main.c     |   72 +++++++++++++----------------------
- drivers/net/bonding/bond_main.c    |    4 +-
- drivers/net/chelsio/sge.c          |    1 +
- drivers/net/cnic.c                 |    1 +
- drivers/net/cxgb3/sge.c            |    1 +
- drivers/net/cxgb4/sge.c            |    1 +
- drivers/net/cxgb4vf/sge.c          |    1 +
- drivers/net/e1000/e1000_main.c     |    1 +
- drivers/net/e1000e/netdev.c        |    1 +
- drivers/net/ehea/ehea_qmr.h        |    1 +
- drivers/net/enic/enic_main.c       |    1 +
- drivers/net/forcedeth.c            |    1 +
- drivers/net/igb/igb_main.c         |    1 +
- drivers/net/igbvf/netdev.c         |    1 +
- drivers/net/ixgb/ixgb_main.c       |    1 +
- drivers/net/ixgbe/ixgbe_main.c     |    1 +
- drivers/net/ixgbevf/ixgbevf_main.c |    1 +
- drivers/net/macvlan.c              |    6 +--
- drivers/net/myri10ge/myri10ge.c    |    1 +
- drivers/net/netconsole.c           |   26 ++++++++----
- drivers/net/pasemi_mac.c           |    1 +
- drivers/net/pch_gbe/pch_gbe_main.c |    1 +
- drivers/net/qla3xxx.c              |    1 +
- drivers/net/qlge/qlge_main.c       |    1 +
- drivers/net/r8169.c                |    1 +
- drivers/net/rionet.c               |    4 +-
- drivers/net/s2io.c                 |    1 +
- drivers/net/sb1250-mac.c           |    1 +
- drivers/net/sfc/rx.c               |    1 +
- drivers/net/skge.c                 |    1 +
- drivers/net/stmmac/stmmac_main.c   |    1 +
- drivers/net/tc35815.c              |    1 +
- drivers/net/vxge/vxge-main.c       |    1 +
- drivers/net/vxge/vxge-traffic.c    |    1 +
- include/linux/filter.h             |    7 ++-
- include/linux/notifier.h           |    3 +-
- include/linux/skbuff.h             |    9 ++--
- include/net/caif/caif_layer.h      |   36 ++++++++++-------
- net/bridge/br_if.c                 |    3 +
- net/caif/caif_dev.c                |    7 +++-
- net/caif/caif_socket.c             |   13 ++----
- net/caif/cfcnfg.c                  |   44 +++++++++------------
- net/caif/cfctrl.c                  |   44 +++++++++++++++------
- net/caif/cfmuxl.c                  |   49 +++++++++++++++++++-----
- net/core/dev.c                     |    4 +-
- net/core/pktgen.c                  |   22 ++++++----
- net/core/rtnetlink.c               |    2 +
- net/ipv4/fib_trie.c                |    1 +
- net/ipv4/route.c                   |    1 +
- net/netlabel/netlabel_addrlist.h   |    8 ++--
- net/sched/sch_generic.c            |   17 +++++++-
- 55 files changed, 256 insertions(+), 164 deletions(-)
