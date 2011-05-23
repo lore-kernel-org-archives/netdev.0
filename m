@@ -1,85 +1,58 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Mon, 23 May 2011 08:21:48 +0200
-Message-ID: <4DD9FCFC.10803@hartkopp.net>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>
-	<4DCB88A4.2010901@grandegger.com> <4DCBF1B6.6000104@hartkopp.net>
-	<201105221230.56243.arnd@arndb.de>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: Re: [v3 00/39] faster tree-based sysctl implementation
+Date: Mon, 23 May 2011 09:37:35 +0300
+Message-ID: <BANLkTinqX_=TLU3TuKJFFTJBBxm1scZ3Ew@mail.gmail.com>
+References: <BANLkTim7xn8tM4wTyd_m_nwUQg_CUTapeA@mail.gmail.com> <m14o4mavod.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201105221230.56243.arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>,
+	Octavian Purdila <tavi@cs.pub.ro>,
+	"David S . Miller" <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:61136 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751597Ab1EWGhz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 02:37:55 -0400
+In-Reply-To: <m14o4mavod.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22.05.2011 12:30, Arnd Bergmann wrote:
-> On Thursday 12 May 2011 16:41:58 Oliver Hartkopp wrote:
->> E.g. assume you need the CAN-IDs 0x100, 0x200 and 0x300 in your application
->> and for that reason you configure these IDs in the pruss CAN driver.
->>
->> What if someone generates a 100% CAN busload exactly on CAN-ID 0x100 then?
->>
->> Worst case (1MBit/s, DLC=0) you would need to handle about 21.000 irqs/s for
->> the correctly received CAN frames with the filtered CAN-ID 0x100 ...
-> 
-> Then I guess the main thing that a "smart" CAN implementation like pruss
-> should do is interrupt mitigation. When you have a constant flow of
-> packets coming in, the hardware should be able to DMA a lot of
-> them into kernel memory before the driver is required to pick them up,
-> and only get into interrupt driven mode when the kernel has managed
-> to process all outstanding packets.
-> 
->> This all depends heavily on Linux networking (skb handling, caching, etc) and
->> is pretty fast and optimized!! That was also the reason why it ran on the old
->> PowerPC that smoothly. The mostly seen effect if anything drops is when the
->> application (holding the socket) was not fast enough to handle the incoming
->> data. NB: For that reason we implemented a CAN content filter (CAN_BCM) that
->> is able to do content filtering and timeout monitoring in Kernelspace - all
->> performed in the SoftIRQ.
-> 
-> Right, dropping packets that no process is waiting for should be done as
-> early as possible. In pruss-can, the idea was to do it in hardware, which
-> doesn't really work all that well for the reasons discussed before.
-> Dropping the frames in the NAPI poll function (softirq time) seems like a
-> logical choice.
+On Mon, May 23, 2011 at 7:27 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> This patchset looks like it is deserving of some close scrutiny, and
+> not just the high level design overview I have given the previous
+> patches. =C2=A0This is going to be a busy week for me so I probably w=
+on't
+> get through all of the patches for a while.
 
-In 'real world' CAN setups you'll never see 21.000 CAN frames per second (and
-therefore 21.000 irqs/s) - you are usually designing CAN network traffic with
-less than 60% busload. So interrupt rates somewhere below 1000 irqs/s can be
-assumed.
 
->From what i've seen so far a 3-4 messages rx FIFO and NAPI support just make it.
+I have one more question. The current implementation uses a single
+sysctl_lock to synchronize all changes to the data structures.
 
-@Marc/Wolfgang: Would this be also your recommendation for a CAN controller
-design that supports SocketCAN in the best way?
+In my algorithm I change a few places to use a per-header read-write
+lock. Even though the code is organized to handle a per-header rwlock,
+the implementation uses a single global rwlock. In v2 I got rid of the
+rwlock and replaced the subdirs/files regular lists with rcu-protected
+lists and that's why I did not bother giving each header a rwlock.
 
-As the Linux network stack supports hardware timestamps too, this could be an
-additional (optional!) feature.
 
-Regards,
-Oliver
+I have no idea how to use rcu with rbtree. Should I now give each
+header it's own lock to reduce contention?
 
->> Having 'Mailboxes' bound to CAN-IDs is something that's useful for 8/16 bit
->> CPUs where an application is tightly bound to the embedded ECUs functionality.
-> 
-> Makes sense.
-> 
-> 	Arnd
+
+I'm asking this because I don't know why the only is a global sysctl
+spin lock, when multiple locks could have been used, each to protect
+it's own domain of values.
+
+If you'd like to keep locking as simple as possible (to reduce all the
+potential problems brought on by too many locks), or if in general
+contention is low enough, then global lock is better. If not, then
+I'll change the code to support per-header rwlocks (increasing the
+ctl_table_header structure size).
+
+--=20
+=C2=A0.
+=2E.: Lucian
