@@ -1,50 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 04/11] bnx2x: Add TX fault check for fiber PHYs
-Date: Sun, 22 May 2011 22:20:18 -0700
-Message-ID: <1306128018.3456.35.camel@localhost>
-References: <1306063927.20872.86.camel@lb-tlvb-dmitry>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: Re: [v3 00/39] faster tree-based sysctl implementation
+Date: Mon, 23 May 2011 08:59:39 +0300
+Message-ID: <BANLkTik0NZSC84-_-j0LyyzSJykH-VxGXw@mail.gmail.com>
+References: <BANLkTim7xn8tM4wTyd_m_nwUQg_CUTapeA@mail.gmail.com> <m14o4mavod.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
-To: Yaniv Rosner <yanivr@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:16072 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168Ab1EWFUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 01:20:22 -0400
-In-Reply-To: <1306063927.20872.86.camel@lb-tlvb-dmitry>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>,
+	Octavian Purdila <tavi@cs.pub.ro>,
+	"David S . Miller" <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m14o4mavod.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-05-22 at 14:32 +0300, Yaniv Rosner wrote:
-> In case TX fault is detected on Fiber PHYs, declare the link as down
-> until TX fault is gone.
-[...]
-> --- a/drivers/net/bnx2x/bnx2x_reg.h
-> +++ b/drivers/net/bnx2x/bnx2x_reg.h
-> @@ -6037,6 +6037,7 @@ Theotherbitsarereservedandshouldbezero*/
->  #define MDIO_PMA_REG_BCM_CTRL		0x0096
->  #define MDIO_PMA_REG_FEC_CTRL		0x00ab
->  #define MDIO_PMA_REG_RX_ALARM_CTRL	0x9000
-> +#define MDIO_PMA_REG_TX_ALARM_CTRL	0x9001
->  #define MDIO_PMA_REG_LASI_CTRL		0x9002
->  #define MDIO_PMA_REG_RX_ALARM		0x9003
->  #define MDIO_PMA_REG_TX_ALARM		0x9004
+On Mon, May 23, 2011 at 7:27 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> I will mention a couple of nits I noticed while I was skimming throug=
+h
+> your patches.
+> - There can be multiple proc superblocks and thus multiple inodes
+> =C2=A0referring to the same /proc/sys file, if there are multiple pid
+> =C2=A0namespaces.
 
-By the way, the LASI registers are already named in <linux/mdio.h>:
 
-#define MDIO_PMA_LASI_RXCTRL	0x9000	/* RX_ALARM control */
-#define MDIO_PMA_LASI_TXCTRL	0x9001	/* TX_ALARM control */
-#define MDIO_PMA_LASI_CTRL	0x9002	/* LASI control */
-#define MDIO_PMA_LASI_RXSTAT	0x9003	/* RX_ALARM status */
-#define MDIO_PMA_LASI_TXSTAT	0x9004	/* TX_ALARM status */
-#define MDIO_PMA_LASI_STAT	0x9005	/* LASI status */
+OK. I'll revert the patch that make converts an int counter into an u8
+and post an update. I guess this is what you were referring to.
+https://github.com/luciang/linux-2.6-new-sysctl/commit/b7a547b8ce7484ae=
+22eea34a860f674fcb19c11b
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> - I have a hope to move /proc/sys into /proc/<pid>/sys so we don't ha=
+ve
+> =C2=A0to look at current to determine the namespace we want to displa=
+y.
+> =C2=A0That would allow the deeply magic sysctl_is_seen check to be re=
+moved
+> =C2=A0from proc_sys_compare. =C2=A0That is not your problem, but of a=
+n
+> =C2=A0explanation why the namespaces are passed through.
 
+
+OK, I'll go an change things to pass the current namespace as it were
+before my changes.
+
+
+Thank you.
+--=20
+=C2=A0.
+=2E.: Lucian
