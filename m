@@ -1,85 +1,34 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: CPU instruction to calculate tcp checksum and udp integrity?
-Date: Mon, 23 May 2011 08:26:07 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6@MILEXCH2.ds.jdsu.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: Pushing the new FW to firmware git
+Date: Mon, 23 May 2011 16:48:14 +0100
+Message-ID: <1306165695.2627.10.camel@i7.infradead.org>
+References: <201105231813.00751.vladz@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5634271514793277289=="
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernelnewbies@kernelnewbies.org" <kernelnewbies@kernelnewbies.org>
-Return-path: <kernelnewbies-bounces@kernelnewbies.org>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies>,
-	<mailto:kernelnewbies-request@kernelnewbies.org?subject=unsubscribe>
-List-Archive: <http://lists.kernelnewbies.org/pipermail/kernelnewbies>
-List-Post: <mailto:kernelnewbies@kernelnewbies.org>
-List-Help: <mailto:kernelnewbies-request@kernelnewbies.org?subject=help>
-List-Subscribe: <http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies>,
-	<mailto:kernelnewbies-request@kernelnewbies.org?subject=subscribe>
-Sender: kernelnewbies-bounces@kernelnewbies.org
-Errors-To: kernelnewbies-bounces@kernelnewbies.org
-List-Id: netdev.vger.kernel.org
-
---===============5634271514793277289==
-Content-Language: en-US
-Content-Type: multipart/alternative;
-	boundary="_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_"
-
---_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-hi
-now I am using sw to calculate the tcp checksum, is there CPU(nehalem) inst=
-ruction or NIC /kernel API to do such thing?
-
-thanks a lot
-jon
-
-
-
---_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_
-Content-Type: text/html; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-<html dir=3D"ltr"><head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Diso-8859-=
-1">
-<style id=3D"owaTempEditStyle"></style><style title=3D"owaParaStyle"><!--P =
-{
-	MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px
-}
---></style>
-</head>
-<body ocsi=3D"x">
-<div style=3D"FONT-FAMILY: Tahoma; DIRECTION: ltr; COLOR: #000000; FONT-SIZ=
-E: 13px">
-<div></div>
-<div dir=3D"ltr"><font color=3D"#000000" size=3D"2" face=3D"Tahoma">hi</fon=
-t></div>
-<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">now I am using sw to calc=
-ulate the tcp checksum, is there CPU(nehalem) instruction or NIC /kernel AP=
-I to do such thing?</font></div>
-<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma"></font>&nbsp;</div>
-<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">thanks a lot</font></div>
-<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">jon</font></div>
-<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma"></font>&nbsp;</div>
-<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">&nbsp;&nbsp;</font></div>
-</div>
-</body>
-</html>
-
---_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_--
-
-
---===============5634271514793277289==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vlad Zolotarov <vladz@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:39852 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755291Ab1EWPsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 11:48:17 -0400
+In-Reply-To: <201105231813.00751.vladz@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Kernelnewbies mailing list
-Kernelnewbies@kernelnewbies.org
-http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies
+On Mon, 2011-05-23 at 18:12 +0300, Vlad Zolotarov wrote:
+> David, could u, pls., clarify about the exact procedure of pushing the new FW 
+> to the  firwmware git: when exactly the new firware is going to be fetched to 
+> the kernel tree? 
+> 
+> I'm asking it because I am going to submit a patch that introduces a new FW 
+> and the new code will simply not work with an old FW. 
 
---===============5634271514793277289==--
+OK, so the new firmware gets a new filename, and you submit the new
+firmware to the linux-firmware.git tree at the same time as you submit
+the code changes to the kernel tree.
+
+-- 
+dwmw2
+
