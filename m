@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] pktgen: refactor pg_init() code
-Date: Sun, 22 May 2011 21:02:10 -0400 (EDT)
-Message-ID: <20110522.210210.1533356691217219621.davem@davemloft.net>
-References: <BANLkTikd8Ft0N6ovGp8KOVksg2Rj4RxRaA@mail.gmail.com>
+Subject: Re: ip_rt_bug questions.
+Date: Sun, 22 May 2011 21:02:38 -0400 (EDT)
+Message-ID: <20110522.210238.126528409599261296.davem@davemloft.net>
+References: <20110418.144909.52209035.davem@davemloft.net>
+	<20110418.145023.13728986.davem@davemloft.net>
+	<20110521171642.GA18411@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52902 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:52916 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751018Ab1EWBCO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 21:02:14 -0400
-In-Reply-To: <BANLkTikd8Ft0N6ovGp8KOVksg2Rj4RxRaA@mail.gmail.com>
+	with ESMTP id S1751224Ab1EWBCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 21:02:43 -0400
+In-Reply-To: <20110521171642.GA18411@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Am=E9rico Wang <xiyou.wangcong@gmail.com>
-Date: Sun, 22 May 2011 18:52:08 +0800
+From: Dave Jones <davej@redhat.com>
+Date: Sat, 21 May 2011 13:16:42 -0400
 
-> This also shrinks the object size a little.
->=20
->    text	   data	    bss	    dec	    hex	filename
->   28834	    186	      8	  29028	   7164	net/core/pktgen.o
->   28816	    186	      8	  29010	   7152	net/core/pktgen.o.AFTER
->=20
->=20
-> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
-> Cc: "David Miller" <davem@davemloft.net>,
+> Add a stack backtrace to the ip_rt_bug path for debugging
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
 Applied.
