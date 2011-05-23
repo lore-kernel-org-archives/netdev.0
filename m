@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_sfq: avoid giving spurious NET_XMIT_CN signals
-Date: Mon, 23 May 2011 17:36:13 -0400 (EDT)
-Message-ID: <20110523.173613.2131279677585645313.davem@davemloft.net>
-References: <1306184562.2638.14.camel@edumazet-laptop>
+Subject: Re: [PATCH 0/2] Add and use WARN_RATELIMIT
+Date: Mon, 23 May 2011 17:38:06 -0400 (EDT)
+Message-ID: <20110523.173806.1174406351709452162.davem@davemloft.net>
+References: <1305666832.1722.62.camel@Joe-Laptop>
+	<cover.1305999731.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, jarkao2@gmail.com,
-	hadi@cyberus.ca, shemminger@vyatta.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41669 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753201Ab1EWVhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 17:37:24 -0400
-In-Reply-To: <1306184562.2638.14.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: greearb@candelatech.com, linux-arch@vger.kernel.org, arnd@arndb.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <cover.1305999731.git.joe@perches.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 May 2011 23:02:42 +0200
+From: Joe Perches <joe@perches.com>
+Date: Sat, 21 May 2011 10:48:38 -0700
 
-> While chasing a possible net_sched bug, I found that IP fragments have
-> litle chance to pass a congestioned SFQ qdisc :
+> Generic mechanism to ratelimit WARN uses.
 > 
-> - Say SFQ qdisc is full because one flow is non responsive.
-> - ip_fragment() wants to send two fragments belonging to an idle flow.
-> - sfq_enqueue() queues first packet, but see queue limit reached :
-> - sfq_enqueue() drops one packet from 'big consumer', and returns
-> NET_XMIT_CN.
-> - ip_fragment() cancel remaining fragments.
+> Joe Perches (2):
+>   bug.h: Add WARN_RATELIMIT
+>   net: filter: Use WARN_RATELIMIT
 > 
-> This patch restores fairness, making sure we return NET_XMIT_CN only if
-> we dropped a packet from the same flow.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>  include/asm-generic/bug.h |   16 ++++++++++++++++
+>  net/core/filter.c         |    4 +++-
+>  2 files changed, 19 insertions(+), 1 deletions(-)
 
-Looks good, applied, thanks Eric.
+This looks fine to me, and no objections have been voiced otherwise,
+so applied to net-2.6, thanks!
