@@ -1,74 +1,37 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Mon, 23 May 2011 09:33:06 -0700
-Message-ID: <4DDA8C42.3090009@candelatech.com>
-References: <1302241713-3637-1-git-send-email-jpirko@redhat.com>	<20110412.141645.112604563.davem@davemloft.net>	<BANLkTikSKiYoiOLB=i7qjR0N--CAQ2dHWw@mail.gmail.com>	<20110521072925.GA2588@jirka.orion>	<BANLkTinZUATEjBij+rwBTn=n-Tau5qHPWw@mail.gmail.com>	<4DD7BB61.9050200@gmail.com>	<BANLkTinqFJa-B7E7tonzOKGV4etZHUkUug@mail.gmail.com>	<4DD87C25.4030701@gmail.com> <20110522062915.GA2611@jirka.orion>	<m17h9jp7js.fsf@fess.ebiederm.org>	<BANLkTi=4JJa-J-p_JbY1PfooT75KfSB4uA@mail.gmail.com>	<m1ei3qjzix.fsf_-_@fess.ebiederm.org>	<4DD97A44.2020708@candelatech.com> <m1wrhigy37.fsf@fess.ebiederm.org>	<4DD9F81D.6070806@candelatech.com> <m1y61x94g1.fsf@fess.ebiederm.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: linux-next: Tree for May 23 (infiniband + netlink)
+Date: Mon, 23 May 2011 09:42:05 -0700
+Message-ID: <20110523094205.4a5651d2.randy.dunlap@oracle.com>
+References: <20110523154518.5e27cfb0.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jpirko@redhat.com>,
-	=?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, Jesse Gross <jesse@nicira.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:52508 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755225Ab1EWQd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 12:33:27 -0400
-In-Reply-To: <m1y61x94g1.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-rdma@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110523154518.5e27cfb0.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/23/2011 02:00 AM, Eric W. Biederman wrote:
-> Ben Greear<greearb@candelatech.com>  writes:
->
->> I believe we have been getting tagged VLAN packets properly
->> in our test cases.  We would not be creating any VLAN devices
->> in this case, so perhaps the NIC isn't doing any stripping.
->>
->> To me, it seems like we should get the fully tagged packet
->> without having to go muck with aux-data, though it would
->> be fine if it were *also* in aux-data.
->
-> Given that pf_packet is a portable interface that works on multiple OS's
-> I tend to agree.  Certainly my users would be happier if they don't
-> have to change their code and not having to change tcpdump would
-> also be nice.
->
-> I'm not certain exactly where in the code it makes sense to put the
-> vlan header back on for pf_packet sockets.  The simplest thing would
-> be just before we run the socket filter.  If we don't do the simplest
-> thing this raises the question how do we avoid breaking socket filters
-> that look at the packet data and know there is going to be a vlan
-> header there.
+On Mon, 23 May 2011 15:45:18 +1000 Stephen Rothwell wrote:
 
-That is going to be tricky, since the VLAN header would adjust
-offsets and users could be using some filter that uses offsets
-with no actual mention of VLANs (but expecting it to take
-the VLAN header into account).
+> Hi all,
+> 
+> Changes since 20110520:
 
-> Still the current situation is better than seeing vlan 0 tagged packets
-> twice.
->
-> My gut feel says if we can cheaply get the socket filters to act like it
-> sees the vlan tag (where the vlan tag belongs) we should not actually
-> put the vlan tag back on until we copy the packet to userspace.
+when CONFIG_NET is not enabled:
 
-Maybe keep a count of how many sockets with filters and/or pf_packet
-sockets are open, and how many things are registered in
-the 'ptype_all' chain, and only re-add (or never remove) the header if that is > 0?
+ERROR: "skb_trim" [drivers/infiniband/core/ib_core.ko] undefined!
+ERROR: "netlink_kernel_create" [drivers/infiniband/core/ib_core.ko] undefined!
+ERROR: "netlink_kernel_release" [drivers/infiniband/core/ib_core.ko] undefined!
+ERROR: "netlink_rcv_skb" [drivers/infiniband/core/ib_core.ko] undefined!
+ERROR: "nla_put" [drivers/infiniband/core/ib_core.ko] undefined!
+ERROR: "init_net" [drivers/infiniband/core/ib_core.ko] undefined!
+ERROR: "netlink_dump_start" [drivers/infiniband/core/ib_core.ko] undefined!
+ERROR: "skb_put" [drivers/infiniband/core/ib_core.ko] undefined!
 
-(And, let the bridging and other kernel logic deal with vlans
-via auxillary methods as well as checking in-line headers.)
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
