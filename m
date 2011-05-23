@@ -1,120 +1,79 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Mon, 23 May 2011 15:48:19 -0700
-Message-ID: <m11uzp2fv0.fsf@fess.ebiederm.org>
+Date: Mon, 23 May 2011 16:02:23 -0700
+Message-ID: <m1boyt10n4.fsf@fess.ebiederm.org>
 References: <4DDAB72B.9050101@gmail.com> <4DDAC26C.2070601@candelatech.com>
 	<20110523140048.777fb378@nehalam>
 	<20110523.172047.1438754754048434316.davem@davemloft.net>
-	<m1y61x2htp.fsf@fess.ebiederm.org> <20110523151631.2c34740f@nehalam>
+	<m1y61x2htp.fsf@fess.ebiederm.org> <4DDADE52.8000008@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, nicolas.2p.debian@gmail.com,
+	jpirko@redhat.com, xiaosuo@gmail.com, netdev@vger.kernel.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, jesse@nicira.com
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:51005 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149Ab1EWWs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 18:48:29 -0400
-In-Reply-To: <20110523151631.2c34740f@nehalam> (Stephen Hemminger's message of
-	"Mon, 23 May 2011 15:16:31 -0700")
+Received: from out01.mta.xmission.com ([166.70.13.231]:44168 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752283Ab1EWXC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 19:02:29 -0400
+In-Reply-To: <4DDADE52.8000008@candelatech.com> (Ben Greear's message of "Mon,
+	23 May 2011 15:23:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+Ben Greear <greearb@candelatech.com> writes:
 
-> On Mon, 23 May 2011 15:05:54 -0700
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
+> On 05/23/2011 03:05 PM, Eric W. Biederman wrote:
 >
->> David Miller <davem@davemloft.net> writes:
->> 
->> > From: Stephen Hemminger <shemminger@linux-foundation.org>
->> > Date: Mon, 23 May 2011 14:00:48 -0700
->> >
->> >> IMHO the REORDER_HDR flag was a design mistake. It means supporting
->> >> two different API's for the application. For a packet capture application
->> >> it means the format of the packet will be different based on how
->> >> the VLAN was created. And the vlan was created outside the application.
->> >> 
->> >> If there was a requirement to support both formats, then it should
->> >> be a property of the AF_PACKET socket.  The application can then do
->> >> an setsockopt() to control the format of the data. The issue is
->> >> for things like mmap/AF_PACKET the re-inserted form will be slower
->> >> since data has to be copied.
->> >
->> > Indeed, it was a foolish thing to support in the first place.
->> >
->> > I guess we couldn't see the hw offloads in the future at that
->> > point.
->> >
->> > I'm all for finding a way to deprecate this over time.
->> 
->> 
->> There are two very similar issues here, that affect two
->> slightly different cases.
->> 
->> Let's assume the configuration is:
->> eth0 - Talks to the outside world.
->> vlan2000 - Is the vlan interface of interest.
->> 
->> 
->> With REORDER_HDR set when I tcpdump on vlan2000 I don't see the
->> vlan header, however I continue to see the vlan header when I tcpdump on eth0.
->> 
+> If REORDER_HDR dissappears entirely, I think you have to default to
+> stripping the header on vlan2000.
+
+Which is what patches that started this thread are doing.
+
 >> With vlan hardware acceleration.  When I tcpdump on eth0 I don't
 >> see the vlan header.  Nor do I see the vlan header when I tcpdump
 >> on vlan2000.
->> 
->> 
->> Right now both cases are problematic in Linus's tree.
->> 
->> For inbound packets We are testing the wrong interface for the to see if
->> we should play with REORDER_HDR.
->> 
->> Hardware acceleration vlan tagging we are hiding the vlan header from
->> portable applications that simply dump eth0.  Which is non-intuitive
->> and apparent to everyone now that this happens on both software and
->> hardware interfaces.
->> 
->> 
->> So we have a couple of questions.
->> 1) Do we revert the software emulation of vlan header tagging to fix
->>    it's implementation issues in 2.6.40?
->> 
->>    The big issues.
->>    - vlan_untag is currently reading undefined data.
->>    - Clearing REORDER_HDR no longer works.
->> 
->>    I expect the issues are small enough that we can address them now.
->> 
->> 2) Do we instead move the software implementation of vlan header
->>    acceleration back into the net-next.
->> 
->> 3) What do we do with pf_packet and vlan hardware acceleration when
->>    dumping not the vlan interface but the interface below the vlan
->>    interface?
->> 
->>    Do we provide an option to keep the vlan header?  Should that option
->>    be on by default?
 >
-> Why not just make libpcap smarter? it already has Linux specific
-> stuff for checksum offload. The portability to BSD for AF_PACKET is
-> a non-issue.
+> I think you should see the header on eth0 regardless of hw acceleration
+> or not.  Users should not have to know if their NIC/driver supports
+> vlan tag stripping in one mode or another.
 
-That is not an option I had considered, and it sounds intriguing.
+But is it acceptable to fix this in libpcap?
 
-Even if libpcap can cope we are still not backwards compatible with
-older linux applications.  Some of which work up to 2.6.39 because
-the interface the vlan tagged packets come in on does not implement
-vlan hardware acceleration.
+>> 3) What do we do with pf_packet and vlan hardware acceleration when
+>>     dumping not the vlan interface but the interface below the vlan
+>>     interface?
+>>
+>>     Do we provide an option to keep the vlan header?  Should that option
+>>     be on by default?
+>
+> At the least we need to have the header kept when using pf_packet on
+> eth0.
 
-There is also the issue that socket filters can't currently see
-skb->tci so we are really messed up in the case we want vlan hardware
-acceleration.
+Start with the assumption that vlan hardware acceleration is in place
+and the hardware has stripped the vlan tag and put it in skb->tci.
+Sure there are dumb divers out there that don't do this today but
+either we need to throw out vlan hardware acceleration completely
+or emulate it in software because otherwise the test matrix is just
+too big.
+
+> I think it's best to have it available on vlan2000, but perhaps have it
+> stripped by default for backwards compatibility.
+
+Anything that deals with raw packets pretty much breaks if you don't
+strip the vlan header from visibility on vlan2000.  Plus you loose
+any advantage there is from vlan hardware acceleration, which is
+available on must modern NICs.  So I don't think we can seriously
+consider having the vlan header for present on the vlan2000 device.
+
+All that is interesting is what to do with eth0, and pf_packet sockets.
+And the only question that seems really interesting there is do we put
+the vlan header back on with libpcap magic or with pf_packet logic.
+
+We have to start with a the assumption that we come in with a pf_packet
+with the vlan tag only in skb->tci.
 
 Eric
-
-
-
