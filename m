@@ -1,168 +1,83 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: [RFC Patch] bonding: move to net/ directory
-Date: Mon, 23 May 2011 20:45:14 +0800
-Message-ID: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.38.x, 2.6.39 sfq? kernel panic in sfq_enqueue
+Date: Mon, 23 May 2011 14:50:58 +0200
+Message-ID: <1306155058.20687.8.camel@edumazet-laptop>
+References: <598fe111e91c6236b8bfdfca323b9a17@visp.net.lb>
+	 <1306153938.20687.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=20cf303b426dc4797a04a3f0d711
-Cc: David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:47206 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753659Ab1EWMpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 08:45:15 -0400
-Received: by iyb14 with SMTP id 14so4627732iyb.19
-        for <netdev@vger.kernel.org>; Mon, 23 May 2011 05:45:14 -0700 (PDT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:38523 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753106Ab1EWMvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 08:51:02 -0400
+Received: by wya21 with SMTP id 21so4167814wya.19
+        for <netdev@vger.kernel.org>; Mon, 23 May 2011 05:51:01 -0700 (PDT)
+In-Reply-To: <1306153938.20687.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---20cf303b426dc4797a04a3f0d711
-Content-Type: text/plain; charset=UTF-8
+Le lundi 23 mai 2011 =C3=A0 14:32 +0200, Eric Dumazet a =C3=A9crit :
 
-Hello, Jay, Andy,
+> Ouch, thats an ip_fragment() bug I am afraid... nothing to do with SF=
+Q
+>=20
+> It calls=20
+>=20
+> err =3D output(skb);
+>=20
+> and a bit later does :
+>=20
+> skb =3D frag;
+> frag =3D skb->next;   // thats completely illegal here !
+> skb->next =3D NULL;
+>=20
+> I am cooking a patch and send it in a couple of minutes.
 
-Is there any peculiar reason that bonding code has to stay
-in drivers/net/ directory?
+Oh well, false alarm, I am still trying to understand the case.
 
-Since bonding and bridge are somewhat similar, both of
-which are used to "bond" two or more devices into one,
-and bridge code is already in net/bridge/, so I think it also
-makes sense to move bonding code into net/bonding/ too.
+Some other reports would be appreciated, because here is the strange
+thing :
 
-This could also help to grep the source more easily. :)
+[ 4461.969603] Code: b6 70 10=20
+3b b3 08 01 00 00=20
+0f 8d df 01 00 00 jge ....
 
-What do you think about the patch below?
-(Note, this patch is against net-next-2.6.)
+41 8b 74 24 28    mov 0x28(%r12),%esi       qdisc_pkt_len(skb)
+01 b3 b4 00 00 00                       sch->qstats.backlog +=3D qdisc_=
+pkt_len(skb);
 
-Thanks!
+RAX =3D slot
+R12 =3D SKB
 
-Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
-Cc:  "David Miller" <davem@davemloft.net>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
+48 8b 70 08       mov    0x8(%rax),%rsi     slot->skblist_prev
+49 89 04 24       mov    %rax,(%r12)        skb->next =3D (struct sk_bu=
+ff *)slot;
+49 89 74 24 08    mov    %rsi,0x8(%r12)     skb->prev =3D slot->skblist=
+_prev;
+48 8b 70 08       mov    0x8(%rax),%rsi     slot->skblist_prev   (refet=
+ch)
 
----
+<4c> 89 26        mov    %r12,(%rsi)         slot->skblist_prev->next =3D=
+ skb;  // CRASH
 
---20cf303b426dc4797a04a3f0d711
-Content-Type: text/x-patch; charset=US-ASCII; name="net-bonding-movement.diff"
-Content-Disposition: attachment; filename="net-bonding-movement.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_go1eh3kn0
+0f b6 f2          movzbl %dl,%esi
+4c 89 60 08       mov    %r12,0x8(%rax)      slot->skblist_prev =3D skb=
+;
+48 8d 3c 76       lea
+48 8d bc fb 90 01 00
 
-IERvY3VtZW50YXRpb24vbmV0d29ya2luZy9ib25kaW5nLnR4dCAgICAgICAgfCAgICAyICstCiBN
-QUlOVEFJTkVSUyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQogZHJp
-dmVycy9uZXQvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgMTggLS0tLS0tLS0t
-LS0tLS0tLS0tCiBkcml2ZXJzL25ldC9NYWtlZmlsZSAgICAgICAgICAgICAgICAgICAgICAgIHwg
-ICAgMSAtCiBuZXQvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAx
-OSArKysrKysrKysrKysrKysrKysrCiBuZXQvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgICAgMSArCiB7ZHJpdmVycy9uZXQgPT4gbmV0fS9ib25kaW5nL01ha2VmaWxl
-ICAgICAgIHwgICAgMAoge2RyaXZlcnMvbmV0ID0+IG5ldH0vYm9uZGluZy9ib25kXzNhZC5jICAg
-ICB8ICAgIDAKIHtkcml2ZXJzL25ldCA9PiBuZXR9L2JvbmRpbmcvYm9uZF8zYWQuaCAgICAgfCAg
-ICAwCiB7ZHJpdmVycy9uZXQgPT4gbmV0fS9ib25kaW5nL2JvbmRfYWxiLmMgICAgIHwgICAgMAog
-e2RyaXZlcnMvbmV0ID0+IG5ldH0vYm9uZGluZy9ib25kX2FsYi5oICAgICB8ICAgIDAKIHtkcml2
-ZXJzL25ldCA9PiBuZXR9L2JvbmRpbmcvYm9uZF9kZWJ1Z2ZzLmMgfCAgICAwCiB7ZHJpdmVycy9u
-ZXQgPT4gbmV0fS9ib25kaW5nL2JvbmRfaXB2Ni5jICAgIHwgICAgMAoge2RyaXZlcnMvbmV0ID0+
-IG5ldH0vYm9uZGluZy9ib25kX21haW4uYyAgICB8ICAgIDAKIHtkcml2ZXJzL25ldCA9PiBuZXR9
-L2JvbmRpbmcvYm9uZF9wcm9jZnMuYyAgfCAgICAwCiB7ZHJpdmVycy9uZXQgPT4gbmV0fS9ib25k
-aW5nL2JvbmRfc3lzZnMuYyAgIHwgICAgMAoge2RyaXZlcnMvbmV0ID0+IG5ldH0vYm9uZGluZy9i
-b25kaW5nLmggICAgICB8ICAgIDAKIDE3IGZpbGVzIGNoYW5nZWQsIDIyIGluc2VydGlvbnMoKyks
-IDIxIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9i
-b25kaW5nLnR4dCBiL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9ib25kaW5nLnR4dAppbmRleCAx
-ZjQ1YmQ4Li5jMWIzOTI0IDEwMDY0NAotLS0gYS9Eb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvYm9u
-ZGluZy50eHQKKysrIGIvRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2JvbmRpbmcudHh0CkBAIC0x
-MTQsNyArMTE0LDcgQEAgdGhlIGZvbGxvd2luZyBzdGVwczoKIC0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAKIAlUaGUgY3VycmVudCB2ZXJzaW9uIG9mIHRo
-ZSBib25kaW5nIGRyaXZlciBpcyBhdmFpbGFibGUgaW4gdGhlCi1kcml2ZXJzL25ldC9ib25kaW5n
-IHN1YmRpcmVjdG9yeSBvZiB0aGUgbW9zdCByZWNlbnQga2VybmVsIHNvdXJjZQorbmV0L2JvbmRp
-bmcgc3ViZGlyZWN0b3J5IG9mIHRoZSBtb3N0IHJlY2VudCBrZXJuZWwgc291cmNlCiAod2hpY2gg
-aXMgYXZhaWxhYmxlIG9uIGh0dHA6Ly9rZXJuZWwub3JnKS4gIE1vc3QgdXNlcnMgInJvbGxpbmcg
-dGhlaXIKIG93biIgd2lsbCB3YW50IHRvIHVzZSB0aGUgbW9zdCByZWNlbnQga2VybmVsIGZyb20g
-a2VybmVsLm9yZy4KIApkaWZmIC0tZ2l0IGEvTUFJTlRBSU5FUlMgYi9NQUlOVEFJTkVSUwppbmRl
-eCA0OWEwYmYzLi4yZWIyZTc5IDEwMDY0NAotLS0gYS9NQUlOVEFJTkVSUworKysgYi9NQUlOVEFJ
-TkVSUwpAQCAtMTQ5NSw3ICsxNDk1LDcgQEAgTToJQW5keSBHb3Nwb2RhcmVrIDxhbmR5QGdyZXlo
-b3VzZS5uZXQ+CiBMOgluZXRkZXZAdmdlci5rZXJuZWwub3JnCiBXOglodHRwOi8vc291cmNlZm9y
-Z2UubmV0L3Byb2plY3RzL2JvbmRpbmcvCiBTOglTdXBwb3J0ZWQKLUY6CWRyaXZlcnMvbmV0L2Jv
-bmRpbmcvCitGOgluZXQvYm9uZGluZy8KIEY6CWluY2x1ZGUvbGludXgvaWZfYm9uZGluZy5oCiAK
-IEJST0FEQ09NIEI0NCAxMC8xMDAgRVRIRVJORVQgRFJJVkVSCmRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9LY29uZmlnIGIvZHJpdmVycy9uZXQvS2NvbmZpZwppbmRleCAxOWYwNGEzLi5hOGQzOWUz
-IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9LY29uZmlnCisrKyBiL2RyaXZlcnMvbmV0L0tjb25m
-aWcKQEAgLTYwLDI0ICs2MCw2IEBAIGNvbmZpZyBEVU1NWQogCSAgSW5zdGVhZCBvZiAnZHVtbXkn
-LCB0aGUgZGV2aWNlcyB3aWxsIHRoZW4gYmUgY2FsbGVkICdkdW1teTAnLAogCSAgJ2R1bW15MScg
-ZXRjLgogCi1jb25maWcgQk9ORElORwotCXRyaXN0YXRlICJCb25kaW5nIGRyaXZlciBzdXBwb3J0
-IgotCWRlcGVuZHMgb24gSU5FVAotCWRlcGVuZHMgb24gSVBWNiB8fCBJUFY2PW4KLQktLS1oZWxw
-LS0tCi0JICBTYXkgJ1knIG9yICdNJyBpZiB5b3Ugd2lzaCB0byBiZSBhYmxlIHRvICdib25kJyBt
-dWx0aXBsZSBFdGhlcm5ldAotCSAgQ2hhbm5lbHMgdG9nZXRoZXIuIFRoaXMgaXMgY2FsbGVkICdF
-dGhlcmNoYW5uZWwnIGJ5IENpc2NvLAotCSAgJ1RydW5raW5nJyBieSBTdW4sIDgwMi4zYWQgYnkg
-dGhlIElFRUUsIGFuZCAnQm9uZGluZycgaW4gTGludXguCi0KLQkgIFRoZSBkcml2ZXIgc3VwcG9y
-dHMgbXVsdGlwbGUgYm9uZGluZyBtb2RlcyB0byBhbGxvdyBmb3IgYm90aCBoaWdoCi0JICBwZXJm
-b3JtYW5jZSBhbmQgaGlnaCBhdmFpbGFiaWxpdHkgb3BlcmF0aW9uLgotCi0JICBSZWZlciB0byA8
-ZmlsZTpEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvYm9uZGluZy50eHQ+IGZvciBtb3JlCi0JICBp
-bmZvcm1hdGlvbi4KLQotCSAgVG8gY29tcGlsZSB0aGlzIGRyaXZlciBhcyBhIG1vZHVsZSwgY2hv
-b3NlIE0gaGVyZTogdGhlIG1vZHVsZQotCSAgd2lsbCBiZSBjYWxsZWQgYm9uZGluZy4KLQogY29u
-ZmlnIE1BQ1ZMQU4KIAl0cmlzdGF0ZSAiTUFDLVZMQU4gc3VwcG9ydCAoRVhQRVJJTUVOVEFMKSIK
-IAlkZXBlbmRzIG9uIEVYUEVSSU1FTlRBTApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvTWFrZWZp
-bGUgYi9kcml2ZXJzL25ldC9NYWtlZmlsZQppbmRleCAyMDlmYmI3Li42ZjFhM2NhIDEwMDY0NAot
-LS0gYS9kcml2ZXJzL25ldC9NYWtlZmlsZQorKysgYi9kcml2ZXJzL25ldC9NYWtlZmlsZQpAQCAt
-MjUsNyArMjUsNiBAQCBvYmotJChDT05GSUdfQ0hFTFNJT19UNCkgKz0gY3hnYjQvCiBvYmotJChD
-T05GSUdfQ0hFTFNJT19UNFZGKSArPSBjeGdiNHZmLwogb2JqLSQoQ09ORklHX0VIRUEpICs9IGVo
-ZWEvCiBvYmotJChDT05GSUdfQ0FOKSArPSBjYW4vCi1vYmotJChDT05GSUdfQk9ORElORykgKz0g
-Ym9uZGluZy8KIG9iai0kKENPTkZJR19BVEwxKSArPSBhdGx4Lwogb2JqLSQoQ09ORklHX0FUTDIp
-ICs9IGF0bHgvCiBvYmotJChDT05GSUdfQVRMMUUpICs9IGF0bDFlLwpkaWZmIC0tZ2l0IGEvbmV0
-L0tjb25maWcgYi9uZXQvS2NvbmZpZwppbmRleCA4NzgxNTFjLi5lOTYzY2RlIDEwMDY0NAotLS0g
-YS9uZXQvS2NvbmZpZworKysgYi9uZXQvS2NvbmZpZwpAQCAtMTkxLDYgKzE5MSwyNSBAQCBzb3Vy
-Y2UgIm5ldC9icmlkZ2UvbmV0ZmlsdGVyL0tjb25maWciCiAKIGVuZGlmCiAKK2NvbmZpZyBCT05E
-SU5HCisJdHJpc3RhdGUgIkJvbmRpbmcgZHJpdmVyIHN1cHBvcnQiCisJZGVwZW5kcyBvbiBJTkVU
-CisJZGVwZW5kcyBvbiBJUFY2IHx8IElQVjY9bgorCS0tLWhlbHAtLS0KKwkgIFNheSAnWScgb3Ig
-J00nIGlmIHlvdSB3aXNoIHRvIGJlIGFibGUgdG8gJ2JvbmQnIG11bHRpcGxlIEV0aGVybmV0CisJ
-ICBDaGFubmVscyB0b2dldGhlci4gVGhpcyBpcyBjYWxsZWQgJ0V0aGVyY2hhbm5lbCcgYnkgQ2lz
-Y28sCisJICAnVHJ1bmtpbmcnIGJ5IFN1biwgODAyLjNhZCBieSB0aGUgSUVFRSwgYW5kICdCb25k
-aW5nJyBpbiBMaW51eC4KKworCSAgVGhlIGRyaXZlciBzdXBwb3J0cyBtdWx0aXBsZSBib25kaW5n
-IG1vZGVzIHRvIGFsbG93IGZvciBib3RoIGhpZ2gKKwkgIHBlcmZvcm1hbmNlIGFuZCBoaWdoIGF2
-YWlsYWJpbGl0eSBvcGVyYXRpb24uCisKKwkgIFJlZmVyIHRvIDxmaWxlOkRvY3VtZW50YXRpb24v
-bmV0d29ya2luZy9ib25kaW5nLnR4dD4gZm9yIG1vcmUKKwkgIGluZm9ybWF0aW9uLgorCisJICBU
-byBjb21waWxlIHRoaXMgZHJpdmVyIGFzIGEgbW9kdWxlLCBjaG9vc2UgTSBoZXJlOiB0aGUgbW9k
-dWxlCisJICB3aWxsIGJlIGNhbGxlZCBib25kaW5nLgorCisKIHNvdXJjZSAibmV0L2RjY3AvS2Nv
-bmZpZyIKIHNvdXJjZSAibmV0L3NjdHAvS2NvbmZpZyIKIHNvdXJjZSAibmV0L3Jkcy9LY29uZmln
-IgpkaWZmIC0tZ2l0IGEvbmV0L01ha2VmaWxlIGIvbmV0L01ha2VmaWxlCmluZGV4IGE1MWQ5NDYu
-LjFlNzQwMzAgMTAwNjQ0Ci0tLSBhL25ldC9NYWtlZmlsZQorKysgYi9uZXQvTWFrZWZpbGUKQEAg
-LTIzLDYgKzIzLDcgQEAgb2JqLSQoQ09ORklHX05FVCkJCSs9IGlwdjYvCiBvYmotJChDT05GSUdf
-UEFDS0VUKQkJKz0gcGFja2V0Lwogb2JqLSQoQ09ORklHX05FVF9LRVkpCQkrPSBrZXkvCiBvYmot
-JChDT05GSUdfQlJJREdFKQkJKz0gYnJpZGdlLworb2JqLSQoQ09ORklHX0JPTkRJTkcpCQkrPSBi
-b25kaW5nLwogb2JqLSQoQ09ORklHX05FVF9EU0EpCQkrPSBkc2EvCiBvYmotJChDT05GSUdfSVBY
-KQkJKz0gaXB4Lwogb2JqLSQoQ09ORklHX0FUQUxLKQkJKz0gYXBwbGV0YWxrLwpkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQvYm9uZGluZy9NYWtlZmlsZSBiL25ldC9ib25kaW5nL01ha2VmaWxlCnNp
-bWlsYXJpdHkgaW5kZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL01ha2Vm
-aWxlCnJlbmFtZSB0byBuZXQvYm9uZGluZy9NYWtlZmlsZQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
-ZXQvYm9uZGluZy9ib25kXzNhZC5jIGIvbmV0L2JvbmRpbmcvYm9uZF8zYWQuYwpzaW1pbGFyaXR5
-IGluZGV4IDEwMCUKcmVuYW1lIGZyb20gZHJpdmVycy9uZXQvYm9uZGluZy9ib25kXzNhZC5jCnJl
-bmFtZSB0byBuZXQvYm9uZGluZy9ib25kXzNhZC5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
-b25kaW5nL2JvbmRfM2FkLmggYi9uZXQvYm9uZGluZy9ib25kXzNhZC5oCnNpbWlsYXJpdHkgaW5k
-ZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfM2FkLmgKcmVuYW1l
-IHRvIG5ldC9ib25kaW5nL2JvbmRfM2FkLmgKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JvbmRp
-bmcvYm9uZF9hbGIuYyBiL25ldC9ib25kaW5nL2JvbmRfYWxiLmMKc2ltaWxhcml0eSBpbmRleCAx
-MDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9hbGIuYwpyZW5hbWUgdG8g
-bmV0L2JvbmRpbmcvYm9uZF9hbGIuYwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvYm9uZGluZy9i
-b25kX2FsYi5oIGIvbmV0L2JvbmRpbmcvYm9uZF9hbGIuaApzaW1pbGFyaXR5IGluZGV4IDEwMCUK
-cmVuYW1lIGZyb20gZHJpdmVycy9uZXQvYm9uZGluZy9ib25kX2FsYi5oCnJlbmFtZSB0byBuZXQv
-Ym9uZGluZy9ib25kX2FsYi5oCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ib25kaW5nL2JvbmRf
-ZGVidWdmcy5jIGIvbmV0L2JvbmRpbmcvYm9uZF9kZWJ1Z2ZzLmMKc2ltaWxhcml0eSBpbmRleCAx
-MDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9kZWJ1Z2ZzLmMKcmVuYW1l
-IHRvIG5ldC9ib25kaW5nL2JvbmRfZGVidWdmcy5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
-b25kaW5nL2JvbmRfaXB2Ni5jIGIvbmV0L2JvbmRpbmcvYm9uZF9pcHY2LmMKc2ltaWxhcml0eSBp
-bmRleCAxMDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9pcHY2LmMKcmVu
-YW1lIHRvIG5ldC9ib25kaW5nL2JvbmRfaXB2Ni5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
-b25kaW5nL2JvbmRfbWFpbi5jIGIvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMKc2ltaWxhcml0eSBp
-bmRleCAxMDAlCnJlbmFtZSBmcm9tIGRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMKcmVu
-YW1lIHRvIG5ldC9ib25kaW5nL2JvbmRfbWFpbi5jCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9i
-b25kaW5nL2JvbmRfcHJvY2ZzLmMgYi9uZXQvYm9uZGluZy9ib25kX3Byb2Nmcy5jCnNpbWlsYXJp
-dHkgaW5kZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfcHJvY2Zz
-LmMKcmVuYW1lIHRvIG5ldC9ib25kaW5nL2JvbmRfcHJvY2ZzLmMKZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2JvbmRpbmcvYm9uZF9zeXNmcy5jIGIvbmV0L2JvbmRpbmcvYm9uZF9zeXNmcy5jCnNp
-bWlsYXJpdHkgaW5kZXggMTAwJQpyZW5hbWUgZnJvbSBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRf
-c3lzZnMuYwpyZW5hbWUgdG8gbmV0L2JvbmRpbmcvYm9uZF9zeXNmcy5jCmRpZmYgLS1naXQgYS9k
-cml2ZXJzL25ldC9ib25kaW5nL2JvbmRpbmcuaCBiL25ldC9ib25kaW5nL2JvbmRpbmcuaApzaW1p
-bGFyaXR5IGluZGV4IDEwMCUKcmVuYW1lIGZyb20gZHJpdmVycy9uZXQvYm9uZGluZy9ib25kaW5n
-LmgKcmVuYW1lIHRvIG5ldC9ib25kaW5nL2JvbmRpbmcuaAo=
---20cf303b426dc4797a04a3f0d711--
+
+
+And in your report RAX =3D R12 !!! (ffff8801172a7d08) I cant see how it
+can happen (Its not even a valid skb address, since an SKB should be
+64bytes aligned)
+
+If available a disassembly of sfq_enqueue() would be appreciated too ;)
+
+Thanks !
+
+
