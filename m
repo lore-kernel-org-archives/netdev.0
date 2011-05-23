@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: filter: move forward declarations to avoid
- compile warnings
-Date: Sun, 22 May 2011 21:01:59 -0400 (EDT)
-Message-ID: <20110522.210159.2028885878337277330.davem@davemloft.net>
-References: <20110522170811.GA2758@osiris.boeblingen.de.ibm.com>
+Subject: Re: [Patch] pktgen: use vzalloc_node() instead of vmalloc_node() +
+ memset()
+Date: Sun, 22 May 2011 21:02:06 -0400 (EDT)
+Message-ID: <20110522.210206.1532082686601754306.davem@davemloft.net>
+References: <BANLkTimWSEwkoP3GOjZ3C-yG9jZRVM+yNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: heiko.carstens@de.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110522170811.GA2758@osiris.boeblingen.de.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52899 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018Ab1EWBCK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 May 2011 21:02:10 -0400
+In-Reply-To: <BANLkTimWSEwkoP3GOjZ3C-yG9jZRVM+yNA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Date: Sun, 22 May 2011 19:08:11 +0200
+=46rom: Am=E9rico Wang <xiyou.wangcong@gmail.com>
+Date: Sun, 22 May 2011 18:17:11 +0800
 
-> From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> 
-> Get rid of this compile warning:
-> 
-> In file included from arch/s390/kernel/compat_linux.c:37:0:
-> include/linux/filter.h:139:23: warning: 'struct sk_buff' declared inside parameter list
-> 
-> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
 
 Applied.
