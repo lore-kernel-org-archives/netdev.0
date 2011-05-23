@@ -1,127 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Mon, 23 May 2011 15:23:14 -0700
-Message-ID: <4DDADE52.8000008@candelatech.com>
-References: <4DDAB72B.9050101@gmail.com> <4DDAC26C.2070601@candelatech.com>	<20110523140048.777fb378@nehalam>	<20110523.172047.1438754754048434316.davem@davemloft.net> <m1y61x2htp.fsf@fess.ebiederm.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: 2.6.38.x, 2.6.39 =?UTF-8?Q?sfq=3F=20kernel=20panic=20in=20sfq?=  =?UTF-8?Q?=5Fenqueue?=
+Date: Tue, 24 May 2011 01:35:08 +0300
+Message-ID: <d3a37593d507f6e16c4e7cbf121cdd6b@visp.net.lb>
+References: <598fe111e91c6236b8bfdfca323b9a17@visp.net.lb>
+ <1306153938.20687.2.camel@edumazet-laptop>
+ <1306155058.20687.8.camel@edumazet-laptop>
+ <47b6835144d208dca4c6675f6510fcad@visp.net.lb>
+ <1306163146.20687.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, nicolas.2p.debian@gmail.com,
-	jpirko@redhat.com, xiaosuo@gmail.com, netdev@vger.kernel.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, jesse@nicira.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <hadi@cyberus.ca>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:37313 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285Ab1EWWXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 18:23:41 -0400
-In-Reply-To: <m1y61x2htp.fsf@fess.ebiederm.org>
+Received: from rev-153-13.globalproof.net ([194.146.153.13]:45055 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752639Ab1EWWfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 18:35:12 -0400
+In-Reply-To: <1306163146.20687.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2011 03:05 PM, Eric W. Biederman wrote:
-> David Miller<davem@davemloft.net>  writes:
+ On Mon, 23 May 2011 17:05:46 +0200, Eric Dumazet wrote:
+> Le lundi 23 mai 2011 =C3=A0 17:27 +0300, Denys Fedoryshchenko a =C3=A9=
+crit :
 >
->> From: Stephen Hemminger<shemminger@linux-foundation.org>
->> Date: Mon, 23 May 2011 14:00:48 -0700
+>> > Thanks !
+>>  By objdump or he must recompile kernel with DEBUG_INFO and use gdb?
 >>
->>> IMHO the REORDER_HDR flag was a design mistake. It means supporting
->>> two different API's for the application. For a packet capture application
->>> it means the format of the packet will be different based on how
->>> the VLAN was created. And the vlan was created outside the application.
->>>
->>> If there was a requirement to support both formats, then it should
->>> be a property of the AF_PACKET socket.  The application can then do
->>> an setsockopt() to control the format of the data. The issue is
->>> for things like mmap/AF_PACKET the re-inserted form will be slower
->>> since data has to be copied.
 >>
->> Indeed, it was a foolish thing to support in the first place.
 >>
->> I guess we couldn't see the hw offloads in the future at that
->> point.
->>
->> I'm all for finding a way to deprecate this over time.
 >
 >
-> There are two very similar issues here, that affect two
-> slightly different cases.
->
-> Let's assume the configuration is:
-> eth0 - Talks to the outside world.
-> vlan2000 - Is the vlan interface of interest.
->
->
-> With REORDER_HDR set when I tcpdump on vlan2000 I don't see the
-> vlan header, however I continue to see the vlan header when I tcpdump on eth0.
+> Just objdump of sch_sfq.o (or sch_sfq.ko) file, (to keep existing
+> offsets), thanks
+ Sorry for delay, i had to contact person who run that kernel :)
 
-That seems good.  This is what originally let dhcp function.  Not sure
-if it's still required for dhcp, but there could easily be other programs that
-have similar issues.
+ www.nuclearcat.com/files/disasm.txt
+ www.nuclearcat.com/files/sch_sfq.ko
 
-With REORDER_HDR off, we should see vlan tagged packets on both eth0
-and vlan2000.
-
-If REORDER_HDR dissappears entirely, I think you have to default to
-stripping the header on vlan2000.
-
->
-> With vlan hardware acceleration.  When I tcpdump on eth0 I don't
-> see the vlan header.  Nor do I see the vlan header when I tcpdump
-> on vlan2000.
-
-I think you should see the header on eth0 regardless of hw acceleration
-or not.  Users should not have to know if their NIC/driver supports
-vlan tag stripping in one mode or another.
-
-
-> Right now both cases are problematic in Linus's tree.
->
-> For inbound packets We are testing the wrong interface for the to see if
-> we should play with REORDER_HDR.
->
-> Hardware acceleration vlan tagging we are hiding the vlan header from
-> portable applications that simply dump eth0.  Which is non-intuitive
-> and apparent to everyone now that this happens on both software and
-> hardware interfaces.
->
->
-> So we have a couple of questions.
-> 1) Do we revert the software emulation of vlan header tagging to fix
->     it's implementation issues in 2.6.40?
->
->     The big issues.
->     - vlan_untag is currently reading undefined data.
->     - Clearing REORDER_HDR no longer works.
->
->     I expect the issues are small enough that we can address them now.
->
-> 2) Do we instead move the software implementation of vlan header
->     acceleration back into the net-next.
->
-> 3) What do we do with pf_packet and vlan hardware acceleration when
->     dumping not the vlan interface but the interface below the vlan
->     interface?
->
->     Do we provide an option to keep the vlan header?  Should that option
->     be on by default?
-
-At the least we need to have the header kept when using pf_packet on eth0.
-
-I think it's best to have it available on vlan2000, but perhaps have it
-stripped by default for backwards compatibility.
-
-Thanks,
-Ben
-
-
->
-> Eric
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
 
