@@ -1,59 +1,85 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH]  ipv6: xfrm6: fix dubious code
-Date: Mon, 23 May 2011 08:36:00 -0700
-Message-ID: <1306164960.3456.42.camel@localhost>
-References: <1306140167.2869.8.camel@edumazet-laptop>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: CPU instruction to calculate tcp checksum and udp integrity?
+Date: Mon, 23 May 2011 08:26:07 -0700
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:1128 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754725Ab1EWPgD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 May 2011 11:36:03 -0400
-In-Reply-To: <1306140167.2869.8.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============5634271514793277289=="
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernelnewbies@kernelnewbies.org" <kernelnewbies@kernelnewbies.org>
+Return-path: <kernelnewbies-bounces@kernelnewbies.org>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies>,
+	<mailto:kernelnewbies-request@kernelnewbies.org?subject=unsubscribe>
+List-Archive: <http://lists.kernelnewbies.org/pipermail/kernelnewbies>
+List-Post: <mailto:kernelnewbies@kernelnewbies.org>
+List-Help: <mailto:kernelnewbies-request@kernelnewbies.org?subject=help>
+List-Subscribe: <http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies>,
+	<mailto:kernelnewbies-request@kernelnewbies.org?subject=subscribe>
+Sender: kernelnewbies-bounces@kernelnewbies.org
+Errors-To: kernelnewbies-bounces@kernelnewbies.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-05-23 at 10:42 +0200, Eric Dumazet wrote:
-> net/ipv6/xfrm6_tunnel.c: In function =E2=80=98xfrm6_tunnel_rcv=E2=80=99=
-:
-> net/ipv6/xfrm6_tunnel.c:244:53: warning: the omitted middle operand
-> in ?: will always be =E2=80=98true=E2=80=99, suggest explicit middle =
-operand
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/ipv6/xfrm6_tunnel.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
-> index a6770a0..fb9b0c3 100644
-> --- a/net/ipv6/xfrm6_tunnel.c
-> +++ b/net/ipv6/xfrm6_tunnel.c
-> @@ -241,7 +241,7 @@ static int xfrm6_tunnel_rcv(struct sk_buff *skb)
->  	__be32 spi;
-> =20
->  	spi =3D xfrm6_tunnel_spi_lookup(net, (const xfrm_address_t *)&iph->=
-saddr);
-> -	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi) > 0 ? : 0;
-> +	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi) > 0 ? 1 : 0;
->  }
-> =20
->  static int xfrm6_tunnel_err(struct sk_buff *skb, struct inet6_skb_pa=
-rm *opt,
+--===============5634271514793277289==
+Content-Language: en-US
+Content-Type: multipart/alternative;
+	boundary="_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_"
 
-I suspect that this was intended to return the result of xfrm6_rcv_spi(=
-)
-if > 0.  But if it really is intended to return the result of the
-inequality, then the '?:' operation is not needed at all.
+--_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Ben.
+hi
+now I am using sw to calculate the tcp checksum, is there CPU(nehalem) inst=
+ruction or NIC /kernel API to do such thing?
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+thanks a lot
+jon
 
+
+
+--_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_
+Content-Type: text/html; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<html dir=3D"ltr"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Diso-8859-=
+1">
+<style id=3D"owaTempEditStyle"></style><style title=3D"owaParaStyle"><!--P =
+{
+	MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px
+}
+--></style>
+</head>
+<body ocsi=3D"x">
+<div style=3D"FONT-FAMILY: Tahoma; DIRECTION: ltr; COLOR: #000000; FONT-SIZ=
+E: 13px">
+<div></div>
+<div dir=3D"ltr"><font color=3D"#000000" size=3D"2" face=3D"Tahoma">hi</fon=
+t></div>
+<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">now I am using sw to calc=
+ulate the tcp checksum, is there CPU(nehalem) instruction or NIC /kernel AP=
+I to do such thing?</font></div>
+<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma"></font>&nbsp;</div>
+<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">thanks a lot</font></div>
+<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">jon</font></div>
+<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma"></font>&nbsp;</div>
+<div dir=3D"ltr"><font size=3D"2" face=3D"tahoma">&nbsp;&nbsp;</font></div>
+</div>
+</body>
+</html>
+
+--_000_4A6A2125329CFD4D8CC40C9E8ABCAB9F250D8894E6MILEXCH2dsjds_--
+
+
+--===============5634271514793277289==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Kernelnewbies mailing list
+Kernelnewbies@kernelnewbies.org
+http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies
+
+--===============5634271514793277289==--
