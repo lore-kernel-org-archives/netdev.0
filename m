@@ -1,66 +1,70 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: bridge netfilter output bug on 2.6.39
-Date: Tue, 24 May 2011 07:41:56 -0700
-Message-ID: <20110524074156.58eb30f8@nehalam>
+Subject: Re: [patch 1/1] net: convert %p usage to %pK
+Date: Tue, 24 May 2011 07:43:55 -0700
+Message-ID: <20110524074355.422e12f9@nehalam>
+References: <1306220681.2638.40.camel@edumazet-laptop>
+	<1306222507.2298.23.camel@Joe-Laptop>
+	<1306223101.2638.43.camel@edumazet-laptop>
+	<20110524.035801.1555795213632087107.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, joe@perches.com, mingo@elte.hu,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
+	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
+	kees.cook@canonical.com, tgraf@infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36712 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:36778 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753774Ab1EXOl7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2011 10:41:59 -0400
+	id S932842Ab1EXOn6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 10:43:58 -0400
+In-Reply-To: <20110524.035801.1555795213632087107.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Got this bug report against 2.6.39.  Looks like ip_fragment() is now
-getting confused when called from bridge netfilter. Probably related to
-the changes to do ip_options_compile for the bridge input path.
+On Tue, 24 May 2011 03:58:01 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-https://bugzilla.kernel.org/show_bug.cgi?id=35672
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 24 May 2011 09:45:01 +0200
+>=20
+> > Le mardi 24 mai 2011 =C3=A0 00:35 -0700, Joe Perches a =C3=A9crit :
+> >=20
+> >> I think it's be better without the casts
+> >> using the standard kernel.h macros.
+> >>=20
+> >> 	void *ptr;
+> >>=20
+> >> 	ptr =3D maybe_hide_ptr(sk);
+> >> 	r->id.idiag_cookie[0] =3D lower_32_bits(ptr);
+> >> 	r->id.idiag_cookie[1] =3D upper_32_bits(ptr);
+> >>=20
+> >=20
+> > I am not sure I want to patch lower_32_bits() and upper_32_bits() f=
+or
+> > this.
+> >=20
+> > They dont work on pointers, but on "numbers", according to kerneldo=
+c
+> > Andrew wrote years ago. gcc agrees :
+> >=20
+> > net/ipv4/inet_diag.c: In function =E2=80=98inet_csk_diag_fill=E2=80=
+=99:
+> > net/ipv4/inet_diag.c:119: warning: cast from pointer to integer of =
+different size
+> > net/ipv4/inet_diag.c:120: error: invalid operands to binary >>
+> > make[1]: *** [net/ipv4/inet_diag.o] Error 1
+>=20
+> Also you can't do this, the "cookie" is used by the kernel future
+> lookups to find sockets.
+>=20
+> The kernel pointer is part of the API, so sorry you can't "hide"
+> kernel pointers in this case without really breaking user visible
+> things.
+> [Error decoding BASE64]
 
-May 23 02:04:24 lxc kernel: [99498.329036] BUG: unable to handle kernel NULL
-pointer dereference at 00000004
-May 23 02:04:24 lxc kernel: [99498.330017] IP: [<c143d6bf>] dst_mtu+0xb/0x1c
-May 23 02:04:24 lxc kernel: [99498.330017] *pdpt = 000000001fb55001 *pde =
-0000000000000000
-May 23 02:04:24 lxc kernel: [99498.330017] Oops: 0000 [#1] SMP
-May 23 02:04:24 lxc kernel: [99498.330017] last sysfs file:
-/sys/devices/virtual/vc/vcsa8/uevent
-May 23 02:04:24 lxc kernel: [99498.330017] Modules linked in: lp ppdev
-parport_pc parport fuse firewire_ohci firewire_core crc_itu_t intel_agp
-intel_gtt
-May 23 02:04:24 lxc kernel: [99498.330017]
-May 23 02:04:24 lxc kernel: [99498.330017] Pid: 0, comm: swapper Not tainted
-2.6.39-lxc #2 .   .  /IP35 Pro XE(Intel P35-ICH9R)
-May 23 02:04:24 lxc kernel: [99498.330017] EIP: 0060:[<c143d6bf>] EFLAGS:
-00010246 CPU: 0
-May 23 02:04:24 lxc kernel: [99498.330017] EIP is at dst_mtu+0xb/0x1c
-May 23 02:04:24 lxc kernel: [99498.330017] EAX: 00000000 EBX: e90b6b40 ECX:
-effc981c EDX: effc9000
-May 23 02:04:24 lxc kernel: [99498.330017] ESI: c1a0d84e EDI: dda6331e EBP:
-f080bb44 ESP: f080bb44
-May 23 02:04:24 lxc kernel: [99498.330017]  DS: 007b ES: 007b FS: 00d8 GS: 0000
-SS: 0068
-May 23 02:04:24 lxc kernel: [99498.330017] Process swapper (pid: 0, ti=f080a000
-task=c172b7e0 task.ti=c1724000)
-May 23 02:04:24 lxc kernel: [99498.330017] Stack:
-May 23 02:04:24 lxc kernel: [99498.330017]  f080bb8c c143e20d 00000004 f080bb88
-c141aab2 c14b46db effc9000 00000014
-May 23 02:04:24 lxc kernel: [99498.330017]  c14b8a44 effc9000 e90b6b40 00000014
-effc981c e90b6b58 cd472800 e90b6b40
-May 23 02:04:24 lxc kernel: [99498.330017]  c14b8a44 dda6331e f080bb98 c14b8aa0
-e90b6b40 f080bba8 c14b881a e90b6b40
-May 23 02:04:24 lxc kernel: [99498.330017] Call Trace:
-May 23 02:04:24 lxc kernel: [99498.330017]  [<c143e20d>] ip_fragment+0xb5/0x66c
-May 23 02:04:24 lxc kernel: [99498.330017]  [<c141aab2>] ?
-nf_hook_slow+0x43/0xd1
-May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b46db>] ? br_flood+0x83/0x83
-May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b8a44>] ?
-br_parse_ip_options+0x1b0/0x1b0
-May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b8a44>] ?
-br_parse_ip_options+0x1b0/0x1b0
-May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b8aa0>]
-br_nf_dev_queue_xmit+0x5c/0x68
+Couldn't the pointer be replaced by a socket index?
+
+--=20
