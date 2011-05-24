@@ -1,83 +1,47 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: build failure after merge of the final tree
-Date: Tue, 24 May 2011 05:48:33 -0700
-Message-ID: <20110524124833.GB31776@kroah.com>
-References: <20110520161816.dda6f1fd.sfr@canb.auug.org.au>
- <BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
- <20110524025151.GA26939@kroah.com>
- <20110524135930.bb4c5506.sfr@canb.auug.org.au>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] be2net: hash key for rss-config cmd not set
+Date: Tue, 24 May 2011 10:12:31 -0300
+Message-ID: <4DDBAEBF.5040901@redhat.com>
+References: <edb3e5b8-a38f-4efe-b267-9b5b332f16a4@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Frysinger <vapier.adi@gmail.com>,
-	Linus <torvalds@linux-foundation.org>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mel Gorman <mel@csn.ul.ie>, linux-mm@kvack.org,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	linux-fsdevel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20110524135930.bb4c5506.sfr@canb.auug.org.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sathya Perla <sathya.perla@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45779 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932075Ab1EXNMf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2011 09:12:35 -0400
+In-Reply-To: <edb3e5b8-a38f-4efe-b267-9b5b332f16a4@exht1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2011 at 01:59:30PM +1000, Stephen Rothwell wrote:
-> Hi Greg,
+On 05/24/2011 03:29 AM, Sathya Perla wrote:
+> A non-zero, non-descript value is needed as the hash key. The hash variable was left un-initialized; but sometimes it gets a zero value
+> and hashing is not effective. The constant value used now (not of any significance) seems to work fine.
 > 
-> On Mon, 23 May 2011 19:51:51 -0700 Greg KH <greg@kroah.com> wrote:
-> >
-> > On Mon, May 23, 2011 at 10:06:40PM -0400, Mike Frysinger wrote:
-> > > On Fri, May 20, 2011 at 02:18, Stephen Rothwell wrote:
-> > > > Caused by commit e66eed651fd1 ("list: remove prefetching from regular list
-> > > > iterators").
-> > > >
-> > > > I added the following patch for today:
-> > > 
-> > > probably should get added to whatever tree that commit is coming from
-> > > so we dont have bisect hell ?
-> > > 
-> > > more failures:
-> > > drivers/usb/host/isp1362-hcd.c: In function 'isp1362_write_ptd':
-> > > drivers/usb/host/isp1362-hcd.c:355: error: implicit declaration of
-> > > function 'prefetch'
-> > > drivers/usb/host/isp1362-hcd.c: In function 'isp1362_read_ptd':
-> > > drivers/usb/host/isp1362-hcd.c:377: error: implicit declaration of
-> > > function 'prefetchw'
-> > > make[3]: *** [drivers/usb/host/isp1362-hcd.o] Error 1
-> > > 
-> > > drivers/usb/musb/musb_core.c: In function 'musb_write_fifo':
-> > > drivers/usb/musb/musb_core.c:219: error: implicit declaration of
-> > > function 'prefetch'
-> > > make[3]: *** [drivers/usb/musb/musb_core.o] Error 1
-> > > 
-> > > although it seems like it should be fairly trivial to look at the
-> > > funcs in linux/prefetch.h, grep the tree, and find a pretty good list
-> > > of the files that are missing the include
-> > 
-> > How did this not show up in linux-next?  Where did the patch that caused
-> > this show up from?
-> > 
-> > totally confused,
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> ---
+>  drivers/net/benet/be_cmds.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
 > 
-> :-)
-> 
-> sfr said above:
-> > Caused by commit e66eed651fd1 ("list: remove prefetching from regular
-> > list iterators").
-> 
-> The cause was a patch from Linus ...
+> diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+> index 2463b1c..81654ae 100644
+> --- a/drivers/net/benet/be_cmds.c
+> +++ b/drivers/net/benet/be_cmds.c
+> @@ -1703,7 +1703,8 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
+>  {
+>  	struct be_mcc_wrb *wrb;
+>  	struct be_cmd_req_rss_config *req;
+> -	u32 myhash[10];
+> +	u32 myhash[10] = {0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF,
+> +			0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF};
+>  	int status;
+>  
+>  	if (mutex_lock_interruptible(&adapter->mbox_lock))
 
-Ah, ok, that makes more sense, sorry for the noise.
+I know we have the changelog saying that it's not of any significance,
+but would be nice to have the same thing in the source as well.
 
-greg k-h
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+fbl
