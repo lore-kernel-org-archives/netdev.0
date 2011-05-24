@@ -1,39 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: linux-next: Tree for May 24 (ratelimits, CONFIG_PRINTK not
- enabled)
-Date: Tue, 24 May 2011 11:49:48 -0700
-Message-ID: <1306262988.2298.49.camel@Joe-Laptop>
-References: <20110524140212.a4f19769.sfr@canb.auug.org.au>
-	 <20110524113328.e3d5867b.randy.dunlap@oracle.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: VLAN test cases in 2.6.38.7
+Date: Tue, 24 May 2011 11:49:58 -0700
+Message-ID: <4DDBFDD6.4060903@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110524113328.e3d5867b.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:56315 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752696Ab1EXSt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 14:49:59 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p4OInwvT002563
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 24 May 2011 11:49:59 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-24 at 11:33 -0700, Randy Dunlap wrote:
-> On Tue, 24 May 2011 14:02:12 +1000 Stephen Rothwell wrote:
-> > Hi all,
-> > Changes since 20110523:
-> when CONFIG_PRINTK is not enabled:
-> net/core/filter.c:353: warning: type defaults to 'int' in declaration of 'DEFINE_RATELIMIT_STATE'
-> net/core/filter.c:353: warning: parameter names (without types) in function declaration
-> net/core/filter.c:353: error: invalid storage class for function 'DEFINE_RATELIMIT_STATE'
-> net/core/filter.c:353: error: implicit declaration of function '__ratelimit'
-> net/core/filter.c:353: error: '_rs' undeclared (first use in this function)
 
-Thanks for the report Randy.
+I wrote a simple bridge that uses packet sockets to read/write
+from network devices.  I'll upload this code somewhere when
+I get it a bit more presentable.
 
-I wonder if it's better to new create sections for
-!CONFIG_PRINTK in bug.h.  That might make the image
-a bit smaller when !CONFIG_PRINTK too.
+Machine info:
 
-> Adding <linux/ratelimit.h> to <asm-generic/bug.h> causes other problems:
+Linux lf0300-demo 2.6.38.7+ #14 SMP Mon May 23 10:31:45 PDT 2011 i686 i686 i386 GNU/Linux
 
-Yup, that's not a good solution.
+Interface A: eth1
+driver: igb
+version: 3.0.19
+firmware-version: 1.2-1
+bus-info: 0000:01:00.0
+
+Interface B: eth3:
+driver: igb
+version: 3.0.19
+firmware-version: 1.2-1
+bus-info: 0000:01:00.1
+
+
+If no vlans are on eth1 and eth3, then it bridges fine, with vlan
+headers inline.  But, if you add a VLAN to eth1, it stops working,
+probably because pkt tag is then un-stripped.  I was generating on
+vlan 7, and created vlan 9, btw.
+
+I'll see if I can figure out how to use aux-data next...
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
