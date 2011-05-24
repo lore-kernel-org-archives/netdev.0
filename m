@@ -1,85 +1,84 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC Patch] bonding: move to net/ directory
-Date: Tue, 24 May 2011 12:33:24 -0400
-Message-ID: <20110524163323.GB28521@hmsreliant.think-freely.org>
-References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
- <20110523151336.GF21309@gospo.rdu.redhat.com>
- <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bridge netfilter output bug on 2.6.39
+Date: Tue, 24 May 2011 18:46:27 +0200
+Message-ID: <1306255587.3026.76.camel@edumazet-laptop>
+References: <20110524074156.58eb30f8@nehalam>
+	 <1306251543.3026.57.camel@edumazet-laptop>
+	 <1306254457.3026.69.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55875 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752309Ab1EXQdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 12:33:37 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:62064 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753272Ab1EXQqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 12:46:31 -0400
+Received: by wwa36 with SMTP id 36so7539600wwa.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2011 09:46:30 -0700 (PDT)
+In-Reply-To: <1306254457.3026.69.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2011 at 10:00:23PM +0800, Am=E9rico Wang wrote:
-> On Mon, May 23, 2011 at 11:13 PM, Andy Gospodarek <andy@greyhouse.net=
-> wrote:
-> > On Mon, May 23, 2011 at 08:45:14PM +0800, Am=E9rico Wang wrote:
-> >> Hello, Jay, Andy,
-> >>
-> >> Is there any peculiar reason that bonding code has to stay
-> >> in drivers/net/ directory?
-> >>
-> >> Since bonding and bridge are somewhat similar, both of
-> >> which are used to "bond" two or more devices into one,
-> >> and bridge code is already in net/bridge/, so I think it also
-> >> makes sense to move bonding code into net/bonding/ too.
-> >>
-> >> This could also help to grep the source more easily. :)
-> >>
-> >> What do you think about the patch below?
-> >> (Note, this patch is against net-next-2.6.)
-> >>
-> >
-> > I would rather keep the code for bonding in drivers/net since it is
-> > really a pure device (though not directly tied to any specific
-> > hardware) rather than a device + forwarding or management code.
+Le mardi 24 mai 2011 =C3=A0 18:27 +0200, Eric Dumazet a =C3=A9crit :
+> Le mardi 24 mai 2011 =C3=A0 17:39 +0200, Eric Dumazet a =C3=A9crit :
 >=20
-> Is this a reason strong enough to leave it to drivers/net/ ?
-> I think it is generic enough to be moved to net/ directory... :-/
+> > I would say its more likely a problem with dst metrics changes
+> >=20
+> > In this crash, we dereference a NULL dst->_metrics 'pointer' in
+> > dst_metric_raw(dst, RTAX_MTU);
 >=20
-> >
-> > It has bothered me for a long time that the code just to manage the=
- VLAN
-> > and bridge devices sits outside of drivers/net, but I've never prop=
-osed
-> > a patch to move the files as I suspect the maintainers of that code
-> > would like to keep it all together. =A0Maybe it is time to do that.
-> >
+> It seems bridge code uses one fake_rtable
 >=20
-> You mean move net/8021q/ to drivers/net/8021q/ ?
+> You probably want to properly init its _metric field.
 >=20
-This all sounds like change for the sake of change to me.  I don't see =
-any
-compelling argument for moving bonding (or bridging or vlans, etc) arou=
-nd at
-all.  All of these software drivers have feet in multple subsystems, bu=
-t that
-just means that theres not going to be a compelling argument to move th=
-em any
-place,  at least not without an immediate subsequent argument that it r=
-eally
-belonged back where it was.  Unless you can show a solid benefit to mov=
-ing the
-code, I don't see why any reorganization is needed.=20
+> I can do the patch in one hour eventually, if nobody beats me.
+>=20
+>=20
 
-Neil
+Here is the patch :
 
-> Thanks!
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+[PATCH] bridge: initialize fake_rtable metrics
+
+bridge netfilter code uses a fake_rtable, and we must init its _metric
+field or risk NULL dereference later.
+
+Ref: https://bugzilla.kernel.org/show_bug.cgi?id=3D35672
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+CC: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/bridge/br_netfilter.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index e1f5ec7..3fa1231 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -117,6 +117,10 @@ static struct dst_ops fake_dst_ops =3D {
+  * ipt_REJECT needs it.  Future netfilter modules might
+  * require us to fill additional fields.
+  */
++static const u32 br_dst_default_metrics[RTAX_MAX] =3D {
++	[RTAX_MTU - 1] =3D 1500,
++};
++
+ void br_netfilter_rtable_init(struct net_bridge *br)
+ {
+ 	struct rtable *rt =3D &br->fake_rtable;
+@@ -124,7 +128,7 @@ void br_netfilter_rtable_init(struct net_bridge *br=
+)
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 	rt->dst.dev =3D br->dev;
+ 	rt->dst.path =3D &rt->dst;
+-	dst_metric_set(&rt->dst, RTAX_MTU, 1500);
++	dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+ 	rt->dst.flags	=3D DST_NOXFRM;
+ 	rt->dst.ops =3D &fake_dst_ops;
+ }
+
+
