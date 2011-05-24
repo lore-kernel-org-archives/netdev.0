@@ -1,75 +1,63 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the final tree
-Date: Wed, 25 May 2011 07:52:30 +1000
-Message-ID: <20110525075230.da671a0e.sfr@canb.auug.org.au>
-References: <20110520161816.dda6f1fd.sfr@canb.auug.org.au>
-	<BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
-	<20110524025151.GA26939@kroah.com>
-	<20110524135930.bb4c5506.sfr@canb.auug.org.au>
-	<20110524124833.GB31776@kroah.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
+ return
+Date: Tue, 24 May 2011 23:59:23 +0200
+Message-ID: <20110524215923.GA20138@rere.qmqm.pl>
+References: <20110516.140958.625993829749556424.davem@davemloft.net>
+ <20110519100331.GA25103@rere.qmqm.pl>
+ <20110524091437.GA10779@rere.qmqm.pl>
+ <20110524.153930.610330240390616957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI"
-Cc: Mike Frysinger <vapier.adi@gmail.com>, Linus
- <torvalds@linux-foundation.org>, linux-next@vger.kernel.org,
- linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
- netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Mel
- Gorman <mel@csn.ul.ie>, linux-mm@kvack.org, Alexander Viro
- <viro@zeniv.linux.org.uk>, linux-fsdevel@vger.kernel.org,
- "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Dipankar Sarma
- <dipankar@in.ibm.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110524124833.GB31776@kroah.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:48101 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755529Ab1EXV7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2011 17:59:24 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20110524.153930.610330240390616957.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
-
-On Tue, 24 May 2011 05:48:33 -0700 Greg KH <greg@kroah.com> wrote:
->
-> On Tue, May 24, 2011 at 01:59:30PM +1000, Stephen Rothwell wrote:
-> >=20
-> > The cause was a patch from Linus ...
+On Tue, May 24, 2011 at 03:39:30PM -0400, David Miller wrote:
+> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> Date: Tue, 24 May 2011 11:14:37 +0200
 >=20
-> Ah, ok, that makes more sense, sorry for the noise.
+> > On Thu, May 19, 2011 at 12:03:31PM +0200, Micha=B3 Miros=B3aw wrote=
+:
+> >> On Mon, May 16, 2011 at 02:09:58PM -0400, David Miller wrote:
+> >> > You guys really need to sort this out properly.
+> >> > Please resubmit whatever final solution is agreed upon.
+> >> I noticed that v2.6.39 was tagged today. We should definitely remo=
+ve
+> >> NETIF_F_COMPAT so it won't bite us in the future. The other patch =
+that
+> >> fixes ethtool_ops->set_flags compatibility is a bugfix, so it shou=
+ld go
+> >> in - if we decide that the SFEATURES compatibility should be remov=
+ed
+> >> it won't matter.
+> >>=20
+> >> Ben, do you agree?
+> > Ping?
+> > http://patchwork.ozlabs.org/patch/95552/
+> > (this is a bugfix, so should go to stable)
+> >=20
+> > http://patchwork.ozlabs.org/patch/95753/
+> > (removes ETHTOOL_F_COMPAT; this we need to decide on)
+> You and Ben are still arguing over details.
+>=20
+> I want fresh versions of these patches (yes, both of them) once
+> all of the issues are resolved.
 
-And it doesn't show up in many builds because musb depends on ARM ||
-(BF54x && !BF544) || (BF52x && !BF522 && !BF523).  So it probably appears
-in some of the overnight builds, but not the ones I do while creating
-linux-next.
+We could just wait for 2.6.40 and pretend this code part never existed.=
+ ;-)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+I'll rebase the first patch tomorrow. Without it the compatibility in
+ETHTOOL_SFEATURES for non-converted drivers is busted wrt set_flags.
 
---Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJN3CieAAoJEDMEi1NhKgbs86cH/1yLYRVQyjBOXJfZTaRUJo4Y
-aVUNOctPKJ1Tgt56GfV/QRQ/F7cqpY8qgEqy726wMEuPFJnpdYcqrqlGRr6eCs26
-A2OlCctyr8BeXMlBk4MwCT2C6WJoJy/nY7ey7wNszkSqB+z/1KzjY63FYQrvyh9V
-eqyv5A7GZmPOq60fNsm+Rns090SwrKGuvtHKYnLUFDaGhx20u745gLDw5J7LvCvS
-FjbHb0XoT0RAxNY7VoPkYF0A8vVLvgcl8a1PZnwhunsWpTx4cVgoLlFvIl2raNNk
-9KrSfvQDWQ+tGhl/0g0shmjn44PPQNwyeLCC9i8hBXLYOuPSx+HG8nyfDWZ+xuU=
-=Q27Y
------END PGP SIGNATURE-----
-
---Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Best Regards,
+Micha=B3 Miros=B3aw
