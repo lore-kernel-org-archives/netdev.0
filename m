@@ -1,84 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] seqlock: get rid of SEQLOCK_UNLOCKED
-Date: Tue, 24 May 2011 14:08:08 +0200
-Message-ID: <1306238888.3026.31.camel@edumazet-laptop>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [PATCH 1/1] IPVS : bug in ip_vs_ftp, same list heaad used in all netns.
+Date: Tue, 24 May 2011 14:11:05 +0200
+Message-ID: <1306239065-17271-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: hans@schillstrom.com,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: horms@verge.net.au, ja@ssi.bg, wensong@linux-vs.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All static seqlock should be initialized with the lockdep friendly
-__SEQLOCK_UNLOCKED() macro.
+When ip_vs was adapted to netns the ftp application was not adapted
+in a correct way.
+However this is a fix to avoid kernel errors. In the long term another solution
+might be chosen.  I.e the ports that the ftp appl, uses should be per netns.
 
-Remove legacy SEQLOCK_UNLOCKED() macro.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Thomas Gleixner <tglx@linutronix.de>
-CC: David Miller <davem@davemloft.net>
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 ---
- arch/ia64/kernel/time.c         |    2 +-
- arch/x86/kernel/vsyscall_64.c   |    2 +-
- include/linux/seqlock.h         |    3 ---
- net/ipv4/inet_connection_sock.c |    2 +-
- 4 files changed, 3 insertions(+), 6 deletions(-)
+ include/net/ip_vs.h            |    3 ++-
+ net/netfilter/ipvs/ip_vs_ftp.c |   27 +++++++++++++++++++--------
+ 2 files changed, 21 insertions(+), 9 deletions(-)
 
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 04440cc..85118df 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -36,7 +36,7 @@
- static cycle_t itc_get_cycles(struct clocksource *cs);
- 
- struct fsyscall_gtod_data_t fsyscall_gtod_data = {
--	.lock = SEQLOCK_UNLOCKED,
-+	.lock = __SEQLOCK_UNLOCKED(fsyscall_gtod_data.lock),
- };
- 
- struct itc_jitter_data_t itc_jitter_data;
-diff --git a/arch/x86/kernel/vsyscall_64.c b/arch/x86/kernel/vsyscall_64.c
-index dcbb28c..59be48d 100644
---- a/arch/x86/kernel/vsyscall_64.c
-+++ b/arch/x86/kernel/vsyscall_64.c
-@@ -59,7 +59,7 @@ int __vgetcpu_mode __section_vgetcpu_mode;
- 
- struct vsyscall_gtod_data __vsyscall_gtod_data __section_vsyscall_gtod_data =
- {
--	.lock = SEQLOCK_UNLOCKED,
-+	.lock = __SEQLOCK_UNLOCKED(__vsyscall_gtod_data.lock),
- 	.sysctl_enabled = 1,
- };
- 
-diff --git a/include/linux/seqlock.h b/include/linux/seqlock.h
-index 06d6964..e981189 100644
---- a/include/linux/seqlock.h
-+++ b/include/linux/seqlock.h
-@@ -41,9 +41,6 @@ typedef struct {
- #define __SEQLOCK_UNLOCKED(lockname) \
- 		 { 0, __SPIN_LOCK_UNLOCKED(lockname) }
- 
--#define SEQLOCK_UNLOCKED \
--		 __SEQLOCK_UNLOCKED(old_style_seqlock_init)
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 4fff432..481f856 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -797,7 +797,8 @@ struct netns_ipvs {
+ 	struct list_head	rs_table[IP_VS_RTAB_SIZE];
+ 	/* ip_vs_app */
+ 	struct list_head	app_list;
 -
- #define seqlock_init(x)					\
- 	do {						\
- 		(x)->sequence = 0;			\
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 61fac4c..c14d88a 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -33,7 +33,7 @@ EXPORT_SYMBOL(inet_csk_timer_bug_msg);
-  * This struct holds the first and last local port number.
-  */
- struct local_ports sysctl_local_ports __read_mostly = {
--	.lock = SEQLOCK_UNLOCKED,
-+	.lock = __SEQLOCK_UNLOCKED(sysctl_local_ports.lock),
- 	.range = { 32768, 61000 },
- };
++	/* ip_vs_ftp */
++	struct ip_vs_app	*ftp_app;
+ 	/* ip_vs_proto */
+ 	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
+ 	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 6b5dd6d..af63553 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -411,25 +411,35 @@ static struct ip_vs_app ip_vs_ftp = {
+ static int __net_init __ip_vs_ftp_init(struct net *net)
+ {
+ 	int i, ret;
+-	struct ip_vs_app *app = &ip_vs_ftp;
++	struct ip_vs_app *app;
++	struct netns_ipvs *ipvs = net_ipvs(net);
++
++	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
++	if (!app)
++		return -ENOMEM;
++	INIT_LIST_HEAD(&app->a_list);
++	INIT_LIST_HEAD(&app->incs_list);
++	ipvs->ftp_app = app;
  
+ 	ret = register_ip_vs_app(net, app);
+ 	if (ret)
+-		return ret;
++		goto err_exit;
+ 
+ 	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
+ 		if (!ports[i])
+ 			continue;
+ 		ret = register_ip_vs_app_inc(net, app, app->protocol, ports[i]);
+ 		if (ret)
+-			break;
++			goto err_unreg;
+ 		pr_info("%s: loaded support on port[%d] = %d\n",
+ 			app->name, i, ports[i]);
+ 	}
++	return 0;
+ 
+-	if (ret)
+-		unregister_ip_vs_app(net, app);
