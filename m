@@ -1,52 +1,69 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [ANNOUNCE] IPTV-Analyzer project released v0.9.1
-Date: Tue, 24 May 2011 16:40:05 -0400
-Message-ID: <1306269605.11061.10.camel__46246.2535630495$1306269641$gmane$org@probook>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH] bonding: prevent deadlock on slave store with alb mode
+Date: Tue, 24 May 2011 22:51:26 +0200
+Message-ID: <4DDC1A4E.6080700@gmail.com>
+References: <1306265765-8257-1-git-send-email-nhorman@tuxdriver.com> <20110524200047.GI21309@gospo.rdu.redhat.com> <4DDC116F.8020602@gmail.com> <20110524203714.GG28521@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: hawk@comx.dk
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:32777 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635Ab1EXUkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 16:40:13 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:38121 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757087Ab1EXUv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 16:51:28 -0400
+Received: by wya21 with SMTP id 21so5307446wya.19
+        for <netdev@vger.kernel.org>; Tue, 24 May 2011 13:51:27 -0700 (PDT)
+In-Reply-To: <20110524203714.GG28521@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new release 0.9.1 of the IPTV-Analyzer project is comming to you
-directly from New York City RedHat office ;-)
+Le 24/05/2011 22:37, Neil Horman a =E9crit :
 
-New features include bytes and packet counters, no-signal detection,
-heartbeat system per stream, and new event types.
+>>>> +		return -EINVAL;
+>>
+>> This will turn a warning into an error.
+>>
+> Yes, because it should have been an error all along.
+>
+>> This warning existed for long, but never caused the bonding setup to
+>> fail. This patch cause some regression for user space. For example,
+>> current ifenslave-2.6 package in Debian doesn't ensure bond is UP
+>> before enslaving, because this was never required.
+>>
+> Thats not a regression, thats the kernel returning an error where it =
+should have
+> done so all along.  Just because a utility got away with it for awhil=
+e and it
+> didn't always cause a lockup, doesn't grandfather that application in=
+ to a
+> situation where the kernel has to support its broken behavior in perp=
+ituity.
+>
+> Besides, iirc, the ifsenslave utility still uses the ioctl path, whic=
+h this
+> patch doesn't touch, so ifenslave is currently unaffected (although I=
+ should
+> look in the ioctl path to see if we have already added such a check, =
+lest you be
+> able to deadlock your system as previously indicated using that tool)=
+=2E
 
- Homepage:
-  http://www.iptv-analyzer.org
+Unfortunately, no. Recent versions of ifenslave-2.6 on Debian don't use=
+ ioctl (ifenslave binary)=20
+anymore, but only sysfs.
 
- Git tree:
-  https://github.com/netoptimizer/IPTV-Analyzer
+Documentation/bonding.txt should be updated to reflect this change.
+pr_warning should be changed to pr_ err.
+Bonding version should be bumped.
 
-Notice, database changes in this release.  Its possible to upgrade
-the database schema without loosing your current data.
+Anyway, I will fix this package, but I suspect there exist many user sc=
+ripts that don't ensure bond=20
+is up before enslaving.
 
-The IPTV-Analyzer is a continuous/real-time tool for analyzing the
-contents of MPEG2 Transport Stream (TS) packets, which is commonly
-used for IPTV multicast signals. The main purpose is continuous
-quality measurement, with a focus on detecting MPEG2 TS/CC packet
-drops.
-
- Bugreports and feature requests please use:
-  https://github.com/netoptimizer/IPTV-Analyzer/issues
-
-(Disclaimer, RedHat is not directly associated with project, I just
-hangout with them during my visit to NYC).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
+	Nicolas.
