@@ -1,63 +1,55 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
-Date: Tue, 24 May 2011 09:16:28 +0200
-Message-ID: <20110524071628.GA31612@elte.hu>
-References: <m11uzrvd26.fsf@fess.ebiederm.org>
- <BANLkTim4q5dK6nOb=pVKbk1c8b-Nh_hBfA@mail.gmail.com>
- <m1boyvpo9r.fsf@fess.ebiederm.org>
- <1306048393.4092.8.camel@mulgrave.site>
- <20110522084224.GA12279@elte.hu>
- <m1k4dgr35i.fsf@fess.ebiederm.org>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
+Date: Tue, 24 May 2011 09:19:55 +0200
+Message-ID: <4DDB5C1B.9000207@gmail.com>
+References: <m1ei3qjzix.fsf_-_@fess.ebiederm.org> <4DD97A44.2020708@candelatech.com> <m1wrhigy37.fsf@fess.ebiederm.org> <BANLkTinXFYzzj3R97mKH-90xM64BDwN8aA@mail.gmail.com> <BANLkTik6etR8V1qeDnYBKt6BaODBe8kUOw@mail.gmail.com> <m1ei3qdwa6.fsf@fess.ebiederm.org> <BANLkTi=BN6Aza7eU=D+WqJgVsVuswT5PDg@mail.gmail.com> <m139k57nzx.fsf@fess.ebiederm.org> <20110523104339.GA2769@psychotron> <4DDAB9FC.8050207@gmail.com> <20110524055836.GA2955@psychotron>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net,
+	Jesse Gross <jesse@nicira.com>
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:50392 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752499Ab1EXHRF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2011 03:17:05 -0400
-Content-Disposition: inline
-In-Reply-To: <m1k4dgr35i.fsf@fess.ebiederm.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57954 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753359Ab1EXHT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:19:57 -0400
+Received: by wwa36 with SMTP id 36so6996408wwa.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2011 00:19:56 -0700 (PDT)
+In-Reply-To: <20110524055836.GA2955@psychotron>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 24/05/2011 07:58, Jiri Pirko a =E9crit :
+<snip>
 
-* Eric W. Biederman <ebiederm@xmission.com> wrote:
+>>> Btw what's the rationale to move untag to earlier position?
+>>
+>> Maybe simply because we try to mimic hw-accel, and hw-accel untaggin=
+g
+>> definitely happens before we enter __netif_receive_skb and only
+>> happens once.
+>>
+>> So having software untagging inside the __netif_receive_skb loop loo=
+ks different.
+>
+> I understand. But what code prior to current vlan_untag position need=
+s
+> to see the skb untagged?
 
-> > Also, system call table conflicts are trivial to resolve. Merging in 
-> > net-next to avoid such a conflict is like cracking a nut with a 
-> > sledgehammer.
-> 
-> Well I still have trauma from how nasty it was to test with syscall numbers 
-> continuing to change when I was working on the kexec_load system call.
-> 
-> As far as I can tell any one system call conflict on any one
-> architecture is easy to resolve.  Resolving a conflict on all
-> architectures would amount to at least 50 files that need to be resolved
-> that feels a bit more than trivial.
+Any protocol handlers (ptype_all or ptype_base) registered on the paren=
+t interface may need to see=20
+the skb untagged, for all the reasons given in this thread. Arguably, d=
+oing software untagging=20
+earlier wouldn't help. :-) We need a strong logic to decide whether and=
+ when to untag and/or=20
+possibly re-tag.
 
-Of course - and the straightforward solution is to not do it but concentrate on 
-the 2-3 archs you find to be the primary target of your patches. How many 
-parisc systems are there on the planet, which in the future will be upgraded to 
-both kernel and user-space running your new syscall for real? Less than 10? How 
-many ARM and x86 systems?
-
-> My gut feel says we should really implement an 
-> include/asm-generic/unistd-common.h to include all new system calls.
-> 
-> That way there would be only one file to touch instead of 50. Certainly it 
-> works for include/asm-generic/unistd.h for the architectures that use it.  
-> And all we really need is just a little abstraction on that concept.
-
-I suppose that could be tried, although in practice it would probably be 
-somewhat complex due to the various compat syscall handling differences.
-So i guess this is one of the 'lets see how ugly/fragile it becomes' patches.
-
-Thanks,
-
-	Ingo
+	Nicolas.
