@@ -1,57 +1,70 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 1/2] net: move is_vlan_dev into public header file (v2)
-Date: Tue, 24 May 2011 15:03:34 -0400
-Message-ID: <20110524190334.GE28521@hmsreliant.think-freely.org>
-References: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
- <1306261869-7276-1-git-send-email-nhorman@tuxdriver.com>
- <1306261869-7276-2-git-send-email-nhorman@tuxdriver.com>
- <1306262195.2298.46.camel@Joe-Laptop>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: VLAN test cases in 2.6.38.7
+Date: Tue, 24 May 2011 12:08:38 -0700
+Message-ID: <4DDC0236.4090800@candelatech.com>
+References: <4DDBFDD6.4060903@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46391 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752563Ab1EXTDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 15:03:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1306262195.2298.46.camel@Joe-Laptop>
+Received: from mail.candelatech.com ([208.74.158.172]:35125 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756134Ab1EXTIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 15:08:41 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p4OJ8clM004157
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 24 May 2011 12:08:39 -0700
+In-Reply-To: <4DDBFDD6.4060903@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2011 at 11:36:35AM -0700, Joe Perches wrote:
-> On Tue, 2011-05-24 at 14:31 -0400, Neil Horman wrote:
-> > Migrate is_vlan_dev() to if_vlan.h so that core networkig can use it
-> []
-> > diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-> []
-> > @@ -110,6 +110,11 @@ static inline void vlan_group_set_device(struct vlan_group *vg,
-> >  	array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] = dev;
-> >  }
-> >  
-> > +static inline int is_vlan_dev(struct net_device *dev)
-> > +{
-> > +        return dev->priv_flags & IFF_802_1Q_VLAN;
-> > +}
-> 
-> perhaps:
-> 
-> static bool is_vlan_dev(const struct net_device *dev)
-> {
-> 	return !!(dev->priv_flags & IFF_802_1Q_VLAN);
-> }
-> 
-I migrated this directly out of vlan.h as is.  I suppose we could change it, but
-I'm not sure I see a need to do so immediately. All callers of this function
-already work with it properly as defined currently (not that they wouldn't
-otherwise).
+On 05/24/2011 11:49 AM, Ben Greear wrote:
+>
+> I wrote a simple bridge that uses packet sockets to read/write
+> from network devices. I'll upload this code somewhere when
+> I get it a bit more presentable.
+>
+> Machine info:
+>
+> Linux lf0300-demo 2.6.38.7+ #14 SMP Mon May 23 10:31:45 PDT 2011 i686
+> i686 i386 GNU/Linux
+>
+> Interface A: eth1
+> driver: igb
+> version: 3.0.19
+> firmware-version: 1.2-1
+> bus-info: 0000:01:00.0
+>
+> Interface B: eth3:
+> driver: igb
+> version: 3.0.19
+> firmware-version: 1.2-1
+> bus-info: 0000:01:00.1
+>
+>
+> If no vlans are on eth1 and eth3, then it bridges fine, with vlan
+> headers inline. But, if you add a VLAN to eth1, it stops working,
+> probably because pkt tag is then un-stripped. I was generating on
+> vlan 7, and created vlan 9, btw.
+>
+> I'll see if I can figure out how to use aux-data next...
 
-Perhaps we could do a separate patch to fix this up as well as other common test
-functions (br_port_exists, is_valid_iface, macvlan_port_exists,
-netif_is_bond_slave, etc), all just return the result of a bitwise and
-currently)
+Why does the aux-data mask out the CFI bit?  Shouldn't
+we just pass the 16-bit VLAN tag un-modified to user-space?
 
-Neil
+Thanks,
+Ben
+
+>
+> Thanks,
+> Ben
+>
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
