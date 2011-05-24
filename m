@@ -1,91 +1,75 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH] net: Abstract features usage.
-Date: Tue, 24 May 2011 23:49:19 +0200
-Message-ID: <BANLkTinpNJz-6y1hvw6uzDJsixHHLEuA-w@mail.gmail.com>
-References: <1306263162-2022-1-git-send-email-maheshb@google.com>
- <BANLkTinTJuKFyf80As81ouePBs=vFvQahg@mail.gmail.com> <BANLkTi=F_=Ti=QdDf3-L_hEEwCi9DRR_1Q@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the final tree
+Date: Wed, 25 May 2011 07:52:30 +1000
+Message-ID: <20110525075230.da671a0e.sfr@canb.auug.org.au>
+References: <20110520161816.dda6f1fd.sfr@canb.auug.org.au>
+	<BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
+	<20110524025151.GA26939@kroah.com>
+	<20110524135930.bb4c5506.sfr@canb.auug.org.au>
+	<20110524124833.GB31776@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:41561 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754418Ab1EXVtk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 17:49:40 -0400
-Received: by qwk3 with SMTP id 3so3602232qwk.19
-        for <netdev@vger.kernel.org>; Tue, 24 May 2011 14:49:39 -0700 (PDT)
-In-Reply-To: <BANLkTi=F_=Ti=QdDf3-L_hEEwCi9DRR_1Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI"
+Cc: Mike Frysinger <vapier.adi@gmail.com>, Linus
+ <torvalds@linux-foundation.org>, linux-next@vger.kernel.org,
+ linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+ netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Mel
+ Gorman <mel@csn.ul.ie>, linux-mm@kvack.org, Alexander Viro
+ <viro@zeniv.linux.org.uk>, linux-fsdevel@vger.kernel.org,
+ "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Dipankar Sarma
+ <dipankar@in.ibm.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110524124833.GB31776@kroah.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 24 maja 2011 22:29 u=BFytkownik Mahesh Bandewar
-<maheshb@google.com> napisa=B3:
-> On Tue, May 24, 2011 at 12:37 PM, Micha=B3 Miros=B3aw <mirqus@gmail.c=
-om> wrote:
->>
->> 2011/5/24 Mahesh Bandewar <maheshb@google.com>:
->> > Define macros to set/clear/test bits for feature set usage. This w=
-ill eliminate
->> > the direct use of these fields and enable future ease in managing =
-these fields.
->> >
->> > Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> > ---
->> > =A0include/linux/netdev_features.h | =A0137 ++++++++++++++++++++++=
-+++++++++++++++++
->> > =A0include/linux/netdevice.h =A0 =A0 =A0 | =A0 35 ++---------
->> > =A02 files changed, 142 insertions(+), 30 deletions(-)
->> > =A0create mode 100644 include/linux/netdev_features.h
->> >
->> > diff --git a/include/linux/netdev_features.h b/include/linux/netde=
-v_features.h
->> > new file mode 100644
->> > index 0000000..97bf8c4
->> > --- /dev/null
->> > +++ b/include/linux/netdev_features.h
->> > @@ -0,0 +1,137 @@
->> > +#ifndef =A0 =A0 =A0 =A0_NETDEV_FEATURES_H
->> > +#define =A0 =A0 =A0 =A0_NETDEV_FEATURES_H
->> > +
->> > +/* Forward declarations */
->> > +struct net_device;
->> > +
->> > +typedef =A0 =A0 =A0 =A0unsigned long *nd_feature_t;
->> > +
->> > +/* Net device feature bits; if you change something,
->> > + * also update netdev_features_strings[] in ethtool.c */
->> > +enum netdev_features {
->> > + =A0 =A0 =A0 SG_BIT, =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Scatter/g=
-ather IO. */
->> [...]
->>
->> Please split this change (introducing enum + converting NETIF_F_*
->> defines to use it). This part is a nice cleanup, but I think the
->> bitmap idea is still not worth the trouble until u64 runs out.
-> What will we achieve by this split? May be I'm not getting your point
-> about split. Do you want to see the cleanup part as a separate patch?
-> These enums and NETIF_F_* values have to be in sync.
+--Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Exactly. You already did the cleanup (defining enum and NETIF_F_*
-#defines), so just split it into separate patch. This is a
-prerequisite to any change to the type holding features from u32 to
-either u64 or bitmap. And this will separate the cleanup from your
-proposed idea.
+Hi Greg,
 
-> The macros that I have defined are expecting this bit numbers rather
-> than the flag value.
-> Whether it is u64 or bitmap, the changes should be limited to this
-> file. Going forward that can be achieved by
-> simply changing few lines in these macros / inlines.
+On Tue, 24 May 2011 05:48:33 -0700 Greg KH <greg@kroah.com> wrote:
+>
+> On Tue, May 24, 2011 at 01:59:30PM +1000, Stephen Rothwell wrote:
+> >=20
+> > The cause was a patch from Linus ...
+>=20
+> Ah, ok, that makes more sense, sorry for the noise.
 
-One thing I don't like in this implementation is that it leaves old
-fields around - so you'll have two code templates in the kernel doing
-the same thing (unless you fix all users, but then you won't need old
-fields anyway).
+And it doesn't show up in many builds because musb depends on ARM ||
+(BF54x && !BF544) || (BF52x && !BF522 && !BF523).  So it probably appears
+in some of the overnight builds, but not the ones I do while creating
+linux-next.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJN3CieAAoJEDMEi1NhKgbs86cH/1yLYRVQyjBOXJfZTaRUJo4Y
+aVUNOctPKJ1Tgt56GfV/QRQ/F7cqpY8qgEqy726wMEuPFJnpdYcqrqlGRr6eCs26
+A2OlCctyr8BeXMlBk4MwCT2C6WJoJy/nY7ey7wNszkSqB+z/1KzjY63FYQrvyh9V
+eqyv5A7GZmPOq60fNsm+Rns090SwrKGuvtHKYnLUFDaGhx20u745gLDw5J7LvCvS
+FjbHb0XoT0RAxNY7VoPkYF0A8vVLvgcl8a1PZnwhunsWpTx4cVgoLlFvIl2raNNk
+9KrSfvQDWQ+tGhl/0g0shmjn44PPQNwyeLCC9i8hBXLYOuPSx+HG8nyfDWZ+xuU=
+=Q27Y
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__25_May_2011_07_52_30_+1000_gAJguTc_PC6AUYGI--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
