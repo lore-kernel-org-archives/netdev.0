@@ -1,89 +1,146 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH] net: Abstract features usage.
-Date: Tue, 24 May 2011 13:29:15 -0700
-Message-ID: <BANLkTi=F_=Ti=QdDf3-L_hEEwCi9DRR_1Q@mail.gmail.com>
-References: <1306263162-2022-1-git-send-email-maheshb@google.com> <BANLkTinTJuKFyf80As81ouePBs=vFvQahg@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] bonding: prevent deadlock on slave store with alb mode
+Date: Tue, 24 May 2011 16:37:14 -0400
+Message-ID: <20110524203714.GG28521@hmsreliant.think-freely.org>
+References: <1306265765-8257-1-git-send-email-nhorman@tuxdriver.com>
+ <20110524200047.GI21309@gospo.rdu.redhat.com>
+ <4DDC116F.8020602@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <daevm@davemloft.net>
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:25125 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753800Ab1EXU3j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 16:29:39 -0400
-Received: from wpaz9.hot.corp.google.com (wpaz9.hot.corp.google.com [172.24.198.73])
-	by smtp-out.google.com with ESMTP id p4OKTcnw017229
-	for <netdev@vger.kernel.org>; Tue, 24 May 2011 13:29:38 -0700
-Received: from bwz10 (bwz10.prod.google.com [10.188.26.10])
-	by wpaz9.hot.corp.google.com with ESMTP id p4OKTZTN007154
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 24 May 2011 13:29:36 -0700
-Received: by bwz10 with SMTP id 10so6716885bwz.38
-        for <netdev@vger.kernel.org>; Tue, 24 May 2011 13:29:35 -0700 (PDT)
-In-Reply-To: <BANLkTinTJuKFyf80As81ouePBs=vFvQahg@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58211 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757174Ab1EXUhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 16:37:24 -0400
+Content-Disposition: inline
+In-Reply-To: <4DDC116F.8020602@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2011 at 12:37 PM, Micha=C5=82 Miros=C5=82aw <mirqus@gma=
-il.com> wrote:
->
-> 2011/5/24 Mahesh Bandewar <maheshb@google.com>:
-> > Define macros to set/clear/test bits for feature set usage. This wi=
-ll eliminate
-> > the direct use of these fields and enable future ease in managing t=
-hese fields.
+On Tue, May 24, 2011 at 10:13:35PM +0200, Nicolas de Peslo=FCan wrote:
+> Le 24/05/2011 22:00, Andy Gospodarek a =E9crit :
+> >On Tue, May 24, 2011 at 03:36:05PM -0400, Neil Horman wrote:
+> >>This soft lockup was recently reported:
+> >>
+> >>[root@dell-per715-01 ~]# echo +bond5>  /sys/class/net/bonding_maste=
+rs
+> >>[root@dell-per715-01 ~]# echo +eth1>  /sys/class/net/bond5/bonding/=
+slaves
+> >>bonding: bond5: doing slave updates when interface is down.
+> >>bonding bond5: master_dev is not up in bond_enslave
+> >>[root@dell-per715-01 ~]# echo -eth1>  /sys/class/net/bond5/bonding/=
+slaves
+> >>bonding: bond5: doing slave updates when interface is down.
+> >>
+> >>BUG: soft lockup - CPU#12 stuck for 60s! [bash:6444]
+> >>CPU 12:
+> >>Modules linked in: bonding autofs4 hidp rfcomm l2cap bluetooth lock=
+d sunrpc
+> >>be2d
+> >>Pid: 6444, comm: bash Not tainted 2.6.18-262.el5 #1
+> >>RIP: 0010:[<ffffffff80064bf0>]  [<ffffffff80064bf0>]
+> >>.text.lock.spinlock+0x26/00
+> >>RSP: 0018:ffff810113167da8  EFLAGS: 00000286
+> >>RAX: ffff810113167fd8 RBX: ffff810123a47800 RCX: 0000000000ff1025
+> >>RDX: 0000000000000000 RSI: ffff810123a47800 RDI: ffff81021b57f6f8
+> >>RBP: ffff81021b57f500 R08: 0000000000000000 R09: 000000000000000c
+> >>R10: 00000000ffffffff R11: ffff81011d41c000 R12: ffff81021b57f000
+> >>R13: 0000000000000000 R14: 0000000000000282 R15: 0000000000000282
+> >>FS:  00002b3b41ef3f50(0000) GS:ffff810123b27940(0000) knlGS:0000000=
+000000000
+> >>CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> >>CR2: 00002b3b456dd000 CR3: 000000031fc60000 CR4: 00000000000006e0
+> >>
+> >>Call Trace:
+> >>  [<ffffffff80064af9>] _spin_lock_bh+0x9/0x14
+> >>  [<ffffffff886937d7>] :bonding:tlb_clear_slave+0x22/0xa1
+> >>  [<ffffffff8869423c>] :bonding:bond_alb_deinit_slave+0xba/0xf0
+> >>  [<ffffffff8868dda6>] :bonding:bond_release+0x1b4/0x450
+> >>  [<ffffffff8006457b>] __down_write_nested+0x12/0x92
+> >>  [<ffffffff88696ae4>] :bonding:bonding_store_slaves+0x25c/0x2f7
+> >>  [<ffffffff801106f7>] sysfs_write_file+0xb9/0xe8
+> >>  [<ffffffff80016b87>] vfs_write+0xce/0x174
+> >>  [<ffffffff80017450>] sys_write+0x45/0x6e
+> >>  [<ffffffff8005d28d>] tracesys+0xd5/0xe0
+> >>
+> >>It occurs because we are able to change the slave configuarion of a=
+ bond while
+> >>the bond interface is down.  The bonding driver initializes some da=
+ta structures
+> >>only after its ndo_open routine is called.  Among them is the inita=
+lization of
+> >>the alb tx and rx hash locks.  So if we add or remove a slave witho=
+ut first
+> >>opening the bond master device, we run the risk of trying to lock/u=
+nlock a
+> >>spinlock that has garbage for data in it, which results in our abov=
+e softlock.
+> >>
+> >>We could fix it by moving the spin lock initalization to the device=
+ creation
+> >>path, but it seems that since we're warning people about not doing =
+this, we
+> >>should probably just disallow them from doing it, so fix it by addi=
+ng an EINVAL
+> >>return if we're not up yet.  Tested by the reporter and confirmed t=
+o fix the
+> >>problem.
+> >>
+> >>Signed-off-by: Neil Horman<nhorman@tuxdriver.com>
 > >
-> > Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> > ---
-> > =C2=A0include/linux/netdev_features.h | =C2=A0137 +++++++++++++++++=
-++++++++++++++++++++++
-> > =C2=A0include/linux/netdevice.h =C2=A0 =C2=A0 =C2=A0 | =C2=A0 35 ++=
----------
-> > =C2=A02 files changed, 142 insertions(+), 30 deletions(-)
-> > =C2=A0create mode 100644 include/linux/netdev_features.h
+> >Signed-off-by: Andy Gospodarek<andy@greyhouse.net>
 > >
-> > diff --git a/include/linux/netdev_features.h b/include/linux/netdev=
-_features.h
-> > new file mode 100644
-> > index 0000000..97bf8c4
-> > --- /dev/null
-> > +++ b/include/linux/netdev_features.h
-> > @@ -0,0 +1,137 @@
-> > +#ifndef =C2=A0 =C2=A0 =C2=A0 =C2=A0_NETDEV_FEATURES_H
-> > +#define =C2=A0 =C2=A0 =C2=A0 =C2=A0_NETDEV_FEATURES_H
-> > +
-> > +/* Forward declarations */
-> > +struct net_device;
-> > +
-> > +typedef =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long *nd_feature_t;
-> > +
-> > +/* Net device feature bits; if you change something,
-> > + * also update netdev_features_strings[] in ethtool.c */
-> > +enum netdev_features {
-> > + =C2=A0 =C2=A0 =C2=A0 SG_BIT, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 /* Scatter/gather IO. */
-> [...]
->
-> Please split this change (introducing enum + converting NETIF_F_*
-> defines to use it). This part is a nice cleanup, but I think the
-> bitmap idea is still not worth the trouble until u64 runs out.
->
-What will we achieve by this split? May be I'm not getting your point
-about split. Do you want to see the cleanup part as a separate patch?
-These enums and NETIF_F_* values have to be in sync. The macros that I
-have defined are expecting this bit numbers rather than the flag
-value.
+> >>Reported-by: jtluka@redhat.com
+> >>CC: Jay Vosburgh<fubar@us.ibm.com>
+> >>CC: Andy Gospodarek<andy@greyhouse.net>
+> >>CC: "David S. Miller"<daevm@davemloft.net>
+> >>---
+> >>  drivers/net/bonding/bond_sysfs.c |    1 +
+> >>  1 files changed, 1 insertions(+), 0 deletions(-)
+> >>
+> >>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding=
+/bond_sysfs.c
+> >>index 4059bfc..206c543 100644
+> >>--- a/drivers/net/bonding/bond_sysfs.c
+> >>+++ b/drivers/net/bonding/bond_sysfs.c
+> >>@@ -231,6 +231,7 @@ static ssize_t bonding_store_slaves(struct devi=
+ce *d,
+> >>  	if (!(bond->dev->flags&  IFF_UP)) {
+> >>  		pr_warning("%s: doing slave updates when interface is down.\n",
+> >>  			   bond->dev->name);
+> >>+		return -EINVAL;
+>=20
+> This will turn a warning into an error.
+>=20
+Yes, because it should have been an error all along.
 
-Whether it is u64 or bitmap, the changes should be limited to this
-file. Going forward that can be achieved by
-simply changing few lines in these macros / inlines.
+> This warning existed for long, but never caused the bonding setup to
+> fail. This patch cause some regression for user space. For example,
+> current ifenslave-2.6 package in Debian doesn't ensure bond is UP
+> before enslaving, because this was never required.
+>=20
+Thats not a regression, thats the kernel returning an error where it sh=
+ould have
+done so all along.  Just because a utility got away with it for awhile =
+and it
+didn't always cause a lockup, doesn't grandfather that application in t=
+o a
+situation where the kernel has to support its broken behavior in perpit=
+uity. =20
 
-Thanks,
---mahesh..
+Besides, iirc, the ifsenslave utility still uses the ioctl path, which =
+this
+patch doesn't touch, so ifenslave is currently unaffected (although I s=
+hould
+look in the ioctl path to see if we have already added such a check, le=
+st you be
+able to deadlock your system as previously indicated using that tool).
 
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
+Neil
+
