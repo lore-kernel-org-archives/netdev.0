@@ -1,58 +1,47 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
-Date: Tue, 24 May 2011 20:34:53 -0400
-Message-ID: <4508.1306283693@localhost>
-References: <m11uzrvd26.fsf@fess.ebiederm.org> <BANLkTim4q5dK6nOb=pVKbk1c8b-Nh_hBfA@mail.gmail.com> <m1boyvpo9r.fsf@fess.ebiederm.org> <1306048393.4092.8.camel@mulgrave.site> <20110522084224.GA12279@elte.hu> <m1k4dgr35i.fsf@fess.ebiederm.org>
-            <20110524071628.GA31612@elte.hu>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: 2.6.39: ipv6 tcp connections hanging on transmit
+Date: Tue, 24 May 2011 15:09:21 -0700
+Message-ID: <4DDC2C91.6060408@goop.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1306283693_2629P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
-To: Ingo Molnar <mingo@elte.hu>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Tue, 24 May 2011 09:16:28 +0200."
-             <20110524071628.GA31612@elte.hu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1306283693_2629P
-Content-Type: text/plain; charset=us-ascii
+When I use ssh over ipv6 to connect to my machines, it works fine for
+command-line interaction until there's a large output (ps alxw, ps -l,
+etc), whereupon the connection hangs.  It appears to be about when it
+would send an MTU-sized packet.
 
-On Tue, 24 May 2011 09:16:28 +0200, Ingo Molnar said:
-> * Eric W. Biederman <ebiederm@xmission.com> wrote:
-> > My gut feel says we should really implement an
-> > include/asm-generic/unistd-common.h to include all new system calls.
-> >
-> > That way there would be only one file to touch instead of 50. Certainly it
-> > works for include/asm-generic/unistd.h for the architectures that use it. 
-> > And all we really need is just a little abstraction on that concept.
->
-> I suppose that could be tried, although in practice it would probably be
-> somewhat complex due to the various compat syscall handling differences.
+Logging in with ssh over ipv4 works fine.
 
-Can somebody fill us newcomers in on the arch-aeology of why some syscalls have
-different numbers on different archs? I know it's partially because some simply
-didn't implement some syscalls so there were numbering mismatches, but would it
-have been *that* hard to wire all of those skipped syscalls up to one stub
-'return -ENOSYS'?
+The outputting processes terminate OK, but they leave queued data in the
+socket:
 
+# netstat
+Proto Recv-Q Send-Q Local Address               Foreign Address             State      
+[...]
+tcp        0   5776 2001:470:a816:0:230:48f:ssh 2001:470:a816:0:e45e::47865 ESTABLISHED 
+tcp        0  26688 2001:470:a816:0:230:48f:ssh 2001:470:a816:0:e45e::55428 ESTABLISHED 
+tcp        0      0 2001:470:a816:0:230:48f:ssh 2001:470:a816:0:e45e::55426 ESTABLISHED 
+tcp        0   5856 2001:470:a816:0:230:48f:ssh 2001:470:a816:0:e45e::55434 ESTABLISHED 
 
---==_Exmh_1306283693_2629P
-Content-Type: application/pgp-signature
+and the corresponding ssh sessions are hung forever.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+The path to the host is over openvpn bridged to the host's lan.  The
+path MTU is 1500, verified with "traceroute6 --mtu" and "ping -s 1500"
+works.
 
-iD8DBQFN3E6tcC3lWbTT17ARAoUzAKDkLdqvlB6vCeoSImcc2cdgyprBtgCeLf6P
-rJQ+3GeD0kVUaVPYr2AFv2w=
-=8lZN
------END PGP SIGNATURE-----
+The network device is a bridge containing a single ethernet device: an
+Intel 82574L using the e1000e driver.
 
---==_Exmh_1306283693_2629P--
+I think this regression appeared in .38/.39, but unfortunately I haven't
+had a chance to go back and systematically test older kernels yet.
+
+Any clues, suggestions, further information I can provide, etc?
+
+Thanks,
+    J
