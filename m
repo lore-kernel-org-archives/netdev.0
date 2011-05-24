@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bridge netfilter output bug on 2.6.39
-Date: Tue, 24 May 2011 13:31:36 -0400 (EDT)
-Message-ID: <20110524.133136.89503785066605635.davem@davemloft.net>
-References: <20110524074156.58eb30f8@nehalam>
-	<1306251543.3026.57.camel@edumazet-laptop>
-	<1306254457.3026.69.camel@edumazet-laptop>
+Subject: Re: [PATCH v4 1/1] igmp: call ip_mc_clear_src() only when we have
+ no users of ip_mc_list
+Date: Tue, 24 May 2011 13:28:25 -0400 (EDT)
+Message-ID: <20110524.132825.968974982805294440.davem@davemloft.net>
+References: <20110520162709.GA3497@darkmag.usersys.redhat.com>
+	<OF8F2A5C61.8060D0CC-ON88257899.00610B06-88257899.006123E3@us.ibm.com>
+	<20110524091505.GA21550@darkmag.usersys.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, herbert@gondor.hengli.com.au,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43552 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755637Ab1EXRbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:31:42 -0400
-In-Reply-To: <1306254457.3026.69.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dlstevens@us.ibm.com, jmorris@namei.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, mmarek@suse.cz,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+To: vfalico@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110524091505.GA21550@darkmag.usersys.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 24 May 2011 18:27:37 +0200
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Tue, 24 May 2011 11:15:05 +0200
 
-> It seems bridge code uses one fake_rtable
+> In igmp_group_dropped() we call ip_mc_clear_src(), which resets the number
+> of source filters per mulitcast. However, igmp_group_dropped() is also
+> called on NETDEV_DOWN, NETDEV_PRE_TYPE_CHANGE and NETDEV_UNREGISTER, which
+> means that the group might get added back on NETDEV_UP, NETDEV_REGISTER and
+> NETDEV_POST_TYPE_CHANGE respectively, leaving us with broken source
+> filters.
+> 
+> To fix that, we must clear the source filters only when there are no users
+> in the ip_mc_list, i.e. in ip_mc_dec_group() and on device destroy.
+> 
+> Acked-by: David L Stevens <dlstevens@us.ibm.com>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-Ugh, forgot about this turd. :-/
-
-All route objects should be dynamically allocated, otherwise we'll
-constantly have to attend to these static route instances when we make
-any changes to dst_alloc() or similar.
-
-I'll apply the fix you posted for now, but long term this code
-needs to accomplish it's goals in a different way.
+Applied.
