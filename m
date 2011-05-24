@@ -1,163 +1,203 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Tue, 24 May 2011 09:04:41 +0200
-Message-ID: <1306220681.2638.40.camel@edumazet-laptop>
-References: <201105232217.p4NMHZiC015498@imap1.linux-foundation.org>
-	 <20110524.011330.1077020828173889583.davem@davemloft.net>
-	 <1306217837.2638.36.camel@edumazet-laptop>
-	 <1306218793.2298.10.camel@Joe-Laptop>  <20110524065715.GB12816@elte.hu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [gianfar PATCH] RFC v2: Add rx_ntuple feature
+Date: Tue, 24 May 2011 00:09:02 -0700
+Message-ID: <1306220942.17233.20.camel@localhost>
+References: <14348.80.254.147.148.1305638298.squirrel@webmail.hs-esslingen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
-	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
-	kees.cook@canonical.com, tgraf@infradead.org
-To: Ingo Molnar <mingo@elte.hu>
+Cc: netdev@vger.kernel.org, sebastian.poehn@belden.com
+To: s.poehn@stud.hs-esslingen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:34290 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450Ab1EXHEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:04:46 -0400
-Received: by wya21 with SMTP id 21so4734877wya.19
-        for <netdev@vger.kernel.org>; Tue, 24 May 2011 00:04:45 -0700 (PDT)
-In-Reply-To: <20110524065715.GB12816@elte.hu>
+Received: from exchange.solarflare.com ([216.237.3.220]:17384 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753049Ab1EXHJb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:09:31 -0400
+In-Reply-To: <14348.80.254.147.148.1305638298.squirrel@webmail.hs-esslingen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 24 mai 2011 =C3=A0 08:57 +0200, Ingo Molnar a =C3=A9crit :
-> * Joe Perches <joe@perches.com> wrote:
+On Tue, 2011-05-17 at 15:18 +0200, Sebastian P=C3=B6hn wrote:
+> This patch implements rx ntuple filtering for the gianfar driver.
+> Changes since last version:
+> #Added code is now re-entrant
+> #Consolidation of convert routines
 >=20
-> > Maybe for clarity it'd be better to use a switch/case
-> > or something like:
-> >=20
-> > 	if (kptr_restrict =3D=3D 0)
-> > 		return ptr;
-> > 	if (ptr_restrict =3D=3D 1 &&
-> > 	    has_capability_noaudit(current, CAP_SYSLOG))
-> > 		return ptr;
-> > 	return NULL;
+> I am planing to do some final testing. After that I hope I can send t=
+he
+> final patch.
 >=20
-> While not breaking that line really - so something like:
+> Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+> ---
 >=20
-> 	if (kptr_restrict =3D=3D 0)
-> 		return ptr;
+>  drivers/net/gianfar.c         |   16 +-
+>  drivers/net/gianfar.h         |   44 ++
+>  drivers/net/gianfar_ethtool.c | 1006
+> +++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 1062 insertions(+), 4 deletions(-)
 >=20
-> 	if (kptr_restrict =3D=3D 1 && has_capability_noaudit(current, CAP_SY=
-SLOG))
-> 		return ptr;
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index ff60b23..ddd4007 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+[...]
+> @@ -1042,6 +1048,9 @@ static int gfar_probe(struct platform_device *o=
+fdev)
+>  	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN)
+>  		dev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 >=20
-> 	return NULL;
+> +	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_RX_FILER)
+> +		dev->features |=3D NETIF_F_NTUPLE;
+> +
+
+It should be possible to turn this feature on and off, so add it to
+hw_features and handle it in gfar_set_features() by clearing filters
+when it's being turned off.
+
+[...]
+> --- a/drivers/net/gianfar.h
+> +++ b/drivers/net/gianfar.h
+[...]
+> @@ -1066,6 +1069,9 @@ struct gfar_private {
 >=20
-> Thanks,
+>  	struct vlan_group *vlgrp;
 >=20
-> 	Ingo
+> +	/* RX queue filer rule set*/
+> +	struct ethtool_rx_ntuple_list ntuple_list;
+> +	struct mutex rx_queue_access;
+>=20
+>  	/* Hash registers and their width */
+>  	u32 __iomem *hash_regs[16];
 
-Here we are, thanks.
+Don't use struct ethtool_rx_ntuple_list; it is going to be removed once
+ixgbe is converted to implement RX NFC.
 
-[PATCH v2] inet_diag: hide socket pointers
+Really, at this point I would say: please implement RX NFC, not RX
+n-tuple.
 
-Provide a mayber_hide_ptr() helper and use it in inet_diag to not
-disclose kernel pointers to user, with following kptr_restrict logic :
+> @@ -1140,6 +1146,16 @@ static inline void gfar_write_filer(struct
+> gfar_private *priv,
+>  	gfar_write(&regs->rqfpr, fpr);
+>  }
+>=20
+> +static inline void gfar_read_filer(struct gfar_private *priv,
+> +		unsigned int far, unsigned int *fcr, unsigned int *fpr)
+> +{
+> +	struct gfar __iomem *regs =3D priv->gfargrp[0].regs;
+> +
+> +	gfar_write(&regs->rqfar, far);
+> +	*fcr =3D gfar_read(&regs->rqfcr);
+> +	*fpr =3D gfar_read(&regs->rqfpr);
+> +}
+> +
+>  extern void lock_rx_qs(struct gfar_private *priv);
+>  extern void lock_tx_qs(struct gfar_private *priv);
+>  extern void unlock_rx_qs(struct gfar_private *priv);
+> @@ -1157,4 +1173,32 @@ int gfar_set_features(struct net_device *dev, =
+u32
+> features);
+>=20
+>  extern const struct ethtool_ops gfar_ethtool_ops;
+>=20
+> +#define ESWFULL 160
+> +#define EHWFULL 161
+> +#define EOUTOFRANGE 162
 
-kptr_restrict =3D 0 : kernel pointers are not mangled
-kptr_restrict =3D 1 : if the current user does not have CAP_SYSLOG,
-		    kernel pointers are replaced by 0
-kptr_restrict =3D 2 : kernel pointers are replaced by 0
+You can't just make up new error codes like this.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-v2: kerneldoc and cleanup (Joe & Ingo feedback)
+[...]
+> --- a/drivers/net/gianfar_ethtool.c
+> +++ b/drivers/net/gianfar_ethtool.c
+[...]
+> +static int gfar_add_table_entry(struct ethtool_rx_ntuple_flow_spec *=
+flow,
+> +		struct ethtool_rx_ntuple_list *list)
+> +{
+> +	struct ethtool_rx_ntuple_flow_spec_container *temp;
+> +	temp =3D kmalloc(sizeof(struct ethtool_rx_ntuple_flow_spec_containe=
+r),
+> +			GFP_KERNEL);
+> +	if (temp =3D=3D NULL)
+> +		return -ENOMEM;
+> +	memcpy(&temp->fs, flow, sizeof(struct ethtool_rx_ntuple_flow_spec))=
+;
+> +	list_add_tail(&temp->list, &list->list);
+> +	list->count++;
+> +
+> +	if (~flow->data_mask)
+> +		printk(KERN_WARNING
+> +			"User-specific data is not supported by hardware!\n");
+> +	if (flow->flow_type =3D=3D IP_USER_FLOW)
+> +		if (flow->m_u.usr_ip4_spec.ip_ver !=3D 255)
+> +			printk(KERN_WARNING
+> +				"IP-Version is not supported by hardware!\n");
 
- include/linux/printk.h |    1 +
- lib/vsprintf.c         |   25 +++++++++++++++++++++----
- net/ipv4/inet_diag.c   |    6 ++++--
- 3 files changed, 26 insertions(+), 6 deletions(-)
+That's not right; the value of ip_ver must be 4 and the mask must be 0.
 
-diff --git a/include/linux/printk.h b/include/linux/printk.h
-index ee048e7..47c0cef 100644
---- a/include/linux/printk.h
-+++ b/include/linux/printk.h
-@@ -111,6 +111,7 @@ extern bool printk_timed_ratelimit(unsigned long *c=
-aller_jiffies,
- extern int printk_delay_msec;
- extern int dmesg_restrict;
- extern int kptr_restrict;
-+void *maybe_hide_ptr(void *ptr);
-=20
- void log_buf_kexec_setup(void);
- #else
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index 1d659d7..db1a193 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -798,6 +798,26 @@ char *uuid_string(char *buf, char *end, const u8 *=
-addr,
- }
-=20
- int kptr_restrict __read_mostly;
-+/**
-+ * maybe_hide_ptr - Eventually nullify a kernel pointer given to user
-+ * @ptr: kernel pointer
-+ *
-+ * kptr_restrict =3D 0 : kernel pointer not changed
-+ * kptr_restrict =3D 1 : if the current user does not have CAP_SYSLOG,
-+ *		       kernel pointer is replaced by 0
-+ * kptr_restrict =3D 2 : kernel pointer is replaced by 0 for all users=
-=2E
-+ */
-+void *maybe_hide_ptr(void *ptr)
-+{
-+	if (!kptr_restrict)
-+		return ptr;
-+
-+	if (kptr_restrict =3D=3D 1 && has_capability_noaudit(current, CAP_SYS=
-LOG))
-+		return ptr;
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(maybe_hide_ptr);
-=20
- /*
-  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
-@@ -911,10 +931,7 @@ char *pointer(const char *fmt, char *buf, char *en=
-d, void *ptr,
- 				spec.field_width =3D 2 * sizeof(void *);
- 			return string(buf, end, "pK-error", spec);
- 		}
--		if (!((kptr_restrict =3D=3D 0) ||
--		      (kptr_restrict =3D=3D 1 &&
--		       has_capability_noaudit(current, CAP_SYSLOG))))
--			ptr =3D NULL;
-+		ptr =3D maybe_hide_ptr(ptr);
- 		break;
- 	}
- 	spec.flags |=3D SMALL;
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 6ffe94c..b5646a3 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -84,6 +84,7 @@ static int inet_csk_diag_fill(struct sock *sk,
- 	struct inet_diag_meminfo  *minfo =3D NULL;
- 	unsigned char	 *b =3D skb_tail_pointer(skb);
- 	const struct inet_diag_handler *handler;
-+	u64 ptr;
-=20
- 	handler =3D inet_diag_table[unlh->nlmsg_type];
- 	BUG_ON(handler =3D=3D NULL);
-@@ -114,8 +115,9 @@ static int inet_csk_diag_fill(struct sock *sk,
- 	r->idiag_retrans =3D 0;
-=20
- 	r->id.idiag_if =3D sk->sk_bound_dev_if;
--	r->id.idiag_cookie[0] =3D (u32)(unsigned long)sk;
--	r->id.idiag_cookie[1] =3D (u32)(((unsigned long)sk >> 31) >> 1);
-+	ptr =3D (u64)maybe_hide_ptr(sk);
-+	r->id.idiag_cookie[0] =3D (u32)ptr;
-+	r->id.idiag_cookie[1] =3D (u32)(ptr >> 32);
-=20
- 	r->id.idiag_sport =3D inet->inet_sport;
- 	r->id.idiag_dport =3D inet->inet_dport;
+[...]
+> +static int gfar_process_filer_changes(struct ethtool_rx_ntuple_flow_=
+spec
+> *flow,
+> +		struct gfar_private *priv)
+> +{
+> +	struct ethtool_rx_ntuple_flow_spec_container *j;
+> +	struct filer_table *tab;
+> +	s32 i =3D 0;
+> +	s32 ret =3D 0;
+> +
+> +	/*So index is set to zero, too!*/
+> +	tab =3D kzalloc(sizeof(struct filer_table), GFP_KERNEL);
+> +	if (tab =3D=3D NULL) {
+> +		printk(KERN_WARNING "Can not get memory!\n");
+> +		return -ENOMEM;
+> +	}
+> +
+> +	j =3D gfar_search_table_entry(flow, &priv->ntuple_list);
+> +
+> +	if (flow->action =3D=3D ETHTOOL_RXNTUPLE_ACTION_CLEAR) {
+> +		if (j !=3D NULL)
+> +			gfar_del_table_entry(j, &priv->ntuple_list);
+> +		else {
+> +			printk(KERN_WARNING
+> +			"Deleting this rule is not possible,"
+> +			" because it does not exist!\n");
+> +			return -1;
 
+-1 is -EPERM.  You should return -ENOENT and not log anything.
+
+> +		}
+> +	} else if (j !=3D NULL) {
+> +		printk(KERN_WARNING "Adding this rule is not possible,"
+> +			" because it already exists!\n");
+> +		return -1;
+
+You should return -EEXIST and not log anything.
+
+> +	}
+> +
+> +	/*Now convert the existing filer data from flow_spec into
+> +	* filer tables binary format*/
+> +	list_for_each_entry(j, &priv->ntuple_list.list, list) {
+> +		ret =3D gfar_convert_to_filer(&j->fs, tab);
+> +		if (ret =3D=3D -ESWFULL) {
+> +			printk(KERN_WARNING
+> +			"Adding this rule is not possible,"
+> +			" because there is not space left!\n");
+> +			goto end;
+> +		}
+> +	}
+[...]
+
+I think the error code should be -EBUSY if the hardware or software
+table is full.
+
+Also, please run checkpatch.pl over your changes and fix the style
+errors it finds.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
