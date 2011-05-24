@@ -1,45 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Tue, 24 May 2011 03:58:01 -0400 (EDT)
-Message-ID: <20110524.035801.1555795213632087107.davem@davemloft.net>
-References: <1306220681.2638.40.camel@edumazet-laptop>
-	<1306222507.2298.23.camel@Joe-Laptop>
-	<1306223101.2638.43.camel@edumazet-laptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
+Date: Tue, 24 May 2011 01:11:19 -0700
+Message-ID: <m1aaeco6vs.fsf@fess.ebiederm.org>
+References: <m11uzrvd26.fsf@fess.ebiederm.org>
+	<BANLkTim4q5dK6nOb=pVKbk1c8b-Nh_hBfA@mail.gmail.com>
+	<m1boyvpo9r.fsf@fess.ebiederm.org>
+	<1306048393.4092.8.camel@mulgrave.site>
+	<20110522084224.GA12279@elte.hu> <m1k4dgr35i.fsf@fess.ebiederm.org>
+	<1306221981.10201.8.camel@mulgrave.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: joe@perches.com, mingo@elte.hu, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, drosenberg@vsecurity.com,
-	a.p.zijlstra@chello.nl, eparis@parisplace.org,
-	eugeneteo@kernel.org, jmorris@namei.org, kees.cook@canonical.com,
-	tgraf@infradead.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40643 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754452Ab1EXH71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:59:27 -0400
-In-Reply-To: <1306223101.2638.43.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306221981.10201.8.camel@mulgrave.site> (James Bottomley's
+	message of "Tue, 24 May 2011 11:26:21 +0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVHVlLCAy
-NCBNYXkgMjAxMSAwOTo0NTowMSArMDIwMA0KDQo+IExlIG1hcmRpIDI0IG1haSAyMDExIMOgIDAw
-OjM1IC0wNzAwLCBKb2UgUGVyY2hlcyBhIMOpY3JpdCA6DQo+IA0KPj4gSSB0aGluayBpdCdzIGJl
-IGJldHRlciB3aXRob3V0IHRoZSBjYXN0cw0KPj4gdXNpbmcgdGhlIHN0YW5kYXJkIGtlcm5lbC5o
-IG1hY3Jvcy4NCj4+IA0KPj4gCXZvaWQgKnB0cjsNCj4+IA0KPj4gCXB0ciA9IG1heWJlX2hpZGVf
-cHRyKHNrKTsNCj4+IAlyLT5pZC5pZGlhZ19jb29raWVbMF0gPSBsb3dlcl8zMl9iaXRzKHB0cik7
-DQo+PiAJci0+aWQuaWRpYWdfY29va2llWzFdID0gdXBwZXJfMzJfYml0cyhwdHIpOw0KPj4gDQo+
-IA0KPiBJIGFtIG5vdCBzdXJlIEkgd2FudCB0byBwYXRjaCBsb3dlcl8zMl9iaXRzKCkgYW5kIHVw
-cGVyXzMyX2JpdHMoKSBmb3INCj4gdGhpcy4NCj4gDQo+IFRoZXkgZG9udCB3b3JrIG9uIHBvaW50
-ZXJzLCBidXQgb24gIm51bWJlcnMiLCBhY2NvcmRpbmcgdG8ga2VybmVsZG9jDQo+IEFuZHJldyB3
-cm90ZSB5ZWFycyBhZ28uIGdjYyBhZ3JlZXMgOg0KPiANCj4gbmV0L2lwdjQvaW5ldF9kaWFnLmM6
-IEluIGZ1bmN0aW9uIOKAmGluZXRfY3NrX2RpYWdfZmlsbOKAmToNCj4gbmV0L2lwdjQvaW5ldF9k
-aWFnLmM6MTE5OiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBpbnRlZ2VyIG9mIGRpZmZl
-cmVudCBzaXplDQo+IG5ldC9pcHY0L2luZXRfZGlhZy5jOjEyMDogZXJyb3I6IGludmFsaWQgb3Bl
-cmFuZHMgdG8gYmluYXJ5ID4+DQo+IG1ha2VbMV06ICoqKiBbbmV0L2lwdjQvaW5ldF9kaWFnLm9d
-IEVycm9yIDENCg0KQWxzbyB5b3UgY2FuJ3QgZG8gdGhpcywgdGhlICJjb29raWUiIGlzIHVzZWQg
-YnkgdGhlIGtlcm5lbCBmdXR1cmUNCmxvb2t1cHMgdG8gZmluZCBzb2NrZXRzLg0KDQpUaGUga2Vy
-bmVsIHBvaW50ZXIgaXMgcGFydCBvZiB0aGUgQVBJLCBzbyBzb3JyeSB5b3UgY2FuJ3QgImhpZGUi
-DQprZXJuZWwgcG9pbnRlcnMgaW4gdGhpcyBjYXNlIHdpdGhvdXQgcmVhbGx5IGJyZWFraW5nIHVz
-ZXIgdmlzaWJsZQ0KdGhpbmdzLg0K
+James Bottomley <James.Bottomley@HansenPartnership.com> writes:
+
+> On Tue, 2011-05-24 at 00:03 -0700, Eric W. Biederman wrote:
+>> Ingo Molnar <mingo@elte.hu> writes:
+>> 
+>> > I agree with Linus's notion in this thread though, a core kernel change should 
+>> > generally not worry about hooking up rare-arch system calls (concentrate on the 
+>> > architectures that get tested most) - those are better enabled gradually 
+>> > anyway.
+>> 
+>> The way I read it he was complaining about my having parisc bits and
+>> asking for my branch to be merged before the parisc bits had been
+>> merged.  Which I credit as a fair complaint.  If I am going to depend on
+>> other peoples trees I should wait.
+>> 
+>> At the same time when I am busy looking for every possible source of
+>> trouble and putting code into net-next to detect pending conflicts,
+>> and when maintainers complain when I ask for review that my patches
+>> conflict with their patches.  Being a contentious developer I am
+                                         ^^^^^^^^^^^ conscientious
+I didn't realize it was possible to make that typo.
+
+>> inclined to do something.
+>
+> Right ... and the problem is that someone has to care, because the
+> conflict will show up in linux-next.  I think Stephen Rothwell would
+> appreciate us making his life easier rather than leaving it to him to
+> sort out the problems.
+>
+>> Now that the reality has sunk in that it means waiting for other peoples
+>> code to be merged before I request for my changes to be merged I don't
+>> think I will structure a tree that way again while I remember.
+>
+> Right.   This is quite a common occurrence in SCSI (mostly changes
+> entangled with block or libata).  If you don't feel comfortable running
+> a postmerge tree, just send me the bits and I'll do it (after all it
+> works either way around: I can pull in the syscalls and depend on your
+> tree rather than vice versa).
+
+Well for the moment I don't see too many problems.  I sent another pull
+request to Linus earlier today now that your changes are in.  So I am
+hoping either Linus will pull my tree or someone will educate me on what
+he will Linus will accept.
+
+Right now my tree is tested and in a good state.  Heck I'm running it
+to send this email.  So I am reluctant to change anything without clear
+feedback.
+
+James when you refer to a postmerge tree what are the dynamics/semantics
+usually associated with that?  Is this a tree that gets pulled a couple
+of times?  Once with the non-conflicting bits.  Another time when the
+bits it depends on have been merged?  Or is this a tree that gets pulled
+after the merge window entirely?
+
+Eric
