@@ -1,25 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2]net:8021q:vlan.c Fix pr_info to just give the vlan
- fullname and version.
-Date: Tue, 24 May 2011 02:21:44 -0400 (EDT)
-Message-ID: <20110524.022144.2121988243667976554.davem@davemloft.net>
-References: <1306215647-2857-1-git-send-email-justinmattock@gmail.com>
+Subject: Re: [PATCH] be2net: hash key for rss-config cmd not set
+Date: Tue, 24 May 2011 02:22:15 -0400 (EDT)
+Message-ID: <20110524.022215.946015223749758733.davem@davemloft.net>
+References: <249a7eac-6aa7-481d-b7b0-a2a3b144963f@exht1.ad.emulex.com>
+	<20110523.155206.345121915872826257.davem@davemloft.net>
+	<3367B80B08154D42A3B2BC708B5D41F63CC4DA8EC4@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	joe@perches.com, greearb@candelatech.com
-To: justinmattock@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306215647-2857-1-git-send-email-justinmattock@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Sathya.Perla@Emulex.Com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59158 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751697Ab1EXGWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 02:22:17 -0400
+In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F63CC4DA8EC4@EXMAIL.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Date: Mon, 23 May 2011 22:40:47 -0700
+From: <Sathya.Perla@Emulex.Com>
+Date: Mon, 23 May 2011 22:46:48 -0700
 
-> The below patch removes vlan_buggyright and vlan_copyright from vlan_proto_init, 
-> so that it prints out just the fullname of vlan and the version number.
+> Pls let me know if you want me to re-send the patch with a more-descriptive changelog...
 
-Come on Justin, you're making various strings now completely
-unreferenced.  Don't just leave them there, remove them.
+Yes, I do.
