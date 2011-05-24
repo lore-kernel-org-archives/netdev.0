@@ -1,88 +1,105 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Tue, 24 May 2011 00:35:07 -0700
-Message-ID: <1306222507.2298.23.camel@Joe-Laptop>
-References: <201105232217.p4NMHZiC015498@imap1.linux-foundation.org>
-	 <20110524.011330.1077020828173889583.davem@davemloft.net>
-	 <1306217837.2638.36.camel@edumazet-laptop>
-	 <1306218793.2298.10.camel@Joe-Laptop>  <20110524065715.GB12816@elte.hu>
-	 <1306220681.2638.40.camel@edumazet-laptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] vlan: Fix the b0rked ingress VLAN_FLAG_REORDER_HDR check.
+Date: Tue, 24 May 2011 00:38:34 -0700
+Message-ID: <m1oc2spmyt.fsf@fess.ebiederm.org>
+References: <m1oc2tyn20.fsf_-_@fess.ebiederm.org>
+	<20110524.005414.2103486595611055177.davem@davemloft.net>
+	<m1aaectyed.fsf@fess.ebiederm.org>
+	<20110524.022406.2228892895515155850.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
-	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
-	kees.cook@canonical.com, tgraf@infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
+	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1956 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753287Ab1EXHfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2011 03:35:09 -0400
-In-Reply-To: <1306220681.2638.40.camel@edumazet-laptop>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49846 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753906Ab1EXHin (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:38:43 -0400
+In-Reply-To: <20110524.022406.2228892895515155850.davem@davemloft.net> (David
+	Miller's message of "Tue, 24 May 2011 02:24:06 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-05-24 at 09:04 +0200, Eric Dumazet wrote:
-> Le mardi 24 mai 2011 =C3=A0 08:57 +0200, Ingo Molnar a =C3=A9crit :
-> > * Joe Perches <joe@perches.com> wrote:
-> > > Maybe for clarity it'd be better to use a switch/case
-> > > or something like:
-> Here we are, thanks.
+David Miller <davem@davemloft.net> writes:
 
-Hey Eric.  Just more trivia:
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Mon, 23 May 2011 23:18:02 -0700
+>
+>> Feel free to read through the code, to convince yourself it is correct.
+>> In addition the code is untouched from the vlan header insertion for
+>> emulation of vlan header acceleration in dev_hard_start_xmit() which
+>> presumably has been working for quite awhile.
+>
+> I'm not keeping code there that does eth_hdr(skb)->foo when there
+> can be either a vlan_hdr(skb) or a eth_hdr(skb) there.
+>
+> That's just asking for trouble.
 
-> [PATCH v2] inet_diag: hide socket pointers
-> Provide a mayber_hide_ptr() helper and use it in inet_diag to not
+How so?  eth_hdr(skb) is a proper subset of vlan_hdr(skb)?
 
-typo maybe_hide_ptr
+vlan_insert_tag() moves the ethernet header to make space for the vlan
+header after it, but before the rest of the data.  With the appropriate
+fixups applied to the skb->mac_pointer.
 
-> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-> @@ -798,6 +798,26 @@ char *uuid_string(char *buf, char *end, const u8=
- *addr,
->  }
-> =20
->  int kptr_restrict __read_mostly;
-> +/**
-> + * maybe_hide_ptr - Eventually nullify a kernel pointer given to use=
-r
+I can see not leaving a vlan_hdr(skb) reference, but beyond that I'm
+not seeing the problem.
 
-Not a great description.
-Maybe something like:
- * maybe_hide_ptr - Set user values of kernel pointers to null
- *                  when appropriate
-[]
-> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-> index 6ffe94c..b5646a3 100644
-> --- a/net/ipv4/inet_diag.c
-> +++ b/net/ipv4/inet_diag.c
-> @@ -84,6 +84,7 @@ static int inet_csk_diag_fill(struct sock *sk,
->  	struct inet_diag_meminfo  *minfo =3D NULL;
->  	unsigned char	 *b =3D skb_tail_pointer(skb);
->  	const struct inet_diag_handler *handler;
-> +	u64 ptr;
-> =20
->  	handler =3D inet_diag_table[unlh->nlmsg_type];
->  	BUG_ON(handler =3D=3D NULL);
-> @@ -114,8 +115,9 @@ static int inet_csk_diag_fill(struct sock *sk,
->  	r->idiag_retrans =3D 0;
-> =20
->  	r->id.idiag_if =3D sk->sk_bound_dev_if;
-> -	r->id.idiag_cookie[0] =3D (u32)(unsigned long)sk;
-> -	r->id.idiag_cookie[1] =3D (u32)(((unsigned long)sk >> 31) >> 1);
-> +	ptr =3D (u64)maybe_hide_ptr(sk);
-> +	r->id.idiag_cookie[0] =3D (u32)ptr;
-> +	r->id.idiag_cookie[1] =3D (u32)(ptr >> 32);
+Certainly we need to do the insert before we update the statics or
+we will get rx_bytes wrong.
 
-I think it's be better without the casts
-using the standard kernel.h macros.
+Would you be happier if the pkt_type check was moved earlier in the
+function like say:
 
-	void *ptr;
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index c08dae7..7571637 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -22,21 +22,6 @@ bool vlan_do_receive(struct sk_buff **skbp)
+ 	if (unlikely(!skb))
+ 		return false;
+ 
+-	skb->dev = vlan_dev;
+-	if (unlikely(!(vlan_dev_info(vlan_dev)->flags & VLAN_FLAG_REORDER_HDR))) {
+-		skb = *skbp = vlan_insert_tag(skb, skb->vlan_tci);
+-		if (!skb)
+-			return false;
+-	}
+-	skb->priority = vlan_get_ingress_priority(vlan_dev, skb->vlan_tci);
+-	skb->vlan_tci = 0;
+-
+-	rx_stats = this_cpu_ptr(vlan_dev_info(vlan_dev)->vlan_pcpu_stats);
+-
+-	u64_stats_update_begin(&rx_stats->syncp);
+-	rx_stats->rx_packets++;
+-	rx_stats->rx_bytes += skb->len;
+-
+ 	switch (skb->pkt_type) {
+ 	case PACKET_BROADCAST:
+ 		break;
+@@ -52,6 +37,21 @@ bool vlan_do_receive(struct sk_buff **skbp)
+ 			skb->pkt_type = PACKET_HOST;
+ 		break;
+ 	}
++
++	skb->dev = vlan_dev;
++	if (unlikely(!(vlan_dev_info(vlan_dev)->flags & VLAN_FLAG_REORDER_HDR))) {
++		skb = *skbp = vlan_insert_tag(skb, skb->vlan_tci);
++		if (!skb)
++			return false;
++	}
++	skb->priority = vlan_get_ingress_priority(vlan_dev, skb->vlan_tci);
++	skb->vlan_tci = 0;
++
++	rx_stats = this_cpu_ptr(vlan_dev_info(vlan_dev)->vlan_pcpu_stats);
++
++	u64_stats_update_begin(&rx_stats->syncp);
++	rx_stats->rx_packets++;
++	rx_stats->rx_bytes += skb->len;
+ 	u64_stats_update_end(&rx_stats->syncp);
+ 
+ 	return true;
 
-	ptr =3D maybe_hide_ptr(sk);
-	r->id.idiag_cookie[0] =3D lower_32_bits(ptr);
-	r->id.idiag_cookie[1] =3D upper_32_bits(ptr);
-
-
+Eric
