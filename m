@@ -1,82 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for May 24 (ratelimits, CONFIG_PRINTK not
- enabled)
-Date: Tue, 24 May 2011 15:53:37 -0400 (EDT)
-Message-ID: <20110524.155337.1293466135362760665.davem@davemloft.net>
-References: <1306262988.2298.49.camel@Joe-Laptop>
-	<20110524.153222.1953796640575918161.davem@davemloft.net>
-	<1306266580.2298.55.camel@Joe-Laptop>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: use synchronize_rcu_expedited()
+Date: Tue, 24 May 2011 12:56:44 -0700
+Message-ID: <20110524195644.GI2266@linux.vnet.ibm.com>
+References: <1306228052.3026.16.camel@edumazet-laptop>
+ <20110524154445.GC2266@linux.vnet.ibm.com>
+ <1306252364.3026.63.camel@edumazet-laptop>
+ <20110524192451.GH2266@linux.vnet.ibm.com>
+ <1306266285.3305.3.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306266580.2298.55.camel@Joe-Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:55410 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752281Ab1EXT4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2011 15:56:47 -0400
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p4OJZj2Q020068
+	for <netdev@vger.kernel.org>; Tue, 24 May 2011 15:35:45 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p4OJujZh108654
+	for <netdev@vger.kernel.org>; Tue, 24 May 2011 15:56:45 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p4OJujM1024996
+	for <netdev@vger.kernel.org>; Tue, 24 May 2011 15:56:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1306266285.3305.3.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 24 May 2011 12:49:40 -0700
+On Tue, May 24, 2011 at 09:44:45PM +0200, Eric Dumazet wrote:
+> Le mardi 24 mai 2011 =E0 12:24 -0700, Paul E. McKenney a =E9crit :
+>=20
+> > Might make sense, though most of the gains would need to come from
+> > kicking the grace-period machinery hard in order to make it go fast=
+er.
+> >=20
+> > Interesting -- I will give this some thought.
+>=20
+> I am working on a final step, using a workqueue so that the
+> rcu_barrier() is not done under RTNL, so it wont be anymore a blockin=
+g
+> point to dismantle hundred of devices per second...
 
-> On Tue, 2011-05-24 at 15:32 -0400, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Tue, 24 May 2011 11:49:48 -0700
->> > On Tue, 2011-05-24 at 11:33 -0700, Randy Dunlap wrote:
->> >> Adding <linux/ratelimit.h> to <asm-generic/bug.h> causes other problems:
->> > Yup, that's not a good solution.
->> Please come up with a fix or I'll have to revert, thanks Joe.
-> 
-> I have some errands to run for awhile.
-> 
-> Probably a revert today and another patch set tomorrow
-> might be best.
-> 
-> This seems to work and doesn't cause any extra state to be
-> instantiated when !CONFIG_PRINTK.  What do you think?
+OK, I will keep rcu_barrier_expedited() on the "might be useful list",
+but will keep to the current plan: finishing up rough edges on RCU
+priority boosting, merging SRCU into TREE_RCU and TINY_RCU, and so fort=
+h.
 
-Seems fine, here it is as a patch.
+But let me know if you do need it.
 
-Randy please test this, thanks:
-
-diff --git a/include/asm-generic/bug.h b/include/asm-generic/bug.h
-index 12b250c..9178484 100644
---- a/include/asm-generic/bug.h
-+++ b/include/asm-generic/bug.h
-@@ -162,6 +162,8 @@ extern void warn_slowpath_null(const char *file, const int line);
- 	unlikely(__ret_warn_once);				\
- })
- 
-+#ifdef CONFIG_PRINTK
-+
- #define WARN_ON_RATELIMIT(condition, state)			\
- 		WARN_ON((condition) && __ratelimit(state))
- 
-@@ -181,6 +183,25 @@ extern void warn_slowpath_null(const char *file, const int line);
- 	__WARN_RATELIMIT(condition, &_rs, format);		\
- })
- 
-+#else
-+
-+#define WARN_ON_RATELIMIT(condition, state)			\
-+	WARN_ON(condition)
-+
-+#define __WARN_RATELIMIT(condition, state, format...)		\
-+({								\
-+	int rtn = WARN(condition, format);			\
-+	rtn;							\
-+})
-+
-+#define WARN_RATELIMIT(condition, format...)			\
-+({								\
-+	int rtn = WARN(condition, format);			\
-+	rtn;							\
-+})
-+
-+#endif
-+
- /*
-  * WARN_ON_SMP() is for cases that the warning is either
-  * meaningless for !SMP or may even cause failures.
+							Thanx, Paul
