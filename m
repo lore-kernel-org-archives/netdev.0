@@ -1,63 +1,86 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
- return
-Date: Tue, 24 May 2011 23:59:23 +0200
-Message-ID: <20110524215923.GA20138@rere.qmqm.pl>
-References: <20110516.140958.625993829749556424.davem@davemloft.net>
- <20110519100331.GA25103@rere.qmqm.pl>
- <20110524091437.GA10779@rere.qmqm.pl>
- <20110524.153930.610330240390616957.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: VLAN test cases in 2.6.38.7
+Date: Tue, 24 May 2011 15:52:52 -0700
+Message-ID: <4DDC36C4.80408@candelatech.com>
+References: <4DDBFDD6.4060903@candelatech.com> <4DDC0236.4090800@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:48101 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755529Ab1EXV7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2011 17:59:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20110524.153930.610330240390616957.davem@davemloft.net>
+Received: from mail.candelatech.com ([208.74.158.172]:36814 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932757Ab1EXWwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 18:52:53 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p4OMqqMv021632
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 24 May 2011 15:52:52 -0700
+In-Reply-To: <4DDC0236.4090800@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2011 at 03:39:30PM -0400, David Miller wrote:
-> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
-> Date: Tue, 24 May 2011 11:14:37 +0200
->=20
-> > On Thu, May 19, 2011 at 12:03:31PM +0200, Micha=B3 Miros=B3aw wrote=
-:
-> >> On Mon, May 16, 2011 at 02:09:58PM -0400, David Miller wrote:
-> >> > You guys really need to sort this out properly.
-> >> > Please resubmit whatever final solution is agreed upon.
-> >> I noticed that v2.6.39 was tagged today. We should definitely remo=
-ve
-> >> NETIF_F_COMPAT so it won't bite us in the future. The other patch =
-that
-> >> fixes ethtool_ops->set_flags compatibility is a bugfix, so it shou=
-ld go
-> >> in - if we decide that the SFEATURES compatibility should be remov=
-ed
-> >> it won't matter.
-> >>=20
-> >> Ben, do you agree?
-> > Ping?
-> > http://patchwork.ozlabs.org/patch/95552/
-> > (this is a bugfix, so should go to stable)
-> >=20
-> > http://patchwork.ozlabs.org/patch/95753/
-> > (removes ETHTOOL_F_COMPAT; this we need to decide on)
-> You and Ben are still arguing over details.
->=20
-> I want fresh versions of these patches (yes, both of them) once
-> all of the issues are resolved.
+On 05/24/2011 12:08 PM, Ben Greear wrote:
+> On 05/24/2011 11:49 AM, Ben Greear wrote:
+>>
+>> I wrote a simple bridge that uses packet sockets to read/write
+>> from network devices. I'll upload this code somewhere when
+>> I get it a bit more presentable.
+>>
+>> Machine info:
+>>
+>> Linux lf0300-demo 2.6.38.7+ #14 SMP Mon May 23 10:31:45 PDT 2011 i686
+>> i686 i386 GNU/Linux
+>>
+>> Interface A: eth1
+>> driver: igb
+>> version: 3.0.19
+>> firmware-version: 1.2-1
+>> bus-info: 0000:01:00.0
+>>
+>> Interface B: eth3:
+>> driver: igb
+>> version: 3.0.19
+>> firmware-version: 1.2-1
+>> bus-info: 0000:01:00.1
+>>
+>>
+>> If no vlans are on eth1 and eth3, then it bridges fine, with vlan
+>> headers inline. But, if you add a VLAN to eth1, it stops working,
+>> probably because pkt tag is then un-stripped. I was generating on
+>> vlan 7, and created vlan 9, btw.
+>>
+>> I'll see if I can figure out how to use aux-data next...
+>
+> Why does the aux-data mask out the CFI bit? Shouldn't
+> we just pass the 16-bit VLAN tag un-modified to user-space?
 
-We could just wait for 2.6.40 and pretend this code part never existed.=
- ;-)
+Either my ubridge code is broken, or 2.6.38.7+ doesn't send tp_vlan_tci
+properly.  All I ever see is zero for that field.
 
-I'll rebase the first patch tomorrow. Without it the compatibility in
-ETHTOOL_SFEATURES for non-converted drivers is busted wrt set_flags.
+Test case is:
 
-Best Regards,
-Micha=B3 Miros=B3aw
+set up VLAN traffic generator on VLAN 7 on separate machine.
+udp traffic, 56kbps, 1024 byte udp payload.
+
+Set up ubridge on test machine:
+ifconfig eth1 promisc
+ifconfig eth3 promisc
+# Make NIC go into stripping mode.
+ip link add link eth1 up name eth1.9 type vlan id 9
+./do_test.pl eth1 eth3
+
+
+Expect that at least tci is != 0.
+
+The ubridge code is here:
+http://www.candelatech.com/~greearb/misc/ubridge.tar.gz
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
