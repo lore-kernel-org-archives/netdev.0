@@ -1,79 +1,88 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
-Date: Tue, 24 May 2011 01:11:19 -0700
-Message-ID: <m1aaeco6vs.fsf@fess.ebiederm.org>
-References: <m11uzrvd26.fsf@fess.ebiederm.org>
-	<BANLkTim4q5dK6nOb=pVKbk1c8b-Nh_hBfA@mail.gmail.com>
-	<m1boyvpo9r.fsf@fess.ebiederm.org>
-	<1306048393.4092.8.camel@mulgrave.site>
-	<20110522084224.GA12279@elte.hu> <m1k4dgr35i.fsf@fess.ebiederm.org>
-	<1306221981.10201.8.camel@mulgrave.site>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: use synchronize_rcu_expedited()
+Date: Tue, 24 May 2011 11:07:32 +0200
+Message-ID: <1306228052.3026.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Linux Containers <containers@lists.osdl.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306221981.10201.8.camel@mulgrave.site> (James Bottomley's
-	message of "Tue, 24 May 2011 11:26:21 +0400")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39454 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753287Ab1EXJHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 05:07:36 -0400
+Received: by wwa36 with SMTP id 36so7086131wwa.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2011 02:07:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-James Bottomley <James.Bottomley@HansenPartnership.com> writes:
+synchronize_rcu() is very slow in various situations (HZ=100,
+CONFIG_NO_HZ=y, CONFIG_PREEMPT=n)
 
-> On Tue, 2011-05-24 at 00:03 -0700, Eric W. Biederman wrote:
->> Ingo Molnar <mingo@elte.hu> writes:
->> 
->> > I agree with Linus's notion in this thread though, a core kernel change should 
->> > generally not worry about hooking up rare-arch system calls (concentrate on the 
->> > architectures that get tested most) - those are better enabled gradually 
->> > anyway.
->> 
->> The way I read it he was complaining about my having parisc bits and
->> asking for my branch to be merged before the parisc bits had been
->> merged.  Which I credit as a fair complaint.  If I am going to depend on
->> other peoples trees I should wait.
->> 
->> At the same time when I am busy looking for every possible source of
->> trouble and putting code into net-next to detect pending conflicts,
->> and when maintainers complain when I ask for review that my patches
->> conflict with their patches.  Being a contentious developer I am
-                                         ^^^^^^^^^^^ conscientious
-I didn't realize it was possible to make that typo.
+Extract from my (mostly idle) 8 core machine :
 
->> inclined to do something.
->
-> Right ... and the problem is that someone has to care, because the
-> conflict will show up in linux-next.  I think Stephen Rothwell would
-> appreciate us making his life easier rather than leaving it to him to
-> sort out the problems.
->
->> Now that the reality has sunk in that it means waiting for other peoples
->> code to be merged before I request for my changes to be merged I don't
->> think I will structure a tree that way again while I remember.
->
-> Right.   This is quite a common occurrence in SCSI (mostly changes
-> entangled with block or libata).  If you don't feel comfortable running
-> a postmerge tree, just send me the bits and I'll do it (after all it
-> works either way around: I can pull in the syscalls and depend on your
-> tree rather than vice versa).
+ synchronize_rcu() in 99985 us
+ synchronize_rcu() in 79982 us
+ synchronize_rcu() in 87612 us
+ synchronize_rcu() in 79827 us
+ synchronize_rcu() in 109860 us
+ synchronize_rcu() in 98039 us
+ synchronize_rcu() in 89841 us
+ synchronize_rcu() in 79842 us
+ synchronize_rcu() in 80151 us
+ synchronize_rcu() in 119833 us
+ synchronize_rcu() in 99858 us
+ synchronize_rcu() in 73999 us
+ synchronize_rcu() in 79855 us
+ synchronize_rcu() in 79853 us
 
-Well for the moment I don't see too many problems.  I sent another pull
-request to Linus earlier today now that your changes are in.  So I am
-hoping either Linus will pull my tree or someone will educate me on what
-he will Linus will accept.
 
-Right now my tree is tested and in a good state.  Heck I'm running it
-to send this email.  So I am reluctant to change anything without clear
-feedback.
+When we hold RTNL mutex, we would like to spend some cpu cycles but not
+block too long other processes waiting for this mutex.
 
-James when you refer to a postmerge tree what are the dynamics/semantics
-usually associated with that?  Is this a tree that gets pulled a couple
-of times?  Once with the non-conflicting bits.  Another time when the
-bits it depends on have been merged?  Or is this a tree that gets pulled
-after the merge window entirely?
+We also want to setup/dismantle network features as fast as possible at
+boot/shutdown time.
 
-Eric
+This patch makes synchronize_net() call the expedited version if RTNL is
+locked.
+
+synchronize_rcu_expedited() typical delay is about 20 us on my machine.
+
+ synchronize_rcu_expedited() in 18 us
+ synchronize_rcu_expedited() in 18 us
+ synchronize_rcu_expedited() in 18 us
+ synchronize_rcu_expedited() in 18 us
+ synchronize_rcu_expedited() in 20 us
+ synchronize_rcu_expedited() in 16 us
+ synchronize_rcu_expedited() in 20 us
+ synchronize_rcu_expedited() in 18 us
+ synchronize_rcu_expedited() in 18 us
+
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+CC: Ben Greear <greearb@candelatech.com>
+---
+ net/core/dev.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index bcb05cb..ec11d75 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5954,7 +5954,10 @@ EXPORT_SYMBOL(free_netdev);
+ void synchronize_net(void)
+ {
+ 	might_sleep();
+-	synchronize_rcu();
++	if (rtnl_is_locked())
++		synchronize_rcu_expedited();
++	else
++		synchronize_rcu();
+ }
+ EXPORT_SYMBOL(synchronize_net);
+ 
+
+
