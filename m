@@ -1,73 +1,44 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: linux-next: Tree for May 24 (ratelimits, CONFIG_PRINTK not
- enabled)
-Date: Tue, 24 May 2011 11:33:28 -0700
-Message-ID: <20110524113328.e3d5867b.randy.dunlap@oracle.com>
-References: <20110524140212.a4f19769.sfr@canb.auug.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/2] net: move is_vlan_dev into public header file (v2)
+Date: Tue, 24 May 2011 11:36:35 -0700
+Message-ID: <1306262195.2298.46.camel@Joe-Laptop>
+References: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
+	 <1306261869-7276-1-git-send-email-nhorman@tuxdriver.com>
+	 <1306261869-7276-2-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	davem@davemloft.net
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Joe Perches <joe@perches.com>, netdev <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110524140212.a4f19769.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1967 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932161Ab1EXSgg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2011 14:36:36 -0400
+In-Reply-To: <1306261869-7276-2-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 May 2011 14:02:12 +1000 Stephen Rothwell wrote:
+On Tue, 2011-05-24 at 14:31 -0400, Neil Horman wrote:
+> Migrate is_vlan_dev() to if_vlan.h so that core networkig can use it
+[]
+> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+[]
+> @@ -110,6 +110,11 @@ static inline void vlan_group_set_device(struct vlan_group *vg,
+>  	array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN] = dev;
+>  }
+>  
+> +static inline int is_vlan_dev(struct net_device *dev)
+> +{
+> +        return dev->priv_flags & IFF_802_1Q_VLAN;
+> +}
 
-> Hi all,
-> 
-> Changes since 20110523:
+perhaps:
 
-when CONFIG_PRINTK is not enabled:
-
-net/core/filter.c:353: warning: type defaults to 'int' in declaration of 'DEFINE_RATELIMIT_STATE'
-net/core/filter.c:353: warning: parameter names (without types) in function declaration
-net/core/filter.c:353: error: invalid storage class for function 'DEFINE_RATELIMIT_STATE'
-net/core/filter.c:353: error: implicit declaration of function '__ratelimit'
-net/core/filter.c:353: error: '_rs' undeclared (first use in this function)
-
-
-Adding <linux/ratelimit.h> to <asm-generic/bug.h> causes other problems:
-
-In file included from linux-next-20110524/include/linux/thread_info.h:53,
-                 from linux-next-20110524/include/linux/preempt.h:9,
-                 from linux-next-20110524/include/linux/spinlock.h:50,
-                 from linux-next-20110524/include/linux/ratelimit.h:5,
-                 from linux-next-20110524/include/asm-generic/bug.h:5,
-                 from linux-next-20110524/arch/x86/include/asm/bug.h:38,
-                 from linux-next-20110524/include/linux/kernel.h:23,
-                 from linux-next-20110524/arch/x86/include/asm/percpu.h:44,
-                 from linux-next-20110524/arch/x86/include/asm/current.h:5,
-                 from linux-next-20110524/arch/x86/include/asm/processor.h:15,
-                 from linux-next-20110524/arch/x86/include/asm/atomic.h:6,
-                 from linux-next-20110524/include/linux/crypto.h:20,
-                 from linux-next-20110524/arch/x86/kernel/asm-offsets.c:8:
-linux-next-20110524/arch/x86/include/asm/thread_info.h:34: error: expected specifier-qualifier-list before 'mm_segment_t'
-In file included from linux-next-20110524/include/linux/thread_info.h:53,
-                 from linux-next-20110524/include/linux/preempt.h:9,
-                 from linux-next-20110524/include/linux/spinlock.h:50,
-                 from linux-next-20110524/include/linux/ratelimit.h:5,
-                 from linux-next-20110524/include/asm-generic/bug.h:5,
-                 from linux-next-20110524/arch/x86/include/asm/bug.h:38,
-                 from linux-next-20110524/include/linux/kernel.h:23,
-                 from linux-next-20110524/arch/x86/include/asm/percpu.h:44,
-                 from linux-next-20110524/arch/x86/include/asm/current.h:5,
-                 from linux-next-20110524/arch/x86/include/asm/processor.h:15,
-                 from linux-next-20110524/arch/x86/include/asm/atomic.h:6,
-                 from linux-next-20110524/include/linux/crypto.h:20,
-                 from linux-next-20110524/arch/x86/kernel/asm-offsets.c:8:
-linux-next-20110524/arch/x86/include/asm/thread_info.h:217: error: expected declaration specifiers or '...' before 'kernel_stack'
-linux-next-20110524/arch/x86/include/asm/thread_info.h:217: warning: data definition has no type or storage class
-linux-next-20110524/arch/x86/include/asm/thread_info.h:217: warning: type defaults to 'int' in declaration of 'DECLARE_PER_CPU'
-linux-next-20110524/arch/x86/include/asm/thread_info.h: In function 'current_thread_info':
-linux-next-20110524/arch/x86/include/asm/thread_info.h:222: error: implicit declaration of function 'percpu_read_stable'
-linux-next-20110524/arch/x86/include/asm/thread_info.h:222: error: 'kernel_stack' undeclared (first use in this function)
+static bool is_vlan_dev(const struct net_device *dev)
+{
+	return !!(dev->priv_flags & IFF_802_1Q_VLAN);
+}
 
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
