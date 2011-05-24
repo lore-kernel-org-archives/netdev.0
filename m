@@ -1,56 +1,58 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net: use synchronize_rcu_expedited()
-Date: Tue, 24 May 2011 12:56:44 -0700
-Message-ID: <20110524195644.GI2266@linux.vnet.ibm.com>
-References: <1306228052.3026.16.camel@edumazet-laptop>
- <20110524154445.GC2266@linux.vnet.ibm.com>
- <1306252364.3026.63.camel@edumazet-laptop>
- <20110524192451.GH2266@linux.vnet.ibm.com>
- <1306266285.3305.3.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: small RPS cache for fragments?
+Date: Tue, 24 May 2011 16:01:23 -0400 (EDT)
+Message-ID: <20110524.160123.2051949867829317339.davem@davemloft.net>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:55410 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752281Ab1EXT4r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2011 15:56:47 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p4OJZj2Q020068
-	for <netdev@vger.kernel.org>; Tue, 24 May 2011 15:35:45 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p4OJujZh108654
-	for <netdev@vger.kernel.org>; Tue, 24 May 2011 15:56:45 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p4OJujM1024996
-	for <netdev@vger.kernel.org>; Tue, 24 May 2011 15:56:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1306266285.3305.3.camel@edumazet-laptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59611 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932674Ab1EXUBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 16:01:25 -0400
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p4OK1NKs004695
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 24 May 2011 13:01:24 -0700
+In-Reply-To: <20110517.143342.1566027350038182221.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2011 at 09:44:45PM +0200, Eric Dumazet wrote:
-> Le mardi 24 mai 2011 =E0 12:24 -0700, Paul E. McKenney a =E9crit :
->=20
-> > Might make sense, though most of the gains would need to come from
-> > kicking the grace-period machinery hard in order to make it go fast=
-er.
-> >=20
-> > Interesting -- I will give this some thought.
->=20
-> I am working on a final step, using a workqueue so that the
-> rcu_barrier() is not done under RTNL, so it wont be anymore a blockin=
-g
-> point to dismantle hundred of devices per second...
+From: David Miller <davem@davemloft.net>
+Date: Tue, 17 May 2011 14:33:42 -0400 (EDT)
 
-OK, I will keep rcu_barrier_expedited() on the "might be useful list",
-but will keep to the current plan: finishing up rough edges on RCU
-priority boosting, merging SRCU into TREE_RCU and TINY_RCU, and so fort=
-h.
+> 
+> It seems to me that we can solve the UDP fragmentation problem for
+> flow steering very simply by creating a (saddr/daddr/IPID) entry in a
+> table that maps to the corresponding RPS flow entry.
+> 
+> When we see the initial frag with the UDP header, we create the
+> saddr/daddr/IPID mapping, and we tear it down when we hit the
+> saddr/daddr/IPID mapping and the packet has the IP_MF bit clear.
+> 
+> We only inspect the saddr/daddr/IPID cache when iph->frag_off is
+> non-zero.
 
-But let me know if you do need it.
+So I looked into implementing this now that it has been established
+that we changed even Linux to emit fragments in-order.
 
-							Thanx, Paul
+The first problem we run into is that there is no "context" we can
+use in all the places where skb_get_rxhash() gets called.
+
+Part of the problem is that we call it from strange places, such as
+egress packet schedulers.  That's completely bogus.
+
+Examples, FLOW classifier, META e-match, CHOKE, and SFB.
+
+In fact, for the classifiers this means they aren't making use of the
+precomputed TX hash values in the sockets like __skb_tx_hash() will
+make use of.  So this makes these packet schedulers operate
+potentially more expensively than they need to.
+
+If we could get rid of those silly cases, the stuff that remains
+(macvtap and net/core/dev.c) could work with a NAPI context during
+rxhash computation and use that to store the IP fragmentation
+on-behind cached information.
