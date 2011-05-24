@@ -1,34 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4] CDC NCM: release interfaces fix in unbind()
-Date: Tue, 24 May 2011 13:28:43 -0400 (EDT)
-Message-ID: <20110524.132843.2135584228932107607.davem@davemloft.net>
-References: <1306250773-9177-1-git-send-email-alexey.orishko@stericsson.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bridge netfilter output bug on 2.6.39
+Date: Tue, 24 May 2011 13:30:14 -0400 (EDT)
+Message-ID: <20110524.133014.1971739864091124495.davem@davemloft.net>
+References: <20110524074156.58eb30f8@nehalam>
+	<1306251543.3026.57.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org
-To: alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1306250773-9177-1-git-send-email-alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, herbert@gondor.hengli.com.au,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43526 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750705Ab1EXRaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:30:23 -0400
+In-Reply-To: <1306251543.3026.57.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 24 May 2011 17:26:13 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 24 May 2011 17:39:03 +0200
 
-> Changes:
-> - claim slave/data interface during bind() and release
->  interfaces in unbind() unconditionally
-> - in case of error during bind(), release claimed data
->  interface in the same function
-> - remove obsolited "*_claimed" entries from driver context
+> [PATCH] net: fix __dst_destroy_metrics_generic()
 > 
-> Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+> dst_default_metrics is readonly, we dont want to kfree() it later.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Good catch, applied, thanks.
