@@ -1,54 +1,52 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH 0/9] strict user copy checks on x86_64
-Date: Tue, 24 May 2011 14:29:19 -0700
-Message-ID: <4DDC232F.7080005@codeaurora.org>
-References: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net: Abstract features usage.
+Date: Tue, 24 May 2011 14:29:28 -0700
+Message-ID: <20110524142928.105d66ef@nehalam>
+References: <1306263162-2022-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Intel Linux Wireless <ilw@linux.intel.com>,
-	linux-scsi@vger.kernel.org, x86@kernel.org,
-	Ingo Molnar <mingo@elte.hu>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1305244212-19183-1-git-send-email-sboyd@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37602 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933009Ab1EXV3b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2011 17:29:31 -0400
+In-Reply-To: <1306263162-2022-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Tue, 24 May 2011 11:52:42 -0700
+Mahesh Bandewar <maheshb@google.com> wrote:
 
-(I don't know who to pick on sorry)
+> Define macros to set/clear/test bits for feature set usage. This will eliminate
+> the direct use of these fields and enable future ease in managing these fields.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  include/linux/netdev_features.h |  137 +++++++++++++++++++++++++++++++++++++++
+>  include/linux/netdevice.h       |   35 ++---------
+>  2 files changed, 142 insertions(+), 30 deletions(-)
+>  create mode 100644 include/linux/netdev_features.h
+> 
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> new file mode 100644
+> index 0000000..97bf8c4
+> --- /dev/null
+> +++ b/include/linux/netdev_features.h
+> @@ -0,0 +1,137 @@
+> +#ifndef	_NETDEV_FEATURES_H
+> +#define	_NETDEV_FEATURES_H
+> +
+> +/* Forward declarations */
+> +struct net_device;
+> +
+> +typedef	unsigned long *nd_feature_t
 
-On 05/12/2011 04:50 PM, Stephen Boyd wrote:
-> It turns out that strict user copy checks (also known as
-> CONFIG_DEBUG_STRICT_USER_COPY_CHECKS) isn't actually implemented
-> on x86_64 and thus we aren't catching potential security holes
-> at compile time.
->
-> This series adds support for strict user copy checks on x86_64
-> and silences all the benign warnings in the x86_64 allyesconfig.
->
-> The final patch consolidates the config option as its duplicated
-> across mutliple arches. I don't know what tree this series should
-> go through so I tried to send the individual driver patches to the
-> respective maintainers.
->
-> Stephen Boyd (9):
->   iwlegacy: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
->   iwlwifi: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
->   [SCSI] lpfc: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
->   debugfs: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
->   kprobes: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
->   Bluetooth: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
->   ASoC: Silence DEBUG_STRICT_USER_COPY_CHECKS=y warning
->   x86: Implement strict user copy checks for x86_64
->   Consolidate CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
-
-It looks like 1, 2, 4, 6, and 7 got picked up. Should I resend the left
-over patches with appropriate acked-bys and tags? Would it be
-appropriate to push this through your tree?
+typedef'ing a pointer is strongly discouraged by kernel coding style.
+You need to use another way such as open coding it.
 
 -- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
