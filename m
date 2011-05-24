@@ -1,67 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Tue, 24 May 2011 00:56:08 -0700
-Message-ID: <m1zkmco7l3.fsf@fess.ebiederm.org>
-References: <20110523140048.777fb378@nehalam>
-	<20110523.172047.1438754754048434316.davem@davemloft.net>
-	<m1y61x2htp.fsf@fess.ebiederm.org>
-	<20110524.011942.393855175233217324.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/1] net: convert %p usage to %pK
+Date: Tue, 24 May 2011 03:58:01 -0400 (EDT)
+Message-ID: <20110524.035801.1555795213632087107.davem@davemloft.net>
+References: <1306220681.2638.40.camel@edumazet-laptop>
+	<1306222507.2298.23.camel@Joe-Laptop>
+	<1306223101.2638.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: joe@perches.com, mingo@elte.hu, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, drosenberg@vsecurity.com,
+	a.p.zijlstra@chello.nl, eparis@parisplace.org,
+	eugeneteo@kernel.org, jmorris@namei.org, kees.cook@canonical.com,
+	tgraf@infradead.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:43740 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754032Ab1EXH4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:56:17 -0400
-In-Reply-To: <20110524.011942.393855175233217324.davem@davemloft.net> (David
-	Miller's message of "Tue, 24 May 2011 01:19:42 -0400 (EDT)")
+Received: from shards.monkeyblade.net ([198.137.202.13]:40643 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754452Ab1EXH71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:59:27 -0400
+In-Reply-To: <1306223101.2638.43.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Mon, 23 May 2011 15:05:54 -0700
->
->> 3) What do we do with pf_packet and vlan hardware acceleration when
->>    dumping not the vlan interface but the interface below the vlan
->>    interface?
->> 
->>    Do we provide an option to keep the vlan header?  Should that option
->>    be on by default?
->> 
->
-> The vlan_tci in the V2 pf_packet auxdata was intended for this
-> purpose.
->
-> So no matter what variant of behavior is occurring, apps can properly
-> reconstitute the VLAN header if they inspect the vlan_tci in the
-> auxdata.
-
-It sucks a little bit to deal with that but that is fair.
-
-> The only thing that seems to be missing is an indication that a VLAN
-> tag was present at all, ie. vlan_tx_tag_present(), in this manner an
-> application could then differentiate between no VLAN header and a VLAN
-> tag of zero.
-
-Good point.
-
-I had seen that we were putting the data there but I missed the fact
-that we deleted the indicator.  That makes packets not destined for a
-vlan but that just have priority bits set hard to detect.  Especially
-if the priority bits are 0.
-
-Would it cause many problems if we added used tp_status to hold a flag
-indicating the presence of a vlan header?
-
-We also have an issue that the socket filter doesn't have access to any
-of the vlan information at present.
-
-Eric
-
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVHVlLCAy
+NCBNYXkgMjAxMSAwOTo0NTowMSArMDIwMA0KDQo+IExlIG1hcmRpIDI0IG1haSAyMDExIMOgIDAw
+OjM1IC0wNzAwLCBKb2UgUGVyY2hlcyBhIMOpY3JpdCA6DQo+IA0KPj4gSSB0aGluayBpdCdzIGJl
+IGJldHRlciB3aXRob3V0IHRoZSBjYXN0cw0KPj4gdXNpbmcgdGhlIHN0YW5kYXJkIGtlcm5lbC5o
+IG1hY3Jvcy4NCj4+IA0KPj4gCXZvaWQgKnB0cjsNCj4+IA0KPj4gCXB0ciA9IG1heWJlX2hpZGVf
+cHRyKHNrKTsNCj4+IAlyLT5pZC5pZGlhZ19jb29raWVbMF0gPSBsb3dlcl8zMl9iaXRzKHB0cik7
+DQo+PiAJci0+aWQuaWRpYWdfY29va2llWzFdID0gdXBwZXJfMzJfYml0cyhwdHIpOw0KPj4gDQo+
+IA0KPiBJIGFtIG5vdCBzdXJlIEkgd2FudCB0byBwYXRjaCBsb3dlcl8zMl9iaXRzKCkgYW5kIHVw
+cGVyXzMyX2JpdHMoKSBmb3INCj4gdGhpcy4NCj4gDQo+IFRoZXkgZG9udCB3b3JrIG9uIHBvaW50
+ZXJzLCBidXQgb24gIm51bWJlcnMiLCBhY2NvcmRpbmcgdG8ga2VybmVsZG9jDQo+IEFuZHJldyB3
+cm90ZSB5ZWFycyBhZ28uIGdjYyBhZ3JlZXMgOg0KPiANCj4gbmV0L2lwdjQvaW5ldF9kaWFnLmM6
+IEluIGZ1bmN0aW9uIOKAmGluZXRfY3NrX2RpYWdfZmlsbOKAmToNCj4gbmV0L2lwdjQvaW5ldF9k
+aWFnLmM6MTE5OiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBpbnRlZ2VyIG9mIGRpZmZl
+cmVudCBzaXplDQo+IG5ldC9pcHY0L2luZXRfZGlhZy5jOjEyMDogZXJyb3I6IGludmFsaWQgb3Bl
+cmFuZHMgdG8gYmluYXJ5ID4+DQo+IG1ha2VbMV06ICoqKiBbbmV0L2lwdjQvaW5ldF9kaWFnLm9d
+IEVycm9yIDENCg0KQWxzbyB5b3UgY2FuJ3QgZG8gdGhpcywgdGhlICJjb29raWUiIGlzIHVzZWQg
+YnkgdGhlIGtlcm5lbCBmdXR1cmUNCmxvb2t1cHMgdG8gZmluZCBzb2NrZXRzLg0KDQpUaGUga2Vy
+bmVsIHBvaW50ZXIgaXMgcGFydCBvZiB0aGUgQVBJLCBzbyBzb3JyeSB5b3UgY2FuJ3QgImhpZGUi
+DQprZXJuZWwgcG9pbnRlcnMgaW4gdGhpcyBjYXNlIHdpdGhvdXQgcmVhbGx5IGJyZWFraW5nIHVz
+ZXIgdmlzaWJsZQ0KdGhpbmdzLg0K
