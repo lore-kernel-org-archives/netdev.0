@@ -1,57 +1,25 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: linux-next: build failure after merge of the final tree
-Date: Tue, 24 May 2011 13:10:42 -0400
-Message-ID: <BANLkTi=U8ikZo65AoxGznCopGMTFOUXWhQ@mail.gmail.com>
-References: <20110520161816.dda6f1fd.sfr@canb.auug.org.au> <BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
- <BANLkTine2kobQA8TkmtiuXdKL=07NCo2vA@mail.gmail.com> <BANLkTim-zRShhy49d7yn5WTJYzR6A2DtZQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@csn.ul.ie>, linux-mm@kvack.org,
-	Alexander Viro <viro@zeniv.linux.org.uk>, linux-fsdevel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Dipankar Sarma <dipankar@in.ibm.com>,
-	"Balbi, Felipe" <balbi@ti.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <BANLkTim-zRShhy49d7yn5WTJYzR6A2DtZQ@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: net: enable dynamic lro disabling for vlans
+Date: Tue, 24 May 2011 13:15:12 -0400
+Message-ID: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55834 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229Ab1EXRP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:15:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2011 at 00:10, Mike Frysinger wrote:
-> On Tue, May 24, 2011 at 00:01, Linus Torvalds wrote:
->> On Mon, May 23, 2011 at 7:06 PM, Mike Frysinger wrote:
->>>
->>> more failures:
->>
->> Is this blackfin or something?
->
-> let's go with "something" ...
->
->> I did an allyesconfig with a special x86 patch that should have caught
->> everything that didn't have the proper prefetch.h include, but non-x86
->> drivers would have passed that.
->
-> the isp1362-hcd failure probably is before your
-> 268bb0ce3e87872cb9290c322b0d35bce230d88f. =C2=A0i think i was reading a l=
-og
-> that is a few days old (ive been traveling and am playing catch up
-> atm). =C2=A0i'll refresh and see what's what still.
->
-> the common musb code only allows it to be built if the arch glue is
-> available, and there is no x86 glue. =C2=A0so an allyesconfig on x86
-> wouldnt have picked up the failure. =C2=A0it'll bomb though for any targe=
-t
-> which does have the glue.
+Hey there-
+	Noted recently that, while physical devices have lro disabled when
+attached to a bridge, vlan devices do not.  This is because the vlan netdev has
+no get/set flags method in its ethtool_ops struct. This series adds those
+methods as passthrough calls to the underlying physical devices, so that whe
+dev_disable_lro is called on a vlan device, the physical device underneath has
+lro properly disabled.
 
-latest tree seems to only fail for me now on the musb driver.  i can
-send out a patch later today if no one else has gotten to it yet.
--mike
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: davem@davemloft.net
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
