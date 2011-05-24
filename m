@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/1] igmp: call ip_mc_clear_src() only when we have
- no users of ip_mc_list
-Date: Tue, 24 May 2011 13:28:25 -0400 (EDT)
-Message-ID: <20110524.132825.968974982805294440.davem@davemloft.net>
-References: <20110520162709.GA3497@darkmag.usersys.redhat.com>
-	<OF8F2A5C61.8060D0CC-ON88257899.00610B06-88257899.006123E3@us.ibm.com>
-	<20110524091505.GA21550@darkmag.usersys.redhat.com>
+Subject: Re: [PATCH] be2net: hash key for rss-config cmd not set
+Date: Tue, 24 May 2011 13:34:12 -0400 (EDT)
+Message-ID: <20110524.133412.1214421180597680679.davem@davemloft.net>
+References: <edb3e5b8-a38f-4efe-b267-9b5b332f16a4@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, jmorris@namei.org, kaber@trash.net,
-	kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, mmarek@suse.cz,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: vfalico@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110524091505.GA21550@darkmag.usersys.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57885 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753911Ab1EXReR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:34:17 -0400
+In-Reply-To: <edb3e5b8-a38f-4efe-b267-9b5b332f16a4@exht1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 24 May 2011 11:15:05 +0200
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Tue, 24 May 2011 11:59:09 +0530
 
-> In igmp_group_dropped() we call ip_mc_clear_src(), which resets the number
-> of source filters per mulitcast. However, igmp_group_dropped() is also
-> called on NETDEV_DOWN, NETDEV_PRE_TYPE_CHANGE and NETDEV_UNREGISTER, which
-> means that the group might get added back on NETDEV_UP, NETDEV_REGISTER and
-> NETDEV_POST_TYPE_CHANGE respectively, leaving us with broken source
-> filters.
+> A non-zero, non-descript value is needed as the hash key. The hash variable was left un-initialized; but sometimes it gets a zero value
+> and hashing is not effective. The constant value used now (not of any significance) seems to work fine.
 > 
-> To fix that, we must clear the source filters only when there are no users
-> in the ip_mc_list, i.e. in ip_mc_dec_group() and on device destroy.
-> 
-> Acked-by: David L Stevens <dlstevens@us.ibm.com>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
 Applied.
