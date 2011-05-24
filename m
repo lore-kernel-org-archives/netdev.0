@@ -1,67 +1,47 @@
-From: Vadym Abramchuk <abramm@gmail.com>
-Subject: Re: 2.6.38.x, 2.6.39 sfq? kernel panic in sfq_enqueue
-Date: Tue, 24 May 2011 19:09:06 +0300
-Message-ID: <BANLkTi=tKi9hOFy4Ctnv=ZgOcU-0dP38AQ@mail.gmail.com>
+From: TB <lkml@techboom.com>
+Subject: Re: kernel BUG at net/ipv4/tcp_output.c:1006!
+Date: Tue, 24 May 2011 12:09:24 -0400
+Message-ID: <4DDBD834.6080804@techboom.com>
+References: <1305307633.3866.61.camel@edumazet-laptop>	 <4DCD86C0.9030904@techboom.com>	<1305316058.3120.6.camel@edumazet-laptop>	 <20110513.160138.1477780250019480052.davem@davemloft.net>	 <4DD54E89.7050707@techboom.com> <1305825086.3028.84.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:39726 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756563Ab1EXQJ1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 12:09:27 -0400
-Received: by qwk3 with SMTP id 3so3439195qwk.19
-        for <netdev@vger.kernel.org>; Tue, 24 May 2011 09:09:26 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1305825086.3028.84.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 24 May 2011 15:17:49 +0200, Eric Dumazet wrote:
-> Le mardi 24 mai 2011 =E0 01:35 +0300, Denys Fedoryshchenko a =E9crit =
-:
->> On Mon, 23 May 2011 17:05:46 +0200, Eric Dumazet wrote:
->> > Le lundi 23 mai 2011 =E0 17:27 +0300, Denys Fedoryshchenko a =E9cr=
-it :
->> >
->> >> > Thanks !
->> >> =A0By objdump or he must recompile kernel with DEBUG_INFO and use
->> gdb?
->> >>
->> >>
->> >>
->> >
->> >
->> > Just objdump of sch_sfq.o (or sch_sfq.ko) file, (to keep existing
->> > offsets), thanks
->> =A0Sorry for delay, i had to contact person who run that kernel :)
+On 11-05-19 01:11 PM, Eric Dumazet wrote:
+> Le jeudi 19 mai 2011 =C3=A0 13:08 -0400, TB a =C3=A9crit :
+>> On 11-05-13 04:01 PM, David Miller wrote:
+>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Date: Fri, 13 May 2011 21:47:38 +0200
+>>>
+>>>> I suspect we should push commit 2fceec13375e5d98 (tcp: len check i=
+s
+>>>> unnecessarily devastating, change to WARN_ON) to stable if not alr=
+eady
+>>>> done...
+>>>>
+>>>> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git=
+;a=3Dcommitdiff;h=3D2fceec13375e5d98
+>>>>
+>>>> David, is this commit in your stable queue ?
+>>>
+>>> No, but now it is.
 >>
->> =A0www.nuclearcat.com/files/disasm.txt
->> =A0www.nuclearcat.com/files/sch_sfq.ko
->>
->>
->
-> Thanks !
->
-> BTW, does this person have another bug trace to feed us ?
->
-> I tried to reproduce it here but failed.
->
-> full dmesg might help too
+>> We've put this commit with the previous tcp_cubic patch on 60 of our
+>> servers and we're waiting to see how it goes.
+>=20
+> Dont expect too much. It only permits to survive after logging messag=
+es,
+> instead of halting machine ;)
 
-Greetings.
+That's all I'm expecting :)
 
-This error is at my server and I'm 'that' person.
-Denys' help is useful, but I decided to join the netlist myself to
-stop annoying him. :)
-I haven't been using mailing lists for a while, so I hope this mail
-will get to the right thread.
-
-Right now, the machine is closed at the server room so I'll be able to
-get some more
-debug info only tomorrow.
-
-What more info can I supply besides dmesg? Maybe I should rebuild the
-kernel with some
-debug options enabled?
-
-WBR, Vadym
+However we've got 3 servers that hung with a blank screen and no networ=
+k
+over the weekend and nothing unusual in the net console
