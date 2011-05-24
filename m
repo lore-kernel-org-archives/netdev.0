@@ -1,101 +1,67 @@
-From: Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCHv2 10/14] virtio_net: limit xmit polling
-Date: Tue, 24 May 2011 13:24:15 +0530
-Message-ID: <OFEED174CD.D3C9A726-ON6525789A.002661D5-6525789A.002B26ED@in.ibm.com>
-References: <cover.1305846412.git.mst@redhat.com>
-	<aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst@redhat.com>
-	<877h9kvlps.fsf@rustcorp.com.au>
-	<20110522121008.GA12155@redhat.com>
-	<87boyutbjg.fsf@rustcorp.com.au>
-	<20110523111900.GB27212@redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
+Date: Tue, 24 May 2011 00:56:08 -0700
+Message-ID: <m1zkmco7l3.fsf@fess.ebiederm.org>
+References: <20110523140048.777fb378@nehalam>
+	<20110523.172047.1438754754048434316.davem@davemloft.net>
+	<m1y61x2htp.fsf@fess.ebiederm.org>
+	<20110524.011942.393855175233217324.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20110523111900.GB27212-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
+	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:43740 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754032Ab1EXH4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:56:17 -0400
+In-Reply-To: <20110524.011942.393855175233217324.davem@davemloft.net> (David
+	Miller's message of "Tue, 24 May 2011 01:19:42 -0400 (EDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote on 05/23/2011 04:49:00 PM:
+David Miller <davem@davemloft.net> writes:
 
-> > To do this properly, we should really be using the actual number of sg
-> > elements needed, but we'd have to do most of xmit_skb beforehand so we
-> > know how many.
-> >
-> > Cheers,
-> > Rusty.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Mon, 23 May 2011 15:05:54 -0700
 >
-> Maybe I'm confused here.  The problem isn't the failing
-> add_buf for the given skb IIUC.  What we are trying to do here is stop
-> the queue *before xmit_skb fails*. We can't look at the
-> number of fragments in the current skb - the next one can be
-> much larger.  That's why we check capacity after xmit_skb,
-> not before it, right?
+>> 3) What do we do with pf_packet and vlan hardware acceleration when
+>>    dumping not the vlan interface but the interface below the vlan
+>>    interface?
+>> 
+>>    Do we provide an option to keep the vlan header?  Should that option
+>>    be on by default?
+>> 
+>
+> The vlan_tci in the V2 pf_packet auxdata was intended for this
+> purpose.
+>
+> So no matter what variant of behavior is occurring, apps can properly
+> reconstitute the VLAN header if they inspect the vlan_tci in the
+> auxdata.
 
-Maybe Rusty means it is a simpler model to free the amount
-of space that this xmit needs. We will still fail anyway
-at some time but it is unlikely, since earlier iteration
-freed up atleast the space that it was going to use. The
-code could become much simpler:
+It sucks a little bit to deal with that but that is fair.
 
-start_xmit()
-{
-{
-        num_sgs = get num_sgs for this skb;
+> The only thing that seems to be missing is an indication that a VLAN
+> tag was present at all, ie. vlan_tx_tag_present(), in this manner an
+> application could then differentiate between no VLAN header and a VLAN
+> tag of zero.
 
-        /* Free enough pending old buffers to enable queueing this one */
-        free_old_xmit_skbs(vi, num_sgs * 2);     /* ?? */
+Good point.
 
-        if (virtqueue_get_capacity() < num_sgs) {
-                netif_stop_queue(dev);
-                if (virtqueue_enable_cb_delayed(vi->svq) ||
-                    free_old_xmit_skbs(vi, num_sgs)) {
-                        /* Nothing freed up, or not enough freed up */
-                        kfree_skb(skb);
-                        return NETDEV_TX_OK;
-                }
-                netif_start_queue(dev);
-                virtqueue_disable_cb(vi->svq);
-        }
+I had seen that we were putting the data there but I missed the fact
+that we deleted the indicator.  That makes packets not destined for a
+vlan but that just have priority bits set hard to detect.  Especially
+if the priority bits are 0.
 
-        /* xmit_skb cannot fail now, also pass 'num_sgs' */
-        xmit_skb(vi, skb, num_sgs);
-        virtqueue_kick(vi->svq);
+Would it cause many problems if we added used tp_status to hold a flag
+indicating the presence of a vlan header?
 
-        skb_orphan(skb);
-        nf_reset(skb);
+We also have an issue that the socket filter doesn't have access to any
+of the vlan information at present.
 
-        return NETDEV_TX_OK;
-}
+Eric
 
-We could even return TX_BUSY since that makes the dequeue
-code more efficient. See dev_dequeue_skb() - you can skip a
-lot of code (and avoid taking locks) to check if the queue
-is already stopped but that code runs only if you return
-TX_BUSY in the earlier iteration.
-
-BTW, shouldn't the check in start_xmit be:
-	if (likely(!free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS))) {
-		...
-	}
-
-Thanks,
-
-- KK
