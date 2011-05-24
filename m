@@ -1,54 +1,56 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Tue, 24 May 2011 09:44:42 +0200
-Message-ID: <BANLkTikxNNpaXSkNaf6b2GHgaEZQ5HiO2g@mail.gmail.com>
-References: <4DDAB72B.9050101@gmail.com> <4DDAC26C.2070601@candelatech.com>
- <20110523140048.777fb378@nehalam> <20110523.172047.1438754754048434316.davem@davemloft.net>
- <m1y61x2htp.fsf@fess.ebiederm.org> <4DDADE52.8000008@candelatech.com>
- <m1boyt10n4.fsf@fess.ebiederm.org> <4DDB3226.8010404@candelatech.com> <4DDB5A3F.8050007@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch 1/1] net: convert %p usage to %pK
+Date: Tue, 24 May 2011 09:45:01 +0200
+Message-ID: <1306223101.2638.43.camel@edumazet-laptop>
+References: <201105232217.p4NMHZiC015498@imap1.linux-foundation.org>
+	 <20110524.011330.1077020828173889583.davem@davemloft.net>
+	 <1306217837.2638.36.camel@edumazet-laptop>
+	 <1306218793.2298.10.camel@Joe-Laptop>  <20110524065715.GB12816@elte.hu>
+	 <1306220681.2638.40.camel@edumazet-laptop>
+	 <1306222507.2298.23.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, jpirko@redhat.com,
-	xiaosuo@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
-	fubar@us.ibm.com, eric.dumazet@gmail.com, andy@greyhouse.net,
-	jesse@nicira.com
-To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
+	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
+	kees.cook@canonical.com, tgraf@infradead.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:38949 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754089Ab1EXHpD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:45:03 -0400
-Received: by qyk7 with SMTP id 7so1295757qyk.19
-        for <netdev@vger.kernel.org>; Tue, 24 May 2011 00:45:03 -0700 (PDT)
-In-Reply-To: <4DDB5A3F.8050007@gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35284 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754089Ab1EXHpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:45:07 -0400
+Received: by wwa36 with SMTP id 36so7017243wwa.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2011 00:45:06 -0700 (PDT)
+In-Reply-To: <1306222507.2298.23.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/24 Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>:
->> If it turns out the NIC is not stripping VLAN tags for whatever reas=
-on,
->> we might be able to optimize things so that it never does the HW emu=
-lation
->> so that it never has to un-do it later.
-> It might be very tricky to avoid any do-undo-redo situation. I will l=
-atter
-> try and describe all the possible situations: with/without hw-accel,
-> with/without a protocol handler registered on the parent interface,
-> with/without a child interface build on top of a particular parent in=
-terface
-> and with the corresponding VLAN ID...
+Le mardi 24 mai 2011 =C3=A0 00:35 -0700, Joe Perches a =C3=A9crit :
 
-Hardware tag stripping could be disabled whenever AF_PACKET listener
-is present on the base interface. It should be easy now with the new
-features handling.
+> I think it's be better without the casts
+> using the standard kernel.h macros.
+>=20
+> 	void *ptr;
+>=20
+> 	ptr =3D maybe_hide_ptr(sk);
+> 	r->id.idiag_cookie[0] =3D lower_32_bits(ptr);
+> 	r->id.idiag_cookie[1] =3D upper_32_bits(ptr);
+>=20
 
-BTW, what's the performance gain from hw tag stripping? Besides saving
-12-byte memmove() in one cacheline?
+I am not sure I want to patch lower_32_bits() and upper_32_bits() for
+this.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+They dont work on pointers, but on "numbers", according to kerneldoc
+Andrew wrote years ago. gcc agrees :
+
+net/ipv4/inet_diag.c: In function =E2=80=98inet_csk_diag_fill=E2=80=99:
+net/ipv4/inet_diag.c:119: warning: cast from pointer to integer of diff=
+erent size
+net/ipv4/inet_diag.c:120: error: invalid operands to binary >>
+make[1]: *** [net/ipv4/inet_diag.o] Error 1
+
+
+
