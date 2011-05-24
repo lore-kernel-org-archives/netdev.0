@@ -1,196 +1,128 @@
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4] CDC NCM: release interfaces fix in unbind()
-Date: Tue, 24 May 2011 17:26:13 +0200
-Message-ID: <1306250773-9177-1-git-send-email-alexey.orishko@stericsson.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bridge netfilter output bug on 2.6.39
+Date: Tue, 24 May 2011 17:39:03 +0200
+Message-ID: <1306251543.3026.57.camel@edumazet-laptop>
+References: <20110524074156.58eb30f8@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:42266 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752297Ab1EXPjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 11:39:08 -0400
+Received: by wwa36 with SMTP id 36so7469112wwa.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2011 08:39:06 -0700 (PDT)
+In-Reply-To: <20110524074156.58eb30f8@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes:
-- claim slave/data interface during bind() and release
- interfaces in unbind() unconditionally
-- in case of error during bind(), release claimed data
- interface in the same function
-- remove obsolited "*_claimed" entries from driver context
+Le mardi 24 mai 2011 =C3=A0 07:41 -0700, Stephen Hemminger a =C3=A9crit=
+ :
+> Got this bug report against 2.6.39.  Looks like ip_fragment() is now
+> getting confused when called from bridge netfilter. Probably related =
+to
+> the changes to do ip_options_compile for the bridge input path.
+>=20
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D35672
+>=20
+> May 23 02:04:24 lxc kernel: [99498.329036] BUG: unable to handle kern=
+el NULL
+> pointer dereference at 00000004
+> May 23 02:04:24 lxc kernel: [99498.330017] IP: [<c143d6bf>] dst_mtu+0=
+xb/0x1c
+> May 23 02:04:24 lxc kernel: [99498.330017] *pdpt =3D 000000001fb55001=
+ *pde =3D
+> 0000000000000000
+> May 23 02:04:24 lxc kernel: [99498.330017] Oops: 0000 [#1] SMP
+> May 23 02:04:24 lxc kernel: [99498.330017] last sysfs file:
+> /sys/devices/virtual/vc/vcsa8/uevent
+> May 23 02:04:24 lxc kernel: [99498.330017] Modules linked in: lp ppde=
+v
+> parport_pc parport fuse firewire_ohci firewire_core crc_itu_t intel_a=
+gp
+> intel_gtt
+> May 23 02:04:24 lxc kernel: [99498.330017]
+> May 23 02:04:24 lxc kernel: [99498.330017] Pid: 0, comm: swapper Not =
+tainted
+> 2.6.39-lxc #2 .   .  /IP35 Pro XE(Intel P35-ICH9R)
+> May 23 02:04:24 lxc kernel: [99498.330017] EIP: 0060:[<c143d6bf>] EFL=
+AGS:
+> 00010246 CPU: 0
+> May 23 02:04:24 lxc kernel: [99498.330017] EIP is at dst_mtu+0xb/0x1c
+> May 23 02:04:24 lxc kernel: [99498.330017] EAX: 00000000 EBX: e90b6b4=
+0 ECX:
+> effc981c EDX: effc9000
+> May 23 02:04:24 lxc kernel: [99498.330017] ESI: c1a0d84e EDI: dda6331=
+e EBP:
+> f080bb44 ESP: f080bb44
+> May 23 02:04:24 lxc kernel: [99498.330017]  DS: 007b ES: 007b FS: 00d=
+8 GS: 0000
+> SS: 0068
+> May 23 02:04:24 lxc kernel: [99498.330017] Process swapper (pid: 0, t=
+i=3Df080a000
+> task=3Dc172b7e0 task.ti=3Dc1724000)
+> May 23 02:04:24 lxc kernel: [99498.330017] Stack:
+> May 23 02:04:24 lxc kernel: [99498.330017]  f080bb8c c143e20d 0000000=
+4 f080bb88
+> c141aab2 c14b46db effc9000 00000014
+> May 23 02:04:24 lxc kernel: [99498.330017]  c14b8a44 effc9000 e90b6b4=
+0 00000014
+> effc981c e90b6b58 cd472800 e90b6b40
+> May 23 02:04:24 lxc kernel: [99498.330017]  c14b8a44 dda6331e f080bb9=
+8 c14b8aa0
+> e90b6b40 f080bba8 c14b881a e90b6b40
+> May 23 02:04:24 lxc kernel: [99498.330017] Call Trace:
+> May 23 02:04:24 lxc kernel: [99498.330017]  [<c143e20d>] ip_fragment+=
+0xb5/0x66c
+> May 23 02:04:24 lxc kernel: [99498.330017]  [<c141aab2>] ?
+> nf_hook_slow+0x43/0xd1
+> May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b46db>] ? br_flood+0=
+x83/0x83
+> May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b8a44>] ?
+> br_parse_ip_options+0x1b0/0x1b0
+> May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b8a44>] ?
+> br_parse_ip_options+0x1b0/0x1b0
+> May 23 02:04:24 lxc kernel: [99498.330017]  [<c14b8aa0>]
+> br_nf_dev_queue_xmit+0x5c/0x68
+> --
 
-Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+I would say its more likely a problem with dst metrics changes
+
+In this crash, we dereference a NULL dst->_metrics 'pointer' in
+dst_metric_raw(dst, RTAX_MTU);
+
+Hmm, it seems __dst_destroy_metrics_generic() doesnt add the
+DST_METRICS_READ_ONLY flag ?
+
+[PATCH] net: fix __dst_destroy_metrics_generic()
+
+dst_default_metrics is readonly, we dont want to kfree() it later.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+CC: Herbert Xu <herbert@gondor.apana.org.au>
 ---
- drivers/net/usb/cdc_ncm.c |   73 +++++++++++++++-----------------------------
- 1 files changed, 25 insertions(+), 48 deletions(-)
+ net/core/dst.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 4ab557d..cdd3ae4 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -54,7 +54,7 @@
- #include <linux/usb/usbnet.h>
- #include <linux/usb/cdc.h>
- 
--#define	DRIVER_VERSION				"06-May-2011"
-+#define	DRIVER_VERSION				"24-May-2011"
- 
- /* CDC NCM subclass 3.2.1 */
- #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
-@@ -134,8 +134,6 @@ struct cdc_ncm_ctx {
- 	u16 tx_ndp_modulus;
- 	u16 tx_seq;
- 	u16 connected;
--	u8 data_claimed;
--	u8 control_claimed;
- };
- 
- static void cdc_ncm_tx_timeout(unsigned long arg);
-@@ -460,17 +458,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
- 
- 	del_timer_sync(&ctx->tx_timer);
- 
--	if (ctx->data_claimed) {
--		usb_set_intfdata(ctx->data, NULL);
--		usb_driver_release_interface(driver_of(ctx->intf), ctx->data);
--	}
--
--	if (ctx->control_claimed) {
--		usb_set_intfdata(ctx->control, NULL);
--		usb_driver_release_interface(driver_of(ctx->intf),
--								ctx->control);
--	}
--
- 	if (ctx->tx_rem_skb != NULL) {
- 		dev_kfree_skb_any(ctx->tx_rem_skb);
- 		ctx->tx_rem_skb = NULL;
-@@ -495,7 +482,7 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
- 
- 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
- 	if (ctx == NULL)
--		goto error;
-+		return -ENODEV;
- 
- 	memset(ctx, 0, sizeof(*ctx));
- 
-@@ -568,46 +555,36 @@ advance:
- 
- 	/* check if we got everything */
- 	if ((ctx->control == NULL) || (ctx->data == NULL) ||
--	    (ctx->ether_desc == NULL))
-+	    (ctx->ether_desc == NULL) || (ctx->control != intf))
- 		goto error;
- 
- 	/* claim interfaces, if any */
--	if (ctx->data != intf) {
--		temp = usb_driver_claim_interface(driver, ctx->data, dev);
--		if (temp)
--			goto error;
--		ctx->data_claimed = 1;
--	}
--
--	if (ctx->control != intf) {
--		temp = usb_driver_claim_interface(driver, ctx->control, dev);
--		if (temp)
--			goto error;
--		ctx->control_claimed = 1;
--	}
-+	temp = usb_driver_claim_interface(driver, ctx->data, dev);
-+	if (temp)
-+		goto error;
- 
- 	iface_no = ctx->data->cur_altsetting->desc.bInterfaceNumber;
- 
- 	/* reset data interface */
- 	temp = usb_set_interface(dev->udev, iface_no, 0);
- 	if (temp)
--		goto error;
-+		goto error2;
- 
- 	/* initialize data interface */
- 	if (cdc_ncm_setup(ctx))
--		goto error;
-+		goto error2;
- 
- 	/* configure data interface */
- 	temp = usb_set_interface(dev->udev, iface_no, 1);
- 	if (temp)
--		goto error;
-+		goto error2;
- 
- 	cdc_ncm_find_endpoints(ctx, ctx->data);
- 	cdc_ncm_find_endpoints(ctx, ctx->control);
- 
- 	if ((ctx->in_ep == NULL) || (ctx->out_ep == NULL) ||
- 	    (ctx->status_ep == NULL))
--		goto error;
-+		goto error2;
- 
- 	dev->net->ethtool_ops = &cdc_ncm_ethtool_ops;
- 
-@@ -617,7 +594,7 @@ advance:
- 
- 	temp = usbnet_get_ethernet_addr(dev, ctx->ether_desc->iMACAddress);
- 	if (temp)
--		goto error;
-+		goto error2;
- 
- 	dev_info(&dev->udev->dev, "MAC-Address: "
- 				"0x%02x:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x\n",
-@@ -642,38 +619,38 @@ advance:
- 	ctx->tx_speed = ctx->rx_speed = 0;
- 	return 0;
- 
-+error2:
-+	usb_set_intfdata(ctx->control, NULL);
-+	usb_set_intfdata(ctx->data, NULL);
-+	usb_driver_release_interface(driver, ctx->data);
- error:
- 	cdc_ncm_free((struct cdc_ncm_ctx *)dev->data[0]);
- 	dev->data[0] = 0;
--	dev_info(&dev->udev->dev, "Descriptor failure\n");
-+	dev_info(&dev->udev->dev, "bind() failure\n");
- 	return -ENODEV;
- }
- 
- static void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf)
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 81a4fa1..1badc98 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -315,7 +315,7 @@ void __dst_destroy_metrics_generic(struct dst_entry=
+ *dst, unsigned long old)
  {
- 	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
--	struct usb_driver *driver;
-+	struct usb_driver *driver = driver_of(intf);
- 
- 	if (ctx == NULL)
- 		return;		/* no setup */
- 
--	driver = driver_of(intf);
--
--	usb_set_intfdata(ctx->data, NULL);
--	usb_set_intfdata(ctx->control, NULL);
--	usb_set_intfdata(ctx->intf, NULL);
--
--	/* release interfaces, if any */
--	if (ctx->data_claimed) {
-+	/* disconnect master --> disconnect slave */
-+	if (intf == ctx->control && ctx->data) {
-+		usb_set_intfdata(ctx->data, NULL);
- 		usb_driver_release_interface(driver, ctx->data);
--		ctx->data_claimed = 0;
--	}
-+		ctx->data = NULL;
- 
--	if (ctx->control_claimed) {
-+	} else if (intf == ctx->data && ctx->control) {
-+		usb_set_intfdata(ctx->control, NULL);
- 		usb_driver_release_interface(driver, ctx->control);
--		ctx->control_claimed = 0;
-+		ctx->control = NULL;
- 	}
- 
-+	usb_set_intfdata(ctx->intf, NULL);
- 	cdc_ncm_free(ctx);
- }
- 
--- 
-1.7.4.3
+ 	unsigned long prev, new;
+=20
+-	new =3D (unsigned long) dst_default_metrics;
++	new =3D ((unsigned long) dst_default_metrics) | DST_METRICS_READ_ONLY=
+;
+ 	prev =3D cmpxchg(&dst->_metrics, old, new);
+ 	if (prev =3D=3D old)
+ 		kfree(__DST_METRICS_PTR(old));
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
