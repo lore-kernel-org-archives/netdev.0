@@ -1,47 +1,58 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] be2net: hash key for rss-config cmd not set
-Date: Tue, 24 May 2011 10:12:31 -0300
-Message-ID: <4DDBAEBF.5040901@redhat.com>
-References: <edb3e5b8-a38f-4efe-b267-9b5b332f16a4@exht1.ad.emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.38.x, 2.6.39 sfq? kernel panic in sfq_enqueue
+Date: Tue, 24 May 2011 15:17:49 +0200
+Message-ID: <1306243069.3026.34.camel@edumazet-laptop>
+References: <598fe111e91c6236b8bfdfca323b9a17@visp.net.lb>
+	 <1306153938.20687.2.camel@edumazet-laptop>
+	 <1306155058.20687.8.camel@edumazet-laptop>
+	 <47b6835144d208dca4c6675f6510fcad@visp.net.lb>
+	 <1306163146.20687.19.camel@edumazet-laptop>
+	 <d3a37593d507f6e16c4e7cbf121cdd6b@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sathya Perla <sathya.perla@emulex.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45779 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932075Ab1EXNMf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 May 2011 09:12:35 -0400
-In-Reply-To: <edb3e5b8-a38f-4efe-b267-9b5b332f16a4@exht1.ad.emulex.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:61236 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756105Ab1EXNRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 09:17:53 -0400
+Received: by wwa36 with SMTP id 36so7313991wwa.1
+        for <netdev@vger.kernel.org>; Tue, 24 May 2011 06:17:52 -0700 (PDT)
+In-Reply-To: <d3a37593d507f6e16c4e7cbf121cdd6b@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/24/2011 03:29 AM, Sathya Perla wrote:
-> A non-zero, non-descript value is needed as the hash key. The hash variable was left un-initialized; but sometimes it gets a zero value
-> and hashing is not effective. The constant value used now (not of any significance) seems to work fine.
-> 
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> ---
->  drivers/net/benet/be_cmds.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-> index 2463b1c..81654ae 100644
-> --- a/drivers/net/benet/be_cmds.c
-> +++ b/drivers/net/benet/be_cmds.c
-> @@ -1703,7 +1703,8 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
->  {
->  	struct be_mcc_wrb *wrb;
->  	struct be_cmd_req_rss_config *req;
-> -	u32 myhash[10];
-> +	u32 myhash[10] = {0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF,
-> +			0x0123, 0x4567, 0x89AB, 0xCDEF, 0x01EF};
->  	int status;
->  
->  	if (mutex_lock_interruptible(&adapter->mbox_lock))
+Le mardi 24 mai 2011 =C3=A0 01:35 +0300, Denys Fedoryshchenko a =C3=A9c=
+rit :
+> On Mon, 23 May 2011 17:05:46 +0200, Eric Dumazet wrote:
+> > Le lundi 23 mai 2011 =C3=A0 17:27 +0300, Denys Fedoryshchenko a =C3=
+=A9crit :
+> >
+> >> > Thanks !
+> >>  By objdump or he must recompile kernel with DEBUG_INFO and use gd=
+b?
+> >>
+> >>
+> >>
+> >
+> >
+> > Just objdump of sch_sfq.o (or sch_sfq.ko) file, (to keep existing
+> > offsets), thanks
+>  Sorry for delay, i had to contact person who run that kernel :)
+>=20
+>  www.nuclearcat.com/files/disasm.txt
+>  www.nuclearcat.com/files/sch_sfq.ko
+>=20
+>=20
 
-I know we have the changelog saying that it's not of any significance,
-but would be nice to have the same thing in the source as well.
+Thanks !
 
-fbl
+BTW, does this person have another bug trace to feed us ?
+
+I tried to reproduce it here but failed.
+
+full dmesg might help too=20
+
+
