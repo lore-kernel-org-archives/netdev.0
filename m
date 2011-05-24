@@ -1,31 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Tue, 24 May 2011 13:18:16 -0400 (EDT)
-Message-ID: <20110524.131816.2260767241494258794.davem@davemloft.net>
-References: <1306223101.2638.43.camel@edumazet-laptop>
-	<20110524.035801.1555795213632087107.davem@davemloft.net>
-	<20110524074355.422e12f9@nehalam>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: net: enable dynamic lro disabling for vlans
+Date: Tue, 24 May 2011 10:22:49 -0700
+Message-ID: <1306257769.17233.61.camel@localhost>
+References: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, joe@perches.com, mingo@elte.hu,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
-	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
-	kees.cook@canonical.com, tgraf@infradead.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58025 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750705Ab1EXRT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:19:59 -0400
-In-Reply-To: <20110524074355.422e12f9@nehalam>
+Received: from mail.solarflare.com ([216.237.3.220]:8202 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752295Ab1EXRWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:22:49 -0400
+In-Reply-To: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 24 May 2011 07:43:55 -0700
+On Tue, 2011-05-24 at 13:15 -0400, Neil Horman wrote:
+> Hey there-
+> 	Noted recently that, while physical devices have lro disabled when
+> attached to a bridge, vlan devices do not.
 
-> Couldn't the pointer be replaced by a socket index?
+Good point.
 
-Well, it's a pointer exactly so we don't have to index into a table.
+> This is because the vlan netdev has
+> no get/set flags method in its ethtool_ops struct. This series adds those
+> methods as passthrough calls to the underlying physical devices, so that whe
+> dev_disable_lro is called on a vlan device, the physical device underneath has
+> lro properly disabled.
+
+But I don't think this is correct.
+
+The get_flags() result should be masked with vlan_features.  And
+set_flags() shouldn't be allowed; the VLAN device should normally follow
+the parent device and not the other way round.  I think
+dev_disable_lro() needs to handle VLAN devices explicitly, instead.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
