@@ -1,47 +1,41 @@
-From: <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH] be2net: hash key for rss-config cmd not set
-Date: Mon, 23 May 2011 22:46:48 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F63CC4DA8EC4@EXMAIL.ad.emulex.com>
-References: <249a7eac-6aa7-481d-b7b0-a2a3b144963f@exht1.ad.emulex.com>
- <20110523.155206.345121915872826257.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2]net:8021q:vlan.c Fix pr_info to just give the vlan
+ fullname and version.
+Date: Mon, 23 May 2011 22:54:40 -0700
+Message-ID: <1306216480.2298.1.camel@Joe-Laptop>
+References: <1306215647-2857-1-git-send-email-justinmattock@gmail.com>
+	 <1306215958.2638.29.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:17362 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751246Ab1EXFrK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 01:47:10 -0400
-In-Reply-To: <20110523.155206.345121915872826257.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Justin P. Mattock" <justinmattock@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Ben Greear <greearb@candelatech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306215958.2638.29.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, May 24, 2011 1:22 AM
-> To: Perla, Sathya
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH] be2net: hash key for rss-config cmd not set
-> 
-> From: Sathya Perla <sathya.perla@emulex.com>
-> Date: Mon, 23 May 2011 17:55:27 +0530
-> 
-> > Need a random hash key to effectively hash incoming connections into
-> > multiple RX rings.
-> >
-> > Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> 
-> You're saying you need a random hash key, yet you're assigning
-> a constant.
-> 
-> Why not use a real random number, via get_random() or similar?
+On Tue, 2011-05-24 at 07:45 +0200, Eric Dumazet wrote:
+> Le lundi 23 mai 2011 =C3=A0 22:40 -0700, Justin P. Mattock a =C3=A9cr=
+it :
+> > The below patch removes vlan_buggyright and vlan_copyright from vla=
+n_proto_init,=20
+> > so that it prints out just the fullname of vlan and the version num=
+ber.
+[]
+> > diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+> > -	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyrigh=
+t);
+> > -	pr_info("All bugs added by %s\n", vlan_buggyright);
+> > +	pr_info("%s v%s\n", vlan_fullname, vlan_version);
+> > =20
+> >  	err =3D register_pernet_subsys(&vlan_net_ops);
+> >  	if (err < 0)
+> This reminds me a discussion with Harald Welte in netfilter workshop
+> 2010.
+> Sometime these strings help lot guys working to fight GPL violations.
 
-I meant to say a non-zero, non-descript value is needed as the hash key. That was the reason I had left the hash variable un-initialized; but on some systems I get a zero value and hashing is not effective. The constant value I tried (not of any significance) seems to work fine.
-
-Pls let me know if you want me to re-send the patch with a more-descriptive changelog...
-
-thanks.
--Sathya
+How so?
