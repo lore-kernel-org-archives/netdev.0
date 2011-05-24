@@ -1,53 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: Fix the b0rked ingress VLAN_FLAG_REORDER_HDR
- check.
-Date: Tue, 24 May 2011 00:54:14 -0400 (EDT)
-Message-ID: <20110524.005414.2103486595611055177.davem@davemloft.net>
-References: <20110523140048.777fb378@nehalam>
-	<20110523.172047.1438754754048434316.davem@davemloft.net>
-	<m1oc2tyn20.fsf_-_@fess.ebiederm.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] ipv6: xfrm6: fix dubious code
+Date: Tue, 24 May 2011 07:02:42 +0200
+Message-ID: <20110524050242.GD8013@secunet.com>
+References: <1306140167.2869.8.camel@edumazet-laptop>
+ <1306164960.3456.42.camel@localhost>
+ <20110523.163302.1123967560115611293.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bhutchings@solarflare.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43443 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751761Ab1EXE4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 00:56:04 -0400
-In-Reply-To: <m1oc2tyn20.fsf_-_@fess.ebiederm.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:53874 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751935Ab1EXFAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2011 01:00:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20110523.163302.1123967560115611293.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 23 May 2011 17:11:51 -0700
+On Mon, May 23, 2011 at 04:33:02PM -0400, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 23 May 2011 08:36:00 -0700
+>=20
+> > On Mon, 2011-05-23 at 10:42 +0200, Eric Dumazet wrote:
+> >> net/ipv6/xfrm6_tunnel.c: In function =E2=80=98xfrm6_tunnel_rcv=E2=80=
+=99:
+> >> net/ipv6/xfrm6_tunnel.c:244:53: warning: the omitted middle operan=
+d
+> >> in ?: will always be =E2=80=98true=E2=80=99, suggest explicit midd=
+le operand
+> >>=20
+> >> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >> ---
+> >>  net/ipv6/xfrm6_tunnel.c |    2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>=20
+> >> diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+> >> index a6770a0..fb9b0c3 100644
+> >> --- a/net/ipv6/xfrm6_tunnel.c
+> >> +++ b/net/ipv6/xfrm6_tunnel.c
+> >> @@ -241,7 +241,7 @@ static int xfrm6_tunnel_rcv(struct sk_buff *sk=
+b)
+> >>  	__be32 spi;
+> >> =20
+> >>  	spi =3D xfrm6_tunnel_spi_lookup(net, (const xfrm_address_t *)&ip=
+h->saddr);
+> >> -	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi) > 0 ? : 0;
+> >> +	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi) > 0 ? 1 : 0;
+> >>  }
+> >> =20
+> >>  static int xfrm6_tunnel_err(struct sk_buff *skb, struct inet6_skb=
+_parm *opt,
+> >=20
+> > I suspect that this was intended to return the result of xfrm6_rcv_=
+spi()
+> > if > 0.
+>=20
+> I also suspect this was the intent, but I'm not sure why it matters
+> at all.
+>=20
+> The equivalent code implementing the same operations on the ipv4
+> side return xfrm4_rcv_spi()'s return value directly.
+>=20
+> So we need to either decide that we can do the same thing here on the
+> ipv6 side, or document exactly why we can't.
 
-> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> index 41495dc..c08dae7 100644
-> --- a/net/8021q/vlan_core.c
-> +++ b/net/8021q/vlan_core.c
-> @@ -23,6 +23,11 @@ bool vlan_do_receive(struct sk_buff **skbp)
->  		return false;
->  
->  	skb->dev = vlan_dev;
-> +	if (unlikely(!(vlan_dev_info(vlan_dev)->flags & VLAN_FLAG_REORDER_HDR))) {
-> +		skb = *skbp = vlan_insert_tag(skb, skb->vlan_tci);
-> +		if (!skb)
-> +			return false;
-> +	}
->  	skb->priority = vlan_get_ingress_priority(vlan_dev, skb->vlan_tci);
->  	skb->vlan_tci = 0;
->  
-
-Below we do a eth_hdr(skb) based check on the ethernet address in the
-PACKET_OTHERHOST case.
-
-Won't this VLAN tag insertion change skb->mac_header and thus screw up
-that test?
-
-Touching this code requires surgical precision and long audits, because
-there are so many subtble dependencies all over the place like this.
+I think we can return the value directly like ipv4 does it. xfrm6_rcv_s=
+pi()
+returns the return value of xfrm_input() which returns 0 in any case.
