@@ -1,71 +1,53 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: [PATCH]net:8021q:vlan.c Fix pr_info to read on line in the syslog.
-Date: Mon, 23 May 2011 21:33:28 -0700
-Message-ID: <4DDB3518.4040808@gmail.com>
-References: <1306166698-2036-1-git-send-email-justinmattock@gmail.com> <1306167781.8687.20.camel@Joe-Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vlan: Fix the b0rked ingress VLAN_FLAG_REORDER_HDR
+ check.
+Date: Tue, 24 May 2011 00:54:14 -0400 (EDT)
+Message-ID: <20110524.005414.2103486595611055177.davem@davemloft.net>
+References: <20110523140048.777fb378@nehalam>
+	<20110523.172047.1438754754048434316.davem@davemloft.net>
+	<m1oc2tyn20.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306167781.8687.20.camel@Joe-Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
+	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43443 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751761Ab1EXE4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 00:56:04 -0400
+In-Reply-To: <m1oc2tyn20.fsf_-_@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2011 09:23 AM, Joe Perches wrote:
-> On Mon, 2011-05-23 at 09:04 -0700, Justin P. Mattock wrote:
->> The patch below changes the pr_info so that it reads on one line in the syslog
->> rather than two.
->>
->> before:
->>
->> [   30.438203] 802.1Q VLAN Support v1.8 Ben Greear<greearb@candelatech.com>
->> [   30.441542] All bugs added by David S. Miller<davem@redhat.com>
->>
->>
->> after:
->> [   29.356282] 802.1Q VLAN Support v1.8 Ben Greear<greearb@candelatech.com>  All bugs added by: David S. Miller<davem@redhat.com>
->>
->> Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
->>
->> ---
->>   net/8021q/vlan.c |    4 ++--
->>   1 files changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
->> index b2274d1..02f4d8b 100644
->> --- a/net/8021q/vlan.c
->> +++ b/net/8021q/vlan.c
->> @@ -673,8 +673,8 @@ static int __init vlan_proto_init(void)
->>   {
->>   	int err;
->>
->> -	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyright);
->> -	pr_info("All bugs added by %s\n", vlan_buggyright);
->> +	pr_info("%s v%s %s All bugs added by: %s\n", vlan_fullname, vlan_version,
->> +		vlan_copyright, vlan_buggyright);
->
-> Might as well avoid the format string then too.
->
-> 	pr_info(vlan_fullname " v" vlan_version " " vlan_copyright
-> 		" All bugs added by: " vlan_buggyright "\n");
->
-> or just kill the otherwise unused vlan_<foo>  variables
->
-> 	pr_info("802.1Q VLAN Support v" vlan_version
-> 		" Ben Greear<greearb@candelatech.com>"
-> 		" All bugs added by: David S. Miller<davem@redhat.com>\n");
->
-> though I think that emitting names on startup isn't necessary and
-> this is enough:
->
-> 	pr_info("802.1Q VLAN Support v" vlan_version "\n");
->
->
->
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 23 May 2011 17:11:51 -0700
 
-alright, I will resend this with what you have then.
+> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+> index 41495dc..c08dae7 100644
+> --- a/net/8021q/vlan_core.c
+> +++ b/net/8021q/vlan_core.c
+> @@ -23,6 +23,11 @@ bool vlan_do_receive(struct sk_buff **skbp)
+>  		return false;
+>  
+>  	skb->dev = vlan_dev;
+> +	if (unlikely(!(vlan_dev_info(vlan_dev)->flags & VLAN_FLAG_REORDER_HDR))) {
+> +		skb = *skbp = vlan_insert_tag(skb, skb->vlan_tci);
+> +		if (!skb)
+> +			return false;
+> +	}
+>  	skb->priority = vlan_get_ingress_priority(vlan_dev, skb->vlan_tci);
+>  	skb->vlan_tci = 0;
+>  
 
-Justin P. Mattock
+Below we do a eth_hdr(skb) based check on the ethernet address in the
+PACKET_OTHERHOST case.
+
+Won't this VLAN tag insertion change skb->mac_header and thus screw up
+that test?
+
+Touching this code requires surgical precision and long audits, because
+there are so many subtble dependencies all over the place like this.
