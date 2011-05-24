@@ -1,58 +1,46 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 2/2] net: add passthrough ethtool commands for get/set flags to vlan dev
-Date: Tue, 24 May 2011 13:15:14 -0400
-Message-ID: <1306257314-3925-3-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH 1/2] net: add dev_ethtool_set_flags helper
+Date: Tue, 24 May 2011 13:15:13 -0400
+Message-ID: <1306257314-3925-2-git-send-email-nhorman@tuxdriver.com>
 References: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55852 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55843 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229Ab1EXRPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:15:32 -0400
+	with ESMTP id S1751229Ab1EXRP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 13:15:29 -0400
 In-Reply-To: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ethtool command to the vlan driver so that when dev_disable_lro is called on
-a vlan device, the disablement can be correctly passed down to the underlying
-hardware
+Add a helper to check for presence of a set_flags method in an ethtool_ops
+structure and conditionally call it
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 CC: davem@davemloft.net
 ---
- net/8021q/vlan_dev.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index f247f5b..611839b 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -648,10 +648,24 @@ static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, st
- 	return stats;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ca333e7..243781c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2624,6 +2624,13 @@ static inline u32 dev_ethtool_get_flags(struct net_device *dev)
+ 	return dev->ethtool_ops->get_flags(dev);
  }
  
-+static u32 vlan_ethtool_get_flags (struct net_device *vdev)
++static inline int dev_ethtool_set_flags(struct net_device *dev, u32 flags)
 +{
-+	const struct vlan_dev_info *vlan = vlan_dev_info(vdev);
-+	return dev_ethtool_get_flags(vlan->real_dev);
++	if (!dev->ethtool_ops || !dev->ethtool_ops->set_flags)
++		return 0;
++	return dev->ethtool_ops->set_flags(dev, flags);
 +}
 +
-+static int vlan_ethtool_set_flags(struct net_device *vdev, u32 flags)
-+{
-+	const struct vlan_dev_info *vlan = vlan_dev_info(vdev);
-+	return dev_ethtool_set_flags(vlan->real_dev, flags);
-+}
-+
- static const struct ethtool_ops vlan_ethtool_ops = {
- 	.get_settings	        = vlan_ethtool_get_settings,
- 	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-+	.get_flags		= vlan_ethtool_get_flags,
-+	.set_flags		= vlan_ethtool_set_flags,
- };
+ /* Logging, debugging and troubleshooting/diagnostic helpers. */
  
- static const struct net_device_ops vlan_netdev_ops = {
+ /* netdev_printk helpers, similar to dev_printk */
 -- 
 1.7.5.1
 
