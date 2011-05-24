@@ -1,72 +1,196 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Tue, 24 May 2011 08:17:05 -0700
-Message-ID: <4DDBCBF1.3010102@candelatech.com>
-References: <4DDAB72B.9050101@gmail.com> <4DDAC26C.2070601@candelatech.com>	<20110523140048.777fb378@nehalam>	<20110523.172047.1438754754048434316.davem@davemloft.net>	<m1y61x2htp.fsf@fess.ebiederm.org> <4DDADE52.8000008@candelatech.com> <m1boyt10n4.fsf@fess.ebiederm.org> <4DDB3226.8010404@candelatech.com> <4DDB5A3F.8050007@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, jpirko@redhat.com,
-	xiaosuo@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
-	fubar@us.ibm.com, eric.dumazet@gmail.com, andy@greyhouse.net,
-	jesse@nicira.com
-To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44527 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755951Ab1EXPRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 11:17:33 -0400
-In-Reply-To: <4DDB5A3F.8050007@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v4] CDC NCM: release interfaces fix in unbind()
+Date: Tue, 24 May 2011 17:26:13 +0200
+Message-ID: <1306250773-9177-1-git-send-email-alexey.orishko@stericsson.com>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 05/24/2011 12:11 AM, Nicolas de Peslo=FCan wrote:
-> Le 24/05/2011 06:20, Ben Greear a =E9crit :
-> <snip>
->
->> Then I think we should put it back with pf_packet logic. Possibly wi=
-th
->> a per-socket option to disable this and send it as only aux data if =
-that
->> is more efficient.
->
-> Why would we need a per-socket option for that?
+Changes:
+- claim slave/data interface during bind() and release
+ interfaces in unbind() unconditionally
+- in case of error during bind(), release claimed data
+ interface in the same function
+- remove obsolited "*_claimed" entries from driver context
 
-I'd want the tag available at all times, but if it is a performance win=
- to
-put the tag in 'aux data', then a socket could opt for that method.  Ot=
-herwise,
-the tag should always be inline in the packet.
+Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c |   73 +++++++++++++++-----------------------------
+ 1 files changed, 25 insertions(+), 48 deletions(-)
 
->> If it turns out the NIC is not stripping VLAN tags for whatever reas=
-on,
->> we might be able to optimize things so that it never does the HW emu=
-lation
->> so that it never has to un-do it later.
->
-> It might be very tricky to avoid any do-undo-redo situation. I will l=
-atter try and describe all the possible situations: with/without hw-acc=
-el, with/without a
-> protocol handler registered on the parent interface, with/without a c=
-hild interface build on top of a particular parent interface and with t=
-he corresponding
-> VLAN ID...
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 4ab557d..cdd3ae4 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -54,7 +54,7 @@
+ #include <linux/usb/usbnet.h>
+ #include <linux/usb/cdc.h>
+ 
+-#define	DRIVER_VERSION				"06-May-2011"
++#define	DRIVER_VERSION				"24-May-2011"
+ 
+ /* CDC NCM subclass 3.2.1 */
+ #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
+@@ -134,8 +134,6 @@ struct cdc_ncm_ctx {
+ 	u16 tx_ndp_modulus;
+ 	u16 tx_seq;
+ 	u16 connected;
+-	u8 data_claimed;
+-	u8 control_claimed;
+ };
+ 
+ static void cdc_ncm_tx_timeout(unsigned long arg);
+@@ -460,17 +458,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
+ 
+ 	del_timer_sync(&ctx->tx_timer);
+ 
+-	if (ctx->data_claimed) {
+-		usb_set_intfdata(ctx->data, NULL);
+-		usb_driver_release_interface(driver_of(ctx->intf), ctx->data);
+-	}
+-
+-	if (ctx->control_claimed) {
+-		usb_set_intfdata(ctx->control, NULL);
+-		usb_driver_release_interface(driver_of(ctx->intf),
+-								ctx->control);
+-	}
+-
+ 	if (ctx->tx_rem_skb != NULL) {
+ 		dev_kfree_skb_any(ctx->tx_rem_skb);
+ 		ctx->tx_rem_skb = NULL;
+@@ -495,7 +482,7 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+ 
+ 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+ 	if (ctx == NULL)
+-		goto error;
++		return -ENODEV;
+ 
+ 	memset(ctx, 0, sizeof(*ctx));
+ 
+@@ -568,46 +555,36 @@ advance:
+ 
+ 	/* check if we got everything */
+ 	if ((ctx->control == NULL) || (ctx->data == NULL) ||
+-	    (ctx->ether_desc == NULL))
++	    (ctx->ether_desc == NULL) || (ctx->control != intf))
+ 		goto error;
+ 
+ 	/* claim interfaces, if any */
+-	if (ctx->data != intf) {
+-		temp = usb_driver_claim_interface(driver, ctx->data, dev);
+-		if (temp)
+-			goto error;
+-		ctx->data_claimed = 1;
+-	}
+-
+-	if (ctx->control != intf) {
+-		temp = usb_driver_claim_interface(driver, ctx->control, dev);
+-		if (temp)
+-			goto error;
+-		ctx->control_claimed = 1;
+-	}
++	temp = usb_driver_claim_interface(driver, ctx->data, dev);
++	if (temp)
++		goto error;
+ 
+ 	iface_no = ctx->data->cur_altsetting->desc.bInterfaceNumber;
+ 
+ 	/* reset data interface */
+ 	temp = usb_set_interface(dev->udev, iface_no, 0);
+ 	if (temp)
+-		goto error;
++		goto error2;
+ 
+ 	/* initialize data interface */
+ 	if (cdc_ncm_setup(ctx))
+-		goto error;
++		goto error2;
+ 
+ 	/* configure data interface */
+ 	temp = usb_set_interface(dev->udev, iface_no, 1);
+ 	if (temp)
+-		goto error;
++		goto error2;
+ 
+ 	cdc_ncm_find_endpoints(ctx, ctx->data);
+ 	cdc_ncm_find_endpoints(ctx, ctx->control);
+ 
+ 	if ((ctx->in_ep == NULL) || (ctx->out_ep == NULL) ||
+ 	    (ctx->status_ep == NULL))
+-		goto error;
++		goto error2;
+ 
+ 	dev->net->ethtool_ops = &cdc_ncm_ethtool_ops;
+ 
+@@ -617,7 +594,7 @@ advance:
+ 
+ 	temp = usbnet_get_ethernet_addr(dev, ctx->ether_desc->iMACAddress);
+ 	if (temp)
+-		goto error;
++		goto error2;
+ 
+ 	dev_info(&dev->udev->dev, "MAC-Address: "
+ 				"0x%02x:0x%02x:0x%02x:0x%02x:0x%02x:0x%02x\n",
+@@ -642,38 +619,38 @@ advance:
+ 	ctx->tx_speed = ctx->rx_speed = 0;
+ 	return 0;
+ 
++error2:
++	usb_set_intfdata(ctx->control, NULL);
++	usb_set_intfdata(ctx->data, NULL);
++	usb_driver_release_interface(driver, ctx->data);
+ error:
+ 	cdc_ncm_free((struct cdc_ncm_ctx *)dev->data[0]);
+ 	dev->data[0] = 0;
+-	dev_info(&dev->udev->dev, "Descriptor failure\n");
++	dev_info(&dev->udev->dev, "bind() failure\n");
+ 	return -ENODEV;
+ }
+ 
+ static void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
+-	struct usb_driver *driver;
++	struct usb_driver *driver = driver_of(intf);
+ 
+ 	if (ctx == NULL)
+ 		return;		/* no setup */
+ 
+-	driver = driver_of(intf);
+-
+-	usb_set_intfdata(ctx->data, NULL);
+-	usb_set_intfdata(ctx->control, NULL);
+-	usb_set_intfdata(ctx->intf, NULL);
+-
+-	/* release interfaces, if any */
+-	if (ctx->data_claimed) {
++	/* disconnect master --> disconnect slave */
++	if (intf == ctx->control && ctx->data) {
++		usb_set_intfdata(ctx->data, NULL);
+ 		usb_driver_release_interface(driver, ctx->data);
+-		ctx->data_claimed = 0;
+-	}
++		ctx->data = NULL;
+ 
+-	if (ctx->control_claimed) {
++	} else if (intf == ctx->data && ctx->control) {
++		usb_set_intfdata(ctx->control, NULL);
+ 		usb_driver_release_interface(driver, ctx->control);
+-		ctx->control_claimed = 0;
++		ctx->control = NULL;
+ 	}
+ 
++	usb_set_intfdata(ctx->intf, NULL);
+ 	cdc_ncm_free(ctx);
+ }
+ 
+-- 
+1.7.4.3
 
-You could optimize for some common cases, but leave fix-up code in plac=
-e to add/remove the
-tag properly before handing the packet to user-space, filters, etc.
-
-Thanks,
-Ben
-
->
-> Nicolas.
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
