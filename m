@@ -1,66 +1,103 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: build failure after merge of the final tree
-Date: Mon, 23 May 2011 19:51:51 -0700
-Message-ID: <20110524025151.GA26939@kroah.com>
-References: <20110520161816.dda6f1fd.sfr@canb.auug.org.au>
- <BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 03/15] ehea: Remove force_irq logic in napi poll routine
+Date: Tue, 24 May 2011 13:32:35 +1000
+Message-ID: <1306207955.7481.212.camel@pasglop>
+References: <20110512005213.897432612@samba.org>
+	 <20110512005622.766206152@samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Linus <torvalds@linux-foundation.org>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mel Gorman <mel@csn.ul.ie>, linux-mm@kvack.org,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	linux-fsdevel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Mike Frysinger <vapier.adi@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: leitao@linux.vnet.ibm.com, michael@ellerman.id.au,
+	jesse@kernel.org, bhutchings@solarflare.com, netdev@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:44045 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756501Ab1EXDhP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 May 2011 23:37:15 -0400
+In-Reply-To: <20110512005622.766206152@samba.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 23, 2011 at 10:06:40PM -0400, Mike Frysinger wrote:
-> On Fri, May 20, 2011 at 02:18, Stephen Rothwell wrote:
-> > Caused by commit e66eed651fd1 ("list: remove prefetching from regular list
-> > iterators").
-> >
-> > I added the following patch for today:
+On Thu, 2011-05-12 at 10:52 +1000, Anton Blanchard wrote:
+> plain text document attachment (ehea_3.patch)
+> commit 18604c548545 (ehea: NAPI multi queue TX/RX path for SMP) added
+> driver specific logic for exiting napi mode. I'm not sure what it was
+> trying to solve and it should be up to the network stack to decide when
+> we are done polling so remove it.
+
+I -think- the force_irq trick was meant to allow migration of the
+workload if the interrupt moved. IE. Without it, continuous traffic
+would cause NAPI to always happen on the same CPU, regardless of the
+affinity of the corresponding queue IRQ.
+
+I suspect all of that is obsoleted by the newer generic infrastructure.
+
+Cheers,
+Ben.
+
+> Signed-off-by: Anton Blanchard <anton@samba.org>
+> ---
 > 
-> probably should get added to whatever tree that commit is coming from
-> so we dont have bisect hell ?
+> Index: linux-net/drivers/net/ehea/ehea_main.c
+> ===================================================================
+> --- linux-net.orig/drivers/net/ehea/ehea_main.c	2011-05-12 07:47:49.640116670 +1000
+> +++ linux-net/drivers/net/ehea/ehea_main.c	2011-05-12 07:47:51.960153456 +1000
+> @@ -927,7 +927,6 @@ static struct ehea_cqe *ehea_proc_cqes(s
+>  	return cqe;
+>  }
+>  
+> -#define EHEA_NAPI_POLL_NUM_BEFORE_IRQ 16
+>  #define EHEA_POLL_MAX_CQES 65535
+>  
+>  static int ehea_poll(struct napi_struct *napi, int budget)
+> @@ -937,18 +936,13 @@ static int ehea_poll(struct napi_struct
+>  	struct net_device *dev = pr->port->netdev;
+>  	struct ehea_cqe *cqe;
+>  	struct ehea_cqe *cqe_skb = NULL;
+> -	int force_irq, wqe_index;
+> +	int wqe_index;
+>  	int rx = 0;
+>  
+> -	force_irq = (pr->poll_counter > EHEA_NAPI_POLL_NUM_BEFORE_IRQ);
+>  	cqe_skb = ehea_proc_cqes(pr, EHEA_POLL_MAX_CQES);
+> +	rx += ehea_proc_rwqes(dev, pr, budget - rx);
+>  
+> -	if (!force_irq)
+> -		rx += ehea_proc_rwqes(dev, pr, budget - rx);
+> -
+> -	while ((rx != budget) || force_irq) {
+> -		pr->poll_counter = 0;
+> -		force_irq = 0;
+> +	while ((rx != budget)) {
+>  		napi_complete(napi);
+>  		ehea_reset_cq_ep(pr->recv_cq);
+>  		ehea_reset_cq_ep(pr->send_cq);
+> @@ -968,7 +962,6 @@ static int ehea_poll(struct napi_struct
+>  		rx += ehea_proc_rwqes(dev, pr, budget - rx);
+>  	}
+>  
+> -	pr->poll_counter++;
+>  	return rx;
+>  }
+>  
+> Index: linux-net/drivers/net/ehea/ehea.h
+> ===================================================================
+> --- linux-net.orig/drivers/net/ehea/ehea.h	2011-05-12 07:47:49.640116670 +1000
+> +++ linux-net/drivers/net/ehea/ehea.h	2011-05-12 07:47:51.960153456 +1000
+> @@ -383,7 +383,6 @@ struct ehea_port_res {
+>  	u64 tx_bytes;
+>  	u64 rx_packets;
+>  	u64 rx_bytes;
+> -	u32 poll_counter;
+>  	struct net_lro_mgr lro_mgr;
+>  	struct net_lro_desc lro_desc[MAX_LRO_DESCRIPTORS];
+>  	int sq_restart_flag;
 > 
-> more failures:
-> drivers/usb/host/isp1362-hcd.c: In function 'isp1362_write_ptd':
-> drivers/usb/host/isp1362-hcd.c:355: error: implicit declaration of
-> function 'prefetch'
-> drivers/usb/host/isp1362-hcd.c: In function 'isp1362_read_ptd':
-> drivers/usb/host/isp1362-hcd.c:377: error: implicit declaration of
-> function 'prefetchw'
-> make[3]: *** [drivers/usb/host/isp1362-hcd.o] Error 1
 > 
-> drivers/usb/musb/musb_core.c: In function 'musb_write_fifo':
-> drivers/usb/musb/musb_core.c:219: error: implicit declaration of
-> function 'prefetch'
-> make[3]: *** [drivers/usb/musb/musb_core.o] Error 1
-> 
-> although it seems like it should be fairly trivial to look at the
-> funcs in linux/prefetch.h, grep the tree, and find a pretty good list
-> of the files that are missing the include
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-How did this not show up in linux-next?  Where did the patch that caused
-this show up from?
 
-totally confused,
-
-greg k-h
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
