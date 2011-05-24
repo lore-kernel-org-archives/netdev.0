@@ -1,46 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Tue, 24 May 2011 01:19:42 -0400 (EDT)
-Message-ID: <20110524.011942.393855175233217324.davem@davemloft.net>
-References: <20110523140048.777fb378@nehalam>
-	<20110523.172047.1438754754048434316.davem@davemloft.net>
-	<m1y61x2htp.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43271 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751283Ab1EXFVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 01:21:15 -0400
-In-Reply-To: <m1y61x2htp.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: [PATCH v2]net:8021q:vlan.c Fix pr_info to just give the vlan fullname and version.
+Date: Mon, 23 May 2011 22:40:47 -0700
+Message-ID: <1306215647-2857-1-git-send-email-justinmattock@gmail.com>
+Cc: linux-kernel@vger.kernel.org,
+	"Justin P. Mattock" <justinmattock@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 23 May 2011 15:05:54 -0700
+The below patch removes vlan_buggyright and vlan_copyright from vlan_proto_init, 
+so that it prints out just the fullname of vlan and the version number.
 
-> 3) What do we do with pf_packet and vlan hardware acceleration when
->    dumping not the vlan interface but the interface below the vlan
->    interface?
-> 
->    Do we provide an option to keep the vlan header?  Should that option
->    be on by default?
-> 
+before:
 
-The vlan_tci in the V2 pf_packet auxdata was intended for this
-purpose.
+[   30.438203] 802.1Q VLAN Support v1.8 Ben Greear <greearb@candelatech.com>
+[   30.441542] All bugs added by David S. Miller <davem@redhat.com>
 
-So no matter what variant of behavior is occurring, apps can properly
-reconstitute the VLAN header if they inspect the vlan_tci in the
-auxdata.
+after:
 
-The only thing that seems to be missing is an indication that a VLAN
-tag was present at all, ie. vlan_tx_tag_present(), in this manner an
-application could then differentiate between no VLAN header and a VLAN
-tag of zero.
+[   31.513910] 802.1Q VLAN Support v1.8
+
+Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+CC: Joe Perches <joe@perches.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Ben Greear <greearb@candelatech.com>
+---
+ net/8021q/vlan.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index b2274d1..9df3fcb 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -673,8 +673,7 @@ static int __init vlan_proto_init(void)
+ {
+ 	int err;
+ 
+-	pr_info("%s v%s %s\n", vlan_fullname, vlan_version, vlan_copyright);
+-	pr_info("All bugs added by %s\n", vlan_buggyright);
++	pr_info("%s v%s\n", vlan_fullname, vlan_version);
+ 
+ 	err = register_pernet_subsys(&vlan_net_ops);
+ 	if (err < 0)
+-- 
+1.7.5.1
