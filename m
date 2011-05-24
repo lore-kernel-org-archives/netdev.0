@@ -1,70 +1,74 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Tue, 24 May 2011 07:43:55 -0700
-Message-ID: <20110524074355.422e12f9@nehalam>
-References: <1306220681.2638.40.camel@edumazet-laptop>
-	<1306222507.2298.23.camel@Joe-Laptop>
-	<1306223101.2638.43.camel@edumazet-laptop>
-	<20110524.035801.1555795213632087107.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [RFC Patch] bonding: move to net/ directory
+Date: Tue, 24 May 2011 11:03:40 -0400
+Message-ID: <20110524150340.GH21309@gospo.rdu.redhat.com>
+References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com> <20110523151336.GF21309@gospo.rdu.redhat.com> <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, joe@perches.com, mingo@elte.hu,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
-	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
-	kees.cook@canonical.com, tgraf@infradead.org
-To: David Miller <davem@davemloft.net>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36778 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54087 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932842Ab1EXOn6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 10:43:58 -0400
-In-Reply-To: <20110524.035801.1555795213632087107.davem@davemloft.net>
+	id S1752841Ab1EXPD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 May 2011 11:03:57 -0400
+Content-Disposition: inline
+In-Reply-To: <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 May 2011 03:58:01 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 24 May 2011 09:45:01 +0200
+On Tue, May 24, 2011 at 10:00:23PM +0800, Am=E9rico Wang wrote:
+> On Mon, May 23, 2011 at 11:13 PM, Andy Gospodarek <andy@greyhouse.net=
+> wrote:
+> > On Mon, May 23, 2011 at 08:45:14PM +0800, Am=E9rico Wang wrote:
+> >> Hello, Jay, Andy,
+> >>
+> >> Is there any peculiar reason that bonding code has to stay
+> >> in drivers/net/ directory?
+> >>
+> >> Since bonding and bridge are somewhat similar, both of
+> >> which are used to "bond" two or more devices into one,
+> >> and bridge code is already in net/bridge/, so I think it also
+> >> makes sense to move bonding code into net/bonding/ too.
+> >>
+> >> This could also help to grep the source more easily. :)
+> >>
+> >> What do you think about the patch below?
+> >> (Note, this patch is against net-next-2.6.)
+> >>
+> >
+> > I would rather keep the code for bonding in drivers/net since it is
+> > really a pure device (though not directly tied to any specific
+> > hardware) rather than a device + forwarding or management code.
 >=20
-> > Le mardi 24 mai 2011 =C3=A0 00:35 -0700, Joe Perches a =C3=A9crit :
-> >=20
-> >> I think it's be better without the casts
-> >> using the standard kernel.h macros.
-> >>=20
-> >> 	void *ptr;
-> >>=20
-> >> 	ptr =3D maybe_hide_ptr(sk);
-> >> 	r->id.idiag_cookie[0] =3D lower_32_bits(ptr);
-> >> 	r->id.idiag_cookie[1] =3D upper_32_bits(ptr);
-> >>=20
-> >=20
-> > I am not sure I want to patch lower_32_bits() and upper_32_bits() f=
-or
-> > this.
-> >=20
-> > They dont work on pointers, but on "numbers", according to kerneldo=
-c
-> > Andrew wrote years ago. gcc agrees :
-> >=20
-> > net/ipv4/inet_diag.c: In function =E2=80=98inet_csk_diag_fill=E2=80=
-=99:
-> > net/ipv4/inet_diag.c:119: warning: cast from pointer to integer of =
-different size
-> > net/ipv4/inet_diag.c:120: error: invalid operands to binary >>
-> > make[1]: *** [net/ipv4/inet_diag.o] Error 1
+> Is this a reason strong enough to leave it to drivers/net/ ?
+> I think it is generic enough to be moved to net/ directory... :-/
 >=20
-> Also you can't do this, the "cookie" is used by the kernel future
-> lookups to find sockets.
+
+I think the distinction is an important one and is one of the main
+reasons why I would like to see bonding stay in drivers/net.
+
+> >
+> > It has bothered me for a long time that the code just to manage the=
+ VLAN
+> > and bridge devices sits outside of drivers/net, but I've never prop=
+osed
+> > a patch to move the files as I suspect the maintainers of that code
+> > would like to keep it all together. =A0Maybe it is time to do that.
+> >
 >=20
-> The kernel pointer is part of the API, so sorry you can't "hide"
-> kernel pointers in this case without really breaking user visible
-> things.
-> [Error decoding BASE64]
+> You mean move net/8021q/ to drivers/net/8021q/ ?
+>=20
 
-Couldn't the pointer be replaced by a socket index?
+No.  I'm talking about the parts in the bridging and vlan code that
+specifically setup devices, not all of the code.  I would be happier
+if code that created objects of type net_device_ops all lived in
+drivers/net.  Then all the drivers (real, stacked, or virtual) are in
+the same place.
 
---=20
+It has not bothered me enough to consider posting patches, but you
+should consider it if it bothers you.
