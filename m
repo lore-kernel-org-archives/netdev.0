@@ -1,27 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: hash key for rss-config cmd not set
-Date: Tue, 24 May 2011 02:22:15 -0400 (EDT)
-Message-ID: <20110524.022215.946015223749758733.davem@davemloft.net>
-References: <249a7eac-6aa7-481d-b7b0-a2a3b144963f@exht1.ad.emulex.com>
-	<20110523.155206.345121915872826257.davem@davemloft.net>
-	<3367B80B08154D42A3B2BC708B5D41F63CC4DA8EC4@EXMAIL.ad.emulex.com>
+Subject: Re: [PATCH] vlan: Fix the b0rked ingress VLAN_FLAG_REORDER_HDR
+ check.
+Date: Tue, 24 May 2011 02:24:06 -0400 (EDT)
+Message-ID: <20110524.022406.2228892895515155850.davem@davemloft.net>
+References: <m1oc2tyn20.fsf_-_@fess.ebiederm.org>
+	<20110524.005414.2103486595611055177.davem@davemloft.net>
+	<m1aaectyed.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sathya.Perla@Emulex.Com
+Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
+	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59158 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33904 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751697Ab1EXGWR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 02:22:17 -0400
-In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F63CC4DA8EC4@EXMAIL.ad.emulex.com>
+	with ESMTP id S1751697Ab1EXGZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 02:25:35 -0400
+In-Reply-To: <m1aaectyed.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Sathya.Perla@Emulex.Com>
-Date: Mon, 23 May 2011 22:46:48 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 23 May 2011 23:18:02 -0700
 
-> Pls let me know if you want me to re-send the patch with a more-descriptive changelog...
+> Feel free to read through the code, to convince yourself it is correct.
+> In addition the code is untouched from the vlan header insertion for
+> emulation of vlan header acceleration in dev_hard_start_xmit() which
+> presumably has been working for quite awhile.
 
-Yes, I do.
+I'm not keeping code there that does eth_hdr(skb)->foo when there
+can be either a vlan_hdr(skb) or a eth_hdr(skb) there.
+
+That's just asking for trouble.
