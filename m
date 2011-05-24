@@ -1,56 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Tue, 24 May 2011 09:45:01 +0200
-Message-ID: <1306223101.2638.43.camel@edumazet-laptop>
-References: <201105232217.p4NMHZiC015498@imap1.linux-foundation.org>
-	 <20110524.011330.1077020828173889583.davem@davemloft.net>
-	 <1306217837.2638.36.camel@edumazet-laptop>
-	 <1306218793.2298.10.camel@Joe-Laptop>  <20110524065715.GB12816@elte.hu>
-	 <1306220681.2638.40.camel@edumazet-laptop>
-	 <1306222507.2298.23.camel@Joe-Laptop>
+From: Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCHv2 10/14] virtio_net: limit xmit polling
+Date: Tue, 24 May 2011 13:24:15 +0530
+Message-ID: <OFEED174CD.D3C9A726-ON6525789A.002661D5-6525789A.002B26ED@in.ibm.com>
+References: <cover.1305846412.git.mst@redhat.com>
+	<aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst@redhat.com>
+	<877h9kvlps.fsf@rustcorp.com.au>
+	<20110522121008.GA12155@redhat.com>
+	<87boyutbjg.fsf@rustcorp.com.au>
+	<20110523111900.GB27212@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
-	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
-	kees.cook@canonical.com, tgraf@infradead.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:35284 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754089Ab1EXHpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:45:07 -0400
-Received: by wwa36 with SMTP id 36so7017243wwa.1
-        for <netdev@vger.kernel.org>; Tue, 24 May 2011 00:45:06 -0700 (PDT)
-In-Reply-To: <1306222507.2298.23.camel@Joe-Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20110523111900.GB27212-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 24 mai 2011 =C3=A0 00:35 -0700, Joe Perches a =C3=A9crit :
+"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote on 05/23/2011 04:49:00 PM:
 
-> I think it's be better without the casts
-> using the standard kernel.h macros.
->=20
-> 	void *ptr;
->=20
-> 	ptr =3D maybe_hide_ptr(sk);
-> 	r->id.idiag_cookie[0] =3D lower_32_bits(ptr);
-> 	r->id.idiag_cookie[1] =3D upper_32_bits(ptr);
->=20
+> > To do this properly, we should really be using the actual number of sg
+> > elements needed, but we'd have to do most of xmit_skb beforehand so we
+> > know how many.
+> >
+> > Cheers,
+> > Rusty.
+>
+> Maybe I'm confused here.  The problem isn't the failing
+> add_buf for the given skb IIUC.  What we are trying to do here is stop
+> the queue *before xmit_skb fails*. We can't look at the
+> number of fragments in the current skb - the next one can be
+> much larger.  That's why we check capacity after xmit_skb,
+> not before it, right?
 
-I am not sure I want to patch lower_32_bits() and upper_32_bits() for
-this.
+Maybe Rusty means it is a simpler model to free the amount
+of space that this xmit needs. We will still fail anyway
+at some time but it is unlikely, since earlier iteration
+freed up atleast the space that it was going to use. The
+code could become much simpler:
 
-They dont work on pointers, but on "numbers", according to kerneldoc
-Andrew wrote years ago. gcc agrees :
+start_xmit()
+{
+{
+        num_sgs = get num_sgs for this skb;
 
-net/ipv4/inet_diag.c: In function =E2=80=98inet_csk_diag_fill=E2=80=99:
-net/ipv4/inet_diag.c:119: warning: cast from pointer to integer of diff=
-erent size
-net/ipv4/inet_diag.c:120: error: invalid operands to binary >>
-make[1]: *** [net/ipv4/inet_diag.o] Error 1
+        /* Free enough pending old buffers to enable queueing this one */
+        free_old_xmit_skbs(vi, num_sgs * 2);     /* ?? */
 
+        if (virtqueue_get_capacity() < num_sgs) {
+                netif_stop_queue(dev);
+                if (virtqueue_enable_cb_delayed(vi->svq) ||
+                    free_old_xmit_skbs(vi, num_sgs)) {
+                        /* Nothing freed up, or not enough freed up */
+                        kfree_skb(skb);
+                        return NETDEV_TX_OK;
+                }
+                netif_start_queue(dev);
+                virtqueue_disable_cb(vi->svq);
+        }
 
+        /* xmit_skb cannot fail now, also pass 'num_sgs' */
+        xmit_skb(vi, skb, num_sgs);
+        virtqueue_kick(vi->svq);
 
+        skb_orphan(skb);
+        nf_reset(skb);
+
+        return NETDEV_TX_OK;
+}
+
+We could even return TX_BUSY since that makes the dequeue
+code more efficient. See dev_dequeue_skb() - you can skip a
+lot of code (and avoid taking locks) to check if the queue
+is already stopped but that code runs only if you return
+TX_BUSY in the earlier iteration.
+
+BTW, shouldn't the check in start_xmit be:
+	if (likely(!free_old_xmit_skbs(vi, 2+MAX_SKB_FRAGS))) {
+		...
+	}
+
+Thanks,
+
+- KK
