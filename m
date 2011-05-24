@@ -1,55 +1,57 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
-Date: Tue, 24 May 2011 09:19:55 +0200
-Message-ID: <4DDB5C1B.9000207@gmail.com>
-References: <m1ei3qjzix.fsf_-_@fess.ebiederm.org> <4DD97A44.2020708@candelatech.com> <m1wrhigy37.fsf@fess.ebiederm.org> <BANLkTinXFYzzj3R97mKH-90xM64BDwN8aA@mail.gmail.com> <BANLkTik6etR8V1qeDnYBKt6BaODBe8kUOw@mail.gmail.com> <m1ei3qdwa6.fsf@fess.ebiederm.org> <BANLkTi=BN6Aza7eU=D+WqJgVsVuswT5PDg@mail.gmail.com> <m139k57nzx.fsf@fess.ebiederm.org> <20110523104339.GA2769@psychotron> <4DDAB9FC.8050207@gmail.com> <20110524055836.GA2955@psychotron>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
+Date: Tue, 24 May 2011 11:26:21 +0400
+Message-ID: <1306221981.10201.8.camel@mulgrave.site>
+References: <m11uzrvd26.fsf@fess.ebiederm.org>
+	 <BANLkTim4q5dK6nOb=pVKbk1c8b-Nh_hBfA@mail.gmail.com>
+	 <m1boyvpo9r.fsf@fess.ebiederm.org> <1306048393.4092.8.camel@mulgrave.site>
+	 <20110522084224.GA12279@elte.hu>  <m1k4dgr35i.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net,
-	Jesse Gross <jesse@nicira.com>
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57954 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753359Ab1EXHT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 03:19:57 -0400
-Received: by wwa36 with SMTP id 36so6996408wwa.1
-        for <netdev@vger.kernel.org>; Tue, 24 May 2011 00:19:56 -0700 (PDT)
-In-Reply-To: <20110524055836.GA2955@psychotron>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1k4dgr35i.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 24/05/2011 07:58, Jiri Pirko a =E9crit :
-<snip>
+On Tue, 2011-05-24 at 00:03 -0700, Eric W. Biederman wrote:
+> Ingo Molnar <mingo@elte.hu> writes:
+> 
+> > I agree with Linus's notion in this thread though, a core kernel change should 
+> > generally not worry about hooking up rare-arch system calls (concentrate on the 
+> > architectures that get tested most) - those are better enabled gradually 
+> > anyway.
+> 
+> The way I read it he was complaining about my having parisc bits and
+> asking for my branch to be merged before the parisc bits had been
+> merged.  Which I credit as a fair complaint.  If I am going to depend on
+> other peoples trees I should wait.
+> 
+> At the same time when I am busy looking for every possible source of
+> trouble and putting code into net-next to detect pending conflicts,
+> and when maintainers complain when I ask for review that my patches
+> conflict with their patches.  Being a contentious developer I am
+> inclined to do something.
 
->>> Btw what's the rationale to move untag to earlier position?
->>
->> Maybe simply because we try to mimic hw-accel, and hw-accel untaggin=
-g
->> definitely happens before we enter __netif_receive_skb and only
->> happens once.
->>
->> So having software untagging inside the __netif_receive_skb loop loo=
-ks different.
->
-> I understand. But what code prior to current vlan_untag position need=
-s
-> to see the skb untagged?
+Right ... and the problem is that someone has to care, because the
+conflict will show up in linux-next.  I think Stephen Rothwell would
+appreciate us making his life easier rather than leaving it to him to
+sort out the problems.
 
-Any protocol handlers (ptype_all or ptype_base) registered on the paren=
-t interface may need to see=20
-the skb untagged, for all the reasons given in this thread. Arguably, d=
-oing software untagging=20
-earlier wouldn't help. :-) We need a strong logic to decide whether and=
- when to untag and/or=20
-possibly re-tag.
+> Now that the reality has sunk in that it means waiting for other peoples
+> code to be merged before I request for my changes to be merged I don't
+> think I will structure a tree that way again while I remember.
 
-	Nicolas.
+Right.   This is quite a common occurrence in SCSI (mostly changes
+entangled with block or libata).  If you don't feel comfortable running
+a postmerge tree, just send me the bits and I'll do it (after all it
+works either way around: I can pull in the syscalls and depend on your
+tree rather than vice versa).
+
+James
