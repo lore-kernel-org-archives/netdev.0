@@ -1,52 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Tue, 24 May 2011 01:13:30 -0400 (EDT)
-Message-ID: <20110524.011330.1077020828173889583.davem@davemloft.net>
-References: <201105232217.p4NMHZiC015498@imap1.linux-foundation.org>
+Subject: Re: [PATCH 1/3] vlan: Do not support clearing VLAN_FLAG_REORDER_HDR
+Date: Tue, 24 May 2011 01:19:42 -0400 (EDT)
+Message-ID: <20110524.011942.393855175233217324.davem@davemloft.net>
+References: <20110523140048.777fb378@nehalam>
+	<20110523.172047.1438754754048434316.davem@davemloft.net>
+	<m1y61x2htp.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, drosenberg@vsecurity.com,
-	a.p.zijlstra@chello.nl, eparis@parisplace.org,
-	eric.dumazet@gmail.com, eugeneteo@kernel.org, jmorris@namei.org,
-	kees.cook@canonical.com, mingo@elte.hu, tgraf@infradead.org
-To: akpm@linux-foundation.org
+Cc: shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, jpirko@redhat.com, xiaosuo@gmail.com,
+	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47035 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43271 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469Ab1EXFRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 01:17:22 -0400
-In-Reply-To: <201105232217.p4NMHZiC015498@imap1.linux-foundation.org>
+	with ESMTP id S1751283Ab1EXFVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 01:21:15 -0400
+In-Reply-To: <m1y61x2htp.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Mon, 23 May 2011 15:17:35 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 23 May 2011 15:05:54 -0700
 
-> From: Dan Rosenberg <drosenberg@vsecurity.com>
+> 3) What do we do with pf_packet and vlan hardware acceleration when
+>    dumping not the vlan interface but the interface below the vlan
+>    interface?
 > 
-> The %pK format specifier is designed to hide exposed kernel pointers,
-> specifically via /proc interfaces.  Exposing these pointers provides an
-> easy target for kernel write vulnerabilities, since they reveal the
-> locations of writable structures containing easily triggerable function
-> pointers.  The behavior of %pK depends on the kptr_restrict sysctl.
+>    Do we provide an option to keep the vlan header?  Should that option
+>    be on by default?
 > 
-> If kptr_restrict is set to 0, no deviation from the standard %p behavior
-> occurs.  If kptr_restrict is set to 1, the default, if the current user
-> (intended to be a reader via seq_printf(), etc.) does not have CAP_SYSLOG
-> (currently in the LSM tree), kernel pointers using %pK are printed as 0's.
->  If kptr_restrict is set to 2, kernel pointers using %pK are printed as
-> 0's regardless of privileges.  Replacing with 0's was chosen over the
-> default "(null)", which cannot be parsed by userland %p, which expects
-> "(nil)".
-> 
-> The supporting code for kptr_restrict and %pK are currently in the -mm
-> tree.  This patch converts users of %p in net/ to %pK.  Cases of printing
-> pointers to the syslog are not covered, since this would eliminate useful
-> information for postmortem debugging and the reading of the syslog is
-> already optionally protected by the dmesg_restrict sysctl.
-> 
-> Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Applied.
+The vlan_tci in the V2 pf_packet auxdata was intended for this
+purpose.
+
+So no matter what variant of behavior is occurring, apps can properly
+reconstitute the VLAN header if they inspect the vlan_tci in the
+auxdata.
+
+The only thing that seems to be missing is an indication that a VLAN
+tag was present at all, ie. vlan_tx_tag_present(), in this manner an
+application could then differentiate between no VLAN header and a VLAN
+tag of zero.
