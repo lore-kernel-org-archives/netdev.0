@@ -1,90 +1,86 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [RFC 01/01]af_packet: Enhance network capture visibility
-Date: Wed, 25 May 2011 19:24:21 -0400
-Message-ID: <BANLkTim8WXiSEc2_KJVULKz4iVQO7yxt5A@mail.gmail.com>
-References: <BANLkTimYVUkUWA2XPix2nUL-=rnQKghZQA@mail.gmail.com>
-	<4DDD8C5E.7040207@candelatech.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 35862] New: arp requests from wrong src IP
+Date: Wed, 25 May 2011 16:31:37 -0700
+Message-ID: <20110525163137.6f04f26e.akpm@linux-foundation.org>
+References: <bug-35862-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, loke.chetan@gmail.com
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, matare@lih.rwth-aachen.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f173.google.com ([209.85.212.173]:55717 "EHLO
-	mail-px0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754028Ab1EYXYW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:24:22 -0400
-Received: by pxi16 with SMTP id 16so94624pxi.4
-        for <netdev@vger.kernel.org>; Wed, 25 May 2011 16:24:21 -0700 (PDT)
-In-Reply-To: <4DDD8C5E.7040207@candelatech.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38169 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754156Ab1EYXcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:32:05 -0400
+In-Reply-To: <bug-35862-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 25, 2011 at 7:10 PM, Ben Greear <greearb@candelatech.com> w=
-rote:
-> On 05/25/2011 04:03 PM, chetan loke wrote:
->>
->> This patch is not complete and is intended to:
->> a) demonstrate the improvments
->> b) gather suggestions
->>
->>
->> Signed-off-by: Chetan Loke<lokec@ccs.neu.edu>
->
->> +struct tpacket3_hdr {
->> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_status;
->> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_len;
->> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_snaplen;
->> + =A0 =A0 =A0 __u16 =A0 =A0 =A0 =A0 =A0 tp_mac;
->> + =A0 =A0 =A0 __u16 =A0 =A0 =A0 =A0 =A0 tp_net;
->> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_sec;
->> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_nsec;
->> + =A0 =A0 =A0 __u16 =A0 =A0 =A0 =A0 =A0 tp_vlan_tci;
->> + =A0 =A0 =A0 long =A0 =A0 =A0 =A0 =A0 =A0tp_next_offset;
->> +};
->
-> Use fixed-size variables, like __u64 instead of 'long'. =A0That way,
-> you have the same sized msgs on 32 and 64-bit systems.
->
 
-Thanks Ben.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
+On Wed, 25 May 2011 23:27:48 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-The intent is to also introduce something like
+> https://bugzilla.kernel.org/show_bug.cgi?id=35862
+> 
+>            Summary: arp requests from wrong src IP
+>            Product: Networking
+>            Version: 2.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: matare@lih.rwth-aachen.de
+>         Regression: No
+> 
+> 
+> I switched a host's ip address from 137.226.164.13 to 137.226.164.2. The .13 IP
+> now belongs to the host that had .2 before (I swapped them). Now both hosts
+> still arp from their old IPs although ifconfig as well as ip clearly tell
+> otherwise. Examining the host which now has 137.226.164.13:
+> 
+> # ip addr show dev eth0
+> 4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
+>     link/ether 00:e0:81:41:1f:e4 brd ff:ff:ff:ff:ff:ff
+>     inet 137.226.164.2/24 brd 137.226.164.255 scope global eth0
+>     inet 192.168.23.2/24 brd 137.226.164.255 scope global eth0:0
+> 
+> but arping defaults to the old src IP (.13). I can manually correct this with
+> the -s parameter, but it looks like linux still believes that 137.226.164.13 is
+> this host's ip address. When I try to manually correct the arp table:
+> # arp -s 137.226.164.13 00:30:48:70:91:95
+> SIOCSARP: Invalid argument
+> # arp -n 137.226.164.13
+> 137.226.164.13 (137.226.164.13) -- no entry
+> 
+> And this is what arping does:
+> # tcpdump -ieth0 -c1 -s0 -vvv -n arp & (sleep 1; arping 137.226.164.13 &>
+> /dev/null)
+> [1] 2217
+> tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 65535
+> bytes
+> 01:14:37.785126 arp who-has 137.226.164.13 (ff:ff:ff:ff:ff:ff) tell
+> 137.226.164.13
+> 
+> Also, ifconfig doesn't even show the second IP address:
+> # ifconfig eth0
+> eth0      Link encap:Ethernet  HWaddr 00:e0:81:41:1f:e4  
+>           inet addr:137.226.164.2  Bcast:137.226.164.255  Mask:255.255.255.0
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:103996345 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:122352625 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000 
+>           RX bytes:52478932087 (48.8 GiB)  TX bytes:110248931949 (102.6 GiB)
+>           Interrupt:24
+> 
+> What's going on here? If this is by design, it's very unintuitive behaviour.
+> 
 
-typedef struct {
-		uint64_t pkt_sliced:1;
-		uint64_t crc_error:1;
-		uint64_t code_violation:1; /* if frame had code violation */
-		uint64_t num_mpls_labels:4;
-		uint64_t num_vlans:3;
-		uint64_t l2_type:6;
-		uint64_t l3_type:4;
-		uint64_t l4_type:4;
-		uint64_t l7_type:8;
-		uint64_t rsvd:32;
-}feature_s1;
-
-typedef struct {
-	union {
-		feature_s1 f_s1;
-               /* future feature goes here */
-	}u1;
-}feature_variants;
-
-And then embed feature_variants in the pkt_desc.
-
-
-Once we have the proposed non-static frame format in place then I am
-hoping some vendor can borrow this format, enhance their capture
-driver and DMA the data directly in the block. This way we can also
-attempt to standardize the block-capture format on linux and make it
-easier for smaller FPGA shops.
-
-
->
-> Thanks,
-> Ben
->
-
-Chetan
