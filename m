@@ -1,7 +1,7 @@
 From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
 Subject: Re: [PATCHv2 10/14] virtio_net: limit xmit polling
-Date: Wed, 25 May 2011 11:05:04 +0930
-Message-ID: <8739k3k1fb.fsf@rustcorp.com.au>
+Date: Wed, 25 May 2011 10:58:26 +0930
+Message-ID: <8762ozk1qd.fsf@rustcorp.com.au>
 References: <cover.1305846412.git.mst@redhat.com>
 	<aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst@redhat.com>
 	<877h9kvlps.fsf@rustcorp.com.au>
@@ -35,17 +35,51 @@ Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gm
 List-Id: netdev.vger.kernel.org
 
 On Mon, 23 May 2011 14:19:00 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Mon, May 23, 2011 at 11:37:15AM +0930, Rusty Russell wrote:
+> > Can we hit problems with OOM?  Sure, but no worse than now...
+> > The problem is that this "virtqueue_get_capacity()" returns the worst
+> > case, not the normal case.  So using it is deceptive.
+> > 
+> 
+> Maybe just document this?
+
+Yes, but also by renaming virtqueue_get_capacity().  Takes it from a 3
+to a 6 on the API hard-to-misuse scale.
+
+How about, virtqueue_min_capacity()?  Makes the reader realize something
+weird is going on.
+
+> I still believe capacity really needs to be decided
+> at the virtqueue level, not in the driver.
+> E.g. with indirect each skb uses a single entry: freeing
+> 1 small skb is always enough to have space for a large one.
+> 
 > I do understand how it seems a waste to leave direct space
 > in the ring while we might in practice have space
 > due to indirect. Didn't come up with a nice way to
 > solve this yet - but 'no worse than now :)'
 
-Let's just make it "bool free_old_xmit_skbs(unsigned int max)".  max ==
-2 for the normal xmit path, so we're low latency but we keep ahead on
-average.  max == -1 for the "we're out of capacity, we may have to stop
-the queue".
+Agreed.
 
-That keeps it simple and probably the right thing...
+> > > I just wanted to localize the 2+MAX_SKB_FRAGS logic that tries to make
+> > > sure we have enough space in the buffer. Another way to do
+> > > that is with a define :).
+> > 
+> > To do this properly, we should really be using the actual number of sg
+> > elements needed, but we'd have to do most of xmit_skb beforehand so we
+> > know how many.
+> > 
+> > Cheers,
+> > Rusty.
+> 
+> Maybe I'm confused here.  The problem isn't the failing
+> add_buf for the given skb IIUC.  What we are trying to do here is stop
+> the queue *before xmit_skb fails*. We can't look at the
+> number of fragments in the current skb - the next one can be
+> much larger.  That's why we check capacity after xmit_skb,
+> not before it, right?
+
+No, I was confused...  More coffee!
 
 Thanks,
 Rusty.
