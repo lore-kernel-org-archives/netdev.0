@@ -1,123 +1,90 @@
-From: greearb@candelatech.com
-Subject: [PATCH] af-packet:  Use existing netdev reference for bound sockets.
-Date: Wed, 25 May 2011 16:15:32 -0700
-Message-ID: <1306365332-12105-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [RFC 01/01]af_packet: Enhance network capture visibility
+Date: Wed, 25 May 2011 19:24:21 -0400
+Message-ID: <BANLkTim8WXiSEc2_KJVULKz4iVQO7yxt5A@mail.gmail.com>
+References: <BANLkTimYVUkUWA2XPix2nUL-=rnQKghZQA@mail.gmail.com>
+	<4DDD8C5E.7040207@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, loke.chetan@gmail.com
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:50278 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752194Ab1EYXPh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:15:37 -0400
+Received: from mail-px0-f173.google.com ([209.85.212.173]:55717 "EHLO
+	mail-px0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754028Ab1EYXYW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:24:22 -0400
+Received: by pxi16 with SMTP id 16so94624pxi.4
+        for <netdev@vger.kernel.org>; Wed, 25 May 2011 16:24:21 -0700 (PDT)
+In-Reply-To: <4DDD8C5E.7040207@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+On Wed, May 25, 2011 at 7:10 PM, Ben Greear <greearb@candelatech.com> w=
+rote:
+> On 05/25/2011 04:03 PM, chetan loke wrote:
+>>
+>> This patch is not complete and is intended to:
+>> a) demonstrate the improvments
+>> b) gather suggestions
+>>
+>>
+>> Signed-off-by: Chetan Loke<lokec@ccs.neu.edu>
+>
+>> +struct tpacket3_hdr {
+>> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_status;
+>> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_len;
+>> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_snaplen;
+>> + =A0 =A0 =A0 __u16 =A0 =A0 =A0 =A0 =A0 tp_mac;
+>> + =A0 =A0 =A0 __u16 =A0 =A0 =A0 =A0 =A0 tp_net;
+>> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_sec;
+>> + =A0 =A0 =A0 __u32 =A0 =A0 =A0 =A0 =A0 tp_nsec;
+>> + =A0 =A0 =A0 __u16 =A0 =A0 =A0 =A0 =A0 tp_vlan_tci;
+>> + =A0 =A0 =A0 long =A0 =A0 =A0 =A0 =A0 =A0tp_next_offset;
+>> +};
+>
+> Use fixed-size variables, like __u64 instead of 'long'. =A0That way,
+> you have the same sized msgs on 32 and 64-bit systems.
+>
 
-This saves a network device lookup on each packet transmitted,
-for sockets that are bound to a network device.
+Thanks Ben.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 4005b24... 658edd1... M	net/packet/af_packet.c
- net/packet/af_packet.c |   26 +++++++++++++++++++-------
- 1 files changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 4005b24..658edd1 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -987,8 +987,9 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- {
- 	struct sk_buff *skb;
--	struct net_device *dev;
-+	struct net_device *dev = NULL;
- 	__be16 proto;
-+	bool need_rls_dev = false;
- 	int ifindex, err, reserve = 0;
- 	void *ph;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
-@@ -1002,6 +1003,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	err = -EBUSY;
- 	if (saddr == NULL) {
- 		ifindex	= po->ifindex;
-+		dev = po->prot_hook.dev;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -1017,7 +1019,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 		addr	= saddr->sll_addr;
- 	}
- 
--	dev = dev_get_by_index(sock_net(&po->sk), ifindex);
-+	if (!dev) {
-+		dev = dev_get_by_index(sock_net(&po->sk), ifindex);
-+		need_rls_dev = true;
-+	}
- 	err = -ENXIO;
- 	if (unlikely(dev == NULL))
- 		goto out;
-@@ -1103,7 +1108,8 @@ out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
- out_put:
--	dev_put(dev);
-+	if (need_rls_dev)
-+		dev_put(dev);
- out:
- 	mutex_unlock(&po->pg_vec_lock);
- 	return err;
-@@ -1139,8 +1145,9 @@ static int packet_snd(struct socket *sock,
- 	struct sock *sk = sock->sk;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
- 	struct sk_buff *skb;
--	struct net_device *dev;
-+	struct net_device *dev = NULL;
- 	__be16 proto;
-+	bool need_rls_dev = false;
- 	unsigned char *addr;
- 	int ifindex, err, reserve = 0;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
-@@ -1161,6 +1168,7 @@ static int packet_snd(struct socket *sock,
- 
- 	if (saddr == NULL) {
- 		ifindex	= po->ifindex;
-+		dev = po->prot_hook.dev;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -1174,8 +1182,11 @@ static int packet_snd(struct socket *sock,
- 		addr	= saddr->sll_addr;
- 	}
- 
-+	if (!dev) {
-+		dev = dev_get_by_index(sock_net(sk), ifindex);
-+		need_rls_dev = true;
-+	}
- 
--	dev = dev_get_by_index(sock_net(sk), ifindex);
- 	err = -ENXIO;
- 	if (dev == NULL)
- 		goto out_unlock;
-@@ -1315,14 +1326,15 @@ static int packet_snd(struct socket *sock,
- 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
- 		goto out_unlock;
- 
--	dev_put(dev);
-+	if (need_rls_dev)
-+		dev_put(dev);
- 
- 	return len;
- 
- out_free:
- 	kfree_skb(skb);
- out_unlock:
--	if (dev)
-+	if (dev && need_rls_dev)
- 		dev_put(dev);
- out:
- 	return err;
--- 
-1.7.3.4
+The intent is to also introduce something like
 
+typedef struct {
+		uint64_t pkt_sliced:1;
+		uint64_t crc_error:1;
+		uint64_t code_violation:1; /* if frame had code violation */
+		uint64_t num_mpls_labels:4;
+		uint64_t num_vlans:3;
+		uint64_t l2_type:6;
+		uint64_t l3_type:4;
+		uint64_t l4_type:4;
+		uint64_t l7_type:8;
+		uint64_t rsvd:32;
+}feature_s1;
+
+typedef struct {
+	union {
+		feature_s1 f_s1;
+               /* future feature goes here */
+	}u1;
+}feature_variants;
+
+And then embed feature_variants in the pkt_desc.
+
+
+Once we have the proposed non-static frame format in place then I am
+hoping some vendor can borrow this format, enhance their capture
+driver and DMA the data directly in the block. This way we can also
+attempt to standardize the block-capture format on linux and make it
+easier for smaller FPGA shops.
+
+
+>
+> Thanks,
+> Ben
+>
+
+Chetan
