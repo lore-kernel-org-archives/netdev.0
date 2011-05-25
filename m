@@ -1,38 +1,51 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH] timers: consider slack value in mod_timer()
-Date: Wed, 25 May 2011 12:57:28 +0200 (CEST)
-Message-ID: <alpine.LFD.2.02.1105251256270.3078@ionos>
-References: <20110521105828.GA29442@Chamillionaire.breakpoint.cc> <BANLkTinGZ0L4oQkBYo9H=R==X5Z+efjRaQ@mail.gmail.com> <20110524121343.GA17312@Chamillionaire.breakpoint.cc> <BANLkTikNSa9otE_cFKRcThUZ5ZCtE7Kyxw@mail.gmail.com>
- <alpine.LFD.2.02.1105251126590.3078@ionos>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Yong Zhang <yong.zhang0@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.02.1105251126590.3078@ionos>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ulrich Hecht <uli@suse.de>
+Subject: [PATCH] via-velocity: don't annotate MAC registers as packed
+Date: Wed, 25 May 2011 13:07:22 +0200
+Message-ID: <1306321642-2861-1-git-send-email-uli@suse.de>
+Cc: uli@suse.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:50364 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751454Ab1EYLIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 May 2011 07:08:25 -0400
+Received: from relay2.suse.de (charybdis-ext.suse.de [195.135.221.2])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx1.suse.de (Postfix) with ESMTP id 89B0990847
+	for <netdev@vger.kernel.org>; Wed, 25 May 2011 13:08:24 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 May 2011, Thomas Gleixner wrote:
-> On Wed, 25 May 2011, Yong Zhang wrote:
->  	} else {
-> -		unsigned long now = jiffies;
-> +		long delta = expires - jiffies;
-> +
-> +		if (delta < 256)
-> +			return expires;
->  
-> -		/* No slack, if already expired else auto slack 0.4% */
-> -		if (time_after(expires, now))
-> -			expires_limit = expires + (expires - now)/256;
-> +		expires_limit = expires + (expires - now)/256;
+On ARM, memory accesses through packed pointers behave in unexpected
+ways in GCC releases 4.3 and higher; see https://lkml.org/lkml/2011/2/2/163
+for discussion.
 
-That should be
+In this particular case, 32-bit I/O registers are accessed bytewise,
+causing incorrect setting of the DMA address registers which in turn
+leads to an error interrupt storm that brings the system to a halt.
 
-+		expires_limit = expires + delta / 256;
+Since the mac_regs structure does not need any packing anyway, this patch
+simply removes the attribute to fix the issue.
 
-of course.
+Signed-off-by: Ulrich Hecht <uli@suse.de>
+---
+ drivers/net/via-velocity.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/via-velocity.h b/drivers/net/via-velocity.h
+index 70da79d..659b211 100644
+--- a/drivers/net/via-velocity.h
++++ b/drivers/net/via-velocity.h
+@@ -1096,7 +1096,7 @@ struct mac_regs {
+ 
+ 	volatile __le16 PatternCRC[8];	/* 0xB0 */
+ 	volatile __le32 ByteMask[4][4];	/* 0xC0 */
+-} __packed;
++};
+ 
+ 
+ enum hw_mib {
+-- 
+1.7.1
+
