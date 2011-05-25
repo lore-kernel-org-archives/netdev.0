@@ -1,83 +1,97 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] bonding: documentation and code cleanup for resend_igmp
-Date: Wed, 25 May 2011 14:33:34 -0300
-Message-ID: <4DDD3D6E.1040706@redhat.com>
-References: <1306334642-20733-1-git-send-email-fbl@redhat.com> <1306343973.8149.1556.camel@tardy>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: hold rtnl again in dump callbacks
+Date: Wed, 25 May 2011 19:34:04 +0200
+Message-ID: <1306344844.11400.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: rick.jones2@hp.com
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17817 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752441Ab1EYRdl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 May 2011 13:33:41 -0400
-In-Reply-To: <1306343973.8149.1556.camel@tardy>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:40650 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752441Ab1EYReK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 13:34:10 -0400
+Received: by wya21 with SMTP id 21so5957893wya.19
+        for <netdev@vger.kernel.org>; Wed, 25 May 2011 10:34:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/25/2011 02:19 PM, Rick Jones wrote:
-> On Wed, 2011-05-25 at 11:44 -0300, Flavio Leitner wrote:
->> Improves the documentation about how IGMP resend parameter
->> works, fix two missing checks and coding style issues.
->>
->> Signed-off-by: Flavio Leitner <fbl@redhat.com>
->> ---
->>  Documentation/networking/bonding.txt |   13 +++++++++++--
->>  drivers/net/bonding/bond_main.c      |   12 +++++++-----
->>  drivers/net/bonding/bond_sysfs.c     |   10 +++++-----
->>  3 files changed, 23 insertions(+), 12 deletions(-)
->>
->> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
->> index 1f45bd8..683ef76 100644
->> --- a/Documentation/networking/bonding.txt
->> +++ b/Documentation/networking/bonding.txt
->> @@ -770,8 +770,17 @@ resend_igmp
->>  	a failover event. One membership report is issued immediately after
->>  	the failover, subsequent packets are sent in each 200ms interval.
->>  
->> -	The valid range is 0 - 255; the default value is 1. This option
->> -	was added for bonding version 3.7.0.
->> +	The valid range is 0 - 255; the default value is 1. A value of 0
->> +	prevents the IGMP membership report to be issued due the failover
->> +	event.
-> 
-> Grammar nit - "prevents the ICMP membership report from being issued in
-> response to the failover event."  Or "prevents issuing of the IGMP
-> membership report in response to a failover event."
+Commit e67f88dd12f6 (dont hold rtnl mutex during netlink dump callbacks)
+missed fact that rtnl_fill_ifinfo() must be called with rtnl held.
 
-I like the first suggestion. I'll update the patch fixing the ICMP
-typo.
+Because of possible deadlocks between two mutexes (cb_mutex and rtnl),
+its not easy to solve this problem, so revert this part of the patch.
 
->> +
->> +	This option is useful for bonding modes balance-rr or 0,
->> +	active-backup or 1, balance-tlb or 5, balance-alb or 6, which a
->> +	failover can move the IGMP traffic from one slave to another.
->> +	Therefore, the switch must be notified with an extra IGMP report
->> +	to start forwarding the IGMP traffic over the new selected slave.
-> 
-> More nits.  How about (with some added guesses on my part about
-> direction)
-> 
-> This option is useful for bonding modes balance-rr (0), active-backup
-> (1), balance-tlb (5) and balance-alb (6), in which a failover can switch
-> the outgoing IGMP traffic from one slave to another.  Therefore a fresh
-> IGMP report must be issued to cause the switch to forward the incoming
-> IGMP traffic over the newly selected slave.
+It also forgot one rcu_read_unlock() in FIB dump_rules()
 
-It's also better. thanks. However, the failover can switch both
-incoming and outgoing IGMP traffic so I'd leave it generic as before.
-For instance:
+Add one ASSERT_RTNL() in rtnl_fill_ifinfo() to remind us the rule.
 
-This option is useful for bonding modes balance-rr (0), active-backup
-(1), balance-tlb (5) and balance-alb (6), in which a failover can switch
-the IGMP traffic from one slave to another.  Therefore a fresh IGMP
-report must be issued to cause the switch to forward the incoming
-IGMP traffic over the newly selected slave.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+---
+I tried to solve this problem differently but failed. We need more
+preliminary steps.
 
-What do you think?
+ net/core/fib_rules.c |    1 +
+ net/core/rtnetlink.c |    9 +++++++--
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-thanks,
-fbl
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 3911586..008dc70 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -602,6 +602,7 @@ static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
+ skip:
+ 		idx++;
+ 	}
++	rcu_read_unlock();
+ 	cb->args[1] = idx;
+ 	rules_ops_put(ops);
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d1644e3..2d56cb9 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -850,6 +850,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	struct nlattr *attr, *af_spec;
+ 	struct rtnl_af_ops *af_ops;
+ 
++	ASSERT_RTNL();
+ 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
+ 	if (nlh == NULL)
+ 		return -EMSGSIZE;
+@@ -1876,6 +1877,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	int min_len;
+ 	int family;
+ 	int type;
++	int err;
+ 
+ 	type = nlh->nlmsg_type;
+ 	if (type > RTM_MAX)
+@@ -1902,8 +1904,11 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		if (dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
++		__rtnl_unlock();
+ 		rtnl = net->rtnl;
+-		return netlink_dump_start(rtnl, skb, nlh, dumpit, NULL);
++		err = netlink_dump_start(rtnl, skb, nlh, dumpit, NULL);
++		rtnl_lock();
++		return err;
+ 	}
+ 
+ 	memset(rta_buf, 0, (rtattr_max * sizeof(struct rtattr *)));
+@@ -1975,7 +1980,7 @@ static int __net_init rtnetlink_net_init(struct net *net)
+ {
+ 	struct sock *sk;
+ 	sk = netlink_kernel_create(net, NETLINK_ROUTE, RTNLGRP_MAX,
+-				   rtnetlink_rcv, NULL, THIS_MODULE);
++				   rtnetlink_rcv, &rtnl_mutex, THIS_MODULE);
+ 	if (!sk)
+ 		return -ENOMEM;
+ 	net->rtnl = sk;
+
+
