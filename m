@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: isdn: netjet - blacklist Digium TDM400P
-Date: Wed, 25 May 2011 17:57:35 -0400 (EDT)
-Message-ID: <20110525.175735.477785089681085806.davem@davemloft.net>
-References: <20110525121223.26439.57412.sendpatchset@prarit.bos.redhat.com>
+Subject: Re: [PATCH net-2.6] bnx2x: protect sequence increment with mutex
+Date: Wed, 25 May 2011 17:58:00 -0400 (EDT)
+Message-ID: <20110525.175800.807156943927716136.davem@davemloft.net>
+References: <1306335351.15327.0.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isdn@linux-pingi.de
-To: prarit@redhat.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53083 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53097 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932362Ab1EYV5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 17:57:44 -0400
-In-Reply-To: <20110525121223.26439.57412.sendpatchset@prarit.bos.redhat.com>
+	with ESMTP id S1752130Ab1EYV6E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 17:58:04 -0400
+In-Reply-To: <1306335351.15327.0.camel@lb-tlvb-dmitry>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prarit Bhargava <prarit@redhat.com>
-Date: Wed, 25 May 2011 08:12:23 -0400
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Wed, 25 May 2011 17:55:51 +0300
 
-> [2nd try ... 1st attempt didn't make it to netdev mailing list]
 > 
-> A quick google search reveals that people with this card are blacklisting it
-> in the initramfs and in the module blacklist based on a statement that it
-> is unsupported. Since the older Digium is also unsupported I'm pretty
-> confident that this newer card is also not supported.
-> 
-> lspci -xxx -vv shows
-> 
-> 04:07.0 Communication controller: Tiger Jet Network Inc. Tiger3XX Modem/ISDN interface
->         Subsystem: Device b100:0003
-> P.
-> 
-> ----8<----
-> The Asterisk Voice Card, DIGIUM TDM400P is unsupported by the netjet driver.
-> Blacklist it like the Digium X100P/X101P card.
-> 
-> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
 Applied.
