@@ -1,86 +1,90 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 35862] New: arp requests from wrong src IP
-Date: Wed, 25 May 2011 16:31:37 -0700
-Message-ID: <20110525163137.6f04f26e.akpm@linux-foundation.org>
-References: <bug-35862-10286@https.bugzilla.kernel.org/>
+From: Kees Cook <kees.cook@canonical.com>
+Subject: Re: [patch 1/1] net: convert %p usage to %pK
+Date: Wed, 25 May 2011 16:29:21 -0700
+Message-ID: <20110525232921.GD19633@outflux.net>
+References: <1306220681.2638.40.camel@edumazet-laptop>
+ <1306222507.2298.23.camel@Joe-Laptop>
+ <1306223101.2638.43.camel@edumazet-laptop>
+ <20110524.035801.1555795213632087107.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, matare@lih.rwth-aachen.de
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, joe@perches.com, mingo@elte.hu,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
+	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
+	tgraf@infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38169 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754156Ab1EYXcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:32:05 -0400
-In-Reply-To: <bug-35862-10286@https.bugzilla.kernel.org/>
+Received: from smtp.outflux.net ([198.145.64.163]:48498 "EHLO smtp.outflux.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752194Ab1EYXc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 May 2011 19:32:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20110524.035801.1555795213632087107.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+On Tue, May 24, 2011 at 03:58:01AM -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 24 May 2011 09:45:01 +0200
+>=20
+> > Le mardi 24 mai 2011 =C3=A0 00:35 -0700, Joe Perches a =C3=A9crit :
+> >=20
+> >> I think it's be better without the casts
+> >> using the standard kernel.h macros.
+> >>=20
+> >> 	void *ptr;
+> >>=20
+> >> 	ptr =3D maybe_hide_ptr(sk);
+> >> 	r->id.idiag_cookie[0] =3D lower_32_bits(ptr);
+> >> 	r->id.idiag_cookie[1] =3D upper_32_bits(ptr);
+> >>=20
+> >=20
+> > I am not sure I want to patch lower_32_bits() and upper_32_bits() f=
+or
+> > this.
+> >=20
+> > They dont work on pointers, but on "numbers", according to kerneldo=
+c
+> > Andrew wrote years ago. gcc agrees :
+> >=20
+> > net/ipv4/inet_diag.c: In function =E2=80=98inet_csk_diag_fill=E2=80=
+=99:
+> > net/ipv4/inet_diag.c:119: warning: cast from pointer to integer of =
+different size
+> > net/ipv4/inet_diag.c:120: error: invalid operands to binary >>
+> > make[1]: *** [net/ipv4/inet_diag.o] Error 1
+>=20
+> Also you can't do this, the "cookie" is used by the kernel future
+> lookups to find sockets.
+>=20
+> The kernel pointer is part of the API, so sorry you can't "hide"
+> kernel pointers in this case without really breaking user visible
+> things.
 
-On Wed, 25 May 2011 23:27:48 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+But this is precisely what we're trying to control with kptr_restrict.
+Setting kptr_restrict will make inet_diag (and some details of similar
+things in /proc) meaningless. Based on the name, "diag" isn't going to =
+be
+used in normal operation, and kptr_restrict is 0 by default, so only sy=
+stem
+owners interested in this will enable it and effectively disable inet_d=
+iag.
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=35862
-> 
->            Summary: arp requests from wrong src IP
->            Product: Networking
->            Version: 2.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: matare@lih.rwth-aachen.de
->         Regression: No
-> 
-> 
-> I switched a host's ip address from 137.226.164.13 to 137.226.164.2. The .13 IP
-> now belongs to the host that had .2 before (I swapped them). Now both hosts
-> still arp from their old IPs although ifconfig as well as ip clearly tell
-> otherwise. Examining the host which now has 137.226.164.13:
-> 
-> # ip addr show dev eth0
-> 4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
->     link/ether 00:e0:81:41:1f:e4 brd ff:ff:ff:ff:ff:ff
->     inet 137.226.164.2/24 brd 137.226.164.255 scope global eth0
->     inet 192.168.23.2/24 brd 137.226.164.255 scope global eth0:0
-> 
-> but arping defaults to the old src IP (.13). I can manually correct this with
-> the -s parameter, but it looks like linux still believes that 137.226.164.13 is
-> this host's ip address. When I try to manually correct the arp table:
-> # arp -s 137.226.164.13 00:30:48:70:91:95
-> SIOCSARP: Invalid argument
-> # arp -n 137.226.164.13
-> 137.226.164.13 (137.226.164.13) -- no entry
-> 
-> And this is what arping does:
-> # tcpdump -ieth0 -c1 -s0 -vvv -n arp & (sleep 1; arping 137.226.164.13 &>
-> /dev/null)
-> [1] 2217
-> tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 65535
-> bytes
-> 01:14:37.785126 arp who-has 137.226.164.13 (ff:ff:ff:ff:ff:ff) tell
-> 137.226.164.13
-> 
-> Also, ifconfig doesn't even show the second IP address:
-> # ifconfig eth0
-> eth0      Link encap:Ethernet  HWaddr 00:e0:81:41:1f:e4  
->           inet addr:137.226.164.2  Bcast:137.226.164.255  Mask:255.255.255.0
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:103996345 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:122352625 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000 
->           RX bytes:52478932087 (48.8 GiB)  TX bytes:110248931949 (102.6 GiB)
->           Interrupt:24
-> 
-> What's going on here? If this is by design, it's very unintuitive behaviour.
-> 
+It seems like everything that fills idiag_cookie needs to be adjusted, =
+not
+just the one instance, too:
 
+$ fgrep 'idiag_cookie[0] =3D ' net/ipv4/inet_diag.c
+	r->id.idiag_cookie[0] =3D (u32)(unsigned long)sk;
+	r->id.idiag_cookie[0] =3D (u32)(unsigned long)tw;
+	r->id.idiag_cookie[0] =3D (u32)(unsigned long)req;
+
+-Kees
+
+--=20
+Kees Cook
+Ubuntu Security Team
