@@ -1,55 +1,45 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH]: isdn: netjet - blacklist Digium TDM400P
-Date: Wed, 25 May 2011 08:12:23 -0400
-Message-ID: <20110525121223.26439.57412.sendpatchset@prarit.bos.redhat.com>
-Content-Type: text/plain; charset=us-ascii
-Cc: Prarit Bhargava <prarit@redhat.com>
-To: netdev@vger.kernel.org, isdn@linux-pingi.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6911 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756449Ab1EYMMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 May 2011 08:12:25 -0400
-Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p4PCCO1L006667
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 25 May 2011 08:12:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: Re: linux-next: build failure after merge of the final tree
+Date: Wed, 25 May 2011 08:13:20 -0400
+Message-ID: <BANLkTimd_CmVzJP1yDkuNSS+PSRk=0W_uA@mail.gmail.com>
+References: <20110520161816.dda6f1fd.sfr@canb.auug.org.au> <BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
+ <BANLkTine2kobQA8TkmtiuXdKL=07NCo2vA@mail.gmail.com> <BANLkTim-zRShhy49d7yn5WTJYzR6A2DtZQ@mail.gmail.com>
+ <BANLkTi=U8ikZo65AoxGznCopGMTFOUXWhQ@mail.gmail.com> <20110525092449.GJ14556@legolas.emea.dhcp.ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@csn.ul.ie>, linux-mm@kvack.org,
+	Alexander Viro <viro@zeniv.linux.org.uk>, linux-fsdevel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Dipankar Sarma <dipankar@in.ibm.com>
+To: balbi@ti.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110525092449.GJ14556@legolas.emea.dhcp.ti.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-[2nd try ... 1st attempt didn't make it to netdev mailing list]
+On Wed, May 25, 2011 at 05:24, Felipe Balbi wrote:
+> On Tue, May 24, 2011 at 01:10:42PM -0400, Mike Frysinger wrote:
+>> latest tree seems to only fail for me now on the musb driver. =C2=A0i ca=
+n
+>> send out a patch later today if no one else has gotten to it yet.
+>
+> please do send out, but what was the compile breakage with musb ?
 
-A quick google search reveals that people with this card are blacklisting it
-in the initramfs and in the module blacklist based on a statement that it
-is unsupported. Since the older Digium is also unsupported I'm pretty
-confident that this newer card is also not supported.
+i logged it earlier in the thread:
+drivers/usb/musb/musb_core.c: In function 'musb_write_fifo':
+drivers/usb/musb/musb_core.c:219: error: implicit declaration of
+function 'prefetch'
+make[3]: *** [drivers/usb/musb/musb_core.o] Error 1
 
-lspci -xxx -vv shows
+patch sent out now
+-mike
 
-04:07.0 Communication controller: Tiger Jet Network Inc. Tiger3XX Modem/ISDN interface
-        Subsystem: Device b100:0003
-P.
-
-----8<----
-The Asterisk Voice Card, DIGIUM TDM400P is unsupported by the netjet driver.
-Blacklist it like the Digium X100P/X101P card.
-
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
-
-diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
-index 54ae71a..db25b6b 100644
---- a/drivers/isdn/hardware/mISDN/netjet.c
-+++ b/drivers/isdn/hardware/mISDN/netjet.c
-@@ -1072,6 +1072,12 @@ nj_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		return -ENODEV;
- 	}
- 
-+	if (pdev->subsystem_vendor == 0xb100 &&
-+	    pdev->subsystem_device == 0x0003 ) {
-+		pr_notice("Netjet: Digium TDM400P not handled yet\n");
-+		return -ENODEV;
-+	}
-+
- 	card = kzalloc(sizeof(struct tiger_hw), GFP_ATOMIC);
- 	if (!card) {
- 		pr_info("No kmem for Netjet\n");
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
