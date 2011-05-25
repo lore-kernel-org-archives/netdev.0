@@ -1,65 +1,95 @@
-From: greearb@candelatech.com
-Subject: [PATCH] af-packet:  Add flag to distinguish VID 0 from no-vlan.
-Date: Wed, 25 May 2011 16:36:35 -0700
-Message-ID: <1306366595-731-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54858 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500Ab1EYXgl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:36:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
+Date: Wed, 25 May 2011 16:40:13 -0700
+Message-ID: <m17h9e1h9e.fsf@fess.ebiederm.org>
+References: <m1wrhh3z62.fsf@fess.ebiederm.org>
+	<BANLkTikW4vJbC8kcLSKuemUBbu36SO6hwg@mail.gmail.com>
+	<20110525213806.GA4590@mail.hallyn.com>
+	<BANLkTinbw6pZjhMscfXFMArd=XU=VC=+eQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Serge E. Hallyn" <serge@hallyn.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: C Anthony Risinger <anthony@xtfx.me>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BANLkTinbw6pZjhMscfXFMArd=XU=VC=+eQ@mail.gmail.com> (C. Anthony
+	Risinger's message of "Wed, 25 May 2011 16:55:02 -0500")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
+C Anthony Risinger <anthony@xtfx.me> writes:
 
-Currently, user-space cannot determine if a 0 tcp_vlan_tci
-means there is no VLAN tag or the VLAN ID was zero.
+> On Wed, May 25, 2011 at 4:38 PM, Serge E. Hallyn <serge@hallyn.com> w=
+rote:
+>> Quoting C Anthony Risinger (anthony@xtfx.me):
+>>> On Mon, May 23, 2011 at 4:05 PM, Eric W. Biederman
+>>> <ebiederm@xmission.com> wrote:
+>>> >
+>>> > This tree adds the files /proc/<pid>/ns/net, /proc/<pid>/ns/ipc,
+>>> > /proc/<pid>/ns/uts that can be opened to refer to the namespaces =
+of a
+>>> > process at the time those files are opened, and can be bind mount=
+ed to
+>>> > keep the specified namespace alive without a process.
+>>> >
+>>> > This tree adds the setns system call that can be used to change t=
+he
+>>> > specified namespace of a process to the namespace specified by a =
+system
+>>> > call.
+>>>
+>>> i just have a quick question regarding these, apologies if wrong pl=
+ace
+>>> to respond -- i trimmed to lists only.
+>>>
+>>> if i understand correctly, mount namespaces (for example), allow on=
+e
+>>> to build such constructs as "private /tmp" and similar that even
+>>> `root` cannot access ... and there are many reasons `root` does not
+>>> deserve to completely know/interact with user processes (FUSE makes=
+ a
+>>> good example ... just because i [user] have SSH access to a machine=
+,
+>>> why should `root`?)
+>>>
+>>> would these /proc additions break such guarantees? =C2=A0IOW, would=
+ it now
+>>> become possible for `root` to inject stuff into my private namespac=
+es,
+>>> and/or has these guarantees never existed and i am mistaken? =C2=A0=
+is there
+>>> any kind of ACL mechanism that endows the origin process (or simila=
+r)
+>>> with the ability to dictate who can hold and/or interact with these
+>>> references?
+>>
+>> If for instance you have a file open in your private /tmp, then root
+>> in another mounts ns can open the file through /proc/$$/fd/N anyway.
+>> If it's a directory, he can now traverse the whole fs.
+>
+> aaah right :-( ... there's always another way isn't there ... curse
+> you Linux for being so flexible! (just kidding baby i love you)
 
-Add flag to make this explicit.  User-space can check for
-TP_STATUS_VLAN_VALID || tp_vlan_tci > 0, which will be backwards
-compatible. Older could would have just checked for tp_vlan_tci,
-so it will work no worse than before.
+Even more significant the access to the new files is guarded by the
+ptrace access checks.  And if root can ptrace your process root
+can remote control your process.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 72bfa5a... 6d66ce1... M	include/linux/if_packet.h
-:100644 100644 658edd1... 885d76d... M	net/packet/af_packet.c
- include/linux/if_packet.h |    1 +
- net/packet/af_packet.c    |    7 ++++++-
- 2 files changed, 7 insertions(+), 1 deletions(-)
+> this seems like a more fundamental issue then?  or should i not expec=
+t
+> to be able to achieve separation like this?  i ask in the context of
+> OS virt via cgroups + namespaces, eg. LXC et al, because i'm about to
+> perform a massive overhaul to our crusty sub-2.6.18 infrastructure an=
+d
+> i've used/followed these technologies for couple years now ... and
+> it's starting to feel like "the right time".
 
-diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
-index 72bfa5a..6d66ce1 100644
---- a/include/linux/if_packet.h
-+++ b/include/linux/if_packet.h
-@@ -70,6 +70,7 @@ struct tpacket_auxdata {
- #define TP_STATUS_COPY		0x2
- #define TP_STATUS_LOSING	0x4
- #define TP_STATUS_CSUMNOTREADY	0x8
-+#define TP_STATUS_VLAN_VALID   0x10 /* auxdata has valid tp_vlan_tci */
- 
- /* Tx ring - header status */
- #define TP_STATUS_AVAILABLE	0x0
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 658edd1..885d76d 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1772,7 +1772,12 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		aux.tp_snaplen = skb->len;
- 		aux.tp_mac = 0;
- 		aux.tp_net = skb_network_offset(skb);
--		aux.tp_vlan_tci = vlan_tx_tag_get(skb);
-+		if (vlan_tx_tag_present(skb)) {
-+			aux.tp_vlan_tci = vlan_tx_tag_get(skb);
-+			aux.tp_status |= TP_STATUS_VLAN_VALID;
-+		}
-+		else
-+			aux.tp_vlan_tci = 0;
- 
- 		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
- 	}
--- 
-1.7.3.4
+I don't think anything really new is allowed, but we haven't designed
+anything that radically reduces the power of root either.
 
+At some point we may have the user namespace done and that should
+give you a root like user with vastly reduced powers, but we aren't
+there yet.
+
+Eric
