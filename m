@@ -1,95 +1,58 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: VLAN test cases in 2.6.38.7
-Date: Tue, 24 May 2011 17:34:55 -0700
-Message-ID: <4DDC4EAF.7090204@candelatech.com>
-References: <4DDBFDD6.4060903@candelatech.com> <4DDC0236.4090800@candelatech.com> <4DDC36C4.80408@candelatech.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
+Date: Tue, 24 May 2011 20:34:53 -0400
+Message-ID: <4508.1306283693@localhost>
+References: <m11uzrvd26.fsf@fess.ebiederm.org> <BANLkTim4q5dK6nOb=pVKbk1c8b-Nh_hBfA@mail.gmail.com> <m1boyvpo9r.fsf@fess.ebiederm.org> <1306048393.4092.8.camel@mulgrave.site> <20110522084224.GA12279@elte.hu> <m1k4dgr35i.fsf@fess.ebiederm.org>
+            <20110524071628.GA31612@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed; boundary="==_Exmh_1306283693_2629P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53866 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757480Ab1EYAe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 May 2011 20:34:56 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p4P0Ytj9028836
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 24 May 2011 17:34:55 -0700
-In-Reply-To: <4DDC36C4.80408@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Tue, 24 May 2011 09:16:28 +0200."
+             <20110524071628.GA31612@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/24/2011 03:52 PM, Ben Greear wrote:
-> On 05/24/2011 12:08 PM, Ben Greear wrote:
->> On 05/24/2011 11:49 AM, Ben Greear wrote:
->>>
->>> I wrote a simple bridge that uses packet sockets to read/write
->>> from network devices. I'll upload this code somewhere when
->>> I get it a bit more presentable.
->>>
->>> Machine info:
->>>
->>> Linux lf0300-demo 2.6.38.7+ #14 SMP Mon May 23 10:31:45 PDT 2011 i686
->>> i686 i386 GNU/Linux
->>>
->>> Interface A: eth1
->>> driver: igb
->>> version: 3.0.19
->>> firmware-version: 1.2-1
->>> bus-info: 0000:01:00.0
->>>
->>> Interface B: eth3:
->>> driver: igb
->>> version: 3.0.19
->>> firmware-version: 1.2-1
->>> bus-info: 0000:01:00.1
->>>
->>>
->>> If no vlans are on eth1 and eth3, then it bridges fine, with vlan
->>> headers inline. But, if you add a VLAN to eth1, it stops working,
->>> probably because pkt tag is then un-stripped. I was generating on
->>> vlan 7, and created vlan 9, btw.
->>>
->>> I'll see if I can figure out how to use aux-data next...
->>
->> Why does the aux-data mask out the CFI bit? Shouldn't
->> we just pass the 16-bit VLAN tag un-modified to user-space?
->
-> Either my ubridge code is broken, or 2.6.38.7+ doesn't send tp_vlan_tci
-> properly. All I ever see is zero for that field.
->
-> Test case is:
->
-> set up VLAN traffic generator on VLAN 7 on separate machine.
-> udp traffic, 56kbps, 1024 byte udp payload.
->
-> Set up ubridge on test machine:
-> ifconfig eth1 promisc
-> ifconfig eth3 promisc
-> # Make NIC go into stripping mode.
-> ip link add link eth1 up name eth1.9 type vlan id 9
-> ./do_test.pl eth1 eth3
->
->
-> Expect that at least tci is != 0.
->
-> The ubridge code is here:
-> http://www.candelatech.com/~greearb/misc/ubridge.tar.gz
+--==_Exmh_1306283693_2629P
+Content-Type: text/plain; charset=us-ascii
 
-Ok, was my bug.  That test case passes now...will upload
-the fixed code tomorrow.
-
-Ben
-
+On Tue, 24 May 2011 09:16:28 +0200, Ingo Molnar said:
+> * Eric W. Biederman <ebiederm@xmission.com> wrote:
+> > My gut feel says we should really implement an
+> > include/asm-generic/unistd-common.h to include all new system calls.
+> >
+> > That way there would be only one file to touch instead of 50. Certainly it
+> > works for include/asm-generic/unistd.h for the architectures that use it. 
+> > And all we really need is just a little abstraction on that concept.
 >
-> Thanks,
-> Ben
->
+> I suppose that could be tried, although in practice it would probably be
+> somewhat complex due to the various compat syscall handling differences.
+
+Can somebody fill us newcomers in on the arch-aeology of why some syscalls have
+different numbers on different archs? I know it's partially because some simply
+didn't implement some syscalls so there were numbering mismatches, but would it
+have been *that* hard to wire all of those skipped syscalls up to one stub
+'return -ENOSYS'?
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--==_Exmh_1306283693_2629P
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFN3E6tcC3lWbTT17ARAoUzAKDkLdqvlB6vCeoSImcc2cdgyprBtgCeLf6P
+rJQ+3GeD0kVUaVPYr2AFv2w=
+=8lZN
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1306283693_2629P--
