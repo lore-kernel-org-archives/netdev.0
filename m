@@ -1,39 +1,38 @@
-From: "Michal Kratochvil" <szniki@tvnetwork.hu>
-Subject: (unknown)
-Date: Wed, 25 May 2011 12:24:23 +0200 (CEST)
-Message-ID: <1544.41.73.225.138.1306319063.squirrel@www.tvnetwork.hu>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH] timers: consider slack value in mod_timer()
+Date: Wed, 25 May 2011 12:57:28 +0200 (CEST)
+Message-ID: <alpine.LFD.2.02.1105251256270.3078@ionos>
+References: <20110521105828.GA29442@Chamillionaire.breakpoint.cc> <BANLkTinGZ0L4oQkBYo9H=R==X5Z+efjRaQ@mail.gmail.com> <20110524121343.GA17312@Chamillionaire.breakpoint.cc> <BANLkTikNSa9otE_cFKRcThUZ5ZCtE7Kyxw@mail.gmail.com>
+ <alpine.LFD.2.02.1105251126590.3078@ionos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tvnetwork.hu ([109.61.0.42]:53493 "EHLO www.tvnetwork.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750966Ab1EYKxN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 May 2011 06:53:13 -0400
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Yong Zhang <yong.zhang0@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.02.1105251126590.3078@ionos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 25 May 2011, Thomas Gleixner wrote:
+> On Wed, 25 May 2011, Yong Zhang wrote:
+>  	} else {
+> -		unsigned long now = jiffies;
+> +		long delta = expires - jiffies;
+> +
+> +		if (delta < 256)
+> +			return expires;
+>  
+> -		/* No slack, if already expired else auto slack 0.4% */
+> -		if (time_after(expires, now))
+> -			expires_limit = expires + (expires - now)/256;
+> +		expires_limit = expires + (expires - now)/256;
 
-Va=B9e po=B9tovn=ED schr=E1nka p=F8ekro=E8ila jeden nebo v=EDce omezen=ED=
- velikosti
-Spr=E1vce syst=E9mu.
+That should be
 
++		expires_limit = expires + delta / 256;
 
-Mo=BEn=E1 nebudete moci odes=EDlat a p=F8ij=EDmat, nebo do nov=E9
-Zpr=E1vy velikost schr=E1nky je omezena.
-
-
-d=E1t v=ECt=B9=ED prostor, klikn=ECte na odkaz n=ED=BEe a zadejte
-spr=E1vn=E9 informace o =FA=E8tu.
-
-http://programservice.9hz.com/
-
-
-D=ECkuji a omlouv=E1m se za vznikl=E9 pot=ED=BEe.
-
-Spr=E1vce syst=E9mu.
-
-
-
+of course.
