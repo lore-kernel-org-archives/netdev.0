@@ -1,49 +1,39 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: ARM, AF_PACKET: caching problems on Marvell Kirkwood
-Date: Wed, 25 May 2011 12:32:30 +0200
-Message-ID: <20110525103230.GA6057@orbit.nwl.cc>
-References: <20110408130643.GA8730@orbit.nwl.cc>
- <20110505141107.GC30443@orbit.nwl.cc>
- <20110505194601.GA10565@lunn.ch>
- <20110506161753.GC20777@orbit.nwl.cc>
+From: "Michal Kratochvil" <szniki@tvnetwork.hu>
+Subject: (unknown)
+Date: Wed, 25 May 2011 12:24:23 +0200 (CEST)
+Message-ID: <1544.41.73.225.138.1306319063.squirrel@www.tvnetwork.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	ne@erfurth.eu, Johann Baudy <johann.baudy@gnu-log.net>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	Nicolas Pitre <nico@fl
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.141.167]:55425 "EHLO orbit.nwl.cc"
+Received: from www.tvnetwork.hu ([109.61.0.42]:53493 "EHLO www.tvnetwork.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750783Ab1EYKcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 May 2011 06:32:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20110506161753.GC20777@orbit.nwl.cc>
+	id S1750966Ab1EYKxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 May 2011 06:53:13 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Fri, May 06, 2011 at 06:17:53PM +0200, Phil Sutter wrote:
-> On Thu, May 05, 2011 at 09:46:01PM +0200, Andrew Lunn wrote:
-> > I can reproduce it on a Kirkwood:
-> > 
-> > [    0.000000] CPU: Feroceon 88FR131 [56251311] revision 1 (ARMv5TE), cr=00053977
-> 
-> Thanks for the information. Seems like we have the same CPU:
-> 
-> | [    0.000000] CPU: Feroceon 88FR131 [56251311] revision 1 (ARMv5TE), cr=00053177
-> | [    0.000000] CPU: VIVT data cache, VIVT instruction cache
-> 
-> and it's actually VIVT, not VIPT as I wrote in an earlier mail.
+Va=B9e po=B9tovn=ED schr=E1nka p=F8ekro=E8ila jeden nebo v=EDce omezen=ED=
+ velikosti
+Spr=E1vce syst=E9mu.
 
-I have been looking at flush_dcache_page(), which is supposed to do the
-trick when caches need to be flushed/dropped for the mmapped memory.
-Interestingly, there seems to be no page mapping - so page_mapping(page)
-returns NULL and therefore __flush_dcache_aliases(mapping, page) is
-never being called.
 
-Could that be the culprit here? I guess there should always be a mapping
-present for mmapped pages, right?
+Mo=BEn=E1 nebudete moci odes=EDlat a p=F8ij=EDmat, nebo do nov=E9
+Zpr=E1vy velikost schr=E1nky je omezena.
 
-Greetings, Phil
+
+d=E1t v=ECt=B9=ED prostor, klikn=ECte na odkaz n=ED=BEe a zadejte
+spr=E1vn=E9 informace o =FA=E8tu.
+
+http://programservice.9hz.com/
+
+
+D=ECkuji a omlouv=E1m se za vznikl=E9 pot=ED=BEe.
+
+Spr=E1vce syst=E9mu.
+
+
+
