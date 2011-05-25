@@ -1,52 +1,123 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC 01/01]af_packet: Enhance network capture visibility
-Date: Wed, 25 May 2011 16:10:22 -0700
-Message-ID: <4DDD8C5E.7040207@candelatech.com>
-References: <BANLkTimYVUkUWA2XPix2nUL-=rnQKghZQA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: chetan loke <loke.chetan@gmail.com>
+From: greearb@candelatech.com
+Subject: [PATCH] af-packet:  Use existing netdev reference for bound sockets.
+Date: Wed, 25 May 2011 16:15:32 -0700
+Message-ID: <1306365332-12105-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:43521 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:50278 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752194Ab1EYXKZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:10:25 -0400
-In-Reply-To: <BANLkTimYVUkUWA2XPix2nUL-=rnQKghZQA@mail.gmail.com>
+	with ESMTP id S1752194Ab1EYXPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 19:15:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/25/2011 04:03 PM, chetan loke wrote:
-> This patch is not complete and is intended to:
-> a) demonstrate the improvments
-> b) gather suggestions
->
->
-> Signed-off-by: Chetan Loke<lokec@ccs.neu.edu>
+From: Ben Greear <greearb@candelatech.com>
 
-> +struct tpacket3_hdr {
-> +	__u32		tp_status;
-> +	__u32		tp_len;
-> +	__u32		tp_snaplen;
-> +	__u16		tp_mac;
-> +	__u16		tp_net;
-> +	__u32		tp_sec;
-> +	__u32		tp_nsec;
-> +	__u16		tp_vlan_tci;
-> +	long		tp_next_offset;
-> +};
+This saves a network device lookup on each packet transmitted,
+for sockets that are bound to a network device.
 
-Use fixed-size variables, like __u64 instead of 'long'.  That way,
-you have the same sized msgs on 32 and 64-bit systems.
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 4005b24... 658edd1... M	net/packet/af_packet.c
+ net/packet/af_packet.c |   26 +++++++++++++++++++-------
+ 1 files changed, 19 insertions(+), 7 deletions(-)
 
-I didn't look at the rest of it in any detail, so no comment there.
-
-Thanks,
-Ben
-
-
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 4005b24..658edd1 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -987,8 +987,9 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ {
+ 	struct sk_buff *skb;
+-	struct net_device *dev;
++	struct net_device *dev = NULL;
+ 	__be16 proto;
++	bool need_rls_dev = false;
+ 	int ifindex, err, reserve = 0;
+ 	void *ph;
+ 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
+@@ -1002,6 +1003,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	err = -EBUSY;
+ 	if (saddr == NULL) {
+ 		ifindex	= po->ifindex;
++		dev = po->prot_hook.dev;
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -1017,7 +1019,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 		addr	= saddr->sll_addr;
+ 	}
+ 
+-	dev = dev_get_by_index(sock_net(&po->sk), ifindex);
++	if (!dev) {
++		dev = dev_get_by_index(sock_net(&po->sk), ifindex);
++		need_rls_dev = true;
++	}
+ 	err = -ENXIO;
+ 	if (unlikely(dev == NULL))
+ 		goto out;
+@@ -1103,7 +1108,8 @@ out_status:
+ 	__packet_set_status(po, ph, status);
+ 	kfree_skb(skb);
+ out_put:
+-	dev_put(dev);
++	if (need_rls_dev)
++		dev_put(dev);
+ out:
+ 	mutex_unlock(&po->pg_vec_lock);
+ 	return err;
+@@ -1139,8 +1145,9 @@ static int packet_snd(struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
+ 	struct sk_buff *skb;
+-	struct net_device *dev;
++	struct net_device *dev = NULL;
+ 	__be16 proto;
++	bool need_rls_dev = false;
+ 	unsigned char *addr;
+ 	int ifindex, err, reserve = 0;
+ 	struct virtio_net_hdr vnet_hdr = { 0 };
+@@ -1161,6 +1168,7 @@ static int packet_snd(struct socket *sock,
+ 
+ 	if (saddr == NULL) {
+ 		ifindex	= po->ifindex;
++		dev = po->prot_hook.dev;
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -1174,8 +1182,11 @@ static int packet_snd(struct socket *sock,
+ 		addr	= saddr->sll_addr;
+ 	}
+ 
++	if (!dev) {
++		dev = dev_get_by_index(sock_net(sk), ifindex);
++		need_rls_dev = true;
++	}
+ 
+-	dev = dev_get_by_index(sock_net(sk), ifindex);
+ 	err = -ENXIO;
+ 	if (dev == NULL)
+ 		goto out_unlock;
+@@ -1315,14 +1326,15 @@ static int packet_snd(struct socket *sock,
+ 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
+ 		goto out_unlock;
+ 
+-	dev_put(dev);
++	if (need_rls_dev)
++		dev_put(dev);
+ 
+ 	return len;
+ 
+ out_free:
+ 	kfree_skb(skb);
+ out_unlock:
+-	if (dev)
++	if (dev && need_rls_dev)
+ 		dev_put(dev);
+ out:
+ 	return err;
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.3.4
 
