@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_sfq: fix peek() implementation
-Date: Wed, 25 May 2011 17:57:46 -0400 (EDT)
-Message-ID: <20110525.175746.11477561727918573.davem@davemloft.net>
-References: <1306334411.2820.26.camel@edumazet-laptop>
+Subject: Re: [RFC] af-packet: Save reference to bound network device.
+Date: Wed, 25 May 2011 18:01:13 -0400 (EDT)
+Message-ID: <20110525.180113.1194226831134092545.davem@davemloft.net>
+References: <1306360602-9672-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org,
-	hawk@diku.dk
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34293 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34301 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932523Ab1EYWBA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 18:01:00 -0400
-In-Reply-To: <1306334411.2820.26.camel@edumazet-laptop>
+	with ESMTP id S932309Ab1EYWBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 18:01:17 -0400
+In-Reply-To: <1306360602-9672-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 25 May 2011 16:40:11 +0200
+From: greearb@candelatech.com
+Date: Wed, 25 May 2011 14:56:42 -0700
 
-> Since commit eeaeb068f139 (sch_sfq: allow big packets and be fair),
-> sfq_peek() can return a different skb that would be normally dequeued by
-> sfq_dequeue() [ if current slot->allot is negative ]
+> From: Ben Greear <greearb@candelatech.com>
 > 
-> Use generic qdisc_peek_dequeued() instead of custom implementation, to
-> get consistent result.
+> This saves a network device lookup on each packet transmitted,
+> for sockets that are bound to a network device.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-Applied and queued up for -stable.
+You can't hold onto devices like this unless you also add a netdev
+event notifier that will release it.  Otherwise we'll hang on net
+driver module unload until the packet socket is closed.
+
+I don't think you really want to walk all pf-packet sockets on netdev
+events just to do this.
+
+dev_get_by_index(,_rcu}() is insanely cheap, I doubt it's showing up
+on your profiles at all.
