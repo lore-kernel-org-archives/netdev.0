@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-velocity: don't annotate MAC registers as packed
-Date: Wed, 25 May 2011 17:57:28 -0400 (EDT)
-Message-ID: <20110525.175728.1531164565330440303.davem@davemloft.net>
-References: <1306321642-2861-1-git-send-email-uli@suse.de>
+Subject: Re: [PATCH 1/2] net: move is_vlan_dev into public header file (v2)
+Date: Wed, 25 May 2011 17:56:17 -0400 (EDT)
+Message-ID: <20110525.175617.164365611592866156.davem@davemloft.net>
+References: <1306257314-3925-1-git-send-email-nhorman@tuxdriver.com>
+	<1306261869-7276-1-git-send-email-nhorman@tuxdriver.com>
+	<1306261869-7276-2-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: uli@suse.de
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53072 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53085 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752130Ab1EYV5d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 17:57:33 -0400
-In-Reply-To: <1306321642-2861-1-git-send-email-uli@suse.de>
+	with ESMTP id S932362Ab1EYV5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 17:57:46 -0400
+In-Reply-To: <1306261869-7276-2-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ulrich Hecht <uli@suse.de>
-Date: Wed, 25 May 2011 13:07:22 +0200
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 24 May 2011 14:31:08 -0400
 
-> On ARM, memory accesses through packed pointers behave in unexpected
-> ways in GCC releases 4.3 and higher; see https://lkml.org/lkml/2011/2/2/163
-> for discussion.
+> Migrate is_vlan_dev() to if_vlan.h so that core networkig can use it
 > 
-> In this particular case, 32-bit I/O registers are accessed bytewise,
-> causing incorrect setting of the DMA address registers which in turn
-> leads to an error interrupt storm that brings the system to a halt.
-> 
-> Since the mac_regs structure does not need any packing anyway, this patch
-> simply removes the attribute to fix the issue.
-> 
-> Signed-off-by: Ulrich Hecht <uli@suse.de>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 Applied.
