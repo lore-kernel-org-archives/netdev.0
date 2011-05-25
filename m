@@ -1,96 +1,110 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: linux-next: build failure after merge of the final tree
-Date: Wed, 25 May 2011 12:24:55 +0300
-Message-ID: <20110525092449.GJ14556@legolas.emea.dhcp.ti.com>
-References: <20110520161816.dda6f1fd.sfr@canb.auug.org.au>
- <BANLkTimjzzqTS1fELmpb0UivqseLsYOfPw@mail.gmail.com>
- <BANLkTine2kobQA8TkmtiuXdKL=07NCo2vA@mail.gmail.com>
- <BANLkTim-zRShhy49d7yn5WTJYzR6A2DtZQ@mail.gmail.com>
- <BANLkTi=U8ikZo65AoxGznCopGMTFOUXWhQ@mail.gmail.com>
-Reply-To: balbi@ti.com
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCHv2] net: Define enum for the bits used in features.
+Date: Wed, 25 May 2011 11:43:50 +0200
+Message-ID: <BANLkTik4KYrR4vYm1R_hYNbwFjQ79FEoHQ@mail.gmail.com>
+References: <1306263162-2022-1-git-send-email-maheshb@google.com> <1306288567-1773-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="CxDuMX1Cv2n9FQfo"
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mel Gorman <mel@csn.ul.ie>, linux-mm@kvack.org,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	linux-fsdevel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	"Balbi, Felipe" <balbi@ti.com>
-To: Mike Frysinger <vapier.adi@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTi=U8ikZo65AoxGznCopGMTFOUXWhQ@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:47513 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753317Ab1EYJoL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 05:44:11 -0400
+Received: by qyg14 with SMTP id 14so4373614qyg.19
+        for <netdev@vger.kernel.org>; Wed, 25 May 2011 02:44:10 -0700 (PDT)
+In-Reply-To: <1306288567-1773-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+2011/5/25 Mahesh Bandewar <maheshb@google.com>:
+> Little bit cleanup by defining enum for all bits used. Also use those=
+ enum
+> values to redefine flags.
+>
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+> Changes since v1:
+> =A0Split the patch into two pieces.
+>
+> =A0include/linux/netdevice.h | =A0100 +++++++++++++++++++++++++++++++=
+-------------
+> =A01 files changed, 70 insertions(+), 30 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index ca333e7..b4520b2 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -51,6 +51,7 @@
+> =A0#ifdef CONFIG_DCB
+> =A0#include <net/dcbnl.h>
+> =A0#endif
+> +#include <linux/netdev_features.h>
+
+This should go to other part.
+
+> =A0struct vlan_group;
+> =A0struct netpoll_info;
+> @@ -981,6 +982,49 @@ struct net_device_ops {
+> =A0};
+>
+> =A0/*
+> + * Net device feature bits; if you change something,
+> + * also update netdev_features_strings[] in ethtool.c
+> + */
+> +enum netdev_features {
+[...]
+
+> + =A0 =A0 =A0 RESERVED16_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 16 */
+> + =A0 =A0 =A0 RESERVED17_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 17 */
+> + =A0 =A0 =A0 RESERVED18_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 18 */
+> + =A0 =A0 =A0 RESERVED19_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 19 */
+> + =A0 =A0 =A0 RESERVED20_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 20 */
+> + =A0 =A0 =A0 RESERVED21_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 21 */
+> + =A0 =A0 =A0 RESERVED22_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 22 */
+> + =A0 =A0 =A0 RESERVED23_BIT, =A0 =A0 =A0 =A0 /* the GSO_MASK reserve=
+d bit 23 */
+
+This could also define NETIF_F_GSO_SHIFT and name TSO and others.
+Maybe like this:
 
 
---CxDuMX1Cv2n9FQfo
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+NETIF_F_GSO_SHIFT, /* must =3D=3D 16, for now */
+GSO_RESERVED0_BIT =3D NETIF_F_GSO_SHIFT,
+GSO_RESERVED1_BIT,
+=2E..
+GSO_RESERVED7_BIT,
+=2E.. (other bits)
+> + =A0 =A0 =A0 /* Add you bit above this */
 
-On Tue, May 24, 2011 at 01:10:42PM -0400, Mike Frysinger wrote:
-> On Tue, May 24, 2011 at 00:10, Mike Frysinger wrote:
-> > On Tue, May 24, 2011 at 00:01, Linus Torvalds wrote:
-> >> On Mon, May 23, 2011 at 7:06 PM, Mike Frysinger wrote:
-> >>>
-> >>> more failures:
-> >>
-> >> Is this blackfin or something?
-> >
-> > let's go with "something" ...
-> >
-> >> I did an allyesconfig with a special x86 patch that should have caught
-> >> everything that didn't have the proper prefetch.h include, but non-x86
-> >> drivers would have passed that.
-> >
-> > the isp1362-hcd failure probably is before your
-> > 268bb0ce3e87872cb9290c322b0d35bce230d88f. =A0i think i was reading a log
-> > that is a few days old (ive been traveling and am playing catch up
-> > atm). =A0i'll refresh and see what's what still.
-> >
-> > the common musb code only allows it to be built if the arch glue is
-> > available, and there is no x86 glue. =A0so an allyesconfig on x86
-> > wouldnt have picked up the failure. =A0it'll bomb though for any target
-> > which does have the glue.
+your.
 
-anyone with a PCI OPT card to help adding a PCI glue layer for MUSB ?
+> + =A0 =A0 =A0 ND_FEATURE_NUM_BITS, =A0 =A0 /* (LAST VALUE) Total bits=
+ in use */
 
-> latest tree seems to only fail for me now on the musb driver.  i can
-> send out a patch later today if no one else has gotten to it yet.
+And here GSO aliases:
 
-please do send out, but what was the compile breakage with musb ?
+TSO_BIT =3D NETIF_F_GSO_SHIFT + SKB_GSO_TCPV4,
+UFO_BIT =3D NETIF_F_GSO_SHIFT + SKB_GSO_UDP,
+=2E..
 
---=20
-balbi
+Afther this is done, I can convert the feature-names table in
+ethtool.c to use C99 array assignments, so that no one else will trip
+on a missing comma or wrong entries order there.
 
---CxDuMX1Cv2n9FQfo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+About the bit names: NETIF_F_xxx_BIT?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJN3MrhAAoJEAv8Txj19kN13eUH/2sPqkGsBmMQwQoKZwX3haUA
-PhugOZGGAlhYCmJgUr4p7AfXyzyol6ZRrnU5sPGu6kM+j9/KRWO5dQFhNHW/Tlg2
-gfm9Gx8ikCCxIFIqfb/J9DB15h5RNlLMkl3iHsTr6z3a+cNyev6Cb+vq8DOflIou
-Kv9yURY9N4xVUFPY45Rv3RXZqQD2+JoWAHaRiJk0FbEVKJ1ABi7Tm+iNxbSjnQon
-LvgQSQP8MCUPUqZxeZPcLKXbkxrh9GdkxlpAIX1QglGDuifiG73mT8MvNovxlKQC
-ReZfQiKXJv5LIrOLvaCs7QjIrIRu8qoQ02GPAs83y8sz5Lj7VOQ43H8ciS2ky8c=
-=aMEA
------END PGP SIGNATURE-----
-
---CxDuMX1Cv2n9FQfo--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Best Regards,
+Micha=B3 Miros=B3aw
