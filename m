@@ -1,54 +1,46 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
-Date: Thu, 26 May 2011 00:11:25 +0200
-Message-ID: <BANLkTinPTRxmCPhsrqq9fr1veqiNgns_zQ@mail.gmail.com>
-References: <m1wrhh3z62.fsf@fess.ebiederm.org> <BANLkTikW4vJbC8kcLSKuemUBbu36SO6hwg@mail.gmail.com>
- <20110525213806.GA4590@mail.hallyn.com> <BANLkTinbw6pZjhMscfXFMArd=XU=VC=+eQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] af-packet: Save reference to bound network device.
+Date: Wed, 25 May 2011 18:14:18 -0400 (EDT)
+Message-ID: <20110525.181418.1100603684033986711.davem@davemloft.net>
+References: <1306360602-9672-1-git-send-email-greearb@candelatech.com>
+	<20110525.180113.1194226831134092545.davem@davemloft.net>
+	<4DDD7D16.6030907@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Serge E. Hallyn" <serge@hallyn.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: C Anthony Risinger <anthony@xtfx.me>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTinbw6pZjhMscfXFMArd=XU=VC=+eQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38638 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756636Ab1EYWOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 18:14:21 -0400
+In-Reply-To: <4DDD7D16.6030907@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2011/5/25 C Anthony Risinger <anthony@xtfx.me>:
-> On Wed, May 25, 2011 at 4:38 PM, Serge E. Hallyn <serge@hallyn.com> w=
-rote:
->> Quoting C Anthony Risinger (anthony@xtfx.me):
-[...]
->>> if i understand correctly, mount namespaces (for example), allow on=
-e
->>> to build such constructs as "private /tmp" and similar that even
->>> `root` cannot access ... and there are many reasons `root` does not
->>> deserve to completely know/interact with user processes (FUSE makes=
- a
->>> good example ... just because i [user] have SSH access to a machine=
-,
->>> why should `root`?)
->> If for instance you have a file open in your private /tmp, then root
->> in another mounts ns can open the file through /proc/$$/fd/N anyway.
->> If it's a directory, he can now traverse the whole fs.
-> aaah right :-( ... there's always another way isn't there ... curse
-> you Linux for being so flexible! (just kidding baby i love you)
->
-> this seems like a more fundamental issue then? =C2=A0or should i not =
-expect
-> to be able to achieve separation like this? =C2=A0i ask in the contex=
-t of
-> OS virt via cgroups + namespaces, eg. LXC et al, because i'm about to
-> perform a massive overhaul to our crusty sub-2.6.18 infrastructure an=
-d
-> i've used/followed these technologies for couple years now ... and
-> it's starting to feel like "the right time".
+From: Ben Greear <greearb@candelatech.com>
+Date: Wed, 25 May 2011 15:05:10 -0700
 
-You either trust the admin or don't use the machine. There is no third =
-way.
+> Doesn't this piece of code take care of that?
+> I tested with rmmod..but of course I could have missed something.
+> 
+> @@ -2266,6 +2284,10 @@ static int packet_notifier(struct
+> notifier_block *this, unsigned long msg, void
+>  				}
+>  				if (msg == NETDEV_UNREGISTER) {
+>  					po->ifindex = -1;
+> +					if (po->bound_dev) {
+> + dev_put(po->bound_dev);
+> +						po->bound_dev = NULL;
+> +					}
+>  					po->prot_hook.dev = NULL;
+>  				}
+>  				spin_unlock(&po->bind_lock);
+> 
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Indeed, it should, thanks for pointing that out.
+
+Wait a second, why do you need to store the device a second
+time, can't you get at po->prot_hook.dev in all the necessary
+spots?
