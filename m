@@ -1,44 +1,118 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding:update xmit_hash_policy description
-Date: Wed, 25 May 2011 10:40:37 -0400
-Message-ID: <20110525144036.GJ21309@gospo.rdu.redhat.com>
-References: <1306317904-18740-1-git-send-email-panweiping3@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jpirko@redhat.com, Jay Vosburgh <fubar@us.ibm.com>,
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [PATCH] bonding: documentation and code cleanup for resend_igmp
+Date: Wed, 25 May 2011 11:44:02 -0300
+Message-ID: <1306334642-20733-1-git-send-email-fbl@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
-	"open list:BONDING DRIVER" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Weiping Pan <panweiping3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1306317904-18740-1-git-send-email-panweiping3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Flavio Leitner <fbl@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25941 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758051Ab1EYOoJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 May 2011 10:44:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 25, 2011 at 06:05:04PM +0800, Weiping Pan wrote:
-> xmit_hash_policy supports layer2+3 now,
-> and both balance-xor and 802.3ad use xmit_hash_policy.
-> 
-> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
-> ---
->  drivers/net/bonding/bond_main.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 088fd84..d1f5606 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -147,8 +147,7 @@ MODULE_PARM_DESC(lacp_rate, "LACPDU tx rate to request from 802.3ad partner "
->  module_param(ad_select, charp, 0);
->  MODULE_PARM_DESC(ad_select, "803.ad aggregation selection logic: stable (0, default), bandwidth (1), count (2)");
->  module_param(xmit_hash_policy, charp, 0);
-> -MODULE_PARM_DESC(xmit_hash_policy, "XOR hashing method: 0 for layer 2 (default)"
-> -				   ", 1 for layer 3+4");
-> +MODULE_PARM_DESC(xmit_hash_policy, "balance-xor and 802.3ad hashing method: 0 for layer 2 (default), 1 for layer 3+4, 2 for layer 2+3");
+Improves the documentation about how IGMP resend parameter
+works, fix two missing checks and coding style issues.
 
-This is a good idea and a definite bug-fix.  Thanks for posting it.
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
+---
+ Documentation/networking/bonding.txt |   13 +++++++++++--
+ drivers/net/bonding/bond_main.c      |   12 +++++++-----
+ drivers/net/bonding/bond_sysfs.c     |   10 +++++-----
+ 3 files changed, 23 insertions(+), 12 deletions(-)
 
-I do not want to create a description that is longer than 80 characters
-in the source if I can help it.  I went ahead and cleaned up all the
-descriptions and have posted a followup patch.
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 1f45bd8..683ef76 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -770,8 +770,17 @@ resend_igmp
+ 	a failover event. One membership report is issued immediately after
+ 	the failover, subsequent packets are sent in each 200ms interval.
+ 
+-	The valid range is 0 - 255; the default value is 1. This option
+-	was added for bonding version 3.7.0.
++	The valid range is 0 - 255; the default value is 1. A value of 0
++	prevents the IGMP membership report to be issued due the failover
++	event.
++
++	This option is useful for bonding modes balance-rr or 0,
++	active-backup or 1, balance-tlb or 5, balance-alb or 6, which a
++	failover can move the IGMP traffic from one slave to another.
++	Therefore, the switch must be notified with an extra IGMP report
++	to start forwarding the IGMP traffic over the new selected slave.
++
++	This option was added for bonding version 3.7.0.
+ 
+ 3. Configuring Bonding Devices
+ ==============================
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6dc4284..86a8001 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -852,7 +852,7 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
+ static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+-							mcast_work.work);
++					    mcast_work.work);
+ 	bond_resend_igmp_join_requests(bond);
+ }
+ 
+@@ -1172,10 +1172,12 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 	}
+ 
+ 	/* resend IGMP joins since active slave has changed or
+-	 * all were sent on curr_active_slave */
+-	if (((USES_PRIMARY(bond->params.mode) && new_active) ||
+-	     bond->params.mode == BOND_MODE_ROUNDROBIN) &&
+-	    netif_running(bond->dev)) {
++	 * all were sent on curr_active_slave.
++	 * resend only if bond is brought up with the affected
++	 * bonding modes and the retransmission is enabled */
++	if (netif_running(bond->dev) && (bond->params.resend_igmp > 0) &&
++	    ((USES_PRIMARY(bond->params.mode) && new_active) ||
++	     bond->params.mode == BOND_MODE_ROUNDROBIN)) {
+ 		bond->igmp_retrans = bond->params.resend_igmp;
+ 		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
+ 	}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 4059bfc..a32848a 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1539,8 +1539,8 @@ static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
+  * Show and set the number of IGMP membership reports to send on link failure
+  */
+ static ssize_t bonding_show_resend_igmp(struct device *d,
+-					 struct device_attribute *attr,
+-					 char *buf)
++					struct device_attribute *attr,
++					char *buf)
+ {
+ 	struct bonding *bond = to_bond(d);
+ 
+@@ -1548,8 +1548,8 @@ static ssize_t bonding_show_resend_igmp(struct device *d,
+ }
+ 
+ static ssize_t bonding_store_resend_igmp(struct device *d,
+-					  struct device_attribute *attr,
+-					  const char *buf, size_t count)
++					 struct device_attribute *attr,
++					 const char *buf, size_t count)
+ {
+ 	int new_value, ret = count;
+ 	struct bonding *bond = to_bond(d);
+@@ -1561,7 +1561,7 @@ static ssize_t bonding_store_resend_igmp(struct device *d,
+ 		goto out;
+ 	}
+ 
+-	if (new_value < 0) {
++	if (new_value < 0 || new_value > 255) {
+ 		pr_err("%s: Invalid resend_igmp value %d not in range 0-255; rejected.\n",
+ 		       bond->dev->name, new_value);
+ 		ret = -EINVAL;
+-- 
+1.7.4
+
