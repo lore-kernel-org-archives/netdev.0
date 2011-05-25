@@ -1,175 +1,119 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] bonding: prevent deadlock on slave store with alb mode (v3)
-Date: Wed, 25 May 2011 14:13:01 -0400
-Message-ID: <1306347181-3757-1-git-send-email-nhorman@tuxdriver.com>
-References: <1306265765-8257-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [PATCH v2] bonding: documentation and code cleanup for resend_igmp
+Date: Wed, 25 May 2011 15:38:58 -0300
+Message-ID: <1306348738-23946-1-git-send-email-fbl@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
-	nicolas.2p.debian@gmail.com,
-	"David S. Miller" <davem@davemloft.net>
+	Rick Jones <rick.jones2@hp.com>,
+	Flavio Leitner <fbl@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33190 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751743Ab1EYSNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 14:13:16 -0400
-In-Reply-To: <1306265765-8257-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:22973 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752428Ab1EYSjS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 May 2011 14:39:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This soft lockup was recently reported:
+Improves the documentation about how IGMP resend parameter
+works, fix two missing checks and coding style issues.
 
-[root@dell-per715-01 ~]# echo +bond5 > /sys/class/net/bonding_masters
-[root@dell-per715-01 ~]# echo +eth1 > /sys/class/net/bond5/bonding/slaves
-bonding: bond5: doing slave updates when interface is down.
-bonding bond5: master_dev is not up in bond_enslave
-[root@dell-per715-01 ~]# echo -eth1 > /sys/class/net/bond5/bonding/slaves
-bonding: bond5: doing slave updates when interface is down.
-
-BUG: soft lockup - CPU#12 stuck for 60s! [bash:6444]
-CPU 12:
-Modules linked in: bonding autofs4 hidp rfcomm l2cap bluetooth lockd sunrpc
-be2d
-Pid: 6444, comm: bash Not tainted 2.6.18-262.el5 #1
-RIP: 0010:[<ffffffff80064bf0>]  [<ffffffff80064bf0>]
-.text.lock.spinlock+0x26/00
-RSP: 0018:ffff810113167da8  EFLAGS: 00000286
-RAX: ffff810113167fd8 RBX: ffff810123a47800 RCX: 0000000000ff1025
-RDX: 0000000000000000 RSI: ffff810123a47800 RDI: ffff81021b57f6f8
-RBP: ffff81021b57f500 R08: 0000000000000000 R09: 000000000000000c
-R10: 00000000ffffffff R11: ffff81011d41c000 R12: ffff81021b57f000
-R13: 0000000000000000 R14: 0000000000000282 R15: 0000000000000282
-FS:  00002b3b41ef3f50(0000) GS:ffff810123b27940(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00002b3b456dd000 CR3: 000000031fc60000 CR4: 00000000000006e0
-
-Call Trace:
- [<ffffffff80064af9>] _spin_lock_bh+0x9/0x14
- [<ffffffff886937d7>] :bonding:tlb_clear_slave+0x22/0xa1
- [<ffffffff8869423c>] :bonding:bond_alb_deinit_slave+0xba/0xf0
- [<ffffffff8868dda6>] :bonding:bond_release+0x1b4/0x450
- [<ffffffff8006457b>] __down_write_nested+0x12/0x92
- [<ffffffff88696ae4>] :bonding:bonding_store_slaves+0x25c/0x2f7
- [<ffffffff801106f7>] sysfs_write_file+0xb9/0xe8
- [<ffffffff80016b87>] vfs_write+0xce/0x174
- [<ffffffff80017450>] sys_write+0x45/0x6e
- [<ffffffff8005d28d>] tracesys+0xd5/0xe0
-
-It occurs because we are able to change the slave configuarion of a bond while
-the bond interface is down.  The bonding driver initializes some data structures
-only after its ndo_open routine is called.  Among them is the initalization of
-the alb tx and rx hash locks.  So if we add or remove a slave without first
-opening the bond master device, we run the risk of trying to lock/unlock a
-spinlock that has garbage for data in it, which results in our above softlock.
-
-Note that sometimes this works, because in many cases an unlocked spinlock has
-the raw_lock parameter initialized to zero (meaning that the kzalloc of the
-net_device private data is equivalent to calling spin_lock_init), but thats not
-true in all cases, and we aren't guaranteed that condition, so we need to pass
-the relevant spinlocks through the spin_lock_init function.
-
-Fix it by moving the spin_lock_init calls for the tx and rx hashtable locks to
-the ndo_init path, so they are ready for use by the bond_store_slaves path.
-
-Change notes:
-v2) Based on conversation with Jay and Nicolas it seems that the ability to
-enslave devices while the bond master is down should be safe to do.  As such
-this is an outlier bug, and so instead we'll just initalize the errant spinlocks
-in the init path rather than the open path, solving the problem.  We'll also
-remove the warnings about the bond being down during enslave operations, since
-it should be safe
-
-v3) Fix spelling error
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: jtluka@redhat.com
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: nicolas.2p.debian@gmail.com
-CC: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
 ---
- drivers/net/bonding/bond_alb.c   |    4 ----
- drivers/net/bonding/bond_main.c  |   16 ++++++++++------
- drivers/net/bonding/bond_sysfs.c |    6 ------
- 3 files changed, 10 insertions(+), 16 deletions(-)
+ Documentation/networking/bonding.txt |   13 +++++++++++--
+ drivers/net/bonding/bond_main.c      |   12 +++++++-----
+ drivers/net/bonding/bond_sysfs.c     |   10 +++++-----
+ 3 files changed, 23 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 8f2d2e7..2df9276 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -163,8 +163,6 @@ static int tlb_initialize(struct bonding *bond)
- 	struct tlb_client_info *new_hashtbl;
- 	int i;
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 1f45bd8..675612f 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -770,8 +770,17 @@ resend_igmp
+ 	a failover event. One membership report is issued immediately after
+ 	the failover, subsequent packets are sent in each 200ms interval.
  
--	spin_lock_init(&(bond_info->tx_hashtbl_lock));
--
- 	new_hashtbl = kzalloc(size, GFP_KERNEL);
- 	if (!new_hashtbl) {
- 		pr_err("%s: Error: Failed to allocate TLB hash table\n",
-@@ -747,8 +745,6 @@ static int rlb_initialize(struct bonding *bond)
- 	int size = RLB_HASH_TABLE_SIZE * sizeof(struct rlb_client_info);
- 	int i;
+-	The valid range is 0 - 255; the default value is 1. This option
+-	was added for bonding version 3.7.0.
++	The valid range is 0 - 255; the default value is 1. A value of 0
++	prevents the IGMP membership report from being issued in response
++	to the failover event.
++
++	This option is useful for bonding modes balance-rr (0), active-backup
++	(1), balance-tlb (5) and balance-alb (6), in which a failover can
++	switch the IGMP traffic from one slave to another.  Therefore a fresh
++	IGMP report must be issued to cause the switch to forward the incoming
++	IGMP traffic over the newly selected slave.
++
++	This option was added for bonding version 3.7.0.
  
--	spin_lock_init(&(bond_info->rx_hashtbl_lock));
--
- 	new_hashtbl = kmalloc(size, GFP_KERNEL);
- 	if (!new_hashtbl) {
- 		pr_err("%s: Error: Failed to allocate RLB hash table\n",
+ 3. Configuring Bonding Devices
+ ==============================
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 088fd84..c0045d7 100644
+index 6dc4284..86a8001 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1542,12 +1542,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 			   bond_dev->name, slave_dev->name);
+@@ -852,7 +852,7 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
+ static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+-							mcast_work.work);
++					    mcast_work.work);
+ 	bond_resend_igmp_join_requests(bond);
+ }
+ 
+@@ -1172,10 +1172,12 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
  	}
  
--	/* bond must be initialized by bond_open() before enslaving */
--	if (!(bond_dev->flags & IFF_UP)) {
--		pr_warning("%s: master_dev is not up in bond_enslave\n",
--			   bond_dev->name);
--	}
--
- 	/* already enslaved */
- 	if (slave_dev->flags & IFF_SLAVE) {
- 		pr_debug("Error, Device was already enslaved\n");
-@@ -4832,9 +4826,19 @@ static int bond_init(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct bond_net *bn = net_generic(dev_net(bond_dev), bond_net_id);
-+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
- 
- 	pr_debug("Begin bond_init for %s\n", bond_dev->name);
- 
-+	/*
-+	 * Initialize locks that may be required during
-+	 * en/deslave operations.  All of the bond_open work
-+	 * (of which this is part) should really be moved to
-+	 * a phase prior to dev_open
-+	 */
-+	spin_lock_init(&(bond_info->tx_hashtbl_lock));
-+	spin_lock_init(&(bond_info->rx_hashtbl_lock));
-+
- 	bond->wq = create_singlethread_workqueue(bond_dev->name);
- 	if (!bond->wq)
- 		return -ENOMEM;
+ 	/* resend IGMP joins since active slave has changed or
+-	 * all were sent on curr_active_slave */
+-	if (((USES_PRIMARY(bond->params.mode) && new_active) ||
+-	     bond->params.mode == BOND_MODE_ROUNDROBIN) &&
+-	    netif_running(bond->dev)) {
++	 * all were sent on curr_active_slave.
++	 * resend only if bond is brought up with the affected
++	 * bonding modes and the retransmission is enabled */
++	if (netif_running(bond->dev) && (bond->params.resend_igmp > 0) &&
++	    ((USES_PRIMARY(bond->params.mode) && new_active) ||
++	     bond->params.mode == BOND_MODE_ROUNDROBIN)) {
+ 		bond->igmp_retrans = bond->params.resend_igmp;
+ 		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
+ 	}
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 4059bfc..bb1319f 100644
+index 4059bfc..a32848a 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -227,12 +227,6 @@ static ssize_t bonding_store_slaves(struct device *d,
- 	struct net_device *dev;
+@@ -1539,8 +1539,8 @@ static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
+  * Show and set the number of IGMP membership reports to send on link failure
+  */
+ static ssize_t bonding_show_resend_igmp(struct device *d,
+-					 struct device_attribute *attr,
+-					 char *buf)
++					struct device_attribute *attr,
++					char *buf)
+ {
  	struct bonding *bond = to_bond(d);
  
--	/* Quick sanity check -- is the bond interface up? */
--	if (!(bond->dev->flags & IFF_UP)) {
--		pr_warning("%s: doing slave updates when interface is down.\n",
--			   bond->dev->name);
--	}
--
- 	if (!rtnl_trylock())
- 		return restart_syscall();
+@@ -1548,8 +1548,8 @@ static ssize_t bonding_show_resend_igmp(struct device *d,
+ }
  
+ static ssize_t bonding_store_resend_igmp(struct device *d,
+-					  struct device_attribute *attr,
+-					  const char *buf, size_t count)
++					 struct device_attribute *attr,
++					 const char *buf, size_t count)
+ {
+ 	int new_value, ret = count;
+ 	struct bonding *bond = to_bond(d);
+@@ -1561,7 +1561,7 @@ static ssize_t bonding_store_resend_igmp(struct device *d,
+ 		goto out;
+ 	}
+ 
+-	if (new_value < 0) {
++	if (new_value < 0 || new_value > 255) {
+ 		pr_err("%s: Invalid resend_igmp value %d not in range 0-255; rejected.\n",
+ 		       bond->dev->name, new_value);
+ 		ret = -EINVAL;
 -- 
-1.7.5.2
+1.7.4
 
