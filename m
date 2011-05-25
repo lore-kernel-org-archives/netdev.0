@@ -1,57 +1,56 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC Patch] bonding: move to net/ directory
-Date: Wed, 25 May 2011 20:43:21 +0800
-Message-ID: <BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
-References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
-	<20110523151336.GF21309@gospo.rdu.redhat.com>
-	<BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
-	<20110524163323.GB28521@hmsreliant.think-freely.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
+Date: Wed, 25 May 2011 14:47:41 +0200
+Message-ID: <20110525124741.GC29300@elte.hu>
+References: <m11uzrvd26.fsf@fess.ebiederm.org>
+ <BANLkTim4q5dK6nOb=pVKbk1c8b-Nh_hBfA@mail.gmail.com>
+ <m1boyvpo9r.fsf@fess.ebiederm.org>
+ <1306048393.4092.8.camel@mulgrave.site>
+ <20110522084224.GA12279@elte.hu>
+ <m1k4dgr35i.fsf@fess.ebiederm.org>
+ <20110524071628.GA31612@elte.hu>
+ <4508.1306283693@localhost>
+ <20110525082514.GE21552@elte.hu>
+ <BANLkTikVDrU7Nx6143gPuB=1vwqkMFiRiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:65141 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757768Ab1EYMnV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 08:43:21 -0400
-Received: by mail-iy0-f174.google.com with SMTP id 14so6154932iyb.19
-        for <netdev@vger.kernel.org>; Wed, 25 May 2011 05:43:21 -0700 (PDT)
-In-Reply-To: <20110524163323.GB28521@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Valdis.Kletnieks@vt.edu,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <BANLkTikVDrU7Nx6143gPuB=1vwqkMFiRiQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 25, 2011 at 12:33 AM, Neil Horman <nhorman@tuxdriver.com> w=
-rote:
-> This all sounds like change for the sake of change to me. =C2=A0I don=
-'t see any
-> compelling argument for moving bonding (or bridging or vlans, etc) ar=
-ound at
-> all. =C2=A0All of these software drivers have feet in multple subsyst=
-ems, but that
-> just means that theres not going to be a compelling argument to move =
-them any
-> place, =C2=A0at least not without an immediate subsequent argument th=
-at it really
-> belonged back where it was. =C2=A0Unless you can show a solid benefit=
- to moving the
-> code, I don't see why any reorganization is needed.
 
-Well, as a people who worked on bonding code, I have no problem to know
-bonding code is under drivers/net/, but for people who don't know this,=
- probably
-net/ is the first place they want to search.
+* Geert Uytterhoeven <geert@linux-m68k.org> wrote:
 
-The other similar thing is that pktgen is in net/core/ while netconsole=
- is in
-drivers/net/, which seems a little strange too.
+> > But at least the primary, 'native' syscall table of every arch 
+> > could be kept rather fresh via generic enumeration.
+> 
+> So we can start all over at offset 501 (alpha just started using 
+> 500) with a unified, clean, and compressed list of syscalls? Or do 
+> we have some more other-os-compat syscalls around in this range?
 
-vlan vs macvlan is the third example.
+No, that would leave a big hole in the syscall table of most 
+architectures.
 
-In short, there are three callers of netdev_rx_handler_register(), macv=
-lan,
-bonding and bridge, only bridge code stays in net/ directory.
+So what would be needed is for each architecture to define a 'generic 
+syscall table base index', ARCH_SYSCALL_BASE or so, and the generic 
+syscalls would be added for that.
+
+Alpha would have 501, the others lower numbers.
+
+The only general assumption we can rely on is that there's a range of 
+not yet used syscall numbers starting at the end of the current 
+syscall table.
+
+Thanks,
+
+	Ingo
