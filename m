@@ -1,95 +1,114 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
-Date: Wed, 25 May 2011 16:40:13 -0700
-Message-ID: <m17h9e1h9e.fsf@fess.ebiederm.org>
-References: <m1wrhh3z62.fsf@fess.ebiederm.org>
-	<BANLkTikW4vJbC8kcLSKuemUBbu36SO6hwg@mail.gmail.com>
-	<20110525213806.GA4590@mail.hallyn.com>
-	<BANLkTinbw6pZjhMscfXFMArd=XU=VC=+eQ@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/1] IPVS : bug in ip_vs_ftp, same list heaad used in all
+ netns.
+Date: Thu, 26 May 2011 10:48:29 +0900
+Message-ID: <20110526014828.GH8181@verge.net.au>
+References: <1306239065-17271-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Serge E. Hallyn" <serge@hallyn.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: C Anthony Risinger <anthony@xtfx.me>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTinbw6pZjhMscfXFMArd=XU=VC=+eQ@mail.gmail.com> (C. Anthony
-	Risinger's message of "Wed, 25 May 2011 16:55:02 -0500")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ja@ssi.bg, wensong@linux-vs.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hans@schillstrom.com
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1306239065-17271-1-git-send-email-hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-C Anthony Risinger <anthony@xtfx.me> writes:
+On Tue, May 24, 2011 at 02:11:05PM +0200, Hans Schillstrom wrote:
+> When ip_vs was adapted to netns the ftp application was not adapted
+> in a correct way.
+> However this is a fix to avoid kernel errors. In the long term another solution
+> might be chosen.  I.e the ports that the ftp appl, uses should be per netns.
+> 
+> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-> On Wed, May 25, 2011 at 4:38 PM, Serge E. Hallyn <serge@hallyn.com> w=
-rote:
->> Quoting C Anthony Risinger (anthony@xtfx.me):
->>> On Mon, May 23, 2011 at 4:05 PM, Eric W. Biederman
->>> <ebiederm@xmission.com> wrote:
->>> >
->>> > This tree adds the files /proc/<pid>/ns/net, /proc/<pid>/ns/ipc,
->>> > /proc/<pid>/ns/uts that can be opened to refer to the namespaces =
-of a
->>> > process at the time those files are opened, and can be bind mount=
-ed to
->>> > keep the specified namespace alive without a process.
->>> >
->>> > This tree adds the setns system call that can be used to change t=
-he
->>> > specified namespace of a process to the namespace specified by a =
-system
->>> > call.
->>>
->>> i just have a quick question regarding these, apologies if wrong pl=
-ace
->>> to respond -- i trimmed to lists only.
->>>
->>> if i understand correctly, mount namespaces (for example), allow on=
-e
->>> to build such constructs as "private /tmp" and similar that even
->>> `root` cannot access ... and there are many reasons `root` does not
->>> deserve to completely know/interact with user processes (FUSE makes=
- a
->>> good example ... just because i [user] have SSH access to a machine=
-,
->>> why should `root`?)
->>>
->>> would these /proc additions break such guarantees? =C2=A0IOW, would=
- it now
->>> become possible for `root` to inject stuff into my private namespac=
-es,
->>> and/or has these guarantees never existed and i am mistaken? =C2=A0=
-is there
->>> any kind of ACL mechanism that endows the origin process (or simila=
-r)
->>> with the ability to dictate who can hold and/or interact with these
->>> references?
->>
->> If for instance you have a file open in your private /tmp, then root
->> in another mounts ns can open the file through /proc/$$/fd/N anyway.
->> If it's a directory, he can now traverse the whole fs.
->
-> aaah right :-( ... there's always another way isn't there ... curse
-> you Linux for being so flexible! (just kidding baby i love you)
+Julian, do you have any thoughts on this?
 
-Even more significant the access to the new files is guarded by the
-ptrace access checks.  And if root can ptrace your process root
-can remote control your process.
-
-> this seems like a more fundamental issue then?  or should i not expec=
-t
-> to be able to achieve separation like this?  i ask in the context of
-> OS virt via cgroups + namespaces, eg. LXC et al, because i'm about to
-> perform a massive overhaul to our crusty sub-2.6.18 infrastructure an=
-d
-> i've used/followed these technologies for couple years now ... and
-> it's starting to feel like "the right time".
-
-I don't think anything really new is allowed, but we haven't designed
-anything that radically reduces the power of root either.
-
-At some point we may have the user namespace done and that should
-give you a root like user with vastly reduced powers, but we aren't
-there yet.
-
-Eric
+> ---
+>  include/net/ip_vs.h            |    3 ++-
+>  net/netfilter/ipvs/ip_vs_ftp.c |   27 +++++++++++++++++++--------
+>  2 files changed, 21 insertions(+), 9 deletions(-)
+> 
+> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> index 4fff432..481f856 100644
+> --- a/include/net/ip_vs.h
+> +++ b/include/net/ip_vs.h
+> @@ -797,7 +797,8 @@ struct netns_ipvs {
+>  	struct list_head	rs_table[IP_VS_RTAB_SIZE];
+>  	/* ip_vs_app */
+>  	struct list_head	app_list;
+> -
+> +	/* ip_vs_ftp */
+> +	struct ip_vs_app	*ftp_app;
+>  	/* ip_vs_proto */
+>  	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
+>  	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
+> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+> index 6b5dd6d..af63553 100644
+> --- a/net/netfilter/ipvs/ip_vs_ftp.c
+> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+> @@ -411,25 +411,35 @@ static struct ip_vs_app ip_vs_ftp = {
+>  static int __net_init __ip_vs_ftp_init(struct net *net)
+>  {
+>  	int i, ret;
+> -	struct ip_vs_app *app = &ip_vs_ftp;
+> +	struct ip_vs_app *app;
+> +	struct netns_ipvs *ipvs = net_ipvs(net);
+> +
+> +	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
+> +	if (!app)
+> +		return -ENOMEM;
+> +	INIT_LIST_HEAD(&app->a_list);
+> +	INIT_LIST_HEAD(&app->incs_list);
+> +	ipvs->ftp_app = app;
+>  
+>  	ret = register_ip_vs_app(net, app);
+>  	if (ret)
+> -		return ret;
+> +		goto err_exit;
+>  
+>  	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
+>  		if (!ports[i])
+>  			continue;
+>  		ret = register_ip_vs_app_inc(net, app, app->protocol, ports[i]);
+>  		if (ret)
+> -			break;
+> +			goto err_unreg;
+>  		pr_info("%s: loaded support on port[%d] = %d\n",
+>  			app->name, i, ports[i]);
+>  	}
+> +	return 0;
+>  
+> -	if (ret)
+> -		unregister_ip_vs_app(net, app);
+> -
+> +err_unreg:
+> +	unregister_ip_vs_app(net, app);
+> +err_exit:
+> +	kfree(ipvs->ftp_app);
+>  	return ret;
+>  }
+>  /*
+> @@ -437,9 +447,10 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
+>   */
+>  static void __ip_vs_ftp_exit(struct net *net)
+>  {
+> -	struct ip_vs_app *app = &ip_vs_ftp;
+> +	struct netns_ipvs *ipvs = net_ipvs(net);
+>  
+> -	unregister_ip_vs_app(net, app);
+> +	unregister_ip_vs_app(net, ipvs->ftp_app);
+> +	kfree(ipvs->ftp_app);
+>  }
+>  
+>  static struct pernet_operations ip_vs_ftp_ops = {
+> -- 
+> 1.7.2.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
