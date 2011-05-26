@@ -1,39 +1,84 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCHv3] net: Define enum for the bits used in features.
-Date: Thu, 26 May 2011 12:40:50 +0200
-Message-ID: <BANLkTik5aF-CafhXSuTOZdCZuJiyz_Ot_A@mail.gmail.com>
-References: <1306288567-1773-1-git-send-email-maheshb@google.com> <1306363336-13614-1-git-send-email-maheshb@google.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [RESEND PATCH net] net: fix ETHTOOL_SFEATURES compatibility with old ethtool_ops.set_flags
+Date: Thu, 26 May 2011 12:42:57 +0200 (CEST)
+Message-ID: <7bcc407f555d2fbbcd66d26e4b0195060cf8c063.1306405895.git.mirq-linux@rere.qmqm.pl>
+References: <20110524215923.GA20138@rere.qmqm.pl>
+	<20110516.140958.625993829749556424.davem@davemloft.net>
+        <20110519100331.GA25103@rere.qmqm.pl>
+        <20110524091437.GA10779@rere.qmqm.pl>
+        <20110524.153930.610330240390616957.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Mahesh Bandewar <maheshb@google.com>
+	Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:61904 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754368Ab1EZKlL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 06:41:11 -0400
-Received: by qyg14 with SMTP id 14so300359qyg.19
-        for <netdev@vger.kernel.org>; Thu, 26 May 2011 03:41:10 -0700 (PDT)
-In-Reply-To: <1306363336-13614-1-git-send-email-maheshb@google.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:58395 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753812Ab1EZKm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 May 2011 06:42:58 -0400
+In-Reply-To: <20110524215923.GA20138@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/26 Mahesh Bandewar <maheshb@google.com>:
-> Little bit cleanup by defining enum for all bits used. Also use those=
- enum
-> values to redefine flags.
-[...]
+Current code squashes flags to bool - this makes set_flags fail wheneve=
+r
+some ETH_FLAG_* equivalent features are set. Fix this.
 
-This BIT2FLAG macro just obfuscates the code (and gives you more
-characters to read).
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/core/ethtool.c |   25 ++++++++++++++++++++++++-
+ 1 files changed, 24 insertions(+), 1 deletions(-)
 
-I'd also prefer this patch included the GSO/TSO bits and they are
-logically part of this cleanup. But if you think it's easier to review
-split, then that's fine by me.
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 84e7304..fd14116 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -233,6 +233,29 @@ static int ethtool_set_feature_compat(struct net_d=
+evice *dev,
+ 	return 1;
+ }
+=20
++static int ethtool_set_flags_compat(struct net_device *dev,
++	int (*legacy_set)(struct net_device *, u32),
++	struct ethtool_set_features_block *features, u32 mask)
++{
++	u32 value;
++
++	if (!legacy_set)
++		return 0;
++
++	if (!(features[0].valid & mask))
++		return 0;
++
++	value =3D dev->features & ~features[0].valid;
++	value |=3D features[0].requested;
++
++	features[0].valid &=3D ~mask;
++
++	if (legacy_set(dev, value & mask) < 0)
++		netdev_info(dev, "Legacy flags change failed\n");
++
++	return 1;
++}
++
+ static int ethtool_set_features_compat(struct net_device *dev,
+ 	struct ethtool_set_features_block *features)
+ {
+@@ -249,7 +272,7 @@ static int ethtool_set_features_compat(struct net_d=
+evice *dev,
+ 		features, NETIF_F_ALL_TSO);
+ 	compat |=3D ethtool_set_feature_compat(dev, dev->ethtool_ops->set_rx_=
+csum,
+ 		features, NETIF_F_RXCSUM);
+-	compat |=3D ethtool_set_feature_compat(dev, dev->ethtool_ops->set_fla=
+gs,
++	compat |=3D ethtool_set_flags_compat(dev, dev->ethtool_ops->set_flags=
+,
+ 		features, flags_dup_features);
+=20
+ 	return compat;
+--=20
+1.7.2.5
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
