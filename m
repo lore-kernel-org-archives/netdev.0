@@ -1,45 +1,109 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: can: convert to %pK for kptr_restrict support
-Date: Thu, 26 May 2011 16:57:53 +0200
-Message-ID: <4DDE6A71.3080406@hartkopp.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
+ netdevice
+Date: Thu, 26 May 2011 08:27:46 -0700
+Message-ID: <1306423666.5180.8.camel@localhost.localdomain>
+References: <1305729507.32080.6.camel@localhost.localdomain>
+	 <20110518154746.GA21378@redhat.com>
+	 <1305734857.32080.53.camel@localhost.localdomain>
+	 <20110518163633.GB22001@redhat.com>
+	 <1305737140.32080.59.camel@localhost.localdomain>
+	 <20110518165138.GD22001@redhat.com>
+	 <1305738028.32080.66.camel@localhost.localdomain>
+	 <1305834169.32080.81.camel@localhost.localdomain>
+	 <20110519234154.GA13784@redhat.com>
+	 <1306363780.26270.44.camel@localhost.localdomain>
+	 <20110526084916.GA17928@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dan Rosenberg <drosenberg@vsecurity.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:9727 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752581Ab1EZO5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 10:57:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110526084916.GA17928@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As these pointers have been printed without using %p they were missed in the
-big network kptr_restrict conversion patch %p -> %pK from Dan Rosenberg.
+On Thu, 2011-05-26 at 11:49 +0300, Michael S. Tsirkin wrote:
+> On Wed, May 25, 2011 at 03:49:40PM -0700, Shirley Ma wrote:
+> > On Fri, 2011-05-20 at 02:41 +0300, Michael S. Tsirkin wrote:
+> > > So the requirements are
+> > > - data must be released in a timely fashion (e.g. unlike
+> virtio-net
+> > >   tun or bridge)
+> > The current patch doesn't enable tun zero-copy. tun will copy data
+> It's
+> > not an issue now.
+> > We can disallow macvtap attach to bridge when
+> > zero-copy is enabled.
+> 
+> Attach macvtap to a tun device though. Or e.g. veth device ...
+> So there should be so generic way to disable zerocopy.
+> It can either be a whitelist or a blacklist.
+> > 
+> > > - SG support
+> > > - HIGHDMA support (on arches where this makes sense)
+> > 
+> > This can be checked by device flags.
+> 
+> OK, but pls note that SG can get turned off dynamically.
+> 
+> > > - no filtering based on data (data is mapped in guest)
+> > 
+> > > - on fast path no calls to skb_copy, skb_clone, pskb_copy,
+> > >   pskb_expand_head as these are slow
+> > 
+> > Any calls to skb_copy, skb_clone, pskb_copy, pskb_expand_head will
+> do a
+> > copy. The performance should be the same as none zero-copy case
+> before.
+> 
+> I'm guessing a copy is cheaper than get_user_pages+copy+put_page.
+> But maybe not by much. Care checking that?
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+That's I have done already. Patch is going out for review.
 
----
+> > I have done/tested the patch V6, will send it out for review
+> tomorrow.
+> > 
+> > I am looking at where there are some cases, skb remains the same for
+> > filtering.
+> 
+> To reliably filter on data I think we'll need to copy it first,
+> otherwise
+> guest can change it. Most filters only look at the header though.
+> 
+> > > First 2 requirements are a must, all other requirements
+> > > are just dependencies to make sure zero copy will be faster
+> > > than non zero copy.
+> > > Using a new feature bit is probably the simplest approach to
+> > > this. macvtap on top of most physical NICs most likely works
+> > > correctly so it seems a bit more work than it needs to be,
+> > > but it's also the safest one I think ... 
+> > 
+> > For "macvtap/vhost zero-copy" we can use SG & HIGHDMA to enable it,
+> it
+> > looks safe to me once patching skb_copy, skb_clone, pskb_copy,
+> > pskb_expand_head.
+> > 
+> > To extend zero-copy in other usages, we can have a new feature bit
+> > later.
+> > 
+> > Is that reasonable?
+> > 
+> > Thanks
+> > Shirley
+> 
+> Is the problem is extra work needed to extend feature bits?
 
-diff --git a/net/can/proc.c b/net/can/proc.c
-index f4265cc..0016f73 100644
---- a/net/can/proc.c
-+++ b/net/can/proc.c
-@@ -204,12 +204,11 @@ static void can_print_rcvlist(struct seq_file *m, struct hlist_head *rx_list,
- 
- 	hlist_for_each_entry_rcu(r, n, rx_list, list) {
- 		char *fmt = (r->can_id & CAN_EFF_FLAG)?
--			"   %-5s  %08X  %08x  %08x  %08x  %8ld  %s\n" :
--			"   %-5s     %03X    %08x  %08lx  %08lx  %8ld  %s\n";
-+			"   %-5s  %08x  %08x  %pK  %pK  %8ld  %s\n" :
-+			"   %-5s     %03x    %08x  %pK  %pK  %8ld  %s\n";
- 
- 		seq_printf(m, fmt, DNAME(dev), r->can_id, r->mask,
--				(unsigned long)r->func, (unsigned long)r->data,
--				r->matches, r->ident);
-+				r->func, r->data, r->matches, r->ident);
- 	}
- }
- 
+There is no problem to use it, Mahesh is working on this patch. I just
+want to remove macvtap/vhost zero-copy patch dependency.
 
+Thanks
+Shirley
