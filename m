@@ -1,239 +1,87 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH V6 3/4]macvtap: macvtap TX zero-copy support
-Date: Thu, 26 May 2011 12:42:40 -0700
-Message-ID: <1306438960.5180.39.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Thu, 26 May 2011 21:47:26 +0200
+Message-ID: <1306439246.2543.10.camel@edumazet-laptop>
+References: <201104250033.03401.maxi@daemonizer.de>
+	 <1303878240.2699.41.camel@edumazet-laptop>
+	 <1303878771.2699.44.camel@edumazet-laptop>
+	 <201104271352.00601.maxi@daemonizer.de>
+	 <20110512211033.GA3468@dev1756.snc6.facebook.com>
+	 <1305234953.2831.2.camel@edumazet-laptop>
+	 <20110524213327.GA3917@dev1756.snc6.facebook.com>
+	 <1306291469.3305.11.camel@edumazet-laptop>
+	 <20110525060609.GA32244@dev1756.snc6.facebook.com>
+	 <1306305331.3305.22.camel@edumazet-laptop>  <4DDEAA3C.7020502@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, mst@redhat.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Maximilian Engelhardt <maxi@daemonizer.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>
+To: Arun Sharma <asharma@fb.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DDEAA3C.7020502@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Only when buffer size is greater than GOODCOPY_LEN (256), macvtap
-enables zero-copy.
+Le jeudi 26 mai 2011 =C3=A0 12:30 -0700, Arun Sharma a =C3=A9crit :
+> On 5/24/11 11:35 PM, Eric Dumazet wrote:
+>=20
+> >> Another possibility is to do the list_empty() check twice. Once wi=
+thout
+> >> taking the lock and again with the spinlock held.
+> >>
+> >
+> > Why ?
+> >
+>=20
+> Part of the problem is that I don't have a precise understanding of t=
+he=20
+> race condition that's causing the list to become corrupted.
+>=20
+> All I know is that doing it under the lock fixes it. If it's slowing=20
+> things down, we do a check outside the lock (since it's cheap). But i=
+f=20
+> we get the wrong answer, we verify it again under the lock.
+>=20
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
----
+You dont get the problem. Problem is : We can do the empty() test only
+if protected by the lock.
 
- drivers/net/macvtap.c |  132 ++++++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 121 insertions(+), 11 deletions(-)
+If not locked, result can be wrong. [ false positive or negative ]
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 6696e56..97ad224 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -60,6 +60,7 @@ static struct proto macvtap_proto = {
-  */
- static dev_t macvtap_major;
- #define MACVTAP_NUM_DEVS 65536
-+#define GOODCOPY_LEN 256
- static struct class *macvtap_class;
- static struct cdev macvtap_cdev;
- 
-@@ -340,6 +341,7 @@ static int macvtap_open(struct inode *inode, struct file *file)
- {
- 	struct net *net = current->nsproxy->net_ns;
- 	struct net_device *dev = dev_get_by_index(net, iminor(inode));
-+	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct macvtap_queue *q;
- 	int err;
- 
-@@ -369,6 +371,16 @@ static int macvtap_open(struct inode *inode, struct file *file)
- 	q->flags = IFF_VNET_HDR | IFF_NO_PI | IFF_TAP;
- 	q->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
- 
-+	/*
-+	 * so far only KVM virtio_net uses macvtap, enable zero copy between
-+	 * guest kernel and host kernel when lower device supports highdma
-+	 * and sg
-+	 */
-+	if (vlan) {
-+		if (vlan->lowerdev->features & (NETIF_F_HIGHDMA | NETIF_F_SG))
-+			sock_set_flag(&q->sk, SOCK_ZEROCOPY);
-+	}
-+
- 	err = macvtap_set_queue(dev, file, q);
- 	if (err)
- 		sock_put(&q->sk);
-@@ -433,6 +445,80 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
- 	return skb;
- }
- 
-+/* set skb frags from iovec, this can move to core network code for reuse */
-+static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
-+				  int offset, size_t count)
-+{
-+	int len = iov_length(from, count) - offset;
-+	int copy = skb_headlen(skb);
-+	int size, offset1 = 0;
-+	int i = 0;
-+	skb_frag_t *f;
-+
-+	/* Skip over from offset */
-+	while (count && (offset >= from->iov_len)) {
-+		offset -= from->iov_len;
-+		++from;
-+		--count;
-+	}
-+
-+	/* copy up to skb headlen */
-+	while (count && (copy > 0)) {
-+		size = min_t(unsigned int, copy, from->iov_len - offset);
-+		if (copy_from_user(skb->data + offset1, from->iov_base + offset,
-+				   size))
-+			return -EFAULT;
-+		if (copy > size) {
-+			++from;
-+			--count;
-+		}
-+		copy -= size;
-+		offset1 += size;
-+		offset = 0;
-+	}
-+
-+	if (len == offset1)
-+		return 0;
-+
-+	while (count--) {
-+		struct page *page[MAX_SKB_FRAGS];
-+		int num_pages;
-+		unsigned long base;
-+
-+		len = from->iov_len - offset1;
-+		if (!len) {
-+			offset1 = 0;
-+			++from;
-+			continue;
-+		}
-+		base = (unsigned long)from->iov_base + offset1;
-+		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
-+		if ((num_pages != size) ||
-+		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags))
-+			/* put_page is in skb free */
-+			return -EFAULT;
-+		skb->data_len += len;
-+		skb->len += len;
-+		skb->truesize += len;
-+		atomic_add(len, &skb->sk->sk_wmem_alloc);
-+		while (len) {
-+			f = &skb_shinfo(skb)->frags[i];
-+			f->page = page[i];
-+			f->page_offset = base & ~PAGE_MASK;
-+			f->size = min_t(int, len, PAGE_SIZE - f->page_offset);
-+			skb_shinfo(skb)->nr_frags++;
-+			/* increase sk_wmem_alloc */
-+			base += f->size;
-+			len -= f->size;
-+			i++;
-+		}
-+		offset1 = 0;
-+		++from;
-+	}
-+	return 0;
-+}
-+
- /*
-  * macvtap_skb_from_vnet_hdr and macvtap_skb_to_vnet_hdr should
-  * be shared with the tun/tap driver.
-@@ -515,16 +601,18 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
- 
- 
- /* Get packet from user space buffer */
--static ssize_t macvtap_get_user(struct macvtap_queue *q,
--				const struct iovec *iv, size_t count,
--				int noblock)
-+static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-+				const struct iovec *iv, unsigned long total_len,
-+				size_t count, int noblock)
- {
- 	struct sk_buff *skb;
- 	struct macvlan_dev *vlan;
--	size_t len = count;
-+	unsigned long len = total_len;
- 	int err;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
- 	int vnet_hdr_len = 0;
-+	int copylen;
-+	bool zerocopy = false;
- 
- 	if (q->flags & IFF_VNET_HDR) {
- 		vnet_hdr_len = q->vnet_hdr_sz;
-@@ -552,12 +640,30 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
- 	if (unlikely(len < ETH_HLEN))
- 		goto err;
- 
--	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, len, vnet_hdr.hdr_len,
--				noblock, &err);
-+	if (m && m->msg_control)
-+		zerocopy = true;
-+
-+	if (zerocopy) {
-+		/* There are 256 bytes to be copied in skb, so there is enough
-+		 * room for skb expand head in case it is used.
-+		 * The rest buffer is mapped from userspace.
-+		 */
-+		copylen = vnet_hdr.hdr_len;
-+		if (!copylen)
-+			copylen = GOODCOPY_LEN;
-+	} else
-+		copylen = len;
-+
-+	skb = macvtap_alloc_skb(&q->sk, NET_IP_ALIGN, copylen,
-+				vnet_hdr.hdr_len, noblock, &err);
- 	if (!skb)
- 		goto err;
- 
--	err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len, len);
-+	if (zerocopy)
-+		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
-+	else
-+		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
-+						   len);
- 	if (err)
- 		goto err_kfree;
- 
-@@ -573,13 +679,17 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
- 
- 	rcu_read_lock_bh();
- 	vlan = rcu_dereference_bh(q->vlan);
-+	/* copy skb_ubuf_info for callback when skb has no error */
-+	if (zerocopy)
-+		memcpy(&skb_shinfo(skb)->ubuf, m->msg_control,
-+		       sizeof(struct skb_ubuf_info));
- 	if (vlan)
- 		macvlan_start_xmit(skb, vlan->dev);
- 	else
- 		kfree_skb(skb);
- 	rcu_read_unlock_bh();
- 
--	return count;
-+	return total_len;
- 
- err_kfree:
- 	kfree_skb(skb);
-@@ -601,8 +711,8 @@ static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
- 	ssize_t result = -ENOLINK;
- 	struct macvtap_queue *q = file->private_data;
- 
--	result = macvtap_get_user(q, iv, iov_length(iv, count),
--			      file->f_flags & O_NONBLOCK);
-+	result = macvtap_get_user(q, NULL, iv, iov_length(iv, count), count,
-+				  file->f_flags & O_NONBLOCK);
- 	return result;
- }
- 
-@@ -815,7 +925,7 @@ static int macvtap_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			   struct msghdr *m, size_t total_len)
- {
- 	struct macvtap_queue *q = container_of(sock, struct macvtap_queue, sock);
--	return macvtap_get_user(q, m->msg_iov, total_len,
-+	return macvtap_get_user(q, m, m->msg_iov, total_len, m->msg_iovlen,
- 			    m->msg_flags & MSG_DONTWAIT);
- }
- 
+
+> > list_del_init(&p->unused); (done under lock of course) is safe, you=
+ can
+> > call it twice, no problem.
+>=20
+> Doing it twice is not a problem. But doing it when we shouldn't be do=
+ing=20
+> it could be the problem.
+>=20
+> The list modification under unused_peers.lock looks generally safe. B=
+ut=20
+> the control flow (based on refcnt) done outside the lock might have r=
+aces.
+>=20
+
+"might" is not a good word when dealing with this ;)
+
+> Eg: inet_putpeer() might find the refcnt go to zero, but before it ad=
+ds=20
+> it to the unused list, another thread may be doing inet_getpeer() and=
+=20
+> set refcnt to 1. In the end, we end up with a node that's potentially=
+ in=20
+> use, but ends up on the unused list.
+>=20
+
+Did you test my fix ?
+
+Its doing the right thing : Using refcnt as the only marker to say if
+the item must be removed from unused list (and lock the central lock
+protecting this list only when needed)
+
+Since we already must do an atomic operation on refcnt, using
+atomic_inc_return [ or similar full barrier op ] is enough to tell us
+the truth.
