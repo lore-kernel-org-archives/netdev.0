@@ -1,36 +1,63 @@
-From: Luciano Coelho <coelho@ti.com>
-Subject: Re: [PATCH][Trivial] mac80211: Remove duplicate linux/slab.h
- include from net/mac80211/scan.c
-Date: Thu, 26 May 2011 12:06:31 +0300
-Message-ID: <1306400791.19876.41.camel@cumari>
-References: <alpine.LNX.2.00.1105261048570.17400@swampdragon.chaosbits.net>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC Patch] bonding: move to net/ directory
+Date: Thu, 26 May 2011 17:11:35 +0800
+Message-ID: <BANLkTimEFg0Q=12z2_R4NNQ_VjRH=qhp2w@mail.gmail.com>
+References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
+	<20110523151336.GF21309@gospo.rdu.redhat.com>
+	<BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+	<20110524150340.GH21309@gospo.rdu.redhat.com>
+	<BANLkTi=UCH8+ZVFwZ96YvFuDqDLwq8ihkQ@mail.gmail.com>
+	<20110525150144.GB11867@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, trivial@kernel.org
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1105261048570.17400@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:46029 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753703Ab1EZJLf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 05:11:35 -0400
+Received: by iwn34 with SMTP id 34so414493iwn.19
+        for <netdev@vger.kernel.org>; Thu, 26 May 2011 02:11:35 -0700 (PDT)
+In-Reply-To: <20110525150144.GB11867@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-05-26 at 10:53 +0200, Jesper Juhl wrote: 
-> Commit 79f460ca49d8d5700756ab7071c951311c7f29cc add a duplicate 
-> linux/slab.h include to net/mac80211/scan.c - remove it.
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-> ---
+On Wed, May 25, 2011 at 11:01 PM, Neil Horman <nhorman@tuxdriver.com> w=
+rote:
+> While thats a fine rule to draw a distinction on, it also creates oth=
+er
+> organizational oddities. =C2=A0By this reasoning, the loopback/tun-ta=
+p and xen
+> netfront drivers should also be moved to /net. =C2=A0While this might=
+ be an ok move
+> to make, I think we can all agree, that while they don't touch specif=
+ic
+> hardware, they implement instances of the driver model, and as such a=
+re
+> reasonably placed in /drivers.
+>
 
-Hmmm... indeed! Must have been a rebase mistake I made.  Thanks for
-fixing it.
+Hmm, after reading Andy's comments again, I think his point is
+probably bridge has STP management code which makes a difference
+with bonding, but you know, we have 802.3ad in bonding too.
 
-Acked-by: Luciano Coelho <coelho@ti.com>
+> This is really a false assertion. =C2=A0Theres nothing more or less h=
+ard about
+> finding bonding code in /drivers than there is in /net. =C2=A0grep an=
+d find let you
+> locate the code in either place equally well, and cscope really makes=
+ it all
+> moot anyway.
+>
 
-
--- 
-Cheers,
-Luca.
+Sometimes cscope sucks, especially when you meet function pointers
+which are pretty common in net code. When I grep netpoll code, I have t=
+o
+do `grep ndo_netpoll_setup -nr net/  drivers/net`, if bonding were in n=
+et/
+`grep -nr net/` is enough. 'netdev_rx_handler_register' too.
