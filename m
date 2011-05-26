@@ -1,61 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] net: convert %p usage to %pK
-Date: Wed, 25 May 2011 21:50:40 -0400 (EDT)
-Message-ID: <20110525.215040.47969627064310792.davem@davemloft.net>
-References: <1306223101.2638.43.camel@edumazet-laptop>
-	<20110524.035801.1555795213632087107.davem@davemloft.net>
-	<20110525232921.GD19633@outflux.net>
+Subject: Re: [Bugme-new] [Bug 35862] New: arp requests from wrong src IP
+Date: Wed, 25 May 2011 21:52:22 -0400 (EDT)
+Message-ID: <20110525.215222.22117057747103565.davem@davemloft.net>
+References: <bug-35862-10286@https.bugzilla.kernel.org/>
+	<20110525163137.6f04f26e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, joe@perches.com, mingo@elte.hu,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	drosenberg@vsecurity.com, a.p.zijlstra@chello.nl,
-	eparis@parisplace.org, eugeneteo@kernel.org, jmorris@namei.org,
-	tgraf@infradead.org
-To: kees.cook@canonical.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, matare@lih.rwth-aachen.de
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51746 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51761 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756118Ab1EZBwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 21:52:22 -0400
-In-Reply-To: <20110525232921.GD19633@outflux.net>
+	with ESMTP id S1756118Ab1EZBw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 21:52:58 -0400
+In-Reply-To: <20110525163137.6f04f26e.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogS2VlcyBDb29rIDxrZWVzLmNvb2tAY2Fub25pY2FsLmNvbT4NCkRhdGU6IFdlZCwgMjUg
-TWF5IDIwMTEgMTY6Mjk6MjEgLTA3MDANCg0KPiBIaSBEYXZpZCwNCj4gDQo+IE9uIFR1ZSwgTWF5
-IDI0LCAyMDExIGF0IDAzOjU4OjAxQU0gLTA0MDAsIERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEZy
-b206IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4NCj4+IERhdGU6IFR1ZSwg
-MjQgTWF5IDIwMTEgMDk6NDU6MDEgKzAyMDANCj4+IA0KPj4gPiBMZSBtYXJkaSAyNCBtYWkgMjAx
-MSDDoCAwMDozNSAtMDcwMCwgSm9lIFBlcmNoZXMgYSDDqWNyaXQgOg0KPj4gPiANCj4+ID4+IEkg
-dGhpbmsgaXQncyBiZSBiZXR0ZXIgd2l0aG91dCB0aGUgY2FzdHMNCj4+ID4+IHVzaW5nIHRoZSBz
-dGFuZGFyZCBrZXJuZWwuaCBtYWNyb3MuDQo+PiA+PiANCj4+ID4+IAl2b2lkICpwdHI7DQo+PiA+
-PiANCj4+ID4+IAlwdHIgPSBtYXliZV9oaWRlX3B0cihzayk7DQo+PiA+PiAJci0+aWQuaWRpYWdf
-Y29va2llWzBdID0gbG93ZXJfMzJfYml0cyhwdHIpOw0KPj4gPj4gCXItPmlkLmlkaWFnX2Nvb2tp
-ZVsxXSA9IHVwcGVyXzMyX2JpdHMocHRyKTsNCj4+ID4+IA0KPj4gPiANCj4+ID4gSSBhbSBub3Qg
-c3VyZSBJIHdhbnQgdG8gcGF0Y2ggbG93ZXJfMzJfYml0cygpIGFuZCB1cHBlcl8zMl9iaXRzKCkg
-Zm9yDQo+PiA+IHRoaXMuDQo+PiA+IA0KPj4gPiBUaGV5IGRvbnQgd29yayBvbiBwb2ludGVycywg
-YnV0IG9uICJudW1iZXJzIiwgYWNjb3JkaW5nIHRvIGtlcm5lbGRvYw0KPj4gPiBBbmRyZXcgd3Jv
-dGUgeWVhcnMgYWdvLiBnY2MgYWdyZWVzIDoNCj4+ID4gDQo+PiA+IG5ldC9pcHY0L2luZXRfZGlh
-Zy5jOiBJbiBmdW5jdGlvbiDigJhpbmV0X2Nza19kaWFnX2ZpbGzigJk6DQo+PiA+IG5ldC9pcHY0
-L2luZXRfZGlhZy5jOjExOTogd2FybmluZzogY2FzdCBmcm9tIHBvaW50ZXIgdG8gaW50ZWdlciBv
-ZiBkaWZmZXJlbnQgc2l6ZQ0KPj4gPiBuZXQvaXB2NC9pbmV0X2RpYWcuYzoxMjA6IGVycm9yOiBp
-bnZhbGlkIG9wZXJhbmRzIHRvIGJpbmFyeSA+Pg0KPj4gPiBtYWtlWzFdOiAqKiogW25ldC9pcHY0
-L2luZXRfZGlhZy5vXSBFcnJvciAxDQo+PiANCj4+IEFsc28geW91IGNhbid0IGRvIHRoaXMsIHRo
-ZSAiY29va2llIiBpcyB1c2VkIGJ5IHRoZSBrZXJuZWwgZnV0dXJlDQo+PiBsb29rdXBzIHRvIGZp
-bmQgc29ja2V0cy4NCj4+IA0KPj4gVGhlIGtlcm5lbCBwb2ludGVyIGlzIHBhcnQgb2YgdGhlIEFQ
-SSwgc28gc29ycnkgeW91IGNhbid0ICJoaWRlIg0KPj4ga2VybmVsIHBvaW50ZXJzIGluIHRoaXMg
-Y2FzZSB3aXRob3V0IHJlYWxseSBicmVha2luZyB1c2VyIHZpc2libGUNCj4+IHRoaW5ncy4NCj4g
-DQo+IEJ1dCB0aGlzIGlzIHByZWNpc2VseSB3aGF0IHdlJ3JlIHRyeWluZyB0byBjb250cm9sIHdp
-dGgga3B0cl9yZXN0cmljdC4NCj4gU2V0dGluZyBrcHRyX3Jlc3RyaWN0IHdpbGwgbWFrZSBpbmV0
-X2RpYWcgKGFuZCBzb21lIGRldGFpbHMgb2Ygc2ltaWxhcg0KPiB0aGluZ3MgaW4gL3Byb2MpIG1l
-YW5pbmdsZXNzLiBCYXNlZCBvbiB0aGUgbmFtZSwgImRpYWciIGlzbid0IGdvaW5nIHRvIGJlDQo+
-IHVzZWQgaW4gbm9ybWFsIG9wZXJhdGlvbiwgYW5kIGtwdHJfcmVzdHJpY3QgaXMgMCBieSBkZWZh
-dWx0LCBzbyBvbmx5IHN5c3RlbQ0KPiBvd25lcnMgaW50ZXJlc3RlZCBpbiB0aGlzIHdpbGwgZW5h
-YmxlIGl0IGFuZCBlZmZlY3RpdmVseSBkaXNhYmxlIGluZXRfZGlhZy4NCg0KQXJlIHlvdSBraWRk
-aW5nIG1lPw0KDQppbmV0X2RpYWcgaXMgdGhlIHN0YW5kYXJkIHdheSB0byBkdW1wIHNvY2tldHMg
-dXNpbmcgbmV0bGluay4NCkl0J3Mgbm90IGEgc3BlY2lhbCBvYnNjdXJlIGRlYnVnZ2luZyBmYWNp
-bGl0eSwgaXQncyBmb3IgcmVhbA0KdXNlcnMuDQoNCkFuZCB0aGUgZW5jb2RlZCBrZXJuZWwgcG9p
-bnRlciBoZXJlIGlzIHVzZWQgYXMgYSBzaG9ydGN1dCB0byBsb29raW5nDQp1cCBwcmVjaXNlIHNv
-Y2tldHMuDQo=
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 25 May 2011 16:31:37 -0700
+
+>> I switched a host's ip address from 137.226.164.13 to 137.226.164.2. The .13 IP
+>> now belongs to the host that had .2 before (I swapped them). Now both hosts
+>> still arp from their old IPs although ifconfig as well as ip clearly tell
+>> otherwise. Examining the host which now has 137.226.164.13:
+>> 
+>> # ip addr show dev eth0
+>> 4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
+>>     link/ether 00:e0:81:41:1f:e4 brd ff:ff:ff:ff:ff:ff
+>>     inet 137.226.164.2/24 brd 137.226.164.255 scope global eth0
+>>     inet 192.168.23.2/24 brd 137.226.164.255 scope global eth0:0
+
+If you keep the old IP address around it remains as the "primary"
+IP address.
+
+You have to explicitly remove the original IP address from the
+interface first, then add the new one, in order for the new
+one to become the "primary"
+
+Not a bug, please close this.
