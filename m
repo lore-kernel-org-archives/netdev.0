@@ -1,39 +1,59 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH] atm: expose ATM device index in sysfs
-Date: Thu, 26 May 2011 12:06:51 -0700
-Message-ID: <20110526190651.GA7627@kroah.com>
-References: <1306432057.3151.10.camel@dcbw.foobar.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [PATCH] sctp compilation failed due to lack of
+ sctp_local_addr_free
+Date: Thu, 26 May 2011 22:07:01 +0300
+Message-ID: <1306436821.28745.4.camel@lb-tlvb-dmitry>
+References: <1306427323.7510.2.camel@lb-tlvb-dmitry>
+ <20110526.133929.1471692552076759601.davem@davemloft.net>
+ <837A992BD1360242AE0C50C6BCB069C18415C8@orsmsx003.amr.corp.intel.com>
+ <20110526.144416.252997714470172705.davem@davemloft.net>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Chas Williams <chas@cmf.nrl.navy.mil>,
-	David Woodhouse <dwmw2@infradead.org>, stable@kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"difrost.kernel@gmail.com" <difrost.kernel@gmail.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3.smtp.messagingengine.com ([66.111.4.27]:44158 "EHLO
-	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758012Ab1EZTFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 15:05:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1306432057.3151.10.camel@dcbw.foobar.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3744 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757630Ab1EZTHC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 May 2011 15:07:02 -0400
+In-Reply-To: <20110526.144416.252997714470172705.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 26, 2011 at 12:47:36PM -0500, Dan Williams wrote:
-> It's current exposed only through /proc which besides requiring
-> screen-scraping doesn't allow userspace to distinguish between two
-> identical ATM adapters with different ATM indexes.  The ATM device index
-> is required when using PPPoATM on a system with multiple ATM adapters.
+On Thu, 2011-05-26 at 11:44 -0700, David Miller wrote:
+> From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+> Date: Thu, 26 May 2011 11:40:34 -0700
 > 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-> ---
+> >>-----Original Message-----
+> >>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+> >>Behalf Of David Miller
+> >>Sent: Thursday, May 26, 2011 10:39 AM
+> >>To: dmitry@broadcom.com
+> >>Cc: netdev@vger.kernel.org; difrost.kernel@gmail.com
+> >>Subject: Re: [PATCH] sctp compilation failed due to lack of sctp_local_addr_free
+> >>
+> >>
+> >>This has been fixed for days.
+> > 
+> > Fixed in net-2.6, yes, but not yet in net-next-2.6
 > 
-> PS: -> stable too since it's a minimal change with no backwards
-> incompatibility and I'd like to rely on this attribute in NetworkManager
+> net-next-2.6 is not active and is just a dummy tree for Stephen
+> Rothwell to pull into -next
+> 
+> You should never be referencing or using net-next-2.6 during the
+> merge window when new features changes are not being accepted.
+> Only net-2.6 is active during this time.
+> 
+Hmm, so how similar will be net-2.6 and net-next-2.6 when re-opened?
+You apply a lot of fixes during this time...
 
-<formletter>
+And yes, i've hit the compilation error in net-next since i'm using it
+as basis for future features submit
 
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
 
-</formletter>
+
