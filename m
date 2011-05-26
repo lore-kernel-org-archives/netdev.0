@@ -1,43 +1,36 @@
-From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
-Subject: Re: linux-next: Tree for May 26 (drivers/net/caif)
-Date: Thu, 26 May 2011 23:15:34 +0200
-Message-ID: <BANLkTikik8+f1D4D_Dv_rFK=QQjdce9rwg@mail.gmail.com>
-References: <20110526163941.7dfcad1a.sfr@canb.auug.org.au>
-	<20110526120702.fac24de0.randy.dunlap@oracle.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 3/3] net: Kill ratelimit.h dependency in linux/net.h
+Date: Thu, 26 May 2011 14:24:04 -0700
+Message-ID: <1306445044.25717.0.camel@Joe-Laptop>
+References: <20110526.164330.2076981043593394399.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, gregkh@suse.de
-To: Randy Dunlap <randy.dunlap@oracle.com>, balbi@ti.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110526120702.fac24de0.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mingo@elte.hu
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:2088 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758173Ab1EZVYG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 May 2011 17:24:06 -0400
+In-Reply-To: <20110526.164330.2076981043593394399.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Randy,
+On Thu, 2011-05-26 at 16:43 -0400, David Miller wrote:
+> Ingo Molnar noticed that we have this unnecessary ratelimit.h
+> dependency in linux/net.h, which hid compilation problems from
+> people doing builds only with CONFIG_NET enabled.
+> 
+> Move this stuff out to a seperate net/net_ratelimit.h file and
+> include that in the only two places where this thing is needed.
 
-[Randy]
-> (not new)
->
-> drivers/net/caif/caif_serial.c:194: warning: 'return' with no value, =
-in function returning non-void
-> drivers/net/caif/caif_serial.c:202: warning: 'return' with no value, =
-in function returning non-void
->
->
-> I'm curious: =C2=A0how do warnings like this get overlooked?
-> too much noise in the build messages? =C2=A0or it wasn't overlooked, =
-just ignored?
+git add net/net_ratelimit.h?
 
-The patch introducing this problem is "tty: make receive_buf()
-return the amout of bytes received" by Felipe Balbi <balbi@ti.com>.
-It seems that this patch has been posted to linux-serial and not to
-the netdev list or the gits net-next-2.6 or net-2.6 that I follow.
-It's probably no excuse, but this problem is news to me.
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/linux/net.h        |    6 ------
+>  net/core/sysctl_net_core.c |    1 +
+>  net/core/utils.c           |    1 +
 
-Should I post a patch on linux-next anyway for this issue?
 
-Regards,
-Sjur
