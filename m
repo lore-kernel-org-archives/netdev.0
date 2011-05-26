@@ -1,60 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [patch] net/core/filter.c: Fix build error
-Date: Thu, 26 May 2011 08:31:06 -0700
-Message-ID: <1306423866.16087.10.camel@Joe-Laptop>
-References: <cover.1305999731.git.joe@perches.com>
-	 <efa062542c692c3f7743bf2d97b5987ab989e27e.1305999731.git.joe@perches.com>
-	 <20110526123153.GA16002@elte.hu>
+From: Laurent Riffard <laurent.riffard@free.fr>
+Subject: Re: [BUG] netconsole broken by scheduler updates
+Date: Thu, 26 May 2011 18:12:27 +0200
+Message-ID: <4DDE7BEB.1050507@free.fr>
+References: <4DDE1B7D.7080707@free.fr> <1306403308.1200.44.camel@twins> <alpine.DEB.2.02.1105261217240.5114@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110526123153.GA16002@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:40354 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751928Ab1EZQMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 May 2011 12:12:36 -0400
+In-Reply-To: <alpine.DEB.2.02.1105261217240.5114@localhost6.localdomain6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-05-26 at 14:31 +0200, Ingo Molnar wrote:
-> * Joe Perches <joe@perches.com> wrote:
-> > A mis-configured filter can spam the logs with lots of stack traces.
-> > Rate-limit the warnings and add printout of the bogus filter information.
-> > Original-patch-by: Ben Greear <greearb@candelatech.com>
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> > ---
-> >  net/core/filter.c |    4 +++-
-> >  1 files changed, 3 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/core/filter.c b/net/core/filter.c
-> > index 0eb8c44..0e3622f 100644
-> > --- a/net/core/filter.c
-> > +++ b/net/core/filter.c
-> > @@ -350,7 +350,9 @@ load_b:
-> >  			continue;
-> >  		}
-> >  		default:
-> > -			WARN_ON(1);
-> > +			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
-> > +				       fentry->code, fentry->jt,
-> > +				       fentry->jf, fentry->k);
-> >  			return 0;
-> >  		}
-> This change (now upstream) fails to build in about 20% of all 
-> randconfigs. Fix is below.
+Le 26/05/2011 12:35, Laurent Riffard a =E9crit :
+> On Thu, 26 May 2011, Peter Zijlstra wrote:
+>> On Thu, 2011-05-26 at 11:21 +0200, Laurent Riffard wrote:
+>>> Hi,
+>>>
+>>> Recently, netconsole was broken by some scheduler updates. Kernel h=
+angs
+>>> on boot near the network card initialization. I noticed that it doe=
+s
+>>> hang just where a "inconsistent lock state" message normally appear=
+s.
+>>>
+>>> I did a bisection : e4a52bcb9a18142d79e231b6733cabdbf2e67c1f is the
+>>> first bad commit.
+>>> commit e4a52bcb9a18142d79e231b6733cabdbf2e67c1f
+>>> Author: Peter Zijlstra <a.p.zijlstra@chello.nl>
+>>> Date:   Tue Apr 5 17:23:54 2011 +0200
+>>>
+>>>     sched: Remove rq->lock from the first half of ttwu()
+>>>
+>>>
+>>> Before this commit, kernel was booting succesfully despite the
+>>> "inconsistent lock state" message. After this commit, the kernel do=
+es
+>>> hang on boot, I have to push the reset button.
+>>
+>> Do you have CONFIG_HARDLOCKUP_DETECTOR=3Dy, and do you get an NMI sp=
+lat
+>> after some 10 seconds? It would be interesting to see where its stuc=
+k.
+>=20
+> CONFIG_HARDLOCKUP_DETECTOR is not set for now. I'll give it a try.
 
-We've had problems with ratelimit uses in the past
-as well.
+I activated CONFIG_HARDLOCKUP_DETECTOR, but failed to obtain more=20
+information. During the boot, the kernel hangs just after bringing up=20
+the NIC. I waited 2 minutes, without getting any more messages.
 
-There's a logical separation issue with the #includes
-of bug.h, printk.h, ratelimit.h kernel.h and the
-spinlock includes.
+~~
+laurent
 
-My suggestion would be to see about again adding
-#include <linux/ratelimit.h> somehow
-back to kernel.h which commit 3fff4c42bd0a removed
-in 2009 because of the spinlock issues.
-
-Any suggestion on how best to fix it generically?
