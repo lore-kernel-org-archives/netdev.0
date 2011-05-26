@@ -1,60 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.11
-Date: Thu, 26 May 2011 19:04:20 +0200
-Message-ID: <4DDE8814.7090201@trash.net>
-References: <4DDE857E.40807@trash.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Setting shutdownspeed in r8169 driver
+Date: Thu, 26 May 2011 08:04:36 -0700
+Message-ID: <1306422276.17233.87.camel@localhost>
+References: <201105242302.40221.bas@tcfaa.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org,
-	"'netfilter@vger.kernel.org'" <netfilter
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4DDE857E.40807@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Bas Nedermeijer <bas@tcfaa.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:47565 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630Ab1EZRFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 13:05:00 -0400
+In-Reply-To: <201105242302.40221.bas@tcfaa.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 26.05.2011 18:53, schrieb Patrick McHardy:
-> The netfilter coreteam presents:
+On Tue, 2011-05-24 at 23:02 +0200, Bas Nedermeijer wrote:
+> Hello,
 > 
->     iptables version 1.4.10
+> I currently have an onboard nic, which allows me to use wake-on-lan. But link-
+> speed goes to 10MBit when the system is shutdown. This causes a multicast/IPTV  
+> stream to be throttled back to 10Mbit. This is probably because the multicast 
+> stream actually a broadcast on my local network. I think some device is 
+> sending ethernet-pause frames (havent seem them, but not sure if they show up 
+> in tcpdump).
 
-That's supposed to read 1.4.11 of course :)
+Pause frames are produced and consumed at the MAC control layer.  Some
+switches may forward pause frames, but I suspect that in this case the
+switch is sending pause frames to the multicast sender because the
+transmit queue for the 10M port is filling up.
 
+For hardware that supports Ethernet flow control, there are usually
+pause frame counters in the extended statistics (ethtool -S).
+
+> I tried to disable flow-control on the sending device, but that 
+> didnt help, still the traffic is throttled when it has passed some switches. I 
+> read somewhere the windows driver has an option to specify the shutdown-
+> linkspeed, so listening for WOL happens on 100mbit. I was wondering if it is 
+> possible at all with the linux-driver (maybe as default by modifying the 
+> driver locally as I cant seem to find a userspace program to modify the 
+> settings).
+
+No, there is no such setting within the ethtool API for WOL
+configuration on Linux.  It seems like it would be a useful extension.
+
+Ben.
+
+> I am using the driver "r8169"
 > 
-> the iptables release for the 2.6.39 kernels. Due to some mistakes
-> on my side we didn't have a release for longer than expected, so
-> this contains a rather large number of changes.
+> According to 'lspci':
 > 
-> Changes include:
-> 
-> - various bugfixes, cleanups and documentation updates
-> 
-> - a new "guided option parser" from Jan, replacing a lot of the
->   open-coded option parsing by a data driven parser
-> 
-> - support for the current SET target as contained in 2.6.39
-> 
-> - support for the new devgroup match
-> 
-> - support for the new AUDIT target
-> 
-> - support for a new NFQUEUE bypass option, allowing to bypass the
->   queue if no userspace listener is present
-> 
-> - a new iptables option "-C" to check for existance of a rules
-> 
-> - a new xtables-multi binary which supports both IPv4 and IPv6
-> 
-> See the attached changelogs for the full list of changes.
-> 
-> Version 1.4.11 can be obtained from:
-> 
-> http://www.netfilter.org/projects/iptables/downloads.html
-> ftp://ftp.netfilter.org/pub/iptables/
-> git://git.netfilter.org/iptables.git
-> 
-> On behalf of the Netfilter Core Team.
-> Happy firewalling!
+> Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet 
+> controller (rev 02)
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
