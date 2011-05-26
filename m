@@ -1,35 +1,44 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V6 0/4 net-next] macvtap/vhost TX zero-copy support
-Date: Thu, 26 May 2011 13:31:25 -0700
-Message-ID: <1306441885.5180.52.camel@localhost.localdomain>
-References: <1306440020.5180.47.camel@localhost.localdomain>
-	 <20110526202836.GA1951@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 1/3] net: Kill ether_table[] declaration.
+Date: Thu, 26 May 2011 16:43:17 -0400 (EDT)
+Message-ID: <20110526.164317.1149987126641398986.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110526202836.GA1951@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mingo@elte.hu
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:55940 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752321Ab1EZUnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 16:43:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-05-26 at 23:28 +0300, Michael S. Tsirkin wrote:
-> On Thu, May 26, 2011 at 01:00:20PM -0700, Shirley Ma wrote:
-> > 3. Add sleep in vhost shutting down instead of busy-wait for
-> outstanding
-> >    DMAs.
-> 
-> I still think this is not much better. We need to use a
-> completion structure and wait on it instead.
-> If this gets blocked thinkably a tx watchdog can fire and save us
-> from blocking forver :) 
 
-Ok, I can add a completion structure here.
+This got missed back in 2006 when Jes Sorensen deleted
+net/ethernet/sysctl_net_ether.c
 
-Thanks
-Shirley
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/if_ether.h |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 0f1325d..0065ffd 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -132,10 +132,6 @@ static inline struct ethhdr *eth_hdr(const struct sk_buff *skb)
+ 
+ int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr);
+ 
+-#ifdef CONFIG_SYSCTL
+-extern struct ctl_table ether_table[];
+-#endif
+-
+ int mac_pton(const char *s, u8 *mac);
+ extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
+ 
+-- 
+1.7.4.4
+
