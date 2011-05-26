@@ -1,56 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/3] net: Add linux/sysctl.h includes where needed.
-Date: Thu, 26 May 2011 16:43:25 -0400 (EDT)
-Message-ID: <20110526.164325.1232739432775901698.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V6 2/4 net-next] skbuff: Add userspace zero-copy
+ buffers in skb
+Date: Thu, 26 May 2011 22:55:25 +0200
+Message-ID: <1306443325.2543.22.camel@edumazet-laptop>
+References: <1306438593.5180.33.camel@localhost.localdomain>
+	 <1306440247.2543.14.camel@edumazet-laptop>
+	 <1306441442.5180.51.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47339 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752779Ab1EZUnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 16:43:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
+	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306441442.5180.51.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Le jeudi 26 mai 2011 =C3=A0 13:24 -0700, Shirley Ma a =C3=A9crit :
+
+> I could reduce callback pointer by moving it to *arg, but not desc, t=
+his
+> indicates that which buffer DMA hasn't done yet in *arg.
 
 
-Several networking headers were depending upon the implicit
-linux/sysctl.h include they get when including linux/net.h
+I guess you dont need to use skb itself to hold all your states ?
 
-Add explicit includes.
+I understand its convenient for you, but I believe its worth the pain t=
+o
+use only one pointer to a (small) object where you put all your stuff.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/linux/netfilter.h   |    1 +
- include/net/net_namespace.h |    1 +
- 2 files changed, 2 insertions(+), 0 deletions(-)
+Some machines alloc/free millions of skbs per second.=20
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 7fa95df..857f502 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -13,6 +13,7 @@
- #endif
- #include <linux/types.h>
- #include <linux/compiler.h>
-+#include <linux/sysctl.h>
- 
- /* Responses from hook functions. */
- #define NF_DROP 0
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 3ae4919..07a60e8 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -7,6 +7,7 @@
- #include <asm/atomic.h>
- #include <linux/workqueue.h>
- #include <linux/list.h>
-+#include <linux/sysctl.h>
- 
- #include <net/netns/core.h>
- #include <net/netns/mib.h>
--- 
-1.7.4.4
-
+If/when most skb uses are for userspace zero-copy buffers we can embbed
+your small object in skb itself ;)
