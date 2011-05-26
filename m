@@ -1,109 +1,51 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V5 2/6 net-next] netdevice.h: Add zero-copy flag in
- netdevice
-Date: Thu, 26 May 2011 08:27:46 -0700
-Message-ID: <1306423666.5180.8.camel@localhost.localdomain>
-References: <1305729507.32080.6.camel@localhost.localdomain>
-	 <20110518154746.GA21378@redhat.com>
-	 <1305734857.32080.53.camel@localhost.localdomain>
-	 <20110518163633.GB22001@redhat.com>
-	 <1305737140.32080.59.camel@localhost.localdomain>
-	 <20110518165138.GD22001@redhat.com>
-	 <1305738028.32080.66.camel@localhost.localdomain>
-	 <1305834169.32080.81.camel@localhost.localdomain>
-	 <20110519234154.GA13784@redhat.com>
-	 <1306363780.26270.44.camel@localhost.localdomain>
-	 <20110526084916.GA17928@redhat.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: TCP funny-ness when over-driving a 1Gbps link (and wifi)
+Date: Thu, 26 May 2011 09:28:16 -0600
+Message-ID: <4DDE7190.3080503@genband.com>
+References: <4DD59DF2.2070707@candelatech.com>	 <20110519161827.2ba4b40e@nehalam> <4DD5A5CD.7040303@candelatech.com>	 <4DD5AAFC.8070509@candelatech.com> <1305849940.8149.1122.camel@tardy>	 <4DD5B202.7080701@candelatech.com> <1305851079.8149.1127.camel@tardy>	 <4DD5B7B3.2000505@candelatech.com> <1305852377.8149.1133.camel@tardy> <4DD5E270.3030209@candelatech.com> <4DD6DE1C.8090607@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110526084916.GA17928@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rick.jones2@hp.com, Stephen Hemminger <shemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og106.obsmtp.com ([64.18.2.165]:47442 "EHLO
+	exprod7og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932445Ab1EZP2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 11:28:50 -0400
+In-Reply-To: <4DD6DE1C.8090607@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-05-26 at 11:49 +0300, Michael S. Tsirkin wrote:
-> On Wed, May 25, 2011 at 03:49:40PM -0700, Shirley Ma wrote:
-> > On Fri, 2011-05-20 at 02:41 +0300, Michael S. Tsirkin wrote:
-> > > So the requirements are
-> > > - data must be released in a timely fashion (e.g. unlike
-> virtio-net
-> > >   tun or bridge)
-> > The current patch doesn't enable tun zero-copy. tun will copy data
-> It's
-> > not an issue now.
-> > We can disallow macvtap attach to bridge when
-> > zero-copy is enabled.
-> 
-> Attach macvtap to a tun device though. Or e.g. veth device ...
-> So there should be so generic way to disable zerocopy.
-> It can either be a whitelist or a blacklist.
-> > 
-> > > - SG support
-> > > - HIGHDMA support (on arches where this makes sense)
-> > 
-> > This can be checked by device flags.
-> 
-> OK, but pls note that SG can get turned off dynamically.
-> 
-> > > - no filtering based on data (data is mapped in guest)
-> > 
-> > > - on fast path no calls to skb_copy, skb_clone, pskb_copy,
-> > >   pskb_expand_head as these are slow
-> > 
-> > Any calls to skb_copy, skb_clone, pskb_copy, pskb_expand_head will
-> do a
-> > copy. The performance should be the same as none zero-copy case
-> before.
-> 
-> I'm guessing a copy is cheaper than get_user_pages+copy+put_page.
-> But maybe not by much. Care checking that?
+On 05/20/2011 03:33 PM, Ben Greear wrote:
 
-That's I have done already. Patch is going out for review.
+> I tried a different test today: 3 TCP connections between two
+> wifi station interfaces (using ath9k). Each connection is
+> endpoint configured to send 100Mbps of traffic to the peer.
+>
+> With a single connection, it does OK (maybe 250ms round-trip time max).
+> With 3 of them running, round-trip user-space to user-space latency
+> often goes above 3 seconds.
 
-> > I have done/tested the patch V6, will send it out for review
-> tomorrow.
-> > 
-> > I am looking at where there are some cases, skb remains the same for
-> > filtering.
-> 
-> To reliably filter on data I think we'll need to copy it first,
-> otherwise
-> guest can change it. Most filters only look at the header though.
-> 
-> > > First 2 requirements are a must, all other requirements
-> > > are just dependencies to make sure zero copy will be faster
-> > > than non zero copy.
-> > > Using a new feature bit is probably the simplest approach to
-> > > this. macvtap on top of most physical NICs most likely works
-> > > correctly so it seems a bit more work than it needs to be,
-> > > but it's also the safest one I think ... 
-> > 
-> > For "macvtap/vhost zero-copy" we can use SG & HIGHDMA to enable it,
-> it
-> > looks safe to me once patching skb_copy, skb_clone, pskb_copy,
-> > pskb_expand_head.
-> > 
-> > To extend zero-copy in other usages, we can have a new feature bit
-> > later.
-> > 
-> > Is that reasonable?
-> > 
-> > Thanks
-> > Shirley
-> 
-> Is the problem is extra work needed to extend feature bits?
+<snip>
 
-There is no problem to use it, Mahesh is working on this patch. I just
-want to remove macvtap/vhost zero-copy patch dependency.
+> So, seems a general issue with over-driving links with multiple TCP
+> connections. Doesn't seem like a regression, and probably not really
+> a bug, but maybe the buffer-bloat project will help this sort of
+> thing...
 
-Thanks
-Shirley
+Given that one rule of thumb for the send buffer size is twice the 
+bandwidth delay product, it seems clear that on a wifi connection 3 
+seconds worth of buffering is excessive.  I think I'd classify that as a 
+bug.
+
+Chris
+
+
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
