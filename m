@@ -1,165 +1,128 @@
-From: Laurent Riffard <laurent.riffard@free.fr>
-Subject: [BUG] netconsole broken by scheduler updates
-Date: Thu, 26 May 2011 11:21:01 +0200
-Message-ID: <4DDE1B7D.7080707@free.fr>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC Patch] bonding: move to net/ directory
+Date: Thu, 26 May 2011 17:32:08 +0800
+Message-ID: <BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
+References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
+	<20110523151336.GF21309@gospo.rdu.redhat.com>
+	<BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+	<20110524163323.GB28521@hmsreliant.think-freely.org>
+	<BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
+	<20110525152023.GC11867@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb1-g21.free.fr ([212.27.42.9]:38696 "EHLO
-	smtpfb1-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757229Ab1EZJbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 05:31:35 -0400
-Received: from smtp2-g21.free.fr (smtp2-g21.free.fr [212.27.42.2])
-	by smtpfb1-g21.free.fr (Postfix) with ESMTP id 179612CB08
-	for <netdev@vger.kernel.org>; Thu, 26 May 2011 11:21:39 +0200 (CEST)
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:36962 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757229Ab1EZJcJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 05:32:09 -0400
+Received: by iyb14 with SMTP id 14so468923iyb.19
+        for <netdev@vger.kernel.org>; Thu, 26 May 2011 02:32:09 -0700 (PDT)
+In-Reply-To: <20110525152023.GC11867@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, May 25, 2011 at 11:20 PM, Neil Horman <nhorman@tuxdriver.com> w=
+rote:
+> On Wed, May 25, 2011 at 08:43:21PM +0800, Am=C3=A9rico Wang wrote:
+>> On Wed, May 25, 2011 at 12:33 AM, Neil Horman <nhorman@tuxdriver.com=
+> wrote:
+>> > This all sounds like change for the sake of change to me. =C2=A0I =
+don't see any
+>> > compelling argument for moving bonding (or bridging or vlans, etc)=
+ around at
+>> > all. =C2=A0All of these software drivers have feet in multple subs=
+ystems, but that
+>> > just means that theres not going to be a compelling argument to mo=
+ve them any
+>> > place, =C2=A0at least not without an immediate subsequent argument=
+ that it really
+>> > belonged back where it was. =C2=A0Unless you can show a solid bene=
+fit to moving the
+>> > code, I don't see why any reorganization is needed.
+>>
+>> Well, as a people who worked on bonding code, I have no problem to k=
+now
+>> bonding code is under drivers/net/, but for people who don't know th=
+is, probably
+>> net/ is the first place they want to search.
+>>
+> you've asked them?
+>
+> cd git/net-next-2.6
+> find . -name '*bond*'
 
-Recently, netconsole was broken by some scheduler updates. Kernel hangs 
-on boot near the network card initialization. I noticed that it does 
-hang just where a "inconsistent lock state" message normally appears.
-
-I did a bisection : e4a52bcb9a18142d79e231b6733cabdbf2e67c1f is the 
-first bad commit.
-commit e4a52bcb9a18142d79e231b6733cabdbf2e67c1f
-Author: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date:   Tue Apr 5 17:23:54 2011 +0200
-
-    sched: Remove rq->lock from the first half of ttwu()
-
-
-Before this commit, kernel was booting succesfully despite the 
-"inconsistent lock state" message. After this commit, the kernel does 
-hang on boot, I have to push the reset button.
-
-
-Here are some lines from dmesg :
-
-Initializing cgroup subsys cpu
-Linux version 2.6.39-rc3-00102-g8f42ced (laurent@calimero) (gcc version 4.5.2 (Ubuntu/Linaro 4.5.2-8ubuntu4) ) #137 SMP PREEMPT Wed May 25 10:09:13 CEST 2011
-Command line: BOOT_IMAGE=/vmlinuz-2.6.39-rc3-00102-g8f42ced root=/dev/mapper/vglinux1-lv_ubuntu_64bits ro debug netconsole=4444@192.168.0.9/eth0,6666@192.168.
-0.10/6C:62:6D:48:4B:C7 splash vt.handoff=7
-[....]
-Linux agpgart interface v0.103
-forcedeth: Reverse Engineered nForce ethernet driver. Version 0.64.
-ACPI: PCI Interrupt Link [APCH] enabled at IRQ 23
-forcedeth 0000:00:0a.0: PCI INT A -> Link[APCH] -> GSI 23 (level, low) -> IRQ 23
-forcedeth 0000:00:0a.0: setting latency timer to 64
-forcedeth 0000:00:0a.0: ifname eth0, PHY OUI 0x732 @ 1, addr 00:1f:d0:53:49:ae
-forcedeth 0000:00:0a.0: highdma pwrctl mgmt gbit lnktim msi desc-v3
-netconsole: local port 4444
-netconsole: local IP 192.168.0.9
-netconsole: interface 'eth0'
-netconsole: remote port 6666
-netconsole: remote IP 192.168.0.10
-netconsole: remote ethernet address 6c:62:6d:48:4b:c7
-netconsole: device eth0 not up yet, forcing it
-forcedeth 0000:00:0a.0: irq 40 for MSI/MSI-X
-forcedeth 0000:00:0a.0: eth0: no link during initialization
-forcedeth 0000:00:0a.0: eth0: link up
-                                       <============== kernel does hang here
-=================================
-[ INFO: inconsistent lock state ]
-2.6.39-rc3-00102-g8f42ced #137
----------------------------------
-inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
-swapper/1 [HC0[0]:SC0[0]:HE1:SE1] takes:
- (&(&napi->poll_lock)->rlock){+.?...}, at: [<ffffffff812385a5>] netpoll_poll_dev+0x9e/0x4f1
-{IN-SOFTIRQ-W} state was registered at:
-  [<ffffffff81066607>] __lock_acquire+0x319/0xd62
-  [<ffffffff8106750e>] lock_acquire+0xd7/0x102
-  [<ffffffff81295a81>] _raw_spin_lock+0x36/0x45
-  [<ffffffff81227a13>] net_rx_action+0x8d/0x1e6
-  [<ffffffff810409b9>] __do_softirq+0xe0/0x1be
-  [<ffffffff81297e1c>] call_softirq+0x1c/0x30
-  [<ffffffff810042de>] do_softirq+0x46/0x9c
-  [<ffffffff81040d0a>] irq_exit+0x4d/0xa2
-  [<ffffffff81003f92>] do_IRQ+0x88/0x9f
-  [<ffffffff81296613>] ret_from_intr+0x0/0x1a
-  [<ffffffff810094b2>] default_idle+0x40/0x74
-  [<ffffffff810095ca>] c1e_idle+0xe4/0xe6
-  [<ffffffff81001270>] cpu_idle+0x5e/0x94
-  [<ffffffff8129018d>] start_secondary+0x18a/0x18f
-irq event stamp: 1010077
-hardirqs last  enabled at (1010077): [<ffffffff81296086>] _raw_spin_unlock_irqrestore+0x40/0x75
-hardirqs last disabled at (1010076): [<ffffffff81295b54>] _raw_spin_lock_irqsave+0x1a/0x57
-softirqs last  enabled at (1008710): [<ffffffff8122cf91>] __dev_mc_add+0x5d/0x6b
-softirqs last disabled at (1008704): [<ffffffff81295bdf>] _raw_spin_lock_bh+0x11/0x4a
-
-other info that might help us debug this:
-1 lock held by swapper/1:
- #0:  (target_list_lock){+.+...}, at: [<ffffffff811e258a>] write_msg+0x34/0xd2
-
-stack backtrace:
-Pid: 1, comm: swapper Not tainted 2.6.39-rc3-00102-g8f42ced #137
-Call Trace:
- [<ffffffff81066104>] valid_state+0x17e/0x190
- [<ffffffff81065a4c>] ? check_usage_forwards+0x85/0x85
- [<ffffffff810661f8>] mark_lock+0xe2/0x1d8
- [<ffffffff81066685>] __lock_acquire+0x397/0xd62
- [<ffffffff8115e0b5>] ? pci_bus_write_config_dword+0x5e/0x6a
- [<ffffffff81296086>] ? _raw_spin_unlock_irqrestore+0x40/0x75
- [<ffffffff8106792a>] ? trace_hardirqs_on_caller+0x10b/0x12f
- [<ffffffff812385a5>] ? netpoll_poll_dev+0x9e/0x4f1
- [<ffffffff8106750e>] lock_acquire+0xd7/0x102
- [<ffffffff812385a5>] ? netpoll_poll_dev+0x9e/0x4f1
- [<ffffffff81295fbf>] _raw_spin_trylock+0x4a/0x7f
- [<ffffffff812385a5>] ? netpoll_poll_dev+0x9e/0x4f1
- [<ffffffff812385a5>] netpoll_poll_dev+0x9e/0x4f1
- [<ffffffff81238b95>] netpoll_send_skb_on_dev+0x112/0x216
- [<ffffffff81238e84>] netpoll_send_udp+0x1eb/0x1fa
- [<ffffffff811e258a>] ? write_msg+0x34/0xd2
- [<ffffffff811e25e2>] write_msg+0x8c/0xd2
- [<ffffffff8103b215>] __call_console_drivers+0x72/0x84
- [<ffffffff8103b280>] _call_console_drivers+0x59/0x5e
- [<ffffffff8103babb>] console_unlock+0xf3/0x1ac
- [<ffffffff8103c30f>] register_console+0x228/0x2b3
- [<ffffffff816a71ec>] init_netconsole+0x15d/0x1e4
- [<ffffffff8116379b>] ? __pci_register_driver+0x9b/0xcd
- [<ffffffff816a708f>] ? option_setup+0x1f/0x1f
- [<ffffffff8100030f>] do_one_initcall+0x7a/0x137
- [<ffffffff81685be1>] kernel_init+0xb0/0x130
- [<ffffffff811553ce>] ? trace_hardirqs_on_thunk+0x3a/0x3f
- [<ffffffff81297d24>] kernel_thread_helper+0x4/0x10
- [<ffffffff812966d8>] ? retint_restore_args+0x13/0x13
- [<ffffffff81685b31>] ? start_kernel+0x379/0x379
- [<ffffffff81297d20>] ? gs_change+0x13/0x13
-------------[ cut here ]------------
-WARNING: at net/core/netpoll.c:346 netpoll_send_skb_on_dev+0x15f/0x216()
-Hardware name: M68SM-S2L
-netpoll_send_skb(): eth0 enabled interrupts in poll (nv_start_xmit_optimized+0x0/0x487)
-Modules linked in:
-Pid: 1, comm: swapper Not tainted 2.6.39-rc3-00102-g8f42ced #137
-Call Trace:
- [<ffffffff8103ae08>] warn_slowpath_common+0x80/0x98
- [<ffffffff8103aeb4>] warn_slowpath_fmt+0x41/0x43
- [<ffffffff811e1fa9>] ? nv_start_xmit+0x3df/0x3df
- [<ffffffff81238be2>] netpoll_send_skb_on_dev+0x15f/0x216
- [<ffffffff81238e84>] netpoll_send_udp+0x1eb/0x1fa
- [<ffffffff811e258a>] ? write_msg+0x34/0xd2
- [<ffffffff811e25e2>] write_msg+0x8c/0xd2
- [<ffffffff8103b215>] __call_console_drivers+0x72/0x84
- [<ffffffff8103b280>] _call_console_drivers+0x59/0x5e
- [<ffffffff8103babb>] console_unlock+0xf3/0x1ac
- [<ffffffff8103c30f>] register_console+0x228/0x2b3
- [<ffffffff816a71ec>] init_netconsole+0x15d/0x1e4
- [<ffffffff8116379b>] ? __pci_register_driver+0x9b/0xcd
- [<ffffffff816a708f>] ? option_setup+0x1f/0x1f
- [<ffffffff8100030f>] do_one_initcall+0x7a/0x137
- [<ffffffff81685be1>] kernel_init+0xb0/0x130
- [<ffffffff811553ce>] ? trace_hardirqs_on_thunk+0x3a/0x3f
- [<ffffffff81297d24>] kernel_thread_helper+0x4/0x10
- [<ffffffff812966d8>] ? retint_restore_args+0x13/0x13
- [<ffffffff81685b31>] ? start_kernel+0x379/0x379
- [<ffffffff81297d20>] ? gs_change+0x13/0x13
----[ end trace 2b8ff4190d73b338 ]---
-console [netcon0] enabled
-netconsole: network logging started
+No, somone asked me why bonding is not in net/ and after some thinking,
+I see no reasons myself (thus sent this patch).
 
 
-~~
-laurent
+>> The other similar thing is that pktgen is in net/core/ while netcons=
+ole is in
+>> drivers/net/, which seems a little strange too.
+>>
+> Its is, and loopback is in /drivers/net, as is tun-tap and xen-netfro=
+nt (none of
+> which touch actual hardware), as is slip and ppp, which are net drive=
+rs, but
+> only operate on non net hardware. ppoe is another example which opera=
+tes on
+> ethernet, but sits on top of a secondary physical device (and so has =
+no real
+> hardware itself). =C2=A0These could all arguably be moved to /net, be=
+cause they have
+> no real hardware, but are in drivers because they implement instances=
+ of the net
+> driver interface.
+>
+>> vlan vs macvlan is the third example.
+>>
+> yes, it is, macvlan, like you assert could be moved, but you could ju=
+st as
+> easily move vlan to /drivers because it implements an instance of the=
+ net device
+> driver interface.
+
+Then I agree here.
+
+>
+> The bottom line is, sometimes things aren't black and white, they're =
+gray. And
+> we put code where it makes the most sense at the time. =C2=A0We move =
+it when it
+> makes sense to, but I don't hear any compelling argument to make that=
+ move.
+> Yes, we're not always consistent with where we put hardwareless drive=
+rs, but to
+> make a policy and shove everything to one place or another doesn't an=
+y more
+> sense. =C2=A0If we do that we either wind up with things that we thin=
+k of as drivers
+> in the /net directory, or we wind up with stuff thats really protocol=
+ oriented
+> in the /drivers directory. =C2=A0And if the major problem we solve by=
+ doing so is
+> making life easier for someone who otherwise wouldn't be able to find=
+ said code
+> with a quick grep or find operation, it really doesn't seem like its =
+worthwhile
+> to me
+>
+
+Well, the problem is our code organisation, if we could organize the co=
+de
+in a better way that would help grepping the code.
+
+>> In short, there are three callers of netdev_rx_handler_register(), m=
+acvlan,
+>> bonding and bridge, only bridge code stays in net/ directory.
+> Why is calling netdev_rx_handler_register a gating factor here?
+>
+
+I don't think other drivers are supposed to use this function to regist=
+er
+a packet handler, which is an important difference from my view.
