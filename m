@@ -1,62 +1,66 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Setting shutdownspeed in r8169 driver
-Date: Thu, 26 May 2011 08:04:36 -0700
-Message-ID: <1306422276.17233.87.camel@localhost>
-References: <201105242302.40221.bas@tcfaa.nl>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Thu, 26 May 2011 08:06:15 -0700
+Message-ID: <1306422375.17233.88.camel@localhost>
+References: <201104250033.03401.maxi@daemonizer.de>
+	 <1303878240.2699.41.camel@edumazet-laptop>
+	 <1303878771.2699.44.camel@edumazet-laptop>
+	 <201104271352.00601.maxi@daemonizer.de>
+	 <20110512211033.GA3468@dev1756.snc6.facebook.com>
+	 <1305234953.2831.2.camel@edumazet-laptop>
+	 <20110524213327.GA3917@dev1756.snc6.facebook.com>
+	 <1306291469.3305.11.camel@edumazet-laptop>
+	 <20110525060609.GA32244@dev1756.snc6.facebook.com>
+	 <1306305331.3305.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Bas Nedermeijer <bas@tcfaa.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:47565 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753630Ab1EZRFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 13:05:00 -0400
-In-Reply-To: <201105242302.40221.bas@tcfaa.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arun Sharma <asharma@fb.com>,
+	Maximilian Engelhardt <maxi@daemonizer.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306305331.3305.22.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-05-24 at 23:02 +0200, Bas Nedermeijer wrote:
-> Hello,
-> 
-> I currently have an onboard nic, which allows me to use wake-on-lan. But link-
-> speed goes to 10MBit when the system is shutdown. This causes a multicast/IPTV  
-> stream to be throttled back to 10Mbit. This is probably because the multicast 
-> stream actually a broadcast on my local network. I think some device is 
-> sending ethernet-pause frames (havent seem them, but not sure if they show up 
-> in tcpdump).
+On Wed, 2011-05-25 at 08:35 +0200, Eric Dumazet wrote:
+> Le mardi 24 mai 2011 =C3=A0 23:06 -0700, Arun Sharma a =C3=A9crit :
+> > On Wed, May 25, 2011 at 04:44:29AM +0200, Eric Dumazet wrote:
+> > >=20
+> > > Hmm, thanks for the report. Are you running x86 or another arch ?
+> > >=20
+> >=20
+> > This was on x86.
+> >=20
+> > > We probably need some sort of memory barrier.
+> > >=20
+> > > However, locking this central lock makes the thing too slow, I'll=
+ try to
+> > > use an atomic_inc_return on p->refcnt instead. (and then lock
+> > > unused_peers.lock if we got a 0->1 transition)
+> >=20
+> > Another possibility is to do the list_empty() check twice. Once wit=
+hout
+> > taking the lock and again with the spinlock held.
+> >=20
+>=20
+> Why ?
+>=20
+> list_del_init(&p->unused); (done under lock of course) is safe, you c=
+an
+> call it twice, no problem.
+>=20
+> No, the real problem is the  (!list_empty(&p->unused) test : It seems=
+ to
+> not always tell the truth if not done under lock.
 
-Pause frames are produced and consumed at the MAC control layer.  Some
-switches may forward pause frames, but I suspect that in this case the
-switch is sending pause frames to the multicast sender because the
-transmit queue for the 10M port is filling up.
-
-For hardware that supports Ethernet flow control, there are usually
-pause frame counters in the extended statistics (ethtool -S).
-
-> I tried to disable flow-control on the sending device, but that 
-> didnt help, still the traffic is throttled when it has passed some switches. I 
-> read somewhere the windows driver has an option to specify the shutdown-
-> linkspeed, so listening for WOL happens on 100mbit. I was wondering if it is 
-> possible at all with the linux-driver (maybe as default by modifying the 
-> driver locally as I cant seem to find a userspace program to modify the 
-> settings).
-
-No, there is no such setting within the ethtool API for WOL
-configuration on Linux.  It seems like it would be a useful extension.
+Of course not; list modification operations are not atomic.
 
 Ben.
 
-> I am using the driver "r8169"
-> 
-> According to 'lspci':
-> 
-> Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet 
-> controller (rev 02)
-
--- 
+--=20
 Ben Hutchings, Senior Software Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
-
