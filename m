@@ -1,140 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/6] unicore32: add pkunity-v3 mac/net driver (umal)
-Date: Thu, 26 May 2011 10:56:09 -0700
-Message-ID: <1306432569.17233.123.camel@localhost>
-References: <cover.1306408804.git.gxt@mprc.pku.edu.cn>
-	 <556924396ee34f4af94a2f03767973f1cec35e22.1306408804.git.gxt@mprc.pku.edu.cn>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 resend] netfilter: nf_conntrack_sip: Handle Cisco
+ 7941/7945 IP phones
+Date: Thu, 26 May 2011 19:57:44 +0200
+Message-ID: <1306432664.2543.2.camel@edumazet-laptop>
+References: <bc781b295b38241533a2d90c1aea15b3@localhost>
+	 <4DDE84F2.7080706@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, greg@kroah.com, netdev@vger.kernel.org
-To: GuanXuetao <gxt@mprc.pku.edu.cn>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <556924396ee34f4af94a2f03767973f1cec35e22.1306408804.git.gxt@mprc.pku.edu.cn>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kevin Cernekee <cernekee@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4DDE84F2.7080706@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-05-26 at 11:36 +0000, GuanXuetao wrote:
-[...]
-> --- /dev/null
-> +++ b/drivers/net/mac-puv3.c
-[...]
-> +/**********************************************************************
-> + *  Simple types
-> + ********************************************************************* */
-> +enum umal_speed {
-> +	umal_speed_none = 0,
-> +	umal_speed_10 = SPEED_10,
-> +	umal_speed_100 = SPEED_100,
-> +	umal_speed_1000 = SPEED_1000,
-> +};
+Le jeudi 26 mai 2011 =C3=A0 18:50 +0200, Pablo Neira Ayuso a =C3=A9crit=
+ :
+> Hi Eric,
+>=20
+> On 20/05/11 06:36, Kevin Cernekee wrote:
+> > Most SIP devices use a source port of 5060/udp on SIP requests, so =
+the
+> > response automatically comes back to port 5060:
+> >=20
+> > phone_ip:5060 -> proxy_ip:5060   REGISTER
+> > proxy_ip:5060 -> phone_ip:5060   100 Trying
+> >=20
+> > The newer Cisco IP phones, however, use a randomly chosen high sour=
+ce
+> > port for the SIP request but expect the response on port 5060:
+> >=20
+> > phone_ip:49173 -> proxy_ip:5060  REGISTER
+> > proxy_ip:5060 -> phone_ip:5060   100 Trying
+> >=20
+> > Standard Linux NAT, with or without nf_nat_sip, will send the reply=
+ back
+> > to port 49173, not 5060:
+> >=20
+> > phone_ip:49173 -> proxy_ip:5060  REGISTER
+> > proxy_ip:5060 -> phone_ip:49173  100 Trying
+> >=20
+> > But the phone is not listening on 49173, so it will never see the r=
+eply.
+> >=20
+> > This patch modifies nf_*_sip to work around this quirk by extractin=
+g
+> > the SIP response port from the Via: header, iff the source IP in th=
+e
+> > packet header matches the source IP in the SIP request.
+> >=20
+> > Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
+> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > Cc: Patrick McHardy <kaber@trash.net>
+>=20
+> @Eric: could you please confirm that you ack'ed this patch? I don't f=
+ind
+> the email with your explicit ack.
 
-Just use the numbers directly: 0, 10, 100, 1000.
+Yes I did it ;)
 
-[...]
-> +#define ETHER_ADDR_LEN		6
+http://www.spinics.net/lists/netfilter/msg49632.html
 
-This is already called ETH_ALEN.
+Thanks !
 
-[...]
-> +/**********************************************************************
-> + *  DMA Descriptor structure
-> + ********************************************************************* */
-> +struct umaldmadscr {
-> +	dma_addr_t   PacketStartAddr;
-> +	int          PacketSize;
-> +	dma_addr_t   NextDescriptor;
-> +	struct umaldmadscr *NextDescriptor_Virt;
-> +};
 
-Linux naming convention for structure fields is words_with_underscores
-not TitleCase.
-
-[...]
-> +/**********************************************************************
-> + *  UMAL_MII_RESET(bus)
-> + *
-> + *  Reset MII bus.
-> + *
-> + *  Input parameters:
-> + *	   bus     - MDIO bus handle
-> + *
-> + *  Return value:
-> + *	   0 if ok
-> + ********************************************************************* */
-
-Function documentation comments must follow the kernel-doc format.
-
-[...]
-> +static int umaldma_add_rcvbuffer(struct umal_softc *sc, struct umaldma *d,
-> +		struct sk_buff *sb)
-> +{
-[...]
-> +	/*
-> +	 * Allocate a sk_buff if we don't already have one.
-> +	 * If we do have an sk_buff, reset it so that it's empty.
-> +	 *
-> +	 * Note: sk_buffs don't seem to be guaranteed to have any sort
-> +	 * of alignment when they are allocated.  Therefore, allocate enough
-> +	 * extra space to make sure that:
-> +	 *
-> +	 *    1. the data does not start in the middle of a cache line.
-> +	 *    2. The data does not end in the middle of a cache line
-> +	 *    3. The buffer can be aligned such that the IP addresses are
-> +	 *       naturally aligned.
-> +	 *
-> +	 *  Remember, the SOCs MAC writes whole cache lines at a time,
-> +	 *  without reading the old contents first.  So, if the sk_buff's
-> +	 *  data portion starts in the middle of a cache line, the SOC
-> +	 *  DMA will trash the beginning (and ending) portions.
-> +	 */
-> +	if (sb == NULL) {
-> +		sb_new = netdev_alloc_skb(dev, ENET_PACKET_SIZE +
-> +		       SMP_CACHE_BYTES * 2 + NET_IP_ALIGN);
-> +		if (sb_new == NULL) {
-> +			pr_info("%s: sk_buff allocation failed\n",
-> +			       d->umaldma_eth->umal_dev->name);
-> +			return -ENOBUFS;
-
-Surely -ENOMEM.
-
-> +		}
-> +		skb_reserve(sb_new, 2);
-
-This presumably needs to be:
-
-		skb_reserve(sb_new, SMP_CACHE_BYTES + NET_IP_ALIGN);
-
-unless you assume that the skb allocator will always ensure cache line
-alignment (in which case, why use padding of SMP_CACHE_BYTES * 2?).
-
-[...]
-> +static void umaldma_tx_process(struct umal_softc *sc, struct umaldma *d,
-> +		int poll)
-> +{
-> +	struct net_device *dev = sc->umal_dev;
-> +	int curidx;
-> +	int hwidx;
-> +	struct umaldmadscr *dsc;
-> +	struct sk_buff *sb;
-> +	unsigned long flags;
-> +	int packets_handled = 0;
-> +	unsigned int int_status;
-> +
-> +	spin_lock_irqsave(&(sc->umal_lock), flags);
-> +
-> +	if (!netif_device_present(dev))
-> +		return;
-[...]
-
-This returns with the lock held!
-
-(This is not by any means a thorough review.)
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
