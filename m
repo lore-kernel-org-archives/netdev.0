@@ -1,46 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.11
-Date: Thu, 26 May 2011 20:28:57 +0200
-Message-ID: <1306434537.2543.4.camel@edumazet-laptop>
-References: <4DDE857E.40807@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: davinci_emac: fix dev_err use at probe
+Date: Thu, 26 May 2011 14:31:00 -0400 (EDT)
+Message-ID: <20110526.143100.1615101027208136360.davem@davemloft.net>
+References: <1306420652-30001-1-git-send-email-jhovold@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org,
-	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <4DDE857E.40807@trash.net>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cyril@ti.com, srk@ti.com, netdev@vger.kernel.org
+To: jhovold@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54965 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757634Ab1EZSbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 14:31:07 -0400
+In-Reply-To: <1306420652-30001-1-git-send-email-jhovold@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 26 mai 2011 =C3=A0 18:53 +0200, Patrick McHardy a =C3=A9crit :
-> The netfilter coreteam presents:
->=20
->     iptables version 1.4.10
->=20
-> the iptables release for the 2.6.39 kernels. Due to some mistakes
-> on my side we didn't have a release for longer than expected, so
-> this contains a rather large number of changes.
->=20
-> Changes include:
->=20
+From: Johan Hovold <jhovold@gmail.com>
+Date: Thu, 26 May 2011 16:37:32 +0200
 
-=2E..
-> - a new iptables option "-C" to check for existance of a rules
+> Use platform device rather than net device in dev_err calls before net
+> device has been registered to avoid messages such as
+> 
+> 	(null): DaVinci EMAC: Failed to get EMAC clock
+> 
+> Also replace remaining printks in probe with dev_{err,warn}.
+> 
+> Signed-off-by: Johan Hovold <jhovold@gmail.com>
 
-Nice, but this still loads modules...
-
-# lsmod | grep ipta
-# ./iptables -C INPUT -p tcp=20
-iptables: Bad rule (does a matching rule exist in that chain?).
-# lsmod | grep ipta
-iptable_filter          1730  0=20
-ip_tables              15958  1 iptable_filter
-x_tables               22998  3 iptable_filter,ip_tables,xt_tcpudp
-
-
-
-
+Applied, thanks.
