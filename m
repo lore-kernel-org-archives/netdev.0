@@ -1,113 +1,212 @@
-From: WeipingPan <panweiping3@gmail.com>
-Subject: Re: [PATCH net-next-2.6] bonding: cleanup module option descriptions
-Date: Thu, 26 May 2011 11:35:11 +0800
-Message-ID: <4DDDCA6F.80608@gmail.com>
-References: <1306334519-20243-1-git-send-email-andy@greyhouse.net>
+From: Yong Zhang <yong.zhang0@gmail.com>
+Subject: Re: [PATCH] timers: consider slack value in mod_timer()
+Date: Thu, 26 May 2011 14:19:01 +0800
+Message-ID: <BANLkTikW9cm75ZJg-=4Ab647-D3vAHHYdg@mail.gmail.com>
+References: <20110521105828.GA29442@Chamillionaire.breakpoint.cc>
+	<BANLkTinGZ0L4oQkBYo9H=R==X5Z+efjRaQ@mail.gmail.com>
+	<20110524121343.GA17312@Chamillionaire.breakpoint.cc>
+	<BANLkTikNSa9otE_cFKRcThUZ5ZCtE7Kyxw@mail.gmail.com>
+	<alpine.LFD.2.02.1105251126590.3078@ionos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:55446 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756233Ab1EZDeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 May 2011 23:34:31 -0400
-Received: by qyg14 with SMTP id 14so156213qyg.19
-        for <netdev@vger.kernel.org>; Wed, 25 May 2011 20:34:30 -0700 (PDT)
-In-Reply-To: <1306334519-20243-1-git-send-email-andy@greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.02.1105251126590.3078@ionos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/25/2011 10:41 PM, Andy Gospodarek wrote:
-> Weiping Pan noticed that the module option description for
-> xmit_hash_policy was incorrect and was nice enough to post a patch to
-> fix it.  The text was correct, but created a line over 80 characters and
-> I would rather not add those.  I realized I could take a few minutes and
-> clean up all the descriptions and things would look much better.  This
-> is the result.
+On Wed, May 25, 2011 at 6:17 PM, Thomas Gleixner <tglx@linutronix.de> w=
+rote:
+>> Hmmm, so the reason is for a timer whose timer->slack is not set
+>> explicitly. when we recalculate expires, we will get different value
+>> sometimes.
 >
-> Based on patch from Weiping Pan<panweiping3@gmail.com>.
+> No, that's not the problem.
 >
-> Signed-off-by: Andy Gospodarek<andy@greyhouse.net>
-> CC: Weiping Pan<panweiping3@gmail.com>
+>> Could you please try the attached patch(webmail will mangle it)
 >
-> ---
->   drivers/net/bonding/bond_main.c |   34 ++++++++++++++++++++++------------
->   1 files changed, 22 insertions(+), 12 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 088fd84..31a61d3 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -113,9 +113,11 @@ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
->   module_param(tx_queues, int, 0);
->   MODULE_PARM_DESC(tx_queues, "Max number of transmit queues (default = 16)");
->   module_param_named(num_grat_arp, num_peer_notif, int, 0644);
-> -MODULE_PARM_DESC(num_grat_arp, "Number of peer notifications to send on failover event (alias of num_unsol_na)");
-> +MODULE_PARM_DESC(num_grat_arp, "Number of peer notifications to send on "
-> +			       "failover event (alias of num_unsol_na)");
->   module_param_named(num_unsol_na, num_peer_notif, int, 0644);
-> -MODULE_PARM_DESC(num_unsol_na, "Number of peer notifications to send on failover event (alias of num_grat_arp)");
-> +MODULE_PARM_DESC(num_unsol_na, "Number of peer notifications to send on "
-> +			       "failover event (alias of num_grat_arp)");
->   module_param(miimon, int, 0);
->   MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
->   module_param(updelay, int, 0);
-> @@ -127,7 +129,7 @@ module_param(use_carrier, int, 0);
->   MODULE_PARM_DESC(use_carrier, "Use netif_carrier_ok (vs MII ioctls) in miimon; "
->   			      "0 for off, 1 for on (default)");
->   module_param(mode, charp, 0);
-> -MODULE_PARM_DESC(mode, "Mode of operation : 0 for balance-rr, "
-> +MODULE_PARM_DESC(mode, "Mode of operation; 0 for balance-rr, "
->   		       "1 for active-backup, 2 for balance-xor, "
->   		       "3 for broadcast, 4 for 802.3ad, 5 for balance-tlb, "
->   		       "6 for balance-alb");
-> @@ -142,27 +144,35 @@ MODULE_PARM_DESC(primary_reselect, "Reselect primary slave "
->   				   "2 for only on active slave "
->   				   "failure");
->   module_param(lacp_rate, charp, 0);
-> -MODULE_PARM_DESC(lacp_rate, "LACPDU tx rate to request from 802.3ad partner "
-> -			    "(slow/fast)");
-> +MODULE_PARM_DESC(lacp_rate, "LACPDU tx rate to request from 802.3ad partner; "
-> +			    "0 for slow, 1 for fast");
->   module_param(ad_select, charp, 0);
-> -MODULE_PARM_DESC(ad_select, "803.ad aggregation selection logic: stable (0, default), bandwidth (1), count (2)");
-> +MODULE_PARM_DESC(ad_select, "803.ad aggregation selection logic; "
-> +			    "0 for stable (default), 1 for bandwidth, "
-> +			    "2 for count");
->   module_param(xmit_hash_policy, charp, 0);
-> -MODULE_PARM_DESC(xmit_hash_policy, "XOR hashing method: 0 for layer 2 (default)"
-> -				   ", 1 for layer 3+4");
-> +MODULE_PARM_DESC(xmit_hash_policy, "balance-xor and 802.3ad hashing method; "
-> +				   "0 for layer 2 (default), 1 for layer 3+4, "
-> +				   "2 for layer 2+3");
->   module_param(arp_interval, int, 0);
->   MODULE_PARM_DESC(arp_interval, "arp interval in milliseconds");
->   module_param_array(arp_ip_target, charp, NULL, 0);
->   MODULE_PARM_DESC(arp_ip_target, "arp targets in n.n.n.n form");
->   module_param(arp_validate, charp, 0);
-> -MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes: none (default), active, backup or all");
-> +MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes; "
-> +			       "0 for none (default), 1 for active, "
-> +			       "2 for backup, 3 for all");
->   module_param(fail_over_mac, charp, 0);
-> -MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to the same MAC.  none (default), active or follow");
-> +MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to "
-> +				"the same MAC; 0 for none (default), "
-> +				"1 for active, 2 for follow");
->   module_param(all_slaves_active, int, 0);
->   MODULE_PARM_DESC(all_slaves_active, "Keep all frames received on an interface"
-> -				     "by setting active flag for all slaves.  "
-> +				     "by setting active flag for all slaves; "
->   				     "0 for never (default), 1 for always.");
->   module_param(resend_igmp, int, 0);
-> -MODULE_PARM_DESC(resend_igmp, "Number of IGMP membership reports to send on link failure");
-> +MODULE_PARM_DESC(resend_igmp, "Number of IGMP membership reports to send on "
-> +			      "link failure");
->
->   /*----------------------------- Global variables ----------------------------*/
->
-That look much clearer.
+> Grrr. gmail allows usage of real mail clients, doesn't it ?
 
-Reviewed-by: Weiping Pan <panweiping3@gmail.com>
+Yeah, but sometimes I can only access webmail due to some reason
+
+>
+>> diff --git a/kernel/timer.c b/kernel/timer.c
+>> index fd61986..73af53c 100644
+>> --- a/kernel/timer.c
+>> +++ b/kernel/timer.c
+>> @@ -749,6 +749,10 @@ unsigned long apply_slack(struct timer_list *ti=
+mer, unsigned long expires)
+>> =C2=A0 =C2=A0 =C2=A0 unsigned long expires_limit, mask;
+>> =C2=A0 =C2=A0 =C2=A0 int bit;
+>>
+>> + =C2=A0 =C2=A0 /* no need to account slack again for a same-expire =
+pending timer */
+>> + =C2=A0 =C2=A0 if (timer_pending(timer) && time_after_eq(timer->exp=
+ires, expires))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return timer->expires;
+>
+> That's total crap. Assume some code sets the timer with 5 seconds for
+> some purpose and after a second it wants it to fire in 50ms from now
+> because some state change happened. The above will keep the original =
+5
+> seconds timeout no matter what, so the requested 50ms timeout will
+> fire about 4 seconds late.
+
+Indeed. I forgot that case
+=2E
+>
+>> =C2=A0 =C2=A0 =C2=A0 expires_limit =3D expires;
+>>
+>> =C2=A0 =C2=A0 =C2=A0 if (timer->slack >=3D 0) {
+>> @@ -795,6 +799,8 @@ unsigned long apply_slack(struct timer_list *tim=
+er, unsigned long expires)
+>> =C2=A0 */
+>> =C2=A0int mod_timer(struct timer_list *timer, unsigned long expires)
+>> =C2=A0{
+>> + =C2=A0 =C2=A0 expires =3D apply_slack(timer, expires);
+>> +
+>
+> We need to analyse the problem thoroughly and not slap random changes
+> into the code without knowing about the consequences. And the problem
+> is mostly in the call sites because they are not aware of the slack
+> effect.
+>
+> The sunrpc code is one of those which are affected by the slack magic
+> simply because it makes the mod_timer() call basically unconditional
+> even if the jiffies value is unchanged.
+>
+> diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+> index ce5eb68..cb0574f 100644
+> --- a/net/sunrpc/xprt.c
+> +++ b/net/sunrpc/xprt.c
+> @@ -1053,10 +1053,12 @@ void xprt_release(struct rpc_task *task)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0xprt->ops->rel=
+ease_request(task);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!list_empty(&req->rq_list))
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0list_del(&req-=
+>rq_list);
+> - =C2=A0 =C2=A0 =C2=A0 xprt->last_used =3D jiffies;
+> - =C2=A0 =C2=A0 =C2=A0 if (list_empty(&xprt->recv) && xprt_has_timer(=
+xprt))
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 mod_timer(&xprt->t=
+imer,
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 xprt->last_used + xprt->idle_timeou=
+t);
+> + =C2=A0 =C2=A0 =C2=A0 if (xprt->last_used =3D jiffies) {
+
+Typo? s/=3D/!=3D/?
+
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 xprt->last_used =3D=
+ jiffies;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (list_empty(&xp=
+rt->recv) && xprt_has_timer(xprt))
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 mod_timer(&xprt->timer,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 xprt->last_used + xprt->idle=
+_timeout);
+> + =C2=A0 =C2=A0 =C2=A0 }
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_bh(&xprt->transport_lock);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (req->rq_buffer)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0xprt->ops->buf=
+_free(req->rq_buffer);
+>
+> The above patch does not solve the problem when the resulting new
+> timeout is rounded up to the same expiry value after the slack is
+> applied, which is not unlikely when jiffies only advanced by a small
+> amount.
+>
+> So we must check after apply_slack() and the reason why the first
+> check before apply_slack triggers very often is that auto slack only
+> changes the expiry value for timeouts >=3D 256 jiffies.
+>
+> And the main caller is the networking code via
+> tcp_send_delayed_ack(). The standard delay we see from there is 40ms
+> (10 jiffies for HZ=3D250) and that falls below the 256 jiffies tresho=
+ld.
+>
+> The patch below is a reasonable compromise between overhead and
+> correctness.
+
+Yup, I think it could smooth Sebastian's issue.
+
+Thanks,
+Yong
+
+>
+> Thanks,
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0tglx
+>
+> diff --git a/kernel/timer.c b/kernel/timer.c
+> index fd61986..458fd81 100644
+> --- a/kernel/timer.c
+> +++ b/kernel/timer.c
+> @@ -749,16 +749,15 @@ unsigned long apply_slack(struct timer_list *ti=
+mer, unsigned long expires)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long expires_limit, mask;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int bit;
+>
+> - =C2=A0 =C2=A0 =C2=A0 expires_limit =3D expires;
+> -
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (timer->slack >=3D 0) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0expires_limit =
+=3D expires + timer->slack;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0} else {
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 unsigned long now =
+=3D jiffies;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 long delta =3D exp=
+ires - jiffies;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (delta < 256)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 return expires;
+>
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* No slack, if al=
+ready expired else auto slack 0.4% */
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (time_after(exp=
+ires, now))
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 expires_limit =3D expires + (expires - now)/256;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 expires_limit =3D =
+expires + (expires - now)/256;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0mask =3D expires ^ expires_limit;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (mask =3D=3D 0)
+> @@ -795,6 +794,8 @@ unsigned long apply_slack(struct timer_list *time=
+r, unsigned long expires)
+> =C2=A0*/
+> =C2=A0int mod_timer(struct timer_list *timer, unsigned long expires)
+> =C2=A0{
+> + =C2=A0 =C2=A0 =C2=A0 expires =3D apply_slack(timer, expires);
+> +
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 * This is a common optimization triggered=
+ by the
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 * networking code - if the timer is re-mo=
+dified
+> @@ -803,8 +804,6 @@ int mod_timer(struct timer_list *timer, unsigned =
+long expires)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (timer_pending(timer) && timer->expires=
+ =3D=3D expires)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return 1;
+>
+> - =C2=A0 =C2=A0 =C2=A0 expires =3D apply_slack(timer, expires);
+> -
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return __mod_timer(timer, expires, false, =
+TIMER_NOT_PINNED);
+> =C2=A0}
+> =C2=A0EXPORT_SYMBOL(mod_timer);
+>
+
+
+
+--=20
+Only stand for myself
