@@ -1,67 +1,128 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [RFC Patch] bonding: move to net/ directory
-Date: Thu, 26 May 2011 16:25:16 +0200
-Message-ID: <BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
-References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
- <20110523151336.GF21309@gospo.rdu.redhat.com> <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
- <20110524163323.GB28521@hmsreliant.think-freely.org> <BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
- <20110525152023.GC11867@hmsreliant.think-freely.org> <BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
- <20110526135053.GB12617@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Johan Hovold <jhovold@gmail.com>
+Subject: [PATCH] net: davinci_emac: fix dev_err use at probe
+Date: Thu, 26 May 2011 16:37:32 +0200
+Message-ID: <1306420652-30001-1-git-send-email-jhovold@gmail.com>
+Cc: netdev@vger.kernel.org, Johan Hovold <jhovold@gmail.com>
+To: Cyril Chemparathy <cyril@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sriramakrishnan A G <srk@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:39621 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932544Ab1EZOZg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 10:25:36 -0400
-Received: by qyg14 with SMTP id 14so412603qyg.19
-        for <netdev@vger.kernel.org>; Thu, 26 May 2011 07:25:36 -0700 (PDT)
-In-Reply-To: <20110526135053.GB12617@hmsreliant.think-freely.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:61060 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757511Ab1EZOiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 10:38:05 -0400
+Received: by eyx24 with SMTP id 24so311561eyx.19
+        for <netdev@vger.kernel.org>; Thu, 26 May 2011 07:38:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/5/26 Neil Horman <nhorman@tuxdriver.com>:
-> On Thu, May 26, 2011 at 05:32:08PM +0800, Am=E9rico Wang wrote:
->> I don't think other drivers are supposed to use this function to reg=
-ister
->> a packet handler, which is an important difference from my view.
-> Note you just referred to the bridge/bond and vlan code as 'drivers' =
-:). =A0And
-> why is that function the gating factor? =A0Why not register_netdev? =A0=
-or
-> netif_receive_skb or dev_add_pack? =A0They all relate to the creation=
- of device
-> interface and the reception of network data.
->
-> The fact is, bonding/bridging/vlans/tunnels/etc all have aspects that
-> make them more than just drivers. =A0They are where they are for a my=
-rriad of
-> reasons. =A0Moving them around changes their location, but does _noth=
-ing_ about
-> the underlying fact that they're driver code plus other stuff, and as=
- such
-> provides no real advantage in terms of organization.
+Use platform device rather than net device in dev_err calls before net
+device has been registered to avoid messages such as
 
-If you want to draw a line between net/ and drivers/net I propose
-following idea:
+	(null): DaVinci EMAC: Failed to get EMAC clock
 
-net/ - everything that is about networking (or library for it) and
-interacts only within the system (kernel<->user, or in-kernel)
-drivers/net/ - everything that is a connecting point between the
-system and external world - be it hardware, other VMs or hypervisor.
+Also replace remaining printks in probe with dev_{err,warn}.
 
-net/ would include wireless stack, all kinds of loopback devices,
-tunnels (incl. vlan), bridging, bonding, tuntap, etc.
-drivers/net/ would keep only what is hardware or external ABI dependent
+Signed-off-by: Johan Hovold <jhovold@gmail.com>
+---
+ drivers/net/davinci_emac.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
-Just my 2 cents (3 grosze ;-).
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 807b6bb..29a4f06 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -1772,7 +1772,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	/* obtain emac clock from kernel */
+ 	emac_clk = clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(emac_clk)) {
+-		printk(KERN_ERR "DaVinci EMAC: Failed to get EMAC clock\n");
++		dev_err(&pdev->dev, "failed to get EMAC clock\n");
+ 		return -EBUSY;
+ 	}
+ 	emac_bus_frequency = clk_get_rate(emac_clk);
+@@ -1780,7 +1780,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 
+ 	ndev = alloc_etherdev(sizeof(struct emac_priv));
+ 	if (!ndev) {
+-		printk(KERN_ERR "DaVinci EMAC: Error allocating net_device\n");
++		dev_err(&pdev->dev, "error allocating net_device\n");
+ 		clk_put(emac_clk);
+ 		return -ENOMEM;
+ 	}
+@@ -1795,7 +1795,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 
+ 	pdata = pdev->dev.platform_data;
+ 	if (!pdata) {
+-		printk(KERN_ERR "DaVinci EMAC: No platform data\n");
++		dev_err(&pdev->dev, "no platform data\n");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -1814,7 +1814,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	/* Get EMAC platform data */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!res) {
+-		dev_err(emac_dev, "DaVinci EMAC: Error getting res\n");
++		dev_err(&pdev->dev,"error getting res\n");
+ 		rc = -ENOENT;
+ 		goto probe_quit;
+ 	}
+@@ -1822,14 +1822,14 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	priv->emac_base_phys = res->start + pdata->ctrl_reg_offset;
+ 	size = res->end - res->start + 1;
+ 	if (!request_mem_region(res->start, size, ndev->name)) {
+-		dev_err(emac_dev, "DaVinci EMAC: failed request_mem_region() for regs\n");
++		dev_err(&pdev->dev, "failed request_mem_region() for regs\n");
+ 		rc = -ENXIO;
+ 		goto probe_quit;
+ 	}
+ 
+ 	priv->remap_addr = ioremap(res->start, size);
+ 	if (!priv->remap_addr) {
+-		dev_err(emac_dev, "Unable to map IO\n");
++		dev_err(&pdev->dev, "unable to map IO\n");
+ 		rc = -ENOMEM;
+ 		release_mem_region(res->start, size);
+ 		goto probe_quit;
+@@ -1863,7 +1863,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 
+ 	priv->dma = cpdma_ctlr_create(&dma_params);
+ 	if (!priv->dma) {
+-		dev_err(emac_dev, "DaVinci EMAC: Error initializing DMA\n");
++		dev_err(&pdev->dev, "error initializing DMA\n");
+ 		rc = -ENOMEM;
+ 		goto no_dma;
+ 	}
+@@ -1879,7 +1879,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+ 	if (!res) {
+-		dev_err(emac_dev, "DaVinci EMAC: Error getting irq res\n");
++		dev_err(&pdev->dev, "error getting irq res\n");
+ 		rc = -ENOENT;
+ 		goto no_irq_res;
+ 	}
+@@ -1888,8 +1888,8 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	if (!is_valid_ether_addr(priv->mac_addr)) {
+ 		/* Use random MAC if none passed */
+ 		random_ether_addr(priv->mac_addr);
+-		printk(KERN_WARNING "%s: using random MAC addr: %pM\n",
+-				__func__, priv->mac_addr);
++		dev_warn(&pdev->dev, "using random MAC addr: %pM\n",
++							priv->mac_addr);
+ 	}
+ 
+ 	ndev->netdev_ops = &emac_netdev_ops;
+@@ -1902,7 +1902,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 	rc = register_netdev(ndev);
+ 	if (rc) {
+-		dev_err(emac_dev, "DaVinci EMAC: Error in register_netdev\n");
++		dev_err(&pdev->dev, "error in register_netdev\n");
+ 		rc = -ENODEV;
+ 		goto netdev_reg_err;
+ 	}
+-- 
+1.7.5.rc3
 
-Best Regards,
-Micha=B3 Miros=B3aw
