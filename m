@@ -1,49 +1,90 @@
-From: Zach Sadecki <zach@sadecki.net>
-Subject: [PATCH] fec driver multicast (and IPv6) problem
-Date: Thu, 26 May 2011 08:19:38 -0500
-Message-ID: <4DDE536A.30005@sadecki.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC Patch] bonding: move to net/ directory
+Date: Thu, 26 May 2011 09:38:03 -0400
+Message-ID: <20110526133803.GA12617@hmsreliant.think-freely.org>
+References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
+ <20110523151336.GF21309@gospo.rdu.redhat.com>
+ <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+ <20110524150340.GH21309@gospo.rdu.redhat.com>
+ <BANLkTi=UCH8+ZVFwZ96YvFuDqDLwq8ihkQ@mail.gmail.com>
+ <20110525150144.GB11867@hmsreliant.think-freely.org>
+ <BANLkTimEFg0Q=12z2_R4NNQ_VjRH=qhp2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:49669 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752037Ab1EZNTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 09:19:40 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46373 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757360Ab1EZNiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 09:38:19 -0400
+Content-Disposition: inline
+In-Reply-To: <BANLkTimEFg0Q=12z2_R4NNQ_VjRH=qhp2w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed that sometimes I could not connect to my i.MX28 board over 
-IPv6.  After some diagnosis I learned that it was not responding any NDP 
-requests.  A simple "ip link set eth0 promisc off" would cause it to 
-respond properly to those requests.  While that command didn't really do 
-anything (it wasn't in promisc mode to begin with), it did trigger a 
-call to set_multicast_list in the fec driver.  It turns out that the 
-fec_restart function was zeroing out the multicast group hash registers 
-which breaks IPv6 NDP (amongst other things dependent on multicast 
-functionality).  Changing the zeroing functionality into a call to 
-set_multicast_list fixed this problem for me.  Note that simply removing 
-the calls that zero out the registers didn't work, as I believe the 
-reset call a few lines above had already cleared them.  A patch is 
-inline below.
+On Thu, May 26, 2011 at 05:11:35PM +0800, Am=E9rico Wang wrote:
+> On Wed, May 25, 2011 at 11:01 PM, Neil Horman <nhorman@tuxdriver.com>=
+ wrote:
+> > While thats a fine rule to draw a distinction on, it also creates o=
+ther
+> > organizational oddities. =A0By this reasoning, the loopback/tun-tap=
+ and xen
+> > netfront drivers should also be moved to /net. =A0While this might =
+be an ok move
+> > to make, I think we can all agree, that while they don't touch spec=
+ific
+> > hardware, they implement instances of the driver model, and as such=
+ are
+> > reasonably placed in /drivers.
+> >
+>=20
+> Hmm, after reading Andy's comments again, I think his point is
+> probably bridge has STP management code which makes a difference
+> with bonding, but you know, we have 802.3ad in bonding too.
+>=20
+Ok, pppe, slip, localtalk and wireless have code that, strictly speakin=
+g have
+non-driver code in them to, should they also be moved to /net?=20
 
-Zach
+You seem stuck on this notion that theres a rule that squarely places c=
+ode in
+/net or /drivers.  Nominally the choice is obvious, but in several case=
+s, such
+as this, its simply not.  You have valid reasons for asserting bonding =
+should be
+in /net.  There are just as many that assert it should be in /drivers.=20
 
-diff -ru linux-2.6.39/drivers/net/fec.c 
-linux-2.6.39-fecpatch/drivers/net/fec.c
---- linux-2.6.39/drivers/net/fec.c    2011-05-18 23:06:34.000000000 -0500
-+++ linux-2.6.39-fecpatch/drivers/net/fec.c    2011-05-25 
-15:17:12.294339147 -0500
-@@ -361,8 +361,7 @@
-      writel(0xffc00000, fep->hwp + FEC_IEVENT);
+> > This is really a false assertion. =A0Theres nothing more or less ha=
+rd about
+> > finding bonding code in /drivers than there is in /net. =A0grep and=
+ find let you
+> > locate the code in either place equally well, and cscope really mak=
+es it all
+> > moot anyway.
+> >
+>=20
+> Sometimes cscope sucks, especially when you meet function pointers
+> which are pretty common in net code. When I grep netpoll code, I have=
+ to
+> do `grep ndo_netpoll_setup -nr net/  drivers/net`, if bonding were in=
+ net/
+> `grep -nr net/` is enough. 'netdev_rx_handler_register' too.
+>=20
+Yes, sometimes cscope sucks.  moving this code won't fix that.  And if =
+the major
+advantage to this move is that you can remove a directory from a grep c=
+ommand,
+thats really no advantage at all.  To further illustrate this point, do=
+es the
+fact that I could do this:
+grep register_netdev\( -nr /drivers/net
+instead of=20
+grep register_netdev\( -nr /net /drivers/net=20
+Justify the movement of the bridging code to /drivers?  Of course not.
 
-      /* Reset all multicast.    */
--    writel(0, fep->hwp + FEC_GRP_HASH_TABLE_HIGH);
--    writel(0, fep->hwp + FEC_GRP_HASH_TABLE_LOW);
-+    set_multicast_list(dev);
-  #ifndef CONFIG_M5272
-      writel(0, fep->hwp + FEC_HASH_TABLE_HIGH);
-      writel(0, fep->hwp + FEC_HASH_TABLE_LOW);
-
+Neil
