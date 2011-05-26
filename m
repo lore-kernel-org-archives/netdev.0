@@ -1,53 +1,43 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V6 2/4 net-next] skbuff: Add userspace zero-copy
- buffers in skb
-Date: Thu, 26 May 2011 14:08:37 -0700
-Message-ID: <1306444117.5180.62.camel@localhost.localdomain>
-References: <1306438593.5180.33.camel@localhost.localdomain>
-	 <1306440247.2543.14.camel@edumazet-laptop>
-	 <1306441442.5180.51.camel@localhost.localdomain>
-	 <1306443325.2543.22.camel@edumazet-laptop>
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: linux-next: Tree for May 26 (drivers/net/caif)
+Date: Thu, 26 May 2011 23:15:34 +0200
+Message-ID: <BANLkTikik8+f1D4D_Dv_rFK=QQjdce9rwg@mail.gmail.com>
+References: <20110526163941.7dfcad1a.sfr@canb.auug.org.au>
+	<20110526120702.fac24de0.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306443325.2543.22.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, gregkh@suse.de
+To: Randy Dunlap <randy.dunlap@oracle.com>, balbi@ti.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110526120702.fac24de0.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-05-26 at 22:55 +0200, Eric Dumazet wrote:
-> Le jeudi 26 mai 2011 =C3=A0 13:24 -0700, Shirley Ma a =C3=A9crit :
->=20
-> > I could reduce callback pointer by moving it to *arg, but not desc,
-> this
-> > indicates that which buffer DMA hasn't done yet in *arg.
->=20
->=20
-> I guess you dont need to use skb itself to hold all your states ?
->=20
-> I understand its convenient for you, but I believe its worth the pain
-> to
-> use only one pointer to a (small) object where you put all your stuff=
-=2E
->=20
-> Some machines alloc/free millions of skbs per second.=20
->=20
-> If/when most skb uses are for userspace zero-copy buffers we can
-> embbed
-> your small object in skb itself ;)
+Hi Randy,
 
-You are right, w/o this desc, there will be lots of alloc/dealloc in th=
-e
-caller side. To have better performance, maybe I should have changed
-most skbs to use zero-copy buffers. :)
+[Randy]
+> (not new)
+>
+> drivers/net/caif/caif_serial.c:194: warning: 'return' with no value, =
+in function returning non-void
+> drivers/net/caif/caif_serial.c:202: warning: 'return' with no value, =
+in function returning non-void
+>
+>
+> I'm curious: =C2=A0how do warnings like this get overlooked?
+> too much noise in the build messages? =C2=A0or it wasn't overlooked, =
+just ignored?
 
-Ok, for now let me try to move it to caller, just leave one pointer
-*uarg here.
+The patch introducing this problem is "tty: make receive_buf()
+return the amout of bytes received" by Felipe Balbi <balbi@ti.com>.
+It seems that this patch has been posted to linux-serial and not to
+the netdev list or the gits net-next-2.6 or net-2.6 that I follow.
+It's probably no excuse, but this problem is news to me.
 
-Thanks
-Shirley
+Should I post a patch on linux-next anyway for this issue?
+
+Regards,
+Sjur
