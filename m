@@ -1,70 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] iproute2: Add processless network namespace support.
-Date: Thu, 26 May 2011 17:45:10 -0700
-Message-ID: <m1ei3lc6p5.fsf@fess.ebiederm.org>
-References: <m1hb8hyyaj.fsf@fess.ebiederm.org> <4DDEC793.8040502@genband.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: Tree for May 26 (drivers/net/caif)
+Date: Fri, 27 May 2011 11:01:23 +1000
+Message-ID: <20110527110123.aa7bbf38.sfr@canb.auug.org.au>
+References: <20110526163941.7dfcad1a.sfr@canb.auug.org.au>
+	<20110526120702.fac24de0.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>
-To: Chris Friesen <chris.friesen@genband.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:33731 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756503Ab1E0ApR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 May 2011 20:45:17 -0400
-In-Reply-To: <4DDEC793.8040502@genband.com> (Chris Friesen's message of "Thu,
-	26 May 2011 15:35:15 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__27_May_2011_11_01_23_+1000_.VEzsBB=fLbj/9kn"
+Cc: netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110526120702.fac24de0.randy.dunlap@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Chris Friesen <chris.friesen@genband.com> writes:
+--Signature=_Fri__27_May_2011_11_01_23_+1000_.VEzsBB=fLbj/9kn
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> On 05/26/2011 02:58 PM, Eric W. Biederman wrote:
->>
->> The goal of this code change is to implement a mechanism such that it is
->> simple to work with a kernel that is using multiple network namespaces
->> at once.
->>
->> This comes in handy for interacting with vpns where there may be rfc1918
->> address overlaps, and different policies default routes, name servers
->> and the like.
->>
->> Configuration specific to a network namespace that would ordinarily be
->> stored under /etc/ is stored under /etc/netns/<name>.  For example if
->> the dns server configuration is different for your vpn you would create
->> a file /etc/netns/myvpn/resolv.conf.
+Hi Randy,
+
+On Thu, 26 May 2011 12:07:02 -0700 Randy Dunlap <randy.dunlap@oracle.com> w=
+rote:
 >
-> That would be interesting.  Currently I use dnsmasq to keep my DNS servers
-> straight when connecting in to two different corporate VPNs simultaneously.
->
-> I could see it being interesting trying to remember which shell sessions were
-> running in which network namespace...
+> drivers/net/caif/caif_serial.c:194: warning: 'return' with no value, in f=
+unction returning non-void
+> drivers/net/caif/caif_serial.c:202: warning: 'return' with no value, in f=
+unction returning non-void
+>=20
+> I'm curious:  how do warnings like this get overlooked?
+> too much noise in the build messages?  or it wasn't overlooked, just igno=
+red?
 
-Keeping shells straight is keeping shells straight, and I haven't had
-an particular trouble with that.  I can always look at ifconfig or
-/etc/resolv.conf if I am wondering which namespace a shell is in.
+For me, too much noise :-(  I catch some, but not all.
 
-Now that I think about it there is some ongoing work to test two
-network namespaces for identity and as that matures it probably
-makes sense to extend this code to add a "ip netns id" command.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-For me there has been real benefit in not having to deal with
-conflicting default routes, conflicting ip addresses, or conflicting
-hostnames (assuming you put all of the right domain names in your search
-path), and I don't have to worry about accidentally bridging traffic.
+--Signature=_Fri__27_May_2011_11_01_23_+1000_.VEzsBB=fLbj/9kn
+Content-Type: application/pgp-signature
 
-In general I think it is simpler model to get right than natting remote
-networks into my own network, using multiple ip tables so I can cope
-with multiple default routes, and setting dnsmasq, and a long search
-path in resolv.conf so I can resolve host names that are not fully
-qualified that might come over the vpn.  Not that there aren't
-benefits to doing all of that.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-In practice after I had ip patched all it took was a longish openvpn
-up-script (an afternoons hack) (so I could move the tap device to the
-new network namespace and intercept all of the ifconfig or ip commands
-that openvpn would normally run and run them instead in the network
-namespace).
+iQEcBAEBAgAGBQJN3vfjAAoJEDMEi1NhKgbsTRQH/15X6YP1AFGnVUhRDsXB+TY8
+RhNP/g8DxcRjtilNZnLLZoS3+47KKQ7YVuDTs80T97GVUh/pfiNnqWsOtLHWCtb7
+lA5EgJUaVCm+nRhkyIcVLqhvMRxl+vnQ+bXxxXbI9EsFCv1LuIHWzPykb6qP9hsZ
+zqejUq88Nu4ASsDEn1aTyV2dytL/0P/f9oRvjHDU3jogYcOD9Umw/FKdZ2Cn8BSL
+tuI7/1iBkFeUlRhvSlMTz20VdQJp3N1UpkKjQLsfjkR3xuw8VC5pa1wI0hh/h9Iw
+37qkAf1wR+5EHu8lgA2etLaCz25NLlPKLKMeCRpFmLHi9nCtgMYFsmdjXX0LEUI=
+=BZIt
+-----END PGP SIGNATURE-----
 
-Eric
+--Signature=_Fri__27_May_2011_11_01_23_+1000_.VEzsBB=fLbj/9kn--
