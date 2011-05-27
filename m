@@ -1,86 +1,59 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
-Date: Fri, 27 May 2011 10:31:10 +0200
-Message-ID: <4DDF614E.7090905@grandegger.com>
-References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<4DCB88A4.2010901@grandegger.com>
-	<4DCBF1B6.6000104@hartkopp.net>	<201105221230.56243.arnd@arndb.de>
-	<4DD9FCFC.10803@hartkopp.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 3/3] net: Kill ratelimit.h dependency in linux/net.h
+Date: Fri, 27 May 2011 10:44:03 +0200
+Message-ID: <20110527084403.GD21386@elte.hu>
+References: <20110526.164330.2076981043593394399.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	m-watkins-l0cyMroinI0@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4DD9FCFC.10803-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:50030 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753556Ab1E0IoI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 May 2011 04:44:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20110526.164330.2076981043593394399.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Oliver,
 
-sorry for the late answer.
+* David Miller <davem@davemloft.net> wrote:
 
-On 05/23/2011 08:21 AM, Oliver Hartkopp wrote:
-> On 22.05.2011 12:30, Arnd Bergmann wrote:
->> On Thursday 12 May 2011 16:41:58 Oliver Hartkopp wrote:
->>> E.g. assume you need the CAN-IDs 0x100, 0x200 and 0x300 in your application
->>> and for that reason you configure these IDs in the pruss CAN driver.
->>>
->>> What if someone generates a 100% CAN busload exactly on CAN-ID 0x100 then?
->>>
->>> Worst case (1MBit/s, DLC=0) you would need to handle about 21.000 irqs/s for
->>> the correctly received CAN frames with the filtered CAN-ID 0x100 ...
->>
->> Then I guess the main thing that a "smart" CAN implementation like pruss
->> should do is interrupt mitigation. When you have a constant flow of
->> packets coming in, the hardware should be able to DMA a lot of
->> them into kernel memory before the driver is required to pick them up,
->> and only get into interrupt driven mode when the kernel has managed
->> to process all outstanding packets.
->>
->>> This all depends heavily on Linux networking (skb handling, caching, etc) and
->>> is pretty fast and optimized!! That was also the reason why it ran on the old
->>> PowerPC that smoothly. The mostly seen effect if anything drops is when the
->>> application (holding the socket) was not fast enough to handle the incoming
->>> data. NB: For that reason we implemented a CAN content filter (CAN_BCM) that
->>> is able to do content filtering and timeout monitoring in Kernelspace - all
->>> performed in the SoftIRQ.
->>
->> Right, dropping packets that no process is waiting for should be done as
->> early as possible. In pruss-can, the idea was to do it in hardware, which
->> doesn't really work all that well for the reasons discussed before.
->> Dropping the frames in the NAPI poll function (softirq time) seems like a
->> logical choice.
+> Ingo Molnar noticed that we have this unnecessary ratelimit.h
+> dependency in linux/net.h, which hid compilation problems from
+> people doing builds only with CONFIG_NET enabled.
 > 
-> In 'real world' CAN setups you'll never see 21.000 CAN frames per second (and
-> therefore 21.000 irqs/s) - you are usually designing CAN network traffic with
-> less than 60% busload. So interrupt rates somewhere below 1000 irqs/s can be
-> assumed.
+> Move this stuff out to a seperate net/net_ratelimit.h file and
+> include that in the only two places where this thing is needed.
 > 
->>From what i've seen so far a 3-4 messages rx FIFO and NAPI support just make it.
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/linux/net.h        |    6 ------
+>  net/core/sysctl_net_core.c |    1 +
+>  net/core/utils.c           |    1 +
+>  3 files changed, 2 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/linux/net.h b/include/linux/net.h
+> index 1da55e9..b299230 100644
+> --- a/include/linux/net.h
+> +++ b/include/linux/net.h
+> @@ -289,11 +289,5 @@ extern int kernel_sock_shutdown(struct socket *sock,
+>  	MODULE_ALIAS("net-pf-" __stringify(pf) "-proto-" __stringify(proto) \
+>  		     "-type-" __stringify(type))
+>  
+> -#ifdef CONFIG_SYSCTL
+> -#include <linux/sysctl.h>
+> -#include <linux/ratelimit.h>
+> -extern struct ratelimit_state net_ratelimit_state;
+> -#endif
+> -
 
-I think you speak about the SJA100 which is able to buffer 64 byte
-corresponding to up to 4 messages. There are CAN controllers able to
-queue more or just one message and then NAPI adds overhead.
+Assuming that this moved into net_ratelimit.h with a guard define 
+this looks good to me:
 
-> @Marc/Wolfgang: Would this be also your recommendation for a CAN controller
-> design that supports SocketCAN in the best way?
+Acked-by: Ingo Molnar <mingo@elte.hu>
 
-Anyway, NAPI *always* useful as it helps with the infamous interrupt
-flooding.
+Thanks,
 
-Wolfgang.
+	Ingo
