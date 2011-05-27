@@ -1,48 +1,47 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] ipv4: fix fib metrics
-Date: Fri, 27 May 2011 10:27:30 +0100
-Message-ID: <1306488451.2029.107.camel@i7.infradead.org>
-References: <1301005107.2714.113.camel@edumazet-laptop>
-	 <AANLkTinv+XGBjbFoK6vpyiDW6gBEBKFjUef+mCAMJU9i@mail.gmail.com>
-	 <1301005946.2714.130.camel@edumazet-laptop>
-	 <20110324.153623.45921344.davem@davemloft.net>
-	 <1301006652.2714.145.camel@edumazet-laptop>
-	 <AANLkTi=Xb3KCBKoVCcaVD5iyCtMCAnYaGF_DTeFQ0ays@mail.gmail.com>
-	 <AANLkTinh9Li7DGgSqcZ+p9peS5XrHWomerSvKTYwHZ9-@mail.gmail.com>
-	 <AANLkTi=hgOcwO8ojQBtmqbROS1qrhm5HCmq7tRxesc=6@mail.gmail.com>
-	 <AANLkTinQq=BAVS1FrH80+VukTfAK1OKOkjEH4=gwZkv6@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] IPVS : bug in ip_vs_ftp, same list heaad used in
+ all netns.
+Date: Fri, 27 May 2011 11:33:25 +0200
+Message-ID: <4DDF6FE5.507@netfilter.org>
+References: <1306239065-17271-1-git-send-email-hans.schillstrom@ericsson.com> <4DDE8B3E.30009@netfilter.org> <20110526233744.GD2815@verge.net.au> <201105270724.24129.hans.schillstrom@ericsson.com> <20110527060409.GB24641@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Kyle Moffett <kyle@moffetthome.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alessandro Suardi <alessandro.suardi@gmail.com>,
-	Hiroyuki Kawakatsu <hkawakat@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinQq=BAVS1FrH80+VukTfAK1OKOkjEH4=gwZkv6@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	"ja@ssi.bg" <ja@ssi.bg>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>,
+	David Miller <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20110527060409.GB24641@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-03-25 at 02:25 +0100, Alessandro Suardi wrote:
+On 27/05/11 08:04, Simon Horman wrote:
+> On Fri, May 27, 2011 at 07:24:22AM +0200, Hans Schillstrom wrote:
+>> On Friday 27 May 2011 01:37:45 Simon Horman wrote:
+>>> On Thu, May 26, 2011 at 07:17:50PM +0200, Pablo Neira Ayuso wrote:
+>>>> On 24/05/11 14:11, Hans Schillstrom wrote:
+>>>>> When ip_vs was adapted to netns the ftp application was not adapted
+>>>>> in a correct way.
+>>>>> However this is a fix to avoid kernel errors. In the long term another solution
+>>>>> might be chosen.  I.e the ports that the ftp appl, uses should be per netns.
+>>>>
+>>>> applied, thanks.
+>>>
+>>> Thanks Pablo.
+>>>
+>>> Hans, is this appropriate for -stable (i.e. 2.6.39.x) ?
+>>
+>> Yes it is.
 > 
-> ...which didn't take that long - one last bugging question and I'm happily
->  off to sleep; does ipid always come in the form of 0x followed by four
->  bytes representing hex values ? In a perhaps inelegant but working way
->  (I'm now writing through the VPN tunnel),
+> Thanks.
 > 
->   sed 's/cache//;s/metric \?[0-9]\+ [0-9]\+//g;s/hoplimit
-> [0-9]\+//g;s/ipid 0x....//g'
-> 
->  appears to be Work For Me (TM).
+> Dave, can you handle that once this change makes
+> it into your tree?
 
-Please could I have a tested patch for vpnc-script?
-
-It now lives in its own repository at 
-git://,	http://git.infradead.org/users/dwmw2/vpnc-scripts.git because
-it's used by openconnect too, and has had various bug fixes for
-cross-platform support and IPv6 since it was forked from vpnc.
-
--- 
-dwmw2
+http://permalink.gmane.org/gmane.linux.kernel.wireless.general/70374
